@@ -1,0 +1,393 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="14" skipped="0" tests="14" time="9.178" timestamp="2026-10-11T15:25:06.156164-05:00" hostname="server.trs.private"><testcase classname="tests.workflows.test_verifier_expanded_comparison" name="test_expanded_preserves_configured_fail_despite_incomplete_matrix[missing-0]" time="0.698"><failure message="AssertionError: assert 'CONCERNS' == 'FAIL'&#10;  &#10;  - FAIL&#10;  + CONCERNS">tmp_path = PosixPath('/private/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/pytest-of-teacher/pytest-457/test_expanded_preserves_config0')
+provider_index = 0, other = 'missing'
+
+    @pytest.mark.parametrize("provider_index", [0, 1])
+    @pytest.mark.parametrize("other", ["missing", "malformed", "error", "unused", "duplicate", "extra", "pass"])
+    def test_expanded_preserves_configured_fail_despite_incomplete_matrix(tmp_path, provider_index, other):
+        arms = _arms()
+        arms[provider_index]["verdict"] = "FAIL"
+        peer = 1 - provider_index
+        if other == "missing":
+            arms.pop(peer)
+        elif other == "malformed":
+            arms[peer] = None
+        elif other == "error":
+            arms[peer]["error"] = "native count unavailable"
+        elif other == "unused":
+            arms[peer]["used_llm"] = False
+        elif other == "duplicate":
+            arms[peer] = copy.deepcopy(arms[provider_index])
+        elif other == "extra":
+            arms.append(None)
+        outputs = run_workflow(tmp_path, {"results": arms})
+&gt;       assert outputs["verdict"] == outputs["unified"] == "FAIL"
+E       AssertionError: assert 'CONCERNS' == 'FAIL'
+E         
+E         - FAIL
+E         + CONCERNS
+
+tests/workflows/test_verifier_expanded_comparison.py:385: AssertionError</failure></testcase><testcase classname="tests.workflows.test_verifier_expanded_comparison" name="test_expanded_preserves_configured_fail_despite_incomplete_matrix[missing-1]" time="0.662"><failure message="AssertionError: assert 'CONCERNS' == 'FAIL'&#10;  &#10;  - FAIL&#10;  + CONCERNS">tmp_path = PosixPath('/private/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/pytest-of-teacher/pytest-457/test_expanded_preserves_config1')
+provider_index = 1, other = 'missing'
+
+    @pytest.mark.parametrize("provider_index", [0, 1])
+    @pytest.mark.parametrize("other", ["missing", "malformed", "error", "unused", "duplicate", "extra", "pass"])
+    def test_expanded_preserves_configured_fail_despite_incomplete_matrix(tmp_path, provider_index, other):
+        arms = _arms()
+        arms[provider_index]["verdict"] = "FAIL"
+        peer = 1 - provider_index
+        if other == "missing":
+            arms.pop(peer)
+        elif other == "malformed":
+            arms[peer] = None
+        elif other == "error":
+            arms[peer]["error"] = "native count unavailable"
+        elif other == "unused":
+            arms[peer]["used_llm"] = False
+        elif other == "duplicate":
+            arms[peer] = copy.deepcopy(arms[provider_index])
+        elif other == "extra":
+            arms.append(None)
+        outputs = run_workflow(tmp_path, {"results": arms})
+&gt;       assert outputs["verdict"] == outputs["unified"] == "FAIL"
+E       AssertionError: assert 'CONCERNS' == 'FAIL'
+E         
+E         - FAIL
+E         + CONCERNS
+
+tests/workflows/test_verifier_expanded_comparison.py:385: AssertionError</failure></testcase><testcase classname="tests.workflows.test_verifier_expanded_comparison" name="test_expanded_preserves_configured_fail_despite_incomplete_matrix[malformed-0]" time="0.610"><failure message="AssertionError: assert 'CONCERNS' == 'FAIL'&#10;  &#10;  - FAIL&#10;  + CONCERNS">tmp_path = PosixPath('/private/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/pytest-of-teacher/pytest-457/test_expanded_preserves_config2')
+provider_index = 0, other = 'malformed'
+
+    @pytest.mark.parametrize("provider_index", [0, 1])
+    @pytest.mark.parametrize("other", ["missing", "malformed", "error", "unused", "duplicate", "extra", "pass"])
+    def test_expanded_preserves_configured_fail_despite_incomplete_matrix(tmp_path, provider_index, other):
+        arms = _arms()
+        arms[provider_index]["verdict"] = "FAIL"
+        peer = 1 - provider_index
+        if other == "missing":
+            arms.pop(peer)
+        elif other == "malformed":
+            arms[peer] = None
+        elif other == "error":
+            arms[peer]["error"] = "native count unavailable"
+        elif other == "unused":
+            arms[peer]["used_llm"] = False
+        elif other == "duplicate":
+            arms[peer] = copy.deepcopy(arms[provider_index])
+        elif other == "extra":
+            arms.append(None)
+        outputs = run_workflow(tmp_path, {"results": arms})
+&gt;       assert outputs["verdict"] == outputs["unified"] == "FAIL"
+E       AssertionError: assert 'CONCERNS' == 'FAIL'
+E         
+E         - FAIL
+E         + CONCERNS
+
+tests/workflows/test_verifier_expanded_comparison.py:385: AssertionError</failure></testcase><testcase classname="tests.workflows.test_verifier_expanded_comparison" name="test_expanded_preserves_configured_fail_despite_incomplete_matrix[malformed-1]" time="0.633"><failure message="AssertionError: assert 'CONCERNS' == 'FAIL'&#10;  &#10;  - FAIL&#10;  + CONCERNS">tmp_path = PosixPath('/private/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/pytest-of-teacher/pytest-457/test_expanded_preserves_config3')
+provider_index = 1, other = 'malformed'
+
+    @pytest.mark.parametrize("provider_index", [0, 1])
+    @pytest.mark.parametrize("other", ["missing", "malformed", "error", "unused", "duplicate", "extra", "pass"])
+    def test_expanded_preserves_configured_fail_despite_incomplete_matrix(tmp_path, provider_index, other):
+        arms = _arms()
+        arms[provider_index]["verdict"] = "FAIL"
+        peer = 1 - provider_index
+        if other == "missing":
+            arms.pop(peer)
+        elif other == "malformed":
+            arms[peer] = None
+        elif other == "error":
+            arms[peer]["error"] = "native count unavailable"
+        elif other == "unused":
+            arms[peer]["used_llm"] = False
+        elif other == "duplicate":
+            arms[peer] = copy.deepcopy(arms[provider_index])
+        elif other == "extra":
+            arms.append(None)
+        outputs = run_workflow(tmp_path, {"results": arms})
+&gt;       assert outputs["verdict"] == outputs["unified"] == "FAIL"
+E       AssertionError: assert 'CONCERNS' == 'FAIL'
+E         
+E         - FAIL
+E         + CONCERNS
+
+tests/workflows/test_verifier_expanded_comparison.py:385: AssertionError</failure></testcase><testcase classname="tests.workflows.test_verifier_expanded_comparison" name="test_expanded_preserves_configured_fail_despite_incomplete_matrix[error-0]" time="0.653"><failure message="AssertionError: assert 'CONCERNS' == 'FAIL'&#10;  &#10;  - FAIL&#10;  + CONCERNS">tmp_path = PosixPath('/private/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/pytest-of-teacher/pytest-457/test_expanded_preserves_config4')
+provider_index = 0, other = 'error'
+
+    @pytest.mark.parametrize("provider_index", [0, 1])
+    @pytest.mark.parametrize("other", ["missing", "malformed", "error", "unused", "duplicate", "extra", "pass"])
+    def test_expanded_preserves_configured_fail_despite_incomplete_matrix(tmp_path, provider_index, other):
+        arms = _arms()
+        arms[provider_index]["verdict"] = "FAIL"
+        peer = 1 - provider_index
+        if other == "missing":
+            arms.pop(peer)
+        elif other == "malformed":
+            arms[peer] = None
+        elif other == "error":
+            arms[peer]["error"] = "native count unavailable"
+        elif other == "unused":
+            arms[peer]["used_llm"] = False
+        elif other == "duplicate":
+            arms[peer] = copy.deepcopy(arms[provider_index])
+        elif other == "extra":
+            arms.append(None)
+        outputs = run_workflow(tmp_path, {"results": arms})
+&gt;       assert outputs["verdict"] == outputs["unified"] == "FAIL"
+E       AssertionError: assert 'CONCERNS' == 'FAIL'
+E         
+E         - FAIL
+E         + CONCERNS
+
+tests/workflows/test_verifier_expanded_comparison.py:385: AssertionError</failure></testcase><testcase classname="tests.workflows.test_verifier_expanded_comparison" name="test_expanded_preserves_configured_fail_despite_incomplete_matrix[error-1]" time="0.626"><failure message="AssertionError: assert 'CONCERNS' == 'FAIL'&#10;  &#10;  - FAIL&#10;  + CONCERNS">tmp_path = PosixPath('/private/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/pytest-of-teacher/pytest-457/test_expanded_preserves_config5')
+provider_index = 1, other = 'error'
+
+    @pytest.mark.parametrize("provider_index", [0, 1])
+    @pytest.mark.parametrize("other", ["missing", "malformed", "error", "unused", "duplicate", "extra", "pass"])
+    def test_expanded_preserves_configured_fail_despite_incomplete_matrix(tmp_path, provider_index, other):
+        arms = _arms()
+        arms[provider_index]["verdict"] = "FAIL"
+        peer = 1 - provider_index
+        if other == "missing":
+            arms.pop(peer)
+        elif other == "malformed":
+            arms[peer] = None
+        elif other == "error":
+            arms[peer]["error"] = "native count unavailable"
+        elif other == "unused":
+            arms[peer]["used_llm"] = False
+        elif other == "duplicate":
+            arms[peer] = copy.deepcopy(arms[provider_index])
+        elif other == "extra":
+            arms.append(None)
+        outputs = run_workflow(tmp_path, {"results": arms})
+&gt;       assert outputs["verdict"] == outputs["unified"] == "FAIL"
+E       AssertionError: assert 'CONCERNS' == 'FAIL'
+E         
+E         - FAIL
+E         + CONCERNS
+
+tests/workflows/test_verifier_expanded_comparison.py:385: AssertionError</failure></testcase><testcase classname="tests.workflows.test_verifier_expanded_comparison" name="test_expanded_preserves_configured_fail_despite_incomplete_matrix[unused-0]" time="0.619"><failure message="AssertionError: assert 'CONCERNS' == 'FAIL'&#10;  &#10;  - FAIL&#10;  + CONCERNS">tmp_path = PosixPath('/private/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/pytest-of-teacher/pytest-457/test_expanded_preserves_config6')
+provider_index = 0, other = 'unused'
+
+    @pytest.mark.parametrize("provider_index", [0, 1])
+    @pytest.mark.parametrize("other", ["missing", "malformed", "error", "unused", "duplicate", "extra", "pass"])
+    def test_expanded_preserves_configured_fail_despite_incomplete_matrix(tmp_path, provider_index, other):
+        arms = _arms()
+        arms[provider_index]["verdict"] = "FAIL"
+        peer = 1 - provider_index
+        if other == "missing":
+            arms.pop(peer)
+        elif other == "malformed":
+            arms[peer] = None
+        elif other == "error":
+            arms[peer]["error"] = "native count unavailable"
+        elif other == "unused":
+            arms[peer]["used_llm"] = False
+        elif other == "duplicate":
+            arms[peer] = copy.deepcopy(arms[provider_index])
+        elif other == "extra":
+            arms.append(None)
+        outputs = run_workflow(tmp_path, {"results": arms})
+&gt;       assert outputs["verdict"] == outputs["unified"] == "FAIL"
+E       AssertionError: assert 'CONCERNS' == 'FAIL'
+E         
+E         - FAIL
+E         + CONCERNS
+
+tests/workflows/test_verifier_expanded_comparison.py:385: AssertionError</failure></testcase><testcase classname="tests.workflows.test_verifier_expanded_comparison" name="test_expanded_preserves_configured_fail_despite_incomplete_matrix[unused-1]" time="0.676"><failure message="AssertionError: assert 'CONCERNS' == 'FAIL'&#10;  &#10;  - FAIL&#10;  + CONCERNS">tmp_path = PosixPath('/private/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/pytest-of-teacher/pytest-457/test_expanded_preserves_config7')
+provider_index = 1, other = 'unused'
+
+    @pytest.mark.parametrize("provider_index", [0, 1])
+    @pytest.mark.parametrize("other", ["missing", "malformed", "error", "unused", "duplicate", "extra", "pass"])
+    def test_expanded_preserves_configured_fail_despite_incomplete_matrix(tmp_path, provider_index, other):
+        arms = _arms()
+        arms[provider_index]["verdict"] = "FAIL"
+        peer = 1 - provider_index
+        if other == "missing":
+            arms.pop(peer)
+        elif other == "malformed":
+            arms[peer] = None
+        elif other == "error":
+            arms[peer]["error"] = "native count unavailable"
+        elif other == "unused":
+            arms[peer]["used_llm"] = False
+        elif other == "duplicate":
+            arms[peer] = copy.deepcopy(arms[provider_index])
+        elif other == "extra":
+            arms.append(None)
+        outputs = run_workflow(tmp_path, {"results": arms})
+&gt;       assert outputs["verdict"] == outputs["unified"] == "FAIL"
+E       AssertionError: assert 'CONCERNS' == 'FAIL'
+E         
+E         - FAIL
+E         + CONCERNS
+
+tests/workflows/test_verifier_expanded_comparison.py:385: AssertionError</failure></testcase><testcase classname="tests.workflows.test_verifier_expanded_comparison" name="test_expanded_preserves_configured_fail_despite_incomplete_matrix[duplicate-0]" time="0.623"><failure message="AssertionError: assert 'CONCERNS' == 'FAIL'&#10;  &#10;  - FAIL&#10;  + CONCERNS">tmp_path = PosixPath('/private/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/pytest-of-teacher/pytest-457/test_expanded_preserves_config8')
+provider_index = 0, other = 'duplicate'
+
+    @pytest.mark.parametrize("provider_index", [0, 1])
+    @pytest.mark.parametrize("other", ["missing", "malformed", "error", "unused", "duplicate", "extra", "pass"])
+    def test_expanded_preserves_configured_fail_despite_incomplete_matrix(tmp_path, provider_index, other):
+        arms = _arms()
+        arms[provider_index]["verdict"] = "FAIL"
+        peer = 1 - provider_index
+        if other == "missing":
+            arms.pop(peer)
+        elif other == "malformed":
+            arms[peer] = None
+        elif other == "error":
+            arms[peer]["error"] = "native count unavailable"
+        elif other == "unused":
+            arms[peer]["used_llm"] = False
+        elif other == "duplicate":
+            arms[peer] = copy.deepcopy(arms[provider_index])
+        elif other == "extra":
+            arms.append(None)
+        outputs = run_workflow(tmp_path, {"results": arms})
+&gt;       assert outputs["verdict"] == outputs["unified"] == "FAIL"
+E       AssertionError: assert 'CONCERNS' == 'FAIL'
+E         
+E         - FAIL
+E         + CONCERNS
+
+tests/workflows/test_verifier_expanded_comparison.py:385: AssertionError</failure></testcase><testcase classname="tests.workflows.test_verifier_expanded_comparison" name="test_expanded_preserves_configured_fail_despite_incomplete_matrix[duplicate-1]" time="0.691"><failure message="AssertionError: assert 'CONCERNS' == 'FAIL'&#10;  &#10;  - FAIL&#10;  + CONCERNS">tmp_path = PosixPath('/private/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/pytest-of-teacher/pytest-457/test_expanded_preserves_config9')
+provider_index = 1, other = 'duplicate'
+
+    @pytest.mark.parametrize("provider_index", [0, 1])
+    @pytest.mark.parametrize("other", ["missing", "malformed", "error", "unused", "duplicate", "extra", "pass"])
+    def test_expanded_preserves_configured_fail_despite_incomplete_matrix(tmp_path, provider_index, other):
+        arms = _arms()
+        arms[provider_index]["verdict"] = "FAIL"
+        peer = 1 - provider_index
+        if other == "missing":
+            arms.pop(peer)
+        elif other == "malformed":
+            arms[peer] = None
+        elif other == "error":
+            arms[peer]["error"] = "native count unavailable"
+        elif other == "unused":
+            arms[peer]["used_llm"] = False
+        elif other == "duplicate":
+            arms[peer] = copy.deepcopy(arms[provider_index])
+        elif other == "extra":
+            arms.append(None)
+        outputs = run_workflow(tmp_path, {"results": arms})
+&gt;       assert outputs["verdict"] == outputs["unified"] == "FAIL"
+E       AssertionError: assert 'CONCERNS' == 'FAIL'
+E         
+E         - FAIL
+E         + CONCERNS
+
+tests/workflows/test_verifier_expanded_comparison.py:385: AssertionError</failure></testcase><testcase classname="tests.workflows.test_verifier_expanded_comparison" name="test_expanded_preserves_configured_fail_despite_incomplete_matrix[extra-0]" time="0.668"><failure message="AssertionError: assert 'CONCERNS' == 'FAIL'&#10;  &#10;  - FAIL&#10;  + CONCERNS">tmp_path = PosixPath('/private/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/pytest-of-teacher/pytest-457/test_expanded_preserves_config10')
+provider_index = 0, other = 'extra'
+
+    @pytest.mark.parametrize("provider_index", [0, 1])
+    @pytest.mark.parametrize("other", ["missing", "malformed", "error", "unused", "duplicate", "extra", "pass"])
+    def test_expanded_preserves_configured_fail_despite_incomplete_matrix(tmp_path, provider_index, other):
+        arms = _arms()
+        arms[provider_index]["verdict"] = "FAIL"
+        peer = 1 - provider_index
+        if other == "missing":
+            arms.pop(peer)
+        elif other == "malformed":
+            arms[peer] = None
+        elif other == "error":
+            arms[peer]["error"] = "native count unavailable"
+        elif other == "unused":
+            arms[peer]["used_llm"] = False
+        elif other == "duplicate":
+            arms[peer] = copy.deepcopy(arms[provider_index])
+        elif other == "extra":
+            arms.append(None)
+        outputs = run_workflow(tmp_path, {"results": arms})
+&gt;       assert outputs["verdict"] == outputs["unified"] == "FAIL"
+E       AssertionError: assert 'CONCERNS' == 'FAIL'
+E         
+E         - FAIL
+E         + CONCERNS
+
+tests/workflows/test_verifier_expanded_comparison.py:385: AssertionError</failure></testcase><testcase classname="tests.workflows.test_verifier_expanded_comparison" name="test_expanded_preserves_configured_fail_despite_incomplete_matrix[extra-1]" time="0.617"><failure message="AssertionError: assert 'CONCERNS' == 'FAIL'&#10;  &#10;  - FAIL&#10;  + CONCERNS">tmp_path = PosixPath('/private/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/pytest-of-teacher/pytest-457/test_expanded_preserves_config11')
+provider_index = 1, other = 'extra'
+
+    @pytest.mark.parametrize("provider_index", [0, 1])
+    @pytest.mark.parametrize("other", ["missing", "malformed", "error", "unused", "duplicate", "extra", "pass"])
+    def test_expanded_preserves_configured_fail_despite_incomplete_matrix(tmp_path, provider_index, other):
+        arms = _arms()
+        arms[provider_index]["verdict"] = "FAIL"
+        peer = 1 - provider_index
+        if other == "missing":
+            arms.pop(peer)
+        elif other == "malformed":
+            arms[peer] = None
+        elif other == "error":
+            arms[peer]["error"] = "native count unavailable"
+        elif other == "unused":
+            arms[peer]["used_llm"] = False
+        elif other == "duplicate":
+            arms[peer] = copy.deepcopy(arms[provider_index])
+        elif other == "extra":
+            arms.append(None)
+        outputs = run_workflow(tmp_path, {"results": arms})
+&gt;       assert outputs["verdict"] == outputs["unified"] == "FAIL"
+E       AssertionError: assert 'CONCERNS' == 'FAIL'
+E         
+E         - FAIL
+E         + CONCERNS
+
+tests/workflows/test_verifier_expanded_comparison.py:385: AssertionError</failure></testcase><testcase classname="tests.workflows.test_verifier_expanded_comparison" name="test_expanded_preserves_configured_fail_despite_incomplete_matrix[pass-0]" time="0.618"><failure message="AssertionError: assert 'CONCERNS' == 'FAIL'&#10;  &#10;  - FAIL&#10;  + CONCERNS">tmp_path = PosixPath('/private/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/pytest-of-teacher/pytest-457/test_expanded_preserves_config12')
+provider_index = 0, other = 'pass'
+
+    @pytest.mark.parametrize("provider_index", [0, 1])
+    @pytest.mark.parametrize("other", ["missing", "malformed", "error", "unused", "duplicate", "extra", "pass"])
+    def test_expanded_preserves_configured_fail_despite_incomplete_matrix(tmp_path, provider_index, other):
+        arms = _arms()
+        arms[provider_index]["verdict"] = "FAIL"
+        peer = 1 - provider_index
+        if other == "missing":
+            arms.pop(peer)
+        elif other == "malformed":
+            arms[peer] = None
+        elif other == "error":
+            arms[peer]["error"] = "native count unavailable"
+        elif other == "unused":
+            arms[peer]["used_llm"] = False
+        elif other == "duplicate":
+            arms[peer] = copy.deepcopy(arms[provider_index])
+        elif other == "extra":
+            arms.append(None)
+        outputs = run_workflow(tmp_path, {"results": arms})
+&gt;       assert outputs["verdict"] == outputs["unified"] == "FAIL"
+E       AssertionError: assert 'CONCERNS' == 'FAIL'
+E         
+E         - FAIL
+E         + CONCERNS
+
+tests/workflows/test_verifier_expanded_comparison.py:385: AssertionError</failure></testcase><testcase classname="tests.workflows.test_verifier_expanded_comparison" name="test_expanded_preserves_configured_fail_despite_incomplete_matrix[pass-1]" time="0.599"><failure message="AssertionError: assert 'CONCERNS' == 'FAIL'&#10;  &#10;  - FAIL&#10;  + CONCERNS">tmp_path = PosixPath('/private/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/pytest-of-teacher/pytest-457/test_expanded_preserves_config13')
+provider_index = 1, other = 'pass'
+
+    @pytest.mark.parametrize("provider_index", [0, 1])
+    @pytest.mark.parametrize("other", ["missing", "malformed", "error", "unused", "duplicate", "extra", "pass"])
+    def test_expanded_preserves_configured_fail_despite_incomplete_matrix(tmp_path, provider_index, other):
+        arms = _arms()
+        arms[provider_index]["verdict"] = "FAIL"
+        peer = 1 - provider_index
+        if other == "missing":
+            arms.pop(peer)
+        elif other == "malformed":
+            arms[peer] = None
+        elif other == "error":
+            arms[peer]["error"] = "native count unavailable"
+        elif other == "unused":
+            arms[peer]["used_llm"] = False
+        elif other == "duplicate":
+            arms[peer] = copy.deepcopy(arms[provider_index])
+        elif other == "extra":
+            arms.append(None)
+        outputs = run_workflow(tmp_path, {"results": arms})
+&gt;       assert outputs["verdict"] == outputs["unified"] == "FAIL"
+E       AssertionError: assert 'CONCERNS' == 'FAIL'
+E         
+E         - FAIL
+E         + CONCERNS
+
+tests/workflows/test_verifier_expanded_comparison.py:385: AssertionError</failure></testcase></testsuite></testsuites>

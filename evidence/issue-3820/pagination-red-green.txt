@@ -1,0 +1,80 @@
+✔ bounded listing retrieves sparse late-page run and artifact proof within explicit bounds (4.227636ms)
+✖ bounded listing follows full pages without count or link metadata (2.388473ms)
+✖ bounded listing rejects unstable totals and malformed later-page identities (0.745898ms)
+✔ bounded listing page exhaustion never becomes complete or absent (0.801903ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 2
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 32.770427
+
+✖ failing tests:
+
+test at ../../../../../tmp/verifier-pagination-proof.kmeqKK/.github/scripts/__tests__/agents-verifier-context.test.js:3522:1
+✖ bounded listing follows full pages without count or link metadata (2.388473ms)
+  AssertionError [ERR_ASSERTION]: source
+  + actual - expected
+
+  + 'absent'
+  - 'present'
+
+      at /tmp/verifier-pagination-proof.kmeqKK/.github/scripts/__tests__/agents-verifier-context.test.js:3541:16
+      at async withEnv (/tmp/verifier-pagination-proof.kmeqKK/.github/scripts/__tests__/agents-verifier-context.test.js:166:12)
+      at async /tmp/verifier-pagination-proof.kmeqKK/.github/scripts/__tests__/agents-verifier-context.test.js:3524:5
+      at async withEnv (/tmp/verifier-pagination-proof.kmeqKK/.github/scripts/__tests__/agents-verifier-context.test.js:166:12)
+      at async TestContext.<anonymous> (/tmp/verifier-pagination-proof.kmeqKK/.github/scripts/__tests__/agents-verifier-context.test.js:3523:3)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 'absent',
+    expected: 'present',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at ../../../../../tmp/verifier-pagination-proof.kmeqKK/.github/scripts/__tests__/agents-verifier-context.test.js:3551:1
+✖ bounded listing rejects unstable totals and malformed later-page identities (0.745898ms)
+  AssertionError [ERR_ASSERTION]: source/run/appearing-total
+  + actual - expected
+
+  + 'present'
+  - 'unavailable'
+
+      at /tmp/verifier-pagination-proof.kmeqKK/.github/scripts/__tests__/agents-verifier-context.test.js:3575:20
+      at async withEnv (/tmp/verifier-pagination-proof.kmeqKK/.github/scripts/__tests__/agents-verifier-context.test.js:166:12)
+      at async /tmp/verifier-pagination-proof.kmeqKK/.github/scripts/__tests__/agents-verifier-context.test.js:3553:5
+      at async withEnv (/tmp/verifier-pagination-proof.kmeqKK/.github/scripts/__tests__/agents-verifier-context.test.js:166:12)
+      at async TestContext.<anonymous> (/tmp/verifier-pagination-proof.kmeqKK/.github/scripts/__tests__/agents-verifier-context.test.js:3552:3)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 'present',
+    expected: 'unavailable',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+✔ complete explicit exact-head artifacts do not require unrelated associated-run discovery (7.135675ms)
+✔ explicit artifact scope requires complete reference sources even with complete associated discovery (4.767863ms)
+✔ bounded listing retrieves sparse late-page run and artifact proof within explicit bounds (0.723194ms)
+✔ bounded listing follows full pages without count or link metadata (2.006916ms)
+✔ bounded listing rejects unstable totals and malformed later-page identities (2.201921ms)
+✔ bounded listing page exhaustion never becomes complete or absent (0.63445ms)
+✔ bounded recovery retrieves late run and artifact pages and retains every finding (0.27818ms)
+✔ bounded recovery keeps every later page gap unavailable alongside retained findings (0.639678ms)
+✔ bounded recovery unions late review references and distinguishes character exhaustion (0.596172ms)
+✔ bounded recovery archive ceilings preserve sibling findings and every distinct gap (1.570135ms)
+✔ bounded recovery retains the entire explicit reference union beyond its run budget (0.269128ms)
+ℹ tests 11
+ℹ suites 0
+ℹ pass 11
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 45.46967
+PASS: prior collector RED; final source and template GREEN.

@@ -1,0 +1,647 @@
+{
+  "original_context_sha256": "f2f8732903e50b8cf4827dfe89a015efc6d4f2c66db8c01f4b090b41853c5223",
+  "rows": [
+    {
+      "artifact_id": 11684074470,
+      "source_run": 38118258124,
+      "original_failure_kinds": [
+        "unsupported_payload",
+        "extraction_byte_or_read",
+        "extraction_byte",
+        "extraction_incomplete"
+      ],
+      "status": "raw-archive-recovered",
+      "name": "comparison-results-38092426986",
+      "metadata_sha256": "d8bdeff58f125a16f39c81187981335cd7bba85038992bdebb516e8a32d16a2d",
+      "workflow_run": {
+        "id": 38092426986,
+        "repository_id": 1117447156,
+        "head_repository_id": 1117447156,
+        "head_branch": "codex/verifier-native-capacity-recovery",
+        "head_sha": "b52a38a34280fe2fd5b8747d0946b101000a9ee1"
+      },
+      "archive_bytes": 470177,
+      "archive_sha256": "e3899dfa8c083ddca667ec118002c038dc23e98d13cae8b5505d3ad4bcafb03d",
+      "members": [
+        {
+          "name": "comparison.json",
+          "uncompressed_bytes": 38660,
+          "compressed_bytes": 4472,
+          "crc32": 4178523548
+        },
+        {
+          "name": "verifier-context.md",
+          "uncompressed_bytes": 421273,
+          "compressed_bytes": 57522,
+          "crc32": 173119014
+        },
+        {
+          "name": "comparison-comment.md",
+          "uncompressed_bytes": 11078,
+          "compressed_bytes": 2980,
+          "crc32": 4103309402
+        },
+        {
+          "name": "comparison-stderr.log",
+          "uncompressed_bytes": 0,
+          "compressed_bytes": 2,
+          "crc32": 0
+        },
+        {
+          "name": "verifier-diff-summary.md",
+          "uncompressed_bytes": 7753,
+          "compressed_bytes": 973,
+          "crc32": 926881268
+        },
+        {
+          "name": "verifier-pr-diff.patch",
+          "uncompressed_bytes": 3186662,
+          "compressed_bytes": 402641,
+          "crc32": 1246327814
+        },
+        {
+          "name": "verifier-input-manifest.json",
+          "uncompressed_bytes": 1296,
+          "compressed_bytes": 621,
+          "crc32": 2780055278
+        }
+      ],
+      "total_uncompressed_bytes": 3666722,
+      "acceptance": "Raw original archive bytes only; no proof sufficiency/native input admission"
+    },
+    {
+      "artifact_id": 11686279259,
+      "source_run": 38118258124,
+      "original_failure_kinds": [
+        "extraction_byte_or_read",
+        "extraction_byte",
+        "extraction_incomplete"
+      ],
+      "status": "raw-archive-recovered",
+      "name": "gate-coverage-3.12-1",
+      "metadata_sha256": "05aa1b7dc0a609ae92387f13a05ed2933e66e86244ae31d208915a6765ba3dd2",
+      "workflow_run": {
+        "id": 38092427103,
+        "repository_id": 1117447156,
+        "head_repository_id": 1117447156,
+        "head_branch": "codex/verifier-native-capacity-recovery",
+        "head_sha": "b52a38a34280fe2fd5b8747d0946b101000a9ee1"
+      },
+      "archive_bytes": 1175717,
+      "archive_sha256": "aa52c432ded36f1e4bc18671e9df6a972210268068fda630215f2296d0f8fe6e",
+      "members": [
+        {
+          "name": "index.ndjson",
+          "uncompressed_bytes": 296,
+          "compressed_bytes": 167,
+          "crc32": 1549933871
+        },
+        {
+          "name": "runtimes/3.12/coverage.json",
+          "uncompressed_bytes": 3144962,
+          "compressed_bytes": 329958,
+          "crc32": 465177739
+        },
+        {
+          "name": "runtimes/3.12/coverage.xml",
+          "uncompressed_bytes": 1890509,
+          "compressed_bytes": 130157,
+          "crc32": 3372280389
+        },
+        {
+          "name": "runtimes/3.12/pytest-junit.xml",
+          "uncompressed_bytes": 22826667,
+          "compressed_bytes": 714526,
+          "crc32": 2664236319
+        },
+        {
+          "name": "runtimes/3.12/summary.json",
+          "uncompressed_bytes": 381,
+          "compressed_bytes": 185,
+          "crc32": 514339256
+        }
+      ],
+      "total_uncompressed_bytes": 27862815,
+      "acceptance": "Raw original archive bytes only; no proof sufficiency/native input admission"
+    },
+    {
+      "artifact_id": 11685965922,
+      "source_run": 38118258124,
+      "original_failure_kinds": [
+        "extraction_byte_or_read",
+        "extraction_byte",
+        "extraction_incomplete"
+      ],
+      "status": "raw-archive-recovered",
+      "name": "gate-coverage-3.13-1",
+      "metadata_sha256": "1db0d434714c6244e551dee69da8fd54aace9bf65c842625444dc5876646ff49",
+      "workflow_run": {
+        "id": 38092427103,
+        "repository_id": 1117447156,
+        "head_repository_id": 1117447156,
+        "head_branch": "codex/verifier-native-capacity-recovery",
+        "head_sha": "b52a38a34280fe2fd5b8747d0946b101000a9ee1"
+      },
+      "archive_bytes": 1087723,
+      "archive_sha256": "9f4ba9ee43b783f59161a9d5d2d57f692ec0300893e3b9bfe28758e9557e3765",
+      "members": [
+        {
+          "name": "index.ndjson",
+          "uncompressed_bytes": 295,
+          "compressed_bytes": 166,
+          "crc32": 4161380493
+        },
+        {
+          "name": "runtimes/3.13/coverage.xml",
+          "uncompressed_bytes": 1890554,
+          "compressed_bytes": 130155,
+          "crc32": 3614653838
+        },
+        {
+          "name": "runtimes/3.13/coverage.json",
+          "uncompressed_bytes": 3144946,
+          "compressed_bytes": 329959,
+          "crc32": 2649296394
+        },
+        {
+          "name": "runtimes/3.13/pytest-junit.xml",
+          "uncompressed_bytes": 22826656,
+          "compressed_bytes": 626537,
+          "crc32": 2665522625
+        },
+        {
+          "name": "runtimes/3.13/summary.json",
+          "uncompressed_bytes": 380,
+          "compressed_bytes": 182,
+          "crc32": 1240958668
+        }
+      ],
+      "total_uncompressed_bytes": 27862831,
+      "acceptance": "Raw original archive bytes only; no proof sufficiency/native input admission"
+    },
+    {
+      "artifact_id": 11680614727,
+      "source_run": 38118258124,
+      "original_failure_kinds": [
+        "character",
+        "extraction_incomplete"
+      ],
+      "status": "raw-archive-recovered",
+      "name": "consumer-sync-shadow-evidence-38083864758-1",
+      "metadata_sha256": "0c008291c9362d943b7aac0533b2f6d60077a0294c36e898f0de4197bdb9856c",
+      "workflow_run": {
+        "id": 38083864758,
+        "repository_id": 1117447156,
+        "head_repository_id": 1117447156,
+        "head_branch": "codex/verifier-native-capacity-recovery",
+        "head_sha": "b52a38a34280fe2fd5b8747d0946b101000a9ee1"
+      },
+      "archive_bytes": 42918,
+      "archive_sha256": "15abbf25d54e40fd549f5f984aaee0bc7c17fe94cc16d4c43bed41a86f0c04e0",
+      "members": [
+        {
+          "name": "capabilities-state.json",
+          "uncompressed_bytes": 112,
+          "compressed_bytes": 98,
+          "crc32": 46561823
+        },
+        {
+          "name": "completion-evidence.json",
+          "uncompressed_bytes": 981,
+          "compressed_bytes": 426,
+          "crc32": 3207243861
+        },
+        {
+          "name": "consumer-sync-plan.json",
+          "uncompressed_bytes": 211027,
+          "compressed_bytes": 40401,
+          "crc32": 2589381800
+        },
+        {
+          "name": "evidence-ledger.json",
+          "uncompressed_bytes": 636,
+          "compressed_bytes": 355,
+          "crc32": 3811549865
+        },
+        {
+          "name": "handoff.json",
+          "uncompressed_bytes": 922,
+          "compressed_bytes": 534,
+          "crc32": 2079407102
+        },
+        {
+          "name": "runtime-report.json",
+          "uncompressed_bytes": 568,
+          "compressed_bytes": 288,
+          "crc32": 4003302689
+        }
+      ],
+      "total_uncompressed_bytes": 214246,
+      "acceptance": "Raw original archive bytes only; no proof sufficiency/native input admission"
+    },
+    {
+      "artifact_id": 11683408355,
+      "source_run": 38118258124,
+      "original_failure_kinds": [
+        "extraction_byte_or_read",
+        "extraction_byte",
+        "extraction_incomplete"
+      ],
+      "status": "raw-archive-recovered",
+      "name": "gate-coverage-3.12-1",
+      "metadata_sha256": "3e29de0b820aea093a8c35bf483709bbb2b560f31974c16d9f6daa792199f5e6",
+      "workflow_run": {
+        "id": 38083864927,
+        "repository_id": 1117447156,
+        "head_repository_id": 1117447156,
+        "head_branch": "codex/verifier-native-capacity-recovery",
+        "head_sha": "b52a38a34280fe2fd5b8747d0946b101000a9ee1"
+      },
+      "archive_bytes": 1161000,
+      "archive_sha256": "f664b9f3a64a7f76e6c9f3b1baf594423dbf2220e4d81026b9974996376be959",
+      "members": [
+        {
+          "name": "index.ndjson",
+          "uncompressed_bytes": 592,
+          "compressed_bytes": 177,
+          "crc32": 345713586
+        },
+        {
+          "name": "runtimes/3.12/coverage.xml",
+          "uncompressed_bytes": 1890555,
+          "compressed_bytes": 130157,
+          "crc32": 2781360947
+        },
+        {
+          "name": "runtimes/3.12/coverage.json",
+          "uncompressed_bytes": 3144953,
+          "compressed_bytes": 329966,
+          "crc32": 1175046274
+        },
+        {
+          "name": "runtimes/3.12/pytest-junit.xml",
+          "uncompressed_bytes": 22826661,
+          "compressed_bytes": 699791,
+          "crc32": 89852988
+        },
+        {
+          "name": "runtimes/3.12/summary.json",
+          "uncompressed_bytes": 381,
+          "compressed_bytes": 185,
+          "crc32": 514339256
+        }
+      ],
+      "total_uncompressed_bytes": 27863142,
+      "acceptance": "Raw original archive bytes only; no proof sufficiency/native input admission"
+    },
+    {
+      "artifact_id": 11682581591,
+      "source_run": 38118258124,
+      "original_failure_kinds": [
+        "extraction_byte_or_read",
+        "extraction_byte",
+        "extraction_incomplete"
+      ],
+      "status": "raw-archive-recovered",
+      "name": "gate-coverage-3.13-1",
+      "metadata_sha256": "e56f316cc5ad46f572ad80641dfdb958d3c56a23d21211b1681d3d2d88ab3bf6",
+      "workflow_run": {
+        "id": 38083864927,
+        "repository_id": 1117447156,
+        "head_repository_id": 1117447156,
+        "head_branch": "codex/verifier-native-capacity-recovery",
+        "head_sha": "b52a38a34280fe2fd5b8747d0946b101000a9ee1"
+      },
+      "archive_bytes": 1070520,
+      "archive_sha256": "011ed77880b6c0a4d2f0183b52ec44d565a7a4fbf06bc594953dd3d2d5464420",
+      "members": [
+        {
+          "name": "index.ndjson",
+          "uncompressed_bytes": 590,
+          "compressed_bytes": 176,
+          "crc32": 1204450871
+        },
+        {
+          "name": "runtimes/3.13/coverage.xml",
+          "uncompressed_bytes": 1890576,
+          "compressed_bytes": 130164,
+          "crc32": 90695148
+        },
+        {
+          "name": "runtimes/3.13/coverage.json",
+          "uncompressed_bytes": 3144951,
+          "compressed_bytes": 329965,
+          "crc32": 1441227960
+        },
+        {
+          "name": "runtimes/3.13/pytest-junit.xml",
+          "uncompressed_bytes": 22826654,
+          "compressed_bytes": 609309,
+          "crc32": 40148062
+        },
+        {
+          "name": "runtimes/3.13/summary.json",
+          "uncompressed_bytes": 380,
+          "compressed_bytes": 182,
+          "crc32": 1240958668
+        }
+      ],
+      "total_uncompressed_bytes": 27863151,
+      "acceptance": "Raw original archive bytes only; no proof sufficiency/native input admission"
+    },
+    {
+      "artifact_id": 11684716836,
+      "source_run": 38118258124,
+      "original_failure_kinds": [
+        "character",
+        "extraction_incomplete"
+      ],
+      "status": "raw-archive-recovered",
+      "name": "sync-plan-and-prospective-diffs",
+      "metadata_sha256": "297b338b2c17f6305a7e063d32adb10eef39647872f4038706e5c9336f6d9817",
+      "workflow_run": {
+        "id": 38092075356,
+        "repository_id": 1117447156,
+        "head_repository_id": 1117447156,
+        "head_branch": "main",
+        "head_sha": "ae4f0c8ac4ddbfd89b55112773d2917a1d4be5d6"
+      },
+      "archive_bytes": 89570,
+      "archive_sha256": "d60d4b252aba2e2f3649cd6d5bfcd60e0c7ae195a2e3af47e1dbb326aa4e269b",
+      "members": [
+        {
+          "name": "manifest.full.json",
+          "uncompressed_bytes": 211027,
+          "compressed_bytes": 40401,
+          "crc32": 2589381800
+        },
+        {
+          "name": "sync-plan-scope.json",
+          "uncompressed_bytes": 12358,
+          "compressed_bytes": 2834,
+          "crc32": 3662208043
+        },
+        {
+          "name": "manifest.json",
+          "uncompressed_bytes": 211027,
+          "compressed_bytes": 40401,
+          "crc32": 2589381800
+        },
+        {
+          "name": "sync-phase-selection.json",
+          "uncompressed_bytes": 220450,
+          "compressed_bytes": 5392,
+          "crc32": 1674919521
+        }
+      ],
+      "total_uncompressed_bytes": 654862,
+      "acceptance": "Raw original archive bytes only; no proof sufficiency/native input admission"
+    },
+    {
+      "artifact_id": 11684107947,
+      "source_run": 38118258124,
+      "original_failure_kinds": [
+        "unsupported_payload",
+        "extraction_byte_or_read",
+        "extraction_byte",
+        "extraction_incomplete"
+      ],
+      "status": "raw-archive-recovered",
+      "name": "comparison-results-38091990133",
+      "metadata_sha256": "761418876f143abde4d85d4d616f7e4b57405932242a718318dde050ff65ed57",
+      "workflow_run": {
+        "id": 38091990133,
+        "repository_id": 1117447156,
+        "head_repository_id": 1117447156,
+        "head_branch": "main",
+        "head_sha": "ae4f0c8ac4ddbfd89b55112773d2917a1d4be5d6"
+      },
+      "archive_bytes": 179834,
+      "archive_sha256": "09d1babc73be41b491a6c37e3eecfb939106374c7f3ef7427d944ae498d5a9fc",
+      "members": [
+        {
+          "name": "comparison.json",
+          "uncompressed_bytes": 19132,
+          "compressed_bytes": 3175,
+          "crc32": 3668736455
+        },
+        {
+          "name": "comparison-stderr.log",
+          "uncompressed_bytes": 0,
+          "compressed_bytes": 2,
+          "crc32": 0
+        },
+        {
+          "name": "comparison-comment.md",
+          "uncompressed_bytes": 9083,
+          "compressed_bytes": 2653,
+          "crc32": 3680753207
+        },
+        {
+          "name": "verifier-context.md",
+          "uncompressed_bytes": 632880,
+          "compressed_bytes": 123366,
+          "crc32": 388758835
+        },
+        {
+          "name": "verifier-diff-summary.md",
+          "uncompressed_bytes": 979,
+          "compressed_bytes": 330,
+          "crc32": 933159645
+        },
+        {
+          "name": "verifier-pr-diff.patch",
+          "uncompressed_bytes": 257109,
+          "compressed_bytes": 48146,
+          "crc32": 4056850551
+        },
+        {
+          "name": "verifier-input-manifest.json",
+          "uncompressed_bytes": 1306,
+          "compressed_bytes": 631,
+          "crc32": 240444544
+        },
+        {
+          "name": "verifier-capacity-checks.jsonl",
+          "uncompressed_bytes": 961,
+          "compressed_bytes": 413,
+          "crc32": 2365897611
+        }
+      ],
+      "total_uncompressed_bytes": 921450,
+      "acceptance": "Raw original archive bytes only; no proof sufficiency/native input admission"
+    },
+    {
+      "artifact_id": 11683559354,
+      "source_run": 38118258124,
+      "original_failure_kinds": [
+        "character",
+        "extraction_incomplete"
+      ],
+      "status": "raw-archive-recovered",
+      "name": "sync-dependabot-campaign-state-38091648408-1",
+      "metadata_sha256": "fabd2460cb5fbdc40cfa497680cb7644444c3c76b871a5c557ea01e9c1cc75e6",
+      "workflow_run": {
+        "id": 38091648408,
+        "repository_id": 1117447156,
+        "head_repository_id": 1117447156,
+        "head_branch": "main",
+        "head_sha": "ae4f0c8ac4ddbfd89b55112773d2917a1d4be5d6"
+      },
+      "archive_bytes": 17783,
+      "archive_sha256": "07ca147a3ec11a55d0b8078c7761aa1318340123046383011efee1a0a2ee4324",
+      "members": [
+        {
+          "name": "sync-dependabot-campaign-state.json",
+          "uncompressed_bytes": 140562,
+          "compressed_bytes": 16222,
+          "crc32": 1479518387
+        },
+        {
+          "name": "sync-dependabot-campaign-summary.md",
+          "uncompressed_bytes": 10472,
+          "compressed_bytes": 1215,
+          "crc32": 3681224015
+        }
+      ],
+      "total_uncompressed_bytes": 151034,
+      "acceptance": "Raw original archive bytes only; no proof sufficiency/native input admission"
+    },
+    {
+      "artifact_id": 11684381692,
+      "source_run": 38118258124,
+      "original_failure_kinds": [
+        "unsupported_payload",
+        "extraction_byte_or_read",
+        "extraction_byte",
+        "extraction_incomplete"
+      ],
+      "status": "raw-archive-recovered",
+      "name": "comparison-results-38091523385",
+      "metadata_sha256": "88a4b8fc8b1b4a664854c1da500495628b3c278f5c9a1cbff0564e79c08d5a9d",
+      "workflow_run": {
+        "id": 38091523385,
+        "repository_id": 1117447156,
+        "head_repository_id": 1117447156,
+        "head_branch": "main",
+        "head_sha": "ae4f0c8ac4ddbfd89b55112773d2917a1d4be5d6"
+      },
+      "archive_bytes": 191106,
+      "archive_sha256": "1b7ef1d1170c4816874f4f8d3d746c9cc6e8db93e349bd0d0e3504d14222fe7f",
+      "members": [
+        {
+          "name": "comparison.json",
+          "uncompressed_bytes": 21090,
+          "compressed_bytes": 3315,
+          "crc32": 1754882617
+        },
+        {
+          "name": "comparison-comment.md",
+          "uncompressed_bytes": 9919,
+          "compressed_bytes": 2816,
+          "crc32": 956361543
+        },
+        {
+          "name": "comparison-stderr.log",
+          "uncompressed_bytes": 0,
+          "compressed_bytes": 2,
+          "crc32": 0
+        },
+        {
+          "name": "verifier-context.md",
+          "uncompressed_bytes": 753788,
+          "compressed_bytes": 134333,
+          "crc32": 4261943722
+        },
+        {
+          "name": "verifier-diff-summary.md",
+          "uncompressed_bytes": 979,
+          "compressed_bytes": 330,
+          "crc32": 933159645
+        },
+        {
+          "name": "verifier-pr-diff.patch",
+          "uncompressed_bytes": 257109,
+          "compressed_bytes": 48146,
+          "crc32": 4056850551
+        },
+        {
+          "name": "verifier-input-manifest.json",
+          "uncompressed_bytes": 1306,
+          "compressed_bytes": 632,
+          "crc32": 3567683199
+        },
+        {
+          "name": "verifier-capacity-checks.jsonl",
+          "uncompressed_bytes": 961,
+          "compressed_bytes": 414,
+          "crc32": 2076024270
+        }
+      ],
+      "total_uncompressed_bytes": 1045152,
+      "acceptance": "Raw original archive bytes only; no proof sufficiency/native input admission"
+    },
+    {
+      "artifact_id": 11684511268,
+      "source_run": 38118258124,
+      "original_failure_kinds": [
+        "character",
+        "extraction_incomplete"
+      ],
+      "status": "raw-archive-recovered",
+      "name": "consumer-sync-shadow-evidence-38091507245-1",
+      "metadata_sha256": "4956ea6978a62823ab0ae068647de08e74e0da8d8e894ee0ea39ed6b8e1e6597",
+      "workflow_run": {
+        "id": 38091507245,
+        "repository_id": 1117447156,
+        "head_repository_id": 1117447156,
+        "head_branch": "main",
+        "head_sha": "ae4f0c8ac4ddbfd89b55112773d2917a1d4be5d6"
+      },
+      "archive_bytes": 42919,
+      "archive_sha256": "b671983412c0d5bf968d24db02a36deec96669e039205bc68a43237f12f1319c",
+      "members": [
+        {
+          "name": "capabilities-state.json",
+          "uncompressed_bytes": 112,
+          "compressed_bytes": 98,
+          "crc32": 46561823
+        },
+        {
+          "name": "completion-evidence.json",
+          "uncompressed_bytes": 981,
+          "compressed_bytes": 427,
+          "crc32": 3241002460
+        },
+        {
+          "name": "consumer-sync-plan.json",
+          "uncompressed_bytes": 211027,
+          "compressed_bytes": 40401,
+          "crc32": 2589381800
+        },
+        {
+          "name": "evidence-ledger.json",
+          "uncompressed_bytes": 636,
+          "compressed_bytes": 357,
+          "crc32": 1318114409
+        },
+        {
+          "name": "handoff.json",
+          "uncompressed_bytes": 922,
+          "compressed_bytes": 532,
+          "crc32": 4194102151
+        },
+        {
+          "name": "runtime-report.json",
+          "uncompressed_bytes": 568,
+          "compressed_bytes": 288,
+          "crc32": 4003302689
+        }
+      ],
+      "total_uncompressed_bytes": 214246,
+      "acceptance": "Raw original archive bytes only; no proof sufficiency/native input admission"
+    }
+  ],
+  "archive_bytes": 5529267,
+  "acceptance": false
+}

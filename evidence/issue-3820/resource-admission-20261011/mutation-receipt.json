@@ -1,0 +1,17 @@
+{
+  "command": [
+    "python3",
+    "-m",
+    "pytest",
+    "tests/tools/test_verifier_proof_resource_plan.py::test_counter_is_global_across_archives_without_deduplication",
+    "-q",
+    "-o",
+    "addopts="
+  ],
+  "original_sha256": "2b707fa170a29dc32b77795ae03e75030455ad729d39bc9ae62ef6ecb7f01ac2",
+  "mutated_sha256": "491a1ef03d6fd8084e0db30421c010e733a599bf555df7ba229c783ae3b0e2e2",
+  "restored_sha256": "2b707fa170a29dc32b77795ae03e75030455ad729d39bc9ae62ef6ecb7f01ac2",
+  "red_exit": 1,
+  "green_exit": 0,
+  "scope": "global cumulative extraction accounting; not semantic/native acceptance"
+}

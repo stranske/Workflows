@@ -1,0 +1,280 @@
+FF..FF..                                                                 [100%]
+=================================== FAILURES ===================================
+___ test_snapshot_diff_binding_blocks_before_evaluation[changed-bytes-False] ___
+
+tmp_path = PosixPath('/private/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/pytest-of-teacher/pytest-279/test_snapshot_diff_binding_blo0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10648b830>
+capsys = <_pytest.capture.CaptureFixture object at 0x10648bad0>, compare = False
+defect = 'changed-bytes'
+
+    @pytest.mark.parametrize("compare", [False, True])
+    @pytest.mark.parametrize("defect", ["changed-bytes", "invalid-utf8", "missing-hash"])
+    def test_snapshot_diff_binding_blocks_before_evaluation(
+        tmp_path, monkeypatch, capsys, compare, defect
+    ):
+        context, snapshot, metadata = _captured_snapshot(tmp_path)
+        diff = tmp_path / "verifier-pr-diff.patch"
+        raw = b"diff --git a/a.py b/a.py\r\n+value = 1\r\n"
+        diff.write_bytes(raw)
+        metadata["diff_sha256"] = hashlib.sha256(raw).hexdigest()
+        if defect == "changed-bytes":
+            diff.write_bytes(raw.replace(b"value = 1", b"value = 2"))
+        elif defect == "invalid-utf8":
+            diff.write_bytes(b"\xff\xfe")
+        else:
+            del metadata["diff_sha256"]
+        snapshot.write_text(json.dumps(metadata))
+        original_snapshot, original_context, original_diff = (
+            snapshot.read_bytes(),
+            context.read_bytes(),
+            diff.read_bytes(),
+        )
+        evaluate = mock.Mock(side_effect=AssertionError("provider evaluation must not run"))
+        monkeypatch.setattr(pr_verifier, "evaluate_pr", evaluate)
+        monkeypatch.setattr(pr_verifier, "evaluate_pr_multiple", evaluate)
+        monkeypatch.setattr(
+            sys,
+            "argv",
+            ["verifier", "--context-file", str(context), "--diff-file", str(diff), "--json"]
+            + (["--compare"] if compare else []),
+        )
+>       pr_verifier.main()
+
+tests/scripts/test_verifier_capture_integration.py:272: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+scripts/langchain/pr_verifier.py:5886: in main
+    result = evaluate_pr(context, diff=diff, model=args.model, provider=args.provider)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/anaconda3/lib/python3.12/unittest/mock.py:1134: in __call__
+    return self._mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/anaconda3/lib/python3.12/unittest/mock.py:1138: in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <Mock id='4400395664'>
+args = ('# Verifier context\n\n## Context source coverage\n\n```json\n{"schema": "verifier-context-source-coverage/v1", "stag...1)\n\n## PR Diff (full)\n\n```diff\ndiff --git a/a.py b/a.py\n--- a/a.py\n+++ b/a.py\n@@ -1 +1 @@\n-old\n+new\n```\n',)
+kwargs = {'diff': 'diff --git a/a.py b/a.py\n+value = 2\n', 'model': None, 'provider': None}
+
+    def _execute_mock_call(self, /, *args, **kwargs):
+        # separate from _increment_mock_call so that awaited functions are
+        # executed separately from their call, also AsyncMock overrides this method
+    
+        effect = self.side_effect
+        if effect is not None:
+            if _is_exception(effect):
+>               raise effect
+E               AssertionError: provider evaluation must not run
+
+/opt/anaconda3/lib/python3.12/unittest/mock.py:1193: AssertionError
+___ test_snapshot_diff_binding_blocks_before_evaluation[changed-bytes-True] ____
+
+tmp_path = PosixPath('/private/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/pytest-of-teacher/pytest-279/test_snapshot_diff_binding_blo1')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1063f36b0>
+capsys = <_pytest.capture.CaptureFixture object at 0x1063f39e0>, compare = True
+defect = 'changed-bytes'
+
+    @pytest.mark.parametrize("compare", [False, True])
+    @pytest.mark.parametrize("defect", ["changed-bytes", "invalid-utf8", "missing-hash"])
+    def test_snapshot_diff_binding_blocks_before_evaluation(
+        tmp_path, monkeypatch, capsys, compare, defect
+    ):
+        context, snapshot, metadata = _captured_snapshot(tmp_path)
+        diff = tmp_path / "verifier-pr-diff.patch"
+        raw = b"diff --git a/a.py b/a.py\r\n+value = 1\r\n"
+        diff.write_bytes(raw)
+        metadata["diff_sha256"] = hashlib.sha256(raw).hexdigest()
+        if defect == "changed-bytes":
+            diff.write_bytes(raw.replace(b"value = 1", b"value = 2"))
+        elif defect == "invalid-utf8":
+            diff.write_bytes(b"\xff\xfe")
+        else:
+            del metadata["diff_sha256"]
+        snapshot.write_text(json.dumps(metadata))
+        original_snapshot, original_context, original_diff = (
+            snapshot.read_bytes(),
+            context.read_bytes(),
+            diff.read_bytes(),
+        )
+        evaluate = mock.Mock(side_effect=AssertionError("provider evaluation must not run"))
+        monkeypatch.setattr(pr_verifier, "evaluate_pr", evaluate)
+        monkeypatch.setattr(pr_verifier, "evaluate_pr_multiple", evaluate)
+        monkeypatch.setattr(
+            sys,
+            "argv",
+            ["verifier", "--context-file", str(context), "--diff-file", str(diff), "--json"]
+            + (["--compare"] if compare else []),
+        )
+>       pr_verifier.main()
+
+tests/scripts/test_verifier_capture_integration.py:272: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+scripts/langchain/pr_verifier.py:5872: in main
+    results = evaluate_pr_multiple(context, diff=diff, model1=args.model, model2=args.model2)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/anaconda3/lib/python3.12/unittest/mock.py:1134: in __call__
+    return self._mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/anaconda3/lib/python3.12/unittest/mock.py:1138: in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <Mock id='4399766880'>
+args = ('# Verifier context\n\n## Context source coverage\n\n```json\n{"schema": "verifier-context-source-coverage/v1", "stag...1)\n\n## PR Diff (full)\n\n```diff\ndiff --git a/a.py b/a.py\n--- a/a.py\n+++ b/a.py\n@@ -1 +1 @@\n-old\n+new\n```\n',)
+kwargs = {'diff': 'diff --git a/a.py b/a.py\n+value = 2\n', 'model1': None, 'model2': None}
+
+    def _execute_mock_call(self, /, *args, **kwargs):
+        # separate from _increment_mock_call so that awaited functions are
+        # executed separately from their call, also AsyncMock overrides this method
+    
+        effect = self.side_effect
+        if effect is not None:
+            if _is_exception(effect):
+>               raise effect
+E               AssertionError: provider evaluation must not run
+
+/opt/anaconda3/lib/python3.12/unittest/mock.py:1193: AssertionError
+___ test_snapshot_diff_binding_blocks_before_evaluation[missing-hash-False] ____
+
+tmp_path = PosixPath('/private/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/pytest-of-teacher/pytest-279/test_snapshot_diff_binding_blo4')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1063f0a70>
+capsys = <_pytest.capture.CaptureFixture object at 0x1063f0f50>, compare = False
+defect = 'missing-hash'
+
+    @pytest.mark.parametrize("compare", [False, True])
+    @pytest.mark.parametrize("defect", ["changed-bytes", "invalid-utf8", "missing-hash"])
+    def test_snapshot_diff_binding_blocks_before_evaluation(
+        tmp_path, monkeypatch, capsys, compare, defect
+    ):
+        context, snapshot, metadata = _captured_snapshot(tmp_path)
+        diff = tmp_path / "verifier-pr-diff.patch"
+        raw = b"diff --git a/a.py b/a.py\r\n+value = 1\r\n"
+        diff.write_bytes(raw)
+        metadata["diff_sha256"] = hashlib.sha256(raw).hexdigest()
+        if defect == "changed-bytes":
+            diff.write_bytes(raw.replace(b"value = 1", b"value = 2"))
+        elif defect == "invalid-utf8":
+            diff.write_bytes(b"\xff\xfe")
+        else:
+            del metadata["diff_sha256"]
+        snapshot.write_text(json.dumps(metadata))
+        original_snapshot, original_context, original_diff = (
+            snapshot.read_bytes(),
+            context.read_bytes(),
+            diff.read_bytes(),
+        )
+        evaluate = mock.Mock(side_effect=AssertionError("provider evaluation must not run"))
+        monkeypatch.setattr(pr_verifier, "evaluate_pr", evaluate)
+        monkeypatch.setattr(pr_verifier, "evaluate_pr_multiple", evaluate)
+        monkeypatch.setattr(
+            sys,
+            "argv",
+            ["verifier", "--context-file", str(context), "--diff-file", str(diff), "--json"]
+            + (["--compare"] if compare else []),
+        )
+>       pr_verifier.main()
+
+tests/scripts/test_verifier_capture_integration.py:272: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+scripts/langchain/pr_verifier.py:5886: in main
+    result = evaluate_pr(context, diff=diff, model=args.model, provider=args.provider)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/anaconda3/lib/python3.12/unittest/mock.py:1134: in __call__
+    return self._mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/anaconda3/lib/python3.12/unittest/mock.py:1138: in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <Mock id='4399442416'>
+args = ('# Verifier context\n\n## Context source coverage\n\n```json\n{"schema": "verifier-context-source-coverage/v1", "stag...1)\n\n## PR Diff (full)\n\n```diff\ndiff --git a/a.py b/a.py\n--- a/a.py\n+++ b/a.py\n@@ -1 +1 @@\n-old\n+new\n```\n',)
+kwargs = {'diff': 'diff --git a/a.py b/a.py\n+value = 1\n', 'model': None, 'provider': None}
+
+    def _execute_mock_call(self, /, *args, **kwargs):
+        # separate from _increment_mock_call so that awaited functions are
+        # executed separately from their call, also AsyncMock overrides this method
+    
+        effect = self.side_effect
+        if effect is not None:
+            if _is_exception(effect):
+>               raise effect
+E               AssertionError: provider evaluation must not run
+
+/opt/anaconda3/lib/python3.12/unittest/mock.py:1193: AssertionError
+____ test_snapshot_diff_binding_blocks_before_evaluation[missing-hash-True] ____
+
+tmp_path = PosixPath('/private/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/pytest-of-teacher/pytest-279/test_snapshot_diff_binding_blo5')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1063a2120>
+capsys = <_pytest.capture.CaptureFixture object at 0x1063a2630>, compare = True
+defect = 'missing-hash'
+
+    @pytest.mark.parametrize("compare", [False, True])
+    @pytest.mark.parametrize("defect", ["changed-bytes", "invalid-utf8", "missing-hash"])
+    def test_snapshot_diff_binding_blocks_before_evaluation(
+        tmp_path, monkeypatch, capsys, compare, defect
+    ):
+        context, snapshot, metadata = _captured_snapshot(tmp_path)
+        diff = tmp_path / "verifier-pr-diff.patch"
+        raw = b"diff --git a/a.py b/a.py\r\n+value = 1\r\n"
+        diff.write_bytes(raw)
+        metadata["diff_sha256"] = hashlib.sha256(raw).hexdigest()
+        if defect == "changed-bytes":
+            diff.write_bytes(raw.replace(b"value = 1", b"value = 2"))
+        elif defect == "invalid-utf8":
+            diff.write_bytes(b"\xff\xfe")
+        else:
+            del metadata["diff_sha256"]
+        snapshot.write_text(json.dumps(metadata))
+        original_snapshot, original_context, original_diff = (
+            snapshot.read_bytes(),
+            context.read_bytes(),
+            diff.read_bytes(),
+        )
+        evaluate = mock.Mock(side_effect=AssertionError("provider evaluation must not run"))
+        monkeypatch.setattr(pr_verifier, "evaluate_pr", evaluate)
+        monkeypatch.setattr(pr_verifier, "evaluate_pr_multiple", evaluate)
+        monkeypatch.setattr(
+            sys,
+            "argv",
+            ["verifier", "--context-file", str(context), "--diff-file", str(diff), "--json"]
+            + (["--compare"] if compare else []),
+        )
+>       pr_verifier.main()
+
+tests/scripts/test_verifier_capture_integration.py:272: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+scripts/langchain/pr_verifier.py:5872: in main
+    results = evaluate_pr_multiple(context, diff=diff, model1=args.model, model2=args.model2)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/anaconda3/lib/python3.12/unittest/mock.py:1134: in __call__
+    return self._mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/anaconda3/lib/python3.12/unittest/mock.py:1138: in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <Mock id='4399444000'>
+args = ('# Verifier context\n\n## Context source coverage\n\n```json\n{"schema": "verifier-context-source-coverage/v1", "stag...1)\n\n## PR Diff (full)\n\n```diff\ndiff --git a/a.py b/a.py\n--- a/a.py\n+++ b/a.py\n@@ -1 +1 @@\n-old\n+new\n```\n',)
+kwargs = {'diff': 'diff --git a/a.py b/a.py\n+value = 1\n', 'model1': None, 'model2': None}
+
+    def _execute_mock_call(self, /, *args, **kwargs):
+        # separate from _increment_mock_call so that awaited functions are
+        # executed separately from their call, also AsyncMock overrides this method
+    
+        effect = self.side_effect
+        if effect is not None:
+            if _is_exception(effect):
+>               raise effect
+E               AssertionError: provider evaluation must not run
+
+/opt/anaconda3/lib/python3.12/unittest/mock.py:1193: AssertionError
+=========================== short test summary info ============================
+FAILED tests/scripts/test_verifier_capture_integration.py::test_snapshot_diff_binding_blocks_before_evaluation[changed-bytes-False]
+FAILED tests/scripts/test_verifier_capture_integration.py::test_snapshot_diff_binding_blocks_before_evaluation[changed-bytes-True]
+FAILED tests/scripts/test_verifier_capture_integration.py::test_snapshot_diff_binding_blocks_before_evaluation[missing-hash-False]
+FAILED tests/scripts/test_verifier_capture_integration.py::test_snapshot_diff_binding_blocks_before_evaluation[missing-hash-True]
+4 failed, 4 passed, 26 deselected in 0.59s

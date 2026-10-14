@@ -1,0 +1,27 @@
+{
+  "scope": "capture ledger only; semantic/native acceptance incomplete",
+  "source_sha256": {
+    ".github/scripts/agents_verifier_context.js": "3b001d1e3c4b234f5d695e4d8d3c0f5e75c391343eb6df22958d2037a7422efb",
+    "templates/consumer-repo/.github/scripts/agents_verifier_context.js": "3b001d1e3c4b234f5d695e4d8d3c0f5e75c391343eb6df22958d2037a7422efb",
+    "scripts/langchain/pr_verifier.py": "60f144dd1b7b862a508adbc5c654dc46c40ba3029dff6bfcd34ad7bfa91ac11f",
+    "templates/consumer-repo/scripts/langchain/pr_verifier.py": "60f144dd1b7b862a508adbc5c654dc46c40ba3029dff6bfcd34ad7bfa91ac11f",
+    "tests/scripts/test_pr_verifier_partition_recovery.py": "d1d5b4d0906015dd1912070053bfefdfc24649ccb1902bec5b6390c1cc532f46",
+    ".github/scripts/__tests__/agents-verifier-context.test.js": "7ac6f5e8280ad9a5e13dc5c70f1937350e2c2fbcac71762460a69b520be8a73a"
+  },
+  "archive_sha256": "60fe7df04d61a35c56130ee7767701936edbf4e1403e41d5e64a388baaf531b1",
+  "members": {
+    "final-mutation-proof.json": "8fc233205d96a1ae9227880dc29a9a4756ec3684dd34e9818f882a04a5f40a7f",
+    "final-production-red-0.log": "a421986a28a2ecb6c8a053fa4031efcf67edde87f1bce237bacf7b9aa39cdcaf",
+    "final-production-red-1.log": "2f00926706108b6d116746a044bb57f0bb74a71cabb83782e19ee7a1a9b5db30",
+    "final-restored-green-0.log": "efbce427b72e349df2674139ad27eaa63ea93b7da9ed83e37241787b2f840128",
+    "final-restored-green-1.log": "ba6e951c624e3ad2f4d44be1e81de19c2be1370c162a42e5535b70f942b09aab",
+    "prove-final.py": "5913189c59ab54c58534542a1a001a173d6e1041a069ba32a9f830a24d663111",
+    "related-green.log": "b242ef637ec48570f29c115a2d8e055fdd839a4ad29630dfbefad4720c603436",
+    "context-green.log": "e2095a60eadaf6929530cb5ebf4c3447f3281ba28efd162e23001bbb7394110a",
+    "final-gap-green.log": "5978375f852cee570e122ee38871e011bc17a303f356027f0ace926f1cacf071",
+    "black.log": "3bfb7489e0e806705325ae354245d3ca0cc2bd3b0790f31ba1eed648b316588e",
+    "template-parity.log": "e00bc56a4eb4ab5ca9c721c61262b90d9d55e74187fec23e1144d500af0fcc6b",
+    "original-archive-ledger-replay.json": "aacdc25ecadd4fe297997957d73d54c6b4b093cd50d4b9470d8256317e78e5f9",
+    "replay-original-archives.cjs": "63cf5bf03793f3fe5dde1e0ef607e52b9a5eaf9bc208284ac2314d3e00b50cf5"
+  }
+}

@@ -100,8 +100,17 @@ test('native conversation disposition requires a fresh configured unquoted bound
   const separated = structuredClone(base);
   separated.comment.body = "> quoted context\n\n" + `ACCEPT\n<!-- sync-review-accepted:${head} -->\n${marker}`;
   assert.equal(validateNativeConversationDisposition(separated).ok, true);
+  const explained = structuredClone(base);
+  explained.comment.body += "\nConfirmed exact `generated head` and source evidence.";
+  assert.equal(validateNativeConversationDisposition(explained).ok, true);
   const unexpectedAcceptances = [];
   for (const [index, change] of [
+    (v) => { v.comment.body = `![hidden <details>\nignored\n</details>\nACCEPT\n<!-- sync-review-accepted:${head} -->\n${marker}\n](https://example.test/x)`; },
+    (v) => { v.comment.body = `<code></code>> quoted\nACCEPT\n<!-- sync-review-accepted:${head} -->\n${marker}`; },
+    (v) => { v.comment.body = `<code></code>\`\nACCEPT\n<!-- sync-review-accepted:${head} -->\n${marker}\n\``; },
+    (v) => { v.comment.body = `\`<details>ignored</details>\nACCEPT\n<!-- sync-review-accepted:${head} -->\n${marker}\n\``; },
+    (v) => { v.comment.body = `[proof]: <details>ignored</details>\nACCEPT\n<!-- sync-review-accepted:${head} -->\n${marker}`; },
+    (v) => { v.comment.body = `# heading <details>ignored</details>\nACCEPT\n<!-- sync-review-accepted:${head} -->\n${marker}`; },
     (v) => { v.comment.body = `\`quoted\nACCEPT\n<!-- sync-review-accepted:${head} -->\n${marker}\n\``; },
     (v) => { v.comment.body = `[proof]: https://example.test "quoted\nACCEPT\n<!-- sync-review-accepted:${head} -->\n${marker}\n"`; },
     (v) => { v.comment.body = `ACCEPT\n[proof]: https://example.test "quoted\n<!-- sync-review-accepted:${head} -->\n${marker}\n"`; },

@@ -119,9 +119,12 @@ function nativeAnswerLines(body, markers) {
     }
     // The protocol permits known balanced containers, never raw processing,
     // declaration or CDATA blocks (CommonMark HTML block types 3-5).
+    if (containers.length === 0 && /^(?: {4}|\t)/.test(raw)) continue;
     if (/<[!?]/.test(raw) || /<\/?[A-Za-z][^>]*$/.test(raw)) return null;
     const tags = [...raw.matchAll(/<(\/)?([A-Za-z][\w:-]*)\b[^>]*>/g)];
+    let cursor = 0; let visible = '';
     for (const tag of tags) {
+      if (containers.length === 0) visible += raw.slice(cursor, tag.index);
       const type = tag[2].toLowerCase();
       if (!['details', 'blockquote', 'pre', 'code', 'script', 'style', 'textarea'].includes(type)) {
         if (containers.length === 0) return null;
@@ -129,9 +132,12 @@ function nativeAnswerLines(body, markers) {
       }
       if (tag[1]) { if (containers.pop() !== type) return null; }
       else { if (containers.length >= 8) return null; containers.push(type); }
+      cursor = tag.index + tag[0].length;
     }
-    if (containers.length || tags.length || /^\s*>/.test(raw) || /^\s*(?: {4}|\t)/.test(raw)) continue;
-    lines.push(raw);
+    if (containers.length === 0) visible += raw.slice(cursor);
+    // Keep every outside segment, even when this line opens a container.
+    // Its Markdown delimiters must remain visible to the leading-prefix gate.
+    if (visible) lines.push(visible);
   }
   if (fence || containers.length) return null;
   let text = lines.join('\n');

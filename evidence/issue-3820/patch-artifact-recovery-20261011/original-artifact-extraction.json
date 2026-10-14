@@ -1,0 +1,132 @@
+{
+  "rows": [
+    {
+      "artifact_id": 11684074470,
+      "archive_sha256": "e3899dfa8c083ddca667ec118002c038dc23e98d13cae8b5505d3ad4bcafb03d",
+      "entry_count": 7,
+      "text_chars": 3665383,
+      "text_sha256": "8eaaf6b82c43547d284759ee4f4b92a975d1566c30787e35f9c0ba350de13b80",
+      "extracted_bytes": 3666722,
+      "truncated": false,
+      "failures": [],
+      "unsupported_count": 0
+    },
+    {
+      "artifact_id": 11686279259,
+      "archive_sha256": "aa52c432ded36f1e4bc18671e9df6a972210268068fda630215f2296d0f8fe6e",
+      "entry_count": 5,
+      "text_chars": 27862972,
+      "text_sha256": "cee6d434797f79cdc18d902fca870f7b07bbce4fcdb9f347a1920730cd41195f",
+      "extracted_bytes": 27862815,
+      "truncated": false,
+      "failures": [],
+      "unsupported_count": 0
+    },
+    {
+      "artifact_id": 11685965922,
+      "archive_sha256": "9f4ba9ee43b783f59161a9d5d2d57f692ec0300893e3b9bfe28758e9557e3765",
+      "entry_count": 5,
+      "text_chars": 27862988,
+      "text_sha256": "00585029cc5ae3baca1fd9d42017a43e76b692638a8341a65592796b12d28ba1",
+      "extracted_bytes": 27862831,
+      "truncated": false,
+      "failures": [],
+      "unsupported_count": 0
+    },
+    {
+      "artifact_id": 11680614727,
+      "archive_sha256": "15abbf25d54e40fd549f5f984aaee0bc7c17fe94cc16d4c43bed41a86f0c04e0",
+      "entry_count": 6,
+      "text_chars": 214407,
+      "text_sha256": "b6a8967648c9fa80fc27f6d4fab29a9681c03bddc9b1a13fd55a27eb2865da13",
+      "extracted_bytes": 214246,
+      "truncated": false,
+      "failures": [],
+      "unsupported_count": 0
+    },
+    {
+      "artifact_id": 11683408355,
+      "archive_sha256": "f664b9f3a64a7f76e6c9f3b1baf594423dbf2220e4d81026b9974996376be959",
+      "entry_count": 5,
+      "text_chars": 27863299,
+      "text_sha256": "1ca75230985ebc85d5b53e05115205ce9ace3b85c96dcd981c067f0ee4d9be3b",
+      "extracted_bytes": 27863142,
+      "truncated": false,
+      "failures": [],
+      "unsupported_count": 0
+    },
+    {
+      "artifact_id": 11682581591,
+      "archive_sha256": "011ed77880b6c0a4d2f0183b52ec44d565a7a4fbf06bc594953dd3d2d5464420",
+      "entry_count": 5,
+      "text_chars": 27863308,
+      "text_sha256": "cf94769ba4318bace73454a74e8f66cc23aae56e2100c7d71cfbd994553ffade",
+      "extracted_bytes": 27863151,
+      "truncated": false,
+      "failures": [],
+      "unsupported_count": 0
+    },
+    {
+      "artifact_id": 11684716836,
+      "archive_sha256": "d60d4b252aba2e2f3649cd6d5bfcd60e0c7ae195a2e3af47e1dbb326aa4e269b",
+      "entry_count": 4,
+      "text_chars": 654964,
+      "text_sha256": "7a05b4fc3d74dc06ae21522ad29a758d0ef3de24e4a455b0b5789002ed45083d",
+      "extracted_bytes": 654862,
+      "truncated": false,
+      "failures": [],
+      "unsupported_count": 0
+    },
+    {
+      "artifact_id": 11684107947,
+      "archive_sha256": "09d1babc73be41b491a6c37e3eecfb939106374c7f3ef7427d944ae498d5a9fc",
+      "entry_count": 8,
+      "text_chars": 920339,
+      "text_sha256": "f0674d7aae151e47338321170e6f9393a3a13a9ebdfbae4010a393485b497767",
+      "extracted_bytes": 921450,
+      "truncated": false,
+      "failures": [],
+      "unsupported_count": 0
+    },
+    {
+      "artifact_id": 11683559354,
+      "archive_sha256": "07ca147a3ec11a55d0b8078c7761aa1318340123046383011efee1a0a2ee4324",
+      "entry_count": 2,
+      "text_chars": 151116,
+      "text_sha256": "d2b0e0a729d51b2a9620c50b68be9627f0d5c2a16e14a00ac213f5c9ebb9874c",
+      "extracted_bytes": 151034,
+      "truncated": false,
+      "failures": [],
+      "unsupported_count": 0
+    },
+    {
+      "artifact_id": 11684381692,
+      "archive_sha256": "1b7ef1d1170c4816874f4f8d3d746c9cc6e8db93e349bd0d0e3504d14222fe7f",
+      "entry_count": 8,
+      "text_chars": 1043745,
+      "text_sha256": "a2248ed1a0447b6488d0761993b676990ff0146499edacacccedf2d29523dda5",
+      "extracted_bytes": 1045152,
+      "truncated": false,
+      "failures": [],
+      "unsupported_count": 0
+    },
+    {
+      "artifact_id": 11684511268,
+      "archive_sha256": "b671983412c0d5bf968d24db02a36deec96669e039205bc68a43237f12f1319c",
+      "entry_count": 6,
+      "text_chars": 214407,
+      "text_sha256": "1e7181bb3bc9811dce9dcbbed1b626714590b3e4068d41a9bd9dd766b018a3d9",
+      "extracted_bytes": 214246,
+      "truncated": false,
+      "failures": [],
+      "unsupported_count": 0
+    }
+  ],
+  "total_extracted_bytes": 118319651,
+  "limits": {
+    "per_archive_bytes": 33554432,
+    "per_archive_chars": 33554432,
+    "entries": 100
+  },
+  "boundary": "Offline diagnostics only; operational per-artifact60000chars/global64MiB extraction unchanged. No whole-source/native acceptance."
+}

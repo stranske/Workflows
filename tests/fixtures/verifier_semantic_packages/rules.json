@@ -1,0 +1,166 @@
+{
+  "schema": "workflows-verifier-semantic-rules/v1",
+  "rules": [
+    {
+      "binding": {
+        "id": "reviewed-span-fixture-1",
+        "implementation_head": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "governing_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "raw_inputs": {
+          "context": "609415d558b3cf8e9f09f948b088044ca903dc1086a1f76d00d8df2a81485c03",
+          "diff": "d0b2c59d7aca952678574929551dc88900a08f642b09d890d30657f794b5f825"
+        }
+      },
+      "rule": {
+        "schema": "workflows-verifier-semantic-rule/v1",
+        "capture_id": "reviewed-span-fixture-1",
+        "governing_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "clauses": [
+          {
+            "id": "global-p1",
+            "predicate": "provenance",
+            "raw_dependencies": [
+              "global"
+            ],
+            "requires": [],
+            "joint_groups": []
+          },
+          {
+            "id": "local-p1",
+            "predicate": "equality",
+            "raw_dependencies": [
+              "p1"
+            ],
+            "requires": [
+              "global-p1"
+            ],
+            "joint_groups": []
+          },
+          {
+            "id": "global-p2",
+            "predicate": "provenance",
+            "raw_dependencies": [
+              "global"
+            ],
+            "requires": [],
+            "joint_groups": []
+          },
+          {
+            "id": "joint-a",
+            "predicate": "set",
+            "raw_dependencies": [
+              "p2"
+            ],
+            "requires": [
+              "global-p2"
+            ],
+            "joint_groups": [
+              "joint"
+            ]
+          },
+          {
+            "id": "joint-b",
+            "predicate": "bounds",
+            "raw_dependencies": [
+              "diff"
+            ],
+            "requires": [
+              "global-p2"
+            ],
+            "joint_groups": [
+              "joint"
+            ]
+          }
+        ]
+      },
+      "spans": [
+        {
+          "id": "global",
+          "input": "context",
+          "start": 0,
+          "end": 4,
+          "owners": [
+            "p1",
+            "p2"
+          ],
+          "sha256": "a48e329d802238eb42aa0b0ad4d12045aa92187f74ff4a8191d95634879949f1"
+        },
+        {
+          "id": "p1",
+          "input": "context",
+          "start": 4,
+          "end": 4100,
+          "owners": [
+            "p1"
+          ],
+          "sha256": "c93eee2d0db02f10acc7460d9576e122dcf8cd53c4bf8dfcae1b3e74ebcfff5a"
+        },
+        {
+          "id": "p2",
+          "input": "context",
+          "start": 4100,
+          "end": 8196,
+          "owners": [
+            "p2"
+          ],
+          "sha256": "5389688abf55bc46639385085bfaf1fda3552f63303e4d4a55d664d0f515d6ac"
+        },
+        {
+          "id": "diff",
+          "input": "diff",
+          "start": 0,
+          "end": 8192,
+          "owners": [
+            "p2"
+          ],
+          "sha256": "d0b2c59d7aca952678574929551dc88900a08f642b09d890d30657f794b5f825"
+        }
+      ],
+      "joins": [
+        {
+          "span_ids": [
+            "global"
+          ],
+          "package_ids": [
+            "p1",
+            "p2"
+          ]
+        }
+      ],
+      "global_clause_ids_by_package": {
+        "p1": [
+          "global-p1"
+        ],
+        "p2": [
+          "global-p2"
+        ]
+      },
+      "packages": [
+        {
+          "id": "p1",
+          "clause_ids": [
+            "global-p1",
+            "local-p1"
+          ],
+          "raw_inputs": [
+            "global",
+            "p1"
+          ]
+        },
+        {
+          "id": "p2",
+          "clause_ids": [
+            "global-p2",
+            "joint-a",
+            "joint-b"
+          ],
+          "raw_inputs": [
+            "global",
+            "p2",
+            "diff"
+          ]
+        }
+      ]
+    }
+  ]
+}

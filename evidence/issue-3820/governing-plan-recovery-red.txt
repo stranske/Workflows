@@ -1,0 +1,56 @@
+FFFFFFFF                                                                 [100%]
+=================================== FAILURES ===================================
+__ test_every_partition_receives_the_complete_governing_plan[openai-evaluate] __
+tests/scripts/test_pr_verifier_partition_recovery.py:397: in test_every_partition_receives_the_complete_governing_plan
+    assert all("\nGoverning plan sources (untrusted captured text):\n" in p for p in generated)
+E   assert False
+E    +  where False = all(<generator object test_every_partition_receives_the_complete_governing_plan.<locals>.<genexpr> at 0x7fddeacabc60>)
+__ test_every_partition_receives_the_complete_governing_plan[openai-compare] ___
+tests/scripts/test_pr_verifier_partition_recovery.py:397: in test_every_partition_receives_the_complete_governing_plan
+    assert all("\nGoverning plan sources (untrusted captured text):\n" in p for p in generated)
+E   assert False
+E    +  where False = all(<generator object test_every_partition_receives_the_complete_governing_plan.<locals>.<genexpr> at 0x7fddeab9f1d0>)
+_ test_every_partition_receives_the_complete_governing_plan[anthropic-evaluate] _
+tests/scripts/test_pr_verifier_partition_recovery.py:397: in test_every_partition_receives_the_complete_governing_plan
+    assert all("\nGoverning plan sources (untrusted captured text):\n" in p for p in generated)
+E   assert False
+E    +  where False = all(<generator object test_every_partition_receives_the_complete_governing_plan.<locals>.<genexpr> at 0x7fddeab9f780>)
+_ test_every_partition_receives_the_complete_governing_plan[anthropic-compare] _
+tests/scripts/test_pr_verifier_partition_recovery.py:397: in test_every_partition_receives_the_complete_governing_plan
+    assert all("\nGoverning plan sources (untrusted captured text):\n" in p for p in generated)
+E   assert False
+E    +  where False = all(<generator object test_every_partition_receives_the_complete_governing_plan.<locals>.<genexpr> at 0x7fddeab9fed0>)
+_____ test_oversized_governing_plan_is_never_clipped_for_recovery[openai] ______
+tests/scripts/test_pr_verifier_partition_recovery.py:417: in test_oversized_governing_plan_is_never_clipped_for_recovery
+    pytest.raises(pr_verifier.InputCapacityError) as failure,
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   Failed: DID NOT RAISE InputCapacityError
+____ test_oversized_governing_plan_is_never_clipped_for_recovery[anthropic] ____
+tests/scripts/test_pr_verifier_partition_recovery.py:417: in test_oversized_governing_plan_is_never_clipped_for_recovery
+    pytest.raises(pr_verifier.InputCapacityError) as failure,
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   Failed: DID NOT RAISE InputCapacityError
+__ test_partitioning_without_a_governing_plan_blocks_before_counting[openai] ___
+tests/scripts/test_pr_verifier_partition_recovery.py:432: in test_partitioning_without_a_governing_plan_blocks_before_counting
+    with pytest.raises(pr_verifier.InputCapacityError, match="governing plan") as failure:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   Failed: DID NOT RAISE InputCapacityError
+_ test_partitioning_without_a_governing_plan_blocks_before_counting[anthropic] _
+tests/scripts/test_pr_verifier_partition_recovery.py:432: in test_partitioning_without_a_governing_plan_blocks_before_counting
+    with pytest.raises(pr_verifier.InputCapacityError, match="governing plan") as failure:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   Failed: DID NOT RAISE InputCapacityError
+=========================== short test summary info ============================
+FAILED tests/scripts/test_pr_verifier_partition_recovery.py::test_every_partition_receives_the_complete_governing_plan[openai-evaluate] - assert False
+ +  where False = all(<generator object test_every_partition_receives_the_complete_governing_plan.<locals>.<genexpr> at 0x7fddeacabc60>)
+FAILED tests/scripts/test_pr_verifier_partition_recovery.py::test_every_partition_receives_the_complete_governing_plan[openai-compare] - assert False
+ +  where False = all(<generator object test_every_partition_receives_the_complete_governing_plan.<locals>.<genexpr> at 0x7fddeab9f1d0>)
+FAILED tests/scripts/test_pr_verifier_partition_recovery.py::test_every_partition_receives_the_complete_governing_plan[anthropic-evaluate] - assert False
+ +  where False = all(<generator object test_every_partition_receives_the_complete_governing_plan.<locals>.<genexpr> at 0x7fddeab9f780>)
+FAILED tests/scripts/test_pr_verifier_partition_recovery.py::test_every_partition_receives_the_complete_governing_plan[anthropic-compare] - assert False
+ +  where False = all(<generator object test_every_partition_receives_the_complete_governing_plan.<locals>.<genexpr> at 0x7fddeab9fed0>)
+FAILED tests/scripts/test_pr_verifier_partition_recovery.py::test_oversized_governing_plan_is_never_clipped_for_recovery[openai] - Failed: DID NOT RAISE InputCapacityError
+FAILED tests/scripts/test_pr_verifier_partition_recovery.py::test_oversized_governing_plan_is_never_clipped_for_recovery[anthropic] - Failed: DID NOT RAISE InputCapacityError
+FAILED tests/scripts/test_pr_verifier_partition_recovery.py::test_partitioning_without_a_governing_plan_blocks_before_counting[openai] - Failed: DID NOT RAISE InputCapacityError
+FAILED tests/scripts/test_pr_verifier_partition_recovery.py::test_partitioning_without_a_governing_plan_blocks_before_counting[anthropic] - Failed: DID NOT RAISE InputCapacityError
+8 failed, 50 deselected in 4.32s
