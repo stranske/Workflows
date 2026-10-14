@@ -1323,19 +1323,20 @@ def _normalize_plain_artifact_destinations(acceptance: str) -> str:
             # Domain uses such as "validate a field in an artifact" are not
             # evidence-delivery destinations and must not invent a channel.
             return match[0]
-        if not re.match(r"\b" + _EVIDENCE_DESTINATION_PREPOSITION + r"\s+", match["prefix"], re.I):
-            # Elision inherits an actual preceding review destination, never
-            # an object conjunction such as "upload evidence and artifacts".
-            if not re.search(
-                r"\b"
-                + _EVIDENCE_DESTINATION_PREPOSITION
-                + r"\s+"
-                + r"(?:(?:either|both)\s+)?"
-                + _EVIDENCE_REVIEW_DESTINATION,
-                before[delivery.end() :],
-                re.I,
-            ):
-                return match[0]
+        # Elision inherits an actual preceding review destination, never
+        # an object conjunction such as "upload evidence and artifacts".
+        if not re.match(
+            r"\b" + _EVIDENCE_DESTINATION_PREPOSITION + r"\s+", match["prefix"], re.I
+        ) and not re.search(
+            r"\b"
+            + _EVIDENCE_DESTINATION_PREPOSITION
+            + r"\s+"
+            + r"(?:(?:either|both)\s+)?"
+            + _EVIDENCE_REVIEW_DESTINATION,
+            before[delivery.end() :],
+            re.I,
+        ):
+            return match[0]
         # A later independently governed product clause must not inherit the
         # earlier evidence delivery when deciding whether to canonicalize.
         tail = before[delivery.end() :] + match["prefix"] + "artifact"
