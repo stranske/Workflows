@@ -209,7 +209,7 @@ function targetRunId({ targetUrl, serverUrl, owner, repo }) {
   }
 }
 
-async function isCanonicalDirectGuardStatus({ current, github, retry, owner, repo, repository, context }) {
+async function canonicalDirectGuardStatus({ current, github, retry, owner, repo, repository, context }) {
   try {
     const runId = targetRunId({
       targetUrl: current.target_url,
@@ -233,7 +233,7 @@ async function isCanonicalDirectGuardStatus({ current, github, retry, owner, rep
     return directWorkflow.path === GUARD_PATH &&
       Number(directWorkflow.id) === Number(directRun.workflow_id);
   } catch {
-    return false;
+    return null;
   }
 }
 
@@ -337,25 +337,25 @@ async function publishGuardForkStatus({ github, context, core }) {
     return { state: 'skipped', description: 'Same-repository PR reconciliation' };
   }
 
+  const directAuthority = !reconciliationFailure &&
+    ['success', 'failure', 'error'].includes(current?.state)
+    ? await canonicalDirectGuardStatus({ current, github, retry, owner, repo, repository, context })
+    : false;
+  const directSuccess = directAuthority === true && current.state === 'success' &&
+    typeof current.description === 'string' &&
+    current.description.endsWith(policyReceipt(pr.labels));
+  const directFailure = ['failure', 'error'].includes(current?.state) &&
+    (directAuthority === true || directAuthority === null);
+  if (directSuccess || directFailure) {
+    core.info('Current direct guard verdict supersedes old fork result.');
+    return { state: 'skipped', description: 'Current direct guard verdict preserved' };
+  }
+
   if (!reconciliationFailure) {
     const files = await paginate(retry, github.rest.pulls.listFiles, {
       owner, repo, pull_number: pr.number,
     });
     const changedPaths = collectChangedPaths(pr, files);
-    const controlsChanged = changedPaths.some(path =>
-      BLOCKED_FILES.has(path) || BLOCKED_PREFIXES.some(prefix => path.startsWith(prefix))
-    );
-    const directSuccess = controlsChanged && current?.state === 'success' &&
-      typeof current.description === 'string' &&
-      current.description.endsWith(policyReceipt(pr.labels)) &&
-      await isCanonicalDirectGuardStatus({ current, github, retry, owner, repo, repository, context });
-    const authoritativeCurrent = current && (
-      current.state === 'failure' || current.state === 'error' || directSuccess
-    );
-    if (controlsChanged && authoritativeCurrent) {
-      core.info('Current authoritative exact-head guard verdict supersedes old control-path result.');
-      return { state: 'skipped', description: 'Current exact-head guard verdict preserved' };
-    }
     const jobs = run.status === 'completed'
       ? await jobsForAttempt({ github, retry, owner, repo, run })
       : [];

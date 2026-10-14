@@ -600,6 +600,21 @@ def test_agents_guard_fork_noop_requires_current_ineligible_policy_when_context_
     )
     assert current_failure["writes"] == []
 
+    missing_receipt_success = _publish_scenario(
+        labels=routing_labels,
+        statuses=[
+            {
+                "context": "Health 45 Agents Guard / guard",
+                "state": "success",
+                "target_url": "https://example.test/runs/old-noop",
+            }
+        ],
+        evaluate_status="completed",
+        evaluate_conclusion="skipped",
+    )
+    assert missing_receipt_success["result"]["state"] == "failure"
+    assert [write["state"] for write in missing_receipt_success["writes"]] == ["failure"]
+
     matched_current_success = _publish_scenario(
         labels=routing_labels,
         statuses=[
@@ -750,6 +765,68 @@ def test_native_pending_label_corrective_survives_same_repo_or_fork_noop_publish
     }
 
 
+def test_evaluated_fork_success_preserves_only_canonical_direct_corrective_failure():
+    direct_failure = [
+        {
+            "context": "Health 45 Agents Guard / guard",
+            "state": "failure",
+            "target_url": "https://github.com/stranske/Workflows/actions/runs/10",
+        }
+    ]
+    direct_target = {
+        "id": 10,
+        "workflow_id": 7,
+        "event": "pull_request_target",
+        "name": "Health 45 Agents Guard",
+        "repository": {"id": 1},
+        "html_url": "https://github.com/stranske/Workflows/actions/runs/10",
+    }
+    # The direct publisher observed a policy change and wrote failure before P
+    # publishes an old evaluated fork success.
+    preserved = _publish_scenario(statuses=direct_failure, target_run=direct_target)
+    assert preserved["result"]["state"] == "skipped"
+    assert preserved["writes"] == []
+
+    direct_success = _publish_scenario(
+        statuses=[
+            {
+                "context": "Health 45 Agents Guard / guard",
+                "state": "success",
+                "description": (
+                    "Health 45 Agents Guard passed. "
+                    "[guard-policy-sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855]"
+                ),
+                "target_url": "https://github.com/stranske/Workflows/actions/runs/10",
+            }
+        ],
+        target_run=direct_target,
+        run_conclusion="failure",
+        job_conclusion="failure",
+    )
+    assert direct_success["result"]["state"] == "skipped"
+    assert direct_success["writes"] == []
+
+    unavailable_direct_failure = _publish_scenario(
+        statuses=direct_failure,
+        target_run=direct_target,
+        target_lookup_error=True,
+    )
+    assert unavailable_direct_failure["result"]["state"] == "skipped"
+    assert unavailable_direct_failure["writes"] == []
+
+    old_fork_failure = _publish_scenario(
+        statuses=[
+            {
+                "context": "Health 45 Agents Guard / guard",
+                "state": "failure",
+                "target_url": "https://example.test/runs/old-fork",
+            }
+        ]
+    )
+    assert old_fork_failure["result"]["state"] == "success"
+    assert [write["state"] for write in old_fork_failure["writes"]] == ["success"]
+
+
 def test_old_protected_fork_run_preserves_newer_authoritative_guard_verdict():
     receipt = (
         " [guard-policy-sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855]"
@@ -805,10 +882,11 @@ def test_old_protected_fork_run_preserves_newer_authoritative_guard_verdict():
             {
                 "context": "Health 45 Agents Guard / guard",
                 "state": "failure",
-                "target_url": "https://example.test/runs/direct-B",
+                "target_url": "https://github.com/stranske/Workflows/actions/runs/10",
             }
         ],
         files=protected_files,
+        target_run=direct_target,
     )
     assert preserved_failure["result"]["state"] == "skipped"
     assert preserved_failure["writes"] == []
