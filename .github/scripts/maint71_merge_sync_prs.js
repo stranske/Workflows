@@ -285,7 +285,7 @@ function reviewReassessmentMarker(request) {
 
 function nativeConversationBinding(request, inlineRequest, origin) {
   const requestId = String(inlineRequest?.fullDatabaseId || inlineRequest?.id || '');
-  const requestUrl = String(inlineRequest?.url || inlineRequest?.html_url || '');
+  const requestUrl = String(inlineRequest?.html_url || inlineRequest?.url || '');
   const originId = String(origin?.fullDatabaseId || origin?.id || '');
   if (!/^[1-9][0-9]*$/.test(requestId) || !/^https:\/\/github\.com\//.test(requestUrl)
     || !/^[1-9][0-9]*$/.test(originId)) throw new Error('Native conversation disposition requires durable inline request and finding identities');

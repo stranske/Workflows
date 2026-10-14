@@ -809,8 +809,8 @@ test('native conversation task marker is consumable by the consumer-bound verifi
     users: { getAuthenticated: async () => ({ data: { login: 'stranske' } }) },
     pulls: { get: async () => ({ data: structuredClone(pr) }), createReplyForReviewComment: async ({ body }) => {
       replies++; const item = { id: 42, fullDatabaseId: '42', author: { login: 'stranske' }, user: { login: 'stranske' }, body,
-        createdAt: '2026-10-14T03:00:00Z', created_at: '2026-10-14T03:00:00Z', url: 'https://github.com/stranske/Ready/pull/9#discussion_r42', html_url: 'https://github.com/stranske/Ready/pull/9#discussion_r42' };
-      nodes.push(item); return { data: item };
+        createdAt: '2026-10-14T03:00:00Z', created_at: '2026-10-14T03:00:00Z', url: 'https://api.github.com/repos/stranske/Ready/pulls/comments/42', html_url: 'https://github.com/stranske/Ready/pull/9#discussion_r42' };
+      nodes.push({ ...item, url: item.html_url }); return { data: item };
     } },
     issues: { createComment: async ({ body }) => { taskPosts++; const item = { id: 43, user: { login: 'stranske' }, author: { login: 'stranske' }, body,
       created_at: '2026-10-14T03:01:00Z', createdAt: '2026-10-14T03:01:00Z', html_url: 'https://github.com/stranske/Ready/pull/9#issuecomment-43' }; tasks.push(item); return { data: item }; },
