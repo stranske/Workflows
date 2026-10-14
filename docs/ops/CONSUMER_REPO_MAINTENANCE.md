@@ -2264,7 +2264,9 @@ including a quoted filename or path-prefixed `./out/results.json` /
 `/tmp/results.json`) does not consume the following quantified
 destination list: `both in a PR comment and in an artifact` still requires
 every named destination, and `either in a PR comment or in an artifact` still
-accepts one alternative. Actor, polarity, optionality, product-capability and
+accepts one alternative. An unquoted filename does not absorb a
+sentence-ending period, so a following independent clause cannot inherit the
+prior delivery's destinations. Actor, polarity, optionality, product-capability and
 quoted-example scope are unchanged by that qualifier strip. Independent
 reviewer duties in separate clauses remain separate obligations.
 Bare `review comment` has the same discovery and OR semantics as qualified

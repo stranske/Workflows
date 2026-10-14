@@ -6958,12 +6958,57 @@ def test_issue3883_path_and_quoted_filenames_retain_destinations(criterion):
     )
 
 
+@pytest.mark.parametrize(
+    "criterion,expected_normalized",
+    [
+        (
+            'Upload evidence from "results.json" both in a PR comment and in an artifact',
+            "Upload evidence both in a PR comment and in an artifact",
+        ),
+        (
+            "Upload evidence from results.json before merging the PR",
+            "Upload evidence from results.json before merging the PR",
+        ),
+    ],
+)
+def test_issue3883_filename_qualifier_normalizes_only_with_destination(
+    criterion, expected_normalized
+):
+    """Quoted+destination strips; filename without a destination stays intact."""
+    assert verifier._normalize_evidence_source_filename_qualifiers(criterion) == expected_normalized
+
+
 def test_issue3883_filename_without_destination_is_not_rewritten_as_quantified():
     criterion = "Upload evidence from results.json before merging the PR"
     normalized = verifier._normalize_evidence_source_filename_qualifiers(criterion)
     assert normalized == criterion
     assert "comments" not in verifier._required_evidence_channels(criterion)
     assert "artifacts" not in verifier._required_evidence_channels(criterion)
+
+
+def test_issue3883_sentence_period_is_not_part_of_filename_qualifier():
+    """A following sentence must not be joined via a trailing period on the filename."""
+    criterion = "Upload evidence from results.json. In an artifact the logs are stored separately"
+    assert verifier._normalize_evidence_source_filename_qualifiers(criterion) == criterion
+    assert "artifacts" not in verifier._required_evidence_channels(criterion)
+    assert (
+        _floor_verdict(criterion, body="present", comments="absent", artifacts="absent") == "PASS"
+    )
+
+
+def test_issue3883_standalone_exist_in_artifact_requires_artifact_floor():
+    """Bare standalone destinations stay wired after plain-artifact normalization."""
+    criterion = "Evidence must exist in an artifact"
+    assert "workflow artifact" in verifier._normalize_bare_artifact_destinations(criterion)
+    assert verifier._required_evidence_channels(criterion) == {"artifacts"}
+    assert verifier._required_evidence_options(criterion) == [{"artifacts"}]
+    assert (
+        _floor_verdict(criterion, body="present", comments="absent", artifacts="absent")
+        == "CONCERNS"
+    )
+    assert (
+        _floor_verdict(criterion, body="present", comments="absent", artifacts="present") == "PASS"
+    )
 
 
 def test_issue3883_artifact_registry_product_noun_stays_nongating():

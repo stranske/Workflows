@@ -2094,19 +2094,38 @@ def _normalize_relative_review_presence(acceptance: str) -> str:
 
 
 def _normalize_bare_artifact_destinations(acceptance: str) -> str:
-    """Map bare artifact destinations to the shared workflow-artifact channel."""
-    # Standalone destinations only: do not rewrite compound nouns such as
-    # "artifact registry" into a workflow-artifact proof channel.
+    """Map evidence-governed bare artifact destinations to workflow artifacts.
+
+    Only rewrite when a proof noun is the clause head of a location/requirement
+    predicate (for example ``Evidence must exist in an artifact``). Unbound
+    pronoun deliveries and compound product nouns such as ``artifact registry``
+    stay untouched so product-scope protection is preserved.
+    """
     destination_boundary = (
         r"(?!\s+provenance)(?=$|[.,;:!?)\]]|\s+(?:and|or|both|either|before|after|when|if|"
         r"unless|while|then|so|because|with|without|via|through|for|to|in|into|within|on|as|"
         r"from|by|that|which|where)\b)"
     )
+    evidence_head = (
+        r"evidence(?:\s+(?:files?|bundles?|packages?))?|transcripts?|command outputs?|"
+        r"validation\s+results?|tests?(?:\s+results?)?"
+    )
+    location_aux = (
+        r"must|shall|should|may|can|is|are|to|be|present|available|included|"
+        r"only|solely|both|either|required|needed|mandatory|exist|exists|existing"
+    )
     return re.sub(
         r"(?P<literal>" + _QUOTED_EVIDENCE_LITERAL + r")|"
-        r"\b(?P<prep>in|into|to|within)\s+(?P<article>an?\s+)artifacts?\b" + destination_boundary,
+        r"\b(?P<head>" + evidence_head + r")\b"
+        r"(?P<mid>(?:\s+(?:" + location_aux + r"))+)"
+        r"\s+(?P<prep>in|into|to|within)\s+(?P<article>an?\s+)artifacts?\b" + destination_boundary,
         lambda match: (
-            match[0] if match["literal"] else f"{match['prep']} {match['article']}workflow artifact"
+            match[0]
+            if match["literal"]
+            else (
+                f"{match['head']}{match['mid']} {match['prep']} "
+                f"{match['article']}workflow artifact"
+            )
         ),
         acceptance,
         flags=re.I,
@@ -2115,7 +2134,9 @@ def _normalize_bare_artifact_destinations(acceptance: str) -> str:
 
 def _normalize_evidence_source_filename_qualifiers(acceptance: str) -> str:
     """Retain quantified destinations after a bounded evidence-source filename."""
-    filename = r"(?:" + _QUOTED_EVIDENCE_LITERAL + r"|(?:\.?/)?[A-Za-z0-9][\w./-]*)"
+    # Unquoted paths may include internal dots (results.json) but must not
+    # swallow a sentence-ending period that begins the next clause.
+    filename = r"(?:" + _QUOTED_EVIDENCE_LITERAL + r"|(?:\.?/)?[A-Za-z0-9][\w./-]*(?<![.]))"
     destination_head = (
         r"(?:(?:both|either)\s+)?(?:(?:in|into|to|within|on|as)\s+)?(?:an?\s+)?"
         + _EVIDENCE_DESTINATION_PREPOSITION
@@ -2333,11 +2354,13 @@ def _classify_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
     acceptance = _normalize_leading_review_destination_quantifier(acceptance)
     acceptance = _normalize_review_comment_destinations(acceptance)
     acceptance = _normalize_plain_artifact_destinations(acceptance)
+    acceptance = _normalize_bare_artifact_destinations(acceptance)
     acceptance = _normalize_destination_first_checklist(acceptance)
     acceptance = _normalize_passive_product_capabilities(acceptance)
     acceptance = _normalize_evidence_source_filename_qualifiers(acceptance)
     acceptance = _normalize_review_content_qualifiers(acceptance)
     acceptance = _normalize_plain_artifact_destinations(acceptance)
+    acceptance = _normalize_bare_artifact_destinations(acceptance)
     acceptance = _normalize_passive_review_agents(acceptance)
     acceptance = _normalize_relative_review_presence(acceptance)
     acceptance = _normalize_product_destination_lists(acceptance)
@@ -4441,6 +4464,7 @@ def _classify_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                 )
                 resolved_antecedent = clause_evidence_antecedent
                 working_line = _normalize_plain_artifact_destinations(working_line)
+                working_line = _normalize_bare_artifact_destinations(working_line)
             # Excluded destinations are not delivery targets. Keep the
             # generic evidence object and other independent deliveries.
             # Optional inspection of a possession noun is not a delivery.
@@ -5359,11 +5383,13 @@ def _classify_evidence_options(acceptance: str) -> list[set[str]]:
     acceptance = _normalize_leading_review_destination_quantifier(acceptance)
     acceptance = _normalize_review_comment_destinations(acceptance)
     acceptance = _normalize_plain_artifact_destinations(acceptance)
+    acceptance = _normalize_bare_artifact_destinations(acceptance)
     acceptance = _normalize_destination_first_checklist(acceptance)
     acceptance = _normalize_passive_product_capabilities(acceptance)
     acceptance = _normalize_evidence_source_filename_qualifiers(acceptance)
     acceptance = _normalize_review_content_qualifiers(acceptance)
     acceptance = _normalize_plain_artifact_destinations(acceptance)
+    acceptance = _normalize_bare_artifact_destinations(acceptance)
     acceptance = _normalize_passive_review_agents(acceptance)
     acceptance = _normalize_relative_review_presence(acceptance)
     acceptance = _normalize_product_destination_lists(acceptance)
