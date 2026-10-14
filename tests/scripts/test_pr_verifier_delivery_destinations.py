@@ -6501,6 +6501,9 @@ def test_issue3835_product_actor_before_relative_qualifier_remains_non_delivery(
         "since CI passed",
         "following review",
         "upon approval",
+        "later",
+        "afterwards",
+        "whenever approved",
     ],
 )
 def test_issue3835_delivered_comment_temporal_tail_keeps_comment_floor(tail):
@@ -6553,3 +6556,18 @@ def test_issue3835_passive_serialized_product_with_explicit_pr_destination_keeps
         _floor_verdict(criterion, body="present", comments="absent", artifacts="present")
         == "CONCERNS"
     )
+
+
+@pytest.mark.parametrize(
+    "criterion",
+    [
+        "The parser must post a PR review comment later",
+        "`The reviewer must post a PR review comment later`",
+        "The reviewer must not post a PR review comment later",
+    ],
+)
+def test_issue3835_active_human_tail_bypass_preserves_product_negative_and_literal_controls(
+    criterion,
+):
+    assert verifier._required_evidence_channels(criterion) == set()
+    assert verifier._required_evidence_options(criterion) == [set()]

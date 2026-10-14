@@ -1343,7 +1343,26 @@ def _normalize_review_comment_destinations(acceptance: str) -> str:
             return match[0]
         before = acceptance[max(0, match.start() - 160) : match.start()]
         after = acceptance[match.end() : match.end() + 96]
-        if not re.match(_DELIVERED_EVIDENCE_OBJECT_END, after, re.I):
+        object_end = re.match(_DELIVERED_EVIDENCE_OBJECT_END, after, re.I)
+        # An active human delivery is complete at the review-comment object.
+        # Its trailing scheduling prose does not turn it into a product noun.
+        active_subject = re.search(
+            r"(?:^|[;.!?\n])\s*(?P<subject>[^;.!?\n]{0,100}?)\s+"
+            + _MANDATORY_EVIDENCE_AUXILIARY
+            + r"\s+(?:"
+            + _EVIDENCE_DELIVERY_OPERATION
+            + r"|"
+            + "|".join(_EVIDENCE_RECORD_ALIASES)
+            + r"|leave|left|leaving)\s+"
+            + r"(?:(?:the|an?)\s+)?"
+            + _EVIDENCE_OBJECT_COUNTED_MODIFIERS
+            + r"$",
+            before,
+            re.I,
+        )
+        if not object_end and not (
+            active_subject and _is_evidence_delivery_actor_subject(active_subject["subject"])
+        ):
             return match[0]
         passive_product_producer = re.match(
             r"\s+(?:(?:must|shall)(?:\s+be)?|(?:needs?|has)\s+to(?:\s+be)?|is|are)\s+"
@@ -1382,20 +1401,6 @@ def _normalize_review_comment_destinations(acceptance: str) -> str:
         # An active comment object requires a delivery actor (or an imperative),
         # rather than treating every component noun as a reviewer. This keeps
         # arbitrary product subjects out without extending a product-noun list.
-        active_subject = re.search(
-            r"(?:^|[;.!?\n])\s*(?P<subject>[^;.!?\n]{0,100}?)\s+"
-            + _MANDATORY_EVIDENCE_AUXILIARY
-            + r"\s+(?:"
-            + _EVIDENCE_DELIVERY_OPERATION
-            + r"|"
-            + "|".join(_EVIDENCE_RECORD_ALIASES)
-            + r"|leave|left|leaving)\s+"
-            + r"(?:(?:the|an?)\s+)?"
-            + _EVIDENCE_OBJECT_COUNTED_MODIFIERS
-            + r"$",
-            before,
-            re.I,
-        )
         if active_subject and not _is_evidence_delivery_actor_subject(active_subject["subject"]):
             return match[0]
         if (
