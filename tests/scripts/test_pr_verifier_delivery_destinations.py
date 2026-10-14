@@ -6890,8 +6890,11 @@ def test_issue3835_active_command_output_send_optional_or_prohibited_is_not_requ
 
 
 @pytest.mark.parametrize("governor", ["must prevent", "prevents", "must disallow", "disallows"])
-def test_issue3835_prohibitive_command_output_send_capability_is_not_delivery(governor):
-    criterion = f"The application {governor} users from sending command output in a PR comment"
+@pytest.mark.parametrize("recipient", ["users", "authenticated users", "all users", "operators"])
+def test_issue3835_prohibitive_command_output_send_capability_is_not_delivery(governor, recipient):
+    criterion = (
+        f"The application {governor} {recipient} from sending command output in a PR comment"
+    )
     assert verifier._required_evidence_channels(criterion) == set()
     assert verifier._required_evidence_options(criterion) == [set()]
     assert (
@@ -6900,11 +6903,13 @@ def test_issue3835_prohibitive_command_output_send_capability_is_not_delivery(go
 
 
 @pytest.mark.parametrize("governor", ["must prevent", "prevents", "must disallow", "disallows"])
+@pytest.mark.parametrize("recipient", ["users", "authenticated users", "all users", "operators"])
 def test_issue3835_finite_prohibitive_command_output_send_preserves_independent_reviewer_delivery(
     governor,
+    recipient,
 ):
     criterion = (
-        f"The application {governor} users from sending command output in a PR comment; "
+        f"The application {governor} {recipient} from sending command output in a PR comment; "
         "the reviewer must send command output in a PR comment"
     )
     assert verifier._required_evidence_channels(criterion) == {"comments"}

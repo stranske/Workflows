@@ -1739,7 +1739,9 @@ def _normalize_capability_deliveries(acceptance: str) -> str:
         + destination_tail
         + r")*"
     )
-    capability_recipient = r"(?:users?|reviewers?|maintainers?|authors?)"
+    capability_recipient = (
+        _EVIDENCE_RECIPIENT_PREFIX + _EVIDENCE_ACTOR_NOUN + r"\b" + _EVIDENCE_ACTOR_QUALIFIER
+    )
     capability_infinitive = (
         r"(?:allow|enable|support|permit)\w*\s+" + capability_recipient + r"\s+to"
     )
@@ -1767,10 +1769,31 @@ def _normalize_capability_deliveries(acceptance: str) -> str:
         + coordinated_delivery,
         re.I,
     )
-    return capability_delivery.sub(
-        lambda match: match[0] if match["literal"] else "product capability evidence",
-        acceptance,
-    )
+
+    def replace_capability_delivery(match: re.Match[str]) -> str:
+        if match["literal"]:
+            return match[0]
+        # A coordinated capability after a negative capability has no positive
+        # delivery governor of its own. Leave that complete negative product
+        # predicate intact so the later shared polarity grammar retains it.
+        clause_start = (
+            max(
+                acceptance.rfind(";", 0, match.start()),
+                acceptance.rfind(".", 0, match.start()),
+                acceptance.rfind("!", 0, match.start()),
+                acceptance.rfind("?", 0, match.start()),
+                acceptance.rfind("\n", 0, match.start()),
+            )
+            + 1
+        )
+        prior_clause = acceptance[clause_start : match.start()]
+        if re.search(
+            r"\b(?:must|shall)\s+not\s+(?:allow|enable|support|permit)\w*\b", prior_clause, re.I
+        ):
+            return match[0]
+        return "product capability evidence"
+
+    return capability_delivery.sub(replace_capability_delivery, acceptance)
 
 
 def _normalize_leading_review_destination_quantifier(acceptance: str) -> str:
