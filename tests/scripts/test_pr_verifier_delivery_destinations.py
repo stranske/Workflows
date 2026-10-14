@@ -5255,3 +5255,38 @@ def test_issue3883_optional_clause_does_not_erase_filename_qualified_either():
     assert (
         _floor_verdict(criterion, body="absent", comments="present", artifacts="absent") == "PASS"
     )
+
+
+@pytest.mark.parametrize(
+    "criterion",
+    [
+        "The reviewer must upload evidence from ./out/results.json both in a PR comment and in an artifact",
+        "The reviewer must upload evidence from /tmp/results.json both in a PR comment and in an artifact",
+        'Upload evidence from "results.json" both in a PR comment and in an artifact',
+    ],
+)
+def test_issue3883_path_and_quoted_filenames_retain_destinations(criterion):
+    assert verifier._required_evidence_channels(criterion) == {"comments", "artifacts"}
+    assert verifier._required_evidence_options(criterion) == [{"comments", "artifacts"}]
+    assert (
+        _floor_verdict(criterion, body="present", comments="absent", artifacts="present")
+        == "CONCERNS"
+    )
+
+
+def test_issue3883_filename_without_destination_is_not_rewritten_as_quantified():
+    criterion = "Upload evidence from results.json before merging the PR"
+    normalized = verifier._normalize_evidence_source_filename_qualifiers(criterion)
+    assert normalized == criterion
+    assert "comments" not in verifier._required_evidence_channels(criterion)
+    assert "artifacts" not in verifier._required_evidence_channels(criterion)
+
+
+def test_issue3883_artifact_registry_product_noun_stays_nongating():
+    criterion = "The UI must store evidence in an artifact registry"
+    assert "workflow artifact" not in verifier._normalize_bare_artifact_destinations(criterion)
+    assert verifier._required_evidence_channels(criterion) == set()
+    assert verifier._required_evidence_options(criterion) == [set()]
+    assert (
+        _floor_verdict(criterion, body="present", comments="absent", artifacts="absent") == "PASS"
+    )

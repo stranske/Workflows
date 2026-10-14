@@ -1463,9 +1463,16 @@ def _normalize_relative_review_presence(acceptance: str) -> str:
 
 def _normalize_bare_artifact_destinations(acceptance: str) -> str:
     """Map bare artifact destinations to the shared workflow-artifact channel."""
+    # Standalone destinations only: do not rewrite compound nouns such as
+    # "artifact registry" into a workflow-artifact proof channel.
+    destination_boundary = (
+        r"(?!\s+provenance)(?=$|[.,;:!?)\]]|\s+(?:and|or|both|either|before|after|when|if|"
+        r"unless|while|then|so|because|with|without|via|through|for|to|in|into|within|on|as|"
+        r"from|by|that|which|where)\b)"
+    )
     return re.sub(
         r"(?P<literal>" + _QUOTED_EVIDENCE_LITERAL + r")|"
-        r"\b(?P<prep>in|into|to|within)\s+(?P<article>an?\s+)artifacts?\b(?!\s+provenance)",
+        r"\b(?P<prep>in|into|to|within)\s+(?P<article>an?\s+)artifacts?\b" + destination_boundary,
         lambda match: (
             match[0] if match["literal"] else f"{match['prep']} {match['article']}workflow artifact"
         ),
@@ -1476,7 +1483,7 @@ def _normalize_bare_artifact_destinations(acceptance: str) -> str:
 
 def _normalize_evidence_source_filename_qualifiers(acceptance: str) -> str:
     """Retain quantified destinations after a bounded evidence-source filename."""
-    filename = r"(?:" + _QUOTED_EVIDENCE_LITERAL + r"|[A-Za-z0-9][\w./-]*)"
+    filename = r"(?:" + _QUOTED_EVIDENCE_LITERAL + r"|(?:\.?/)?[A-Za-z0-9][\w./-]*)"
     destination_head = (
         r"(?:(?:both|either)\s+)?(?:(?:in|into|to|within|on|as)\s+)?(?:an?\s+)?"
         + _EVIDENCE_DESTINATION_PREPOSITION

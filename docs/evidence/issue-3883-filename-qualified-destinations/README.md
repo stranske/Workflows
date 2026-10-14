@@ -1,12 +1,14 @@
 # Issue 3883: filename-qualified quantified destinations
 
 Bounded evidence-source filename qualifiers (`evidence from results.json`,
-including quoted filenames) no longer hide a following quantified destination
-list. `both in a PR comment and in an artifact` requires every named destination;
-`either in a PR comment or in an artifact` accepts one alternative. Bare
-`in an artifact` destinations normalize to the shared workflow-artifact channel.
-Actor, polarity, optionality, product-capability and quoted-example scope are
-unchanged. Independent reviewer duties remain separate obligations.
+including quoted filenames and path-prefixed `./out/...` / `/tmp/...` forms) no
+longer hide a following quantified destination list. `both in a PR comment and
+in an artifact` requires every named destination; `either in a PR comment or in
+an artifact` accepts one alternative. Bare standalone `in an artifact`
+destinations normalize to the shared workflow-artifact channel; compound product
+nouns such as `artifact registry` do not. Actor, polarity, optionality,
+product-capability and quoted-example scope are unchanged. Independent reviewer
+duties remain separate obligations.
 
 ## Focused gate
 
@@ -14,8 +16,8 @@ unchanged. Independent reviewer duties remain separate obligations.
 python3 -m pytest tests/scripts/test_pr_verifier_delivery_destinations.py -k issue3883 -q
 ```
 
-Recorded local result: **11 passed** (exit 0). Source/template verifier SHA256
-`ce08477f4ea21999f2f3072cf3a7f7e73a364c37427f7705bc0aab1dd3d6e9a0`.
+Recorded local result: **16 passed** (exit 0). Source/template verifier SHA256
+`10c42674f572d522b2c9ca5862879735c0415d9aa7c32d76aeec4f95cdea4c63`.
 
 ## Deliberate RED/GREEN replay
 

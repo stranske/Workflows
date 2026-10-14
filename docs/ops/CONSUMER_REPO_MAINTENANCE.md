@@ -2248,13 +2248,15 @@ delivery. An explicitly excluded PR-comment destination (`outside`, `rather
 than`, `instead of`) is not a required comment channel; generic evidence and
 independent positive deliveries still retain their coverage floors.
 Active proof delivery also recognizes `as an artifact`, including evidence,
-coverage reports and common validation outputs. Bare `in an artifact` /
+coverage reports and common validation outputs. Bare standalone `in an artifact` /
 `into an artifact` destinations normalize to the shared workflow-artifact
-channel before classifier expansion. PR review comments and inline
+channel before classifier expansion; compound product nouns such as
+`artifact registry` are not rewritten into that channel. PR review comments and inline
 review comments share the ordinary PR-comment destination grammar before both
 channel classification and destination-OR expansion; quoted input stays literal.
 A bounded evidence-source filename qualifier (`evidence from results.json`,
-including a quoted filename) does not consume the following quantified
+including a quoted filename or path-prefixed `./out/results.json` /
+`/tmp/results.json`) does not consume the following quantified
 destination list: `both in a PR comment and in an artifact` still requires
 every named destination, and `either in a PR comment or in an artifact` still
 accepts one alternative. Actor, polarity, optionality, product-capability and
