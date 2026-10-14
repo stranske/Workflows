@@ -157,6 +157,11 @@ def _full_patch_file_records(raw: bytes) -> list[dict[str, Any]] | None:
                 declared_from = source_bytes
             else:
                 declared_from = from_path[2:] if from_path.startswith(b"a/") else from_path
+            # Metadata cannot rename a file independently of the authoritative
+            # diff header. Ordinary unquoted paths, including spaces, compare as
+            # raw bytes; quoted/ambiguous headers fail closed below.
+            if lines[0][len(b"diff --git ") :] != b"a/" + declared_from + b" b/" + source_bytes:
+                return None
         else:
             # A header-only parse is accepted only for ordinary unquoted paths.
             header = lines[0][len(b"diff --git ") :]
