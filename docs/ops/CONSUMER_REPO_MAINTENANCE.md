@@ -2841,3 +2841,5 @@ Verifier input files are decoded from their exact UTF-8 bytes without universal
 newline conversion. Semantic hashes, package inputs and capture inventories
 retain CRLF, including line-ending-only changes. Snapshot recording rejects
 byte changes between loading and recording even when normalized text matches.
+
+Native conversation binding uses the REST review comment `html_url` browser permalink when present; GraphQL review comments supply the equivalent `url`. REST API endpoint URLs never become reviewer authority. The same durable inline request is reused after a transport failure, retaining its exact identity and task digest.
