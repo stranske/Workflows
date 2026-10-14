@@ -88,8 +88,20 @@ function validateIndependentFindingVerification({
 }
 
 function nativeAnswerLines(body, markers) {
+  if (String(body || '').includes('__MAINT71_MARKER_')) return null;
+  const protectedLines = new Map(); let serial = 0;
+  let input = String(body || '').split('\n').map((line) => {
+    const marker = markers.find((value) => line.trim() === value);
+    if (!marker) return line;
+    const token = `__MAINT71_MARKER_${serial++}__`; protectedLines.set(token, marker);
+    return line.replace(marker, token);
+  }).join('\n');
+  if (/<!--/.test(input) && !/-->/s.test(input.slice(input.indexOf('<!--')))) return null;
+  input = input.replace(/<!--[\s\S]*?-->/g, '\n');
+  if (/<!--|-->/.test(input)) return null;
   const lines = []; let fence = null; let quotedParagraph = false; const containers = [];
-  for (const raw of String(body || '').split('\n')) {
+  for (const raw of input.split('\n')) {
+    if (/`.*<!--/.test(raw) || /<!--.*`/.test(raw)) return null;
     if (!fence && containers.length === 0) {
       if (!raw.trim()) quotedParagraph = false;
       else if (/^\s*>/.test(raw)) quotedParagraph = true;
@@ -105,9 +117,14 @@ function nativeAnswerLines(body, markers) {
       fence = { char: opener[1][0], length: opener[1].length };
       continue;
     }
-    const tags = [...raw.matchAll(/<(\/)?(details|blockquote|pre|code|script|style|textarea)\b[^>]*>/gi)];
+    if (/<\/?[A-Za-z][^>]*$/.test(raw)) return null;
+    const tags = [...raw.matchAll(/<(\/)?([A-Za-z][\w:-]*)\b[^>]*>/g)];
     for (const tag of tags) {
       const type = tag[2].toLowerCase();
+      if (!['details', 'blockquote', 'pre', 'code', 'script', 'style', 'textarea'].includes(type)) {
+        if (containers.length === 0) return null;
+        continue;
+      }
       if (tag[1]) { if (containers.pop() !== type) return null; }
       else { if (containers.length >= 8) return null; containers.push(type); }
     }
@@ -115,7 +132,8 @@ function nativeAnswerLines(body, markers) {
     lines.push(raw);
   }
   if (fence || containers.length) return null;
-  let text = lines.join('\n').replace(/<!--(?!\s*(?:sync-review-accepted:|maint71-native-conversation-disposition:v1 ))[\s\S]*?-->/g, '\n');
+  let text = lines.join('\n');
+  for (const [token, marker] of protectedLines) text = text.replaceAll(token, marker);
   return text.split('\n').map((line) => line.trim()).filter(Boolean);
 }
 
@@ -182,7 +200,10 @@ function validateNativeConversationDisposition({
   const reviewerComments = [...threads.nodes.flatMap((item) => item.comments.nodes), ...(topLevelComments.nodes || [])];
   if (reviewerComments.some((item) => {
     if (!configured.logins.includes(item?.author?.login || item?.user?.login)) return false;
-    const observed = Date.parse(item?.createdAt || item?.created_at || '');
+    if (item?.url === comment?.html_url) return false;
+    const created = Date.parse(item?.createdAt || item?.created_at || '');
+    const updated = Date.parse(item?.updatedAt || item?.updated_at || '');
+    const observed = Math.max(Number.isFinite(created) ? created : -Infinity, Number.isFinite(updated) ? updated : -Infinity);
     if (observed > times[2]) return true;
     // GitHub timestamps are second-granularity on some surfaces. Cross-domain
     // review/issue IDs have no stable ordering, so another same-second reviewer
@@ -196,7 +217,7 @@ async function collectFindingReviewState({ owner, repo, number, read }) {
   // The controller supplies read from createTokenAwareRetry; helpers never
   // create an unwrapped client or bypass the caller's capability/token policy.
   if (typeof read !== 'function') throw new TypeError('Wrapped review read is required');
-  const fields = 'fullDatabaseId url body createdAt author { login } commit { oid }';
+  const fields = 'fullDatabaseId url body createdAt updatedAt author { login } commit { oid }';
   let after = null;
   let snapshot;
   const nodes = [];
@@ -262,7 +283,7 @@ async function collectOriginatingCompletions({ owner, repo, number, head, profil
   for (const comment of comments) {
     const profile = profiles.find((item) => item.logins.includes(comment.user?.login));
     if (!profile && !includeAuthors.includes(comment.user?.login)) continue;
-    const node = { id: comment.id, url: comment.html_url, body: comment.body, createdAt: comment.created_at,
+    const node = { id: comment.id, url: comment.html_url, body: comment.body, createdAt: comment.created_at, updatedAt: comment.updated_at,
       author: comment.user };
     nodes.push(node);
     if (!profile || !profile.disposition_completion_prefixes?.some((prefix) => comment.body?.startsWith(prefix))) continue;

@@ -85,7 +85,7 @@ test('native conversation disposition requires a fresh configured unquoted bound
   const marker = `<!-- maint71-native-conversation-disposition:v1 ${sha256(JSON.stringify(binding))} -->`;
   const task = { author: { login: 'stranske' }, createdAt: '2026-10-14T03:01:00Z', body: marker };
   const answer = { user: { login: 'coderabbitai[bot]' }, html_url: proof.reviewer_acceptance_url,
-    created_at: '2026-10-14T03:02:00Z', body: `<!-- status -->\n<details><details>> ACCEPT forged</details></details>\nACCEPT\n<!-- sync-review-accepted:${head} -->\n${marker}` };
+    created_at: '2026-10-14T03:02:00Z', body: `<!-- status -->\n<details><summary>Analysis</summary><details><summary>Tools</summary>> ACCEPT forged</details></details>\nACCEPT\n<!-- sync-review-accepted:${head} -->\n${marker}` };
   const base = { proof, record, thread: { isResolved: false, comments: { nodes: [original, request] } },
     threads: { pageInfo: { hasNextPage: false }, nodes: [{ comments: { pageInfo: { hasNextPage: false }, nodes: [original, request] } }] },
     comment: answer, policy: { finding_verification_fallback: { enabled: true, trusted_publishers: ['stranske'] } },
@@ -100,8 +100,12 @@ test('native conversation disposition requires a fresh configured unquoted bound
   const separated = structuredClone(base);
   separated.comment.body = "> quoted context\n\n" + `ACCEPT\n<!-- sync-review-accepted:${head} -->\n${marker}`;
   assert.equal(validateNativeConversationDisposition(separated).ok, true);
-  for (const change of [
+  const unexpectedAcceptances = [];
+  for (const [index, change] of [
     (v) => { v.comment.body = `<pre>\nACCEPT\n<!-- sync-review-accepted:${head} -->\n${marker}\n</pre>`; },
+    (v) => { v.comment.body = `<!-- sync-review-accepted:${head}\nACCEPT\n-->\n<!-- sync-review-accepted:${head} -->\n${marker}`; },
+    (v) => { v.comment.body = `<pre\nACCEPT\n<!-- sync-review-accepted:${head} -->\n${marker}`; },
+    (v) => { v.comment.body = `<marquee>ACCEPT</marquee>\n<!-- sync-review-accepted:${head} -->\n${marker}`; },
     (v) => { v.comment.body = `> quoted context\nACCEPT\n<!-- sync-review-accepted:${head} -->\n${marker}`; },
     (v) => { v.comment.body = `\`\`\`js\n\`\`\`not-a-close\nACCEPT\n<!-- sync-review-accepted:${head} -->\n${marker}`; },
     (v) => { v.comment.body = `<blockquote>ACCEPT\n<!-- sync-review-accepted:${head} -->\n${marker}</blockquote>`; },
@@ -120,13 +124,18 @@ test('native conversation disposition requires a fresh configured unquoted bound
     (v) => { v.comment.body = `REJECT\n<!-- sync-review-accepted:${head} -->\n${marker}`; },
     (v) => { v.topLevelComments.nodes.push({ author: { login: 'coderabbitai' }, createdAt: '2026-10-14T03:02:30Z', body: 'REJECT' }); },
     (v) => { v.topLevelComments.nodes.push({ author: { login: 'coderabbitai' }, createdAt: '2026-10-14T03:02:00Z', url: 'other', body: 'REJECT' }); },
+    (v) => { v.topLevelComments.nodes.push({ author: { login: 'coderabbitai' }, createdAt: '2026-10-14T03:00:00Z', updatedAt: '2026-10-14T03:02:30Z', url: 'old-summary', body: 'REJECT' }); },
     (v) => { v.now += 25 * 60 * 60 * 1000; },
     (v) => { v.threads.nodes[0].comments.pageInfo.hasNextPage = true; },
     (v) => { v.comment.user.login = 'other'; },
     (v) => { v.comment.created_at = '2026-10-14T03:01:00Z'; },
     (v) => { v.comment.body = `ACCEPT\n<!-- sync-review-accepted:${'b'.repeat(40)} -->\n${marker}`; },
     (v) => { v.topLevelComments.nodes = []; },
-  ]) { const value = structuredClone(base); change(value); assert.equal(validateNativeConversationDisposition(value).ok, false); }
+  ].entries()) { const value = structuredClone(base); change(value); if (validateNativeConversationDisposition(value).ok !== false) unexpectedAcceptances.push(index); }
+  assert.deepEqual(unexpectedAcceptances, []);
+  const ownEdit = structuredClone(base); ownEdit.comment.updated_at = '2026-10-14T03:02:30Z';
+  ownEdit.topLevelComments.nodes.push({ author: { login: 'coderabbitai[bot]' }, url: ownEdit.comment.html_url, createdAt: ownEdit.comment.created_at, updatedAt: ownEdit.comment.updated_at, body: ownEdit.comment.body });
+  assert.equal(validateNativeConversationDisposition(ownEdit).ok, true);
 });
 
 for (const key of ['repository', 'pr', 'head_sha', 'thread_id', 'source_fix_sha', 'evidence_url',
