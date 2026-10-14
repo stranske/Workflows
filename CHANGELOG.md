@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.38.8](https://github.com/stranske/Workflows/compare/v1.38.7...v1.38.8) (2026-10-14)
+
+
+### Bug Fixes
+
+* **proof:** accept executed parametrized base pytest selectors ([#3895](https://github.com/stranske/Workflows/issues/3895)) ([89221dd](https://github.com/stranske/Workflows/commit/89221ddd2a8161e90ba8e175fc601eebb7744320))
+* **verifier:** recognize active command-output send deliveries ([#3894](https://github.com/stranske/Workflows/issues/3894)) ([e0a8925](https://github.com/stranske/Workflows/commit/e0a8925c70f8a3a47b2611bc9653b3cc384fff3c))
+* **verifier:** verify full patch bytes and reject lossy artifact text ([#3896](https://github.com/stranske/Workflows/issues/3896)) ([35e4a87](https://github.com/stranske/Workflows/commit/35e4a877cf00286aad347d1d583c97d7ed62f7d8))
+
 ## [1.38.7](https://github.com/stranske/Workflows/compare/v1.38.6...v1.38.7) (2026-10-14)
 
 
