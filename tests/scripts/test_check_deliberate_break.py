@@ -2555,6 +2555,10 @@ def test_pytest_result_parser_retains_supported_spaced_and_punctuated_node_ids(p
     assert helper["_pytest_results_from_output"](
         f"{node} FAILED [100%]\nFAILED {node} - assert left - right\nPASSED {node}"
     ) == [("FAILED", node), ("FAILED", node), ("PASSED", node)]
+    for percent in (0, 9, 50, 100):
+        assert helper["_pytest_results_from_output"](f"{node} FAILED [ {percent}%]") == [
+            ("FAILED", node)
+        ]
     assert helper["_pytest_results_from_output"]("FAILED unrelated diagnostic") == []
     opaque = "tests/test_x.py::test_case[unbalanced]tail["
     assert helper["_pytest_results_from_output"](f"FAILED {opaque}") == [("FAILED", opaque)]
@@ -2667,6 +2671,58 @@ def test_collection_error_accepts_explicit_parametrized_node_with_space_and_punc
     assert result["verdict"] == VERDICT_PASS
     assert result["reason"] == "head-passed-base-failed"
     assert f"{selected} FAILED" in result["base_stdout"]
+
+
+@pytest.mark.parametrize("prefix", ["", "templates/consumer-repo/"])
+def test_collection_error_accepts_padded_verbose_progress_without_summary(tmp_path, prefix):
+    """A selected failure before the final item has pytest's padded progress token."""
+    helper = runpy.run_path(
+        str(Path(__file__).resolve().parents[2] / prefix / "scripts/check_deliberate_break.py")
+    )
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    _init_repo(repo)
+    (repo / "app.py").write_text("VALUE = 0\n", encoding="utf-8")
+    (repo / "conftest.py").write_text(
+        "def pytest_report_header(config):\n" "    return 'ERROR collecting simulated.py'\n",
+        encoding="utf-8",
+    )
+    (repo / "test_candidate.py").write_text(
+        "import pytest\nimport app\n\n"
+        "@pytest.mark.parametrize('expected', [1], ids=['chosen'])\n"
+        "def test_value(expected):\n    assert app.VALUE == expected\n\n"
+        "def test_after():\n    assert True\n",
+        encoding="utf-8",
+    )
+    base = _commit(repo, "base behavior with padded-progress test")
+    (repo / "app.py").write_text("VALUE = 1\n", encoding="utf-8")
+    _commit(repo, "candidate implementation and padded-progress test")
+    selected = "test_candidate.py::test_value[chosen]"
+    spec = helper["DeliberateBreakSpec"](
+        selected,
+        "test_candidate.py",
+        "app.py",
+        (
+            sys.executable,
+            "-m",
+            "pytest",
+            "-v",
+            "--no-summary",
+            "-o",
+            "addopts=",
+            "--continue-on-collection-errors",
+            ".",
+        ),
+    )
+
+    result = helper["verify_spec"](spec, base=base, cwd=repo, enforce_tamper=False)
+
+    assert result["verdict"] == VERDICT_PASS
+    assert result["reason"] == "head-passed-base-failed"
+    assert f"{selected} FAILED" in result["base_stdout"]
+    assert "[ 50%]" in result["base_stdout"]
+    assert "ERROR collecting simulated.py" in result["base_stdout"]
+    assert "short test summary" not in result["base_stdout"].lower()
 
 
 @pytest.mark.parametrize(

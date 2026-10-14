@@ -807,7 +807,7 @@ _COLLECTION_ERROR_RE = re.compile(
 _TEST_RESULT_RE = re.compile(r"""(?mx)
     ^(?:(?P<summary_status>PASSED|FAILED)\s+(?P<summary_tail>.+)
       |(?P<verbose_node>.+)\s+
-       (?P<verbose_status>PASSED|FAILED)(?:\s+\[\d+%\])?\s*)$
+       (?P<verbose_status>PASSED|FAILED)(?:\s+\[\s*\d+%\])?\s*)$
     """)
 
 
