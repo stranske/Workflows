@@ -577,11 +577,13 @@ def test_agents_guard_fork_noop_requires_current_ineligible_policy_when_context_
 
     current_failure = _publish_scenario(
         labels=routing_labels,
-        statuses=[{
-            "context": "Health 45 Agents Guard / guard",
-            "state": "failure",
-            "target_url": "https://example.test/runs/B",
-        }],
+        statuses=[
+            {
+                "context": "Health 45 Agents Guard / guard",
+                "state": "failure",
+                "target_url": "https://example.test/runs/B",
+            }
+        ],
         evaluate_status="completed",
         evaluate_conclusion="skipped",
     )
@@ -589,15 +591,17 @@ def test_agents_guard_fork_noop_requires_current_ineligible_policy_when_context_
 
     matched_current_success = _publish_scenario(
         labels=routing_labels,
-        statuses=[{
-            "context": "Health 45 Agents Guard / guard",
-            "state": "success",
-            "description": (
-                "Trusted Agents Guard completed successfully "
-                "[guard-policy-sha256:c452d2e1354da626e39606d53f8d0a7ed810181ce30d59b21051fed08695779b]"
-            ),
-            "target_url": "https://example.test/runs/B",
-        }],
+        statuses=[
+            {
+                "context": "Health 45 Agents Guard / guard",
+                "state": "success",
+                "description": (
+                    "Trusted Agents Guard completed successfully "
+                    "[guard-policy-sha256:c452d2e1354da626e39606d53f8d0a7ed810181ce30d59b21051fed08695779b]"
+                ),
+                "target_url": "https://example.test/runs/B",
+            }
+        ],
         evaluate_status="completed",
         evaluate_conclusion="skipped",
     )
