@@ -7191,6 +7191,9 @@ def test_issue3883_filename_qualified_retains_independent_reviewer_body_duty():
         ("unavailable", "present", "present", "CONCERNS"),
         ("present", "unavailable", "absent", "CONCERNS"),
         ("present", "absent", "unavailable", "CONCERNS"),
+        ("present", "unavailable", "present", "PASS"),
+        ("present", "present", "unavailable", "PASS"),
+        ("present", "unavailable", "unavailable", "CONCERNS"),
     ],
 )
 def test_issue3883_filename_qualified_either_retains_independent_body_floor(
