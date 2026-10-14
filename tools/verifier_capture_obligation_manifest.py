@@ -13,6 +13,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -127,6 +128,24 @@ def _full_patch_file_records(raw: bytes) -> list[dict[str, Any]] | None:
     starts = [match.start() for match in re.finditer(rb"(?m)^diff --git ", raw)]
     if not starts:
         return None
+    # Validate hunk counts and legal empty/mode/rename forms without applying
+    # anything or writing to the checkout.
+    try:
+        syntax = subprocess.run(
+            ["git", "apply", "--numstat", "-"],
+            input=raw,
+            capture_output=True,
+            check=False,
+            timeout=5,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    if syntax.returncode != 0:
+        return None
+    raw = raw[:-1] if raw.endswith(b"\n") else raw
+    starts = [match.start() for match in re.finditer(rb"(?m)^diff --git ", raw)]
+    if not starts:
+        return None
     records: list[dict[str, Any]] = []
     for index, start in enumerate(starts):
         end = starts[index + 1] if index + 1 < len(starts) else len(raw)
@@ -152,7 +171,12 @@ def _full_patch_file_records(raw: bytes) -> list[dict[str, Any]] | None:
         has_copy = any(line.startswith(b"copy from ") for line in payload) and any(
             line.startswith(b"copy to ") for line in payload
         )
-        if not (has_hunk or has_binary or has_mode_change or has_rename or has_copy):
+        has_empty_file = any(
+            line.startswith((b"new file mode ", b"deleted file mode ")) for line in payload
+        ) and any(line.startswith(b"index ") for line in payload)
+        if not (
+            has_hunk or has_binary or has_mode_change or has_rename or has_copy or has_empty_file
+        ):
             return None
         from_path = to_path = None
         for line in lines[1:]:
@@ -238,8 +262,7 @@ def _verified_full_diff_changed_code(
     if artifact.get("chars") != len(canonical) or not canonical:
         return False, ["full_diff_artifact:character_count_mismatch"]
     gaps: list[str] = []
-    canonical_bytes = full_diff_bytes[:-1] if full_diff_bytes.endswith(b"\n") else full_diff_bytes
-    expected_records = _full_patch_file_records(canonical_bytes)
+    expected_records = _full_patch_file_records(full_diff_bytes)
     if expected_records is None:
         return False, ["full_diff_artifact:file_inventory_malformed"]
     if len(changed_records) != len(expected_records):
