@@ -6696,6 +6696,21 @@ def test_issue3835_capability_owned_coordinated_deliveries_keep_only_independent
     )
 
 
+@pytest.mark.parametrize("operation", ["submit", "deliver", "supply"])
+@pytest.mark.parametrize("connector", ["", "and then"])
+def test_issue3835_capability_registered_delivery_aliases_are_not_evidence_duties(
+    operation,
+    connector,
+):
+    continuation = f" {connector} {operation} evidence as an artifact" if connector else ""
+    criterion = (
+        f"The application must allow users to {operation} evidence either in a PR comment or as an artifact"
+        + continuation
+    )
+    assert verifier._required_evidence_channels(criterion) == set()
+    assert verifier._required_evidence_options(criterion) == [set()]
+
+
 def test_issue3835_capability_marker_keeps_a_prior_unlocated_delivery_duty():
     criterion = (
         "The reviewer must provide evidence and allow users to upload evidence in a PR comment"

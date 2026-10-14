@@ -1717,11 +1717,22 @@ def _normalize_capability_deliveries(acceptance: str) -> str:
         + _EVIDENCE_PROOF_ALIAS_NOUN
         + r")\b"
     )
+    capability_delivery_operation = (
+        r"(?:" + _EVIDENCE_DELIVERY_OPERATION + r"|" + "|".join(_EVIDENCE_RECORD_ALIASES) + r"\b)"
+    )
     coordinated_proof_operand = proof_object + r"|(?:it|them|this|these|those|both)\b"
+    coordinated_capability_predicate = (
+        r"(?:"
+        + _EVIDENCE_COORDINATED_DELIVERY_PREDICATE
+        + r"|"
+        + _EVIDENCE_DELIVERY_ADVERBS
+        + capability_delivery_operation
+        + r")"
+    )
     coordinated_delivery = (
         r"(?:"
         + _EVIDENCE_DESTINATION_SEPARATOR_BASE
-        + _EVIDENCE_COORDINATED_DELIVERY_PREDICATE
+        + coordinated_capability_predicate
         + r"\s+(?:"
         + coordinated_proof_operand
         + r")"
@@ -1737,7 +1748,7 @@ def _normalize_capability_deliveries(acceptance: str) -> str:
         + r")|(?:and|or))\s+"
         r"(?:allow|enable|support|permit)\w*\s+"
         r"(?:users?|reviewers?|maintainers?|authors?)\s+to\s+"
-        + _EVIDENCE_DELIVERY_OPERATION
+        + capability_delivery_operation
         + r"\s+"
         + proof_object
         + destination_tail
