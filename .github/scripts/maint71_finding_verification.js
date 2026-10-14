@@ -122,6 +122,8 @@ function nativeAnswerLines(body, markers) {
     if (containers.length === 0 && /^(?: {4}|\t)/.test(raw)) continue;
     if (/<[!?]/.test(raw) || /<\/?[A-Za-z][^>]*$/.test(raw)) return null;
     const tags = [...raw.matchAll(/<(\/)?([A-Za-z][\w:-]*)\b[^>]*>/g)];
+    const residual = tags.reduce((text, tag) => text.replace(tag[0], ''), raw);
+    if (/<|(?<!-)>(?=\s*$)/.test(residual)) return null;
     let cursor = 0; let visible = '';
     for (const tag of tags) {
       if (containers.length === 0) visible += raw.slice(cursor, tag.index);
