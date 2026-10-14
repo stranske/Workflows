@@ -2182,7 +2182,10 @@ Prepositional content consumes up to16words through the next concrete destinatio
 or independent clause, including ordinary `test coverage` and `implementation
 details` descriptions. Product capability normalization retains a proof antecedent
 for an independent reviewer pronoun delivery to a PR or artifact destination.
-Destination nouns cannot replace that proof antecedent. Pure grammar results use
+Destination nouns cannot replace that proof antecedent. Product actors use one
+shared grammar in normalization and channel suppression, including app, parser,
+schema and module capabilities; independent reviewer deliveries remain binding.
+Pure grammar results use
 a bounded 512-entry cache for criteria up to 8192 characters; callers receive
 fresh containers, and evidence availability and provider results are never cached.
 Checklist shorthand accepts the common test/validation proof nouns, so

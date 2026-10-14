@@ -1005,6 +1005,25 @@ _EVIDENCE_RECIPIENT_PREFIX = (
     r"(?:(?!(?:and|or|but|must|shall|is|are|not|never|may|can|to|of|for|by|with|who|that|which|lets?|allows?|enables?)\b)[\w/-]+\s+){0,4}"
 )
 _EVIDENCE_ACTOR_NOUN = r"\b(?:reviewers?|maintainers?|authors?|operators?|agents?|bots?|runners?|developers?|engineers?|testers?|auditors?|verifiers?|teams?|users?|ui|api|application|service|endpoint)"
+_EVIDENCE_PRODUCT_ACTOR_WORDS = (
+    "application",
+    "app",
+    "service",
+    "api",
+    "endpoint",
+    "ui",
+    "interface",
+    "cli",
+    "renderer",
+    "schema",
+    "pipeline",
+    "parser",
+    "product",
+    "system",
+    "component",
+    "module",
+)
+_EVIDENCE_PRODUCT_ACTOR_NOUN = r"(?:" + "|".join(_EVIDENCE_PRODUCT_ACTOR_WORDS) + r")"
 _EVIDENCE_ACTOR_QUALIFIER = (
     r"(?:\s+(?:of|for|used\s+by|managed\s+by|using|testing|accessing|operating)\s+"
     r"(?:(?!(?:and|or|but|must|shall|is|are|not|never|may|can|has|have)\b)[\w/-]+\s+){0,4}"
@@ -1284,9 +1303,12 @@ def _normalize_plain_artifact_destinations(acceptance: str) -> str:
     # Coordinated product clauses ("..., and the application must ...") are not
     # the same delivery scope as a preceding evidence destination list.
     independent_clause = re.compile(
-        r"(?:,\s*)?\b(?:and|but|while)\s+" + _EVIDENCE_RECIPIENT_PREFIX + r"\b"
-        r"(?:application|app|service|api|endpoint|ui|interface|cli|renderer|"
-        r"schema|pipeline|parser|product|system|component|module)\b" + _EVIDENCE_ACTOR_QUALIFIER,
+        r"(?:,\s*)?\b(?:and|but|while)\s+"
+        + _EVIDENCE_RECIPIENT_PREFIX
+        + r"\b"
+        + _EVIDENCE_PRODUCT_ACTOR_NOUN
+        + r"\b"
+        + _EVIDENCE_ACTOR_QUALIFIER,
         re.I,
     )
     # A coordinated predicate with an elided subject is not a destination-list
@@ -1410,9 +1432,7 @@ _EVIDENCE_REVIEW_DESTINATION = (
 )
 _EVIDENCE_DESTINATION_SEPARATOR_BASE = r"(?:\s*,\s*(?:(?:and|or)\s+)?|\s+(?:and|or)\s+)"
 _EVIDENCE_PRODUCT_ACTOR = (
-    _EVIDENCE_RECIPIENT_PREFIX
-    + r"(?:application|app|service|api|endpoint|ui|interface|cli|renderer)\b"
-    + _EVIDENCE_ACTOR_QUALIFIER
+    _EVIDENCE_RECIPIENT_PREFIX + _EVIDENCE_PRODUCT_ACTOR_NOUN + r"\b" + _EVIDENCE_ACTOR_QUALIFIER
 )
 _EVIDENCE_PRODUCT_RECIPIENT = (
     _EVIDENCE_RECIPIENT_PREFIX + r"(?:clients?|users?|consumers?)\b" + _EVIDENCE_ACTOR_QUALIFIER
@@ -3258,7 +3278,7 @@ def _classify_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
             subject = fronted["subject"]
         actor_head = re.search(
             r"\b(?:(?:api|ui)\s+)?(?:reviewers?|maintainers?|authors?|operators?)\b"
-            r"|\b(?:ui|api|application|interface|service|cli|endpoint|renderer)\b",
+            r"|\b" + _EVIDENCE_PRODUCT_ACTOR_NOUN + r"\b",
             subject,
             re.I,
         )
@@ -3273,8 +3293,9 @@ def _classify_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         # discard a later subject merely because the introduction uses a verb.
         for qualifier in re.finditer(r"\b(?:using|testing|accessing|operating)\b", subject, re.I):
             if re.search(
-                r"\b(?:reviewers?|maintainers?|authors?|operators?|ui|api|application|"
-                r"interface|service|cli|endpoint|renderer)\b",
+                r"\b(?:reviewers?|maintainers?|authors?|operators?|"
+                + _EVIDENCE_PRODUCT_ACTOR_NOUN
+                + r")\b",
                 subject[: qualifier.start()],
                 re.I,
             ):
@@ -3330,17 +3351,7 @@ def _classify_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         )
         return bool(
             words
-            and words[-1]
-            in {
-                "ui",
-                "api",
-                "application",
-                "interface",
-                "service",
-                "cli",
-                "endpoint",
-                "renderer",
-            }
+            and words[-1] in _EVIDENCE_PRODUCT_ACTOR_WORDS
             and (capability or product_destination or (field_operation and not review_destination))
         )
 
