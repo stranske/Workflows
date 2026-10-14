@@ -896,6 +896,8 @@ jobs:
         if: >-
           steps.eligibility.outputs.should-run == 'true' &&
           steps.evaluate.outputs.blocked == 'true'
+        env:
+          GUARD_SUMMARY: ${{ steps.evaluate.outputs.summary }}
         run: |
-          echo "${{ steps.evaluate.outputs.summary }}"
+          printf '%s\n' "$GUARD_SUMMARY"
           exit 1

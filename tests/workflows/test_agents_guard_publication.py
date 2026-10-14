@@ -639,3 +639,55 @@ def test_policy_receipt_uses_guard_label_normalization_contract():
             or "raw.toLowerCase() === PERMISSION_LABEL" in value
         )
         assert "Array.isArray(labels)" in value
+
+
+@pytest.mark.parametrize("template", [False, True])
+def test_guard_block_summary_uses_literal_environment_transport(template, tmp_path):
+    """An evaluator summary containing a PR filename must never become shell."""
+    prefix = ROOT / "templates/consumer-repo" if template else ROOT
+    workflow = yaml.safe_load((prefix / ".github/workflows/agents-guard.yml").read_text())
+    blocked_step = next(
+        step
+        for step in workflow["jobs"]["guard"]["steps"]
+        if step.get("name") == "Fail when guard blocks the pull request"
+    )
+    assert blocked_step["env"] == {"GUARD_SUMMARY": "${{ steps.evaluate.outputs.summary }}"}
+    assert blocked_step["run"] == "printf '%s\\n' \"$GUARD_SUMMARY\"\nexit 1\n"
+
+    sentinel = tmp_path / "summary-shell-executed"
+    filename = '.github/workflows/agents-$(touch summary-shell-executed)-`id`-"quoted"-%s.yml'
+    evaluator = f"""
+const {{ evaluateGuard }} = require({json.dumps(str(ROOT / '.github/scripts/agents-guard.js'))});
+const result = evaluateGuard({{files: [{{filename: {json.dumps(filename)}, status: 'modified'}}]}});
+process.stdout.write(result.summary);
+"""
+    summary = subprocess.run(
+        ["node", "-e", evaluator], text=True, capture_output=True, check=True
+    ).stdout
+    assert filename in summary
+
+    # RED: this is the previous YAML interpolation after Actions substitutes a
+    # PR-controlled output into the shell program.
+    legacy = subprocess.run(
+        ["bash", "-c", f'echo "{summary}"'],
+        cwd=tmp_path,
+        text=True,
+        capture_output=True,
+        check=True,
+    )
+    assert sentinel.exists()
+    assert legacy.returncode == 0
+
+    # GREEN: execute the actual fixed YAML shell body. Quotes, backticks,
+    # command substitutions, format markers, and newlines remain literal.
+    sentinel.unlink()
+    fixed = subprocess.run(
+        ["bash", "-c", blocked_step["run"]],
+        cwd=tmp_path,
+        env={"GUARD_SUMMARY": summary},
+        text=True,
+        capture_output=True,
+    )
+    assert fixed.returncode == 1
+    assert fixed.stdout == summary + "\n"
+    assert not sentinel.exists()
