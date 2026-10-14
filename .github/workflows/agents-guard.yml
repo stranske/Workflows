@@ -22,7 +22,7 @@ permissions:
   statuses: write
 
 concurrency:
-  group: agents-guard-${{ github.event.pull_request.number || github.run_id }}
+  group: agents-guard-status-${{ github.event.pull_request.head.sha || github.run_id }}
   cancel-in-progress: false
 
 jobs:

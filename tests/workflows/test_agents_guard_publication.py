@@ -261,3 +261,61 @@ new AsyncFunction('github', 'context', 'core', input.script)(github, context, co
         "PR head SHA unavailable" if mode == "missing_head" else "Failed to update"
     ) in evidence["message"]
     assert evidence["writes"] == (1 if mode == "denied_write" else 0)
+
+
+def test_guard_status_writers_share_non_cancelling_head_serialization():
+    direct = yaml.safe_load((ROOT / ".github/workflows/agents-guard.yml").read_text())
+    fork = yaml.safe_load((ROOT / ".github/workflows/agents-guard-fork-status.yml").read_text())
+    direct_template = yaml.safe_load(
+        (ROOT / "templates/consumer-repo/.github/workflows/agents-guard.yml").read_text()
+    )
+    fork_template = yaml.safe_load(
+        (
+            ROOT / "templates/consumer-repo/.github/workflows/agents-guard-fork-status.yml"
+        ).read_text()
+    )
+    assert (
+        direct["concurrency"]
+        == direct_template["concurrency"]
+        == {
+            "group": "agents-guard-status-${{ github.event.pull_request.head.sha || github.run_id }}",
+            "cancel-in-progress": False,
+        }
+    )
+    assert (
+        fork["concurrency"]
+        == fork_template["concurrency"]
+        == {
+            "group": "agents-guard-status-${{ github.event.workflow_run.head_sha || github.run_id }}",
+            "cancel-in-progress": False,
+        }
+    )
+
+
+def test_shared_head_group_closes_label_writer_noop_publisher_race():
+    """A label failure and a completed fork no-op must serialize on the same head."""
+    sha = "a" * 40
+    current_direct = (
+        "agents-guard-status-${{ github.event.pull_request.head.sha || github.run_id }}"
+    )
+    current_publisher = (
+        "agents-guard-status-${{ github.event.workflow_run.head_sha || github.run_id }}"
+    )
+    legacy_direct = "agents-guard-${{ github.event.pull_request.number || github.run_id }}"
+    legacy_publisher = (
+        "agents-guard-fork-status-${{ github.event.workflow_run.head_sha || github.run_id }}"
+    )
+
+    def render(group, *, number="4"):
+        return (
+            group.replace("${{ github.event.pull_request.head.sha || github.run_id }}", sha)
+            .replace("${{ github.event.workflow_run.head_sha || github.run_id }}", sha)
+            .replace("${{ github.event.pull_request.number || github.run_id }}", number)
+        )
+
+    # Deliberate RED: prior independent groups let either status writer pass
+    # the other between its final status read and write.
+    assert render(legacy_direct) != render(legacy_publisher)
+    # GREEN: serialized writers ensure the no-op observes a completed label
+    # verdict before it applies the existing no-op preservation rule.
+    assert render(current_direct) == render(current_publisher) == f"agents-guard-status-{sha}"

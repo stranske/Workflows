@@ -94,3 +94,6 @@ stale-head/control-surface negative rehearsal before continuing. Roll back by
 disabling or removing `pr-00-gate-fork-status.yml`; do not weaken branch
 protection. Existing Gate behavior remains the fallback while the publisher is
 `create_only`.
+
+
+Health 45 direct label-event publishing and its trusted fork publisher share a non-cancelling, head-SHA concurrency group. This serializes their status writes so an ineligible completed fork run reads any label-event verdict before deciding whether it may initialize a missing required context.
