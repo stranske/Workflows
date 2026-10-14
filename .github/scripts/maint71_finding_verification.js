@@ -117,7 +117,9 @@ function nativeAnswerLines(body, markers) {
       fence = { char: opener[1][0], length: opener[1].length };
       continue;
     }
-    if (/<\/?[A-Za-z][^>]*$/.test(raw)) return null;
+    // The protocol permits known balanced containers, never raw processing,
+    // declaration or CDATA blocks (CommonMark HTML block types 3-5).
+    if (/<[!?]/.test(raw) || /<\/?[A-Za-z][^>]*$/.test(raw)) return null;
     const tags = [...raw.matchAll(/<(\/)?([A-Za-z][\w:-]*)\b[^>]*>/g)];
     for (const tag of tags) {
       const type = tag[2].toLowerCase();
