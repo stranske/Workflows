@@ -424,7 +424,7 @@ def regenerate_lockfile(lockfile_path: Path, pins: dict[str, str]) -> tuple[list
         output = None
         sources = []
         canonical = _build_lockfile_targets(pins)
-        remove_indices = set()
+        remove_indices: set[int] = set()
         upgrade_names = set()
         i = 3
         while i < len(tokens):

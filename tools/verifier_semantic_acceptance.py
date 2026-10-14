@@ -334,10 +334,18 @@ def admit_results(
         if not isinstance(receipt, dict):
             errors.append("malformed trusted receipt")
             continue
-        cell = (receipt.get("slot_id"), receipt.get("package_id"))
+        slot_id, package_id = receipt.get("slot_id"), receipt.get("package_id")
         if (
-            not all(isinstance(item, str) and item for item in cell)
-            or cell in bound_receipts
+            not isinstance(slot_id, str)
+            or not slot_id
+            or not isinstance(package_id, str)
+            or not package_id
+        ):
+            errors.append("invalid trusted receipt")
+            continue
+        cell = (slot_id, package_id)
+        if (
+            cell in bound_receipts
             or not _is_hex(receipt.get("request_sha256"), 64)
             or not _is_hex(receipt.get("response_sha256"), 64)
             or not _is_hex(receipt.get("result_sha256"), 64)
@@ -356,7 +364,16 @@ def admit_results(
         if not isinstance(result, dict):
             errors.append("malformed provider result")
             continue
-        cell = (result.get("slot_id"), result.get("package_id"))
+        slot_id, package_id = result.get("slot_id"), result.get("package_id")
+        if (
+            not isinstance(slot_id, str)
+            or not slot_id
+            or not isinstance(package_id, str)
+            or not package_id
+        ):
+            errors.append("invalid provider result")
+            continue
+        cell = (slot_id, package_id)
         if (
             cell in result_by_cell
             or cell not in expected_cells
