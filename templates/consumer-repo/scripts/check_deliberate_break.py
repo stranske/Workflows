@@ -804,7 +804,63 @@ _COLLECTION_ERROR_RE = re.compile(
 )
 
 
-_TEST_RESULT_RE = re.compile(r"(?m)^(?:PASSED|FAILED)\s+(\S+)|^(\S+)\s+(?:PASSED|FAILED)(?:\s|$)")
+_TEST_RESULT_RE = re.compile(r"""(?mx)
+    ^(?:(?P<summary_status>PASSED|FAILED)\s+(?P<summary_tail>.+)
+      |(?P<verbose_node>.+)\s+
+       (?P<verbose_status>PASSED|FAILED)(?:\s+\[\s*\d+%\])?\s*)$
+    """)
+
+
+def _pytest_node_id_matches_selected(selected: str, executed: str) -> bool:
+    """Return whether an executed pytest node is the selected test identity.
+
+    A base-function selector runs all of that function's parametrized cases, so
+    ``test_case`` legitimately selects ``test_case[param]``.  An explicitly
+    selected parametrized node remains exact: another parameter, function, or
+    file cannot establish deliberate-break proof.
+    """
+    return executed == selected or ("[" not in selected and executed.startswith(f"{selected}["))
+
+
+def _pytest_summary_node(summary_tail: str) -> str | None:
+    """Extract a node ID from pytest's ``FAILED node - detail`` summary record."""
+    separator = summary_tail.find("::")
+    if separator < 0:
+        return None
+    parameter_start = summary_tail.find("[", separator + 2)
+    if parameter_start < 0:
+        detail = summary_tail.find(" - ", separator + 2)
+        return summary_tail if detail < 0 else summary_tail[:detail]
+    boundary = None
+    index = summary_tail.find(" - ", parameter_start)
+    saw_separator = index >= 0
+    while index >= 0:
+        if summary_tail[index - 1] == "]":
+            if boundary is not None:
+                return None
+            boundary = index
+        index = summary_tail.find(" - ", index + 3)
+    if summary_tail.endswith("]"):
+        return summary_tail if boundary is None else None
+    if not saw_separator:
+        return summary_tail
+    return summary_tail[:boundary] if boundary is not None else None
+
+
+def _pytest_results_from_output(*streams: str | None) -> list[tuple[str, str]]:
+    """Return pytest result status and node ID pairs from its terminal output."""
+    joined = "\n".join(stream for stream in streams if stream)
+    results = []
+    for match in _TEST_RESULT_RE.finditer(joined):
+        status = match["summary_status"] or match["verbose_status"]
+        node = (
+            _pytest_summary_node(match["summary_tail"])
+            if match["summary_status"]
+            else match["verbose_node"]
+        )
+        if node is not None and "::" in node:
+            results.append((status, node))
+    return results
 
 
 def _missing_module_from_pytest_output(
@@ -819,10 +875,11 @@ def _missing_module_from_pytest_output(
     joined = "\n".join(stream for stream in streams if stream)
     if not joined or not _COLLECTION_ERROR_RE.search(joined):
         return None
-    if executed_test_id is not None:
-        executed = {match.group(1) or match.group(2) for match in _TEST_RESULT_RE.finditer(joined)}
-        if executed_test_id in executed:
-            return None
+    if executed_test_id is not None and any(
+        _pytest_node_id_matches_selected(executed_test_id, node)
+        for _, node in _pytest_results_from_output(joined)
+    ):
+        return None
     match = _MISSING_MODULE_RE.search(joined)
     return match.group(1) if match else None
 
@@ -1121,11 +1178,11 @@ def verify_spec(
     # internal/usage errors, or no collection. Custom commands keep their contract.
     # With --continue-on-collection-errors, exit 1 also covers collection errors.
     # Collection diagnostics require evidence that the selected test actually ran;
-    # collection-like text printed inside a failing test remains behavioral RED.
+    # collection-like text printed inside a selected FAILED test remains behavioral RED.
     base_output = "\n".join(stream for stream in (base_run.stdout, base_run.stderr) if stream)
     unexecuted_collection = _COLLECTION_ERROR_RE.search(base_output) and not any(
-        (match.group(1) or match.group(2)) == spec.test_id
-        for match in _TEST_RESULT_RE.finditer(base_output)
+        status == "FAILED" and _pytest_node_id_matches_selected(spec.test_id, node)
+        for status, node in _pytest_results_from_output(base_output)
     )
     if _is_pytest_command(spec.command) and (base_run.returncode != 1 or unexecuted_collection):
         return _json_result(
