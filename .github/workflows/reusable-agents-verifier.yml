@@ -96,6 +96,7 @@ jobs:
     env:
       VERIFIER_CAPACITY_REPORT_PATH: verifier-capacity-checks.jsonl
       VERIFIER_EVIDENCE_PROFILE: ${{ inputs.evidence_profile }}
+      VERIFIER_SEMANTIC_MODE: ${{ inputs.evidence_profile == 'expanded' && inputs.mode == 'compare' && '1' || '0' }}
     steps:
       - name: Select bounded verifier evidence profile
         env:
@@ -451,7 +452,7 @@ jobs:
               'ci_workflows': ci_workflows,
               'evidence_profile': os.environ['VERIFIER_EVIDENCE_PROFILE'],
               'evidence_contract': (
-                  'bounded-native-capacity-v8'
+                  'bounded-native-capacity-v10'
                   if os.environ['VERIFIER_EVIDENCE_PROFILE'] == 'expanded'
                   else 'bounded-native-capacity-v2'
               ),
@@ -1212,9 +1213,16 @@ jobs:
           VERIFIER_DIFF_PATH: ${{ steps.context.outputs.diff_path }}
           VERIFIER_MODEL: ${{ inputs.model }}
           VERIFIER_MODEL2: ${{ inputs.model2 }}
+          PR_HEAD_SHA: ${{ steps.context.outputs.pr_head_sha }}
         run: |
           set -euo pipefail
           context_file="$VERIFIER_CONTEXT_PATH"
+          if [ "${VERIFIER_SEMANTIC_MODE:-0}" = "1" ]; then
+            VERIFIER_SEMANTIC_KEY_PATH="$(mktemp)"
+            export VERIFIER_SEMANTIC_KEY_PATH
+            trap 'rm -f "$VERIFIER_SEMANTIC_KEY_PATH"' EXIT
+            python3 -c 'import os, pathlib, secrets; pathlib.Path(os.environ["VERIFIER_SEMANTIC_KEY_PATH"]).write_bytes(secrets.token_bytes(32))'
+          fi
           # The summary is navigation, not proof of the changed code. Missing
           # full-diff input must remain unavailable to the coverage floor.
           diff_file="$VERIFIER_DIFF_PATH"

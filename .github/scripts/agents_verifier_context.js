@@ -29,7 +29,7 @@ const DEFAULT_EVIDENCE_ENTRY_LIMIT = 20;
 const DEFAULT_EVIDENCE_ARTIFACT_CHARS = 60000;
 const SHA_PATTERN = /^[0-9a-f]{7,40}$/i;
 const WORKFLOW_RUN_URL_RE = /\/actions\/runs\/(\d+)/g;
-const TEXT_ARTIFACT_ENTRY_RE = /\.(?:txt|md|markdown|log|json|jsonl|ndjson|xml|csv|tsv)$/i;
+const TEXT_ARTIFACT_ENTRY_RE = /\.(?:txt|md|markdown|log|json|jsonl|ndjson|xml|csv|tsv|patch|diff)$/i;
 
 const DIFF_SUMMARY_LIMITS = {
   maxFiles: 50,
@@ -388,14 +388,16 @@ function extractReferencedRunIds(texts) {
 function safeArtifactEntries(listing) {
   const entries = [];
   const filteredPayloadEntries = [];
+  const occurrences = [];
   for (const rawEntry of String(listing || '').split('\n')) {
     const entry = rawEntry.trim();
     if (!entry || entry.endsWith('/')) continue;
-    const safe = !entry.startsWith('-') && !/[\u0000-\u001f\u007f]/.test(entry)
+    const safe = entry === rawEntry && !entry.startsWith('-') && !/[\u0000-\u001f\u007f]/.test(entry)
       && !/[*?\[\]\\]/.test(entry) && TEXT_ARTIFACT_ENTRY_RE.test(entry);
+    occurrences.push({ name: rawEntry, occurrence: occurrences.length, safe });
     if (safe) entries.push(entry); else filteredPayloadEntries.push(entry);
   }
-  return { entries, filteredPayloadEntries };
+  return { entries, filteredPayloadEntries, occurrences };
 }
 
 // Page and record bounds are independent: bodyless/duplicate records still cost reads.
@@ -412,20 +414,22 @@ async function boundedEvidencePages({ method, params, key, recordLimit, pageLimi
       if (!Array.isArray(records)) throw new Error(`${kind} API returned an invalid ${kind === 'run' ? 'run' : 'artifact'} list`);
       const total = response?.data?.total_count;
       if (total !== undefined && (!Number.isSafeInteger(total) || total < 0)) throw new Error('invalid total_count');
-      if (expectedTotal !== undefined && total !== expectedTotal) throw new Error('total_count changed during pagination');
+      if (page > 1 && total !== expectedTotal) throw new Error('total_count changed during pagination');
       expectedTotal = total;
       diagnostics.counters[`${kind}_records`] += records.length;
-      const more = Boolean(response?.headers?.link?.includes('rel="next"')) || (total !== undefined && total > items.length + records.length);
+      if (records.length > perPage) throw new Error('listing exceeds requested page size');
+      // Without metadata, a full REST page cannot prove that later proof is absent.
+      const more = Boolean(response?.headers?.link?.includes('rel="next"'))
+        || (total !== undefined ? total > items.length + records.length : records.length === perPage);
       if (total !== undefined && total < items.length + records.length) throw new Error('listing exceeds total_count');
+      for (const record of records) {
+        if (!Number.isSafeInteger(record?.id) || record.id <= 0) throw new Error('invalid paginated record ID');
+        if (seenIds.has(record.id)) throw new Error('duplicate paginated record ID');
+        seenIds.add(record.id);
+      }
       if (items.length + records.length > recordLimit) {
         items.push(...records.slice(0, Math.max(0, recordLimit - items.length)));
         return { items, failure: 'record' };
-      }
-      for (const record of records) {
-        if (Number.isSafeInteger(record?.id) && record.id > 0) {
-          if (seenIds.has(record.id)) throw new Error('duplicate paginated record ID');
-          seenIds.add(record.id);
-        }
       }
       items.push(...records);
       if (!more) return { items, failure: null };
@@ -447,32 +451,52 @@ function extractArtifactArchiveText({ archiveBuffer, maxEntries, maxChars, maxBy
       encoding: 'utf8',
       maxBuffer: 1024 * 1024,
     });
-    const { entries, filteredPayloadEntries } = safeArtifactEntries(listing);
+    const { entries, filteredPayloadEntries, occurrences } = safeArtifactEntries(listing);
+    const counts = new Map();
+    for (const { name } of occurrences) counts.set(name, (counts.get(name) || 0) + 1);
     const selected = entries.slice(0, maxEntries);
+    let eligibleIndex = 0;
+    // The listing is already byte-bounded. Bound its expanded JSON ledger too;
+    // an omitted suffix remains an explicit global gap, never an empty archive.
+    const members = occurrences.slice(0, 4096).map(({ name, occurrence, safe }) => {
+      const withinBound = safe && eligibleIndex++ < maxEntries;
+      return { name, occurrence,
+        status: !safe ? 'unsupported' : counts.get(name) > 1 ? 'duplicate'
+          : !withinBound ? 'entry_bound' : 'pending' };
+    });
     let remaining = maxChars;
     let remainingBytes = maxBytes;
     const failures = [];
     if (entries.length > selected.length) failures.push("entry");
     if (filteredPayloadEntries.length) failures.push("unsupported_payload");
+    if (members.length < occurrences.length) failures.push('member_inventory');
+    if (members.some(member => member.status === 'duplicate')) failures.push('duplicate_member');
     const parts = [];
-    let truncated = entries.length > selected.length || filteredPayloadEntries.length > 0;
-    for (const entry of selected) {
+    let truncated = failures.length > 0;
+    for (const member of members.filter(item => item.status === 'pending')) {
+      const entry = member.name;
       const prefix = `### ${entry}\n\n`;
       const separator = parts.length ? '\n\n' : '';
       const contentBudget = remaining - prefix.length - separator.length;
       if (contentBudget <= 0 || remainingBytes <= 0) {
-        failures.push(contentBudget <= 0 ? "character" : "extraction_byte");
+        member.status = 'unavailable';
+        member.reason = contentBudget <= 0 ? 'character' : 'extraction_byte';
+        failures.push(member.reason);
         truncated = true;
         break;
       }
       try {
-        const rawValue = execFile('unzip', ['-p', archivePath, entry], {
+        const rawValue = Buffer.from(execFile('unzip', ['-p', archivePath, entry], {
           maxBuffer: Math.min(contentBudget * 4 + 1, remainingBytes),
-        });
+        }));
         remainingBytes -= rawValue.length;
+        Object.assign(member, { status: 'included', raw_bytes: rawValue.length,
+          raw_sha256: createHash('sha256').update(rawValue).digest('hex') });
         const value = rawValue.toString('utf8');
         const fragment = `${prefix}${value.trim()}`;
         if (fragment.length + separator.length > remaining) {
+          member.status = 'render_omitted';
+          member.reason = 'character';
           failures.push("character");
           truncated = true;
           break;
@@ -480,13 +504,27 @@ function extractArtifactArchiveText({ archiveBuffer, maxEntries, maxChars, maxBy
         parts.push(fragment);
         remaining -= fragment.length + separator.length;
       } catch {
+        member.status = 'unavailable';
+        member.reason = 'extraction_byte_or_read';
         failures.push("extraction_byte_or_read");
         // An interrupted extraction cannot establish how many bytes were read.
         remainingBytes = 0;
         truncated = true;
       }
     }
+    // A bounded stop classifies every inventoried eligible suffix member;
+    // provisional planning state must never escape as complete capture data.
+    const stopReason = failures.at(-1);
+    for (const member of members.filter(item => item.status === 'pending')) {
+      member.status = 'unavailable';
+      member.reason = stopReason;
+    }
     return {
+      archiveSha256: createHash('sha256').update(archiveBuffer).digest('hex'),
+      listingSha256: createHash('sha256').update(listing).digest('hex'),
+      memberCount: occurrences.length,
+      memberInventoryComplete: members.length === occurrences.length,
+      members,
       extractedBytes: maxBytes - remainingBytes,
       failures,
       unsupportedCount: filteredPayloadEntries.length,
@@ -689,6 +727,7 @@ async function fetchVerifierEvidence({
     : allReferencedRunIds;
   const referencedRunIds = allRunIds.slice(0, runLimit);
   const runIds = [];
+  const runHeads = new Map();
   const seenRunIds = new Set();
   let artifactIncomplete = allRunIds.length > referencedRunIds.length;
   if (artifactIncomplete) fail("artifacts", "reference_record", "explicit reference union exceeds run limit");
@@ -739,6 +778,7 @@ async function fetchVerifierEvidence({
       }
       seenRunIds.add(runId);
       runIds.push(runId);
+      runHeads.set(runId, runHeadSha);
     } catch (error) {
       artifactIncomplete = true;
       artifacts.reason = `workflow run provenance failed for referenced run ${runId}: ${error.message}`;
@@ -813,6 +853,7 @@ async function fetchVerifierEvidence({
           }
           seenRunIds.add(runId);
           runIds.push(runId);
+          runHeads.set(runId, commitSha.toLowerCase());
         }
       }
     } catch (error) {
@@ -828,6 +869,7 @@ async function fetchVerifierEvidence({
     artifacts.reason ||= 'comment evidence was unavailable and exact-head workflow-run discovery was incomplete';
   }
   let inspectedArtifacts = 0;
+  diagnostics.archive_inventory = [];
   for (const runId of runIds) {
     if (inspectedArtifacts >= artifactLimit) {
       artifactIncomplete = true;
@@ -855,12 +897,20 @@ async function fetchVerifierEvidence({
           break;
         }
         inspectedArtifacts += 1;
+        // Preserve identities even when no payload can be admitted. This is a
+        // capture ledger, never semantic proof or a completeness upgrade.
+        const capture = { repository: `${owner}/${repo}`, run_id: runId,
+          head_sha: runHeads.get(runId), artifact_id: artifact.id,
+          name: artifact.name || '', status: 'unavailable', members: null };
+        diagnostics.archive_inventory.push(capture);
         if (artifact.expired) {
+          capture.reason = 'expired';
           fail("artifacts", "expired", `artifact ${artifact.id}`);
           artifactIncomplete = true;
           continue;
         }
         if (!Number.isSafeInteger(artifact.id) || artifact.id <= 0 || !Number.isSafeInteger(artifact.size_in_bytes) || artifact.size_in_bytes < 0 || artifact.size_in_bytes > archiveBytes) {
+          capture.reason = 'archive_byte_or_metadata';
           fail("artifacts", "archive_byte_or_metadata", `artifact ${artifact.id}`);
           artifactIncomplete = true;
           continue;
@@ -868,6 +918,7 @@ async function fetchVerifierEvidence({
         if (diagnostics.counters.archive_bytes + artifact.size_in_bytes > totalArchiveBytes
           || diagnostics.counters.extracted_bytes >= totalExtractBytes || usedArtifactChars >= totalArtifactChars) {
           artifactIncomplete = true;
+          capture.reason = 'global_capture_bound';
           if (diagnostics.counters.archive_bytes + artifact.size_in_bytes > totalArchiveBytes) fail('artifacts', 'global_archive_byte', `artifact ${artifact.id}`);
           if (diagnostics.counters.extracted_bytes >= totalExtractBytes) fail('artifacts', 'global_extraction_byte', `artifact ${artifact.id}`);
           if (usedArtifactChars >= totalArtifactChars) fail('artifacts', 'global_character', `artifact ${artifact.id}`);
@@ -880,8 +931,11 @@ async function fetchVerifierEvidence({
           archive_format: 'zip',
         });
         const archiveBuffer = Buffer.isBuffer(download?.data) ? download.data : Buffer.from(download?.data || []);
+        capture.archive_sha256 = createHash('sha256').update(archiveBuffer).digest('hex');
+        capture.archive_bytes = archiveBuffer.length;
         diagnostics.counters.archive_bytes += archiveBuffer.length;
         if (archiveBuffer.length > archiveBytes || diagnostics.counters.archive_bytes > totalArchiveBytes) {
+          capture.reason = 'archive_byte';
           fail("artifacts", "archive_byte", `artifact ${artifact.id}`);
           artifactIncomplete = true;
           continue;
@@ -889,6 +943,12 @@ async function fetchVerifierEvidence({
         const maxChars = Math.min(artifactChars, totalArtifactChars - usedArtifactChars);
         const maxBytes = Math.min(maxChars * 4, totalExtractBytes - diagnostics.counters.extracted_bytes);
         const extracted = await extractArtifactText({ archiveBuffer, maxEntries: entryLimit, maxChars, maxBytes });
+        capture.members = extracted?.members || null;
+        capture.member_count = extracted?.memberCount ?? null;
+        capture.member_inventory_complete = extracted?.memberInventoryComplete === true;
+        capture.listing_sha256 = extracted?.listingSha256 || null;
+        capture.status = extracted?.truncated || !extracted?.text ? 'incomplete' : 'rendered';
+        capture.member_inventory_status = Array.isArray(extracted?.members) ? 'recorded' : 'unavailable';
         diagnostics.counters.extracted_bytes += extracted?.extractedBytes ?? maxBytes;
         diagnostics.counters.entries += extracted?.entryCount || 0;
         diagnostics.counters.unsupported_payloads += extracted?.unsupportedCount || 0;
@@ -1045,6 +1105,7 @@ function buildContextSourceCoverage({ planSources, diffText, diffMaxChars, evide
     stage: 'generated-context',
     acceptance_sources: acceptanceSources,
     acceptance_evidence_sources: acceptanceEvidenceSources,
+    artifact_capture_inventory: evidence.diagnostics?.archive_inventory || [],
     changed_code_sources: changedCodeSources,
     full_diff_artifact: { source: DEFAULT_DIFF_PATH, chars: diff.length, status: diff ? 'included' : 'unavailable' },
   };

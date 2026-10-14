@@ -229,6 +229,45 @@ context character limit. This record describes generated-context availability;
 evaluate/compare prompt coverage separately records later model-budget reductions
 and withholds PASS when required evidence is incomplete.
 
+The Python evaluate/compare entry point emits a
+`workflows-verifier-capture-obligation-manifest/v1` inventory before evaluation.
+The CLI also freezes obligation/gap identities and the complete raw range dependency
+floor in `verifier-capture-reassembly-contract.json`, embedded as
+`capture_reassembly_contract` in existing snapshots. All obligations conservatively
+depend on all captured inputs; conflicting frozen contracts block evaluation.
+This does not establish semantic partitions, missing-proof recovery or native fit.
+It embeds the inventory as `capture_obligations` in an existing
+`verifier-input-manifest.json`, preserving snapshot identity and checking its
+context hash first. It also writes `verifier-capture-obligation-manifest.json`
+locally. Expanded native preflight derives the same inventory from the supplied
+context, retains it in capacity receipts, and blocks capture gaps or prompt
+clipping before token counting or generation. The builder-emitted acceptance-source
+discovery record must be present with an explicit Boolean `required` and
+`status: included`, including when linked issues were not required. Missing or
+malformed discovery cannot establish that the acceptance set is complete.
+Standard retains its existing
+invocation behavior. For explicit expanded invocations,
+`VERIFIER_PARTITION_RECOVERY=diagnostic` enables bounded diagnostic review after
+an exact native overflow. It losslessly partitions the loaded context and supplied
+diff, counts every planned request before generation and checks it again before
+invocation. JSON results retain the global dependency contract, range identities,
+native receipts and all findings/raw outputs. Every range also receives the full
+governing plan, bound by its character count and UTF-8 hash. Missing plans or
+plans that cannot fit within the exact-model request prevent recovery generation.
+Diagnostic completion always remains
+NON_PASS: cross-range obligations still depend on all captured inputs. This does
+not restore unavailable evidence or establish semantic independence. See
+[consumer maintenance](ops/CONSUMER_REPO_MAINTENANCE.md) for bounds and binding limits.
+
+Run and artifact listings have independent finite page and record bounds. The
+collector follows `VERIFIER_EVIDENCE_RUN_PAGES` and `VERIFIER_EVIDENCE_ARTIFACT_PAGES`
+within their record ceilings (expanded uses two/four pages respectively). A full page
+without count or Link metadata requires another bounded read. Changing or
+disappearing counts, invalid/repeated IDs, oversized pages and later-page errors
+leave evidence unavailable while preserving earlier findings. Complete explicit
+references still require complete reference-bearing sources and exact-head
+provenance before they can skip associated-run discovery.
+
 Linked-issue discovery carries an explicit `required` flag for issue-backed plans.
 Evaluate and compare consume its builder-owned pre-CI record: unavailable or
 truncated required discovery prevents PASS even when the retained PR plan is complete.

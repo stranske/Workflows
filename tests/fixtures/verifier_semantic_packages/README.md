@@ -1,0 +1,1 @@
+Synthetic reviewed byte-span fixture for offline semantic-package tests. It demonstrates an independent package and a nontrivial joint package. It supplies no provider result, execution receipt, or authentic PASS authority.

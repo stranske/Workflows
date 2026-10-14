@@ -1,0 +1,10 @@
+{
+  "mutation": "Re-raise capture validation exception instead of emitting FAIL at production CLI boundary",
+  "red_exit": 1,
+  "green_exit": 0,
+  "source_sha256_before_after": "8d215d7c785e2a664ba93226ca40547e690f87d4ecd8fcc8bcbad26ddcbec4c6",
+  "restored_byte_identical": true,
+  "scope": "CLI failure-report boundary only; not native partition/full-source acceptance",
+  "red_summary": "tion.py::test_snapshot_identity_mismatch_blocks_without_overwriting[False]\nFAILED tests/scripts/test_verifier_capture_integration.py::test_snapshot_identity_mismatch_blocks_without_overwriting[True]\nFAILED tests/scripts/test_verifier_capture_integration.py::test_ambiguous_snapshot_blocks_without_repair[False-wrong-schema]\nFAILED tests/scripts/test_verifier_capture_integration.py::test_ambiguous_snapshot_blocks_without_repair[False-duplicate-key]\nFAILED tests/scripts/test_verifier_capture_integration.py::test_ambiguous_snapshot_blocks_without_repair[False-conflicting-obligations]\nFAILED tests/scripts/test_verifier_capture_integration.py::test_ambiguous_snapshot_blocks_without_repair[True-wrong-schema]\nFAILED tests/scripts/test_verifier_capture_integration.py::test_ambiguous_snapshot_blocks_without_repair[True-duplicate-key]\nFAILED tests/scripts/test_verifier_capture_integration.py::test_ambiguous_snapshot_blocks_without_repair[True-conflicting-obligations]\n13 failed, 18 passed in 5.68s\n",
+  "green_summary": "...............................                                          [100%]\n31 passed in 4.35s\n"
+}

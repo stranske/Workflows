@@ -11,6 +11,8 @@ import pytest
 from scripts.langchain import pr_verifier
 from tools import langchain_client
 
+from tests.scripts.verifier_capacity_fakes import complete_capture_context
+
 
 @pytest.fixture(params=["openai", "anthropic"])
 def native(request, monkeypatch):
@@ -57,11 +59,14 @@ def test_configured_native_expanded_reaches_count_and_generation(native, operati
         if operation == "repair":
             result = pr_verifier._parse_llm_response("invalid JSON", provider, client=client)
         elif operation == "compare":
-            result = pr_verifier.ComparisonRunner("context", None, "full request", []).run_single(
-                client, provider, model
-            )
+            result = pr_verifier.ComparisonRunner(
+                complete_capture_context(),
+                None,
+                pr_verifier._prepare_prompt(complete_capture_context(), None),
+                [],
+            ).run_single(client, provider, model)
         else:
-            result = pr_verifier.evaluate_pr("context", provider=provider)
+            result = pr_verifier.evaluate_pr(complete_capture_context(), provider=provider)
     assert result.used_llm, result.error
     counter.assert_called_once()
     prepared, payload = seen[0]
@@ -267,7 +272,7 @@ def test_native_count_failure_never_resolves_an_alternate_judge(native, monkeypa
     resolver = mock.Mock(return_value=(client, provider))
     monkeypatch.setattr(pr_verifier, "_get_llm_client", resolver)
     with mock.patch.object(type(client), "invoke") as invoke:
-        result = pr_verifier.evaluate_pr("context")
+        result = pr_verifier.evaluate_pr(complete_capture_context())
         assert result.verdict == "CONCERNS"
         assert not result.used_llm
         resolver.assert_called_once()
@@ -288,7 +293,7 @@ def test_expanded_generation_transport_failure_never_switches_provider(native, m
     resolver = mock.Mock(return_value=(client, provider))
     monkeypatch.setattr(pr_verifier, "_get_llm_client", resolver)
     with mock.patch.object(type(client), "invoke", side_effect=RuntimeError("401 unavailable")):
-        result = pr_verifier.evaluate_pr("context")
+        result = pr_verifier.evaluate_pr(complete_capture_context())
     assert result.verdict == "CONCERNS" and not result.used_llm
     resolver.assert_called_once()
     counter.assert_called_once()
@@ -417,10 +422,13 @@ def _run_operation(client, provider, model, operation, monkeypatch):
     if operation == "repair":
         return pr_verifier._parse_llm_response("invalid JSON", provider, client=client)
     if operation == "compare":
-        return pr_verifier.ComparisonRunner("context", None, "full request", []).run_single(
-            client, provider, model
-        )
-    return pr_verifier.evaluate_pr("context", provider=provider)
+        return pr_verifier.ComparisonRunner(
+            complete_capture_context(),
+            None,
+            pr_verifier._prepare_prompt(complete_capture_context(), None),
+            [],
+        ).run_single(client, provider, model)
+    return pr_verifier.evaluate_pr(complete_capture_context(), provider=provider)
 
 
 @pytest.mark.parametrize("operation", ["evaluate", "compare", "repair"])

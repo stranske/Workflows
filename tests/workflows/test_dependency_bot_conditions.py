@@ -3,6 +3,7 @@ import pathlib
 import re
 
 import yaml
+from scripts.generate_consumer_renovate_ownership import OWNER_EXCLUDED_REPOS
 from scripts.list_registered_consumer_repos import extract_repos
 
 WORKFLOW_ROOT = pathlib.Path(".github/workflows")
@@ -61,7 +62,11 @@ def test_consumer_renovate_cannot_edit_maint68_owned_workflows():
     Manager-Database#1347) that were closed unmerged because the next sync
     reverts them.
     """
-    consumers = [repo for repo in extract_repos(SYNC_WORKFLOW) if repo != "stranske/Workflows"]
+    consumers = [
+        repo
+        for repo in extract_repos(SYNC_WORKFLOW)
+        if repo != "stranske/Workflows" and repo.casefold() not in OWNER_EXCLUDED_REPOS
+    ]
     assert consumers
 
     for repo in consumers:
@@ -93,6 +98,7 @@ def test_consumer_owned_ci_workflow_stays_renovate_eligible():
         repo
         for repo in extract_repos(SYNC_WORKFLOW)
         if repo not in {"stranske/Workflows", "stranske/Template"}
+        and repo.casefold() not in OWNER_EXCLUDED_REPOS
     ]
     assert consumers
 

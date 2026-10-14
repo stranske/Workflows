@@ -1,0 +1,335 @@
+.............................................................FFFFFFF.... [ 94%]
+..FF                                                                     [100%]
+=================================== FAILURES ===================================
+______ test_byte_inventory_rejects_incomplete_or_conflicting_ranges[drop] ______
+
+damage = 'drop'
+
+    @pytest.mark.parametrize("damage", ["drop", "duplicate", "hash", "offset", "identity", "unknown"])
+    def test_byte_inventory_rejects_incomplete_or_conflicting_ranges(damage):
+        from tools.verifier_capture_obligation_manifest import (
+            build_capture_byte_inventory,
+            validate_capture_byte_inventory,
+        )
+    
+        inputs = {"context": b"first\r\n" + b"x" * 70000, "diff": b"late proof"}
+        inventory = build_capture_byte_inventory(inputs)
+        validate_capture_byte_inventory(inventory, inputs)
+        ranges = inventory["inputs"][0]["ranges"]
+        if damage == "drop":
+            ranges.pop()
+        elif damage == "duplicate":
+            ranges.append(copy.deepcopy(ranges[0]))
+        elif damage == "hash":
+            ranges[0]["sha256"] = "0" * 64
+        elif damage == "offset":
+            ranges[0]["start"] = 1
+        elif damage == "identity":
+            ranges[0]["id"] = "substituted"
+        else:
+            inventory["schema"] = "unknown"
+>       with pytest.raises(ValueError, match="byte inventory"):
+E       Failed: DID NOT RAISE ValueError
+
+tests/tools/test_verifier_capture_obligation_manifest.py:278: Failed
+___ test_byte_inventory_rejects_incomplete_or_conflicting_ranges[duplicate] ____
+
+damage = 'duplicate'
+
+    @pytest.mark.parametrize("damage", ["drop", "duplicate", "hash", "offset", "identity", "unknown"])
+    def test_byte_inventory_rejects_incomplete_or_conflicting_ranges(damage):
+        from tools.verifier_capture_obligation_manifest import (
+            build_capture_byte_inventory,
+            validate_capture_byte_inventory,
+        )
+    
+        inputs = {"context": b"first\r\n" + b"x" * 70000, "diff": b"late proof"}
+        inventory = build_capture_byte_inventory(inputs)
+        validate_capture_byte_inventory(inventory, inputs)
+        ranges = inventory["inputs"][0]["ranges"]
+        if damage == "drop":
+            ranges.pop()
+        elif damage == "duplicate":
+            ranges.append(copy.deepcopy(ranges[0]))
+        elif damage == "hash":
+            ranges[0]["sha256"] = "0" * 64
+        elif damage == "offset":
+            ranges[0]["start"] = 1
+        elif damage == "identity":
+            ranges[0]["id"] = "substituted"
+        else:
+            inventory["schema"] = "unknown"
+>       with pytest.raises(ValueError, match="byte inventory"):
+E       Failed: DID NOT RAISE ValueError
+
+tests/tools/test_verifier_capture_obligation_manifest.py:278: Failed
+______ test_byte_inventory_rejects_incomplete_or_conflicting_ranges[hash] ______
+
+damage = 'hash'
+
+    @pytest.mark.parametrize("damage", ["drop", "duplicate", "hash", "offset", "identity", "unknown"])
+    def test_byte_inventory_rejects_incomplete_or_conflicting_ranges(damage):
+        from tools.verifier_capture_obligation_manifest import (
+            build_capture_byte_inventory,
+            validate_capture_byte_inventory,
+        )
+    
+        inputs = {"context": b"first\r\n" + b"x" * 70000, "diff": b"late proof"}
+        inventory = build_capture_byte_inventory(inputs)
+        validate_capture_byte_inventory(inventory, inputs)
+        ranges = inventory["inputs"][0]["ranges"]
+        if damage == "drop":
+            ranges.pop()
+        elif damage == "duplicate":
+            ranges.append(copy.deepcopy(ranges[0]))
+        elif damage == "hash":
+            ranges[0]["sha256"] = "0" * 64
+        elif damage == "offset":
+            ranges[0]["start"] = 1
+        elif damage == "identity":
+            ranges[0]["id"] = "substituted"
+        else:
+            inventory["schema"] = "unknown"
+>       with pytest.raises(ValueError, match="byte inventory"):
+E       Failed: DID NOT RAISE ValueError
+
+tests/tools/test_verifier_capture_obligation_manifest.py:278: Failed
+_____ test_byte_inventory_rejects_incomplete_or_conflicting_ranges[offset] _____
+
+damage = 'offset'
+
+    @pytest.mark.parametrize("damage", ["drop", "duplicate", "hash", "offset", "identity", "unknown"])
+    def test_byte_inventory_rejects_incomplete_or_conflicting_ranges(damage):
+        from tools.verifier_capture_obligation_manifest import (
+            build_capture_byte_inventory,
+            validate_capture_byte_inventory,
+        )
+    
+        inputs = {"context": b"first\r\n" + b"x" * 70000, "diff": b"late proof"}
+        inventory = build_capture_byte_inventory(inputs)
+        validate_capture_byte_inventory(inventory, inputs)
+        ranges = inventory["inputs"][0]["ranges"]
+        if damage == "drop":
+            ranges.pop()
+        elif damage == "duplicate":
+            ranges.append(copy.deepcopy(ranges[0]))
+        elif damage == "hash":
+            ranges[0]["sha256"] = "0" * 64
+        elif damage == "offset":
+            ranges[0]["start"] = 1
+        elif damage == "identity":
+            ranges[0]["id"] = "substituted"
+        else:
+            inventory["schema"] = "unknown"
+>       with pytest.raises(ValueError, match="byte inventory"):
+E       Failed: DID NOT RAISE ValueError
+
+tests/tools/test_verifier_capture_obligation_manifest.py:278: Failed
+____ test_byte_inventory_rejects_incomplete_or_conflicting_ranges[identity] ____
+
+damage = 'identity'
+
+    @pytest.mark.parametrize("damage", ["drop", "duplicate", "hash", "offset", "identity", "unknown"])
+    def test_byte_inventory_rejects_incomplete_or_conflicting_ranges(damage):
+        from tools.verifier_capture_obligation_manifest import (
+            build_capture_byte_inventory,
+            validate_capture_byte_inventory,
+        )
+    
+        inputs = {"context": b"first\r\n" + b"x" * 70000, "diff": b"late proof"}
+        inventory = build_capture_byte_inventory(inputs)
+        validate_capture_byte_inventory(inventory, inputs)
+        ranges = inventory["inputs"][0]["ranges"]
+        if damage == "drop":
+            ranges.pop()
+        elif damage == "duplicate":
+            ranges.append(copy.deepcopy(ranges[0]))
+        elif damage == "hash":
+            ranges[0]["sha256"] = "0" * 64
+        elif damage == "offset":
+            ranges[0]["start"] = 1
+        elif damage == "identity":
+            ranges[0]["id"] = "substituted"
+        else:
+            inventory["schema"] = "unknown"
+>       with pytest.raises(ValueError, match="byte inventory"):
+E       Failed: DID NOT RAISE ValueError
+
+tests/tools/test_verifier_capture_obligation_manifest.py:278: Failed
+____ test_byte_inventory_rejects_incomplete_or_conflicting_ranges[unknown] _____
+
+damage = 'unknown'
+
+    @pytest.mark.parametrize("damage", ["drop", "duplicate", "hash", "offset", "identity", "unknown"])
+    def test_byte_inventory_rejects_incomplete_or_conflicting_ranges(damage):
+        from tools.verifier_capture_obligation_manifest import (
+            build_capture_byte_inventory,
+            validate_capture_byte_inventory,
+        )
+    
+        inputs = {"context": b"first\r\n" + b"x" * 70000, "diff": b"late proof"}
+        inventory = build_capture_byte_inventory(inputs)
+        validate_capture_byte_inventory(inventory, inputs)
+        ranges = inventory["inputs"][0]["ranges"]
+        if damage == "drop":
+            ranges.pop()
+        elif damage == "duplicate":
+            ranges.append(copy.deepcopy(ranges[0]))
+        elif damage == "hash":
+            ranges[0]["sha256"] = "0" * 64
+        elif damage == "offset":
+            ranges[0]["start"] = 1
+        elif damage == "identity":
+            ranges[0]["id"] = "substituted"
+        else:
+            inventory["schema"] = "unknown"
+>       with pytest.raises(ValueError, match="byte inventory"):
+E       Failed: DID NOT RAISE ValueError
+
+tests/tools/test_verifier_capture_obligation_manifest.py:278: Failed
+__________ test_record_binds_raw_ranges_and_rejects_tampered_snapshot __________
+
+tmp_path = PosixPath('/private/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/pytest-of-teacher/pytest-361/test_record_binds_raw_ranges_a0')
+
+    def test_record_binds_raw_ranges_and_rejects_tampered_snapshot(tmp_path):
+        import hashlib
+    
+        from tools.verifier_capture_obligation_manifest import record_capture_obligations
+    
+        raw = _context_block(_complete_coverage()).replace("\n", "\r\n").encode()
+        context = tmp_path / "context.md"
+        context.write_bytes(raw)
+        diff = tmp_path / "diff.patch"
+        diff.write_bytes(b"proof\r\n")
+        snapshot_path = tmp_path / "verifier-input-manifest.json"
+        snapshot_path.write_text(
+            json.dumps(
+                {
+                    "schema": "workflows-verifier-input-snapshot/v1",
+                    "context_sha256": hashlib.sha256(raw).hexdigest(),
+                    "diff_sha256": hashlib.sha256(diff.read_bytes()).hexdigest(),
+                }
+            )
+        )
+        record_capture_obligations(context, diff_path=diff)
+        snapshot = json.loads(snapshot_path.read_text())
+        assert (
+            snapshot["capture_byte_inventory"]["inputs"][0]["sha256"] == hashlib.sha256(raw).hexdigest()
+        )
+        snapshot["capture_byte_inventory"]["inputs"][1]["ranges"].clear()
+        snapshot_path.write_text(json.dumps(snapshot))
+        before = snapshot_path.read_bytes()
+>       with pytest.raises(ValueError, match="byte inventory"):
+E       Failed: DID NOT RAISE ValueError
+
+tests/tools/test_verifier_capture_obligation_manifest.py:310: Failed
+_ test_conflicting_byte_inventory_emits_fail_without_provider_calls[extra_args0] _
+
+tmp_path = PosixPath('/private/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/pytest-of-teacher/pytest-361/test_conflicting_byte_inventor0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x106b9faa0>
+capsys = <_pytest.capture.CaptureFixture object at 0x106a56870>, extra_args = []
+
+    @pytest.mark.parametrize("extra_args", [[], ["--compare"]])
+    def test_conflicting_byte_inventory_emits_fail_without_provider_calls(
+        tmp_path, monkeypatch, capsys, extra_args
+    ):
+        import hashlib
+    
+        context = tmp_path / "context.md"
+        context.write_bytes(b"Pull request: [#7](https://x/pull/7)\r\n")
+        snapshot = tmp_path / "verifier-input-manifest.json"
+        snapshot.write_text(
+            json.dumps(
+                {
+                    "schema": "workflows-verifier-input-snapshot/v1",
+                    "context_sha256": hashlib.sha256(context.read_bytes()).hexdigest(),
+                    "capture_byte_inventory": {"schema": "unknown", "inputs": []},
+                }
+            )
+        )
+        before = snapshot.read_bytes()
+    
+        def forbidden(*args, **kwargs):
+            raise AssertionError("provider evaluation must not run")
+    
+        monkeypatch.setattr(pr_verifier, "evaluate_pr", forbidden)
+        monkeypatch.setattr(pr_verifier, "evaluate_pr_multiple", forbidden)
+        _argv(monkeypatch, tmp_path, context, *extra_args, "--json")
+>       pr_verifier.main()
+
+tests/scripts/test_pr_verifier_capture_obligation_failure.py:116: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+scripts/langchain/pr_verifier.py:5886: in main
+    result = evaluate_pr(context, diff=diff, model=args.model, provider=args.provider)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+args = ('Pull request: [#7](https://x/pull/7)\n',)
+kwargs = {'diff': None, 'model': None, 'provider': None}
+
+    def forbidden(*args, **kwargs):
+>       raise AssertionError("provider evaluation must not run")
+E       AssertionError: provider evaluation must not run
+
+tests/scripts/test_pr_verifier_capture_obligation_failure.py:111: AssertionError
+_ test_conflicting_byte_inventory_emits_fail_without_provider_calls[extra_args1] _
+
+tmp_path = PosixPath('/private/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/pytest-of-teacher/pytest-361/test_conflicting_byte_inventor1')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x106b9d070>
+capsys = <_pytest.capture.CaptureFixture object at 0x106b9fa40>
+extra_args = ['--compare']
+
+    @pytest.mark.parametrize("extra_args", [[], ["--compare"]])
+    def test_conflicting_byte_inventory_emits_fail_without_provider_calls(
+        tmp_path, monkeypatch, capsys, extra_args
+    ):
+        import hashlib
+    
+        context = tmp_path / "context.md"
+        context.write_bytes(b"Pull request: [#7](https://x/pull/7)\r\n")
+        snapshot = tmp_path / "verifier-input-manifest.json"
+        snapshot.write_text(
+            json.dumps(
+                {
+                    "schema": "workflows-verifier-input-snapshot/v1",
+                    "context_sha256": hashlib.sha256(context.read_bytes()).hexdigest(),
+                    "capture_byte_inventory": {"schema": "unknown", "inputs": []},
+                }
+            )
+        )
+        before = snapshot.read_bytes()
+    
+        def forbidden(*args, **kwargs):
+            raise AssertionError("provider evaluation must not run")
+    
+        monkeypatch.setattr(pr_verifier, "evaluate_pr", forbidden)
+        monkeypatch.setattr(pr_verifier, "evaluate_pr_multiple", forbidden)
+        _argv(monkeypatch, tmp_path, context, *extra_args, "--json")
+>       pr_verifier.main()
+
+tests/scripts/test_pr_verifier_capture_obligation_failure.py:116: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+scripts/langchain/pr_verifier.py:5872: in main
+    results = evaluate_pr_multiple(context, diff=diff, model1=args.model, model2=args.model2)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+args = ('Pull request: [#7](https://x/pull/7)\n',)
+kwargs = {'diff': None, 'model1': None, 'model2': None}
+
+    def forbidden(*args, **kwargs):
+>       raise AssertionError("provider evaluation must not run")
+E       AssertionError: provider evaluation must not run
+
+tests/scripts/test_pr_verifier_capture_obligation_failure.py:111: AssertionError
+=========================== short test summary info ============================
+FAILED tests/tools/test_verifier_capture_obligation_manifest.py::test_byte_inventory_rejects_incomplete_or_conflicting_ranges[drop]
+FAILED tests/tools/test_verifier_capture_obligation_manifest.py::test_byte_inventory_rejects_incomplete_or_conflicting_ranges[duplicate]
+FAILED tests/tools/test_verifier_capture_obligation_manifest.py::test_byte_inventory_rejects_incomplete_or_conflicting_ranges[hash]
+FAILED tests/tools/test_verifier_capture_obligation_manifest.py::test_byte_inventory_rejects_incomplete_or_conflicting_ranges[offset]
+FAILED tests/tools/test_verifier_capture_obligation_manifest.py::test_byte_inventory_rejects_incomplete_or_conflicting_ranges[identity]
+FAILED tests/tools/test_verifier_capture_obligation_manifest.py::test_byte_inventory_rejects_incomplete_or_conflicting_ranges[unknown]
+FAILED tests/tools/test_verifier_capture_obligation_manifest.py::test_record_binds_raw_ranges_and_rejects_tampered_snapshot
+FAILED tests/scripts/test_pr_verifier_capture_obligation_failure.py::test_conflicting_byte_inventory_emits_fail_without_provider_calls[extra_args0]
+FAILED tests/scripts/test_pr_verifier_capture_obligation_failure.py::test_conflicting_byte_inventory_emits_fail_without_provider_calls[extra_args1]
+9 failed, 67 passed in 0.41s

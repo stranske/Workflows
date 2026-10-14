@@ -1,0 +1,16 @@
+{
+  "original_sha256": "0b612361149dde59c3fbb5d6b3705cfe130b8bd5bad83c06242842d6e620f54b",
+  "mutant_sha256": "3110596c9c2d0d4d0b4bbee6ac6c723342a17565d53812a871b6d88424a46ce5",
+  "argv": [
+    "/opt/anaconda3/bin/python3",
+    "-m",
+    "pytest",
+    "tests/tools/test_verifier_capture_obligation_manifest.py",
+    "tests/scripts/test_pr_verifier_capture_obligation_failure.py",
+    "-q"
+  ],
+  "cwd": "/Users/teacher/.codex/automations/imi-merge-verify-closer/worktrees/wf3831-validation-20261011T0820Z",
+  "red_exit": 1,
+  "restored_sha256": "0b612361149dde59c3fbb5d6b3705cfe130b8bd5bad83c06242842d6e620f54b",
+  "green_exit": 0
+}

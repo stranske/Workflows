@@ -1,0 +1,10 @@
+{
+  "mutation": "Disable production diff SHA256 snapshot guard",
+  "red_exit": 1,
+  "red_summary": "ib/python3.12/unittest/mock.py:1193: AssertionError\n=========================== short test summary info ============================\nFAILED tests/scripts/test_verifier_capture_integration.py::test_snapshot_diff_binding_blocks_before_evaluation[changed-bytes-False]\nFAILED tests/scripts/test_verifier_capture_integration.py::test_snapshot_diff_binding_blocks_before_evaluation[changed-bytes-True]\nFAILED tests/scripts/test_verifier_capture_integration.py::test_snapshot_diff_binding_blocks_before_evaluation[missing-hash-False]\nFAILED tests/scripts/test_verifier_capture_integration.py::test_snapshot_diff_binding_blocks_before_evaluation[missing-hash-True]\n4 failed, 4 passed, 26 deselected in 0.59s\n",
+  "green_exit": 0,
+  "green_summary": "........                                                                 [100%]\n8 passed, 26 deselected in 0.22s\n",
+  "restored_byte_identical": true,
+  "source_sha256": "6a32a344a38f5e75bdc1eda23204fcaecdf68e64cab72df0ce53aef0602fd513",
+  "scope": "raw supplied diff binding only; no lossless partition/native acceptance claim"
+}
