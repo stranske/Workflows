@@ -2670,3 +2670,9 @@ versions. Bounded prose payloads retain punctuation and opaque quoted literals
 without hiding an independently required sibling destination. Standalone review
 comment requirements must govern the channel itself; product nouns such as a
 parser or support for review comments do not create reviewing-PR evidence duties.
+
+Standalone review-comment requirements accept bounded count and descriptive
+modifiers and a complete obligation predicate. Product complements such as
+required schema fields remain product requirements. Destination list quantifiers
+`both` and `either` may precede the first preposition; existing AND/OR evidence
+floors remain authoritative for each destination.

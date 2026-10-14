@@ -1154,14 +1154,29 @@ def _normalize_review_comment_destinations(acceptance: str) -> str:
         r"\b" + _EVIDENCE_REVIEW_COMMENT_DESTINATION,
         re.I,
     )
+    standalone_predicate_end = (
+        # A bare noun after the predicate is a product complement (for example
+        # "required fields"), while prepositional/conditional tails retain the
+        # ordinary standalone review-delivery duty.
+        r"(?=\s*"
+        + _EVIDENCE_DELIVERY_ADVERBS
+        + r"(?:$|[;,.!?\n]|(?:and|or|but|if|when|only|solely)\b|"
+        r"(?:for|by|with|without|under|during|after|before|due\s+to)\b|"
+        r"(?:in|on)\s+(?:(?:this|the)\s+)?(?:pr|pull request)\b))"
+    )
     standalone_requirement = re.compile(
-        r"\s+(?:is|are)\s+(?:required|needed|mandatory)\b|"
+        r"\s+(?:is|are)\s+(?:required|needed|mandatory)\b" + standalone_predicate_end + r"|"
         r"\s+(?:must|shall)\s+be\s+(?:present|provided|included|attached|posted|"
-        r"required|needed|mandatory)\b",
+        r"required|needed|mandatory)\b" + standalone_predicate_end,
         re.I,
     )
+    standalone_modifier = (
+        r"(?!(?:for|of|in|into|to|on|with|by|from)\b)" + _EVIDENCE_OBJECT_MODIFIER_WORD
+    )
     standalone_subject = re.compile(
-        r"(?:^|[;.!?\n]\s*|(?:[-*+]\s+))(?:(?:the|an?)\s+)?$",
+        r"(?:^|[;.!?\n]\s*|(?:[-*+]\s+))"
+        r"(?:(?:at\s+(?:least|most)|exactly)\s+(?:one|two|\d+)\s+)?"
+        r"(?:(?:the|an?)\s+)?" + r"(?:" + standalone_modifier + r"\s+){0,6}$",
         re.I,
     )
     destination_governor = re.compile(
@@ -1280,7 +1295,9 @@ def _normalize_plain_artifact_destinations(acceptance: str) -> str:
     evidence_head = re.compile(
         r"\b" + evidence_object + r"\b"
         r"(?:\s+(?:must|shall|may|can|should|is|are|to|be|present|available|"
-        r"included|only|solely|required|needed|mandatory|" + delivery_participle + r"))*"
+        r"included|only|solely|both|either|required|needed|mandatory|"
+        + delivery_participle
+        + r"))*"
         r"(?=\s*(?:$|(?:and|or)\s+"
         + _EVIDENCE_DESTINATION_PREPOSITION
         + r"\b|"

@@ -5717,6 +5717,92 @@ def test_issue3835_review_comment_product_subject_is_not_delivery(criterion):
     assert verifier._required_evidence_options(criterion) == [set()]
 
 
+@pytest.mark.parametrize(
+    "criterion",
+    [
+        "At least one PR review comment is required",
+        "A detailed review comment is required",
+        "At least two detailed review comments are required",
+    ],
+)
+def test_issue3835_counted_or_descriptive_review_comment_subject_is_delivery(criterion):
+    assert verifier._required_evidence_channels(criterion) == {"comments"}
+    assert verifier._required_evidence_options(criterion) == [{"comments"}]
+    assert _floor_verdict(criterion, body="present", comments="absent") == "CONCERNS"
+
+
+def test_issue3835_review_comment_product_complement_is_not_delivery():
+    for criterion in (
+        "Review comments are required fields in the response schema",
+        "Review comments must be required fields in the response schema",
+        "Review comments are required input metadata",
+        "Review comments must be required metadata",
+        "Review comments are required in the response schema",
+    ):
+        assert verifier._required_evidence_channels(criterion) == set()
+        assert verifier._required_evidence_options(criterion) == [set()]
+        assert _floor_verdict(criterion, body="present", comments="absent") == "PASS"
+    criterion = "Review comments are required fields in the response schema"
+    independent = criterion + "; an independent reviewer must record evidence in a PR comment"
+    assert verifier._required_evidence_channels(independent) == {"comments"}
+    assert _floor_verdict(independent, body="present", comments="absent") == "CONCERNS"
+    assert verifier._required_evidence_channels("A review comment is required for this PR") == {
+        "comments"
+    }
+
+
+@pytest.mark.parametrize(
+    "criterion",
+    [
+        "A review comment must be provided by the reviewer",
+        "Review comments are required for the audit",
+        "A review comment is required due to policy",
+        "A PR review comment is required in this PR",
+        "A review comment must be posted on the pull request",
+    ],
+)
+def test_issue3835_standalone_requirement_prepositional_tail_is_delivery(criterion):
+    assert verifier._required_evidence_channels(criterion) == {"comments"}
+    assert verifier._required_evidence_options(criterion) == [{"comments"}]
+    assert _floor_verdict(criterion, body="present", comments="absent") == "CONCERNS"
+
+
+@pytest.mark.parametrize("quantifier,operator", [("both", "and"), ("either", "or")])
+def test_issue3835_quantifier_before_destination_preposition(quantifier, operator):
+    criterion = f"Evidence must be posted {quantifier} in a PR comment {operator} in an artifact"
+    assert verifier._required_evidence_channels(criterion) == {"comments", "artifacts"}
+    options = verifier._required_evidence_options(criterion)
+    if operator == "or":
+        assert {frozenset(option) for option in options} == {
+            frozenset({"comments"}),
+            frozenset({"artifacts"}),
+        }
+    else:
+        assert options == [{"comments", "artifacts"}]
+    if operator == "and":
+        assert (
+            _floor_verdict(criterion, body="present", comments="absent", artifacts="present")
+            == "CONCERNS"
+        )
+        assert (
+            _floor_verdict(criterion, body="present", comments="present", artifacts="absent")
+            == "CONCERNS"
+        )
+    else:
+        assert (
+            _floor_verdict(criterion, body="present", comments="present", artifacts="absent")
+            == "PASS"
+        )
+        assert (
+            _floor_verdict(criterion, body="present", comments="absent", artifacts="present")
+            == "PASS"
+        )
+        assert (
+            _floor_verdict(criterion, body="present", comments="absent", artifacts="absent")
+            == "CONCERNS"
+        )
+
+
 @pytest.mark.parametrize("prefix", ["the", "our", "their", "each appointed"])
 @pytest.mark.parametrize("boundary", [" and ", ", and ", " but ", " while "])
 @pytest.mark.parametrize("artifact", ["an artifact", "a workflow artifact"])
