@@ -428,6 +428,8 @@ Complete omitted paths remain in coverage metadata. Binary descriptors and
 diff summaries cannot provide sufficient changed-code coverage. This file is
 copy-delivered from `scripts/langchain/pr_verifier.py` to the same consumer path
 by the `scripts` entry in `.github/sync-manifest.yml`, which includes Doc-Lineage.
+Active `as an artifact` deliveries and explicit `PR review comment` / `inline review comment`
+destinations share the same channel grammar as workflow artifacts and PR comments.
 
 For merged PRs, the context builder retrieves original first-commit metadata
 and uses the historical merge parent to anchor the local full diff. An unchanged
@@ -2231,6 +2233,9 @@ condition remains on the parent delivery instead of disappearing with that
 nongating metadata. Both attachment positions
 are covered for nominal evidence, reviewer and product actors, channel aliases,
 independent artifact duties and actual missing-channel satisfaction.
+Negative content normalization consumes a condition attached to that discarded
+content; it must not migrate onto the parent's mandatory destination list.
+Conditions after the complete parent list retain their original scope.
 The same shared `if`/`when` evidence-condition vocabulary stays attached to a
 relative presence predicate before its parent destination tail is restored;
 comma-delimited conditions cannot sever or make optional a parent's sibling.
@@ -2251,6 +2256,71 @@ Active proof delivery also recognizes `as an artifact`, including evidence,
 coverage reports and common validation outputs. PR review comments and inline
 review comments share the ordinary PR-comment destination grammar before both
 channel classification and destination-OR expansion; quoted input stays literal.
+Bare `review comment` has the same discovery and OR semantics as qualified
+PR/inline aliases, including standalone required comments. Copy/copied/copying
+use the shared record-delivery grammar rather than a separate positive matcher.
+Destination-first `- [ ] PR comment with test evidence` is normalized to the
+existing noun-first checklist grammar, retaining trailing optionality, negation,
+product-capability boundaries and independent reviewer obligations.
+This normalization precedes destination-OR expansion too. Repeated identical
+delivery verbs retain their shared optional or negative governor, while negative
+adjectives on the evidence object do not erase a mandatory delivery. Product
+capability complements include passive proof objects (`allow evidence to be
+attached as an artifact`) and coordinated bare PR destinations in either order;
+neither boundary can suppress an independent reviewer delivery. An attached
+`which may be skipped` qualifier keeps that delivery optional, not its siblings.
+Passive product-capability complements are canonicalized before both channel
+classification and OR expansion, so mixed artifact/PR alternatives retain the
+same product governor rather than inventing a mandatory artifact or overall floor.
+Mandatory OR destination lists accept both plain `an artifact` and qualified
+workflow artifacts, in either order with a PR-body/comment alternative. At least
+one allowed delivery and every independent mandatory clause must remain present.
+Each OR member retains its explicit preposition; `as an artifact` is not
+rewritten to `in an artifact` merely because the first member uses `in`.
+Bounded plain artifact destinations normalize before both classifiers, so AND
+lists retain both required destinations too. A complete product-capability
+destination list remains nongating in either order; independently governed
+reviewer duties and relative presence predicates are not consumed by that list.
+Independent coordinated clauses use the shared bounded recipient-prefix grammar,
+including possessive determiners and qualified actors. Comma-separated `and`,
+`but` and `while` preserve the boundary in both directions: a product capability
+cannot invent an artifact duty beside a reviewer, and an independent product
+clause cannot inherit an earlier evidence-delivery governor. Same-subject
+product predicates likewise do not borrow an earlier delivery:
+destination-list prepositions, fresh evidence deliveries and explicit delivery
+pronouns retain their scope, but a following domain operation does not. Qualified
+`pull-request review comment` aliases normalize atomically with their unhyphenated
+counterparts; bare-alias rewriting cannot discard their mandatory comment floor.
+Product API nouns and quoted literals remain nongating. Bare artifact and
+review-comment aliases still require evidence-delivery or standalone requirement
+context; API/component domain nouns are not review evidence. Negative content
+qualifiers do not impose presence, while affirmative relative presence survives.
+Artifact evidence and review-comment aliases must complete the delivered object,
+not prefix product compounds such as evidence metadata, records or provenance,
+or review-comment state and fields. Both normalizers share the bounded object
+completion rule. Evidence files, bundles and packages are delivery payloads;
+review-comment content introduced by `about`, `regarding` or `concerning` remains
+content rather than a product component. Genuine prepositions, adverbs, content
+qualifiers, alternatives and independent reviewer deliveries retain their evidence
+floors, including mandatory, optional and negative delivery polarity. Payload
+nouns use the shared proof-object aliases, and bounded review-content qualifiers
+are consumed before destination lists: every AND sibling retains its floor and
+each OR alternative remains independently sufficient in either destination order.
+Bare trailing artifacts inherit a preposition only after an actual review
+destination, never from object conjunctions such as `evidence and artifacts`.
+Prepositional content consumes up to16words through the next concrete destination
+or independent clause, including ordinary `test coverage` and `implementation
+details` descriptions. Product capability normalization retains a proof antecedent
+for an independent reviewer pronoun delivery to a PR or artifact destination.
+Destination nouns cannot replace that proof antecedent. Product actors use one
+shared grammar in normalization and channel suppression, including app, parser,
+schema and module capabilities; independent reviewer deliveries remain binding.
+Artifact payload relatives in destination lists keep the parent delivery modality;
+mandatory content does not invent presence under an optional or negative parent.
+PR-body/comment relative-presence conditions keep their independent semantics.
+Pure grammar results use
+a bounded 512-entry cache for criteria up to 8192 characters; callers receive
+fresh containers, and evidence availability and provider results are never cached.
 Checklist shorthand accepts the common test/validation proof nouns, so
 `Validation output in a PR comment` retains comments as its required channel.
 Negative, optional and product-capability clauses keep their existing semantics.
@@ -2766,6 +2836,24 @@ runtime exports and licenses, and update the source and consumer template trees
 together before Maint 68/71 delivery. The current patched chain is minimatch
 10.2.6, brace-expansion 5.0.12 and balanced-match 4.0.4. Brace-expansion requires
 Node 20 or >=22; the current Actions runtime supports that floor, not Node 18.
+
+Evidence destination parsing preserves non-sentence periods in filenames and
+versions. Bounded prose payloads retain punctuation and opaque quoted literals
+without hiding an independently required sibling destination. Standalone review
+comment requirements must govern the channel itself; product nouns such as a
+parser or support for review comments do not create reviewing-PR evidence duties.
+
+Standalone review-comment requirements accept bounded count and descriptive
+modifiers and a complete obligation predicate. Product complements such as
+required schema fields remain product requirements. Destination list quantifiers
+`both` and `either` may precede the first preposition; existing AND/OR evidence
+floors remain authoritative for each destination.
+
+Coordinated count modifiers such as `one or more` retain the same required
+comment duty and are not destination alternatives. Bounded maintainer
+attributions before a standalone predicate retain that duty. Active bare
+artifact delivery must govern a recognized proof payload; product publications
+to product recipients stay nongating unless a separate reviewer duty exists.
 
 Maint68 removes owner-excluded repositories from its authoritative registered
 consumer list and filters direct phase-selection inputs and canaries before

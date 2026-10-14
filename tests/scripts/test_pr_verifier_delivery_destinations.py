@@ -1364,6 +1364,29 @@ def test_relative_presence_preserves_parent_mandatory_alternatives(
         )
 
 
+def test_negative_content_condition_does_not_migrate_to_parent_delivery():
+    criterion = (
+        "The reviewer must record evidence in a PR comment and the PR body "
+        "that must not contain command output if available"
+    )
+    assert verifier._normalize_review_content_qualifiers(criterion) == (
+        "The reviewer must record evidence in a PR comment and the PR body"
+    )
+    assert verifier._required_evidence_options(criterion) == [{"body", "comments"}]
+    assert _floor_verdict(criterion, body="present", comments="absent") == "CONCERNS"
+
+
+def test_negative_content_keeps_condition_after_complete_parent_list():
+    criterion = (
+        "The reviewer must record evidence in the PR body that must not contain "
+        "command output and in a PR comment if available"
+    )
+    assert verifier._normalize_review_content_qualifiers(criterion) == (
+        "The reviewer must record evidence in the PR body and in a PR comment if available"
+    )
+    assert verifier._required_evidence_options(criterion) == [set()]
+
+
 @pytest.mark.parametrize(
     "qualifier",
     [
@@ -5119,8 +5142,12 @@ def test_issue3835_delivery_destinations(criterion, channel):
         "Evidence may be posted in an inline review comment",
         "The UI allows users to post evidence in a PR review comment",
         'The parser recognizes "Evidence must be posted in a PR review comment"',
+        "- [ ] Validation output in a PR comment is optional",
         "- [ ] Validation output in a PR comment is not required",
+        "- [ ] Validation output in a PR comment may be skipped",
         "- [ ] Validation results in a PR comment only if available",
+        "The product can show Validation output in a PR comment",
+        "The UI must allow Validation output in a PR comment",
         "The UI allows users to record validation output in a PR comment",
         'The parser recognizes "- [ ] Validation output in a PR comment"',
     ],
@@ -5158,3 +5185,1660 @@ def test_issue3835_as_artifact_reuses_shared_delivery_operations(operation):
 def test_issue3835_review_comment_alternative_keeps_shared_options():
     criterion = "Evidence must be posted in a PR review comment or in the PR body"
     assert verifier._required_evidence_options(criterion) == [{"comments"}, {"body"}]
+
+
+def test_issue3835_optional_validation_output_keeps_independent_mandatory():
+    """Post-destination optionality must not invent overall or mask a sibling delivery."""
+    optional = "- [ ] Validation output in a PR comment is optional"
+    assert verifier._required_evidence_channels(optional) == set()
+    assert verifier._required_evidence_channels(
+        optional + "; provide command output in a PR comment"
+    ) == {"comments"}
+    assert verifier._required_evidence_channels(
+        optional + "; the reviewer must record evidence in the PR body"
+    ) == {"body"}
+
+
+@pytest.mark.parametrize(
+    "destination",
+    ["PR review comment", "pull request review comment", "inline review comment", "review comment"],
+)
+@pytest.mark.parametrize(
+    "criterion",
+    [
+        "A {destination} is required",
+        "The reviewer must leave a {destination}",
+        "The reviewer must leave at least one {destination}",
+        "The reviewer must leave a detailed {destination}",
+        "Test results must be posted in a {destination}",
+    ],
+)
+def test_issue3835_review_alias_discovery_and_missing_floor(destination, criterion):
+    text = criterion.format(destination=destination)
+    assert verifier._required_evidence_channels(text) == {"comments"}
+    assert verifier._required_evidence_options(text) == [{"comments"}]
+    for missing in ("absent", "unavailable"):
+        assert _floor_verdict(text, body="present", comments=missing) == "CONCERNS"
+
+
+@pytest.mark.parametrize(
+    "destination",
+    ["PR review comment", "pull request review comment", "inline review comment", "review comment"],
+)
+@pytest.mark.parametrize("reverse", [False, True])
+@pytest.mark.parametrize("independent", [False, True])
+def test_issue3835_review_alias_or_destinations(destination, reverse, independent):
+    choices = ["the PR body", "a " + destination]
+    if reverse:
+        choices.reverse()
+    text = "Evidence must be posted in either " + " or ".join(choices)
+    suffix = "; the auditor must upload evidence in a workflow artifact" if independent else ""
+    options = verifier._required_evidence_options(text + suffix)
+    extra = {"artifacts"} if independent else set()
+    assert {frozenset(option) for option in options} == {
+        frozenset({"body"} | extra),
+        frozenset({"comments"} | extra),
+    }
+    assert _floor_verdict(text + suffix, body="present", comments="absent") == "PASS"
+    assert _floor_verdict(text + suffix, body="absent", comments="present") == "PASS"
+    assert _floor_verdict(text + suffix, body="absent", comments="absent") == "CONCERNS"
+    if independent:
+        assert (
+            _floor_verdict(text + suffix, body="present", comments="present", artifacts="absent")
+            == "CONCERNS"
+        )
+
+
+@pytest.mark.parametrize(
+    "destination", ["PR review comment", "inline review comment", "review comment"]
+)
+@pytest.mark.parametrize(
+    "text",
+    [
+        "A {destination} is not required",
+        "A {destination} is no longer required",
+        "The reviewer is not expected to leave a {destination}",
+        "The reviewer is not supposed to leave a {destination}",
+        "No {destination} is required",
+        "The UI allows users to leave a {destination}",
+        'The parser recognizes "A {destination} is required"',
+    ],
+)
+@pytest.mark.parametrize("independent", [False, True])
+def test_issue3835_review_alias_polarity_and_product_controls(destination, text, independent):
+    criterion = text.format(destination=destination)
+    if independent:
+        criterion += "; the auditor must post evidence in the PR body"
+    expected = {"body"} if independent else set()
+    assert verifier._required_evidence_channels(criterion) == expected
+    assert verifier._required_evidence_options(criterion) == [expected]
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Copy the command output into a PR comment",
+        "The reviewer must copy optional archived evidence into a PR comment",
+        "Evidence must be copied into a PR comment",
+        "- [ ] PR comment with test evidence",
+    ],
+)
+def test_issue3835_retained_canary_counterexamples(text):
+    assert verifier._required_evidence_channels(text) == {"comments"}
+    assert verifier._required_evidence_options(text) == [{"comments"}]
+    assert _floor_verdict(text, body="present", comments="absent") == "CONCERNS"
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Do not copy command output into a PR comment",
+        "No need to copy evidence into a PR comment",
+        "The reviewer is not expected to copy evidence into a PR comment",
+        "The reviewer is not supposed to copy evidence into a PR comment",
+        "Evidence must not be copied into a PR comment",
+        "Evidence may be copied into a PR comment",
+        "The UI allows users to copy evidence into a PR comment",
+        "The UI allows users to copy and copy evidence into a PR comment",
+        "Evidence can be copied into a PR comment by the application",
+        "- [ ] PR comment with test evidence is optional",
+        "- [ ] PR comment with test evidence is no longer required",
+        "- [ ] PR comment with test evidence only if available",
+        'The parser recognizes "Copy the command output into a PR comment"',
+    ],
+)
+@pytest.mark.parametrize("independent", [False, True])
+def test_issue3835_copy_and_destination_first_controls(text, independent):
+    if independent:
+        text += "; the reviewer must record evidence in the PR body"
+    expected = {"body"} if independent else set()
+    assert verifier._required_evidence_channels(text) == expected
+    assert verifier._required_evidence_options(text) == [expected]
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "The reviewer may copy and copy evidence into a PR comment",
+        "Do not copy and copy evidence into a PR comment",
+        "The UI must allow evidence to be provided as an artifact",
+        "The UI must allow evidence to be attached as an artifact",
+        "The UI allows reviewers to copy evidence into a PR comment and copy evidence into the PR body",
+        "The UI allows reviewers to record evidence into a PR comment and record evidence into the PR body",
+        "Attach evidence as an artifact, which may be skipped",
+    ],
+)
+@pytest.mark.parametrize("independent", [False, True])
+def test_issue3835_assessment_nongating_counterexamples(text, independent):
+    if independent:
+        text += "; the auditor must upload evidence in a workflow artifact"
+    expected = {"artifacts"} if independent else set()
+    assert verifier._required_evidence_channels(text) == expected
+    assert verifier._required_evidence_options(text) == [expected]
+    assert _floor_verdict(text, body="present", comments="present", artifacts="absent") == (
+        "CONCERNS" if independent else "PASS"
+    )
+
+
+@pytest.mark.parametrize("qualifier", ["not expected", "not supposed", "no longer required"])
+def test_issue3835_copy_object_polarity_is_not_governor(qualifier):
+    text = f"The reviewer must copy {qualifier} validation output into a PR comment"
+    assert verifier._required_evidence_channels(text) == {"comments"}
+    assert _floor_verdict(text, body="present", comments="absent") == "CONCERNS"
+
+
+def test_issue3835_destination_first_alternative_uses_shared_normalization():
+    text = "- [ ] PR comment with test evidence or in the PR body"
+    assert verifier._required_evidence_options(text) == [{"comments"}, {"body"}]
+    assert _floor_verdict(text, body="present", comments="absent") == "PASS"
+    assert _floor_verdict(text, body="absent", comments="present") == "PASS"
+    assert _floor_verdict(text, body="absent", comments="absent") == "CONCERNS"
+
+
+@pytest.mark.parametrize("operation", ["copy", "record", "post", "provide"])
+@pytest.mark.parametrize("governor,required", [("must", True), ("may", False), ("must not", False)])
+def test_issue3835_repeated_operation_preserves_governor(operation, governor, required):
+    text = f"The reviewer {governor} {operation} and {operation} evidence into a PR comment"
+    expected = {"comments"} if required else set()
+    assert verifier._required_evidence_channels(text) == expected
+    assert verifier._required_evidence_options(text) == [expected]
+
+
+@pytest.mark.parametrize("first,second", [("PR comment", "PR body"), ("PR body", "PR comment")])
+@pytest.mark.parametrize("operation", ["copy", "record", "post", "provide"])
+def test_issue3835_bare_capability_coordination_is_channel_symmetric(first, second, operation):
+    text = f"The UI allows reviewers to {operation} evidence into a {first} and {operation} evidence into the {second}"
+    assert verifier._required_evidence_channels(text) == set()
+    assert verifier._required_evidence_channels(
+        text + "; the reviewer must post evidence in a PR comment"
+    ) == {"comments"}
+
+
+@pytest.mark.parametrize("operation", ["attached", "provided"])
+@pytest.mark.parametrize("artifact", ["an artifact", "a workflow artifact"])
+@pytest.mark.parametrize("destination", ["the PR body", "a PR comment"])
+@pytest.mark.parametrize("independent", [False, True])
+@pytest.mark.parametrize("reverse", [False, True])
+def test_issue3835_passive_capability_destination_or_is_nongating(
+    operation, artifact, destination, independent, reverse
+):
+    choices = [f"as {artifact}", f"in {destination}"]
+    if reverse:
+        choices.reverse()
+    text = f"The UI must allow evidence to be {operation} " + " or ".join(choices)
+    if independent:
+        text += "; the reviewer must post evidence in a PR comment"
+    expected = {"comments"} if independent else set()
+    assert verifier._required_evidence_channels(text) == expected
+    assert verifier._required_evidence_options(text) == [expected]
+    assert _floor_verdict(text, body="present", comments="present", artifacts="absent") == "PASS"
+
+
+@pytest.mark.parametrize("artifact", ["an artifact", "a workflow artifact"])
+@pytest.mark.parametrize(
+    "destination,channel", [("the PR body", "body"), ("a PR review comment", "comments")]
+)
+@pytest.mark.parametrize("reverse", [False, True])
+@pytest.mark.parametrize("independent", [False, True])
+def test_issue3835_bare_artifact_or_retains_all_mandatory_alternatives(
+    artifact, destination, channel, reverse, independent
+):
+    choices = [f"as {artifact}", f"in {destination}"]
+    if reverse:
+        choices.reverse()
+    text = "Evidence must be attached " + " or ".join(choices)
+    extra = {"comments"} if independent else set()
+    if independent:
+        text += "; the reviewer must post evidence in a PR comment"
+    assert {frozenset(option) for option in verifier._required_evidence_options(text)} == {
+        frozenset({"artifacts"} | extra),
+        frozenset({channel} | extra),
+    }
+    assert _floor_verdict(text, body="present", comments="present", artifacts="absent") == "PASS"
+    assert (
+        _floor_verdict(
+            text,
+            body="absent",
+            comments="present" if independent else "absent",
+            artifacts="present",
+        )
+        == "PASS"
+    )
+    assert _floor_verdict(text, body="absent", comments="absent", artifacts="absent") == "CONCERNS"
+
+
+@pytest.mark.parametrize("artifact", ["an artifact", "a workflow artifact"])
+@pytest.mark.parametrize("reverse", [False, True])
+@pytest.mark.parametrize("independent", [False, True])
+def test_issue3835_artifact_and_keeps_both_destinations(artifact, reverse, independent):
+    choices = [f"as {artifact}", "in the PR body"]
+    if reverse:
+        choices.reverse()
+    text = "Evidence must be attached " + " and ".join(choices)
+    expected = {"artifacts", "body"}
+    if independent:
+        text += "; the reviewer must post evidence in a PR comment"
+        expected.add("comments")
+    assert verifier._required_evidence_channels(text) == expected
+    assert verifier._required_evidence_options(text) == [expected]
+    assert (
+        _floor_verdict(text, body="present", comments="present", artifacts="absent") == "CONCERNS"
+    )
+    assert (
+        _floor_verdict(text, body="absent", comments="present", artifacts="present") == "CONCERNS"
+    )
+
+
+@pytest.mark.parametrize("coordination", ["and", "or"])
+@pytest.mark.parametrize("artifact", ["an artifact", "a workflow artifact"])
+@pytest.mark.parametrize("reverse", [False, True])
+@pytest.mark.parametrize("joiner", [" and ", "; "])
+def test_issue3835_product_list_keeps_independent_reviewer_only(
+    coordination, artifact, reverse, joiner
+):
+    """Product destination lists must not invent artifact duty beside a reviewer."""
+    choices = ["in the PR body", f"as {artifact}"]
+    if reverse:
+        choices.reverse()
+    text = (
+        "The UI must allow evidence to be attached "
+        + f" {coordination} ".join(choices)
+        + f"{joiner}the reviewer must post evidence in a PR review comment"
+    )
+    assert verifier._required_evidence_channels(text) == {"comments"}
+    assert verifier._required_evidence_options(text) == [{"comments"}]
+    assert (
+        _floor_verdict(text, body="present", comments="absent", artifacts="present") == "CONCERNS"
+    )
+    assert _floor_verdict(text, body="absent", comments="present", artifacts="absent") == "PASS"
+
+
+@pytest.mark.parametrize(
+    "qualifier",
+    [
+        "that must not contain command output",
+        "which must not contain command output",
+        "that must not include command output",
+        "containing command output",
+    ],
+)
+@pytest.mark.parametrize("artifact", ["an artifact", "a workflow artifact"])
+@pytest.mark.parametrize("reverse", [False, True])
+@pytest.mark.parametrize("independent", [False, True])
+def test_issue3835_negative_artifact_content_stays_product_capability(
+    qualifier, artifact, reverse, independent
+):
+    """Artifact-content qualifiers under a product OR invent no artifact duty."""
+    choices = ["in the PR body", f"as {artifact} {qualifier}"]
+    if reverse:
+        choices.reverse()
+    text = "The UI must allow evidence to be attached " + " or ".join(choices)
+    if independent:
+        text += "; the reviewer must post evidence in a PR review comment"
+    expected = {"comments"} if independent else set()
+    assert verifier._required_evidence_channels(text) == expected
+    assert verifier._required_evidence_options(text) == [expected]
+    assert _floor_verdict(text, body="present", comments="present", artifacts="absent") == "PASS"
+    if independent:
+        assert (
+            _floor_verdict(text, body="present", comments="absent", artifacts="present")
+            == "CONCERNS"
+        )
+
+
+@pytest.mark.parametrize(
+    "criterion",
+    [
+        "The reviewer must upload evidence without secret content as an artifact",
+        "Attach evidence without secrets as an artifact",
+        "The reviewer must upload evidence that must not contain secrets as an artifact",
+        "The reviewer must upload evidence which must not contain command output as an artifact",
+        "The reviewer must upload evidence as an artifact that must not contain secrets",
+    ],
+)
+def test_issue3835_negative_artifact_content_keeps_mandatory_human_delivery(criterion):
+    """Payload exclusions do not erase a mandatory human artifact duty."""
+    assert verifier._required_evidence_channels(criterion) == {"artifacts"}
+    assert verifier._required_evidence_options(criterion) == [{"artifacts"}]
+    assert (
+        _floor_verdict(criterion, body="present", comments="present", artifacts="absent")
+        == "CONCERNS"
+    )
+    assert (
+        _floor_verdict(criterion, body="absent", comments="absent", artifacts="present") == "PASS"
+    )
+
+
+@pytest.mark.parametrize(
+    "criterion",
+    [
+        "Do not attach secret content as an artifact",
+        "The reviewer must not upload credential content as an artifact",
+        "Evidence must not include private content as an artifact",
+        "The UI must allow evidence to be attached as a workflow artifact that must not contain command output",
+        "The UI must allow evidence to be attached in the PR body or as a workflow artifact that must not contain command output",
+    ],
+)
+def test_issue3835_negative_artifact_content_controls_stay_nongating(criterion):
+    assert verifier._required_evidence_channels(criterion) == set()
+    assert verifier._required_evidence_options(criterion) == [set()]
+    assert (
+        _floor_verdict(criterion, body="present", comments="present", artifacts="absent") == "PASS"
+    )
+
+
+@pytest.mark.parametrize(
+    "criterion,expected",
+    [
+        (
+            "The UI must allow evidence to be attached in the PR body and as a workflow artifact "
+            "and the reviewer must post evidence in a PR review comment",
+            {"comments"},
+        ),
+        (
+            "The UI must allow evidence to be attached in the PR body or as a workflow artifact "
+            "and the reviewer must post evidence in a PR review comment",
+            {"comments"},
+        ),
+        (
+            "The application must allow users to upload evidence as an artifact "
+            "and the reviewer must post a PR comment",
+            {"comments"},
+        ),
+    ],
+)
+def test_issue3835_coordinated_product_reviewer_keeps_only_reviewer_duty(criterion, expected):
+    assert verifier._required_evidence_channels(criterion) == expected
+    assert verifier._required_evidence_options(criterion) == [expected]
+    assert (
+        _floor_verdict(criterion, body="present", comments="absent", artifacts="present")
+        == "CONCERNS"
+    )
+    assert (
+        _floor_verdict(criterion, body="absent", comments="present", artifacts="absent") == "PASS"
+    )
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "The application must validate a field in an artifact",
+        "The service must parse a value in an artifact",
+        "The schema must describe a property in an artifact",
+        "Schema validation in an artifact is mandatory",
+        "The pipeline must run validation in an artifact",
+        "The application requires validation of a field in an artifact",
+        "Command output validation in an artifact is required",
+        "The schema must contain a property in an artifact",
+        "The application must record a checksum in an artifact",
+        "The application must validate stored values in an artifact",
+        "Evidence must be posted in the PR body. The application must validate a field in an artifact.",
+    ],
+)
+@pytest.mark.parametrize("independent", [False, True])
+def test_issue3835_bare_artifact_normalize_requires_delivery_predicate(text, independent):
+    """Product-domain 'in an artifact' must not become workflow-artifact duty."""
+    if independent:
+        text += "; the reviewer must post evidence in a PR review comment"
+    artifact_clause = text
+    if ". " in text:
+        # Prior sentence may already require body; only the product clause is free.
+        expected = {"body", "comments"} if independent else {"body"}
+        artifact_clause = text.rsplit(". ", 1)[-1]
+    else:
+        expected = {"comments"} if independent else set()
+    assert verifier._required_evidence_channels(text) == expected
+    assert verifier._required_evidence_options(text) == [expected]
+    assert (
+        verifier._normalize_plain_artifact_destinations(artifact_clause.split(";")[0])
+        == artifact_clause.split(";")[0]
+    )
+
+
+@pytest.mark.parametrize(
+    "text,expected",
+    [
+        (
+            "Provide evidence in the PR body, and the application must validate a field in an artifact.",
+            {"body"},
+        ),
+        (
+            "Provide evidence in the PR body and the application must validate a field in an artifact.",
+            {"body"},
+        ),
+        (
+            "Attach evidence as an artifact, but the service must parse a value in an artifact.",
+            {"artifacts"},
+        ),
+        (
+            "Provide evidence in the PR body while the application must validate a field in an artifact.",
+            {"body"},
+        ),
+    ],
+)
+def test_issue3835_coordinated_product_clause_does_not_inherit_artifact_duty(text, expected):
+    """Independent product clauses after and/but/while must not borrow delivery."""
+    normalized = verifier._normalize_plain_artifact_destinations(text)
+    # Delivery-side artifacts may canonicalize; product-domain uses must not.
+    assert "validate a field in a workflow artifact" not in normalized
+    assert "parse a value in a workflow artifact" not in normalized
+    assert verifier._required_evidence_channels(text) == expected
+    assert verifier._required_evidence_options(text) == [expected]
+    # Destination-list coordination under one delivery still canonicalizes.
+    keep = "Provide evidence in the PR body and in an artifact"
+    assert "workflow artifact" in verifier._normalize_plain_artifact_destinations(keep)
+    assert verifier._required_evidence_channels(keep) == {"body", "artifacts"}
+
+
+@pytest.mark.parametrize(
+    "text,expected",
+    [
+        ("Evidence must be attached as an artifact", {"artifacts"}),
+        ("Evidence must be attached in the PR body and as an artifact", {"artifacts", "body"}),
+        ("Evidence must be attached in the PR body or as an artifact", None),
+        ("Evidence in an artifact is required", {"artifacts"}),
+        ("Evidence is required in an artifact", {"artifacts"}),
+        ("Validation results must be in an artifact", {"artifacts"}),
+        ("Test results in an artifact are required", {"artifacts"}),
+        ("Command output in an artifact is required", {"artifacts"}),
+        ("Copy the transcript into an artifact", {"artifacts"}),
+    ],
+)
+def test_issue3835_bare_artifact_delivery_still_canonicalizes(text, expected):
+    normalized = verifier._normalize_plain_artifact_destinations(text)
+    assert "workflow artifact" in normalized
+    assert " an workflow " not in normalized
+    if expected is None:
+        assert {frozenset(option) for option in verifier._required_evidence_options(text)} == {
+            frozenset({"body"}),
+            frozenset({"artifacts"}),
+        }
+    else:
+        assert verifier._required_evidence_channels(text) == expected
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "The review comment API is required",
+        "The review comment component is required",
+        "The inline review comment UI is required",
+        "The review comment endpoint is required",
+        "The review comment validator is required",
+        "The review comment service is required",
+        "The review comment REST API is required",
+        "The review comment management UI is required",
+        "The review comment data model is required",
+    ],
+)
+@pytest.mark.parametrize("independent", [False, True])
+def test_issue3835_review_comment_product_surface_is_not_delivery(text, independent):
+    """Bare review aliases beside API/UI/component nouns stay non-gating."""
+    assert text == verifier._normalize_review_comment_destinations(text)
+    if independent:
+        text += "; the auditor must record evidence in the PR body"
+    expected = {"body"} if independent else set()
+    assert verifier._required_evidence_channels(text) == expected
+    assert verifier._required_evidence_options(text) == [expected]
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "PR body that must include validation evidence",
+        "A PR body that must include validation evidence is required",
+        "Evidence must be posted in a PR body that must include validation evidence",
+    ],
+)
+def test_issue3835_affirmative_relative_presence_keeps_body_duty(text):
+    """Affirmative relative content predicates must not be stripped before presence."""
+    normalized = verifier._normalize_review_content_qualifiers(text)
+    assert "must include validation evidence" in normalized.lower()
+    assert verifier._required_evidence_channels(text) == {"body"}
+    assert verifier._required_evidence_options(text) == [{"body"}]
+
+
+@pytest.mark.parametrize(
+    "modal,expected", [("may", set()), ("must not", set()), ("must", {"body", "artifacts"})]
+)
+@pytest.mark.parametrize("operator", ["and", "or"])
+@pytest.mark.parametrize("artifact", ["an artifact", "a workflow artifact"])
+@pytest.mark.parametrize("artifact_first", [False, True])
+def test_issue3835_relative_artifact_content_preserves_parent_delivery_governor(
+    modal, expected, operator, artifact, artifact_first
+):
+    """A child artifact-content duty cannot promote its optional/prohibited parent."""
+    artifact_destination = f"as {artifact} that must include logs"
+    destinations = ["in the PR body", artifact_destination]
+    if artifact_first:
+        destinations.reverse()
+    criterion = f"Evidence {modal} be posted " + f" {operator} ".join(destinations)
+    assert verifier._required_evidence_channels(criterion) == expected
+    options = verifier._required_evidence_options(criterion)
+    if operator == "or" and expected:
+        assert {frozenset(option) for option in options} == {
+            frozenset({"body"}),
+            frozenset({"artifacts"}),
+        }
+    else:
+        assert options == [expected]
+
+
+def test_issue3835_relative_artifact_content_keeps_independent_reviewer_floor():
+    criterion = (
+        "Evidence may be posted in the PR body and as an artifact that must include logs; "
+        "an independent reviewer must deliver evidence in a PR comment"
+    )
+    assert verifier._required_evidence_channels(criterion) == {"comments"}
+    assert verifier._required_evidence_options(criterion) == [{"comments"}]
+
+
+def test_issue3835_filename_payload_keeps_artifact_delivery():
+    criterion = "The reviewer must upload evidence from results.json in an artifact"
+    assert verifier._required_evidence_channels(criterion) == {"artifacts"}
+    assert verifier._required_evidence_options(criterion) == [{"artifacts"}]
+    assert verifier._required_evidence_channels(
+        criterion + "; the auditor must record evidence in a PR comment"
+    ) == {"artifacts", "comments"}
+
+
+@pytest.mark.parametrize(
+    "content",
+    [
+        "the implementation's test coverage",
+        "v1.2 coverage",
+        "(coverage)",
+        "coverage: detail",
+        '"coverage and in a workflow artifact"',
+    ],
+)
+def test_issue3835_bounded_prose_content_keeps_destination_sibling(content):
+    criterion = (
+        "Evidence must be posted in a PR comment about " + content + " "
+        "and in a workflow artifact"
+    )
+    assert verifier._required_evidence_channels(criterion) == {"comments", "artifacts"}
+    assert verifier._required_evidence_options(criterion) == [{"comments", "artifacts"}]
+
+
+@pytest.mark.parametrize(
+    "criterion",
+    ["A parser for review comments is required", "Support for review comments is required"],
+)
+def test_issue3835_review_comment_product_subject_is_not_delivery(criterion):
+    assert verifier._required_evidence_channels(criterion) == set()
+    assert verifier._required_evidence_options(criterion) == [set()]
+
+
+@pytest.mark.parametrize(
+    "criterion",
+    [
+        "At least one PR review comment is required",
+        "A detailed review comment is required",
+        "At least two detailed review comments are required",
+    ],
+)
+def test_issue3835_counted_or_descriptive_review_comment_subject_is_delivery(criterion):
+    assert verifier._required_evidence_channels(criterion) == {"comments"}
+    assert verifier._required_evidence_options(criterion) == [{"comments"}]
+    assert _floor_verdict(criterion, body="present", comments="absent") == "CONCERNS"
+
+
+def test_issue3835_review_comment_product_complement_is_not_delivery():
+    for criterion in (
+        "Review comments are required fields in the response schema",
+        "Review comments must be required fields in the response schema",
+        "Review comments are required input metadata",
+        "Review comments must be required metadata",
+        "Review comments are required in the response schema",
+    ):
+        assert verifier._required_evidence_channels(criterion) == set()
+        assert verifier._required_evidence_options(criterion) == [set()]
+        assert _floor_verdict(criterion, body="present", comments="absent") == "PASS"
+    criterion = "Review comments are required fields in the response schema"
+    independent = criterion + "; an independent reviewer must record evidence in a PR comment"
+    assert verifier._required_evidence_channels(independent) == {"comments"}
+    assert _floor_verdict(independent, body="present", comments="absent") == "CONCERNS"
+    assert verifier._required_evidence_channels("A review comment is required for this PR") == {
+        "comments"
+    }
+
+
+@pytest.mark.parametrize(
+    "criterion",
+    [
+        "A review comment must be provided by the reviewer",
+        "Review comments are required for the audit",
+        "A review comment is required due to policy",
+        "A PR review comment is required in this PR",
+        "A review comment must be posted on the pull request",
+    ],
+)
+def test_issue3835_standalone_requirement_prepositional_tail_is_delivery(criterion):
+    assert verifier._required_evidence_channels(criterion) == {"comments"}
+    assert verifier._required_evidence_options(criterion) == [{"comments"}]
+    assert _floor_verdict(criterion, body="present", comments="absent") == "CONCERNS"
+
+
+@pytest.mark.parametrize("quantifier,operator", [("both", "and"), ("either", "or")])
+def test_issue3835_quantifier_before_destination_preposition(quantifier, operator):
+    criterion = f"Evidence must be posted {quantifier} in a PR comment {operator} in an artifact"
+    assert verifier._required_evidence_channels(criterion) == {"comments", "artifacts"}
+    options = verifier._required_evidence_options(criterion)
+    if operator == "or":
+        assert {frozenset(option) for option in options} == {
+            frozenset({"comments"}),
+            frozenset({"artifacts"}),
+        }
+    else:
+        assert options == [{"comments", "artifacts"}]
+    if operator == "and":
+        assert (
+            _floor_verdict(criterion, body="present", comments="absent", artifacts="present")
+            == "CONCERNS"
+        )
+        assert (
+            _floor_verdict(criterion, body="present", comments="present", artifacts="absent")
+            == "CONCERNS"
+        )
+    else:
+        assert (
+            _floor_verdict(criterion, body="present", comments="present", artifacts="absent")
+            == "PASS"
+        )
+        assert (
+            _floor_verdict(criterion, body="present", comments="absent", artifacts="present")
+            == "PASS"
+        )
+        assert (
+            _floor_verdict(criterion, body="present", comments="absent", artifacts="absent")
+            == "CONCERNS"
+        )
+
+
+@pytest.mark.parametrize(
+    "criterion,expected",
+    [
+        ("The reviewer must leave one or more PR review comments", {"comments"}),
+        ("A PR review comment by the maintainer is required", {"comments"}),
+        ("A PR review comment from the maintainer is required", {"comments"}),
+        ("The document management system must upload a user file as an artifact", set()),
+        ("The API must publish review comments to clients", set()),
+    ],
+)
+def test_issue3835_preserves_main_delivery_boundaries(criterion, expected):
+    """Bounded review aliases retain duties but ignore product capabilities."""
+    assert verifier._required_evidence_channels(criterion) == expected
+    assert verifier._required_evidence_options(criterion) == [expected]
+    availability = {"body": "present", "comments": "present", "artifacts": "present"}
+    if expected:
+        channel = next(iter(expected))
+        availability[channel] = "absent"
+        assert _floor_verdict(criterion, **availability) == "CONCERNS"
+    else:
+        assert (
+            _floor_verdict(criterion, body="absent", comments="absent", artifacts="absent")
+            == "PASS"
+        )
+
+
+@pytest.mark.parametrize(
+    "criterion,channel",
+    [
+        (
+            "The document management system must upload a user file as an artifact; "
+            "the reviewer must post evidence in a PR comment",
+            "comments",
+        ),
+        (
+            "The API must publish review comments to clients; "
+            "the reviewer must upload evidence as an artifact",
+            "artifacts",
+        ),
+    ],
+)
+def test_issue3835_product_capabilities_do_not_erase_independent_delivery(criterion, channel):
+    assert verifier._required_evidence_channels(criterion) == {channel}
+    assert verifier._required_evidence_options(criterion) == [{channel}]
+    availability = {"body": "present", "comments": "present", "artifacts": "present"}
+    availability[channel] = "absent"
+    assert _floor_verdict(criterion, **availability) == "CONCERNS"
+
+
+def test_issue3835_count_modifier_cannot_create_empty_destination_option():
+    criterion = (
+        "One or more PR review comments are required or evidence must be posted in an artifact"
+    )
+    options = verifier._required_evidence_options(criterion)
+    assert {frozenset(option) for option in options} == {
+        frozenset({"comments"}),
+        frozenset({"artifacts"}),
+    }
+    assert (
+        _floor_verdict(criterion, body="present", comments="present", artifacts="absent") == "PASS"
+    )
+    assert (
+        _floor_verdict(criterion, body="present", comments="absent", artifacts="present") == "PASS"
+    )
+    assert (
+        _floor_verdict(criterion, body="present", comments="absent", artifacts="absent")
+        == "CONCERNS"
+    )
+
+
+@pytest.mark.parametrize(
+    "criterion",
+    [
+        "- [ ] A PR review comment is required",
+        "A PR review comment must be left",
+        "A PR review comment needs to be posted",
+        "A PR review comment has to be posted",
+    ],
+)
+def test_issue3835_standalone_comment_duties_keep_the_comment_floor(criterion):
+    assert verifier._required_evidence_channels(criterion) == {"comments"}
+    assert verifier._required_evidence_options(criterion) == [{"comments"}]
+    assert _floor_verdict(criterion, body="present", comments="absent") == "CONCERNS"
+
+
+@pytest.mark.parametrize(
+    "criterion",
+    [
+        "The parser must record review comments",
+        "The API must publish review comments",
+    ],
+)
+def test_issue3835_product_comment_objects_without_pr_destinations_are_not_delivery(criterion):
+    assert verifier._required_evidence_channels(criterion) == set()
+    assert verifier._required_evidence_options(criterion) == [set()]
+    assert _floor_verdict(criterion, body="absent", comments="absent", artifacts="absent") == "PASS"
+
+
+def test_issue3835_product_comment_object_with_pr_destination_keeps_comment_floor():
+    criterion = "The API must publish review comments in the PR"
+    assert verifier._required_evidence_channels(criterion) == {"comments"}
+    assert verifier._required_evidence_options(criterion) == [{"comments"}]
+    assert _floor_verdict(criterion, body="present", comments="absent") == "CONCERNS"
+
+
+@pytest.mark.parametrize(
+    "criterion",
+    [
+        "A PR review comment must be submitted",
+        "A PR review comment must be present",
+        "A PR review comment must be mandatory",
+        "A PR review comment must be added",
+        "A PR review comment must exist",
+    ],
+)
+def test_issue3835_standalone_comment_delivery_states_keep_the_comment_floor(criterion):
+    assert verifier._required_evidence_channels(criterion) == {"comments"}
+    assert verifier._required_evidence_options(criterion) == [{"comments"}]
+    assert _floor_verdict(criterion, body="present", comments="absent") == "CONCERNS"
+
+
+def test_issue3835_content_qualified_comment_retains_coordinated_artifact_delivery():
+    criterion = "Evidence must be posted in a PR comment about test coverage and uploaded to a workflow artifact"
+    assert verifier._required_evidence_channels(criterion) == {"comments", "artifacts"}
+    assert verifier._required_evidence_options(criterion) == [{"comments", "artifacts"}]
+    assert (
+        _floor_verdict(criterion, body="present", comments="present", artifacts="absent")
+        == "CONCERNS"
+    )
+    assert (
+        _floor_verdict(criterion, body="present", comments="absent", artifacts="present")
+        == "CONCERNS"
+    )
+
+
+@pytest.mark.parametrize("prefix", ["the", "our", "their", "each appointed"])
+@pytest.mark.parametrize("boundary", [" and ", ", and ", " but ", " while "])
+@pytest.mark.parametrize("artifact", ["an artifact", "a workflow artifact"])
+def test_issue3835_independent_clause_boundary_shares_actor_grammar(prefix, boundary, artifact):
+    """One shared bounded actor grammar governs both kinds of independent duty."""
+    product = (
+        "The UI must allow evidence to be attached in the PR body or as "
+        + artifact
+        + boundary
+        + prefix
+        + " reviewer must post evidence in a PR review comment"
+    )
+    domain = (
+        "Provide evidence in the PR body"
+        + boundary
+        + prefix
+        + " application must validate a field in an artifact."
+    )
+    for criterion, expected in ((product, {"comments"}), (domain, {"body"})):
+        assert verifier._required_evidence_channels(criterion) == expected
+        assert verifier._required_evidence_options(criterion) == [expected]
+        for missing in ("absent", "unavailable"):
+            assert (
+                _floor_verdict(criterion, body="present", comments="present", artifacts=missing)
+                == "PASS"
+            )
+            assert _floor_verdict(criterion, body=missing, comments=missing) == "CONCERNS"
+
+
+@pytest.mark.parametrize("boundary", [" and ", ", and ", " but ", " while "])
+@pytest.mark.parametrize("predicate", ["validate a field", "parse a value", "record a checksum"])
+def test_issue3835_same_subject_product_predicate_cannot_borrow_delivery(boundary, predicate):
+    criterion = (
+        "The application must record evidence internally" + boundary + predicate + " in an artifact"
+    )
+    assert verifier._normalize_plain_artifact_destinations(criterion) == criterion
+    # This boundary must not invent artifact duty. Generic overall-evidence
+    # classification is outside this repair; test the exact reported case too.
+    baseline = verifier._required_evidence_channels(criterion)
+    assert baseline <= {"overall"}
+    if boundary == " and " and predicate == "validate a field":
+        assert baseline == set()
+    for text, expected in (
+        (criterion, baseline),
+        (
+            criterion + "; the reviewer must post evidence in a PR review comment",
+            baseline | {"comments"},
+        ),
+    ):
+        assert verifier._required_evidence_channels(text) == expected
+        assert verifier._required_evidence_options(text) == [expected]
+        for missing in ("absent", "unavailable"):
+            assert (
+                _floor_verdict(text, body="present", comments="present", artifacts=missing)
+                == "PASS"
+            )
+            if "comments" in expected:
+                assert _floor_verdict(text, body="present", comments=missing) == "CONCERNS"
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Record evidence in the PR body and in an artifact",
+        "Record evidence in the PR body and post evidence in an artifact",
+        "Record evidence in the PR body and attach it in an artifact",
+        "Record evidence in the PR body and validation results in an artifact",
+    ],
+)
+def test_issue3835_same_subject_real_artifact_delivery_retains_floor(text):
+    assert verifier._required_evidence_channels(text) == {"body", "artifacts"}
+    assert verifier._required_evidence_options(text) == [{"body", "artifacts"}]
+    for missing in ("absent", "unavailable"):
+        assert (
+            _floor_verdict(text, body="present", comments="present", artifacts=missing)
+            == "CONCERNS"
+        )
+
+
+@pytest.mark.parametrize(
+    "destination",
+    [
+        "pull-request review comment",
+        "pull-request inline review comment",
+        "pull request review comment",
+    ],
+)
+@pytest.mark.parametrize("governor", ["must", "may", "must not"])
+def test_issue3835_hyphenated_qualified_review_destination(destination, governor):
+    text = f"Evidence {governor} be posted in a {destination}"
+    expected = {"comments"} if governor == "must" else set()
+    assert verifier._required_evidence_channels(text) == expected
+    assert verifier._required_evidence_options(text) == [expected]
+    for missing in ("absent", "unavailable"):
+        assert _floor_verdict(text, body="present", comments=missing) == (
+            "CONCERNS" if expected else "PASS"
+        )
+    if expected:
+        alternative = text + " or in the PR body"
+        assert {
+            frozenset(option) for option in verifier._required_evidence_options(alternative)
+        } == {frozenset({"comments"}), frozenset({"body"})}
+        assert _floor_verdict(alternative, body="present", comments="absent") == "PASS"
+
+
+@pytest.mark.parametrize(
+    "criterion",
+    [
+        "The application must attach evidence metadata to an artifact",
+        "The application must store evidence records in an artifact",
+        "The application must record evidence provenance in an artifact",
+        "The validator must record review comment state",
+        "The parser must include review comment fields",
+    ],
+)
+def test_issue3835_compound_objects_are_product_fields(criterion):
+    assert verifier._required_evidence_channels(criterion) == set()
+    assert verifier._required_evidence_options(criterion) == [set()]
+    assert _floor_verdict(criterion, body="absent", comments="absent", artifacts="absent") == "PASS"
+    independent = criterion + "; the reviewer must record evidence in a PR comment"
+    assert verifier._required_evidence_options(independent) == [{"comments"}]
+    assert _floor_verdict(independent, body="present", comments="absent") == "CONCERNS"
+
+
+@pytest.mark.parametrize(
+    "criterion,expected",
+    [
+        ("The reviewer must attach evidence to an artifact", {"artifacts"}),
+        ("The reviewer must record evidence internally in an artifact", {"artifacts"}),
+        ("The reviewer must record a review comment", {"comments"}),
+        ("The reviewer must record a detailed review comment with test evidence", {"comments"}),
+        (
+            "Evidence must be posted in a review comment or in an artifact",
+            {"comments", "artifacts"},
+        ),
+    ],
+)
+def test_issue3835_complete_objects_retain_deliveries(criterion, expected):
+    assert verifier._required_evidence_channels(criterion) == expected
+    assert all(
+        verifier._required_evidence_is_missing(
+            "- Overall retrieval status: **present**\n- PR body: **absent**\n"
+            "- PR comments: **absent**\n- Referenced workflow artifacts: **absent**",
+            option,
+        )
+        for option in verifier._required_evidence_options(criterion)
+    )
+
+
+def test_issue3835_hyphenated_review_api_and_quoted_literal_are_not_delivery():
+    for text in (
+        "The pull-request review comment API is required",
+        "`Evidence must be posted in a pull-request review comment`",
+    ):
+        assert verifier._normalize_review_comment_destinations(text) == text
+        assert verifier._required_evidence_channels(text) == set()
+
+
+@pytest.mark.parametrize("payload", ["files", "bundle", "package"])
+@pytest.mark.parametrize(
+    "governor,expected", [("must", {"artifacts"}), ("may", set()), ("must not", set())]
+)
+def test_issue3835_evidence_payload_delivery_preserves_floor(payload, governor, expected):
+    criterion = f"The reviewer {governor} upload evidence {payload} to an artifact"
+    assert verifier._required_evidence_channels(criterion) == expected
+    assert verifier._required_evidence_options(criterion) == [expected]
+    assert _floor_verdict(criterion, body="present", comments="present", artifacts="absent") == (
+        "CONCERNS" if expected else "PASS"
+    )
+
+
+@pytest.mark.parametrize("qualifier", ["about", "regarding", "concerning"])
+@pytest.mark.parametrize(
+    "governor,expected", [("must", {"comments"}), ("may", set()), ("must not", set())]
+)
+def test_issue3835_review_content_preposition_preserves_floor(qualifier, governor, expected):
+    criterion = f"The reviewer {governor} post a review comment {qualifier} the test results"
+    assert verifier._required_evidence_channels(criterion) == expected
+    assert verifier._required_evidence_options(criterion) == [expected]
+    assert _floor_verdict(criterion, body="present", comments="absent") == (
+        "CONCERNS" if expected else "PASS"
+    )
+    independent = criterion + "; the auditor must record evidence in a workflow artifact"
+    assert verifier._required_evidence_channels(independent) == expected | {"artifacts"}
+    assert (
+        _floor_verdict(independent, body="present", comments="present", artifacts="absent")
+        == "CONCERNS"
+    )
+
+
+@pytest.mark.parametrize("qualifier", ["about", "regarding", "concerning"])
+@pytest.mark.parametrize(
+    "content",
+    [
+        "test results",
+        "test coverage",
+        "implementation details",
+        "test coverage and implementation details",
+    ],
+)
+@pytest.mark.parametrize("conjunction", ["and", "or"])
+@pytest.mark.parametrize("reverse", [False, True])
+@pytest.mark.parametrize("governor", ["must", "may", "must not"])
+def test_issue3835_content_qualified_destination_lists(
+    qualifier, content, conjunction, reverse, governor
+):
+    comment = f"in a review comment {qualifier} {content}"
+    artifact = "in a workflow artifact"
+    first, second = (artifact, comment) if reverse else (comment, artifact)
+    criterion = f"Evidence {governor} be posted {first} {conjunction} {second}"
+    expected = {"comments", "artifacts"} if governor == "must" else set()
+    assert verifier._required_evidence_channels(criterion) == expected
+    options = (
+        [{"comments"}, {"artifacts"}] if governor == "must" and conjunction == "or" else [expected]
+    )
+    assert {frozenset(x) for x in verifier._required_evidence_options(criterion)} == {
+        frozenset(x) for x in options
+    }
+    for comments, artifacts in [("present", "absent"), ("absent", "present"), ("absent", "absent")]:
+        missing = governor == "must" and (
+            conjunction == "and" or (comments == artifacts == "absent")
+        )
+        assert _floor_verdict(
+            criterion, body="present", comments=comments, artifacts=artifacts
+        ) == ("CONCERNS" if missing else "PASS")
+
+
+@pytest.mark.parametrize("payload", ["files", "bundle", "package"])
+@pytest.mark.parametrize("elided", [False, True])
+@pytest.mark.parametrize("conjunction", ["and", "or"])
+@pytest.mark.parametrize("reverse", [False, True])
+@pytest.mark.parametrize("governor", ["must", "may", "must not"])
+def test_issue3835_payload_destination_lists(payload, elided, conjunction, reverse, governor):
+    first, second = (
+        ("to the PR body", "to an artifact") if reverse else ("to an artifact", "the PR body")
+    )
+    if reverse and elided:
+        second = "an artifact"
+    criterion = f"The reviewer {governor} upload evidence {payload} {first} {conjunction} {second}"
+    expected = {"body", "artifacts"} if governor == "must" else set()
+    assert verifier._required_evidence_channels(criterion) == expected
+    options = (
+        [{"body"}, {"artifacts"}] if governor == "must" and conjunction == "or" else [expected]
+    )
+    assert {frozenset(x) for x in verifier._required_evidence_options(criterion)} == {
+        frozenset(x) for x in options
+    }
+    for body, artifacts in [("present", "absent"), ("absent", "present"), ("absent", "absent")]:
+        missing = governor == "must" and (conjunction == "and" or (body == artifacts == "absent"))
+        assert _floor_verdict(criterion, body=body, comments="present", artifacts=artifacts) == (
+            "CONCERNS" if missing else "PASS"
+        )
+
+
+@pytest.mark.parametrize(
+    "criterion",
+    [
+        "The application must allow users to upload evidence files to the PR body and an artifact",
+        "The application must allow users to upload evidence files to an artifact and the PR body",
+        "The application must allow users to upload evidence files to the PR body or an artifact",
+        "The application must allow users to upload evidence files to an artifact or the PR body",
+        "`Evidence must be posted in a PR comment about test coverage and in an artifact`",
+    ],
+)
+def test_issue3835_payload_and_content_lists_preserve_product_and_literal_boundaries(criterion):
+    assert verifier._required_evidence_channels(criterion) == set()
+    assert verifier._required_evidence_options(criterion) == [set()]
+    independent = criterion + "; the auditor must record evidence in a workflow artifact"
+    assert verifier._required_evidence_channels(independent) == {"artifacts"}
+    assert (
+        _floor_verdict(independent, body="present", comments="present", artifacts="absent")
+        == "CONCERNS"
+    )
+
+
+def test_issue3835_elided_artifact_cannot_borrow_domain_predicate():
+    criterion = "The reviewer must upload evidence files to the PR body and record a checksum in an artifact"
+    assert verifier._required_evidence_channels(criterion) == {"body"}
+    assert verifier._required_evidence_options(criterion) == [{"body"}]
+    assert (
+        _floor_verdict(criterion, body="present", comments="absent", artifacts="absent") == "PASS"
+    )
+
+
+@pytest.mark.parametrize("pronoun", ["it", "them", "these", "those", "both"])
+def test_issue3835_product_payload_list_retains_independent_proof_pronoun(pronoun):
+    criterion = (
+        "The application must allow users to upload evidence files to the PR body and an artifact; "
+        + f"the reviewer must record {pronoun} in a PR comment"
+    )
+    assert verifier._required_evidence_channels(criterion) == {"comments"}
+    assert verifier._required_evidence_options(criterion) == [{"comments"}]
+    assert (
+        _floor_verdict(criterion, body="present", comments="absent", artifacts="present")
+        == "CONCERNS"
+    )
+
+
+@pytest.mark.parametrize("pronoun", ["it", "them", "this", "they", "these", "those", "both"])
+@pytest.mark.parametrize(
+    "destination,channel",
+    [
+        ("in an artifact", "artifacts"),
+        ("as an artifact", "artifacts"),
+        ("in a workflow artifact", "artifacts"),
+        ("in a PR comment", "comments"),
+        ("in the PR body", "body"),
+    ],
+)
+@pytest.mark.parametrize("governor", ["must", "may", "must not"])
+def test_issue3835_independent_proof_pronoun_destination_floor(
+    pronoun, destination, channel, governor
+):
+    criterion = (
+        "The application must allow users to upload evidence files to the PR body and an artifact; "
+        + f"the reviewer {governor} record {pronoun} {destination}"
+    )
+    expected = {channel} if governor == "must" else set()
+    assert verifier._required_evidence_channels(criterion) == expected
+    assert verifier._required_evidence_options(criterion) == [expected]
+    availability = {"body": "present", "comments": "present", "artifacts": "present"}
+    availability[channel] = "absent"
+    assert _floor_verdict(criterion, **availability) == ("CONCERNS" if expected else "PASS")
+
+
+@pytest.mark.parametrize(
+    "prefix",
+    ["The validator stores a checksum", "`The application uploads evidence files`", "Tests pass"],
+)
+def test_issue3835_unbound_product_or_quoted_pronoun_is_not_evidence(prefix):
+    criterion = prefix + "; the reviewer must record it in an artifact"
+    assert verifier._required_evidence_channels(criterion) == set()
+    assert verifier._required_evidence_options(criterion) == [set()]
+
+
+def test_evidence_classification_cache_cannot_leak_mutated_containers():
+    criterion = "Evidence must be posted in a PR comment or in a workflow artifact"
+    channels = verifier._required_evidence_channels(criterion)
+    channels.clear()
+    channels.add("bogus")
+    assert verifier._required_evidence_channels(criterion) == {"comments", "artifacts"}
+    options = verifier._required_evidence_options(criterion)
+    options[0].add("bogus")
+    options.clear()
+    assert {frozenset(x) for x in verifier._required_evidence_options(criterion)} == {
+        frozenset({"comments"}),
+        frozenset({"artifacts"}),
+    }
+
+
+def test_evidence_options_cache_respects_classifier_substitution(monkeypatch):
+    criterion = "Evidence must be posted in the PR body"
+    assert verifier._required_evidence_options(criterion) == [{"body"}]
+    monkeypatch.setattr(verifier, "_required_evidence_channels", lambda text: {"comments"})
+    assert verifier._required_evidence_options(criterion) == [{"comments"}]
+
+
+def test_evidence_classifier_caches_are_bounded_and_skip_large_criteria():
+    channels = verifier._cached_evidence_channels
+    options = verifier._cached_evidence_options
+    assert channels.cache_info().maxsize == options.cache_info().maxsize == 512
+    large = " " * (verifier._EVIDENCE_CACHE_MAX_CHARS + 1)
+    before = (channels.cache_info().currsize, options.cache_info().currsize)
+    assert verifier._required_evidence_channels(large) == set()
+    assert verifier._required_evidence_options(large) == [set()]
+    assert (channels.cache_info().currsize, options.cache_info().currsize) == before
+
+
+@pytest.mark.parametrize("state", ["made", "sent", "shown", "put"])
+def test_issue3835_irregular_standalone_delivery_states_preserve_main(state):
+    criterion = f"A PR review comment must be {state}"
+    assert verifier._required_evidence_channels(criterion) == {"comments"}
+    assert verifier._required_evidence_options(criterion) == [{"comments"}]
+    assert _floor_verdict(criterion, body="present", comments="absent") == "CONCERNS"
+
+
+@pytest.mark.parametrize(
+    "criterion",
+    [
+        "1. [ ] A PR review comment is required",
+        "[ ] A PR review comment is required",
+    ],
+)
+def test_issue3835_numbered_and_bare_checkbox_comment_duties(criterion):
+    assert verifier._required_evidence_channels(criterion) == {"comments"}
+    assert verifier._required_evidence_options(criterion) == [{"comments"}]
+    assert _floor_verdict(criterion, body="present", comments="absent") == "CONCERNS"
+
+
+@pytest.mark.parametrize("operation", ["submit", "write", "deliver", "supply"])
+def test_issue3835_active_comment_delivery_aliases_keep_the_comment_floor(operation):
+    criterion = f"The reviewer must {operation} a PR review comment"
+    assert verifier._required_evidence_channels(criterion) == {"comments"}
+    assert verifier._required_evidence_options(criterion) == [{"comments"}]
+    assert _floor_verdict(criterion, body="present", comments="absent") == "CONCERNS"
+
+
+@pytest.mark.parametrize(
+    ("criterion", "channel"),
+    [
+        ("I must submit a PR review comment", "comments"),
+        ("You must supply a PR review comment", "comments"),
+        ("We must upload evidence to an artifact", "artifacts"),
+    ],
+)
+def test_issue3835_pronoun_delivery_actors_keep_required_channel(criterion, channel):
+    assert verifier._required_evidence_channels(criterion) == {channel}
+    assert verifier._required_evidence_options(criterion) == [{channel}]
+    kwargs = {"body": "present", "comments": "present", "artifacts": "present"}
+    kwargs[channel] = "absent"
+    assert _floor_verdict(criterion, **kwargs) == "CONCERNS"
+
+
+@pytest.mark.parametrize(
+    "criterion",
+    [
+        "The background worker must upload evidence to an artifact",
+        "The controller must record review comments",
+    ],
+)
+def test_issue3835_component_subjects_are_not_review_delivery_actors(criterion):
+    assert verifier._required_evidence_channels(criterion) == set()
+    assert verifier._required_evidence_options(criterion) == [set()]
+
+
+@pytest.mark.parametrize("actor", ["parser", "schema", "module", "API"])
+@pytest.mark.parametrize("state", ["made", "ignored"])
+def test_issue3835_product_modified_comment_state_is_not_delivery(actor, state):
+    criterion = f"A {actor} review comment must be {state}"
+    assert verifier._required_evidence_channels(criterion) == set()
+    assert verifier._required_evidence_options(criterion) == [set()]
+
+
+@pytest.mark.parametrize(
+    ("criterion", "expected_options"),
+    [
+        (
+            "Evidence must be posted both in the PR body and in an artifact",
+            [{"body", "artifacts"}],
+        ),
+        (
+            "Evidence must be posted both in the PR body and as an artifact",
+            [{"body", "artifacts"}],
+        ),
+        (
+            "Evidence must be posted either in the PR description or in an artifact",
+            [{"body"}, {"artifacts"}],
+        ),
+        (
+            "Evidence must be posted either in the PR description or as an artifact",
+            [{"body"}, {"artifacts"}],
+        ),
+    ],
+)
+def test_issue3835_leading_destination_quantifiers_preserve_body_and_description_lists(
+    criterion, expected_options
+):
+    assert verifier._required_evidence_channels(criterion) == {"body", "artifacts"}
+    assert {frozenset(option) for option in verifier._required_evidence_options(criterion)} == {
+        frozenset(option) for option in expected_options
+    }
+    if len(expected_options) == 1:
+        assert (
+            _floor_verdict(criterion, body="absent", comments="present", artifacts="present")
+            == "CONCERNS"
+        )
+        assert (
+            _floor_verdict(criterion, body="present", comments="present", artifacts="absent")
+            == "CONCERNS"
+        )
+    else:
+        assert (
+            _floor_verdict(criterion, body="present", comments="present", artifacts="absent")
+            == "PASS"
+        )
+        assert (
+            _floor_verdict(criterion, body="absent", comments="present", artifacts="present")
+            == "PASS"
+        )
+        assert (
+            _floor_verdict(criterion, body="absent", comments="present", artifacts="absent")
+            == "CONCERNS"
+        )
+
+
+@pytest.mark.parametrize("connector", ["then", "also", "must be", "then must also be"])
+def test_issue3835_content_qualified_comment_keeps_coordinated_artifact_delivery(connector):
+    criterion = (
+        "Evidence must be posted in a PR comment about test coverage and "
+        + connector
+        + " uploaded to a workflow artifact"
+    )
+    assert verifier._required_evidence_channels(criterion) == {"comments", "artifacts"}
+    assert verifier._required_evidence_options(criterion) == [{"comments", "artifacts"}]
+    assert (
+        _floor_verdict(criterion, body="present", comments="absent", artifacts="present")
+        == "CONCERNS"
+    )
+    assert (
+        _floor_verdict(criterion, body="present", comments="present", artifacts="absent")
+        == "CONCERNS"
+    )
+
+
+@pytest.mark.parametrize("qualifier", ["with test results", "for audit"])
+def test_issue3835_standalone_comment_qualifiers_keep_delivery_duty(qualifier):
+    criterion = f"A PR review comment {qualifier} is required"
+    assert verifier._required_evidence_channels(criterion) == {"comments"}
+    assert verifier._required_evidence_options(criterion) == [{"comments"}]
+    assert (
+        _floor_verdict(criterion, body="present", comments="absent", artifacts="present")
+        == "CONCERNS"
+    )
+
+
+@pytest.mark.parametrize("subject", ["reviewer service", "maintainer dashboard"])
+def test_issue3835_product_compounds_do_not_borrow_human_delivery_actor(subject):
+    criterion = f"The {subject} must upload evidence to an artifact"
+    assert verifier._required_evidence_channels(criterion) == set()
+    assert verifier._required_evidence_options(criterion) == [set()]
+
+
+@pytest.mark.parametrize("subject", ["reviewer", "maintainer"])
+def test_issue3835_human_delivery_actor_head_remains_a_real_duty(subject):
+    criterion = f"The {subject} must upload evidence to an artifact"
+    assert verifier._required_evidence_channels(criterion) == {"artifacts"}
+    assert (
+        _floor_verdict(criterion, body="present", comments="present", artifacts="absent")
+        == "CONCERNS"
+    )
+
+
+def test_issue3835_human_actor_relative_qualifier_remains_a_delivery_duty():
+    criterion = "The reviewer who owns the PR must submit a PR review comment"
+    assert verifier._required_evidence_channels(criterion) == {"comments"}
+    assert verifier._required_evidence_options(criterion) == [{"comments"}]
+    assert (
+        _floor_verdict(criterion, body="present", comments="absent", artifacts="present")
+        == "CONCERNS"
+    )
+
+
+def test_issue3835_product_actor_before_relative_qualifier_remains_non_delivery():
+    criterion = "The reviewer service who owns the PR must submit a PR review comment"
+    assert verifier._required_evidence_channels(criterion) == set()
+    assert verifier._required_evidence_options(criterion) == [set()]
+
+
+@pytest.mark.parametrize(
+    "tail",
+    [
+        "before merge",
+        "after CI passes",
+        "during release",
+        "prior to merge",
+        "until merge",
+        "once CI passes",
+        "throughout release",
+        "when approved",
+        "while release runs",
+        "since CI passed",
+        "following review",
+        "upon approval",
+        "later",
+        "afterwards",
+        "whenever approved",
+    ],
+)
+def test_issue3835_delivered_comment_temporal_tail_keeps_comment_floor(tail):
+    criterion = f"The reviewer must post a PR review comment {tail}"
+    assert verifier._required_evidence_channels(criterion) == {"comments"}
+    assert verifier._required_evidence_options(criterion) == [{"comments"}]
+    assert (
+        _floor_verdict(criterion, body="present", comments="absent", artifacts="present")
+        == "CONCERNS"
+    )
+
+
+@pytest.mark.parametrize("operation", ["returned", "serialized"])
+def test_issue3835_passive_product_producer_is_not_comment_delivery(operation):
+    criterion = f"Review comments must be {operation} by the API"
+    assert verifier._required_evidence_channels(criterion) == set()
+    assert verifier._required_evidence_options(criterion) == [set()]
+    assert (
+        _floor_verdict(criterion, body="present", comments="absent", artifacts="present") == "PASS"
+    )
+
+
+def test_issue3835_comment_content_provenance_is_not_passive_product_producer():
+    criterion = "A PR review comment with output from API is required"
+    assert verifier._required_evidence_channels(criterion) == {"comments"}
+    assert verifier._required_evidence_options(criterion) == [{"comments"}]
+    assert (
+        _floor_verdict(criterion, body="present", comments="absent", artifacts="present")
+        == "CONCERNS"
+    )
+
+
+@pytest.mark.parametrize("operation", ["returned", "serialized"])
+@pytest.mark.parametrize("actor", ["reviewer", "maintainer"])
+def test_issue3835_passive_human_producer_keeps_comment_delivery(actor, operation):
+    criterion = f"Review comments must be {operation} by the {actor}"
+    assert verifier._required_evidence_channels(criterion) == {"comments"}
+    assert verifier._required_evidence_options(criterion) == [{"comments"}]
+    assert (
+        _floor_verdict(criterion, body="present", comments="absent", artifacts="present")
+        == "CONCERNS"
+    )
+
+
+def test_issue3835_passive_serialized_product_with_explicit_pr_destination_keeps_comment_delivery():
+    criterion = "Review comments must be serialized by the API in the PR"
+    assert verifier._required_evidence_channels(criterion) == {"comments"}
+    assert verifier._required_evidence_options(criterion) == [{"comments"}]
+    assert (
+        _floor_verdict(criterion, body="present", comments="absent", artifacts="present")
+        == "CONCERNS"
+    )
+
+
+@pytest.mark.parametrize(
+    "criterion",
+    [
+        "The parser must post a PR review comment later",
+        "`The reviewer must post a PR review comment later`",
+        "The reviewer must not post a PR review comment later",
+    ],
+)
+def test_issue3835_active_human_tail_bypass_preserves_product_negative_and_literal_controls(
+    criterion,
+):
+    assert verifier._required_evidence_channels(criterion) == set()
+    assert verifier._required_evidence_options(criterion) == [set()]
+
+
+@pytest.mark.parametrize(
+    "criterion",
+    [
+        "The background worker may allow users to upload evidence to an artifact",
+        "The application must allow users to upload evidence files either in a PR comment or as an artifact",
+    ],
+)
+def test_issue3835_nonhuman_capability_lists_are_not_evidence_delivery(criterion):
+    assert verifier._required_evidence_channels(criterion) == set()
+    assert verifier._required_evidence_options(criterion) == [set()]
+    independent = criterion + "; the reviewer must upload evidence to a PR comment"
+    assert verifier._required_evidence_channels(independent) == {"comments"}
+    assert (
+        _floor_verdict(independent, body="present", comments="absent", artifacts="present")
+        == "CONCERNS"
+    )
+
+
+def test_issue3835_leading_quantifier_comment_artifact_list_keeps_destination_dnf():
+    criterion = "Evidence must be posted either in a PR comment or as an artifact"
+    assert verifier._required_evidence_channels(criterion) == {"comments", "artifacts"}
+    assert {frozenset(option) for option in verifier._required_evidence_options(criterion)} == {
+        frozenset({"comments"}),
+        frozenset({"artifacts"}),
+    }
+    assert (
+        _floor_verdict(criterion, body="present", comments="absent", artifacts="present") == "PASS"
+    )
+    assert (
+        _floor_verdict(criterion, body="present", comments="present", artifacts="absent") == "PASS"
+    )
+    assert (
+        _floor_verdict(criterion, body="present", comments="absent", artifacts="absent")
+        == "CONCERNS"
+    )
+
+
+@pytest.mark.parametrize(
+    "actor",
+    [
+        "reviewer",
+        "reviewer service",
+        "background worker",
+        "export component",
+    ],
+)
+@pytest.mark.parametrize("verb", ["allow", "enable", "support", "permit"])
+@pytest.mark.parametrize("modal", ["must", "may"])
+@pytest.mark.parametrize(
+    "destination",
+    [
+        "to an artifact",
+        "in a workflow artifact",
+        "either in a PR comment or as an artifact",
+    ],
+)
+def test_issue3835_capability_subject_governor_partition(actor, verb, modal, destination):
+    criterion = f"The {actor} {modal} {verb} users to upload evidence {destination}"
+    assert verifier._required_evidence_channels(criterion) == set()
+    independent = criterion + "; the reviewer must upload evidence to a PR comment"
+    assert verifier._required_evidence_channels(independent) == {"comments"}
+
+
+@pytest.mark.parametrize("governor,expected", [("must", {"artifacts"}), ("may", set())])
+def test_issue3835_direct_human_delivery_retains_modality(governor, expected):
+    criterion = f"The reviewer {governor} upload evidence to an artifact"
+    assert verifier._required_evidence_channels(criterion) == expected
+
+
+@pytest.mark.parametrize("joiner", [";", ", and"])
+def test_issue3835_capability_cannot_erase_independent_direct_reviewer_delivery(joiner):
+    criterion = (
+        "The reviewer must allow users to upload evidence to an artifact"
+        + joiner
+        + " the reviewer must upload evidence to a PR comment"
+    )
+    assert verifier._required_evidence_channels(criterion) == {"comments"}
+    assert (
+        _floor_verdict(criterion, body="present", comments="absent", artifacts="present")
+        == "CONCERNS"
+    )
+
+
+@pytest.mark.parametrize(
+    "criterion,expected",
+    [
+        (
+            "The application must allow users to upload evidence in a PR comment and then post evidence as an artifact",
+            set(),
+        ),
+        (
+            "The application must allow users to upload evidence in a PR comment, then post evidence as an artifact",
+            set(),
+        ),
+        (
+            "The application must allow users to upload evidence in a PR comment, an artifact",
+            set(),
+        ),
+        (
+            "The application must allow users to upload test logs in a PR comment and then post test logs as an artifact",
+            set(),
+        ),
+        (
+            "The application must allow users to upload evidence in a PR comment and then post it as an artifact",
+            set(),
+        ),
+        (
+            "The application must allow users to upload evidence files to the PR body and an artifact; the reviewer must record it in a PR comment",
+            {"comments"},
+        ),
+    ],
+)
+def test_issue3835_capability_owned_coordinated_deliveries_keep_only_independent_duties(
+    criterion,
+    expected,
+):
+    assert verifier._required_evidence_channels(criterion) == expected
+    assert verifier._required_evidence_options(criterion) == [expected]
+    assert _floor_verdict(criterion, body="present", comments="absent", artifacts="absent") == (
+        "CONCERNS" if expected else "PASS"
+    )
+
+
+@pytest.mark.parametrize("operation", ["submit", "deliver", "supply"])
+@pytest.mark.parametrize("connector", ["", "and then"])
+def test_issue3835_capability_registered_delivery_aliases_are_not_evidence_duties(
+    operation,
+    connector,
+):
+    continuation = f" {connector} {operation} evidence as an artifact" if connector else ""
+    criterion = (
+        f"The application must allow users to {operation} evidence either in a PR comment or as an artifact"
+        + continuation
+    )
+    assert verifier._required_evidence_channels(criterion) == set()
+    assert verifier._required_evidence_options(criterion) == [set()]
+
+
+@pytest.mark.parametrize("operation", ["submit", "deliver", "supply"])
+@pytest.mark.parametrize("adverb", ["securely", "then", "also"])
+def test_issue3835_capability_initial_delivery_adverbs_use_shared_operation_grammar(
+    operation,
+    adverb,
+):
+    criterion = f"The application must allow users to {adverb} {operation} evidence either in a PR comment or as an artifact"
+    assert verifier._required_evidence_channels(criterion) == set()
+    assert verifier._required_evidence_options(criterion) == [set()]
+
+
+def test_issue3835_capability_marker_keeps_a_prior_unlocated_delivery_duty():
+    criterion = (
+        "The reviewer must provide evidence and allow users to upload evidence in a PR comment"
+    )
+    assert verifier._required_evidence_channels(criterion) == {"overall"}
+    assert verifier._required_evidence_options(criterion) == [{"overall"}]
+    assert (
+        _floor_verdict(
+            criterion, body="present", comments="present", artifacts="present", overall="absent"
+        )
+        == "CONCERNS"
+    )
+
+
+def test_issue3835_capability_coordination_preserves_separate_reviewer_delivery():
+    criterion = (
+        "The application must allow users to upload evidence in a PR comment and then post evidence as an artifact; "
+        "the reviewer must record evidence in a PR comment"
+    )
+    assert verifier._required_evidence_channels(criterion) == {"comments"}
+    assert (
+        _floor_verdict(criterion, body="present", comments="absent", artifacts="present")
+        == "CONCERNS"
+    )
+
+
+def test_issue3835_mandatory_capability_workflow_artifact_does_not_create_a_floor():
+    criterion = "The reviewer must allow users to upload evidence in a workflow artifact"
+    assert verifier._required_evidence_channels(criterion) == set()
+    assert verifier._required_evidence_options(criterion) == [set()]
+    assert (
+        _floor_verdict(criterion, body="present", comments="present", artifacts="absent") == "PASS"
+    )
+
+
+def test_issue3835_capability_segment_cannot_erase_prior_finite_proof_delivery():
+    criterion = "Reviewers must post evidence in the PR body and allow users to upload evidence in a workflow artifact"
+    assert verifier._required_evidence_channels(criterion) == {"body"}
+    assert (
+        _floor_verdict(criterion, body="present", comments="present", artifacts="absent") == "PASS"
+    )
+
+
+def test_issue3835_checkbox_unknown_component_capability_is_nongating():
+    criterion = "- [ ] The novel engine may permit users to upload evidence to an artifact"
+    assert verifier._required_evidence_channels(criterion) == set()
+    assert verifier._required_evidence_options(criterion) == [set()]
