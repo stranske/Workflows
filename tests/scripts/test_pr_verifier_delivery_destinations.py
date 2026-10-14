@@ -7133,6 +7133,34 @@ def test_issue3883_filename_qualified_controls_stay_nongating(criterion):
     )
 
 
+@pytest.mark.parametrize("filename", ["./out/results.json", '"results.json"'])
+@pytest.mark.parametrize(
+    "control",
+    [
+        "The reviewer must not upload {delivery}",
+        "The reviewer may upload {delivery}",
+        "The UI allows users to upload {delivery}",
+        "The parser recognizes `The reviewer must upload {delivery}`",
+    ],
+)
+@pytest.mark.parametrize("independent_first", [False, True])
+@pytest.mark.parametrize("body", ["present", "absent", "unavailable"])
+def test_issue3883_filename_qualified_controls_preserve_independent_body_floor(
+    filename, control, independent_first, body
+):
+    """A nongating alternative neither adds destinations nor erases another duty."""
+    delivery = f"evidence from {filename} either in a PR comment or in an artifact"
+    controlled = control.format(delivery=delivery)
+    independent = "An independent reviewer must include evidence in the PR body"
+    clauses = [independent, controlled] if independent_first else [controlled, independent]
+    criterion = "; ".join(clauses)
+    assert verifier._required_evidence_channels(criterion) == {"body"}
+    assert verifier._required_evidence_options(criterion) == [{"body"}]
+    assert _floor_verdict(criterion, body=body, comments="absent", artifacts="absent") == (
+        "PASS" if body == "present" else "CONCERNS"
+    )
+
+
 def test_issue3883_filename_qualified_retains_independent_reviewer_body_duty():
     criterion = (
         "The reviewer must upload evidence from results.json both in a PR comment and in an artifact; "
