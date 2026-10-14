@@ -16,13 +16,13 @@ permissions:
 
 concurrency:
   group: >-
-    ${{ github.event.workflow_run.event == 'pull_request' && github.event.workflow_run.path == '.github/workflows/agents-guard.yml' && format('agents-guard-status-{0}', github.event.workflow_run.head_sha) || format('agents-guard-fork-status-{0}', github.run_id) }}
+    ${{ github.event.workflow_run.event == 'pull_request' && github.event.workflow.path == '.github/workflows/agents-guard.yml' && github.event.workflow.id == github.event.workflow_run.workflow_id && format('agents-guard-status-{0}', github.event.workflow_run.head_sha) || format('agents-guard-fork-status-{0}', github.run_id) }}
   cancel-in-progress: false
 
 jobs:
   publish:
     name: publish trusted fork Agents Guard status
-    if: ${{ github.event.workflow_run.event == 'pull_request' }}
+    if: ${{ github.event.workflow_run.event == 'pull_request' && github.event.workflow.path == '.github/workflows/agents-guard.yml' && github.event.workflow.id == github.event.workflow_run.workflow_id }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout trusted publisher

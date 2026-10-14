@@ -300,10 +300,78 @@ def test_guard_status_writers_share_only_canonical_writer_group():
         fork["concurrency"]
         == fork_template["concurrency"]
         == {
-            "group": "${{ github.event.workflow_run.event == 'pull_request' && github.event.workflow_run.path == '.github/workflows/agents-guard.yml' && format('agents-guard-status-{0}', github.event.workflow_run.head_sha) || format('agents-guard-fork-status-{0}', github.run_id) }}",
+            "group": "${{ github.event.workflow_run.event == 'pull_request' && github.event.workflow.path == '.github/workflows/agents-guard.yml' && github.event.workflow.id == github.event.workflow_run.workflow_id && format('agents-guard-status-{0}', github.event.workflow_run.head_sha) || format('agents-guard-fork-status-{0}', github.run_id) }}",
             "cancel-in-progress": False,
         }
     )
+    publisher_if = "${{ github.event.workflow_run.event == 'pull_request' && github.event.workflow.path == '.github/workflows/agents-guard.yml' && github.event.workflow.id == github.event.workflow_run.workflow_id }}"
+    assert fork["jobs"]["publish"]["if"] == fork_template["jobs"]["publish"]["if"] == publisher_if
+
+
+def test_guard_status_writer_group_binds_the_canonical_workflow_object():
+    workflow = yaml.safe_load((ROOT / ".github/workflows/agents-guard-fork-status.yml").read_text())
+    group_expression = workflow["concurrency"]["group"]
+    publish_expression = workflow["jobs"]["publish"]["if"]
+
+    def evaluate(event, run_path, top_workflow, workflow_id):
+        payload = {
+            "group": group_expression,
+            "publish": publish_expression,
+            "github": {
+                "event": {
+                    "workflow_run": {
+                        "event": event,
+                        "path": run_path,
+                        "workflow_id": workflow_id,
+                        "head_sha": "a" * 40,
+                    },
+                    "workflow": top_workflow,
+                },
+                "run_id": "99",
+            },
+        }
+        source = r"""
+const fs = require('fs');
+const input = JSON.parse(fs.readFileSync(0, 'utf8'));
+const expression = value => value.trim()
+  .replace(/^\$\{\{\s*/, '')
+  .replace(/\s*\}\}$/, '');
+const evaluate = value => Function('github', 'format', 'return (' + expression(value) + ');');
+const format = (template, ...values) => template.replace(/\{(\d+)\}/g, (_, index) => String(values[Number(index)]));
+const group = evaluate(input.group)(input.github, format);
+const publish = evaluate(input.publish)(input.github, format);
+process.stdout.write(JSON.stringify({group, publish: Boolean(publish)}));
+"""
+        completed = subprocess.run(
+            ["node", "-e", source],
+            input=json.dumps(payload),
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        return json.loads(completed.stdout)
+
+    canonical = {"id": 45, "path": ".github/workflows/agents-guard.yml"}
+    for run_path in (
+        ".github/workflows/agents-guard.yml",
+        ".github/workflows/agents-guard.yml@main",
+        ".github/workflows/agents-guard.yml@refs/heads/main",
+    ):
+        assert evaluate("pull_request", run_path, canonical, 45) == {
+            "group": "agents-guard-status-" + "a" * 40,
+            "publish": True,
+        }
+
+    for event, top_workflow, workflow_id in (
+        ("pull_request_target", canonical, 45),
+        ("pull_request", {"id": 45, "path": ".github/workflows/agents-guard.yml@evil.yml"}, 45),
+        ("pull_request", canonical, 46),
+        ("pull_request", {}, 45),
+    ):
+        result = evaluate(
+            event, ".github/workflows/agents-guard.yml@main", top_workflow, workflow_id
+        )
+        assert result == {"group": "agents-guard-fork-status-99", "publish": False}
 
 
 def test_canonical_publisher_joins_label_group_while_skipped_events_cannot_cancel_it():
