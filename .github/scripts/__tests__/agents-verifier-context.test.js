@@ -6,6 +6,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const { execFileSync } = require('child_process');
+const { createHash } = require('crypto');
 
 const {
   buildVerifierContext: buildVerifierContextImpl,
@@ -17,6 +18,7 @@ const {
   fetchVerifierEvidence,
   summarizeDiff,
   buildContextSourceCoverage,
+  fullDiffArtifactBytes,
 } = require('../agents_verifier_context.js');
 
 const fixturesDir = path.join(__dirname, 'fixtures');
@@ -1323,6 +1325,17 @@ test('generated coverage names included, truncated, and late omitted code while 
       assert.ok(!result.markdown.includes('diff --git a/late.py'));
       assert.ok(fs.readFileSync(result.diffPath, 'utf8').includes('diff --git a/late.py'));
       assert.equal(result.sourceCoverage.full_diff_artifact.status, 'included');
+      const rawPatch = fs.readFileSync(result.diffPath);
+      assert.equal(result.sourceCoverage.full_diff_artifact.bytes, rawPatch.length);
+      assert.equal(result.sourceCoverage.full_diff_artifact.sha256, createHash('sha256').update(rawPatch).digest('hex'));
+      assert.equal(result.sourceCoverage.full_diff_artifact.encoding, 'utf-8');
+      for (const source of sources) {
+        if (source.status === 'unavailable') continue;
+        const canonical = rawPatch.toString('utf8').replace(/\n$/, '');
+        const span = canonical.slice(source.start, source.end);
+        assert.ok(span.startsWith('diff --git '));
+        assert.equal(source.sha256, createHash('sha256').update(span, 'utf8').digest('hex'));
+      }
     } finally {
       removeVerifierDiffArtifacts(result);
     }
@@ -1705,26 +1718,38 @@ test('artifact extractor charges headings and separators to the rendered charact
   assert.ok(calls[1].options.maxBuffer >= Buffer.byteLength('éééé', 'utf8'));
 });
 
-test('artifact extractor counts raw bytes before UTF8 decode across entries', () => {
-  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'verifier-raw-bytes-'));
-  try {
-    fs.writeFileSync(path.join(directory, 'invalid.txt'), Buffer.from([0xff]));
-    fs.writeFileSync(path.join(directory, 'unicode.txt'), 'é');
-    fs.writeFileSync(path.join(directory, 'last.txt'), 'ok');
-    execFileSync('zip', ['-q', 'proof.zip', 'invalid.txt', 'unicode.txt', 'last.txt'], { cwd: directory });
+test('artifact extractor retains raw identity but rejects invalid UTF-8 and UTF-16/NUL members', () => {
+  for (const [name, raw] of [
+    ['invalid.txt', Buffer.from([0xff])],
+    ['utf16.txt', Buffer.from([0xff, 0xfe, 0x41, 0x00])],
+  ]) {
+    const execFile = (_command, args) => args[0] === '-Z1'
+      ? `${name}\nlate.txt\n`
+      : args[2] === name ? raw : Buffer.from('late proof');
     const result = extractArtifactArchiveText({
-      archiveBuffer: fs.readFileSync(path.join(directory, 'proof.zip')),
-      maxEntries: 3, maxChars: 200, maxBytes: 5,
+      archiveBuffer: Buffer.from('zip'), maxEntries: 2, maxChars: 200, maxBytes: 200, execFile,
     });
-    assert.equal(result.extractedBytes, 5);
-    assert.equal(result.truncated, false);
-    assert.deepEqual(result.failures, []);
-    assert.match(result.text, /invalid.txt\n\n�/);
-    assert.match(result.text, /unicode.txt\n\né/);
-    assert.match(result.text, /last.txt\n\nok/);
-  } finally {
-    fs.rmSync(directory, { recursive: true, force: true });
+    assert.equal(result.truncated, true, name);
+    assert.deepEqual(result.failures, ['utf8_decode_failed'], name);
+    assert.equal(result.members[0].status, 'unavailable', name);
+    assert.equal(result.members[0].reason, 'utf8_decode_failed', name);
+    assert.equal(result.members[0].raw_bytes, raw.length, name);
+    assert.equal(result.members[0].raw_sha256, createHash('sha256').update(raw).digest('hex'), name);
+    assert.equal(result.members[1].status, 'unavailable', name);
+    assert.equal(result.members[1].reason, 'utf8_decode_failed', name);
+    assert.equal(result.text, '', name);
   }
+});
+
+test('artifact extractor preserves a supported UTF-8 BOM in rendered evidence', () => {
+  const result = extractArtifactArchiveText({
+    archiveBuffer: Buffer.from('zip'), maxEntries: 1, maxChars: 200,
+    execFile: (_command, args) => args[0] === '-Z1'
+      ? 'proof.txt\n' : Buffer.from([0xef, 0xbb, 0xbf, 0x70, 0x72, 0x6f, 0x6f, 0x66]),
+  });
+  assert.equal(result.truncated, false);
+  assert.match(result.text, /\ufeffproof/);
+  assert.equal(result.members[0].raw_sha256, createHash('sha256').update(Buffer.from([0xef, 0xbb, 0xbf, 0x70, 0x72, 0x6f, 0x6f, 0x66])).digest('hex'));
 });
 
 test('artifact extractor skips disallowed zip entry names', () => {
@@ -2920,6 +2945,51 @@ test('fetchLocalGitDiff skips invalid shas', () => {
   });
   assert.equal(result, '');
   assert.equal(called, false);
+});
+
+test('fetchLocalGitDiff rejects invalid UTF-8 instead of replacement-decoding a patch', () => {
+  const warnings = [];
+  const result = fetchLocalGitDiff({
+    baseSha: 'a1b2c3d',
+    headSha: 'deadbeef',
+    core: { warning: message => warnings.push(message) },
+    execFile: () => Buffer.from([0x64, 0x69, 0x66, 0x66, 0x20, 0xff]),
+  });
+  assert.equal(result, '');
+  assert.equal(warnings.length, 1);
+  assert.match(warnings[0], /diff|UTF-8|utf-8/i);
+});
+
+test('full patch bytes preserve CRLF and bind every changed-code span', () => {
+  const diff = coveragePatch('crlf.py', 2).replace(/\n/g, '\r\n');
+  const bytes = fullDiffArtifactBytes(diff);
+  const coverage = buildContextSourceCoverage({
+    planSources: [], diffText: diff, fullDiffBytes: bytes,
+    evidence: { comments: { records: [], complete: true }, artifacts: { records: [], complete: true } },
+  });
+  const canonical = bytes.toString('utf8').replace(/\n$/, '');
+  const source = coverage.changed_code_sources[0];
+  assert.equal(coverage.full_diff_artifact.bytes, bytes.length);
+  assert.equal(coverage.full_diff_artifact.sha256, createHash('sha256').update(bytes).digest('hex'));
+  const canonicalDiff = diff.replace(/\n$/, '');
+  const span = Buffer.from(canonical, 'utf8').subarray(source.start, source.end);
+  assert.equal(span.toString('utf8'), canonicalDiff);
+  assert.equal(source.sha256, createHash('sha256').update(span).digest('hex'));
+});
+
+test('full patch byte spans remain cross-runtime exact with astral Unicode', () => {
+  const diff = coveragePatch('astral.py', 1).replace('+new', '+😀new');
+  const bytes = fullDiffArtifactBytes(diff);
+  const coverage = buildContextSourceCoverage({
+    planSources: [], diffText: diff, fullDiffBytes: bytes,
+    evidence: { comments: { records: [], complete: true }, artifacts: { records: [], complete: true } },
+  });
+  const source = coverage.changed_code_sources[0];
+  const canonicalBytes = bytes.subarray(0, -1);
+  const span = canonicalBytes.subarray(source.start, source.end);
+  assert.equal(span.toString('utf8'), diff.replace(/\n$/, ''));
+  assert.equal(source.sha256, createHash('sha256').update(span).digest('hex'));
+  assert.equal(coverage.full_diff_artifact.chars, Array.from(diff.replace(/\n$/, '')).length);
 });
 
 test('fetchLocalGitDiff returns diff output when exec succeeds', () => {

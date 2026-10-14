@@ -970,6 +970,15 @@ named head/base test proof. Other repository pytest configuration remains active
 and explicit author-provided commands are unchanged. Full-suite CI retains its
 normal coverage and plugin options; this does not weaken that separate gate.
 
+For pytest deliberate-break proof, a base-function marker such as
+`tests/test_x.py::test_case` accepts an executed parametrized node of that same
+function, such as `tests/test_x.py::test_case[param]`. A marker that explicitly
+names a parameter remains exact: another parameter, function, or file cannot
+qualify. Collection diagnostics still require evidence that the selected node ran.
+When collection diagnostics are present, that selected node must be reported as
+`FAILED`; a matching `PASSED` node cannot turn an unrelated collection error into
+deliberate-break proof.
+
 The deliberate-break assertion-tamper check rejects removed assertions,
 including an old assertion replaced by a stronger one. The former temporary
 Deliverable-Render issue #36 exception is retired now that the stronger
@@ -2868,6 +2877,19 @@ attributions before a standalone predicate retain that duty. Active bare
 artifact delivery must govern a recognized proof payload; product publications
 to product recipients stay nongating unless a separate reviewer duty exists.
 
+### Active command-output send delivery
+
+Active `send`/`sends`/`sending` shares the bounded evidence-delivery operation
+grammar with passive `sent`. A mandatory author or reviewer instruction to send
+command output to a PR comment, body, or artifact therefore creates the same
+channel floor; optional, direct prohibitions, quoted wording, and product capability
+wording without an explicit PR delivery do not. Capability clauses that prevent,
+disallow, or use their finite forms before users send delivery evidence are likewise
+nongating, while an
+independent reviewer delivery remains required. A direct product operation with
+an explicit PR destination follows the shared delivery grammar. Coordinated send
+and existing delivery predicates retain every explicitly named destination.
+
 Maint68 removes owner-excluded repositories from its authoritative registered
 consumer list and filters direct phase-selection inputs and canaries before
 constructing matrices. Excluded manifest include scopes do not become eligible
@@ -2962,3 +2984,23 @@ retain CRLF, including line-ending-only changes. Snapshot recording rejects
 byte changes between loading and recording even when normalized text matches.
 
 Native conversation binding uses the REST review comment `html_url` browser permalink when present; GraphQL review comments supply the equivalent `url`. REST API endpoint URLs never become reviewer authority. The same durable inline request is reused after a transport failure, retaining its exact identity and task digest.
+
+### Lossless verifier patch provenance
+
+The verifier context can render only a bounded changed-code excerpt, while its
+`verifier-pr-diff.patch` remains the captured full patch. Source coverage binds
+that artifact to its UTF-8 byte count, SHA-256, and each changed-file span's
+canonical offset and SHA-256. Capture admission treats a truncated or omitted
+rendered changed-code record as complete only when the locally recorded raw
+patch matches all of those bindings. Metadata alone never waives an obligation.
+
+Git diff bytes must decode as strict UTF-8. Invalid bytes make the diff channel
+unavailable and preserve the resulting capture gap; they are never
+replacement-decoded, guessed as another encoding, or silently normalized. This
+keeps raw identity and CRLF evidence intact without changing the existing patch
+size or native provider bounds.
+
+Artifact members use the same rule: their raw byte count and SHA-256 remain in
+the archive ledger, but only strict UTF-8 text without NUL bytes is rendered.
+Invalid UTF-8 and UTF-16/binary-looking members stay unavailable with their
+raw provenance and retain the aggregate capture gap.

@@ -1022,7 +1022,10 @@ _MANDATORY_EVIDENCE_AUXILIARY = (
 )
 _EVIDENCE_DELIVERY_ADVERB = r"(?:also|then|now|still|already|yet|always|[\w-]+ly)"
 _EVIDENCE_DELIVERY_ADVERBS = r"(?:" + _EVIDENCE_DELIVERY_ADVERB + r"\s+){0,3}"
-_EVIDENCE_DELIVERY_OPERATION = r"(?:prov(?:e|ing)|provid(?:e|ing)|return|display|show|emit|render|expos(?:e|ing)|stor(?:e|ing)|upload|attach|publish|post|record|copy|copies|copied|copying|captur(?:e|ing)|includ(?:e|ing)|contain|hav(?:e|ing)|document|generat(?:e|ing)|link|add|leav(?:e|ing)|left)\w*\b"
+_EVIDENCE_DELIVERY_OPERATION = r"(?:prov(?:e|ing)|provid(?:e|ing)|return|display|show|emit|render|expos(?:e|ing)|stor(?:e|ing)|upload|attach|publish|post|record|copy|copies|copied|copying|captur(?:e|ing)|includ(?:e|ing)|contain|hav(?:e|ing)|document|generat(?:e|ing)|link|add|leav(?:e|ing)|left|send(?:s|ing)?)\w*\b"
+_EVIDENCE_ACTIVE_DELIVERY_OPERATION = (
+    r"(?:provide|upload|attach|publish|post|record|capture|include|document|send(?:s|ing)?)\w*\b"
+)
 _EVIDENCE_DELIVERY_PARTICIPLE_START = r"(?=(?:\w*(?:ed|en)|left)\b)"
 _EVIDENCE_DELIVERY_IRREGULAR_STATE = r"(?:made|sent|shown|put)"
 _EVIDENCE_PASSIVE_DELIVERY_OPERATION = (
@@ -1672,11 +1675,12 @@ _EVIDENCE_PR_COMMENT_DESTINATION = (
     r"(?:(?:pr|pull request)\s+comments?|(?:inline\s+)?(?:pr\s+)?review comments?)"
 )
 _EVIDENCE_ACTIVE_AS_ARTIFACT_DELIVERY = (
-    r"\b(?:upload|attach|publish|post|record|capture|provide|include|document)\w*"
-    r"\s+(?:(?:the|an?|any|this|that|these|those)\s+)?"
+    r"\b"
+    + _EVIDENCE_DELIVERY_OPERATION
+    + r"\s+(?:(?:the|an?|any|this|that|these|those)\s+)?"
     + _EVIDENCE_OBJECT_MODIFIERS
     + r"(?:evidence(?:\s+(?:files?|bundles?|packages?))?|transcripts?|command outputs?|"
-    r"coverage reports?|" + _EVIDENCE_PROOF_ALIAS_NOUN + r")\s+as\s+"
+    r"coverage reports?|logs?|" + _EVIDENCE_PROOF_ALIAS_NOUN + r")\s+as\s+"
     r"(?:(?:an?|the)\s+)?artifacts?\b"
 )
 _EVIDENCE_REVIEW_DESTINATION = (
@@ -1713,7 +1717,7 @@ def _normalize_capability_deliveries(acceptance: str) -> str:
     )
     proof_object = (
         _EVIDENCE_OBJECT_MODIFIERS
-        + r"(?:evidence(?:\s+(?:files?|bundles?|packages?))?|transcripts?|command outputs?|"
+        + r"(?:evidence(?:\s+(?:files?|bundles?|packages?))?|transcripts?|command outputs?|logs?|"
         + _EVIDENCE_PROOF_ALIAS_NOUN
         + r")\b"
     )
@@ -1739,15 +1743,18 @@ def _normalize_capability_deliveries(acceptance: str) -> str:
         + destination_tail
         + r")*"
     )
-    capability_delivery = re.compile(
+    capability_recipient = (
+        _EVIDENCE_RECIPIENT_PREFIX + _EVIDENCE_ACTOR_NOUN + r"\b" + _EVIDENCE_ACTOR_QUALIFIER
+    )
+    capability_infinitive = (
+        r"(?:allow|enable|support|permit)\w*\s+" + capability_recipient + r"\s+to"
+    )
+    capability_prohibition = r"(?:prevent|disallow)\w*\s+" + capability_recipient + r"\s+from"
+    negative_capability_delivery = re.compile(
         r"(?P<literal>" + _QUOTED_EVIDENCE_LITERAL + r")|"
-        r"(?:(?:"
-        + _MANDATORY_EVIDENCE_AUXILIARY
-        + r"|"
-        + _EVIDENCE_OPTIONAL_MODAL
-        + r")|(?:and|or))\s+"
-        r"(?:allow|enable|support|permit)\w*\s+"
-        r"(?:users?|reviewers?|maintainers?|authors?)\s+to\s+"
+        r"\b(?:must|shall)\s+not\s+"
+        + capability_infinitive
+        + r"\s+"
         + _EVIDENCE_DELIVERY_ADVERBS
         + capability_delivery_operation
         + r"\s+"
@@ -1755,6 +1762,33 @@ def _normalize_capability_deliveries(acceptance: str) -> str:
         + destination_tail
         + coordinated_delivery,
         re.I,
+    )
+    capability_delivery = re.compile(
+        r"(?P<literal>" + _QUOTED_EVIDENCE_LITERAL + r")|"
+        r"(?:"
+        r"(?:(?:"
+        + _MANDATORY_EVIDENCE_AUXILIARY
+        + r"|"
+        + _EVIDENCE_OPTIONAL_MODAL
+        + r")|(?:and|or))\s+(?:"
+        + capability_infinitive
+        + r"|"
+        + capability_prohibition
+        + r")"
+        r"|"
+        + capability_prohibition
+        + r")\s+"
+        + _EVIDENCE_DELIVERY_ADVERBS
+        + capability_delivery_operation
+        + r"\s+"
+        + proof_object
+        + destination_tail
+        + coordinated_delivery,
+        re.I,
+    )
+    acceptance = negative_capability_delivery.sub(
+        lambda match: match[0] if match["literal"] else "product capability evidence",
+        acceptance,
     )
     return capability_delivery.sub(
         lambda match: match[0] if match["literal"] else "product capability evidence",
@@ -3230,7 +3264,7 @@ def _classify_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         r"\b(?:"
         + mandatory_auxiliary
         + r"|required|mandatory|(?:is|are)\s+needed|must|shall|needs? to|"
-        r"publish(?:es|ed)?|upload(?:s|ed)?|"
+        r"publish(?:es|ed)?|upload(?:s|ed)?|send(?:s|ing)?|"
         r"attach(?:es|ed)?|captur(?:e|es|ed)|record(?:s|ed|ing)?|provid(?:e|es|ed)|"
         r"includ(?:e|es|ed)|link(?:s|ed)?|post(?:s|ed)?|"
         r"(?:add(?:s|ed)?|leav(?:e|es)|left)\s+(?:(?:an?|the)\s+)?"
@@ -4213,8 +4247,9 @@ def _classify_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         )
         clause_evidence_antecedent: str | None = None
         proof_pronoun_delivery = re.compile(
-            r"\b(?:attach|upload|publish|post|record|capture|provide|include|document|link)\w*\b"
-            r".{0,40}\b(?:it|them|this|they|these|those|both)\b.{0,40}\b(?:pr|pull request|(?:(?:workflow|ci|github actions)\s+)?artifacts?)\b"
+            r"\b"
+            + _EVIDENCE_DELIVERY_OPERATION
+            + r".{0,40}\b(?:it|them|this|they|these|those|both)\b.{0,40}\b(?:pr|pull request|(?:(?:workflow|ci|github actions)\s+)?artifacts?)\b"
             r"|\b(?:it|them|this|they|these|those|both)\b.{0,40}"
             r"\b(?:attached|uploaded|published|posted|recorded|captured|provided|"
             r"included|documented|linked)\b.{0,40}\b(?:pr|pull request|(?:(?:workflow|ci|github actions)\s+)?artifacts?)\b",
@@ -4779,7 +4814,7 @@ def _classify_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
             # not a later prohibited pronoun clause such as 'do not attach it'.
             explicit_review_destination = bool(
                 re.search(
-                    r"\b(?:provide|upload|attach|publish|post|record|capture|document)\w*\b\s+"
+                    r"\b" + _EVIDENCE_ACTIVE_DELIVERY_OPERATION + r"\s+"
                     r"(?:(?:the|an?|any)\s+)?" + artifact_destination_object + "|"
                     r"\b" + delivery_operation + r"\s+"
                     r"(?:(?!(?:and|or|but|must|shall|is|are|not|never)\b)[\w/-]+\s+){0,4}"
@@ -4848,8 +4883,9 @@ def _classify_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                 re.I,
             )
             review_delivery = re.search(
-                r"\b(?:attach|upload|publish|post|record|capture|provide|include|document)\w*"
-                r"\b.{0,80}\b(?:in|into|to)\s+(?:the\s+)?(?:pr|pull request)\b",
+                r"\b"
+                + _EVIDENCE_ACTIVE_DELIVERY_OPERATION
+                + r".{0,80}\b(?:in|into|to)\s+(?:the\s+)?(?:pr|pull request)\b",
                 requirement_text,
                 re.I,
             )
@@ -4881,8 +4917,9 @@ def _classify_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                 explicit_artifact_delivery = bool(
                     active_as_artifact_delivery
                     or re.search(
-                        r"\b(?:upload|attach|publish|post|record|capture|provide|include|document)"
-                        r"(?:s)?\s+(?:(?:an?|the|any|workflow|validation|exact-head|evidence)\s+){0,4}"
+                        r"\b"
+                        + _EVIDENCE_ACTIVE_DELIVERY_OPERATION
+                        + r"\s+(?:(?:an?|the|any|workflow|validation|exact-head|evidence)\s+){0,4}"
                         r"artifacts?\b",
                         requirement_text,
                         re.I,
@@ -4974,21 +5011,48 @@ def _classify_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                         and bool(re.search(r"\b(?:pr|pull request)\b", lower))
                     )
                 )
-                product_artifact_actor = bool(
+                product_artifact_actor_match = re.search(
+                    r"\b(?:ui|api|application|interface|service|worker|cli|database|"
+                    r"users?|endpoint|renderer)\b\s+"
+                    + "(?:"
+                    + product_auxiliary
+                    + r"|(?:is|are)\s+"
+                    + delivery_adverbs
+                    + ")?"
+                    + r"(?:(?:"
+                    + capability_operation
+                    + r")\s+(?:"
+                    + recipient_noun
+                    + r"\s+(?:to\s+)?)?)?"
+                    + delivery_operation
+                    + r".{0,60}\bartifacts?\b",
+                    normalize_product_capability(requirement_text),
+                    re.I,
+                )
+                product_artifact_actor = bool(product_artifact_actor_match)
+                product_artifact_review_delivery = bool(
                     re.search(
-                        r"\b(?:ui|api|application|interface|service|worker|cli|database|"
-                        r"users?|endpoint|renderer)\b\s+"
-                        + "(?:"
-                        + product_auxiliary
-                        + ")?"
-                        + r"(?:(?:"
-                        + capability_operation
-                        + r")\s+(?:"
-                        + recipient_noun
-                        + r"\s+(?:to\s+)?)?)?"
-                        + r"(?:upload|attach|publish|post|record|capture|"
-                        r"provide|include|document)\w*\b.{0,60}\bartifacts?\b",
-                        normalize_product_capability(requirement_text),
+                        r"\b(?:pr|pull request)\s+(?:body|description)\b.{0,100}"
+                        r"\b(?:workflow|ci|github actions)\s+artifacts?\b"
+                        r"|\b(?:pr|pull request)\s+comments?\b.{0,100}"
+                        r"\b(?:workflow|ci|github actions)\s+artifacts?\b"
+                        r"|\b"
+                        + product_evidence_object
+                        + r"\b.{0,80}(?:\b(?:and|or)\s+|,\s*)"
+                        + r"(?:in\s+)?(?:(?:the|an?)\s+)?"
+                        + r"(?:workflow|ci|github actions)\s+artifacts?\b"
+                        r"|\b"
+                        + delivery_operation
+                        + r"\s+"
+                        + evidence_modifiers
+                        + r"(?:evidence|command outputs?|transcripts?|coverage reports?|"
+                        + _EVIDENCE_PROOF_ALIAS_NOUN
+                        + r")\b.{0,60}\b(?:in|into|to)\s+"
+                        + r"(?:(?:the|an?)\s+)?(?:workflow|ci|github actions)\s+artifacts?\b"
+                        r"|\b"
+                        + _EVIDENCE_ACTIVE_DELIVERY_OPERATION
+                        + r"\s+(?:(?:the|an?)\s+)?(?:workflow|ci|github actions)\s+artifacts?\b",
+                        requirement_text,
                         re.I,
                     )
                 )
@@ -5043,7 +5107,10 @@ def _classify_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                 artifact_delivery_into_pr = (
                     artifact_delivery_into_pr and not passive_product_capability
                 )
-                evidence_named_artifact = evidence_named_artifact and not passive_product_capability
+                evidence_named_artifact = evidence_named_artifact and not (
+                    passive_product_capability
+                    or (product_artifact_actor and not product_artifact_review_delivery)
+                )
                 if (
                     artifact_delivery_into_pr
                     or evidence_named_artifact
@@ -5097,7 +5164,7 @@ def _classify_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                     )
                 )
                 or re.search(
-                    r"\b(?:attach|upload|include|post|publish|record|capture|provide|document|add|leave|left|link)\w*\b"
+                    r"\b(?:" + _EVIDENCE_ACTIVE_DELIVERY_OPERATION + r"|add|leave|left|link)\w*\b"
                     r"(?:\s+\w+){0,10}\s+\b" + _EVIDENCE_PR_COMMENT_DESTINATION + r"\b",
                     requirement_text,
                     re.I,
@@ -6022,7 +6089,9 @@ def _preflight_input_capacity(
     receipt: dict[str, object] = {"status": "unavailable", "prompt_chars": len(prompt)}
     try:
         if context is not None:
-            manifest = build_capture_obligation_manifest(context)
+            manifest = build_capture_obligation_manifest(
+                context, full_diff_bytes=diff.encode("utf-8") if diff is not None else None
+            )
             receipt["capture_obligations"] = manifest
             coverage = prompt_coverage(context, diff)
             receipt["prompt_coverage"] = coverage.to_dict()
@@ -6235,7 +6304,9 @@ def _plan_diagnostic_partitions(
     }
     # The byte ceiling limits planning work, not retention of known evidence
     # gaps. Keep the original manifest even when no fine ranges can be built.
-    manifest = build_capture_obligation_manifest(context)
+    manifest = build_capture_obligation_manifest(
+        context, full_diff_bytes=diff.encode("utf-8") if diff is not None else None
+    )
     early_plan["capture_obligations"] = manifest
     if sum(row["bytes"] for row in identities) > PARTITION_MAX_CAPTURE_BYTES:
         reason = "diagnostic capture byte bound exceeded"
@@ -6902,7 +6973,9 @@ def _semantic_capture(context: str, diff: str | None) -> dict[str, Any]:
         raw_inputs["diff"] = hashlib.sha256(diff.encode()).hexdigest()
     if not re.fullmatch(r"[0-9a-f]{40}", head):
         gaps.append("pr_head_sha_missing_or_malformed")
-    manifest = build_capture_obligation_manifest(context)
+    manifest = build_capture_obligation_manifest(
+        context, full_diff_bytes=diff.encode("utf-8") if diff is not None else None
+    )
     gaps.extend(str(item) for item in manifest["gaps"])
     coverage = build_prompt_inputs(context, diff, lossless=True).coverage
     gaps.extend(f"prompt:{item}" for item in coverage.reasons)

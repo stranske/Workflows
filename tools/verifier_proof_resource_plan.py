@@ -91,7 +91,9 @@ def build_resource_plan(
     if any(type(key) is not int for key in metadata_paths) or set(metadata_paths) != set(records):
         raise ValueError("metadata paths do not cover the exact expected inventory")
     inventory = build_capture_byte_inventory(inputs)
-    manifest = build_capture_obligation_manifest(inputs["context"].decode("utf-8"))
+    manifest = build_capture_obligation_manifest(
+        inputs["context"].decode("utf-8"), full_diff_bytes=inputs.get("diff")
+    )
     contract = build_capture_reassembly_contract(manifest, inventory)
     archives = []
     occurrences = []
