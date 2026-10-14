@@ -657,7 +657,9 @@ jobs:
             );
 
       - name: Report agents guard commit status
-        if: always()
+        if: >-
+          always() && (github.event_name == 'pull_request_target' ||
+          github.event.pull_request.head.repo.full_name == github.repository)
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         env:
           ELIGIBLE: ${{ steps.eligibility.outputs.should-run }}

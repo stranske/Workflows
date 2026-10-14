@@ -122,16 +122,16 @@ divergence_reviewed = 2026-08-23
 fingerprint_refreshed = 2026-10-02
 
 [pair.10]
-# 2026-10-12: identical no-checkout-code head publisher and fail-closed outcomes
-# applied to both surfaces; root publisher client callback also corrected.
-# Existing consumer pins/App setup and prior divergence remain unchanged.
+# 2026-10-14: fork pull_request status publication is now gated on explicit
+# same-repository identity while preserving trusted pull_request_target behavior.
+# Applied to both surfaces; existing consumer pins/App setup and prior divergence remain unchanged.
 main = .github/workflows/agents-guard.yml
 template = templates/consumer-repo/.github/workflows/agents-guard.yml
-main_sha256 = c58655ce5aa6b109c8e8f2945f13a8f10d006117171cd83074ffc52a73b85ad8
-template_sha256 = aacf64e7c7a4875bf9c49c332b1938eb59d10d3a348f4052b05a0f9de2926f18
+main_sha256 = bbdc87bce13fffd28b3b81eea8b7669d52be7e771a3fca811aa4ce35663b562c
+template_sha256 = 02549661e576709e6f8461c92cedda4abd618c6713b91fa1b1b8b1094c5c15f5
 divergence = client-id rename 2026-08-24: every create-github-app-token step moved from the deprecated `app-id` input to `client-id`, applied identically to root and consumer, with the secret VALUE unchanged (the action forwards either input to the same appId slot -- main.js:21, lib/main.js:37). Fingerprints refreshed for that change; the divergence itself is unchanged and was NOT re-reviewed, which is why divergence_reviewed keeps its old date. Prior divergence unchanged: Named-secrets rollout 2026-08-23: both surfaces now pass named setup-api-client secret inputs instead of the whole-secrets-context blob, applied identically to root and consumer, and scoped to each workflow's DECLARED workflow_call secrets where that context is a closed set. Removing that handoff is the demonstrated remedy for GitHub's suspicious-workflow hold (agents-dedup then ran at run_attempt 1 with nothing approved after 22 days held). Prior divergence unchanged: Intentional divergence re-baselined 2026-06-30: root and consumer guard workflows differ for pinned consumer actions/App-token setup; stranske/Workflows digest pins were refreshed together in root and consumer guard surfaces after Renovate moved the Workflows digest to ebef44a.
 divergence_reviewed = 2026-06-30
-fingerprint_refreshed = 2026-10-12
+fingerprint_refreshed = 2026-10-14
 
 [pair.11]
 # 2026-09-02: refreshed after recursion-guard comment accuracy fix; root and consumer
