@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import copy
+import hashlib
 import json
 
 import pytest
@@ -53,6 +54,188 @@ def test_manifest_marks_truncated_changed_code_insufficient() -> None:
     assert manifest["schema"] == SCHEMA
     assert manifest["sufficient"] is False
     assert "changed_code:src/a.py:truncated" in manifest["gaps"]
+
+
+def _verified_truncated_patch_coverage() -> tuple[dict, bytes]:
+    patch = (
+        "diff --git a/src/a.py b/src/a.py\n"
+        "--- a/src/a.py\n"
+        "+++ b/src/a.py\n"
+        "@@ -0,0 +1 @@\n"
+        "+complete 😀 changed code\n"
+    )
+    raw_patch = patch.encode("utf-8")
+    canonical_patch = patch[:-1]
+    coverage = _complete_coverage()
+    coverage["changed_code_sources"] = [
+        {
+            "source": "src/a.py",
+            "from_path": "src/a.py",
+            "status": "truncated",
+            "included_chars": 20,
+            "total_chars": len(canonical_patch),
+            "start": 0,
+            "end": len(canonical_patch.encode("utf-8")),
+            "sha256": hashlib.sha256(canonical_patch.encode("utf-8")).hexdigest(),
+        }
+    ]
+    coverage["full_diff_artifact"] = {
+        "source": "verifier-pr-diff.patch",
+        "status": "included",
+        "chars": len(canonical_patch),
+        "bytes": len(raw_patch),
+        "sha256": hashlib.sha256(raw_patch).hexdigest(),
+        "encoding": "utf-8",
+    }
+    return coverage, raw_patch
+
+
+def test_verified_raw_full_patch_satisfies_truncated_changed_code() -> None:
+    coverage, raw_patch = _verified_truncated_patch_coverage()
+    manifest = build_capture_obligation_manifest(
+        _context_block(coverage), full_diff_bytes=raw_patch
+    )
+    assert manifest["sufficient"] is True
+    assert manifest["gaps"] == []
+    assert manifest["obligations"][0]["status"] == "truncated"
+
+
+@pytest.mark.parametrize("damage", ["raw", "artifact_hash", "span_hash", "span_range"])
+def test_truncated_changed_code_needs_exact_raw_patch_span_binding(damage: str) -> None:
+    coverage, raw_patch = _verified_truncated_patch_coverage()
+    candidate = raw_patch
+    if damage == "raw":
+        candidate = raw_patch.replace(b"complete", b"tamperd!")
+    elif damage == "artifact_hash":
+        coverage["full_diff_artifact"]["sha256"] = "0" * 64
+    elif damage == "span_hash":
+        coverage["changed_code_sources"][0]["sha256"] = "0" * 64
+    else:
+        coverage["changed_code_sources"][0]["end"] = len(raw_patch)
+    manifest = build_capture_obligation_manifest(
+        _context_block(coverage), full_diff_bytes=candidate
+    )
+    assert manifest["sufficient"] is False
+    assert any(
+        gap.startswith(("full_diff_artifact:", "changed_code:src/a.py:"))
+        for gap in manifest["gaps"]
+    )
+    assert "changed_code:src/a.py:truncated" in manifest["gaps"]
+
+
+def test_recovery_rejects_malformed_changed_code_record_without_crashing() -> None:
+    coverage, raw_patch = _verified_truncated_patch_coverage()
+    coverage["changed_code_sources"].append([])
+    manifest = build_capture_obligation_manifest(
+        _context_block(coverage), full_diff_bytes=raw_patch
+    )
+    assert manifest["sufficient"] is False
+    assert "changed_code:full_patch_record_count_mismatch" in manifest["gaps"]
+
+
+def test_full_patch_recovery_requires_every_exact_file_identity_once() -> None:
+    first = (
+        "diff --git a/src/a.py b/src/a.py\n--- a/src/a.py\n+++ b/src/a.py\n" "@@ -0,0 +1 @@\n+one\n"
+    )
+    second = (
+        "diff --git a/src/b.py b/src/b.py\n--- a/src/b.py\n+++ b/src/b.py\n" "@@ -0,0 +1 @@\n+two\n"
+    )
+    patch = first + second
+    raw_patch = patch.encode("utf-8")
+    canonical_patch = patch[:-1]
+    coverage = _complete_coverage()
+    coverage["changed_code_sources"] = [
+        {
+            "source": "src/a.py",
+            "from_path": "src/a.py",
+            "status": "truncated",
+            "included_chars": 1,
+            "total_chars": len(first),
+            "start": 0,
+            "end": len(first.encode("utf-8")),
+            "sha256": hashlib.sha256(first.encode("utf-8")).hexdigest(),
+        },
+        {
+            "source": "src/b.py",
+            "from_path": "src/b.py",
+            "status": "omitted",
+            "included_chars": 0,
+            "total_chars": len(second),
+            "start": len(first.encode("utf-8")),
+            "end": len(canonical_patch.encode("utf-8")),
+            "sha256": hashlib.sha256(second[:-1].encode("utf-8")).hexdigest(),
+        },
+    ]
+    coverage["full_diff_artifact"] = {
+        "source": "verifier-pr-diff.patch",
+        "status": "included",
+        "chars": len(canonical_patch),
+        "bytes": len(raw_patch),
+        "sha256": hashlib.sha256(raw_patch).hexdigest(),
+        "encoding": "utf-8",
+    }
+    assert build_capture_obligation_manifest(_context_block(coverage), full_diff_bytes=raw_patch)[
+        "sufficient"
+    ]
+    for mutation in ("header_only", "absent_source", "duplicate_span", "missing_file"):
+        candidate = copy.deepcopy(coverage)
+        records = candidate["changed_code_sources"]
+        if mutation == "header_only":
+            records[0]["end"] = len(b"diff --git ")
+            records[0]["sha256"] = hashlib.sha256(b"diff --git ").hexdigest()
+        elif mutation == "absent_source":
+            records[0]["source"] = "src/not-in-patch.py"
+        elif mutation == "duplicate_span":
+            records[1] = copy.deepcopy(records[0])
+            records[1]["source"] = "src/b.py"
+            records[1]["from_path"] = "src/b.py"
+        else:
+            records.pop()
+        manifest = build_capture_obligation_manifest(
+            _context_block(candidate), full_diff_bytes=raw_patch
+        )
+        assert manifest["sufficient"] is False, mutation
+        assert any("full_patch_" in gap for gap in manifest["gaps"]), mutation
+
+
+def test_full_patch_recovery_rejects_header_only_section_even_with_matching_record() -> None:
+    from tools.verifier_capture_obligation_manifest import _full_patch_file_records
+
+    header = b"diff --git a/a.py b/a.py\n"
+    assert _full_patch_file_records(header) is None
+    assert _full_patch_file_records(header + b"index 123..456 100644\n") is None
+    assert _full_patch_file_records(header + b"@@ -1 +1 @@\n") is None
+    assert (
+        _full_patch_file_records(header + b"--- a/a.py\n+++ b/a.py\n@@ -1,3 +1,3 @@\n-old\n+new\n")
+        is None
+    )
+    assert (
+        _full_patch_file_records(header + b"--- a/a.py\n+++ b/a.py\n@@ -1 +1 @@\n-old\n+new\n")
+        is not None
+    )
+    assert (
+        _full_patch_file_records(
+            b"diff --git a/empty b/empty\nnew file mode 100644\nindex 0000000..e69de29\n"
+        )
+        is not None
+    )
+    assert _full_patch_file_records(header + b"old mode 100644\nnew mode 100755\n") is not None
+    assert (
+        _full_patch_file_records(
+            b"diff --git a/a.py b/b.py\nsimilarity index 100%\nrename from a.py\nrename to b.py\n"
+        )
+        is not None
+    )
+
+
+def test_full_patch_recovery_rejects_metadata_identity_not_in_diff_header() -> None:
+    from tools.verifier_capture_obligation_manifest import _full_patch_file_records
+
+    forged = (
+        b"diff --git a/src/actual.py b/src/actual.py\n"
+        b"--- a/src/forged.py\n+++ b/src/forged.py\n@@ -0,0 +1 @@\n+proof\n"
+    )
+    assert _full_patch_file_records(forged) is None
 
 
 def test_manifest_passes_when_all_required_sources_included() -> None:
@@ -298,6 +481,23 @@ def test_byte_inventory_rejects_incomplete_or_conflicting_ranges(damage):
         validate_capture_byte_inventory(inventory, inputs)
 
 
+def test_record_admits_truncated_changed_code_only_from_verified_full_patch(tmp_path) -> None:
+    from tools.verifier_capture_obligation_manifest import record_capture_obligations
+
+    coverage, raw_patch = _verified_truncated_patch_coverage()
+    context = tmp_path / "verifier-context.md"
+    context.write_text(_context_block(coverage), encoding="utf-8")
+    diff = tmp_path / "verifier-pr-diff.patch"
+    diff.write_bytes(raw_patch)
+    manifest = record_capture_obligations(context, diff_path=diff)
+    inventory = json.loads((tmp_path / "verifier-capture-byte-inventory.json").read_text())
+    diff_item = next(item for item in inventory["inputs"] if item["input"] == "diff")
+    assert manifest["sufficient"] is True
+    assert manifest["gaps"] == []
+    assert diff_item["bytes"] == len(raw_patch)
+    assert diff_item["sha256"] == hashlib.sha256(raw_patch).hexdigest()
+
+
 def test_record_binds_raw_ranges_and_rejects_tampered_snapshot(tmp_path):
     import hashlib
 
@@ -486,3 +686,151 @@ def test_explicit_complete_discovery_retains_valid_capture(required):
     coverage = _complete_coverage()
     coverage["acceptance_source_discovery"] = {"required": required, "status": "included"}
     assert build_capture_obligation_manifest(_context_block(coverage))["sufficient"] is True
+
+
+def _coverage_for_raw_file_records(raw_patch: bytes) -> dict:
+    from tools.verifier_capture_obligation_manifest import _full_patch_file_records
+
+    records = _full_patch_file_records(raw_patch)
+    assert records is not None
+    canonical = raw_patch[:-1] if raw_patch.endswith(b"\n") else raw_patch
+    coverage = _complete_coverage()
+    coverage["changed_code_sources"] = [
+        {
+            "source": record["source"],
+            "from_path": record["from_path"],
+            "status": "truncated",
+            "included_chars": 0,
+            "total_chars": len(canonical),
+            "start": record["start"],
+            "end": record["end"],
+            "sha256": record["sha256"],
+        }
+        for record in records
+    ]
+    coverage["full_diff_artifact"] = {
+        "source": "verifier-pr-diff.patch",
+        "status": "included",
+        "chars": len(canonical.decode("utf-8")),
+        "bytes": len(raw_patch),
+        "sha256": hashlib.sha256(raw_patch).hexdigest(),
+        "encoding": "utf-8",
+    }
+    return coverage
+
+
+def test_full_patch_recovery_accepts_git_quoted_and_spaced_mode_only_paths() -> None:
+    from tools.verifier_capture_obligation_manifest import _full_patch_file_records
+
+    quoted_hunk = (
+        b'diff --git "a/space name.py" "b/space name.py"\n'
+        b'--- "a/space name.py"\n+++ "b/space name.py"\n'
+        b"@@ -1 +1 @@\n-old\n+new\n"
+    )
+    mode_only = (
+        b'diff --git "a/mode only name" "b/mode only name"\n' b"old mode 100644\nnew mode 100755\n"
+    )
+    assert _full_patch_file_records(quoted_hunk)[0]["source"] == "space name.py"
+    assert _full_patch_file_records(mode_only)[0]["source"] == "mode only name"
+    assert _full_patch_file_records(mode_only)[0]["from_path"] == "mode only name"
+    assert (
+        build_capture_obligation_manifest(
+            _context_block(_coverage_for_raw_file_records(quoted_hunk)), full_diff_bytes=quoted_hunk
+        )["sufficient"]
+        is True
+    )
+
+
+def test_raw_binary_patch_never_waives_truncated_changed_code(tmp_path) -> None:
+    import subprocess
+
+    subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)
+    subprocess.run(
+        ["git", "config", "user.email", "capture@example.test"], cwd=tmp_path, check=True
+    )
+    subprocess.run(["git", "config", "user.name", "Capture"], cwd=tmp_path, check=True)
+    binary = tmp_path / "evidence.bin"
+    binary.write_bytes(b"\x00before\xff")
+    subprocess.run(["git", "add", "evidence.bin"], cwd=tmp_path, check=True)
+    subprocess.run(["git", "commit", "-qm", "base"], cwd=tmp_path, check=True)
+    binary.write_bytes(b"\x00after\xfe")
+    raw_patch = subprocess.run(
+        ["git", "diff", "--binary"], cwd=tmp_path, check=True, capture_output=True
+    ).stdout
+    coverage = _coverage_for_raw_file_records(raw_patch)
+    manifest = build_capture_obligation_manifest(
+        _context_block(coverage), full_diff_bytes=raw_patch
+    )
+    assert manifest["sufficient"] is False
+    assert "changed_code:full_patch_binary_unavailable" in manifest["gaps"]
+    assert "changed_code:evidence.bin:truncated" in manifest["gaps"]
+    coverage["changed_code_sources"][0]["status"] = "included"
+    coverage["changed_code_sources"][0]["included_chars"] = coverage["changed_code_sources"][0][
+        "total_chars"
+    ]
+    included_manifest = build_capture_obligation_manifest(
+        _context_block(coverage), full_diff_bytes=raw_patch
+    )
+    assert included_manifest["sufficient"] is False
+    assert "changed_code:full_patch_binary_unavailable" in included_manifest["gaps"]
+
+
+def test_raw_binary_marker_blocks_even_malformed_binary_payload() -> None:
+    raw_patch = b"diff --git a/evidence.bin b/evidence.bin\nBinary files a/evidence.bin and b/evidence.bin differ\n"
+    canonical = raw_patch[:-1]
+    coverage = _complete_coverage()
+    coverage["changed_code_sources"] = [
+        {
+            "source": "evidence.bin",
+            "status": "included",
+            "included_chars": 1,
+            "total_chars": 1,
+        }
+    ]
+    coverage["full_diff_artifact"] = {
+        "source": "verifier-pr-diff.patch",
+        "status": "included",
+        "chars": len(canonical.decode("utf-8")),
+        "bytes": len(raw_patch),
+        "sha256": hashlib.sha256(raw_patch).hexdigest(),
+        "encoding": "utf-8",
+    }
+    manifest = build_capture_obligation_manifest(
+        _context_block(coverage), full_diff_bytes=raw_patch
+    )
+    assert manifest["sufficient"] is False
+    assert "changed_code:full_patch_binary_unavailable" in manifest["gaps"]
+
+
+def test_full_patch_recovery_binds_all_rename_copy_metadata_to_header_identity() -> None:
+    from tools.verifier_capture_obligation_manifest import _full_patch_file_records
+
+    forged_rename = (
+        b"diff --git a/actual b/actual\n"
+        b"similarity index 100%\nrename from hidden\nrename to secret\n"
+    )
+    forged_copy = (
+        b"diff --git a/actual b/actual\n"
+        b"similarity index 100%\ncopy from hidden\ncopy to secret\n"
+    )
+    assert _full_patch_file_records(forged_rename) is None
+    assert _full_patch_file_records(forged_copy) is None
+
+
+def test_full_patch_recovery_uses_consistent_metadata_to_resolve_ambiguous_header() -> None:
+    from tools.verifier_capture_obligation_manifest import _full_patch_file_records
+
+    # Git accepts this unquoted header; only the rename pair identifies the
+    # intended split among its three ` b/` candidate boundaries.
+    raw_patch = (
+        b"diff --git a/docs/foo b/bar b/docs/new b/name\n"
+        b"similarity index 100%\n"
+        b"rename from docs/foo b/bar\n"
+        b"rename to docs/new b/name\n"
+    )
+    records = _full_patch_file_records(raw_patch)
+    assert records is not None
+    assert records[0]["from_path"] == "docs/foo b/bar"
+    assert records[0]["source"] == "docs/new b/name"
+    conflicting = raw_patch + b"copy from docs/foo b/bar\ncopy to other\n"
+    assert _full_patch_file_records(conflicting) is None

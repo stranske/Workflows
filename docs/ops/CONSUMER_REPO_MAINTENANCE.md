@@ -2949,3 +2949,23 @@ retain CRLF, including line-ending-only changes. Snapshot recording rejects
 byte changes between loading and recording even when normalized text matches.
 
 Native conversation binding uses the REST review comment `html_url` browser permalink when present; GraphQL review comments supply the equivalent `url`. REST API endpoint URLs never become reviewer authority. The same durable inline request is reused after a transport failure, retaining its exact identity and task digest.
+
+### Lossless verifier patch provenance
+
+The verifier context can render only a bounded changed-code excerpt, while its
+`verifier-pr-diff.patch` remains the captured full patch. Source coverage binds
+that artifact to its UTF-8 byte count, SHA-256, and each changed-file span's
+canonical offset and SHA-256. Capture admission treats a truncated or omitted
+rendered changed-code record as complete only when the locally recorded raw
+patch matches all of those bindings. Metadata alone never waives an obligation.
+
+Git diff bytes must decode as strict UTF-8. Invalid bytes make the diff channel
+unavailable and preserve the resulting capture gap; they are never
+replacement-decoded, guessed as another encoding, or silently normalized. This
+keeps raw identity and CRLF evidence intact without changing the existing patch
+size or native provider bounds.
+
+Artifact members use the same rule: their raw byte count and SHA-256 remain in
+the archive ledger, but only strict UTF-8 text without NUL bytes is rendered.
+Invalid UTF-8 and UTF-16/binary-looking members stay unavailable with their
+raw provenance and retain the aggregate capture gap.

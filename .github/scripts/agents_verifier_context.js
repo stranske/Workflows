@@ -491,9 +491,26 @@ function extractArtifactArchiveText({ archiveBuffer, maxEntries, maxChars, maxBy
         }));
         remainingBytes -= rawValue.length;
         Object.assign(member, { status: 'included', raw_bytes: rawValue.length,
-          raw_sha256: createHash('sha256').update(rawValue).digest('hex') });
-        const value = rawValue.toString('utf8');
-        const fragment = `${prefix}${value.trim()}`;
+          raw_sha256: createHash('sha256').update(rawValue).digest('hex'), encoding: 'utf-8' });
+        let value;
+        try {
+          // Evidence members are text only. Never replacement-decode invalid
+          // UTF-8 or let UTF-16/NUL bytes masquerade as complete text proof.
+          if (rawValue.includes(0)) throw new Error('NUL byte in text artifact member');
+          value = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(rawValue);
+        } catch {
+          member.status = 'unavailable';
+          member.reason = 'utf8_decode_failed';
+          failures.push('utf8_decode_failed');
+          truncated = true;
+          break;
+        }
+        // String.trim treats a UTF-8 BOM as whitespace. Retain a valid leading
+        // BOM in rendered text; raw bytes/hash remain the authoritative identity.
+        const renderedValue = value.startsWith("\ufeff")
+          ? `\ufeff${value.slice(1).trim()}`
+          : value.trim();
+        const fragment = `${prefix}${renderedValue}`;
         if (fragment.length + separator.length > remaining) {
           member.status = 'render_omitted';
           member.reason = 'character';
@@ -1036,6 +1053,11 @@ function formatVerifierEvidence(evidence) {
   return lines.join('\n').trimEnd();
 }
 
+function fullDiffArtifactBytes(diffText) {
+  const diff = normalizeDiffPatch(diffText);
+  return diff ? Buffer.from(`${diff}\n`, 'utf8') : Buffer.alloc(0);
+}
+
 function formatDiffForContext(diffText, maxChars) {
   const diff = normalizeDiffPatch(diffText);
   if (!diff) {
@@ -1048,20 +1070,29 @@ function formatDiffForContext(diffText, maxChars) {
   return `${diff.slice(0, limit)}\n\n...diff truncated after ${limit} characters.`;
 }
 
-function buildContextSourceCoverage({ planSources, diffText, diffMaxChars, evidence }) {
+function buildContextSourceCoverage({ planSources, diffText, diffMaxChars, evidence, fullDiffBytes }) {
   const diff = normalizeDiffPatch(diffText);
+  const artifactBytes = fullDiffBytes || fullDiffArtifactBytes(diffText);
   const limit = Number.isFinite(diffMaxChars) ? Math.max(0, diffMaxChars) : DEFAULT_DIFF_MAX_CHARS;
   // The coverage inventory must not inherit the summary's 50-file/20k-line limits.
   const { fileSummaries, pathParsingFailed } = parseDiffFiles(diffText, Number.MAX_SAFE_INTEGER);
   const changedCodeSources = fileSummaries.map((file) => {
     const total = file.end - file.start;
     const included = Math.max(0, Math.min(file.end, limit) - file.start);
+    const span = diff.slice(file.start, file.end);
+    // JS string offsets are UTF-16 code units; emitted offsets must instead
+    // address the raw UTF-8 patch that Python later verifies.
+    const start = Buffer.byteLength(diff.slice(0, file.start), 'utf8');
+    const end = start + Buffer.byteLength(span, 'utf8');
     return {
       source: file.toPath,
       from_path: file.fromPath,
       status: file.binary ? 'unavailable' : included === total ? 'included' : included ? 'truncated' : 'omitted',
       included_chars: included,
       total_chars: total,
+      start,
+      end,
+      sha256: createHash('sha256').update(Buffer.from(span, 'utf8')).digest('hex'),
       ...(file.binary ? { reason: 'Binary changed code cannot be inspected as text.' } : {}),
     };
   });
@@ -1107,7 +1138,14 @@ function buildContextSourceCoverage({ planSources, diffText, diffMaxChars, evide
     acceptance_evidence_sources: acceptanceEvidenceSources,
     artifact_capture_inventory: evidence.diagnostics?.archive_inventory || [],
     changed_code_sources: changedCodeSources,
-    full_diff_artifact: { source: DEFAULT_DIFF_PATH, chars: diff.length, status: diff ? 'included' : 'unavailable' },
+    full_diff_artifact: {
+      source: DEFAULT_DIFF_PATH,
+      chars: Array.from(diff).length,
+      bytes: artifactBytes.length,
+      sha256: createHash('sha256').update(artifactBytes).digest('hex'),
+      encoding: 'utf-8',
+      status: diff ? 'included' : 'unavailable',
+    },
   };
 }
 
@@ -1219,7 +1257,9 @@ function fetchLocalGitDiff({
     const buffer = execFile('git', ['diff', '--no-color', `${baseSha}...${headSha}`], {
       maxBuffer: Number.isFinite(maxBytes) ? maxBytes : DEFAULT_DIFF_MAX_BYTES,
     });
-    return buffer.toString('utf8');
+    // Git output is a raw capture. Replacement decoding would silently change
+    // the patch while preserving an apparent successful retrieval.
+    return new TextDecoder('utf-8', { fatal: true }).decode(buffer);
   } catch (error) {
     core?.warning?.(`Failed to generate git diff locally: ${error.message}`);
     return '';
@@ -1739,9 +1779,11 @@ async function buildVerifierContext({
     content.push('```');
   }
 
+  const fullDiffBytes = fullDiffArtifactBytes(diffText);
   const sourceCoverage = buildContextSourceCoverage({
     planSources,
     diffText,
+    fullDiffBytes,
     diffMaxChars: Number.isFinite(diffMaxChars) ? diffMaxChars : DEFAULT_DIFF_MAX_CHARS,
     evidence: verifierEvidence,
   });
@@ -1774,7 +1816,7 @@ async function buildVerifierContext({
   fs.writeFileSync(diffSummaryPath, diffSummary + '\n', 'utf8');
   const diffPath = path.join(process.cwd(), DEFAULT_DIFF_PATH);
   if (diffText) {
-    fs.writeFileSync(diffPath, diffText + '\n', 'utf8');
+    fs.writeFileSync(diffPath, fullDiffBytes);
   }
 
   core?.setOutput?.('pr_head_sha', pull.head?.sha || '');
@@ -1837,6 +1879,7 @@ module.exports = {
   buildContextSourceCoverage,
   summarizeDiff,
   formatDiffForContext,
+  fullDiffArtifactBytes,
   fetchLocalGitDiff,
   isValidSha,
 };

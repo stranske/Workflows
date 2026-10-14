@@ -5957,7 +5957,9 @@ def _preflight_input_capacity(
     receipt: dict[str, object] = {"status": "unavailable", "prompt_chars": len(prompt)}
     try:
         if context is not None:
-            manifest = build_capture_obligation_manifest(context)
+            manifest = build_capture_obligation_manifest(
+                context, full_diff_bytes=diff.encode("utf-8") if diff is not None else None
+            )
             receipt["capture_obligations"] = manifest
             coverage = prompt_coverage(context, diff)
             receipt["prompt_coverage"] = coverage.to_dict()
@@ -6170,7 +6172,9 @@ def _plan_diagnostic_partitions(
     }
     # The byte ceiling limits planning work, not retention of known evidence
     # gaps. Keep the original manifest even when no fine ranges can be built.
-    manifest = build_capture_obligation_manifest(context)
+    manifest = build_capture_obligation_manifest(
+        context, full_diff_bytes=diff.encode("utf-8") if diff is not None else None
+    )
     early_plan["capture_obligations"] = manifest
     if sum(row["bytes"] for row in identities) > PARTITION_MAX_CAPTURE_BYTES:
         reason = "diagnostic capture byte bound exceeded"
@@ -6837,7 +6841,9 @@ def _semantic_capture(context: str, diff: str | None) -> dict[str, Any]:
         raw_inputs["diff"] = hashlib.sha256(diff.encode()).hexdigest()
     if not re.fullmatch(r"[0-9a-f]{40}", head):
         gaps.append("pr_head_sha_missing_or_malformed")
-    manifest = build_capture_obligation_manifest(context)
+    manifest = build_capture_obligation_manifest(
+        context, full_diff_bytes=diff.encode("utf-8") if diff is not None else None
+    )
     gaps.extend(str(item) for item in manifest["gaps"])
     coverage = build_prompt_inputs(context, diff, lossless=True).coverage
     gaps.extend(f"prompt:{item}" for item in coverage.reasons)
