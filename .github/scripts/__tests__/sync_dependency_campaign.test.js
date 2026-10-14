@@ -350,6 +350,78 @@ test('runCampaign excludes owner-blocked case variants before max-repository dis
   assert.equal(result.state.stats.repos_checked, 1);
 });
 
+test('runCampaign projects failed-scan nested exclusions into state, watcher outputs, labels, and artifacts', async () => {
+  const outputs = {};
+  const labelCalls = [];
+  const cachedItem = {
+    id: 'sync-review-comments:stranske/Ready#9:cached', repo: 'stranske/Ready', pr_number: 9,
+    pr_url: 'https://github.com/stranske/Ready/pull/9', status: 'local-codex-source-fixed-candidate',
+    local_codex_queue_state: 'source-fixed-candidate',
+    local_codex_actionable: false,
+    local_codex_claimable: false,
+    source_fixed_candidate: {
+      matching_item_id: 'sync-review-comments:STRANSKE/Collab-Admin#4:old',
+      matching_pr_url: 'https://github.com/stranske/Collab-Admin/pull/4',
+    },
+  };
+  const priorMarker = `<!-- sync-dependabot-campaign:v1 ${JSON.stringify({
+    schema: 'sync-dependabot-campaign/v1', items: [cachedItem], stats: {
+      items_needing_local_codex: 0, items_actionable_local_codex: 0,
+      items_claimable_local_codex: 0, items_source_fixed_candidates: 1,
+      status_counts: { 'local-codex-source-fixed-candidate': 1 },
+    },
+  })} -->`;
+  const tracker = {
+    number: 1836, title: CAMPAIGN_TITLE, body: priorMarker,
+    labels: [{ name: 'campaign:sync-dependabot' }],
+    html_url: 'https://github.test/stranske/Workflows/issues/1836',
+  };
+  const github = {
+    paginate: async (method) => {
+      if (method === github.rest.issues.listForRepo) return [tracker];
+      if (method === github.rest.pulls.list) throw new Error('eligible discovery failed');
+      throw new Error('unexpected pagination request');
+    },
+    rest: {
+      issues: {
+        listForRepo: async () => ({ data: [tracker] }),
+        get: async () => ({ data: tracker }),
+        getLabel: async ({ name }) => ({ data: {
+          color: name === 'campaign:needs-local-codex' ? 'b60205' :
+            name === 'campaign:active' ? '1d76db' : '0e8a16',
+          description: name === 'campaign:needs-local-codex' ? 'Local Codex watcher should claim queued work' :
+            name === 'campaign:active' ? 'Active campaign controller issue' : 'Sync/dependency campaign queue',
+        } }),
+        addLabels: async (params) => { labelCalls.push(params); return { data: {} }; },
+        update: async ({ body }) => ({ data: { ...tracker, body } }),
+        removeLabel: async () => { throw new Error('claimable work must keep its watcher label'); },
+      },
+      pulls: { list: async () => { throw new Error('eligible discovery failed'); } },
+    },
+  };
+  const result = await runCampaign({
+    github,
+    context: { repo: { owner: 'stranske', repo: 'Workflows' }, runId: 'projected-run' },
+    repos: ['stranske/Ready'],
+    core: { info() {}, warning() {}, setOutput: (name, value) => { outputs[name] = value; } },
+    now: '2026-10-14T00:00:00Z',
+  });
+  const item = result.state.items.find((entry) => entry.id === cachedItem.id);
+  const artifact = JSON.stringify(result.state);
+  const signal = formatCampaignRunSummaryMarkdown(result.state, result.issue);
+  assert.equal(item.status, 'needs-local-codex');
+  assert.equal(item.local_codex_queue_state, 'actionable');
+  assert.equal(item.local_codex_actionable, true);
+  assert.equal(item.local_codex_claimable, true);
+  assert.equal(item.source_fixed_candidate, undefined);
+  assert.equal(result.state.validation.status, 'pass');
+  assert.equal(outputs.needs_local_codex, 'true');
+  assert.equal(outputs.items_claimable_local_codex, '1');
+  assert.ok(labelCalls.some((call) => call.labels.includes('campaign:needs-local-codex')));
+  assert.doesNotMatch(`${artifact}\n${signal}\n${result.body}`, /Collab-Admin/i);
+  assert.match(signal, /Items needing local Codex: 1/);
+});
+
 test('terminal handoff revival requires the current PR to be open on the incoming head', async () => {
   const terminal = {
     schema: 'workflows-generated-delivery-handoff/v1', repository: 'stranske/Ready',

@@ -99,9 +99,12 @@ function projectOwnerExclusions(state = {}) {
     if (!item?.source_fixed_candidate || !isOwnerExcludedRepository(item.source_fixed_candidate)) return item;
     nestedCandidatePruned = true;
     const { source_fixed_candidate: _candidate, ...eligibleItem } = item;
-    return item.status === 'local-codex-source-fixed-candidate'
+    const projectedItem = item.status === 'local-codex-source-fixed-candidate'
       ? { ...eligibleItem, status: 'needs-local-codex' }
       : eligibleItem;
+    // Compact markers retain queue annotations. Recalculate them after removing
+    // a candidate so validation and the watcher see the same claimability.
+    return annotateLocalCodexQueueState(projectedItem);
   });
   const handoffs = excludeOwnerBlockedRecords(state.delivery_handoffs);
   const errors = excludeOwnerBlockedRecords(state.errors);
@@ -2133,7 +2136,7 @@ async function runCampaign({
     previousState.delivery_handoffs, verifiedIncoming.records, api, withRetry, now,
   );
 
-  const state = mergeCampaignState(previousState, discoveredItems, now, {
+  let state = mergeCampaignState(previousState, discoveredItems, now, {
     runId: context.runId || context.run_id,
     currentSyncHash,
     reposRequested: repoEntries.length,
@@ -2154,6 +2157,9 @@ async function runCampaign({
   if (errors.length) {
     state.errors = errors.slice(0, 20);
   }
+  // Projection is operational, not presentational: labels, outputs, artifacts,
+  // summaries, and the returned state must agree on the eligible queue.
+  state = projectOwnerExclusions(state);
   state.validation = validateCampaignState(state);
 
   const body = formatCampaignBody(state);
