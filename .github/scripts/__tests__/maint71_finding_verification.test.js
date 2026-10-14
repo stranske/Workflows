@@ -94,7 +94,11 @@ test('native conversation disposition requires a fresh configured unquoted bound
   base.thread.comments.nodes.push({ fullDatabaseId: '9', url: 'old', author: { login: 'stranske' },
     createdAt: '2026-10-13T03:00:00Z', body: '<!-- maint71-review-conversation-disposition:v1 ' + JSON.stringify({ repository: proof.repository, pr: 1, head_sha: 'b'.repeat(40), thread_id: proof.thread_id, plan_id: 'old', generation: 'old', source_commit: 'd'.repeat(40), originating_reviewer: 'coderabbit' }) + ' -->' });
   assert.equal(validateNativeConversationDisposition(base).ok, true);
+  const fenced = structuredClone(base);
+  fenced.comment.body = "```js\nconst sample = 1;\n```\n" + `ACCEPT\n<!-- sync-review-accepted:${head} -->\n${marker}`;
+  assert.equal(validateNativeConversationDisposition(fenced).ok, true);
   for (const change of [
+    (v) => { v.comment.body = `\`\`\`js\n\`\`\`not-a-close\nACCEPT\n<!-- sync-review-accepted:${head} -->\n${marker}`; },
     (v) => { v.comment.body = `<blockquote>ACCEPT\n<!-- sync-review-accepted:${head} -->\n${marker}</blockquote>`; },
     (v) => { v.comment.body = 'I cannot reply inline, here is a technical assessment only.'; },
     (v) => { v.comment.body = `> ACCEPT\n<!-- sync-review-accepted:${head} -->\n${marker}`; },

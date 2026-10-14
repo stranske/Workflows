@@ -90,13 +90,16 @@ function validateIndependentFindingVerification({
 function nativeAnswerLines(body, markers) {
   const lines = []; let fence = null; const containers = [];
   for (const raw of String(body || '').split('\n')) {
-    const trimmed = raw.trim(); const opener = trimmed.match(/^(`+|~+)/);
-    if (opener) {
-      if (!fence) fence = { char: opener[1][0], length: opener[1].length };
-      else if (opener[1][0] === fence.char && opener[1].length >= fence.length) fence = null;
+    if (fence) {
+      const closer = raw.match(/^ {0,3}(`{3,}|~{3,})[ \t]*$/);
+      if (closer && closer[1][0] === fence.char && closer[1].length >= fence.length) fence = null;
       continue;
     }
-    if (fence) continue;
+    const opener = raw.match(/^ {0,3}(`{3,}|~{3,})(.*)$/);
+    if (opener && !(opener[1][0] === '`' && opener[2].includes('`'))) {
+      fence = { char: opener[1][0], length: opener[1].length };
+      continue;
+    }
     const tags = [...raw.matchAll(/<(\/)?(details|blockquote)\b[^>]*>/gi)];
     for (const tag of tags) {
       const type = tag[2].toLowerCase();
