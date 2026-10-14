@@ -11,8 +11,6 @@ name: Agents Guard Fork Status Publisher
 permissions:
   actions: read
   contents: read
-  pull-requests: read
-  statuses: write
 
 jobs:
   classify:
@@ -24,6 +22,11 @@ jobs:
       canonical: ${{ steps.classify.outputs.canonical }}
       head_sha: ${{ steps.classify.outputs.head_sha }}
     steps:
+      - name: Setup token-only API client
+        uses: stranske/Workflows/.github/actions/setup-api-client@ab8017a10e387869e0f73ee07f3b7f634e45ea07 # trusted immutable source
+        with:
+          github_token: ${{ github.token }}
+          skip_deps: true
       - id: classify
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         with:
@@ -47,17 +50,30 @@ jobs:
               return;
             }
 
+            const read = async operation => {
+              let lastError;
+              for (let attempt = 1; attempt <= 3; attempt += 1) {
+                try {
+                  return await operation();
+                } catch (error) {
+                  lastError = error;
+                  if (attempt < 3) await new Promise(resolve => setTimeout(resolve, attempt * 250));
+                }
+              }
+              throw lastError;
+            };
+
             try {
-              const { data: run } = await github.rest.actions.getWorkflowRun({
+              const { data: run } = await read(() => github.rest.actions.getWorkflowRun({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 run_id: payloadRun.id,
-              });
-              const { data: workflow } = await github.rest.actions.getWorkflow({
+              }));
+              const { data: workflow } = await read(() => github.rest.actions.getWorkflow({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 workflow_id: payloadRun.workflow_id,
-              });
+              }));
               const repositoryId = context.payload.repository?.id;
               if (
                 run.id !== payloadRun.id ||
@@ -83,6 +99,11 @@ jobs:
 
   publish:
     name: publish trusted fork Agents Guard status
+    permissions:
+      actions: read
+      contents: read
+      pull-requests: read
+      statuses: write
     needs: classify
     if: ${{ needs.classify.outputs.canonical == 'true' }}
     concurrency:

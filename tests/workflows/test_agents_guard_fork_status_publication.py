@@ -214,12 +214,20 @@ const core = {{info: text => {{if (text.startsWith('AGENTS_GUARD_FORK_STATUS_REC
 
 def test_agents_guard_fork_status_publisher_has_trusted_minimal_permissions():
     data = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
-    assert data["permissions"] == {
+    assert data["permissions"] == {"actions": "read", "contents": "read"}
+    assert data["jobs"]["classify"]["permissions"] == {"actions": "read"}
+    assert data["jobs"]["publish"]["permissions"] == {
         "actions": "read",
         "contents": "read",
         "pull-requests": "read",
         "statuses": "write",
     }
+    setup = data["jobs"]["classify"]["steps"][0]
+    assert (
+        setup["uses"]
+        == "stranske/Workflows/.github/actions/setup-api-client@ab8017a10e387869e0f73ee07f3b7f634e45ea07"
+    )
+    assert setup["with"] == {"github_token": "${{ github.token }}", "skip_deps": True}
     source = WORKFLOW.read_text(encoding="utf-8")
     assert "ref: ${{ github.sha }}" in source
     assert "persist-credentials: false" in source

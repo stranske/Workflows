@@ -331,6 +331,13 @@ def test_guard_status_writer_classifies_before_joining_the_shared_group():
     )
     assert workflow["permissions"] == template["permissions"]
     assert workflow["jobs"]["classify"]["permissions"] == {"actions": "read"}
+    assert workflow["jobs"]["classify"]["steps"][0]["uses"] == (
+        "stranske/Workflows/.github/actions/setup-api-client@ab8017a10e387869e0f73ee07f3b7f634e45ea07"
+    )
+    assert workflow["jobs"]["classify"]["steps"][0]["with"] == {
+        "github_token": "${{ github.token }}",
+        "skip_deps": True,
+    }
     assert "concurrency" not in workflow
     assert "concurrency" not in template
     assert workflow["jobs"]["publish"]["needs"] == "classify"
@@ -347,7 +354,11 @@ def test_guard_status_writer_classifies_before_joining_the_shared_group():
 
 def test_guard_status_writer_classifies_canonical_runs_before_shared_queue():
     workflow = yaml.safe_load((ROOT / ".github/workflows/agents-guard-fork-status.yml").read_text())
-    classifier = workflow["jobs"]["classify"]["steps"][0]["with"]["script"]
+    classifier = next(
+        step["with"]["script"]
+        for step in workflow["jobs"]["classify"]["steps"]
+        if step.get("id") == "classify"
+    )
     group_expression = workflow["jobs"]["publish"]["concurrency"]["group"]
     publish_expression = workflow["jobs"]["publish"]["if"]
 
