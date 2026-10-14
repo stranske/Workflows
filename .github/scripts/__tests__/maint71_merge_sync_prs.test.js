@@ -826,6 +826,7 @@ test('native conversation task marker is consumable by the consumer-bound verifi
   const v2Task = tasks.find((item) => /maint71-native-conversation-disposition:v2 [a-f0-9]{64}/.test(item.body));
   assert.ok(v2Task, 'a v1 task cannot satisfy a v2 request');
   assert.match(v2Task.body, /ordinary PR conversation reply is sufficient; an inline reply is not required/);
+  assert.match(v2Task.body, /If the finding is not satisfied, reply with that exact @stranske line followed by standalone REJECT and concrete evidence; do not include an acceptance token or protocol marker/);
   assert.match(v2Task.body, /exactly equal to @stranske/);
   const marker = v2Task.body.match(/<!-- maint71-native-conversation-disposition:v2 [a-f0-9]{64} -->/)[0];
   const answer = { user: { login: 'coderabbitai' }, html_url: 'https://github.com/stranske/Ready/pull/9#issuecomment-44', created_at: '2026-10-14T03:02:00Z', body: `@stranske\nACCEPT\n<!-- sync-review-accepted:${request.head_sha} -->\n${marker}` };
