@@ -15,7 +15,7 @@ permissions:
   statuses: write
 
 concurrency:
-  group: agents-guard-status-${{ github.event.workflow_run.head_sha || github.run_id }}
+  group: agents-guard-fork-status-${{ github.event.workflow_run.head_sha || github.run_id }}
   cancel-in-progress: false
 
 jobs:

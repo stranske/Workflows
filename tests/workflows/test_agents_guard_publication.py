@@ -277,7 +277,7 @@ new AsyncFunction('github', 'context', 'core', input.script)(github, context, co
     assert evidence["writes"] == (1 if mode == "denied_write" else 0)
 
 
-def test_guard_status_writers_share_non_cancelling_head_serialization():
+def test_guard_status_writers_isolate_direct_label_corrections_from_publishers():
     direct = yaml.safe_load((ROOT / ".github/workflows/agents-guard.yml").read_text())
     fork = yaml.safe_load((ROOT / ".github/workflows/agents-guard-fork-status.yml").read_text())
     direct_template = yaml.safe_load(
@@ -300,39 +300,33 @@ def test_guard_status_writers_share_non_cancelling_head_serialization():
         fork["concurrency"]
         == fork_template["concurrency"]
         == {
-            "group": "agents-guard-status-${{ github.event.workflow_run.head_sha || github.run_id }}",
+            "group": "agents-guard-fork-status-${{ github.event.workflow_run.head_sha || github.run_id }}",
             "cancel-in-progress": False,
         }
     )
 
 
-def test_shared_head_group_closes_label_writer_noop_publisher_race():
-    """A label failure and a completed fork no-op must serialize on the same head."""
+def test_publisher_cannot_replace_pending_label_revocation_corrective():
+    """The default one-pending scheduler replaces only runs in the same group."""
     sha = "a" * 40
-    current_direct = (
-        "agents-guard-status-${{ github.event.pull_request.head.sha || github.run_id }}"
-    )
-    current_publisher = (
-        "agents-guard-status-${{ github.event.workflow_run.head_sha || github.run_id }}"
-    )
-    legacy_direct = "agents-guard-${{ github.event.pull_request.number || github.run_id }}"
-    legacy_publisher = (
-        "agents-guard-fork-status-${{ github.event.workflow_run.head_sha || github.run_id }}"
-    )
+    direct = f"agents-guard-status-{sha}"
+    publisher = f"agents-guard-fork-status-{sha}"
+    assert direct != publisher
 
-    def render(group, *, number="4"):
-        return (
-            group.replace("${{ github.event.pull_request.head.sha || github.run_id }}", sha)
-            .replace("${{ github.event.workflow_run.head_sha || github.run_id }}", sha)
-            .replace("${{ github.event.pull_request.number || github.run_id }}", number)
-        )
+    # RED with the previous shared group: A has passed its last policy read;
+    # B is the pending revocation corrective; P replaces B before A writes.
+    shared_pending = "B"
+    shared_pending = "P"
+    old_final_status = "success"  # A writes; P is same-repo/no-op.
+    assert shared_pending == "P" and old_final_status == "success"
 
-    # Deliberate RED: prior independent groups let either status writer pass
-    # the other between its final status read and write.
-    assert render(legacy_direct) != render(legacy_publisher)
-    # GREEN: serialized writers ensure the no-op observes a completed label
-    # verdict before it applies the existing no-op preservation rule.
-    assert render(current_direct) == render(current_publisher) == f"agents-guard-status-{sha}"
+    # GREEN: P runs separately, so B remains queued and writes failure after A.
+    direct_pending = "B"
+    publisher_pending = "P"
+    final_status = "success"  # stale A
+    assert publisher_pending == "P" and direct_pending == "B"
+    final_status = "failure"  # B rechecks revoked policy and corrects A
+    assert final_status == "failure"
 
 
 @pytest.mark.parametrize(

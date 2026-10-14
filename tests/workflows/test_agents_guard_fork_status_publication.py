@@ -651,3 +651,36 @@ def test_agents_guard_fork_status_replays_only_the_newest_context_status_for_rer
     )
     assert success_after_failure["result"]["state"] == "success"
     assert [write["state"] for write in success_after_failure["writes"]] == ["success"]
+
+
+def test_native_pending_label_corrective_survives_same_repo_or_fork_noop_publisher():
+    # The publisher does not share the label-writer scheduler: it cannot replace
+    # B while A is running and B is the pending revocation corrective.
+    same_repo = _publish_scenario(same_repo=True)
+    assert same_repo["writes"] == []
+
+    prior_failure = [
+        {
+            "context": "Health 45 Agents Guard / guard",
+            "state": "failure",
+            "target_url": "https://example.test/runs/B",
+        }
+    ]
+    fork_noop = _publish_scenario(
+        statuses=prior_failure,
+        evaluate_status="completed",
+        evaluate_conclusion="skipped",
+    )
+    assert fork_noop["result"]["state"] == "success"
+    assert fork_noop["writes"] == []
+
+    protected = _decide(
+        {"status": "completed", "conclusion": "success"},
+        [{"name": "guard", "status": "completed", "conclusion": "success"}],
+        [".github/workflows/agents-guard.yml"],
+    )
+    assert protected == {
+        "state": "error",
+        "description": "Agents Guard controls changed; trusted review required",
+        "evaluated": False,
+    }
