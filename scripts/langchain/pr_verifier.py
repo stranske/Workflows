@@ -4948,14 +4948,16 @@ def _classify_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                         r"users?|endpoint|renderer)\b\s+"
                         + "(?:"
                         + product_auxiliary
+                        + r"|(?:is|are)\s+"
+                        + delivery_adverbs
                         + ")?"
                         + r"(?:(?:"
                         + capability_operation
                         + r")\s+(?:"
                         + recipient_noun
                         + r"\s+(?:to\s+)?)?)?"
-                        + r"(?:upload|attach|publish|post|record|capture|"
-                        r"provide|include|document)\w*\b.{0,60}\bartifacts?\b",
+                        + delivery_operation
+                        + r".{0,60}\bartifacts?\b",
                         normalize_product_capability(requirement_text),
                         re.I,
                     )
@@ -5011,7 +5013,9 @@ def _classify_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                 artifact_delivery_into_pr = (
                     artifact_delivery_into_pr and not passive_product_capability
                 )
-                evidence_named_artifact = evidence_named_artifact and not passive_product_capability
+                evidence_named_artifact = evidence_named_artifact and not (
+                    passive_product_capability or product_artifact_actor
+                )
                 if (
                     artifact_delivery_into_pr
                     or evidence_named_artifact

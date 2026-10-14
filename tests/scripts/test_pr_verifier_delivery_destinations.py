@@ -6946,6 +6946,48 @@ def test_issue3835_product_owned_command_output_send_matches_shared_delivery_ope
     )
 
 
+@pytest.mark.parametrize(
+    "criterion",
+    [
+        "The API sends command output as an artifact",
+        "The API is sending command output as an artifact",
+        "The API must send command output as an artifact",
+    ],
+)
+def test_issue3835_product_command_output_send_artifact_is_not_delivery(criterion):
+    assert verifier._required_evidence_channels(criterion) == set()
+    assert verifier._required_evidence_options(criterion) == [set()]
+
+
+def test_issue3835_product_command_output_send_preserves_independent_reviewer_delivery():
+    criterion = (
+        "The API is sending command output as an artifact; "
+        "the reviewer must send command output in a PR comment"
+    )
+    assert verifier._required_evidence_channels(criterion) == {"comments"}
+    assert verifier._required_evidence_options(criterion) == [{"comments"}]
+    assert (
+        _floor_verdict(criterion, body="present", comments="absent", artifacts="present")
+        == "CONCERNS"
+    )
+
+
+def test_issue3835_author_command_output_send_artifact_remains_required():
+    criterion = "The author must send command output as an artifact"
+    assert verifier._required_evidence_channels(criterion) == {"artifacts"}
+    assert verifier._required_evidence_options(criterion) == [{"artifacts"}]
+    assert (
+        _floor_verdict(criterion, body="present", comments="present", artifacts="absent")
+        == "CONCERNS"
+    )
+
+
+def test_issue3835_product_command_output_send_explicit_pr_destination_remains_required():
+    criterion = "The API must send command output in a PR comment"
+    assert verifier._required_evidence_channels(criterion) == {"comments"}
+    assert verifier._required_evidence_options(criterion) == [{"comments"}]
+
+
 def test_issue3835_coordinated_command_output_send_retains_each_destination_floor():
     criterion = "The author must send command output in a PR comment and attach command output as an artifact"
     assert verifier._required_evidence_channels(criterion) == {"comments", "artifacts"}
