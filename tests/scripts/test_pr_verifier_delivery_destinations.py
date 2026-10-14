@@ -7177,6 +7177,34 @@ def test_issue3883_filename_qualified_retains_independent_reviewer_body_duty():
 @pytest.mark.parametrize(
     "filename", ["results.json", "./out/results.json", "/tmp/results.json", '"results.json"']
 )
+@pytest.mark.parametrize("independent_first", [False, True])
+@pytest.mark.parametrize("body", ["present", "absent", "unavailable"])
+@pytest.mark.parametrize("comments", ["present", "absent", "unavailable"])
+@pytest.mark.parametrize("artifacts", ["present", "absent", "unavailable"])
+def test_issue3883_filename_qualified_both_retains_independent_body_floor(
+    filename, independent_first, body, comments, artifacts
+):
+    """Every conjunctive destination and independent duty needs available evidence."""
+    delivery = (
+        f"The reviewer must upload evidence from {filename} both in a PR comment and in an artifact"
+    )
+    independent = "An independent reviewer must include evidence in the PR body"
+    clauses = [independent, delivery] if independent_first else [delivery, independent]
+    criterion = "; ".join(clauses)
+    assert verifier._required_evidence_channels(criterion) == {"comments", "artifacts", "body"}
+    assert verifier._required_evidence_options(criterion) == [{"comments", "artifacts", "body"}]
+    expected_verdict = (
+        "PASS" if (body, comments, artifacts) == ("present", "present", "present") else "CONCERNS"
+    )
+    assert (
+        _floor_verdict(criterion, body=body, comments=comments, artifacts=artifacts)
+        == expected_verdict
+    )
+
+
+@pytest.mark.parametrize(
+    "filename", ["results.json", "./out/results.json", "/tmp/results.json", '"results.json"']
+)
 @pytest.mark.parametrize(
     "body,comments,artifacts,expected_verdict",
     [
