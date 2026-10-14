@@ -232,6 +232,137 @@ def test_cli_recovers_reviewed_oversize_capture_through_complete_joint_matrix(
     )
 
 
+def test_semantic_capture_admits_verified_full_patch_for_truncated_rendered_code(monkeypatch):
+    import hashlib
+    import json
+
+    diff = "diff --git a/a.py b/a.py\n--- a/a.py\n+++ b/a.py\n@@ -1 +1 @@\n-old\n+😀new\n"
+    raw_diff = diff.encode("utf-8")
+    canonical_diff = diff[:-1]
+    context = _context()
+    start = context.index("```json\n") + len("```json\n")
+    end = context.index("\n```", start)
+    coverage = json.loads(context[start:end])
+    coverage["changed_code_sources"] = [
+        {
+            "source": "a.py",
+            "from_path": "a.py",
+            "status": "truncated",
+            "included_chars": 4,
+            "total_chars": len(canonical_diff),
+            "start": 0,
+            "end": len(canonical_diff.encode("utf-8")),
+            "sha256": hashlib.sha256(canonical_diff.encode("utf-8")).hexdigest(),
+        }
+    ]
+    coverage["full_diff_artifact"] = {
+        "source": "verifier-pr-diff.patch",
+        "status": "included",
+        "chars": len(canonical_diff),
+        "bytes": len(raw_diff),
+        "sha256": hashlib.sha256(raw_diff).hexdigest(),
+        "encoding": "utf-8",
+    }
+    context = context[:start] + json.dumps(coverage) + context[end:]
+    monkeypatch.setenv("PR_HEAD_SHA", "a" * 40)
+    capture = pr_verifier._semantic_capture(context, diff)
+    assert capture["manifest"]["sufficient"] is True
+    assert not any(gap == "changed_code:a.py:truncated" for gap in capture["gaps"])
+
+
+def test_native_preflight_admits_only_verified_full_patch_for_truncated_code(monkeypatch):
+    import hashlib
+    import json
+    from types import SimpleNamespace
+
+    import pytest
+
+    diff = "diff --git a/a.py b/a.py\n--- a/a.py\n+++ b/a.py\n@@ -1 +1 @@\n-old\n+😀new\n"
+    raw_diff = diff.encode("utf-8")
+    canonical_diff = diff[:-1]
+    context = _context()
+    start = context.index("```json\n") + len("```json\n")
+    end = context.index("\n```", start)
+    coverage = json.loads(context[start:end])
+    coverage["changed_code_sources"] = [
+        {
+            "source": "a.py",
+            "from_path": "a.py",
+            "status": "truncated",
+            "included_chars": 4,
+            "total_chars": len(canonical_diff),
+            "start": 0,
+            "end": len(canonical_diff.encode("utf-8")),
+            "sha256": hashlib.sha256(canonical_diff.encode("utf-8")).hexdigest(),
+        }
+    ]
+    coverage["full_diff_artifact"] = {
+        "source": "verifier-pr-diff.patch",
+        "status": "included",
+        "chars": len(canonical_diff),
+        "bytes": len(raw_diff),
+        "sha256": hashlib.sha256(raw_diff).hexdigest(),
+        "encoding": "utf-8",
+    }
+    context = context[:start] + json.dumps(coverage) + context[end:]
+    prompt = pr_verifier._prepare_prompt(context, diff)
+    calls: list[dict] = []
+
+    class Client:
+        root_client = SimpleNamespace(
+            responses=SimpleNamespace(
+                input_tokens=SimpleNamespace(
+                    count=lambda **payload: calls.append(payload)
+                    or SimpleNamespace(input_tokens=10)
+                )
+            )
+        )
+
+        @staticmethod
+        def _get_request_payload(value):
+            return {
+                "model": "fixture-native",
+                "input": value,
+                "max_output_tokens": 5,
+                "truncation": "disabled",
+            }
+
+    monkeypatch.setattr(
+        pr_verifier,
+        "_native_capacity_contract",
+        lambda client: {
+            "provider": "openai",
+            "model": "fixture-native",
+            "provenance": "synthetic-unit-test-only",
+            "profile": {
+                "max_input_tokens": 100,
+                "max_context_tokens": 200,
+                "max_output_tokens": 10,
+            },
+        },
+    )
+    receipt = pr_verifier._preflight_input_capacity(Client(), prompt, context=context, diff=diff)
+    assert receipt["status"] == "PASS"
+    assert receipt["capture_obligations"]["sufficient"] is True
+    assert len(calls) == 1
+
+    coverage["full_diff_artifact"]["sha256"] = "0" * 64
+    broken_start = context.index("```json\n") + len("```json\n")
+    broken_end = context.index("\n```", broken_start)
+    broken_context = context[:broken_start] + json.dumps(coverage) + context[broken_end:]
+    with pytest.raises(pr_verifier.InputCapacityError) as blocked:
+        pr_verifier._preflight_input_capacity(
+            Client(),
+            pr_verifier._prepare_prompt(broken_context, diff),
+            context=broken_context,
+            diff=diff,
+        )
+    assert (
+        "full_diff_artifact:sha256_mismatch" in blocked.value.receipt["capture_obligations"]["gaps"]
+    )
+    assert len(calls) == 1
+
+
 def test_semantic_capture_uses_lossless_coverage_but_preserves_missing_proof(monkeypatch):
     context = _context()
     diff = "diff --git a/a.py b/a.py\n--- a/a.py\n+++ b/a.py\n@@ -1 +1 @@\n-old\n+new\n"

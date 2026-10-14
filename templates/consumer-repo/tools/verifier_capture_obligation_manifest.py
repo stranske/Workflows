@@ -118,10 +118,141 @@ def _record_gaps(kind: str, record: dict[str, Any]) -> list[str]:
     return gaps
 
 
+def _valid_sha256(value: Any) -> bool:
+    return isinstance(value, str) and re.fullmatch(r"[0-9a-f]{64}", value) is not None
+
+
+def _full_patch_file_records(raw: bytes) -> list[dict[str, Any]] | None:
+    """Parse only complete, unambiguous raw Git file spans for recovery binding."""
+    starts = [match.start() for match in re.finditer(rb"(?m)^diff --git ", raw)]
+    if not starts:
+        return None
+    records: list[dict[str, Any]] = []
+    for index, start in enumerate(starts):
+        end = starts[index + 1] if index + 1 < len(starts) else len(raw)
+        span = raw[start:end]
+        lines = span.splitlines()
+        if not lines or not lines[0].startswith(b"diff --git "):
+            return None
+        from_path = to_path = None
+        for line in lines[1:]:
+            if line.startswith(b"@@"):
+                break
+            if line.startswith(b"--- "):
+                from_path = line[4:].split(b"\t", 1)[0]
+            elif line.startswith(b"+++ "):
+                to_path = line[4:].split(b"\t", 1)[0]
+        if from_path is not None or to_path is not None:
+            if from_path is None or to_path is None:
+                return None
+            if from_path == b"/dev/null":
+                source_bytes = to_path
+            elif to_path == b"/dev/null":
+                source_bytes = from_path
+            else:
+                source_bytes = to_path
+            if source_bytes.startswith(b"a/") or source_bytes.startswith(b"b/"):
+                source_bytes = source_bytes[2:]
+            if from_path == b"/dev/null":
+                declared_from = source_bytes
+            else:
+                declared_from = from_path[2:] if from_path.startswith(b"a/") else from_path
+        else:
+            # A header-only parse is accepted only for ordinary unquoted paths.
+            header = lines[0][len(b"diff --git ") :]
+            match = re.fullmatch(rb"a/([^ ]+) b/([^ ]+)", header)
+            if match is None:
+                return None
+            declared_from, source_bytes = match.group(1), match.group(2)
+        try:
+            source = source_bytes.decode("utf-8")
+            from_source = declared_from.decode("utf-8")
+        except UnicodeDecodeError:
+            return None
+        if not source or not from_source:
+            return None
+        records.append(
+            {
+                "source": source,
+                "from_path": from_source,
+                "start": start,
+                "end": end,
+                "sha256": hashlib.sha256(span).hexdigest(),
+            }
+        )
+    return records
+
+
+def _verified_full_diff_changed_code(
+    artifact: dict[str, Any],
+    changed_records: list[dict[str, Any]],
+    full_diff_bytes: bytes | None,
+) -> tuple[bool, list[str]]:
+    """Bind omitted embedded code to exact raw full-patch spans, never metadata alone."""
+    if full_diff_bytes is None:
+        return False, ["full_diff_artifact:raw_bytes_unavailable"]
+    if artifact.get("status") != "included":
+        return False, [f"full_diff_artifact:{artifact.get('status')}"]
+    if artifact.get("source") != "verifier-pr-diff.patch":
+        return False, ["full_diff_artifact:source_unrecognized"]
+    if artifact.get("encoding") != "utf-8":
+        return False, ["full_diff_artifact:encoding_unrecognized"]
+    if artifact.get("bytes") != len(full_diff_bytes):
+        return False, ["full_diff_artifact:byte_count_mismatch"]
+    if (
+        not _valid_sha256(artifact.get("sha256"))
+        or artifact["sha256"] != hashlib.sha256(full_diff_bytes).hexdigest()
+    ):
+        return False, ["full_diff_artifact:sha256_mismatch"]
+    try:
+        artifact_text = full_diff_bytes.decode("utf-8")
+    except UnicodeDecodeError:
+        return False, ["full_diff_artifact:utf8_decode_failed"]
+    # The builder stores one canonical trailing LF. Retain every earlier CR/LF byte.
+    canonical = artifact_text[:-1] if artifact_text.endswith("\n") else artifact_text
+    if artifact.get("chars") != len(canonical) or not canonical:
+        return False, ["full_diff_artifact:character_count_mismatch"]
+    gaps: list[str] = []
+    canonical_bytes = full_diff_bytes[:-1] if full_diff_bytes.endswith(b"\n") else full_diff_bytes
+    expected_records = _full_patch_file_records(canonical_bytes)
+    if expected_records is None:
+        return False, ["full_diff_artifact:file_inventory_malformed"]
+    if len(changed_records) != len(expected_records):
+        return False, ["changed_code:full_patch_record_count_mismatch"]
+    expected_by_span = {(item["start"], item["end"]): item for item in expected_records}
+    if len(expected_by_span) != len(expected_records):
+        return False, ["full_diff_artifact:file_inventory_malformed"]
+    assigned: set[tuple[int, int]] = set()
+    for record in changed_records:
+        if not isinstance(record, dict):
+            gaps.append("changed_code:record_malformed")
+            continue
+        start, end, digest = record.get("start"), record.get("end"), record.get("sha256")
+        source = str(record.get("source") or "changed_code")
+        if type(start) is not int or type(end) is not int:
+            gaps.append(f"changed_code:{source}:full_patch_span_malformed")
+            continue
+        expected = expected_by_span.get((start, end))
+        if expected is None or (start, end) in assigned:
+            gaps.append(f"changed_code:{source}:full_patch_span_identity_mismatch")
+            continue
+        assigned.add((start, end))
+        if (
+            record.get("source") != expected["source"]
+            or record.get("from_path") != expected["from_path"]
+            or digest != expected["sha256"]
+        ):
+            gaps.append(f"changed_code:{source}:full_patch_span_identity_mismatch")
+    if len(assigned) != len(expected_records):
+        gaps.append("changed_code:full_patch_record_coverage_mismatch")
+    return not gaps, gaps
+
+
 def build_capture_obligation_manifest(
     context_text: str,
     *,
     require_full_changed_code: bool = True,
+    full_diff_bytes: bytes | None = None,
 ) -> dict[str, Any]:
     """Build obligation manifest and overall sufficiency for native preflight."""
     coverage = parse_context_source_coverage(context_text)
@@ -135,6 +266,22 @@ def build_capture_obligation_manifest(
             gaps.append("context_source_coverage_schema_unknown")
         if coverage.get("stage") != "generated-context":
             gaps.append("context_source_coverage_stage_unknown")
+        changed_records = coverage.get("changed_code_sources")
+        full_patch_covers_changed_code = False
+        if isinstance(changed_records, list) and any(
+            isinstance(record, dict)
+            and isinstance(record.get("status"), str)
+            and record.get("status") in {"truncated", "omitted"}
+            for record in changed_records
+        ):
+            artifact_for_recovery = coverage.get("full_diff_artifact")
+            if isinstance(artifact_for_recovery, dict):
+                full_patch_covers_changed_code, artifact_gaps = _verified_full_diff_changed_code(
+                    artifact_for_recovery, changed_records, full_diff_bytes
+                )
+                gaps.extend(artifact_gaps)
+            else:
+                gaps.append("full_diff_artifact_missing_or_malformed")
         for field, kind in (
             ("changed_code_sources", "changed_code"),
             ("acceptance_sources", "acceptance_source"),
@@ -158,7 +305,12 @@ def build_capture_obligation_manifest(
                     gaps.append(f"{kind}:{obligation.source}:duplicate_source")
                 seen.add(obligation.source)
                 if obligation.status != "included" and (
-                    kind != "changed_code" or require_full_changed_code
+                    kind != "changed_code"
+                    or require_full_changed_code
+                    and not (
+                        full_patch_covers_changed_code
+                        and obligation.status in {"truncated", "omitted"}
+                    )
                 ):
                     gaps.append(f"{kind}:{obligation.source}:{obligation.status}")
 
@@ -325,7 +477,7 @@ def record_capture_obligations(
         captured_diff = diff_bytes.decode("utf-8")
         if diff_text is not None and diff_text != captured_diff:
             raise ValueError("loaded diff changed before snapshot recording")
-    manifest = build_capture_obligation_manifest(captured_text)
+    manifest = build_capture_obligation_manifest(captured_text, full_diff_bytes=diff_bytes)
     raw_inputs = {"context": context_bytes}
     if diff_bytes is not None:
         raw_inputs["diff"] = diff_bytes
