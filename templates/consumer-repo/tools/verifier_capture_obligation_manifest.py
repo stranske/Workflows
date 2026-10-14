@@ -183,8 +183,8 @@ def _parse_git_path(value: bytes) -> bytes | None:
     return parsed[0]
 
 
-def _parse_git_diff_header(line: bytes) -> tuple[bytes, bytes] | None:
-    """Match the source collector's unambiguous Git diff-header grammar."""
+def _parse_git_diff_header_candidates(line: bytes) -> list[tuple[bytes, bytes]] | None:
+    """Return every syntactically plausible Git header identity without guessing."""
     prefix = b"diff --git "
     if not line.startswith(prefix):
         return None
@@ -199,7 +199,8 @@ def _parse_git_diff_header(line: bytes) -> tuple[bytes, bytes] | None:
         decoded = _decode_git_quoted_path(payload)
         if decoded is None or not decoded[1].startswith(b" "):
             return None
-        return pair(decoded[0], _parse_git_path(decoded[1].lstrip(b" ")))
+        candidate = pair(decoded[0], _parse_git_path(decoded[1].lstrip(b" ")))
+        return [candidate] if candidate is not None else None
 
     candidates: list[tuple[bytes, bytes]] = []
     for index in range(len(payload) - 2):
@@ -211,10 +212,22 @@ def _parse_git_diff_header(line: bytes) -> tuple[bytes, bytes] | None:
         source = payload[:index]
         if b'"' in source:
             continue
-        destination = _parse_git_path(remainder)
-        candidate = pair(source, destination)
-        if candidate is not None:
+        candidate = pair(source, _parse_git_path(remainder))
+        if candidate is not None and candidate not in candidates:
             candidates.append(candidate)
+    return candidates or None
+
+
+def _resolve_git_header_identity(
+    candidates: list[tuple[bytes, bytes]], metadata: list[tuple[bytes, bytes]]
+) -> tuple[bytes, bytes] | None:
+    """Bind all path metadata to one header candidate before any default choice."""
+    if metadata:
+        identity = metadata[0]
+        if any(pair != identity for pair in metadata[1:]):
+            return None
+        matches = [candidate for candidate in candidates if candidate == identity]
+        return identity if len(matches) == 1 else None
     identical = [candidate for candidate in candidates if candidate[0] == candidate[1]]
     if len(identical) == 1:
         return identical[0]
@@ -262,8 +275,8 @@ def _full_patch_file_records(raw: bytes) -> list[dict[str, Any]] | None:
         lines = span.splitlines()
         if not lines:
             return None
-        header_paths = _parse_git_diff_header(lines[0])
-        if header_paths is None:
+        header_candidates = _parse_git_diff_header_candidates(lines[0])
+        if header_candidates is None:
             return None
         payload = lines[1:]
         hunk_indexes = [
@@ -292,30 +305,66 @@ def _full_patch_file_records(raw: bytes) -> list[dict[str, Any]] | None:
             has_hunk or has_binary or has_mode_change or has_rename or has_copy or has_empty_file
         ):
             return None
-        from_path = to_path = None
+        metadata_pairs: list[tuple[bytes, bytes]] = []
+        from_paths: list[bytes | None] = []
+        to_paths: list[bytes | None] = []
+        rename_from_paths: list[bytes | None] = []
+        rename_to_paths: list[bytes | None] = []
+        copy_from_paths: list[bytes | None] = []
+        copy_to_paths: list[bytes | None] = []
         for line in lines[1:]:
             if line.startswith(b"@@"):
                 break
             if line.startswith(b"--- "):
-                from_path = _metadata_git_path(line[4:])
+                from_paths.append(_metadata_git_path(line[4:]))
             elif line.startswith(b"+++ "):
-                to_path = _metadata_git_path(line[4:])
+                to_paths.append(_metadata_git_path(line[4:]))
+            elif line.startswith(b"rename from "):
+                rename_from_paths.append(_parse_git_path(line[len(b"rename from ") :]))
+            elif line.startswith(b"rename to "):
+                rename_to_paths.append(_parse_git_path(line[len(b"rename to ") :]))
+            elif line.startswith(b"copy from "):
+                copy_from_paths.append(_parse_git_path(line[len(b"copy from ") :]))
+            elif line.startswith(b"copy to "):
+                copy_to_paths.append(_parse_git_path(line[len(b"copy to ") :]))
+
+        def add_pairs(
+            left: list[bytes | None],
+            right: list[bytes | None],
+            collected: list[tuple[bytes, bytes]],
+            *,
+            diff_metadata: bool = False,
+        ) -> bool:
+            if len(left) != len(right) or any(value is None for value in left + right):
+                return False
+            for pair_from, pair_to in zip(left, right, strict=True):
+                assert pair_from is not None and pair_to is not None
+                if diff_metadata:
+                    pair_from = pair_from[2:] if pair_from.startswith(b"a/") else pair_from
+                    pair_to = pair_to[2:] if pair_to.startswith(b"b/") else pair_to
+                    if pair_from == b"/dev/null":
+                        pair_from = pair_to
+                    elif pair_to == b"/dev/null":
+                        pair_to = pair_from
+                collected.append((pair_from, pair_to))
+            return True
+
+        if (from_paths or to_paths) and not add_pairs(
+            from_paths, to_paths, metadata_pairs, diff_metadata=True
+        ):
+            return None
+        if (rename_from_paths or rename_to_paths) and not add_pairs(
+            rename_from_paths, rename_to_paths, metadata_pairs
+        ):
+            return None
+        if (copy_from_paths or copy_to_paths) and not add_pairs(
+            copy_from_paths, copy_to_paths, metadata_pairs
+        ):
+            return None
+        header_paths = _resolve_git_header_identity(header_candidates, metadata_pairs)
+        if header_paths is None:
+            return None
         declared_from, source_bytes = header_paths
-        if from_path is not None or to_path is not None:
-            if from_path is None or to_path is None:
-                return None
-            metadata_from = (
-                source_bytes
-                if from_path == b"/dev/null"
-                else (from_path[2:] if from_path.startswith(b"a/") else from_path)
-            )
-            metadata_to = (
-                declared_from
-                if to_path == b"/dev/null"
-                else (to_path[2:] if to_path.startswith(b"b/") else to_path)
-            )
-            if metadata_from != declared_from or metadata_to != source_bytes:
-                return None
         try:
             source = source_bytes.decode("utf-8")
             from_source = declared_from.decode("utf-8")
@@ -423,9 +472,12 @@ def build_capture_obligation_manifest(
         changed_records = coverage.get("changed_code_sources")
         full_patch_covers_changed_code = False
         artifact_for_binary = coverage.get("full_diff_artifact")
-        if isinstance(artifact_for_binary, dict) and full_diff_bytes is not None:
-            if _raw_patch_has_binary_section(full_diff_bytes):
-                gaps.append("changed_code:full_patch_binary_unavailable")
+        if (
+            isinstance(artifact_for_binary, dict)
+            and full_diff_bytes is not None
+            and _raw_patch_has_binary_section(full_diff_bytes)
+        ):
+            gaps.append("changed_code:full_patch_binary_unavailable")
         if isinstance(changed_records, list) and any(
             isinstance(record, dict)
             and isinstance(record.get("status"), str)

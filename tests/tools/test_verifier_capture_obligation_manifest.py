@@ -800,3 +800,37 @@ def test_raw_binary_marker_blocks_even_malformed_binary_payload() -> None:
     )
     assert manifest["sufficient"] is False
     assert "changed_code:full_patch_binary_unavailable" in manifest["gaps"]
+
+
+def test_full_patch_recovery_binds_all_rename_copy_metadata_to_header_identity() -> None:
+    from tools.verifier_capture_obligation_manifest import _full_patch_file_records
+
+    forged_rename = (
+        b"diff --git a/actual b/actual\n"
+        b"similarity index 100%\nrename from hidden\nrename to secret\n"
+    )
+    forged_copy = (
+        b"diff --git a/actual b/actual\n"
+        b"similarity index 100%\ncopy from hidden\ncopy to secret\n"
+    )
+    assert _full_patch_file_records(forged_rename) is None
+    assert _full_patch_file_records(forged_copy) is None
+
+
+def test_full_patch_recovery_uses_consistent_metadata_to_resolve_ambiguous_header() -> None:
+    from tools.verifier_capture_obligation_manifest import _full_patch_file_records
+
+    # Git accepts this unquoted header; only the rename pair identifies the
+    # intended split among its three ` b/` candidate boundaries.
+    raw_patch = (
+        b"diff --git a/docs/foo b/bar b/docs/new b/name\n"
+        b"similarity index 100%\n"
+        b"rename from docs/foo b/bar\n"
+        b"rename to docs/new b/name\n"
+    )
+    records = _full_patch_file_records(raw_patch)
+    assert records is not None
+    assert records[0]["from_path"] == "docs/foo b/bar"
+    assert records[0]["source"] == "docs/new b/name"
+    conflicting = raw_patch + b"copy from docs/foo b/bar\ncopy to other\n"
+    assert _full_patch_file_records(conflicting) is None
