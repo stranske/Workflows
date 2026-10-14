@@ -13,6 +13,7 @@ from pathlib import Path
 import pytest
 import yaml
 from scripts.generate_consumer_renovate_ownership import (
+    OWNER_EXCLUDED_REPOS,
     SOURCE_REPO,
     build_preset,
     is_overwrite_managed,
@@ -57,7 +58,9 @@ def disabled_paths(preset: dict, repo: str) -> set[str]:
 
 
 def registered_consumers() -> list[str]:
-    return extract_repos(SYNC_WORKFLOW)
+    return [
+        repo for repo in extract_repos(SYNC_WORKFLOW) if repo.casefold() not in OWNER_EXCLUDED_REPOS
+    ]
 
 
 def expected_managed(repo: str) -> set[str]:
@@ -337,3 +340,12 @@ def test_generation_is_deterministic(tmp_path, repos):
     first = render(synthetic_preset(tmp_path / "one", manifest, repos))
     second = render(synthetic_preset(tmp_path / "two", manifest, list(reversed(repos))))
     assert first == second
+
+
+@pytest.mark.parametrize("repo", ["stranske/Collab-Admin", "STRANSKE/COLLAB-ADMIN"])
+def test_owner_excluded_target_has_no_generated_ownership_route(repo):
+    entries = compile_manifest(MANIFEST, repo_root=ROOT).all_entries()
+    assert not any(is_overwrite_managed(entry, repo) for entry in entries)
+    preset = build_preset(manifest=MANIFEST, sync_workflow=SYNC_WORKFLOW, repo_root=ROOT)
+    assert disabled_paths(preset, repo) == set()
+    assert disabled_paths(preset, "stranske/Ready")

@@ -2795,3 +2795,10 @@ cannot establish native acceptance. Admission cannot fall back to an
 arm-only PASS when it is missing. Native execution and the complete original
 proof still require actual observed evidence; helper tests alone do not satisfy
 provider acceptance or campaign completion.
+
+
+The generated Renovate ownership preset must be regenerated whenever managed
+manifest paths change. Owner-excluded targets are removed before ownership
+routing; the preset carries no path rules for them, including cached registration
+entries. Manifest/compiler and generated-preset checks validate the same eligible
+consumer contract.
