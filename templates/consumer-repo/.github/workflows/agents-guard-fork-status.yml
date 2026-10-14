@@ -93,7 +93,7 @@ jobs:
               core.setOutput('canonical', 'true');
               core.setOutput('head_sha', run.head_sha);
             } catch (error) {
-              core.warning(`Unable to classify Agents Guard workflow run: ${error.message}`);
+              core.setFailed(`Unable to classify Agents Guard workflow run: ${error.message}`);
               reject();
             }
 

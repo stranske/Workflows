@@ -375,7 +375,7 @@ def test_guard_status_writer_classifies_canonical_runs_before_shared_queue():
 const fs = require('fs');
 const input = JSON.parse(fs.readFileSync(0, 'utf8'));
 const outputs = {};
-const core = {setOutput: (key, value) => { outputs[key] = String(value); }, warning() {}};
+const core = {setOutput: (key, value) => { outputs[key] = String(value); }, setFailed: message => { outputs.failure = String(message); }};
 const github = {rest: {actions: {
   async getWorkflowRun() { if (input.raises) throw new Error('unavailable'); return {data: input.freshRun}; },
   async getWorkflow() { if (input.raises) throw new Error('unavailable'); return {data: input.freshWorkflow}; },
@@ -430,9 +430,13 @@ new AsyncFunction('github', 'context', 'core', input.script)(github, context, co
         ({"id": 0}, canonical_workflow, canonical_run, False),
         ({"id": None}, canonical_workflow, canonical_run, False),
     ):
-        assert classify(
-            canonical_run, payload_workflow, fresh_run, fresh_workflow, raises=raises
-        ) == {"canonical": "false", "head_sha": ""}
+        result = classify(canonical_run, payload_workflow, fresh_run, fresh_workflow, raises=raises)
+        assert result["canonical"] == "false"
+        assert result["head_sha"] == ""
+        if raises:
+            assert result["failure"] == "Unable to classify Agents Guard workflow run: unavailable"
+        else:
+            assert "failure" not in result
 
     def evaluate_queue(canonical, head_sha):
         payload = {
