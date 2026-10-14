@@ -96,7 +96,7 @@ def build_resource_plan(
     )
     contract = build_capture_reassembly_contract(manifest, inventory)
     archives = []
-    occurrences = []
+    occurrences: list[dict[str, Any]] = []
     required_bytes = 0
     for artifact, record in sorted(records.items()):
         path = Path(archive_paths[artifact])

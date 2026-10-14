@@ -97,6 +97,8 @@ def native_capacity_facts_for(provider: str, model: str) -> NativeCapacityFacts:
         raise ValueError("non-finite native capacity registry JSON number")
 
     path = _registry_path()
+    if path is None:
+        raise ValueError("native capacity registry unreadable or malformed")
     try:
         payload = json.loads(
             path.read_text(encoding="utf-8"),
