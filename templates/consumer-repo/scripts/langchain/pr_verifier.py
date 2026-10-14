@@ -1068,8 +1068,12 @@ _REVIEW_BODY_COMPONENT_TEMPORAL = (
 _REVIEW_CONTENT_PARTICIPLE = (
     r"containing|including|showing|displaying|summarizing|presenting|listing|describing"
 )
+_REVIEW_CONTENT_PREPOSITION = r"about|regarding|concerning"
 _REVIEW_BODY_COMPONENT_CONTENT = (
-    r"contains?|includes?|requires?|needs?|" + _REVIEW_CONTENT_PARTICIPLE
+    r"contains?|includes?|requires?|needs?|"
+    + _REVIEW_CONTENT_PARTICIPLE
+    + r"|"
+    + _REVIEW_CONTENT_PREPOSITION
 )
 _REVIEW_BODY_COMPONENT_WORD = (
     r"(?!(?:and|or|but|on|by|with|when|if|that|which|where|"
@@ -1116,6 +1120,8 @@ _DELIVERED_EVIDENCE_OBJECT_END = (
     + _EVIDENCE_DESTINATION_PREPOSITION
     + r"|"
     + _REVIEW_CONTENT_PARTICIPLE
+    + r"|"
+    + _REVIEW_CONTENT_PREPOSITION
     + r")\b))"
 )
 
@@ -1235,7 +1241,7 @@ def _normalize_plain_artifact_destinations(acceptance: str) -> str:
         re.I,
     )
     evidence_object = (
-        r"(?:evidence|transcripts?|command outputs?|validation\s+results?|"
+        r"(?:evidence(?:\s+(?:files?|bundles?|packages?))?|transcripts?|command outputs?|validation\s+results?|"
         r"tests?(?:\s+results?)?)"
     )
     delivery_participle = (

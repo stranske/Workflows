@@ -5801,3 +5801,35 @@ def test_issue3835_hyphenated_review_api_and_quoted_literal_are_not_delivery():
     ):
         assert verifier._normalize_review_comment_destinations(text) == text
         assert verifier._required_evidence_channels(text) == set()
+
+
+@pytest.mark.parametrize("payload", ["files", "bundle", "package"])
+@pytest.mark.parametrize(
+    "governor,expected", [("must", {"artifacts"}), ("may", set()), ("must not", set())]
+)
+def test_issue3835_evidence_payload_delivery_preserves_floor(payload, governor, expected):
+    criterion = f"The reviewer {governor} upload evidence {payload} to an artifact"
+    assert verifier._required_evidence_channels(criterion) == expected
+    assert verifier._required_evidence_options(criterion) == [expected]
+    assert _floor_verdict(criterion, body="present", comments="present", artifacts="absent") == (
+        "CONCERNS" if expected else "PASS"
+    )
+
+
+@pytest.mark.parametrize("qualifier", ["about", "regarding", "concerning"])
+@pytest.mark.parametrize(
+    "governor,expected", [("must", {"comments"}), ("may", set()), ("must not", set())]
+)
+def test_issue3835_review_content_preposition_preserves_floor(qualifier, governor, expected):
+    criterion = f"The reviewer {governor} post a review comment {qualifier} the test results"
+    assert verifier._required_evidence_channels(criterion) == expected
+    assert verifier._required_evidence_options(criterion) == [expected]
+    assert _floor_verdict(criterion, body="present", comments="absent") == (
+        "CONCERNS" if expected else "PASS"
+    )
+    independent = criterion + "; the auditor must record evidence in a workflow artifact"
+    assert verifier._required_evidence_channels(independent) == expected | {"artifacts"}
+    assert (
+        _floor_verdict(independent, body="present", comments="present", artifacts="absent")
+        == "CONCERNS"
+    )

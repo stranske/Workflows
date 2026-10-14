@@ -2168,8 +2168,11 @@ qualifiers do not impose presence, while affirmative relative presence survives.
 Artifact evidence and review-comment aliases must complete the delivered object,
 not prefix product compounds such as evidence metadata, records or provenance,
 or review-comment state and fields. Both normalizers share the bounded object
-completion rule; genuine prepositions, adverbs, content qualifiers, alternatives
-and independent reviewer deliveries retain their existing evidence floors.
+completion rule. Evidence files, bundles and packages are delivery payloads;
+review-comment content introduced by `about`, `regarding` or `concerning` remains
+content rather than a product component. Genuine prepositions, adverbs, content
+qualifiers, alternatives and independent reviewer deliveries retain their evidence
+floors, including mandatory, optional and negative delivery polarity.
 Checklist shorthand accepts the common test/validation proof nouns, so
 `Validation output in a PR comment` retains comments as its required channel.
 Negative, optional and product-capability clauses keep their existing semantics.
