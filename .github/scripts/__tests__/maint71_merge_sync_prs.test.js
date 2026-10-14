@@ -802,7 +802,11 @@ test('native conversation task marker is consumable by the consumer-bound verifi
     durable_issue_url: 'https://github.com/stranske/Workflows/issues/1836', plan_id: 'plan', generation: 'gen',
     source_commit: request.source_commit, desired_tree_hash: 'tree', lease_expires_at: '2099-01-01T00:00:00Z' };
   const origin = { fullDatabaseId: '41', author: { login: 'coderabbitai' }, body: 'Native finding', commit: { oid: request.head_sha } };
-  const nodes = [origin], tasks = []; let replies = 0, taskPosts = 0, commentReads = [];
+  // A v1 task from the same finding is historical evidence, not a reusable v2 task.
+  const nodes = [origin], tasks = [{ id: 40, user: { login: 'stranske' }, author: { login: 'stranske' },
+    body: '<!-- maint71-native-conversation-disposition:v1 ' + 'f'.repeat(64) + ' -->',
+    created_at: '2026-10-14T02:59:00Z', createdAt: '2026-10-14T02:59:00Z',
+    html_url: 'https://github.com/stranske/Ready/pull/9#issuecomment-40' }]; let replies = 0, taskPosts = 0, commentReads = [];
   const pr = { state: 'open', draft: false, auto_merge: null, user: { login: 'stranske-automation-bot' },
     head: { ref: 'sync/workflows-candidate', sha: request.head_sha }, body: `<!-- sync-pr-delivery-record:v1 ${JSON.stringify(record)} -->` };
   const github = { paginate: async () => structuredClone(tasks), rest: {
@@ -818,9 +822,13 @@ test('native conversation task marker is consumable by the consumer-bound verifi
   }, graphql: async () => ({ repository: { pullRequest: { reviewThreads: { pageInfo: { hasNextPage: false }, nodes: [{ id: request.thread_id, isResolved: false, isOutdated: false, comments: { pageInfo: { hasNextPage: false }, nodes: structuredClone(nodes) } }] } } } }) };
   const policyPath = path.join(os.tmpdir(), `native-policy-${Date.now()}.json`); const policy = JSON.parse(fs.readFileSync(path.join(__dirname, '../../../config/consumer_sync_review_policy.json'), 'utf8')); fs.writeFileSync(policyPath, JSON.stringify(policy));
   const args = { context: { eventName: 'repository_dispatch', ref: 'refs/heads/main', actor: 'stranske', payload: { action: 'maint71-review-reassessment' } }, withRetry: (fn) => fn(github), rawRequest: JSON.stringify(request), registeredRepos: [request.repository], policyPath };
-  const result = await runReviewReassessment(args); assert.equal(replies, 1); assert.equal(taskPosts, 1); assert.match(tasks[0].body, /maint71-native-conversation-disposition:v1 [a-f0-9]{64}/);
-  const marker = tasks[0].body.match(/<!-- maint71-native-conversation-disposition:v1 [a-f0-9]{64} -->/)[0];
-  const answer = { user: { login: 'coderabbitai' }, html_url: 'https://github.com/stranske/Ready/pull/9#issuecomment-44', created_at: '2026-10-14T03:02:00Z', body: `ACCEPT\n<!-- sync-review-accepted:${request.head_sha} -->\n${marker}` };
+  const result = await runReviewReassessment(args); assert.equal(replies, 1); assert.equal(taskPosts, 1);
+  const v2Task = tasks.find((item) => /maint71-native-conversation-disposition:v2 [a-f0-9]{64}/.test(item.body));
+  assert.ok(v2Task, 'a v1 task cannot satisfy a v2 request');
+  assert.match(v2Task.body, /ordinary PR conversation reply is sufficient; an inline reply is not required/);
+  assert.match(v2Task.body, /exactly equal to @stranske/);
+  const marker = v2Task.body.match(/<!-- maint71-native-conversation-disposition:v2 [a-f0-9]{64} -->/)[0];
+  const answer = { user: { login: 'coderabbitai' }, html_url: 'https://github.com/stranske/Ready/pull/9#issuecomment-44', created_at: '2026-10-14T03:02:00Z', body: `@stranske\nACCEPT\n<!-- sync-review-accepted:${request.head_sha} -->\n${marker}` };
   const verify = validateNativeConversationDisposition({ proof: { ...request, reviewer_acceptance_url: answer.html_url }, record,
     thread: { isResolved: false, comments: { nodes } }, threads: { pageInfo: { hasNextPage: false }, nodes: [{ comments: { pageInfo: { hasNextPage: false }, nodes } }] }, comment: answer, policy, reviewerProfiles: policy.reviewers, topLevelComments: { complete: true, nodes: tasks }, now: Date.parse('2026-10-14T03:03:00Z') });
   assert.equal(verify.ok, true); tasks.push({ user: { login: 'coderabbitai' }, author: { login: 'coderabbitai' }, body: `REJECT\n${marker}`, created_at: '2026-10-14T03:02:30Z' });

@@ -155,6 +155,26 @@ test('native conversation disposition requires a fresh configured unquoted bound
   const ownEdit = structuredClone(base); ownEdit.comment.updated_at = '2026-10-14T03:02:30Z';
   ownEdit.topLevelComments.nodes.push({ author: { login: 'coderabbitai[bot]' }, url: ownEdit.comment.html_url, createdAt: ownEdit.comment.created_at, updatedAt: ownEdit.comment.updated_at, body: ownEdit.comment.body });
   assert.equal(validateNativeConversationDisposition(ownEdit).ok, true);
+
+  const v2 = structuredClone(base);
+  v2.reviewerProfiles[0].conversation_disposition.protocol = 'maint71-native-conversation-disposition/v2';
+  const v2Binding = { ...binding, protocol: 'maint71-native-conversation-disposition/v2' };
+  const v2Marker = `<!-- maint71-native-conversation-disposition:v2 ${sha256(JSON.stringify(v2Binding))} -->`;
+  v2.topLevelComments.nodes = [{ author: { login: 'stranske' }, user: { login: 'stranske' },
+    createdAt: '2026-10-14T03:01:00Z', body: v2Marker }];
+  v2.comment.body = `\`@stranske\`\nACCEPT\n<!-- sync-review-accepted:${head} -->\n${v2Marker}`;
+  assert.equal(validateNativeConversationDisposition(v2).ok, true);
+  for (const change of [
+    (value) => { value.comment.body = `@other\nACCEPT\n<!-- sync-review-accepted:${head} -->\n${v2Marker}`; },
+    (value) => { value.comment.body = `@stranske please\nACCEPT\n<!-- sync-review-accepted:${head} -->\n${v2Marker}`; },
+    (value) => { value.comment.body = `intro\n@stranske\nACCEPT\n<!-- sync-review-accepted:${head} -->\n${v2Marker}`; },
+    (value) => { value.comment.body = `@stranske\nREJECT\n<!-- sync-review-accepted:${head} -->\n${v2Marker}`; },
+    (value) => { value.comment.body = `@stranske\nACCEPT\n<!-- sync-review-accepted:${head} -->\n${marker}`; },
+    (value) => { value.comment.body = 'I cannot reply inline, here is a technical assessment only.'; },
+  ]) {
+    const value = structuredClone(v2); change(value);
+    assert.equal(validateNativeConversationDisposition(value).ok, false);
+  }
 });
 
 for (const key of ['repository', 'pr', 'head_sha', 'thread_id', 'source_fix_sha', 'evidence_url',
