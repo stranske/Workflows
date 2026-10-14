@@ -88,8 +88,13 @@ function validateIndependentFindingVerification({
 }
 
 function nativeAnswerLines(body, markers) {
-  const lines = []; let fence = null; const containers = [];
+  const lines = []; let fence = null; let quotedParagraph = false; const containers = [];
   for (const raw of String(body || '').split('\n')) {
+    if (!fence && containers.length === 0) {
+      if (!raw.trim()) quotedParagraph = false;
+      else if (/^\s*>/.test(raw)) quotedParagraph = true;
+      if (quotedParagraph) continue;
+    }
     if (fence) {
       const closer = raw.match(/^ {0,3}(`{3,}|~{3,})[ \t]*$/);
       if (closer && closer[1][0] === fence.char && closer[1].length >= fence.length) fence = null;
@@ -100,7 +105,7 @@ function nativeAnswerLines(body, markers) {
       fence = { char: opener[1][0], length: opener[1].length };
       continue;
     }
-    const tags = [...raw.matchAll(/<(\/)?(details|blockquote)\b[^>]*>/gi)];
+    const tags = [...raw.matchAll(/<(\/)?(details|blockquote|pre|code|script|style|textarea)\b[^>]*>/gi)];
     for (const tag of tags) {
       const type = tag[2].toLowerCase();
       if (tag[1]) { if (containers.pop() !== type) return null; }

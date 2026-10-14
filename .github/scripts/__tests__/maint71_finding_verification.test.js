@@ -97,7 +97,12 @@ test('native conversation disposition requires a fresh configured unquoted bound
   const fenced = structuredClone(base);
   fenced.comment.body = "```js\nconst sample = 1;\n```\n" + `ACCEPT\n<!-- sync-review-accepted:${head} -->\n${marker}`;
   assert.equal(validateNativeConversationDisposition(fenced).ok, true);
+  const separated = structuredClone(base);
+  separated.comment.body = "> quoted context\n\n" + `ACCEPT\n<!-- sync-review-accepted:${head} -->\n${marker}`;
+  assert.equal(validateNativeConversationDisposition(separated).ok, true);
   for (const change of [
+    (v) => { v.comment.body = `<pre>\nACCEPT\n<!-- sync-review-accepted:${head} -->\n${marker}\n</pre>`; },
+    (v) => { v.comment.body = `> quoted context\nACCEPT\n<!-- sync-review-accepted:${head} -->\n${marker}`; },
     (v) => { v.comment.body = `\`\`\`js\n\`\`\`not-a-close\nACCEPT\n<!-- sync-review-accepted:${head} -->\n${marker}`; },
     (v) => { v.comment.body = `<blockquote>ACCEPT\n<!-- sync-review-accepted:${head} -->\n${marker}</blockquote>`; },
     (v) => { v.comment.body = 'I cannot reply inline, here is a technical assessment only.'; },
