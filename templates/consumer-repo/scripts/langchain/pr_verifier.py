@@ -1022,7 +1022,7 @@ _MANDATORY_EVIDENCE_AUXILIARY = (
 )
 _EVIDENCE_DELIVERY_ADVERB = r"(?:also|then|now|still|already|yet|always|[\w-]+ly)"
 _EVIDENCE_DELIVERY_ADVERBS = r"(?:" + _EVIDENCE_DELIVERY_ADVERB + r"\s+){0,3}"
-_EVIDENCE_DELIVERY_OPERATION = r"(?:prov(?:e|ing)|provid(?:e|ing)|return|display|show|emit|render|expos(?:e|ing)|stor(?:e|ing)|upload|attach|publish|post|record|copy|copies|copied|copying|captur(?:e|ing)|includ(?:e|ing)|contain|hav(?:e|ing)|document|generat(?:e|ing)|link|add|leav(?:e|ing)|left)\w*\b"
+_EVIDENCE_DELIVERY_OPERATION = r"(?:prov(?:e|ing)|provid(?:e|ing)|return|display|show|emit|render|expos(?:e|ing)|stor(?:e|ing)|upload|attach|publish|post|record|copy|copies|copied|copying|captur(?:e|ing)|includ(?:e|ing)|contain|hav(?:e|ing)|document|generat(?:e|ing)|link|add|leav(?:e|ing)|left|send(?:s|ing)?)\w*\b"
 _EVIDENCE_DELIVERY_PARTICIPLE_START = r"(?=(?:\w*(?:ed|en)|left)\b)"
 _EVIDENCE_DELIVERY_IRREGULAR_STATE = r"(?:made|sent|shown|put)"
 _EVIDENCE_PASSIVE_DELIVERY_OPERATION = (

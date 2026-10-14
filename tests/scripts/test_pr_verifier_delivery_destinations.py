@@ -6842,3 +6842,55 @@ def test_issue3835_checkbox_unknown_component_capability_is_nongating():
     criterion = "- [ ] The novel engine may permit users to upload evidence to an artifact"
     assert verifier._required_evidence_channels(criterion) == set()
     assert verifier._required_evidence_options(criterion) == [set()]
+
+
+@pytest.mark.parametrize("operation", ["send", "sends", "sending"])
+@pytest.mark.parametrize(
+    "destination,channel",
+    [("in a PR comment", "comments"), ("in the PR body", "body"), ("as an artifact", "artifacts")],
+)
+def test_issue3835_active_command_output_send_requires_the_named_destination(
+    operation,
+    destination,
+    channel,
+):
+    criterion = f"The author must {operation} command output {destination}"
+    assert verifier._required_evidence_channels(criterion) == {channel}
+    assert verifier._required_evidence_options(criterion) == [{channel}]
+    statuses = {"body": "present", "comments": "present", "artifacts": "present"}
+    statuses[channel] = "absent"
+    assert _floor_verdict(criterion, **statuses) == "CONCERNS"
+
+
+@pytest.mark.parametrize("governor", ["may", "must not"])
+def test_issue3835_active_command_output_send_optional_or_prohibited_is_not_required(governor):
+    criterion = f"The author {governor} send command output in a PR comment"
+    assert verifier._required_evidence_channels(criterion) == set()
+    assert verifier._required_evidence_options(criterion) == [set()]
+    assert (
+        _floor_verdict(criterion, body="present", comments="absent", artifacts="present") == "PASS"
+    )
+
+
+def test_issue3835_product_owned_command_output_send_matches_shared_delivery_operation():
+    criterion = "The API must send command output in a PR comment"
+    assert verifier._required_evidence_channels(criterion) == {"comments"}
+    assert verifier._required_evidence_options(criterion) == [{"comments"}]
+    assert (
+        _floor_verdict(criterion, body="present", comments="absent", artifacts="present")
+        == "CONCERNS"
+    )
+
+
+def test_issue3835_coordinated_command_output_send_retains_each_destination_floor():
+    criterion = "The author must send command output in a PR comment and attach command output as an artifact"
+    assert verifier._required_evidence_channels(criterion) == {"comments", "artifacts"}
+    assert verifier._required_evidence_options(criterion) == [{"comments", "artifacts"}]
+    assert (
+        _floor_verdict(criterion, body="present", comments="absent", artifacts="present")
+        == "CONCERNS"
+    )
+    assert (
+        _floor_verdict(criterion, body="present", comments="present", artifacts="absent")
+        == "CONCERNS"
+    )
