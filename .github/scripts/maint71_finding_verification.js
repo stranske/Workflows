@@ -195,7 +195,8 @@ function validateNativeConversationDisposition({
   const accepted = lines.indexOf('ACCEPT');
   const times = [request.createdAt, tasks[0]?.createdAt, comment?.created_at].map((value) => Date.parse(value || ''));
   if (tasks.length !== 1 || comment?.html_url !== proof.reviewer_acceptance_url
-    || !configured.logins.includes(comment?.user?.login) || accepted < 0 || verdicts.length !== 1
+    || !configured.logins.includes(comment?.user?.login) || accepted !== 0 || verdicts.length !== 1
+    || lines[1] !== acceptance || lines[2] !== marker
     || !lines.slice(accepted).includes(acceptance) || !lines.slice(accepted).includes(marker)
     || times.some((value) => !Number.isFinite(value)) || times[1] < times[0] || times[2] <= times[1]
     || times[2] > now || now - times[2] > 24 * 60 * 60 * 1000) return deny('native_conversation_answer_mismatch');

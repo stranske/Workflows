@@ -2249,8 +2249,10 @@ marker covers the repository, PR, exact head, active thread, plan, generation,
 source commit, original finding ID and digest, and the new inline-request ID
 and URL.  A later resolution proof can name a native top-level answer only when
 the configured originating login posts it after the trusted task, with a plain
-unquoted `ACCEPT` line followed by the exact-head acceptance token and that
-same marker.  Provider status HTML, quoted text, fenced text, details blocks,
+unquoted `ACCEPT` line as the first visible answer line, immediately followed
+by the exact-head acceptance token and that same marker as the next two
+nonempty plain lines. Automatic hidden/status wrappers may precede this
+three-line prefix; explanations may follow it.  Provider status HTML, quoted text, fenced text, details blocks,
 generic summaries, unsupported transport notices, stale heads, other authors,
 and replayed comments are not acceptance.  `REJECT` remains a blocker and can
 only prevent duplicate task delivery; neither outcome resolves, seals, or

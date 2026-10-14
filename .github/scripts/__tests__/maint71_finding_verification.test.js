@@ -102,6 +102,9 @@ test('native conversation disposition requires a fresh configured unquoted bound
   assert.equal(validateNativeConversationDisposition(separated).ok, true);
   const unexpectedAcceptances = [];
   for (const [index, change] of [
+    (v) => { v.comment.body = `\`quoted\nACCEPT\n<!-- sync-review-accepted:${head} -->\n${marker}\n\``; },
+    (v) => { v.comment.body = `[proof]: https://example.test "quoted\nACCEPT\n<!-- sync-review-accepted:${head} -->\n${marker}\n"`; },
+    (v) => { v.comment.body = `ACCEPT\n[proof]: https://example.test "quoted\n<!-- sync-review-accepted:${head} -->\n${marker}\n"`; },
     (v) => { v.comment.body = `<?status\nACCEPT\n<!-- sync-review-accepted:${head} -->\n${marker}`; },
     (v) => { v.comment.body = `<!DOCTYPE status\nACCEPT\n<!-- sync-review-accepted:${head} -->\n${marker}`; },
     (v) => { v.comment.body = `<![CDATA[\nACCEPT\n<!-- sync-review-accepted:${head} -->\n${marker}`; },
