@@ -64,6 +64,9 @@ def _publish_scenario(
     open_prs=None,
     statuses=None,
     labels=None,
+    files=None,
+    target_run=None,
+    target_lookup_error=False,
     evaluate_status="completed",
     evaluate_conclusion="success",
     run_conclusion="success",
@@ -134,6 +137,9 @@ def _publish_scenario(
         ],
         "denyWrite": deny_write,
         "openPrs": open_prs,
+        "files": files,
+        "targetRun": target_run,
+        "targetLookupError": target_lookup_error,
     }
     source = f"""
 const helper = require({json.dumps(str(HELPER))});
@@ -150,7 +156,12 @@ const github = {{
   paginate: async (method, params) => (await method(params)).data,
   rest: {{
     actions: {{
-      getWorkflowRun: async () => ({{data: runReads++ === 0 ? scenario.initialRun : currentRun}}),
+      getWorkflowRun: async params => {{
+        if (Number(params.run_id) !== 9 && scenario.targetLookupError) throw Error('target lookup failed');
+        return {{data: Number(params.run_id) === 9
+          ? (runReads++ === 0 ? scenario.initialRun : currentRun)
+          : scenario.targetRun}};
+      }},
       getWorkflow: endpoint({{id: 7, path: '.github/workflows/agents-guard.yml'}}),
       listJobsForWorkflowRunAttempt: endpoint(scenario.jobs),
       listWorkflowRuns: async () => ({{data: statusRead && scenario.statusReadDrift === 'newer-run'
@@ -160,7 +171,7 @@ const github = {{
     pulls: {{
       get: async () => ({{data: currentPr}}),
       list: endpoint(scenario.openPrs === null ? [scenario.pr] : scenario.openPrs),
-      listFiles: endpoint([{{filename: 'src/app.js', status: 'modified'}}]),
+      listFiles: endpoint(scenario.files || [{{filename: 'src/app.js', status: 'modified'}}]),
     }},
     repos: {{
       listCommitStatusesForRef: async () => {{
@@ -737,6 +748,92 @@ def test_native_pending_label_corrective_survives_same_repo_or_fork_noop_publish
         "description": "Agents Guard controls changed; trusted review required",
         "evaluated": False,
     }
+
+
+def test_old_protected_fork_run_preserves_newer_authoritative_guard_verdict():
+    receipt = (
+        " [guard-policy-sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855]"
+    )
+    protected_files = [{"filename": ".github/workflows/agents-guard.yml", "status": "modified"}]
+    later_direct_success = [
+        {
+            "context": "Health 45 Agents Guard / guard",
+            "state": "success",
+            "description": "Health 45 Agents Guard passed." + receipt,
+            "target_url": "https://github.com/stranske/Workflows/actions/runs/10",
+        }
+    ]
+    direct_target = {
+        "id": 10,
+        "workflow_id": 7,
+        "event": "pull_request_target",
+        "name": "Health 45 Agents Guard",
+        "repository": {"id": 1},
+        "html_url": "https://github.com/stranske/Workflows/actions/runs/10",
+    }
+    # B has already written a policy-bound success before old fork publisher P
+    # reaches its protected-control-path decision.
+    preserved_success = _publish_scenario(
+        statuses=later_direct_success, files=protected_files, target_run=direct_target
+    )
+    assert preserved_success["result"]["state"] == "skipped"
+    assert preserved_success["writes"] == []
+
+    for invalid_target in (
+        None,
+        {**direct_target, "event": "pull_request"},
+        {**direct_target, "repository": {"id": 2}},
+        {**direct_target, "html_url": "https://github.com/stranske/Workflows/actions/runs/11"},
+    ):
+        untrusted = _publish_scenario(
+            statuses=later_direct_success, files=protected_files, target_run=invalid_target
+        )
+        assert untrusted["result"]["state"] == "error"
+        assert [write["state"] for write in untrusted["writes"]] == ["error"]
+
+    lookup_error = _publish_scenario(
+        statuses=later_direct_success,
+        files=protected_files,
+        target_run=direct_target,
+        target_lookup_error=True,
+    )
+    assert lookup_error["result"]["state"] == "error"
+    assert [write["state"] for write in lookup_error["writes"]] == ["error"]
+
+    preserved_failure = _publish_scenario(
+        statuses=[
+            {
+                "context": "Health 45 Agents Guard / guard",
+                "state": "failure",
+                "target_url": "https://example.test/runs/direct-B",
+            }
+        ],
+        files=protected_files,
+    )
+    assert preserved_failure["result"]["state"] == "skipped"
+    assert preserved_failure["writes"] == []
+
+    absent = _publish_scenario(statuses=[], files=protected_files)
+    assert absent["result"]["state"] == "error"
+    assert [write["state"] for write in absent["writes"]] == ["error"]
+
+    stale_success = _publish_scenario(
+        statuses=[{**later_direct_success[0], "description": "old success without receipt"}],
+        files=protected_files,
+    )
+    assert [write["state"] for write in stale_success["writes"]] == ["failure"]
+
+    pending = _publish_scenario(
+        statuses=[
+            {
+                "context": "Health 45 Agents Guard / guard",
+                "state": "pending",
+                "target_url": "https://example.test/runs/direct-B",
+            }
+        ],
+        files=protected_files,
+    )
+    assert [write["state"] for write in pending["writes"]] == ["error"]
 
 
 def test_reconciliation_uses_policy_receipt_not_writer_description_and_corrects_stale_noop():

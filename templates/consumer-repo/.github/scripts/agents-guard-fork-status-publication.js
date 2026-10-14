@@ -195,6 +195,48 @@ function validateBinding({ run, workflow, pr, repository }) {
   }
 }
 
+function targetRunId({ targetUrl, serverUrl, owner, repo }) {
+  if (typeof targetUrl !== 'string') return null;
+  try {
+    const target = new URL(targetUrl);
+    const server = new URL(serverUrl || 'https://github.com');
+    const prefix = `/${owner}/${repo}/actions/runs/`;
+    if (target.origin !== server.origin || !target.pathname.startsWith(prefix)) return null;
+    const value = target.pathname.slice(prefix.length);
+    return /^\d+$/.test(value) ? Number(value) : null;
+  } catch {
+    return null;
+  }
+}
+
+async function isCanonicalDirectGuardStatus({ current, github, retry, owner, repo, repository, context }) {
+  try {
+    const runId = targetRunId({
+      targetUrl: current.target_url,
+      serverUrl: context.serverUrl,
+      owner,
+      repo,
+    });
+    if (!runId) return false;
+    const directRun = await getFreshRun({ retry, owner, repo, runId });
+    if (!directRun ||
+      directRun.html_url !== current.target_url ||
+      directRun.event !== 'pull_request_target' ||
+      directRun.repository?.id !== repository.id ||
+      directRun.name !== 'Health 45 Agents Guard'
+    ) {
+      return false;
+    }
+    const directWorkflow = (await retry.withRetry(client =>
+      client.rest.actions.getWorkflow({ owner, repo, workflow_id: directRun.workflow_id })
+    )).data;
+    return directWorkflow.path === GUARD_PATH &&
+      Number(directWorkflow.id) === Number(directRun.workflow_id);
+  } catch {
+    return false;
+  }
+}
+
 async function jobsForAttempt({ github, retry, owner, repo, run }) {
   const attempt = runSnapshot(run).attempt;
   if (!github.rest.actions.listJobsForWorkflowRunAttempt) {
@@ -300,6 +342,20 @@ async function publishGuardForkStatus({ github, context, core }) {
       owner, repo, pull_number: pr.number,
     });
     const changedPaths = collectChangedPaths(pr, files);
+    const controlsChanged = changedPaths.some(path =>
+      BLOCKED_FILES.has(path) || BLOCKED_PREFIXES.some(prefix => path.startsWith(prefix))
+    );
+    const directSuccess = controlsChanged && current?.state === 'success' &&
+      typeof current.description === 'string' &&
+      current.description.endsWith(policyReceipt(pr.labels)) &&
+      await isCanonicalDirectGuardStatus({ current, github, retry, owner, repo, repository, context });
+    const authoritativeCurrent = current && (
+      current.state === 'failure' || current.state === 'error' || directSuccess
+    );
+    if (controlsChanged && authoritativeCurrent) {
+      core.info('Current authoritative exact-head guard verdict supersedes old control-path result.');
+      return { state: 'skipped', description: 'Current exact-head guard verdict preserved' };
+    }
     const jobs = run.status === 'completed'
       ? await jobsForAttempt({ github, retry, owner, repo, run })
       : [];
