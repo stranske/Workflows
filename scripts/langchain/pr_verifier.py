@@ -1748,6 +1748,7 @@ def _normalize_capability_deliveries(acceptance: str) -> str:
         + r")|(?:and|or))\s+"
         r"(?:allow|enable|support|permit)\w*\s+"
         r"(?:users?|reviewers?|maintainers?|authors?)\s+to\s+"
+        + _EVIDENCE_DELIVERY_ADVERBS
         + capability_delivery_operation
         + r"\s+"
         + proof_object

@@ -6711,6 +6711,17 @@ def test_issue3835_capability_registered_delivery_aliases_are_not_evidence_dutie
     assert verifier._required_evidence_options(criterion) == [set()]
 
 
+@pytest.mark.parametrize("operation", ["submit", "deliver", "supply"])
+@pytest.mark.parametrize("adverb", ["securely", "then", "also"])
+def test_issue3835_capability_initial_delivery_adverbs_use_shared_operation_grammar(
+    operation,
+    adverb,
+):
+    criterion = f"The application must allow users to {adverb} {operation} evidence either in a PR comment or as an artifact"
+    assert verifier._required_evidence_channels(criterion) == set()
+    assert verifier._required_evidence_options(criterion) == [set()]
+
+
 def test_issue3835_capability_marker_keeps_a_prior_unlocated_delivery_duty():
     criterion = (
         "The reviewer must provide evidence and allow users to upload evidence in a PR comment"
