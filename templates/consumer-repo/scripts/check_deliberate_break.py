@@ -804,7 +804,7 @@ _COLLECTION_ERROR_RE = re.compile(
 )
 
 
-_TEST_RESULT_RE = re.compile(r"(?m)^(?:PASSED|FAILED)\s+(\S+)|^(\S+)\s+(?:PASSED|FAILED)(?:\s|$)")
+_TEST_RESULT_RE = re.compile(r"(?m)^(?:(PASSED|FAILED)\s+(\S+)|(\S+)\s+(PASSED|FAILED)(?:\s|$))")
 
 
 def _pytest_node_id_matches_selected(selected: str, executed: str) -> bool:
@@ -816,6 +816,15 @@ def _pytest_node_id_matches_selected(selected: str, executed: str) -> bool:
     file cannot establish deliberate-break proof.
     """
     return executed == selected or ("[" not in selected and executed.startswith(f"{selected}["))
+
+
+def _pytest_results_from_output(*streams: str | None) -> list[tuple[str, str]]:
+    """Return pytest result status and node ID pairs from its terminal output."""
+    joined = "\n".join(stream for stream in streams if stream)
+    return [
+        (match.group(1) or match.group(4), match.group(2) or match.group(3))
+        for match in _TEST_RESULT_RE.finditer(joined)
+    ]
 
 
 def _missing_module_from_pytest_output(
@@ -830,10 +839,11 @@ def _missing_module_from_pytest_output(
     joined = "\n".join(stream for stream in streams if stream)
     if not joined or not _COLLECTION_ERROR_RE.search(joined):
         return None
-    if executed_test_id is not None:
-        executed = {match.group(1) or match.group(2) for match in _TEST_RESULT_RE.finditer(joined)}
-        if any(_pytest_node_id_matches_selected(executed_test_id, node) for node in executed):
-            return None
+    if executed_test_id is not None and any(
+        _pytest_node_id_matches_selected(executed_test_id, node)
+        for _, node in _pytest_results_from_output(joined)
+    ):
+        return None
     match = _MISSING_MODULE_RE.search(joined)
     return match.group(1) if match else None
 
@@ -1132,11 +1142,11 @@ def verify_spec(
     # internal/usage errors, or no collection. Custom commands keep their contract.
     # With --continue-on-collection-errors, exit 1 also covers collection errors.
     # Collection diagnostics require evidence that the selected test actually ran;
-    # collection-like text printed inside a failing test remains behavioral RED.
+    # collection-like text printed inside a selected FAILED test remains behavioral RED.
     base_output = "\n".join(stream for stream in (base_run.stdout, base_run.stderr) if stream)
     unexecuted_collection = _COLLECTION_ERROR_RE.search(base_output) and not any(
-        _pytest_node_id_matches_selected(spec.test_id, match.group(1) or match.group(2))
-        for match in _TEST_RESULT_RE.finditer(base_output)
+        status == "FAILED" and _pytest_node_id_matches_selected(spec.test_id, node)
+        for status, node in _pytest_results_from_output(base_output)
     )
     if _is_pytest_command(spec.command) and (base_run.returncode != 1 or unexecuted_collection):
         return _json_result(

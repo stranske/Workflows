@@ -2545,6 +2545,62 @@ def test_pytest_node_identity_requires_the_selected_parameter(prefix):
     assert not matches("tests/test_x.py::test_case[param]", "tests/test_y.py::test_case[param]")
 
 
+@pytest.mark.parametrize("prefix", ["", "templates/consumer-repo/"])
+@pytest.mark.parametrize("selected_passes_base", [True, False])
+def test_real_collection_error_requires_selected_failed_node(
+    tmp_path, prefix, selected_passes_base
+):
+    """Only a selected FAILED node can prove RED alongside real collection failure."""
+    helper = runpy.run_path(
+        str(Path(__file__).resolve().parents[2] / prefix / "scripts/check_deliberate_break.py")
+    )
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    _init_repo(repo)
+    (repo / "app.py").write_text("VALUE = 0\n", encoding="utf-8")
+    (repo / "test_unrelated.py").write_text("import missing_only_on_base\n", encoding="utf-8")
+    base = _commit(repo, "base behavior with unrelated collection error")
+    (repo / "app.py").write_text("VALUE = 1\n", encoding="utf-8")
+    (repo / "test_unrelated.py").unlink()
+    expected = 0 if selected_passes_base else 1
+    assertion = "app.VALUE in (0, 1)" if selected_passes_base else "app.VALUE == expected"
+    (repo / "test_candidate.py").write_text(
+        "import pytest\nimport app\n\n"
+        f"@pytest.mark.parametrize('expected', [{expected}])\n"
+        "def test_value(expected):\n"
+        f"    assert {assertion}\n",
+        encoding="utf-8",
+    )
+    _commit(repo, "candidate implementation and parametrized test")
+    spec = helper["DeliberateBreakSpec"](
+        "test_candidate.py::test_value",
+        "test_candidate.py",
+        "app.py",
+        (
+            sys.executable,
+            "-m",
+            "pytest",
+            "-v",
+            "-o",
+            "addopts=",
+            "--continue-on-collection-errors",
+            ".",
+        ),
+    )
+
+    result = helper["verify_spec"](spec, base=base, cwd=repo, enforce_tamper=False)
+
+    assert "ERROR collecting" in result["base_stdout"] + result["base_stderr"]
+    if selected_passes_base:
+        assert result["verdict"] == VERDICT_BROKEN
+        assert result["reason"] == "base-test-did-not-run"
+        assert "test_candidate.py::test_value[0] PASSED" in result["base_stdout"]
+    else:
+        assert result["verdict"] == VERDICT_PASS
+        assert result["reason"] == "head-passed-base-failed"
+        assert "test_candidate.py::test_value[1] FAILED" in result["base_stdout"]
+
+
 @pytest.mark.parametrize(
     "command",
     [

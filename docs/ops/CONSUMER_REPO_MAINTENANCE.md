@@ -975,6 +975,9 @@ For pytest deliberate-break proof, a base-function marker such as
 function, such as `tests/test_x.py::test_case[param]`. A marker that explicitly
 names a parameter remains exact: another parameter, function, or file cannot
 qualify. Collection diagnostics still require evidence that the selected node ran.
+When collection diagnostics are present, that selected node must be reported as
+`FAILED`; a matching `PASSED` node cannot turn an unrelated collection error into
+deliberate-break proof.
 
 The deliberate-break assertion-tamper check rejects removed assertions,
 including an old assertion replaced by a stronger one. The former temporary
