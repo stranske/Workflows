@@ -1694,20 +1694,52 @@ _EVIDENCE_REVIEW_DESTINATION = (
 _EVIDENCE_DESTINATION_SEPARATOR_BASE = r"(?:\s*,\s*(?:(?:and|or)\s+)?|\s+(?:and|or)\s+)"
 
 
+def _normalize_capability_deliveries(acceptance: str) -> str:
+    """Prevent permission/capability clauses from becoming evidence delivery duties."""
+    capability_destination = (
+        r"(?:" + _EVIDENCE_REVIEW_DESTINATION + r"|(?:(?:the|an?)\s+)?artifacts?\b)"
+    )
+    destination_member = _EVIDENCE_DESTINATION_PREPOSITION + r"\s+" + capability_destination
+    capability_delivery = re.compile(
+        r"(?P<literal>" + _QUOTED_EVIDENCE_LITERAL + r")|"
+        r"(?P<governor>(?:(?:"
+        + _MANDATORY_EVIDENCE_AUXILIARY
+        + r"|"
+        + _EVIDENCE_OPTIONAL_MODAL
+        + r")|(?:and|or))\s+)"
+        r"(?:allow|enable|support|permit)\w*\s+"
+        r"(?:users?|reviewers?|maintainers?|authors?)\s+to\s+"
+        + _EVIDENCE_DELIVERY_OPERATION
+        + r"\s+"
+        + _EVIDENCE_OBJECT_MODIFIERS
+        + r"(?:evidence(?:\s+(?:files?|bundles?|packages?))?|transcripts?|command outputs?)\b"
+        r"(?:\s+(?:(?:both|either)\s+)?"
+        + destination_member
+        + r"(?:\s+(?:and|or)\s+"
+        + destination_member
+        + r")*)?",
+        re.I,
+    )
+    return capability_delivery.sub(
+        lambda match: match[0] if match["literal"] else "product capability",
+        acceptance,
+    )
+
+
 def _normalize_leading_review_destination_quantifier(acceptance: str) -> str:
     """Put a list quantifier where the shared destination grammar expects it.
 
-    This is deliberately limited to PR body/description members.  It converts
-    ``both in the PR body`` to ``in both the PR body`` only when it starts a
-    concrete destination list, rather than rewriting arbitrary product prose.
+    This converts ``both in the PR body`` to ``in both the PR body`` only
+    when it starts a concrete shared review-destination list, rather than
+    rewriting arbitrary product prose.
     """
-    body_or_description = r"(?:(?:the|an?)\s+)?(?:pr|pull request)\s+(?:body|description)\b"
+    review_destination = _EVIDENCE_REVIEW_DESTINATION
     return re.sub(
         r"(?P<literal>" + _QUOTED_EVIDENCE_LITERAL + r")|"
         r"\b(?P<quantifier>both|either)\s+(?P<preposition>"
         + _EVIDENCE_DESTINATION_PREPOSITION
         + r")\s+"
-        r"(?P<destination>" + body_or_description + r")"
+        r"(?P<destination>" + review_destination + r")"
         r"(?=\s+(?:and|or)\s+" + _EVIDENCE_DESTINATION_PREPOSITION + r"\b)",
         lambda match: (
             match[0]
@@ -2183,6 +2215,7 @@ def _normalize_review_content_qualifiers(acceptance: str) -> str:
 def _classify_evidence_channels(acceptance: str, *, _bind_attached: bool = True) -> set[str]:
     """Identify explicit evidence deliverables without treating negations as requirements."""
 
+    acceptance = _normalize_capability_deliveries(acceptance)
     acceptance = _normalize_leading_review_destination_quantifier(acceptance)
     acceptance = _normalize_review_comment_destinations(acceptance)
     acceptance = _normalize_plain_artifact_destinations(acceptance)
@@ -5199,6 +5232,7 @@ def _classify_evidence_options(acceptance: str) -> list[set[str]]:
     Ambiguous mixed conjunctions or excessive expansion retain the strict legacy
     requirement rather than dropping an obligation.
     """
+    acceptance = _normalize_capability_deliveries(acceptance)
     acceptance = _normalize_leading_review_destination_quantifier(acceptance)
     acceptance = _normalize_review_comment_destinations(acceptance)
     acceptance = _normalize_plain_artifact_destinations(acceptance)

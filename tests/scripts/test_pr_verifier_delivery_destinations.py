@@ -6571,3 +6571,109 @@ def test_issue3835_active_human_tail_bypass_preserves_product_negative_and_liter
 ):
     assert verifier._required_evidence_channels(criterion) == set()
     assert verifier._required_evidence_options(criterion) == [set()]
+
+
+@pytest.mark.parametrize(
+    "criterion",
+    [
+        "The background worker may allow users to upload evidence to an artifact",
+        "The application must allow users to upload evidence files either in a PR comment or as an artifact",
+    ],
+)
+def test_issue3835_nonhuman_capability_lists_are_not_evidence_delivery(criterion):
+    assert verifier._required_evidence_channels(criterion) == set()
+    assert verifier._required_evidence_options(criterion) == [set()]
+    independent = criterion + "; the reviewer must upload evidence to a PR comment"
+    assert verifier._required_evidence_channels(independent) == {"comments"}
+    assert (
+        _floor_verdict(independent, body="present", comments="absent", artifacts="present")
+        == "CONCERNS"
+    )
+
+
+def test_issue3835_leading_quantifier_comment_artifact_list_keeps_destination_dnf():
+    criterion = "Evidence must be posted either in a PR comment or as an artifact"
+    assert verifier._required_evidence_channels(criterion) == {"comments", "artifacts"}
+    assert {frozenset(option) for option in verifier._required_evidence_options(criterion)} == {
+        frozenset({"comments"}),
+        frozenset({"artifacts"}),
+    }
+    assert (
+        _floor_verdict(criterion, body="present", comments="absent", artifacts="present") == "PASS"
+    )
+    assert (
+        _floor_verdict(criterion, body="present", comments="present", artifacts="absent") == "PASS"
+    )
+    assert (
+        _floor_verdict(criterion, body="present", comments="absent", artifacts="absent")
+        == "CONCERNS"
+    )
+
+
+@pytest.mark.parametrize(
+    "actor",
+    [
+        "reviewer",
+        "reviewer service",
+        "background worker",
+        "export component",
+    ],
+)
+@pytest.mark.parametrize("verb", ["allow", "enable", "support", "permit"])
+@pytest.mark.parametrize("modal", ["must", "may"])
+@pytest.mark.parametrize(
+    "destination",
+    [
+        "to an artifact",
+        "in a workflow artifact",
+        "either in a PR comment or as an artifact",
+    ],
+)
+def test_issue3835_capability_subject_governor_partition(actor, verb, modal, destination):
+    criterion = f"The {actor} {modal} {verb} users to upload evidence {destination}"
+    assert verifier._required_evidence_channels(criterion) == set()
+    independent = criterion + "; the reviewer must upload evidence to a PR comment"
+    assert verifier._required_evidence_channels(independent) == {"comments"}
+
+
+@pytest.mark.parametrize("governor,expected", [("must", {"artifacts"}), ("may", set())])
+def test_issue3835_direct_human_delivery_retains_modality(governor, expected):
+    criterion = f"The reviewer {governor} upload evidence to an artifact"
+    assert verifier._required_evidence_channels(criterion) == expected
+
+
+@pytest.mark.parametrize("joiner", [";", ", and"])
+def test_issue3835_capability_cannot_erase_independent_direct_reviewer_delivery(joiner):
+    criterion = (
+        "The reviewer must allow users to upload evidence to an artifact"
+        + joiner
+        + " the reviewer must upload evidence to a PR comment"
+    )
+    assert verifier._required_evidence_channels(criterion) == {"comments"}
+    assert (
+        _floor_verdict(criterion, body="present", comments="absent", artifacts="present")
+        == "CONCERNS"
+    )
+
+
+def test_issue3835_mandatory_capability_workflow_artifact_does_not_create_a_floor():
+    criterion = "The reviewer must allow users to upload evidence in a workflow artifact"
+    assert verifier._required_evidence_channels(criterion) == set()
+    assert verifier._required_evidence_options(criterion) == [set()]
+    assert (
+        _floor_verdict(criterion, body="present", comments="present", artifacts="absent") == "PASS"
+    )
+
+
+def test_issue3835_capability_segment_cannot_erase_prior_finite_proof_delivery():
+    criterion = "Reviewers must post evidence in the PR body and allow users to upload evidence in a workflow artifact"
+    assert verifier._required_evidence_channels(criterion) == {"body"}
+    assert (
+        _floor_verdict(criterion, body="present", comments="present", artifacts="absent") == "PASS"
+    )
+
+
+def test_issue3835_checkbox_unknown_component_capability_is_nongating():
+    criterion = "- [ ] The novel engine may permit users to upload evidence to an artifact"
+    assert verifier._required_evidence_channels(criterion) == set()
+    assert verifier._required_evidence_options(criterion) == [set()]
