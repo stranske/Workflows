@@ -6463,6 +6463,13 @@ def test_issue3835_passive_product_producer_is_not_comment_delivery():
     assert _floor_verdict(criterion, body="present", comments="absent", artifacts="present") == "PASS"
 
 
+def test_issue3835_comment_content_provenance_is_not_passive_product_producer():
+    criterion = "A PR review comment with output from API is required"
+    assert verifier._required_evidence_channels(criterion) == {"comments"}
+    assert verifier._required_evidence_options(criterion) == [{"comments"}]
+    assert _floor_verdict(criterion, body="present", comments="absent", artifacts="present") == "CONCERNS"
+
+
 @pytest.mark.parametrize("actor", ["reviewer", "maintainer"])
 def test_issue3835_passive_human_producer_keeps_comment_delivery(actor):
     criterion = f"Review comments must be returned by the {actor}"

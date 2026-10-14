@@ -1333,8 +1333,10 @@ def _normalize_review_comment_destinations(acceptance: str) -> str:
         after = acceptance[match.end() : match.end() + 96]
         if not re.match(_DELIVERED_EVIDENCE_OBJECT_END, after, re.I):
             return match[0]
-        passive_product_producer = re.search(
-            r"\b(?:by|from)\s+"
+        passive_product_producer = re.match(
+            r"\s+(?:(?:must|shall)(?:\s+be)?|(?:needs?|has)\s+to(?:\s+be)?|is|are)\s+"
+            + _EVIDENCE_DELIVERY_OPERATION
+            + r"\s+(?:by|from)\s+"
             + _EVIDENCE_RECIPIENT_PREFIX
             + _EVIDENCE_PRODUCT_ACTOR_NOUN
             + r"\b"
