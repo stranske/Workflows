@@ -6446,3 +6446,26 @@ def test_issue3835_product_actor_before_relative_qualifier_remains_non_delivery(
     criterion = "The reviewer service who owns the PR must submit a PR review comment"
     assert verifier._required_evidence_channels(criterion) == set()
     assert verifier._required_evidence_options(criterion) == [set()]
+
+
+@pytest.mark.parametrize("tail", ["before merge", "after CI passes", "during release"])
+def test_issue3835_delivered_comment_temporal_tail_keeps_comment_floor(tail):
+    criterion = f"The reviewer must post a PR review comment {tail}"
+    assert verifier._required_evidence_channels(criterion) == {"comments"}
+    assert verifier._required_evidence_options(criterion) == [{"comments"}]
+    assert _floor_verdict(criterion, body="present", comments="absent", artifacts="present") == "CONCERNS"
+
+
+def test_issue3835_passive_product_producer_is_not_comment_delivery():
+    criterion = "Review comments must be returned by the API"
+    assert verifier._required_evidence_channels(criterion) == set()
+    assert verifier._required_evidence_options(criterion) == [set()]
+    assert _floor_verdict(criterion, body="present", comments="absent", artifacts="present") == "PASS"
+
+
+@pytest.mark.parametrize("actor", ["reviewer", "maintainer"])
+def test_issue3835_passive_human_producer_keeps_comment_delivery(actor):
+    criterion = f"Review comments must be returned by the {actor}"
+    assert verifier._required_evidence_channels(criterion) == {"comments"}
+    assert verifier._required_evidence_options(criterion) == [{"comments"}]
+    assert _floor_verdict(criterion, body="present", comments="absent", artifacts="present") == "CONCERNS"

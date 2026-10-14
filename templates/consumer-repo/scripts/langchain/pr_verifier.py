@@ -1167,6 +1167,7 @@ _INDEPENDENT_REVIEW_CLAUSE = (
 )
 
 _EVIDENCE_DESTINATION_PREPOSITION = r"(?:in|into|to|within|for|as|through|via)"
+_EVIDENCE_TEMPORAL_TAIL = r"(?:under|during|after|before|due\s+to)"
 _REVIEW_BODY_COMPONENT_TEMPORAL = (
     r"before|after|now|today|tomorrow|again|here|there|soon|always|daily|weekly|[\w-]+ly"
 )
@@ -1222,6 +1223,8 @@ _DELIVERED_EVIDENCE_OBJECT_END = (
     r"(?=(?:\s+" + _EVIDENCE_DELIVERY_ADVERB + r"){0,3}\s*"
     r"(?:$|[;:,.!?\n]|(?:and|or|but|while|that|which|where|is|are|must|shall|"
     r"needs?|has|exist|may|can|only|solely|if|when|on|at|by|with|from|using|"
+    + _EVIDENCE_TEMPORAL_TAIL
+    + r"|"
     + _EVIDENCE_DESTINATION_PREPOSITION
     + r"|"
     + _REVIEW_CONTENT_PARTICIPLE
@@ -1259,12 +1262,15 @@ def _normalize_review_comment_destinations(acceptance: str) -> str:
         r"(?=\s*"
         + _EVIDENCE_DELIVERY_ADVERBS
         + r"(?:$|[;,.!?\n]|(?:and|or|but|if|when|only|solely)\b|"
-        r"(?:for|by|with|without|under|during|after|before|due\s+to)\b|"
+        r"(?:for|by|with|without|"
+        + _EVIDENCE_TEMPORAL_TAIL
+        + r")\b|"
         r"(?:in|on)\s+(?:(?:this|the)\s+)?(?:pr|pull request)\b))"
     )
     standalone_qualifier = (
-        r"(?:\s+(?:(?:by|from)\s+(?:(?:the|an?)\s+)?"
-        + _EVIDENCE_ACTOR_NOUN
+        r"(?:\s+(?:(?:by|from)\s+"
+        + _EVIDENCE_RECIPIENT_PREFIX
+        + _EVIDENCE_DELIVERY_ACTOR_NOUN
         + _EVIDENCE_ACTOR_QUALIFIER
         + r"|(?:with|for)\s+"
         + _EVIDENCE_OBJECT_MODIFIER_WORD
@@ -1326,6 +1332,19 @@ def _normalize_review_comment_destinations(acceptance: str) -> str:
         before = acceptance[max(0, match.start() - 160) : match.start()]
         after = acceptance[match.end() : match.end() + 96]
         if not re.match(_DELIVERED_EVIDENCE_OBJECT_END, after, re.I):
+            return match[0]
+        passive_product_producer = re.search(
+            r"\b(?:by|from)\s+"
+            + _EVIDENCE_RECIPIENT_PREFIX
+            + _EVIDENCE_PRODUCT_ACTOR_NOUN
+            + r"\b"
+            + _EVIDENCE_ACTOR_QUALIFIER,
+            after,
+            re.I,
+        )
+        if passive_product_producer and not re.search(
+            r"\s+(?:in|into|on)\s+(?:(?:the|an?)\s+)?(?:pr|pull request)\b", after, re.I
+        ):
             return match[0]
         product_delivery = re.search(
             r"\b"
