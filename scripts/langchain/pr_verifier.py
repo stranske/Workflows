@@ -1739,19 +1739,26 @@ def _normalize_capability_deliveries(acceptance: str) -> str:
         + destination_tail
         + r")*"
     )
+    capability_recipient = r"(?:users?|reviewers?|maintainers?|authors?)"
+    capability_infinitive = (
+        r"(?:allow|enable|support|permit)\w*\s+" + capability_recipient + r"\s+to"
+    )
+    capability_prohibition = r"(?:prevent|disallow)\w*\s+" + capability_recipient + r"\s+from"
     capability_delivery = re.compile(
         r"(?P<literal>" + _QUOTED_EVIDENCE_LITERAL + r")|"
+        r"(?:"
         r"(?:(?:"
         + _MANDATORY_EVIDENCE_AUXILIARY
         + r"|"
         + _EVIDENCE_OPTIONAL_MODAL
-        + r")|(?:and|or))\s+"
-        r"(?:"
-        r"(?:allow|enable|support|permit)\w*\s+"
-        r"(?:users?|reviewers?|maintainers?|authors?)\s+to"
-        r"|(?:prevent|disallow)\w*\s+"
-        r"(?:users?|reviewers?|maintainers?|authors?)\s+from"
-        r")\s+"
+        + r")|(?:and|or))\s+(?:"
+        + capability_infinitive
+        + r"|"
+        + capability_prohibition
+        + r")"
+        r"|"
+        + capability_prohibition
+        + r")\s+"
         + _EVIDENCE_DELIVERY_ADVERBS
         + capability_delivery_operation
         + r"\s+"
