@@ -283,18 +283,24 @@ function reviewReassessmentMarker(request) {
   return `<!-- maint71-review-${kind}:v1 ${JSON.stringify(canonical)} -->`;
 }
 
-function nativeConversationBinding(request, inlineRequest, origin) {
+function nativeConversationBinding(request, inlineRequest, origin, protocol = 'maint71-native-conversation-disposition/v1') {
   const requestId = String(inlineRequest?.fullDatabaseId || inlineRequest?.id || '');
   const requestUrl = String(inlineRequest?.html_url || inlineRequest?.url || '');
   const originId = String(origin?.fullDatabaseId || origin?.id || '');
   if (!/^[1-9][0-9]*$/.test(requestId) || !/^https:\/\/github\.com\//.test(requestUrl)
     || !/^[1-9][0-9]*$/.test(originId)) throw new Error('Native conversation disposition requires durable inline request and finding identities');
-  return { protocol: 'maint71-native-conversation-disposition/v1', repository: request.repository, pr: request.pr,
+  if (!['maint71-native-conversation-disposition/v1', 'maint71-native-conversation-disposition/v2'].includes(protocol)) {
+    throw new Error('Native conversation disposition has an unsupported protocol');
+  }
+  return { protocol, repository: request.repository, pr: request.pr,
     head_sha: request.head_sha, thread_id: request.thread_id, plan_id: request.plan_id, generation: request.generation,
     source_commit: request.source_commit, originating_reviewer: request.originating_reviewer, inline_request_id: requestId,
     inline_request_url: requestUrl, finding_id: originId, finding_sha256: require('crypto').createHash('sha256').update(String(origin?.body || '')).digest('hex') };
 }
-function nativeConversationMarker(binding) { return `<!-- maint71-native-conversation-disposition:v1 ${require('crypto').createHash('sha256').update(JSON.stringify(binding)).digest('hex')} -->`; }
+function nativeConversationMarker(binding) {
+  const protocol = binding?.protocol === 'maint71-native-conversation-disposition/v2' ? 'v2' : 'v1';
+  return `<!-- maint71-native-conversation-disposition:${protocol} ${require('crypto').createHash('sha256').update(JSON.stringify(binding)).digest('hex')} -->`;
+}
 
 function hasSubsequentExactHeadReviewerAnswer(thread, request, profiles, requestCreatedAt,
   reviewerProfileForLogin) {
@@ -338,7 +344,7 @@ async function runReviewReassessment({
   const command = String((nativeConversation ? nativePolicy?.inline_comment : dispositionOnly ? profile?.disposition_comment
     : profile?.reassessment_comment) || '').trim();
   if (!profile || !/^@[A-Za-z0-9-]+(?:\s+[A-Za-z0-9-]+)*$/.test(command)
-    || (nativeConversation && (!nativePolicy || nativePolicy.protocol !== 'maint71-native-conversation-disposition/v1' || !Array.isArray(nativePolicy.logins) || nativePolicy.logins.some((login) => !profile.logins?.includes(login)) || !/^@[A-Za-z0-9-]+(?:\s+[A-Za-z0-9-]+)*$/.test(String(nativePolicy.task_comment || ''))))) {
+    || (nativeConversation && (!nativePolicy || !['maint71-native-conversation-disposition/v1', 'maint71-native-conversation-disposition/v2'].includes(nativePolicy.protocol) || !Array.isArray(nativePolicy.logins) || nativePolicy.logins.some((login) => !profile.logins?.includes(login)) || !/^@[A-Za-z0-9-]+(?:\s+[A-Za-z0-9-]+)*$/.test(String(nativePolicy.task_comment || ''))))) {
     throw new Error('Originating reviewer has no configured reassessment command');
   }
   const [owner, repo] = request.repository.split('/');
@@ -575,7 +581,7 @@ async function runReviewReassessment({
       throw new Error(`Originating reviewer has no supported ${taskKind} task transport`);
     }
     const taskBinding = nativeConversation ? nativeConversationBinding(
-      request, comment, current.thread.comments.nodes[0],
+      request, comment, current.thread.comments.nodes[0], nativePolicy.protocol,
     ) : {
       ...Object.fromEntries(REASSESSMENT_FIELDS.map((field) => [field, request[field]])),
       request_id: String(comment.id), request_url: comment.html_url,
@@ -617,7 +623,9 @@ async function runReviewReassessment({
           : 'This is a bounded finding-reassessment conversation task. Do not start another general review.',
         `Answer only the original finding in existing thread ${request.thread_id}: ${comment.html_url}`,
         `The authenticated in-thread request above is the authority and contains the exact finding. Inspect its source fix at Workflows commit ${request.source_commit} and generated head ${request.head_sha}.`,
-        nativeConversation ? `Reply in this PR conversation with a plain unquoted standalone line exactly equal to ACCEPT or REJECT. For acceptance, after any automatic hidden/status wrapper, the first three visible nonempty answer lines must be exactly ACCEPT, then <!-- sync-review-accepted:${request.head_sha} -->, then ${taskMarker}, in that order with no intervening content. Each is its own plain line outside quoted text, code fences and details blocks; explanations may follow this three-line prefix; it is valid only after this task and only under the configured native protocol.` :
+        nativeConversation ? nativePolicy.protocol === 'maint71-native-conversation-disposition/v2'
+          ? `An ordinary PR conversation reply is sufficient; an inline reply is not required. If the finding is satisfied, reply with a plain unquoted standalone line exactly equal to @${writer.login} (an exact backtick-wrapped @${writer.login} is also allowed), then ACCEPT, then <!-- sync-review-accepted:${request.head_sha} -->, then ${taskMarker}; these must be the first four visible nonempty answer lines after any automatic hidden/status wrapper, in that order with no intervening content. If the finding is not satisfied, reply with that exact @${writer.login} line followed by standalone REJECT and concrete evidence; do not include an acceptance token or protocol marker. Each required line is outside quoted text, code fences and details blocks; explanations may follow; it is valid only after this task and only under the configured native protocol.`
+          : `Reply in this PR conversation with a plain unquoted standalone line exactly equal to ACCEPT or REJECT. For acceptance, after any automatic hidden/status wrapper, the first three visible nonempty answer lines must be exactly ACCEPT, then <!-- sync-review-accepted:${request.head_sha} -->, then ${taskMarker}, in that order with no intervening content. Each is its own plain line outside quoted text, code fences and details blocks; explanations may follow this three-line prefix; it is valid only after this task and only under the configured native protocol.` :
           'Reply in that existing thread with explicit ACCEPT and the exact acceptance token requested there if satisfied, or REJECT with concrete evidence if not. A top-level answer cannot authorize disposition.',
         'No file edits, branch pushes, new finding threads, thread resolution, seal, close or merge actions. If replying there is unsupported, report that limitation explicitly; do not substitute a generic no-issues summary.',
         taskMarker].join('\n\n');
