@@ -1746,8 +1746,12 @@ def _normalize_capability_deliveries(acceptance: str) -> str:
         + r"|"
         + _EVIDENCE_OPTIONAL_MODAL
         + r")|(?:and|or))\s+"
+        r"(?:"
         r"(?:allow|enable|support|permit)\w*\s+"
-        r"(?:users?|reviewers?|maintainers?|authors?)\s+to\s+"
+        r"(?:users?|reviewers?|maintainers?|authors?)\s+to"
+        r"|(?:prevent|disallow)\w*\s+"
+        r"(?:users?|reviewers?|maintainers?|authors?)\s+from"
+        r")\s+"
         + _EVIDENCE_DELIVERY_ADVERBS
         + capability_delivery_operation
         + r"\s+"
@@ -3169,7 +3173,7 @@ def _classify_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         r"\b(?:"
         + mandatory_auxiliary
         + r"|required|mandatory|(?:is|are)\s+needed|must|shall|needs? to|"
-        r"publish(?:es|ed)?|upload(?:s|ed)?|"
+        r"publish(?:es|ed)?|upload(?:s|ed)?|send(?:s|ing)?|"
         r"attach(?:es|ed)?|captur(?:e|es|ed)|record(?:s|ed|ing)?|provid(?:e|es|ed)|"
         r"includ(?:e|es|ed)|link(?:s|ed)?|post(?:s|ed)?|"
         r"(?:add(?:s|ed)?|leav(?:e|es)|left)\s+(?:(?:an?|the)\s+)?"

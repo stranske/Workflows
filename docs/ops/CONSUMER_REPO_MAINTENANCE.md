@@ -2860,8 +2860,10 @@ to product recipients stay nongating unless a separate reviewer duty exists.
 Active `send`/`sends`/`sending` shares the bounded evidence-delivery operation
 grammar with passive `sent`. A mandatory author or reviewer instruction to send
 command output to a PR comment, body, or artifact therefore creates the same
-channel floor; optional, prohibited, quoted wording, and product capability
-wording without an explicit PR delivery do not. A direct product operation with
+channel floor; optional, direct prohibitions, quoted wording, and product capability
+wording without an explicit PR delivery do not. Capability clauses that prevent or
+disallow users from sending delivery evidence are likewise nongating, while an
+independent reviewer delivery remains required. A direct product operation with
 an explicit PR destination follows the shared delivery grammar. Coordinated send
 and existing delivery predicates retain every explicitly named destination.
 

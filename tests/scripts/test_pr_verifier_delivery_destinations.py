@@ -6844,7 +6844,7 @@ def test_issue3835_checkbox_unknown_component_capability_is_nongating():
     assert verifier._required_evidence_options(criterion) == [set()]
 
 
-@pytest.mark.parametrize("operation", ["send", "sends", "sending"])
+@pytest.mark.parametrize("operation", ["send"])
 @pytest.mark.parametrize(
     "destination,channel",
     [("in a PR comment", "comments"), ("in the PR body", "body"), ("as an artifact", "artifacts")],
@@ -6862,6 +6862,23 @@ def test_issue3835_active_command_output_send_requires_the_named_destination(
     assert _floor_verdict(criterion, **statuses) == "CONCERNS"
 
 
+@pytest.mark.parametrize(
+    "criterion",
+    [
+        "The author sends command output in a PR comment",
+        "The author is sending command output in a PR comment",
+        "The API sends command output in a PR comment",
+    ],
+)
+def test_issue3835_grammatical_active_command_output_send_requires_comment(criterion):
+    assert verifier._required_evidence_channels(criterion) == {"comments"}
+    assert verifier._required_evidence_options(criterion) == [{"comments"}]
+    assert (
+        _floor_verdict(criterion, body="present", comments="absent", artifacts="present")
+        == "CONCERNS"
+    )
+
+
 @pytest.mark.parametrize("governor", ["may", "must not"])
 def test_issue3835_active_command_output_send_optional_or_prohibited_is_not_required(governor):
     criterion = f"The author {governor} send command output in a PR comment"
@@ -6869,6 +6886,31 @@ def test_issue3835_active_command_output_send_optional_or_prohibited_is_not_requ
     assert verifier._required_evidence_options(criterion) == [set()]
     assert (
         _floor_verdict(criterion, body="present", comments="absent", artifacts="present") == "PASS"
+    )
+
+
+@pytest.mark.parametrize("capability", ["prevent", "disallow"])
+def test_issue3835_prohibitive_command_output_send_capability_is_not_delivery(capability):
+    criterion = (
+        f"The application must {capability} users from sending command output in a PR comment"
+    )
+    assert verifier._required_evidence_channels(criterion) == set()
+    assert verifier._required_evidence_options(criterion) == [set()]
+    assert (
+        _floor_verdict(criterion, body="present", comments="absent", artifacts="present") == "PASS"
+    )
+
+
+def test_issue3835_prohibitive_command_output_send_preserves_independent_reviewer_delivery():
+    criterion = (
+        "The application must prevent users from sending command output in a PR comment; "
+        "the reviewer must send command output in a PR comment"
+    )
+    assert verifier._required_evidence_channels(criterion) == {"comments"}
+    assert verifier._required_evidence_options(criterion) == [{"comments"}]
+    assert (
+        _floor_verdict(criterion, body="present", comments="absent", artifacts="present")
+        == "CONCERNS"
     )
 
 
