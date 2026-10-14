@@ -74,7 +74,8 @@ def test_fixture_classifies_all_generated_lanes_and_excludes_collab_admin():
     assert result["generated_prs"] == 3
     assert result["stale"]["sync-generated"] == 1
     assert result["replacement"]["dev-tool-sync"] == 1
-    assert result["collab_admin_excluded"] == 1
+    assert "collab_admin_excluded" not in result
+    assert "Collab-Admin" not in metrics.markdown(report)
     assert result["source_change_to_consumer_pr_amplification"] == {"a": 2, "b": 1}
     assert result["actions_runs_per_source_change"]["a"] == 2
     assert result["avoidable_replacements_per_repo_batch"] == {"stranske/App/b": 1}
@@ -388,3 +389,25 @@ def test_malformed_delivery_lifecycle_timestamp_does_not_abort_report():
 
 def test_parse_time_rejects_timezone_normalization_overflow():
     assert metrics.parse_time("9999-12-31T23:59:59-14:00") is None
+
+
+def test_cached_excluded_rows_cannot_contaminate_metrics_or_report():
+    snapshot = {
+        "pulls": [
+            {
+                "repo": "STRANSKE/COLLAB-ADMIN",
+                "number": 42,
+                "head_ref": "sync/workflows-delivery",
+                "source_commit": "excluded",
+            }
+        ],
+        "workflow_runs": [{"repo": "stranske/Collab-Admin", "head_sha": "excluded"}],
+        "timeline_events": [
+            {"repo": "stranske/Collab-Admin", "number": 42, "event": "head_ref_force_pushed"}
+        ],
+    }
+    report = metrics.calculate(snapshot, datetime(2026, 1, 10, tzinfo=UTC))
+    assert report["metrics"]["generated_prs"] == 0
+    assert report["metrics"]["actions_runs_per_source_change"] == {}
+    assert "collab_admin_excluded" not in report["metrics"]
+    assert "Collab-Admin" not in metrics.markdown(report)

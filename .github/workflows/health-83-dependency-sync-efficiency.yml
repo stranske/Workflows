@@ -98,8 +98,7 @@ jobs:
             const repos = [...new Set([
               `${context.repo.owner}/${context.repo.repo}`,
               ...registered,
-              `${context.repo.owner}/Collab-Admin`,
-            ])];
+            ])].filter((repo) => repo.toLowerCase() !== `${context.repo.owner}/Collab-Admin`.toLowerCase());
             const pulls = [];
             const workflow_runs = [];
             const timeline_events = [];
@@ -115,7 +114,7 @@ jobs:
                   sourceByPr.set(`${owner}/${name}#${pr.number}`, source_commit);
                   pulls.push({repo: `${owner}/${name}`, number: pr.number, title: pr.title, body: pr.body, labels: pr.labels, state: pr.state, author: pr.user?.login, head_ref: pr.head?.ref, head_sha: pr.head?.sha, source_commit, delivery_record, created_at: pr.created_at, updated_at: pr.updated_at, merged_at: pr.merged_at, closed_at: pr.closed_at});
 
-                  if (name !== 'Collab-Admin' && ['sync/workflows-candidate', 'sync/workflows-delivery'].includes(pr.head?.ref)) {
+                  if (['sync/workflows-candidate', 'sync/workflows-delivery'].includes(pr.head?.ref)) {
                     try {
                       const events = await paginateWithRetry(api.rest.issues.listEventsForTimeline, {owner, repo: name, issue_number: pr.number, per_page: 100});
                       for (const event of events) {

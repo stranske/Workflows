@@ -57,10 +57,14 @@ def labels(pr: dict[str, Any]) -> set[str]:
     return result
 
 
+def owner_excluded(record: dict[str, Any]) -> bool:
+    repo = str(first(record, "repo", "repository", "repository_name") or "")
+    return repo.casefold() == "stranske/collab-admin"
+
+
 def lane_for(pr: dict[str, Any]) -> str:
-    repo = str(first(pr, "repo", "repository", "repository_name") or "")
-    if repo.endswith("/Collab-Admin"):
-        return "collab-admin-excluded"
+    if owner_excluded(pr):
+        return "owner-excluded"
     author = str(first(pr, "author", "author_login", "user") or "").lower()
     branch = str(first(pr, "head_ref", "headRefName", "branch") or "").lower()
     title = str(pr.get("title", "")).lower()
@@ -145,7 +149,7 @@ def stable_sync_key(pr: dict[str, Any]) -> str | None:
 
 
 def calculate(snapshot: dict[str, Any], now: datetime) -> dict[str, Any]:
-    pulls = list(snapshot.get("pulls", []))
+    pulls = [pr for pr in snapshot.get("pulls", []) if not owner_excluded(pr)]
     window_start, window_end = reporting_window(snapshot, now)
     lane_counts: Counter[str] = Counter()
     created: Counter[str] = Counter()
@@ -162,8 +166,6 @@ def calculate(snapshot: dict[str, Any], now: datetime) -> dict[str, Any]:
     for pr in pulls:
         lane = lane_for(pr)
         pr["_lane"] = lane
-        if lane == "collab-admin-excluded":
-            continue
         lane_counts[lane] += 1
         if not generated(lane):
             continue
@@ -211,9 +213,10 @@ def calculate(snapshot: dict[str, Any], now: datetime) -> dict[str, Any]:
         if fingerprint:
             exception_fingerprints.add(fingerprint)
 
-    collab_admin = [pr for pr in pulls if pr.get("_lane") == "collab-admin-excluded"]
     runs_by_source: Counter[str] = Counter()
     for run in snapshot.get("workflow_runs", []):
+        if owner_excluded(run):
+            continue
         source = str(first(run, "source_commit", "head_sha", "headSha") or "unknown")
         runs_by_source[source] += 1
     if timestamped_snapshot:
@@ -254,6 +257,8 @@ def calculate(snapshot: dict[str, Any], now: datetime) -> dict[str, Any]:
 
     stable_event_counts: dict[str, Counter[str]] = {key: Counter() for key in stable_sync_prs}
     for event in snapshot.get("timeline_events", []):
+        if owner_excluded(event):
+            continue
         key = f"{first(event, 'repo', 'repository', 'repository_name')}#{event.get('number', '?')}"
         if key not in stable_event_counts:
             continue
@@ -324,7 +329,6 @@ def calculate(snapshot: dict[str, Any], now: datetime) -> dict[str, Any]:
         "avoidable_replacements_per_repo_batch": dict(sorted(avoidable_replacements.items())),
         "agent_exception_fingerprints": sorted(exception_fingerprints),
         "agent_exception_episodes": len(exception_fingerprints),
-        "collab_admin_excluded": len(collab_admin),
         "stable_sync_prs_observed": stable_pr_count,
         "stable_pr_force_push_events": stable_force_pushes,
         "stable_pr_ready_for_review_events": stable_ready_transitions,
@@ -454,7 +458,6 @@ def markdown(report: dict[str, Any]) -> str:
             f"Stale/replacement rate: **{metrics['stale_or_replacement_rate']:.1%}** ({metrics['stale_or_replacement_numerator']}/{metrics['generated_prs']}; target < 5%)",
             *avoidable_lines,
             f"Agent-exception episodes: **{metrics['agent_exception_episodes']}** (target ≤ 5)",
-            f"Collab-Admin excluded: **{metrics['collab_admin_excluded']}**",
             "",
             "## Stable delivery convergence",
             "",
