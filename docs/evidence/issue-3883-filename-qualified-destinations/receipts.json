@@ -1,0 +1,47 @@
+{
+  "fixed_sha256": "ce08477f4ea21999f2f3072cf3a7f7e73a364c37427f7705bc0aab1dd3d6e9a0",
+  "mutant_sha256": "56fd4c79c772f84c3574283160ba32bb8f5f247b89067452b7bbbb9ae8dfe359",
+  "nodes": [
+    "tests/scripts/test_pr_verifier_delivery_destinations.py::test_issue3883_filename_qualified_quantified_destinations",
+    "tests/scripts/test_pr_verifier_delivery_destinations.py::test_issue3883_filename_qualified_both_requires_every_destination",
+    "tests/scripts/test_pr_verifier_delivery_destinations.py::test_issue3883_filename_qualified_either_accepts_one_destination"
+  ],
+  "red": {
+    "argv": [
+      "/opt/hostedtoolcache/Python/3.14.8/x64/bin/python3",
+      "-m",
+      "pytest",
+      "tests/scripts/test_pr_verifier_delivery_destinations.py::test_issue3883_filename_qualified_quantified_destinations",
+      "tests/scripts/test_pr_verifier_delivery_destinations.py::test_issue3883_filename_qualified_both_requires_every_destination",
+      "tests/scripts/test_pr_verifier_delivery_destinations.py::test_issue3883_filename_qualified_either_accepts_one_destination",
+      "-q",
+      "-o",
+      "addopts="
+    ],
+    "cwd": "/home/runner/work/Workflows/Workflows",
+    "exit": 1,
+    "stdout_sha256": "a517538568efe6e6eef0d2d6695d507794a563d808125ed81cf6fa924f75e9ac",
+    "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "green": {
+    "argv": [
+      "/opt/hostedtoolcache/Python/3.14.8/x64/bin/python3",
+      "-m",
+      "pytest",
+      "tests/scripts/test_pr_verifier_delivery_destinations.py::test_issue3883_filename_qualified_quantified_destinations",
+      "tests/scripts/test_pr_verifier_delivery_destinations.py::test_issue3883_filename_qualified_both_requires_every_destination",
+      "tests/scripts/test_pr_verifier_delivery_destinations.py::test_issue3883_filename_qualified_either_accepts_one_destination",
+      "-q",
+      "-o",
+      "addopts="
+    ],
+    "cwd": "/home/runner/work/Workflows/Workflows",
+    "exit": 0,
+    "stdout_sha256": "aba086ca1daae4ba662ea3c0ac8bd598f8b67ba03de1462e1a860635df36fcbf",
+    "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "restored_sha256": [
+    "ce08477f4ea21999f2f3072cf3a7f7e73a364c37427f7705bc0aab1dd3d6e9a0",
+    "ce08477f4ea21999f2f3072cf3a7f7e73a364c37427f7705bc0aab1dd3d6e9a0"
+  ]
+}

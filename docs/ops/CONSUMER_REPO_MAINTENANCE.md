@@ -2248,9 +2248,18 @@ delivery. An explicitly excluded PR-comment destination (`outside`, `rather
 than`, `instead of`) is not a required comment channel; generic evidence and
 independent positive deliveries still retain their coverage floors.
 Active proof delivery also recognizes `as an artifact`, including evidence,
-coverage reports and common validation outputs. PR review comments and inline
+coverage reports and common validation outputs. Bare `in an artifact` /
+`into an artifact` destinations normalize to the shared workflow-artifact
+channel before classifier expansion. PR review comments and inline
 review comments share the ordinary PR-comment destination grammar before both
 channel classification and destination-OR expansion; quoted input stays literal.
+A bounded evidence-source filename qualifier (`evidence from results.json`,
+including a quoted filename) does not consume the following quantified
+destination list: `both in a PR comment and in an artifact` still requires
+every named destination, and `either in a PR comment or in an artifact` still
+accepts one alternative. Actor, polarity, optionality, product-capability and
+quoted-example scope are unchanged by that qualifier strip. Independent
+reviewer duties in separate clauses remain separate obligations.
 Checklist shorthand accepts the common test/validation proof nouns, so
 `Validation output in a PR comment` retains comments as its required channel.
 Negative, optional and product-capability clauses keep their existing semantics.

@@ -1467,9 +1467,7 @@ def _normalize_bare_artifact_destinations(acceptance: str) -> str:
         r"(?P<literal>" + _QUOTED_EVIDENCE_LITERAL + r")|"
         r"\b(?P<prep>in|into|to|within)\s+(?P<article>an?\s+)artifacts?\b(?!\s+provenance)",
         lambda match: (
-            match[0]
-            if match["literal"]
-            else f"{match['prep']} {match['article']}workflow artifact"
+            match[0] if match["literal"] else f"{match['prep']} {match['article']}workflow artifact"
         ),
         acceptance,
         flags=re.I,
@@ -1486,11 +1484,7 @@ def _normalize_evidence_source_filename_qualifiers(acceptance: str) -> str:
     )
     return re.sub(
         r"(?P<literal>" + _QUOTED_EVIDENCE_LITERAL + r")|"
-        r"(?P<object>\bevidence)\s+from\s+"
-        + filename
-        + r"(?=\s+"
-        + destination_head
-        + r")",
+        r"(?P<object>\bevidence)\s+from\s+" + filename + r"(?=\s+" + destination_head + r")",
         lambda match: match[0] if match["literal"] else match["object"],
         acceptance,
         flags=re.I,

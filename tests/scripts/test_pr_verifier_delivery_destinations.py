@@ -5183,9 +5183,7 @@ def test_issue3883_filename_qualified_quantified_destinations(
 
 
 def test_issue3883_filename_qualified_both_requires_every_destination():
-    criterion = (
-        "The reviewer must upload evidence from results.json both in a PR comment and in an artifact"
-    )
+    criterion = "The reviewer must upload evidence from results.json both in a PR comment and in an artifact"
     assert (
         _floor_verdict(criterion, body="present", comments="absent", artifacts="present")
         == "CONCERNS"
@@ -5197,13 +5195,63 @@ def test_issue3883_filename_qualified_both_requires_every_destination():
 
 
 def test_issue3883_filename_qualified_either_accepts_one_destination():
-    criterion = (
-        "The reviewer must upload evidence from results.json either in a PR comment or in an artifact"
+    criterion = "The reviewer must upload evidence from results.json either in a PR comment or in an artifact"
+    assert (
+        _floor_verdict(criterion, body="absent", comments="present", artifacts="absent") == "PASS"
     )
-    assert _floor_verdict(criterion, body="absent", comments="present", artifacts="absent") == "PASS"
     assert (
         _floor_verdict(criterion, body="present", comments="absent", artifacts="present") == "PASS"
     )
     assert (
-        _floor_verdict(criterion, body="absent", comments="absent", artifacts="absent") == "CONCERNS"
+        _floor_verdict(criterion, body="absent", comments="absent", artifacts="absent")
+        == "CONCERNS"
+    )
+
+
+@pytest.mark.parametrize(
+    "criterion",
+    [
+        "The reviewer must not upload evidence from results.json both in a PR comment and in an artifact",
+        "The reviewer may upload evidence from results.json both in a PR comment and in an artifact",
+        "The UI allows users to upload evidence from results.json both in a PR comment and in an artifact",
+        'The parser recognizes "The reviewer must upload evidence from results.json both in a PR comment and in an artifact"',
+    ],
+)
+def test_issue3883_filename_qualified_controls_stay_nongating(criterion):
+    """Negation, optionality, product capability and quoted examples stay nongating."""
+    assert verifier._required_evidence_channels(criterion) == set()
+    assert verifier._required_evidence_options(criterion) == [set()]
+    assert (
+        _floor_verdict(criterion, body="present", comments="absent", artifacts="absent") == "PASS"
+    )
+
+
+def test_issue3883_filename_qualified_retains_independent_reviewer_body_duty():
+    criterion = (
+        "The reviewer must upload evidence from results.json both in a PR comment and in an artifact; "
+        "an independent reviewer must include evidence in the PR body"
+    )
+    assert verifier._required_evidence_channels(criterion) == {"comments", "artifacts", "body"}
+    assert verifier._required_evidence_options(criterion) == [{"comments", "artifacts", "body"}]
+    assert (
+        _floor_verdict(criterion, body="absent", comments="present", artifacts="present")
+        == "CONCERNS"
+    )
+
+
+def test_issue3883_quoted_filename_still_retains_quantified_destinations():
+    criterion = 'Upload evidence from "results.json" both in a PR comment and in an artifact'
+    assert verifier._required_evidence_channels(criterion) == {"comments", "artifacts"}
+    assert verifier._required_evidence_options(criterion) == [{"comments", "artifacts"}]
+
+
+def test_issue3883_optional_clause_does_not_erase_filename_qualified_either():
+    criterion = (
+        "Evidence may be attached as an artifact; the reviewer must upload evidence from "
+        "results.json either in a PR comment or in an artifact"
+    )
+    assert verifier._required_evidence_channels(criterion) == {"comments", "artifacts"}
+    assert verifier._required_evidence_options(criterion) == [{"comments"}, {"artifacts"}]
+    assert (
+        _floor_verdict(criterion, body="absent", comments="present", artifacts="absent") == "PASS"
     )
