@@ -683,14 +683,10 @@ jobs:
               return;
             }
 
-            // Label removal must not replace an evaluated same-head failure
-            // with an ineligible no-op. Keep the last authoritative verdict;
-            // an absent verdict remains absent and blocks mandatory checks.
-            if (context.eventName === 'pull_request_target'
-                && process.env.ELIGIBLE === 'false') {
-              core.info('Ineligible label event: preserving existing PR-head guard status.');
-              return;
-            }
+            const snapshotLabels = (pullRequest?.labels || [])
+              .map((label) => typeof label?.name === 'string' ? label.name : '')
+              .filter(Boolean)
+              .sort();
 
             const blocked = (process.env.BLOCKED || '').toLowerCase() === 'true';
             const summary = process.env.SUMMARY || '';
@@ -767,6 +763,31 @@ jobs:
             }
 
             try {
+              const currentLabels = await withApiRetry(
+                (client) => client.paginate(client.rest.issues.listLabelsOnIssue, {
+                  owner, repo, issue_number: pullRequest.number, per_page: 100,
+                }),
+                { label: 'read current PR labels before publishing guard status' },
+              );
+              if (!Array.isArray(currentLabels)) {
+                throw new Error('Current PR label evidence is incomplete.');
+              }
+              const currentLabelNames = currentLabels
+                .map((label) => typeof label?.name === 'string' ? label.name : '')
+                .filter(Boolean)
+                .sort();
+              if (JSON.stringify(currentLabelNames) !== JSON.stringify(snapshotLabels)) {
+                core.info('PR labels changed after guard evaluation; preserving existing exact-head status.');
+                return;
+              }
+              // Label removal must not replace an evaluated same-head failure
+              // with an ineligible no-op. Keep the last authoritative verdict;
+              // an absent verdict remains absent and blocks mandatory checks.
+              if (context.eventName === 'pull_request_target'
+                  && process.env.ELIGIBLE === 'false') {
+                core.info('Ineligible label event: preserving existing PR-head guard status.');
+                return;
+              }
               if (process.env.ELIGIBLE === 'false') {
                 const statuses = await withApiRetry(
                   (client) => client.paginate(client.rest.repos.listCommitStatusesForRef, {

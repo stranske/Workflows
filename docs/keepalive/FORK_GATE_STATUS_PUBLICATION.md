@@ -97,3 +97,5 @@ protection. Existing Gate behavior remains the fallback while the publisher is
 
 
 Health 45 direct label-event publishing and its trusted fork publisher share a non-cancelling, head-SHA concurrency group. This serializes their status writes so an ineligible completed fork run reads any label-event verdict before deciding whether it may initialize a missing required context.
+
+Before the direct Health 45 publisher writes, it reads the current PR label set and requires an exact match with the event snapshot. A label change makes that run a no-op, preserving an existing context or its absence until a fresh guard evaluation can publish a current verdict.

@@ -87,12 +87,12 @@ const conditionPasses = new Function('workflowGithub', 'always', `return (${expr
   workflowGithub, () => true,
 );
 let writes = 0;
-const github = {paginate: async () => [], rest: {repos: {createCommitStatus: async () => {
+const github = {paginate: async (method) => method === github.rest.issues.listLabelsOnIssue ? [] : [], rest: {repos: {createCommitStatus: async () => {
   writes++;
   if (input.headFullName !== 'owner/repo') throw Error('fork token cannot write statuses');
-}}}};
+}}, issues: {listLabelsOnIssue() {}}}};
 const context = {repo: {owner: 'owner', repo: 'repo'}, eventName: input.eventName,
-  payload: {pull_request: {head: {sha: 'a'.repeat(40)}}}, sha: 'b'.repeat(40),
+  payload: {pull_request: {number: 4, labels: [], head: {sha: 'a'.repeat(40)}}}, sha: 'b'.repeat(40),
   serverUrl: 'https://github.com', runId: 42};
 const core = {info() {}, setFailed(m) {throw Error(m)}};
 const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
@@ -170,14 +170,15 @@ const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
 Object.assign(process.env, input.env);
 const calls = [];
 const github = {rest: {repos: {createCommitStatus: async p => calls.push(p),
- listCommitStatusesForRef() {}}}, paginate: async (method, params) => {
+ listCommitStatusesForRef() {}}, issues: {listLabelsOnIssue() {}}}, paginate: async (method, params) => {
+ if (method === github.rest.issues.listLabelsOnIssue) return input.currentLabels;
  if (params.ref !== 'a'.repeat(40)) throw Error('wrong status lookup head');
  return [{context: 'unrelated', state: 'failure'},
    ...(input.prior ? [{context: 'Health 45 Agents Guard / guard', state: input.prior}] : [])];
 }};
 const context = {repo: {owner: 'owner', repo: 'repo'},
   eventName: input.event,
-  payload: {action: input.action, pull_request: {head: {sha: 'a'.repeat(40)}}},
+  payload: {action: input.action, pull_request: {number: 4, labels: input.snapshotLabels, head: {sha: 'a'.repeat(40)}}},
   sha: 'b'.repeat(40), serverUrl: 'https://github.com', runId: 42};
 const core = {info() {}, setFailed(m) {throw Error(m)}};
 const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
@@ -193,6 +194,8 @@ new AsyncFunction('github', 'context', 'core', input.script)(github, context, co
                 "event": event,
                 "action": action,
                 "prior": prior_state,
+                "snapshotLabels": [],
+                "currentLabels": [],
                 "env": {
                     "ELIGIBLE": eligible,
                     "EVALUATE_OUTCOME": outcome,
@@ -233,16 +236,17 @@ def test_publisher_cannot_silently_ignore_missing_head_or_denied_write(template,
 const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
 Object.assign(process.env, {ELIGIBLE: 'false', JOB_STATUS: 'success'});
 let writes = 0;
-const github = {paginate: async () => {
+const github = {paginate: async (method) => {
+ if (method === github.rest.issues.listLabelsOnIssue) return [];
  if (input.mode === 'lookup_denied') throw Object.assign(Error('denied lookup'), {status: 403});
  if (input.mode === 'lookup_incomplete') return null;
  return [];
 }, rest: {repos: {createCommitStatus: async () => {
   writes++;
   throw Object.assign(Error('denied'), {status: 403});
-}}}};
+}}, issues: {listLabelsOnIssue() {}}}};
 const context = {repo: {owner: 'owner', repo: 'repo'}, sha: 'b'.repeat(40),
- payload: {pull_request: {head: {sha: input.mode === 'missing_head' ? '' : 'a'.repeat(40)}}}};
+ payload: {pull_request: {number: 4, labels: [], head: {sha: input.mode === 'missing_head' ? '' : 'a'.repeat(40)}}}};
 const core = {info() {}, error() {}, warning() {}, setFailed(m) {throw Error(m)}};
 const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
 new AsyncFunction('github', 'context', 'core', input.script)(github, context, core)
@@ -319,3 +323,42 @@ def test_shared_head_group_closes_label_writer_noop_publisher_race():
     # GREEN: serialized writers ensure the no-op observes a completed label
     # verdict before it applies the existing no-op preservation rule.
     assert render(current_direct) == render(current_publisher) == f"agents-guard-status-{sha}"
+
+
+def test_guard_publisher_fails_closed_when_labels_change_after_evaluation():
+    workflow = yaml.safe_load((ROOT / ".github/workflows/agents-guard.yml").read_text())
+    script = next(
+        step["with"]["script"]
+        for step in workflow["jobs"]["guard"]["steps"]
+        if step.get("name") == "Report agents guard commit status"
+    )
+    harness = r"""
+const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
+Object.assign(process.env, input.env);
+const writes = [];
+const github = {rest: {repos: {createCommitStatus: async p => writes.push(p), listCommitStatusesForRef() {}}, issues: {listLabelsOnIssue() {}}}, paginate: async method => method === github.rest.issues.listLabelsOnIssue ? input.current : []};
+const context = {repo: {owner: 'owner', repo: 'repo'}, eventName: 'pull_request_target', payload: {pull_request: {number: 4, labels: input.snapshot, head: {sha: 'a'.repeat(40)}}}, serverUrl: 'https://github.com', runId: 42};
+const core = {info() {}, error() {}, setFailed(message) { throw Error(message); }};
+const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
+new AsyncFunction('github', 'context', 'core', input.script)(github, context, core).then(() => process.stdout.write(JSON.stringify(writes)));
+"""
+    result = subprocess.run(
+        ["node", "-e", harness],
+        input=json.dumps(
+            {
+                "script": script,
+                "snapshot": [{"name": "agent:codex"}, {"name": "agents:allow-change"}],
+                "current": [{"name": "agent:codex"}],
+                "env": {
+                    "ELIGIBLE": "true",
+                    "EVALUATE_OUTCOME": "success",
+                    "BLOCKED": "false",
+                    "JOB_STATUS": "success",
+                },
+            }
+        ),
+        text=True,
+        capture_output=True,
+        check=True,
+    )
+    assert json.loads(result.stdout) == []
