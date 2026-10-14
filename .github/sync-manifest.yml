@@ -814,6 +814,7 @@ scripts:
     description: "LLM model registry helper - shared selection/blocked-model enforcement plus strict expanded-only exact native capacity facts"
     template_sync: exact
 
+  # Raw UTF-8 and CRLF identities must match loaded semantic inputs without newline normalization.
   - source: tools/verifier_capture_obligation_manifest.py
     description: "Capture obligation inventory and context-bound verifier input snapshot emission"
     template_sync: exact

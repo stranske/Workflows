@@ -284,7 +284,7 @@ def test_snapshot_diff_binding_blocks_before_evaluation(
 
 
 @pytest.mark.parametrize("compare", [False, True])
-def test_snapshot_diff_binding_preserves_raw_crlf_hash_and_loaded_view(
+def test_snapshot_diff_binding_preserves_raw_crlf_hash_and_evaluation_bytes(
     tmp_path, monkeypatch, compare
 ):
     context, snapshot, metadata = _captured_snapshot(tmp_path)
@@ -295,7 +295,7 @@ def test_snapshot_diff_binding_preserves_raw_crlf_hash_and_loaded_view(
     snapshot.write_text(json.dumps(metadata))
 
     def evaluate(_context, **kwargs):
-        assert kwargs["diff"] == raw.decode().replace("\r\n", "\n")
+        assert kwargs["diff"].encode("utf-8") == raw
         assert json.loads(snapshot.read_text())["diff_sha256"] == metadata["diff_sha256"]
         result = pr_verifier.EvaluationResult(verdict="CONCERNS")
         return [result] if compare else result

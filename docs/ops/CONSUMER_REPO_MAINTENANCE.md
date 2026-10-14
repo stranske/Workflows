@@ -2802,3 +2802,8 @@ manifest paths change. Owner-excluded targets are removed before ownership
 routing; the preset carries no path rules for them, including cached registration
 entries. Manifest/compiler and generated-preset checks validate the same eligible
 consumer contract.
+
+Verifier input files are decoded from their exact UTF-8 bytes without universal
+newline conversion. Semantic hashes, package inputs and capture inventories
+retain CRLF, including line-ending-only changes. Snapshot recording rejects
+byte changes between loading and recording even when normalized text matches.

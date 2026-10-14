@@ -318,18 +318,12 @@ def record_capture_obligations(
     """
     context_bytes = context_path.read_bytes()
     captured_text = context_bytes.decode("utf-8")
-    # Path.read_text normalizes line endings. Compare that same view to the
-    # already loaded evaluation input, while binding snapshots to raw bytes.
-    if context_text is not None and context_text != captured_text.replace("\r\n", "\n").replace(
-        "\r", "\n"
-    ):
+    if context_text is not None and context_text != captured_text:
         raise ValueError("loaded context changed before snapshot recording")
     diff_bytes = diff_path.read_bytes() if diff_path is not None else None
     if diff_bytes is not None:
         captured_diff = diff_bytes.decode("utf-8")
-        if diff_text is not None and diff_text != captured_diff.replace("\r\n", "\n").replace(
-            "\r", "\n"
-        ):
+        if diff_text is not None and diff_text != captured_diff:
             raise ValueError("loaded diff changed before snapshot recording")
     manifest = build_capture_obligation_manifest(captured_text)
     raw_inputs = {"context": context_bytes}

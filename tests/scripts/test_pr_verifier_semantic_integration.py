@@ -251,3 +251,65 @@ def test_semantic_capture_uses_lossless_coverage_but_preserves_missing_proof(mon
     capture = pr_verifier._semantic_capture(missing, diff)
     assert capture["resource_admitted"] is False
     assert any("Required acceptance evidence is unavailable" in gap for gap in capture["gaps"])
+
+
+def test_cli_preserves_crlf_bytes_in_capture_and_line_ending_only_diffs(
+    monkeypatch, tmp_path, capsys
+):
+    import hashlib
+    import json
+    import sys
+
+    context_path = tmp_path / "verifier-context.md"
+    diff_crlf = tmp_path / "crlf.patch"
+    diff_lf = tmp_path / "lf.patch"
+    context_bytes = b"# Verifier context\r\n\r\n## CI Information\r\nnone\r\n"
+    crlf_bytes = b"diff --git a/a b/a\r\n-old\r\n+new\r\n"
+    lf_bytes = crlf_bytes.replace(b"\r\n", b"\n")
+    context_path.write_bytes(context_bytes)
+    diff_crlf.write_bytes(crlf_bytes)
+    diff_lf.write_bytes(lf_bytes)
+    observed: list[tuple[str, str | None]] = []
+
+    def non_native_compare(context: str, diff: str | None, **_kwargs):
+        observed.append((context, diff))
+        return [
+            pr_verifier.EvaluationResult(
+                verdict="CONCERNS",
+                concerns=["offline byte-identity test"],
+                used_llm=False,
+            )
+        ]
+
+    monkeypatch.setattr(pr_verifier, "evaluate_pr_multiple", non_native_compare)
+    monkeypatch.delenv("VERIFIER_SEMANTIC_MODE", raising=False)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "verifier",
+            "--context-file",
+            str(context_path),
+            "--diff-file",
+            str(diff_crlf),
+            "--compare",
+            "--json",
+        ],
+    )
+    pr_verifier.main()
+    payload = json.loads(capsys.readouterr().out)
+    assert observed == [(context_bytes.decode(), crlf_bytes.decode())]
+    assert payload["results"][0]["used_llm"] is False
+    assert payload["results"][0]["verdict"] == "CONCERNS"
+    capture_crlf = pr_verifier._semantic_capture(*observed[0])
+    capture_lf = pr_verifier._semantic_capture(context_bytes.decode(), lf_bytes.decode())
+    assert capture_crlf["raw_inputs"]["context"] == hashlib.sha256(context_bytes).hexdigest()
+    assert capture_crlf["raw_inputs"]["diff"] == hashlib.sha256(crlf_bytes).hexdigest()
+    assert capture_crlf["raw_inputs"]["diff"] != capture_lf["raw_inputs"]["diff"]
+    assert capture_crlf["id"] != capture_lf["id"]
+    inventory = json.loads((tmp_path / "verifier-capture-byte-inventory.json").read_text())
+    inventory_hashes = {item["input"]: item["sha256"] for item in inventory["inputs"]}
+    assert inventory_hashes == {
+        "context": hashlib.sha256(context_bytes).hexdigest(),
+        "diff": hashlib.sha256(crlf_bytes).hexdigest(),
+    }

@@ -6435,7 +6435,10 @@ def format_comparison_report(results: list[EvaluationResult]) -> str:
 
 def _load_text(path: str | None) -> str:
     if path:
-        return Path(path).read_text(encoding="utf-8")
+        # ``Path.read_text`` enables universal-newline translation.  Semantic
+        # capture identity and the byte inventory must bind the original file
+        # bytes, so decode those bytes directly instead.
+        return Path(path).read_bytes().decode("utf-8")
     return sys.stdin.read()
 
 

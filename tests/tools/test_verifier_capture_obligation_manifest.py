@@ -235,6 +235,24 @@ def test_loaded_diff_change_is_rejected_without_snapshot_rebinding(tmp_path):
     assert not (tmp_path / "verifier-capture-obligation-manifest.json").exists()
 
 
+def test_normalized_equivalent_line_endings_are_not_the_same_capture(tmp_path):
+    from tools.verifier_capture_obligation_manifest import record_capture_obligations
+
+    context = tmp_path / "context.md"
+    diff = tmp_path / "diff.patch"
+    context.write_bytes(b"context\r\n")
+    diff.write_bytes(b"diff\r\n")
+    with pytest.raises(ValueError, match="loaded context changed"):
+        record_capture_obligations(
+            context, context_text="context\n", diff_path=diff, diff_text="diff\r\n"
+        )
+    with pytest.raises(ValueError, match="loaded diff changed"):
+        record_capture_obligations(
+            context, context_text="context\r\n", diff_path=diff, diff_text="diff\n"
+        )
+    assert not (tmp_path / "verifier-capture-obligation-manifest.json").exists()
+
+
 @pytest.mark.parametrize("size", [0, 1, 65535, 65536, 65537, 131079])
 def test_raw_byte_inventory_reassembles_every_byte(size):
     from tools.verifier_capture_obligation_manifest import build_capture_byte_inventory
