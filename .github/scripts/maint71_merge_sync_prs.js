@@ -281,6 +281,20 @@ function reviewReassessmentMarker(request) {
   return `<!-- maint71-review-${kind}:v1 ${JSON.stringify(canonical)} -->`;
 }
 
+function hasSubsequentExactHeadReviewerAnswer(thread, request, profiles, requestCreatedAt,
+  reviewerProfileForLogin) {
+  const requestedAt = Date.parse(requestCreatedAt || '');
+  if (!Number.isFinite(requestedAt) || thread?.comments?.pageInfo?.hasNextPage
+    || !Array.isArray(thread?.comments?.nodes)) return false;
+  return thread.comments.nodes.some((item) =>
+    reviewerProfileForLogin(item?.author?.login, profiles) === request.originating_reviewer
+    && item?.commit?.oid === request.head_sha
+    && Date.parse(item?.createdAt || '') > requestedAt
+    && ((/^\s*(?:\*\*)?ACCEPT\b/i.test(String(item?.body || ''))
+      && String(item?.body || '').includes(`<!-- sync-review-accepted:${request.head_sha} -->`))
+      || /^\s*(?:\*\*)?REJECT\b/i.test(String(item?.body || ''))));
+}
+
 // A separate workflow job calls this function only for an explicit trusted
 // repository_dispatch. It never enters the ordinary resolution/merge/cleanup run.
 async function runReviewReassessment({
@@ -531,6 +545,7 @@ async function runReviewReassessment({
   }
   let task = null;
   let taskReused = false;
+  let taskSuppressed = false;
   const taskKind = dispositionOnly ? 'disposition' : 'reassessment';
   const taskTransport = profile[`${taskKind}_task_transport`];
   const initialTask = !dispositionOnly && !retryFailed;
@@ -569,7 +584,10 @@ async function runReviewReassessment({
       && String(item.fullDatabaseId) === String(comment.id)
       && item.url === comment.html_url);
     if (!originalRequest) throw new Error(`Bound in-thread ${taskKind} request changed before task`);
-    if (!task) {
+    if (initialTask && hasSubsequentExactHeadReviewerAnswer(
+      fresh.thread, request, profiles, comment.created_at || comment.createdAt, reviewerProfileForLogin,
+    )) taskSuppressed = true;
+    if (!task && !taskSuppressed) {
       const body = [`${taskCommand} on exact head ${request.head_sha}`,
         dispositionOnly
           ? 'This is a bounded disposition-only cloud task. Do not inspect unrelated changes or start another general pass.'
@@ -587,10 +605,10 @@ async function runReviewReassessment({
         throw new Error(`${taskKind} task POST uncertain; inspect exact task marker before retry: ${error.message}`);
       }
     }
-    if (!task?.id || !trustedWriters.has(task.user?.login)
+    if (!taskSuppressed && (!task?.id || !trustedWriters.has(task.user?.login)
       || !Number.isFinite(Date.parse(task.created_at || ''))
       || !String(task.html_url || '').startsWith(
-        `https://github.com/${request.repository}/pull/${request.pr}#issuecomment-`)) {
+        `https://github.com/${request.repository}/pull/${request.pr}#issuecomment-`))) {
       throw new Error(`${taskKind} task lacks durable URL, ID, timestamp or trusted author`);
     }
   }
@@ -605,7 +623,7 @@ async function runReviewReassessment({
     ...(task ? {
       task_status: taskReused ? `${taskKind}_task_reused` : `${taskKind}_task_requested`,
       task_id: task.id, task_url: task.html_url, task_requested_at: task.created_at,
-    } : {}),
+    } : taskSuppressed ? { task_status: `${taskKind}_task_suppressed_reviewer_answered` } : {}),
   };
 }
 

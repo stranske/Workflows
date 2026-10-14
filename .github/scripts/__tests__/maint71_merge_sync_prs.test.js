@@ -79,10 +79,9 @@ test('failed reviewer retry is exact-head, terminal-only, once per binding and r
   const temporaryPolicy = fs.mkdtempSync(path.join(os.tmpdir(), 'maint71-retry-transport-'));
   t.after(() => fs.rmSync(temporaryPolicy, { recursive: true, force: true }));
   const policy = JSON.parse(fs.readFileSync(args.policyPath, 'utf8'));
-  Object.assign(policy.reviewers.find((item) => item.id === 'codex'), {
-    reassessment_task_transport: 'pr-conversation',
-    reassessment_task_comment: '@codex please answer this specific finding',
-  });
+  const codexProfile = policy.reviewers.find((item) => item.id === 'codex');
+  codexProfile.reassessment_task_transport = 'pr-conversation';
+  codexProfile.reassessment_task_comment = '@codex please answer this specific finding';
   args.policyPath = path.join(temporaryPolicy, 'policy.json');
   fs.writeFileSync(args.policyPath, JSON.stringify(policy));
   for (const defect of ['missing-summary', 'duplicate-summary', 'forged-summary', 'pending',
@@ -709,9 +708,14 @@ test('initial reviewer conversation task recovers an unanswered inline request o
     head: { ref: 'deps/sync-dev-versions-test', sha: request.head_sha },
     body: '<!-- sync-pr-delivery-record:v1 ' + JSON.stringify(record) + ' -->' };
   const tasks = [];
-  let posts = 0, race = false, pages = 0;
+  let posts = 0, race = false, answerRace = false, pages = 0;
   const github = { paginate: async () => {
-    if (race && ++pages === 2) pr.head.sha = 'c'.repeat(40);
+    if ((race || answerRace) && ++pages === 2) {
+      if (race) pr.head.sha = 'c'.repeat(40);
+      if (answerRace) thread.comments.nodes.push({ fullDatabaseId: '24', author: { login: 'coderabbitai' },
+        createdAt: '2026-10-14T00:02:00Z', url: 'https://github.com/stranske/Ready/pull/592#discussion_r24',
+        body: 'REJECT: evidence remains incomplete', commit: { oid: request.head_sha } });
+    }
     return structuredClone(tasks);
   }, rest: {
     users: { getAuthenticated: async () => ({ data: { login: 'stranske' } }) },
@@ -751,7 +755,33 @@ test('initial reviewer conversation task recovers an unanswered inline request o
     lease_expires_at: '2000-01-01T00:00:00Z' }) + ' -->';
   await assert.rejects(runReviewReassessment(args), /delivery changed or lease is invalid/);
   pr.body = '<!-- sync-pr-delivery-record:v1 ' + JSON.stringify(record) + ' -->';
+  tasks.length = 0;
+  const answered = { fullDatabaseId: '23', author: { login: 'coderabbitai' },
+    createdAt: '2026-10-14T00:01:00Z', url: 'https://github.com/stranske/Ready/pull/592#discussion_r23',
+    body: `ACCEPT <!-- sync-review-accepted:${request.head_sha} -->`, commit: { oid: request.head_sha } };
+  thread.comments.nodes.push(answered);
+  const suppressed = await runReviewReassessment(args);
+  assert.equal(suppressed.task_status, 'reassessment_task_suppressed_reviewer_answered');
+  assert.equal(posts, 1, 'an exact-head originating reviewer answer suppresses task POST');
+  thread.comments.nodes.pop();
+  for (const control of [
+    { ...answered, body: `> ACCEPT <!-- sync-review-accepted:${request.head_sha} -->` },
+    { ...answered, author: { login: 'other-reviewer' } },
+    { ...answered, createdAt: '2026-10-11T21:00:00Z' },
+    { ...answered, commit: { oid: 'c'.repeat(40) } },
+  ]) {
+    tasks.length = 0;
+    thread.comments.nodes.push(control);
+    const delivered = await runReviewReassessment(args);
+    assert.equal(delivered.task_status, 'reassessment_task_requested');
+    thread.comments.nodes.pop();
+  }
+  tasks.length = 0; answerRace = true; pages = 0;
+  const racedAnswer = await runReviewReassessment(args);
+  assert.equal(racedAnswer.task_status, 'reassessment_task_suppressed_reviewer_answered');
+  assert.equal(posts, 5, 'a response discovered during task pagination suppresses POST');
+  thread.comments.nodes.pop(); answerRace = false;
   tasks.length = 0; race = true; pages = 0;
   await assert.rejects(runReviewReassessment(args), /delivery changed or lease is invalid/);
-  assert.equal(posts, 1, 'changed head during task discovery must suppress POST');
+  assert.equal(posts, 5, 'changed head during task discovery must suppress POST');
 });
