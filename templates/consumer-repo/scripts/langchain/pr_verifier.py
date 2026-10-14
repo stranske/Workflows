@@ -1180,7 +1180,7 @@ _INDEPENDENT_REVIEW_CLAUSE = (
 _EVIDENCE_DESTINATION_PREPOSITION = r"(?:in|into|to|within|for|as|through|via)"
 _EVIDENCE_TEMPORAL_TAIL = (
     r"(?:under|during|after|before|prior\s+to|until|once|throughout|"
-    r"when|while|since|following|due\s+to)"
+    r"when|while|since|following|upon|due\s+to)"
 )
 _REVIEW_BODY_COMPONENT_TEMPORAL = (
     r"before|after|now|today|tomorrow|again|here|there|soon|always|daily|weekly|[\w-]+ly"

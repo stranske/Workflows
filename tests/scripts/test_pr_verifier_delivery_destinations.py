@@ -6500,6 +6500,7 @@ def test_issue3835_product_actor_before_relative_qualifier_remains_non_delivery(
         "while release runs",
         "since CI passed",
         "following review",
+        "upon approval",
     ],
 )
 def test_issue3835_delivered_comment_temporal_tail_keeps_comment_floor(tail):
