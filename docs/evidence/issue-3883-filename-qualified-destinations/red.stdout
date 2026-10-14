@@ -1,0 +1,133 @@
+FFFF                                                                     [100%]
+=================================== FAILURES ===================================
+_ test_issue3883_filename_qualified_quantified_destinations[The reviewer must upload evidence from results.json both in a PR comment and in an artifact-expected_channels0-expected_options0] _
+
+criterion = 'The reviewer must upload evidence from results.json both in a PR comment and in an artifact'
+expected_channels = {'artifacts', 'comments'}
+expected_options = [{'artifacts', 'comments'}]
+
+    @pytest.mark.parametrize(
+        "criterion,expected_channels,expected_options",
+        [
+            (
+                "The reviewer must upload evidence from results.json both in a PR comment and in an artifact",
+                {"comments", "artifacts"},
+                [{"comments", "artifacts"}],
+            ),
+            (
+                "The reviewer must upload evidence from results.json either in a PR comment or in an artifact",
+                {"comments", "artifacts"},
+                [{"comments"}, {"artifacts"}],
+            ),
+        ],
+    )
+    def test_issue3883_filename_qualified_quantified_destinations(
+        criterion, expected_channels, expected_options
+    ):
+>       assert verifier._required_evidence_channels(criterion) == expected_channels
+E       AssertionError: assert {'artifacts'} == {'artifacts', 'comments'}
+E         
+E         Extra items in the right set:
+E         'comments'
+E         
+E         Full diff:
+E           {
+E               'artifacts',
+E         -     'comments',
+E           }
+
+tests/scripts/test_pr_verifier_delivery_destinations.py:5181: AssertionError
+_ test_issue3883_filename_qualified_quantified_destinations[The reviewer must upload evidence from results.json either in a PR comment or in an artifact-expected_channels1-expected_options1] _
+
+criterion = 'The reviewer must upload evidence from results.json either in a PR comment or in an artifact'
+expected_channels = {'artifacts', 'comments'}
+expected_options = [{'comments'}, {'artifacts'}]
+
+    @pytest.mark.parametrize(
+        "criterion,expected_channels,expected_options",
+        [
+            (
+                "The reviewer must upload evidence from results.json both in a PR comment and in an artifact",
+                {"comments", "artifacts"},
+                [{"comments", "artifacts"}],
+            ),
+            (
+                "The reviewer must upload evidence from results.json either in a PR comment or in an artifact",
+                {"comments", "artifacts"},
+                [{"comments"}, {"artifacts"}],
+            ),
+        ],
+    )
+    def test_issue3883_filename_qualified_quantified_destinations(
+        criterion, expected_channels, expected_options
+    ):
+>       assert verifier._required_evidence_channels(criterion) == expected_channels
+E       AssertionError: assert {'artifacts'} == {'artifacts', 'comments'}
+E         
+E         Extra items in the right set:
+E         'comments'
+E         
+E         Full diff:
+E           {
+E               'artifacts',
+E         -     'comments',
+E           }
+
+tests/scripts/test_pr_verifier_delivery_destinations.py:5181: AssertionError
+______ test_issue3883_filename_qualified_both_requires_every_destination _______
+
+    def test_issue3883_filename_qualified_both_requires_every_destination():
+        criterion = "The reviewer must upload evidence from results.json both in a PR comment and in an artifact"
+>       assert (
+            _floor_verdict(criterion, body="present", comments="absent", artifacts="present")
+            == "CONCERNS"
+        )
+E       AssertionError: assert 'PASS' == 'CONCERNS'
+E         
+E         - CONCERNS
+E         + PASS
+
+tests/scripts/test_pr_verifier_delivery_destinations.py:5187: AssertionError
+_______ test_issue3883_filename_qualified_either_accepts_one_destination _______
+
+    def test_issue3883_filename_qualified_either_accepts_one_destination():
+        criterion = "The reviewer must upload evidence from results.json either in a PR comment or in an artifact"
+>       assert (
+            _floor_verdict(criterion, body="absent", comments="present", artifacts="absent") == "PASS"
+        )
+E       AssertionError: assert 'CONCERNS' == 'PASS'
+E         
+E         - PASS
+E         + CONCERNS
+
+tests/scripts/test_pr_verifier_delivery_destinations.py:5199: AssertionError
+=========================== short test summary info ============================
+FAILED tests/scripts/test_pr_verifier_delivery_destinations.py::test_issue3883_filename_qualified_quantified_destinations[The reviewer must upload evidence from results.json both in a PR comment and in an artifact-expected_channels0-expected_options0] - AssertionError: assert {'artifacts'} == {'artifacts', 'comments'}
+  
+  Extra items in the right set:
+  'comments'
+  
+  Full diff:
+    {
+        'artifacts',
+  -     'comments',
+    }
+FAILED tests/scripts/test_pr_verifier_delivery_destinations.py::test_issue3883_filename_qualified_quantified_destinations[The reviewer must upload evidence from results.json either in a PR comment or in an artifact-expected_channels1-expected_options1] - AssertionError: assert {'artifacts'} == {'artifacts', 'comments'}
+  
+  Extra items in the right set:
+  'comments'
+  
+  Full diff:
+    {
+        'artifacts',
+  -     'comments',
+    }
+FAILED tests/scripts/test_pr_verifier_delivery_destinations.py::test_issue3883_filename_qualified_both_requires_every_destination - AssertionError: assert 'PASS' == 'CONCERNS'
+  
+  - CONCERNS
+  + PASS
+FAILED tests/scripts/test_pr_verifier_delivery_destinations.py::test_issue3883_filename_qualified_either_accepts_one_destination - AssertionError: assert 'CONCERNS' == 'PASS'
+  
+  - PASS
+  + CONCERNS
+4 failed in 3.47s

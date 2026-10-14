@@ -7065,3 +7065,246 @@ def test_issue3835_capability_owned_logs_do_not_supply_artifact_floor(pronoun):
     assert (
         _floor_verdict(criterion, body="present", comments="present", artifacts="absent") == "PASS"
     )
+
+
+@pytest.mark.parametrize(
+    "criterion,expected_channels,expected_options",
+    [
+        (
+            "The reviewer must upload evidence from results.json both in a PR comment and in an artifact",
+            {"comments", "artifacts"},
+            [{"comments", "artifacts"}],
+        ),
+        (
+            "The reviewer must upload evidence from results.json either in a PR comment or in an artifact",
+            {"comments", "artifacts"},
+            [{"comments"}, {"artifacts"}],
+        ),
+    ],
+)
+def test_issue3883_filename_qualified_quantified_destinations(
+    criterion, expected_channels, expected_options
+):
+    assert verifier._required_evidence_channels(criterion) == expected_channels
+    assert verifier._required_evidence_options(criterion) == expected_options
+
+
+def test_issue3883_filename_qualified_both_requires_every_destination():
+    criterion = "The reviewer must upload evidence from results.json both in a PR comment and in an artifact"
+    assert (
+        _floor_verdict(criterion, body="present", comments="absent", artifacts="present")
+        == "CONCERNS"
+    )
+    assert (
+        _floor_verdict(criterion, body="present", comments="present", artifacts="absent")
+        == "CONCERNS"
+    )
+
+
+def test_issue3883_filename_qualified_either_accepts_one_destination():
+    criterion = "The reviewer must upload evidence from results.json either in a PR comment or in an artifact"
+    assert (
+        _floor_verdict(criterion, body="absent", comments="present", artifacts="absent") == "PASS"
+    )
+    assert (
+        _floor_verdict(criterion, body="present", comments="absent", artifacts="present") == "PASS"
+    )
+    assert (
+        _floor_verdict(criterion, body="absent", comments="absent", artifacts="absent")
+        == "CONCERNS"
+    )
+
+
+@pytest.mark.parametrize(
+    "criterion",
+    [
+        "The reviewer must not upload evidence from results.json both in a PR comment and in an artifact",
+        "The reviewer may upload evidence from results.json both in a PR comment and in an artifact",
+        "The UI allows users to upload evidence from results.json both in a PR comment and in an artifact",
+        'The parser recognizes "The reviewer must upload evidence from results.json both in a PR comment and in an artifact"',
+    ],
+)
+def test_issue3883_filename_qualified_controls_stay_nongating(criterion):
+    """Negation, optionality, product capability and quoted examples stay nongating."""
+    assert verifier._required_evidence_channels(criterion) == set()
+    assert verifier._required_evidence_options(criterion) == [set()]
+    assert (
+        _floor_verdict(criterion, body="present", comments="absent", artifacts="absent") == "PASS"
+    )
+
+
+@pytest.mark.parametrize("filename", ["./out/results.json", '"results.json"'])
+@pytest.mark.parametrize(
+    "control",
+    [
+        "The reviewer must not upload {delivery}",
+        "The reviewer may upload {delivery}",
+        "The UI allows users to upload {delivery}",
+        "The parser recognizes `The reviewer must upload {delivery}`",
+    ],
+)
+@pytest.mark.parametrize("independent_first", [False, True])
+@pytest.mark.parametrize("body", ["present", "absent", "unavailable"])
+def test_issue3883_filename_qualified_controls_preserve_independent_body_floor(
+    filename, control, independent_first, body
+):
+    """A nongating alternative neither adds destinations nor erases another duty."""
+    delivery = f"evidence from {filename} either in a PR comment or in an artifact"
+    controlled = control.format(delivery=delivery)
+    independent = "An independent reviewer must include evidence in the PR body"
+    clauses = [independent, controlled] if independent_first else [controlled, independent]
+    criterion = "; ".join(clauses)
+    assert verifier._required_evidence_channels(criterion) == {"body"}
+    assert verifier._required_evidence_options(criterion) == [{"body"}]
+    assert _floor_verdict(criterion, body=body, comments="absent", artifacts="absent") == (
+        "PASS" if body == "present" else "CONCERNS"
+    )
+
+
+def test_issue3883_filename_qualified_retains_independent_reviewer_body_duty():
+    criterion = (
+        "The reviewer must upload evidence from results.json both in a PR comment and in an artifact; "
+        "an independent reviewer must include evidence in the PR body"
+    )
+    assert verifier._required_evidence_channels(criterion) == {"comments", "artifacts", "body"}
+    assert verifier._required_evidence_options(criterion) == [{"comments", "artifacts", "body"}]
+    assert (
+        _floor_verdict(criterion, body="absent", comments="present", artifacts="present")
+        == "CONCERNS"
+    )
+
+
+@pytest.mark.parametrize(
+    "filename", ["results.json", "./out/results.json", "/tmp/results.json", '"results.json"']
+)
+@pytest.mark.parametrize(
+    "body,comments,artifacts,expected_verdict",
+    [
+        ("present", "present", "present", "PASS"),
+        ("present", "present", "absent", "PASS"),
+        ("present", "absent", "present", "PASS"),
+        ("present", "absent", "absent", "CONCERNS"),
+        ("absent", "present", "present", "CONCERNS"),
+        ("absent", "present", "absent", "CONCERNS"),
+        ("absent", "absent", "present", "CONCERNS"),
+        ("absent", "absent", "absent", "CONCERNS"),
+        ("unavailable", "present", "present", "CONCERNS"),
+        ("present", "unavailable", "absent", "CONCERNS"),
+        ("present", "absent", "unavailable", "CONCERNS"),
+    ],
+)
+def test_issue3883_filename_qualified_either_retains_independent_body_floor(
+    filename, body, comments, artifacts, expected_verdict
+):
+    """An alternative delivery cannot waive a separate reviewer's body obligation."""
+    criterion = (
+        f"The reviewer must upload evidence from {filename} either in a PR comment or in an artifact; "
+        "an independent reviewer must include evidence in the PR body"
+    )
+    assert verifier._required_evidence_channels(criterion) == {"comments", "artifacts", "body"}
+    assert verifier._required_evidence_options(criterion) == [
+        {"comments", "body"},
+        {"artifacts", "body"},
+    ]
+    assert (
+        _floor_verdict(criterion, body=body, comments=comments, artifacts=artifacts)
+        == expected_verdict
+    )
+
+
+def test_issue3883_quoted_filename_still_retains_quantified_destinations():
+    criterion = 'Upload evidence from "results.json" both in a PR comment and in an artifact'
+    assert verifier._required_evidence_channels(criterion) == {"comments", "artifacts"}
+    assert verifier._required_evidence_options(criterion) == [{"comments", "artifacts"}]
+
+
+def test_issue3883_optional_clause_does_not_erase_filename_qualified_either():
+    criterion = (
+        "Evidence may be attached as an artifact; the reviewer must upload evidence from "
+        "results.json either in a PR comment or in an artifact"
+    )
+    assert verifier._required_evidence_channels(criterion) == {"comments", "artifacts"}
+    assert verifier._required_evidence_options(criterion) == [{"comments"}, {"artifacts"}]
+    assert (
+        _floor_verdict(criterion, body="absent", comments="present", artifacts="absent") == "PASS"
+    )
+
+
+@pytest.mark.parametrize(
+    "criterion",
+    [
+        "The reviewer must upload evidence from ./out/results.json both in a PR comment and in an artifact",
+        "The reviewer must upload evidence from /tmp/results.json both in a PR comment and in an artifact",
+        'Upload evidence from "results.json" both in a PR comment and in an artifact',
+    ],
+)
+def test_issue3883_path_and_quoted_filenames_retain_destinations(criterion):
+    assert verifier._required_evidence_channels(criterion) == {"comments", "artifacts"}
+    assert verifier._required_evidence_options(criterion) == [{"comments", "artifacts"}]
+    assert (
+        _floor_verdict(criterion, body="present", comments="absent", artifacts="present")
+        == "CONCERNS"
+    )
+
+
+@pytest.mark.parametrize(
+    "criterion,expected_normalized",
+    [
+        (
+            'Upload evidence from "results.json" both in a PR comment and in an artifact',
+            "Upload evidence both in a PR comment and in an artifact",
+        ),
+        (
+            "Upload evidence from results.json before merging the PR",
+            "Upload evidence from results.json before merging the PR",
+        ),
+    ],
+)
+def test_issue3883_filename_qualifier_normalizes_only_with_destination(
+    criterion, expected_normalized
+):
+    """Quoted+destination strips; filename without a destination stays intact."""
+    assert verifier._normalize_evidence_source_filename_qualifiers(criterion) == expected_normalized
+
+
+def test_issue3883_filename_without_destination_is_not_rewritten_as_quantified():
+    criterion = "Upload evidence from results.json before merging the PR"
+    normalized = verifier._normalize_evidence_source_filename_qualifiers(criterion)
+    assert normalized == criterion
+    assert "comments" not in verifier._required_evidence_channels(criterion)
+    assert "artifacts" not in verifier._required_evidence_channels(criterion)
+
+
+def test_issue3883_sentence_period_is_not_part_of_filename_qualifier():
+    """A following sentence must not be joined via a trailing period on the filename."""
+    criterion = "Upload evidence from results.json. In an artifact the logs are stored separately"
+    assert verifier._normalize_evidence_source_filename_qualifiers(criterion) == criterion
+    assert "artifacts" not in verifier._required_evidence_channels(criterion)
+    assert (
+        _floor_verdict(criterion, body="present", comments="absent", artifacts="absent") == "PASS"
+    )
+
+
+def test_issue3883_standalone_exist_in_artifact_requires_artifact_floor():
+    """Bare standalone destinations stay wired after plain-artifact normalization."""
+    criterion = "Evidence must exist in an artifact"
+    assert "workflow artifact" in verifier._normalize_bare_artifact_destinations(criterion)
+    assert verifier._required_evidence_channels(criterion) == {"artifacts"}
+    assert verifier._required_evidence_options(criterion) == [{"artifacts"}]
+    assert (
+        _floor_verdict(criterion, body="present", comments="absent", artifacts="absent")
+        == "CONCERNS"
+    )
+    assert (
+        _floor_verdict(criterion, body="present", comments="absent", artifacts="present") == "PASS"
+    )
+
+
+def test_issue3883_artifact_registry_product_noun_stays_nongating():
+    criterion = "The UI must store evidence in an artifact registry"
+    assert "workflow artifact" not in verifier._normalize_bare_artifact_destinations(criterion)
+    assert verifier._required_evidence_channels(criterion) == set()
+    assert verifier._required_evidence_options(criterion) == [set()]
+    assert (
+        _floor_verdict(criterion, body="present", comments="absent", artifacts="absent") == "PASS"
+    )
