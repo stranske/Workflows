@@ -3117,7 +3117,7 @@ def _classify_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         + product_actor
         + r"\s+"
         + product_aspect
-        + r"(?:(?:record|capture|attach|generate)\w*|save|persist|log)\s+"
+        + r"(?P<shared_storage_operation>(?:record|capture|attach|generate)\w*|save|persist|log)\s+"
         + product_evidence_object
         + r")"
         r"(?:in|into|to|as)\s+(?:(?:its|the|an?)\s+)?"
@@ -3130,6 +3130,17 @@ def _classify_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         + r")",
         re.I,
     )
+
+    def shared_storage_delivery_predicate(match: re.Match[str]) -> str:
+        predicate = match["predicate"]
+        if match["shared_storage_operation"].lower() not in {"save", "persist", "log"}:
+            return predicate
+        # Only this already-bound product storage + review destination becomes
+        # review delivery. Do not add unrestricted aliases to the grammar.
+        start = match.start("shared_storage_operation") - match.start("predicate")
+        end = match.end("shared_storage_operation") - match.start("predicate")
+        return predicate[:start] + "record" + predicate[end:]
+
     coordinated_governor = (
         r"(?:"
         + delivery_governor_auxiliary
@@ -4238,7 +4249,7 @@ def _classify_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         )
         # Shared destinations retain their predicate after actor inheritance.
         criterion = shared_storage_review_destination.sub(
-            lambda match: match["predicate"]
+            lambda match: shared_storage_delivery_predicate(match)
             + (match["preposition"] or "in ")
             + match["destination"],
             criterion,

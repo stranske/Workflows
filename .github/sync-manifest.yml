@@ -755,7 +755,8 @@ scripts:
     # copy delivery and destination-first checklists retain shared polarity floors.
     # Repeated governors, object polarity, passive capabilities and channel-symmetric
     # product coordination preserve independent mandatory delivery clauses.
-    # Bounded save/persist/log product storage keeps independent reviewer duties.
+    # Bounded save/persist/log product storage keeps independent reviewer duties
+    # and canonicalizes only its already-bound shared review destinations.
     # Passive capability normalization is shared before mixed artifact/PR ORs.
     # Plain and qualified artifact OR members retain mandatory alternative floors.
     # Bare artifact AND lists and reverse product ORs share destination normalization.

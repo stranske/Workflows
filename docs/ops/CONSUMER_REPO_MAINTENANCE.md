@@ -2896,7 +2896,7 @@ constructing matrices. Excluded manifest include scopes do not become eligible
 through unregistered-scope validation. Compact source-history records are
 filtered using their matching item identity or PR URL, even without a repo field.
 
-Product storage criteria using `save`, `persist`, or `log` with a product actor and an immediate database/audit-log destination do not create review-evidence obligations. An independent reviewer delivery clause still requires its stated channel.
+Product storage criteria using `save`, `persist`, or `log` with a product actor and an immediate database/audit-log destination do not create review-evidence obligations. An independent reviewer delivery clause still requires its stated channel. When that stored evidence also has an explicit shared review destination, only the bound storage predicate is normalized to the existing review-delivery operation so that its channel remains mandatory.
 
 ### Diagnostic partition admission failures
 
