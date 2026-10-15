@@ -42,13 +42,65 @@ jobs:
           sparse-checkout-cone-mode: false
 
       # Escape hatch: set mode: warning if false-negative skips appear post-merge.
+      - name: Resolve trusted registry routing labels
+        id: registry
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        with:
+          script: |
+            function routingLabelsFromRegistry(text) {
+              // Parse only the canonical agents mapping, never execute registry contents.
+              const labels = new Set(['agent:auto', 'agent:copilot', 'agents:auto-pilot', 'agents:keepalive']);
+              const agents = new Map();
+              let inAgents = false;
+              let sections = 0;
+              let key = null;
+              let enabledSeen = false;
+              for (const raw of String(text).split(/\r?\n/)) {
+                const line = raw.replace(/\s+#.*$/, '').replace(/\s+$/, '');
+                if (!line.trim() || line.trimStart().startsWith('#')) continue;
+                if (line.includes('\t')) throw new Error('Agent registry tabs are unsupported');
+                if (/^agents:\s*$/.test(line)) { inAgents = true; sections++; key = null; continue; }
+                if (/^\S/.test(line)) { inAgents = false; key = null; continue; }
+                if (!inAgents) continue;
+                const entry = line.match(/^  ([a-z][a-z0-9_-]*):\s*$/);
+                if (entry) {
+                  key = entry[1];
+                  if (agents.has(key)) throw new Error('Duplicate agent registry entry');
+                  agents.set(key, true);
+                  enabledSeen = false;
+                  continue;
+                }
+                if (/^  \S/.test(line) || !key) throw new Error('Malformed agent registry entry');
+                if (/^    enabled:/.test(line)) {
+                  const value = line.match(/^    enabled:\s*(true|false)$/);
+                  if (!value || enabledSeen) throw new Error('Malformed agent enabled flag');
+                  enabledSeen = true;
+                  agents.set(key, value[1] === 'true');
+                }
+              }
+              if (sections !== 1 || agents.size === 0) throw new Error('Agent registry mapping is incomplete');
+              for (const [agent, enabled] of agents) if (enabled) labels.add(`agent:${agent}`);
+              return labels;
+            }
+            try {
+              const ref = context.payload.pull_request?.base?.sha;
+              if (!/^[0-9a-f]{40}$/.test(ref || '')) throw new Error('Trusted registry base SHA is missing');
+              const registry = (await github.rest.repos.getContent({
+                ...context.repo, path: '.github/agents/registry.yml', ref,
+              })).data;
+              if (registry?.type !== 'file' || registry.encoding !== 'base64') throw new Error('Agent registry evidence is incomplete');
+              const routing = routingLabelsFromRegistry(Buffer.from(registry.content, 'base64').toString('utf8'));
+              core.setOutput('routing_labels', [...routing].sort().join(','));
+            } catch (error) {
+              core.setFailed(`Unable to resolve trusted routing labels: ${error.message}`);
+              throw error;
+            }
+
       - name: Check event eligibility
         id: eligibility
         uses: ./.github/actions/agent-event-eligibility
         with:
-          expected-labels: >-
-            agent:auto,agent:codex,agent:claude,agent:copilot,
-            agents:auto-pilot,agents:keepalive
+          expected-labels: ${{ steps.registry.outputs.routing_labels }}
           expected-actions: opened,reopened,synchronize,ready_for_review,labeled,unlabeled
           custom-predicate: pull_request
 
@@ -775,132 +827,132 @@ jobs:
               for (const [agent, enabled] of agents) if (enabled) labels.add(`agent:${agent}`);
               return labels;
             }
-            const registryRef = pullRequest?.base?.sha;
-            if (!/^[0-9a-f]{40}$/.test(registryRef || '')) throw new Error('Trusted registry base SHA is missing');
-            const registry = (await github.rest.repos.getContent({
-              owner, repo, path: '.github/agents/registry.yml', ref: registryRef,
-            })).data;
-            if (registry?.type !== 'file' || registry.encoding !== 'base64') throw new Error('Agent registry evidence is incomplete');
-            const routingLabels = routingLabelsFromRegistry(Buffer.from(registry.content, 'base64').toString('utf8'));
-            const permissionLabel = 'agents:allow-change';
-            const policyLabelNames = (labels) => {
-              if (!Array.isArray(labels)) {
-                throw new Error('PR label evidence is incomplete.');
-              }
-              const names = labels.map((label) => {
-                if (typeof label?.name !== 'string') {
-                  throw new Error('PR label evidence is malformed.');
-                }
-                const raw = label.name;
-                const routing = raw.trim().toLowerCase();
-                if (routingLabels.has(routing)) return routing;
-                return raw.toLowerCase() === permissionLabel ? permissionLabel : '';
-              }).filter(Boolean);
-              return [...new Set(names)].sort();
-            };
-            const snapshotLabels = policyLabelNames(pullRequest?.labels);
-
-            const blocked = (process.env.BLOCKED || '').toLowerCase() === 'true';
-            const summary = process.env.SUMMARY || '';
-            const evaluated = process.env.ELIGIBLE === 'true'
-              && process.env.EVALUATE_OUTCOME === 'success'
-              && process.env.BLOCKED === 'false';
-            const safelySkipped = process.env.ELIGIBLE === 'false';
-            const passed = process.env.JOB_STATUS === 'success'
-              && (safelySkipped || evaluated) && !blocked;
-            let state = passed ? 'success' : 'failure';
-            let description = summary || (!passed
-              ? 'Health 45 Agents Guard blocked this pull request.'
-              : 'Health 45 Agents Guard passed.');
-
-            function setFailure(reason) {
-              state = 'failure';
-              description = reason;
-            }
-
-            async function policyFingerprint(labels) {
-              const canonical = labels.join('\n');
-              const digest = await crypto.subtle.digest(
-                'SHA-256', new TextEncoder().encode(canonical),
-              );
-              return Array.from(new Uint8Array(digest))
-                .map((byte) => byte.toString(16).padStart(2, '0'))
-                .join('');
-            }
-
-            function finalizeDescription(fingerprint) {
-              if (!Number.isSafeInteger(pullRequest.number) || pullRequest.number <= 0) {
-                throw new Error('Current pull request number is missing or invalid.');
-              }
-              const prefix = `[guard-pr:${pullRequest.number}] `;
-              const receipt = state === 'success'
-                ? ` [guard-policy-sha256:${fingerprint}]`
-                : '';
-              const maximum = 140 - prefix.length - receipt.length;
-              if (description.length > maximum) {
-                description = `${description.slice(0, maximum - 3)}...`;
-              }
-              description = `${prefix}${description}${receipt}`;
-            }
-
-            const targetUrl =
-              process.env.TARGET_URL ||
-              `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`;
-
-            const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-            async function withApiRetry(
-              fn,
-              { label = 'operation', maxAttempts = 5, baseDelay = 1000 } = {},
-            ) {
-              for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
-                try {
-                  return await fn(github);
-                } catch (error) {
-                  const status = error?.status || error?.response?.status;
-                  const headers = error?.response?.headers || {};
-                  const remainingRaw =
-                    headers['x-ratelimit-remaining'] ?? headers['X-RateLimit-Remaining'];
-                  const resetRaw = headers['x-ratelimit-reset'] ?? headers['X-RateLimit-Reset'];
-                  const remaining = Number(remainingRaw);
-                  const reset = Number(resetRaw);
-                  const isRateLimit =
-                    status === 403 && Number.isFinite(remaining) && remaining <= 0;
-                  const retryable =
-                    isRateLimit ||
-                    status === 429 ||
-                    !status ||
-                    (status >= 500 && status < 600);
-                  if (!retryable || attempt === maxAttempts) {
-                    core.error(`Failed ${label}: ${error.message}`);
-                    throw error;
-                  }
-                  let delay = baseDelay * attempt;
-                  const retryAfterRaw = headers['retry-after'] ?? headers['Retry-After'];
-                  const retryAfterSeconds = Number(retryAfterRaw);
-                  if (Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0) {
-                    delay = Math.max(delay, retryAfterSeconds * 1000);
-                  } else if (isRateLimit && Number.isFinite(reset)) {
-                    const nowSeconds = Math.floor(Date.now() / 1000);
-                    if (reset > nowSeconds) {
-                      const untilReset = (reset - nowSeconds) * 1000 + 500;
-                      delay = Math.max(delay, untilReset);
-                    }
-                  }
-                  delay = Math.max(delay, 1000);
-                  const humanDelay = delay >= 60000
-                    ? `${(delay / 60000).toFixed(2)}m`
-                    : `${Math.round(delay)}ms`;
-                  core.warning(
-                    `Retrying ${label} after ${humanDelay} ` +
-                      `(attempt ${attempt + 1}/${maxAttempts}).`
-                  );
-                  await sleep(delay);
-                }
-              }
-              throw new Error(`Failed ${label} after ${maxAttempts} attempts.`);
-            }
-
             try {
+              const registryRef = pullRequest?.base?.sha;
+              if (!/^[0-9a-f]{40}$/.test(registryRef || '')) throw new Error('Trusted registry base SHA is missing');
+              const registry = (await github.rest.repos.getContent({
+                owner, repo, path: '.github/agents/registry.yml', ref: registryRef,
+              })).data;
+              if (registry?.type !== 'file' || registry.encoding !== 'base64') throw new Error('Agent registry evidence is incomplete');
+              const routingLabels = routingLabelsFromRegistry(Buffer.from(registry.content, 'base64').toString('utf8'));
+              const permissionLabel = 'agents:allow-change';
+              const policyLabelNames = (labels) => {
+                if (!Array.isArray(labels)) {
+                  throw new Error('PR label evidence is incomplete.');
+                }
+                const names = labels.map((label) => {
+                  if (typeof label?.name !== 'string') {
+                    throw new Error('PR label evidence is malformed.');
+                  }
+                  const raw = label.name;
+                  const routing = raw.trim().toLowerCase();
+                  if (routingLabels.has(routing)) return routing;
+                  return raw.toLowerCase() === permissionLabel ? permissionLabel : '';
+                }).filter(Boolean);
+                return [...new Set(names)].sort();
+              };
+              const snapshotLabels = policyLabelNames(pullRequest?.labels);
+
+              const blocked = (process.env.BLOCKED || '').toLowerCase() === 'true';
+              const summary = process.env.SUMMARY || '';
+              const evaluated = process.env.ELIGIBLE === 'true'
+                && process.env.EVALUATE_OUTCOME === 'success'
+                && process.env.BLOCKED === 'false';
+              const safelySkipped = process.env.ELIGIBLE === 'false';
+              const passed = process.env.JOB_STATUS === 'success'
+                && (safelySkipped || evaluated) && !blocked;
+              let state = passed ? 'success' : 'failure';
+              let description = summary || (!passed
+                ? 'Health 45 Agents Guard blocked this pull request.'
+                : 'Health 45 Agents Guard passed.');
+
+              function setFailure(reason) {
+                state = 'failure';
+                description = reason;
+              }
+
+              async function policyFingerprint(labels) {
+                const canonical = labels.join('\n');
+                const digest = await crypto.subtle.digest(
+                  'SHA-256', new TextEncoder().encode(canonical),
+                );
+                return Array.from(new Uint8Array(digest))
+                  .map((byte) => byte.toString(16).padStart(2, '0'))
+                  .join('');
+              }
+
+              function finalizeDescription(fingerprint) {
+                if (!Number.isSafeInteger(pullRequest.number) || pullRequest.number <= 0) {
+                  throw new Error('Current pull request number is missing or invalid.');
+                }
+                const prefix = `[guard-pr:${pullRequest.number}] `;
+                const receipt = state === 'success'
+                  ? ` [guard-policy-sha256:${fingerprint}]`
+                  : '';
+                const maximum = 140 - prefix.length - receipt.length;
+                if (description.length > maximum) {
+                  description = `${description.slice(0, maximum - 3)}...`;
+                }
+                description = `${prefix}${description}${receipt}`;
+              }
+
+              const targetUrl =
+                process.env.TARGET_URL ||
+                `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`;
+
+              const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+              async function withApiRetry(
+                fn,
+                { label = 'operation', maxAttempts = 5, baseDelay = 1000 } = {},
+              ) {
+                for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+                  try {
+                    return await fn(github);
+                  } catch (error) {
+                    const status = error?.status || error?.response?.status;
+                    const headers = error?.response?.headers || {};
+                    const remainingRaw =
+                      headers['x-ratelimit-remaining'] ?? headers['X-RateLimit-Remaining'];
+                    const resetRaw = headers['x-ratelimit-reset'] ?? headers['X-RateLimit-Reset'];
+                    const remaining = Number(remainingRaw);
+                    const reset = Number(resetRaw);
+                    const isRateLimit =
+                      status === 403 && Number.isFinite(remaining) && remaining <= 0;
+                    const retryable =
+                      isRateLimit ||
+                      status === 429 ||
+                      !status ||
+                      (status >= 500 && status < 600);
+                    if (!retryable || attempt === maxAttempts) {
+                      core.error(`Failed ${label}: ${error.message}`);
+                      throw error;
+                    }
+                    let delay = baseDelay * attempt;
+                    const retryAfterRaw = headers['retry-after'] ?? headers['Retry-After'];
+                    const retryAfterSeconds = Number(retryAfterRaw);
+                    if (Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0) {
+                      delay = Math.max(delay, retryAfterSeconds * 1000);
+                    } else if (isRateLimit && Number.isFinite(reset)) {
+                      const nowSeconds = Math.floor(Date.now() / 1000);
+                      if (reset > nowSeconds) {
+                        const untilReset = (reset - nowSeconds) * 1000 + 500;
+                        delay = Math.max(delay, untilReset);
+                      }
+                    }
+                    delay = Math.max(delay, 1000);
+                    const humanDelay = delay >= 60000
+                      ? `${(delay / 60000).toFixed(2)}m`
+                      : `${Math.round(delay)}ms`;
+                    core.warning(
+                      `Retrying ${label} after ${humanDelay} ` +
+                        `(attempt ${attempt + 1}/${maxAttempts}).`
+                    );
+                    await sleep(delay);
+                  }
+                }
+                throw new Error(`Failed ${label} after ${maxAttempts} attempts.`);
+              }
+
               const currentLabels = await withApiRetry(
                 (client) => client.paginate(client.rest.issues.listLabelsOnIssue, {
                   owner, repo, issue_number: pullRequest.number, per_page: 100,

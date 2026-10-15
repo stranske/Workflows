@@ -237,7 +237,15 @@ new AsyncFunction('github', 'context', 'core', input.script)(github, context, co
 
 @pytest.mark.parametrize("template", [False, True])
 @pytest.mark.parametrize(
-    "mode", ["denied_write", "missing_head", "lookup_denied", "lookup_incomplete"]
+    "mode",
+    [
+        "denied_write",
+        "missing_head",
+        "lookup_denied",
+        "lookup_incomplete",
+        "registry_denied",
+        "registry_malformed",
+    ],
 )
 def test_publisher_cannot_silently_ignore_missing_head_or_denied_write(template, mode):
     prefix = ROOT / "templates/consumer-repo" if template else ROOT
@@ -263,7 +271,7 @@ const github = {paginate: async (method) => {
 const context = {repo: {owner: 'owner', repo: 'repo'}, sha: 'b'.repeat(40),
  payload: {pull_request: {number: 4, labels: [], head: {sha: input.mode === 'missing_head' ? '' : 'a'.repeat(40)}}}};
 const core = {info() {}, error() {}, warning() {}, setFailed(m) {throw Error(m)}};
-github.rest.repos.getContent = async params => { if(params.ref !== 'b'.repeat(40)) throw Error('untrusted registry ref'); return {data:{type:'file',encoding:'base64',content:"YWdlbnRzOgogIGNvZGV4OgogICAgZW5hYmxlZDogdHJ1ZQogIGNsYXVkZToKICAgIGVuYWJsZWQ6IHRydWUKICBjdXJzb3I6CiAgICBlbmFibGVkOiB0cnVlCiAgZ2VtaW5pOgogICAgZW5hYmxlZDogdHJ1ZQogIGFpZGVyOgogICAgZW5hYmxlZDogZmFsc2UK"}}; };
+github.rest.repos.getContent = async params => { if(input.mode==='registry_denied') throw Error('registry unavailable'); if(input.mode==='registry_malformed') return {data:{type:'file',encoding:'none'}}; if(params.ref !== 'b'.repeat(40)) throw Error('untrusted registry ref'); return {data:{type:'file',encoding:'base64',content:"YWdlbnRzOgogIGNvZGV4OgogICAgZW5hYmxlZDogdHJ1ZQogIGNsYXVkZToKICAgIGVuYWJsZWQ6IHRydWUKICBjdXJzb3I6CiAgICBlbmFibGVkOiB0cnVlCiAgZ2VtaW5pOgogICAgZW5hYmxlZDogdHJ1ZQogIGFpZGVyOgogICAgZW5hYmxlZDogZmFsc2UK"}}; };
 context.payload.pull_request.base = {sha:'b'.repeat(40)};
 const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
 new AsyncFunction('github', 'context', 'core', input.script)(github, context, core)
@@ -304,7 +312,7 @@ def test_actual_head_publisher_binds_evaluated_label_evidence(evaluated_labels, 
 const input = JSON.parse(require('fs').readFileSync(0, 'utf8')); Object.assign(process.env, input.env);
 const writes = []; const github = {rest: {repos: {createCommitStatus: async p => writes.push(p)}, issues: {listLabelsOnIssue() {}}}, paginate: async method => method === github.rest.issues.listLabelsOnIssue ? [] : []};
 const context = {repo: {owner:'owner', repo:'repo'}, eventName:'pull_request_target', runId:42, serverUrl:'https://github.com', payload:{pull_request:{number:4, labels:[], head:{sha:'a'.repeat(40)}}}};
-const core = {info(){}, error(){}, setFailed(m){throw Error(m)}}; github.rest.repos.getContent = async params => { if(params.ref !== 'b'.repeat(40)) throw Error('untrusted registry ref'); return {data:{type:'file',encoding:'base64',content:"YWdlbnRzOgogIGNvZGV4OgogICAgZW5hYmxlZDogdHJ1ZQogIGNsYXVkZToKICAgIGVuYWJsZWQ6IHRydWUKICBjdXJzb3I6CiAgICBlbmFibGVkOiB0cnVlCiAgZ2VtaW5pOgogICAgZW5hYmxlZDogdHJ1ZQogIGFpZGVyOgogICAgZW5hYmxlZDogZmFsc2UK"}}; };
+const core = {info(){}, error(){}, setFailed(m){throw Error(m)}}; github.rest.repos.getContent = async params => { if(input.mode==='registry_denied') throw Error('registry unavailable'); if(input.mode==='registry_malformed') return {data:{type:'file',encoding:'none'}}; if(params.ref !== 'b'.repeat(40)) throw Error('untrusted registry ref'); return {data:{type:'file',encoding:'base64',content:"YWdlbnRzOgogIGNvZGV4OgogICAgZW5hYmxlZDogdHJ1ZQogIGNsYXVkZToKICAgIGVuYWJsZWQ6IHRydWUKICBjdXJzb3I6CiAgICBlbmFibGVkOiB0cnVlCiAgZ2VtaW5pOgogICAgZW5hYmxlZDogdHJ1ZQogIGFpZGVyOgogICAgZW5hYmxlZDogZmFsc2UK"}}; };
 context.payload.pull_request.base = {sha:'b'.repeat(40)};
 const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
 new AsyncFunction('github','context','core',input.script)(github,context,core).then(()=>process.stdout.write(JSON.stringify(writes))).catch(e=>{console.error(e);process.exitCode=1});

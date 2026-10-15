@@ -1230,3 +1230,34 @@ def test_registry_parser_and_receipt_pin_match_all_managed_surfaces():
             step for step in steps if step["name"].startswith("Evaluated policy labels sha256:")
         )
         assert receipt["uses"] == "actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3"
+
+
+@pytest.mark.parametrize("agent", ["cursor", "gemini", "future-provider"])
+@pytest.mark.parametrize("template", [False, True])
+def test_actual_registry_resolver_admits_enabled_provider_events(agent, template):
+    prefix = ROOT / "templates/consumer-repo" if template else ROOT
+    data = yaml.safe_load((prefix / ".github/workflows/agents-guard.yml").read_text())
+    steps = data["jobs"]["guard"]["steps"]
+    resolver = next(step for step in steps if step.get("id") == "registry")
+    eligibility = next(step for step in steps if step.get("id") == "eligibility")
+    assert eligibility["with"]["expected-labels"] == "${{ steps.registry.outputs.routing_labels }}"
+    registry = f"agents:\n  {agent}:\n    enabled: true\n    preflight:\n      enabled: false\n"
+    source = (
+        "const outputs={};const core={setOutput:(k,v)=>outputs[k]=v,setFailed:m=>{throw Error(m)}};"
+    )
+    source += "const context={repo:{owner:'owner',repo:'repo'},payload:{pull_request:{base:{sha:'b'.repeat(40)}}}};"
+    source += "const github={rest:{repos:{getContent:async p=>{if(p.ref!=='b'.repeat(40))throw Error('bad ref');return {data:{type:'file',encoding:'base64',content:Buffer.from("
+    source += json.dumps(registry) + ").toString('base64')}};}}}};"
+    source += "(async()=>{" + resolver["with"]["script"]
+    source += (
+        ";const {evaluateEligibility}=require("
+        + json.dumps(str(ROOT / ".github/actions/agent-event-eligibility/eligibility.js"))
+        + ");"
+    )
+    source += "const result=evaluateEligibility({eventName:'pull_request',payload:{action:'opened',pull_request:{labels:[{name:"
+    source += (
+        json.dumps(f"agent:{agent}")
+        + "}]}},expectedLabels:outputs.routing_labels,expectedActions:'opened',customPredicate:'pull_request'});process.stdout.write(JSON.stringify(result));})();"
+    )
+    result = subprocess.run(["node", "-e", source], check=True, capture_output=True, text=True)
+    assert json.loads(result.stdout)["shouldRun"] is True

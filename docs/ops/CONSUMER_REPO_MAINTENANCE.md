@@ -1445,7 +1445,10 @@ and the legacy Copilot guard label remain covered. Registry read/shape failures
 fail closed; no PR checkout code or downloaded code executes in a publisher.
 The trusted fork publisher revalidates the base SHA along with the head and run
 attempt before publication. Newly enabled registry providers therefore invalidate
-an old success when their routing labels change. The evaluated-digest metadata
+an old success when their routing labels change. Eligibility uses the same trusted-registry-derived routing output before guard
+evaluation, including providers whose issue-intake preflight is disabled. Registry
+read/parse failures enter the existing publication failure diagnostic handler.
+The evaluated-digest metadata
 step uses the repository-approved immutable github-script v9 commit on both
 source and template; this does not establish hosted execution or review acceptance.
 
