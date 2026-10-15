@@ -7,14 +7,14 @@ __________ test_grouped_shared_span_join_prepares_complete_execution ___________
 >       prepared = rules.prepare_reviewed_execution(capture, raw, rules=(entry,))
                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-tests/tools/test_verifier_semantic_rules.py:269: 
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/tools/test_verifier_semantic_rules.py:269:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
 tools/verifier_semantic_rules.py:217: in prepare_reviewed_execution
     spans, pieces = _validated_spans(entry, raw_bytes)
                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 tools/verifier_semantic_rules.py:171: in _validated_spans
     _validate_joins(entry, spans)
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
 
 entry = {'binding': {'id': 'capture-1', 'implementation_head': 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'governing_sha256':...ext', 'start': 2, 'end': 4, ...}], 'joins': [{'span_ids': ['global-0', 'global-1'], 'package_ids': ['p1', 'p2']}], ...}
 spans = {'p1': {'id': 'p1', 'input': 'context', 'start': 4, 'end': 8, ...}, 'p2': {'id': 'p2', 'input': 'context', 'start': 8,...'diff', 'start': 0, 'end': 4, ...}, 'global-0': {'id': 'global-0', 'input': 'context', 'start': 0, 'end': 2, ...}, ...}
