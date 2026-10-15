@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.38.11](https://github.com/stranske/Workflows/compare/v1.38.10...v1.38.11) (2026-10-15)
+
+
+### Bug Fixes
+
+* **verifier:** accept validated grouped shared-span joins ([#3907](https://github.com/stranske/Workflows/issues/3907)) ([1b6d031](https://github.com/stranske/Workflows/commit/1b6d03165d41604afd20531374dfbd23cbec8dae))
+
 ## [1.38.10](https://github.com/stranske/Workflows/compare/v1.38.9...v1.38.10) (2026-10-15)
 
 
