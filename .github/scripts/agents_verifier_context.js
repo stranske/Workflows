@@ -392,22 +392,27 @@ function positiveEvidenceClauses(line) {
   const parts = line.split(/([.;]\s+|\s+but\s+)/i);
   const selected = [];
   let positive = false;
+  let negativeScope = false;
   for (let index = 0; index < parts.length; index += 2) {
     const clause = parts[index];
+    // Only an independently labelled affirmative declaration can reopen
+    // scope after negation; "but a validation prerequisite" is diagnostic.
+    const affirmativeDeclaration = /^\s*(?:[-*>]\s*)?(?:not only\s+)?(?:evidence|validation|artifacts?|test results?|red\s+(?:then\s+)?green)(?:\s+(?:evidence|validation|artifacts?|runs?))*\s*:/i.test(clause.replace(/[`*_]/g, ''));
+    if (negativeScope && affirmativeDeclaration) negativeScope = false;
     const labels = [...clause.matchAll(/\b(?:evidence|validation|artifacts?|test results?|red\s+(?:then\s+)?green)\b/gi)];
     const negativeIndex = labels.findIndex(match =>
-      /\b(?:no|not)\s+$/i.test(clause.slice(0, match.index)));
+      /\b(?:no|not)\s+$/i.test(clause.slice(0, match.index).replace(/[`*_]/g, '')));
     if (labels.length) {
       // Negation extends through the rest of this clause. A second keyword in
       // "No validation evidence" cannot re-open positive evidence scope.
-      positive = negativeIndex !== 0;
+      positive = !negativeScope && negativeIndex !== 0;
     } else if (index === 0 || !parts[index - 1].startsWith(';')) {
       positive = false;
     }
     // Retain genuine earlier positive proof, but never its negated suffix.
     if (positive) selected.push(negativeIndex < 0 ? clause : clause.slice(0, labels[negativeIndex].index));
     // A semicolon run list inherits only a still-positive declaration.
-    if (negativeIndex >= 0) positive = false;
+    if (negativeIndex >= 0) { positive = false; negativeScope = true; }
   }
   return selected;
 }

@@ -1864,7 +1864,8 @@ run budget. Select the deduplicated union of typed and positively labelled expli
 before budget accounting and provenance validation. Prose labels bind within
 period/semicolon/contrastive-but clauses: `not evidence` and `no validation` do not
 select diagnostic links as current proof. Negation extends through compound labels
-and the remainder of its clause; earlier genuine positive proof is retained. An independent positive declaration
+and diagnostic continuations; only a fresh affirmative label such as `but Evidence:`
+reopens that scope. Earlier genuine positive proof is retained. An independent positive declaration
 remains selected, and original comment bytes remain fully captured. Without a
 complete positive set, existing incidental/associated discovery still applies. Without complete
 explicit references, bounded associated-run discovery remains fail-closed.
