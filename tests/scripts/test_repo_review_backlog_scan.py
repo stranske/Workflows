@@ -736,3 +736,44 @@ class TestConstants:
     def test_epic_in_human_decision_labels_exact(self) -> None:
         """HUMAN_DECISION_LABELS_EXACT should contain epic."""
         assert "epic" in HUMAN_DECISION_LABELS_EXACT
+
+
+def test_registry_exclusion_overrides_active_status(tmp_registry):
+    tmp_registry.write_text(
+        json.dumps(
+            {
+                "excluded_repo_names": ["held-repo"],
+                "repos": [
+                    {"repo": "owner/held-repo", "status": "active"},
+                    {"repo": "owner/demo", "status": "active"},
+                ],
+            }
+        )
+    )
+    assert load_registry(tmp_registry) == ["owner/demo"]
+
+
+def test_backlog_omits_excluded_repos_and_parent_references(monkeypatch):
+    from scripts import repo_review_backlog_scan as scanner
+
+    calls = []
+    issues = [
+        {"number": 1, "title": "Normal title", "body": "Repair OWNER/held-repo#12"},
+        {"number": 2, "title": "Repair held-repository#12"},
+        {"number": 3, "title": "Normal title", "url": "https://github.com/owner/demo/issues/3"},
+    ]
+
+    def fetch(repo):
+        calls.append(repo)
+        return issues
+
+    monkeypatch.setattr(scanner, "gh_list_open_issues", fetch)
+    result = scanner.scan(
+        ["owner/held-repo", "owner/demo"],
+        7,
+        False,
+        excluded_repo_names=["owner", "held-repo"],
+    )
+    assert calls == ["owner/demo"]
+    assert result["scanned_open_issues"] == 2
+    assert result["by_repo"]["owner/demo"]["open_issues"] == 2

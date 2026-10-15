@@ -80,6 +80,11 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+try:
+    from scripts.repo_review_evaluator import references_excluded_repo
+except ModuleNotFoundError:
+    from repo_review_evaluator import references_excluded_repo
+
 # ---------------------------------------------------------------------------
 # Filtering — labels that exclude an issue from any consideration
 # ---------------------------------------------------------------------------
@@ -204,10 +209,16 @@ def load_registry(registry_path: Path) -> list[str]:
     """Return the list of active repo full-names from the registry."""
     data = json.loads(registry_path.read_text(encoding="utf-8"))
     repos = data.get("repos", []) or []
+    excluded = {
+        str(name).rsplit("/", 1)[-1].lower() for name in data.get("excluded_repo_names", [])
+    }
     return [
         str(r.get("repo"))
         for r in repos
-        if isinstance(r, dict) and r.get("status") == "active" and r.get("repo")
+        if isinstance(r, dict)
+        and r.get("status") == "active"
+        and r.get("repo")
+        and str(r["repo"]).rsplit("/", 1)[-1].lower() not in excluded
     ]
 
 
@@ -319,17 +330,32 @@ def days_since(timestamp: str | None) -> float:
 # ---------------------------------------------------------------------------
 
 
-def scan(repos: list[str], stale_days: int, apply_labels: bool) -> dict[str, Any]:
+def scan(
+    repos: list[str],
+    stale_days: int,
+    apply_labels: bool,
+    *,
+    excluded_repo_names: list[str] | None = None,
+) -> dict[str, Any]:
     auto_labeled: list[dict[str, Any]] = []
     needs_human: list[dict[str, Any]] = []
     scanned = 0
     repo_summary: dict[str, dict[str, int]] = {}
 
     for repo in repos:
+        excluded_names = [
+            name
+            for name in (excluded_repo_names or [])
+            if name.lower() != repo.split("/", 1)[0].lower()
+        ]
+        if references_excluded_repo(repo, excluded_names):
+            continue
         repo_total = 0
         repo_auto = 0
         repo_human = 0
         for issue in gh_list_open_issues(repo):
+            if references_excluded_repo(issue, excluded_names):
+                continue
             scanned += 1
             repo_total += 1
             labels = label_names(issue)
@@ -458,6 +484,9 @@ def main() -> int:
     args = parse_args()
     try:
         repos = load_registry(args.registry)
+        excluded_names = json.loads(args.registry.read_text(encoding="utf-8")).get(
+            "excluded_repo_names", []
+        )
     except (FileNotFoundError, json.JSONDecodeError) as exc:
         print(f"[backlog-scan] cannot load registry: {exc}", file=sys.stderr)
         return 2
@@ -468,7 +497,7 @@ def main() -> int:
             f"[backlog-scan] scanning {len(repos)} active repos (stale>{args.stale_days}d, {mode})"
         )
 
-    result = scan(repos, args.stale_days, args.apply)
+    result = scan(repos, args.stale_days, args.apply, excluded_repo_names=excluded_names)
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
 
