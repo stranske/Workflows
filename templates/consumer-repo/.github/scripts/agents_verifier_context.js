@@ -385,6 +385,28 @@ function extractReferencedRunIds(texts) {
   return ids;
 }
 
+// Prose labels bind within their clause. A historical diagnostic that says
+// "not evidence" cannot select an old run as current acceptance evidence.
+// Typed evidence inputs remain an unconditional explicit union.
+function positiveEvidenceClauses(line) {
+  const parts = line.split(/([.;]\s+)/);
+  const selected = [];
+  let positive = false;
+  for (let index = 0; index < parts.length; index += 2) {
+    const clause = parts[index];
+    const labels = [...clause.matchAll(/\b(?:evidence|validation|artifacts?|test results?|red\s+(?:then\s+)?green)\b/gi)];
+    if (labels.length) {
+      positive = labels.some(match => !/\b(?:no|not)\s+$/i.test(clause.slice(0, match.index)));
+    } else if (index === 0 || !parts[index - 1].startsWith(';')) {
+      positive = false;
+    }
+    // A semicolon-separated run list retains its positive declaration. An
+    // explicit negative label ends that scope; a new sentence never inherits it.
+    if (positive) selected.push(clause);
+  }
+  return selected;
+}
+
 function safeArtifactEntries(listing) {
   const entries = [];
   const filteredPayloadEntries = [];
@@ -732,7 +754,7 @@ async function fetchVerifierEvidence({
   const labelledEvidenceLines = [pullRequestBody, ...referenceTexts, ...commentBodies]
     .flatMap((text) => String(text || '').split('\n'))
     .filter((line) => !/^\s*\|[^\n]+\|[^|\n]+\|\s*\[View run\]\([^\n)]+\)\s*\|\s*$/i.test(line))
-    .filter((line) => /\b(?:evidence|validation|artifacts?|test results?|red\s+(?:then\s+)?green)\b/i.test(line));
+    .flatMap(positiveEvidenceClauses);
   const explicitEvidenceRunIds = new Set(
     extractReferencedRunIds([
       ...(evidenceTexts || []).filter((text) => String(text || '') !== String(pullRequestBody || '')),

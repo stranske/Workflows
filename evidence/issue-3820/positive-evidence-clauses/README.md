@@ -1,0 +1,11 @@
+# Positive evidence clauses preserve diagnostics and genuine run unions
+
+Post-merge capture of Workflows3873 selected an old Selftest URL from a historical diagnostic comment that explicitly said it was not evidence that retention assertions failed. The selected wrong-head run made provenance incomplete and triggered unrelated associated-run discovery; its large coverage archives then exhausted extraction bounds.
+
+The original producer fixture requests runs123 and999 instead of only123 and fails an assertion. The repair selects positive prose labels within sentence/semicolon clauses, excluding immediate `not`/`no` labels. Typed evidence inputs remain unconditional explicit references. Independent positive clauses and semicolon-separated run lists remain selected; a negative declaration ends inherited list scope. `Not only evidence` stays positive.
+
+The intermediate positive-list RED proves that simply splitting every clause loses a real second selected run. Final source and consumer cases preserve the complete run union, completely empty artifact sets, and the exact historical comment bytes. Existing wrong-head positive selections, missing reference channels, pagination, expiry, raw archive bindings, full diff and unavailable-evidence floors remain tested.
+
+`node --test .github/scripts/__tests__/agents-verifier-context.test.js`:155PASS,0FAIL. Source/template bytes match; template completeness/drift and diff checks pass.
+
+This is a bounded source fix, not universal English classification. Hosted current-head CI, configured review, guarded delivery, actual provider comparison and campaign canary qualification remain separate requirements. Historical failed captures and comments remain unchanged.

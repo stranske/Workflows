@@ -1860,8 +1860,12 @@ explicit workflow-run references in typed evidence inputs or locally labelled
 evidence/validation/artifact/test-result lines define the artifact retrieval set when both
 reference-bearing body and comment channels were fully inspected. Unrelated
 associated head/merge jobs and incidental status URLs cannot exhaust that set's
-run budget. Select the deduplicated union of typed and labelled explicit IDs
-before budget accounting and provenance validation. Without complete
+run budget. Select the deduplicated union of typed and positively labelled explicit IDs
+before budget accounting and provenance validation. Prose labels bind within
+period/semicolon-separated clauses: `not evidence` and `no validation` do not
+select diagnostic links as current proof. An independent positive declaration
+remains selected, and original comment bytes remain fully captured. Without a
+complete positive set, existing incidental/associated discovery still applies. Without complete
 explicit references, bounded associated-run discovery remains fail-closed.
 Incidental body/comment URLs, including status-table `View run` links, do not
 select an exclusive evidence set: when no explicit set exists, continue exact-head associated-run discovery

@@ -3953,3 +3953,41 @@ for (const bound of ['character', 'extraction_byte']) {
     assert.equal(result.truncated, true);
   });
 }
+
+
+test('negated historical diagnostics do not join a complete positive evidence union', async () => {
+  const sha = 'a'.repeat(40);
+  const implementations = [fetchVerifierEvidence,
+    require('../../../templates/consumer-repo/.github/scripts/agents_verifier_context.js').fetchVerifierEvidence];
+  const diagnostics = [
+    'Completed Selftest [metrics_only](/actions/runs/999) failed. This is a tooling prerequisite, not evidence that retention assertions failed.',
+    'Not evidence: /actions/runs/999; Validation: /actions/runs/124',
+    'No validation: /actions/runs/999. Evidence: /actions/runs/124',
+    'Evidence: /actions/runs/124; /actions/runs/125',
+    'Not only evidence: /actions/runs/124',
+  ];
+  for (const implementation of implementations) {
+    for (const diagnostic of diagnostics) {
+      const requested = [];
+      let associated = 0;
+      const empty = async () => ({data: []});
+      const github = {rest: {
+        issues: {listComments: async () => ({data: [{id: 1, body: diagnostic}]})},
+        pulls: {listReviewComments: empty, listReviews: empty},
+        actions: {
+          getWorkflowRun: async ({run_id}) => {requested.push(run_id); return {data: {id: run_id, head_sha: run_id === 999 ? 'b'.repeat(40) : sha}};},
+          listWorkflowRunsForRepo: async () => {associated++; throw Error('unrelated discovery');},
+          listWorkflowRunArtifacts: async () => ({data: {total_count: 0, artifacts: []}}),
+          downloadArtifact: async () => {throw Error('no archive expected');},
+        },
+      }};
+      const evidence = await implementation({github, owner: 'octo', repo: 'workflows', pullNumber: 7,
+        pullRequestBody: 'Validation: /actions/runs/123', associatedCommitShas: [sha]});
+      assert.deepEqual(requested, diagnostic.includes('/125') ? [123, 124, 125] : diagnostic.includes('/124') ? [123, 124] : [123]);
+      assert.equal(associated, 0);
+      assert.equal(evidence.artifacts.complete, true);
+      assert.equal(evidence.artifacts.status, 'absent');
+      assert.ok(evidence.comments.records.some(record => record.body === diagnostic));
+    }
+  }
+});
