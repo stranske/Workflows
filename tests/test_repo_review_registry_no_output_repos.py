@@ -33,6 +33,6 @@ def test_owner_excluded_repo_never_reaches_evaluator_inventory():
     from scripts.repo_review_evaluator import load_registry
 
     _, excluded, repos, _ = load_registry(REGISTRY)
-    assert "collab-admin" in excluded
-    assert "stranske/Collab-Admin" not in {repo.repo for repo in repos}
+    assert {"collab-admin", "workflows-integration-tests"}.issubset(excluded)
+    assert NO_OUTPUT_REPOS.isdisjoint({repo.repo for repo in repos})
     assert len([repo for repo in repos if repo.status == "active"]) >= 1
