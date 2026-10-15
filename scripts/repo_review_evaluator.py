@@ -1789,6 +1789,18 @@ def extract_issue_drafts(issues_path: Path) -> list[IssueDraft]:
     return drafts
 
 
+def references_excluded_repo(value: Any, excluded_names: list[str]) -> bool:
+    """Recognize excluded repository names without matching longer repo names."""
+    text = json.dumps(value, ensure_ascii=False)
+    return any(
+        re.search(
+            r"(?<![\w.-])" + re.escape(name.rsplit("/", 1)[-1]) + r"(?![\w-]|\.+[\w-])", text, re.I
+        )
+        for name in excluded_names
+        if name
+    )
+
+
 def collect_repo_state(
     workspace_root: Path,
     repo: RepoConfig,
@@ -1800,6 +1812,7 @@ def collect_repo_state(
     round1_findings: dict[str, Any] | None = None,
     remote_progress: dict[str, Any] | None = None,
     round2_converged: dict[str, Any] | None = None,
+    excluded_repo_names: list[str] | None = None,
 ) -> dict[str, Any]:
     repo_path = workspace_root / repo.local_path
     status_lines = run_git(repo_path, ["status", "--short"]).splitlines()
@@ -1841,6 +1854,25 @@ def collect_repo_state(
             "recent_merged_prs": [],
             "warnings": ["remote progress not collected for non-active repo"],
         }
+    # A parent issue in an active repository can still refer to an
+    # excluded repository. Remove those records before dedup, counts or reports.
+    excluded_names = [
+        name
+        for name in (excluded_repo_names or [])
+        if name.lower() != repo.repo.split("/", 1)[0].lower()
+    ]
+    remote_progress = dict(remote_progress)
+    for key in ("open_issues", "recent_merged_prs", "warnings"):
+        remote_progress[key] = [
+            item
+            for item in remote_progress.get(key, [])
+            if not references_excluded_repo(item, excluded_names)
+        ]
+    archive_progress_items = [
+        candidate
+        for candidate in archive_progress_items
+        if not references_excluded_repo([candidate.title, candidate.excerpt], excluded_names)
+    ]
     current_review_status = review_status(repo, repo_path, blocking_lines)
     current_issue_queue_status = issue_queue_status(round1_findings, round2_converged)
 
@@ -4196,6 +4228,7 @@ def main() -> None:
             ),
             preflight_result.get("records", {}).get(repo.repo, {}),
             output_dir=output_dir,
+            excluded_repo_names=_excluded,
         )
         for repo in repos
         if repo.status in statuses

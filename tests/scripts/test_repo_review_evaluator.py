@@ -1392,3 +1392,65 @@ def test_build_approved_issue_queue_surfaces_unapproved_scorecard_for_deeper_rev
     queue = evaluator.build_approved_issue_queue([], feedback, "2026-06-14", scorecard_scan)
     assert queue["issues"] == []
     assert any("Scorecard finding" in item["notes"] for item in queue["deeper_review"])
+
+
+def test_excluded_parent_references_are_removed_before_remote_counts(tmp_path):
+    repo_dir = tmp_path / "demo"
+    repo_dir.mkdir()
+    config = evaluator.RepoConfig(
+        repo="owner/demo",
+        local_path="demo",
+        status="active",
+        cadence="weekly",
+        decision_anchor="demo",
+    )
+    progress = {
+        "available": True,
+        "open_issues": [
+            {"number": 1, "title": "Repair OWNER/held-repo#12"},
+            {"number": 2, "title": "Repair held-repository#12"},
+            {"number": 3, "title": "Repair demo", "url": "https://github.com/owner/demo/issues/3"},
+        ],
+        "recent_merged_prs": [{"number": 4, "title": "Fix held-repo integration"}],
+        "warnings": [],
+    }
+    archive = [
+        evaluator.ArchiveCandidate(
+            title=title,
+            source_file="held-repo/prior.jsonl",
+            thread_name="review",
+            timestamp="2026-10-15",
+            excerpt=title,
+        )
+        for title in ("Prior held-repo work", "Prior demo work")
+    ]
+    state = evaluator.collect_repo_state(
+        tmp_path,
+        config,
+        archive_candidates=archive,
+        remote_progress=progress,
+        excluded_repo_names=["owner", "held-repo"],
+    )
+    assert state["remote_open_issue_count"] == 2
+    assert [item["number"] for item in state["remote_progress"]["open_issues"]] == [2, 3]
+    assert state["remote_progress"]["recent_merged_prs"] == []
+    assert state["archive_progress_count"] == 1
+    assert state["archive_progress"][0]["title"] == "Prior demo work"
+    assert len(progress["open_issues"]) == 3  # caller evidence is retained
+
+
+@pytest.mark.parametrize(
+    "text, expected",
+    [
+        ("Repair held-repo.", True),
+        ("Repair HELD-REPO...", True),
+        ("Repair owner/held-repo#12", True),
+        ("https://github.com/owner/held-repo/issues/12", True),
+        ("Repair held-repo.v2", False),
+        ("Repair held-repo..v2", False),
+        ("Repair held-repository", False),
+        ("Repair held-repo-other", False),
+    ],
+)
+def test_exclusion_repo_name_punctuation_and_longer_names(text, expected):
+    assert evaluator.references_excluded_repo(text, ["held-repo"]) is expected
