@@ -1,0 +1,133 @@
+name: Agents Guard Fork Status Publisher
+
+'on':
+  # zizmor: ignore[dangerous-triggers] Trusted default-branch code only; no PR
+  # checkout, artifacts, or cache; exact run-attempt/head binding is enforced.
+  workflow_run:
+    workflows:
+      - Health 45 Agents Guard
+    types: [completed]
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  classify:
+    name: classify canonical Agents Guard run
+    permissions:
+      actions: read
+    runs-on: ubuntu-latest
+    outputs:
+      canonical: ${{ steps.classify.outputs.canonical }}
+      head_sha: ${{ steps.classify.outputs.head_sha }}
+    steps:
+      - name: Setup token-only API client
+        uses: stranske/Workflows/.github/actions/setup-api-client@ab8017a10e387869e0f73ee07f3b7f634e45ea07 # trusted immutable source
+        with:
+          github_token: ${{ github.token }}
+          skip_deps: true
+      - id: classify
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        with:
+          script: |
+            const WORKFLOW_PATH = '.github/workflows/agents-guard.yml';
+            const WORKFLOW_NAME = 'Health 45 Agents Guard';
+            const payloadRun = context.payload.workflow_run || {};
+            const positiveInteger = value => Number.isSafeInteger(value) && value > 0;
+            const reject = () => {
+              core.setOutput('canonical', 'false');
+              core.setOutput('head_sha', '');
+            };
+
+            if (
+              !positiveInteger(payloadRun.id) ||
+              !positiveInteger(payloadRun.workflow_id) ||
+              !positiveInteger(context.payload.workflow?.id) ||
+              context.payload.workflow.id !== payloadRun.workflow_id
+            ) {
+              reject();
+              return;
+            }
+
+            const read = async operation => {
+              let lastError;
+              for (let attempt = 1; attempt <= 3; attempt += 1) {
+                try {
+                  return await operation();
+                } catch (error) {
+                  lastError = error;
+                  if (attempt < 3) await new Promise(resolve => setTimeout(resolve, attempt * 250));
+                }
+              }
+              throw lastError;
+            };
+
+            try {
+              const { data: run } = await read(() => github.rest.actions.getWorkflowRun({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                run_id: payloadRun.id,
+              }));
+              const { data: workflow } = await read(() => github.rest.actions.getWorkflow({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                workflow_id: payloadRun.workflow_id,
+              }));
+              const repositoryId = context.payload.repository?.id;
+              if (
+                run.id !== payloadRun.id ||
+                run.workflow_id !== payloadRun.workflow_id ||
+                run.event !== 'pull_request' ||
+                run.status !== 'completed' ||
+                run.repository?.id !== repositoryId ||
+                workflow.id !== payloadRun.workflow_id ||
+                workflow.path !== WORKFLOW_PATH ||
+                workflow.name !== WORKFLOW_NAME ||
+                typeof run.head_sha !== 'string' ||
+                !run.head_sha
+              ) {
+                reject();
+                return;
+              }
+              core.setOutput('canonical', 'true');
+              core.setOutput('head_sha', run.head_sha);
+            } catch (error) {
+              core.setFailed(`Unable to classify Agents Guard workflow run: ${error.message}`);
+              reject();
+            }
+
+  publish:
+    name: publish trusted fork Agents Guard status
+    permissions:
+      actions: read
+      contents: read
+      pull-requests: read
+      statuses: write
+    needs: classify
+    if: ${{ needs.classify.outputs.canonical == 'true' }}
+    concurrency:
+      group: >-
+        ${{ needs.classify.outputs.canonical == 'true' && format('agents-guard-status-{0}', needs.classify.outputs.head_sha) || format('agents-guard-fork-status-{0}', github.run_id) }}
+      cancel-in-progress: false
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout trusted publisher
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+          sparse-checkout: |
+            .github/scripts/error_classifier.js
+            .github/scripts/agents-guard-fork-status-publication.js
+            .github/scripts/github-api-with-retry.js
+            .github/scripts/github-rate-limited-wrapper.js
+            .github/scripts/token_load_balancer.js
+          sparse-checkout-cone-mode: false
+
+      - name: Publish exact-head Agents Guard status
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        with:
+          script: |
+            const { publishGuardForkStatus } = require('./.github/scripts/agents-guard-fork-status-publication.js');
+            await publishGuardForkStatus({ github, context, core });

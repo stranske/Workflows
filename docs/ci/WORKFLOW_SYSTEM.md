@@ -264,6 +264,7 @@ explain why a particular status appears in the Checks tab.
   with `agents:allow-change` for Dependabot, Renovate, or repository
   owner/member/collaborator authors without a separate Code Owner approval.
   When no protected files are in scope, the job exits cleanly.
+- **Fork status publication.** Fork `pull_request` tokens cannot write the required PR-head status. `agents-guard-fork-status.yml` is a trusted default-branch `workflow_run` publisher that validates the exact run, current fork head, latest attempt, and completed `guard` job before publishing `Health 45 Agents Guard / guard`; it never checks out PR code.
 - **Merge impact.** Required on every PR; the status context (**Health 45
   Agents Guard / Enforce agents workflow protections**) stays green unless a
   protected change violates the guard policy.

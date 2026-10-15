@@ -22,7 +22,7 @@ permissions:
   statuses: write
 
 concurrency:
-  group: agents-guard-${{ github.event.pull_request.number || github.run_id }}
+  group: agents-guard-status-${{ github.event.pull_request.head.sha || github.run_id }}
   cancel-in-progress: false
 
 jobs:
@@ -475,6 +475,7 @@ jobs:
             });
 
             core.setOutput('blocked', result.blocked ? 'true' : 'false');
+            core.setOutput('evaluated_labels', JSON.stringify(labels));
             let summary = result.summary;
             if (rateLimitNotes.length) {
               const noteBlock = `\n\nRate limit notices:\n${rateLimitNotes.join('\n')}`;
@@ -648,13 +649,16 @@ jobs:
             );
 
       - name: Report agents guard commit status
-        if: always()
+        if: >-
+          always() && (github.event_name == 'pull_request_target' ||
+          github.event.pull_request.head.repo.full_name == github.repository)
         uses: actions/github-script@v9
         env:
           ELIGIBLE: ${{ steps.eligibility.outputs.should-run }}
           EVALUATE_OUTCOME: ${{ steps.evaluate.outcome }}
           JOB_STATUS: ${{ job.status }}
           BLOCKED: ${{ steps.evaluate.outputs.blocked }}
+          EVALUATED_LABELS: ${{ steps.evaluate.outputs.evaluated_labels }}
           SUMMARY: ${{ steps.evaluate.outputs.summary }}
           TARGET_URL: >-
             ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
@@ -672,14 +676,27 @@ jobs:
               return;
             }
 
-            // Label removal must not replace an evaluated same-head failure
-            // with an ineligible no-op. Keep the last authoritative verdict;
-            // an absent verdict remains absent and blocks mandatory checks.
-            if (context.eventName === 'pull_request_target'
-                && process.env.ELIGIBLE === 'false') {
-              core.info('Ineligible label event: preserving existing PR-head guard status.');
-              return;
-            }
+            const routingLabels = new Set([
+              'agent:auto', 'agent:codex', 'agent:claude', 'agent:copilot',
+              'agents:auto-pilot', 'agents:keepalive',
+            ]);
+            const permissionLabel = 'agents:allow-change';
+            const policyLabelNames = (labels) => {
+              if (!Array.isArray(labels)) {
+                throw new Error('PR label evidence is incomplete.');
+              }
+              const names = labels.map((label) => {
+                if (typeof label?.name !== 'string') {
+                  throw new Error('PR label evidence is malformed.');
+                }
+                const raw = label.name;
+                const routing = raw.trim().toLowerCase();
+                if (routingLabels.has(routing)) return routing;
+                return raw.toLowerCase() === permissionLabel ? permissionLabel : '';
+              }).filter(Boolean);
+              return [...new Set(names)].sort();
+            };
+            const snapshotLabels = policyLabelNames(pullRequest?.labels);
 
             const blocked = (process.env.BLOCKED || '').toLowerCase() === 'true';
             const summary = process.env.SUMMARY || '';
@@ -689,13 +706,39 @@ jobs:
             const safelySkipped = process.env.ELIGIBLE === 'false';
             const passed = process.env.JOB_STATUS === 'success'
               && (safelySkipped || evaluated) && !blocked;
-            const state = passed ? 'success' : 'failure';
+            let state = passed ? 'success' : 'failure';
             let description = summary || (!passed
               ? 'Health 45 Agents Guard blocked this pull request.'
               : 'Health 45 Agents Guard passed.');
 
-            if (description.length > 140) {
-              description = `${description.slice(0, 137)}...`;
+            function setFailure(reason) {
+              state = 'failure';
+              description = reason;
+            }
+
+            async function policyFingerprint(labels) {
+              const canonical = labels.join('\n');
+              const digest = await crypto.subtle.digest(
+                'SHA-256', new TextEncoder().encode(canonical),
+              );
+              return Array.from(new Uint8Array(digest))
+                .map((byte) => byte.toString(16).padStart(2, '0'))
+                .join('');
+            }
+
+            function finalizeDescription(fingerprint) {
+              if (!Number.isSafeInteger(pullRequest.number) || pullRequest.number <= 0) {
+                throw new Error('Current pull request number is missing or invalid.');
+              }
+              const prefix = `[guard-pr:${pullRequest.number}] `;
+              const receipt = state === 'success'
+                ? ` [guard-policy-sha256:${fingerprint}]`
+                : '';
+              const maximum = 140 - prefix.length - receipt.length;
+              if (description.length > maximum) {
+                description = `${description.slice(0, maximum - 3)}...`;
+              }
+              description = `${prefix}${description}${receipt}`;
             }
 
             const targetUrl =
@@ -756,7 +799,38 @@ jobs:
             }
 
             try {
-              if (process.env.ELIGIBLE === 'false') {
+              const currentLabels = await withApiRetry(
+                (client) => client.paginate(client.rest.issues.listLabelsOnIssue, {
+                  owner, repo, issue_number: pullRequest.number, per_page: 100,
+                }),
+                { label: 'read current PR labels before publishing guard status' },
+              );
+              if (!Array.isArray(currentLabels)) {
+                throw new Error('Current PR label evidence is incomplete.');
+              }
+              const currentLabelNames = policyLabelNames(currentLabels);
+              const currentPolicyFingerprint = await policyFingerprint(currentLabelNames);
+              const labelsChanged =
+                JSON.stringify(currentLabelNames) !== JSON.stringify(snapshotLabels);
+              if (evaluated && state === 'success') {
+                let evaluatedLabelNames;
+                try {
+                  const evaluatedLabels = JSON.parse(process.env.EVALUATED_LABELS || '');
+                  evaluatedLabelNames = policyLabelNames(evaluatedLabels);
+                } catch (error) {
+                  setFailure('Agents Guard evaluated label evidence is missing or malformed; fresh evaluation required.');
+                }
+                if (evaluatedLabelNames &&
+                    JSON.stringify(evaluatedLabelNames) !== JSON.stringify(currentLabelNames)) {
+                  setFailure('PR labels changed after guard evaluation; fresh evaluation required.');
+                }
+              }
+              if (labelsChanged) {
+                // Never let a stale eligible evaluation retain a green required
+                // context after its routing labels have changed.
+                setFailure('PR labels changed after guard evaluation; fresh evaluation required.');
+              }
+              if (!labelsChanged && process.env.ELIGIBLE === 'false') {
                 const statuses = await withApiRetry(
                   (client) => client.paginate(client.rest.repos.listCommitStatusesForRef, {
                     owner, repo, ref: sha, per_page: 100,
@@ -766,11 +840,30 @@ jobs:
                 if (!Array.isArray(statuses)) {
                   throw new Error('Incomplete exact-head status inventory.');
                 }
-                if (statuses.some((status) => status.context === 'Health 45 Agents Guard / guard')) {
-                  core.info('Ineligible PR event: preserving existing exact-head guard verdict.');
+                const existing = statuses.find(
+                  (status) => status.context === 'Health 45 Agents Guard / guard',
+                );
+                if (existing) {
+                  if (context.eventName === 'pull_request_target' && existing.state === 'success') {
+                    if (typeof existing.description === 'string'
+                        && existing.description.startsWith(`[guard-pr:${pullRequest.number}] `)
+                        && existing.description.endsWith(` [guard-policy-sha256:${currentPolicyFingerprint}]`)) {
+                      core.info('Ineligible PR event: preserving policy-bound exact-head success.');
+                      return;
+                    }
+                    // A changed, missing, or malformed policy receipt cannot
+                    // retain a green context. A fresh eligible run may recover it.
+                    setFailure('Health 45 Agents Guard policy changed; fresh evaluation required.');
+                  } else {
+                    core.info('Ineligible PR event: preserving existing exact-head guard verdict.');
+                    return;
+                  }
+                } else if (context.eventName === 'pull_request_target') {
+                  core.info('Ineligible PR event: leaving absent exact-head guard verdict absent.');
                   return;
                 }
               }
+              finalizeDescription(currentPolicyFingerprint);
               await withApiRetry(
                 (client) => client.rest.repos.createCommitStatus({
                   owner,
@@ -794,6 +887,8 @@ jobs:
         if: >-
           steps.eligibility.outputs.should-run == 'true' &&
           steps.evaluate.outputs.blocked == 'true'
+        env:
+          GUARD_SUMMARY: ${{ steps.evaluate.outputs.summary }}
         run: |
-          echo "${{ steps.evaluate.outputs.summary }}"
+          printf '%s\n' "$GUARD_SUMMARY"
           exit 1

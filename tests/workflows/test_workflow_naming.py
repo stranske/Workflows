@@ -232,6 +232,7 @@ EXPECTED_NAMES = {
     "agents-decompose.yml": "Task Decomposition",
     "agents-dedup.yml": "Duplicate Detection",
     "agents-guard.yml": "Health 45 Agents Guard",
+    "agents-guard-fork-status.yml": "Agents Guard Fork Status Publisher",
     "maint-auto-label-dep-prs.yml": "Auto-label dependency PRs",
     "maint-auto-lock-deps.yml": "Auto-lock dependency PRs",
     "agents-63-issue-intake.yml": "Agents 63 Issue Intake",

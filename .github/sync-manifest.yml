@@ -53,9 +53,13 @@ workflows:
     sync_mode: create_only
     overwrite_repos:
       - stranske/Template
+
     skip_repos:
       - repo: stranske/Manager-Database
         reason: "Maintains a fully custom Gate workflow and is excluded with the canonical Gate source."
+
+  - source: .github/workflows/agents-guard-fork-status.yml
+    description: "Trusted default-branch publisher for exact-head Health 45 Agents Guard / guard statuses on fork pull requests; centrally managed so existing consumers receive the required context."
 
   - source: .github/workflows/ci.yml
     description: "CI workflow - main continuous integration entry point"
@@ -254,6 +258,9 @@ codex_config:
 scripts:
   - source: .github/scripts/gate-fork-status-publication.js
     description: "Validates trusted Gate identity and attempt/head binding; publishes Gate / gate with an authenticated status-id receipt from immutable default-branch code."
+
+  - source: .github/scripts/agents-guard-fork-status-publication.js
+    description: "Validates trusted Health 45 Agents Guard identity and attempt/head binding; publishes the required fork guard status with an authenticated status-id receipt from immutable default-branch code."
 
   # Tools directory - Python helpers used by reusable-10-ci-python.yml
 
