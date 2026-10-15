@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.38.10](https://github.com/stranske/Workflows/compare/v1.38.9...v1.38.10) (2026-10-15)
+
+
+### Bug Fixes
+
+* declare explicit retention for all workflow artifact uploads ([#3873](https://github.com/stranske/Workflows/issues/3873)) ([0d5eec1](https://github.com/stranske/Workflows/commit/0d5eec17ff52fa21e6cfb15735688de7a112e7e0))
+* **guard:** preserve writable fork status boundary ([#3900](https://github.com/stranske/Workflows/issues/3900)) ([8ec052a](https://github.com/stranske/Workflows/commit/8ec052a1fdc32319165011a7e465d6710c7ef4b5))
+
 ## [1.38.9](https://github.com/stranske/Workflows/compare/v1.38.8...v1.38.9) (2026-10-14)
 
 
