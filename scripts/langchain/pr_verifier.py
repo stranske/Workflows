@@ -3117,7 +3117,7 @@ def _classify_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         + product_actor
         + r"\s+"
         + product_aspect
-        + r"(?:record|capture|attach|generate)\w*\s+"
+        + r"(?:(?:record|capture|attach|generate)\w*|save|persist|log)\s+"
         + product_evidence_object
         + r")"
         r"(?:in|into|to|as)\s+(?:(?:its|the|an?)\s+)?"
@@ -5309,7 +5309,7 @@ def _classify_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                 + passive_delivery_prefix
                 + r")?"
                 + delivery_adverbs
-                + r"(?:record|capture|attach|generate)\w*\s+"
+                + r"(?:(?:record|capture|attach|generate)\w*|save|persist|log)\s+"
                 + r"(?:(?:the|an?)\s+)?"
                 + evidence_modifiers
                 + r"(?:transcripts?|command outputs?|evidence|artifacts?)\s+"

@@ -7429,3 +7429,25 @@ def test_issue3883_artifact_registry_product_noun_stays_nongating():
     assert (
         _floor_verdict(criterion, body="present", comments="absent", artifacts="absent") == "PASS"
     )
+
+
+@pytest.mark.parametrize(
+    "criterion",
+    [
+        "The service must save transcripts to its database",
+        "The service must persist command output in its database",
+        "The service must log command output in its audit log",
+    ],
+)
+def test_save_persist_log_product_storage_does_not_require_review_evidence(criterion):
+    assert verifier._required_evidence_channels(criterion) == set()
+    for missing in ("absent", "unavailable"):
+        assert (
+            _floor_verdict(
+                criterion, body=missing, comments=missing, artifacts=missing, overall=missing
+            )
+            == "PASS"
+        )
+        independent = criterion + "; the reviewer must report test results in a PR comment"
+        assert verifier._required_evidence_channels(independent) == {"comments"}
+        assert _floor_verdict(independent, body="present", comments=missing) == "CONCERNS"
