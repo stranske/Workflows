@@ -2,7 +2,9 @@
   "workspace_root": "..",
   "excluded_repo_names": [
     "stranske",
-    "collab-deliverables"
+    "collab-deliverables",
+    "collab-admin",
+    "workflows-integration-tests"
   ],
   "archive_review": {
     "paths": [
