@@ -7458,8 +7458,11 @@ def test_save_persist_log_product_storage_does_not_require_review_evidence(crite
     "destination,channel",
     [("a PR comment", "comments"), ("workflow artifacts", "artifacts"), ("the PR body", "body")],
 )
-def test_bounded_storage_shared_review_destination_preserves_floor(operation, destination, channel):
-    criterion = f"The service must {operation} evidence in its database and in {destination}"
+@pytest.mark.parametrize("payload", ["evidence", "transcripts", "command output", "artifacts"])
+def test_bounded_storage_shared_review_destination_preserves_floor(
+    operation, destination, channel, payload
+):
+    criterion = f"The service must {operation} {payload} in its database and in {destination}"
     assert verifier._required_evidence_channels(criterion) == {channel}
     for missing in ("absent", "unavailable"):
         assert (

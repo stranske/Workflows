@@ -3139,7 +3139,11 @@ def _classify_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         # review delivery. Do not add unrestricted aliases to the grammar.
         start = match.start("shared_storage_operation") - match.start("predicate")
         end = match.end("shared_storage_operation") - match.start("predicate")
-        return predicate[:start] + "record" + predicate[end:]
+        normalized = predicate[:start] + "record" + predicate[end:]
+        # Artifact-valued stored proof is still evidence when this already-bound
+        # predicate has an explicit shared review destination. Preserve any
+        # object modifiers; only neutralize the terminal object noun locally.
+        return re.sub(r"\bartifacts?(?=\s*$)", "evidence", normalized, flags=re.I)
 
     coordinated_governor = (
         r"(?:"

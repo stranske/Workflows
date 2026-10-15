@@ -1,0 +1,70 @@
+..............................FFF...                                     [100%]
+=================================== FAILURES ===================================
+_ test_bounded_storage_shared_review_destination_preserves_floor[artifacts-workflow artifacts-artifacts-save] _
+
+operation = 'save', destination = 'workflow artifacts', channel = 'artifacts'
+payload = 'artifacts'
+
+    @pytest.mark.parametrize("operation", ["save", "persist", "log"])
+    @pytest.mark.parametrize(
+        "destination,channel",
+        [("a PR comment", "comments"), ("workflow artifacts", "artifacts"), ("the PR body", "body")],
+    )
+    @pytest.mark.parametrize("payload", ["evidence", "transcripts", "command output", "artifacts"])
+    def test_bounded_storage_shared_review_destination_preserves_floor(operation, destination, channel, payload):
+        criterion = f"The service must {operation} {payload} in its database and in {destination}"
+>       assert verifier._required_evidence_channels(criterion) == {channel}
+E       AssertionError: assert set() == {'artifacts'}
+E
+E         Extra items in the right set:
+E         'artifacts'
+E         Use -v to get more diff
+
+tests/scripts/test_pr_verifier_delivery_destinations.py:7464: AssertionError
+_ test_bounded_storage_shared_review_destination_preserves_floor[artifacts-workflow artifacts-artifacts-persist] _
+
+operation = 'persist', destination = 'workflow artifacts', channel = 'artifacts'
+payload = 'artifacts'
+
+    @pytest.mark.parametrize("operation", ["save", "persist", "log"])
+    @pytest.mark.parametrize(
+        "destination,channel",
+        [("a PR comment", "comments"), ("workflow artifacts", "artifacts"), ("the PR body", "body")],
+    )
+    @pytest.mark.parametrize("payload", ["evidence", "transcripts", "command output", "artifacts"])
+    def test_bounded_storage_shared_review_destination_preserves_floor(operation, destination, channel, payload):
+        criterion = f"The service must {operation} {payload} in its database and in {destination}"
+>       assert verifier._required_evidence_channels(criterion) == {channel}
+E       AssertionError: assert set() == {'artifacts'}
+E
+E         Extra items in the right set:
+E         'artifacts'
+E         Use -v to get more diff
+
+tests/scripts/test_pr_verifier_delivery_destinations.py:7464: AssertionError
+_ test_bounded_storage_shared_review_destination_preserves_floor[artifacts-workflow artifacts-artifacts-log] _
+
+operation = 'log', destination = 'workflow artifacts', channel = 'artifacts'
+payload = 'artifacts'
+
+    @pytest.mark.parametrize("operation", ["save", "persist", "log"])
+    @pytest.mark.parametrize(
+        "destination,channel",
+        [("a PR comment", "comments"), ("workflow artifacts", "artifacts"), ("the PR body", "body")],
+    )
+    @pytest.mark.parametrize("payload", ["evidence", "transcripts", "command output", "artifacts"])
+    def test_bounded_storage_shared_review_destination_preserves_floor(operation, destination, channel, payload):
+        criterion = f"The service must {operation} {payload} in its database and in {destination}"
+>       assert verifier._required_evidence_channels(criterion) == {channel}
+E       AssertionError: assert set() == {'artifacts'}
+E
+E         Extra items in the right set:
+E         'artifacts'
+E         Use -v to get more diff
+
+tests/scripts/test_pr_verifier_delivery_destinations.py:7464: AssertionError
+=========================== short test summary info ============================
+FAILED tests/scripts/test_pr_verifier_delivery_destinations.py::test_bounded_storage_shared_review_destination_preserves_floor[artifacts-workflow artifacts-artifacts-save]
+FAILED tests/scripts/test_pr_verifier_delivery_destinations.py::test_bounded_storage_shared_review_destination_preserves_floor[artifacts-workflow artifacts-artifacts-persist]
+FAILED tests/scripts/test_pr_verifier_delivery_destinations.py::test_bounded_storage_shared_review_destination_preserves_floor[artifacts-workflow artifacts-artifacts-log]
+3 failed, 33 passed, 90514 deselected in 6.06s
