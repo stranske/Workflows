@@ -42,6 +42,21 @@ function policyReceipt(labels) {
   return ` [guard-policy-sha256:${policyFingerprint(policyLabelNames(labels))}]`;
 }
 
+const POLICY_STEP_PREFIX = 'Evaluated policy labels sha256:';
+
+function evaluatedPolicyFingerprint(jobs) {
+  const guards = jobs.filter(job => GUARD_JOB_NAMES.has(job?.name));
+  const receipts = guards.length === 1 && Array.isArray(guards[0].steps)
+    ? guards[0].steps.filter(step => typeof step?.name === 'string' && step.name.startsWith(POLICY_STEP_PREFIX))
+    : [];
+  const receipt = receipts[0];
+  const digest = receipt?.name.match(/^Evaluated policy labels sha256:([0-9a-f]{64})$/)?.[1];
+  if (receipts.length !== 1 || !digest || receipt.status !== 'completed' || receipt.conclusion !== 'success') {
+    throw new Error('Evaluated policy label receipt is missing or ambiguous');
+  }
+  return digest;
+}
+
 function prReceipt(prNumber) {
   if (!Number.isSafeInteger(Number(prNumber)) || Number(prNumber) <= 0) {
     throw new Error('Pull request number is missing or invalid');
@@ -392,6 +407,14 @@ async function publishGuardForkStatus({ github, context, core }) {
       throw new Error('Pull request binding changed before publication');
     }
     await assertLatestAttempt({ github, retry, owner, repo, run });
+    if (result.state === 'success' && result.evaluated === true &&
+        evaluatedPolicyFingerprint(jobs) !== policyFingerprint(policyLabelNames(pr.labels))) {
+      result = {
+        state: 'failure',
+        description: 'Evaluated policy labels differ from current policy; fresh evaluation required.',
+        evaluated: false,
+      };
+    }
     if (result.state === 'success') {
       result = { ...result, description: withPolicyReceipt(result.description, pr.labels, pr.number) };
     }
@@ -447,6 +470,7 @@ module.exports = {
   GUARD_CONTEXT,
   GUARD_PATH,
   assertRunUnchanged,
+  evaluatedPolicyFingerprint,
   collectChangedPaths,
   publicationState,
   publishGuardForkStatus,

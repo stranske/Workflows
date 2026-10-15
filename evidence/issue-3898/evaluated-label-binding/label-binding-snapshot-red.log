@@ -1,0 +1,56 @@
+FFFF.                                                                    [100%]
+=================================== FAILURES ===================================
+_ test_fork_success_requires_the_actual_evaluated_policy_labels[evaluated0-current0] _
+
+evaluated = [{'name': 'agent:auto'}], current = []
+
+    @pytest.mark.parametrize("evaluated,current", [([{"name":"agent:auto"}], []), ([], [{"name":"agents:allow-change"}])])
+    def test_fork_success_requires_the_actual_evaluated_policy_labels(evaluated, current):
+        result = _publish_scenario(evaluated_labels=evaluated, labels=current)
+>       assert result["result"]["state"] == "failure"
+E       AssertionError: assert 'success' == 'failure'
+E
+E         - failure
+E         + success
+
+tests/workflows/test_agents_guard_fork_status_publication.py:1049: AssertionError
+_ test_fork_success_requires_the_actual_evaluated_policy_labels[evaluated1-current1] _
+
+evaluated = [], current = [{'name': 'agents:allow-change'}]
+
+    @pytest.mark.parametrize("evaluated,current", [([{"name":"agent:auto"}], []), ([], [{"name":"agents:allow-change"}])])
+    def test_fork_success_requires_the_actual_evaluated_policy_labels(evaluated, current):
+        result = _publish_scenario(evaluated_labels=evaluated, labels=current)
+>       assert result["result"]["state"] == "failure"
+E       AssertionError: assert 'success' == 'failure'
+E
+E         - failure
+E         + success
+
+tests/workflows/test_agents_guard_fork_status_publication.py:1049: AssertionError
+__________ test_fork_success_checks_labels_again_after_file_inventory __________
+
+    def test_fork_success_checks_labels_again_after_file_inventory():
+        result = _publish_scenario(evaluated_labels=[], final_labels=[{"name":"agent:auto"}])
+>       assert result["result"]["state"] == "failure"
+E       AssertionError: assert 'success' == 'failure'
+E
+E         - failure
+E         + success
+
+tests/workflows/test_agents_guard_fork_status_publication.py:1056: AssertionError
+__________ test_fork_success_rejects_missing_evaluated_policy_receipt __________
+
+    def test_fork_success_rejects_missing_evaluated_policy_receipt():
+        result = _publish_scenario(policy_receipt_step=False)
+>       assert "policy" in result["error"].lower()
+                           ^^^^^^^^^^^^^^^
+E       KeyError: 'error'
+
+tests/workflows/test_agents_guard_fork_status_publication.py:1062: KeyError
+=========================== short test summary info ============================
+FAILED tests/workflows/test_agents_guard_fork_status_publication.py::test_fork_success_requires_the_actual_evaluated_policy_labels[evaluated0-current0]
+FAILED tests/workflows/test_agents_guard_fork_status_publication.py::test_fork_success_requires_the_actual_evaluated_policy_labels[evaluated1-current1]
+FAILED tests/workflows/test_agents_guard_fork_status_publication.py::test_fork_success_checks_labels_again_after_file_inventory
+FAILED tests/workflows/test_agents_guard_fork_status_publication.py::test_fork_success_rejects_missing_evaluated_policy_receipt
+4 failed, 1 passed, 52 deselected in 0.50s

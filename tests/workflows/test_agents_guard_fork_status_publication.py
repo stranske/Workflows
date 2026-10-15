@@ -71,6 +71,9 @@ def _publish_scenario(
     evaluate_conclusion="success",
     run_conclusion="success",
     job_conclusion="success",
+    evaluated_labels=None,
+    policy_receipt_step=True,
+    final_labels=None,
 ):
     initial_run = {
         "id": 9,
@@ -140,10 +143,20 @@ def _publish_scenario(
         "files": files,
         "targetRun": target_run,
         "targetLookupError": target_lookup_error,
+        "evaluatedLabels": evaluated_labels,
+        "policyReceiptStep": policy_receipt_step,
+        "finalLabels": final_labels,
     }
     source = f"""
 const helper = require({json.dumps(str(HELPER))});
 const scenario = {json.dumps(scenario)};
+if (scenario.policyReceiptStep) {{
+  const labels = scenario.evaluatedLabels === null ? scenario.pr.labels : scenario.evaluatedLabels;
+  const routing = new Set(['agent:auto','agent:codex','agent:claude','agent:copilot','agents:auto-pilot','agents:keepalive']);
+  const names = [...new Set(labels.map(label => {{const raw=label.name;const key=raw.trim().toLowerCase();return routing.has(key)?key:raw.toLowerCase()==='agents:allow-change'?'agents:allow-change':'';}}).filter(Boolean))].sort();
+  const digest = require('crypto').createHash('sha256').update(names.join(String.fromCharCode(10))).digest('hex');
+  scenario.jobs[0].steps.push({{name:'Evaluated policy labels sha256:'+digest,status:'completed',conclusion:'success'}});
+}}
 process.env.GITHUB_RUN_ATTEMPT = {json.dumps(publisher_attempt)};
 let runReads = 0;
 let statusRead = false;
@@ -173,7 +186,10 @@ const github = {{
     pulls: {{
       get: async () => ({{data: currentPr}}),
       list: endpoint(scenario.openPrs === null ? [scenario.pr] : scenario.openPrs),
-      listFiles: endpoint(scenario.files || [{{filename: 'src/app.js', status: 'modified'}}]),
+      listFiles: async () => {{
+        if (scenario.finalLabels !== null) currentPr = {{...currentPr, labels: scenario.finalLabels}};
+        return {{data:scenario.files || [{{filename:'src/app.js',status:'modified'}}]}};
+      }},
     }},
     repos: {{
       listCommitStatusesForRef: async () => {{
@@ -1025,3 +1041,124 @@ def test_same_sha_other_pr_direct_success_cannot_authorize_resolved_pr():
     )
     assert outcome["result"]["state"] == "failure"
     assert [write["state"] for write in outcome["writes"]] == ["failure"]
+
+
+@pytest.mark.parametrize(
+    "evaluated,current", [([{"name": "agent:auto"}], []), ([], [{"name": "agents:allow-change"}])]
+)
+def test_fork_success_requires_the_actual_evaluated_policy_labels(evaluated, current):
+    result = _publish_scenario(evaluated_labels=evaluated, labels=current)
+    assert result["result"]["state"] == "failure"
+    assert [write["state"] for write in result["writes"]] == ["failure"]
+    assert "evaluated policy labels" in result["writes"][0]["description"].lower()
+
+
+def test_fork_success_checks_labels_again_after_file_inventory():
+    result = _publish_scenario(evaluated_labels=[], final_labels=[{"name": "agent:auto"}])
+    assert result["result"]["state"] == "failure"
+    assert [write["state"] for write in result["writes"]] == ["failure"]
+
+
+def test_fork_success_rejects_missing_evaluated_policy_receipt():
+    result = _publish_scenario(policy_receipt_step=False)
+    assert "policy" in result["error"].lower()
+    assert result["writes"] == []
+
+
+def test_fork_matching_evaluated_labels_still_publish_success():
+    result = _publish_scenario(
+        evaluated_labels=[{"name": " AGENT:AUTO "}],
+        labels=[{"name": "agent:auto"}, {"name": "documentation"}],
+    )
+    assert result["result"]["state"] == "success"
+    assert [write["state"] for write in result["writes"]] == ["success"]
+
+
+@pytest.mark.parametrize(
+    "labels,canonical",
+    [
+        ([], []),
+        (
+            [{"name": " AGENT:AUTO "}, {"name": "documentation"}, {"name": "agent:auto"}],
+            ["agent:auto"],
+        ),
+        (
+            [{"name": "AGENTS:ALLOW-CHANGE"}, {"name": "agent:codex"}],
+            ["agent:codex", "agents:allow-change"],
+        ),
+    ],
+)
+def test_actual_producer_policy_digest_is_bound_in_step_metadata(labels, canonical):
+    import hashlib
+
+    expected = hashlib.sha256("\n".join(canonical).encode()).hexdigest()
+    for workflow in (
+        ROOT / ".github/workflows/agents-guard.yml",
+        ROOT / "templates/consumer-repo/.github/workflows/agents-guard.yml",
+    ):
+        data = yaml.safe_load(workflow.read_text())
+        steps = data["jobs"]["guard"]["steps"]
+        script = next(step for step in steps if step.get("id") == "evaluate")["with"]["script"]
+        snippet = script[
+            script.index("const evaluatedRoutingLabels") : script.index(
+                "let summary = result.summary;"
+            )
+        ]
+        source = (
+            "const labels="
+            + json.dumps(labels)
+            + "; const outputs={}; const core={setOutput:(k,v)=>outputs[k]=v};"
+            + snippet
+            + ";process.stdout.write(JSON.stringify(outputs));"
+        )
+        completed = subprocess.run(
+            ["node", "-e", source], check=True, capture_output=True, text=True
+        )
+        assert json.loads(completed.stdout)["evaluated_policy_sha256"] == expected
+        receipts = [
+            step for step in steps if step["name"].startswith("Evaluated policy labels sha256:")
+        ]
+        assert len(receipts) == 1
+        assert "steps.evaluate.outputs.evaluated_policy_sha256" in receipts[0]["name"]
+        assert receipts[0]["if"] == "${{ steps.evaluate.outcome == 'success' }}"
+
+
+@pytest.mark.parametrize(
+    "steps",
+    [
+        [],
+        [
+            {
+                "name": "Evaluated policy labels sha256:not-a-digest",
+                "status": "completed",
+                "conclusion": "success",
+            }
+        ],
+        [
+            {
+                "name": "Evaluated policy labels sha256:" + "a" * 64,
+                "status": "completed",
+                "conclusion": "failure",
+            }
+        ],
+        [
+            {
+                "name": "Evaluated policy labels sha256:" + "a" * 64,
+                "status": "completed",
+                "conclusion": "success",
+            }
+        ]
+        * 2,
+    ],
+)
+def test_evaluated_policy_metadata_must_be_unique_complete_and_well_formed(steps):
+    source = (
+        "const h=require("
+        + json.dumps(str(HELPER))
+        + ");try{h.evaluatedPolicyFingerprint([{name:'guard',steps:"
+        + json.dumps(steps)
+        + "}]);process.stdout.write('accepted');}catch(e){process.stdout.write(e.message)}"
+    )
+    result = subprocess.run(["node", "-e", source], check=True, capture_output=True, text=True)
+    assert "policy" in result.stdout.lower()
+    assert result.stdout != "accepted"

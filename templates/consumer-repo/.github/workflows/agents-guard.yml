@@ -484,6 +484,20 @@ jobs:
 
             core.setOutput('blocked', result.blocked ? 'true' : 'false');
             core.setOutput('evaluated_labels', JSON.stringify(labels));
+            const evaluatedRoutingLabels = new Set([
+              'agent:auto', 'agent:codex', 'agent:claude', 'agent:copilot',
+              'agents:auto-pilot', 'agents:keepalive',
+            ]);
+            if (!Array.isArray(labels)) throw new Error('Evaluated labels are incomplete.');
+            const evaluatedPolicyLabels = [...new Set(labels.map(label => {
+              if (typeof label?.name !== 'string') throw new Error('Evaluated labels are malformed.');
+              const raw = label.name;
+              const routing = raw.trim().toLowerCase();
+              return evaluatedRoutingLabels.has(routing) ? routing
+                : raw.toLowerCase() === 'agents:allow-change' ? 'agents:allow-change' : '';
+            }).filter(Boolean))].sort();
+            core.setOutput('evaluated_policy_sha256', require('crypto').createHash('sha256')
+              .update(evaluatedPolicyLabels.join(String.fromCharCode(10))).digest('hex'));
             let summary = result.summary;
             if (rateLimitNotes.length) {
               const noteBlock = `\n\nRate limit notices:\n${rateLimitNotes.join('\n')}`;
@@ -656,6 +670,12 @@ jobs:
               }),
               { label: 'create guard comment' },
             );
+
+      - name: "Evaluated policy labels sha256:${{ steps.evaluate.outputs.evaluated_policy_sha256 }}"
+        if: ${{ steps.evaluate.outcome == 'success' }}
+        uses: actions/github-script@v9
+        with:
+          script: core.info('Evaluated policy label digest is bound to this run attempt.');
 
       - name: Report agents guard commit status
         if: >-

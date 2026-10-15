@@ -260,7 +260,7 @@ scripts:
     description: "Validates trusted Gate identity and attempt/head binding; publishes Gate / gate with an authenticated status-id receipt from immutable default-branch code."
 
   - source: .github/scripts/agents-guard-fork-status-publication.js
-    description: "Validates trusted Health 45 Agents Guard identity and attempt/head binding; publishes the required fork guard status with an authenticated status-id receipt from immutable default-branch code."
+    description: "Validates trusted Health 45 Agents Guard identity, attempt/head and evaluated-policy-label binding; publishes the required fork guard status with an authenticated status-id receipt from immutable default-branch code."
 
   # Tools directory - Python helpers used by reusable-10-ci-python.yml
 
