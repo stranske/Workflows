@@ -26,3 +26,13 @@ def test_no_output_repos_are_ignored_not_paused():
             "(owner instruction) — consumers read status, so 'paused' would re-admit it"
         )
         assert "no output" in by_repo[repo].get("decision_anchor", "").lower()
+
+
+def test_owner_excluded_repo_never_reaches_evaluator_inventory():
+    """Ignored status alone still admits repositories to evaluator reports."""
+    from scripts.repo_review_evaluator import load_registry
+
+    _, excluded, repos, _ = load_registry(REGISTRY)
+    assert "collab-admin" in excluded
+    assert "stranske/Collab-Admin" not in {repo.repo for repo in repos}
+    assert len([repo for repo in repos if repo.status == "active"]) >= 1
