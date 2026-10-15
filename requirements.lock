@@ -23,7 +23,7 @@ attrs==26.1.0
     #   aiohttp
     #   jsonschema
     #   referencing
-black==26.10.0
+black==26.10.1
     # via workflows (pyproject.toml)
 certifi==2026.7.22
     # via
@@ -305,7 +305,7 @@ rpds-py==2026.6.3
     # via
     #   jsonschema
     #   referencing
-ruff==0.16.10
+ruff==0.17.0
     # via workflows (pyproject.toml)
 six==1.17.0
     # via

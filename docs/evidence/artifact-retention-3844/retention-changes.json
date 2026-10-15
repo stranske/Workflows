@@ -1,0 +1,112 @@
+[
+  {
+    "path": ".github/workflows/agents-63-issue-intake.yml",
+    "uses_line": 377,
+    "retention_days": 30
+  },
+  {
+    "path": ".github/workflows/health-40-repo-selfcheck.yml",
+    "uses_line": 1217,
+    "retention_days": 30
+  },
+  {
+    "path": ".github/workflows/health-44-gate-branch-protection.yml",
+    "uses_line": 295,
+    "retention_days": 30
+  },
+  {
+    "path": ".github/workflows/health-70-validate-sync-manifest.yml",
+    "uses_line": 100,
+    "retention_days": 30
+  },
+  {
+    "path": ".github/workflows/health-78-backplane-contract.yml",
+    "uses_line": 145,
+    "retention_days": 30
+  },
+  {
+    "path": ".github/workflows/health-83-dependency-sync-efficiency.yml",
+    "uses_line": 196,
+    "retention_days": 30
+  },
+  {
+    "path": ".github/workflows/maint-45-cosmetic-repair.yml",
+    "uses_line": 114,
+    "retention_days": 30
+  },
+  {
+    "path": ".github/workflows/maint-71-merge-sync-prs.yml",
+    "uses_line": 357,
+    "retention_days": 30
+  },
+  {
+    "path": ".github/workflows/maint-71-merge-sync-prs.yml",
+    "uses_line": 667,
+    "retention_days": 30
+  },
+  {
+    "path": ".github/workflows/maint-77-model-registry-freshness.yml",
+    "uses_line": 112,
+    "retention_days": 30
+  },
+  {
+    "path": ".github/workflows/maint-77-model-registry-freshness.yml",
+    "uses_line": 248,
+    "retention_days": 30
+  },
+  {
+    "path": ".github/workflows/maint-78-model-evaluation-pilot.yml",
+    "uses_line": 166,
+    "retention_days": 30
+  },
+  {
+    "path": ".github/workflows/pr-11-ci-smoke.yml",
+    "uses_line": 98,
+    "retention_days": 30
+  },
+  {
+    "path": ".github/workflows/reusable-18-autofix.yml",
+    "uses_line": 1010,
+    "retention_days": 30
+  },
+  {
+    "path": ".github/workflows/reusable-18-autofix.yml",
+    "uses_line": 1451,
+    "retention_days": 30
+  },
+  {
+    "path": ".github/workflows/reusable-18-autofix.yml",
+    "uses_line": 1886,
+    "retention_days": 30
+  },
+  {
+    "path": ".github/workflows/reusable-backplane-conformance.yml",
+    "uses_line": 141,
+    "retention_days": 30
+  },
+  {
+    "path": ".github/workflows/reusable-claude-run.yml",
+    "uses_line": 1161,
+    "retention_days": 14
+  },
+  {
+    "path": ".github/workflows/reusable-codex-run.yml",
+    "uses_line": 1818,
+    "retention_days": 14
+  },
+  {
+    "path": ".github/workflows/reusable-cursor-run.yml",
+    "uses_line": 1259,
+    "retention_days": 14
+  },
+  {
+    "path": ".github/workflows/reusable-gemini-run.yml",
+    "uses_line": 1247,
+    "retention_days": 14
+  },
+  {
+    "path": ".github/workflows/selftest-reusable-ci.yml",
+    "uses_line": 675,
+    "retention_days": 30
+  }
+]

@@ -1,0 +1,6 @@
+{"requested":14,"limit":7,"effective_days":7,"warnings":1,"result":"PASS"}
+{"requested":30,"limit":7,"effective_days":7,"warnings":1,"result":"PASS"}
+{"requested":14,"limit":90,"effective_days":14,"warnings":0,"result":"PASS"}
+{"requested":30,"limit":90,"effective_days":30,"warnings":0,"result":"PASS"}
+{"requested":14,"limit":1,"effective_days":1,"warnings":1,"result":"PASS"}
+{"requested":30,"limit":1,"effective_days":1,"warnings":1,"result":"PASS"}

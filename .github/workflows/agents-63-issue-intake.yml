@@ -376,6 +376,7 @@ jobs:
         if: ${{ always() && needs.normalize_inputs.outputs.debug == 'true' }}
         uses: actions/upload-artifact@v7
         with:
+          retention-days: 30
           name: chatgpt-sync-debug
           path: |
             raw_input.json

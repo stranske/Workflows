@@ -294,6 +294,7 @@ jobs:
         if: always() && steps.fingerprint.outputs.should_run == 'true'
         uses: actions/upload-artifact@v7
         with:
+          retention-days: 30
           name: gate-branch-protection-${{ github.run_id }}
           path: ${{ env.SNAPSHOT_DIR }}
           if-no-files-found: ignore

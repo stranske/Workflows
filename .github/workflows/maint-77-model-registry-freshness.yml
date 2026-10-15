@@ -111,6 +111,7 @@ jobs:
         if: github.event_name != 'pull_request' && always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
+          retention-days: 30
           name: model-catalog-discovery-${{ github.run_id }}
           path: catalog-discovery.json
           if-no-files-found: ignore
@@ -247,6 +248,7 @@ jobs:
       - name: Upload pilot candidates for MAINT-78
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
+          retention-days: 30
           name: maint-77-pilot-candidates
           path: config/model_eval_candidates.json
           if-no-files-found: error

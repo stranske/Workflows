@@ -1,0 +1,35 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_____________ test_every_upload_artifact_step_sets_retention_days ______________
+
+    def test_every_upload_artifact_step_sets_retention_days():
+        uploads = 0
+        missing = []
+        for path in sorted((ROOT / ".github/workflows").glob("*.yml")):
+            workflow = _mapping(yaml.compose(path.read_text(encoding="utf-8")))
+            for job in _mapping(workflow["jobs"]).values():
+                steps = _mapping(job).get("steps")
+                if steps is None:  # Reusable-workflow jobs have no steps.
+                    continue
+                for node in steps.value:
+                    step = _mapping(node)
+                    uses = step.get("uses")
+                    if uses is None or uses.value.split("@", 1)[0] != "actions/upload-artifact":
+                        continue
+                    uploads += 1
+                    settings = step.get("with")
+                    retention = _mapping(settings).get("retention-days") if settings else None
+                    if not isinstance(retention, yaml.ScalarNode) or not retention.value.strip():
+                        missing.append(
+                            f"{path.relative_to(ROOT)}:{uses.start_mark.line + 1}: "
+                            "actions/upload-artifact must set retention-days"
+                        )
+        assert uploads > 0, "No actions/upload-artifact steps were inspected"
+>       assert not missing, "\n".join(missing)
+E       AssertionError: .github/workflows/reusable-codex-run.yml:1818: actions/upload-artifact must set retention-days
+E       assert not ['.github/workflows/reusable-codex-run.yml:1818: actions/upload-artifact must set retention-days']
+
+tests/workflows/test_artifact_retention.py:38: AssertionError
+=========================== short test summary info ============================
+FAILED tests/workflows/test_artifact_retention.py::test_every_upload_artifact_step_sets_retention_days
+1 failed in 1.77s

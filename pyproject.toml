@@ -30,8 +30,8 @@ Issues = "https://github.com/stranske/Workflows/issues"
 app = []
 dev = [
     "pre-commit==4.6.1",
-    "black==26.10.0",
-    "ruff==0.16.10",
+    "black==26.10.1",
+    "ruff==0.17.0",
     "isort==9.0.2",
     "docformatter==1.7.8",
     "mypy==2.4.0",

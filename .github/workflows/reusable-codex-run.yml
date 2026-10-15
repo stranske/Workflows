@@ -1817,6 +1817,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v7
         with:
+          retention-days: 14
           name: codex-output-${{ inputs.pr_number || github.run_id }}
           path: |
             codex-output*.md

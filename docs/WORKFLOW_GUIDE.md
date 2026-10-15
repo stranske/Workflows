@@ -18,6 +18,24 @@ the run's `evidence_refs`; it does not execute a consumer-local validator.
 
 > _Gate rerun trigger:_ this paragraph was touched on 2025-10-13 to force a fresh Gate workflow execution.
 
+## Artifact retention
+
+Every direct `actions/upload-artifact` step in Workflows declares `retention-days`.
+The four per-agent runner output uploads retain debugging logs for 14 days; the
+other uploads that previously inherited the repository default retain artifacts
+for 30 days. Existing explicit retention values, including 90-day evidence
+exceptions, remain unchanged. The repository default stays at 90 days; this policy
+does not expire historical artifacts or change workflow-run/check/status retention.
+Consumer wrappers retain their existing repository-specific settings. These are
+requested durations: `actions/upload-artifact@v7` clamps them to the caller's
+`GITHUB_RETENTION_DAYS` maximum, so a caller with a seven-day limit retains these
+artifacts for seven days. See the [caller-policy review proof](evidence/artifact-retention-3844/caller-policy-review.md).
+
+Run `python3 -m pytest tests/workflows/test_artifact_retention.py -q` to check every
+direct workflow upload. Failures identify the workflow file and upload line.
+Measure new artifacts' retention at creation when checking this change; total
+artifact count can continue rising until the shorter retention periods elapse.
+
 ## WFv1 Naming Scheme
 
 | Prefix | Purpose | Active Examples |

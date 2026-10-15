@@ -1,0 +1,18 @@
+[
+  {
+    "workflow": ".github/workflows/reusable-codex-run.yml",
+    "requested_days": 14,
+    "mutation_days": 90,
+    "exit": 1,
+    "original_sha256": "85384a5f2c021791879374405543bd25bc503e2e7bc92a6c16619fa41bece3c5",
+    "mutant_sha256": "b1ff4c30e4d6ed99c09d3b92586c41c30b019393ed4504226a66da2afd70adf9"
+  },
+  {
+    "workflow": ".github/workflows/agents-63-issue-intake.yml",
+    "requested_days": 30,
+    "mutation_days": 90,
+    "exit": 1,
+    "original_sha256": "8663a858d73fb2cd8323db46d815496edce4f9f99cf736a95faa8aba0fbace99",
+    "mutant_sha256": "9754d8d5bd3b9c99ffa865ab97e894e6ecedd369ad62769392e0318245bc0de4"
+  }
+]

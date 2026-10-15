@@ -1,0 +1,56 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_____________ test_every_upload_artifact_step_sets_retention_days ______________
+
+    def test_every_upload_artifact_step_sets_retention_days():
+        uploads = 0
+        missing = []
+        for path in sorted((ROOT / ".github/workflows").glob("*.yml")):
+            workflow = _mapping(yaml.compose(path.read_text(encoding="utf-8")))
+            for job in _mapping(workflow["jobs"]).values():
+                steps = _mapping(job).get("steps")
+                if steps is None:  # Reusable-workflow jobs have no steps.
+                    continue
+                for node in steps.value:
+                    step = _mapping(node)
+                    uses = step.get("uses")
+                    if uses is None or uses.value.split("@", 1)[0] != "actions/upload-artifact":
+                        continue
+                    uploads += 1
+                    settings = step.get("with")
+                    retention = _mapping(settings).get("retention-days") if settings else None
+                    if not isinstance(retention, yaml.ScalarNode) or not retention.value.strip():
+                        missing.append(
+                            f"{path.relative_to(ROOT)}:{uses.start_mark.line + 1}: "
+                            "actions/upload-artifact must set retention-days"
+                        )
+        assert uploads > 0, "No actions/upload-artifact steps were inspected"
+>       assert not missing, "\n".join(missing)
+E       AssertionError: .github/workflows/agents-63-issue-intake.yml:377: actions/upload-artifact must set retention-days
+E         .github/workflows/health-40-repo-selfcheck.yml:1217: actions/upload-artifact must set retention-days
+E         .github/workflows/health-44-gate-branch-protection.yml:295: actions/upload-artifact must set retention-days
+E         .github/workflows/health-70-validate-sync-manifest.yml:100: actions/upload-artifact must set retention-days
+E         .github/workflows/health-78-backplane-contract.yml:145: actions/upload-artifact must set retention-days
+E         .github/workflows/health-83-dependency-sync-efficiency.yml:196: actions/upload-artifact must set retention-days
+E         .github/workflows/maint-45-cosmetic-repair.yml:114: actions/upload-artifact must set retention-days
+E         .github/workflows/maint-71-merge-sync-prs.yml:357: actions/upload-artifact must set retention-days
+E         .github/workflows/maint-71-merge-sync-prs.yml:667: actions/upload-artifact must set retention-days
+E         .github/workflows/maint-77-model-registry-freshness.yml:112: actions/upload-artifact must set retention-days
+E         .github/workflows/maint-77-model-registry-freshness.yml:248: actions/upload-artifact must set retention-days
+E         .github/workflows/maint-78-model-evaluation-pilot.yml:166: actions/upload-artifact must set retention-days
+E         .github/workflows/pr-11-ci-smoke.yml:98: actions/upload-artifact must set retention-days
+E         .github/workflows/reusable-18-autofix.yml:1010: actions/upload-artifact must set retention-days
+E         .github/workflows/reusable-18-autofix.yml:1451: actions/upload-artifact must set retention-days
+E         .github/workflows/reusable-18-autofix.yml:1886: actions/upload-artifact must set retention-days
+E         .github/workflows/reusable-backplane-conformance.yml:141: actions/upload-artifact must set retention-days
+E         .github/workflows/reusable-claude-run.yml:1161: actions/upload-artifact must set retention-days
+E         .github/workflows/reusable-codex-run.yml:1818: actions/upload-artifact must set retention-days
+E         .github/workflows/reusable-cursor-run.yml:1259: actions/upload-artifact must set retention-days
+E         .github/workflows/reusable-gemini-run.yml:1247: actions/upload-artifact must set retention-days
+E         .github/workflows/selftest-reusable-ci.yml:675: actions/upload-artifact must set retention-days
+E       assert not ['.github/workflows/agents-63-issue-intake.yml:377: actions/upload-artifact must set retention-days', '.github/workflo...'.github/workflows/health-83-dependency-sync-efficiency.yml:196: actions/upload-artifact must set retention-days', ...]
+
+tests/workflows/test_artifact_retention.py:38: AssertionError
+=========================== short test summary info ============================
+FAILED tests/workflows/test_artifact_retention.py::test_every_upload_artifact_step_sets_retention_days
+1 failed in 1.75s
