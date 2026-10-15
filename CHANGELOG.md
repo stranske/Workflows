@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.38.13](https://github.com/stranske/Workflows/compare/v1.38.12...v1.38.13) (2026-10-15)
+
+
+### Bug Fixes
+
+* **repo-review:** filter excluded parent references before counts and routing ([#3914](https://github.com/stranske/Workflows/issues/3914)) ([5617c29](https://github.com/stranske/Workflows/commit/5617c29b8f1203288f9678a00be7b6897758c5c1))
+
 ## [1.38.12](https://github.com/stranske/Workflows/compare/v1.38.11...v1.38.12) (2026-10-15)
 
 
