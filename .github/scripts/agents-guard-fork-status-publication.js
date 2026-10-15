@@ -445,13 +445,27 @@ async function publishGuardForkStatus({ github, context, core }) {
       throw new Error('Pull request binding changed before publication');
     }
     await assertLatestAttempt({ github, retry, owner, repo, run });
-    if (result.state === 'success' && result.evaluated === true &&
-        evaluatedPolicyFingerprint(jobs) !== policyFingerprint(policyLabelNames(pr.labels, routingLabels))) {
-      result = {
-        state: 'failure',
-        description: 'Evaluated policy labels differ from current policy; fresh evaluation required.',
-        evaluated: false,
-      };
+    if (result.state === 'success' && result.evaluated === true) {
+      // Missing/ambiguous attempt metadata is a failed evaluation, not a
+      // transport abort: replace any stale same-head success before returning.
+      let evaluatedFingerprint;
+      try {
+        evaluatedFingerprint = evaluatedPolicyFingerprint(jobs);
+      } catch {
+        result = {
+          state: 'failure',
+          description: 'Evaluated policy receipt missing or ambiguous; fresh evaluation required.',
+          evaluated: false,
+        };
+      }
+      if (result.state === 'success' &&
+          evaluatedFingerprint !== policyFingerprint(policyLabelNames(pr.labels, routingLabels))) {
+        result = {
+          state: 'failure',
+          description: 'Evaluated policy labels differ from current policy; fresh evaluation required.',
+          evaluated: false,
+        };
+      }
     }
     if (result.state === 'success') {
       result = { ...result, description: withPolicyReceipt(result.description, pr.labels, pr.number, routingLabels) };

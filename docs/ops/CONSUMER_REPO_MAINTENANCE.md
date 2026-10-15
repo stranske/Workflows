@@ -3021,3 +3021,6 @@ Artifact members use the same rule: their raw byte count and SHA-256 remain in
 the archive ledger, but only strict UTF-8 text without NUL bytes is rendered.
 Invalid UTF-8 and UTF-16/binary-looking members stay unavailable with their
 raw provenance and retain the aggregate capture gap.
+
+
+A successful fork attempt with missing, malformed, incomplete or duplicate evaluated-policy receipt metadata publishes a required failure status after the existing exact-head, attempt, base and policy checks. It replaces a stale same-head success instead of aborting before publication. A valid current direct guard verdict remains authoritative; a denied status write remains a delivery failure, never a claimed receipt.

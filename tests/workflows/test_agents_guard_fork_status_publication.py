@@ -73,6 +73,7 @@ def _publish_scenario(
     job_conclusion="success",
     evaluated_labels=None,
     policy_receipt_step=True,
+    policy_receipt_steps=None,
     final_labels=None,
     registry_text=None,
 ):
@@ -146,6 +147,7 @@ def _publish_scenario(
         "targetLookupError": target_lookup_error,
         "evaluatedLabels": evaluated_labels,
         "policyReceiptStep": policy_receipt_step,
+        "policyReceiptSteps": policy_receipt_steps,
         "finalLabels": final_labels,
         "registryText": (
             registry_text
@@ -163,6 +165,7 @@ if (scenario.policyReceiptStep) {{
   const digest = require('crypto').createHash('sha256').update(names.join(String.fromCharCode(10))).digest('hex');
   scenario.jobs[0].steps.push({{name:'Evaluated policy labels sha256:'+digest,status:'completed',conclusion:'success'}});
 }}
+scenario.jobs[0].steps.push(...(scenario.policyReceiptSteps || []));
 process.env.GITHUB_RUN_ATTEMPT = {json.dumps(publisher_attempt)};
 let runReads = 0;
 let statusRead = false;
@@ -1074,8 +1077,9 @@ def test_fork_success_checks_labels_again_after_file_inventory():
 
 def test_fork_success_rejects_missing_evaluated_policy_receipt():
     result = _publish_scenario(policy_receipt_step=False)
-    assert "policy" in result["error"].lower()
-    assert result["writes"] == []
+    assert result["result"]["state"] == "failure"
+    assert [write["state"] for write in result["writes"]] == ["failure"]
+    assert "receipt" in result["writes"][0]["description"].lower()
 
 
 def test_fork_matching_evaluated_labels_still_publish_success():
@@ -1261,3 +1265,60 @@ def test_actual_registry_resolver_admits_enabled_provider_events(agent, template
     )
     result = subprocess.run(["node", "-e", source], check=True, capture_output=True, text=True)
     assert json.loads(result.stdout)["shouldRun"] is True
+
+
+@pytest.mark.parametrize(
+    "steps",
+    [
+        [],
+        [
+            {
+                "name": "Evaluated policy labels sha256:bad",
+                "status": "completed",
+                "conclusion": "success",
+            }
+        ],
+        [
+            {
+                "name": "Evaluated policy labels sha256:" + "a" * 64,
+                "status": "completed",
+                "conclusion": "failure",
+            }
+        ],
+        [
+            {
+                "name": "Evaluated policy labels sha256:" + "a" * 64,
+                "status": "in_progress",
+                "conclusion": None,
+            }
+        ],
+        [
+            {
+                "name": "Evaluated policy labels sha256:" + "a" * 64,
+                "status": "completed",
+                "conclusion": "success",
+            }
+        ]
+        * 2,
+    ],
+)
+def test_missing_or_ambiguous_latest_receipt_replaces_stale_same_head_success(steps):
+    result = _publish_scenario(replay=True, policy_receipt_step=False, policy_receipt_steps=steps)
+    assert result["result"]["state"] == "failure"
+    assert [write["state"] for write in result["writes"]] == ["failure"]
+    assert "receipt" in result["writes"][0]["description"].lower()
+    assert result["receipts"][0]["status_id"] == 123
+
+
+def test_missing_policy_receipt_does_not_turn_denied_failure_write_into_acceptance():
+    outcome = _publish_scenario(replay=True, policy_receipt_step=False, deny_write=True)
+    assert "denied status write" in outcome["error"]
+    assert [write["state"] for write in outcome["writes"]] == ["failure"]
+    assert "result" not in outcome
+
+
+@pytest.mark.parametrize("drift", ["same-run-attempt", "pr-head"])
+def test_missing_policy_receipt_preserves_binding_drift_block(drift):
+    outcome = _publish_scenario(replay=True, policy_receipt_step=False, status_read_drift=drift)
+    assert "error" in outcome
+    assert outcome["writes"] == []
