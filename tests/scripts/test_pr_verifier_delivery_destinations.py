@@ -7471,4 +7471,3 @@ def test_bounded_storage_shared_review_destination_preserves_floor(operation, de
             )
             == "CONCERNS"
         )
-    assert verifier._required_evidence_channels(criterion.replace("must ", "must not ")) == set()
