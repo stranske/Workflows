@@ -176,7 +176,7 @@ def _validate_joins(entry: dict[str, Any], spans: dict[str, Any]) -> None:
     joins = entry.get("joins", [])
     if not isinstance(joins, list):
         raise ValueError("reviewed joins are malformed")
-    declared: set[tuple[tuple[str, ...], tuple[str, ...]]] = set()
+    declared: set[tuple[str, tuple[str, ...]]] = set()
     for join in joins:
         if not isinstance(join, dict):
             raise ValueError("reviewed join is malformed")
@@ -193,10 +193,10 @@ def _validate_joins(entry: dict[str, Any], spans: dict[str, Any]) -> None:
             raise ValueError("reviewed join identity is malformed")
         if any(set(spans[span_id]["owners"]) != set(packages) for span_id in ids):
             raise ValueError("reviewed join does not declare exact shared ownership")
-        declared.add((tuple(sorted(ids)), tuple(sorted(packages))))
+        declared.update((span_id, tuple(sorted(packages))) for span_id in ids)
     shared = [span for span in spans.values() if len(span["owners"]) > 1]
     for span in shared:
-        if ((span["id"],), tuple(span["owners"])) not in declared:
+        if (span["id"], tuple(span["owners"])) not in declared:
             raise ValueError("shared evidence span lacks an exact declared join")
 
 
