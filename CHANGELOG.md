@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.38.14](https://github.com/stranske/Workflows/compare/v1.38.13...v1.38.14) (2026-10-15)
+
+
+### Bug Fixes
+
+* **verifier:** keep bounded product storage separate from review evidence ([#3910](https://github.com/stranske/Workflows/issues/3910)) ([5c1f0c0](https://github.com/stranske/Workflows/commit/5c1f0c0ad8fe65bea66cdc90a6d792c7c0af7b80))
+
 ## [1.38.13](https://github.com/stranske/Workflows/compare/v1.38.12...v1.38.13) (2026-10-15)
 
 
