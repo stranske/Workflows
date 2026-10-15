@@ -7429,3 +7429,48 @@ def test_issue3883_artifact_registry_product_noun_stays_nongating():
     assert (
         _floor_verdict(criterion, body="present", comments="absent", artifacts="absent") == "PASS"
     )
+
+
+@pytest.mark.parametrize(
+    "criterion",
+    [
+        "The service must save transcripts to its database",
+        "The service must persist command output in its database",
+        "The service must log command output in its audit log",
+    ],
+)
+def test_save_persist_log_product_storage_does_not_require_review_evidence(criterion):
+    assert verifier._required_evidence_channels(criterion) == set()
+    for missing in ("absent", "unavailable"):
+        assert (
+            _floor_verdict(
+                criterion, body=missing, comments=missing, artifacts=missing, overall=missing
+            )
+            == "PASS"
+        )
+        independent = criterion + "; the reviewer must report test results in a PR comment"
+        assert verifier._required_evidence_channels(independent) == {"comments"}
+        assert _floor_verdict(independent, body="present", comments=missing) == "CONCERNS"
+
+
+@pytest.mark.parametrize("operation", ["save", "persist", "log"])
+@pytest.mark.parametrize(
+    "destination,channel",
+    [("a PR comment", "comments"), ("workflow artifacts", "artifacts"), ("the PR body", "body")],
+)
+@pytest.mark.parametrize("payload", ["evidence", "transcripts", "command output", "artifacts"])
+def test_bounded_storage_shared_review_destination_preserves_floor(
+    operation, destination, channel, payload
+):
+    criterion = f"The service must {operation} {payload} in its database and in {destination}"
+    assert verifier._required_evidence_channels(criterion) == {channel}
+    for missing in ("absent", "unavailable"):
+        assert (
+            _floor_verdict(
+                criterion,
+                body=missing if channel == "body" else "present",
+                comments=missing if channel == "comments" else "present",
+                artifacts=missing if channel == "artifacts" else "present",
+            )
+            == "CONCERNS"
+        )

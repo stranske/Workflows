@@ -1,0 +1,92 @@
+[
+  {
+    "criterion": "The service must not save evidence in its database and in a PR comment",
+    "before80d": [],
+    "intermediatee6d": [],
+    "original_base1b6": []
+  },
+  {
+    "criterion": "The service must not save evidence in its database and in workflow artifacts",
+    "before80d": [
+      "artifacts"
+    ],
+    "intermediatee6d": [
+      "artifacts"
+    ],
+    "original_base1b6": [
+      "artifacts"
+    ]
+  },
+  {
+    "criterion": "The service must not save evidence in its database and in the PR body",
+    "before80d": [
+      "overall"
+    ],
+    "intermediatee6d": [
+      "overall"
+    ],
+    "original_base1b6": [
+      "overall"
+    ]
+  },
+  {
+    "criterion": "The service must not persist evidence in its database and in a PR comment",
+    "before80d": [],
+    "intermediatee6d": [],
+    "original_base1b6": []
+  },
+  {
+    "criterion": "The service must not persist evidence in its database and in workflow artifacts",
+    "before80d": [
+      "artifacts"
+    ],
+    "intermediatee6d": [
+      "artifacts"
+    ],
+    "original_base1b6": [
+      "artifacts"
+    ]
+  },
+  {
+    "criterion": "The service must not persist evidence in its database and in the PR body",
+    "before80d": [
+      "overall"
+    ],
+    "intermediatee6d": [
+      "overall"
+    ],
+    "original_base1b6": [
+      "overall"
+    ]
+  },
+  {
+    "criterion": "The service must not log evidence in its database and in a PR comment",
+    "before80d": [],
+    "intermediatee6d": [],
+    "original_base1b6": []
+  },
+  {
+    "criterion": "The service must not log evidence in its database and in workflow artifacts",
+    "before80d": [
+      "artifacts"
+    ],
+    "intermediatee6d": [
+      "artifacts"
+    ],
+    "original_base1b6": [
+      "artifacts"
+    ]
+  },
+  {
+    "criterion": "The service must not log evidence in its database and in the PR body",
+    "before80d": [
+      "overall"
+    ],
+    "intermediatee6d": [
+      "overall"
+    ],
+    "original_base1b6": [
+      "overall"
+    ]
+  }
+]
