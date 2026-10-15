@@ -1,0 +1,53 @@
+..........F..                                                            [100%]
+=================================== FAILURES ===================================
+__________ test_grouped_shared_span_join_prepares_complete_execution ___________
+
+    def test_grouped_shared_span_join_prepares_complete_execution() -> None:
+        capture, raw, entry = grouped_join_fixture()
+>       prepared = rules.prepare_reviewed_execution(capture, raw, rules=(entry,))
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/tools/test_verifier_semantic_rules.py:269:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tools/verifier_semantic_rules.py:217: in prepare_reviewed_execution
+    spans, pieces = _validated_spans(entry, raw_bytes)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tools/verifier_semantic_rules.py:171: in _validated_spans
+    _validate_joins(entry, spans)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+entry = {'binding': {'id': 'capture-1', 'implementation_head': 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'governing_sha256':...ext', 'start': 2, 'end': 4, ...}], 'joins': [{'span_ids': ['global-0', 'global-1'], 'package_ids': ['p1', 'p2']}], ...}
+spans = {'p1': {'id': 'p1', 'input': 'context', 'start': 4, 'end': 8, ...}, 'p2': {'id': 'p2', 'input': 'context', 'start': 8,...'diff', 'start': 0, 'end': 4, ...}, 'global-0': {'id': 'global-0', 'input': 'context', 'start': 0, 'end': 2, ...}, ...}
+
+    def _validate_joins(entry: dict[str, Any], spans: dict[str, Any]) -> None:
+        joins = entry.get("joins", [])
+        if not isinstance(joins, list):
+            raise ValueError("reviewed joins are malformed")
+        declared: set[tuple[tuple[str, ...], tuple[str, ...]]] = set()
+        for join in joins:
+            if not isinstance(join, dict):
+                raise ValueError("reviewed join is malformed")
+            ids, packages = join.get("span_ids"), join.get("package_ids")
+            if (
+                not isinstance(ids, list)
+                or not ids
+                or not isinstance(packages, list)
+                or len(packages) < 2
+                or len(ids) != len(set(ids))
+                or len(packages) != len(set(packages))
+                or not set(ids) <= set(spans)
+            ):
+                raise ValueError("reviewed join identity is malformed")
+            if any(set(spans[span_id]["owners"]) != set(packages) for span_id in ids):
+                raise ValueError("reviewed join does not declare exact shared ownership")
+            declared.add((tuple(sorted(ids)), tuple(sorted(packages))))
+        shared = [span for span in spans.values() if len(span["owners"]) > 1]
+        for span in shared:
+            if ((span["id"],), tuple(span["owners"])) not in declared:
+>               raise ValueError("shared evidence span lacks an exact declared join")
+E               ValueError: shared evidence span lacks an exact declared join
+
+tools/verifier_semantic_rules.py:200: ValueError
+=========================== short test summary info ============================
+FAILED tests/tools/test_verifier_semantic_rules.py::test_grouped_shared_span_join_prepares_complete_execution
+1 failed, 12 passed in 0.26s

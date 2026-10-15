@@ -852,7 +852,7 @@ scripts:
     template_sync: exact
 
   - source: tools/verifier_semantic_rules.py
-    description: "Fixed source-owned reviewed byte-span rules and complete per-package prompt construction"
+    description: "Fixed source-owned reviewed byte-span rules, grouped shared joins and complete per-package prompts"
     template_sync: exact
 
   - source: config/verifier_semantic_rules.json

@@ -244,3 +244,48 @@ def test_prepare_uses_the_fixed_source_owned_registry(
     assert (
         prepared["prompts"]["p2"]["package_id"] == "p2"
     )  # joint-a and joint-b share this closed prompt
+
+
+def grouped_join_fixture() -> tuple[dict, dict[str, bytes], dict]:
+    capture, raw, entry = fixture()
+    original = entry["spans"].pop(0)
+    for index, (start, end) in enumerate(((0, 2), (2, 4))):
+        entry["spans"].append(
+            {
+                **original,
+                "id": f"global-{index}",
+                "start": start,
+                "end": end,
+                "sha256": sha(raw["context"][start:end]),
+            }
+        )
+    for clause in entry["rule"]["clauses"]:
+        if clause["raw_dependencies"] == ["global"]:
+            clause["raw_dependencies"] = ["global-0", "global-1"]
+    for package in entry["packages"]:
+        package["raw_inputs"].remove("global")
+        package["raw_inputs"].extend(["global-0", "global-1"])
+    entry["joins"][0]["span_ids"] = ["global-0", "global-1"]
+    return capture, raw, entry
+
+
+def test_grouped_shared_span_join_prepares_complete_execution() -> None:
+    capture, raw, entry = grouped_join_fixture()
+    prepared = rules.prepare_reviewed_execution(capture, raw, rules=(entry,))
+    assert prepared is not None
+    for prompt in prepared["prompts"].values():
+        members = {member["id"]: member["bytes"] for member in prompt["members"]}
+        assert members["global-0"] + members["global-1"] == b"GLOB"
+
+
+@pytest.mark.parametrize("mutation", ["missing-span", "wrong-owners"])
+def test_grouped_join_still_requires_every_span_and_exact_owners(mutation: str) -> None:
+    capture, raw, entry = grouped_join_fixture()
+    if mutation == "missing-span":
+        entry["joins"][0]["span_ids"] = ["global-0"]
+        message = "declared join"
+    else:
+        entry["joins"][0]["package_ids"] = ["p1", "p3"]
+        message = "exact shared ownership"
+    with pytest.raises(ValueError, match=message):
+        rules.prepare_reviewed_execution(capture, raw, rules=(entry,))

@@ -2947,7 +2947,7 @@ joint groups remain together. Byte ranges alone never establish independence.
 Reviewed decompositions load only from `config/verifier_semantic_rules.json`
 in the authoritative source checkout. Entries bind the complete capture/head,
 governing hash and raw hashes, account for every byte exactly once, declare
-shared-span joins and copy global governing clauses into each affected package.
+shared-span joins and copy global governing clauses into each affected package. A join may name multiple shared spans; each member must declare exactly the same package owners, and every shared span must belong to a validated join.
 Each closed package receives its complete dependency bytes, without the legacy
 character-budget clipping. Unknown captures retain the all-input residual and
 may remain over capacity; the registry never infers English independence.
