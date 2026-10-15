@@ -1793,7 +1793,9 @@ def references_excluded_repo(value: Any, excluded_names: list[str]) -> bool:
     """Recognize excluded repository names without matching longer repo names."""
     text = json.dumps(value, ensure_ascii=False)
     return any(
-        re.search(r"(?<![\w.-])" + re.escape(name.rsplit("/", 1)[-1]) + r"(?![\w.-])", text, re.I)
+        re.search(
+            r"(?<![\w.-])" + re.escape(name.rsplit("/", 1)[-1]) + r"(?![\w-]|\.+[\w-])", text, re.I
+        )
         for name in excluded_names
         if name
     )
@@ -1852,7 +1854,7 @@ def collect_repo_state(
             "recent_merged_prs": [],
             "warnings": ["remote progress not collected for non-active repo"],
         }
-    # A parent issue in an active repository can still refer exclusively to an
+    # A parent issue in an active repository can still refer to an
     # excluded repository. Remove those records before dedup, counts or reports.
     excluded_names = [
         name
@@ -1869,7 +1871,7 @@ def collect_repo_state(
     archive_progress_items = [
         candidate
         for candidate in archive_progress_items
-        if not references_excluded_repo(vars(candidate), excluded_names)
+        if not references_excluded_repo([candidate.title, candidate.excerpt], excluded_names)
     ]
     current_review_status = review_status(repo, repo_path, blocking_lines)
     current_issue_queue_status = issue_queue_status(round1_findings, round2_converged)

@@ -1417,7 +1417,7 @@ def test_excluded_parent_references_are_removed_before_remote_counts(tmp_path):
     archive = [
         evaluator.ArchiveCandidate(
             title=title,
-            source_file="prior.jsonl",
+            source_file="held-repo/prior.jsonl",
             thread_name="review",
             timestamp="2026-10-15",
             excerpt=title,
@@ -1437,3 +1437,20 @@ def test_excluded_parent_references_are_removed_before_remote_counts(tmp_path):
     assert state["archive_progress_count"] == 1
     assert state["archive_progress"][0]["title"] == "Prior demo work"
     assert len(progress["open_issues"]) == 3  # caller evidence is retained
+
+
+@pytest.mark.parametrize(
+    "text, expected",
+    [
+        ("Repair held-repo.", True),
+        ("Repair HELD-REPO...", True),
+        ("Repair owner/held-repo#12", True),
+        ("https://github.com/owner/held-repo/issues/12", True),
+        ("Repair held-repo.v2", False),
+        ("Repair held-repo..v2", False),
+        ("Repair held-repository", False),
+        ("Repair held-repo-other", False),
+    ],
+)
+def test_exclusion_repo_name_punctuation_and_longer_names(text, expected):
+    assert evaluator.references_excluded_repo(text, ["held-repo"]) is expected
