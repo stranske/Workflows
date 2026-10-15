@@ -147,9 +147,11 @@ def _publish_scenario(
         "evaluatedLabels": evaluated_labels,
         "policyReceiptStep": policy_receipt_step,
         "finalLabels": final_labels,
-        "registryText": registry_text
-        if registry_text is not None
-        else (ROOT / ".github/agents/registry.yml").read_text(),
+        "registryText": (
+            registry_text
+            if registry_text is not None
+            else (ROOT / ".github/agents/registry.yml").read_text()
+        ),
     }
     source = f"""
 const helper = require({json.dumps(str(HELPER))});
