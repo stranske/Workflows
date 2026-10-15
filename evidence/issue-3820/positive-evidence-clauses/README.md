@@ -9,3 +9,5 @@ The intermediate positive-list RED proves that simply splitting every clause los
 `node --test .github/scripts/__tests__/agents-verifier-context.test.js`:155PASS,0FAIL. Source/template bytes match; template completeness/drift and diff checks pass.
 
 This is a bounded source fix, not universal English classification. Hosted current-head CI, configured review, guarded delivery, actual provider comparison and campaign canary qualification remain separate requirements. Historical failed captures and comments remain unchanged.
+
+Native P1 4289239361: the first correction still accepted the second keyword in `No validation evidence`. Retained authentic first-head RED for that compound. The correction now closes negative scope through the rest of its clause, while preserving a prior genuine positive run and a separate `but Evidence` declaration. Both source/consumer variants cover compound negatives and subordinate diagnostic wording. Full155-test suite passes.

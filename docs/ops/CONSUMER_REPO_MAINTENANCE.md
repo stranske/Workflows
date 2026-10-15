@@ -1862,8 +1862,9 @@ reference-bearing body and comment channels were fully inspected. Unrelated
 associated head/merge jobs and incidental status URLs cannot exhaust that set's
 run budget. Select the deduplicated union of typed and positively labelled explicit IDs
 before budget accounting and provenance validation. Prose labels bind within
-period/semicolon-separated clauses: `not evidence` and `no validation` do not
-select diagnostic links as current proof. An independent positive declaration
+period/semicolon/contrastive-but clauses: `not evidence` and `no validation` do not
+select diagnostic links as current proof. Negation extends through compound labels
+and the remainder of its clause; earlier genuine positive proof is retained. An independent positive declaration
 remains selected, and original comment bytes remain fully captured. Without a
 complete positive set, existing incidental/associated discovery still applies. Without complete
 explicit references, bounded associated-run discovery remains fail-closed.

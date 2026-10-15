@@ -389,20 +389,25 @@ function extractReferencedRunIds(texts) {
 // "not evidence" cannot select an old run as current acceptance evidence.
 // Typed evidence inputs remain an unconditional explicit union.
 function positiveEvidenceClauses(line) {
-  const parts = line.split(/([.;]\s+)/);
+  const parts = line.split(/([.;]\s+|\s+but\s+)/i);
   const selected = [];
   let positive = false;
   for (let index = 0; index < parts.length; index += 2) {
     const clause = parts[index];
     const labels = [...clause.matchAll(/\b(?:evidence|validation|artifacts?|test results?|red\s+(?:then\s+)?green)\b/gi)];
+    const negativeIndex = labels.findIndex(match =>
+      /\b(?:no|not)\s+$/i.test(clause.slice(0, match.index)));
     if (labels.length) {
-      positive = labels.some(match => !/\b(?:no|not)\s+$/i.test(clause.slice(0, match.index)));
+      // Negation extends through the rest of this clause. A second keyword in
+      // "No validation evidence" cannot re-open positive evidence scope.
+      positive = negativeIndex !== 0;
     } else if (index === 0 || !parts[index - 1].startsWith(';')) {
       positive = false;
     }
-    // A semicolon-separated run list retains its positive declaration. An
-    // explicit negative label ends that scope; a new sentence never inherits it.
-    if (positive) selected.push(clause);
+    // Retain genuine earlier positive proof, but never its negated suffix.
+    if (positive) selected.push(negativeIndex < 0 ? clause : clause.slice(0, labels[negativeIndex].index));
+    // A semicolon run list inherits only a still-positive declaration.
+    if (negativeIndex >= 0) positive = false;
   }
   return selected;
 }

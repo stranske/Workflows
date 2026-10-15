@@ -3965,6 +3965,10 @@ test('negated historical diagnostics do not join a complete positive evidence un
     'No validation: /actions/runs/999. Evidence: /actions/runs/124',
     'Evidence: /actions/runs/124; /actions/runs/125',
     'Not only evidence: /actions/runs/124',
+    'No validation evidence: /actions/runs/999',
+    'Not evidence that validation succeeded: /actions/runs/999',
+    'Evidence: /actions/runs/124, not validation evidence: /actions/runs/999',
+    'No validation evidence: /actions/runs/999 but Evidence: /actions/runs/124',
   ];
   for (const implementation of implementations) {
     for (const diagnostic of diagnostics) {
