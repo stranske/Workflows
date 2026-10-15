@@ -145,7 +145,9 @@ workflows:
       - tools/requirements-llm.txt
 
   - source: .github/workflows/agents-guard.yml
-    description: "Agents guard - enforces agents workflow protections (Health 45)"
+    description: "Agents guard - binds evaluated policy to enabled registry routing labels (Health 45)"
+    requires:
+      - .github/agents/registry.yml
 
   - source: .github/workflows/agents-pr-health.yml
     description: "PR health scanner - periodic conflict resolution and failing check re-dispatch"
@@ -260,7 +262,9 @@ scripts:
     description: "Validates trusted Gate identity and attempt/head binding; publishes Gate / gate with an authenticated status-id receipt from immutable default-branch code."
 
   - source: .github/scripts/agents-guard-fork-status-publication.js
-    description: "Validates trusted Health 45 Agents Guard identity, attempt/head and evaluated-policy-label binding; publishes the required fork guard status with an authenticated status-id receipt from immutable default-branch code."
+    description: "Validates trusted Health 45 Agents Guard identity, attempt/head and registry-backed evaluated-policy-label binding; publishes the required fork guard status with an authenticated status-id receipt from immutable default-branch code."
+    requires:
+      - .github/agents/registry.yml
 
   # Tools directory - Python helpers used by reusable-10-ci-python.yml
 

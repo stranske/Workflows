@@ -95,6 +95,8 @@ const context = {repo: {owner: 'owner', repo: 'repo'}, eventName: input.eventNam
   payload: {pull_request: {number: 4, labels: [], head: {sha: 'a'.repeat(40)}}}, sha: 'b'.repeat(40),
   serverUrl: 'https://github.com', runId: 42};
 const core = {info() {}, setFailed(m) {throw Error(m)}};
+github.rest.repos.getContent = async params => { if(params.ref !== 'b'.repeat(40)) throw Error('untrusted registry ref'); return {data:{type:'file',encoding:'base64',content:"YWdlbnRzOgogIGNvZGV4OgogICAgZW5hYmxlZDogdHJ1ZQogIGNsYXVkZToKICAgIGVuYWJsZWQ6IHRydWUKICBjdXJzb3I6CiAgICBlbmFibGVkOiB0cnVlCiAgZ2VtaW5pOgogICAgZW5hYmxlZDogdHJ1ZQogIGFpZGVyOgogICAgZW5hYmxlZDogZmFsc2UK"}}; };
+context.payload.pull_request.base = {sha:'b'.repeat(40)};
 const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
 (async () => {
   if (conditionPasses) await new AsyncFunction('github', 'context', 'core', input.script)(github, context, core);
@@ -181,6 +183,8 @@ const context = {repo: {owner: 'owner', repo: 'repo'},
   payload: {action: input.action, pull_request: {number: 4, labels: input.snapshotLabels, head: {sha: 'a'.repeat(40)}}},
   sha: 'b'.repeat(40), serverUrl: 'https://github.com', runId: 42};
 const core = {info() {}, setFailed(m) {throw Error(m)}};
+github.rest.repos.getContent = async params => { if(params.ref !== 'b'.repeat(40)) throw Error('untrusted registry ref'); return {data:{type:'file',encoding:'base64',content:"YWdlbnRzOgogIGNvZGV4OgogICAgZW5hYmxlZDogdHJ1ZQogIGNsYXVkZToKICAgIGVuYWJsZWQ6IHRydWUKICBjdXJzb3I6CiAgICBlbmFibGVkOiB0cnVlCiAgZ2VtaW5pOgogICAgZW5hYmxlZDogdHJ1ZQogIGFpZGVyOgogICAgZW5hYmxlZDogZmFsc2UK"}}; };
+context.payload.pull_request.base = {sha:'b'.repeat(40)};
 const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
 new AsyncFunction('github', 'context', 'core', input.script)(github, context, core)
   .then(() => process.stdout.write(JSON.stringify(calls)))
@@ -259,6 +263,8 @@ const github = {paginate: async (method) => {
 const context = {repo: {owner: 'owner', repo: 'repo'}, sha: 'b'.repeat(40),
  payload: {pull_request: {number: 4, labels: [], head: {sha: input.mode === 'missing_head' ? '' : 'a'.repeat(40)}}}};
 const core = {info() {}, error() {}, warning() {}, setFailed(m) {throw Error(m)}};
+github.rest.repos.getContent = async params => { if(params.ref !== 'b'.repeat(40)) throw Error('untrusted registry ref'); return {data:{type:'file',encoding:'base64',content:"YWdlbnRzOgogIGNvZGV4OgogICAgZW5hYmxlZDogdHJ1ZQogIGNsYXVkZToKICAgIGVuYWJsZWQ6IHRydWUKICBjdXJzb3I6CiAgICBlbmFibGVkOiB0cnVlCiAgZ2VtaW5pOgogICAgZW5hYmxlZDogdHJ1ZQogIGFpZGVyOgogICAgZW5hYmxlZDogZmFsc2UK"}}; };
+context.payload.pull_request.base = {sha:'b'.repeat(40)};
 const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
 new AsyncFunction('github', 'context', 'core', input.script)(github, context, core)
  .then(() => {process.exitCode = 2})
@@ -298,7 +304,9 @@ def test_actual_head_publisher_binds_evaluated_label_evidence(evaluated_labels, 
 const input = JSON.parse(require('fs').readFileSync(0, 'utf8')); Object.assign(process.env, input.env);
 const writes = []; const github = {rest: {repos: {createCommitStatus: async p => writes.push(p)}, issues: {listLabelsOnIssue() {}}}, paginate: async method => method === github.rest.issues.listLabelsOnIssue ? [] : []};
 const context = {repo: {owner:'owner', repo:'repo'}, eventName:'pull_request_target', runId:42, serverUrl:'https://github.com', payload:{pull_request:{number:4, labels:[], head:{sha:'a'.repeat(40)}}}};
-const core = {info(){}, error(){}, setFailed(m){throw Error(m)}}; const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
+const core = {info(){}, error(){}, setFailed(m){throw Error(m)}}; github.rest.repos.getContent = async params => { if(params.ref !== 'b'.repeat(40)) throw Error('untrusted registry ref'); return {data:{type:'file',encoding:'base64',content:"YWdlbnRzOgogIGNvZGV4OgogICAgZW5hYmxlZDogdHJ1ZQogIGNsYXVkZToKICAgIGVuYWJsZWQ6IHRydWUKICBjdXJzb3I6CiAgICBlbmFibGVkOiB0cnVlCiAgZ2VtaW5pOgogICAgZW5hYmxlZDogdHJ1ZQogIGFpZGVyOgogICAgZW5hYmxlZDogZmFsc2UK"}}; };
+context.payload.pull_request.base = {sha:'b'.repeat(40)};
+const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
 new AsyncFunction('github','context','core',input.script)(github,context,core).then(()=>process.stdout.write(JSON.stringify(writes))).catch(e=>{console.error(e);process.exitCode=1});
 """
     payload = {
@@ -493,6 +501,8 @@ def test_canonical_publisher_joins_label_group_while_skipped_events_cannot_cance
 @pytest.mark.parametrize(
     "prior,snapshot,current,expected_state",
     [
+        (None, [{"name": "agent:cursor"}], [], "failure"),
+        (None, [], [{"name": "agent:gemini"}], "failure"),
         (
             None,
             [{"name": "agent:codex"}, {"name": "agents:allow-change"}],
@@ -529,6 +539,8 @@ const writes = [];
 const github = {rest: {repos: {createCommitStatus: async p => writes.push(p), listCommitStatusesForRef() {}}, issues: {listLabelsOnIssue() {}}}, paginate: async method => method === github.rest.issues.listLabelsOnIssue ? input.current : [{context: 'Health 45 Agents Guard / guard', state: input.prior}].filter(Boolean)};
 const context = {repo: {owner: 'owner', repo: 'repo'}, eventName: 'pull_request_target', payload: {pull_request: {number: 4, labels: input.snapshot, head: {sha: 'a'.repeat(40)}}}, serverUrl: 'https://github.com', runId: 42};
 const core = {info() {}, error() {}, setFailed(message) { throw Error(message); }};
+github.rest.repos.getContent = async params => { if(params.ref !== 'b'.repeat(40)) throw Error('untrusted registry ref'); return {data:{type:'file',encoding:'base64',content:"YWdlbnRzOgogIGNvZGV4OgogICAgZW5hYmxlZDogdHJ1ZQogIGNsYXVkZToKICAgIGVuYWJsZWQ6IHRydWUKICBjdXJzb3I6CiAgICBlbmFibGVkOiB0cnVlCiAgZ2VtaW5pOgogICAgZW5hYmxlZDogdHJ1ZQogIGFpZGVyOgogICAgZW5hYmxlZDogZmFsc2UK"}}; };
+context.payload.pull_request.base = {sha:'b'.repeat(40)};
 const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
 new AsyncFunction('github', 'context', 'core', input.script)(github, context, core).then(() => process.stdout.write(JSON.stringify(writes)));
 """
@@ -603,6 +615,8 @@ const writes = [];
 const github = {rest: {repos: {createCommitStatus: async p => writes.push(p), listCommitStatusesForRef() {}}, issues: {listLabelsOnIssue() {}}}, paginate: async method => method === github.rest.issues.listLabelsOnIssue ? input.currentLabels : [{context: 'Health 45 Agents Guard / guard', state: 'success', description: input.description}]};
 const context = {repo: {owner: 'owner', repo: 'repo'}, eventName: 'pull_request_target', payload: {pull_request: {number: 4, labels: input.snapshotLabels, head: {sha: 'a'.repeat(40)}}}, serverUrl: 'https://github.com', runId: 42};
 const core = {info() {}, error() {}, setFailed(message) { throw Error(message); }};
+github.rest.repos.getContent = async params => { if(params.ref !== 'b'.repeat(40)) throw Error('untrusted registry ref'); return {data:{type:'file',encoding:'base64',content:"YWdlbnRzOgogIGNvZGV4OgogICAgZW5hYmxlZDogdHJ1ZQogIGNsYXVkZToKICAgIGVuYWJsZWQ6IHRydWUKICBjdXJzb3I6CiAgICBlbmFibGVkOiB0cnVlCiAgZ2VtaW5pOgogICAgZW5hYmxlZDogdHJ1ZQogIGFpZGVyOgogICAgZW5hYmxlZDogZmFsc2UK"}}; };
+context.payload.pull_request.base = {sha:'b'.repeat(40)};
 const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
 new AsyncFunction('github', 'context', 'core', input.script)(github, context, core).then(() => process.stdout.write(JSON.stringify(writes)));
 """
@@ -657,7 +671,7 @@ def test_guard_block_summary_uses_literal_environment_transport(template, tmp_pa
     sentinel = tmp_path / "summary-shell-executed"
     filename = '.github/workflows/agents-$(touch summary-shell-executed)-`id`-"quoted"-%s.yml'
     evaluator = f"""
-const {{ evaluateGuard }} = require({json.dumps(str(ROOT / '.github/scripts/agents-guard.js'))});
+const {{ evaluateGuard }} = require({json.dumps(str(ROOT / ".github/scripts/agents-guard.js"))});
 const result = evaluateGuard({{files: [{{filename: {json.dumps(filename)}, status: 'modified'}}]}});
 process.stdout.write(result.summary);
 """

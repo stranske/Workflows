@@ -1437,6 +1437,18 @@ code or pooled secrets. A denied status write fails the job; fork/token restrict
 do not authorize bypassing a missing result. The existing privileged-event
 base checkout and safety validator are unchanged. Source and consumer template
 carry the same publisher; delivery stays with Maint 68/71.
+Evaluated policy receipts and both status publishers derive provider routing
+labels from the enabled top-level entries in `.github/agents/registry.yml`,
+read through the contents API at the PR's immutable base SHA. Nested preflight
+flags do not disable providers that route PR keepalive. Existing generic switches
+and the legacy Copilot guard label remain covered. Registry read/shape failures
+fail closed; no PR checkout code or downloaded code executes in a publisher.
+The trusted fork publisher revalidates the base SHA along with the head and run
+attempt before publication. Newly enabled registry providers therefore invalidate
+an old success when their routing labels change. The evaluated-digest metadata
+step uses the repository-approved immutable github-script v9 commit on both
+source and template; this does not establish hosted execution or review acceptance.
+
 Review-thread and final exact-head GraphQL reads use a separate read-only
 token-aware path, selecting the service-bot quota by its GraphQL (not REST-core)
 budget when it is eligible and rotating away from an exhausted identity.

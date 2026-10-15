@@ -74,6 +74,7 @@ def _publish_scenario(
     evaluated_labels=None,
     policy_receipt_step=True,
     final_labels=None,
+    registry_text=None,
 ):
     initial_run = {
         "id": 9,
@@ -95,7 +96,7 @@ def _publish_scenario(
         "state": "open",
         "changed_files": 1,
         "labels": [] if labels is None else labels,
-        "base": {"repo": {"id": 1}, "ref": base_ref},
+        "base": {"repo": {"id": 1}, "ref": base_ref, "sha": "b" * 40},
         "head": {"repo": {"id": 1 if same_repo else 2}, "sha": "abc"},
     }
     scenario = {
@@ -146,13 +147,16 @@ def _publish_scenario(
         "evaluatedLabels": evaluated_labels,
         "policyReceiptStep": policy_receipt_step,
         "finalLabels": final_labels,
+        "registryText": registry_text
+        if registry_text is not None
+        else (ROOT / ".github/agents/registry.yml").read_text(),
     }
     source = f"""
 const helper = require({json.dumps(str(HELPER))});
 const scenario = {json.dumps(scenario)};
 if (scenario.policyReceiptStep) {{
   const labels = scenario.evaluatedLabels === null ? scenario.pr.labels : scenario.evaluatedLabels;
-  const routing = new Set(['agent:auto','agent:codex','agent:claude','agent:copilot','agents:auto-pilot','agents:keepalive']);
+  const routing = helper.routingLabelsFromRegistry(scenario.registryText);
   const names = [...new Set(labels.map(label => {{const raw=label.name;const key=raw.trim().toLowerCase();return routing.has(key)?key:raw.toLowerCase()==='agents:allow-change'?'agents:allow-change':'';}}).filter(Boolean))].sort();
   const digest = require('crypto').createHash('sha256').update(names.join(String.fromCharCode(10))).digest('hex');
   scenario.jobs[0].steps.push({{name:'Evaluated policy labels sha256:'+digest,status:'completed',conclusion:'success'}});
@@ -192,6 +196,7 @@ const github = {{
       }},
     }},
     repos: {{
+      getContent: async params => {{if(params.ref !== 'b'.repeat(40) || params.path !== '.github/agents/registry.yml') throw Error('untrusted registry ref');return {{data:{{type:'file',encoding:'base64',content:Buffer.from(scenario.registryText).toString('base64')}}}};}},
       listCommitStatusesForRef: async () => {{
         statusRead = true;
         if (scenario.statusReadDrift === 'same-run-attempt') {{
@@ -1044,7 +1049,13 @@ def test_same_sha_other_pr_direct_success_cannot_authorize_resolved_pr():
 
 
 @pytest.mark.parametrize(
-    "evaluated,current", [([{"name": "agent:auto"}], []), ([], [{"name": "agents:allow-change"}])]
+    "evaluated,current",
+    [
+        ([{"name": "agent:auto"}], []),
+        ([], [{"name": "agents:allow-change"}]),
+        ([{"name": "agent:cursor"}], []),
+        ([], [{"name": "agent:gemini"}]),
+    ],
 )
 def test_fork_success_requires_the_actual_evaluated_policy_labels(evaluated, current):
     result = _publish_scenario(evaluated_labels=evaluated, labels=current)
@@ -1078,6 +1089,8 @@ def test_fork_matching_evaluated_labels_still_publish_success():
     "labels,canonical",
     [
         ([], []),
+        ([{"name": "agent:cursor"}], ["agent:cursor"]),
+        ([{"name": "agent:gemini"}], ["agent:gemini"]),
         (
             [{"name": " AGENT:AUTO "}, {"name": "documentation"}, {"name": "agent:auto"}],
             ["agent:auto"],
@@ -1100,7 +1113,7 @@ def test_actual_producer_policy_digest_is_bound_in_step_metadata(labels, canonic
         steps = data["jobs"]["guard"]["steps"]
         script = next(step for step in steps if step.get("id") == "evaluate")["with"]["script"]
         snippet = script[
-            script.index("const evaluatedRoutingLabels") : script.index(
+            script.index("function routingLabelsFromRegistry") : script.index(
                 "let summary = result.summary;"
             )
         ]
@@ -1108,8 +1121,13 @@ def test_actual_producer_policy_digest_is_bound_in_step_metadata(labels, canonic
             "const labels="
             + json.dumps(labels)
             + "; const outputs={}; const core={setOutput:(k,v)=>outputs[k]=v};"
+            + "const baseRef='b'.repeat(40);const owner='owner';const repo='repo';"
+            + "const github={rest:{repos:{getContent:async()=>({data:{type:'file',encoding:'base64',content:Buffer.from("
+            + json.dumps((ROOT / ".github/agents/registry.yml").read_text())
+            + ").toString('base64')}})}}};"
+            + "(async()=>{"
             + snippet
-            + ";process.stdout.write(JSON.stringify(outputs));"
+            + ";process.stdout.write(JSON.stringify(outputs));})();"
         )
         completed = subprocess.run(
             ["node", "-e", source], check=True, capture_output=True, text=True
@@ -1162,3 +1180,51 @@ def test_evaluated_policy_metadata_must_be_unique_complete_and_well_formed(steps
     result = subprocess.run(["node", "-e", source], check=True, capture_output=True, text=True)
     assert "policy" in result.stdout.lower()
     assert result.stdout != "accepted"
+
+
+@pytest.mark.parametrize("agent", ["cursor", "gemini", "future-provider"])
+def test_registry_backed_routing_detects_drift_and_preserves_matching_policy(agent):
+    registry = f"agents:\n  {agent}:\n    enabled: true\n    preflight:\n      enabled: false\n  disabled-agent:\n    enabled: false\n"
+    label = {"name": f"agent:{agent}"}
+    changed = _publish_scenario(registry_text=registry, evaluated_labels=[label], labels=[])
+    assert changed["result"]["state"] == "failure"
+    matching = _publish_scenario(registry_text=registry, evaluated_labels=[label], labels=[label])
+    assert matching["result"]["state"] == "success"
+    disabled = _publish_scenario(
+        registry_text=registry, evaluated_labels=[], labels=[{"name": "agent:disabled-agent"}]
+    )
+    assert disabled["result"]["state"] == "success"
+
+
+@pytest.mark.parametrize(
+    "registry",
+    [
+        "",
+        "agents: {}",
+        "agents:\n  test:\n    enabled: maybe\n",
+        "agents:\n  test:\n  test:\n",
+        "agents:\n  test:\n    enabled: true\n    enabled: false\n",
+    ],
+)
+def test_malformed_registry_cannot_publish_success(registry):
+    result = _publish_scenario(registry_text=registry, policy_receipt_step=False)
+    assert result["writes"] == []
+    assert "registry" in result["error"].lower() or "enabled" in result["error"].lower()
+
+
+def test_registry_parser_and_receipt_pin_match_all_managed_surfaces():
+    helper = HELPER.read_text()
+    start = helper.index("function routingLabelsFromRegistry")
+    parser = helper[start : helper.index("const PERMISSION_LABEL", start)].strip()
+    assert HELPER.read_bytes() == TEMPLATE_HELPER.read_bytes()
+    for prefix in (ROOT, ROOT / "templates/consumer-repo"):
+        data = yaml.safe_load((prefix / ".github/workflows/agents-guard.yml").read_text())
+        steps = data["jobs"]["guard"]["steps"]
+        for name in ("Evaluate protected file changes", "Report agents guard commit status"):
+            script = next(step for step in steps if step["name"] == name)["with"]["script"]
+            assert parser in script
+            assert "path: '.github/agents/registry.yml', ref: registryRef" in script
+        receipt = next(
+            step for step in steps if step["name"].startswith("Evaluated policy labels sha256:")
+        )
+        assert receipt["uses"] == "actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3"

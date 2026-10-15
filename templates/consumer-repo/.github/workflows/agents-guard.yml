@@ -484,10 +484,48 @@ jobs:
 
             core.setOutput('blocked', result.blocked ? 'true' : 'false');
             core.setOutput('evaluated_labels', JSON.stringify(labels));
-            const evaluatedRoutingLabels = new Set([
-              'agent:auto', 'agent:codex', 'agent:claude', 'agent:copilot',
-              'agents:auto-pilot', 'agents:keepalive',
-            ]);
+            function routingLabelsFromRegistry(text) {
+              // Parse only the canonical agents mapping, never execute registry contents.
+              const labels = new Set(['agent:auto', 'agent:copilot', 'agents:auto-pilot', 'agents:keepalive']);
+              const agents = new Map();
+              let inAgents = false;
+              let sections = 0;
+              let key = null;
+              let enabledSeen = false;
+              for (const raw of String(text).split(/\r?\n/)) {
+                const line = raw.replace(/\s+#.*$/, '').replace(/\s+$/, '');
+                if (!line.trim() || line.trimStart().startsWith('#')) continue;
+                if (line.includes('\t')) throw new Error('Agent registry tabs are unsupported');
+                if (/^agents:\s*$/.test(line)) { inAgents = true; sections++; key = null; continue; }
+                if (/^\S/.test(line)) { inAgents = false; key = null; continue; }
+                if (!inAgents) continue;
+                const entry = line.match(/^  ([a-z][a-z0-9_-]*):\s*$/);
+                if (entry) {
+                  key = entry[1];
+                  if (agents.has(key)) throw new Error('Duplicate agent registry entry');
+                  agents.set(key, true);
+                  enabledSeen = false;
+                  continue;
+                }
+                if (/^  \S/.test(line) || !key) throw new Error('Malformed agent registry entry');
+                if (/^    enabled:/.test(line)) {
+                  const value = line.match(/^    enabled:\s*(true|false)$/);
+                  if (!value || enabledSeen) throw new Error('Malformed agent enabled flag');
+                  enabledSeen = true;
+                  agents.set(key, value[1] === 'true');
+                }
+              }
+              if (sections !== 1 || agents.size === 0) throw new Error('Agent registry mapping is incomplete');
+              for (const [agent, enabled] of agents) if (enabled) labels.add(`agent:${agent}`);
+              return labels;
+            }
+            const registryRef = baseRef;
+            if (!/^[0-9a-f]{40}$/.test(registryRef || '')) throw new Error('Trusted registry base SHA is missing');
+            const registry = (await github.rest.repos.getContent({
+              owner, repo, path: '.github/agents/registry.yml', ref: registryRef,
+            })).data;
+            if (registry?.type !== 'file' || registry.encoding !== 'base64') throw new Error('Agent registry evidence is incomplete');
+            const evaluatedRoutingLabels = routingLabelsFromRegistry(Buffer.from(registry.content, 'base64').toString('utf8'));
             if (!Array.isArray(labels)) throw new Error('Evaluated labels are incomplete.');
             const evaluatedPolicyLabels = [...new Set(labels.map(label => {
               if (typeof label?.name !== 'string') throw new Error('Evaluated labels are malformed.');
@@ -673,7 +711,7 @@ jobs:
 
       - name: "Evaluated policy labels sha256:${{ steps.evaluate.outputs.evaluated_policy_sha256 }}"
         if: ${{ steps.evaluate.outcome == 'success' }}
-        uses: actions/github-script@v9
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         with:
           script: core.info('Evaluated policy label digest is bound to this run attempt.');
 
@@ -705,10 +743,48 @@ jobs:
               return;
             }
 
-            const routingLabels = new Set([
-              'agent:auto', 'agent:codex', 'agent:claude', 'agent:copilot',
-              'agents:auto-pilot', 'agents:keepalive',
-            ]);
+            function routingLabelsFromRegistry(text) {
+              // Parse only the canonical agents mapping, never execute registry contents.
+              const labels = new Set(['agent:auto', 'agent:copilot', 'agents:auto-pilot', 'agents:keepalive']);
+              const agents = new Map();
+              let inAgents = false;
+              let sections = 0;
+              let key = null;
+              let enabledSeen = false;
+              for (const raw of String(text).split(/\r?\n/)) {
+                const line = raw.replace(/\s+#.*$/, '').replace(/\s+$/, '');
+                if (!line.trim() || line.trimStart().startsWith('#')) continue;
+                if (line.includes('\t')) throw new Error('Agent registry tabs are unsupported');
+                if (/^agents:\s*$/.test(line)) { inAgents = true; sections++; key = null; continue; }
+                if (/^\S/.test(line)) { inAgents = false; key = null; continue; }
+                if (!inAgents) continue;
+                const entry = line.match(/^  ([a-z][a-z0-9_-]*):\s*$/);
+                if (entry) {
+                  key = entry[1];
+                  if (agents.has(key)) throw new Error('Duplicate agent registry entry');
+                  agents.set(key, true);
+                  enabledSeen = false;
+                  continue;
+                }
+                if (/^  \S/.test(line) || !key) throw new Error('Malformed agent registry entry');
+                if (/^    enabled:/.test(line)) {
+                  const value = line.match(/^    enabled:\s*(true|false)$/);
+                  if (!value || enabledSeen) throw new Error('Malformed agent enabled flag');
+                  enabledSeen = true;
+                  agents.set(key, value[1] === 'true');
+                }
+              }
+              if (sections !== 1 || agents.size === 0) throw new Error('Agent registry mapping is incomplete');
+              for (const [agent, enabled] of agents) if (enabled) labels.add(`agent:${agent}`);
+              return labels;
+            }
+            const registryRef = pullRequest?.base?.sha;
+            if (!/^[0-9a-f]{40}$/.test(registryRef || '')) throw new Error('Trusted registry base SHA is missing');
+            const registry = (await github.rest.repos.getContent({
+              owner, repo, path: '.github/agents/registry.yml', ref: registryRef,
+            })).data;
+            if (registry?.type !== 'file' || registry.encoding !== 'base64') throw new Error('Agent registry evidence is incomplete');
+            const routingLabels = routingLabelsFromRegistry(Buffer.from(registry.content, 'base64').toString('utf8'));
             const permissionLabel = 'agents:allow-change';
             const policyLabelNames = (labels) => {
               if (!Array.isArray(labels)) {
