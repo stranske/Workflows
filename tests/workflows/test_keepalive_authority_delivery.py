@@ -305,9 +305,16 @@ def test_runner_reservation_uses_service_bot_token_without_weakening_storage(
             "codex",
             storage=runner_core.FallbackRunnerStorage(primary, fallback),  # type: ignore[arg-type]
         )
-        assert decision.should_dispatch is False
-        assert decision.reason == "authoritative-storage-unavailable"
-        assert primary.writes == []
+        if status == 403:
+            # Workflows#3924: a credential that cannot read Actions variables could not have
+            # written a legacy reservation either, so denial is treated as absence and the
+            # primary store still records the reservation.
+            assert decision.should_dispatch is True
+            assert len(primary.writes) == 1
+        else:
+            assert decision.should_dispatch is False
+            assert decision.reason == "authoritative-storage-unavailable"
+            assert primary.writes == []
 
     root_reporter = (ROOT / ".github/workflows/agents-keepalive-loop-reporter.yml").read_text()
     assert '"Agents Keepalive Loop"' in root_reporter
