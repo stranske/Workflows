@@ -39,10 +39,14 @@ on:
         required: false
         type: string
       post_codex_comment:
-        description: "Auto-post '@codex start' as the actor (true/false)"
+        description: "Deprecated alias of post_agent_comment (kept so existing callers work)"
         required: false
         type: boolean
         default: true
+      post_agent_comment:
+        description: "Auto-post the labelled agent's start command as the actor (true/false)"
+        required: false
+        type: boolean
       bridge_agent:
         description: "Agent key passed to the reusable bridge workflow (default codex)"
         required: false
@@ -80,7 +84,11 @@ on:
         required: false
         type: string
       post_codex_comment:
-        description: "Auto-post '@codex start' as the actor (true/false)"
+        description: "Deprecated alias of post_agent_comment (kept so existing callers work)"
+        required: false
+        type: string
+      post_agent_comment:
+        description: "Auto-post the labelled agent's start command as the actor (true/false)"
         required: false
         type: string
       bridge_agent:
@@ -154,6 +162,7 @@ jobs:
       debug: ${{ steps.normalize.outputs.debug }}
       issue_number: ${{ steps.normalize.outputs.issue_number }}
       post_codex_comment: ${{ steps.normalize.outputs.post_codex_comment }}
+      post_agent_comment: ${{ steps.normalize.outputs.post_agent_comment }}
       bridge_agent: ${{ steps.normalize.outputs.bridge_agent }}
       apply_langchain_formatting: ${{ steps.normalize.outputs.apply_langchain_formatting }}
     steps:
@@ -167,6 +176,7 @@ jobs:
           INPUT_DEBUG: ${{ inputs.debug }}
           INPUT_ISSUE_NUMBER: ${{ inputs.issue_number }}
           INPUT_POST_CODEX_COMMENT: ${{ inputs.post_codex_comment }}
+          INPUT_POST_AGENT_COMMENT: ${{ inputs.post_agent_comment }}
           INPUT_BRIDGE_AGENT: ${{ inputs.bridge_agent }}
           INPUT_APPLY_LANGCHAIN_FORMATTING: ${{ inputs.apply_langchain_formatting }}
         run: |
@@ -188,7 +198,8 @@ jobs:
           source_url="${INPUT_SOURCE_URL:-}"
           debug=$(normalize_bool "${INPUT_DEBUG:-}")
           issue_number="${INPUT_ISSUE_NUMBER:-}"
-          post_codex_input="${INPUT_POST_CODEX_COMMENT:-}"
+          # post_agent_comment is the agent-neutral name; post_codex_comment is a kept alias.
+          post_codex_input="${INPUT_POST_AGENT_COMMENT:-${INPUT_POST_CODEX_COMMENT:-}}"
           bridge_agent="${INPUT_BRIDGE_AGENT:-}"
           apply_formatting=$(normalize_bool "${INPUT_APPLY_LANGCHAIN_FORMATTING:-}")
 
@@ -244,6 +255,7 @@ jobs:
             echo "debug=$debug"
             echo "issue_number=$issue_number"
             echo "post_codex_comment=$post_codex"
+            echo "post_agent_comment=$post_codex"
             echo "bridge_agent=$bridge_agent"
             echo "apply_langchain_formatting=$apply_formatting"
           } >> "$GITHUB_OUTPUT"
@@ -1731,7 +1743,7 @@ jobs:
           ''
         }}
       mode: 'invite'
-      post_agent_comment: ${{ needs.normalize_inputs.outputs.post_codex_comment }}
+      post_agent_comment: ${{ needs.normalize_inputs.outputs.post_agent_comment }}
     secrets:
       service_bot_pat: ${{ secrets.SERVICE_BOT_PAT }}
       owner_pr_pat: ${{ secrets.OWNER_PR_PAT }}
