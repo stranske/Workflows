@@ -1545,9 +1545,13 @@ def test_queue_regeneration_preserves_original_approval_and_hold(tmp_path: Path)
         queue = evaluator.write_approved_issue_queue(
             tmp_path, [state], current_feedback, "2026-06-01"
         )
-        assert [x["title"] for x in queue["issues"]] == [x["title"] for x in original["issues"]]
+        assert queue["issues"] == []
+        assert [x["title"] for x in queue["held_approved_issues"]] == [
+            x["title"] for x in original["issues"]
+        ]
         assert all(
-            x["body"] == original["issues"][i]["body"] for i, x in enumerate(queue["issues"])
+            x["body"] == original["issues"][i]["body"]
+            for i, x in enumerate(queue["held_approved_issues"])
         )
         assert queue["intake_hold"]["active"] is True
         assert queue["upload_allowed"] is False
@@ -1555,6 +1559,7 @@ def test_queue_regeneration_preserves_original_approval_and_hold(tmp_path: Path)
     state["status"] = "paused"
     queue = evaluator.write_approved_issue_queue(tmp_path, [state], current_feedback, "2026-06-01")
     assert queue["issues"] == []
+    assert queue["held_approved_issues"] == []
     assert len(json.loads((tmp_path / "approval-ledger.json").read_text())["entries"]) == 2
 
 

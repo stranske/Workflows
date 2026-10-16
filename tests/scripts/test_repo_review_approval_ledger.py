@@ -48,8 +48,9 @@ def test_ledger_preserves_authorized_scope_without_requeueing_filed_or_unknown(t
     path, originals = make_ledger(tmp_path)
     queue = {"issues": [dict(item, body="New broader scope") for item in originals]}
     result = ledger.merge_approval_ledger(queue, path, allowed_repos={"owner/demo"})
-    assert len(result["issues"]) == 1
-    item = result["issues"][0]
+    assert result["issues"] == []
+    assert len(result["held_approved_issues"]) == 1
+    item = result["held_approved_issues"][0]
     assert item["body"] == originals[0]["body"]
     assert item["approval_source"]["item_sha256"] == ledger.item_digest(originals[0])
     assert result["approval_ledger"]["counts"] == {"unfiled": 1, "filed": 1, "unknown": 1}
@@ -118,3 +119,44 @@ def test_missing_ledger_keeps_existing_queue_contract(tmp_path):
     assert (
         ledger.merge_approval_ledger(queue, tmp_path / "missing.json", allowed_repos=set()) is queue
     )
+
+
+def test_held_queue_is_empty_to_legacy_upload_readers(tmp_path):
+    from scripts.upload_repo_review_issues import load_queue
+
+    path, _ = make_ledger(tmp_path)
+    result = ledger.merge_approval_ledger({"issues": []}, path, allowed_repos={"owner/demo"})
+    output = tmp_path / "queue.json"
+    output.write_text(json.dumps(result))
+    assert load_queue(output) == []
+    assert len(result["held_approved_issues"]) == 1
+
+
+def test_explicit_ledger_hold_release_restores_only_unfiled_original_scope(tmp_path):
+    path, originals = make_ledger(tmp_path)
+    data = json.loads(path.read_text())
+    data["intake_hold"]["active"] = False
+    path.write_text(json.dumps(data))
+    result = ledger.merge_approval_ledger({"issues": []}, path, allowed_repos={"owner/demo"})
+    assert result["upload_allowed"] is True
+    assert len(result["issues"]) == 1
+    assert result["issues"][0]["body"] == originals[0]["body"]
+    assert "held_approved_issues" not in result
+
+
+@pytest.mark.parametrize("active", [True, False])
+def test_restored_and_new_approvals_keep_priority_order(tmp_path, active):
+    path, _ = make_ledger(tmp_path)
+    data = json.loads(path.read_text())
+    data["intake_hold"]["active"] = active
+    path.write_text(json.dumps(data))
+    urgent = {
+        "repo": "owner/demo",
+        "title": "Urgent current fix",
+        "body": "New explicitly approved scope",
+        "priority_rank": 0,
+        "candidate_index": 5,
+    }
+    result = ledger.merge_approval_ledger({"issues": [urgent]}, path, allowed_repos={"owner/demo"})
+    selected = result["held_approved_issues"] if active else result["issues"]
+    assert [item["title"] for item in selected] == ["Urgent current fix", "Old unfiled fix"]

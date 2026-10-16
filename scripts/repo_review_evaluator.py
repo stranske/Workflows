@@ -3281,9 +3281,10 @@ def write_approved_issue_queue(
                 "",
             ]
         )
-    if not queue["issues"]:
+    approved_items = queue.get("held_approved_issues", queue["issues"])
+    if not approved_items:
         lines.extend(["No approved issue candidates are queued.", ""])
-    for item in queue["issues"]:
+    for item in approved_items:
         if item.get("approval_source"):
             lines.extend(
                 [

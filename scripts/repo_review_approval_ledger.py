@@ -131,10 +131,22 @@ def merge_approval_ledger(
                 "is preserved for reconciliation with the historical approval; no scope was silently replaced."
             )
     result["issues"] = [*preserved.values(), *current]
+    result["issues"].sort(
+        key=lambda item: (
+            item.get("priority_rank", 1),
+            item["repo"].lower(),
+            item.get("candidate_index", 0),
+        )
+    )
     result["approval_ledger"] = {"schema": SCHEMA, "source": str(ledger_path), "counts": counts}
     hold = ledger.get("intake_hold")
     if not isinstance(hold, dict) or not isinstance(hold.get("active"), bool):
         raise ValueError("Approval ledger requires an explicit intake hold state")
     result["intake_hold"] = copy.deepcopy(hold)
     result["upload_allowed"] = not hold["active"]
+    if hold["active"]:
+        # Older consumers only inspect issues and may ignore new hold metadata.
+        # Preserve approvals separately while exposing no materializable work.
+        result["held_approved_issues"] = result["issues"]
+        result["issues"] = []
     return result

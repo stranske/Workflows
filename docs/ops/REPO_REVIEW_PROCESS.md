@@ -383,7 +383,9 @@ choices. Similar titles alone do not transfer approval to a new body. Closed iss
 status records filing/lifecycle state; it does not prove verifier acceptance.
 
 When the ledger's `intake_hold.active` is true, regenerated queues carry the hold
-and `upload_allowed: false`. The uploader refuses `--apply` before any GitHub
+and `upload_allowed: false`. Approved snapshots are retained in
+`held_approved_issues`, while `issues` is empty so older consumers cannot
+materialize held work by ignoring the new metadata. The uploader refuses `--apply` before any GitHub
 operation. Preserve the owner's hold until explicitly released; approval and intake
 authority are separate decisions. Dry-run remains read-only. No weekly review or
 reconciliation uploads issues automatically.
