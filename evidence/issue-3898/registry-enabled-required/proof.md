@@ -20,10 +20,21 @@ retain their previous effective true values; Gemini remains true, Aider false.
 Nested preflight values are unchanged. This failing migration run is retained
 in the automation evidence directory, not disguised as a final validation.
 
-The final four-file guard regression passed **745 tests**, including direct/fork
+The final four-file guard regression after native review repair passed **798 tests**, including direct/fork
 publisher failure writes and stale head/attempt suppression. Additional final
 parser-byte parity proof is retained separately. Full GREEN and validation logs
 are adjacent text files; receipt.json binds their SHA256 digests.
+
+Native review found a stale direct corrective-write path. Its actual source/
+template matrix produced 26 RED failures before repair. Current PR head/base/
+repository/ref, run/attempt, latest inventory and final bindings now gate the
+write. The 52-case both-event matrix plus adjacent cases passes; full final
+regression is 798 passed. Pull-request Actions run heads bind to PR head rather
+than the synthetic merge SHA. Actions read is the only permission addition.
+`registry-enabled-direct-binding-red.log` and `registry-enabled-reviewed-final-*`
+retain this review repair proof, including Black and Health74 drift validation.
+A registry-only precursor (#3922) admits unchanged effective routing before this
+strict parser can consume those immutable trusted-base registry facts.
 
 Commands (runtime /opt/anaconda3/bin/python3):
 

@@ -17,6 +17,7 @@ on:
       - unlabeled
 
 permissions:
+  actions: read
   contents: read
   pull-requests: write
   statuses: write
@@ -941,6 +942,73 @@ jobs:
               throw new Error(`Failed ${label} after ${maxAttempts} attempts.`);
             }
 
+            async function assertCorrectiveWriteBinding() {
+              const expectedAttempt = Number(process.env.GITHUB_RUN_ATTEMPT);
+              if (!Number.isSafeInteger(pullRequest.number) || pullRequest.number <= 0 ||
+                  !Number.isSafeInteger(expectedAttempt) || expectedAttempt < 1 ||
+                  !pullRequest.base?.repo?.id || !pullRequest.base?.ref ||
+                  !/^[0-9a-f]{40}$/.test(pullRequest.base?.sha || '')) {
+                throw new Error('Corrective guard publication binding is incomplete');
+              }
+              const readRun = async () => (await github.rest.actions.getWorkflowRun({
+                owner, repo, run_id: context.runId,
+              })).data;
+              const validatePr = async () => {
+                const current = (await github.rest.pulls.get({
+                  owner, repo, pull_number: pullRequest.number,
+                })).data;
+                if (current?.state !== 'open' || current.number !== pullRequest.number ||
+                    current.head?.sha !== sha || current.base?.sha !== pullRequest.base.sha ||
+                    current.base?.repo?.id !== pullRequest.base.repo.id ||
+                    current.base?.ref !== pullRequest.base.ref) {
+                  throw new Error('PR binding changed before corrective guard publication');
+                }
+              };
+              const validateRun = run => {
+                if (Number(run?.id) !== Number(context.runId) ||
+                    run?.path !== '.github/workflows/agents-guard.yml' ||
+                    run?.event !== context.eventName ||
+                    run?.head_sha !== (context.eventName === 'pull_request' ? sha : context.sha) ||
+                    Number(run?.run_attempt) !== expectedAttempt ||
+                    !Number.isSafeInteger(Number(run?.workflow_id)) || Number(run.workflow_id) <= 0 ||
+                    !Number.isSafeInteger(Number(run?.run_number)) || Number(run.run_number) <= 0 ||
+                    !/^\d{4}-\d{2}-\d{2}T/.test(run?.created_at || '')) {
+                  throw new Error('Run binding changed before corrective guard publication');
+                }
+              };
+              await validatePr();
+              const run = await readRun();
+              validateRun(run);
+              const runs = await github.paginate(github.rest.actions.listWorkflowRuns, {
+                owner, repo, workflow_id: run.workflow_id, event: run.event,
+                created: `>=${run.created_at}`, per_page: 100,
+              });
+              if (!Array.isArray(runs) || runs.filter(candidate =>
+                Number(candidate.id) === Number(run.id) &&
+                Number(candidate.run_attempt) === expectedAttempt
+              ).length !== 1) throw new Error('Latest guard run inventory is incomplete');
+              for (const candidate of runs) {
+                const newer = Number(candidate.run_number) > Number(run.run_number) ||
+                  (Number(candidate.id) === Number(run.id) && Number(candidate.run_attempt) > expectedAttempt);
+                if (!newer) continue;
+                const associated = candidate.pull_requests;
+                if (!Array.isArray(associated) ||
+                    associated.some(pr => !Number.isSafeInteger(Number(pr?.number)) || Number(pr.number) <= 0) ||
+                    associated.some(pr => Number(pr?.number) === pullRequest.number) ||
+                    (associated.length === 0 && candidate.head_sha === run.head_sha)) {
+                  throw new Error('Guard run was superseded or newer PR association is ambiguous');
+                }
+              }
+              await validatePr();
+              const finalRun = await readRun();
+              validateRun(finalRun);
+              if (Number(finalRun.workflow_id) !== Number(run.workflow_id) ||
+                  Number(finalRun.run_number) !== Number(run.run_number) ||
+                  finalRun.created_at !== run.created_at) {
+                throw new Error('Run identity changed before corrective guard publication');
+              }
+            }
+
             try {
               let routingLabels;
               try {
@@ -952,8 +1020,9 @@ jobs:
                 if (registry?.type !== 'file' || registry.encoding !== 'base64') throw new Error('Agent registry evidence is incomplete');
                 routingLabels = routingLabelsFromRegistry(Buffer.from(registry.content, 'base64').toString('utf8'));
               } catch (error) {
-                // Missing trusted policy evidence must replace any earlier
-                // same-head success, even after every bounded read retry fails.
+                // Only a current PR/run attempt may invalidate earlier success.
+                // Stale or incomplete bindings must not write a corrective verdict.
+                await assertCorrectiveWriteBinding();
                 await withApiRetry(client => client.rest.repos.createCommitStatus({
                   owner, repo, sha, state: 'failure',
                   context: 'Health 45 Agents Guard / guard',
