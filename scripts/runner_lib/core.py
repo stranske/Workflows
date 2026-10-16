@@ -1818,12 +1818,30 @@ def _log_storage_failure(operation: str, exc: Exception, *, phase: str = "comple
     cause = exc.__cause__ or exc
     code = getattr(cause, "code", None)
     status = str(code) if isinstance(code, int) and 100 <= code <= 599 else "unknown"
+    message = _http_error_message(exc)
+    suffix = f' http_message="{message}"' if message else ""
     print(
         f"warning: authoritative {phase} {operation} failed: "
         f"error_type={type(exc).__name__} cause_type={type(cause).__name__} "
-        f"http_status={status}",
+        f"http_status={status}{suffix}",
         file=sys.stderr,
     )
+
+
+_TOKEN_SHAPES = re.compile(
+    r"(gh[pousr]_[A-Za-z0-9_]{8,}|github_pat_[A-Za-z0-9_]{8,}|Bearer\s+\S+|x-access-token:\S+)"
+)
+
+
+def _http_error_message(exc: Exception) -> str:
+    """The API's own `message` field (e.g. 'Resource not accessible by integration').
+
+    A missing permission, a secondary rate limit and a bad token all surface as the same 403;
+    only this field tells them apart. Bounded and token-redacted; empty when absent."""
+    match = re.search(r'"message"\s*:\s*"((?:[^"\\]|\\.){1,200})"', str(exc))
+    if not match:
+        return ""
+    return _TOKEN_SHAPES.sub("<redacted>", match.group(1)).replace('"', "'")[:200]
 
 
 def _unrecorded_completion(prior: dict[str, Any], key: str, reason: str) -> dict[str, Any]:

@@ -2892,3 +2892,32 @@ def test_each_zero_output_run_after_the_cooldown_arms_a_fresh_one() -> None:
         storage.records[(42, "codex")]["unproductive_completions"]
         == UNPRODUCTIVE_COMPLETION_RETRY_LIMIT + 1
     )
+
+
+def test_storage_failure_log_names_the_http_error_message(capsys):
+    import urllib.error
+
+    from scripts.runner_lib import core
+
+    cause = urllib.error.HTTPError("https://api.github.com/graphql", 403, "Forbidden", {}, None)
+    body = '{"message":"Resource not accessible by integration; token ghp_abcdef1234567890"}'
+    exc = RuntimeError(f"GitHub API POST /graphql failed: 403 {body}")
+    exc.__cause__ = cause
+
+    core._log_storage_failure("read", exc, phase="reservation")
+
+    logged = capsys.readouterr().err
+    assert "http_status=403" in logged
+    assert "Resource not accessible by integration" in logged
+    assert "ghp_abcdef1234567890" not in logged
+    assert "<redacted>" in logged
+
+
+def test_storage_failure_log_without_a_message_is_unchanged(capsys):
+    from scripts.runner_lib import core
+
+    core._log_storage_failure("read", RuntimeError("network down"), phase="reservation")
+
+    logged = capsys.readouterr().err
+    assert "http_message" not in logged
+    assert "http_status=unknown" in logged
