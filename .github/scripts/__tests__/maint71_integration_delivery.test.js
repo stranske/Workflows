@@ -52,3 +52,18 @@ test('dry run cannot change delivery and unbound payload cannot enter preparatio
   record.source_commit = '';
   await assert.rejects(prepareIntegrationDelivery(args), /bound source/);
 });
+
+test('sealed delivery explicitly dispatches Gate on the PR branch with PR context', async () => {
+  const { requestSealedGate } = require('../maint71_merge_sync_prs');
+  const calls = [];
+  const client = { rest: { actions: { createWorkflowDispatch: async args => calls.push(args) } } };
+  const args = { owner: 'owner', repo: 'repo', pr: { number: 42,
+    head: { ref: 'sync/workflows-delivery', sha: 'a'.repeat(40) } },
+    withRetry: callback => callback(client) };
+  await requestSealedGate(args);
+  assert.deepEqual(calls, [{ owner: 'owner', repo: 'repo', workflow_id: 'pr-00-gate.yml',
+    ref: 'sync/workflows-delivery', inputs: { pr_number: '42' } }]);
+  client.rest.actions.createWorkflowDispatch = async () => { throw new Error('dispatch denied'); };
+  await assert.rejects(requestSealedGate(args), /dispatch denied/);
+  await assert.rejects(requestSealedGate({ ...args, pr: { number: 42 } }), /head ref/);
+});

@@ -7,13 +7,52 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
+    inputs:
+      pr_number:
+        description: 'PR to evaluate at the dispatched head ref (empty for a branch run)'
+        type: string
+        required: false
+        default: ''
 
 concurrency:
-  group: pr-${{ github.event.pull_request.number || github.ref_name }}-gate
-  cancel-in-progress: true
+  group: pr-${{ github.event.pull_request.number || inputs.pr_number || github.ref_name }}-gate
+  cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' }}
 
 jobs:
+  resolve-pr:
+    name: resolve Gate PR context
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      pull_request: ${{ steps.resolve.outputs.pull_request }}
+    steps:
+      - uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        id: resolve
+        env:
+          PR_NUMBER: ${{ inputs.pr_number }}
+        with:
+          script: |
+            let pr = context.payload.pull_request || null;
+            if (context.eventName === 'workflow_dispatch' && process.env.PR_NUMBER) {
+              const number = Number(process.env.PR_NUMBER);
+              if (!Number.isSafeInteger(number) || number <= 0 || String(number) !== process.env.PR_NUMBER) {
+                throw new Error('pr_number must be a positive integer');
+              }
+              const { data } = await github.rest.pulls.get({
+                ...context.repo, pull_number: number,
+              });
+              if (data.state !== 'open' || data.head.repo.full_name !== process.env.GITHUB_REPOSITORY
+                  || data.head.sha !== context.sha) {
+                throw new Error('Dispatch must target the current open same-repository PR head');
+              }
+              pr = data;
+            }
+            core.setOutput('pull_request', JSON.stringify(pr));
+
   detect:
+    needs: resolve-pr
     name: detect changed files
     runs-on: ubuntu-latest
     outputs:
@@ -57,7 +96,19 @@ jobs:
       affected_consumers: ${{ steps.classify.outputs.affected-consumers || '[]' }}
       classification_rationale: >-
         ${{ steps.classify.outputs.classification-rationale || 'path classifier unavailable' }}
+    env:
+      GATE_PR_JSON: ${{ needs.resolve-pr.outputs.pull_request }}
     steps:
+      - name: Restore resolved PR event for Gate helpers
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.pr_number != '' }}
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        with:
+          script: |
+            const fs = require('fs');
+            const event = JSON.parse(fs.readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8'));
+            event.pull_request = JSON.parse(process.env.GATE_PR_JSON);
+            event.number = event.pull_request.number;
+            fs.writeFileSync(process.env.GITHUB_EVENT_PATH, JSON.stringify(event));
       # Mint GitHub App token early to use for API calls (avoids rate limits)
       - name: Mint GitHub App Token
         id: app_token
@@ -73,8 +124,8 @@ jobs:
         with:
 
           token: ${{ steps.app_token.outputs.token || github.token }}
-          repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          repository: ${{ fromJSON(needs.resolve-pr.outputs.pull_request).head.repo.full_name || github.repository }}
+          ref: ${{ fromJSON(needs.resolve-pr.outputs.pull_request).head.sha || github.sha }}
           sparse-checkout: |
             .github/actions/path-classifier
             .github/path-classification.yml
@@ -132,7 +183,7 @@ jobs:
 
   environment-gate:
     name: privilege environment gate
-    needs: detect
+    needs: [resolve-pr, detect]
     runs-on: ubuntu-latest
     environment:
       name: >-
@@ -142,6 +193,7 @@ jobs:
           'agent-standard'
         }}
     env:
+      GATE_PR_JSON: ${{ needs.resolve-pr.outputs.pull_request }}
       WORKFLOW_CHANGED: ${{ needs.detect.outputs.workflow_changed }}
       ENVIRONMENT_NAME: >-
         ${{
@@ -150,23 +202,47 @@ jobs:
           'agent-standard'
         }}
     steps:
+      - name: Restore resolved PR event for Gate helpers
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.pr_number != '' }}
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        with:
+          script: |
+            const fs = require('fs');
+            const event = JSON.parse(fs.readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8'));
+            event.pull_request = JSON.parse(process.env.GATE_PR_JSON);
+            event.number = event.pull_request.number;
+            fs.writeFileSync(process.env.GITHUB_EVENT_PATH, JSON.stringify(event));
       - name: Log environment selection
         run: |
           echo "workflow_changed=${WORKFLOW_CHANGED}"
           echo "environment=${ENVIRONMENT_NAME}"
 
   generated-delivery-seal:
+    needs: resolve-pr
     name: generated delivery seal
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    env:
+      GATE_PR_JSON: ${{ needs.resolve-pr.outputs.pull_request }}
     steps:
+      - name: Restore resolved PR event for Gate helpers
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.pr_number != '' }}
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        with:
+          script: |
+            const fs = require('fs');
+            const event = JSON.parse(fs.readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8'));
+            event.pull_request = JSON.parse(process.env.GATE_PR_JSON);
+            event.number = event.pull_request.number;
+            fs.writeFileSync(process.env.GITHUB_EVENT_PATH, JSON.stringify(event));
       - name: Require an exact-head delivery seal
         uses: stranske/Workflows/.github/actions/generated-delivery-seal@632eb20586f8403219d101e8a982b62efeb94104
 
   python-ci:
     name: python ci
     needs:
+      - resolve-pr
       - detect
       - environment-gate
     if: >-
@@ -203,14 +279,27 @@ jobs:
   docs-guard:
     name: docs guard
     needs:
+      - resolve-pr
       - detect
       - environment-gate
     runs-on: ubuntu-latest
+    env:
+      GATE_PR_JSON: ${{ needs.resolve-pr.outputs.pull_request }}
     steps:
+      - name: Restore resolved PR event for Gate helpers
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.pr_number != '' }}
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        with:
+          script: |
+            const fs = require('fs');
+            const event = JSON.parse(fs.readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8'));
+            event.pull_request = JSON.parse(process.env.GATE_PR_JSON);
+            event.number = event.pull_request.number;
+            fs.writeFileSync(process.env.GITHUB_EVENT_PATH, JSON.stringify(event));
       - uses: actions/checkout@v7
         with:
-          repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          repository: ${{ fromJSON(needs.resolve-pr.outputs.pull_request).head.repo.full_name || github.repository }}
+          ref: ${{ fromJSON(needs.resolve-pr.outputs.pull_request).head.sha || github.sha }}
       - uses: actions/setup-python@v7
         with:
           python-version: '3.14'
@@ -240,15 +329,28 @@ jobs:
   github-scripts-tests:
     name: github scripts tests
     needs:
+      - resolve-pr
       - detect
       - environment-gate
     if: ${{ needs.detect.outputs.doc_only != 'true' }}
     runs-on: ubuntu-latest
+    env:
+      GATE_PR_JSON: ${{ needs.resolve-pr.outputs.pull_request }}
     steps:
+      - name: Restore resolved PR event for Gate helpers
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.pr_number != '' }}
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        with:
+          script: |
+            const fs = require('fs');
+            const event = JSON.parse(fs.readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8'));
+            event.pull_request = JSON.parse(process.env.GATE_PR_JSON);
+            event.number = event.pull_request.number;
+            fs.writeFileSync(process.env.GITHUB_EVENT_PATH, JSON.stringify(event));
       - uses: actions/checkout@v7
         with:
-          repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          repository: ${{ fromJSON(needs.resolve-pr.outputs.pull_request).head.repo.full_name || github.repository }}
+          ref: ${{ fromJSON(needs.resolve-pr.outputs.pull_request).head.sha || github.sha }}
       - name: Detect optional script test suites
         id: script_tests
         run: |
@@ -281,6 +383,7 @@ jobs:
   packages-pdf-extract:
     name: stranske-pdf-extract package tests
     needs:
+      - resolve-pr
       - detect
       - environment-gate
     if: ${{ needs.detect.outputs.doc_only != 'true' }}
@@ -290,11 +393,23 @@ jobs:
     defaults:
       run:
         working-directory: packages/stranske_pdf_extract
+    env:
+      GATE_PR_JSON: ${{ needs.resolve-pr.outputs.pull_request }}
     steps:
+      - name: Restore resolved PR event for Gate helpers
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.pr_number != '' }}
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        with:
+          script: |
+            const fs = require('fs');
+            const event = JSON.parse(fs.readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8'));
+            event.pull_request = JSON.parse(process.env.GATE_PR_JSON);
+            event.number = event.pull_request.number;
+            fs.writeFileSync(process.env.GITHUB_EVENT_PATH, JSON.stringify(event));
       - uses: actions/checkout@v7
         with:
-          repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          repository: ${{ fromJSON(needs.resolve-pr.outputs.pull_request).head.repo.full_name || github.repository }}
+          ref: ${{ fromJSON(needs.resolve-pr.outputs.pull_request).head.sha || github.sha }}
           persist-credentials: false
       - uses: actions/setup-python@v7
         with:
@@ -311,20 +426,33 @@ jobs:
   issue-consistency:
     name: issue consistency
     needs:
+      - resolve-pr
       - detect
-    if: ${{ github.event_name == 'pull_request' }}
+    if: ${{ fromJSON(needs.resolve-pr.outputs.pull_request).number != null }}
     runs-on: ubuntu-latest
+    env:
+      GATE_PR_JSON: ${{ needs.resolve-pr.outputs.pull_request }}
     steps:
+      - name: Restore resolved PR event for Gate helpers
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.pr_number != '' }}
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        with:
+          script: |
+            const fs = require('fs');
+            const event = JSON.parse(fs.readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8'));
+            event.pull_request = JSON.parse(process.env.GATE_PR_JSON);
+            event.number = event.pull_request.number;
+            fs.writeFileSync(process.env.GITHUB_EVENT_PATH, JSON.stringify(event));
       - uses: actions/checkout@v7
         with:
-          repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          repository: ${{ fromJSON(needs.resolve-pr.outputs.pull_request).head.repo.full_name || github.repository }}
+          ref: ${{ fromJSON(needs.resolve-pr.outputs.pull_request).head.sha || github.sha }}
           fetch-depth: 0
       - name: Fetch base ref
         run: |
           set -euo pipefail
-          upstream="https://github.com/${{ github.event.pull_request.base.repo.full_name }}.git"
-          base_ref="${{ github.event.pull_request.base.ref }}"
+          upstream="https://github.com/${{ fromJSON(needs.resolve-pr.outputs.pull_request).base.repo.full_name }}.git"
+          base_ref="${{ fromJSON(needs.resolve-pr.outputs.pull_request).base.ref }}"
           git remote add upstream "$upstream"
           git fetch --no-tags upstream \
             "refs/heads/${base_ref}:refs/remotes/upstream/${base_ref}"
@@ -336,9 +464,9 @@ jobs:
         if: ${{ hashFiles('scripts/check_issue_consistency.py') != '' }}
         run: python scripts/check_issue_consistency.py
         env:
-          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_TITLE: ${{ fromJSON(needs.resolve-pr.outputs.pull_request).title }}
           BASE_REF: ${{ github.base_ref }}
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          BASE_SHA: ${{ fromJSON(needs.resolve-pr.outputs.pull_request).base.sha }}
           BASE_REMOTE: upstream
       - name: Skip issue consistency check
         if: ${{ hashFiles('scripts/check_issue_consistency.py') == '' }}
@@ -349,25 +477,38 @@ jobs:
   test-quality:
     name: test-quality
     needs:
+      - resolve-pr
       - detect
       - environment-gate
-    if: ${{ github.event_name == 'pull_request' && needs.detect.outputs.doc_only != 'true' }}
+    if: ${{ fromJSON(needs.resolve-pr.outputs.pull_request).number != null && needs.detect.outputs.doc_only != 'true' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
       issues: write
       pull-requests: read
+    env:
+      GATE_PR_JSON: ${{ needs.resolve-pr.outputs.pull_request }}
     steps:
+      - name: Restore resolved PR event for Gate helpers
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.pr_number != '' }}
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        with:
+          script: |
+            const fs = require('fs');
+            const event = JSON.parse(fs.readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8'));
+            event.pull_request = JSON.parse(process.env.GATE_PR_JSON);
+            event.number = event.pull_request.number;
+            fs.writeFileSync(process.env.GITHUB_EVENT_PATH, JSON.stringify(event));
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          repository: ${{ fromJSON(needs.resolve-pr.outputs.pull_request).head.repo.full_name || github.repository }}
+          ref: ${{ fromJSON(needs.resolve-pr.outputs.pull_request).head.sha || github.sha }}
           fetch-depth: 0
       - name: Fetch base ref
         run: |
           set -euo pipefail
-          upstream="https://github.com/${{ github.event.pull_request.base.repo.full_name }}.git"
-          base_ref="${{ github.event.pull_request.base.ref }}"
+          upstream="https://github.com/${{ fromJSON(needs.resolve-pr.outputs.pull_request).base.repo.full_name }}.git"
+          base_ref="${{ fromJSON(needs.resolve-pr.outputs.pull_request).base.ref }}"
           git remote add upstream "$upstream"
           git fetch --no-tags upstream \
             "refs/heads/${base_ref}:refs/remotes/upstream/${base_ref}"
@@ -424,16 +565,16 @@ jobs:
       - name: Check test quality and secret diff
         run: >-
           python scripts/check_gate_diff_quality.py
-          --base "refs/remotes/upstream/${{ github.event.pull_request.base.ref }}"
+          --base "refs/remotes/upstream/${{ fromJSON(needs.resolve-pr.outputs.pull_request).base.ref }}"
           --head HEAD
       - name: Check deliberate-break acceptance criterion
         id: deliberate_break
         run: >-
           python scripts/check_deliberate_break.py
-          --base "refs/remotes/upstream/${{ github.event.pull_request.base.ref }}"
+          --base "refs/remotes/upstream/${{ fromJSON(needs.resolve-pr.outputs.pull_request).base.ref }}"
           --head HEAD
         env:
-          PR_BODY: ${{ github.event.pull_request.body || '' }}
+          PR_BODY: ${{ fromJSON(needs.resolve-pr.outputs.pull_request).body || '' }}
       - name: Verify open sync-manifest issue citations
         if: ${{ hashFiles('tests/scripts/test_sync_manifest_docs.py') != '' }}
         env:
@@ -474,6 +615,7 @@ jobs:
   docker-smoke:
     name: docker smoke
     needs:
+      - resolve-pr
       - detect
       - environment-gate
     if: >-
@@ -488,13 +630,25 @@ jobs:
   ledger-validation:
     name: ledger validation
     needs:
+      - resolve-pr
       - detect
       - environment-gate
     if: ${{ needs.detect.outputs.doc_only != 'true' }}
     runs-on: ubuntu-latest
     env:
+      GATE_PR_JSON: ${{ needs.resolve-pr.outputs.pull_request }}
       LEDGER_VALIDATE_ALLOW_SHALLOW: "1"
     steps:
+      - name: Restore resolved PR event for Gate helpers
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.pr_number != '' }}
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        with:
+          script: |
+            const fs = require('fs');
+            const event = JSON.parse(fs.readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8'));
+            event.pull_request = JSON.parse(process.env.GATE_PR_JSON);
+            event.number = event.pull_request.number;
+            fs.writeFileSync(process.env.GITHUB_EVENT_PATH, JSON.stringify(event));
       - name: Mint GitHub App Token
         id: app_token
         uses: actions/create-github-app-token@v3
@@ -509,8 +663,8 @@ jobs:
         with:
           fetch-depth: 0
           token: ${{ steps.app_token.outputs.token || github.token }}
-          repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          repository: ${{ fromJSON(needs.resolve-pr.outputs.pull_request).head.repo.full_name || github.repository }}
+          ref: ${{ fromJSON(needs.resolve-pr.outputs.pull_request).head.sha || github.sha }}
 
       - name: Set up Python
         uses: actions/setup-python@v7
@@ -532,6 +686,7 @@ jobs:
   summary:
     name: summary
     needs:
+      - resolve-pr
       - detect
       - environment-gate
       - python-ci
@@ -550,6 +705,7 @@ jobs:
       pull-requests: write
       statuses: write
     env:
+      GATE_PR_JSON: ${{ needs.resolve-pr.outputs.pull_request }}
       REQUIRED_JOB_GROUPS_JSON: ${{ vars.REQUIRED_JOB_GROUPS_JSON || '' }}
     outputs:
       state: ${{ steps.summarize.outputs.state || steps.docs_only.outputs.state || 'success' }}
@@ -561,6 +717,16 @@ jobs:
       autofix_label_applied: ${{ steps.autofix_label.outputs.applied || 'false' }}
       autofix_label_skipped: ${{ steps.autofix_label.outputs.skipped_reason || '' }}
     steps:
+      - name: Restore resolved PR event for Gate helpers
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.pr_number != '' }}
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        with:
+          script: |
+            const fs = require('fs');
+            const event = JSON.parse(fs.readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8'));
+            event.pull_request = JSON.parse(process.env.GATE_PR_JSON);
+            event.number = event.pull_request.number;
+            fs.writeFileSync(process.env.GITHUB_EVENT_PATH, JSON.stringify(event));
       # Mint GitHub App token early to use for API calls (avoids rate limits)
       - name: Mint GitHub App Token
         id: app_token
@@ -576,8 +742,8 @@ jobs:
         with:
 
           token: ${{ steps.app_token.outputs.token || github.token }}
-          repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          repository: ${{ fromJSON(needs.resolve-pr.outputs.pull_request).head.repo.full_name || github.repository }}
+          ref: ${{ fromJSON(needs.resolve-pr.outputs.pull_request).head.sha || github.sha }}
           sparse-checkout: |
             .github/actions/setup-api-client
             .github/scripts
@@ -771,11 +937,11 @@ jobs:
       - name: Auto-apply autofix label for cosmetic failures
         id: autofix_label
         if: |
-          github.event_name == 'pull_request' &&
+          fromJSON(needs.resolve-pr.outputs.pull_request).number != null &&
           needs.detect.outputs.doc_only != 'true' &&
           steps.summarize.outputs.state == 'failure' &&
           steps.summarize.outputs.cosmetic_failure == 'true' &&
-          !contains(github.event.pull_request.labels.*.name, 'autofix:clean')
+          !contains(fromJSON(needs.resolve-pr.outputs.pull_request).labels.*.name, 'autofix:clean')
         uses: actions/github-script@v9
         env:
           ALLOWED_EXTENSIONS: 'py,pyi'
@@ -880,7 +1046,7 @@ jobs:
           PYTHONPATH: ${{ github.workspace }}
           RUNS_JSON: ${{ steps.gather.outputs.runs || '[]' }}
           HEAD_SHA: >-
-            ${{ steps.gather.outputs.head_sha || github.event.pull_request.head.sha || github.sha }}
+            ${{ steps.gather.outputs.head_sha || fromJSON(needs.resolve-pr.outputs.pull_request).head.sha || github.sha }}
           COVERAGE_SECTION: ${{ steps.coverage_summary.outputs.body || '' }}
           COVERAGE_STATS: ${{ steps.coverage_stats.outputs.stats_json || '' }}
           COVERAGE_DELTA: ${{ steps.coverage_stats.outputs.delta_json || '' }}
@@ -923,14 +1089,14 @@ jobs:
           PY
         env:
           SUMMARY_BODY: ${{ steps.summary_body.outputs.body }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_NUMBER: ${{ fromJSON(needs.resolve-pr.outputs.pull_request).number }}
           HEAD_SHA: >-
-            ${{ steps.gather.outputs.head_sha || github.event.pull_request.head.sha || github.sha }}
+            ${{ steps.gather.outputs.head_sha || fromJSON(needs.resolve-pr.outputs.pull_request).head.sha || github.sha }}
 
       - name: Append keepalive checklists
         uses: actions/github-script@v9
         env:
-          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_NUMBER: ${{ fromJSON(needs.resolve-pr.outputs.pull_request).number }}
           LABEL_APPLIED: ${{ steps.autofix_label.outputs.applied || 'false' }}
         with:
           github-token: >-

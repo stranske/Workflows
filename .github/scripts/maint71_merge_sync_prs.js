@@ -150,6 +150,19 @@ function normalizeReviewPolicy(policy = {}) {
   };
 }
 
+// Dispatch on the PR branch so workflow execution and check suites bind to its
+// head. Gate resolves pr_number and rejects a head race before running checks.
+async function requestSealedGate({ owner, repo, pr, withRetry }) {
+  if (!pr.head?.ref) throw new Error('Gate dispatch requires the PR head ref');
+  await withRetry((client) => client.rest.actions.createWorkflowDispatch({
+    owner,
+    repo,
+    workflow_id: 'pr-00-gate.yml',
+    ref: pr.head.ref,
+    inputs: { pr_number: String(pr.number) },
+  }));
+}
+
 // This prepares the exact delivery for consumer CI; it is not a PASS or merge.
 // Shared source review is not repeated on each generated copy.
 async function prepareIntegrationDelivery({ pr, record, hold, seal, dryRun = false }) {
@@ -1912,8 +1925,8 @@ async function run({ github, context, core }) {
       labels: ['sync:delivery-staging'],
     }));
     // A previous generation can leave this label behind. Clear it while the
-    // staging hold is active so sealing emits a fresh labeled event with the
-    // sealed body for consumers whose Gate does not listen for body edits.
+    // staging hold is active. This is lifecycle metadata; Gate wakeups use an
+    // explicit workflow dispatch after sealing, never a labeled event.
     try {
       await withRetry((client) => client.rest.issues.removeLabel({
         owner,
@@ -2041,7 +2054,8 @@ async function run({ github, context, core }) {
       pull_number: pr.number,
       body,
     }));
-    // Trigger a fresh Gate run from the sealed body. Keep the staging hold
+    // Mark the lifecycle state, then explicitly request Gate on this head.
+    // Labels do not restart Gate. Keep the staging hold
     // until the Maint 71 exact-head merge completes: generic merge lanes use
     // it as their hard stop, while this workflow's dedicated guard explicitly
     // authorizes the sealed delivery path.
@@ -2051,6 +2065,7 @@ async function run({ github, context, core }) {
       issue_number: pr.number,
       labels: ['sync:delivery-ready'],
     }));
+    await requestSealedGate({ owner, repo, pr, withRetry });
     return { sealedAt, reviewEvidence, body, dryRun: false };
   }
 
@@ -3976,6 +3991,7 @@ async function run({ github, context, core }) {
 
 module.exports = {
   prepareIntegrationDelivery,
+  requestSealedGate,
   independentVerificationDeliveryUnchanged,
   adoptFinalCheckEvidence,
   confirmedClosedPrIdentity,
