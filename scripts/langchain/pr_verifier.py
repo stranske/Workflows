@@ -5733,14 +5733,18 @@ def build_prompt_inputs(context: str, diff: str | None, *, lossless: bool = Fals
     reasons: list[str] = []
     source_coverage = parse_context_source_coverage(context_text) or {}
     raw_inventory = source_coverage.get("artifact_capture_inventory")
-    if not lossless and isinstance(raw_inventory, list) and any(
-        isinstance(archive, dict)
-        and isinstance(archive.get("members"), list)
+    if (
+        not lossless
+        and isinstance(raw_inventory, list)
         and any(
-            isinstance(member, dict) and member.get("status") == "captured"
-            for member in archive["members"]
+            isinstance(archive, dict)
+            and isinstance(archive.get("members"), list)
+            and any(
+                isinstance(member, dict) and member.get("status") == "captured"
+                for member in archive["members"]
+            )
+            for archive in raw_inventory
         )
-        for archive in raw_inventory
     ):
         reasons.append(
             "Raw captured artifact bytes require semantic native execution; "
