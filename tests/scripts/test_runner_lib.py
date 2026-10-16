@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import io
 import datetime
 import hashlib
 import hmac
@@ -2901,10 +2902,10 @@ def test_storage_failure_log_names_the_http_error_message(
     body = json.dumps({"message": f"Resource not accessible by integration {token}"})
     primary = MemoryRunnerStorage()
 
+    cause = HTTPError("https://example.invalid/x", 403, "Forbidden", {}, io.BytesIO(b""))
+
     def fail(*_: Any) -> Any:
-        raise RuntimeError(f"GitHub API GET /x failed: 403 {body}") from HTTPError(
-            "https://example.invalid/x", 403, "Forbidden", {}, None
-        )
+        raise RuntimeError(f"GitHub API GET /x failed: 403 {body}") from cause
 
     primary.read_record = fail  # type: ignore[method-assign]
     decision = should_dispatch(
@@ -2914,6 +2915,7 @@ def test_storage_failure_log_names_the_http_error_message(
         storage=runner_core.FallbackRunnerStorage(primary, MemoryRunnerStorage()),
     )
 
+    cause.close()
     error = capsys.readouterr().err
     assert decision.should_dispatch is False
     assert decision.reason == "authoritative-storage-unavailable"
