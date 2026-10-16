@@ -52,3 +52,5 @@ No denied reproduction/assessment operation was retried. The existing root issue
 remains open pending native source acceptance and the parent's guarded delivery.
 
 Registry-only precursor #3922 was guarded-merged at b633a3a6f61b8c95cf186c10444b6895f3005e9c. The strict branch rebased cleanly onto those admitted base facts, then reran all **798 tests** successfully. Rebased full logs and validation output are adjacent and hash-bound by receipt.json.
+
+Native follow-up discussion_r4290382649 found the REST run path commonly includes `@main`. The realistic REST fixture reproduced **4 failed / 48 passed** before repair. Canonical path validation now admits optional nonempty `@ref` suffixes while independently checking workflow ID/path/name and run name; the exact returned path/name remain bound across rereads. Unsuffixed and full-ref paths pass, while wrong path/name/ID and final path changes suppress writes. Final full regression: **830 passed**. Full text RED/GREEN/static validation logs are adjacent and bound in receipt.json.

@@ -966,7 +966,8 @@ jobs:
               };
               const validateRun = run => {
                 if (Number(run?.id) !== Number(context.runId) ||
-                    run?.path !== '.github/workflows/agents-guard.yml' ||
+                    !/^\.github\/workflows\/agents-guard\.yml(?:@[^\s@]+)?$/.test(run?.path || '') ||
+                    run?.name !== 'Health 45 Agents Guard' ||
                     run?.event !== context.eventName ||
                     run?.head_sha !== (context.eventName === 'pull_request' ? sha : context.sha) ||
                     Number(run?.run_attempt) !== expectedAttempt ||
@@ -979,6 +980,14 @@ jobs:
               await validatePr();
               const run = await readRun();
               validateRun(run);
+              const workflow = (await github.rest.actions.getWorkflow({
+                owner, repo, workflow_id: run.workflow_id,
+              })).data;
+              if (Number(workflow?.id) !== Number(run.workflow_id) ||
+                  workflow?.path !== '.github/workflows/agents-guard.yml' ||
+                  workflow?.name !== 'Health 45 Agents Guard') {
+                throw new Error('Run is not the canonical Agents Guard workflow');
+              }
               const runs = await github.paginate(github.rest.actions.listWorkflowRuns, {
                 owner, repo, workflow_id: run.workflow_id, event: run.event,
                 created: `>=${run.created_at}`, per_page: 100,
@@ -1002,7 +1011,8 @@ jobs:
               await validatePr();
               const finalRun = await readRun();
               validateRun(finalRun);
-              if (Number(finalRun.workflow_id) !== Number(run.workflow_id) ||
+              if (finalRun.path !== run.path || finalRun.name !== run.name ||
+                  Number(finalRun.workflow_id) !== Number(run.workflow_id) ||
                   Number(finalRun.run_number) !== Number(run.run_number) ||
                   finalRun.created_at !== run.created_at) {
                 throw new Error('Run identity changed before corrective guard publication');

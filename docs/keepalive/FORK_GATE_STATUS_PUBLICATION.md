@@ -119,7 +119,9 @@ Direct registry-error corrective writes independently reread the current open PR
 head/base/repository/ref and the originating workflow run/attempt. They require
 a complete recent-run inventory and reject a newer matching PR run or ambiguous
 same-base association, then reread both bindings immediately before writing.
-Pull-request run heads bind to the PR head; target-event run heads bind to the
+REST run paths may carry an `@ref` suffix after the canonical workflow path;
+the workflow ID/path/name are checked independently, and the exact returned run
+path remains bound across final rereads. Pull-request run heads bind to the PR head; target-event run heads bind to the
 trusted event SHA. Missing binding evidence aborts without a status write. The
 guard token grants `actions: read` for this run/attempt check; no new write scope
 or secret is granted.
