@@ -3258,7 +3258,7 @@ def write_approved_issue_queue(
             lines.extend(
                 [
                     f"- Stable finding ID: `{item['finding_id']}`",
-                    f"- Preserved approval cycle: `{item['approval_source']['cycle']}`; original scope only. Verify current source relevance before intake.",
+                    f"- Preserved approval cycle: `{item['approval_source'].get('cycle', 'explicit scope resolution')}`. Verify current source relevance before intake.",
                     "",
                 ]
             )

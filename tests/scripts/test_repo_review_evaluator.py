@@ -1616,3 +1616,37 @@ def test_explicit_unattended_opt_in_still_respects_high_stakes_gate(tmp_path: Pa
         "Add normal-priority smoke gate",
     }
     assert len(queue["deeper_review"]) == 2
+
+
+def test_queue_writer_renders_conflict_resolution_approval_metadata(tmp_path, monkeypatch):
+    from scripts import repo_review_approval_ledger as ledger
+
+    state = _tiering_state(tmp_path)
+
+    def resolved(queue, *args, **kwargs):
+        for item in queue["issues"]:
+            item.update(
+                finding_id="resolved-finding",
+                approval_source={
+                    "authority": "Owner resolution",
+                    "item_sha256": "resolved-digest",
+                    "conflict_store": "local-store",
+                },
+            )
+        return queue
+
+    monkeypatch.setattr(ledger, "merge_approval_ledger", resolved)
+    feedback = {
+        "decisions": {
+            state["repo"]: {
+                "decision": "approve",
+                "approved_candidates": "all",
+                "approved_converged_synthesized_at": state["round2_converged"]["synthesized_at"],
+            }
+        }
+    }
+    queue = evaluator.write_approved_issue_queue(tmp_path, [state], feedback, "2026-06-01")
+    assert queue["issues"]
+    rendered = (tmp_path / "approved-issue-queue.md").read_text()
+    assert "explicit scope resolution" in rendered
+    assert "original scope only" not in rendered

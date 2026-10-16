@@ -308,3 +308,55 @@ def test_resolved_conflict_without_snapshot_selection_fails_closed(tmp_path):
     store_path.write_text(json.dumps(store))
     with pytest.raises(ValueError, match="accepted snapshot digest"):
         ledger.merge_approval_ledger({"issues": []}, path, allowed_repos={"owner/demo"})
+
+
+def test_newer_resolution_explicitly_supersedes_prior_accepted_scope(tmp_path):
+    path, originals = make_ledger(tmp_path)
+    a = dict(originals[0], body="Accepted revision A")
+    b = dict(originals[0], body="Accepted revision B")
+    ledger.merge_approval_ledger({"issues": [a]}, path, allowed_repos={"owner/demo"})
+    store_path = tmp_path / "approval-scope-conflicts.json"
+    store = json.loads(store_path.read_text())
+    store["entries"][0].update(
+        disposition="resolved",
+        resolution={"authority": "Owner accepted A", "accepted_item_sha256": ledger.item_digest(a)},
+    )
+    store_path.write_text(json.dumps(store))
+    ledger.merge_approval_ledger({"issues": [b]}, path, allowed_repos={"owner/demo"})
+    store = json.loads(store_path.read_text())
+    store["entries"][0]["disposition"] = "superseded"
+    store["entries"][0]["resolution"]["superseded_by_item_sha256"] = ledger.item_digest(b)
+    store_path.write_text(json.dumps(store))
+    pending = ledger.merge_approval_ledger({"issues": []}, path, allowed_repos={"owner/demo"})
+    assert len(pending["approval_scope_conflicts"]) == 1
+    store["entries"][1].update(
+        disposition="resolved",
+        resolution={"authority": "Owner accepted B", "accepted_item_sha256": ledger.item_digest(b)},
+    )
+    store_path.write_text(json.dumps(store))
+    for _ in range(2):
+        result = ledger.merge_approval_ledger({"issues": []}, path, allowed_repos={"owner/demo"})
+        assert result["approval_scope_conflicts"] == []
+        assert result["held_approved_issues"][0]["body"] == b["body"]
+        assert len(json.loads(store_path.read_text())["entries"]) == 2
+
+
+@pytest.mark.parametrize("target", ["missing", "self"])
+def test_invalid_scope_supersession_fails_closed(tmp_path, target):
+    path, originals = make_ledger(tmp_path)
+    changed = dict(originals[0], body="Changed scope")
+    ledger.merge_approval_ledger({"issues": [changed]}, path, allowed_repos={"owner/demo"})
+    store_path = tmp_path / "approval-scope-conflicts.json"
+    store = json.loads(store_path.read_text())
+    store["entries"][0].update(
+        disposition="superseded",
+        resolution={
+            "authority": "Owner",
+            "superseded_by_item_sha256": (
+                ledger.item_digest(changed) if target == "self" else "missing"
+            ),
+        },
+    )
+    store_path.write_text(json.dumps(store))
+    with pytest.raises(ValueError, match="supersession"):
+        ledger.merge_approval_ledger({"issues": []}, path, allowed_repos={"owner/demo"})

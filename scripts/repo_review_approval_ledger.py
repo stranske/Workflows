@@ -79,9 +79,11 @@ def preserve_scope_conflicts(
             if key in by_id:
                 raise ValueError("Duplicate persistent approval conflict snapshot")
             disposition = conflict.get("disposition")
-            if disposition not in {"reconciliation_required", "resolved"}:
+            if disposition not in {"reconciliation_required", "resolved", "superseded"}:
                 raise ValueError("Invalid approval conflict disposition")
-            if disposition == "resolved" and not conflict.get("resolution", {}).get("authority"):
+            if disposition in {"resolved", "superseded"} and not conflict.get("resolution", {}).get(
+                "authority"
+            ):
                 raise ValueError("Resolved approval conflict lacks explicit resolution authority")
             if disposition == "resolved" and conflict["resolution"].get(
                 "accepted_item_sha256"
@@ -90,6 +92,16 @@ def preserve_scope_conflicts(
                     "Resolved approval conflict requires an explicit accepted snapshot digest"
                 )
             by_id[key] = conflict
+        for key, record in by_id.items():
+            seen = {key}
+            while record["disposition"] == "superseded":
+                target = (key[0], record.get("resolution", {}).get("superseded_by_item_sha256"))
+                if target in seen or target not in by_id:
+                    raise ValueError(
+                        "Approval supersession must reference an existing snapshot without cycles"
+                    )
+                seen.add(target)
+                record = by_id[target]
         changed = False
         for conflict in incoming:
             key = (conflict["finding_id"], conflict["current_approved_item_sha256"])
