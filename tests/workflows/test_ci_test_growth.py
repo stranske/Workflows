@@ -10,6 +10,10 @@ import pytest
 import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
+PLUGIN_STEP = "Pytest (unit tests with coverage)"
+PLUGIN_OPENER = "cat > \"${growth_plugin_dir}/ci_test_growth.py\" <<'PY'"
+SUMMARY_STEP = "Record CI summary"
+SUMMARY_OPENER = "python - <<'PY'"
 
 
 def _steps():
@@ -19,12 +23,51 @@ def _steps():
     return {step["name"]: step for step in workflow["jobs"]["tests"]["steps"]}
 
 
+def _python_heredoc(script, opener, step_name):
+    lines = script.splitlines()
+    assert opener in lines, f"{step_name}: missing Python heredoc opener: {opener}"
+    start = lines.index(opener) + 1
+    assert "PY" in lines[start:], f"{step_name}: missing Python heredoc closing delimiter: PY"
+    end = lines.index("PY", start)
+    return "\n".join(lines[start:end])
+
+
+@pytest.mark.parametrize(
+    ("step_name", "opener"),
+    [(PLUGIN_STEP, PLUGIN_OPENER), (SUMMARY_STEP, SUMMARY_OPENER)],
+    ids=["collection-plugin", "ci-summary"],
+)
+@pytest.mark.parametrize("missing", ["opener", "closing delimiter"])
+def test_python_heredoc_missing_delimiter_has_step_diagnostic(step_name, opener, missing):
+    script = f"{opener}\nprint('receipt')\nPY\n"
+    if missing == "opener":
+        script = script.replace(opener, "# opener removed")
+    else:
+        script = script.replace("\nPY\n", "\nPYTHON\n")
+    with pytest.raises(AssertionError) as error:
+        _python_heredoc(script, opener, step_name)
+    assert step_name in str(error.value)
+    assert f"missing Python heredoc {missing}" in str(error.value)
+
+
+def test_python_heredoc_uses_complete_delimiter_lines():
+    script = (
+        "PY\n"  # A delimiter before the opener cannot close this heredoc.
+        f"{SUMMARY_OPENER}\n"
+        "value = '''first\nPYTHON\nlast'''\n"
+        "PY\n"
+        "echo 'outside Python'\n"
+        f"{SUMMARY_OPENER}\nprint('another heredoc')\nPY\n"
+    )
+    assert _python_heredoc(script, SUMMARY_OPENER, SUMMARY_STEP) == (
+        "value = '''first\nPYTHON\nlast'''"
+    )
+
+
 @pytest.mark.parametrize("workers", [0, 2])
 def test_selected_collection_receipt_matches_real_pytest(tmp_path, workers):
-    script = _steps()["Pytest (unit tests with coverage)"]["run"]
-    assert 'cat > "${growth_plugin_dir}/ci_test_growth.py"' in script
-    plugin = script.split("cat > \"${growth_plugin_dir}/ci_test_growth.py\" <<'PY'\n", 1)[1]
-    plugin = plugin.split("\nPY\n", 1)[0]
+    script = _steps()[PLUGIN_STEP]["run"]
+    plugin = _python_heredoc(script, PLUGIN_OPENER, PLUGIN_STEP)
     (tmp_path / "ci_test_growth.py").write_text(plugin, encoding="utf-8")
     (tmp_path / "test_cases.py").write_text(
         "import pytest\n"
@@ -55,8 +98,7 @@ def test_selected_collection_receipt_matches_real_pytest(tmp_path, workers):
 
 
 def test_actual_ci_summary_reports_growth_and_preserves_failed_gate(tmp_path):
-    script = _steps()["Record CI summary"]["run"]
-    script = script.split("python - <<'PY'\n", 1)[1].rsplit("\nPY", 1)[0]
+    script = _python_heredoc(_steps()[SUMMARY_STEP]["run"], SUMMARY_OPENER, SUMMARY_STEP)
     runtime = tmp_path / "artifacts/coverage/runtimes/3.12"
     runtime.mkdir(parents=True)
     (runtime / "pytest-junit.xml").write_text(
@@ -98,8 +140,7 @@ def test_actual_ci_summary_reports_growth_and_preserves_failed_gate(tmp_path):
 
 
 def test_unreadable_receipts_remain_unknown(tmp_path):
-    script = _steps()["Record CI summary"]["run"]
-    script = script.split("python - <<'PY'\n", 1)[1].rsplit("\nPY", 1)[0]
+    script = _python_heredoc(_steps()[SUMMARY_STEP]["run"], SUMMARY_OPENER, SUMMARY_STEP)
     runtime = tmp_path / "artifacts/coverage/runtimes/3.12"
     runtime.mkdir(parents=True)
     (runtime / "pytest-junit.xml").write_text("<broken")
@@ -109,6 +150,7 @@ def test_unreadable_receipts_remain_unknown(tmp_path):
         "PYTHON_VERSION": "3.12",
         "PYTEST_OUTCOME": "failure",
         "GITHUB_OUTPUT": str(tmp_path / "outputs"),
+        "GITHUB_STEP_SUMMARY": str(tmp_path / "job-summary"),
     }
     result = subprocess.run(
         [sys.executable, "-c", script], cwd=tmp_path, env=env, capture_output=True, text=True
