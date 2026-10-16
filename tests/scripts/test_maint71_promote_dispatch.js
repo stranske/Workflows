@@ -249,6 +249,64 @@ test('health observes current trusted candidates, ignores superseded and untrust
   assert.match(api.summaries.join(''), /plans sealed awaiting promotion: 0/);
 });
 
+test('merged canaries clear health only after their exact promotion completes successfully', async () => {
+  const api = harness(), checks = [];
+  let runs = [];
+  api.client.rest.actions.listWorkflowRuns = async (params) => {
+    api.reads.push(params);
+    return { data: { workflow_runs: runs } };
+  };
+  api.client.rest.pulls = { list: async ({ owner, repo }) => ({ data: [{
+    ...candidate('2026-10-14T11:00:00Z', `${owner}/${repo}`),
+    state: 'closed', merged_at: '2026-10-15T12:00:00Z',
+  }] }) };
+  api.client.rest.checks = { create: async (params) => { checks.push(params); } };
+  const runContext = { ...context, sha: sourceCommit, runId: 123, runAttempt: 1 };
+
+  for (const [history, cleared] of [
+    [[], false],
+    [[promotionRun({ status: 'queued', conclusion: null })], false],
+    [[promotionRun({ conclusion: 'failure' })], false],
+    [[promotionRun({ display_title: `Maint 68 promote auto ${planId} ${'d'.repeat(40)}` })], false],
+    [[promotionRun({ head_branch: 'unmerged-source' })], false],
+    [[promotionRun()], true],
+  ]) {
+    runs = history;
+    api.summaries.length = 0;
+    const health = await reportSealedPromotionHealth({
+      ...api, context: runContext, expectedCanaries, now,
+    });
+    await publishPromotionHealthCheck({ github: api.client, context: runContext, health });
+    assert.equal(health.pending.length, cleared ? 0 : 1);
+    assert.equal(health.overdue, !cleared);
+    assert.equal(api.summaries.join(''), cleared
+      ? 'plans sealed awaiting promotion: 0, oldest: n/a\n\n'
+      : `plans sealed awaiting promotion: 1, oldest: 49.0 h\n- ${planId} @ ${sourceCommit}; sealed 2026-10-14T11:00:00.000Z\n`);
+    assert.equal(checks.at(-1).conclusion, cleared ? 'success' : 'failure');
+    assert.equal(checks.at(-1).output.summary, health.line);
+  }
+});
+
+test('merged canary recovery reads later history pages before reporting zero pending', async () => {
+  const api = harness([promotionRun()]), calls = [];
+  api.client.rest.pulls = { list: async (params) => {
+    calls.push(params);
+    const pr = candidate('2026-10-14T11:00:00Z', `${params.owner}/${params.repo}`);
+    return { data: params.page === 1
+      ? Array.from({ length: 100 }, (_, index) => ({
+        ...pr, number: index + 2, state: 'closed', merged_at: null,
+      }))
+      : [{ ...pr, state: 'closed', merged_at: '2026-10-15T12:00:00Z' }] };
+  } };
+  const health = await reportSealedPromotionHealth({ ...api, expectedCanaries, now });
+  assert.equal(calls.length, expectedCanaries.length * 2);
+  assert.deepEqual(calls.map(({ page }) => page), expectedCanaries.flatMap(() => [1, 2]));
+  assert.equal(api.reads.length, 1, 'merged canaries must trigger an exact promotion history read');
+  assert.equal(health.pending.length, 0);
+  assert.equal(health.overdue, false);
+  assert.match(api.summaries.join(''), /plans sealed awaiting promotion: 0/);
+});
+
 test('health API failures cannot produce a measured zero', async () => {
   const api = harness();
   api.client.rest.pulls = { list: async () => { throw new Error('read denied'); } };
