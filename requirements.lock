@@ -47,6 +47,8 @@ coverage==7.16.2
     # via
     #   workflows (pyproject.toml)
     #   pytest-cov
+defusedxml==0.7.1
+    # via workflows (pyproject.toml)
 distlib==0.4.3
     # via virtualenv
 distro==1.9.0

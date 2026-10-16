@@ -9,7 +9,6 @@ from pathlib import Path
 
 import pytest
 import yaml
-from scripts.ci_test_growth import junit_report
 
 ROOT = Path(__file__).resolve().parents[2]
 PLUGIN_STEP = "Pytest (unit tests with coverage)"
@@ -244,6 +243,8 @@ def test_unreadable_receipts_remain_unknown(tmp_path):
 
 @pytest.mark.parametrize("duration", [None, "", "invalid", "NaN", "inf", "-inf", "-1"])
 def test_junit_report_preserves_counts_with_unknown_durations(tmp_path, duration):
+    from scripts.ci_test_growth import junit_report
+
     path = tmp_path / "junit.xml"
     suite = ET.Element("testsuite")
     for name, seconds in [("test_matrix[1]", duration), ("test_matrix[2]", "2")]:
@@ -267,6 +268,8 @@ def test_junit_report_preserves_counts_with_unknown_durations(tmp_path, duration
 
 
 def test_junit_report_retains_measured_zero_and_aggregates_parametrizations(tmp_path):
+    from scripts.ci_test_growth import junit_report
+
     path = tmp_path / "junit.xml"
     path.write_text(
         '<testsuites><testsuite><testcase classname="tests.example" name="test_zero" time="0"/>'
@@ -299,6 +302,8 @@ def test_junit_report_retains_measured_zero_and_aggregates_parametrizations(tmp_
     ids=["no-measurements", "sum-overflow"],
 )
 def test_junit_report_does_not_publish_unmeasured_or_nonfinite_rankings(tmp_path, cases):
+    from scripts.ci_test_growth import junit_report
+
     path = tmp_path / "junit.xml"
     path.write_text(f"<testsuite>{cases}</testsuite>", encoding="utf-8")
 
@@ -312,6 +317,8 @@ def test_junit_report_does_not_publish_unmeasured_or_nonfinite_rankings(tmp_path
 
 
 def test_junit_report_propagates_unreadable_xml_to_summary_unknown_handler(tmp_path):
+    from scripts.ci_test_growth import junit_report
+
     path = tmp_path / "junit.xml"
     with pytest.raises(FileNotFoundError):
         junit_report(path)
@@ -365,6 +372,7 @@ def test_actual_summary_preserves_counts_for_invalid_duration(tmp_path):
 
 def test_junit_report_rejects_entity_expansion(tmp_path):
     from defusedxml.common import DefusedXmlException
+    from scripts.ci_test_growth import junit_report
 
     path = tmp_path / "junit.xml"
     path.write_text(
@@ -377,6 +385,8 @@ def test_junit_report_rejects_entity_expansion(tmp_path):
 def test_embedded_junit_helper_matches_source_without_consumer_import():
     import ast
     import inspect
+
+    from scripts.ci_test_growth import junit_report
 
     inline = _python_heredoc(_steps()[SUMMARY_STEP]["run"], SUMMARY_OPENER, SUMMARY_STEP)
     node = next(
