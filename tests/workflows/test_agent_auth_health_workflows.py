@@ -30,6 +30,8 @@ def test_each_secret_backed_agent_has_a_presence_check_that_never_echoes_the_key
 
 def test_muse_check_is_never_billable():
     text = CHECKS["META_API_KEY"].read_text()
-    assert "muse exec" not in text.replace("No `muse exec`", "").replace("No `muse exec` is run", "")
+    assert "muse exec" not in text.replace("No `muse exec`", "").replace(
+        "No `muse exec` is run", ""
+    )
     assert "muse --version" in text
     assert "bwrap" in text
