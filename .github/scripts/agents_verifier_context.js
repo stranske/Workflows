@@ -816,7 +816,7 @@ async function fetchVerifierEvidence({
     const lines = String(text || '').split('\n');
     const filterFallbackLine = line => {
       if (!negativeEvidencePredicate.test(line.replace(/[`*_]/g, ''))) return line;
-      const clauses = line.split(/[.;]\s+/);
+      const clauses = line.split(/[.;]\s+|,\s+(?:while|whereas|but|and)\s+/i);
       const firstNegative = clauses.findIndex(clause => negativeEvidencePredicate.test(clause.replace(/[`*_]/g, '')));
       let keepBefore = firstNegative;
       if (firstNegative > 0 && /^(?:this|that|it|these|those)(?:\s+[\w-]+){0,8}\s+(?:is|was|are|were)\b/i.test(clauses[firstNegative].trim())) keepBefore -= 1;
@@ -834,13 +834,13 @@ async function fetchVerifierEvidence({
     // reference line across a Markdown break. It cannot erase other links in
     // the source, or independently affirmative evidence sections.
     for (let index = 0; index < lines.length; index += 1) {
-      const line = lines[index].replace(/[`*_]/g, '').trim().replace(/^(?:>\s*)*/, '');
+      const line = lines[index].replace(/[`*_]/g, '').trim().replace(/^(?:>\s*)*/, '').replace(/^(?:(?:[-+*]|\d+[.)])\s+)?(?:\[[ xX]\]\s+)?/, '');
       if (!/^(?:this|that|it|these|those)(?:\s+[\w-]+){0,8}\s+(?:is|was|are|were)\b/i.test(line)
           || !negativeEvidencePredicate.test(line) || extractReferencedRunIds([line]).length) continue;
       let previous = index - 1;
       while (previous >= 0 && !lines[previous].trim()) previous -= 1;
       if (previous >= 0) {
-        const clauses = lines[previous].split(/[.;]\s+/);
+        const clauses = lines[previous].split(/[.;]\s+|,\s+(?:while|whereas|but|and)\s+/i);
         let governed = clauses.length - 1;
         while (governed >= 0 && !extractReferencedRunIds([clauses[governed]]).length) governed -= 1;
         if (governed >= 0 && !positiveEvidenceClauses(clauses[governed]).length) {
