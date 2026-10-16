@@ -3366,6 +3366,7 @@ jobs:
           HAS_CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN != '' }}
           HAS_CLAUDE_AUTH_JSON: ${{ secrets.CLAUDE_AUTH_JSON != '' }}
           HAS_CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY != '' }}
+          HAS_META_API_KEY: ${{ secrets.META_API_KEY != '' }}
           HAS_GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY != '' }}
         with:
           script: |
