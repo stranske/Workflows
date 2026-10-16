@@ -456,7 +456,8 @@ function positiveEvidenceLines(text) {
       .replace(/^(?:(?:[-+*]|\d+[.)])\s+)?(?:\[[ xX]\]\s+)?/, '')
       .replace(/\[[^\]\n]*\]\((?:https?:\/\/[^\s)]+)?\/actions\/runs\/\d+(?:[/?#][^\s)]*)?\)/g, '')
       .replace(/<?(?:https?:\/\/[^\s<>`]+)?\/actions\/runs\/\d+(?:[/?#][^\s<>`]+)?>?/g, '')
-      .replace(/[`*_\s,;.!?:<>-]/g, '');
+      .replace(/[)\]}]+$/g, '')
+      .replace(/[`*_\s,;.!?:<>)-]/g, '');
     if (section && extractReferencedRunIds([line]).length && !remainder) {
       selected.push(line);
       continue;
@@ -824,7 +825,9 @@ async function fetchVerifierEvidence({
         return label && !/\b(?:evidence|validation|artifacts?|test results?|red|green)\b/i.test(label[1])
           && !negativeEvidencePredicate.test(clause);
       });
-      return [...clauses.slice(0, Math.max(0, keepBefore)), ...positiveEvidenceClauses(line), ...independentIncidental].join(' ');
+      // Never re-parse the full line for positives after a contrast "but" or a
+      // negative clause; that would resurrect runs only negated in the prefix.
+      return [...clauses.slice(0, Math.max(0, keepBefore)), ...independentIncidental].join('; ');
     };
     const filtered = lines.map(filterFallbackLine);
     // An anaphoric negative diagnostic can govern the immediately preceding
