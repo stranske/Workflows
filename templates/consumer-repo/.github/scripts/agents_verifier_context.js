@@ -755,7 +755,8 @@ async function fetchVerifierEvidence({
   const totalArchiveBytes = positiveLimit('VERIFIER_EVIDENCE_TOTAL_ARCHIVE_BYTES', 32 * 1024 * 1024);
   const totalExtractBytes = positiveLimit('VERIFIER_EVIDENCE_TOTAL_EXTRACT_BYTES', 64 * 1024 * 1024);
   const totalArtifactChars = positiveLimit('VERIFIER_EVIDENCE_TOTAL_ARTIFACT_CHARS', 4 * 1024 * 1024);
-  const captureDirectory = process.env.VERIFIER_EVIDENCE_CAPTURE_DIR || undefined;
+  const captureDirectory = process.env.VERIFIER_SEMANTIC_MODE === '1'
+    ? process.env.VERIFIER_EVIDENCE_CAPTURE_DIR || undefined : undefined;
   let usedArtifactChars = 0;
   const commentLimit = positiveLimit('VERIFIER_EVIDENCE_COMMENT_LIMIT', DEFAULT_EVIDENCE_COMMENT_LIMIT);
   const commentChars = positiveLimit('VERIFIER_EVIDENCE_COMMENT_CHARS', DEFAULT_EVIDENCE_COMMENT_CHARS);

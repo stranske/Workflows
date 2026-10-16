@@ -24,6 +24,10 @@ recursively ingest its own input ZIPs. This applies only to the exact
 workflow path. Explicit references to that transport name or artifact ID retain
 the normal inspection path; arbitrary workflow artifacts are not excluded.
 
+Raw recovery is enabled only for expanded semantic compare. Expanded evaluate
+and other legacy prompts keep a non-PASS floor when retained members were not
+rendered into their actual prompt; validating sidecars cannot waive that floor.
+
 Complete capture does not establish native capacity, provider acceptance or issue
 completion. Every byte still belongs to the conservative all-input residual
 unless a fixed, reviewed source rule binds the immutable capture and demonstrates
@@ -38,7 +42,9 @@ Its authentic coverage archive contains five members totaling5,267,797 bytes;
 the prior comparison archive has seven members totaling264,116 bytes. The original
 collector clipped both. The repaired collector retains and independently verifies
 all12 raw members (5,531,913 bytes) while leaving presentation honestly bounded.
-That replay establishes the capture regression, not source612 verification.
+All nine originally incomplete archives were then replayed:39 members totaling
+36,711,522 bytes retained and independently verified inside the unchanged64MiB
+extraction ceiling. That replay establishes capture, not source612 verification.
 
 Validation: `node --test .github/scripts/__tests__/agents-verifier-context.test.js`
 and `python3 -m pytest -q tests/tools/test_verifier_artifact_capture.py

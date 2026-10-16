@@ -471,3 +471,20 @@ def test_workflow_guide_distinguishes_verifier_checkout_tokens():
     guide = Path("docs/WORKFLOW_GUIDE.md").read_text()
     assert "App token is restricted to the caller checkout" in guide
     assert "Workflows scripts checkout uses `github.token`" in guide
+
+
+def test_expanded_evaluate_does_not_admit_raw_capture_recovery(tmp_path):
+    output = tmp_path / "env"
+    result = subprocess.run(
+        ["bash", "-c", profile_step()["run"]],
+        env={
+            **os.environ,
+            "VERIFIER_EVIDENCE_PROFILE": "expanded",
+            "VERIFIER_MODE": "evaluate",
+            "GITHUB_ENV": str(output),
+        },
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, result.stderr
+    assert "VERIFIER_EVIDENCE_CAPTURE_DIR" not in output.read_text()

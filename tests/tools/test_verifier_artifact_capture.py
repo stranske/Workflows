@@ -119,6 +119,15 @@ def test_obligation_and_byte_inventory_require_available_raw_sidecars(tmp_path, 
     )
     assert not build_capture_obligation_manifest(context)["sufficient"]
     monkeypatch.setenv("VERIFIER_EVIDENCE_CAPTURE_DIR", str(tmp_path))
+    monkeypatch.setenv("VERIFIER_SEMANTIC_MODE", "0")
+    assert not build_capture_obligation_manifest(context)["sufficient"]
+    from scripts.langchain import pr_verifier
+
+    assert any(
+        "legacy prompt" in reason
+        for reason in pr_verifier.build_prompt_inputs(context, "diff").coverage.reasons
+    )
+    monkeypatch.setenv("VERIFIER_SEMANTIC_MODE", "1")
     assert build_capture_obligation_manifest(context)["sufficient"]
     context_path = tmp_path / "verifier-context.md"
     context_path.write_text(context)

@@ -465,7 +465,11 @@ def build_capture_obligation_manifest(
     obligations: list[SourceObligation] = []
     gaps: list[str] = []
     recovered_artifacts: set[str] = set()
-    if coverage and os.environ.get("VERIFIER_EVIDENCE_CAPTURE_DIR"):
+    if (
+        coverage
+        and os.environ.get("VERIFIER_EVIDENCE_CAPTURE_DIR")
+        and os.environ.get("VERIFIER_SEMANTIC_MODE") == "1"
+    ):
         try:
             _, recovered_artifacts = load_artifact_capture(
                 coverage, Path(os.environ["VERIFIER_EVIDENCE_CAPTURE_DIR"])

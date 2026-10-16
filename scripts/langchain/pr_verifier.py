@@ -5731,6 +5731,21 @@ def build_prompt_inputs(context: str, diff: str | None, *, lossless: bool = Fals
     diff_text = diff.strip() if diff and diff.strip() else ""
     sections = _split_verifier_context(context_text) if context_text else None
     reasons: list[str] = []
+    source_coverage = parse_context_source_coverage(context_text) or {}
+    raw_inventory = source_coverage.get("artifact_capture_inventory")
+    if not lossless and isinstance(raw_inventory, list) and any(
+        isinstance(archive, dict)
+        and isinstance(archive.get("members"), list)
+        and any(
+            isinstance(member, dict) and member.get("status") == "captured"
+            for member in archive["members"]
+        )
+        for archive in raw_inventory
+    ):
+        reasons.append(
+            "Raw captured artifact bytes require semantic native execution; "
+            "the legacy prompt does not contain every artifact."
+        )
     acceptance_source_discovery = _acceptance_discovery_coverage(sections)
     if acceptance_source_discovery in {"truncated", "unavailable"}:
         reasons.append(

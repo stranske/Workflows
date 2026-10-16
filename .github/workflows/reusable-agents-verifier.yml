@@ -120,7 +120,6 @@ jobs:
                 'VERIFIER_EVIDENCE_ARCHIVE_BYTES=4194304' \
                 'VERIFIER_EVIDENCE_ENTRY_LIMIT=80' \
                 'VERIFIER_EVIDENCE_ARTIFACT_CHARS=128000' \
-                'VERIFIER_EVIDENCE_CAPTURE_DIR=verifier-evidence' \
                 'VERIFIER_EVIDENCE_COMMENT_PAGES=10' \
                 'VERIFIER_EVIDENCE_RUN_PAGES=2' \
                 'VERIFIER_EVIDENCE_ARTIFACT_PAGES=4' \
@@ -130,6 +129,9 @@ jobs:
                 'VERIFIER_CONTEXT_BUDGET_TOKENS=16384' \
                 'VERIFIER_DIFF_BUDGET_TOKENS=1048576' \
                 'VERIFIER_ACCEPTANCE_EVIDENCE_BUDGET_TOKENS=131072' >> "$GITHUB_ENV"
+              if [ "${VERIFIER_MODE:-}" = 'compare' ]; then
+                printf '%s\n' 'VERIFIER_EVIDENCE_CAPTURE_DIR=verifier-evidence' >> "$GITHUB_ENV"
+              fi
               ;;
             *) echo 'Unsupported verifier evidence profile' >&2; exit 1 ;;
           esac
