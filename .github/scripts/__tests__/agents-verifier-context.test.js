@@ -4988,7 +4988,10 @@ test('shared evidence clauses keep coordinated negative subjects out of fallback
   ];
   for (const join of [' and ', ' or ', ', ', ', and ', ', or ', ', and  ', ', or  ']) {
     for (const copula of ['are', 'were']) {
-      for (const wrap of [url => url, url => `<${url}>`, url => `[run](${url})`]) {
+      for (const wrap of [url => url, url => `<${url}>`, url => `[run](${url})`,
+        ...['run ', 'workflow run ', 'previous failed run '].flatMap(descriptor => [
+          url => descriptor + url, url => descriptor + `<${url}>`, url => descriptor + `[run](${url})`,
+        ])]) {
         const subject = `${wrap('/actions/runs/124')}${join}${wrap('/actions/runs/999')}`;
         cases.push([`Evidence: ${subject} ${copula} not current validation evidence`, []]);
         for (const separator of ['; ', '. ', ', while ', ', whereas ', ', but ', ', and ']) {
@@ -5019,7 +5022,7 @@ test('shared evidence clauses keep coordinated negative subjects out of fallback
         const result = await implementation({github, owner: 'octo', repo: 'workflows', pullNumber: 7,
           pullRequestBody: anchor, associatedCommitShas: [sha]});
         const positive = diagnostic.includes('Evidence: /actions/runs/125') ? [125]
-          : diagnostic.startsWith('Evidence: /actions/runs/124') && selected.includes(124) ? [124] : [];
+          : (diagnostic.startsWith('Evidence:') || diagnostic.includes('Current validation run:')) && selected.includes(124) ? [124] : [];
         const expected = anchor ? [123, ...positive] : selected;
         assert.deepEqual(requested, expected, `${anchor} :: ${diagnostic}`);
         assert.deepEqual(result.diagnostics.references.explicit_run_ids, anchor ? [123, ...positive] : positive, diagnostic);
@@ -5028,5 +5031,43 @@ test('shared evidence clauses keep coordinated negative subjects out of fallback
         assert.ok(result.comments.records.some(record => record.body === diagnostic));
       }
     }
+  }
+});
+
+
+test('coordinated malformed URL members terminate without regex partition backtracking', () => {
+  for (const filename of ['.github/scripts/agents_verifier_context.js',
+    'templates/consumer-repo/.github/scripts/agents_verifier_context.js']) {
+    const script = `const {fetchVerifierEvidence} = require(${JSON.stringify(path.resolve(filename))});
+      const subject = Array(36).fill('https://a/actions/runs/1').join(',') + 'X are not evidence';
+      fetchVerifierEvidence({github: {}, owner:'octo',repo:'workflows',pullNumber:7,
+        pullRequestBody: 'Evidence: ' + subject, associatedCommitShas: []}).then(() => process.exit(0));`;
+    assert.doesNotThrow(() => execFileSync(process.execPath, ['-e', script], {timeout: 1500, stdio: 'pipe'}));
+  }
+});
+
+test('oversized evidence clause preserves raw channels and typed union but fails scope completeness', async () => {
+  const sha = 'a'.repeat(40);
+  for (const implementation of [fetchVerifierEvidence,
+    require('../../../templates/consumer-repo/.github/scripts/agents_verifier_context.js').fetchVerifierEvidence]) {
+    const diagnostic = 'Evidence: /actions/runs/999 ' + 'x'.repeat(33000);
+    const empty = async () => ({data: []});
+    const requested = [];
+    const github = {rest: {issues: {listComments: async () => ({data: [{id: 10, body: diagnostic}]})},
+      pulls: {listReviewComments: empty, listReviews: empty}, actions: {
+        getWorkflowRun: async ({run_id}) => {requested.push(run_id); return {data: {id: run_id, head_sha: sha}};},
+        listWorkflowRunsForRepo: async () => ({data: {total_count: 0, workflow_runs: []}}),
+        listWorkflowRunArtifacts: async () => ({data: {total_count: 0, artifacts: []}}),
+        downloadArtifact: async () => {throw Error('no archive expected');},
+      }}};
+    const result = await implementation({github, owner:'octo',repo:'workflows',pullNumber:7,
+      pullRequestBody:'', evidenceTexts:['/actions/runs/123'], associatedCommitShas:[sha]});
+    assert.deepEqual(requested, [123]);
+    assert.deepEqual(result.diagnostics.references.explicit_run_ids, [123]);
+    assert.equal(result.diagnostics.references.reference_sources_complete, false);
+    assert.equal(result.comments.complete, true);
+    assert.ok(result.comments.records.some(record => record.body === diagnostic));
+    assert.equal(result.artifacts.complete, false);
+    assert.ok(result.diagnostics.failures.some(failure => failure.kind === 'clause_length'));
   }
 });

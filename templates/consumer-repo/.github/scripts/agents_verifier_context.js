@@ -392,49 +392,89 @@ const EVIDENCE_LABEL_RE = /\b(?:evidence|validation|artifacts?|test results?|red
 const NEGATIVE_EVIDENCE_RE = /\b(?:no|not)\s+(?!(?:(?:the\s+)?only|just)\b)(?:[\w-]+\s+)*(?:evidence|validation|artifacts?|test results?|red\s+(?:then\s+)?green)\b/i;
 const ANAPHORIC_SUBJECT_RE = /^(?:this|that|it|these|those)(?:\s+[\w-]+){0,8}\s+(?:is|was|are|were)\b/i;
 
-const RUN_URL_SUBJECT = String.raw`[\x60*_]*(?:\[[^\]]+\]\()?<?` +
-  String.raw`(?:run\s+)?(?:https?:\/\/[^\s)>,]+?)?\/actions\/runs\/\d+(?:[/?#][^\s)>\],]*)?[)>\x60*_\]]*`;
-const EVIDENCE_CLAUSE_MAX_LEN = 4000;
+// URL tokens never absorb member separators. Subject membership is a bounded
+// scan over token gaps, rather than a regex over every possible URL partition.
+const RUN_URL_TOKEN_RE = /[\x60*_]*(?:\[[^\]\n]+\]\()?<?(?:https?:\/\/[^\s)>,]+?)?\/actions\/runs\/\d+(?:[/?#][^\s)>\],]*)?[)>\x60*_\]]*/g;
+const EVIDENCE_CLAUSE_MAX_LEN = 32768;
+
+function evidenceRunTokens(value) {
+  const tokens = [];
+  let previousEnd = 0;
+  for (const match of value.matchAll(RUN_URL_TOKEN_RE)) {
+    const gap = value.slice(previousEnd, match.index);
+    let tailStart = 0;
+    for (const delimiter of gap.matchAll(/[,;:]|\b(?:and|or|but|while|whereas)\b/gi)) {
+      tailStart = delimiter.index + delimiter[0].length;
+    }
+    const tail = gap.slice(tailStart);
+    const descriptor = /^\s*(?:[\w-]+\s+){0,4}(?:runs?|jobs?|attempts?)\s+$/i.test(tail);
+    const start = descriptor ? previousEnd + tailStart + tail.search(/\S/) : match.index;
+    tokens.push({start, end: match.index + match[0].length});
+    previousEnd = match.index + match[0].length;
+  }
+  return tokens;
+}
 
 function evidenceClauses(line) {
   const value = String(line || '');
-  if (value.length > EVIDENCE_CLAUSE_MAX_LEN) {
-    const labels = [...value.matchAll(EVIDENCE_LABEL_RE)];
-    const negativeIndex = labels.findIndex(match =>
-      /\b(?:no|not)\s+(?!(?:(?:the\s+)?only|just)\b)(?:[\w-]+\s+)*$/i.test(value.slice(0, match.index).replace(/[`*_]/g, '')));
-    return [{
-      clause: value,
-      separator: '',
-      labels,
-      negativeIndex,
-      negativeStart: negativeIndex < 0 ? value.length : negativeIndex === 0 ? 0 : labels[negativeIndex].index,
-    }];
+  // The caller records this as unavailable scope, while retaining raw text.
+  if (value.length > EVIDENCE_CLAUSE_MAX_LEN) return [];
+  const tokenStarts = new Set(evidenceRunTokens(value).map(token => token.start));
+  const parts = [];
+  let start = 0;
+  let separator = '';
+  for (const boundary of value.matchAll(/[.;]\s+|\s+but\s+|,\s+(?:while|whereas|and|or)\s+/gi)) {
+    const end = boundary.index + boundary[0].length;
+    if (/^,\s+(?:and|or)\s+$/i.test(boundary[0]) && tokenStarts.has(end)) continue;
+    parts.push({clause: value.slice(start, boundary.index), separator});
+    start = end;
+    separator = boundary[0];
   }
-  const boundary = new RegExp(String.raw`([.;]\s+|\s+but\s+|,\s+(?:while|whereas)\s+|,\s+(?:and|or)\s+(?!`
-    + String.raw`\s*` + RUN_URL_SUBJECT + '))', 'i');
-  const parts = line.split(boundary);
-  return parts.filter((_, index) => index % 2 === 0).map((clause, index) => {
+  parts.push({clause: value.slice(start), separator});
+  return parts.map(({clause, separator}) => {
     const labels = [...clause.matchAll(EVIDENCE_LABEL_RE)];
     const negativeIndex = labels.findIndex(match =>
       /\b(?:no|not)\s+(?!(?:(?:the\s+)?only|just)\b)(?:[\w-]+\s+)*$/i.test(clause.slice(0, match.index).replace(/[`*_]/g, '')));
     let negativeStart = negativeIndex < 0 ? clause.length
       : negativeIndex === 0 ? 0 : labels[negativeIndex].index;
     if (negativeIndex >= 0) {
-      const coordinatedSubject = new RegExp(RUN_URL_SUBJECT +
-        String.raw`(?:\s*(?:,\s*(?:(?:and|or)\s+)?|\s+(?:and|or)\s+)` + RUN_URL_SUBJECT +
-        String.raw`)*\s+(?:is|are|was|were)\s+(?:no|not)\s+(?:[\w-]+\s+)*$`, 'i');
       const prefix = clause.slice(0, labels[negativeIndex].index);
-      const singularSubject = new RegExp(RUN_URL_SUBJECT +
-        String.raw`[\s—-]+(?:(?:is|was)\s+)?(?:no|not)\s+(?:[\w-]+\s+)*$`, 'i');
-      const subject = prefix.match(/\b(?:are|were)\s+(?:no|not)\s+(?:[\w-]+\s+)*$/i)
-        ? prefix.match(coordinatedSubject) : prefix.match(singularSubject);
-
-      // Plural predicates bind the entire coordinated subject; singular/bare
-      // predicates bind only the immediate URL. Preserve earlier proof.
-      if (subject) negativeStart = subject.index;
+      const predicate = prefix.match(/[\s—-]+(?:(is|are|was|were)\s+)?(?:no|not)\s+(?:[\w-]+\s+)*$/i);
+      if (predicate) {
+        const subjectText = prefix.slice(0, predicate.index).trimEnd();
+        const subjects = evidenceRunTokens(subjectText);
+        // A comma followed by a bare negative declaration is independent,
+        // rather than a trailing predicate on the preceding proof URL.
+        if (!predicate[1] && subjectText.endsWith(',')) {
+          return {clause, separator, labels, negativeIndex, negativeStart};
+        }
+        let last = subjects.length - 1;
+        if (last >= 0 && subjects[last].end === subjectText.length) {
+          negativeStart = subjects[last].start;
+          if (/^(?:are|were)$/i.test(predicate[1] || '')) {
+            while (last > 0 && /^\s*(?:,\s*(?:(?:and|or)\s+)?|\s+(?:and|or)\s+)\s*$/i.test(
+              subjectText.slice(subjects[last - 1].end, subjects[last].start))) {
+              last -= 1;
+              negativeStart = subjects[last].start;
+            }
+          }
+        } else {
+          // A malformed subject cannot restore a potentially negated run.
+          negativeStart = 0;
+        }
+      }
     }
-    return {clause, separator: parts[index * 2 - 1] || '', labels, negativeIndex, negativeStart};
+    return {clause, separator, labels, negativeIndex, negativeStart};
   });
+}
+
+function affirmativeEvidenceDeclaration(clause) {
+  const plain = clause.replace(/[`*_]/g, '').replace(/^\s*(?:[-*>]\s*)?/, '')
+    .replace(/^(?:however|separately|instead|also|in contrast|for comparison)\s*[,—:-]?\s*/i, '')
+    .replace(/^not (?:(?:the\s+)?only|just)\s+/i, '');
+  const label = plain.match(/^([^:\n]+):/);
+  if (!label || label[1].trim().split(/\s+/).length > 8 || NEGATIVE_EVIDENCE_RE.test(label[1])) return false;
+  return /(?:evidence|validation|artifacts?|test results?|red\s+(?:then\s+)?green)(?:\s+(?:evidence|validation|artifacts?|runs?))*\s*$/i.test(label[1]);
 }
 
 // Prose labels bind within their clause. A historical diagnostic that says
@@ -445,11 +485,8 @@ function positiveEvidenceClauses(line) {
   let positive = false;
   let negativeScope = false;
   for (const {clause, separator, labels, negativeIndex, negativeStart} of evidenceClauses(line)) {
-    const plainClause = clause.replace(/[`*_]/g, '');
-    // Diagnostic contrast cannot reopen scope without an affirmative label.
-    const affirmativeDeclaration = /^\s*(?:[-*>]\s*)?(?:(?:however|separately|instead|also|in contrast|for comparison)\s*[,—:-]?\s*)?(?:not (?:(?:the\s+)?only|just)\s+)?(?:evidence|validation|artifacts?|test results?|red\s+(?:then\s+)?green)(?:\s+(?:evidence|validation|artifacts?|runs?))*\s*:/i.test(plainClause);
-    const descriptiveAffirmativeLabel = /^\s*(?:[-*>]\s*)?[\w\s]{0,48}(?:evidence|validation|artifacts?|test results?|red\s+(?:then\s+)?green)\s*(?:runs?)?\s*:/i.test(plainClause);
-    if (negativeScope && (affirmativeDeclaration || descriptiveAffirmativeLabel)) negativeScope = false;
+    // Declaration heads reopen scope; modifiers do not change that head.
+    if (negativeScope && affirmativeEvidenceDeclaration(clause)) negativeScope = false;
     if (labels.length) {
       positive = !negativeScope && negativeIndex !== 0;
     } else if (!separator.startsWith(';')) {
@@ -470,6 +507,7 @@ function positiveEvidenceLines(text) {
   let section = false;
   const label = /^(?:evidence|validation|artifacts?|test results?|red\s+(?:then\s+)?green)(?:\s+(?:evidence|validation|artifacts?|runs?))*\s*:?$/i;
   for (const line of String(text || '').split('\n')) {
+    if (line.length > EVIDENCE_CLAUSE_MAX_LEN) { section = false; continue; }
     const normalized = line.trim().replace(/^(?:>\s*)*/, '').replace(/^#{1,6}\s+/, '').replace(/[`*_]/g, '').trim();
     if (label.test(normalized)) { section = true; continue; }
     if (!normalized) continue;
@@ -834,6 +872,10 @@ async function fetchVerifierEvidence({
   const artifacts = { status: 'absent', complete: true, records: [], reason: '' };
   const typedEvidenceTexts = (evidenceTexts || []).filter(text => String(text || '') !== String(pullRequestBody || ''));
   const proseReferenceTexts = [pullRequestBody, ...referenceTexts, ...commentBodies];
+  const proseClassificationComplete = proseReferenceTexts.every(text =>
+    String(text || '').split('\n').every(line => line.length <= EVIDENCE_CLAUSE_MAX_LEN));
+  if (!proseClassificationComplete) fail('artifacts', 'clause_length',
+    'evidence clause character limit prevented complete scope classification');
   // A filtered negative diagnostic must not return through incidental fallback
   // when no positively selected URL exists. Typed references remain explicit.
   const fallbackReferenceTexts = proseReferenceTexts.map(text => {
@@ -901,7 +943,7 @@ async function fetchVerifierEvidence({
   const seenRunIds = new Set();
   let artifactIncomplete = allRunIds.length > referencedRunIds.length;
   if (artifactIncomplete) fail("artifacts", "reference_record", "explicit reference union exceeds run limit");
-  const referenceInspectionComplete = body.complete && comments.complete && referenceSourcesComplete;
+  const referenceInspectionComplete = body.complete && comments.complete && referenceSourcesComplete && proseClassificationComplete;
   diagnostics.references = {
     requested_run_ids: allRunIds,
     explicit_run_ids: Array.from(explicitEvidenceRunIds),

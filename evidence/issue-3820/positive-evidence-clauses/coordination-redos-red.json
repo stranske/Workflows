@@ -1,0 +1,8 @@
+{
+  "head": "58574e6",
+  "result": "CAUSAL_TIMEOUT_RED",
+  "timeout_seconds": 2,
+  "seconds": 2.005132458987646,
+  "members": 36,
+  "malformed_suffix": "1X"
+}
