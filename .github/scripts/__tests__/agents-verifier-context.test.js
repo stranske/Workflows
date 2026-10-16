@@ -4914,6 +4914,13 @@ test('negative diagnostics filter governed references without erasing incidental
     require('../../../templates/consumer-repo/.github/scripts/agents_verifier_context.js').fetchVerifierEvidence];
   for (const implementation of implementations) {
     for (const body of [
+      'Build: /actions/runs/124; Not evidence: /actions/runs/999\nThis run is not evidence that validation failed.',
+      'No evidence: /actions/runs/998; Build: /actions/runs/124; Completed /actions/runs/999 failed.\nThat previous workflow is not evidence.',
+      "Build: /actions/runs/124; Completed Selftest /actions/runs/999 failed.\nThis is not evidence that validation failed.",
+      "Build: /actions/runs/124; Completed Selftest /actions/runs/999 failed.\nThis run is not evidence that validation failed.",
+      "Build: /actions/runs/124; Completed Selftest /actions/runs/999 failed.\nThat workflow is not evidence that validation failed.",
+      "Build: /actions/runs/124; Completed Selftest /actions/runs/999 failed.\nThis historical workflow run is not evidence that validation failed.",
+      "Build: /actions/runs/124; Completed Selftest /actions/runs/999 failed.\nThat previous failed workflow attempt is not evidence that validation failed.",
       'Not evidence: /actions/runs/999; Build: /actions/runs/124',
       'Not evidence: /actions/runs/999. CI run: /actions/runs/124',
       'Build: /actions/runs/124. There are no evidence gaps.',

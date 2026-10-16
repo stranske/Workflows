@@ -813,30 +813,38 @@ async function fetchVerifierEvidence({
   const negativeEvidencePredicate = /\b(?:no|not)\s+(?!(?:(?:the\s+)?only|just)\b)(?:[\w-]+\s+)*(?:evidence|validation|artifacts?|test results?|red\s+(?:then\s+)?green)\b/i;
   const fallbackReferenceTexts = proseReferenceTexts.map(text => {
     const lines = String(text || '').split('\n');
-    const filtered = lines.map(line => {
+    const filterFallbackLine = line => {
       if (!negativeEvidencePredicate.test(line.replace(/[`*_]/g, ''))) return line;
       const clauses = line.split(/[.;]\s+/);
       const firstNegative = clauses.findIndex(clause => negativeEvidencePredicate.test(clause.replace(/[`*_]/g, '')));
       let keepBefore = firstNegative;
-      if (firstNegative > 0 && /^(?:this|that|it|these|those)\s+(?:is|was|are|were)\b/i.test(clauses[firstNegative].trim())) keepBefore -= 1;
+      if (firstNegative > 0 && /^(?:this|that|it|these|those)(?:\s+[\w-]+){0,8}\s+(?:is|was|are|were)\b/i.test(clauses[firstNegative].trim())) keepBefore -= 1;
       const independentIncidental = clauses.slice(firstNegative + 1).filter(clause => {
         const label = clause.match(/^\s*([\w -]+):/);
         return label && !/\b(?:evidence|validation|artifacts?|test results?|red|green)\b/i.test(label[1])
           && !negativeEvidencePredicate.test(clause);
       });
       return [...clauses.slice(0, Math.max(0, keepBefore)), ...positiveEvidenceClauses(line), ...independentIncidental].join(' ');
-    });
+    };
+    const filtered = lines.map(filterFallbackLine);
     // An anaphoric negative diagnostic can govern the immediately preceding
     // reference line across a Markdown break. It cannot erase other links in
     // the source, or independently affirmative evidence sections.
     for (let index = 0; index < lines.length; index += 1) {
       const line = lines[index].replace(/[`*_]/g, '').trim().replace(/^(?:>\s*)*/, '');
-      if (!/^(?:this|that|it|these|those)\s+(?:is|was|are|were)\b/i.test(line)
+      if (!/^(?:this|that|it|these|those)(?:\s+[\w-]+){0,8}\s+(?:is|was|are|were)\b/i.test(line)
           || !negativeEvidencePredicate.test(line) || extractReferencedRunIds([line]).length) continue;
       let previous = index - 1;
       while (previous >= 0 && !lines[previous].trim()) previous -= 1;
-      if (previous >= 0 && extractReferencedRunIds([lines[previous]]).length
-          && !positiveEvidenceClauses(lines[previous]).length) filtered[previous] = '';
+      if (previous >= 0) {
+        const clauses = lines[previous].split(/[.;]\s+/);
+        let governed = clauses.length - 1;
+        while (governed >= 0 && !extractReferencedRunIds([clauses[governed]]).length) governed -= 1;
+        if (governed >= 0 && !positiveEvidenceClauses(clauses[governed]).length) {
+          clauses[governed] = '';
+          filtered[previous] = filterFallbackLine(clauses.join('; '));
+        }
+      }
     }
     // Header-bound references still form the explicit union below. This path
     // retains incidental references except those locally governed by negation.
