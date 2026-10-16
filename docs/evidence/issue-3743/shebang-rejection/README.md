@@ -6,16 +6,29 @@ boundary against empty files, absent shebangs, unclosed quotes, and an unresolve
 PATH. It asserts that no probe is available, the runtime is not managed, and a
 probe cannot report success. Production helpers and prior proof are unchanged.
 
+The current tests exercise both the bare `pytest` name through real PATH lookup
+and its absolute executable path. Any attempt to execute a probe subprocess
+fails immediately. The standalone replay uses only the standard library and
+rejects DTDs and entity declarations before parsing JUnit; seven companion tests
+check normal pytest XML and declaration rejection in UTF-8 and UTF-16.
+
+Fresh receipts for these strengthened tests are retained in
+`path-lookup/proof.tar.gz`, with current input bindings and matched coverage in
+`path-lookup/summary.json`. The original `proof.tar.gz` and `summary.json` below
+remain frozen historical evidence. This runner has Python 3.14 at
+`/opt/hostedtoolcache/Python/3.14.8/x64/bin/python`; it does not have the historical
+`/opt/anaconda3/bin/python3`. Fresh receipts record the actual interpreter used.
+
 Run the focused tests:
 
 ```sh
-/opt/anaconda3/bin/python3 -m pytest tests/scripts/test_check_deliberate_break_shebang_rejection.py -q -o addopts=
+python3 -m pytest tests/scripts/test_check_deliberate_break_shebang_rejection.py -q -o addopts= -m "not slow"
 ```
 
 Reproduce the eight controls in a new output directory:
 
 ```sh
-/opt/anaconda3/bin/python3 docs/evidence/issue-3743/shebang-rejection/replay.py --output /tmp/fresh-shebang-rejection-proof
+python3 docs/evidence/issue-3743/shebang-rejection/replay.py --output /tmp/fresh-shebang-rejection-proof
 ```
 
 The replay mutates one rejection branch at a time in private source copies.
@@ -25,7 +38,7 @@ output directory is claimed before any source copy or mutation; reuse is
 rejected. The frozen reuse audit confirms all 93 existing proof files retained
 their bytes.
 
-`summary.json` binds current source, test, replay and coverage configuration
+The historical `summary.json` binds original source, test, replay and coverage configuration
 bytes to `proof.tar.gz`. The archive contains exact process argv/cwd/exits,
 raw console/JUnit/coverage JSON, all original/mutated/restored source copies,
 and `manifest.json` with SHA256 and byte lengths for every other member.

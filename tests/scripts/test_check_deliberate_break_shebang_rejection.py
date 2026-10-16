@@ -1,15 +1,22 @@
 """Malformed pytest launchers cannot authorize a Python import probe or repair."""
 
 import runpy
+import shutil
 from pathlib import Path
 
 import pytest
 
 
 @pytest.fixture(params=["", "templates/consumer-repo/"], ids=["root", "template"])
-def helper(request):
+def helper(request, monkeypatch):
     root = Path(__file__).resolve().parents[2]
-    return runpy.run_path(str(root / request.param / "scripts/check_deliberate_break.py"))
+    module = runpy.run_path(str(root / request.param / "scripts/check_deliberate_break.py"))
+
+    def unexpected_probe(*args, **kwargs):
+        pytest.fail("a malformed launcher must not execute a probe subprocess")
+
+    monkeypatch.setitem(module["_pyyaml_probe_succeeds"].__globals__, "_run", unexpected_probe)
+    return module
 
 
 @pytest.fixture
@@ -25,10 +32,12 @@ def launcher(tmp_path, monkeypatch):
 
 
 def assert_no_probe(helper, launcher):
-    command = (str(launcher), "tests/test_named.py::test_named")
-    assert helper["_pyyaml_probe_command"](command, launcher.parent) is None
-    assert helper["_uses_pytest_runtime"](command) is False
-    assert helper["_pyyaml_probe_succeeds"](command, launcher.parent) is False
+    assert shutil.which("pytest") == str(launcher)
+    for executable in ("pytest", str(launcher)):
+        command = (executable, "tests/test_named.py::test_named")
+        assert helper["_pyyaml_probe_command"](command, launcher.parent) is None
+        assert helper["_uses_pytest_runtime"](command) is False
+        assert helper["_pyyaml_probe_succeeds"](command, launcher.parent) is False
 
 
 def test_empty_pytest_launcher_has_no_probe(helper, launcher):

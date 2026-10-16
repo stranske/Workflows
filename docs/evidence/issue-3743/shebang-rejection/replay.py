@@ -10,8 +10,8 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
-
-from defusedxml import ElementTree as ET
+from xml.etree import ElementTree as ET
+from xml.parsers import expat
 
 TEST = "tests/scripts/test_check_deliberate_break_shebang_rejection.py"
 HELPER = "scripts/check_deliberate_break.py"
@@ -39,6 +39,21 @@ def digest(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
+def parse_junit(path: Path) -> ET.Element:
+    """Read JUnit without dependencies, rejecting DTDs and entity declarations."""
+    data = path.read_bytes()
+    parser = expat.ParserCreate()
+
+    def reject_declaration(*args):
+        raise ValueError("JUnit must not contain DTDs or entity declarations")
+
+    parser.StartDoctypeDeclHandler = reject_declaration
+    parser.EntityDeclHandler = reject_declaration
+    parser.ExternalEntityRefHandler = reject_declaration
+    parser.Parse(data, True)
+    return ET.fromstring(data)
+
+
 def run_node(checkout: Path, output: Path, node: str, phase: str) -> dict:
     junit = output / f"{phase}.xml"
     argv = [
@@ -56,7 +71,7 @@ def run_node(checkout: Path, output: Path, node: str, phase: str) -> dict:
     result = subprocess.run(argv, cwd=checkout, capture_output=True, text=True, timeout=60)
     (output / f"{phase}.stdout").write_text(result.stdout, encoding="utf-8")
     (output / f"{phase}.stderr").write_text(result.stderr, encoding="utf-8")
-    cases = list(ET.parse(junit).getroot().iter("testcase"))
+    cases = list(parse_junit(junit).iter("testcase"))
     failures = [failure for case in cases for failure in case.findall("failure")]
     errors = [error for case in cases for error in case.findall("error")]
     skips = [skip for case in cases for skip in case.findall("skipped")]
