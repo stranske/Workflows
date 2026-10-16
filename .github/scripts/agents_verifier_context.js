@@ -445,7 +445,7 @@ function positiveEvidenceLines(text) {
   let section = false;
   const label = /^(?:evidence|validation|artifacts?|test results?|red\s+(?:then\s+)?green)(?:\s+(?:evidence|validation|artifacts?|runs?))*\s*:?$/i;
   for (const line of String(text || '').split('\n')) {
-    const normalized = line.trim().replace(/^#{1,6}\s+/, '').replace(/[`*_]/g, '').trim();
+    const normalized = line.trim().replace(/^(?:>\s*)*/, '').replace(/^#{1,6}\s+/, '').replace(/[`*_]/g, '').trim();
     if (label.test(normalized)) { section = true; continue; }
     if (!normalized) continue;
     if (/^\s*\|[^\n]+\|[^|\n]+\|\s*\[View run\]\([^\n)]+\)\s*\|\s*$/i.test(line)) { section = false; continue; }
@@ -456,7 +456,7 @@ function positiveEvidenceLines(text) {
       .replace(/^(?:(?:[-+*]|\d+[.)])\s+)?(?:\[[ xX]\]\s+)?/, '')
       .replace(/\[[^\]\n]*\]\((?:https?:\/\/[^\s)]+)?\/actions\/runs\/\d+(?:[/?#][^\s)]*)?\)/g, '')
       .replace(/<?(?:https?:\/\/[^\s<>`]+)?\/actions\/runs\/\d+(?:[/?#][^\s<>`]+)?>?/g, '')
-      .replace(/[`*_\s,;<>-]/g, '');
+      .replace(/[`*_\s,;.!?:<>-]/g, '');
     if (section && extractReferencedRunIds([line]).length && !remainder) {
       selected.push(line);
       continue;
