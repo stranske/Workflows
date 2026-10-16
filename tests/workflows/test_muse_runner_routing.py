@@ -113,6 +113,19 @@ def test_run_step_sets_a_muse_git_identity():
         assert env[variable] == value, variable
 
 
+def test_commit_step_preserves_the_run_step_git_identity():
+    run_env = _muse_git_identity("run_muse")
+    commit_env = _muse_git_identity("commit")
+    for variable in (
+        "GIT_AUTHOR_NAME",
+        "GIT_AUTHOR_EMAIL",
+        "GIT_COMMITTER_NAME",
+        "GIT_COMMITTER_EMAIL",
+    ):
+        assert variable in commit_env, f"Commit and push changes env is missing {variable}"
+        assert commit_env[variable] == run_env[variable], variable
+
+
 @pytest.mark.parametrize(
     "variable",
     ["GIT_AUTHOR_NAME", "GIT_AUTHOR_EMAIL", "GIT_COMMITTER_NAME", "GIT_COMMITTER_EMAIL"],
@@ -136,7 +149,7 @@ def test_run_step_git_identity_deliberate_break_and_restore(monkeypatch, variabl
     test_run_step_sets_a_muse_git_identity()
 
 
-def test_run_step_identity_overrides_a_cli_default_git_identity(tmp_path):
+def test_run_step_identity_overrides_a_cli_default_git_identity(tmp_path, monkeypatch):
     # Exercise real Git without launching Muse or accessing any credential store.
     env = {key: value for key, value in os.environ.items() if not key.startswith("GIT_")}
     env.update(GIT_CONFIG_NOSYSTEM="1", GIT_CONFIG_GLOBAL=os.devnull)
@@ -183,3 +196,26 @@ def test_run_step_identity_overrides_a_cli_default_git_identity(tmp_path):
     assert (
         git("show", "-s", "--format=%an|%ae|%cn|%ce", "HEAD") == expected_identity
     ), "Commit and push changes must preserve Muse author AND committer after rebase"
+
+    # Replay the original feature commit again, deleting only the commit step's committer
+    # name. Git must preserve the author and committer email but fall back to Claude's name.
+    jobs = _jobs(WF / "reusable-muse-run.yml")
+    commit_step = next(step for step in jobs["muse"]["steps"] if step.get("id") == "commit")
+    del commit_step["env"]["GIT_COMMITTER_NAME"]
+    git("reset", "--hard", feature_sha)
+    with monkeypatch.context() as broken:
+        broken.setattr(f"{__name__}._jobs", lambda path: jobs)
+        git("rebase", "main", step_id="commit")
+        delivered_identity = git("show", "-s", "--format=%an|%ae|%cn|%ce", "HEAD")
+        with pytest.raises(AssertionError, match="delivered Muse identity"):
+            assert delivered_identity == expected_identity, "delivered Muse identity changed"
+        assert delivered_identity == (
+            "muse|muse@users.noreply.github.com|Claude|muse@users.noreply.github.com"
+        )
+
+    # Restore by reading the actual workflow again, then force a fresh replay to prove recovery.
+    git("reset", "--hard", feature_sha)
+    git("rebase", "main", step_id="commit")
+    assert git("rev-parse", "HEAD") != feature_sha
+    git("merge-base", "--is-ancestor", "main", "HEAD")
+    assert git("show", "-s", "--format=%an|%ae|%cn|%ce", "HEAD") == expected_identity
