@@ -5071,3 +5071,53 @@ test('oversized evidence clause preserves raw channels and typed union but fails
     assert.ok(result.diagnostics.failures.some(failure => failure.kind === 'clause_length'));
   }
 });
+
+test('raw capture retains every member beyond rendering budget and rejects byte overflow', () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'verifier-raw-test-'));
+  try {
+    const bytes = Buffer.from('genuine evidence '.repeat(1000));
+    const execFile = (_command, args, options) => {
+      if (args[0] === '-Z1') return 'large.json\nlate.xml\n';
+      if (options.maxBuffer < bytes.length) throw new Error('maxBuffer exceeded');
+      return bytes;
+    };
+    const result = extractArtifactArchiveText({ archiveBuffer: Buffer.from('archive'),
+      maxEntries: 2, maxChars: 40, maxBytes: bytes.length * 2, captureDirectory: directory, execFile });
+    assert.equal(result.truncated, true); // presentation remains honestly clipped
+    assert.equal(result.rawCaptureComplete, true);
+    assert.equal(result.extractedBytes, bytes.length * 2); // duplicates still charged
+    assert.deepEqual(result.members.map(m => m.status), ['captured', 'captured']);
+    const sha = createHash('sha256').update(bytes).digest('hex');
+    assert.deepEqual(fs.readFileSync(path.join(directory, `${sha}.txt`)), bytes);
+    const overflow = extractArtifactArchiveText({ archiveBuffer: Buffer.from('archive'),
+      maxEntries: 2, maxChars: 40, maxBytes: bytes.length, captureDirectory: directory, execFile });
+    assert.equal(overflow.rawCaptureComplete, false);
+    assert.equal(overflow.members[1].status, 'unavailable');
+  } finally { fs.rmSync(directory, {recursive: true, force: true}); }
+});
+
+test('only implicit first-party verifier input transports avoid recursive evidence capture', async () => {
+  const sha = 'a'.repeat(40);
+  for (const [workflow, extra, skip] of [
+    ['.github/workflows/agents-verifier.yml', '', true],
+    ['.github/workflows/other.yml', '', false],
+    ['.github/workflows/agents-verifier.yml', 'verifier-input-capture-10', false],
+    ['.github/workflows/agents-verifier.yml', '/artifacts/20', false],
+  ]) {
+    let downloads = 0;
+    const empty = async () => ({data: [], headers: {}});
+    const github = {rest: {issues: {listComments: empty},
+      pulls: {listReviewComments: empty, listReviews: empty}, actions: {
+        getWorkflowRun: async () => ({data: {id:10, head_sha:sha, path:workflow}}),
+        listWorkflowRunArtifacts: async () => ({data: {total_count:1,
+          artifacts:[{id:20,name:'verifier-input-capture-10',size_in_bytes:10}]}}),
+        downloadArtifact: async () => { downloads++; return {data:Buffer.from('archive')}; },
+      }}};
+    const result = await fetchVerifierEvidence({github, owner:'o', repo:'r', pullNumber:1,
+      associatedCommitShas:[sha], pullRequestBody:`Evidence: /actions/runs/10 ${extra}`,
+      extractArtifactText: () => ({text:'',truncated:true,failures:['unsupported_payload']})});
+    assert.equal(downloads, skip ? 0 : 1);
+    assert.equal(result.artifacts.complete, skip);
+    if (skip) assert.equal(result.diagnostics.archive_inventory[0].status, 'input_transport');
+  }
+});

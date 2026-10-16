@@ -192,6 +192,7 @@ def test_profile_executes_only_fixed_bounded_exports(tmp_path, profile):
             "VERIFIER_EVIDENCE_ARCHIVE_BYTES": "4194304",
             "VERIFIER_EVIDENCE_ENTRY_LIMIT": "80",
             "VERIFIER_EVIDENCE_ARTIFACT_CHARS": "128000",
+            "VERIFIER_EVIDENCE_CAPTURE_DIR": "verifier-evidence",
             "VERIFIER_EVIDENCE_COMMENT_PAGES": "10",
             "VERIFIER_EVIDENCE_RUN_PAGES": "2",
             "VERIFIER_EVIDENCE_ARTIFACT_PAGES": "4",

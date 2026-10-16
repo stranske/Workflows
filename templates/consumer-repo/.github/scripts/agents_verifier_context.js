@@ -588,11 +588,21 @@ async function boundedEvidencePages({ method, params, key, recordLimit, pageLimi
   return { items, failure: 'page' };
 }
 
-function extractArtifactArchiveText({ archiveBuffer, maxEntries, maxChars, maxBytes = maxChars * 4, execFile = execFileSync }) {
+function retainCaptureBytes(directory, digest, suffix, value) {
+  fs.mkdirSync(directory, { recursive: true });
+  const target = path.join(directory, `${digest}.${suffix}`);
+  try { fs.writeFileSync(target, value, { flag: 'wx', mode: 0o600 }); }
+  catch (error) {
+    if (error.code !== 'EEXIST' || !fs.readFileSync(target).equals(value)) throw error;
+  }
+}
+
+function extractArtifactArchiveText({ archiveBuffer, maxEntries, maxChars, maxBytes = maxChars * 4, captureDirectory, execFile = execFileSync }) {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'verifier-evidence-'));
   const archivePath = path.join(tempDir, 'artifact.zip');
   try {
     fs.writeFileSync(archivePath, archiveBuffer);
+    if (captureDirectory) retainCaptureBytes(captureDirectory, createHash('sha256').update(archiveBuffer).digest('hex'), 'zip', archiveBuffer);
     const listing = execFile('unzip', ['-Z1', archivePath], {
       encoding: 'utf8',
       maxBuffer: 1024 * 1024,
@@ -624,7 +634,7 @@ function extractArtifactArchiveText({ archiveBuffer, maxEntries, maxChars, maxBy
       const prefix = `### ${entry}\n\n`;
       const separator = parts.length ? '\n\n' : '';
       const contentBudget = remaining - prefix.length - separator.length;
-      if (contentBudget <= 0 || remainingBytes <= 0) {
+      if ((!captureDirectory && contentBudget <= 0) || remainingBytes <= 0) {
         member.status = 'unavailable';
         member.reason = contentBudget <= 0 ? 'character' : 'extraction_byte';
         failures.push(member.reason);
@@ -633,8 +643,9 @@ function extractArtifactArchiveText({ archiveBuffer, maxEntries, maxChars, maxBy
       }
       try {
         const rawValue = Buffer.from(execFile('unzip', ['-p', archivePath, entry], {
-          maxBuffer: Math.min(contentBudget * 4 + 1, remainingBytes),
+          maxBuffer: captureDirectory ? remainingBytes : Math.min(contentBudget * 4 + 1, remainingBytes),
         }));
+        if (rawValue.length > remainingBytes) throw new Error('decompressed byte bound exceeded');
         remainingBytes -= rawValue.length;
         Object.assign(member, { status: 'included', raw_bytes: rawValue.length,
           raw_sha256: createHash('sha256').update(rawValue).digest('hex'), encoding: 'utf-8' });
@@ -656,12 +667,14 @@ function extractArtifactArchiveText({ archiveBuffer, maxEntries, maxChars, maxBy
         const renderedValue = value.startsWith("\ufeff")
           ? `\ufeff${value.slice(1).trim()}`
           : value.trim();
+        if (captureDirectory) retainCaptureBytes(captureDirectory, member.raw_sha256, 'txt', rawValue);
         const fragment = `${prefix}${renderedValue}`;
         if (fragment.length + separator.length > remaining) {
-          member.status = 'render_omitted';
+          member.status = captureDirectory ? 'captured' : 'render_omitted';
           member.reason = 'character';
           failures.push("character");
           truncated = true;
+          if (captureDirectory) continue;
           break;
         }
         parts.push(fragment);
@@ -683,6 +696,8 @@ function extractArtifactArchiveText({ archiveBuffer, maxEntries, maxChars, maxBy
       member.reason = stopReason;
     }
     return {
+      rawCaptureComplete: Boolean(captureDirectory) && members.length > 0 && members.length === occurrences.length
+        && members.every(member => ['included', 'captured'].includes(member.status)),
       archiveSha256: createHash('sha256').update(archiveBuffer).digest('hex'),
       listingSha256: createHash('sha256').update(listing).digest('hex'),
       memberCount: occurrences.length,
@@ -740,6 +755,7 @@ async function fetchVerifierEvidence({
   const totalArchiveBytes = positiveLimit('VERIFIER_EVIDENCE_TOTAL_ARCHIVE_BYTES', 32 * 1024 * 1024);
   const totalExtractBytes = positiveLimit('VERIFIER_EVIDENCE_TOTAL_EXTRACT_BYTES', 64 * 1024 * 1024);
   const totalArtifactChars = positiveLimit('VERIFIER_EVIDENCE_TOTAL_ARTIFACT_CHARS', 4 * 1024 * 1024);
+  const captureDirectory = process.env.VERIFIER_EVIDENCE_CAPTURE_DIR || undefined;
   let usedArtifactChars = 0;
   const commentLimit = positiveLimit('VERIFIER_EVIDENCE_COMMENT_LIMIT', DEFAULT_EVIDENCE_COMMENT_LIMIT);
   const commentChars = positiveLimit('VERIFIER_EVIDENCE_COMMENT_CHARS', DEFAULT_EVIDENCE_COMMENT_CHARS);
@@ -940,6 +956,7 @@ async function fetchVerifierEvidence({
   const referencedRunIds = allRunIds.slice(0, runLimit);
   const runIds = [];
   const runHeads = new Map();
+  const runPaths = new Map();
   const seenRunIds = new Set();
   let artifactIncomplete = allRunIds.length > referencedRunIds.length;
   if (artifactIncomplete) fail("artifacts", "reference_record", "explicit reference union exceeds run limit");
@@ -991,6 +1008,7 @@ async function fetchVerifierEvidence({
       seenRunIds.add(runId);
       runIds.push(runId);
       runHeads.set(runId, runHeadSha);
+      runPaths.set(runId, workflowRun.path);
     } catch (error) {
       artifactIncomplete = true;
       artifacts.reason = `workflow run provenance failed for referenced run ${runId}: ${error.message}`;
@@ -1066,6 +1084,7 @@ async function fetchVerifierEvidence({
           seenRunIds.add(runId);
           runIds.push(runId);
           runHeads.set(runId, commitSha.toLowerCase());
+          runPaths.set(runId, workflowRun.path);
         }
       }
     } catch (error) {
@@ -1115,6 +1134,21 @@ async function fetchVerifierEvidence({
           head_sha: runHeads.get(runId), artifact_id: artifact.id,
           name: artifact.name || '', status: 'unavailable', members: null };
         diagnostics.archive_inventory.push(capture);
+        // The verifier's retained input bundle is transport, not another
+        // acceptance output. Do not recursively re-ingest its own ZIP sidecars.
+        // An explicit artifact reference still requests that payload and keeps
+        // the ordinary capture/failure path; name alone cannot hide it.
+        const transportName = `verifier-input-capture-${runId}`;
+        const transportReferenced = [pullRequestBody, ...referenceTexts, ...commentBodies, ...typedEvidenceTexts]
+          .some(text => String(text || '').includes(`/artifacts/${artifact.id}`)
+            || String(text || '').includes(transportName));
+        if (artifact.name === transportName && !transportReferenced
+            && /^\.github\/workflows\/(?:agents-verifier|reusable-agents-verifier)\.yml(?:@[^\s]+)?$/.test(runPaths.get(runId) || '')) {
+          Object.assign(capture, { status: 'input_transport', reason: 'verifier input bundle; not acceptance output',
+            archive_bytes: artifact.size_in_bytes, archive_digest: artifact.digest || null });
+          continue;
+        }
+
         if (artifact.expired) {
           capture.reason = 'expired';
           fail("artifacts", "expired", `artifact ${artifact.id}`);
@@ -1128,7 +1162,7 @@ async function fetchVerifierEvidence({
           continue;
         }
         if (diagnostics.counters.archive_bytes + artifact.size_in_bytes > totalArchiveBytes
-          || diagnostics.counters.extracted_bytes >= totalExtractBytes || usedArtifactChars >= totalArtifactChars) {
+          || diagnostics.counters.extracted_bytes >= totalExtractBytes || (!captureDirectory && usedArtifactChars >= totalArtifactChars)) {
           artifactIncomplete = true;
           capture.reason = 'global_capture_bound';
           if (diagnostics.counters.archive_bytes + artifact.size_in_bytes > totalArchiveBytes) fail('artifacts', 'global_archive_byte', `artifact ${artifact.id}`);
@@ -1152,24 +1186,27 @@ async function fetchVerifierEvidence({
           artifactIncomplete = true;
           continue;
         }
-        const maxChars = Math.min(artifactChars, totalArtifactChars - usedArtifactChars);
-        const maxBytes = Math.min(maxChars * 4, totalExtractBytes - diagnostics.counters.extracted_bytes);
-        const extracted = await extractArtifactText({ archiveBuffer, maxEntries: entryLimit, maxChars, maxBytes });
+        const maxChars = Math.max(0, Math.min(artifactChars, totalArtifactChars - usedArtifactChars));
+        const maxBytes = captureDirectory ? totalExtractBytes - diagnostics.counters.extracted_bytes
+          : Math.min(maxChars * 4, totalExtractBytes - diagnostics.counters.extracted_bytes);
+        const extracted = await extractArtifactText({ archiveBuffer, maxEntries: entryLimit, maxChars, maxBytes, captureDirectory });
         capture.members = extracted?.members || null;
         capture.member_count = extracted?.memberCount ?? null;
         capture.member_inventory_complete = extracted?.memberInventoryComplete === true;
         capture.listing_sha256 = extracted?.listingSha256 || null;
-        capture.status = extracted?.truncated || !extracted?.text ? 'incomplete' : 'rendered';
+        capture.status = extracted?.rawCaptureComplete ? 'captured' : extracted?.truncated || !extracted?.text ? 'incomplete' : 'rendered';
         capture.member_inventory_status = Array.isArray(extracted?.members) ? 'recorded' : 'unavailable';
         diagnostics.counters.extracted_bytes += extracted?.extractedBytes ?? maxBytes;
         diagnostics.counters.entries += extracted?.entryCount || 0;
         diagnostics.counters.unsupported_payloads += extracted?.unsupportedCount || 0;
         usedArtifactChars += extracted?.text?.length || 0;
         diagnostics.counters.artifact_chars = usedArtifactChars;
-        for (const reason of extracted?.failures || []) fail('artifacts', reason, `artifact ${artifact.id}`);
-        if (extracted?.truncated || !extracted?.text) fail('artifacts', 'extraction_incomplete', `artifact ${artifact.id}`);
-        if (extracted?.truncated || !extracted?.text) artifactIncomplete = true;
-        if (extracted?.text) {
+        for (const reason of extracted?.failures || []) {
+          if (!(extracted?.rawCaptureComplete && reason === 'character')) fail('artifacts', reason, `artifact ${artifact.id}`);
+        }
+        if (!extracted?.rawCaptureComplete && (extracted?.truncated || !extracted?.text)) fail('artifacts', 'extraction_incomplete', `artifact ${artifact.id}`);
+        if (!extracted?.rawCaptureComplete && (extracted?.truncated || !extracted?.text)) artifactIncomplete = true;
+        if (extracted?.text || extracted?.rawCaptureComplete) {
           artifacts.records.push({
             runId,
             name: artifact.name || `artifact-${artifact.id}`,

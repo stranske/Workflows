@@ -120,6 +120,7 @@ jobs:
                 'VERIFIER_EVIDENCE_ARCHIVE_BYTES=4194304' \
                 'VERIFIER_EVIDENCE_ENTRY_LIMIT=80' \
                 'VERIFIER_EVIDENCE_ARTIFACT_CHARS=128000' \
+                'VERIFIER_EVIDENCE_CAPTURE_DIR=verifier-evidence' \
                 'VERIFIER_EVIDENCE_COMMENT_PAGES=10' \
                 'VERIFIER_EVIDENCE_RUN_PAGES=2' \
                 'VERIFIER_EVIDENCE_ARTIFACT_PAGES=4' \
@@ -1444,6 +1445,15 @@ jobs:
             verifier-pr-diff.patch
             verifier-input-manifest.json
             verifier-capacity-checks.jsonl
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Retain complete verifier input transport
+        if: always() && inputs.evidence_profile == 'expanded' && inputs.mode == 'compare'
+        uses: actions/upload-artifact@v7
+        with:
+          name: verifier-input-capture-${{ github.run_id }}
+          path: verifier-evidence/
           if-no-files-found: ignore
           retention-days: 7
 

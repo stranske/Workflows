@@ -48,6 +48,8 @@ from tools.verifier_capture_obligation_manifest import (
     build_capture_reassembly_contract,
     record_capture_obligations,
 )
+from tools.verifier_artifact_capture import load_artifact_capture
+from tools.verifier_capture_obligation_manifest import parse_context_source_coverage
 from tools.verifier_semantic_acceptance import canonical_digest
 from tools.verifier_semantic_execution import MAX_NATIVE_SECONDS, execute_semantic_matrix
 from tools.verifier_semantic_rules import prepare_residual_all_input, prepare_reviewed_execution
@@ -7038,6 +7040,19 @@ def _semantic_envelope_signature(envelope: dict[str, Any]) -> str:
     return hmac.new(key, canonical_digest(envelope).encode(), hashlib.sha256).hexdigest()
 
 
+def _semantic_raw_inputs(context: str, diff: str | None) -> dict[str, bytes]:
+    raw = {"context": context.encode("utf-8")}
+    if diff is not None:
+        raw["diff"] = diff.encode("utf-8")
+    directory = os.environ.get("VERIFIER_EVIDENCE_CAPTURE_DIR")
+    if directory:
+        artifacts, _ = load_artifact_capture(
+            parse_context_source_coverage(context) or {}, Path(directory)
+        )
+        raw.update(artifacts)
+    return raw
+
+
 def _semantic_capture(context: str, diff: str | None) -> dict[str, Any]:
     """Create the complete-capture identity used by the semantic execution path."""
     head = os.environ.get("PR_HEAD_SHA", "")
@@ -7055,6 +7070,13 @@ def _semantic_capture(context: str, diff: str | None) -> dict[str, Any]:
     gaps.extend(str(item) for item in manifest["gaps"])
     coverage = build_prompt_inputs(context, diff, lossless=True).coverage
     gaps.extend(f"prompt:{item}" for item in coverage.reasons)
+    try:
+        raw_inputs = {
+            name: hashlib.sha256(value).hexdigest()
+            for name, value in _semantic_raw_inputs(context, diff).items()
+        }
+    except (OSError, ValueError) as exc:
+        gaps.append(f"artifact_raw_capture:{exc}")
     governing = hashlib.sha256(context.encode()).hexdigest()
     capture_id = canonical_digest({"head": head, "governing": governing, "raw_inputs": raw_inputs})
     return {
@@ -7151,9 +7173,7 @@ def _evaluate_pr_multiple_semantic(
         slots, clients, authenticated = _semantic_slots_and_clients(
             _build_semantic_clients(model1, model2), model1, model2, configured
         )
-        raw_bytes = {"context": context.encode()}
-        if diff is not None:
-            raw_bytes["diff"] = diff.encode()
+        raw_bytes = _semantic_raw_inputs(context, diff)
         prepared = prepare_reviewed_execution(capture, raw_bytes)
         if prepared is None:
             prepared = prepare_residual_all_input(capture, raw_bytes)
