@@ -22,6 +22,28 @@ values and counts, full semantic dimensions, lexical interaction axes, retained
 counts, and source base. The helper in the destination test file implements only
 this small local case construction; it is not a new test runner or framework.
 
+[`verifier-grammar-inventory.json`](verifier-grammar-inventory.json) inventories
+every original named regression, including generated fixtures: original parameter
+groups and their sizes, original counts, and retained counts. An original count
+of zero identifies the added real-floor integration test. The 338 unchanged
+functions retain every original combination, so no independence assumption or
+semantic/lexical decomposition is applied to them. For the 18 bounded functions,
+join on `function` with `verifier-grammar-matrices.json` for the explicit semantic
+dimensions and lexical interactions. The two focused tests in
+`tests/scripts/test_pr_verifier_grammar_inventory.py` check the inventory against
+the actual decorators and verify that every declared semantic and lexical
+projection has an emitted case. They enumerate only bounded witnesses, without
+executing another grammar cross-product. Run them with:
+
+```sh
+python -m pytest tests/scripts/test_pr_verifier_grammar_inventory.py -q -m "not slow"
+```
+
+When intentionally changing parametrizations, update the retained inventory and
+interaction map together and review any newly omitted interaction. This audit
+does not establish equivalence of deleted joint lexical combinations or replace
+the production mutation and branch/line comparisons below.
+
 | Named regression | Old cases | Retained cases |
 | --- | ---: | ---: |
 | `test_participial_content_is_not_a_component_name` | 1536 | 304 |

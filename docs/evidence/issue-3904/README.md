@@ -25,3 +25,12 @@ handoff. Because the two local runs overlap, elapsed times are observational,
 not a controlled speedup measurement. No unchanged branch-coverage/equivalence,
 Python3.13, full Gate, provider acceptance or under-ten-minute claim is made.
 The original source issue stays open until those remaining results are assessed.
+
+The complete per-function inventory is now checked by two focused tests in
+`tests/scripts/test_pr_verifier_grammar_inventory.py`. Their audit-specific
+deliberate breaks (a stale inventory count and a missing emitted lexical witness)
+each produce assertion RED and restored GREEN. Console output is retained in
+`inventory-audit-validation.txt`; `inventory-audit-validation.json` records the
+command, Python version, exit codes and byte-identical restoration hashes.
+These audit checks are separate from the production classifier/floor mutations
+in the existing archive and do not close the outstanding coverage/hosted gates.
