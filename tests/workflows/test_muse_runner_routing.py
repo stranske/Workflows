@@ -81,4 +81,11 @@ def test_run_step_refuses_to_exec_after_a_failed_sandbox_or_prompt_guard():
     text = (WF / "reusable-muse-run.yml").read_text()
     assert "MUSE_CLI_OUTCOME: ${{ steps.ensure_muse.outcome }}" in text
     assert "Muse CLI or sandbox setup failed; muse exec was not run" in text
+    # The CLI step must have SUCCEEDED (a skipped step is not a probed sandbox) and the guard
+    # must not have failed, checked before the `muse exec` invocation.
+    guard = (
+        'if [ "${GUARD_OUTCOME:-}" = "failure" ] || [ "${MUSE_CLI_OUTCOME:-}" != "success" ]; then'
+    )
+    assert guard in text
+    assert text.index(guard) < text.index('"$MUSE_BIN" exec')
     assert "grep -cvE '^.. agents/.*\\.md$' || true" in text

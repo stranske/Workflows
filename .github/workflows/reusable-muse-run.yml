@@ -913,8 +913,8 @@ jobs:
 
           # Fail closed: a rejected prompt or a CLI/sandbox that could not start must never
           # reach `muse exec` (always() lets this step run after earlier failures).
-          if [ "${GUARD_OUTCOME:-}" = "failure" ] || [ "${MUSE_CLI_OUTCOME:-}" = "failure" ]; then
-            if [ "${MUSE_CLI_OUTCOME:-}" = "failure" ]; then
+          if [ "${GUARD_OUTCOME:-}" = "failure" ] || [ "${MUSE_CLI_OUTCOME:-}" != "success" ]; then
+            if [ "${MUSE_CLI_OUTCOME:-}" != "success" ]; then
               summary="Muse CLI or sandbox setup failed; muse exec was not run"
             else
               summary="Prompt template integrity check failed; muse exec was not run"
