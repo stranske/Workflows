@@ -12,7 +12,7 @@
 # - agent: The agent identifier (e.g., 'codex', 'claude')
 # - issue_number: Issue number to process (required for workflow_dispatch)
 # - mode: PR creation mode ('create' or 'invite')
-# - post_agent_comment: Whether to auto-post '@<agent> start' command
+# - post_agent_comment: Whether to auto-post the registry invitation command
 # - service_bot_pat: PAT for service bot operations
 # - owner_pr_pat: PAT for PR creation operations
 
@@ -41,7 +41,7 @@ on:
         type: boolean
         default: true
       post_agent_comment:
-        description: "Auto-post '@<agent> start' command (true/false)"
+        description: "Auto-post the registry invitation command (true/false)"
         required: false
         type: string
         default: "true"
@@ -941,6 +941,8 @@ jobs:
               return;
             }
 
+            const { getIssueIntakeConfig } = require('./.github/scripts/agent_registry.js');
+            const invitation = getIssueIntakeConfig(agent);
             const fencedSuggestion = ['```markdown', suggestion, '```'].join('\n');
             const inviteBody = [
               `Branch \`${branch}\` created from \`${base}\`.`,
@@ -953,6 +955,8 @@ jobs:
               '',
               `- Compare link: ${compareUrl}`,
               `- Suggested title: \`${agentTitle} bootstrap for #${issue_number}\``,
+              `- Assign to: ${invitation.assignees.join(', ')}`,
+              `- Start command after opening the PR: \`${invitation.command_phrase}\``,
               '- Suggested body (copy/paste):',
               '',
               fencedSuggestion,
@@ -1239,13 +1243,8 @@ jobs:
 
             let assignees = ['stranske-automation-bot'];
             try {
-              const { getAgentConfig } = require('./.github/scripts/agent_registry.js');
-              const cfg = getAgentConfig(agentKey || 'codex');
-              if (cfg.assignees && cfg.assignees.length) {
-                assignees = cfg.assignees;
-              } else if ((agentKey || 'codex') === 'codex') {
-                assignees = ['chatgpt-codex-connector', 'stranske-automation-bot'];
-              }
+              const { getIssueIntakeConfig } = require('./.github/scripts/agent_registry.js');
+              assignees = getIssueIntakeConfig(agentKey || 'codex').assignees;
             } catch (_) {
               if ((agentKey || 'codex') === 'codex') {
                 assignees = ['chatgpt-codex-connector', 'stranske-automation-bot'];
@@ -1606,7 +1605,8 @@ jobs:
                 );
               return;
             }
-            const cmd = `@${agent} start`;
+            const { getIssueIntakeConfig } = require('./.github/scripts/agent_registry.js');
+            const cmd = getIssueIntakeConfig(agent).command_phrase;
               const body = [
                 cmd,
                 '',
@@ -1658,7 +1658,8 @@ jobs:
                 );
               return;
             }
-            const cmd = `@${agent} start`;
+            const { getIssueIntakeConfig } = require('./.github/scripts/agent_registry.js');
+            const cmd = getIssueIntakeConfig(agent).command_phrase;
               const body = [
                 cmd,
                 '',
@@ -1720,9 +1721,10 @@ jobs:
               keepaliveTemplatePath,
             );
             const instruction = getKeepaliveInstructionWithMention(agent);
+            const { getIssueIntakeConfig } = require('./.github/scripts/agent_registry.js');
             const agentPromptMsg = [
               'PR created.',
-              `Comment \`@${agent} start\` to request the plan.`,
+              `Comment \`${getIssueIntakeConfig(agent).command_phrase}\` to request the plan.`,
               `Tell ${agentTitle} to reuse scope and acceptance criteria from the source issue.`,
               'Also reuse the task list from the source issue.',
               'Publish them here with `- [ ]` checklists so keepalive keeps watching.',
@@ -1825,13 +1827,14 @@ jobs:
             snippetLines.push('', `Source: ${issueUrl}`, '', quoted);
             const snippet = snippetLines.join('\n');
 
+            const { getIssueIntakeConfig } = require('./.github/scripts/agent_registry.js');
             const message = [
               `Opened PR #${prNumber} to engage ${agentTitle}.`,
               '',
               `Keepalive mode: **${keepaliveMode}**`,
               '',
               'Next steps for the PR author:',
-              `- Comment \`${mention} start\` (auto-posted when possible).`,
+              `- Comment \`${getIssueIntakeConfig(agent, { defaultCommand: `${mention} start` }).command_phrase}\` (auto-posted when possible).`,
               `  Ask ${agentTitle} to draft the plan.`,
               `- After ${agentTitle} replies with the checklist, post the execution command below.`,
               '  This begins delivery and enables keepalive.',

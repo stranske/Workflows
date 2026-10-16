@@ -66,3 +66,12 @@ This checklist covers every step required to bring a new automation agent (for e
 4. File follow-up docs or automation improvements as the new agent matures.
 
 Following this checklist ensures the new agent is discoverable via the registry, routed through every automation surface (Auto-Pilot, keepalive, autofix, belt, verifier), and fully documented for future maintainers.
+
+Issue-intake invitations use `preflight.command_phrase` when non-empty and add
+`preflight.assign_user` to the configured/default assignees. Empty hints retain
+`@<agent> start` and the existing Codex/Claude assignees. Both service-user and
+fallback comments use the same registry resolver, including manual prompts. Invite mode retains its human-authored PR handoff and
+displays the resolved assignees and command without launching another writer.
+`post_codex_comment` remains an alias of `post_agent_comment`. Keep
+`preflight.enabled` off until an authenticated issue-intake canary reaches that
+agent's actual runner; PR keepalive execution alone does not qualify it.

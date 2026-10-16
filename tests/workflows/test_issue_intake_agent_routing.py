@@ -99,3 +99,149 @@ def test_dispatch_defaults_preserve_legacy_comment_behavior(tmp_path):
         },
     )
     assert result["post_agent_comment"] == "false"
+
+
+def _bridge_steps():
+    bridge = ROOT / ".github/workflows/reusable-agents-issue-bridge.yml"
+    workflow = yaml.safe_load(bridge.read_text())
+    return [step for job in workflow["jobs"].values() for step in job.get("steps", [])]
+
+
+def _custom_invite_registry(tmp_path):
+    registry = tmp_path / "registry.yml"
+    text = (ROOT / ".github/agents/registry.yml").read_text()
+    start = text.index("\n  cursor:")
+    end = text.index("\n  muse:", start)
+    cursor = text[start:end].replace(
+        "assign_user: stranske-automation-bot", "assign_user: cursor-intake-bot"
+    )
+    cursor = cursor.replace("command_phrase: ''", "command_phrase: '@cursor implement this issue'")
+    registry.write_text(text[:start] + cursor + text[end:])
+    return registry
+
+
+def _execute_bridge_script(script, registry, *, agent="cursor", suffix=""):
+    # Exercise the real registry and bridge JS; only GitHub side effects/retry
+    # transport are fake. This is local wiring proof, never a hosted canary.
+    program = r"""
+const fs = require('node:fs');
+const input = JSON.parse(fs.readFileSync(0, 'utf8'));
+const registry = require(input.module);
+const captured = [];
+const github = {rest:{issues:{createComment: async value => captured.push(value),
+  get: async () => ({data:{title:'Canary',body:'## Tasks\n- [ ] Native run'}})},
+  pulls:{list:async () => ({data:[]})}}};
+function localRequire(name) {
+  if (name.endsWith('agent_registry.js')) return {
+    ...registry,
+    getIssueIntakeConfig: key => registry.getIssueIntakeConfig(key, {registryPath:input.registry}),
+  };
+  if (name.endsWith('github-api-with-retry.js')) return {
+    withRetry: fn => fn(),
+    createTokenAwareRetry: async () => ({github, withRetry: fn => fn()}),
+  };
+  if (name.endsWith('issue_context_utils.js')) return {
+    buildIssueContext: () => ({statusSummaryBlock:'',formattedBody:'## Tasks'}),
+  };
+  if (name.endsWith('keepalive_instruction_template.js')) return {
+    getKeepaliveInstructionWithMention: () => 'unchanged instruction',
+  };
+  return require(name);
+}
+process.env.AGENT = input.agent;
+process.env.BRANCH = 'cursor/issue-7';
+const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
+new AsyncFunction('require','github','core','context','agentKey',input.script + input.suffix)(
+  localRequire, github, {setFailed: message => {throw Error(message)}, warning:()=>{}, info:()=>{}, error:()=>{}},
+  {repo:{owner:'example',repo:'canary'}}, input.agent,
+).then(result => console.log(JSON.stringify({captured,result}))).catch(error => {
+  console.error(error); process.exit(1);
+});
+"""
+    script = script.replace("${{ steps.pr.outputs.number }}", "7")
+    script = script.replace("${{ steps.ctx.outputs.issue }}", "7")
+    script = script.replace("${{ steps.refs.outputs.base }}", "main")
+    result = subprocess.run(
+        ["node", "-e", program],
+        cwd=ROOT,
+        input=json.dumps(
+            {
+                "script": script,
+                "registry": str(registry),
+                "module": str(ROOT / ".github/scripts/agent_registry.js"),
+                "agent": agent,
+                "suffix": suffix,
+            }
+        ),
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    return json.loads(result.stdout)
+
+
+def test_bridge_posts_registry_command_in_all_invitation_paths(tmp_path):
+    registry = _custom_invite_registry(tmp_path)
+    names = [
+        "Post agent command as service user",
+        "Post agent command (fallback as github-actions)",
+        "Prompt human to post agent command",
+    ]
+    steps = _bridge_steps()
+    for name in names:
+        script = next(step["with"]["script"] for step in steps if step.get("name") == name)
+        result = _execute_bridge_script(script, registry)
+        assert len(result["captured"]) == 1
+        body = result["captured"][0]["body"]
+        assert "@cursor implement this issue" in body
+        assert "@cursor start" not in body
+
+
+def test_bridge_assignment_honors_registry_and_preserves_legacy_assignees(tmp_path):
+    registry = _custom_invite_registry(tmp_path)
+    script = next(
+        step["with"]["script"]
+        for step in _bridge_steps()
+        if "let assignees =" in step.get("with", {}).get("script", "")
+    )
+    start = script.index("let assignees =")
+    end = script.index("try {\n  await withRetry", start)
+    assignment = script[start:end]
+    for agent, expected in [
+        ("cursor", ["cursor-intake-bot", "stranske-automation-bot"]),
+        ("codex", ["chatgpt-codex-connector", "stranske-automation-bot"]),
+        ("claude", ["stranske-automation-bot"]),
+    ]:
+        result = _execute_bridge_script(
+            assignment, registry, agent=agent, suffix="\nreturn assignees;"
+        )
+        assert result["result"] == expected
+
+
+def test_invite_mode_names_registry_assignee_and_command_without_creating_pr(tmp_path):
+    registry = _custom_invite_registry(tmp_path)
+    script = next(
+        step["with"]["script"]
+        for step in _bridge_steps()
+        if step.get("name") == "Invite human to open PR (invite mode)"
+    )
+    result = _execute_bridge_script(script, registry)
+    assert len(result["captured"]) == 1
+    body = result["captured"][0]["body"]
+    assert "cursor-intake-bot" in body
+    assert "@cursor implement this issue" in body
+    assert "PR creation is disabled by design" in body
+
+
+def test_registry_keeps_legacy_mention_default_when_no_command_is_configured():
+    program = """const r = require(process.argv[1]);
+console.log(r.getIssueIntakeConfig('codex', {defaultCommand:'@legacy-bot start'}).command_phrase);
+console.log(r.getIssueIntakeConfig('claude').command_phrase);"""
+    result = subprocess.run(
+        ["node", "-e", program, str(ROOT / ".github/scripts/agent_registry.js")],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    assert result.stdout.splitlines() == ["@legacy-bot start", "@claude start"]
