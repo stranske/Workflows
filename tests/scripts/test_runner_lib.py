@@ -50,6 +50,13 @@ def _task_snapshot(completed: int, *, total: int = 2, fingerprint: str = "a" * 6
     }
 
 
+def _closed_http_error(url: str, code: int, msg: str) -> HTTPError:
+    # HTTPError(fp=None) opens a temp file that warns (ResourceWarning) if left unclosed.
+    error = HTTPError(url, code, msg, {}, None)  # type: ignore[arg-type]
+    error.close()
+    return error
+
+
 def test_partial_task_delta_keeps_unchanged_head_retryable() -> None:
     storage = MemoryRunnerStorage()
     should_dispatch(
@@ -2096,8 +2103,8 @@ def test_auto_dispatch_requires_primary_storage(
     secret = "private-response-and-token"
 
     def fail(*_: Any) -> Any:
-        raise RuntimeError(secret) from HTTPError(
-            "https://example.invalid/" + secret, 403, secret, {}, None
+        raise RuntimeError(secret) from _closed_http_error(
+            "https://example.invalid/" + secret, 403, secret
         )
 
     monkeypatch.setattr(primary, f"{operation}_record", fail)
@@ -2133,8 +2140,10 @@ def test_auto_dispatch_checks_real_legacy_backend_access(
         def request(self, method: str, path: str) -> Any:
             assert method == "GET"
             assert "/actions/variables/" in path
-            raise RuntimeError(f"GitHub API GET failed: {status} private-response") from HTTPError(
-                "https://example.invalid/private-response", status, "private-response", {}, None
+            raise RuntimeError(
+                f"GitHub API GET failed: {status} private-response"
+            ) from _closed_http_error(
+                "https://example.invalid/private-response", status, "private-response"
             )
 
     primary = MemoryRunnerStorage()
@@ -2511,7 +2520,7 @@ def test_auto_completion_logs_safe_storage_diagnostics(
     secret = "private-response-and-token"
     cause: Exception
     if failure == "http":
-        cause = HTTPError("https://example.invalid/" + secret, 403, secret, {}, None)
+        cause = _closed_http_error("https://example.invalid/" + secret, 403, secret)
     elif failure == "network":
         cause = URLError(secret)
     else:
@@ -2892,3 +2901,41 @@ def test_each_zero_output_run_after_the_cooldown_arms_a_fresh_one() -> None:
         storage.records[(42, "codex")]["unproductive_completions"]
         == UNPRODUCTIVE_COMPLETION_RETRY_LIMIT + 1
     )
+
+
+def test_storage_failure_log_names_the_http_error_message(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    token = "ghp_" + "a" * 36
+    body = json.dumps({"message": f"Resource not accessible by integration {token}"})
+    primary = MemoryRunnerStorage()
+
+    cause = _closed_http_error("https://example.invalid/x", 403, "Forbidden")
+
+    def fail(*_: Any) -> Any:
+        raise RuntimeError(f"GitHub API GET /x failed: 403 {body}") from cause
+
+    primary.read_record = fail  # type: ignore[method-assign]
+    decision = should_dispatch(
+        42,
+        "aaa",
+        "codex",
+        storage=runner_core.FallbackRunnerStorage(primary, MemoryRunnerStorage()),
+    )
+
+    error = capsys.readouterr().err
+    assert decision.should_dispatch is False
+    assert decision.reason == "authoritative-storage-unavailable"
+    assert "http_status=403" in error
+    assert "Resource not accessible by integration" in error
+    assert token not in error
+    assert "https://" not in error
+
+
+def test_storage_failure_log_bounds_and_ignores_unstructured_message() -> None:
+    long_body = json.dumps({"message": "x" * 1000})
+    assert len(runner_core._storage_failure_message(RuntimeError(f"f: 403 {long_body}")) or "") == (
+        runner_core.STORAGE_FAILURE_MESSAGE_MAX_CHARS
+    )
+    for text in ("plain private text", "403 {not json", '403 {"message": 5}', "403 [1]"):
+        assert runner_core._storage_failure_message(RuntimeError(text)) is None
