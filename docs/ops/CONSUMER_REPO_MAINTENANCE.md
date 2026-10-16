@@ -3045,3 +3045,5 @@ Negative run-URL predicates use the same referenced run identity for ordinary jo
 No/not evidence predicates retain intervening word modifiers such as current, the current acceptance and valid standalone. Additive Not only/Not just/Not the only declarations remain positive. The same predicate classification filters incidental fallback.
 
 If a prose source contains a negative evidence diagnostic, Markdown hard breaks do not restore its unlabelled historical links through incidental fallback. Independently positive declarations and typed references remain; actual-head discovery remains available. Negative URL subjects accept angle-autolink wrappers, including plural lists.
+
+Markdown Evidence/Validation section labels bind following reference-only lines across blanks, including headings, bold labels, bullets, Markdown links, code spans and angle links. Narrative or a different heading closes inherited scope; historical negative diagnostics remain excluded. Source and identical consumer tests retain the original native4289793470 counterexample and independent positive/negative section controls.

@@ -436,6 +436,35 @@ function positiveEvidenceClauses(line) {
   return selected;
 }
 
+
+// A Markdown evidence section may put its references on following lines.
+// Inherit only across blank/reference-only lines; narrative or another heading
+// ends the section so a later historical diagnostic cannot inherit affirmation.
+function positiveEvidenceLines(text) {
+  const selected = [];
+  let section = false;
+  const label = /^(?:evidence|validation|artifacts?|test results?|red\s+(?:then\s+)?green)(?:\s+(?:evidence|validation|artifacts?|runs?))*\s*:?$/i;
+  for (const line of String(text || '').split('\n')) {
+    const normalized = line.trim().replace(/^#{1,6}\s+/, '').replace(/[`*_]/g, '').trim();
+    if (label.test(normalized)) { section = true; continue; }
+    if (!normalized) continue;
+    if (/^\s*\|[^\n]+\|[^|\n]+\|\s*\[View run\]\([^\n)]+\)\s*\|\s*$/i.test(line)) { section = false; continue; }
+    // Strip complete Markdown links first, then bare/angle/code run URLs.
+    // Remaining prose is never granted evidence scope by a preceding header.
+    const remainder = line
+      .replace(/\[[^\]\n]*\]\((?:https?:\/\/[^\s)]+)?\/actions\/runs\/\d+(?:[/?#][^\s)]*)?\)/g, '')
+      .replace(/<?(?:https?:\/\/[^\s<>`]+)?\/actions\/runs\/\d+(?:[/?#][^\s<>`]+)?>?/g, '')
+      .replace(/[`*_\s,;<>-]/g, '');
+    if (section && extractReferencedRunIds([line]).length && !remainder) {
+      selected.push(line);
+      continue;
+    }
+    section = false;
+    selected.push(...positiveEvidenceClauses(line));
+  }
+  return selected;
+}
+
 function safeArtifactEntries(listing) {
   const entries = [];
   const filteredPayloadEntries = [];
@@ -786,7 +815,7 @@ async function fetchVerifierEvidence({
     // following negative diagnostic. Preserve independently positive lines;
     // unlabelled links in this same diagnostic source are incidental only.
     return negativeEvidencePredicate.test(value.replace(/[`*_]/g, ''))
-      ? value.split('\n').flatMap(positiveEvidenceClauses).join(' ') : value;
+      ? positiveEvidenceLines(value).join(' ') : value;
   });
   const allReferencedRunIds = extractReferencedRunIds([...typedEvidenceTexts, ...fallbackReferenceTexts]);
   // A status-table "View run" or bare incidental body/comment URL is not an
@@ -794,9 +823,7 @@ async function fetchVerifierEvidence({
   // evidence lines select their union before budgeting; incidental links retain
   // discovery only when no explicit set exists.
   const labelledEvidenceLines = [pullRequestBody, ...referenceTexts, ...commentBodies]
-    .flatMap((text) => String(text || '').split('\n'))
-    .filter((line) => !/^\s*\|[^\n]+\|[^|\n]+\|\s*\[View run\]\([^\n)]+\)\s*\|\s*$/i.test(line))
-    .flatMap(positiveEvidenceClauses);
+    .flatMap(positiveEvidenceLines);
   const explicitEvidenceRunIds = new Set(
     extractReferencedRunIds([
       ...typedEvidenceTexts,

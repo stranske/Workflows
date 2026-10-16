@@ -1,0 +1,8 @@
+{
+  "finding": 4289793470,
+  "original_head": "1999342f565f3ea7474a244ce2e9ada20ac76e7d",
+  "permit": "d6c52829-578b-41d9-945f-cbfeb7493a57",
+  "red": "Original counterexample fails before change",
+  "green": "155 PASS source and identical consumer; multiline headers/reference-only inheritance, narrative closure, independent positives",
+  "limits": "Local proof; current-head hosted review, CI, guarded delivery and actual native comparison remain required"
+}

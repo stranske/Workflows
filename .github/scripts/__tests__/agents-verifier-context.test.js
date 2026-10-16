@@ -3960,6 +3960,11 @@ test('negated historical diagnostics do not join a complete positive evidence un
   const implementations = [fetchVerifierEvidence,
     require('../../../templates/consumer-repo/.github/scripts/agents_verifier_context.js').fetchVerifierEvidence];
   const diagnostics = [
+    "Evidence:\n/actions/runs/124\nCompleted Selftest [run](/actions/runs/999) failed.\nThis is not evidence that validation failed.",
+    "## Evidence\n\n- [proof](/actions/runs/124)\n- </actions/runs/125>\nCompleted Selftest /actions/runs/999 failed.\nThis is not evidence.",
+    "**Validation:**\n`/actions/runs/124`\n\n## Historical diagnostics\n/actions/runs/999\nNot current evidence.",
+    "Not evidence: /actions/runs/999\nEvidence:\n/actions/runs/124",
+    "Evidence:\n/actions/runs/124\n\nValidation:\n/actions/runs/125\nCompleted /actions/runs/999 failed; not evidence.",
     'Completed Selftest [metrics_only](/actions/runs/999) failed. This is a tooling prerequisite, not evidence that retention assertions failed.',
     'Not evidence: /actions/runs/999; Validation: /actions/runs/124',
     'No validation: /actions/runs/999. Evidence: /actions/runs/124',
