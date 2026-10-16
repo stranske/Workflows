@@ -37,14 +37,14 @@ in force. No native PASS is inferred from successful local capture tests.
 
 ## Original failure replay
 
-Orchestrator631 production run38897681034 failed capture before either provider.
-Its authentic coverage archive contains five members totaling5,267,797 bytes;
-the prior comparison archive has seven members totaling264,116 bytes. The original
+Orchestrator #631 production run 38897681034 failed capture before either provider.
+Its authentic coverage archive contains five members totaling 5,267,797 bytes;
+the prior comparison archive has seven members totaling 264,116 bytes. The original
 collector clipped both. The repaired collector retains and independently verifies
-all12 raw members (5,531,913 bytes) while leaving presentation honestly bounded.
-All nine originally incomplete archives were then replayed:39 members totaling
-36,711,522 bytes retained and independently verified inside the unchanged64MiB
-extraction ceiling. That replay establishes capture, not source612 verification.
+all 12 raw members (5,531,913 bytes) while leaving presentation honestly bounded.
+All nine originally incomplete archives were then replayed: 39 members totaling
+36,711,522 bytes retained and independently verified inside the unchanged 64 MiB
+extraction ceiling. That replay establishes capture, not source #612 verification.
 
 Validation: `node --test .github/scripts/__tests__/agents-verifier-context.test.js`
 and `python3 -m pytest -q tests/tools/test_verifier_artifact_capture.py

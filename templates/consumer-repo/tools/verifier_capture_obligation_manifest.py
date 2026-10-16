@@ -712,12 +712,19 @@ def record_capture_obligations(
     raw_inputs = {"context": context_bytes}
     if diff_bytes is not None:
         raw_inputs["diff"] = diff_bytes
-    if os.environ.get("VERIFIER_EVIDENCE_CAPTURE_DIR"):
-        artifact_inputs, _ = load_artifact_capture(
-            parse_context_source_coverage(captured_text) or {},
-            Path(os.environ["VERIFIER_EVIDENCE_CAPTURE_DIR"]),
-        )
-        raw_inputs.update(artifact_inputs)
+    capture_dir = os.environ.get("VERIFIER_EVIDENCE_CAPTURE_DIR")
+    if capture_dir:
+        try:
+            artifact_inputs, _ = load_artifact_capture(
+                parse_context_source_coverage(captured_text) or {}, Path(capture_dir)
+            )
+        except (OSError, ValueError) as exc:
+            gap = f"artifact_raw_capture:{exc}"
+            if gap not in manifest["gaps"]:
+                manifest["gaps"].append(gap)
+            manifest["sufficient"] = False
+        else:
+            raw_inputs.update(artifact_inputs)
     byte_inventory = build_capture_byte_inventory(raw_inputs)
     reassembly_contract = build_capture_reassembly_contract(manifest, byte_inventory)
     snapshot_path = context_path.with_name("verifier-input-manifest.json")

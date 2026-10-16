@@ -1150,10 +1150,15 @@ async function fetchVerifierEvidence({
         // An explicit artifact reference still requests that payload and keeps
         // the ordinary capture/failure path; name alone cannot hide it.
         const transportName = `verifier-input-capture-${runId}`;
+        const validTransportIdentity = Number.isSafeInteger(artifact.id) && artifact.id > 0
+          && Number.isSafeInteger(artifact.size_in_bytes) && artifact.size_in_bytes >= 0;
+        const artifactReference = validTransportIdentity
+          ? new RegExp('/artifacts/' + artifact.id + '(?!\\d)') : null;
+        const transportReference = new RegExp('(?:^|[^\\w-])' + transportName + '(?![\\w-])');
         const transportReferenced = [pullRequestBody, ...referenceTexts, ...commentBodies, ...typedEvidenceTexts]
-          .some(text => String(text || '').includes(`/artifacts/${artifact.id}`)
-            || String(text || '').includes(transportName));
-        if (artifact.name === transportName && !transportReferenced
+          .some(text => artifactReference?.test(String(text || ''))
+            || transportReference.test(String(text || '')));
+        if (validTransportIdentity && artifact.name === transportName && !transportReferenced
             && /^\.github\/workflows\/(?:agents-verifier|reusable-agents-verifier)\.yml(?:@[^\s]+)?$/.test(runPaths.get(runId) || '')) {
           Object.assign(capture, { status: 'input_transport', reason: 'verifier input bundle; not acceptance output',
             archive_bytes: artifact.size_in_bytes, archive_digest: artifact.digest || null });

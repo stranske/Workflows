@@ -5098,25 +5098,41 @@ test('raw capture retains every member beyond rendering budget and rejects byte 
 
 test('only implicit first-party verifier input transports avoid recursive evidence capture', async () => {
   const sha = 'a'.repeat(40);
-  for (const [workflow, extra, skip] of [
+  for (const [workflow, extra, skip, artifactId = 20, size = 10] of [
     ['.github/workflows/agents-verifier.yml', '', true],
     ['.github/workflows/other.yml', '', false],
     ['.github/workflows/agents-verifier.yml', 'verifier-input-capture-10', false],
     ['.github/workflows/agents-verifier.yml', '/artifacts/20', false],
+    ['.github/workflows/agents-verifier.yml', '/artifacts/20/zip', false],
+    ['.github/workflows/agents-verifier.yml', '/artifacts/200', true],
+    ['.github/workflows/agents-verifier.yml', 'verifier-input-capture-100', true],
+    ['.github/workflows/agents-verifier.yml', 'verifier-input-capture-10-copy', true],
+    ['.github/workflows/agents-verifier.yml', '', false, '20'],
+    ['.github/workflows/agents-verifier.yml', '', false, -1],
+    ['.github/workflows/agents-verifier.yml', '', false, 20, '10'],
+    ['.github/workflows/agents-verifier.yml', '', false, 20, -1],
   ]) {
     let downloads = 0;
+    const artifacts = [{id:artifactId,name:'verifier-input-capture-10',size_in_bytes:size}];
+    if (extra === '/artifacts/200') artifacts.push({id:200,name:'actual-proof',size_in_bytes:10});
     const empty = async () => ({data: [], headers: {}});
     const github = {rest: {issues: {listComments: empty},
       pulls: {listReviewComments: empty, listReviews: empty}, actions: {
         getWorkflowRun: async () => ({data: {id:10, head_sha:sha, path:workflow}}),
-        listWorkflowRunArtifacts: async () => ({data: {total_count:1,
-          artifacts:[{id:20,name:'verifier-input-capture-10',size_in_bytes:10}]}}),
-        downloadArtifact: async () => { downloads++; return {data:Buffer.from('archive')}; },
+        listWorkflowRunArtifacts: async () => ({data: {total_count:artifacts.length,artifacts}}),
+        downloadArtifact: async ({artifact_id}) => {
+          if (artifact_id === artifactId) downloads++;
+          return {data:Buffer.from(`archive-${artifact_id}`)};
+        },
       }}};
     const result = await fetchVerifierEvidence({github, owner:'o', repo:'r', pullNumber:1,
       associatedCommitShas:[sha], pullRequestBody:`Evidence: /actions/runs/10 ${extra}`,
-      extractArtifactText: () => ({text:'',truncated:true,failures:['unsupported_payload']})});
-    assert.equal(downloads, skip ? 0 : 1);
+      extractArtifactText: ({archiveBuffer}) => archiveBuffer.toString() === 'archive-200'
+        ? {text:'actual proof',truncated:false,failures:[],extractedBytes:12}
+        : {text:'',truncated:true,failures:['unsupported_payload']}});
+    const invalidMetadata = !Number.isSafeInteger(artifactId) || artifactId <= 0
+      || !Number.isSafeInteger(size) || size < 0;
+    assert.equal(downloads, skip || invalidMetadata ? 0 : 1);
     assert.equal(result.artifacts.complete, skip);
     if (skip) assert.equal(result.diagnostics.archive_inventory[0].status, 'input_transport');
   }

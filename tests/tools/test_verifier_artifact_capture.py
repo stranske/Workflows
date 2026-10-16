@@ -83,7 +83,11 @@ def test_bad_capture_never_upgrades_rendering_gap(tmp_path, monkeypatch, defect)
         capture.load_artifact_capture(coverage, tmp_path)
 
 
-def test_obligation_and_byte_inventory_require_available_raw_sidecars(tmp_path, monkeypatch):
+@pytest.mark.parametrize("semantic_mode", ["0", "1"])
+@pytest.mark.parametrize("defect", ["missing", "tampered"])
+def test_obligation_and_byte_inventory_require_available_raw_sidecars(
+    tmp_path, monkeypatch, semantic_mode, defect
+):
     import json
 
     from tools.verifier_capture_obligation_manifest import (
@@ -135,7 +139,21 @@ def test_obligation_and_byte_inventory_require_available_raw_sidecars(tmp_path, 
     inventory = json.loads((tmp_path / "verifier-capture-byte-inventory.json").read_text())
     identities = {row["input"] for row in inventory["inputs"]}
     assert identities == {"context", "artifact:10:20:0", "artifact:10:20:1"}
-    (
+    sidecar = (
         tmp_path / f"{coverage['artifact_capture_inventory'][0]['members'][0]['raw_sha256']}.txt"
-    ).unlink()
+    )
+    if defect == "missing":
+        sidecar.unlink()
+    else:
+        sidecar.write_bytes(b"tampered")
+    monkeypatch.setenv("VERIFIER_SEMANTIC_MODE", semantic_mode)
     assert not build_capture_obligation_manifest(context)["sufficient"]
+    manifest = record_capture_obligations(context_path)
+    assert manifest["sufficient"] is False
+    assert any(gap.startswith("artifact_raw_capture:") for gap in manifest["gaps"])
+    recorded = json.loads((tmp_path / "verifier-capture-obligation-manifest.json").read_text())
+    assert recorded == manifest
+    contract = json.loads((tmp_path / "verifier-capture-reassembly-contract.json").read_text())
+    assert contract["sufficient"] is False
+    inventory = json.loads((tmp_path / "verifier-capture-byte-inventory.json").read_text())
+    assert {row["input"] for row in inventory["inputs"]} == {"context"}
