@@ -1452,7 +1452,7 @@ jobs:
 
       - name: Retain complete verifier input transport
         if: always() && inputs.evidence_profile == 'expanded' && inputs.mode == 'compare'
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: verifier-input-capture-${{ github.run_id }}
           path: verifier-evidence/

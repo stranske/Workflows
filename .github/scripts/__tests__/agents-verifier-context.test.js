@@ -5121,3 +5121,21 @@ test('only implicit first-party verifier input transports avoid recursive eviden
     if (skip) assert.equal(result.diagnostics.archive_inventory[0].status, 'input_transport');
   }
 });
+
+test('retained capture paths refuse traversal and symbolic-link replacement', () => {
+  const {retainCaptureBytes} = require('../agents_verifier_context.js');
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'capture-path-'));
+  try {
+    for (const [digest,suffix] of [['../outside','txt'], ['a'.repeat(64),'../outside']]) {
+      assert.throws(() => retainCaptureBytes(directory,digest,suffix,Buffer.from('x')), /Invalid digest/);
+    }
+    assert.deepEqual(fs.readdirSync(directory), []);
+    assert.throws(() => retainCaptureBytes(directory,'a'.repeat(64),'txt',Buffer.from('x')), /hash differs/);
+    const digest = createHash('sha256').update(Buffer.from('changed')).digest('hex');
+    const target = path.join(directory,`${digest}.txt`);
+    const sentinel = path.join(directory,'sentinel');fs.writeFileSync(sentinel,'unchanged');
+    fs.symlinkSync(sentinel,target);
+    assert.throws(() => retainCaptureBytes(directory,digest,'txt',Buffer.from('changed')), /symlink/);
+    assert.equal(fs.readFileSync(sentinel,'utf8'),'unchanged');
+  } finally { fs.rmSync(directory,{recursive:true,force:true}); }
+});

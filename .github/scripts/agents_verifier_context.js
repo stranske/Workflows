@@ -589,8 +589,18 @@ async function boundedEvidencePages({ method, params, key, recordLimit, pageLimi
 }
 
 function retainCaptureBytes(directory, digest, suffix, value) {
+  if (!/^[a-f0-9]{64}$/.test(digest) || !['zip', 'txt'].includes(suffix)) {
+    throw new Error('Invalid digest-addressed capture filename');
+  }
+  if (createHash('sha256').update(value).digest('hex') !== digest) throw new Error('Capture content hash differs');
   fs.mkdirSync(directory, { recursive: true });
-  const target = path.join(directory, `${digest}.${suffix}`);
+  if (fs.lstatSync(directory).isSymbolicLink()) throw new Error('Capture directory cannot be a symlink');
+  const base = fs.realpathSync(directory);
+  const target = path.resolve(base, `${digest}.${suffix}`);
+  if (path.dirname(target) !== base) throw new Error('Capture target escapes its directory');
+  if (fs.existsSync(target) && fs.lstatSync(target).isSymbolicLink()) {
+    throw new Error('Capture target cannot be a symlink');
+  }
   try { fs.writeFileSync(target, value, { flag: 'wx', mode: 0o600 }); }
   catch (error) {
     if (error.code !== 'EEXIST' || !fs.readFileSync(target).equals(value)) throw error;
@@ -2107,6 +2117,7 @@ module.exports = {
     });
   },
   fetchVerifierEvidence,
+  retainCaptureBytes,
   extractArtifactArchiveText,
   formatVerifierEvidence,
   buildContextSourceCoverage,
