@@ -1,5 +1,6 @@
 """Prevent label churn from restarting Gate while commits still supersede runs."""
 
+import re
 from pathlib import Path
 
 import pytest
@@ -22,9 +23,47 @@ def test_gate_trigger_contract(workflow_path: str) -> None:
     assert "labeled" not in types, f"{workflow_path}: labels must not restart Gate"
     assert "opened" in types, f"{workflow_path}: new PRs must start Gate"
     assert "synchronize" in types, f"{workflow_path}: new commits must start Gate"
+    assert "reopened" in types, f"{workflow_path}: reopened PRs must start Gate"
+    assert "ready_for_review" in types, f"{workflow_path}: PRs ready for review must start Gate"
     assert workflow["concurrency"]["cancel-in-progress"] == (
         "${{ github.event_name != 'workflow_dispatch' }}"
     ), f"{workflow_path}: new commits must still supersede in-flight runs"
+
+
+@pytest.mark.parametrize("workflow_path", GATE_FILES)
+@pytest.mark.parametrize(
+    ("activity", "diagnostic"),
+    (
+        ("labeled", "labels must not restart Gate"),
+        ("opened", "new PRs must start Gate"),
+        ("synchronize", "new commits must start Gate"),
+        ("reopened", "reopened PRs must start Gate"),
+        ("ready_for_review", "PRs ready for review must start Gate"),
+    ),
+)
+def test_gate_trigger_contract_rejects_regressions(
+    workflow_path: str, activity: str, diagnostic: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Prove the contract detects broken triggers without editing workflow files."""
+    target = ROOT / workflow_path
+    read_text = Path.read_text
+    workflow = yaml.safe_load(target.read_text(encoding="utf-8"))
+    triggers = workflow.get("on", workflow.get(True))
+    types = triggers["pull_request"]["types"]
+    if activity == "labeled":
+        types.append(activity)
+    else:
+        types.remove(activity)
+    broken_workflow = yaml.safe_dump(workflow)
+
+    def read_workflow(path: Path, *args, **kwargs) -> str:
+        if path == target:
+            return broken_workflow
+        return read_text(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", read_workflow)
+    with pytest.raises(AssertionError, match=re.escape(f"{workflow_path}: {diagnostic}")):
+        test_gate_trigger_contract(workflow_path)
 
 
 def test_gate_triggers_match_template() -> None:
@@ -43,9 +82,8 @@ def test_dispatch_retains_pr_context_and_queues(workflow_path: str) -> None:
         "${{ github.event_name != 'workflow_dispatch' }}"
     )
     for name in ("issue-consistency", "test-quality"):
-        assert (
-            "fromJSON(needs.resolve-pr.outputs.pull_request).number"
-            in (workflow["jobs"][name]["if"])
+        assert "fromJSON(needs.resolve-pr.outputs.pull_request).number" in (
+            workflow["jobs"][name]["if"]
         ), f"{workflow_path}: {name} must run for PR dispatches too"
     for name, job in workflow["jobs"].items():
         if name == "resolve-pr":
