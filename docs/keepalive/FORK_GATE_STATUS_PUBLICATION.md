@@ -104,6 +104,17 @@ A successful Health 45 status starts with `[guard-pr:N] ` for the resolved pull-
 
 The receipt canonicalizes routing labels by trim-plus-lowercase, and canonicalizes `agents:allow-change` by lowercase only, matching the guard evaluator: surrounding whitespace never grants protected-file permission. Missing or malformed current-label evidence fails the publishing step before any green status can be written.
 
+Every entry in the trusted `agents` mapping must declare exactly one agent-level
+`enabled: true` or `enabled: false`. Missing flags fail closed at the next agent,
+the next top-level section, a repeated agents mapping, or end of file; a nested
+`preflight.enabled` flag cannot satisfy this requirement. Duplicate and non-boolean
+flags remain malformed. The resolver, evaluator and direct/fork publishers use
+the same parser in source and consumer templates. The shipped Codex, Claude and
+Cursor entries explicitly retain `enabled: true`; nested preflight flags remain
+independent of agent routing. Gemini remains enabled and Aider disabled. Unavailable or malformed
+registry evidence cannot retain or publish a successful guard verdict; existing
+head/base/attempt bindings still gate corrective writes.
+
 ### Evaluated policy labels
 
 An evaluated Agents Guard success records the canonical policy-label SHA256 in a completed producer step name. The trusted publisher reads that exact run attempt's job metadata and compares the digest with freshly reread PR policy labels before issuing a success receipt. A mismatch publishes failure and requests fresh evaluation; missing, duplicate, malformed or incomplete metadata cannot authorize success. Direct trusted status precedence and ineligible no-op behavior remain unchanged. No artifacts, caches, extra permissions or pooled credentials are used. Legacy producer attempts without this metadata fail closed for evaluated fork success; a fresh trusted evaluation is required. GitHub supports prior step outputs in step names: https://docs.github.com/en/actions/reference/workflows-and-actions/contexts#context-availability .

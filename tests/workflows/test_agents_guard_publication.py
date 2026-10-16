@@ -718,7 +718,9 @@ process.stdout.write(result.summary);
 
 
 @pytest.mark.parametrize("template", [False, True])
-@pytest.mark.parametrize("mode", ["transient", "persistent", "malformed"])
+@pytest.mark.parametrize(
+    "mode", ["transient", "persistent", "malformed", "missing_enabled", "nested_enabled"]
+)
 def test_registry_failure_cannot_retain_same_head_success(template, mode):
     prefix = ROOT / "templates/consumer-repo" if template else ROOT
     workflow = yaml.safe_load((prefix / ".github/workflows/agents-guard.yml").read_text())
@@ -737,6 +739,7 @@ const github={rest:{repos:{getContent:async()=>{
  reads++;
  if(input.mode==='persistent'||(input.mode==='transient'&&reads<3)){const e=Error('registry transient');e.status=500;throw e;}
  if(input.mode==='malformed')return {data:{type:'file',encoding:'none'}};
+ if(input.mode==='missing_enabled'||input.mode==='nested_enabled')return {data:{type:'file',encoding:'base64',content:Buffer.from(input.mode==='missing_enabled'?'agents:\n  codex:\n':'agents:\n  codex:\n    preflight:\n      enabled: true\n').toString('base64')}};
  return {data:{type:'file',encoding:'base64',content:Buffer.from('agents:\n  codex:\n    enabled: true\n').toString('base64')}};
 },createCommitStatus:async p=>{writes.push(p);status=p;},listCommitStatusesForRef(){}},issues:{listLabelsOnIssue(){}}},paginate:async()=>[]};
 const context={repo:{owner:'owner',repo:'repo'},eventName:'pull_request_target',payload:{pull_request:{number:4,labels:[],head:{sha:'a'.repeat(40)},base:{sha:'b'.repeat(40)}}},serverUrl:'https://github.com',runId:42};
@@ -753,7 +756,7 @@ new AsyncFunction('github','context','core',input.script)(github,context,core).t
     )
     record = json.loads(result.stdout)
     assert record["status"]["state"] == ("success" if mode == "transient" else "failure")
-    assert record["reads"] == (1 if mode == "malformed" else 3)
+    assert record["reads"] == (3 if mode in {"persistent", "transient"} else 1)
     assert len(record["writes"]) == 1
     assert record["writes"][0]["sha"] == "a" * 40
     if mode != "transient":

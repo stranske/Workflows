@@ -1,0 +1,43 @@
+{
+  "schema": "registry-enabled-repair/v1",
+  "root": "stranske/Workflows#3898",
+  "base_head": "a09890634bf24c44a021d75b6aa484a31e5fb54a",
+  "permit": "58324914-fceb-44f9-b5e7-79f026efd932",
+  "expires_at": "2026-10-16T03:00:07.293934+00:00",
+  "observed_at": "2026-10-16T02:26:49.682058+00:00",
+  "red": {
+    "failed": 40,
+    "passed": 120,
+    "cause": "missing agent-level enabled is implicitly true on all eight parsers"
+  },
+  "initial_broad_run": {
+    "failed": 47,
+    "passed": 695,
+    "cause": "canonical codex/claude/cursor lacked explicit enabled; retained externally as registry-enabled-green.log"
+  },
+  "green": {
+    "passed": 745,
+    "failed": 0
+  },
+  "routing_migration": {
+    "codex": true,
+    "claude": true,
+    "cursor": true,
+    "gemini": true,
+    "aider": false
+  },
+  "nested_preflight": "independent, unchanged",
+  "parsers": 8,
+  "checks": "full guard regression, template sync/completeness, ruff, node syntax, whitespace",
+  "limits": "Local proof only. Hosted CI, native review, provider acceptance and rollout pending; no merge authority. Original denied operations stay stopped.",
+  "logs": {
+    "registry-enabled-final-green.log": "e2c1d35f1241923f90521f39dbe197d74e82b49cb09f80912f79b1d5b217569d",
+    "registry-enabled-final-validation.log": "8387711edf7faf5152a2b15b7b48c5608ca5d96532016eec85765e81ce64e5fb",
+    "registry-enabled-red.log": "9aa1d37ebeca162a8bcbe3eb61f406dcfe6bd2a20633c513c73b4a7af6e04118",
+    "registry-enabled-parity.log": "3f28501e270c962918bf234f45b3c76cc838f8a863a0435194f023bbd46e171c"
+  },
+  "final_parser_and_fingerprint_pass": {
+    "passed": 190,
+    "deselected": 71
+  }
+}

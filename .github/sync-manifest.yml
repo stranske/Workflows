@@ -145,7 +145,7 @@ workflows:
       - tools/requirements-llm.txt
 
   - source: .github/workflows/agents-guard.yml
-    description: "Bounded trusted-registry retries and unavailable-policy stale-success invalidation; Agents guard - binds evaluated policy to enabled registry routing labels (Health 45)"
+    description: "Requires exactly one explicit enabled boolean per registry agent; bounded trusted-registry retries and unavailable-policy stale-success invalidation; Agents guard - binds evaluated policy to enabled registry routing labels (Health 45)"
     requires:
       - .github/agents/registry.yml
 
@@ -262,7 +262,7 @@ scripts:
     description: "Validates trusted Gate identity and attempt/head binding; publishes Gate / gate with an authenticated status-id receipt from immutable default-branch code."
 
   - source: .github/scripts/agents-guard-fork-status-publication.js
-    description: "Validates trusted Health 45 Agents Guard identity, attempt/head and registry-backed evaluated-policy-label binding, failing closed on missing or ambiguous attempt receipts; publishes the required fork guard status with an authenticated status-id receipt from immutable default-branch code."
+    description: "Validates trusted Health 45 Agents Guard identity, attempt/head and registry-backed evaluated-policy-label binding, failing closed on missing agent enabled booleans or missing/ambiguous attempt receipts; publishes the required fork guard status with an authenticated status-id receipt from immutable default-branch code."
     requires:
       - .github/agents/registry.yml
 
