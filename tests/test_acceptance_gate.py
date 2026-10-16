@@ -44,6 +44,44 @@ def test_ignore_fenced_markdown_examples_outside_acceptance():
     assert extract_commands("```md\n## Acceptance Criteria\n- [ ] `pytest fake.py`\n```") == []
 
 
+@pytest.mark.parametrize(
+    ("opening", "interior", "closing"),
+    [
+        ("````sh", "```", "````"),
+        ("```sh", "~~~", "```"),
+        ("```sh", "```not-a-closing-fence", "````"),
+        ("~~~~sh", "~~~", "~~~~"),
+    ],
+)
+def test_fenced_commands_require_matching_closing_marker(opening, interior, closing):
+    markdown = f"""
+## Acceptance Criteria
+- [ ] Run:
+  {opening}
+  {interior}
+  pytest tests/test_fenced.py
+  {closing}
+- [ ] `npm test` passes.
+"""
+    assert extract_commands(markdown) == [
+        Command(0, "pytest tests/test_fenced.py"),
+        Command(1, "npm test"),
+    ]
+
+
+def test_short_fence_does_not_expose_example_acceptance_criteria():
+    markdown = """
+````markdown
+```
+## Acceptance Criteria
+- [ ] `pytest fake.py`
+````
+## Acceptance Criteria
+- [ ] `pytest real.py`
+"""
+    assert extract_commands(markdown) == [Command(0, "pytest real.py")]
+
+
 @pytest.mark.parametrize("status", [0, 3])
 def test_run_captures_pass_fail_and_last_40_lines(tmp_path, status):
     script = tmp_path / "gate.py"

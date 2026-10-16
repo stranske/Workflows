@@ -42,11 +42,18 @@ def extract_commands(markdown: str) -> list[Command]:
     active_checkbox = False
     fence = None
     for line in markdown.splitlines():
-        fence_match = re.match(r"^\s*(`{3,}|~{3,})", line)
-        if fence_match:
-            marker = fence_match[1][0]
-            fence = None if fence == marker else marker
-            continue
+        if fence:
+            # Markdown closes a fence only with the same marker, at least the
+            # opening length, and no trailing info string. Interior markers
+            # remain code rather than changing which criteria are visible.
+            if re.fullmatch(rf"\s*{re.escape(fence[0])}{{{len(fence)},}}\s*", line):
+                fence = None
+                continue
+        else:
+            fence_match = re.match(r"^\s*(`{3,}|~{3,})", line)
+            if fence_match:
+                fence = fence_match[1]
+                continue
         if not fence:
             heading = re.match(r"^(#{1,6})\s+(.+?)\s*#*\s*$", line)
             if heading:
