@@ -94,9 +94,9 @@ def test_run_step_refuses_to_exec_after_a_failed_sandbox_or_prompt_guard():
     assert "grep -cvE '^.. agents/.*\\.md$' || true" in text
 
 
-def _muse_git_identity() -> dict[str, str]:
+def _muse_git_identity(step_id: str = "run_muse") -> dict[str, str]:
     steps = _jobs(WF / "reusable-muse-run.yml")["muse"]["steps"]
-    return next(step["env"] for step in steps if step.get("id") == "run_muse")
+    return next(step["env"] for step in steps if step.get("id") == step_id)
 
 
 def test_run_step_sets_a_muse_git_identity():
@@ -139,20 +139,47 @@ def test_run_step_git_identity_deliberate_break_and_restore(monkeypatch, variabl
 def test_run_step_identity_overrides_a_cli_default_git_identity(tmp_path):
     # Exercise real Git without launching Muse or accessing any credential store.
     env = {key: value for key, value in os.environ.items() if not key.startswith("GIT_")}
-    env.update(
-        {key: value for key, value in _muse_git_identity().items() if key.startswith("GIT_")}
-    )
     env.update(GIT_CONFIG_NOSYSTEM="1", GIT_CONFIG_GLOBAL=os.devnull)
 
-    def git(*args):
+    def git(*args, step_id=None):
+        step_env = env.copy()
+        if step_id is not None:
+            step_env.update(
+                {
+                    key: value
+                    for key, value in _muse_git_identity(step_id).items()
+                    if key.startswith("GIT_")
+                }
+            )
         return subprocess.run(
-            ["git", *args], cwd=tmp_path, env=env, check=True, capture_output=True, text=True
+            ["git", *args], cwd=tmp_path, env=step_env, check=True, capture_output=True, text=True
         ).stdout.strip()
 
     git("init", "--initial-branch=main")
     git("config", "user.name", "Claude")
     git("config", "user.email", "noreply@anthropic.com")
-    git("-c", "commit.gpgsign=false", "commit", "--allow-empty", "-m", "identity probe")
-    assert git("show", "-s", "--format=%an|%ae|%cn|%ce", "HEAD") == (
-        "muse|muse@users.noreply.github.com|muse|muse@users.noreply.github.com"
-    )
+    git("config", "commit.gpgsign", "false")
+    git("commit", "--allow-empty", "-m", "base")
+    git("checkout", "-b", "muse-feature")
+    (tmp_path / "feature.txt").write_text("Muse feature\n")
+    git("add", "feature.txt")
+    git("commit", "-m", "identity probe", step_id="run_muse")
+    expected_identity = "muse|muse@users.noreply.github.com|muse|muse@users.noreply.github.com"
+    assert git("show", "-s", "--format=%an|%ae|%cn|%ce", "HEAD") == expected_identity
+    feature_sha = git("rev-parse", "HEAD")
+
+    # Advance a distinct main file so Git must replay the feature commit without conflicts.
+    git("checkout", "main")
+    (tmp_path / "main.txt").write_text("Concurrent main update\n")
+    git("add", "main.txt")
+    git("commit", "-m", "advance main")
+    git("checkout", "muse-feature")
+    # GitHub step environments are isolated: Run Muse's overrides cannot leak into this rebase.
+    git("rebase", "main", step_id="commit")
+    assert git("rev-parse", "HEAD") != feature_sha
+    git("merge-base", "--is-ancestor", "main", "HEAD")
+    assert (tmp_path / "main.txt").read_text() == "Concurrent main update\n"
+    assert (tmp_path / "feature.txt").read_text() == "Muse feature\n"
+    assert (
+        git("show", "-s", "--format=%an|%ae|%cn|%ce", "HEAD") == expected_identity
+    ), "Commit and push changes must preserve Muse author AND committer after rebase"
