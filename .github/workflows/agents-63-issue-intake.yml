@@ -49,10 +49,10 @@ on:
         type: string
         default: ""
       bridge_agent:
-        description: "Agent key passed to the reusable bridge workflow (default codex)"
+        description: "Agent key passed to the reusable bridge workflow (default route-weights chooser / codex)"
         required: false
         type: string
-        default: "codex"
+        default: ""
       apply_langchain_formatting:
         description: "Auto-format issues with LangChain after creation"
         required: false
@@ -222,7 +222,7 @@ jobs:
                 .issue.labels[]?.name
                 | select(test("^agents?:[A-Za-z0-9-]+$"))
                 | sub("^agents?:(?<key>[A-Za-z0-9-]+)$"; "\(.key)")
-                | select(. != "keepalive")
+                | select(. != "keepalive" and . != "auto")
               ][0] // empty
             ' "$GITHUB_EVENT_PATH" 2>/dev/null || echo '')
             if [ -n "$event_agent" ]; then
@@ -1361,20 +1361,62 @@ jobs:
         with:
           sparse-checkout: |
             .github/actions/setup-api-client
+            .github/agents/registry.yml
+            .github/scripts/agent_delegation_policy.js
+            .github/scripts/agent_registry.js
             .github/scripts/error_classifier.js
             .github/scripts/github-api-with-retry.js
             .github/scripts/token_load_balancer.js
+            config/model_registry.json
           sparse-checkout-cone-mode: false
       - name: Inspect label contract
         id: inspect
         env:
           INPUT_ISSUE: ${{ needs.normalize_inputs.outputs.issue_number }}
-          DEFAULT_AGENT: ${{ needs.normalize_inputs.outputs.bridge_agent }}
+          DEFAULT_AGENT: ${{ inputs.bridge_agent }}
         uses: actions/github-script@v9
         with:
           script: |
             const manual = (process.env.INPUT_ISSUE || '').trim();
+            const fs = require('fs');
+            const registryPath = './.github/scripts/agent_registry.js';
+            const policyPath = './.github/scripts/agent_delegation_policy.js';
+            let intakeChoice = {
+              agent: 'codex',
+              posterior: null,
+              poolState: 'static',
+              delegationSource: 'static',
+            };
+            if (fs.existsSync(registryPath) && fs.existsSync(policyPath)) {
+              const { loadRegistry } = require(registryPath);
+              const { fetchRouteWeights, chooseAgentForIntake } = require(policyPath);
+              const registry = loadRegistry();
+              const routeWeights = await fetchRouteWeights();
+              intakeChoice = chooseAgentForIntake('implement', routeWeights, registry.agents);
+            }
+            if (!(process.env.DEFAULT_AGENT || '').trim() && intakeChoice?.agent) {
+              process.env.DEFAULT_AGENT = intakeChoice.agent;
+            }
             const defaultAgent = (process.env.DEFAULT_AGENT || 'codex').trim() || 'codex';
+            await core.summary
+              .addHeading('Intake Agent Selection', 3)
+              .addTable([
+                [
+                  { data: 'Chosen Agent', header: true },
+                  { data: 'Posterior', header: true },
+                  { data: 'Pool State', header: true },
+                  { data: 'Default Agent', header: true },
+                ],
+                [
+                  String(intakeChoice?.agent || defaultAgent),
+                  intakeChoice?.posterior !== null && intakeChoice?.posterior !== undefined
+                    ? String(intakeChoice.posterior)
+                    : 'n/a',
+                  String(intakeChoice?.poolState || intakeChoice?.pool_state || 'static'),
+                  defaultAgent,
+                ],
+              ])
+              .write();
             const eventIssue =
               context.payload.issue && context.payload.issue.number
                 ? String(context.payload.issue.number)
@@ -1388,7 +1430,6 @@ jobs:
             }
             const { owner, repo } = context.repo;
             const num = Number(issueNumber);
-            const fs = require('fs');
             const retryHelperPath = './.github/scripts/github-api-with-retry.js';
             const retryHelpers = fs.existsSync(retryHelperPath)
               ? require(retryHelperPath)
@@ -1462,18 +1503,20 @@ jobs:
               .filter((name) => /^agents?:[a-z0-9-]+$/.test(name))
               .filter((name) => {
                 const suffix = name.replace(/^agents?:/, '');
-                return !controlLabelSuffixes.includes(suffix);
+                return !controlLabelSuffixes.includes(suffix) && suffix !== 'auto';
               });
-            if (agentLabels.length !== 1) {
+            if (agentLabels.length > 1) {
               const found = agentLabels.join(', ');
               core.setFailed(
-                `Expected exactly one agent:* label; found ${agentLabels.length}: ${found}`,
+                `Expected at most one concrete agent:* label; found ${agentLabels.length}: ${found}`,
               );
               return;
             }
-            const agentLabel = agentLabels[0];
-            const agentKey = agentLabel.replace(/^agents?:/, '');
             const normalizedDefault = defaultAgent.toLowerCase();
+            const agentKey =
+              agentLabels.length === 1
+                ? agentLabels[0].replace(/^agents?:/, '')
+                : normalizedDefault;
             if (normalizedDefault && normalizedDefault !== agentKey) {
               core.info(
                 `Overriding bridge agent '${normalizedDefault}' with '${agentKey}' from labels.`,
@@ -1734,8 +1777,8 @@ jobs:
     with:
       agent: >-
         ${{
-          needs.normalize_inputs.outputs.bridge_agent ||
-          needs.bridge_preflight.outputs.agent_key
+          needs.bridge_preflight.outputs.agent_key ||
+          needs.normalize_inputs.outputs.bridge_agent
         }}
       issue_number: >-
         ${{
