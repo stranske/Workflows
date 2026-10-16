@@ -426,8 +426,10 @@ def test_actual_summary_refuses_junit_entity_expansion(tmp_path):
 
 
 @pytest.mark.parametrize("workers", [0, 2])
-def test_instrumentation_does_not_pollute_product_coverage(tmp_path, workers):
+def test_instrumentation_does_not_pollute_product_coverage(tmp_path, workers, monkeypatch):
     """A temporary CI plugin is infrastructure; uncovered product stays enforced."""
+    # Hosted selftests enable ambient plugin discovery; the child must isolate it.
+    monkeypatch.delenv("PYTEST_DISABLE_PLUGIN_AUTOLOAD", raising=False)
     plugin_dir = tmp_path / "instrumentation"
     plugin_dir.mkdir()
     plugin = _python_heredoc(_steps()[PLUGIN_STEP]["run"], PLUGIN_OPENER, PLUGIN_STEP)
@@ -459,6 +461,7 @@ def test_instrumentation_does_not_pollute_product_coverage(tmp_path, workers):
         **os.environ,
         "PYTHONPATH": str(plugin_dir) + os.pathsep + str(tmp_path),
         "PYTEST_ADDOPTS": "",
+        "PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1",
         "PYTEST_PLUGINS": "xdist.plugin,pytest_cov.plugin",
     }
     result = subprocess.run(command, cwd=tmp_path, env=env, capture_output=True, text=True)

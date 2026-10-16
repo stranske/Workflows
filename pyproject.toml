@@ -8,6 +8,8 @@ version = "0.1.0"
 description = "Reusable GitHub Actions workflows and automation infrastructure"
 readme = "README.md"
 requires-python = ">=3.12"
+# The standalone CI growth reader imports this outside development extras.
+dependencies = ["defusedxml==0.7.1"]
 license = "MIT"
 authors = [
     {name = "Workflow Contributors"}
@@ -40,7 +42,6 @@ dev = [
     "pytest-cov==7.1.0",
     "coverage==7.16.2",
     "pytest-xdist==3.8.0",
-    "defusedxml==0.7.1",  # Safely parse untrusted JUnit growth receipts.
     "httpx==0.28.1",  # Native SDK MockTransport regression tests.
     "packaging>=26.1",
 
