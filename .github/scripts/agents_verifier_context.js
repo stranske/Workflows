@@ -387,13 +387,18 @@ function extractReferencedRunIds(texts) {
 
 // Evidence selection and incidental fallback share semantic boundaries. A
 // comma-conjoined URL is a subject member, not an independent clause. Only
-// contrast governors or a separately labelled clause split that coordination.
+// contrast governors or independent non-URL clauses split that coordination.
 const EVIDENCE_LABEL_RE = /\b(?:evidence|validation|artifacts?|test results?|red\s+(?:then\s+)?green)\b/gi;
 const NEGATIVE_EVIDENCE_RE = /\b(?:no|not)\s+(?!(?:(?:the\s+)?only|just)\b)(?:[\w-]+\s+)*(?:evidence|validation|artifacts?|test results?|red\s+(?:then\s+)?green)\b/i;
 const ANAPHORIC_SUBJECT_RE = /^(?:this|that|it|these|those)(?:\s+[\w-]+){0,8}\s+(?:is|was|are|were)\b/i;
 
+const RUN_URL_SUBJECT = String.raw`[\x60*_]*(?:\[[^\]]+\]\()?<?` +
+  String.raw`(?:https?:\/\/[^\s)>]+)?\/actions\/runs\/\d+(?:[/?#][^\s)>\]]*)?[)>\x60*_\]]*`;
+
 function evidenceClauses(line) {
-  const parts = line.split(/([.;]\s+|\s+but\s+|,\s+(?:while|whereas)\s+|,\s+(?:and|or)\s+(?=(?:[\w -]+):))/i);
+  const boundary = new RegExp(String.raw`([.;]\s+|\s+but\s+|,\s+(?:while|whereas)\s+|,\s+(?:and|or)\s+(?!`
+    + String.raw`\s*` + RUN_URL_SUBJECT + '))', 'i');
+  const parts = line.split(boundary);
   return parts.filter((_, index) => index % 2 === 0).map((clause, index) => {
     const labels = [...clause.matchAll(EVIDENCE_LABEL_RE)];
     const negativeIndex = labels.findIndex(match =>
@@ -401,13 +406,11 @@ function evidenceClauses(line) {
     let negativeStart = negativeIndex < 0 ? clause.length
       : negativeIndex === 0 ? 0 : labels[negativeIndex].index;
     if (negativeIndex >= 0) {
-      const runSubject = String.raw`(?:\[[^\]]+\]\()?<?` +
-        String.raw`(?:https?:\/\/[^\s)>]+)?\/actions\/runs\/\d+(?:[/?#][^\s)>\]]*)?[)>\x60*_\]]*`;
-      const coordinatedSubject = new RegExp(runSubject +
-        String.raw`(?:\s*(?:,\s*(?:(?:and|or)\s+)?|\s+(?:and|or)\s+)` + runSubject +
+      const coordinatedSubject = new RegExp(RUN_URL_SUBJECT +
+        String.raw`(?:\s*(?:,\s*(?:(?:and|or)\s+)?|\s+(?:and|or)\s+)` + RUN_URL_SUBJECT +
         String.raw`)*\s+(?:is|are|was|were)\s+(?:no|not)\s+(?:[\w-]+\s+)*$`, 'i');
       const prefix = clause.slice(0, labels[negativeIndex].index);
-      const singularSubject = new RegExp(runSubject +
+      const singularSubject = new RegExp(RUN_URL_SUBJECT +
         String.raw`[\s—-]+(?:(?:is|was)\s+)?(?:no|not)\s+(?:[\w-]+\s+)*$`, 'i');
       const subject = prefix.match(/\b(?:are|were)\s+(?:no|not)\s+(?:[\w-]+\s+)*$/i)
         ? prefix.match(coordinatedSubject) : prefix.match(singularSubject);

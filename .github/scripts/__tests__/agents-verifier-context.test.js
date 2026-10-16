@@ -4914,6 +4914,8 @@ test('negative diagnostics filter governed references without erasing incidental
     require('../../../templates/consumer-repo/.github/scripts/agents_verifier_context.js').fetchVerifierEvidence];
   for (const implementation of implementations) {
     for (const body of [
+      "Build: /actions/runs/124, and Completed Selftest /actions/runs/999 failed.\nThis run is not evidence.",
+      "Build: /actions/runs/124, or Completed Selftest /actions/runs/999 failed.\nThis run is not evidence.",
       "Build: /actions/runs/124, while Completed Selftest /actions/runs/999 failed.\nThis run is not evidence.",
       "Build: /actions/runs/124, while Completed Selftest /actions/runs/999 failed.\n- This run is not evidence.",
       "Build: /actions/runs/124, while Completed Selftest /actions/runs/999 failed.\n+ This run is not evidence.",
@@ -4959,7 +4961,7 @@ test('shared evidence clauses keep coordinated negative subjects out of fallback
   const implementations = [fetchVerifierEvidence,
     require('../../../templates/consumer-repo/.github/scripts/agents_verifier_context.js').fetchVerifierEvidence];
   const cases = [['Evidence: /actions/runs/124, and /actions/runs/999 are not validation evidence', []]];
-  for (const join of [' and ', ' or ', ', ', ', and ', ', or ']) {
+  for (const join of [' and ', ' or ', ', ', ', and ', ', or ', ', and  ', ', or  ']) {
     for (const copula of ['are', 'were']) {
       for (const wrap of [url => url, url => `<${url}>`, url => `[run](${url})`]) {
         const subject = `${wrap('/actions/runs/124')}${join}${wrap('/actions/runs/999')}`;
