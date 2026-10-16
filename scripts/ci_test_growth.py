@@ -7,8 +7,9 @@ collection receipt. XML/read errors propagate to its existing UNKNOWN handler.
 from __future__ import annotations
 
 import math
-import xml.etree.ElementTree as ET
 from pathlib import Path
+
+from defusedxml import ElementTree as SafeET
 
 
 def junit_report(path: Path) -> dict[str, object]:
@@ -19,7 +20,7 @@ def junit_report(path: Path) -> dict[str, object]:
     explicit UNKNOWN status whenever any duration is absent, invalid or negative.
     An explicit finite zero is a valid measurement.
     """
-    cases = list(ET.parse(path).getroot().iter("testcase"))
+    cases = list(SafeET.parse(path).getroot().iter("testcase"))
     functions: dict[str, float] = {}
     suites: dict[str, float] = {}
     untimed = 0

@@ -103,12 +103,8 @@ class _PartialCollectionPublished(AssertionError):
     """The workflow presented a failed collection's subset as complete."""
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=_PartialCollectionPublished,
-    reason="r4297488936: embedded workflow plugin needs an authorized workflow repair",
-)
-def test_serial_collection_error_does_not_publish_complete_receipt(tmp_path):
+@pytest.mark.parametrize("workers", [0, 2])
+def test_serial_collection_error_does_not_publish_complete_receipt(tmp_path, workers):
     plugin = _python_heredoc(_steps()[PLUGIN_STEP]["run"], PLUGIN_OPENER, PLUGIN_STEP)
     (tmp_path / "ci_test_growth.py").write_text(plugin, encoding="utf-8")
     (tmp_path / "test_good.py").write_text(
@@ -125,6 +121,7 @@ def test_serial_collection_error_does_not_publish_complete_receipt(tmp_path):
             "pytest",
             "-p",
             "ci_test_growth",
+            *(["-n", str(workers)] if workers else []),
             "-q",
             "-m",
             "not slow",
@@ -137,7 +134,9 @@ def test_serial_collection_error_does_not_publish_complete_receipt(tmp_path):
         text=True,
     )
     # Infrastructure or fixture failures must fail normally, rather than xfail.
-    assert result.returncode == pytest.ExitCode.INTERRUPTED, result.stdout + result.stderr
+    assert result.returncode in (pytest.ExitCode.INTERRUPTED, pytest.ExitCode.TESTS_FAILED), (
+        result.stdout + result.stderr
+    )
     assert "test_broken.py" in result.stdout
     assert "SyntaxError" in result.stdout
     receipt_path = tmp_path / "pytest-collection.json"
@@ -319,3 +318,108 @@ def test_junit_report_propagates_unreadable_xml_to_summary_unknown_handler(tmp_p
     path.write_text("<broken", encoding="utf-8")
     with pytest.raises(ET.ParseError):
         junit_report(path)
+
+
+@pytest.mark.parametrize(
+    "receipt",
+    [
+        {"largest_functions": [1]},
+        {"per_file": {"a": "x"}},
+        [],
+        {"largest_functions": [["a", True]]},
+        {"total": -1},
+    ],
+)
+def test_actual_summary_rejects_malformed_collection_shape(tmp_path, receipt):
+    script = _python_heredoc(_steps()[SUMMARY_STEP]["run"], SUMMARY_OPENER, SUMMARY_STEP)
+    (tmp_path / "pytest-collection.json").write_text(json.dumps(receipt))
+    env = {**os.environ, "PYTHON_VERSION": "3.12", "GITHUB_OUTPUT": str(tmp_path / "outputs")}
+    result = subprocess.run(
+        [sys.executable, "-c", script], cwd=tmp_path, env=env, capture_output=True, text=True
+    )
+    assert result.returncode == 0, result.stderr
+    growth = json.loads((tmp_path / "artifacts/coverage/runtimes/3.12/summary.json").read_text())[
+        "test_growth"
+    ]
+    assert growth["collection"] is None
+    assert "malformed" in growth["collection_error"]
+
+
+def test_actual_summary_preserves_counts_for_invalid_duration(tmp_path):
+    script = _python_heredoc(_steps()[SUMMARY_STEP]["run"], SUMMARY_OPENER, SUMMARY_STEP)
+    runtime = tmp_path / "artifacts/coverage/runtimes/3.12"
+    runtime.mkdir(parents=True)
+    (runtime / "pytest-junit.xml").write_text(
+        '<testsuite><testcase name="a" time="invalid"/><testcase name="b" time="2"/></testsuite>'
+    )
+    env = {**os.environ, "PYTHON_VERSION": "3.12", "GITHUB_OUTPUT": str(tmp_path / "outputs")}
+    result = subprocess.run(
+        [sys.executable, "-c", script], cwd=tmp_path, env=env, capture_output=True, text=True
+    )
+    assert result.returncode == 0, result.stderr
+    growth = json.loads((runtime / "summary.json").read_text())["test_growth"]
+    assert growth["reported"]["cases"] == 2
+    assert growth["reported"]["timing_status"] == "UNKNOWN"
+    assert growth["reported"]["dominant_functions_worker_seconds"] is None
+
+
+def test_junit_report_rejects_entity_expansion(tmp_path):
+    from defusedxml.common import DefusedXmlException
+
+    path = tmp_path / "junit.xml"
+    path.write_text(
+        '<!DOCTYPE testsuite [<!ENTITY secret "expanded">]><testsuite><testcase name="&secret;" time="1"/></testsuite>'
+    )
+    with pytest.raises(DefusedXmlException):
+        junit_report(path)
+
+
+def test_embedded_junit_helper_matches_source_without_consumer_import():
+    import ast
+    import inspect
+
+    inline = _python_heredoc(_steps()[SUMMARY_STEP]["run"], SUMMARY_OPENER, SUMMARY_STEP)
+    node = next(
+        node
+        for node in ast.parse(inline).body
+        if isinstance(node, ast.FunctionDef) and node.name == "junit_report"
+    )
+    assert ast.dump(node) == ast.dump(ast.parse(inspect.getsource(junit_report)).body[0])
+
+
+def test_workflow_clears_stale_receipt_before_pytest_startup_error(tmp_path):
+    script = _steps()[PLUGIN_STEP]["run"]
+    tail = script[script.index("# Clear stale evidence") :]
+    (tmp_path / "pytest-collection.json").write_text('{"total": 9999}')
+    env = {
+        **os.environ,
+        "RUNNER_TEMP": str(tmp_path),
+        "PYTEST_ADDOPTS": "",
+        "PATH": str(Path(sys.executable).parent) + os.pathsep + os.environ["PATH"],
+    }
+    result = subprocess.run(
+        ["bash", "-c", 'args=("missing_test_file.py")\n' + tail],
+        cwd=tmp_path,
+        env=env,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == pytest.ExitCode.USAGE_ERROR, result.stdout + result.stderr
+    assert not (tmp_path / "pytest-collection.json").exists()
+
+
+def test_actual_summary_refuses_junit_entity_expansion(tmp_path):
+    script = _python_heredoc(_steps()[SUMMARY_STEP]["run"], SUMMARY_OPENER, SUMMARY_STEP)
+    runtime = tmp_path / "artifacts/coverage/runtimes/3.12"
+    runtime.mkdir(parents=True)
+    (runtime / "pytest-junit.xml").write_text(
+        '<!DOCTYPE testsuite [<!ENTITY secret "expanded">]><testsuite><testcase name="&secret;" time="1"/></testsuite>'
+    )
+    env = {**os.environ, "PYTHON_VERSION": "3.12", "GITHUB_OUTPUT": str(tmp_path / "outputs")}
+    result = subprocess.run(
+        [sys.executable, "-c", script], cwd=tmp_path, env=env, capture_output=True, text=True
+    )
+    assert result.returncode == 0, result.stderr
+    growth = json.loads((runtime / "summary.json").read_text())["test_growth"]
+    assert growth["reported"] is None
+    assert "unsafe" in growth["junit_error"]

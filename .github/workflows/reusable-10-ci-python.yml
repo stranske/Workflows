@@ -1804,6 +1804,7 @@ jobs:
 
           add_tool "$pytest_spec" "pytest"
           add_tool "$pytest_xdist_spec" "pytest-xdist"
+          add_tool "defusedxml==0.7.1" "defusedxml"
 
           if [ "$coverage_enabled" = "true" ]; then
             add_tool "$pytest_cov_spec" "pytest-cov"
@@ -2035,7 +2036,9 @@ jobs:
             args+=("-n" "auto" "--dist=loadgroup")
             echo "Running tests in parallel with pytest-xdist (loadgroup scheduler)..."
           fi
-          # Record the selected collection once on the controller, including xdist.
+          # Clear stale evidence before pytest can fail during startup.
+          rm -f pytest-collection.json
+          # Record a complete selected collection once on the controller, including xdist.
           growth_plugin_dir="$(mktemp -d "${RUNNER_TEMP}/pytest-growth.XXXXXX")"
           cat > "${growth_plugin_dir}/ci_test_growth.py" <<'PY'
           import json
@@ -2047,6 +2050,8 @@ jobs:
 
           _started = time.monotonic()
           _ids = None
+          _collection_failed = False
+          _collection_seconds = None
 
           def _record(ids):
               paths = Counter(node.split("::", 1)[0] for node in ids)
@@ -2055,20 +2060,44 @@ jobs:
                   "total": len(ids),
                   "per_file": dict(paths),
                   "largest_functions": functions.most_common(10),
-                  "collection_seconds": round(time.monotonic() - _started, 3),
+                  "collection_seconds": _collection_seconds,
+                  "complete": True,
                   "source": "selected pytest node IDs; controller collection",
               }, indent=2), encoding="utf-8")
 
+          def pytest_sessionstart(session):
+              if not hasattr(session.config, "workerinput"):
+                  Path("pytest-collection.json").unlink(missing_ok=True)
+
+          def pytest_collectreport(report):
+              global _collection_failed
+              if report.failed:
+                  _collection_failed = True
+
           @pytest.hookimpl(optionalhook=True)
           def pytest_xdist_node_collection_finished(node, ids):
-              global _ids
+              global _ids, _collection_failed, _collection_seconds
               if _ids is None:
                   _ids = tuple(ids)
-                  _record(_ids)
+                  _collection_seconds = round(time.monotonic() - _started, 3)
+              elif _ids != tuple(ids):
+                  _collection_failed = True
 
           def pytest_collection_finish(session):
-              if not hasattr(session.config, "workerinput") and session.items:
+              global _collection_seconds
+              if hasattr(session.config, "workerinput") or getattr(session.config.option, "numprocesses", 0):
+                  return
+              if not _collection_failed and not session.testsfailed:
+                  _collection_seconds = round(time.monotonic() - _started, 3)
                   _record([item.nodeid for item in session.items])
+
+          def pytest_sessionfinish(session, exitstatus):
+              if hasattr(session.config, "workerinput"):
+                  return
+              if exitstatus in (pytest.ExitCode.INTERRUPTED, pytest.ExitCode.INTERNAL_ERROR, pytest.ExitCode.USAGE_ERROR):
+                  Path("pytest-collection.json").unlink(missing_ok=True)
+              elif _ids is not None and not _collection_failed:
+                  _record(_ids)
           PY
           export PYTHONPATH="${growth_plugin_dir}:${PYTHONPATH:-}"
           pytest -p ci_test_growth "${args[@]}"
@@ -2151,6 +2180,57 @@ jobs:
           import xml.etree.ElementTree as ET
           from pathlib import Path
 
+          import math
+          from defusedxml import ElementTree as SafeET
+          from defusedxml.common import DefusedXmlException
+
+          # Same helper as scripts/ci_test_growth.py; embedded for consumer portability.
+          def junit_report(path: Path) -> dict[str, object]:
+              """Keep reported counts even when individual testcase durations are unusable.
+
+              Rankings require complete timings: a partial sum could incorrectly rank a
+              costly function below a completely measured one. Return null rankings and an
+              explicit UNKNOWN status whenever any duration is absent, invalid or negative.
+              An explicit finite zero is a valid measurement.
+              """
+              cases = list(SafeET.parse(path).getroot().iter("testcase"))
+              functions: dict[str, float] = {}
+              suites: dict[str, float] = {}
+              untimed = 0
+              for case in cases:
+                  raw = case.get("time")
+                  try:
+                      seconds = float(raw) if raw is not None else None
+                  except ValueError:
+                      seconds = None
+                  if seconds is None or not math.isfinite(seconds) or seconds < 0:
+                      untimed += 1
+                      continue
+                  suite = case.get("classname", "unknown")
+                  name = suite + "::" + case.get("name", "unknown").split("[", 1)[0]
+                  functions[name] = functions.get(name, 0.0) + seconds
+                  suites[suite] = suites.get(suite, 0.0) + seconds
+
+              complete = bool(cases) and untimed == 0
+              complete = complete and all(math.isfinite(value) for value in functions.values())
+              complete = complete and all(math.isfinite(value) for value in suites.values())
+              report: dict[str, object] = {
+                  "cases": len(cases),
+                  "timed_cases": len(cases) - untimed,
+                  "untimed_cases": untimed,
+                  "timing_status": "KNOWN" if complete else "UNKNOWN",
+                  "dominant_functions_worker_seconds": (
+                      sorted(functions.items(), key=lambda item: -item[1])[:10] if complete else None
+                  ),
+                  "dominant_suites_worker_seconds": (
+                      sorted(suites.items(), key=lambda item: -item[1])[:10] if complete else None
+                  ),
+                  "source": "JUnit reported cases; summed worker time, not wall time",
+              }
+              if not complete:
+                  report["timing_error"] = "JUnit durations UNKNOWN: missing, invalid or incomplete timings"
+              return report
+
           runtime = os.environ.get("PYTHON_VERSION", "unknown")
           base_dir = Path("artifacts/coverage/runtimes") / runtime
           base_dir.mkdir(parents=True, exist_ok=True)
@@ -2210,35 +2290,39 @@ jobs:
           junit_path = base_dir / "pytest-junit.xml"
           growth = {"collection": None, "reported": None, "review_required": False,
                     "budget": {"cases_per_function": 1000, "cases_per_file": 50000}}
+
+          def valid_count(value):
+              return isinstance(value, int) and not isinstance(value, bool) and value >= 0
+
+          def valid_collection(value):
+              if not isinstance(value, dict) or value.get("complete") is False:
+                  return False
+              total, per_file, largest = value.get("total"), value.get("per_file"), value.get("largest_functions")
+              return (valid_count(total) and isinstance(per_file, dict) and isinstance(largest, list)
+                      and all(isinstance(key, str) and valid_count(count) for key, count in per_file.items())
+                      and sum(per_file.values()) == total
+                      and all(isinstance(row, (list, tuple)) and len(row) == 2
+                              and isinstance(row[0], str) and valid_count(row[1]) for row in largest))
+
           if collection_path.exists():
               try:
-                  growth["collection"] = json.loads(collection_path.read_text(encoding="utf-8"))
-                  (base_dir / collection_path.name).write_bytes(collection_path.read_bytes())
+                  collection = json.loads(collection_path.read_text(encoding="utf-8"))
+                  if valid_collection(collection):
+                      growth["collection"] = collection
+                      (base_dir / collection_path.name).write_bytes(collection_path.read_bytes())
+                      growth["review_required"] = (
+                          any(count > 1000 for _, count in collection["largest_functions"])
+                          or any(count > 50000 for count in collection["per_file"].values())
+                      )
+                  else:
+                      growth["collection_error"] = "collection receipt malformed or incomplete"
               except (ValueError, OSError):
                   growth["collection_error"] = "collection receipt unreadable"
           if junit_path.exists():
               try:
-                  cases = list(ET.parse(junit_path).getroot().iter("testcase"))
-                  functions = {}
-                  suites = {}
-                  for case in cases:
-                      suite = case.get("classname", "unknown")
-                      name = suite + "::" + case.get("name", "unknown").split("[", 1)[0]
-                      seconds = float(case.get("time", "0"))
-                      functions[name] = functions.get(name, 0.0) + seconds
-                      suites[suite] = suites.get(suite, 0.0) + seconds
-                  growth["reported"] = {"cases": len(cases),
-                      "dominant_functions_worker_seconds": sorted(functions.items(), key=lambda x: -x[1])[:10],
-                      "dominant_suites_worker_seconds": sorted(suites.items(), key=lambda x: -x[1])[:10],
-                      "source": "JUnit reported cases; summed worker time, not wall time"}
-              except (ET.ParseError, ValueError, OSError):
-                  growth["junit_error"] = "JUnit timing receipt unreadable"
-          collection = growth["collection"]
-          if isinstance(collection, dict):
-              growth["review_required"] = (
-                  any(count > 1000 for _, count in collection.get("largest_functions", []))
-                  or any(count > 50000 for count in collection.get("per_file", {}).values())
-              )
+                  growth["reported"] = junit_report(junit_path)
+              except (ET.ParseError, DefusedXmlException, ValueError, OSError):
+                  growth["junit_error"] = "JUnit timing receipt unreadable or unsafe"
           summary["test_growth"] = growth
           job_summary = os.environ.get("GITHUB_STEP_SUMMARY")
           if job_summary:

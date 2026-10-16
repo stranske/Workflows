@@ -72,7 +72,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install pytest pytest-cov pyyaml requests numpy pandas pydantic ruff==0.17.0
+          pip install pytest pytest-cov pytest-xdist==3.8.0 defusedxml==0.7.1 pyyaml requests numpy pandas pydantic ruff==0.17.0
 
       - name: Run Python tests
         env:

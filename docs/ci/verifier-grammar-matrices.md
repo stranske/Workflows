@@ -151,3 +151,24 @@ scoped JUnit counts and costs, collection time, reporting and total job wall tim
 The local baseline and candidate run concurrently, so their elapsed times are observational and not a controlled speedup measurement. A local run does not establish hosted performance. Do not close #3904 or claim a
 sub-10-minute Gate until controlled hosted evidence supports that claim. If the
 runtime target remains unmet, name the measured residual bottlenecks and gap.
+
+
+### Collection and timing receipt integrity
+
+The controller clears the previous collection receipt before pytest starts. It
+publishes selected counts only after successful serial collection or matching
+xdist worker collections without collection errors. Test failures retain valid
+collection counts; collection/startup failures do not become complete receipts.
+The always-run summary validates parsed receipt shapes before aggregation.
+JUnit case counts survive invalid durations, while rankings remain explicitly
+UNKNOWN until all durations are finite and nonnegative. Defused XML parsing
+rejects entities. The reusable workflow embeds the source `junit_report` helper
+so consumers require no new synced helper file; the tests enforce source parity.
+Selftest installs pinned xdist and defusedxml for these actual workflow paths.
+
+Focused gate: `python -m pytest tests/workflows/test_ci_test_growth.py -q -o addopts=`.
+The tests execute the actual workflow Python/shell paths, including serial/xdist
+collection errors, stale startup evidence, malformed JSON, invalid durations,
+and entity rejection. The implementation PR retains RED/GREEN command output;
+these controls do not replace the original matched coverage and hosted timing
+acceptance for issue #3904.
