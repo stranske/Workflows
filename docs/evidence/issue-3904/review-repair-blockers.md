@@ -1,5 +1,53 @@
 # Review repair progress under agent-standard
 
+## r4297488936: permanent real partial-collection control
+
+At source head `77be45a0e1f0eb146ece1086a373178eb775b6e6`, the first actionable
+review finding still requires a protected workflow edit. Two bounded controls
+now exercise the actual embedded collection plugin in real serial subprocesses:
+
+- `test_serial_collection_error_does_not_publish_complete_receipt` collects
+  three good cases before a second module raises a syntax error. Pytest exits
+  **2**, but the plugin publishes a complete-looking receipt containing the
+  three-case subset. Running this control with `--runxfail` gives **1 failed**
+  on that exact defect. The permanent control has a **strict** expected failure
+  limited to `_PartialCollectionPublished`; fixture, subprocess and JSON errors
+  still fail normally. An authorized workflow fix must remove this marker when
+  the control starts passing; otherwise strict XPASS fails the suite.
+- `test_serial_test_failure_preserves_complete_collection_receipt` completes
+  collection and then fails one of three tests. It verifies exit **1** and the
+  full receipt. A repair must distinguish collection errors from test failures.
+
+On Python **3.14.8**, with pytest-xdist **3.8.0** installed, the existing focused
+command reports **41 passed, 1 xfailed in 21.51s**, including both original serial
+and two-worker xdist controls:
+
+```sh
+python -m pytest tests/workflows/test_ci_test_growth.py tests/workflows/test_reusable_ci_workflow.py -q -rx -m 'not slow'
+python -m pytest tests/workflows/test_ci_test_growth.py::test_serial_collection_error_does_not_publish_complete_receipt --runxfail -q -m 'not slow'
+```
+
+The second command deliberately exits **1**; it is regression evidence, not a
+passing implementation. The production repair and its task checkbox remain
+pending. No protected file was edited. At inspection, PR #3950 is open with
+`draft=false`, and closer-owned #3947 is still open and unmerged.
+
+Staging the test changes failed with `.git/index.lock: Read-only file system`.
+The requested `needs-human` label was rejected with `MCP tool call requires
+approval, but approval policy is never`; the blocker comment was rejected with
+the same reason. No label, comment or review thread was changed.
+
+Black formatted the touched Python file, Ruff and `git diff --check` passed,
+and the exact repository-wide Black check passed with **759 files unchanged**:
+
+```sh
+black --check --line-length 100 --exclude '(\.workflows-lib|node_modules)' .
+```
+
+As in the prior run, the existing serial Black checker populated a writable
+cache before the CLI check used
+`BLACK_CACHE_DIR=/tmp/issue-3904-collection-black-cache BLACK_NUM_WORKERS=1`.
+
 ## Current r4297491917 preparation and checklist reconciliation
 
 At head `54df2124f26295a8271369f24a38edad84a40fbd`, PR #3950 is open and

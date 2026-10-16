@@ -99,6 +99,83 @@ def test_selected_collection_receipt_matches_real_pytest(tmp_path, workers):
     assert receipt["collection_seconds"] >= 0
 
 
+class _PartialCollectionPublished(AssertionError):
+    """The workflow presented a failed collection's subset as complete."""
+
+
+@pytest.mark.xfail(
+    strict=True,
+    raises=_PartialCollectionPublished,
+    reason="r4297488936: embedded workflow plugin needs an authorized workflow repair",
+)
+def test_serial_collection_error_does_not_publish_complete_receipt(tmp_path):
+    plugin = _python_heredoc(_steps()[PLUGIN_STEP]["run"], PLUGIN_OPENER, PLUGIN_STEP)
+    (tmp_path / "ci_test_growth.py").write_text(plugin, encoding="utf-8")
+    (tmp_path / "test_good.py").write_text(
+        "import pytest\n"
+        "@pytest.mark.parametrize('value', [1, 2, 3])\n"
+        "def test_selected(value): assert value > 0\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "test_broken.py").write_text("def test_broken(:\n", encoding="utf-8")
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "pytest",
+            "-p",
+            "ci_test_growth",
+            "-q",
+            "-m",
+            "not slow",
+            "test_good.py",
+            "test_broken.py",
+        ],
+        cwd=tmp_path,
+        env={**os.environ, "PYTHONPATH": str(tmp_path), "PYTEST_ADDOPTS": ""},
+        capture_output=True,
+        text=True,
+    )
+    # Infrastructure or fixture failures must fail normally, rather than xfail.
+    assert result.returncode == pytest.ExitCode.INTERRUPTED, result.stdout + result.stderr
+    assert "test_broken.py" in result.stdout
+    assert "SyntaxError" in result.stdout
+    receipt_path = tmp_path / "pytest-collection.json"
+    if receipt_path.exists():
+        receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+        assert isinstance(receipt, dict)
+        if receipt.get("complete") is not False:
+            raise _PartialCollectionPublished(
+                f"collection exited {result.returncode}, but published a complete-looking "
+                f"receipt with {receipt.get('total')} selected cases"
+            )
+
+
+def test_serial_test_failure_preserves_complete_collection_receipt(tmp_path):
+    plugin = _python_heredoc(_steps()[PLUGIN_STEP]["run"], PLUGIN_OPENER, PLUGIN_STEP)
+    (tmp_path / "ci_test_growth.py").write_text(plugin, encoding="utf-8")
+    (tmp_path / "test_cases.py").write_text(
+        "import pytest\n"
+        "@pytest.mark.parametrize('value', [1, 2, 3])\n"
+        "def test_selected(value): assert value != 2\n",
+        encoding="utf-8",
+    )
+    result = subprocess.run(
+        [sys.executable, "-m", "pytest", "-p", "ci_test_growth", "-q", "-m", "not slow"],
+        cwd=tmp_path,
+        env={**os.environ, "PYTHONPATH": str(tmp_path), "PYTEST_ADDOPTS": ""},
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == pytest.ExitCode.TESTS_FAILED, result.stdout + result.stderr
+    assert "1 failed, 2 passed" in result.stdout
+    receipt = json.loads((tmp_path / "pytest-collection.json").read_text(encoding="utf-8"))
+    assert receipt["total"] == 3
+    assert receipt["per_file"] == {"test_cases.py": 3}
+    assert receipt["largest_functions"] == [["test_cases.py::test_selected", 3]]
+    assert receipt.get("complete") is not False
+
+
 def test_actual_ci_summary_reports_growth_and_preserves_failed_gate(tmp_path):
     script = _python_heredoc(_steps()[SUMMARY_STEP]["run"], SUMMARY_OPENER, SUMMARY_STEP)
     runtime = tmp_path / "artifacts/coverage/runtimes/3.12"
