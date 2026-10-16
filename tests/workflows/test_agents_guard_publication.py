@@ -10,6 +10,22 @@ import yaml
 ROOT = Path(__file__).resolve().parents[2]
 
 
+def with_current_direct_binding(harness):
+    """Supply authenticated current PR/run fixtures for corrective-write tests."""
+    fixture = r"""
+context.eventName ||= 'pull_request';context.runId ||= 42;
+context.payload.pull_request.base.repo={id:1};context.payload.pull_request.base.ref='main';
+process.env.GITHUB_RUN_ATTEMPT='1';
+github.rest.pulls={get:async()=>({data:{...context.payload.pull_request,state:'open'}})};
+const currentGuardRun={id:context.runId,workflow_id:7,path:'.github/workflows/agents-guard.yml@main',name:'Health 45 Agents Guard',event:context.eventName,head_sha:context.eventName==='pull_request'?context.payload.pull_request.head.sha:(context.sha||'b'.repeat(40)),run_number:5,run_attempt:1,created_at:'2026-10-16T01:00:00Z',pull_requests:[{number:4}]};
+context.sha=currentGuardRun.head_sha;
+github.rest.actions={getWorkflowRun:async()=>({data:currentGuardRun}),getWorkflow:async()=>({data:{id:7,path:'.github/workflows/agents-guard.yml',name:'Health 45 Agents Guard'}}),listWorkflowRuns(){}};
+const originalPaginate=github.paginate;
+github.paginate=async(method,params)=>method===github.rest.actions.listWorkflowRuns?[currentGuardRun]:originalPaginate(method,params);
+"""
+    return harness.replace("const AsyncFunction", fixture + "\nconst AsyncFunction")
+
+
 def test_guard_publisher_is_manifest_managed_and_template_aligned():
     manifest = yaml.safe_load((ROOT / ".github/sync-manifest.yml").read_text())
     entries = [
@@ -278,6 +294,7 @@ new AsyncFunction('github', 'context', 'core', input.script)(github, context, co
  .then(() => {process.exitCode = 2})
  .catch(e => process.stdout.write(JSON.stringify({message: e.message, writes})));
 """
+    harness = with_current_direct_binding(harness)
     result = subprocess.run(
         ["node", "-e", harness],
         input=json.dumps({"script": script, "mode": mode}),
@@ -718,7 +735,9 @@ process.stdout.write(result.summary);
 
 
 @pytest.mark.parametrize("template", [False, True])
-@pytest.mark.parametrize("mode", ["transient", "persistent", "malformed"])
+@pytest.mark.parametrize(
+    "mode", ["transient", "persistent", "malformed", "missing_enabled", "nested_enabled"]
+)
 def test_registry_failure_cannot_retain_same_head_success(template, mode):
     prefix = ROOT / "templates/consumer-repo" if template else ROOT
     workflow = yaml.safe_load((prefix / ".github/workflows/agents-guard.yml").read_text())
@@ -737,6 +756,7 @@ const github={rest:{repos:{getContent:async()=>{
  reads++;
  if(input.mode==='persistent'||(input.mode==='transient'&&reads<3)){const e=Error('registry transient');e.status=500;throw e;}
  if(input.mode==='malformed')return {data:{type:'file',encoding:'none'}};
+ if(input.mode==='missing_enabled'||input.mode==='nested_enabled')return {data:{type:'file',encoding:'base64',content:Buffer.from(input.mode==='missing_enabled'?'agents:\n  codex:\n':'agents:\n  codex:\n    preflight:\n      enabled: true\n').toString('base64')}};
  return {data:{type:'file',encoding:'base64',content:Buffer.from('agents:\n  codex:\n    enabled: true\n').toString('base64')}};
 },createCommitStatus:async p=>{writes.push(p);status=p;},listCommitStatusesForRef(){}},issues:{listLabelsOnIssue(){}}},paginate:async()=>[]};
 const context={repo:{owner:'owner',repo:'repo'},eventName:'pull_request_target',payload:{pull_request:{number:4,labels:[],head:{sha:'a'.repeat(40)},base:{sha:'b'.repeat(40)}}},serverUrl:'https://github.com',runId:42};
@@ -744,6 +764,7 @@ const core={info(){},warning(){},error(){},setFailed(m){failures.push(m);}};
 const AsyncFunction=Object.getPrototypeOf(async function(){}).constructor;
 new AsyncFunction('github','context','core',input.script)(github,context,core).then(()=>process.stdout.write(JSON.stringify({reads,writes,status,failures})));
 """
+    harness = with_current_direct_binding(harness)
     result = subprocess.run(
         ["node", "-e", harness],
         input=json.dumps({"script": script, "mode": mode}),
@@ -753,8 +774,91 @@ new AsyncFunction('github','context','core',input.script)(github,context,core).t
     )
     record = json.loads(result.stdout)
     assert record["status"]["state"] == ("success" if mode == "transient" else "failure")
-    assert record["reads"] == (1 if mode == "malformed" else 3)
+    assert record["reads"] == (3 if mode in {"persistent", "transient"} else 1)
     assert len(record["writes"]) == 1
     assert record["writes"][0]["sha"] == "a" * 40
     if mode != "transient":
+        assert "guard-policy-sha256" not in record["writes"][0]["description"]
+
+
+@pytest.mark.parametrize("template", [False, True])
+@pytest.mark.parametrize(
+    "drift",
+    [
+        "none",
+        "head",
+        "base",
+        "base-repo",
+        "base-ref",
+        "closed",
+        "attempt",
+        "newer-run",
+        "same-id-attempt",
+        "ambiguous-newer",
+        "missing-inventory",
+        "final-head",
+        "final-attempt",
+        "plain-path",
+        "full-ref-path",
+        "wrong-path",
+        "wrong-name",
+        "workflow-id",
+        "workflow-name",
+        "workflow-path",
+        "final-path",
+    ],
+)
+@pytest.mark.parametrize("event", ["pull_request", "pull_request_target"])
+def test_missing_enabled_corrective_write_requires_fresh_bindings(template, drift, event):
+    prefix = ROOT / "templates/consumer-repo" if template else ROOT
+    workflow = yaml.safe_load((prefix / ".github/workflows/agents-guard.yml").read_text())
+    assert workflow["permissions"]["actions"] == "read"
+    script = next(
+        step["with"]["script"]
+        for step in workflow["jobs"]["guard"]["steps"]
+        if step.get("name") == "Report agents guard commit status"
+    )
+    harness = r"""
+const input=JSON.parse(require('fs').readFileSync(0,'utf8'));
+process.env.GITHUB_RUN_ATTEMPT='1';
+const writes=[];const failures=[];let prReads=0;let runReads=0;
+const pr={number:4,state:'open',head:{sha:'a'.repeat(40)},base:{sha:'b'.repeat(40),ref:'main',repo:{id:1}}};
+const run={id:42,workflow_id:7,path:'.github/workflows/agents-guard.yml@main',name:'Health 45 Agents Guard',event:'pull_request_target',head_sha:'b'.repeat(40),run_number:5,run_attempt:1,created_at:'2026-10-16T01:00:00Z',pull_requests:[{number:4}]};
+if(input.drift==='plain-path')run.path='.github/workflows/agents-guard.yml';
+if(input.drift==='full-ref-path')run.path='.github/workflows/agents-guard.yml@refs/heads/main';
+if(input.drift==='wrong-path')run.path='.github/workflows/untrusted.yml@main';
+if(input.drift==='wrong-name')run.name='Other workflow';
+run.event=input.event;run.head_sha=input.event==='pull_request'?pr.head.sha:pr.base.sha;
+const context={repo:{owner:'owner',repo:'repo'},eventName:input.event,runId:42,sha:input.event==='pull_request'?'d'.repeat(40):pr.base.sha,serverUrl:'https://github.com',payload:{pull_request:pr}};
+const github={rest:{repos:{getContent:async()=>({data:{type:'file',encoding:'base64',content:Buffer.from('agents:\n  codex:\n').toString('base64')}}),createCommitStatus:async p=>writes.push(p)},pulls:{get:async()=>{prReads++;const copy=JSON.parse(JSON.stringify(pr));
+if(input.drift==='head'||(input.drift==='final-head'&&prReads>1))copy.head.sha='c'.repeat(40);
+if(input.drift==='base')copy.base.sha='c'.repeat(40);
+if(input.drift==='base-repo')copy.base.repo.id=2;
+if(input.drift==='base-ref')copy.base.ref='other';
+if(input.drift==='closed')copy.state='closed';
+return {data:copy};}},actions:{getWorkflowRun:async()=>{runReads++;return {data:{...run,path:input.drift==='final-path'&&runReads>1?'.github/workflows/agents-guard.yml@other':run.path,run_attempt:(input.drift==='attempt'||(input.drift==='final-attempt'&&runReads>1))?2:1}};},getWorkflow:async()=>({data:{id:input.drift==='workflow-id'?8:7,path:input.drift==='workflow-path'?'.github/workflows/other.yml':'.github/workflows/agents-guard.yml',name:input.drift==='workflow-name'?'Other workflow':'Health 45 Agents Guard'}}),listWorkflowRuns(){}}},paginate:async(method,params)=>{
+if(method!==github.rest.actions.listWorkflowRuns)throw Error('unexpected pagination');
+if(input.drift==='missing-inventory')return [];
+if(input.drift==='same-id-attempt')return [{...run,run_attempt:2}];
+if(input.drift==='newer-run')return [run,{...run,id:43,run_number:6}];
+if(input.drift==='ambiguous-newer')return [run,{...run,id:43,run_number:6,pull_requests:[]}];
+return [run];}};
+const core={info(){},warning(){},error(){},setFailed:m=>failures.push(m)};
+const AsyncFunction=Object.getPrototypeOf(async function(){}).constructor;
+new AsyncFunction('github','context','core',input.script)(github,context,core).then(()=>process.stdout.write(JSON.stringify({writes,failures,prReads,runReads})));
+"""
+    result = subprocess.run(
+        ["node", "-e", harness],
+        input=json.dumps({"script": script, "drift": drift, "event": event}),
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    record = json.loads(result.stdout)
+    assert len(record["writes"]) == (1 if drift in {"none", "plain-path", "full-ref-path"} else 0)
+    assert record["failures"]
+    if drift in {"none", "plain-path", "full-ref-path"}:
+        assert record["prReads"] >= 2 and record["runReads"] >= 2
+        assert record["writes"][0]["sha"] == "a" * 40
+        assert record["writes"][0]["state"] == "failure"
         assert "guard-policy-sha256" not in record["writes"][0]["description"]

@@ -24,18 +24,22 @@ function routingLabelsFromRegistry(text) {
   let sections = 0;
   let key = null;
   let enabledSeen = false;
+  const finishEntry = () => {
+    if (key !== null && !enabledSeen) throw new Error('Agent enabled flag is missing');
+  };
   for (const raw of String(text).split(/\r?\n/)) {
     const line = raw.replace(/\s+#.*$/, '').replace(/\s+$/, '');
     if (!line.trim() || line.trimStart().startsWith('#')) continue;
     if (line.includes('\t')) throw new Error('Agent registry tabs are unsupported');
-    if (/^agents:\s*$/.test(line)) { inAgents = true; sections++; key = null; continue; }
-    if (/^\S/.test(line)) { inAgents = false; key = null; continue; }
+    if (/^agents:\s*$/.test(line)) { finishEntry(); inAgents = true; sections++; key = null; continue; }
+    if (/^\S/.test(line)) { finishEntry(); inAgents = false; key = null; continue; }
     if (!inAgents) continue;
     const entry = line.match(/^  ([a-z][a-z0-9_-]*):\s*$/);
     if (entry) {
+      finishEntry();
       key = entry[1];
       if (agents.has(key)) throw new Error('Duplicate agent registry entry');
-      agents.set(key, true);
+      agents.set(key, false);
       enabledSeen = false;
       continue;
     }
@@ -47,6 +51,7 @@ function routingLabelsFromRegistry(text) {
       agents.set(key, value[1] === 'true');
     }
   }
+  finishEntry();
   if (sections !== 1 || agents.size === 0) throw new Error('Agent registry mapping is incomplete');
   for (const [agent, enabled] of agents) if (enabled) labels.add(`agent:${agent}`);
   return labels;

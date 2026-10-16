@@ -46,7 +46,8 @@ on:
       post_agent_comment:
         description: "Auto-post the labelled agent's start command as the actor (true/false)"
         required: false
-        type: boolean
+        type: string
+        default: ""
       bridge_agent:
         description: "Agent key passed to the reusable bridge workflow (default codex)"
         required: false

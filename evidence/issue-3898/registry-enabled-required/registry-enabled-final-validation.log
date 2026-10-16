@@ -1,0 +1,13 @@
+COMMAND ["/opt/anaconda3/bin/python3", "scripts/validate_template_sync.py"]
+✅ All template files in sync
+EXIT 0
+COMMAND ["/opt/anaconda3/bin/python3", "scripts/validate_template_completeness.py", "--strict"]
+✅ All consumer workflows are properly templated and manifested
+EXIT 0
+COMMAND ["/opt/anaconda3/bin/python3", "-m", "ruff", "check", "tests/workflows/test_agents_guard_registry_enabled.py", "tests/workflows/test_agents_guard_publication.py", "tests/workflows/test_agents_guard_fork_status_publication.py"]
+All checks passed!
+EXIT 0
+COMMAND ["node", "--check", ".github/scripts/agents-guard-fork-status-publication.js"]
+EXIT 0
+COMMAND ["git", "diff", "--check"]
+EXIT 0

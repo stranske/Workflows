@@ -72,7 +72,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install pytest pytest-cov pyyaml requests numpy pandas pydantic
+          pip install pytest pytest-cov pyyaml requests numpy pandas pydantic ruff==0.17.0
 
       - name: Run Python tests
         env:
