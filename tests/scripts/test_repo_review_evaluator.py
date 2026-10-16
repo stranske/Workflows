@@ -1552,6 +1552,10 @@ def test_queue_regeneration_preserves_original_approval_and_hold(tmp_path: Path)
         assert queue["intake_hold"]["active"] is True
         assert queue["upload_allowed"] is False
         assert "Owner intake hold active" in (tmp_path / "approved-issue-queue.md").read_text()
+    state["status"] = "paused"
+    queue = evaluator.write_approved_issue_queue(tmp_path, [state], current_feedback, "2026-06-01")
+    assert queue["issues"] == []
+    assert len(json.loads((tmp_path / "approval-ledger.json").read_text())["entries"]) == 2
 
 
 def test_fresh_global_date_cannot_rebind_unpinned_numeric_positions(tmp_path: Path) -> None:

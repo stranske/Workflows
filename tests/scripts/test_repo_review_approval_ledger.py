@@ -56,6 +56,16 @@ def test_ledger_preserves_authorized_scope_without_requeueing_filed_or_unknown(t
     assert result["upload_allowed"] is False
     assert result["intake_hold"]["active"] is True
     assert queue["issues"][0]["body"] == "New broader scope"
+    assert len(result["approval_scope_conflicts"]) == 3
+    assert {x["original_filing_status"] for x in result["approval_scope_conflicts"]} == {
+        "filed",
+        "unfiled",
+        "unknown",
+    }
+    assert all(
+        x["current_approved_issue"]["body"] == "New broader scope"
+        for x in result["approval_scope_conflicts"]
+    )
 
 
 def test_ledger_rejects_changed_original_queue(tmp_path):

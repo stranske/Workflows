@@ -28,6 +28,12 @@ def item_digest(item: dict[str, Any]) -> str:
     ).hexdigest()
 
 
+def scope_digest(item: dict[str, Any]) -> str:
+    return item_digest(
+        {key: item.get(key) for key in ("body", "review_evidence_trace", "priority", "labels")}
+    )
+
+
 def merge_approval_ledger(
     queue: dict[str, Any], ledger_path: Path, *, allowed_repos: set[str]
 ) -> dict[str, Any]:
@@ -97,11 +103,33 @@ def merge_approval_ledger(
     expected = {identity for identity, item in originals.items() if item["repo"] in allowed_repos}
     if identities != expected:
         raise ValueError("Approval ledger must account for every original approved finding")
-    current = [
-        item
-        for item in result["issues"]
-        if finding_id(item["repo"], item["title"]) not in suppressed
-    ]
+    current = []
+    filing_by_id = {
+        entry["finding_id"]: entry["filing"]["status"]
+        for entry in entries
+        if entry.get("repo") in allowed_repos
+    }
+    for item in result["issues"]:
+        identity = finding_id(item["repo"], item["title"])
+        if identity not in suppressed:
+            current.append(item)
+        elif scope_digest(item) != scope_digest(originals[identity]):
+            # A newly authorized changed scope is not the historical finding.
+            # Retain its complete approval record rather than dropping it by title.
+            result.setdefault("approval_scope_conflicts", []).append(
+                {
+                    "finding_id": identity,
+                    "original_filing_status": filing_by_id[identity],
+                    "original_approved_item_sha256": item_digest(originals[identity]),
+                    "current_approved_issue": copy.deepcopy(item),
+                    "current_approved_item_sha256": item_digest(item),
+                    "disposition": "reconciliation_required",
+                }
+            )
+            result.setdefault("warnings", []).append(
+                f"{item['repo']}: newly approved same-title scope '{item['title']}' "
+                "is preserved for reconciliation with the historical approval; no scope was silently replaced."
+            )
     result["issues"] = [*preserved.values(), *current]
     result["approval_ledger"] = {"schema": SCHEMA, "source": str(ledger_path), "counts": counts}
     hold = ledger.get("intake_hold")

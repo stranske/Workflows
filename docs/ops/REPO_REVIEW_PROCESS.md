@@ -369,6 +369,12 @@ regeneration imports only unfiled approved snapshots, with their original bodies
 priorities and evidence intact. Filed and unknown-filing entries remain in the
 backlog and never re-enter the upload queue. Malformed, incomplete or changed
 approval snapshots stop regeneration rather than silently dropping approvals.
+Only active repositories are eligible for restoration; pausing a repository preserves
+its ledger approvals without placing them in the upload queue. A later independently
+approved same-title item with changed body, evidence, priority or labels is retained
+under `approval_scope_conflicts` and in the Markdown queue for explicit reconciliation,
+including when the original finding is filed or its filing state is unknown. It is
+never silently discarded or substituted for the historically approved scope.
 The ledger is local report state and must not be committed with personal reviews.
 
 A reconciled backlog should retain both weeks' source occurrences, identify same-gap

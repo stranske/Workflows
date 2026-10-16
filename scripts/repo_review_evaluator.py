@@ -3257,7 +3257,7 @@ def write_approved_issue_queue(
     queue = merge_approval_ledger(
         queue,
         output_dir / "approval-ledger.json",
-        allowed_repos={state["repo"] for state in states},
+        allowed_repos={state["repo"] for state in states if state["status"] == "active"},
     )
     (output_dir / "approved-issue-queue.json").write_text(
         json.dumps(queue, indent=2) + "\n", encoding="utf-8"
@@ -3309,6 +3309,24 @@ def write_approved_issue_queue(
                 "",
             ]
         )
+    if queue.get("approval_scope_conflicts"):
+        lines.extend(["## Approved Scope Conflicts Held For Reconciliation", ""])
+        for conflict in queue["approval_scope_conflicts"]:
+            item = conflict["current_approved_issue"]
+            lines.extend(
+                [
+                    f"### {item['repo']}: {item['title']}",
+                    "",
+                    f"- Stable finding ID: `{conflict['finding_id']}`",
+                    f"- Prior filing state: `{conflict['original_filing_status']}`",
+                    "- This current approval is preserved here; reconcile it with the historical scope before materialization.",
+                    "",
+                    "```markdown",
+                    item["body"].strip(),
+                    "```",
+                    "",
+                ]
+            )
     lines.extend(["## Deeper Review Or Revision Required", ""])
     if not queue["deeper_review"]:
         lines.extend(["None.", ""])
