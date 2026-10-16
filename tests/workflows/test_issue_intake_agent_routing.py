@@ -299,3 +299,22 @@ def test_shared_invitation_resolver_normalizes_mixed_case_agent_keys(tmp_path):
     codex = _execute_bridge_script("", registry, agent="CoDeX")["outputs"]
     assert codex["command"] == ""
     assert json.loads(codex["assignees"]) == ["chatgpt-codex-connector", "stranske-automation-bot"]
+
+
+def test_qualified_cursor_preflight_is_enabled_without_enabling_muse():
+    root = (ROOT / ".github/agents/registry.yml").read_bytes()
+    template = (ROOT / "templates/consumer-repo/.github/agents/registry.yml").read_bytes()
+    assert root == template
+    agents = yaml.safe_load(root)["agents"]
+    assert agents["cursor"]["preflight"]["enabled"] is True
+    assert agents["muse"]["preflight"]["enabled"] is False
+    program = "const r=require(process.argv[1]);console.log(JSON.stringify(r.getAgentPreflightConfigs()));"
+    result = subprocess.run(
+        ["node", "-e", program, str(ROOT / ".github/scripts/agent_registry.js")],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    cursor = next(x for x in json.loads(result.stdout) if x["key"] == "cursor")
+    assert cursor["assign_user"] == agents["cursor"]["preflight"]["assign_user"]

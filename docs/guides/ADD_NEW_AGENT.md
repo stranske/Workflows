@@ -75,3 +75,11 @@ displays the resolved assignees and command without launching another writer.
 `post_codex_comment` remains an alias of `post_agent_comment`. Keep
 `preflight.enabled` off until an authenticated issue-intake canary reaches that
 agent's actual runner; PR keepalive execution alone does not qualify it.
+
+Cursor issue intake qualified on 2026-10-16 using Workflows issue #3975 and
+throwaway PR #3976. Agents63 run38960468409 created the Cursor branch; actual
+Cursor run38960970271 completed successfully and produced c4590ef1981883bdce48491c18a23c2157c8f160.
+The closer independently replayed the named marker test, marker-removal assertion
+failure and byte-identical restoration on that commit. This qualifies Cursor's
+preflight flag; Muse remains deferred. The canary closes unmerged and does not
+replace the source PR's CI, guarded delivery or post-merge verification.
