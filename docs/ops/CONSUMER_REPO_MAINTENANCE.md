@@ -3041,3 +3041,5 @@ A trailing negative evidence predicate binds its complete comma/and/or coordinat
 Negative workflow-run references remain filtered from incidental fallback even when no explicit positive URL survives. Typed references retain their explicit union. Common introductory However/Separately/Instead/Also labels can start an independent positive declaration. Singular and bare/dash negative predicates bind the immediate URL; explicit plural are/were predicates bind coordinated URL subjects.
 
 Negative run-URL predicates use the same referenced run identity for ordinary job/attempt/query/fragment links, retaining query-key underscores and filtering the negated run before incidental fallback.
+
+No/not evidence predicates retain intervening word modifiers such as current, the current acceptance and valid standalone. Additive Not only/Not just/Not the only declarations remain positive. The same predicate classification filters incidental fallback.

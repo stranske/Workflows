@@ -397,11 +397,11 @@ function positiveEvidenceClauses(line) {
     const clause = parts[index];
     // Only an independently labelled affirmative declaration can reopen
     // scope after negation; "but a validation prerequisite" is diagnostic.
-    const affirmativeDeclaration = /^\s*(?:[-*>]\s*)?(?:(?:however|separately|instead|also|in contrast|for comparison)\s*[,—:-]?\s*)?(?:not only\s+)?(?:evidence|validation|artifacts?|test results?|red\s+(?:then\s+)?green)(?:\s+(?:evidence|validation|artifacts?|runs?))*\s*:/i.test(clause.replace(/[`*_]/g, ''));
+    const affirmativeDeclaration = /^\s*(?:[-*>]\s*)?(?:(?:however|separately|instead|also|in contrast|for comparison)\s*[,—:-]?\s*)?(?:not (?:(?:the\s+)?only|just)\s+)?(?:evidence|validation|artifacts?|test results?|red\s+(?:then\s+)?green)(?:\s+(?:evidence|validation|artifacts?|runs?))*\s*:/i.test(clause.replace(/[`*_]/g, ''));
     if (negativeScope && affirmativeDeclaration) negativeScope = false;
     const labels = [...clause.matchAll(/\b(?:evidence|validation|artifacts?|test results?|red\s+(?:then\s+)?green)\b/gi)];
     const negativeIndex = labels.findIndex(match =>
-      /\b(?:no|not)\s+$/i.test(clause.slice(0, match.index).replace(/[`*_]/g, '')));
+      /\b(?:no|not)\s+(?!(?:(?:the\s+)?only|just)\b)(?:[\w-]+\s+)*$/i.test(clause.slice(0, match.index).replace(/[`*_]/g, '')));
     if (labels.length) {
       // Negation extends through the rest of this clause. A second keyword in
       // "No validation evidence" cannot re-open positive evidence scope.
@@ -420,11 +420,11 @@ function positiveEvidenceClauses(line) {
           String.raw`(?:https?:\/\/[^\s)]+)?\/actions\/runs\/\d+(?:[/?#][^\s)\]]*)?[)\x60*_\]]*`;
         const coordinatedSubject = new RegExp(runSubject +
           String.raw`(?:\s*(?:,\s*(?:(?:and|or)\s+)?|\s+(?:and|or)\s+)` + runSubject +
-          String.raw`)*\s+(?:is|are|was|were)\s+(?:no|not)\s*$`, 'i');
+          String.raw`)*\s+(?:is|are|was|were)\s+(?:no|not)\s+(?:[\w-]+\s+)*$`, 'i');
         const prefix = clause.slice(0, end);
         const singularSubject = new RegExp(runSubject +
-          String.raw`[\s—-]+(?:(?:is|was)\s+)?(?:no|not)\s*$`, 'i');
-        const subject = prefix.match(/\b(?:are|were)\s+(?:no|not)\s*$/i)
+          String.raw`[\s—-]+(?:(?:is|was)\s+)?(?:no|not)\s+(?:[\w-]+\s+)*$`, 'i');
+        const subject = prefix.match(/\b(?:are|were)\s+(?:no|not)\s+(?:[\w-]+\s+)*$/i)
           ? prefix.match(coordinatedSubject) : prefix.match(singularSubject);
         if (subject) end = subject.index;
       }
@@ -780,7 +780,7 @@ async function fetchVerifierEvidence({
   // A filtered negative diagnostic must not return through incidental fallback
   // when no positively selected URL exists. Typed references remain explicit.
   const fallbackReferenceTexts = proseReferenceTexts.map(text => String(text || '').split('\n')
-    .map(line => /\b(?:no|not)\s+(?:evidence|validation|artifacts?|test results?|red\s+(?:then\s+)?green)\b/i.test(line.replace(/[`*_]/g, ''))
+    .map(line => /\b(?:no|not)\s+(?!(?:(?:the\s+)?only|just)\b)(?:[\w-]+\s+)*(?:evidence|validation|artifacts?|test results?|red\s+(?:then\s+)?green)\b/i.test(line.replace(/[`*_]/g, ''))
       ? positiveEvidenceClauses(line).join(' ') : line).join('\n'));
   const allReferencedRunIds = extractReferencedRunIds([...typedEvidenceTexts, ...fallbackReferenceTexts]);
   // A status-table "View run" or bare incidental body/comment URL is not an
