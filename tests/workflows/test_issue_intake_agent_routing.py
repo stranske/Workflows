@@ -39,9 +39,21 @@ def _run(tmp_path: Path, labels: list[str], env_extra: dict | None = None) -> di
 
 
 def test_intake_routes_the_labelled_agent_not_codex(tmp_path):
-    assert _run(tmp_path, ["agent:cursor"])["bridge_agent"] == "cursor"
-    assert _run(tmp_path, ["agent:muse"])["bridge_agent"] == "muse"
-    assert _run(tmp_path, ["agent:codex"])["bridge_agent"] == "codex"
+    for agent in ("cursor", "muse", "codex"):
+        key = _run(tmp_path, [f"agent:{agent}"])["bridge_agent"]
+        assert key == agent
+        command = (
+            "const registry = require(process.argv[1]);"
+            "console.log(registry.getRunnerWorkflow(process.argv[2]));"
+        )
+        runner = subprocess.run(
+            ["node", "-e", command, str(ROOT / ".github/scripts/agent_registry.js"), key],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout.strip()
+        assert runner == f".github/workflows/reusable-{agent}-run.yml"
     assert _run(tmp_path, ["bug"])["bridge_agent"] == "codex"  # no agent label: unchanged default
 
 
@@ -58,3 +70,32 @@ def test_post_agent_comment_is_the_neutral_name_and_post_codex_comment_still_wor
 def test_bridge_receives_the_neutral_output():
     text = INTAKE.read_text()
     assert "post_agent_comment: ${{ needs.normalize_inputs.outputs.post_agent_comment }}" in text
+
+
+def test_dispatch_defaults_preserve_legacy_comment_behavior(tmp_path):
+    workflow = yaml.safe_load(INTAKE.read_text())
+    inputs = (workflow.get("on") or workflow[True])["workflow_dispatch"]["inputs"]
+    default = inputs["post_agent_comment"].get(
+        "default", False if inputs["post_agent_comment"]["type"] == "boolean" else ""
+    )
+    neutral = str(default).lower() if isinstance(default, bool) else default
+    result = _run(
+        tmp_path,
+        ["agent:codex"],
+        {
+            "GITHUB_EVENT_NAME": "workflow_dispatch",
+            "INPUT_POST_AGENT_COMMENT": neutral,
+            "INPUT_POST_CODEX_COMMENT": "true",
+        },
+    )
+    assert result["post_agent_comment"] == "true"
+    result = _run(
+        tmp_path,
+        ["agent:codex"],
+        {
+            "GITHUB_EVENT_NAME": "workflow_dispatch",
+            "INPUT_POST_AGENT_COMMENT": "false",
+            "INPUT_POST_CODEX_COMMENT": "true",
+        },
+    )
+    assert result["post_agent_comment"] == "false"
