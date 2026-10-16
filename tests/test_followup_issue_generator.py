@@ -2163,3 +2163,101 @@ def test_main_reads_verification_from_standard_input(
     captured = capsys.readouterr()
     assert "# [Follow-up]" in captured.out
     assert "Extracted 1 provider verdicts" in captured.err
+
+
+@pytest.mark.parametrize("available", ["both", "reasoning", "standard"])
+def test_generate_followup_routes_available_clients_without_losing_model_identity(
+    monkeypatch: pytest.MonkeyPatch, available: str
+) -> None:
+    reasoning_client = object()
+    standard_client = object()
+    clients = {
+        True: (reasoning_client, "reasoning-model") if available != "standard" else None,
+        False: (standard_client, "standard-model") if available != "reasoning" else None,
+    }
+    monkeypatch.setattr(
+        followup_issue_generator, "_get_followup_client", lambda *, reasoning: clients[reasoning]
+    )
+    verification_data = VerificationData(
+        provider_verdicts={"default": {"verdict": "FAIL", "confidence": 100}},
+        concerns=["Fix the failing parser"],
+    )
+    original_issue = OriginalIssueData(number=42, title="Parser")
+    captured = {}
+    expected = followup_issue_generator.FollowupIssue("Follow-up", "Body", ["follow-up"])
+
+    def generate(*args, **kwargs):
+        captured.update(kwargs)
+        captured["args"] = args
+        return expected
+
+    monkeypatch.setattr(followup_issue_generator, "_generate_with_llm", generate)
+
+    result = generate_followup_issue(
+        verification_data, original_issue, pr_number=123, codex_log="prior failure"
+    )
+
+    assert result is expected
+    assert captured["args"] == (verification_data, original_issue, 123, "prior failure")
+    assert captured["reasoning_client"] is (
+        standard_client if available == "standard" else reasoning_client
+    )
+    assert captured["standard_client"] is (
+        reasoning_client if available == "reasoning" else standard_client
+    )
+    assert captured["reasoning_model"] == (
+        "standard-model" if available == "standard" else "reasoning-model"
+    )
+    assert captured["standard_model"] == (
+        "reasoning-model" if available == "reasoning" else "standard-model"
+    )
+    assert captured["blocking_concerns"] == ["Fix the failing parser"]
+    assert captured["advisory_concerns"] == []
+    assert captured["verdict"] == "FAIL"
+
+
+@pytest.mark.parametrize(
+    ("pr_number", "issue_number", "env", "expected_number", "expected_run"),
+    [
+        (7, 9, {"PR_NUMBER": "11", "GITHUB_RUN_ID": "run-1", "RUN_ID": "run-2"}, "7", "run-1"),
+        (None, 9, {"PR_NUMBER": "11", "RUN_ID": "run-2"}, "9", "run-2"),
+        (None, None, {"PR_NUMBER": "11", "ISSUE_NUMBER": "13"}, "11", "unknown"),
+        (None, None, {"PR_NUMBER": "invalid", "ISSUE_NUMBER": "13"}, "13", "unknown"),
+        (None, None, {"PR_NUMBER": "invalid", "ISSUE_NUMBER": "invalid"}, "unknown", "unknown"),
+        (None, None, {}, "unknown", "unknown"),
+    ],
+    ids=["explicit-pr", "explicit-issue", "env-pr", "env-issue", "invalid-env", "missing-env"],
+)
+def test_followup_metadata_fallback_preserves_context_and_number_precedence(
+    monkeypatch: pytest.MonkeyPatch, pr_number, issue_number, env, expected_number, expected_run
+) -> None:
+    monkeypatch.setitem(sys.modules, "tools.llm_provider", None)
+    for name in ("GITHUB_REPOSITORY", "GITHUB_RUN_ID", "RUN_ID", "PR_NUMBER", "ISSUE_NUMBER"):
+        monkeypatch.delenv(name, raising=False)
+    for name, value in env.items():
+        monkeypatch.setenv(name, value)
+    if env:
+        monkeypatch.setenv("GITHUB_REPOSITORY", "example/project")
+    expected_repo = "example/project" if env else "unknown"
+
+    config = followup_issue_generator._build_llm_config(
+        operation="followup", pr_number=pr_number, issue_number=issue_number
+    )
+
+    assert config == {
+        "metadata": {
+            "repo": expected_repo,
+            "run_id": expected_run,
+            "issue_or_pr_number": expected_number,
+            "operation": "followup",
+            "pr_number": str(pr_number) if pr_number is not None else None,
+            "issue_number": str(issue_number) if issue_number is not None else None,
+        },
+        "tags": [
+            "workflows-agents",
+            "operation:followup",
+            f"repo:{expected_repo}",
+            f"issue_or_pr:{expected_number}",
+            f"run_id:{expected_run}",
+        ],
+    }
