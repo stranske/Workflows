@@ -3960,6 +3960,16 @@ test('negated historical diagnostics do not join a complete positive evidence un
   const implementations = [fetchVerifierEvidence,
     require('../../../templates/consumer-repo/.github/scripts/agents_verifier_context.js').fetchVerifierEvidence];
   const diagnostics = [
+    "Evidence:\n+ [proof](/actions/runs/124)\nCompleted /actions/runs/999 failed.\nThis is not evidence.",
+    "Evidence:\n* [proof](/actions/runs/124)\nCompleted /actions/runs/999 failed.\nThis is not evidence.",
+    "Evidence:\n1. [proof](/actions/runs/124)\nCompleted /actions/runs/999 failed.\nThis is not evidence.",
+    "Evidence:\n2) [proof](/actions/runs/124)\nCompleted /actions/runs/999 failed.\nThis is not evidence.",
+    "Evidence:\n- [x] [proof](/actions/runs/124)\nCompleted /actions/runs/999 failed.\nThis is not evidence.",
+    "Evidence:\n+ [ ] [proof](/actions/runs/124)\nCompleted /actions/runs/999 failed.\nThis is not evidence.",
+    "Evidence:\n3. [X] [proof](/actions/runs/124)\nCompleted /actions/runs/999 failed.\nThis is not evidence.",
+    "Evidence:\n> - [proof](/actions/runs/124)\nCompleted /actions/runs/999 failed.\nThis is not evidence.",
+    "Evidence:\n> 1. [proof](/actions/runs/124)\nCompleted /actions/runs/999 failed.\nThis is not evidence.",
+    "Evidence:\n  + [proof](/actions/runs/124)\nCompleted /actions/runs/999 failed.\nThis is not evidence.",
     "Evidence:\n/actions/runs/124\nCompleted Selftest [run](/actions/runs/999) failed.\nThis is not evidence that validation failed.",
     "## Evidence\n\n- [proof](/actions/runs/124)\n- </actions/runs/125>\nCompleted Selftest /actions/runs/999 failed.\nThis is not evidence.",
     "**Validation:**\n`/actions/runs/124`\n\n## Historical diagnostics\n/actions/runs/999\nNot current evidence.",

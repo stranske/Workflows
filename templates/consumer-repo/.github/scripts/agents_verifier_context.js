@@ -452,6 +452,8 @@ function positiveEvidenceLines(text) {
     // Strip complete Markdown links first, then bare/angle/code run URLs.
     // Remaining prose is never granted evidence scope by a preceding header.
     const remainder = line
+      .replace(/^\s*(?:>\s*)*/, '')
+      .replace(/^(?:(?:[-+*]|\d+[.)])\s+)?(?:\[[ xX]\]\s+)?/, '')
       .replace(/\[[^\]\n]*\]\((?:https?:\/\/[^\s)]+)?\/actions\/runs\/\d+(?:[/?#][^\s)]*)?\)/g, '')
       .replace(/<?(?:https?:\/\/[^\s<>`]+)?\/actions\/runs\/\d+(?:[/?#][^\s<>`]+)?>?/g, '')
       .replace(/[`*_\s,;<>-]/g, '');
