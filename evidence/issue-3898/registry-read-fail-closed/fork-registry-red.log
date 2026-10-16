@@ -1,0 +1,32 @@
+FF                                                                       [100%]
+=================================== FAILURES ===================================
+_ test_fork_registry_failure_invalidates_prior_success_after_binding_checks[denied] _
+
+mode = 'denied'
+
+    @pytest.mark.parametrize("mode", ["denied", "malformed"])
+    def test_fork_registry_failure_invalidates_prior_success_after_binding_checks(mode):
+        prior = [{"context": "Health 45 Agents Guard / guard", "state": "success", "description": "prior green", "target_url": "https://github.com/stranske/Workflows/actions/runs/8"}]
+        result = _publish_scenario(registry_mode=mode, statuses=prior)
+>       assert len(result["writes"]) == 1
+E       assert 0 == 1
+E        +  where 0 = len([])
+
+tests/workflows/test_agents_guard_fork_status_publication.py:1333: AssertionError
+_ test_fork_registry_failure_invalidates_prior_success_after_binding_checks[malformed] _
+
+mode = 'malformed'
+
+    @pytest.mark.parametrize("mode", ["denied", "malformed"])
+    def test_fork_registry_failure_invalidates_prior_success_after_binding_checks(mode):
+        prior = [{"context": "Health 45 Agents Guard / guard", "state": "success", "description": "prior green", "target_url": "https://github.com/stranske/Workflows/actions/runs/8"}]
+        result = _publish_scenario(registry_mode=mode, statuses=prior)
+>       assert len(result["writes"]) == 1
+E       assert 0 == 1
+E        +  where 0 = len([])
+
+tests/workflows/test_agents_guard_fork_status_publication.py:1333: AssertionError
+=========================== short test summary info ============================
+FAILED tests/workflows/test_agents_guard_fork_status_publication.py::test_fork_registry_failure_invalidates_prior_success_after_binding_checks[denied]
+FAILED tests/workflows/test_agents_guard_fork_status_publication.py::test_fork_registry_failure_invalidates_prior_success_after_binding_checks[malformed]
+2 failed, 91 deselected in 0.57s

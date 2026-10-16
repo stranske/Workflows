@@ -16,19 +16,50 @@ const BLOCKED_FILES = new Set([
   '.github/path-classification.yml',
   'tools/post_ci_summary.py',
 ]);
-const ROUTING_LABELS = new Set([
-  'agent:auto', 'agent:codex', 'agent:claude', 'agent:copilot',
-  'agents:auto-pilot', 'agents:keepalive',
-]);
+function routingLabelsFromRegistry(text) {
+  // Parse only the canonical agents mapping, never execute registry contents.
+  const labels = new Set(['agent:auto', 'agent:copilot', 'agents:auto-pilot', 'agents:keepalive']);
+  const agents = new Map();
+  let inAgents = false;
+  let sections = 0;
+  let key = null;
+  let enabledSeen = false;
+  for (const raw of String(text).split(/\r?\n/)) {
+    const line = raw.replace(/\s+#.*$/, '').replace(/\s+$/, '');
+    if (!line.trim() || line.trimStart().startsWith('#')) continue;
+    if (line.includes('\t')) throw new Error('Agent registry tabs are unsupported');
+    if (/^agents:\s*$/.test(line)) { inAgents = true; sections++; key = null; continue; }
+    if (/^\S/.test(line)) { inAgents = false; key = null; continue; }
+    if (!inAgents) continue;
+    const entry = line.match(/^  ([a-z][a-z0-9_-]*):\s*$/);
+    if (entry) {
+      key = entry[1];
+      if (agents.has(key)) throw new Error('Duplicate agent registry entry');
+      agents.set(key, true);
+      enabledSeen = false;
+      continue;
+    }
+    if (/^  \S/.test(line) || !key) throw new Error('Malformed agent registry entry');
+    if (/^    enabled:/.test(line)) {
+      const value = line.match(/^    enabled:\s*(true|false)$/);
+      if (!value || enabledSeen) throw new Error('Malformed agent enabled flag');
+      enabledSeen = true;
+      agents.set(key, value[1] === 'true');
+    }
+  }
+  if (sections !== 1 || agents.size === 0) throw new Error('Agent registry mapping is incomplete');
+  for (const [agent, enabled] of agents) if (enabled) labels.add(`agent:${agent}`);
+  return labels;
+}
 const PERMISSION_LABEL = 'agents:allow-change';
 
-function policyLabelNames(labels) {
+function policyLabelNames(labels, routingLabels) {
   if (!Array.isArray(labels)) throw new Error('PR label evidence is incomplete');
   const names = labels.map(label => {
     if (typeof label?.name !== 'string') throw new Error('PR label evidence is malformed');
     const raw = label.name;
     const routing = raw.trim().toLowerCase();
-    if (ROUTING_LABELS.has(routing)) return routing;
+    if (routingLabels.has(routing)) return routing;
     return raw.toLowerCase() === PERMISSION_LABEL ? PERMISSION_LABEL : '';
   }).filter(Boolean);
   return [...new Set(names)].sort();
@@ -38,8 +69,23 @@ function policyFingerprint(labels) {
   return crypto.createHash('sha256').update(labels.join('\n')).digest('hex');
 }
 
-function policyReceipt(labels) {
-  return ` [guard-policy-sha256:${policyFingerprint(policyLabelNames(labels))}]`;
+function policyReceipt(labels, routingLabels) {
+  return ` [guard-policy-sha256:${policyFingerprint(policyLabelNames(labels, routingLabels))}]`;
+}
+
+const POLICY_STEP_PREFIX = 'Evaluated policy labels sha256:';
+
+function evaluatedPolicyFingerprint(jobs) {
+  const guards = jobs.filter(job => GUARD_JOB_NAMES.has(job?.name));
+  const receipts = guards.length === 1 && Array.isArray(guards[0].steps)
+    ? guards[0].steps.filter(step => typeof step?.name === 'string' && step.name.startsWith(POLICY_STEP_PREFIX))
+    : [];
+  const receipt = receipts[0];
+  const digest = receipt?.name.match(/^Evaluated policy labels sha256:([0-9a-f]{64})$/)?.[1];
+  if (receipts.length !== 1 || !digest || receipt.status !== 'completed' || receipt.conclusion !== 'success') {
+    throw new Error('Evaluated policy label receipt is missing or ambiguous');
+  }
+  return digest;
 }
 
 function prReceipt(prNumber) {
@@ -49,15 +95,15 @@ function prReceipt(prNumber) {
   return `[guard-pr:${Number(prNumber)}] `;
 }
 
-function hasCurrentReceipt(description, labels, prNumber) {
+function hasCurrentReceipt(description, labels, prNumber, routingLabels) {
   return typeof description === 'string' &&
     description.startsWith(prReceipt(prNumber)) &&
-    description.endsWith(policyReceipt(labels));
+    description.endsWith(policyReceipt(labels, routingLabels));
 }
 
-function withPolicyReceipt(description, labels, prNumber) {
+function withPolicyReceipt(description, labels, prNumber, routingLabels) {
   const prefix = prReceipt(prNumber);
-  const receipt = policyReceipt(labels);
+  const receipt = policyReceipt(labels, routingLabels);
   const maximum = 140 - prefix.length - receipt.length;
   const summary = description.length > maximum
     ? `${description.slice(0, maximum - 3)}...`
@@ -299,6 +345,19 @@ async function publishGuardForkStatus({ github, context, core }) {
   )).data;
   let pr = await resolvePullRequest({ github, retry, owner, repo, run });
   validateBinding({ run, workflow, pr, repository });
+  if (!/^[0-9a-f]{40}$/.test(pr.base?.sha || '')) throw new Error('Trusted registry base SHA is missing');
+  let routingLabels;
+  let registryUnavailable = false;
+  try {
+    const registry = (await retry.withRetry(client => client.rest.repos.getContent({
+      owner, repo, path: '.github/agents/registry.yml', ref: pr.base.sha,
+    }))).data;
+    if (registry?.type !== 'file' || registry.encoding !== 'base64') throw new Error('Agent registry evidence is incomplete');
+    routingLabels = routingLabelsFromRegistry(Buffer.from(registry.content, 'base64').toString('utf8'));
+  } catch {
+    registryUnavailable = true;
+  }
+  const registryBaseSha = pr.base.sha;
   const sameRepository = pr.head.repo.id === repository.id;
   const evaluatedRun = runSnapshot(run);
   const evaluatedPr = {
@@ -321,7 +380,7 @@ async function publishGuardForkStatus({ github, context, core }) {
   if (
     pr.head.sha !== evaluatedPr.headSha ||
     Number(pr.base?.repo?.id) !== Number(evaluatedPr.baseRepoId) ||
-    pr.base?.ref !== evaluatedPr.baseRef
+    pr.base?.ref !== evaluatedPr.baseRef || pr.base?.sha !== registryBaseSha
   ) {
     throw new Error('Pull request binding changed before policy reconciliation');
   }
@@ -333,9 +392,22 @@ async function publishGuardForkStatus({ github, context, core }) {
   const current = existing[0];
   let reconciliationFailure = false;
   let result;
-  if (current?.state === 'success' && (
+  if (registryUnavailable) {
+    // Trusted policy evidence cannot retain a prior green required context.
+    // Re-read bindings and the latest producer attempt before this failure,
+    // just as for an evaluated success; a stale publisher gets no write.
+    assertRunUnchanged(evaluatedRun, run);
+    await assertLatestAttempt({ github, retry, owner, repo, run });
+    result = {
+      state: 'failure',
+      description: 'Trusted registry evidence unavailable; fresh evaluation required.',
+      evaluated: false,
+    };
+    reconciliationFailure = true;
+  }
+  if (!registryUnavailable && current?.state === 'success' && (
     typeof current.description !== 'string' ||
-    !hasCurrentReceipt(current.description, pr.labels, pr.number)
+    !hasCurrentReceipt(current.description, pr.labels, pr.number, routingLabels)
   )) {
     result = {
       state: 'failure',
@@ -357,7 +429,7 @@ async function publishGuardForkStatus({ github, context, core }) {
     ? await canonicalDirectGuardStatus({ current, github, retry, owner, repo, repository, context })
     : false;
   const directSuccess = directAuthority === true && current.state === 'success' &&
-    hasCurrentReceipt(current.description, pr.labels, pr.number);
+    hasCurrentReceipt(current.description, pr.labels, pr.number, routingLabels);
   const directFailure = ['failure', 'error'].includes(current?.state) &&
     (directAuthority === true || directAuthority === null);
   if (directSuccess || directFailure) {
@@ -386,17 +458,39 @@ async function publishGuardForkStatus({ github, context, core }) {
     if (
       pr.head.sha !== evaluatedPr.headSha ||
       Number(pr.base?.repo?.id) !== Number(evaluatedPr.baseRepoId) ||
-      pr.base?.ref !== evaluatedPr.baseRef ||
+      pr.base?.ref !== evaluatedPr.baseRef || pr.base?.sha !== registryBaseSha ||
       Number(pr.changed_files) !== evaluatedPr.changedFiles
     ) {
       throw new Error('Pull request binding changed before publication');
     }
     await assertLatestAttempt({ github, retry, owner, repo, run });
+    if (result.state === 'success' && result.evaluated === true) {
+      // Missing/ambiguous attempt metadata is a failed evaluation, not a
+      // transport abort: replace any stale same-head success before returning.
+      let evaluatedFingerprint;
+      try {
+        evaluatedFingerprint = evaluatedPolicyFingerprint(jobs);
+      } catch {
+        result = {
+          state: 'failure',
+          description: 'Evaluated policy receipt missing or ambiguous; fresh evaluation required.',
+          evaluated: false,
+        };
+      }
+      if (result.state === 'success' &&
+          evaluatedFingerprint !== policyFingerprint(policyLabelNames(pr.labels, routingLabels))) {
+        result = {
+          state: 'failure',
+          description: 'Evaluated policy labels differ from current policy; fresh evaluation required.',
+          evaluated: false,
+        };
+      }
+    }
     if (result.state === 'success') {
-      result = { ...result, description: withPolicyReceipt(result.description, pr.labels, pr.number) };
+      result = { ...result, description: withPolicyReceipt(result.description, pr.labels, pr.number, routingLabels) };
     }
     if (result.state === 'success' && result.evaluated === false) {
-      if (!current && policyLabelNames(pr.labels).some(label => ROUTING_LABELS.has(label))) {
+      if (!current && policyLabelNames(pr.labels, routingLabels).some(label => routingLabels.has(label))) {
         result = {
           state: 'failure',
           description: 'Health 45 Agents Guard routing is now eligible; fresh evaluation required.',
@@ -442,11 +536,13 @@ async function publishGuardForkStatus({ github, context, core }) {
 }
 
 module.exports = {
+  routingLabelsFromRegistry,
   ELIGIBILITY_STEP,
   EVALUATE_STEP,
   GUARD_CONTEXT,
   GUARD_PATH,
   assertRunUnchanged,
+  evaluatedPolicyFingerprint,
   collectChangedPaths,
   publicationState,
   publishGuardForkStatus,

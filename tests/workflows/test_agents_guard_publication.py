@@ -95,6 +95,8 @@ const context = {repo: {owner: 'owner', repo: 'repo'}, eventName: input.eventNam
   payload: {pull_request: {number: 4, labels: [], head: {sha: 'a'.repeat(40)}}}, sha: 'b'.repeat(40),
   serverUrl: 'https://github.com', runId: 42};
 const core = {info() {}, setFailed(m) {throw Error(m)}};
+github.rest.repos.getContent = async params => { if(params.ref !== 'b'.repeat(40)) throw Error('untrusted registry ref'); return {data:{type:'file',encoding:'base64',content:"YWdlbnRzOgogIGNvZGV4OgogICAgZW5hYmxlZDogdHJ1ZQogIGNsYXVkZToKICAgIGVuYWJsZWQ6IHRydWUKICBjdXJzb3I6CiAgICBlbmFibGVkOiB0cnVlCiAgZ2VtaW5pOgogICAgZW5hYmxlZDogdHJ1ZQogIGFpZGVyOgogICAgZW5hYmxlZDogZmFsc2UK"}}; };
+context.payload.pull_request.base = {sha:'b'.repeat(40)};
 const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
 (async () => {
   if (conditionPasses) await new AsyncFunction('github', 'context', 'core', input.script)(github, context, core);
@@ -181,6 +183,8 @@ const context = {repo: {owner: 'owner', repo: 'repo'},
   payload: {action: input.action, pull_request: {number: 4, labels: input.snapshotLabels, head: {sha: 'a'.repeat(40)}}},
   sha: 'b'.repeat(40), serverUrl: 'https://github.com', runId: 42};
 const core = {info() {}, setFailed(m) {throw Error(m)}};
+github.rest.repos.getContent = async params => { if(params.ref !== 'b'.repeat(40)) throw Error('untrusted registry ref'); return {data:{type:'file',encoding:'base64',content:"YWdlbnRzOgogIGNvZGV4OgogICAgZW5hYmxlZDogdHJ1ZQogIGNsYXVkZToKICAgIGVuYWJsZWQ6IHRydWUKICBjdXJzb3I6CiAgICBlbmFibGVkOiB0cnVlCiAgZ2VtaW5pOgogICAgZW5hYmxlZDogdHJ1ZQogIGFpZGVyOgogICAgZW5hYmxlZDogZmFsc2UK"}}; };
+context.payload.pull_request.base = {sha:'b'.repeat(40)};
 const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
 new AsyncFunction('github', 'context', 'core', input.script)(github, context, core)
   .then(() => process.stdout.write(JSON.stringify(calls)))
@@ -233,7 +237,15 @@ new AsyncFunction('github', 'context', 'core', input.script)(github, context, co
 
 @pytest.mark.parametrize("template", [False, True])
 @pytest.mark.parametrize(
-    "mode", ["denied_write", "missing_head", "lookup_denied", "lookup_incomplete"]
+    "mode",
+    [
+        "denied_write",
+        "missing_head",
+        "lookup_denied",
+        "lookup_incomplete",
+        "registry_denied",
+        "registry_malformed",
+    ],
 )
 def test_publisher_cannot_silently_ignore_missing_head_or_denied_write(template, mode):
     prefix = ROOT / "templates/consumer-repo" if template else ROOT
@@ -259,6 +271,8 @@ const github = {paginate: async (method) => {
 const context = {repo: {owner: 'owner', repo: 'repo'}, sha: 'b'.repeat(40),
  payload: {pull_request: {number: 4, labels: [], head: {sha: input.mode === 'missing_head' ? '' : 'a'.repeat(40)}}}};
 const core = {info() {}, error() {}, warning() {}, setFailed(m) {throw Error(m)}};
+github.rest.repos.getContent = async params => { if(input.mode==='registry_denied') throw Error('registry unavailable'); if(input.mode==='registry_malformed') return {data:{type:'file',encoding:'none'}}; if(params.ref !== 'b'.repeat(40)) throw Error('untrusted registry ref'); return {data:{type:'file',encoding:'base64',content:"YWdlbnRzOgogIGNvZGV4OgogICAgZW5hYmxlZDogdHJ1ZQogIGNsYXVkZToKICAgIGVuYWJsZWQ6IHRydWUKICBjdXJzb3I6CiAgICBlbmFibGVkOiB0cnVlCiAgZ2VtaW5pOgogICAgZW5hYmxlZDogdHJ1ZQogIGFpZGVyOgogICAgZW5hYmxlZDogZmFsc2UK"}}; };
+context.payload.pull_request.base = {sha:'b'.repeat(40)};
 const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
 new AsyncFunction('github', 'context', 'core', input.script)(github, context, core)
  .then(() => {process.exitCode = 2})
@@ -275,7 +289,9 @@ new AsyncFunction('github', 'context', 'core', input.script)(github, context, co
     assert (
         "PR head SHA unavailable" if mode == "missing_head" else "Failed to update"
     ) in evidence["message"]
-    assert evidence["writes"] == (1 if mode == "denied_write" else 0)
+    assert evidence["writes"] == (
+        1 if mode in {"denied_write", "registry_denied", "registry_malformed"} else 0
+    )
 
 
 @pytest.mark.parametrize(
@@ -298,7 +314,9 @@ def test_actual_head_publisher_binds_evaluated_label_evidence(evaluated_labels, 
 const input = JSON.parse(require('fs').readFileSync(0, 'utf8')); Object.assign(process.env, input.env);
 const writes = []; const github = {rest: {repos: {createCommitStatus: async p => writes.push(p)}, issues: {listLabelsOnIssue() {}}}, paginate: async method => method === github.rest.issues.listLabelsOnIssue ? [] : []};
 const context = {repo: {owner:'owner', repo:'repo'}, eventName:'pull_request_target', runId:42, serverUrl:'https://github.com', payload:{pull_request:{number:4, labels:[], head:{sha:'a'.repeat(40)}}}};
-const core = {info(){}, error(){}, setFailed(m){throw Error(m)}}; const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
+const core = {info(){}, error(){}, setFailed(m){throw Error(m)}}; github.rest.repos.getContent = async params => { if(input.mode==='registry_denied') throw Error('registry unavailable'); if(input.mode==='registry_malformed') return {data:{type:'file',encoding:'none'}}; if(params.ref !== 'b'.repeat(40)) throw Error('untrusted registry ref'); return {data:{type:'file',encoding:'base64',content:"YWdlbnRzOgogIGNvZGV4OgogICAgZW5hYmxlZDogdHJ1ZQogIGNsYXVkZToKICAgIGVuYWJsZWQ6IHRydWUKICBjdXJzb3I6CiAgICBlbmFibGVkOiB0cnVlCiAgZ2VtaW5pOgogICAgZW5hYmxlZDogdHJ1ZQogIGFpZGVyOgogICAgZW5hYmxlZDogZmFsc2UK"}}; };
+context.payload.pull_request.base = {sha:'b'.repeat(40)};
+const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
 new AsyncFunction('github','context','core',input.script)(github,context,core).then(()=>process.stdout.write(JSON.stringify(writes))).catch(e=>{console.error(e);process.exitCode=1});
 """
     payload = {
@@ -493,6 +511,8 @@ def test_canonical_publisher_joins_label_group_while_skipped_events_cannot_cance
 @pytest.mark.parametrize(
     "prior,snapshot,current,expected_state",
     [
+        (None, [{"name": "agent:cursor"}], [], "failure"),
+        (None, [], [{"name": "agent:gemini"}], "failure"),
         (
             None,
             [{"name": "agent:codex"}, {"name": "agents:allow-change"}],
@@ -529,6 +549,8 @@ const writes = [];
 const github = {rest: {repos: {createCommitStatus: async p => writes.push(p), listCommitStatusesForRef() {}}, issues: {listLabelsOnIssue() {}}}, paginate: async method => method === github.rest.issues.listLabelsOnIssue ? input.current : [{context: 'Health 45 Agents Guard / guard', state: input.prior}].filter(Boolean)};
 const context = {repo: {owner: 'owner', repo: 'repo'}, eventName: 'pull_request_target', payload: {pull_request: {number: 4, labels: input.snapshot, head: {sha: 'a'.repeat(40)}}}, serverUrl: 'https://github.com', runId: 42};
 const core = {info() {}, error() {}, setFailed(message) { throw Error(message); }};
+github.rest.repos.getContent = async params => { if(params.ref !== 'b'.repeat(40)) throw Error('untrusted registry ref'); return {data:{type:'file',encoding:'base64',content:"YWdlbnRzOgogIGNvZGV4OgogICAgZW5hYmxlZDogdHJ1ZQogIGNsYXVkZToKICAgIGVuYWJsZWQ6IHRydWUKICBjdXJzb3I6CiAgICBlbmFibGVkOiB0cnVlCiAgZ2VtaW5pOgogICAgZW5hYmxlZDogdHJ1ZQogIGFpZGVyOgogICAgZW5hYmxlZDogZmFsc2UK"}}; };
+context.payload.pull_request.base = {sha:'b'.repeat(40)};
 const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
 new AsyncFunction('github', 'context', 'core', input.script)(github, context, core).then(() => process.stdout.write(JSON.stringify(writes)));
 """
@@ -603,6 +625,8 @@ const writes = [];
 const github = {rest: {repos: {createCommitStatus: async p => writes.push(p), listCommitStatusesForRef() {}}, issues: {listLabelsOnIssue() {}}}, paginate: async method => method === github.rest.issues.listLabelsOnIssue ? input.currentLabels : [{context: 'Health 45 Agents Guard / guard', state: 'success', description: input.description}]};
 const context = {repo: {owner: 'owner', repo: 'repo'}, eventName: 'pull_request_target', payload: {pull_request: {number: 4, labels: input.snapshotLabels, head: {sha: 'a'.repeat(40)}}}, serverUrl: 'https://github.com', runId: 42};
 const core = {info() {}, error() {}, setFailed(message) { throw Error(message); }};
+github.rest.repos.getContent = async params => { if(params.ref !== 'b'.repeat(40)) throw Error('untrusted registry ref'); return {data:{type:'file',encoding:'base64',content:"YWdlbnRzOgogIGNvZGV4OgogICAgZW5hYmxlZDogdHJ1ZQogIGNsYXVkZToKICAgIGVuYWJsZWQ6IHRydWUKICBjdXJzb3I6CiAgICBlbmFibGVkOiB0cnVlCiAgZ2VtaW5pOgogICAgZW5hYmxlZDogdHJ1ZQogIGFpZGVyOgogICAgZW5hYmxlZDogZmFsc2UK"}}; };
+context.payload.pull_request.base = {sha:'b'.repeat(40)};
 const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
 new AsyncFunction('github', 'context', 'core', input.script)(github, context, core).then(() => process.stdout.write(JSON.stringify(writes)));
 """
@@ -657,7 +681,7 @@ def test_guard_block_summary_uses_literal_environment_transport(template, tmp_pa
     sentinel = tmp_path / "summary-shell-executed"
     filename = '.github/workflows/agents-$(touch summary-shell-executed)-`id`-"quoted"-%s.yml'
     evaluator = f"""
-const {{ evaluateGuard }} = require({json.dumps(str(ROOT / '.github/scripts/agents-guard.js'))});
+const {{ evaluateGuard }} = require({json.dumps(str(ROOT / ".github/scripts/agents-guard.js"))});
 const result = evaluateGuard({{files: [{{filename: {json.dumps(filename)}, status: 'modified'}}]}});
 process.stdout.write(result.summary);
 """
@@ -691,3 +715,46 @@ process.stdout.write(result.summary);
     assert fixed.returncode == 1
     assert fixed.stdout == summary + "\n"
     assert not sentinel.exists()
+
+
+@pytest.mark.parametrize("template", [False, True])
+@pytest.mark.parametrize("mode", ["transient", "persistent", "malformed"])
+def test_registry_failure_cannot_retain_same_head_success(template, mode):
+    prefix = ROOT / "templates/consumer-repo" if template else ROOT
+    workflow = yaml.safe_load((prefix / ".github/workflows/agents-guard.yml").read_text())
+    script = next(
+        s["with"]["script"]
+        for s in workflow["jobs"]["guard"]["steps"]
+        if s.get("name") == "Report agents guard commit status"
+    )
+    harness = r"""
+const input=JSON.parse(require('fs').readFileSync(0,'utf8'));
+global.setTimeout=(fn)=>{fn();}; global.crypto=require('crypto').webcrypto;
+Object.assign(process.env,{ELIGIBLE:'true',EVALUATE_OUTCOME:'success',BLOCKED:'false',JOB_STATUS:'success',EVALUATED_LABELS:'[]'});
+let reads=0; const writes=[]; const failures=[];
+let status={state:'success',context:'Health 45 Agents Guard / guard'};
+const github={rest:{repos:{getContent:async()=>{
+ reads++;
+ if(input.mode==='persistent'||(input.mode==='transient'&&reads<3)){const e=Error('registry transient');e.status=500;throw e;}
+ if(input.mode==='malformed')return {data:{type:'file',encoding:'none'}};
+ return {data:{type:'file',encoding:'base64',content:Buffer.from('agents:\n  codex:\n    enabled: true\n').toString('base64')}};
+},createCommitStatus:async p=>{writes.push(p);status=p;},listCommitStatusesForRef(){}},issues:{listLabelsOnIssue(){}}},paginate:async()=>[]};
+const context={repo:{owner:'owner',repo:'repo'},eventName:'pull_request_target',payload:{pull_request:{number:4,labels:[],head:{sha:'a'.repeat(40)},base:{sha:'b'.repeat(40)}}},serverUrl:'https://github.com',runId:42};
+const core={info(){},warning(){},error(){},setFailed(m){failures.push(m);}};
+const AsyncFunction=Object.getPrototypeOf(async function(){}).constructor;
+new AsyncFunction('github','context','core',input.script)(github,context,core).then(()=>process.stdout.write(JSON.stringify({reads,writes,status,failures})));
+"""
+    result = subprocess.run(
+        ["node", "-e", harness],
+        input=json.dumps({"script": script, "mode": mode}),
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    record = json.loads(result.stdout)
+    assert record["status"]["state"] == ("success" if mode == "transient" else "failure")
+    assert record["reads"] == (1 if mode == "malformed" else 3)
+    assert len(record["writes"]) == 1
+    assert record["writes"][0]["sha"] == "a" * 40
+    if mode != "transient":
+        assert "guard-policy-sha256" not in record["writes"][0]["description"]

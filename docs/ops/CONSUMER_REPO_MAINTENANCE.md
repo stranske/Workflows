@@ -1437,6 +1437,21 @@ code or pooled secrets. A denied status write fails the job; fork/token restrict
 do not authorize bypassing a missing result. The existing privileged-event
 base checkout and safety validator are unchanged. Source and consumer template
 carry the same publisher; delivery stays with Maint 68/71.
+Evaluated policy receipts and both status publishers derive provider routing
+labels from the enabled top-level entries in `.github/agents/registry.yml`,
+read through the contents API at the PR's immutable base SHA. Nested preflight
+flags do not disable providers that route PR keepalive. Existing generic switches
+and the legacy Copilot guard label remain covered. Registry read/shape failures
+fail closed; no PR checkout code or downloaded code executes in a publisher.
+The trusted fork publisher revalidates the base SHA along with the head and run
+attempt before publication. Newly enabled registry providers therefore invalidate
+an old success when their routing labels change. Eligibility uses the same trusted-registry-derived routing output before guard
+evaluation, including providers whose issue-intake preflight is disabled. Registry
+read/parse failures enter the existing publication failure diagnostic handler.
+The evaluated-digest metadata
+step uses the repository-approved immutable github-script v9 commit on both
+source and template; this does not establish hosted execution or review acceptance.
+
 Review-thread and final exact-head GraphQL reads use a separate read-only
 token-aware path, selecting the service-bot quota by its GraphQL (not REST-core)
 budget when it is eligible and rotating away from an exhausted identity.
@@ -3006,3 +3021,10 @@ Artifact members use the same rule: their raw byte count and SHA-256 remain in
 the archive ledger, but only strict UTF-8 text without NUL bytes is rendered.
 Invalid UTF-8 and UTF-16/binary-looking members stay unavailable with their
 raw provenance and retain the aggregate capture gap.
+
+
+A successful fork attempt with missing, malformed, incomplete or duplicate evaluated-policy receipt metadata publishes a required failure status after the existing exact-head, attempt, base and policy checks. It replaces a stale same-head success instead of aborting before publication. A valid current direct guard verdict remains authoritative; a denied status write remains a delivery failure, never a claimed receipt.
+
+Agents Guard reads its trusted base registry with at most three retryable API attempts. The direct publisher must replace any same-head prior success with failure if registry retrieval/type/parsing remains unavailable, without a success policy receipt. This is separate from evaluated-attempt metadata validation; current-head CI and native acceptance remain mandatory.
+
+The privileged fork publisher also replaces prior success when registry evidence is unavailable, only after fresh PR/head/base/run/latest-attempt binding checks. Registry failure never grants success or bypasses a newer producer.
