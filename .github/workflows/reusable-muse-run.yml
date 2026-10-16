@@ -1,0 +1,1784 @@
+name: Reusable Muse Run
+
+on:
+  workflow_call:
+    inputs:
+      skip:
+        description: 'If true, skip execution entirely. Used for conditional calls.'
+        required: false
+        default: false
+        type: boolean
+      prompt_file:
+        description: 'Path to the prompt file that Muse should read.'
+        required: true
+        type: string
+      mode:
+        description: 'Muse mode for logging purposes (keepalive | autofix | verifier).'
+        required: false
+        default: keepalive
+        type: string
+      pr_number:
+        description: 'Optional pull request number (used for logging or comments by callers).'
+        required: false
+        default: ''
+        type: string
+      pr_ref:
+        description: 'The branch/ref to checkout and push to (e.g., refs/heads/feature-branch).'
+        required: false
+        default: ''
+        type: string
+      base_ref:
+        description: 'Optional base branch/ref for conflict surfacing (e.g., main).'
+        required: false
+        default: ''
+        type: string
+      workflows_ref:
+        description: 'The ref of the Workflows repo to checkout for scripts. Defaults to main.'
+        required: false
+        default: 'main'
+        type: string
+      max_runtime_minutes:
+        description: 'Upper bound for the job runtime in minutes.'
+        required: false
+        default: 45
+        type: number
+      sandbox:
+        description: >-
+          Sandbox mode placeholder (kept for compatibility with Codex runner callers).
+        required: false
+        default: workspace-write
+        type: string
+      safety_strategy:
+        description: >-
+          Safety strategy placeholder (kept for compatibility with Codex runner callers).
+        required: false
+        default: drop-sudo
+        type: string
+      skip_permissions:
+        description: >-
+          Pass --disable-approval to muse so it can apply edits without prompts. The sandbox
+          stays ON (this is never --yolo). Set to false for a stricter, review-style run.
+        required: false
+        default: true
+        type: boolean
+      muse_cli_args:
+        description: 'Optional additional muse CLI arguments (string).'
+        required: false
+        default: ''
+        type: string
+      max_model_steps:
+        description: 'Upper bound on model steps for one `muse exec` run (passed as --max-model-steps).'
+        required: false
+        default: 150
+        type: number
+      appendix:
+        description: 'Optional context appended to the prompt passed to Muse.'
+        required: false
+        default: ''
+        type: string
+      iteration:
+        description: 'Current iteration number (for tracking in completion comments).'
+        required: false
+        default: ''
+        type: string
+      environment:
+        description: 'GitHub environment to run in (agent-standard or agent-high-privilege).'
+        required: false
+        default: 'agent-standard'
+        type: string
+      capability_id:
+        description: 'Optional existing capability ID for bounded outcome evidence.'
+        required: false
+        default: ''
+        type: string
+      effect_fingerprint:
+        description: 'Optional lowercase sha256 fingerprint of the bounded effect.'
+        required: false
+        default: ''
+        type: string
+      evidence_artifact_ref:
+        description: 'Optional durable logical reference to supporting evidence.'
+        required: false
+        default: ''
+        type: string
+      supervision_mode:
+        description: >-
+          Optional supervision mode (shadow, human-reviewed,
+          human-on-exception, unattended).
+        required: false
+        default: ''
+        type: string
+      capability_evidence_status:
+        description: 'Optional evidence status (accepted, rejected, not-evaluated).'
+        required: false
+        default: ''
+        type: string
+      terminal_disposition:
+        description: >-
+          Optional terminal disposition (success, failure, no-change, blocked,
+          cancelled).
+        required: false
+        default: ''
+        type: string
+    secrets:
+      META_API_KEY:
+        description: >-
+          The API key the Muse CLI login creates in the console's `Muse Code` project. It bills the
+          owner's Muse Code SUBSCRIPTION. NEVER use a key from the console's Default Project (those
+          meter pay-as-you-go). Read by `muse exec` from the META_API_KEY env var; it is passed only
+          to the run step's env and is never written to GITHUB_ENV or echoed.
+        required: false
+      WORKFLOWS_APP_ID:
+        required: false
+      WORKFLOWS_APP_PRIVATE_KEY:
+        required: false
+      OPENAI_API_KEY:
+        required: false
+        description: >-
+          OpenAI API key for LLM analysis (enables model selection beyond GitHub Models)
+      CLAUDE_API_STRANSKE:
+        required: false
+        description: 'Anthropic API key for LLM analysis (enables Claude slot)'
+    outputs:
+      final-message:
+        description: 'Full Muse output message (base64 encoded)'
+        value: ${{ jobs.muse.outputs.final-message }}
+      final-message-summary:
+        description: 'First 500 chars of Muse output (safe for PR comments)'
+        value: ${{ jobs.muse.outputs.final-message-summary }}
+      error-summary:
+        description: >-
+          Failure summary message (prefers Muse output, falls back to preflight errors)
+        value: ${{ jobs.muse.outputs.error-summary }}
+      exit-code:
+        description: 'Muse CLI exit code (0=success)'
+        value: ${{ jobs.muse.outputs.exit-code }}
+      changes-made:
+        description: 'Whether Muse made file changes (true/false)'
+        value: ${{ jobs.muse.outputs.changes-made }}
+      commit-sha:
+        description: 'SHA of the commit if changes were pushed'
+        value: ${{ jobs.muse.outputs.commit-sha }}
+      files-changed:
+        description: 'Number of files changed by Muse'
+        value: ${{ jobs.muse.outputs.files-changed }}
+      agent-execution-started:
+        description: 'Whether the Run Muse step started'
+        value: ${{ jobs.muse.outputs.agent-execution-started }}
+      duration-seconds:
+        description: 'Wall-clock seconds of the muse exec run (Muse emits no token usage; this is the measurable cost signal).'
+        value: ${{ jobs.muse.outputs.duration-seconds }}
+      capability-id:
+        description: 'Validated existing capability identifier; empty when evidence is absent.'
+        value: ${{ jobs.muse.outputs.capability-id }}
+      effect-fingerprint:
+        description: 'Validated lowercase sha256 fingerprint of the bounded effect.'
+        value: ${{ jobs.muse.outputs.effect-fingerprint }}
+      evidence-artifact-ref:
+        description: 'Validated durable logical reference to supporting evidence.'
+        value: ${{ jobs.muse.outputs.evidence-artifact-ref }}
+      supervision-mode:
+        description: 'Validated supervision mode for this result.'
+        value: ${{ jobs.muse.outputs.supervision-mode }}
+      capability-evidence-status:
+        description: 'Validated capability evidence status.'
+        value: ${{ jobs.muse.outputs.capability-evidence-status }}
+      terminal-disposition:
+        description: 'Validated terminal disposition for the result.'
+        value: ${{ jobs.muse.outputs.terminal-disposition }}
+      llm-analysis-run:
+        description: 'Whether LLM analysis was performed'
+        value: ${{ jobs.muse.outputs.llm-analysis-run }}
+      llm-provider:
+        description: 'LLM provider used for analysis (placeholder for compatibility)'
+        value: ${{ jobs.muse.outputs.llm-provider }}
+      llm-model:
+        description: 'Specific model used for analysis (placeholder for compatibility)'
+        value: ${{ jobs.muse.outputs.llm-model }}
+      llm-confidence:
+        description: 'Confidence level of LLM analysis (placeholder for compatibility)'
+        value: ${{ jobs.muse.outputs.llm-confidence }}
+      llm-completed-tasks:
+        description: 'JSON array of completed task descriptions (placeholder for compatibility)'
+        value: ${{ jobs.muse.outputs.llm-completed-tasks }}
+      llm-has-completions:
+        description: 'Whether any task completions were detected (placeholder for compatibility)'
+        value: ${{ jobs.muse.outputs.llm-has-completions }}
+      error-category:
+        description: 'Error category (transient/auth/resource/logic/unknown)'
+        value: ${{ jobs.muse.outputs.error-category }}
+      error-type:
+        description: 'Error type (muse/infrastructure/auth/unknown)'
+        value: ${{ jobs.muse.outputs.error-type }}
+      error-recovery:
+        description: 'Suggested recovery action'
+        value: ${{ jobs.muse.outputs.error-recovery }}
+
+permissions:
+  contents: write
+  pull-requests: write
+  actions: write
+  models: read
+
+concurrency:
+  group: muse-${{ inputs.mode }}-${{ inputs.pr_number || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  muse:
+    name: Muse (${{ inputs.mode }})
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    timeout-minutes: ${{ inputs.max_runtime_minutes }}
+    if: ${{ !inputs.skip }}
+    outputs:
+      final-message: ${{ steps.run_muse.outputs.final-message }}
+      final-message-summary: ${{ steps.run_muse.outputs.final-message-summary }}
+      exit-code: ${{ steps.run_muse.outputs.exit-code }}
+      changes-made: ${{ steps.commit.outputs.changes-made }}
+      commit-sha: ${{ steps.commit.outputs.commit-sha }}
+      files-changed: ${{ steps.commit.outputs.files-changed }}
+      agent-execution-started: ${{ steps.run_muse.outputs.agent-execution-started }}
+      duration-seconds: ${{ steps.run_muse.outputs.duration-seconds }}
+      capability-id: ${{ steps.capability_evidence.outputs.capability-id }}
+      effect-fingerprint: ${{ steps.capability_evidence.outputs.effect-fingerprint }}
+      evidence-artifact-ref: ${{ steps.capability_evidence.outputs.evidence-artifact-ref }}
+      supervision-mode: ${{ steps.capability_evidence.outputs.supervision-mode }}
+      capability-evidence-status: >-
+        ${{ steps.capability_evidence.outputs.capability-evidence-status }}
+      terminal-disposition: ${{ steps.capability_evidence.outputs.terminal-disposition }}
+      error-summary: ${{ steps.run_muse.outputs.error-summary }}
+      llm-analysis-run: ${{ steps.compat.outputs.llm-analysis-run }}
+      llm-provider: ${{ steps.compat.outputs.llm-provider }}
+      llm-model: ${{ steps.compat.outputs.llm-model }}
+      llm-confidence: ${{ steps.compat.outputs.llm-confidence }}
+      llm-completed-tasks: ${{ steps.compat.outputs.llm-completed-tasks }}
+      llm-has-completions: ${{ steps.compat.outputs.llm-has-completions }}
+      error-category: ${{ steps.classify_failure.outputs.error_category }}
+      error-type: ${{ steps.classify_failure.outputs.error_type }}
+      error-recovery: ${{ steps.classify_failure.outputs.error_recovery }}
+    steps:
+      - name: Mint GitHub App token (preferred)
+        id: app_token
+        continue-on-error: true
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ secrets.WORKFLOWS_APP_ID || '0' }}
+          private-key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY || 'dummy' }}
+
+      - name: Select auth token
+        id: auth_token
+        env:
+          APP_TOKEN: ${{ steps.app_token.outputs.token || '' }}
+        run: |
+          set -euo pipefail
+          checkout_token="${APP_TOKEN:-${GITHUB_TOKEN}}"
+          push_token="${APP_TOKEN:-}"
+          source="app-token"
+          push_allowed="true"
+
+          if [ -z "$push_token" ]; then
+            source="github-token"
+            push_allowed="false"
+          fi
+
+          {
+            echo "checkout_token=${checkout_token}"
+            echo "push_token=${push_token}"
+            echo "source=${source}"
+            echo "push_allowed=${push_allowed}"
+          } >> "$GITHUB_OUTPUT"
+
+          {
+            echo "WORKFLOWS_TOKEN=${checkout_token}"
+            echo "MUSE_MODE=${{ inputs.mode }}"
+            echo "MUSE_PR_NUMBER=${{ inputs.pr_number }}"
+          } >> "$GITHUB_ENV"
+
+          printf 'Checkout auth: %s; push permitted with app token: %s.\n' "$source" "$push_allowed"
+
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          ref: ${{ inputs.pr_ref || github.ref }}
+          token: ${{ steps.auth_token.outputs.checkout_token }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 24
+
+      # Align infrastructure prep with Codex runner so both agents share
+      # the same token load balancer, scripts checkout, and tooling deps.
+      - name: Setup API client
+        uses: ./.github/actions/setup-api-client
+        with:
+          # named inputs, not the whole secrets context (see #3185)
+          github_token: ${{ github.token }}
+          workflows_app_id: ${{ secrets.WORKFLOWS_APP_ID }}
+          workflows_app_private_key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
+
+      - name: Checkout Workflows scripts
+        uses: actions/checkout@v7
+        with:
+          repository: stranske/Workflows
+          ref: ${{ inputs.workflows_ref }}
+          path: .workflows-lib
+          sparse-checkout: |
+            .github
+            tools
+            scripts
+          token: ${{ steps.auth_token.outputs.checkout_token }}
+
+      # Ensure Workflows deps BEFORE calling setup-api-client for .workflows-lib.
+      # setup-api-client invokes create_vendor_aliases.js + npm and will fail
+      # with ENOENT exit 254 if it runs first against a blobless-clone ghost dir.
+      - name: Ensure Workflows script deps
+        run: |
+          set -euo pipefail
+          # Check for @octokit/rest specifically rather than just directory existence.
+          # With --filter=blob:none, git writes tree entries (so the directory appears)
+          # but may not materialize file blobs — leaving node_modules/minimatch/ empty.
+          # create_vendor_aliases.js then copies that empty dir, minimatch/package.json
+          # is absent, and npm exits 254 with ENOENT. Checking for @octokit/rest avoids
+          # treating a blobless-clone ghost directory as a fully-installed vendor tree.
+          if [ ! -d ".workflows-lib/.github/scripts/node_modules/@octokit/rest" ]; then
+            # Remove any empty/partial dir so we can either symlink or reinstall cleanly.
+            rm -rf ".workflows-lib/.github/scripts/node_modules"
+            if [ ! -d ".github/scripts/node_modules" ]; then
+              mkdir -p ".github/scripts"
+              echo "Installing fallback @octokit deps for workspace scripts..."
+              pushd ".github/scripts" >/dev/null
+              npm install --no-save --location=project \
+                @octokit/rest@20.0.2 \
+                @octokit/plugin-retry@6.0.1 \
+                @octokit/plugin-paginate-rest@9.1.5 \
+                @octokit/auth-app@6.0.3
+              popd >/dev/null
+            fi
+            if [ -d ".github/scripts/node_modules" ]; then
+              mkdir -p ".workflows-lib/.github/scripts"
+              ln -s "${GITHUB_WORKSPACE}/.github/scripts/node_modules" \
+                ".workflows-lib/.github/scripts/node_modules"
+            else
+              mkdir -p ".workflows-lib/.github/scripts"
+              echo "Installing fallback @octokit deps for .workflows-lib..."
+              pushd ".workflows-lib/.github/scripts" >/dev/null
+              npm install --no-save --location=project \
+                @octokit/rest@20.0.2 \
+                @octokit/plugin-retry@6.0.1 \
+                @octokit/plugin-paginate-rest@9.1.5 \
+                @octokit/auth-app@6.0.3
+              popd >/dev/null
+            fi
+            if [ ! -d ".workflows-lib/.github/scripts/node_modules" ] && \
+              command -v npm >/dev/null 2>&1; then
+              global_root=$(npm root -g || true)
+              if [ -n "$global_root" ] && [ -d "$global_root/@octokit" ]; then
+                ln -s "$global_root" ".workflows-lib/.github/scripts/node_modules"
+              fi
+            fi
+          fi
+
+          if [ ! -d ".workflows-lib/.github/scripts/node_modules" ] && \
+            command -v npm >/dev/null 2>&1; then
+            echo "Retrying @octokit install with npm init in .workflows-lib/.github/scripts..."
+            mkdir -p ".workflows-lib/.github/scripts"
+            pushd ".workflows-lib/.github/scripts" >/dev/null
+            if [ ! -f package.json ]; then
+              npm init -y >/dev/null
+            fi
+            npm install --no-save --location=project \
+              @octokit/rest@20.0.2 \
+              @octokit/plugin-retry@6.0.1 \
+              @octokit/plugin-paginate-rest@9.1.5 \
+              @octokit/auth-app@6.0.3 || \
+            npm install --no-save --legacy-peer-deps --location=project \
+              @octokit/rest@20.0.2 \
+              @octokit/plugin-retry@6.0.1 \
+              @octokit/plugin-paginate-rest@9.1.5 \
+              @octokit/auth-app@6.0.3
+            popd >/dev/null
+          fi
+
+      - name: Setup Workflows API client
+        uses: ./.github/actions/setup-api-client
+        with:
+          # named inputs, not the whole secrets context (see #3185)
+          github_token: ${{ github.token }}
+          workflows_app_id: ${{ secrets.WORKFLOWS_APP_ID }}
+          workflows_app_private_key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
+          install_dir: ${{ github.workspace }}/.workflows-lib/.github/scripts
+
+      - name: Validate workflows tooling
+        run: |
+          set -euo pipefail
+          fail_on_missing=true
+          if [ "${MUSE_MODE:-}" = "e2e-test" ]; then
+            fail_on_missing=false
+          fi
+          if [ ! -d ".workflows-lib" ]; then
+            echo "::error::.workflows-lib checkout missing; Workflows scripts unavailable."
+            if [ "$fail_on_missing" = "true" ]; then
+              exit 1
+            fi
+          fi
+          if [ ! -d ".workflows-lib/.github/scripts/node_modules" ]; then
+            echo "::error::Missing .workflows-lib/.github/scripts/node_modules"
+            echo "::error::API client deps not installed."
+            if [ "$fail_on_missing" = "true" ]; then
+              exit 1
+            fi
+          fi
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.14'
+          cache: pip
+          cache-dependency-path: |
+            pyproject.toml
+            requirements*.txt
+
+      - name: Install Python dependencies
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then
+            python -m pip install -r requirements.txt
+          else
+            echo "requirements.txt not found; skipping base requirements install."
+          fi
+
+          if [ -f requirements-dev.txt ]; then
+            python -m pip install -r requirements-dev.txt
+          else
+            echo "requirements-dev.txt not found; skipping dev requirements file."
+          fi
+
+          if [ -f tools/requirements.txt ]; then
+            python -m pip install -r tools/requirements.txt
+          else
+            echo "tools/requirements.txt not found; skipping tools requirements."
+          fi
+
+          if [ -f scripts/requirements.txt ]; then
+            python -m pip install -r scripts/requirements.txt
+          else
+            echo "scripts/requirements.txt not found; skipping scripts requirements."
+          fi
+
+          # GATED ON A DECLARED DISTRIBUTION, not on the file's presence. `[ -f pyproject.toml ]`
+          # is true for a repo that uses pyproject.toml purely as TOOL CONFIG (ruff/mypy/pytest
+          # settings, no `[project]`, no build backend) -- a shape this fleet actively supports and
+          # `reusable-10-ci-python.yml` already guards for with the same helper below. On such a
+          # repo `pip install -e .` does not fail loudly; setuptools runs a legacy build and emits
+          # `UNKNOWN.egg-info/` beside the sources, so CI believes it installed the project and has
+          # in fact installed something anonymous. Observed on stranske/Orchestrator 2026-08-24,
+          # where the agent run's own `git add -A` then COMMITTED all four generated files to the
+          # PR. Two costs, one silent: wasted install time on every agent run, and build debris in
+          # the working tree of a job that stages whatever it finds.
+          pyproject_declares_distribution() {
+            [ -f pyproject.toml ] || return 1
+            grep -Eq \
+              '^[[:space:]]*\[[[:space:]]*(project|build-system|tool\.poetry)[[:space:]]*\]' \
+              pyproject.toml
+          }
+
+          if pyproject_declares_distribution || [ -f setup.cfg ] || [ -f setup.py ]; then
+            python -m pip install -e ".[dev]" || python -m pip install -e .
+          elif [ -f pyproject.toml ]; then
+            echo "pyproject.toml present but declares no distribution ([project]/[build-system]/" \
+                 "[tool.poetry]) and no setup.py/setup.cfg; skipping editable install."
+          fi
+
+      - name: Install Workflows repo LLM dependencies
+        run: |
+          if [ -f .workflows-lib/tools/requirements.txt ]; then
+            echo "Installing LLM analysis dependencies..."
+            python -m pip install -r .workflows-lib/tools/requirements.txt || {
+              echo "::notice::LLM dependencies not installed, will fall back to regex analysis"
+            }
+          fi
+
+      - name: Validate optional capability effect evidence
+        id: capability_evidence
+        env:
+          CAPABILITY_ID: ${{ inputs.capability_id }}
+          EFFECT_FINGERPRINT: ${{ inputs.effect_fingerprint }}
+          EVIDENCE_ARTIFACT_REF: ${{ inputs.evidence_artifact_ref }}
+          SUPERVISION_MODE: ${{ inputs.supervision_mode }}
+          CAPABILITY_EVIDENCE_STATUS: ${{ inputs.capability_evidence_status }}
+          TERMINAL_DISPOSITION: ${{ inputs.terminal_disposition }}
+        run: |
+          PYTHONPATH="${GITHUB_WORKSPACE}/.workflows-lib:${GITHUB_WORKSPACE}" \
+            python -m scripts.runner_lib normalize-evidence \
+              --capability-id "${CAPABILITY_ID}" \
+              --effect-fingerprint "${EFFECT_FINGERPRINT}" \
+              --evidence-artifact-ref "${EVIDENCE_ARTIFACT_REF}" \
+              --supervision-mode "${SUPERVISION_MODE}" \
+              --capability-evidence-status "${CAPABILITY_EVIDENCE_STATUS}" \
+              --terminal-disposition "${TERMINAL_DISPOSITION}"
+
+      - name: Validate prompt template integrity
+        id: guard
+        if: ${{ inputs.mode != 'e2e-test' }}
+        env:
+          BASE_PROMPT: ${{ inputs.prompt_file }}
+        run: |
+          set -euo pipefail
+          if [ -f ".github/scripts/prompt_integrity_guard.js" ]; then
+            echo "Checking prompt template for embedded task content..."
+            node .github/scripts/prompt_integrity_guard.js "${BASE_PROMPT}" || {
+              error_msg="Prompt template integrity check failed. "
+              error_msg+="The base prompt contains embedded task content "
+              error_msg+="that should be removed."
+              echo "MUSE_PREFLIGHT_ERROR=${error_msg}" >> "$GITHUB_ENV"
+              echo "MUSE_PREFLIGHT_STAGE=prompt-integrity" >> "$GITHUB_ENV"
+              echo "::error::Prompt template integrity check failed. See output above."
+              echo "::error::The base prompt contains embedded task content that should be removed."
+              exit 1
+            }
+          else
+            echo "Guard script not found, skipping integrity check"
+          fi
+
+      - name: Download task appendix artifact
+        id: download_appendix
+        if: inputs.mode == 'keepalive' && inputs.pr_number != ''
+        continue-on-error: true
+        uses: actions/download-artifact@v8
+        with:
+          name: keepalive-task-appendix-${{ inputs.pr_number }}
+          path: /tmp/keepalive-artifacts
+
+      - name: Validate and materialize reference packs
+        id: reference_packs
+        env:
+          GH_TOKEN: ${{ steps.auth_token.outputs.checkout_token }}
+        run: |
+          set -euo pipefail
+          if [ ! -f ".github/reference_packs.json" ]; then
+            echo "No .github/reference_packs.json found; skipping reference packs."
+            echo "reference_packs_exists=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "Validating reference pack configuration..."
+          python .workflows-lib/scripts/reference_packs.py --workspace . --format json \
+            > /tmp/reference_packs_output.json
+          echo "reference_packs_exists=true" >> "$GITHUB_OUTPUT"
+
+          python3 <<'REFPACK_EOF'
+          import json, subprocess, os, shutil, sys, re
+
+          with open("/tmp/reference_packs_output.json") as f:
+              data = json.load(f)
+
+          token = os.environ.get("GH_TOKEN", "")
+          for plan in data.get("checkout_plan", []):
+              name = plan["name"]
+              repo = plan["repo"]
+              ref = plan["ref"]
+              checkout_path = plan["checkout_path"]
+              paths = plan["paths"]
+              clone_dir = f"/tmp/ref-pack-{name}"
+
+              print(f"Cloning {repo}@{ref} for pack '{name}'...")
+              if os.path.exists(clone_dir):
+                  shutil.rmtree(clone_dir)
+              if token:
+                  clone_url = f"https://x-access-token:{token}@github.com/{repo}.git"
+              else:
+                  clone_url = f"https://github.com/{repo}.git"
+
+              is_sha = bool(re.fullmatch(r'[0-9a-fA-F]{40}', ref))
+              if is_sha:
+                  subprocess.check_call([
+                      "git", "clone", "--depth=1", "--filter=blob:none",
+                      "--sparse", "--no-checkout", clone_url, clone_dir
+                  ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                  subprocess.check_call([
+                      "git", "-C", clone_dir, "fetch", "origin", ref, "--depth=1"
+                  ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                  subprocess.check_call([
+                      "git", "-C", clone_dir, "checkout", ref
+                  ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+              else:
+                  subprocess.check_call([
+                      "git", "clone", "--depth=1", "--branch", ref,
+                      "--filter=blob:none", "--sparse", clone_url, clone_dir
+                  ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+              subprocess.check_call([
+                  "git", "-C", clone_dir, "sparse-checkout", "set", "--no-cone"
+              ] + paths, stdout=subprocess.DEVNULL)
+              subprocess.check_call([
+                  "git", "-C", clone_dir, "sparse-checkout", "reapply"
+              ], stdout=subprocess.DEVNULL)
+
+              os.makedirs(checkout_path, exist_ok=True)
+              for p in paths:
+                  src = os.path.join(clone_dir, p)
+                  dst = os.path.join(checkout_path, p)
+                  if os.path.isdir(src):
+                      shutil.copytree(src, dst, dirs_exist_ok=True)
+                  elif os.path.isfile(src):
+                      os.makedirs(os.path.dirname(dst), exist_ok=True)
+                      shutil.copy2(src, dst)
+                  else:
+                      print(f"::warning::Path '{p}' not found in {repo}@{ref}", file=sys.stderr)
+              shutil.rmtree(clone_dir, ignore_errors=True)
+              print(f"Pack '{name}' materialized at {checkout_path}")
+
+          md_path = os.path.join(".reference", "REFERENCE_PACKS.md")
+          os.makedirs(os.path.dirname(md_path), exist_ok=True)
+          with open(md_path, "w") as md:
+              for plan in data.get("checkout_plan", []):
+                  md.write(f"## {plan['name']}\n")
+                  md.write(f"- **Repo:** `{plan['repo']}`\n")
+                  md.write(f"- **Ref:** `{plan['ref']}`\n")
+                  md.write(f"- **Paths:** {', '.join(f'`{p}`' for p in plan['paths'])}\n")
+                  checkout = plan["checkout_path"]
+                  md.write(f"- **Location:** `{checkout}/`\n\n")
+                  md.write("### Contents\n")
+                  for root, dirs, files in os.walk(checkout):
+                      for fname in sorted(files):
+                          rel = os.path.relpath(os.path.join(root, fname), checkout)
+                          md.write(f"- `{rel}`\n")
+                  md.write("\n")
+          print(f"Generated {md_path}")
+          REFPACK_EOF
+
+      - name: Assemble prompt
+        id: prompt
+        env:
+          BASE_PROMPT: ${{ inputs.prompt_file }}
+          APPENDIX: ${{ inputs.appendix }}
+          PR_NUMBER: ${{ inputs.pr_number }}
+          MODE: ${{ inputs.mode }}
+        run: |
+          set -euo pipefail
+          # muse is a first-class runner_lib provider that uses the same
+          # plain-text (non-JSONL) prompt/parse path as claude.
+          if [ -n "${PR_NUMBER:-}" ]; then
+            PROMPT_OUTPUT="muse-prompt-${PR_NUMBER}.md"
+          else
+            PROMPT_OUTPUT="muse-prompt.md"
+          fi
+          PYTHONPATH="${GITHUB_WORKSPACE}/.workflows-lib:${GITHUB_WORKSPACE}" \
+            python -m scripts.runner_lib assemble-prompt \
+              --provider muse \
+              --base-prompt "$BASE_PROMPT" \
+              --appendix "$APPENDIX" \
+              --mode "$MODE" \
+              --pr-number "$PR_NUMBER" \
+              --output "$PROMPT_OUTPUT" \
+              --task-appendix-file /tmp/keepalive-artifacts/task-appendix.txt
+
+      # Keep workspace shape identical to Codex runner so git status noise doesn't
+      # confuse the agent or produce merge conflicts when multiple PRs run.
+      - name: Clean workspace for Muse
+        id: clean_workspace
+        env:
+          PR_NUM: ${{ inputs.pr_number }}
+        run: |
+          set -euo pipefail
+          echo "Cleaning workspace to ensure clean git state for Muse..."
+
+          if [ -d ".workflows-lib" ]; then
+            if ! grep -q "^\.workflows-lib" .git/info/exclude 2>/dev/null; then
+              echo ".workflows-lib" >> .git/info/exclude 2>/dev/null || true
+            fi
+          fi
+
+          if [ -d ".reference" ]; then
+            if ! grep -q "^\.reference" .git/info/exclude 2>/dev/null; then
+              echo ".reference" >> .git/info/exclude 2>/dev/null || true
+            fi
+          fi
+
+          if ! grep -q "^\.github/scripts/node_modules" .git/info/exclude 2>/dev/null; then
+            echo ".github/scripts/node_modules" >> .git/info/exclude 2>/dev/null || true
+          fi
+          if ! grep -q \
+            "^\.workflows-lib/\.github/scripts/node_modules" \
+            .git/info/exclude 2>/dev/null; then
+            printf '%s\n' ".workflows-lib/.github/scripts/node_modules" \
+              >> .git/info/exclude 2>/dev/null || true
+          fi
+          if ! grep -q "^node_modules" .git/info/exclude 2>/dev/null; then
+            echo "node_modules" >> .git/info/exclude 2>/dev/null || true
+          fi
+
+          echo "Removing stale workflow artifact files..."
+          rm -f \
+            muse-output*.md muse-session*.log \
+            muse-session*.jsonl muse-analysis*.json \
+            2>/dev/null || true
+
+          echo "Git status after cleanup:"
+          git status --short || true
+
+          ignore_re='^(\.(workflows-lib|gitignore)|\.github/scripts/node_modules|'
+          ignore_re+='\.workflows-lib/\.github/scripts/node_modules|node_modules|'
+          ignore_re+='muse-.*|autofix.*)$'
+          ignore_re+='|^(\.(workflows-lib|gitignore)|\.github/scripts/node_modules|'
+          ignore_re+='\.workflows-lib/\.github/scripts/node_modules|node_modules|'
+          ignore_re+='muse-.*|autofix.*)/'
+          REMAINING=$(
+            git status --porcelain |
+              cut -c4- |
+              grep -cvE "$ignore_re" 2>/dev/null ||
+              echo "0"
+          )
+          REMAINING=$(printf '%s' "$REMAINING" | tr -d '[:space:]')
+          REMAINING=${REMAINING:-0}
+          echo "remaining-changes=${REMAINING}" >> "$GITHUB_OUTPUT"
+          if [ "$REMAINING" -gt 0 ]; then
+            echo "::notice::Found ${REMAINING} pre-existing change(s) in workspace."
+            git status --short
+          else
+            echo "Workspace is clean for Muse."
+          fi
+
+      - name: Surface merge conflicts
+        if: >-
+          inputs.prompt_file == '.github/muse/prompts/fix_merge_conflicts.md' ||
+          inputs.prompt_file == '.github/claude/prompts/fix_merge_conflicts.md' ||
+          inputs.prompt_file == '.github/codex/prompts/fix_merge_conflicts.md'
+        env:
+          WORKFLOW_BASE_REF: ${{ inputs.base_ref || github.event.pull_request.base.ref || '' }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          base_branch="${GITHUB_BASE_REF:-}"
+          if [ -z "$base_branch" ] && [ -n "${WORKFLOW_BASE_REF:-}" ]; then
+            base_branch="$WORKFLOW_BASE_REF"
+          fi
+          if [ -z "$base_branch" ]; then
+            base_branch="$({
+              git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null |
+                sed 's@^refs/remotes/origin/@@'
+            } || true)"
+          fi
+          if [ -z "$base_branch" ]; then
+            echo "Error: could not determine base branch automatically." >&2
+            exit 1
+          fi
+
+          echo "Using base branch '$base_branch' to surface merge conflicts."
+          git fetch origin "$base_branch"
+          merge_exit=0
+          git merge --no-commit --no-ff "origin/$base_branch" || merge_exit=$?
+          if [ $merge_exit -ne 0 ]; then
+            echo "Merge conflicts detected (expected for conflict resolution)"
+            git status
+          else
+            echo "No merge conflicts - merge succeeded automatically"
+          fi
+
+      - name: Preflight auth
+        id: preflight
+        env:
+          META_API_KEY: ${{ secrets.META_API_KEY || '' }}
+        run: |
+          set -euo pipefail
+
+          # muse exec authenticates headlessly from the META_API_KEY env var. The value is only
+          # tested for presence here and is passed to the run step through that step's own env;
+          # it is deliberately NOT exported through GITHUB_ENV or printed. Missing auth fails
+          # closed: there is no fallback to any other credential.
+          if [ -n "$META_API_KEY" ]; then
+            echo "auth-method=api-key" >> "$GITHUB_OUTPUT"
+            echo "missing=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "missing=true" >> "$GITHUB_OUTPUT"
+            echo "error=Missing Muse auth: set the META_API_KEY secret" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+      - name: Ensure Muse CLI
+        id: ensure_muse
+        if: steps.preflight.outputs.missing != 'true'
+        run: |
+          set -euo pipefail
+
+          export PATH="$HOME/.local/bin:$PATH"
+          if ! command -v muse >/dev/null 2>&1; then
+            echo "Muse CLI not found; installing via dev.meta.ai/install.sh ..."
+            installer="$(mktemp)"
+            curl -fsSL https://dev.meta.ai/install.sh -o "$installer"
+            bash "$installer"
+            rm -f "$installer"
+            echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+            export PATH="$HOME/.local/bin:$PATH"
+          fi
+          if ! command -v muse >/dev/null 2>&1; then
+            echo "::error::Muse CLI not found after install (expected \$HOME/.local/bin/muse)."
+            exit 1
+          fi
+          muse --version
+
+          # Meta's docs: on Linux the CLI needs a working bubblewrap sandbox and a non-musl build,
+          # otherwise sandboxed shell commands abort. Probe it NOW and fail with a NAMED error, never
+          # a silent success (the codex runner once reported success with no commit when its bwrap
+          # sandbox could not start).
+          if ! command -v bwrap >/dev/null 2>&1; then
+            echo "bubblewrap not found; installing ..."
+            sudo apt-get update -qq && sudo apt-get install -y -qq bubblewrap
+          fi
+          bwrap_probe() { bwrap --ro-bind / / --dev /dev --unshare-user true 2>/dev/null; }
+          if ! bwrap_probe; then
+            echo "::notice::bwrap cannot create a user namespace; relaxing the AppArmor restriction"
+            sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0 >/dev/null 2>&1 || true
+          fi
+          if ! bwrap_probe; then
+            echo "::error::Muse sandbox cannot start: bubblewrap failed to create a user namespace on this runner."
+            echo "sandbox-ok=false" >> "$GITHUB_OUTPUT"
+            exit 1
+          fi
+          echo "sandbox-ok=true" >> "$GITHUB_OUTPUT"
+
+      - name: Run Muse
+        id: run_muse
+        if: always() && steps.capability_evidence.outcome != 'failure'
+        env:
+          PREFLIGHT_MISSING: ${{ steps.preflight.outputs.missing || 'false' }}
+          PREFLIGHT_ERROR: ${{ steps.preflight.outputs.error || '' }}
+          GUARD_OUTCOME: ${{ steps.guard.outcome }}
+          MUSE_CLI_OUTCOME: ${{ steps.ensure_muse.outcome }}
+          PROMPT_FILE: ${{ steps.prompt.outputs.file || '' }}
+          EXTRA_ARGS_RAW: ${{ inputs.muse_cli_args }}
+          PR_NUMBER: ${{ inputs.pr_number }}
+          SKIP_PERMISSIONS: ${{ inputs.skip_permissions }}
+          META_API_KEY: ${{ secrets.META_API_KEY || '' }}
+          MAX_MODEL_STEPS: ${{ inputs.max_model_steps }}
+          PR_REF: ${{ inputs.pr_ref }}
+        run: |
+          set -euo pipefail
+
+          extra_args_file="${RUNNER_TEMP:-/tmp}/muse-extra-args.txt"
+          : > "$extra_args_file"
+          if [ -n "${EXTRA_ARGS_RAW:-}" ]; then
+            python3 - "$EXTRA_ARGS_RAW" "$extra_args_file" <<'PY'
+          import json, shlex, sys
+
+          raw = (sys.argv[1] or '').strip()
+          out_path = sys.argv[2]
+
+          if not raw:
+              args = []
+          elif raw.startswith('['):
+              try:
+                  value = json.loads(raw)
+              except json.JSONDecodeError as exc:
+                  raise SystemExit(f"muse_cli_args JSON parse failed: {exc}")
+              if not isinstance(value, list):
+                  raise SystemExit("muse_cli_args JSON must be an array")
+              for idx, item in enumerate(value):
+                  if not isinstance(item, str):
+                      raise SystemExit(f"muse_cli_args JSON array item {idx} must be a string")
+                  if '\x00' in item:
+                      raise SystemExit(f"muse_cli_args JSON array item {idx} contains NUL")
+              args = value
+          else:
+              try:
+                  args = shlex.split(raw)
+              except ValueError as exc:
+                  raise SystemExit(f"muse_cli_args split failed: {exc}")
+              for idx, item in enumerate(args):
+                  if '\x00' in item:
+                      raise SystemExit(f"muse_cli_args arg {idx} contains NUL")
+
+          with open(out_path, 'w', encoding='utf-8') as handle:
+              for arg in args:
+                  handle.write(arg)
+                  handle.write('\n')
+
+          print(f"Parsed {len(args)} muse extra arg(s).")
+          PY
+          fi
+          mapfile -t extra_args < "$extra_args_file" || true
+
+          if [ "$PREFLIGHT_MISSING" = "true" ]; then
+            summary="$PREFLIGHT_ERROR"
+            echo "exit-code=1" >> "$GITHUB_OUTPUT"
+            echo "error-summary=$summary" >> "$GITHUB_OUTPUT"
+            echo "final-message=" >> "$GITHUB_OUTPUT"
+            echo "final-message-summary=$summary" >> "$GITHUB_OUTPUT"
+            exit 1
+          fi
+
+          # Fail closed: a rejected prompt or a CLI/sandbox that could not start must never
+          # reach `muse exec` (always() lets this step run after earlier failures).
+          if [ "${GUARD_OUTCOME:-}" = "failure" ] || [ "${MUSE_CLI_OUTCOME:-}" != "success" ]; then
+            if [ "${MUSE_CLI_OUTCOME:-}" != "success" ]; then
+              summary="Muse CLI or sandbox setup failed; muse exec was not run"
+            else
+              summary="Prompt template integrity check failed; muse exec was not run"
+            fi
+            echo "exit-code=1" >> "$GITHUB_OUTPUT"
+            echo "error-summary=$summary" >> "$GITHUB_OUTPUT"
+            echo "final-message=" >> "$GITHUB_OUTPUT"
+            echo "final-message-summary=$summary" >> "$GITHUB_OUTPUT"
+            exit 1
+          fi
+
+          if [ -z "${PROMPT_FILE:-}" ]; then
+            if [ -n "${PR_NUMBER:-}" ]; then
+              PROMPT_FILE="muse-prompt-${PR_NUMBER}.md"
+            else
+              PROMPT_FILE="muse-prompt.md"
+            fi
+            echo "::notice::Prompt output was empty; using assembled prompt fallback: "\
+              "${PROMPT_FILE}"
+          fi
+
+          if [ -z "$PROMPT_FILE" ] || [ ! -f "$PROMPT_FILE" ]; then
+            summary="Prompt preparation failed (missing prompt file)."
+            echo "exit-code=1" >> "$GITHUB_OUTPUT"
+            echo "error-summary=$summary" >> "$GITHUB_OUTPUT"
+            echo "final-message=" >> "$GITHUB_OUTPUT"
+            echo "final-message-summary=$summary" >> "$GITHUB_OUTPUT"
+            exit 1
+          fi
+
+          if [ -n "${PR_NUMBER:-}" ]; then
+            output_file="muse-output-${PR_NUMBER}.md"
+          else
+            output_file="muse-output.md"
+          fi
+
+          # --disable-approval skips prompts but KEEPS the sandbox (never --yolo, which drops both).
+          perm_flag=()
+          if [ "${SKIP_PERMISSIONS:-true}" = "true" ]; then
+            perm_flag=(--disable-approval)
+          fi
+
+          # Use PR-specific session log filename (mirrors Codex runner pattern)
+          if [ -n "${PR_NUMBER:-}" ]; then
+            SESSION_LOG="muse-session-${PR_NUMBER}.log"
+          else
+            SESSION_LOG="muse-session.log"
+          fi
+
+          MUSE_BIN="muse"
+
+          echo "Running Muse agent in headless mode..."
+          echo "CLI: $MUSE_BIN"
+          echo "Prompt file: $PROMPT_FILE"
+          echo "Output file: $output_file"
+          echo "Session log: $SESSION_LOG"
+
+          # muse exec runs one prompt to completion headlessly and prints the final message to stdout.
+          # --no-foreign-personal-context keeps the operator's personal Claude/Codex rules and skills
+          # out of a fleet worker; --no-session-log keeps the prompt off disk. Tee to $SESSION_LOG so a
+          # debug artifact survives a failed run. META_API_KEY comes from this step's env only.
+          echo "agent-execution-started=true" >> "$GITHUB_OUTPUT"
+          STDERR_FILE="${RUNNER_TEMP:-/tmp}/muse-stderr.log"
+          : > "$STDERR_FILE"
+          started_at=$(date +%s)
+          set +e
+          "$MUSE_BIN" exec --prompt-file "$PROMPT_FILE" \
+            --no-foreign-personal-context \
+            --no-session-log \
+            --max-model-steps "${MAX_MODEL_STEPS:-150}" \
+            "${perm_flag[@]}" \
+            ${MODEL:+--model "$MODEL"} \
+            "${extra_args[@]}" \
+            2>"$STDERR_FILE" | tee "$SESSION_LOG" > "$output_file"
+          status=${PIPESTATUS[0]}
+          set -e
+          # Muse prints its notices (workspace root, rules/skills warnings) on stderr and the answer on
+          # stdout. Keep stderr OUT of the final message that is posted to the PR, but retain it in the
+          # session log and the Actions log for diagnosis.
+          cat "$STDERR_FILE" >> "$SESSION_LOG" 2>/dev/null || true
+          echo "::group::Muse stderr"
+          cat "$STDERR_FILE" 2>/dev/null || true
+          echo "::endgroup::"
+          echo "duration-seconds=$(( $(date +%s) - started_at ))" >> "$GITHUB_OUTPUT"
+
+          # Diagnostic: show what Muse did to the workspace
+          echo "::group::Post-Muse workspace diagnostics"
+          echo "Muse exit code: $status"
+          echo "Git status after Muse run:"
+          git status --short || true
+          echo "Unpushed commits (if any):"
+          diag_branch="${PR_REF:-}"
+          diag_branch="${diag_branch#refs/heads/}"
+          git log --oneline "origin/${diag_branch:-HEAD}"..HEAD 2>/dev/null || \
+            git log --oneline -5 2>/dev/null || true
+          echo "::endgroup::"
+
+
+          echo "exit-code=$status" >> "$GITHUB_OUTPUT"
+          PYTHONPATH="${GITHUB_WORKSPACE}/.workflows-lib:${GITHUB_WORKSPACE}" \
+            python -m scripts.runner_lib parse-output \
+              --provider muse \
+              --raw-output-file "$output_file" >/tmp/muse-runner-result.json
+
+          if [ "$status" -ne 0 ]; then
+            exit "$status"
+          fi
+
+      - name: Commit and push changes
+        id: commit
+        if: always() && steps.capability_evidence.outcome != 'failure'
+        env:
+          PUSH_TOKEN: ${{ steps.auth_token.outputs.push_token || '' }}
+          PUSH_ALLOWED: ${{ steps.auth_token.outputs.push_allowed }}
+          PR_REF: ${{ inputs.pr_ref }}
+          MODE: ${{ inputs.mode }}
+          PR_NUMBER: ${{ inputs.pr_number }}
+        run: |
+          set -euo pipefail
+
+          REMOTE_URL="https://x-access-token:${PUSH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          target_branch="${PR_REF:-$(git rev-parse --abbrev-ref HEAD)}"
+          target_branch="${target_branch#refs/heads/}"
+
+          # Count uncommitted changes
+          CHANGED_FILES=$(git status --porcelain | wc -l | tr -d ' ')
+          echo "files-changed=${CHANGED_FILES}" >> "$GITHUB_OUTPUT"
+
+          if [ "$CHANGED_FILES" -eq 0 ]; then
+            echo "No uncommitted changes."
+            # Muse in headless mode (--force) can
+            # create its own git commits via the Bash tool.  Check for unpushed
+            # commits that need pushing — mirrors the Codex runner pattern.
+            git fetch "$REMOTE_URL" "$target_branch" 2>/dev/null || true
+
+            UNPUSHED_COMMITS=0
+            if git rev-parse "FETCH_HEAD" >/dev/null 2>&1; then
+              UNPUSHED_COMMITS=$(git rev-list FETCH_HEAD..HEAD --count 2>/dev/null || echo "0")
+            else
+              # Remote branch doesn't exist yet — all local commits are unpushed
+              UNPUSHED_COMMITS=$(git rev-list HEAD --count 2>/dev/null || echo "0")
+            fi
+
+            if [ "$UNPUSHED_COMMITS" -gt 0 ]; then
+              echo "Found ${UNPUSHED_COMMITS} unpushed commit(s) from Muse — pushing them."
+              COMMIT_SHA=$(git rev-parse HEAD)
+              echo "commit-sha=${COMMIT_SHA}" >> "$GITHUB_OUTPUT"
+              echo "changes-made=true" >> "$GITHUB_OUTPUT"
+              # Count files changed across unpushed commits so keepalive
+              # does not treat this as a zero-activity round.
+              if git rev-parse "FETCH_HEAD" >/dev/null 2>&1; then
+                AGENT_FILES=$(git diff --name-only FETCH_HEAD..HEAD | wc -l | tr -d ' ')
+              else
+                AGENT_FILES=$(
+                  git diff --name-only HEAD~"${UNPUSHED_COMMITS}"..HEAD 2>/dev/null |
+                    wc -l |
+                    tr -d ' ' ||
+                    echo "1"
+                )
+              fi
+              echo "files-changed=${AGENT_FILES:-1}" >> "$GITHUB_OUTPUT"
+              if [ "$PUSH_ALLOWED" != "true" ] || [ -z "$PUSH_TOKEN" ]; then
+                echo "::error::GitHub App token missing; refusing to push without app identity."
+                exit 1
+              fi
+              if git rev-parse "FETCH_HEAD" >/dev/null 2>&1; then
+                echo "Rebasing unpushed commits onto ${target_branch} before push."
+                if ! git rebase FETCH_HEAD; then
+                  echo "::warning::Rebase failed; attempting merge strategy before push."
+                  git rebase --abort 2>/dev/null || true
+                  if ! git pull --no-rebase "$REMOTE_URL" "$target_branch" \
+                    --allow-unrelated-histories; then
+                    echo "::error::Merge fallback failed; refusing to push an inconsistent state."
+                    exit 1
+                  fi
+                fi
+                COMMIT_SHA=$(git rev-parse HEAD)
+                echo "commit-sha=${COMMIT_SHA}" >> "$GITHUB_OUTPUT"
+              fi
+              # Use plain push (not --force-with-lease) because git fetch <URL>
+              # updates FETCH_HEAD but not the local tracking ref, causing
+              # --force-with-lease to reject with "stale info".
+              for attempt in 1 2 3; do
+                echo "Push attempt ${attempt}/3 (unpushed commits path)..."
+                if git push "$REMOTE_URL" "HEAD:${target_branch}"; then
+                  echo "::notice::Pushed ${UNPUSHED_COMMITS} commit(s) from Muse "\
+                    "(attempt ${attempt}, SHA: ${COMMIT_SHA})"
+                  exit 0
+                fi
+                echo "::warning::Push failed (attempt ${attempt})"
+                if [ "$attempt" -lt 3 ]; then
+                  sleep $((attempt * 5))
+                  git fetch "$REMOTE_URL" "$target_branch" 2>/dev/null || true
+                  if git rev-parse "FETCH_HEAD" >/dev/null 2>&1; then
+                    if ! git rebase FETCH_HEAD; then
+                      echo "::warning::Rebase failed on retry; attempting merge."
+                      git rebase --abort 2>/dev/null || true
+                      git pull --no-rebase "$REMOTE_URL" "$target_branch" \
+                        --allow-unrelated-histories || true
+                    fi
+                    COMMIT_SHA="$(git rev-parse HEAD)"
+                    echo "commit-sha=${COMMIT_SHA}" >> "$GITHUB_OUTPUT"
+                  fi
+                fi
+              done
+              echo "::error::Failed to push unpushed commits after 3 attempts."
+              exit 1
+            fi
+
+            echo "No uncommitted changes and no unpushed commits."
+            echo "changes-made=false" >> "$GITHUB_OUTPUT"
+            echo "commit-sha=" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [ "$PUSH_ALLOWED" != "true" ] || [ -z "$PUSH_TOKEN" ]; then
+            echo "changes-made=true" >> "$GITHUB_OUTPUT"
+            echo "commit-sha=" >> "$GITHUB_OUTPUT"
+            echo "::error::Muse made changes but no GitHub App push token is available."
+            echo "::error::Configure WORKFLOWS_APP_ID/WORKFLOWS_APP_PRIVATE_KEY."
+            exit 1
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          # Check if only agents/*.md bootstrap files changed — skip commit
+          # to reduce noise. Mirrors reusable-codex-run.yml pattern.
+          STATUS_ONLY_CHANGES=$(
+            git status --porcelain |
+              grep -cvE '^.. agents/.*\.md$' || true
+          )
+          STATUS_ONLY_CHANGES=${STATUS_ONLY_CHANGES:-0}
+          if [ "$STATUS_ONLY_CHANGES" -eq 0 ] && [ "$CHANGED_FILES" -gt 0 ]; then
+            echo "Only agent bootstrap files changed - skipping commit to reduce noise."
+            echo "changes-made=false" >> "$GITHUB_OUTPUT"
+            echo "commit-sha=" >> "$GITHUB_OUTPUT"
+            git checkout -- agents/ 2>/dev/null || true
+            exit 0
+          fi
+
+          # Shared artifact contract also used by the pre-timeout checkpoint.
+          python3 .workflows-lib/scripts/stage_agent_changes.py
+
+          # Bail if all changes were artifacts — but still check for unpushed
+          # commits from Muse (it may have committed via Bash tool).
+          if git diff --cached --quiet; then
+            echo "::notice::No non-artifact changes to commit after filtering."
+            # Fetch remote so FETCH_HEAD is current (mirrors Codex runner pattern).
+            git fetch "$REMOTE_URL" "$target_branch" 2>/dev/null || true
+            UNPUSHED=$(git rev-list FETCH_HEAD..HEAD --count 2>/dev/null || echo "0")
+            if [ "$UNPUSHED" -gt 0 ]; then
+              echo "::notice::Found ${UNPUSHED} unpushed commit(s) from Muse — pushing them."
+              sha=$(git rev-parse HEAD)
+              echo "commit-sha=$sha" >> "$GITHUB_OUTPUT"
+              echo "changes-made=true" >> "$GITHUB_OUTPUT"
+              AGENT_FILES=$(git diff --name-only FETCH_HEAD..HEAD | wc -l | tr -d ' ')
+              echo "files-changed=${AGENT_FILES:-1}" >> "$GITHUB_OUTPUT"
+              # Rebase onto the remote tip so the push is a fast-forward.
+              # Without this, Muse's commit sits on the stale checkout base
+              # and the push is non-fast-forward when the branch has advanced.
+              if git rev-parse "FETCH_HEAD" >/dev/null 2>&1; then
+                echo "Rebasing unpushed commits onto ${target_branch} before push."
+                if ! git rebase FETCH_HEAD; then
+                  echo "::warning::Rebase failed; attempting merge strategy before push."
+                  git rebase --abort 2>/dev/null || true
+                  if ! git pull --no-rebase "$REMOTE_URL" "$target_branch" \
+                    --allow-unrelated-histories; then
+                    echo "::error::Merge fallback failed; refusing to push an inconsistent state."
+                    exit 1
+                  fi
+                fi
+                sha="$(git rev-parse HEAD)"
+                echo "commit-sha=${sha}" >> "$GITHUB_OUTPUT"
+              fi
+              # Plain push with retry (not --force-with-lease, which fails
+              # after bare fetch due to stale local tracking ref).
+              for attempt in 1 2 3; do
+                echo "Push attempt ${attempt}/3 (post-filter unpushed path)..."
+                if git push "$REMOTE_URL" "HEAD:${target_branch}"; then
+                  echo "::notice::Pushed ${UNPUSHED} commit(s) (attempt ${attempt}, SHA: ${sha})"
+                  exit 0
+                fi
+                echo "::warning::Push failed (attempt ${attempt})"
+                if [ "$attempt" -lt 3 ]; then
+                  sleep $((attempt * 5))
+                  git fetch "$REMOTE_URL" "$target_branch" 2>/dev/null || true
+                  if git rev-parse "FETCH_HEAD" >/dev/null 2>&1; then
+                    if ! git rebase FETCH_HEAD; then
+                      echo "::warning::Rebase failed on retry; attempting merge."
+                      git rebase --abort 2>/dev/null || true
+                      git pull --no-rebase "$REMOTE_URL" "$target_branch" \
+                        --allow-unrelated-histories || true
+                    fi
+                    sha="$(git rev-parse HEAD)"
+                    echo "commit-sha=${sha}" >> "$GITHUB_OUTPUT"
+                  fi
+                fi
+              done
+              echo "::error::Failed to push after 3 attempts (post-filter path)."
+              exit 1
+            fi
+            echo "changes-made=false" >> "$GITHUB_OUTPUT"
+            echo "commit-sha=" >> "$GITHUB_OUTPUT"
+            echo "files-changed=0" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "::group::Changes being committed"
+          git diff --cached --stat
+          echo "::endgroup::"
+
+          commit_message="Muse (${MODE}) automated update"
+          if [ -n "${PR_NUMBER:-}" ]; then
+            commit_message+=" for PR #${PR_NUMBER}"
+          fi
+          git commit -m "$commit_message" || { echo "::error::git commit failed"; exit 1; }
+          sha="$(git rev-parse HEAD)"
+          echo "commit-sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "changes-made=true" >> "$GITHUB_OUTPUT"
+
+          # Sync with remote before push — the branch may have advanced
+          # during the Muse run. Mirrors reusable-codex-run.yml pattern.
+          echo "::group::Sync with remote before push"
+          git fetch "$REMOTE_URL" "$target_branch" 2>/dev/null || true
+          if git rev-parse "FETCH_HEAD" >/dev/null 2>&1; then
+            REMOTE_AHEAD=$(git rev-list HEAD..FETCH_HEAD --count 2>/dev/null || echo "0")
+            if [ "$REMOTE_AHEAD" -gt 0 ]; then
+              echo "Remote is ${REMOTE_AHEAD} commit(s) ahead — rebasing."
+              if ! git rebase FETCH_HEAD; then
+                echo "::warning::Rebase failed; attempting merge strategy."
+                git rebase --abort 2>/dev/null || true
+                git pull --no-rebase "$REMOTE_URL" "$target_branch" \
+                  --allow-unrelated-histories || true
+              fi
+              sha="$(git rev-parse HEAD)"
+              echo "commit-sha=$sha" >> "$GITHUB_OUTPUT"
+            fi
+          fi
+          echo "::endgroup::"
+
+          # Push with retry (3 attempts). On each retry, re-fetch and
+          # re-rebase in case the branch advanced again.
+          for attempt in 1 2 3; do
+            echo "Push attempt ${attempt}/3..."
+            if git push "$REMOTE_URL" "HEAD:${target_branch}"; then
+              echo "::notice::Push succeeded (attempt ${attempt}, SHA: ${sha})"
+              exit 0
+            fi
+            echo "::warning::Push failed (attempt ${attempt})"
+            if [ "$attempt" -lt 3 ]; then
+              sleep $((attempt * 5))
+              git fetch "$REMOTE_URL" "$target_branch" 2>/dev/null || true
+              if git rev-parse "FETCH_HEAD" >/dev/null 2>&1; then
+                if ! git rebase FETCH_HEAD; then
+                  echo "::warning::Rebase failed on retry; attempting merge."
+                  git rebase --abort 2>/dev/null || true
+                  git pull --no-rebase "$REMOTE_URL" "$target_branch" \
+                    --allow-unrelated-histories || true
+                fi
+                sha="$(git rev-parse HEAD)"
+                echo "commit-sha=$sha" >> "$GITHUB_OUTPUT"
+              fi
+            fi
+          done
+          echo "::error::Failed to push after 3 attempts."
+          exit 1
+
+      - name: Upload Muse output
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          retention-days: 14
+          name: muse-output-${{ inputs.pr_number || github.run_id }}
+          path: |
+            muse-output*.md
+            muse-session*.log
+            muse-session*.jsonl
+          if-no-files-found: ignore
+
+      - name: Analyze Muse session
+        id: analyze_session
+        if: always()
+        env:
+          PYTHONPATH: ${{ github.workspace }}/.workflows-lib:${{ github.workspace }}
+          PR_NUM: ${{ inputs.pr_number }}
+        run: |
+          set -euo pipefail
+
+          if [ -n "${PR_NUM}" ]; then
+            SESSION_LOG="muse-session-${PR_NUM}.log"
+          else
+            SESSION_LOG="muse-session.log"
+          fi
+
+          # Check if session file exists and has content
+          if [ ! -f "$SESSION_LOG" ] || [ ! -s "$SESSION_LOG" ]; then
+            echo "No Muse session log found or file is empty"
+            echo "session-available=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+                    line_count=$(wc -l < "$SESSION_LOG")
+                    byte_count=$(wc -c < "$SESSION_LOG")
+                    echo "Session log captured: ${line_count} lines, ${byte_count} bytes"
+          echo "session-available=true" >> "$GITHUB_OUTPUT"
+          echo "session-file=$SESSION_LOG" >> "$GITHUB_OUTPUT"
+
+      - name: Analyze task completion with LLM
+        id: llm_analysis
+        if: >-
+          always() &&
+          steps.analyze_session.outputs.session-available == 'true' &&
+          inputs.pr_number != ''
+        env:
+          PYTHONPATH: ${{ github.workspace }}/.workflows-lib:${{ github.workspace }}
+          PR_NUM: ${{ inputs.pr_number }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          CLAUDE_API_STRANSKE: ${{ secrets.CLAUDE_API_STRANSKE }}
+        run: |
+          set -euo pipefail
+
+          SESSION_LOG="${{ steps.analyze_session.outputs.session-file }}"
+          ANALYSIS_FILE="muse-analysis-${PR_NUM}.json"
+
+          # Fetch PR body to extract tasks
+          echo "Fetching PR #${PR_NUM} body..."
+          set +e
+          PR_BODY=$(gh pr view "${PR_NUM}" --json body --jq '.body' 2>&1)
+          fetch_exit=$?
+          set -e
+
+          if [ $fetch_exit -ne 0 ] || [ -z "$PR_BODY" ]; then
+            echo "::warning::Could not fetch PR body for #${PR_NUM} (exit code: $fetch_exit)"
+            echo "::warning::LLM task completion analysis will be skipped"
+            if [ $fetch_exit -ne 0 ]; then
+              echo "Error output: $PR_BODY"
+            fi
+            echo "llm-analysis-run=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Save PR body to temp file
+          printf '%s' "$PR_BODY" > pr_body.md
+
+          # Run full LLM analysis and save JSON output
+          # The analyze_codex_session.py script auto-detects text vs JSONL input,
+          # so it works with Muse's plain-text session logs (data_source=summary).
+          echo "Running LLM-powered task completion analysis..."
+          if [ ! -f .workflows-lib/scripts/analyze_codex_session.py ]; then
+            echo "::error::Analysis script not found."
+            echo "::error::Missing: .workflows-lib/scripts/analyze_codex_session.py"
+            echo "llm-analysis-run=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          python3 .workflows-lib/scripts/analyze_codex_session.py \
+            --session-file "$SESSION_LOG" \
+            --pr-body-file pr_body.md \
+            --output json > "$ANALYSIS_FILE" || {
+              echo "::warning::LLM analysis failed, continuing without it"
+              cat "$ANALYSIS_FILE" 2>/dev/null || true
+              echo "llm-analysis-run=false" >> "$GITHUB_OUTPUT"
+              rm -f "$ANALYSIS_FILE"
+              exit 0
+            }
+
+          # Also output to GitHub Actions for visibility
+          python3 .workflows-lib/scripts/analyze_codex_session.py \
+            --session-file "$SESSION_LOG" \
+            --pr-body-file pr_body.md \
+            --output github-actions || true
+
+          echo "llm-analysis-run=true" >> "$GITHUB_OUTPUT"
+          echo "analysis-file=$ANALYSIS_FILE" >> "$GITHUB_OUTPUT"
+
+          # Extract key fields for downstream use
+          if [ -f "$ANALYSIS_FILE" ]; then
+            python3 - "$ANALYSIS_FILE" >> "$GITHUB_OUTPUT" <<'PY'
+          import json
+          import sys
+
+          analysis_path = sys.argv[1]
+          with open(analysis_path, encoding='utf-8') as handle:
+              data = json.load(handle)
+
+          completed_tasks = json.dumps(data.get('completed_tasks', []))
+          quality_warnings = json.dumps(data.get('quality_warnings', []))
+
+          print(f"completed-tasks={completed_tasks}")
+          print(f"provider={data.get('provider', 'unknown')}")
+          print(f"model={data.get('model', 'unknown')}")
+          print(f"confidence={data.get('confidence', 0)}")
+          print(f"raw-confidence={data.get('raw_confidence', data.get('confidence', 0))}")
+          print(f"effort-score={data.get('effort_score', 0)}")
+          print(f"data-quality={data.get('data_quality', 'unknown')}")
+          print(f"analysis-text-length={data.get('analysis_text_length', 0)}")
+          print(f"quality-warnings={quality_warnings}")
+          PY
+          fi
+
+      - name: Compatibility outputs (LLM analysis)
+        id: compat
+        if: always()
+        env:
+          LLM_RAN: ${{ steps.llm_analysis.outputs.llm-analysis-run }}
+          LLM_PROVIDER: ${{ steps.llm_analysis.outputs.provider }}
+          LLM_MODEL: ${{ steps.llm_analysis.outputs.model }}
+          LLM_CONFIDENCE: ${{ steps.llm_analysis.outputs.confidence }}
+          LLM_COMPLETED_TASKS: ${{ steps.llm_analysis.outputs.completed-tasks }}
+        run: |
+          # If LLM analysis ran, forward its outputs; otherwise emit placeholders.
+          if [ "${LLM_RAN}" = "true" ]; then
+            {
+              echo "llm-analysis-run=true"
+              echo "llm-provider=${LLM_PROVIDER}"
+              echo "llm-model=${LLM_MODEL}"
+              echo "llm-confidence=${LLM_CONFIDENCE}"
+              echo "llm-completed-tasks=${LLM_COMPLETED_TASKS}"
+              has_completions="false"
+              if [ -n "${LLM_COMPLETED_TASKS}" ] && [ "${LLM_COMPLETED_TASKS}" != "[]" ]; then
+                has_completions="true"
+              fi
+              echo "llm-has-completions=${has_completions}"
+            } >> "$GITHUB_OUTPUT"
+          else
+            {
+              echo "llm-analysis-run=false"
+              echo "llm-provider="
+              echo "llm-model="
+              echo "llm-confidence="
+              echo "llm-completed-tasks=[]"
+              echo "llm-has-completions=false"
+            } >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Post completion checkpoint comment
+        id: completion_comment
+        if: steps.commit.outputs.changes-made == 'true' && inputs.pr_number != ''
+        uses: actions/github-script@v9
+        env:
+          PR_NUMBER: ${{ inputs.pr_number }}
+          COMMIT_SHA: ${{ steps.commit.outputs.commit-sha }}
+          ITERATION: ${{ inputs.iteration || '' }}
+        with:
+          script: |
+            // Try .workflows-lib first (consumer repos), fall back to local copy
+            const fs = require('fs');
+                      const workflowsLibPath =
+                        './.workflows-lib/.github/scripts/post_completion_comment.js';
+                      const localPath = './.github/scripts/post_completion_comment.js';
+                      const modulePath = fs.existsSync(workflowsLibPath)
+                        ? workflowsLibPath
+                        : localPath;
+            const { postCompletionComment } = require(modulePath);
+
+            // Determine prompt file — prefer PR-specific variant, then generic.
+            // The prompt file name is passed to postCompletionComment which uses
+            // it as the base name; it also checks for PR-specific variants internally.
+            const prNumber = process.env.PR_NUMBER || '';
+            let promptFile = 'muse-prompt.md';
+            if (prNumber) {
+              const prSpecific = `muse-prompt-${prNumber}.md`;
+              if (fs.existsSync(prSpecific)) {
+                promptFile = prSpecific;
+              }
+            }
+            // Also check codex-prompt as shared belt PRs use that naming.
+            // Only fall back when no muse-prompt variant exists at all.
+            if (!fs.existsSync(promptFile)) {
+              const codexFallback = prNumber ? `codex-prompt-${prNumber}.md` : 'codex-prompt.md';
+              if (fs.existsSync(codexFallback)) {
+                core.info(`No muse-prompt file found; using ${codexFallback}`);
+                promptFile = codexFallback;
+              }
+            }
+
+            const result = await postCompletionComment({
+              github, context, core,
+              inputs: {
+                pr_number: process.env.PR_NUMBER,
+                commit_sha: process.env.COMMIT_SHA,
+                iteration: process.env.ITERATION,
+                prompt_file: promptFile,
+              },
+            });
+            core.setOutput('posted', result.posted ? 'true' : 'false');
+            core.setOutput('tasks', String(result.tasks || 0));
+            core.setOutput('acceptance', String(result.acceptance || 0));
+            if (result.posted) {
+              core.info(
+                `Posted completion checkpoint: ${result.tasks} tasks, ` +
+                  `${result.acceptance} acceptance criteria`,
+              );
+            }
+
+      - name: Classify failure
+        id: classify_failure
+        if: always() && steps.run_muse.outputs.exit-code != '0'
+        uses: actions/github-script@v9
+        env:
+          EXIT_CODE: ${{ steps.run_muse.outputs.exit-code }}
+          OUTPUT_SUMMARY: ${{ steps.run_muse.outputs.final-message-summary }}
+          PREFLIGHT_ERROR: ${{ steps.preflight.outputs.error || '' }}
+          MODE: ${{ inputs.mode }}
+          PR_NUMBER: ${{ inputs.pr_number }}
+        with:
+          script: |
+            const fs = require('fs');
+            // error_classifier.js is synced to consumer repos and also present in Workflows repo
+            const classifierPath = './.github/scripts/error_classifier.js';
+            if (!fs.existsSync(classifierPath)) {
+              core.warning('error_classifier.js not found; skipping error classification');
+              core.setOutput('error_category', 'unknown');
+              core.setOutput('error_type', 'unknown');
+              core.setOutput('error_recovery', 'retry');
+              core.setOutput('is_transient', 'false');
+              return;
+            }
+
+            const { classifyError, ERROR_CATEGORIES, suggestRecoveryAction } =
+              require(classifierPath);
+
+            const exitCode = process.env.EXIT_CODE || '';
+            const summary = [process.env.OUTPUT_SUMMARY, process.env.PREFLIGHT_ERROR]
+              .filter(Boolean)
+              .join(' ');
+
+            const errorInfo = classifyError({
+              code: exitCode,
+              message: summary,
+            });
+
+            let errorType = 'unknown';
+            if (exitCode && exitCode !== '0') {
+              if (errorInfo.category === ERROR_CATEGORIES.transient) {
+                errorType = 'infrastructure';
+              } else if (errorInfo.category === ERROR_CATEGORIES.auth) {
+                errorType = 'auth';
+              } else {
+                errorType = 'muse';
+              }
+            }
+
+            core.setOutput('error_category', errorInfo.category);
+            core.setOutput('error_type', errorType);
+            core.setOutput('error_recovery', errorInfo.recovery);
+            const isTransient =
+              errorInfo.category === ERROR_CATEGORIES.transient ? 'true' : 'false';
+            core.setOutput('is_transient', isTransient);
+
+            core.setOutput('error_summary', summary || '');
+
+            console.log(`Error Classification:`);
+            console.log(`  Category: ${errorInfo.category}`);
+            console.log(`  Type: ${errorType}`);
+            console.log(`  Recovery: ${errorInfo.recovery}`);
+
+      - name: Write error summary to GITHUB_STEP_SUMMARY
+        if: always() && steps.run_muse.outputs.exit-code != '0'
+        env:
+          EXIT_CODE: ${{ steps.run_muse.outputs.exit-code }}
+          OUTPUT_SUMMARY: ${{ steps.run_muse.outputs.final-message-summary }}
+          ERROR_CATEGORY: ${{ steps.classify_failure.outputs.error_category }}
+          ERROR_TYPE: ${{ steps.classify_failure.outputs.error_type }}
+          ERROR_RECOVERY: ${{ steps.classify_failure.outputs.error_recovery }}
+          MODE: ${{ inputs.mode }}
+          PR_NUMBER: ${{ inputs.pr_number }}
+        run: |
+          set -euo pipefail
+          {
+            echo "## Muse Run Failed"
+            echo ""
+            echo "| Field | Value |"
+            echo "|-------|-------|"
+            echo "| Mode | ${MODE:-unknown} |"
+            echo "| Exit Code | ${EXIT_CODE:-unknown} |"
+            echo "| Error Category | ${ERROR_CATEGORY:-unknown} |"
+            echo "| Error Type | ${ERROR_TYPE:-unknown} |"
+            if [ -n "${PR_NUMBER:-}" ]; then
+              echo "| PR | #${PR_NUMBER} |"
+            fi
+            echo ""
+            echo "### Recovery Guidance"
+            echo ""
+            echo "${ERROR_RECOVERY:-Check logs for more details.}"
+            echo ""
+            if [ -n "${OUTPUT_SUMMARY:-}" ]; then
+              echo "### Output Summary"
+              echo ""
+              echo '```'
+              echo "${OUTPUT_SUMMARY}"
+              echo '```'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Create error diagnostics artifact
+        if: always() && steps.run_muse.outputs.exit-code != '0'
+        env:
+          EXIT_CODE: ${{ steps.run_muse.outputs.exit-code }}
+          OUTPUT_SUMMARY: ${{ steps.run_muse.outputs.final-message-summary }}
+          ERROR_CATEGORY: ${{ steps.classify_failure.outputs.error_category }}
+          ERROR_TYPE: ${{ steps.classify_failure.outputs.error_type }}
+          ERROR_RECOVERY: ${{ steps.classify_failure.outputs.error_recovery }}
+          IS_TRANSIENT: ${{ steps.classify_failure.outputs.is_transient }}
+          MODE: ${{ inputs.mode }}
+          PR_NUMBER: ${{ inputs.pr_number }}
+          RUN_URL: >-
+            ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          # Written OUTSIDE the checkout. This directory only ever feeds the
+          # upload-artifact step below, and a staging directory in the working tree is a
+          # liability: the shared staging helper excludes known artifact paths, but
+          # this diagnostic directory is not a source change. It had been safe only because
+          # that step happens to run FIRST -- ordering, not a safety property. Reorder the
+          # steps or add a later commit step and it becomes the
+          # langsmith-fleet-worker-attempt.json defect (PR #3210), which reached six
+          # consumer repos. RUNNER_TEMP is wiped between jobs and is never part of the
+          # repository, so the class is removed rather than the exclusion list extended.
+          DIAG_DIR="${RUNNER_TEMP:-/tmp}/error-diagnostics"
+          mkdir -p "$DIAG_DIR"
+
+          # Create JSON diagnostics file
+          cat > "$DIAG_DIR"/diagnostics.json << JSONEOF
+          {
+            "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "run_id": "${{ github.run_id }}",
+            "run_url": "${RUN_URL}",
+            "agent": "muse",
+            "mode": "${MODE:-unknown}",
+            "pr_number": "${PR_NUMBER:-}",
+            "exit_code": "${EXIT_CODE:-unknown}",
+            "error_category": "${ERROR_CATEGORY:-unknown}",
+            "error_type": "${ERROR_TYPE:-unknown}",
+            "is_transient": ${IS_TRANSIENT:-false},
+            "recovery_guidance": "${ERROR_RECOVERY:-unknown}"
+          }
+          JSONEOF
+
+          # Copy muse output if available
+          for f in muse-output*.md; do
+            [ -f "$f" ] && cp "$f" "$DIAG_DIR"/ && break
+          done 2>/dev/null || true
+
+          echo "Created error diagnostics in $DIAG_DIR"
+
+      - name: Upload error diagnostics
+        if: always() && steps.run_muse.outputs.exit-code != '0'
+        uses: actions/upload-artifact@v7
+        with:
+          name: error-diagnostics-${{ inputs.mode }}-${{ github.run_id }}
+          path: ${{ runner.temp }}/error-diagnostics/
+          retention-days: 30
+
+      - name: Post PR comment on non-transient failure
+        if: >-
+          always() && steps.run_muse.outputs.exit-code != '0' &&
+          steps.classify_failure.outputs.is_transient != 'true' && inputs.pr_number != ''
+        uses: actions/github-script@v9
+        env:
+          PR_NUMBER: ${{ inputs.pr_number }}
+          EXIT_CODE: ${{ steps.run_muse.outputs.exit-code }}
+          ERROR_CATEGORY: ${{ steps.classify_failure.outputs.error_category }}
+          ERROR_TYPE: ${{ steps.classify_failure.outputs.error_type }}
+          ERROR_RECOVERY: ${{ steps.classify_failure.outputs.error_recovery }}
+          OUTPUT_SUMMARY: ${{ steps.run_muse.outputs.final-message-summary }}
+          MODE: ${{ inputs.mode }}
+          RUN_URL: >-
+            ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        with:
+          script: |
+            const fs = require('fs');
+            let withRetry;
+            const retryPath = './.workflows-lib/.github/scripts/github-api-with-retry.js';
+            const localRetryPath = './.github/scripts/github-api-with-retry.js';
+            if (fs.existsSync(retryPath)) {
+              ({ withRetry } = require(retryPath));
+            } else if (fs.existsSync(localRetryPath)) {
+              ({ withRetry } = require(localRetryPath));
+            } else {
+              // Inline fallback: single attempt, no retry
+              withRetry = (fn) => fn();
+            }
+
+            const prNumber = parseInt(process.env.PR_NUMBER, 10);
+            if (!prNumber || prNumber <= 0) {
+              console.log('No valid PR number, skipping comment');
+              return;
+            }
+
+            const exitCode = process.env.EXIT_CODE || 'unknown';
+            const category = process.env.ERROR_CATEGORY || 'unknown';
+            const errorType = process.env.ERROR_TYPE || 'unknown';
+            const recovery = process.env.ERROR_RECOVERY || 'Check logs for details.';
+            const summary = process.env.OUTPUT_SUMMARY || 'No output captured';
+            const mode = process.env.MODE || 'unknown';
+            const runUrl = process.env.RUN_URL || '';
+
+            const marker = '<!-- muse-failure-notification -->';
+
+            const body = `${marker}
+            ## Muse ${mode} run failed
+
+            | Field | Value |
+            |-------|-------|
+            | Exit Code | \`${exitCode}\` |
+            | Error Category | \`${category}\` |
+            | Error Type | \`${errorType}\` |
+            | Run | [View logs](${runUrl}) |
+
+            ### Suggested Recovery
+
+            ${recovery}
+
+            ### What to do
+
+            1. Check the [workflow logs](${runUrl}) for detailed error output
+            2. If this is a configuration issue, update the relevant settings
+            3. If the error persists, consider adding the \`needs-human\` label for manual review
+            4. Re-run the workflow once the issue is resolved
+
+            <details>
+            <summary>Output summary</summary>
+
+            \`\`\`
+            ${summary.slice(0, 500)}
+            \`\`\`
+
+            </details>
+            `.trim().split('\n').map(l => l.trim()).join('\n');
+
+            // Check if we already have a failure comment
+            const { data: comments } = await withRetry(() =>
+              github.rest.issues.listComments({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                per_page: 100,
+              })
+            );
+
+            const existingComment = comments.find(c => c.body && c.body.includes(marker));
+
+            if (existingComment) {
+              await withRetry(() =>
+                github.rest.issues.updateComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  comment_id: existingComment.id,
+                  body,
+                })
+              );
+              console.log(`Updated existing failure comment: ${existingComment.html_url}`);
+            } else {
+              const { data: newComment } = await withRetry(() =>
+                github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: prNumber,
+                  body,
+                })
+              );
+              console.log(`Created failure comment: ${newComment.html_url}`);
+            }

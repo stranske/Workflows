@@ -177,6 +177,7 @@ def test_evaluate_steps_export_every_provider_flag_the_loop_reads() -> None:
         "HAS_CLAUDE_OAUTH",
         "HAS_CURSOR_AUTH",
         "HAS_GEMINI_AUTH",
+        "HAS_MUSE_AUTH",
     }
 
     workflow_paths = (

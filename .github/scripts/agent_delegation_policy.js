@@ -800,6 +800,7 @@ function pickAgent({
     codex: { runner_workflow: '.github/workflows/reusable-codex-run.yml', capabilities: { pr_keepalive: true } },
     claude: { runner_workflow: '.github/workflows/reusable-claude-run.yml', capabilities: { pr_keepalive: true } },
     cursor: { runner_workflow: '.github/workflows/reusable-cursor-run.yml', capabilities: { pr_keepalive: true } },
+    muse: { runner_workflow: '.github/workflows/reusable-muse-run.yml', capabilities: { pr_keepalive: true } },
     gemini: { runner_workflow: '.github/workflows/reusable-gemini-run.yml', capabilities: { pr_keepalive: true } },
   };
   const eligible = availableAgents || Object.keys(registryAgents);

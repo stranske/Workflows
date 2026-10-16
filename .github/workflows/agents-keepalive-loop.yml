@@ -433,6 +433,7 @@ jobs:
           HAS_CLAUDE_AUTH: ${{ secrets.CLAUDE_AUTH_JSON != '' }}
           HAS_CLAUDE_OAUTH: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN != '' }}
           HAS_CURSOR_AUTH: ${{ secrets.CURSOR_API_KEY != '' }}
+          HAS_MUSE_AUTH: ${{ secrets.META_API_KEY != '' }}
           HAS_GEMINI_AUTH: ${{ secrets.GEMINI_API_KEY != '' }}
           ROUTE_WEIGHTS_URL: ${{ vars.ROUTE_WEIGHTS_URL || 'https://raw.githubusercontent.com/stranske/Orchestrator/exports/route-weights/config/route-weights.json' }}
         with:
@@ -697,6 +698,7 @@ jobs:
           HAS_CLAUDE_AUTH: ${{ secrets.CLAUDE_AUTH_JSON != '' }}
           HAS_CLAUDE_OAUTH: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN != '' }}
           HAS_CURSOR_AUTH: ${{ secrets.CURSOR_API_KEY != '' }}
+          HAS_MUSE_AUTH: ${{ secrets.META_API_KEY != '' }}
           HAS_GEMINI_AUTH: ${{ secrets.GEMINI_API_KEY != '' }}
           AGENT_TYPE: ${{ needs.evaluate.outputs.agent_type || 'codex' }}
           HAS_APP_ID: >-
@@ -711,6 +713,7 @@ jobs:
           echo "CLAUDE_AUTH_JSON present: $HAS_CLAUDE_AUTH"
           echo "CLAUDE_CODE_OAUTH_TOKEN present: $HAS_CLAUDE_OAUTH"
           echo "CURSOR_API_KEY present: $HAS_CURSOR_AUTH"
+          echo "META_API_KEY present: $HAS_MUSE_AUTH"
           echo "GEMINI_API_KEY present: $HAS_GEMINI_AUTH"
           echo "KEEPALIVE_APP or WORKFLOWS_APP present: $HAS_APP_ID"
           echo "WORKFLOWS_APP_PRIVATE_KEY present: $HAS_APP_KEY"
@@ -731,6 +734,11 @@ jobs:
                 agent_auth_ok=true
               fi
               ;;
+            muse)
+              if [ "$HAS_MUSE_AUTH" = "true" ]; then
+                agent_auth_ok=true
+              fi
+              ;;
             gemini)
               if [ "$HAS_GEMINI_AUTH" = "true" ]; then
                 agent_auth_ok=true
@@ -741,6 +749,7 @@ jobs:
                 [ "$HAS_CLAUDE_AUTH" = "true" ] || \
                 [ "$HAS_CLAUDE_OAUTH" = "true" ] || \
                 [ "$HAS_CURSOR_AUTH" = "true" ] || \
+                [ "$HAS_MUSE_AUTH" = "true" ] || \
                 [ "$HAS_GEMINI_AUTH" = "true" ]; then
                 agent_auth_ok=true
               fi
@@ -760,6 +769,9 @@ jobs:
                 ;;
               cursor)
                 missing_msg="Missing Cursor auth: set the CURSOR_API_KEY secret"
+                ;;
+              muse)
+                missing_msg="Missing Muse auth: set the META_API_KEY secret"
                 ;;
               gemini)
                 missing_msg="Missing Gemini auth: set the GEMINI_API_KEY secret"
@@ -1109,6 +1121,43 @@ jobs:
           'agent-standard'
         }}
 
+  run-muse:
+    name: Keepalive next task (Muse)
+    needs:
+      - evaluate
+      - mark-running
+    if: |
+      needs.evaluate.outputs.agent_type == 'muse' &&
+      needs.evaluate.outputs.dispatch_should_run == 'true' &&
+      (needs.evaluate.outputs.action == 'run' ||
+       needs.evaluate.outputs.action == 'fix' ||
+       needs.evaluate.outputs.action == 'conflict')
+    uses: stranske/Workflows/.github/workflows/reusable-muse-run.yml@main
+    secrets:
+      META_API_KEY: ${{ secrets.META_API_KEY }}
+      WORKFLOWS_APP_ID: ${{ secrets.WORKFLOWS_APP_ID }}
+      WORKFLOWS_APP_PRIVATE_KEY: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      CLAUDE_API_STRANSKE: ${{ secrets.CLAUDE_API_STRANSKE }}
+    with:
+      skip: >-
+        ${{ needs.evaluate.outputs.action != 'run' &&
+            needs.evaluate.outputs.action != 'fix' &&
+            needs.evaluate.outputs.action != 'conflict' }}
+      prompt_file: ${{ needs.evaluate.outputs.prompt_file }}
+      mode: keepalive
+      pr_number: ${{ needs.evaluate.outputs.pr_number }}
+      pr_ref: ${{ needs.evaluate.outputs.pr_ref }}
+      base_ref: ${{ needs.evaluate.outputs.base_ref }}
+      appendix: ''
+      iteration: ${{ needs.evaluate.outputs.iteration }}
+      environment: >-
+        ${{
+          needs.evaluate.outputs.has_high_privilege == 'true' &&
+          'agent-high-privilege' ||
+          'agent-standard'
+        }}
+
   run-gemini:
     name: Keepalive next task (Gemini)
     needs:
@@ -1150,13 +1199,15 @@ jobs:
       - run-codex
       - run-claude
       - run-cursor
+      - run-muse
       - run-gemini
       - summary
     if: >-
       always() &&
       needs.evaluate.outputs.dispatch_should_run == 'true' &&
       (needs.run-codex.result != 'skipped' || needs.run-claude.result != 'skipped' ||
-       needs.run-cursor.result != 'skipped' || needs.run-gemini.result != 'skipped')
+       needs.run-cursor.result != 'skipped' || needs.run-muse.result != 'skipped' ||
+       needs.run-gemini.result != 'skipped')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout runner library
@@ -1242,11 +1293,13 @@ jobs:
             ${{ needs.run-codex.outputs.final-message-summary ||
                 needs.run-claude.outputs.final-message-summary ||
                 needs.run-cursor.outputs.final-message-summary ||
+                needs.run-muse.outputs.final-message-summary ||
                 needs.run-gemini.outputs.final-message-summary || '' }}
           EXIT_CODE: >-
             ${{ needs.run-codex.outputs.exit-code ||
                 needs.run-claude.outputs.exit-code ||
                 needs.run-cursor.outputs.exit-code ||
+                needs.run-muse.outputs.exit-code ||
                 needs.run-gemini.outputs.exit-code || '' }}
           JOB_RESULT: >-
             ${{ needs.run-codex.result != 'skipped' &&
@@ -1254,7 +1307,9 @@ jobs:
                 (needs.run-claude.result != 'skipped' &&
                  needs.run-claude.result ||
                  (needs.run-cursor.result != 'skipped' &&
-                  needs.run-cursor.result || needs.run-gemini.result)) }}
+                  needs.run-cursor.result ||
+                  (needs.run-muse.result != 'skipped' &&
+                   needs.run-muse.result || needs.run-gemini.result))) }}
         run: |
           set -euo pipefail
           if [ -z "${PR_NUMBER:-}" ] || [ -z "${HEAD_SHA:-}" ]; then
@@ -1559,6 +1614,7 @@ jobs:
       - run-codex
       - run-claude
       - run-cursor
+      - run-muse
       - run-gemini
     # A review or stop decision is state-changing too: the summary resets the
     # review counter, applies completion routing, and records recovery leases.
@@ -1682,6 +1738,7 @@ jobs:
           needs.run-codex.outputs.changes-made == 'true' ||
           needs.run-claude.outputs.changes-made == 'true' ||
           needs.run-cursor.outputs.changes-made == 'true' ||
+          needs.run-muse.outputs.changes-made == 'true' ||
           needs.run-gemini.outputs.changes-made == 'true'
         uses: actions/github-script@v9
         env:
@@ -1690,6 +1747,7 @@ jobs:
               needs.run-codex.outputs.llm-completed-tasks ||
               needs.run-claude.outputs.llm-completed-tasks ||
               needs.run-cursor.outputs.llm-completed-tasks ||
+              needs.run-muse.outputs.llm-completed-tasks ||
               needs.run-gemini.outputs.llm-completed-tasks ||
               '[]'
             }}
@@ -1704,6 +1762,7 @@ jobs:
               '${{ needs.run-codex.outputs.commit-sha }}' ||
               '${{ needs.run-claude.outputs.commit-sha }}' ||
               '${{ needs.run-cursor.outputs.commit-sha }}' ||
+              '${{ needs.run-muse.outputs.commit-sha }}' ||
               '${{ needs.run-gemini.outputs.commit-sha }}';
 
             // LLM analysis metadata
@@ -1711,18 +1770,21 @@ jobs:
               '${{ needs.run-codex.outputs.llm-provider }}' ||
               '${{ needs.run-claude.outputs.llm-provider }}' ||
               '${{ needs.run-cursor.outputs.llm-provider }}' ||
+              '${{ needs.run-muse.outputs.llm-provider }}' ||
               '${{ needs.run-gemini.outputs.llm-provider }}' ||
               '';
             const llmConfidence =
               '${{ needs.run-codex.outputs.llm-confidence }}' ||
               '${{ needs.run-claude.outputs.llm-confidence }}' ||
               '${{ needs.run-cursor.outputs.llm-confidence }}' ||
+              '${{ needs.run-muse.outputs.llm-confidence }}' ||
               '${{ needs.run-gemini.outputs.llm-confidence }}' ||
               '';
             const llmAnalysisRun =
               '${{ needs.run-codex.outputs.llm-analysis-run }}' === 'true' ||
               '${{ needs.run-claude.outputs.llm-analysis-run }}' === 'true' ||
               '${{ needs.run-cursor.outputs.llm-analysis-run }}' === 'true' ||
+              '${{ needs.run-muse.outputs.llm-analysis-run }}' === 'true' ||
               '${{ needs.run-gemini.outputs.llm-analysis-run }}' === 'true';
 
               // Parse LLM completed tasks if available
@@ -1830,10 +1892,12 @@ jobs:
               needs.run-codex.outputs.final-message-summary ||
               needs.run-claude.outputs.final-message-summary ||
               needs.run-cursor.outputs.final-message-summary ||
+              needs.run-muse.outputs.final-message-summary ||
               needs.run-gemini.outputs.final-message-summary ||
               needs.run-codex.outputs.error-summary ||
               needs.run-claude.outputs.error-summary ||
               needs.run-cursor.outputs.error-summary ||
+              needs.run-muse.outputs.error-summary ||
               needs.run-gemini.outputs.error-summary ||
               needs.preflight.outputs.failure_summary ||
               ''
@@ -1891,22 +1955,26 @@ jobs:
             const claudeResult = '${{ needs.run-claude.result }}';
             const codexResult = '${{ needs.run-codex.result }}';
             const cursorResult = '${{ needs.run-cursor.result }}';
+            const museResult = '${{ needs.run-muse.result }}';
             const geminiResult = '${{ needs.run-gemini.result }}';
             const runnerResult =
               claudeResult && claudeResult !== 'skipped' ? claudeResult :
               (cursorResult && cursorResult !== 'skipped' ? cursorResult :
-              (geminiResult && geminiResult !== 'skipped' ? geminiResult : codexResult));
+              (museResult && museResult !== 'skipped' ? museResult :
+              (geminiResult && geminiResult !== 'skipped' ? geminiResult : codexResult)));
             const preflightFailureSummary = process.env.PREFLIGHT_FAILURE_SUMMARY || '';
             const allRunnersSkipped = [
               claudeResult,
               codexResult,
               cursorResult,
+              museResult,
               geminiResult,
             ].every((result) => !result || result === 'skipped');
             const agentExecutionStarted = [
               '${{ needs.run-codex.outputs.agent-execution-started }}',
               '${{ needs.run-claude.outputs.agent-execution-started }}',
               '${{ needs.run-cursor.outputs.agent-execution-started }}',
+              '${{ needs.run-muse.outputs.agent-execution-started }}',
               '${{ needs.run-gemini.outputs.agent-execution-started }}',
             ].some((value) => value === 'true');
             const runResult = preflightFailureSummary && allRunnersSkipped
@@ -1917,45 +1985,53 @@ jobs:
               '${{ needs.run-codex.outputs.exit-code }}' ||
               '${{ needs.run-claude.outputs.exit-code }}' ||
               '${{ needs.run-cursor.outputs.exit-code }}' ||
+              '${{ needs.run-muse.outputs.exit-code }}' ||
               '${{ needs.run-gemini.outputs.exit-code }}';
             const agentChangesMade =
               '${{ needs.run-codex.outputs.changes-made }}' ||
               '${{ needs.run-claude.outputs.changes-made }}' ||
               '${{ needs.run-cursor.outputs.changes-made }}' ||
+              '${{ needs.run-muse.outputs.changes-made }}' ||
               '${{ needs.run-gemini.outputs.changes-made }}';
             const agentCommitSha =
               '${{ needs.run-codex.outputs.commit-sha }}' ||
               '${{ needs.run-claude.outputs.commit-sha }}' ||
               '${{ needs.run-cursor.outputs.commit-sha }}' ||
+              '${{ needs.run-muse.outputs.commit-sha }}' ||
               '${{ needs.run-gemini.outputs.commit-sha }}';
             const agentFilesChanged =
               '${{ needs.run-codex.outputs.files-changed }}' ||
               '${{ needs.run-claude.outputs.files-changed }}' ||
               '${{ needs.run-cursor.outputs.files-changed }}' ||
+              '${{ needs.run-muse.outputs.files-changed }}' ||
               '${{ needs.run-gemini.outputs.files-changed }}';
 
             const llmProvider =
               '${{ needs.run-codex.outputs.llm-provider }}' ||
               '${{ needs.run-claude.outputs.llm-provider }}' ||
               '${{ needs.run-cursor.outputs.llm-provider }}' ||
+              '${{ needs.run-muse.outputs.llm-provider }}' ||
               '${{ needs.run-gemini.outputs.llm-provider }}' ||
               '';
             const llmModel =
               '${{ needs.run-codex.outputs.llm-model }}' ||
               '${{ needs.run-claude.outputs.llm-model }}' ||
               '${{ needs.run-cursor.outputs.llm-model }}' ||
+              '${{ needs.run-muse.outputs.llm-model }}' ||
               '${{ needs.run-gemini.outputs.llm-model }}' ||
               '';
             const llmConfidence =
               '${{ needs.run-codex.outputs.llm-confidence }}' ||
               '${{ needs.run-claude.outputs.llm-confidence }}' ||
               '${{ needs.run-cursor.outputs.llm-confidence }}' ||
+              '${{ needs.run-muse.outputs.llm-confidence }}' ||
               '${{ needs.run-gemini.outputs.llm-confidence }}' ||
               '';
             const llmAnalysisRun =
               '${{ needs.run-codex.outputs.llm-analysis-run }}' === 'true' ||
               '${{ needs.run-claude.outputs.llm-analysis-run }}' === 'true' ||
               '${{ needs.run-cursor.outputs.llm-analysis-run }}' === 'true' ||
+              '${{ needs.run-muse.outputs.llm-analysis-run }}' === 'true' ||
               '${{ needs.run-gemini.outputs.llm-analysis-run }}' === 'true';
             const inputs = {
               pr_number: Number(process.env.EVALUATE_PR_NUMBER) || 0,

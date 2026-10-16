@@ -28,9 +28,9 @@ MARKER_VERSION = "v1"
 MARKER_PREFIX = "runner-dispatch"
 COMPLETION_MARKER_PREFIX = "runner-completion"
 RESERVATION_MARKER_PREFIX = "runner-reservation"
-PROVIDERS = {"autofix", "claude", "codex", "cursor", "gemini"}
-# cursor and gemini use the same plain-text (non-JSONL) prompt/parse path as claude.
-PROMPT_PROVIDERS = {"claude", "codex", "cursor", "gemini"}
+PROVIDERS = {"autofix", "claude", "codex", "cursor", "gemini", "muse"}
+# cursor, gemini and muse use the same plain-text (non-JSONL) prompt/parse path as claude.
+PROMPT_PROVIDERS = {"claude", "codex", "cursor", "gemini", "muse"}
 TERMINAL_STATUSES = {"completed", "error"}
 TASK_PROGRESS_SCHEMA = 1
 TASK_PROGRESS_FINGERPRINT_RE = re.compile(r"^[0-9a-f]{64}$")

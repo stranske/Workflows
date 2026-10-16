@@ -88,7 +88,7 @@ def test_agent_routing_doc_covers_enabled_registry_agents() -> None:
         if config.get("runner_workflow") and config.get("enabled", True) is not False
     }
 
-    assert set(active_runners) == {"codex", "claude", "cursor", "gemini"}
+    assert set(active_runners) == {"codex", "claude", "cursor", "gemini", "muse"}
 
     missing = [
         f"{agent} ({Path(workflow).name})"

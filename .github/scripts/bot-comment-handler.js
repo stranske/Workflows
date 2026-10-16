@@ -333,6 +333,10 @@ function legacyAgentRoute(labels, defaults = {}) {
     agent = 'gemini';
     workflow = 'reusable-gemini-run.yml';
     mode = 'explicit';
+  } else if (labelSet.has('agent:muse')) {
+    agent = 'muse';
+    workflow = 'reusable-muse-run.yml';
+    mode = 'explicit';
   } else if (labelSet.has('agent:codex')) {
     agent = 'codex';
     workflow = 'reusable-codex-run.yml';
