@@ -1,0 +1,33 @@
+✔ shared evidence clauses keep coordinated negative subjects out of fallback (189.187583ms)
+✔ coordinated malformed URL members terminate without regex partition backtracking (83.724208ms)
+✖ oversized evidence clause preserves raw channels and typed union but fails scope completeness (1.23275ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 2
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 342.661375
+
+✖ failing tests:
+
+test at .github/scripts/__tests__/agents-verifier-context.test.js:5046:1
+✖ oversized evidence clause preserves raw channels and typed union but fails scope completeness (1.23275ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+      123,
+  +   999
+    ]
+  
+      at TestContext.<anonymous> (/Users/teacher/.codex/automations/sync-dependency-pr-closer/worktrees/acceptance-capture-3910-20261015/.github/scripts/__tests__/agents-verifier-context.test.js:5062:12)
+      at async Test.run (node:internal/test_runner/test:1069:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:752:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 123, 999 ],
+    expected: [ 123 ],
+    operator: 'deepStrictEqual'
+  }

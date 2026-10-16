@@ -1,0 +1,94 @@
+✖ .github/scripts/agents_verifier_context.js :: Evidence: run /actions/runs/124, and run /actions/runs/999 are not validation evidence (4.8465ms)
+✖ .github/scripts/agents_verifier_context.js :: No evidence: /actions/runs/999, and Current validation run: /actions/runs/124 (0.844791ms)
+✖ templates/consumer-repo/.github/scripts/agents_verifier_context.js :: Evidence: run /actions/runs/124, and run /actions/runs/999 are not validation evidence (1.300417ms)
+✖ templates/consumer-repo/.github/scripts/agents_verifier_context.js :: No evidence: /actions/runs/999, and Current validation run: /actions/runs/124 (0.239959ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 0
+ℹ fail 4
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 98.466958
+
+✖ failing tests:
+
+test at ../../../../../../../private/tmp/3820-native-red.cjs:15:6
+✖ .github/scripts/agents_verifier_context.js :: Evidence: run /actions/runs/124, and run /actions/runs/999 are not validation evidence (4.8465ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+  + [
+  +   124
+  + ]
+  - []
+  
+      at TestContext.<anonymous> (/private/tmp/3820-native-red.cjs:26:12)
+      at async Test.run (node:internal/test_runner/test:1069:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:332:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 124 ],
+    expected: [],
+    operator: 'deepStrictEqual'
+  }
+
+test at ../../../../../../../private/tmp/3820-native-red.cjs:15:6
+✖ .github/scripts/agents_verifier_context.js :: No evidence: /actions/runs/999, and Current validation run: /actions/runs/124 (0.844791ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+  + []
+  - [
+  -   124
+  - ]
+  
+      at TestContext.<anonymous> (/private/tmp/3820-native-red.cjs:26:12)
+      at async Test.run (node:internal/test_runner/test:1069:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:752:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [],
+    expected: [ 124 ],
+    operator: 'deepStrictEqual'
+  }
+
+test at ../../../../../../../private/tmp/3820-native-red.cjs:15:6
+✖ templates/consumer-repo/.github/scripts/agents_verifier_context.js :: Evidence: run /actions/runs/124, and run /actions/runs/999 are not validation evidence (1.300417ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+  + [
+  +   124
+  + ]
+  - []
+  
+      at TestContext.<anonymous> (/private/tmp/3820-native-red.cjs:26:12)
+      at async Test.run (node:internal/test_runner/test:1069:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:752:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 124 ],
+    expected: [],
+    operator: 'deepStrictEqual'
+  }
+
+test at ../../../../../../../private/tmp/3820-native-red.cjs:15:6
+✖ templates/consumer-repo/.github/scripts/agents_verifier_context.js :: No evidence: /actions/runs/999, and Current validation run: /actions/runs/124 (0.239959ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+  + []
+  - [
+  -   124
+  - ]
+  
+      at TestContext.<anonymous> (/private/tmp/3820-native-red.cjs:26:12)
+      at async Test.run (node:internal/test_runner/test:1069:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:752:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [],
+    expected: [ 124 ],
+    operator: 'deepStrictEqual'
+  }

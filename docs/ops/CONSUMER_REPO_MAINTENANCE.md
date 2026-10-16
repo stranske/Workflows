@@ -1860,8 +1860,14 @@ explicit workflow-run references in typed evidence inputs or locally labelled
 evidence/validation/artifact/test-result lines define the artifact retrieval set when both
 reference-bearing body and comment channels were fully inspected. Unrelated
 associated head/merge jobs and incidental status URLs cannot exhaust that set's
-run budget. Select the deduplicated union of typed and labelled explicit IDs
-before budget accounting and provenance validation. Without complete
+run budget. Select the deduplicated union of typed and positively labelled explicit IDs
+before budget accounting and provenance validation. Prose labels bind within
+period/semicolon/contrastive-but clauses: `not evidence` and `no validation` do not
+select diagnostic links as current proof. Negation extends through compound labels
+and diagnostic continuations; only a fresh affirmative label such as `but Evidence:`
+reopens that scope. Earlier genuine positive proof is retained. An independent positive declaration
+remains selected, and original comment bytes remain fully captured. Without a
+complete positive set, existing incidental/associated discovery still applies. Without complete
 explicit references, bounded associated-run discovery remains fail-closed.
 Incidental body/comment URLs, including status-table `View run` links, do not
 select an exclusive evidence set: when no explicit set exists, continue exact-head associated-run discovery
@@ -3028,3 +3034,30 @@ A successful fork attempt with missing, malformed, incomplete or duplicate evalu
 Agents Guard reads its trusted base registry with at most three retryable API attempts. The direct publisher must replace any same-head prior success with failure if registry retrieval/type/parsing remains unavailable, without a success policy receipt. This is separate from evaluated-attempt metadata validation; current-head CI and native acceptance remain mandatory.
 
 The privileged fork publisher also replaces prior success when registry evidence is unavailable, only after fresh PR/head/base/run/latest-attempt binding checks. Registry failure never grants success or bypasses a newer producer.
+Verifier explicit-evidence labels also exclude an immediately preceding run URL when its own trailing predicate says it is/was not evidence (including Markdown links). Independently positive earlier URLs remain selected; historical comment bytes remain fully captured. See issue3820 positive-evidence-clauses native finding4289392041 proof.
+
+A trailing negative evidence predicate binds its complete comma/and/or coordinated run-URL subject; it does not preserve an earlier URL merely because the predicate is plural. Independent earlier affirmative clauses remain selected.
+
+Negative workflow-run references remain filtered from incidental fallback even when no explicit positive URL survives. Typed references retain their explicit union. Common introductory However/Separately/Instead/Also labels can start an independent positive declaration. Singular and bare/dash negative predicates bind the immediate URL; explicit plural are/were predicates bind coordinated URL subjects.
+
+Negative run-URL predicates use the same referenced run identity for ordinary job/attempt/query/fragment links, retaining query-key underscores and filtering the negated run before incidental fallback.
+
+No/not evidence predicates retain intervening word modifiers such as current, the current acceptance and valid standalone. Additive Not only/Not just/Not the only declarations remain positive. The same predicate classification filters incidental fallback.
+
+If a prose source contains a negative evidence diagnostic, Markdown hard breaks do not restore its unlabelled historical links through incidental fallback. Independently positive declarations and typed references remain; actual-head discovery remains available. Negative URL subjects accept angle-autolink wrappers, including plural lists.
+
+Markdown Evidence/Validation section labels bind following reference-only lines across blanks, including headings, bold labels, bullets, Markdown links, code spans and angle links. Narrative or a different heading closes inherited scope; historical negative diagnostics remain excluded. Source and identical consumer tests retain the original native4289793470 counterexample and independent positive/negative section controls.
+
+Reference-only section lines normalize Markdown unordered -, + and * bullets, ordered N./N) markers, checked/unchecked task markers and quote prefixes before checking that no narrative remains. Native4289891467 causal list controls fail before the correction; full source/template suite155PASS afterward.
+
+Markdown section labels and reference lines both normalize quote prefixes. Reference-only lines accept terminal punctuation without treating it as narrative. The finite cross-product covers plain/nested quotes, plain/heading/bold section labels, eight list/task styles, three link forms and four punctuation styles (864 combinations), each on source/template with and without an independent body anchor. Native4289922529/4289922535 controls are causal RED, full155test suite GREEN.
+
+Fallback filtering is local to the negative diagnostic and its governed clause/reference. Incidental sibling links before/after independent diagnostic lines or labels survive; anaphoric This/That/It negative diagnoses exclude the immediately preceding unlabelled run reference, without erasing other links in the source. Native4289959546 original counterexample and same-line/clause-order controls are causal RED; full156source/template tests PASS. Explicit typed/positive selection and exact-head provenance remain unchanged.
+
+Anaphoric diagnostic subjects permit bounded modifier/noun phrases between This/That/It/These/Those and the copula. Cross-line filtering removes the last governed unlabelled reference clause while retaining sibling clauses; the same local filter runs again so removal cannot restore an earlier negative reference. Native4290009208/4290009212 original combined sibling cases are RED; full156source/template tests PASS, including already-filtered preceding negatives.
+
+Cross-line anaphoric diagnostics normalize unordered/ordered/task/quote prefixes. Local clauses retain independent comma-while/whereas/but/and siblings when excluding the governed historical run. Native4290041240/4290041250 causal RED and full156source/template PASS retained.
+
+Evidence selection and incidental fallback share one clause classification with the same negative URL-subject spans and independent clause boundaries. Comma-and/or joins between URL subjects stay coordinated; independent non-URL clauses and while/whereas/but contrasts retain their own scope. Cross-line anaphoric cleanup consumes those same boundaries. Native4290073005 causal RED and the1072-case source/template anchored/unanchored coordination matrix are retained, with full157tests PASS. No typed-union, raw-comment, exact-head provenance or channel-completeness floor changes.
+
+Coordinated negative subjects use shared descriptor-aware URL tokens and a bounded scan of separators, avoiding repeated regex partitions. Commas cannot be URL-token content; run/workflow-run descriptors are subject members, while colon-labelled descriptive evidence declarations reopen affirmative scope. Oversized32768-character prose lines make reference-scope/artifact completeness unavailable before classification; raw body/comments and typed evidence remain preserved. Native4290325535/4290325565, CodeRabbit4290327270, real earlier-head timeout and cap RED controls plus full160tests/16892coordination checks are retained.
