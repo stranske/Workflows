@@ -419,9 +419,10 @@ jobs:
             // getAgentConfig is the established API; do not require a new export.
             const { getAgentConfig } = require('./.github/scripts/agent_registry.js');
             const agent = (process.env.AGENT || '').trim();
-            const cfg = getAgentConfig(agent);
+            const agentKey = agent.toLowerCase();
+            const cfg = getAgentConfig(agentKey || 'codex');
             const preflight = cfg.preflight || {};
-            const defaults = agent === 'codex'
+            const defaults = agentKey === 'codex'
               ? ['chatgpt-codex-connector', 'stranske-automation-bot']
               : ['stranske-automation-bot'];
             const assignees = Array.isArray(cfg.assignees) && cfg.assignees.length

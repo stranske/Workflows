@@ -193,8 +193,9 @@ main().catch(error => {console.error(error); process.exit(1)});
         ),
         capture_output=True,
         text=True,
-        check=True,
+        check=False,
     )
+    assert result.returncode == 0, result.stderr
     return json.loads(result.stdout)
 
 
@@ -288,3 +289,13 @@ def test_original_issue_link_preserves_legacy_mention_and_configured_command(tmp
     ]:
         result = _execute_bridge_script(script, registry, agent=agent, mention="@legacy-bot")
         assert expected in result["captured"][0]["body"]
+
+
+def test_shared_invitation_resolver_normalizes_mixed_case_agent_keys(tmp_path):
+    registry = _custom_invite_registry(tmp_path)
+    cursor = _execute_bridge_script("", registry, agent="CuRsOr")["outputs"]
+    assert cursor["command"] == "@cursor implement this issue"
+    assert json.loads(cursor["assignees"]) == ["cursor-intake-bot", "stranske-automation-bot"]
+    codex = _execute_bridge_script("", registry, agent="CoDeX")["outputs"]
+    assert codex["command"] == ""
+    assert json.loads(codex["assignees"]) == ["chatgpt-codex-connector", "stranske-automation-bot"]
