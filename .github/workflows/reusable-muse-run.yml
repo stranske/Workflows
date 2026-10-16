@@ -856,6 +856,10 @@ jobs:
           META_API_KEY: ${{ secrets.META_API_KEY || '' }}
           MAX_MODEL_STEPS: ${{ inputs.max_model_steps }}
           PR_REF: ${{ inputs.pr_ref }}
+          GIT_AUTHOR_NAME: muse-agent
+          GIT_AUTHOR_EMAIL: muse-agent@users.noreply.github.com
+          GIT_COMMITTER_NAME: muse-agent
+          GIT_COMMITTER_EMAIL: muse-agent@users.noreply.github.com
         run: |
           set -euo pipefail
 
@@ -1021,6 +1025,38 @@ jobs:
 
           if [ "$status" -ne 0 ]; then
             exit "$status"
+          fi
+
+      - name: Attribute Muse commits to Muse
+        id: attribute
+        if: always() && steps.capability_evidence.outcome != 'failure'
+        continue-on-error: true
+        env:
+          PR_REF: ${{ inputs.pr_ref }}
+          GIT_AUTHOR_NAME: muse-agent
+          GIT_AUTHOR_EMAIL: muse-agent@users.noreply.github.com
+          GIT_COMMITTER_NAME: muse-agent
+          GIT_COMMITTER_EMAIL: muse-agent@users.noreply.github.com
+        run: |
+          set -uo pipefail
+          # The Muse CLI commits as "Claude <noreply@anthropic.com>" (Workflows#3955), which makes
+          # outcome attribution credit Claude. Rewrite ONLY unpushed commits carrying that
+          # identity to the muse identity before they are pushed. Best effort: any problem aborts
+          # the rewrite and the original commits are pushed unchanged.
+          target="${PR_REF:-$(git rev-parse --abbrev-ref HEAD)}"
+          target="${target#refs/heads/}"
+          git fetch --quiet origin "$target" 2>/dev/null || exit 0
+          base="$(git rev-parse FETCH_HEAD 2>/dev/null)" || exit 0
+          foreign="$(git log --format='%ae' "$base"..HEAD | grep -c '^noreply@anthropic.com$' || true)"
+          if [ "${foreign:-0}" -eq 0 ]; then
+            echo "No unpushed commits carry the Claude identity; nothing to attribute."
+            exit 0
+          fi
+          if git rebase --quiet --exec 'git commit --amend --no-edit --reset-author' "$base"; then
+            echo "::notice::Re-attributed ${foreign} Muse commit(s) to muse-agent."
+          else
+            git rebase --abort 2>/dev/null || true
+            echo "::warning::Could not re-attribute Muse commits; pushing them unchanged."
           fi
 
       - name: Commit and push changes

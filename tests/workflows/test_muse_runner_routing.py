@@ -89,3 +89,15 @@ def test_run_step_refuses_to_exec_after_a_failed_sandbox_or_prompt_guard():
     assert guard in text
     assert text.index(guard) < text.index('"$MUSE_BIN" exec')
     assert "grep -cvE '^.. agents/.*\\.md$' || true" in text
+
+
+def test_run_step_sets_a_muse_git_identity():
+    steps = _jobs(WF / "reusable-muse-run.yml")["muse"]["steps"]
+    by_name = {s["name"]: s for s in steps}
+    env = by_name["Run Muse"]["env"]
+    for var in ("GIT_AUTHOR_NAME", "GIT_AUTHOR_EMAIL", "GIT_COMMITTER_NAME", "GIT_COMMITTER_EMAIL"):
+        assert "muse" in env[var], var
+        assert "claude" not in env[var].lower() and "anthropic" not in env[var].lower(), var
+    names = [s["name"] for s in steps]
+    assert names.index("Attribute Muse commits to Muse") < names.index("Commit and push changes")
+    assert by_name["Attribute Muse commits to Muse"]["continue-on-error"] is True
