@@ -3,8 +3,8 @@
 # META_API_KEY must be the console key the Muse Code SUBSCRIPTION login creates (never a
 # Default Project key: those meter pay-as-you-go). Muse has no free authentication probe, so
 # this check is presence-only for the key, plus the two things that fail a round on a runner
-# regardless of the key: the CLI installing/starting, and the bubblewrap sandbox Meta requires
-# on Linux CI. No `muse exec` is run and no model call is made, so this never spends.
+# regardless of the key: the CLI installing/starting, and Muse startup/sandbox helper selection Meta requires
+# on Linux CI. Only the local echo provider is used; no model API call is made, so this never spends.
 name: Health 79 Muse Auth Check
 
 on:
@@ -50,17 +50,22 @@ jobs:
           else
             echo "cli=failed" >> "$GITHUB_OUTPUT"
           fi
-          if ! command -v bwrap >/dev/null 2>&1; then
-            sudo apt-get update -qq && sudo apt-get install -y -qq bubblewrap
-          fi
-          if ! bwrap --ro-bind / / --dev /dev --unshare-user true 2>/dev/null; then
-            sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0 >/dev/null 2>&1 || true
-          fi
-          if bwrap --ro-bind / / --dev /dev --unshare-user true 2>/dev/null; then
+          # Exercise Muse's own startup and sandbox-helper selection. The echo
+          # provider is local and deterministic; it cannot make a billable model call.
+          probe_dir="$(mktemp -d)"
+          if (
+            cd "$probe_dir"
+            META_API_KEY= MUSE_NO_AUTO_UPDATE=1 timeout 60 muse exec \
+              --provider echo --sandbox-network restricted --disable-write \
+              --disable-web-tools --disable-reminders --no-foreign-personal-context \
+              --no-session-log --approval-judge off 'sandbox startup health check' \
+              >/dev/null 2>&1
+          ); then
             echo "sandbox=ok" >> "$GITHUB_OUTPUT"
           else
             echo "sandbox=failed" >> "$GITHUB_OUTPUT"
           fi
+          rmdir "$probe_dir" 2>/dev/null || true
 
       - name: Summary and verdict
         if: always()
@@ -75,7 +80,7 @@ jobs:
             echo ""
             echo "- META_API_KEY: **${KEY_STATUS:-unknown}** (presence-only; Muse has no free auth probe)"
             echo "- muse CLI: **${CLI_STATUS:-not checked}**"
-            echo "- bubblewrap sandbox: **${SANDBOX_STATUS:-not checked}**"
+            echo "- Muse sandbox startup: **${SANDBOX_STATUS:-not checked}**"
           } >> "$GITHUB_STEP_SUMMARY"
           if [ "${KEY_STATUS:-}" != "present" ]; then
             echo "::error::META_API_KEY is not set; Muse workflows cannot authenticate."
