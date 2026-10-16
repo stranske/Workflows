@@ -708,6 +708,91 @@ test('deterministic evidence requires current head and live source commands', as
   assert.equal((await acceptanceGatePlan({ github, context, pr, state })).complete, false);
 });
 
+test('deterministic verification reads live issue commands instead of completed PR criteria', async () => {
+  const pr = {
+    number: 3979,
+    head: { ref: 'feature/acceptance', sha: 'gate-head' },
+    labels: [{ name: 'agent:codex' }],
+    body: 'Closes #42\n## Tasks\n- [x] Implement gate\n## Acceptance Criteria\n- [x] `pytest tests/test_cached.py` passes',
+  };
+  const context = buildContext(pr.number);
+  const cachedCommand = { criterion: 0, command: 'pytest tests/test_cached.py' };
+  const github = buildGithubStub({
+    pr,
+    comments: [{ id: 23, body: formatStateComment({
+      verification: { status: 'done' },
+      deterministic_gates: {
+        head_sha: pr.head.sha,
+        source_hash: crypto.createHash('sha256').update(JSON.stringify([cachedCommand])).digest('hex'),
+        results: [{ ...cachedCommand, exit_code: 0, output: '1 passed' }],
+      },
+    }) }],
+    workflowRuns: [{ head_sha: pr.head.sha, conclusion: 'success' }],
+  });
+  let fetches = 0;
+  let source = '## Acceptance Criteria\n- [ ] `pytest tests/test_live.py` passes';
+  github.rest.issues.get = async (params) => {
+    assert.deepEqual(params, { ...context.repo, issue_number: 42 });
+    fetches++;
+    return { data: { body: source } };
+  };
+  const evaluate = () => evaluateKeepaliveLoop({
+    github, context, core: buildCore(), deterministicGatesEnabled: true,
+  });
+
+  const result = await evaluate();
+  assert.equal(result.action, 'run');
+  assert.equal(result.reason, 'verify-acceptance');
+  assert.deepEqual(result.deterministicGates.commands, [
+    { criterion: 0, command: 'pytest tests/test_live.py' },
+  ]);
+  assert.equal(result.deterministicGates.complete, false);
+  assert.match(result.taskAppendix, /pytest tests\/test_live.py \(exit not run on this head\/criteria\)/);
+
+  source = source.replace('test_live', 'test_edited');
+  const next = await evaluate();
+  assert.equal(fetches, 2);
+  assert.equal(next.reason, 'verify-acceptance');
+  assert.deepEqual(next.deterministicGates.commands, [
+    { criterion: 0, command: 'pytest tests/test_edited.py' },
+  ]);
+});
+
+test('deterministic verification falls back to PR criteria only without a linked issue', async () => {
+  const pr = {
+    number: 3979, head: { sha: 'gate-head' },
+    body: '<!-- auto-status-summary:start -->\n## Tasks\n- [x] Implement gate\n## Acceptance Criteria\n- [ ] `make test` passes\n<!-- auto-status-summary:end -->',
+  };
+  const github = buildGithubStub({ pr });
+  github.rest.issues.get = async () => {
+    assert.fail('An unlinked PR must not fetch an issue');
+  };
+  const plan = await acceptanceGatePlan({ github, context: buildContext(pr.number), pr, state: {} });
+  assert.deepEqual(plan.commands, [{ criterion: 0, command: 'make test' }]);
+  assert.equal(plan.markdown, pr.body);
+  assert.equal(plan.complete, false);
+});
+
+test('deterministic verification refuses completion when the linked issue cannot be fetched', async () => {
+  const pr = {
+    number: 3979,
+    head: { ref: 'feature/acceptance', sha: 'gate-head' },
+    labels: [{ name: 'agent:codex' }],
+    body: 'Closes #42\n## Tasks\n- [x] Implement gate\n## Acceptance Criteria\n- [x] Cached manual criterion',
+  };
+  const github = buildGithubStub({
+    pr,
+    comments: [{ id: 23, body: formatStateComment({ verification: { status: 'done' } }) }],
+    workflowRuns: [{ head_sha: pr.head.sha, conclusion: 'success' }],
+  });
+  github.rest.issues.get = async () => {
+    throw Object.assign(new Error('Linked issue unavailable'), { status: 404 });
+  };
+  await assert.rejects(evaluateKeepaliveLoop({
+    github, context: buildContext(pr.number), core: buildCore(), deterministicGatesEnabled: true,
+  }), /Linked issue unavailable/);
+});
+
 test('deterministic gate summary renders inside the automated status block', () => {
   const body = '<!-- auto-status-summary:start -->\n## Automated Status Summary\n#### Tasks\n- [x] Done\n<!-- auto-status-summary:end -->';
   const gates = { commands: [{ criterion: 0, command: 'pytest' }], results: [] };
