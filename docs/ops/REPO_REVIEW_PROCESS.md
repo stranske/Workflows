@@ -349,3 +349,35 @@ The weekly queue also includes the recommended sections:
 Consumer repo reviews must not generate issues for Workflows maintenance, template sync, or cross-repo lane-management work unless that work directly implements repo-local behavior required by the consumer repo design. Those maintenance tasks belong in `stranske/Workflows`.
 
 Completion audits should still use the issue-completion audit workflow before declaring issue work fully done: review feedback, merge state, verifier outcomes, and non-PASS follow-up disposition all matter.
+
+## Approval identity and backlog reconciliation
+
+Candidate positions belong to one negotiated source set. All approval selectors,
+including explicit indexes and title patterns, obey the recorded cycle binding.
+Numeric positions require an exact `approved_converged_synthesized_at` pin;
+changing a global feedback date cannot rebind them to another source set.
+An explicit `approved_title_patterns` field is authoritative: empty, invalid or
+unmatched patterns select nothing and never fall back to old numeric positions.
+An approval pinned to a different `synthesized_at` remains historical approval;
+it does not authorize newly reordered or expanded candidates.
+
+Keep historical approvals in `docs/reports/repo-review/approval-ledger.json` using
+schema `repo-review-approval-ledger/v1`. The ledger binds an immutable original
+approved queue by SHA-256 and accounts for every approved item using repository,
+normalized title identity, original item digest and filing evidence. Queue
+regeneration imports only unfiled approved snapshots, with their original bodies,
+priorities and evidence intact. Filed and unknown-filing entries remain in the
+backlog and never re-enter the upload queue. Malformed, incomplete or changed
+approval snapshots stop regeneration rather than silently dropping approvals.
+The ledger is local report state and must not be committed with personal reviews.
+
+A reconciled backlog should retain both weeks' source occurrences, identify same-gap
+recurrences separately from related or expanded scopes, and preserve pending policy
+choices. Similar titles alone do not transfer approval to a new body. Closed issue
+status records filing/lifecycle state; it does not prove verifier acceptance.
+
+When the ledger's `intake_hold.active` is true, regenerated queues carry the hold
+and `upload_allowed: false`. The uploader refuses `--apply` before any GitHub
+operation. Preserve the owner's hold until explicitly released; approval and intake
+authority are separate decisions. Dry-run remains read-only. No weekly review or
+reconciliation uploads issues automatically.

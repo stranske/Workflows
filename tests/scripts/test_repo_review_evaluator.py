@@ -1070,6 +1070,7 @@ def test_priority_tiering_respects_explicit_naming_and_opt_in(tmp_path: Path) ->
                 "decision": "approve",
                 "priority": "normal",
                 "approved_candidates": [1, 2, 3],
+                "approved_converged_synthesized_at": state["round2_converged"]["synthesized_at"],
             }
         },
     }
@@ -1454,3 +1455,111 @@ def test_excluded_parent_references_are_removed_before_remote_counts(tmp_path):
 )
 def test_exclusion_repo_name_punctuation_and_longer_names(text, expected):
     assert evaluator.references_excluded_repo(text, ["held-repo"]) is expected
+
+
+def test_unmatched_approval_titles_never_fall_back_to_old_positions() -> None:
+    candidates = [{"candidate_index": 1, "title": "New production smoke audit"}]
+    for patterns in (["^Old scoring fix$"], ["["], []):
+        decision = {"approved_candidates": [1], "approved_title_patterns": patterns}
+        assert evaluator.approved_candidate_indexes(decision, 1, {}, candidates) == set()
+
+
+def test_stale_explicit_approval_cannot_select_another_cycle(tmp_path: Path) -> None:
+    state = _tiering_state(tmp_path)
+    decision = {
+        "decision": "approve",
+        "approved_candidates": [1, 2, 3],
+        "approved_converged_synthesized_at": "2026-01-01T00:00:00Z",
+    }
+    feedback = {"generated_on": "2026-05-01", "decisions": {state["repo"]: decision}}
+    for extra in ({}, {"approved_title_patterns": ["^Add low-priority cleanup gate$"]}):
+        decision.update(extra)
+        queue = evaluator.build_approved_issue_queue([state], feedback, "2026-05-01")
+        assert queue["issues"] == []
+        assert any("stale-feedback guard" in warning for warning in queue["warnings"])
+
+
+def test_current_cycle_explicit_approval_still_selects_named_position(tmp_path: Path) -> None:
+    state = _tiering_state(tmp_path)
+    feedback = {
+        "generated_on": "2026-01-01",
+        "decisions": {
+            state["repo"]: {
+                "decision": "approve",
+                "approved_candidates": [2],
+                "approved_converged_synthesized_at": state["round2_converged"]["synthesized_at"],
+            }
+        },
+    }
+    queue = evaluator.build_approved_issue_queue([state], feedback, "2026-05-01")
+    assert [issue["title"] for issue in queue["issues"]] == ["Add normal-priority smoke gate"]
+
+
+def test_queue_regeneration_preserves_original_approval_and_hold(tmp_path: Path) -> None:
+    import hashlib
+    import json
+
+    from scripts import repo_review_approval_ledger as ledger
+
+    state = _tiering_state(tmp_path)
+    current_feedback = {
+        "generated_on": "2026-05-01",
+        "decisions": {
+            state["repo"]: {
+                "decision": "approve",
+                "approved_candidates": [1, 2],
+                "approved_converged_synthesized_at": state["round2_converged"]["synthesized_at"],
+            }
+        },
+    }
+    original = evaluator.build_approved_issue_queue([state], current_feedback, "2026-05-01")
+    assert len(original["issues"]) == 2
+    source = tmp_path / "original-approved.json"
+    source.write_text(json.dumps(original))
+    entries = [
+        {
+            "repo": item["repo"],
+            "title": item["title"],
+            "finding_id": ledger.finding_id(item["repo"], item["title"]),
+            "approved_item_sha256": ledger.item_digest(item),
+            "filing": {"status": "unfiled", "issues": []},
+        }
+        for item in original["issues"]
+    ]
+    (tmp_path / "approval-ledger.json").write_text(
+        json.dumps(
+            {
+                "schema": ledger.SCHEMA,
+                "source_queue_path": str(source),
+                "source_queue_sha256": hashlib.sha256(source.read_bytes()).hexdigest(),
+                "authority": "Owner approved original snapshot",
+                "source_cycle": "earlier-cycle",
+                "entries": entries,
+                "intake_hold": {"active": True},
+            }
+        )
+    )
+    state["round2_converged"]["synthesized_at"] = "2026-06-01T00:00:00Z"
+    state["round2_converged"]["converged_candidates"][0]["title"] = "Different new work"
+    for _ in range(2):
+        queue = evaluator.write_approved_issue_queue(
+            tmp_path, [state], current_feedback, "2026-06-01"
+        )
+        assert [x["title"] for x in queue["issues"]] == [x["title"] for x in original["issues"]]
+        assert all(
+            x["body"] == original["issues"][i]["body"] for i, x in enumerate(queue["issues"])
+        )
+        assert queue["intake_hold"]["active"] is True
+        assert queue["upload_allowed"] is False
+        assert "Owner intake hold active" in (tmp_path / "approved-issue-queue.md").read_text()
+
+
+def test_fresh_global_date_cannot_rebind_unpinned_numeric_positions(tmp_path: Path) -> None:
+    state = _tiering_state(tmp_path)
+    feedback = {
+        "generated_on": "2099-01-01",
+        "decisions": {state["repo"]: {"decision": "approve", "approved_candidates": [1]}},
+    }
+    queue = evaluator.build_approved_issue_queue([state], feedback, "2099-01-01")
+    assert queue["issues"] == []
+    assert any("stale-feedback guard" in warning for warning in queue["warnings"])

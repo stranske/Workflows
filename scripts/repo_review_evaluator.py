@@ -2588,7 +2588,9 @@ def approved_candidate_indexes(
     title_pattern_indexes = candidate_title_pattern_indexes(
         decision, "approved_title_patterns", candidates
     )
-    if title_pattern_indexes:
+    # Declared title selectors are authoritative, including empty/malformed/no-match
+    # selectors. Falling back to positions would approve unrelated new findings.
+    if "approved_title_patterns" in decision:
         return title_pattern_indexes
     approved = decision.get("approved_candidates", defaults.get("approved_candidates", []))
     if approved == "all":
@@ -2992,25 +2994,31 @@ def build_approved_issue_queue(
             )
             continue
 
-        # Cycle-binding (#2272): a blanket "approve all" only auto-approves the cycle the
-        # human actually reviewed. If the feedback predates this converged set (and the
-        # repo hasn't opted into unattended approval), route the new candidates to
-        # deeper-review instead of materializing them. Explicitly listed approved_candidates
-        # and repos with auto_approve_new:true are unaffected.
-        approved_spec = decision.get("approved_candidates", defaults.get("approved_candidates", []))
-        is_blanket = isinstance(approved_spec, str) and approved_spec.strip().lower() == "all"
+        # Every approval selector is cycle-bound. Explicit numeric positions and
+        # matching titles cannot override an approval pinned to another source set.
+        # Keep old approvals in the persistent ledger instead of reinterpreting them.
         auto_approve_new = bool(decision.get("auto_approve_new", False))
         converged = state.get("round2_converged")
-        if (
-            is_blanket
-            and not auto_approve_new
-            and not feedback_covers_converged(
+        approved_spec = decision.get("approved_candidates", defaults.get("approved_candidates", []))
+        positional = (
+            "approved_title_patterns" not in decision
+            and isinstance(approved_spec, list)
+            and bool(approved_spec)
+        )
+        synth = str((converged or {}).get("synthesized_at") or "").strip()
+        pinned = str(decision.get("approved_converged_synthesized_at") or "").strip()
+        # A global feedback date can change for an unrelated repository. Positions
+        # require an exact source-set pin, never just a recent global date.
+        unbound_positions = positional and bool(synth) and pinned != synth
+        if not auto_approve_new and (
+            unbound_positions
+            or not feedback_covers_converged(
                 decision, feedback_config.get("generated_on", ""), converged
             )
         ):
             synth = str((converged or {}).get("synthesized_at") or "").strip()
             warnings.append(
-                f"{state['repo']}: blanket 'approve all' feedback is not bound to the current "
+                f"{state['repo']}: approval feedback is not bound to the current "
                 f"converged set; routed to deeper-review (stale-feedback guard)."
             )
             deeper_review.append(
@@ -3019,12 +3027,11 @@ def build_approved_issue_queue(
                     "priority": priority,
                     "decision": "deeper-review",
                     "notes": (
-                        f"Blanket 'approve all' feedback (generated_on "
-                        f"{feedback_config.get('generated_on', '?')}) predates this cycle's converged "
-                        f"set (synthesized_at {synth or '?'}); new candidates need fresh human "
-                        f"approval. To approve: set this repo's approved_converged_synthesized_at to "
-                        f"the converged synthesized_at, list specific approved_candidates, or set "
-                        f"auto_approve_new: true."
+                        "Recorded approvals belong to another reviewed source set "
+                        f"(current synthesized_at {synth or '?'}). Preserve those approvals "
+                        "in the reconciled backlog; review new or changed scopes before "
+                        "binding approval to this cycle. Numeric candidate positions alone "
+                        "do not authorize a different cycle."
                     ),
                     "design_target": state["decision_brief"]["design_target"],
                     "review_focus": state["decision_brief"]["review_focus"],
@@ -3242,6 +3249,16 @@ def write_approved_issue_queue(
 ) -> dict[str, Any]:
     scorecard_scan = load_scorecard_scan(output_dir / "scorecard-scan.json")
     queue = build_approved_issue_queue(states, feedback_config, generated_on, scorecard_scan)
+    try:
+        from scripts.repo_review_approval_ledger import merge_approval_ledger
+    except ModuleNotFoundError:  # pragma: no cover - direct script execution
+        from repo_review_approval_ledger import merge_approval_ledger
+
+    queue = merge_approval_ledger(
+        queue,
+        output_dir / "approval-ledger.json",
+        allowed_repos={state["repo"] for state in states},
+    )
     (output_dir / "approved-issue-queue.json").write_text(
         json.dumps(queue, indent=2) + "\n", encoding="utf-8"
     )
@@ -3257,9 +3274,24 @@ def write_approved_issue_queue(
         "## Approved Issues",
         "",
     ]
+    if queue.get("intake_hold", {}).get("active"):
+        lines.extend(
+            [
+                "**Owner intake hold active. Approvals are preserved; do not upload or materialize these items.**",
+                "",
+            ]
+        )
     if not queue["issues"]:
         lines.extend(["No approved issue candidates are queued.", ""])
     for item in queue["issues"]:
+        if item.get("approval_source"):
+            lines.extend(
+                [
+                    f"- Stable finding ID: `{item['finding_id']}`",
+                    f"- Preserved approval cycle: `{item['approval_source']['cycle']}`; original scope only. Verify current source relevance before intake.",
+                    "",
+                ]
+            )
         lines.extend(
             [
                 f"### [{item['priority']}] {item['repo']} candidate {item['candidate_index']}: {item['title']}",

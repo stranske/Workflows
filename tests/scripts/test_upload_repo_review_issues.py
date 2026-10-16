@@ -1,6 +1,7 @@
 import json
 from pathlib import Path
 
+import pytest
 from scripts import upload_repo_review_issues as uploader
 
 VALID_BODY = """## Why
@@ -212,3 +213,15 @@ def test_create_issue_stamps_item_marker(monkeypatch) -> None:
         "owner/repo", "Add a deterministic smoke gate", written["body"]
     )
     assert restamped.count("repo-review-item:") == 1
+
+
+def test_main_refuses_held_queue_before_any_github_operation(tmp_path, monkeypatch, capsys):
+    import argparse
+
+    path = tmp_path / "queue.json"
+    path.write_text(json.dumps({"issues": [], "intake_hold": {"active": True}}))
+    args = argparse.Namespace(queue=path, apply=True, gh_prefix="gh", repo=[])
+    monkeypatch.setattr(uploader, "parse_args", lambda: args)
+    monkeypatch.setattr(uploader, "upload_issues", lambda *a, **k: pytest.fail("must not upload"))
+    assert uploader.main() == 2
+    assert "hold active" in capsys.readouterr().err
