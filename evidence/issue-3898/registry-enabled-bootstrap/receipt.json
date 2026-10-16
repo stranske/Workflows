@@ -1,0 +1,39 @@
+{
+  "schema": "registry-enabled-bootstrap/v1",
+  "base": "a09890634bf24c44a021d75b6aa484a31e5fb54a",
+  "observed_at": "2026-10-16T02:32:03.669681+00:00",
+  "actual_old_parser_before": [
+    "agent:auto",
+    "agent:claude",
+    "agent:codex",
+    "agent:copilot",
+    "agent:cursor",
+    "agent:gemini",
+    "agents:auto-pilot",
+    "agents:keepalive"
+  ],
+  "actual_old_parser_after": [
+    "agent:auto",
+    "agent:claude",
+    "agent:codex",
+    "agent:copilot",
+    "agent:cursor",
+    "agent:gemini",
+    "agents:auto-pilot",
+    "agents:keepalive"
+  ],
+  "routing_equal": true,
+  "explicit_values": {
+    "codex": true,
+    "claude": true,
+    "cursor": true,
+    "gemini": true,
+    "aider": false
+  },
+  "nested_preflight_unchanged": true,
+  "source_template_bytes_match": true,
+  "before_sha256": "0385032660ca10d8eee566fca85cf8ce2b5acced49959775aaae255646ba0ffe",
+  "after_sha256": "0e0704ded19e935aceb12d889cfdd23fba04bf06ef5ff8b4ff6a6d7b1beba72f",
+  "tests": "10 passed,83 deselected",
+  "limits": "local proof only; native review/CI/merge pending"
+}
