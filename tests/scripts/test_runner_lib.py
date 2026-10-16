@@ -2941,7 +2941,9 @@ def test_storage_failure_log_bounds_and_ignores_unstructured_message() -> None:
         assert runner_core._storage_failure_message(RuntimeError(text)) is None
 
 
-def test_storage_failure_log_survives_nested_json(capsys: pytest.CaptureFixture[str]) -> None:
+def test_storage_failure_log_survives_nested_json(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
     # The API body need not be valid diagnostic input. Deeply nested non-string
     # messages must not turn a fail-closed dispatch decision into a logger crash.
     token = "ghp_" + "b" * 36
@@ -2952,6 +2954,16 @@ def test_storage_failure_log_survives_nested_json(capsys: pytest.CaptureFixture[
     def fail(*_: Any) -> Any:
         raise RuntimeError(f"GitHub API GET /x failed: 403 {body}") from cause
 
+    # Recursion limits vary across runtimes/plugins. Force the decoder failure
+    # rather than relying on a particular nesting depth to exceed that limit.
+    decoded = []
+
+    def fail_decode(value: str) -> Any:
+        assert value == body
+        decoded.append(value)
+        raise RecursionError("diagnostic JSON is too deeply nested")
+
+    monkeypatch.setattr(runner_core.json, "loads", fail_decode)
     primary.read_record = fail  # type: ignore[method-assign]
     decision = should_dispatch(
         42,
@@ -2960,6 +2972,7 @@ def test_storage_failure_log_survives_nested_json(capsys: pytest.CaptureFixture[
         storage=runner_core.FallbackRunnerStorage(primary, MemoryRunnerStorage()),
     )
     error = capsys.readouterr().err
+    assert decoded
     assert decision.should_dispatch is False
     assert decision.reason == "authoritative-storage-unavailable"
     assert "http_status=403" in error
