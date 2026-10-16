@@ -246,6 +246,11 @@ def test_codex_retention_deletion_reports_file_and_line(tmp_path, monkeypatch):
             "gemini-output-${{ inputs.pr_number || github.run_id }}",
             14,
         ),
+        (
+            ".github/workflows/reusable-muse-run.yml",
+            "muse-output-${{ inputs.pr_number || github.run_id }}",
+            14,
+        ),
         (".github/workflows/selftest-reusable-ci.yml", "selftest-report", 30),
     ],
 )

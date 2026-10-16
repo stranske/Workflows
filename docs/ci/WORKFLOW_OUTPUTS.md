@@ -158,6 +158,29 @@ reusable workflow in the no-output section.
 | `reusable-cursor-run.yml` | `error-category` | string | Error category (transient/auth/resource/logic/unknown) | `needs.cursor.outputs.error-category` |
 | `reusable-cursor-run.yml` | `error-type` | string | Error type (cursor/infrastructure/auth/unknown) | `needs.cursor.outputs.error-type` |
 | `reusable-cursor-run.yml` | `error-recovery` | string | Suggested recovery action | `needs.cursor.outputs.error-recovery` |
+| `reusable-muse-run.yml` | `final-message` | string (base64) | Full Muse output message (base64 encoded) | `needs.muse.outputs.final-message` |
+| `reusable-muse-run.yml` | `final-message-summary` | string | First 500 chars of Muse output (safe for PR comments) | `needs.muse.outputs.final-message-summary` |
+| `reusable-muse-run.yml` | `error-summary` | string | Failure summary message (prefers Muse output, falls back to preflight errors) | `needs.muse.outputs.error-summary` |
+| `reusable-muse-run.yml` | `exit-code` | string (number-like) | Muse CLI exit code (0=success) | `needs.muse.outputs.exit-code` |
+| `reusable-muse-run.yml` | `changes-made` | string (boolean-like) | Whether Muse made file changes (true/false) | `needs.muse.outputs.changes-made` |
+| `reusable-muse-run.yml` | `commit-sha` | string | SHA of the commit if changes were pushed | `needs.muse.outputs.commit-sha` |
+| `reusable-muse-run.yml` | `files-changed` | string (number-like) | Number of files changed by Muse | `needs.muse.outputs.files-changed` |
+| `reusable-muse-run.yml` | `agent-execution-started` | string (boolean-like) | Whether the Run Muse step started | `needs.muse.outputs.agent-execution-started` |
+| `reusable-muse-run.yml` | `capability-id` | string | Validated existing capability identifier; empty when evidence is absent. | `needs.muse.outputs.capability-id` |
+| `reusable-muse-run.yml` | `effect-fingerprint` | string | Validated lowercase sha256 fingerprint of the bounded effect. | `needs.muse.outputs.effect-fingerprint` |
+| `reusable-muse-run.yml` | `evidence-artifact-ref` | string | Validated durable logical reference to supporting evidence. | `needs.muse.outputs.evidence-artifact-ref` |
+| `reusable-muse-run.yml` | `supervision-mode` | string enum | Validated supervision mode for this result. | `needs.muse.outputs.supervision-mode` |
+| `reusable-muse-run.yml` | `capability-evidence-status` | string enum | Validated capability evidence status. | `needs.muse.outputs.capability-evidence-status` |
+| `reusable-muse-run.yml` | `terminal-disposition` | string enum | Validated terminal disposition for the result. | `needs.muse.outputs.terminal-disposition` |
+| `reusable-muse-run.yml` | `llm-analysis-run` | string (boolean-like) | Whether LLM analysis was performed | `needs.muse.outputs.llm-analysis-run` |
+| `reusable-muse-run.yml` | `llm-provider` | string | LLM provider used for analysis (placeholder for compatibility) | `needs.muse.outputs.llm-provider` |
+| `reusable-muse-run.yml` | `llm-model` | string | Specific model used for analysis (placeholder for compatibility) | `needs.muse.outputs.llm-model` |
+| `reusable-muse-run.yml` | `llm-confidence` | string (number-like) | Confidence level of LLM analysis (placeholder for compatibility) | `needs.muse.outputs.llm-confidence` |
+| `reusable-muse-run.yml` | `llm-completed-tasks` | string (JSON) | JSON array of completed task descriptions (placeholder for compatibility) | `needs.muse.outputs.llm-completed-tasks` |
+| `reusable-muse-run.yml` | `llm-has-completions` | string (boolean-like) | Whether any task completions were detected (placeholder for compatibility) | `needs.muse.outputs.llm-has-completions` |
+| `reusable-muse-run.yml` | `error-category` | string | Error category (transient/auth/resource/logic/unknown) | `needs.muse.outputs.error-category` |
+| `reusable-muse-run.yml` | `error-type` | string | Error type (cursor/infrastructure/auth/unknown) | `needs.muse.outputs.error-type` |
+| `reusable-muse-run.yml` | `error-recovery` | string | Suggested recovery action | `needs.muse.outputs.error-recovery` |
 | `reusable-gemini-run.yml` | `final-message` | string (base64) | Full Gemini output message (base64 encoded) | `needs.gemini.outputs.final-message` |
 | `reusable-gemini-run.yml` | `final-message-summary` | string | First 500 chars of Gemini output (safe for PR comments) | `needs.gemini.outputs.final-message-summary` |
 | `reusable-gemini-run.yml` | `error-summary` | string | Failure summary message (prefers Gemini output, falls back to preflight errors) | `needs.gemini.outputs.error-summary` |

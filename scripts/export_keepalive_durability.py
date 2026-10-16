@@ -19,7 +19,7 @@ WORKFLOWS_ISSUE = "stranske/Workflows#2150"
 WORKFLOWS_SURFACE = "agent-automation"
 DURABILITY_OPERATION = "durability"
 DEFAULT_ARTIFACT = Path("artifacts/langsmith/langsmith-fleet.ndjson")
-KNOWN_AGENT_LABELS = {"codex", "claude", "cursor", "gemini", "vibe"}
+KNOWN_AGENT_LABELS = {"codex", "claude", "cursor", "gemini", "muse", "vibe"}
 
 
 def _parse_time(value: Any) -> datetime | None:

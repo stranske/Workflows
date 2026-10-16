@@ -485,6 +485,8 @@ REVIEWED_SCRIPT_INTERPOLATIONS = frozenset(
         ),
         (".github/workflows/reusable-cursor-run.yml", "cursor/step-1/run", "inputs.mode"),
         (".github/workflows/reusable-cursor-run.yml", "cursor/step-1/run", "inputs.pr_number"),
+        (".github/workflows/reusable-muse-run.yml", "muse/step-1/run", "inputs.mode"),
+        (".github/workflows/reusable-muse-run.yml", "muse/step-1/run", "inputs.pr_number"),
         (
             ".github/workflows/reusable-pr-context.yml",
             "fetch/step-4/with.script",

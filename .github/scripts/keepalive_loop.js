@@ -2762,6 +2762,7 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
         if (process.env.HAS_CLAUDE_AUTH === 'true') secrets.CLAUDE_AUTH_JSON = true;
         if (process.env.HAS_CLAUDE_OAUTH === 'true') secrets.CLAUDE_CODE_OAUTH_TOKEN = true;
         if (process.env.HAS_CURSOR_AUTH === 'true') secrets.CURSOR_API_KEY = true;
+        if (process.env.HAS_MUSE_AUTH === 'true') secrets.META_API_KEY = true;
         if (process.env.HAS_GEMINI_AUTH === 'true') secrets.GEMINI_API_KEY = true;
         const workflowPath = process.env.GITHUB_WORKFLOW === 'Agents Gate Followups'
           ? '.github/workflows/agents-81-gate-followups.yml'

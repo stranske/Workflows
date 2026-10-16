@@ -728,7 +728,7 @@ jobs:
             }
 
             // Phase 2: Support both Codex and Claude autofix
-            const supportedAgents = ['codex', 'claude'];
+            const supportedAgents = ['codex', 'claude', 'muse'];
             if ((outputs.agent_type || '') && !supportedAgents.includes(outputs.agent_type)) {
               return stop(
                 `unsupported agent type for autofix loop: ${outputs.agent_type}`,
@@ -854,6 +854,31 @@ jobs:
       WORKFLOWS_APP_ID: ${{ secrets.WORKFLOWS_APP_ID }}
       WORKFLOWS_APP_PRIVATE_KEY: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
 
+  autofix-muse:
+    needs: prepare
+    if: >-
+      needs.prepare.outputs.should_run == 'true' &&
+      needs.prepare.outputs.dispatch_should_run == 'true' &&
+      needs.prepare.outputs.agent_type == 'muse'
+    name: Run Muse autofix
+    uses: stranske/Workflows/.github/workflows/reusable-muse-run.yml@main
+    with:
+      prompt_file: .github/codex/prompts/autofix_from_ci_failure.md
+      mode: autofix
+      pr_number: ${{ needs.prepare.outputs.pr_number }}
+      pr_ref: ${{ needs.prepare.outputs.head_ref }}
+      appendix: ${{ needs.prepare.outputs.appendix }}
+      environment: >-
+        ${{
+          needs.prepare.outputs.has_high_privilege == 'true' &&
+          'agent-high-privilege' ||
+          'agent-standard'
+        }}
+    secrets:
+      META_API_KEY: ${{ secrets.META_API_KEY }}
+      WORKFLOWS_APP_ID: ${{ secrets.WORKFLOWS_APP_ID }}
+      WORKFLOWS_APP_PRIVATE_KEY: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
+
   record-autofix-completion:
     name: Record autofix dispatch completion
     needs:
@@ -861,11 +886,13 @@ jobs:
       - autofix
       - autofix-claude
       - autofix-cursor
+      - autofix-muse
     if: >-
       always() &&
       needs.prepare.outputs.dispatch_should_run == 'true' &&
       (needs.autofix.result != 'skipped' || needs.autofix-claude.result != 'skipped' ||
-       needs.autofix-cursor.result != 'skipped')
+       needs.autofix-cursor.result != 'skipped' ||
+       needs.autofix-muse.result != 'skipped')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout runner library
@@ -887,16 +914,20 @@ jobs:
           SUMMARY: >-
             ${{ needs.autofix.outputs.final-message-summary ||
                 needs.autofix-claude.outputs.final-message-summary ||
-                needs.autofix-cursor.outputs.final-message-summary || '' }}
+                needs.autofix-cursor.outputs.final-message-summary ||
+                needs.autofix-muse.outputs.final-message-summary || '' }}
           EXIT_CODE: >-
             ${{ needs.autofix.outputs.exit-code ||
                 needs.autofix-claude.outputs.exit-code ||
-                needs.autofix-cursor.outputs.exit-code || '' }}
+                needs.autofix-cursor.outputs.exit-code ||
+                needs.autofix-muse.outputs.exit-code || '' }}
           JOB_RESULT: >-
             ${{ needs.autofix.result != 'skipped' &&
                 needs.autofix.result ||
                 (needs.autofix-claude.result != 'skipped' &&
-                 needs.autofix-claude.result || needs.autofix-cursor.result) }}
+                 needs.autofix-claude.result ||
+                 (needs.autofix-cursor.result != 'skipped' &&
+                  needs.autofix-cursor.result || needs.autofix-muse.result)) }}
         run: |
           set -euo pipefail
           if [ -z "${PR_NUMBER:-}" ] || [ -z "${HEAD_SHA:-}" ]; then
@@ -1017,6 +1048,7 @@ jobs:
       - autofix
       - autofix-claude
       - autofix-cursor
+      - autofix-muse
     if: always()
     runs-on: ubuntu-latest
     environment: >-
@@ -1100,12 +1132,15 @@ jobs:
             const codexAutofixResult = '${{ needs.autofix.result }}';
             const claudeAutofixResult = '${{ needs.autofix-claude.result }}';
             const cursorAutofixResult = '${{ needs.autofix-cursor.result }}';
+            const museAutofixResult = '${{ needs.autofix-muse.result }}';
             const autofixResult =
               codexAutofixResult && codexAutofixResult !== 'skipped'
                 ? codexAutofixResult
                 : (claudeAutofixResult && claudeAutofixResult !== 'skipped'
                     ? claudeAutofixResult
-                    : cursorAutofixResult);
+                    : (cursorAutofixResult && cursorAutofixResult !== 'skipped'
+                        ? cursorAutofixResult
+                        : museAutofixResult));
 
             const { owner, repo } = context.repo;
             let fixApplied = false;

@@ -11,6 +11,7 @@ This document describes all labels that trigger automated workflows or affect CI
 | `agent:codex` | Issue or PR labeled | Routes the issue or PR to the Codex agent
 | `agent:claude` | Issue or PR labeled | Routes the issue or PR to the Claude Code agent
 | `agent:cursor` | Issue or PR labeled | Routes consumer Gate-followup keepalive to the Cursor runner
+| `agent:muse` | Issue or PR labeled | Routes consumer Gate-followup keepalive and autofix to the Muse runner (subscription login key)
 | `agent:gemini` | Issue or PR labeled | Routes consumer Gate-followup keepalive to the Gemini runner
 | `agent:aider` | Issue or PR labeled | Routes the issue or PR to the Aider agent for cheap, low-complexity tasks — runner lands in a follow-up phase
 | `agent:auto` | Issue or PR labeled | Delegates routing to the auto-delegation policy; may sit alongside one concrete `agent:<name>` label, which keepalive routing overrides
@@ -148,6 +149,25 @@ This document describes all labels that trigger automated workflows or affect CI
 - Issue or PR should have clear requirements
 
 **Workflow:** On PRs, `agents-81-gate-followups.yml` dispatches `reusable-cursor-run.yml` after registry-backed routing and secret preflight succeed.
+
+---
+
+### `agent:muse`
+
+**Applies to:** Issues and Pull Requests
+
+**Trigger:** When applied to an issue or PR
+
+**Effect:**
+1. Identifies Muse as the intended route in registry-aware automation
+2. On PRs, dispatches the `run-muse` consumer keepalive job in `agents-81-gate-followups.yml`
+3. Branch prefix `muse/issue-<number>` is reserved for Muse work (see `.github/agents/registry.yml`)
+
+**Prerequisites:**
+- Repository has a valid `META_API_KEY` secret (per `.github/agents/registry.yml`)
+- Issue or PR should have clear requirements
+
+**Workflow:** On PRs, `agents-81-gate-followups.yml` dispatches `reusable-muse-run.yml` after registry-backed routing and secret preflight succeed.
 
 ---
 

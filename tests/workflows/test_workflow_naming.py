@@ -331,6 +331,7 @@ EXPECTED_NAMES = {
     "reusable-claude-run.yml": "Reusable Claude Run",
     "reusable-cursor-run.yml": "Reusable Cursor Run",
     "reusable-gemini-run.yml": "Reusable Gemini Run",
+    "reusable-muse-run.yml": "Reusable Muse Run",
     "reusable-codex-run.yml": "Reusable Codex Run",
     "reusable-model-profile-trial.yml": "Reusable Model Profile Trial",
     "reusable-20-pr-meta.yml": "Reusable 20 PR Meta",

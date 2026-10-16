@@ -10,7 +10,7 @@ import subprocess
 # Root-level runner outputs only: docs/evidence and other intentional proof remain eligible.
 ARTIFACT_PATTERNS = tuple(
     f"{agent}-{kind}{suffix}"
-    for agent in ("codex", "claude", "cursor", "gemini")
+    for agent in ("codex", "claude", "cursor", "gemini", "muse")
     for kind, suffix in (
         ("output", "*.md"),
         ("prompt", "*.md"),
