@@ -4,7 +4,6 @@ The belt workflows are registry-driven and never run the agent themselves; the r
 keepalive loop's static `run-<agent>` job once the belt PR carries `agent:<agent>`.
 """
 
-import re
 from pathlib import Path
 
 import yaml
