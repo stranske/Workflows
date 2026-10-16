@@ -423,3 +423,58 @@ def test_actual_summary_refuses_junit_entity_expansion(tmp_path):
     growth = json.loads((runtime / "summary.json").read_text())["test_growth"]
     assert growth["reported"] is None
     assert "unsafe" in growth["junit_error"]
+
+
+@pytest.mark.parametrize("workers", [0, 2])
+def test_instrumentation_does_not_pollute_product_coverage(tmp_path, workers):
+    """A temporary CI plugin is infrastructure; uncovered product stays enforced."""
+    plugin_dir = tmp_path / "instrumentation"
+    plugin_dir.mkdir()
+    plugin = _python_heredoc(_steps()[PLUGIN_STEP]["run"], PLUGIN_OPENER, PLUGIN_STEP)
+    (plugin_dir / "ci_test_growth.py").write_text(plugin, encoding="utf-8")
+    (tmp_path / "pyproject.toml").write_text(
+        '[tool.coverage.run]\nomit = ["test_product.py"]\n', encoding="utf-8"
+    )
+    product = tmp_path / "product.py"
+    product.write_text("def identity(value):\n    return value\n", encoding="utf-8")
+    (tmp_path / "test_product.py").write_text(
+        "from product import identity\ndef test_identity(): assert identity(3) == 3\n",
+        encoding="utf-8",
+    )
+    command = [
+        sys.executable,
+        "-m",
+        "pytest",
+        "-p",
+        "ci_test_growth",
+        "--cov",
+        "--cov-config=pyproject.toml",
+        "--cov-report=json:coverage.json",
+        "--cov-fail-under=70",
+        "-q",
+        "test_product.py",
+        *(["-n", str(workers)] if workers else []),
+    ]
+    env = {
+        **os.environ,
+        "PYTHONPATH": str(plugin_dir) + os.pathsep + str(tmp_path),
+        "PYTEST_ADDOPTS": "",
+        "PYTEST_PLUGINS": "xdist.plugin,pytest_cov.plugin",
+    }
+    result = subprocess.run(command, cwd=tmp_path, env=env, capture_output=True, text=True)
+    assert result.returncode == 0, result.stdout + result.stderr
+    report = json.loads((tmp_path / "coverage.json").read_text())
+    assert report["totals"]["percent_covered"] == 100
+    assert report["files"]["product.py"]["summary"]["num_statements"] == 2
+    assert json.loads((tmp_path / "pytest-collection.json").read_text())["total"] == 1
+
+    # The infrastructure exclusion must not hide genuine uncovered product code.
+    product.write_text(
+        product.read_text()
+        + "\ndef uncovered():\n    value = 7\n    value += 1\n    return value\n"
+    )
+    result = subprocess.run(command, cwd=tmp_path, env=env, capture_output=True, text=True)
+    assert result.returncode == 1, result.stdout + result.stderr
+    report = json.loads((tmp_path / "coverage.json").read_text())
+    assert report["totals"]["percent_covered"] == 50
+    assert report["files"]["product.py"]["summary"]["missing_lines"] == 3
