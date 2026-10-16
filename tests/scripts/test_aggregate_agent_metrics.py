@@ -1884,7 +1884,9 @@ def test_metric_helper_fallbacks_preserve_safe_defaults(tmp_path: Path) -> None:
         aggregate_agent_metrics._infer_artifact_name(Path("artifact/123/metrics.ndjson"))
         == "artifact"
     )
-    assert aggregate_agent_metrics._format_parse_error(tmp_path / "metrics.ndjson", 1, "invalid-json")
+    assert aggregate_agent_metrics._format_parse_error(
+        tmp_path / "metrics.ndjson", 1, "invalid-json"
+    )
     assert "expected object, got list" in aggregate_agent_metrics._format_parse_error(
         tmp_path / "metrics.ndjson", 2, "non-object-json", "list"
     )
@@ -1930,7 +1932,12 @@ def test_optional_metric_contract_inputs_fail_closed(tmp_path: Path) -> None:
     assert contract["missing_terminal_artifact_families"] == list(
         aggregate_agent_metrics._TERMINAL_ARTIFACT_FAMILIES
     )
-    assert aggregate_agent_metrics._format_terminal_artifact_statuses({"terminal_artifact_families": ["invalid"]}) == "n/a"
+    assert (
+        aggregate_agent_metrics._format_terminal_artifact_statuses(
+            {"terminal_artifact_families": ["invalid"]}
+        )
+        == "n/a"
+    )
 
 
 def test_autopilot_summary_ignores_incomplete_optional_values() -> None:
@@ -1981,7 +1988,10 @@ def test_legacy_parse_and_artifact_contract_error_paths(tmp_path: Path) -> None:
     assert [artifact["name"] for artifact in downloads["failed_artifacts"]] == ["failed"]
 
     assert aggregate_agent_metrics._format_parse_error_details([]) == []
-    assert aggregate_agent_metrics._format_terminal_artifact_statuses(
-        {"terminal_artifact_families": []}
-    ) == "n/a"
+    assert (
+        aggregate_agent_metrics._format_terminal_artifact_statuses(
+            {"terminal_artifact_families": []}
+        )
+        == "n/a"
+    )
     assert aggregate_agent_metrics._json_contract_value([Counter({"value": 1})]) == [{"value": 1}]
