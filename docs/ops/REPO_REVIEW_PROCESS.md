@@ -349,3 +349,61 @@ The weekly queue also includes the recommended sections:
 Consumer repo reviews must not generate issues for Workflows maintenance, template sync, or cross-repo lane-management work unless that work directly implements repo-local behavior required by the consumer repo design. Those maintenance tasks belong in `stranske/Workflows`.
 
 Completion audits should still use the issue-completion audit workflow before declaring issue work fully done: review feedback, merge state, verifier outcomes, and non-PASS follow-up disposition all matter.
+
+## Approval identity and backlog reconciliation
+
+Candidate positions belong to one negotiated source set. All approval selectors,
+including explicit indexes and title patterns, obey the recorded cycle binding.
+Every converged-set approval requires an exact per-repository
+`approved_converged_synthesized_at` pin, including title selectors and blanket
+approval. Changing a global feedback date cannot rebind approval to another
+source set. Only an explicit `auto_approve_new` opt-in authorizes unattended
+cross-cycle approval; existing high-stakes gates still apply.
+An explicit `approved_title_patterns` field is authoritative: empty, invalid or
+unmatched patterns select nothing and never fall back to old numeric positions.
+An approval pinned to a different `synthesized_at` remains historical approval;
+it does not authorize newly reordered or expanded candidates.
+
+Keep historical approvals in `docs/reports/repo-review/approval-ledger.json` using
+schema `repo-review-approval-ledger/v1`. The ledger binds an immutable original
+approved queue by SHA-256 and accounts for every approved item using repository,
+normalized title identity, original item digest and filing evidence. Queue
+regeneration imports only unfiled approved snapshots, with their original bodies,
+priorities and evidence intact. Filed and unknown-filing entries remain in the
+backlog and never re-enter the upload queue. Malformed, incomplete or changed
+approval snapshots stop regeneration rather than silently dropping approvals.
+Only active repositories are eligible for restoration; pausing a repository preserves
+its ledger approvals without placing them in the upload queue. A later independently
+approved same-title item with changed body, evidence, priority or labels is retained
+under `approval_scope_conflicts` and in the Markdown queue for explicit reconciliation,
+including when the original finding is filed or its filing state is unknown. It is
+never silently discarded or substituted for the historically approved scope.
+Unresolved changed-scope approvals are also retained in
+`approval-scope-conflicts.json`, with immutable item digests, so a later cycle
+that no longer selects them cannot erase them. Repeated generation is idempotent;
+a human resolution must retain the record, mark it `resolved`, and include
+`resolution.authority` and `resolution.accepted_item_sha256`, selecting the exact original or changed snapshot. To replace an earlier accepted revision, retain that record with disposition `superseded`, explicit resolution authority, and `resolution.superseded_by_item_sha256` pointing to the newer stored snapshot. References must be present and acyclic; an unresolved successor still holds intake. An accepted changed snapshot replaces the historical scope in future queue regenerations; intake holds still suppress materialization. The store uses a nonblocking writer lock and atomic
+replacement, and preserves records for currently inactive repositories.
+The ledger is local report state and must not be committed with personal reviews.
+
+A reconciled backlog should retain both weeks' source occurrences, identify same-gap
+recurrences separately from related or expanded scopes, and preserve pending policy
+choices. Similar titles alone do not transfer approval to a new body. Closed issue
+status records filing/lifecycle state; it does not prove verifier acceptance.
+
+When the ledger's `intake_hold.active` is true, regenerated queues carry the hold
+and `upload_allowed: false`. Approved snapshots are retained in
+`held_approved_issues`, while `issues` is empty so older consumers cannot
+materialize held work by ignoring the new metadata. The uploader refuses `--apply` before any GitHub
+operation. Preserve the owner's hold until explicitly released; approval and intake
+authority are separate decisions. Dry-run remains read-only. No weekly review or
+reconciliation uploads issues automatically.
+
+Unresolved approved-scope conflicts are a separate materialization hold: they
+keep `upload_allowed` false and `issues` empty even after the intake hold is
+released. The uploader also rejects such queues before any GitHub mutation.
+
+If a conflict store or reconciled backlog exists but its approval ledger is
+missing, regeneration fails closed before replacing the approved queue. Restore
+the ledger from its preserved approval evidence; absence is not approval to
+ignore the reconciliation hold.

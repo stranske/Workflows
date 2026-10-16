@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
 from scripts.repo_review_notify import (
     format_auto_labeled_section,
     format_docs_drift_section,
@@ -204,3 +205,36 @@ def test_format_docs_drift_section_surfaces_error_only_buckets_without_issue_com
     assert "Doc-drift scan errors (1 repo)" in rendered
     assert "**stranske/Workflows**: 2 doc(s) errored" in rendered
     assert "gh issue create --repo stranske/Workflows" not in rendered
+
+
+@pytest.mark.parametrize("held,conflicts", [(1, 0), (0, 1)])
+def test_held_approval_state_requires_review_on_both_surfaces(
+    tmp_path, monkeypatch, held, conflicts
+):
+    from scripts import repo_review_notify as notify
+
+    monkeypatch.setenv("HOME", str(tmp_path))
+    queue = tmp_path / "queue.json"
+    queue.write_text(
+        json.dumps(
+            {
+                "issues": [],
+                "held_approved_issues": [{}] * held,
+                "approval_scope_conflicts": [{}] * conflicts,
+                "upload_allowed": False,
+            }
+        )
+    )
+    notifications = []
+    monkeypatch.setattr(notify, "display_notification", lambda **kw: notifications.append(kw))
+    monkeypatch.setattr(
+        "sys.argv", ["notify", "--output-dir", str(tmp_path), "--queue", str(queue)]
+    )
+    assert notify.main() == 0
+    assert notifications[0]["title"] == "Repo-review: approvals remain held"
+    assert "do not upload" in notifications[0]["message"]
+    desktop = (tmp_path / "Desktop" / notify.DESKTOP_FILENAME).read_text()
+    assert "Review approvals remain held" in desktop
+    assert f"{held} approval(s), {conflicts} unresolved scope conflict(s)" in desktop
+    assert "Clean week" not in desktop
+    assert "--apply" not in desktop

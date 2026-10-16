@@ -509,6 +509,18 @@ def parse_args() -> argparse.Namespace:
 def main() -> int:
     args = parse_args()
     try:
+        metadata = json.loads(args.queue.read_text(encoding="utf-8"))
+        hold = metadata.get("intake_hold", {})
+        if not isinstance(hold, dict):
+            raise ValueError("Invalid intake hold metadata; upload refused")
+        if "active" in hold and not isinstance(hold["active"], bool):
+            raise ValueError("Invalid intake hold state; upload refused")
+        if "upload_allowed" in metadata and not isinstance(metadata["upload_allowed"], bool):
+            raise ValueError("Invalid upload permission; upload refused")
+        if args.apply and (hold.get("active") is True or metadata.get("upload_allowed") is False):
+            raise ValueError("Owner intake hold active; upload refused before any GitHub mutation")
+        if args.apply and metadata.get("approval_scope_conflicts"):
+            raise ValueError("Unresolved approved scope conflicts; reconcile before upload")
         issues = load_queue(args.queue)
     except ValueError as exc:
         print(str(exc), file=sys.stderr)

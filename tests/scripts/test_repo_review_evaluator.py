@@ -1028,13 +1028,16 @@ def test_priority_tiering_routes_high_stakes_under_blanket_approval(tmp_path: Pa
     auto-approve and the four-vs-two split assertions below fail.
     """
     state = _tiering_state(tmp_path)
-    # Feedback dated AFTER the converged synthesized_at, so feedback_covers_converged
-    # is True and the stale-feedback guard does NOT fire — only tiering can hold back.
+    # Explicitly bind this reviewed source set; tiering remains a separate gate.
     feedback = {
         "generated_on": "2026-05-01",
         "defaults": {"approved_candidates": "all"},
         "decisions": {
-            "stranske/Trend_Model_Project": {"decision": "approve", "priority": "normal"}
+            "stranske/Trend_Model_Project": {
+                "decision": "approve",
+                "priority": "normal",
+                "approved_converged_synthesized_at": state["round2_converged"]["synthesized_at"],
+            }
         },
     }
 
@@ -1070,6 +1073,7 @@ def test_priority_tiering_respects_explicit_naming_and_opt_in(tmp_path: Path) ->
                 "decision": "approve",
                 "priority": "normal",
                 "approved_candidates": [1, 2, 3],
+                "approved_converged_synthesized_at": state["round2_converged"]["synthesized_at"],
             }
         },
     }
@@ -1089,6 +1093,7 @@ def test_priority_tiering_respects_explicit_naming_and_opt_in(tmp_path: Path) ->
                 "decision": "approve",
                 "priority": "normal",
                 "auto_approve_high": True,
+                "approved_converged_synthesized_at": state_b["round2_converged"]["synthesized_at"],
             }
         },
     }
@@ -1277,8 +1282,8 @@ def test_feedback_covers_converged_cycle_binding() -> None:
 
     # Stale feedback predating the converged set -> NOT covered (the bug this closes).
     assert evaluator.feedback_covers_converged({}, "2026-05-03", converged) is False
-    # Feedback at least as new as the converged set -> covered.
-    assert evaluator.feedback_covers_converged({}, "2026-06-10", converged) is True
+    # Even a fresh global date cannot authorize an unpinned source set.
+    assert evaluator.feedback_covers_converged({}, "2026-06-10", converged) is False
     # Explicit per-repo binding to this converged set -> covered regardless of date.
     assert (
         evaluator.feedback_covers_converged(
@@ -1299,6 +1304,14 @@ def test_feedback_covers_converged_cycle_binding() -> None:
     )
     # No converged set to bind to (round-1 path) -> prior behavior preserved.
     assert evaluator.feedback_covers_converged({}, "2026-05-03", None) is True
+    assert (
+        evaluator.feedback_covers_converged(
+            {"approved_converged_synthesized_at": "2026-06-10T09:00:00+00:00"},
+            "2026-06-10",
+            None,
+        )
+        is False
+    )
     # Unparseable feedback date fails closed (do not auto-approve blindly).
     assert evaluator.feedback_covers_converged({}, "not-a-date", converged) is False
 
@@ -1454,3 +1467,186 @@ def test_excluded_parent_references_are_removed_before_remote_counts(tmp_path):
 )
 def test_exclusion_repo_name_punctuation_and_longer_names(text, expected):
     assert evaluator.references_excluded_repo(text, ["held-repo"]) is expected
+
+
+def test_unmatched_approval_titles_never_fall_back_to_old_positions() -> None:
+    candidates = [{"candidate_index": 1, "title": "New production smoke audit"}]
+    for patterns in (["^Old scoring fix$"], ["["], [], [""], [" ", None]):
+        decision = {"approved_candidates": [1], "approved_title_patterns": patterns}
+        assert evaluator.approved_candidate_indexes(decision, 1, {}, candidates) == set()
+
+
+def test_stale_explicit_approval_cannot_select_another_cycle(tmp_path: Path) -> None:
+    state = _tiering_state(tmp_path)
+    decision = {
+        "decision": "approve",
+        "approved_candidates": [1, 2, 3],
+        "approved_converged_synthesized_at": "2026-01-01T00:00:00Z",
+    }
+    feedback = {"generated_on": "2026-05-01", "decisions": {state["repo"]: decision}}
+    for extra in ({}, {"approved_title_patterns": ["^Add low-priority cleanup gate$"]}):
+        decision.update(extra)
+        queue = evaluator.build_approved_issue_queue([state], feedback, "2026-05-01")
+        assert queue["issues"] == []
+        assert any("stale-feedback guard" in warning for warning in queue["warnings"])
+
+
+def test_current_cycle_explicit_approval_still_selects_named_position(tmp_path: Path) -> None:
+    state = _tiering_state(tmp_path)
+    feedback = {
+        "generated_on": "2026-01-01",
+        "decisions": {
+            state["repo"]: {
+                "decision": "approve",
+                "approved_candidates": [2],
+                "approved_converged_synthesized_at": state["round2_converged"]["synthesized_at"],
+            }
+        },
+    }
+    queue = evaluator.build_approved_issue_queue([state], feedback, "2026-05-01")
+    assert [issue["title"] for issue in queue["issues"]] == ["Add normal-priority smoke gate"]
+
+
+def test_queue_regeneration_preserves_original_approval_and_hold(tmp_path: Path) -> None:
+    import hashlib
+    import json
+
+    from scripts import repo_review_approval_ledger as ledger
+
+    state = _tiering_state(tmp_path)
+    current_feedback = {
+        "generated_on": "2026-05-01",
+        "decisions": {
+            state["repo"]: {
+                "decision": "approve",
+                "approved_candidates": [1, 2],
+                "approved_converged_synthesized_at": state["round2_converged"]["synthesized_at"],
+            }
+        },
+    }
+    original = evaluator.build_approved_issue_queue([state], current_feedback, "2026-05-01")
+    assert len(original["issues"]) == 2
+    source = tmp_path / "original-approved.json"
+    source.write_text(json.dumps(original))
+    entries = [
+        {
+            "repo": item["repo"],
+            "title": item["title"],
+            "finding_id": ledger.finding_id(item["repo"], item["title"]),
+            "approved_item_sha256": ledger.item_digest(item),
+            "filing": {"status": "unfiled", "issues": []},
+        }
+        for item in original["issues"]
+    ]
+    (tmp_path / "approval-ledger.json").write_text(
+        json.dumps(
+            {
+                "schema": ledger.SCHEMA,
+                "source_queue_path": str(source),
+                "source_queue_sha256": hashlib.sha256(source.read_bytes()).hexdigest(),
+                "authority": "Owner approved original snapshot",
+                "source_cycle": "earlier-cycle",
+                "entries": entries,
+                "intake_hold": {"active": True},
+            }
+        )
+    )
+    state["round2_converged"]["synthesized_at"] = "2026-06-01T00:00:00Z"
+    state["round2_converged"]["converged_candidates"][0]["title"] = "Different new work"
+    for _ in range(2):
+        queue = evaluator.write_approved_issue_queue(
+            tmp_path, [state], current_feedback, "2026-06-01"
+        )
+        assert queue["issues"] == []
+        assert [x["title"] for x in queue["held_approved_issues"]] == [
+            x["title"] for x in original["issues"]
+        ]
+        assert all(
+            x["body"] == original["issues"][i]["body"]
+            for i, x in enumerate(queue["held_approved_issues"])
+        )
+        assert queue["intake_hold"]["active"] is True
+        assert queue["upload_allowed"] is False
+        assert "Owner intake hold active" in (tmp_path / "approved-issue-queue.md").read_text()
+    state["status"] = "paused"
+    queue = evaluator.write_approved_issue_queue(tmp_path, [state], current_feedback, "2026-06-01")
+    assert queue["issues"] == []
+    assert queue["held_approved_issues"] == []
+    assert len(json.loads((tmp_path / "approval-ledger.json").read_text())["entries"]) == 2
+
+
+def test_fresh_global_date_cannot_rebind_unpinned_numeric_positions(tmp_path: Path) -> None:
+    state = _tiering_state(tmp_path)
+    feedback = {
+        "generated_on": "2099-01-01",
+        "decisions": {state["repo"]: {"decision": "approve", "approved_candidates": [1]}},
+    }
+    queue = evaluator.build_approved_issue_queue([state], feedback, "2099-01-01")
+    assert queue["issues"] == []
+    assert any("stale-feedback guard" in warning for warning in queue["warnings"])
+
+
+def test_fresh_global_date_cannot_rebind_old_title_patterns(tmp_path: Path) -> None:
+    state = _tiering_state(tmp_path)
+    feedback = {
+        "generated_on": "2099-01-01",
+        "decisions": {
+            state["repo"]: {
+                "decision": "approve",
+                "approved_candidates": [1],
+                "approved_title_patterns": ["^Add low-priority"],
+            }
+        },
+    }
+    queue = evaluator.build_approved_issue_queue([state], feedback, "2099-01-01")
+    assert queue["issues"] == []
+    assert any("stale-feedback guard" in warning for warning in queue["warnings"])
+
+
+def test_explicit_unattended_opt_in_still_respects_high_stakes_gate(tmp_path: Path) -> None:
+    state = _tiering_state(tmp_path)
+    feedback = {
+        "generated_on": "2026-01-01",
+        "defaults": {"approved_candidates": "all"},
+        "decisions": {state["repo"]: {"decision": "approve", "auto_approve_new": True}},
+    }
+    queue = evaluator.build_approved_issue_queue([state], feedback, "2026-05-01")
+    assert {x["title"] for x in queue["issues"]} == {
+        "Add low-priority cleanup gate",
+        "Add normal-priority smoke gate",
+    }
+    assert len(queue["deeper_review"]) == 2
+
+
+def test_queue_writer_renders_conflict_resolution_approval_metadata(tmp_path, monkeypatch):
+    from scripts import repo_review_approval_ledger as ledger
+
+    state = _tiering_state(tmp_path)
+
+    def resolved(queue, *args, **kwargs):
+        for item in queue["issues"]:
+            item.update(
+                finding_id="resolved-finding",
+                approval_source={
+                    "authority": "Owner resolution",
+                    "item_sha256": "resolved-digest",
+                    "conflict_store": "local-store",
+                },
+            )
+        return queue
+
+    monkeypatch.setattr(ledger, "merge_approval_ledger", resolved)
+    feedback = {
+        "decisions": {
+            state["repo"]: {
+                "decision": "approve",
+                "approved_candidates": "all",
+                "approved_converged_synthesized_at": state["round2_converged"]["synthesized_at"],
+            }
+        }
+    }
+    queue = evaluator.write_approved_issue_queue(tmp_path, [state], feedback, "2026-06-01")
+    assert queue["issues"]
+    rendered = (tmp_path / "approved-issue-queue.md").read_text()
+    assert "explicit scope resolution" in rendered
+    assert "original scope only" not in rendered
