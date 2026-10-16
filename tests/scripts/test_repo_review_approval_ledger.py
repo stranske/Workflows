@@ -160,3 +160,74 @@ def test_restored_and_new_approvals_keep_priority_order(tmp_path, active):
     result = ledger.merge_approval_ledger({"issues": [urgent]}, path, allowed_repos={"owner/demo"})
     selected = result["held_approved_issues"] if active else result["issues"]
     assert [item["title"] for item in selected] == ["Urgent current fix", "Old unfiled fix"]
+
+
+def test_changed_scope_survives_next_cycle_and_requires_explicit_resolution(tmp_path):
+    path, originals = make_ledger(tmp_path)
+    changed = dict(originals[1], body="New independently approved expanded scope")
+    first = ledger.merge_approval_ledger({"issues": [changed]}, path, allowed_repos={"owner/demo"})
+    snapshot = first["approval_scope_conflicts"][0]
+    for _ in range(2):
+        later = ledger.merge_approval_ledger({"issues": []}, path, allowed_repos={"owner/demo"})
+        assert later["approval_scope_conflicts"] == [snapshot]
+        assert later["issues"] == []
+    store_path = tmp_path / "approval-scope-conflicts.json"
+    store = json.loads(store_path.read_text())
+    assert len(store["entries"]) == 1
+    paused = ledger.merge_approval_ledger({"issues": []}, path, allowed_repos=set())
+    assert paused["approval_scope_conflicts"] == []
+    assert len(json.loads(store_path.read_text())["entries"]) == 1
+    store["entries"][0]["disposition"] = "resolved"
+    store["entries"][0]["resolution"] = {"authority": "Explicit owner reconciliation"}
+    store_path.write_text(json.dumps(store))
+    resolved = ledger.merge_approval_ledger({"issues": []}, path, allowed_repos={"owner/demo"})
+    assert resolved["approval_scope_conflicts"] == []
+    assert len(json.loads(store_path.read_text())["entries"]) == 1
+
+
+def test_changed_persistent_conflict_fails_closed(tmp_path):
+    path, originals = make_ledger(tmp_path)
+    ledger.merge_approval_ledger(
+        {"issues": [dict(originals[1], body="New approved scope")]},
+        path,
+        allowed_repos={"owner/demo"},
+    )
+    store_path = tmp_path / "approval-scope-conflicts.json"
+    store = json.loads(store_path.read_text())
+    store["entries"][0]["current_approved_issue"]["body"] = "Unapproved alteration"
+    store_path.write_text(json.dumps(store))
+    with pytest.raises(ValueError, match="snapshot digest"):
+        ledger.merge_approval_ledger({"issues": []}, path, allowed_repos={"owner/demo"})
+
+
+def test_persistent_conflict_writer_lock_preserves_incumbent_state(tmp_path):
+    import fcntl
+
+    path, originals = make_ledger(tmp_path)
+    ledger.merge_approval_ledger(
+        {"issues": [dict(originals[1], body="Changed approved scope")]},
+        path,
+        allowed_repos={"owner/demo"},
+    )
+    store = tmp_path / "approval-scope-conflicts.json"
+    before = store.read_bytes()
+    with (tmp_path / "approval-scope-conflicts.lock").open("a+") as incumbent:
+        fcntl.flock(incumbent, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        with pytest.raises(ValueError, match="live writer"):
+            ledger.merge_approval_ledger({"issues": []}, path, allowed_repos={"owner/demo"})
+    assert store.read_bytes() == before
+
+
+def test_conflict_cannot_be_silently_marked_resolved_without_authority(tmp_path):
+    path, originals = make_ledger(tmp_path)
+    ledger.merge_approval_ledger(
+        {"issues": [dict(originals[1], body="Changed approved scope")]},
+        path,
+        allowed_repos={"owner/demo"},
+    )
+    store_path = tmp_path / "approval-scope-conflicts.json"
+    store = json.loads(store_path.read_text())
+    store["entries"][0]["disposition"] = "resolved"
+    store_path.write_text(json.dumps(store))
+    with pytest.raises(ValueError, match="resolution authority"):
+        ledger.merge_approval_ledger({"issues": []}, path, allowed_repos={"owner/demo"})

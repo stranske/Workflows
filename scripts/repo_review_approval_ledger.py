@@ -8,6 +8,7 @@ findings belong in the backlog, not in the preserved approval's scope.
 from __future__ import annotations
 
 import copy
+import fcntl
 import hashlib
 import json
 import re
@@ -32,6 +33,86 @@ def scope_digest(item: dict[str, Any]) -> str:
     return item_digest(
         {key: item.get(key) for key in ("body", "review_evidence_trace", "priority", "labels")}
     )
+
+
+def preserve_scope_conflicts(
+    result: dict[str, Any],
+    ledger_path: Path,
+    originals: dict[str, dict[str, Any]],
+    allowed_repos: set[str],
+) -> None:
+    """Retain unresolved new approval snapshots independently of generated queues."""
+    path = ledger_path.with_name("approval-scope-conflicts.json")
+    incoming = result.get("approval_scope_conflicts", [])
+    if not incoming and not path.exists():
+        return
+    with path.with_suffix(".lock").open("a+") as lock:
+        try:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError as exc:
+            raise ValueError("Approval conflict store has a live writer; retry later") from exc
+        before = path.read_bytes() if path.exists() else None
+        store = (
+            json.loads(before)
+            if before is not None
+            else {"schema": "repo-review-approval-scope-conflicts/v1", "entries": []}
+        )
+        if store.get("schema") != "repo-review-approval-scope-conflicts/v1" or not isinstance(
+            store.get("entries"), list
+        ):
+            raise ValueError("Invalid persistent approval conflict store")
+        records = store["entries"]
+        by_id = {}
+        for conflict in records:
+            issue = conflict.get("current_approved_issue", {})
+            if issue.get("repo") not in allowed_repos:
+                continue
+            original = originals.get(conflict.get("finding_id"))
+            current_digest = item_digest(issue)
+            if (
+                original is None
+                or conflict.get("current_approved_item_sha256") != current_digest
+                or conflict.get("original_approved_item_sha256") != item_digest(original)
+            ):
+                raise ValueError("Persistent approval conflict snapshot digest differs")
+            key = (conflict["finding_id"], current_digest)
+            if key in by_id:
+                raise ValueError("Duplicate persistent approval conflict snapshot")
+            disposition = conflict.get("disposition")
+            if disposition not in {"reconciliation_required", "resolved"}:
+                raise ValueError("Invalid approval conflict disposition")
+            if disposition == "resolved" and not conflict.get("resolution", {}).get("authority"):
+                raise ValueError("Resolved approval conflict lacks explicit resolution authority")
+            by_id[key] = conflict
+        changed = False
+        for conflict in incoming:
+            key = (conflict["finding_id"], conflict["current_approved_item_sha256"])
+            if key not in by_id:
+                saved = copy.deepcopy(conflict)
+                records.append(saved)
+                by_id[key] = saved
+                changed = True
+        if changed:
+            if (path.read_bytes() if path.exists() else None) != before:
+                raise ValueError("Approval conflict store changed concurrently; retry")
+            temporary = path.with_suffix(".json.tmp")
+            temporary.write_text(json.dumps(store, indent=2) + "\n", encoding="utf-8")
+            temporary.replace(path)
+        unresolved = [
+            copy.deepcopy(record)
+            for record in by_id.values()
+            if record["disposition"] == "reconciliation_required"
+        ]
+        result["approval_scope_conflicts"] = unresolved
+        result["approval_scope_conflict_store"] = str(path)
+        for conflict in unresolved:
+            issue = conflict["current_approved_issue"]
+            message = (
+                f"{issue['repo']}: approved same-title scope '{issue['title']}' "
+                "remains preserved in the persistent conflict store for reconciliation."
+            )
+            if message not in result.setdefault("warnings", []):
+                result["warnings"].append(message)
 
 
 def merge_approval_ledger(
@@ -143,6 +224,7 @@ def merge_approval_ledger(
     if not isinstance(hold, dict) or not isinstance(hold.get("active"), bool):
         raise ValueError("Approval ledger requires an explicit intake hold state")
     result["intake_hold"] = copy.deepcopy(hold)
+    preserve_scope_conflicts(result, ledger_path, originals, allowed_repos)
     result["upload_allowed"] = not hold["active"]
     if hold["active"]:
         # Older consumers only inspect issues and may ignore new hold metadata.
