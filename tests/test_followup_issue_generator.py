@@ -2165,6 +2165,46 @@ def test_main_reads_verification_from_standard_input(
     assert "Extracted 1 provider verdicts" in captured.err
 
 
+def test_main_bounds_concern_diagnostics_without_truncating_generated_tasks(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    concerns = [
+        "Repair malformed record handling " + "without losing valid rows " * 4,
+        "Preserve timestamps when parsing valid records",
+        "Report invalid records with their original line numbers",
+        "Keep processing records after encountering an invalid row",
+    ]
+    verification = "Verdict: FAIL @100%\n### Concerns\n" + "\n".join(
+        f"- {concern}" for concern in concerns
+    )
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "followup_issue_generator.py",
+            "--pr-number",
+            "123",
+            "--verification-comment",
+            verification,
+            "--original-issue",
+            "## Tasks\n- [ ] Repair parser\n## Acceptance Criteria\n- [ ] Keep valid rows",
+            "--no-llm",
+            "--json",
+        ],
+    )
+
+    assert followup_issue_generator.main() == 0
+
+    captured = capsys.readouterr()
+    result = json.loads(captured.out)
+    assert "Sample concerns:\n" in captured.err
+    samples = [line for line in captured.err.splitlines() if line.startswith("  - ")]
+    assert samples == [f"  - {concern[:80]}..." for concern in concerns[:3]]
+    for concern in concerns:
+        assert f"- [ ] Address: {concern.strip()}" in result["body"]
+    assert "- [ ] Keep valid rows" in result["body"]
+
+
 def test_generate_followup_without_available_clients_preserves_actionable_feedback(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
