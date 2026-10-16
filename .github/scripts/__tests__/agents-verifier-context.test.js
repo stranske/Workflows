@@ -3977,6 +3977,9 @@ test('negated historical diagnostics do not join a complete positive evidence un
     'Evidence: /actions/runs/124, while /actions/runs/999 is not validation evidence',
     'Evidence: /actions/runs/124; /actions/runs/999 was not evidence',
     'Evidence: /actions/runs/124, whereas [old run](/actions/runs/999) is not validation evidence',
+    'Evidence: /actions/runs/124 and /actions/runs/999 are not validation evidence',
+    'Evidence: /actions/runs/124, /actions/runs/999 are not evidence',
+    'Evidence: /actions/runs/124, while /actions/runs/998 and /actions/runs/999 are not evidence',
   ];
   for (const implementation of implementations) {
     for (const diagnostic of diagnostics) {
@@ -3995,7 +3998,7 @@ test('negated historical diagnostics do not join a complete positive evidence un
       }};
       const evidence = await implementation({github, owner: 'octo', repo: 'workflows', pullNumber: 7,
         pullRequestBody: 'Validation: /actions/runs/123', associatedCommitShas: [sha]});
-      assert.deepEqual(requested, diagnostic.includes('/125') ? [123, 124, 125] : diagnostic.includes('/124') ? [123, 124] : [123]);
+      assert.deepEqual(requested, /124(?: and|,) \/actions\/runs\/999 are not/.test(diagnostic) ? [123] : diagnostic.includes('/125') ? [123, 124, 125] : diagnostic.includes('/124') ? [123, 124] : [123]);
       assert.equal(associated, 0);
       assert.equal(evidence.artifacts.complete, true);
       assert.equal(evidence.artifacts.status, 'absent');

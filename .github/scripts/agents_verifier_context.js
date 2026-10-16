@@ -416,7 +416,12 @@ function positiveEvidenceClauses(line) {
         // A trailing negative predicate binds its immediately preceding URL,
         // not just the words after it: "run999 is not validation evidence".
         // Keep independently positive earlier URLs, including run-list proof.
-        const subject = clause.slice(0, end).match(/(?:https?:\/\/[^\s/]+)?\/actions\/runs\/\d+(?:\/attempts\/\d+)?[)`*_\]]*\s+(?:is|are|was|were)\s+(?:no|not)\s*$/i);
+        const runSubject = String.raw`(?:\[[^\]]+\]\()?` +
+          String.raw`(?:https?:\/\/[^\s)]+)?\/actions\/runs\/\d+(?:\/attempts\/\d+)?[)\x60*_\]]*`;
+        const coordinatedSubject = new RegExp(runSubject +
+          String.raw`(?:\s*(?:,\s*(?:(?:and|or)\s+)?|\s+(?:and|or)\s+)` + runSubject +
+          String.raw`)*\s+(?:is|are|was|were)\s+(?:no|not)\s*$`, 'i');
+        const subject = clause.slice(0, end).match(coordinatedSubject);
         if (subject) end = subject.index;
       }
       selected.push(clause.slice(0, end));

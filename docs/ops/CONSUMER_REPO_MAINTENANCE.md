@@ -3035,3 +3035,5 @@ Agents Guard reads its trusted base registry with at most three retryable API at
 
 The privileged fork publisher also replaces prior success when registry evidence is unavailable, only after fresh PR/head/base/run/latest-attempt binding checks. Registry failure never grants success or bypasses a newer producer.
 Verifier explicit-evidence labels also exclude an immediately preceding run URL when its own trailing predicate says it is/was not evidence (including Markdown links). Independently positive earlier URLs remain selected; historical comment bytes remain fully captured. See issue3820 positive-evidence-clauses native finding4289392041 proof.
+
+A trailing negative evidence predicate binds its complete comma/and/or coordinated run-URL subject; it does not preserve an earlier URL merely because the predicate is plural. Independent earlier affirmative clauses remain selected.
