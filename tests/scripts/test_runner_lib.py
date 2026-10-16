@@ -2979,3 +2979,46 @@ def test_storage_failure_log_survives_nested_json(
     assert "http_message=" not in error
     assert token not in error
     assert "https://" not in error
+
+
+@pytest.mark.parametrize(
+    "message",
+    [
+        "password=synthetic-private-value",
+        "password: synthetic-private-value with spaces",
+        '"PASSWORD" : "synthetic-private-value"',
+        "client_secret=synthetic-private-value",
+        "client secret: synthetic-private-value with spaces",
+        '"client_secret": "synthetic-private-value"',
+        "x-access-token: synthetic-private-value",
+        "X-Access-Token: synthetic-private-value with spaces",
+        "authorization: Basic synthetic-private-value",
+    ],
+)
+def test_storage_failure_log_discards_credential_fields(
+    message: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Untrusted credential fields never reach the actual dispatch-error logger."""
+    primary = MemoryRunnerStorage()
+    fallback = MemoryRunnerStorage()
+    body = json.dumps({"message": message})
+    cause = _closed_http_error("https://example.invalid/private", 403, "Forbidden")
+
+    def fail(*_: Any) -> Any:
+        raise RuntimeError(f"GitHub API GET /x failed: 403 {body}") from cause
+
+    primary.read_record = fail  # type: ignore[method-assign]
+    decision = should_dispatch(
+        42,
+        "aaa",
+        "codex",
+        storage=runner_core.FallbackRunnerStorage(primary, fallback),
+    )
+    error = capsys.readouterr().err
+    assert decision.should_dispatch is False
+    assert decision.reason == "authoritative-storage-unavailable"
+    assert "http_status=403" in error
+    assert "synthetic-private-value" not in error
+    assert "http_message=" not in error
+    assert "https://" not in error
+    assert fallback.records == {}
