@@ -1812,16 +1812,43 @@ def _authority_challenge_command(
         return None
 
 
+STORAGE_FAILURE_MESSAGE_MAX_CHARS = 200
+_STORAGE_FAILURE_SECRET_RE = re.compile(
+    r"(?:gh[pousr]_|github_pat_|sk-)[A-Za-z0-9_\-]*|x-access-token:\S*|bearer\s+\S+|https?://\S*",
+    re.IGNORECASE,
+)
+
+
+def _storage_failure_message(exc: Exception) -> str | None:
+    # GitHubApi formats HTTP failures as "... failed: <status> <json body>". Surface only
+    # the body's string `message` field, redacted and bounded, never the raw text.
+    text = str(exc)
+    start = text.find("{")
+    if start < 0:
+        return None
+    try:
+        payload = json.loads(text[start:])
+    except ValueError:
+        return None
+    message = payload.get("message") if isinstance(payload, dict) else None
+    if not isinstance(message, str):
+        return None
+    message = _STORAGE_FAILURE_SECRET_RE.sub("<redacted>", " ".join(message.split()))
+    return message[:STORAGE_FAILURE_MESSAGE_MAX_CHARS] or None
+
+
 def _log_storage_failure(operation: str, exc: Exception, *, phase: str = "completion") -> None:
     # GitHubApi preserves the HTTP/network exception as its cause. Log diagnostic
     # metadata, not raw exception text, which can contain URLs or response bodies.
     cause = exc.__cause__ or exc
     code = getattr(cause, "code", None)
     status = str(code) if isinstance(code, int) and 100 <= code <= 599 else "unknown"
+    message = _storage_failure_message(exc)
+    detail = f" http_message={json.dumps(message)}" if message else ""
     print(
         f"warning: authoritative {phase} {operation} failed: "
         f"error_type={type(exc).__name__} cause_type={type(cause).__name__} "
-        f"http_status={status}",
+        f"http_status={status}{detail}",
         file=sys.stderr,
     )
 

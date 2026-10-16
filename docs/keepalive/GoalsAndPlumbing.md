@@ -520,8 +520,15 @@ same exact-head reservation step; never clear or invent a legacy reservation.
 
 Authoritative storage failures also emit a warning on stderr identifying reservation
 or completion, the read/write operation, exception and cause types, and HTTP status
-when available. Raw exception text,
-URLs and response bodies are omitted so diagnostic logging does not expose credentials.
+when available. For a JSON HTTP error, the warning may also include the response's
+string `message` field as `http_message`: whitespace is normalized, recognized
+GitHub/OpenAI token forms, bearer/access-token values and URLs are redacted, and
+the result is limited to 200 characters. Raw exception text and the remaining
+response body are omitted. This pattern-based redaction does not guarantee that
+arbitrary sensitive text in a server-provided message will be recognized; keep
+upstream messages free of secrets. Missing, malformed or non-string messages
+add no message detail. Logging does not change the fail-closed reservation or
+completion decision, and a diagnostic message is not evidence of storage access.
 
 **Why the allowance expires into a cooldown rather than a refusal.** Refusing until the head
 changes would put the original latch back one step further out. A cooldown is cleared by time
