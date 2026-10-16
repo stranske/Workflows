@@ -50,3 +50,5 @@ git diff --check
 Local proof does not establish hosted CI, provider acceptance, merge or rollout.
 No denied reproduction/assessment operation was retried. The existing root issue
 remains open pending native source acceptance and the parent's guarded delivery.
+
+Registry-only precursor #3922 was guarded-merged at b633a3a6f61b8c95cf186c10444b6895f3005e9c. The strict branch rebased cleanly onto those admitted base facts, then reran all **798 tests** successfully. Rebased full logs and validation output are adjacent and hash-bound by receipt.json.
