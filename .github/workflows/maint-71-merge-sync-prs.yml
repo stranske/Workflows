@@ -852,9 +852,9 @@ jobs:
               task: 'maint-71-promote-canary-evidence',
               capabilities: ['actions:write'],
             });
-            const {
-              candidatePromotionDecision,
-            } = require('./.github/scripts/sync_pr_merge_contract.js');
+            const { dispatchCanaryPromotion } = require(
+              './.github/scripts/maint71_merge_sync_prs.js'
+            );
             const report = JSON.parse(
               fs.readFileSync('artifacts/sync-pr-merge-report.json', 'utf8'),
             );
@@ -864,44 +864,13 @@ jobs:
             const canaryConfig = JSON.parse(
               fs.readFileSync('config/consumer_sync_canaries.json', 'utf8'),
             );
-            const expectedCanaries = (canaryConfig.canaries || [])
-              .map((entry) => String(entry.repo || '').trim())
-              .filter(Boolean);
-            const decision = candidatePromotionDecision({ report, evidence, expectedCanaries });
-            if (!decision.eligible) {
-              core.notice(`Promotion remains held: ${decision.errors.join(', ')}`);
-              return;
-            }
-            const { data: runs } = await withRetry((client) =>
-              client.rest.actions.listWorkflowRuns({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                workflow_id: 'maint-68-sync-consumer-repos.yml',
-                per_page: 20,
-              }),
-            );
-            const activePromotion = (runs.workflow_runs || []).find((run) =>
-              ['queued', 'in_progress', 'waiting', 'pending'].includes(run.status)
-              && String(run.display_title || '').includes('Maint 68 promote'),
-            );
-            if (activePromotion) {
-              core.notice(`Exact-plan promotion already active in run ${activePromotion.id}`);
-              return;
-            }
-            await withRetry((client) => client.rest.actions.createWorkflowDispatch({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              workflow_id: 'maint-68-sync-consumer-repos.yml',
-              ref: context.payload.repository?.default_branch || 'main',
-              inputs: {
-                phase: 'promote',
-                canary_evidence_json: JSON.stringify(evidence),
-                delivery_scope: 'auto',
-                dry_run: 'false',
-                force: 'false',
-              },
-            }));
-            core.notice(`Dispatched exact-plan promotion for ${decision.plan_id}`);
+            // The helper preserves the exact-head prepared/recovered gate
+            // and records every dispatch disposition in the summary.
+            await dispatchCanaryPromotion({
+              report, evidence,
+              expectedCanaries: canaryConfig.canaries.map((entry) => entry.repo),
+              withRetry, context, core,
+            });
 
       - name: Upload final rate limit incidents
         if: always()

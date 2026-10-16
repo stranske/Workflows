@@ -1307,10 +1307,12 @@ plan. Promotion likewise refreshes one stable `sync/workflows-delivery` PR per
 non-canary; immutable plan and desired-tree identity live in the delivery
 record instead of the branch name.
 
-Do not wait for consumer CI in that workflow. Run Maint 71 later with
-`active_sync_hash=candidate` to publish `sync-canary-evidence.json`, then invoke
-Maint 68 with `phase=promote` and that artifact's JSON as
-`canary_evidence_json`. Promotion rejects absent, stale or
+Do not wait for consumer CI in that workflow. Maint 71's
+`active_sync_hash=candidate` pass publishes `sync-canary-evidence.json` and
+uses the existing API client token to dispatch Maint 68 with `phase=promote`,
+`delivery_scope=auto` (infer from evidence), and that artifact's JSON as
+`canary_evidence_json` once the exact-head gate authorizes it. For manual
+recovery, use the same immutable evidence and inputs. Promotion rejects absent, stale or
 mixed-plan evidence, failed required checks, and active non-outdated review
 threads. A successful promotion targets all registered non-canary repositories
 once every configured canary has current, green, review-clear evidence for the
@@ -1339,6 +1341,46 @@ full plan or source range, never to reuse an older evidence artifact. These
 rules are enforced by `sync_run_contract.js`, `maint71_merge_sync_prs.js`, and
 `sync_pr_merge_contract.js`, with the workflow carrying the immutable fields
 between those boundaries.
+
+The promotion evidence builder requires a nonempty `plan_id` and immutable
+`source_commit` on every canary row, with matching plan, scope, range, green
+required checks and zero active review threads. Merged-canary recovery also
+matches the report's PR, head, plan and source to that evidence. Prepared sealed
+canaries remain eligible: requiring them to merge first would deadlock the
+fleet prepare/commit contract. Read-only or auto-merge-disabled passes cannot
+dispatch. Maint 71 writes the held, waiting, dispatched or already-promoted
+disposition to its summary. Dispatch is request evidence only; it does not
+establish a successful promotion or merged consumer delivery.
+
+Maint 68 promotion run titles include the evidence's exact plan ID and source
+commit. Maint 71 suppresses a duplicate after a successful default-branch run
+with that binding, and defers while another promotion is active. Failed runs
+remain retryable. Run-history reads paginate and refuse incomplete GitHub
+search results rather than silently authorizing a duplicate.
+
+Maint 68's Generate summary job reports
+`plans sealed awaiting promotion: N, oldest: <age>` and lists each pending
+plan/source binding. It observes trusted current open canary delivery records,
+or the latest merged candidate when there is no open successor; superseded
+closed attempts do not accumulate. A plan is pending from its earliest current
+seal until a successful default-branch promotion with its exact plan/source
+binding is observed. Partial sealing is included so a stalled chain stays
+visible. A queued, dispatched or failed promotion does not clear the count.
+Legacy run titles without a plan/source binding cannot prove completion for
+this check; rerun with revalidated evidence to establish a bound receipt.
+An independent `health-71` check fails when the oldest seal exceeds 48 hours or
+observation is unavailable. The summary publishes it with the native workflow
+App token and job-local `checks: write`; cross-repo reads retain the API client.
+The check verdict does not fail the promotion workflow itself: otherwise an
+overdue promotion could never succeed and clear its own alert. API/read failures
+report `UNKNOWN`, never zero. A successful promotion is still separate from the
+later fleet commit and consumer acceptance.
+
+The focused local gate is
+`node --test tests/scripts/test_maint71_promote_dispatch.js`; Selftest CI loads
+it through `.github/scripts/__tests__/maint71_promote_dispatch.test.js`. Its
+parser regression executes the actual Maint 68 scope-resolution shell and jq
+filters for both evidence envelopes and both immutable plan scopes.
 Maint 82 matches configured review-bot identities case-insensitively after
 removing an optional terminal `[bot]` suffix from both the configured identity
 and the observed login. This reconciles REST and GraphQL representations without
