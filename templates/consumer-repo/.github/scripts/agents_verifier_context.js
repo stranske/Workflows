@@ -416,8 +416,8 @@ function positiveEvidenceClauses(line) {
         // A trailing negative predicate binds its immediately preceding URL,
         // not just the words after it: "run999 is not validation evidence".
         // Keep independently positive earlier URLs, including run-list proof.
-        const runSubject = String.raw`(?:\[[^\]]+\]\()?` +
-          String.raw`(?:https?:\/\/[^\s)]+)?\/actions\/runs\/\d+(?:[/?#][^\s)\]]*)?[)\x60*_\]]*`;
+        const runSubject = String.raw`(?:\[[^\]]+\]\()?<?` +
+          String.raw`(?:https?:\/\/[^\s)>]+)?\/actions\/runs\/\d+(?:[/?#][^\s)>\]]*)?[)>\x60*_\]]*`;
         const coordinatedSubject = new RegExp(runSubject +
           String.raw`(?:\s*(?:,\s*(?:(?:and|or)\s+)?|\s+(?:and|or)\s+)` + runSubject +
           String.raw`)*\s+(?:is|are|was|were)\s+(?:no|not)\s+(?:[\w-]+\s+)*$`, 'i');
@@ -779,9 +779,15 @@ async function fetchVerifierEvidence({
   const proseReferenceTexts = [pullRequestBody, ...referenceTexts, ...commentBodies];
   // A filtered negative diagnostic must not return through incidental fallback
   // when no positively selected URL exists. Typed references remain explicit.
-  const fallbackReferenceTexts = proseReferenceTexts.map(text => String(text || '').split('\n')
-    .map(line => /\b(?:no|not)\s+(?!(?:(?:the\s+)?only|just)\b)(?:[\w-]+\s+)*(?:evidence|validation|artifacts?|test results?|red\s+(?:then\s+)?green)\b/i.test(line.replace(/[`*_]/g, ''))
-      ? positiveEvidenceClauses(line).join(' ') : line).join('\n'));
+  const negativeEvidencePredicate = /\b(?:no|not)\s+(?!(?:(?:the\s+)?only|just)\b)(?:[\w-]+\s+)*(?:evidence|validation|artifacts?|test results?|red\s+(?:then\s+)?green)\b/i;
+  const fallbackReferenceTexts = proseReferenceTexts.map(text => {
+    const value = String(text || '');
+    // A Markdown hard break cannot separate a historical link from its
+    // following negative diagnostic. Preserve independently positive lines;
+    // unlabelled links in this same diagnostic source are incidental only.
+    return negativeEvidencePredicate.test(value.replace(/[`*_]/g, ''))
+      ? value.split('\n').flatMap(positiveEvidenceClauses).join(' ') : value;
+  });
   const allReferencedRunIds = extractReferencedRunIds([...typedEvidenceTexts, ...fallbackReferenceTexts]);
   // A status-table "View run" or bare incidental body/comment URL is not an
   // explicit evidence selection. Typed evidence inputs and locally labelled

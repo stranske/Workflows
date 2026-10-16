@@ -3993,6 +3993,10 @@ test('negated historical diagnostics do not join a complete positive evidence un
     'No current validation evidence: /actions/runs/999 but Evidence: /actions/runs/124',
     'Not just evidence: /actions/runs/124',
     'Not the only evidence: /actions/runs/124',
+    'Completed Selftest [run](/actions/runs/999) failed.\nThis is not evidence that validation failed.',
+    'Evidence: /actions/runs/124\nCompleted Selftest [run](/actions/runs/999) failed.\nThis is not evidence that validation failed.',
+    'Evidence: /actions/runs/124, while <https://github.com/o/r/actions/runs/999> is not current evidence',
+    'Evidence: /actions/runs/124, while <https://github.com/o/r/actions/runs/998> and <https://github.com/o/r/actions/runs/999> are not evidence',
   ];
   for (const implementation of implementations) {
     for (const diagnostic of diagnostics) {
