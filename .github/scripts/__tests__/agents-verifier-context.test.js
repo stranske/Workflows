@@ -4956,11 +4956,36 @@ test('negative diagnostics filter governed references without erasing incidental
 });
 
 
+test('descriptive affirmative labels reopen scope after a negative prefix clause', async () => {
+  const sha = 'a'.repeat(40);
+  const implementations = [fetchVerifierEvidence,
+    require('../../../templates/consumer-repo/.github/scripts/agents_verifier_context.js').fetchVerifierEvidence];
+  const body = 'No evidence: /actions/runs/999, and Current validation run: /actions/runs/124';
+  for (const implementation of implementations) {
+    const requested = [];
+    const empty = async () => ({data: []});
+    const github = {rest: {issues: {listComments: empty}, pulls: {listReviewComments: empty, listReviews: empty},
+      actions: {getWorkflowRun: async ({run_id}) => {requested.push(run_id); return {data: {id: run_id, head_sha: sha}};},
+        listWorkflowRunsForRepo: async () => ({data: {total_count: 0, workflow_runs: []}}),
+        listWorkflowRunArtifacts: async () => ({data: {total_count: 0, artifacts: []}}),
+        downloadArtifact: async () => {throw Error('no archive expected');}}}};
+    const result = await implementation({github, owner: 'octo', repo: 'workflows', pullNumber: 7,
+      pullRequestBody: body, associatedCommitShas: [sha]});
+    assert.deepEqual(result.diagnostics.references.explicit_run_ids, [124]);
+    assert.deepEqual(requested, [124]);
+    assert.equal(result.artifacts.complete, true);
+  }
+});
+
+
 test('shared evidence clauses keep coordinated negative subjects out of fallback', async () => {
   const sha = 'a'.repeat(40);
   const implementations = [fetchVerifierEvidence,
     require('../../../templates/consumer-repo/.github/scripts/agents_verifier_context.js').fetchVerifierEvidence];
-  const cases = [['Evidence: /actions/runs/124, and /actions/runs/999 are not validation evidence', []]];
+  const cases = [
+    ['Evidence: /actions/runs/124, and /actions/runs/999 are not validation evidence', []],
+    ['Evidence: run /actions/runs/124, and run /actions/runs/999 are not validation evidence', []],
+  ];
   for (const join of [' and ', ' or ', ', ', ', and ', ', or ', ', and  ', ', or  ']) {
     for (const copula of ['are', 'were']) {
       for (const wrap of [url => url, url => `<${url}>`, url => `[run](${url})`]) {

@@ -393,9 +393,23 @@ const NEGATIVE_EVIDENCE_RE = /\b(?:no|not)\s+(?!(?:(?:the\s+)?only|just)\b)(?:[\
 const ANAPHORIC_SUBJECT_RE = /^(?:this|that|it|these|those)(?:\s+[\w-]+){0,8}\s+(?:is|was|are|were)\b/i;
 
 const RUN_URL_SUBJECT = String.raw`[\x60*_]*(?:\[[^\]]+\]\()?<?` +
-  String.raw`(?:https?:\/\/[^\s)>]+)?\/actions\/runs\/\d+(?:[/?#][^\s)>\]]*)?[)>\x60*_\]]*`;
+  String.raw`(?:run\s+)?(?:https?:\/\/[^\s)>,]+?)?\/actions\/runs\/\d+(?:[/?#][^\s)>\],]*)?[)>\x60*_\]]*`;
+const EVIDENCE_CLAUSE_MAX_LEN = 4000;
 
 function evidenceClauses(line) {
+  const value = String(line || '');
+  if (value.length > EVIDENCE_CLAUSE_MAX_LEN) {
+    const labels = [...value.matchAll(EVIDENCE_LABEL_RE)];
+    const negativeIndex = labels.findIndex(match =>
+      /\b(?:no|not)\s+(?!(?:(?:the\s+)?only|just)\b)(?:[\w-]+\s+)*$/i.test(value.slice(0, match.index).replace(/[`*_]/g, '')));
+    return [{
+      clause: value,
+      separator: '',
+      labels,
+      negativeIndex,
+      negativeStart: negativeIndex < 0 ? value.length : negativeIndex === 0 ? 0 : labels[negativeIndex].index,
+    }];
+  }
   const boundary = new RegExp(String.raw`([.;]\s+|\s+but\s+|,\s+(?:while|whereas)\s+|,\s+(?:and|or)\s+(?!`
     + String.raw`\s*` + RUN_URL_SUBJECT + '))', 'i');
   const parts = line.split(boundary);
@@ -431,9 +445,11 @@ function positiveEvidenceClauses(line) {
   let positive = false;
   let negativeScope = false;
   for (const {clause, separator, labels, negativeIndex, negativeStart} of evidenceClauses(line)) {
+    const plainClause = clause.replace(/[`*_]/g, '');
     // Diagnostic contrast cannot reopen scope without an affirmative label.
-    const affirmativeDeclaration = /^\s*(?:[-*>]\s*)?(?:(?:however|separately|instead|also|in contrast|for comparison)\s*[,—:-]?\s*)?(?:not (?:(?:the\s+)?only|just)\s+)?(?:evidence|validation|artifacts?|test results?|red\s+(?:then\s+)?green)(?:\s+(?:evidence|validation|artifacts?|runs?))*\s*:/i.test(clause.replace(/[`*_]/g, ''));
-    if (negativeScope && affirmativeDeclaration) negativeScope = false;
+    const affirmativeDeclaration = /^\s*(?:[-*>]\s*)?(?:(?:however|separately|instead|also|in contrast|for comparison)\s*[,—:-]?\s*)?(?:not (?:(?:the\s+)?only|just)\s+)?(?:evidence|validation|artifacts?|test results?|red\s+(?:then\s+)?green)(?:\s+(?:evidence|validation|artifacts?|runs?))*\s*:/i.test(plainClause);
+    const descriptiveAffirmativeLabel = /^\s*(?:[-*>]\s*)?[\w\s]{0,48}(?:evidence|validation|artifacts?|test results?|red\s+(?:then\s+)?green)\s*(?:runs?)?\s*:/i.test(plainClause);
+    if (negativeScope && (affirmativeDeclaration || descriptiveAffirmativeLabel)) negativeScope = false;
     if (labels.length) {
       positive = !negativeScope && negativeIndex !== 0;
     } else if (!separator.startsWith(';')) {
