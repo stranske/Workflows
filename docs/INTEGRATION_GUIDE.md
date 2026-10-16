@@ -494,6 +494,8 @@ EOF
 
 ### Consumer Repo Setup: Required Scripts
 
+`scripts/runner_lib/` is synced through `.github/sync-manifest.yml`; runner-library provider additions reach consumers only through this sync.
+
 The reusable `reusable-10-ci-python.yml` workflow runs two scripts from the
 consumer repository. Add these files to your repo or CI will fail:
 

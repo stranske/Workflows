@@ -324,8 +324,16 @@ scripts:
   - source: scripts/orchestrator_skill.py
     description: "Validates and resolves exported Orchestrator skill context for remote Codex lanes"
 
-  - source: scripts/runner_lib/
-    is_directory: true
+  - source: scripts/runner_lib/__init__.py
+    target: scripts/runner_lib/__init__.py
+    description: "Shared runner library package exports"
+
+  - source: scripts/runner_lib/__main__.py
+    target: scripts/runner_lib/__main__.py
+    description: "Module entry point for consumer runner dispatch debounce commands"
+
+  - source: scripts/runner_lib/core.py
+    target: scripts/runner_lib/core.py
     description: "Shared runner prompt assembly, output parsing, and dispatch debounce helpers"
 
   - source: scripts/aggregate_agent_metrics.py
