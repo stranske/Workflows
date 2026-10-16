@@ -346,11 +346,17 @@ async function publishGuardForkStatus({ github, context, core }) {
   let pr = await resolvePullRequest({ github, retry, owner, repo, run });
   validateBinding({ run, workflow, pr, repository });
   if (!/^[0-9a-f]{40}$/.test(pr.base?.sha || '')) throw new Error('Trusted registry base SHA is missing');
-  const registry = (await retry.withRetry(client => client.rest.repos.getContent({
-    owner, repo, path: '.github/agents/registry.yml', ref: pr.base.sha,
-  }))).data;
-  if (registry?.type !== 'file' || registry.encoding !== 'base64') throw new Error('Agent registry evidence is incomplete');
-  const routingLabels = routingLabelsFromRegistry(Buffer.from(registry.content, 'base64').toString('utf8'));
+  let routingLabels;
+  let registryUnavailable = false;
+  try {
+    const registry = (await retry.withRetry(client => client.rest.repos.getContent({
+      owner, repo, path: '.github/agents/registry.yml', ref: pr.base.sha,
+    }))).data;
+    if (registry?.type !== 'file' || registry.encoding !== 'base64') throw new Error('Agent registry evidence is incomplete');
+    routingLabels = routingLabelsFromRegistry(Buffer.from(registry.content, 'base64').toString('utf8'));
+  } catch {
+    registryUnavailable = true;
+  }
   const registryBaseSha = pr.base.sha;
   const sameRepository = pr.head.repo.id === repository.id;
   const evaluatedRun = runSnapshot(run);
@@ -386,7 +392,20 @@ async function publishGuardForkStatus({ github, context, core }) {
   const current = existing[0];
   let reconciliationFailure = false;
   let result;
-  if (current?.state === 'success' && (
+  if (registryUnavailable) {
+    // Trusted policy evidence cannot retain a prior green required context.
+    // Re-read bindings and the latest producer attempt before this failure,
+    // just as for an evaluated success; a stale publisher gets no write.
+    assertRunUnchanged(evaluatedRun, run);
+    await assertLatestAttempt({ github, retry, owner, repo, run });
+    result = {
+      state: 'failure',
+      description: 'Trusted registry evidence unavailable; fresh evaluation required.',
+      evaluated: false,
+    };
+    reconciliationFailure = true;
+  }
+  if (!registryUnavailable && current?.state === 'success' && (
     typeof current.description !== 'string' ||
     !hasCurrentReceipt(current.description, pr.labels, pr.number, routingLabels)
   )) {

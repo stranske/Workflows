@@ -76,6 +76,7 @@ def _publish_scenario(
     policy_receipt_steps=None,
     final_labels=None,
     registry_text=None,
+    registry_mode=None,
 ):
     initial_run = {
         "id": 9,
@@ -149,6 +150,7 @@ def _publish_scenario(
         "policyReceiptStep": policy_receipt_step,
         "policyReceiptSteps": policy_receipt_steps,
         "finalLabels": final_labels,
+        "registryMode": registry_mode,
         "registryText": (
             registry_text
             if registry_text is not None
@@ -201,7 +203,7 @@ const github = {{
       }},
     }},
     repos: {{
-      getContent: async params => {{if(params.ref !== 'b'.repeat(40) || params.path !== '.github/agents/registry.yml') throw Error('untrusted registry ref');return {{data:{{type:'file',encoding:'base64',content:Buffer.from(scenario.registryText).toString('base64')}}}};}},
+      getContent: async params => {{if(scenario.registryMode === 'denied') throw Object.assign(Error('registry unavailable'), {{status:404}}); if(scenario.registryMode === 'malformed') return {{data:{{type:'file',encoding:'none'}}}}; if(params.ref !== 'b'.repeat(40) || params.path !== '.github/agents/registry.yml') throw Error('untrusted registry ref');return {{data:{{type:'file',encoding:'base64',content:Buffer.from(scenario.registryText).toString('base64')}}}};}},
       listCommitStatusesForRef: async () => {{
         statusRead = true;
         if (scenario.statusReadDrift === 'same-run-attempt') {{
@@ -1214,8 +1216,10 @@ def test_registry_backed_routing_detects_drift_and_preserves_matching_policy(age
 )
 def test_malformed_registry_cannot_publish_success(registry):
     result = _publish_scenario(registry_text=registry, policy_receipt_step=False)
-    assert result["writes"] == []
-    assert "registry" in result["error"].lower() or "enabled" in result["error"].lower()
+    assert len(result["writes"]) == 1
+    assert result["writes"][0]["state"] == "failure"
+    assert "registry" in result["writes"][0]["description"].lower()
+    assert "guard-policy-sha256" not in result["writes"][0]["description"]
 
 
 def test_registry_parser_and_receipt_pin_match_all_managed_surfaces():
@@ -1322,3 +1326,23 @@ def test_missing_policy_receipt_preserves_binding_drift_block(drift):
     outcome = _publish_scenario(replay=True, policy_receipt_step=False, status_read_drift=drift)
     assert "error" in outcome
     assert outcome["writes"] == []
+
+
+@pytest.mark.parametrize("mode", ["denied", "malformed"])
+def test_fork_registry_failure_invalidates_prior_success_after_binding_checks(mode):
+    prior = [
+        {
+            "context": "Health 45 Agents Guard / guard",
+            "state": "success",
+            "description": "prior green",
+            "target_url": "https://github.com/stranske/Workflows/actions/runs/8",
+        }
+    ]
+    result = _publish_scenario(registry_mode=mode, statuses=prior)
+    assert len(result["writes"]) == 1
+    assert result["writes"][0]["state"] == "failure"
+    assert "guard-policy-sha256" not in result["writes"][0]["description"]
+    for drift in ["pr-head", "same-run-attempt", "newer-run", "same-id-newer-attempt"]:
+        blocked = _publish_scenario(registry_mode=mode, statuses=prior, status_read_drift=drift)
+        assert blocked["writes"] == []
+        assert "error" in blocked

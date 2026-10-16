@@ -18,3 +18,5 @@ remain in the full suite. The direct publisher needs no checkout code or secrets
 This is local source proof, separate from current-head CI/native reviewer,
 guarded merge and actual provider acceptance. The original denied independent
 sandbox reproductions remain stopped and are not claimed as verified.
+
+Native P14289608854 corrected the separate privileged fork-publisher path. Missing/type/parse registry evidence is carried as failure through fresh PR/head/base/run binding and latest-attempt checks before publication; it does not trust policy receipts or old producer success. Original2RED and full574GREEN retained, including every head/run/newer-attempt drift refusing all writes. The stopped independent reproduction was not retried.
