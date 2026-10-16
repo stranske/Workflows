@@ -3634,6 +3634,7 @@ test(`maint71 clears stale ready labels and preserves hold in ${integrationOnly 
     base: { ref: 'main' }, head: { ref: 'sync/workflows-candidate', sha: headSha },
     user: { login: 'stranske' },
   };
+  const gateDispatches = [];
   const github = {
     paginate: async (_method, params) => {
       if (params.state === 'open') return [candidate];
@@ -3646,6 +3647,7 @@ test(`maint71 clears stale ready labels and preserves hold in ${integrationOnly 
       repository: { pullRequest: { reviewThreads: { pageInfo: { hasNextPage: false }, nodes: [] } } },
     }),
     rest: {
+      actions: { createWorkflowDispatch: async (args) => { gateDispatches.push(args); } },
       pulls: { list: async () => ({ data: [candidate] }), get: async () => ({ data: candidate }) },
       checks: { listForRef: () => {} },
       git: { getCommit: async () => ({ data: { tree: { sha: 'tree-abc' } } }) },
@@ -3731,6 +3733,10 @@ test(`maint71 clears stale ready labels and preserves hold in ${integrationOnly 
     assert.deepEqual([...labels].sort(), integrationOnly ? ['sync:delivery-ready', 'sync:delivery-staging'] : ['sync:delivery-staging']);
     assert.equal(mutations.length, 1);
     assert.equal(reviewRequests.length, integrationOnly ? 0 : 1);
+    assert.deepEqual(gateDispatches, integrationOnly ? [{
+      owner: 'stranske', repo: 'Travel-Plan-Permission', workflow_id: 'pr-00-gate.yml',
+      ref: candidate.head.ref, inputs: { pr_number: String(candidate.number) },
+    }] : []);
     if (integrationOnly) {
       assert.match(mutations[0].body, /"delivery_state":"sealed"/);
       assert.match(mutations[0].body, /integration_checks_required/);
