@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Tests for followup_issue_generator.py"""
 
+import io
 import json
 import logging
 import sys
@@ -2044,3 +2045,116 @@ def test_the_output_is_fenced_so_it_survives_markdown():
     out = followup_issue_generator._prepare_iteration_details("error: *boom* _here_")
     assert "```" in out
     assert "*boom*" in out
+
+
+def test_extract_verification_data_preserves_supported_mixed_formats() -> None:
+    """Malformed table rows must not hide later concerns or an @-style verdict."""
+    comment = """
+| Provider | Model | Verdict | Confidence |
+| --- | --- | --- | --- |
+| incomplete | only-two-columns |
+| Provider | repeated header | PASS | 100% |
+
+Verdict: Needs Work @0.5
+- **Concerns:**
+  - This concern is long enough to retain
+  - tiny
+### Unique Insights
+- github-models: A useful insight that is long enough; Another useful finding here
+## Next
+Non-actionable items found:
+- `Requires a human approval`
+"""
+
+    data = extract_verification_data(comment)
+
+    assert data.provider_verdicts["default"] == {"verdict": "Needs Work", "confidence": 50}
+    assert "This concern is long enough to retain" in data.concerns
+    assert "A useful insight that is long enough" in data.concerns
+    assert "Another useful finding here" in data.concerns
+    assert data.non_actionable_items == ["Requires a human approval"]
+
+
+def test_json_and_markdown_helpers_preserve_machine_and_human_output() -> None:
+    assert followup_issue_generator._extract_json("prefix {\"task\": 1}") == {"task": 1}
+    assert followup_issue_generator._extract_json("```json\n{\"task\": 1}\n```") == {"task": 1}
+    assert followup_issue_generator._extract_json("not json") == {}
+    assert followup_issue_generator._strip_markdown_fence("```markdown\nbody\n```") == "body"
+    assert followup_issue_generator._strip_markdown_fence("body") == "body"
+
+
+def test_append_advisory_notes_only_adds_a_single_notes_section() -> None:
+    body = followup_issue_generator._append_advisory_notes("## Why\nbody", ["Consider docs"])
+
+    assert "## Notes" in body
+    assert "- Consider docs" in body
+    assert followup_issue_generator._append_advisory_notes(body, ["Another note"]) == body
+    assert followup_issue_generator._append_advisory_notes("body", []) == "body"
+
+
+def test_disposition_reports_absent_structured_provider_evidence() -> None:
+    disposition = generate_disposition_comment(VerificationData(), pr_number=12)
+
+    assert "No structured non-PASS provider output was extracted." in disposition
+    assert "### Decision" in disposition
+
+
+def test_main_reads_file_inputs_and_writes_json_output(
+    monkeypatch: pytest.MonkeyPatch, tmp_path
+) -> None:
+    verification = tmp_path / "verification.md"
+    issue = tmp_path / "issue.md"
+    codex_log = tmp_path / "codex.jsonl"
+    output = tmp_path / "followup.json"
+    verification.write_text("Verdict: PASS @100%")
+    issue.write_text("## Tasks\n- [ ] Do work")
+    codex_log.write_text("iteration complete")
+
+    captured: dict[str, object] = {}
+
+    def fake_generate(**kwargs: object) -> followup_issue_generator.FollowupIssue:
+        captured.update(kwargs)
+        return followup_issue_generator.FollowupIssue("Generated", "Generated body", ["follow-up"])
+
+    monkeypatch.setattr(followup_issue_generator, "generate_followup_issue", fake_generate)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "followup_issue_generator.py",
+            "--pr-number",
+            "123",
+            "--verification-comment",
+            str(verification),
+            "--original-issue",
+            str(issue),
+            "--codex-log",
+            str(codex_log),
+            "--json",
+            "--output",
+            str(output),
+        ],
+    )
+
+    assert followup_issue_generator.main() == 0
+    assert json.loads(output.read_text()) == {
+        "title": "Generated",
+        "body": "Generated body",
+        "labels": ["follow-up"],
+    }
+    assert captured["codex_log"] == "iteration complete"
+    assert captured["original_issue"].tasks == ["Do work"]
+
+
+def test_main_reads_verification_from_standard_input(monkeypatch: pytest.MonkeyPatch, capsys) -> None:
+    monkeypatch.setattr(sys, "stdin", io.StringIO("Verdict: PASS @100%"))
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["followup_issue_generator.py", "--pr-number", "123", "--no-llm"],
+    )
+
+    assert followup_issue_generator.main() == 0
+    captured = capsys.readouterr()
+    assert "# [Follow-up]" in captured.out
+    assert "Extracted 1 provider verdicts" in captured.err
