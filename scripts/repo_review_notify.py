@@ -60,6 +60,8 @@ def summarize_queue(queue: dict[str, Any]) -> dict[str, Any]:
         by_repo[repo] = by_repo.get(repo, 0) + 1
     return {
         "total": len(issues),
+        "held_count": len(queue.get("held_approved_issues", []) or []),
+        "scope_conflict_count": len(queue.get("approval_scope_conflicts", []) or []),
         "by_repo": by_repo,
         "skipped_count": len(skipped),
         "issue_titles": [str(i.get("title", "?"))[:80] for i in issues],
@@ -428,7 +430,16 @@ def write_desktop_reminder(
     scorecard_count, scorecard_error_count = summarize_scorecard(scorecard)
     scorecard_signal_count = scorecard_count + scorecard_error_count
 
-    if (
+    held_count = queue_summary.get("held_count", 0)
+    conflict_count = queue_summary.get("scope_conflict_count", 0)
+    if held_count or conflict_count:
+        headline = (
+            f"## Review approvals remain held: {held_count} approval(s), "
+            f"{conflict_count} unresolved scope conflict(s)\n\n"
+            "Review the packet and reconcile scope conflicts before releasing intake. "
+            "Preserve original approvals; do not upload while the queue is held."
+        )
+    elif (
         total == 0
         and backlog_count == 0
         and docs_drift_signal_count == 0
@@ -497,7 +508,7 @@ def write_desktop_reminder(
 
     next_action = (
         ""
-        if total == 0
+        if total == 0 or held_count or conflict_count
         else f"""
 
 ## Next action — upload the queued issues
@@ -646,10 +657,18 @@ def main() -> int:
     )
 
     # Auto-labeled items are FYI — they don't trigger an action-required ping.
-    action_required = (total > 0) or (needs_human_count > 0)
+    held_count = summary["held_count"]
+    conflict_count = summary["scope_conflict_count"]
+    action_required = (total > 0) or (needs_human_count > 0) or held_count > 0 or conflict_count > 0
 
     if not args.skip_notification:
-        if not action_required and backlog_count == 0:
+        if held_count or conflict_count:
+            display_notification(
+                title="Repo-review: approvals remain held",
+                subtitle=f"{held_count} held approval(s); {conflict_count} scope conflict(s)",
+                message="Review the packet before releasing intake; do not upload held approvals.",
+            )
+        elif not action_required and backlog_count == 0:
             display_notification(
                 title="Repo-review: clean week",
                 subtitle="No fresh gaps, no backlog rot",
@@ -700,7 +719,7 @@ def main() -> int:
     scorecard_total = (scorecard or {}).get("total_findings", 0) or 0
     scorecard_repos = sum(1 for b in (scorecard or {}).get("by_repo") or [] if b.get("findings"))
     print(
-        f"[notify] {total} issue(s) ready, {summary['skipped_count']} repo decision(s) skipped, "
+        f"[notify] {held_count} held approval(s), {conflict_count} scope conflict(s), {total} issue(s) ready, {summary['skipped_count']} repo decision(s) skipped, "
         f"{auto_labeled_count} backlog auto-labeled, {needs_human_count} backlog need decision, "
         f"{docs_drift_total} doc-drift instance(s) across {docs_drift_repos} repo(s), "
         f"{scorecard_total} scorecard finding(s) across {scorecard_repos} repo(s)"
