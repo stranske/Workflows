@@ -12,8 +12,6 @@ import subprocess
 import sys
 from pathlib import Path
 
-import pytest
-
 ROOT = Path(__file__).resolve().parents[2]
 TEMPLATE = ROOT / "templates" / "consumer-repo" / "scripts" / "langchain" / "pr_verifier.py"
 CONSUMER_SELECT = "E,F,I,N,W,UP,B,C4,SIM"
@@ -42,6 +40,20 @@ def test_consumer_template_passes_the_consumer_ruff_selection() -> None:
         text=True,
         timeout=180,
     )
-    if result.returncode != 0 and "No module named ruff" in result.stderr:
-        pytest.skip("ruff is not installed in this environment (prerequisite absent)")
     assert result.returncode == 0, result.stdout + result.stderr
+
+
+def test_selftest_job_installs_the_consumer_lint_prerequisite():
+    import yaml
+
+    workflow = yaml.safe_load((ROOT / ".github/workflows/selftest-ci.yml").read_text())
+    jobs = workflow["jobs"].values()
+    job = next(
+        job
+        for job in jobs
+        if any("tests/workflows/" in step.get("run", "") for step in job["steps"])
+    )
+    install = next(
+        step["run"] for step in job["steps"] if step.get("name") == "Install dependencies"
+    )
+    assert "ruff==0.17.0" in install
