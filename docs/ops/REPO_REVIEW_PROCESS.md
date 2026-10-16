@@ -402,3 +402,8 @@ reconciliation uploads issues automatically.
 Unresolved approved-scope conflicts are a separate materialization hold: they
 keep `upload_allowed` false and `issues` empty even after the intake hold is
 released. The uploader also rejects such queues before any GitHub mutation.
+
+If a conflict store or reconciled backlog exists but its approval ledger is
+missing, regeneration fails closed before replacing the approved queue. Restore
+the ledger from its preserved approval evidence; absence is not approval to
+ignore the reconciliation hold.

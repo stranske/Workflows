@@ -120,6 +120,13 @@ def merge_approval_ledger(
 ) -> dict[str, Any]:
     """Restore unfiled approvals; never requeue filed/unknown items or widen scope."""
     if not ledger_path.exists():
+        if any(
+            (ledger_path.parent / name).exists()
+            for name in ("approval-scope-conflicts.json", "reconciled-backlog.json")
+        ):
+            raise ValueError(
+                "Approval ledger is missing from existing reconciliation state; restore it before regeneration"
+            )
         return queue
     ledger = json.loads(ledger_path.read_text(encoding="utf-8"))
     if ledger.get("schema") != SCHEMA:

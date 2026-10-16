@@ -248,3 +248,14 @@ def test_unresolved_approved_scope_conflict_holds_materialization_after_intake_r
     assert result["issues"] == []
     assert len(result["held_approved_issues"]) == 1
     assert result["materialization_hold_reason"] == "unresolved_approval_scope_conflicts"
+
+
+@pytest.mark.parametrize("state_file", ["approval-scope-conflicts.json", "reconciled-backlog.json"])
+def test_missing_ledger_cannot_bypass_existing_reconciliation_state(tmp_path, state_file):
+    (tmp_path / state_file).write_text('{"entries": []}')
+    queue = {"issues": [{"repo": "owner/demo", "title": "New work"}]}
+    with pytest.raises(ValueError, match="ledger is missing"):
+        ledger.merge_approval_ledger(
+            queue, tmp_path / "approval-ledger.json", allowed_repos={"owner/demo"}
+        )
+    assert queue["issues"][0]["title"] == "New work"
