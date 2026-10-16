@@ -265,6 +265,8 @@ EXPECTED_NAMES = {
     "health-43-ci-signature-guard.yml": "Health 43 CI Signature Guard",
     "health-44-gate-branch-protection.yml": "Health 44 Gate Branch Protection",
     "health-codex-auth-check.yml": "Health 46 Codex Auth Check",
+    "health-cursor-auth-check.yml": "Health 77 Cursor Auth Check",
+    "health-muse-auth-check.yml": "Health 79 Muse Auth Check",
     "health-50-security-scan.yml": "Health 50 Security Scan",
     "health-51-zizmor.yml": "Health 51 Actions SAST (zizmor)",
     "health-52-semgrep.yml": "Health 52 Semgrep Scan",
