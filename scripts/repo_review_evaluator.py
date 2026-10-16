@@ -2570,6 +2570,8 @@ def candidate_title_pattern_indexes(
     for candidate in candidates:
         title = str(candidate.get("title", ""))
         for pattern in patterns:
+            if not isinstance(pattern, str) or not pattern.strip():
+                continue
             try:
                 if re.search(str(pattern), title, flags=re.I):
                     indexes.add(int(candidate["candidate_index"]))

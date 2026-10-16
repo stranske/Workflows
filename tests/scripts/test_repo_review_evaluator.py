@@ -1459,7 +1459,7 @@ def test_exclusion_repo_name_punctuation_and_longer_names(text, expected):
 
 def test_unmatched_approval_titles_never_fall_back_to_old_positions() -> None:
     candidates = [{"candidate_index": 1, "title": "New production smoke audit"}]
-    for patterns in (["^Old scoring fix$"], ["["], []):
+    for patterns in (["^Old scoring fix$"], ["["], [], [""], [" ", None]):
         decision = {"approved_candidates": [1], "approved_title_patterns": patterns}
         assert evaluator.approved_candidate_indexes(decision, 1, {}, candidates) == set()
 
