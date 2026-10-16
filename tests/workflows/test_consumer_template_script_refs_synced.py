@@ -6,6 +6,7 @@ required `summary` check failed on belt PRs in 15 of 16 consumers. This test mak
 of gap a CI failure instead of a surprise in a consumer.
 """
 
+import ast
 import re
 from pathlib import Path
 
@@ -72,6 +73,43 @@ def test_every_script_a_consumer_workflow_runs_is_synced_or_optional_by_design()
     assert not missing, f"scripts run by consumer workflows but never delivered: {missing}"
 
 
-def test_the_ledger_validator_is_delivered_to_consumers():
-    assert "scripts/ledger_validate.py" in _manifest_targets()
-    assert (ROOT / "scripts/ledger_validate.py").is_file()
+def _local_imports(path: Path) -> set[str]:
+    modules: set[str] = set()
+    for node in ast.walk(ast.parse(path.read_text())):
+        if isinstance(node, ast.ImportFrom) and node.module:
+            modules.add(node.module)
+        elif isinstance(node, ast.Import):
+            modules.update(alias.name for alias in node.names)
+    found = set()
+    for module in modules:
+        for candidate in (
+            f"{module.replace('.', '/')}.py",
+            f"scripts/{module.replace('.', '/')}.py",
+        ):
+            if (ROOT / candidate).is_file() and candidate.startswith("scripts/"):
+                found.add(candidate)
+    return found
+
+
+def test_scripts_run_by_consumer_workflows_do_not_import_undelivered_modules():
+    """The closure matters: delivering ledger_validate.py alone still failed on its import."""
+    targets = _manifest_targets()
+    missing: dict[str, list[str]] = {}
+    queue = [p for p in _references() if p.endswith(".py") and (ROOT / p).is_file()]
+    seen: set[str] = set()
+    while queue:
+        script = queue.pop()
+        if script in seen:
+            continue
+        seen.add(script)
+        for dep in _local_imports(ROOT / script):
+            if not _synced(dep, targets) and dep not in OPTIONAL_BY_DESIGN:
+                missing.setdefault(dep, []).append(script)
+            queue.append(dep)
+    assert not missing, f"imported by a script consumers run, but never delivered: {missing}"
+
+
+def test_the_ledger_validator_and_its_import_are_delivered_to_consumers():
+    targets = _manifest_targets()
+    assert "scripts/ledger_validate.py" in targets
+    assert "scripts/belt_ledger_completion.py" in targets
