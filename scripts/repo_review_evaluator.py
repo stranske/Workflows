@@ -2807,37 +2807,18 @@ def issue_body_has_required_sections(body: str) -> bool:
 def feedback_covers_converged(
     decision: dict[str, Any], feedback_generated_on: str, converged: Any
 ) -> bool:
-    """Cycle-binding (#2272): does the recorded human feedback actually correspond to the
-    current round-2 converged set, or does it predate it?
+    """Bind approvals to one source set; a global date is never source identity.
 
-    A stale per-repo ``"approve all"`` decision otherwise auto-approves every *future*
-    cycle's brand-new candidates that the human never saw. Feedback is treated as covering
-    the current converged set when either:
-
-      * the decision pins ``approved_converged_synthesized_at`` to the converged set's
-        ``synthesized_at`` (explicit binding), or
-      * the feedback's ``generated_on`` date is at least as new as the converged set's
-        ``synthesized_at`` date.
-
-    When there is no converged set to bind to (round-1-only path) prior behavior is kept.
-    Unparseable dates fail closed (not covered) so a malformed stamp cannot auto-approve.
+    Round-1-only callers retain legacy behavior unless feedback pins a round-2
+    set that is now absent. A negotiated set requires
+    an exact per-repository pin, regardless of selector type or global date.
+    Unattended approval opt-in is handled separately by the queue builder.
     """
     if not isinstance(converged, dict):
-        return True
+        return not bool(decision.get("approved_converged_synthesized_at"))
     synth = str(converged.get("synthesized_at") or "").strip()
-    if not synth:
-        return True
     pinned = str(decision.get("approved_converged_synthesized_at") or "").strip()
-    if pinned:
-        return pinned == synth
-    from datetime import date
-
-    try:
-        fb = date.fromisoformat(str(feedback_generated_on or "")[:10])
-        cv = date.fromisoformat(synth[:10])
-    except ValueError:
-        return False
-    return fb >= cv
+    return bool(synth) and pinned == synth
 
 
 def candidate_priority(candidate: dict[str, Any]) -> str:
@@ -3001,22 +2982,8 @@ def build_approved_issue_queue(
         # Keep old approvals in the persistent ledger instead of reinterpreting them.
         auto_approve_new = bool(decision.get("auto_approve_new", False))
         converged = state.get("round2_converged")
-        approved_spec = decision.get("approved_candidates", defaults.get("approved_candidates", []))
-        positional = (
-            "approved_title_patterns" not in decision
-            and isinstance(approved_spec, list)
-            and bool(approved_spec)
-        )
-        synth = str((converged or {}).get("synthesized_at") or "").strip()
-        pinned = str(decision.get("approved_converged_synthesized_at") or "").strip()
-        # A global feedback date can change for an unrelated repository. Positions
-        # require an exact source-set pin, never just a recent global date.
-        unbound_positions = positional and bool(synth) and pinned != synth
-        if not auto_approve_new and (
-            unbound_positions
-            or not feedback_covers_converged(
-                decision, feedback_config.get("generated_on", ""), converged
-            )
+        if not auto_approve_new and not feedback_covers_converged(
+            decision, feedback_config.get("generated_on", ""), converged
         ):
             synth = str((converged or {}).get("synthesized_at") or "").strip()
             warnings.append(

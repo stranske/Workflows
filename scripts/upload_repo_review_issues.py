@@ -519,6 +519,8 @@ def main() -> int:
             raise ValueError("Invalid upload permission; upload refused")
         if args.apply and (hold.get("active") is True or metadata.get("upload_allowed") is False):
             raise ValueError("Owner intake hold active; upload refused before any GitHub mutation")
+        if args.apply and metadata.get("approval_scope_conflicts"):
+            raise ValueError("Unresolved approved scope conflicts; reconcile before upload")
         issues = load_queue(args.queue)
     except ValueError as exc:
         print(str(exc), file=sys.stderr)

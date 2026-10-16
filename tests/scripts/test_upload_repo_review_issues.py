@@ -225,3 +225,29 @@ def test_main_refuses_held_queue_before_any_github_operation(tmp_path, monkeypat
     monkeypatch.setattr(uploader, "upload_issues", lambda *a, **k: pytest.fail("must not upload"))
     assert uploader.main() == 2
     assert "hold active" in capsys.readouterr().err
+
+
+def test_main_refuses_unresolved_approved_scope_conflicts_before_github(
+    tmp_path, monkeypatch, capsys
+):
+    import argparse
+
+    path = tmp_path / "queue.json"
+    path.write_text(
+        json.dumps(
+            {
+                "issues": [],
+                "intake_hold": {"active": False},
+                "upload_allowed": True,
+                "approval_scope_conflicts": [{"disposition": "reconciliation_required"}],
+            }
+        )
+    )
+    monkeypatch.setattr(
+        uploader,
+        "parse_args",
+        lambda: argparse.Namespace(queue=path, apply=True, gh_prefix="gh", repo=[]),
+    )
+    monkeypatch.setattr(uploader, "upload_issues", lambda *a, **k: pytest.fail("must not upload"))
+    assert uploader.main() == 2
+    assert "scope conflicts" in capsys.readouterr().err

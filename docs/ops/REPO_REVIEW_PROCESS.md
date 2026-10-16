@@ -354,8 +354,11 @@ Completion audits should still use the issue-completion audit workflow before de
 
 Candidate positions belong to one negotiated source set. All approval selectors,
 including explicit indexes and title patterns, obey the recorded cycle binding.
-Numeric positions require an exact `approved_converged_synthesized_at` pin;
-changing a global feedback date cannot rebind them to another source set.
+Every converged-set approval requires an exact per-repository
+`approved_converged_synthesized_at` pin, including title selectors and blanket
+approval. Changing a global feedback date cannot rebind approval to another
+source set. Only an explicit `auto_approve_new` opt-in authorizes unattended
+cross-cycle approval; existing high-stakes gates still apply.
 An explicit `approved_title_patterns` field is authoritative: empty, invalid or
 unmatched patterns select nothing and never fall back to old numeric positions.
 An approval pinned to a different `synthesized_at` remains historical approval;
@@ -395,3 +398,7 @@ materialize held work by ignoring the new metadata. The uploader refuses `--appl
 operation. Preserve the owner's hold until explicitly released; approval and intake
 authority are separate decisions. Dry-run remains read-only. No weekly review or
 reconciliation uploads issues automatically.
+
+Unresolved approved-scope conflicts are a separate materialization hold: they
+keep `upload_allowed` false and `issues` empty even after the intake hold is
+released. The uploader also rejects such queues before any GitHub mutation.

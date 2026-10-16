@@ -225,8 +225,10 @@ def merge_approval_ledger(
         raise ValueError("Approval ledger requires an explicit intake hold state")
     result["intake_hold"] = copy.deepcopy(hold)
     preserve_scope_conflicts(result, ledger_path, originals, allowed_repos)
-    result["upload_allowed"] = not hold["active"]
-    if hold["active"]:
+    result["upload_allowed"] = not (hold["active"] or result.get("approval_scope_conflicts"))
+    if result.get("approval_scope_conflicts"):
+        result["materialization_hold_reason"] = "unresolved_approval_scope_conflicts"
+    if not result["upload_allowed"]:
         # Older consumers only inspect issues and may ignore new hold metadata.
         # Preserve approvals separately while exposing no materializable work.
         result["held_approved_issues"] = result["issues"]

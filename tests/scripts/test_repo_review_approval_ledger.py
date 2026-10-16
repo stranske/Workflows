@@ -231,3 +231,20 @@ def test_conflict_cannot_be_silently_marked_resolved_without_authority(tmp_path)
     store_path.write_text(json.dumps(store))
     with pytest.raises(ValueError, match="resolution authority"):
         ledger.merge_approval_ledger({"issues": []}, path, allowed_repos={"owner/demo"})
+
+
+def test_unresolved_approved_scope_conflict_holds_materialization_after_intake_release(tmp_path):
+    path, originals = make_ledger(tmp_path)
+    data = json.loads(path.read_text())
+    data["intake_hold"]["active"] = False
+    path.write_text(json.dumps(data))
+    result = ledger.merge_approval_ledger(
+        {"issues": [dict(originals[1], body="New approved scope")]},
+        path,
+        allowed_repos={"owner/demo"},
+    )
+    assert result["intake_hold"]["active"] is False
+    assert result["upload_allowed"] is False
+    assert result["issues"] == []
+    assert len(result["held_approved_issues"]) == 1
+    assert result["materialization_hold_reason"] == "unresolved_approval_scope_conflicts"
