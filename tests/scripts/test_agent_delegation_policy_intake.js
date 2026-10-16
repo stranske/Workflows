@@ -157,14 +157,14 @@ test('no runner -> skipped using the shipped registry', () => {
     registryPath: path.resolve(__dirname, '../../.github/agents/registry.yml'),
   }).agents;
   assert.equal(registryAgents.aider.runner_workflow, '');
-  assert.ok(registryAgents.gemini.runner_workflow);
+  assert.ok(registryAgents.claude.runner_workflow);
   const routeWeights = {
     schema: 'orchestrator.route-weights/v2',
     generated_at: now,
     capacity: {
       aider: { state: 'ok' },
       unregistered: { state: 'ok' },
-      gemini: { state: 'ok' },
+      claude: { state: 'ok' },
     },
     task_types: {
       implement: {
@@ -172,14 +172,14 @@ test('no runner -> skipped using the shipped registry', () => {
         ranking: [
           { agent: 'aider', posterior: 0.95, n_obs: 25 },
           { agent: 'unregistered', posterior: 0.9, n_obs: 25 },
-          { agent: 'gemini', posterior: 0.78, n_obs: 25 },
+          { agent: 'claude', posterior: 0.78, n_obs: 25 },
         ],
       },
     },
   };
 
   const decision = chooseAgentForIntake('implement', routeWeights, registryAgents, { now });
-  assert.equal(decision.agent, 'gemini');
+  assert.equal(decision.agent, 'claude');
   assert.equal(decision.posterior, 0.78);
   assert.equal(decision.poolState, 'ok');
   assert.equal(decision.delegationSource, 'route_weights');
@@ -252,7 +252,7 @@ async function executeStep(workflow, { input = '', labels, failure } = {}) {
           schema: 'orchestrator.route-weights/v2',
           generated_at: new Date().toISOString(),
           task_types: { implement: { evidence_ok: true, ranking: [
-            { agent: 'gemini', posterior: 0.9, n_obs: 30 },
+            { agent: 'claude', posterior: 0.9, n_obs: 30 },
           ] } },
         };
       },
@@ -274,7 +274,7 @@ for (const workflow of workflows) {
   const [file, , output] = workflow;
   test(`${file}: empty input preserves the chooser default`, async () => {
     const result = await executeStep(workflow);
-    assert.equal(result.outputs[output], 'gemini');
+    assert.equal(result.outputs[output], 'claude');
     assert.equal(result.fetches, 1);
     assert.deepEqual(result.failures, []);
     assert.deepEqual(result.warnings, []);
@@ -326,3 +326,28 @@ test('root bridge dispatch retains normalized bridge input precedence', () => {
   needs.normalize_inputs.outputs.bridge_agent = '';
   assert.equal(dispatch(needs), 'gemini');
 });
+
+for (const agent of ['muse', 'gemini']) {
+  test(`preflight-disabled ${agent} cannot win intake using the shipped registry`, () => {
+    const agents = loadAgentRegistry({
+      registryPath: path.resolve(__dirname, '../../.github/agents/registry.yml'),
+    }).agents;
+    assert.equal(agents[agent].preflight.enabled, false);
+    assert.ok(agents[agent].runner_workflow);
+    assert.equal(agents.claude.preflight.enabled, true);
+    const weights = {
+      schema: 'orchestrator.route-weights/v2', generated_at: now,
+      task_types: { implement: { evidence_ok: true, ranking: [
+        { agent, posterior: 0.99, n_obs: 30 },
+        { agent: 'claude', posterior: 0.80, n_obs: 30 },
+      ] } },
+    };
+    const selected = chooseAgentForIntake('implement', weights, agents, { now });
+    assert.equal(selected.agent, 'claude');
+    assert.equal(selected.delegationSource, 'route_weights');
+    weights.task_types.implement.ranking.pop();
+    const fallback = chooseAgentForIntake('implement', weights, agents, { now });
+    assert.equal(fallback.agent, 'codex');
+    assert.equal(fallback.delegationSource, 'static');
+  });
+}

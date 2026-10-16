@@ -1356,6 +1356,7 @@ jobs:
       - name: Checkout retry helpers
         uses: actions/checkout@v7
         with:
+          persist-credentials: false
           sparse-checkout: |
             .github/actions/setup-api-client
             .github/agents/registry.yml

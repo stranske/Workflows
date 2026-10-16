@@ -854,7 +854,7 @@ function hasIntakeRunner(agentConfig = {}) {
   if (!agentConfig || typeof agentConfig !== 'object') {
     return false;
   }
-  if (agentConfig.enabled === false) {
+  if (agentConfig.enabled === false || agentConfig.preflight?.enabled === false) {
     return false;
   }
   if (agentConfig.capabilities && agentConfig.capabilities.pr_keepalive === false) {
