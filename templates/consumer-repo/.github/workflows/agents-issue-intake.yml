@@ -146,12 +146,19 @@ jobs:
               poolState: 'static',
               delegationSource: 'static',
             };
-            if (fs.existsSync(registryPath) && fs.existsSync(policyPath)) {
-              const { loadRegistry } = require(registryPath);
-              const { fetchRouteWeights, chooseAgentForIntake } = require(policyPath);
-              const registry = loadRegistry();
-              const routeWeights = await fetchRouteWeights();
-              intakeChoice = chooseAgentForIntake('implement', routeWeights, registry.agents);
+            if (!(process.env.DEFAULT_AGENT || '').trim()) {
+              try {
+                const { loadAgentRegistry } = require(registryPath);
+                const { fetchRouteWeights, chooseAgentForIntake } = require(policyPath);
+                const registry = loadAgentRegistry();
+                const routeWeights = await fetchRouteWeights();
+                if (!routeWeights) {
+                  throw new Error('Route-weights export unavailable or stale');
+                }
+                intakeChoice = chooseAgentForIntake('implement', routeWeights, registry.agents);
+              } catch (error) {
+                core.warning(`Intake agent chooser failed; using static default codex: ${error.message}`);
+              }
             }
             if (!(process.env.DEFAULT_AGENT || '').trim() && intakeChoice?.agent) {
               process.env.DEFAULT_AGENT = intakeChoice.agent;
@@ -192,13 +199,13 @@ jobs:
               issueNumber = String(issue.number);
 
               // Extract agent from labels (agent:codex, agents:codex, etc.)
-              // Skip metadata labels and agent:auto so auto/unlabelled issues use defaultAgent
+              // Skip metadata labels that aren't actual agent assignments
               const labels = issue.labels.map(l => l.name);
               const agentLabel = labels.find(l => {
                 const match = l.match(/^agents?:([a-z0-9-]+)$/i);
                 if (!match) return false;
                 const suffix = match[1].toLowerCase();
-                return !metadataLabels.has(suffix) && suffix !== 'auto';
+                return !metadataLabels.has(suffix);
               });
               if (agentLabel) {
                 agent = agentLabel.replace(/^agents?:/, '').toLowerCase();

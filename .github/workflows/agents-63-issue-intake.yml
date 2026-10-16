@@ -212,17 +212,14 @@ jobs:
             issue_number="$payload_issue"
           fi
 
-          if [ -z "$bridge_agent" ]; then
-            bridge_agent="codex"
-          fi
-
+          # Preserve an empty input so preflight can choose the default agent.
           if command -v jq >/dev/null 2>&1 && [ -f "$GITHUB_EVENT_PATH" ]; then
             event_agent=$(jq -r '
               [
                 .issue.labels[]?.name
                 | select(test("^agents?:[A-Za-z0-9-]+$"))
                 | sub("^agents?:(?<key>[A-Za-z0-9-]+)$"; "\(.key)")
-                | select(. != "keepalive" and . != "auto")
+                | select(. != "keepalive")
               ][0] // empty
             ' "$GITHUB_EVENT_PATH" 2>/dev/null || echo '')
             if [ -n "$event_agent" ]; then
@@ -1387,12 +1384,19 @@ jobs:
               poolState: 'static',
               delegationSource: 'static',
             };
-            if (fs.existsSync(registryPath) && fs.existsSync(policyPath)) {
-              const { loadRegistry } = require(registryPath);
-              const { fetchRouteWeights, chooseAgentForIntake } = require(policyPath);
-              const registry = loadRegistry();
-              const routeWeights = await fetchRouteWeights();
-              intakeChoice = chooseAgentForIntake('implement', routeWeights, registry.agents);
+            if (!(process.env.DEFAULT_AGENT || '').trim()) {
+              try {
+                const { loadAgentRegistry } = require(registryPath);
+                const { fetchRouteWeights, chooseAgentForIntake } = require(policyPath);
+                const registry = loadAgentRegistry();
+                const routeWeights = await fetchRouteWeights();
+                if (!routeWeights) {
+                  throw new Error('Route-weights export unavailable or stale');
+                }
+                intakeChoice = chooseAgentForIntake('implement', routeWeights, registry.agents);
+              } catch (error) {
+                core.warning(`Intake agent chooser failed; using static default codex: ${error.message}`);
+              }
             }
             if (!(process.env.DEFAULT_AGENT || '').trim() && intakeChoice?.agent) {
               process.env.DEFAULT_AGENT = intakeChoice.agent;
@@ -1503,20 +1507,18 @@ jobs:
               .filter((name) => /^agents?:[a-z0-9-]+$/.test(name))
               .filter((name) => {
                 const suffix = name.replace(/^agents?:/, '');
-                return !controlLabelSuffixes.includes(suffix) && suffix !== 'auto';
+                return !controlLabelSuffixes.includes(suffix);
               });
-            if (agentLabels.length > 1) {
+            if (agentLabels.length !== 1) {
               const found = agentLabels.join(', ');
               core.setFailed(
-                `Expected at most one concrete agent:* label; found ${agentLabels.length}: ${found}`,
+                `Expected exactly one agent:* label; found ${agentLabels.length}: ${found}`,
               );
               return;
             }
+            const agentLabel = agentLabels[0];
+            const agentKey = agentLabel.replace(/^agents?:/, '');
             const normalizedDefault = defaultAgent.toLowerCase();
-            const agentKey =
-              agentLabels.length === 1
-                ? agentLabels[0].replace(/^agents?:/, '')
-                : normalizedDefault;
             if (normalizedDefault && normalizedDefault !== agentKey) {
               core.info(
                 `Overriding bridge agent '${normalizedDefault}' with '${agentKey}' from labels.`,
@@ -1777,8 +1779,8 @@ jobs:
     with:
       agent: >-
         ${{
-          needs.bridge_preflight.outputs.agent_key ||
-          needs.normalize_inputs.outputs.bridge_agent
+          needs.normalize_inputs.outputs.bridge_agent ||
+          needs.bridge_preflight.outputs.agent_key
         }}
       issue_number: >-
         ${{
