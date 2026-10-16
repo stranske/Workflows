@@ -22,7 +22,7 @@ values and counts, full semantic dimensions, lexical interaction axes, retained
 counts, and source base. The helper in the destination test file implements only
 this small local case construction; it is not a new test runner or framework.
 
-| Named regression | Old cases | Retained classifier cases |
+| Named regression | Old cases | Retained cases |
 | --- | ---: | ---: |
 | `test_participial_content_is_not_a_component_name` | 1536 | 304 |
 | `test_product_chain_inherits_latest_explicit_governor_and_aspect` | 2304 | 960 |
@@ -126,6 +126,6 @@ The before Gate is https://github.com/stranske/Workflows/actions/runs/3893842007
 The implementation PR's required Gate supplies after evidence. Compare Python
 3.12 and 3.13 separately using actual runner/worker/dependency/coverage settings,
 scoped JUnit counts and costs, collection time, reporting and total job wall time.
-A local run does not establish hosted performance. Do not close #3904 or claim a
+The local baseline and candidate run concurrently, so their elapsed times are observational and not a controlled speedup measurement. A local run does not establish hosted performance. Do not close #3904 or claim a
 sub-10-minute Gate until controlled hosted evidence supports that claim. If the
 runtime target remains unmet, name the measured residual bottlenecks and gap.
