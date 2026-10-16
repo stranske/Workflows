@@ -2076,8 +2076,8 @@ Non-actionable items found:
 
 
 def test_json_and_markdown_helpers_preserve_machine_and_human_output() -> None:
-    assert followup_issue_generator._extract_json("prefix {\"task\": 1}") == {"task": 1}
-    assert followup_issue_generator._extract_json("```json\n{\"task\": 1}\n```") == {"task": 1}
+    assert followup_issue_generator._extract_json('prefix {"task": 1}') == {"task": 1}
+    assert followup_issue_generator._extract_json('```json\n{"task": 1}\n```') == {"task": 1}
     assert followup_issue_generator._extract_json("not json") == {}
     assert followup_issue_generator._strip_markdown_fence("```markdown\nbody\n```") == "body"
     assert followup_issue_generator._strip_markdown_fence("body") == "body"
@@ -2144,9 +2144,14 @@ def test_main_reads_file_inputs_and_writes_json_output(
     }
     assert captured["codex_log"] == "iteration complete"
     assert captured["original_issue"].tasks == ["Do work"]
+    assert captured["verification_data"].provider_verdicts == {
+        "default": {"verdict": "PASS", "confidence": 100}
+    }
 
 
-def test_main_reads_verification_from_standard_input(monkeypatch: pytest.MonkeyPatch, capsys) -> None:
+def test_main_reads_verification_from_standard_input(
+    monkeypatch: pytest.MonkeyPatch, capsys
+) -> None:
     monkeypatch.setattr(sys, "stdin", io.StringIO("Verdict: PASS @100%"))
     monkeypatch.setattr(
         sys,
