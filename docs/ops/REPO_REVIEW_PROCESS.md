@@ -383,7 +383,7 @@ Unresolved changed-scope approvals are also retained in
 that no longer selects them cannot erase them. Repeated generation is idempotent;
 a human resolution must retain the record, mark it `resolved`, and include
 `resolution.authority` and `resolution.accepted_item_sha256`, selecting the exact original or changed snapshot. To replace an earlier accepted revision, retain that record with disposition `superseded`, explicit resolution authority, and `resolution.superseded_by_item_sha256` pointing to the newer stored snapshot. References must be present and acyclic; an unresolved successor still holds intake. An accepted changed snapshot replaces the historical scope in future queue regenerations; intake holds still suppress materialization. The store uses a nonblocking writer lock and atomic
-replacement, and preserves records for currently inactive repositories.
+replacement, and preserves records for currently inactive repositories. Every retained snapshot and supersession chain is validated before any store replacement, including inactive repositories; routing eligibility is applied only after history validation. Valid paused findings remain preserved without entering the active queue or conflict reminders.
 The ledger is local report state and must not be committed with personal reviews.
 
 A reconciled backlog should retain both weeks' source occurrences, identify same-gap
