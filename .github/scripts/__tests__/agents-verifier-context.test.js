@@ -3974,6 +3974,9 @@ test('negated historical diagnostics do not join a complete positive evidence un
     'No validation evidence. The validation prerequisite is /actions/runs/999',
     'Not **evidence** but a validation prerequisite: /actions/runs/999',
     'No validation evidence but **Evidence:** /actions/runs/124',
+    'Evidence: /actions/runs/124, while /actions/runs/999 is not validation evidence',
+    'Evidence: /actions/runs/124; /actions/runs/999 was not evidence',
+    'Evidence: /actions/runs/124, whereas [old run](/actions/runs/999) is not validation evidence',
   ];
   for (const implementation of implementations) {
     for (const diagnostic of diagnostics) {

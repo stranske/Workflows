@@ -410,7 +410,17 @@ function positiveEvidenceClauses(line) {
       positive = false;
     }
     // Retain genuine earlier positive proof, but never its negated suffix.
-    if (positive) selected.push(negativeIndex < 0 ? clause : clause.slice(0, labels[negativeIndex].index));
+    if (positive) {
+      let end = negativeIndex < 0 ? clause.length : labels[negativeIndex].index;
+      if (negativeIndex >= 0) {
+        // A trailing negative predicate binds its immediately preceding URL,
+        // not just the words after it: "run999 is not validation evidence".
+        // Keep independently positive earlier URLs, including run-list proof.
+        const subject = clause.slice(0, end).match(/(?:https?:\/\/[^\s/]+)?\/actions\/runs\/\d+(?:\/attempts\/\d+)?[)`*_\]]*\s+(?:is|are|was|were)\s+(?:no|not)\s*$/i);
+        if (subject) end = subject.index;
+      }
+      selected.push(clause.slice(0, end));
+    }
     // A semicolon run list inherits only a still-positive declaration.
     if (negativeIndex >= 0) { positive = false; negativeScope = true; }
   }
