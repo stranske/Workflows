@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.39.0](https://github.com/stranske/Workflows/compare/v1.38.17...v1.39.0) (2026-10-16)
+
+
+### Features
+
+* **agents:** add Muse runner and route keepalive/autofix/followups to it ([#3918](https://github.com/stranske/Workflows/issues/3918), [#3919](https://github.com/stranske/Workflows/issues/3919)) ([#3934](https://github.com/stranske/Workflows/issues/3934)) ([6652395](https://github.com/stranske/Workflows/commit/66523955ca15380d797db86dce8b5ae44c3df685))
+
+
+### Bug Fixes
+
+* **review:** preserve scoped approvals across weekly backlog refreshes ([#3933](https://github.com/stranske/Workflows/issues/3933)) ([43096bf](https://github.com/stranske/Workflows/commit/43096bff240b6fc5c89bb229f992a49a663fece4))
+
 ## [1.38.17](https://github.com/stranske/Workflows/compare/v1.38.16...v1.38.17) (2026-10-16)
 
 
