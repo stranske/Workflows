@@ -360,3 +360,74 @@ def test_invalid_scope_supersession_fails_closed(tmp_path, target):
     store_path.write_text(json.dumps(store))
     with pytest.raises(ValueError, match="supersession"):
         ledger.merge_approval_ledger({"issues": []}, path, allowed_repos={"owner/demo"})
+
+
+@pytest.mark.parametrize("damage", ["digest", "missing-successor", "cycle"])
+def test_malformed_paused_history_blocks_store_mutation(tmp_path, damage):
+    path, originals = make_ledger(tmp_path)
+    changed = dict(originals[0], body="Previously approved changed scope")
+    ledger.merge_approval_ledger({"issues": [changed]}, path, allowed_repos={"owner/demo"})
+    store_path = tmp_path / "approval-scope-conflicts.json"
+    store = json.loads(store_path.read_text())
+    record = store["entries"][0]
+    if damage == "digest":
+        record["current_approved_issue"]["body"] = "Corrupted retained snapshot"
+    else:
+        record.update(
+            disposition="superseded",
+            resolution={
+                "authority": "Explicit fixture supersession",
+                "superseded_by_item_sha256": (
+                    record["current_approved_item_sha256"] if damage == "cycle" else "missing"
+                ),
+            },
+        )
+    store_path.write_text(json.dumps(store))
+    before = store_path.read_bytes()
+    active_original = {"repo": "owner/active", "title": "Active approval", "body": "Original"}
+    active_changed = dict(active_original, body="New approved active scope")
+    identity = ledger.finding_id(active_original["repo"], active_original["title"])
+    incoming = {
+        "finding_id": identity,
+        "original_approved_item_sha256": ledger.item_digest(active_original),
+        "current_approved_issue": active_changed,
+        "current_approved_item_sha256": ledger.item_digest(active_changed),
+        "disposition": "reconciliation_required",
+    }
+    all_originals = {
+        ledger.finding_id(x["repo"], x["title"]): x for x in [*originals, active_original]
+    }
+    with pytest.raises(ValueError, match="snapshot digest|supersession"):
+        ledger.preserve_scope_conflicts(
+            {"issues": [], "approval_scope_conflicts": [incoming]},
+            path,
+            all_originals,
+            {"owner/active"},
+        )
+    assert store_path.read_bytes() == before
+    assert not store_path.with_suffix(".json.tmp").exists()
+
+
+@pytest.mark.parametrize("resolved", [False, True])
+def test_valid_paused_conflict_is_preserved_without_routing(tmp_path, resolved):
+    path, originals = make_ledger(tmp_path)
+    changed = dict(originals[0], body="Preserved changed approval")
+    ledger.merge_approval_ledger({"issues": [changed]}, path, allowed_repos={"owner/demo"})
+    store_path = tmp_path / "approval-scope-conflicts.json"
+    if resolved:
+        store = json.loads(store_path.read_text())
+        store["entries"][0].update(
+            disposition="resolved",
+            resolution={
+                "authority": "Owner accepted exact changed scope",
+                "accepted_item_sha256": ledger.item_digest(changed),
+            },
+        )
+        store_path.write_text(json.dumps(store))
+    before = store_path.read_bytes()
+    result = ledger.merge_approval_ledger({"issues": []}, path, allowed_repos={"owner/active"})
+    assert result["issues"] == []
+    assert result["held_approved_issues"] == []
+    assert result["approval_scope_conflicts"] == []
+    assert result.get("warnings", []) == []
+    assert store_path.read_bytes() == before

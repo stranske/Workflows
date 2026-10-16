@@ -65,8 +65,7 @@ def preserve_scope_conflicts(
         by_id = {}
         for conflict in records:
             issue = conflict.get("current_approved_issue", {})
-            if issue.get("repo") not in allowed_repos:
-                continue
+            # Retained history must validate even while its repository is paused.
             original = originals.get(conflict.get("finding_id"))
             current_digest = item_digest(issue)
             if (
@@ -110,16 +109,11 @@ def preserve_scope_conflicts(
                 records.append(saved)
                 by_id[key] = saved
                 changed = True
-        if changed:
-            if (path.read_bytes() if path.exists() else None) != before:
-                raise ValueError("Approval conflict store changed concurrently; retry")
-            temporary = path.with_suffix(".json.tmp")
-            temporary.write_text(json.dumps(store, indent=2) + "\n", encoding="utf-8")
-            temporary.replace(path)
         unresolved = [
             copy.deepcopy(record)
             for record in by_id.values()
             if record["disposition"] == "reconciliation_required"
+            and record["current_approved_issue"].get("repo") in allowed_repos
         ]
         accepted = {}
         for record in by_id.values():
@@ -130,7 +124,15 @@ def preserve_scope_conflicts(
             if identity in accepted and accepted[identity][0] != digest:
                 raise ValueError("Conflicting accepted approval snapshots require reconciliation")
             accepted[identity] = (digest, record)
+        if changed:
+            if (path.read_bytes() if path.exists() else None) != before:
+                raise ValueError("Approval conflict store changed concurrently; retry")
+            temporary = path.with_suffix(".json.tmp")
+            temporary.write_text(json.dumps(store, indent=2) + "\n", encoding="utf-8")
+            temporary.replace(path)
         for identity, (digest, record) in accepted.items():
+            if record["current_approved_issue"].get("repo") not in allowed_repos:
+                continue
             if digest == record["original_approved_item_sha256"]:
                 continue
             result["issues"] = [
