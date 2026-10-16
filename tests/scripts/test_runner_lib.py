@@ -2892,3 +2892,41 @@ def test_each_zero_output_run_after_the_cooldown_arms_a_fresh_one() -> None:
         storage.records[(42, "codex")]["unproductive_completions"]
         == UNPRODUCTIVE_COMPLETION_RETRY_LIMIT + 1
     )
+
+
+def test_storage_failure_log_names_the_http_error_message(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    token = "ghp_" + "a" * 36
+    body = json.dumps({"message": f"Resource not accessible by integration {token}"})
+    primary = MemoryRunnerStorage()
+
+    def fail(*_: Any) -> Any:
+        raise RuntimeError(f"GitHub API GET /x failed: 403 {body}") from HTTPError(
+            "https://example.invalid/x", 403, "Forbidden", {}, None
+        )
+
+    primary.read_record = fail  # type: ignore[method-assign]
+    decision = should_dispatch(
+        42,
+        "aaa",
+        "codex",
+        storage=runner_core.FallbackRunnerStorage(primary, MemoryRunnerStorage()),
+    )
+
+    error = capsys.readouterr().err
+    assert decision.should_dispatch is False
+    assert decision.reason == "authoritative-storage-unavailable"
+    assert "http_status=403" in error
+    assert "Resource not accessible by integration" in error
+    assert token not in error
+    assert "https://" not in error
+
+
+def test_storage_failure_log_bounds_and_ignores_unstructured_message() -> None:
+    long_body = json.dumps({"message": "x" * 1000})
+    assert len(runner_core._storage_failure_message(RuntimeError(f"f: 403 {long_body}")) or "") == (
+        runner_core.STORAGE_FAILURE_MESSAGE_MAX_CHARS
+    )
+    for text in ("plain private text", "403 {not json", '403 {"message": 5}', "403 [1]"):
+        assert runner_core._storage_failure_message(RuntimeError(text)) is None
