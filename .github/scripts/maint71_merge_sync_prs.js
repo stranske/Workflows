@@ -1130,6 +1130,9 @@ function buildCanaryPromotionEvidence(rows = [], expectedCanaries = []) {
     for (const key of ['repo', 'plan_id', 'source_commit', 'head_sha', 'evidence_source']) {
       if (!row[key]) errors.push(`missing_key:${key}:${row.repo || '<unknown>'}`);
     }
+    // Match Maint 68's jq type check; String() coercion in the shared
+    // validator must not authorize evidence that the receiving workflow rejects.
+    if (typeof row.plan_id !== 'string') errors.push(`invalid_plan_id:${row.repo}`);
     if (!/^[0-9a-f]{40,64}$/i.test(row.source_commit || '')) {
       errors.push(`invalid_source_commit:${row.repo}`);
     }

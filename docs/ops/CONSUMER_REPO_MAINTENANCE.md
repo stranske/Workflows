@@ -1342,9 +1342,10 @@ rules are enforced by `sync_run_contract.js`, `maint71_merge_sync_prs.js`, and
 `sync_pr_merge_contract.js`, with the workflow carrying the immutable fields
 between those boundaries.
 
-The promotion evidence builder requires a nonempty `plan_id` and immutable
+The promotion evidence builder requires a nonempty string `plan_id` and immutable
 `source_commit` on every canary row, with matching plan, scope, range, green
-required checks and zero active review threads. Merged-canary recovery also
+required checks and zero active review threads. Non-string plan IDs are held
+before API calls, matching Maint 68's jq evidence parser. Merged-canary recovery also
 matches the report's PR, head, plan and source to that evidence. Prepared sealed
 canaries remain eligible: requiring them to merge first would deadlock the
 fleet prepare/commit contract. Read-only or auto-merge-disabled passes cannot

@@ -116,6 +116,23 @@ test('every row must carry plan_id and the same immutable source', async () => {
   }
 });
 
+for (const invalidPlanId of [42, true, ['plan'], { plan: 'plan' }]) {
+  test(`non-string plan_id ${JSON.stringify(invalidPlanId)} holds dispatch before API calls`, async () => {
+    const args = fixture(), api = harness();
+    for (const row of args.evidence.results) row.plan_id = invalidPlanId;
+    const built = buildCanaryPromotionEvidence(args.evidence.results, expectedCanaries);
+    assert.equal(built.ok, false, 'plan_id must be a string as required by the Maint 68 jq filter');
+    for (const repo of expectedCanaries) {
+      assert.ok(built.errors.includes(`invalid_plan_id:${repo}`));
+    }
+    const result = await dispatchCanaryPromotion({ ...args, ...api });
+    assert.equal(result.status, 'held');
+    assert.match(result.errors.join(','), /invalid_plan_id/);
+    assert.equal(api.dispatched.length, 0);
+    assert.equal(api.reads.length, 0);
+  });
+}
+
 test('unprepared, changed merged identity, and disabled mutation cannot dispatch', async () => {
   for (const change of [
     (args) => { args.report.results[0].status = 'checks_pending'; },
@@ -194,6 +211,13 @@ test('snapshot expected jq keys and run the actual Maint 68 evidence parser', ()
     const missing = structuredClone(built.evidence);
     delete missing.results[1].plan_id;
     assert.notEqual(parse(missing).status, 0, 'jq must reject missing key: plan_id');
+    for (const invalidPlanId of [42, true, ['plan'], { plan: 'plan' }]) {
+      const invalid = structuredClone(built.evidence);
+      for (const row of invalid.results) row.plan_id = invalidPlanId;
+      const rejected = parse(invalid);
+      assert.notEqual(rejected.status, 0, 'jq must reject non-string plan_id');
+      assert.match(rejected.stdout + rejected.stderr, /Promotion evidence missing or mixed plan_id/);
+    }
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
