@@ -35,9 +35,10 @@ still enforced. An incidental active thread needs an explicit owner disposition;
 it is not silently ignored. Consumers' branch protection is never weakened.
 Legacy review mode remains available when `generated_delivery_review` is absent.
 
-Maint82 follows delivery events with hourly crash recovery and weekly inventory.
-The local worker follows active CI in the same run; the recovery schedule is not
-permission to leave actionable work dormant. Closed campaigns stay closed.
+Maint82 retains its bounded ten-minute continuation sweep: consumer CI completion
+does not yet provide a native event wakeup for every delivery stage. The local
+worker follows active CI in the same run; the sweep is recovery and does not
+license dormant actionable work. Closed campaigns stay closed.
 
 ## Post-merge verifier security boundary
 

@@ -6,9 +6,9 @@ name: Sync/Dependency Campaign
 
 on:
   schedule:
-    # Events and the active delivery worker follow current CI. This hourly
-    # recovery pass catches missed events without an idle ten-minute campaign loop.
-    - cron: "17 * * * *"
+    # The campaign marker is also Maint 71's durable continuation queue. This
+    # bounded pass wakes due transient lanes even when no new GitHub event fires.
+    - cron: "*/10 * * * *"
     # A focused pass after the usual weekly Dependabot update window.
     - cron: "30 10 * * 1"
   workflow_dispatch:
