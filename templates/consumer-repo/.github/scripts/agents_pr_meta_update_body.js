@@ -422,7 +422,9 @@ function parseCheckboxStates(block) {
     if (inCodeBlock) {
       continue;
     }
-    const match = line.match(/^\s*- \[(x| )\]\s*(.+)$/i);
+    // Dash and numbered checklist items both carry durable completion state
+    // (coverage contract items are commonly authored as "1. [x] ...").
+    const match = line.match(/^\s*(?:[-*+]|\d+[.)])\s+\[(x| )\]\s*(.+)$/i);
     if (match) {
       const checked = match[1].toLowerCase() === 'x';
       const text = match[2].trim();
@@ -479,16 +481,18 @@ function isReleasePleasePr(pr = {}) {
 
 /**
  * Merge checkbox states from existingStates into newContent.
- * Only unchecked items `- [ ]` in newContent get their state restored.
+ * Only unchecked checklist items in newContent get their state restored.
  * This is intentional: already checked items in newContent preserve their state,
  * while unchecked items can be restored from the previous body state.
+ * Numbered items (`1. [ ]`) are included so acceptance-contract lists survive
+ * PR-meta refresh the same way dash bullets do.
  */
 function mergeCheckboxStates(newContent, existingStates) {
   if (!existingStates || existingStates.size === 0) {
     return newContent;
   }
   const lines = String(newContent || '').split(/\r?\n/);
-  // Only match unchecked `- [ ]` items - checked items preserve their state
+  // Match unchecked dash or numbered checklist items; checked items preserve state
   const updated = [];
   let inCodeBlock = false;
   for (const line of lines) {
@@ -501,13 +505,14 @@ function mergeCheckboxStates(newContent, existingStates) {
       updated.push(line);
       continue;
     }
-    const match = line.match(/^(\s*)- \[( )\]\s*(.+)$/);
+    const match = line.match(/^(\s*)([-*+]|\d+[.)]) \[( )\]\s*(.+)$/);
     if (match) {
       const indent = match[1];
-      const text = match[3].trim();
+      const bullet = match[2];
+      const text = match[4].trim();
       const normalized = text.replace(/^-\s*/, '').trim().toLowerCase();
       if (existingStates.has(normalized)) {
-        updated.push(`${indent}- [x] ${text}`);
+        updated.push(`${indent}${bullet} [x] ${text}`);
         continue;
       }
     }
