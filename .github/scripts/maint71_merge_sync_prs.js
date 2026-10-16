@@ -1225,10 +1225,16 @@ async function dispatchCanaryPromotion({
   const successful = runs.find((run) => run.status === 'completed' && run.conclusion === 'success'
     && promotionRunMatches(run, binding, branch));
   if (successful) return record('already-promoted', successful.html_url || `run ${successful.id}`);
-  const active = runs.find((run) =>
+  const planRuns = runs.filter((run) => promotionRunMatches(run, binding, branch));
+  const active = planRuns.find((run) =>
     ['queued', 'in_progress', 'waiting', 'pending', 'requested'].includes(run.status)
-    && String(run.display_title || '').startsWith('Maint 68 promote '));
+  );
   if (active) return record('waiting', active.html_url || `active run ${active.id}`);
+  // One initial dispatch plus at most two redispatches for this immutable plan.
+  // Count distinct run IDs, not run_attempt: rerunning a run is not a dispatch.
+  const attempts = new Set(planRuns.map((run) => run.id)).size;
+  if (attempts >= 3) return record('retry-exhausted',
+    `${attempts} dispatches; maximum 2 redispatches; owner repair required`);
   await withRetry((client) => client.rest.actions.createWorkflowDispatch({
     owner: context.repo.owner,
     repo: context.repo.repo,
@@ -1263,10 +1269,15 @@ function sealedPromotionHealth({ candidates = [], runs = [], now = Date.now(), d
   }
   const pending = [...plans.values()].sort((a, b) => a.sealedAt - b.sealedAt);
   const oldestHours = pending.length ? (now - pending[0].sealedAt) / 3600000 : 0;
+  const exhausted = pending.filter((binding) =>
+    new Set(runs.filter((run) => promotionRunMatches(run, binding, defaultBranch))
+      .map((run) => run.id)).size >= 3);
   return {
     pending,
-    overdue: oldestHours > 48,
-    line: `plans sealed awaiting promotion: ${pending.length}, oldest: ${pending.length ? `${oldestHours.toFixed(1)} h` : 'n/a'}`,
+    retry_exhausted: exhausted,
+    overdue: oldestHours > 48 || exhausted.length > 0,
+    line: `plans sealed awaiting promotion: ${pending.length}, oldest: ${pending.length ? `${oldestHours.toFixed(1)} h` : 'n/a'}`
+      + (exhausted.length ? `; promotion retry exhausted: ${exhausted.map((row) => row.plan_id).join(', ')} (maximum 2 redispatches)` : ''),
   };
 }
 
@@ -1304,6 +1315,7 @@ async function reportSealedPromotionHealth({ withRetry, context, core, expectedC
         owner, repo, state: 'all', head: `${owner}:sync/workflows-candidate`,
         sort: 'created', direction: 'desc', per_page: 100, page,
       }));
+      if (!Array.isArray(data)) throw new Error('sealed_candidate_history_unreadable');
       pulls.push(...data);
       if (data.length < 100) break;
     }
@@ -1324,11 +1336,21 @@ async function reportSealedPromotionHealth({ withRetry, context, core, expectedC
       candidates.push(pr);
     }
   }
-  const sealedTimes = candidates.map((pr) => parseDeliveryRecord(pr.body))
+  const sources = [...new Set(candidates.map((pr) => parseDeliveryRecord(pr.body))
     .filter((record) => record?.delivery_state === 'sealed')
-    .map((record) => Date.parse(record.sealed_at));
-  const runs = sealedTimes.length ? await listPromotionRuns({
-    withRetry, context, created: new Date(Math.min(...sealedTimes)).toISOString(),
+    .map((record) => record.source_commit))];
+  // A reseal must not hide prior dispatches for the same immutable plan.
+  const sourceDates = [];
+  for (const sourceCommit of sources) {
+    const { data } = await withRetry((client) => client.rest.repos.getCommit({
+      owner: context.repo.owner, repo: context.repo.repo, ref: sourceCommit,
+    }));
+    const date = Date.parse(data.commit?.committer?.date);
+    if (!Number.isFinite(date)) throw new Error('promotion_source_date_unknown');
+    sourceDates.push(date);
+  }
+  const runs = sourceDates.length ? await listPromotionRuns({
+    withRetry, context, created: new Date(Math.min(...sourceDates)).toISOString(),
   }) : [];
   const health = sealedPromotionHealth({
     candidates, runs, now, defaultBranch: context.payload.repository?.default_branch || 'main',

@@ -306,3 +306,75 @@ test('source-delta dispatch preserves the exact range in every evidence row', as
     assert.equal(row.source_commit, sourceCommit);
   }
 });
+
+
+test('an unrelated active or failed promotion cannot block this plan', async () => {
+  for (const status of ['queued', 'in_progress', 'completed']) {
+    const api = harness([promotionRun({ status, conclusion: 'failure',
+      display_title: `Maint 68 promote auto plan-A ${sourceCommit}` })]);
+    assert.equal((await dispatchCanaryPromotion({ ...fixture(), ...api })).status, 'dispatched');
+    assert.equal(api.dispatched.length, 1);
+  }
+});
+
+test('initial dispatch plus two redispatches exhausts only that plan and reports health', async () => {
+  for (const count of [0, 1, 2, 3, 4]) {
+    const runs = Array.from({ length: count }, (_, i) => promotionRun({
+      id: i + 1, conclusion: i % 2 ? 'cancelled' : 'failure',
+    }));
+    const api = harness(runs);
+    const expected = count < 3 ? 'dispatched' : 'retry-exhausted';
+    assert.equal((await dispatchCanaryPromotion({ ...fixture(), ...api })).status, expected);
+    assert.equal(api.dispatched.length, count < 3 ? 1 : 0);
+    const health = sealedPromotionHealth({ candidates: [candidate()], runs, now });
+    assert.equal(health.retry_exhausted.length, count < 3 ? 0 : 1);
+    if (count >= 3) {
+      assert.match(health.line, /promotion retry exhausted: sha256:a+.*maximum 2 redispatches/);
+      assert.equal(health.overdue, true);
+      const other = harness(runs.map((run) => ({ ...run,
+        display_title: `Maint 68 promote auto plan-A ${sourceCommit}` })));
+      assert.equal((await dispatchCanaryPromotion({ ...fixture(), ...other })).status, 'dispatched');
+    }
+  }
+});
+
+test('fresh prepared evidence dispatches after an unauthorized pre-merge snapshot', async () => {
+  const args = fixture(), api = harness();
+  args.report.inputs.candidate_evidence_authorized = false;
+  assert.equal((await dispatchCanaryPromotion({ ...args, ...api })).status, 'dispatched');
+  const workflow = fs.readFileSync('.github/workflows/maint-71-merge-sync-prs.yml', 'utf8');
+  const promotion = workflow.split('      - name: Promote complete exact-plan canary evidence')[1];
+  assert.doesNotMatch(promotion, /steps\.candidate_evidence_validation/);
+  assert.match(promotion, /steps\.merge_artifact\.outcome == 'success'/);
+});
+
+test('prepared report must match the fresh evidence identity', async () => {
+  for (const field of ['plan_id', 'source_commit', 'head_sha', 'pr']) {
+    const args = fixture(), api = harness();
+    args.report.results[0][field] = 'stale';
+    assert.equal((await dispatchCanaryPromotion({ ...args, ...api })).status, 'held');
+    assert.equal(api.dispatched.length, 0);
+  }
+});
+
+test('malformed candidate history fails closed instead of reporting measured health', async () => {
+  for (const data of [null, {}, { length: 0 }]) {
+    const api = harness();
+    api.client.rest.pulls = { list: async () => ({ data }) };
+    await assert.rejects(reportSealedPromotionHealth({ ...api, expectedCanaries, now }),
+      /sealed_candidate_history_unreadable/);
+    assert.equal(api.summaries.length, 0);
+  }
+});
+
+
+test('resealing cannot hide the exhausted promotion history', async () => {
+  const api = harness(Array.from({ length: 3 }, (_, id) => promotionRun({ id, conclusion: 'failure' })));
+  api.client.rest.pulls = { list: async (params) => ({
+    data: [candidate('2026-10-16T11:59:00Z', `${params.owner}/${params.repo}`)],
+  }) };
+  const health = await reportSealedPromotionHealth({ ...api, expectedCanaries, now });
+  assert.equal(api.reads[0].created, '>=2026-10-01T00:00:00.000Z');
+  assert.equal(health.retry_exhausted.length, 1);
+  assert.equal(health.overdue, true);
+});

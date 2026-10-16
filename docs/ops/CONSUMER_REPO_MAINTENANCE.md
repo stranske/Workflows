@@ -1355,8 +1355,14 @@ establish a successful promotion or merged consumer delivery.
 
 Maint 68 promotion run titles include the evidence's exact plan ID and source
 commit. Maint 71 suppresses a duplicate after a successful default-branch run
-with that binding, and defers while another promotion is active. Failed runs
-remain retryable. Run-history reads paginate and refuse incomplete GitHub
+with that binding, and defers only while a promotion with the same plan/source is active.
+Each plan/source gets one initial dispatch and at most two redispatches; failed
+or cancelled runs consume that allowance. Exhaustion appears with the plan ID
+in the health line and fails the independent check, requiring owner repair.
+Promotion uses the persisted final reconciliation evidence and report, not the
+pre-merge snapshot's authorization flag: reconciliation may seal/prepare a head
+after that snapshot. Fresh failed checks, active threads, or missing canaries
+still hold dispatch. Run-history reads paginate and refuse incomplete GitHub
 search results rather than silently authorizing a duplicate.
 
 Maint 68's Generate summary job reports

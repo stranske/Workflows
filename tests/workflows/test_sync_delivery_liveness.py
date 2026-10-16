@@ -108,7 +108,9 @@ def test_maint71_has_proof_bound_review_resolution_and_exact_evidence_promotion(
     assert "Validate complete pre-merge canary evidence" in workflow
     assert "CANDIDATE_EVIDENCE_AUTHORIZED:" in workflow
     assert "steps.candidate_evidence_validation.outputs.authorized" in workflow
-    assert "steps.candidate_evidence_validation.outputs.authorized == 'true'" in workflow
+    promotion = workflow.split("      - name: Promote complete exact-plan canary evidence")[1]
+    assert "steps.candidate_evidence_validation.outputs.authorized" not in promotion
+    assert "steps.merge_artifact.outcome == 'success'" in promotion
     assert "PREPARE_ONLY_INPUT:" in workflow
     assert "CAMPAIGN_COMMIT_AUTHORIZATION_JSON:" in workflow
     assert "Authorize exact-head fleet commit" in workflow

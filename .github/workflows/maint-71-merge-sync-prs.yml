@@ -664,6 +664,7 @@ jobs:
             core.notice(`Dispatched Health 83 completion measurement for ${planId}`);
 
       - name: Upload sync PR merge report
+        id: merge_artifact
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
@@ -832,9 +833,7 @@ jobs:
           ${{
             always() &&
             steps.candidate_mode.outputs.candidate == 'true' &&
-            steps.candidate_evidence_validation.outcome == 'success' &&
-            steps.candidate_evidence_validation.outputs.authorized == 'true' &&
-            steps.candidate_artifact.outcome == 'success' &&
+            steps.merge_artifact.outcome == 'success' &&
             steps.merge.outcome == 'success'
           }}
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
