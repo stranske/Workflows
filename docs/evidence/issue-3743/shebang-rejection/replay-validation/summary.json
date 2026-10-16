@@ -1,0 +1,225 @@
+{
+  "validated_parent_head": "fccc1cc9276cc579bbe85b72eb9f5c487f8a877c",
+  "base_head": "ebd907152a6550e41e4e0fb6e296ceec34b7a9b6",
+  "python": "/opt/hostedtoolcache/Python/3.14.8/x64/bin/python",
+  "historical_interpreter_available": false,
+  "focused_pass": 8,
+  "replay_tests_pass": 21,
+  "new_replay_regression_cases": 14,
+  "proof_pairs": 8,
+  "proof_reuse_files_unchanged": 93,
+  "production_changed": false,
+  "production_helpers_equal": true,
+  "comparison": {
+    "baseline_pass": 340,
+    "candidate_pass": 348,
+    "added_nodes": [
+      [
+        "tests.scripts.test_check_deliberate_break_shebang_rejection",
+        "test_empty_pytest_launcher_has_no_probe[root]"
+      ],
+      [
+        "tests.scripts.test_check_deliberate_break_shebang_rejection",
+        "test_empty_pytest_launcher_has_no_probe[template]"
+      ],
+      [
+        "tests.scripts.test_check_deliberate_break_shebang_rejection",
+        "test_missing_shebang_has_no_probe[root]"
+      ],
+      [
+        "tests.scripts.test_check_deliberate_break_shebang_rejection",
+        "test_missing_shebang_has_no_probe[template]"
+      ],
+      [
+        "tests.scripts.test_check_deliberate_break_shebang_rejection",
+        "test_unclosed_shebang_quote_has_no_probe[root]"
+      ],
+      [
+        "tests.scripts.test_check_deliberate_break_shebang_rejection",
+        "test_unclosed_shebang_quote_has_no_probe[template]"
+      ],
+      [
+        "tests.scripts.test_check_deliberate_break_shebang_rejection",
+        "test_unresolved_env_python_has_no_probe[root]"
+      ],
+      [
+        "tests.scripts.test_check_deliberate_break_shebang_rejection",
+        "test_unresolved_env_python_has_no_probe[template]"
+      ]
+    ],
+    "removed_nodes": [],
+    "changed_old_outcomes": [],
+    "deltas": {
+      "scripts/check_deliberate_break.py": {
+        "added_lines": [],
+        "removed_lines": [],
+        "added_branches": [
+          [
+            711,
+            718
+          ]
+        ],
+        "removed_branches": []
+      },
+      "templates/consumer-repo/scripts/check_deliberate_break.py": {
+        "added_lines": [
+          651,
+          652,
+          654,
+          657,
+          658,
+          664,
+          710,
+          711
+        ],
+        "removed_lines": [],
+        "added_branches": [
+          [
+            653,
+            654
+          ],
+          [
+            663,
+            664
+          ],
+          [
+            709,
+            710
+          ],
+          [
+            711,
+            718
+          ]
+        ],
+        "removed_branches": []
+      }
+    },
+    "baseline_totals": {
+      "covered_lines": 1082,
+      "num_statements": 1244,
+      "percent_covered": 85.44444444444444,
+      "percent_covered_display": "85",
+      "missing_lines": 162,
+      "excluded_lines": 0,
+      "percent_statements_covered": 86.97749196141478,
+      "percent_statements_covered_display": "87",
+      "num_branches": 556,
+      "num_partial_branches": 56,
+      "covered_branches": 456,
+      "missing_branches": 100,
+      "percent_branches_covered": 82.01438848920863,
+      "percent_branches_covered_display": "82"
+    },
+    "candidate_totals": {
+      "covered_lines": 1090,
+      "num_statements": 1244,
+      "percent_covered": 86.16666666666667,
+      "percent_covered_display": "86",
+      "missing_lines": 154,
+      "excluded_lines": 0,
+      "percent_statements_covered": 87.62057877813506,
+      "percent_statements_covered_display": "88",
+      "num_branches": 556,
+      "num_partial_branches": 53,
+      "covered_branches": 461,
+      "missing_branches": 95,
+      "percent_branches_covered": 82.9136690647482,
+      "percent_branches_covered_display": "83"
+    }
+  },
+  "historical_archives": {
+    "proof.tar.gz": {
+      "sha256": "83bf8bec764c0630a08c661876eaf7a24b5a7b27e1ee2875f6f96565ff281fae",
+      "verified_members": 122
+    },
+    "path-lookup/proof.tar.gz": {
+      "sha256": "f432fadc3959ac92e548b37b949f4070c4c9e00ad2ea19f8d1b5a9645c2fd254",
+      "verified_members": 151
+    }
+  },
+  "input_sha256": {
+    "scripts/check_deliberate_break.py": "45a9193dc6d115c237471158d0255128289dd5dcc085d4cdecb9f1a294839b27",
+    "templates/consumer-repo/scripts/check_deliberate_break.py": "45a9193dc6d115c237471158d0255128289dd5dcc085d4cdecb9f1a294839b27",
+    "tests/scripts/test_check_deliberate_break_shebang_rejection.py": "96f98261c3e2fcd177d8780b11d3cd13e812cf9207f1a927cadb03f43cd411bf",
+    "docs/evidence/issue-3743/shebang-rejection/replay.py": "9ffef61d6ac22487d914edffa6295fae9503b4e7a12def1917efb3d73e2ef773",
+    "docs/evidence/issue-3743/shebang-rejection/coverage.ini": "fcd1233e5a269b4729be015daf9258224d6d5fd5d59637964a9e426e1958486a",
+    "tests/scripts/test_shebang_rejection_replay.py": "01a515e7157d8aa54dcc548473f734e65409d87b354cf463686a44196e350a0d",
+    "tests/scripts/test_check_deliberate_break.py": "1e2cdff703047aa1ecbbc1a767429f6aef220d5ac60d94c41a7912117907e773",
+    "tests/scripts/test_check_deliberate_break_archive.py": "b6387a191078d8d33d4efefecc8ec7256ddf4901e7901187f764a7f0f983b5db",
+    "tests/scripts/test_check_deliberate_break_fallback_target_selection.py": "e0c6f0e7094e5685d9b9e96a80ed6819cd8eaf9c0cbbf340adc562f201bcd077",
+    "tests/scripts/test_check_deliberate_break_head_launch.py": "9ddaeb3f4b923679335de449703d58773ca7e502765952a5cac4f3ee2d2edf44",
+    "tests/scripts/test_check_deliberate_break_launch_boundaries.py": "7839e44f89a2335205c0337c7271ae710a8c6b81a0a0d7789cdc29187c55ea48",
+    "tests/scripts/test_check_deliberate_break_launcher_admission.py": "842b4f9427a14f406fdc075db55c91e66a3c51fe448324c44e16efe14d94ceca",
+    "tests/scripts/test_check_deliberate_break_module_boundaries.py": "0ac37107d479e081a7eecb4d396b2639dc237ef4adaebba35afe2ea9a471ee9b",
+    "tests/scripts/test_check_deliberate_break_probe_option_boundaries.py": "fa7fa3c58a0258c89ba823f05b2f7e8ec0c88fb1a807715803603028cadad1a1",
+    "tests/scripts/test_check_deliberate_break_repair_failures.py": "63001d63a10e2a75449117ccd96410dedbc588d44d7c225154270f0a02e59233",
+    "tests/scripts/test_check_deliberate_break_runtime_health.py": "f27013701bbc1be89258d5e17fa0b9074bebc8d1beed593ea364ca9c72e16fcf",
+    "tests/scripts/test_check_deliberate_break_runtime_probes.py": "7dd93ef4dfddc7aca89eb6e1e4b4448335a6a12025b8e2c4d887dc7460f54ebc",
+    "tests/scripts/test_check_deliberate_break_uv_resolution.py": "7a5ad7cee37549cbbdc4feac00f53e535e31f691d0dcc3f26268fd28d3bbf934"
+  },
+  "archive": {
+    "path": "proof.tar.gz",
+    "sha256": "0a1974ad9d253eba6d78fca5b36a870aa9eac20b11db9b3bf0ac8be3c38abf8a",
+    "bytes": 854770,
+    "verified_manifest_members": 316,
+    "manifest_sha256": "9fc2ea69588a81726562bfb82534e056a6601908c592c9bad22347f47a4bdff9"
+  },
+  "validation": {
+    "black": {
+      "argv": [
+        "black",
+        "--check",
+        "--line-length",
+        "100",
+        "--exclude",
+        "(\\.workflows-lib|node_modules)",
+        "."
+      ],
+      "cwd": "/home/runner/work/Workflows/Workflows",
+      "exit": 0,
+      "env_overrides": {
+        "PYTHONPATH": "/tmp/shebang-replay-validation/black-serial"
+      }
+    },
+    "ruff": {
+      "argv": [
+        "ruff",
+        "check",
+        "tests/scripts/test_check_deliberate_break_shebang_rejection.py",
+        "tests/scripts/test_shebang_rejection_replay.py",
+        "docs/evidence/issue-3743/shebang-rejection/replay.py"
+      ],
+      "cwd": "/home/runner/work/Workflows/Workflows",
+      "exit": 0,
+      "env_overrides": {}
+    },
+    "template": {
+      "argv": [
+        "/opt/hostedtoolcache/Python/3.14.8/x64/bin/python",
+        "scripts/validate_template_completeness.py",
+        "--strict"
+      ],
+      "cwd": "/home/runner/work/Workflows/Workflows",
+      "exit": 0,
+      "env_overrides": {
+        "GITHUB_STEP_SUMMARY": "/tmp/shebang-replay-validation/template-summary.md"
+      }
+    },
+    "diffcheck": {
+      "argv": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "cwd": "/home/runner/work/Workflows/Workflows",
+      "exit": 0,
+      "env_overrides": {}
+    }
+  },
+  "runner_adaptations": [
+    "The historical /opt/anaconda3/bin/python3 interpreter is unavailable.",
+    "The archived Black serial adapter uses normal per-file formatting checks; parallel worker completion hangs.",
+    "GITHUB_STEP_SUMMARY points into /tmp because the inherited runner path is read-only."
+  ],
+  "archive_selection": "All regular validation files except derived .pyc caches; symlinks are omitted."
+}

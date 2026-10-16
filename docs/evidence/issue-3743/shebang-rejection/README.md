@@ -9,13 +9,16 @@ probe cannot report success. Production helpers and prior proof are unchanged.
 The current tests exercise both the bare `pytest` name through real PATH lookup
 and its absolute executable path. Any attempt to execute a probe subprocess
 fails immediately. The standalone replay uses only the standard library and
-rejects DTDs and entity declarations before parsing JUnit; seven companion tests
-check normal pytest XML and declaration rejection in UTF-8 and UTF-16.
+rejects DTDs and entity declarations before parsing JUnit. Its 21 companion tests
+cover normal XML, declaration rejection in UTF-8 and UTF-16, invalid test identities
+and outcomes, restoration after failed RED validation, and all eight real mutation
+pairs followed by reuse rejection before any copy or checkout.
 
-Fresh receipts for these strengthened tests are retained in
-`path-lookup/proof.tar.gz`, with current input bindings and matched coverage in
-`path-lookup/summary.json`. The original `proof.tar.gz` and `summary.json` below
-remain frozen historical evidence. This runner has Python 3.14 at
+Receipts for the replay regression tests, fresh mutation pairs and matched coverage
+are retained in `replay-validation/proof.tar.gz`, with current input bindings in
+`replay-validation/summary.json`. The earlier PATH lookup receipts in
+`path-lookup/` and original `proof.tar.gz` and `summary.json` below remain frozen
+historical evidence. This runner has Python 3.14 at
 `/opt/hostedtoolcache/Python/3.14.8/x64/bin/python`; it does not have the historical
 `/opt/anaconda3/bin/python3`. Fresh receipts record the actual interpreter used.
 
