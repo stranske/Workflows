@@ -218,7 +218,7 @@ agents:
     preflight:
       assign_user: stranske-automation-bot
       command_phrase: ''
-      enabled: false   # issue-intake/invite flow deferred; PR keepalive + autofix only this phase
+      enabled: true    # authenticated issue-intake canary Workflows#3976 / run38960970271
     capabilities:
       pr_keepalive: true
       pr_autofix: true          # wired into agents-autofix-loop.yml (autofix-cursor job)

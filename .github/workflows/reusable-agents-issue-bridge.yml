@@ -12,7 +12,7 @@
 # - agent: The agent identifier (e.g., 'codex', 'claude')
 # - issue_number: Issue number to process (required for workflow_dispatch)
 # - mode: PR creation mode ('create' or 'invite')
-# - post_agent_comment: Whether to auto-post '@<agent> start' command
+# - post_agent_comment: Whether to auto-post the registry invitation command
 # - service_bot_pat: PAT for service bot operations
 # - owner_pr_pat: PAT for PR creation operations
 
@@ -41,7 +41,7 @@ on:
         type: boolean
         default: true
       post_agent_comment:
-        description: "Auto-post '@<agent> start' command (true/false)"
+        description: "Auto-post the registry invitation command (true/false)"
         required: false
         type: string
         default: "true"
@@ -409,10 +409,31 @@ jobs:
       - name: Resolve post-agent comment flag
         id: agent_comment
         uses: actions/github-script@v9
+        env:
+          AGENT: ${{ steps.agent_label.outputs.agent || inputs.agent }}
         with:
           script: |
             const val = '${{ inputs.post_agent_comment }}' === 'true';
             core.setOutput('post', val ? 'true' : 'false');
+            // Reusable @main workflows may check out older consumer helpers.
+            // getAgentConfig is the established API; do not require a new export.
+            const { getAgentConfig } = require('./.github/scripts/agent_registry.js');
+            const agent = (process.env.AGENT || '').trim();
+            const agentKey = agent.toLowerCase();
+            const cfg = getAgentConfig(agentKey || 'codex');
+            const preflight = cfg.preflight || {};
+            const defaults = agentKey === 'codex'
+              ? ['chatgpt-codex-connector', 'stranske-automation-bot']
+              : ['stranske-automation-bot'];
+            const assignees = Array.isArray(cfg.assignees) && cfg.assignees.length
+              ? [...cfg.assignees] : defaults;
+            const assignUser = String(preflight.assign_user || '').trim();
+            if (assignUser && !assignees.includes(assignUser)) {
+              assignees.unshift(assignUser);
+            }
+            core.setOutput('assignees', JSON.stringify(assignees));
+            core.setOutput('command', String(preflight.command_phrase || '').trim());
+
 
       - name: Resolve keepalive opt-in
         if: ${{ steps.ctx.outputs.has_issue == 'true' }}
@@ -713,6 +734,8 @@ jobs:
           BRANCH: ${{ steps.mk.outputs.branch }}
           KEEPALIVE_MODE: ${{ steps.keepalive.outputs.mode || 'OFF' }}
           AGENT: ${{ steps.agent_label.outputs.agent || inputs.agent }}
+          INTAKE_COMMAND: ${{ steps.agent_comment.outputs.command }}
+          INTAKE_ASSIGNEES: ${{ steps.agent_comment.outputs.assignees }}
         with:
           script: |
             const {owner, repo} = context.repo;
@@ -745,6 +768,10 @@ jobs:
               );
               return;
             }
+            const invitation = {
+              assignees: JSON.parse(process.env.INTAKE_ASSIGNEES),
+              command_phrase: process.env.INTAKE_COMMAND || `@${agent} start`,
+            };
             const agentTitle =
               process.env.BRIDGE_AGENT_TITLE ||
               agent.charAt(0).toUpperCase() + agent.slice(1);
@@ -929,6 +956,8 @@ jobs:
                 'Updated PR body with issue content.',
                 '',
                 `PR link: ${existingPr.html_url}`,
+                `Assign to: ${invitation.assignees.join(', ')}`,
+                `Start command: \`${invitation.command_phrase}\``,
               ].join('\n');
               await withRetry(() =>
                 loadBalancedClient.rest.issues.createComment({
@@ -953,6 +982,8 @@ jobs:
               '',
               `- Compare link: ${compareUrl}`,
               `- Suggested title: \`${agentTitle} bootstrap for #${issue_number}\``,
+              `- Assign to: ${invitation.assignees.join(', ')}`,
+              `- Start command after opening the PR: \`${invitation.command_phrase}\``,
               '- Suggested body (copy/paste):',
               '',
               fencedSuggestion,
@@ -978,6 +1009,7 @@ jobs:
         id: pr
         uses: actions/github-script@v9
         env:
+          INTAKE_ASSIGNEES: ${{ steps.agent_comment.outputs.assignees }}
           BRANCH: ${{ steps.mk.outputs.branch }}
           KEEPALIVE_MODE: ${{ steps.keepalive.outputs.mode || 'OFF' }}
           AGENT: ${{ steps.agent_label.outputs.agent || inputs.agent }}
@@ -1239,13 +1271,7 @@ jobs:
 
             let assignees = ['stranske-automation-bot'];
             try {
-              const { getAgentConfig } = require('./.github/scripts/agent_registry.js');
-              const cfg = getAgentConfig(agentKey || 'codex');
-              if (cfg.assignees && cfg.assignees.length) {
-                assignees = cfg.assignees;
-              } else if ((agentKey || 'codex') === 'codex') {
-                assignees = ['chatgpt-codex-connector', 'stranske-automation-bot'];
-              }
+              assignees = JSON.parse(process.env.INTAKE_ASSIGNEES);
             } catch (_) {
               if ((agentKey || 'codex') === 'codex') {
                 assignees = ['chatgpt-codex-connector', 'stranske-automation-bot'];
@@ -1581,6 +1607,8 @@ jobs:
         uses: actions/github-script@v9
         env:
           AGENT: ${{ steps.agent_label.outputs.agent || inputs.agent }}
+          INTAKE_COMMAND: ${{ steps.agent_comment.outputs.command }}
+          INTAKE_ASSIGNEES: ${{ steps.agent_comment.outputs.assignees }}
         with:
           github-token: ${{ env.SERVICE_BOT_PAT }}
           script: |
@@ -1606,7 +1634,7 @@ jobs:
                 );
               return;
             }
-            const cmd = `@${agent} start`;
+            const cmd = (process.env.INTAKE_COMMAND || `@${agent} start`);
               const body = [
                 cmd,
                 '',
@@ -1633,6 +1661,8 @@ jobs:
         uses: actions/github-script@v9
         env:
           AGENT: ${{ steps.agent_label.outputs.agent || inputs.agent }}
+          INTAKE_COMMAND: ${{ steps.agent_comment.outputs.command }}
+          INTAKE_ASSIGNEES: ${{ steps.agent_comment.outputs.assignees }}
         with:
           script: |
             const {owner, repo} = context.repo;
@@ -1658,7 +1688,7 @@ jobs:
                 );
               return;
             }
-            const cmd = `@${agent} start`;
+            const cmd = (process.env.INTAKE_COMMAND || `@${agent} start`);
               const body = [
                 cmd,
                 '',
@@ -1684,6 +1714,8 @@ jobs:
         uses: actions/github-script@v9
         env:
           AGENT: ${{ steps.agent_label.outputs.agent || inputs.agent }}
+          INTAKE_COMMAND: ${{ steps.agent_comment.outputs.command }}
+          INTAKE_ASSIGNEES: ${{ steps.agent_comment.outputs.assignees }}
         with:
           script: |
             const {owner, repo} = context.repo;
@@ -1722,7 +1754,7 @@ jobs:
             const instruction = getKeepaliveInstructionWithMention(agent);
             const agentPromptMsg = [
               'PR created.',
-              `Comment \`@${agent} start\` to request the plan.`,
+              `Comment \`${(process.env.INTAKE_COMMAND || `@${agent} start`)}\` to request the plan.`,
               `Tell ${agentTitle} to reuse scope and acceptance criteria from the source issue.`,
               'Also reuse the task list from the source issue.',
               'Publish them here with `- [ ]` checklists so keepalive keeps watching.',
@@ -1742,6 +1774,7 @@ jobs:
         if: ${{ steps.ctx.outputs.has_issue == 'true' && steps.mode.outputs.mode != 'invite' && steps.pr.outputs.number != '' }}
         uses: actions/github-script@v9
         env:
+          INTAKE_COMMAND: ${{ steps.agent_comment.outputs.command }}
           KEEPALIVE_MODE: ${{ steps.keepalive.outputs.mode || 'OFF' }}
           AGENT: ${{ steps.agent_label.outputs.agent || inputs.agent }}
           BRANCH: ${{ steps.mk.outputs.branch }}
@@ -1831,7 +1864,7 @@ jobs:
               `Keepalive mode: **${keepaliveMode}**`,
               '',
               'Next steps for the PR author:',
-              `- Comment \`${mention} start\` (auto-posted when possible).`,
+              `- Comment \`${(process.env.INTAKE_COMMAND || `${mention} start`)}\` (auto-posted when possible).`,
               `  Ask ${agentTitle} to draft the plan.`,
               `- After ${agentTitle} replies with the checklist, post the execution command below.`,
               '  This begins delivery and enables keepalive.',

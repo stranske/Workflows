@@ -1,6 +1,6 @@
 """Derive a lossless capture obligation manifest from generated verifier context.
 
-Source issue #3820 requires an auditable contract for which evidence must be
+The capture contract requires an auditable inventory of which evidence must be
 present before expanded native provider invocation. This module reads the
 builder-emitted context source coverage inventory and names per-source
 obligations without mutating captured artifacts. This helper validates generated
@@ -12,11 +12,14 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+
+from tools.verifier_artifact_capture import load_artifact_capture
 
 SCHEMA = "workflows-verifier-capture-obligation-manifest/v1"
 _COVERAGE_BLOCK_RE = re.compile(
@@ -461,6 +464,18 @@ def build_capture_obligation_manifest(
     coverage = parse_context_source_coverage(context_text)
     obligations: list[SourceObligation] = []
     gaps: list[str] = []
+    recovered_artifacts: set[str] = set()
+    if (
+        coverage
+        and os.environ.get("VERIFIER_EVIDENCE_CAPTURE_DIR")
+        and os.environ.get("VERIFIER_SEMANTIC_MODE") == "1"
+    ):
+        try:
+            _, recovered_artifacts = load_artifact_capture(
+                coverage, Path(os.environ["VERIFIER_EVIDENCE_CAPTURE_DIR"])
+            )
+        except (OSError, ValueError) as exc:
+            gaps.append(f"artifact_raw_capture:{exc}")
 
     if not coverage:
         gaps.append("context_source_coverage_missing_or_malformed")
@@ -514,6 +529,12 @@ def build_capture_obligation_manifest(
                 if obligation.source in seen:
                     gaps.append(f"{kind}:{obligation.source}:duplicate_source")
                 seen.add(obligation.source)
+                if (
+                    kind == "acceptance_evidence"
+                    and obligation.source in recovered_artifacts
+                    and obligation.status in {"truncated", "omitted"}
+                ):
+                    continue
                 if obligation.status != "included" and (
                     kind != "changed_code"
                     or require_full_changed_code
@@ -691,6 +712,19 @@ def record_capture_obligations(
     raw_inputs = {"context": context_bytes}
     if diff_bytes is not None:
         raw_inputs["diff"] = diff_bytes
+    capture_dir = os.environ.get("VERIFIER_EVIDENCE_CAPTURE_DIR")
+    if capture_dir:
+        try:
+            artifact_inputs, _ = load_artifact_capture(
+                parse_context_source_coverage(captured_text) or {}, Path(capture_dir)
+            )
+        except (OSError, ValueError) as exc:
+            gap = f"artifact_raw_capture:{exc}"
+            if gap not in manifest["gaps"]:
+                manifest["gaps"].append(gap)
+            manifest["sufficient"] = False
+        else:
+            raw_inputs.update(artifact_inputs)
     byte_inventory = build_capture_byte_inventory(raw_inputs)
     reassembly_contract = build_capture_reassembly_contract(manifest, byte_inventory)
     snapshot_path = context_path.with_name("verifier-input-manifest.json")
