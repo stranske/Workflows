@@ -75,3 +75,10 @@ def test_consumer_template_autofix_has_a_muse_job_feeding_metrics():
     jobs = _jobs(TEMPLATE_WF / "agents-81-gate-followups.yml")
     assert "reusable-muse-run.yml" in jobs["autofix-muse"]["uses"]
     assert "autofix-muse" in jobs["metrics"]["needs"]
+
+
+def test_run_step_refuses_to_exec_after_a_failed_sandbox_or_prompt_guard():
+    text = (WF / "reusable-muse-run.yml").read_text()
+    assert "MUSE_CLI_OUTCOME: ${{ steps.ensure_muse.outcome }}" in text
+    assert "Muse CLI or sandbox setup failed; muse exec was not run" in text
+    assert "grep -cvE '^.. agents/.*\\.md$' || true" in text

@@ -847,6 +847,8 @@ jobs:
         env:
           PREFLIGHT_MISSING: ${{ steps.preflight.outputs.missing || 'false' }}
           PREFLIGHT_ERROR: ${{ steps.preflight.outputs.error || '' }}
+          GUARD_OUTCOME: ${{ steps.guard.outcome }}
+          MUSE_CLI_OUTCOME: ${{ steps.ensure_muse.outcome }}
           PROMPT_FILE: ${{ steps.prompt.outputs.file || '' }}
           EXTRA_ARGS_RAW: ${{ inputs.muse_cli_args }}
           PR_NUMBER: ${{ inputs.pr_number }}
@@ -902,6 +904,21 @@ jobs:
 
           if [ "$PREFLIGHT_MISSING" = "true" ]; then
             summary="$PREFLIGHT_ERROR"
+            echo "exit-code=1" >> "$GITHUB_OUTPUT"
+            echo "error-summary=$summary" >> "$GITHUB_OUTPUT"
+            echo "final-message=" >> "$GITHUB_OUTPUT"
+            echo "final-message-summary=$summary" >> "$GITHUB_OUTPUT"
+            exit 1
+          fi
+
+          # Fail closed: a rejected prompt or a CLI/sandbox that could not start must never
+          # reach `muse exec` (always() lets this step run after earlier failures).
+          if [ "${GUARD_OUTCOME:-}" = "failure" ] || [ "${MUSE_CLI_OUTCOME:-}" = "failure" ]; then
+            if [ "${MUSE_CLI_OUTCOME:-}" = "failure" ]; then
+              summary="Muse CLI or sandbox setup failed; muse exec was not run"
+            else
+              summary="Prompt template integrity check failed; muse exec was not run"
+            fi
             echo "exit-code=1" >> "$GITHUB_OUTPUT"
             echo "error-summary=$summary" >> "$GITHUB_OUTPUT"
             echo "final-message=" >> "$GITHUB_OUTPUT"
@@ -1128,8 +1145,9 @@ jobs:
           # to reduce noise. Mirrors reusable-codex-run.yml pattern.
           STATUS_ONLY_CHANGES=$(
             git status --porcelain |
-              grep -cvE '^\S+\s+agents/.*\.md$' || echo "0"
+              grep -cvE '^.. agents/.*\.md$' || true
           )
+          STATUS_ONLY_CHANGES=${STATUS_ONLY_CHANGES:-0}
           if [ "$STATUS_ONLY_CHANGES" -eq 0 ] && [ "$CHANGED_FILES" -gt 0 ]; then
             echo "Only agent bootstrap files changed - skipping commit to reduce noise."
             echo "changes-made=false" >> "$GITHUB_OUTPUT"
