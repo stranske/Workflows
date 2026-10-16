@@ -8,6 +8,7 @@ import re
 import subprocess
 from pathlib import Path
 
+import pytest
 import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -100,10 +101,39 @@ def _muse_git_identity() -> dict[str, str]:
 
 def test_run_step_sets_a_muse_git_identity():
     env = _muse_git_identity()
-    assert env["GIT_AUTHOR_NAME"] == env["GIT_COMMITTER_NAME"] == "muse"
-    assert (
-        env["GIT_AUTHOR_EMAIL"] == env["GIT_COMMITTER_EMAIL"] == ("muse@users.noreply.github.com")
-    )
+    expected = {
+        "GIT_AUTHOR_NAME": "muse",
+        "GIT_AUTHOR_EMAIL": "muse@users.noreply.github.com",
+        "GIT_COMMITTER_NAME": "muse",
+        "GIT_COMMITTER_EMAIL": "muse@users.noreply.github.com",
+    }
+    for variable, value in expected.items():
+        assert variable in env, f"Run Muse env is missing {variable}"
+        assert "claude" not in env[variable].casefold(), variable
+        assert env[variable] == value, variable
+
+
+@pytest.mark.parametrize(
+    "variable",
+    ["GIT_AUTHOR_NAME", "GIT_AUTHOR_EMAIL", "GIT_COMMITTER_NAME", "GIT_COMMITTER_EMAIL"],
+)
+@pytest.mark.parametrize("mutation", ["missing", "claude"])
+def test_run_step_git_identity_deliberate_break_and_restore(monkeypatch, variable, mutation):
+    jobs = _jobs(WF / "reusable-muse-run.yml")
+    step = next(step for step in jobs["muse"]["steps"] if step.get("id") == "run_muse")
+    if mutation == "missing":
+        del step["env"][variable]
+    else:
+        step["env"][variable] = "Claude" if variable.endswith("_NAME") else "Claude@example.com"
+
+    # Mutate the parsed step only; the protected workflow stays untouched on disk.
+    with monkeypatch.context() as broken:
+        broken.setattr(f"{__name__}._jobs", lambda path: jobs)
+        with pytest.raises(AssertionError, match=variable):
+            test_run_step_sets_a_muse_git_identity()
+
+    # Re-read the real workflow and prove the same named test is green after restoration.
+    test_run_step_sets_a_muse_git_identity()
 
 
 def test_run_step_identity_overrides_a_cli_default_git_identity(tmp_path):
