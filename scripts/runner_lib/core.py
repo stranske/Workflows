@@ -1828,7 +1828,8 @@ def _storage_failure_message(exc: Exception) -> str | None:
         return None
     try:
         payload = json.loads(text[start:])
-    except ValueError:
+    except (ValueError, RecursionError):
+        # Malformed API diagnostics must not interrupt the fail-closed path.
         return None
     message = payload.get("message") if isinstance(payload, dict) else None
     if not isinstance(message, str):

@@ -2939,3 +2939,30 @@ def test_storage_failure_log_bounds_and_ignores_unstructured_message() -> None:
     )
     for text in ("plain private text", "403 {not json", '403 {"message": 5}', "403 [1]"):
         assert runner_core._storage_failure_message(RuntimeError(text)) is None
+
+
+def test_storage_failure_log_survives_nested_json(capsys: pytest.CaptureFixture[str]) -> None:
+    # The API body need not be valid diagnostic input. Deeply nested non-string
+    # messages must not turn a fail-closed dispatch decision into a logger crash.
+    token = "ghp_" + "b" * 36
+    body = '{"message":' + "[" * 2000 + json.dumps(token) + "]" * 2000 + "}"
+    primary = MemoryRunnerStorage()
+    cause = _closed_http_error("https://example.invalid/x", 403, "Forbidden")
+
+    def fail(*_: Any) -> Any:
+        raise RuntimeError(f"GitHub API GET /x failed: 403 {body}") from cause
+
+    primary.read_record = fail  # type: ignore[method-assign]
+    decision = should_dispatch(
+        42,
+        "aaa",
+        "codex",
+        storage=runner_core.FallbackRunnerStorage(primary, MemoryRunnerStorage()),
+    )
+    error = capsys.readouterr().err
+    assert decision.should_dispatch is False
+    assert decision.reason == "authoritative-storage-unavailable"
+    assert "http_status=403" in error
+    assert "http_message=" not in error
+    assert token not in error
+    assert "https://" not in error
