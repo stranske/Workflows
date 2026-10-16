@@ -67,3 +67,9 @@ def test_autofix_loop_has_a_muse_job_and_accepts_the_agent():
     assert "reusable-muse-run.yml" in jobs["autofix-muse"]["uses"]
     assert "'muse'" in re.search(r"const supportedAgents = \[(.*?)\];", path.read_text()).group(1)
     assert "autofix-muse" in jobs["record-autofix-completion"]["needs"]
+
+
+def test_consumer_template_autofix_has_a_muse_job_feeding_metrics():
+    jobs = _jobs(TEMPLATE_WF / "agents-81-gate-followups.yml")
+    assert "reusable-muse-run.yml" in jobs["autofix-muse"]["uses"]
+    assert "autofix-muse" in jobs["metrics"]["needs"]
