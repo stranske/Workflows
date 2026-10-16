@@ -4,10 +4,12 @@ import json
 import os
 import subprocess
 import sys
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 import pytest
 import yaml
+from scripts.ci_test_growth import junit_report
 
 ROOT = Path(__file__).resolve().parents[2]
 PLUGIN_STEP = "Pytest (unit tests with coverage)"
@@ -162,3 +164,81 @@ def test_unreadable_receipts_remain_unknown(tmp_path):
     assert summary["test_growth"]["reported"] is None
     assert "collection_error" in summary["test_growth"]
     assert "junit_error" in summary["test_growth"]
+
+
+@pytest.mark.parametrize("duration", [None, "", "invalid", "NaN", "inf", "-inf", "-1"])
+def test_junit_report_preserves_counts_with_unknown_durations(tmp_path, duration):
+    path = tmp_path / "junit.xml"
+    suite = ET.Element("testsuite")
+    for name, seconds in [("test_matrix[1]", duration), ("test_matrix[2]", "2")]:
+        case = ET.SubElement(suite, "testcase", classname="tests.example", name=name)
+        if seconds is not None:
+            case.set("time", seconds)
+    ET.SubElement(case, "failure", message="real failure")
+    ET.ElementTree(suite).write(path)
+
+    report = junit_report(path)
+
+    assert report["cases"] == 2
+    assert report["timed_cases"] == 1
+    assert report["untimed_cases"] == 1
+    assert report["timing_status"] == "UNKNOWN"
+    assert "UNKNOWN" in report["timing_error"]
+    assert report["dominant_functions_worker_seconds"] is None
+    assert report["dominant_suites_worker_seconds"] is None
+    # Receipts must be strict JSON; NaN and infinity are not duration measurements.
+    json.dumps(report, allow_nan=False)
+
+
+def test_junit_report_retains_measured_zero_and_aggregates_parametrizations(tmp_path):
+    path = tmp_path / "junit.xml"
+    path.write_text(
+        '<testsuites><testsuite><testcase classname="tests.example" name="test_zero" time="0"/>'
+        '<testcase classname="tests.example" name="test_matrix[1]" time="2"/>'
+        '<testcase classname="tests.example" name="test_matrix[2]" time="3"/>'
+        "</testsuite></testsuites>",
+        encoding="utf-8",
+    )
+
+    report = junit_report(path)
+
+    assert report["cases"] == report["timed_cases"] == 3
+    assert report["untimed_cases"] == 0
+    assert report["timing_status"] == "KNOWN"
+    assert "timing_error" not in report
+    assert report["dominant_functions_worker_seconds"] == [
+        ("tests.example::test_matrix", 5.0),
+        ("tests.example::test_zero", 0.0),
+    ]
+    assert report["dominant_suites_worker_seconds"] == [("tests.example", 5.0)]
+
+
+@pytest.mark.parametrize(
+    "cases",
+    [
+        "",
+        '<testcase classname="tests.example" name="test_matrix[1]" time="1e308"/>'
+        '<testcase classname="tests.example" name="test_matrix[2]" time="1e308"/>',
+    ],
+    ids=["no-measurements", "sum-overflow"],
+)
+def test_junit_report_does_not_publish_unmeasured_or_nonfinite_rankings(tmp_path, cases):
+    path = tmp_path / "junit.xml"
+    path.write_text(f"<testsuite>{cases}</testsuite>", encoding="utf-8")
+
+    report = junit_report(path)
+
+    assert report["cases"] == (2 if cases else 0)
+    assert report["timing_status"] == "UNKNOWN"
+    assert report["dominant_functions_worker_seconds"] is None
+    assert report["dominant_suites_worker_seconds"] is None
+    json.dumps(report, allow_nan=False)
+
+
+def test_junit_report_propagates_unreadable_xml_to_summary_unknown_handler(tmp_path):
+    path = tmp_path / "junit.xml"
+    with pytest.raises(FileNotFoundError):
+        junit_report(path)
+    path.write_text("<broken", encoding="utf-8")
+    with pytest.raises(ET.ParseError):
+        junit_report(path)

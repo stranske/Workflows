@@ -1,5 +1,77 @@
 # Review repair progress under agent-standard
 
+## Current r4297491917 preparation and checklist reconciliation
+
+At head `54df2124f26295a8271369f24a38edad84a40fbd`, PR #3950 is open and
+ready for review. The recent commits were reviewed before continuing:
+`9c2812d5` adds the inventory audit, and `54df2124` adds heredoc diagnostics and
+these blocker notes. Neither commit changes the embedded collection/summary
+implementation or the Selftest dependency installer.
+
+The checked recovery items for r4297488936, r4297491912, r4297491926, the combined
+r4297491942/r4297491952 item, and the Selftest xdist environment fix are therefore
+not established by this checkout. In particular, the combined item has only its
+heredoc half implemented, the summary still consumes unchecked collection shapes,
+and Selftest still installs pytest without xdist. The all-review-findings and
+merge-gates item also cannot be considered complete while those review findings
+are unresolved. The requested remote checkbox corrections and `needs-human`
+label were attempted through the GitHub connector; both were rejected with
+`MCP tool call requires approval, but approval policy is never`. No remote
+checkbox was changed by this run. The remaining r4297491917 checkbox must stay
+unchecked too.
+
+Permitted source preparation is in `scripts/ci_test_growth.py::junit_report`,
+with bounded tests in `tests/workflows/test_ci_test_growth.py`. The parser keeps
+all JUnit case counts independently of duration parsing, records timed/untimed
+case counts, and publishes `timing_status: UNKNOWN` with null timing rankings
+when any duration is missing, empty, nonnumeric, nonfinite or negative. A real
+zero remains measured zero. Empty reports and overflowing aggregate durations
+cannot produce measured rankings either. With incomplete timings, withholding
+rankings avoids presenting partial sums as comparable measurements.
+
+This helper is **not yet called by the reusable workflow**. An authorized
+`agent-high-privilege` editor must replace the embedded JUnit aggregation in
+`Record CI summary` with this behavior, keeping XML/read errors UNKNOWN and
+preserving the actual test/coverage outcomes. Keep the workflow self-contained
+by embedding the parser logic, or first provide a reviewed source-owned helper
+delivery path; adding an import of this unsynced file alone would break consumers.
+Then extend the real-summary subprocess controls to exercise invalid/missing
+durations and an explicit zero before marking r4297491917 complete. No template
+or sync-manifest change is made for this currently local, unintegrated helper.
+
+Direct controls against the unchanged real summary and the prepared parser show:
+
+| Two-case JUnit input | Existing workflow | Prepared parser |
+| --- | --- | --- |
+| `time="2"`, `time="invalid"` | `reported: null`; case count lost | 2 cases; 1 timed, 1 untimed; timing UNKNOWN |
+| `time="2"`, missing `time` | 2 cases; missing duration reported as `0.0` | 2 cases; 1 timed, 1 untimed; timing UNKNOWN |
+
+Both actual summary controls still preserve `checks.tests.outcome: failure`.
+These controls demonstrate the current defect and helper behavior, not a
+verified workflow fix or hosted validation. No task was newly marked complete.
+
+Validation on Python 3.14.8:
+
+```sh
+python -m pytest tests/workflows/test_ci_test_growth.py tests/workflows/test_reusable_ci_workflow.py -q -m 'not slow'
+ruff check scripts/ci_test_growth.py tests/workflows/test_ci_test_growth.py
+black --check --line-length 100 --exclude '(\.workflows-lib|node_modules)' .
+git diff --check
+```
+
+Results: **40 passed in 12.81s**, including the existing real serial/xdist
+controls and 11 new parser controls; Ruff and diff checks pass; the exact Black
+check passes with **759 files unchanged**. As in the preceding run, the existing
+serial checker populated a writable Black cache first; the required CLI used
+`BLACK_CACHE_DIR=/tmp/issue-3904-junit-black-cache` and `BLACK_NUM_WORKERS=1`.
+The requested remote blocker comment was attempted after validation and rejected
+by the same connector approval policy. No comment was published.
+Staging the helper, tests and these notes also failed with
+`Unable to create '.git/index.lock': Read-only file system`; the changes remain
+uncommitted. No protected file was edited.
+
+The earlier notes below describe the preceding run's validation and blockers.
+
 The current run has no explicit `agent-high-privilege` approval. The receipt
 plugin and summary implementation are embedded in
 `.github/workflows/reusable-10-ci-python.yml`; the Selftest dependency installer
