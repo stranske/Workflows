@@ -181,7 +181,7 @@ reusable workflow in the no-output section.
 | `reusable-muse-run.yml` | `error-category` | string | Error category (transient/auth/resource/logic/unknown) | `needs.muse.outputs.error-category` |
 | `reusable-muse-run.yml` | `error-type` | string | Error type (cursor/infrastructure/auth/unknown) | `needs.muse.outputs.error-type` |
 | `reusable-muse-run.yml` | `error-recovery` | string | Suggested recovery action | `needs.muse.outputs.error-recovery` |
-| `reusable-muse-run.yml` | `duration-seconds` | string (number-like) | Wall-clock seconds the `muse exec` step ran | `needs.muse.outputs.duration-seconds` |
+| `reusable-muse-run.yml` | `duration-seconds` | string (number-like) | Wall-clock seconds of the muse exec run (Muse emits no token usage; this is the measurable cost signal). | `needs.muse.outputs.duration-seconds` |
 | `reusable-gemini-run.yml` | `final-message` | string (base64) | Full Gemini output message (base64 encoded) | `needs.gemini.outputs.final-message` |
 | `reusable-gemini-run.yml` | `final-message-summary` | string | First 500 chars of Gemini output (safe for PR comments) | `needs.gemini.outputs.final-message-summary` |
 | `reusable-gemini-run.yml` | `error-summary` | string | Failure summary message (prefers Gemini output, falls back to preflight errors) | `needs.gemini.outputs.error-summary` |
