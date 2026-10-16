@@ -6085,11 +6085,11 @@ def _native_capacity_contract(client: object) -> dict[str, object]:
     try:
         from langchain_openai import ChatOpenAI
     except ImportError:
-        ChatOpenAI = None
+        ChatOpenAI = None  # noqa: N806  (SDK class name; keep the import's name)
     try:
         from langchain_anthropic import ChatAnthropic
     except ImportError:
-        ChatAnthropic = None
+        ChatAnthropic = None  # noqa: N806  (SDK class name; keep the import's name)
     if type(client) is ChatOpenAI:
         from openai import OpenAI
 
