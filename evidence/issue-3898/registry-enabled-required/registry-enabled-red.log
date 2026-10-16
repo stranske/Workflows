@@ -1,0 +1,990 @@
+FFFFFFFFFFFFFFFFFFFFFFFF........FFFFFFFFFFFFFFFF........................ [ 45%]
+........................................................................ [ 90%]
+................                                                         [100%]
+=================================== FAILURES ===================================
+_ test_enabled_contract_on_every_parser[missing-eof-.github/scripts/agents-guard-fork-status-publication.js-function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execu] _
+
+surface = '.github/scripts/agents-guard-fork-status-publication.js'
+parser = "function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execute registry cont...ncomplete');\n  for (const [agent, enabled] of agents) if (enabled) labels.add(`agent:${agent}`);\n  return labels;\n}"
+case = 'missing-eof', registry = 'agents:\n  first:\n', expected = None
+
+    @pytest.mark.parametrize("surface,parser", parsers(), ids=lambda item: str(item)[:100])
+    @pytest.mark.parametrize("case,registry,expected", CASES, ids=[case[0] for case in CASES])
+    def test_enabled_contract_on_every_parser(surface, parser, case, registry, expected):
+        harness = parser + """
+    const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
+    try { process.stdout.write(JSON.stringify({labels: [...routingLabelsFromRegistry(input)]})); }
+    catch(error) { process.stdout.write(JSON.stringify({error: error.message})); }
+    """
+        completed = subprocess.run(["node", "-e", harness], input=json.dumps(registry), text=True, capture_output=True, check=True)
+        result = json.loads(completed.stdout)
+        if expected is None:
+>           assert "error" in result, (surface, case, result)
+E           AssertionError: ('.github/scripts/agents-guard-fork-status-publication.js', 'missing-eof', {'labels': ['agent:auto', 'agent:copilot', 'agents:auto-pilot', 'agents:keepalive', 'agent:first']})
+E           assert 'error' in {'labels': ['agent:auto', 'agent:copilot', 'agents:auto-pilot', 'agents:keepalive', 'agent:first']}
+
+tests/workflows/test_agents_guard_registry_enabled.py:63: AssertionError
+_ test_enabled_contract_on_every_parser[missing-eof-.github/workflows/agents-guard.yml:Resolve trusted registry routing labels-function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execu] _
+
+surface = '.github/workflows/agents-guard.yml:Resolve trusted registry routing labels'
+parser = "function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execute registry cont...ncomplete');\n  for (const [agent, enabled] of agents) if (enabled) labels.add(`agent:${agent}`);\n  return labels;\n}"
+case = 'missing-eof', registry = 'agents:\n  first:\n', expected = None
+
+    @pytest.mark.parametrize("surface,parser", parsers(), ids=lambda item: str(item)[:100])
+    @pytest.mark.parametrize("case,registry,expected", CASES, ids=[case[0] for case in CASES])
+    def test_enabled_contract_on_every_parser(surface, parser, case, registry, expected):
+        harness = parser + """
+    const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
+    try { process.stdout.write(JSON.stringify({labels: [...routingLabelsFromRegistry(input)]})); }
+    catch(error) { process.stdout.write(JSON.stringify({error: error.message})); }
+    """
+        completed = subprocess.run(["node", "-e", harness], input=json.dumps(registry), text=True, capture_output=True, check=True)
+        result = json.loads(completed.stdout)
+        if expected is None:
+>           assert "error" in result, (surface, case, result)
+E           AssertionError: ('.github/workflows/agents-guard.yml:Resolve trusted registry routing labels', 'missing-eof', {'labels': ['agent:auto', 'agent:copilot', 'agents:auto-pilot', 'agents:keepalive', 'agent:first']})
+E           assert 'error' in {'labels': ['agent:auto', 'agent:copilot', 'agents:auto-pilot', 'agents:keepalive', 'agent:first']}
+
+tests/workflows/test_agents_guard_registry_enabled.py:63: AssertionError
+_ test_enabled_contract_on_every_parser[missing-eof-.github/workflows/agents-guard.yml:Evaluate protected file changes-function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execu] _
+
+surface = '.github/workflows/agents-guard.yml:Evaluate protected file changes'
+parser = "function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execute registry cont...ncomplete');\n  for (const [agent, enabled] of agents) if (enabled) labels.add(`agent:${agent}`);\n  return labels;\n}"
+case = 'missing-eof', registry = 'agents:\n  first:\n', expected = None
+
+    @pytest.mark.parametrize("surface,parser", parsers(), ids=lambda item: str(item)[:100])
+    @pytest.mark.parametrize("case,registry,expected", CASES, ids=[case[0] for case in CASES])
+    def test_enabled_contract_on_every_parser(surface, parser, case, registry, expected):
+        harness = parser + """
+    const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
+    try { process.stdout.write(JSON.stringify({labels: [...routingLabelsFromRegistry(input)]})); }
+    catch(error) { process.stdout.write(JSON.stringify({error: error.message})); }
+    """
+        completed = subprocess.run(["node", "-e", harness], input=json.dumps(registry), text=True, capture_output=True, check=True)
+        result = json.loads(completed.stdout)
+        if expected is None:
+>           assert "error" in result, (surface, case, result)
+E           AssertionError: ('.github/workflows/agents-guard.yml:Evaluate protected file changes', 'missing-eof', {'labels': ['agent:auto', 'agent:copilot', 'agents:auto-pilot', 'agents:keepalive', 'agent:first']})
+E           assert 'error' in {'labels': ['agent:auto', 'agent:copilot', 'agents:auto-pilot', 'agents:keepalive', 'agent:first']}
+
+tests/workflows/test_agents_guard_registry_enabled.py:63: AssertionError
+_ test_enabled_contract_on_every_parser[missing-eof-.github/workflows/agents-guard.yml:Report agents guard commit status-function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execu] _
+
+surface = '.github/workflows/agents-guard.yml:Report agents guard commit status'
+parser = "function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execute registry cont...ncomplete');\n  for (const [agent, enabled] of agents) if (enabled) labels.add(`agent:${agent}`);\n  return labels;\n}"
+case = 'missing-eof', registry = 'agents:\n  first:\n', expected = None
+
+    @pytest.mark.parametrize("surface,parser", parsers(), ids=lambda item: str(item)[:100])
+    @pytest.mark.parametrize("case,registry,expected", CASES, ids=[case[0] for case in CASES])
+    def test_enabled_contract_on_every_parser(surface, parser, case, registry, expected):
+        harness = parser + """
+    const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
+    try { process.stdout.write(JSON.stringify({labels: [...routingLabelsFromRegistry(input)]})); }
+    catch(error) { process.stdout.write(JSON.stringify({error: error.message})); }
+    """
+        completed = subprocess.run(["node", "-e", harness], input=json.dumps(registry), text=True, capture_output=True, check=True)
+        result = json.loads(completed.stdout)
+        if expected is None:
+>           assert "error" in result, (surface, case, result)
+E           AssertionError: ('.github/workflows/agents-guard.yml:Report agents guard commit status', 'missing-eof', {'labels': ['agent:auto', 'agent:copilot', 'agents:auto-pilot', 'agents:keepalive', 'agent:first']})
+E           assert 'error' in {'labels': ['agent:auto', 'agent:copilot', 'agents:auto-pilot', 'agents:keepalive', 'agent:first']}
+
+tests/workflows/test_agents_guard_registry_enabled.py:63: AssertionError
+_ test_enabled_contract_on_every_parser[missing-eof-templates/consumer-repo/.github/scripts/agents-guard-fork-status-publication.js-function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execu] _
+
+surface = 'templates/consumer-repo/.github/scripts/agents-guard-fork-status-publication.js'
+parser = "function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execute registry cont...ncomplete');\n  for (const [agent, enabled] of agents) if (enabled) labels.add(`agent:${agent}`);\n  return labels;\n}"
+case = 'missing-eof', registry = 'agents:\n  first:\n', expected = None
+
+    @pytest.mark.parametrize("surface,parser", parsers(), ids=lambda item: str(item)[:100])
+    @pytest.mark.parametrize("case,registry,expected", CASES, ids=[case[0] for case in CASES])
+    def test_enabled_contract_on_every_parser(surface, parser, case, registry, expected):
+        harness = parser + """
+    const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
+    try { process.stdout.write(JSON.stringify({labels: [...routingLabelsFromRegistry(input)]})); }
+    catch(error) { process.stdout.write(JSON.stringify({error: error.message})); }
+    """
+        completed = subprocess.run(["node", "-e", harness], input=json.dumps(registry), text=True, capture_output=True, check=True)
+        result = json.loads(completed.stdout)
+        if expected is None:
+>           assert "error" in result, (surface, case, result)
+E           AssertionError: ('templates/consumer-repo/.github/scripts/agents-guard-fork-status-publication.js', 'missing-eof', {'labels': ['agent:auto', 'agent:copilot', 'agents:auto-pilot', 'agents:keepalive', 'agent:first']})
+E           assert 'error' in {'labels': ['agent:auto', 'agent:copilot', 'agents:auto-pilot', 'agents:keepalive', 'agent:first']}
+
+tests/workflows/test_agents_guard_registry_enabled.py:63: AssertionError
+_ test_enabled_contract_on_every_parser[missing-eof-templates/consumer-repo/.github/workflows/agents-guard.yml:Resolve trusted registry routing labels-function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execu] _
+
+surface = 'templates/consumer-repo/.github/workflows/agents-guard.yml:Resolve trusted registry routing labels'
+parser = "function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execute registry cont...ncomplete');\n  for (const [agent, enabled] of agents) if (enabled) labels.add(`agent:${agent}`);\n  return labels;\n}"
+case = 'missing-eof', registry = 'agents:\n  first:\n', expected = None
+
+    @pytest.mark.parametrize("surface,parser", parsers(), ids=lambda item: str(item)[:100])
+    @pytest.mark.parametrize("case,registry,expected", CASES, ids=[case[0] for case in CASES])
+    def test_enabled_contract_on_every_parser(surface, parser, case, registry, expected):
+        harness = parser + """
+    const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
+    try { process.stdout.write(JSON.stringify({labels: [...routingLabelsFromRegistry(input)]})); }
+    catch(error) { process.stdout.write(JSON.stringify({error: error.message})); }
+    """
+        completed = subprocess.run(["node", "-e", harness], input=json.dumps(registry), text=True, capture_output=True, check=True)
+        result = json.loads(completed.stdout)
+        if expected is None:
+>           assert "error" in result, (surface, case, result)
+E           AssertionError: ('templates/consumer-repo/.github/workflows/agents-guard.yml:Resolve trusted registry routing labels', 'missing-eof', {'labels': ['agent:auto', 'agent:copilot', 'agents:auto-pilot', 'agents:keepalive', 'agent:first']})
+E           assert 'error' in {'labels': ['agent:auto', 'agent:copilot', 'agents:auto-pilot', 'agents:keepalive', 'agent:first']}
+
+tests/workflows/test_agents_guard_registry_enabled.py:63: AssertionError
+_ test_enabled_contract_on_every_parser[missing-eof-templates/consumer-repo/.github/workflows/agents-guard.yml:Evaluate protected file changes-function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execu] _
+
+surface = 'templates/consumer-repo/.github/workflows/agents-guard.yml:Evaluate protected file changes'
+parser = "function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execute registry cont...ncomplete');\n  for (const [agent, enabled] of agents) if (enabled) labels.add(`agent:${agent}`);\n  return labels;\n}"
+case = 'missing-eof', registry = 'agents:\n  first:\n', expected = None
+
+    @pytest.mark.parametrize("surface,parser", parsers(), ids=lambda item: str(item)[:100])
+    @pytest.mark.parametrize("case,registry,expected", CASES, ids=[case[0] for case in CASES])
+    def test_enabled_contract_on_every_parser(surface, parser, case, registry, expected):
+        harness = parser + """
+    const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
+    try { process.stdout.write(JSON.stringify({labels: [...routingLabelsFromRegistry(input)]})); }
+    catch(error) { process.stdout.write(JSON.stringify({error: error.message})); }
+    """
+        completed = subprocess.run(["node", "-e", harness], input=json.dumps(registry), text=True, capture_output=True, check=True)
+        result = json.loads(completed.stdout)
+        if expected is None:
+>           assert "error" in result, (surface, case, result)
+E           AssertionError: ('templates/consumer-repo/.github/workflows/agents-guard.yml:Evaluate protected file changes', 'missing-eof', {'labels': ['agent:auto', 'agent:copilot', 'agents:auto-pilot', 'agents:keepalive', 'agent:first']})
+E           assert 'error' in {'labels': ['agent:auto', 'agent:copilot', 'agents:auto-pilot', 'agents:keepalive', 'agent:first']}
+
+tests/workflows/test_agents_guard_registry_enabled.py:63: AssertionError
+_ test_enabled_contract_on_every_parser[missing-eof-templates/consumer-repo/.github/workflows/agents-guard.yml:Report agents guard commit status-function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execu] _
+
+surface = 'templates/consumer-repo/.github/workflows/agents-guard.yml:Report agents guard commit status'
+parser = "function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execute registry cont...ncomplete');\n  for (const [agent, enabled] of agents) if (enabled) labels.add(`agent:${agent}`);\n  return labels;\n}"
+case = 'missing-eof', registry = 'agents:\n  first:\n', expected = None
+
+    @pytest.mark.parametrize("surface,parser", parsers(), ids=lambda item: str(item)[:100])
+    @pytest.mark.parametrize("case,registry,expected", CASES, ids=[case[0] for case in CASES])
+    def test_enabled_contract_on_every_parser(surface, parser, case, registry, expected):
+        harness = parser + """
+    const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
+    try { process.stdout.write(JSON.stringify({labels: [...routingLabelsFromRegistry(input)]})); }
+    catch(error) { process.stdout.write(JSON.stringify({error: error.message})); }
+    """
+        completed = subprocess.run(["node", "-e", harness], input=json.dumps(registry), text=True, capture_output=True, check=True)
+        result = json.loads(completed.stdout)
+        if expected is None:
+>           assert "error" in result, (surface, case, result)
+E           AssertionError: ('templates/consumer-repo/.github/workflows/agents-guard.yml:Report agents guard commit status', 'missing-eof', {'labels': ['agent:auto', 'agent:copilot', 'agents:auto-pilot', 'agents:keepalive', 'agent:first']})
+E           assert 'error' in {'labels': ['agent:auto', 'agent:copilot', 'agents:auto-pilot', 'agents:keepalive', 'agent:first']}
+
+tests/workflows/test_agents_guard_registry_enabled.py:63: AssertionError
+_ test_enabled_contract_on_every_parser[missing-next-agent-.github/scripts/agents-guard-fork-status-publication.js-function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execu] _
+
+surface = '.github/scripts/agents-guard-fork-status-publication.js'
+parser = "function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execute registry cont...ncomplete');\n  for (const [agent, enabled] of agents) if (enabled) labels.add(`agent:${agent}`);\n  return labels;\n}"
+case = 'missing-next-agent'
+registry = 'agents:\n  first:\n    runner: example\n  second:\n    enabled: true\n'
+expected = None
+
+    @pytest.mark.parametrize("surface,parser", parsers(), ids=lambda item: str(item)[:100])
+    @pytest.mark.parametrize("case,registry,expected", CASES, ids=[case[0] for case in CASES])
+    def test_enabled_contract_on_every_parser(surface, parser, case, registry, expected):
+        harness = parser + """
+    const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
+    try { process.stdout.write(JSON.stringify({labels: [...routingLabelsFromRegistry(input)]})); }
+    catch(error) { process.stdout.write(JSON.stringify({error: error.message})); }
+    """
+        completed = subprocess.run(["node", "-e", harness], input=json.dumps(registry), text=True, capture_output=True, check=True)
+        result = json.loads(completed.stdout)
+        if expected is None:
+>           assert "error" in result, (surface, case, result)
+E           AssertionError: ('.github/scripts/agents-guard-fork-status-publication.js', 'missing-next-agent', {'labels': ['agent:auto', 'agent:copilot', 'agents:auto-pilot', 'agents:keepalive', 'agent:first', 'agent:second']})
+E           assert 'error' in {'labels': ['agent:auto', 'agent:copilot', 'agents:auto-pilot', 'agents:keepalive', 'agent:first', 'agent:second']}
+
+tests/workflows/test_agents_guard_registry_enabled.py:63: AssertionError
+_ test_enabled_contract_on_every_parser[missing-next-agent-.github/workflows/agents-guard.yml:Resolve trusted registry routing labels-function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execu] _
+
+surface = '.github/workflows/agents-guard.yml:Resolve trusted registry routing labels'
+parser = "function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execute registry cont...ncomplete');\n  for (const [agent, enabled] of agents) if (enabled) labels.add(`agent:${agent}`);\n  return labels;\n}"
+case = 'missing-next-agent'
+registry = 'agents:\n  first:\n    runner: example\n  second:\n    enabled: true\n'
+expected = None
+
+    @pytest.mark.parametrize("surface,parser", parsers(), ids=lambda item: str(item)[:100])
+    @pytest.mark.parametrize("case,registry,expected", CASES, ids=[case[0] for case in CASES])
+    def test_enabled_contract_on_every_parser(surface, parser, case, registry, expected):
+        harness = parser + """
+    const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
+    try { process.stdout.write(JSON.stringify({labels: [...routingLabelsFromRegistry(input)]})); }
+    catch(error) { process.stdout.write(JSON.stringify({error: error.message})); }
+    """
+        completed = subprocess.run(["node", "-e", harness], input=json.dumps(registry), text=True, capture_output=True, check=True)
+        result = json.loads(completed.stdout)
+        if expected is None:
+>           assert "error" in result, (surface, case, result)
+E           AssertionError: ('.github/workflows/agents-guard.yml:Resolve trusted registry routing labels', 'missing-next-agent', {'labels': ['agent:auto', 'agent:copilot', 'agents:auto-pilot', 'agents:keepalive', 'agent:first', 'agent:second']})
+E           assert 'error' in {'labels': ['agent:auto', 'agent:copilot', 'agents:auto-pilot', 'agents:keepalive', 'agent:first', 'agent:second']}
+
+tests/workflows/test_agents_guard_registry_enabled.py:63: AssertionError
+_ test_enabled_contract_on_every_parser[missing-next-agent-.github/workflows/agents-guard.yml:Evaluate protected file changes-function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execu] _
+
+surface = '.github/workflows/agents-guard.yml:Evaluate protected file changes'
+parser = "function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execute registry cont...ncomplete');\n  for (const [agent, enabled] of agents) if (enabled) labels.add(`agent:${agent}`);\n  return labels;\n}"
+case = 'missing-next-agent'
+registry = 'agents:\n  first:\n    runner: example\n  second:\n    enabled: true\n'
+expected = None
+
+    @pytest.mark.parametrize("surface,parser", parsers(), ids=lambda item: str(item)[:100])
+    @pytest.mark.parametrize("case,registry,expected", CASES, ids=[case[0] for case in CASES])
+    def test_enabled_contract_on_every_parser(surface, parser, case, registry, expected):
+        harness = parser + """
+    const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
+    try { process.stdout.write(JSON.stringify({labels: [...routingLabelsFromRegistry(input)]})); }
+    catch(error) { process.stdout.write(JSON.stringify({error: error.message})); }
+    """
+        completed = subprocess.run(["node", "-e", harness], input=json.dumps(registry), text=True, capture_output=True, check=True)
+        result = json.loads(completed.stdout)
+        if expected is None:
+>           assert "error" in result, (surface, case, result)
+E           AssertionError: ('.github/workflows/agents-guard.yml:Evaluate protected file changes', 'missing-next-agent', {'labels': ['agent:auto', 'agent:copilot', 'agents:auto-pilot', 'agents:keepalive', 'agent:first', 'agent:second']})
+E           assert 'error' in {'labels': ['agent:auto', 'agent:copilot', 'agents:auto-pilot', 'agents:keepalive', 'agent:first', 'agent:second']}
+
+tests/workflows/test_agents_guard_registry_enabled.py:63: AssertionError
+_ test_enabled_contract_on_every_parser[missing-next-agent-.github/workflows/agents-guard.yml:Report agents guard commit status-function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execu] _
+
+surface = '.github/workflows/agents-guard.yml:Report agents guard commit status'
+parser = "function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execute registry cont...ncomplete');\n  for (const [agent, enabled] of agents) if (enabled) labels.add(`agent:${agent}`);\n  return labels;\n}"
+case = 'missing-next-agent'
+registry = 'agents:\n  first:\n    runner: example\n  second:\n    enabled: true\n'
+expected = None
+
+    @pytest.mark.parametrize("surface,parser", parsers(), ids=lambda item: str(item)[:100])
+    @pytest.mark.parametrize("case,registry,expected", CASES, ids=[case[0] for case in CASES])
+    def test_enabled_contract_on_every_parser(surface, parser, case, registry, expected):
+        harness = parser + """
+    const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
+    try { process.stdout.write(JSON.stringify({labels: [...routingLabelsFromRegistry(input)]})); }
+    catch(error) { process.stdout.write(JSON.stringify({error: error.message})); }
+    """
+        completed = subprocess.run(["node", "-e", harness], input=json.dumps(registry), text=True, capture_output=True, check=True)
+        result = json.loads(completed.stdout)
+        if expected is None:
+>           assert "error" in result, (surface, case, result)
+E           AssertionError: ('.github/workflows/agents-guard.yml:Report agents guard commit status', 'missing-next-agent', {'labels': ['agent:auto', 'agent:copilot', 'agents:auto-pilot', 'agents:keepalive', 'agent:first', 'agent:second']})
+E           assert 'error' in {'labels': ['agent:auto', 'agent:copilot', 'agents:auto-pilot', 'agents:keepalive', 'agent:first', 'agent:second']}
+
+tests/workflows/test_agents_guard_registry_enabled.py:63: AssertionError
+_ test_enabled_contract_on_every_parser[missing-next-agent-templates/consumer-repo/.github/scripts/agents-guard-fork-status-publication.js-function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execu] _
+
+surface = 'templates/consumer-repo/.github/scripts/agents-guard-fork-status-publication.js'
+parser = "function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execute registry cont...ncomplete');\n  for (const [agent, enabled] of agents) if (enabled) labels.add(`agent:${agent}`);\n  return labels;\n}"
+case = 'missing-next-agent'
+registry = 'agents:\n  first:\n    runner: example\n  second:\n    enabled: true\n'
+expected = None
+
+    @pytest.mark.parametrize("surface,parser", parsers(), ids=lambda item: str(item)[:100])
+    @pytest.mark.parametrize("case,registry,expected", CASES, ids=[case[0] for case in CASES])
+    def test_enabled_contract_on_every_parser(surface, parser, case, registry, expected):
+        harness = parser + """
+    const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
+    try { process.stdout.write(JSON.stringify({labels: [...routingLabelsFromRegistry(input)]})); }
+    catch(error) { process.stdout.write(JSON.stringify({error: error.message})); }
+    """
+        completed = subprocess.run(["node", "-e", harness], input=json.dumps(registry), text=True, capture_output=True, check=True)
+        result = json.loads(completed.stdout)
+        if expected is None:
+>           assert "error" in result, (surface, case, result)
+E           AssertionError: ('templates/consumer-repo/.github/scripts/agents-guard-fork-status-publication.js', 'missing-next-agent', {'labels': ['agent:auto', 'agent:copilot', 'agents:auto-pilot', 'agents:keepalive', 'agent:first', 'agent:second']})
+E           assert 'error' in {'labels': ['agent:auto', 'agent:copilot', 'agents:auto-pilot', 'agents:keepalive', 'agent:first', 'agent:second']}
+
+tests/workflows/test_agents_guard_registry_enabled.py:63: AssertionError
+_ test_enabled_contract_on_every_parser[missing-next-agent-templates/consumer-repo/.github/workflows/agents-guard.yml:Resolve trusted registry routing labels-function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execu] _
+
+surface = 'templates/consumer-repo/.github/workflows/agents-guard.yml:Resolve trusted registry routing labels'
+parser = "function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execute registry cont...ncomplete');\n  for (const [agent, enabled] of agents) if (enabled) labels.add(`agent:${agent}`);\n  return labels;\n}"
+case = 'missing-next-agent'
+registry = 'agents:\n  first:\n    runner: example\n  second:\n    enabled: true\n'
+expected = None
+
+    @pytest.mark.parametrize("surface,parser", parsers(), ids=lambda item: str(item)[:100])
+    @pytest.mark.parametrize("case,registry,expected", CASES, ids=[case[0] for case in CASES])
+    def test_enabled_contract_on_every_parser(surface, parser, case, registry, expected):
+        harness = parser + """
+    const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
+    try { process.stdout.write(JSON.stringify({labels: [...routingLabelsFromRegistry(input)]})); }
+    catch(error) { process.stdout.write(JSON.stringify({error: error.message})); }
+    """
+        completed = subprocess.run(["node", "-e", harness], input=json.dumps(registry), text=True, capture_output=True, check=True)
+        result = json.loads(completed.stdout)
+        if expected is None:
+>           assert "error" in result, (surface, case, result)
+E           AssertionError: ('templates/consumer-repo/.github/workflows/agents-guard.yml:Resolve trusted registry routing labels', 'missing-next-a...', {'labels': ['agent:auto', 'agent:copilot', 'agents:auto-pilot', 'agents:keepalive', 'agent:first', 'agent:second']})
+E           assert 'error' in {'labels': ['agent:auto', 'agent:copilot', 'agents:auto-pilot', 'agents:keepalive', 'agent:first', 'agent:second']}
+
+tests/workflows/test_agents_guard_registry_enabled.py:63: AssertionError
+_ test_enabled_contract_on_every_parser[missing-next-agent-templates/consumer-repo/.github/workflows/agents-guard.yml:Evaluate protected file changes-function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execu] _
+
+surface = 'templates/consumer-repo/.github/workflows/agents-guard.yml:Evaluate protected file changes'
+parser = "function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execute registry cont...ncomplete');\n  for (const [agent, enabled] of agents) if (enabled) labels.add(`agent:${agent}`);\n  return labels;\n}"
+case = 'missing-next-agent'
+registry = 'agents:\n  first:\n    runner: example\n  second:\n    enabled: true\n'
+expected = None
+
+    @pytest.mark.parametrize("surface,parser", parsers(), ids=lambda item: str(item)[:100])
+    @pytest.mark.parametrize("case,registry,expected", CASES, ids=[case[0] for case in CASES])
+    def test_enabled_contract_on_every_parser(surface, parser, case, registry, expected):
+        harness = parser + """
+    const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
+    try { process.stdout.write(JSON.stringify({labels: [...routingLabelsFromRegistry(input)]})); }
+    catch(error) { process.stdout.write(JSON.stringify({error: error.message})); }
+    """
+        completed = subprocess.run(["node", "-e", harness], input=json.dumps(registry), text=True, capture_output=True, check=True)
+        result = json.loads(completed.stdout)
+        if expected is None:
+>           assert "error" in result, (surface, case, result)
+E           AssertionError: ('templates/consumer-repo/.github/workflows/agents-guard.yml:Evaluate protected file changes', 'missing-next-agent', {'labels': ['agent:auto', 'agent:copilot', 'agents:auto-pilot', 'agents:keepalive', 'agent:first', 'agent:second']})
+E           assert 'error' in {'labels': ['agent:auto', 'agent:copilot', 'agents:auto-pilot', 'agents:keepalive', 'agent:first', 'agent:second']}
+
+tests/workflows/test_agents_guard_registry_enabled.py:63: AssertionError
+_ test_enabled_contract_on_every_parser[missing-next-agent-templates/consumer-repo/.github/workflows/agents-guard.yml:Report agents guard commit status-function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execu] _
+
+surface = 'templates/consumer-repo/.github/workflows/agents-guard.yml:Report agents guard commit status'
+parser = "function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execute registry cont...ncomplete');\n  for (const [agent, enabled] of agents) if (enabled) labels.add(`agent:${agent}`);\n  return labels;\n}"
+case = 'missing-next-agent'
+registry = 'agents:\n  first:\n    runner: example\n  second:\n    enabled: true\n'
+expected = None
+
+    @pytest.mark.parametrize("surface,parser", parsers(), ids=lambda item: str(item)[:100])
+    @pytest.mark.parametrize("case,registry,expected", CASES, ids=[case[0] for case in CASES])
+    def test_enabled_contract_on_every_parser(surface, parser, case, registry, expected):
+        harness = parser + """
+    const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
+    try { process.stdout.write(JSON.stringify({labels: [...routingLabelsFromRegistry(input)]})); }
+    catch(error) { process.stdout.write(JSON.stringify({error: error.message})); }
+    """
+        completed = subprocess.run(["node", "-e", harness], input=json.dumps(registry), text=True, capture_output=True, check=True)
+        result = json.loads(completed.stdout)
+        if expected is None:
+>           assert "error" in result, (surface, case, result)
+E           AssertionError: ('templates/consumer-repo/.github/workflows/agents-guard.yml:Report agents guard commit status', 'missing-next-agent', {'labels': ['agent:auto', 'agent:copilot', 'agents:auto-pilot', 'agents:keepalive', 'agent:first', 'agent:second']})
+E           assert 'error' in {'labels': ['agent:auto', 'agent:copilot', 'agents:auto-pilot', 'agents:keepalive', 'agent:first', 'agent:second']}
+
+tests/workflows/test_agents_guard_registry_enabled.py:63: AssertionError
+_ test_enabled_contract_on_every_parser[missing-next-section-.github/scripts/agents-guard-fork-status-publication.js-function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execu] _
+
+surface = '.github/scripts/agents-guard-fork-status-publication.js'
+parser = "function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execute registry cont...ncomplete');\n  for (const [agent, enabled] of agents) if (enabled) labels.add(`agent:${agent}`);\n  return labels;\n}"
+case = 'missing-next-section'
+registry = 'agents:\n  first:\n    runner: example\nother: value\n'
+expected = None
+
+    @pytest.mark.parametrize("surface,parser", parsers(), ids=lambda item: str(item)[:100])
+    @pytest.mark.parametrize("case,registry,expected", CASES, ids=[case[0] for case in CASES])
+    def test_enabled_contract_on_every_parser(surface, parser, case, registry, expected):
+        harness = parser + """
+    const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
+    try { process.stdout.write(JSON.stringify({labels: [...routingLabelsFromRegistry(input)]})); }
+    catch(error) { process.stdout.write(JSON.stringify({error: error.message})); }
+    """
+        completed = subprocess.run(["node", "-e", harness], input=json.dumps(registry), text=True, capture_output=True, check=True)
+        result = json.loads(completed.stdout)
+        if expected is None:
+>           assert "error" in result, (surface, case, result)
+E           AssertionError: ('.github/scripts/agents-guard-fork-status-publication.js', 'missing-next-section', {'labels': ['agent:auto', 'agent:copilot', 'agents:auto-pilot', 'agents:keepalive', 'agent:first']})
+E           assert 'error' in {'labels': ['agent:auto', 'agent:copilot', 'agents:auto-pilot', 'agents:keepalive', 'agent:first']}
+
+tests/workflows/test_agents_guard_registry_enabled.py:63: AssertionError
+_ test_enabled_contract_on_every_parser[missing-next-section-.github/workflows/agents-guard.yml:Resolve trusted registry routing labels-function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execu] _
+
+surface = '.github/workflows/agents-guard.yml:Resolve trusted registry routing labels'
+parser = "function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execute registry cont...ncomplete');\n  for (const [agent, enabled] of agents) if (enabled) labels.add(`agent:${agent}`);\n  return labels;\n}"
+case = 'missing-next-section'
+registry = 'agents:\n  first:\n    runner: example\nother: value\n'
+expected = None
+
+    @pytest.mark.parametrize("surface,parser", parsers(), ids=lambda item: str(item)[:100])
+    @pytest.mark.parametrize("case,registry,expected", CASES, ids=[case[0] for case in CASES])
+    def test_enabled_contract_on_every_parser(surface, parser, case, registry, expected):
+        harness = parser + """
+    const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
+    try { process.stdout.write(JSON.stringify({labels: [...routingLabelsFromRegistry(input)]})); }
+    catch(error) { process.stdout.write(JSON.stringify({error: error.message})); }
+    """
+        completed = subprocess.run(["node", "-e", harness], input=json.dumps(registry), text=True, capture_output=True, check=True)
+        result = json.loads(completed.stdout)
+        if expected is None:
+>           assert "error" in result, (surface, case, result)
+E           AssertionError: ('.github/workflows/agents-guard.yml:Resolve trusted registry routing labels', 'missing-next-section', {'labels': ['agent:auto', 'agent:copilot', 'agents:auto-pilot', 'agents:keepalive', 'agent:first']})
+E           assert 'error' in {'labels': ['agent:auto', 'agent:copilot', 'agents:auto-pilot', 'agents:keepalive', 'agent:first']}
+
+tests/workflows/test_agents_guard_registry_enabled.py:63: AssertionError
+_ test_enabled_contract_on_every_parser[missing-next-section-.github/workflows/agents-guard.yml:Evaluate protected file changes-function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execu] _
+
+surface = '.github/workflows/agents-guard.yml:Evaluate protected file changes'
+parser = "function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execute registry cont...ncomplete');\n  for (const [agent, enabled] of agents) if (enabled) labels.add(`agent:${agent}`);\n  return labels;\n}"
+case = 'missing-next-section'
+registry = 'agents:\n  first:\n    runner: example\nother: value\n'
+expected = None
+
+    @pytest.mark.parametrize("surface,parser", parsers(), ids=lambda item: str(item)[:100])
+    @pytest.mark.parametrize("case,registry,expected", CASES, ids=[case[0] for case in CASES])
+    def test_enabled_contract_on_every_parser(surface, parser, case, registry, expected):
+        harness = parser + """
+    const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
+    try { process.stdout.write(JSON.stringify({labels: [...routingLabelsFromRegistry(input)]})); }
+    catch(error) { process.stdout.write(JSON.stringify({error: error.message})); }
+    """
+        completed = subprocess.run(["node", "-e", harness], input=json.dumps(registry), text=True, capture_output=True, check=True)
+        result = json.loads(completed.stdout)
+        if expected is None:
+>           assert "error" in result, (surface, case, result)
+E           AssertionError: ('.github/workflows/agents-guard.yml:Evaluate protected file changes', 'missing-next-section', {'labels': ['agent:auto', 'agent:copilot', 'agents:auto-pilot', 'agents:keepalive', 'agent:first']})
+E           assert 'error' in {'labels': ['agent:auto', 'agent:copilot', 'agents:auto-pilot', 'agents:keepalive', 'agent:first']}
+
+tests/workflows/test_agents_guard_registry_enabled.py:63: AssertionError
+_ test_enabled_contract_on_every_parser[missing-next-section-.github/workflows/agents-guard.yml:Report agents guard commit status-function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execu] _
+
+surface = '.github/workflows/agents-guard.yml:Report agents guard commit status'
+parser = "function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execute registry cont...ncomplete');\n  for (const [agent, enabled] of agents) if (enabled) labels.add(`agent:${agent}`);\n  return labels;\n}"
+case = 'missing-next-section'
+registry = 'agents:\n  first:\n    runner: example\nother: value\n'
+expected = None
+
+    @pytest.mark.parametrize("surface,parser", parsers(), ids=lambda item: str(item)[:100])
+    @pytest.mark.parametrize("case,registry,expected", CASES, ids=[case[0] for case in CASES])
+    def test_enabled_contract_on_every_parser(surface, parser, case, registry, expected):
+        harness = parser + """
+    const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
+    try { process.stdout.write(JSON.stringify({labels: [...routingLabelsFromRegistry(input)]})); }
+    catch(error) { process.stdout.write(JSON.stringify({error: error.message})); }
+    """
+        completed = subprocess.run(["node", "-e", harness], input=json.dumps(registry), text=True, capture_output=True, check=True)
+        result = json.loads(completed.stdout)
+        if expected is None:
+>           assert "error" in result, (surface, case, result)
+E           AssertionError: ('.github/workflows/agents-guard.yml:Report agents guard commit status', 'missing-next-section', {'labels': ['agent:auto', 'agent:copilot', 'agents:auto-pilot', 'agents:keepalive', 'agent:first']})
+E           assert 'error' in {'labels': ['agent:auto', 'agent:copilot', 'agents:auto-pilot', 'agents:keepalive', 'agent:first']}
+
+tests/workflows/test_agents_guard_registry_enabled.py:63: AssertionError
+_ test_enabled_contract_on_every_parser[missing-next-section-templates/consumer-repo/.github/scripts/agents-guard-fork-status-publication.js-function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execu] _
+
+surface = 'templates/consumer-repo/.github/scripts/agents-guard-fork-status-publication.js'
+parser = "function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execute registry cont...ncomplete');\n  for (const [agent, enabled] of agents) if (enabled) labels.add(`agent:${agent}`);\n  return labels;\n}"
+case = 'missing-next-section'
+registry = 'agents:\n  first:\n    runner: example\nother: value\n'
+expected = None
+
+    @pytest.mark.parametrize("surface,parser", parsers(), ids=lambda item: str(item)[:100])
+    @pytest.mark.parametrize("case,registry,expected", CASES, ids=[case[0] for case in CASES])
+    def test_enabled_contract_on_every_parser(surface, parser, case, registry, expected):
+        harness = parser + """
+    const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
+    try { process.stdout.write(JSON.stringify({labels: [...routingLabelsFromRegistry(input)]})); }
+    catch(error) { process.stdout.write(JSON.stringify({error: error.message})); }
+    """
+        completed = subprocess.run(["node", "-e", harness], input=json.dumps(registry), text=True, capture_output=True, check=True)
+        result = json.loads(completed.stdout)
+        if expected is None:
+>           assert "error" in result, (surface, case, result)
+E           AssertionError: ('templates/consumer-repo/.github/scripts/agents-guard-fork-status-publication.js', 'missing-next-section', {'labels': ['agent:auto', 'agent:copilot', 'agents:auto-pilot', 'agents:keepalive', 'agent:first']})
+E           assert 'error' in {'labels': ['agent:auto', 'agent:copilot', 'agents:auto-pilot', 'agents:keepalive', 'agent:first']}
+
+tests/workflows/test_agents_guard_registry_enabled.py:63: AssertionError
+_ test_enabled_contract_on_every_parser[missing-next-section-templates/consumer-repo/.github/workflows/agents-guard.yml:Resolve trusted registry routing labels-function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execu] _
+
+surface = 'templates/consumer-repo/.github/workflows/agents-guard.yml:Resolve trusted registry routing labels'
+parser = "function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execute registry cont...ncomplete');\n  for (const [agent, enabled] of agents) if (enabled) labels.add(`agent:${agent}`);\n  return labels;\n}"
+case = 'missing-next-section'
+registry = 'agents:\n  first:\n    runner: example\nother: value\n'
+expected = None
+
+    @pytest.mark.parametrize("surface,parser", parsers(), ids=lambda item: str(item)[:100])
+    @pytest.mark.parametrize("case,registry,expected", CASES, ids=[case[0] for case in CASES])
+    def test_enabled_contract_on_every_parser(surface, parser, case, registry, expected):
+        harness = parser + """
+    const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
+    try { process.stdout.write(JSON.stringify({labels: [...routingLabelsFromRegistry(input)]})); }
+    catch(error) { process.stdout.write(JSON.stringify({error: error.message})); }
+    """
+        completed = subprocess.run(["node", "-e", harness], input=json.dumps(registry), text=True, capture_output=True, check=True)
+        result = json.loads(completed.stdout)
+        if expected is None:
+>           assert "error" in result, (surface, case, result)
+E           AssertionError: ('templates/consumer-repo/.github/workflows/agents-guard.yml:Resolve trusted registry routing labels', 'missing-next-section', {'labels': ['agent:auto', 'agent:copilot', 'agents:auto-pilot', 'agents:keepalive', 'agent:first']})
+E           assert 'error' in {'labels': ['agent:auto', 'agent:copilot', 'agents:auto-pilot', 'agents:keepalive', 'agent:first']}
+
+tests/workflows/test_agents_guard_registry_enabled.py:63: AssertionError
+_ test_enabled_contract_on_every_parser[missing-next-section-templates/consumer-repo/.github/workflows/agents-guard.yml:Evaluate protected file changes-function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execu] _
+
+surface = 'templates/consumer-repo/.github/workflows/agents-guard.yml:Evaluate protected file changes'
+parser = "function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execute registry cont...ncomplete');\n  for (const [agent, enabled] of agents) if (enabled) labels.add(`agent:${agent}`);\n  return labels;\n}"
+case = 'missing-next-section'
+registry = 'agents:\n  first:\n    runner: example\nother: value\n'
+expected = None
+
+    @pytest.mark.parametrize("surface,parser", parsers(), ids=lambda item: str(item)[:100])
+    @pytest.mark.parametrize("case,registry,expected", CASES, ids=[case[0] for case in CASES])
+    def test_enabled_contract_on_every_parser(surface, parser, case, registry, expected):
+        harness = parser + """
+    const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
+    try { process.stdout.write(JSON.stringify({labels: [...routingLabelsFromRegistry(input)]})); }
+    catch(error) { process.stdout.write(JSON.stringify({error: error.message})); }
+    """
+        completed = subprocess.run(["node", "-e", harness], input=json.dumps(registry), text=True, capture_output=True, check=True)
+        result = json.loads(completed.stdout)
+        if expected is None:
+>           assert "error" in result, (surface, case, result)
+E           AssertionError: ('templates/consumer-repo/.github/workflows/agents-guard.yml:Evaluate protected file changes', 'missing-next-section', {'labels': ['agent:auto', 'agent:copilot', 'agents:auto-pilot', 'agents:keepalive', 'agent:first']})
+E           assert 'error' in {'labels': ['agent:auto', 'agent:copilot', 'agents:auto-pilot', 'agents:keepalive', 'agent:first']}
+
+tests/workflows/test_agents_guard_registry_enabled.py:63: AssertionError
+_ test_enabled_contract_on_every_parser[missing-next-section-templates/consumer-repo/.github/workflows/agents-guard.yml:Report agents guard commit status-function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execu] _
+
+surface = 'templates/consumer-repo/.github/workflows/agents-guard.yml:Report agents guard commit status'
+parser = "function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execute registry cont...ncomplete');\n  for (const [agent, enabled] of agents) if (enabled) labels.add(`agent:${agent}`);\n  return labels;\n}"
+case = 'missing-next-section'
+registry = 'agents:\n  first:\n    runner: example\nother: value\n'
+expected = None
+
+    @pytest.mark.parametrize("surface,parser", parsers(), ids=lambda item: str(item)[:100])
+    @pytest.mark.parametrize("case,registry,expected", CASES, ids=[case[0] for case in CASES])
+    def test_enabled_contract_on_every_parser(surface, parser, case, registry, expected):
+        harness = parser + """
+    const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
+    try { process.stdout.write(JSON.stringify({labels: [...routingLabelsFromRegistry(input)]})); }
+    catch(error) { process.stdout.write(JSON.stringify({error: error.message})); }
+    """
+        completed = subprocess.run(["node", "-e", harness], input=json.dumps(registry), text=True, capture_output=True, check=True)
+        result = json.loads(completed.stdout)
+        if expected is None:
+>           assert "error" in result, (surface, case, result)
+E           AssertionError: ('templates/consumer-repo/.github/workflows/agents-guard.yml:Report agents guard commit status', 'missing-next-section', {'labels': ['agent:auto', 'agent:copilot', 'agents:auto-pilot', 'agents:keepalive', 'agent:first']})
+E           assert 'error' in {'labels': ['agent:auto', 'agent:copilot', 'agents:auto-pilot', 'agents:keepalive', 'agent:first']}
+
+tests/workflows/test_agents_guard_registry_enabled.py:63: AssertionError
+_ test_enabled_contract_on_every_parser[nested-is-not-explicit-.github/scripts/agents-guard-fork-status-publication.js-function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execu] _
+
+surface = '.github/scripts/agents-guard-fork-status-publication.js'
+parser = "function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execute registry cont...ncomplete');\n  for (const [agent, enabled] of agents) if (enabled) labels.add(`agent:${agent}`);\n  return labels;\n}"
+case = 'nested-is-not-explicit'
+registry = 'agents:\n  first:\n    preflight:\n      enabled: true\n'
+expected = None
+
+    @pytest.mark.parametrize("surface,parser", parsers(), ids=lambda item: str(item)[:100])
+    @pytest.mark.parametrize("case,registry,expected", CASES, ids=[case[0] for case in CASES])
+    def test_enabled_contract_on_every_parser(surface, parser, case, registry, expected):
+        harness = parser + """
+    const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
+    try { process.stdout.write(JSON.stringify({labels: [...routingLabelsFromRegistry(input)]})); }
+    catch(error) { process.stdout.write(JSON.stringify({error: error.message})); }
+    """
+        completed = subprocess.run(["node", "-e", harness], input=json.dumps(registry), text=True, capture_output=True, check=True)
+        result = json.loads(completed.stdout)
+        if expected is None:
+>           assert "error" in result, (surface, case, result)
+E           AssertionError: ('.github/scripts/agents-guard-fork-status-publication.js', 'nested-is-not-explicit', {'labels': ['agent:auto', 'agent:copilot', 'agents:auto-pilot', 'agents:keepalive', 'agent:first']})
+E           assert 'error' in {'labels': ['agent:auto', 'agent:copilot', 'agents:auto-pilot', 'agents:keepalive', 'agent:first']}
+
+tests/workflows/test_agents_guard_registry_enabled.py:63: AssertionError
+_ test_enabled_contract_on_every_parser[nested-is-not-explicit-.github/workflows/agents-guard.yml:Resolve trusted registry routing labels-function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execu] _
+
+surface = '.github/workflows/agents-guard.yml:Resolve trusted registry routing labels'
+parser = "function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execute registry cont...ncomplete');\n  for (const [agent, enabled] of agents) if (enabled) labels.add(`agent:${agent}`);\n  return labels;\n}"
+case = 'nested-is-not-explicit'
+registry = 'agents:\n  first:\n    preflight:\n      enabled: true\n'
+expected = None
+
+    @pytest.mark.parametrize("surface,parser", parsers(), ids=lambda item: str(item)[:100])
+    @pytest.mark.parametrize("case,registry,expected", CASES, ids=[case[0] for case in CASES])
+    def test_enabled_contract_on_every_parser(surface, parser, case, registry, expected):
+        harness = parser + """
+    const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
+    try { process.stdout.write(JSON.stringify({labels: [...routingLabelsFromRegistry(input)]})); }
+    catch(error) { process.stdout.write(JSON.stringify({error: error.message})); }
+    """
+        completed = subprocess.run(["node", "-e", harness], input=json.dumps(registry), text=True, capture_output=True, check=True)
+        result = json.loads(completed.stdout)
+        if expected is None:
+>           assert "error" in result, (surface, case, result)
+E           AssertionError: ('.github/workflows/agents-guard.yml:Resolve trusted registry routing labels', 'nested-is-not-explicit', {'labels': ['agent:auto', 'agent:copilot', 'agents:auto-pilot', 'agents:keepalive', 'agent:first']})
+E           assert 'error' in {'labels': ['agent:auto', 'agent:copilot', 'agents:auto-pilot', 'agents:keepalive', 'agent:first']}
+
+tests/workflows/test_agents_guard_registry_enabled.py:63: AssertionError
+_ test_enabled_contract_on_every_parser[nested-is-not-explicit-.github/workflows/agents-guard.yml:Evaluate protected file changes-function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execu] _
+
+surface = '.github/workflows/agents-guard.yml:Evaluate protected file changes'
+parser = "function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execute registry cont...ncomplete');\n  for (const [agent, enabled] of agents) if (enabled) labels.add(`agent:${agent}`);\n  return labels;\n}"
+case = 'nested-is-not-explicit'
+registry = 'agents:\n  first:\n    preflight:\n      enabled: true\n'
+expected = None
+
+    @pytest.mark.parametrize("surface,parser", parsers(), ids=lambda item: str(item)[:100])
+    @pytest.mark.parametrize("case,registry,expected", CASES, ids=[case[0] for case in CASES])
+    def test_enabled_contract_on_every_parser(surface, parser, case, registry, expected):
+        harness = parser + """
+    const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
+    try { process.stdout.write(JSON.stringify({labels: [...routingLabelsFromRegistry(input)]})); }
+    catch(error) { process.stdout.write(JSON.stringify({error: error.message})); }
+    """
+        completed = subprocess.run(["node", "-e", harness], input=json.dumps(registry), text=True, capture_output=True, check=True)
+        result = json.loads(completed.stdout)
+        if expected is None:
+>           assert "error" in result, (surface, case, result)
+E           AssertionError: ('.github/workflows/agents-guard.yml:Evaluate protected file changes', 'nested-is-not-explicit', {'labels': ['agent:auto', 'agent:copilot', 'agents:auto-pilot', 'agents:keepalive', 'agent:first']})
+E           assert 'error' in {'labels': ['agent:auto', 'agent:copilot', 'agents:auto-pilot', 'agents:keepalive', 'agent:first']}
+
+tests/workflows/test_agents_guard_registry_enabled.py:63: AssertionError
+_ test_enabled_contract_on_every_parser[nested-is-not-explicit-.github/workflows/agents-guard.yml:Report agents guard commit status-function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execu] _
+
+surface = '.github/workflows/agents-guard.yml:Report agents guard commit status'
+parser = "function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execute registry cont...ncomplete');\n  for (const [agent, enabled] of agents) if (enabled) labels.add(`agent:${agent}`);\n  return labels;\n}"
+case = 'nested-is-not-explicit'
+registry = 'agents:\n  first:\n    preflight:\n      enabled: true\n'
+expected = None
+
+    @pytest.mark.parametrize("surface,parser", parsers(), ids=lambda item: str(item)[:100])
+    @pytest.mark.parametrize("case,registry,expected", CASES, ids=[case[0] for case in CASES])
+    def test_enabled_contract_on_every_parser(surface, parser, case, registry, expected):
+        harness = parser + """
+    const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
+    try { process.stdout.write(JSON.stringify({labels: [...routingLabelsFromRegistry(input)]})); }
+    catch(error) { process.stdout.write(JSON.stringify({error: error.message})); }
+    """
+        completed = subprocess.run(["node", "-e", harness], input=json.dumps(registry), text=True, capture_output=True, check=True)
+        result = json.loads(completed.stdout)
+        if expected is None:
+>           assert "error" in result, (surface, case, result)
+E           AssertionError: ('.github/workflows/agents-guard.yml:Report agents guard commit status', 'nested-is-not-explicit', {'labels': ['agent:auto', 'agent:copilot', 'agents:auto-pilot', 'agents:keepalive', 'agent:first']})
+E           assert 'error' in {'labels': ['agent:auto', 'agent:copilot', 'agents:auto-pilot', 'agents:keepalive', 'agent:first']}
+
+tests/workflows/test_agents_guard_registry_enabled.py:63: AssertionError
+_ test_enabled_contract_on_every_parser[nested-is-not-explicit-templates/consumer-repo/.github/scripts/agents-guard-fork-status-publication.js-function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execu] _
+
+surface = 'templates/consumer-repo/.github/scripts/agents-guard-fork-status-publication.js'
+parser = "function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execute registry cont...ncomplete');\n  for (const [agent, enabled] of agents) if (enabled) labels.add(`agent:${agent}`);\n  return labels;\n}"
+case = 'nested-is-not-explicit'
+registry = 'agents:\n  first:\n    preflight:\n      enabled: true\n'
+expected = None
+
+    @pytest.mark.parametrize("surface,parser", parsers(), ids=lambda item: str(item)[:100])
+    @pytest.mark.parametrize("case,registry,expected", CASES, ids=[case[0] for case in CASES])
+    def test_enabled_contract_on_every_parser(surface, parser, case, registry, expected):
+        harness = parser + """
+    const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
+    try { process.stdout.write(JSON.stringify({labels: [...routingLabelsFromRegistry(input)]})); }
+    catch(error) { process.stdout.write(JSON.stringify({error: error.message})); }
+    """
+        completed = subprocess.run(["node", "-e", harness], input=json.dumps(registry), text=True, capture_output=True, check=True)
+        result = json.loads(completed.stdout)
+        if expected is None:
+>           assert "error" in result, (surface, case, result)
+E           AssertionError: ('templates/consumer-repo/.github/scripts/agents-guard-fork-status-publication.js', 'nested-is-not-explicit', {'labels': ['agent:auto', 'agent:copilot', 'agents:auto-pilot', 'agents:keepalive', 'agent:first']})
+E           assert 'error' in {'labels': ['agent:auto', 'agent:copilot', 'agents:auto-pilot', 'agents:keepalive', 'agent:first']}
+
+tests/workflows/test_agents_guard_registry_enabled.py:63: AssertionError
+_ test_enabled_contract_on_every_parser[nested-is-not-explicit-templates/consumer-repo/.github/workflows/agents-guard.yml:Resolve trusted registry routing labels-function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execu] _
+
+surface = 'templates/consumer-repo/.github/workflows/agents-guard.yml:Resolve trusted registry routing labels'
+parser = "function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execute registry cont...ncomplete');\n  for (const [agent, enabled] of agents) if (enabled) labels.add(`agent:${agent}`);\n  return labels;\n}"
+case = 'nested-is-not-explicit'
+registry = 'agents:\n  first:\n    preflight:\n      enabled: true\n'
+expected = None
+
+    @pytest.mark.parametrize("surface,parser", parsers(), ids=lambda item: str(item)[:100])
+    @pytest.mark.parametrize("case,registry,expected", CASES, ids=[case[0] for case in CASES])
+    def test_enabled_contract_on_every_parser(surface, parser, case, registry, expected):
+        harness = parser + """
+    const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
+    try { process.stdout.write(JSON.stringify({labels: [...routingLabelsFromRegistry(input)]})); }
+    catch(error) { process.stdout.write(JSON.stringify({error: error.message})); }
+    """
+        completed = subprocess.run(["node", "-e", harness], input=json.dumps(registry), text=True, capture_output=True, check=True)
+        result = json.loads(completed.stdout)
+        if expected is None:
+>           assert "error" in result, (surface, case, result)
+E           AssertionError: ('templates/consumer-repo/.github/workflows/agents-guard.yml:Resolve trusted registry routing labels', 'nested-is-not-explicit', {'labels': ['agent:auto', 'agent:copilot', 'agents:auto-pilot', 'agents:keepalive', 'agent:first']})
+E           assert 'error' in {'labels': ['agent:auto', 'agent:copilot', 'agents:auto-pilot', 'agents:keepalive', 'agent:first']}
+
+tests/workflows/test_agents_guard_registry_enabled.py:63: AssertionError
+_ test_enabled_contract_on_every_parser[nested-is-not-explicit-templates/consumer-repo/.github/workflows/agents-guard.yml:Evaluate protected file changes-function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execu] _
+
+surface = 'templates/consumer-repo/.github/workflows/agents-guard.yml:Evaluate protected file changes'
+parser = "function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execute registry cont...ncomplete');\n  for (const [agent, enabled] of agents) if (enabled) labels.add(`agent:${agent}`);\n  return labels;\n}"
+case = 'nested-is-not-explicit'
+registry = 'agents:\n  first:\n    preflight:\n      enabled: true\n'
+expected = None
+
+    @pytest.mark.parametrize("surface,parser", parsers(), ids=lambda item: str(item)[:100])
+    @pytest.mark.parametrize("case,registry,expected", CASES, ids=[case[0] for case in CASES])
+    def test_enabled_contract_on_every_parser(surface, parser, case, registry, expected):
+        harness = parser + """
+    const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
+    try { process.stdout.write(JSON.stringify({labels: [...routingLabelsFromRegistry(input)]})); }
+    catch(error) { process.stdout.write(JSON.stringify({error: error.message})); }
+    """
+        completed = subprocess.run(["node", "-e", harness], input=json.dumps(registry), text=True, capture_output=True, check=True)
+        result = json.loads(completed.stdout)
+        if expected is None:
+>           assert "error" in result, (surface, case, result)
+E           AssertionError: ('templates/consumer-repo/.github/workflows/agents-guard.yml:Evaluate protected file changes', 'nested-is-not-explicit', {'labels': ['agent:auto', 'agent:copilot', 'agents:auto-pilot', 'agents:keepalive', 'agent:first']})
+E           assert 'error' in {'labels': ['agent:auto', 'agent:copilot', 'agents:auto-pilot', 'agents:keepalive', 'agent:first']}
+
+tests/workflows/test_agents_guard_registry_enabled.py:63: AssertionError
+_ test_enabled_contract_on_every_parser[nested-is-not-explicit-templates/consumer-repo/.github/workflows/agents-guard.yml:Report agents guard commit status-function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execu] _
+
+surface = 'templates/consumer-repo/.github/workflows/agents-guard.yml:Report agents guard commit status'
+parser = "function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execute registry cont...ncomplete');\n  for (const [agent, enabled] of agents) if (enabled) labels.add(`agent:${agent}`);\n  return labels;\n}"
+case = 'nested-is-not-explicit'
+registry = 'agents:\n  first:\n    preflight:\n      enabled: true\n'
+expected = None
+
+    @pytest.mark.parametrize("surface,parser", parsers(), ids=lambda item: str(item)[:100])
+    @pytest.mark.parametrize("case,registry,expected", CASES, ids=[case[0] for case in CASES])
+    def test_enabled_contract_on_every_parser(surface, parser, case, registry, expected):
+        harness = parser + """
+    const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
+    try { process.stdout.write(JSON.stringify({labels: [...routingLabelsFromRegistry(input)]})); }
+    catch(error) { process.stdout.write(JSON.stringify({error: error.message})); }
+    """
+        completed = subprocess.run(["node", "-e", harness], input=json.dumps(registry), text=True, capture_output=True, check=True)
+        result = json.loads(completed.stdout)
+        if expected is None:
+>           assert "error" in result, (surface, case, result)
+E           AssertionError: ('templates/consumer-repo/.github/workflows/agents-guard.yml:Report agents guard commit status', 'nested-is-not-explicit', {'labels': ['agent:auto', 'agent:copilot', 'agents:auto-pilot', 'agents:keepalive', 'agent:first']})
+E           assert 'error' in {'labels': ['agent:auto', 'agent:copilot', 'agents:auto-pilot', 'agents:keepalive', 'agent:first']}
+
+tests/workflows/test_agents_guard_registry_enabled.py:63: AssertionError
+_ test_enabled_contract_on_every_parser[nested-false-is-not-explicit-.github/scripts/agents-guard-fork-status-publication.js-function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execu] _
+
+surface = '.github/scripts/agents-guard-fork-status-publication.js'
+parser = "function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execute registry cont...ncomplete');\n  for (const [agent, enabled] of agents) if (enabled) labels.add(`agent:${agent}`);\n  return labels;\n}"
+case = 'nested-false-is-not-explicit'
+registry = 'agents:\n  first:\n    preflight:\n      enabled: false\n'
+expected = None
+
+    @pytest.mark.parametrize("surface,parser", parsers(), ids=lambda item: str(item)[:100])
+    @pytest.mark.parametrize("case,registry,expected", CASES, ids=[case[0] for case in CASES])
+    def test_enabled_contract_on_every_parser(surface, parser, case, registry, expected):
+        harness = parser + """
+    const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
+    try { process.stdout.write(JSON.stringify({labels: [...routingLabelsFromRegistry(input)]})); }
+    catch(error) { process.stdout.write(JSON.stringify({error: error.message})); }
+    """
+        completed = subprocess.run(["node", "-e", harness], input=json.dumps(registry), text=True, capture_output=True, check=True)
+        result = json.loads(completed.stdout)
+        if expected is None:
+>           assert "error" in result, (surface, case, result)
+E           AssertionError: ('.github/scripts/agents-guard-fork-status-publication.js', 'nested-false-is-not-explicit', {'labels': ['agent:auto', 'agent:copilot', 'agents:auto-pilot', 'agents:keepalive', 'agent:first']})
+E           assert 'error' in {'labels': ['agent:auto', 'agent:copilot', 'agents:auto-pilot', 'agents:keepalive', 'agent:first']}
+
+tests/workflows/test_agents_guard_registry_enabled.py:63: AssertionError
+_ test_enabled_contract_on_every_parser[nested-false-is-not-explicit-.github/workflows/agents-guard.yml:Resolve trusted registry routing labels-function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execu] _
+
+surface = '.github/workflows/agents-guard.yml:Resolve trusted registry routing labels'
+parser = "function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execute registry cont...ncomplete');\n  for (const [agent, enabled] of agents) if (enabled) labels.add(`agent:${agent}`);\n  return labels;\n}"
+case = 'nested-false-is-not-explicit'
+registry = 'agents:\n  first:\n    preflight:\n      enabled: false\n'
+expected = None
+
+    @pytest.mark.parametrize("surface,parser", parsers(), ids=lambda item: str(item)[:100])
+    @pytest.mark.parametrize("case,registry,expected", CASES, ids=[case[0] for case in CASES])
+    def test_enabled_contract_on_every_parser(surface, parser, case, registry, expected):
+        harness = parser + """
+    const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
+    try { process.stdout.write(JSON.stringify({labels: [...routingLabelsFromRegistry(input)]})); }
+    catch(error) { process.stdout.write(JSON.stringify({error: error.message})); }
+    """
+        completed = subprocess.run(["node", "-e", harness], input=json.dumps(registry), text=True, capture_output=True, check=True)
+        result = json.loads(completed.stdout)
+        if expected is None:
+>           assert "error" in result, (surface, case, result)
+E           AssertionError: ('.github/workflows/agents-guard.yml:Resolve trusted registry routing labels', 'nested-false-is-not-explicit', {'labels': ['agent:auto', 'agent:copilot', 'agents:auto-pilot', 'agents:keepalive', 'agent:first']})
+E           assert 'error' in {'labels': ['agent:auto', 'agent:copilot', 'agents:auto-pilot', 'agents:keepalive', 'agent:first']}
+
+tests/workflows/test_agents_guard_registry_enabled.py:63: AssertionError
+_ test_enabled_contract_on_every_parser[nested-false-is-not-explicit-.github/workflows/agents-guard.yml:Evaluate protected file changes-function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execu] _
+
+surface = '.github/workflows/agents-guard.yml:Evaluate protected file changes'
+parser = "function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execute registry cont...ncomplete');\n  for (const [agent, enabled] of agents) if (enabled) labels.add(`agent:${agent}`);\n  return labels;\n}"
+case = 'nested-false-is-not-explicit'
+registry = 'agents:\n  first:\n    preflight:\n      enabled: false\n'
+expected = None
+
+    @pytest.mark.parametrize("surface,parser", parsers(), ids=lambda item: str(item)[:100])
+    @pytest.mark.parametrize("case,registry,expected", CASES, ids=[case[0] for case in CASES])
+    def test_enabled_contract_on_every_parser(surface, parser, case, registry, expected):
+        harness = parser + """
+    const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
+    try { process.stdout.write(JSON.stringify({labels: [...routingLabelsFromRegistry(input)]})); }
+    catch(error) { process.stdout.write(JSON.stringify({error: error.message})); }
+    """
+        completed = subprocess.run(["node", "-e", harness], input=json.dumps(registry), text=True, capture_output=True, check=True)
+        result = json.loads(completed.stdout)
+        if expected is None:
+>           assert "error" in result, (surface, case, result)
+E           AssertionError: ('.github/workflows/agents-guard.yml:Evaluate protected file changes', 'nested-false-is-not-explicit', {'labels': ['agent:auto', 'agent:copilot', 'agents:auto-pilot', 'agents:keepalive', 'agent:first']})
+E           assert 'error' in {'labels': ['agent:auto', 'agent:copilot', 'agents:auto-pilot', 'agents:keepalive', 'agent:first']}
+
+tests/workflows/test_agents_guard_registry_enabled.py:63: AssertionError
+_ test_enabled_contract_on_every_parser[nested-false-is-not-explicit-.github/workflows/agents-guard.yml:Report agents guard commit status-function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execu] _
+
+surface = '.github/workflows/agents-guard.yml:Report agents guard commit status'
+parser = "function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execute registry cont...ncomplete');\n  for (const [agent, enabled] of agents) if (enabled) labels.add(`agent:${agent}`);\n  return labels;\n}"
+case = 'nested-false-is-not-explicit'
+registry = 'agents:\n  first:\n    preflight:\n      enabled: false\n'
+expected = None
+
+    @pytest.mark.parametrize("surface,parser", parsers(), ids=lambda item: str(item)[:100])
+    @pytest.mark.parametrize("case,registry,expected", CASES, ids=[case[0] for case in CASES])
+    def test_enabled_contract_on_every_parser(surface, parser, case, registry, expected):
+        harness = parser + """
+    const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
+    try { process.stdout.write(JSON.stringify({labels: [...routingLabelsFromRegistry(input)]})); }
+    catch(error) { process.stdout.write(JSON.stringify({error: error.message})); }
+    """
+        completed = subprocess.run(["node", "-e", harness], input=json.dumps(registry), text=True, capture_output=True, check=True)
+        result = json.loads(completed.stdout)
+        if expected is None:
+>           assert "error" in result, (surface, case, result)
+E           AssertionError: ('.github/workflows/agents-guard.yml:Report agents guard commit status', 'nested-false-is-not-explicit', {'labels': ['agent:auto', 'agent:copilot', 'agents:auto-pilot', 'agents:keepalive', 'agent:first']})
+E           assert 'error' in {'labels': ['agent:auto', 'agent:copilot', 'agents:auto-pilot', 'agents:keepalive', 'agent:first']}
+
+tests/workflows/test_agents_guard_registry_enabled.py:63: AssertionError
+_ test_enabled_contract_on_every_parser[nested-false-is-not-explicit-templates/consumer-repo/.github/scripts/agents-guard-fork-status-publication.js-function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execu] _
+
+surface = 'templates/consumer-repo/.github/scripts/agents-guard-fork-status-publication.js'
+parser = "function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execute registry cont...ncomplete');\n  for (const [agent, enabled] of agents) if (enabled) labels.add(`agent:${agent}`);\n  return labels;\n}"
+case = 'nested-false-is-not-explicit'
+registry = 'agents:\n  first:\n    preflight:\n      enabled: false\n'
+expected = None
+
+    @pytest.mark.parametrize("surface,parser", parsers(), ids=lambda item: str(item)[:100])
+    @pytest.mark.parametrize("case,registry,expected", CASES, ids=[case[0] for case in CASES])
+    def test_enabled_contract_on_every_parser(surface, parser, case, registry, expected):
+        harness = parser + """
+    const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
+    try { process.stdout.write(JSON.stringify({labels: [...routingLabelsFromRegistry(input)]})); }
+    catch(error) { process.stdout.write(JSON.stringify({error: error.message})); }
+    """
+        completed = subprocess.run(["node", "-e", harness], input=json.dumps(registry), text=True, capture_output=True, check=True)
+        result = json.loads(completed.stdout)
+        if expected is None:
+>           assert "error" in result, (surface, case, result)
+E           AssertionError: ('templates/consumer-repo/.github/scripts/agents-guard-fork-status-publication.js', 'nested-false-is-not-explicit', {'labels': ['agent:auto', 'agent:copilot', 'agents:auto-pilot', 'agents:keepalive', 'agent:first']})
+E           assert 'error' in {'labels': ['agent:auto', 'agent:copilot', 'agents:auto-pilot', 'agents:keepalive', 'agent:first']}
+
+tests/workflows/test_agents_guard_registry_enabled.py:63: AssertionError
+_ test_enabled_contract_on_every_parser[nested-false-is-not-explicit-templates/consumer-repo/.github/workflows/agents-guard.yml:Resolve trusted registry routing labels-function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execu] _
+
+surface = 'templates/consumer-repo/.github/workflows/agents-guard.yml:Resolve trusted registry routing labels'
+parser = "function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execute registry cont...ncomplete');\n  for (const [agent, enabled] of agents) if (enabled) labels.add(`agent:${agent}`);\n  return labels;\n}"
+case = 'nested-false-is-not-explicit'
+registry = 'agents:\n  first:\n    preflight:\n      enabled: false\n'
+expected = None
+
+    @pytest.mark.parametrize("surface,parser", parsers(), ids=lambda item: str(item)[:100])
+    @pytest.mark.parametrize("case,registry,expected", CASES, ids=[case[0] for case in CASES])
+    def test_enabled_contract_on_every_parser(surface, parser, case, registry, expected):
+        harness = parser + """
+    const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
+    try { process.stdout.write(JSON.stringify({labels: [...routingLabelsFromRegistry(input)]})); }
+    catch(error) { process.stdout.write(JSON.stringify({error: error.message})); }
+    """
+        completed = subprocess.run(["node", "-e", harness], input=json.dumps(registry), text=True, capture_output=True, check=True)
+        result = json.loads(completed.stdout)
+        if expected is None:
+>           assert "error" in result, (surface, case, result)
+E           AssertionError: ('templates/consumer-repo/.github/workflows/agents-guard.yml:Resolve trusted registry routing labels', 'nested-false-is-not-explicit', {'labels': ['agent:auto', 'agent:copilot', 'agents:auto-pilot', 'agents:keepalive', 'agent:first']})
+E           assert 'error' in {'labels': ['agent:auto', 'agent:copilot', 'agents:auto-pilot', 'agents:keepalive', 'agent:first']}
+
+tests/workflows/test_agents_guard_registry_enabled.py:63: AssertionError
+_ test_enabled_contract_on_every_parser[nested-false-is-not-explicit-templates/consumer-repo/.github/workflows/agents-guard.yml:Evaluate protected file changes-function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execu] _
+
+surface = 'templates/consumer-repo/.github/workflows/agents-guard.yml:Evaluate protected file changes'
+parser = "function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execute registry cont...ncomplete');\n  for (const [agent, enabled] of agents) if (enabled) labels.add(`agent:${agent}`);\n  return labels;\n}"
+case = 'nested-false-is-not-explicit'
+registry = 'agents:\n  first:\n    preflight:\n      enabled: false\n'
+expected = None
+
+    @pytest.mark.parametrize("surface,parser", parsers(), ids=lambda item: str(item)[:100])
+    @pytest.mark.parametrize("case,registry,expected", CASES, ids=[case[0] for case in CASES])
+    def test_enabled_contract_on_every_parser(surface, parser, case, registry, expected):
+        harness = parser + """
+    const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
+    try { process.stdout.write(JSON.stringify({labels: [...routingLabelsFromRegistry(input)]})); }
+    catch(error) { process.stdout.write(JSON.stringify({error: error.message})); }
+    """
+        completed = subprocess.run(["node", "-e", harness], input=json.dumps(registry), text=True, capture_output=True, check=True)
+        result = json.loads(completed.stdout)
+        if expected is None:
+>           assert "error" in result, (surface, case, result)
+E           AssertionError: ('templates/consumer-repo/.github/workflows/agents-guard.yml:Evaluate protected file changes', 'nested-false-is-not-explicit', {'labels': ['agent:auto', 'agent:copilot', 'agents:auto-pilot', 'agents:keepalive', 'agent:first']})
+E           assert 'error' in {'labels': ['agent:auto', 'agent:copilot', 'agents:auto-pilot', 'agents:keepalive', 'agent:first']}
+
+tests/workflows/test_agents_guard_registry_enabled.py:63: AssertionError
+_ test_enabled_contract_on_every_parser[nested-false-is-not-explicit-templates/consumer-repo/.github/workflows/agents-guard.yml:Report agents guard commit status-function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execu] _
+
+surface = 'templates/consumer-repo/.github/workflows/agents-guard.yml:Report agents guard commit status'
+parser = "function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execute registry cont...ncomplete');\n  for (const [agent, enabled] of agents) if (enabled) labels.add(`agent:${agent}`);\n  return labels;\n}"
+case = 'nested-false-is-not-explicit'
+registry = 'agents:\n  first:\n    preflight:\n      enabled: false\n'
+expected = None
+
+    @pytest.mark.parametrize("surface,parser", parsers(), ids=lambda item: str(item)[:100])
+    @pytest.mark.parametrize("case,registry,expected", CASES, ids=[case[0] for case in CASES])
+    def test_enabled_contract_on_every_parser(surface, parser, case, registry, expected):
+        harness = parser + """
+    const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
+    try { process.stdout.write(JSON.stringify({labels: [...routingLabelsFromRegistry(input)]})); }
+    catch(error) { process.stdout.write(JSON.stringify({error: error.message})); }
+    """
+        completed = subprocess.run(["node", "-e", harness], input=json.dumps(registry), text=True, capture_output=True, check=True)
+        result = json.loads(completed.stdout)
+        if expected is None:
+>           assert "error" in result, (surface, case, result)
+E           AssertionError: ('templates/consumer-repo/.github/workflows/agents-guard.yml:Report agents guard commit status', 'nested-false-is-not-explicit', {'labels': ['agent:auto', 'agent:copilot', 'agents:auto-pilot', 'agents:keepalive', 'agent:first']})
+E           assert 'error' in {'labels': ['agent:auto', 'agent:copilot', 'agents:auto-pilot', 'agents:keepalive', 'agent:first']}
+
+tests/workflows/test_agents_guard_registry_enabled.py:63: AssertionError
+=========================== short test summary info ============================
+FAILED tests/workflows/test_agents_guard_registry_enabled.py::test_enabled_contract_on_every_parser[missing-eof-.github/scripts/agents-guard-fork-status-publication.js-function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execu]
+FAILED tests/workflows/test_agents_guard_registry_enabled.py::test_enabled_contract_on_every_parser[missing-eof-.github/workflows/agents-guard.yml:Resolve trusted registry routing labels-function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execu]
+FAILED tests/workflows/test_agents_guard_registry_enabled.py::test_enabled_contract_on_every_parser[missing-eof-.github/workflows/agents-guard.yml:Evaluate protected file changes-function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execu]
+FAILED tests/workflows/test_agents_guard_registry_enabled.py::test_enabled_contract_on_every_parser[missing-eof-.github/workflows/agents-guard.yml:Report agents guard commit status-function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execu]
+FAILED tests/workflows/test_agents_guard_registry_enabled.py::test_enabled_contract_on_every_parser[missing-eof-templates/consumer-repo/.github/scripts/agents-guard-fork-status-publication.js-function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execu]
+FAILED tests/workflows/test_agents_guard_registry_enabled.py::test_enabled_contract_on_every_parser[missing-eof-templates/consumer-repo/.github/workflows/agents-guard.yml:Resolve trusted registry routing labels-function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execu]
+FAILED tests/workflows/test_agents_guard_registry_enabled.py::test_enabled_contract_on_every_parser[missing-eof-templates/consumer-repo/.github/workflows/agents-guard.yml:Evaluate protected file changes-function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execu]
+FAILED tests/workflows/test_agents_guard_registry_enabled.py::test_enabled_contract_on_every_parser[missing-eof-templates/consumer-repo/.github/workflows/agents-guard.yml:Report agents guard commit status-function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execu]
+FAILED tests/workflows/test_agents_guard_registry_enabled.py::test_enabled_contract_on_every_parser[missing-next-agent-.github/scripts/agents-guard-fork-status-publication.js-function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execu]
+FAILED tests/workflows/test_agents_guard_registry_enabled.py::test_enabled_contract_on_every_parser[missing-next-agent-.github/workflows/agents-guard.yml:Resolve trusted registry routing labels-function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execu]
+FAILED tests/workflows/test_agents_guard_registry_enabled.py::test_enabled_contract_on_every_parser[missing-next-agent-.github/workflows/agents-guard.yml:Evaluate protected file changes-function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execu]
+FAILED tests/workflows/test_agents_guard_registry_enabled.py::test_enabled_contract_on_every_parser[missing-next-agent-.github/workflows/agents-guard.yml:Report agents guard commit status-function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execu]
+FAILED tests/workflows/test_agents_guard_registry_enabled.py::test_enabled_contract_on_every_parser[missing-next-agent-templates/consumer-repo/.github/scripts/agents-guard-fork-status-publication.js-function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execu]
+FAILED tests/workflows/test_agents_guard_registry_enabled.py::test_enabled_contract_on_every_parser[missing-next-agent-templates/consumer-repo/.github/workflows/agents-guard.yml:Resolve trusted registry routing labels-function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execu]
+FAILED tests/workflows/test_agents_guard_registry_enabled.py::test_enabled_contract_on_every_parser[missing-next-agent-templates/consumer-repo/.github/workflows/agents-guard.yml:Evaluate protected file changes-function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execu]
+FAILED tests/workflows/test_agents_guard_registry_enabled.py::test_enabled_contract_on_every_parser[missing-next-agent-templates/consumer-repo/.github/workflows/agents-guard.yml:Report agents guard commit status-function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execu]
+FAILED tests/workflows/test_agents_guard_registry_enabled.py::test_enabled_contract_on_every_parser[missing-next-section-.github/scripts/agents-guard-fork-status-publication.js-function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execu]
+FAILED tests/workflows/test_agents_guard_registry_enabled.py::test_enabled_contract_on_every_parser[missing-next-section-.github/workflows/agents-guard.yml:Resolve trusted registry routing labels-function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execu]
+FAILED tests/workflows/test_agents_guard_registry_enabled.py::test_enabled_contract_on_every_parser[missing-next-section-.github/workflows/agents-guard.yml:Evaluate protected file changes-function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execu]
+FAILED tests/workflows/test_agents_guard_registry_enabled.py::test_enabled_contract_on_every_parser[missing-next-section-.github/workflows/agents-guard.yml:Report agents guard commit status-function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execu]
+FAILED tests/workflows/test_agents_guard_registry_enabled.py::test_enabled_contract_on_every_parser[missing-next-section-templates/consumer-repo/.github/scripts/agents-guard-fork-status-publication.js-function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execu]
+FAILED tests/workflows/test_agents_guard_registry_enabled.py::test_enabled_contract_on_every_parser[missing-next-section-templates/consumer-repo/.github/workflows/agents-guard.yml:Resolve trusted registry routing labels-function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execu]
+FAILED tests/workflows/test_agents_guard_registry_enabled.py::test_enabled_contract_on_every_parser[missing-next-section-templates/consumer-repo/.github/workflows/agents-guard.yml:Evaluate protected file changes-function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execu]
+FAILED tests/workflows/test_agents_guard_registry_enabled.py::test_enabled_contract_on_every_parser[missing-next-section-templates/consumer-repo/.github/workflows/agents-guard.yml:Report agents guard commit status-function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execu]
+FAILED tests/workflows/test_agents_guard_registry_enabled.py::test_enabled_contract_on_every_parser[nested-is-not-explicit-.github/scripts/agents-guard-fork-status-publication.js-function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execu]
+FAILED tests/workflows/test_agents_guard_registry_enabled.py::test_enabled_contract_on_every_parser[nested-is-not-explicit-.github/workflows/agents-guard.yml:Resolve trusted registry routing labels-function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execu]
+FAILED tests/workflows/test_agents_guard_registry_enabled.py::test_enabled_contract_on_every_parser[nested-is-not-explicit-.github/workflows/agents-guard.yml:Evaluate protected file changes-function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execu]
+FAILED tests/workflows/test_agents_guard_registry_enabled.py::test_enabled_contract_on_every_parser[nested-is-not-explicit-.github/workflows/agents-guard.yml:Report agents guard commit status-function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execu]
+FAILED tests/workflows/test_agents_guard_registry_enabled.py::test_enabled_contract_on_every_parser[nested-is-not-explicit-templates/consumer-repo/.github/scripts/agents-guard-fork-status-publication.js-function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execu]
+FAILED tests/workflows/test_agents_guard_registry_enabled.py::test_enabled_contract_on_every_parser[nested-is-not-explicit-templates/consumer-repo/.github/workflows/agents-guard.yml:Resolve trusted registry routing labels-function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execu]
+FAILED tests/workflows/test_agents_guard_registry_enabled.py::test_enabled_contract_on_every_parser[nested-is-not-explicit-templates/consumer-repo/.github/workflows/agents-guard.yml:Evaluate protected file changes-function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execu]
+FAILED tests/workflows/test_agents_guard_registry_enabled.py::test_enabled_contract_on_every_parser[nested-is-not-explicit-templates/consumer-repo/.github/workflows/agents-guard.yml:Report agents guard commit status-function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execu]
+FAILED tests/workflows/test_agents_guard_registry_enabled.py::test_enabled_contract_on_every_parser[nested-false-is-not-explicit-.github/scripts/agents-guard-fork-status-publication.js-function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execu]
+FAILED tests/workflows/test_agents_guard_registry_enabled.py::test_enabled_contract_on_every_parser[nested-false-is-not-explicit-.github/workflows/agents-guard.yml:Resolve trusted registry routing labels-function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execu]
+FAILED tests/workflows/test_agents_guard_registry_enabled.py::test_enabled_contract_on_every_parser[nested-false-is-not-explicit-.github/workflows/agents-guard.yml:Evaluate protected file changes-function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execu]
+FAILED tests/workflows/test_agents_guard_registry_enabled.py::test_enabled_contract_on_every_parser[nested-false-is-not-explicit-.github/workflows/agents-guard.yml:Report agents guard commit status-function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execu]
+FAILED tests/workflows/test_agents_guard_registry_enabled.py::test_enabled_contract_on_every_parser[nested-false-is-not-explicit-templates/consumer-repo/.github/scripts/agents-guard-fork-status-publication.js-function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execu]
+FAILED tests/workflows/test_agents_guard_registry_enabled.py::test_enabled_contract_on_every_parser[nested-false-is-not-explicit-templates/consumer-repo/.github/workflows/agents-guard.yml:Resolve trusted registry routing labels-function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execu]
+FAILED tests/workflows/test_agents_guard_registry_enabled.py::test_enabled_contract_on_every_parser[nested-false-is-not-explicit-templates/consumer-repo/.github/workflows/agents-guard.yml:Evaluate protected file changes-function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execu]
+FAILED tests/workflows/test_agents_guard_registry_enabled.py::test_enabled_contract_on_every_parser[nested-false-is-not-explicit-templates/consumer-repo/.github/workflows/agents-guard.yml:Report agents guard commit status-function routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execu]
+40 failed, 120 passed in 6.44s

@@ -17,6 +17,7 @@ on:
       - unlabeled
 
 permissions:
+  actions: read
   contents: read
   pull-requests: write
   statuses: write
@@ -69,18 +70,22 @@ jobs:
               let sections = 0;
               let key = null;
               let enabledSeen = false;
+              const finishEntry = () => {
+                if (key !== null && !enabledSeen) throw new Error('Agent enabled flag is missing');
+              };
               for (const raw of String(text).split(/\r?\n/)) {
                 const line = raw.replace(/\s+#.*$/, '').replace(/\s+$/, '');
                 if (!line.trim() || line.trimStart().startsWith('#')) continue;
                 if (line.includes('\t')) throw new Error('Agent registry tabs are unsupported');
-                if (/^agents:\s*$/.test(line)) { inAgents = true; sections++; key = null; continue; }
-                if (/^\S/.test(line)) { inAgents = false; key = null; continue; }
+                if (/^agents:\s*$/.test(line)) { finishEntry(); inAgents = true; sections++; key = null; continue; }
+                if (/^\S/.test(line)) { finishEntry(); inAgents = false; key = null; continue; }
                 if (!inAgents) continue;
                 const entry = line.match(/^  ([a-z][a-z0-9_-]*):\s*$/);
                 if (entry) {
+                  finishEntry();
                   key = entry[1];
                   if (agents.has(key)) throw new Error('Duplicate agent registry entry');
-                  agents.set(key, true);
+                  agents.set(key, false);
                   enabledSeen = false;
                   continue;
                 }
@@ -92,6 +97,7 @@ jobs:
                   agents.set(key, value[1] === 'true');
                 }
               }
+              finishEntry();
               if (sections !== 1 || agents.size === 0) throw new Error('Agent registry mapping is incomplete');
               for (const [agent, enabled] of agents) if (enabled) labels.add(`agent:${agent}`);
               return labels;
@@ -572,18 +578,22 @@ jobs:
               let sections = 0;
               let key = null;
               let enabledSeen = false;
+              const finishEntry = () => {
+                if (key !== null && !enabledSeen) throw new Error('Agent enabled flag is missing');
+              };
               for (const raw of String(text).split(/\r?\n/)) {
                 const line = raw.replace(/\s+#.*$/, '').replace(/\s+$/, '');
                 if (!line.trim() || line.trimStart().startsWith('#')) continue;
                 if (line.includes('\t')) throw new Error('Agent registry tabs are unsupported');
-                if (/^agents:\s*$/.test(line)) { inAgents = true; sections++; key = null; continue; }
-                if (/^\S/.test(line)) { inAgents = false; key = null; continue; }
+                if (/^agents:\s*$/.test(line)) { finishEntry(); inAgents = true; sections++; key = null; continue; }
+                if (/^\S/.test(line)) { finishEntry(); inAgents = false; key = null; continue; }
                 if (!inAgents) continue;
                 const entry = line.match(/^  ([a-z][a-z0-9_-]*):\s*$/);
                 if (entry) {
+                  finishEntry();
                   key = entry[1];
                   if (agents.has(key)) throw new Error('Duplicate agent registry entry');
-                  agents.set(key, true);
+                  agents.set(key, false);
                   enabledSeen = false;
                   continue;
                 }
@@ -595,6 +605,7 @@ jobs:
                   agents.set(key, value[1] === 'true');
                 }
               }
+              finishEntry();
               if (sections !== 1 || agents.size === 0) throw new Error('Agent registry mapping is incomplete');
               for (const [agent, enabled] of agents) if (enabled) labels.add(`agent:${agent}`);
               return labels;
@@ -851,18 +862,22 @@ jobs:
               let sections = 0;
               let key = null;
               let enabledSeen = false;
+              const finishEntry = () => {
+                if (key !== null && !enabledSeen) throw new Error('Agent enabled flag is missing');
+              };
               for (const raw of String(text).split(/\r?\n/)) {
                 const line = raw.replace(/\s+#.*$/, '').replace(/\s+$/, '');
                 if (!line.trim() || line.trimStart().startsWith('#')) continue;
                 if (line.includes('\t')) throw new Error('Agent registry tabs are unsupported');
-                if (/^agents:\s*$/.test(line)) { inAgents = true; sections++; key = null; continue; }
-                if (/^\S/.test(line)) { inAgents = false; key = null; continue; }
+                if (/^agents:\s*$/.test(line)) { finishEntry(); inAgents = true; sections++; key = null; continue; }
+                if (/^\S/.test(line)) { finishEntry(); inAgents = false; key = null; continue; }
                 if (!inAgents) continue;
                 const entry = line.match(/^  ([a-z][a-z0-9_-]*):\s*$/);
                 if (entry) {
+                  finishEntry();
                   key = entry[1];
                   if (agents.has(key)) throw new Error('Duplicate agent registry entry');
-                  agents.set(key, true);
+                  agents.set(key, false);
                   enabledSeen = false;
                   continue;
                 }
@@ -874,6 +889,7 @@ jobs:
                   agents.set(key, value[1] === 'true');
                 }
               }
+              finishEntry();
               if (sections !== 1 || agents.size === 0) throw new Error('Agent registry mapping is incomplete');
               for (const [agent, enabled] of agents) if (enabled) labels.add(`agent:${agent}`);
               return labels;
@@ -935,6 +951,83 @@ jobs:
               throw new Error(`Failed ${label} after ${maxAttempts} attempts.`);
             }
 
+            async function assertCorrectiveWriteBinding() {
+              const expectedAttempt = Number(process.env.GITHUB_RUN_ATTEMPT);
+              if (!Number.isSafeInteger(pullRequest.number) || pullRequest.number <= 0 ||
+                  !Number.isSafeInteger(expectedAttempt) || expectedAttempt < 1 ||
+                  !pullRequest.base?.repo?.id || !pullRequest.base?.ref ||
+                  !/^[0-9a-f]{40}$/.test(pullRequest.base?.sha || '')) {
+                throw new Error('Corrective guard publication binding is incomplete');
+              }
+              const readRun = async () => (await github.rest.actions.getWorkflowRun({
+                owner, repo, run_id: context.runId,
+              })).data;
+              const validatePr = async () => {
+                const current = (await github.rest.pulls.get({
+                  owner, repo, pull_number: pullRequest.number,
+                })).data;
+                if (current?.state !== 'open' || current.number !== pullRequest.number ||
+                    current.head?.sha !== sha || current.base?.sha !== pullRequest.base.sha ||
+                    current.base?.repo?.id !== pullRequest.base.repo.id ||
+                    current.base?.ref !== pullRequest.base.ref) {
+                  throw new Error('PR binding changed before corrective guard publication');
+                }
+              };
+              const validateRun = run => {
+                if (Number(run?.id) !== Number(context.runId) ||
+                    !/^\.github\/workflows\/agents-guard\.yml(?:@[^\s@]+)?$/.test(run?.path || '') ||
+                    run?.name !== 'Health 45 Agents Guard' ||
+                    run?.event !== context.eventName ||
+                    run?.head_sha !== (context.eventName === 'pull_request' ? sha : context.sha) ||
+                    Number(run?.run_attempt) !== expectedAttempt ||
+                    !Number.isSafeInteger(Number(run?.workflow_id)) || Number(run.workflow_id) <= 0 ||
+                    !Number.isSafeInteger(Number(run?.run_number)) || Number(run.run_number) <= 0 ||
+                    !/^\d{4}-\d{2}-\d{2}T/.test(run?.created_at || '')) {
+                  throw new Error('Run binding changed before corrective guard publication');
+                }
+              };
+              await validatePr();
+              const run = await readRun();
+              validateRun(run);
+              const workflow = (await github.rest.actions.getWorkflow({
+                owner, repo, workflow_id: run.workflow_id,
+              })).data;
+              if (Number(workflow?.id) !== Number(run.workflow_id) ||
+                  workflow?.path !== '.github/workflows/agents-guard.yml' ||
+                  workflow?.name !== 'Health 45 Agents Guard') {
+                throw new Error('Run is not the canonical Agents Guard workflow');
+              }
+              const runs = await github.paginate(github.rest.actions.listWorkflowRuns, {
+                owner, repo, workflow_id: run.workflow_id, event: run.event,
+                created: `>=${run.created_at}`, per_page: 100,
+              });
+              if (!Array.isArray(runs) || runs.filter(candidate =>
+                Number(candidate.id) === Number(run.id) &&
+                Number(candidate.run_attempt) === expectedAttempt
+              ).length !== 1) throw new Error('Latest guard run inventory is incomplete');
+              for (const candidate of runs) {
+                const newer = Number(candidate.run_number) > Number(run.run_number) ||
+                  (Number(candidate.id) === Number(run.id) && Number(candidate.run_attempt) > expectedAttempt);
+                if (!newer) continue;
+                const associated = candidate.pull_requests;
+                if (!Array.isArray(associated) ||
+                    associated.some(pr => !Number.isSafeInteger(Number(pr?.number)) || Number(pr.number) <= 0) ||
+                    associated.some(pr => Number(pr?.number) === pullRequest.number) ||
+                    (associated.length === 0 && candidate.head_sha === run.head_sha)) {
+                  throw new Error('Guard run was superseded or newer PR association is ambiguous');
+                }
+              }
+              await validatePr();
+              const finalRun = await readRun();
+              validateRun(finalRun);
+              if (finalRun.path !== run.path || finalRun.name !== run.name ||
+                  Number(finalRun.workflow_id) !== Number(run.workflow_id) ||
+                  Number(finalRun.run_number) !== Number(run.run_number) ||
+                  finalRun.created_at !== run.created_at) {
+                throw new Error('Run identity changed before corrective guard publication');
+              }
+            }
+
             try {
               let routingLabels;
               try {
@@ -946,8 +1039,9 @@ jobs:
                 if (registry?.type !== 'file' || registry.encoding !== 'base64') throw new Error('Agent registry evidence is incomplete');
                 routingLabels = routingLabelsFromRegistry(Buffer.from(registry.content, 'base64').toString('utf8'));
               } catch (error) {
-                // Missing trusted policy evidence must replace any earlier
-                // same-head success, even after every bounded read retry fails.
+                // Only a current PR/run attempt may invalidate earlier success.
+                // Stale or incomplete bindings must not write a corrective verdict.
+                await assertCorrectiveWriteBinding();
                 await withApiRetry(client => client.rest.repos.createCommitStatus({
                   owner, repo, sha, state: 'failure',
                   context: 'Health 45 Agents Guard / guard',

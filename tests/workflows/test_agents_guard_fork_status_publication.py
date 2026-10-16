@@ -1209,6 +1209,10 @@ def test_registry_backed_routing_detects_drift_and_preserves_matching_policy(age
     [
         "",
         "agents: {}",
+        "agents:\n  test:\n",
+        "agents:\n  test:\n    preflight:\n      enabled: true\n",
+        "agents:\n  test:\nother: value\n",
+        "agents:\n  test:\n  next:\n    enabled: true\n",
         "agents:\n  test:\n    enabled: maybe\n",
         "agents:\n  test:\n  test:\n",
         "agents:\n  test:\n    enabled: true\n    enabled: false\n",
@@ -1328,7 +1332,7 @@ def test_missing_policy_receipt_preserves_binding_drift_block(drift):
     assert outcome["writes"] == []
 
 
-@pytest.mark.parametrize("mode", ["denied", "malformed"])
+@pytest.mark.parametrize("mode", ["denied", "malformed", "missing_enabled", "nested_enabled"])
 def test_fork_registry_failure_invalidates_prior_success_after_binding_checks(mode):
     prior = [
         {
@@ -1338,11 +1342,18 @@ def test_fork_registry_failure_invalidates_prior_success_after_binding_checks(mo
             "target_url": "https://github.com/stranske/Workflows/actions/runs/8",
         }
     ]
-    result = _publish_scenario(registry_mode=mode, statuses=prior)
+    registry = {
+        "missing_enabled": "agents:\n  codex:\n",
+        "nested_enabled": "agents:\n  codex:\n    preflight:\n      enabled: true\n",
+    }.get(mode)
+    options = {"registry_mode": mode, "statuses": prior}
+    if registry is not None:
+        options.update(registry_text=registry, policy_receipt_step=False)
+    result = _publish_scenario(**options)
     assert len(result["writes"]) == 1
     assert result["writes"][0]["state"] == "failure"
     assert "guard-policy-sha256" not in result["writes"][0]["description"]
     for drift in ["pr-head", "same-run-attempt", "newer-run", "same-id-newer-attempt"]:
-        blocked = _publish_scenario(registry_mode=mode, statuses=prior, status_read_drift=drift)
+        blocked = _publish_scenario(**options, status_read_drift=drift)
         assert blocked["writes"] == []
         assert "error" in blocked

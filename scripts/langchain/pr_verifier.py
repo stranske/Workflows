@@ -5633,7 +5633,7 @@ def _classify_evidence_options(acceptance: str) -> list[set[str]]:
 
 @lru_cache(maxsize=512)
 def _cached_evidence_options(
-    acceptance: str, classifier: Callable[..., set[str]]
+    acceptance: str, classifier: Callable[..., set[str]]  # noqa: ARG001 - cache key identity
 ) -> tuple[frozenset[str], ...]:
     # The classifier identity invalidates results if a caller substitutes it.
     return tuple(frozenset(option) for option in _classify_evidence_options(acceptance))
@@ -6085,11 +6085,11 @@ def _native_capacity_contract(client: object) -> dict[str, object]:
     try:
         from langchain_openai import ChatOpenAI
     except ImportError:
-        ChatOpenAI = None
+        ChatOpenAI = None  # noqa: N806  (SDK class name; keep the import's name)
     try:
         from langchain_anthropic import ChatAnthropic
     except ImportError:
-        ChatAnthropic = None
+        ChatAnthropic = None  # noqa: N806  (SDK class name; keep the import's name)
     if type(client) is ChatOpenAI:
         from openai import OpenAI
 
