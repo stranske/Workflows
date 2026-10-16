@@ -2438,6 +2438,12 @@ jobs:
           ISSUE_TITLE: ${{ steps.context.outputs.issue_title }}
           STEP_COUNT: ${{ steps.cycles.outputs.count }}
           MAX_STALL_RETRIES: '5'
+          HAS_CODEX_AUTH_JSON: ${{ secrets.CODEX_AUTH_JSON != '' }}
+          HAS_CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN != '' }}
+          HAS_CLAUDE_AUTH_JSON: ${{ secrets.CLAUDE_AUTH_JSON != '' }}
+          HAS_CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY != '' }}
+          HAS_META_API_KEY: ${{ secrets.META_API_KEY != '' }}
+          HAS_GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY != '' }}
         with:
           script: |
             const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
@@ -2690,10 +2696,36 @@ jobs:
                 const rotLabels = (rotIssue.labels || [])
                   .map((l) => (typeof l === 'string' ? l : l && l.name))
                   .filter(Boolean);
+                // Secret names are enough; never read or log credential values.
+                const requiredSecretNames = [...new Set(
+                  Object.values(rotationRegistry.agents || {})
+                    .filter((config) => config?.capabilities?.belt === true)
+                    .flatMap((config) => config.required_secrets || [])
+                )];
+                const availableSecrets = Object.fromEntries(
+                  requiredSecretNames.map((name) => [name, process.env[`HAS_${name}`] === 'true'])
+                );
+                try {
+                  const repoSecrets = await withRetry((client) =>
+                    client.paginate(client.rest.actions.listRepoSecrets, {
+                      owner: context.repo.owner,
+                      repo: context.repo.repo,
+                      per_page: 100,
+                    })
+                  );
+                  for (const secret of repoSecrets) {
+                    if (Object.hasOwn(availableSecrets, secret.name)) {
+                      availableSecrets[secret.name] = true;
+                    }
+                  }
+                } catch (secretLookupError) {
+                  core.warning('Could not list belt credential names; using explicit availability flags');
+                }
                 const decision = decideStallRotation({
                   registry: rotationRegistry,
                   labels: rotLabels,
                   capability: 'belt',
+                  secrets: availableSecrets,
                 });
                 if (!decision.rotate) {
                   core.info(`Belt stall rotation unavailable (${decision.reason}); escalating`);
