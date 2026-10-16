@@ -120,7 +120,9 @@ def _custom_invite_registry(tmp_path):
     return registry
 
 
-def _execute_bridge_script(script, registry, *, agent="cursor", suffix=""):
+def _execute_bridge_script(
+    script, registry, *, agent="cursor", suffix="", existing_pr=False, mention=""
+):
     # Exercise the real registry and bridge JS; only GitHub side effects/retry
     # transport are fake. This is local wiring proof, never a hosted canary.
     program = r"""
@@ -130,7 +132,9 @@ const registry = require(input.module);
 const captured = [];
 const github = {rest:{issues:{createComment: async value => captured.push(value),
   get: async () => ({data:{title:'Canary',body:'## Tasks\n- [ ] Native run'}})},
-  pulls:{list:async () => ({data:[]})}}};
+  pulls:{list:async () => ({data:input.existing_pr ? [{number:8,
+    body:'<!-- meta:issue:7 --><!-- auto-status-summary:start --> already populated body',
+    html_url:'https://example.invalid/pull/8'}] : []})}}};
 function localRequire(name) {
   if (name.endsWith('agent_registry.js')) return {
     ...registry,
@@ -138,7 +142,7 @@ function localRequire(name) {
   };
   if (name.endsWith('github-api-with-retry.js')) return {
     withRetry: fn => fn(),
-    createTokenAwareRetry: async () => ({github, withRetry: fn => fn()}),
+    createTokenAwareRetry: async () => ({github, withRetry: fn => fn(), paginateWithRetry:async () => []}),
   };
   if (name.endsWith('issue_context_utils.js')) return {
     buildIssueContext: () => ({statusSummaryBlock:'',formattedBody:'## Tasks'}),
@@ -150,6 +154,7 @@ function localRequire(name) {
 }
 process.env.AGENT = input.agent;
 process.env.BRANCH = 'cursor/issue-7';
+process.env.BRIDGE_AGENT_MENTION = input.mention;
 const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
 const outputs = {};
 const core = {setFailed: message => {throw Error(message)}, warning:()=>{}, info:()=>{}, error:()=>{},
@@ -182,6 +187,8 @@ main().catch(error => {console.error(error); process.exit(1)});
                 "module": str(ROOT / ".github/scripts/agent_registry.js"),
                 "agent": agent,
                 "suffix": suffix,
+                "existing_pr": existing_pr,
+                "mention": mention,
             }
         ),
         capture_output=True,
@@ -253,3 +260,31 @@ def test_registry_preserves_legacy_defaults_when_command_hint_is_empty(tmp_path)
         result = _execute_bridge_script("", registry, agent=agent)
         assert result["outputs"]["command"] == ""
         assert json.loads(result["outputs"]["assignees"]) == assignees
+
+
+def test_existing_pr_invite_still_names_the_resolved_instructions(tmp_path):
+    registry = _custom_invite_registry(tmp_path)
+    script = next(
+        step["with"]["script"]
+        for step in _bridge_steps()
+        if step.get("name") == "Invite human to open PR (invite mode)"
+    )
+    result = _execute_bridge_script(script, registry, existing_pr=True)
+    note = next(x["body"] for x in result["captured"] if "already exists for branch" in x["body"])
+    assert "cursor-intake-bot" in note
+    assert "@cursor implement this issue" in note
+
+
+def test_original_issue_link_preserves_legacy_mention_and_configured_command(tmp_path):
+    registry = _custom_invite_registry(tmp_path)
+    script = next(
+        step["with"]["script"]
+        for step in _bridge_steps()
+        if step.get("name") == "Link PR on original issue (fallback)"
+    )
+    for agent, expected in [
+        ("codex", "@legacy-bot start"),
+        ("cursor", "@cursor implement this issue"),
+    ]:
+        result = _execute_bridge_script(script, registry, agent=agent, mention="@legacy-bot")
+        assert expected in result["captured"][0]["body"]

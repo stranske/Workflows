@@ -767,6 +767,10 @@ jobs:
               );
               return;
             }
+            const invitation = {
+              assignees: JSON.parse(process.env.INTAKE_ASSIGNEES),
+              command_phrase: process.env.INTAKE_COMMAND || `@${agent} start`,
+            };
             const agentTitle =
               process.env.BRIDGE_AGENT_TITLE ||
               agent.charAt(0).toUpperCase() + agent.slice(1);
@@ -951,6 +955,8 @@ jobs:
                 'Updated PR body with issue content.',
                 '',
                 `PR link: ${existingPr.html_url}`,
+                `Assign to: ${invitation.assignees.join(', ')}`,
+                `Start command: \`${invitation.command_phrase}\``,
               ].join('\n');
               await withRetry(() =>
                 loadBalancedClient.rest.issues.createComment({
@@ -963,10 +969,6 @@ jobs:
               return;
             }
 
-            const invitation = {
-              assignees: JSON.parse(process.env.INTAKE_ASSIGNEES),
-              command_phrase: process.env.INTAKE_COMMAND || `@${agent} start`,
-            };
             const fencedSuggestion = ['```markdown', suggestion, '```'].join('\n');
             const inviteBody = [
               `Branch \`${branch}\` created from \`${base}\`.`,
