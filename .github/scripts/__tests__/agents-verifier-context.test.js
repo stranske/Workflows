@@ -4897,7 +4897,7 @@ test('negated historical diagnostics do not join a complete positive evidence un
         pullRequestBody: body, associatedCommitShas: [sha]});
       const selected = /124(?: and|,) \/actions\/runs\/999 are not/.test(diagnostic) ? [123] : diagnostic.includes('/125') ? [123, 124, 125] : diagnostic.includes('/124') ? [123, 124] : [123];
       const expected = body ? selected : selected.filter(id => id !== 123);
-      assert.deepEqual(requested, expected);
+      assert.deepEqual(requested, expected, diagnostic);
       assert.equal(associated, expected.length ? 0 : 1);
       assert.equal(evidence.artifacts.complete, true);
       assert.equal(evidence.artifacts.status, 'absent');
@@ -4949,6 +4949,57 @@ test('negative diagnostics filter governed references without erasing incidental
       assert.deepEqual(result.diagnostics.references.explicit_run_ids, []);
       assert.deepEqual(requested, [124], body);
       assert.equal(result.artifacts.complete, true);
+    }
+  }
+});
+
+
+test('shared evidence clauses keep coordinated negative subjects out of fallback', async () => {
+  const sha = 'a'.repeat(40);
+  const implementations = [fetchVerifierEvidence,
+    require('../../../templates/consumer-repo/.github/scripts/agents_verifier_context.js').fetchVerifierEvidence];
+  const cases = [['Evidence: /actions/runs/124, and /actions/runs/999 are not validation evidence', []]];
+  for (const join of [' and ', ' or ', ', ', ', and ', ', or ']) {
+    for (const copula of ['are', 'were']) {
+      for (const wrap of [url => url, url => `<${url}>`, url => `[run](${url})`]) {
+        const subject = `${wrap('/actions/runs/124')}${join}${wrap('/actions/runs/999')}`;
+        cases.push([`Evidence: ${subject} ${copula} not current validation evidence`, []]);
+        for (const separator of ['; ', '. ', ', while ', ', whereas ', ', but ', ', and ']) {
+          cases.push([`Build: /actions/runs/125${separator}History: ${subject} ${copula} not validation evidence`, [125]]);
+          cases.push([`${subject} ${copula} not validation evidence${separator}Build: /actions/runs/125`, [125]]);
+          cases.push([`Evidence: /actions/runs/125${separator}History: ${subject} ${copula} not validation evidence`, [125]]);
+          cases.push([`${subject} ${copula} not validation evidence${separator}Evidence: /actions/runs/125`, [125]]);
+        }
+      }
+    }
+    for (const copula of ['is', 'was', '—']) {
+      cases.push([`Evidence: /actions/runs/124${join}/actions/runs/999 ${copula} not validation evidence`, [124]]);
+    }
+  }
+  for (const implementation of implementations) {
+    for (const anchor of ['', 'Evidence: /actions/runs/123']) {
+      for (const [diagnostic, selected] of cases) {
+        const requested = [];
+        let associated = 0;
+        const empty = async () => ({data: []});
+        const github = {rest: {issues: {listComments: async () => ({data: [{id: 10, body: diagnostic}]})},
+          pulls: {listReviewComments: empty, listReviews: empty}, actions: {
+            getWorkflowRun: async ({run_id}) => {requested.push(run_id); return {data: {id: run_id, head_sha: sha}};},
+            listWorkflowRunsForRepo: async () => {associated++; return {data: {total_count: 0, workflow_runs: []}};},
+            listWorkflowRunArtifacts: async () => ({data: {total_count: 0, artifacts: []}}),
+            downloadArtifact: async () => {throw Error('no archive expected');},
+          }}};
+        const result = await implementation({github, owner: 'octo', repo: 'workflows', pullNumber: 7,
+          pullRequestBody: anchor, associatedCommitShas: [sha]});
+        const positive = diagnostic.includes('Evidence: /actions/runs/125') ? [125]
+          : diagnostic.startsWith('Evidence: /actions/runs/124') && selected.includes(124) ? [124] : [];
+        const expected = anchor ? [123, ...positive] : selected;
+        assert.deepEqual(requested, expected, `${anchor} :: ${diagnostic}`);
+        assert.deepEqual(result.diagnostics.references.explicit_run_ids, anchor ? [123, ...positive] : positive, diagnostic);
+        assert.equal(associated, anchor || positive.length ? 0 : 1, diagnostic);
+        assert.equal(result.artifacts.complete, true, diagnostic);
+        assert.ok(result.comments.records.some(record => record.body === diagnostic));
+      }
     }
   }
 });

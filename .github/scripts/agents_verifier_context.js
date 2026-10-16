@@ -385,52 +385,58 @@ function extractReferencedRunIds(texts) {
   return ids;
 }
 
+// Evidence selection and incidental fallback share semantic boundaries. A
+// comma-conjoined URL is a subject member, not an independent clause. Only
+// contrast governors or a separately labelled clause split that coordination.
+const EVIDENCE_LABEL_RE = /\b(?:evidence|validation|artifacts?|test results?|red\s+(?:then\s+)?green)\b/gi;
+const NEGATIVE_EVIDENCE_RE = /\b(?:no|not)\s+(?!(?:(?:the\s+)?only|just)\b)(?:[\w-]+\s+)*(?:evidence|validation|artifacts?|test results?|red\s+(?:then\s+)?green)\b/i;
+const ANAPHORIC_SUBJECT_RE = /^(?:this|that|it|these|those)(?:\s+[\w-]+){0,8}\s+(?:is|was|are|were)\b/i;
+
+function evidenceClauses(line) {
+  const parts = line.split(/([.;]\s+|\s+but\s+|,\s+(?:while|whereas)\s+|,\s+(?:and|or)\s+(?=(?:[\w -]+):))/i);
+  return parts.filter((_, index) => index % 2 === 0).map((clause, index) => {
+    const labels = [...clause.matchAll(EVIDENCE_LABEL_RE)];
+    const negativeIndex = labels.findIndex(match =>
+      /\b(?:no|not)\s+(?!(?:(?:the\s+)?only|just)\b)(?:[\w-]+\s+)*$/i.test(clause.slice(0, match.index).replace(/[`*_]/g, '')));
+    let negativeStart = negativeIndex < 0 ? clause.length
+      : negativeIndex === 0 ? 0 : labels[negativeIndex].index;
+    if (negativeIndex >= 0) {
+      const runSubject = String.raw`(?:\[[^\]]+\]\()?<?` +
+        String.raw`(?:https?:\/\/[^\s)>]+)?\/actions\/runs\/\d+(?:[/?#][^\s)>\]]*)?[)>\x60*_\]]*`;
+      const coordinatedSubject = new RegExp(runSubject +
+        String.raw`(?:\s*(?:,\s*(?:(?:and|or)\s+)?|\s+(?:and|or)\s+)` + runSubject +
+        String.raw`)*\s+(?:is|are|was|were)\s+(?:no|not)\s+(?:[\w-]+\s+)*$`, 'i');
+      const prefix = clause.slice(0, labels[negativeIndex].index);
+      const singularSubject = new RegExp(runSubject +
+        String.raw`[\s—-]+(?:(?:is|was)\s+)?(?:no|not)\s+(?:[\w-]+\s+)*$`, 'i');
+      const subject = prefix.match(/\b(?:are|were)\s+(?:no|not)\s+(?:[\w-]+\s+)*$/i)
+        ? prefix.match(coordinatedSubject) : prefix.match(singularSubject);
+
+      // Plural predicates bind the entire coordinated subject; singular/bare
+      // predicates bind only the immediate URL. Preserve earlier proof.
+      if (subject) negativeStart = subject.index;
+    }
+    return {clause, separator: parts[index * 2 - 1] || '', labels, negativeIndex, negativeStart};
+  });
+}
+
 // Prose labels bind within their clause. A historical diagnostic that says
 // "not evidence" cannot select an old run as current acceptance evidence.
 // Typed evidence inputs remain an unconditional explicit union.
 function positiveEvidenceClauses(line) {
-  const parts = line.split(/([.;]\s+|\s+but\s+)/i);
   const selected = [];
   let positive = false;
   let negativeScope = false;
-  for (let index = 0; index < parts.length; index += 2) {
-    const clause = parts[index];
-    // Only an independently labelled affirmative declaration can reopen
-    // scope after negation; "but a validation prerequisite" is diagnostic.
+  for (const {clause, separator, labels, negativeIndex, negativeStart} of evidenceClauses(line)) {
+    // Diagnostic contrast cannot reopen scope without an affirmative label.
     const affirmativeDeclaration = /^\s*(?:[-*>]\s*)?(?:(?:however|separately|instead|also|in contrast|for comparison)\s*[,—:-]?\s*)?(?:not (?:(?:the\s+)?only|just)\s+)?(?:evidence|validation|artifacts?|test results?|red\s+(?:then\s+)?green)(?:\s+(?:evidence|validation|artifacts?|runs?))*\s*:/i.test(clause.replace(/[`*_]/g, ''));
     if (negativeScope && affirmativeDeclaration) negativeScope = false;
-    const labels = [...clause.matchAll(/\b(?:evidence|validation|artifacts?|test results?|red\s+(?:then\s+)?green)\b/gi)];
-    const negativeIndex = labels.findIndex(match =>
-      /\b(?:no|not)\s+(?!(?:(?:the\s+)?only|just)\b)(?:[\w-]+\s+)*$/i.test(clause.slice(0, match.index).replace(/[`*_]/g, '')));
     if (labels.length) {
-      // Negation extends through the rest of this clause. A second keyword in
-      // "No validation evidence" cannot re-open positive evidence scope.
       positive = !negativeScope && negativeIndex !== 0;
-    } else if (index === 0 || !parts[index - 1].startsWith(';')) {
+    } else if (!separator.startsWith(';')) {
       positive = false;
     }
-    // Retain genuine earlier positive proof, but never its negated suffix.
-    if (positive) {
-      let end = negativeIndex < 0 ? clause.length : labels[negativeIndex].index;
-      if (negativeIndex >= 0) {
-        // A trailing negative predicate binds its immediately preceding URL,
-        // not just the words after it: "run999 is not validation evidence".
-        // Keep independently positive earlier URLs, including run-list proof.
-        const runSubject = String.raw`(?:\[[^\]]+\]\()?<?` +
-          String.raw`(?:https?:\/\/[^\s)>]+)?\/actions\/runs\/\d+(?:[/?#][^\s)>\]]*)?[)>\x60*_\]]*`;
-        const coordinatedSubject = new RegExp(runSubject +
-          String.raw`(?:\s*(?:,\s*(?:(?:and|or)\s+)?|\s+(?:and|or)\s+)` + runSubject +
-          String.raw`)*\s+(?:is|are|was|were)\s+(?:no|not)\s+(?:[\w-]+\s+)*$`, 'i');
-        const prefix = clause.slice(0, end);
-        const singularSubject = new RegExp(runSubject +
-          String.raw`[\s—-]+(?:(?:is|was)\s+)?(?:no|not)\s+(?:[\w-]+\s+)*$`, 'i');
-        const subject = prefix.match(/\b(?:are|were)\s+(?:no|not)\s+(?:[\w-]+\s+)*$/i)
-          ? prefix.match(coordinatedSubject) : prefix.match(singularSubject);
-        if (subject) end = subject.index;
-      }
-      selected.push(clause.slice(0, end));
-    }
-    // A semicolon run list inherits only a still-positive declaration.
+    if (positive) selected.push(clause.slice(0, negativeStart));
     if (negativeIndex >= 0) { positive = false; negativeScope = true; }
   }
   return selected;
@@ -811,23 +817,24 @@ async function fetchVerifierEvidence({
   const proseReferenceTexts = [pullRequestBody, ...referenceTexts, ...commentBodies];
   // A filtered negative diagnostic must not return through incidental fallback
   // when no positively selected URL exists. Typed references remain explicit.
-  const negativeEvidencePredicate = /\b(?:no|not)\s+(?!(?:(?:the\s+)?only|just)\b)(?:[\w-]+\s+)*(?:evidence|validation|artifacts?|test results?|red\s+(?:then\s+)?green)\b/i;
   const fallbackReferenceTexts = proseReferenceTexts.map(text => {
     const lines = String(text || '').split('\n');
     const filterFallbackLine = line => {
-      if (!negativeEvidencePredicate.test(line.replace(/[`*_]/g, ''))) return line;
-      const clauses = line.split(/[.;]\s+|,\s+(?:while|whereas|but|and)\s+/i);
-      const firstNegative = clauses.findIndex(clause => negativeEvidencePredicate.test(clause.replace(/[`*_]/g, '')));
-      let keepBefore = firstNegative;
-      if (firstNegative > 0 && /^(?:this|that|it|these|those)(?:\s+[\w-]+){0,8}\s+(?:is|was|are|were)\b/i.test(clauses[firstNegative].trim())) keepBefore -= 1;
-      const independentIncidental = clauses.slice(firstNegative + 1).filter(clause => {
-        const label = clause.match(/^\s*([\w -]+):/);
-        return label && !/\b(?:evidence|validation|artifacts?|test results?|red|green)\b/i.test(label[1])
-          && !negativeEvidencePredicate.test(clause);
-      });
-      // Never re-parse the full line for positives after a contrast "but" or a
-      // negative clause; that would resurrect runs only negated in the prefix.
-      return [...clauses.slice(0, Math.max(0, keepBefore)), ...independentIncidental].join('; ');
+      const selected = [];
+      let negativeScope = false;
+      for (const {clause, negativeIndex, negativeStart} of evidenceClauses(line)) {
+        if (negativeIndex >= 0) {
+          if (ANAPHORIC_SUBJECT_RE.test(clause.trim())) selected.pop();
+          selected.push(clause.slice(0, negativeStart));
+          negativeScope = true;
+        } else {
+          const label = clause.match(/^\s*([\w -]+):/);
+          const independentNeutral = label && !label[1].match(EVIDENCE_LABEL_RE)
+            && !NEGATIVE_EVIDENCE_RE.test(clause);
+          if (!negativeScope || independentNeutral) selected.push(clause);
+        }
+      }
+      return selected.join('; ');
     };
     const filtered = lines.map(filterFallbackLine);
     // An anaphoric negative diagnostic can govern the immediately preceding
@@ -835,12 +842,12 @@ async function fetchVerifierEvidence({
     // the source, or independently affirmative evidence sections.
     for (let index = 0; index < lines.length; index += 1) {
       const line = lines[index].replace(/[`*_]/g, '').trim().replace(/^(?:>\s*)*/, '').replace(/^(?:(?:[-+*]|\d+[.)])\s+)?(?:\[[ xX]\]\s+)?/, '');
-      if (!/^(?:this|that|it|these|those)(?:\s+[\w-]+){0,8}\s+(?:is|was|are|were)\b/i.test(line)
-          || !negativeEvidencePredicate.test(line) || extractReferencedRunIds([line]).length) continue;
+      if (!ANAPHORIC_SUBJECT_RE.test(line)
+          || !NEGATIVE_EVIDENCE_RE.test(line) || extractReferencedRunIds([line]).length) continue;
       let previous = index - 1;
       while (previous >= 0 && !lines[previous].trim()) previous -= 1;
       if (previous >= 0) {
-        const clauses = lines[previous].split(/[.;]\s+|,\s+(?:while|whereas|but|and)\s+/i);
+        const clauses = evidenceClauses(lines[previous]).map(part => part.clause);
         let governed = clauses.length - 1;
         while (governed >= 0 && !extractReferencedRunIds([clauses[governed]]).length) governed -= 1;
         if (governed >= 0 && !positiveEvidenceClauses(clauses[governed]).length) {
