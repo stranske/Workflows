@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import sys
 
+from scripts.langchain import issue_pr_context
 from scripts.langchain.issue_pr_context import (
     ContextOptions,
     already_conformant,
@@ -13,6 +15,23 @@ from scripts.langchain.issue_pr_context import (
     main,
     reuse_formatted_body,
 )
+
+
+def test_estimate_tokens_falls_back_when_tiktoken_is_unavailable(monkeypatch) -> None:
+    monkeypatch.setitem(sys.modules, "tiktoken", None)
+
+    assert estimate_tokens("abcde") == 2
+
+
+def test_estimate_tokens_falls_back_when_tiktoken_encoding_fails(monkeypatch) -> None:
+    class BrokenTiktoken:
+        @staticmethod
+        def get_encoding(_name):
+            raise RuntimeError("offline")
+
+    monkeypatch.setitem(sys.modules, "tiktoken", BrokenTiktoken)
+
+    assert estimate_tokens("abcdefgh") == 2
 
 
 def test_issue_context_enforces_token_budget_with_truncation() -> None:
@@ -58,6 +77,61 @@ def test_pr_context_caps_metadata_only_payload_without_looping() -> None:
 
     assert context["truncated"] is True
     assert context["estimated_tokens"] <= 3
+
+
+def test_context_payload_omits_sections_that_do_not_fit_after_metadata() -> None:
+    context = issue_pr_context._build_payload(
+        kind="issue",
+        body_heading="## Issue Body",
+        body="body",
+        metadata_block="metadata",
+        options=ContextOptions(token_budget=1),
+        extra_sections=[("## Extra", "extra")],
+    )
+
+    assert context["truncated"] is True
+    assert context["context"]
+
+
+def test_truncation_helpers_handle_a_budget_smaller_than_the_heading() -> None:
+    assert issue_pr_context._truncate_section(
+        "## Heading", "body", 1, suffix="\n[truncated]"
+    ) == "##"
+
+
+def test_context_helpers_cover_marker_and_metadata_edge_values() -> None:
+    assert issue_pr_context._loads_marker("[]") is None
+    assert issue_pr_context._workflow_matches({}, "agents-auto-pilot") is True
+    assert issue_pr_context._embedded_body({"formatted_body": 42}) is None
+    assert issue_pr_context._diff_text({"files": [{"filename": "x"}, "bad"]}) == ""
+    assert issue_pr_context._labels(["plain", {"name": "named"}, 42]) == ["plain", "named"]
+    assert issue_pr_context._branch_name({"label": "owner:branch", "ref": "branch"}) == "owner:branch"
+
+
+def test_context_helpers_reject_invalid_markers_and_cover_optional_metadata() -> None:
+    assert issue_pr_context.reuse_formatted_body({"body": ""}, "agents-auto-pilot") is None
+    assert issue_pr_context.reuse_formatted_body(
+        {"body": "<!-- issue-pr-context:formatted-body:v1 {not json} -->"},
+        "agents-auto-pilot",
+    ) is None
+    assert issue_pr_context._top_level_headings("```\n## Hidden\n````\n## Visible") == ["visible"]
+    assert issue_pr_context._issue_metadata(
+        {"labels": "not-a-list"},
+        ContextOptions(include_author=False, include_url=False, include_labels=False),
+    ) == "## Issue Metadata"
+    assert issue_pr_context._pr_metadata(
+        {"base": "main", "head": "topic", "labels": [{}]},
+        ContextOptions(include_author=False, include_url=False),
+    ).splitlines() == ["## Pull Request Metadata", "- Base: main", "- Head: topic"]
+
+
+def test_diff_and_workflow_helpers_cover_direct_and_invalid_values() -> None:
+    assert issue_pr_context._workflow_matches({"workflows": "not-a-list"}, "agents-auto-pilot") is False
+    assert issue_pr_context._embedded_body({"body_b64": 42}) is None
+    assert issue_pr_context._diff_text({"diff": "direct diff"}) == "direct diff"
+    assert issue_pr_context._diff_text({"files": "not-a-list"}) == ""
+    assert issue_pr_context._labels("not-a-list") == []
+    assert issue_pr_context._labels([{}]) == []
 
 
 def test_reuse_formatted_body_returns_embedded_marker_body() -> None:

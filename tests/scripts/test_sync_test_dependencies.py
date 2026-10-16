@@ -64,6 +64,27 @@ def test_detect_local_project_modules_finds_top_level_test_helpers(
     assert "adapter" not in detected
 
 
+def test_detect_local_project_modules_ignores_hidden_test_entries(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    tests_dir = tmp_path / "tests"
+    tests_dir.mkdir()
+    (tests_dir / ".hidden.py").write_text("VALUE = 1\n", encoding="utf-8")
+    (tests_dir / "__pycache__").mkdir()
+    (tests_dir / "visible.py").write_text("VALUE = 1\n", encoding="utf-8")
+
+    monkeypatch.chdir(tmp_path)
+
+    assert std._detect_local_project_modules() == {"visible"}
+
+
+def test_pytest_config_readers_reject_non_mapping_toml(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(std.tomllib, "load", lambda _fh: [])
+
+    assert std._tests_dir_on_pytest_toml_pythonpath(Path("pytest.toml")) is False
+    assert std._tests_dir_on_pyproject_pythonpath(Path("pyproject.toml")) is None
+
+
 def test_detect_local_project_modules_handles_packaged_tests_without_pythonpath(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
