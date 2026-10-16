@@ -808,7 +808,10 @@ jobs:
           export PATH="$HOME/.local/bin:$PATH"
           if ! command -v muse >/dev/null 2>&1; then
             echo "Muse CLI not found; installing via dev.meta.ai/install.sh ..."
-            curl -fsSL https://dev.meta.ai/install.sh | bash
+            installer="$(mktemp)"
+            curl -fsSL https://dev.meta.ai/install.sh -o "$installer"
+            bash "$installer"
+            rm -f "$installer"
             echo "$HOME/.local/bin" >> "$GITHUB_PATH"
             export PATH="$HOME/.local/bin:$PATH"
           fi

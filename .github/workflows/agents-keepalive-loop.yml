@@ -1133,7 +1133,12 @@ jobs:
        needs.evaluate.outputs.action == 'fix' ||
        needs.evaluate.outputs.action == 'conflict')
     uses: stranske/Workflows/.github/workflows/reusable-muse-run.yml@main
-    secrets: inherit
+    secrets:
+      META_API_KEY: ${{ secrets.META_API_KEY }}
+      WORKFLOWS_APP_ID: ${{ secrets.WORKFLOWS_APP_ID }}
+      WORKFLOWS_APP_PRIVATE_KEY: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      CLAUDE_API_STRANSKE: ${{ secrets.CLAUDE_API_STRANSKE }}
     with:
       skip: >-
         ${{ needs.evaluate.outputs.action != 'run' &&
