@@ -3039,3 +3039,5 @@ Verifier explicit-evidence labels also exclude an immediately preceding run URL 
 A trailing negative evidence predicate binds its complete comma/and/or coordinated run-URL subject; it does not preserve an earlier URL merely because the predicate is plural. Independent earlier affirmative clauses remain selected.
 
 Negative workflow-run references remain filtered from incidental fallback even when no explicit positive URL survives. Typed references retain their explicit union. Common introductory However/Separately/Instead/Also labels can start an independent positive declaration. Singular and bare/dash negative predicates bind the immediate URL; explicit plural are/were predicates bind coordinated URL subjects.
+
+Negative run-URL predicates use the same referenced run identity for ordinary job/attempt/query/fragment links, retaining query-key underscores and filtering the negated run before incidental fallback.

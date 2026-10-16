@@ -417,7 +417,7 @@ function positiveEvidenceClauses(line) {
         // not just the words after it: "run999 is not validation evidence".
         // Keep independently positive earlier URLs, including run-list proof.
         const runSubject = String.raw`(?:\[[^\]]+\]\()?` +
-          String.raw`(?:https?:\/\/[^\s)]+)?\/actions\/runs\/\d+(?:\/attempts\/\d+)?[)\x60*_\]]*`;
+          String.raw`(?:https?:\/\/[^\s)]+)?\/actions\/runs\/\d+(?:[/?#][^\s)\]]*)?[)\x60*_\]]*`;
         const coordinatedSubject = new RegExp(runSubject +
           String.raw`(?:\s*(?:,\s*(?:(?:and|or)\s+)?|\s+(?:and|or)\s+)` + runSubject +
           String.raw`)*\s+(?:is|are|was|were)\s+(?:no|not)\s*$`, 'i');

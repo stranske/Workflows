@@ -3984,6 +3984,9 @@ test('negated historical diagnostics do not join a complete positive evidence un
     'Evidence: /actions/runs/124, and /actions/runs/999 is not validation evidence',
     'Evidence: /actions/runs/124 and /actions/runs/999 not validation evidence',
     'Evidence: /actions/runs/124 and /actions/runs/999 — not evidence',
+    'Evidence: /actions/runs/124, while /actions/runs/999/job/777 is not validation evidence',
+    'Evidence: /actions/runs/124, while /actions/runs/999?check_suite_focus=true is not evidence',
+    'Evidence: /actions/runs/124, while /actions/runs/999/attempts/2/job/777#step:1 was not evidence',
   ];
   for (const implementation of implementations) {
     for (const diagnostic of diagnostics) {
