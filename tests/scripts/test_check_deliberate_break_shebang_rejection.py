@@ -41,6 +41,7 @@ def assert_no_probe(helper, launcher):
 
 
 def test_empty_pytest_launcher_has_no_probe(helper, launcher):
+    assert launcher.read_text(encoding="utf-8") == ""
     assert_no_probe(helper, launcher)
 
 
