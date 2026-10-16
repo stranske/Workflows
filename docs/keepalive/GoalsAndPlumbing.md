@@ -262,6 +262,12 @@ Before the next round begins:
 - To reset failure count: edit the keepalive summary comment and set `failure: {}` in the state marker, then add `agent:retry` when the concrete recovery is ready.
 - Keepalive stands down when **all acceptance criteria are checked complete**. At that point the orchestrator stops issuing further rounds.
 
+For callers that enable deterministic acceptance gates, checked criteria also require
+passing command results for the current head and extracted command set. The Python
+extractor runs asynchronously with a 30-second timeout so the loop can continue
+servicing subprocess input and output. A missing interpreter, failed extraction,
+or invalid JSON rejects the plan; it never establishes an empty, passing gate set.
+
 ---
 
 ## 12. Issue Context & Status Summary

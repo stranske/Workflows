@@ -681,6 +681,32 @@ test('deterministic failing gate refuses tasks-complete and supplies failure to 
   assert.match(result.taskAppendix, /AssertionError: gate broke/);
 });
 
+for (const modulePath of [
+  '../keepalive_loop',
+  '../../../templates/consumer-repo/.github/scripts/keepalive_loop',
+]) {
+  test(`deterministic extraction rejects a missing interpreter (${modulePath})`, async () => {
+    const { acceptanceGatePlan: planGates } = require(modulePath);
+    const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'acceptance-interpreter-'));
+    const original = process.env.PYTHON;
+    process.env.PYTHON = path.join(temporary, 'missing-python');
+    try {
+      const pr = {
+        number: 3979,
+        head: { sha: 'gate-head' },
+        body: '## Acceptance Criteria\n- [x] `pytest tests/test_gate.py` passes',
+      };
+      await assert.rejects(planGates({
+        github: buildGithubStub({ pr }), context: buildContext(pr.number), pr, state: {},
+      }), /Acceptance gate extraction failed:/);
+    } finally {
+      if (original === undefined) delete process.env.PYTHON;
+      else process.env.PYTHON = original;
+      fs.rmSync(temporary, { recursive: true, force: true });
+    }
+  });
+}
+
 test('deterministic evidence requires current head and live source commands', async () => {
   const pr = {
     number: 3979, head: { ref: 'feature/acceptance', sha: 'gate-head' },

@@ -3,19 +3,28 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
-const { spawnSync } = require('child_process');
+const { execFile } = require('child_process');
 const { extractIssueNumberFromPull } = require('./source_context');
 
 // Use the same extractor for the stop decision and the pre-agent runner. A
 // missing interpreter/extractor is an error, never evidence of zero gates.
-function extractAcceptanceCommands(markdown) {
-  const result = spawnSync(process.env.PYTHON || 'python3', [
-    path.resolve(__dirname, '../../scripts/runner_lib/acceptance_gate.py'), '--extract',
-  ], { input: markdown, encoding: 'utf8', timeout: 30000 });
-  if (result.error || result.status !== 0) {
-    throw new Error(`Acceptance gate extraction failed: ${result.error?.message || result.stderr}`);
-  }
-  return JSON.parse(result.stdout);
+async function extractAcceptanceCommands(markdown) {
+  const stdout = await new Promise((resolve, reject) => {
+    const child = execFile(process.env.PYTHON || 'python3', [
+      path.resolve(__dirname, '../../scripts/runner_lib/acceptance_gate.py'), '--extract',
+    ], { encoding: 'utf8', timeout: 30000 }, (error, output, stderr) => {
+      if (error) {
+        reject(new Error(`Acceptance gate extraction failed: ${error.message || stderr}`));
+      } else {
+        resolve(output);
+      }
+    });
+    child.stdin.on('error', (error) => {
+      reject(new Error(`Acceptance gate extraction failed: ${error.message}`));
+    });
+    child.stdin.end(markdown);
+  });
+  return JSON.parse(stdout);
 }
 
 async function acceptanceGatePlan({ github, context, pr, state }) {
@@ -24,7 +33,7 @@ async function acceptanceGatePlan({ github, context, pr, state }) {
   const markdown = issueNumber
     ? (await github.rest.issues.get({ ...context.repo, issue_number: issueNumber })).data.body || ''
     : pr.body || '';
-  const commands = extractAcceptanceCommands(markdown);
+  const commands = await extractAcceptanceCommands(markdown);
   const sourceHash = crypto.createHash('sha256').update(JSON.stringify(commands)).digest('hex');
   const previous = state?.deterministic_gates;
   const current = previous?.head_sha === pr.head.sha && previous?.source_hash === sourceHash;
