@@ -210,3 +210,11 @@ omit = [
 precision = 2
 show_missing = true
 skip_covered = false
+# Owner decision 2026-10-16: the `if __name__ == "__main__":` guard only calls
+# main(), so it is not measured. Tests of main() itself still count.
+# `exclude_also` ADDS to coverage's default exclusions, so every existing
+# `# pragma: no cover` keeps working. Do not switch this to `exclude_lines`:
+# that REPLACES the defaults and would silently un-exclude every pragma.
+exclude_also = [
+    "if __name__ == .__main__.:",
+]
