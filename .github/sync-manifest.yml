@@ -145,7 +145,7 @@ workflows:
       - tools/requirements-llm.txt
 
   - source: .github/workflows/agents-guard.yml
-    description: "Agents guard - binds evaluated policy to enabled registry routing labels (Health 45)"
+    description: "Bounded trusted-registry retries and unavailable-policy stale-success invalidation; Agents guard - binds evaluated policy to enabled registry routing labels (Health 45)"
     requires:
       - .github/agents/registry.yml
 

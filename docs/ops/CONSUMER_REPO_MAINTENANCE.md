@@ -3024,3 +3024,5 @@ raw provenance and retain the aggregate capture gap.
 
 
 A successful fork attempt with missing, malformed, incomplete or duplicate evaluated-policy receipt metadata publishes a required failure status after the existing exact-head, attempt, base and policy checks. It replaces a stale same-head success instead of aborting before publication. A valid current direct guard verdict remains authoritative; a denied status write remains a delivery failure, never a claimed receipt.
+
+Agents Guard reads its trusted base registry with at most three retryable API attempts. The direct publisher must replace any same-head prior success with failure if registry retrieval/type/parsing remains unavailable, without a success policy receipt. This is separate from evaluated-attempt metadata validation; current-head CI and native acceptance remain mandatory.

@@ -47,6 +47,20 @@ jobs:
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         with:
           script: |
+            async function readTrustedRegistry(parameters) {
+              for (let attempt = 1; attempt <= 3; attempt += 1) {
+                try {
+                  return await github.rest.repos.getContent(parameters);
+                } catch (error) {
+                  const status = error?.status || error?.response?.status;
+                  const headers = error?.response?.headers || {};
+                  const limited = status === 403 && String(headers['x-ratelimit-remaining']) === '0';
+                  const retryable = !status || status === 429 || limited || (status >= 500 && status < 600);
+                  if (!retryable || attempt === 3) throw error;
+                  await new Promise(resolve => setTimeout(resolve, attempt * 1000));
+                }
+              }
+            }
             function routingLabelsFromRegistry(text) {
               // Parse only the canonical agents mapping, never execute registry contents.
               const labels = new Set(['agent:auto', 'agent:copilot', 'agents:auto-pilot', 'agents:keepalive']);
@@ -85,7 +99,7 @@ jobs:
             try {
               const ref = context.payload.pull_request?.base?.sha;
               if (!/^[0-9a-f]{40}$/.test(ref || '')) throw new Error('Trusted registry base SHA is missing');
-              const registry = (await github.rest.repos.getContent({
+              const registry = (await readTrustedRegistry({
                 ...context.repo, path: '.github/agents/registry.yml', ref,
               })).data;
               if (registry?.type !== 'file' || registry.encoding !== 'base64') throw new Error('Agent registry evidence is incomplete');
@@ -528,6 +542,20 @@ jobs:
 
             core.setOutput('blocked', result.blocked ? 'true' : 'false');
             core.setOutput('evaluated_labels', JSON.stringify(labels));
+            async function readTrustedRegistry(parameters) {
+              for (let attempt = 1; attempt <= 3; attempt += 1) {
+                try {
+                  return await github.rest.repos.getContent(parameters);
+                } catch (error) {
+                  const status = error?.status || error?.response?.status;
+                  const headers = error?.response?.headers || {};
+                  const limited = status === 403 && String(headers['x-ratelimit-remaining']) === '0';
+                  const retryable = !status || status === 429 || limited || (status >= 500 && status < 600);
+                  if (!retryable || attempt === 3) throw error;
+                  await new Promise(resolve => setTimeout(resolve, attempt * 1000));
+                }
+              }
+            }
             function routingLabelsFromRegistry(text) {
               // Parse only the canonical agents mapping, never execute registry contents.
               const labels = new Set(['agent:auto', 'agent:copilot', 'agents:auto-pilot', 'agents:keepalive']);
@@ -567,7 +595,7 @@ jobs:
             if (!/^[0-9a-f]{40}$/.test(registryRef || '')) throw new Error('Trusted registry base SHA is missing');
             let registry;
             try {
-              registry = (await github.rest.repos.getContent({
+              registry = (await readTrustedRegistry({
                 owner, repo, path: '.github/agents/registry.yml', ref: registryRef,
               })).data;
             } catch (error) {
@@ -792,6 +820,20 @@ jobs:
               return;
             }
 
+            async function readTrustedRegistry(parameters) {
+              for (let attempt = 1; attempt <= 3; attempt += 1) {
+                try {
+                  return await github.rest.repos.getContent(parameters);
+                } catch (error) {
+                  const status = error?.status || error?.response?.status;
+                  const headers = error?.response?.headers || {};
+                  const limited = status === 403 && String(headers['x-ratelimit-remaining']) === '0';
+                  const retryable = !status || status === 429 || limited || (status >= 500 && status < 600);
+                  if (!retryable || attempt === 3) throw error;
+                  await new Promise(resolve => setTimeout(resolve, attempt * 1000));
+                }
+              }
+            }
             function routingLabelsFromRegistry(text) {
               // Parse only the canonical agents mapping, never execute registry contents.
               const labels = new Set(['agent:auto', 'agent:copilot', 'agents:auto-pilot', 'agents:keepalive']);
@@ -827,14 +869,85 @@ jobs:
               for (const [agent, enabled] of agents) if (enabled) labels.add(`agent:${agent}`);
               return labels;
             }
+            const targetUrl =
+              process.env.TARGET_URL ||
+              `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`;
+
+            const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+            async function withApiRetry(
+              fn,
+              { label = 'operation', maxAttempts = 5, baseDelay = 1000 } = {},
+            ) {
+              for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+                try {
+                  return await fn(github);
+                } catch (error) {
+                  const status = error?.status || error?.response?.status;
+                  const headers = error?.response?.headers || {};
+                  const remainingRaw =
+                    headers['x-ratelimit-remaining'] ?? headers['X-RateLimit-Remaining'];
+                  const resetRaw = headers['x-ratelimit-reset'] ?? headers['X-RateLimit-Reset'];
+                  const remaining = Number(remainingRaw);
+                  const reset = Number(resetRaw);
+                  const isRateLimit =
+                    status === 403 && Number.isFinite(remaining) && remaining <= 0;
+                  const retryable =
+                    isRateLimit ||
+                    status === 429 ||
+                    !status ||
+                    (status >= 500 && status < 600);
+                  if (!retryable || attempt === maxAttempts) {
+                    core.error(`Failed ${label}: ${error.message}`);
+                    throw error;
+                  }
+                  let delay = baseDelay * attempt;
+                  const retryAfterRaw = headers['retry-after'] ?? headers['Retry-After'];
+                  const retryAfterSeconds = Number(retryAfterRaw);
+                  if (Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0) {
+                    delay = Math.max(delay, retryAfterSeconds * 1000);
+                  } else if (isRateLimit && Number.isFinite(reset)) {
+                    const nowSeconds = Math.floor(Date.now() / 1000);
+                    if (reset > nowSeconds) {
+                      const untilReset = (reset - nowSeconds) * 1000 + 500;
+                      delay = Math.max(delay, untilReset);
+                    }
+                  }
+                  delay = Math.max(delay, 1000);
+                  const humanDelay = delay >= 60000
+                    ? `${(delay / 60000).toFixed(2)}m`
+                    : `${Math.round(delay)}ms`;
+                  core.warning(
+                    `Retrying ${label} after ${humanDelay} ` +
+                      `(attempt ${attempt + 1}/${maxAttempts}).`
+                  );
+                  await sleep(delay);
+                }
+              }
+              throw new Error(`Failed ${label} after ${maxAttempts} attempts.`);
+            }
+
             try {
-              const registryRef = pullRequest?.base?.sha;
-              if (!/^[0-9a-f]{40}$/.test(registryRef || '')) throw new Error('Trusted registry base SHA is missing');
-              const registry = (await github.rest.repos.getContent({
-                owner, repo, path: '.github/agents/registry.yml', ref: registryRef,
-              })).data;
-              if (registry?.type !== 'file' || registry.encoding !== 'base64') throw new Error('Agent registry evidence is incomplete');
-              const routingLabels = routingLabelsFromRegistry(Buffer.from(registry.content, 'base64').toString('utf8'));
+              let routingLabels;
+              try {
+                const registryRef = pullRequest?.base?.sha;
+                if (!/^[0-9a-f]{40}$/.test(registryRef || '')) throw new Error('Trusted registry base SHA is missing');
+                const registry = (await readTrustedRegistry({
+                  owner, repo, path: '.github/agents/registry.yml', ref: registryRef,
+                })).data;
+                if (registry?.type !== 'file' || registry.encoding !== 'base64') throw new Error('Agent registry evidence is incomplete');
+                routingLabels = routingLabelsFromRegistry(Buffer.from(registry.content, 'base64').toString('utf8'));
+              } catch (error) {
+                // Missing trusted policy evidence must replace any earlier
+                // same-head success, even after every bounded read retry fails.
+                await withApiRetry(client => client.rest.repos.createCommitStatus({
+                  owner, repo, sha, state: 'failure',
+                  context: 'Health 45 Agents Guard / guard',
+                  description: `[guard-pr:${pullRequest.number}] Trusted registry evidence unavailable; fresh evaluation required.`,
+                  target_url: targetUrl,
+                }), {label: 'invalidate guard status without trusted registry evidence'});
+                core.setFailed(`Trusted registry evidence unavailable: ${error.message}`);
+                return;
+              }
               const permissionLabel = 'agents:allow-change';
               const policyLabelNames = (labels) => {
                 if (!Array.isArray(labels)) {
@@ -894,63 +1007,6 @@ jobs:
                   description = `${description.slice(0, maximum - 3)}...`;
                 }
                 description = `${prefix}${description}${receipt}`;
-              }
-
-              const targetUrl =
-                process.env.TARGET_URL ||
-                `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`;
-
-              const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-              async function withApiRetry(
-                fn,
-                { label = 'operation', maxAttempts = 5, baseDelay = 1000 } = {},
-              ) {
-                for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
-                  try {
-                    return await fn(github);
-                  } catch (error) {
-                    const status = error?.status || error?.response?.status;
-                    const headers = error?.response?.headers || {};
-                    const remainingRaw =
-                      headers['x-ratelimit-remaining'] ?? headers['X-RateLimit-Remaining'];
-                    const resetRaw = headers['x-ratelimit-reset'] ?? headers['X-RateLimit-Reset'];
-                    const remaining = Number(remainingRaw);
-                    const reset = Number(resetRaw);
-                    const isRateLimit =
-                      status === 403 && Number.isFinite(remaining) && remaining <= 0;
-                    const retryable =
-                      isRateLimit ||
-                      status === 429 ||
-                      !status ||
-                      (status >= 500 && status < 600);
-                    if (!retryable || attempt === maxAttempts) {
-                      core.error(`Failed ${label}: ${error.message}`);
-                      throw error;
-                    }
-                    let delay = baseDelay * attempt;
-                    const retryAfterRaw = headers['retry-after'] ?? headers['Retry-After'];
-                    const retryAfterSeconds = Number(retryAfterRaw);
-                    if (Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0) {
-                      delay = Math.max(delay, retryAfterSeconds * 1000);
-                    } else if (isRateLimit && Number.isFinite(reset)) {
-                      const nowSeconds = Math.floor(Date.now() / 1000);
-                      if (reset > nowSeconds) {
-                        const untilReset = (reset - nowSeconds) * 1000 + 500;
-                        delay = Math.max(delay, untilReset);
-                      }
-                    }
-                    delay = Math.max(delay, 1000);
-                    const humanDelay = delay >= 60000
-                      ? `${(delay / 60000).toFixed(2)}m`
-                      : `${Math.round(delay)}ms`;
-                    core.warning(
-                      `Retrying ${label} after ${humanDelay} ` +
-                        `(attempt ${attempt + 1}/${maxAttempts}).`
-                    );
-                    await sleep(delay);
-                  }
-                }
-                throw new Error(`Failed ${label} after ${maxAttempts} attempts.`);
               }
 
               const currentLabels = await withApiRetry(

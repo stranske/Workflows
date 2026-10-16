@@ -289,7 +289,9 @@ new AsyncFunction('github', 'context', 'core', input.script)(github, context, co
     assert (
         "PR head SHA unavailable" if mode == "missing_head" else "Failed to update"
     ) in evidence["message"]
-    assert evidence["writes"] == (1 if mode == "denied_write" else 0)
+    assert evidence["writes"] == (
+        1 if mode in {"denied_write", "registry_denied", "registry_malformed"} else 0
+    )
 
 
 @pytest.mark.parametrize(
@@ -713,3 +715,46 @@ process.stdout.write(result.summary);
     assert fixed.returncode == 1
     assert fixed.stdout == summary + "\n"
     assert not sentinel.exists()
+
+
+@pytest.mark.parametrize("template", [False, True])
+@pytest.mark.parametrize("mode", ["transient", "persistent", "malformed"])
+def test_registry_failure_cannot_retain_same_head_success(template, mode):
+    prefix = ROOT / "templates/consumer-repo" if template else ROOT
+    workflow = yaml.safe_load((prefix / ".github/workflows/agents-guard.yml").read_text())
+    script = next(
+        s["with"]["script"]
+        for s in workflow["jobs"]["guard"]["steps"]
+        if s.get("name") == "Report agents guard commit status"
+    )
+    harness = r"""
+const input=JSON.parse(require('fs').readFileSync(0,'utf8'));
+global.setTimeout=(fn)=>{fn();}; global.crypto=require('crypto').webcrypto;
+Object.assign(process.env,{ELIGIBLE:'true',EVALUATE_OUTCOME:'success',BLOCKED:'false',JOB_STATUS:'success',EVALUATED_LABELS:'[]'});
+let reads=0; const writes=[]; const failures=[];
+let status={state:'success',context:'Health 45 Agents Guard / guard'};
+const github={rest:{repos:{getContent:async()=>{
+ reads++;
+ if(input.mode==='persistent'||(input.mode==='transient'&&reads<3)){const e=Error('registry transient');e.status=500;throw e;}
+ if(input.mode==='malformed')return {data:{type:'file',encoding:'none'}};
+ return {data:{type:'file',encoding:'base64',content:Buffer.from('agents:\n  codex:\n    enabled: true\n').toString('base64')}};
+},createCommitStatus:async p=>{writes.push(p);status=p;},listCommitStatusesForRef(){}},issues:{listLabelsOnIssue(){}}},paginate:async()=>[]};
+const context={repo:{owner:'owner',repo:'repo'},eventName:'pull_request_target',payload:{pull_request:{number:4,labels:[],head:{sha:'a'.repeat(40)},base:{sha:'b'.repeat(40)}}},serverUrl:'https://github.com',runId:42};
+const core={info(){},warning(){},error(){},setFailed(m){failures.push(m);}};
+const AsyncFunction=Object.getPrototypeOf(async function(){}).constructor;
+new AsyncFunction('github','context','core',input.script)(github,context,core).then(()=>process.stdout.write(JSON.stringify({reads,writes,status,failures})));
+"""
+    result = subprocess.run(
+        ["node", "-e", harness],
+        input=json.dumps({"script": script, "mode": mode}),
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    record = json.loads(result.stdout)
+    assert record["status"]["state"] == ("success" if mode == "transient" else "failure")
+    assert record["reads"] == (1 if mode == "malformed" else 3)
+    assert len(record["writes"]) == 1
+    assert record["writes"][0]["sha"] == "a" * 40
+    if mode != "transient":
+        assert "guard-policy-sha256" not in record["writes"][0]["description"]

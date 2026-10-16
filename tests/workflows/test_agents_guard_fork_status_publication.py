@@ -1119,7 +1119,7 @@ def test_actual_producer_policy_digest_is_bound_in_step_metadata(labels, canonic
         steps = data["jobs"]["guard"]["steps"]
         script = next(step for step in steps if step.get("id") == "evaluate")["with"]["script"]
         snippet = script[
-            script.index("function routingLabelsFromRegistry") : script.index(
+            script.index("async function readTrustedRegistry") : script.index(
                 "let summary = result.summary;"
             )
         ]
