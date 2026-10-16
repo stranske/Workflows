@@ -83,6 +83,12 @@ def preserve_scope_conflicts(
                 raise ValueError("Invalid approval conflict disposition")
             if disposition == "resolved" and not conflict.get("resolution", {}).get("authority"):
                 raise ValueError("Resolved approval conflict lacks explicit resolution authority")
+            if disposition == "resolved" and conflict["resolution"].get(
+                "accepted_item_sha256"
+            ) not in {conflict["original_approved_item_sha256"], current_digest}:
+                raise ValueError(
+                    "Resolved approval conflict requires an explicit accepted snapshot digest"
+                )
             by_id[key] = conflict
         changed = False
         for conflict in incoming:
@@ -103,6 +109,34 @@ def preserve_scope_conflicts(
             for record in by_id.values()
             if record["disposition"] == "reconciliation_required"
         ]
+        accepted = {}
+        for record in by_id.values():
+            if record["disposition"] != "resolved":
+                continue
+            identity = record["finding_id"]
+            digest = record["resolution"]["accepted_item_sha256"]
+            if identity in accepted and accepted[identity][0] != digest:
+                raise ValueError("Conflicting accepted approval snapshots require reconciliation")
+            accepted[identity] = (digest, record)
+        for identity, (digest, record) in accepted.items():
+            if digest == record["original_approved_item_sha256"]:
+                continue
+            result["issues"] = [
+                item
+                for item in result["issues"]
+                if finding_id(item["repo"], item["title"]) != identity
+            ]
+            item = copy.deepcopy(record["current_approved_issue"])
+            item.update(
+                finding_id=identity,
+                approval_source={
+                    "item_sha256": digest,
+                    "authority": record["resolution"]["authority"],
+                    "conflict_store": str(path),
+                },
+                materialization_status="unfiled",
+            )
+            result["issues"].append(item)
         result["approval_scope_conflicts"] = unresolved
         result["approval_scope_conflict_store"] = str(path)
         for conflict in unresolved:
@@ -214,11 +248,13 @@ def merge_approval_ledger(
                     "disposition": "reconciliation_required",
                 }
             )
-            result.setdefault("warnings", []).append(
-                f"{item['repo']}: newly approved same-title scope '{item['title']}' "
-                "is preserved for reconciliation with the historical approval; no scope was silently replaced."
-            )
     result["issues"] = [*preserved.values(), *current]
+    result["approval_ledger"] = {"schema": SCHEMA, "source": str(ledger_path), "counts": counts}
+    hold = ledger.get("intake_hold")
+    if not isinstance(hold, dict) or not isinstance(hold.get("active"), bool):
+        raise ValueError("Approval ledger requires an explicit intake hold state")
+    result["intake_hold"] = copy.deepcopy(hold)
+    preserve_scope_conflicts(result, ledger_path, originals, allowed_repos)
     result["issues"].sort(
         key=lambda item: (
             item.get("priority_rank", 1),
@@ -226,12 +262,6 @@ def merge_approval_ledger(
             item.get("candidate_index", 0),
         )
     )
-    result["approval_ledger"] = {"schema": SCHEMA, "source": str(ledger_path), "counts": counts}
-    hold = ledger.get("intake_hold")
-    if not isinstance(hold, dict) or not isinstance(hold.get("active"), bool):
-        raise ValueError("Approval ledger requires an explicit intake hold state")
-    result["intake_hold"] = copy.deepcopy(hold)
-    preserve_scope_conflicts(result, ledger_path, originals, allowed_repos)
     result["upload_allowed"] = not (hold["active"] or result.get("approval_scope_conflicts"))
     if result.get("approval_scope_conflicts"):
         result["materialization_hold_reason"] = "unresolved_approval_scope_conflicts"
