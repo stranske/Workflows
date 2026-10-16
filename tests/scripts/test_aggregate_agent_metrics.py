@@ -1870,3 +1870,118 @@ def test_classify_autopilot_escalation_entry() -> None:
         "escalation_reason": "needs-human",
     }
     assert aggregate_agent_metrics._classify_entry(entry) == "autopilot"
+
+
+def test_metric_helper_fallbacks_preserve_safe_defaults(tmp_path: Path) -> None:
+    assert aggregate_agent_metrics._normalize_version_text(None) == ""
+    assert aggregate_agent_metrics._normalize_version_text("   ") == ""
+    assert aggregate_agent_metrics._normalize_cli_version(None) == ""
+    assert aggregate_agent_metrics._normalize_cli_version("other_cli 1.2.3") == "other-cli 1.2.3"
+    assert aggregate_agent_metrics._artifact_family("unrecognised") == "unknown"
+
+    assert aggregate_agent_metrics._infer_artifact_name(Path("metrics.ndjson")) == "unknown"
+    assert (
+        aggregate_agent_metrics._infer_artifact_name(Path("artifact/123/metrics.ndjson"))
+        == "artifact"
+    )
+    assert aggregate_agent_metrics._format_parse_error(tmp_path / "metrics.ndjson", 1, "invalid-json")
+    assert "expected object, got list" in aggregate_agent_metrics._format_parse_error(
+        tmp_path / "metrics.ndjson", 2, "non-object-json", "list"
+    )
+    assert aggregate_agent_metrics._format_parse_error(
+        tmp_path / "metrics.ndjson", None, "legacy-json-fallback-buffer-limit"
+    ).endswith("legacy-json-fallback-buffer-limit")
+
+
+def test_optional_metric_contract_inputs_fail_closed(tmp_path: Path) -> None:
+    assert aggregate_agent_metrics._langsmith_trace_refs(
+        {"langsmith_trace_url": "https://trace", "langsmith_traces": ["invalid"]}
+    ) == {"url:https://trace"}
+    assert aggregate_agent_metrics._verifier_run_key({}, 4) == "entry:4"
+
+    freshness = aggregate_agent_metrics._summarise_codex_cli_freshness(
+        [{"status": "", "update_targets": [{"path": ""}, "invalid"]}]
+    )
+    assert freshness["statuses"] == Counter({"unknown": 1})
+    assert freshness["update_targets"] == Counter()
+
+    manifest_path = tmp_path / "manifest.json"
+    manifest_path.write_text("[]", encoding="utf-8")
+    manifest = aggregate_agent_metrics._read_artifact_download_contract(manifest_path)
+    assert manifest is not None
+    assert manifest["error_message"] == "manifest-not-object"
+
+    selection_path = tmp_path / "selection.json"
+    selection_path.write_text("[]", encoding="utf-8")
+    selection = aggregate_agent_metrics._read_artifact_selection_contract(selection_path)
+    assert selection is not None
+    assert selection["error_message"] == "selection-not-object"
+
+    contract = aggregate_agent_metrics._artifact_selection_contract(
+        {
+            "priority_family_statuses": ["invalid", {"family": "other"}],
+            "candidate_family_counts": "invalid",
+            "selected_family_counts": "invalid",
+            "missing_priority_families": "invalid",
+        },
+        selection_path,
+    )
+    assert contract["missing_priority_families"] == []
+    assert contract["missing_terminal_artifact_families"] == list(
+        aggregate_agent_metrics._TERMINAL_ARTIFACT_FAMILIES
+    )
+    assert aggregate_agent_metrics._format_terminal_artifact_statuses({"terminal_artifact_families": ["invalid"]}) == "n/a"
+
+
+def test_autopilot_summary_ignores_incomplete_optional_values() -> None:
+    summary = aggregate_agent_metrics._summarise_autopilot(
+        [
+            {"metric_type": "cycle", "issue": "not-a-number"},
+            {"metric_type": "step", "step_name": "publish", "success": "0"},
+            {"metric_type": "step", "success": False, "failure_reason": "ignored"},
+        ]
+    )
+
+    assert summary["issues"] == 0
+    assert summary["cycle_records"] == 1
+    assert summary["step_failures"] == {"publish": 1}
+    assert summary["failure_reasons"] == Counter({"unknown": 1})
+
+
+def test_legacy_parse_and_artifact_contract_error_paths(tmp_path: Path) -> None:
+    scalar_path = tmp_path / "legacy-scalar.json"
+    scalar_path.write_text('[\n  "not-a-metric"\n]\n', encoding="utf-8")
+    entries, errors = aggregate_agent_metrics.read_ndjson_file(scalar_path)
+    assert entries == []
+    assert errors
+
+    malformed_manifest_path = tmp_path / "malformed-manifest.json"
+    malformed_manifest_path.write_text("{", encoding="utf-8")
+    manifest = aggregate_agent_metrics._read_artifact_download_contract(malformed_manifest_path)
+    assert manifest is not None
+    assert manifest["status"] == "error"
+
+    malformed_selection_path = tmp_path / "malformed-selection.json"
+    malformed_selection_path.write_text("{", encoding="utf-8")
+    selection = aggregate_agent_metrics._read_artifact_selection_contract(malformed_selection_path)
+    assert selection is not None
+    assert selection["status"] == "error"
+
+    downloads = aggregate_agent_metrics._artifact_download_contract(
+        {
+            "artifacts": [
+                "invalid",
+                {"name": "pending"},
+                {"name": "failed", "download": {"status": "failed"}},
+            ]
+        },
+        malformed_manifest_path,
+    )
+    assert [artifact["name"] for artifact in downloads["pending_artifacts"]] == ["pending"]
+    assert [artifact["name"] for artifact in downloads["failed_artifacts"]] == ["failed"]
+
+    assert aggregate_agent_metrics._format_parse_error_details([]) == []
+    assert aggregate_agent_metrics._format_terminal_artifact_statuses(
+        {"terminal_artifact_families": []}
+    ) == "n/a"
+    assert aggregate_agent_metrics._json_contract_value([Counter({"value": 1})]) == [{"value": 1}]
