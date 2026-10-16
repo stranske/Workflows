@@ -222,7 +222,7 @@ agents:
     capabilities:
       pr_keepalive: true
       pr_autofix: true          # wired into agents-autofix-loop.yml (autofix-cursor job)
-      belt: false              # belt routing deferred to a later phase
+      belt: true               # belt is registry-driven; the round runs in the keepalive run-cursor job (see docs/keepalive/Agents.md)
       verifier_checkbox: false  # verification stays on the existing judge (config/llm_slots.json)
 
   muse:
