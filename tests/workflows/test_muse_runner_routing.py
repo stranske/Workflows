@@ -39,6 +39,7 @@ def test_registry_entries_match_in_root_and_template():
     ):
         muse = yaml.safe_load(reg.read_text())["agents"]["muse"]
         assert muse["runner_workflow"].endswith("reusable-muse-run.yml")
+        assert muse["branch_prefix"] == "muse/issue-"
         assert "META_API_KEY" in muse["required_secrets"]
 
 
@@ -65,6 +66,7 @@ def test_autofix_loop_has_a_muse_job_and_accepts_the_agent():
     path = WF / "agents-autofix-loop.yml"
     jobs = _jobs(path)
     assert "reusable-muse-run.yml" in jobs["autofix-muse"]["uses"]
+    assert jobs["autofix-muse"]["name"] == "Run Muse autofix"
     assert "'muse'" in re.search(r"const supportedAgents = \[(.*?)\];", path.read_text()).group(1)
     assert "autofix-muse" in jobs["record-autofix-completion"]["needs"]
 
