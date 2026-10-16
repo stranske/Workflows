@@ -812,12 +812,35 @@ async function fetchVerifierEvidence({
   // when no positively selected URL exists. Typed references remain explicit.
   const negativeEvidencePredicate = /\b(?:no|not)\s+(?!(?:(?:the\s+)?only|just)\b)(?:[\w-]+\s+)*(?:evidence|validation|artifacts?|test results?|red\s+(?:then\s+)?green)\b/i;
   const fallbackReferenceTexts = proseReferenceTexts.map(text => {
-    const value = String(text || '');
-    // A Markdown hard break cannot separate a historical link from its
-    // following negative diagnostic. Preserve independently positive lines;
-    // unlabelled links in this same diagnostic source are incidental only.
-    return negativeEvidencePredicate.test(value.replace(/[`*_]/g, ''))
-      ? positiveEvidenceLines(value).join(' ') : value;
+    const lines = String(text || '').split('\n');
+    const filtered = lines.map(line => {
+      if (!negativeEvidencePredicate.test(line.replace(/[`*_]/g, ''))) return line;
+      const clauses = line.split(/[.;]\s+/);
+      const firstNegative = clauses.findIndex(clause => negativeEvidencePredicate.test(clause.replace(/[`*_]/g, '')));
+      let keepBefore = firstNegative;
+      if (firstNegative > 0 && /^(?:this|that|it|these|those)\s+(?:is|was|are|were)\b/i.test(clauses[firstNegative].trim())) keepBefore -= 1;
+      const independentIncidental = clauses.slice(firstNegative + 1).filter(clause => {
+        const label = clause.match(/^\s*([\w -]+):/);
+        return label && !/\b(?:evidence|validation|artifacts?|test results?|red|green)\b/i.test(label[1])
+          && !negativeEvidencePredicate.test(clause);
+      });
+      return [...clauses.slice(0, Math.max(0, keepBefore)), ...positiveEvidenceClauses(line), ...independentIncidental].join(' ');
+    });
+    // An anaphoric negative diagnostic can govern the immediately preceding
+    // reference line across a Markdown break. It cannot erase other links in
+    // the source, or independently affirmative evidence sections.
+    for (let index = 0; index < lines.length; index += 1) {
+      const line = lines[index].replace(/[`*_]/g, '').trim().replace(/^(?:>\s*)*/, '');
+      if (!/^(?:this|that|it|these|those)\s+(?:is|was|are|were)\b/i.test(line)
+          || !negativeEvidencePredicate.test(line) || extractReferencedRunIds([line]).length) continue;
+      let previous = index - 1;
+      while (previous >= 0 && !lines[previous].trim()) previous -= 1;
+      if (previous >= 0 && extractReferencedRunIds([lines[previous]]).length
+          && !positiveEvidenceClauses(lines[previous]).length) filtered[previous] = '';
+    }
+    // Header-bound references still form the explicit union below. This path
+    // retains incidental references except those locally governed by negation.
+    return filtered.join('\n');
   });
   const allReferencedRunIds = extractReferencedRunIds([...typedEvidenceTexts, ...fallbackReferenceTexts]);
   // A status-table "View run" or bare incidental body/comment URL is not an

@@ -4906,3 +4906,36 @@ test('negated historical diagnostics do not join a complete positive evidence un
     }
   }
 });
+
+
+test('negative diagnostics filter governed references without erasing incidental siblings', async () => {
+  const sha = 'a'.repeat(40);
+  const implementations = [fetchVerifierEvidence,
+    require('../../../templates/consumer-repo/.github/scripts/agents_verifier_context.js').fetchVerifierEvidence];
+  for (const implementation of implementations) {
+    for (const body of [
+      'Not evidence: /actions/runs/999; Build: /actions/runs/124',
+      'Not evidence: /actions/runs/999. CI run: /actions/runs/124',
+      'Build: /actions/runs/124. There are no evidence gaps.',
+      'Build: /actions/runs/124; Not evidence: /actions/runs/999',
+      'Build: /actions/runs/124; Completed Selftest /actions/runs/999 failed. This is not evidence that validation failed.',
+      'Build: /actions/runs/124\nThere are no evidence gaps.',
+      'Build: /actions/runs/124\nNot evidence: /actions/runs/999',
+      'Build: /actions/runs/124\nCompleted Selftest /actions/runs/999 failed.\nThis is not evidence that validation failed.',
+      'Not evidence: /actions/runs/999\nBuild: /actions/runs/124',
+    ]) {
+      const requested = [];
+      const empty = async () => ({data: []});
+      const github = {rest: {issues: {listComments: empty}, pulls: {listReviewComments: empty, listReviews: empty},
+        actions: {getWorkflowRun: async ({run_id}) => {requested.push(run_id); return {data: {id: run_id, head_sha: run_id === 999 ? 'b'.repeat(40) : sha}};},
+          listWorkflowRunsForRepo: async () => ({data: {total_count: 0, workflow_runs: []}}),
+          listWorkflowRunArtifacts: async () => ({data: {total_count: 0, artifacts: []}}),
+          downloadArtifact: async () => {throw Error('no archive expected');}}}};
+      const result = await implementation({github, owner: 'octo', repo: 'workflows', pullNumber: 7,
+        pullRequestBody: body, associatedCommitShas: [sha]});
+      assert.deepEqual(result.diagnostics.references.explicit_run_ids, []);
+      assert.deepEqual(requested, [124], body);
+      assert.equal(result.artifacts.complete, true);
+    }
+  }
+});
