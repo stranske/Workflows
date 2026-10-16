@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.38.16](https://github.com/stranske/Workflows/compare/v1.38.15...v1.38.16) (2026-10-16)
+
+
+### Bug Fixes
+
+* **registry:** explicitly preserve enabled routes before strict parsing ([#3922](https://github.com/stranske/Workflows/issues/3922)) ([b633a3a](https://github.com/stranske/Workflows/commit/b633a3a6f61b8c95cf186c10444b6895f3005e9c))
+* **verifier:** keep historical diagnostics out of positive evidence selection ([#3917](https://github.com/stranske/Workflows/issues/3917)) ([e117d4e](https://github.com/stranske/Workflows/commit/e117d4e278e07c6f418aaad355f49a6b11aa2e7d))
+
 ## [1.38.15](https://github.com/stranske/Workflows/compare/v1.38.14...v1.38.15) (2026-10-16)
 
 
