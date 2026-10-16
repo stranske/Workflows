@@ -583,7 +583,9 @@ Keep this table handy when you are triaging automation: it confirms which workfl
   - `health-42-actionlint.yml` (actionlint enforcement),
   - `health-43-ci-signature-guard.yml` (signature verification),
   - `health-44-gate-branch-protection.yml` (required check enforcement),
-  - `health-codex-auth-check.yml` (Codex auth token expiration monitoring), and
+  - `health-codex-auth-check.yml` (Codex auth token expiration monitoring),
+  - `health-cursor-auth-check.yml` (Cursor key presence check),
+  - `health-muse-auth-check.yml` (Muse key presence, CLI and sandbox check, no model call), and
   - `agents-guard.yml` (immutable agents surface guardrail).
 
 ### Issue / agents automation

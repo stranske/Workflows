@@ -241,6 +241,7 @@ Scheduled health jobs keep the automation ecosystem aligned:
 * [`health-40-repo-selfcheck.yml`](../../.github/workflows/health-40-repo-selfcheck.yml) synthesises a repo-wide self-check report.
 * [`health-40-sweep.yml`](../../.github/workflows/health-40-sweep.yml) coordinates the Actionlint + branch-protection sweep (PR trigger gated by workflow-file changes).
 * [`health-41-repo-health.yml`](../../.github/workflows/health-41-repo-health.yml) compiles dependency and hygiene signals.
+* [`health-cursor-auth-check.yml`](../../.github/workflows/health-cursor-auth-check.yml) and [`health-muse-auth-check.yml`](../../.github/workflows/health-muse-auth-check.yml) name a missing `CURSOR_API_KEY` / `META_API_KEY` secret daily (presence-only; the Muse check also verifies the CLI and bubblewrap sandbox; neither makes a model call).
 * [`health-42-actionlint.yml`](../../.github/workflows/health-42-actionlint.yml) provides the reusable Actionlint leg for the sweep or ad-hoc rehearsals.
 * [`health-43-ci-signature-guard.yml`](../../.github/workflows/health-43-ci-signature-guard.yml) verifies signed workflow runs when required.
 * [`health-44-gate-branch-protection.yml`](../../.github/workflows/health-44-gate-branch-protection.yml) ensures branch protection stays aligned with Gate expectations.

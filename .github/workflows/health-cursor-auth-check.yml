@@ -1,0 +1,44 @@
+# Daily presence check for the Cursor runner secret (Workflows#3931).
+#
+# CURSOR_API_KEY is the only credential reusable-cursor-run.yml accepts. A missing or empty
+# secret otherwise looks like a skipped round; this names it. PRESENCE-ONLY: the Cursor CLI
+# exposes no free auth-status probe in this workflow, so a present-but-revoked key is not
+# detected here (it would surface as a failed runner round). The key is never printed and no
+# model call is made.
+name: Health 77 Cursor Auth Check
+
+on:
+  schedule:
+    - cron: '17 9 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check CURSOR_API_KEY presence
+        env:
+          CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -n "$CURSOR_API_KEY" ]; then
+            status="present"
+          else
+            status="missing"
+          fi
+          {
+            echo "## Cursor auth check"
+            echo ""
+            echo "- CURSOR_API_KEY: **${status}** (presence-only; no authentication probe, no model call)"
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ "$status" = "missing" ]; then
+            echo "::error::CURSOR_API_KEY is not set; Cursor workflows cannot authenticate."
+            exit 1
+          fi
