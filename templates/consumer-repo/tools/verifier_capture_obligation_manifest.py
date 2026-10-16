@@ -1,6 +1,6 @@
 """Derive a lossless capture obligation manifest from generated verifier context.
 
-Source issue #3820 requires an auditable contract for which evidence must be
+The capture contract requires an auditable inventory of which evidence must be
 present before expanded native provider invocation. This module reads the
 builder-emitted context source coverage inventory and names per-source
 obligations without mutating captured artifacts. This helper validates generated
