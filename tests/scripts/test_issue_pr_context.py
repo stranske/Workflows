@@ -94,9 +94,9 @@ def test_context_payload_omits_sections_that_do_not_fit_after_metadata() -> None
 
 
 def test_truncation_helpers_handle_a_budget_smaller_than_the_heading() -> None:
-    assert issue_pr_context._truncate_section(
-        "## Heading", "body", 1, suffix="\n[truncated]"
-    ) == "##"
+    assert (
+        issue_pr_context._truncate_section("## Heading", "body", 1, suffix="\n[truncated]") == "##"
+    )
 
 
 def test_context_helpers_cover_marker_and_metadata_edge_values() -> None:
@@ -105,20 +105,28 @@ def test_context_helpers_cover_marker_and_metadata_edge_values() -> None:
     assert issue_pr_context._embedded_body({"formatted_body": 42}) is None
     assert issue_pr_context._diff_text({"files": [{"filename": "x"}, "bad"]}) == ""
     assert issue_pr_context._labels(["plain", {"name": "named"}, 42]) == ["plain", "named"]
-    assert issue_pr_context._branch_name({"label": "owner:branch", "ref": "branch"}) == "owner:branch"
+    assert (
+        issue_pr_context._branch_name({"label": "owner:branch", "ref": "branch"}) == "owner:branch"
+    )
 
 
 def test_context_helpers_reject_invalid_markers_and_cover_optional_metadata() -> None:
     assert issue_pr_context.reuse_formatted_body({"body": ""}, "agents-auto-pilot") is None
-    assert issue_pr_context.reuse_formatted_body(
-        {"body": "<!-- issue-pr-context:formatted-body:v1 {not json} -->"},
-        "agents-auto-pilot",
-    ) is None
+    assert (
+        issue_pr_context.reuse_formatted_body(
+            {"body": "<!-- issue-pr-context:formatted-body:v1 {not json} -->"},
+            "agents-auto-pilot",
+        )
+        is None
+    )
     assert issue_pr_context._top_level_headings("```\n## Hidden\n````\n## Visible") == ["visible"]
-    assert issue_pr_context._issue_metadata(
-        {"labels": "not-a-list"},
-        ContextOptions(include_author=False, include_url=False, include_labels=False),
-    ) == "## Issue Metadata"
+    assert (
+        issue_pr_context._issue_metadata(
+            {"labels": "not-a-list"},
+            ContextOptions(include_author=False, include_url=False, include_labels=False),
+        )
+        == "## Issue Metadata"
+    )
     assert issue_pr_context._pr_metadata(
         {"base": "main", "head": "topic", "labels": [{}]},
         ContextOptions(include_author=False, include_url=False),
@@ -126,7 +134,10 @@ def test_context_helpers_reject_invalid_markers_and_cover_optional_metadata() ->
 
 
 def test_diff_and_workflow_helpers_cover_direct_and_invalid_values() -> None:
-    assert issue_pr_context._workflow_matches({"workflows": "not-a-list"}, "agents-auto-pilot") is False
+    assert (
+        issue_pr_context._workflow_matches({"workflows": "not-a-list"}, "agents-auto-pilot")
+        is False
+    )
     assert issue_pr_context._embedded_body({"body_b64": 42}) is None
     assert issue_pr_context._diff_text({"diff": "direct diff"}) == "direct diff"
     assert issue_pr_context._diff_text({"files": "not-a-list"}) == ""
