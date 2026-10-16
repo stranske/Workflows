@@ -134,7 +134,7 @@ const github = {rest:{issues:{createComment: async value => captured.push(value)
 function localRequire(name) {
   if (name.endsWith('agent_registry.js')) return {
     ...registry,
-    getIssueIntakeConfig: key => registry.getIssueIntakeConfig(key, {registryPath:input.registry}),
+    getAgentConfig: key => registry.getAgentConfig(key, {registryPath:input.registry}),
   };
   if (name.endsWith('github-api-with-retry.js')) return {
     withRetry: fn => fn(),
@@ -151,12 +151,18 @@ function localRequire(name) {
 process.env.AGENT = input.agent;
 process.env.BRANCH = 'cursor/issue-7';
 const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
-new AsyncFunction('require','github','core','context','agentKey',input.script + input.suffix)(
-  localRequire, github, {setFailed: message => {throw Error(message)}, warning:()=>{}, info:()=>{}, error:()=>{}},
-  {repo:{owner:'example',repo:'canary'}}, input.agent,
-).then(result => console.log(JSON.stringify({captured,result}))).catch(error => {
-  console.error(error); process.exit(1);
-});
+const outputs = {};
+const core = {setFailed: message => {throw Error(message)}, warning:()=>{}, info:()=>{}, error:()=>{},
+  setOutput: (key,value) => {outputs[key]=value}};
+async function main() {
+  await new AsyncFunction('require','core',input.prelude)(localRequire,core);
+  process.env.INTAKE_COMMAND = outputs.command;
+  process.env.INTAKE_ASSIGNEES = outputs.assignees;
+  const result = await new AsyncFunction('require','github','core','context','agentKey',input.script + input.suffix)(
+    localRequire, github, core, {repo:{owner:'example',repo:'canary'}}, input.agent);
+  console.log(JSON.stringify({captured,result,outputs}));
+}
+main().catch(error => {console.error(error); process.exit(1)});
 """
     script = script.replace("${{ steps.pr.outputs.number }}", "7")
     script = script.replace("${{ steps.ctx.outputs.issue }}", "7")
@@ -167,6 +173,11 @@ new AsyncFunction('require','github','core','context','agentKey',input.script + 
         input=json.dumps(
             {
                 "script": script,
+                "prelude": next(
+                    step["with"]["script"]
+                    for step in _bridge_steps()
+                    if step.get("name") == "Resolve post-agent comment flag"
+                ),
                 "registry": str(registry),
                 "module": str(ROOT / ".github/scripts/agent_registry.js"),
                 "agent": agent,
@@ -233,15 +244,12 @@ def test_invite_mode_names_registry_assignee_and_command_without_creating_pr(tmp
     assert "PR creation is disabled by design" in body
 
 
-def test_registry_keeps_legacy_mention_default_when_no_command_is_configured():
-    program = """const r = require(process.argv[1]);
-console.log(r.getIssueIntakeConfig('codex', {defaultCommand:'@legacy-bot start'}).command_phrase);
-console.log(r.getIssueIntakeConfig('claude').command_phrase);"""
-    result = subprocess.run(
-        ["node", "-e", program, str(ROOT / ".github/scripts/agent_registry.js")],
-        cwd=ROOT,
-        capture_output=True,
-        text=True,
-        check=True,
-    )
-    assert result.stdout.splitlines() == ["@legacy-bot start", "@claude start"]
+def test_registry_preserves_legacy_defaults_when_command_hint_is_empty(tmp_path):
+    registry = _custom_invite_registry(tmp_path)
+    for agent, assignees in [
+        ("codex", ["chatgpt-codex-connector", "stranske-automation-bot"]),
+        ("claude", ["stranske-automation-bot"]),
+    ]:
+        result = _execute_bridge_script("", registry, agent=agent)
+        assert result["outputs"]["command"] == ""
+        assert json.loads(result["outputs"]["assignees"]) == assignees

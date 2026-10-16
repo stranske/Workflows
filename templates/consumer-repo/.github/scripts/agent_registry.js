@@ -361,27 +361,6 @@ function getAgentConfig(agentKey, options = {}) {
   return config;
 }
 
-// Issue intake preserves the historical defaults but honors per-agent invitations.
-function getIssueIntakeConfig(agentKey, options = {}) {
-  const key = String(agentKey || '').trim() || loadAgentRegistry(options).default_agent;
-  const config = getAgentConfig(key, options);
-  const preflight = config.preflight || {};
-  const defaults = key === 'codex'
-    ? ['chatgpt-codex-connector', 'stranske-automation-bot']
-    : ['stranske-automation-bot'];
-  const assignees = Array.isArray(config.assignees) && config.assignees.length
-    ? [...config.assignees] : defaults;
-  const assignUser = String(preflight.assign_user || '').trim();
-  if (assignUser && !assignees.includes(assignUser)) {
-    assignees.unshift(assignUser);
-  }
-  return {
-    assignees,
-    command_phrase: String(preflight.command_phrase || '').trim()
-      || normalizeRegistryOptions(options).defaultCommand || `@${key} start`,
-  };
-}
-
 function getRunnerWorkflow(agentKey, options = {}) {
   const { registryPath } = normalizeRegistryOptions(options);
   const config = getAgentConfig(agentKey, { registryPath });
@@ -482,7 +461,6 @@ module.exports = {
   getAgentConfig,
   getAgentEntries,
   getAgentPreflightConfigs,
-  getIssueIntakeConfig,
   getKeepaliveMarkerPrefix,
   getReadinessCandidates,
   getRunnerWorkflow,
