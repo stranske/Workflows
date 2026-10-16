@@ -5,6 +5,18 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
+const legacyPolicyDir = fs.mkdtempSync(path.join(os.tmpdir(), 'maint71-legacy-policy-'));
+const legacyPolicyPath = path.join(legacyPolicyDir, 'policy.json');
+const legacyPolicy = JSON.parse(fs.readFileSync(path.join(__dirname, '../../../config/consumer_sync_review_policy.json'), 'utf8'));
+delete legacyPolicy.generated_delivery_review;
+fs.writeFileSync(legacyPolicyPath, JSON.stringify(legacyPolicy));
+const originalPolicyPath = process.env.CONSUMER_SYNC_REVIEW_POLICY_PATH;
+process.env.CONSUMER_SYNC_REVIEW_POLICY_PATH = legacyPolicyPath;
+test.after(() => {
+  if (originalPolicyPath === undefined) delete process.env.CONSUMER_SYNC_REVIEW_POLICY_PATH;
+  else process.env.CONSUMER_SYNC_REVIEW_POLICY_PATH = originalPolicyPath;
+  fs.rmSync(legacyPolicyDir, { recursive: true, force: true });
+});
 const {
   planMaint71Continuations,
   selectMaint71ContinuationRepos,
@@ -3578,7 +3590,8 @@ test('maint71 real execution never closes a candidate owned by a different plan'
 });
 
 
-test('maint71 starts review by clearing stale ready labels while retaining the staging hold', async () => {
+for (const integrationOnly of [false, true]) {
+test(`maint71 clears stale ready labels and preserves hold in ${integrationOnly ? 'integration' : 'legacy review'} mode`, async () => {
   const originalCwd = process.cwd();
   const envKeys = [
     'REGISTERED_REPOS_INPUT', 'CLEANUP_BRANCHES_INPUT', 'DRY_RUN_INPUT',
@@ -3586,7 +3599,7 @@ test('maint71 starts review by clearing stale ready labels while retaining the s
     'EXPECTED_PLAN_SCOPE_INPUT', 'EXPECTED_SCOPE_BASE_SHA_INPUT',
     'EXPECTED_SOURCE_COMMIT_INPUT', 'OWNER_PR_PAT',
     'CONSUMER_SYNC_CANARIES_PATH', 'TRUSTED_SYNC_ACTORS',
-    'SYNC_PR_MERGE_REPORT_JSON',
+    'SYNC_PR_MERGE_REPORT_JSON', 'CONSUMER_SYNC_REVIEW_POLICY_PATH',
   ];
   const originalEnv = Object.fromEntries(envKeys.map((key) => [key, process.env[key]]));
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'maint71-delivery-context-'));
@@ -3674,6 +3687,7 @@ test('maint71 starts review by clearing stale ready labels while retaining the s
   };
 
   try {
+    if (integrationOnly) process.env.CONSUMER_SYNC_REVIEW_POLICY_PATH = path.resolve(__dirname, '../../../config/consumer_sync_review_policy.json');
     process.chdir(tempDir);
     process.env.REGISTERED_REPOS_INPUT = repository;
     process.env.CLEANUP_BRANCHES_INPUT = 'false';
@@ -3713,21 +3727,27 @@ test('maint71 starts review by clearing stale ready labels while retaining the s
 
     const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
     assert.deepEqual(failures, []);
-    assert.equal(report.results[0].status, 'review_window_started');
-    assert.deepEqual([...labels], ['sync:delivery-staging']);
+    assert.equal(report.results[0].status, integrationOnly ? 'delivery_sealed_checks_pending' : 'review_window_started');
+    assert.deepEqual([...labels].sort(), integrationOnly ? ['sync:delivery-ready', 'sync:delivery-staging'] : ['sync:delivery-staging']);
     assert.equal(mutations.length, 1);
-    assert.equal(reviewRequests.length, 1);
-    assert.match(reviewRequests[0].body, /@codex review/);
-    assert.match(mutations[0].body, /"delivery_state":"reviewing"/);
-    assert.ok(initialRefreshCalls >= 4, 'review start must re-read after posting');
-    assert.match(mutations[0].body, new RegExp(latestLease));
-    assert.doesNotMatch(mutations[0].body, /"sealed_head_sha":"[^"\s]+"/);
+    assert.equal(reviewRequests.length, integrationOnly ? 0 : 1);
+    if (integrationOnly) {
+      assert.match(mutations[0].body, /"delivery_state":"sealed"/);
+      assert.match(mutations[0].body, /integration_checks_required/);
+      assert.match(mutations[0].body, new RegExp(latestLease));
+    } else {
+      assert.match(reviewRequests[0].body, /@codex review/);
+      assert.match(mutations[0].body, /"delivery_state":"reviewing"/);
+      assert.ok(initialRefreshCalls >= 4, 'review start must re-read after posting');
+      assert.match(mutations[0].body, new RegExp(latestLease));
+      assert.doesNotMatch(mutations[0].body, /"sealed_head_sha":"[^"\s]+"/);
+    }
     // A missing label is already clean and must not prevent review start.
     github.rest.issues.removeLabel = async () => { throw Object.assign(new Error('Not Found'), { status: 404 }); };
     await run({ github, core, context: { repo: { owner: 'stranske', repo: 'Workflows' }, payload: {},
       runId: 73, runNumber: 73, workflow: 'Maint 71', ref: 'refs/heads/main', sha: sourceCommit } });
-    assert.equal(JSON.parse(fs.readFileSync(reportPath, 'utf8')).results[0].status, 'review_window_started');
-    assert.equal(reviewRequests.length, 1, 'retry must reuse the exact-head request');
+    assert.equal(JSON.parse(fs.readFileSync(reportPath, 'utf8')).results[0].status, integrationOnly ? 'delivery_sealed_checks_pending' : 'review_window_started');
+    assert.equal(reviewRequests.length, integrationOnly ? 0 : 1, 'retry must not create extra general reviews');
     // Permission failures must not persist reviewing state and bypass cleanup
     // on the next attempt. The staging hold remains in place.
     const updatesBeforeFailure = mutations.length;
@@ -3737,6 +3757,7 @@ test('maint71 starts review by clearing stale ready labels while retaining the s
     assert.equal(JSON.parse(fs.readFileSync(reportPath, 'utf8')).results[0].status, 'error');
     assert.equal(mutations.length, updatesBeforeFailure);
     assert.equal(labels.has('sync:delivery-staging'), true);
+    if (integrationOnly) return;
     // Sealing will now emit a new labeled event rather than silently keeping
     // a label whose earlier event carried an unsealed generation's body.
     // A legacy reviewing record with no request must repair its clock, not
@@ -3893,3 +3914,5 @@ test('maint71 starts review by clearing stale ready labels while retaining the s
     fs.rmSync(tempDir, { recursive: true, force: true });
   }
 });
+
+}

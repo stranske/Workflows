@@ -2,6 +2,44 @@
 
 This document outlines the process for maintaining workflow system consistency across consumer repositories and debugging issues that may affect multiple repos.
 
+## Delivery scope and production checks
+
+Sync and dev-tool/dependency maintenance distribute a fixed source revision and
+payload to a finite consumer roster. Main advancing or a new incidental finding
+does not change that shipment. Complete it with actual merged/no-change results,
+recording material exceptions separately from passing functional validation.
+
+Block only affected consumers/components for concrete shipment-caused production
+breakage: installation/resolution failures, required imports/build/tests, workflow
+or agent execution, access/security, or critical correctness failures. Use current
+logs and focused compatibility checks. Preserve required checks, exact head/source
+bindings, repository protection, permissions and single-writer ownership. Missing
+required production evidence stays blocking; an optional provider report or broad
+source-issue acceptance is not a separate condition for qualified delivery.
+
+Incidental lint/style, pre-existing defects and improvements are handed off once
+to their repository owner. Classify findings by demonstrated delivery impact, not
+by a review badge or the mere presence of a thread. The authorized owner can record
+and resolve an evidence-backed nonblocking disposition without pretending the
+reviewer accepted a fix. No automatic source repair, repeated general review,
+verifier follow-up PR or capacity-extension loop belongs in this delivery task.
+A separately authorized repair remains bounded; exhaustion stops engineering,
+not ready delivery. Isolate an unfit component or retain its known-good version.
+
+`config/consumer_sync_review_policy.json` selects `integration-only` for generated
+deliveries: Maint71 prepares the immutable payload for consumer Gate checks without
+requesting another general review or waiting through a synthetic review interval.
+It records `integration_checks_required`, never a fabricated reviewer PASS. Current
+required CI, active findings, head/source/plan bindings and final merge checks are
+still enforced. An incidental active thread needs an explicit owner disposition;
+it is not silently ignored. Consumers' branch protection is never weakened.
+Legacy review mode remains available when `generated_delivery_review` is absent.
+
+Maint82 retains its bounded ten-minute continuation sweep: consumer CI completion
+does not yet provide a native event wakeup for every delivery stage. The local
+worker follows active CI in the same run; the sweep is recovery and does not
+license dormant actionable work. Closed campaigns stay closed.
+
 ## Post-merge verifier security boundary
 
 The source and consumer `agents-verifier.yml` callers intentionally retain

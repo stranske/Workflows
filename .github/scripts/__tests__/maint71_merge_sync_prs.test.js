@@ -5,6 +5,18 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
+const legacyPolicyDir = fs.mkdtempSync(path.join(os.tmpdir(), 'maint71-legacy-policy-'));
+const legacyPolicyPath = path.join(legacyPolicyDir, 'policy.json');
+const legacyPolicy = JSON.parse(fs.readFileSync(path.join(__dirname, '../../../config/consumer_sync_review_policy.json'), 'utf8'));
+delete legacyPolicy.generated_delivery_review;
+fs.writeFileSync(legacyPolicyPath, JSON.stringify(legacyPolicy));
+const originalPolicyPath = process.env.CONSUMER_SYNC_REVIEW_POLICY_PATH;
+process.env.CONSUMER_SYNC_REVIEW_POLICY_PATH = legacyPolicyPath;
+test.after(() => {
+  if (originalPolicyPath === undefined) delete process.env.CONSUMER_SYNC_REVIEW_POLICY_PATH;
+  else process.env.CONSUMER_SYNC_REVIEW_POLICY_PATH = originalPolicyPath;
+  fs.rmSync(legacyPolicyDir, { recursive: true, force: true });
+});
 const {
   devToolBaseRefreshResult, ensureExactHeadReviewRequest, hasCompleteReviewThreadEvidence,
   parseReviewReassessmentRequest, runReviewReassessment, run, acceptanceCommentLocation,
