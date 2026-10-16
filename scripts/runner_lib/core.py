@@ -1179,13 +1179,30 @@ class RepoVariableRunnerStorage:
         return cls(GitHubApi(repo, token))
 
     def read_record(
-        self, pr_number: int, provider: str, *, require_access: bool = False
+        self,
+        pr_number: int,
+        provider: str,
+        *,
+        require_access: bool = False,
+        denied_means_absent: bool = False,
     ) -> dict[str, Any] | None:
         name = _variable_name(pr_number, provider)
         try:
             payload = self.api.request("GET", f"/repos/{self.api.repo}/actions/variables/{name}")
         except RuntimeError as exc:
             message = str(exc)
+            if denied_means_absent and " failed: 403 " in message:
+                # The credential cannot read Actions variables (GITHUB_TOKEN never can; a PAT
+                # needs the Variables permission). The same credential could not have WRITTEN a
+                # legacy reservation either, so a 403 here means "no legacy record from us", and
+                # holding every dispatch on it would be a gate only a PAT edit can clear
+                # (Workflows#3924: Doc-Lineage). 401, 5xx and network errors still fail closed.
+                print(
+                    "warning: legacy variable reservation store unreadable (403); "
+                    "treating as no legacy record",
+                    file=sys.stderr,
+                )
+                return None
             # Explicit single-store callers retain their historical best-effort
             # read. Migration checks must distinguish denied access from absence.
             if " failed: 404 " in message or (
@@ -1492,7 +1509,9 @@ def should_dispatch(
                 # Respect legacy fallback reservations until they finish/age out,
                 # but any newly granted reservation must be written to primary.
                 if isinstance(storage.fallback, RepoVariableRunnerStorage):
-                    prior = storage.fallback.read_record(pr_number, provider, require_access=True)
+                    prior = storage.fallback.read_record(
+                        pr_number, provider, require_access=True, denied_means_absent=True
+                    )
                 else:
                     prior = storage.fallback.read_record(pr_number, provider)
         else:
@@ -1531,7 +1550,9 @@ def should_dispatch(
             prior = storage.primary.read_record(pr_number, provider)
             if prior is None:
                 if isinstance(storage.fallback, RepoVariableRunnerStorage):
-                    prior = storage.fallback.read_record(pr_number, provider, require_access=True)
+                    prior = storage.fallback.read_record(
+                        pr_number, provider, require_access=True, denied_means_absent=True
+                    )
                 else:
                     prior = storage.fallback.read_record(pr_number, provider)
         except Exception as exc:

@@ -2147,6 +2147,14 @@ def test_auto_dispatch_checks_real_legacy_backend_access(
         assert decision.should_dispatch is True
         assert primary.records[(42, "codex")]["status"] == "pending"
         assert capsys.readouterr().err == ""
+    elif status == 403:
+        # Workflows#3924: a credential that cannot read Actions variables could not have
+        # written legacy reservations either, so denial is treated as absence (with a warning).
+        assert decision.should_dispatch is True
+        assert primary.records[(42, "codex")]["status"] == "pending"
+        error = capsys.readouterr().err
+        assert "legacy variable reservation store unreadable (403)" in error
+        assert "private-response" not in error
     else:
         assert decision.should_dispatch is False
         assert decision.reason == "authoritative-storage-unavailable"
