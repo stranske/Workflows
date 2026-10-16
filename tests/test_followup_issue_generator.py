@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Tests for followup_issue_generator.py"""
 
+import inspect
 import io
 import json
 import logging
@@ -2825,3 +2826,60 @@ def test_module_main_entrypoint_invokes_main(
     assert "title" in payload
     assert "body" in payload
     assert isinstance(payload.get("labels"), list)
+
+
+def test_guard_payloads_omits_source_annotation_when_label_empty(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Empty payload labels must not append a blank '(source: )' suffix.
+
+    Production constructors always pass non-empty label literals, so this
+    defensive branch (124->126) is reached by mutating the in-flight payloads
+    list from the injection-check callback.
+    """
+
+    def _fake_check(text: str) -> dict[str, object]:
+        frame = inspect.currentframe()
+        assert frame is not None and frame.f_back is not None
+        payloads = frame.f_back.f_locals["payloads"]
+        for index, (label, _payload_text) in enumerate(payloads):
+            if label == "original_issue":
+                payloads[index] = ("", "TRIGGER_GUARD_BLOCK")
+                break
+        if text == "TRIGGER_GUARD_BLOCK":
+            return {"blocked": True, "reason": "injection detected"}
+        return {"blocked": False, "reason": ""}
+
+    monkeypatch.setattr(followup_issue_generator, "check_prompt_injection", _fake_check)
+
+    result = followup_issue_generator._guard_payloads(
+        verification_text="safe verification text",
+        original_issue_text="safe original issue",
+        codex_log=None,
+    )
+
+    assert result == {"blocked": True, "reason": "injection detected"}
+    assert "(source:" not in str(result["reason"])
+
+
+def test_guard_payloads_annotates_reason_with_nonempty_label(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Non-empty labels must appear in the blocked reason for triage."""
+
+    monkeypatch.setattr(
+        followup_issue_generator,
+        "check_prompt_injection",
+        lambda _text: {"blocked": True, "reason": "injection detected"},
+    )
+
+    result = followup_issue_generator._guard_payloads(
+        verification_text="blocked verification text",
+        original_issue_text="safe original issue",
+        codex_log=None,
+    )
+
+    assert result == {
+        "blocked": True,
+        "reason": "injection detected (source: verification_comment)",
+    }
