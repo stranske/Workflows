@@ -77,14 +77,11 @@ CASES = [
 @pytest.mark.parametrize("surface,parser", parsers(), ids=lambda item: str(item)[:100])
 @pytest.mark.parametrize("case,registry,expected", CASES, ids=[case[0] for case in CASES])
 def test_enabled_contract_on_every_parser(surface, parser, case, registry, expected):
-    harness = (
-        parser
-        + """
+    harness = parser + """
 const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
 try { process.stdout.write(JSON.stringify({labels: [...routingLabelsFromRegistry(input)]})); }
 catch(error) { process.stdout.write(JSON.stringify({error: error.message})); }
 """
-    )
     completed = subprocess.run(
         ["node", "-e", harness],
         input=json.dumps(registry),
