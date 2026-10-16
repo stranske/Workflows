@@ -2690,3 +2690,72 @@ def test_main_guard_blocked_writes_markdown_output_file(
     assert written.startswith("# ")
     assert "Human review" in written
     assert "```json" not in written
+
+
+# Continues issue #3956's Orchestrator-ranked target (escaped-defect priority, then churn,
+# then uncovered mass): scripts/langchain/followup_issue_generator.py.
+
+
+def test_concern_label_and_insights_skip_short_and_spurious_fragments() -> None:
+    """Plain Concerns:/Unique Insights paths drop short bullets and spurious tallies."""
+    data = extract_verification_data("""
+Verdict: CONCERNS @ 70%
+
+Concerns:
+- tiny
+- not dash line should be ignored by the label matcher preamble
+- Parser rejects empty pension rows when the CSV trailer is truncated
+- Parser rejects empty pension rows when the CSV trailer is truncated
+
+### Unique Insights
+plain prose without a dash is ignored
+- github-models: short; Fails when the import trailer omits the closing delimiter
+- 5 unchecked tasks remain after the follow-up round
+""")
+
+    assert data.provider_verdicts["default"]["verdict"] == "CONCERNS"
+    assert "tiny" not in data.concerns
+    assert "short" not in {c.lower() for c in data.concerns}
+    assert not any("unchecked tasks" in c.lower() for c in data.concerns)
+    pension = [c for c in data.concerns if "Parser rejects empty pension rows" in c]
+    assert len(pension) == 1
+    assert any("import trailer omits the closing delimiter" in c for c in data.concerns)
+
+
+def test_parse_checklist_skips_direct_checkbox_placeholders_and_non_list_lines() -> None:
+    """Direct checkbox lines (no list marker) and plain prose must not leak into tasks."""
+    lines = [
+        "[ ] _Not provided._",
+        "[ ] ab",
+        "[ ] Add focused regression for the trailer parser",
+        "not a list item at all",
+        "- plain list without checkbox still counts when long enough",
+    ]
+
+    assert followup_issue_generator._parse_checklist(lines) == [
+        "Add focused regression for the trailer parser",
+        "plain list without checkbox still counts when long enough",
+    ]
+
+
+def test_select_followup_acceptance_criteria_keeps_all_when_feedback_mentions_sync() -> None:
+    """When verifier feedback itself discusses workflow sync, keep mixed criteria intact."""
+    original_issue = OriginalIssueData(
+        title="Mixed consumer and workflow follow-up",
+        number=42,
+        tasks=[],
+        acceptance_criteria=[
+            "Database migrations preserve existing records",
+            "Workflow template sync PRs are merged across consumers",
+        ],
+    )
+    verification_data = VerificationData(
+        concerns=["Workflow template sync PRs were not merged for the consumer"],
+    )
+
+    selected = _select_followup_acceptance_criteria(original_issue, verification_data)
+
+    assert selected == [
+        "Database migrations preserve existing records",
+        "Workflow template sync PRs are merged across consumers",
+    ]
