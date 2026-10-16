@@ -1,0 +1,1100 @@
+FFFFFFFFFFFFFFFFFFFFFFFFFF                                               [100%]
+=================================== FAILURES ===================================
+__ test_missing_enabled_corrective_write_requires_fresh_bindings[none-False] ___
+
+template = False, drift = 'none'
+
+    @pytest.mark.parametrize("template", [False, True])
+    @pytest.mark.parametrize("drift", ["none", "head", "base", "base-repo", "base-ref", "closed", "attempt", "newer-run", "same-id-attempt", "ambiguous-newer", "missing-inventory", "final-head", "final-attempt"])
+    def test_missing_enabled_corrective_write_requires_fresh_bindings(template, drift):
+        prefix = ROOT / "templates/consumer-repo" if template else ROOT
+        workflow = yaml.safe_load((prefix / ".github/workflows/agents-guard.yml").read_text())
+        script = next(step["with"]["script"] for step in workflow["jobs"]["guard"]["steps"] if step.get("name") == "Report agents guard commit status")
+        harness = r"""
+    const input=JSON.parse(require('fs').readFileSync(0,'utf8'));
+    process.env.GITHUB_RUN_ATTEMPT='1';
+    const writes=[];const failures=[];let prReads=0;let runReads=0;
+    const pr={number:4,state:'open',head:{sha:'a'.repeat(40)},base:{sha:'b'.repeat(40),ref:'main',repo:{id:1}}};
+    const run={id:42,workflow_id:7,path:'.github/workflows/agents-guard.yml',event:'pull_request_target',head_sha:'b'.repeat(40),run_number:5,run_attempt:1,created_at:'2026-10-16T01:00:00Z',pull_requests:[{number:4}]};
+    const context={repo:{owner:'owner',repo:'repo'},eventName:'pull_request_target',runId:42,sha:'b'.repeat(40),serverUrl:'https://github.com',payload:{pull_request:pr}};
+    const github={rest:{repos:{getContent:async()=>({data:{type:'file',encoding:'base64',content:Buffer.from('agents:\n  codex:\n').toString('base64')}}),createCommitStatus:async p=>writes.push(p)},pulls:{get:async()=>{prReads++;const copy=JSON.parse(JSON.stringify(pr));
+    if(input.drift==='head'||(input.drift==='final-head'&&prReads>1))copy.head.sha='c'.repeat(40);
+    if(input.drift==='base')copy.base.sha='c'.repeat(40);
+    if(input.drift==='base-repo')copy.base.repo.id=2;
+    if(input.drift==='base-ref')copy.base.ref='other';
+    if(input.drift==='closed')copy.state='closed';
+    return {data:copy};}},actions:{getWorkflowRun:async()=>{runReads++;return {data:{...run,run_attempt:(input.drift==='attempt'||(input.drift==='final-attempt'&&runReads>1))?2:1}};},listWorkflowRuns(){}}},paginate:async(method,params)=>{
+    if(method!==github.rest.actions.listWorkflowRuns)throw Error('unexpected pagination');
+    if(input.drift==='missing-inventory')return [];
+    if(input.drift==='same-id-attempt')return [{...run,run_attempt:2}];
+    if(input.drift==='newer-run')return [run,{...run,id:43,run_number:6}];
+    if(input.drift==='ambiguous-newer')return [run,{...run,id:43,run_number:6,pull_requests:[]}];
+    return [run];}};
+    const core={info(){},warning(){},error(){},setFailed:m=>failures.push(m)};
+    const AsyncFunction=Object.getPrototypeOf(async function(){}).constructor;
+    new AsyncFunction('github','context','core',input.script)(github,context,core).then(()=>process.stdout.write(JSON.stringify({writes,failures,prReads,runReads})));
+    """
+        result = subprocess.run(["node", "-e", harness], input=json.dumps({"script": script, "drift": drift}), capture_output=True, text=True, check=True)
+        record = json.loads(result.stdout)
+        assert len(record["writes"]) == (1 if drift == "none" else 0)
+        assert record["failures"]
+        if drift == "none":
+>           assert record["prReads"] >= 2 and record["runReads"] >= 2
+E           assert (0 >= 2)
+
+tests/workflows/test_agents_guard_publication.py:801: AssertionError
+___ test_missing_enabled_corrective_write_requires_fresh_bindings[none-True] ___
+
+template = True, drift = 'none'
+
+    @pytest.mark.parametrize("template", [False, True])
+    @pytest.mark.parametrize("drift", ["none", "head", "base", "base-repo", "base-ref", "closed", "attempt", "newer-run", "same-id-attempt", "ambiguous-newer", "missing-inventory", "final-head", "final-attempt"])
+    def test_missing_enabled_corrective_write_requires_fresh_bindings(template, drift):
+        prefix = ROOT / "templates/consumer-repo" if template else ROOT
+        workflow = yaml.safe_load((prefix / ".github/workflows/agents-guard.yml").read_text())
+        script = next(step["with"]["script"] for step in workflow["jobs"]["guard"]["steps"] if step.get("name") == "Report agents guard commit status")
+        harness = r"""
+    const input=JSON.parse(require('fs').readFileSync(0,'utf8'));
+    process.env.GITHUB_RUN_ATTEMPT='1';
+    const writes=[];const failures=[];let prReads=0;let runReads=0;
+    const pr={number:4,state:'open',head:{sha:'a'.repeat(40)},base:{sha:'b'.repeat(40),ref:'main',repo:{id:1}}};
+    const run={id:42,workflow_id:7,path:'.github/workflows/agents-guard.yml',event:'pull_request_target',head_sha:'b'.repeat(40),run_number:5,run_attempt:1,created_at:'2026-10-16T01:00:00Z',pull_requests:[{number:4}]};
+    const context={repo:{owner:'owner',repo:'repo'},eventName:'pull_request_target',runId:42,sha:'b'.repeat(40),serverUrl:'https://github.com',payload:{pull_request:pr}};
+    const github={rest:{repos:{getContent:async()=>({data:{type:'file',encoding:'base64',content:Buffer.from('agents:\n  codex:\n').toString('base64')}}),createCommitStatus:async p=>writes.push(p)},pulls:{get:async()=>{prReads++;const copy=JSON.parse(JSON.stringify(pr));
+    if(input.drift==='head'||(input.drift==='final-head'&&prReads>1))copy.head.sha='c'.repeat(40);
+    if(input.drift==='base')copy.base.sha='c'.repeat(40);
+    if(input.drift==='base-repo')copy.base.repo.id=2;
+    if(input.drift==='base-ref')copy.base.ref='other';
+    if(input.drift==='closed')copy.state='closed';
+    return {data:copy};}},actions:{getWorkflowRun:async()=>{runReads++;return {data:{...run,run_attempt:(input.drift==='attempt'||(input.drift==='final-attempt'&&runReads>1))?2:1}};},listWorkflowRuns(){}}},paginate:async(method,params)=>{
+    if(method!==github.rest.actions.listWorkflowRuns)throw Error('unexpected pagination');
+    if(input.drift==='missing-inventory')return [];
+    if(input.drift==='same-id-attempt')return [{...run,run_attempt:2}];
+    if(input.drift==='newer-run')return [run,{...run,id:43,run_number:6}];
+    if(input.drift==='ambiguous-newer')return [run,{...run,id:43,run_number:6,pull_requests:[]}];
+    return [run];}};
+    const core={info(){},warning(){},error(){},setFailed:m=>failures.push(m)};
+    const AsyncFunction=Object.getPrototypeOf(async function(){}).constructor;
+    new AsyncFunction('github','context','core',input.script)(github,context,core).then(()=>process.stdout.write(JSON.stringify({writes,failures,prReads,runReads})));
+    """
+        result = subprocess.run(["node", "-e", harness], input=json.dumps({"script": script, "drift": drift}), capture_output=True, text=True, check=True)
+        record = json.loads(result.stdout)
+        assert len(record["writes"]) == (1 if drift == "none" else 0)
+        assert record["failures"]
+        if drift == "none":
+>           assert record["prReads"] >= 2 and record["runReads"] >= 2
+E           assert (0 >= 2)
+
+tests/workflows/test_agents_guard_publication.py:801: AssertionError
+__ test_missing_enabled_corrective_write_requires_fresh_bindings[head-False] ___
+
+template = False, drift = 'head'
+
+    @pytest.mark.parametrize("template", [False, True])
+    @pytest.mark.parametrize("drift", ["none", "head", "base", "base-repo", "base-ref", "closed", "attempt", "newer-run", "same-id-attempt", "ambiguous-newer", "missing-inventory", "final-head", "final-attempt"])
+    def test_missing_enabled_corrective_write_requires_fresh_bindings(template, drift):
+        prefix = ROOT / "templates/consumer-repo" if template else ROOT
+        workflow = yaml.safe_load((prefix / ".github/workflows/agents-guard.yml").read_text())
+        script = next(step["with"]["script"] for step in workflow["jobs"]["guard"]["steps"] if step.get("name") == "Report agents guard commit status")
+        harness = r"""
+    const input=JSON.parse(require('fs').readFileSync(0,'utf8'));
+    process.env.GITHUB_RUN_ATTEMPT='1';
+    const writes=[];const failures=[];let prReads=0;let runReads=0;
+    const pr={number:4,state:'open',head:{sha:'a'.repeat(40)},base:{sha:'b'.repeat(40),ref:'main',repo:{id:1}}};
+    const run={id:42,workflow_id:7,path:'.github/workflows/agents-guard.yml',event:'pull_request_target',head_sha:'b'.repeat(40),run_number:5,run_attempt:1,created_at:'2026-10-16T01:00:00Z',pull_requests:[{number:4}]};
+    const context={repo:{owner:'owner',repo:'repo'},eventName:'pull_request_target',runId:42,sha:'b'.repeat(40),serverUrl:'https://github.com',payload:{pull_request:pr}};
+    const github={rest:{repos:{getContent:async()=>({data:{type:'file',encoding:'base64',content:Buffer.from('agents:\n  codex:\n').toString('base64')}}),createCommitStatus:async p=>writes.push(p)},pulls:{get:async()=>{prReads++;const copy=JSON.parse(JSON.stringify(pr));
+    if(input.drift==='head'||(input.drift==='final-head'&&prReads>1))copy.head.sha='c'.repeat(40);
+    if(input.drift==='base')copy.base.sha='c'.repeat(40);
+    if(input.drift==='base-repo')copy.base.repo.id=2;
+    if(input.drift==='base-ref')copy.base.ref='other';
+    if(input.drift==='closed')copy.state='closed';
+    return {data:copy};}},actions:{getWorkflowRun:async()=>{runReads++;return {data:{...run,run_attempt:(input.drift==='attempt'||(input.drift==='final-attempt'&&runReads>1))?2:1}};},listWorkflowRuns(){}}},paginate:async(method,params)=>{
+    if(method!==github.rest.actions.listWorkflowRuns)throw Error('unexpected pagination');
+    if(input.drift==='missing-inventory')return [];
+    if(input.drift==='same-id-attempt')return [{...run,run_attempt:2}];
+    if(input.drift==='newer-run')return [run,{...run,id:43,run_number:6}];
+    if(input.drift==='ambiguous-newer')return [run,{...run,id:43,run_number:6,pull_requests:[]}];
+    return [run];}};
+    const core={info(){},warning(){},error(){},setFailed:m=>failures.push(m)};
+    const AsyncFunction=Object.getPrototypeOf(async function(){}).constructor;
+    new AsyncFunction('github','context','core',input.script)(github,context,core).then(()=>process.stdout.write(JSON.stringify({writes,failures,prReads,runReads})));
+    """
+        result = subprocess.run(["node", "-e", harness], input=json.dumps({"script": script, "drift": drift}), capture_output=True, text=True, check=True)
+        record = json.loads(result.stdout)
+>       assert len(record["writes"]) == (1 if drift == "none" else 0)
+E       AssertionError: assert 1 == 0
+E        +  where 1 = len([{'owner': 'owner', 'repo': 'repo', 'sha': 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'state': 'failure', ...}])
+
+tests/workflows/test_agents_guard_publication.py:798: AssertionError
+___ test_missing_enabled_corrective_write_requires_fresh_bindings[head-True] ___
+
+template = True, drift = 'head'
+
+    @pytest.mark.parametrize("template", [False, True])
+    @pytest.mark.parametrize("drift", ["none", "head", "base", "base-repo", "base-ref", "closed", "attempt", "newer-run", "same-id-attempt", "ambiguous-newer", "missing-inventory", "final-head", "final-attempt"])
+    def test_missing_enabled_corrective_write_requires_fresh_bindings(template, drift):
+        prefix = ROOT / "templates/consumer-repo" if template else ROOT
+        workflow = yaml.safe_load((prefix / ".github/workflows/agents-guard.yml").read_text())
+        script = next(step["with"]["script"] for step in workflow["jobs"]["guard"]["steps"] if step.get("name") == "Report agents guard commit status")
+        harness = r"""
+    const input=JSON.parse(require('fs').readFileSync(0,'utf8'));
+    process.env.GITHUB_RUN_ATTEMPT='1';
+    const writes=[];const failures=[];let prReads=0;let runReads=0;
+    const pr={number:4,state:'open',head:{sha:'a'.repeat(40)},base:{sha:'b'.repeat(40),ref:'main',repo:{id:1}}};
+    const run={id:42,workflow_id:7,path:'.github/workflows/agents-guard.yml',event:'pull_request_target',head_sha:'b'.repeat(40),run_number:5,run_attempt:1,created_at:'2026-10-16T01:00:00Z',pull_requests:[{number:4}]};
+    const context={repo:{owner:'owner',repo:'repo'},eventName:'pull_request_target',runId:42,sha:'b'.repeat(40),serverUrl:'https://github.com',payload:{pull_request:pr}};
+    const github={rest:{repos:{getContent:async()=>({data:{type:'file',encoding:'base64',content:Buffer.from('agents:\n  codex:\n').toString('base64')}}),createCommitStatus:async p=>writes.push(p)},pulls:{get:async()=>{prReads++;const copy=JSON.parse(JSON.stringify(pr));
+    if(input.drift==='head'||(input.drift==='final-head'&&prReads>1))copy.head.sha='c'.repeat(40);
+    if(input.drift==='base')copy.base.sha='c'.repeat(40);
+    if(input.drift==='base-repo')copy.base.repo.id=2;
+    if(input.drift==='base-ref')copy.base.ref='other';
+    if(input.drift==='closed')copy.state='closed';
+    return {data:copy};}},actions:{getWorkflowRun:async()=>{runReads++;return {data:{...run,run_attempt:(input.drift==='attempt'||(input.drift==='final-attempt'&&runReads>1))?2:1}};},listWorkflowRuns(){}}},paginate:async(method,params)=>{
+    if(method!==github.rest.actions.listWorkflowRuns)throw Error('unexpected pagination');
+    if(input.drift==='missing-inventory')return [];
+    if(input.drift==='same-id-attempt')return [{...run,run_attempt:2}];
+    if(input.drift==='newer-run')return [run,{...run,id:43,run_number:6}];
+    if(input.drift==='ambiguous-newer')return [run,{...run,id:43,run_number:6,pull_requests:[]}];
+    return [run];}};
+    const core={info(){},warning(){},error(){},setFailed:m=>failures.push(m)};
+    const AsyncFunction=Object.getPrototypeOf(async function(){}).constructor;
+    new AsyncFunction('github','context','core',input.script)(github,context,core).then(()=>process.stdout.write(JSON.stringify({writes,failures,prReads,runReads})));
+    """
+        result = subprocess.run(["node", "-e", harness], input=json.dumps({"script": script, "drift": drift}), capture_output=True, text=True, check=True)
+        record = json.loads(result.stdout)
+>       assert len(record["writes"]) == (1 if drift == "none" else 0)
+E       AssertionError: assert 1 == 0
+E        +  where 1 = len([{'owner': 'owner', 'repo': 'repo', 'sha': 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'state': 'failure', ...}])
+
+tests/workflows/test_agents_guard_publication.py:798: AssertionError
+__ test_missing_enabled_corrective_write_requires_fresh_bindings[base-False] ___
+
+template = False, drift = 'base'
+
+    @pytest.mark.parametrize("template", [False, True])
+    @pytest.mark.parametrize("drift", ["none", "head", "base", "base-repo", "base-ref", "closed", "attempt", "newer-run", "same-id-attempt", "ambiguous-newer", "missing-inventory", "final-head", "final-attempt"])
+    def test_missing_enabled_corrective_write_requires_fresh_bindings(template, drift):
+        prefix = ROOT / "templates/consumer-repo" if template else ROOT
+        workflow = yaml.safe_load((prefix / ".github/workflows/agents-guard.yml").read_text())
+        script = next(step["with"]["script"] for step in workflow["jobs"]["guard"]["steps"] if step.get("name") == "Report agents guard commit status")
+        harness = r"""
+    const input=JSON.parse(require('fs').readFileSync(0,'utf8'));
+    process.env.GITHUB_RUN_ATTEMPT='1';
+    const writes=[];const failures=[];let prReads=0;let runReads=0;
+    const pr={number:4,state:'open',head:{sha:'a'.repeat(40)},base:{sha:'b'.repeat(40),ref:'main',repo:{id:1}}};
+    const run={id:42,workflow_id:7,path:'.github/workflows/agents-guard.yml',event:'pull_request_target',head_sha:'b'.repeat(40),run_number:5,run_attempt:1,created_at:'2026-10-16T01:00:00Z',pull_requests:[{number:4}]};
+    const context={repo:{owner:'owner',repo:'repo'},eventName:'pull_request_target',runId:42,sha:'b'.repeat(40),serverUrl:'https://github.com',payload:{pull_request:pr}};
+    const github={rest:{repos:{getContent:async()=>({data:{type:'file',encoding:'base64',content:Buffer.from('agents:\n  codex:\n').toString('base64')}}),createCommitStatus:async p=>writes.push(p)},pulls:{get:async()=>{prReads++;const copy=JSON.parse(JSON.stringify(pr));
+    if(input.drift==='head'||(input.drift==='final-head'&&prReads>1))copy.head.sha='c'.repeat(40);
+    if(input.drift==='base')copy.base.sha='c'.repeat(40);
+    if(input.drift==='base-repo')copy.base.repo.id=2;
+    if(input.drift==='base-ref')copy.base.ref='other';
+    if(input.drift==='closed')copy.state='closed';
+    return {data:copy};}},actions:{getWorkflowRun:async()=>{runReads++;return {data:{...run,run_attempt:(input.drift==='attempt'||(input.drift==='final-attempt'&&runReads>1))?2:1}};},listWorkflowRuns(){}}},paginate:async(method,params)=>{
+    if(method!==github.rest.actions.listWorkflowRuns)throw Error('unexpected pagination');
+    if(input.drift==='missing-inventory')return [];
+    if(input.drift==='same-id-attempt')return [{...run,run_attempt:2}];
+    if(input.drift==='newer-run')return [run,{...run,id:43,run_number:6}];
+    if(input.drift==='ambiguous-newer')return [run,{...run,id:43,run_number:6,pull_requests:[]}];
+    return [run];}};
+    const core={info(){},warning(){},error(){},setFailed:m=>failures.push(m)};
+    const AsyncFunction=Object.getPrototypeOf(async function(){}).constructor;
+    new AsyncFunction('github','context','core',input.script)(github,context,core).then(()=>process.stdout.write(JSON.stringify({writes,failures,prReads,runReads})));
+    """
+        result = subprocess.run(["node", "-e", harness], input=json.dumps({"script": script, "drift": drift}), capture_output=True, text=True, check=True)
+        record = json.loads(result.stdout)
+>       assert len(record["writes"]) == (1 if drift == "none" else 0)
+E       AssertionError: assert 1 == 0
+E        +  where 1 = len([{'owner': 'owner', 'repo': 'repo', 'sha': 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'state': 'failure', ...}])
+
+tests/workflows/test_agents_guard_publication.py:798: AssertionError
+___ test_missing_enabled_corrective_write_requires_fresh_bindings[base-True] ___
+
+template = True, drift = 'base'
+
+    @pytest.mark.parametrize("template", [False, True])
+    @pytest.mark.parametrize("drift", ["none", "head", "base", "base-repo", "base-ref", "closed", "attempt", "newer-run", "same-id-attempt", "ambiguous-newer", "missing-inventory", "final-head", "final-attempt"])
+    def test_missing_enabled_corrective_write_requires_fresh_bindings(template, drift):
+        prefix = ROOT / "templates/consumer-repo" if template else ROOT
+        workflow = yaml.safe_load((prefix / ".github/workflows/agents-guard.yml").read_text())
+        script = next(step["with"]["script"] for step in workflow["jobs"]["guard"]["steps"] if step.get("name") == "Report agents guard commit status")
+        harness = r"""
+    const input=JSON.parse(require('fs').readFileSync(0,'utf8'));
+    process.env.GITHUB_RUN_ATTEMPT='1';
+    const writes=[];const failures=[];let prReads=0;let runReads=0;
+    const pr={number:4,state:'open',head:{sha:'a'.repeat(40)},base:{sha:'b'.repeat(40),ref:'main',repo:{id:1}}};
+    const run={id:42,workflow_id:7,path:'.github/workflows/agents-guard.yml',event:'pull_request_target',head_sha:'b'.repeat(40),run_number:5,run_attempt:1,created_at:'2026-10-16T01:00:00Z',pull_requests:[{number:4}]};
+    const context={repo:{owner:'owner',repo:'repo'},eventName:'pull_request_target',runId:42,sha:'b'.repeat(40),serverUrl:'https://github.com',payload:{pull_request:pr}};
+    const github={rest:{repos:{getContent:async()=>({data:{type:'file',encoding:'base64',content:Buffer.from('agents:\n  codex:\n').toString('base64')}}),createCommitStatus:async p=>writes.push(p)},pulls:{get:async()=>{prReads++;const copy=JSON.parse(JSON.stringify(pr));
+    if(input.drift==='head'||(input.drift==='final-head'&&prReads>1))copy.head.sha='c'.repeat(40);
+    if(input.drift==='base')copy.base.sha='c'.repeat(40);
+    if(input.drift==='base-repo')copy.base.repo.id=2;
+    if(input.drift==='base-ref')copy.base.ref='other';
+    if(input.drift==='closed')copy.state='closed';
+    return {data:copy};}},actions:{getWorkflowRun:async()=>{runReads++;return {data:{...run,run_attempt:(input.drift==='attempt'||(input.drift==='final-attempt'&&runReads>1))?2:1}};},listWorkflowRuns(){}}},paginate:async(method,params)=>{
+    if(method!==github.rest.actions.listWorkflowRuns)throw Error('unexpected pagination');
+    if(input.drift==='missing-inventory')return [];
+    if(input.drift==='same-id-attempt')return [{...run,run_attempt:2}];
+    if(input.drift==='newer-run')return [run,{...run,id:43,run_number:6}];
+    if(input.drift==='ambiguous-newer')return [run,{...run,id:43,run_number:6,pull_requests:[]}];
+    return [run];}};
+    const core={info(){},warning(){},error(){},setFailed:m=>failures.push(m)};
+    const AsyncFunction=Object.getPrototypeOf(async function(){}).constructor;
+    new AsyncFunction('github','context','core',input.script)(github,context,core).then(()=>process.stdout.write(JSON.stringify({writes,failures,prReads,runReads})));
+    """
+        result = subprocess.run(["node", "-e", harness], input=json.dumps({"script": script, "drift": drift}), capture_output=True, text=True, check=True)
+        record = json.loads(result.stdout)
+>       assert len(record["writes"]) == (1 if drift == "none" else 0)
+E       AssertionError: assert 1 == 0
+E        +  where 1 = len([{'owner': 'owner', 'repo': 'repo', 'sha': 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'state': 'failure', ...}])
+
+tests/workflows/test_agents_guard_publication.py:798: AssertionError
+_ test_missing_enabled_corrective_write_requires_fresh_bindings[base-repo-False] _
+
+template = False, drift = 'base-repo'
+
+    @pytest.mark.parametrize("template", [False, True])
+    @pytest.mark.parametrize("drift", ["none", "head", "base", "base-repo", "base-ref", "closed", "attempt", "newer-run", "same-id-attempt", "ambiguous-newer", "missing-inventory", "final-head", "final-attempt"])
+    def test_missing_enabled_corrective_write_requires_fresh_bindings(template, drift):
+        prefix = ROOT / "templates/consumer-repo" if template else ROOT
+        workflow = yaml.safe_load((prefix / ".github/workflows/agents-guard.yml").read_text())
+        script = next(step["with"]["script"] for step in workflow["jobs"]["guard"]["steps"] if step.get("name") == "Report agents guard commit status")
+        harness = r"""
+    const input=JSON.parse(require('fs').readFileSync(0,'utf8'));
+    process.env.GITHUB_RUN_ATTEMPT='1';
+    const writes=[];const failures=[];let prReads=0;let runReads=0;
+    const pr={number:4,state:'open',head:{sha:'a'.repeat(40)},base:{sha:'b'.repeat(40),ref:'main',repo:{id:1}}};
+    const run={id:42,workflow_id:7,path:'.github/workflows/agents-guard.yml',event:'pull_request_target',head_sha:'b'.repeat(40),run_number:5,run_attempt:1,created_at:'2026-10-16T01:00:00Z',pull_requests:[{number:4}]};
+    const context={repo:{owner:'owner',repo:'repo'},eventName:'pull_request_target',runId:42,sha:'b'.repeat(40),serverUrl:'https://github.com',payload:{pull_request:pr}};
+    const github={rest:{repos:{getContent:async()=>({data:{type:'file',encoding:'base64',content:Buffer.from('agents:\n  codex:\n').toString('base64')}}),createCommitStatus:async p=>writes.push(p)},pulls:{get:async()=>{prReads++;const copy=JSON.parse(JSON.stringify(pr));
+    if(input.drift==='head'||(input.drift==='final-head'&&prReads>1))copy.head.sha='c'.repeat(40);
+    if(input.drift==='base')copy.base.sha='c'.repeat(40);
+    if(input.drift==='base-repo')copy.base.repo.id=2;
+    if(input.drift==='base-ref')copy.base.ref='other';
+    if(input.drift==='closed')copy.state='closed';
+    return {data:copy};}},actions:{getWorkflowRun:async()=>{runReads++;return {data:{...run,run_attempt:(input.drift==='attempt'||(input.drift==='final-attempt'&&runReads>1))?2:1}};},listWorkflowRuns(){}}},paginate:async(method,params)=>{
+    if(method!==github.rest.actions.listWorkflowRuns)throw Error('unexpected pagination');
+    if(input.drift==='missing-inventory')return [];
+    if(input.drift==='same-id-attempt')return [{...run,run_attempt:2}];
+    if(input.drift==='newer-run')return [run,{...run,id:43,run_number:6}];
+    if(input.drift==='ambiguous-newer')return [run,{...run,id:43,run_number:6,pull_requests:[]}];
+    return [run];}};
+    const core={info(){},warning(){},error(){},setFailed:m=>failures.push(m)};
+    const AsyncFunction=Object.getPrototypeOf(async function(){}).constructor;
+    new AsyncFunction('github','context','core',input.script)(github,context,core).then(()=>process.stdout.write(JSON.stringify({writes,failures,prReads,runReads})));
+    """
+        result = subprocess.run(["node", "-e", harness], input=json.dumps({"script": script, "drift": drift}), capture_output=True, text=True, check=True)
+        record = json.loads(result.stdout)
+>       assert len(record["writes"]) == (1 if drift == "none" else 0)
+E       AssertionError: assert 1 == 0
+E        +  where 1 = len([{'owner': 'owner', 'repo': 'repo', 'sha': 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'state': 'failure', ...}])
+
+tests/workflows/test_agents_guard_publication.py:798: AssertionError
+_ test_missing_enabled_corrective_write_requires_fresh_bindings[base-repo-True] _
+
+template = True, drift = 'base-repo'
+
+    @pytest.mark.parametrize("template", [False, True])
+    @pytest.mark.parametrize("drift", ["none", "head", "base", "base-repo", "base-ref", "closed", "attempt", "newer-run", "same-id-attempt", "ambiguous-newer", "missing-inventory", "final-head", "final-attempt"])
+    def test_missing_enabled_corrective_write_requires_fresh_bindings(template, drift):
+        prefix = ROOT / "templates/consumer-repo" if template else ROOT
+        workflow = yaml.safe_load((prefix / ".github/workflows/agents-guard.yml").read_text())
+        script = next(step["with"]["script"] for step in workflow["jobs"]["guard"]["steps"] if step.get("name") == "Report agents guard commit status")
+        harness = r"""
+    const input=JSON.parse(require('fs').readFileSync(0,'utf8'));
+    process.env.GITHUB_RUN_ATTEMPT='1';
+    const writes=[];const failures=[];let prReads=0;let runReads=0;
+    const pr={number:4,state:'open',head:{sha:'a'.repeat(40)},base:{sha:'b'.repeat(40),ref:'main',repo:{id:1}}};
+    const run={id:42,workflow_id:7,path:'.github/workflows/agents-guard.yml',event:'pull_request_target',head_sha:'b'.repeat(40),run_number:5,run_attempt:1,created_at:'2026-10-16T01:00:00Z',pull_requests:[{number:4}]};
+    const context={repo:{owner:'owner',repo:'repo'},eventName:'pull_request_target',runId:42,sha:'b'.repeat(40),serverUrl:'https://github.com',payload:{pull_request:pr}};
+    const github={rest:{repos:{getContent:async()=>({data:{type:'file',encoding:'base64',content:Buffer.from('agents:\n  codex:\n').toString('base64')}}),createCommitStatus:async p=>writes.push(p)},pulls:{get:async()=>{prReads++;const copy=JSON.parse(JSON.stringify(pr));
+    if(input.drift==='head'||(input.drift==='final-head'&&prReads>1))copy.head.sha='c'.repeat(40);
+    if(input.drift==='base')copy.base.sha='c'.repeat(40);
+    if(input.drift==='base-repo')copy.base.repo.id=2;
+    if(input.drift==='base-ref')copy.base.ref='other';
+    if(input.drift==='closed')copy.state='closed';
+    return {data:copy};}},actions:{getWorkflowRun:async()=>{runReads++;return {data:{...run,run_attempt:(input.drift==='attempt'||(input.drift==='final-attempt'&&runReads>1))?2:1}};},listWorkflowRuns(){}}},paginate:async(method,params)=>{
+    if(method!==github.rest.actions.listWorkflowRuns)throw Error('unexpected pagination');
+    if(input.drift==='missing-inventory')return [];
+    if(input.drift==='same-id-attempt')return [{...run,run_attempt:2}];
+    if(input.drift==='newer-run')return [run,{...run,id:43,run_number:6}];
+    if(input.drift==='ambiguous-newer')return [run,{...run,id:43,run_number:6,pull_requests:[]}];
+    return [run];}};
+    const core={info(){},warning(){},error(){},setFailed:m=>failures.push(m)};
+    const AsyncFunction=Object.getPrototypeOf(async function(){}).constructor;
+    new AsyncFunction('github','context','core',input.script)(github,context,core).then(()=>process.stdout.write(JSON.stringify({writes,failures,prReads,runReads})));
+    """
+        result = subprocess.run(["node", "-e", harness], input=json.dumps({"script": script, "drift": drift}), capture_output=True, text=True, check=True)
+        record = json.loads(result.stdout)
+>       assert len(record["writes"]) == (1 if drift == "none" else 0)
+E       AssertionError: assert 1 == 0
+E        +  where 1 = len([{'owner': 'owner', 'repo': 'repo', 'sha': 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'state': 'failure', ...}])
+
+tests/workflows/test_agents_guard_publication.py:798: AssertionError
+_ test_missing_enabled_corrective_write_requires_fresh_bindings[base-ref-False] _
+
+template = False, drift = 'base-ref'
+
+    @pytest.mark.parametrize("template", [False, True])
+    @pytest.mark.parametrize("drift", ["none", "head", "base", "base-repo", "base-ref", "closed", "attempt", "newer-run", "same-id-attempt", "ambiguous-newer", "missing-inventory", "final-head", "final-attempt"])
+    def test_missing_enabled_corrective_write_requires_fresh_bindings(template, drift):
+        prefix = ROOT / "templates/consumer-repo" if template else ROOT
+        workflow = yaml.safe_load((prefix / ".github/workflows/agents-guard.yml").read_text())
+        script = next(step["with"]["script"] for step in workflow["jobs"]["guard"]["steps"] if step.get("name") == "Report agents guard commit status")
+        harness = r"""
+    const input=JSON.parse(require('fs').readFileSync(0,'utf8'));
+    process.env.GITHUB_RUN_ATTEMPT='1';
+    const writes=[];const failures=[];let prReads=0;let runReads=0;
+    const pr={number:4,state:'open',head:{sha:'a'.repeat(40)},base:{sha:'b'.repeat(40),ref:'main',repo:{id:1}}};
+    const run={id:42,workflow_id:7,path:'.github/workflows/agents-guard.yml',event:'pull_request_target',head_sha:'b'.repeat(40),run_number:5,run_attempt:1,created_at:'2026-10-16T01:00:00Z',pull_requests:[{number:4}]};
+    const context={repo:{owner:'owner',repo:'repo'},eventName:'pull_request_target',runId:42,sha:'b'.repeat(40),serverUrl:'https://github.com',payload:{pull_request:pr}};
+    const github={rest:{repos:{getContent:async()=>({data:{type:'file',encoding:'base64',content:Buffer.from('agents:\n  codex:\n').toString('base64')}}),createCommitStatus:async p=>writes.push(p)},pulls:{get:async()=>{prReads++;const copy=JSON.parse(JSON.stringify(pr));
+    if(input.drift==='head'||(input.drift==='final-head'&&prReads>1))copy.head.sha='c'.repeat(40);
+    if(input.drift==='base')copy.base.sha='c'.repeat(40);
+    if(input.drift==='base-repo')copy.base.repo.id=2;
+    if(input.drift==='base-ref')copy.base.ref='other';
+    if(input.drift==='closed')copy.state='closed';
+    return {data:copy};}},actions:{getWorkflowRun:async()=>{runReads++;return {data:{...run,run_attempt:(input.drift==='attempt'||(input.drift==='final-attempt'&&runReads>1))?2:1}};},listWorkflowRuns(){}}},paginate:async(method,params)=>{
+    if(method!==github.rest.actions.listWorkflowRuns)throw Error('unexpected pagination');
+    if(input.drift==='missing-inventory')return [];
+    if(input.drift==='same-id-attempt')return [{...run,run_attempt:2}];
+    if(input.drift==='newer-run')return [run,{...run,id:43,run_number:6}];
+    if(input.drift==='ambiguous-newer')return [run,{...run,id:43,run_number:6,pull_requests:[]}];
+    return [run];}};
+    const core={info(){},warning(){},error(){},setFailed:m=>failures.push(m)};
+    const AsyncFunction=Object.getPrototypeOf(async function(){}).constructor;
+    new AsyncFunction('github','context','core',input.script)(github,context,core).then(()=>process.stdout.write(JSON.stringify({writes,failures,prReads,runReads})));
+    """
+        result = subprocess.run(["node", "-e", harness], input=json.dumps({"script": script, "drift": drift}), capture_output=True, text=True, check=True)
+        record = json.loads(result.stdout)
+>       assert len(record["writes"]) == (1 if drift == "none" else 0)
+E       AssertionError: assert 1 == 0
+E        +  where 1 = len([{'owner': 'owner', 'repo': 'repo', 'sha': 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'state': 'failure', ...}])
+
+tests/workflows/test_agents_guard_publication.py:798: AssertionError
+_ test_missing_enabled_corrective_write_requires_fresh_bindings[base-ref-True] _
+
+template = True, drift = 'base-ref'
+
+    @pytest.mark.parametrize("template", [False, True])
+    @pytest.mark.parametrize("drift", ["none", "head", "base", "base-repo", "base-ref", "closed", "attempt", "newer-run", "same-id-attempt", "ambiguous-newer", "missing-inventory", "final-head", "final-attempt"])
+    def test_missing_enabled_corrective_write_requires_fresh_bindings(template, drift):
+        prefix = ROOT / "templates/consumer-repo" if template else ROOT
+        workflow = yaml.safe_load((prefix / ".github/workflows/agents-guard.yml").read_text())
+        script = next(step["with"]["script"] for step in workflow["jobs"]["guard"]["steps"] if step.get("name") == "Report agents guard commit status")
+        harness = r"""
+    const input=JSON.parse(require('fs').readFileSync(0,'utf8'));
+    process.env.GITHUB_RUN_ATTEMPT='1';
+    const writes=[];const failures=[];let prReads=0;let runReads=0;
+    const pr={number:4,state:'open',head:{sha:'a'.repeat(40)},base:{sha:'b'.repeat(40),ref:'main',repo:{id:1}}};
+    const run={id:42,workflow_id:7,path:'.github/workflows/agents-guard.yml',event:'pull_request_target',head_sha:'b'.repeat(40),run_number:5,run_attempt:1,created_at:'2026-10-16T01:00:00Z',pull_requests:[{number:4}]};
+    const context={repo:{owner:'owner',repo:'repo'},eventName:'pull_request_target',runId:42,sha:'b'.repeat(40),serverUrl:'https://github.com',payload:{pull_request:pr}};
+    const github={rest:{repos:{getContent:async()=>({data:{type:'file',encoding:'base64',content:Buffer.from('agents:\n  codex:\n').toString('base64')}}),createCommitStatus:async p=>writes.push(p)},pulls:{get:async()=>{prReads++;const copy=JSON.parse(JSON.stringify(pr));
+    if(input.drift==='head'||(input.drift==='final-head'&&prReads>1))copy.head.sha='c'.repeat(40);
+    if(input.drift==='base')copy.base.sha='c'.repeat(40);
+    if(input.drift==='base-repo')copy.base.repo.id=2;
+    if(input.drift==='base-ref')copy.base.ref='other';
+    if(input.drift==='closed')copy.state='closed';
+    return {data:copy};}},actions:{getWorkflowRun:async()=>{runReads++;return {data:{...run,run_attempt:(input.drift==='attempt'||(input.drift==='final-attempt'&&runReads>1))?2:1}};},listWorkflowRuns(){}}},paginate:async(method,params)=>{
+    if(method!==github.rest.actions.listWorkflowRuns)throw Error('unexpected pagination');
+    if(input.drift==='missing-inventory')return [];
+    if(input.drift==='same-id-attempt')return [{...run,run_attempt:2}];
+    if(input.drift==='newer-run')return [run,{...run,id:43,run_number:6}];
+    if(input.drift==='ambiguous-newer')return [run,{...run,id:43,run_number:6,pull_requests:[]}];
+    return [run];}};
+    const core={info(){},warning(){},error(){},setFailed:m=>failures.push(m)};
+    const AsyncFunction=Object.getPrototypeOf(async function(){}).constructor;
+    new AsyncFunction('github','context','core',input.script)(github,context,core).then(()=>process.stdout.write(JSON.stringify({writes,failures,prReads,runReads})));
+    """
+        result = subprocess.run(["node", "-e", harness], input=json.dumps({"script": script, "drift": drift}), capture_output=True, text=True, check=True)
+        record = json.loads(result.stdout)
+>       assert len(record["writes"]) == (1 if drift == "none" else 0)
+E       AssertionError: assert 1 == 0
+E        +  where 1 = len([{'owner': 'owner', 'repo': 'repo', 'sha': 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'state': 'failure', ...}])
+
+tests/workflows/test_agents_guard_publication.py:798: AssertionError
+_ test_missing_enabled_corrective_write_requires_fresh_bindings[closed-False] __
+
+template = False, drift = 'closed'
+
+    @pytest.mark.parametrize("template", [False, True])
+    @pytest.mark.parametrize("drift", ["none", "head", "base", "base-repo", "base-ref", "closed", "attempt", "newer-run", "same-id-attempt", "ambiguous-newer", "missing-inventory", "final-head", "final-attempt"])
+    def test_missing_enabled_corrective_write_requires_fresh_bindings(template, drift):
+        prefix = ROOT / "templates/consumer-repo" if template else ROOT
+        workflow = yaml.safe_load((prefix / ".github/workflows/agents-guard.yml").read_text())
+        script = next(step["with"]["script"] for step in workflow["jobs"]["guard"]["steps"] if step.get("name") == "Report agents guard commit status")
+        harness = r"""
+    const input=JSON.parse(require('fs').readFileSync(0,'utf8'));
+    process.env.GITHUB_RUN_ATTEMPT='1';
+    const writes=[];const failures=[];let prReads=0;let runReads=0;
+    const pr={number:4,state:'open',head:{sha:'a'.repeat(40)},base:{sha:'b'.repeat(40),ref:'main',repo:{id:1}}};
+    const run={id:42,workflow_id:7,path:'.github/workflows/agents-guard.yml',event:'pull_request_target',head_sha:'b'.repeat(40),run_number:5,run_attempt:1,created_at:'2026-10-16T01:00:00Z',pull_requests:[{number:4}]};
+    const context={repo:{owner:'owner',repo:'repo'},eventName:'pull_request_target',runId:42,sha:'b'.repeat(40),serverUrl:'https://github.com',payload:{pull_request:pr}};
+    const github={rest:{repos:{getContent:async()=>({data:{type:'file',encoding:'base64',content:Buffer.from('agents:\n  codex:\n').toString('base64')}}),createCommitStatus:async p=>writes.push(p)},pulls:{get:async()=>{prReads++;const copy=JSON.parse(JSON.stringify(pr));
+    if(input.drift==='head'||(input.drift==='final-head'&&prReads>1))copy.head.sha='c'.repeat(40);
+    if(input.drift==='base')copy.base.sha='c'.repeat(40);
+    if(input.drift==='base-repo')copy.base.repo.id=2;
+    if(input.drift==='base-ref')copy.base.ref='other';
+    if(input.drift==='closed')copy.state='closed';
+    return {data:copy};}},actions:{getWorkflowRun:async()=>{runReads++;return {data:{...run,run_attempt:(input.drift==='attempt'||(input.drift==='final-attempt'&&runReads>1))?2:1}};},listWorkflowRuns(){}}},paginate:async(method,params)=>{
+    if(method!==github.rest.actions.listWorkflowRuns)throw Error('unexpected pagination');
+    if(input.drift==='missing-inventory')return [];
+    if(input.drift==='same-id-attempt')return [{...run,run_attempt:2}];
+    if(input.drift==='newer-run')return [run,{...run,id:43,run_number:6}];
+    if(input.drift==='ambiguous-newer')return [run,{...run,id:43,run_number:6,pull_requests:[]}];
+    return [run];}};
+    const core={info(){},warning(){},error(){},setFailed:m=>failures.push(m)};
+    const AsyncFunction=Object.getPrototypeOf(async function(){}).constructor;
+    new AsyncFunction('github','context','core',input.script)(github,context,core).then(()=>process.stdout.write(JSON.stringify({writes,failures,prReads,runReads})));
+    """
+        result = subprocess.run(["node", "-e", harness], input=json.dumps({"script": script, "drift": drift}), capture_output=True, text=True, check=True)
+        record = json.loads(result.stdout)
+>       assert len(record["writes"]) == (1 if drift == "none" else 0)
+E       AssertionError: assert 1 == 0
+E        +  where 1 = len([{'owner': 'owner', 'repo': 'repo', 'sha': 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'state': 'failure', ...}])
+
+tests/workflows/test_agents_guard_publication.py:798: AssertionError
+__ test_missing_enabled_corrective_write_requires_fresh_bindings[closed-True] __
+
+template = True, drift = 'closed'
+
+    @pytest.mark.parametrize("template", [False, True])
+    @pytest.mark.parametrize("drift", ["none", "head", "base", "base-repo", "base-ref", "closed", "attempt", "newer-run", "same-id-attempt", "ambiguous-newer", "missing-inventory", "final-head", "final-attempt"])
+    def test_missing_enabled_corrective_write_requires_fresh_bindings(template, drift):
+        prefix = ROOT / "templates/consumer-repo" if template else ROOT
+        workflow = yaml.safe_load((prefix / ".github/workflows/agents-guard.yml").read_text())
+        script = next(step["with"]["script"] for step in workflow["jobs"]["guard"]["steps"] if step.get("name") == "Report agents guard commit status")
+        harness = r"""
+    const input=JSON.parse(require('fs').readFileSync(0,'utf8'));
+    process.env.GITHUB_RUN_ATTEMPT='1';
+    const writes=[];const failures=[];let prReads=0;let runReads=0;
+    const pr={number:4,state:'open',head:{sha:'a'.repeat(40)},base:{sha:'b'.repeat(40),ref:'main',repo:{id:1}}};
+    const run={id:42,workflow_id:7,path:'.github/workflows/agents-guard.yml',event:'pull_request_target',head_sha:'b'.repeat(40),run_number:5,run_attempt:1,created_at:'2026-10-16T01:00:00Z',pull_requests:[{number:4}]};
+    const context={repo:{owner:'owner',repo:'repo'},eventName:'pull_request_target',runId:42,sha:'b'.repeat(40),serverUrl:'https://github.com',payload:{pull_request:pr}};
+    const github={rest:{repos:{getContent:async()=>({data:{type:'file',encoding:'base64',content:Buffer.from('agents:\n  codex:\n').toString('base64')}}),createCommitStatus:async p=>writes.push(p)},pulls:{get:async()=>{prReads++;const copy=JSON.parse(JSON.stringify(pr));
+    if(input.drift==='head'||(input.drift==='final-head'&&prReads>1))copy.head.sha='c'.repeat(40);
+    if(input.drift==='base')copy.base.sha='c'.repeat(40);
+    if(input.drift==='base-repo')copy.base.repo.id=2;
+    if(input.drift==='base-ref')copy.base.ref='other';
+    if(input.drift==='closed')copy.state='closed';
+    return {data:copy};}},actions:{getWorkflowRun:async()=>{runReads++;return {data:{...run,run_attempt:(input.drift==='attempt'||(input.drift==='final-attempt'&&runReads>1))?2:1}};},listWorkflowRuns(){}}},paginate:async(method,params)=>{
+    if(method!==github.rest.actions.listWorkflowRuns)throw Error('unexpected pagination');
+    if(input.drift==='missing-inventory')return [];
+    if(input.drift==='same-id-attempt')return [{...run,run_attempt:2}];
+    if(input.drift==='newer-run')return [run,{...run,id:43,run_number:6}];
+    if(input.drift==='ambiguous-newer')return [run,{...run,id:43,run_number:6,pull_requests:[]}];
+    return [run];}};
+    const core={info(){},warning(){},error(){},setFailed:m=>failures.push(m)};
+    const AsyncFunction=Object.getPrototypeOf(async function(){}).constructor;
+    new AsyncFunction('github','context','core',input.script)(github,context,core).then(()=>process.stdout.write(JSON.stringify({writes,failures,prReads,runReads})));
+    """
+        result = subprocess.run(["node", "-e", harness], input=json.dumps({"script": script, "drift": drift}), capture_output=True, text=True, check=True)
+        record = json.loads(result.stdout)
+>       assert len(record["writes"]) == (1 if drift == "none" else 0)
+E       AssertionError: assert 1 == 0
+E        +  where 1 = len([{'owner': 'owner', 'repo': 'repo', 'sha': 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'state': 'failure', ...}])
+
+tests/workflows/test_agents_guard_publication.py:798: AssertionError
+_ test_missing_enabled_corrective_write_requires_fresh_bindings[attempt-False] _
+
+template = False, drift = 'attempt'
+
+    @pytest.mark.parametrize("template", [False, True])
+    @pytest.mark.parametrize("drift", ["none", "head", "base", "base-repo", "base-ref", "closed", "attempt", "newer-run", "same-id-attempt", "ambiguous-newer", "missing-inventory", "final-head", "final-attempt"])
+    def test_missing_enabled_corrective_write_requires_fresh_bindings(template, drift):
+        prefix = ROOT / "templates/consumer-repo" if template else ROOT
+        workflow = yaml.safe_load((prefix / ".github/workflows/agents-guard.yml").read_text())
+        script = next(step["with"]["script"] for step in workflow["jobs"]["guard"]["steps"] if step.get("name") == "Report agents guard commit status")
+        harness = r"""
+    const input=JSON.parse(require('fs').readFileSync(0,'utf8'));
+    process.env.GITHUB_RUN_ATTEMPT='1';
+    const writes=[];const failures=[];let prReads=0;let runReads=0;
+    const pr={number:4,state:'open',head:{sha:'a'.repeat(40)},base:{sha:'b'.repeat(40),ref:'main',repo:{id:1}}};
+    const run={id:42,workflow_id:7,path:'.github/workflows/agents-guard.yml',event:'pull_request_target',head_sha:'b'.repeat(40),run_number:5,run_attempt:1,created_at:'2026-10-16T01:00:00Z',pull_requests:[{number:4}]};
+    const context={repo:{owner:'owner',repo:'repo'},eventName:'pull_request_target',runId:42,sha:'b'.repeat(40),serverUrl:'https://github.com',payload:{pull_request:pr}};
+    const github={rest:{repos:{getContent:async()=>({data:{type:'file',encoding:'base64',content:Buffer.from('agents:\n  codex:\n').toString('base64')}}),createCommitStatus:async p=>writes.push(p)},pulls:{get:async()=>{prReads++;const copy=JSON.parse(JSON.stringify(pr));
+    if(input.drift==='head'||(input.drift==='final-head'&&prReads>1))copy.head.sha='c'.repeat(40);
+    if(input.drift==='base')copy.base.sha='c'.repeat(40);
+    if(input.drift==='base-repo')copy.base.repo.id=2;
+    if(input.drift==='base-ref')copy.base.ref='other';
+    if(input.drift==='closed')copy.state='closed';
+    return {data:copy};}},actions:{getWorkflowRun:async()=>{runReads++;return {data:{...run,run_attempt:(input.drift==='attempt'||(input.drift==='final-attempt'&&runReads>1))?2:1}};},listWorkflowRuns(){}}},paginate:async(method,params)=>{
+    if(method!==github.rest.actions.listWorkflowRuns)throw Error('unexpected pagination');
+    if(input.drift==='missing-inventory')return [];
+    if(input.drift==='same-id-attempt')return [{...run,run_attempt:2}];
+    if(input.drift==='newer-run')return [run,{...run,id:43,run_number:6}];
+    if(input.drift==='ambiguous-newer')return [run,{...run,id:43,run_number:6,pull_requests:[]}];
+    return [run];}};
+    const core={info(){},warning(){},error(){},setFailed:m=>failures.push(m)};
+    const AsyncFunction=Object.getPrototypeOf(async function(){}).constructor;
+    new AsyncFunction('github','context','core',input.script)(github,context,core).then(()=>process.stdout.write(JSON.stringify({writes,failures,prReads,runReads})));
+    """
+        result = subprocess.run(["node", "-e", harness], input=json.dumps({"script": script, "drift": drift}), capture_output=True, text=True, check=True)
+        record = json.loads(result.stdout)
+>       assert len(record["writes"]) == (1 if drift == "none" else 0)
+E       AssertionError: assert 1 == 0
+E        +  where 1 = len([{'owner': 'owner', 'repo': 'repo', 'sha': 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'state': 'failure', ...}])
+
+tests/workflows/test_agents_guard_publication.py:798: AssertionError
+_ test_missing_enabled_corrective_write_requires_fresh_bindings[attempt-True] __
+
+template = True, drift = 'attempt'
+
+    @pytest.mark.parametrize("template", [False, True])
+    @pytest.mark.parametrize("drift", ["none", "head", "base", "base-repo", "base-ref", "closed", "attempt", "newer-run", "same-id-attempt", "ambiguous-newer", "missing-inventory", "final-head", "final-attempt"])
+    def test_missing_enabled_corrective_write_requires_fresh_bindings(template, drift):
+        prefix = ROOT / "templates/consumer-repo" if template else ROOT
+        workflow = yaml.safe_load((prefix / ".github/workflows/agents-guard.yml").read_text())
+        script = next(step["with"]["script"] for step in workflow["jobs"]["guard"]["steps"] if step.get("name") == "Report agents guard commit status")
+        harness = r"""
+    const input=JSON.parse(require('fs').readFileSync(0,'utf8'));
+    process.env.GITHUB_RUN_ATTEMPT='1';
+    const writes=[];const failures=[];let prReads=0;let runReads=0;
+    const pr={number:4,state:'open',head:{sha:'a'.repeat(40)},base:{sha:'b'.repeat(40),ref:'main',repo:{id:1}}};
+    const run={id:42,workflow_id:7,path:'.github/workflows/agents-guard.yml',event:'pull_request_target',head_sha:'b'.repeat(40),run_number:5,run_attempt:1,created_at:'2026-10-16T01:00:00Z',pull_requests:[{number:4}]};
+    const context={repo:{owner:'owner',repo:'repo'},eventName:'pull_request_target',runId:42,sha:'b'.repeat(40),serverUrl:'https://github.com',payload:{pull_request:pr}};
+    const github={rest:{repos:{getContent:async()=>({data:{type:'file',encoding:'base64',content:Buffer.from('agents:\n  codex:\n').toString('base64')}}),createCommitStatus:async p=>writes.push(p)},pulls:{get:async()=>{prReads++;const copy=JSON.parse(JSON.stringify(pr));
+    if(input.drift==='head'||(input.drift==='final-head'&&prReads>1))copy.head.sha='c'.repeat(40);
+    if(input.drift==='base')copy.base.sha='c'.repeat(40);
+    if(input.drift==='base-repo')copy.base.repo.id=2;
+    if(input.drift==='base-ref')copy.base.ref='other';
+    if(input.drift==='closed')copy.state='closed';
+    return {data:copy};}},actions:{getWorkflowRun:async()=>{runReads++;return {data:{...run,run_attempt:(input.drift==='attempt'||(input.drift==='final-attempt'&&runReads>1))?2:1}};},listWorkflowRuns(){}}},paginate:async(method,params)=>{
+    if(method!==github.rest.actions.listWorkflowRuns)throw Error('unexpected pagination');
+    if(input.drift==='missing-inventory')return [];
+    if(input.drift==='same-id-attempt')return [{...run,run_attempt:2}];
+    if(input.drift==='newer-run')return [run,{...run,id:43,run_number:6}];
+    if(input.drift==='ambiguous-newer')return [run,{...run,id:43,run_number:6,pull_requests:[]}];
+    return [run];}};
+    const core={info(){},warning(){},error(){},setFailed:m=>failures.push(m)};
+    const AsyncFunction=Object.getPrototypeOf(async function(){}).constructor;
+    new AsyncFunction('github','context','core',input.script)(github,context,core).then(()=>process.stdout.write(JSON.stringify({writes,failures,prReads,runReads})));
+    """
+        result = subprocess.run(["node", "-e", harness], input=json.dumps({"script": script, "drift": drift}), capture_output=True, text=True, check=True)
+        record = json.loads(result.stdout)
+>       assert len(record["writes"]) == (1 if drift == "none" else 0)
+E       AssertionError: assert 1 == 0
+E        +  where 1 = len([{'owner': 'owner', 'repo': 'repo', 'sha': 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'state': 'failure', ...}])
+
+tests/workflows/test_agents_guard_publication.py:798: AssertionError
+_ test_missing_enabled_corrective_write_requires_fresh_bindings[newer-run-False] _
+
+template = False, drift = 'newer-run'
+
+    @pytest.mark.parametrize("template", [False, True])
+    @pytest.mark.parametrize("drift", ["none", "head", "base", "base-repo", "base-ref", "closed", "attempt", "newer-run", "same-id-attempt", "ambiguous-newer", "missing-inventory", "final-head", "final-attempt"])
+    def test_missing_enabled_corrective_write_requires_fresh_bindings(template, drift):
+        prefix = ROOT / "templates/consumer-repo" if template else ROOT
+        workflow = yaml.safe_load((prefix / ".github/workflows/agents-guard.yml").read_text())
+        script = next(step["with"]["script"] for step in workflow["jobs"]["guard"]["steps"] if step.get("name") == "Report agents guard commit status")
+        harness = r"""
+    const input=JSON.parse(require('fs').readFileSync(0,'utf8'));
+    process.env.GITHUB_RUN_ATTEMPT='1';
+    const writes=[];const failures=[];let prReads=0;let runReads=0;
+    const pr={number:4,state:'open',head:{sha:'a'.repeat(40)},base:{sha:'b'.repeat(40),ref:'main',repo:{id:1}}};
+    const run={id:42,workflow_id:7,path:'.github/workflows/agents-guard.yml',event:'pull_request_target',head_sha:'b'.repeat(40),run_number:5,run_attempt:1,created_at:'2026-10-16T01:00:00Z',pull_requests:[{number:4}]};
+    const context={repo:{owner:'owner',repo:'repo'},eventName:'pull_request_target',runId:42,sha:'b'.repeat(40),serverUrl:'https://github.com',payload:{pull_request:pr}};
+    const github={rest:{repos:{getContent:async()=>({data:{type:'file',encoding:'base64',content:Buffer.from('agents:\n  codex:\n').toString('base64')}}),createCommitStatus:async p=>writes.push(p)},pulls:{get:async()=>{prReads++;const copy=JSON.parse(JSON.stringify(pr));
+    if(input.drift==='head'||(input.drift==='final-head'&&prReads>1))copy.head.sha='c'.repeat(40);
+    if(input.drift==='base')copy.base.sha='c'.repeat(40);
+    if(input.drift==='base-repo')copy.base.repo.id=2;
+    if(input.drift==='base-ref')copy.base.ref='other';
+    if(input.drift==='closed')copy.state='closed';
+    return {data:copy};}},actions:{getWorkflowRun:async()=>{runReads++;return {data:{...run,run_attempt:(input.drift==='attempt'||(input.drift==='final-attempt'&&runReads>1))?2:1}};},listWorkflowRuns(){}}},paginate:async(method,params)=>{
+    if(method!==github.rest.actions.listWorkflowRuns)throw Error('unexpected pagination');
+    if(input.drift==='missing-inventory')return [];
+    if(input.drift==='same-id-attempt')return [{...run,run_attempt:2}];
+    if(input.drift==='newer-run')return [run,{...run,id:43,run_number:6}];
+    if(input.drift==='ambiguous-newer')return [run,{...run,id:43,run_number:6,pull_requests:[]}];
+    return [run];}};
+    const core={info(){},warning(){},error(){},setFailed:m=>failures.push(m)};
+    const AsyncFunction=Object.getPrototypeOf(async function(){}).constructor;
+    new AsyncFunction('github','context','core',input.script)(github,context,core).then(()=>process.stdout.write(JSON.stringify({writes,failures,prReads,runReads})));
+    """
+        result = subprocess.run(["node", "-e", harness], input=json.dumps({"script": script, "drift": drift}), capture_output=True, text=True, check=True)
+        record = json.loads(result.stdout)
+>       assert len(record["writes"]) == (1 if drift == "none" else 0)
+E       AssertionError: assert 1 == 0
+E        +  where 1 = len([{'owner': 'owner', 'repo': 'repo', 'sha': 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'state': 'failure', ...}])
+
+tests/workflows/test_agents_guard_publication.py:798: AssertionError
+_ test_missing_enabled_corrective_write_requires_fresh_bindings[newer-run-True] _
+
+template = True, drift = 'newer-run'
+
+    @pytest.mark.parametrize("template", [False, True])
+    @pytest.mark.parametrize("drift", ["none", "head", "base", "base-repo", "base-ref", "closed", "attempt", "newer-run", "same-id-attempt", "ambiguous-newer", "missing-inventory", "final-head", "final-attempt"])
+    def test_missing_enabled_corrective_write_requires_fresh_bindings(template, drift):
+        prefix = ROOT / "templates/consumer-repo" if template else ROOT
+        workflow = yaml.safe_load((prefix / ".github/workflows/agents-guard.yml").read_text())
+        script = next(step["with"]["script"] for step in workflow["jobs"]["guard"]["steps"] if step.get("name") == "Report agents guard commit status")
+        harness = r"""
+    const input=JSON.parse(require('fs').readFileSync(0,'utf8'));
+    process.env.GITHUB_RUN_ATTEMPT='1';
+    const writes=[];const failures=[];let prReads=0;let runReads=0;
+    const pr={number:4,state:'open',head:{sha:'a'.repeat(40)},base:{sha:'b'.repeat(40),ref:'main',repo:{id:1}}};
+    const run={id:42,workflow_id:7,path:'.github/workflows/agents-guard.yml',event:'pull_request_target',head_sha:'b'.repeat(40),run_number:5,run_attempt:1,created_at:'2026-10-16T01:00:00Z',pull_requests:[{number:4}]};
+    const context={repo:{owner:'owner',repo:'repo'},eventName:'pull_request_target',runId:42,sha:'b'.repeat(40),serverUrl:'https://github.com',payload:{pull_request:pr}};
+    const github={rest:{repos:{getContent:async()=>({data:{type:'file',encoding:'base64',content:Buffer.from('agents:\n  codex:\n').toString('base64')}}),createCommitStatus:async p=>writes.push(p)},pulls:{get:async()=>{prReads++;const copy=JSON.parse(JSON.stringify(pr));
+    if(input.drift==='head'||(input.drift==='final-head'&&prReads>1))copy.head.sha='c'.repeat(40);
+    if(input.drift==='base')copy.base.sha='c'.repeat(40);
+    if(input.drift==='base-repo')copy.base.repo.id=2;
+    if(input.drift==='base-ref')copy.base.ref='other';
+    if(input.drift==='closed')copy.state='closed';
+    return {data:copy};}},actions:{getWorkflowRun:async()=>{runReads++;return {data:{...run,run_attempt:(input.drift==='attempt'||(input.drift==='final-attempt'&&runReads>1))?2:1}};},listWorkflowRuns(){}}},paginate:async(method,params)=>{
+    if(method!==github.rest.actions.listWorkflowRuns)throw Error('unexpected pagination');
+    if(input.drift==='missing-inventory')return [];
+    if(input.drift==='same-id-attempt')return [{...run,run_attempt:2}];
+    if(input.drift==='newer-run')return [run,{...run,id:43,run_number:6}];
+    if(input.drift==='ambiguous-newer')return [run,{...run,id:43,run_number:6,pull_requests:[]}];
+    return [run];}};
+    const core={info(){},warning(){},error(){},setFailed:m=>failures.push(m)};
+    const AsyncFunction=Object.getPrototypeOf(async function(){}).constructor;
+    new AsyncFunction('github','context','core',input.script)(github,context,core).then(()=>process.stdout.write(JSON.stringify({writes,failures,prReads,runReads})));
+    """
+        result = subprocess.run(["node", "-e", harness], input=json.dumps({"script": script, "drift": drift}), capture_output=True, text=True, check=True)
+        record = json.loads(result.stdout)
+>       assert len(record["writes"]) == (1 if drift == "none" else 0)
+E       AssertionError: assert 1 == 0
+E        +  where 1 = len([{'owner': 'owner', 'repo': 'repo', 'sha': 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'state': 'failure', ...}])
+
+tests/workflows/test_agents_guard_publication.py:798: AssertionError
+_ test_missing_enabled_corrective_write_requires_fresh_bindings[same-id-attempt-False] _
+
+template = False, drift = 'same-id-attempt'
+
+    @pytest.mark.parametrize("template", [False, True])
+    @pytest.mark.parametrize("drift", ["none", "head", "base", "base-repo", "base-ref", "closed", "attempt", "newer-run", "same-id-attempt", "ambiguous-newer", "missing-inventory", "final-head", "final-attempt"])
+    def test_missing_enabled_corrective_write_requires_fresh_bindings(template, drift):
+        prefix = ROOT / "templates/consumer-repo" if template else ROOT
+        workflow = yaml.safe_load((prefix / ".github/workflows/agents-guard.yml").read_text())
+        script = next(step["with"]["script"] for step in workflow["jobs"]["guard"]["steps"] if step.get("name") == "Report agents guard commit status")
+        harness = r"""
+    const input=JSON.parse(require('fs').readFileSync(0,'utf8'));
+    process.env.GITHUB_RUN_ATTEMPT='1';
+    const writes=[];const failures=[];let prReads=0;let runReads=0;
+    const pr={number:4,state:'open',head:{sha:'a'.repeat(40)},base:{sha:'b'.repeat(40),ref:'main',repo:{id:1}}};
+    const run={id:42,workflow_id:7,path:'.github/workflows/agents-guard.yml',event:'pull_request_target',head_sha:'b'.repeat(40),run_number:5,run_attempt:1,created_at:'2026-10-16T01:00:00Z',pull_requests:[{number:4}]};
+    const context={repo:{owner:'owner',repo:'repo'},eventName:'pull_request_target',runId:42,sha:'b'.repeat(40),serverUrl:'https://github.com',payload:{pull_request:pr}};
+    const github={rest:{repos:{getContent:async()=>({data:{type:'file',encoding:'base64',content:Buffer.from('agents:\n  codex:\n').toString('base64')}}),createCommitStatus:async p=>writes.push(p)},pulls:{get:async()=>{prReads++;const copy=JSON.parse(JSON.stringify(pr));
+    if(input.drift==='head'||(input.drift==='final-head'&&prReads>1))copy.head.sha='c'.repeat(40);
+    if(input.drift==='base')copy.base.sha='c'.repeat(40);
+    if(input.drift==='base-repo')copy.base.repo.id=2;
+    if(input.drift==='base-ref')copy.base.ref='other';
+    if(input.drift==='closed')copy.state='closed';
+    return {data:copy};}},actions:{getWorkflowRun:async()=>{runReads++;return {data:{...run,run_attempt:(input.drift==='attempt'||(input.drift==='final-attempt'&&runReads>1))?2:1}};},listWorkflowRuns(){}}},paginate:async(method,params)=>{
+    if(method!==github.rest.actions.listWorkflowRuns)throw Error('unexpected pagination');
+    if(input.drift==='missing-inventory')return [];
+    if(input.drift==='same-id-attempt')return [{...run,run_attempt:2}];
+    if(input.drift==='newer-run')return [run,{...run,id:43,run_number:6}];
+    if(input.drift==='ambiguous-newer')return [run,{...run,id:43,run_number:6,pull_requests:[]}];
+    return [run];}};
+    const core={info(){},warning(){},error(){},setFailed:m=>failures.push(m)};
+    const AsyncFunction=Object.getPrototypeOf(async function(){}).constructor;
+    new AsyncFunction('github','context','core',input.script)(github,context,core).then(()=>process.stdout.write(JSON.stringify({writes,failures,prReads,runReads})));
+    """
+        result = subprocess.run(["node", "-e", harness], input=json.dumps({"script": script, "drift": drift}), capture_output=True, text=True, check=True)
+        record = json.loads(result.stdout)
+>       assert len(record["writes"]) == (1 if drift == "none" else 0)
+E       AssertionError: assert 1 == 0
+E        +  where 1 = len([{'owner': 'owner', 'repo': 'repo', 'sha': 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'state': 'failure', ...}])
+
+tests/workflows/test_agents_guard_publication.py:798: AssertionError
+_ test_missing_enabled_corrective_write_requires_fresh_bindings[same-id-attempt-True] _
+
+template = True, drift = 'same-id-attempt'
+
+    @pytest.mark.parametrize("template", [False, True])
+    @pytest.mark.parametrize("drift", ["none", "head", "base", "base-repo", "base-ref", "closed", "attempt", "newer-run", "same-id-attempt", "ambiguous-newer", "missing-inventory", "final-head", "final-attempt"])
+    def test_missing_enabled_corrective_write_requires_fresh_bindings(template, drift):
+        prefix = ROOT / "templates/consumer-repo" if template else ROOT
+        workflow = yaml.safe_load((prefix / ".github/workflows/agents-guard.yml").read_text())
+        script = next(step["with"]["script"] for step in workflow["jobs"]["guard"]["steps"] if step.get("name") == "Report agents guard commit status")
+        harness = r"""
+    const input=JSON.parse(require('fs').readFileSync(0,'utf8'));
+    process.env.GITHUB_RUN_ATTEMPT='1';
+    const writes=[];const failures=[];let prReads=0;let runReads=0;
+    const pr={number:4,state:'open',head:{sha:'a'.repeat(40)},base:{sha:'b'.repeat(40),ref:'main',repo:{id:1}}};
+    const run={id:42,workflow_id:7,path:'.github/workflows/agents-guard.yml',event:'pull_request_target',head_sha:'b'.repeat(40),run_number:5,run_attempt:1,created_at:'2026-10-16T01:00:00Z',pull_requests:[{number:4}]};
+    const context={repo:{owner:'owner',repo:'repo'},eventName:'pull_request_target',runId:42,sha:'b'.repeat(40),serverUrl:'https://github.com',payload:{pull_request:pr}};
+    const github={rest:{repos:{getContent:async()=>({data:{type:'file',encoding:'base64',content:Buffer.from('agents:\n  codex:\n').toString('base64')}}),createCommitStatus:async p=>writes.push(p)},pulls:{get:async()=>{prReads++;const copy=JSON.parse(JSON.stringify(pr));
+    if(input.drift==='head'||(input.drift==='final-head'&&prReads>1))copy.head.sha='c'.repeat(40);
+    if(input.drift==='base')copy.base.sha='c'.repeat(40);
+    if(input.drift==='base-repo')copy.base.repo.id=2;
+    if(input.drift==='base-ref')copy.base.ref='other';
+    if(input.drift==='closed')copy.state='closed';
+    return {data:copy};}},actions:{getWorkflowRun:async()=>{runReads++;return {data:{...run,run_attempt:(input.drift==='attempt'||(input.drift==='final-attempt'&&runReads>1))?2:1}};},listWorkflowRuns(){}}},paginate:async(method,params)=>{
+    if(method!==github.rest.actions.listWorkflowRuns)throw Error('unexpected pagination');
+    if(input.drift==='missing-inventory')return [];
+    if(input.drift==='same-id-attempt')return [{...run,run_attempt:2}];
+    if(input.drift==='newer-run')return [run,{...run,id:43,run_number:6}];
+    if(input.drift==='ambiguous-newer')return [run,{...run,id:43,run_number:6,pull_requests:[]}];
+    return [run];}};
+    const core={info(){},warning(){},error(){},setFailed:m=>failures.push(m)};
+    const AsyncFunction=Object.getPrototypeOf(async function(){}).constructor;
+    new AsyncFunction('github','context','core',input.script)(github,context,core).then(()=>process.stdout.write(JSON.stringify({writes,failures,prReads,runReads})));
+    """
+        result = subprocess.run(["node", "-e", harness], input=json.dumps({"script": script, "drift": drift}), capture_output=True, text=True, check=True)
+        record = json.loads(result.stdout)
+>       assert len(record["writes"]) == (1 if drift == "none" else 0)
+E       AssertionError: assert 1 == 0
+E        +  where 1 = len([{'owner': 'owner', 'repo': 'repo', 'sha': 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'state': 'failure', ...}])
+
+tests/workflows/test_agents_guard_publication.py:798: AssertionError
+_ test_missing_enabled_corrective_write_requires_fresh_bindings[ambiguous-newer-False] _
+
+template = False, drift = 'ambiguous-newer'
+
+    @pytest.mark.parametrize("template", [False, True])
+    @pytest.mark.parametrize("drift", ["none", "head", "base", "base-repo", "base-ref", "closed", "attempt", "newer-run", "same-id-attempt", "ambiguous-newer", "missing-inventory", "final-head", "final-attempt"])
+    def test_missing_enabled_corrective_write_requires_fresh_bindings(template, drift):
+        prefix = ROOT / "templates/consumer-repo" if template else ROOT
+        workflow = yaml.safe_load((prefix / ".github/workflows/agents-guard.yml").read_text())
+        script = next(step["with"]["script"] for step in workflow["jobs"]["guard"]["steps"] if step.get("name") == "Report agents guard commit status")
+        harness = r"""
+    const input=JSON.parse(require('fs').readFileSync(0,'utf8'));
+    process.env.GITHUB_RUN_ATTEMPT='1';
+    const writes=[];const failures=[];let prReads=0;let runReads=0;
+    const pr={number:4,state:'open',head:{sha:'a'.repeat(40)},base:{sha:'b'.repeat(40),ref:'main',repo:{id:1}}};
+    const run={id:42,workflow_id:7,path:'.github/workflows/agents-guard.yml',event:'pull_request_target',head_sha:'b'.repeat(40),run_number:5,run_attempt:1,created_at:'2026-10-16T01:00:00Z',pull_requests:[{number:4}]};
+    const context={repo:{owner:'owner',repo:'repo'},eventName:'pull_request_target',runId:42,sha:'b'.repeat(40),serverUrl:'https://github.com',payload:{pull_request:pr}};
+    const github={rest:{repos:{getContent:async()=>({data:{type:'file',encoding:'base64',content:Buffer.from('agents:\n  codex:\n').toString('base64')}}),createCommitStatus:async p=>writes.push(p)},pulls:{get:async()=>{prReads++;const copy=JSON.parse(JSON.stringify(pr));
+    if(input.drift==='head'||(input.drift==='final-head'&&prReads>1))copy.head.sha='c'.repeat(40);
+    if(input.drift==='base')copy.base.sha='c'.repeat(40);
+    if(input.drift==='base-repo')copy.base.repo.id=2;
+    if(input.drift==='base-ref')copy.base.ref='other';
+    if(input.drift==='closed')copy.state='closed';
+    return {data:copy};}},actions:{getWorkflowRun:async()=>{runReads++;return {data:{...run,run_attempt:(input.drift==='attempt'||(input.drift==='final-attempt'&&runReads>1))?2:1}};},listWorkflowRuns(){}}},paginate:async(method,params)=>{
+    if(method!==github.rest.actions.listWorkflowRuns)throw Error('unexpected pagination');
+    if(input.drift==='missing-inventory')return [];
+    if(input.drift==='same-id-attempt')return [{...run,run_attempt:2}];
+    if(input.drift==='newer-run')return [run,{...run,id:43,run_number:6}];
+    if(input.drift==='ambiguous-newer')return [run,{...run,id:43,run_number:6,pull_requests:[]}];
+    return [run];}};
+    const core={info(){},warning(){},error(){},setFailed:m=>failures.push(m)};
+    const AsyncFunction=Object.getPrototypeOf(async function(){}).constructor;
+    new AsyncFunction('github','context','core',input.script)(github,context,core).then(()=>process.stdout.write(JSON.stringify({writes,failures,prReads,runReads})));
+    """
+        result = subprocess.run(["node", "-e", harness], input=json.dumps({"script": script, "drift": drift}), capture_output=True, text=True, check=True)
+        record = json.loads(result.stdout)
+>       assert len(record["writes"]) == (1 if drift == "none" else 0)
+E       AssertionError: assert 1 == 0
+E        +  where 1 = len([{'owner': 'owner', 'repo': 'repo', 'sha': 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'state': 'failure', ...}])
+
+tests/workflows/test_agents_guard_publication.py:798: AssertionError
+_ test_missing_enabled_corrective_write_requires_fresh_bindings[ambiguous-newer-True] _
+
+template = True, drift = 'ambiguous-newer'
+
+    @pytest.mark.parametrize("template", [False, True])
+    @pytest.mark.parametrize("drift", ["none", "head", "base", "base-repo", "base-ref", "closed", "attempt", "newer-run", "same-id-attempt", "ambiguous-newer", "missing-inventory", "final-head", "final-attempt"])
+    def test_missing_enabled_corrective_write_requires_fresh_bindings(template, drift):
+        prefix = ROOT / "templates/consumer-repo" if template else ROOT
+        workflow = yaml.safe_load((prefix / ".github/workflows/agents-guard.yml").read_text())
+        script = next(step["with"]["script"] for step in workflow["jobs"]["guard"]["steps"] if step.get("name") == "Report agents guard commit status")
+        harness = r"""
+    const input=JSON.parse(require('fs').readFileSync(0,'utf8'));
+    process.env.GITHUB_RUN_ATTEMPT='1';
+    const writes=[];const failures=[];let prReads=0;let runReads=0;
+    const pr={number:4,state:'open',head:{sha:'a'.repeat(40)},base:{sha:'b'.repeat(40),ref:'main',repo:{id:1}}};
+    const run={id:42,workflow_id:7,path:'.github/workflows/agents-guard.yml',event:'pull_request_target',head_sha:'b'.repeat(40),run_number:5,run_attempt:1,created_at:'2026-10-16T01:00:00Z',pull_requests:[{number:4}]};
+    const context={repo:{owner:'owner',repo:'repo'},eventName:'pull_request_target',runId:42,sha:'b'.repeat(40),serverUrl:'https://github.com',payload:{pull_request:pr}};
+    const github={rest:{repos:{getContent:async()=>({data:{type:'file',encoding:'base64',content:Buffer.from('agents:\n  codex:\n').toString('base64')}}),createCommitStatus:async p=>writes.push(p)},pulls:{get:async()=>{prReads++;const copy=JSON.parse(JSON.stringify(pr));
+    if(input.drift==='head'||(input.drift==='final-head'&&prReads>1))copy.head.sha='c'.repeat(40);
+    if(input.drift==='base')copy.base.sha='c'.repeat(40);
+    if(input.drift==='base-repo')copy.base.repo.id=2;
+    if(input.drift==='base-ref')copy.base.ref='other';
+    if(input.drift==='closed')copy.state='closed';
+    return {data:copy};}},actions:{getWorkflowRun:async()=>{runReads++;return {data:{...run,run_attempt:(input.drift==='attempt'||(input.drift==='final-attempt'&&runReads>1))?2:1}};},listWorkflowRuns(){}}},paginate:async(method,params)=>{
+    if(method!==github.rest.actions.listWorkflowRuns)throw Error('unexpected pagination');
+    if(input.drift==='missing-inventory')return [];
+    if(input.drift==='same-id-attempt')return [{...run,run_attempt:2}];
+    if(input.drift==='newer-run')return [run,{...run,id:43,run_number:6}];
+    if(input.drift==='ambiguous-newer')return [run,{...run,id:43,run_number:6,pull_requests:[]}];
+    return [run];}};
+    const core={info(){},warning(){},error(){},setFailed:m=>failures.push(m)};
+    const AsyncFunction=Object.getPrototypeOf(async function(){}).constructor;
+    new AsyncFunction('github','context','core',input.script)(github,context,core).then(()=>process.stdout.write(JSON.stringify({writes,failures,prReads,runReads})));
+    """
+        result = subprocess.run(["node", "-e", harness], input=json.dumps({"script": script, "drift": drift}), capture_output=True, text=True, check=True)
+        record = json.loads(result.stdout)
+>       assert len(record["writes"]) == (1 if drift == "none" else 0)
+E       AssertionError: assert 1 == 0
+E        +  where 1 = len([{'owner': 'owner', 'repo': 'repo', 'sha': 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'state': 'failure', ...}])
+
+tests/workflows/test_agents_guard_publication.py:798: AssertionError
+_ test_missing_enabled_corrective_write_requires_fresh_bindings[missing-inventory-False] _
+
+template = False, drift = 'missing-inventory'
+
+    @pytest.mark.parametrize("template", [False, True])
+    @pytest.mark.parametrize("drift", ["none", "head", "base", "base-repo", "base-ref", "closed", "attempt", "newer-run", "same-id-attempt", "ambiguous-newer", "missing-inventory", "final-head", "final-attempt"])
+    def test_missing_enabled_corrective_write_requires_fresh_bindings(template, drift):
+        prefix = ROOT / "templates/consumer-repo" if template else ROOT
+        workflow = yaml.safe_load((prefix / ".github/workflows/agents-guard.yml").read_text())
+        script = next(step["with"]["script"] for step in workflow["jobs"]["guard"]["steps"] if step.get("name") == "Report agents guard commit status")
+        harness = r"""
+    const input=JSON.parse(require('fs').readFileSync(0,'utf8'));
+    process.env.GITHUB_RUN_ATTEMPT='1';
+    const writes=[];const failures=[];let prReads=0;let runReads=0;
+    const pr={number:4,state:'open',head:{sha:'a'.repeat(40)},base:{sha:'b'.repeat(40),ref:'main',repo:{id:1}}};
+    const run={id:42,workflow_id:7,path:'.github/workflows/agents-guard.yml',event:'pull_request_target',head_sha:'b'.repeat(40),run_number:5,run_attempt:1,created_at:'2026-10-16T01:00:00Z',pull_requests:[{number:4}]};
+    const context={repo:{owner:'owner',repo:'repo'},eventName:'pull_request_target',runId:42,sha:'b'.repeat(40),serverUrl:'https://github.com',payload:{pull_request:pr}};
+    const github={rest:{repos:{getContent:async()=>({data:{type:'file',encoding:'base64',content:Buffer.from('agents:\n  codex:\n').toString('base64')}}),createCommitStatus:async p=>writes.push(p)},pulls:{get:async()=>{prReads++;const copy=JSON.parse(JSON.stringify(pr));
+    if(input.drift==='head'||(input.drift==='final-head'&&prReads>1))copy.head.sha='c'.repeat(40);
+    if(input.drift==='base')copy.base.sha='c'.repeat(40);
+    if(input.drift==='base-repo')copy.base.repo.id=2;
+    if(input.drift==='base-ref')copy.base.ref='other';
+    if(input.drift==='closed')copy.state='closed';
+    return {data:copy};}},actions:{getWorkflowRun:async()=>{runReads++;return {data:{...run,run_attempt:(input.drift==='attempt'||(input.drift==='final-attempt'&&runReads>1))?2:1}};},listWorkflowRuns(){}}},paginate:async(method,params)=>{
+    if(method!==github.rest.actions.listWorkflowRuns)throw Error('unexpected pagination');
+    if(input.drift==='missing-inventory')return [];
+    if(input.drift==='same-id-attempt')return [{...run,run_attempt:2}];
+    if(input.drift==='newer-run')return [run,{...run,id:43,run_number:6}];
+    if(input.drift==='ambiguous-newer')return [run,{...run,id:43,run_number:6,pull_requests:[]}];
+    return [run];}};
+    const core={info(){},warning(){},error(){},setFailed:m=>failures.push(m)};
+    const AsyncFunction=Object.getPrototypeOf(async function(){}).constructor;
+    new AsyncFunction('github','context','core',input.script)(github,context,core).then(()=>process.stdout.write(JSON.stringify({writes,failures,prReads,runReads})));
+    """
+        result = subprocess.run(["node", "-e", harness], input=json.dumps({"script": script, "drift": drift}), capture_output=True, text=True, check=True)
+        record = json.loads(result.stdout)
+>       assert len(record["writes"]) == (1 if drift == "none" else 0)
+E       AssertionError: assert 1 == 0
+E        +  where 1 = len([{'owner': 'owner', 'repo': 'repo', 'sha': 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'state': 'failure', ...}])
+
+tests/workflows/test_agents_guard_publication.py:798: AssertionError
+_ test_missing_enabled_corrective_write_requires_fresh_bindings[missing-inventory-True] _
+
+template = True, drift = 'missing-inventory'
+
+    @pytest.mark.parametrize("template", [False, True])
+    @pytest.mark.parametrize("drift", ["none", "head", "base", "base-repo", "base-ref", "closed", "attempt", "newer-run", "same-id-attempt", "ambiguous-newer", "missing-inventory", "final-head", "final-attempt"])
+    def test_missing_enabled_corrective_write_requires_fresh_bindings(template, drift):
+        prefix = ROOT / "templates/consumer-repo" if template else ROOT
+        workflow = yaml.safe_load((prefix / ".github/workflows/agents-guard.yml").read_text())
+        script = next(step["with"]["script"] for step in workflow["jobs"]["guard"]["steps"] if step.get("name") == "Report agents guard commit status")
+        harness = r"""
+    const input=JSON.parse(require('fs').readFileSync(0,'utf8'));
+    process.env.GITHUB_RUN_ATTEMPT='1';
+    const writes=[];const failures=[];let prReads=0;let runReads=0;
+    const pr={number:4,state:'open',head:{sha:'a'.repeat(40)},base:{sha:'b'.repeat(40),ref:'main',repo:{id:1}}};
+    const run={id:42,workflow_id:7,path:'.github/workflows/agents-guard.yml',event:'pull_request_target',head_sha:'b'.repeat(40),run_number:5,run_attempt:1,created_at:'2026-10-16T01:00:00Z',pull_requests:[{number:4}]};
+    const context={repo:{owner:'owner',repo:'repo'},eventName:'pull_request_target',runId:42,sha:'b'.repeat(40),serverUrl:'https://github.com',payload:{pull_request:pr}};
+    const github={rest:{repos:{getContent:async()=>({data:{type:'file',encoding:'base64',content:Buffer.from('agents:\n  codex:\n').toString('base64')}}),createCommitStatus:async p=>writes.push(p)},pulls:{get:async()=>{prReads++;const copy=JSON.parse(JSON.stringify(pr));
+    if(input.drift==='head'||(input.drift==='final-head'&&prReads>1))copy.head.sha='c'.repeat(40);
+    if(input.drift==='base')copy.base.sha='c'.repeat(40);
+    if(input.drift==='base-repo')copy.base.repo.id=2;
+    if(input.drift==='base-ref')copy.base.ref='other';
+    if(input.drift==='closed')copy.state='closed';
+    return {data:copy};}},actions:{getWorkflowRun:async()=>{runReads++;return {data:{...run,run_attempt:(input.drift==='attempt'||(input.drift==='final-attempt'&&runReads>1))?2:1}};},listWorkflowRuns(){}}},paginate:async(method,params)=>{
+    if(method!==github.rest.actions.listWorkflowRuns)throw Error('unexpected pagination');
+    if(input.drift==='missing-inventory')return [];
+    if(input.drift==='same-id-attempt')return [{...run,run_attempt:2}];
+    if(input.drift==='newer-run')return [run,{...run,id:43,run_number:6}];
+    if(input.drift==='ambiguous-newer')return [run,{...run,id:43,run_number:6,pull_requests:[]}];
+    return [run];}};
+    const core={info(){},warning(){},error(){},setFailed:m=>failures.push(m)};
+    const AsyncFunction=Object.getPrototypeOf(async function(){}).constructor;
+    new AsyncFunction('github','context','core',input.script)(github,context,core).then(()=>process.stdout.write(JSON.stringify({writes,failures,prReads,runReads})));
+    """
+        result = subprocess.run(["node", "-e", harness], input=json.dumps({"script": script, "drift": drift}), capture_output=True, text=True, check=True)
+        record = json.loads(result.stdout)
+>       assert len(record["writes"]) == (1 if drift == "none" else 0)
+E       AssertionError: assert 1 == 0
+E        +  where 1 = len([{'owner': 'owner', 'repo': 'repo', 'sha': 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'state': 'failure', ...}])
+
+tests/workflows/test_agents_guard_publication.py:798: AssertionError
+_ test_missing_enabled_corrective_write_requires_fresh_bindings[final-head-False] _
+
+template = False, drift = 'final-head'
+
+    @pytest.mark.parametrize("template", [False, True])
+    @pytest.mark.parametrize("drift", ["none", "head", "base", "base-repo", "base-ref", "closed", "attempt", "newer-run", "same-id-attempt", "ambiguous-newer", "missing-inventory", "final-head", "final-attempt"])
+    def test_missing_enabled_corrective_write_requires_fresh_bindings(template, drift):
+        prefix = ROOT / "templates/consumer-repo" if template else ROOT
+        workflow = yaml.safe_load((prefix / ".github/workflows/agents-guard.yml").read_text())
+        script = next(step["with"]["script"] for step in workflow["jobs"]["guard"]["steps"] if step.get("name") == "Report agents guard commit status")
+        harness = r"""
+    const input=JSON.parse(require('fs').readFileSync(0,'utf8'));
+    process.env.GITHUB_RUN_ATTEMPT='1';
+    const writes=[];const failures=[];let prReads=0;let runReads=0;
+    const pr={number:4,state:'open',head:{sha:'a'.repeat(40)},base:{sha:'b'.repeat(40),ref:'main',repo:{id:1}}};
+    const run={id:42,workflow_id:7,path:'.github/workflows/agents-guard.yml',event:'pull_request_target',head_sha:'b'.repeat(40),run_number:5,run_attempt:1,created_at:'2026-10-16T01:00:00Z',pull_requests:[{number:4}]};
+    const context={repo:{owner:'owner',repo:'repo'},eventName:'pull_request_target',runId:42,sha:'b'.repeat(40),serverUrl:'https://github.com',payload:{pull_request:pr}};
+    const github={rest:{repos:{getContent:async()=>({data:{type:'file',encoding:'base64',content:Buffer.from('agents:\n  codex:\n').toString('base64')}}),createCommitStatus:async p=>writes.push(p)},pulls:{get:async()=>{prReads++;const copy=JSON.parse(JSON.stringify(pr));
+    if(input.drift==='head'||(input.drift==='final-head'&&prReads>1))copy.head.sha='c'.repeat(40);
+    if(input.drift==='base')copy.base.sha='c'.repeat(40);
+    if(input.drift==='base-repo')copy.base.repo.id=2;
+    if(input.drift==='base-ref')copy.base.ref='other';
+    if(input.drift==='closed')copy.state='closed';
+    return {data:copy};}},actions:{getWorkflowRun:async()=>{runReads++;return {data:{...run,run_attempt:(input.drift==='attempt'||(input.drift==='final-attempt'&&runReads>1))?2:1}};},listWorkflowRuns(){}}},paginate:async(method,params)=>{
+    if(method!==github.rest.actions.listWorkflowRuns)throw Error('unexpected pagination');
+    if(input.drift==='missing-inventory')return [];
+    if(input.drift==='same-id-attempt')return [{...run,run_attempt:2}];
+    if(input.drift==='newer-run')return [run,{...run,id:43,run_number:6}];
+    if(input.drift==='ambiguous-newer')return [run,{...run,id:43,run_number:6,pull_requests:[]}];
+    return [run];}};
+    const core={info(){},warning(){},error(){},setFailed:m=>failures.push(m)};
+    const AsyncFunction=Object.getPrototypeOf(async function(){}).constructor;
+    new AsyncFunction('github','context','core',input.script)(github,context,core).then(()=>process.stdout.write(JSON.stringify({writes,failures,prReads,runReads})));
+    """
+        result = subprocess.run(["node", "-e", harness], input=json.dumps({"script": script, "drift": drift}), capture_output=True, text=True, check=True)
+        record = json.loads(result.stdout)
+>       assert len(record["writes"]) == (1 if drift == "none" else 0)
+E       AssertionError: assert 1 == 0
+E        +  where 1 = len([{'owner': 'owner', 'repo': 'repo', 'sha': 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'state': 'failure', ...}])
+
+tests/workflows/test_agents_guard_publication.py:798: AssertionError
+_ test_missing_enabled_corrective_write_requires_fresh_bindings[final-head-True] _
+
+template = True, drift = 'final-head'
+
+    @pytest.mark.parametrize("template", [False, True])
+    @pytest.mark.parametrize("drift", ["none", "head", "base", "base-repo", "base-ref", "closed", "attempt", "newer-run", "same-id-attempt", "ambiguous-newer", "missing-inventory", "final-head", "final-attempt"])
+    def test_missing_enabled_corrective_write_requires_fresh_bindings(template, drift):
+        prefix = ROOT / "templates/consumer-repo" if template else ROOT
+        workflow = yaml.safe_load((prefix / ".github/workflows/agents-guard.yml").read_text())
+        script = next(step["with"]["script"] for step in workflow["jobs"]["guard"]["steps"] if step.get("name") == "Report agents guard commit status")
+        harness = r"""
+    const input=JSON.parse(require('fs').readFileSync(0,'utf8'));
+    process.env.GITHUB_RUN_ATTEMPT='1';
+    const writes=[];const failures=[];let prReads=0;let runReads=0;
+    const pr={number:4,state:'open',head:{sha:'a'.repeat(40)},base:{sha:'b'.repeat(40),ref:'main',repo:{id:1}}};
+    const run={id:42,workflow_id:7,path:'.github/workflows/agents-guard.yml',event:'pull_request_target',head_sha:'b'.repeat(40),run_number:5,run_attempt:1,created_at:'2026-10-16T01:00:00Z',pull_requests:[{number:4}]};
+    const context={repo:{owner:'owner',repo:'repo'},eventName:'pull_request_target',runId:42,sha:'b'.repeat(40),serverUrl:'https://github.com',payload:{pull_request:pr}};
+    const github={rest:{repos:{getContent:async()=>({data:{type:'file',encoding:'base64',content:Buffer.from('agents:\n  codex:\n').toString('base64')}}),createCommitStatus:async p=>writes.push(p)},pulls:{get:async()=>{prReads++;const copy=JSON.parse(JSON.stringify(pr));
+    if(input.drift==='head'||(input.drift==='final-head'&&prReads>1))copy.head.sha='c'.repeat(40);
+    if(input.drift==='base')copy.base.sha='c'.repeat(40);
+    if(input.drift==='base-repo')copy.base.repo.id=2;
+    if(input.drift==='base-ref')copy.base.ref='other';
+    if(input.drift==='closed')copy.state='closed';
+    return {data:copy};}},actions:{getWorkflowRun:async()=>{runReads++;return {data:{...run,run_attempt:(input.drift==='attempt'||(input.drift==='final-attempt'&&runReads>1))?2:1}};},listWorkflowRuns(){}}},paginate:async(method,params)=>{
+    if(method!==github.rest.actions.listWorkflowRuns)throw Error('unexpected pagination');
+    if(input.drift==='missing-inventory')return [];
+    if(input.drift==='same-id-attempt')return [{...run,run_attempt:2}];
+    if(input.drift==='newer-run')return [run,{...run,id:43,run_number:6}];
+    if(input.drift==='ambiguous-newer')return [run,{...run,id:43,run_number:6,pull_requests:[]}];
+    return [run];}};
+    const core={info(){},warning(){},error(){},setFailed:m=>failures.push(m)};
+    const AsyncFunction=Object.getPrototypeOf(async function(){}).constructor;
+    new AsyncFunction('github','context','core',input.script)(github,context,core).then(()=>process.stdout.write(JSON.stringify({writes,failures,prReads,runReads})));
+    """
+        result = subprocess.run(["node", "-e", harness], input=json.dumps({"script": script, "drift": drift}), capture_output=True, text=True, check=True)
+        record = json.loads(result.stdout)
+>       assert len(record["writes"]) == (1 if drift == "none" else 0)
+E       AssertionError: assert 1 == 0
+E        +  where 1 = len([{'owner': 'owner', 'repo': 'repo', 'sha': 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'state': 'failure', ...}])
+
+tests/workflows/test_agents_guard_publication.py:798: AssertionError
+_ test_missing_enabled_corrective_write_requires_fresh_bindings[final-attempt-False] _
+
+template = False, drift = 'final-attempt'
+
+    @pytest.mark.parametrize("template", [False, True])
+    @pytest.mark.parametrize("drift", ["none", "head", "base", "base-repo", "base-ref", "closed", "attempt", "newer-run", "same-id-attempt", "ambiguous-newer", "missing-inventory", "final-head", "final-attempt"])
+    def test_missing_enabled_corrective_write_requires_fresh_bindings(template, drift):
+        prefix = ROOT / "templates/consumer-repo" if template else ROOT
+        workflow = yaml.safe_load((prefix / ".github/workflows/agents-guard.yml").read_text())
+        script = next(step["with"]["script"] for step in workflow["jobs"]["guard"]["steps"] if step.get("name") == "Report agents guard commit status")
+        harness = r"""
+    const input=JSON.parse(require('fs').readFileSync(0,'utf8'));
+    process.env.GITHUB_RUN_ATTEMPT='1';
+    const writes=[];const failures=[];let prReads=0;let runReads=0;
+    const pr={number:4,state:'open',head:{sha:'a'.repeat(40)},base:{sha:'b'.repeat(40),ref:'main',repo:{id:1}}};
+    const run={id:42,workflow_id:7,path:'.github/workflows/agents-guard.yml',event:'pull_request_target',head_sha:'b'.repeat(40),run_number:5,run_attempt:1,created_at:'2026-10-16T01:00:00Z',pull_requests:[{number:4}]};
+    const context={repo:{owner:'owner',repo:'repo'},eventName:'pull_request_target',runId:42,sha:'b'.repeat(40),serverUrl:'https://github.com',payload:{pull_request:pr}};
+    const github={rest:{repos:{getContent:async()=>({data:{type:'file',encoding:'base64',content:Buffer.from('agents:\n  codex:\n').toString('base64')}}),createCommitStatus:async p=>writes.push(p)},pulls:{get:async()=>{prReads++;const copy=JSON.parse(JSON.stringify(pr));
+    if(input.drift==='head'||(input.drift==='final-head'&&prReads>1))copy.head.sha='c'.repeat(40);
+    if(input.drift==='base')copy.base.sha='c'.repeat(40);
+    if(input.drift==='base-repo')copy.base.repo.id=2;
+    if(input.drift==='base-ref')copy.base.ref='other';
+    if(input.drift==='closed')copy.state='closed';
+    return {data:copy};}},actions:{getWorkflowRun:async()=>{runReads++;return {data:{...run,run_attempt:(input.drift==='attempt'||(input.drift==='final-attempt'&&runReads>1))?2:1}};},listWorkflowRuns(){}}},paginate:async(method,params)=>{
+    if(method!==github.rest.actions.listWorkflowRuns)throw Error('unexpected pagination');
+    if(input.drift==='missing-inventory')return [];
+    if(input.drift==='same-id-attempt')return [{...run,run_attempt:2}];
+    if(input.drift==='newer-run')return [run,{...run,id:43,run_number:6}];
+    if(input.drift==='ambiguous-newer')return [run,{...run,id:43,run_number:6,pull_requests:[]}];
+    return [run];}};
+    const core={info(){},warning(){},error(){},setFailed:m=>failures.push(m)};
+    const AsyncFunction=Object.getPrototypeOf(async function(){}).constructor;
+    new AsyncFunction('github','context','core',input.script)(github,context,core).then(()=>process.stdout.write(JSON.stringify({writes,failures,prReads,runReads})));
+    """
+        result = subprocess.run(["node", "-e", harness], input=json.dumps({"script": script, "drift": drift}), capture_output=True, text=True, check=True)
+        record = json.loads(result.stdout)
+>       assert len(record["writes"]) == (1 if drift == "none" else 0)
+E       AssertionError: assert 1 == 0
+E        +  where 1 = len([{'owner': 'owner', 'repo': 'repo', 'sha': 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'state': 'failure', ...}])
+
+tests/workflows/test_agents_guard_publication.py:798: AssertionError
+_ test_missing_enabled_corrective_write_requires_fresh_bindings[final-attempt-True] _
+
+template = True, drift = 'final-attempt'
+
+    @pytest.mark.parametrize("template", [False, True])
+    @pytest.mark.parametrize("drift", ["none", "head", "base", "base-repo", "base-ref", "closed", "attempt", "newer-run", "same-id-attempt", "ambiguous-newer", "missing-inventory", "final-head", "final-attempt"])
+    def test_missing_enabled_corrective_write_requires_fresh_bindings(template, drift):
+        prefix = ROOT / "templates/consumer-repo" if template else ROOT
+        workflow = yaml.safe_load((prefix / ".github/workflows/agents-guard.yml").read_text())
+        script = next(step["with"]["script"] for step in workflow["jobs"]["guard"]["steps"] if step.get("name") == "Report agents guard commit status")
+        harness = r"""
+    const input=JSON.parse(require('fs').readFileSync(0,'utf8'));
+    process.env.GITHUB_RUN_ATTEMPT='1';
+    const writes=[];const failures=[];let prReads=0;let runReads=0;
+    const pr={number:4,state:'open',head:{sha:'a'.repeat(40)},base:{sha:'b'.repeat(40),ref:'main',repo:{id:1}}};
+    const run={id:42,workflow_id:7,path:'.github/workflows/agents-guard.yml',event:'pull_request_target',head_sha:'b'.repeat(40),run_number:5,run_attempt:1,created_at:'2026-10-16T01:00:00Z',pull_requests:[{number:4}]};
+    const context={repo:{owner:'owner',repo:'repo'},eventName:'pull_request_target',runId:42,sha:'b'.repeat(40),serverUrl:'https://github.com',payload:{pull_request:pr}};
+    const github={rest:{repos:{getContent:async()=>({data:{type:'file',encoding:'base64',content:Buffer.from('agents:\n  codex:\n').toString('base64')}}),createCommitStatus:async p=>writes.push(p)},pulls:{get:async()=>{prReads++;const copy=JSON.parse(JSON.stringify(pr));
+    if(input.drift==='head'||(input.drift==='final-head'&&prReads>1))copy.head.sha='c'.repeat(40);
+    if(input.drift==='base')copy.base.sha='c'.repeat(40);
+    if(input.drift==='base-repo')copy.base.repo.id=2;
+    if(input.drift==='base-ref')copy.base.ref='other';
+    if(input.drift==='closed')copy.state='closed';
+    return {data:copy};}},actions:{getWorkflowRun:async()=>{runReads++;return {data:{...run,run_attempt:(input.drift==='attempt'||(input.drift==='final-attempt'&&runReads>1))?2:1}};},listWorkflowRuns(){}}},paginate:async(method,params)=>{
+    if(method!==github.rest.actions.listWorkflowRuns)throw Error('unexpected pagination');
+    if(input.drift==='missing-inventory')return [];
+    if(input.drift==='same-id-attempt')return [{...run,run_attempt:2}];
+    if(input.drift==='newer-run')return [run,{...run,id:43,run_number:6}];
+    if(input.drift==='ambiguous-newer')return [run,{...run,id:43,run_number:6,pull_requests:[]}];
+    return [run];}};
+    const core={info(){},warning(){},error(){},setFailed:m=>failures.push(m)};
+    const AsyncFunction=Object.getPrototypeOf(async function(){}).constructor;
+    new AsyncFunction('github','context','core',input.script)(github,context,core).then(()=>process.stdout.write(JSON.stringify({writes,failures,prReads,runReads})));
+    """
+        result = subprocess.run(["node", "-e", harness], input=json.dumps({"script": script, "drift": drift}), capture_output=True, text=True, check=True)
+        record = json.loads(result.stdout)
+>       assert len(record["writes"]) == (1 if drift == "none" else 0)
+E       AssertionError: assert 1 == 0
+E        +  where 1 = len([{'owner': 'owner', 'repo': 'repo', 'sha': 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'state': 'failure', ...}])
+
+tests/workflows/test_agents_guard_publication.py:798: AssertionError
+=========================== short test summary info ============================
+FAILED tests/workflows/test_agents_guard_publication.py::test_missing_enabled_corrective_write_requires_fresh_bindings[none-False]
+FAILED tests/workflows/test_agents_guard_publication.py::test_missing_enabled_corrective_write_requires_fresh_bindings[none-True]
+FAILED tests/workflows/test_agents_guard_publication.py::test_missing_enabled_corrective_write_requires_fresh_bindings[head-False]
+FAILED tests/workflows/test_agents_guard_publication.py::test_missing_enabled_corrective_write_requires_fresh_bindings[head-True]
+FAILED tests/workflows/test_agents_guard_publication.py::test_missing_enabled_corrective_write_requires_fresh_bindings[base-False]
+FAILED tests/workflows/test_agents_guard_publication.py::test_missing_enabled_corrective_write_requires_fresh_bindings[base-True]
+FAILED tests/workflows/test_agents_guard_publication.py::test_missing_enabled_corrective_write_requires_fresh_bindings[base-repo-False]
+FAILED tests/workflows/test_agents_guard_publication.py::test_missing_enabled_corrective_write_requires_fresh_bindings[base-repo-True]
+FAILED tests/workflows/test_agents_guard_publication.py::test_missing_enabled_corrective_write_requires_fresh_bindings[base-ref-False]
+FAILED tests/workflows/test_agents_guard_publication.py::test_missing_enabled_corrective_write_requires_fresh_bindings[base-ref-True]
+FAILED tests/workflows/test_agents_guard_publication.py::test_missing_enabled_corrective_write_requires_fresh_bindings[closed-False]
+FAILED tests/workflows/test_agents_guard_publication.py::test_missing_enabled_corrective_write_requires_fresh_bindings[closed-True]
+FAILED tests/workflows/test_agents_guard_publication.py::test_missing_enabled_corrective_write_requires_fresh_bindings[attempt-False]
+FAILED tests/workflows/test_agents_guard_publication.py::test_missing_enabled_corrective_write_requires_fresh_bindings[attempt-True]
+FAILED tests/workflows/test_agents_guard_publication.py::test_missing_enabled_corrective_write_requires_fresh_bindings[newer-run-False]
+FAILED tests/workflows/test_agents_guard_publication.py::test_missing_enabled_corrective_write_requires_fresh_bindings[newer-run-True]
+FAILED tests/workflows/test_agents_guard_publication.py::test_missing_enabled_corrective_write_requires_fresh_bindings[same-id-attempt-False]
+FAILED tests/workflows/test_agents_guard_publication.py::test_missing_enabled_corrective_write_requires_fresh_bindings[same-id-attempt-True]
+FAILED tests/workflows/test_agents_guard_publication.py::test_missing_enabled_corrective_write_requires_fresh_bindings[ambiguous-newer-False]
+FAILED tests/workflows/test_agents_guard_publication.py::test_missing_enabled_corrective_write_requires_fresh_bindings[ambiguous-newer-True]
+FAILED tests/workflows/test_agents_guard_publication.py::test_missing_enabled_corrective_write_requires_fresh_bindings[missing-inventory-False]
+FAILED tests/workflows/test_agents_guard_publication.py::test_missing_enabled_corrective_write_requires_fresh_bindings[missing-inventory-True]
+FAILED tests/workflows/test_agents_guard_publication.py::test_missing_enabled_corrective_write_requires_fresh_bindings[final-head-False]
+FAILED tests/workflows/test_agents_guard_publication.py::test_missing_enabled_corrective_write_requires_fresh_bindings[final-head-True]
+FAILED tests/workflows/test_agents_guard_publication.py::test_missing_enabled_corrective_write_requires_fresh_bindings[final-attempt-False]
+FAILED tests/workflows/test_agents_guard_publication.py::test_missing_enabled_corrective_write_requires_fresh_bindings[final-attempt-True]
+26 failed, 453 deselected in 2.00s
