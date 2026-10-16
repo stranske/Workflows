@@ -1,0 +1,135 @@
+{
+  "base_head": "ebd907152a6550e41e4e0fb6e296ceec34b7a9b6",
+  "selection": "last 400 scripts-touching commit repair-subject/churn proxy; no verified escaped-defect ranking available",
+  "proof_pairs": 8,
+  "proof_reuse_files_unchanged": 93,
+  "production_changed": false,
+  "production_helpers_equal": true,
+  "input_sha256": {
+    "scripts/check_deliberate_break.py": "45a9193dc6d115c237471158d0255128289dd5dcc085d4cdecb9f1a294839b27",
+    "templates/consumer-repo/scripts/check_deliberate_break.py": "45a9193dc6d115c237471158d0255128289dd5dcc085d4cdecb9f1a294839b27",
+    "tests/scripts/test_check_deliberate_break_shebang_rejection.py": "78cb81326dc9c5c084d1a89fe7ec6cec7ec887f3a0d016b76e7bdeccb5b8e731",
+    "docs/evidence/issue-3743/shebang-rejection/replay.py": "23d12b9f6434155c2152f467398f1c54ced754163ace0b3e8a1c558805087105",
+    "docs/evidence/issue-3743/shebang-rejection/coverage.ini": "fcd1233e5a269b4729be015daf9258224d6d5fd5d59637964a9e426e1958486a"
+  },
+  "comparison": {
+    "baseline_pass": 340,
+    "candidate_pass": 348,
+    "added_nodes": [
+      [
+        "tests.scripts.test_check_deliberate_break_shebang_rejection",
+        "test_empty_pytest_launcher_has_no_probe[root]"
+      ],
+      [
+        "tests.scripts.test_check_deliberate_break_shebang_rejection",
+        "test_empty_pytest_launcher_has_no_probe[template]"
+      ],
+      [
+        "tests.scripts.test_check_deliberate_break_shebang_rejection",
+        "test_missing_shebang_has_no_probe[root]"
+      ],
+      [
+        "tests.scripts.test_check_deliberate_break_shebang_rejection",
+        "test_missing_shebang_has_no_probe[template]"
+      ],
+      [
+        "tests.scripts.test_check_deliberate_break_shebang_rejection",
+        "test_unclosed_shebang_quote_has_no_probe[root]"
+      ],
+      [
+        "tests.scripts.test_check_deliberate_break_shebang_rejection",
+        "test_unclosed_shebang_quote_has_no_probe[template]"
+      ],
+      [
+        "tests.scripts.test_check_deliberate_break_shebang_rejection",
+        "test_unresolved_env_python_has_no_probe[root]"
+      ],
+      [
+        "tests.scripts.test_check_deliberate_break_shebang_rejection",
+        "test_unresolved_env_python_has_no_probe[template]"
+      ]
+    ],
+    "removed_nodes": [],
+    "changed_old_outcomes": [],
+    "deltas": {
+      "scripts/check_deliberate_break.py": {
+        "added_lines": [],
+        "added_branches": [
+          [
+            711,
+            718
+          ]
+        ]
+      },
+      "templates/consumer-repo/scripts/check_deliberate_break.py": {
+        "added_lines": [
+          651,
+          652,
+          654,
+          657,
+          658,
+          664,
+          710,
+          711
+        ],
+        "added_branches": [
+          [
+            653,
+            654
+          ],
+          [
+            663,
+            664
+          ],
+          [
+            709,
+            710
+          ],
+          [
+            711,
+            718
+          ]
+        ]
+      }
+    },
+    "baseline_totals": {
+      "covered_lines": 1082,
+      "num_statements": 1244,
+      "percent_covered": 85.44444444444444,
+      "percent_covered_display": "85",
+      "missing_lines": 162,
+      "excluded_lines": 0,
+      "percent_statements_covered": 86.97749196141478,
+      "percent_statements_covered_display": "87",
+      "num_branches": 556,
+      "num_partial_branches": 56,
+      "covered_branches": 456,
+      "missing_branches": 100,
+      "percent_branches_covered": 82.01438848920863,
+      "percent_branches_covered_display": "82"
+    },
+    "candidate_totals": {
+      "covered_lines": 1090,
+      "num_statements": 1244,
+      "percent_covered": 86.16666666666667,
+      "percent_covered_display": "86",
+      "missing_lines": 154,
+      "excluded_lines": 0,
+      "percent_statements_covered": 87.62057877813506,
+      "percent_statements_covered_display": "88",
+      "num_branches": 556,
+      "num_partial_branches": 53,
+      "covered_branches": 461,
+      "missing_branches": 95,
+      "percent_branches_covered": 82.9136690647482,
+      "percent_branches_covered_display": "83"
+    }
+  },
+  "archive": {
+    "path": "proof.tar.gz",
+    "sha256": "83bf8bec764c0630a08c661876eaf7a24b5a7b27e1ee2875f6f96565ff281fae",
+    "bytes": 381289,
+    "verified_manifest_members": 122,
+    "manifest_sha256": "0b9017105b1ffca91fb9da871cdc3569dacd3b39b0f8b13daeb0224704311ddd"
+  }
+}
