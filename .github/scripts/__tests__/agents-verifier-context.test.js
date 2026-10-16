@@ -3980,9 +3980,14 @@ test('negated historical diagnostics do not join a complete positive evidence un
     'Evidence: /actions/runs/124 and /actions/runs/999 are not validation evidence',
     'Evidence: /actions/runs/124, /actions/runs/999 are not evidence',
     'Evidence: /actions/runs/124, while /actions/runs/998 and /actions/runs/999 are not evidence',
+    'No validation evidence: /actions/runs/999. However, Evidence: /actions/runs/124',
+    'Evidence: /actions/runs/124, and /actions/runs/999 is not validation evidence',
+    'Evidence: /actions/runs/124 and /actions/runs/999 not validation evidence',
+    'Evidence: /actions/runs/124 and /actions/runs/999 — not evidence',
   ];
   for (const implementation of implementations) {
     for (const diagnostic of diagnostics) {
+      for (const body of ['Validation: /actions/runs/123', '']) {
       const requested = [];
       let associated = 0;
       const empty = async () => ({data: []});
@@ -3991,18 +3996,21 @@ test('negated historical diagnostics do not join a complete positive evidence un
         pulls: {listReviewComments: empty, listReviews: empty},
         actions: {
           getWorkflowRun: async ({run_id}) => {requested.push(run_id); return {data: {id: run_id, head_sha: run_id === 999 ? 'b'.repeat(40) : sha}};},
-          listWorkflowRunsForRepo: async () => {associated++; throw Error('unrelated discovery');},
+          listWorkflowRunsForRepo: async () => {associated++; return {data: {total_count: 0, workflow_runs: []}};},
           listWorkflowRunArtifacts: async () => ({data: {total_count: 0, artifacts: []}}),
           downloadArtifact: async () => {throw Error('no archive expected');},
         },
       }};
       const evidence = await implementation({github, owner: 'octo', repo: 'workflows', pullNumber: 7,
-        pullRequestBody: 'Validation: /actions/runs/123', associatedCommitShas: [sha]});
-      assert.deepEqual(requested, /124(?: and|,) \/actions\/runs\/999 are not/.test(diagnostic) ? [123] : diagnostic.includes('/125') ? [123, 124, 125] : diagnostic.includes('/124') ? [123, 124] : [123]);
-      assert.equal(associated, 0);
+        pullRequestBody: body, associatedCommitShas: [sha]});
+      const selected = /124(?: and|,) \/actions\/runs\/999 are not/.test(diagnostic) ? [123] : diagnostic.includes('/125') ? [123, 124, 125] : diagnostic.includes('/124') ? [123, 124] : [123];
+      const expected = body ? selected : selected.filter(id => id !== 123);
+      assert.deepEqual(requested, expected);
+      assert.equal(associated, expected.length ? 0 : 1);
       assert.equal(evidence.artifacts.complete, true);
       assert.equal(evidence.artifacts.status, 'absent');
       assert.ok(evidence.comments.records.some(record => record.body === diagnostic));
+      }
     }
   }
 });

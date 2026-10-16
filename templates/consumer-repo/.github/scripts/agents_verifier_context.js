@@ -397,7 +397,7 @@ function positiveEvidenceClauses(line) {
     const clause = parts[index];
     // Only an independently labelled affirmative declaration can reopen
     // scope after negation; "but a validation prerequisite" is diagnostic.
-    const affirmativeDeclaration = /^\s*(?:[-*>]\s*)?(?:not only\s+)?(?:evidence|validation|artifacts?|test results?|red\s+(?:then\s+)?green)(?:\s+(?:evidence|validation|artifacts?|runs?))*\s*:/i.test(clause.replace(/[`*_]/g, ''));
+    const affirmativeDeclaration = /^\s*(?:[-*>]\s*)?(?:(?:however|separately|instead|also|in contrast|for comparison)\s*[,—:-]?\s*)?(?:not only\s+)?(?:evidence|validation|artifacts?|test results?|red\s+(?:then\s+)?green)(?:\s+(?:evidence|validation|artifacts?|runs?))*\s*:/i.test(clause.replace(/[`*_]/g, ''));
     if (negativeScope && affirmativeDeclaration) negativeScope = false;
     const labels = [...clause.matchAll(/\b(?:evidence|validation|artifacts?|test results?|red\s+(?:then\s+)?green)\b/gi)];
     const negativeIndex = labels.findIndex(match =>
@@ -421,7 +421,11 @@ function positiveEvidenceClauses(line) {
         const coordinatedSubject = new RegExp(runSubject +
           String.raw`(?:\s*(?:,\s*(?:(?:and|or)\s+)?|\s+(?:and|or)\s+)` + runSubject +
           String.raw`)*\s+(?:is|are|was|were)\s+(?:no|not)\s*$`, 'i');
-        const subject = clause.slice(0, end).match(coordinatedSubject);
+        const prefix = clause.slice(0, end);
+        const singularSubject = new RegExp(runSubject +
+          String.raw`[\s—-]+(?:(?:is|was)\s+)?(?:no|not)\s*$`, 'i');
+        const subject = prefix.match(/\b(?:are|were)\s+(?:no|not)\s*$/i)
+          ? prefix.match(coordinatedSubject) : prefix.match(singularSubject);
         if (subject) end = subject.index;
       }
       selected.push(clause.slice(0, end));
@@ -771,7 +775,14 @@ async function fetchVerifierEvidence({
   }
 
   const artifacts = { status: 'absent', complete: true, records: [], reason: '' };
-  const allReferencedRunIds = extractReferencedRunIds([pullRequestBody, ...(evidenceTexts || []), ...referenceTexts, ...commentBodies]);
+  const typedEvidenceTexts = (evidenceTexts || []).filter(text => String(text || '') !== String(pullRequestBody || ''));
+  const proseReferenceTexts = [pullRequestBody, ...referenceTexts, ...commentBodies];
+  // A filtered negative diagnostic must not return through incidental fallback
+  // when no positively selected URL exists. Typed references remain explicit.
+  const fallbackReferenceTexts = proseReferenceTexts.map(text => String(text || '').split('\n')
+    .map(line => /\b(?:no|not)\s+(?:evidence|validation|artifacts?|test results?|red\s+(?:then\s+)?green)\b/i.test(line.replace(/[`*_]/g, ''))
+      ? positiveEvidenceClauses(line).join(' ') : line).join('\n'));
+  const allReferencedRunIds = extractReferencedRunIds([...typedEvidenceTexts, ...fallbackReferenceTexts]);
   // A status-table "View run" or bare incidental body/comment URL is not an
   // explicit evidence selection. Typed evidence inputs and locally labelled
   // evidence lines select their union before budgeting; incidental links retain
@@ -782,7 +793,7 @@ async function fetchVerifierEvidence({
     .flatMap(positiveEvidenceClauses);
   const explicitEvidenceRunIds = new Set(
     extractReferencedRunIds([
-      ...(evidenceTexts || []).filter((text) => String(text || '') !== String(pullRequestBody || '')),
+      ...typedEvidenceTexts,
       ...labelledEvidenceLines,
     ])
   );

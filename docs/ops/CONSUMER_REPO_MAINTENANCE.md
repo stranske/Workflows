@@ -3037,3 +3037,5 @@ The privileged fork publisher also replaces prior success when registry evidence
 Verifier explicit-evidence labels also exclude an immediately preceding run URL when its own trailing predicate says it is/was not evidence (including Markdown links). Independently positive earlier URLs remain selected; historical comment bytes remain fully captured. See issue3820 positive-evidence-clauses native finding4289392041 proof.
 
 A trailing negative evidence predicate binds its complete comma/and/or coordinated run-URL subject; it does not preserve an earlier URL merely because the predicate is plural. Independent earlier affirmative clauses remain selected.
+
+Negative workflow-run references remain filtered from incidental fallback even when no explicit positive URL survives. Typed references retain their explicit union. Common introductory However/Separately/Instead/Also labels can start an independent positive declaration. Singular and bare/dash negative predicates bind the immediate URL; explicit plural are/were predicates bind coordinated URL subjects.
