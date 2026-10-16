@@ -91,6 +91,12 @@ def test_context_payload_omits_sections_that_do_not_fit_after_metadata() -> None
 
     assert context["truncated"] is True
     assert context["context"]
+    # What the test is named for: neither the body section nor the extra section is rendered, only (a prefix of) the metadata.
+    assert "metadata".startswith(context["context"].strip())
+    assert "## Issue Body" not in context["context"]
+    assert "## Extra" not in context["context"]
+    assert context["formatted_body"] == ""
+    assert context["estimated_tokens"] <= 1
 
 
 def test_truncation_helpers_handle_a_budget_smaller_than_the_heading() -> None:
