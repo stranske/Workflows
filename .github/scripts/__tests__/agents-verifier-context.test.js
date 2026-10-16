@@ -5155,3 +5155,35 @@ test('retained capture paths refuse traversal and symbolic-link replacement', ()
     assert.equal(fs.readFileSync(sentinel,'utf8'),'unchanged');
   } finally { fs.rmSync(directory,{recursive:true,force:true}); }
 });
+
+// Authentic first-party manual verifier runs use wrapper commits, not target commits.
+// Their source-reviewed immutable artifact binding does not establish provider PASS.
+test('historical manual verifier binding admits only the exact reviewed run and target', () => {
+  const { historicalManualVerifierBinding, validateHistoricalManualArtifact } = require('../agents_verifier_context.js');
+  const run = {id:38897681034, event:'workflow_dispatch', status:'completed', conclusion:'success', run_attempt:1,
+    path:'.github/workflows/agents-verifier.yml', head_branch:'main', head_sha:'a071ff06be16b969b50971678de75cb89d2978ab',
+    repository:{id:1342306972,full_name:'stranske/Orchestrator'}, head_repository:{id:1342306972,full_name:'stranske/Orchestrator'},
+    referenced_workflows:[{path:'stranske/Workflows/.github/workflows/reusable-agents-verifier.yml@main',ref:'refs/heads/main',sha:'43096bff240b6fc5c89bb229f992a49a663fece4'}]};
+  const target = {owner:'stranske', repo:'Orchestrator', pullNumber:631,
+    associatedCommitShas:['aba5c4503a31f71e337e35e65d928124510bba22','a898f3b7227c61b73d1abe521e141e99173f85a5']};
+  const bound = historicalManualVerifierBinding(run,target);
+  assert.ok(bound);
+  for (const change of [{id:38897681035},{event:'push'},{status:'in_progress'},{run_attempt:2},
+    {path:'.github/workflows/other.yml'},{head_branch:'evil'},{head_sha:'d'.repeat(40)},
+    {repository:{id:1,full_name:'stranske/Orchestrator'}},{head_repository:{id:1,full_name:'stranske/Orchestrator'}},
+    {referenced_workflows:[{...run.referenced_workflows[0],sha:'d'.repeat(40)}]}]) {
+    assert.equal(historicalManualVerifierBinding({...run,...change},target),null,JSON.stringify(change));
+  }
+  assert.equal(historicalManualVerifierBinding(run,{...target,pullNumber:632}),null);
+  assert.equal(historicalManualVerifierBinding(run,{...target,associatedCommitShas:['d'.repeat(40)]}),null);
+  assert.equal(historicalManualVerifierBinding(run,{...target,repo:'other'}),null);
+  const artifact={id:12044188828,name:'comparison-results-38897681034',expired:false,
+    digest:'sha256:01740159fcb0216e4fb0309d082d5a48d488178e2e4c8c83288bcccabc459471',
+    workflow_run:{id:run.id,repository_id:1342306972,head_repository_id:1342306972,head_branch:'main',head_sha:run.head_sha}};
+  assert.equal(validateHistoricalManualArtifact(bound,artifact,artifact.digest.slice(7)),true);
+  for(const change of [{id:1},{name:'comparison-results-388976810340'},{expired:true},{digest:'sha256:'+'d'.repeat(64)},
+    {workflow_run:{...artifact.workflow_run,id:1}},{workflow_run:{...artifact.workflow_run,head_sha:'d'.repeat(40)}}]) {
+    assert.equal(validateHistoricalManualArtifact(bound,{...artifact,...change},artifact.digest.slice(7)),false);
+  }
+  assert.equal(validateHistoricalManualArtifact(bound,artifact,'d'.repeat(64)),false);
+});
