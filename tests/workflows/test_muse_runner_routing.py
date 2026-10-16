@@ -126,6 +126,29 @@ def test_commit_step_preserves_the_run_step_git_identity():
         assert commit_env[variable] == run_env[variable], variable
 
 
+def test_commit_step_scopes_bot_identity_to_the_direct_commit():
+    steps = _jobs(WF / "reusable-muse-run.yml")["muse"]["steps"]
+    script = next(step["run"] for step in steps if step.get("id") == "commit")
+    # Join shell continuations so command-scoped overrides can span several lines.
+    commands = re.sub(r"\\\n\s*", " ", script)
+    identity = r"GIT_(?:AUTHOR|COMMITTER)_(?:NAME|EMAIL)"
+    for command in commands.splitlines():
+        command = command.strip()
+        if not command or command.startswith("#"):
+            continue
+        assert not re.search(r"\bgit\s+config\b.*\buser\.(?:name|email)\b", command), (
+            "Commit step must not persist a bot identity in repository config; "
+            "scope any bot override to the direct git commit invocation"
+        )
+        assert not re.search(
+            rf"\b(?:export|unset)\s+{identity}\b", command
+        ), "Commit step must preserve the Muse environment for later rebase/merge commands"
+        if re.search(rf"\b{identity}=", command):
+            assert re.search(
+                r"\bgit\s+commit\b", command
+            ), "Only the direct git commit invocation may override Muse identity"
+
+
 @pytest.mark.parametrize(
     "variable",
     ["GIT_AUTHOR_NAME", "GIT_AUTHOR_EMAIL", "GIT_COMMITTER_NAME", "GIT_COMMITTER_EMAIL"],
