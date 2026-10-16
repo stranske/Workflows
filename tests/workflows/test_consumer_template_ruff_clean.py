@@ -56,4 +56,4 @@ def test_selftest_job_installs_the_consumer_lint_prerequisite():
     install = next(
         step["run"] for step in job["steps"] if step.get("name") == "Install dependencies"
     )
-    assert "ruff==0.17.0" in install
+    assert "ruff==0.17.1" in install
