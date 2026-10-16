@@ -3,7 +3,9 @@
 Guards Workflows#3918/#3919: a runner nobody dispatches (or a label nobody routes) is inert.
 """
 
+import os
 import re
+import subprocess
 from pathlib import Path
 
 import yaml
@@ -89,3 +91,38 @@ def test_run_step_refuses_to_exec_after_a_failed_sandbox_or_prompt_guard():
     assert guard in text
     assert text.index(guard) < text.index('"$MUSE_BIN" exec')
     assert "grep -cvE '^.. agents/.*\\.md$' || true" in text
+
+
+def _muse_git_identity() -> dict[str, str]:
+    steps = _jobs(WF / "reusable-muse-run.yml")["muse"]["steps"]
+    return next(step["env"] for step in steps if step.get("id") == "run_muse")
+
+
+def test_run_step_sets_a_muse_git_identity():
+    env = _muse_git_identity()
+    assert env["GIT_AUTHOR_NAME"] == env["GIT_COMMITTER_NAME"] == "muse"
+    assert (
+        env["GIT_AUTHOR_EMAIL"] == env["GIT_COMMITTER_EMAIL"] == ("muse@users.noreply.github.com")
+    )
+
+
+def test_run_step_identity_overrides_a_cli_default_git_identity(tmp_path):
+    # Exercise real Git without launching Muse or accessing any credential store.
+    env = {key: value for key, value in os.environ.items() if not key.startswith("GIT_")}
+    env.update(
+        {key: value for key, value in _muse_git_identity().items() if key.startswith("GIT_")}
+    )
+    env.update(GIT_CONFIG_NOSYSTEM="1", GIT_CONFIG_GLOBAL=os.devnull)
+
+    def git(*args):
+        return subprocess.run(
+            ["git", *args], cwd=tmp_path, env=env, check=True, capture_output=True, text=True
+        ).stdout.strip()
+
+    git("init", "--initial-branch=main")
+    git("config", "user.name", "Claude")
+    git("config", "user.email", "noreply@anthropic.com")
+    git("-c", "commit.gpgsign=false", "commit", "--allow-empty", "-m", "identity probe")
+    assert git("show", "-s", "--format=%an|%ae|%cn|%ce", "HEAD") == (
+        "muse|muse@users.noreply.github.com|muse|muse@users.noreply.github.com"
+    )
