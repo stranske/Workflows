@@ -2290,3 +2290,184 @@ def test_followup_metadata_fallback_preserves_context_and_number_precedence(
             f"run_id:{expected_run}",
         ],
     }
+
+
+@pytest.mark.parametrize("accepts_config", [True, False], ids=["configured", "fallback"])
+def test_invoke_without_langchain_uses_plain_prompts_and_preserves_output(
+    monkeypatch: pytest.MonkeyPatch, accepts_config: bool
+) -> None:
+    monkeypatch.setitem(sys.modules, "langchain_core.messages", None)
+    monkeypatch.setitem(sys.modules, "tools.llm_provider", None)
+    monkeypatch.setattr(followup_issue_generator, "_build_llm_config", lambda **_: {"tags": []})
+    calls = []
+
+    def invoke(prompt, **kwargs):
+        calls.append((prompt, kwargs))
+        if kwargs and not accepts_config:
+            raise TypeError("config unsupported")
+        return SimpleNamespace(content=42)
+
+    result = followup_issue_generator._invoke_llm(
+        "plain prompt",
+        SimpleNamespace(invoke=invoke),
+        operation="generate_tasks",
+        pr_number=123,
+        issue_number=42,
+    )
+
+    assert result == ("42", None, None)
+    assert calls == [("plain prompt", {"config": {"tags": []}})] + (
+        [] if accepts_config else [("plain prompt", {})]
+    )
+
+
+def test_invoke_without_langchain_reports_plain_prompt_failure_with_cause(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setitem(sys.modules, "langchain_core.messages", None)
+    monkeypatch.setattr(followup_issue_generator, "_build_llm_config", lambda **_: {})
+    failure = ValueError("plain prompts unsupported")
+    calls = []
+
+    def invoke(prompt, **kwargs):
+        calls.append((prompt, kwargs))
+        if "config" in kwargs:
+            raise TypeError("config unsupported")
+        raise failure
+
+    with pytest.raises(RuntimeError, match="Install langchain-core") as caught:
+        followup_issue_generator._invoke_llm(
+            "plain prompt",
+            SimpleNamespace(invoke=invoke),
+            operation="generate_tasks",
+            pr_number=123,
+            issue_number=42,
+        )
+
+    assert caught.value.__cause__ is failure
+    assert calls == [("plain prompt", {"config": {}}), ("plain prompt", {})]
+
+
+@pytest.mark.parametrize("trace_failure", ["missing-module", "extract-error"])
+def test_trace_failures_preserve_generated_text_and_log_the_cause(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture, trace_failure: str
+) -> None:
+    monkeypatch.setattr(followup_issue_generator, "_build_llm_config", lambda **_: {})
+    if trace_failure == "missing-module":
+        monkeypatch.setitem(sys.modules, "tools.llm_provider", None)
+        expected_log = "tools.llm_provider not available for trace extraction"
+    else:
+        provider = ModuleType("tools.llm_provider")
+
+        def extract_trace_id(response):
+            raise RuntimeError("trace response malformed")
+
+        provider.extract_trace_id = extract_trace_id
+        provider.derive_langsmith_trace_url = lambda trace_id: f"https://example.test/{trace_id}"
+        monkeypatch.setitem(sys.modules, "tools.llm_provider", provider)
+        expected_log = "Failed to extract trace ID: trace response malformed"
+    caplog.set_level(logging.DEBUG, logger=followup_issue_generator.__name__)
+
+    result = followup_issue_generator._invoke_llm(
+        "prompt",
+        _FakeClient(_FakeResponse("useful issue body")),
+        operation="format_followup_issue",
+        pr_number=123,
+        issue_number=42,
+    )
+
+    assert result == ("useful issue body", None, None)
+    assert expected_log in caplog.text
+
+
+@pytest.mark.parametrize("has_tasks_and_traces", [True, False], ids=["populated", "empty"])
+def test_llm_rounds_forward_evidence_and_assemble_issue_with_optional_traces(
+    monkeypatch: pytest.MonkeyPatch, has_tasks_and_traces: bool
+) -> None:
+    task = "Repair parser handling of incomplete records without dropping valid following rows"
+    analysis = {
+        "concrete_tasks": [{"task": task}] if has_tasks_and_traces else [],
+        "rewritten_acceptance_criteria": ["Valid records survive malformed input"],
+        "blockers_to_avoid": ["Do not discard the whole batch"],
+    }
+    tasks = {"tasks": ["Add parser regression"], "deferred": ["Inspect live records"]}
+    acceptance = {"acceptance_criteria": ["Parser preserves the valid row"]}
+    responses = {
+        "analyze_verification": json.dumps(analysis),
+        "generate_tasks": json.dumps(tasks),
+        "generate_acceptance_criteria": json.dumps(acceptance),
+        "format_followup_issue": "```markdown\n## Why\nRepair the parser.\n```",
+    }
+    reasoning_client, standard_client = object(), object()
+    calls = []
+
+    def invoke(prompt, client, *, operation, pr_number, issue_number):
+        calls.append((operation, client, pr_number, issue_number, prompt))
+        trace_url = f"https://example.test/{operation}" if has_tasks_and_traces else None
+        return responses[operation], None, trace_url
+
+    monkeypatch.setattr(followup_issue_generator, "_invoke_llm", invoke)
+
+    issue = followup_issue_generator._generate_with_llm(
+        VerificationData(structural_issues=["Acceptance criteria were ambiguous"]),
+        OriginalIssueData(number=42, tasks=["Repair parser"]),
+        pr_number=123,
+        codex_log="error: rejected valid row",
+        blocking_concerns=["Parser discarded valid records"],
+        advisory_concerns=["Consider a clearer comment"],
+        verdict="FAIL",
+        needs_human_reason="",
+        reasoning_client=reasoning_client,
+        reasoning_model="reasoning-model",
+        standard_client=standard_client,
+        standard_model="standard-model",
+    )
+
+    assert [call[:4] for call in calls] == [
+        (operation, reasoning_client if index == 0 else standard_client, 123, 42)
+        for index, operation in enumerate(responses)
+    ]
+    assert "error: rejected valid row" in calls[0][4]
+    assert "Parser discarded valid records" in calls[0][4]
+    assert json.dumps(analysis, indent=2) in calls[1][4]
+    assert "- [ ] Repair parser" in calls[1][4]
+    assert json.dumps(tasks["tasks"], indent=2) in calls[2][4]
+    assert json.dumps(analysis["rewritten_acceptance_criteria"], indent=2) in calls[2][4]
+    for payload in (tasks["tasks"], tasks["deferred"], acceptance["acceptance_criteria"]):
+        assert json.dumps(payload, indent=2) in calls[3][4]
+    assert "Acceptance criteria were ambiguous" in calls[3][4]
+    assert "Do not discard the whole batch" in calls[3][4]
+    focus = task[:50] if has_tasks_and_traces else "verification concerns"
+    assert issue.title == f"[Follow-up] {focus} (PR #123)"
+    assert issue.labels == ["follow-up", "agents:optimize"]
+    assert issue.body.startswith("## Why\nRepair the parser.")
+    assert "```markdown" not in issue.body
+    assert "- Consider a clearer comment" in issue.body
+    if has_tasks_and_traces:
+        for operation in responses:
+            assert f"<!-- LangSmith {operation}: https://example.test/{operation} -->" in issue.body
+    else:
+        assert "<!-- LangSmith" not in issue.body
+
+
+def test_structured_followup_keeps_structural_findings_and_caps_non_actionable_history() -> None:
+    issue = generate_followup_issue(
+        VerificationData(
+            provider_verdicts={"default": {"verdict": "FAIL", "confidence": 100}},
+            concerns=["Fix the parser"],
+            structural_issues=["Acceptance criteria lacked a parser example"],
+            non_actionable_items=[f"Manual investigation {index}" for index in range(7)],
+        ),
+        OriginalIssueData(number=42, title="Parser"),
+        pr_number=123,
+        use_llm=False,
+    )
+
+    assert "### Structural Issues Detected\n\n- Acceptance criteria lacked a parser example" in (
+        issue.body
+    )
+    assert "### Non-actionable Items Encountered" in issue.body
+    for index in range(5):
+        assert f"- `Manual investigation {index}`" in issue.body
+    assert "Manual investigation 5" not in issue.body
+    assert "Manual investigation 6" not in issue.body
