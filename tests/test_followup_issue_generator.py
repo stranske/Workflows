@@ -2165,6 +2165,35 @@ def test_main_reads_verification_from_standard_input(
     assert "Extracted 1 provider verdicts" in captured.err
 
 
+def test_generate_followup_without_available_clients_preserves_actionable_feedback(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Missing clients must still produce a useful follow-up from verifier evidence."""
+    requested_clients = []
+
+    def unavailable_client(*, reasoning):
+        requested_clients.append(reasoning)
+        return None
+
+    monkeypatch.setattr(followup_issue_generator, "_get_followup_client", unavailable_client)
+
+    result = generate_followup_issue(
+        VerificationData(
+            provider_verdicts={"default": {"verdict": "FAIL", "confidence": 100}},
+            concerns=["Fix the failing parser"],
+        ),
+        OriginalIssueData(number=42, title="Parser", acceptance_criteria=["Parse valid input"]),
+        pr_number=123,
+    )
+
+    assert requested_clients == [True, False]
+    assert "- [ ] Fix the failing parser" in result.body
+    assert "- [ ] Parse valid input" in result.body
+    assert "- Original PR: #123" in result.body
+    assert "- Parent issue: #42" in result.body
+    assert result.labels == ["follow-up", "agents:optimize"]
+
+
 @pytest.mark.parametrize("available", ["both", "reasoning", "standard"])
 def test_generate_followup_routes_available_clients_without_losing_model_identity(
     monkeypatch: pytest.MonkeyPatch, available: str
