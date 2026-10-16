@@ -5,6 +5,7 @@ Guards Workflows#3918/#3919: a runner nobody dispatches (or a label nobody route
 
 import os
 import re
+import shlex
 import subprocess
 from pathlib import Path
 
@@ -144,9 +145,24 @@ def test_commit_step_scopes_bot_identity_to_the_direct_commit():
             rf"\b(?:export|unset)\s+{identity}\b", command
         ), "Commit step must preserve the Muse environment for later rebase/merge commands"
         if re.search(rf"\b{identity}=", command):
-            assert re.search(
-                r"\bgit\s+commit\b", command
-            ), "Only the direct git commit invocation may override Muse identity"
+            lexer = shlex.shlex(command, posix=True, punctuation_chars=";&|")
+            lexer.whitespace_split = True
+            segments = [[]]
+            for token in lexer:
+                if token and all(char in ";&|" for char in token):
+                    segments.append([])
+                else:
+                    segments[-1].append(token)
+            for segment in segments:
+                assignments = [token for token in segment if re.match(rf"{identity}=", token)]
+                if assignments:
+                    prefix = 0
+                    while prefix < len(segment) and re.match(rf"{identity}=", segment[prefix]):
+                        prefix += 1
+                    assert prefix == len(assignments) and segment[prefix : prefix + 2] == [
+                        "git",
+                        "commit",
+                    ], "Only the direct git commit invocation may override Muse identity"
 
 
 @pytest.mark.parametrize(
@@ -242,3 +258,13 @@ def test_run_step_identity_overrides_a_cli_default_git_identity(tmp_path, monkey
     assert git("rev-parse", "HEAD") != feature_sha
     git("merge-base", "--is-ancestor", "main", "HEAD")
     assert git("show", "-s", "--format=%an|%ae|%cn|%ce", "HEAD") == expected_identity
+
+
+@pytest.mark.parametrize("separator", [";", " && ", "\n"])
+def test_bot_identity_assignment_cannot_leak_past_command(monkeypatch, separator):
+    jobs = _jobs(WF / "reusable-muse-run.yml")
+    step = next(step for step in jobs["muse"]["steps"] if step.get("id") == "commit")
+    step["run"] = f'GIT_COMMITTER_NAME=Claude{separator}git commit -m "$commit_message"'
+    monkeypatch.setattr(f"{__name__}._jobs", lambda path: jobs)
+    with pytest.raises(AssertionError, match="direct git commit"):
+        test_commit_step_scopes_bot_identity_to_the_direct_commit()
