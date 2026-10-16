@@ -1,0 +1,106 @@
+{
+  "source": "scripts/langchain/followup_issue_generator.py",
+  "source_sha256": "251c56423366158c486324e0fb5987d7c914d177de1a0136f410fa5afac59824",
+  "coverage_after": "99.11%",
+  "results": [
+    {
+      "test": "test_confidence_helpers_preserve_empty_integer_and_percent_provider_edges",
+      "mutation": "empty-confidence-return",
+      "red_rc": 1,
+      "green_rc": 0,
+      "red_tail": "summary info ============================\nFAILED tests/test_followup_issue_generator.py::test_confidence_helpers_preserve_empty_integer_and_percent_provider_edges - AssertionError: assert 1 == 0\n +  where 1 = <function _parse_confidence_value at 0x7f174f90b7f0>('')\n +    where <function _parse_confidence_value at 0x7f174f90b7f0> = followup_issue_generator._parse_confidence_value\n1 failed in 0.21s\n",
+      "green_tail": ".                                                                        [100%]\n1 passed in 0.20s\n",
+      "ok": true
+    },
+    {
+      "test": "test_advisory_unfalsifiable_and_spurious_concern_filters",
+      "mutation": "unfalsifiable-advisory",
+      "red_rc": 1,
+      "green_rc": 0,
+      "red_tail": "=======\nFAILED tests/test_followup_issue_generator.py::test_advisory_unfalsifiable_and_spurious_concern_filters - AssertionError: assert False\n +  where False = <function _is_advisory_concern at 0x7f5bf72f3d70>('Cannot verify the runtime behavior from code review alone')\n +    where <function _is_advisory_concern at 0x7f5bf72f3d70> = followup_issue_generator._is_advisory_concern\n1 failed in 0.20s\n",
+      "green_tail": ".                                                                        [100%]\n1 passed in 0.21s\n",
+      "ok": true
+    },
+    {
+      "test": "test_missing_concerns_note_triggers_for_empty_body_and_blank_verdicts",
+      "mutation": "empty-body-missing-note",
+      "red_rc": 1,
+      "green_rc": 0,
+      "red_tail": "========\nFAILED tests/test_followup_issue_generator.py::test_missing_concerns_note_triggers_for_empty_body_and_blank_verdicts - AssertionError: assert False\n +  where False = <function _should_add_missing_concerns_note at 0x7fe69fe29010>('', {})\n +    where <function _should_add_missing_concerns_note at 0x7fe69fe29010> = followup_issue_generator._should_add_missing_concerns_note\n1 failed in 0.20s\n",
+      "green_tail": ".                                                                        [100%]\n1 passed in 0.21s\n",
+      "ok": true
+    },
+    {
+      "test": "test_strip_checkbox_preserves_non_list_text",
+      "mutation": "strip-non-list",
+      "red_rc": 1,
+      "green_rc": 0,
+      "red_tail": "ows/tests/test_followup_issue_generator.py:2557: AssertionError: assert '' == 'plain accept...riterion text'\n=========================== short test summary info ============================\nFAILED tests/test_followup_issue_generator.py::test_strip_checkbox_preserves_non_list_text - AssertionError: assert '' == 'plain accept...riterion text'\n  \n  - plain acceptance criterion text\n1 failed in 0.21s\n",
+      "green_tail": ".                                                                        [100%]\n1 passed in 0.21s\n",
+      "ok": true
+    },
+    {
+      "test": "test_budget_followup_tasks_stops_when_next_task_would_exceed",
+      "mutation": "budget-exceed-break",
+      "red_rc": 1,
+      "green_rc": 0,
+      "red_tail": "short test summary info ============================\nFAILED tests/test_followup_issue_generator.py::test_budget_followup_tasks_stops_when_next_task_would_exceed - AssertionError: assert ['first task'...within alone'] == ['first task']\n  \n  Left contains one more item: 'second task within alone'\n  \n  Full diff:\n    [\n        'first task',\n  +     'second task within alone',\n    ]\n1 failed in 0.20s\n",
+      "green_tail": ".                                                                        [100%]\n1 passed in 0.20s\n",
+      "ok": true
+    },
+    {
+      "test": "test_truncate_task_to_budget_returns_task_when_already_within_budget",
+      "mutation": "truncate-already-fits",
+      "red_rc": 1,
+      "green_rc": 0,
+      "red_tail": "generator.py:2588: AssertionError: assert 'short task...' == 'short task'\n=========================== short test summary info ============================\nFAILED tests/test_followup_issue_generator.py::test_truncate_task_to_budget_returns_task_when_already_within_budget - AssertionError: assert 'short task...' == 'short task'\n  \n  - short task\n  + short task...\n  ?           +++\n1 failed in 0.21s\n",
+      "green_tail": ".                                                                        [100%]\n1 passed in 0.20s\n",
+      "ok": true
+    },
+    {
+      "test": "test_code_change_decision_skips_split_and_advisory_only_concerns",
+      "mutation": "advisory-no-code-change",
+      "red_rc": 1,
+      "green_rc": 0,
+      "red_tail": "======================\nFAILED tests/test_followup_issue_generator.py::test_code_change_decision_skips_split_and_advisory_only_concerns - AssertionError: assert 'non-PASS output requires code changes: **no**' in 'non-PASS output requires code changes: **yes**; technical rationale: low-confidence and contradicted by high-confidence PASS provider(s); no code follow-up is required.'\n1 failed in 0.20s\n",
+      "green_tail": ".                                                                        [100%]\n1 passed in 0.20s\n",
+      "ok": true
+    },
+    {
+      "test": "test_build_why_section_resolves_verdict_when_omitted",
+      "mutation": "why-verdict-none",
+      "red_rc": 1,
+      "green_rc": 0,
+      "red_tail": "=============== short test summary info ============================\nFAILED tests/test_followup_issue_generator.py::test_build_why_section_resolves_verdict_when_omitted - AssertionError: assert 'verdict: **FAIL**' in 'PR #123 addressed issue #42 but verification identified concerns (verdict: **UNKNOWN**). This follow-up addresses the remaining gaps with improved task structure.'\n1 failed in 0.21s\n",
+      "green_tail": ".                                                                        [100%]\n1 passed in 0.20s\n",
+      "ok": true
+    },
+    {
+      "test": "test_invoke_llm_records_langsmith_trace_url",
+      "mutation": "trace-url-derive",
+      "red_rc": 1,
+      "green_rc": 0,
+      "red_tail": "=======================\nFAILED tests/test_followup_issue_generator.py::test_invoke_llm_records_langsmith_trace_url - AssertionError: assert ('body', 'trace-123', None) == ('body', 'tra...st/trace-123')\n  \n  At index 2 diff: None != 'https://smith.test/trace-123'\n  \n  Full diff:\n    (\n        'body',\n        'trace-123',\n  -     'https://smith.test/trace-123',\n  +     None,\n    )\n1 failed in 0.23s\n",
+      "green_tail": ".                                                                        [100%]\n1 passed in 0.23s\n",
+      "ok": true
+    },
+    {
+      "test": "test_get_followup_client_falls_back_when_reasoning_model_unavailable",
+      "mutation": "reasoning-fallback",
+      "red_rc": 1,
+      "green_rc": 0,
+      "red_tail": "nerator.py:2659: AssertionError: assert None == (<object object at 0x7fdbc8783120>, 'gpt-fallback')\n=========================== short test summary info ============================\nFAILED tests/test_followup_issue_generator.py::test_get_followup_client_falls_back_when_reasoning_model_unavailable - AssertionError: assert None == (<object object at 0x7fdbc8783120>, 'gpt-fallback')\n1 failed in 0.22s\n",
+      "green_tail": ".                                                                        [100%]\n1 passed in 0.20s\n",
+      "ok": true
+    },
+    {
+      "test": "test_main_guard_blocked_writes_markdown_output_file",
+      "mutation": "guard-markdown-output",
+      "red_rc": 1,
+      "green_rc": 0,
+      "red_tail": "======================= short test summary info ============================\nFAILED tests/test_followup_issue_generator.py::test_main_guard_blocked_writes_markdown_output_file - assert False\n +  where False = <built-in method startswith of str object at 0x7fa4a6ae60f0>('# ')\n +    where <built-in method startswith of str object at 0x7fa4a6ae60f0> = '{\"blocked\": true}'.startswith\n1 failed in 0.21s\n",
+      "green_tail": ".                                                                        [100%]\n1 passed in 0.21s\n",
+      "ok": true
+    }
+  ]
+}

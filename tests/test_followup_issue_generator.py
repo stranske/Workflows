@@ -2511,3 +2511,182 @@ def test_structured_followup_keeps_structural_findings_and_caps_non_actionable_h
         assert f"- `Manual investigation {index}`" in issue.body
     assert "Manual investigation 5" not in issue.body
     assert "Manual investigation 6" not in issue.body
+
+
+def test_confidence_helpers_preserve_empty_integer_and_percent_provider_edges() -> None:
+    assert followup_issue_generator._parse_confidence_value("") == 0
+    assert followup_issue_generator._coerce_confidence_percent(87.0) == 87
+
+    data = VerificationData(confidence_percent_providers={"openai"})
+    assert (
+        followup_issue_generator._provider_confidence_percent(data, "openai", "not-a-number") == 0
+    )
+    assert followup_issue_generator._provider_confidence_percent(data, "openai", float("nan")) == 0
+
+    policy_data = VerificationData(
+        provider_verdicts={"openai": {"verdict": "CONCERNS", "confidence": "bad-percent"}},
+        confidence_percent_providers={"openai"},
+    )
+    policy = followup_issue_generator._resolve_verdict_policy(policy_data)
+    assert policy.selected_confidence == 0.0
+
+
+def test_advisory_unfalsifiable_and_spurious_concern_filters() -> None:
+    assert followup_issue_generator._is_advisory_concern(
+        "Cannot verify the runtime behavior from code review alone"
+    )
+    data = extract_verification_data("""
+Verdict: Not Ready
+### Concerns
+- 10 verification concerns
+- Parser drops valid rows when a trailing delimiter is present
+""")
+    assert data.provider_verdicts["default"]["verdict"] == "Not Ready"
+    assert "10 verification concerns" not in data.concerns
+    assert any("Parser drops valid rows" in concern for concern in data.concerns)
+
+
+def test_missing_concerns_note_triggers_for_empty_body_and_blank_verdicts() -> None:
+    assert followup_issue_generator._should_add_missing_concerns_note("", {})
+    assert followup_issue_generator._should_add_missing_concerns_note(
+        "body without verdicts", {"openai": {"verdict": "   ", "confidence": 0}}
+    )
+
+
+def test_strip_checkbox_preserves_non_list_text() -> None:
+    assert followup_issue_generator._strip_checkbox("plain acceptance criterion text") == (
+        "plain acceptance criterion text"
+    )
+
+
+def test_budget_followup_tasks_stops_when_next_task_would_exceed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # budget = EVAL_FOLLOW_UP_BUDGET_TOKENS // 4 = 5
+    monkeypatch.setattr(followup_issue_generator, "EVAL_FOLLOW_UP_BUDGET_TOKENS", 20)
+
+    def estimate(value: str) -> int:
+        if "first" in value:
+            return 3
+        if "second" in value:
+            return 3
+        return 1
+
+    monkeypatch.setattr(followup_issue_generator, "estimate_tokens", estimate)
+
+    selected = followup_issue_generator._budget_followup_tasks(
+        ["first task", "second task within alone", "third"]
+    )
+
+    assert selected == ["first task"]
+
+
+def test_truncate_task_to_budget_returns_task_when_already_within_budget(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(followup_issue_generator, "estimate_tokens", lambda value: 2)
+    assert followup_issue_generator._truncate_task_to_budget("short task", 10) == "short task"
+
+
+def test_code_change_decision_skips_split_and_advisory_only_concerns() -> None:
+    split = VerificationData(
+        provider_verdicts={
+            "openai": {"verdict": "PASS", "confidence": 90},
+            "anthropic": {"verdict": "CONCERNS", "confidence": 40},
+        },
+        concerns=["Could clarify the helper docstring"],
+    )
+    decision = followup_issue_generator._format_code_change_decision(split)
+    assert "non-PASS output requires code changes: **no**" in decision
+    assert "no code follow-up is required" in decision
+
+    advisory_only = VerificationData(
+        provider_verdicts={"openai": {"verdict": "CONCERNS", "confidence": 70}},
+        concerns=["Consider renaming the helper for clarity"],
+    )
+    advisory_decision = followup_issue_generator._format_code_change_decision(advisory_only)
+    assert "non-PASS output requires code changes: **no**" in advisory_decision
+
+
+def test_build_why_section_resolves_verdict_when_omitted() -> None:
+    why = followup_issue_generator._build_why_section(
+        VerificationData(provider_verdicts={"openai": {"verdict": "FAIL", "confidence": 100}}),
+        OriginalIssueData(number=42, title="Parser"),
+        pr_number=123,
+    )
+    assert "verdict: **FAIL**" in why
+
+
+def test_invoke_llm_records_langsmith_trace_url(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    monkeypatch.setattr(followup_issue_generator, "_build_llm_config", lambda **_: {})
+    provider = ModuleType("tools.llm_provider")
+    provider.extract_trace_id = lambda response: "trace-123"
+    provider.derive_langsmith_trace_url = lambda trace_id: f"https://smith.test/{trace_id}"
+    monkeypatch.setitem(sys.modules, "tools.llm_provider", provider)
+    caplog.set_level(logging.INFO, logger=followup_issue_generator.__name__)
+
+    text, trace_id, trace_url = followup_issue_generator._invoke_llm(
+        "prompt",
+        _FakeClient(_FakeResponse("body")),
+        operation="format_followup_issue",
+        pr_number=123,
+        issue_number=42,
+    )
+
+    assert (text, trace_id, trace_url) == ("body", "trace-123", "https://smith.test/trace-123")
+    assert "LangSmith trace: https://smith.test/trace-123" in caplog.text
+
+
+def test_get_followup_client_falls_back_when_reasoning_model_unavailable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls = []
+    fallback_client = object()
+
+    def build_client(*, model=None, provider=None):
+        calls.append((model, provider))
+        if model == "o3-mini":
+            return None
+        return SimpleNamespace(client=fallback_client, model="gpt-fallback", provider="auto")
+
+    monkeypatch.setenv("FOLLOWUP_REASONING_MODEL", "o3-mini")
+    monkeypatch.setattr(followup_issue_generator, "build_client", build_client)
+
+    resolved = followup_issue_generator._get_followup_client(reasoning=True)
+
+    assert resolved == (fallback_client, "gpt-fallback")
+    assert calls == [("o3-mini", "openai"), (None, None)]
+
+
+def test_main_guard_blocked_writes_markdown_output_file(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+    injection_samples: list[dict[str, str]],
+) -> None:
+    raw = injection_samples[0]["text"]
+    output_path = tmp_path / "guard-blocked.md"
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "followup_issue_generator.py",
+            "--pr-number",
+            "123",
+            "--verification-comment",
+            raw,
+            "--original-issue",
+            "Original issue body",
+            "--output",
+            str(output_path),
+        ],
+    )
+
+    exit_code = followup_issue_generator.main()
+    written = output_path.read_text()
+
+    assert exit_code == 0
+    assert written.startswith("# ")
+    assert "Human review" in written
+    assert "```json" not in written
