@@ -2759,3 +2759,69 @@ def test_select_followup_acceptance_criteria_keeps_all_when_feedback_mentions_sy
         "Database migrations preserve existing records",
         "Workflow template sync PRs are merged across consumers",
     ]
+
+
+def test_select_followup_acceptance_criteria_falls_back_when_mixed_filter_empties(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Defensive fallback: keep original criteria when mixed detection disagrees with filtering."""
+    original_issue = OriginalIssueData(
+        title="Workflow-only criteria under inconsistent mixed detection",
+        number=42,
+        tasks=[],
+        acceptance_criteria=[
+            "Workflow template sync PRs are merged across consumers",
+            "Synced scripts stay aligned with the Workflows template",
+        ],
+    )
+    verification_data = VerificationData(concerns=["Database rows were not preserved"])
+    monkeypatch.setattr(
+        followup_issue_generator,
+        "_has_mixed_repo_and_workflow_acceptance_criteria",
+        lambda _issue: True,
+    )
+
+    selected = _select_followup_acceptance_criteria(original_issue, verification_data)
+
+    assert selected == [
+        "Workflow template sync PRs are merged across consumers",
+        "Synced scripts stay aligned with the Workflows template",
+    ]
+
+
+def test_module_main_entrypoint_invokes_main(
+    tmp_path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Running the module as __main__ must call main() and exit with its return code."""
+    import runpy
+    from pathlib import Path
+
+    verification_path = tmp_path / "verification.md"
+    verification_path.write_text("Verdict: PASS @ 100%\n", encoding="utf-8")
+    issue_path = tmp_path / "issue.md"
+    issue_path.write_text("# Original\n\nBody\n", encoding="utf-8")
+    script = Path(followup_issue_generator.__file__).resolve()
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            str(script),
+            "--verification-comment",
+            str(verification_path),
+            "--original-issue",
+            str(issue_path),
+            "--pr-number",
+            "99",
+            "--no-llm",
+            "--json",
+        ],
+    )
+
+    with pytest.raises(SystemExit) as excinfo:
+        runpy.run_path(str(script), run_name="__main__")
+
+    assert excinfo.value.code == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert "title" in payload
+    assert "body" in payload
+    assert isinstance(payload.get("labels"), list)
