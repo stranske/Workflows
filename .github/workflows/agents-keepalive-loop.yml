@@ -963,6 +963,7 @@ jobs:
         with:
           name: keepalive-task-appendix-${{ needs.evaluate.outputs.pr_number }}
           path: /tmp/keepalive-artifacts/
+          retention-days: 1
           overwrite: true
 
       - name: Update summary with running status
