@@ -15,6 +15,24 @@
 - name: agent:aider
   color: "8d6e63"
   description: Assign to Aider agent (cheap, low-complexity tasks)
+- name: agent:muse
+  color: "f66a0a"
+  description: Assign to Muse agent (muse CLI)
+- name: runner:codex
+  color: "6f42c1"
+  description: "Auto-pilot runner override: codex"
+- name: runner:claude
+  color: "6f42c1"
+  description: "Auto-pilot runner override: claude"
+- name: runner:cursor
+  color: "6f42c1"
+  description: "Auto-pilot runner override: cursor"
+- name: runner:gemini
+  color: "6f42c1"
+  description: "Auto-pilot runner override: gemini"
+- name: runner:muse
+  color: "6f42c1"
+  description: "Auto-pilot runner override: muse"
 - name: agent:copilot
   color: "1d76db"
   description: Assign to Copilot
