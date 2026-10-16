@@ -41,6 +41,13 @@ Start with the current docs instead of inferring behavior from old comments:
 - Before handing off or ending work, verify every pull request created or changed by the run is open and has `isDraft=false`. Convert a pre-existing draft to ready as a recovery action.
 - Do not close an otherwise valid pull request merely to free automation capacity; preserve its branch and route the real blocker or dependency explicitly.
 
+## Sync and dependency scope
+
+Deliver the fixed selected source/dependency payload; do not turn distribution
+into an open-ended repair campaign. Apply the production-impact and incidental-
+finding rules in `docs/ops/CONSUMER_REPO_MAINTENANCE.md`. Reuse shared source review,
+validate consumer integration, and preserve real production and security checks.
+
 ## Editing Rules
 
 - Changes to reusable workflows affect consumers immediately.

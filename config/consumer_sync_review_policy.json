@@ -89,5 +89,6 @@
     "reviews are disabled",
     "excluded by label",
     "excluded labels"
-  ]
+  ],
+  "generated_delivery_review": "integration-only"
 }
