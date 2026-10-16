@@ -2035,7 +2035,43 @@ jobs:
             args+=("-n" "auto" "--dist=loadgroup")
             echo "Running tests in parallel with pytest-xdist (loadgroup scheduler)..."
           fi
-          pytest "${args[@]}"
+          # Record the selected collection once on the controller, including xdist.
+          growth_plugin_dir="$(mktemp -d "${RUNNER_TEMP}/pytest-growth.XXXXXX")"
+          cat > "${growth_plugin_dir}/ci_test_growth.py" <<'PY'
+          import json
+          import time
+          from collections import Counter
+          from pathlib import Path
+
+          import pytest
+
+          _started = time.monotonic()
+          _ids = None
+
+          def _record(ids):
+              paths = Counter(node.split("::", 1)[0] for node in ids)
+              functions = Counter(node.split("[", 1)[0] for node in ids)
+              Path("pytest-collection.json").write_text(json.dumps({
+                  "total": len(ids),
+                  "per_file": dict(paths),
+                  "largest_functions": functions.most_common(10),
+                  "collection_seconds": round(time.monotonic() - _started, 3),
+                  "source": "selected pytest node IDs; controller collection",
+              }, indent=2), encoding="utf-8")
+
+          @pytest.hookimpl(optionalhook=True)
+          def pytest_xdist_node_collection_finished(node, ids):
+              global _ids
+              if _ids is None:
+                  _ids = tuple(ids)
+                  _record(_ids)
+
+          def pytest_collection_finish(session):
+              if not hasattr(session.config, "workerinput") and session.items:
+                  _record([item.nodeid for item in session.items])
+          PY
+          export PYTHONPATH="${growth_plugin_dir}:${PYTHONPATH:-}"
+          pytest -p ci_test_growth "${args[@]}"
       - name: Enforce coverage minimum
         id: coverage_min
         if: ${{ inputs.coverage && inputs['coverage-min'] != '' }}
@@ -2169,6 +2205,47 @@ jobs:
                   "percent": round(float(coverage_value), 2),
                   "source": "coverage.json" if json_path.exists() else "coverage.xml",
               }
+
+          collection_path = Path("pytest-collection.json")
+          junit_path = base_dir / "pytest-junit.xml"
+          growth = {"collection": None, "reported": None, "review_required": False,
+                    "budget": {"cases_per_function": 1000, "cases_per_file": 50000}}
+          if collection_path.exists():
+              try:
+                  growth["collection"] = json.loads(collection_path.read_text(encoding="utf-8"))
+                  (base_dir / collection_path.name).write_bytes(collection_path.read_bytes())
+              except (ValueError, OSError):
+                  growth["collection_error"] = "collection receipt unreadable"
+          if junit_path.exists():
+              try:
+                  cases = list(ET.parse(junit_path).getroot().iter("testcase"))
+                  functions = {}
+                  suites = {}
+                  for case in cases:
+                      suite = case.get("classname", "unknown")
+                      name = suite + "::" + case.get("name", "unknown").split("[", 1)[0]
+                      seconds = float(case.get("time", "0"))
+                      functions[name] = functions.get(name, 0.0) + seconds
+                      suites[suite] = suites.get(suite, 0.0) + seconds
+                  growth["reported"] = {"cases": len(cases),
+                      "dominant_functions_worker_seconds": sorted(functions.items(), key=lambda x: -x[1])[:10],
+                      "dominant_suites_worker_seconds": sorted(suites.items(), key=lambda x: -x[1])[:10],
+                      "source": "JUnit reported cases; summed worker time, not wall time"}
+              except (ET.ParseError, ValueError, OSError):
+                  growth["junit_error"] = "JUnit timing receipt unreadable"
+          collection = growth["collection"]
+          if isinstance(collection, dict):
+              growth["review_required"] = (
+                  any(count > 1000 for _, count in collection.get("largest_functions", []))
+                  or any(count > 50000 for count in collection.get("per_file", {}).values())
+              )
+          summary["test_growth"] = growth
+          job_summary = os.environ.get("GITHUB_STEP_SUMMARY")
+          if job_summary:
+              with open(job_summary, "a", encoding="utf-8") as handle:
+                  handle.write("\n### Test collection and execution growth\n\n")
+                  handle.write("Review signal only; existing test/coverage/merge gates are unchanged.\n\n")
+                  handle.write("```json\n" + json.dumps(growth, indent=2) + "\n```\n")
 
           summary_path = base_dir / "summary.json"
           summary_path.write_text(json.dumps(summary, indent=2, sort_keys=True), encoding="utf-8")
