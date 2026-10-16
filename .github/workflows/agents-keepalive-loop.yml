@@ -440,7 +440,7 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const { evaluateKeepaliveLoop } = require('./.github/scripts/keepalive_loop.js');
-            const options = { github, context, core };
+            const options = { github, context, core, deterministicGatesEnabled: true };
             // Pass workflow_dispatch inputs if present
             const inputPrNumber = process.env.INPUT_PR_NUMBER;
             let forceRetry = process.env.INPUT_FORCE_RETRY === 'true';
@@ -554,6 +554,10 @@ jobs:
 
             // Ensure artifacts directory exists
             fs.mkdirSync(artifactsDir, { recursive: true });
+            fs.writeFileSync(
+              path.join(artifactsDir, 'acceptance-plan.json'),
+              JSON.stringify(result.deterministicGates || {}),
+            );
 
             // Write the task appendix directly to the artifact file
             if (result.taskAppendix && result.taskAppendix.length > 0) {
@@ -669,7 +673,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: keepalive-task-appendix-${{ steps.evaluate.outputs.pr_number }}
-          path: /tmp/keepalive-artifacts/task-appendix.txt
+          path: /tmp/keepalive-artifacts/
           retention-days: 1
 
   preflight:
@@ -846,6 +850,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - name: Set up Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
@@ -925,6 +931,40 @@ jobs:
             exit 1
           fi
 
+      # Shared by every run-<agent> job through its mark-running dependency.
+      # Use the trusted checkout's runner against the exact evaluated PR head.
+      - name: Download acceptance plan and task appendix
+        if: needs.evaluate.outputs.reason == 'verify-acceptance'
+        uses: actions/download-artifact@v8
+        with:
+          name: keepalive-task-appendix-${{ needs.evaluate.outputs.pr_number }}
+          path: /tmp/keepalive-artifacts
+
+      - name: Checkout acceptance gate head
+        if: needs.evaluate.outputs.reason == 'verify-acceptance'
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.evaluate.outputs.head_sha }}
+          path: acceptance-head
+          persist-credentials: false
+
+      - name: Run deterministic acceptance gates before the agent round
+        if: needs.evaluate.outputs.reason == 'verify-acceptance'
+        run: |
+          python3 scripts/runner_lib/acceptance_gate.py --prepare \
+            --plan /tmp/keepalive-artifacts/acceptance-plan.json \
+            --cwd acceptance-head \
+            --output /tmp/keepalive-artifacts/acceptance-results.json \
+            --appendix /tmp/keepalive-artifacts/task-appendix.txt
+
+      - name: Upload appendix with deterministic failures
+        if: needs.evaluate.outputs.reason == 'verify-acceptance'
+        uses: actions/upload-artifact@v7
+        with:
+          name: keepalive-task-appendix-${{ needs.evaluate.outputs.pr_number }}
+          path: /tmp/keepalive-artifacts/
+          overwrite: true
+
       - name: Update summary with running status
         uses: actions/github-script@v9
         env:
@@ -946,6 +986,9 @@ jobs:
               `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}` +
               `/actions/runs/${context.runId}`;
             const inputs = {
+              deterministic_gates: require('fs').existsSync('/tmp/keepalive-artifacts/acceptance-results.json')
+                ? JSON.parse(require('fs').readFileSync('/tmp/keepalive-artifacts/acceptance-results.json', 'utf8'))
+                : null,
               pr_number: '${{ needs.evaluate.outputs.pr_number }}',
               agent_type: '${{ needs.evaluate.outputs.agent_type }}',
               iteration: '${{ needs.evaluate.outputs.iteration }}',
@@ -2035,6 +2078,7 @@ jobs:
               '${{ needs.run-gemini.outputs.llm-analysis-run }}' === 'true';
             const inputs = {
               pr_number: Number(process.env.EVALUATE_PR_NUMBER) || 0,
+              deterministic_gates_enabled: true,
               head_sha: process.env.EVALUATE_HEAD_SHA || '',
               action: process.env.EVALUATE_ACTION || '',
               reason: process.env.EVALUATE_REASON || '',

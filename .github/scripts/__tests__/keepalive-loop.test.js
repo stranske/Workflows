@@ -19,6 +19,8 @@ const {
   buildTaskProgressSnapshot,
   buildAuthorityChallengeEvidence,
   selectEscalationDisposition,
+  acceptanceGatePlan,
+  renderDeterministicGates,
 } = require('../keepalive_loop.js');
 
 test('task progress snapshot preserves actionable checklist identity across check changes', () => {
@@ -295,6 +297,11 @@ const buildGithubStub = ({
     rest: {
       pulls: {
         async get() {
+          return { data: { ...pr, head: pr?.head || { sha: 'fixture-head' } } };
+        },
+        async update({ body }) {
+          pr.body = body;
+          actions.push({ type: 'pr-update', body });
           return { data: pr };
         },
       },
@@ -328,6 +335,9 @@ const buildGithubStub = ({
         },
       },
       issues: {
+        async get() {
+          return { data: { body: pr.body || '' } };
+        },
         async listComments() {
           return {
             data: comments.map((comment) => ({
@@ -640,6 +650,125 @@ test('evaluateKeepaliveLoop stops when tasks are complete and verification is do
   });
   assert.equal(result.action, 'stop');
   assert.equal(result.reason, 'tasks-complete');
+});
+
+test('deterministic failing gate refuses tasks-complete and supplies failure to next round', async () => {
+  const pr = {
+    number: 3979,
+    head: { ref: 'feature/acceptance', sha: 'gate-head' },
+    labels: [{ name: 'agent:codex' }],
+    body: '## Tasks\n- [x] Implement gate\n## Acceptance Criteria\n- [x] `pytest tests/test_gate.py` passes',
+  };
+  const github = buildGithubStub({ pr });
+  const plan = await acceptanceGatePlan({ github, context: buildContext(pr.number), pr, state: {} });
+  const state = {
+    verification: { status: 'done' },
+    deterministic_gates: {
+      ...plan, results: [{ criterion: 0, command: 'pytest tests/test_gate.py', exit_code: 1, output: 'AssertionError: gate broke' }],
+    },
+  };
+  const result = await evaluateKeepaliveLoop({
+    deterministicGatesEnabled: true,
+    github: buildGithubStub({
+      pr, comments: [{ id: 23, body: formatStateComment(state) }],
+      workflowRuns: [{ head_sha: pr.head.sha, conclusion: 'success' }],
+    }),
+    context: buildContext(pr.number), core: buildCore(),
+  });
+  assert.equal(result.action, 'run');
+  assert.equal(result.reason, 'verify-acceptance');
+  assert.match(result.taskAppendix, /pytest tests\/test_gate.py \(exit 1\)/);
+  assert.match(result.taskAppendix, /AssertionError: gate broke/);
+});
+
+test('deterministic evidence requires current head and live source commands', async () => {
+  const pr = {
+    number: 3979, head: { ref: 'feature/acceptance', sha: 'gate-head' },
+    labels: [{ name: 'agent:codex' }],
+    body: 'Closes #42\n## Tasks\n- [x] Implement gate\n## Acceptance Criteria\n- [x] Old cached criterion',
+  };
+  const github = buildGithubStub({ pr });
+  let source = '## Acceptance Criteria\n- [ ] `pytest tests/test_fresh.py` passes';
+  github.rest.issues.get = async ({ issue_number }) => {
+    assert.equal(issue_number, 42);
+    return { data: { body: source } };
+  };
+  const context = buildContext(pr.number);
+  const plan = await acceptanceGatePlan({ github, context, pr, state: {} });
+  assert.equal(plan.total, 1);
+  assert.equal(plan.complete, false);
+  const state = { deterministic_gates: { ...plan, results: [
+    { ...plan.commands[0], exit_code: 0, output: '1 passed' },
+  ] } };
+  assert.equal((await acceptanceGatePlan({ github, context, pr, state })).complete, true);
+  pr.head.sha = 'new-head';
+  assert.equal((await acceptanceGatePlan({ github, context, pr, state })).complete, false);
+  pr.head.sha = 'gate-head';
+  source = source.replace('test_fresh', 'test_changed');
+  assert.equal((await acceptanceGatePlan({ github, context, pr, state })).complete, false);
+});
+
+test('deterministic gate summary renders inside the automated status block', () => {
+  const body = '<!-- auto-status-summary:start -->\n## Automated Status Summary\n#### Tasks\n- [x] Done\n<!-- auto-status-summary:end -->';
+  const gates = { commands: [{ criterion: 0, command: 'pytest' }], results: [] };
+  const rendered = renderDeterministicGates(body, gates);
+  assert.match(rendered, /Deterministic gates: 0\/1 passed\nCriterion 1: FAIL/);
+  assert.equal(renderDeterministicGates(rendered, gates), rendered);
+});
+
+test('deterministic gate failure unchecks only its acceptance criterion', () => {
+  const body = '## Acceptance Criteria\n- [x] `pytest tests/fail.py` passes\n- [x] Human observation\n- [x] `ruff check .` passes';
+  const gates = {
+    commands: [{ criterion: 0, command: 'pytest tests/fail.py' }, { criterion: 2, command: 'ruff check .' }],
+    results: [{ criterion: 0, command: 'pytest tests/fail.py', exit_code: 1 }, { criterion: 2, command: 'ruff check .', exit_code: 0 }],
+  };
+  const rendered = renderDeterministicGates(body, gates);
+  assert.match(rendered, /- \[ \] `pytest tests\/fail.py`/);
+  assert.match(rendered, /- \[x\] Human observation/);
+  assert.match(rendered, /- \[x\] `ruff check .`/);
+});
+
+test('deterministic results survive running and completion state JSON', async () => {
+  const pr = {
+    number: 3979, head: { ref: 'feature/acceptance', sha: 'tested-head' },
+    labels: [{ name: 'agent:codex' }],
+    body: '<!-- auto-status-summary:start -->\n## Tasks\n- [x] Implement gate\n## Acceptance Criteria\n- [x] `pytest test_gate.py` passes\n<!-- auto-status-summary:end -->',
+  };
+  const github = buildGithubStub({ pr });
+  const context = buildContext(pr.number);
+  const plan = await acceptanceGatePlan({ github, context, pr, state: {} });
+  const gates = { ...plan, results: [{ ...plan.commands[0], exit_code: 0, output: '1 passed --> captured' }] };
+  await markAgentRunning({ github, context, core: buildCore(), inputs: {
+    pr_number: pr.number, deterministic_gates: gates, tasks_total: 2, tasks_unchecked: 0,
+  } });
+  const running = github.actions.find(item => item.body && parseStateComment(item.body));
+  const state = parseStateComment(running.body).data;
+  assert.equal(state.deterministic_gates.results[0].exit_code, 0);
+  assert.equal(state.deterministic_gates.results[0].output, '1 passed --> captured');
+  assert.match(pr.body, /Deterministic gates: 1\/1 passed/);
+  const nextGithub = buildGithubStub({ pr, comments: [{ id: 23, body: running.body }] });
+  await updateKeepaliveLoopSummary({ github: nextGithub, context, core: buildCore(), inputs: {
+    pr_number: pr.number, action: 'run', reason: 'verify-acceptance', run_result: 'success',
+    gate_conclusion: 'success', tasks_total: 2, tasks_unchecked: 0, iteration: 0, max_iterations: 5,
+  } });
+  const summary = nextGithub.actions.find(item => item.body && parseStateComment(item.body));
+  assert.deepEqual(parseStateComment(summary.body).data.deterministic_gates, state.deterministic_gates);
+});
+
+test('deterministic gates are rechecked before summary grants completion', async () => {
+  const pr = {
+    number: 3979, head: { ref: 'feature/acceptance', sha: 'untested-head' },
+    labels: [{ name: 'agent:codex' }],
+    body: '## Tasks\n- [x] Implement gate\n## Acceptance Criteria\n- [x] `pytest test_gate.py` passes',
+  };
+  const github = buildGithubStub({ pr });
+  await updateKeepaliveLoopSummary({ github, context: buildContext(pr.number), core: buildCore(), inputs: {
+    deterministic_gates_enabled: true,
+    pr_number: pr.number, action: 'stop', reason: 'tasks-complete', run_result: 'success',
+    gate_conclusion: 'success', tasks_total: 2, tasks_unchecked: 0,
+  } });
+  assert.equal(github.actions.some(item => item.labels?.includes('automerge')), false);
+  assert.match(pr.body, /Deterministic gates: 0\/1 passed/);
 });
 
 for (const [placement, marker] of ['before', 'after', 'unmanaged'].flatMap(
