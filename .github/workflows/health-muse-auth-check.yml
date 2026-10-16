@@ -55,7 +55,7 @@ jobs:
           probe_dir="$(mktemp -d)"
           if (
             cd "$probe_dir"
-            META_API_KEY= MUSE_NO_AUTO_UPDATE=1 timeout 60 muse exec \
+            META_API_KEY='' MUSE_NO_AUTO_UPDATE=1 timeout 60 muse exec \
               --provider echo --sandbox-network restricted --disable-write \
               --disable-web-tools --disable-reminders --no-foreign-personal-context \
               --no-session-log --approval-judge off 'sandbox startup health check' \

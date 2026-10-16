@@ -32,7 +32,7 @@ def test_muse_check_is_never_billable():
     text = CHECKS["META_API_KEY"].read_text()
     assert "muse exec" in text
     assert "--provider echo" in text
-    assert "META_API_KEY= MUSE_NO_AUTO_UPDATE=1 timeout 60 muse exec" in text
+    assert "META_API_KEY='' MUSE_NO_AUTO_UPDATE=1 timeout 60 muse exec" in text
     assert "--sandbox-network restricted" in text
     assert "muse --version" in text
     assert "command -v bwrap" not in text
