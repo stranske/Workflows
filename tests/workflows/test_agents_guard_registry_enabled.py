@@ -115,6 +115,7 @@ def test_shipped_registry_preserves_existing_enabled_routes():
             "codex",
             "cursor",
             "gemini",
+            "muse",
         ]
 
 
