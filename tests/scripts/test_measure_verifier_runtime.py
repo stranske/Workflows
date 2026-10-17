@@ -1,8 +1,10 @@
 """Exercise the measurement refusal boundary and real two-arm pytest execution."""
 
 import importlib.util
+import io
 import json
 import subprocess
+import tarfile
 from pathlib import Path
 
 import pytest
@@ -118,3 +120,21 @@ def test_fresh_graph_requires_explicit_candidate_fetch(tmp_path, monkeypatch):
         json.loads((output / "manifest.json").read_text())["arms"]["candidate"]["commit"]
         == measure.CANDIDATE
     )
+
+
+def test_source_archive_cannot_escape_its_arm(tmp_path, monkeypatch):
+    repo = fixture_repo(tmp_path, monkeypatch)
+    archive = io.BytesIO()
+    with tarfile.open(fileobj=archive, mode="w") as tar:
+        member = tarfile.TarInfo("../../escaped-source")
+        member.size = 4
+        tar.addfile(member, io.BytesIO(b"oops"))
+    real_git = measure.git
+    monkeypatch.setattr(
+        measure,
+        "git",
+        lambda repo, *args: archive.getvalue() if args[0] == "archive" else real_git(repo, *args),
+    )
+    with pytest.raises(tarfile.FilterError):
+        measure.prepare(repo, tmp_path / "out")
+    assert not (tmp_path / "escaped-source").exists()

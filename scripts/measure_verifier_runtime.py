@@ -14,8 +14,9 @@ import sys
 import tarfile
 import time
 import tomllib
-import xml.etree.ElementTree as ET
 from pathlib import Path
+
+from defusedxml import ElementTree as ET
 
 BASELINE = "2f9eb2de718d1a561bce6fc0bff46fe8b9867905"
 CANDIDATE = "999ffe5fa00ac9c8ae8a807447f053277032b670"
