@@ -165,11 +165,15 @@ def test_agy_stdin_stream_and_tool_rejection(monkeypatch):
 
 
 def test_agy_successful_result_event(monkeypatch):
+    # the shape agy 1.4.0 really emits (captured live 2026-10-17); an invented shape passed here
+    # while every real call came back empty
     event = {
-        "type": "result",
-        "subtype": "success",
-        "result": '{"findings":[]}',
-        "usage": {"input_tokens": 7, "output_tokens": 3},
+        "event": "result",
+        "result": {
+            "status": "SUCCESS",
+            "response": '{"findings":[]}',
+            "usage": {"input_tokens": 7, "output_tokens": 3},
+        },
     }
     monkeypatch.setattr(
         agy_pilot.subprocess,
@@ -231,3 +235,38 @@ def test_confinement():
 """
     assert agy_pilot._run_pytest("clamp_mod", SOURCE, tests, isolated=True)
     assert canary.read_text() == "private canary"
+
+
+def test_agy_backend_speaks_agys_real_stream_shape(tmp_path):
+    """agy's stream input is {"event":"user","message":{"content":...}} and its answer arrives as
+    {"event":"result","result":{...}}; the first version of this backend used another shape and
+    every call came back empty."""
+    fake = tmp_path / "agy"
+    fake.write_text(
+        "#!/usr/bin/env python3\n"
+        "import json, sys\n"
+        "msg = json.loads(sys.stdin.readline())\n"
+        "assert msg['event'] == 'user' and msg['message']['content'] == 'hello', msg\n"
+        "print(json.dumps({'event': 'init'}))\n"
+        "print(json.dumps({'event': 'step_update', 'status': 'done'}))\n"
+        "print(json.dumps({'event': 'result', 'result': {'status': 'SUCCESS', 'response': '{\"ok\": 1}',"
+        " 'usage': {'input_tokens': 7, 'output_tokens': 3}}}))\n"
+    )
+    fake.chmod(0o755)
+    call = agy_pilot.agy_backend("m", agy=str(fake))("hello")
+    assert call.error is None and call.text == '{"ok": 1}'
+    assert (call.tokens_in, call.tokens_out) == (7, 3)
+
+
+def test_agy_backend_treats_a_denied_tool_action_as_an_error_not_an_answer(tmp_path):
+    fake = tmp_path / "agy"
+    fake.write_text(
+        "#!/usr/bin/env python3\n"
+        "import json, sys\n"
+        "sys.stdin.readline()\n"
+        "print(json.dumps({'event': 'result', 'result': {'status': 'SUCCESS', 'response': '',"
+        " 'denied_actions': [{'action': 'write_file'}]}}))\n"
+    )
+    fake.chmod(0o755)
+    call = agy_pilot.agy_backend("m", agy=str(fake))("hello")
+    assert call.error and call.text == ""
