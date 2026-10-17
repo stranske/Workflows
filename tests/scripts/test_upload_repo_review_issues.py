@@ -22,7 +22,7 @@ The repo needs a deterministic local smoke so agents can prove the reviewed work
 
 - [ ] Implement the smoke in `tests/test_local_smoke.py` using existing public APIs.
 - [ ] Add fixture data under `tests/fixtures/local_smoke/` that exercises the reviewed path.
-- [ ] Assert the smoke fails when the primary output object is missing.
+- [ ] Assert `tests/test_local_smoke.py` fails when the primary output object is missing.
 - [ ] Document the smoke command in `docs/local-testing.md`.
 
 ## Acceptance Criteria
@@ -251,3 +251,220 @@ def test_main_refuses_unresolved_approved_scope_conflicts_before_github(
     monkeypatch.setattr(uploader, "upload_issues", lambda *a, **k: pytest.fail("must not upload"))
     assert uploader.main() == 2
     assert "scope conflicts" in capsys.readouterr().err
+
+
+@pytest.fixture(autouse=True)
+def no_live_prompt_tools(tmp_path, monkeypatch):
+    # Unit tests must never consult this machine's real authoring fleet.
+    monkeypatch.setattr(uploader, "ORCHESTRATOR_MIRROR", tmp_path / "absent-mirror")
+
+
+def authoring_tools(tmp_path, monkeypatch, *, failed=None, invalid_claim=False):
+    import subprocess
+
+    mirror = tmp_path / "mirror"
+    mirror.mkdir()
+    for name in ("capability_advisor.py", "roles.py", "capability_propensity.py"):
+        (mirror / name).touch()
+    monkeypatch.setattr(uploader, "ORCHESTRATOR_MIRROR", mirror)
+    calls = []
+
+    def run(args, **kwargs):
+        calls.append(args)
+        name = Path(args[1]).name
+        if name == "capability_advisor.py":
+            assert args[args.index("--surface") + 1] == "repo-review-uploader"
+            return subprocess.CompletedProcess(
+                args,
+                0,
+                json.dumps(
+                    {
+                        "experiment_id": "advice:test",
+                        "capabilities": [{"capability_id": "role-prompt"}],
+                    }
+                ),
+                "",
+            )
+        if name == "roles.py":
+            assert "--dispatch" in args
+            assert args[args.index("--output") + 1] == "issue_body"
+            batch = json.loads(Path(args[args.index("--batch") + 1]).read_text())
+            directory = Path(args[args.index("--output-dir") + 1])
+            directory.mkdir()
+            rows = []
+            for index, item in enumerate(batch):
+                assert VALID_BODY in item["context"]
+                body = VALID_BODY.replace("deterministic local smoke", "role-authored smoke")
+                valid = index != failed
+                body_path = directory / f"{index}.md"
+                body_path.write_text(body if valid else "rejected incomplete body")
+                rows.append(
+                    {
+                        "target": item["target"],
+                        "valid": valid or invalid_claim,
+                        "body_file": str(body_path) if valid or invalid_claim else None,
+                        "failed_body_file": None if valid else str(body_path),
+                        "errors": [] if valid or invalid_claim else ["body validation failed"],
+                        "role_record_error": None,
+                    }
+                )
+            (directory / "manifest.json").write_text(json.dumps({"items": rows}))
+            return subprocess.CompletedProcess(
+                args, int(failed is not None), "manifest retained", ""
+            )
+        assert name == "capability_propensity.py"
+        return subprocess.CompletedProcess(args, 0, "{}", "")
+
+    monkeypatch.setattr(uploader.subprocess, "run", run)
+    return calls
+
+
+@pytest.mark.parametrize("failed,invalid_claim", [(None, False), (1, False), (1, True)])
+def test_three_item_authoring_keeps_per_item_fallback_and_failure_manifest(
+    tmp_path, monkeypatch, failed, invalid_claim
+):
+    calls = authoring_tools(tmp_path, monkeypatch, failed=failed, invalid_claim=invalid_claim)
+    monkeypatch.setattr(uploader, "fetch_open_issues", lambda *args: [])
+    monkeypatch.setattr(uploader, "ensure_labels", lambda *args: None)
+    created = []
+
+    def create(item, prefix):
+        created.append(item)
+        return f"https://github.test/owner/repo/issues/{100 + len(created)}"
+
+    monkeypatch.setattr(uploader, "create_issue", create)
+    items = [issue(title) for title in ("Alpha", "Beta", "Gamma")]
+    summary = uploader.upload_issues(
+        items, prefix=["gh"], apply=True, authoring_dir=tmp_path / "evidence"
+    )
+    assert len(summary["created"]) == len(created) == 3
+    assert [item["title"] for item in created] == [item["title"] for item in items]
+    for index, item in enumerate(created):
+        if index == failed:
+            assert item["body"] == VALID_BODY
+            assert not summary["authoring"]["items"][index]["used_role"]
+        else:
+            assert "role-authored smoke" in item["body"]
+            assert item["review_evidence_trace"] == VALID_TRACE
+    assert sum(Path(args[1]).name == "capability_advisor.py" for args in calls) == 1
+    assert sum(Path(args[1]).name == "roles.py" for args in calls) == 1
+    triggers = [args for args in calls if "trigger" in args]
+    assert len(triggers) == (3 if failed is None else 2)
+    assert all(
+        args[args.index("--deliverable") + 1].startswith("owner/repo#10") for args in triggers
+    )
+    manifest = json.loads(Path(summary["authoring"]["role_manifest"]).read_text())
+    if failed is not None:
+        assert (
+            Path(manifest["items"][failed]["failed_body_file"]).read_text()
+            == "rejected incomplete body"
+        )
+        assert summary["authoring"]["items"][failed]["errors"]
+
+
+def test_small_batch_consults_once_and_records_decline(tmp_path, monkeypatch):
+    calls = authoring_tools(tmp_path, monkeypatch)
+    selected, receipt = uploader.author_issue_batch([issue()], output_root=tmp_path / "evidence")
+    assert selected == [issue()]
+    assert receipt["state"] == "baseline"
+    assert not any(Path(args[1]).name == "roles.py" for args in calls)
+    declines = [args for args in calls if "decline" in args]
+    assert len(declines) == 1
+    assert declines[0][declines[0].index("--kind") + 1] == "scope_too_small"
+
+
+def test_missing_mirror_keeps_original_bodies_without_subprocess(tmp_path, monkeypatch):
+    monkeypatch.setattr(
+        uploader.subprocess, "run", lambda *args, **kwargs: pytest.fail("no local tools")
+    )
+    selected, receipt = uploader.author_issue_batch(
+        [issue()] * 3, output_root=tmp_path / "evidence"
+    )
+    assert selected == [issue()] * 3
+    assert receipt == {"state": "mirror-unavailable"}
+    assert not (tmp_path / "evidence").exists()
+
+
+def test_role_body_must_name_a_runnable_acceptance_gate():
+    start = VALID_BODY.index("## Acceptance Criteria")
+    end = VALID_BODY.index("## Implementation Notes")
+    body = (
+        VALID_BODY[:start]
+        + "## Acceptance Criteria\n\n"
+        + "\n".join(
+            [
+                "- [ ] The implementation matches every approved requirement in the documented workflow."
+            ]
+            * 3
+        )
+        + "\n\n"
+        + VALID_BODY[end:]
+    )
+    assert not uploader.issue_body_quality_errors(body)
+    assert any("names no test" in error for error in uploader.role_body_errors(body))
+
+
+def test_upload_rechecks_original_identity_after_authoring(tmp_path, monkeypatch):
+    authoring_tools(tmp_path, monkeypatch)
+    items = [issue(title) for title in ("Alpha", "Beta", "Gamma")]
+    fetches = []
+    existing = {
+        "number": 7,
+        "title": "Renamed remotely",
+        "url": "https://github.test/owner/repo/issues/7",
+        "body": uploader.body_with_item_marker("owner/repo", "Beta", VALID_BODY),
+        "labels": [],
+    }
+
+    def fetch(*args):
+        fetches.append(args)
+        return [] if len(fetches) == 1 else [existing]
+
+    monkeypatch.setattr(uploader, "fetch_open_issues", fetch)
+    monkeypatch.setattr(uploader, "ensure_labels", lambda *args: None)
+    monkeypatch.setattr(uploader, "add_missing_labels", lambda *args: None)
+    created = []
+
+    def create(item, prefix):
+        created.append(item["title"])
+        return f"https://github.test/owner/repo/issues/{100 + len(created)}"
+
+    monkeypatch.setattr(uploader, "create_issue", create)
+    summary = uploader.upload_issues(
+        items, prefix=["gh"], apply=True, authoring_dir=tmp_path / "evidence"
+    )
+    assert created == ["Alpha", "Gamma"]
+    assert summary["skipped_duplicates"][0]["number"] == 7
+    assert "trigger" not in summary["authoring"]["items"][1]
+
+
+def test_dry_run_never_consults_or_authors(tmp_path, monkeypatch):
+    monkeypatch.setattr(uploader, "fetch_open_issues", lambda *args: [])
+    monkeypatch.setattr(
+        uploader, "author_issue_batch", lambda *args, **kwargs: pytest.fail("dry run")
+    )
+    result = uploader.upload_issues([issue()], prefix=["gh"], apply=False)
+    assert result["would_create"] == [{"repo": "owner/repo", "title": "Do work"}]
+
+
+@pytest.mark.parametrize("failure", ["os-error", "invalid-json", "no-offer"])
+def test_advisor_failure_or_no_offer_preserves_baseline(tmp_path, monkeypatch, failure):
+    import subprocess
+
+    authoring_tools(tmp_path, monkeypatch)
+
+    def run(args, **kwargs):
+        assert Path(args[1]).name == "capability_advisor.py"
+        if failure == "os-error":
+            raise OSError("optional tool unavailable")
+        return subprocess.CompletedProcess(
+            args, 0, "not json" if failure == "invalid-json" else "{}", ""
+        )
+
+    monkeypatch.setattr(uploader.subprocess, "run", run)
+    selected, receipt = uploader.author_issue_batch(
+        [issue()] * 3, output_root=tmp_path / "evidence"
+    )
+    assert selected == [issue()] * 3
+    assert receipt["state"] == "baseline"
+    assert not receipt["offered"]

@@ -1,0 +1,88 @@
+.FF                                                                      [100%]
+=================================== FAILURES ===================================
+_ test_three_item_authoring_keeps_per_item_fallback_and_failure_manifest[1-False] _
+
+tmp_path = PosixPath('/private/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/pytest-of-teacher/pytest-5462/test_three_item_authoring_keep1')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1052bd070>
+failed = 1, invalid_claim = False
+
+    @pytest.mark.parametrize("failed,invalid_claim", [(None, False), (1, False), (1, True)])
+    def test_three_item_authoring_keeps_per_item_fallback_and_failure_manifest(
+        tmp_path, monkeypatch, failed, invalid_claim
+    ):
+        calls = authoring_tools(tmp_path, monkeypatch, failed=failed, invalid_claim=invalid_claim)
+        monkeypatch.setattr(uploader, "fetch_open_issues", lambda *args: [])
+        monkeypatch.setattr(uploader, "ensure_labels", lambda *args: None)
+        created = []
+
+        def create(item, prefix):
+            created.append(item)
+            return f"https://github.test/owner/repo/issues/{100 + len(created)}"
+
+        monkeypatch.setattr(uploader, "create_issue", create)
+        items = [issue(title) for title in ("Alpha", "Beta", "Gamma")]
+        summary = uploader.upload_issues(
+            items, prefix=["gh"], apply=True, authoring_dir=tmp_path / "evidence"
+        )
+        assert len(summary["created"]) == len(created) == 3
+        assert [item["title"] for item in created] == [item["title"] for item in items]
+        for index, item in enumerate(created):
+            if index == failed:
+>               assert item["body"] == VALID_BODY
+E               AssertionError: assert '' == '## Why\n\nTh...esting.md`.\n'
+E
+E                 - ## Why
+E                 -
+E                 - The repo needs a deterministic local smoke so agents can prove the reviewed workflow instead of relying on manual inspection.
+E                 -
+E                 - ## Scope
+E                 - ...
+E
+E                 ...Full output truncated (24 lines hidden), use '-vv' to show
+
+tests/scripts/test_upload_repo_review_issues.py:344: AssertionError
+_ test_three_item_authoring_keeps_per_item_fallback_and_failure_manifest[1-True] _
+
+tmp_path = PosixPath('/private/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/pytest-of-teacher/pytest-5462/test_three_item_authoring_keep2')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1052bc650>
+failed = 1, invalid_claim = True
+
+    @pytest.mark.parametrize("failed,invalid_claim", [(None, False), (1, False), (1, True)])
+    def test_three_item_authoring_keeps_per_item_fallback_and_failure_manifest(
+        tmp_path, monkeypatch, failed, invalid_claim
+    ):
+        calls = authoring_tools(tmp_path, monkeypatch, failed=failed, invalid_claim=invalid_claim)
+        monkeypatch.setattr(uploader, "fetch_open_issues", lambda *args: [])
+        monkeypatch.setattr(uploader, "ensure_labels", lambda *args: None)
+        created = []
+
+        def create(item, prefix):
+            created.append(item)
+            return f"https://github.test/owner/repo/issues/{100 + len(created)}"
+
+        monkeypatch.setattr(uploader, "create_issue", create)
+        items = [issue(title) for title in ("Alpha", "Beta", "Gamma")]
+        summary = uploader.upload_issues(
+            items, prefix=["gh"], apply=True, authoring_dir=tmp_path / "evidence"
+        )
+        assert len(summary["created"]) == len(created) == 3
+        assert [item["title"] for item in created] == [item["title"] for item in items]
+        for index, item in enumerate(created):
+            if index == failed:
+>               assert item["body"] == VALID_BODY
+E               AssertionError: assert '' == '## Why\n\nTh...esting.md`.\n'
+E
+E                 - ## Why
+E                 -
+E                 - The repo needs a deterministic local smoke so agents can prove the reviewed workflow instead of relying on manual inspection.
+E                 -
+E                 - ## Scope
+E                 - ...
+E
+E                 ...Full output truncated (24 lines hidden), use '-vv' to show
+
+tests/scripts/test_upload_repo_review_issues.py:344: AssertionError
+=========================== short test summary info ============================
+FAILED tests/scripts/test_upload_repo_review_issues.py::test_three_item_authoring_keeps_per_item_fallback_and_failure_manifest[1-False]
+FAILED tests/scripts/test_upload_repo_review_issues.py::test_three_item_authoring_keeps_per_item_fallback_and_failure_manifest[1-True]
+2 failed, 1 passed, 17 deselected in 0.83s
