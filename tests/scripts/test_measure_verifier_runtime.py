@@ -136,7 +136,7 @@ def test_source_archive_cannot_escape_its_arm(tmp_path, monkeypatch):
         "git",
         lambda repo, *args: archive.getvalue() if args[0] == "archive" else real_git(repo, *args),
     )
-    with pytest.raises(tarfile.FilterError):
+    with pytest.raises(ValueError, match="escapes"):
         measure.prepare(repo, tmp_path / "out")
     assert not (tmp_path / "escaped-source").exists()
 
@@ -150,3 +150,17 @@ def test_prepare_entry_point_needs_no_installed_packages():
     )
     assert result.returncode == 0, result.stderr
     assert "prepare" in result.stdout
+
+
+def test_source_archive_refuses_links(tmp_path):
+    target = tmp_path / "arm"
+    target.mkdir()
+    archive = io.BytesIO()
+    with tarfile.open(fileobj=archive, mode="w") as tar:
+        member = tarfile.TarInfo("link")
+        member.type = tarfile.SYMTYPE
+        member.linkname = "../../escaped-source"
+        tar.addfile(member)
+    with pytest.raises(ValueError, match="links and special"):
+        measure.extract_source(archive.getvalue(), target)
+    assert not (target / "link").exists()

@@ -34,6 +34,28 @@ def git(repo: Path, *args: str) -> bytes:
     return subprocess.check_output(["git", "-C", str(repo), *args])
 
 
+def extract_source(archive: bytes, target: Path) -> None:
+    """Materialize regular Git source files only; refuse links and path escapes."""
+    root = target.resolve()
+    with tarfile.open(fileobj=io.BytesIO(archive)) as tar:
+        for member in tar:
+            path = (root / member.name).resolve()
+            if not path.is_relative_to(root):
+                raise ValueError("Archive member escapes its source arm")
+            if member.isdir():
+                path.mkdir(parents=True, exist_ok=True)
+            elif member.isfile():
+                path.parent.mkdir(parents=True, exist_ok=True)
+                stream = tar.extractfile(member)
+                if stream is None:
+                    raise ValueError("Archive regular file has no content")
+                with stream:
+                    path.write_bytes(stream.read())
+                path.chmod(member.mode & 0o777)
+            else:
+                raise ValueError("Archive source links and special files are unsupported")
+
+
 def prepare(repo: Path, output: Path) -> None:
     # Refuse reuse: neither pytest caches nor outputs from a prior run are admissible.
     output.mkdir(parents=True, exist_ok=False)
@@ -42,8 +64,7 @@ def prepare(repo: Path, output: Path) -> None:
         target = output / arm
         target.mkdir()
         archive = git(repo, "archive", ref)
-        with tarfile.open(fileobj=io.BytesIO(archive)) as tar:
-            tar.extractall(target, filter="data")
+        extract_source(archive, target)
         arms[arm] = {
             "commit": git(repo, "rev-parse", ref).decode().strip(),
             "tree": git(repo, "rev-parse", f"{ref}^{{tree}}").decode().strip(),
