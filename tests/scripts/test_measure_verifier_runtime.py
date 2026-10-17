@@ -4,6 +4,7 @@ import importlib.util
 import io
 import json
 import subprocess
+import sys
 import tarfile
 from pathlib import Path
 
@@ -138,3 +139,14 @@ def test_source_archive_cannot_escape_its_arm(tmp_path, monkeypatch):
     with pytest.raises(tarfile.FilterError):
         measure.prepare(repo, tmp_path / "out")
     assert not (tmp_path / "escaped-source").exists()
+
+
+def test_prepare_entry_point_needs_no_installed_packages():
+    # Preparation runs before pip install on a fresh setup-python interpreter.
+    result = subprocess.run(
+        [sys.executable, "-S", str(Path(measure.__file__).resolve()), "--help"],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, result.stderr
+    assert "prepare" in result.stdout

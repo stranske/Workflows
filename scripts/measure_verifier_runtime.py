@@ -16,8 +16,6 @@ import time
 import tomllib
 from pathlib import Path
 
-from defusedxml import ElementTree as ET
-
 BASELINE = "2f9eb2de718d1a561bce6fc0bff46fe8b9867905"
 CANDIDATE = "999ffe5fa00ac9c8ae8a807447f053277032b670"
 SUITES = (
@@ -100,6 +98,8 @@ def command() -> list[str]:
 
 
 def junit(path: Path) -> dict:
+    from defusedxml import ElementTree as ET
+
     root = ET.parse(path).getroot()
     suites = list(root.iter("testsuite"))
     by_file = {}
