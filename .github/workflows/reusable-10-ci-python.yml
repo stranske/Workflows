@@ -39,7 +39,7 @@ on:
         default: false
         type: boolean
       primary-python-version:
-        description: Preferred artifact runtime; omitted resolves the first selected runtime.
+        description: Preferred selected artifact runtime; omitted resolves the first selected runtime.
         required: false
         default: ''
         type: string
@@ -388,6 +388,8 @@ jobs:
           primary = primary_input.strip() or candidates[0]
           if any(char in primary_input or char in primary for char in "\r\n\0"):
             fail("resolved primary Python runtime must not contain CR, LF or NUL")
+          if primary not in candidates:
+            fail("primary-python-version must be one of the selected Python runtimes")
           output = os.getenv("GITHUB_OUTPUT")
           if output:
             with open(output, "a", encoding="utf-8") as handle:

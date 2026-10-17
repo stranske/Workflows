@@ -120,7 +120,7 @@ jobs:
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: selftest-autofix-${{ matrix.python }}
-          retention-days: 7
+          retention-days: 30
           path: |
             pytest-junit.xml
             coverage.xml

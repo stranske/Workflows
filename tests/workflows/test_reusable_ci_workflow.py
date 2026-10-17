@@ -672,6 +672,7 @@ def test_config_only_pyproject_does_not_request_editable_install(tmp_path: Path)
     [
         ("[]", "", "", "3.13"),
         ("[]", "3.12", "", "3.12"),
+        ("[]", "3.12", "3.12", "3.12"),
         ('["3.12", "3.13"]', "", "", "3.12"),
         ('["3.13", "3.14"]', "", "3.14", "3.14"),
     ],
@@ -739,4 +740,31 @@ def test_primary_output_rejects_control_characters(tmp_path, versions, primary):
     )
     assert result.returncode != 0
     assert "must not contain CR, LF or NUL" in result.stdout
+    assert not output.exists()
+
+
+@pytest.mark.parametrize(
+    "versions,single,primary",
+    [
+        ('["3.13", "3.14"]', "", "3.12"),
+        ("[]", "3.12", "3.13"),
+    ],
+)
+def test_primary_output_rejects_a_runtime_outside_the_selected_matrix(
+    tmp_path, versions, single, primary
+):
+    output = tmp_path / "outputs"
+    result = subprocess.run(
+        [sys.executable, "-c", _validate_inputs_script()],
+        env={
+            "PYTHON_VERSIONS": versions,
+            "PYTHON_VERSION": single,
+            "PRIMARY_IN": primary,
+            "GITHUB_OUTPUT": str(output),
+        },
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode != 0
+    assert "primary-python-version must be one of the selected Python runtimes" in result.stdout
     assert not output.exists()

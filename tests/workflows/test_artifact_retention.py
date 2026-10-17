@@ -258,6 +258,7 @@ def test_codex_retention_deletion_reports_file_and_line(tmp_path, monkeypatch):
             "muse-output-${{ inputs.pr_number || github.run_id }}",
             14,
         ),
+        (".github/workflows/selftest-ci.yml", "selftest-autofix-${{ matrix.python }}", 30),
         (".github/workflows/selftest-reusable-ci.yml", "selftest-report", 30),
     ],
 )
