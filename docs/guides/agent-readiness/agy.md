@@ -98,3 +98,102 @@ Re-run section 2 when any of these happens:
   write step in the runner (an environment variable alone is not enough), a runner-side
   assertion that the working tree changed, and a decision about whether API or project billing is
   acceptable for unattended rounds.
+
+## 7. Making better local use of the capacity
+
+Hosted CI is closed to `agy` for now, but a supervised local seat can still be used better. Evidence
+labels: **measured** (read from the Orchestrator's own ledger or the CLI, 2026-10-17), **documented**
+(vendor or Orchestrator notes), **unknown**.
+
+### What is known about the seat
+
+- **Plan and meter** (documented): a prepaid, compute-metered plan with a five-hour refresh and a
+  higher weekly ceiling. Google publishes no numeric quota. The meter weighs request complexity, tools
+  used and accumulated conversation length.
+- **Fixed overhead per call** (measured): a one-word prompt reported 12,844 input tokens, so every
+  call carries a large fixed context cost. Many small calls are therefore expensive on a
+  compute-metered seat; batching related questions into one call is cheaper.
+- **Use** (measured, ledger estimates, not true headroom): about 138 starts and 145 estimated units in
+  7 days against a locally assumed 280-unit weekly soft cap; in 14 days, roughly 43% of five-hour
+  blocks had no agy use at all, and mean use was 2.6 of an assumed 8 units per block. Whether the real
+  limits allow far more is **unknown**: the soft caps are the Orchestrator's own estimates, and an
+  actual rate-limit or shed history has not been measured.
+- **Routing** (measured in the router): agy is primary for epic, cross-repo and runtime-AC work, and a
+  fallback for testgen, review and codemod. Drain mode biases routing toward agy in the last 90 minutes
+  of a block, but only for six kinds of work, and nothing queues extra work to fill an idle block.
+
+### Options, in the order worth trying
+
+| # | Option | Why it fits agy | Risk and mitigation | Cheapest test |
+| --- | --- | --- | --- | --- |
+| 1 | **Third judge in local verification** (and the judge screen). `agy-cli` is already a backend of `tools/run_judge_backend_screen.py` | A different model family than the incumbents, with schema-constrained output (`--json-schema`) | Silent success and soft permission denials: the backend uses `--mode plan`, an explicit model, a scratch workspace, and treats an empty response as an error | Screen it on the frozen corpus with the other judges and read the ensemble analysis |
+| 2 | **Use-it-or-lose-it drain queue**: a scheduled job that, in the last 90 minutes of a block with spare units, dispatches queued read-style jobs | Measured 2026-10-17 over 14 days: 67 completed blocks, 30 idle, 62 under the 8-unit soft cap, 174 units used against 365 unused (ledger estimates; the cap itself is an assumption) | Queue only report-producing jobs; apply any change through diff review | Count blocks that enter drain with fewer than 8 units over one week before building anything |
+| 3 | **Long-context read-only audits** of a repository or a cross-repo question | Large context window, and the router already sends epic and cross-repo work here | No read-only mode: run against a disposable copy and require a clean `git status` afterwards | Audit one repository with known defects and score recall against the existing findings |
+| 4 | **Evaluator arm** in the A/B/C/D experiment harness | Verified in code and data 2026-10-17: agy is the last top-up evaluator and is preferred as a neutral when its seat is in drain. It is **not** excluded from the ranking: the pooled `gemini` judge was `ready` at weight 0.61, earned by older models. That is corrected by the model epoch below | Its own scratch directory per arm | Score agreement with the other evaluators (the existing reliability measure), after the epoch reset |
+| 5 | **Testgen** at the Flash tier | Cheap tier, machine ground truth from the testgen gate | Gate decides, never the model's own claim | Compare gate pass rate on 10 jobs against the incumbent |
+| 6 | **Batched structured calls** with stream-json input and `--json-schema` | Amortises the fixed per-call overhead above | Reject empty or schemaless results | 20 jobs; count empty-result failures and units per job |
+| 7 | **Its Claude and GPT-OSS models as an extra pool** when the Claude or Codex pools are exhausted | The router exposes them under one login | **Unknown** whether they draw the same meter, and provenance must record the model that actually served | One run per model, compare metered units |
+| 8 | Plugins or MCP exposing **read-only** repository tools | `agy plugin validate --strict --json` gives a CI-checkable report | Tools widen write reach: expose only read-only ones | Validate a plugin, query one read-only tool |
+
+`agy remote-control` is an attended, browser-driven mode and is not an unattended option.
+
+### Argon is a new model: no inherited record
+
+`gemini-4-argon-high` has run since 2026-10-16 (62 runs when measured). The Orchestrator learned
+weights per **agent**, not per model: gemini's `review` (n=120) and `implement` (n=101) cells pooled
+2.5 Pro, 3.1 Pro and three Flash generations, and the judge-reliability summary pooled 416 evaluator
+scores. A change adds `config/model_epochs.json` (Orchestrator#685): both route-weight learners and the
+judge-reliability summary count only runs at or after the agent's model epoch, so Argon starts from the
+hand-set priors and earns its own record. Previewed on live data, gemini's evaluator weight goes from
+0.61 to 0.0 until Argon has its own evidence, and readiness needs only 6 comparisons across 2
+experiments. Experiments have slowed to 1 in the last 14 days (136 in 60), so waiting for Argon to be
+fielded would take weeks; the pilots below replay archived work instead. Strengths of Argon are
+**unknown**: no pilot below assumes any.
+
+### Pilots (zero-owner-time, each ends in one number)
+
+Shared rules: use the drain window only; disposable copy of the target (clean `git status` afterwards);
+every item run twice in the pilot, once per call and once batched with `--json-schema` (option 6), so
+units per item and empty-result failures are measured on the same work; the seat's own estimated
+units come from the capacity ledger; a 429 or shed ends the pilot and is recorded, not retried.
+
+| Pilot | Work and ground truth | Pass number (printed by the pilot's report) | Verdict it produces |
+| --- | --- | --- | --- |
+| 1. Judge screen (built) | The frozen 8-case corpus, then the 75-case approval corpus as it grows | `analyze_judge_ensemble` recommendation for agy | Today: not eligible (2 false PASS, 2 invalid) |
+| 2. Drain measurement (done) | Ledger over 14 days | Blocks under cap / completed blocks = 62 / 67 | Idle capacity exists on the local estimate; re-run after pilots 3 and 5 to see real use |
+| 3. Read-only audit | One repository whose earlier audit findings are filed and confirmed; the finding set is the answer key | Recall of the key; share of cited `file:line` that resolve; the same two numbers for the incumbent audit agent on the same repository | Argon is a candidate audit lane only if its recall is not below the incumbent's and its citations resolve |
+| 5. Test generation | 10 jobs the testgen gate already scores | Gate pass rate against the incumbent on the same jobs | Candidate testgen lane if not below the incumbent |
+| 4. Evaluator replay | Archived experiments whose consensus ranking exists | Argon's `judge_reliability` row: `ready`, weight, mean error vs consensus | Counts in rankings again only when `ready`, at its earned weight |
+
+**First pilot run (2026-10-17, `tools/agy_pilot.py`, evidence `docs/evidence/judge-screen-20261017/agy-pilot-1.json`).**
+Exploratory: 2 modules with 3 seeded defects each (6 defects); a third module yielded no validated mutants. Tokens are as the backend reported them.
+
+| Backend | Pilot | Mode | Result | Tokens per item |
+| --- | --- | --- | --- | ---: |
+| agy (`gemini-4-argon-medium`) | audit | single / batched | recall 1.0, precision 1.0 / recall 1.0, precision 1.0 | 14,588 / 7,855 |
+| agy | testgen | single / batched | kill rate 1.0, clean pass 1.0 / kill rate 0.4, clean pass 0.5 | 16,552 / 9,716 |
+| Claude CLI, tools off | audit | single / batched | recall 1.0, precision 1.0 / same | 4,472 / 3,037 |
+| Claude CLI, tools off | testgen | single / batched | kill rate 1.0 / kill rate 1.0 | 9,570 / 7,280 |
+
+Reading it: on this small corpus agy matched Claude on audit and on single-module test generation, so
+neither pilot is ruled out. Batching nearly halved agy's tokens per item, but batched test generation
+broke (half the files failed on clean code), so batching is safe for audit here and **not** for test
+generation without more evidence. agy costs about 2 to 3 times Claude's tokens per item, mostly the
+fixed per-call overhead. Six defects cannot separate the two on quality; the next run needs more
+modules (the harness needs target modules whose own tests are strong enough to validate mutants).
+
+Option 6 (batching) is not a separate project: its number is units per item, batched against single,
+reported by pilots 3 and 5.
+
+### Rule checks
+
+- **Subscription over API spend:** every option uses the subscription login. One risk to close first:
+  AI credits are described as overage-only, so confirm the account cannot auto-spend credits.
+- **Never write outside the workspace:** the guards that actually hold are the Orchestrator's
+  macOS sandbox profile and the refusal of any broad workspace. They are refused when nested or when the
+  sandbox tool is missing. Read-only jobs should use a disposable copy rather than trust the CLI.
+- **The `gemini` key spans two different things.** The Orchestrator's router lists `gemini` among the
+  agents hosted keepalive may run, and in Workflows the hosted `gemini` runner is the older Gemini CLI
+  on an API key, whereas the local seat is `agy` on a subscription login. They bill differently and
+  fail differently. Give the local seat its own name before any routing or ledger decision depends on
+  the distinction.
