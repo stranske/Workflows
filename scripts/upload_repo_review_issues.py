@@ -461,8 +461,7 @@ def author_issue_batch(
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     """Optional local authoring; validated original bodies remain each item's fallback."""
     mirror = ORCHESTRATOR_MIRROR
-    tools = ("capability_advisor.py", "roles.py", "capability_propensity.py")
-    if not all((mirror / name).is_file() for name in tools):
+    if not (mirror / "capability_advisor.py").is_file():
         return issues, {"state": "mirror-unavailable"}
     try:
         output_root.mkdir(parents=True, exist_ok=True)
@@ -473,6 +472,8 @@ def author_issue_batch(
 
     def invoke(name: str, *args: str, timeout: int = 30) -> subprocess.CompletedProcess[str]:
         try:
+            if not (mirror / name).is_file():
+                raise FileNotFoundError(f"optional mirror tool unavailable: {name}")
             result = subprocess.run(
                 [sys.executable, str(mirror / name), *args],
                 cwd=mirror,
@@ -504,9 +505,11 @@ def author_issue_batch(
     except ValueError:
         advice = {}
     experiment = advice.get("experiment_id")
+    capabilities = advice.get("capabilities")
+    if not isinstance(capabilities, list):
+        capabilities = []
     offered = any(
-        isinstance(cap, dict) and cap.get("capability_id") == "role-prompt"
-        for cap in (advice.get("capabilities") or [])
+        isinstance(cap, dict) and cap.get("capability_id") == "role-prompt" for cap in capabilities
     )
     receipt["experiment_id"] = experiment
     receipt["offered"] = offered
@@ -518,7 +521,14 @@ def author_issue_batch(
         f"{item['repo']}#review-{item_hash(str(item['repo']), str(item['title']))}"
         for item in issues
     ]
-    if offered and len(issues) >= 3:
+    missing_tools = [
+        name for name in ("roles.py", "capability_propensity.py") if not (mirror / name).is_file()
+    ]
+    if offered and missing_tools:
+        receipt["missing_tools"] = missing_tools
+        reason = "Optional prompt-role tools unavailable: " + ", ".join(missing_tools)
+        kind = "precondition_unmet"
+    elif offered and len(issues) >= 3:
         batch = [
             {
                 "target": target,
@@ -592,7 +602,7 @@ def author_issue_batch(
         "role-authored" if any(row["used_role"] for row in receipt["items"]) else "baseline"
     )
     if experiment and receipt["state"] == "baseline":
-        invoke(
+        decline = invoke(
             "capability_propensity.py",
             "decline",
             "--capability",
@@ -606,6 +616,7 @@ def author_issue_batch(
             "--reason",
             reason,
         )
+        receipt["decline"] = {"exit": decline.returncode, "kind": kind, "reason": reason}
     (directory / "upload-authoring.json").write_text(
         json.dumps(receipt, indent=2), encoding="utf-8"
     )

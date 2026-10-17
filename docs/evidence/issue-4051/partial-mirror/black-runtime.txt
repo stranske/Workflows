@@ -1,0 +1,16 @@
+import black.concurrency
+
+_original_loop_factory = black.concurrency.maybe_use_uvloop
+
+
+def _responsive_loop():
+    loop = _original_loop_factory()
+
+    def tick():
+        loop.call_later(0.05, tick)
+
+    loop.call_later(0.05, tick)
+    return loop
+
+
+black.concurrency.maybe_use_uvloop = _responsive_loop

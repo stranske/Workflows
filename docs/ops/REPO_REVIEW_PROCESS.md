@@ -331,7 +331,11 @@ command output, body-selection reasons and per-created-issue capability receipts
 `upload-authoring.json`. Pass `--authoring-dir PATH` to choose the evidence parent;
 the default is `docs/reports/repo-review/prompt-authoring`.
 
-No mirror means the original upload path. A smaller or unoffered batch records a
+No advisor mirror means the original upload path. A partial mirror still receives
+one advisor consult; missing authoring or propensity tools preserve the original
+bodies and retain a precondition decline, including its exit status. A failed
+decline is local failure evidence, not proof the experiment recorded it.
+A smaller or unoffered batch records a
 reasoned decline when the advisor supplies an experiment ID. Successful body use
 records a trigger against each actual created `owner/repo#N`; it does not claim
 later opener pickup, merge, or durability. Dry runs, intake holds and approval

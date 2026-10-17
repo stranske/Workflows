@@ -257,6 +257,11 @@ def test_main_refuses_unresolved_approved_scope_conflicts_before_github(
 def no_live_prompt_tools(tmp_path, monkeypatch):
     # Unit tests must never consult this machine's real authoring fleet.
     monkeypatch.setattr(uploader, "ORCHESTRATOR_MIRROR", tmp_path / "absent-mirror")
+    monkeypatch.setattr(
+        uploader.subprocess,
+        "run",
+        lambda *args, **kwargs: pytest.fail("unexpected subprocess; no live uploads or tools"),
+    )
 
 
 def authoring_tools(tmp_path, monkeypatch, *, failed=None, invalid_claim=False):
@@ -373,6 +378,50 @@ def test_small_batch_consults_once_and_records_decline(tmp_path, monkeypatch):
     assert declines[0][declines[0].index("--kind") + 1] == "scope_too_small"
 
 
+def test_consult_batches_only_new_filtered_items_across_repos(tmp_path, monkeypatch):
+    calls = authoring_tools(tmp_path, monkeypatch)
+    existing = {"number": 7, "title": "Existing issue", "labels": []}
+    monkeypatch.setattr(
+        uploader,
+        "fetch_open_issues",
+        lambda repo, prefix: [existing] if repo == "owner/repo" else [],
+    )
+    monkeypatch.setattr(uploader, "ensure_labels", lambda *args: None)
+    monkeypatch.setattr(uploader, "add_missing_labels", lambda *args: None)
+    created = []
+
+    def create(item, prefix):
+        created.append(item)
+        return f"https://github.test/{item['repo']}/issues/{100 + len(created)}"
+
+    monkeypatch.setattr(uploader, "create_issue", create)
+    eligible = [
+        issue("Alpha") | {"labels": ["priority:high"]},
+        issue("Beta") | {"labels": ["priority:normal"]},
+        issue("Gamma") | {"repo": "owner/other", "labels": ["priority:low"]},
+    ]
+    result = uploader.upload_issues(
+        [issue("Existing issue"), *eligible, eligible[0], issue() | {"repo": "owner/excluded"}],
+        prefix=["gh"],
+        apply=True,
+        repo_filter={"owner/repo", "owner/other"},
+        authoring_dir=tmp_path / "evidence",
+    )
+    assert len(result["created"]) == 3
+    assert len(result["skipped_duplicates"]) == 2
+    assert {item["title"] for item in created} == {item["title"] for item in eligible}
+    for item in created:
+        original = next(row for row in eligible if row["title"] == item["title"])
+        assert item["repo"] == original["repo"]
+        assert item["labels"] == original["labels"]
+    assert sum(Path(args[1]).name == "capability_advisor.py" for args in calls) == 1
+    assert sum(Path(args[1]).name == "roles.py" for args in calls) == 1
+    directory = Path(result["authoring"]["directory"])
+    batch = json.loads((directory / "batch.json").read_text())
+    assert len(batch) == 3
+    assert {row["goal"] for row in batch} == {item["title"] for item in eligible}
+
+
 def test_missing_mirror_keeps_original_bodies_without_subprocess(tmp_path, monkeypatch):
     monkeypatch.setattr(
         uploader.subprocess, "run", lambda *args, **kwargs: pytest.fail("no local tools")
@@ -383,6 +432,32 @@ def test_missing_mirror_keeps_original_bodies_without_subprocess(tmp_path, monke
     assert selected == [issue()] * 3
     assert receipt == {"state": "mirror-unavailable"}
     assert not (tmp_path / "evidence").exists()
+
+
+@pytest.mark.parametrize("missing", ["roles.py", "capability_propensity.py"])
+def test_partial_mirror_still_consults_once_and_retains_decline(tmp_path, monkeypatch, missing):
+    calls = authoring_tools(tmp_path, monkeypatch)
+    (uploader.ORCHESTRATOR_MIRROR / missing).unlink()
+    items = [issue(title) for title in ("Alpha", "Beta", "Gamma")]
+
+    selected, receipt = uploader.author_issue_batch(items, output_root=tmp_path / "evidence")
+
+    assert selected == items
+    assert receipt["state"] == "baseline"
+    assert receipt["experiment_id"] == "advice:test"
+    assert receipt["missing_tools"] == [missing]
+    assert sum(Path(args[1]).name == "capability_advisor.py" for args in calls) == 1
+    assert not any(Path(args[1]).name == "roles.py" for args in calls)
+    assert receipt["decline"]["kind"] == "precondition_unmet"
+    assert receipt["decline"]["exit"] == (1 if missing == "capability_propensity.py" else 0)
+    directory = Path(receipt["directory"])
+    assert json.loads((directory / "upload-authoring.json").read_text()) == receipt
+    if missing == "capability_propensity.py":
+        assert missing in (directory / f"{missing}.stderr.txt").read_text()
+    else:
+        decline = next(args for args in calls if "decline" in args)
+        assert decline[decline.index("--experiment") + 1] == "advice:test"
+        assert missing in decline[decline.index("--reason") + 1]
 
 
 def test_role_body_must_name_a_runnable_acceptance_gate():
@@ -470,6 +545,27 @@ def test_advisor_failure_or_no_offer_preserves_baseline(tmp_path, monkeypatch, f
     assert not receipt["offered"]
 
 
+@pytest.mark.parametrize("capabilities", [True, 1, "role-prompt", {"capability_id": "role-prompt"}])
+def test_malformed_advisor_capabilities_preserve_baseline(tmp_path, monkeypatch, capabilities):
+    import subprocess
+
+    authoring_tools(tmp_path, monkeypatch)
+    calls = []
+
+    def run(args, **kwargs):
+        calls.append(args)
+        assert Path(args[1]).name == "capability_advisor.py"
+        return subprocess.CompletedProcess(args, 0, json.dumps({"capabilities": capabilities}), "")
+
+    monkeypatch.setattr(uploader.subprocess, "run", run)
+    items = [issue(title) for title in ("Alpha", "Beta", "Gamma")]
+    selected, receipt = uploader.author_issue_batch(items, output_root=tmp_path / "evidence")
+    assert selected == items
+    assert receipt["state"] == "baseline"
+    assert not receipt["offered"]
+    assert len(calls) == 1
+
+
 @pytest.mark.parametrize(
     "old,new",
     [
@@ -555,7 +651,10 @@ def test_post_authoring_snapshot_excludes_created_siblings(tmp_path, monkeypatch
     assert len(fetches) == 2  # initial and one post-authoring snapshot, before creation
 
 
-@pytest.mark.parametrize("fault", ["outside-directory", "duplicate-target", "record-error"])
+@pytest.mark.parametrize(
+    "fault",
+    ["outside-directory", "duplicate-target", "record-error", "missing-body", "missing-row"],
+)
 def test_manifest_rejection_preserves_approved_bodies(tmp_path, monkeypatch, fault):
     authoring_tools(tmp_path, monkeypatch)
     original_run = uploader.subprocess.run
@@ -571,6 +670,10 @@ def test_manifest_rejection_preserves_approved_bodies(tmp_path, monkeypatch, fau
                 manifest["items"][0]["body_file"] = str(outside)
             elif fault == "duplicate-target":
                 manifest["items"].append(manifest["items"][0])
+            elif fault == "missing-body":
+                Path(manifest["items"][0]["body_file"]).unlink()
+            elif fault == "missing-row":
+                manifest["items"].pop(0)
             else:
                 manifest["items"][0]["role_record_error"] = "Brain record failed"
             file.write_text(json.dumps(manifest))
@@ -581,6 +684,8 @@ def test_manifest_rejection_preserves_approved_bodies(tmp_path, monkeypatch, fau
     selected, receipt = uploader.author_issue_batch(items, output_root=tmp_path / "evidence")
     assert selected[0]["body"] == VALID_BODY
     assert not receipt["items"][0]["used_role"]
+    assert receipt["items"][1]["used_role"] == (fault != "duplicate-target")
+    assert receipt["items"][2]["used_role"] == (fault != "duplicate-target")
     if fault == "duplicate-target":
         assert selected == items
         assert all(not row["used_role"] for row in receipt["items"])
