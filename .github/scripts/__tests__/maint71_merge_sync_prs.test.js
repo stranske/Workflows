@@ -112,6 +112,28 @@ test('staleness uses producer head age, with a strict six-hour boundary', () => 
   assert.equal(canaryNeedsRefresh(refreshCanary({ head_observed_at: 'invalid' }), refreshNow), null);
 });
 
+test('canary refresh reasons prioritize blockers over age and retain legacy timestamp fallbacks', () => {
+  const blocked = refreshCanary({ mergeable_state: 'behind', check_status: 'checks_failed',
+    active_review_thread_count: 1, head_observed_at: '2026-10-17T05:00:00Z' });
+  assert.equal(canaryNeedsRefresh(blocked, refreshNow), 'behind');
+  delete blocked.mergeable_state;
+  assert.equal(canaryNeedsRefresh(blocked, refreshNow), 'checks_failed');
+  blocked.check_status = 'success';
+  assert.equal(canaryNeedsRefresh(blocked, refreshNow), 'review_blocked');
+  blocked.active_review_thread_count = 0;
+  assert.equal(canaryNeedsRefresh(blocked, refreshNow), 'stale');
+  delete blocked.head_observed_at;
+  blocked.updated_at = '2026-10-17T05:00:00Z';
+  blocked.created_at = '2026-10-16T00:00:00Z';
+  assert.equal(canaryNeedsRefresh(blocked, refreshNow), 'stale');
+  blocked.updated_at = '2026-10-17T11:00:00Z';
+  assert.equal(canaryNeedsRefresh(blocked, refreshNow), null);
+  delete blocked.updated_at;
+  assert.equal(canaryNeedsRefresh(blocked, refreshNow), 'stale');
+  delete blocked.created_at;
+  assert.equal(canaryNeedsRefresh(blocked, refreshNow), null);
+});
+
 test('overlapping blockers are counted independently and dry-run cannot mutate', async () => {
   const api = refreshHarness();
   const canary = refreshCanary({ check_status: 'checks_failed', active_review_thread_count: 1,
@@ -177,16 +199,18 @@ test('an existing upstream comment is reused and direct commits use commit comme
   }
 });
 
-test('executor refreshes a red stable canary before its failed-check exit and preserves the head', async (t) => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'maint71-red-canary-'));
+async function assertExecutorCanaryRefresh(t, state) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), `maint71-${state}-canary-`));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   const repository = require('../../../config/consumer_sync_canaries.json').canaries[0].repo;
   const [owner, repo] = repository.split('/');
   const head = 'd'.repeat(40), source = 'c'.repeat(40), plan = `sha256:${'a'.repeat(64)}`;
-  const observed = new Date(Date.now() - 20 * 60 * 1000).toISOString();
+  const ageMinutes = state === 'stale' ? (STALE_CANARY_HOURS + 1) * 60 : 20;
+  const observed = new Date(Date.now() - ageMinutes * 60 * 1000).toISOString();
   const { formatDeliveryRecord } = require('../sync_pr_lease_contract');
   const candidate = { number: 4026, title: 'chore: sync workflow templates',
     state: 'open', draft: false, auto_merge: null, user: { login: 'stranske' },
+    mergeable_state: state === 'behind' ? 'behind' : 'clean',
     head: { ref: 'sync/workflows-candidate', sha: head }, base: { ref: 'main' },
     created_at: observed, updated_at: observed,
     body: `<!-- workflows-consumer-sync:v1 ${JSON.stringify({
@@ -211,7 +235,7 @@ test('executor refreshes a red stable canary before its failed-check exit and pr
         return { data: structuredClone(candidate) };
       },
       updateBranch: async () => assert.fail('stable canary must never call pulls.updateBranch'),
-      merge: async () => assert.fail('red canary must never merge'),
+      merge: async () => assert.fail(`${state} canary must never merge`),
     },
     git: { getCommit: async () => ({ data: { tree: { sha: 'tree' } } }) },
     repos: {
@@ -230,11 +254,15 @@ test('executor refreshes a red stable canary before its failed-check exit and pr
     if (method === github.rest.pulls.list) return params.state === 'open' && params.repo === repo
       ? [structuredClone(candidate)] : [];
     if (method === github.rest.checks.listForRef) return [
-      { name: 'Gate / gate', status: 'completed', conclusion: 'failure' },
+      { name: 'Gate / gate', status: 'completed',
+        conclusion: state === 'checks_failed' ? 'failure' : 'success' },
     ];
     throw new Error('unexpected pagination');
   }, graphql: async () => ({ repository: { pullRequest: {
-    reviewThreads: { pageInfo: { hasNextPage: false }, nodes: [] },
+    reviewThreads: { pageInfo: { hasNextPage: false }, nodes: state === 'review_blocked' ? [
+      { id: 'PRRT_executor', path: 'consumer-owned.js', isResolved: false, isOutdated: false,
+        comments: { pageInfo: { hasNextPage: false }, nodes: [] } },
+    ] : [] },
   } } }) };
   const retryHelpers = require('../github-api-with-retry');
   t.mock.method(retryHelpers, 'createTokenAwareRetry', async () => null);
@@ -264,15 +292,23 @@ test('executor refreshes a red stable canary before its failed-check exit and pr
   const row = report.results.find((row) => row.owner === owner && row.repo === repo);
   assert.equal(row.status, 'stable_base_refresh_required', JSON.stringify(report.results));
   assert.equal(row.next_command, 'rerun-after-maint-68-canary-refresh');
-  assert.equal(row.refresh_reason, 'checks_failed');
+  assert.equal(row.refresh_reason, state);
   assert.equal(dispatches.length, 1);
   assert.equal(report.canary_refresh.refresh_dispatched, 1);
   assert.equal(require('../sync_pr_merge_contract').candidateRefreshDecision({ report }).eligible,
     false, 'legacy workflow refresh must not duplicate the executor dispatch for missing siblings');
   assert.equal(updates.length, 1);
   assert.equal(candidate.head.sha, head);
-  assert.ok(summaries.some((line) => /canaries: red=1.*refresh_dispatched=1/.test(line)));
-});
+  assert.ok(summaries.some((line) => line ===
+    `canaries: red=${Number(state === 'checks_failed')} ` +
+    `review_blocked=${Number(state === 'review_blocked')} ` +
+    `stale=${Number(state === 'stale')} refresh_dispatched=1 held_plan=${plan}\n`));
+}
+
+for (const state of ['behind', 'checks_failed', 'review_blocked', 'stale']) {
+  test(`executor refreshes a ${state} stable canary before early exits and preserves the head`,
+    async (t) => assertExecutorCanaryRefresh(t, state));
+}
 
 test('native proof comments are read from the consumer while independent proof comments stay in Workflows', () => {
   const consumer = { owner: 'stranske', repo: 'Ready' };

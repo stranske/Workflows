@@ -2858,7 +2858,8 @@ test('maint71 execution preserves delivery-record precedence in the normal deliv
     durable_issue_url: 'https://github.com/stranske/Workflows/issues/1836',
     plan_id: planId, generation: 'delivery-record-generation', repository,
     desired_tree_hash: 'tree-abc', source_commit: sourceCommit,
-    head_observed_sha: headSha, head_observed_at: '2020-08-14T00:00:00Z',
+    // Exercise lifecycle validation without the six-hour refresh taking precedence.
+    head_observed_sha: headSha, head_observed_at: new Date(Date.now() - 20 * 60 * 1000).toISOString(),
     lease_expires_at: '2099-08-14T00:00:00Z', predecessor_prs: [], successor_prs: [],
   };
   const candidate = {
@@ -3625,7 +3626,8 @@ test(`maint71 clears stale ready labels and preserves hold in ${integrationOnly 
     durable_issue_url: 'https://github.com/stranske/Workflows/issues/1836',
     plan_id: planId, generation: 'delivery-record-generation', repository,
     desired_tree_hash: 'tree-abc', source_commit: sourceCommit,
-    head_observed_sha: headSha, head_observed_at: '2020-08-14T00:00:00Z',
+    // Keep this ready-label regression independent of the stale-canary refresh path.
+    head_observed_sha: headSha, head_observed_at: new Date(Date.now() - 20 * 60 * 1000).toISOString(),
     lease_expires_at: '2099-08-14T00:00:00Z', predecessor_prs: [], successor_prs: [],
   };
   const candidate = {
