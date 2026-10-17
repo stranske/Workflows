@@ -52,9 +52,10 @@ def test_a_candidate_matching_consensus_has_zero_error_and_perfect_rank(tmp_path
 
 def test_an_inverted_candidate_has_large_error_and_negative_rank(tmp_path):
     experiment = _experiment(tmp_path)
-    backend = lambda p: ModelCall(
-        text=json.dumps({"scores": {"A": 2, "B": 5, "C": 8}})
-    )  # noqa: E731
+
+    def backend(prompt):
+        return ModelCall(text=json.dumps({"scores": {"A": 2, "B": 5, "C": 8}}))
+
     row = replay.replay_experiment(experiment, backend, prompt_judge="a")
     assert row["candidate_mae"] > 3 and row["candidate_rank_corr"] == -1
 
