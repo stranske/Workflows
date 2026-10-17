@@ -2,7 +2,7 @@
 
 import pytest
 
-from sample import classify_size
+from .sample import classify_size
 
 
 @pytest.mark.parametrize(

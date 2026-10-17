@@ -777,7 +777,13 @@ def test_reusable_profiles_use_a_bounded_real_consumer_and_common_lock():
         (fixture / "sample_contract.py").match(pattern)
         for pattern in root_config["tool"]["pytest"]["ini_options"]["python_files"]
     )
-    assert project["tool"]["coverage"]["run"] == {"branch": True, "source": ["sample"]}
+    assert project["tool"]["coverage"]["run"] == {
+        "branch": True,
+        "source": ["reusable_ci_consumer"],
+        "omit": ["*/sample_contract.py"],
+    }
+    assert project["tool"]["setuptools"]["packages"] == ["reusable_ci_consumer"]
+    assert (fixture / "__init__.py").is_file()
     reference = next(
         line
         for line in (fixture / "requirements.lock").read_text().splitlines()

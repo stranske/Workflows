@@ -12,7 +12,8 @@ app = []
 dev = []
 
 [tool.setuptools]
-py-modules = ["sample"]
+packages = ["reusable_ci_consumer"]
+package-dir = {reusable_ci_consumer = "."}
 
 [tool.pytest.ini_options]
 testpaths = ["."]
@@ -20,7 +21,8 @@ python_files = ["sample_contract.py"]
 
 [tool.coverage.run]
 branch = true
-source = ["sample"]
+source = ["reusable_ci_consumer"]
+omit = ["*/sample_contract.py"]
 
 [tool.coverage.report]
 show_missing = true
