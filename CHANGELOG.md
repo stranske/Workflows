@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.40.1](https://github.com/stranske/Workflows/compare/v1.40.0...v1.40.1) (2026-10-17)
+
+
+### Bug Fixes
+
+* **artifact-cache:** an exact producer run is the identity of the artifact (Maint Coverage Guard, part 2) ([#4004](https://github.com/stranske/Workflows/issues/4004)) ([701ffc7](https://github.com/stranske/Workflows/commit/701ffc7cdd7ceca7e17da277f9d7d0e73178c383))
+* **artifact-cache:** list only the requested artifact name (Maint Coverage Guard failed 40 of 40 runs) ([#4002](https://github.com/stranske/Workflows/issues/4002)) ([d3ac27c](https://github.com/stranske/Workflows/commit/d3ac27c7a15f8af949881f710721e5843239d828))
+
 ## [1.40.0](https://github.com/stranske/Workflows/compare/v1.39.0...v1.40.0) (2026-10-17)
 
 
