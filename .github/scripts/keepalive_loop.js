@@ -48,8 +48,10 @@ const AUTOMATION_ATTENTION_LABELS = ['agent:needs-attention'];
 function classifyCompletion(output, exitCode, producedWork = false) {
   if (producedWork === true) return 'progressed';
   const text = String(output || '');
+  // Retry timing alone also occurs on connection and service failures; require
+  // an explicit quota or HTTP 429 signal before rotating away from a provider.
   if (Number(exitCode) === 429 ||
-      /\b(?:HTTP(?:\/\d(?:\.\d)?)?\s*[:=]?\s*429|you['’]ve\s+hit\s+your\s+usage\s+limits?|rate[ -]?limit(?:s|ed)?\s+exceeded|usage\s+limits?\s+exceeded|quota\s+exceeded|insufficient_quota|try\s+again\s+(?:at|in))\b/i.test(text)) {
+      /\b(?:HTTP(?:\/\d(?:\.\d)?)?\s*[:=]?\s*429|you['’]ve\s+hit\s+your\s+usage\s+limits?|rate[ -]?limit(?:s|ed)?\s+exceeded|usage\s+limits?\s+exceeded|quota\s+exceeded|insufficient_quota)\b/i.test(text)) {
     return 'rate_limited';
   }
   if (exitCode !== undefined && exitCode !== null && exitCode !== '' && Number(exitCode) !== 0) {

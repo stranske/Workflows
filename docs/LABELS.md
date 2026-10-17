@@ -301,6 +301,9 @@ dispatch a runner. See
 
 **Trigger:** Set by the keepalive loop from persisted provider rate-limit completions, or during GitHub API quota backoff
 
+Provider classification requires a quota or HTTP 429 signal. Retry timing alone
+(for example, "Connection reset. Try again in 30 seconds.") does not set this label.
+
 **Effect:**
 1. Marks the PR as currently backed off due to API/runner rate limits
 2. Used with the matching concrete `agent:<name>` label to flag backoff for the current route; to hand routing to the delegation policy, add `agent:auto` alongside the concrete label (see `agent:auto`)

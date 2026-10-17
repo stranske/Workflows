@@ -7263,6 +7263,28 @@ test('classifyCompletion covers provider quota, HTTP 429, failure and clean succ
   assert.equal(classifyCompletion('quota exceeded', 1, true), 'progressed');
 });
 
+test('retry advice alone does not classify a completion as provider quota', () => {
+  for (const modulePath of [
+    '../keepalive_loop.js',
+    '../../../templates/consumer-repo/.github/scripts/keepalive_loop.js',
+  ]) {
+    const { classifyCompletion } = require(modulePath);
+    for (const output of [
+      'Connection reset. Try again in 30 seconds.',
+      'Service unavailable (HTTP 503). Try again at 9:01 PM.',
+    ]) {
+      assert.equal(classifyCompletion(output, 1), 'failed', `${modulePath}: ${output}`);
+    }
+    assert.equal(classifyCompletion('Implemented the "try again in 30 seconds" message', 0), 'progressed');
+  }
+  for (const output of [
+    'Connection reset. Try again in 30 seconds.',
+    'Service unavailable (HTTP 503). Try again at 9:01 PM.',
+  ]) {
+    assert.equal(replayCompletion({ output, exitCode: 1 }).record.completion.reason, 'failed', output);
+  }
+});
+
 test('persisted provider quota drives same-evaluate switch with zero stalled rounds and clears on progress', async () => {
   const previousFetch = global.fetch;
   const keys = ['HAS_CODEX_AUTH', 'HAS_CLAUDE_OAUTH', 'HAS_CURSOR_AUTH'];
@@ -7314,6 +7336,14 @@ test('persisted provider quota drives same-evaluate switch with zero stalled rou
       workflowRuns: [{ head_sha: 'sha-3989', conclusion: 'success' }] });
     await evaluateKeepaliveLoop({ github: stalled, context: buildContext(3989), core: buildCore() });
     assert.ok(!stalled.actions.some((a) => a.type === 'remove-label' && a.name === 'agent:rate-limited'));
+
+    const retryFailure = replayCompletion({ output: 'Connection reset. Try again in 30 seconds.', exitCode: 1 });
+    const retry = buildGithubStub({ pr, comments: retryFailure.comments,
+      workflowRuns: [{ head_sha: 'sha-3989', conclusion: 'success' }] });
+    const retryResult = await evaluateKeepaliveLoop({ github: retry, context: buildContext(3989), core: buildCore() });
+    assert.equal(retryResult.agentType, 'codex', 'ordinary retry advice must not rotate agents');
+    assert.equal(retryResult.delegationShouldSwitch, false);
+    assert.ok(!retry.actions.some((a) => a.type === 'label' && a.labels.includes('agent:rate-limited')));
 
     const cursorQuota = replayCompletion({ output: 'Cursor: HTTP 429 Too Many Requests', exitCode: 1,
       provider: 'cursor' });
