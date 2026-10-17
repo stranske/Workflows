@@ -255,6 +255,73 @@ test('fail-fast discovery errors when artifact listing is forbidden', async () =
   }
 });
 
+test('discovery asks GitHub only for the requested artifact name', async () => {
+  // Workflows has tens of thousands of artifacts and its unfiltered listing answers 500 on deep pages
+  // (the Maint Coverage Guard failed on every scheduled run for 20+ days). This fake endpoint behaves the
+  // same way: no `name` filter, no answer.
+  const outputPath = path.join(
+    fs.mkdtempSync(path.join(os.tmpdir(), 'artifact-cache-test-')),
+    'outputs',
+  );
+  const originalFetch = global.fetch;
+  const originalEnv = { ...process.env };
+  const requested = [];
+  global.fetch = async (url) => {
+    requested.push(String(url));
+    if (!String(url).includes('name=gate-coverage-trend')) {
+      return { ok: false, status: 500, statusText: 'Internal Server Error', headers: { get: () => '' } };
+    }
+    return {
+      ok: true,
+      status: 200,
+      statusText: 'OK',
+      headers: { get: () => '' },
+      json: async () => ({
+        artifacts: [
+          {
+            id: 77,
+            name: 'gate-coverage-trend',
+            expired: false,
+            created_at: '2026-05-06T10:00:00Z',
+            workflow_run: { id: 4242, head_branch: 'main' },
+          },
+        ],
+      }),
+    };
+  };
+  Object.assign(process.env, {
+    ARTIFACT_CACHE_NOW: '2026-05-06T12:00:00Z',
+    GITHUB_OUTPUT: outputPath,
+    GITHUB_REPOSITORY: 'owner/repo',
+    GITHUB_RUN_ID: '123',
+    GITHUB_TOKEN: 'token',
+    INPUT_ARTIFACT_NAME: 'gate-coverage-trend',
+    INPUT_CACHE_KEY_BASE: 'gate-coverage-trend-4242',
+    INPUT_FAIL_FAST: 'true',
+    INPUT_PRODUCER_BRANCH: 'main',
+    INPUT_PRODUCER_RUN_ID: '4242',
+    INPUT_WINDOW_RESOLUTION: 'weekly',
+  });
+
+  try {
+    await discoverCommand();
+    assert.equal(requested.length, 1);
+    assert.match(requested[0], /\/repos\/owner\/repo\/actions\/artifacts\?per_page=100&name=gate-coverage-trend&page=1$/);
+    const outputs = fs.readFileSync(outputPath, 'utf8');
+    assert.match(outputs, /artifact-found=true/);
+    assert.match(outputs, /artifact-id=77/);
+    assert.match(outputs, /run-id=4242/);
+  } finally {
+    global.fetch = originalFetch;
+    for (const key of Object.keys(process.env)) {
+      if (!(key in originalEnv)) {
+        delete process.env[key];
+      }
+    }
+    Object.assign(process.env, originalEnv);
+  }
+});
+
 test('parses fail-fast boolean inputs strictly', () => {
   assert.equal(parseBoolean('true'), true);
   assert.equal(parseBoolean('false'), false);
