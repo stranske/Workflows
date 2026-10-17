@@ -1,5 +1,6 @@
 import argparse
 import json
+import os
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -1872,6 +1873,8 @@ def test_archive_prior_cycle_moves_rounds_queue_and_uses_a_unique_same_day_direc
     (output_dir / "round1" / "finding.json").write_text("{}\n", encoding="utf-8")
     (output_dir / "approved-issue-queue.json").write_text("{}\n", encoding="utf-8")
 
+    cycle_mtime = 1609459200  # Both cycles are on 2021-01-01 UTC.
+    os.utime(converged, (cycle_mtime, cycle_mtime))
     first = coordinator.archive_prior_cycle(output_dir)
     assert first["archived"] is True
     assert sorted(first["moved_paths"]) == sorted(
@@ -1887,6 +1890,7 @@ def test_archive_prior_cycle_moves_rounds_queue_and_uses_a_unique_same_day_direc
     second_converged = output_dir / "round2" / "stranske__Example" / "converged.json"
     second_converged.parent.mkdir(parents=True)
     second_converged.write_text("{}\n", encoding="utf-8")
+    os.utime(second_converged, (cycle_mtime, cycle_mtime))
     second = coordinator.archive_prior_cycle(output_dir)
     assert second["archived"] is True
     assert second["archive_date"].endswith("-01")
