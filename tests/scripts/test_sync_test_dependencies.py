@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 import pytest
 from scripts import sync_test_dependencies as std
@@ -62,6 +63,42 @@ def test_detect_local_project_modules_finds_top_level_test_helpers(
     assert {"conftest", "helpers", "support"}.issubset(detected)
     assert "test_helpers" in detected
     assert "adapter" not in detected
+
+
+def test_detect_local_project_modules_ignores_hidden_test_entries(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    tests_dir = tmp_path / "tests"
+    tests_dir.mkdir()
+    (tests_dir / ".hidden.py").write_text("VALUE = 1\n", encoding="utf-8")
+    (tests_dir / "__pycache__").mkdir()
+    (tests_dir / "visible.py").write_text("VALUE = 1\n", encoding="utf-8")
+
+    monkeypatch.chdir(tmp_path)
+
+    assert std._detect_local_project_modules() == {"visible"}
+
+
+def test_pytest_config_readers_reject_non_mapping_toml(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Both files must EXIST: a missing file returns from the OSError fallback before tomllib.load is reached, and
+    # the test would then pass without ever exercising the non-mapping branch it is named for.
+    pytest_toml = tmp_path / "pytest.toml"
+    pyproject = tmp_path / "pyproject.toml"
+    pytest_toml.write_text("", encoding="utf-8")
+    pyproject.write_text("", encoding="utf-8")
+    loaded: list[str] = []
+
+    def non_mapping(fh: Any) -> list[object]:
+        loaded.append(Path(fh.name).name)
+        return []
+
+    monkeypatch.setattr(std.tomllib, "load", non_mapping)
+
+    assert std._tests_dir_on_pytest_toml_pythonpath(pytest_toml) is False
+    assert std._tests_dir_on_pyproject_pythonpath(pyproject) is None
+    assert loaded == ["pytest.toml", "pyproject.toml"]
 
 
 def test_detect_local_project_modules_handles_packaged_tests_without_pythonpath(
