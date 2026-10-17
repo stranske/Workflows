@@ -293,3 +293,20 @@ def test_fetch_oauth_scopes_handles_headers_and_failures(
 
     install_fake_requests(monkeypatch, FakeRequestException("connection reset"))
     assert api_client.fetch_oauth_scopes("tok", retry_attempts=1) is None
+
+
+def test_client_handles_zero_backoff_default_parser_and_non_mapping_scope_headers(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    delays: list[float] = []
+    monkeypatch.setattr(api_client.time, "sleep", delays.append)
+    api_client._sleep_with_backoff(0, 1)
+    api_client._sleep_with_backoff(0.5, 3)
+    assert delays == [2.0]
+
+    fake = install_fake_requests(monkeypatch, FakeResponse(payload={"number": 12}))
+    assert api_client.fetch_issue("owner/repo", 12, "tok") == {"number": 12}
+    assert len(fake.calls) == 1
+
+    install_fake_requests(monkeypatch, FakeResponse(headers=None))
+    assert api_client.fetch_oauth_scopes("tok") is None

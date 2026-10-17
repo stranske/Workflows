@@ -417,6 +417,45 @@ def test_empty_formatted_output_is_invalid_without_loading_validator(monkeypatch
     assert issue_formatter._formatted_output_valid("") is False
 
 
+def test_fallback_helpers_preserve_fences_and_ignore_non_tasks() -> None:
+    sections, preamble = issue_formatter._parse_sections(
+        "intro\n````\n## Tasks\n```\n````\n<details>inline</details>\n## Tasks\n- [ ] real task\n"
+    )
+
+    assert preamble == ["intro", "````", "## Tasks", "```", "````", "<details>inline</details>"]
+    assert sections["tasks"] == ["- [ ] real task"]
+    assert issue_formatter._normalize_checklist_lines(
+        ["plain", "- [x] complete", "- placeholder", "```", "- ignored", "```"]
+    ) == ["- [ ] plain", "- [x] complete", "- [ ] placeholder"]
+    assert issue_formatter._extract_tasks_from_formatted(
+        "## Tasks\nnot a task\n  - [ ] nested\n- [ ] top level\n## Why\nnext"
+    ) == ["top level"]
+
+
+def test_original_issue_helpers_keep_malformed_details_and_remove_stale_blocks() -> None:
+    malformed = "visible\n<details><summary>Original Issue</summary>"
+    assert issue_formatter._strip_original_issue_blocks(malformed) == malformed
+    stale_marker = "formatted\n<summary>Original Issue</summary>"
+    assert issue_formatter._append_raw_issue_section(stale_marker, "") == stale_marker
+
+
+def test_formatter_returns_size_error_after_context_capping(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(issue_formatter, "check_prompt_injection", lambda _body: {"blocked": False})
+    monkeypatch.setattr(issue_formatter, "_reuse_already_formatted", lambda *_args: None)
+    monkeypatch.setattr(
+        issue_formatter,
+        "_capped_issue_body",
+        lambda *_args: "x" * (issue_formatter.MAX_ISSUE_BODY_SIZE + 1),
+    )
+
+    result = issue_formatter.format_issue_body("small", use_llm=False)
+
+    assert result["formatted_body"] is None
+    assert "Issue body too large" in result["error"]
+
+
 def test_formatter_degrades_to_heading_validation_when_validator_cannot_load(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
