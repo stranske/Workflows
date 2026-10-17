@@ -325,7 +325,8 @@ How to access logs:
 3. Fallback: Use the GitHub UI Jobs list if the summary table is missing.
 
 If missing:
-- Confirm the `logs_summary` job executed (it is unconditional). If skipped, check for GitHub API rate limits in its step logs.
+- A skipped `logs_summary` job is expected when the whole workflow is cancelled. It still runs after ordinary success or failure, including a cancelled prerequisite when the workflow itself is not cancelled.
+- For an unexpected missing table in a workflow that was not cancelled, inspect the job and step logs for API errors or rate limits; a skipped job has no step logs.
 
 ---
 ## 7.6 Gate-Only Protection (Issue #2439)
@@ -336,7 +337,7 @@ Branch protection now requires the `Gate / gate` job directly. The historical wr
 | Concern | Job / File | How to Enable | Artifact / Output | Fails Build? |
 |---------|------------|---------------|-------------------|--------------|
 | Coverage soft gate | Job: `coverage_soft_gate` in `reusable-10-ci-python.yml` | `enable-soft-gate: 'true'` | Run summary section, coverage artifacts | No |
-| Universal logs table | Job: `logs_summary` | Always on | Run summary Markdown table | No |
+| Universal logs table | Job: `logs_summary` | Success/failure; skips whole-workflow cancellation | Run summary Markdown table | No |
 | Gate aggregation | Job: `gate` in `pr-00-gate.yml` | Always on | Single pass/fail gate | Yes (required) |
 
 Note: The gate job will become the only required status after successful observation window.
