@@ -498,3 +498,14 @@ def test_comment_happy_path_is_silent(comment_outcomes: dict[str, Any]) -> None:
     assert case["threw"] is None
     assert case["warnings"] == []
     assert case["summaryRaw"] == []
+
+
+@pytest.mark.parametrize("name", sorted(GATE_WORKFLOWS))
+def test_primary_gate_summary_keeps_cancelled_run_status_publication(name):
+    workflow = yaml.safe_load(GATE_WORKFLOWS[name].read_text(encoding="utf-8"))
+    summary = workflow["jobs"]["summary"]
+    # Unlike optional log diagnostics, this job must supersede prior same-head
+    # SUCCESS with a non-success result when a rerun is cancelled.
+    assert summary["if"].replace(" ", "") == "${{always()}}"
+    publisher = next(step for step in summary["steps"] if step.get("name") == STEP_NAME)
+    assert publisher["if"].replace(" ", "") == "${{always()}}"

@@ -768,3 +768,41 @@ def test_primary_output_rejects_a_runtime_outside_the_selected_matrix(
     assert result.returncode != 0
     assert "primary-python-version must be one of the selected Python runtimes" in result.stdout
     assert not output.exists()
+
+
+@pytest.mark.parametrize(
+    "upstream,workflow_cancelled,expected",
+    [
+        ("success", False, True),
+        ("failure", False, True),
+        ("cancelled", False, True),
+        ("success", True, False),
+        ("failure", True, False),
+        ("cancelled", True, False),
+    ],
+)
+def test_logs_summary_preserves_failures_but_releases_cancelled_workflows(
+    upstream, workflow_cancelled, expected
+):
+    condition = _load_workflow()["jobs"]["logs_summary"]["if"]
+    expression = condition.removeprefix("${{").removesuffix("}}").strip()
+    # Execute the authored status-function expression with Actions status values.
+    # success()/failure() also catch a regression to ordinary success-only gating.
+    script = """
+const vm = require('node:vm');
+const [expression, upstream, cancelled] = process.argv.slice(1);
+const result = vm.runInNewContext(expression, {
+  always: () => true,
+  cancelled: () => cancelled === 'true',
+  success: () => upstream === 'success',
+  failure: () => upstream === 'failure',
+});
+process.stdout.write(JSON.stringify(result));
+"""
+    result = subprocess.run(
+        ["node", "-e", script, expression, upstream, json.dumps(workflow_cancelled)],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    assert json.loads(result.stdout) is expected

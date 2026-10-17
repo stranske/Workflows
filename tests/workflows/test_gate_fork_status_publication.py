@@ -423,3 +423,18 @@ def test_publisher_requires_real_environment_attempt_before_writing(publisher_at
     assert "error" in result
     assert "Publisher run attempt is missing or invalid" in result["error"]
     assert result["writes"] == []
+
+
+@pytest.mark.parametrize(
+    "run_conclusion,summary_conclusion",
+    [("cancelled", "success"), ("success", "cancelled"), ("cancelled", "skipped")],
+)
+def test_fork_gate_status_never_publishes_success_for_cancelled_current_run(
+    run_conclusion, summary_conclusion
+):
+    result = _decide(
+        {"status": "completed", "conclusion": run_conclusion},
+        [{"name": "summary", "status": "completed", "conclusion": summary_conclusion}],
+        ["src/app.py"],
+    )
+    assert result["state"] == "failure"
