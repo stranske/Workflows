@@ -3029,21 +3029,25 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
               ...context.repo, issue_number: prNumber,
               labels: [`agents:tried-${decision.previousAgent}`],
             });
-            // Preserve one concrete route label alongside agent:auto.
-            for (const label of labels.filter((name) => name === `agent:${decision.previousAgent}`)) {
+            // Preserve one concrete route label alongside agent:auto. Always apply
+            // the new agent even when the previous label is already absent: nesting
+            // the add behind a previous-label match left agent:auto-only PRs without
+            // a concrete route after a rate-limit switch from the completion provider.
+            if (decision.previousAgent) {
               try {
                 await github.rest.issues.removeLabel({
-                  ...context.repo, issue_number: prNumber, name: label,
+                  ...context.repo, issue_number: prNumber,
+                  name: `agent:${decision.previousAgent}`,
                 });
               } catch (error) {
                 // A missing previous-agent label must not abort the same-evaluate
                 // switch: otherwise rate_limited catch clears the decided agent.
                 if (error?.status !== 404) throw error;
               }
-              await github.rest.issues.addLabels({
-                ...context.repo, issue_number: prNumber, labels: [`agent:${decision.agent}`],
-              });
             }
+            await github.rest.issues.addLabels({
+              ...context.repo, issue_number: prNumber, labels: [`agent:${decision.agent}`],
+            });
           }
           agentType = decision.agent;
           delegationReason = decision.reason;
