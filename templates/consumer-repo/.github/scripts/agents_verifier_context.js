@@ -31,6 +31,44 @@ const SHA_PATTERN = /^[0-9a-f]{7,40}$/i;
 const WORKFLOW_RUN_URL_RE = /\/actions\/runs\/(\d+)/g;
 const TEXT_ARTIFACT_ENTRY_RE = /\.(?:txt|md|markdown|log|json|jsonl|ndjson|xml|csv|tsv|patch|diff)$/i;
 
+// Source-reviewed legacy receipts. These immutable first-party outputs predate
+// a target binding receipt: authenticated run/attempt + exact output ZIP digest
+// bind the reviewed production manifest/context/patch to the original target.
+// This is not a general exception for manual runs, nor acceptance of their result.
+const HISTORICAL_MANUAL_VERIFIER_BINDINGS = Object.freeze([
+  Object.freeze({run_id:38897681034, repository:'stranske/Orchestrator', repository_id:1342306972, pr:631,
+    head:'aba5c4503a31f71e337e35e65d928124510bba22', merge:'a898f3b7227c61b73d1abe521e141e99173f85a5',
+    wrapper_sha:'a071ff06be16b969b50971678de75cb89d2978ab', producer_sha:'43096bff240b6fc5c89bb229f992a49a663fece4',
+    artifact_id:12044188828, artifact_sha256:'01740159fcb0216e4fb0309d082d5a48d488178e2e4c8c83288bcccabc459471'}),
+  Object.freeze({run_id:38979663956, repository:'stranske/Orchestrator', repository_id:1342306972, pr:631,
+    head:'aba5c4503a31f71e337e35e65d928124510bba22', merge:'a898f3b7227c61b73d1abe521e141e99173f85a5',
+    wrapper_sha:'143ce07ceacae5f4d973219f1267045133825aa7', producer_sha:'e015a93aaa27bc613a979a0e10329a7d9f84b0ed',
+    artifact_id:12080865906, artifact_sha256:'931ae69b2cdfc8d2ce23e0cec92943dbefc26720b58a0ceb719d36b82bd3675b'}),
+]);
+
+function historicalManualVerifierBinding(run, {owner,repo,pullNumber,associatedCommitShas}) {
+  const binding=HISTORICAL_MANUAL_VERIFIER_BINDINGS.find(item=>item.run_id===run?.id);
+  if (!binding || binding.repository!==`${owner}/${repo}` || binding.pr!==pullNumber
+      || !associatedCommitShas?.includes(binding.head) || !associatedCommitShas.includes(binding.merge)
+      || run.event!=='workflow_dispatch' || run.status!=='completed' || run.conclusion!=='success'
+      || run.run_attempt!==1 || run.path!=='.github/workflows/agents-verifier.yml'
+      || run.head_branch!=='main' || run.head_sha!==binding.wrapper_sha
+      || [run.repository,run.head_repository].some(repository=>repository?.id!==binding.repository_id
+        || repository.full_name!==binding.repository)) return null;
+  const producers=(run.referenced_workflows||[]).filter(item=>item.path==='stranske/Workflows/.github/workflows/reusable-agents-verifier.yml@main');
+  if (producers.length!==1 || producers[0].sha!==binding.producer_sha || producers[0].ref!=='refs/heads/main') return null;
+  return binding;
+}
+
+function validateHistoricalManualArtifact(binding,artifact,archiveSha256) {
+  const run=artifact?.workflow_run;
+  return artifact?.id===binding.artifact_id && artifact.name===`comparison-results-${binding.run_id}`
+    && artifact.expired===false && artifact.digest===`sha256:${binding.artifact_sha256}`
+    && archiveSha256===binding.artifact_sha256 && run?.id===binding.run_id
+    && run.repository_id===binding.repository_id && run.head_repository_id===binding.repository_id
+    && run.head_branch==='main' && run.head_sha===binding.wrapper_sha;
+}
+
 const DIFF_SUMMARY_LIMITS = {
   maxFiles: 50,
   maxLines: 20000,
@@ -588,11 +626,31 @@ async function boundedEvidencePages({ method, params, key, recordLimit, pageLimi
   return { items, failure: 'page' };
 }
 
-function extractArtifactArchiveText({ archiveBuffer, maxEntries, maxChars, maxBytes = maxChars * 4, execFile = execFileSync }) {
+function retainCaptureBytes(directory, digest, suffix, value) {
+  if (!/^[a-f0-9]{64}$/.test(digest) || !['zip', 'txt'].includes(suffix)) {
+    throw new Error('Invalid digest-addressed capture filename');
+  }
+  if (createHash('sha256').update(value).digest('hex') !== digest) throw new Error('Capture content hash differs');
+  fs.mkdirSync(directory, { recursive: true });
+  if (fs.lstatSync(directory).isSymbolicLink()) throw new Error('Capture directory cannot be a symlink');
+  const base = fs.realpathSync(directory);
+  const target = path.resolve(base, `${digest}.${suffix}`);
+  if (path.dirname(target) !== base) throw new Error('Capture target escapes its directory');
+  if (fs.existsSync(target) && fs.lstatSync(target).isSymbolicLink()) {
+    throw new Error('Capture target cannot be a symlink');
+  }
+  try { fs.writeFileSync(target, value, { flag: 'wx', mode: 0o600 }); }
+  catch (error) {
+    if (error.code !== 'EEXIST' || !fs.readFileSync(target).equals(value)) throw error;
+  }
+}
+
+function extractArtifactArchiveText({ archiveBuffer, maxEntries, maxChars, maxBytes = maxChars * 4, captureDirectory, execFile = execFileSync }) {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'verifier-evidence-'));
   const archivePath = path.join(tempDir, 'artifact.zip');
   try {
     fs.writeFileSync(archivePath, archiveBuffer);
+    if (captureDirectory) retainCaptureBytes(captureDirectory, createHash('sha256').update(archiveBuffer).digest('hex'), 'zip', archiveBuffer);
     const listing = execFile('unzip', ['-Z1', archivePath], {
       encoding: 'utf8',
       maxBuffer: 1024 * 1024,
@@ -624,7 +682,7 @@ function extractArtifactArchiveText({ archiveBuffer, maxEntries, maxChars, maxBy
       const prefix = `### ${entry}\n\n`;
       const separator = parts.length ? '\n\n' : '';
       const contentBudget = remaining - prefix.length - separator.length;
-      if (contentBudget <= 0 || remainingBytes <= 0) {
+      if ((!captureDirectory && contentBudget <= 0) || remainingBytes <= 0) {
         member.status = 'unavailable';
         member.reason = contentBudget <= 0 ? 'character' : 'extraction_byte';
         failures.push(member.reason);
@@ -633,8 +691,9 @@ function extractArtifactArchiveText({ archiveBuffer, maxEntries, maxChars, maxBy
       }
       try {
         const rawValue = Buffer.from(execFile('unzip', ['-p', archivePath, entry], {
-          maxBuffer: Math.min(contentBudget * 4 + 1, remainingBytes),
+          maxBuffer: captureDirectory ? remainingBytes : Math.min(contentBudget * 4 + 1, remainingBytes),
         }));
+        if (rawValue.length > remainingBytes) throw new Error('decompressed byte bound exceeded');
         remainingBytes -= rawValue.length;
         Object.assign(member, { status: 'included', raw_bytes: rawValue.length,
           raw_sha256: createHash('sha256').update(rawValue).digest('hex'), encoding: 'utf-8' });
@@ -656,12 +715,14 @@ function extractArtifactArchiveText({ archiveBuffer, maxEntries, maxChars, maxBy
         const renderedValue = value.startsWith("\ufeff")
           ? `\ufeff${value.slice(1).trim()}`
           : value.trim();
+        if (captureDirectory) retainCaptureBytes(captureDirectory, member.raw_sha256, 'txt', rawValue);
         const fragment = `${prefix}${renderedValue}`;
         if (fragment.length + separator.length > remaining) {
-          member.status = 'render_omitted';
+          member.status = captureDirectory ? 'captured' : 'render_omitted';
           member.reason = 'character';
           failures.push("character");
           truncated = true;
+          if (captureDirectory) continue;
           break;
         }
         parts.push(fragment);
@@ -683,6 +744,8 @@ function extractArtifactArchiveText({ archiveBuffer, maxEntries, maxChars, maxBy
       member.reason = stopReason;
     }
     return {
+      rawCaptureComplete: Boolean(captureDirectory) && members.length > 0 && members.length === occurrences.length
+        && members.every(member => ['included', 'captured'].includes(member.status)),
       archiveSha256: createHash('sha256').update(archiveBuffer).digest('hex'),
       listingSha256: createHash('sha256').update(listing).digest('hex'),
       memberCount: occurrences.length,
@@ -740,6 +803,8 @@ async function fetchVerifierEvidence({
   const totalArchiveBytes = positiveLimit('VERIFIER_EVIDENCE_TOTAL_ARCHIVE_BYTES', 32 * 1024 * 1024);
   const totalExtractBytes = positiveLimit('VERIFIER_EVIDENCE_TOTAL_EXTRACT_BYTES', 64 * 1024 * 1024);
   const totalArtifactChars = positiveLimit('VERIFIER_EVIDENCE_TOTAL_ARTIFACT_CHARS', 4 * 1024 * 1024);
+  const captureDirectory = process.env.VERIFIER_SEMANTIC_MODE === '1'
+    ? process.env.VERIFIER_EVIDENCE_CAPTURE_DIR || undefined : undefined;
   let usedArtifactChars = 0;
   const commentLimit = positiveLimit('VERIFIER_EVIDENCE_COMMENT_LIMIT', DEFAULT_EVIDENCE_COMMENT_LIMIT);
   const commentChars = positiveLimit('VERIFIER_EVIDENCE_COMMENT_CHARS', DEFAULT_EVIDENCE_COMMENT_CHARS);
@@ -940,6 +1005,8 @@ async function fetchVerifierEvidence({
   const referencedRunIds = allRunIds.slice(0, runLimit);
   const runIds = [];
   const runHeads = new Map();
+  const runPaths = new Map();
+  const pendingManualBindings = new Map();
   const seenRunIds = new Set();
   let artifactIncomplete = allRunIds.length > referencedRunIds.length;
   if (artifactIncomplete) fail("artifacts", "reference_record", "explicit reference union exceeds run limit");
@@ -982,15 +1049,21 @@ async function fetchVerifierEvidence({
         continue;
       }
       if (!exactCommitShas.has(runHeadSha)) {
-        artifactIncomplete = true;
-        artifacts.reason = `referenced workflow run ${runId} does not match the exact PR head or merge commit`;
-        fail('artifacts', 'provenance', artifacts.reason);
-        diagnostics.counters.provenance_failures += 1;
-        continue;
+        const binding=historicalManualVerifierBinding(workflowRun,{owner,repo,pullNumber,associatedCommitShas});
+        if (binding) {
+          pendingManualBindings.set(runId,binding);
+        } else {
+          artifactIncomplete = true;
+          artifacts.reason = `referenced workflow run ${runId} does not match the exact PR head or merge commit`;
+          fail('artifacts', 'provenance', artifacts.reason);
+          diagnostics.counters.provenance_failures += 1;
+          continue;
+        }
       }
       seenRunIds.add(runId);
       runIds.push(runId);
       runHeads.set(runId, runHeadSha);
+      runPaths.set(runId, workflowRun.path);
     } catch (error) {
       artifactIncomplete = true;
       artifacts.reason = `workflow run provenance failed for referenced run ${runId}: ${error.message}`;
@@ -1066,6 +1139,7 @@ async function fetchVerifierEvidence({
           seenRunIds.add(runId);
           runIds.push(runId);
           runHeads.set(runId, commitSha.toLowerCase());
+          runPaths.set(runId, workflowRun.path);
         }
       }
     } catch (error) {
@@ -1082,7 +1156,10 @@ async function fetchVerifierEvidence({
   }
   let inspectedArtifacts = 0;
   diagnostics.archive_inventory = [];
+  diagnostics.manual_target_bindings = [];
   for (const runId of runIds) {
+    const manualBinding=pendingManualBindings.get(runId);
+    let manualBindingValidated=false;
     if (inspectedArtifacts >= artifactLimit) {
       artifactIncomplete = true;
       fail("artifacts", "artifact_record", "global artifact record bound");
@@ -1115,6 +1192,26 @@ async function fetchVerifierEvidence({
           head_sha: runHeads.get(runId), artifact_id: artifact.id,
           name: artifact.name || '', status: 'unavailable', members: null };
         diagnostics.archive_inventory.push(capture);
+        // The verifier's retained input bundle is transport, not another
+        // acceptance output. Do not recursively re-ingest its own ZIP sidecars.
+        // An explicit artifact reference still requests that payload and keeps
+        // the ordinary capture/failure path; name alone cannot hide it.
+        const transportName = `verifier-input-capture-${runId}`;
+        const validTransportIdentity = Number.isSafeInteger(artifact.id) && artifact.id > 0
+          && Number.isSafeInteger(artifact.size_in_bytes) && artifact.size_in_bytes >= 0;
+        const artifactReference = validTransportIdentity
+          ? new RegExp('/artifacts/' + artifact.id + '(?!\\d)') : null;
+        const transportReference = new RegExp('(?:^|[^\\w-])' + transportName + '(?![\\w-])');
+        const transportReferenced = [pullRequestBody, ...referenceTexts, ...commentBodies, ...typedEvidenceTexts]
+          .some(text => artifactReference?.test(String(text || ''))
+            || transportReference.test(String(text || '')));
+        if (validTransportIdentity && artifact.name === transportName && !transportReferenced
+            && /^\.github\/workflows\/(?:agents-verifier|reusable-agents-verifier)\.yml(?:@[^\s]+)?$/.test(runPaths.get(runId) || '')) {
+          Object.assign(capture, { status: 'input_transport', reason: 'verifier input bundle; not acceptance output',
+            archive_bytes: artifact.size_in_bytes, archive_digest: artifact.digest || null });
+          continue;
+        }
+
         if (artifact.expired) {
           capture.reason = 'expired';
           fail("artifacts", "expired", `artifact ${artifact.id}`);
@@ -1128,7 +1225,7 @@ async function fetchVerifierEvidence({
           continue;
         }
         if (diagnostics.counters.archive_bytes + artifact.size_in_bytes > totalArchiveBytes
-          || diagnostics.counters.extracted_bytes >= totalExtractBytes || usedArtifactChars >= totalArtifactChars) {
+          || diagnostics.counters.extracted_bytes >= totalExtractBytes || (!captureDirectory && usedArtifactChars >= totalArtifactChars)) {
           artifactIncomplete = true;
           capture.reason = 'global_capture_bound';
           if (diagnostics.counters.archive_bytes + artifact.size_in_bytes > totalArchiveBytes) fail('artifacts', 'global_archive_byte', `artifact ${artifact.id}`);
@@ -1146,30 +1243,41 @@ async function fetchVerifierEvidence({
         capture.archive_sha256 = createHash('sha256').update(archiveBuffer).digest('hex');
         capture.archive_bytes = archiveBuffer.length;
         diagnostics.counters.archive_bytes += archiveBuffer.length;
+        if (manualBinding && artifact.id===manualBinding.artifact_id) {
+          manualBindingValidated=validateHistoricalManualArtifact(manualBinding,artifact,capture.archive_sha256);
+          if (!manualBindingValidated) {
+            artifactIncomplete=true;
+            capture.reason='manual_target_binding';
+            fail('artifacts','provenance',`manual verifier run ${runId} immutable target artifact binding failed`);
+          }
+        }
         if (archiveBuffer.length > archiveBytes || diagnostics.counters.archive_bytes > totalArchiveBytes) {
           capture.reason = 'archive_byte';
           fail("artifacts", "archive_byte", `artifact ${artifact.id}`);
           artifactIncomplete = true;
           continue;
         }
-        const maxChars = Math.min(artifactChars, totalArtifactChars - usedArtifactChars);
-        const maxBytes = Math.min(maxChars * 4, totalExtractBytes - diagnostics.counters.extracted_bytes);
-        const extracted = await extractArtifactText({ archiveBuffer, maxEntries: entryLimit, maxChars, maxBytes });
+        const maxChars = Math.max(0, Math.min(artifactChars, totalArtifactChars - usedArtifactChars));
+        const maxBytes = captureDirectory ? totalExtractBytes - diagnostics.counters.extracted_bytes
+          : Math.min(maxChars * 4, totalExtractBytes - diagnostics.counters.extracted_bytes);
+        const extracted = await extractArtifactText({ archiveBuffer, maxEntries: entryLimit, maxChars, maxBytes, captureDirectory });
         capture.members = extracted?.members || null;
         capture.member_count = extracted?.memberCount ?? null;
         capture.member_inventory_complete = extracted?.memberInventoryComplete === true;
         capture.listing_sha256 = extracted?.listingSha256 || null;
-        capture.status = extracted?.truncated || !extracted?.text ? 'incomplete' : 'rendered';
+        capture.status = extracted?.rawCaptureComplete ? 'captured' : extracted?.truncated || !extracted?.text ? 'incomplete' : 'rendered';
         capture.member_inventory_status = Array.isArray(extracted?.members) ? 'recorded' : 'unavailable';
         diagnostics.counters.extracted_bytes += extracted?.extractedBytes ?? maxBytes;
         diagnostics.counters.entries += extracted?.entryCount || 0;
         diagnostics.counters.unsupported_payloads += extracted?.unsupportedCount || 0;
         usedArtifactChars += extracted?.text?.length || 0;
         diagnostics.counters.artifact_chars = usedArtifactChars;
-        for (const reason of extracted?.failures || []) fail('artifacts', reason, `artifact ${artifact.id}`);
-        if (extracted?.truncated || !extracted?.text) fail('artifacts', 'extraction_incomplete', `artifact ${artifact.id}`);
-        if (extracted?.truncated || !extracted?.text) artifactIncomplete = true;
-        if (extracted?.text) {
+        for (const reason of extracted?.failures || []) {
+          if (!(extracted?.rawCaptureComplete && reason === 'character')) fail('artifacts', reason, `artifact ${artifact.id}`);
+        }
+        if (!extracted?.rawCaptureComplete && (extracted?.truncated || !extracted?.text)) fail('artifacts', 'extraction_incomplete', `artifact ${artifact.id}`);
+        if (!extracted?.rawCaptureComplete && (extracted?.truncated || !extracted?.text)) artifactIncomplete = true;
+        if (extracted?.text || extracted?.rawCaptureComplete) {
           artifacts.records.push({
             runId,
             name: artifact.name || `artifact-${artifact.id}`,
@@ -1179,11 +1287,19 @@ async function fetchVerifierEvidence({
           });
         }
       }
+      if (manualBindingValidated && !listing.failure) {
+        diagnostics.manual_target_bindings.push({...manualBinding,run_attempt:1,artifact_digest_verified:true});
+      }
     } catch (error) {
       artifactIncomplete = true;
       artifacts.reason = `artifact retrieval failed for run ${runId}: ${error.message}`;
       fail('artifacts', 'retrieval', artifacts.reason);
       core?.warning?.(`Verifier workflow-artifact evidence unavailable: ${error.message}`);
+    }
+    if (manualBinding && !diagnostics.manual_target_bindings.some(item=>item.run_id===runId)) {
+      artifactIncomplete=true;
+      fail('artifacts','provenance',`manual verifier run ${runId} lacks its complete authenticated target artifact binding`);
+      diagnostics.counters.provenance_failures+=1;
     }
   }
   if (artifactIncomplete) {
@@ -2069,6 +2185,9 @@ module.exports = {
     });
   },
   fetchVerifierEvidence,
+  historicalManualVerifierBinding,
+  validateHistoricalManualArtifact,
+  retainCaptureBytes,
   extractArtifactArchiveText,
   formatVerifierEvidence,
   buildContextSourceCoverage,

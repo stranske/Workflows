@@ -1,0 +1,33 @@
+✔ all canaries merged dispatch correct plan-bound evidence (5.768258ms)
+✔ all canaries campaign_prepared dispatch correct plan-bound evidence (0.720621ms)
+✔ all canaries evidence_recovered dispatch correct plan-bound evidence (0.418094ms)
+✔ one canary missing holds dispatch and records why (0.33084ms)
+✔ every row must carry plan_id and the same immutable source (1.475345ms)
+✔ non-string plan_id 42 holds dispatch before API calls (0.455122ms)
+✔ non-string plan_id true holds dispatch before API calls (3.409719ms)
+✔ non-string plan_id ["plan"] holds dispatch before API calls (0.348713ms)
+✔ non-string plan_id {"plan":"plan"} holds dispatch before API calls (0.299702ms)
+✔ unprepared, changed merged identity, and disabled mutation cannot dispatch (0.775282ms)
+✔ promotion completed/success/main/Maint 68 promote auto sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb -> already-promoted (0.337783ms)
+✔ promotion queued/null/main/Maint 68 promote auto sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb -> waiting (0.260759ms)
+✔ promotion waiting/null/main/Maint 68 promote auto sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb -> waiting (0.151273ms)
+✔ promotion completed/failure/main/Maint 68 promote auto sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb -> dispatched (0.163045ms)
+✔ promotion completed/success/main/Maint 68 promote auto other bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb -> dispatched (0.164188ms)
+✔ promotion completed/success/untrusted-branch/Maint 68 promote auto sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb -> dispatched (0.158928ms)
+✔ dispatch API failure propagates; no false success summary (0.738834ms)
+✔ workflow-run history is paginated and fails closed at GitHub search cap (0.581029ms)
+✔ snapshot expected jq keys and run the actual Maint 68 evidence parser (113.566919ms)
+✔ health deduplicates a plan and fails only beyond 48 h; successful exact promotion clears it (1.800374ms)
+✔ health observes current trusted candidates, ignores superseded and untrusted attempts (1.48346ms)
+✔ health API failures cannot produce a measured zero (0.258043ms)
+✔ health-71 fails independently so an overdue recovery promotion can succeed (0.713387ms)
+✔ live-verified no-change canary evidence remains eligible without a PR (0.312054ms)
+✔ source-delta dispatch preserves the exact range in every evidence row (0.41578ms)
+ℹ tests 25
+ℹ suites 0
+ℹ pass 25
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 162.220094

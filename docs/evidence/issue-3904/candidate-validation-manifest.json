@@ -1,0 +1,34 @@
+{
+  "final-test.log": {
+    "sha256": "c0b857286dc639c94d5936ba6736be2077502b8f0c0cf02340e7c698024f5560",
+    "bytes": 45801
+  },
+  "final-junit.xml": {
+    "sha256": "c638c467d0d51209dcae8d0b104ce0e691afef65483bb3e42aa2a472b8e09a83",
+    "bytes": 8473048
+  },
+  "final-coverage.json": {
+    "sha256": "fda12e2a5fbb1cc7b36cb227413b8597edd0e80d92ba557b9227e3cd3c245a1f",
+    "bytes": 3249208
+  },
+  "local-runtime.json": {
+    "sha256": "ef2d072113984c1d92931be24ca85685e6811edf8ca1a013ea268d4f92d5b6ec",
+    "bytes": 648
+  },
+  "gate-deliberate-break.json": {
+    "sha256": "1253a86ba2abc989fb6ffbb861dac8acaf63ed4d62e44440101d24f93d3b4ea7",
+    "bytes": 2807
+  },
+  "summary-final.log": {
+    "sha256": "c8a7c6fd36e97c4badfdcb30e9fce363fa76b6e575119be922e81d378f226a64",
+    "bytes": 99
+  },
+  "summary-junit.xml": {
+    "sha256": "891c704edc2760db464420a213bd433d900bc21b367a6790eba620f6097fe576",
+    "bytes": 3565
+  },
+  "collection-final.log": {
+    "sha256": "1c37e90d8d34e3258b414ec9c65c2c29a4edf714eeda8a16d48b9d31dbf3cf5e",
+    "bytes": 98
+  }
+}

@@ -1,0 +1,76 @@
+=== stale-inventory-count: red ===
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_________ test_inventory_accounts_for_every_named_regression_and_case __________
+
+    def test_inventory_accounts_for_every_named_regression_and_case():
+        inventory = json.loads(INVENTORY.read_text(encoding="utf-8"))
+        entries = inventory["functions"]
+        functions = {
+            name: function
+            for name, function in vars(delivery).items()
+            if name.startswith("test_") and callable(function)
+        }
+        assert len({entry["function"] for entry in entries}) == len(entries)
+        assert set(functions) == {entry["function"] for entry in entries}
+        assert sum(entry["original_count"] for entry in entries) == 90550
+>       assert sum(entry["retained_count"] for entry in entries) == 35064
+E       assert 35063 == 35064
+E        +  where 35063 = sum(<generator object test_inventory_accounts_for_every_named_regression_and_case.<locals>.<genexpr> at 0x7f952cd658a0>)
+
+tests/scripts/test_pr_verifier_grammar_inventory.py:40: AssertionError
+=========================== short test summary info ============================
+FAILED tests/scripts/test_pr_verifier_grammar_inventory.py::test_inventory_accounts_for_every_named_regression_and_case - assert 35063 == 35064
+ +  where 35063 = sum(<generator object test_inventory_accounts_for_every_named_regression_and_case.<locals>.<genexpr> at 0x7f952cd658a0>)
+1 failed, 1 deselected in 0.97s
+
+=== stale-inventory-count: green ===
+.                                                                        [100%]
+1 passed, 1 deselected in 0.95s
+
+=== missing-lexical-witness: red ===
+F                                                                        [100%]
+=================================== FAILURES ===================================
+__ test_emitted_cases_preserve_every_declared_semantic_and_lexical_projection __
+
+    def test_emitted_cases_preserve_every_declared_semantic_and_lexical_projection():
+        for matrix in json.loads(MATRICES.read_text(encoding="utf-8")):
+            name = matrix["function"]
+            dimensions = matrix["dimensions"]
+            semantic = matrix["semantic"]
+            lexical = matrix["lexical_spines"]
+            assert set(semantic).isdisjoint(lexical), name
+            assert set(semantic) | set(lexical) == set(dimensions), name
+            marks = _parametrizations(getattr(delivery, name))
+            assert len(marks) == 1, name
+            mark = marks[0]
+            names = [part.strip() for axis in dimensions for part in axis.split(",")]
+            assert _parameter_names(mark) == names, name
+            cases = {_freeze(case.values) for case in mark.args[1]}
+            assert len(cases) == len(mark.args[1]) == matrix["retained_count"], name
+
+            # Check witnesses against actual emitted rows. Only the bounded core and
+            # declared spines are enumerated; no original Cartesian product is built.
+            for axes in [semantic, *[[alias, *spine] for alias, spine in lexical.items()]]:
+                assert set(axes) <= set(dimensions), name
+                for selected in product(*(dimensions[axis] for axis in axes)):
+                    values = {axis: options[0] for axis, options in dimensions.items()}
+                    values.update(zip(axes, selected, strict=True))
+                    witness = tuple(
+                        _freeze(value)
+                        for axis, item in values.items()
+                        for value in (item if "," in axis else [item])
+                    )
+>                   assert witness in cases, (name, axes, selected)
+E                   AssertionError: ('test_participial_content_is_not_a_component_name', ['qualifier', 'passive', 'actor', 'governor'], ('describing test results', True, 'reviewer', 'is not expected to'))
+E                   assert (False, True, 'reviewer', 'is not expected to', '', 'the PR body', ...) in {(True, True, 'UI', 'may', '', 'the PR description', ...), (False, True, 'UI', 'must not', ' results panel', 'the PR b..., 'UI', 'must', '', 'the PR body', ...), (False, False, 'reviewer', 'is not expected to', '', 'the PR body', ...), ...}
+
+tests/scripts/test_pr_verifier_grammar_inventory.py:94: AssertionError
+=========================== short test summary info ============================
+FAILED tests/scripts/test_pr_verifier_grammar_inventory.py::test_emitted_cases_preserve_every_declared_semantic_and_lexical_projection - AssertionError: ('test_participial_content_is_not_a_component_name', ['qualifier', 'passive', 'actor', 'governor'], ('describing test results', True, 'reviewer', 'is not expected to'))
+assert (False, True, 'reviewer', 'is not expected to', '', 'the PR body', ...) in {(True, True, 'UI', 'may', '', 'the PR description', ...), (False, True, 'UI', 'must not', ' results panel', 'the PR b..., 'UI', 'must', '', 'the PR body', ...), (False, False, 'reviewer', 'is not expected to', '', 'the PR body', ...), ...}
+1 failed, 1 deselected in 1.75s
+
+=== missing-lexical-witness: green ===
+.                                                                        [100%]
+1 passed, 1 deselected in 1.78s

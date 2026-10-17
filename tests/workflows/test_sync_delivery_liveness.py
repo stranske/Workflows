@@ -108,7 +108,9 @@ def test_maint71_has_proof_bound_review_resolution_and_exact_evidence_promotion(
     assert "Validate complete pre-merge canary evidence" in workflow
     assert "CANDIDATE_EVIDENCE_AUTHORIZED:" in workflow
     assert "steps.candidate_evidence_validation.outputs.authorized" in workflow
-    assert "steps.candidate_evidence_validation.outputs.authorized == 'true'" in workflow
+    promotion = workflow.split("      - name: Promote complete exact-plan canary evidence")[1]
+    assert "steps.candidate_evidence_validation.outputs.authorized" not in promotion
+    assert "steps.merge_artifact.outcome == 'success'" in promotion
     assert "PREPARE_ONLY_INPUT:" in workflow
     assert "CAMPAIGN_COMMIT_AUTHORIZATION_JSON:" in workflow
     assert "Authorize exact-head fleet commit" in workflow
@@ -117,14 +119,15 @@ def test_maint71_has_proof_bound_review_resolution_and_exact_evidence_promotion(
     assert "workflows-sync-review-resolution/v1" in executor
     assert "resolveReviewThread" in executor
     assert "source_fix_not_in_delivery_source" in executor
-    assert "candidatePromotionDecision" in workflow
+    assert "candidatePromotionDecision" in executor
+    assert "await dispatchCanaryPromotion({" in workflow
     assert "candidateRefreshDecision" in workflow
     assert "deliveryRefreshDecision" in workflow
     assert "Refresh stale candidate bases" in workflow
     assert "Refresh stale delivery bases" in workflow
     assert "phase: 'canary'" in workflow
     assert "delivery_scope: 'full'" in workflow
-    assert "canary_evidence_json: JSON.stringify(evidence)" in workflow
+    assert "canary_evidence_json: JSON.stringify(built.evidence)" in executor
     assert "cancel-in-progress: false" in workflow
     assert "EXCLUDED_REPOS_INPUT: stranske/Collab-Admin" in workflow
     assert "MANUAL_RECONCILIATION_REPOS_INPUT: stranske/Collab-Admin" in workflow
