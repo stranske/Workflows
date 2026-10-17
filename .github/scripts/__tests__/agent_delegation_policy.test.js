@@ -990,6 +990,8 @@ test('named exploration acceptance test fails when exploration is disabled and p
   // Copy only the acceptance entry point and its inputs; never mutate the checkout.
   for (const relativePath of [
     '.github/scripts/agent_delegation_policy.js',
+    '.github/scripts/rate_limit_receipt.js',
+    '.github/scripts/rate_limit_receipt.json',
     '.github/scripts/agent_delegation_policy.test.js',
     '.github/scripts/__tests__/agent_delegation_policy.test.js',
     'tests/fixtures/route-weights-with-exploration.json',

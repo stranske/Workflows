@@ -2012,8 +2012,9 @@ def record_completion(
     }
     if completion_reason == "rate_limited":
         ttl_config = json.loads(
-            (Path(__file__).resolve().parents[2] / ".github/scripts/rate_limit_receipt.json")
-            .read_text(encoding="utf-8")
+            (
+                Path(__file__).resolve().parents[2] / ".github/scripts/rate_limit_receipt.json"
+            ).read_text(encoding="utf-8")
         )
         record["completion"]["expires_at"] = (
             _parse_timestamp(completed_at)
