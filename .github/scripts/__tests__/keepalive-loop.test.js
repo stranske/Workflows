@@ -201,6 +201,7 @@ const buildGithubStub = ({
   failNeedsHumanLabel = false,
   failNeedsAttentionLabel = false,
   failNeedsAttentionRemoval = false,
+  failRemoveLabelStatusByName = {},
   failStateCommentWriteAt = 0,
   failWorkflowDispatch = false,
   authorityReceipt = false,
@@ -385,6 +386,11 @@ const buildGithubStub = ({
           if (failNeedsAttentionRemoval && name === 'agent:needs-attention') {
             actions.push({ type: 'remove-label-failed', name });
             throw new Error('simulated attention label removal failure');
+          }
+          if (Object.prototype.hasOwnProperty.call(failRemoveLabelStatusByName, name)) {
+            const status = failRemoveLabelStatusByName[name];
+            actions.push({ type: 'remove-label-failed', name, status });
+            throw Object.assign(new Error(`simulated removeLabel ${status}`), { status });
           }
           actions.push({ type: 'remove-label', name });
           currentLabels.delete(name);
@@ -7715,6 +7721,21 @@ test('persisted provider quota drives same-evaluate switch with zero stalled rou
       workflowRuns: [{ head_sha: 'sha-3989', conclusion: 'success' }] });
     await evaluateKeepaliveLoop({ github: next, context: buildContext(3989), core: buildCore() });
     assert.ok(next.actions.some((a) => a.type === 'remove-label' && a.name === 'agent:rate-limited'));
+
+    // A 404 clearing one tried-* label must not skip the rest or rate-limited cleanup.
+    const multiTriedPr = { ...pr, labels: [{ name: 'agent:auto' }, { name: 'agent:cursor' },
+      { name: 'agents:keepalive' }, { name: 'agent:rate-limited' },
+      { name: 'agents:tried-codex' }, { name: 'agents:tried-claude' }] };
+    const resilient = buildGithubStub({ pr: multiTriedPr, comments: [
+      ...replay.comments, ...success.comments.map((comment) => ({ ...comment, id: comment.id + 200 })),
+    ],
+      workflowRuns: [{ head_sha: 'sha-3989', conclusion: 'success' }],
+      failRemoveLabelStatusByName: { 'agents:tried-claude': 404 } });
+    await evaluateKeepaliveLoop({ github: resilient, context: buildContext(3989), core: buildCore() });
+    assert.ok(resilient.actions.some((a) => a.type === 'remove-label-failed'
+      && a.name === 'agents:tried-claude' && a.status === 404));
+    assert.ok(resilient.actions.some((a) => a.type === 'remove-label' && a.name === 'agents:tried-codex'));
+    assert.ok(resilient.actions.some((a) => a.type === 'remove-label' && a.name === 'agent:rate-limited'));
 
     const noProgress = replayCompletion({ output: 'Finished', exitCode: 0 });
     assert.equal(noProgress.record.completion.reason, 'no_progress');

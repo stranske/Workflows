@@ -2950,8 +2950,15 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
         (completionReason === 'progressed' || expired.some(record =>
           label === `agents:tried-${record.provider}`)));
       for (const label of clearTried) {
-        await github.rest.issues.removeLabel({ ...context.repo, issue_number: prNumber, name: label });
-        labels.splice(labels.indexOf(label), 1);
+        try {
+          await github.rest.issues.removeLabel({
+            ...context.repo, issue_number: prNumber, name: label,
+          });
+          labels.splice(labels.indexOf(label), 1);
+        } catch (error) {
+          // A missing tried-* label must not abort rate-limit label reconciliation.
+          if (error?.status !== 404) throw error;
+        }
       }
       for (const record of expired) {
         core?.info?.(`rate_limited receipt expired; ${record.provider} eligible`);

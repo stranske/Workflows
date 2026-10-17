@@ -2025,9 +2025,11 @@ def record_completion(
                 Path(__file__).resolve().parents[2] / ".github/scripts/rate_limit_receipt.json"
             ).read_text(encoding="utf-8")
         )
+        # A replayed terminal record may preserve a malformed completed_at; fall
+        # back to now so expiry is still written instead of aborting the receipt.
+        base = _parse_timestamp(completed_at) or _utc_now_dt()
         record["completion"]["expires_at"] = (
-            _parse_timestamp(completed_at)
-            + dt.timedelta(hours=ttl_config["RATE_LIMIT_RECEIPT_TTL_HOURS"])
+            base + dt.timedelta(hours=ttl_config["RATE_LIMIT_RECEIPT_TTL_HOURS"])
         ).isoformat()
     same_terminal_attempt = prior.get("key") == key and prior.get("status") in TERMINAL_STATUSES
     if status == "completed" and same_terminal_attempt:
