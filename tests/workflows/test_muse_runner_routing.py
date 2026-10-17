@@ -3,9 +3,13 @@
 Guards Workflows#3918/#3919: a runner nobody dispatches (or a label nobody routes) is inert.
 """
 
+import os
 import re
+import shlex
+import subprocess
 from pathlib import Path
 
+import pytest
 import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -89,3 +93,178 @@ def test_run_step_refuses_to_exec_after_a_failed_sandbox_or_prompt_guard():
     assert guard in text
     assert text.index(guard) < text.index('"$MUSE_BIN" exec')
     assert "grep -cvE '^.. agents/.*\\.md$' || true" in text
+
+
+def _muse_git_identity(step_id: str = "run_muse") -> dict[str, str]:
+    steps = _jobs(WF / "reusable-muse-run.yml")["muse"]["steps"]
+    return next(step["env"] for step in steps if step.get("id") == step_id)
+
+
+def test_run_step_sets_a_muse_git_identity():
+    env = _muse_git_identity()
+    expected = {
+        "GIT_AUTHOR_NAME": "muse",
+        "GIT_AUTHOR_EMAIL": "muse@users.noreply.github.com",
+        "GIT_COMMITTER_NAME": "muse",
+        "GIT_COMMITTER_EMAIL": "muse@users.noreply.github.com",
+    }
+    for variable, value in expected.items():
+        assert variable in env, f"Run Muse env is missing {variable}"
+        assert "claude" not in env[variable].casefold(), variable
+        assert env[variable] == value, variable
+
+
+def test_commit_step_preserves_the_run_step_git_identity():
+    run_env = _muse_git_identity("run_muse")
+    commit_env = _muse_git_identity("commit")
+    for variable in (
+        "GIT_AUTHOR_NAME",
+        "GIT_AUTHOR_EMAIL",
+        "GIT_COMMITTER_NAME",
+        "GIT_COMMITTER_EMAIL",
+    ):
+        assert variable in commit_env, f"Commit and push changes env is missing {variable}"
+        assert commit_env[variable] == run_env[variable], variable
+
+
+def test_commit_step_scopes_bot_identity_to_the_direct_commit():
+    steps = _jobs(WF / "reusable-muse-run.yml")["muse"]["steps"]
+    script = next(step["run"] for step in steps if step.get("id") == "commit")
+    # Join shell continuations so command-scoped overrides can span several lines.
+    commands = re.sub(r"\\\n\s*", " ", script)
+    identity = r"GIT_(?:AUTHOR|COMMITTER)_(?:NAME|EMAIL)"
+    for command in commands.splitlines():
+        command = command.strip()
+        if not command or command.startswith("#"):
+            continue
+        assert not re.search(r"\bgit\s+config\b.*\buser\.(?:name|email)\b", command), (
+            "Commit step must not persist a bot identity in repository config; "
+            "scope any bot override to the direct git commit invocation"
+        )
+        assert not re.search(
+            rf"\b(?:export|unset)\s+{identity}\b", command
+        ), "Commit step must preserve the Muse environment for later rebase/merge commands"
+        if re.search(rf"\b{identity}=", command):
+            lexer = shlex.shlex(command, posix=True, punctuation_chars=";&|")
+            lexer.whitespace_split = True
+            segments = [[]]
+            for token in lexer:
+                if token and all(char in ";&|" for char in token):
+                    segments.append([])
+                else:
+                    segments[-1].append(token)
+            for segment in segments:
+                assignments = [token for token in segment if re.match(rf"{identity}=", token)]
+                if assignments:
+                    prefix = 0
+                    while prefix < len(segment) and re.match(rf"{identity}=", segment[prefix]):
+                        prefix += 1
+                    assert prefix == len(assignments) and segment[prefix : prefix + 2] == [
+                        "git",
+                        "commit",
+                    ], "Only the direct git commit invocation may override Muse identity"
+
+
+@pytest.mark.parametrize(
+    "variable",
+    ["GIT_AUTHOR_NAME", "GIT_AUTHOR_EMAIL", "GIT_COMMITTER_NAME", "GIT_COMMITTER_EMAIL"],
+)
+@pytest.mark.parametrize("mutation", ["missing", "claude"])
+def test_run_step_git_identity_deliberate_break_and_restore(monkeypatch, variable, mutation):
+    jobs = _jobs(WF / "reusable-muse-run.yml")
+    step = next(step for step in jobs["muse"]["steps"] if step.get("id") == "run_muse")
+    if mutation == "missing":
+        del step["env"][variable]
+    else:
+        step["env"][variable] = "Claude" if variable.endswith("_NAME") else "Claude@example.com"
+
+    # Mutate the parsed step only; the protected workflow stays untouched on disk.
+    with monkeypatch.context() as broken:
+        broken.setattr(f"{__name__}._jobs", lambda path: jobs)
+        with pytest.raises(AssertionError, match=variable):
+            test_run_step_sets_a_muse_git_identity()
+
+    # Re-read the real workflow and prove the same named test is green after restoration.
+    test_run_step_sets_a_muse_git_identity()
+
+
+def test_run_step_identity_overrides_a_cli_default_git_identity(tmp_path, monkeypatch):
+    # Exercise real Git without launching Muse or accessing any credential store.
+    env = {key: value for key, value in os.environ.items() if not key.startswith("GIT_")}
+    env.update(GIT_CONFIG_NOSYSTEM="1", GIT_CONFIG_GLOBAL=os.devnull)
+
+    def git(*args, step_id=None):
+        step_env = env.copy()
+        if step_id is not None:
+            step_env.update(
+                {
+                    key: value
+                    for key, value in _muse_git_identity(step_id).items()
+                    if key.startswith("GIT_")
+                }
+            )
+        return subprocess.run(
+            ["git", *args], cwd=tmp_path, env=step_env, check=True, capture_output=True, text=True
+        ).stdout.strip()
+
+    git("init", "--initial-branch=main")
+    git("config", "user.name", "Claude")
+    git("config", "user.email", "noreply@anthropic.com")
+    git("config", "commit.gpgsign", "false")
+    git("commit", "--allow-empty", "-m", "base")
+    git("checkout", "-b", "muse-feature")
+    (tmp_path / "feature.txt").write_text("Muse feature\n")
+    git("add", "feature.txt")
+    git("commit", "-m", "identity probe", step_id="run_muse")
+    expected_identity = "muse|muse@users.noreply.github.com|muse|muse@users.noreply.github.com"
+    assert git("show", "-s", "--format=%an|%ae|%cn|%ce", "HEAD") == expected_identity
+    feature_sha = git("rev-parse", "HEAD")
+
+    # Advance a distinct main file so Git must replay the feature commit without conflicts.
+    git("checkout", "main")
+    (tmp_path / "main.txt").write_text("Concurrent main update\n")
+    git("add", "main.txt")
+    git("commit", "-m", "advance main")
+    git("checkout", "muse-feature")
+    # GitHub step environments are isolated: Run Muse's overrides cannot leak into this rebase.
+    git("rebase", "main", step_id="commit")
+    assert git("rev-parse", "HEAD") != feature_sha
+    git("merge-base", "--is-ancestor", "main", "HEAD")
+    assert (tmp_path / "main.txt").read_text() == "Concurrent main update\n"
+    assert (tmp_path / "feature.txt").read_text() == "Muse feature\n"
+    assert (
+        git("show", "-s", "--format=%an|%ae|%cn|%ce", "HEAD") == expected_identity
+    ), "Commit and push changes must preserve Muse author AND committer after rebase"
+
+    # Replay the original feature commit again, deleting only the commit step's committer
+    # name. Git must preserve the author and committer email but fall back to Claude's name.
+    jobs = _jobs(WF / "reusable-muse-run.yml")
+    commit_step = next(step for step in jobs["muse"]["steps"] if step.get("id") == "commit")
+    del commit_step["env"]["GIT_COMMITTER_NAME"]
+    git("reset", "--hard", feature_sha)
+    with monkeypatch.context() as broken:
+        broken.setattr(f"{__name__}._jobs", lambda path: jobs)
+        git("rebase", "main", step_id="commit")
+        delivered_identity = git("show", "-s", "--format=%an|%ae|%cn|%ce", "HEAD")
+        with pytest.raises(AssertionError, match="delivered Muse identity"):
+            assert delivered_identity == expected_identity, "delivered Muse identity changed"
+        assert delivered_identity == (
+            "muse|muse@users.noreply.github.com|Claude|muse@users.noreply.github.com"
+        )
+
+    # Restore by reading the actual workflow again, then force a fresh replay to prove recovery.
+    git("reset", "--hard", feature_sha)
+    git("rebase", "main", step_id="commit")
+    assert git("rev-parse", "HEAD") != feature_sha
+    git("merge-base", "--is-ancestor", "main", "HEAD")
+    assert git("show", "-s", "--format=%an|%ae|%cn|%ce", "HEAD") == expected_identity
+
+
+@pytest.mark.parametrize("separator", [";", " && ", "\n"])
+def test_bot_identity_assignment_cannot_leak_past_command(monkeypatch, separator):
+    jobs = _jobs(WF / "reusable-muse-run.yml")
+    step = next(step for step in jobs["muse"]["steps"] if step.get("id") == "commit")
+    step["run"] = f'GIT_COMMITTER_NAME=Claude{separator}git commit -m "$commit_message"'
+    monkeypatch.setattr(f"{__name__}._jobs", lambda path: jobs)
+    with pytest.raises(AssertionError, match="direct git commit"):
+        test_commit_step_scopes_bot_identity_to_the_direct_commit()

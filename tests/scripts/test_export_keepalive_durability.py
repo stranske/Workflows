@@ -151,3 +151,24 @@ def test_cli_returns_failure_when_all_live_fetches_fail(
 
     assert exit_code == 1
     assert not output_path.exists()
+
+
+@pytest.mark.parametrize(
+    ("labels", "branch"),
+    [
+        ([{"name": "agent:auto"}, {"name": "agent:muse"}], "codex/issue-1"),
+        ([{"name": "runner:muse"}], "codex/issue-1"),
+        ([], "muse/issue-3955"),
+    ],
+)
+def test_muse_durability_attribution_uses_the_producing_route(labels, branch):
+    pr = _pr(10, merged_at="2026-06-10T00:00:00Z")
+    pr.update(labels=labels, headRefName=branch, author={"login": "stranske"})
+    record = exporter.build_fleet_record(
+        "stranske/Example",
+        pr,
+        {"durability": "durable", "reason": "no_revert_or_reopened_issue_after_grace"},
+        now=datetime(2026, 6, 24, 12, 0, tzinfo=UTC),
+        grace_days=7,
+    )
+    assert record["domain"]["agent"] == "muse"

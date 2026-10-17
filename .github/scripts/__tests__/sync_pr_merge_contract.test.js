@@ -396,6 +396,7 @@ test('promotion requires complete exact-plan evidence and prepared candidate row
         pr: index + 1,
         branch: 'sync/workflows-candidate',
         status: index ? 'evidence_recovered' : 'campaign_prepared',
+        plan_id: 'plan-abc', source_commit: 'source-abc', head_sha: `head-${index + 1}`,
       };
     }),
   };

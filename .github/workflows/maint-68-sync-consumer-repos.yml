@@ -1,5 +1,8 @@
 name: Maint 68 Sync Consumer Repos
-run-name: Maint 68 ${{ inputs.phase || 'canary' }} ${{ inputs.delivery_scope || 'auto' }}
+run-name: >-
+  Maint 68 ${{ inputs.phase || 'canary' }} ${{ inputs.delivery_scope || 'auto' }}
+  ${{ inputs.phase == 'promote' && (fromJSON(inputs.canary_evidence_json || '{"results":[]}').results[0].plan_id || fromJSON(inputs.canary_evidence_json || '{"results":[]}')[0].plan_id) || '' }}
+  ${{ inputs.phase == 'promote' && (fromJSON(inputs.canary_evidence_json || '{"results":[]}').results[0].source_commit || fromJSON(inputs.canary_evidence_json || '{"results":[]}')[0].source_commit) || '' }}
 
 # Push workflow template updates to registered consumer repositories
 #
@@ -136,6 +139,12 @@ jobs:
               else error("promotion evidence must be an array or contain results")
               end
             ' <<<"$CANARY_EVIDENCE_JSON")
+            jq -e 'length > 0 and all(.[]; (.plan_id | type) == "string" and (.plan_id | length) > 0)
+              and ([.[].plan_id] | unique | length) == 1' \
+              <<<"$evidence_rows" >/dev/null || {
+              echo "::error::Promotion evidence missing or mixed plan_id"
+              exit 1
+            }
             evidence_scope=$(jq -er '
               [.[].plan_scope // "full"] | unique |
               if length == 1 then .[0]
@@ -1703,6 +1712,10 @@ jobs:
     needs: [prepare, validate, sync]
     runs-on: ubuntu-latest
     if: always()
+    permissions:
+      actions: read
+      checks: write
+      contents: read
     env:
       CONSUMER_SYNC_RUN_REPORT_JSON: artifacts/consumer-sync-run-report.json
     steps:
@@ -1710,7 +1723,9 @@ jobs:
         uses: actions/checkout@v7
         with:
           sparse-checkout: |
-            .github/scripts/sync_run_contract.js
+            .github/scripts
+            .github/actions/setup-api-client
+            config/consumer_sync_canaries.json
           sparse-checkout-cone-mode: false
 
       - name: Download sync result artifacts
@@ -1805,6 +1820,47 @@ jobs:
             echo "---"
             echo "*Sync driven by .github/sync-manifest.yml*"
           } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Setup promotion health API client
+        if: always()
+        uses: ./.github/actions/setup-api-client
+        with:
+          github_token: ${{ github.token }}
+          owner_pr_pat: ${{ secrets.OWNER_PR_PAT }}
+          service_bot_pat: ${{ secrets.SERVICE_BOT_PAT }}
+
+      - name: Report sealed plans awaiting promotion
+        id: promotion_health
+        if: always()
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        with:
+          # Cross-repo reads use the API client; Checks writes must use the
+          # native GitHub App token with this job's explicit checks:write.
+          github-token: ${{ github.token }}
+          script: |
+            const fs = require('fs');
+            const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+            const { reportSealedPromotionHealth, publishPromotionHealthCheck } = require(
+              './.github/scripts/maint71_merge_sync_prs.js'
+            );
+            let health;
+            try {
+              const { withRetry } = await createTokenAwareRetry({
+                github, core, env: process.env,
+                task: 'maint-68-promotion-health', capabilities: ['pulls:read', 'actions:read'],
+              });
+              const config = JSON.parse(fs.readFileSync('config/consumer_sync_canaries.json', 'utf8'));
+              health = await reportSealedPromotionHealth({
+                withRetry, context, core,
+                expectedCanaries: config.canaries.map((entry) => entry.repo),
+              });
+            } catch (error) {
+              health = { state: 'unknown', line: `plans sealed awaiting promotion: UNKNOWN (${error.message})` };
+              core.setOutput('state', 'unknown');
+              await core.summary.addRaw(`${health.line}\n`).write();
+              core.warning(`Promotion health unavailable: ${error.message}`);
+            }
+            await publishPromotionHealthCheck({ github, context, health });
 
       - name: Upload sync run report
         if: always()
