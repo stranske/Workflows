@@ -248,7 +248,6 @@ jobs:
     if: >-
       ${{
         needs.detect.outputs.doc_only != 'true' &&
-        needs.detect.outputs.is_python_code == 'true' &&
         needs.detect.outputs.run_core == 'true'
       }}
     uses: ./.github/workflows/reusable-10-ci-python.yml
@@ -259,8 +258,10 @@ jobs:
     with:
       # Local reusable source and its helper must be tested at the same commit.
       workflows_ref: ${{ github.sha }}
-      primary-python-version: '3.12'
-      python-versions: '["3.12", "3.13"]'
+      # Same non-doc PR protection formerly duplicated by Selftest CI.
+      primary-python-version: '3.13'
+      python-versions: '["3.13", "3.14"]'
+      pytest-workers: '4'
       marker: "not quarantine and not slow"
       pytest_markers: ${{ needs.detect.outputs.pytest_markers }}
       lint: ${{ needs.detect.outputs.lint == 'true' }}
@@ -268,8 +269,8 @@ jobs:
       typecheck: ${{ needs.detect.outputs.typecheck == 'true' }}
       run-mypy: ${{ needs.detect.outputs.typecheck == 'true' }}
       coverage: ${{ needs.detect.outputs.coverage == 'true' }}
-      # Keep coverage threshold informational; reusable Python CI owns source selection.
-      coverage-min: ''
+      # Preserve the full-suite 70% guard formerly repeated by six selftest profiles.
+      coverage-min: '70'
       cache: ${{ needs.detect.outputs.cache == 'true' }}
       enable-soft-gate: ${{ needs.detect.outputs.coverage == 'true' }}
       # Use the shared gate- prefix so downstream Maint workflows can locate the
@@ -892,7 +893,7 @@ jobs:
         uses: actions/github-script@v9
         env:
           COVERAGE_ROOT: gate_artifacts/downloads
-          COVERAGE_REFERENCE_RUNTIME: '3.12'
+          COVERAGE_REFERENCE_RUNTIME: '3.13'
         with:
           script: |
             const fs = require('fs');
@@ -935,7 +936,8 @@ jobs:
           REASON: ${{ needs.detect.outputs.reason }}
           PYTHON_RESULT: ${{ needs.python-ci.result || 'skipped' }}
           DOCS_GUARD_RESULT: ${{ needs.docs-guard.result || 'success' }}
-          PYTHON_REQUIRED: ${{ needs.detect.outputs.is_python_code || 'true' }}
+          PYTHON_REQUIRED: >-
+            ${{ needs.detect.outputs.doc_only != 'true' && needs.detect.outputs.run_core == 'true' }}
           DOCKER_RESULT: ${{ needs.docker-smoke.result || 'skipped' }}
           TEST_QUALITY_RESULT: ${{ needs.test-quality.result || 'skipped' }}
           DELIVERY_SEAL_RESULT: ${{ needs.generated-delivery-seal.result || 'success' }}

@@ -1,7 +1,12 @@
 from __future__ import annotations
 
+import json
 import pathlib
+import subprocess
+import sys
+import tomllib
 
+import pytest
 import yaml
 
 ARCHIVE_LEDGER_PATH = pathlib.Path("docs/archive/ARCHIVE_WORKFLOWS.md")
@@ -268,8 +273,16 @@ def test_selftest_runner_jobs_contract() -> None:
         "inputs.mode == 'dual-runtime'" in python_versions_expr
     ), "Scenario job should enable dual-runtime mode when requested."
     assert (
-        "'[\"3.12\"]'" in python_versions_expr
-    ), "Scenario job should fall back to the default 3.12 runtime."
+        '\'["3.13","3.14"]\'' in python_versions_expr
+    ), "Scenario job should fall back to the parallel 3.13/3.14 matrix."
+
+    assert scenario_with["working-directory"] == "tests/fixtures/reusable_ci_consumer"
+    assert scenario_with["pytest-workers"] == "4"
+    assert scenario_with["coverage-min"] == "70"
+    assert "max-parallel" not in scenario.get("strategy", {})
+    assert python_versions_expr.index("inputs.python_versions != ''") < python_versions_expr.index(
+        "inputs.mode == 'dual-runtime'"
+    ), "An explicit manual 3.12 array must still take precedence."
 
     strategy = scenario.get("strategy", {})
     assert (
@@ -295,6 +308,10 @@ def test_selftest_runner_jobs_contract() -> None:
     assert '"baseline-coverage": "65"' in selector_run
     assert '"coverage-alert-drop": "2"' in selector_run
     assert "select_scenarios(" in selector_run
+    assert selector_run.count('"tests/fixtures/reusable_ci_consumer/**"') == 6
+    assert selector_run.count('"requirements.lock"') == 6
+    triggers = data.get("on") or data.get(True) or {}
+    assert "tests/fixtures/reusable_ci_consumer/**" in triggers["pull_request"]["paths"]
 
     summarize = jobs.get("summarize") or {}
     assert summarize, "Reusable CI workflow must include the aggregate job."
@@ -337,8 +354,8 @@ def test_selftest_runner_jobs_contract() -> None:
         "inputs.mode == 'dual-runtime'" in aggregate_python
     ), "Aggregate job should forward dual-runtime requests."
     assert (
-        "'[\"3.12\"]'" in aggregate_python
-    ), "Aggregate job should fall back to the default 3.12 runtime."
+        '\'["3.13","3.14"]\'' in aggregate_python
+    ), "Aggregate job should fall back to the parallel 3.13/3.14 matrix."
     assert env.get("RUN_REASON"), "Aggregate job should capture the run reason for summaries."
     assert (
         env.get("TRIGGER_EVENT") == "${{ github.event_name }}"
@@ -362,6 +379,7 @@ def test_selftest_runner_jobs_contract() -> None:
         verify_env.get("SCENARIO_LIST") == "${{ env.SCENARIO_LIST }}"
     ), "Verification step should read scenario list from aggregate env."
     verify_script = (verify_step.get("with") or {}).get("script", "")
+    assert "const fallback = ['3.13', '3.14'];" in verify_script
     assert (
         "matchesExpectedArtifact" in verify_script
     ), "Verification should tolerate upload-artifact uniqueness suffixes."
@@ -746,3 +764,91 @@ def _collect_comment_wrapper_variants(
         for path in directory.glob(pattern):
             variants.setdefault(path.stem, set()).add(path.name)
     return variants
+
+
+def test_reusable_profiles_use_a_bounded_real_consumer_and_common_lock():
+    fixture = pathlib.Path("tests/fixtures/reusable_ci_consumer")
+    project = tomllib.loads((fixture / "pyproject.toml").read_text())
+    pytest_config = project["tool"]["pytest"]["ini_options"]
+    assert pytest_config["testpaths"] == ["."]
+    assert pytest_config["python_files"] == ["sample_contract.py"]
+    root_config = tomllib.loads(pathlib.Path("pyproject.toml").read_text())
+    assert not any(
+        (fixture / "sample_contract.py").match(pattern)
+        for pattern in root_config["tool"]["pytest"]["ini_options"]["python_files"]
+    )
+    assert project["tool"]["coverage"]["run"] == {
+        "branch": True,
+        "source": ["reusable_ci_consumer"],
+        "omit": ["*/sample_contract.py"],
+    }
+    assert project["tool"]["setuptools"]["packages"] == ["reusable_ci_consumer"]
+    assert (fixture / "__init__.py").is_file()
+    reference = next(
+        line
+        for line in (fixture / "requirements.lock").read_text().splitlines()
+        if line.startswith("-r ")
+    )
+    assert (fixture / reference.removeprefix("-r ")).resolve() == pathlib.Path(
+        "requirements.lock"
+    ).resolve()
+    assert set(project["project"]["optional-dependencies"]) == {"app", "dev"}
+    collection = subprocess.run(
+        [sys.executable, "-m", "pytest", "--collect-only", "-q"],
+        cwd=fixture,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    assert "6 tests collected" in collection.stdout, collection.stdout
+
+
+@pytest.mark.parametrize("raw,versions", [("", ["3.13", "3.14"]), ('["3.12"]', ["3.12"])])
+def test_actual_feature_artifact_expectations_keep_default_pair_and_manual_override(raw, versions):
+    workflow = _read_workflow(SELFTEST_WORKFLOW)
+    script = next(
+        step["with"]["script"]
+        for step in workflow["jobs"]["summarize"]["steps"]
+        if step.get("id") == "verify"
+    )
+    parser = script[
+        script.index("function parsePythonVersions") : script.index("const pythonVersions")
+    ]
+    artifacts = script[
+        script.index("function expectedArtifactsFor") : script.index("function escapeRegExp")
+    ]
+    extras = {
+        "minimal": [],
+        "metrics_only": ["ci-metrics"],
+        "metrics_history": ["ci-metrics", "metrics-history"],
+        "classification_only": ["classification"],
+        "coverage_delta": ["coverage-delta"],
+        "full_soft_gate": [
+            "ci-metrics",
+            "metrics-history",
+            "classification",
+            "coverage-delta",
+            "coverage-summary",
+            "coverage-trend",
+            "coverage-trend-history",
+        ],
+    }
+    harness = (
+        "const core = {warning() {}};\n"
+        + parser
+        + "\n"
+        + "const pythonVersions = parsePythonVersions(process.argv[1]);\n"
+        + artifacts
+        + "\nconsole.log(JSON.stringify(Object.fromEntries("
+        + json.dumps(list(extras))
+        + ".map(name => [name, expectedArtifactsFor(name)]))));"
+    )
+    result = subprocess.run(
+        ["node", "-e", harness, raw], capture_output=True, text=True, check=True
+    )
+    actual = json.loads(result.stdout)
+    assert actual == {
+        name: [f"sf-{name}-coverage-{version}" for version in versions]
+        + [f"sf-{name}-{extra}" for extra in suffixes]
+        for name, suffixes in extras.items()
+    }

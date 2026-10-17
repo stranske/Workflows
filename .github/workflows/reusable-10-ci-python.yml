@@ -19,9 +19,9 @@ on:
         default: 'main'
         type: string
       python-version:
-        description: Primary Python version to use when `python-versions` is not provided.
+        description: Explicit single runtime override; omitted selects Python 3.13 and 3.14.
         required: false
-        default: '3.12'
+        default: ''
         type: string
       python-versions:
         description: JSON array of Python versions to execute. Takes precedence when non-empty.
@@ -39,9 +39,9 @@ on:
         default: false
         type: boolean
       primary-python-version:
-        description: Preferred Python runtime that should publish soft-gate artifacts when enabled.
+        description: Preferred selected artifact runtime; omitted resolves the first selected runtime.
         required: false
-        default: '3.12'
+        default: ''
         type: string
       marker:
         description: Deprecated alias for `pytest_markers`. Use `pytest_markers` instead.
@@ -57,6 +57,11 @@ on:
         description: Additional pytest args/paths appended to the test command (workflow_call only).
         required: false
         default: ''
+        type: string
+      pytest-workers:
+        description: Pytest xdist workers (auto or a positive integer); first-party Gate uses four.
+        required: false
+        default: 'auto'
         type: string
       coverage-min:
         description: Minimum coverage percentage required to pass.
@@ -175,7 +180,7 @@ on:
       python-versions:
         description: JSON array of Python versions to execute.
         required: false
-        default: '["3.12", "3.13"]'
+        default: '["3.13", "3.14"]'
       pytest_markers:
         description: Optional pytest marker expression.
         required: false
@@ -219,14 +224,20 @@ on:
 jobs:
   validate-inputs:
     name: Validate inputs
+    outputs:
+      primary_python: ${{ steps.validate.outputs.primary_python }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
     timeout-minutes: 1
     steps:
       - name: Validate workflow inputs
+        id: validate
         env:
+          PRIMARY_IN: ${{ inputs['primary-python-version'] || '' }}
+          PYTHON_VERSION: ${{ inputs['python-version'] || '' }}
           PYTHON_VERSIONS: ${{ inputs['python-versions'] || '' }}
+          PYTEST_WORKERS: ${{ inputs['pytest-workers'] || 'auto' }}
           COVERAGE_MIN: ${{ inputs['coverage-min'] || '' }}
           SLOW_TEST_TOP: ${{ inputs['slow-test-top'] || '' }}
           SLOW_TEST_MIN_SECONDS: ${{ inputs['slow-test-min-seconds'] || '' }}
@@ -250,6 +261,7 @@ jobs:
           import json
           import math
           import os
+          import re
           import sys
           from typing import NoReturn
 
@@ -294,6 +306,10 @@ jobs:
             if max_value is not None and value > max_value:
               fail(f"{name} must be a number between {min_value}-{max_value} (received {raw!r}).")
 
+          workers = os.getenv("PYTEST_WORKERS", "auto")
+          if workers != "auto" and not re.fullmatch(r"[1-9][0-9]*", workers):
+            fail("pytest-workers must be auto or a positive integer")
+
           python_versions_raw = os.getenv("PYTHON_VERSIONS", "")
           if python_versions_raw and python_versions_raw != "[]":
             try:
@@ -301,17 +317,17 @@ jobs:
             except json.JSONDecodeError:
               fail(
                 'python-versions must be a valid JSON array of strings '
-                '(example: ["3.12", "3.13"]).'
+                '(example: ["3.13", "3.14"]).'
               )
             if not isinstance(python_versions, list):
-              fail('python-versions must be a JSON array (example: ["3.12", "3.13"]).')
+              fail('python-versions must be a JSON array (example: ["3.13", "3.14"]).')
             if not python_versions:
-              fail('python-versions must include at least one version (example: ["3.12", "3.13"]).')
+              fail('python-versions must include at least one version (example: ["3.13", "3.14"]).')
             for version in python_versions:
               if not isinstance(version, str) or not version.strip():
                 fail(
                   'python-versions entries must be non-empty strings '
-                  '(example: ["3.12", "3.13"]).'
+                  '(example: ["3.13", "3.14"]).'
                 )
 
           validate_number(
@@ -362,6 +378,22 @@ jobs:
             "ENABLE_SOFT_GATE",
           ):
             validate_boolean(boolean_env)
+
+          # Resolve once for lint, format, typing, dependency caches and artifacts.
+          candidates = json.loads(python_versions_raw) if python_versions_raw not in ("", "[]") else []
+          if not candidates:
+            single = (os.getenv("PYTHON_VERSION") or "").strip()
+            candidates = [single] if single else ["3.13", "3.14"]
+          primary_input = os.getenv("PRIMARY_IN") or ""
+          primary = primary_input.strip() or candidates[0]
+          if any(char in primary_input or char in primary for char in "\r\n\0"):
+            fail("resolved primary Python runtime must not contain CR, LF or NUL")
+          if primary not in candidates:
+            fail("primary-python-version must be one of the selected Python runtimes")
+          output = os.getenv("GITHUB_OUTPUT")
+          if output:
+            with open(output, "a", encoding="utf-8") as handle:
+              handle.write(f"primary_python={primary}\n")
           PY
 
       - name: Emit deprecated input warnings
@@ -454,9 +486,7 @@ jobs:
         with:
           python-version: >-
             ${{
-              inputs['primary-python-version']
-              || inputs['python-version']
-              || '3.12'
+              needs.validate-inputs.outputs.primary_python
             }}
 
       - name: Set up Node.js
@@ -480,7 +510,7 @@ jobs:
             ${{ format(
             'uv-{0}-{1}-{2}-{3}',
             runner.os,
-            inputs['primary-python-version'] || inputs['python-version'] || '3.12',
+            needs.validate-inputs.outputs.primary_python,
             hashFiles(format('{0}/requirements.lock', inputs['working-directory'] || '.')),
             hashFiles(format('{0}/pyproject.toml', inputs['working-directory'] || '.'))
             ) }}
@@ -501,9 +531,7 @@ jobs:
           INPUT_COVERAGE: 'false'
           INPUT_PYTHON_VERSION: >-
             ${{
-              inputs['primary-python-version']
-              || inputs['python-version']
-              || '3.12'
+              needs.validate-inputs.outputs.primary_python
             }}
         run: |
           set -euo pipefail
@@ -756,7 +784,7 @@ jobs:
           PR_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
           WORKFLOW_NAME: ${{ github.workflow }}
           PYTHON_VERSIONS: ${{ inputs['python-versions'] || '' }}
-          PYTHON_VERSION: ${{ inputs['python-version'] || '3.12' }}
+          PYTHON_VERSION: ${{ inputs['python-version'] || '' }}
           CHANGED_FILES_JSON: ${{ inputs['changed-files-json'] || '[]' }}
           FORCE_FULL: ${{ github.event_name == 'workflow_dispatch' || inputs['force-full'] }}
         run: |
@@ -780,7 +808,7 @@ jobs:
           arguments = {
               "workflow_name": os.environ.get("WORKFLOW_NAME", "Reusable CI"),
               "python_versions": os.environ.get("PYTHON_VERSIONS", ""),
-              "python_version": os.environ.get("PYTHON_VERSION", "") or "3.12",
+              "python_version": os.environ.get("PYTHON_VERSION", ""),
               "changed_files": json.loads(os.environ.get("CHANGED_FILES_JSON") or "[]"),
               "force_full": (os.environ.get("FORCE_FULL") or "false").lower() == "true",
           }
@@ -853,9 +881,7 @@ jobs:
         with:
           python-version: >-
             ${{
-              inputs['primary-python-version']
-              || inputs['python-version']
-              || '3.12'
+              needs.validate-inputs.outputs.primary_python
             }}
 
       - name: Set up Node.js
@@ -879,7 +905,7 @@ jobs:
             ${{ format(
             'uv-{0}-{1}-{2}-{3}',
             runner.os,
-            inputs['primary-python-version'] || inputs['python-version'] || '3.12',
+            needs.validate-inputs.outputs.primary_python,
             hashFiles(format('{0}/requirements.lock', inputs['working-directory'] || '.')),
             hashFiles(format('{0}/pyproject.toml', inputs['working-directory'] || '.'))
             ) }}
@@ -900,9 +926,7 @@ jobs:
           INPUT_COVERAGE: 'false'
           INPUT_PYTHON_VERSION: >-
             ${{
-              inputs['primary-python-version']
-              || inputs['python-version']
-              || '3.12'
+              needs.validate-inputs.outputs.primary_python
             }}
         run: |
           set -euo pipefail
@@ -1233,9 +1257,7 @@ jobs:
         env:
           MATRIX_PYTHON_VERSION: >-
             ${{
-              inputs['primary-python-version']
-              || inputs['python-version']
-              || '3.12'
+              needs.validate-inputs.outputs.primary_python
             }}
         run: |
           set -euo pipefail
@@ -1248,9 +1270,7 @@ jobs:
           python-version: >-
             ${{
               steps.mypy-pin.outputs.python-version
-              || inputs['primary-python-version']
-              || inputs['python-version']
-              || '3.12'
+              || needs.validate-inputs.outputs.primary_python
             }}
 
       - name: Set up Node.js
@@ -1295,9 +1315,7 @@ jobs:
           INPUT_PYTHON_VERSION: >-
             ${{
               steps.mypy-pin.outputs.python-version
-              || inputs['primary-python-version']
-              || inputs['python-version']
-              || '3.12'
+              || needs.validate-inputs.outputs.primary_python
             }}
         run: |
           set -euo pipefail
@@ -1977,6 +1995,35 @@ jobs:
           restore-keys: |
             pytest-${{ runner.os }}-${{ matrix.python-version }}-
             pytest-${{ runner.os }}-
+      - name: Record Python execution context
+        env:
+          COVERAGE_ENABLED: ${{ inputs.coverage }}
+          PYTEST_WORKERS: ${{ inputs['pytest-workers'] || 'auto' }}
+        run: |
+          python - <<'PYCTX'
+          import json
+          import os
+          import platform
+
+          context = {
+              "python": platform.python_version(),
+              "cpu_count": os.cpu_count(),
+              "cpu_affinity": sorted(os.sched_getaffinity(0)) if hasattr(os, "sched_getaffinity") else None,
+              "pytest_workers": os.environ["PYTEST_WORKERS"],
+              "coverage_probe_policy": "runtime-default branch-only probe; pytest config may override",
+              "coverage_probe_config_file": False,
+          }
+          if os.environ["COVERAGE_ENABLED"] == "true":
+              import coverage
+
+              probe = coverage.Coverage(branch=True, config_file=False, data_file=None)
+              probe.start()
+              context["coverage_branch_probe_core"] = dict(probe.sys_info()).get("core")
+              probe.stop()
+              context["coverage_version"] = coverage.__version__
+          print("PYTHON_EXECUTION_CONTEXT=" + json.dumps(context, sort_keys=True))
+          PYCTX
+
       - name: Restore CI artifact cache
         id: ci-artifact-cache
         if: ${{ inputs.cache }}
@@ -2002,6 +2049,7 @@ jobs:
               || inputs.marker
             }}
           PYTEST_ARGS: ${{ inputs['pytest_args'] || '' }}
+          PYTEST_WORKERS: ${{ inputs['pytest-workers'] || 'auto' }}
           COVERAGE_ENABLED: ${{ inputs.coverage }}
           PYTHONPATH: ${{ github.workspace }}/${{ inputs['working-directory'] || '.' }}
         run: |
@@ -2033,8 +2081,11 @@ jobs:
             fi
           fi
           if python -c "import xdist" 2>/dev/null; then
-            args+=("-n" "auto" "--dist=loadgroup")
+            args+=("-n" "${PYTEST_WORKERS}" "--dist=loadgroup")
             echo "Running tests in parallel with pytest-xdist (loadgroup scheduler)..."
+          elif [ "${PYTEST_WORKERS}" != auto ]; then
+            echo "Explicit pytest-workers requires pytest-xdist; refusing serial fallback." >&2
+            exit 1
           fi
           # Clear stale evidence before pytest can fail during startup.
           rm -f pytest-collection.json
@@ -2466,48 +2517,9 @@ jobs:
 
       - name: Resolve primary python version
         if: ${{ always() }}
-        run: |
-          python - <<'PY'
-          import json
-          import os
-          import sys
-
-          primary = (os.environ.get("PRIMARY_IN") or "").strip()
-          python_versions_raw = (os.environ.get("PYTHON_VERSIONS_IN") or "").strip()
-          python_version_fallback = (os.environ.get("PYTHON_VERSION_IN") or "").strip()
-
-          if not primary:
-            candidates: list[str] = []
-            if python_versions_raw and python_versions_raw != "[]":
-              if "[" in python_versions_raw:
-                try:
-                  parsed = json.loads(python_versions_raw)
-                except json.JSONDecodeError:
-                  parsed = []
-                if isinstance(parsed, list):
-                  candidates = [str(value) for value in parsed if str(value).strip()]
-              else:
-                candidates = [python_versions_raw]
-            if candidates:
-              primary = candidates[0]
-            elif python_version_fallback:
-              primary = python_version_fallback
-            else:
-              primary = "3.12"
-
-          output_path = os.environ.get("GITHUB_ENV")
-          if not output_path:
-            print("GITHUB_ENV is not set", file=sys.stderr)
-            sys.exit(1)
-
-          with open(output_path, "a", encoding="utf-8") as handle:
-            handle.write(f"PRIMARY_PYTHON_VERSION={primary}\n")
-          print(f"Resolved PRIMARY_PYTHON_VERSION={primary}")
-          PY
         env:
-          PRIMARY_IN: ${{ inputs['primary-python-version'] || '' }}
-          PYTHON_VERSIONS_IN: ${{ inputs['python-versions'] || '' }}
-          PYTHON_VERSION_IN: ${{ inputs['python-version'] || '' }}
+          RESOLVED_PRIMARY: ${{ needs.validate-inputs.outputs.primary_python }}
+        run: echo "PRIMARY_PYTHON_VERSION=${RESOLVED_PRIMARY}" >> "$GITHUB_ENV"
 
       - name: Build CI metrics payload
         if: >-

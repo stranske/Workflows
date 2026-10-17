@@ -1,6 +1,6 @@
 # Self-Test Workflow Overview
 
-The repository exposes a single canonical self-test workflow named **Selftest: Reusables**. It is scheduled nightly (`30 6 * * *`) and can also be launched manually through the *workflow_dispatch* form. The workflow fans out to the shared Python CI reusable (`reusable-10-ci-python.yml`) so each scenario runs the same matrix that exercises Pull Request CI, while keeping dispatch logic in one place.
+**Selftest: Reusables** is the repository's optional-feature integration self-test workflow. It is scheduled nightly (`30 6 * * *`) and can also be launched manually through the *workflow_dispatch* form. The workflow fans out to the shared Python CI reusable (`reusable-10-ci-python.yml`) to exercise six optional-feature profiles against a small real consumer fixture on the default parallel Python 3.13/3.14 matrix. The full repository suite belongs to canonical Gate and main/manual Selftest CI, rather than being repeated in every profile.
 
 ## Triggers
 
@@ -12,7 +12,7 @@ The repository exposes a single canonical self-test workflow named **Selftest: R
 Manual runs support three presentation modes:
 - `summary` (default) – write the condensed matrix table to the run summary.
 - `comment` – post the same table as a pull-request comment (requires `post_to: pr-number` and a PR ID).
-- `dual-runtime` – shorthand that requests both Python 3.12 and 3.13 without editing the JSON input.
+- `dual-runtime` – backward-compatible alias for the default parallel Python 3.13/3.14 matrix.
 
 ## Scenario Matrix
 
@@ -27,9 +27,23 @@ The workflow executes six scenarios with `strategy.fail-fast: false` so failures
 | `coverage_delta` | ❌ | ❌ | ❌ | ✅ | ❌ | Checks coverage comparison thresholds (baseline 65%, alert drop 2%). |
 | `full_soft_gate` | ✅ | ✅ | ✅ | ✅ | ✅ | Full verification including soft gate enforcement artifacts. |
 
+Each profile runs the six actual branch-coverage cases in
+`tests/fixtures/reusable_ci_consumer`, with four workers and a 70% minimum for that
+fixture. Its requirements include the common root lock rather than copying pins.
+`sample_contract.py` is discovered only by the fixture's own pytest configuration;
+it does not add cases to the repository's canonical suite. All six feature/artifact
+on/off combinations and the 65% baseline/2% alert-drop controls remain unchanged.
+Fixture or root-lock edits select all six profiles for integration validation.
+
+The meaningful full-repository 70% guard moves from the old repeated broad-suite
+profiles to both canonical Python runtimes. The separate slow compatibility matrix
+retains the three autofix and six PyPI integration cases excluded by canonical
+`not quarantine and not slow` selection. PyPI checks retain their original network
+and skip behavior; they are not replaced by the consumer fixture.
+
 ## Runtime and History Controls
 
-- **Python versions** – leave blank to run only 3.12. Provide a JSON array (for example `['3.12','3.13']`) or choose the `dual-runtime` mode to exercise both interpreters.
+- **Python versions** – leave blank for Python 3.13/3.14 in parallel. An explicit JSON array, such as `["3.12"]`, takes precedence and remains a supported compatibility override. `dual-runtime` retains its input spelling as an alias for the default pair.
 - **History toggle** – set the `enable_history` input to `true` when launching manually if you want the workflow to download the generated `selftest-report` artifact automatically.
 - **Run reason** – optionally describe why the self-test was dispatched; this string is echoed back in both the run summary and any PR comment the workflow posts.
 

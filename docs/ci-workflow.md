@@ -1,8 +1,8 @@
 ## Reusable Python CI Workflow
 
-This repository provides a reusable GitHub Actions workflow that layers three progressive phases on top of a minimal test + coverage gate. All advanced features are opt‑in so existing callers remain unaffected until they enable them.
+This repository provides a reusable GitHub Actions workflow that layers three progressive phases on top of a minimal test + coverage gate. Advanced observability features remain opt-in. Omitted runtime inputs select the parallel Python 3.13/3.14 matrix; explicit runtime overrides retain precedence.
 
-> **Note (Issue #2656):** The in-repo Gate workflow now calls `reusable-10-ci-python.yml` for Python 3.12/3.13 alongside the Docker smoke reusable. The former matrix wrapper (`reusable-90-ci-python.yml`) was retired during the CI consolidation; downstream consumers should invoke `reusable-10-ci-python.yml` directly or dispatch `selftest-reusable-ci.yml` when they need a matrix verification sweep. Historical notes about the removed wrapper live in [ARCHIVE_WORKFLOWS.md](archive/ARCHIVE_WORKFLOWS.md).
+> **Note (Issue #2656):** The in-repo Gate workflow now calls `reusable-10-ci-python.yml` for Python 3.13/3.14 in parallel alongside the Docker smoke reusable. The former matrix wrapper (`reusable-90-ci-python.yml`) was retired during the CI consolidation; downstream consumers should invoke `reusable-10-ci-python.yml` directly or dispatch `selftest-reusable-ci.yml` when they need a matrix verification sweep. Historical notes about the removed wrapper live in [ARCHIVE_WORKFLOWS.md](archive/ARCHIVE_WORKFLOWS.md).
 
 ### Overview
 
@@ -17,10 +17,19 @@ This repository provides a reusable GitHub Actions workflow that layers three pr
 
 Core:
 ```
-python-versions              JSON list of Python versions (default ["3.12"])
+python-version               Explicit single-runtime override (default empty)
+python-versions              JSON list override (default []; omitted runtimes select 3.13 and 3.14)
+primary-python-version       Artifact/tooling runtime (default first selected runtime)
+pytest-workers               xdist workers (default auto; first-party Gate requests 4)
 coverage-min                 Minimum coverage percentage to pass (default 70)
 run-mypy                     'true'/'false' toggle to run mypy job (default true)
 ```
+
+Gate applies the same full-suite discovery, `not quarantine and not slow` markers,
+common `requirements.lock`, and branch-coverage configuration to both runtimes.
+Python >=3.12 remains the package minimum; an explicit `python-version: "3.12"`
+still selects only that runtime. Existing create-only consumer Gates retain their
+explicit version policy until a separate migration.
 
 Phase 1 – Metrics:
 ```

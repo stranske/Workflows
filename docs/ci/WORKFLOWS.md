@@ -65,14 +65,14 @@ enforcement step evaluates their results.
 
 | Job ID | Display name | Purpose | Artifacts / outputs | Notes |
 | --- | --- | --- | --- | --- |
-| `python-ci` | python ci | Invokes `reusable-10-ci-python.yml` once with a 3.12 + 3.13 matrix. Runs Ruff, Mypy (on the pinned runtime), pytest with coverage, and emits structured summaries. | `gate-coverage`, `gate-coverage-summary`, `gate-coverage-trend` (primary runtime). | Single source of lint/type/test/coverage truth. Coverage payloads share the `gate-coverage` artifact under `coverage/runtimes/<python>` for downstream consumers. |
+| `python-ci` | python ci | Invokes `reusable-10-ci-python.yml` once with a 3.13 + 3.14 matrix. Runs Ruff, Mypy (on the pinned runtime), pytest with coverage, and emits structured summaries. | `gate-coverage`, `gate-coverage-summary`, `gate-coverage-trend` (primary runtime). | Single source of lint/type/test/coverage truth. Coverage payloads share the `gate-coverage` artifact under `coverage/runtimes/<python>` for downstream consumers. |
 | `docs-guard` | docs guard | Runs the cheap reusable-workflow documentation guards even when the PR is docs-only. | None (logs only). | Skips cleanly in consumer repos that do not carry the Workflows docs guard tests, but fails the `Gate / gate` status when Workflows docs drift from reusable workflow inputs/outputs. |
 | `docker-smoke` | docker smoke | Builds the project image and executes the smoke command through `reusable-12-ci-docker.yml`. | None (logs only). | Ensures packaging basics work before merge. |
 | `summary` | summary | Aggregates lint/type/test/coverage results, computes deltas, uploads `gate-summary.md`, and maintains the consolidated PR comment. | Job summary, `gate-summary.md`, `gate-coverage.json`, `gate-coverage-delta.json`, `gate-coverage-summary.md`. | Posts the required `Gate / gate` status and enforces failure when upstream legs are unhealthy. |
 
 ```mermaid
 flowchart TD
-    pr00["pr-00-gate.yml"] --> pythonCi["python ci\n3.12 + 3.13 matrix\n gate-coverage artifact"]
+    pr00["pr-00-gate.yml"] --> pythonCi["python ci\n3.13 + 3.14 matrix\n gate-coverage artifact"]
     pr00 --> dockerSmoke["docker smoke\nimage build logs"]
     pythonCi --> summaryJob["summary job\naggregates artifacts"]
     dockerSmoke --> summaryJob
@@ -324,3 +324,43 @@ decisions cannot create PASS benchmark cases. Staging-only PRs do not change
 approval metrics. See `docs/MODEL_SELECTION_POLICY.md` for the evidence contract.
 
 * [`maint-88-verifier-runtime-comparison.yml`](../../.github/workflows/maint-88-verifier-runtime-comparison.yml) is a manual, finite #3904 experiment. It compares immutable baseline/candidate commits with one common dependency lock and four coverage-instrumented workers. It does not replace Gate or run on a schedule. Review and merge the harness before dispatch; see [the measurement protocol](verifier-grammar-matrices.md#controlled-hosted-comparison).
+
+### Python runtime and suite ownership
+
+Gate runs Python 3.13 and 3.14 as concurrent jobs, with four pytest workers per
+runtime and the same full discovery, `not quarantine and not slow` selection,
+`requirements.lock`, and branch-coverage configuration, enforcing the full-suite
+70% minimum formerly repeated by six optional-feature profiles. Non-doc workflow, shell,
+and config PRs retain the Python assertions formerly duplicated in Selftest CI;
+Gate therefore does not additionally require a Python-classified path.
+Python 3.13 is the coverage-reference runtime. Neither version waits for the other.
+
+Selftest CI retains its `Python Tests` check. On PRs, Gate owns the full suite;
+Selftest runs the nine slow compatibility cases excluded by Gate: three autofix
+and six PyPI integration cases.
+Those cases run on both versions with the common lock and four workers, with
+required tool imports preventing missing autofix dependencies from silently skipping
+those cases. PyPI tests retain their existing network/skip behavior.
+On main pushes and Selftest manual dispatches, Selftest calls the canonical reusable
+suite as well, because Gate has no push trigger. JavaScript tests, package tests,
+lint, validation, and security gates keep their existing ownership.
+
+Coverage uses the same automatic-core policy on both versions. Coverage 7.16.2
+selects CTracer on 3.13 and SysMonitor on 3.14; the execution-context log records
+the selected branch-capable core, version, CPU count/affinity, and worker request.
+Hosted pytest startup must also confirm four actual workers and overlapping matrix
+job times; local collection and isolated execution do not prove hosted overlap.
+
+The package contract remains Python >=3.12. Ruff/Black syntax targets and the
+universal lock's 3.12 compile baseline intentionally preserve that compatibility.
+Reusable calls with an explicit `python-version: '3.12'` still select only 3.12;
+only omitted runtime inputs adopt the 3.13/3.14 default matrix. New Gate templates
+use the new matrix. Existing create-only consumer Gates retain their explicit
+runtime policy until a separately reviewed consumer migration; do not overwrite
+those callers as part of this first-party change. Historical comparison refs and
+commands remain immutable.
+
+Selftest: Reusables retains all six optional-feature/artifact profiles on a small
+six-case consumer fixture, with the same default parallel Python pair, four workers,
+common lock and a fixture-specific 70% guard. It no longer repeats the full repository
+suite six times. See [the profile contract](SELFTESTS.md) for ownership and overrides.

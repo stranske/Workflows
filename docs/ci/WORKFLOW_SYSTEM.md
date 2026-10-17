@@ -192,7 +192,7 @@ explain why a particular status appears in the Checks tab.
 #### Gate (`pr-00-gate.yml`)
 
 - **When it runs.** Every pull request, plus manual dispatch for rehearsals.
-- **What it enforces.** Detects docs-only diffs, orchestrates Python 3.12/3.13
+- **What it enforces.** Detects docs-only diffs, orchestrates Python 3.13/3.14
   CI and the Docker smoke test, publishes coverage bundles, and produces the
   single required status context (**Gate / gate**).
 - **Merge impact.** Required on every PR; branch protection blocks merges until
@@ -682,12 +682,16 @@ Keep this table handy when you are triaging automation: it confirms which workfl
   quarantine telemetry with GitHub provenance and bounded source manifests;
   `agents-model-profile-trial.yml` is its manual shim.
 - **Selftest: Reusables** – `selftest-reusable-ci.yml` is the consolidated entry
-  point. It runs nightly via cron (06:30 UTC) to rehearse the reusable matrix
+  point. It runs nightly via cron (06:30 UTC) to rehearse all six optional-feature
+  profiles using a six-case consumer fixture on parallel Python 3.13/3.14
   and accepts manual dispatches for summary/comment publication. Inputs:
   - `mode`: `summary`, `comment`, or `dual-runtime` (controls reporting surface
     and Python matrix).
-- **Selftest CI** – `selftest-ci.yml` runs the repository's own test suite
-  (JS + Python tests, linting, YAML validation) on push and PR.
+- **Selftest CI** – `selftest-ci.yml` preserves its Python Tests check with the
+  nine-case slow autofix/PyPI compatibility matrix; Gate owns the full PR suite
+  with its 70% guard, and Selftest
+  calls the same canonical Python suite on main pushes/manual dispatches. JavaScript,
+  package tests, linting and YAML validation retain their push/PR triggers.
 - **Keepalive E2E** – `health-keepalive-e2e.yml` path-filtered E2E test for
   the keepalive system. Runs only when keepalive-related files change.
   - `post_to`: `pr-number` or `none` (comment target when `mode == comment`).

@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools>=82.0.1", "wheel>=0.47.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "reusable-ci-consumer-fixture"
+version = "0.0.0"
+requires-python = ">=3.12"
+
+[project.optional-dependencies]
+app = []
+dev = []
+
+[tool.setuptools]
+packages = ["reusable_ci_consumer"]
+package-dir = {reusable_ci_consumer = "."}
+
+[tool.pytest.ini_options]
+testpaths = ["."]
+python_files = ["sample_contract.py"]
+
+[tool.coverage.run]
+branch = true
+source = ["reusable_ci_consumer"]
+omit = ["*/sample_contract.py"]
+
+[tool.coverage.report]
+show_missing = true
+
+[tool.black]
+line-length = 100
+target-version = ["py312"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"

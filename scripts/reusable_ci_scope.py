@@ -66,7 +66,7 @@ def select_python_matrix(
     elif python_versions and python_versions != "[]":
         versions = [python_versions]
     else:
-        versions = [python_version or "3.12"]
+        versions = [python_version] if python_version else ["3.13", "3.14"]
     if any(not isinstance(v, str) or not v.strip() for v in versions):
         raise ValueError("Python versions must be nonempty strings")
     if len(versions) != len(set(versions)):
