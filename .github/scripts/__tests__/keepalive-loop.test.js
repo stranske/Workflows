@@ -7499,6 +7499,7 @@ for (const loopPath of ['../keepalive_loop', '../../../templates/consumer-repo/.
 // GitHub transport is replayed; classification, persistence and evaluation are real.
 function replayCompletion({
   output, exitCode, provider = 'codex', progressed = false, loopPath = '../keepalive_loop.js',
+  reason,
 }) {
   const { classifyCompletion } = require(loopPath);
   const { spawnSync } = require('node:child_process');
@@ -7540,7 +7541,7 @@ record = core.PrCommentRunnerStorage(api).read_record(3989, provider)
 print(json.dumps(dict(comments=api.comments, record=record)))
 `], {
     input: JSON.stringify({ output, exitCode, provider, progressed,
-      reason: classifyCompletion(output, exitCode) }), encoding: 'utf8',
+      reason: reason || classifyCompletion(output, exitCode) }), encoding: 'utf8',
   });
   assert.equal(result.status, 0, result.stderr);
   return JSON.parse(result.stdout);
@@ -7615,6 +7616,58 @@ test('retry advice alone does not classify a completion as provider quota', () =
     'Service unavailable (HTTP 503). Try again at 9:01 PM.',
   ]) {
     assert.equal(replayCompletion({ output, exitCode: 1 }).record.completion.reason, 'failed', output);
+  }
+});
+
+// Deliberate-break durable form of the acceptance gate: the same quota text
+// with a forced no_progress receipt must not switch; restoring rate_limited must.
+test('deliberate-break: same-evaluate switch requires persisted rate_limited classification', async () => {
+  const previousFetch = global.fetch;
+  const keys = ['HAS_CODEX_AUTH', 'HAS_CLAUDE_OAUTH', 'HAS_CURSOR_AUTH'];
+  const previousEnv = Object.fromEntries(keys.map((key) => [key, process.env[key]]));
+  keys.forEach((key) => { process.env[key] = 'true'; });
+  global.fetch = async () => ({ status: 200, json: async () => ({
+    schema: 'orchestrator.route-weights/v2', generated_at: new Date().toISOString(),
+    task_types: { implement: { evidence_ok: true, ranking: [
+      { agent: 'claude', pool_state: 'exhausted' }, { agent: 'cursor', pool_state: 'ok' },
+    ] } },
+  }) });
+  const quota = "You've hit your usage limit. Try again at 9:01 PM";
+  try {
+    const pr = { number: 3989, head: { sha: 'sha-3989', ref: 'codex/issue-3989' },
+      labels: [{ name: 'agent:auto' }, { name: 'agent:codex' }, { name: 'agents:keepalive' }],
+      body: prBodyFixture };
+    // Mimic classifyCompletion returning no_progress for quota text: persist that
+    // reason through the writer (exit 0 keeps no_progress; exit 1 remaps to failed).
+    const broken = replayCompletion({ output: quota, exitCode: 0, reason: 'no_progress' });
+    assert.equal(broken.record.completion.reason, 'no_progress');
+    const brokenGithub = buildGithubStub({ pr, comments: broken.comments,
+      workflowRuns: [{ head_sha: 'sha-3989', conclusion: 'success' }] });
+    const brokenResult = await evaluateKeepaliveLoop({
+      github: brokenGithub, context: buildContext(3989), core: buildCore(),
+    });
+    assert.equal(brokenResult.agentType, 'codex',
+      'forced no_progress must not drive an immediate rate-limit switch');
+    assert.equal(brokenResult.delegationShouldSwitch, false);
+    assert.ok(!brokenGithub.actions.some((a) => a.type === 'label' && a.labels.includes('agent:rate-limited')));
+
+    const restored = replayCompletion({ output: quota, exitCode: 0 });
+    assert.equal(restored.record.completion.reason, 'rate_limited');
+    const restoredGithub = buildGithubStub({ pr, comments: restored.comments,
+      workflowRuns: [{ head_sha: 'sha-3989', conclusion: 'success' }] });
+    const restoredResult = await evaluateKeepaliveLoop({
+      github: restoredGithub, context: buildContext(3989), core: buildCore(),
+    });
+    assert.equal(restoredResult.agentType, 'cursor',
+      'restored rate_limited classification must switch in the same evaluate');
+    assert.equal(restoredResult.delegationShouldSwitch, true);
+    assert.match(restoredResult.delegationReason, /codex-rate-limited/);
+  } finally {
+    global.fetch = previousFetch;
+    for (const [key, value] of Object.entries(previousEnv)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
   }
 });
 
