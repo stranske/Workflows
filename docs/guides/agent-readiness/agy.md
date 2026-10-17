@@ -165,6 +165,23 @@ units come from the capacity ledger; a 429 or shed ends the pilot and is recorde
 | 5. Test generation | 10 jobs the testgen gate already scores | Gate pass rate against the incumbent on the same jobs | Candidate testgen lane if not below the incumbent |
 | 4. Evaluator replay | Archived experiments whose consensus ranking exists | Argon's `judge_reliability` row: `ready`, weight, mean error vs consensus | Counts in rankings again only when `ready`, at its earned weight |
 
+**First pilot run (2026-10-17, `tools/agy_pilot.py`, evidence `docs/evidence/judge-screen-20261017/agy-pilot-1.json`).**
+Exploratory: 2 modules with 3 seeded defects each (6 defects); a third module yielded no validated mutants. Tokens are as the backend reported them.
+
+| Backend | Pilot | Mode | Result | Tokens per item |
+| --- | --- | --- | --- | ---: |
+| agy (`gemini-4-argon-medium`) | audit | single / batched | recall 1.0, precision 1.0 / recall 1.0, precision 1.0 | 14,588 / 7,855 |
+| agy | testgen | single / batched | kill rate 1.0, clean pass 1.0 / kill rate 0.4, clean pass 0.5 | 16,552 / 9,716 |
+| Claude CLI, tools off | audit | single / batched | recall 1.0, precision 1.0 / same | 4,472 / 3,037 |
+| Claude CLI, tools off | testgen | single / batched | kill rate 1.0 / kill rate 1.0 | 9,570 / 7,280 |
+
+Reading it: on this small corpus agy matched Claude on audit and on single-module test generation, so
+neither pilot is ruled out. Batching nearly halved agy's tokens per item, but batched test generation
+broke (half the files failed on clean code), so batching is safe for audit here and **not** for test
+generation without more evidence. agy costs about 2 to 3 times Claude's tokens per item, mostly the
+fixed per-call overhead. Six defects cannot separate the two on quality; the next run needs more
+modules (the harness needs target modules whose own tests are strong enough to validate mutants).
+
 Option 6 (batching) is not a separate project: its number is units per item, batched against single,
 reported by pilots 3 and 5.
 
