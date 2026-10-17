@@ -443,7 +443,7 @@ jobs:
             --storage auto
 
   preflight:
-    name: Verify secrets available
+    name: Verify secrets and mark agent running
     needs: evaluate
     if: |
       needs.evaluate.outputs.dispatch_should_run == 'true' &&
@@ -566,31 +566,6 @@ jobs:
             --head-sha "$HEAD_SHA" \
             --storage auto
 
-  test-job:
-    name: Test job creation
-    needs: evaluate
-    if: needs.evaluate.outputs.fingerprint_should_run == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - run: |
-          echo "Test job ran!"
-            echo "Action was ${{ needs.evaluate.outputs.action }}"
-            echo "Agent was ${{ needs.evaluate.outputs.agent_type }}"
-
-  # Mark agent as running before starting the actual work
-  # This provides real-time visibility that the agent is actively engaged
-  mark-running:
-    name: Mark agent running
-    needs:
-      - evaluate
-      - preflight
-    if: |
-      needs.evaluate.outputs.dispatch_should_run == 'true' &&
-      (needs.evaluate.outputs.action == 'run' ||
-      needs.evaluate.outputs.action == 'fix' ||
-      needs.evaluate.outputs.action == 'conflict')
-    runs-on: ubuntu-latest
-    steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -797,6 +772,7 @@ jobs:
       - name: Release prepared challenge after mark-running failure
         if: >-
           always() && (failure() || cancelled()) &&
+          steps.check.outcome == 'success' &&
           needs.evaluate.outputs.dispatch_reason == 'due-authority-challenge'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -825,12 +801,22 @@ jobs:
 
   # Route to appropriate agent based on agent:* label
   # Supports: agent:codex -> CLI Codex, agent:claude -> Claude API
+  test-job:
+    name: Test job creation
+    needs: evaluate
+    if: needs.evaluate.outputs.fingerprint_should_run == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          echo "Test job ran!"
+            echo "Action was ${{ needs.evaluate.outputs.action }}"
+            echo "Agent was ${{ needs.evaluate.outputs.agent_type }}"
+
   run-codex:
     name: Keepalive next task (Codex)
     needs:
       - evaluate
       - preflight
-      - mark-running
     # Only run for agent:codex label
     if: >-
       needs.evaluate.outputs.agent_type == 'codex' &&
@@ -866,7 +852,6 @@ jobs:
     needs:
       - evaluate
       - preflight
-      - mark-running
     if: |
       needs.evaluate.outputs.agent_type == 'claude' &&
       needs.evaluate.outputs.dispatch_should_run == 'true' &&
@@ -892,7 +877,6 @@ jobs:
     needs:
       - evaluate
       - preflight
-      - mark-running
     if: |
       needs.evaluate.outputs.agent_type == 'cursor' &&
       needs.evaluate.outputs.dispatch_should_run == 'true' &&
@@ -924,7 +908,6 @@ jobs:
     needs:
       - evaluate
       - preflight
-      - mark-running
     if: |
       needs.evaluate.outputs.agent_type == 'muse' &&
       needs.evaluate.outputs.dispatch_should_run == 'true' &&
@@ -956,7 +939,6 @@ jobs:
     needs:
       - evaluate
       - preflight
-      - mark-running
     if: |
       needs.evaluate.outputs.agent_type == 'gemini' &&
       needs.evaluate.outputs.dispatch_should_run == 'true' &&
@@ -983,151 +965,8 @@ jobs:
       appendix: ${{ needs.evaluate.outputs.task_appendix }}
       iteration: ${{ needs.evaluate.outputs.iteration }}
 
-  record-keepalive-completion:
-    name: Record keepalive dispatch completion
-    needs:
-      - evaluate
-      - run-codex
-      - run-claude
-      - run-cursor
-      - run-muse
-      - run-gemini
-      - summary
-    if: >-
-      always() &&
-      needs.evaluate.outputs.dispatch_should_run == 'true' &&
-      (needs.run-codex.result != 'skipped' || needs.run-claude.result != 'skipped' ||
-       needs.run-cursor.result != 'skipped' || needs.run-muse.result != 'skipped' ||
-       needs.run-gemini.result != 'skipped')
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout runner library
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          sparse-checkout: |
-            scripts/runner_lib
-            scripts/state_fingerprint.py
-            scripts/reference_packs.py
-            .github/scripts
-            .github/scripts/github-api-with-retry.js
-            .github/scripts/token_load_balancer.js
-            .github/scripts/error_classifier.js
-          sparse-checkout-cone-mode: false
-
-      - name: Measure runner productivity
-        id: productivity
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
-        env:
-          PR_NUMBER: ${{ needs.evaluate.outputs.pr_number }}
-          HEAD_SHA: ${{ needs.evaluate.outputs.head_sha }}
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            // Did this run actually move the branch? A runner can exit 0 having produced
-            // nothing — the codex sandbox failing to initialize reports itself as a
-            // SUCCESSFUL run with no commit. Recording that as a terminal completion burned
-            // the (head_sha, provider) debounce key, and only a new head commit clears the
-            // key, so the refusal could only be lifted by the agent it was refusing (#3433).
-            // Comparing the PR head now against the SHA this dispatch was reserved for is the
-            // cheapest ground truth available here. A failed lookup stays UNMEASURED, which
-            // keeps the pre-#3433 behavior rather than loosening the debounce on an API hiccup.
-            const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
-            const { withRetry } = await createTokenAwareRetry({
-              github,
-              core,
-              env: process.env,
-              task: 'keepalive-productivity',
-            });
-            const prNumber = Number(process.env.PR_NUMBER || '');
-            const dispatchedHead = String(process.env.HEAD_SHA || '');
-            if (!prNumber || !dispatchedHead) {
-              core.info('No PR or head SHA; productivity unmeasured.');
-              core.setOutput('produced_work', '');
-              return;
-            }
-            let currentHead = '';
-            let taskProgressAfter = '';
-            try {
-              const { data: pr } = await withRetry((client) => client.rest.pulls.get({
-                ...context.repo,
-                pull_number: prNumber,
-              }));
-              currentHead = String((pr.head && pr.head.sha) || '');
-              const { buildTaskProgressSnapshot } = require(
-                './.github/scripts/keepalive_loop.js'
-              );
-              taskProgressAfter = JSON.stringify(buildTaskProgressSnapshot(pr.body || ''));
-            } catch (error) {
-              core.warning(`Could not read PR head: ${error && error.message ? error.message : error}`);
-            }
-            const producedWork = currentHead ? String(currentHead !== dispatchedHead) : '';
-            core.info(
-              `head_at_dispatch=${dispatchedHead} head_now=${currentHead || 'unreadable'} ` +
-              `produced_work=${producedWork || 'unmeasured'}`,
-            );
-            core.setOutput('produced_work', producedWork);
-            core.setOutput('observed_head_sha', currentHead);
-            core.setOutput('task_progress_after', taskProgressAfter);
-
-      - name: Record completion
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PROVIDER: ${{ needs.evaluate.outputs.agent_type || 'codex' }}
-          PR_NUMBER: ${{ needs.evaluate.outputs.pr_number }}
-          HEAD_SHA: ${{ needs.evaluate.outputs.head_sha }}
-          PRODUCED_WORK: ${{ steps.productivity.outputs.produced_work }}
-          OBSERVED_HEAD_SHA: ${{ steps.productivity.outputs.observed_head_sha }}
-          TASK_PROGRESS_AFTER: ${{ steps.productivity.outputs.task_progress_after }}
-          SUMMARY: >-
-            ${{ needs.run-codex.outputs.final-message-summary ||
-                needs.run-claude.outputs.final-message-summary ||
-                needs.run-cursor.outputs.final-message-summary ||
-                needs.run-muse.outputs.final-message-summary ||
-                needs.run-gemini.outputs.final-message-summary || '' }}
-          EXIT_CODE: >-
-            ${{ needs.run-codex.outputs.exit-code ||
-                needs.run-claude.outputs.exit-code ||
-                needs.run-cursor.outputs.exit-code ||
-                needs.run-muse.outputs.exit-code ||
-                needs.run-gemini.outputs.exit-code || '' }}
-          JOB_RESULT: >-
-            ${{ needs.run-codex.result != 'skipped' && needs.run-codex.result ||
-                (needs.run-claude.result != 'skipped' && needs.run-claude.result ||
-                 (needs.run-cursor.result != 'skipped' && needs.run-cursor.result ||
-                  (needs.run-muse.result != 'skipped' && needs.run-muse.result ||
-                   needs.run-gemini.result))) }}
-        run: |
-          set -euo pipefail
-          if [ -z "${PR_NUMBER:-}" ] || [ -z "${HEAD_SHA:-}" ]; then
-            echo "Runner completion state missing PR or SHA; skipping."
-            exit 0
-          fi
-          if [ -z "${EXIT_CODE:-}" ]; then
-            if [ "${JOB_RESULT:-}" = "success" ]; then
-              EXIT_CODE=0
-            else
-              EXIT_CODE=1
-            fi
-          fi
-          COMPLETION_REASON=$(node -e '
-            const { classifyCompletion } = require("./.github/scripts/keepalive_loop.js");
-            process.stdout.write(classifyCompletion(process.env.SUMMARY, process.env.EXIT_CODE));
-          ')
-          python -m scripts.runner_lib record-completion \
-            --provider "$PROVIDER" \
-            --pr-number "$PR_NUMBER" \
-            --head-sha "$HEAD_SHA" \
-            --summary "$SUMMARY" \
-            --exit-code "$EXIT_CODE" \
-            --completion-reason "$COMPLETION_REASON" \
-            --produced-work "$PRODUCED_WORK" \
-            --observed-head-sha "$OBSERVED_HEAD_SHA" \
-            --task-progress-after "$TASK_PROGRESS_AFTER" \
-            --storage auto
-
-  summary:
-    name: Update keepalive summary
+  finish:
+    name: Finish keepalive round
     needs:
       - evaluate
       - preflight
@@ -1146,6 +985,11 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 24
 
       - name: Setup API client
         uses: ./.github/actions/setup-api-client
@@ -1604,6 +1448,131 @@ jobs:
             --workflow "${GITHUB_WORKFLOW}" \
             --hash "${{ needs.evaluate.outputs.fingerprint_current_hash }}" \
             --storage pr-comment
+
+      - name: Measure runner productivity
+        if: >-
+          always() &&
+          needs.evaluate.outputs.dispatch_should_run == 'true' &&
+          (needs.run-codex.result != 'skipped' || needs.run-claude.result != 'skipped' ||
+          needs.run-cursor.result != 'skipped' || needs.run-muse.result != 'skipped' ||
+          needs.run-gemini.result != 'skipped')
+        id: productivity
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        env:
+          PR_NUMBER: ${{ needs.evaluate.outputs.pr_number }}
+          HEAD_SHA: ${{ needs.evaluate.outputs.head_sha }}
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            // Did this run actually move the branch? A runner can exit 0 having produced
+            // nothing — the codex sandbox failing to initialize reports itself as a
+            // SUCCESSFUL run with no commit. Recording that as a terminal completion burned
+            // the (head_sha, provider) debounce key, and only a new head commit clears the
+            // key, so the refusal could only be lifted by the agent it was refusing (#3433).
+            // Comparing the PR head now against the SHA this dispatch was reserved for is the
+            // cheapest ground truth available here. A failed lookup stays UNMEASURED, which
+            // keeps the pre-#3433 behavior rather than loosening the debounce on an API hiccup.
+            const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+            const { withRetry } = await createTokenAwareRetry({
+              github,
+              core,
+              env: process.env,
+              task: 'keepalive-productivity',
+            });
+            const prNumber = Number(process.env.PR_NUMBER || '');
+            const dispatchedHead = String(process.env.HEAD_SHA || '');
+            if (!prNumber || !dispatchedHead) {
+              core.info('No PR or head SHA; productivity unmeasured.');
+              core.setOutput('produced_work', '');
+              return;
+            }
+            let currentHead = '';
+            let taskProgressAfter = '';
+            try {
+              const { data: pr } = await withRetry((client) => client.rest.pulls.get({
+                ...context.repo,
+                pull_number: prNumber,
+              }));
+              currentHead = String((pr.head && pr.head.sha) || '');
+              const { buildTaskProgressSnapshot } = require(
+                './.github/scripts/keepalive_loop.js'
+              );
+              taskProgressAfter = JSON.stringify(buildTaskProgressSnapshot(pr.body || ''));
+            } catch (error) {
+              core.warning(`Could not read PR head: ${error && error.message ? error.message : error}`);
+            }
+            const producedWork = currentHead ? String(currentHead !== dispatchedHead) : '';
+            core.info(
+              `head_at_dispatch=${dispatchedHead} head_now=${currentHead || 'unreadable'} ` +
+              `produced_work=${producedWork || 'unmeasured'}`,
+            );
+            core.setOutput('produced_work', producedWork);
+            core.setOutput('observed_head_sha', currentHead);
+            core.setOutput('task_progress_after', taskProgressAfter);
+
+      - name: Record completion
+        if: >-
+          always() &&
+          needs.evaluate.outputs.dispatch_should_run == 'true' &&
+          (needs.run-codex.result != 'skipped' || needs.run-claude.result != 'skipped' ||
+          needs.run-cursor.result != 'skipped' || needs.run-muse.result != 'skipped' ||
+          needs.run-gemini.result != 'skipped')
+          && steps.productivity.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PROVIDER: ${{ needs.evaluate.outputs.agent_type || 'codex' }}
+          PR_NUMBER: ${{ needs.evaluate.outputs.pr_number }}
+          HEAD_SHA: ${{ needs.evaluate.outputs.head_sha }}
+          PRODUCED_WORK: ${{ steps.productivity.outputs.produced_work }}
+          OBSERVED_HEAD_SHA: ${{ steps.productivity.outputs.observed_head_sha }}
+          TASK_PROGRESS_AFTER: ${{ steps.productivity.outputs.task_progress_after }}
+          SUMMARY: >-
+            ${{ needs.run-codex.outputs.final-message-summary ||
+                needs.run-claude.outputs.final-message-summary ||
+                needs.run-cursor.outputs.final-message-summary ||
+                needs.run-muse.outputs.final-message-summary ||
+                needs.run-gemini.outputs.final-message-summary || '' }}
+          EXIT_CODE: >-
+            ${{ needs.run-codex.outputs.exit-code ||
+                needs.run-claude.outputs.exit-code ||
+                needs.run-cursor.outputs.exit-code ||
+                needs.run-muse.outputs.exit-code ||
+                needs.run-gemini.outputs.exit-code || '' }}
+          JOB_RESULT: >-
+            ${{ needs.run-codex.result != 'skipped' && needs.run-codex.result ||
+                (needs.run-claude.result != 'skipped' && needs.run-claude.result ||
+                 (needs.run-cursor.result != 'skipped' && needs.run-cursor.result ||
+                  (needs.run-muse.result != 'skipped' && needs.run-muse.result ||
+                   needs.run-gemini.result))) }}
+        run: |
+          set -euo pipefail
+          if [ -z "${PR_NUMBER:-}" ] || [ -z "${HEAD_SHA:-}" ]; then
+            echo "Runner completion state missing PR or SHA; skipping."
+            exit 0
+          fi
+          if [ -z "${EXIT_CODE:-}" ]; then
+            if [ "${JOB_RESULT:-}" = "success" ]; then
+              EXIT_CODE=0
+            else
+              EXIT_CODE=1
+            fi
+          fi
+          COMPLETION_REASON=$(node -e '
+            const { classifyCompletion } = require("./.github/scripts/keepalive_loop.js");
+            process.stdout.write(classifyCompletion(process.env.SUMMARY, process.env.EXIT_CODE));
+          ')
+          python -m scripts.runner_lib record-completion \
+            --provider "$PROVIDER" \
+            --pr-number "$PR_NUMBER" \
+            --head-sha "$HEAD_SHA" \
+            --summary "$SUMMARY" \
+            --exit-code "$EXIT_CODE" \
+            --completion-reason "$COMPLETION_REASON" \
+            --produced-work "$PRODUCED_WORK" \
+            --observed-head-sha "$OBSERVED_HEAD_SHA" \
+            --task-progress-after "$TASK_PROGRESS_AFTER" \
+            --storage auto
 
   prepare:
     name: Prepare autofix context

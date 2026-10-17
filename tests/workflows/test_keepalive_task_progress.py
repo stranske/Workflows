@@ -16,10 +16,11 @@ def test_keepalive_workflows_transport_task_progress_through_the_runner_cli() ->
         workflow = yaml.safe_load(text)
         jobs = workflow["jobs"]
         evaluate_outputs = jobs["evaluate"]["outputs"]
-        completion = jobs["record-keepalive-completion"]
+        completion = jobs["finish"]
 
         assert "task_progress_snapshot" in evaluate_outputs
-        assert "summary" in completion["needs"]
+        names = [step.get("name") for step in completion["steps"]]
+        assert names.index("Update summary comment") < names.index("Measure runner productivity")
         assert "buildTaskProgressSnapshot" in text
         assert '--task-progress-before "$TASK_PROGRESS_BEFORE"' in text
         assert '--observed-head-sha "$OBSERVED_HEAD_SHA"' in text

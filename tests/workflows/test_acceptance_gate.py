@@ -209,7 +209,7 @@ def test_workflow_isolates_pr_commands_from_privileged_mark_running():
     repo = Path(__file__).resolve().parents[2]
     workflow = yaml.safe_load((repo / ".github/workflows/agents-keepalive-loop.yml").read_text())
     isolated = workflow["jobs"]["acceptance-gates"]
-    privileged = workflow["jobs"]["mark-running"]
+    privileged = workflow["jobs"]["preflight"]
     assert isolated["runs-on"] == "ubuntu-latest"
     assert isolated["permissions"] == {"contents": "read"}
     assert "acceptance-gates" in privileged["needs"]

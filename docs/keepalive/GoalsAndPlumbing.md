@@ -42,6 +42,35 @@
 
 ---
 
+### Runner job plumbing
+
+The root `Agents Keepalive Loop` uses the keepalive chain
+`evaluate` → isolated `acceptance-gates` → `preflight` (check credentials, mark
+running, finalize authority) → `run-<agent>` → `finish`. The isolated acceptance
+job consumes the plan from `evaluate` with read-only permissions and no secrets;
+its result is downloaded by the privileged preflight job before marking running.
+Preflight retains the dynamically selected environment, so credentials are checked
+there after the isolated gate succeeds. This avoids a dependency cycle that would
+result from moving the running transition into `evaluate`.
+
+The consumer `Agents Gate Followups` hub uses `evaluate` → `preflight` (check
+credentials and mark running) → `run-<agent>` → `finish`. Its unrelated autofix,
+automerge, metrics and authority-release jobs retain their own lifecycles. The
+root's alternate `progress-review` branch is outside the agent-round chain.
+The contract limits each keepalive chain to four non-`run-*` jobs and four
+`setup-api-client` calls; the root's total API-client budget, including progress
+review, is also four. The root currently has four chain jobs and the consumer
+has three. The consumer hub does not currently define an isolated acceptance job.
+
+`finish` shares one checkout, Node setup and API-client setup. It reconciles tasks
+and updates the Automated Status Summary before measuring productivity and
+recording the dispatch completion. Its `always()` job condition preserves review,
+stop and failure summaries; the completion steps independently use `always()`
+and the original dispatch/runner predicates so summary failures cannot suppress
+a matching completion. A failed productivity measurement still prevents recording.
+The workflow names, reusable runner inputs, state fingerprint and authority
+signing protocol remain unchanged.
+
 ## 1. Activation Guardrails
 
 Keepalive **must not** dispatch an agent unless *all* conditions hold:
