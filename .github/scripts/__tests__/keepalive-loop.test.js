@@ -7494,3 +7494,54 @@ for (const loopPath of ['../keepalive_loop', '../../../templates/consumer-repo/.
     assert.deepEqual({ total: snapshot.total, completed: snapshot.completed }, { total: 2, completed: 1 });
   });
 }
+
+
+for (const modulePath of [
+  '../keepalive_loop',
+  '../../../templates/consumer-repo/.github/scripts/keepalive_loop',
+]) {
+  for (const marker of ['-', '*', '+', '1.', '2)']) {
+    test(`deterministic numbered checkbox boundaries (${modulePath}, ${marker})`, () => {
+      const { renderDeterministicGates: render } = require(modulePath);
+      const body = `## Acceptance Criteria\n${marker} [x] Human observation\n${marker} [x] \`pytest fail.py\`\n${marker} [x] \`ruff check .\``;
+      const gates = {
+        commands: [{ criterion: 1, command: 'pytest fail.py' }, { criterion: 2, command: 'ruff check .' }],
+        results: [{ criterion: 1, command: 'pytest fail.py', exit_code: 1 }, { criterion: 2, command: 'ruff check .', exit_code: 0 }],
+      };
+      const rendered = render(body, gates);
+      assert.ok(rendered.includes(`${marker} [x] Human observation`));
+      assert.ok(rendered.includes(`${marker} [ ] \`pytest fail.py\``));
+      assert.ok(rendered.includes(`${marker} [x] \`ruff check .\``));
+    });
+  }
+}
+
+// Exercise extraction from the source checkout; runner_lib is distributed
+// separately by the sync manifest rather than duplicated in the template tree.
+for (const modulePath of ['../keepalive_loop']) {
+  for (const changed of ['head', 'criteria']) {
+    test(`deterministic stale results warn and continue (${modulePath}, ${changed})`, async () => {
+      const { markAgentRunning: mark, acceptanceGatePlan: planGates } = require(modulePath);
+      const pr = { number: 3979, head: { sha: 'tested-head' },
+        body: '## Acceptance Criteria\n- [x] `pytest gate.py` passes' };
+      const github = buildGithubStub({ pr });
+      const context = buildContext(pr.number);
+      const plan = await planGates({ github, context, pr, state: {} });
+      const gates = { ...plan, results: [{ ...plan.commands[0], exit_code: 0, output: 'passed' }] };
+      if (changed === 'head') pr.head.sha = 'new-head';
+      else pr.body = pr.body.replace('gate.py', 'changed.py');
+      const expectedBody = pr.body;
+      const warnings = [];
+      await mark({ github, context, core: { ...buildCore(), warning: text => warnings.push(text) },
+        inputs: { pr_number: pr.number, deterministic_gates: gates } });
+      assert.equal(warnings.length, 1);
+      assert.match(warnings[0], /skipping stale/);
+      assert.equal(pr.body, expectedBody);
+      const running = github.actions.find(item => item.body && parseStateComment(item.body));
+      const state = parseStateComment(running.body).data;
+      assert.equal(state.running, true);
+      assert.equal(state.deterministic_gates, undefined);
+      assert.equal((await planGates({ github, context, pr, state })).complete, false);
+    });
+  }
+}

@@ -12,11 +12,12 @@ import signal
 import subprocess
 import sys
 import tempfile
-from collections import deque
 from pathlib import Path
 
 COMMAND_PREFIX = re.compile(r"^(?:pytest|python -m pytest|npm test|npm run|ruff|mypy|make)(?:\s|$)")
 TIMEOUT_SECONDS = 300
+OUTPUT_BYTES = 2048
+TOTAL_OUTPUT_BYTES = 8192
 
 
 @dataclasses.dataclass(frozen=True)
@@ -91,11 +92,9 @@ def run(commands: list[Command], cwd: str | Path) -> list[Result]:
     """Run each gate with a bounded lifetime, retaining its last 40 output lines."""
     results = []
     # Gate commands execute PR code. Do not inherit workflow credentials or command files.
-    env = {
-        key: value
-        for key, value in os.environ.items()
-        if not re.search(r"TOKEN|SECRET|KEY|AUTH|COOKIE|GITHUB_(?:ENV|OUTPUT|PATH|STATE)", key)
-    }
+    allowed = {"PATH", "HOME", "LANG", "LC_ALL", "TMPDIR", "CI", "PYTHONPATH", "VIRTUAL_ENV"}
+    env = {key: value for key, value in os.environ.items() if key in allowed}
+    remaining_bytes = TOTAL_OUTPUT_BYTES
     for command in commands:
         with tempfile.TemporaryFile() as output:
             try:
@@ -117,9 +116,14 @@ def run(commands: list[Command], cwd: str | Path) -> list[Result]:
             except (OSError, ValueError) as error:
                 exit_code = 127
                 output.write(str(error).encode())
-            output.seek(0)
-            # Iterate instead of loading potentially large test logs into memory.
-            tail = b"".join(deque(output, maxlen=40)).decode(errors="replace")
+            # Seek from the end: even a single huge line cannot allocate an
+            # unbounded buffer. Bound aggregate output for persisted state too.
+            size = output.seek(0, os.SEEK_END)
+            limit = min(OUTPUT_BYTES, remaining_bytes)
+            output.seek(max(0, size - limit))
+            tail = b"\n".join(output.read(limit).split(b"\n")[-41:]).decode(errors="ignore")
+            tail = "".join(tail.splitlines(keepends=True)[-40:])
+            remaining_bytes -= len(tail.encode())
         results.append(Result(command.criterion, command.command, exit_code, tail))
     return results
 
@@ -145,15 +149,16 @@ def prepare(commands: list[Command], cwd: Path) -> list[Result]:
     for step in setup:
         result = run([Command(-1, step)], cwd)[0]
         if result.exit_code != 0:
-            return [
-                Result(
-                    command.criterion,
-                    command.command,
-                    result.exit_code,
-                    f"Gate environment setup failed: {step}\n{result.output}",
+            failures = []
+            remaining_bytes = TOTAL_OUTPUT_BYTES
+            for command in commands:
+                details = f"Gate environment setup failed: {step}\n{result.output}"
+                tail = details.encode()[: min(OUTPUT_BYTES, remaining_bytes)].decode(
+                    errors="ignore"
                 )
-                for command in commands
-            ]
+                remaining_bytes -= len(tail.encode())
+                failures.append(Result(command.criterion, command.command, result.exit_code, tail))
+            return failures
     return []
 
 

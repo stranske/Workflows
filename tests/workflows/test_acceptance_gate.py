@@ -105,9 +105,26 @@ def test_timeout_and_missing_executable_fail_closed(tmp_path, monkeypatch):
 
 
 def test_commands_do_not_inherit_credentials(tmp_path, monkeypatch):
-    monkeypatch.setenv("GATE_SECRET", "sensitive")
+    credentials = [
+        "GATE_SECRET",
+        "SERVICE_BOT_PAT",
+        "ACTIONS_BOT_PAT",
+        "OWNER_PR_PAT",
+        "AGENTS_AUTOMATION_PAT",
+        "CUSTOM_PASSWORD",
+        "ACTIONS_RUNTIME_TOKEN",
+        "ACTIONS_ID_TOKEN_REQUEST_URL",
+        "GITHUB_ENV",
+        "GITHUB_OUTPUT",
+    ]
+    for name in credentials:
+        monkeypatch.setenv(name, "sensitive")
+    monkeypatch.setenv("CI", "true")
     script = tmp_path / "env.py"
-    script.write_text("import os\nassert 'GATE_SECRET' not in os.environ\n")
+    script.write_text(
+        f"import os\nassert not set({credentials!r}) & os.environ.keys()\n"
+        "assert os.environ['CI'] == 'true'\n"
+    )
     assert run([Command(0, f"{sys.executable} {script.name}")], tmp_path)[0].exit_code == 0
 
 
@@ -153,7 +170,7 @@ def test_cli_records_per_criterion_failure_and_prepends_prompt(tmp_path):
 
 def test_stop_condition_refuses_failing_gate():
     """Exercise the JS stop path through the real Python extractor (mutation gate)."""
-    repo = Path(__file__).resolve().parents[1]
+    repo = Path(__file__).resolve().parents[2]
     result = subprocess.run(
         [
             "node",
@@ -168,3 +185,63 @@ def test_stop_condition_refuses_failing_gate():
         check=False,
     )
     assert result.returncode == 0, result.stdout + result.stderr
+
+
+@pytest.mark.parametrize("line", ["x" * 1_000_000, "é" * 1000 + "\n"])
+def test_output_is_bounded_by_bytes_per_command_and_in_total(tmp_path, line):
+    script = tmp_path / "verbose.py"
+    script.write_text(f"print({line!r} * 50)\n")
+    results = run([Command(i, f"{sys.executable} {script.name}") for i in range(6)], tmp_path)
+    assert all(result.exit_code == 0 for result in results)
+    assert all(len(result.output.encode()) <= acceptance_gate.OUTPUT_BYTES for result in results)
+    assert (
+        sum(len(result.output.encode()) for result in results) <= acceptance_gate.TOTAL_OUTPUT_BYTES
+    )
+    assert all(len(result.output.splitlines()) <= 40 for result in results)
+    assert results[0].output
+
+
+def test_workflow_isolates_pr_commands_from_privileged_mark_running():
+    import yaml
+
+    repo = Path(__file__).resolve().parents[2]
+    workflow = yaml.safe_load((repo / ".github/workflows/agents-keepalive-loop.yml").read_text())
+    isolated = workflow["jobs"]["acceptance-gates"]
+    privileged = workflow["jobs"]["mark-running"]
+    assert isolated["runs-on"] == "ubuntu-latest"
+    assert isolated["permissions"] == {"contents": "read"}
+    assert "acceptance-gates" in privileged["needs"]
+    assert "secrets." not in json.dumps(isolated)
+    assert "setup-api-client" not in json.dumps(isolated)
+    assert "acceptance_gate.py --prepare" in json.dumps(isolated)
+    assert "acceptance_gate.py --prepare" not in json.dumps(privileged)
+    for step in isolated["steps"]:
+        if step.get("uses", "").startswith("actions/checkout@"):
+            assert step["with"]["persist-credentials"] is False
+    upload = next(
+        step
+        for step in isolated["steps"]
+        if step.get("uses", "").startswith("actions/upload-artifact@")
+    )
+    download = next(
+        step
+        for step in privileged["steps"]
+        if step["name"] == "Download isolated acceptance results"
+    )
+    assert upload["with"]["name"] == download["with"]["name"]
+    assert "overwrite" not in upload["with"]
+
+
+def test_failed_preparation_keeps_aggregate_output_bounded(tmp_path, monkeypatch):
+    monkeypatch.setattr(
+        acceptance_gate,
+        "run",
+        lambda commands, cwd: [acceptance_gate.Result(-1, commands[0].command, 1, "x" * 2048)],
+    )
+    commands = [Command(i, "pytest test_gate.py") for i in range(10)]
+    results = acceptance_gate.prepare(commands, tmp_path)
+    assert len(results) == len(commands)
+    assert all(result.exit_code == 1 for result in results)
+    assert (
+        sum(len(result.output.encode()) for result in results) <= acceptance_gate.TOTAL_OUTPUT_BYTES
+    )

@@ -267,6 +267,14 @@ passing command results for the current head and extracted command set. The Pyth
 extractor runs asynchronously with a 30-second timeout so the loop can continue
 servicing subprocess input and output. A missing interpreter, failed extraction,
 or invalid JSON rejects the plan; it never establishes an empty, passing gate set.
+Gate preparation and PR commands run in a separate `acceptance-gates` job with
+read-only contents permission, no secrets, no API-client setup and no persisted
+checkout credentials. Only its results artifact reaches the privileged
+`mark-running` job. Child processes inherit an explicit environment allowlist;
+output retains at most 40 lines and 2 KiB per command, with 8 KiB total.
+A changed head or command set skips stale result persistence with a warning;
+the next evaluation requires fresh evidence before completion.
+
 
 ---
 

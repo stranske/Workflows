@@ -87,9 +87,9 @@ function renderDeterministicGates(body, gates) {
         acceptanceLevel = heading[1].length;
       } else if (heading[1].length <= acceptanceLevel) inAcceptance = false;
     }
-    if (!inAcceptance || !/^\s*[-*+]\s+\[[xX]\]/.test(lines[index])) continue;
+    if (!inAcceptance || !/^\s*(?:[-*+]|\d+[.)])\s+\[[xX]\]/.test(lines[index])) continue;
     let end = index + 1;
-    while (end < lines.length && !/^\s*[-*+]\s+\[[ xX]\]|^#{1,6}\s/.test(lines[end])) end++;
+    while (end < lines.length && !/^\s*(?:[-*+]|\d+[.)])\s+\[[ xX]\]|^#{1,6}\s/.test(lines[end])) end++;
     const criterion = lines.slice(index, end).join('\n');
     const matched = gates.commands.filter(command => criterion.includes(command.command));
     if (matched.some(command => !gates.results.some(result =>
@@ -5417,15 +5417,16 @@ async function markAgentRunning({ github: rawGithub, context, core, inputs }) {
     });
     if (pr.head.sha !== inputs.deterministic_gates.head_sha ||
         gates.source_hash !== inputs.deterministic_gates.source_hash) {
-      throw new Error('PR head or source acceptance criteria changed during deterministic gates');
+      core?.warning('PR head or source acceptance criteria changed; skipping stale deterministic gate persistence');
+    } else {
+      preservedState.deterministic_gates = {
+        head_sha: gates.head_sha, source_hash: gates.source_hash, results: gates.results,
+      };
+      await github.rest.pulls.update({
+        ...context.repo, pull_number: prNumber, body: renderDeterministicGates(pr.body || '', gates),
+      });
+      summaryLines.push('', `Deterministic gates: ${gates.passed}/${gates.total} passed`);
     }
-    preservedState.deterministic_gates = {
-      head_sha: gates.head_sha, source_hash: gates.source_hash, results: gates.results,
-    };
-    await github.rest.pulls.update({
-      ...context.repo, pull_number: prNumber, body: renderDeterministicGates(pr.body || '', gates),
-    });
-    summaryLines.push('', `Deterministic gates: ${gates.passed}/${gates.total} passed`);
   }
   preservedState.running = true;
   preservedState.running_since = new Date().toISOString();
