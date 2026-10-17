@@ -614,6 +614,19 @@ def test_approved_code_spans_preserve_internal_whitespace():
     )
 
 
+@pytest.mark.parametrize("fence", ["```", "~~~"])
+def test_approved_fenced_commands_preserve_internal_whitespace(fence):
+    approved = VALID_BODY + f"\n{fence}sh\nprintf 'a  b'\n{fence}\n"
+    rewritten = approved.replace("printf 'a  b'", "printf 'a b'")
+    assert any(
+        "changed approved content" in error
+        for error in uploader.role_body_errors(rewritten, approved)
+    )
+    assert uploader.approval_body_key(approved) == uploader.approval_body_key(
+        approved.replace("The repo needs", "The  repo\nneeds")
+    )
+
+
 def test_post_authoring_snapshot_excludes_created_siblings(tmp_path, monkeypatch):
     authoring_tools(tmp_path, monkeypatch)
     created = []

@@ -428,7 +428,9 @@ def approval_body_key(body: str) -> tuple[str, ...]:
     """Allow prose whitespace formatting only; code and every approved word stay fixed."""
     return tuple(
         part if index % 2 else re.sub(r"\s+", " ", part).strip()
-        for index, part in enumerate(re.split(r"(```.*?```|`[^`]*`)", body, flags=re.DOTALL))
+        for index, part in enumerate(
+            re.split(r"(```.*?```|~~~.*?~~~|`[^`]*`)", body, flags=re.DOTALL)
+        )
     )
 
 
