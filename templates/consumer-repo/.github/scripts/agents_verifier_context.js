@@ -31,6 +31,44 @@ const SHA_PATTERN = /^[0-9a-f]{7,40}$/i;
 const WORKFLOW_RUN_URL_RE = /\/actions\/runs\/(\d+)/g;
 const TEXT_ARTIFACT_ENTRY_RE = /\.(?:txt|md|markdown|log|json|jsonl|ndjson|xml|csv|tsv|patch|diff)$/i;
 
+// Source-reviewed legacy receipts. These immutable first-party outputs predate
+// a target binding receipt: authenticated run/attempt + exact output ZIP digest
+// bind the reviewed production manifest/context/patch to the original target.
+// This is not a general exception for manual runs, nor acceptance of their result.
+const HISTORICAL_MANUAL_VERIFIER_BINDINGS = Object.freeze([
+  Object.freeze({run_id:38897681034, repository:'stranske/Orchestrator', repository_id:1342306972, pr:631,
+    head:'aba5c4503a31f71e337e35e65d928124510bba22', merge:'a898f3b7227c61b73d1abe521e141e99173f85a5',
+    wrapper_sha:'a071ff06be16b969b50971678de75cb89d2978ab', producer_sha:'43096bff240b6fc5c89bb229f992a49a663fece4',
+    artifact_id:12044188828, artifact_sha256:'01740159fcb0216e4fb0309d082d5a48d488178e2e4c8c83288bcccabc459471'}),
+  Object.freeze({run_id:38979663956, repository:'stranske/Orchestrator', repository_id:1342306972, pr:631,
+    head:'aba5c4503a31f71e337e35e65d928124510bba22', merge:'a898f3b7227c61b73d1abe521e141e99173f85a5',
+    wrapper_sha:'143ce07ceacae5f4d973219f1267045133825aa7', producer_sha:'e015a93aaa27bc613a979a0e10329a7d9f84b0ed',
+    artifact_id:12080865906, artifact_sha256:'931ae69b2cdfc8d2ce23e0cec92943dbefc26720b58a0ceb719d36b82bd3675b'}),
+]);
+
+function historicalManualVerifierBinding(run, {owner,repo,pullNumber,associatedCommitShas}) {
+  const binding=HISTORICAL_MANUAL_VERIFIER_BINDINGS.find(item=>item.run_id===run?.id);
+  if (!binding || binding.repository!==`${owner}/${repo}` || binding.pr!==pullNumber
+      || !associatedCommitShas?.includes(binding.head) || !associatedCommitShas.includes(binding.merge)
+      || run.event!=='workflow_dispatch' || run.status!=='completed' || run.conclusion!=='success'
+      || run.run_attempt!==1 || run.path!=='.github/workflows/agents-verifier.yml'
+      || run.head_branch!=='main' || run.head_sha!==binding.wrapper_sha
+      || [run.repository,run.head_repository].some(repository=>repository?.id!==binding.repository_id
+        || repository.full_name!==binding.repository)) return null;
+  const producers=(run.referenced_workflows||[]).filter(item=>item.path==='stranske/Workflows/.github/workflows/reusable-agents-verifier.yml@main');
+  if (producers.length!==1 || producers[0].sha!==binding.producer_sha || producers[0].ref!=='refs/heads/main') return null;
+  return binding;
+}
+
+function validateHistoricalManualArtifact(binding,artifact,archiveSha256) {
+  const run=artifact?.workflow_run;
+  return artifact?.id===binding.artifact_id && artifact.name===`comparison-results-${binding.run_id}`
+    && artifact.expired===false && artifact.digest===`sha256:${binding.artifact_sha256}`
+    && archiveSha256===binding.artifact_sha256 && run?.id===binding.run_id
+    && run.repository_id===binding.repository_id && run.head_repository_id===binding.repository_id
+    && run.head_branch==='main' && run.head_sha===binding.wrapper_sha;
+}
+
 const DIFF_SUMMARY_LIMITS = {
   maxFiles: 50,
   maxLines: 20000,
@@ -968,6 +1006,7 @@ async function fetchVerifierEvidence({
   const runIds = [];
   const runHeads = new Map();
   const runPaths = new Map();
+  const pendingManualBindings = new Map();
   const seenRunIds = new Set();
   let artifactIncomplete = allRunIds.length > referencedRunIds.length;
   if (artifactIncomplete) fail("artifacts", "reference_record", "explicit reference union exceeds run limit");
@@ -1010,11 +1049,16 @@ async function fetchVerifierEvidence({
         continue;
       }
       if (!exactCommitShas.has(runHeadSha)) {
-        artifactIncomplete = true;
-        artifacts.reason = `referenced workflow run ${runId} does not match the exact PR head or merge commit`;
-        fail('artifacts', 'provenance', artifacts.reason);
-        diagnostics.counters.provenance_failures += 1;
-        continue;
+        const binding=historicalManualVerifierBinding(workflowRun,{owner,repo,pullNumber,associatedCommitShas});
+        if (binding) {
+          pendingManualBindings.set(runId,binding);
+        } else {
+          artifactIncomplete = true;
+          artifacts.reason = `referenced workflow run ${runId} does not match the exact PR head or merge commit`;
+          fail('artifacts', 'provenance', artifacts.reason);
+          diagnostics.counters.provenance_failures += 1;
+          continue;
+        }
       }
       seenRunIds.add(runId);
       runIds.push(runId);
@@ -1112,7 +1156,10 @@ async function fetchVerifierEvidence({
   }
   let inspectedArtifacts = 0;
   diagnostics.archive_inventory = [];
+  diagnostics.manual_target_bindings = [];
   for (const runId of runIds) {
+    const manualBinding=pendingManualBindings.get(runId);
+    let manualBindingValidated=false;
     if (inspectedArtifacts >= artifactLimit) {
       artifactIncomplete = true;
       fail("artifacts", "artifact_record", "global artifact record bound");
@@ -1196,6 +1243,14 @@ async function fetchVerifierEvidence({
         capture.archive_sha256 = createHash('sha256').update(archiveBuffer).digest('hex');
         capture.archive_bytes = archiveBuffer.length;
         diagnostics.counters.archive_bytes += archiveBuffer.length;
+        if (manualBinding && artifact.id===manualBinding.artifact_id) {
+          manualBindingValidated=validateHistoricalManualArtifact(manualBinding,artifact,capture.archive_sha256);
+          if (!manualBindingValidated) {
+            artifactIncomplete=true;
+            capture.reason='manual_target_binding';
+            fail('artifacts','provenance',`manual verifier run ${runId} immutable target artifact binding failed`);
+          }
+        }
         if (archiveBuffer.length > archiveBytes || diagnostics.counters.archive_bytes > totalArchiveBytes) {
           capture.reason = 'archive_byte';
           fail("artifacts", "archive_byte", `artifact ${artifact.id}`);
@@ -1232,11 +1287,19 @@ async function fetchVerifierEvidence({
           });
         }
       }
+      if (manualBindingValidated && !listing.failure) {
+        diagnostics.manual_target_bindings.push({...manualBinding,run_attempt:1,artifact_digest_verified:true});
+      }
     } catch (error) {
       artifactIncomplete = true;
       artifacts.reason = `artifact retrieval failed for run ${runId}: ${error.message}`;
       fail('artifacts', 'retrieval', artifacts.reason);
       core?.warning?.(`Verifier workflow-artifact evidence unavailable: ${error.message}`);
+    }
+    if (manualBinding && !diagnostics.manual_target_bindings.some(item=>item.run_id===runId)) {
+      artifactIncomplete=true;
+      fail('artifacts','provenance',`manual verifier run ${runId} lacks its complete authenticated target artifact binding`);
+      diagnostics.counters.provenance_failures+=1;
     }
   }
   if (artifactIncomplete) {
@@ -2122,6 +2185,8 @@ module.exports = {
     });
   },
   fetchVerifierEvidence,
+  historicalManualVerifierBinding,
+  validateHistoricalManualArtifact,
   retainCaptureBytes,
   extractArtifactArchiveText,
   formatVerifierEvidence,

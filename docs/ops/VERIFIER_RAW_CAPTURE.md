@@ -52,3 +52,42 @@ tests/tools/test_verifier_capture_obligation_manifest.py
 tests/scripts/test_pr_verifier_semantic_integration.py`. Raw-member tampering,
 missing files, omitted occurrences, duplicate archives, corrupted archives and
 cumulative overflow must fail before provider generation.
+
+
+## Reviewed historical manual-run bindings
+
+A manual verifier run's Actions `head_sha` identifies its wrapper, which can
+legitimately differ from the verified implementation head. This does not permit
+arbitrary mismatched-run evidence. Two historical first-party runs for
+`stranske/Orchestrator#631` have source-reviewed immutable bindings in
+`agents_verifier_context.js`. They require the exact repository IDs, PR/head and
+merge, completed successful run/attempt 1, main wrapper path/SHA, reusable
+producer SHA, artifact ID/name, authenticated API digest, downloaded ZIP hash,
+and artifact workflow-run metadata. Missing or altered proof leaves capture
+unavailable. All requested artifacts still pass ordinary pagination, download,
+extraction and cumulative bounds; no failed historical result is upgraded.
+
+| Run | Wrapper SHA | Actual executed Workflows SHA | Comparison artifact | SHA256 |
+| --- | --- | --- | --- | --- |
+| 38897681034 | a071ff06be16b969b50971678de75cb89d2978ab | 43096bff240b6fc5c89bb229f992a49a663fece4 | 12044188828 | 01740159fcb0216e4fb0309d082d5a48d488178e2e4c8c83288bcccabc459471 |
+| 38979663956 | 143ce07ceacae5f4d973219f1267045133825aa7 | e015a93aaa27bc613a979a0e10329a7d9f84b0ed | 12080865906 | 931ae69b2cdfc8d2ce23e0cec92943dbefc26720b58a0ceb719d36b82bd3675b |
+
+Both authentic manifests bind repository `stranske/Orchestrator`, PR631, merge
+`a898f3b7227c61b73d1abe521e141e99173f85a5` and the exact source run. Their
+context, diff-summary and full-patch hashes match their original archive members.
+Authenticated Actions logs show the actual helper checkout SHAs above, rather
+than inferring them from the mutable default branch or reusable YAML alone.
+The original implementation head is
+`aba5c4503a31f71e337e35e65d928124510bba22`.
+
+The original collector rejects run38897681034 before retrieving its archive.
+An independent replay with its authentic ZIP assertion-fails on that source;
+the corrected collector captures all seven members (597,970 raw bytes), and
+captures all seven members / 982,258 bytes of run38979663956. The committed
+negative controls reject changed target, run, attempt, repository, producer,
+artifact or digest. Neither original run invoked a provider: their incomplete
+verification remains UNKNOWN, including the diagnostic bytes in the archives.
+This narrow compatibility binding is not a general manual-run admission rule.
+A future general receipt contract must independently establish immutable
+producer and target identity; a workflow name, main branch or self-asserted
+manifest alone is insufficient.
