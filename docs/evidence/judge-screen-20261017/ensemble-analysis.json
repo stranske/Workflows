@@ -1,0 +1,2848 @@
+{
+  "schema": "workflows-judge-ensemble-analysis/v1",
+  "cases": 8,
+  "non_pass_cases": 4,
+  "judges": [
+    {
+      "judge": "agy-cli",
+      "cases": 8,
+      "correct": 4,
+      "false_pass": 2,
+      "false_fail": 2,
+      "false_pass_wilson_upper_bound": 0.85,
+      "invalid": 2,
+      "authority_blockers": [
+        "2 false PASS observed",
+        "2 invalid result(s)",
+        "false-PASS upper bound 0.85 exceeds 0.05 on 4 NON_PASS case(s); 73 are needed with zero errors"
+      ],
+      "may_hold_pass_authority": false
+    },
+    {
+      "judge": "claude-cli",
+      "cases": 8,
+      "correct": 4,
+      "false_pass": 2,
+      "false_fail": 2,
+      "false_pass_wilson_upper_bound": 0.85,
+      "invalid": 0,
+      "authority_blockers": [
+        "2 false PASS observed",
+        "false-PASS upper bound 0.85 exceeds 0.05 on 4 NON_PASS case(s); 73 are needed with zero errors"
+      ],
+      "may_hold_pass_authority": false
+    },
+    {
+      "judge": "cursor-cli",
+      "cases": 8,
+      "correct": 6,
+      "false_pass": 2,
+      "false_fail": 0,
+      "false_pass_wilson_upper_bound": 0.85,
+      "invalid": 0,
+      "authority_blockers": [
+        "2 false PASS observed",
+        "false-PASS upper bound 0.85 exceeds 0.05 on 4 NON_PASS case(s); 73 are needed with zero errors"
+      ],
+      "may_hold_pass_authority": false
+    },
+    {
+      "judge": "gpt-5.6-terra",
+      "cases": 8,
+      "correct": 6,
+      "false_pass": 0,
+      "false_fail": 2,
+      "false_pass_wilson_upper_bound": 0.4899,
+      "invalid": 0,
+      "authority_blockers": [
+        "false-PASS upper bound 0.4899 exceeds 0.05 on 4 NON_PASS case(s); 73 are needed with zero errors"
+      ],
+      "may_hold_pass_authority": false
+    },
+    {
+      "judge": "gpt-6-luna",
+      "cases": 8,
+      "correct": 5,
+      "false_pass": 1,
+      "false_fail": 2,
+      "false_pass_wilson_upper_bound": 0.6994,
+      "invalid": 0,
+      "authority_blockers": [
+        "1 false PASS observed",
+        "false-PASS upper bound 0.6994 exceeds 0.05 on 4 NON_PASS case(s); 73 are needed with zero errors"
+      ],
+      "may_hold_pass_authority": false
+    },
+    {
+      "judge": "muse-api",
+      "cases": 8,
+      "correct": 6,
+      "false_pass": 2,
+      "false_fail": 0,
+      "false_pass_wilson_upper_bound": 0.85,
+      "invalid": 0,
+      "authority_blockers": [
+        "2 false PASS observed",
+        "false-PASS upper bound 0.85 exceeds 0.05 on 4 NON_PASS case(s); 73 are needed with zero errors"
+      ],
+      "may_hold_pass_authority": false
+    },
+    {
+      "judge": "muse-cli",
+      "cases": 8,
+      "correct": 3,
+      "false_pass": 2,
+      "false_fail": 3,
+      "false_pass_wilson_upper_bound": 0.85,
+      "invalid": 1,
+      "authority_blockers": [
+        "2 false PASS observed",
+        "1 invalid result(s)",
+        "false-PASS upper bound 0.85 exceeds 0.05 on 4 NON_PASS case(s); 73 are needed with zero errors"
+      ],
+      "may_hold_pass_authority": false
+    }
+  ],
+  "pairs": [
+    {
+      "judges": [
+        "agy-cli",
+        "claude-cli"
+      ],
+      "cases": 8,
+      "agreement": 0.75,
+      "both_wrong": 3,
+      "strict_and": {
+        "cases": 8,
+        "correct": 3,
+        "false_pass": 2,
+        "false_fail": 3,
+        "false_pass_wilson_upper_bound": 0.85
+      }
+    },
+    {
+      "judges": [
+        "agy-cli",
+        "cursor-cli"
+      ],
+      "cases": 8,
+      "agreement": 0.5,
+      "both_wrong": 1,
+      "strict_and": {
+        "cases": 8,
+        "correct": 5,
+        "false_pass": 1,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.6994
+      }
+    },
+    {
+      "judges": [
+        "agy-cli",
+        "gpt-5.6-terra"
+      ],
+      "cases": 8,
+      "agreement": 0.5,
+      "both_wrong": 1,
+      "strict_and": {
+        "cases": 8,
+        "correct": 5,
+        "false_pass": 0,
+        "false_fail": 3,
+        "false_pass_wilson_upper_bound": 0.4899
+      }
+    },
+    {
+      "judges": [
+        "agy-cli",
+        "gpt-6-luna"
+      ],
+      "cases": 8,
+      "agreement": 0.625,
+      "both_wrong": 2,
+      "strict_and": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 1,
+        "false_fail": 3,
+        "false_pass_wilson_upper_bound": 0.6994
+      }
+    },
+    {
+      "judges": [
+        "agy-cli",
+        "muse-api"
+      ],
+      "cases": 8,
+      "agreement": 0.75,
+      "both_wrong": 2,
+      "strict_and": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      }
+    },
+    {
+      "judges": [
+        "agy-cli",
+        "muse-cli"
+      ],
+      "cases": 8,
+      "agreement": 0.875,
+      "both_wrong": 4,
+      "strict_and": {
+        "cases": 8,
+        "correct": 3,
+        "false_pass": 2,
+        "false_fail": 3,
+        "false_pass_wilson_upper_bound": 0.85
+      }
+    },
+    {
+      "judges": [
+        "claude-cli",
+        "cursor-cli"
+      ],
+      "cases": 8,
+      "agreement": 0.5,
+      "both_wrong": 1,
+      "strict_and": {
+        "cases": 8,
+        "correct": 5,
+        "false_pass": 1,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.6994
+      }
+    },
+    {
+      "judges": [
+        "claude-cli",
+        "gpt-5.6-terra"
+      ],
+      "cases": 8,
+      "agreement": 0.75,
+      "both_wrong": 2,
+      "strict_and": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      }
+    },
+    {
+      "judges": [
+        "claude-cli",
+        "gpt-6-luna"
+      ],
+      "cases": 8,
+      "agreement": 0.875,
+      "both_wrong": 3,
+      "strict_and": {
+        "cases": 8,
+        "correct": 5,
+        "false_pass": 1,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.6994
+      }
+    },
+    {
+      "judges": [
+        "claude-cli",
+        "muse-api"
+      ],
+      "cases": 8,
+      "agreement": 0.75,
+      "both_wrong": 2,
+      "strict_and": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      }
+    },
+    {
+      "judges": [
+        "claude-cli",
+        "muse-cli"
+      ],
+      "cases": 8,
+      "agreement": 0.875,
+      "both_wrong": 4,
+      "strict_and": {
+        "cases": 8,
+        "correct": 3,
+        "false_pass": 2,
+        "false_fail": 3,
+        "false_pass_wilson_upper_bound": 0.85
+      }
+    },
+    {
+      "judges": [
+        "cursor-cli",
+        "gpt-5.6-terra"
+      ],
+      "cases": 8,
+      "agreement": 0.5,
+      "both_wrong": 0,
+      "strict_and": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      }
+    },
+    {
+      "judges": [
+        "cursor-cli",
+        "gpt-6-luna"
+      ],
+      "cases": 8,
+      "agreement": 0.375,
+      "both_wrong": 0,
+      "strict_and": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      }
+    },
+    {
+      "judges": [
+        "cursor-cli",
+        "muse-api"
+      ],
+      "cases": 8,
+      "agreement": 0.75,
+      "both_wrong": 1,
+      "strict_and": {
+        "cases": 8,
+        "correct": 7,
+        "false_pass": 1,
+        "false_fail": 0,
+        "false_pass_wilson_upper_bound": 0.6994
+      }
+    },
+    {
+      "judges": [
+        "cursor-cli",
+        "muse-cli"
+      ],
+      "cases": 8,
+      "agreement": 0.375,
+      "both_wrong": 1,
+      "strict_and": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 1,
+        "false_fail": 3,
+        "false_pass_wilson_upper_bound": 0.6994
+      }
+    },
+    {
+      "judges": [
+        "gpt-5.6-terra",
+        "gpt-6-luna"
+      ],
+      "cases": 8,
+      "agreement": 0.875,
+      "both_wrong": 2,
+      "strict_and": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      }
+    },
+    {
+      "judges": [
+        "gpt-5.6-terra",
+        "muse-api"
+      ],
+      "cases": 8,
+      "agreement": 0.5,
+      "both_wrong": 0,
+      "strict_and": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      }
+    },
+    {
+      "judges": [
+        "gpt-5.6-terra",
+        "muse-cli"
+      ],
+      "cases": 8,
+      "agreement": 0.625,
+      "both_wrong": 2,
+      "strict_and": {
+        "cases": 8,
+        "correct": 5,
+        "false_pass": 0,
+        "false_fail": 3,
+        "false_pass_wilson_upper_bound": 0.4899
+      }
+    },
+    {
+      "judges": [
+        "gpt-6-luna",
+        "muse-api"
+      ],
+      "cases": 8,
+      "agreement": 0.625,
+      "both_wrong": 1,
+      "strict_and": {
+        "cases": 8,
+        "correct": 5,
+        "false_pass": 1,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.6994
+      }
+    },
+    {
+      "judges": [
+        "gpt-6-luna",
+        "muse-cli"
+      ],
+      "cases": 8,
+      "agreement": 0.75,
+      "both_wrong": 3,
+      "strict_and": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 1,
+        "false_fail": 3,
+        "false_pass_wilson_upper_bound": 0.6994
+      }
+    },
+    {
+      "judges": [
+        "muse-api",
+        "muse-cli"
+      ],
+      "cases": 8,
+      "agreement": 0.625,
+      "both_wrong": 2,
+      "strict_and": {
+        "cases": 8,
+        "correct": 3,
+        "false_pass": 2,
+        "false_fail": 3,
+        "false_pass_wilson_upper_bound": 0.85
+      }
+    }
+  ],
+  "tie_breaks": [
+    {
+      "pair": [
+        "agy-cli",
+        "claude-cli"
+      ],
+      "tie_breaker": "cursor-cli",
+      "cases": 8,
+      "disagreements": 2,
+      "tie_breaker_right_on_disagreements": 2,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 5,
+        "false_pass": 2,
+        "false_fail": 1,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "agy-cli",
+        "claude-cli"
+      ],
+      "tie_breaker": "gpt-5.6-terra",
+      "cases": 8,
+      "disagreements": 2,
+      "tie_breaker_right_on_disagreements": 1,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "agy-cli",
+        "claude-cli"
+      ],
+      "tie_breaker": "gpt-6-luna",
+      "cases": 8,
+      "disagreements": 2,
+      "tie_breaker_right_on_disagreements": 1,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "agy-cli",
+        "claude-cli"
+      ],
+      "tie_breaker": "muse-api",
+      "cases": 8,
+      "disagreements": 2,
+      "tie_breaker_right_on_disagreements": 2,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 5,
+        "false_pass": 2,
+        "false_fail": 1,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "agy-cli",
+        "claude-cli"
+      ],
+      "tie_breaker": "muse-cli",
+      "cases": 8,
+      "disagreements": 2,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 3,
+        "false_pass": 2,
+        "false_fail": 3,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "agy-cli",
+        "cursor-cli"
+      ],
+      "tie_breaker": "claude-cli",
+      "cases": 8,
+      "disagreements": 4,
+      "tie_breaker_right_on_disagreements": 2,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 5,
+        "false_pass": 2,
+        "false_fail": 1,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "agy-cli",
+        "cursor-cli"
+      ],
+      "tie_breaker": "gpt-5.6-terra",
+      "cases": 8,
+      "disagreements": 4,
+      "tie_breaker_right_on_disagreements": 3,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 1,
+        "false_fail": 1,
+        "false_pass_wilson_upper_bound": 0.6994
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "agy-cli",
+        "cursor-cli"
+      ],
+      "tie_breaker": "gpt-6-luna",
+      "cases": 8,
+      "disagreements": 4,
+      "tie_breaker_right_on_disagreements": 2,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 5,
+        "false_pass": 2,
+        "false_fail": 1,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "agy-cli",
+        "cursor-cli"
+      ],
+      "tie_breaker": "muse-api",
+      "cases": 8,
+      "disagreements": 4,
+      "tie_breaker_right_on_disagreements": 3,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 2,
+        "false_fail": 0,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "agy-cli",
+        "cursor-cli"
+      ],
+      "tie_breaker": "muse-cli",
+      "cases": 8,
+      "disagreements": 4,
+      "tie_breaker_right_on_disagreements": 1,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "agy-cli",
+        "gpt-5.6-terra"
+      ],
+      "tie_breaker": "claude-cli",
+      "cases": 8,
+      "disagreements": 4,
+      "tie_breaker_right_on_disagreements": 1,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "agy-cli",
+        "gpt-5.6-terra"
+      ],
+      "tie_breaker": "cursor-cli",
+      "cases": 8,
+      "disagreements": 4,
+      "tie_breaker_right_on_disagreements": 3,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 1,
+        "false_fail": 1,
+        "false_pass_wilson_upper_bound": 0.6994
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "agy-cli",
+        "gpt-5.6-terra"
+      ],
+      "tie_breaker": "gpt-6-luna",
+      "cases": 8,
+      "disagreements": 4,
+      "tie_breaker_right_on_disagreements": 2,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 5,
+        "false_pass": 1,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.6994
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "agy-cli",
+        "gpt-5.6-terra"
+      ],
+      "tie_breaker": "muse-api",
+      "cases": 8,
+      "disagreements": 4,
+      "tie_breaker_right_on_disagreements": 2,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 5,
+        "false_pass": 2,
+        "false_fail": 1,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "agy-cli",
+        "gpt-5.6-terra"
+      ],
+      "tie_breaker": "muse-cli",
+      "cases": 8,
+      "disagreements": 4,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 3,
+        "false_pass": 2,
+        "false_fail": 3,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "agy-cli",
+        "gpt-6-luna"
+      ],
+      "tie_breaker": "claude-cli",
+      "cases": 8,
+      "disagreements": 3,
+      "tie_breaker_right_on_disagreements": 1,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "agy-cli",
+        "gpt-6-luna"
+      ],
+      "tie_breaker": "cursor-cli",
+      "cases": 8,
+      "disagreements": 3,
+      "tie_breaker_right_on_disagreements": 2,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 5,
+        "false_pass": 2,
+        "false_fail": 1,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "agy-cli",
+        "gpt-6-luna"
+      ],
+      "tie_breaker": "gpt-5.6-terra",
+      "cases": 8,
+      "disagreements": 3,
+      "tie_breaker_right_on_disagreements": 2,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 5,
+        "false_pass": 1,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.6994
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "agy-cli",
+        "gpt-6-luna"
+      ],
+      "tie_breaker": "muse-api",
+      "cases": 8,
+      "disagreements": 3,
+      "tie_breaker_right_on_disagreements": 2,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 5,
+        "false_pass": 2,
+        "false_fail": 1,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "agy-cli",
+        "gpt-6-luna"
+      ],
+      "tie_breaker": "muse-cli",
+      "cases": 8,
+      "disagreements": 3,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 3,
+        "false_pass": 2,
+        "false_fail": 3,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "agy-cli",
+        "muse-api"
+      ],
+      "tie_breaker": "claude-cli",
+      "cases": 8,
+      "disagreements": 2,
+      "tie_breaker_right_on_disagreements": 1,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 5,
+        "false_pass": 2,
+        "false_fail": 1,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "agy-cli",
+        "muse-api"
+      ],
+      "tie_breaker": "cursor-cli",
+      "cases": 8,
+      "disagreements": 2,
+      "tie_breaker_right_on_disagreements": 2,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 2,
+        "false_fail": 0,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "agy-cli",
+        "muse-api"
+      ],
+      "tie_breaker": "gpt-5.6-terra",
+      "cases": 8,
+      "disagreements": 2,
+      "tie_breaker_right_on_disagreements": 1,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 5,
+        "false_pass": 2,
+        "false_fail": 1,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "agy-cli",
+        "muse-api"
+      ],
+      "tie_breaker": "gpt-6-luna",
+      "cases": 8,
+      "disagreements": 2,
+      "tie_breaker_right_on_disagreements": 1,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 5,
+        "false_pass": 2,
+        "false_fail": 1,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "agy-cli",
+        "muse-api"
+      ],
+      "tie_breaker": "muse-cli",
+      "cases": 8,
+      "disagreements": 2,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "agy-cli",
+        "muse-cli"
+      ],
+      "tie_breaker": "claude-cli",
+      "cases": 8,
+      "disagreements": 1,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 3,
+        "false_pass": 2,
+        "false_fail": 3,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "agy-cli",
+        "muse-cli"
+      ],
+      "tie_breaker": "cursor-cli",
+      "cases": 8,
+      "disagreements": 1,
+      "tie_breaker_right_on_disagreements": 1,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "agy-cli",
+        "muse-cli"
+      ],
+      "tie_breaker": "gpt-5.6-terra",
+      "cases": 8,
+      "disagreements": 1,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 3,
+        "false_pass": 2,
+        "false_fail": 3,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "agy-cli",
+        "muse-cli"
+      ],
+      "tie_breaker": "gpt-6-luna",
+      "cases": 8,
+      "disagreements": 1,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 3,
+        "false_pass": 2,
+        "false_fail": 3,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "agy-cli",
+        "muse-cli"
+      ],
+      "tie_breaker": "muse-api",
+      "cases": 8,
+      "disagreements": 1,
+      "tie_breaker_right_on_disagreements": 1,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "claude-cli",
+        "cursor-cli"
+      ],
+      "tie_breaker": "agy-cli",
+      "cases": 8,
+      "disagreements": 4,
+      "tie_breaker_right_on_disagreements": 2,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 5,
+        "false_pass": 2,
+        "false_fail": 1,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "claude-cli",
+        "cursor-cli"
+      ],
+      "tie_breaker": "gpt-5.6-terra",
+      "cases": 8,
+      "disagreements": 4,
+      "tie_breaker_right_on_disagreements": 2,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 5,
+        "false_pass": 1,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.6994
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "claude-cli",
+        "cursor-cli"
+      ],
+      "tie_breaker": "gpt-6-luna",
+      "cases": 8,
+      "disagreements": 4,
+      "tie_breaker_right_on_disagreements": 1,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "claude-cli",
+        "cursor-cli"
+      ],
+      "tie_breaker": "muse-api",
+      "cases": 8,
+      "disagreements": 4,
+      "tie_breaker_right_on_disagreements": 3,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 2,
+        "false_fail": 0,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "claude-cli",
+        "cursor-cli"
+      ],
+      "tie_breaker": "muse-cli",
+      "cases": 8,
+      "disagreements": 4,
+      "tie_breaker_right_on_disagreements": 1,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "claude-cli",
+        "gpt-5.6-terra"
+      ],
+      "tie_breaker": "agy-cli",
+      "cases": 8,
+      "disagreements": 2,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "claude-cli",
+        "gpt-5.6-terra"
+      ],
+      "tie_breaker": "cursor-cli",
+      "cases": 8,
+      "disagreements": 2,
+      "tie_breaker_right_on_disagreements": 1,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 5,
+        "false_pass": 1,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.6994
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "claude-cli",
+        "gpt-5.6-terra"
+      ],
+      "tie_breaker": "gpt-6-luna",
+      "cases": 8,
+      "disagreements": 2,
+      "tie_breaker_right_on_disagreements": 1,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 5,
+        "false_pass": 1,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.6994
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "claude-cli",
+        "gpt-5.6-terra"
+      ],
+      "tie_breaker": "muse-api",
+      "cases": 8,
+      "disagreements": 2,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "claude-cli",
+        "gpt-5.6-terra"
+      ],
+      "tie_breaker": "muse-cli",
+      "cases": 8,
+      "disagreements": 2,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "claude-cli",
+        "gpt-6-luna"
+      ],
+      "tie_breaker": "agy-cli",
+      "cases": 8,
+      "disagreements": 1,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "claude-cli",
+        "gpt-6-luna"
+      ],
+      "tie_breaker": "cursor-cli",
+      "cases": 8,
+      "disagreements": 1,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "claude-cli",
+        "gpt-6-luna"
+      ],
+      "tie_breaker": "gpt-5.6-terra",
+      "cases": 8,
+      "disagreements": 1,
+      "tie_breaker_right_on_disagreements": 1,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 5,
+        "false_pass": 1,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.6994
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "claude-cli",
+        "gpt-6-luna"
+      ],
+      "tie_breaker": "muse-api",
+      "cases": 8,
+      "disagreements": 1,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "claude-cli",
+        "gpt-6-luna"
+      ],
+      "tie_breaker": "muse-cli",
+      "cases": 8,
+      "disagreements": 1,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "claude-cli",
+        "muse-api"
+      ],
+      "tie_breaker": "agy-cli",
+      "cases": 8,
+      "disagreements": 2,
+      "tie_breaker_right_on_disagreements": 1,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 5,
+        "false_pass": 2,
+        "false_fail": 1,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "claude-cli",
+        "muse-api"
+      ],
+      "tie_breaker": "cursor-cli",
+      "cases": 8,
+      "disagreements": 2,
+      "tie_breaker_right_on_disagreements": 2,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 2,
+        "false_fail": 0,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "claude-cli",
+        "muse-api"
+      ],
+      "tie_breaker": "gpt-5.6-terra",
+      "cases": 8,
+      "disagreements": 2,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "claude-cli",
+        "muse-api"
+      ],
+      "tie_breaker": "gpt-6-luna",
+      "cases": 8,
+      "disagreements": 2,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "claude-cli",
+        "muse-api"
+      ],
+      "tie_breaker": "muse-cli",
+      "cases": 8,
+      "disagreements": 2,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "claude-cli",
+        "muse-cli"
+      ],
+      "tie_breaker": "agy-cli",
+      "cases": 8,
+      "disagreements": 1,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 3,
+        "false_pass": 2,
+        "false_fail": 3,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "claude-cli",
+        "muse-cli"
+      ],
+      "tie_breaker": "cursor-cli",
+      "cases": 8,
+      "disagreements": 1,
+      "tie_breaker_right_on_disagreements": 1,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "claude-cli",
+        "muse-cli"
+      ],
+      "tie_breaker": "gpt-5.6-terra",
+      "cases": 8,
+      "disagreements": 1,
+      "tie_breaker_right_on_disagreements": 1,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "claude-cli",
+        "muse-cli"
+      ],
+      "tie_breaker": "gpt-6-luna",
+      "cases": 8,
+      "disagreements": 1,
+      "tie_breaker_right_on_disagreements": 1,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "claude-cli",
+        "muse-cli"
+      ],
+      "tie_breaker": "muse-api",
+      "cases": 8,
+      "disagreements": 1,
+      "tie_breaker_right_on_disagreements": 1,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "cursor-cli",
+        "gpt-5.6-terra"
+      ],
+      "tie_breaker": "agy-cli",
+      "cases": 8,
+      "disagreements": 4,
+      "tie_breaker_right_on_disagreements": 2,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 1,
+        "false_fail": 1,
+        "false_pass_wilson_upper_bound": 0.6994
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "cursor-cli",
+        "gpt-5.6-terra"
+      ],
+      "tie_breaker": "claude-cli",
+      "cases": 8,
+      "disagreements": 4,
+      "tie_breaker_right_on_disagreements": 1,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 5,
+        "false_pass": 1,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.6994
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "cursor-cli",
+        "gpt-5.6-terra"
+      ],
+      "tie_breaker": "gpt-6-luna",
+      "cases": 8,
+      "disagreements": 4,
+      "tie_breaker_right_on_disagreements": 2,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "cursor-cli",
+        "gpt-5.6-terra"
+      ],
+      "tie_breaker": "muse-api",
+      "cases": 8,
+      "disagreements": 4,
+      "tie_breaker_right_on_disagreements": 3,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 7,
+        "false_pass": 1,
+        "false_fail": 0,
+        "false_pass_wilson_upper_bound": 0.6994
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "cursor-cli",
+        "gpt-5.6-terra"
+      ],
+      "tie_breaker": "muse-cli",
+      "cases": 8,
+      "disagreements": 4,
+      "tie_breaker_right_on_disagreements": 1,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 5,
+        "false_pass": 1,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.6994
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "cursor-cli",
+        "gpt-6-luna"
+      ],
+      "tie_breaker": "agy-cli",
+      "cases": 8,
+      "disagreements": 5,
+      "tie_breaker_right_on_disagreements": 2,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 5,
+        "false_pass": 2,
+        "false_fail": 1,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": true
+    },
+    {
+      "pair": [
+        "cursor-cli",
+        "gpt-6-luna"
+      ],
+      "tie_breaker": "claude-cli",
+      "cases": 8,
+      "disagreements": 5,
+      "tie_breaker_right_on_disagreements": 1,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": true
+    },
+    {
+      "pair": [
+        "cursor-cli",
+        "gpt-6-luna"
+      ],
+      "tie_breaker": "gpt-5.6-terra",
+      "cases": 8,
+      "disagreements": 5,
+      "tie_breaker_right_on_disagreements": 3,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": true
+    },
+    {
+      "pair": [
+        "cursor-cli",
+        "gpt-6-luna"
+      ],
+      "tie_breaker": "muse-api",
+      "cases": 8,
+      "disagreements": 5,
+      "tie_breaker_right_on_disagreements": 3,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 2,
+        "false_fail": 0,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": true
+    },
+    {
+      "pair": [
+        "cursor-cli",
+        "gpt-6-luna"
+      ],
+      "tie_breaker": "muse-cli",
+      "cases": 8,
+      "disagreements": 5,
+      "tie_breaker_right_on_disagreements": 1,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": true
+    },
+    {
+      "pair": [
+        "cursor-cli",
+        "muse-api"
+      ],
+      "tie_breaker": "agy-cli",
+      "cases": 8,
+      "disagreements": 2,
+      "tie_breaker_right_on_disagreements": 1,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 2,
+        "false_fail": 0,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "cursor-cli",
+        "muse-api"
+      ],
+      "tie_breaker": "claude-cli",
+      "cases": 8,
+      "disagreements": 2,
+      "tie_breaker_right_on_disagreements": 1,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 2,
+        "false_fail": 0,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "cursor-cli",
+        "muse-api"
+      ],
+      "tie_breaker": "gpt-5.6-terra",
+      "cases": 8,
+      "disagreements": 2,
+      "tie_breaker_right_on_disagreements": 2,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 7,
+        "false_pass": 1,
+        "false_fail": 0,
+        "false_pass_wilson_upper_bound": 0.6994
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "cursor-cli",
+        "muse-api"
+      ],
+      "tie_breaker": "gpt-6-luna",
+      "cases": 8,
+      "disagreements": 2,
+      "tie_breaker_right_on_disagreements": 1,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 2,
+        "false_fail": 0,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "cursor-cli",
+        "muse-api"
+      ],
+      "tie_breaker": "muse-cli",
+      "cases": 8,
+      "disagreements": 2,
+      "tie_breaker_right_on_disagreements": 1,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 2,
+        "false_fail": 0,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "cursor-cli",
+        "muse-cli"
+      ],
+      "tie_breaker": "agy-cli",
+      "cases": 8,
+      "disagreements": 5,
+      "tie_breaker_right_on_disagreements": 2,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": true
+    },
+    {
+      "pair": [
+        "cursor-cli",
+        "muse-cli"
+      ],
+      "tie_breaker": "claude-cli",
+      "cases": 8,
+      "disagreements": 5,
+      "tie_breaker_right_on_disagreements": 2,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": true
+    },
+    {
+      "pair": [
+        "cursor-cli",
+        "muse-cli"
+      ],
+      "tie_breaker": "gpt-5.6-terra",
+      "cases": 8,
+      "disagreements": 5,
+      "tie_breaker_right_on_disagreements": 3,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 5,
+        "false_pass": 1,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.6994
+      },
+      "estimable": true
+    },
+    {
+      "pair": [
+        "cursor-cli",
+        "muse-cli"
+      ],
+      "tie_breaker": "gpt-6-luna",
+      "cases": 8,
+      "disagreements": 5,
+      "tie_breaker_right_on_disagreements": 2,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": true
+    },
+    {
+      "pair": [
+        "cursor-cli",
+        "muse-cli"
+      ],
+      "tie_breaker": "muse-api",
+      "cases": 8,
+      "disagreements": 5,
+      "tie_breaker_right_on_disagreements": 4,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 2,
+        "false_fail": 0,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": true
+    },
+    {
+      "pair": [
+        "gpt-5.6-terra",
+        "gpt-6-luna"
+      ],
+      "tie_breaker": "agy-cli",
+      "cases": 8,
+      "disagreements": 1,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 5,
+        "false_pass": 1,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.6994
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "gpt-5.6-terra",
+        "gpt-6-luna"
+      ],
+      "tie_breaker": "claude-cli",
+      "cases": 8,
+      "disagreements": 1,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 5,
+        "false_pass": 1,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.6994
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "gpt-5.6-terra",
+        "gpt-6-luna"
+      ],
+      "tie_breaker": "cursor-cli",
+      "cases": 8,
+      "disagreements": 1,
+      "tie_breaker_right_on_disagreements": 1,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "gpt-5.6-terra",
+        "gpt-6-luna"
+      ],
+      "tie_breaker": "muse-api",
+      "cases": 8,
+      "disagreements": 1,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 5,
+        "false_pass": 1,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.6994
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "gpt-5.6-terra",
+        "gpt-6-luna"
+      ],
+      "tie_breaker": "muse-cli",
+      "cases": 8,
+      "disagreements": 1,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 5,
+        "false_pass": 1,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.6994
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "gpt-5.6-terra",
+        "muse-api"
+      ],
+      "tie_breaker": "agy-cli",
+      "cases": 8,
+      "disagreements": 4,
+      "tie_breaker_right_on_disagreements": 1,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 5,
+        "false_pass": 2,
+        "false_fail": 1,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "gpt-5.6-terra",
+        "muse-api"
+      ],
+      "tie_breaker": "claude-cli",
+      "cases": 8,
+      "disagreements": 4,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "gpt-5.6-terra",
+        "muse-api"
+      ],
+      "tie_breaker": "cursor-cli",
+      "cases": 8,
+      "disagreements": 4,
+      "tie_breaker_right_on_disagreements": 3,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 7,
+        "false_pass": 1,
+        "false_fail": 0,
+        "false_pass_wilson_upper_bound": 0.6994
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "gpt-5.6-terra",
+        "muse-api"
+      ],
+      "tie_breaker": "gpt-6-luna",
+      "cases": 8,
+      "disagreements": 4,
+      "tie_breaker_right_on_disagreements": 1,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 5,
+        "false_pass": 1,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.6994
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "gpt-5.6-terra",
+        "muse-api"
+      ],
+      "tie_breaker": "muse-cli",
+      "cases": 8,
+      "disagreements": 4,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "gpt-5.6-terra",
+        "muse-cli"
+      ],
+      "tie_breaker": "agy-cli",
+      "cases": 8,
+      "disagreements": 3,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 3,
+        "false_pass": 2,
+        "false_fail": 3,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "gpt-5.6-terra",
+        "muse-cli"
+      ],
+      "tie_breaker": "claude-cli",
+      "cases": 8,
+      "disagreements": 3,
+      "tie_breaker_right_on_disagreements": 1,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "gpt-5.6-terra",
+        "muse-cli"
+      ],
+      "tie_breaker": "cursor-cli",
+      "cases": 8,
+      "disagreements": 3,
+      "tie_breaker_right_on_disagreements": 2,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 5,
+        "false_pass": 1,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.6994
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "gpt-5.6-terra",
+        "muse-cli"
+      ],
+      "tie_breaker": "gpt-6-luna",
+      "cases": 8,
+      "disagreements": 3,
+      "tie_breaker_right_on_disagreements": 2,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 5,
+        "false_pass": 1,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.6994
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "gpt-5.6-terra",
+        "muse-cli"
+      ],
+      "tie_breaker": "muse-api",
+      "cases": 8,
+      "disagreements": 3,
+      "tie_breaker_right_on_disagreements": 1,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "gpt-6-luna",
+        "muse-api"
+      ],
+      "tie_breaker": "agy-cli",
+      "cases": 8,
+      "disagreements": 3,
+      "tie_breaker_right_on_disagreements": 1,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 5,
+        "false_pass": 2,
+        "false_fail": 1,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "gpt-6-luna",
+        "muse-api"
+      ],
+      "tie_breaker": "claude-cli",
+      "cases": 8,
+      "disagreements": 3,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "gpt-6-luna",
+        "muse-api"
+      ],
+      "tie_breaker": "cursor-cli",
+      "cases": 8,
+      "disagreements": 3,
+      "tie_breaker_right_on_disagreements": 2,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 2,
+        "false_fail": 0,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "gpt-6-luna",
+        "muse-api"
+      ],
+      "tie_breaker": "gpt-5.6-terra",
+      "cases": 8,
+      "disagreements": 3,
+      "tie_breaker_right_on_disagreements": 1,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 5,
+        "false_pass": 1,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.6994
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "gpt-6-luna",
+        "muse-api"
+      ],
+      "tie_breaker": "muse-cli",
+      "cases": 8,
+      "disagreements": 3,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "gpt-6-luna",
+        "muse-cli"
+      ],
+      "tie_breaker": "agy-cli",
+      "cases": 8,
+      "disagreements": 2,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 3,
+        "false_pass": 2,
+        "false_fail": 3,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "gpt-6-luna",
+        "muse-cli"
+      ],
+      "tie_breaker": "claude-cli",
+      "cases": 8,
+      "disagreements": 2,
+      "tie_breaker_right_on_disagreements": 1,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "gpt-6-luna",
+        "muse-cli"
+      ],
+      "tie_breaker": "cursor-cli",
+      "cases": 8,
+      "disagreements": 2,
+      "tie_breaker_right_on_disagreements": 1,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "gpt-6-luna",
+        "muse-cli"
+      ],
+      "tie_breaker": "gpt-5.6-terra",
+      "cases": 8,
+      "disagreements": 2,
+      "tie_breaker_right_on_disagreements": 2,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 5,
+        "false_pass": 1,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.6994
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "gpt-6-luna",
+        "muse-cli"
+      ],
+      "tie_breaker": "muse-api",
+      "cases": 8,
+      "disagreements": 2,
+      "tie_breaker_right_on_disagreements": 1,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "muse-api",
+        "muse-cli"
+      ],
+      "tie_breaker": "agy-cli",
+      "cases": 8,
+      "disagreements": 3,
+      "tie_breaker_right_on_disagreements": 1,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "muse-api",
+        "muse-cli"
+      ],
+      "tie_breaker": "claude-cli",
+      "cases": 8,
+      "disagreements": 3,
+      "tie_breaker_right_on_disagreements": 1,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "muse-api",
+        "muse-cli"
+      ],
+      "tie_breaker": "cursor-cli",
+      "cases": 8,
+      "disagreements": 3,
+      "tie_breaker_right_on_disagreements": 3,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 2,
+        "false_fail": 0,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "muse-api",
+        "muse-cli"
+      ],
+      "tie_breaker": "gpt-5.6-terra",
+      "cases": 8,
+      "disagreements": 3,
+      "tie_breaker_right_on_disagreements": 1,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "muse-api",
+        "muse-cli"
+      ],
+      "tie_breaker": "gpt-6-luna",
+      "cases": 8,
+      "disagreements": 3,
+      "tie_breaker_right_on_disagreements": 1,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    }
+  ],
+  "failovers": [
+    {
+      "unavailable": "agy-cli",
+      "backup": "claude-cli",
+      "backup_alone": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "backup_may_hold_pass_authority": false
+    },
+    {
+      "unavailable": "agy-cli",
+      "backup": "cursor-cli",
+      "backup_alone": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 2,
+        "false_fail": 0,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "backup_may_hold_pass_authority": false
+    },
+    {
+      "unavailable": "agy-cli",
+      "backup": "gpt-5.6-terra",
+      "backup_alone": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "backup_may_hold_pass_authority": false
+    },
+    {
+      "unavailable": "agy-cli",
+      "backup": "gpt-6-luna",
+      "backup_alone": {
+        "cases": 8,
+        "correct": 5,
+        "false_pass": 1,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.6994
+      },
+      "backup_may_hold_pass_authority": false
+    },
+    {
+      "unavailable": "agy-cli",
+      "backup": "muse-api",
+      "backup_alone": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 2,
+        "false_fail": 0,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "backup_may_hold_pass_authority": false
+    },
+    {
+      "unavailable": "agy-cli",
+      "backup": "muse-cli",
+      "backup_alone": {
+        "cases": 8,
+        "correct": 3,
+        "false_pass": 2,
+        "false_fail": 3,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "backup_may_hold_pass_authority": false
+    },
+    {
+      "unavailable": "claude-cli",
+      "backup": "agy-cli",
+      "backup_alone": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "backup_may_hold_pass_authority": false
+    },
+    {
+      "unavailable": "claude-cli",
+      "backup": "cursor-cli",
+      "backup_alone": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 2,
+        "false_fail": 0,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "backup_may_hold_pass_authority": false
+    },
+    {
+      "unavailable": "claude-cli",
+      "backup": "gpt-5.6-terra",
+      "backup_alone": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "backup_may_hold_pass_authority": false
+    },
+    {
+      "unavailable": "claude-cli",
+      "backup": "gpt-6-luna",
+      "backup_alone": {
+        "cases": 8,
+        "correct": 5,
+        "false_pass": 1,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.6994
+      },
+      "backup_may_hold_pass_authority": false
+    },
+    {
+      "unavailable": "claude-cli",
+      "backup": "muse-api",
+      "backup_alone": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 2,
+        "false_fail": 0,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "backup_may_hold_pass_authority": false
+    },
+    {
+      "unavailable": "claude-cli",
+      "backup": "muse-cli",
+      "backup_alone": {
+        "cases": 8,
+        "correct": 3,
+        "false_pass": 2,
+        "false_fail": 3,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "backup_may_hold_pass_authority": false
+    },
+    {
+      "unavailable": "cursor-cli",
+      "backup": "agy-cli",
+      "backup_alone": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "backup_may_hold_pass_authority": false
+    },
+    {
+      "unavailable": "cursor-cli",
+      "backup": "claude-cli",
+      "backup_alone": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "backup_may_hold_pass_authority": false
+    },
+    {
+      "unavailable": "cursor-cli",
+      "backup": "gpt-5.6-terra",
+      "backup_alone": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "backup_may_hold_pass_authority": false
+    },
+    {
+      "unavailable": "cursor-cli",
+      "backup": "gpt-6-luna",
+      "backup_alone": {
+        "cases": 8,
+        "correct": 5,
+        "false_pass": 1,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.6994
+      },
+      "backup_may_hold_pass_authority": false
+    },
+    {
+      "unavailable": "cursor-cli",
+      "backup": "muse-api",
+      "backup_alone": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 2,
+        "false_fail": 0,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "backup_may_hold_pass_authority": false
+    },
+    {
+      "unavailable": "cursor-cli",
+      "backup": "muse-cli",
+      "backup_alone": {
+        "cases": 8,
+        "correct": 3,
+        "false_pass": 2,
+        "false_fail": 3,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "backup_may_hold_pass_authority": false
+    },
+    {
+      "unavailable": "gpt-5.6-terra",
+      "backup": "agy-cli",
+      "backup_alone": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "backup_may_hold_pass_authority": false
+    },
+    {
+      "unavailable": "gpt-5.6-terra",
+      "backup": "claude-cli",
+      "backup_alone": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "backup_may_hold_pass_authority": false
+    },
+    {
+      "unavailable": "gpt-5.6-terra",
+      "backup": "cursor-cli",
+      "backup_alone": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 2,
+        "false_fail": 0,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "backup_may_hold_pass_authority": false
+    },
+    {
+      "unavailable": "gpt-5.6-terra",
+      "backup": "gpt-6-luna",
+      "backup_alone": {
+        "cases": 8,
+        "correct": 5,
+        "false_pass": 1,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.6994
+      },
+      "backup_may_hold_pass_authority": false
+    },
+    {
+      "unavailable": "gpt-5.6-terra",
+      "backup": "muse-api",
+      "backup_alone": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 2,
+        "false_fail": 0,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "backup_may_hold_pass_authority": false
+    },
+    {
+      "unavailable": "gpt-5.6-terra",
+      "backup": "muse-cli",
+      "backup_alone": {
+        "cases": 8,
+        "correct": 3,
+        "false_pass": 2,
+        "false_fail": 3,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "backup_may_hold_pass_authority": false
+    },
+    {
+      "unavailable": "gpt-6-luna",
+      "backup": "agy-cli",
+      "backup_alone": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "backup_may_hold_pass_authority": false
+    },
+    {
+      "unavailable": "gpt-6-luna",
+      "backup": "claude-cli",
+      "backup_alone": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "backup_may_hold_pass_authority": false
+    },
+    {
+      "unavailable": "gpt-6-luna",
+      "backup": "cursor-cli",
+      "backup_alone": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 2,
+        "false_fail": 0,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "backup_may_hold_pass_authority": false
+    },
+    {
+      "unavailable": "gpt-6-luna",
+      "backup": "gpt-5.6-terra",
+      "backup_alone": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "backup_may_hold_pass_authority": false
+    },
+    {
+      "unavailable": "gpt-6-luna",
+      "backup": "muse-api",
+      "backup_alone": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 2,
+        "false_fail": 0,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "backup_may_hold_pass_authority": false
+    },
+    {
+      "unavailable": "gpt-6-luna",
+      "backup": "muse-cli",
+      "backup_alone": {
+        "cases": 8,
+        "correct": 3,
+        "false_pass": 2,
+        "false_fail": 3,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "backup_may_hold_pass_authority": false
+    },
+    {
+      "unavailable": "muse-api",
+      "backup": "agy-cli",
+      "backup_alone": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "backup_may_hold_pass_authority": false
+    },
+    {
+      "unavailable": "muse-api",
+      "backup": "claude-cli",
+      "backup_alone": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "backup_may_hold_pass_authority": false
+    },
+    {
+      "unavailable": "muse-api",
+      "backup": "cursor-cli",
+      "backup_alone": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 2,
+        "false_fail": 0,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "backup_may_hold_pass_authority": false
+    },
+    {
+      "unavailable": "muse-api",
+      "backup": "gpt-5.6-terra",
+      "backup_alone": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "backup_may_hold_pass_authority": false
+    },
+    {
+      "unavailable": "muse-api",
+      "backup": "gpt-6-luna",
+      "backup_alone": {
+        "cases": 8,
+        "correct": 5,
+        "false_pass": 1,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.6994
+      },
+      "backup_may_hold_pass_authority": false
+    },
+    {
+      "unavailable": "muse-api",
+      "backup": "muse-cli",
+      "backup_alone": {
+        "cases": 8,
+        "correct": 3,
+        "false_pass": 2,
+        "false_fail": 3,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "backup_may_hold_pass_authority": false
+    },
+    {
+      "unavailable": "muse-cli",
+      "backup": "agy-cli",
+      "backup_alone": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "backup_may_hold_pass_authority": false
+    },
+    {
+      "unavailable": "muse-cli",
+      "backup": "claude-cli",
+      "backup_alone": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "backup_may_hold_pass_authority": false
+    },
+    {
+      "unavailable": "muse-cli",
+      "backup": "cursor-cli",
+      "backup_alone": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 2,
+        "false_fail": 0,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "backup_may_hold_pass_authority": false
+    },
+    {
+      "unavailable": "muse-cli",
+      "backup": "gpt-5.6-terra",
+      "backup_alone": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "backup_may_hold_pass_authority": false
+    },
+    {
+      "unavailable": "muse-cli",
+      "backup": "gpt-6-luna",
+      "backup_alone": {
+        "cases": 8,
+        "correct": 5,
+        "false_pass": 1,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.6994
+      },
+      "backup_may_hold_pass_authority": false
+    },
+    {
+      "unavailable": "muse-cli",
+      "backup": "muse-api",
+      "backup_alone": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 2,
+        "false_fail": 0,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "backup_may_hold_pass_authority": false
+    }
+  ],
+  "recommendation": {
+    "tie_break": "not enabled: 0 of the judges meet the PASS-authority gates (three are needed so that every vote carries authority)",
+    "failover": "not enabled: 0 judge(s) meet the PASS-authority gates; a backup must earn the same authority as the judge it replaces",
+    "sample_note": "4 NON_PASS case(s) observed; 73 are needed with zero false PASS to bound the false-PASS rate at 0.05. Small-sample results cannot enable either option."
+  },
+  "enables_anything": false
+}
