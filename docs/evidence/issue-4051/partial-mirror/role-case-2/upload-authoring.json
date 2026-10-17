@@ -1,0 +1,49 @@
+{
+  "state": "role-authored",
+  "directory": "/tmp/repo-review-uploader-proof/test_three_item_authoring_keep2/evidence/batch-f2q6rqoc",
+  "items": [
+    {
+      "target": "owner/repo#review-cde6d5011419",
+      "used_role": true,
+      "errors": [],
+      "trigger": {
+        "exit": 0,
+        "deliverable": "owner/repo#101",
+        "stdout": "{}",
+        "stderr": ""
+      }
+    },
+    {
+      "target": "owner/repo#review-3e4cf7056911",
+      "used_role": false,
+      "errors": [
+        "missing required section ## Why",
+        "missing required section ## Scope",
+        "missing required section ## Non-Goals",
+        "missing required section ## Tasks",
+        "missing required section ## Acceptance Criteria",
+        "missing required section ## Implementation Notes",
+        "fewer than 4 task checkboxes",
+        "fewer than 3 acceptance-criteria checkboxes",
+        "role body changed approved content; retain the approved scope and evidence verbatim",
+        "missing section: Tasks",
+        "missing section: Acceptance Criteria"
+      ]
+    },
+    {
+      "target": "owner/repo#review-b9c56bc2284d",
+      "used_role": true,
+      "errors": [],
+      "trigger": {
+        "exit": 0,
+        "deliverable": "owner/repo#103",
+        "stdout": "{}",
+        "stderr": ""
+      }
+    }
+  ],
+  "experiment_id": "advice:test",
+  "offered": true,
+  "role_exit": 1,
+  "role_manifest": "/tmp/repo-review-uploader-proof/test_three_item_authoring_keep2/evidence/batch-f2q6rqoc/role/manifest.json"
+}

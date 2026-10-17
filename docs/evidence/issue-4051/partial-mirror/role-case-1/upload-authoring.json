@@ -1,0 +1,39 @@
+{
+  "state": "role-authored",
+  "directory": "/tmp/repo-review-uploader-proof/test_three_item_authoring_keep1/evidence/batch-c2vil7z6",
+  "items": [
+    {
+      "target": "owner/repo#review-cde6d5011419",
+      "used_role": true,
+      "errors": [],
+      "trigger": {
+        "exit": 0,
+        "deliverable": "owner/repo#101",
+        "stdout": "{}",
+        "stderr": ""
+      }
+    },
+    {
+      "target": "owner/repo#review-3e4cf7056911",
+      "used_role": false,
+      "errors": [
+        "body validation failed"
+      ]
+    },
+    {
+      "target": "owner/repo#review-b9c56bc2284d",
+      "used_role": true,
+      "errors": [],
+      "trigger": {
+        "exit": 0,
+        "deliverable": "owner/repo#103",
+        "stdout": "{}",
+        "stderr": ""
+      }
+    }
+  ],
+  "experiment_id": "advice:test",
+  "offered": true,
+  "role_exit": 1,
+  "role_manifest": "/tmp/repo-review-uploader-proof/test_three_item_authoring_keep1/evidence/batch-c2vil7z6/role/manifest.json"
+}

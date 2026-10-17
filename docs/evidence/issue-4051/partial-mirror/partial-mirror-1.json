@@ -1,0 +1,37 @@
+{
+  "state": "baseline",
+  "directory": "/tmp/repo-review-uploader-proof/test_partial_mirror_still_cons1/evidence/batch-05n2pf4p",
+  "items": [
+    {
+      "target": "owner/repo#review-cde6d5011419",
+      "used_role": false,
+      "errors": [
+        "no valid role body"
+      ]
+    },
+    {
+      "target": "owner/repo#review-3e4cf7056911",
+      "used_role": false,
+      "errors": [
+        "no valid role body"
+      ]
+    },
+    {
+      "target": "owner/repo#review-b9c56bc2284d",
+      "used_role": false,
+      "errors": [
+        "no valid role body"
+      ]
+    }
+  ],
+  "experiment_id": "advice:test",
+  "offered": true,
+  "missing_tools": [
+    "capability_propensity.py"
+  ],
+  "decline": {
+    "exit": 1,
+    "kind": "precondition_unmet",
+    "reason": "Optional prompt-role tools unavailable: capability_propensity.py"
+  }
+}

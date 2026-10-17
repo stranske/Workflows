@@ -1,0 +1,101 @@
+{
+  "schema": "workflows-agy-judge-replay/v1",
+  "backend": "agy",
+  "summary": {
+    "experiments": 8,
+    "usable": 8,
+    "candidate_mae_mean": 1.479,
+    "real_judges_mae_mean": 1.337,
+    "candidate_rank_corr_mean": 0.838
+  },
+  "rows": [
+    {
+      "experiment": "tick-1782906017-stranske-workflows-2710",
+      "usable": true,
+      "members_scored": 3,
+      "candidate_mae": 0.8333333333333334,
+      "candidate_rank_corr": 1.0,
+      "real_judges_mae_mean": 1.1666666666666665,
+      "real_judges": 4,
+      "tokens_in": 69544,
+      "tokens_out": 225
+    },
+    {
+      "experiment": "tick-1782891618-stranske-manager-database-1283",
+      "usable": true,
+      "members_scored": 3,
+      "candidate_mae": 0.43333333333333357,
+      "candidate_rank_corr": 0.8660254037844387,
+      "real_judges_mae_mean": 1.0166666666666666,
+      "real_judges": 4,
+      "tokens_in": 15814,
+      "tokens_out": 782
+    },
+    {
+      "experiment": "tick-1783118421-stranske-workflows-2710",
+      "usable": true,
+      "members_scored": 3,
+      "candidate_mae": 0.8416666666666668,
+      "candidate_rank_corr": 1.0,
+      "real_judges_mae_mean": 1.2555555555555555,
+      "real_judges": 4,
+      "tokens_in": 69056,
+      "tokens_out": 1501
+    },
+    {
+      "experiment": "tick-1782992421-stranske-manager-database-1278",
+      "usable": true,
+      "members_scored": 3,
+      "candidate_mae": 1.1666666666666667,
+      "candidate_rank_corr": 0.5,
+      "real_judges_mae_mean": 1.7777777777777777,
+      "real_judges": 4,
+      "tokens_in": 25460,
+      "tokens_out": 1178
+    },
+    {
+      "experiment": "tick-1783604432-stranske-manager-database-1279",
+      "usable": true,
+      "members_scored": 3,
+      "candidate_mae": 4.1000000000000005,
+      "candidate_rank_corr": 0.5,
+      "real_judges_mae_mean": 1.2333333333333334,
+      "real_judges": 5,
+      "tokens_in": 16175,
+      "tokens_out": 967
+    },
+    {
+      "experiment": "tick-1782996020-stranske-manager-database-1278",
+      "usable": true,
+      "members_scored": 3,
+      "candidate_mae": 0.2166666666666671,
+      "candidate_rank_corr": 1.0,
+      "real_judges_mae_mean": 0.9666666666666669,
+      "real_judges": 4,
+      "tokens_in": 20177,
+      "tokens_out": 914
+    },
+    {
+      "experiment": "tick-1782709571-stranske-manager-database-1283",
+      "usable": true,
+      "members_scored": 3,
+      "candidate_mae": 0.4083333333333335,
+      "candidate_rank_corr": 1.0,
+      "real_judges_mae_mean": 0.9444444444444442,
+      "real_judges": 4,
+      "tokens_in": 15794,
+      "tokens_out": 949
+    },
+    {
+      "experiment": "tick-1783402818-stranske-manager-database-1279",
+      "usable": true,
+      "members_scored": 2,
+      "candidate_mae": 3.833333333333333,
+      "candidate_rank_corr": null,
+      "real_judges_mae_mean": 2.3333333333333335,
+      "real_judges": 3,
+      "tokens_in": 15104,
+      "tokens_out": 1069
+    }
+  ]
+}

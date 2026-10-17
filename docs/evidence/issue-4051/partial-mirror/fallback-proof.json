@@ -1,0 +1,27 @@
+{
+  "command": [
+    "/opt/hostedtoolcache/Python/3.14.8/x64/bin/python",
+    "-m",
+    "pytest",
+    "tests/scripts/test_upload_repo_review_issues.py",
+    "-q",
+    "-m",
+    "not slow",
+    "-k",
+    "three_item_authoring_keeps_per_item_fallback"
+  ],
+  "restored_command": [
+    "/opt/hostedtoolcache/Python/3.14.8/x64/bin/python",
+    "-m",
+    "pytest",
+    "tests/scripts/test_upload_repo_review_issues.py",
+    "-q",
+    "-m",
+    "not slow"
+  ],
+  "mutation": "Remove the approved per-item fallback by replacing it with an empty body.",
+  "red_exit": 1,
+  "green_exit": 0,
+  "restored_identically": true,
+  "source_sha256": "0c02daae047327a5d41e266d101ee257ef334fff6025af3061592635ca1d0e01"
+}
