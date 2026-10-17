@@ -380,7 +380,7 @@ def test_artifact_failure_collection_handles_invalid_files_and_all_failure_outco
     root = tmp_path / "artifacts"
     downloads = root / "downloads"
     downloads.mkdir(parents=True)
-    (downloads / "bad-summary.json").write_text("{", encoding="utf-8")
+    (downloads / "summary.json").write_text("{", encoding="utf-8")
     records = [
         {
             "checks": {
