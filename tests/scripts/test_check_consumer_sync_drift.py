@@ -1252,10 +1252,16 @@ def test_drift_summary_renders_actionable_nested_report_data(tmp_path: Path) -> 
     check_consumer_sync_drift.write_summary_markdown(str(report_path), report)
     rendered = report_path.read_text(encoding="utf-8")
     assert "### Repo summary" in rendered
+    assert (
+        "- owner/a: drift=12, missing=0, errors=0, obsolete=0, unmeasured_create_only=0" in rendered
+    )
     assert "### Highest-impact repos" in rendered
+    assert "- owner/a: total=12, drift=12, missing=0, errors=0, obsolete=0" in rendered
     assert "### Path prefixes" in rendered
+    assert "- drift: scripts=12" in rendered
     assert "### Follow-up commands" in rendered
     assert "### Open sync PRs" in rendered
+    assert "bad" not in rendered
     assert "... 1 more in consumer-sync-drift-report.json" in rendered
     assert "... 2 more in consumer-sync-drift-report.json" in rendered
     check_consumer_sync_drift.write_report_json("", report)
