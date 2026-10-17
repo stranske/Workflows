@@ -85,6 +85,12 @@ def test_registry_selects_fallback_without_credentials(monkeypatch):
     assert selection.provider.is_fallback() is True
 
 
+def test_registry_returns_none_when_all_providers_are_ineligible():
+    registry = embedding_provider.EmbeddingProviderRegistry()
+
+    assert registry.select(embedding_provider.EmbeddingSelectionCriteria()) is None
+
+
 def test_provider_capabilities_are_immutable_and_fallback_hash_uses_sha256():
     assert embedding_provider.EmbeddingProvider.capabilities == frozenset()
     assert embedding_provider.OpenAIEmbeddingProvider.capabilities == frozenset({"embeddings"})
