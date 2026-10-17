@@ -172,7 +172,7 @@ Known by-design exclusions (do not "fix" these when comparing against Codex and 
 
 **Independent verification is not an exclusion.** The keepalive loop never runs a verification step on the
 implementing agent (`resolveIndependentVerifier` in `keepalive_loop.js`, Workflows#4041). Resolution order is the
-  repository's `verifier_agent`, the agent's registry `independent_verifier`, the historical Codex ⇄
+repository's `verifier_agent`, the agent's registry `independent_verifier`, the historical Codex ⇄
 Claude pair, then the first other keepalive-capable agent whose runner job exists and whose
 credentials are present. Give a new agent an `independent_verifier` in the registry; an alternate
 without credentials is never chosen.
