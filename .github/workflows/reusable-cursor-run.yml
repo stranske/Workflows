@@ -61,6 +61,11 @@ on:
         required: false
         default: true
         type: boolean
+      cursor_cli_version:
+        description: 'Pinned Cursor Agent archive release.'
+        required: false
+        default: '2026.10.16-e3cb207'
+        type: string
       cursor_cli_args:
         description: 'Optional additional cursor-agent CLI arguments (string).'
         required: false
@@ -246,6 +251,8 @@ jobs:
       error-category: ${{ steps.classify_failure.outputs.error_category }}
       error-type: ${{ steps.classify_failure.outputs.error_type }}
       error-recovery: ${{ steps.classify_failure.outputs.error_recovery }}
+    env:
+      CURSOR_CLI_VERSION: ${{ inputs.cursor_cli_version || '2026.10.16-e3cb207' }}
     steps:
       - name: Mint GitHub App token (preferred)
         id: app_token
@@ -300,6 +307,15 @@ jobs:
 
       # Align infrastructure prep with Codex runner so both agents share
       # the same token load balancer, scripts checkout, and tooling deps.
+      # Cache installed modules, not npm's download cache; setup-api-client
+      # still validates/restores its dependency and token-export contract.
+      - name: Cache workspace Octokit dependencies
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: .github/scripts/node_modules
+          key: >-
+            ${{ runner.os }}-${{ runner.arch }}-node24-workspace-octokit-${{ hashFiles('.github/scripts/package-lock.json', '.github/actions/setup-api-client/action.yml') }}
+
       - name: Setup API client
         uses: ./.github/actions/setup-api-client
         with:
@@ -323,6 +339,13 @@ jobs:
       # Ensure Workflows deps BEFORE calling setup-api-client for .workflows-lib.
       # setup-api-client invokes create_vendor_aliases.js + npm and will fail
       # with ENOENT exit 254 if it runs first against a blobless-clone ghost dir.
+      - name: Cache Workflows Octokit dependencies
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: .workflows-lib/.github/scripts/node_modules
+          key: >-
+            ${{ runner.os }}-${{ runner.arch }}-node24-workflows-octokit-${{ hashFiles('.workflows-lib/.github/scripts/package-lock.json', '.workflows-lib/.github/actions/setup-api-client/action.yml') }}
+
       - name: Ensure Workflows script deps
         run: |
           set -euo pipefail
@@ -768,6 +791,16 @@ jobs:
             echo "No merge conflicts - merge succeeded automatically"
           fi
 
+      - name: Expose cached Cursor CLI
+        run: echo "${{ runner.temp }}/agent-cli/cursor" >> "$GITHUB_PATH"
+
+      - name: Cache Cursor CLI
+        id: cursor_cli_cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: ${{ runner.temp }}/agent-cli/cursor
+          key: ${{ runner.os }}-${{ runner.arch }}-cursor-cli-${{ env.CURSOR_CLI_VERSION }}
+
       - name: Preflight auth
         id: preflight
         env:
@@ -807,14 +840,19 @@ jobs:
             exit 0
           fi
 
-          echo "Cursor CLI not found; installing via cursor.com/install ..."
-          curl https://cursor.com/install -fsS | bash
-          # The installer may place the binary in $HOME/.local/bin or
-          # $HOME/.cursor/bin depending on version; expose both to subsequent
-          # steps and to the rest of this step's PATH.
-          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
-          echo "$HOME/.cursor/bin" >> "$GITHUB_PATH"
-          export PATH="$HOME/.local/bin:$HOME/.cursor/bin:$PATH"
+          # Same versioned archive and layout as the vendor installer, without
+          # following its moving latest release or caching unrelated ~/.local files.
+          cli_dir="${{ runner.temp }}/agent-cli/cursor"
+          case "$(uname -m)" in
+            x86_64|amd64) arch=x64 ;;
+            aarch64|arm64) arch=arm64 ;;
+            *) echo "::error::Unsupported Cursor architecture"; exit 1 ;;
+          esac
+          mkdir -p "$cli_dir"
+          curl -fsSL "https://downloads.cursor.com/lab/${CURSOR_CLI_VERSION}/linux/${arch}/agent-cli-package.tar.gz" \
+            | tar --strip-components=1 -xzf - -C "$cli_dir"
+          ln -sf cursor-agent "$cli_dir/agent"
+          export PATH="$cli_dir:$PATH"
 
           if command -v cursor-agent >/dev/null 2>&1; then
             echo "Installed Cursor CLI: $(command -v cursor-agent)"

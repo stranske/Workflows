@@ -257,6 +257,8 @@ jobs:
       error-category: ${{ steps.classify_failure.outputs.error_category }}
       error-type: ${{ steps.classify_failure.outputs.error_type }}
       error-recovery: ${{ steps.classify_failure.outputs.error_recovery }}
+    env:
+      MUSE_NO_AUTO_UPDATE: '1'
     steps:
       - name: Mint GitHub App token (preferred)
         id: app_token
@@ -311,6 +313,15 @@ jobs:
 
       # Align infrastructure prep with Codex runner so both agents share
       # the same token load balancer, scripts checkout, and tooling deps.
+      # Cache installed modules, not npm's download cache; setup-api-client
+      # still validates/restores its dependency and token-export contract.
+      - name: Cache workspace Octokit dependencies
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: .github/scripts/node_modules
+          key: >-
+            ${{ runner.os }}-${{ runner.arch }}-node24-workspace-octokit-${{ hashFiles('.github/scripts/package-lock.json', '.github/actions/setup-api-client/action.yml') }}
+
       - name: Setup API client
         uses: ./.github/actions/setup-api-client
         with:
@@ -334,6 +345,13 @@ jobs:
       # Ensure Workflows deps BEFORE calling setup-api-client for .workflows-lib.
       # setup-api-client invokes create_vendor_aliases.js + npm and will fail
       # with ENOENT exit 254 if it runs first against a blobless-clone ghost dir.
+      - name: Cache Workflows Octokit dependencies
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: .workflows-lib/.github/scripts/node_modules
+          key: >-
+            ${{ runner.os }}-${{ runner.arch }}-node24-workflows-octokit-${{ hashFiles('.workflows-lib/.github/scripts/package-lock.json', '.workflows-lib/.github/actions/setup-api-client/action.yml') }}
+
       - name: Ensure Workflows script deps
         run: |
           set -euo pipefail
@@ -779,6 +797,30 @@ jobs:
             echo "No merge conflicts - merge succeeded automatically"
           fi
 
+      # The vendor installer only supports release channels. Resolve the exact
+      # stable version per round so a new release invalidates the cache key.
+      - name: Resolve Muse CLI version
+        run: |
+          set -euo pipefail
+          release="$(curl -fsSL https://api.meta.ai/muse-code/channels/muse-stable)"
+          version="$(jq -er '.version | select(test("^[0-9]+\\.[0-9]+\\.[0-9]+-R[0-9]+(\\.[0-9]+)?$"))' <<< "$release")"
+          echo "MUSE_CLI_VERSION=$version" >> "$GITHUB_ENV"
+
+      - name: Expose cached Muse CLI
+        run: echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Cache Muse CLI
+        id: muse_cli_cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          # Only launcher/release artifacts; never cache ~/.config/muse auth.
+          path: |
+            ~/.local/bin/muse
+            ~/.local/bin/muse-bin-${{ env.MUSE_CLI_VERSION }}
+            ~/.local/bin/.muse-version
+            ~/.local/bin/.muse-release-info.json
+          key: ${{ runner.os }}-${{ runner.arch }}-muse-cli-${{ env.MUSE_CLI_VERSION }}
+
       - name: Preflight auth
         id: preflight
         env:
@@ -817,6 +859,12 @@ jobs:
           fi
           if ! command -v muse >/dev/null 2>&1; then
             echo "::error::Muse CLI not found after install (expected \$HOME/.local/bin/muse)."
+            exit 1
+          fi
+          # Fail rather than save a different release under the resolved key if
+          # the vendor channel advanced between resolution and installation.
+          if [ "$(cat "$HOME/.local/bin/.muse-version")" != "$MUSE_CLI_VERSION" ]; then
+            echo "::error::Muse release changed during setup; retry to resolve its new version."
             exit 1
           fi
           muse --version
