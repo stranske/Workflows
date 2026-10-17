@@ -615,7 +615,7 @@ def _extract_tasks_from_formatted(body: str) -> list[str]:
         if not match:
             continue
         indent, _, remainder = match.groups()
-        if indent.strip():
+        if indent:
             continue
         text = remainder.strip()
         checkbox = CHECKBOX_REGEX.match(text)
