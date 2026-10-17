@@ -177,6 +177,7 @@ def test_triage_helpers_handle_unknown_and_malformed_llm_data(monkeypatch) -> No
     )
     assert ci_failure_triage._parse_llm_findings("{bad json}") == []
     assert ci_failure_triage._parse_llm_findings('{"findings": "wrong"}') == []
+    assert ci_failure_triage._parse_llm_findings("no JSON here") == []
     assert ci_failure_triage._parse_llm_findings(
         json.dumps(
             {
@@ -213,6 +214,14 @@ def test_triage_helpers_handle_unknown_and_malformed_llm_data(monkeypatch) -> No
     assert [finding.error_type for finding in enhanced.findings] == ["pytest", "new"]
     monkeypatch.setattr(ci_failure_triage, "_run_llm_triage", lambda _log: [])
     assert ci_failure_triage._maybe_enhance_with_llm(base, "log", True) is base
+    assert (
+        ci_failure_triage._format_text_report(
+            ci_failure_triage.TriageReport(
+                [ci_failure_triage.TriageFinding("test", "cause", "fix", [])], "one"
+            )
+        )
+        == "one\n- error_type: test\n  root_cause: cause\n  suggested_fix: fix"
+    )
 
 
 def test_llm_prompt_client_and_cli_paths(monkeypatch, tmp_path: Path, capsys) -> None:
@@ -235,12 +244,21 @@ def test_llm_prompt_client_and_cli_paths(monkeypatch, tmp_path: Path, capsys) ->
     client, provider = client_and_provider
     assert provider == "github-models"
     assert client.kwargs["api_key"] == "github-token"
+    monkeypatch.setattr(llm_registry, "configured_model_for_provider", lambda _provider: "")
+    assert ci_failure_triage._get_llm_client() is None
+    monkeypatch.setitem(sys.modules, "langchain_openai", None)
+    assert ci_failure_triage._get_llm_client() is None
+    monkeypatch.setitem(
+        sys.modules, "langchain_openai", types.SimpleNamespace(ChatOpenAI=FakeChatOpenAI)
+    )
 
     class RaisingClient:
         def invoke(self, _prompt: str) -> object:
             raise RuntimeError("provider unavailable")
 
     monkeypatch.setattr(ci_failure_triage, "_get_llm_client", lambda: (RaisingClient(), "test"))
+    assert ci_failure_triage._run_llm_triage("log") == []
+    monkeypatch.setattr(ci_failure_triage, "_get_llm_client", lambda: None)
     assert ci_failure_triage._run_llm_triage("log") == []
 
     class RespondingClient:
