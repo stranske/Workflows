@@ -134,6 +134,34 @@ def test_is_terminal_artifact_rejects_empty_or_partial_values() -> None:
     assert not is_terminal_artifact({"results": [{"verdict": "PASS"}, {"summary": "partial"}]})
 
 
+def test_is_terminal_artifact_handles_nested_lists_payloads_and_non_artifacts() -> None:
+    assert is_terminal_artifact([{"verdict": "PASS"}, {"verdict": "ERROR"}])
+    assert not is_terminal_artifact([])
+    assert not is_terminal_artifact(42)
+    assert is_terminal_artifact({"payload": {"verdict": "PASS"}})
+
+
+def test_terminal_artifact_coercion_and_pending_stage_edges() -> None:
+    class Dumpable:
+        @staticmethod
+        def model_dump() -> dict[str, str]:
+            return {"verdict": "PASS"}
+
+    class Opaque:
+        pass
+
+    assert is_terminal_artifact(Dumpable())
+    assert not is_terminal_artifact(Opaque())
+    assert not is_terminal_artifact({"state": "pending"})
+
+
+def test_artifact_text_without_report_marker_and_duplicate_verdicts() -> None:
+    artifact = artifact_from_verification_text("Verdict: PASS\nVerdict: FAIL\nVerdict: FAIL")
+
+    assert artifact["verdict"] == "FAIL"
+    assert artifact["artifact_family"] == "verifier-report"
+
+
 def test_artifact_from_verification_text_extracts_terminal_verdict() -> None:
     artifact = artifact_from_verification_text(
         "## PR Verification Report\n\n**Verdict:** CONCERNS\n\n### Concerns\n- Missing test."
