@@ -42,7 +42,8 @@
     "1_ranked_target": true,
     "2_break_and_revert": true,
     "3_no_production_bug_found": true,
-    "4_test_only_low_blast_radius": true,
-    "5_one_pr": true
+    "4_test_only_low_blast_radius": false,
+    "5_one_pr": true,
+    "classification_note": "Tests accompany limited production OSError handling and the blocked-reason helper. This is not a test-only PR; production-change scope and acceptance require normal review."
   }
 }
