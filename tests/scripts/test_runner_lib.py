@@ -2984,6 +2984,8 @@ def test_storage_failure_log_survives_nested_json(
 @pytest.mark.parametrize(
     "message",
     [
+        'token="synthetic-private-value"',
+        'secret="synthetic-private-value"',
         "password=synthetic-private-value",
         "password: synthetic-private-value with spaces",
         '"PASSWORD" : "synthetic-private-value"',

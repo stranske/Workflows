@@ -1816,7 +1816,7 @@ STORAGE_FAILURE_MESSAGE_MAX_CHARS = 200
 # API message text is untrusted. Discard credential-bearing diagnostics entirely:
 # guessing value boundaries can leave spaced, quoted or multiword secrets behind.
 _STORAGE_FAILURE_CREDENTIAL_FIELD_RE = re.compile(
-    r"\b(?:password|passwd|passphrase|client[\s_-]*secret|"
+    r"\b(?:token|secret|password|passwd|passphrase|client[\s_-]*secret|"
     r"x[\s_-]*access[\s_-]*token|authorization|api[\s_-]*key|"
     r"access[\s_-]*token|refresh[\s_-]*token|private[\s_-]*key|cookie)\b",
     re.IGNORECASE,
