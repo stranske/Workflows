@@ -2968,9 +2968,14 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
           ...context.repo, issue_number: prNumber, labels: ['agent:rate-limited'],
         });
       } else if (drained && active.length === 0 && labels.includes('agent:rate-limited')) {
-        await github.rest.issues.removeLabel({
-          ...context.repo, issue_number: prNumber, name: 'agent:rate-limited',
-        });
+        try {
+          await github.rest.issues.removeLabel({
+            ...context.repo, issue_number: prNumber, name: 'agent:rate-limited',
+          });
+        } catch (error) {
+          // A missing rate-limited marker must not abort receipt reconciliation.
+          if (error?.status !== 404) throw error;
+        }
       }
     } catch (error) {
       core?.warning?.(`Could not reconcile provider completion: ${error.message}`);
@@ -3024,13 +3029,25 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
               ...context.repo, issue_number: prNumber,
               labels: [`agents:tried-${decision.previousAgent}`],
             });
-            // Preserve one concrete route label alongside agent:auto.
-            for (const label of labels.filter((name) => name === `agent:${decision.previousAgent}`)) {
-              await github.rest.issues.removeLabel({ ...context.repo, issue_number: prNumber, name: label });
-              await github.rest.issues.addLabels({
-                ...context.repo, issue_number: prNumber, labels: [`agent:${decision.agent}`],
-              });
+            // Preserve one concrete route label alongside agent:auto. Always apply
+            // the new agent even when the previous label is already absent: nesting
+            // the add behind a previous-label match left agent:auto-only PRs without
+            // a concrete route after a rate-limit switch from the completion provider.
+            if (decision.previousAgent) {
+              try {
+                await github.rest.issues.removeLabel({
+                  ...context.repo, issue_number: prNumber,
+                  name: `agent:${decision.previousAgent}`,
+                });
+              } catch (error) {
+                // A missing previous-agent label must not abort the same-evaluate
+                // switch: otherwise rate_limited catch clears the decided agent.
+                if (error?.status !== 404) throw error;
+              }
             }
+            await github.rest.issues.addLabels({
+              ...context.repo, issue_number: prNumber, labels: [`agent:${decision.agent}`],
+            });
           }
           agentType = decision.agent;
           delegationReason = decision.reason;

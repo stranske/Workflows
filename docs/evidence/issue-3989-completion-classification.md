@@ -60,7 +60,51 @@ advice alone does not rotate agents or add the rate-limit label. Syntax checks,
 
 GitHub API access failed with `error connecting to api.github.com`, so these
 outcomes could not be copied into the PR body. No PR checkbox was updated.
-Post-merge live/replayed label-timeline evidence, the 48-hour fleet cleanup check,
-and consumer sync remain unverified.
+Post-merge live label-timeline evidence and the 48-hour fleet cleanup check
+remain unverified until after merge.
 
-Publication: this evidence is committed in the PR history through `4584495a1d03db74bd9b49ae89472c435967a269`.
+## Post-merge measurement harness (replayed label timeline)
+
+`scripts/agent_switch_cadence.py` joins keepalive completion records to PR label
+timelines and prints the campaign table with a `reason` column. Same-evaluate
+switches report `additional_rounds = 0`. The markdown report includes a **Label
+timelines** section so the concrete agent switch is visible next to
+`agent:rate-limited` / `agents:tried-*`. The calculator also lists open PRs that
+still carry `agent:rate-limited` after a latest `progressed` completion (the
+48-hour fleet cleanup check).
+
+Parent #3997 merged to `main` at 2026-10-17T08:00:11Z. No live fleet PR still
+carried `agent:rate-limited` at the follow-up check, so acceptance uses the
+**replayed** path: keepalive evaluate mutation logs (same sequence as the
+same-evaluate quota regression) are projected into label timeline events via
+`label_events_from_evaluate_actions` / `snapshot_from_rate_limit_evaluate`.
+
+Hermetic replay verification (2026-10-17 on this follow-up head):
+
+```sh
+GITHUB_OUTPUT='' python -m pytest tests/scripts/test_agent_switch_cadence.py -m 'not slow' -q -o addopts=
+# 13 passed
+
+python scripts/agent_switch_cadence.py \
+  --input tests/scripts/fixtures/agent_switch_cadence/same_evaluate_rate_limit_switch.json
+```
+
+CLI output (abridged): median additional rounds **0.0**, same-evaluate **yes**,
+and label timeline:
+
+- `2026-10-17T08:05:01Z` unlabeled `agent:codex`
+- `2026-10-17T08:05:01Z` labeled `agent:cursor`
+- `2026-10-17T08:05:01Z` labeled `agent:rate-limited`
+- `2026-10-17T08:05:01Z` labeled `agents:tried-codex`
+
+Durable artifacts: `docs/evidence/issue-3989/same-evaluate-rate-limit-switch-replay.md`
+and `.json`. Live fleet snapshots after the next provider quota event use the
+same `--input` JSON shape (`completions`, `label_events`, `open_prs`).
+
+The 48-hour fleet cleanup acceptance (`agent:rate-limited` absent on every open
+PR whose latest round progressed) remains a timed post-merge check; the harness
+already fails (exit 2) when a progressed open PR still carries the marker.
+
+Publication: earlier deliberate-break evidence is in PR history through
+`4584495a1d03db74bd9b49ae89472c435967a269`; evaluate-actions replay + visible
+timeline land on the current follow-up head.

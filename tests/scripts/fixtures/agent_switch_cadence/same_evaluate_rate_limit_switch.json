@@ -1,0 +1,61 @@
+{
+  "collection": {
+    "history_complete": true,
+    "limitations": [
+      "evaluate-actions replay after #3997 merge"
+    ]
+  },
+  "completions": [
+    {
+      "repo": "stranske/Workflows",
+      "pr": 3989,
+      "provider": "codex",
+      "completed_at": "2026-10-17T08:05:00Z",
+      "completion": {
+        "reason": "rate_limited"
+      }
+    }
+  ],
+  "label_events": [
+    {
+      "repo": "stranske/Workflows",
+      "pr": 3989,
+      "event": "labeled",
+      "label": "agent:rate-limited",
+      "created_at": "2026-10-17T08:05:01Z"
+    },
+    {
+      "repo": "stranske/Workflows",
+      "pr": 3989,
+      "event": "labeled",
+      "label": "agents:tried-codex",
+      "created_at": "2026-10-17T08:05:01Z"
+    },
+    {
+      "repo": "stranske/Workflows",
+      "pr": 3989,
+      "event": "unlabeled",
+      "label": "agent:codex",
+      "created_at": "2026-10-17T08:05:01Z"
+    },
+    {
+      "repo": "stranske/Workflows",
+      "pr": 3989,
+      "event": "labeled",
+      "label": "agent:cursor",
+      "created_at": "2026-10-17T08:05:01Z"
+    }
+  ],
+  "open_prs": [
+    {
+      "repo": "stranske/Workflows",
+      "pr": 3989,
+      "labels": [
+        "agent:auto",
+        "agent:cursor",
+        "agents:keepalive",
+        "agent:rate-limited"
+      ]
+    }
+  ]
+}

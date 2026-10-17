@@ -1,0 +1,55 @@
+{
+  "schema": "workflows.agent-switch-cadence/v1",
+  "rows": [
+    {
+      "repo": "stranske/Workflows",
+      "pr": 3989,
+      "provider": "codex",
+      "reason": "rate_limited",
+      "completed_at": "2026-10-17T08:05:00Z",
+      "switch_agent": "cursor",
+      "switch_at": "2026-10-17T08:05:01Z",
+      "additional_rounds": 0,
+      "same_evaluate": true,
+      "status": "paired",
+      "label_timeline": [
+        {
+          "event": "unlabeled",
+          "label": "agent:codex",
+          "created_at": "2026-10-17T08:05:01Z"
+        },
+        {
+          "event": "labeled",
+          "label": "agent:cursor",
+          "created_at": "2026-10-17T08:05:01Z"
+        },
+        {
+          "event": "labeled",
+          "label": "agent:rate-limited",
+          "created_at": "2026-10-17T08:05:01Z"
+        },
+        {
+          "event": "labeled",
+          "label": "agents:tried-codex",
+          "created_at": "2026-10-17T08:05:01Z"
+        }
+      ]
+    }
+  ],
+  "metrics": {
+    "rate_limited_events": 1,
+    "paired_switches": 1,
+    "same_evaluate_switches": 1,
+    "median_additional_rounds": 0.0,
+    "target_median_additional_rounds": 0,
+    "passes_same_evaluate_median": true,
+    "stale_rate_limited_on_progressed": 0
+  },
+  "stale_rate_limited_on_progressed": [],
+  "collection": {
+    "history_complete": true,
+    "limitations": [
+      "evaluate-actions replay after #3997 merge"
+    ]
+  }
+}

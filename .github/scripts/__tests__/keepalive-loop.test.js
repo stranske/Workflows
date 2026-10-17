@@ -7708,6 +7708,44 @@ test('persisted provider quota drives same-evaluate switch with zero stalled rou
     assert.ok(github.actions.some((a) => a.type === 'remove-label' && a.name === 'agent:codex'));
     assert.ok(github.actions.some((a) => a.type === 'label' && a.labels.includes('agent:cursor')));
 
+    // A 404 clearing the previous concrete agent label must not abort the switch.
+    // Without isolation, the rate_limited catch clears agentType entirely.
+    const staleSwitch = buildGithubStub({ pr, comments: replay.comments,
+      workflowRuns: [{ head_sha: 'sha-3989', conclusion: 'success' }],
+      failRemoveLabelStatusByName: { 'agent:codex': 404 } });
+    const staleResult = await evaluateKeepaliveLoop({
+      github: staleSwitch, context: buildContext(3989), core: buildCore(),
+    });
+    assert.equal(staleResult.agentType, 'cursor',
+      '404 removing previous agent must not abort same-evaluate switch');
+    assert.equal(staleResult.delegationShouldSwitch, true);
+    assert.match(staleResult.delegationReason, /codex-rate-limited/);
+    assert.notEqual(staleResult.delegationReason, 'rate-limited-delegation-failed');
+    assert.ok(staleSwitch.actions.some((a) => a.type === 'remove-label-failed'
+      && a.name === 'agent:codex' && a.status === 404));
+    assert.ok(staleSwitch.actions.some((a) => a.type === 'label' && a.labels.includes('agent:cursor')));
+    assert.ok(staleSwitch.actions.some((a) => a.type === 'label' && a.labels.includes('agent:rate-limited')));
+
+    // Rate-limit switch from the completion provider must apply the new concrete
+    // route even when agent:<previous> was never on the PR (agent:auto only).
+    const autoOnlyPr = { ...pr, labels: [{ name: 'agent:auto' }, { name: 'agents:keepalive' }] };
+    const autoOnly = buildGithubStub({ pr: autoOnlyPr, comments: replay.comments,
+      workflowRuns: [{ head_sha: 'sha-3989', conclusion: 'success' }],
+      failRemoveLabelStatusByName: { 'agent:codex': 404 } });
+    const autoOnlyResult = await evaluateKeepaliveLoop({
+      github: autoOnly, context: buildContext(3989), core: buildCore(),
+    });
+    assert.equal(autoOnlyResult.agentType, 'cursor',
+      'auto-only PR must still switch from rate-limited completion provider');
+    assert.equal(autoOnlyResult.delegationShouldSwitch, true);
+    assert.match(autoOnlyResult.delegationReason, /codex-rate-limited/);
+    assert.ok(autoOnly.actions.some((a) => a.type === 'label' && a.labels.includes('agent:cursor')),
+      'new concrete route label must be applied without a prior agent:<previous> match');
+    assert.ok(autoOnly.actions.some((a) => a.type === 'label' && a.labels.includes('agents:tried-codex')));
+    assert.ok(autoOnly.actions.some((a) => a.type === 'remove-label-failed'
+      && a.name === 'agent:codex' && a.status === 404));
+    assert.notEqual(autoOnlyResult.delegationReason, 'rate-limited-delegation-failed');
+
     const success = replayCompletion({ output: 'Implemented and tested the task', exitCode: 0,
       provider: 'cursor', progressed: true });
     assert.equal(success.record.completion.reason, 'progressed');
