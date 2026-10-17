@@ -1,5 +1,6 @@
 import json
 
+import pytest
 from tools import agy_judge_replay as replay
 from tools.agy_pilot import ModelCall
 
@@ -73,3 +74,28 @@ def test_fewer_than_three_real_judges_is_not_replayable(tmp_path):
     experiment["real"].pop("c")
     row = replay.replay_experiment(experiment, lambda p: ModelCall(text="{}"), "a")
     assert row["usable"] is False
+
+
+@pytest.mark.parametrize(
+    "scores",
+    [
+        {"A": 8},
+        {"X": 8},
+        {"A": 8, "B": 5, "C": 2, "X": 8},
+        {"A": float("nan"), "B": 5, "C": 2},
+        {"A": 8, "B": float("inf"), "C": 2},
+    ],
+    ids=["partial", "unknown", "extra", "nan", "infinite"],
+)
+def test_incomplete_unknown_or_nonfinite_scores_do_not_count_as_usable(tmp_path, scores):
+    experiment = _experiment(tmp_path)
+    row = replay.replay_experiment(
+        experiment,
+        lambda prompt: ModelCall(text=json.dumps({"scores": scores}), tokens_in=10),
+        "a",
+    )
+    assert row["usable"] is False
+    assert row["tokens_in"] == 10
+    summary = replay.summarise([row])
+    assert summary["usable"] == 0
+    assert summary["candidate_mae_mean"] is None

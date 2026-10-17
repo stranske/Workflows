@@ -184,7 +184,7 @@ modules (the harness needs target modules whose own tests are strong enough to v
 
 **Second pilot run (2026-10-17): more modules, test generation, and the evaluator replay.**
 Evidence: `agy-pilot-2-agy.json`, `agy-pilot-2-claude.json`, `agy-judge-replay-*.json` in `docs/evidence/judge-screen-20261017/`.
-Exploratory. Nine modules were scored (12 planted defects in 4 of them for audit; one module yielded none). Generated tests run in a sandbox without sibling modules, so modules that import siblings fail on clean code for every backend: read test generation as a floor, not as quality.
+Exploratory. Nine modules were scored, with 25 planted mutants across all nine module entries in each committed second-pilot evidence file. Generated tests run in a sandbox without sibling modules, so modules that import siblings fail on clean code for every backend: read test generation as a floor, not as quality.
 
 | Backend | Pilot | Single call | Batched | Tokens per item (single / batched) |
 | --- | --- | --- | --- | ---: |
@@ -193,7 +193,7 @@ Exploratory. Nine modules were scored (12 planted defects in 4 of them for audit
 | Claude CLI, tools off | audit recall (precision 1.0) | 0.92 | 0.92 | 6,130 / 4,199 |
 | Claude CLI | testgen kill rate (clean pass 0.67 single, 0.33 batched) | 0.68 | 0.36 | 19,308 / not reported |
 
-Evaluator replay (pilot 4): 8 archived experiments, every judge's prompt replayed as the real judges saw it.
+Evaluator replay (pilot 4): 8 archived experiments, one selected archived judge prompt and anonymized ordering per experiment. The candidate sees the first prompt whose judge has a real score; the replay does not measure sensitivity across all archived prompt permutations.
 
 | Judge | Mean error vs real-judge consensus | Rank agreement |
 | --- | ---: | ---: |

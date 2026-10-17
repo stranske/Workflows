@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import statistics
 from pathlib import Path
 
@@ -119,7 +120,15 @@ def replay_experiment(experiment: dict, backend: Backend, prompt_judge: str | No
             "reason": call.error or "no parseable scores",
             "tokens_in": call.tokens_in,
         }
-    candidate = member_scores(scores, experiment["maps"][judge])
+    letters = experiment["maps"][judge]
+    if set(scores) != set(letters) or not all(math.isfinite(v) for v in scores.values()):
+        return {
+            "usable": False,
+            "reason": "requires one finite score for every requested letter and no unknown letters",
+            "tokens_in": call.tokens_in,
+            "tokens_out": call.tokens_out,
+        }
+    candidate = member_scores(scores, letters)
     yard = [mae(real[j], consensus([real[o] for o in real if o != j])) for j in real]
     yard = [y for y in yard if y is not None]
     return {
