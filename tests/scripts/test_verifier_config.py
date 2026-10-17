@@ -274,3 +274,10 @@ def test_artifact_from_verification_text_computes_raw_present_authoritatively() 
 
 def test_artifact_from_verification_text_keeps_empty_input_as_nonterminal() -> None:
     assert artifact_from_verification_text("") == {"raw_present": False}
+
+
+def test_artifact_from_plain_text_without_verdict_is_not_a_verifier_report() -> None:
+    artifact = artifact_from_verification_text("worker finished without a report")
+
+    assert artifact == {"raw_present": True}
+    assert not is_terminal_artifact(artifact)
