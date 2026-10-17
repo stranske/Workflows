@@ -449,10 +449,13 @@ jobs:
           ref: ${{ fromJSON(needs.resolve-pr.outputs.pull_request).head.sha || github.sha }}
           fetch-depth: 0
       - name: Fetch base ref
+        env:
+          GATE_BASE_REPO: ${{ fromJSON(needs.resolve-pr.outputs.pull_request).base.repo.full_name }}
+          GATE_BASE_REF: ${{ fromJSON(needs.resolve-pr.outputs.pull_request).base.ref }}
         run: |
           set -euo pipefail
-          upstream="https://github.com/${{ fromJSON(needs.resolve-pr.outputs.pull_request).base.repo.full_name }}.git"
-          base_ref="${{ fromJSON(needs.resolve-pr.outputs.pull_request).base.ref }}"
+          upstream="https://github.com/${GATE_BASE_REPO}.git"
+          base_ref="$GATE_BASE_REF"
           git remote add upstream "$upstream"
           git fetch --no-tags upstream \
             "refs/heads/${base_ref}:refs/remotes/upstream/${base_ref}"
@@ -505,10 +508,13 @@ jobs:
           ref: ${{ fromJSON(needs.resolve-pr.outputs.pull_request).head.sha || github.sha }}
           fetch-depth: 0
       - name: Fetch base ref
+        env:
+          GATE_BASE_REPO: ${{ fromJSON(needs.resolve-pr.outputs.pull_request).base.repo.full_name }}
+          GATE_BASE_REF: ${{ fromJSON(needs.resolve-pr.outputs.pull_request).base.ref }}
         run: |
           set -euo pipefail
-          upstream="https://github.com/${{ fromJSON(needs.resolve-pr.outputs.pull_request).base.repo.full_name }}.git"
-          base_ref="${{ fromJSON(needs.resolve-pr.outputs.pull_request).base.ref }}"
+          upstream="https://github.com/${GATE_BASE_REPO}.git"
+          base_ref="$GATE_BASE_REF"
           git remote add upstream "$upstream"
           git fetch --no-tags upstream \
             "refs/heads/${base_ref}:refs/remotes/upstream/${base_ref}"
@@ -563,17 +569,20 @@ jobs:
             fi
           fi
       - name: Check test quality and secret diff
+        env:
+          GATE_BASE_REF: ${{ fromJSON(needs.resolve-pr.outputs.pull_request).base.ref }}
         run: >-
           python scripts/check_gate_diff_quality.py
-          --base "refs/remotes/upstream/${{ fromJSON(needs.resolve-pr.outputs.pull_request).base.ref }}"
+          --base "refs/remotes/upstream/${GATE_BASE_REF}"
           --head HEAD
       - name: Check deliberate-break acceptance criterion
         id: deliberate_break
         run: >-
           python scripts/check_deliberate_break.py
-          --base "refs/remotes/upstream/${{ fromJSON(needs.resolve-pr.outputs.pull_request).base.ref }}"
+          --base "refs/remotes/upstream/${GATE_BASE_REF}"
           --head HEAD
         env:
+          GATE_BASE_REF: ${{ fromJSON(needs.resolve-pr.outputs.pull_request).base.ref }}
           PR_BODY: ${{ fromJSON(needs.resolve-pr.outputs.pull_request).body || '' }}
       - name: Verify open sync-manifest issue citations
         if: ${{ hashFiles('tests/scripts/test_sync_manifest_docs.py') != '' }}

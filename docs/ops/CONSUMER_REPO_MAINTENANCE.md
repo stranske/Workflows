@@ -1647,7 +1647,10 @@ quorum. A completed negative verdict with substantive review output still
 counts as a response; settlement is evidence of reviewer participation, not
 approval.
 Maint 71 then seals the
-exact head and applies `sync:delivery-ready`, which triggers a fresh Gate. The
+exact head, applies the lifecycle label `sync:delivery-ready`, and explicitly
+dispatches `pr-00-gate.yml` on the PR head branch with `pr_number`. Labels do not
+restart Gate; existing create-only consumer Gates must adopt the dispatch input
+contract before this wakeup can work. The
 Gate summary rejects an unsealed stable delivery, while the shared merge guard
 rejects `sync:delivery-staging` for every merger except Maint 71's verified
 sealed path. The staging hold remains until the merge succeeds.

@@ -82,8 +82,9 @@ def test_dispatch_retains_pr_context_and_queues(workflow_path: str) -> None:
         "${{ github.event_name != 'workflow_dispatch' }}"
     )
     for name in ("issue-consistency", "test-quality"):
-        assert "fromJSON(needs.resolve-pr.outputs.pull_request).number" in (
-            workflow["jobs"][name]["if"]
+        assert (
+            "fromJSON(needs.resolve-pr.outputs.pull_request).number"
+            in (workflow["jobs"][name]["if"])
         ), f"{workflow_path}: {name} must run for PR dispatches too"
     for name, job in workflow["jobs"].items():
         if name == "resolve-pr":
@@ -170,3 +171,46 @@ def test_dispatch_restores_event_for_seal_and_summary(workflow_path: str, tmp_pa
     assert event["pull_request"] == pr
     assert event["number"] == 42
     assert event["inputs"] == {"pr_number": "42"}
+
+
+@pytest.mark.parametrize("workflow_path", GATE_FILES)
+def test_base_metadata_is_shell_data(workflow_path: str, tmp_path: Path) -> None:
+    """Execute base-ref commands with shell metacharacters in API metadata."""
+    import os
+    import subprocess
+
+    workflow = yaml.safe_load((ROOT / workflow_path).read_text(encoding="utf-8"))
+    marker = tmp_path / "injected"
+    hostile = f"topic/$(touch${{IFS}}{marker})"
+    seen = set()
+    for job in workflow["jobs"].values():
+        for step in job.get("steps", []):
+            if step.get("name") not in {
+                "Fetch base ref",
+                "Check test quality and secret diff",
+                "Check deliberate-break acceptance criterion",
+            }:
+                continue
+            seen.add(step["name"])
+            script = step["run"]
+            assert "${{" not in script, f"{workflow_path}: metadata must not become shell source"
+            assert step["env"]["GATE_BASE_REF"] == (
+                "${{ fromJSON(needs.resolve-pr.outputs.pull_request).base.ref }}"
+            )
+            # Replace network/checker commands with argument recorders, retaining
+            # the actual workflow shell code and quoting under test.
+            result = subprocess.run(
+                [
+                    "bash",
+                    "-c",
+                    'git() { printf "%s\\n" "$@"; }; python() { printf "%s\\n" "$@"; };\n' + script,
+                ],
+                env={**os.environ, "GATE_BASE_REF": hostile, "GATE_BASE_REPO": hostile},
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            assert hostile in result.stdout
+            assert not marker.exists(), f"{workflow_path}: API metadata executed as shell code"
+    assert "Fetch base ref" in seen
+    assert "Check deliberate-break acceptance criterion" in seen
