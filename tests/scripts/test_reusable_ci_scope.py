@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
 from scripts import reusable_ci_scope
 
 
@@ -182,3 +183,151 @@ def test_python_resolver_includes_dependency_locks_but_not_unrelated_lockfiles()
             "Gate", '["3.12","3.13"]', "3.12", [path], False
         )
         assert selected.selected_count == 0, path
+
+
+def test_scope_selection_preserves_requested_metadata_and_includes_unscoped_scenarios() -> None:
+    full = [
+        {"name": "always"},
+        {"name": "docs", "scope": "docs/"},
+        {"name": "source", "paths": ["src/**"], "scope": {"reason": "source changed"}},
+    ]
+    selected = reusable_ci_scope.select_scenarios(
+        "example", ["docs/guide.md"], full, {"strip_scope": False}
+    )
+
+    assert selected.matrix == [full[0], full[1]]
+    assert selected.reason == "`always` is unscoped"
+    assert selected.matched_patterns == ("docs/",)
+
+
+@pytest.mark.parametrize(
+    ("path", "pattern", "expected"),
+    [
+        ("docs/guide.md", "docs/", True),
+        ("docs/guide.md", "docs", True),
+        ("nested/a.py", "**/*.py", True),
+        ("a.py", "**/*.py", True),
+        ("src/a.py", "src/*.js", False),
+    ],
+)
+def test_path_matching_normalizes_common_scope_forms(
+    path: str, pattern: str, expected: bool
+) -> None:
+    assert reusable_ci_scope._path_matches(path, pattern) is expected
+
+
+def test_cli_reads_changed_files_and_matrix_files_and_writes_outputs(
+    tmp_path: Path, capsys
+) -> None:
+    changed = tmp_path / "changed.txt"
+    changed.write_text("docs/readme.md\n\n", encoding="utf-8")
+    matrix = tmp_path / "matrix.json"
+    matrix.write_text(json.dumps({"include": [{"name": "docs", "paths": ["docs/**"]}]}))
+    output = tmp_path / "out.txt"
+
+    assert (
+        reusable_ci_scope.main(
+            [
+                "--workflow-name",
+                "example",
+                "--changed-files-file",
+                str(changed),
+                "--matrix-file",
+                str(matrix),
+                "--github-output",
+                str(output),
+            ]
+        )
+        == 0
+    )
+    assert json.loads(capsys.readouterr().out)["selected_count"] == "1"
+    assert "matrix<<__REUSABLE_CI_SCOPE_MATRIX__" in output.read_text(encoding="utf-8")
+
+
+@pytest.mark.parametrize(
+    ("argv", "message"),
+    [
+        (["--workflow-name", "x", "--matrix-json", "not-json"], "must be valid JSON"),
+        (["--workflow-name", "x", "--matrix-json", '"not a matrix"'], "matrix must be"),
+        (
+            ["--workflow-name", "x", "--matrix-json", "[]", "--changed-files-json", "{}"],
+            "JSON array",
+        ),
+    ],
+)
+def test_cli_rejects_invalid_input(argv: list[str], message: str) -> None:
+    with pytest.raises(SystemExit, match=message):
+        reusable_ci_scope.main(argv)
+
+
+def test_scenario_matrix_receipt_binds_environment_and_source(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    for key, value in {
+        "GITHUB_REPOSITORY": "stranske/Workflows",
+        "GITHUB_RUN_ID": "12",
+        "GITHUB_RUN_ATTEMPT": "3",
+        "PR_HEAD_SHA": "a" * 40,
+        "PR_BASE_SHA": "b" * 40,
+    }.items():
+        monkeypatch.setenv(key, value)
+    selected = reusable_ci_scope.select_scenarios("x", ["docs/a.md"], [], None)
+    receipt = reusable_ci_scope.scenario_matrix_receipt(
+        ".github/workflows/pr-00-gate.yml", ["docs/a.md"], [], selected
+    )
+
+    assert receipt["schema"] == "scenario-matrix-producer/v1"
+    assert receipt["run_attempt"] == 3
+    assert len(receipt["helper_sha256"]) == 64
+
+
+def test_internal_normalization_and_option_helpers_cover_supported_shapes() -> None:
+    assert reusable_ci_scope._options_from(None) == reusable_ci_scope.SelectionOptions()
+    assert reusable_ci_scope._options_from({"force_full": 1, "strip_scope": 0}) == (
+        reusable_ci_scope.SelectionOptions(force_full=True, strip_scope=False)
+    )
+    assert reusable_ci_scope._normalize_path(r"./docs\\guide.md") == "docs/guide.md"
+    assert reusable_ci_scope._normalize_matrix([{"name": "one"}])[1] == "list"
+    with pytest.raises(TypeError):
+        reusable_ci_scope._normalize_matrix({"exclude": []})
+    with pytest.raises(TypeError):
+        reusable_ci_scope._restore_matrix([], [], "include")
+
+
+def test_scope_extraction_and_selection_reason_cover_legacy_forms() -> None:
+    assert reusable_ci_scope._scope_for({"scope": {"path_globs": ["a/**"], "reason": " A "}}) == (
+        ["a/**"],
+        "A",
+    )
+    assert reusable_ci_scope._scope_for({"changed-paths": "docs/**"}) == (["docs/**"], None)
+    assert reusable_ci_scope._changed_roots([]) == "changed files were unavailable"
+    assert reusable_ci_scope._changed_roots(["one.py", "two.py", "three.py", "four.py"]) == (
+        "changed inputs touched 4 top-level paths"
+    )
+    assert reusable_ci_scope._scenario_name({"id": "id-value"}) == "id-value"
+    assert reusable_ci_scope._scenario_name({}) == "unnamed"
+
+
+def test_selection_falls_back_for_empty_changes_and_unknown_paths() -> None:
+    full = {"include": [{"name": "docs", "scope": {"paths": ["docs/**"]}}]}
+    empty = reusable_ci_scope.select_scenarios("x", [], full)
+    unmatched = reusable_ci_scope.select_scenarios("x", ["src/app.py"], full)
+    assert empty.reason == "changed files were unavailable"
+    assert empty.selected_count == 1
+    assert unmatched.selected_count == 0
+    assert reusable_ci_scope.describe_selection(empty, full) == (
+        "running 1/1 scenarios because changed files were unavailable"
+    )
+
+
+def test_changed_files_environment_and_delimiter_collision(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setenv("CHANGED_FILES_JSON", '["docs/a.md", 4]')
+    args = reusable_ci_scope.build_parser().parse_args(
+        ["--workflow-name", "x", "--matrix-json", "[]"]
+    )
+    assert reusable_ci_scope._parse_changed_files(args) == ["docs/a.md", "4"]
+    destination = tmp_path / "output.txt"
+    reusable_ci_scope._write_github_outputs(str(destination), {"x": "__REUSABLE_CI_SCOPE_X__"})
+    assert "___REUSABLE_CI_SCOPE_X___" in destination.read_text(encoding="utf-8")
