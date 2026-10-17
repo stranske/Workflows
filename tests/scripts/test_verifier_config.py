@@ -270,3 +270,7 @@ def test_artifact_from_verification_text_computes_raw_present_authoritatively() 
 
     assert artifact["raw_present"] is True
     assert artifact["verdict"] == "PASS"
+
+
+def test_artifact_from_verification_text_keeps_empty_input_as_nonterminal() -> None:
+    assert artifact_from_verification_text("") == {"raw_present": False}
