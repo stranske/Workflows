@@ -2,8 +2,8 @@
 =================================== FAILURES ===================================
 _ test_three_item_authoring_keeps_per_item_fallback_and_failure_manifest[1-False] _
 
-tmp_path = PosixPath('/private/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/pytest-of-teacher/pytest-5534/test_three_item_authoring_keep1')
-monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x106a02e10>
+tmp_path = PosixPath('/private/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/pytest-of-teacher/pytest-5540/test_three_item_authoring_keep1')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10aaafef0>
 failed = 1, invalid_claim = False
 
     @pytest.mark.parametrize("failed,invalid_claim", [(None, False), (1, False), (1, True)])
@@ -14,11 +14,11 @@ failed = 1, invalid_claim = False
         monkeypatch.setattr(uploader, "fetch_open_issues", lambda *args: [])
         monkeypatch.setattr(uploader, "ensure_labels", lambda *args: None)
         created = []
-    
+
         def create(item, prefix):
             created.append(item)
             return f"https://github.test/owner/repo/issues/{100 + len(created)}"
-    
+
         monkeypatch.setattr(uploader, "create_issue", create)
         items = [issue(title) for title in ("Alpha", "Beta", "Gamma")]
         summary = uploader.upload_issues(
@@ -30,21 +30,21 @@ failed = 1, invalid_claim = False
             if index == failed:
 >               assert item["body"] == VALID_BODY
 E               AssertionError: assert '' == '## Why\n\nTh...esting.md`.\n'
-E                 
+E
 E                 - ## Why
-E                 - 
+E                 -
 E                 - The repo needs a deterministic local smoke so agents can prove the reviewed workflow instead of relying on manual inspection.
-E                 - 
+E                 -
 E                 - ## Scope
 E                 - ...
-E                 
+E
 E                 ...Full output truncated (24 lines hidden), use '-vv' to show
 
 tests/scripts/test_upload_repo_review_issues.py:344: AssertionError
 _ test_three_item_authoring_keeps_per_item_fallback_and_failure_manifest[1-True] _
 
-tmp_path = PosixPath('/private/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/pytest-of-teacher/pytest-5534/test_three_item_authoring_keep2')
-monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x106ada1b0>
+tmp_path = PosixPath('/private/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/pytest-of-teacher/pytest-5540/test_three_item_authoring_keep2')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10ab6ec00>
 failed = 1, invalid_claim = True
 
     @pytest.mark.parametrize("failed,invalid_claim", [(None, False), (1, False), (1, True)])
@@ -55,11 +55,11 @@ failed = 1, invalid_claim = True
         monkeypatch.setattr(uploader, "fetch_open_issues", lambda *args: [])
         monkeypatch.setattr(uploader, "ensure_labels", lambda *args: None)
         created = []
-    
+
         def create(item, prefix):
             created.append(item)
             return f"https://github.test/owner/repo/issues/{100 + len(created)}"
-    
+
         monkeypatch.setattr(uploader, "create_issue", create)
         items = [issue(title) for title in ("Alpha", "Beta", "Gamma")]
         summary = uploader.upload_issues(
@@ -71,18 +71,18 @@ failed = 1, invalid_claim = True
             if index == failed:
 >               assert item["body"] == VALID_BODY
 E               AssertionError: assert '' == '## Why\n\nTh...esting.md`.\n'
-E                 
+E
 E                 - ## Why
-E                 - 
+E                 -
 E                 - The repo needs a deterministic local smoke so agents can prove the reviewed workflow instead of relying on manual inspection.
-E                 - 
+E                 -
 E                 - ## Scope
 E                 - ...
-E                 
+E
 E                 ...Full output truncated (24 lines hidden), use '-vv' to show
 
 tests/scripts/test_upload_repo_review_issues.py:344: AssertionError
 =========================== short test summary info ============================
 FAILED tests/scripts/test_upload_repo_review_issues.py::test_three_item_authoring_keeps_per_item_fallback_and_failure_manifest[1-False]
 FAILED tests/scripts/test_upload_repo_review_issues.py::test_three_item_authoring_keeps_per_item_fallback_and_failure_manifest[1-True]
-2 failed, 1 passed, 22 deselected in 0.91s
+2 failed, 1 passed, 22 deselected in 1.34s

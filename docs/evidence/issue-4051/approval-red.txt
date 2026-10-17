@@ -2,8 +2,8 @@ FFFF                                                                     [100%]
 =================================== FAILURES ===================================
 _ test_structurally_valid_role_rewrite_cannot_change_approved_content[Implement the smoke in `tests/test_local_smoke.py` using existing public APIs.-Implement a remote service in `tests/test_network.py` using existing public APIs.] _
 
-tmp_path = PosixPath('/private/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/pytest-of-teacher/pytest-5531/test_structurally_valid_role_r0')
-monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1113e6ba0>
+tmp_path = PosixPath('/private/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/pytest-of-teacher/pytest-5544/test_structurally_valid_role_r0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x109c12b70>
 old = 'Implement the smoke in `tests/test_local_smoke.py` using existing public APIs.'
 new = 'Implement a remote service in `tests/test_network.py` using existing public APIs.'
 
@@ -50,8 +50,8 @@ E         ...Full output truncated (2 lines hidden), use '-vv' to show
 tests/scripts/test_upload_repo_review_issues.py:506: AssertionError
 _ test_structurally_valid_role_rewrite_cannot_change_approved_content[- Keep fixtures deterministic and offline.-- Keep fixtures deterministic and offline.\n- Add a new production database.] _
 
-tmp_path = PosixPath('/private/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/pytest-of-teacher/pytest-5531/test_structurally_valid_role_r1')
-monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x111453770>
+tmp_path = PosixPath('/private/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/pytest-of-teacher/pytest-5544/test_structurally_valid_role_r1')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x109c6d6a0>
 old = '- Keep fixtures deterministic and offline.'
 new = '- Keep fixtures deterministic and offline.\n- Add a new production database.'
 
@@ -98,8 +98,8 @@ E         ...Full output truncated (2 lines hidden), use '-vv' to show
 tests/scripts/test_upload_repo_review_issues.py:506: AssertionError
 _ test_structurally_valid_role_rewrite_cannot_change_approved_content[--no-cov--k easy] _
 
-tmp_path = PosixPath('/private/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/pytest-of-teacher/pytest-5531/test_structurally_valid_role_r2')
-monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x111510710>
+tmp_path = PosixPath('/private/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/pytest-of-teacher/pytest-5544/test_structurally_valid_role_r2')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x109d3c230>
 old = '--no-cov', new = '-k easy'
 
     @pytest.mark.parametrize(
@@ -145,8 +145,8 @@ E         ...Full output truncated (2 lines hidden), use '-vv' to show
 tests/scripts/test_upload_repo_review_issues.py:506: AssertionError
 _ test_structurally_valid_role_rewrite_cannot_change_approved_content[The repo needs-Also migrate production records. The repo needs] _
 
-tmp_path = PosixPath('/private/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/pytest-of-teacher/pytest-5531/test_structurally_valid_role_r3')
-monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x111510770>
+tmp_path = PosixPath('/private/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/pytest-of-teacher/pytest-5544/test_structurally_valid_role_r3')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x109c6fda0>
 old = 'The repo needs', new = 'Also migrate production records. The repo needs'
 
     @pytest.mark.parametrize(
@@ -195,4 +195,4 @@ FAILED tests/scripts/test_upload_repo_review_issues.py::test_structurally_valid_
 FAILED tests/scripts/test_upload_repo_review_issues.py::test_structurally_valid_role_rewrite_cannot_change_approved_content[- Keep fixtures deterministic and offline.-- Keep fixtures deterministic and offline.\n- Add a new production database.]
 FAILED tests/scripts/test_upload_repo_review_issues.py::test_structurally_valid_role_rewrite_cannot_change_approved_content[--no-cov--k easy]
 FAILED tests/scripts/test_upload_repo_review_issues.py::test_structurally_valid_role_rewrite_cannot_change_approved_content[The repo needs-Also migrate production records. The repo needs]
-4 failed, 21 deselected in 1.55s
+4 failed, 21 deselected in 3.64s

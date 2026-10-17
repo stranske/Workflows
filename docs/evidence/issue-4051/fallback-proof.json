@@ -4,6 +4,5 @@
   "red_exit": 1,
   "green_exit": 0,
   "restored_identically": true,
-  "source_sha256": "9a4d0596bee59940b83e1a9a0d7a47e2b1c517d7b4db06bd6c9b040bfe2b18df",
-  "transcript_note": "Committed console transcripts normalize trailing whitespace; raw output retained in the lane run packet."
+  "source_sha256": "0f88008a8b4c24877d536a93197c1d0d3c997eb6031ffffe97944d602cd9c829"
 }
