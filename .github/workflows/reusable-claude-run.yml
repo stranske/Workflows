@@ -67,9 +67,9 @@ on:
         default: '@anthropic-ai/claude-code'
         type: string
       claude_cli_version:
-        description: 'Optional npm version to install for claude_cli_package (empty = latest).'
+        description: 'Pinned npm CLI version (empty uses the default release).'
         required: false
-        default: ''
+        default: '2.1.302'
         type: string
       claude_args:
         description: 'Optional additional Claude CLI arguments (string).'
@@ -262,6 +262,9 @@ jobs:
       error-category: ${{ steps.classify_failure.outputs.error_category }}
       error-type: ${{ steps.classify_failure.outputs.error_type }}
       error-recovery: ${{ steps.classify_failure.outputs.error_recovery }}
+    env:
+      CLAUDE_CLI_VERSION: ${{ inputs.claude_cli_version || '2.1.302' }}
+      CLAUDE_CLI_PACKAGE: ${{ inputs.claude_cli_package }}
     steps:
       # Shared agent-agnostic setup (auth-token selection / Node.js / API client /
       # Workflows scripts checkout) lives in
@@ -297,6 +300,15 @@ jobs:
           token: ${{ steps.bootstrap_app_token.outputs.token || github.token }}
           persist-credentials: false
 
+      # Cache installed modules, not npm's download cache; setup-api-client
+      # still validates/restores its dependency and token-export contract.
+      - name: Cache workspace Octokit dependencies
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: .github/scripts/node_modules
+          key: >-
+            ${{ runner.os }}-${{ runner.arch }}-node24-workspace-octokit-${{ hashFiles('.github/scripts/package-lock.json', '.github/actions/setup-api-client/action.yml') }}
+
       - name: Agent run base setup
         id: run_base
         uses: ./.workflows-actions/.github/actions/agent-run-base
@@ -316,6 +328,13 @@ jobs:
       # Ensure Workflows deps BEFORE calling setup-api-client for .workflows-lib.
       # setup-api-client invokes create_vendor_aliases.js + npm and will fail
       # with ENOENT exit 254 if it runs first against a blobless-clone ghost dir.
+      - name: Cache Workflows Octokit dependencies
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: '.workflows-lib/.github/scripts/node_modules'
+          key: >-
+            ${{ runner.os }}-${{ runner.arch }}-node24-workflows-octokit-${{ hashFiles('.workflows-lib/.github/scripts/package-lock.json', '.workflows-lib/.github/actions/setup-api-client/action.yml') }}
+
       - name: Ensure Workflows script deps
         run: |
           set -euo pipefail
@@ -668,6 +687,16 @@ jobs:
             echo "No merge conflicts - merge succeeded automatically"
           fi
 
+      - name: Expose cached Claude CLI
+        run: echo "${{ runner.temp }}/agent-cli/claude/bin" >> "$GITHUB_PATH"
+
+      - name: Cache Claude CLI
+        id: claude_cli_cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: ${{ runner.temp }}/agent-cli/claude
+          key: ${{ runner.os }}-${{ runner.arch }}-node24-claude-cli-${{ env.CLAUDE_CLI_VERSION }}-${{ env.CLAUDE_CLI_PACKAGE }}
+
       - name: Preflight auth
         id: preflight
         env:
@@ -719,8 +748,9 @@ jobs:
       - name: Ensure Claude CLI
         if: steps.preflight.outputs.missing != 'true'
         env:
+          NPM_CONFIG_PREFIX: ${{ runner.temp }}/agent-cli/claude
           PACKAGE: ${{ inputs.claude_cli_package }}
-          VERSION: ${{ inputs.claude_cli_version }}
+          VERSION: ${{ env.CLAUDE_CLI_VERSION }}
         run: |
           set -euo pipefail
           if command -v claude >/dev/null 2>&1; then

@@ -63,9 +63,9 @@ on:
         default: true
         type: boolean
       gemini_cli_version:
-        description: 'Optional npm version for @google/gemini-cli (empty = latest).'
+        description: 'Pinned npm CLI version (empty uses the default release).'
         required: false
-        default: ''
+        default: '0.64.0'
         type: string
       gemini_cli_args:
         description: 'Optional additional gemini CLI arguments (string).'
@@ -252,6 +252,8 @@ jobs:
       error-category: ${{ steps.classify_failure.outputs.error_category }}
       error-type: ${{ steps.classify_failure.outputs.error_type }}
       error-recovery: ${{ steps.classify_failure.outputs.error_recovery }}
+    env:
+      GEMINI_CLI_VERSION: ${{ inputs.gemini_cli_version || '0.64.0' }}
     steps:
       - name: Mint GitHub App token (preferred)
         id: app_token
@@ -308,6 +310,15 @@ jobs:
 
       # Align infrastructure prep with Codex runner so both agents share
       # the same token load balancer, scripts checkout, and tooling deps.
+      # Cache installed modules, not npm's download cache; setup-api-client
+      # still validates/restores its dependency and token-export contract.
+      - name: Cache workspace Octokit dependencies
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: .github/scripts/node_modules
+          key: >-
+            ${{ runner.os }}-${{ runner.arch }}-node24-workspace-octokit-${{ hashFiles('.github/scripts/package-lock.json', '.github/actions/setup-api-client/action.yml') }}
+
       - name: Setup API client
         uses: ./.github/actions/setup-api-client
         with:
@@ -331,6 +342,13 @@ jobs:
       # Ensure Workflows deps BEFORE calling setup-api-client for .workflows-lib.
       # setup-api-client invokes create_vendor_aliases.js + npm and will fail
       # with ENOENT exit 254 if it runs first against a blobless-clone ghost dir.
+      - name: Cache Workflows Octokit dependencies
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: .workflows-lib/.github/scripts/node_modules
+          key: >-
+            ${{ runner.os }}-${{ runner.arch }}-node24-workflows-octokit-${{ hashFiles('.workflows-lib/.github/scripts/package-lock.json', '.workflows-lib/.github/actions/setup-api-client/action.yml') }}
+
       - name: Ensure Workflows script deps
         run: |
           set -euo pipefail
@@ -776,6 +794,16 @@ jobs:
             echo "No merge conflicts - merge succeeded automatically"
           fi
 
+      - name: Expose cached Gemini CLI
+        run: echo "${{ runner.temp }}/agent-cli/gemini/bin" >> "$GITHUB_PATH"
+
+      - name: Cache Gemini CLI
+        id: gemini_cli_cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: ${{ runner.temp }}/agent-cli/gemini
+          key: ${{ runner.os }}-${{ runner.arch }}-node24-gemini-cli-${{ env.GEMINI_CLI_VERSION }}
+
       - name: Preflight auth
         id: preflight
         env:
@@ -800,7 +828,8 @@ jobs:
       - name: Ensure Gemini CLI
         if: steps.preflight.outputs.missing != 'true'
         env:
-          VERSION: ${{ inputs.gemini_cli_version }}
+          NPM_CONFIG_PREFIX: ${{ runner.temp }}/agent-cli/gemini
+          VERSION: ${{ env.GEMINI_CLI_VERSION }}
         run: |
           set -euo pipefail
 
@@ -812,8 +841,7 @@ jobs:
             exit 0
           fi
 
-          # Install Google's Gemini CLI from npm. An empty gemini_cli_version
-          # installs the latest published release; otherwise pin to @<version>.
+          # Install the exact release used by the cache key.
           echo "Gemini CLI not found; installing @google/gemini-cli${VERSION:+@${VERSION}} ..."
           npm install -g "@google/gemini-cli${VERSION:+@${VERSION}}"
 

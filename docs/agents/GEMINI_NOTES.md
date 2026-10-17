@@ -19,13 +19,20 @@ The runner installs Google's Gemini CLI from npm when it is not already on
 `PATH`:
 
 ```bash
-npm install -g @google/gemini-cli
+npm install -g @google/gemini-cli@0.64.0
 ```
 
 In CI, the **Ensure Gemini CLI** step in `reusable-gemini-run.yml` runs that
-install globally. An optional workflow input `gemini_cli_version` pins the
-package (for example `@1.2.3`); when empty, npm installs the latest published
-release.
+install globally into the runner's temporary `agent-cli/gemini` npm prefix.
+The workflow input `gemini_cli_version` defaults to `0.64.0`; omitting it or
+passing an empty value selects that same pinned release. Pass an explicit
+version (for example `1.2.3`) to select a different release.
+
+The **Cache Gemini CLI** step restores that installation by runner OS,
+architecture, Node 24 and the resolved CLI version. The prefix's `bin` directory
+is added to `PATH` before **Ensure Gemini CLI**, which reuses an available
+binary and installs the pinned version when none is found. Changing the version
+selects a different cache key; an empty input does not request automatic upgrades.
 
 ---
 

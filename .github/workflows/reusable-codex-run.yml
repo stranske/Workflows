@@ -324,6 +324,8 @@ jobs:
       llm-quality-warnings: ${{ steps.llm_analysis.outputs.quality-warnings }}
       session-event-count: ${{ steps.analyze_session.outputs.event-count }}
       session-todo-count: ${{ steps.analyze_session.outputs.todo-count }}
+    env:
+      CODEX_CLI_VERSION: ${{ inputs.codex_cli_version || '0.160.0' }}
     steps:
       # Shared agent-agnostic setup (auth-token selection / Node.js / API client /
       # Workflows scripts checkout) lives in
@@ -359,6 +361,15 @@ jobs:
           token: ${{ steps.bootstrap_app_token.outputs.token || github.token }}
           persist-credentials: false
 
+      # Cache installed modules, not npm's download cache; setup-api-client
+      # still validates/restores its dependency and token-export contract.
+      - name: Cache workspace Octokit dependencies
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: .github/scripts/node_modules
+          key: >-
+            ${{ runner.os }}-${{ runner.arch }}-node24-workspace-octokit-${{ hashFiles('.github/scripts/package-lock.json', '.github/actions/setup-api-client/action.yml') }}
+
       - name: Agent run base setup
         id: run_base
         uses: ./.workflows-actions/.github/actions/agent-run-base
@@ -374,6 +385,13 @@ jobs:
           mode_env_name: CODEX_MODE
           pr_number_env_name: CODEX_PR_NUMBER
           target_checkout_ready: true
+
+      - name: Cache Workflows Octokit dependencies
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: '.workflows-lib/.github/scripts/node_modules'
+          key: >-
+            ${{ runner.os }}-${{ runner.arch }}-node24-workflows-octokit-${{ hashFiles('.workflows-lib/.github/scripts/package-lock.json', '.workflows-lib/.github/actions/setup-api-client/action.yml') }}
 
       - name: Ensure Workflows script deps
         run: |
@@ -628,9 +646,21 @@ jobs:
           PYTHONPATH="${GITHUB_WORKSPACE}/.workflows-lib:${GITHUB_WORKSPACE}" \
             python -m scripts.runner_lib assemble-prompt "${assemble_args[@]}"
 
+      - name: Expose cached Codex CLI
+        run: echo "${{ runner.temp }}/agent-cli/codex/bin" >> "$GITHUB_PATH"
+
+      - name: Cache Codex CLI
+        id: codex_cli_cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: ${{ runner.temp }}/agent-cli/codex
+          key: ${{ runner.os }}-${{ runner.arch }}-node24-codex-cli-${{ env.CODEX_CLI_VERSION }}
+
       - name: Install Codex CLI
+        if: steps.codex_cli_cache.outputs.cache-hit != 'true'
         env:
-          CODEX_CLI_VERSION: ${{ inputs.codex_cli_version }}
+          NPM_CONFIG_PREFIX: ${{ runner.temp }}/agent-cli/codex
+          CODEX_CLI_VERSION: ${{ inputs.codex_cli_version || '0.160.0' }}
         run: |
           set -euo pipefail
           echo "Installing Codex CLI..."

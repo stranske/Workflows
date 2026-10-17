@@ -1462,6 +1462,9 @@ jobs:
         uses: actions/setup-python@v7
         with:
           python-version: '3.14'
+          cache: pip
+          # These requirements define the progress-review dependency family.
+          cache-dependency-path: tools/requirements-llm.txt
 
       - name: Install dependencies
         run: pip install pydantic langchain-openai langchain-anthropic
