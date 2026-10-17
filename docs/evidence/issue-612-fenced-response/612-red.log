@@ -1,0 +1,156 @@
+.FF                                                                      [100%]
+=================================== FAILURES ===================================
+_ test_semantic_mode_builds_full_matrix_before_offline_native_callbacks[json] __
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x113afa600>
+fence = 'json'
+
+    @pytest.mark.parametrize("fence", [None, "json", ""])
+    def test_semantic_mode_builds_full_matrix_before_offline_native_callbacks(monkeypatch, fence):
+        raw = '{"verdict":"PASS","concerns":[],"summary":"Fixture review detail"}'
+        if fence is not None:
+            raw = f"```{fence}\n{raw}\n```"
+        monkeypatch.setattr(_Response, "content", [{"type": "text", "text": raw}])
+        monkeypatch.setenv("PR_HEAD_SHA", "a" * 40)
+        calls: list[str] = []
+        clients = [_Client(calls, "one"), _Client(calls, "two")]
+        slots = [
+            {
+                "slot_id": "slot-1",
+                "provider": "openai",
+                "model": "model-1",
+                "transport": "native",
+                "config_sha256": "1" * 64,
+            },
+            {
+                "slot_id": "slot-2",
+                "provider": "anthropic",
+                "model": "model-2",
+                "transport": "native",
+                "config_sha256": "2" * 64,
+            },
+        ]
+        events: list[str] = []
+
+        runner = type(
+            "Runner",
+            (),
+            {"clients": [(clients[0], "openai", "model-1"), (clients[1], "anthropic", "model-2")]},
+        )()
+
+        monkeypatch.setattr(pr_verifier, "_build_semantic_clients", lambda *args: runner.clients)
+        monkeypatch.setattr(
+            pr_verifier,
+            "_semantic_slots_and_clients",
+            lambda *args: (slots, {"slot-1": clients[0], "slot-2": clients[1]}, False),
+        )
+        monkeypatch.setattr(pr_verifier, "_prepare_prompt", lambda context, diff: "complete prompt")
+        monkeypatch.setattr(
+            pr_verifier,
+            "prompt_coverage",
+            lambda context, diff: type("Coverage", (), {"reasons": (), "sufficient": True})(),
+        )
+
+        def preflight(client, prompt):
+            events.append(f"preflight:{client.name}")
+            return {
+                "status": "PASS",
+                "request_sha256": "a" * 64,
+                "input_tokens": 1,
+                "context_limit": 100,
+                "output_reserve": 2,
+            }
+
+        monkeypatch.setattr(pr_verifier, "_preflight_input_capacity", preflight)
+        run = pr_verifier._evaluate_pr_multiple_semantic(
+            _context(),
+            "diff --git a/a.py b/a.py\n--- a/a.py\n+++ b/a.py\n@@ -1 +1 @@\n-old\n+new\n",
+            None,
+            None,
+        )
+        assert events[:2] == ["preflight:one", "preflight:two"]
+        assert calls == ["one", "two"]
+>       assert run[0].summary == "Fixture review detail"
+E       AssertionError: assert None == 'Fixture review detail'
+E        +  where None = EvaluationResult(verdict='CONCERNS', scores=None, confidence=None, concerns=[], summary=None, provider_used='openai', ...0)', change_type=None, langsmith_trace_id=None, langsmith_trace_url=None, input_coverage=None, partition_recovery=None).summary
+
+tests/scripts/test_pr_verifier_semantic_integration.py:117: AssertionError
+___ test_semantic_mode_builds_full_matrix_before_offline_native_callbacks[] ____
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x113afb5f0>
+fence = ''
+
+    @pytest.mark.parametrize("fence", [None, "json", ""])
+    def test_semantic_mode_builds_full_matrix_before_offline_native_callbacks(monkeypatch, fence):
+        raw = '{"verdict":"PASS","concerns":[],"summary":"Fixture review detail"}'
+        if fence is not None:
+            raw = f"```{fence}\n{raw}\n```"
+        monkeypatch.setattr(_Response, "content", [{"type": "text", "text": raw}])
+        monkeypatch.setenv("PR_HEAD_SHA", "a" * 40)
+        calls: list[str] = []
+        clients = [_Client(calls, "one"), _Client(calls, "two")]
+        slots = [
+            {
+                "slot_id": "slot-1",
+                "provider": "openai",
+                "model": "model-1",
+                "transport": "native",
+                "config_sha256": "1" * 64,
+            },
+            {
+                "slot_id": "slot-2",
+                "provider": "anthropic",
+                "model": "model-2",
+                "transport": "native",
+                "config_sha256": "2" * 64,
+            },
+        ]
+        events: list[str] = []
+
+        runner = type(
+            "Runner",
+            (),
+            {"clients": [(clients[0], "openai", "model-1"), (clients[1], "anthropic", "model-2")]},
+        )()
+
+        monkeypatch.setattr(pr_verifier, "_build_semantic_clients", lambda *args: runner.clients)
+        monkeypatch.setattr(
+            pr_verifier,
+            "_semantic_slots_and_clients",
+            lambda *args: (slots, {"slot-1": clients[0], "slot-2": clients[1]}, False),
+        )
+        monkeypatch.setattr(pr_verifier, "_prepare_prompt", lambda context, diff: "complete prompt")
+        monkeypatch.setattr(
+            pr_verifier,
+            "prompt_coverage",
+            lambda context, diff: type("Coverage", (), {"reasons": (), "sufficient": True})(),
+        )
+
+        def preflight(client, prompt):
+            events.append(f"preflight:{client.name}")
+            return {
+                "status": "PASS",
+                "request_sha256": "a" * 64,
+                "input_tokens": 1,
+                "context_limit": 100,
+                "output_reserve": 2,
+            }
+
+        monkeypatch.setattr(pr_verifier, "_preflight_input_capacity", preflight)
+        run = pr_verifier._evaluate_pr_multiple_semantic(
+            _context(),
+            "diff --git a/a.py b/a.py\n--- a/a.py\n+++ b/a.py\n@@ -1 +1 @@\n-old\n+new\n",
+            None,
+            None,
+        )
+        assert events[:2] == ["preflight:one", "preflight:two"]
+        assert calls == ["one", "two"]
+>       assert run[0].summary == "Fixture review detail"
+E       AssertionError: assert None == 'Fixture review detail'
+E        +  where None = EvaluationResult(verdict='CONCERNS', scores=None, confidence=None, concerns=[], summary=None, provider_used='openai', ...0)', change_type=None, langsmith_trace_id=None, langsmith_trace_url=None, input_coverage=None, partition_recovery=None).summary
+
+tests/scripts/test_pr_verifier_semantic_integration.py:117: AssertionError
+=========================== short test summary info ============================
+FAILED tests/scripts/test_pr_verifier_semantic_integration.py::test_semantic_mode_builds_full_matrix_before_offline_native_callbacks[json]
+FAILED tests/scripts/test_pr_verifier_semantic_integration.py::test_semantic_mode_builds_full_matrix_before_offline_native_callbacks[]
+2 failed, 1 passed, 17 deselected in 0.99s

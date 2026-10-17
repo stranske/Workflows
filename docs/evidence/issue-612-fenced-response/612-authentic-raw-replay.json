@@ -1,0 +1,10 @@
+{
+  "original_run": 39003063100,
+  "comparison_sha256": "d6d395dc0bb30d925f5dd8b84f49a1f772659838ad948159939cf15699169d58",
+  "raw_sha256": "c6071ed1c1628c8e17003d7a2483ed0347e49b8d086da77b313c2172f47be74d",
+  "original_verdict": "CONCERNS",
+  "original_error": "Expecting value: line 1 column 1 (char 0)",
+  "reparsed_literal_verdict": "PASS",
+  "confidence": 0.8,
+  "limit": "Offline reparse proves parser correction only; original signed admission and historical verdict stay unchanged. Actual fresh production verification is still required."
+}
