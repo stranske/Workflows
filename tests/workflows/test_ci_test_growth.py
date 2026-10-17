@@ -491,3 +491,251 @@ def test_instrumentation_does_not_pollute_product_coverage(tmp_path, workers, mo
     report = json.loads((tmp_path / "coverage.json").read_text())
     assert report["totals"]["percent_covered"] == 50
     assert report["files"]["product.py"]["summary"]["missing_lines"] == 3
+
+
+def test_resource_core_uses_current_pytest_cov_instance_not_a_probe(monkeypatch):
+    from types import SimpleNamespace
+
+    plugin = _python_heredoc(_steps()[PLUGIN_STEP]["run"], PLUGIN_OPENER, PLUGIN_STEP)
+    namespace = {}
+    exec(compile(plugin, "<actual-resource-observer>", "exec"), namespace)
+    active = SimpleNamespace(
+        sys_info=lambda: [("core", "actual-active-core")], config=SimpleNamespace(branch=True)
+    )
+
+    class Coverage:
+        def __init__(self, *args, **kwargs):
+            raise AssertionError("resource observer must never create a coverage probe")
+
+        @staticmethod
+        def current():
+            return active
+
+    monkeypatch.setitem(sys.modules, "coverage", SimpleNamespace(Coverage=Coverage))
+    config = SimpleNamespace(
+        pluginmanager=SimpleNamespace(
+            getplugin=lambda name: SimpleNamespace(cov_controller=SimpleNamespace(cov=active))
+        )
+    )
+    namespace["_resources"] = {}
+    namespace["_resource_coverage"](config)
+    assert namespace["_resources"]["coverage"] == {
+        "status": "ACTIVE",
+        "core": "actual-active-core",
+        "branch": True,
+    }
+    # An active standalone probe is not the pytest-cov instance being measured.
+    config.pluginmanager.getplugin = lambda name: SimpleNamespace(
+        cov_controller=SimpleNamespace(cov=object())
+    )
+    namespace["_resources"] = {}
+    namespace["_resource_coverage"](config)
+    assert "coverage" not in namespace["_resources"]
+
+
+def _run_resource_sample(tmp_path, coverage_enabled, observer=True):
+    import time
+
+    tmp_path.mkdir(parents=True, exist_ok=True)
+    resources = tmp_path / "resources"
+    resources.mkdir()
+    plugin = _python_heredoc(_steps()[PLUGIN_STEP]["run"], PLUGIN_OPENER, PLUGIN_STEP)
+    (tmp_path / "ci_test_growth.py").write_text(plugin)
+    (tmp_path / "sample.py").write_text(
+        "def value(number):\n    return number + 1 if number % 2 else number - 1\n"
+    )
+    (tmp_path / "test_sample.py").write_text(
+        "import json, os\nfrom pathlib import Path\nimport coverage, pytest\nfrom sample import value\n"
+        "@pytest.mark.parametrize('number', range(16))\n"
+        "def test_value(number, request):\n"
+        "    active = coverage.Coverage.current()\n"
+        "    core = dict(active.sys_info()).get('core') if active else None\n"
+        "    worker = request.config.workerinput['workerid']\n"
+        "    Path(os.environ['CI_TEST_RESOURCE_DIR'], 'expected-'+worker+'.json').write_text(json.dumps(core))\n"
+        "    assert value(number) != number\n"
+        "@pytest.mark.skip(reason='setup skip has no call report')\n"
+        "def test_skip(): pass\n"
+    )
+    (tmp_path / "pyproject.toml").write_text(
+        '[tool.coverage.run]\nbranch=true\nsource=["sample"]\n'
+    )
+    env = {
+        **os.environ,
+        "PYTHONPATH": str(tmp_path),
+        "PYTEST_ADDOPTS": "",
+        "CI_TEST_RESOURCE_DIR": str(resources),
+        "PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1",
+        "PYTEST_PLUGINS": "xdist.plugin,pytest_cov.plugin",
+        "GITHUB_WORKSPACE": str(ROOT),
+        "GITHUB_SHA": "0" * 40,
+        "RESOURCE_UV_CACHE_HIT": "false",
+        "RESOURCE_PYTEST_CACHE_HIT": "true",
+        "RESOURCE_ARTIFACT_CACHE_HIT": "false",
+        "RESOURCE_ARTIFACT_FOUND": "true",
+        "RESOURCE_UNLISTED_SECRET": "must-not-appear",
+    }
+    command = [
+        sys.executable,
+        "-m",
+        "pytest",
+        "-q",
+        "-n",
+        "4",
+        "--dist=loadgroup",
+        "-p",
+        "no:rerunfailures",
+        "--junitxml=pytest-junit.xml",
+    ]
+    if observer:
+        command += ["-p", "ci_test_growth"]
+    if coverage_enabled:
+        command += [
+            "--cov",
+            "--cov-config=pyproject.toml",
+            "--cov-report=json:coverage.json",
+            "--cov-report=",
+        ]
+    started = time.monotonic()
+    result = subprocess.run(command, cwd=tmp_path, env=env, capture_output=True, text=True)
+    elapsed = time.monotonic() - started
+    (tmp_path / "sample.log").write_text(result.stdout + result.stderr)
+    assert result.returncode == 0, result.stdout + result.stderr
+    return resources, env, elapsed
+
+
+@pytest.mark.parametrize("coverage_enabled", [True, False])
+def test_real_four_worker_resource_receipts_and_existing_artifact_path(tmp_path, coverage_enabled):
+    resources, env, elapsed = _run_resource_sample(tmp_path, coverage_enabled)
+    records = [json.loads((resources / f"gw{index}.json").read_text()) for index in range(4)]
+    assert sum(row["call_reports"] for row in records) == 16
+    assert all(row["call_reports"] > 0 for row in records)
+    for index, row in enumerate(records):
+        actual_core = json.loads((resources / f"expected-gw{index}.json").read_text())
+        assert row["coverage"]["core"] == actual_core
+        assert row["coverage"]["status"] == ("ACTIVE" if coverage_enabled else "UNKNOWN")
+        assert row["coverage"]["branch"] is (True if coverage_enabled else None)
+        assert all(
+            row[key] >= 0 for key in ("elapsed_seconds", "cpu_user_seconds", "cpu_system_seconds")
+        )
+    assert json.loads((tmp_path / "pytest-collection.json").read_text())["total"] == 17
+    runtime = tmp_path / "artifacts/coverage/runtimes/3.13"
+    runtime.mkdir(parents=True)
+    (runtime / "pytest-resources.json").write_text('{"stale-secret": "cached"}')
+    # Stage with coverage disabled as well: resource data still travels with the
+    # actual pytest payload, after the existing cached runtime tree is removed.
+    stage = _steps()["Stage coverage artifact layout"]["run"].replace(
+        "${{ matrix.python-version }}", "3.13"
+    )
+    result = subprocess.run(
+        ["bash", "-c", stage],
+        cwd=tmp_path,
+        env={**env, "COVERAGE_ENABLED": "false"},
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, result.stderr
+    summary_code = _python_heredoc(_steps()[SUMMARY_STEP]["run"], SUMMARY_OPENER, SUMMARY_STEP)
+    env.update(
+        PYTHON_VERSION="3.13", PYTEST_OUTCOME="success", GITHUB_OUTPUT=str(tmp_path / "outputs")
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", summary_code], cwd=tmp_path, env=env, capture_output=True, text=True
+    )
+    assert result.returncode == 0, result.stderr
+    report = json.loads((runtime / "pytest-resources.json").read_text())
+    assert report["status"] == "COMPLETE"
+    assert report["expected_workers"] == 4
+    assert report["controller"]["call_reports"] == 16
+    expected_sha = subprocess.check_output(
+        ["git", "rev-parse", "HEAD"], cwd=ROOT, text=True
+    ).strip()
+    assert report["context"]["tested_sha"] == expected_sha != env["GITHUB_SHA"]
+    assert report["context"]["cache"] == {
+        "uv": False,
+        "pytest": True,
+        "ci_artifact_cache_hit": False,
+        "ci_artifact_found": True,
+    }
+    assert "must-not-appear" not in json.dumps(report) and "stale-secret" not in json.dumps(report)
+    (tmp_path / "sample-metrics.json").write_text(
+        json.dumps({"wall_seconds": elapsed, "workers": records})
+    )
+    # Crash/missing worker data cannot be inferred from the controller or JUnit.
+    (resources / "gw2.json").unlink()
+    result = subprocess.run(
+        [sys.executable, "-c", summary_code], cwd=tmp_path, env=env, capture_output=True, text=True
+    )
+    assert result.returncode == 0
+    report = json.loads((runtime / "pytest-resources.json").read_text())
+    assert report["status"] == "UNKNOWN" and report["missing_workers"] == ["gw2"]
+    malformed = {**records[2], "call_reports": True}
+    (resources / "gw2.json").write_text(json.dumps(malformed))
+    result = subprocess.run(
+        [sys.executable, "-c", summary_code], cwd=tmp_path, env=env, capture_output=True, text=True
+    )
+    assert result.returncode == 0
+    report = json.loads((runtime / "pytest-resources.json").read_text())
+    assert report["status"] == "UNKNOWN" and report["missing_workers"] == ["gw2"]
+
+
+def test_resource_emitter_failure_does_not_break_collection_receipt(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+
+    monkeypatch.chdir(tmp_path)
+    blocked = tmp_path / "not-a-directory"
+    blocked.write_text("blocked")
+    monkeypatch.setenv("CI_TEST_RESOURCE_DIR", str(blocked))
+    plugin = _python_heredoc(_steps()[PLUGIN_STEP]["run"], PLUGIN_OPENER, PLUGIN_STEP)
+    namespace = {}
+    exec(compile(plugin, "<actual-resource-observer>", "exec"), namespace)
+    namespace["_resource_start"](SimpleNamespace(workerinput={"workerid": "gw0"}))
+    namespace["_resource_finish"]()  # Unwritable output must not escape the hook.
+    namespace["_record"](["test_example.py::test_one"])
+    assert json.loads((tmp_path / "pytest-collection.json").read_text())["total"] == 1
+
+
+def test_resource_emitter_rejects_worker_path_escape(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+
+    directory = tmp_path / "resources"
+    directory.mkdir()
+    monkeypatch.setenv("CI_TEST_RESOURCE_DIR", str(directory))
+    plugin = _python_heredoc(_steps()[PLUGIN_STEP]["run"], PLUGIN_OPENER, PLUGIN_STEP)
+    namespace = {}
+    exec(compile(plugin, "<actual-resource-observer>", "exec"), namespace)
+    namespace["_resource_start"](SimpleNamespace(workerinput={"workerid": "../escaped"}))
+    namespace["_resource_finish"]()
+    assert namespace["_resources"] is None
+    assert not (tmp_path / "escaped.json").exists()
+    assert list(directory.iterdir()) == []
+
+
+def test_resource_context_limits_cpu_metadata_and_unknown_cache_outputs(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+
+    original_read = Path.read_text
+
+    def cpu_info(path, *args, **kwargs):
+        if str(path) == "/proc/cpuinfo":
+            return "model name: fixture CPU\nother metadata: must-not-appear\n"
+        return original_read(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", cpu_info)
+    monkeypatch.setenv("CI_TEST_RESOURCE_DIR", str(tmp_path))
+    monkeypatch.setenv("GITHUB_WORKSPACE", str(ROOT))
+    for name in (
+        "RESOURCE_UV_CACHE_HIT",
+        "RESOURCE_PYTEST_CACHE_HIT",
+        "RESOURCE_ARTIFACT_CACHE_HIT",
+        "RESOURCE_ARTIFACT_FOUND",
+    ):
+        monkeypatch.delenv(name, raising=False)
+    plugin = _python_heredoc(_steps()[PLUGIN_STEP]["run"], PLUGIN_OPENER, PLUGIN_STEP)
+    namespace = {}
+    exec(compile(plugin, "<actual-resource-observer>", "exec"), namespace)
+    namespace["_resource_start"](SimpleNamespace())
+    context = namespace["_resources"]["context"]
+    assert set(context) == {"tested_sha", "cpu_model", "cache"}
+    assert context["cpu_model"] == "fixture CPU"
+    assert all(value is None for value in context["cache"].values())
+    assert "must-not-appear" not in json.dumps(context)

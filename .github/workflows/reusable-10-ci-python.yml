@@ -1651,6 +1651,7 @@ jobs:
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
       - name: Cache uv artifacts
+        id: resource-uv-cache
         if: ${{ inputs.cache }}
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
@@ -1983,6 +1984,7 @@ jobs:
             mypy-${{ runner.os }}-
 
       - name: Cache pytest state
+        id: resource-pytest-cache
         if: ${{ inputs.cache }}
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
@@ -2051,6 +2053,10 @@ jobs:
           PYTEST_ARGS: ${{ inputs['pytest_args'] || '' }}
           PYTEST_WORKERS: ${{ inputs['pytest-workers'] || 'auto' }}
           COVERAGE_ENABLED: ${{ inputs.coverage }}
+          RESOURCE_UV_CACHE_HIT: ${{ steps.resource-uv-cache.outputs.cache-hit }}
+          RESOURCE_PYTEST_CACHE_HIT: ${{ steps.resource-pytest-cache.outputs.cache-hit }}
+          RESOURCE_ARTIFACT_CACHE_HIT: ${{ steps.ci-artifact-cache.outputs.cache-hit }}
+          RESOURCE_ARTIFACT_FOUND: ${{ steps.ci-artifact-cache.outputs.artifact-found }}
           PYTHONPATH: ${{ github.workspace }}/${{ inputs['working-directory'] || '.' }}
         run: |
           set -euo pipefail
@@ -2091,6 +2097,12 @@ jobs:
           rm -f pytest-collection.json
           # Record a complete selected collection once on the controller, including xdist.
           growth_plugin_dir="$(mktemp -d "${RUNNER_TEMP}/pytest-growth.XXXXXX")"
+          # Fresh runner-temp records cannot be confused with restored artifact data.
+          resource_dir="$(mktemp -d "${RUNNER_TEMP}/pytest-resources.XXXXXX")" || resource_dir=""
+          export CI_TEST_RESOURCE_DIR="${resource_dir}"
+          if [ -n "${GITHUB_ENV:-}" ]; then
+            printf 'CI_TEST_RESOURCE_DIR=%s\n' "${resource_dir}" >> "${GITHUB_ENV}" || true
+          fi
           cat > "${growth_plugin_dir}/ci_test_growth.py" <<'PY'
           # This observer is CI infrastructure, outside consumer product coverage.
           if True:  # pragma: no cover
@@ -2106,6 +2118,122 @@ jobs:
               _collection_failed = False
               _collection_seconds = None
 
+              _resources = None
+              _expected_workers = 0
+
+
+              def _resource_start(config):
+                  global _resources
+                  try:
+                      import os
+                      import platform
+                      import re
+                      import resource
+                      import subprocess
+
+                      directory = os.environ.get("CI_TEST_RESOURCE_DIR")
+                      if not directory:
+                          return
+                      usage = resource.getrusage(resource.RUSAGE_SELF)
+                      worker = getattr(config, "workerinput", {}).get("workerid", "controller")
+                      if not isinstance(worker, str) or re.fullmatch(r"controller|gw[0-9]+", worker) is None:
+                          _resources = None
+                          return
+                      _resources = {"worker_id": worker, "python": platform.python_version(),
+                                    "coverage": {"status": "UNKNOWN", "core": None, "branch": None},
+                                    "call_reports": 0, "_start": time.monotonic(),
+                                    "_user": usage.ru_utime, "_system": usage.ru_stime}
+                      if worker == "controller":
+                          tested_sha = None
+                          try:
+                              result = subprocess.run(
+                                  ["git", "-C", os.environ.get("GITHUB_WORKSPACE", "."), "rev-parse", "HEAD"],
+                                  capture_output=True, text=True, timeout=2, check=True)
+                              candidate = result.stdout.strip()
+                              if len(candidate) in (40, 64) and all(c in "0123456789abcdef" for c in candidate):
+                                  tested_sha = candidate
+                          except Exception:
+                              pass
+                          cpu_model = None
+                          try:
+                              for line in Path("/proc/cpuinfo").read_text().splitlines():
+                                  if line.startswith("model name"):
+                                      cpu_model = line.split(":", 1)[1].strip()[:200]
+                                      break
+                          except OSError:
+                              if platform.system() == "Darwin":
+                                  try:
+                                      cpu_model = subprocess.run(
+                                          ["sysctl", "-n", "machdep.cpu.brand_string"],
+                                          capture_output=True, text=True, timeout=1, check=True).stdout.strip()[:200]
+                                  except Exception:
+                                      pass
+                          def cache(name):
+                              return {"true": True, "false": False}.get(os.environ.get(name))
+                          _resources["context"] = {
+                              "tested_sha": tested_sha, "cpu_model": cpu_model,
+                              "cache": {"uv": cache("RESOURCE_UV_CACHE_HIT"),
+                                        "pytest": cache("RESOURCE_PYTEST_CACHE_HIT"),
+                                        "ci_artifact_cache_hit": cache("RESOURCE_ARTIFACT_CACHE_HIT"),
+                                        "ci_artifact_found": cache("RESOURCE_ARTIFACT_FOUND")}}
+                  except Exception:
+                      _resources = None
+
+
+              def _resource_coverage(config):
+                  if _resources is None:
+                      return
+                  try:
+                      import coverage
+
+                      current = coverage.Coverage.current()
+                      plugin = config.pluginmanager.getplugin("_cov")
+                      controller = getattr(plugin, "cov_controller", None)
+                      if current is not None and current is getattr(controller, "cov", None):
+                          _resources["coverage"] = {"status": "ACTIVE", "core": dict(current.sys_info()).get("core"),
+                                                    "branch": current.config.branch}
+                  except Exception:
+                      pass
+
+
+              @pytest.hookimpl(optionalhook=True)
+              def pytest_xdist_setupnodes(config, specs):
+                  global _expected_workers
+                  _expected_workers = len(specs)
+
+
+              def pytest_runtest_logreport(report):
+                  if _resources is not None and report.when == "call":
+                      _resources["call_reports"] += 1
+
+
+              def _resource_finish():
+                  if _resources is None:
+                      return
+                  temporary = None
+                  try:
+                      import os
+                      import resource
+                      import tempfile
+
+                      usage = resource.getrusage(resource.RUSAGE_SELF)
+                      record = {key: value for key, value in _resources.items() if not key.startswith("_")}
+                      record.update({"elapsed_seconds": round(time.monotonic() - _resources["_start"], 6),
+                                     "cpu_user_seconds": round(usage.ru_utime - _resources["_user"], 6),
+                                     "cpu_system_seconds": round(usage.ru_stime - _resources["_system"], 6),
+                                     "expected_workers": _expected_workers if record["worker_id"] == "controller" else None})
+                      directory = Path(os.environ["CI_TEST_RESOURCE_DIR"])
+                      with tempfile.NamedTemporaryFile(mode="w", dir=directory, prefix=".resource-", delete=False) as handle:
+                          temporary = Path(handle.name)
+                          json.dump(record, handle)
+                      os.replace(temporary, directory / (record["worker_id"] + ".json"))
+                  except Exception:
+                      if temporary is not None:
+                          try:
+                              temporary.unlink(missing_ok=True)
+                          except OSError:
+                              pass
+
               def _record(ids):
                   paths = Counter(node.split("::", 1)[0] for node in ids)
                   functions = Counter(node.split("[", 1)[0] for node in ids)
@@ -2119,6 +2247,7 @@ jobs:
                   }, indent=2), encoding="utf-8")
 
               def pytest_sessionstart(session):
+                  _resource_start(session.config)
                   if not hasattr(session.config, "workerinput"):
                       Path("pytest-collection.json").unlink(missing_ok=True)
 
@@ -2138,6 +2267,7 @@ jobs:
 
               def pytest_collection_finish(session):
                   global _collection_seconds
+                  _resource_coverage(session.config)
                   if hasattr(session.config, "workerinput") or getattr(session.config.option, "numprocesses", 0):
                       return
                   if not _collection_failed and not session.testsfailed:
@@ -2145,6 +2275,7 @@ jobs:
                       _record([item.nodeid for item in session.items])
 
               def pytest_sessionfinish(session, exitstatus):
+                  _resource_finish()
                   if hasattr(session.config, "workerinput"):
                       return
                   if exitstatus in (pytest.ExitCode.INTERRUPTED, pytest.ExitCode.INTERNAL_ERROR, pytest.ExitCode.USAGE_ERROR):
@@ -2383,6 +2514,76 @@ jobs:
                   handle.write("\n### Test collection and execution growth\n\n")
                   handle.write("Review signal only; existing test/coverage/merge gates are unchanged.\n\n")
                   handle.write("```json\n" + json.dumps(growth, indent=2) + "\n```\n")
+
+          def worker_resources():
+              # Observation only: malformed, missing or unwritable receipts never change gates.
+              report = {"status": "UNKNOWN", "controller": None, "workers": [],
+                        "source": "pytest sessionstart/sessionfinish SELF CPU deltas; actual call reports"}
+              try:
+                  directory = os.environ.get("CI_TEST_RESOURCE_DIR")
+                  if not directory:
+                      return report
+                  def read(worker):
+                      path = Path(directory) / (worker + ".json")
+                      if path.stat().st_size > 8192:
+                          raise ValueError("oversized resource receipt")
+                      data = json.loads(path.read_text())
+                      if data.get("worker_id") != worker:
+                          raise ValueError("resource worker mismatch")
+                      values = {"worker_id": worker}
+                      for key in ("elapsed_seconds", "cpu_user_seconds", "cpu_system_seconds"):
+                          value = data.get(key)
+                          if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or value < 0:
+                              raise ValueError("invalid resource duration")
+                          values[key] = value
+                      count = data.get("call_reports")
+                      if not isinstance(count, int) or isinstance(count, bool) or count < 0:
+                          raise ValueError("invalid resource count")
+                      values["call_reports"] = count
+                      python = data.get("python")
+                      values["python"] = python if isinstance(python, str) and len(python) < 32 else None
+                      coverage = data.get("coverage", {})
+                      core = coverage.get("core")
+                      active = coverage.get("status") == "ACTIVE" and isinstance(core, str) and len(core) < 64 and isinstance(coverage.get("branch"), bool)
+                      values["coverage"] = {"status": "ACTIVE" if active else "UNKNOWN",
+                                            "core": core if active else None,
+                                            "branch": coverage.get("branch") if active else None}
+                      return data, values
+                  raw, controller = read("controller")
+                  expected = raw.get("expected_workers")
+                  if not isinstance(expected, int) or isinstance(expected, bool) or not 0 <= expected <= 4096:
+                      raise ValueError("invalid expected worker count")
+                  report["expected_workers"] = expected
+                  report["controller"] = controller
+                  context = raw.get("context", {})
+                  sha = context.get("tested_sha")
+                  sha = sha if isinstance(sha, str) and len(sha) in (40, 64) and all(c in "0123456789abcdef" for c in sha) else None
+                  model = context.get("cpu_model")
+                  model = model if isinstance(model, str) and len(model) <= 200 and model.isprintable() else None
+                  caches = context.get("cache", {})
+                  report["context"] = {"tested_sha": sha, "cpu_model": model,
+                                       "cache": {key: caches.get(key) if isinstance(caches.get(key), bool) else None
+                                                 for key in ("uv", "pytest", "ci_artifact_cache_hit", "ci_artifact_found")}}
+                  missing = []
+                  for index in range(expected):
+                      worker = "gw" + str(index)
+                      try:
+                          _, record = read(worker)
+                          report["workers"].append(record)
+                      except Exception:
+                          missing.append(worker)
+                  report["missing_workers"] = missing
+                  report["status"] = "COMPLETE" if not missing and controller["call_reports"] == (sum(row["call_reports"] for row in report["workers"]) if expected else controller["call_reports"]) else "UNKNOWN"
+              except Exception:
+                  pass
+              return report
+
+          try:
+              resources = worker_resources()
+              summary["worker_resources"] = resources
+              (base_dir / "pytest-resources.json").write_text(json.dumps(resources, indent=2), encoding="utf-8")
+          except Exception:
+              summary["worker_resources"] = {"status": "UNKNOWN"}
 
           summary_path = base_dir / "summary.json"
           summary_path.write_text(json.dumps(summary, indent=2, sort_keys=True), encoding="utf-8")

@@ -289,3 +289,37 @@ commands and raw receipts are recorded in
 `/tmp/relative-floor-evidence-20261017/parity313-314/summary.json`.
 These single-pair local observations do not establish a hosted speedup or a
 sub-ten-minute full Gate. The immutable historical comparison is unchanged.
+
+
+## Per-worker resource observations
+
+The existing dynamic `ci_test_growth` observer also writes one compact,
+atomic JSON record per pytest process into a fresh runner-temp directory.
+`Record CI summary` validates these records after artifact staging clears the
+restored runtime tree, then includes `pytest-resources.json` and
+`summary.json.worker_resources` in the existing runtime artifact. Coverage-disabled
+pytest runs retain resource observations too; missing, crashed or malformed
+worker records remain `UNKNOWN`. These best-effort observations never change
+pytest outcomes, collection receipts, coverage configuration, thresholds or gates.
+`COMPLETE` means the process records are accounted for; unavailable context fields
+remain null and do not establish causal acceptance.
+
+Worker records contain the runtime, worker ID, actual `call` report count,
+monotonic session elapsed time, and process SELF user/system CPU deltas.
+The interval is pytest session start through session finish, including collection;
+it is distinct from JUnit worker-seconds and from runner job wall time. Setup skips
+have no call report. The controller is labeled separately; its forwarded reports
+are not additional worker execution. Expected workers come from xdist's actual
+node setup, including `auto`, rather than a guessed worker count.
+SELF CPU excludes child-process CPU and cannot by itself identify host contention.
+
+Active coverage core and branch mode are sampled from `Coverage.current()` after
+collection and only accepted when that instance is pytest-cov's controller
+instance. No new coverage object is created or started. Disabled/unavailable
+coverage is `UNKNOWN`; the separate existing pre-test branch probe is never used
+as a worker's active core. The controller records the actual checkout's
+`git rev-parse HEAD` before test execution, a bounded CPU-model string, and explicit
+cache-action outputs: uv/pytest `cache-hit`, artifact-cache `cache-hit` and
+`artifact-found`. Unavailable outputs stay null, not guessed misses or hits.
+There is no environment dump, hostname, PID, token, cache key or filesystem-path
+payload. No additional hosted benchmark or workflow run is introduced.
