@@ -174,6 +174,7 @@ def _promotion_evidence(
     return [
         {
             "repo": repo,
+            "plan_id": "sha256:" + "d" * 64,
             "plan_scope": plan_scope,
             "scope_base_sha": base_shas[index],
             "source_commit": source_commits[index],
