@@ -5,3 +5,6 @@ Actual expanded verifier run39003063100 captured complete inputs but rejected th
 Original production integration: bare JSON passed and both fenced forms failed at the summary assertion (2FAIL/1PASS). Repaired integration/negative cases20PASS; five semantic integration/execution/acceptance/rules/package modules82PASS. Ambiguous prose, multiple/incomplete/unknown-language fences, invalid verdict/type/fields and arrays are refused. Offline fake clients remain synthetic/nonterminal CONCERNS. Actual original raw replay parses literal PASS80%, but that is not a new authenticated comparison or source acceptance. Historical report remains CONCERNS.
 
 After exact-head review, CI, floor and guarded merge, run the actual expanded production comparison for original Orchestrator631 and disposition source612 against the new signed result. Source612 stays OPEN until that succeeds.
+
+
+Review r4301749073 identified valid variable-length backtick fences. Actual 4/6-backtick integration originally2FAIL/3PASS; repaired full semantic suites86PASS, including same-or-longer closing fences and shorter-close refusal. Mixed thinking/text coverage is preserved. Published console logs remove trailing terminal whitespace only; log-hashes.json records original and published digests, with raw originals retained in the lane round evidence.

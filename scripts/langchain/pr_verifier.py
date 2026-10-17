@@ -6862,9 +6862,15 @@ def _parse_semantic_evaluation_payload(content: str) -> EvaluationPayload:
     Surrounding prose, multiple blocks, invalid JSON and unknown fields fail.
     """
     text = content.strip()
-    fenced = re.fullmatch(r"```(?:json)?[ \t]*\r?\n(.*?)\r?\n```", text, re.DOTALL)
+    fenced = re.fullmatch(
+        r"(?P<opening>`{3,})(?:json)?[ \t]*\r?\n(?P<payload>.*?)\r?\n(?P<closing>`{3,})",
+        text,
+        re.DOTALL,
+    )
     if fenced is not None:
-        text = fenced.group(1)
+        if len(fenced.group("closing")) < len(fenced.group("opening")):
+            raise ValueError("semantic response closing fence is shorter than its opening fence")
+        text = fenced.group("payload")
     return EvaluationPayload.model_validate(json.loads(text), strict=True, extra="forbid")
 
 

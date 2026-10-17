@@ -48,11 +48,17 @@ def test_semantic_mode_requires_envelope_and_never_falls_back_to_legacy_pass(mon
     assert pr_verifier.expanded_comparison_verdict({"semantic_acceptance": envelope}) == "CONCERNS"
 
 
-@pytest.mark.parametrize("fence", [None, "json", ""])
+@pytest.mark.parametrize("fence", [None, "json", "", "four-json", "six-unlabelled", "long-close"])
 def test_semantic_mode_builds_full_matrix_before_offline_native_callbacks(monkeypatch, fence):
     raw = '{"verdict":"PASS","concerns":[],"summary":"Fixture review detail"}'
     if fence is not None:
-        raw = f"```{fence}\n{raw}\n```"
+        marker, language = ("````", "json") if fence == "four-json" else ("```", fence)
+        if fence == "six-unlabelled":
+            marker, language = "``````", ""
+        closing = marker
+        if fence == "long-close":
+            marker, language, closing = "```", "json", "`````"
+        raw = f"{marker}{language}\n{raw}\n{closing}"
     monkeypatch.setattr(
         _Response,
         "content",
@@ -469,6 +475,7 @@ def test_cli_preserves_crlf_bytes_in_capture_and_line_ending_only_diffs(
         '```json\n{"verdict":"PASS","confidence":"0.9"}\n```',
         '```json\n{"verdict":"PASS","unknown":true}\n```',
         "```json\n[]\n```",
+        '````json\n{"verdict":"PASS"}\n```',
     ],
 )
 def test_semantic_response_envelope_refuses_ambiguous_or_invalid_payloads(raw):

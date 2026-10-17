@@ -31,13 +31,13 @@ fence = 'json'
             },
         ]
         events: list[str] = []
-    
+
         runner = type(
             "Runner",
             (),
             {"clients": [(clients[0], "openai", "model-1"), (clients[1], "anthropic", "model-2")]},
         )()
-    
+
         monkeypatch.setattr(pr_verifier, "_build_semantic_clients", lambda *args: runner.clients)
         monkeypatch.setattr(
             pr_verifier,
@@ -50,7 +50,7 @@ fence = 'json'
             "prompt_coverage",
             lambda context, diff: type("Coverage", (), {"reasons": (), "sufficient": True})(),
         )
-    
+
         def preflight(client, prompt):
             events.append(f"preflight:{client.name}")
             return {
@@ -60,7 +60,7 @@ fence = 'json'
                 "context_limit": 100,
                 "output_reserve": 2,
             }
-    
+
         monkeypatch.setattr(pr_verifier, "_preflight_input_capacity", preflight)
         run = pr_verifier._evaluate_pr_multiple_semantic(
             _context(),
@@ -106,13 +106,13 @@ fence = ''
             },
         ]
         events: list[str] = []
-    
+
         runner = type(
             "Runner",
             (),
             {"clients": [(clients[0], "openai", "model-1"), (clients[1], "anthropic", "model-2")]},
         )()
-    
+
         monkeypatch.setattr(pr_verifier, "_build_semantic_clients", lambda *args: runner.clients)
         monkeypatch.setattr(
             pr_verifier,
@@ -125,7 +125,7 @@ fence = ''
             "prompt_coverage",
             lambda context, diff: type("Coverage", (), {"reasons": (), "sufficient": True})(),
         )
-    
+
         def preflight(client, prompt):
             events.append(f"preflight:{client.name}")
             return {
@@ -135,7 +135,7 @@ fence = ''
                 "context_limit": 100,
                 "output_reserve": 2,
             }
-    
+
         monkeypatch.setattr(pr_verifier, "_preflight_input_capacity", preflight)
         run = pr_verifier._evaluate_pr_multiple_semantic(
             _context(),
