@@ -466,6 +466,7 @@ jobs:
                   repository: `${context.repo.owner}/${context.repo.repo}`,
                   pr_number: Number(process.env.PR_NUMBER), head_sha: process.env.TARGET_SHA });
               } catch (error) {
+                // # best-effort: omit this issue's closure authority; verification continues and the issue stays open.
                 core.warning(`Skipping closure plan for issue #${issue_number}: ${error.message}`);
               }
             }
