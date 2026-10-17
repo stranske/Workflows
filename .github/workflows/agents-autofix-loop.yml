@@ -728,7 +728,7 @@ jobs:
             }
 
             // Phase 2: Support both Codex and Claude autofix
-            const supportedAgents = ['codex', 'claude', 'muse'];
+            const supportedAgents = ['codex', 'claude', 'cursor', 'muse'];
             if ((outputs.agent_type || '') && !supportedAgents.includes(outputs.agent_type)) {
               return stop(
                 `unsupported agent type for autofix loop: ${outputs.agent_type}`,

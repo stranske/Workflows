@@ -268,3 +268,42 @@ def test_bot_identity_assignment_cannot_leak_past_command(monkeypatch, separator
     monkeypatch.setattr(f"{__name__}._jobs", lambda path: jobs)
     with pytest.raises(AssertionError, match="direct git commit"):
         test_commit_step_scopes_bot_identity_to_the_direct_commit()
+
+
+def test_every_autofix_capable_agent_can_actually_run_autofix():
+    """Registry says pr_autofix: true -> the loop must accept the agent and the template must carry its job."""
+    registry = yaml.safe_load((ROOT / ".github/agents/registry.yml").read_text())["agents"]
+    autofix_agents = sorted(
+        k for k, v in registry.items() if (v.get("capabilities") or {}).get("pr_autofix")
+    )
+    assert autofix_agents == ["claude", "codex", "cursor", "muse"]
+    loop = (WF / "agents-autofix-loop.yml").read_text()
+    allowed = re.search(r"const supportedAgents = \[(.*?)\];", loop).group(1)
+    template_jobs = _jobs(TEMPLATE_WF / "agents-81-gate-followups.yml")
+    root_jobs = _jobs(WF / "agents-autofix-loop.yml")
+    for agent in autofix_agents:
+        assert f"'{agent}'" in allowed, f"{agent} is autofix-capable but the loop rejects it"
+        job = "autofix" if agent == "codex" else f"autofix-{agent}"
+        assert job in template_jobs, f"consumer template has no {job} job"
+        assert job in root_jobs, f"root autofix loop has no {job} job"
+
+
+def test_no_agent_runner_exports_a_credential_through_github_env():
+    """A key written to GITHUB_ENV is visible to every later step, including third-party actions."""
+    offenders = {}
+    for runner in sorted(WF.glob("reusable-*-run.yml")):
+        text = runner.read_text()
+        hits = re.findall(
+            r'echo\s+"[A-Z0-9_]*(?:API_KEY|TOKEN|AUTH_JSON|SECRET)[A-Z0-9_]*=\$\{?[A-Z0-9_]+\}?"\s*>>\s*"?\$GITHUB_ENV"?',
+            text,
+        )
+        if hits:
+            offenders[runner.name] = hits
+    assert offenders == {}, offenders
+    assert sorted(p.name for p in WF.glob("reusable-*-run.yml")) == [
+        "reusable-claude-run.yml",
+        "reusable-codex-run.yml",
+        "reusable-cursor-run.yml",
+        "reusable-gemini-run.yml",
+        "reusable-muse-run.yml",
+    ]

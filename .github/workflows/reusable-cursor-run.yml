@@ -123,8 +123,8 @@ on:
     secrets:
       CURSOR_API_KEY:
         description: >-
-          Cursor API key for headless cursor-agent auth. Exported to the run
-          step as the CURSOR_API_KEY env var so the CLI picks it up automatically.
+          Cursor API key for headless cursor-agent auth. Passed to the run step's own
+          env as CURSOR_API_KEY (never exported through GITHUB_ENV) so the CLI picks it up.
         required: false
       WORKFLOWS_APP_ID:
         required: false
@@ -814,8 +814,8 @@ jobs:
           if [ -n "$CURSOR_API_KEY" ]; then
             echo "auth-method=api-key" >> "$GITHUB_OUTPUT"
             echo "missing=false" >> "$GITHUB_OUTPUT"
-            # Export for the run step (and any later steps) to pick up.
-            echo "CURSOR_API_KEY=${CURSOR_API_KEY}" >> "$GITHUB_ENV"
+            # The key is passed to the run step through that step's own env; it is deliberately
+            # NOT exported through GITHUB_ENV, which would expose it to every later step.
           else
             echo "missing=true" >> "$GITHUB_OUTPUT"
             echo "error=Missing Cursor auth: set the CURSOR_API_KEY secret" >> "$GITHUB_OUTPUT"

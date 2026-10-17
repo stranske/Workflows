@@ -88,6 +88,8 @@ FUNCTIONAL_LABELS = {
     "automerge",
     "from:codex",
     "from:claude",
+    "from:cursor",
+    "from:muse",
     "from:copilot",
     "risk:low",
     "ci:green",

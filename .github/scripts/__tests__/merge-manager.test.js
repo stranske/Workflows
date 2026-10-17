@@ -360,3 +360,27 @@ test('syncCiStatusLabel reports missing when label removal 404s', async () => {
   assert.equal(result, 'missing');
   assert.equal(github.calls.removeLabel.length, 1);
 });
+
+for (const agent of ['cursor', 'muse', 'claude', 'codex']) {
+  test(`evaluatePullRequest treats from:${agent} as an agent-origin label`, async () => {
+    const { core, outputs } = createCore();
+    const github = createGithubStub({
+      pr: makePullRequest({
+        labels: [
+          { name: 'automerge' },
+          { name: `from:${agent}` },
+          { name: 'risk:low' },
+          { name: 'ci:green' },
+        ],
+      }),
+      files: [{ filename: 'docs/guide.md', changes: 5 }],
+      allowlist: { patterns: ['docs/**'], max_lines_changed: 10 },
+      checks: { total_count: 1, check_runs: [{ status: 'completed', conclusion: 'success' }] },
+      statuses: { total_count: 1, statuses: [{ state: 'success' }] },
+    });
+
+    await evaluatePullRequest({ github, core, owner: 'octo', repo: 'demo', prNumber: 7, config: {} });
+
+    assert.equal(outputs.from_label, 'true');
+  });
+}

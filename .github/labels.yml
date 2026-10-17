@@ -81,6 +81,12 @@
 - name: from:claude
   color: "5319e7"
   description: PR was created by or for Claude
+- name: from:cursor
+  color: "1d76db"
+  description: PR was created by or for Cursor
+- name: from:muse
+  color: "f66a0a"
+  description: PR was created by or for Muse
 - name: from:copilot
   color: "0366d6"
   description: PR was created by or for Copilot

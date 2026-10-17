@@ -293,6 +293,8 @@ Navigate to: **Settings** → **Secrets and variables** → **Actions** → **Se
 | `CLAUDE_API_STRANSKE` | Claude API key for verify/optimizer/decompose flows | Contact admin for token |
 | `CLAUDE_CODE_OAUTH_TOKEN` | Claude Code OAuth token (preferred for Claude CLI runs) | `claude setup-token` |
 | `CLAUDE_AUTH_JSON` | Claude auth JSON fallback when OAuth token is unavailable | Export from existing Claude auth file |
+| `CURSOR_API_KEY` | Cursor API key (only for repos that run `agent:cursor` work) | Contact admin; Cursor dashboard key |
+| `META_API_KEY` | Muse key from the **subscription** login (only for repos that run `agent:muse` work). **Never** use a pay-as-you-go console key here | Contact admin; see section 3.2.4 |
 
 Add each secret:
 - [ ] `SERVICE_BOT_PAT` — Required for orchestrator and agent workflows
@@ -310,6 +312,8 @@ Add each secret:
 - [ ] `KEEPALIVE_APP_PRIVATE_KEY` — **Required for keepalive parity** - Explicit keepalive app key
 - [ ] `KEEPALIVE_AUTHORITY_SIGNING_KEY` — **Required for terminal authority confirmation** - Dedicated random HMAC key; missing key fails closed to ordinary rechecks
 - [ ] `OPENAI_API_KEY` — Required for verify/decompose/optimizer workflows
+- [ ] `CURSOR_API_KEY` — Optional: required only for `agent:cursor` keepalive, belt and autofix
+- [ ] `META_API_KEY` — Optional: required only for `agent:muse` keepalive, belt and autofix (subscription key; see 3.2.4)
 - [ ] `CLAUDE_API_STRANSKE` — Required for verify/decompose/optimizer workflows
 - [ ] `CLAUDE_CODE_OAUTH_TOKEN` (or `CLAUDE_AUTH_JSON`) — Required for Claude CLI workflow runs
 
@@ -410,6 +414,31 @@ gh secret list --repo stranske/<your-repo> | grep -E "CLAUDE_CODE_OAUTH_TOKEN|CL
 > **Important**: `WORKFLOWS_APP_ID` and `WORKFLOWS_APP_PRIVATE_KEY` are essential for
 > keepalive automation. While workflows have PAT fallback logic, the keepalive system
 > requires GitHub App tokens for proper authentication and rate limits.
+
+### 3.2.4 Cursor and Muse Secrets (`CURSOR_API_KEY` / `META_API_KEY`)
+
+Only repositories that will run these agents need the secrets. A missing secret fails the round with
+a named error ("Missing Cursor auth" / "Missing Muse auth"); it does not fall back to another agent.
+
+- `CURSOR_API_KEY`: the key for `cursor-agent` headless authentication. Set it from a file or
+  prompt without echoing it: `gh secret set CURSOR_API_KEY --repo stranske/<your-repo>`.
+- `META_API_KEY`: the key the Muse CLI login creates for the owner's subscription. A console key from a
+  different project can bill pay-as-you-go instead; confirm which meter a key uses from the vendor's
+  usage page before storing it.
+
+For both agents the service PAT (`SERVICE_BOT_PAT`) must be able to read repository Actions
+**variables**. The dispatch gate reads them and fails closed on a 403, which silently blocks every
+round. Verify per repository: `gh api repos/stranske/<your-repo>/actions/variables/probe` (run with the
+PAT) must answer 404, not 403.
+
+Belt PRs also need `scripts/ledger_validate.py` and `scripts/belt_ledger_completion.py` in the
+repository, because the Gate's `ledger-validation` job feeds the required `summary` check.
+
+Verify the secrets exist (never read the values back):
+
+```bash
+gh secret list --repo stranske/<your-repo> | grep -E "CURSOR_API_KEY|META_API_KEY"
+```
 
 ### 3.3 Required Variables
 
