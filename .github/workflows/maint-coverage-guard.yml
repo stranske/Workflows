@@ -114,18 +114,12 @@ jobs:
       ${{ needs.rate-limit-check.outputs.proceed == 'true' }}
     runs-on: ubuntu-latest
     steps:
+      # ONE checkout of the whole repository. A second `actions/checkout` with `sparse-checkout` into the same workspace re-applies a
+      # sparse set and removes everything outside it, including `tools/coverage_guard.py`, which `Run coverage guard` runs: the guard
+      # failed with "can't open file tools/coverage_guard.py" on its first run after the artifact fixes. The full checkout already
+      # carries `.github/actions/artifact-cache` and the retry helpers under `.github/scripts/`.
       - name: Checkout repository
         uses: actions/checkout@v7
-
-      - name: Checkout retry helpers
-        uses: actions/checkout@v7
-        with:
-          sparse-checkout: |
-            .github/actions/artifact-cache
-            .github/scripts/error_classifier.js
-            .github/scripts/github-api-with-retry.js
-            .github/scripts/token_load_balancer.js
-          sparse-checkout-cone-mode: false
 
       - name: Locate latest Gate workflow run
         id: discover
