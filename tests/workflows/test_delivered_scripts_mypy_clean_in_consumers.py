@@ -29,7 +29,17 @@ def test_delivered_ledger_scripts_type_check_in_a_consumer_layout(tmp_path):
     for rel in DELIVERED:
         shutil.copy(ROOT / rel, package / Path(rel).name)
     result = subprocess.run(
-        [sys.executable, "-m", "mypy", "scripts", "--warn-unused-ignores", "--no-incremental"],
+        [
+            sys.executable,
+            "-m",
+            "mypy",
+            "scripts",
+            "--warn-unused-ignores",
+            "--no-incremental",
+            # third-party stubs (PyYAML) vary by environment; the unresolved-import errors this
+            # test exists to catch use different codes and still fail.
+            "--disable-error-code=import-untyped",
+        ],
         cwd=tmp_path,
         capture_output=True,
         text=True,
