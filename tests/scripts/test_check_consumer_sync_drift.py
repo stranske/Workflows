@@ -949,6 +949,8 @@ def test_fetch_remote_tree_reports_rate_limit_reason() -> None:
 
 def test_main_writes_actionable_reports_for_early_preflight_failures(tmp_path, monkeypatch) -> None:
     """Every early exit must leave machine-readable evidence for the maintainer."""
+    # resolve_repos("") falls back to this variable; a maintainer shell must not change case one.
+    monkeypatch.delenv("REGISTERED_CONSUMER_REPOS", raising=False)
     report_path = tmp_path / "report.json"
     args = SimpleNamespace(
         repos="",
