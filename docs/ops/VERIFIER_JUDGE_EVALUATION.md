@@ -136,9 +136,11 @@ production Anthropic judge slot). Token counts are as reported by each backend; 
 | gpt-6-luna | Codex CLI | 5/8 | 1 | 2 | 0 | 0 | 5s | 117,974 / 1,479 |
 | claude-cli | Claude Code CLI, tools off (served claude-opus-5-5) | 4/8 | 2 | 2 | 0 | 0 | 16s | 58,010 / 10,308 |
 | cursor-cli | Cursor CLI, ask mode, default model | 6/8 | 2 | 0 | 0 | 0 | 17s | 98,767 / 16,288 |
-| muse-api | Meta Model API muse-spark-1.2, separate key | 6/8 | 2 | 0 | 0 | 0 | 30s | 21,861 / 20,339 |
-| muse-cli | Muse CLI muse-wonder-1.0, subscription | 3/8 | 2 | 2 | 1 | 1 | 23s | not reported |
+| muse-api | Meta Model API muse-spark-1.2, separate key | 6/8 | 2 | 0 | 0 | 0 | 29s | 21,861 / 20,339 |
+| muse-cli | Muse CLI muse-wonder-1.0, subscription | 3/8 | 2 | 2 | 1 | 1 | 21s | not reported |
 | agy-cli | agy gemini-4-argon-medium, plan mode | 4/8 | 2 | 0 | 2 | 0 | 18s | 127,453 / 9,352 |
+
+The screen table counts false FAIL only for schema-valid verdicts; the historical ensemble table fails closed on invalid results. Historical ordering and conflicting Muse observations are documented in `../evidence/judge-screen-20261017/PROVENANCE.md`; that aggregate must not qualify a judge for authority. The corrected analyzer requires all approval-stage gates, category evidence and a paired recorded incumbent, and refuses conflicting observations or corpus/prompt identities.
 
 Reading the table:
 

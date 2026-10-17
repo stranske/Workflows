@@ -135,7 +135,7 @@ def test_muse_api_refuses_the_contributor_tier():
 
 
 def test_muse_api_request_shape_usage_and_key_handling(monkeypatch):
-    monkeypatch.setenv("MUSE_API_KEY", "sk-test-not-a-real-key-123456")
+    monkeypatch.setenv("MUSE_API_KEY", "fixture-not-a-credential")
     seen = {}
 
     def opener(request, timeout):
@@ -152,7 +152,7 @@ def test_muse_api_request_shape_usage_and_key_handling(monkeypatch):
 
     outcome = screen.MuseApiJudge(opener=opener).invoke("PROMPT")
     assert seen["url"] == "https://api.meta.ai/v1/chat/completions"
-    assert seen["auth"] == "Bearer sk-test-not-a-real-key-123456"
+    assert seen["auth"] == "Bearer fixture-not-a-credential"
     assert seen["body"]["model"] == "muse-spark-1.2"
     assert seen["body"]["messages"] == [{"role": "user", "content": "PROMPT"}]
     assert (outcome.input_tokens, outcome.output_tokens) == (1234, 56)
@@ -160,7 +160,7 @@ def test_muse_api_request_shape_usage_and_key_handling(monkeypatch):
 
 
 def test_muse_api_rate_limit_stops_the_judge_without_leaking_the_key(monkeypatch):
-    key = "sk-test-not-a-real-key-123456"
+    key = "fixture-not-a-credential"
     monkeypatch.setenv("MUSE_API_KEY", key)
 
     def opener(request, timeout):
@@ -222,8 +222,8 @@ def test_muse_cli_tool_activity_invalidates_the_judge(tmp_path):
     out = tmp_path / "events.jsonl"
     out.write_text(_muse_events("tool.call.started", text=json.dumps(VERDICT)))
     outcome = screen.MuseCliJudge(muse=_script(tmp_path / "muse", f"cat {out}\n")).invoke("PROMPT")
-    # one case's tool attempt invalidates that case only; the screen records it and continues
-    assert outcome.stop is False and outcome.tool_activity is True
+    # Tool activity stops this judge before another untrusted case is sent.
+    assert outcome.stop is True and outcome.tool_activity is True
     assert outcome.payload is None and "tool event" in outcome.error
 
 
@@ -381,3 +381,109 @@ def test_tool_activity_is_counted_and_blocks_the_screen():
     )
     assert metrics["tool_activity_cases"] == 1 and metrics["meets_provisional_screen"] is False
     assert any("tool activity" in reason for reason in metrics["provisional_screen_reasons"])
+
+
+@pytest.mark.parametrize("error", [FileNotFoundError, OSError, RuntimeError])
+def test_backend_failure_retains_prior_rows_and_runs_other_judges(error):
+    corpus, registry, policy = _frozen()
+    cases, _ = screen.screen_cases(
+        corpus, policy["profiles"]["verifier-balanced"]["provisional_stage"]
+    )
+    order = [c["case_id"] for c in cases]
+    truth = {c["case_id"]: "PASS" if c["expected_verdict"] == "PASS" else "FAIL" for c in cases}
+
+    class Broken:
+        name = "broken"
+        evidence_class = "exploratory-cli"
+        api_key_calls = False
+
+        def invoke(self, prompt):
+            raise error("sensitive detail must never be reported")
+
+    result = screen.run_screen(
+        [_FakeJudge("first", truth).bind(order), Broken(), _FakeJudge("last", truth).bind(order)],
+        corpus=corpus,
+        registry=registry,
+        policy=policy,
+    )
+    assert len(result["rows"]) == len(order) * 2 + 1
+    failed = next(j for j in result["judges"] if j["judge"] == "broken")
+    assert failed["stopped"] == f"broken failed: {error.__name__}"
+    assert "sensitive detail" not in json.dumps(result)
+
+
+def test_baseline_loader_uses_recorded_incumbent_not_alphabetical_candidate(tmp_path):
+    path = tmp_path / "screen.json"
+    rows = [{"judge": name, "case_id": "c"} for name in ["aaa-candidate", "incumbent"]]
+    path.write_text(
+        json.dumps({"schema": screen.SCHEMA, "baseline": {"judge": "incumbent"}, "rows": rows})
+    )
+    assert screen.load_baseline_rows(path, None) == ("incumbent", [rows[1]])
+    path.write_text(json.dumps({"schema": screen.SCHEMA, "rows": rows}))
+    with pytest.raises(ValueError, match="baseline model"):
+        screen.load_baseline_rows(path, None)
+    assert screen.load_baseline_rows(path, "aaa-candidate")[1] == [rows[0]]
+    path.write_text(
+        json.dumps(
+            {
+                "models": [{"model_id": "incumbent"}],
+                "rows": [{"model_id": "incumbent", "case_id": "c"}],
+            }
+        )
+    )
+    assert screen.load_baseline_rows(path, None)[0] == "incumbent"
+
+
+@pytest.mark.parametrize(
+    "cls", [screen.MuseCliJudge, screen.CursorCliJudge, screen.ClaudeCliJudge, screen.AgyCliJudge]
+)
+def test_cli_timeout_stops_only_that_judge(monkeypatch, cls):
+    monkeypatch.setenv("CURSOR_API_KEY", "fixture-cursor")
+
+    def timed_out(*args, **kwargs):
+        raise screen.subprocess.TimeoutExpired("fixture", 1)
+
+    monkeypatch.setattr(screen.subprocess, "run", timed_out)
+    result = cls().invoke("fixture prompt")
+    assert result.stop is True and result.payload is None
+
+
+@pytest.mark.parametrize(
+    "cls,envelope",
+    [
+        (screen.ClaudeCliJudge, "not JSON"),
+        (screen.ClaudeCliJudge, json.dumps({"is_error": True, "result": "failure"})),
+        (screen.AgyCliJudge, json.dumps({"status": "ERROR", "response": "failure"})),
+    ],
+)
+def test_cli_error_responses_and_credential_filtering(monkeypatch, cls, envelope):
+    seen = {}
+    monkeypatch.setenv("MUSE_API_KEY", "fixture-muse")
+    monkeypatch.setenv("GITHUB_TOKEN", "fixture-github")
+
+    def fake_run(*args, **kwargs):
+        seen.update(kwargs)
+        return screen.subprocess.CompletedProcess(args[0], 0, envelope, "")
+
+    monkeypatch.setattr(screen.subprocess, "run", fake_run)
+    result = cls().invoke("fixture prompt")
+    assert result.payload is None and result.error
+    assert "MUSE_API_KEY" not in seen["env"] and "GITHUB_TOKEN" not in seen["env"]
+
+
+def test_http_error_response_body_is_closed(monkeypatch):
+    monkeypatch.setenv("MUSE_API_KEY", "fixture-muse")
+
+    class Body(_Body):
+        closed = False
+
+        def close(self):
+            self.closed = True
+
+    body = Body("rate limit")
+
+    def opener(request, timeout):
+        raise urllib.error.HTTPError(request.full_url, 429, "rate limit", {}, body)
+
+    assert screen.MuseApiJudge(opener=opener).invoke("fixture prompt").stop is True
+    assert body.closed is True

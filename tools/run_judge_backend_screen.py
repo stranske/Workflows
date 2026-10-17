@@ -182,7 +182,8 @@ class MuseCliJudge:
                 None,
                 latency,
                 served_model=served,
-                error="Muse CLI emitted a tool event; result excluded",
+                error="Muse CLI emitted a tool event; judge stopped",
+                stop=True,
                 tool_activity=True,
             )
         terminal = next(
@@ -471,7 +472,10 @@ class MuseApiJudge:
             with self._open(request, timeout=self.timeout) as handle:
                 raw = handle.read().decode("utf-8")
         except urllib.error.HTTPError as exc:
-            detail = exc.read().decode("utf-8", errors="replace")[:300]
+            try:
+                detail = exc.read().decode("utf-8", errors="replace")[:300]
+            finally:
+                exc.close()
             return JudgeOutcome(
                 None,
                 _ms(started),
@@ -608,7 +612,11 @@ def load_baseline_rows(path: Path, model_id: str | None) -> tuple[str, list[dict
     data = json.loads(path.read_text())
     rows = data.get("rows") or []
     if data.get("schema") == SCHEMA:
-        judge = model_id or sorted({r["judge"] for r in rows})[0]
+        judge = model_id or (data.get("baseline") or {}).get("judge")
+        if not judge:
+            raise ValueError("baseline model is required when no incumbent is recorded")
+        if not any(r["judge"] == judge for r in rows):
+            raise ValueError("recorded baseline has no rows")
         return judge, [r for r in rows if r["judge"] == judge]
     judge = model_id or data.get("models", [{}])[0].get("model_id")
     return str(judge), [r for r in rows if r.get("model_id") == judge]
@@ -637,7 +645,12 @@ def run_screen(
     stopped: dict[str, str] = {}
     for judge in judges:
         for case in cases:
-            outcome = judge.invoke(prompts[case["case_id"]])
+            try:
+                outcome = judge.invoke(prompts[case["case_id"]])
+            except Exception as exc:  # isolate one backend without logging sensitive messages
+                outcome = JudgeOutcome(
+                    None, 0.0, error=f"{judge.name} failed: {type(exc).__name__}", stop=True
+                )
             rows.append(
                 {
                     "judge": judge.name,

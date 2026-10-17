@@ -53,7 +53,10 @@ def test_a_tiny_sample_cannot_confer_authority_even_with_zero_errors():
 
 def test_a_large_clean_sample_confers_authority_and_one_false_pass_removes_it():
     truth = _truth(80, 80)
-    assert ens.judge_authority("x", _perfect(truth), truth, bound=0.05)["may_hold_pass_authority"]
+    categories = _categories(truth)
+    assert ens.judge_authority(
+        "x", _perfect(truth), truth, bound=0.05, categories=categories, baseline=_perfect(truth)
+    )["may_hold_pass_authority"]
     bad = ens.judge_authority("x", _wrong_on(truth, {"n0"}), truth, bound=0.05)
     assert bad["false_pass"] == 1 and not bad["may_hold_pass_authority"]
 
@@ -65,6 +68,10 @@ def test_tie_break_value_counts_how_often_the_third_judge_is_right_on_disagreeme
         "a": _perfect(truth),
         "b": _wrong_on(truth, disputed),  # disagrees with a on exactly six cases
         "c": _perfect(truth),
+    }
+    decisions = {
+        n: {c: "CONCERNS" if v == "NON_PASS" else v for c, v in rows.items()}
+        for n, rows in decisions.items()
     }
     result = ens.analyze(decisions, truth)
     trio = next(
@@ -78,7 +85,7 @@ def test_tie_break_value_counts_how_often_the_third_judge_is_right_on_disagreeme
 def test_too_few_disagreements_means_insufficient_evidence():
     truth = _truth(80, 80)
     decisions = {n: _perfect(truth) for n in ("a", "b", "c")}
-    result = ens.analyze(decisions, truth)
+    result = ens.analyze(decisions, truth, categories=_categories(truth), baseline_model="a")
     assert "insufficient evidence" in result["recommendation"]["tie_break"]
     assert result["enables_anything"] is False
 
@@ -178,3 +185,84 @@ def test_cli_writes_json_and_markdown(tmp_path: Path):
     assert ens.main(["--inputs", str(source), "--output", str(out), "--markdown", str(md)]) == 0
     assert json.loads(out.read_text())["schema"] == ens.SCHEMA
     assert "Nothing is enabled by this report" in md.read_text()
+
+
+def _categories(truth):
+    names = [
+        "clean-pass",
+        "missing-acceptance-criterion",
+        "stale-verifier-claim",
+        "review-thread-debt",
+        "follow-up-required",
+    ]
+    return {case: names[i % len(names)] for i, case in enumerate(truth)}
+
+
+def test_reject_all_judge_cannot_earn_authority_on_a_large_sample():
+    truth = _truth(80, 80)
+    report = ens.judge_authority(
+        "reject-all",
+        dict.fromkeys(truth, "FAIL"),
+        truth,
+        bound=0.05,
+        categories=_categories(truth),
+        baseline=truth,
+    )
+    assert report["false_pass"] == 0 and report["false_fail"] == 80
+    assert report["may_hold_pass_authority"] is False
+    assert report["approval_gates"]["false_fail_rate_wilson_upper_bound"] is False
+    assert report["approval_gates"]["paired_success_noninferiority"] is False
+
+
+def test_authority_requires_category_and_paired_incumbent_evidence():
+    truth = _truth(80, 80)
+    for kwargs in ({}, {"categories": _categories(truth)}, {"baseline": truth}):
+        report = ens.judge_authority("perfect", truth, truth, bound=0.05, **kwargs)
+        assert report["may_hold_pass_authority"] is False
+
+
+@pytest.mark.parametrize("veto", ["FAIL", None, "NON_PASS"])
+def test_hard_fail_or_unknown_cannot_be_outvoted(veto):
+    assert ens.majority([{"c": "PASS"}, {"c": veto}, {"c": "PASS"}], ["c"]) == {"c": "NON_PASS"}
+    report = ens.analyze(
+        {"a": {"c": "PASS"}, "b": {"c": veto}, "c": {"c": "PASS"}}, {"c": "NON_PASS"}
+    )
+    assert all(t["disagreements"] == 0 for t in report["tie_breaks"])
+
+
+def test_unapproved_judge_is_excluded_from_tie_break_recommendation():
+    trio = {
+        "pair": ["a", "b"],
+        "tie_breaker": "unapproved",
+        "estimable": True,
+        "disagreements": 5,
+        "tie_breaker_right_on_disagreements": 5,
+    }
+    assert "insufficient evidence" in ens._tie_break_verdict([trio], ["a", "b", "c"])
+
+
+@pytest.mark.parametrize("field", ["input_fingerprint", "prompt_sha256_by_case"])
+def test_loader_rejects_different_corpora_or_prompts(tmp_path, field):
+    a, b = tmp_path / "a.json", tmp_path / "b.json"
+    a.write_text(json.dumps({field: "first", "rows": []}))
+    b.write_text(json.dumps({field: "second", "rows": []}))
+    with pytest.raises(ValueError, match="fingerprint"):
+        ens.load_judgments([a, b])
+
+
+def test_loader_preserves_hard_fail_and_rejects_conflicting_repeats(tmp_path):
+    path = tmp_path / "in.json"
+    row = {
+        "judge": "a",
+        "case_id": "c",
+        "expected_verdict": "NON_PASS",
+        "actual_verdict": "NON_PASS",
+        "raw_verdict": "FAIL",
+        "schema_valid": True,
+    }
+    path.write_text(json.dumps({"rows": [row, row]}))
+    decisions, _ = ens.load_judgments([path])
+    assert decisions == {"a": {"c": "FAIL"}}
+    path.write_text(json.dumps({"rows": [row, {**row, "raw_verdict": "CONCERNS"}]}))
+    with pytest.raises(ValueError, match="conflicting"):
+        ens.load_judgments([path])

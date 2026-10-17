@@ -25,8 +25,10 @@ import argparse
 import itertools
 import json
 from pathlib import Path
+from statistics import NormalDist
 from typing import Any
 
+from tools.evaluate_model_benchmark import wilson_interval
 from tools.run_judge_backend_screen import wilson_upper
 
 SCHEMA = "workflows-judge-ensemble-analysis/v1"
@@ -45,8 +47,13 @@ def load_judgments(paths: list[Path]) -> tuple[dict[str, dict[str, str | None]],
     """judge -> case -> 'PASS' | 'NON_PASS' | None (invalid), plus the shared case truth."""
     decisions: dict[str, dict[str, str | None]] = {}
     truth: dict[str, str] = {}
-    for path in paths:
+    fingerprint = None
+    for index, path in enumerate(paths):
         data = json.loads(path.read_text())
+        identity = (data.get("input_fingerprint"), data.get("prompt_sha256_by_case"))
+        if index and identity != fingerprint:
+            raise ValueError(f"inconsistent corpus or prompt fingerprint in {path}")
+        fingerprint = identity
         for row in data.get("rows", []):
             judge = str(row.get("judge") or row.get("model_id"))
             case = str(row["case_id"])
@@ -54,7 +61,13 @@ def load_judgments(paths: list[Path]) -> tuple[dict[str, dict[str, str | None]],
             if truth.setdefault(case, expected) != expected:
                 raise ValueError(f"inconsistent expected verdict for {case}")
             valid = row.get("schema_valid", True)
-            decisions.setdefault(judge, {})[case] = row["actual_verdict"] if valid else None
+            value = (row.get("raw_verdict") or row["actual_verdict"]) if valid else None
+            if value not in {None, "PASS", "NON_PASS", "CONCERNS", "FAIL"}:
+                raise ValueError(f"invalid verdict for {judge} on {case}")
+            observed = decisions.setdefault(judge, {})
+            if case in observed and observed[case] != value:
+                raise ValueError(f"conflicting results for {judge} on {case} in {path}")
+            observed[case] = value
     return decisions, truth
 
 
@@ -77,7 +90,14 @@ def _fail_closed(value: str | None) -> str:
 
 
 def judge_authority(
-    name: str, decisions: dict[str, str | None], truth: dict[str, str], *, bound: float
+    name: str,
+    decisions: dict[str, str | None],
+    truth: dict[str, str],
+    *,
+    bound: float,
+    categories: dict[str, str] | None = None,
+    baseline: dict[str, str | None] | None = None,
+    policy: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     cases = sorted(truth)
     missing = [c for c in cases if c not in decisions]
@@ -96,7 +116,61 @@ def judge_authority(
             f"false-PASS upper bound {scored['false_pass_wilson_upper_bound']} exceeds {bound} "
             f"on {non_pass} NON_PASS case(s); {cases_needed_for_bound(bound)} are needed with zero errors"
         )
+    profile = (
+        policy
+        or json.loads(
+            (Path(__file__).resolve().parents[1] / "config/model_selection_policy.json").read_text()
+        )
+    )["profiles"]["verifier-balanced"]
+    stage = profile["approval_stage"]
+    gates = stage["quality_gates"]
+    z = NormalDist().inv_cdf((1 + stage.get("confidence_level", 0.95)) / 2)
+    present = [c for c in cases if c in decisions]
+    correct = sum(
+        decisions[c] is not None and _fail_closed(decisions[c]) == truth[c] for c in present
+    )
+    pass_count = sum(truth[c] == "PASS" for c in present)
+    non_pass_count = len(present) - pass_count
+    category_counts = {
+        k: sum((categories or {}).get(c) == k for c in present)
+        for k in profile["candidate_stage"]["required_case_categories"]
+    }
+    floors = stage.get("minimum_cases_per_category_overrides", {})
+    paired = baseline is not None and set(baseline) == set(truth) and not missing
+    baseline_success = (
+        sum(baseline[c] is not None and _fail_closed(baseline[c]) == truth[c] for c in cases)
+        if paired
+        else 0
+    )
+    approval_gates = {
+        "minimum_adjudicated_cases": len(present) >= stage["minimum_adjudicated_cases"],
+        "minimum_cases_per_category": all(
+            n >= floors.get(k, stage["minimum_cases_per_category"])
+            for k, n in category_counts.items()
+        ),
+        "task_success_rate_wilson_lower_bound": wilson_interval(correct, len(present), z=z)[0]
+        >= gates["task_success_rate_wilson_lower_bound"],
+        "false_pass_rate_wilson_upper_bound": wilson_interval(
+            scored["false_pass"], non_pass_count, z=z
+        )[1]
+        <= gates["false_pass_rate_wilson_upper_bound"],
+        "false_fail_rate_wilson_upper_bound": wilson_interval(
+            scored["false_fail"], pass_count, z=z
+        )[1]
+        <= gates["false_fail_rate_wilson_upper_bound"],
+        "schema_error_rate_wilson_upper_bound": wilson_interval(invalid, len(present), z=z)[1]
+        <= gates["schema_error_rate_wilson_upper_bound"],
+        "paired_success_noninferiority": paired
+        and (correct - baseline_success) / max(1, len(cases))
+        >= -gates["paired_success_noninferiority_margin"],
+    }
+    blockers.extend(
+        f"approval gate failed or unmeasured: {k}"
+        for k, passed in approval_gates.items()
+        if not passed
+    )
     return {
+        "approval_gates": approval_gates,
         "judge": name,
         **scored,
         "invalid": invalid,
@@ -115,16 +189,39 @@ def strict_and(
 def majority(judges: list[dict[str, str | None]], cases: list[str]) -> dict[str, str]:
     need = len(judges) // 2 + 1
     return {
-        c: "PASS" if sum(j.get(c) == "PASS" for j in judges) >= need else "NON_PASS" for c in cases
+        c: (
+            "PASS"
+            if all(j.get(c) in {"PASS", "CONCERNS"} for j in judges)
+            and sum(j.get(c) == "PASS" for j in judges) >= need
+            else "NON_PASS"
+        )
+        for c in cases
     }
 
 
 def analyze(
-    decisions: dict[str, dict[str, str | None]], truth: dict[str, str], *, bound: float = 0.05
+    decisions: dict[str, dict[str, str | None]],
+    truth: dict[str, str],
+    *,
+    bound: float = 0.05,
+    categories: dict[str, str] | None = None,
+    baseline_model: str | None = None,
+    policy: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     cases = sorted(truth)
     names = sorted(decisions)
-    authority = [judge_authority(n, decisions[n], truth, bound=bound) for n in names]
+    authority = [
+        judge_authority(
+            n,
+            decisions[n],
+            truth,
+            bound=bound,
+            categories=categories,
+            baseline=decisions.get(baseline_model),
+            policy=policy,
+        )
+        for n in names
+    ]
     pairs = []
     for a, b in itertools.combinations(names, 2):
         both = [c for c in cases if c in decisions[a] and c in decisions[b]]
@@ -149,7 +246,7 @@ def analyze(
             continue  # the pair is unordered; the third judge is the tie-breaker
         both = [x for x in cases if all(x in decisions[j] for j in trio)]
         disagreements = [
-            x for x in both if _fail_closed(decisions[a][x]) != _fail_closed(decisions[b][x])
+            x for x in both if {decisions[a][x], decisions[b][x]} == {"PASS", "CONCERNS"}
         ]
         third_right = sum(_fail_closed(decisions[c][x]) == truth[x] for x in disagreements)
         maj = majority([decisions[a], decisions[b], decisions[c]], both)
@@ -208,7 +305,11 @@ def _tie_break_verdict(tie_breaks: list[dict[str, Any]], eligible: list[str]) ->
             f"not enabled: {len(eligible)} of the judges meet the PASS-authority gates "
             "(three are needed so that every vote carries authority)"
         )
-    useful = [t for t in tie_breaks if t["estimable"]]
+    useful = [
+        t
+        for t in tie_breaks
+        if t["estimable"] and set(t["pair"] + [t["tie_breaker"]]).issubset(eligible)
+    ]
     if not useful:
         return f"insufficient evidence: fewer than {MIN_DISAGREEMENTS} disagreements to learn from"
     best = max(useful, key=lambda t: t["tie_breaker_right_on_disagreements"] / t["disagreements"])
@@ -280,7 +381,27 @@ def main(argv: list[str] | None = None) -> int:
     decisions, truth = load_judgments(args.inputs)
     if len(decisions) < 2:
         raise SystemExit("need at least two judges")
-    result = analyze(decisions, truth, bound=args.false_pass_bound)
+    categories = {}
+    baselines = set()
+    for path in args.inputs:
+        data = json.loads(path.read_text())
+        for row in data.get("rows", []):
+            if row.get("category"):
+                case = row["case_id"]
+                if categories.setdefault(case, row["category"]) != row["category"]:
+                    raise ValueError(f"inconsistent category for {case}")
+        if (data.get("baseline") or {}).get("judge"):
+            baselines.add(data["baseline"]["judge"])
+    if len(baselines) > 1:
+        raise ValueError("inconsistent incumbent baseline")
+    result = analyze(
+        decisions,
+        truth,
+        bound=args.false_pass_bound,
+        categories=categories,
+        baseline_model=next(iter(baselines), None),
+    )
+    result["ordered_input_manifest"] = [str(path) for path in args.inputs]
     args.output.write_text(json.dumps(result, indent=2) + "\n")
     text = markdown(result)
     if args.markdown:
