@@ -1166,4 +1166,3 @@ the Gate control surface, and treats every non-explicit-success outcome as
 blocking. The full threat model, live context audit, staged consumer rollout,
 and rollback contract are in
 [`docs/keepalive/FORK_GATE_STATUS_PUBLICATION.md`](../keepalive/FORK_GATE_STATUS_PUBLICATION.md).
-
