@@ -378,10 +378,19 @@ function decideNextAgent({
   const ranking = Array.isArray(routeWeights?.task_types?.[taskType]?.ranking)
     ? routeWeights.task_types[taskType].ranking : [];
 
+  // Receipts survive a later provider failure; route exports can still report
+  // that provider's pool as healthy. Only expiry or loader-observed progress
+  // drains this persisted backoff, including before a current agent is chosen.
+  const activeRateLimited = new Set((completion?.rate_limit_receipts || [])
+    .filter((record) => record?.completion?.reason === 'rate_limited' &&
+      !rateLimitExpired(record))
+    .map((record) => record.provider));
+
   // Initial selection has no completion to trigger the rate-limit switch path.
   // Apply pool availability before concrete-label, weighted and default choices.
   const availableAgents = Object.keys(agents).filter((key) => (
     agentPrereqs[key].available && hasKeepaliveRunner(agents[key]) &&
+    !activeRateLimited.has(key) &&
     (!Array.isArray(runnableAgents) || runnableAgents.includes(key)) &&
     (currentAgent || getAgentPoolState(
       routeWeights, key, ranking.find((row) => row?.agent === key),

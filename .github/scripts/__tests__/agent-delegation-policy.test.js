@@ -291,6 +291,47 @@ for (const policyPath of [
     registry: mockRegistry,
   };
 
+  test(`initial selection excludes active receipts even with healthy pools (${policyPath})`, () => {
+    const receipt = {
+      provider: 'codex', completed_at: new Date().toISOString(),
+      completion: { reason: 'rate_limited' },
+    };
+    // The latest terminal result may be a different provider's failure. Older
+    // backoff remains authoritative until TTL expiry or measured progress.
+    const completion = { provider: 'claude', completion: { reason: 'failed' },
+      rate_limit_receipts: [receipt] };
+    for (const selection of ['label', 'ranking', 'exploration', 'default']) {
+      const decision = policy.decideNextAgent({
+        ...initialOptions, completion,
+        labels: ['agent:auto', 'agents:tried-codex',
+          ...(selection === 'label' ? ['agent:codex'] : [])],
+        routeWeights: {
+          pools: { codex: 'ok', claude: 'ok' },
+          task_types: { implement: { evidence_ok: selection !== 'default',
+            ranking: [{ agent: 'codex' }, { agent: 'claude' }] } },
+          exploration: { rate: 1, challengers: { implement: 'codex' } },
+        },
+      });
+      assert.equal(decision.agent, 'claude', selection);
+      assert.ok(!decision.alternatives.includes('codex'));
+    }
+    const blocked = policy.decideNextAgent({ ...initialOptions, completion,
+      runnableAgents: ['codex'] });
+    assert.equal(blocked.agent, '');
+    assert.equal(blocked.reason, 'no-agents-available');
+
+    const { RATE_LIMIT_RECEIPT_TTL_HOURS } = require('../rate_limit_receipt');
+    const expired = { ...receipt, completed_at: new Date(Date.now() -
+      (RATE_LIMIT_RECEIPT_TTL_HOURS * 60 * 60 + 1) * 1000).toISOString() };
+    const eligible = policy.decideNextAgent({ ...initialOptions,
+      completion: { ...completion, rate_limit_receipts: [expired] } });
+    assert.equal(eligible.agent, 'codex', 'expired receipt must reopen initial routing');
+    const progressed = policy.decideNextAgent({ ...initialOptions,
+      completion: { provider: 'claude', completion: { reason: 'progressed' },
+        rate_limit_receipts: [] } });
+    assert.equal(progressed.agent, 'codex', 'loader clears backoffs on measured progress');
+  });
+
   test(`initial selection excludes blocked pools from every selection path (${policyPath})`, () => {
     for (const poolState of ['rate_limited', 'exhausted', 'shed']) {
       for (const selection of ['label', 'ranking', 'exploration', 'default']) {
