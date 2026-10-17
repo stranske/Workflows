@@ -77,11 +77,11 @@ jobs:
       typecheck: false
       run-mypy: false
       coverage: true
-      coverage-min: ''
+      coverage-min: '70'
       artifact-prefix: 'selftest-'
 
   autofix-compatibility:
-    name: autofix compatibility (${{ matrix.python }})
+    name: slow compatibility (${{ matrix.python }})
     needs: classify
     if: ${{ github.event_name == 'workflow_dispatch' || needs.classify.outputs.is_docs_only != 'true' }}
     runs-on: ubuntu-latest
@@ -111,6 +111,7 @@ jobs:
             tests/workflows/test_autofix_pipeline.py \
             tests/workflows/test_autofix_full_pipeline.py \
             tests/workflows/test_autofix_pipeline_diverse.py \
+            tests/scripts/test_update_versions_from_pypi.py \
             -m 'slow and not quarantine' -n 4 --dist=loadgroup \
             --cov --cov-config=pyproject.toml \
             --cov-report=xml:coverage.xml --cov-report=json:coverage.json \
@@ -128,7 +129,7 @@ jobs:
 
   test-python:
     # Keep the established check name while its assertions move to canonical CI
-    # and the intentionally separate slow compatibility matrix.
+    # and the intentionally separate autofix/PyPI slow compatibility matrix.
     name: Python Tests
     needs: [classify, python-ci, autofix-compatibility]
     if: ${{ always() }}

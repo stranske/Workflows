@@ -1,0 +1,2 @@
+# Reuse the repository lock without a second set of dependency pins.
+-r ../../../requirements.lock

@@ -139,6 +139,7 @@ def test_issue2_selftest_ci_runs_all_workflow_tests() -> None:
     for job in (canonical, gate["jobs"]["python-ci"]):
         assert job["with"]["python-versions"] == '["3.13", "3.14"]'
         assert job["with"]["pytest-workers"] == "4"
+        assert job["with"]["coverage-min"] == "70"
         assert not job["with"].get("pytest_args"), "Canonical CI must discover the full suite"
     # Every non-doc PR formerly protected by Selftest still reaches canonical Gate.
     assert "is_python_code" not in gate["jobs"]["python-ci"]["if"]
@@ -169,6 +170,7 @@ def test_issue2_selftest_ci_runs_all_workflow_tests() -> None:
         "test_autofix_pipeline.py",
         "test_autofix_full_pipeline.py",
         "test_autofix_pipeline_diverse.py",
+        "test_update_versions_from_pypi.py",
     ):
         assert filename in run
     assert "-m 'slow and not quarantine' -n 4 --dist=loadgroup" in run

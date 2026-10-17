@@ -269,8 +269,8 @@ jobs:
       typecheck: ${{ needs.detect.outputs.typecheck == 'true' }}
       run-mypy: ${{ needs.detect.outputs.typecheck == 'true' }}
       coverage: ${{ needs.detect.outputs.coverage == 'true' }}
-      # Keep coverage threshold informational; reusable Python CI owns source selection.
-      coverage-min: ''
+      # Preserve the full-suite 70% guard formerly repeated by six selftest profiles.
+      coverage-min: '70'
       cache: ${{ needs.detect.outputs.cache == 'true' }}
       enable-soft-gate: ${{ needs.detect.outputs.coverage == 'true' }}
       # Use the shared gate- prefix so downstream Maint workflows can locate the

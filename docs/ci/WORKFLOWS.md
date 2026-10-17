@@ -329,15 +329,18 @@ approval metrics. See `docs/MODEL_SELECTION_POLICY.md` for the evidence contract
 
 Gate runs Python 3.13 and 3.14 as concurrent jobs, with four pytest workers per
 runtime and the same full discovery, `not quarantine and not slow` selection,
-`requirements.lock`, and branch-coverage configuration. Non-doc workflow, shell,
+`requirements.lock`, and branch-coverage configuration, enforcing the full-suite
+70% minimum formerly repeated by six optional-feature profiles. Non-doc workflow, shell,
 and config PRs retain the Python assertions formerly duplicated in Selftest CI;
 Gate therefore does not additionally require a Python-classified path.
 Python 3.13 is the coverage-reference runtime. Neither version waits for the other.
 
 Selftest CI retains its `Python Tests` check. On PRs, Gate owns the full suite;
-Selftest runs only the three slow autofix integration cases excluded by Gate.
+Selftest runs the nine slow compatibility cases excluded by Gate: three autofix
+and six PyPI integration cases.
 Those cases run on both versions with the common lock and four workers, with
-required tool imports preventing missing dependencies from silently skipping them.
+required tool imports preventing missing autofix dependencies from silently skipping
+those cases. PyPI tests retain their existing network/skip behavior.
 On main pushes and Selftest manual dispatches, Selftest calls the canonical reusable
 suite as well, because Gate has no push trigger. JavaScript tests, package tests,
 lint, validation, and security gates keep their existing ownership.
@@ -356,3 +359,8 @@ use the new matrix. Existing create-only consumer Gates retain their explicit
 runtime policy until a separately reviewed consumer migration; do not overwrite
 those callers as part of this first-party change. Historical comparison refs and
 commands remain immutable.
+
+Selftest: Reusables retains all six optional-feature/artifact profiles on a small
+six-case consumer fixture, with the same default parallel Python pair, four workers,
+common lock and a fixture-specific 70% guard. It no longer repeats the full repository
+suite six times. See [the profile contract](SELFTESTS.md) for ownership and overrides.
