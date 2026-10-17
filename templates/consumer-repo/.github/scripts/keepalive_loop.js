@@ -6139,10 +6139,12 @@ async function autoReconcileTasks({ github: rawGithub, context, prNumber, baseSh
  * The verification step must not run on the agent that wrote the code: the same model grading
  * its own work produced false PASS verdicts (PR #228). Resolution order:
  *   1. an explicit repository `verifier_agent`;
- *   2. the implementing agent's registry `independent_verifier`, if it is usable;
+ *   2. the implementing agent's registry `independent_verifier` (one agent or a list): when several
+ *      are usable one is picked AT RANDOM, so no proven agent is paired one-to-one with a less
+ *      proven one;
  *   3. the historical Codex <-> Claude pairing (kept unconditional so existing behaviour holds);
- *   4. the first OTHER keepalive-capable agent whose runner job exists and whose credentials are
- *      present (Codex, then Claude, then registry order);
+ *   4. otherwise the proven agents (Codex, Claude) that are usable, picked at random, then the
+ *      first other usable agent in registry order;
  *   5. otherwise the implementing agent itself, reported as `none-available` so the caller can warn.
  * An alternate whose credentials are absent is never chosen by rules 2 and 4: that would turn a
  * self-verification into a failed round.
@@ -6161,6 +6163,7 @@ function resolveIndependentVerifier({
   registry,
   env = process.env,
   workflowText = '',
+  random = Math.random,
 } = {}) {
   const implementing = normalise(agentType).toLowerCase();
   const explicit = normalise(configuredVerifier).toLowerCase();
@@ -6176,17 +6179,29 @@ function resolveIndependentVerifier({
     if (!new RegExp(`^  run-${key}:`, 'm').test(workflowText)) return false;
     return agentHasCredentials(key, env);
   };
-  const declared = normalise(
-    agents[implementing] && agents[implementing].independent_verifier,
-  ).toLowerCase();
-  if (usable(declared)) {
-    return { agent: declared, source: 'registry' };
+  const choose = (keys) => keys[Math.min(keys.length - 1, Math.floor(random() * keys.length))];
+  const declaredRaw = agents[implementing] && agents[implementing].independent_verifier;
+  // The registry loader reads a flow list (`[a, b]`) as one string, so accept both forms.
+  const declaredList = Array.isArray(declaredRaw)
+    ? declaredRaw
+    : String(declaredRaw || '')
+      .replace(/^\s*\[|\]\s*$/g, '')
+      .split(',');
+  const declared = declaredList
+    .map((key) => normalise(key).toLowerCase())
+    .filter((key, index, all) => key && all.indexOf(key) === index && usable(key));
+  if (declared.length) {
+    return { agent: choose(declared), source: declared.length > 1 ? 'registry-random' : 'registry' };
   }
   const historical = { codex: 'claude', claude: 'codex' }[implementing];
   if (historical) {
     return { agent: historical, source: 'historical' };
   }
-  const order = ['codex', 'claude', ...Object.keys(agents)];
+  const proven = ['codex', 'claude'].filter(usable);
+  if (proven.length) {
+    return { agent: choose(proven), source: proven.length > 1 ? 'first-available-random' : 'first-available' };
+  }
+  const order = Object.keys(agents);
   const pick = order.find((key, index) => order.indexOf(key) === index && usable(key));
   if (pick) {
     return { agent: pick, source: 'first-available' };
