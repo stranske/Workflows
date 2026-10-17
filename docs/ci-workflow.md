@@ -163,7 +163,7 @@ jobs:
 The workflow writes a Markdown overview (artifacts presence + coverage stats) into the GitHub Actions run summary using `GITHUB_STEP_SUMMARY`.
 
 ### Universal Job Log Table (Issue #1344)
-A dedicated `logs_summary` job runs on every workflow execution (even if advanced phases are disabled) and appends a per-job log links table plus a brief success/failure explanation. This makes it easy to jump directly to failing job logs without enabling any optional features. The soft coverage gate job no longer duplicates the table.
+A dedicated `logs_summary` job runs after ordinary success or failure (even if advanced phases are disabled), but skips whole-workflow cancellation using `always() && !cancelled()`. When it runs, it appends a per-job log links table plus a brief success/failure explanation. This makes it easy to jump directly to failing job logs without enabling any optional features. The soft coverage gate job no longer duplicates the table.
 
 ### Coverage Soft Gate & Topology Cross-Links (Issue #1351)
 For the broader CI topology (gate aggregation job, temporary wrapper, Codex kickoff lifecycle, and migration plan) see `.github/workflows/README.md` sections 1.1 and 7.2–7.6. This document intentionally avoids repeating those operational details; it focuses on the reusable workflow inputs and helper scripts. Enable the soft coverage gate in a consumer by passing `enable-soft-gate: 'true'` (documented in README section 7.3).
