@@ -25,7 +25,9 @@ import yaml
 try:
     from scripts.belt_ledger_completion import duplicate_artifact_errors
 except ModuleNotFoundError:  # direct ``python scripts/ledger_validate.py`` execution
-    from belt_ledger_completion import duplicate_artifact_errors
+    from belt_ledger_completion import (  # type: ignore[import-not-found, no-redef, unused-ignore]
+        duplicate_artifact_errors,
+    )
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SRC_ROOT = REPO_ROOT / "src"
@@ -33,10 +35,10 @@ if SRC_ROOT.exists():  # ensure local package import works before editable insta
     sys.path.insert(0, str(SRC_ROOT))
 
 try:  # pragma: no cover - exercised in worker runtime, mocked in tests
-    from utils.paths import proj_path  # noqa: E402
+    from utils.paths import proj_path  # type: ignore[import-not-found, unused-ignore]  # noqa: E402
 except ModuleNotFoundError:  # pragma: no cover - fallback for repo scripts
 
-    def proj_path() -> Path:
+    def proj_path() -> Path:  # type: ignore[no-redef, unused-ignore]
         return REPO_ROOT
 
 

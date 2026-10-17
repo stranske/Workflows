@@ -396,6 +396,65 @@ test('mergeCheckboxStates handles real-world acceptance criteria format', () => 
   assert.ok(merged.includes('- [ ] - Existing functionality remains unchanged outside the stronger test coverage'));
 });
 
+test('parseCheckboxStates captures numbered checklist completions', () => {
+  const block = `
+- [x] Same contract as every round in this initiative:
+1. [x] Pick the next target by the repo's own coverage-gap ranking
+2. [ ] Every new test must FAIL when deliberately broken
+3. [x] Real bugs found while writing tests get fixed
+  `.trim();
+
+  const states = parseCheckboxStates(block);
+
+  assert.strictEqual(states.get('same contract as every round in this initiative:'), true);
+  assert.strictEqual(
+    states.get("pick the next target by the repo's own coverage-gap ranking"),
+    true,
+  );
+  assert.strictEqual(
+    states.get('real bugs found while writing tests get fixed'),
+    true,
+  );
+  assert.strictEqual(
+    states.has('every new test must fail when deliberately broken'),
+    false,
+  );
+});
+
+test('mergeCheckboxStates restores numbered contract checklist items across refresh', () => {
+  // Issue-driven refresh normalises numbered acceptance lines to unchecked.
+  const refreshedFromIssue = `
+- [x] Same contract as every round in this initiative:
+1. [ ] Pick the next target by the repo's own coverage-gap ranking
+2. [ ] Every new test must FAIL when deliberately broken
+3. [ ] Real bugs found while writing tests get fixed
+4. [ ] Low blast radius only
+5. [ ] One PR per logical chunk of work.
+  `.trim();
+
+  const priorPrBody = `
+- [x] Same contract as every round in this initiative:
+1. [x] Pick the next target by the repo's own coverage-gap ranking
+2. [x] Every new test must FAIL when deliberately broken
+3. [x] Real bugs found while writing tests get fixed
+4. [x] Low blast radius only
+5. [x] One PR per logical chunk of work.
+  `.trim();
+
+  const existingStates = parseCheckboxStates(priorPrBody);
+  assert.strictEqual(existingStates.size, 6);
+
+  const merged = mergeCheckboxStates(refreshedFromIssue, existingStates);
+
+  assert.ok(merged.includes('1. [x] Pick the next target by the repo\'s own coverage-gap ranking'));
+  assert.ok(merged.includes('2. [x] Every new test must FAIL when deliberately broken'));
+  assert.ok(merged.includes('3. [x] Real bugs found while writing tests get fixed'));
+  assert.ok(merged.includes('4. [x] Low blast radius only'));
+  assert.ok(merged.includes('5. [x] One PR per logical chunk of work.'));
+  // Already-checked dash parent stays checked and is not rewritten as a dash mismatch
+  assert.ok(merged.includes('- [x] Same contract as every round in this initiative:'));
+});
+
 test('ensureChecklist adds checkbox prefix to plain text lines', () => {
   const text = 'Task one\nTask two\nTask three';
   const result = ensureChecklist(text);

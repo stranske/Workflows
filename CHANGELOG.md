@@ -6,6 +6,44 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.40.1](https://github.com/stranske/Workflows/compare/v1.40.0...v1.40.1) (2026-10-17)
+
+
+### Bug Fixes
+
+* **artifact-cache:** an exact producer run is the identity of the artifact (Maint Coverage Guard, part 2) ([#4004](https://github.com/stranske/Workflows/issues/4004)) ([701ffc7](https://github.com/stranske/Workflows/commit/701ffc7cdd7ceca7e17da277f9d7d0e73178c383))
+* **artifact-cache:** list only the requested artifact name (Maint Coverage Guard failed 40 of 40 runs) ([#4002](https://github.com/stranske/Workflows/issues/4002)) ([d3ac27c](https://github.com/stranske/Workflows/commit/d3ac27c7a15f8af949881f710721e5843239d828))
+
+## [1.40.0](https://github.com/stranske/Workflows/compare/v1.39.0...v1.40.0) (2026-10-17)
+
+
+### Features
+
+* **belt:** enable belt for Cursor and gate belt-capable agents with a test ([#3929](https://github.com/stranske/Workflows/issues/3929)) ([#3940](https://github.com/stranske/Workflows/issues/3940)) ([ef4c325](https://github.com/stranske/Workflows/commit/ef4c325b6635cf1434b635b98355d75dd0a00c2b))
+* **belt:** enable belt for Muse (registry + belt test), after the Cursor belt canary ([#3992](https://github.com/stranske/Workflows/issues/3992)) ([8e7fcfd](https://github.com/stranske/Workflows/commit/8e7fcfd78bfe1d22547dc0a17b3edb14a1d0b9e6))
+* **health:** daily auth/presence checks for the Cursor and Muse runners ([#3931](https://github.com/stranske/Workflows/issues/3931)) ([#3939](https://github.com/stranske/Workflows/issues/3939)) ([ce72ade](https://github.com/stranske/Workflows/commit/ce72ade667d0ed11c94767e047f3b2854db8fa5b))
+* **intake:** agent-neutral post_agent_comment input and a routing test that runs the real normalize step ([#3930](https://github.com/stranske/Workflows/issues/3930)) ([#3941](https://github.com/stranske/Workflows/issues/3941)) ([3c025ca](https://github.com/stranske/Workflows/commit/3c025ca8df6c17d840b1e59b2ccc653ba1211b72))
+* **intake:** choose default intake agent from route weights and pool capacity ([#3991](https://github.com/stranske/Workflows/issues/3991)) ([fc143d1](https://github.com/stranske/Workflows/commit/fc143d1b7cb8a4fa90548999ca7bbe00fcb00a11))
+
+
+### Bug Fixes
+
+* **guard:** require explicit registry enabled flags ([#3921](https://github.com/stranske/Workflows/issues/3921)) ([f23c81b](https://github.com/stranske/Workflows/commit/f23c81b74f90789d98f91cec80d8cdec327d3915))
+* **intake:** honor registry invitation commands and assignees ([#3963](https://github.com/stranske/Workflows/issues/3963)) ([adb78bb](https://github.com/stranske/Workflows/commit/adb78bb82da861673dca67b888fd94c00278539b))
+* **intake:** preserve dispatch defaults and verify the actual runner ([#3945](https://github.com/stranske/Workflows/issues/3945)) ([12cea89](https://github.com/stranske/Workflows/commit/12cea89599a67c3004d1d469d669c2daa33dfd35))
+* **keepalive:** name the HTTP error message in authoritative storage failure logs ([#3924](https://github.com/stranske/Workflows/issues/3924)) ([#3942](https://github.com/stranske/Workflows/issues/3942)) ([e7f62bb](https://github.com/stranske/Workflows/commit/e7f62bb573bf56641e18e98e716895ab9a6b08df))
+* **muse:** attribute hosted commits to Muse ([#3959](https://github.com/stranske/Workflows/issues/3959)) ([b460d52](https://github.com/stranske/Workflows/commit/b460d52197abc72095a615555d1676f463a41cd9))
+* **runner:** prevent credential leaks in storage diagnostics ([#3961](https://github.com/stranske/Workflows/issues/3961)) ([825fde1](https://github.com/stranske/Workflows/commit/825fde1d7ae8344f3aace8594742cd95ae2501fd))
+* **sync:** validate and report automatic canary promotion ([#3990](https://github.com/stranske/Workflows/issues/3990)) ([242660f](https://github.com/stranske/Workflows/commit/242660f371eab11e79df16d12c3bc96faa9bc46e))
+* **verifier:** bind historical manual runs to exact target evidence ([#3994](https://github.com/stranske/Workflows/issues/3994)) ([d0ac30b](https://github.com/stranske/Workflows/commit/d0ac30bcd380785360ea7f4b469d386785dbfee6))
+* **verifier:** retain complete artifact bytes before native review ([#3951](https://github.com/stranske/Workflows/issues/3951)) ([e015a93](https://github.com/stranske/Workflows/commit/e015a93aaa27bc613a979a0e10329a7d9f84b0ed))
+* **verifier:** satisfy the consumer N806 rule so lint-ruff is green after sync ([#3925](https://github.com/stranske/Workflows/issues/3925)) ([#3927](https://github.com/stranske/Workflows/issues/3927)) ([23cd4a9](https://github.com/stranske/Workflows/commit/23cd4a94bdb0451fb6f4582a179fcc17684ebd5c))
+
+
+### Performance Improvements
+
+* **tests:** bound verifier grammar matrices and report CI growth ([#3950](https://github.com/stranske/Workflows/issues/3950)) ([a1a8267](https://github.com/stranske/Workflows/commit/a1a82675c0f0ce4b723d66b3fba88b84e3852026))
+
 ## [1.39.0](https://github.com/stranske/Workflows/compare/v1.38.17...v1.39.0) (2026-10-16)
 
 

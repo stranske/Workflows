@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Tests for followup_issue_generator.py"""
 
+import io
 import json
 import logging
 import sys
@@ -2044,3 +2045,926 @@ def test_the_output_is_fenced_so_it_survives_markdown():
     out = followup_issue_generator._prepare_iteration_details("error: *boom* _here_")
     assert "```" in out
     assert "*boom*" in out
+
+
+def test_extract_verification_data_preserves_supported_mixed_formats() -> None:
+    """Malformed table rows must not hide later concerns or an @-style verdict."""
+    comment = """
+| Provider | Model | Verdict | Confidence |
+| --- | --- | --- | --- |
+| incomplete | only-two-columns |
+| Provider | repeated header | PASS | 100% |
+
+Verdict: Needs Work @0.5
+- **Concerns:**
+  - This concern is long enough to retain
+  - tiny
+### Unique Insights
+- github-models: A useful insight that is long enough; Another useful finding here
+## Next
+Non-actionable items found:
+- `Requires a human approval`
+"""
+
+    data = extract_verification_data(comment)
+
+    assert data.provider_verdicts["default"] == {"verdict": "Needs Work", "confidence": 50}
+    assert "This concern is long enough to retain" in data.concerns
+    assert "A useful insight that is long enough" in data.concerns
+    assert "Another useful finding here" in data.concerns
+    assert data.non_actionable_items == ["Requires a human approval"]
+
+
+def test_json_and_markdown_helpers_preserve_machine_and_human_output() -> None:
+    assert followup_issue_generator._extract_json('prefix {"task": 1}') == {"task": 1}
+    assert followup_issue_generator._extract_json('```json\n{"task": 1}\n```') == {"task": 1}
+    assert followup_issue_generator._extract_json("not json") == {}
+    assert followup_issue_generator._strip_markdown_fence("```markdown\nbody\n```") == "body"
+    assert followup_issue_generator._strip_markdown_fence("body") == "body"
+
+
+def test_append_advisory_notes_only_adds_a_single_notes_section() -> None:
+    body = followup_issue_generator._append_advisory_notes("## Why\nbody", ["Consider docs"])
+
+    assert "## Notes" in body
+    assert "- Consider docs" in body
+    assert followup_issue_generator._append_advisory_notes(body, ["Another note"]) == body
+    assert followup_issue_generator._append_advisory_notes("body", []) == "body"
+
+
+def test_disposition_reports_absent_structured_provider_evidence() -> None:
+    disposition = generate_disposition_comment(VerificationData(), pr_number=12)
+
+    assert "No structured non-PASS provider output was extracted." in disposition
+    assert "### Decision" in disposition
+
+
+def test_main_reads_file_inputs_and_writes_json_output(
+    monkeypatch: pytest.MonkeyPatch, tmp_path
+) -> None:
+    verification = tmp_path / "verification.md"
+    issue = tmp_path / "issue.md"
+    codex_log = tmp_path / "codex.jsonl"
+    output = tmp_path / "followup.json"
+    verification.write_text("Verdict: PASS @100%")
+    issue.write_text("## Tasks\n- [ ] Do work")
+    codex_log.write_text("iteration complete")
+
+    captured: dict[str, object] = {}
+
+    def fake_generate(**kwargs: object) -> followup_issue_generator.FollowupIssue:
+        captured.update(kwargs)
+        return followup_issue_generator.FollowupIssue("Generated", "Generated body", ["follow-up"])
+
+    monkeypatch.setattr(followup_issue_generator, "generate_followup_issue", fake_generate)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "followup_issue_generator.py",
+            "--pr-number",
+            "123",
+            "--verification-comment",
+            str(verification),
+            "--original-issue",
+            str(issue),
+            "--codex-log",
+            str(codex_log),
+            "--json",
+            "--output",
+            str(output),
+        ],
+    )
+
+    assert followup_issue_generator.main() == 0
+    assert json.loads(output.read_text()) == {
+        "title": "Generated",
+        "body": "Generated body",
+        "labels": ["follow-up"],
+    }
+    assert captured["codex_log"] == "iteration complete"
+    assert captured["original_issue"].tasks == ["Do work"]
+    assert captured["verification_data"].provider_verdicts == {
+        "default": {"verdict": "PASS", "confidence": 100}
+    }
+
+
+def test_main_reads_verification_from_standard_input(
+    monkeypatch: pytest.MonkeyPatch, capsys
+) -> None:
+    monkeypatch.setattr(sys, "stdin", io.StringIO("Verdict: PASS @100%"))
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["followup_issue_generator.py", "--pr-number", "123", "--no-llm"],
+    )
+
+    assert followup_issue_generator.main() == 0
+    captured = capsys.readouterr()
+    assert "# [Follow-up]" in captured.out
+    assert "Extracted 1 provider verdicts" in captured.err
+
+
+def test_main_bounds_concern_diagnostics_without_truncating_generated_tasks(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    concerns = [
+        "Repair malformed record handling " + "without losing valid rows " * 4,
+        "Preserve timestamps when parsing valid records",
+        "Report invalid records with their original line numbers",
+        "Keep processing records after encountering an invalid row",
+    ]
+    verification = "Verdict: FAIL @100%\n### Concerns\n" + "\n".join(
+        f"- {concern}" for concern in concerns
+    )
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "followup_issue_generator.py",
+            "--pr-number",
+            "123",
+            "--verification-comment",
+            verification,
+            "--original-issue",
+            "## Tasks\n- [ ] Repair parser\n## Acceptance Criteria\n- [ ] Keep valid rows",
+            "--no-llm",
+            "--json",
+        ],
+    )
+
+    assert followup_issue_generator.main() == 0
+
+    captured = capsys.readouterr()
+    result = json.loads(captured.out)
+    assert "Sample concerns:\n" in captured.err
+    samples = [line for line in captured.err.splitlines() if line.startswith("  - ")]
+    assert samples == [f"  - {concern[:80]}..." for concern in concerns[:3]]
+    for concern in concerns:
+        assert f"- [ ] Address: {concern.strip()}" in result["body"]
+    assert "- [ ] Keep valid rows" in result["body"]
+
+
+def test_generate_followup_without_available_clients_preserves_actionable_feedback(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Missing clients must still produce a useful follow-up from verifier evidence."""
+    requested_clients = []
+
+    def unavailable_client(*, reasoning):
+        requested_clients.append(reasoning)
+        return None
+
+    monkeypatch.setattr(followup_issue_generator, "_get_followup_client", unavailable_client)
+
+    result = generate_followup_issue(
+        VerificationData(
+            provider_verdicts={"default": {"verdict": "FAIL", "confidence": 100}},
+            concerns=["Fix the failing parser"],
+        ),
+        OriginalIssueData(number=42, title="Parser", acceptance_criteria=["Parse valid input"]),
+        pr_number=123,
+    )
+
+    assert requested_clients == [True, False]
+    assert "- [ ] Fix the failing parser" in result.body
+    assert "- [ ] Parse valid input" in result.body
+    assert "- Original PR: #123" in result.body
+    assert "- Parent issue: #42" in result.body
+    assert result.labels == ["follow-up", "agents:optimize"]
+
+
+@pytest.mark.parametrize("available", ["both", "reasoning", "standard"])
+def test_generate_followup_routes_available_clients_without_losing_model_identity(
+    monkeypatch: pytest.MonkeyPatch, available: str
+) -> None:
+    reasoning_client = object()
+    standard_client = object()
+    clients = {
+        True: (reasoning_client, "reasoning-model") if available != "standard" else None,
+        False: (standard_client, "standard-model") if available != "reasoning" else None,
+    }
+    monkeypatch.setattr(
+        followup_issue_generator, "_get_followup_client", lambda *, reasoning: clients[reasoning]
+    )
+    verification_data = VerificationData(
+        provider_verdicts={"default": {"verdict": "FAIL", "confidence": 100}},
+        concerns=["Fix the failing parser"],
+    )
+    original_issue = OriginalIssueData(number=42, title="Parser")
+    captured = {}
+    expected = followup_issue_generator.FollowupIssue("Follow-up", "Body", ["follow-up"])
+
+    def generate(*args, **kwargs):
+        captured.update(kwargs)
+        captured["args"] = args
+        return expected
+
+    monkeypatch.setattr(followup_issue_generator, "_generate_with_llm", generate)
+
+    result = generate_followup_issue(
+        verification_data, original_issue, pr_number=123, codex_log="prior failure"
+    )
+
+    assert result is expected
+    assert captured["args"] == (verification_data, original_issue, 123, "prior failure")
+    assert captured["reasoning_client"] is (
+        standard_client if available == "standard" else reasoning_client
+    )
+    assert captured["standard_client"] is (
+        reasoning_client if available == "reasoning" else standard_client
+    )
+    assert captured["reasoning_model"] == (
+        "standard-model" if available == "standard" else "reasoning-model"
+    )
+    assert captured["standard_model"] == (
+        "reasoning-model" if available == "reasoning" else "standard-model"
+    )
+    assert captured["blocking_concerns"] == ["Fix the failing parser"]
+    assert captured["advisory_concerns"] == []
+    assert captured["verdict"] == "FAIL"
+
+
+@pytest.mark.parametrize(
+    ("pr_number", "issue_number", "env", "expected_number", "expected_run"),
+    [
+        (7, 9, {"PR_NUMBER": "11", "GITHUB_RUN_ID": "run-1", "RUN_ID": "run-2"}, "7", "run-1"),
+        (None, 9, {"PR_NUMBER": "11", "RUN_ID": "run-2"}, "9", "run-2"),
+        (None, None, {"PR_NUMBER": "11", "ISSUE_NUMBER": "13"}, "11", "unknown"),
+        (None, None, {"PR_NUMBER": "invalid", "ISSUE_NUMBER": "13"}, "13", "unknown"),
+        (None, None, {"PR_NUMBER": "invalid", "ISSUE_NUMBER": "invalid"}, "unknown", "unknown"),
+        (None, None, {}, "unknown", "unknown"),
+    ],
+    ids=["explicit-pr", "explicit-issue", "env-pr", "env-issue", "invalid-env", "missing-env"],
+)
+def test_followup_metadata_fallback_preserves_context_and_number_precedence(
+    monkeypatch: pytest.MonkeyPatch, pr_number, issue_number, env, expected_number, expected_run
+) -> None:
+    monkeypatch.setitem(sys.modules, "tools.llm_provider", None)
+    for name in ("GITHUB_REPOSITORY", "GITHUB_RUN_ID", "RUN_ID", "PR_NUMBER", "ISSUE_NUMBER"):
+        monkeypatch.delenv(name, raising=False)
+    for name, value in env.items():
+        monkeypatch.setenv(name, value)
+    if env:
+        monkeypatch.setenv("GITHUB_REPOSITORY", "example/project")
+    expected_repo = "example/project" if env else "unknown"
+
+    config = followup_issue_generator._build_llm_config(
+        operation="followup", pr_number=pr_number, issue_number=issue_number
+    )
+
+    assert config == {
+        "metadata": {
+            "repo": expected_repo,
+            "run_id": expected_run,
+            "issue_or_pr_number": expected_number,
+            "operation": "followup",
+            "pr_number": str(pr_number) if pr_number is not None else None,
+            "issue_number": str(issue_number) if issue_number is not None else None,
+        },
+        "tags": [
+            "workflows-agents",
+            "operation:followup",
+            f"repo:{expected_repo}",
+            f"issue_or_pr:{expected_number}",
+            f"run_id:{expected_run}",
+        ],
+    }
+
+
+@pytest.mark.parametrize("accepts_config", [True, False], ids=["configured", "fallback"])
+def test_invoke_without_langchain_uses_plain_prompts_and_preserves_output(
+    monkeypatch: pytest.MonkeyPatch, accepts_config: bool
+) -> None:
+    monkeypatch.setitem(sys.modules, "langchain_core.messages", None)
+    monkeypatch.setitem(sys.modules, "tools.llm_provider", None)
+    monkeypatch.setattr(followup_issue_generator, "_build_llm_config", lambda **_: {"tags": []})
+    calls = []
+
+    def invoke(prompt, **kwargs):
+        calls.append((prompt, kwargs))
+        if kwargs and not accepts_config:
+            raise TypeError("config unsupported")
+        return SimpleNamespace(content=42)
+
+    result = followup_issue_generator._invoke_llm(
+        "plain prompt",
+        SimpleNamespace(invoke=invoke),
+        operation="generate_tasks",
+        pr_number=123,
+        issue_number=42,
+    )
+
+    assert result == ("42", None, None)
+    assert calls == [("plain prompt", {"config": {"tags": []}})] + (
+        [] if accepts_config else [("plain prompt", {})]
+    )
+
+
+def test_invoke_without_langchain_reports_plain_prompt_failure_with_cause(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setitem(sys.modules, "langchain_core.messages", None)
+    monkeypatch.setattr(followup_issue_generator, "_build_llm_config", lambda **_: {})
+    failure = ValueError("plain prompts unsupported")
+    calls = []
+
+    def invoke(prompt, **kwargs):
+        calls.append((prompt, kwargs))
+        if "config" in kwargs:
+            raise TypeError("config unsupported")
+        raise failure
+
+    with pytest.raises(RuntimeError, match="Install langchain-core") as caught:
+        followup_issue_generator._invoke_llm(
+            "plain prompt",
+            SimpleNamespace(invoke=invoke),
+            operation="generate_tasks",
+            pr_number=123,
+            issue_number=42,
+        )
+
+    assert caught.value.__cause__ is failure
+    assert calls == [("plain prompt", {"config": {}}), ("plain prompt", {})]
+
+
+@pytest.mark.parametrize("trace_failure", ["missing-module", "extract-error"])
+def test_trace_failures_preserve_generated_text_and_log_the_cause(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture, trace_failure: str
+) -> None:
+    monkeypatch.setattr(followup_issue_generator, "_build_llm_config", lambda **_: {})
+    if trace_failure == "missing-module":
+        monkeypatch.setitem(sys.modules, "tools.llm_provider", None)
+        expected_log = "tools.llm_provider not available for trace extraction"
+    else:
+        provider = ModuleType("tools.llm_provider")
+
+        def extract_trace_id(response):
+            raise RuntimeError("trace response malformed")
+
+        provider.extract_trace_id = extract_trace_id
+        provider.derive_langsmith_trace_url = lambda trace_id: f"https://example.test/{trace_id}"
+        monkeypatch.setitem(sys.modules, "tools.llm_provider", provider)
+        expected_log = "Failed to extract trace ID: trace response malformed"
+    caplog.set_level(logging.DEBUG, logger=followup_issue_generator.__name__)
+
+    result = followup_issue_generator._invoke_llm(
+        "prompt",
+        _FakeClient(_FakeResponse("useful issue body")),
+        operation="format_followup_issue",
+        pr_number=123,
+        issue_number=42,
+    )
+
+    assert result == ("useful issue body", None, None)
+    assert expected_log in caplog.text
+
+
+@pytest.mark.parametrize("has_tasks_and_traces", [True, False], ids=["populated", "empty"])
+def test_llm_rounds_forward_evidence_and_assemble_issue_with_optional_traces(
+    monkeypatch: pytest.MonkeyPatch, has_tasks_and_traces: bool
+) -> None:
+    task = "Repair parser handling of incomplete records without dropping valid following rows"
+    analysis = {
+        "concrete_tasks": [{"task": task}] if has_tasks_and_traces else [],
+        "rewritten_acceptance_criteria": ["Valid records survive malformed input"],
+        "blockers_to_avoid": ["Do not discard the whole batch"],
+    }
+    tasks = {"tasks": ["Add parser regression"], "deferred": ["Inspect live records"]}
+    acceptance = {"acceptance_criteria": ["Parser preserves the valid row"]}
+    responses = {
+        "analyze_verification": json.dumps(analysis),
+        "generate_tasks": json.dumps(tasks),
+        "generate_acceptance_criteria": json.dumps(acceptance),
+        "format_followup_issue": "```markdown\n## Why\nRepair the parser.\n```",
+    }
+    reasoning_client, standard_client = object(), object()
+    calls = []
+
+    def invoke(prompt, client, *, operation, pr_number, issue_number):
+        calls.append((operation, client, pr_number, issue_number, prompt))
+        trace_url = f"https://example.test/{operation}" if has_tasks_and_traces else None
+        return responses[operation], None, trace_url
+
+    monkeypatch.setattr(followup_issue_generator, "_invoke_llm", invoke)
+
+    issue = followup_issue_generator._generate_with_llm(
+        VerificationData(structural_issues=["Acceptance criteria were ambiguous"]),
+        OriginalIssueData(number=42, tasks=["Repair parser"]),
+        pr_number=123,
+        codex_log="error: rejected valid row",
+        blocking_concerns=["Parser discarded valid records"],
+        advisory_concerns=["Consider a clearer comment"],
+        verdict="FAIL",
+        needs_human_reason="",
+        reasoning_client=reasoning_client,
+        reasoning_model="reasoning-model",
+        standard_client=standard_client,
+        standard_model="standard-model",
+    )
+
+    assert [call[:4] for call in calls] == [
+        (operation, reasoning_client if index == 0 else standard_client, 123, 42)
+        for index, operation in enumerate(responses)
+    ]
+    assert "error: rejected valid row" in calls[0][4]
+    assert "Parser discarded valid records" in calls[0][4]
+    assert json.dumps(analysis, indent=2) in calls[1][4]
+    assert "- [ ] Repair parser" in calls[1][4]
+    assert json.dumps(tasks["tasks"], indent=2) in calls[2][4]
+    assert json.dumps(analysis["rewritten_acceptance_criteria"], indent=2) in calls[2][4]
+    for payload in (tasks["tasks"], tasks["deferred"], acceptance["acceptance_criteria"]):
+        assert json.dumps(payload, indent=2) in calls[3][4]
+    assert "Acceptance criteria were ambiguous" in calls[3][4]
+    assert "Do not discard the whole batch" in calls[3][4]
+    focus = task[:50] if has_tasks_and_traces else "verification concerns"
+    assert issue.title == f"[Follow-up] {focus} (PR #123)"
+    assert issue.labels == ["follow-up", "agents:optimize"]
+    assert issue.body.startswith("## Why\nRepair the parser.")
+    assert "```markdown" not in issue.body
+    assert "- Consider a clearer comment" in issue.body
+    if has_tasks_and_traces:
+        for operation in responses:
+            assert f"<!-- LangSmith {operation}: https://example.test/{operation} -->" in issue.body
+    else:
+        assert "<!-- LangSmith" not in issue.body
+
+
+def test_structured_followup_keeps_structural_findings_and_caps_non_actionable_history() -> None:
+    issue = generate_followup_issue(
+        VerificationData(
+            provider_verdicts={"default": {"verdict": "FAIL", "confidence": 100}},
+            concerns=["Fix the parser"],
+            structural_issues=["Acceptance criteria lacked a parser example"],
+            non_actionable_items=[f"Manual investigation {index}" for index in range(7)],
+        ),
+        OriginalIssueData(number=42, title="Parser"),
+        pr_number=123,
+        use_llm=False,
+    )
+
+    assert "### Structural Issues Detected\n\n- Acceptance criteria lacked a parser example" in (
+        issue.body
+    )
+    assert "### Non-actionable Items Encountered" in issue.body
+    for index in range(5):
+        assert f"- `Manual investigation {index}`" in issue.body
+    assert "Manual investigation 5" not in issue.body
+    assert "Manual investigation 6" not in issue.body
+
+
+def test_confidence_helpers_preserve_empty_integer_and_percent_provider_edges() -> None:
+    assert followup_issue_generator._parse_confidence_value("") == 0
+    assert followup_issue_generator._coerce_confidence_percent(87.0) == 87
+
+    data = VerificationData(confidence_percent_providers={"openai"})
+    assert (
+        followup_issue_generator._provider_confidence_percent(data, "openai", "not-a-number") == 0
+    )
+    assert followup_issue_generator._provider_confidence_percent(data, "openai", float("nan")) == 0
+
+    policy_data = VerificationData(
+        provider_verdicts={"openai": {"verdict": "CONCERNS", "confidence": "bad-percent"}},
+        confidence_percent_providers={"openai"},
+    )
+    policy = followup_issue_generator._resolve_verdict_policy(policy_data)
+    assert policy.selected_confidence == 0.0
+
+
+def test_advisory_unfalsifiable_and_spurious_concern_filters() -> None:
+    assert followup_issue_generator._is_advisory_concern(
+        "Cannot verify the runtime behavior from code review alone"
+    )
+    data = extract_verification_data("""
+Verdict: Not Ready
+### Concerns
+- 10 verification concerns
+- Parser drops valid rows when a trailing delimiter is present
+""")
+    assert data.provider_verdicts["default"]["verdict"] == "Not Ready"
+    assert "10 verification concerns" not in data.concerns
+    assert any("Parser drops valid rows" in concern for concern in data.concerns)
+
+
+def test_missing_concerns_note_triggers_for_empty_body_and_blank_verdicts() -> None:
+    assert followup_issue_generator._should_add_missing_concerns_note("", {})
+    assert followup_issue_generator._should_add_missing_concerns_note(
+        "body without verdicts", {"openai": {"verdict": "   ", "confidence": 0}}
+    )
+
+
+def test_strip_checkbox_preserves_non_list_text() -> None:
+    assert followup_issue_generator._strip_checkbox("plain acceptance criterion text") == (
+        "plain acceptance criterion text"
+    )
+
+
+def test_budget_followup_tasks_stops_when_next_task_would_exceed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # budget = EVAL_FOLLOW_UP_BUDGET_TOKENS // 4 = 5
+    monkeypatch.setattr(followup_issue_generator, "EVAL_FOLLOW_UP_BUDGET_TOKENS", 20)
+
+    def estimate(value: str) -> int:
+        if "first" in value:
+            return 3
+        if "second" in value:
+            return 3
+        return 1
+
+    monkeypatch.setattr(followup_issue_generator, "estimate_tokens", estimate)
+
+    selected = followup_issue_generator._budget_followup_tasks(
+        ["first task", "second task within alone", "third"]
+    )
+
+    assert selected == ["first task"]
+
+
+def test_truncate_task_to_budget_returns_task_when_already_within_budget(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(followup_issue_generator, "estimate_tokens", lambda value: 2)
+    assert followup_issue_generator._truncate_task_to_budget("short task", 10) == "short task"
+
+
+def test_code_change_decision_skips_split_and_advisory_only_concerns() -> None:
+    split = VerificationData(
+        provider_verdicts={
+            "openai": {"verdict": "PASS", "confidence": 90},
+            "anthropic": {"verdict": "CONCERNS", "confidence": 40},
+        },
+        concerns=["Could clarify the helper docstring"],
+    )
+    decision = followup_issue_generator._format_code_change_decision(split)
+    assert "non-PASS output requires code changes: **no**" in decision
+    assert "no code follow-up is required" in decision
+
+    advisory_only = VerificationData(
+        provider_verdicts={"openai": {"verdict": "CONCERNS", "confidence": 70}},
+        concerns=["Consider renaming the helper for clarity"],
+    )
+    advisory_decision = followup_issue_generator._format_code_change_decision(advisory_only)
+    assert "non-PASS output requires code changes: **no**" in advisory_decision
+
+
+def test_build_why_section_resolves_verdict_when_omitted() -> None:
+    why = followup_issue_generator._build_why_section(
+        VerificationData(provider_verdicts={"openai": {"verdict": "FAIL", "confidence": 100}}),
+        OriginalIssueData(number=42, title="Parser"),
+        pr_number=123,
+    )
+    assert "verdict: **FAIL**" in why
+
+
+def test_invoke_llm_records_langsmith_trace_url(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    monkeypatch.setattr(followup_issue_generator, "_build_llm_config", lambda **_: {})
+    provider = ModuleType("tools.llm_provider")
+    provider.extract_trace_id = lambda response: "trace-123"
+    provider.derive_langsmith_trace_url = lambda trace_id: f"https://smith.test/{trace_id}"
+    monkeypatch.setitem(sys.modules, "tools.llm_provider", provider)
+    caplog.set_level(logging.INFO, logger=followup_issue_generator.__name__)
+
+    text, trace_id, trace_url = followup_issue_generator._invoke_llm(
+        "prompt",
+        _FakeClient(_FakeResponse("body")),
+        operation="format_followup_issue",
+        pr_number=123,
+        issue_number=42,
+    )
+
+    assert (text, trace_id, trace_url) == ("body", "trace-123", "https://smith.test/trace-123")
+    assert "LangSmith trace: https://smith.test/trace-123" in caplog.text
+
+
+def test_get_followup_client_falls_back_when_reasoning_model_unavailable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls = []
+    fallback_client = object()
+
+    def build_client(*, model=None, provider=None):
+        calls.append((model, provider))
+        if model == "o3-mini":
+            return None
+        return SimpleNamespace(client=fallback_client, model="gpt-fallback", provider="auto")
+
+    monkeypatch.setenv("FOLLOWUP_REASONING_MODEL", "o3-mini")
+    monkeypatch.setattr(followup_issue_generator, "build_client", build_client)
+
+    resolved = followup_issue_generator._get_followup_client(reasoning=True)
+
+    assert resolved == (fallback_client, "gpt-fallback")
+    assert calls == [("o3-mini", "openai"), (None, None)]
+
+
+def test_main_guard_blocked_writes_markdown_output_file(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+    injection_samples: list[dict[str, str]],
+) -> None:
+    raw = injection_samples[0]["text"]
+    output_path = tmp_path / "guard-blocked.md"
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "followup_issue_generator.py",
+            "--pr-number",
+            "123",
+            "--verification-comment",
+            raw,
+            "--original-issue",
+            "Original issue body",
+            "--output",
+            str(output_path),
+        ],
+    )
+
+    exit_code = followup_issue_generator.main()
+    written = output_path.read_text()
+
+    assert exit_code == 0
+    assert written.startswith("# ")
+    assert "Human review" in written
+    assert "```json" not in written
+
+
+# Continues issue #3956's Orchestrator-ranked target (escaped-defect priority, then churn,
+# then uncovered mass): scripts/langchain/followup_issue_generator.py.
+
+
+def test_concern_label_and_insights_skip_short_and_spurious_fragments() -> None:
+    """Plain Concerns:/Unique Insights paths drop short bullets and spurious tallies."""
+    data = extract_verification_data("""
+Verdict: CONCERNS @ 70%
+
+Concerns:
+- tiny
+- not dash line should be ignored by the label matcher preamble
+- Parser rejects empty pension rows when the CSV trailer is truncated
+- Parser rejects empty pension rows when the CSV trailer is truncated
+
+### Unique Insights
+plain prose without a dash is ignored
+- github-models: short; Fails when the import trailer omits the closing delimiter
+- 5 unchecked tasks remain after the follow-up round
+""")
+
+    assert data.provider_verdicts["default"]["verdict"] == "CONCERNS"
+    assert "tiny" not in data.concerns
+    assert "short" not in {c.lower() for c in data.concerns}
+    assert not any("unchecked tasks" in c.lower() for c in data.concerns)
+    pension = [c for c in data.concerns if "Parser rejects empty pension rows" in c]
+    assert len(pension) == 1
+    assert any("import trailer omits the closing delimiter" in c for c in data.concerns)
+
+
+def test_parse_checklist_skips_direct_checkbox_placeholders_and_non_list_lines() -> None:
+    """Direct checkbox lines (no list marker) and plain prose must not leak into tasks."""
+    lines = [
+        "[ ] _Not provided._",
+        "[ ] ab",
+        "[ ] Add focused regression for the trailer parser",
+        "not a list item at all",
+        "- plain list without checkbox still counts when long enough",
+    ]
+
+    assert followup_issue_generator._parse_checklist(lines) == [
+        "Add focused regression for the trailer parser",
+        "plain list without checkbox still counts when long enough",
+    ]
+
+
+def test_select_followup_acceptance_criteria_keeps_all_when_feedback_mentions_sync() -> None:
+    """When verifier feedback itself discusses workflow sync, keep mixed criteria intact."""
+    original_issue = OriginalIssueData(
+        title="Mixed consumer and workflow follow-up",
+        number=42,
+        tasks=[],
+        acceptance_criteria=[
+            "Database migrations preserve existing records",
+            "Workflow template sync PRs are merged across consumers",
+        ],
+    )
+    verification_data = VerificationData(
+        concerns=["Workflow template sync PRs were not merged for the consumer"],
+    )
+
+    selected = _select_followup_acceptance_criteria(original_issue, verification_data)
+
+    assert selected == [
+        "Database migrations preserve existing records",
+        "Workflow template sync PRs are merged across consumers",
+    ]
+
+
+def test_select_followup_acceptance_criteria_falls_back_when_mixed_filter_empties(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Defensive fallback: keep original criteria when mixed detection disagrees with filtering."""
+    original_issue = OriginalIssueData(
+        title="Workflow-only criteria under inconsistent mixed detection",
+        number=42,
+        tasks=[],
+        acceptance_criteria=[
+            "Workflow template sync PRs are merged across consumers",
+            "Synced scripts stay aligned with the Workflows template",
+        ],
+    )
+    verification_data = VerificationData(concerns=["Database rows were not preserved"])
+    monkeypatch.setattr(
+        followup_issue_generator,
+        "_has_mixed_repo_and_workflow_acceptance_criteria",
+        lambda _issue: True,
+    )
+
+    selected = _select_followup_acceptance_criteria(original_issue, verification_data)
+
+    assert selected == [
+        "Workflow template sync PRs are merged across consumers",
+        "Synced scripts stay aligned with the Workflows template",
+    ]
+
+
+def test_module_main_entrypoint_invokes_main(
+    tmp_path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Running the module as __main__ must call main() and exit with its return code."""
+    import runpy
+    from pathlib import Path
+
+    verification_path = tmp_path / "verification.md"
+    verification_path.write_text("Verdict: PASS @ 100%\n", encoding="utf-8")
+    issue_path = tmp_path / "issue.md"
+    issue_path.write_text("# Original\n\nBody\n", encoding="utf-8")
+    script = Path(followup_issue_generator.__file__).resolve()
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            str(script),
+            "--verification-comment",
+            str(verification_path),
+            "--original-issue",
+            str(issue_path),
+            "--pr-number",
+            "99",
+            "--no-llm",
+            "--json",
+        ],
+    )
+
+    with pytest.raises(SystemExit) as excinfo:
+        runpy.run_path(str(script), run_name="__main__")
+
+    assert excinfo.value.code == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert "title" in payload
+    assert "body" in payload
+    assert isinstance(payload.get("labels"), list)
+
+
+def test_guard_payloads_annotates_reason_with_nonempty_label(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Non-empty labels must appear in the blocked reason for triage."""
+
+    monkeypatch.setattr(
+        followup_issue_generator,
+        "check_prompt_injection",
+        lambda _text: {"blocked": True, "reason": "injection detected"},
+    )
+
+    result = followup_issue_generator._guard_payloads(
+        verification_text="blocked verification text",
+        original_issue_text="safe original issue",
+        codex_log=None,
+    )
+
+    assert result == {
+        "blocked": True,
+        "reason": "injection detected (source: verification_comment)",
+    }
+
+
+def test_blocked_reason_with_source_omits_blank_annotation_for_empty_label() -> None:
+    """Empty labels must not produce a blank ``(source: )`` suffix.
+
+    Ranked target gap (issue #3956): escaped-defect priority, then churn, then
+    uncovered mass on ``scripts/langchain/followup_issue_generator.py``. The
+    empty-label branch is exercised via the extracted helper so tests do not
+    mutate ``_guard_payloads`` locals through caller-frame inspection.
+    """
+
+    assert (
+        followup_issue_generator._blocked_reason_with_source("injection detected", "")
+        == "injection detected"
+    )
+    assert (
+        followup_issue_generator._blocked_reason_with_source("injection detected", "codex_log")
+        == "injection detected (source: codex_log)"
+    )
+
+
+# Issue #3956 ranking: escaped-defect priority, then churn, then uncovered mass.
+# OSError fallbacks below close the Path.is_file / read_text defensive paths.
+
+
+def test_read_existing_file_returns_none_when_is_file_raises_oserror(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Path.is_file() OSError (e.g. ENAMETOOLONG) must treat the value as a non-file."""
+
+    class BoomPath:
+        def is_file(self) -> bool:
+            raise OSError("File name too long")
+
+        def read_text(self, *args: object, **kwargs: object) -> str:
+            raise AssertionError("read_text must not run after is_file OSError")
+
+    monkeypatch.setattr(followup_issue_generator, "Path", lambda _value: BoomPath())
+
+    assert followup_issue_generator._read_existing_file("inline-payload") is None
+    assert followup_issue_generator._load_text_arg("Verdict: PASS @100%") == "Verdict: PASS @100%"
+
+
+def test_read_existing_file_returns_none_when_read_text_raises_oserror(
+    monkeypatch: pytest.MonkeyPatch, tmp_path
+) -> None:
+    """Readable path metadata with failing read_text must also fall back to None."""
+
+    real_file = tmp_path / "locked.txt"
+    real_file.write_text("secret")
+
+    class LockedPath:
+        def __init__(self, value: str) -> None:
+            self._value = value
+
+        def is_file(self) -> bool:
+            return True
+
+        def read_text(self, *args: object, **kwargs: object) -> str:
+            raise OSError("Permission denied")
+
+    monkeypatch.setattr(followup_issue_generator, "Path", LockedPath)
+
+    assert followup_issue_generator._read_existing_file(str(real_file)) is None
+
+
+def test_main_oserror_fallbacks_keep_literal_args_and_drop_codex_log(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """CLI must keep verification/issue literals on OSError and drop unreadable codex logs."""
+
+    verification_literal = "Verdict: PASS @100%\n### Concerns\n- Keep literal on OSError"
+    issue_literal = "## Tasks\n- [ ] Keep original issue literal"
+
+    class UnreadablePath:
+        def __init__(self, value: str) -> None:
+            self._value = value
+
+        def is_file(self) -> bool:
+            raise OSError("File name too long")
+
+        def read_text(self, *args: object, **kwargs: object) -> str:
+            raise AssertionError(f"unexpected read_text for {self._value!r}")
+
+        def write_text(self, *args: object, **kwargs: object) -> None:
+            raise AssertionError("output write is not under test")
+
+    captured: dict[str, object] = {}
+
+    def fake_generate(**kwargs: object) -> followup_issue_generator.FollowupIssue:
+        captured.update(kwargs)
+        return followup_issue_generator.FollowupIssue("Generated", "Generated body", ["follow-up"])
+
+    monkeypatch.setattr(followup_issue_generator, "Path", UnreadablePath)
+    monkeypatch.setattr(followup_issue_generator, "generate_followup_issue", fake_generate)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "followup_issue_generator.py",
+            "--pr-number",
+            "123",
+            "--verification-comment",
+            verification_literal,
+            "--original-issue",
+            issue_literal,
+            "--codex-log",
+            "/tmp/unreadable-codex.jsonl",
+            "--no-llm",
+            "--json",
+        ],
+    )
+
+    assert followup_issue_generator.main() == 0
+    assert captured["codex_log"] is None
+    assert captured["verification_data"].provider_verdicts == {
+        "default": {"verdict": "PASS", "confidence": 100}
+    }
+    assert "Keep literal on OSError" in captured["verification_data"].concerns
+    assert captured["original_issue"].tasks == ["Keep original issue literal"]

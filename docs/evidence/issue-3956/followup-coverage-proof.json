@@ -1,0 +1,131 @@
+{
+  "target": "scripts/langchain/followup_issue_generator.py",
+  "head_before_tests": "4ccaac9082ce07b889ba922e2804ec80771fc723",
+  "restored_source_sha256": "251c56423366158c486324e0fb5987d7c914d177de1a0136f410fa5afac59824",
+  "coverage_command": "pytest tests/test_followup_issue_generator.py --cov=scripts.langchain.followup_issue_generator --cov-report=term-missing -m 'not slow' -q",
+  "proof_command_template": "pytest '<test>' -m 'not slow' -q",
+  "coverage": {
+    "before": {
+      "covered_lines": 795,
+      "num_statements": 846,
+      "percent_covered": 92.63754045307444,
+      "percent_covered_display": "92.64",
+      "missing_lines": 51,
+      "excluded_lines": 7,
+      "percent_statements_covered": 93.97163120567376,
+      "percent_statements_covered_display": "93.97",
+      "num_branches": 390,
+      "num_partial_branches": 36,
+      "covered_branches": 350,
+      "missing_branches": 40,
+      "percent_branches_covered": 89.74358974358974,
+      "percent_branches_covered_display": "89.74"
+    },
+    "after": {
+      "covered_lines": 816,
+      "num_statements": 846,
+      "percent_covered": 94.98381877022653,
+      "percent_covered_display": "94.98",
+      "missing_lines": 30,
+      "excluded_lines": 7,
+      "percent_statements_covered": 96.45390070921985,
+      "percent_statements_covered_display": "96.45",
+      "num_branches": 390,
+      "num_partial_branches": 30,
+      "covered_branches": 358,
+      "missing_branches": 32,
+      "percent_branches_covered": 91.7948717948718,
+      "percent_branches_covered_display": "91.79"
+    }
+  },
+  "proofs": [
+    {
+      "name": "configured",
+      "test": "tests/test_followup_issue_generator.py::test_invoke_without_langchain_uses_plain_prompts_and_preserves_output[configured]",
+      "before": "response = client.invoke(prompt, config=config)",
+      "mutant": "response = client.invoke(\"wrong prompt\", config=config)",
+      "red_exit": 1,
+      "green_exit": 0,
+      "red_summary": "1 failed in 1.16s",
+      "green_summary": "1 passed in 1.05s",
+      "failure": "E       AssertionError: assert [('wrong prom...'tags': []}})] == [('plain prom...'tags': []}})]"
+    },
+    {
+      "name": "fallback",
+      "test": "tests/test_followup_issue_generator.py::test_invoke_without_langchain_uses_plain_prompts_and_preserves_output[fallback]",
+      "before": "response = client.invoke(prompt)\n            except Exception as inner_exc:",
+      "mutant": "response = client.invoke(\"wrong prompt\")\n            except Exception as inner_exc:",
+      "red_exit": 1,
+      "green_exit": 0,
+      "red_summary": "1 failed in 1.15s",
+      "green_summary": "1 passed in 1.19s",
+      "failure": "E       AssertionError: assert [('plain prom... prompt', {})] == [('plain prom... prompt', {})]"
+    },
+    {
+      "name": "failure-cause",
+      "test": "tests/test_followup_issue_generator.py::test_invoke_without_langchain_reports_plain_prompt_failure_with_cause",
+      "before": ") from inner_exc",
+      "mutant": ") from None",
+      "red_exit": 1,
+      "green_exit": 0,
+      "red_summary": "1 failed in 1.13s",
+      "green_summary": "1 passed in 1.10s",
+      "failure": "E       AssertionError: assert None is ValueError('plain prompts unsupported')"
+    },
+    {
+      "name": "missing-trace-module",
+      "test": "tests/test_followup_issue_generator.py::test_trace_failures_preserve_generated_text_and_log_the_cause[missing-module]",
+      "before": "LOGGER.debug(\"tools.llm_provider not available for trace extraction\")",
+      "mutant": "LOGGER.debug(\"trace extraction unavailable\")",
+      "red_exit": 1,
+      "green_exit": 0,
+      "red_summary": "1 failed in 1.15s",
+      "green_summary": "1 passed in 1.02s",
+      "failure": "E       AssertionError: assert 'tools.llm_provider not available for trace extraction' in 'DEBUG    scripts.langchain.followup_issue_generator:followup_issue_generator.py:1213 trace extraction unavailable\\n'"
+    },
+    {
+      "name": "trace-error",
+      "test": "tests/test_followup_issue_generator.py::test_trace_failures_preserve_generated_text_and_log_the_cause[extract-error]",
+      "before": "LOGGER.debug(\"Failed to extract trace ID: %s\", exc)",
+      "mutant": "LOGGER.debug(\"trace extraction failed\")",
+      "red_exit": 1,
+      "green_exit": 0,
+      "red_summary": "1 failed in 1.06s",
+      "green_summary": "1 passed in 1.09s",
+      "failure": "E       AssertionError: assert 'Failed to extract trace ID: trace response malformed' in 'DEBUG    scripts.langchain.followup_issue_generator:followup_issue_generator.py:1215 trace extraction failed\\n'"
+    },
+    {
+      "name": "issue-traces",
+      "test": "tests/test_followup_issue_generator.py::test_llm_rounds_forward_evidence_and_assemble_issue_with_optional_traces[populated]",
+      "before": "if trace_url:\n            trace_comments.append",
+      "mutant": "if False:\n            trace_comments.append",
+      "red_exit": 1,
+      "green_exit": 0,
+      "red_summary": "1 failed in 1.14s",
+      "green_summary": "1 passed in 1.05s",
+      "failure": "E               AssertionError: assert '<!-- LangSmith analyze_verification: https://example.test/analyze_verification -->' in '## Why\\nRepair the parser.\\n\\n## Notes\\n<details>\\n<summary>Advisory items (non-blocking)</summary>\\n\\n- Consider a clearer comment\\n\\n</details>\\n'"
+    },
+    {
+      "name": "empty-task-title",
+      "test": "tests/test_followup_issue_generator.py::test_llm_rounds_forward_evidence_and_assemble_issue_with_optional_traces[empty]",
+      "before": "title_focus = \"verification concerns\"",
+      "mutant": "title_focus = \"missing focus\"",
+      "red_exit": 1,
+      "green_exit": 0,
+      "red_summary": "1 failed in 1.14s",
+      "green_summary": "1 passed in 1.14s",
+      "failure": "E       AssertionError: assert '[Follow-up] ...cus (PR #123)' == '[Follow-up] ...rns (PR #123)'"
+    },
+    {
+      "name": "history-cap",
+      "test": "tests/test_followup_issue_generator.py::test_structured_followup_keeps_structural_findings_and_caps_non_actionable_history",
+      "before": "for item in verification_data.non_actionable_items[:5]:",
+      "mutant": "for item in verification_data.non_actionable_items:",
+      "red_exit": 1,
+      "green_exit": 0,
+      "red_summary": "1 failed in 1.23s",
+      "green_summary": "1 passed in 1.19s",
+      "failure": "E       AssertionError: assert 'Manual investigation 5' not in '## Why\\n\\nP...e-generator*'"
+    }
+  ]
+}

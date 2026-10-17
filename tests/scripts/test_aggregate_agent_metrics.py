@@ -1995,3 +1995,40 @@ def test_legacy_parse_and_artifact_contract_error_paths(tmp_path: Path) -> None:
         == "n/a"
     )
     assert aggregate_agent_metrics._json_contract_value([Counter({"value": 1})]) == [{"value": 1}]
+
+
+def test_uncovered_metric_helpers_preserve_legacy_and_error_contracts(tmp_path: Path) -> None:
+    """Exercise the small fail-closed branches that protect report consumers."""
+    detail = aggregate_agent_metrics.ParseErrorDetail("p", "a", "f", 1, "bad")
+    details = [detail]
+    aggregate_agent_metrics._append_parse_error_detail(details, detail, detail_limit=0)
+    assert details == [detail]
+
+    legacy_path = tmp_path / "legacy.json"
+    legacy_path.write_text('{\n  "metric_type": "keepalive"\n}\n', encoding="utf-8")
+    assert aggregate_agent_metrics.read_ndjson_file(legacy_path) == (
+        [{"metric_type": "keepalive"}],
+        [],
+    )
+
+    assert (
+        aggregate_agent_metrics._classify_entry({"step_name": "apply", "duration_ms": 1})
+        == "autopilot"
+    )
+    assert aggregate_agent_metrics._langsmith_trace_refs(
+        {"langsmith_traces": [{"langsmith_trace_url": "https://trace"}]}
+    ) == {"url:https://trace"}
+    assert not aggregate_agent_metrics._is_pre_contract_verifier_model_record({}, None)
+
+    freshness = aggregate_agent_metrics._summarise_codex_cli_freshness(
+        [{"version_delta": {"major": 1, "minor": 2, "patch": 3}, "update_targets": [None]}]
+    )
+    assert freshness["max_version_delta"] == {"major": 1, "minor": 2, "patch": 3}
+
+    many_details = [
+        aggregate_agent_metrics.ParseErrorDetail("p", "a", "f", index, "bad")
+        for index in range(aggregate_agent_metrics._MAX_PARSE_ERROR_ROWS + 1)
+    ]
+    assert "Additional parse errors omitted from table: 1" in "\n".join(
+        aggregate_agent_metrics._format_parse_error_details(many_details)
+    )

@@ -129,7 +129,7 @@ jobs:
       dispatch_reason: ${{ steps.runner_dispatch.outputs.reason }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Set up Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
@@ -440,7 +440,7 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const { evaluateKeepaliveLoop } = require('./.github/scripts/keepalive_loop.js');
-            const options = { github, context, core };
+            const options = { github, context, core, deterministicGatesEnabled: true };
             // Pass workflow_dispatch inputs if present
             const inputPrNumber = process.env.INPUT_PR_NUMBER;
             let forceRetry = process.env.INPUT_FORCE_RETRY === 'true';
@@ -554,6 +554,10 @@ jobs:
 
             // Ensure artifacts directory exists
             fs.mkdirSync(artifactsDir, { recursive: true });
+            fs.writeFileSync(
+              path.join(artifactsDir, 'acceptance-plan.json'),
+              JSON.stringify(result.deterministicGates || {}),
+            );
 
             // Write the task appendix directly to the artifact file
             if (result.taskAppendix && result.taskAppendix.length > 0) {
@@ -666,10 +670,10 @@ jobs:
           (steps.evaluate.outputs.action == 'run' ||
           steps.evaluate.outputs.action == 'fix' ||
           steps.evaluate.outputs.action == 'conflict')
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: keepalive-task-appendix-${{ steps.evaluate.outputs.pr_number }}
-          path: /tmp/keepalive-artifacts/task-appendix.txt
+          path: /tmp/keepalive-artifacts/
           retention-days: 1
 
   preflight:
@@ -830,10 +834,8 @@ jobs:
             --head-sha "$HEAD_SHA" \
             --storage auto
 
-  # Mark agent as running before starting the actual work
-  # This provides real-time visibility that the agent is actively engaged
-  mark-running:
-    name: Mark agent running
+  acceptance-gates:
+    name: Run isolated acceptance gates
     needs:
       - evaluate
       - preflight
@@ -843,9 +845,66 @@ jobs:
       needs.evaluate.outputs.action == 'fix' ||
       needs.evaluate.outputs.action == 'conflict')
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout trusted gate runner
+        if: needs.evaluate.outputs.reason == 'verify-acceptance'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Download acceptance plan and task appendix
+        if: needs.evaluate.outputs.reason == 'verify-acceptance'
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: keepalive-task-appendix-${{ needs.evaluate.outputs.pr_number }}
+          path: /tmp/keepalive-artifacts
+
+      - name: Checkout acceptance gate head
+        if: needs.evaluate.outputs.reason == 'verify-acceptance'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.evaluate.outputs.head_sha }}
+          path: acceptance-head
+          persist-credentials: false
+
+      - name: Run deterministic acceptance gates before the agent round
+        if: needs.evaluate.outputs.reason == 'verify-acceptance'
+        run: |
+          python3 scripts/runner_lib/acceptance_gate.py --prepare \
+            --plan /tmp/keepalive-artifacts/acceptance-plan.json \
+            --cwd acceptance-head \
+            --output /tmp/keepalive-artifacts/acceptance-results.json \
+            --appendix /tmp/keepalive-artifacts/task-appendix.txt
+
+      - name: Upload appendix with deterministic failures
+        if: needs.evaluate.outputs.reason == 'verify-acceptance'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: keepalive-acceptance-results-${{ needs.evaluate.outputs.pr_number }}
+          path: /tmp/keepalive-artifacts/
+          retention-days: 1
+
+  # Mark agent as running before starting the actual work
+  # This provides real-time visibility that the agent is actively engaged
+  mark-running:
+    name: Mark agent running
+    needs:
+      - evaluate
+      - preflight
+      - acceptance-gates
+    if: |
+      needs.evaluate.outputs.dispatch_should_run == 'true' &&
+      (needs.evaluate.outputs.action == 'run' ||
+      needs.evaluate.outputs.action == 'fix' ||
+      needs.evaluate.outputs.action == 'conflict')
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Set up Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
@@ -925,6 +984,23 @@ jobs:
             exit 1
           fi
 
+      - name: Download isolated acceptance results
+        if: needs.evaluate.outputs.reason == 'verify-acceptance'
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: keepalive-acceptance-results-${{ needs.evaluate.outputs.pr_number }}
+          path: /tmp/keepalive-artifacts
+
+      # Republish only the data artifact under the existing runner contract.
+      - name: Publish appendix with deterministic failures for agent runners
+        if: needs.evaluate.outputs.reason == 'verify-acceptance'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: keepalive-task-appendix-${{ needs.evaluate.outputs.pr_number }}
+          path: /tmp/keepalive-artifacts/
+          retention-days: 1
+          overwrite: true
+
       - name: Update summary with running status
         uses: actions/github-script@v9
         env:
@@ -946,6 +1022,9 @@ jobs:
               `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}` +
               `/actions/runs/${context.runId}`;
             const inputs = {
+              deterministic_gates: require('fs').existsSync('/tmp/keepalive-artifacts/acceptance-results.json')
+                ? JSON.parse(require('fs').readFileSync('/tmp/keepalive-artifacts/acceptance-results.json', 'utf8'))
+                : null,
               pr_number: '${{ needs.evaluate.outputs.pr_number }}',
               agent_type: '${{ needs.evaluate.outputs.agent_type }}',
               iteration: '${{ needs.evaluate.outputs.iteration }}',
@@ -1211,7 +1290,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout runner library
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           sparse-checkout: |
             scripts/runner_lib
@@ -1356,7 +1435,7 @@ jobs:
       feedback: ${{ steps.review.outputs.feedback }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Set up Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
@@ -1640,7 +1719,7 @@ jobs:
       }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Setup API client
         uses: ./.github/actions/setup-api-client
@@ -1731,7 +1810,7 @@ jobs:
           echo "$metrics_json" >> keepalive-metrics.ndjson
 
       - name: Upload keepalive metrics artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: keepalive-metrics
           path: keepalive-metrics.ndjson
@@ -2040,6 +2119,7 @@ jobs:
               '${{ needs.run-gemini.outputs.llm-analysis-run }}' === 'true';
             const inputs = {
               pr_number: Number(process.env.EVALUATE_PR_NUMBER) || 0,
+              deterministic_gates_enabled: true,
               head_sha: process.env.EVALUATE_HEAD_SHA || '',
               action: process.env.EVALUATE_ACTION || '',
               reason: process.env.EVALUATE_REASON || '',

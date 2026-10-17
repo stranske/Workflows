@@ -314,6 +314,12 @@ scripts:
   - source: scripts/state_fingerprint.py
     description: "Computes workflow state fingerprints for unchanged-state skip gates"
 
+  - source: scripts/ledger_validate.py
+    description: "Validates belt task ledgers (.agents/issue-*-ledger.yml); required by the ledger-validation job in pr-00-gate.yml, whose result feeds the required summary check on every belt PR"
+
+  - source: scripts/belt_ledger_completion.py
+    description: "Belt ledger completion helpers imported by scripts/ledger_validate.py (duplicate_artifact_errors); delivered with it so the Gate ledger-validation job can import"
+
   - source: scripts/check_deliberate_break.py
     template_sync: exact
     description: "Opt-in Gate helper that proves named deliberate-break acceptance tests fail against the base implementation"

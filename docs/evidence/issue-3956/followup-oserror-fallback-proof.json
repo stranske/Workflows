@@ -1,0 +1,49 @@
+{
+  "target": "scripts/langchain/followup_issue_generator.py",
+  "ranking": {
+    "source": "issue #3956 Orchestrator ranking",
+    "escaped_defect_signals": 21,
+    "churn": 27,
+    "uncovered_units_at_issue_open": 225,
+    "remaining_before_this_round": "2089-2090 OSError fallback (2 stmts); Cover 99.84%",
+    "note": "Contract item 1: continue the issue-selected ranked target (escaped-defect, then churn, then uncovered mass); CodeRabbit also flagged these OSError paths."
+  },
+  "coverage": {
+    "before": "99.84% (853 stmts, 2 miss at 2089-2090; 388 branches, 0 partial)",
+    "after": "100.00% (853 stmts, 0 miss; 388 branches, 0 partial)",
+    "command": "pytest tests/test_followup_issue_generator.py --cov=scripts.langchain.followup_issue_generator --cov-branch --cov-report=term-missing:skip-covered -m 'not slow'",
+    "tests_passed_after": 200
+  },
+  "remaining": [],
+  "proofs": [
+    {
+      "name": "oserror-re-raises",
+      "test_ids": [
+        "tests/test_followup_issue_generator.py::test_read_existing_file_returns_none_when_is_file_raises_oserror",
+        "tests/test_followup_issue_generator.py::test_read_existing_file_returns_none_when_read_text_raises_oserror",
+        "tests/test_followup_issue_generator.py::test_main_oserror_fallbacks_keep_literal_args_and_drop_codex_log"
+      ],
+      "mutation": "except OSError: return None -> raise",
+      "red_exit": 1,
+      "green_exit": 0
+    },
+    {
+      "name": "oserror-returns-empty-string",
+      "test_ids": [
+        "tests/test_followup_issue_generator.py::test_main_oserror_fallbacks_keep_literal_args_and_drop_codex_log"
+      ],
+      "mutation": "except OSError: return None -> return ''",
+      "red_exit": 1,
+      "green_exit": 0,
+      "note": "empty string makes _load_text_arg treat contents as present (not None), so literals are lost and codex_log becomes ''"
+    }
+  ],
+  "contract": {
+    "1_ranked_target": true,
+    "2_break_and_revert": true,
+    "3_no_production_bug_found": true,
+    "4_test_only_low_blast_radius": false,
+    "5_one_pr": true,
+    "classification_note": "Tests accompany limited production OSError handling and the blocked-reason helper. This is not a test-only PR; production-change scope and acceptance require normal review."
+  }
+}

@@ -1,5 +1,6 @@
 import json
 from datetime import UTC, datetime
+from pathlib import Path
 from types import SimpleNamespace
 
 from scripts import check_consumer_sync_drift
@@ -944,3 +945,187 @@ def test_fetch_remote_tree_reports_rate_limit_reason() -> None:
 
     assert tree is None
     assert error == "owner/repo: repository access preflight failed (rate_limited)"
+
+
+def test_main_writes_actionable_reports_for_early_preflight_failures(tmp_path, monkeypatch) -> None:
+    """Every early exit must leave machine-readable evidence for the maintainer."""
+    # resolve_repos("") falls back to this variable; a maintainer shell must not change case one.
+    monkeypatch.delenv("REGISTERED_CONSUMER_REPOS", raising=False)
+    report_path = tmp_path / "report.json"
+    args = SimpleNamespace(
+        repos="",
+        manifest=str(tmp_path / "missing.yml"),
+        canaries=str(tmp_path / "canaries.json"),
+        report_json=str(report_path),
+        summary="",
+    )
+    monkeypatch.setattr(check_consumer_sync_drift, "parse_args", lambda: args)
+
+    assert check_consumer_sync_drift.main() == 1
+    assert json.loads(report_path.read_text(encoding="utf-8"))["errors"] == [
+        "No repos provided or found in REGISTERED_CONSUMER_REPOS"
+    ]
+
+    args.repos = "owner/repo"
+    assert check_consumer_sync_drift.main() == 1
+    assert json.loads(report_path.read_text(encoding="utf-8"))["errors"] == [
+        "sync-manifest.yml not found"
+    ]
+
+    manifest = tmp_path / "manifest.yml"
+    manifest.write_text("version: 1\n", encoding="utf-8")
+    args.manifest = str(manifest)
+    monkeypatch.setattr(check_consumer_sync_drift, "token_candidates", lambda: [])
+    assert check_consumer_sync_drift.main() == 1
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    assert report["errors"] == ["No GitHub token available for cross-repo reads"]
+    assert report["token_diagnostics"]["error"] == "no_token_candidates"
+
+
+def test_main_rejects_invalid_configuration_and_unusable_tokens(tmp_path, monkeypatch) -> None:
+    manifest = tmp_path / "manifest.yml"
+    manifest.write_text("version: 1\n", encoding="utf-8")
+    report_path = tmp_path / "report.json"
+    args = SimpleNamespace(
+        repos="owner/repo",
+        manifest=str(manifest),
+        canaries=str(tmp_path / "canaries.json"),
+        report_json=str(report_path),
+        summary="",
+    )
+    compiled = SimpleNamespace(
+        to_plan=lambda: {"plan_id": "sha256:" + "a" * 64}, section=lambda _section: ()
+    )
+    monkeypatch.setattr(check_consumer_sync_drift, "parse_args", lambda: args)
+    monkeypatch.setattr(check_consumer_sync_drift, "token_candidates", lambda: [{"token": "token"}])
+
+    def invalid_manifest(_path):
+        raise check_consumer_sync_drift.ManifestCompileError(["bad manifest"])
+
+    monkeypatch.setattr(check_consumer_sync_drift, "compile_manifest", invalid_manifest)
+    assert check_consumer_sync_drift.main() == 1
+    assert json.loads(report_path.read_text(encoding="utf-8"))["errors"] == [
+        "Invalid manifest: bad manifest"
+    ]
+
+    monkeypatch.setattr(check_consumer_sync_drift, "compile_manifest", lambda _path: compiled)
+    monkeypatch.setattr(
+        check_consumer_sync_drift,
+        "resolve_candidate_repos",
+        lambda *_args: (_ for _ in ()).throw(ValueError("bad canaries")),
+    )
+    assert check_consumer_sync_drift.main() == 1
+    assert json.loads(report_path.read_text(encoding="utf-8"))["errors"] == [
+        "Invalid consumer sync canary config: bad canaries"
+    ]
+
+    monkeypatch.setattr(check_consumer_sync_drift, "resolve_candidate_repos", lambda *_args: set())
+    monkeypatch.setattr(
+        check_consumer_sync_drift,
+        "select_read_token",
+        lambda **_kwargs: (None, {"error": "no_usable_token"}),
+    )
+    assert check_consumer_sync_drift.main() == 1
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    assert report["errors"] == ["No usable GitHub token available for consumer repo contents reads"]
+    assert report["token_diagnostics"] == {"error": "no_usable_token"}
+
+
+def test_main_compares_manifest_files_and_writes_converged_summary(tmp_path, monkeypatch) -> None:
+    source = tmp_path / "source.yml"
+    source.write_text("name: Example\n", encoding="utf-8")
+    summary_path = tmp_path / "summary.md"
+    report_path = tmp_path / "report.json"
+    entry = _make_entry(source=str(source), target=".github/workflows/example.yml")
+    compiled = SimpleNamespace(
+        to_plan=lambda: {"plan_id": "sha256:" + "a" * 64},
+        section=lambda section: (entry,) if section == "workflows" else (),
+        removals=(),
+    )
+    args = SimpleNamespace(
+        repos="owner/repo",
+        manifest=str(tmp_path / "manifest.yml"),
+        canaries=str(tmp_path / "canaries.json"),
+        report_json=str(report_path),
+        summary=str(summary_path),
+    )
+    Path(args.manifest).write_text("version: 1\n", encoding="utf-8")
+    monkeypatch.setattr(check_consumer_sync_drift, "COPY_SYNCED_SECTIONS", ("workflows",))
+    monkeypatch.setattr(check_consumer_sync_drift, "parse_args", lambda: args)
+    monkeypatch.setattr(check_consumer_sync_drift, "token_candidates", lambda: [{"token": "token"}])
+    monkeypatch.setattr(check_consumer_sync_drift, "compile_manifest", lambda _path: compiled)
+    monkeypatch.setattr(check_consumer_sync_drift, "resolve_candidate_repos", lambda *_args: set())
+    monkeypatch.setattr(
+        check_consumer_sync_drift, "select_read_token", lambda **_kwargs: (object(), {})
+    )
+    monkeypatch.setattr(
+        check_consumer_sync_drift,
+        "fetch_remote_tree",
+        lambda _session, _repo: (
+            {
+                ".github/workflows/example.yml": {
+                    "type": "blob",
+                    "sha": check_consumer_sync_drift.git_blob_hash(source.read_bytes()),
+                }
+            },
+            None,
+        ),
+    )
+    monkeypatch.setattr(check_consumer_sync_drift, "fetch_open_sync_prs", lambda *_args: ([], None))
+
+    assert check_consumer_sync_drift.main() == 0
+    assert json.loads(report_path.read_text(encoding="utf-8"))["status"] == "converged"
+    assert "No drift detected." in summary_path.read_text(encoding="utf-8")
+
+
+def test_main_reports_body_drift_but_ignores_syncer_header_differences(
+    tmp_path, monkeypatch
+) -> None:
+    source = tmp_path / "source.yml"
+    source.write_text("# local header\nname: Example\n", encoding="utf-8")
+    report_path = tmp_path / "report.json"
+    entry = _make_entry(source=str(source), target=".github/workflows/example.yml")
+    compiled = SimpleNamespace(
+        to_plan=lambda: {"plan_id": "sha256:" + "a" * 64},
+        section=lambda section: (entry,) if section == "workflows" else (),
+        removals=(),
+    )
+    args = SimpleNamespace(
+        repos="owner/repo",
+        manifest=str(tmp_path / "manifest.yml"),
+        canaries=str(tmp_path / "canaries.json"),
+        report_json=str(report_path),
+        summary="",
+    )
+    Path(args.manifest).write_text("version: 1\n", encoding="utf-8")
+    monkeypatch.setattr(check_consumer_sync_drift, "COPY_SYNCED_SECTIONS", ("workflows",))
+    monkeypatch.setattr(check_consumer_sync_drift, "parse_args", lambda: args)
+    monkeypatch.setattr(check_consumer_sync_drift, "token_candidates", lambda: [{"token": "token"}])
+    monkeypatch.setattr(check_consumer_sync_drift, "compile_manifest", lambda _path: compiled)
+    monkeypatch.setattr(check_consumer_sync_drift, "resolve_candidate_repos", lambda *_args: set())
+    monkeypatch.setattr(
+        check_consumer_sync_drift, "select_read_token", lambda **_kwargs: (object(), {})
+    )
+    monkeypatch.setattr(
+        check_consumer_sync_drift,
+        "fetch_remote_tree",
+        lambda _session, _repo: (
+            {".github/workflows/example.yml": {"type": "blob", "sha": "remote-sha"}},
+            None,
+        ),
+    )
+    monkeypatch.setattr(check_consumer_sync_drift, "fetch_open_sync_prs", lambda *_args: ([], None))
+    monkeypatch.setattr(
+        check_consumer_sync_drift,
+        "remote_blob_text",
+        lambda *_args: "# remote header\nname: Example\n",
+    )
+
+    assert check_consumer_sync_drift.main() == 0
+    monkeypatch.setattr(
+        check_consumer_sync_drift, "remote_blob_text", lambda *_args: "name: Changed\n"
+    )
+    assert check_consumer_sync_drift.main() == 1
+    assert json.loads(report_path.read_text(encoding="utf-8"))["drift"] == [
+        "owner/repo: .github/workflows/example.yml"
+    ]

@@ -1,0 +1,54 @@
+{
+  "target": "scripts/langchain/followup_issue_generator.py",
+  "ranking": {
+    "source": "issue #3956 Orchestrator ranking",
+    "escaped_defect_signals": 21,
+    "churn": 27,
+    "uncovered_units_at_issue_open": 225,
+    "note": "Contract item 1: continue the issue-selected ranked target; do not pick by file size."
+  },
+  "coverage": {
+    "before": "99.11% (846 stmts, 2 miss; 390 branches, 9 partial)",
+    "after": "99.60% (846 stmts, 2 miss; 390 branches, 3 partial)",
+    "command": "pytest tests/test_followup_issue_generator.py --cov=scripts.langchain.followup_issue_generator --cov-report=term-missing -m 'not slow'"
+  },
+  "remaining": [
+    "124->126 empty injection-source label (payloads always named)",
+    "2068 mixed-criteria empty-filter fallback (unreachable when mixed detection is consistent)",
+    "2242 if __name__ == '__main__'"
+  ],
+  "proofs": [
+    {
+      "name": "concern-short-filter",
+      "test_id": "tests/test_followup_issue_generator.py::test_concern_label_and_insights_skip_short_and_spurious_fragments",
+      "mutation": "len(concern) > 10 -> len(concern) > 0 on plain Concerns: path",
+      "red_exit": 1,
+      "green_exit": 0
+    },
+    {
+      "name": "checklist-direct-checkbox",
+      "test_id": "tests/test_followup_issue_generator.py::test_parse_checklist_skips_direct_checkbox_placeholders_and_non_list_lines",
+      "mutation": "drop length/placeholder guards on direct checkbox branch",
+      "red_exit": 1,
+      "green_exit": 0
+    },
+    {
+      "name": "workflow-sync-feedback-keep",
+      "test_id": "tests/test_followup_issue_generator.py::test_select_followup_acceptance_criteria_keeps_all_when_feedback_mentions_sync",
+      "mutation": "disable _verification_feedback_mentions_workflow_sync keep-all branch",
+      "red_exit": 1,
+      "green_exit": 0
+    }
+  ],
+  "ci_fix": {
+    "file": "tests/workflows/test_agents_guard_registry_enabled.py",
+    "change": "include shipped muse in enabled-route contract (matches origin/main #3947)"
+  },
+  "contract": {
+    "1_ranked_target": true,
+    "2_break_and_revert": true,
+    "3_no_production_bug_found": true,
+    "4_test_only_low_blast_radius": true,
+    "5_one_pr": true
+  }
+}

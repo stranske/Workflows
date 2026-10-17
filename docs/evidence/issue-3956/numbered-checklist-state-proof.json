@@ -1,0 +1,38 @@
+{
+  "target": ".github/scripts/agents_pr_meta_update_body.js",
+  "why": "Issue #3956 ranked target scripts/langchain/followup_issue_generator.py is already at 100% line+branch coverage. Remaining incomplete keepalive checkboxes were the numbered coverage-contract items (1-5). PR-meta refresh normalised those issue lines to '1. [ ] ...' but parseCheckboxStates/mergeCheckboxStates only handled dash bullets, so checked contract state was dropped on every Upsert PR body sections run and keepalive never stood down. Minimal production fix restores numbered checklist durability.",
+  "ranking": {
+    "source": "issue #3956 Orchestrator ranking (escaped-defect, then churn, then uncovered mass)",
+    "primary_target": "scripts/langchain/followup_issue_generator.py",
+    "primary_coverage": "100.00% (846 stmts / 390 branches; exhausted)",
+    "follow_on_defect": "numbered checklist state loss in agents_pr_meta_update_body.js"
+  },
+  "coverage_primary": {
+    "command": "pytest tests/test_followup_issue_generator.py --cov=scripts.langchain.followup_issue_generator --cov-branch --cov-report=term-missing -m 'not slow'",
+    "result": "197 passed; 100.00%"
+  },
+  "proofs": [
+    {
+      "name": "numbered-checklist-parse-and-merge",
+      "tests": [
+        "parseCheckboxStates captures numbered checklist completions",
+        "mergeCheckboxStates restores numbered contract checklist items across refresh"
+      ],
+      "mutation": "Reverted parse+merge regexes to dash-only (pre-fix) behavior in both Workflows and consumer-template copies",
+      "red_exit": 1,
+      "green_exit": 0,
+      "red_assertion": "parseCheckboxStates only saw the dash parent (size 1 !== 6); numbered items stayed unchecked after merge",
+      "command": "node --test --test-name-pattern='numbered' .github/scripts/__tests__/agents-pr-meta-update-body.test.js"
+    }
+  ],
+  "validation": {
+    "full_suite": "node --test .github/scripts/__tests__/agents-pr-meta-update-body.test.js \u2192 170 passed"
+  },
+  "contract": {
+    "1_ranked_target": true,
+    "2_break_and_revert": true,
+    "3_real_bug_fixed_minimal": true,
+    "4_low_blast_radius": true,
+    "5_one_pr": true
+  }
+}
