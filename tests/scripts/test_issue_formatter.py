@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import argparse
 import builtins
 import importlib.machinery
 import importlib.util
@@ -1310,3 +1311,28 @@ def test_safe_verify_command_requires_runnable_unittest_and_gh_args() -> None:
         issue_formatter.SAFE_VERIFY_COMMAND_RE.match("gh workflow run agents-issue-optimizer.yml")
         is not None
     )
+
+
+def test_formatter_helpers_handle_missing_prompt_tasks_and_cli_input(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    missing = tmp_path / "missing.md"
+    monkeypatch.setattr(issue_formatter, "PROMPT_PATH", missing)
+    monkeypatch.setattr(issue_formatter, "FEEDBACK_PROMPT_PATH", missing)
+    assert issue_formatter._load_prompt() == issue_formatter.ISSUE_FORMATTER_PROMPT
+    assert issue_formatter._extract_tasks_from_formatted("## Why\n\nNo task header") == []
+    assert issue_formatter._extract_tasks_from_formatted(
+        "## Tasks\n\n- [x] Keep this\n  - nested\n- [ ] _Not provided._\n\n## Scope\n\nDone"
+    ) == ["Keep this"]
+
+    input_file = tmp_path / "issue.md"
+    input_file.write_text("file body", encoding="utf-8")
+    assert (
+        issue_formatter._load_input(
+            argparse.Namespace(input_file=str(input_file), input_text="ignored")
+        )
+        == "file body"
+    )
+    assert issue_formatter._load_input(
+        argparse.Namespace(input_file=None, input_text="inline body")
+    ) == ("inline body")
