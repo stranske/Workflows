@@ -187,7 +187,9 @@ def test_stop_condition_refuses_failing_gate():
     assert result.returncode == 0, result.stdout + result.stderr
 
 
-@pytest.mark.parametrize("line", ["x" * 1_000_000, "é" * 1000 + "\n"])
+@pytest.mark.parametrize(
+    "line", ["x" * 1_000_000, "é" * 1000 + "\n"], ids=["ascii-million", "unicode-multibyte"]
+)
 def test_output_is_bounded_by_bytes_per_command_and_in_total(tmp_path, line):
     script = tmp_path / "verbose.py"
     script.write_text(f"print({line!r} * 50)\n")
