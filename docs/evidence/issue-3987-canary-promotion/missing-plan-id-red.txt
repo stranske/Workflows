@@ -1,0 +1,30 @@
+✖ all canaries merged dispatch correct plan-bound evidence (4.234344ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 27.685406
+
+✖ failing tests:
+
+test at tests/scripts/test_maint71_promote_dispatch.js:74:3
+✖ all canaries merged dispatch correct plan-bound evidence (4.234344ms)
+  AssertionError [ERR_ASSERTION]: missing_key:plan_id:stranske/Travel-Plan-Permission, invalid_plan_id:stranske/Travel-Plan-Permission, missing_key:plan_id:stranske/trip-planner, invalid_plan_id:stranske/trip-planner, missing_key:plan_id:stranske/Portable-Alpha-Extension-Model, invalid_plan_id:stranske/Portable-Alpha-Extension-Model, missing_or_mixed_canary_plan
+
+  false !== true
+
+      at TestContext.<anonymous> (/home/runner/work/Workflows/Workflows/tests/scripts/test_maint71_promote_dispatch.js:77:12)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.start (node:internal/test_runner/test:1262:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

@@ -1481,8 +1481,12 @@ function candidatePromotionDecision({ report = {}, evidence = {}, expectedCanari
   }
   const results = Array.isArray(report?.results) ? report.results : [];
   for (const repository of expectedCanaries) {
+    const row = (Array.isArray(rows) ? rows : []).find((item) => item.repo === repository);
     const terminal = results.some((result) =>
-      `${result.owner || ''}/${result.repo || ''}`.replace(/^\//, '') === repository
+      row && result.plan_id === row.plan_id
+      && result.source_commit === row.source_commit
+      && result.head_sha === row.head_sha && result.pr === row.pr
+      && `${result.owner || ''}/${result.repo || ''}`.replace(/^\//, '') === repository
       && branchNameFromRef(result.branch) === SYNC_CANDIDATE_BRANCH
       && ['campaign_prepared', 'evidence_recovered'].includes(String(result.status || '')),
     );

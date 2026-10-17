@@ -44,7 +44,7 @@ def _problems(agent: str, config: dict) -> list[str]:
 def test_every_belt_capable_agent_has_a_worker_path():
     for registry in REGISTRIES:
         belt = _belt_agents(registry)
-        assert {"codex", "claude", "cursor"} <= set(belt), (registry.name, sorted(belt))
+        assert {"codex", "claude", "cursor", "muse"} <= set(belt), (registry.name, sorted(belt))
         problems = [p for agent, cfg in belt.items() for p in _problems(agent, cfg)]
         assert not problems, problems
 

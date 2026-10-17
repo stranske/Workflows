@@ -1,0 +1,76 @@
+{
+  "python": "3.14.8",
+  "command": [
+    "/opt/hostedtoolcache/Python/3.14.8/x64/bin/python",
+    "-m",
+    "pytest",
+    "tests/scripts/test_pr_verifier_grammar_inventory.py",
+    "-q",
+    "-m",
+    "not slow"
+  ],
+  "checks": [
+    {
+      "mutation": "stale-inventory-count",
+      "changed_file": "docs/ci/verifier-grammar-inventory.json",
+      "red_exit": 1,
+      "restored_green_exit": 0,
+      "restored_sha256": "66995fe2eaa9b4fdd117635f99d713c394f000a920e55432f37336e47deaa81a",
+      "byte_identical_restoration": true,
+      "command": [
+        "/opt/hostedtoolcache/Python/3.14.8/x64/bin/python",
+        "-m",
+        "pytest",
+        "tests/scripts/test_pr_verifier_grammar_inventory.py",
+        "-q",
+        "-m",
+        "not slow",
+        "-k",
+        "test_inventory_accounts_for_every_named_regression_and_case"
+      ]
+    },
+    {
+      "mutation": "missing-lexical-witness",
+      "changed_file": "tests/scripts/test_pr_verifier_delivery_destinations.py",
+      "red_exit": 1,
+      "restored_green_exit": 0,
+      "restored_sha256": "5eeeb3c4f48f7c8701b790fad2593aaba5f8c6dcaa7b20a6e0236daf8cf9ef67",
+      "byte_identical_restoration": true,
+      "command": [
+        "/opt/hostedtoolcache/Python/3.14.8/x64/bin/python",
+        "-m",
+        "pytest",
+        "tests/scripts/test_pr_verifier_grammar_inventory.py",
+        "-q",
+        "-m",
+        "not slow",
+        "-k",
+        "test_emitted_cases_preserve_every_declared_semantic_and_lexical_projection"
+      ]
+    }
+  ],
+  "audit_test_sha256": "d9d02b70dc4c495b1e51093df7217640b1187676da8184d03e51de100f930ed4",
+  "focused_validation": {
+    "command": "python -m pytest tests/scripts/test_pr_verifier_grammar_inventory.py tests/scripts/test_pr_verifier_delivery_destinations.py -k \"inventory or declared_semantic or product_component_coordination or possession_auxiliary_cannot_make_supply_noun_a_delivery or active_perfect_elided_delivery_retains_actor_and_governor\" -q -m \"not slow\"",
+    "passed": 1854,
+    "deselected": 33212,
+    "seconds": 16.81,
+    "python": "3.14.8"
+  },
+  "scoped_collection": {
+    "command": "python -m pytest --collect-only -q tests/scripts/test_pr_verifier_delivery_destinations.py tests/scripts/test_pr_verifier_prompt_coverage.py tests/scripts/test_pr_verifier_body_overall_integration.py -m \"not slow\"",
+    "cases": 40836,
+    "seconds": 3.88
+  },
+  "console_output_normalization": "Trailing whitespace removed from console lines; assertions and outcomes retained.",
+  "formatting": {
+    "command": "BLACK_NUM_WORKERS=1 BLACK_CACHE_DIR=/tmp/issue-3904-black-cache black --check --line-length 100 --exclude '(\\.workflows-lib|node_modules)' .",
+    "black_version": "26.10.1",
+    "exit_code": 0,
+    "unchanged_files": 758
+  },
+  "lint": {
+    "command": "ruff check tests/scripts/test_pr_verifier_grammar_inventory.py",
+    "exit_code": 0
+  }
+}

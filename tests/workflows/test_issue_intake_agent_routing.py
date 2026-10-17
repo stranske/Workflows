@@ -54,7 +54,8 @@ def test_intake_routes_the_labelled_agent_not_codex(tmp_path):
             check=True,
         ).stdout.strip()
         assert runner == f".github/workflows/reusable-{agent}-run.yml"
-    assert _run(tmp_path, ["bug"])["bridge_agent"] == "codex"  # no agent label: unchanged default
+    assert _run(tmp_path, ["bug"])["bridge_agent"] == ""  # preflight resolves the default
+    assert _run(tmp_path, ["agent:auto"])["bridge_agent"] == "auto"
 
 
 def test_post_agent_comment_is_the_neutral_name_and_post_codex_comment_still_works(tmp_path):

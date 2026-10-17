@@ -21,6 +21,16 @@ The keepalive system routes work to different agents based on the `agent:*` labe
 
 The authoritative list lives in `.github/agents/registry.yml`; update that registry and the matching runner workflow before adding labels to this table.
 
+The Muse runner sets both Git author and committer to `muse
+<muse@users.noreply.github.com>` in the `Run Muse` environment so CLI-created
+commits retain the producing agent's identity. Durability export resolves Muse
+from its concrete `agent:muse` / `runner:muse` label or `muse/` branch; the
+Orchestrator feedback ledger records the explicitly selected agent, rather than
+inferring it from the GitHub account that pushes. After delivery, inspect the
+next native Muse commit with `gh api repos/OWNER/REPO/commits/SHA --jq .commit`
+and retain both author and committer fields. Local Git tests prove environment
+precedence over repository defaults; they do not establish a native Muse run.
+
 ---
 
 ## How It Works
