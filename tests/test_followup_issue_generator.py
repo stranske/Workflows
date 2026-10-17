@@ -2883,3 +2883,104 @@ def test_guard_payloads_annotates_reason_with_nonempty_label(
         "blocked": True,
         "reason": "injection detected (source: verification_comment)",
     }
+
+
+# Ranked target still has uncovered OSError fallbacks at _read_existing_file (2089-2090).
+# Issue #3956 ranking: escaped-defect priority, then churn, then uncovered mass.
+
+
+def test_read_existing_file_returns_none_when_is_file_raises_oserror(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Path.is_file() OSError (e.g. ENAMETOOLONG) must treat the value as a non-file."""
+
+    class BoomPath:
+        def is_file(self) -> bool:
+            raise OSError("File name too long")
+
+        def read_text(self, *args: object, **kwargs: object) -> str:
+            raise AssertionError("read_text must not run after is_file OSError")
+
+    monkeypatch.setattr(followup_issue_generator, "Path", lambda _value: BoomPath())
+
+    assert followup_issue_generator._read_existing_file("inline-payload") is None
+    assert followup_issue_generator._load_text_arg("Verdict: PASS @100%") == "Verdict: PASS @100%"
+
+
+def test_read_existing_file_returns_none_when_read_text_raises_oserror(
+    monkeypatch: pytest.MonkeyPatch, tmp_path
+) -> None:
+    """Readable path metadata with failing read_text must also fall back to None."""
+
+    real_file = tmp_path / "locked.txt"
+    real_file.write_text("secret")
+
+    class LockedPath:
+        def __init__(self, value: str) -> None:
+            self._value = value
+
+        def is_file(self) -> bool:
+            return True
+
+        def read_text(self, *args: object, **kwargs: object) -> str:
+            raise OSError("Permission denied")
+
+    monkeypatch.setattr(followup_issue_generator, "Path", LockedPath)
+
+    assert followup_issue_generator._read_existing_file(str(real_file)) is None
+
+
+def test_main_oserror_fallbacks_keep_literal_args_and_drop_codex_log(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """CLI must keep verification/issue literals on OSError and drop unreadable codex logs."""
+
+    verification_literal = "Verdict: PASS @100%\n### Concerns\n- Keep literal on OSError"
+    issue_literal = "## Tasks\n- [ ] Keep original issue literal"
+
+    class UnreadablePath:
+        def __init__(self, value: str) -> None:
+            self._value = value
+
+        def is_file(self) -> bool:
+            raise OSError("File name too long")
+
+        def read_text(self, *args: object, **kwargs: object) -> str:
+            raise AssertionError(f"unexpected read_text for {self._value!r}")
+
+        def write_text(self, *args: object, **kwargs: object) -> None:
+            raise AssertionError("output write is not under test")
+
+    captured: dict[str, object] = {}
+
+    def fake_generate(**kwargs: object) -> followup_issue_generator.FollowupIssue:
+        captured.update(kwargs)
+        return followup_issue_generator.FollowupIssue("Generated", "Generated body", ["follow-up"])
+
+    monkeypatch.setattr(followup_issue_generator, "Path", UnreadablePath)
+    monkeypatch.setattr(followup_issue_generator, "generate_followup_issue", fake_generate)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "followup_issue_generator.py",
+            "--pr-number",
+            "123",
+            "--verification-comment",
+            verification_literal,
+            "--original-issue",
+            issue_literal,
+            "--codex-log",
+            "/tmp/unreadable-codex.jsonl",
+            "--no-llm",
+            "--json",
+        ],
+    )
+
+    assert followup_issue_generator.main() == 0
+    assert captured["codex_log"] is None
+    assert captured["verification_data"].provider_verdicts == {
+        "default": {"verdict": "PASS", "confidence": 100}
+    }
+    assert "Keep literal on OSError" in captured["verification_data"].concerns
+    assert captured["original_issue"].tasks == ["Keep original issue literal"]
