@@ -148,6 +148,15 @@ def _run_pytest(
         package = Path(scratch) / "tools"
         package.mkdir()
         (package / "__init__.py").write_text("")
+        if not isolated:
+            # trusted repo fixtures only: sibling modules and shared trees are linked so a module
+            # that imports them works. Generated tests (isolated) never see host paths.
+            for sibling in (ROOT / "tools").glob("*.py"):
+                if sibling.stem not in (module_name, "__init__"):
+                    (package / sibling.name).symlink_to(sibling)
+            for shared in ("scripts", "config", "docs"):
+                if (ROOT / shared).exists():
+                    (Path(scratch) / shared).symlink_to(ROOT / shared)
         (package / f"{module_name}.py").write_text(module_source)
         (Path(scratch) / f"test_{module_name}_pilot.py").write_text(tests)
         command = [sys.executable, "-m", "pytest", "-x", "-q", "-p", "no:cacheprovider", scratch]
@@ -407,10 +416,7 @@ def agy_backend(model: str, timeout: int = 480, agy: str = "agy") -> Backend:
             try:
                 run = subprocess.run(
                     command,
-                    input=json.dumps(
-                        {"type": "user", "message": {"role": "user", "content": prompt}}
-                    )
-                    + "\n",
+                    input=json.dumps({"event": "user", "message": {"content": prompt}}) + "\n",
                     capture_output=True,
                     text=True,
                     cwd=scratch,
@@ -428,18 +434,14 @@ def agy_backend(model: str, timeout: int = 480, agy: str = "agy") -> Backend:
                 raise ValueError("invalid stream event")
             if any(_contains_tool_event(event) for event in events):
                 return ModelCall(error="agy emitted a tool event", latency_ms=_ms(started))
-            envelope = next(
-                (event for event in reversed(events) if event.get("type") == "result"), {}
+            result = next(
+                (event for event in reversed(events) if event.get("event") == "result"), {}
             )
-            envelope = {
-                **envelope,
-                "status": (
-                    "ERROR"
-                    if envelope.get("is_error") or envelope.get("subtype") not in {None, "success"}
-                    else "SUCCESS"
-                ),
-                "response": envelope.get("result", ""),
-            }
+            envelope = result.get("result") if isinstance(result.get("result"), dict) else {}
+            if envelope.get("denied_actions"):
+                return ModelCall(
+                    error="agy attempted a denied tool action", latency_ms=_ms(started)
+                )
         except ValueError:
             return ModelCall(
                 error=f"agy output was not JSON (rc {run.returncode})", latency_ms=_ms(started)
