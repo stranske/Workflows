@@ -20,7 +20,371 @@ test.after(() => {
 const {
   devToolBaseRefreshResult, ensureExactHeadReviewRequest, hasCompleteReviewThreadEvidence,
   parseReviewReassessmentRequest, runReviewReassessment, run, acceptanceCommentLocation,
+  canaryNeedsRefresh, refreshStableCanaries, STALE_CANARY_HOURS,
 } = require('../maint71_merge_sync_prs');
+
+const refreshNow = Date.parse('2026-10-17T12:00:00Z');
+function refreshCanary(overrides = {}) {
+  return { owner: 'stranske', repo: 'Ready', pr: 12, plan_id: 'plan-4026',
+    check_status: 'success', active_review_thread_count: 0,
+    head_observed_at: new Date(refreshNow - 60 * 60 * 1000).toISOString(),
+    ...overrides };
+}
+
+function refreshHarness(overrides = {}) {
+  const dispatches = [], comments = [], summaries = [], failures = [], reads = [];
+  const manifestEntries = require('../sync_pr_merge_contract').parseManifestSyncedSourceEntries(`
+scripts:
+  - source: .github/scripts/shared.js
+    target: scripts/shared.js
+workflows:
+  - source: .github/workflows/gate.yml
+    target: .github/workflows/consumer-gate.yml
+`);
+  const github = { rest: {
+    users: { getAuthenticated: async () => ({ data: { login: 'maint71-bot' } }) },
+    actions: {
+      listWorkflowRuns: async () => ({ data: { workflow_runs: [] } }),
+      createWorkflowDispatch: async (params) => dispatches.push(params),
+      ...overrides.actions,
+    },
+    repos: {
+      listCommits: async (params) => { reads.push(params); return { data: [{ sha: 'a'.repeat(40) }] }; },
+      listPullRequestsAssociatedWithCommit: () => {},
+      listCommentsForCommit: () => {},
+      createCommitComment: async (params) => comments.push({ ...params, user: { login: 'maint71-bot' } }),
+    },
+    issues: { listComments: () => {}, createComment: async (params) => comments.push({ ...params, user: { login: 'maint71-bot' } }) },
+  }, paginate: async (method) => {
+    if (method === github.rest.repos.listPullRequestsAssociatedWithCommit) {
+      return overrides.prs ?? [{ number: 4020, merged_at: '2026-10-16T10:00:00Z',
+        base: { repo: { full_name: 'stranske/Workflows' } } }];
+    }
+    return [...comments, ...(overrides.existing || [])];
+  } };
+  const core = { notice() {}, setFailed: (message) => failures.push(message),
+    summary: { addRaw(text) { summaries.push(text); return this; }, async write() {} } };
+  return { dispatches, comments, summaries, failures, reads, manifestEntries, core,
+    withRetry: async (fn) => fn(github), enabled: true, now: refreshNow,
+    context: { repo: { owner: 'stranske', repo: 'Workflows' },
+      payload: { repository: { default_branch: 'main' } } } };
+}
+
+for (const [state, change] of [
+  ['behind', { mergeable_state: 'behind' }],
+  ['checks_failed', { check_status: 'checks_failed' }],
+  ['review_blocked', { active_review_thread_count: 1 }],
+  ['stale', { mergeable_state: 'dirty', head_observed_at: '2026-10-17T05:00:00Z' }],
+]) {
+  test(`stable canary ${state} refreshes once per plan with the right reason`, async () => {
+    const api = refreshHarness();
+    const canary = refreshCanary(change);
+    assert.equal(canaryNeedsRefresh(canary, refreshNow), state, `missing refresh state: ${state}`);
+    const result = await refreshStableCanaries({ ...api,
+      canaries: [canary, { ...canary, repo: 'Template' }] });
+    assert.equal(result.refresh_dispatched, 1, `missing refresh dispatch: ${state}`);
+    assert.equal(api.dispatches.length, 1, state);
+    assert.deepEqual(result.canaries.map((row) => row.refresh_reason), [state, state]);
+    assert.deepEqual(api.dispatches[0], { owner: 'stranske', repo: 'Workflows',
+      workflow_id: 'maint-68-sync-consumer-repos.yml', ref: 'main',
+      inputs: { phase: 'canary', delivery_scope: 'full', dry_run: 'false', force: 'false' } });
+    assert.match(api.summaries.join(''), /refresh_dispatched=1 held_plan=plan-4026/);
+    assert.deepEqual(api.failures, []);
+  });
+}
+
+test('all current green canaries and an empty run emit zero counts without dispatch', async () => {
+  for (const canaries of [[], [refreshCanary(), refreshCanary({ repo: 'Template' })]]) {
+    const api = refreshHarness();
+    await refreshStableCanaries({ ...api, canaries });
+    assert.equal(api.dispatches.length, 0);
+    assert.equal(api.summaries.join(''),
+      'canaries: red=0 review_blocked=0 stale=0 refresh_dispatched=0 held_plan=none\n');
+  }
+});
+
+test('staleness uses producer head age, with a strict six-hour boundary', () => {
+  assert.equal(STALE_CANARY_HOURS, 6);
+  const atBoundary = refreshCanary({ mergeable_state: 'dirty', head_observed_at: new Date(refreshNow - 6 * 3600000).toISOString() });
+  assert.equal(canaryNeedsRefresh(atBoundary, refreshNow), null);
+  assert.equal(canaryNeedsRefresh(atBoundary, refreshNow + 1), 'stale');
+  assert.equal(canaryNeedsRefresh({ ...atBoundary, updated_at: new Date(refreshNow).toISOString() },
+    refreshNow + 1), 'stale');
+  assert.equal(canaryNeedsRefresh(refreshCanary({ head_observed_at: 'invalid' }), refreshNow), null);
+});
+
+test('canary refresh reasons prioritize blockers over age and retain legacy timestamp fallbacks', () => {
+  const blocked = refreshCanary({ mergeable_state: 'behind', check_status: 'checks_failed',
+    active_review_thread_count: 1, head_observed_at: '2026-10-17T05:00:00Z' });
+  assert.equal(canaryNeedsRefresh(blocked, refreshNow), 'behind');
+  delete blocked.mergeable_state;
+  assert.equal(canaryNeedsRefresh(blocked, refreshNow), 'checks_failed');
+  blocked.check_status = 'success';
+  assert.equal(canaryNeedsRefresh(blocked, refreshNow), 'review_blocked');
+  blocked.active_review_thread_count = 0;
+  blocked.mergeable_state = 'dirty';
+  assert.equal(canaryNeedsRefresh(blocked, refreshNow), 'stale');
+  delete blocked.head_observed_at;
+  blocked.updated_at = '2026-10-17T05:00:00Z';
+  blocked.created_at = '2026-10-16T00:00:00Z';
+  assert.equal(canaryNeedsRefresh(blocked, refreshNow), 'stale');
+  blocked.updated_at = '2026-10-17T11:00:00Z';
+  assert.equal(canaryNeedsRefresh(blocked, refreshNow), null);
+  delete blocked.updated_at;
+  assert.equal(canaryNeedsRefresh(blocked, refreshNow), 'stale');
+  delete blocked.created_at;
+  assert.equal(canaryNeedsRefresh(blocked, refreshNow), null);
+});
+
+test('overlapping blockers are counted independently and dry-run cannot mutate', async () => {
+  const api = refreshHarness();
+  const canary = refreshCanary({ check_status: 'checks_failed', active_review_thread_count: 1,
+    head_observed_at: '2026-10-17T05:00:00Z' });
+  const result = await refreshStableCanaries({ ...api, enabled: false, canaries: [canary] });
+  assert.equal(result.red, 1);
+  assert.equal(result.review_blocked, 1);
+  assert.equal(result.stale, 1);
+  assert.equal(result.canaries[0].refresh_reason, 'checks_failed');
+  assert.equal(api.dispatches.length, 0);
+  assert.equal(api.comments.length, 0);
+});
+
+test('active Maint 68 writer defers refresh; a failed dispatch emits zero and fails visibly', async () => {
+  for (const active of [true, false]) {
+    const api = refreshHarness({ actions: active ? {
+      listWorkflowRuns: async () => ({ data: { workflow_runs: [
+        { status: 'in_progress', display_title: 'Maint 68 promote auto plan source' },
+      ] } }),
+    } : { createWorkflowDispatch: async () => { throw new Error('dispatch denied'); } } });
+    const result = await refreshStableCanaries({ ...api,
+      canaries: [refreshCanary({ check_status: 'checks_failed' })] });
+    assert.equal(result.refresh_dispatched, 0);
+    assert.match(api.summaries.join(''), /red=1.*refresh_dispatched=0/);
+    assert.equal(api.failures.length, active ? 0 : 1);
+    if (!active) assert.match(api.failures[0], /dispatch denied/);
+  }
+});
+
+test('review findings route manifest targets upstream once, including template sources', async () => {
+  for (const [target, source] of [['scripts/shared.js', '.github/scripts/shared.js'],
+    ['.github/workflows/consumer-gate.yml', 'templates/consumer-repo/.github/workflows/gate.yml']]) {
+    const api = refreshHarness();
+    const canary = refreshCanary({ active_review_thread_count: 1, threads: [
+      { id: 'PRRT_4026', path: target, isResolved: false, isOutdated: false,
+        comments: { nodes: [{ url: 'https://github.com/stranske/Ready/pull/12#discussion_r4026' }] } },
+      { id: 'local', path: 'local.js', isResolved: false, isOutdated: false },
+      { id: 'resolved', path: target, isResolved: true, isOutdated: false },
+      { id: 'outdated', path: target, isResolved: false, isOutdated: true },
+    ] });
+    await refreshStableCanaries({ ...api, canaries: [canary] });
+    await refreshStableCanaries({ ...api, canaries: [canary] });
+    assert.equal(api.comments.length, 1, 'existing upstream comment must prevent a duplicate');
+    assert.equal(api.comments[0].issue_number, 4020);
+    assert.equal(api.comments[0].repo, 'Workflows');
+    assert.equal(api.reads[0].path, source);
+    assert.match(api.comments[0].body, /discussion_r4026/);
+    assert.ok(api.comments[0].body.includes(source));
+  }
+});
+
+test('an existing upstream comment is reused and direct commits use commit comments', async () => {
+  for (const existing of [false, true]) {
+    const api = refreshHarness({ prs: [], existing: existing ? [{
+      user: { login: 'maint71-bot' }, body: '<!-- maint71-canary-upstream:stranske/Ready:PRRT_4026 -->',
+    }] : [] });
+    await refreshStableCanaries({ ...api, canaries: [refreshCanary({ active_review_thread_count: 1,
+      threads: [{ id: 'PRRT_4026', path: 'scripts/shared.js', isResolved: false, isOutdated: false,
+        comments: { nodes: [{ url: 'https://github.com/stranske/Ready/pull/12#discussion_r4026' }] } }],
+    })] });
+    assert.equal(api.comments.length, existing ? 0 : 1);
+    if (!existing) assert.equal(api.comments[0].commit_sha, 'a'.repeat(40));
+  }
+});
+
+async function assertExecutorCanaryRefresh(t, state) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), `maint71-${state}-canary-`));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const repository = require('../../../config/consumer_sync_canaries.json').canaries[0].repo;
+  const [owner, repo] = repository.split('/');
+  const head = 'd'.repeat(40), source = 'c'.repeat(40), plan = `sha256:${'a'.repeat(64)}`;
+  t.mock.timers.enable({ apis: ['Date'], now: refreshNow });
+  const ageMinutes = ['stale', 'aged_green'].includes(state) ? (STALE_CANARY_HOURS + 1) * 60 : 20;
+  const observed = new Date(refreshNow - ageMinutes * 60 * 1000).toISOString();
+  const { formatDeliveryRecord } = require('../sync_pr_lease_contract');
+  const candidate = { number: 4026, title: 'chore: sync workflow templates',
+    state: 'open', draft: false, auto_merge: null, user: { login: 'stranske' },
+    mergeable: state !== 'stale',
+    mergeable_state: state === 'behind' ? 'behind' : state === 'stale' ? 'dirty' : 'clean',
+    head: { ref: 'sync/workflows-candidate', sha: head }, base: { ref: 'main' },
+    created_at: observed, updated_at: observed,
+    body: `<!-- workflows-consumer-sync:v1 ${JSON.stringify({
+      schema: 'workflows-consumer-sync-pr/v1', consumer_repo: repository,
+      plan_id: plan, plan_scope: 'full', source_commit: source, source_sha: source,
+      template_hash: 'generation', sync_phase: 'canary',
+    })} -->\n` + formatDeliveryRecord({
+      schema: 'sync-pr-delivery-record/v1', repository, plan_id: plan,
+      durable_issue_url: 'https://github.com/stranske/Workflows/issues/1836',
+      generation: 'generation', desired_tree_hash: 'tree', source_commit: source,
+      head_observed_sha: head, head_observed_at: observed,
+      lease_expires_at: '2099-01-01T00:00:00Z', delivery_state: 'sealed',
+      sealed_at: observed, sealed_head_sha: head, review_started_at: observed,
+    }) };
+  const dispatches = [], updates = [], summaries = [], failures = [], merges = [];
+  const github = { rest: {
+    users: { getAuthenticated: async () => ({ data: { login: 'maint71-bot' } }) },
+    pulls: {
+      list: () => {}, get: async () => ({ data: structuredClone(candidate) }),
+      update: async (params) => {
+        assert.ok(params.body, 'refresh must never close or update the stable branch');
+        updates.push(params); candidate.body = params.body;
+        return { data: structuredClone(candidate) };
+      },
+      updateBranch: async () => assert.fail('stable canary must never call pulls.updateBranch'),
+      merge: async (params) => {
+        assert.equal(state, 'aged_green', `${state} canary must never merge`);
+        merges.push(params); return { data: { merged: true } };
+      },
+    },
+    git: { getCommit: async () => ({ data: { tree: { sha: 'tree' } } }),
+      deleteRef: async () => {},
+    },
+    repos: {
+      getCombinedStatusForRef: async () => ({ data: { statuses: [] } }),
+      getBranchProtection: async () => ({ data: { required_status_checks: { contexts: ['Gate / gate'] } } }),
+      getContent: async () => { throw Object.assign(new Error('not declared'), { status: 404 }); },
+      createDispatchEvent: async () => {},
+    },
+    checks: { listForRef: () => {} },
+    issues: { addLabels: async () => {}, removeLabel: async () => {},
+      listLabelsOnIssue: async () => ({ data: [] }),
+      listComments: async () => ({ data: [{ id: 71, user: { login: 'maint71-bot' },
+        created_at: observed, body: '@codex review\n<!-- maint71-review-request:v1 ' +
+          JSON.stringify({ plan_id: plan, generation: 'generation', head_sha: head, reviewer: 'codex' }) + ' -->',
+      }] }),
+    },
+    actions: {
+      listWorkflowRuns: async () => ({ data: { workflow_runs: [] } }),
+      createWorkflowDispatch: async (params) => dispatches.push(params),
+    },
+  }, paginate: async (method, params) => {
+    if (method === github.rest.pulls.list) return params.state === 'open' && params.repo === repo
+      ? [structuredClone(candidate)] : [];
+    if (method === github.rest.checks.listForRef) return [
+      { name: 'Gate / gate', status: 'completed',
+        conclusion: state === 'checks_failed' ? 'failure' : 'success' },
+    ];
+    throw new Error('unexpected pagination');
+  }, graphql: async () => ({ repository: {
+    object: { signature: { isValid: true, state: 'VALID', wasSignedByGitHub: true } },
+    pullRequest: { state: 'OPEN', headRefOid: head, body: candidate.body,
+    createdAt: observed, updatedAt: observed,
+    reviewThreads: { pageInfo: { hasNextPage: false }, nodes: state === 'review_blocked' ? [
+      { id: 'PRRT_executor', path: 'consumer-owned.js', isResolved: false, isOutdated: false,
+        comments: { pageInfo: { hasNextPage: false }, nodes: [] } },
+    ] : [] },
+  } } }) };
+  const retryHelpers = require('../github-api-with-retry');
+  t.mock.method(retryHelpers, 'createTokenAwareRetry', async () => null);
+  t.mock.method(retryHelpers, 'withRetry', async (fn) => fn(github));
+  t.mock.method(console, 'log', () => {});
+  const env = { REGISTERED_REPOS_INPUT: repository, REPOS_INPUT: repository,
+    OWNER_PR_PAT: 'test-owner-token', TRUSTED_SYNC_ACTORS: 'stranske',
+    CLEANUP_BRANCHES_INPUT: 'false', AUTO_MERGE_INPUT: 'true', DRY_RUN_INPUT: 'false',
+    ACTIVE_SYNC_HASH_INPUT: 'candidate', EXPECTED_PLAN_ID_INPUT: plan,
+    EXPECTED_SOURCE_COMMIT_INPUT: source, EXPECTED_PLAN_SCOPE_INPUT: 'full',
+    SYNC_PR_MERGE_REPORT_JSON: path.join(dir, 'report.json'),
+    EVIDENCE_ONLY_INPUT: 'false', RESOLUTION_ONLY_INPUT: 'false',
+    CANDIDATE_EVIDENCE_AUTHORIZED: 'true',
+    PREPARE_ONLY_INPUT: state === 'aged_green' ? 'false' : 'true' };
+  const original = Object.fromEntries(Object.keys(env).map((key) => [key, process.env[key]]));
+  t.after(() => {
+    for (const [key, value] of Object.entries(original)) {
+      if (value === undefined) delete process.env[key]; else process.env[key] = value;
+    }
+  });
+  Object.assign(process.env, env);
+  await run({ github, context: { repo: { owner: 'stranske', repo: 'Workflows' }, payload: {},
+    eventName: 'workflow_dispatch', runId: 4026 }, core: {
+    notice() {}, warning() {}, setFailed: (message) => failures.push(message),
+    summary: { addRaw(text) { summaries.push(text); return this; }, async write() {} },
+  } });
+  const report = JSON.parse(fs.readFileSync(env.SYNC_PR_MERGE_REPORT_JSON, 'utf8'));
+  assert.deepEqual(failures, [], JSON.stringify(report.results));
+  const row = report.results.find((row) => row.owner === owner && row.repo === repo
+    && (state !== 'aged_green' || row.status === 'merged'));
+  if (state === 'aged_green') {
+    assert.equal(row.status, 'merged', JSON.stringify(report.results));
+    assert.equal(merges.length, 1);
+    assert.equal(merges[0].sha, head);
+    assert.equal(dispatches.length, 0);
+    assert.equal(updates.length, 0);
+    assert.equal(report.canary_refresh.stale, 0);
+    assert.equal(report.canary_refresh.refresh_dispatched, 0);
+    assert.ok(summaries.includes('canaries: red=0 review_blocked=0 stale=0 refresh_dispatched=0 held_plan=none\n'));
+    return;
+  }
+  assert.equal(row.status, 'stable_base_refresh_required', JSON.stringify(report.results));
+  assert.equal(row.next_command, 'rerun-after-maint-68-canary-refresh');
+  assert.equal(row.refresh_reason, state);
+  assert.equal(dispatches.length, 1);
+  assert.equal(report.canary_refresh.refresh_dispatched, 1);
+  assert.equal(require('../sync_pr_merge_contract').candidateRefreshDecision({ report }).eligible,
+    false, 'legacy workflow refresh must not duplicate the executor dispatch for missing siblings');
+  assert.equal(updates.length, 1);
+  assert.equal(candidate.head.sha, head);
+  assert.ok(summaries.some((line) => line ===
+    `canaries: red=${Number(state === 'checks_failed')} ` +
+    `review_blocked=${Number(state === 'review_blocked')} ` +
+    `stale=${Number(state === 'stale')} refresh_dispatched=1 held_plan=${plan}\n`));
+}
+
+for (const state of ['behind', 'checks_failed', 'review_blocked', 'stale']) {
+  test(`executor refreshes a ${state} stable canary before early exits and preserves the head`,
+    async (t) => assertExecutorCanaryRefresh(t, state));
+}
+
+test('executor merges a green mergeable seven-hour canary without refreshing',
+  async (t) => assertExecutorCanaryRefresh(t, 'aged_green'));
+
+test('distinct plans each dispatch once in the same run, deduplicated by plan id', async () => {
+  const api = refreshHarness();
+  const rows = ['plan-A', 'plan-B', 'plan-A', 'plan-B'].map((plan_id, index) =>
+    refreshCanary({ repo: `Repo${index}`, plan_id, check_status: 'checks_failed' }));
+  const result = await refreshStableCanaries({ ...api, canaries: rows });
+  assert.equal(api.dispatches.length, 2);
+  assert.equal(result.refresh_dispatched, 2);
+  assert.deepEqual(result.held_plans, ['plan-A', 'plan-B']);
+});
+
+test('an untrusted marker cannot suppress upstream routing', async () => {
+  const api = refreshHarness({ existing: [{ user: { login: 'someone-else' },
+    body: '<!-- maint71-canary-upstream:stranske/Ready:PRRT_4026 -->' }] });
+  await refreshStableCanaries({ ...api, canaries: [refreshCanary({ active_review_thread_count: 1,
+    threads: [{ id: 'PRRT_4026', path: 'scripts/shared.js', isResolved: false, isOutdated: false,
+      comments: { nodes: [{ url: 'https://github.com/stranske/Ready/pull/12#discussion_r4026' }] } }],
+  })] });
+  assert.equal(api.comments.length, 1);
+});
+
+test('Maint 68 verified unchanged-tree run resets producer observation without changing lifecycle', () => {
+  const workflow = fs.readFileSync(path.join(__dirname, '../../workflows/maint-68-sync-consumer-repos.yml'), 'utf8');
+  const start = workflow.indexOf('          desired_tree_hash=$(git write-tree)');
+  const end = workflow.indexOf('          elif [ -n "$existing_pr" ]', start);
+  assert.ok(start >= 0 && end > start);
+  const script = `set -eu
+    git() { echo tree; }
+    date() { echo 2026-10-17T12:00:00Z; }
+    existing_pr=12 existing_refreshable=true existing_base=base base_sha=base
+    existing_tree=tree existing_verified=true existing_lifecycle_initialized=true
+    existing_head=unchanged head_observed_sha=unchanged head_observed_at=2026-10-17T05:00:00Z
+    delivery_state=sealed review_started_at=prior sealed_at=prior sealed_head_sha=unchanged
+    ${workflow.slice(start, end)}
+    fi
+    echo "RESULT:$head_observed_sha:$head_observed_at:$delivery_state:$sealed_at:$matching_existing"
+  `;
+  const output = require('node:child_process').execFileSync('bash', ['-c', script], { encoding: 'utf8' });
+  assert.match(output, /RESULT:unchanged:2026-10-17T12:00:00Z:sealed:prior:true/);
+});
 
 test('native proof comments are read from the consumer while independent proof comments stay in Workflows', () => {
   const consumer = { owner: 'stranske', repo: 'Ready' };
