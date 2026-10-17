@@ -832,9 +832,12 @@ for (const passes of [true, false]) {
   test(`deterministic CLI results publish a non-zero summary (${passes ? 'pass' : 'fail'})`, async (t) => {
     const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'acceptance-summary-'));
     t.after(() => fs.rmSync(temporary, { recursive: true, force: true }));
-    fs.writeFileSync(path.join(temporary, 'test_gate.py'),
-      `def test_gate():\n    assert ${passes ? 'True' : 'False'}\n`);
-    const command = 'pytest -q -p no:cacheprovider test_gate.py';
+    fs.writeFileSync(path.join(temporary, 'gate.js'),
+      `process.exit(${passes ? 0 : 1});\n`);
+    fs.writeFileSync(path.join(temporary, 'package.json'), JSON.stringify({
+      scripts: { test: 'node gate.js' },
+    }));
+    const command = 'npm test';
     const pr = {
       number: 3979,
       head: { ref: 'feature/acceptance', sha: 'cli-tested-head' },
