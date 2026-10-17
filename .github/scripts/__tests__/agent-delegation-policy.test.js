@@ -741,3 +741,19 @@ test('rate limit selects an untried ok pool in route order and never retries whe
   assert.equal(exhausted.reason, 'rate-limited-no-alternatives');
   assert.equal(decideNextAgent({ ...options, runnableAgents: [] }).reason, 'rate-limited-no-alternatives');
 });
+
+
+test('expired rate-limit receipt reopens original provider with exhausted pool', () => {
+  const { RATE_LIMIT_RECEIPT_TTL_HOURS, rateLimitExpired } = require('../rate_limit_receipt');
+  const now = Date.now();
+  const completion = { provider: 'codex',
+    completed_at: new Date(now - RATE_LIMIT_RECEIPT_TTL_HOURS * 3600000).toISOString(),
+    completion: { reason: 'rate_limited' } };
+  assert.equal(rateLimitExpired(completion, now - 1), false);
+  assert.equal(rateLimitExpired(completion, now), true);
+  const decision = decideNextAgent({ state: { current_agent: 'codex' }, completion,
+    labels: ['agent:auto', 'agents:tried-codex', 'agents:tried-claude'],
+    registry: mockRegistry, secrets: mockSecrets });
+  assert.equal(decision.agent, 'codex');
+  assert.equal(decision.reason, 'rate-limit-receipt-expired');
+});

@@ -3,6 +3,7 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const { rateLimitExpired } = require('./rate_limit_receipt');
 
 const {
   parseScopeTasksAcceptanceSections,
@@ -44,10 +45,11 @@ const ATTEMPTED_TASK_LIMIT = 20;
 const AUTOMATION_ATTENTION_LABELS = ['agent:needs-attention'];
 
 /** Classify captured provider output, independently of GitHub API quota deferral. */
-function classifyCompletion(output, exitCode) {
+function classifyCompletion(output, exitCode, producedWork = false) {
+  if (producedWork === true) return 'progressed';
   const text = String(output || '');
   if (Number(exitCode) === 429 ||
-      /\b(?:HTTP(?:\/\d(?:\.\d)?)?\s*[:=]?\s*429|usage\s+limit|quota|rate[ -]?limit)\b/i.test(text)) {
+      /\b(?:HTTP(?:\/\d(?:\.\d)?)?\s*[:=]?\s*429|you['’]ve\s+hit\s+your\s+usage\s+limits?|rate[ -]?limit(?:s|ed)?\s+exceeded|usage\s+limits?\s+exceeded|quota\s+exceeded|insufficient_quota|try\s+again\s+(?:at|in))\b/i.test(text)) {
     return 'rate_limited';
   }
   if (exitCode !== undefined && exitCode !== null && exitCode !== '' && Number(exitCode) !== 0) {
@@ -115,7 +117,11 @@ async function loadLatestCompletion({ github, context, prNumber }) {
   const latest = records.sort((a, b) => Date.parse(b.completed_at) - Date.parse(a.completed_at))[0];
   // An in-flight newer reservation must not expose an older provider's success
   // as fresh cleanup evidence, or replay an old rate-limit decision.
-  return latest && Date.parse(latest.completed_at) >= newestPendingAt ? latest : null;
+  if (!latest || Date.parse(latest.completed_at) < newestPendingAt) return null;
+  const progressedAt = Math.max(0, ...records.filter(r => r.completion?.reason === 'progressed')
+    .map(r => Date.parse(r.completed_at)));
+  return { ...latest, rate_limit_receipts: records.filter(r =>
+    r.completion?.reason === 'rate_limited' && Date.parse(r.completed_at) > progressedAt) };
 }
 
 const TIMEOUT_VARIABLE_NAMES = [
@@ -2827,11 +2833,26 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
     try {
       completion = await loadLatestCompletion({ github, context, prNumber });
       const completionReason = completion?.completion?.reason;
-      if (completionReason === 'rate_limited' && !labels.includes('agent:rate-limited')) {
+      const backoffs = completion?.rate_limit_receipts || [];
+      const expired = backoffs.filter(record => rateLimitExpired(record));
+      const active = backoffs.filter(record => !rateLimitExpired(record));
+      const drained = completionReason === 'progressed' ||
+        (expired.length > 0 && active.length === 0);
+      const clearTried = labels.filter(label => label.startsWith('agents:tried-') &&
+        (completionReason === 'progressed' || expired.some(record =>
+          label === `agents:tried-${record.provider}`)));
+      for (const label of clearTried) {
+        await github.rest.issues.removeLabel({ ...context.repo, issue_number: prNumber, name: label });
+        labels.splice(labels.indexOf(label), 1);
+      }
+      for (const record of expired) {
+        core?.info?.(`rate_limited receipt expired; ${record.provider} eligible`);
+      }
+      if (completionReason === 'rate_limited' && !drained && !labels.includes('agent:rate-limited')) {
         await github.rest.issues.addLabels({
           ...context.repo, issue_number: prNumber, labels: ['agent:rate-limited'],
         });
-      } else if (completionReason === 'progressed' && labels.includes('agent:rate-limited')) {
+      } else if (drained && active.length === 0 && labels.includes('agent:rate-limited')) {
         await github.rest.issues.removeLabel({
           ...context.repo, issue_number: prNumber, name: 'agent:rate-limited',
         });

@@ -7256,6 +7256,11 @@ test('classifyCompletion covers provider quota, HTTP 429, failure and clean succ
   assert.equal(classifyCompletion('Unexpected crash', 1), 'failed');
   assert.equal(classifyCompletion('Finished implementing the task', 0), 'progressed');
   assert.equal(classifyCompletion('', 0), 'no_progress');
+  assert.equal(classifyCompletion('Implemented quota reporting', 0, true), 'progressed');
+  assert.equal(classifyCompletion('Documented rate limit behavior', 0), 'progressed');
+  assert.equal(classifyCompletion('rate limits exceeded', 1), 'rate_limited');
+  assert.equal(classifyCompletion('usage limits exceeded', 1), 'rate_limited');
+  assert.equal(classifyCompletion('quota exceeded', 1, true), 'progressed');
 });
 
 test('persisted provider quota drives same-evaluate switch with zero stalled rounds and clears on progress', async () => {
@@ -7327,6 +7332,35 @@ test('persisted provider quota drives same-evaluate switch with zero stalled rou
     const exhaustedResult = await evaluateKeepaliveLoop({ github: exhausted, context: buildContext(3989), core: buildCore() });
     assert.equal(exhaustedResult.action, 'wait');
     assert.equal(exhaustedResult.reason, 'rate-limited-no-alternatives');
+
+    // Pool exhausted: expiry must reach a runnable round, without a completion
+    // from the provider that was forbidden to run.
+    const { RATE_LIMIT_RECEIPT_TTL_HOURS } = require('../rate_limit_receipt');
+    const old = new Date(Date.now() - (RATE_LIMIT_RECEIPT_TTL_HOURS + 1) * 3600000).toISOString();
+    const expiredComments = replay.comments.map(comment => ({ ...comment,
+      body: comment.body.replace(/base64:([A-Za-z0-9+/=]+)/g, (_, encoded) => {
+        const payload = JSON.parse(Buffer.from(encoded, 'base64').toString());
+        if (payload.record) payload.record.completed_at = old;
+        return 'base64:' + Buffer.from(JSON.stringify(payload)).toString('base64');
+      }),
+    }));
+    const drained = buildGithubStub({ pr: { ...exhaustedPr,
+      labels: [...exhaustedPr.labels, { name: 'agent:rate-limited' }, { name: 'agents:tried-codex' }] },
+      comments: expiredComments, workflowRuns: [{ head_sha: 'sha-3989', conclusion: 'success' }] });
+    const drainedLogs = [];
+    const drainedCore = { ...buildCore(), info: message => drainedLogs.push(message) };
+    const drainedResult = await evaluateKeepaliveLoop({ github: drained, context: buildContext(3989), core: drainedCore });
+    assert.equal(drainedResult.agentType, 'codex', 'expired exhausted pool reopens original provider');
+    assert.equal(drainedResult.action, 'run');
+    assert.ok(drainedLogs.includes('rate_limited receipt expired; codex eligible'));
+    assert.ok(drained.actions.some(a => a.type === 'remove-label' && a.name === 'agents:tried-codex'));
+    assert.ok(drained.actions.some(a => a.type === 'remove-label' && a.name === 'agent:rate-limited'));
+    const productiveQuota = replayCompletion({ output: 'Pushed quota exceeded handling', exitCode: 1, progressed: true });
+    assert.equal(productiveQuota.record.completion.reason, 'progressed');
+    const expires = Date.parse(replay.record.completion.expires_at) - Date.parse(replay.record.completed_at);
+    assert.equal(expires, RATE_LIMIT_RECEIPT_TTL_HOURS * 3600000);
+    assert.ok(next.actions.some(a => a.type === 'remove-label' && a.name === 'agents:tried-codex'));
+
   } finally {
     global.fetch = previousFetch;
     for (const [key, value] of Object.entries(previousEnv)) {

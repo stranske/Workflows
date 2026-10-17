@@ -1,3 +1,5 @@
+const { rateLimitExpired } = require('./rate_limit_receipt');
+
 /**
  * Agent Delegation Policy
  *
@@ -353,7 +355,8 @@ function decideNextAgent({
 
   const currentAgent = state.current_agent ||
     (completion?.completion?.reason === 'rate_limited' ? completion.provider : '');
-  const rateLimited = completion?.completion?.reason === 'rate_limited' &&
+  const expired = rateLimitExpired(completion);
+  const rateLimited = !expired && completion?.completion?.reason === 'rate_limited' &&
     completion.provider === currentAgent;
   const lastSwitchIteration = state.last_switch_iteration || 0;
   const currentIteration = state.iteration || 0;
@@ -386,6 +389,15 @@ function decideNextAgent({
       alternatives: [],
       delegationSource: 'static',
     };
+  }
+
+  // Time alone reopens an exhausted provider gate; dispatch does not drain it.
+  if (expired && availableAgents.includes(completion.provider)) {
+    core?.info?.(`rate_limited receipt expired; ${completion.provider} eligible`);
+    return { agent: completion.provider, reason: 'rate-limit-receipt-expired',
+      shouldSwitch: currentAgent !== completion.provider, previousAgent: currentAgent,
+      alternatives: availableAgents.filter(agent => agent !== completion.provider),
+      delegationSource: 'static' };
   }
 
   const taskType = ROUTE_WEIGHT_TASK_TYPES[roundKind] || ROUTE_WEIGHT_TASK_TYPES.implement;

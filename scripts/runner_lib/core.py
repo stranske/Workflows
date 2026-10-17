@@ -1983,7 +1983,9 @@ def record_completion(
         raise ValueError("Invalid runner completion reason")
     # Only measured branch/checklist progress clears a provider backoff marker.
     # The JS classifier supplies provider failures; productivity is reconciled here.
-    if completion_reason not in {"rate_limited", "failed"}:
+    if produced_work is True:
+        completion_reason = "progressed"
+    elif completion_reason not in {"rate_limited", "failed"}:
         completion_reason = (
             "failed"
             if not result_payload.get("success")
@@ -2008,6 +2010,15 @@ def record_completion(
         "completion": {"reason": completion_reason},
         **productivity_fields,
     }
+    if completion_reason == "rate_limited":
+        ttl_config = json.loads(
+            (Path(__file__).resolve().parents[2] / ".github/scripts/rate_limit_receipt.json")
+            .read_text(encoding="utf-8")
+        )
+        record["completion"]["expires_at"] = (
+            _parse_timestamp(completed_at)
+            + dt.timedelta(hours=ttl_config["RATE_LIMIT_RECEIPT_TTL_HOURS"])
+        ).isoformat()
     same_terminal_attempt = prior.get("key") == key and prior.get("status") in TERMINAL_STATUSES
     if status == "completed" and same_terminal_attempt:
         # Completion replays cannot change the first attempt's disposition.

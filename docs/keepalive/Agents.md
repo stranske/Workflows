@@ -42,6 +42,16 @@ Auto-pilot pipeline:
                                                       └─ Creates branch + PR with issue context
 ```
 
+Keepalive delegation now writes `agents:tried-<agent>` on stall switches as
+well as provider rate-limit switches, and excludes tried agents from rotation.
+This is a behaviour change: the previous keepalive stall path did not write these
+labels. Provider rate-limit receipts expire after `RATE_LIMIT_RECEIPT_TTL_HOURS`
+(default 6, in `.github/scripts/rate_limit_receipt.json`), clearing the associated
+tried labels on the next evaluation. Any measured progressed completion clears
+tried labels too. The hourly sweep can observe expiry without a runner dispatch;
+it prints `rate_limited receipt expired; <agent> eligible` and makes that provider
+eligible again, subject to the normal execution guards.
+
 ### How Keepalive Fits In
 
 | Auto-pilot does... | Keepalive does... |

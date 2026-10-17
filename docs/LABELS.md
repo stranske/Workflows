@@ -304,8 +304,8 @@ dispatch a runner. See
 **Effect:**
 1. Marks the PR as currently backed off due to API/runner rate limits
 2. Used with the matching concrete `agent:<name>` label to flag backoff for the current route; to hand routing to the delegation policy, add `agent:auto` alongside the concrete label (see `agent:auto`)
-3. With `agent:auto`, a persisted `completion.reason=rate_limited` bypasses stall history and cooldown in the same evaluate, selecting the next untried runner in route order whose pool is `ok` (legacy exports without capacity data treat pools as `ok`). The previous agent receives `agents:tried-<agent>`; no eligible alternative means wait, never retry the limited provider. Explicit agent routing stays unchanged.
-4. The loop automatically clears this marker when the latest persisted completion by any agent reports measured branch or checklist progress (`completion.reason=progressed`). GitHub API quota deferral remains unchanged.
+3. With `agent:auto`, a persisted `completion.reason=rate_limited` bypasses stall history and cooldown in the same evaluate, selecting the next untried runner in route order whose pool is `ok` (legacy exports without capacity data treat pools as `ok`). The previous agent receives `agents:tried-<agent>`; no eligible alternative means wait until the receipt expires. Explicit agent routing stays unchanged.
+4. The loop automatically clears this marker when the latest persisted completion by any agent reports measured branch or checklist progress (`completion.reason=progressed`). Provider receipts and their associated tried labels also expire after `RATE_LIMIT_RECEIPT_TTL_HOURS` (default 6, shared by writer and reader); the hourly evaluation makes the original provider eligible again. Measured progress clears tried labels as well. GitHub API quota deferral remains unchanged.
 
 **Prerequisites:**
 - Applied automatically; no manual action required
