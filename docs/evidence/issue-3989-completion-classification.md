@@ -60,7 +60,29 @@ advice alone does not rotate agents or add the rate-limit label. Syntax checks,
 
 GitHub API access failed with `error connecting to api.github.com`, so these
 outcomes could not be copied into the PR body. No PR checkbox was updated.
-Post-merge live/replayed label-timeline evidence, the 48-hour fleet cleanup check,
-and consumer sync remain unverified.
+Post-merge live label-timeline evidence and the 48-hour fleet cleanup check
+remain unverified until after merge.
 
-Publication: this evidence is committed in the PR history through `4584495a1d03db74bd9b49ae89472c435967a269`.
+## Post-merge measurement harness (pre-merge replay)
+
+`scripts/agent_switch_cadence.py` joins keepalive completion records to PR label
+timelines and prints the campaign table with a `reason` column. Same-evaluate
+switches report `additional_rounds = 0`. The calculator also lists open PRs that
+still carry `agent:rate-limited` after a latest `progressed` completion (the
+48-hour fleet cleanup check).
+
+Hermetic replay verification (2026-10-17 on this follow-up head):
+
+```sh
+GITHUB_OUTPUT='' python -m pytest tests/scripts/test_agent_switch_cadence.py -m 'not slow' -q -o addopts=
+# 10 passed
+```
+
+The fixture replay pairs a Codex `rate_limited` completion with same-second
+`agent:rate-limited` / `agents:tried-codex` / `agent:cursor` label events and
+asserts median additional rounds is 0. Live fleet snapshots after merge use the
+same `--input` JSON shape (`completions`, `label_events`, `open_prs`).
+
+Publication: earlier deliberate-break evidence is in PR history through
+`4584495a1d03db74bd9b49ae89472c435967a269`; this harness lands on the current
+follow-up head.
