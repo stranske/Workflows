@@ -1152,3 +1152,52 @@ def test_document_mirror_standalone_validator_rejects_non_https_resolvers(tmp_pa
     report = mod.validate_mirror_manifests(paths=[path], schema_dir=SCHEMA_DIR)
     assert not report.conformant
     assert len(report.violations) >= 2
+
+
+def test_document_identity_cross_checks_reject_conflicting_or_noncanonical_values() -> None:
+    """Schema-valid document refs still need these cross-field identity guards."""
+    mod = _import_validator()
+    report = mod.Report(repo="identity")
+    mod._check_document_page(
+        {
+            "document_ref": {
+                "sha256": "a" * 64,
+                "supersedes": "a" * 64,
+                "page": 1,
+                "doc_key": "archive/photo/not-a-date",
+            },
+            "locator": {"page": 2},
+        },
+        report,
+        "evidence:/",
+    )
+    assert [violation.path for violation in report.violations] == [
+        "evidence:/document_ref/supersedes",
+        "evidence:/document_ref/page",
+        "evidence:/document_ref/doc_key",
+    ]
+    assert not report.conformant
+
+
+def test_standalone_validators_and_evidence_paths_fail_closed_on_unreadable_inputs(
+    tmp_path: Path,
+) -> None:
+    """Unreadable artifacts and escaping paths are violations, never skipped inputs."""
+    mod = _import_validator()
+    missing = tmp_path / "missing.json"
+    evidence = mod.validate_evidence_objects(paths=[missing], schema_dir=SCHEMA_DIR)
+    tracked = mod.validate_tracked_variables(paths=[missing], schema_dir=SCHEMA_DIR)
+    assert not evidence.conformant
+    assert not tracked.conformant
+    assert "cannot load evidence object" in evidence.violations[0].message
+    assert "cannot load tracked variable" in tracked.violations[0].message
+
+    report = mod.Report(repo="evidence-path")
+    assert mod._safe_evidence_path(tmp_path, {"path": "../outside.json"}, report, 0) is None
+    assert mod._safe_evidence_path(tmp_path, {"path": "windows\\path.json"}, report, 1) is None
+    assert mod._safe_evidence_path(tmp_path, {"path": "missing.json"}, report, 2) is None
+    assert [violation.path for violation in report.violations] == [
+        "manifest.artifacts[0].path",
+        "manifest.artifacts[1].path",
+        "manifest.artifacts[2].path",
+    ]
