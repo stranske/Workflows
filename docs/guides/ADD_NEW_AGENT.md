@@ -173,9 +173,11 @@ Known by-design exclusions (do not "fix" these when comparing against Codex and 
 **Independent verification is not an exclusion.** The keepalive loop never runs a verification step on the
 implementing agent (`resolveIndependentVerifier` in `keepalive_loop.js`, Workflows#4041). Resolution order is the
 repository's `verifier_agent`, the agent's registry `independent_verifier`, the historical Codex ⇄
-Claude pair, then the first other keepalive-capable agent whose runner job exists and whose
-credentials are present. Give a new agent an `independent_verifier` in the registry; an alternate
-without credentials is never chosen.
+Claude pair, then the proven agents (Codex, Claude) and finally any other keepalive-capable agent whose
+runner job exists and whose credentials are present. A less proven agent is verified by **both** proven
+agents, chosen at random per round, never by a fixed partner: declare
+`independent_verifier: [claude, codex]`. An alternate without credentials is never chosen, so the other
+one carries the round. The choice is logged (`registry-random`).
 
 ## Stage 5 — Deliver to consumer repositories
 
@@ -299,7 +301,7 @@ Evidence class in parentheses: **P** production use, **R** real trial, **W** wir
 | Belt (issue → PR) | P | P | R (consumer canary) | R (consumer canary) |
 | Issue intake (`preflight.enabled`) | W | W | R (qualified 2026-10-16) | — (deferred; intake routes by label regardless) |
 | Verifier judge (`verifier_checkbox`) | W | W | n/a | n/a |
-| Independent verification alternate | W (⇄ Claude) | W (⇄ Codex) | W (→ Claude, #4041) | W (→ Codex, #4041) |
+| Independent verification alternate | W (⇄ Claude) | W (⇄ Codex) | W (Claude or Codex, random) | W (Claude or Codex, random) |
 | Health check | W (expiry) | W (inline token detect) | W (presence) | W (presence, CLI, sandbox) |
 | Labels `agent:` `runner:` `from:` | W | W | W | W |
 | Consumer secrets provisioned | P | P | W (all repos) | W (all repos) |
