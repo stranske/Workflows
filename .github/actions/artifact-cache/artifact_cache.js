@@ -182,6 +182,7 @@ async function listArtifacts({
   token,
   owner,
   repo,
+  name = '',
   apiUrl = process.env.GITHUB_API_URL || DEFAULT_GITHUB_API_URL,
   fetchImpl = global.fetch,
 }) {
@@ -195,12 +196,17 @@ async function listArtifacts({
     throw new Error('GITHUB_REPOSITORY must be set as owner/repo.');
   }
 
+  // Ask GitHub for the one artifact name that selectArtifact will keep anyway. The unfiltered listing pages
+  // through EVERY artifact in the repository (34,868 in Workflows on 2026-10-16) and answers
+  // `500 Internal Server Error` on deep pages, which stopped the Maint Coverage Guard on every
+  // scheduled run for at least 20 days.
+  const nameFilter = name ? `&name=${encodeURIComponent(name)}` : '';
   const artifacts = [];
   let page = 1;
   while (true) {
     const baseUrl = String(apiUrl || DEFAULT_GITHUB_API_URL).replace(/\/+$/, '');
     const response = await fetchImpl(
-      `${baseUrl}/repos/${owner}/${repo}/actions/artifacts?per_page=100&page=${page}`,
+      `${baseUrl}/repos/${owner}/${repo}/actions/artifacts?per_page=100${nameFilter}&page=${page}`,
       {
         headers: {
           accept: 'application/vnd.github+json',
@@ -286,6 +292,7 @@ async function discoverCommand() {
       token: process.env.GITHUB_TOKEN,
       owner,
       repo,
+      name: plan.artifactName,
     });
   } catch (error) {
     const message = `Artifact discovery failed: ${error.message || error}`;
@@ -303,7 +310,12 @@ async function discoverCommand() {
     window: plan.window,
     runId: process.env.GITHUB_RUN_ID || '',
     producerRunId: process.env.INPUT_PRODUCER_RUN_ID || '',
-    producerBranch: process.env.INPUT_PRODUCER_BRANCH || process.env.GITHUB_REF_NAME || '',
+    // An exact producer run is the identity of the artifact. Falling back to the CURRENT ref's branch as well rejected
+    // every artifact from a run on another branch (the Maint Coverage Guard locates the newest Gate run on any
+    // branch, then asked for a `main` artifact from it: "not found" for 20+ days after the listing was fixed).
+    producerBranch:
+      process.env.INPUT_PRODUCER_BRANCH ||
+      (process.env.INPUT_PRODUCER_RUN_ID ? '' : process.env.GITHUB_REF_NAME || ''),
   });
 
   if (!artifact) {

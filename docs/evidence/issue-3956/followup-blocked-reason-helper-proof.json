@@ -1,0 +1,15 @@
+{
+  "target": "scripts/langchain/followup_issue_generator.py::_blocked_reason_with_source",
+  "test": "tests/test_followup_issue_generator.py::test_blocked_reason_with_source_omits_blank_annotation_for_empty_label",
+  "mutation": "always append (source: {label}) even when label is empty",
+  "red": {
+    "exit_code": 1,
+    "tail": "tate ``_guard_payloads`` locals through caller-frame inspection.\n        \"\"\"\n    \n>       assert (\n            followup_issue_generator._blocked_reason_with_source(\"injection detected\", \"\")\n            == \"injection detected\"\n        )\nE       AssertionError: assert 'injection de...ed (source: )' == 'injection detected'\nE         \nE         - injection detected\nE         + injection detected (source: )\nE         ?                   +++++++++++\n\ntests/test_followup_issue_generator.py:2862: AssertionError\n=========================== short test summary info ============================\nFAILED tests/test_followup_issue_generator.py::test_blocked_reason_with_source_omits_blank_annotation_for_empty_label - AssertionError: assert 'injection de...ed (source: )' == 'injection detected'\n  \n  - injection detected\n  + injection detected (source: )\n  ?                   +++++++++++\n1 failed in 0.28s\n"
+  },
+  "green": {
+    "exit_code": 0,
+    "tail": ".                                                                        [100%]\n1 passed in 0.20s\n"
+  },
+  "coverage_after": "100.00%",
+  "ranking": "issue #3956 Orchestrator target: escaped-defect then churn then uncovered mass; remaining gap was empty-label branch"
+}

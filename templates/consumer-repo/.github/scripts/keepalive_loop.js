@@ -3,6 +3,104 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const { execFile } = require('child_process');
+const { extractIssueNumberFromPull } = require('./source_context');
+
+// Use the same extractor for the stop decision and the pre-agent runner. A
+// missing interpreter/extractor is an error, never evidence of zero gates.
+async function extractAcceptanceCommands(markdown) {
+  const stdout = await new Promise((resolve, reject) => {
+    const child = execFile(process.env.PYTHON || 'python3', [
+      path.resolve(__dirname, '../../scripts/runner_lib/acceptance_gate.py'), '--extract',
+    ], { encoding: 'utf8', timeout: 30000 }, (error, output, stderr) => {
+      if (error) {
+        reject(new Error(`Acceptance gate extraction failed: ${error.message || stderr}`));
+      } else {
+        resolve(output);
+      }
+    });
+    child.stdin.on('error', (error) => {
+      reject(new Error(`Acceptance gate extraction failed: ${error.message}`));
+    });
+    child.stdin.end(markdown);
+  });
+  return JSON.parse(stdout);
+}
+
+async function acceptanceGatePlan({ github, context, pr, state }) {
+  const issueNumber = extractIssueNumberFromPull(pr);
+  // Deliberately bypass the API cache: edits must affect this verify round.
+  const markdown = issueNumber
+    ? (await github.rest.issues.get({ ...context.repo, issue_number: issueNumber })).data.body || ''
+    : pr.body || '';
+  const commands = await extractAcceptanceCommands(markdown);
+  const sourceHash = crypto.createHash('sha256').update(JSON.stringify(commands)).digest('hex');
+  const previous = state?.deterministic_gates;
+  const current = previous?.head_sha === pr.head.sha && previous?.source_hash === sourceHash;
+  const results = current && Array.isArray(previous.results) ? previous.results : [];
+  const passed = commands.filter(command => results.some(result =>
+    result.criterion === command.criterion && result.command === command.command && result.exit_code === 0
+  )).length;
+  return {
+    markdown, commands, head_sha: pr.head.sha, source_hash: sourceHash,
+    results, passed, total: commands.length, complete: passed === commands.length,
+  };
+}
+
+function deterministicGatePrompt(gates) {
+  if (!gates) return '';
+  const failures = gates.commands.filter(command => !gates.results.some(result =>
+    result.command === command.command && result.criterion === command.criterion && result.exit_code === 0
+  ));
+  const details = failures.map(command => {
+    const result = gates.results.find(item => item.command === command.command && item.criterion === command.criterion);
+    return `${command.command} (exit ${result?.exit_code ?? 'not run on this head/criteria'})\n${result?.output || ''}`;
+  });
+  return [
+    `Deterministic gates: ${gates.passed}/${gates.total} passed`, ...details,
+    'Current source acceptance criteria (only passing deterministic gates may be checked):',
+    parseScopeTasksAcceptanceSections(gates.markdown).acceptance || '',
+  ].join('\n\n');
+}
+
+function renderDeterministicGates(body, gates) {
+  const passed = gates.commands.filter(command => gates.results.some(result =>
+    result.command === command.command && result.criterion === command.criterion && result.exit_code === 0
+  )).length;
+  const line = `Deterministic gates: ${passed}/${gates.commands.length} passed`;
+  const details = gates.commands.map(command => {
+    const result = gates.results.find(item => item.command === command.command && item.criterion === command.criterion);
+    return `Criterion ${command.criterion + 1}: ${result?.exit_code === 0 ? 'PASS' : 'FAIL'} — \`${command.command}\` (exit ${result?.exit_code ?? 'missing'})`;
+  });
+  const report = [line, ...details].join('\n');
+  body = body.replace(/(?:\n)?^Deterministic gates: \d+\/\d+ passed[^\S\n]*\n?(?:Criterion \d+:.*\n?)*/gm, '').trimEnd();
+  // Only a passing result can leave a named acceptance checkbox checked.
+  // Preserve manual-only criteria and never auto-check them from test output.
+  let inAcceptance = false;
+  let acceptanceLevel = 0;
+  const lines = body.split('\n');
+  for (let index = 0; index < lines.length; index++) {
+    const heading = lines[index].match(/^(#{1,6})\s+(.+)/);
+    if (heading) {
+      if (/^Acceptance criteria\s*$/i.test(heading[2])) {
+        inAcceptance = true;
+        acceptanceLevel = heading[1].length;
+      } else if (heading[1].length <= acceptanceLevel) inAcceptance = false;
+    }
+    if (!inAcceptance || !/^\s*(?:[-*+]|\d+[.)])\s+\[[xX]\]/.test(lines[index])) continue;
+    let end = index + 1;
+    while (end < lines.length && !/^\s*(?:[-*+]|\d+[.)])\s+\[[ xX]\]|^#{1,6}\s/.test(lines[end])) end++;
+    const criterion = lines.slice(index, end).join('\n');
+    const matched = gates.commands.filter(command => criterion.includes(command.command));
+    if (matched.some(command => !gates.results.some(result =>
+      result.command === command.command && result.criterion === command.criterion && result.exit_code === 0
+    ))) lines[index] = lines[index].replace(/\[[xX]\]/, '[ ]');
+  }
+  body = lines.join('\n');
+  const end = '<!-- auto-status-summary:end -->';
+  if (body.includes(end)) return body.replace(end, `${report}\n\n${end}`);
+  return `${body}\n\n${report}\n`;
+}
 
 const {
   parseScopeTasksAcceptanceSections,
@@ -13,9 +111,17 @@ const {
 const { getGithubApiCache } = require('./github-api-cache-client');
 const {
   loadKeepaliveState,
-  formatStateComment,
+  formatStateComment: encodeStateComment,
   upsertStateCommentBody,
 } = require('./keepalive_state');
+
+function formatStateComment(state) {
+  // Captured test output can contain HTML comment delimiters. Escape embedded
+  // closers in the JSON so they cannot truncate the persisted state comment.
+  const encoded = encodeStateComment(state);
+  const end = encoded.lastIndexOf(' -->');
+  return encoded.slice(0, end).replace(/-->/g, '--\\u003e') + encoded.slice(end);
+}
 const { resolvePromptMode } = require('./keepalive_prompt_routing');
 const { classifyError, ERROR_CATEGORIES } = require('./error_classifier');
 const { formatFailureComment } = require('./failure_comment_formatter');
@@ -2517,7 +2623,7 @@ async function checkRateLimitStatus({ github: rawGithub, core, minRequired = 50 
   return result;
 }
 
-async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload: overridePayload, overridePrNumber, forceRetry }) {
+async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload: overridePayload, overridePrNumber, forceRetry, deterministicGatesEnabled = false }) {
   // Wrap github client with rate-limit-aware retry for all API calls
   let github;
   try {
@@ -2748,6 +2854,10 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
       trace: config.trace,
     });
     const state = stateResult.state || {};
+    // Only callers with the pre-agent execution step may enable this contract.
+    // Consumer event hubs activate it when their corresponding runner is shipped.
+    const deterministicGates = deterministicGatesEnabled && allTasksDone && tasksPresent
+      ? await acceptanceGatePlan({ github, context, pr, state }) : null;
 
     // agent:auto delegation — resolve actual agent via policy after state is available
     if (agentRoutingMode === 'auto') {
@@ -2938,7 +3048,10 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
     const shouldStopForMaxIterations = reachedMaxIterations && !forceRetry;
 
     // Build task appendix for the agent prompt (after state load for reconciliation info)
-    const taskAppendix = buildTaskAppendix(normalisedSections, checkboxCounts, state, { prBody: pr.body });
+    const taskAppendix = [
+      deterministicGatePrompt(deterministicGates),
+      buildTaskAppendix(normalisedSections, checkboxCounts, state, { prBody: pr.body }),
+    ].filter(Boolean).join('\n\n');
 
     // Check for merge conflicts - this takes priority over other work
     let conflictResult = { hasConflict: false };
@@ -3086,6 +3199,9 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
           reason = gateNormalized ? 'gate-not-success' : 'gate-pending';
         }
       }
+    } else if (deterministicGates && !deterministicGates.complete) {
+      action = 'run';
+      reason = 'verify-acceptance';
     } else if (allComplete) {
       if (needsVerification) {
         action = 'run';
@@ -3230,6 +3346,7 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
       delegationSource,
       policyVersion,
       taskAppendix,
+      deterministicGates,
       keepaliveEnabled,
       stateCommentId: stateResult.commentId || 0,
       state,
@@ -3495,6 +3612,19 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
 
     const previousFailure = previousState?.failure || {};
     const prBody = await fetchPrBody({ github, context, prNumber, core });
+    // Revalidate a stop immediately before publishing completion/merge routing.
+    // The evaluated head or live source issue can change before this job runs.
+    if (toBool(inputs.deterministic_gates_enabled, false) && action === 'stop' && reason === 'tasks-complete') {
+      const { data: livePr } = await github.rest.pulls.get({ ...context.repo, pull_number: prNumber });
+      const gates = await acceptanceGatePlan({ github, context, pr: livePr, state: previousState });
+      if (!gates.complete) {
+        action = 'wait';
+        reason = 'deterministic-gates-pending';
+        await github.rest.pulls.update({
+          ...context.repo, pull_number: prNumber, body: renderDeterministicGates(livePr.body || '', gates),
+        });
+      }
+    }
     const focusSections = prBody ? parseKeepaliveChecklistSections(prBody) : {};
     const focusItems = extractChecklistItems(focusSections.tasks || focusSections.acceptance || '');
     const focusUnchecked = focusItems.filter((item) => !item.checked);
@@ -4356,6 +4486,7 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
       attempted_tasks: attemptedTasks,
       last_focus: focusTask || '',
       verification,
+      deterministic_gates: previousState?.deterministic_gates,
       keepalive_enabled: keepaliveEnabled,
       autofix_enabled: autofixEnabled,
       timeout: {
@@ -5279,6 +5410,24 @@ async function markAgentRunning({ github: rawGithub, context, core, inputs }) {
 
   // Preserve state from previous summary (don't modify state while running)
   const preservedState = previousState || {};
+  if (inputs.deterministic_gates) {
+    const { data: pr } = await github.rest.pulls.get({ ...context.repo, pull_number: prNumber });
+    const gates = await acceptanceGatePlan({
+      github, context, pr, state: { deterministic_gates: inputs.deterministic_gates },
+    });
+    if (pr.head.sha !== inputs.deterministic_gates.head_sha ||
+        gates.source_hash !== inputs.deterministic_gates.source_hash) {
+      core?.warning('PR head or source acceptance criteria changed; skipping stale deterministic gate persistence');
+    } else {
+      preservedState.deterministic_gates = {
+        head_sha: gates.head_sha, source_hash: gates.source_hash, results: gates.results,
+      };
+      await github.rest.pulls.update({
+        ...context.repo, pull_number: prNumber, body: renderDeterministicGates(pr.body || '', gates),
+      });
+      summaryLines.push('', `Deterministic gates: ${gates.passed}/${gates.total} passed`);
+    }
+  }
   preservedState.running = true;
   preservedState.running_since = new Date().toISOString();
   const runningRunId = context.runId || process.env.GITHUB_RUN_ID || '';
@@ -5815,6 +5964,8 @@ async function autoReconcileTasks({ github: rawGithub, context, prNumber, baseSh
 }
 
 module.exports = {
+  acceptanceGatePlan,
+  renderDeterministicGates,
   countCheckboxes,
   cascadeParentCheckboxes,
   parseConfig,

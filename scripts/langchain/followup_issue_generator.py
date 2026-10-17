@@ -102,6 +102,19 @@ NON_PASS_DETAIL_LIMIT = 10
 LOGGER = logging.getLogger(__name__)
 
 
+def _blocked_reason_with_source(reason: str, label: str) -> str:
+    """Annotate a guard block reason with its payload source when *label* is set.
+
+    Production callers always pass nonempty labels today; the empty-label path
+    intentionally omits a blank ``(source: )`` suffix so triage stays readable
+    if a future caller supplies an empty label.
+    """
+
+    if label:
+        return f"{reason} (source: {label})"
+    return reason
+
+
 def _guard_payloads(
     *,
     verification_text: str,
@@ -120,10 +133,10 @@ def _guard_payloads(
     for label, text in payloads:
         result = check_prompt_injection(text)
         if result["blocked"]:
-            reason = result["reason"]
-            if label:
-                reason = f"{reason} (source: {label})"
-            return {"blocked": True, "reason": reason}
+            return {
+                "blocked": True,
+                "reason": _blocked_reason_with_source(str(result["reason"]), label),
+            }
 
     return {"blocked": False, "reason": ""}
 
@@ -2075,6 +2088,28 @@ def _fallback_followup_acceptance_criterion(pr_number: int) -> str:
     )
 
 
+def _read_existing_file(value: str) -> str | None:
+    """Return file contents when *value* names an existing file.
+
+    Inline CLI payloads can exceed OS path-component limits. On Python 3.12/3.13,
+    Path.is_file() can raise OSError (ENAMETOOLONG) instead of returning False;
+    treat that as a non-file so callers can use the literal string.
+    """
+    try:
+        path = Path(value)
+        if path.is_file():
+            return path.read_text()
+    except OSError:
+        return None
+    return None
+
+
+def _load_text_arg(value: str) -> str:
+    """Load *value* as a file path when possible, otherwise return it literally."""
+    contents = _read_existing_file(value)
+    return value if contents is None else contents
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="Generate follow-up issue from verification feedback."
@@ -2132,25 +2167,19 @@ def main() -> int:
 
     # Load verification comment
     if args.verification_comment:
-        if Path(args.verification_comment).is_file():
-            verification_text = Path(args.verification_comment).read_text()
-        else:
-            verification_text = args.verification_comment
+        verification_text = _load_text_arg(args.verification_comment)
     else:
         verification_text = sys.stdin.read()
 
     # Load original issue
     original_text = ""
     if args.original_issue:
-        if Path(args.original_issue).is_file():
-            original_text = Path(args.original_issue).read_text()
-        else:
-            original_text = args.original_issue
+        original_text = _load_text_arg(args.original_issue)
 
     # Load codex log
     codex_log = None
-    if args.codex_log and Path(args.codex_log).is_file():
-        codex_log = Path(args.codex_log).read_text()
+    if args.codex_log:
+        codex_log = _read_existing_file(args.codex_log)
 
     guard = _guard_payloads(
         verification_text=verification_text,

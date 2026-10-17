@@ -1,0 +1,41 @@
+{
+  "target": "scripts/langchain/followup_issue_generator.py",
+  "ranking": {
+    "source": "issue #3956 Orchestrator ranking",
+    "escaped_defect_signals": 21,
+    "churn": 27,
+    "uncovered_units_at_issue_open": 225,
+    "note": "Contract item 1: continue the issue-selected ranked target (escaped-defect, then churn, then uncovered mass); do not pick by file size."
+  },
+  "coverage": {
+    "before": "99.60% (846 stmts, 2 miss; 390 branches, 3 partial)",
+    "after": "99.92% (846 stmts, 0 miss; 390 branches, 1 partial)",
+    "command": "pytest tests/test_followup_issue_generator.py --cov=scripts.langchain.followup_issue_generator --cov-branch --cov-report=term-missing -m 'not slow'"
+  },
+  "remaining": [
+    "124->126 empty injection-source label (payload labels are always non-empty string literals)"
+  ],
+  "proofs": [
+    {
+      "name": "mixed-filter-empty-fallback",
+      "test_id": "tests/test_followup_issue_generator.py::test_select_followup_acceptance_criteria_falls_back_when_mixed_filter_empties",
+      "mutation": "return criteria[:limit] -> return [] on empty filtered mixed path",
+      "red_exit": 1,
+      "green_exit": 0
+    },
+    {
+      "name": "module-main-entrypoint",
+      "test_id": "tests/test_followup_issue_generator.py::test_module_main_entrypoint_invokes_main",
+      "mutation": "sys.exit(main()) -> sys.exit(1) under if __name__ == '__main__'",
+      "red_exit": 1,
+      "green_exit": 0
+    }
+  ],
+  "contract": {
+    "1_ranked_target": true,
+    "2_break_and_revert": true,
+    "3_no_production_bug_found": true,
+    "4_test_only_low_blast_radius": true,
+    "5_one_pr": true
+  }
+}
