@@ -2986,6 +2986,11 @@ def test_storage_failure_log_survives_nested_json(
     [
         'token="synthetic-private-value"',
         'secret="synthetic-private-value"',
+        'pwd="synthetic-private-value"',
+        'auth="synthetic-private-value"',
+        'credentials="synthetic-private-value"',
+        'unrecognized_field="synthetic-private-value"',
+        '"synthetic-private-value"',
         "password=synthetic-private-value",
         "password: synthetic-private-value with spaces",
         '"PASSWORD" : "synthetic-private-value"',
