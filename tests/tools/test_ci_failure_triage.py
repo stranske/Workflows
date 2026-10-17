@@ -281,6 +281,7 @@ def test_llm_prompt_client_and_cli_paths(monkeypatch, tmp_path: Path, capsys) ->
     with pytest.raises(SystemExit, match="Error reading log file"):
         ci_failure_triage._read_log_text(str(tmp_path / "missing.log"))
 
+    monkeypatch.delenv("KEEPALIVE_USE_LLM_TRIAGE", raising=False)
     monkeypatch.setattr(sys, "stdin", io.StringIO("coverage failure"))
     assert ci_failure_triage.main(["--json"]) == 0
     payload = json.loads(capsys.readouterr().out)
