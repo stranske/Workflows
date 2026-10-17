@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 import sys
 from base64 import b64decode
@@ -10,6 +11,7 @@ from pathlib import Path
 
 import pytest
 import yaml
+from scripts import reference_packs
 from scripts.reference_packs import (
     ReferencePackConfigError,
     build_checkout_plan,
@@ -596,3 +598,97 @@ def test_cli_self_check_fails_when_config_malformed(tmp_path: Path) -> None:
     assert result.returncode == 2
     assert "Reference packs config error: Malformed JSON in" in result.stderr
     assert str(config_file) in result.stderr
+
+
+@pytest.mark.parametrize(
+    ("payload", "message"),
+    [
+        ([], "must contain a JSON object"),
+        ({"packs": "not-a-list"}, "packs must be an array"),
+        ({"packs": ["not-an-object"]}, "packs[0] must be an object"),
+        (
+            {
+                "packs": [
+                    {"name": "same", "repo": "owner/repo", "ref": "main", "paths": ["x"]},
+                    {"name": "same", "repo": "owner/repo", "ref": "main", "paths": ["x"]},
+                ]
+            },
+            "duplicate pack name",
+        ),
+        ({"bad/name": {}}, "pack name may only contain"),
+        ({"pack": []}, "must be a JSON object"),
+        ({"pack": {"repo": "owner/", "ref": "main", "paths": ["x"]}}, "owner/name"),
+        ({"pack": {"repo": "owner/repo", "ref": "main", "paths": ["/x"]}}, "relative"),
+    ],
+)
+def test_parse_reference_packs_rejects_invalid_structures(payload: object, message: str) -> None:
+    with pytest.raises(ReferencePackConfigError, match=re.escape(message)):
+        parse_reference_packs(payload)
+
+
+def test_cli_main_reports_missing_github_output_and_escapes_delimiter(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setattr(sys, "argv", ["reference_packs.py", "--format", "github-output"])
+    monkeypatch.delenv("GITHUB_OUTPUT", raising=False)
+
+    assert reference_packs.main() == 2
+    assert "GITHUB_OUTPUT is not set" in capsys.readouterr().err
+
+    output_path = tmp_path / "github-output"
+    monkeypatch.setenv("GITHUB_OUTPUT", str(output_path))
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["reference_packs.py", "--workspace", str(tmp_path), "--format", "github-output"],
+    )
+
+    assert reference_packs.main() == 0
+    assert "reference_packs_exists=false" in output_path.read_text(encoding="utf-8")
+    assert reference_packs._github_output_block("value", "__VALUE_EOF__") == [
+        "value<<___VALUE_EOF__",
+        "__VALUE_EOF__",
+        "___VALUE_EOF__",
+    ]
+
+
+def test_cli_main_json_and_self_check_formats(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    config_file = tmp_path / ".github" / "reference_packs.json"
+    config_file.parent.mkdir(parents=True)
+    config_file.write_text(
+        json.dumps({"pack": {"repo": "owner/repo", "ref": "main", "paths": ["x"]}}),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(sys, "argv", ["reference_packs.py", "--workspace", str(tmp_path)])
+
+    assert reference_packs.main() == 0
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["reference_packs.py", "--workspace", str(tmp_path), "--format", "self-check"],
+    )
+    assert reference_packs.main() == 0
+
+
+def test_cli_main_reports_invalid_config_and_missing_self_check(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    config_file = tmp_path / ".github" / "reference_packs.json"
+    config_file.parent.mkdir(parents=True)
+    config_file.write_text("[]", encoding="utf-8")
+    monkeypatch.setattr(sys, "argv", ["reference_packs.py", "--workspace", str(tmp_path)])
+
+    assert reference_packs.main() == 2
+    assert "Reference packs config error" in capsys.readouterr().err
+
+    config_file.unlink()
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["reference_packs.py", "--workspace", str(tmp_path), "--format", "self-check"],
+    )
+    assert reference_packs.main() == 0
+    assert "skipped" in capsys.readouterr().err

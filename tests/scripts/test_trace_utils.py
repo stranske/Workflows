@@ -281,3 +281,47 @@ def test_invoke_with_trace_does_not_retry_helper_provider_config_type_error(
 
     assert runnable.calls == 1
     assert runnable.helper_calls == 1
+
+
+def test_trace_helpers_fall_back_when_provider_imports_fail(monkeypatch) -> None:
+    import builtins
+
+    real_import = builtins.__import__
+
+    def unavailable_provider(name, globals=None, locals=None, fromlist=(), level=0):  # noqa: ANN001
+        if name == "tools.llm_provider":
+            raise ImportError("provider unavailable")
+        return real_import(name, globals, locals, fromlist, level)
+
+    monkeypatch.setattr(builtins, "__import__", unavailable_provider)
+
+    config = trace_utils.build_trace_config(operation="fallback", pr_number=4)
+    trace = trace_utils.extract_trace_info(object())
+
+    assert config == {
+        "metadata": {"operation": "fallback", "pr_number": "4", "issue_number": None},
+        "tags": ["operation:fallback"],
+    }
+    assert trace == trace_utils.TraceInfo()
+
+
+def test_is_call_instruction_returns_false_for_unknown_instruction_offset() -> None:
+    frame = trace_utils._TracebackFrame(
+        code=test_is_call_instruction_returns_false_for_unknown_instruction_offset.__code__,
+        lineno=1,
+        lasti=-1,
+    )
+
+    assert trace_utils._is_call_instruction(frame) is False
+
+
+def test_trace_info_and_signature_detection_cover_optional_paths(monkeypatch) -> None:
+    assert trace_utils.TraceInfo(trace_url="https://trace").as_dict() == {
+        "langsmith_trace_url": "https://trace"
+    }
+
+    def unavailable_signature(_invoke):  # noqa: ANN001
+        raise ValueError("no signature")
+
+    monkeypatch.setattr(trace_utils.inspect, "signature", unavailable_signature)
+    assert trace_utils._invoke_config_support(object()) == "unknown"
