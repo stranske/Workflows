@@ -1082,6 +1082,58 @@ def test_close_existing_issue_skips_already_closed(monkeypatch: pytest.MonkeyPat
     assert not calls
 
 
+def test_find_existing_issue_retries_title_only_after_label_search_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls = []
+
+    def fake_run(args, **kwargs):
+        calls.append(args)
+        if "--label" in args:
+            return SimpleNamespace(returncode=1, stdout="", stderr="label unavailable")
+        return SimpleNamespace(
+            returncode=0,
+            stdout=json.dumps([{"number": 5, "title": 'a "quoted" title', "state": "OPEN"}]),
+            stderr="",
+        )
+
+    monkeypatch.setattr("subprocess.run", fake_run)
+
+    assert coverage_guard._find_existing_issue("octo/repo", 'a "quoted" title', ["coverage"]) == {
+        "number": 5,
+        "title": 'a "quoted" title',
+        "state": "OPEN",
+    }
+    assert len(calls) == 2
+
+
+def test_find_existing_issue_rejects_invalid_json(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        "subprocess.run",
+        lambda *args, **kwargs: SimpleNamespace(returncode=0, stdout="not json", stderr=""),
+    )
+
+    with pytest.raises(RuntimeError, match="invalid JSON"):
+        coverage_guard._find_existing_issue("octo/repo", "title")
+
+
+def test_close_existing_issue_posts_then_closes(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls = []
+    monkeypatch.setattr(
+        coverage_guard,
+        "_find_existing_issue",
+        lambda *args, **kwargs: {"number": 7, "state": "OPEN"},
+    )
+    monkeypatch.setattr("subprocess.run", lambda args, **kwargs: calls.append(args))
+
+    coverage_guard._close_existing_issue("octo/repo", "title", "body", labels=["coverage"])
+
+    assert calls == [
+        ["gh", "issue", "comment", "7", "--repo", "octo/repo", "--body", "body"],
+        ["gh", "issue", "close", "7", "--repo", "octo/repo", "--reason", "completed"],
+    ]
+
+
 # Tests for _load_ndjson
 
 
