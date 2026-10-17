@@ -487,3 +487,57 @@ def test_http_error_response_body_is_closed(monkeypatch):
 
     assert screen.MuseApiJudge(opener=opener).invoke("fixture prompt").stop is True
     assert body.closed is True
+
+
+@pytest.mark.parametrize("cls", [screen.CursorCliJudge, screen.AgyCliJudge])
+def test_cli_prompt_is_sent_only_over_stdin(monkeypatch, cls):
+    prompt = "private verifier prompt " * 1000
+    seen = {}
+    monkeypatch.setenv("CURSOR_API_KEY", "fixture-cursor")
+
+    def fake_run(command, **kwargs):
+        seen["command"] = command
+        seen.update(kwargs)
+        event = {"type": "result", "is_error": False, "result": json.dumps(VERDICT)}
+        return screen.subprocess.CompletedProcess(command, 0, json.dumps(event), "")
+
+    monkeypatch.setattr(screen.subprocess, "run", fake_run)
+    result = cls().invoke(prompt)
+    assert result.payload["verdict"] == "PASS"
+    assert all(prompt not in argument for argument in seen["command"])
+    if cls is screen.AgyCliJudge:
+        assert json.loads(seen["input"]) == {
+            "type": "user",
+            "message": {"role": "user", "content": prompt},
+        }
+        assert "--input-format" in seen["command"]
+    else:
+        assert seen["input"] == prompt
+
+
+def test_agy_stream_tool_activity_stops_the_judge(monkeypatch):
+    events = [
+        {"type": "assistant", "message": {"content": [{"type": "tool_use", "name": "shell"}]}},
+        {"type": "result", "result": json.dumps(VERDICT)},
+    ]
+
+    def fake_run(command, **kwargs):
+        return screen.subprocess.CompletedProcess(
+            command, 0, "\n".join(json.dumps(event) for event in events), ""
+        )
+
+    monkeypatch.setattr(screen.subprocess, "run", fake_run)
+    result = screen.AgyCliJudge().invoke("fixture prompt")
+    assert result.stop is True and result.tool_activity is True and result.payload is None
+
+
+@pytest.mark.parametrize(
+    "output", ["[]", '{"type":"result","subtype":"error_during_execution","result":""}']
+)
+def test_agy_invalid_or_error_stream_does_not_produce_a_verdict(monkeypatch, output):
+    def fake_run(command, **kwargs):
+        return screen.subprocess.CompletedProcess(command, 0, output, "")
+
+    monkeypatch.setattr(screen.subprocess, "run", fake_run)
+    result = screen.AgyCliJudge().invoke("fixture prompt")
+    assert result.payload is None and result.error

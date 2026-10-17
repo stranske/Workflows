@@ -220,7 +220,6 @@ class CursorCliJudge:
         command = [self.cursor, "-p", "--output-format", "json", "--mode", "ask", "--trust"]
         if self.model:
             command += ["--model", self.model]
-        command.append(prompt)
         key = os.environ.get("CURSOR_API_KEY", "")
         if not key:
             return JudgeOutcome(None, 0.0, error="CURSOR_API_KEY is not set", stop=True)
@@ -228,6 +227,7 @@ class CursorCliJudge:
             try:
                 response = subprocess.run(
                     command,
+                    input=prompt,
                     capture_output=True,
                     text=True,
                     cwd=scratch,
@@ -344,6 +344,16 @@ class ClaudeCliJudge:
         )
 
 
+def _contains_tool_event(value: Any) -> bool:
+    if isinstance(value, dict):
+        if value.get("type") in {"tool_use", "tool_result", "tool_call"}:
+            return True
+        return any(_contains_tool_event(child) for child in value.values())
+    if isinstance(value, list):
+        return any(_contains_tool_event(child) for child in value)
+    return False
+
+
 class AgyCliJudge:
     """Antigravity CLI (``agy``): local use only. Guards against its documented silent-success modes.
 
@@ -370,9 +380,11 @@ class AgyCliJudge:
                 "--gemini_dir",
                 str(Path(scratch) / ".gemini"),
                 "-p",
-                prompt,
+                "",
+                "--input-format",
+                "stream-json",
                 "--output-format",
-                "json",
+                "stream-json",
                 "--model",
                 self.model,
                 "--mode",
@@ -385,6 +397,10 @@ class AgyCliJudge:
             try:
                 response = subprocess.run(
                     command,
+                    input=json.dumps(
+                        {"type": "user", "message": {"role": "user", "content": prompt}}
+                    )
+                    + "\n",
                     capture_output=True,
                     text=True,
                     cwd=scratch,
@@ -396,7 +412,36 @@ class AgyCliJudge:
                 return JudgeOutcome(None, _ms(started), error="agy timed out", stop=True)
         latency = _ms(started)
         try:
-            envelope = json.loads(response.stdout)
+            events = [json.loads(line) for line in response.stdout.splitlines() if line.strip()]
+            if any(not isinstance(event, dict) for event in events):
+                raise ValueError("invalid stream event")
+            if any(_contains_tool_event(event) for event in events):
+                return JudgeOutcome(
+                    None,
+                    latency,
+                    error="agy emitted a tool event; judge stopped",
+                    stop=True,
+                    tool_activity=True,
+                )
+            envelope = next(
+                (
+                    event
+                    for event in reversed(events)
+                    if event.get("type") == "result" or "status" in event
+                ),
+                {},
+            )
+            if envelope.get("type") == "result":
+                envelope = {
+                    **envelope,
+                    "status": (
+                        "ERROR"
+                        if envelope.get("is_error")
+                        or envelope.get("subtype") not in {None, "success"}
+                        else "SUCCESS"
+                    ),
+                    "response": envelope.get("result", ""),
+                }
         except ValueError:
             return JudgeOutcome(
                 None, latency, error=f"agy output was not JSON (rc {response.returncode})"

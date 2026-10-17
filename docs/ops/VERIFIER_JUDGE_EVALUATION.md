@@ -204,3 +204,15 @@ Reading the table:
 | Re-run the screen on the larger corpus for every candidate that cleared this one | each candidate's false PASS = 0 and false-PASS bound <= 0.05 | after the corpus grows |
 | Enter verified Muse API pricing | `config/model_registry.json` carries a priced `muse` entry | after Meta's price page is read |
 | Decide tie-break / failover | `analyze_judge_ensemble` recommendation reads "candidate", not "not enabled" | after the above |
+
+
+### CLI prompt transport qualification
+
+Cursor receives the verifier prompt over stdin. Agy uses its installed CLI's
+`--input-format stream-json --output-format stream-json` protocol: one NDJSON
+user message with `message.role` and `message.content`, then EOF. Prompts never
+enter argv. The local `agy --help` confirms the input/output flags, and its
+installed decoder names the user message and content fields. Unit controls pin
+the request and final result envelope and stop on stream tool events. This is
+transport validation with fakes; no live judge call or provider quality approval
+is claimed by the repair.
