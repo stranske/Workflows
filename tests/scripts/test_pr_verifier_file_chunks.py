@@ -207,3 +207,16 @@ def test_expanded_chunks_run_preflight_and_preserve_capacity_failure(setup, monk
         assert result.files_not_reviewed == []
         assert len(client.prompts) == 3
         assert client.root_client.responses.input_tokens.count.call_count == 3
+
+
+def test_chunk_aggregate_preserves_provider_unreviewed_files(setup, monkeypatch):
+    class PartialClient(Client):
+        def invoke(self, prompt, **kwargs):
+            response = super().invoke(prompt, **kwargs)
+            response.content = json.dumps({"verdict": "PASS", "files_not_reviewed": ["a.py"]})
+            return response
+
+    result = evaluate(monkeypatch, PartialClient(), patch("a.py", 40000) + patch("b.py", 40000))
+    assert result.verdict == "UNVERIFIABLE_INPUT"
+    assert result.files_not_reviewed == ["a.py"]
+    assert result.input_coverage["files_complete"] == 1

@@ -6108,7 +6108,7 @@ def _evaluate_chunked(
             )
         results.append(result)
         if result.used_llm and not result.error and result.verdict != "UNVERIFIABLE_INPUT":
-            reviewed.update(paths)
+            reviewed.update(path for path in paths if path not in result.files_not_reviewed)
     not_reviewed = [path for path, _ in files if path not in reviewed]
     verdict = comparison_verdict(results) if results else "UNVERIFIABLE_INPUT"
     if not_reviewed and verdict == "PASS":
