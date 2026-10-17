@@ -171,8 +171,8 @@ Known by-design exclusions (do not "fix" these when comparing against Codex and 
   dispatched without a comment.
 - `AGENT_ALTERNATES` in `keepalive_loop.js` maps only Codex ⇄ Claude for the independent-verification
   step. For other agents the verification step runs on the same agent unless the repository sets
-  `verifier_agent`. This is a known gap, not a design choice; track it before relying on independent
-  verification for a new agent.
+  `verifier_agent`. This is a known gap, not a design choice (tracked in Workflows#4041); check it
+  before relying on independent verification for a new agent.
 
 ## Stage 5 — Deliver to consumer repositories
 
@@ -296,7 +296,7 @@ Evidence class in parentheses: **P** production use, **R** real trial, **W** wir
 | Belt (issue → PR) | P | P | R (consumer canary) | R (consumer canary) |
 | Issue intake (`preflight.enabled`) | W | W | R (qualified 2026-10-16) | — (deferred; intake routes by label regardless) |
 | Verifier judge (`verifier_checkbox`) | W | W | n/a | n/a |
-| Independent verification alternate | W (⇄ Claude) | W (⇄ Codex) | — (known gap) | — (known gap) |
+| Independent verification alternate | W (⇄ Claude) | W (⇄ Codex) | — (known gap, #4041) | — (known gap, #4041) |
 | Health check | W (expiry) | W (inline token detect) | W (presence) | W (presence, CLI, sandbox) |
 | Labels `agent:` `runner:` `from:` | W | W | W | W |
 | Consumer secrets provisioned | P | P | W (all repos) | W (all repos) |
