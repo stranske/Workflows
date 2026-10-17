@@ -1,3 +1,4 @@
+import base64
 import json
 from datetime import UTC, datetime
 from pathlib import Path
@@ -1129,3 +1130,158 @@ def test_main_reports_body_drift_but_ignores_syncer_header_differences(
     assert json.loads(report_path.read_text(encoding="utf-8"))["drift"] == [
         "owner/repo: .github/workflows/example.yml"
     ]
+
+
+def test_drift_cli_and_remote_read_boundaries(tmp_path, monkeypatch) -> None:
+    """Exercise fail-closed CLI parsing and remote-content fallback branches."""
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "check_consumer_sync_drift.py",
+            "--repos",
+            "owner/a,owner/b",
+            "--manifest",
+            "manifest.yml",
+            "--canaries",
+            "canaries.json",
+            "--summary",
+            "summary.md",
+            "--report-json",
+            "report.json",
+        ],
+    )
+    args = check_consumer_sync_drift.parse_args()
+    assert (args.repos, args.manifest, args.canaries, args.summary, args.report_json) == (
+        "owner/a,owner/b",
+        "manifest.yml",
+        "canaries.json",
+        "summary.md",
+        "report.json",
+    )
+
+    canaries = tmp_path / "canaries.json"
+    canaries.write_text('{"canaries": [{"repo": "owner/a"}]}', encoding="utf-8")
+    assert check_consumer_sync_drift.resolve_candidate_repos(str(canaries), ["owner/a"]) == {
+        "owner/a"
+    }
+    for contents in ("{}", '{"canaries": []}', '{"canaries": [{"repo": "owner/missing"}]}'):
+        canaries.write_text(contents, encoding="utf-8")
+        try:
+            check_consumer_sync_drift.resolve_candidate_repos(str(canaries), ["owner/a"])
+        except ValueError:
+            pass
+        else:
+            raise AssertionError("invalid canary configuration must fail closed")
+
+    class Response:
+        def __init__(self, status_code=200, payload=None):
+            self.status_code = status_code
+            self._payload = payload or {}
+
+        def json(self):
+            return self._payload
+
+    class Session:
+        def __init__(self, response):
+            self.response = response
+
+        def get(self, _url):
+            return self.response
+
+    assert (
+        check_consumer_sync_drift.remote_blob_text(Session(Response(404)), "owner/a", "sha") is None
+    )
+    assert (
+        check_consumer_sync_drift.remote_blob_text(
+            Session(Response(200, {"encoding": "hex"})), "owner/a", "sha"
+        )
+        is None
+    )
+    payload = {"encoding": "base64", "content": base64.b64encode(b"name: Example\n").decode()}
+    assert (
+        check_consumer_sync_drift.remote_blob_text(
+            Session(Response(200, payload)), "owner/a", "sha"
+        )
+        == "name: Example\n"
+    )
+
+
+def test_drift_summary_renders_actionable_nested_report_data(tmp_path: Path) -> None:
+    """Do not silently drop malformed optional report sections or open-PR overflow."""
+    report_path = tmp_path / "nested" / "summary.md"
+    report = {
+        "counts": {
+            "drift": 12,
+            "missing": 0,
+            "errors": 0,
+            "obsolete": 0,
+            "unmeasured_create_only": 0,
+        },
+        "repos": ["owner/a"],
+        "repo_summaries": {
+            "owner/a": {"drift": 12, "missing": 0, "errors": 0, "obsolete": 0},
+            "bad": [],
+        },
+        "top_repo_gaps": [
+            {"repo": "owner/a", "total": 12, "drift": 12, "missing": 0, "errors": 0, "obsolete": 0},
+            "bad",
+        ],
+        "path_prefix_counts": {"drift": {"scripts": 12}, "bad": []},
+        "follow_up": {"all_repos_command": "all", "targeted_repos_command": "targeted"},
+        "sync_remediation": {
+            "open_prs": [
+                {
+                    "repo": "owner/a",
+                    "number": number,
+                    "branch": "sync/workflows-delivery",
+                    "url": "u",
+                }
+                for number in range(11)
+            ]
+        },
+        "drift": [
+            f"owner/a: scripts/{number}.py"
+            for number in range(check_consumer_sync_drift.SUMMARY_ITEM_LIMIT + 2)
+        ],
+        "missing": [],
+        "errors": [],
+        "obsolete": [],
+        "skipped": [],
+        "unmeasured_create_only": [],
+    }
+    check_consumer_sync_drift.write_summary_markdown(str(report_path), report)
+    rendered = report_path.read_text(encoding="utf-8")
+    assert "### Repo summary" in rendered
+    assert "### Highest-impact repos" in rendered
+    assert "### Path prefixes" in rendered
+    assert "### Follow-up commands" in rendered
+    assert "### Open sync PRs" in rendered
+    assert "... 1 more in consumer-sync-drift-report.json" in rendered
+    assert "... 2 more in consumer-sync-drift-report.json" in rendered
+    check_consumer_sync_drift.write_report_json("", report)
+
+
+def test_drift_network_helpers_fail_closed_without_readable_probe_targets() -> None:
+    """A missing credential or malformed API response must not claim a clean drift check."""
+    session, diagnostics = check_consumer_sync_drift.select_read_token(
+        candidates=[], repos=["owner/a"], paths=[]
+    )
+    assert session is None
+    assert diagnostics["error"] == "no_token_candidates"
+    session, diagnostics = check_consumer_sync_drift.select_read_token(
+        candidates=[{"source": "TOKEN", "token": "secret"}], repos=[], paths=[]
+    )
+    assert session is None
+    assert diagnostics["error"] == "no_repos_to_probe"
+
+    class Response:
+        status_code = 500
+        headers = {}
+
+        def json(self):
+            raise ValueError("not-json")
+
+    assert check_consumer_sync_drift.response_message(Response()) == ""
+    assert check_consumer_sync_drift.response_failure_reason(Response()) == "HTTP 500"
+    assert check_consumer_sync_drift.parse_github_timestamp(None) is None
+    assert check_consumer_sync_drift.parse_github_timestamp("not-a-timestamp") is None

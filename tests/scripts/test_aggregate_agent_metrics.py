@@ -2032,3 +2032,74 @@ def test_uncovered_metric_helpers_preserve_legacy_and_error_contracts(tmp_path: 
     assert "Additional parse errors omitted from table: 1" in "\n".join(
         aggregate_agent_metrics._format_parse_error_details(many_details)
     )
+
+
+def test_metrics_helpers_preserve_empty_and_malformed_input_boundaries(tmp_path: Path) -> None:
+    """Keep optional metrics from turning malformed values into report data."""
+    assert (
+        aggregate_agent_metrics._artifact_family("bot-comment-auth-coverage-wrapper-run-12")
+        == "bot-comment-auth-coverage-wrapper"
+    )
+    assert (
+        aggregate_agent_metrics._format_parse_error(tmp_path / "metrics.ndjson", None, "other")
+        == f"{tmp_path / 'metrics.ndjson'}: unreadable file"
+    )
+
+    malformed = tmp_path / "malformed.ndjson"
+    malformed.write_text("{\n", encoding="utf-8")
+    assert aggregate_agent_metrics.read_ndjson_file(malformed)[0] == []
+
+    assert aggregate_agent_metrics._langsmith_trace_refs(
+        {"langsmith_traces": [{"trace_url": "https://trace.example/run"}]}
+    ) == {"url:https://trace.example/run"}
+
+    keepalive = aggregate_agent_metrics._summarise_keepalive(
+        [{"iteration_count": "", "pr_number": "", "tasks_total": 0, "tasks_complete": 0}]
+    )
+    assert keepalive["avg_iterations"] == 0.0
+    assert keepalive["prs"] == 0
+    assert keepalive["tasks_complete"] == 0
+
+    autofix = aggregate_agent_metrics._summarise_autofix(
+        [{"trigger_reason": "", "gate_result_after": "", "pr_number": ""}]
+    )
+    assert autofix["triggers"] == Counter()
+    assert autofix["gate_results"] == Counter()
+    assert autofix["prs"] == 0
+
+    verifier = aggregate_agent_metrics._summarise_verifier(
+        [],
+        [
+            {
+                "disposition": "ordinary",
+                "needs_human": False,
+                "chain_depth": "",
+                "followup_policy": {"depth_limit_exceeded": True},
+            }
+        ],
+    )
+    assert verifier["ledger_needs_human"] == 0
+    assert verifier["ledger_avg_chain_depth"] == 0.0
+    assert verifier["ledger_policy_depth_limit_exceeded"] == 1
+
+    autopilot = aggregate_agent_metrics._summarise_autopilot(
+        [{"metric_type": "step", "step_name": "test", "success": False, "failure_reason": "none"}]
+    )
+    assert autopilot["failure_reasons"] == Counter()
+
+    freshness = aggregate_agent_metrics._summarise_codex_cli_freshness(
+        [{"update_targets": ["not-a-dict"]}]
+    )
+    assert freshness["update_targets"] == Counter()
+
+    downloads = aggregate_agent_metrics._artifact_download_contract(
+        {"artifacts": "not-a-list"}, tmp_path / "download.json"
+    )
+    assert downloads["failed_artifacts"] == []
+
+    selection = aggregate_agent_metrics._artifact_selection_contract(
+        {"priority_family_statuses": "not-a-list"}, tmp_path / "selection.json"
+    )
+    assert selection["missing_terminal_artifact_families"] == list(
+        aggregate_agent_metrics._TERMINAL_ARTIFACT_FAMILIES
+    )
