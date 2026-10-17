@@ -309,6 +309,7 @@ function selectAgentFromRouteWeights({
  */
 function decideNextAgent({
   state = {},
+  completion = null,
   labels = [],
   secrets = {},
   registry = {},
@@ -350,7 +351,10 @@ function decideNextAgent({
     };
   }
 
-  const currentAgent = state.current_agent || '';
+  const currentAgent = state.current_agent ||
+    (completion?.completion?.reason === 'rate_limited' ? completion.provider : '');
+  const rateLimited = completion?.completion?.reason === 'rate_limited' &&
+    completion.provider === currentAgent;
   const lastSwitchIteration = state.last_switch_iteration || 0;
   const currentIteration = state.iteration || 0;
   const switchCount = state.switch_count || 0;
@@ -377,7 +381,7 @@ function decideNextAgent({
     core?.warning?.('No agents available (missing secrets)');
     return {
       agent: '',
-      reason: 'no-agents-available',
+      reason: rateLimited ? 'rate-limited-no-alternatives' : 'no-agents-available',
       shouldSwitch: false,
       alternatives: [],
       delegationSource: 'static',
@@ -439,7 +443,7 @@ function decideNextAgent({
     };
   }
 
-  if (!availableAgents.includes(currentAgent)) {
+  if (!rateLimited && !availableAgents.includes(currentAgent)) {
     const nextAgent = availableAgents.includes(defaultAgent) ? defaultAgent : availableAgents[0];
     core?.info?.(`Switching from unavailable ${currentAgent} to ${nextAgent}`);
     return {
@@ -462,7 +466,7 @@ function decideNextAgent({
   core?.debug?.(`Stall: ${stall}, Cooldown: ${inCooldown}, Rounds since switch: ${roundsSinceSwitch}`);
 
   // Rule: Continue if effective
-  if (effectiveness.effective) {
+  if (!rateLimited && effectiveness.effective) {
     return {
       agent: currentAgent,
       reason: `effective (${effectiveness.summary})`,
@@ -473,7 +477,7 @@ function decideNextAgent({
   }
 
   // Rule: Continue if in cooldown (anti-thrash)
-  if (inCooldown) {
+  if (!rateLimited && inCooldown) {
     return {
       agent: currentAgent,
       reason: `cooldown (${5 - roundsSinceSwitch} rounds remaining)`,
@@ -484,14 +488,22 @@ function decideNextAgent({
   }
 
   // Rule: Switch if stalled
-  if (stall.isStalled) {
-    const alternatives = availableAgents.filter((a) => a !== currentAgent);
+  if (rateLimited || stall.isStalled) {
+    const tried = new Set(labels.map(normalizeLabel)
+      .filter((label) => label.startsWith('agents:tried-'))
+      .map((label) => label.slice('agents:tried-'.length)));
+    const ranking = Array.isArray(routeWeights?.task_types?.[taskType]?.ranking)
+      ? routeWeights.task_types[taskType].ranking : [];
+    const alternatives = availableAgents.filter((agent) => agent !== currentAgent &&
+      !tried.has(agent) && (!rateLimited || getAgentPoolState(
+        routeWeights, agent, ranking.find((row) => row.agent === agent),
+      ) === 'ok'));
     const reservedAgents = new Set(getRouteWeightReserveAgents(routeWeights?.reserve, taskType));
     const weighted = selectAgentFromRouteWeights({
-      routeWeights,
+      routeWeights: rateLimited && routeWeights ? { ...routeWeights, exploration: null } : routeWeights,
       taskType,
       currentAgent,
-      availableAgents,
+      availableAgents: alternatives,
       agents,
       reserve: routeWeights?.reserve,
       seed: explorationSeedFromState(state),
@@ -514,20 +526,22 @@ function decideNextAgent({
     if (nextAgent === currentAgent) {
       core?.warning?.('Stalled but no alternative agents available');
       return {
-        agent: currentAgent,
-        reason: `stalled-no-alternatives (${sourceSuffix})`,
+        agent: rateLimited ? '' : currentAgent,
+        reason: rateLimited ? 'rate-limited-no-alternatives' : `stalled-no-alternatives (${sourceSuffix})`,
         shouldSwitch: false,
         alternatives: [],
         delegationSource,
       };
     }
-    core?.info?.(`Switching from ${currentAgent} to ${nextAgent} due to stall (${sourceSuffix})`);
+    core?.info?.(`Switching from ${currentAgent} to ${nextAgent} due to ${rateLimited ? 'rate limit' : 'stall'} (${sourceSuffix})`);
     if (weighted.policy_version) {
       core?.info?.(`Route-weights policy version: ${weighted.policy_version}`);
     }
     return {
       agent: nextAgent,
-      reason: `${currentAgent}-stalled (${stall.reason}; ${sourceSuffix})`,
+      reason: rateLimited
+        ? `${currentAgent}-rate-limited (${sourceSuffix})`
+        : `${currentAgent}-stalled (${stall.reason}; ${sourceSuffix})`,
       shouldSwitch: true,
       previousAgent: currentAgent,
       alternatives: alternatives.filter((a) => a !== nextAgent),
@@ -1055,4 +1069,3 @@ module.exports = {
   formatDelegationSummary,
   hasKeepaliveRunner,
 };
-

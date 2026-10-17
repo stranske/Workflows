@@ -7196,3 +7196,180 @@ for (const loopPath of ['../keepalive_loop', '../../../templates/consumer-repo/.
     assert.deepEqual({ total: snapshot.total, completed: snapshot.completed }, { total: 2, completed: 1 });
   });
 }
+
+// Exercise the real Python writer and its reservation/receipt schema. Only the
+// GitHub transport is replayed; classification, persistence and evaluation are real.
+function replayCompletion({ output, exitCode, provider = 'codex', progressed = false }) {
+  const { classifyCompletion } = require('../keepalive_loop.js');
+  const { spawnSync } = require('node:child_process');
+  const python = process.env.PYTHON || (process.platform === 'darwin' ? '/opt/anaconda3/bin/python3' : 'python3');
+  const result = spawnSync(python, ['-c', `
+import contextlib, io, json, sys
+from scripts.runner_lib import core
+payload = json.load(sys.stdin)
+provider = payload['provider']
+reservation = dict(provider=provider, pr_number=3989, head_sha='sha-3989',
+                   key=core._runner_key(3989, 'sha-3989', provider), status='pending',
+                   reservation_id=provider + '-attempt', started_at='2026-10-16T00:00:00Z')
+class Api:
+    repo = 'octo/workflows'
+    def __init__(self):
+        self.comments = [dict(id=1, body=core._build_marker(3989, provider, reservation,
+                            marker_prefix=core.RESERVATION_MARKER_PREFIX),
+                            user=dict(login='github-actions[bot]'))]
+    def request(self, method, path, body=None):
+        if path == '/graphql':
+            return dict(data=dict(repository=dict(pullRequest=dict(comments=dict(
+                nodes=[dict(databaseId=c['id'], body=c['body'],
+                            author=dict(login='github-actions', __typename='Bot'),
+                            authorAssociation='NONE') for c in self.comments],
+                pageInfo=dict(hasPreviousPage=False, startCursor='1',
+                              hasNextPage=False, endCursor='1'))))))
+        assert method == 'POST' and path.endswith('/issues/3989/comments')
+        comment = dict(id=len(self.comments)+1, body=body['body'], user=dict(login='github-actions[bot]'))
+        self.comments.append(comment)
+        return comment
+api = Api()
+core._storage_from_name = lambda name: core.PrCommentRunnerStorage(api)
+with contextlib.redirect_stdout(io.StringIO()):
+    core.main(['record-completion', '--provider', provider, '--pr-number', '3989',
+               '--head-sha', 'sha-3989', '--summary', payload['output'],
+               '--exit-code', str(payload['exitCode']), '--produced-work', str(payload['progressed']).lower(),
+               '--completion-reason', payload['reason']])
+record = core.PrCommentRunnerStorage(api).read_record(3989, provider)
+print(json.dumps(dict(comments=api.comments, record=record)))
+`], {
+    input: JSON.stringify({ output, exitCode, provider, progressed,
+      reason: classifyCompletion(output, exitCode) }), encoding: 'utf8',
+  });
+  assert.equal(result.status, 0, result.stderr);
+  return JSON.parse(result.stdout);
+}
+
+test('classifyCompletion covers provider quota, HTTP 429, failure and clean success', () => {
+  const { classifyCompletion } = require('../keepalive_loop.js');
+  assert.equal(classifyCompletion("You've hit your usage limit. Try again at 9:01 PM", 1), 'rate_limited');
+  assert.equal(classifyCompletion('Cursor request failed: HTTP 429 Too Many Requests', 1), 'rate_limited');
+  assert.equal(classifyCompletion('provider quota exceeded', 0), 'rate_limited');
+  assert.equal(classifyCompletion('Rate limit exceeded', 1), 'rate_limited');
+  assert.equal(classifyCompletion('', 429), 'rate_limited');
+  assert.equal(classifyCompletion('Unexpected crash', 1), 'failed');
+  assert.equal(classifyCompletion('Finished implementing the task', 0), 'progressed');
+  assert.equal(classifyCompletion('', 0), 'no_progress');
+});
+
+test('persisted provider quota drives same-evaluate switch with zero stalled rounds and clears on progress', async () => {
+  const previousFetch = global.fetch;
+  const keys = ['HAS_CODEX_AUTH', 'HAS_CLAUDE_OAUTH', 'HAS_CURSOR_AUTH'];
+  const previousEnv = Object.fromEntries(keys.map((key) => [key, process.env[key]]));
+  keys.forEach((key) => { process.env[key] = 'true'; });
+  global.fetch = async () => ({ status: 200, json: async () => ({
+    schema: 'orchestrator.route-weights/v2', generated_at: new Date().toISOString(),
+    task_types: { implement: { evidence_ok: true, ranking: [
+      { agent: 'claude', pool_state: 'exhausted' }, { agent: 'cursor', pool_state: 'ok' },
+    ] } },
+  }) });
+  try {
+    const pr = { number: 3989, head: { sha: 'sha-3989', ref: 'codex/issue-3989' },
+      labels: [{ name: 'agent:auto' }, { name: 'agent:codex' }, { name: 'agents:keepalive' }],
+      body: prBodyFixture };
+    const replay = replayCompletion({ output: "You've hit your usage limit. Try again at 9:01 PM", exitCode: 1 });
+    const github = buildGithubStub({ pr, comments: replay.comments,
+      workflowRuns: [{ head_sha: 'sha-3989', conclusion: 'success' }] });
+    const result = await evaluateKeepaliveLoop({ github, context: buildContext(3989), core: buildCore() });
+    // Assert behavior before inspecting the persisted field: mutation must fail
+    // this integrated switch, not merely a classifier unit assertion.
+    assert.equal(result.agentType, 'cursor', 'persisted quota must switch in the same evaluate');
+    assert.equal(result.action, 'run');
+    assert.equal(result.delegationShouldSwitch, true);
+    assert.match(result.delegationReason, /codex-rate-limited/);
+    assert.equal(replay.record.completion.reason, 'rate_limited');
+    assert.ok(github.actions.some((a) => a.type === 'label' && a.labels.includes('agent:rate-limited')));
+    assert.ok(github.actions.some((a) => a.type === 'label' && a.labels.includes('agents:tried-codex')));
+    assert.ok(github.actions.some((a) => a.type === 'remove-label' && a.name === 'agent:codex'));
+    assert.ok(github.actions.some((a) => a.type === 'label' && a.labels.includes('agent:cursor')));
+
+    const success = replayCompletion({ output: 'Implemented and tested the task', exitCode: 0,
+      provider: 'cursor', progressed: true });
+    assert.equal(success.record.completion.reason, 'progressed');
+    // Both providers' receipts remain visible, as on a live PR. New comment IDs
+    // preserve completion order even when the writer's timestamps share a second.
+    const progressedPr = { ...pr, labels: [{ name: 'agent:auto' }, { name: 'agent:cursor' },
+      { name: 'agents:keepalive' }, { name: 'agent:rate-limited' }, { name: 'agents:tried-codex' }] };
+    const next = buildGithubStub({ pr: progressedPr, comments: [
+      ...replay.comments, ...success.comments.map((comment) => ({ ...comment, id: comment.id + 100 })),
+    ],
+      workflowRuns: [{ head_sha: 'sha-3989', conclusion: 'success' }] });
+    await evaluateKeepaliveLoop({ github: next, context: buildContext(3989), core: buildCore() });
+    assert.ok(next.actions.some((a) => a.type === 'remove-label' && a.name === 'agent:rate-limited'));
+
+    const noProgress = replayCompletion({ output: 'Finished', exitCode: 0 });
+    assert.equal(noProgress.record.completion.reason, 'no_progress');
+    const stalled = buildGithubStub({ pr: progressedPr, comments: noProgress.comments,
+      workflowRuns: [{ head_sha: 'sha-3989', conclusion: 'success' }] });
+    await evaluateKeepaliveLoop({ github: stalled, context: buildContext(3989), core: buildCore() });
+    assert.ok(!stalled.actions.some((a) => a.type === 'remove-label' && a.name === 'agent:rate-limited'));
+
+    const cursorQuota = replayCompletion({ output: 'Cursor: HTTP 429 Too Many Requests', exitCode: 1,
+      provider: 'cursor' });
+    assert.equal(cursorQuota.record.completion.reason, 'rate_limited');
+    const explicitPr = { ...pr, labels: [{ name: 'agent:cursor' }, { name: 'agents:keepalive' }] };
+    const explicit = buildGithubStub({ pr: explicitPr, comments: cursorQuota.comments,
+      workflowRuns: [{ head_sha: 'sha-3989', conclusion: 'success' }] });
+    const explicitResult = await evaluateKeepaliveLoop({ github: explicit, context: buildContext(3989), core: buildCore() });
+    assert.equal(explicitResult.agentType, 'cursor');
+    assert.equal(explicitResult.delegationShouldSwitch, false);
+    assert.ok(explicit.actions.some((a) => a.type === 'label' && a.labels.includes('agent:rate-limited')));
+
+    const exhaustedPr = { ...pr, labels: [...pr.labels, { name: 'agents:tried-cursor' }] };
+    const exhausted = buildGithubStub({ pr: exhaustedPr, comments: replay.comments,
+      workflowRuns: [{ head_sha: 'sha-3989', conclusion: 'success' }] });
+    const exhaustedResult = await evaluateKeepaliveLoop({ github: exhausted, context: buildContext(3989), core: buildCore() });
+    assert.equal(exhaustedResult.action, 'wait');
+    assert.equal(exhaustedResult.reason, 'rate-limited-no-alternatives');
+  } finally {
+    global.fetch = previousFetch;
+    for (const [key, value] of Object.entries(previousEnv)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  }
+});
+
+test('completion reader rejects forged and stale receipts and newer in-flight work', async () => {
+  const { loadLatestCompletion } = require('../keepalive_loop.js');
+  const marker = (kind, payload, id, trusted = true) => ({ id,
+    user: { login: trusted ? 'github-actions[bot]' : 'untrusted-contributor' },
+    body: `<!-- runner-${kind}:codex:3989:v1 base64:${Buffer.from(JSON.stringify(payload)).toString('base64')} -->`,
+  });
+  const reservation = { provider: 'codex', pr_number: 3989, status: 'pending',
+    reservation_id: 'current', started_at: '2026-10-16T01:00:00Z' };
+  const record = { ...reservation, status: 'error', completed_at: '2026-10-16T01:10:00Z',
+    completion: { reason: 'rate_limited' } };
+  const receipt = { provider: 'codex', schema: 'runner-completion-receipt/v1',
+    reservation_id: 'current', record };
+  const read = (comments) => loadLatestCompletion({
+    github: buildGithubStub({ comments }), context: buildContext(3989), prNumber: 3989,
+  });
+  const pending = marker('reservation', reservation, 10);
+  assert.equal(await read([pending, marker('completion', receipt, 11, false)]), null);
+  assert.equal(await read([pending, marker('completion', { ...receipt,
+    reservation_id: 'old', record: { ...record, reservation_id: 'old' } }, 11)]), null);
+  assert.equal((await read([pending, marker('completion', receipt, 11)])).completion.reason, 'rate_limited');
+  assert.equal(await read([pending, marker('completion', receipt, 11), {
+    id: 12, user: { login: 'github-actions[bot]' },
+    body: '<!-- runner-reservation:codex:3989:v1 broken-json -->',
+  }]), null);
+  assert.equal(await read([pending, marker('completion', receipt, 11), marker('reservation', {
+    ...reservation, reservation_id: 'next', started_at: '2026-10-16T02:00:00Z',
+  }, 12)]), null);
+});
+
+test('root and consumer completion writers pass the shared classification to persistence', () => {
+  for (const workflow of ['.github/workflows/agents-keepalive-loop.yml',
+    'templates/consumer-repo/.github/workflows/agents-81-gate-followups.yml']) {
+    const source = fs.readFileSync(workflow, 'utf8');
+    assert.match(source, /classifyCompletion\(process\.env\.SUMMARY, process\.env\.EXIT_CODE\)/);
+    assert.match(source, /--completion-reason "\$COMPLETION_REASON"/);
+  }
+});

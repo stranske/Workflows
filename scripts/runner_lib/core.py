@@ -1930,6 +1930,7 @@ def record_completion(
     *,
     observed_head_sha: str = "",
     task_progress_after: object = None,
+    completion_reason: str = "",
 ) -> dict[str, Any]:
     """Persist terminal runner state after a dispatch finishes.
 
@@ -1978,6 +1979,16 @@ def record_completion(
         task_progress_after=task_progress_after,
         fallback=produced_work,
     )
+    if completion_reason not in {"", "rate_limited", "failed", "progressed", "no_progress"}:
+        raise ValueError("Invalid runner completion reason")
+    # Only measured branch/checklist progress clears a provider backoff marker.
+    # The JS classifier supplies provider failures; productivity is reconciled here.
+    if completion_reason not in {"rate_limited", "failed"}:
+        completion_reason = (
+            "failed"
+            if not result_payload.get("success")
+            else "progressed" if produced_work is True else "no_progress"
+        )
     if produced_work is None and prior.get("key") == key and _completion_was_unproductive(prior):
         produced_work = False
     completed_at = (
@@ -1994,6 +2005,7 @@ def record_completion(
         "status": status,
         "completed_at": completed_at,
         "result": compact_result,
+        "completion": {"reason": completion_reason},
         **productivity_fields,
     }
     same_terminal_attempt = prior.get("key") == key and prior.get("status") in TERMINAL_STATUSES
@@ -2230,6 +2242,7 @@ def _cmd_record_completion(args: argparse.Namespace) -> int:
         produced_work=_parse_produced_work(args.produced_work),
         observed_head_sha=args.observed_head_sha,
         task_progress_after=args.task_progress_after,
+        completion_reason=args.completion_reason,
     )
     outputs = {
         "recorded": "false" if record.get("completion_recorded") is False else "true",
@@ -2346,6 +2359,12 @@ def build_parser() -> argparse.ArgumentParser:
     complete.add_argument("--raw-output-file", default="")
     complete.add_argument("--summary", default="")
     complete.add_argument("--exit-code", default=None)
+    complete.add_argument(
+        "--completion-reason",
+        choices=["rate_limited", "failed", "progressed", "no_progress"],
+        default="",
+        help="provider completion classification from keepalive_loop.classifyCompletion",
+    )
     complete.add_argument(
         "--produced-work",
         default="",

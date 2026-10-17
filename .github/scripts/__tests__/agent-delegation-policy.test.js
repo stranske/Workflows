@@ -700,3 +700,44 @@ test('ROUTE_WEIGHT_TASK_TYPES maps review rounds to review task type', () => {
   assert.equal(ROUTE_WEIGHT_TASK_TYPES.review, 'review');
   assert.equal(ROUTE_WEIGHT_TASK_TYPES.run, 'implement');
 });
+
+test('persisted rate limit bypasses cooldown and effective history in the same evaluate', () => {
+  const completion = { provider: 'codex', completion: { reason: 'rate_limited' } };
+  const decision = decideNextAgent({
+    state: { current_agent: 'codex', iteration: 1, last_switch_iteration: 1,
+      effectiveness_history: [{ commits: 1, tasks: 2, gate: 'pass' }] },
+    completion, labels: ['agent:auto', 'agent:codex'], registry: mockRegistry, secrets: mockSecrets,
+  });
+  assert.equal(decision.agent, 'claude');
+  assert.equal(decision.shouldSwitch, true);
+  assert.match(decision.reason, /codex-rate-limited/);
+  assert.equal(decision.previousAgent, 'codex');
+
+  const explicit = decideNextAgent({
+    completion, labels: ['agent:codex'], registry: mockRegistry, secrets: mockSecrets,
+  });
+  assert.equal(explicit.agent, 'codex');
+  assert.equal(explicit.shouldSwitch, false);
+});
+
+test('rate limit selects an untried ok pool in route order and never retries when exhausted', () => {
+  const registry = { agents: Object.fromEntries(['codex', 'claude', 'cursor', 'gemini'].map(
+    (agent) => [agent, { runner_workflow: `${agent}.yml`, capabilities: { pr_keepalive: true } }],
+  )) };
+  const options = {
+    state: {}, labels: ['agent:auto'], registry,
+    completion: { provider: 'codex', completion: { reason: 'rate_limited' } },
+    routeWeights: { task_types: { implement: { evidence_ok: true, ranking: [
+      { agent: 'claude', pool_state: 'exhausted' },
+      { agent: 'cursor', pool_state: 'ok' }, { agent: 'gemini', pool_state: 'ok' },
+    ] } } },
+  };
+  assert.equal(decideNextAgent(options).agent, 'cursor');
+  assert.equal(decideNextAgent({ ...options, labels: ['agent:auto', 'agents:tried-cursor'] }).agent, 'gemini');
+  const exhausted = decideNextAgent({ ...options,
+    labels: ['agent:auto', 'agents:tried-cursor', 'agents:tried-gemini'] });
+  assert.equal(exhausted.agent, '');
+  assert.equal(exhausted.shouldSwitch, false);
+  assert.equal(exhausted.reason, 'rate-limited-no-alternatives');
+  assert.equal(decideNextAgent({ ...options, runnableAgents: [] }).reason, 'rate-limited-no-alternatives');
+});

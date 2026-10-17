@@ -43,6 +43,81 @@ const ATTEMPT_HISTORY_LIMIT = 20;
 const ATTEMPTED_TASK_LIMIT = 20;
 const AUTOMATION_ATTENTION_LABELS = ['agent:needs-attention'];
 
+/** Classify captured provider output, independently of GitHub API quota deferral. */
+function classifyCompletion(output, exitCode) {
+  const text = String(output || '');
+  if (Number(exitCode) === 429 ||
+      /\b(?:HTTP(?:\/\d(?:\.\d)?)?\s*[:=]?\s*429|usage\s+limit|quota|rate[ -]?limit)\b/i.test(text)) {
+    return 'rate_limited';
+  }
+  if (exitCode !== undefined && exitCode !== null && exitCode !== '' && Number(exitCode) !== 0) {
+    return 'failed';
+  }
+  // The writer reconciles this success with measured branch/checklist progress.
+  return text.trim() ? 'progressed' : 'no_progress';
+}
+
+/** Read the latest terminal record bound to its authoritative runner reservation. */
+async function loadLatestCompletion({ github, context, prNumber }) {
+  if (!github.paginate || !github.rest?.issues?.listComments) return null;
+  const comments = await github.paginate(github.rest.issues.listComments, {
+    ...context.repo, issue_number: prNumber, per_page: 100,
+  });
+  const trustedAuthors = new Set([
+    'chatgpt-codex-connector', 'chatgpt-codex-connector[bot]', 'github-actions[bot]',
+    'stranske', 'stranske-automation-bot',
+  ]);
+  const reservations = new Map();
+  const receipts = new Map();
+  const legacy = new Map();
+  for (const comment of [...comments].sort((a, b) => Number(b.id) - Number(a.id))) {
+    const author = String(comment.user?.login || '').toLowerCase();
+    if (!trustedAuthors.has(author) &&
+        !['OWNER', 'MEMBER', 'COLLABORATOR'].includes(comment.author_association)) continue;
+    const marker = /<!--\s*runner-(reservation|completion|dispatch):([a-z0-9_-]+):(\d+):v1\s+(.*?)\s*-->/s
+      .exec(comment.body || '');
+    if (!marker || Number(marker[3]) !== prNumber) continue;
+    const [, kind, provider, , encoded] = marker;
+    const newestReservation = kind === 'reservation' && !reservations.has(provider);
+    // A corrupt newest reservation still supersedes older evidence, just as in
+    // runner_lib. Never fall back to an older completed attempt in that case.
+    if (newestReservation) reservations.set(provider, {});
+    let payload;
+    try {
+      payload = JSON.parse(encoded.startsWith('base64:')
+        ? Buffer.from(encoded.slice(7), 'base64').toString('utf8') : encoded);
+    } catch { continue; }
+    if (payload?.provider !== provider) continue;
+    if (kind === 'reservation') {
+      if (newestReservation) reservations.set(provider, payload);
+    } else if (kind === 'dispatch') {
+      if (!legacy.has(provider)) legacy.set(provider, payload);
+    } else if (payload.schema === 'runner-completion-receipt/v1' &&
+        payload.record?.reservation_id === payload.reservation_id &&
+        payload.record?.provider === provider && payload.record?.pr_number === prNumber) {
+      const key = `${provider}:${payload.reservation_id}`;
+      if (!receipts.has(key)) receipts.set(key, payload.record);
+    }
+  }
+  const records = [];
+  let newestPendingAt = 0;
+  for (const provider of new Set([...reservations.keys(), ...legacy.keys()])) {
+    const reservation = reservations.get(provider) || legacy.get(provider);
+    if (reservation.pr_number !== prNumber) continue;
+    const record = receipts.get(`${provider}:${reservation.reservation_id}`) || reservation;
+    if (record.status === 'pending') {
+      newestPendingAt = Math.max(newestPendingAt, Date.parse(record.started_at) || 0);
+    }
+    if (['completed', 'error'].includes(record.status) && Number.isFinite(Date.parse(record.completed_at))) {
+      records.push(record);
+    }
+  }
+  const latest = records.sort((a, b) => Date.parse(b.completed_at) - Date.parse(a.completed_at))[0];
+  // An in-flight newer reservation must not expose an older provider's success
+  // as fresh cleanup evidence, or replay an old rate-limit decision.
+  return latest && Date.parse(latest.completed_at) >= newestPendingAt ? latest : null;
+}
+
 const TIMEOUT_VARIABLE_NAMES = [
   'WORKFLOW_TIMEOUT_DEFAULT',
   'WORKFLOW_TIMEOUT_EXTENDED',
@@ -2748,11 +2823,27 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
       trace: config.trace,
     });
     const state = stateResult.state || {};
+    let completion = null;
+    try {
+      completion = await loadLatestCompletion({ github, context, prNumber });
+      const completionReason = completion?.completion?.reason;
+      if (completionReason === 'rate_limited' && !labels.includes('agent:rate-limited')) {
+        await github.rest.issues.addLabels({
+          ...context.repo, issue_number: prNumber, labels: ['agent:rate-limited'],
+        });
+      } else if (completionReason === 'progressed' && labels.includes('agent:rate-limited')) {
+        await github.rest.issues.removeLabel({
+          ...context.repo, issue_number: prNumber, name: 'agent:rate-limited',
+        });
+      }
+    } catch (error) {
+      core?.warning?.(`Could not reconcile provider completion: ${error.message}`);
+    }
 
     // agent:auto delegation — resolve actual agent via policy after state is available
     if (agentRoutingMode === 'auto') {
       try {
-        const { decideNextAgent, loadRouteWeights, resolveRoundKind, DEFAULT_ROUTE_WEIGHTS_URL } =
+        const { decideNextAgent, fetchRouteWeights, resolveRoundKind, DEFAULT_ROUTE_WEIGHTS_URL } =
           require('./agent_delegation_policy.js');
         const { loadAgentRegistry } = require('./agent_registry.js');
         const registry = loadAgentRegistry();
@@ -2772,12 +2863,13 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
           new RegExp(`^  run-${key}:`, 'm').test(workflowText)
         ));
         const routeWeightsUrl = process.env.ROUTE_WEIGHTS_URL || DEFAULT_ROUTE_WEIGHTS_URL;
-        const routeWeights = await loadRouteWeights({ url: routeWeightsUrl });
+        const routeWeights = await fetchRouteWeights({ url: routeWeightsUrl });
         const roundKind = resolveRoundKind({ labels, state });
         const decision = decideNextAgent({
           // Include PR identity so empty/legacy keepalive state still seeds
           // exploration from the live PR rather than the degenerate seed 0.
           state: { ...state, pr_number: prNumber },
+          completion,
           labels: labels.map(String),
           secrets,
           registry,
@@ -2787,6 +2879,19 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
           core,
         });
         if (decision.agent) {
+          if (decision.shouldSwitch && !pausedByLabel && !humanBlocked && !runCapZero && keepaliveEnabled) {
+            await github.rest.issues.addLabels({
+              ...context.repo, issue_number: prNumber,
+              labels: [`agents:tried-${decision.previousAgent}`],
+            });
+            // Preserve one concrete route label alongside agent:auto.
+            for (const label of labels.filter((name) => name === `agent:${decision.previousAgent}`)) {
+              await github.rest.issues.removeLabel({ ...context.repo, issue_number: prNumber, name: label });
+              await github.rest.issues.addLabels({
+                ...context.repo, issue_number: prNumber, labels: [`agent:${decision.agent}`],
+              });
+            }
+          }
           agentType = decision.agent;
           delegationReason = decision.reason;
           delegationShouldSwitch = Boolean(decision.shouldSwitch);
@@ -2801,7 +2906,7 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
           }
         } else {
           core?.warning?.(`Delegation policy returned no agent: ${decision.reason}`);
-          if (decision.reason === 'multiple-agent-labels') {
+          if (['multiple-agent-labels', 'rate-limited-no-alternatives'].includes(decision.reason)) {
             agentType = '';
             hasAgentLabel = false;
             keepaliveEnabled = false;
@@ -2813,6 +2918,13 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
         }
       } catch (err) {
         core?.warning?.(`Delegation policy failed, keeping ${agentType}: ${err.message}`);
+        if (completion?.completion?.reason === 'rate_limited') {
+          // Never turn a policy or label-write error into a retry of the provider
+          // whose authoritative completion just reported a quota failure.
+          agentType = '';
+          delegationReason = 'rate-limited-delegation-failed';
+          delegationShouldSwitch = false;
+        }
       }
     }
 
@@ -2987,6 +3099,9 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
     } else if (hasDefinitiveConflict && hasAgentLabel && keepaliveEnabled) {
       action = 'conflict';
       reason = `merge-conflict-${conflictResult.primarySource || 'detected'}`;
+    } else if (['rate-limited-no-alternatives', 'rate-limited-delegation-failed'].includes(delegationReason)) {
+      action = 'wait';
+      reason = delegationReason;
     } else if (runnerUnavailable) {
       action = 'skip';
       reason = `no-runner-for-agent:${agentType}`;
@@ -5815,6 +5930,8 @@ async function autoReconcileTasks({ github: rawGithub, context, prNumber, baseSh
 }
 
 module.exports = {
+  classifyCompletion,
+  loadLatestCompletion,
   countCheckboxes,
   cascadeParentCheckboxes,
   parseConfig,
