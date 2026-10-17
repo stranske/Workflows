@@ -1823,11 +1823,27 @@ def test_pr_comment_completion_receipt_is_idempotent_and_cannot_cross_reservatio
     if existing == "newer-reservation":
         comments.append(
             {
+                "id": 1,
+                "body": runner_core._build_marker(
+                    42,
+                    "codex",
+                    {**receipt, "record": {**record, "status": "error"}},
+                    marker_prefix=runner_core.COMPLETION_MARKER_PREFIX,
+                ),
+            }
+        )
+        comments.append(
+            {
                 "id": 2,
                 "body": runner_core._build_marker(
                     42,
                     "codex",
-                    {"reservation_id": "attempt-2"},
+                    {
+                        "provider": "codex",
+                        "pr_number": 42,
+                        "status": "pending",
+                        "reservation_id": "attempt-2",
+                    },
                     marker_prefix=runner_core.RESERVATION_MARKER_PREFIX,
                 ),
             }
@@ -1849,10 +1865,26 @@ def test_pr_comment_completion_receipt_is_idempotent_and_cannot_cross_reservatio
 
     if existing == "same":
         assert requests == []
-    elif existing == "replace":
-        assert requests[0][0:2] == ("PATCH", "/repos/owner/repo/issues/comments/1")
     else:
-        assert requests[0][0:2] == ("POST", "/repos/owner/repo/issues/42/comments")
+        assert len(requests) == 1
+        if existing == "replace":
+            assert requests[0][0:2] == ("PATCH", "/repos/owner/repo/issues/comments/1")
+        else:
+            assert requests[0][0:2] == ("POST", "/repos/owner/repo/issues/42/comments")
+        posted = runner_core._extract_record(
+            requests[0][2]["body"],
+            42,
+            "codex",
+            marker_prefix=runner_core.COMPLETION_MARKER_PREFIX,
+        )
+        assert posted is not None and posted["reservation_id"] == "attempt-1"
+    if existing == "newer-reservation":
+        assert storage.read_record(42, "codex") == {
+            "provider": "codex",
+            "pr_number": 42,
+            "status": "pending",
+            "reservation_id": "attempt-2",
+        }
 
 
 def test_assemble_and_parse_cli_write_expected_github_outputs(
@@ -1917,19 +1949,25 @@ def test_authority_challenge_cli_reports_decision(
     ]
 
 
+@pytest.mark.parametrize("provider", ["autofix", "codex"])
 def test_autofix_completion_cli_honors_exit_code_and_evidence_cli_outputs(
-    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], provider: str
 ) -> None:
     storage = MemoryRunnerStorage()
     monkeypatch.setattr(runner_core, "_storage_from_name", lambda _name: storage)
+    captured = []
+
+    def capture_completion(*args, **kwargs):
+        captured.append(args[3])
+        return {"status": "completed", "key": "key", "productive": False}
+
+    monkeypatch.setattr(runner_core, "record_completion", capture_completion)
     monkeypatch.setattr(
         runner_core,
-        "record_completion",
-        lambda *_args, **_kwargs: {
-            "status": "completed",
-            "key": "key",
-            "productive": False,
-        },
+        "parse_runner_output",
+        lambda *_args: runner_core.RunnerResult(
+            provider=provider, success=True, final_message="no work", summary="no work"
+        ),
     )
     fingerprint = "a" * 64
 
@@ -1938,7 +1976,7 @@ def test_autofix_completion_cli_honors_exit_code_and_evidence_cli_outputs(
             [
                 "record-completion",
                 "--provider",
-                "autofix",
+                provider,
                 "--pr-number",
                 "42",
                 "--head-sha",
@@ -1953,6 +1991,14 @@ def test_autofix_completion_cli_honors_exit_code_and_evidence_cli_outputs(
         )
         == 0
     )
+    assert len(captured) == 1
+    assert captured[0].success is False
+    assert captured[0].summary == "no work"
+    if provider == "codex":
+        assert captured[0].error == "no work"
+    else:
+        assert captured[0].error is None
+
     assert (
         runner_core.main(
             [
