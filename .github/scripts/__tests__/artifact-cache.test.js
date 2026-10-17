@@ -298,6 +298,7 @@ test('discovery asks GitHub only for the requested artifact name', async () => {
     INPUT_ARTIFACT_NAME: 'gate-coverage-trend',
     INPUT_CACHE_KEY_BASE: 'gate-coverage-trend-4242',
     INPUT_FAIL_FAST: 'true',
+    INPUT_PRODUCER_BRANCH: 'main',
     INPUT_PRODUCER_RUN_ID: '4242',
     INPUT_WINDOW_RESOLUTION: 'weekly',
   });
