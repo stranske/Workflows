@@ -295,6 +295,11 @@ sub-ten-minute full Gate. The immutable historical comparison is unchanged.
 
 The existing dynamic `ci_test_growth` observer also writes one compact,
 atomic JSON record per pytest process into a fresh runner-temp directory.
+The controller exclusively claims that directory before tests run; only its xdist
+nodes receive the invocation token. Nested pytest controllers and their workers
+cannot replace the outer invocation's records. The workflow-tail regression uses
+its own GitHub environment file so its child resource directory cannot redirect
+the later hosted summary step.
 `Record CI summary` validates these records after artifact staging clears the
 restored runtime tree, then includes `pytest-resources.json` and
 `summary.json.worker_resources` in the existing runtime artifact. Coverage-disabled
@@ -314,8 +319,9 @@ node setup, including `auto`, rather than a guessed worker count.
 SELF CPU excludes child-process CPU and cannot by itself identify host contention.
 
 Active coverage core and branch mode are sampled from `Coverage.current()` after
-collection and only accepted when that instance is pytest-cov's controller
-instance. No new coverage object is created or started. Disabled/unavailable
+all session-start hooks and again after collection, and only accepted when that
+instance is pytest-cov's controller instance. The session-start hook also runs on
+the xdist controller, which does not perform collection. No new coverage object is created or started. Disabled/unavailable
 coverage is `UNKNOWN`; the separate existing pre-test branch probe is never used
 as a worker's active core. The controller records the actual checkout's
 `git rev-parse HEAD` before test execution, a bounded CPU-model string, and explicit

@@ -397,13 +397,17 @@ def test_embedded_junit_helper_matches_source_without_consumer_import():
     assert ast.dump(node) == ast.dump(ast.parse(inspect.getsource(junit_report)).body[0])
 
 
-def test_workflow_clears_stale_receipt_before_pytest_startup_error(tmp_path):
+def test_workflow_clears_stale_receipt_before_pytest_startup_error(tmp_path, monkeypatch):
+    hosted_env = tmp_path / "hosted-env"
+    hosted_env.write_text("CI_TEST_RESOURCE_DIR=outer-receipts\n")
+    monkeypatch.setenv("GITHUB_ENV", str(hosted_env))
     script = _steps()[PLUGIN_STEP]["run"]
     tail = script[script.index("# Clear stale evidence") :]
     (tmp_path / "pytest-collection.json").write_text('{"total": 9999}')
     env = {
         **os.environ,
         "RUNNER_TEMP": str(tmp_path),
+        "GITHUB_ENV": str(tmp_path / "child-env"),
         "PYTEST_ADDOPTS": "",
         "PATH": str(Path(sys.executable).parent) + os.pathsep + os.environ["PATH"],
     }
@@ -416,6 +420,10 @@ def test_workflow_clears_stale_receipt_before_pytest_startup_error(tmp_path):
     )
     assert result.returncode == pytest.ExitCode.USAGE_ERROR, result.stdout + result.stderr
     assert not (tmp_path / "pytest-collection.json").exists()
+    assert hosted_env.read_text() == "CI_TEST_RESOURCE_DIR=outer-receipts\n"
+    child_env = (tmp_path / "child-env").read_text()
+    assert child_env.startswith("CI_TEST_RESOURCE_DIR=")
+    assert "outer-receipts" not in child_env
 
 
 def test_actual_summary_refuses_junit_entity_expansion(tmp_path):
@@ -533,7 +541,7 @@ def test_resource_core_uses_current_pytest_cov_instance_not_a_probe(monkeypatch)
     assert "coverage" not in namespace["_resources"]
 
 
-def _run_resource_sample(tmp_path, coverage_enabled, observer=True):
+def _run_resource_sample(tmp_path, coverage_enabled, observer=True, nested=False):
     import time
 
     tmp_path.mkdir(parents=True, exist_ok=True)
@@ -559,6 +567,22 @@ def _run_resource_sample(tmp_path, coverage_enabled, observer=True):
     (tmp_path / "pyproject.toml").write_text(
         '[tool.coverage.run]\nbranch=true\nsource=["sample"]\n'
     )
+    if nested:
+        # Run after outer workers finish, when their final records already exist.
+        (tmp_path / "conftest.py").write_text(
+            "import subprocess, sys, tempfile\nfrom pathlib import Path\nimport pytest\n"
+            "@pytest.hookimpl(tryfirst=True)\n"
+            "def pytest_sessionfinish(session, exitstatus):\n"
+            "    if hasattr(session.config, 'workerinput'): return\n"
+            "    with tempfile.TemporaryDirectory() as directory:\n"
+            "        root = Path(directory)\n"
+            "        (root / 'test_nested.py').write_text('def test_nested(): assert True\\n')\n"
+            "        base = [sys.executable, '-m', 'pytest', '-p', 'ci_test_growth', '-q']\n"
+            "        for extra in (['-n', '2'], ['--collect-only']):\n"
+            "            result = subprocess.run(base + extra, cwd=root, capture_output=True, text=True)\n"
+            "            assert result.returncode == 0, result.stdout + result.stderr\n"
+        )
+
     env = {
         **os.environ,
         "PYTHONPATH": str(tmp_path),
@@ -646,6 +670,10 @@ def test_real_four_worker_resource_receipts_and_existing_artifact_path(tmp_path,
     assert report["status"] == "COMPLETE"
     assert report["expected_workers"] == 4
     assert report["controller"]["call_reports"] == 16
+    assert report["controller"]["coverage"]["status"] == (
+        "ACTIVE" if coverage_enabled else "UNKNOWN"
+    )
+    assert report["controller"]["coverage"]["branch"] is (True if coverage_enabled else None)
     expected_sha = subprocess.check_output(
         ["git", "rev-parse", "HEAD"], cwd=ROOT, text=True
     ).strip()
@@ -739,3 +767,17 @@ def test_resource_context_limits_cpu_metadata_and_unknown_cache_outputs(tmp_path
     assert context["cpu_model"] == "fixture CPU"
     assert all(value is None for value in context["cache"].values())
     assert "must-not-appear" not in json.dumps(context)
+
+
+def test_nested_pytest_cannot_replace_finished_outer_worker_receipts(tmp_path):
+    resources, _, _ = _run_resource_sample(tmp_path, True, nested=True)
+    controller = json.loads((resources / "controller.json").read_text())
+    workers = [json.loads((resources / f"gw{index}.json").read_text()) for index in range(4)]
+    assert controller["expected_workers"] == 4
+    assert controller["call_reports"] == sum(row["call_reports"] for row in workers) == 16
+    assert all(row["coverage"]["status"] == "ACTIVE" for row in workers)
+    assert controller["coverage"]["status"] == "ACTIVE"
+    assert (
+        controller["context"]["tested_sha"]
+        == subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
+    )

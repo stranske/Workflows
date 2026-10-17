@@ -2139,7 +2139,21 @@ jobs:
                       if not isinstance(worker, str) or re.fullmatch(r"controller|gw[0-9]+", worker) is None:
                           _resources = None
                           return
+                      # A nested pytest inherits the directory, but not ownership of
+                      # this invocation's fixed controller/worker record names.
+                      owner_path = Path(directory) / "owner.json"
+                      if worker == "controller":
+                          import uuid
+
+                          owner_token = uuid.uuid4().hex
+                          with owner_path.open("x") as handle:
+                              json.dump({"token": owner_token}, handle)
+                      else:
+                          owner_token = json.loads(owner_path.read_text())["token"]
+                          if getattr(config, "workerinput", {}).get("ci_resource_owner") != owner_token:
+                              return
                       _resources = {"worker_id": worker, "python": platform.python_version(),
+                                    "_owner_token": owner_token,
                                     "coverage": {"status": "UNKNOWN", "core": None, "branch": None},
                                     "call_reports": 0, "_start": time.monotonic(),
                                     "_user": usage.ru_utime, "_system": usage.ru_stime}
@@ -2202,6 +2216,12 @@ jobs:
                   _expected_workers = len(specs)
 
 
+              @pytest.hookimpl(optionalhook=True)
+              def pytest_configure_node(node):
+                  if _resources is not None:
+                      node.workerinput["ci_resource_owner"] = _resources["_owner_token"]
+
+
               def pytest_runtest_logreport(report):
                   if _resources is not None and report.when == "call":
                       _resources["call_reports"] += 1
@@ -2246,10 +2266,15 @@ jobs:
                       "source": "selected pytest node IDs; controller collection",
                   }, indent=2), encoding="utf-8")
 
+              @pytest.hookimpl(wrapper=True, tryfirst=True)
               def pytest_sessionstart(session):
                   _resource_start(session.config)
                   if not hasattr(session.config, "workerinput"):
                       Path("pytest-collection.json").unlink(missing_ok=True)
+                  yield
+                  # Sample only pytest-cov's genuinely active instance, after its
+                  # session-start hook; xdist's controller never collects tests.
+                  _resource_coverage(session.config)
 
               def pytest_collectreport(report):
                   global _collection_failed
