@@ -126,8 +126,8 @@ def test_component_helper_executes_all_body_comment_floor_states(monkeypatch, mi
     assert not pending
     assert len(observed) == 4
     assert set(observed) == {
-        (missing, missing, "CONCERNS"),
-        ("present", missing, "CONCERNS"),
+        (missing, missing, "UNVERIFIABLE_INPUT" if missing == "unavailable" else "CONCERNS"),
+        ("present", missing, "UNVERIFIABLE_INPUT" if missing == "unavailable" else "CONCERNS"),
         (missing, "present", "PASS"),
         ("present", "present", "PASS"),
     }

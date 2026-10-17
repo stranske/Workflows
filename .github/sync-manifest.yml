@@ -110,7 +110,7 @@ workflows:
 
   # Post-merge trusted-base execution, job-scoped permissions and declared secrets.
   - source: .github/workflows/agents-verifier.yml
-    description: "Verifier - validates acceptance criteria with standard or bounded expanded evidence/full-diff recovery; profile participates in consumer state fingerprint"
+    description: "Verifier - validates acceptance criteria and closes source issues on PASS or guarded UNVERIFIABLE_INPUT; caller-owned closure preserves existing reusable permissions"
 
   - source: .github/workflows/list-llm-models.yml
     description: "List LLM Models - helper to show available models for verifier"
@@ -596,6 +596,9 @@ scripts:
   - source: .github/scripts/post_completion_comment.js
     description: "Posts completion comments on PRs"
 
+  - source: .github/scripts/verifier_closure.js
+    description: "Closes source issues on verifier PASS or exact-merge deterministic gates and green CI for UNVERIFIABLE_INPUT"
+
   - source: .github/scripts/verifier_ci_query.js
     description: "Queries CI status for verifier workflow"
 
@@ -794,7 +797,7 @@ scripts:
     # Exact facts come from managed registry/helper validation; expanded v7 retains
     # up to 524288 evidence characters before unchanged native capacity preflight.
     # Reusable expanded aggregation imports the fresh Workflows checkout, not stale caller code.
-    # standard shared builders and invocation remain unchanged. Existing copy scope.
+    # Standard review uses whole-file chunks with explicit UNVERIFIABLE_INPUT. Existing copy scope.
     # Opt-in expanded diagnostic partitions preserve all loaded input ranges and
     # findings within native-count bounds; global dependencies always withhold PASS.
     # Every diagnostic request repeats the complete governing plan without clipping.

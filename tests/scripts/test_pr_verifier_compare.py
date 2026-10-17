@@ -403,8 +403,8 @@ def test_comparison_withholds_pass_for_late_required_omission(monkeypatch, omiss
     monkeypatch.setattr(pr_verifier, "_get_llm_clients", lambda m1=None, m2=None: clients)
     results = pr_verifier.evaluate_pr_multiple(incomplete)
     assert len(results) == 2
-    assert calls == ["first", "second"]
-    assert all(result.verdict == "CONCERNS" for result in results)
+    assert calls == []
+    assert all(result.verdict == "UNVERIFIABLE_INPUT" for result in results)
     assert all(not result.input_coverage["sufficient"] for result in results)
 
 
@@ -426,9 +426,11 @@ def test_comparison_consumes_linked_issue_discovery(monkeypatch, status, require
     ]
     monkeypatch.setattr(pr_verifier, "_get_llm_clients", lambda m1=None, m2=None: clients)
     results = pr_verifier.evaluate_pr_multiple(context)
-    assert calls == ["first", "second"]
     blocked = required and status != "included"
-    assert [result.verdict for result in results] == ["CONCERNS" if blocked else "PASS"] * 2
+    assert calls == ([] if blocked else ["first", "second"])
+    assert [result.verdict for result in results] == [
+        "UNVERIFIABLE_INPUT" if blocked else "PASS"
+    ] * 2
     assert all(result.input_coverage["sufficient"] is not blocked for result in results)
     assert all(
         result.input_coverage["acceptance_source_discovery"]

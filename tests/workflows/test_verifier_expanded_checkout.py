@@ -49,4 +49,4 @@ def test_missing_authoritative_checkout_never_falls_back_to_caller(tmp_path, mon
     empty_source.mkdir()
     monkeypatch.setattr(authored, "ROOT", empty_source)
     outputs = authored.run_workflow(tmp_path, {"results": authored._arms()})
-    assert outputs["verdict"] == outputs["unified"] == "CONCERNS", outputs
+    assert outputs["verdict"] == outputs["unified"] == "UNVERIFIABLE_INPUT", outputs

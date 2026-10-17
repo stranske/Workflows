@@ -149,3 +149,12 @@ def test_cli_handles_indented_and_incomplete_verdict_json(
 
     assert data["verdict"] == expected_verdict
     assert data["needs_attention"] is expected_attention
+
+
+def test_unverifiable_input_preserves_unreviewed_file_contract():
+    result = verdict_parser.build_verdict(
+        '```json\n{"verdict":"UNVERIFIABLE_INPUT","files_not_reviewed":["large.py"]}\n```'
+    )
+    assert result["verdict"] == "unverifiable-input"
+    assert result["files_not_reviewed"] == ["large.py"]
+    assert result["needs_attention"] is True
