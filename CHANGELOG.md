@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.41.1](https://github.com/stranske/Workflows/compare/v1.41.0...v1.41.1) (2026-10-17)
+
+
+### Bug Fixes
+
+* **keepalive:** switch agents immediately on provider rate limits ([#3997](https://github.com/stranske/Workflows/issues/3997)) ([992e312](https://github.com/stranske/Workflows/commit/992e31201c538c6c46975597b4f0f9221b743ae2))
+* **verifier:** accept complete fenced semantic JSON responses ([#4017](https://github.com/stranske/Workflows/issues/4017)) ([d1070dc](https://github.com/stranske/Workflows/commit/d1070dc4dd8346b3bb66bc7515fdef02a4c6dd18))
+
 ## [1.41.0](https://github.com/stranske/Workflows/compare/v1.40.1...v1.41.0) (2026-10-17)
 
 
