@@ -538,7 +538,9 @@ def test_post_ci_helpers_preserve_safe_empty_and_fallback_rendering(tmp_path: Pa
     downloads = artifacts / "downloads"
     downloads.mkdir(parents=True)
     (downloads / "summary.json").write_text('{"checks": {}}', encoding="utf-8")
-    (downloads / "bad-summary.json").write_text("{", encoding="utf-8")
+    malformed = downloads / "malformed"
+    malformed.mkdir()
+    (malformed / "summary.json").write_text("{", encoding="utf-8")
     junit = downloads / "pytest-junit.xml"
     junit.write_text(
         '<testcase name="no-location"><error>plain failure</error></testcase>', encoding="utf-8"
