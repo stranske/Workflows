@@ -310,7 +310,9 @@ test('TOKEN_CAPABILITIES: statuses is held by GITHUB_TOKEN and PAT but NOT by AP
 /** Register a single token of one type, healthy, so eligibility alone decides the answer. */
 function seedOnly(type) {
   balancer.tokenRegistry.tokens.clear();
-  balancer.tokenRegistry.lastRefresh = 0;
+  // Keep lastRefresh fresh so getOptimalToken does not call refreshAllRateLimits against
+  // fake credentials (401 → invalidAuth / remaining 0), which would mask capability checks.
+  balancer.tokenRegistry.lastRefresh = Date.now();
   balancer.registerToken({
     id: type,
     token: `fake-token-${type}`,
@@ -345,7 +347,9 @@ test('a broad write-repo request still accepts APP, so the fix narrowed nothing 
 
 test('statuses:write with only an APP registered returns no token rather than a doomed one', async () => {
   balancer.tokenRegistry.tokens.clear();
-  balancer.tokenRegistry.lastRefresh = 0;
+  // Same as seedOnly: avoid rate-limit refresh against the fake token so a null selection
+  // means the statuses capability filter worked, not invalidAuth from a 401.
+  balancer.tokenRegistry.lastRefresh = Date.now();
   balancer.registerToken({
     id: 'APP',
     token: 'fake-token-APP',
