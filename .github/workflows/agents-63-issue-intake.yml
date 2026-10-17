@@ -1361,6 +1361,8 @@ jobs:
             .github/actions/setup-api-client
             .github/agents/registry.yml
             .github/scripts/agent_delegation_policy.js
+            .github/scripts/rate_limit_receipt.js
+            .github/scripts/rate_limit_receipt.json
             .github/scripts/agent_registry.js
             .github/scripts/error_classifier.js
             .github/scripts/github-api-with-retry.js
