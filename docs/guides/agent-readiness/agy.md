@@ -98,3 +98,54 @@ Re-run section 2 when any of these happens:
   write step in the runner (an environment variable alone is not enough), a runner-side
   assertion that the working tree changed, and a decision about whether API or project billing is
   acceptable for unattended rounds.
+
+## 7. Making better local use of the capacity
+
+Hosted CI is closed to `agy` for now, but a supervised local seat can still be used better. Evidence
+labels: **measured** (read from the Orchestrator's own ledger or the CLI, 2026-10-17), **documented**
+(vendor or Orchestrator notes), **unknown**.
+
+### What is known about the seat
+
+- **Plan and meter** (documented): a prepaid, compute-metered plan with a five-hour refresh and a
+  higher weekly ceiling. Google publishes no numeric quota. The meter weighs request complexity, tools
+  used and accumulated conversation length.
+- **Fixed overhead per call** (measured): a one-word prompt reported 12,844 input tokens, so every
+  call carries a large fixed context cost. Many small calls are therefore expensive on a
+  compute-metered seat; batching related questions into one call is cheaper.
+- **Use** (measured, ledger estimates, not true headroom): about 138 starts and 145 estimated units in
+  7 days against a locally assumed 280-unit weekly soft cap; in 14 days, roughly 43% of five-hour
+  blocks had no agy use at all, and mean use was 2.6 of an assumed 8 units per block. Whether the real
+  limits allow far more is **unknown**: the soft caps are the Orchestrator's own estimates, and an
+  actual rate-limit or shed history has not been measured.
+- **Routing** (measured in the router): agy is primary for epic, cross-repo and runtime-AC work, and a
+  fallback for testgen, review and codemod. Drain mode biases routing toward agy in the last 90 minutes
+  of a block, but only for six kinds of work, and nothing queues extra work to fill an idle block.
+
+### Options, in the order worth trying
+
+| # | Option | Why it fits agy | Risk and mitigation | Cheapest test |
+| --- | --- | --- | --- | --- |
+| 1 | **Third judge in local verification** (and the judge screen). `agy-cli` is already a backend of `tools/run_judge_backend_screen.py` | A different model family than the incumbents, with schema-constrained output (`--json-schema`) | Silent success and soft permission denials: the backend uses `--mode plan`, an explicit model, a scratch workspace, and treats an empty response as an error | Screen it on the frozen corpus with the other judges and read the ensemble analysis |
+| 2 | **Use-it-or-lose-it drain queue**: a scheduled job that, in the last 90 minutes of a block with spare units, dispatches queued read-style jobs | 43% of blocks idle (ledger estimate) | Queue only report-producing jobs; apply any change through diff review | Count blocks that enter drain with fewer than 8 units over one week before building anything |
+| 3 | **Long-context read-only audits** of a repository or a cross-repo question | Large context window, and the router already sends epic and cross-repo work here | No read-only mode: run against a disposable copy and require a clean `git status` afterwards | Audit one repository with known defects and score recall against the existing findings |
+| 4 | **Evaluator arm** in the A/B/C/D experiment harness | Already the last top-up evaluator, excluded from the ranking mean | Its own scratch directory per arm | Score agreement with the other evaluators |
+| 5 | **Testgen** at the Flash tier | Cheap tier, machine ground truth from the testgen gate | Gate decides, never the model's own claim | Compare gate pass rate on 10 jobs against the incumbent |
+| 6 | **Batched structured calls** with stream-json input and `--json-schema` | Amortises the fixed per-call overhead above | Reject empty or schemaless results | 20 jobs; count empty-result failures and units per job |
+| 7 | **Its Claude and GPT-OSS models as an extra pool** when the Claude or Codex pools are exhausted | The router exposes them under one login | **Unknown** whether they draw the same meter, and provenance must record the model that actually served | One run per model, compare metered units |
+| 8 | Plugins or MCP exposing **read-only** repository tools | `agy plugin validate --strict --json` gives a CI-checkable report | Tools widen write reach: expose only read-only ones | Validate a plugin, query one read-only tool |
+
+`agy remote-control` is an attended, browser-driven mode and is not an unattended option.
+
+### Rule checks
+
+- **Subscription over API spend:** every option uses the subscription login. One risk to close first:
+  AI credits are described as overage-only, so confirm the account cannot auto-spend credits.
+- **Never write outside the workspace:** the guards that actually hold are the Orchestrator's
+  macOS sandbox profile and the refusal of any broad workspace. They are refused when nested or when the
+  sandbox tool is missing. Read-only jobs should use a disposable copy rather than trust the CLI.
+- **The `gemini` key spans two different things.** The Orchestrator's router lists `gemini` among the
+  agents hosted keepalive may run, and in Workflows the hosted `gemini` runner is the older Gemini CLI
+  on an API key, whereas the local seat is `agy` on a subscription login. They bill differently and
+  fail differently. Give the local seat its own name before any routing or ledger decision depends on
+  the distinction.
