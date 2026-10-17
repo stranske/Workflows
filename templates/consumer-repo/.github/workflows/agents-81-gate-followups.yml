@@ -1110,12 +1110,17 @@ jobs:
               EXIT_CODE=1
             fi
           fi
+          COMPLETION_REASON=$(node -e '
+            const { classifyCompletion } = require("./.github/scripts/keepalive_loop.js");
+            process.stdout.write(classifyCompletion(process.env.SUMMARY, process.env.EXIT_CODE));
+          ')
           python -m scripts.runner_lib record-completion \
             --provider "$PROVIDER" \
             --pr-number "$PR_NUMBER" \
             --head-sha "$HEAD_SHA" \
             --summary "$SUMMARY" \
             --exit-code "$EXIT_CODE" \
+            --completion-reason "$COMPLETION_REASON" \
             --produced-work "$PRODUCED_WORK" \
             --observed-head-sha "$OBSERVED_HEAD_SHA" \
             --task-progress-after "$TASK_PROGRESS_AFTER" \

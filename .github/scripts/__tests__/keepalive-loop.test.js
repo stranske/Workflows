@@ -201,6 +201,7 @@ const buildGithubStub = ({
   failNeedsHumanLabel = false,
   failNeedsAttentionLabel = false,
   failNeedsAttentionRemoval = false,
+  failRemoveLabelStatusByName = {},
   failStateCommentWriteAt = 0,
   failWorkflowDispatch = false,
   authorityReceipt = false,
@@ -385,6 +386,11 @@ const buildGithubStub = ({
           if (failNeedsAttentionRemoval && name === 'agent:needs-attention') {
             actions.push({ type: 'remove-label-failed', name });
             throw new Error('simulated attention label removal failure');
+          }
+          if (Object.prototype.hasOwnProperty.call(failRemoveLabelStatusByName, name)) {
+            const status = failRemoveLabelStatusByName[name];
+            actions.push({ type: 'remove-label-failed', name, status });
+            throw Object.assign(new Error(`simulated removeLabel ${status}`), { status });
           }
           actions.push({ type: 'remove-label', name });
           currentLabels.delete(name);
@@ -7495,6 +7501,349 @@ for (const loopPath of ['../keepalive_loop', '../../../templates/consumer-repo/.
   });
 }
 
+// Exercise the real Python writer and its reservation/receipt schema. Only the
+// GitHub transport is replayed; classification, persistence and evaluation are real.
+function replayCompletion({
+  output, exitCode, provider = 'codex', progressed = false, loopPath = '../keepalive_loop.js',
+  reason,
+}) {
+  const { classifyCompletion } = require(loopPath);
+  const { spawnSync } = require('node:child_process');
+  const python = process.env.PYTHON || 'python3';
+  const result = spawnSync(python, ['-c', `
+import contextlib, io, json, sys
+from scripts.runner_lib import core
+payload = json.load(sys.stdin)
+provider = payload['provider']
+reservation = dict(provider=provider, pr_number=3989, head_sha='sha-3989',
+                   key=core._runner_key(3989, 'sha-3989', provider), status='pending',
+                   reservation_id=provider + '-attempt', started_at='2026-10-16T00:00:00Z')
+class Api:
+    repo = 'octo/workflows'
+    def __init__(self):
+        self.comments = [dict(id=1, body=core._build_marker(3989, provider, reservation,
+                            marker_prefix=core.RESERVATION_MARKER_PREFIX),
+                            user=dict(login='github-actions[bot]'))]
+    def request(self, method, path, body=None):
+        if path == '/graphql':
+            return dict(data=dict(repository=dict(pullRequest=dict(comments=dict(
+                nodes=[dict(databaseId=c['id'], body=c['body'],
+                            author=dict(login='github-actions', __typename='Bot'),
+                            authorAssociation='NONE') for c in self.comments],
+                pageInfo=dict(hasPreviousPage=False, startCursor='1',
+                              hasNextPage=False, endCursor='1'))))))
+        assert method == 'POST' and path.endswith('/issues/3989/comments')
+        comment = dict(id=len(self.comments)+1, body=body['body'], user=dict(login='github-actions[bot]'))
+        self.comments.append(comment)
+        return comment
+api = Api()
+core._storage_from_name = lambda name: core.PrCommentRunnerStorage(api)
+with contextlib.redirect_stdout(io.StringIO()):
+    core.main(['record-completion', '--provider', provider, '--pr-number', '3989',
+               '--head-sha', 'sha-3989', '--summary', payload['output'],
+               '--exit-code', str(payload['exitCode']), '--produced-work', str(payload['progressed']).lower(),
+               '--completion-reason', payload['reason']])
+record = core.PrCommentRunnerStorage(api).read_record(3989, provider)
+print(json.dumps(dict(comments=api.comments, record=record)))
+`], {
+    input: JSON.stringify({ output, exitCode, provider, progressed,
+      reason: reason || classifyCompletion(output, exitCode) }), encoding: 'utf8',
+  });
+  assert.equal(result.status, 0, result.stderr);
+  return JSON.parse(result.stdout);
+}
+
+test('classifyCompletion covers provider quota, HTTP 429, failure and clean success', () => {
+  const { classifyCompletion } = require('../keepalive_loop.js');
+  assert.equal(classifyCompletion("You've hit your usage limit. Try again at 9:01 PM", 1), 'rate_limited');
+  assert.equal(classifyCompletion('Cursor request failed: HTTP 429 Too Many Requests', 1), 'rate_limited');
+  assert.equal(classifyCompletion('provider quota exceeded', 0), 'rate_limited');
+  assert.equal(classifyCompletion('Rate limit exceeded', 1), 'rate_limited');
+  assert.equal(classifyCompletion('', 429), 'rate_limited');
+  assert.equal(classifyCompletion('Unexpected crash', 1), 'failed');
+  assert.equal(classifyCompletion('Finished implementing the task', 0), 'progressed');
+  assert.equal(classifyCompletion('', 0), 'no_progress');
+  assert.equal(classifyCompletion('Implemented quota reporting', 0, true), 'progressed');
+  assert.equal(classifyCompletion('Documented rate limit behavior', 0), 'progressed');
+  assert.equal(classifyCompletion('rate limits exceeded', 1), 'rate_limited');
+  assert.equal(classifyCompletion('usage limits exceeded', 1), 'rate_limited');
+  assert.equal(classifyCompletion('quota exceeded', 1, true), 'progressed');
+});
+
+for (const loopPath of [
+  '../keepalive_loop.js',
+  '../../../templates/consumer-repo/.github/scripts/keepalive_loop.js',
+]) {
+  test(`exit-zero quota classification yields to actual productivity (${loopPath})`, () => {
+    const { classifyCompletion } = require(loopPath);
+    for (const output of [
+      "You've hit your usage limit. Try again at 9:01 PM",
+      'Cursor request failed: HTTP 429 Too Many Requests',
+      'Implemented regressions for "provider quota exceeded" and "HTTP 429" responses.',
+    ]) {
+      // Providers can exit zero after an unsuccessful turn. A zero exit alone
+      // cannot clear backoff; measured work does, even if quota text is quoted.
+      assert.equal(classifyCompletion(output, 0), 'rate_limited');
+      assert.equal(classifyCompletion(output, 0, true), 'progressed');
+      const blocked = replayCompletion({ output, exitCode: 0, loopPath }).record;
+      assert.equal(blocked.result.success, true);
+      assert.equal(blocked.productive, false);
+      assert.equal(blocked.completion.reason, 'rate_limited');
+      assert.ok(blocked.completion.expires_at);
+
+      // Workflow callers send the two-argument classification to Python, which
+      // must override it with the separately measured productivity observation.
+      const productive = replayCompletion({
+        output, exitCode: 0, progressed: true, loopPath,
+      }).record;
+      assert.equal(productive.productive, true);
+      assert.equal(productive.completion.reason, 'progressed');
+      assert.equal(productive.completion.expires_at, undefined);
+    }
+  });
+}
+
+test('retry advice alone does not classify a completion as provider quota', () => {
+  for (const modulePath of [
+    '../keepalive_loop.js',
+    '../../../templates/consumer-repo/.github/scripts/keepalive_loop.js',
+  ]) {
+    const { classifyCompletion } = require(modulePath);
+    for (const output of [
+      'Connection reset. Try again in 30 seconds.',
+      'Service unavailable (HTTP 503). Try again at 9:01 PM.',
+    ]) {
+      assert.equal(classifyCompletion(output, 1), 'failed', `${modulePath}: ${output}`);
+    }
+    assert.equal(classifyCompletion('Implemented the "try again in 30 seconds" message', 0), 'progressed');
+  }
+  for (const output of [
+    'Connection reset. Try again in 30 seconds.',
+    'Service unavailable (HTTP 503). Try again at 9:01 PM.',
+  ]) {
+    assert.equal(replayCompletion({ output, exitCode: 1 }).record.completion.reason, 'failed', output);
+  }
+});
+
+// Deliberate-break durable form of the acceptance gate: the same quota text
+// with a forced no_progress receipt must not switch; restoring rate_limited must.
+test('deliberate-break: same-evaluate switch requires persisted rate_limited classification', async () => {
+  const previousFetch = global.fetch;
+  const keys = ['HAS_CODEX_AUTH', 'HAS_CLAUDE_OAUTH', 'HAS_CURSOR_AUTH'];
+  const previousEnv = Object.fromEntries(keys.map((key) => [key, process.env[key]]));
+  keys.forEach((key) => { process.env[key] = 'true'; });
+  global.fetch = async () => ({ status: 200, json: async () => ({
+    schema: 'orchestrator.route-weights/v2', generated_at: new Date().toISOString(),
+    task_types: { implement: { evidence_ok: true, ranking: [
+      { agent: 'claude', pool_state: 'exhausted' }, { agent: 'cursor', pool_state: 'ok' },
+    ] } },
+  }) });
+  const quota = "You've hit your usage limit. Try again at 9:01 PM";
+  try {
+    const pr = { number: 3989, head: { sha: 'sha-3989', ref: 'codex/issue-3989' },
+      labels: [{ name: 'agent:auto' }, { name: 'agent:codex' }, { name: 'agents:keepalive' }],
+      body: prBodyFixture };
+    // Mimic classifyCompletion returning no_progress for quota text: persist that
+    // reason through the writer (exit 0 keeps no_progress; exit 1 remaps to failed).
+    const broken = replayCompletion({ output: quota, exitCode: 0, reason: 'no_progress' });
+    assert.equal(broken.record.completion.reason, 'no_progress');
+    const brokenGithub = buildGithubStub({ pr, comments: broken.comments,
+      workflowRuns: [{ head_sha: 'sha-3989', conclusion: 'success' }] });
+    const brokenResult = await evaluateKeepaliveLoop({
+      github: brokenGithub, context: buildContext(3989), core: buildCore(),
+    });
+    assert.equal(brokenResult.agentType, 'codex',
+      'forced no_progress must not drive an immediate rate-limit switch');
+    assert.equal(brokenResult.delegationShouldSwitch, false);
+    assert.ok(!brokenGithub.actions.some((a) => a.type === 'label' && a.labels.includes('agent:rate-limited')));
+
+    const restored = replayCompletion({ output: quota, exitCode: 0 });
+    assert.equal(restored.record.completion.reason, 'rate_limited');
+    const restoredGithub = buildGithubStub({ pr, comments: restored.comments,
+      workflowRuns: [{ head_sha: 'sha-3989', conclusion: 'success' }] });
+    const restoredResult = await evaluateKeepaliveLoop({
+      github: restoredGithub, context: buildContext(3989), core: buildCore(),
+    });
+    assert.equal(restoredResult.agentType, 'cursor',
+      'restored rate_limited classification must switch in the same evaluate');
+    assert.equal(restoredResult.delegationShouldSwitch, true);
+    assert.match(restoredResult.delegationReason, /codex-rate-limited/);
+  } finally {
+    global.fetch = previousFetch;
+    for (const [key, value] of Object.entries(previousEnv)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  }
+});
+
+test('persisted provider quota drives same-evaluate switch with zero stalled rounds and clears on progress', async () => {
+  const previousFetch = global.fetch;
+  const keys = ['HAS_CODEX_AUTH', 'HAS_CLAUDE_OAUTH', 'HAS_CURSOR_AUTH'];
+  const previousEnv = Object.fromEntries(keys.map((key) => [key, process.env[key]]));
+  keys.forEach((key) => { process.env[key] = 'true'; });
+  global.fetch = async () => ({ status: 200, json: async () => ({
+    schema: 'orchestrator.route-weights/v2', generated_at: new Date().toISOString(),
+    task_types: { implement: { evidence_ok: true, ranking: [
+      { agent: 'claude', pool_state: 'exhausted' }, { agent: 'cursor', pool_state: 'ok' },
+    ] } },
+  }) });
+  try {
+    const pr = { number: 3989, head: { sha: 'sha-3989', ref: 'codex/issue-3989' },
+      labels: [{ name: 'agent:auto' }, { name: 'agent:codex' }, { name: 'agents:keepalive' }],
+      body: prBodyFixture };
+    const replay = replayCompletion({ output: "You've hit your usage limit. Try again at 9:01 PM", exitCode: 1 });
+    const github = buildGithubStub({ pr, comments: replay.comments,
+      workflowRuns: [{ head_sha: 'sha-3989', conclusion: 'success' }] });
+    const result = await evaluateKeepaliveLoop({ github, context: buildContext(3989), core: buildCore() });
+    // Assert behavior before inspecting the persisted field: mutation must fail
+    // this integrated switch, not merely a classifier unit assertion.
+    assert.equal(result.agentType, 'cursor', 'persisted quota must switch in the same evaluate');
+    assert.equal(result.action, 'run');
+    assert.equal(result.delegationShouldSwitch, true);
+    assert.match(result.delegationReason, /codex-rate-limited/);
+    assert.equal(replay.record.completion.reason, 'rate_limited');
+    assert.ok(github.actions.some((a) => a.type === 'label' && a.labels.includes('agent:rate-limited')));
+    assert.ok(github.actions.some((a) => a.type === 'label' && a.labels.includes('agents:tried-codex')));
+    assert.ok(github.actions.some((a) => a.type === 'remove-label' && a.name === 'agent:codex'));
+    assert.ok(github.actions.some((a) => a.type === 'label' && a.labels.includes('agent:cursor')));
+
+    const success = replayCompletion({ output: 'Implemented and tested the task', exitCode: 0,
+      provider: 'cursor', progressed: true });
+    assert.equal(success.record.completion.reason, 'progressed');
+    // Both providers' receipts remain visible, as on a live PR. New comment IDs
+    // preserve completion order even when the writer's timestamps share a second.
+    const progressedPr = { ...pr, labels: [{ name: 'agent:auto' }, { name: 'agent:cursor' },
+      { name: 'agents:keepalive' }, { name: 'agent:rate-limited' }, { name: 'agents:tried-codex' }] };
+    const next = buildGithubStub({ pr: progressedPr, comments: [
+      ...replay.comments, ...success.comments.map((comment) => ({ ...comment, id: comment.id + 100 })),
+    ],
+      workflowRuns: [{ head_sha: 'sha-3989', conclusion: 'success' }] });
+    await evaluateKeepaliveLoop({ github: next, context: buildContext(3989), core: buildCore() });
+    assert.ok(next.actions.some((a) => a.type === 'remove-label' && a.name === 'agent:rate-limited'));
+
+    // A 404 clearing one tried-* label must not skip the rest or rate-limited cleanup.
+    const multiTriedPr = { ...pr, labels: [{ name: 'agent:auto' }, { name: 'agent:cursor' },
+      { name: 'agents:keepalive' }, { name: 'agent:rate-limited' },
+      { name: 'agents:tried-codex' }, { name: 'agents:tried-claude' }] };
+    const resilient = buildGithubStub({ pr: multiTriedPr, comments: [
+      ...replay.comments, ...success.comments.map((comment) => ({ ...comment, id: comment.id + 200 })),
+    ],
+      workflowRuns: [{ head_sha: 'sha-3989', conclusion: 'success' }],
+      failRemoveLabelStatusByName: { 'agents:tried-claude': 404 } });
+    await evaluateKeepaliveLoop({ github: resilient, context: buildContext(3989), core: buildCore() });
+    assert.ok(resilient.actions.some((a) => a.type === 'remove-label-failed'
+      && a.name === 'agents:tried-claude' && a.status === 404));
+    assert.ok(resilient.actions.some((a) => a.type === 'remove-label' && a.name === 'agents:tried-codex'));
+    assert.ok(resilient.actions.some((a) => a.type === 'remove-label' && a.name === 'agent:rate-limited'));
+
+    const noProgress = replayCompletion({ output: 'Finished', exitCode: 0 });
+    assert.equal(noProgress.record.completion.reason, 'no_progress');
+    const stalled = buildGithubStub({ pr: progressedPr, comments: noProgress.comments,
+      workflowRuns: [{ head_sha: 'sha-3989', conclusion: 'success' }] });
+    await evaluateKeepaliveLoop({ github: stalled, context: buildContext(3989), core: buildCore() });
+    assert.ok(!stalled.actions.some((a) => a.type === 'remove-label' && a.name === 'agent:rate-limited'));
+
+    const retryFailure = replayCompletion({ output: 'Connection reset. Try again in 30 seconds.', exitCode: 1 });
+    const retry = buildGithubStub({ pr, comments: retryFailure.comments,
+      workflowRuns: [{ head_sha: 'sha-3989', conclusion: 'success' }] });
+    const retryResult = await evaluateKeepaliveLoop({ github: retry, context: buildContext(3989), core: buildCore() });
+    assert.equal(retryResult.agentType, 'codex', 'ordinary retry advice must not rotate agents');
+    assert.equal(retryResult.delegationShouldSwitch, false);
+    assert.ok(!retry.actions.some((a) => a.type === 'label' && a.labels.includes('agent:rate-limited')));
+
+    const cursorQuota = replayCompletion({ output: 'Cursor: HTTP 429 Too Many Requests', exitCode: 1,
+      provider: 'cursor' });
+    assert.equal(cursorQuota.record.completion.reason, 'rate_limited');
+    const explicitPr = { ...pr, labels: [{ name: 'agent:cursor' }, { name: 'agents:keepalive' }] };
+    const explicit = buildGithubStub({ pr: explicitPr, comments: cursorQuota.comments,
+      workflowRuns: [{ head_sha: 'sha-3989', conclusion: 'success' }] });
+    const explicitResult = await evaluateKeepaliveLoop({ github: explicit, context: buildContext(3989), core: buildCore() });
+    assert.equal(explicitResult.agentType, 'cursor');
+    assert.equal(explicitResult.delegationShouldSwitch, false);
+    assert.ok(explicit.actions.some((a) => a.type === 'label' && a.labels.includes('agent:rate-limited')));
+
+    const exhaustedPr = { ...pr, labels: [...pr.labels, { name: 'agents:tried-cursor' }] };
+    const exhausted = buildGithubStub({ pr: exhaustedPr, comments: replay.comments,
+      workflowRuns: [{ head_sha: 'sha-3989', conclusion: 'success' }] });
+    const exhaustedResult = await evaluateKeepaliveLoop({ github: exhausted, context: buildContext(3989), core: buildCore() });
+    assert.equal(exhaustedResult.action, 'wait');
+    assert.equal(exhaustedResult.reason, 'rate-limited-no-alternatives');
+
+    // Pool exhausted: expiry must reach a runnable round, without a completion
+    // from the provider that was forbidden to run.
+    const { RATE_LIMIT_RECEIPT_TTL_HOURS } = require('../rate_limit_receipt');
+    const old = new Date(Date.now() - (RATE_LIMIT_RECEIPT_TTL_HOURS + 1) * 3600000).toISOString();
+    const expiredComments = replay.comments.map(comment => ({ ...comment,
+      body: comment.body.replace(/base64:([A-Za-z0-9+/=]+)/g, (_, encoded) => {
+        const payload = JSON.parse(Buffer.from(encoded, 'base64').toString());
+        if (payload.record) payload.record.completed_at = old;
+        return 'base64:' + Buffer.from(JSON.stringify(payload)).toString('base64');
+      }),
+    }));
+    const drained = buildGithubStub({ pr: { ...exhaustedPr,
+      labels: [...exhaustedPr.labels, { name: 'agent:rate-limited' }, { name: 'agents:tried-codex' }] },
+      comments: expiredComments, workflowRuns: [{ head_sha: 'sha-3989', conclusion: 'success' }] });
+    const drainedLogs = [];
+    const drainedCore = { ...buildCore(), info: message => drainedLogs.push(message) };
+    const drainedResult = await evaluateKeepaliveLoop({ github: drained, context: buildContext(3989), core: drainedCore });
+    assert.equal(drainedResult.agentType, 'codex', 'expired exhausted pool reopens original provider');
+    assert.equal(drainedResult.action, 'run');
+    assert.ok(drainedLogs.includes('rate_limited receipt expired; codex eligible'));
+    assert.ok(drained.actions.some(a => a.type === 'remove-label' && a.name === 'agents:tried-codex'));
+    assert.ok(drained.actions.some(a => a.type === 'remove-label' && a.name === 'agent:rate-limited'));
+    const productiveQuota = replayCompletion({ output: 'Pushed quota exceeded handling', exitCode: 1, progressed: true });
+    assert.equal(productiveQuota.record.completion.reason, 'progressed');
+    const expires = Date.parse(replay.record.completion.expires_at) - Date.parse(replay.record.completed_at);
+    assert.equal(expires, RATE_LIMIT_RECEIPT_TTL_HOURS * 3600000);
+    assert.ok(next.actions.some(a => a.type === 'remove-label' && a.name === 'agents:tried-codex'));
+
+  } finally {
+    global.fetch = previousFetch;
+    for (const [key, value] of Object.entries(previousEnv)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  }
+});
+
+test('completion reader rejects forged and stale receipts and newer in-flight work', async () => {
+  const { loadLatestCompletion } = require('../keepalive_loop.js');
+  const marker = (kind, payload, id, trusted = true) => ({ id,
+    user: { login: trusted ? 'github-actions[bot]' : 'untrusted-contributor' },
+    body: `<!-- runner-${kind}:codex:3989:v1 base64:${Buffer.from(JSON.stringify(payload)).toString('base64')} -->`,
+  });
+  const reservation = { provider: 'codex', pr_number: 3989, status: 'pending',
+    reservation_id: 'current', started_at: '2026-10-16T01:00:00Z' };
+  const record = { ...reservation, status: 'error', completed_at: '2026-10-16T01:10:00Z',
+    completion: { reason: 'rate_limited' } };
+  const receipt = { provider: 'codex', schema: 'runner-completion-receipt/v1',
+    reservation_id: 'current', record };
+  const read = (comments) => loadLatestCompletion({
+    github: buildGithubStub({ comments }), context: buildContext(3989), prNumber: 3989,
+  });
+  const pending = marker('reservation', reservation, 10);
+  assert.equal(await read([pending, marker('completion', receipt, 11, false)]), null);
+  assert.equal(await read([pending, marker('completion', { ...receipt,
+    reservation_id: 'old', record: { ...record, reservation_id: 'old' } }, 11)]), null);
+  assert.equal((await read([pending, marker('completion', receipt, 11)])).completion.reason, 'rate_limited');
+  assert.equal(await read([pending, marker('completion', receipt, 11), {
+    id: 12, user: { login: 'github-actions[bot]' },
+    body: '<!-- runner-reservation:codex:3989:v1 broken-json -->',
+  }]), null);
+  assert.equal(await read([pending, marker('completion', receipt, 11), marker('reservation', {
+    ...reservation, reservation_id: 'next', started_at: '2026-10-16T02:00:00Z',
+  }, 12)]), null);
+});
+
+test('root and consumer completion writers pass the shared classification to persistence', () => {
+  for (const workflow of ['.github/workflows/agents-keepalive-loop.yml',
+    'templates/consumer-repo/.github/workflows/agents-81-gate-followups.yml']) {
+    const source = fs.readFileSync(workflow, 'utf8');
+    assert.match(source, /classifyCompletion\(process\.env\.SUMMARY, process\.env\.EXIT_CODE\)/);
+    assert.match(source, /--completion-reason "\$COMPLETION_REASON"/);
+  }
+});
 
 for (const modulePath of [
   '../keepalive_loop',

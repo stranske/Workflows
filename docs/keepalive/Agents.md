@@ -42,6 +42,31 @@ Auto-pilot pipeline:
                                                       └─ Creates branch + PR with issue context
 ```
 
+Keepalive delegation now writes `agents:tried-<agent>` on stall switches as
+well as provider rate-limit switches, and excludes tried agents from rotation.
+This is a behaviour change: the previous keepalive stall path did not write these
+labels. Provider rate-limit receipts expire after `RATE_LIMIT_RECEIPT_TTL_HOURS`
+(default 6, in `.github/scripts/rate_limit_receipt.json`), clearing the associated
+tried labels on the next evaluation. Any measured progressed completion clears
+tried labels too. The hourly sweep can observe expiry without a runner dispatch;
+it prints `rate_limited receipt expired; <agent> eligible` and makes that provider
+eligible again, subject to the normal execution guards. Active persisted
+receipts also exclude a provider during initial auto selection, even when no current agent exists and a route
+export still reports its pool as healthy. A later provider failure does not
+clear another provider's backoff; TTL expiry or measured progress does.
+
+With `agent:auto` and no current agent, initial selection also requires an `ok`
+provider pool when capacity data is available. This applies to the concrete opener
+label, route ranking, exploration and registry default. If no runnable pool is
+eligible, selection returns no agent. Exports without capacity data retain the
+legacy `ok` assumption; explicit agent selection without `agent:auto` is unchanged.
+
+Provider exit status and measured productivity are separate observations. An
+exit-zero quota message without work retains `rate_limited`: exit zero alone
+does not establish progress. Measured branch or checklist progress overrides the
+classification to `progressed`, including successful summaries quoting quota
+errors, and clears the provider backoff marker.
+
 ### How Keepalive Fits In
 
 | Auto-pilot does... | Keepalive does... |

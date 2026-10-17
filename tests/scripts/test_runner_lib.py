@@ -1456,6 +1456,89 @@ def test_record_completion_is_idempotent_for_same_key() -> None:
     assert storage.records[(42, "claude")]["result"]["summary"] == "Done"
 
 
+@pytest.mark.parametrize(
+    ("success", "produced_work", "supplied_reason", "expected_reason"),
+    [
+        (True, False, "rate_limited", "rate_limited"),
+        (False, None, "rate_limited", "rate_limited"),
+        (True, False, "failed", "failed"),
+        (False, None, "failed", "failed"),
+        (True, True, "rate_limited", "progressed"),
+        (False, True, "failed", "progressed"),
+        (True, True, "", "progressed"),
+        (True, False, "progressed", "no_progress"),
+        (True, None, "progressed", "no_progress"),
+        (True, None, "", "no_progress"),
+        (False, False, "no_progress", "failed"),
+        (False, None, "", "failed"),
+    ],
+)
+def test_completion_reason_preserves_provider_failures_until_productivity(
+    success: bool,
+    produced_work: bool | None,
+    supplied_reason: str,
+    expected_reason: str,
+) -> None:
+    storage = MemoryRunnerStorage()
+    should_dispatch(42, "aaa", "codex", storage=storage)
+
+    record = record_completion(
+        42,
+        "aaa",
+        "codex",
+        {"success": success},
+        storage=storage,
+        produced_work=produced_work,
+        completion_reason=supplied_reason,
+    )
+
+    assert record["completion"]["reason"] == expected_reason
+    assert record["status"] == ("completed" if success else "error")
+    assert ("expires_at" in record["completion"]) == (expected_reason == "rate_limited")
+    assert storage.records[(42, "codex")]["completion"] == record["completion"]
+
+
+def test_rate_limited_expiry_falls_back_when_completed_at_is_malformed() -> None:
+    """A replayed terminal receipt with a bad completed_at must still get expires_at."""
+    storage = MemoryRunnerStorage()
+    should_dispatch(42, "aaa", "codex", storage=storage)
+    record_completion(
+        42,
+        "aaa",
+        "codex",
+        {"success": False},
+        storage=storage,
+        produced_work=False,
+        completion_reason="rate_limited",
+    )
+    storage.records[(42, "codex")]["completed_at"] = "not-a-timestamp"
+
+    before = datetime.datetime.now(datetime.UTC)
+    record = record_completion(
+        42,
+        "aaa",
+        "codex",
+        {"success": False},
+        storage=storage,
+        produced_work=False,
+        completion_reason="rate_limited",
+    )
+    after = datetime.datetime.now(datetime.UTC)
+
+    expires_at = datetime.datetime.fromisoformat(
+        record["completion"]["expires_at"].replace("Z", "+00:00")
+    )
+    ttl_hours = json.loads(
+        (Path(__file__).resolve().parents[2] / ".github/scripts/rate_limit_receipt.json").read_text(
+            encoding="utf-8"
+        )
+    )["RATE_LIMIT_RECEIPT_TTL_HOURS"]
+    expected_min = before + datetime.timedelta(hours=ttl_hours)
+    expected_max = after + datetime.timedelta(hours=ttl_hours)
+    assert record["completion"]["reason"] == "rate_limited"
+    assert expected_min <= expires_at <= expected_max
+
+
 def test_record_completion_stores_compact_result_payload() -> None:
     storage = MemoryRunnerStorage()
     should_dispatch(42, "aaa", "codex", storage=storage)

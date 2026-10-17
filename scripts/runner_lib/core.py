@@ -1943,6 +1943,7 @@ def record_completion(
     *,
     observed_head_sha: str = "",
     task_progress_after: object = None,
+    completion_reason: str = "",
 ) -> dict[str, Any]:
     """Persist terminal runner state after a dispatch finishes.
 
@@ -1991,6 +1992,14 @@ def record_completion(
         task_progress_after=task_progress_after,
         fallback=produced_work,
     )
+    if completion_reason not in {"", "rate_limited", "failed", "progressed", "no_progress"}:
+        raise ValueError("Invalid runner completion reason")
+    # Only measured branch/checklist progress clears a provider backoff marker.
+    # The JS classifier supplies provider failures; productivity is reconciled here.
+    if produced_work is True:
+        completion_reason = "progressed"
+    elif completion_reason not in {"rate_limited", "failed"}:
+        completion_reason = "no_progress" if result_payload.get("success") else "failed"
     if produced_work is None and prior.get("key") == key and _completion_was_unproductive(prior):
         produced_work = False
     completed_at = (
@@ -2007,8 +2016,21 @@ def record_completion(
         "status": status,
         "completed_at": completed_at,
         "result": compact_result,
+        "completion": {"reason": completion_reason},
         **productivity_fields,
     }
+    if completion_reason == "rate_limited":
+        ttl_config = json.loads(
+            (
+                Path(__file__).resolve().parents[2] / ".github/scripts/rate_limit_receipt.json"
+            ).read_text(encoding="utf-8")
+        )
+        # A replayed terminal record may preserve a malformed completed_at; fall
+        # back to now so expiry is still written instead of aborting the receipt.
+        base = _parse_timestamp(completed_at) or _utc_now_dt()
+        record["completion"]["expires_at"] = (
+            base + dt.timedelta(hours=ttl_config["RATE_LIMIT_RECEIPT_TTL_HOURS"])
+        ).isoformat()
     same_terminal_attempt = prior.get("key") == key and prior.get("status") in TERMINAL_STATUSES
     if status == "completed" and same_terminal_attempt:
         # Completion replays cannot change the first attempt's disposition.
@@ -2243,6 +2265,7 @@ def _cmd_record_completion(args: argparse.Namespace) -> int:
         produced_work=_parse_produced_work(args.produced_work),
         observed_head_sha=args.observed_head_sha,
         task_progress_after=args.task_progress_after,
+        completion_reason=args.completion_reason,
     )
     outputs = {
         "recorded": "false" if record.get("completion_recorded") is False else "true",
@@ -2359,6 +2382,12 @@ def build_parser() -> argparse.ArgumentParser:
     complete.add_argument("--raw-output-file", default="")
     complete.add_argument("--summary", default="")
     complete.add_argument("--exit-code", default=None)
+    complete.add_argument(
+        "--completion-reason",
+        choices=["rate_limited", "failed", "progressed", "no_progress"],
+        default="",
+        help="provider completion classification from keepalive_loop.classifyCompletion",
+    )
     complete.add_argument(
         "--produced-work",
         default="",

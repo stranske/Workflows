@@ -246,19 +246,20 @@ runner and registry entry ship, applying this label will not dispatch a runner. 
 
 **Applies to:** Pull Requests
 
-**Trigger:** Auto-applied by workflows during rate-limit backoff
+**Trigger:** Set by the keepalive loop from persisted provider rate-limit completions, or during GitHub API quota backoff
 
 **Effect:**
 1. Marks the PR as currently backed off due to API/runner rate limits
 2. Used with the matching concrete `agent:<name>` label to flag backoff for the current route; to hand routing to the delegation policy, add `agent:auto` alongside the concrete label (see `agent:auto`)
-3. Remains an observability/backoff marker until automation or an operator explicitly removes it
+3. With `agent:auto`, a persisted `completion.reason=rate_limited` bypasses stall history and cooldown in the same evaluate, selecting the next untried runner in route order whose pool is `ok` (legacy exports without capacity data treat pools as `ok`). The previous agent receives `agents:tried-<agent>`; no eligible alternative means wait until the receipt expires. Explicit agent routing stays unchanged.
+4. The loop automatically clears this marker when the latest persisted completion by any agent reports measured branch or checklist progress (`completion.reason=progressed`). Provider receipts and their associated tried labels also expire after `RATE_LIMIT_RECEIPT_TTL_HOURS` (default 6, shared by writer and reader); the hourly evaluation makes the original provider eligible again. Measured progress clears tried labels as well. GitHub API quota deferral remains unchanged.
 
 **Prerequisites:**
 - Applied automatically; no manual action required
 
-**Lifecycle:** Applied when a dispatch hits a rate limit. It does not by itself trigger a runner, and the current consumer Gate-followup wrapper does not promise label cleanup. After a successful forced retry, remove it manually if it remains.
+**Lifecycle:** Applied when a dispatch hits a rate limit; automatically cleared after a later progressed completion by any agent. It does not by itself trigger a runner.
 
-**Workflow:** Producer workflows apply the marker; recovery uses an explicit `agents-81-gate-followups.yml` dispatch with `force_retry=true`.
+**Workflow:** The root keepalive loop and consumer `agents-81-gate-followups.yml` persist the classification through `scripts.runner_lib record-completion`; the next evaluate reconciles the marker and automatic routing.
 
 ---
 
@@ -778,7 +779,7 @@ These labels are used for categorization but do not trigger workflows.
 | `agent:codex` | `agent:claude` | Invalid mixed routing: two concrete labels resolve no route, so keepalive does not dispatch; keep exactly one concrete label
 | `agent:<name>` + `agents:keepalive` | `agent:retry` | Consolidated: records a recovery request; root/non-consolidated: forces the keepalive retry and cleanup handler
 | `agent:retry` | Manual Gate-followups dispatch | Consolidated only: forces the retry and does not imply automatic label cleanup
-| `agent:rate-limited` | Successful forced retry | Remove stale recovery labels manually if automation leaves them behind
+| `agent:rate-limited` | Later progressed completion | Keepalive automatically removes the provider backoff marker
 | `agent:codex` | `agent:codex-invite` | Selects issue-bridge `invite` mode for `agent:codex` when `force_mode: false`; with the default forced input mode, the requested mode still wins
 | `agent:codex` | `status:ready` | Agent begins processing
 | `agent:needs-attention` | (removed) | Agent resumes processing

@@ -1,3 +1,5 @@
+const { rateLimitExpired } = require('./rate_limit_receipt');
+
 /**
  * Agent Delegation Policy
  *
@@ -309,6 +311,7 @@ function selectAgentFromRouteWeights({
  */
 function decideNextAgent({
   state = {},
+  completion = null,
   labels = [],
   secrets = {},
   registry = {},
@@ -350,7 +353,11 @@ function decideNextAgent({
     };
   }
 
-  const currentAgent = state.current_agent || '';
+  const currentAgent = state.current_agent ||
+    (completion?.completion?.reason === 'rate_limited' ? completion.provider : '');
+  const expired = rateLimitExpired(completion);
+  const rateLimited = !expired && completion?.completion?.reason === 'rate_limited' &&
+    completion.provider === currentAgent;
   const lastSwitchIteration = state.last_switch_iteration || 0;
   const currentIteration = state.iteration || 0;
   const switchCount = state.switch_count || 0;
@@ -367,24 +374,48 @@ function decideNextAgent({
     });
   }
 
-  // Filter to available agents
+  const taskType = ROUTE_WEIGHT_TASK_TYPES[roundKind] || ROUTE_WEIGHT_TASK_TYPES.implement;
+  const ranking = Array.isArray(routeWeights?.task_types?.[taskType]?.ranking)
+    ? routeWeights.task_types[taskType].ranking : [];
+
+  // Receipts survive a later provider failure; route exports can still report
+  // that provider's pool as healthy. Only expiry or loader-observed progress
+  // drains this persisted backoff, including before a current agent is chosen.
+  const activeRateLimited = new Set((completion?.rate_limit_receipts || [])
+    .filter((record) => record?.completion?.reason === 'rate_limited' &&
+      !rateLimitExpired(record))
+    .map((record) => record.provider));
+
+  // Initial selection has no completion to trigger the rate-limit switch path.
+  // Apply pool availability before concrete-label, weighted and default choices.
   const availableAgents = Object.keys(agents).filter((key) => (
     agentPrereqs[key].available && hasKeepaliveRunner(agents[key]) &&
-    (!Array.isArray(runnableAgents) || runnableAgents.includes(key))
+    !activeRateLimited.has(key) &&
+    (!Array.isArray(runnableAgents) || runnableAgents.includes(key)) &&
+    (currentAgent || getAgentPoolState(
+      routeWeights, key, ranking.find((row) => row?.agent === key),
+    ) === 'ok')
   ));
 
   if (availableAgents.length === 0) {
-    core?.warning?.('No agents available (missing secrets)');
+    core?.warning?.('No agents available (prerequisites, runners or pool capacity)');
     return {
       agent: '',
-      reason: 'no-agents-available',
+      reason: rateLimited ? 'rate-limited-no-alternatives' : 'no-agents-available',
       shouldSwitch: false,
       alternatives: [],
       delegationSource: 'static',
     };
   }
 
-  const taskType = ROUTE_WEIGHT_TASK_TYPES[roundKind] || ROUTE_WEIGHT_TASK_TYPES.implement;
+  // Time alone reopens an exhausted provider gate; dispatch does not drain it.
+  if (expired && availableAgents.includes(completion.provider)) {
+    core?.info?.(`rate_limited receipt expired; ${completion.provider} eligible`);
+    return { agent: completion.provider, reason: 'rate-limit-receipt-expired',
+      shouldSwitch: currentAgent !== completion.provider, previousAgent: currentAgent,
+      alternatives: availableAgents.filter(agent => agent !== completion.provider),
+      delegationSource: 'static' };
+  }
 
   // If no current agent, preserve an explicit opener choice first, then use
   // evidence-bearing route weights, and finally fall back to the registry
@@ -439,7 +470,7 @@ function decideNextAgent({
     };
   }
 
-  if (!availableAgents.includes(currentAgent)) {
+  if (!rateLimited && !availableAgents.includes(currentAgent)) {
     const nextAgent = availableAgents.includes(defaultAgent) ? defaultAgent : availableAgents[0];
     core?.info?.(`Switching from unavailable ${currentAgent} to ${nextAgent}`);
     return {
@@ -462,7 +493,7 @@ function decideNextAgent({
   core?.debug?.(`Stall: ${stall}, Cooldown: ${inCooldown}, Rounds since switch: ${roundsSinceSwitch}`);
 
   // Rule: Continue if effective
-  if (effectiveness.effective) {
+  if (!rateLimited && effectiveness.effective) {
     return {
       agent: currentAgent,
       reason: `effective (${effectiveness.summary})`,
@@ -473,7 +504,7 @@ function decideNextAgent({
   }
 
   // Rule: Continue if in cooldown (anti-thrash)
-  if (inCooldown) {
+  if (!rateLimited && inCooldown) {
     return {
       agent: currentAgent,
       reason: `cooldown (${5 - roundsSinceSwitch} rounds remaining)`,
@@ -484,14 +515,20 @@ function decideNextAgent({
   }
 
   // Rule: Switch if stalled
-  if (stall.isStalled) {
-    const alternatives = availableAgents.filter((a) => a !== currentAgent);
+  if (rateLimited || stall.isStalled) {
+    const tried = new Set(labels.map(normalizeLabel)
+      .filter((label) => label.startsWith('agents:tried-'))
+      .map((label) => label.slice('agents:tried-'.length)));
+    const alternatives = availableAgents.filter((agent) => agent !== currentAgent &&
+      !tried.has(agent) && (!rateLimited || getAgentPoolState(
+        routeWeights, agent, ranking.find((row) => row.agent === agent),
+      ) === 'ok'));
     const reservedAgents = new Set(getRouteWeightReserveAgents(routeWeights?.reserve, taskType));
     const weighted = selectAgentFromRouteWeights({
-      routeWeights,
+      routeWeights: rateLimited && routeWeights ? { ...routeWeights, exploration: null } : routeWeights,
       taskType,
       currentAgent,
-      availableAgents,
+      availableAgents: alternatives,
       agents,
       reserve: routeWeights?.reserve,
       seed: explorationSeedFromState(state),
@@ -514,20 +551,22 @@ function decideNextAgent({
     if (nextAgent === currentAgent) {
       core?.warning?.('Stalled but no alternative agents available');
       return {
-        agent: currentAgent,
-        reason: `stalled-no-alternatives (${sourceSuffix})`,
+        agent: rateLimited ? '' : currentAgent,
+        reason: rateLimited ? 'rate-limited-no-alternatives' : `stalled-no-alternatives (${sourceSuffix})`,
         shouldSwitch: false,
         alternatives: [],
         delegationSource,
       };
     }
-    core?.info?.(`Switching from ${currentAgent} to ${nextAgent} due to stall (${sourceSuffix})`);
+    core?.info?.(`Switching from ${currentAgent} to ${nextAgent} due to ${rateLimited ? 'rate limit' : 'stall'} (${sourceSuffix})`);
     if (weighted.policy_version) {
       core?.info?.(`Route-weights policy version: ${weighted.policy_version}`);
     }
     return {
       agent: nextAgent,
-      reason: `${currentAgent}-stalled (${stall.reason}; ${sourceSuffix})`,
+      reason: rateLimited
+        ? `${currentAgent}-rate-limited (${sourceSuffix})`
+        : `${currentAgent}-stalled (${stall.reason}; ${sourceSuffix})`,
       shouldSwitch: true,
       previousAgent: currentAgent,
       alternatives: alternatives.filter((a) => a !== nextAgent),
@@ -1055,4 +1094,3 @@ module.exports = {
   formatDelegationSummary,
   hasKeepaliveRunner,
 };
-

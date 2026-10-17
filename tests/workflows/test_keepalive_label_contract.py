@@ -47,7 +47,7 @@ def _source_token(label: str) -> str:
         return "agent:"
     if label == "agent:<name>-invite":
         return "-invite"
-    return label.replace("<K>", "")
+    return label.replace("<K>", "").replace("<agent>", "")
 
 
 def test_documented_keepalive_labels_have_an_executable_or_retired_surface() -> None:

@@ -279,6 +279,137 @@ test('decideNextAgent returns default agent on initial selection', () => {
   assert.equal(result.shouldSwitch, false);
 });
 
+for (const policyPath of [
+  '../agent_delegation_policy.js',
+  '../../../templates/consumer-repo/.github/scripts/agent_delegation_policy.js',
+]) {
+  const policy = require(policyPath);
+  const initialOptions = {
+    state: { current_agent: '', iteration: 1 },
+    labels: ['agent:auto'],
+    secrets: mockSecrets,
+    registry: mockRegistry,
+  };
+
+  test(`initial selection excludes active receipts even with healthy pools (${policyPath})`, () => {
+    const receipt = {
+      provider: 'codex', completed_at: new Date().toISOString(),
+      completion: { reason: 'rate_limited' },
+    };
+    // The latest terminal result may be a different provider's failure. Older
+    // backoff remains authoritative until TTL expiry or measured progress.
+    const completion = { provider: 'claude', completion: { reason: 'failed' },
+      rate_limit_receipts: [receipt] };
+    for (const selection of ['label', 'ranking', 'exploration', 'default']) {
+      const decision = policy.decideNextAgent({
+        ...initialOptions, completion,
+        labels: ['agent:auto', 'agents:tried-codex',
+          ...(selection === 'label' ? ['agent:codex'] : [])],
+        routeWeights: {
+          pools: { codex: 'ok', claude: 'ok' },
+          task_types: { implement: { evidence_ok: selection !== 'default',
+            ranking: [{ agent: 'codex' }, { agent: 'claude' }] } },
+          exploration: { rate: 1, challengers: { implement: 'codex' } },
+        },
+      });
+      assert.equal(decision.agent, 'claude', selection);
+      assert.ok(!decision.alternatives.includes('codex'));
+    }
+    const blocked = policy.decideNextAgent({ ...initialOptions, completion,
+      runnableAgents: ['codex'] });
+    assert.equal(blocked.agent, '');
+    assert.equal(blocked.reason, 'no-agents-available');
+
+    const { RATE_LIMIT_RECEIPT_TTL_HOURS } = require('../rate_limit_receipt');
+    const expired = { ...receipt, completed_at: new Date(Date.now() -
+      (RATE_LIMIT_RECEIPT_TTL_HOURS * 60 * 60 + 1) * 1000).toISOString() };
+    const eligible = policy.decideNextAgent({ ...initialOptions,
+      completion: { ...completion, rate_limit_receipts: [expired] } });
+    assert.equal(eligible.agent, 'codex', 'expired receipt must reopen initial routing');
+    const progressed = policy.decideNextAgent({ ...initialOptions,
+      completion: { provider: 'claude', completion: { reason: 'progressed' },
+        rate_limit_receipts: [] } });
+    assert.equal(progressed.agent, 'codex', 'loader clears backoffs on measured progress');
+  });
+
+  test(`initial selection excludes blocked pools from every selection path (${policyPath})`, () => {
+    for (const poolState of ['rate_limited', 'exhausted', 'shed']) {
+      for (const selection of ['label', 'ranking', 'exploration', 'default']) {
+        const decision = policy.decideNextAgent({
+          ...initialOptions,
+          labels: selection === 'label' ? ['agent:auto', 'agent:codex'] : ['agent:auto'],
+          routeWeights: {
+            capacity: { codex: { state: poolState }, claude: { state: 'ok' } },
+            task_types: {
+              implement: {
+                evidence_ok: selection !== 'default',
+                ranking: [{ agent: 'codex' }, { agent: 'claude' }],
+              },
+            },
+            exploration: { rate: 1, challengers: { implement: 'codex' } },
+          },
+        });
+        assert.equal(decision.agent, 'claude', `${selection}: ${poolState}`);
+        assert.equal(decision.shouldSwitch, false);
+        assert.deepEqual(decision.alternatives, []);
+      }
+    }
+  });
+
+  test(`initial selection uses the current task's ranking pool state (${policyPath})`, () => {
+    const decision = policy.decideNextAgent({
+      ...initialOptions,
+      roundKind: 'review',
+      labels: ['agent:auto', 'agent:codex'],
+      routeWeights: {
+        task_types: {
+          implement: { evidence_ok: true, ranking: [{ agent: 'codex', pool_state: 'ok' }] },
+          review: {
+            evidence_ok: true,
+            ranking: [
+              { agent: 'codex', pool_state: 'rate_limited' },
+              { agent: 'claude', pool_state: 'ok' },
+            ],
+          },
+        },
+      },
+    });
+    assert.equal(decision.agent, 'claude');
+    assert.equal(decision.delegationSource, 'route_weights');
+  });
+
+  test(`initial selection refuses when all runnable pools are blocked (${policyPath})`, () => {
+    const routeWeights = { pools: { codex: 'rate_limited', claude: 'exhausted' } };
+    const decision = policy.decideNextAgent({ ...initialOptions, routeWeights });
+    assert.equal(decision.agent, '');
+    assert.equal(decision.reason, 'no-agents-available');
+    assert.equal(decision.shouldSwitch, false);
+    assert.deepEqual(decision.alternatives, []);
+
+    const unavailableAlternative = policy.decideNextAgent({
+      ...initialOptions,
+      runnableAgents: ['codex'],
+      routeWeights: { pools: { codex: 'rate_limited', claude: 'ok' } },
+    });
+    assert.equal(unavailableAlternative.agent, '');
+  });
+
+  test(`initial selection preserves legacy capacity and explicit-only routing (${policyPath})`, () => {
+    const legacy = policy.decideNextAgent(initialOptions);
+    assert.equal(legacy.agent, 'codex');
+    assert.equal(legacy.reason, 'initial-selection');
+
+    const explicit = policy.decideNextAgent({
+      ...initialOptions,
+      labels: ['agent:codex'],
+      routeWeights: { capacity: { codex: 'rate_limited' } },
+    });
+    assert.equal(explicit.agent, 'codex');
+    assert.equal(explicit.reason, 'explicit-label');
+    assert.equal(explicit.shouldSwitch, false);
+  });
+}
+
 test('decideNextAgent returns explicit agent if agent:auto not present', () => {
   const result = decideNextAgent({
     state: {},
@@ -699,4 +830,61 @@ test('route weights never re-choose the stalled agent', () => {
 test('ROUTE_WEIGHT_TASK_TYPES maps review rounds to review task type', () => {
   assert.equal(ROUTE_WEIGHT_TASK_TYPES.review, 'review');
   assert.equal(ROUTE_WEIGHT_TASK_TYPES.run, 'implement');
+});
+
+test('persisted rate limit bypasses cooldown and effective history in the same evaluate', () => {
+  const completion = { provider: 'codex', completion: { reason: 'rate_limited' } };
+  const decision = decideNextAgent({
+    state: { current_agent: 'codex', iteration: 1, last_switch_iteration: 1,
+      effectiveness_history: [{ commits: 1, tasks: 2, gate: 'pass' }] },
+    completion, labels: ['agent:auto', 'agent:codex'], registry: mockRegistry, secrets: mockSecrets,
+  });
+  assert.equal(decision.agent, 'claude');
+  assert.equal(decision.shouldSwitch, true);
+  assert.match(decision.reason, /codex-rate-limited/);
+  assert.equal(decision.previousAgent, 'codex');
+
+  const explicit = decideNextAgent({
+    completion, labels: ['agent:codex'], registry: mockRegistry, secrets: mockSecrets,
+  });
+  assert.equal(explicit.agent, 'codex');
+  assert.equal(explicit.shouldSwitch, false);
+});
+
+test('rate limit selects an untried ok pool in route order and never retries when exhausted', () => {
+  const registry = { agents: Object.fromEntries(['codex', 'claude', 'cursor', 'gemini'].map(
+    (agent) => [agent, { runner_workflow: `${agent}.yml`, capabilities: { pr_keepalive: true } }],
+  )) };
+  const options = {
+    state: {}, labels: ['agent:auto'], registry,
+    completion: { provider: 'codex', completion: { reason: 'rate_limited' } },
+    routeWeights: { task_types: { implement: { evidence_ok: true, ranking: [
+      { agent: 'claude', pool_state: 'exhausted' },
+      { agent: 'cursor', pool_state: 'ok' }, { agent: 'gemini', pool_state: 'ok' },
+    ] } } },
+  };
+  assert.equal(decideNextAgent(options).agent, 'cursor');
+  assert.equal(decideNextAgent({ ...options, labels: ['agent:auto', 'agents:tried-cursor'] }).agent, 'gemini');
+  const exhausted = decideNextAgent({ ...options,
+    labels: ['agent:auto', 'agents:tried-cursor', 'agents:tried-gemini'] });
+  assert.equal(exhausted.agent, '');
+  assert.equal(exhausted.shouldSwitch, false);
+  assert.equal(exhausted.reason, 'rate-limited-no-alternatives');
+  assert.equal(decideNextAgent({ ...options, runnableAgents: [] }).reason, 'rate-limited-no-alternatives');
+});
+
+
+test('expired rate-limit receipt reopens original provider with exhausted pool', () => {
+  const { RATE_LIMIT_RECEIPT_TTL_HOURS, rateLimitExpired } = require('../rate_limit_receipt');
+  const now = Date.now();
+  const completion = { provider: 'codex',
+    completed_at: new Date(now - RATE_LIMIT_RECEIPT_TTL_HOURS * 3600000).toISOString(),
+    completion: { reason: 'rate_limited' } };
+  assert.equal(rateLimitExpired(completion, now - 1), false);
+  assert.equal(rateLimitExpired(completion, now), true);
+  const decision = decideNextAgent({ state: { current_agent: 'codex' }, completion,
+    labels: ['agent:auto', 'agents:tried-codex', 'agents:tried-claude'],
+    registry: mockRegistry, secrets: mockSecrets });
+  assert.equal(decision.agent, 'codex');
+  assert.equal(decision.reason, 'rate-limit-receipt-expired');
 });
