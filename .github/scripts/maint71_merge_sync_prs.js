@@ -11,6 +11,133 @@ const DEFAULT_REVIEW_POLICY = Object.freeze({
 });
 
 const GENERATED_DELIVERY_REQUIRED_CONTEXTS = Object.freeze(['Gate / gate']);
+const STALE_CANARY_HOURS = 6;
+
+// Use the producer's head observation, not issue activity: comments and
+// restaging must not make an old generated payload look freshly delivered.
+function canaryNeedsRefresh(canary, now = Date.now()) {
+  if (canary.mergeable_state === 'behind') return 'behind';
+  if (canary.check_status === 'checks_failed') return 'checks_failed';
+  if (canary.active_review_thread_count > 0) return 'review_blocked';
+  const observed = Date.parse(canary.head_observed_at || canary.updated_at || canary.created_at || '');
+  if (Number(now) - observed > STALE_CANARY_HOURS * 60 * 60 * 1000) return 'stale';
+  return null;
+}
+
+async function routeCanaryReviewUpstream({ canary, manifestEntries, withRetry, context }) {
+  const { resolveManifestSyncedSource } = require('./sync_pr_merge_contract');
+  const routed = [];
+  for (const thread of canary.threads || []) {
+    if (thread.isResolved || thread.isOutdated) continue;
+    const source = resolveManifestSyncedSource(thread.path, manifestEntries);
+    if (!source) continue;
+    const origin = thread.comments?.nodes?.[0]?.url;
+    if (!origin || !thread.id) throw new Error('canary_review_thread_link_missing');
+    const location = { owner: context.repo.owner, repo: context.repo.repo };
+    const { data: commits } = await withRetry((client) => client.rest.repos.listCommits({
+      ...location, sha: context.payload.repository?.default_branch || 'main',
+      path: source.sourcePath, per_page: 1,
+    }));
+    if (!commits[0]?.sha) throw new Error(`canary_upstream_source_missing:${source.sourcePath}`);
+    const commit = commits[0].sha;
+    const prs = await withRetry((client) => client.paginate(
+      client.rest.repos.listPullRequestsAssociatedWithCommit,
+      { ...location, commit_sha: commit, per_page: 100 },
+    ));
+    const latest = prs.filter((pr) => pr.merged_at && pr.base?.repo?.full_name ===
+      `${location.owner}/${location.repo}`)
+      .sort((a, b) => Date.parse(b.merged_at) - Date.parse(a.merged_at))[0];
+    const marker = `<!-- maint71-canary-upstream:${canary.owner}/${canary.repo}:${thread.id} -->`;
+    const comments = await withRetry((client) => client.paginate(
+      latest ? client.rest.issues.listComments : client.rest.repos.listCommentsForCommit,
+      { ...location, ...(latest ? { issue_number: latest.number } : { commit_sha: commit }),
+        per_page: 100 },
+    ));
+    if (comments.some((comment) => String(comment.body || '').includes(marker))) continue;
+    const body = [marker,
+      `Maint 71: stable canary ${canary.owner}/${canary.repo}#${canary.pr} is review_blocked.`,
+      `Upstream source: \`${source.sourcePath}\` (consumer path \`${thread.path}\`).`,
+      `Consumer finding: [${thread.id}](${origin}).`,
+      'Repair the shared source and redeliver through Maint 68; consumer review remains blocking.',
+    ].join('\n');
+    await withRetry((client) => latest
+      ? client.rest.issues.createComment({ ...location, issue_number: latest.number, body })
+      : client.rest.repos.createCommitComment({ ...location, commit_sha: commit, body }));
+    routed.push({ source_path: source.sourcePath, thread_id: thread.id, pr: latest?.number || null });
+  }
+  return routed;
+}
+
+async function refreshStableCanaries({
+  canaries, withRetry, context, core, manifestEntries, enabled, now = Date.now(),
+}) {
+  const counts = { red: 0, review_blocked: 0, stale: 0, refresh_dispatched: 0 };
+  const plans = new Map();
+  const errors = [];
+  for (const canary of canaries) {
+    if (canary.check_status === 'checks_failed') counts.red++;
+    if (canary.active_review_thread_count > 0) counts.review_blocked++;
+    if (canaryNeedsRefresh({ ...canary, mergeable_state: '', check_status: '',
+      active_review_thread_count: 0 }, now) === 'stale') counts.stale++;
+    const reason = canaryNeedsRefresh(canary, now);
+    canary.refresh_reason = reason;
+    if (!reason) continue;
+    if (!canary.plan_id) {
+      errors.push(`canary_refresh_plan_missing:${canary.owner}/${canary.repo}`);
+      continue;
+    }
+    if (!plans.has(canary.plan_id)) plans.set(canary.plan_id, []);
+    plans.get(canary.plan_id).push(canary);
+  }
+  try {
+    if (enabled && plans.size) {
+      // Keep the existing producer-writer guard. A running promotion or
+      // refresh owns these stable heads; leave the request visible for retry.
+      const { data } = await withRetry((client) => client.rest.actions.listWorkflowRuns({
+        owner: context.repo.owner, repo: context.repo.repo,
+        workflow_id: 'maint-68-sync-consumer-repos.yml', per_page: 100,
+      }));
+      if (!Array.isArray(data.workflow_runs)) throw new Error('canary_refresh_history_unreadable');
+      const active = data.workflow_runs.some((run) =>
+        ['queued', 'in_progress', 'waiting', 'pending', 'requested'].includes(run.status)
+        && /^Maint 68 (canary|promote) /.test(run.display_title || ''));
+      for (const [plan, rows] of plans) {
+        for (const canary of rows.filter((row) => row.active_review_thread_count > 0)) {
+          try {
+            canary.upstream_comments = await routeCanaryReviewUpstream({
+              canary, manifestEntries, withRetry, context,
+            });
+          } catch (error) {
+            errors.push(`canary_upstream_routing_failed:${error.message}`);
+          }
+        }
+        if (active) {
+          core.notice(`Canary refresh ${plan} queued: Maint 68 writer already active`);
+          continue;
+        }
+        await withRetry((client) => client.rest.actions.createWorkflowDispatch({
+          owner: context.repo.owner, repo: context.repo.repo,
+          workflow_id: 'maint-68-sync-consumer-repos.yml',
+          ref: context.payload.repository?.default_branch || 'main',
+          inputs: { phase: 'canary', delivery_scope: 'full', dry_run: 'false', force: 'false' },
+        }));
+        counts.refresh_dispatched++;
+        core.notice(`dispatch-maint-68-phase-canary-no-filter: ${plan}; reasons=` +
+          rows.map((row) => `${row.owner}/${row.repo}:${row.refresh_reason}`).join(', ') +
+          '; completion awaits a successful Maint 68 run');
+      }
+    }
+  } catch (error) {
+    errors.push(`canary_refresh_failed:${error.message}`);
+  }
+  const line = `canaries: red=${counts.red} review_blocked=${counts.review_blocked} ` +
+    `stale=${counts.stale} refresh_dispatched=${counts.refresh_dispatched} ` +
+    `held_plan=${[...plans.keys()].join(',') || 'none'}`;
+  console.log(line);
+  await core.summary.addRaw(`${line}\n`).write();
+  for (const error of errors) core.setFailed(error);
+  return { ...counts, held_plans: [...plans.keys()], errors, canaries };
+}
 
 function enforceGeneratedDeliveryRequiredContexts(contexts = []) {
   const enforced = new Set(
@@ -1417,6 +1544,7 @@ async function run({ github, context, core }) {
     normalizeSyncHash,
     parseBooleanInput,
     parseManifestSyncedSources,
+    parseManifestSyncedSourceEntries,
     parsePromotionEvidenceFromCommitMessage,
     requiresStrictGateBranchUpdate,
     requiredContextsFromRulesets,
@@ -1432,10 +1560,12 @@ async function run({ github, context, core }) {
     validateSourceDeltaEvidenceBinding,
   } = require('./sync_pr_merge_contract.js');
   let manifestSources = new Set();
+  let manifestEntries = new Map();
   try {
     const manifestPath = path.join(__dirname, '..', 'sync-manifest.yml');
     const manifestText = fs.readFileSync(manifestPath, 'utf8');
     manifestSources = parseManifestSyncedSources(manifestText);
+    manifestEntries = parseManifestSyncedSourceEntries(manifestText);
   } catch (error) {
     core.warning(`Unable to read sync manifest for review routing: ${error.message || error}`);
   }
@@ -1973,15 +2103,15 @@ async function run({ github, context, core }) {
     : [];
 
   let expectedCanaryRepos = [];
-  if (['candidate', 'campaign'].includes(requestedSyncHash)) {
+  {
     const canaryConfigPath = process.env.CONSUMER_SYNC_CANARIES_PATH ||
-      'config/consumer_sync_canaries.json';
+      path.join(__dirname, '../../config/consumer_sync_canaries.json');
     const canaryConfig = JSON.parse(
       fs.readFileSync(canaryConfigPath, 'utf8'),
     );
     expectedCanaryRepos = (canaryConfig.canaries || [])
       .map((entry) => String(entry?.repo || '').trim())
-      .filter(Boolean);
+      .filter((repo) => repo && !excludedRepos.has(repo));
   }
 
   const rawBaselineEvidence = String(
@@ -2059,6 +2189,7 @@ async function run({ github, context, core }) {
   
   const results = [];
   const canaryEvidence = [];
+  const stableCanaries = [];
   
   function syncMetadata(pr) {
     const match = String(pr.body || '').match(
@@ -2093,6 +2224,7 @@ async function run({ github, context, core }) {
                   comments(first: 10) {
                     nodes {
                       path
+                      url
                       author { login }
                     }
                   }
@@ -3285,6 +3417,33 @@ async function run({ github, context, core }) {
           `${failedChecks.length} failed, ${pendingChecks.length} pending`,
       );
   
+      const stableDelivery = isStableSyncBranchName(pr.head.ref);
+      if (stableDelivery && !recoveredMergedCandidate
+        && expectedCanaryRepos.includes(`${owner}/${repo}`)
+        && metadata?.sync_phase === 'canary') {
+        const canary = { owner, repo, pr: pr.number, plan_id: deliveryContext.plan_id,
+          mergeable_state: pr.mergeable_state, check_status: classification.status,
+          active_review_thread_count: activeReviewThreads,
+          head_observed_at: deliveryRecord?.head_observed_at,
+          updated_at: pr.updated_at, created_at: pr.created_at,
+          threads: reviewThreadDetails.threads };
+        stableCanaries.push(canary);
+        const reason = canaryNeedsRefresh(canary);
+        if (reason) {
+          // Refresh belongs to Maint 68. Do not let review/CI early exits hide
+          // the request, or update the stable head without reminting its seal.
+          if (deliveryRecord?.delivery_state && autoMerge && !dryRun) {
+            await restageStableDelivery({ owner, repo, pr, record: deliveryRecord,
+              dryRunMode: false });
+          }
+          results.push({ ...deliveryContext, status: 'stable_base_refresh_required',
+            delivery_disposition: 'awaiting-base-refresh', blocker_owner: 'maint-68',
+            next_command: 'dispatch-maint-68-phase-canary-no-filter',
+            refresh_reason: reason });
+          continue;
+        }
+      }
+
       if (deliveryState.disposition === 'review-blocked') {
         console.log(`Active review threads block merge: ${activeReviewThreads}`);
         results.push({
@@ -3295,7 +3454,6 @@ async function run({ github, context, core }) {
         continue;
       }
   
-      const stableDelivery = isStableSyncBranchName(pr.head.ref);
       // Closed canary PRs may predate the mutable-delivery lifecycle. They are
       // read-only evidence sources, so the staging/sealing contract applies
       // only while a stable delivery PR is still open and mutable.
@@ -4138,6 +4296,21 @@ async function run({ github, context, core }) {
   }
 
   // Summary
+  const canaryRefresh = await refreshStableCanaries({
+    canaries: stableCanaries, withRetry, context, core, manifestEntries,
+    enabled: autoMerge && !dryRun && !resolutionOnly && !evidenceOnly,
+  });
+  if (canaryRefresh.refresh_dispatched > 0) {
+    // A no-filter refresh also services missing candidates discovered earlier
+    // in this scan. Do not ask the workflow's legacy refresh step to dispatch
+    // a second copy while the newly queued run becomes visible to the API.
+    for (const result of results) {
+      if (result.status === 'stable_base_refresh_required'
+        && result.next_command === 'dispatch-maint-68-phase-canary-no-filter') {
+        result.next_command = 'rerun-after-maint-68-canary-refresh';
+      }
+    }
+  }
   console.log('\n=== Summary ===');
   console.log(JSON.stringify(results, null, 2));
   const report = buildMergeReport({
@@ -4157,6 +4330,7 @@ async function run({ github, context, core }) {
     },
   });
   const reportPath = process.env.SYNC_PR_MERGE_REPORT_JSON || 'artifacts/sync-pr-merge-report.json';
+  report.canary_refresh = canaryRefresh;
   const canaryEvidencePath = 'artifacts/sync-canary-evidence.json';
   fs.mkdirSync(path.dirname(reportPath), { recursive: true });
   fs.mkdirSync(path.dirname(canaryEvidencePath), { recursive: true });
@@ -4257,6 +4431,10 @@ async function run({ github, context, core }) {
 }
 
 module.exports = {
+  STALE_CANARY_HOURS,
+  canaryNeedsRefresh,
+  refreshStableCanaries,
+  routeCanaryReviewUpstream,
   buildCanaryPromotionEvidence,
   dispatchCanaryPromotion,
   reportSealedPromotionHealth,
