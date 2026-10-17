@@ -1737,6 +1737,673 @@ def test_materialize_orchestrator_skill_rejects_unsafe_pack_checkout(
         )
 
 
+@pytest.mark.parametrize("ref", ["main", "a" * 40])
+def test_materialize_orchestrator_skill_copies_direct_checkout_plan(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, ref: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    clone_parent = tmp_path / "clone-parent"
+    clone_parent.mkdir()
+    destination = tmp_path / ".reference" / "orchestrator"
+    destination.mkdir(parents=True)
+    (destination / "stale.txt").write_text("stale", encoding="utf-8")
+    plan = types.SimpleNamespace(
+        pack=None,
+        repo="owner/orchestrator",
+        ref=ref,
+        paths=["docs", "README.md", "missing.md"],
+        checkout_path=".reference/orchestrator",
+    )
+    fake_skill = types.SimpleNamespace(
+        resolve_orchestrator_skill_plan=lambda *_args, **_kwargs: plan,
+        write_orchestrator_skill_summary=lambda workspace, checkout, **_kwargs: (
+            workspace / ".reference" / "ORCHESTRATOR_SKILL.md"
+        ),
+    )
+    calls: list[list[str]] = []
+
+    def fake_run_git(command: list[str], env: dict[str, str] | None = None) -> None:
+        calls.append(command)
+        assert env is not None
+        assert env["GIT_ASKPASS_PASSWORD"] == "secret"
+        if command[:2] == ["git", "clone"]:
+            clone = Path(command[-1])
+            (clone / "docs").mkdir(parents=True)
+            (clone / "docs" / "SKILL.md").write_text("skill", encoding="utf-8")
+            (clone / "README.md").write_text("readme", encoding="utf-8")
+
+    monkeypatch.setattr(runner_core.tempfile, "mkdtemp", lambda **_kwargs: str(clone_parent))
+    monkeypatch.setattr(runner_core, "_load_orchestrator_skill_module", lambda: fake_skill)
+    monkeypatch.setattr(runner_core, "_run_git", fake_run_git)
+
+    summary = runner_core.materialize_orchestrator_skill(tmp_path, token="secret")
+
+    assert summary == tmp_path / ".reference" / "ORCHESTRATOR_SKILL.md"
+    assert (destination / "docs" / "SKILL.md").read_text(encoding="utf-8") == "skill"
+    assert (destination / "README.md").read_text(encoding="utf-8") == "readme"
+    assert not (destination / "stale.txt").exists()
+    assert "missing.md" in capsys.readouterr().err
+    if len(ref) == 40:
+        assert any(command[-3:] == ["origin", ref, "--depth=1"] for command in calls)
+        assert any(command[-2:] == ["checkout", ref] for command in calls)
+    else:
+        assert any(command[2:4] == ["--depth=1", "--filter=blob:none"] for command in calls)
+        assert any("--branch" in command for command in calls)
+    assert not clone_parent.exists()
+
+
+@pytest.mark.parametrize("existing", ["none", "same", "replace", "newer-reservation"])
+def test_pr_comment_completion_receipt_is_idempotent_and_cannot_cross_reservations(
+    monkeypatch: pytest.MonkeyPatch, existing: str
+) -> None:
+    record = {
+        "provider": "codex",
+        "pr_number": 42,
+        "status": "completed",
+        "reservation_id": "attempt-1",
+    }
+    receipt = {
+        "schema": "runner-completion-receipt/v1",
+        "provider": "codex",
+        "reservation_id": "attempt-1",
+        "record": record,
+    }
+    comments: list[dict[str, Any]] = []
+    if existing in {"same", "replace"}:
+        old_receipt = (
+            receipt if existing == "same" else {**receipt, "record": {**record, "status": "error"}}
+        )
+        comments.append(
+            {
+                "id": 1,
+                "body": runner_core._build_marker(
+                    42, "codex", old_receipt, marker_prefix=runner_core.COMPLETION_MARKER_PREFIX
+                ),
+            }
+        )
+    if existing == "newer-reservation":
+        comments.append(
+            {
+                "id": 2,
+                "body": runner_core._build_marker(
+                    42,
+                    "codex",
+                    {"reservation_id": "attempt-2"},
+                    marker_prefix=runner_core.RESERVATION_MARKER_PREFIX,
+                ),
+            }
+        )
+    requests: list[tuple[str, str, dict[str, Any]]] = []
+
+    class FakeApi:
+        repo = "owner/repo"
+
+        def request(self, method: str, path: str, body: dict[str, Any]) -> None:
+            requests.append((method, path, body))
+
+    storage = PrCommentRunnerStorage(FakeApi())  # type: ignore[arg-type]
+    monkeypatch.setattr(
+        storage, "_iter_comments", lambda *_args, **_kwargs: iter(reversed(comments))
+    )
+
+    storage.write_completion(42, "codex", record)
+
+    if existing == "same":
+        assert requests == []
+    elif existing == "replace":
+        assert requests[0][0:2] == ("PATCH", "/repos/owner/repo/issues/comments/1")
+    else:
+        assert requests[0][0:2] == ("POST", "/repos/owner/repo/issues/42/comments")
+
+
+def test_assemble_and_parse_cli_write_expected_github_outputs(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    (tmp_path / "prompt.md").write_text("Complete the task.", encoding="utf-8")
+    raw = tmp_path / "runner.jsonl"
+    raw.write_text('{"type":"message","text":"Done"}\n', encoding="utf-8")
+    output = tmp_path / "github-output"
+    monkeypatch.setenv("GITHUB_OUTPUT", str(output))
+
+    assert (
+        runner_core.main(
+            [
+                "assemble-prompt",
+                "--provider",
+                "codex",
+                "--workspace",
+                str(tmp_path),
+                "--base-prompt",
+                "prompt.md",
+                "--pr-number",
+                "42",
+            ]
+        )
+        == 0
+    )
+    assert (
+        runner_core.main(["parse-output", "--provider", "codex", "--raw-output-file", str(raw)])
+        == 0
+    )
+
+    output_text = output.read_text(encoding="utf-8")
+    assert "file=codex-prompt-42.md" in output_text
+    assert "provider=codex" in output_text
+    assert "success=true" in output_text
+    assert json.loads(capsys.readouterr().out.splitlines()[-1])["summary"] == "Done"
+
+
+@pytest.mark.parametrize("granted", [True, False])
+def test_authority_challenge_cli_reports_decision(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], granted: bool
+) -> None:
+    storage = MemoryRunnerStorage()
+    decision = runner_core.DebounceDecision(granted, "decision", "key")
+    monkeypatch.setattr(runner_core, "_storage_from_name", lambda _name: storage)
+    monkeypatch.setattr(
+        runner_core, "finalize_authority_challenge", lambda *_args, **_kwargs: decision
+    )
+    monkeypatch.setattr(
+        runner_core, "release_authority_challenge", lambda *_args, **_kwargs: granted
+    )
+    command = ["--provider", "codex", "--pr-number", "42", "--head-sha", "abc"]
+
+    assert runner_core.main(["finalize-authority-challenge", *command]) == (0 if granted else 1)
+    assert runner_core.main(["release-authority-challenge", *command]) == (0 if granted else 1)
+
+    lines = [json.loads(line) for line in capsys.readouterr().out.splitlines()]
+    assert lines == [
+        {"finalized": str(granted).lower(), "key": "key", "reason": "decision"},
+        {"released": str(granted).lower()},
+    ]
+
+
+def test_autofix_completion_cli_honors_exit_code_and_evidence_cli_outputs(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    storage = MemoryRunnerStorage()
+    monkeypatch.setattr(runner_core, "_storage_from_name", lambda _name: storage)
+    monkeypatch.setattr(
+        runner_core,
+        "record_completion",
+        lambda *_args, **_kwargs: {
+            "status": "completed",
+            "key": "key",
+            "productive": False,
+        },
+    )
+    fingerprint = "a" * 64
+
+    assert (
+        runner_core.main(
+            [
+                "record-completion",
+                "--provider",
+                "autofix",
+                "--pr-number",
+                "42",
+                "--head-sha",
+                "abc",
+                "--summary",
+                "  no work  ",
+                "--exit-code",
+                "1",
+                "--produced-work",
+                "false",
+            ]
+        )
+        == 0
+    )
+    assert (
+        runner_core.main(
+            [
+                "normalize-evidence",
+                "--capability-id",
+                "capability:runner-proof",
+                "--effect-fingerprint",
+                f"sha256:{fingerprint}",
+                "--evidence-artifact-ref",
+                "artifact:runner-proof",
+                "--supervision-mode",
+                "human-reviewed",
+                "--capability-evidence-status",
+                "accepted",
+                "--terminal-disposition",
+                "success",
+            ]
+        )
+        == 0
+    )
+
+    lines = [json.loads(line) for line in capsys.readouterr().out.splitlines()]
+    assert lines[0] == {
+        "key": "key",
+        "productive": "false",
+        "reason": "",
+        "recorded": "true",
+        "status": "completed",
+    }
+    assert lines[1]["effect-fingerprint"] == f"sha256:{fingerprint}"
+
+
+def test_reference_pack_materialization_handles_missing_config_and_unknown_pack(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    missing = types.SimpleNamespace(exists=False, packs=[])
+    monkeypatch.setattr(
+        runner_core,
+        "_load_reference_packs_module",
+        lambda: types.SimpleNamespace(
+            load_reference_packs=lambda _workspace: missing,
+            build_checkout_plan=lambda _packs: [],
+        ),
+    )
+    assert runner_core.materialize_reference_packs(tmp_path) is None
+
+    present = types.SimpleNamespace(exists=True, packs=[])
+    monkeypatch.setattr(
+        runner_core,
+        "_load_reference_packs_module",
+        lambda: types.SimpleNamespace(
+            load_reference_packs=lambda _workspace: present,
+            build_checkout_plan=lambda _packs: [],
+        ),
+    )
+    with pytest.raises(ValueError, match="reference pack not found: absent"):
+        runner_core.materialize_reference_packs(tmp_path, reference_pack_name="absent")
+
+
+def test_pr_comment_storage_returns_only_receipt_for_current_reservation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    reservation = {
+        "provider": "codex",
+        "pr_number": 42,
+        "status": "pending",
+        "reservation_id": "attempt-2",
+    }
+    completed = {
+        "provider": "codex",
+        "pr_number": 42,
+        "status": "completed",
+        "reservation_id": "attempt-2",
+    }
+    receipt = {
+        "schema": "runner-completion-receipt/v1",
+        "provider": "codex",
+        "reservation_id": "attempt-2",
+        "record": completed,
+    }
+    comments = [
+        {
+            "id": 3,
+            "body": runner_core._build_marker(
+                42, "codex", receipt, marker_prefix=runner_core.COMPLETION_MARKER_PREFIX
+            ),
+        },
+        {
+            "id": 2,
+            "body": runner_core._build_marker(
+                42, "codex", reservation, marker_prefix=runner_core.RESERVATION_MARKER_PREFIX
+            ),
+        },
+        {"id": 1, "body": "unrelated"},
+    ]
+
+    class FakeApi:
+        repo = "owner/repo"
+
+    storage = PrCommentRunnerStorage(FakeApi())  # type: ignore[arg-type]
+    monkeypatch.setattr(storage, "_iter_comments", lambda *_args, **_kwargs: iter(comments))
+
+    assert storage.read_record(42, "codex") == completed
+
+
+def test_pr_comment_storage_rejects_malformed_authoritative_reservation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    body = runner_core._build_marker(
+        42,
+        "codex",
+        {"provider": "codex", "pr_number": 42, "status": "pending"},
+        marker_prefix=runner_core.RESERVATION_MARKER_PREFIX,
+    )
+
+    class FakeApi:
+        repo = "owner/repo"
+
+    storage = PrCommentRunnerStorage(FakeApi())  # type: ignore[arg-type]
+    monkeypatch.setattr(
+        storage,
+        "_iter_comments",
+        lambda *_args, **_kwargs: iter([{"id": 1, "body": body}]),
+    )
+    with pytest.raises(RuntimeError, match="Invalid authoritative runner reservation"):
+        storage.read_record(42, "codex")
+
+
+def test_fallback_storage_preserves_primary_and_uses_legacy_only_when_needed(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    primary, fallback = MemoryRunnerStorage(), MemoryRunnerStorage()
+    fallback.records[(42, "codex")] = {"status": "legacy"}
+    storage = runner_core.FallbackRunnerStorage(primary, fallback)
+    assert storage.read_record(42, "codex") == {"status": "legacy"}
+
+    def unavailable(*_args: Any) -> None:
+        raise RuntimeError("unavailable")
+
+    monkeypatch.setattr(primary, "write_record", unavailable)
+    storage.write_record(42, "codex", {"status": "pending"})
+    assert fallback.records[(42, "codex")] == {"status": "pending"}
+    assert "primary write failed" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize(
+    "response, error",
+    [
+        ({"data": {"repository": {"pullRequest": {}}}}, "Missing runner comments"),
+        (
+            {"data": {"repository": {"pullRequest": {"comments": {"nodes": {}, "pageInfo": {}}}}}},
+            "Invalid runner comments",
+        ),
+    ],
+)
+def test_pr_comment_storage_fails_closed_on_invalid_graphql_shapes(
+    response: dict[str, Any], error: str
+) -> None:
+    class FakeApi:
+        repo = "owner/repo"
+
+        def request(self, *_args: Any, **_kwargs: Any) -> dict[str, Any]:
+            return response
+
+    with pytest.raises(RuntimeError, match=error):
+        list(PrCommentRunnerStorage(FakeApi())._iter_comments(42))  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize("invalid_id", [True, 0, "not-a-number"])
+def test_pr_comment_storage_rejects_unstable_comment_ids(invalid_id: object) -> None:
+    class FakeApi:
+        repo = "owner/repo"
+
+        def request(self, _method: str, _path: str, _body: dict[str, Any]) -> dict[str, Any]:
+            return {
+                "data": {
+                    "repository": {
+                        "pullRequest": {
+                            "comments": {
+                                "nodes": [
+                                    {
+                                        "fullDatabaseId": invalid_id,
+                                        "body": "comment",
+                                        "author": None,
+                                        "authorAssociation": None,
+                                    }
+                                ],
+                                "pageInfo": {"hasNextPage": False, "endCursor": None},
+                            }
+                        }
+                    }
+                }
+            }
+
+    with pytest.raises(RuntimeError, match="Unstable runner comment cursor"):
+        list(PrCommentRunnerStorage(FakeApi())._iter_comments(42))  # type: ignore[arg-type]
+
+
+def test_pr_comment_find_and_write_record_use_trusted_marker_only(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    record = {"provider": "codex"}
+    marker = runner_core._build_marker(42, "codex", record)
+    requests: list[tuple[str, str, dict[str, Any]]] = []
+
+    class FakeApi:
+        repo = "owner/repo"
+
+        def request(self, method: str, path: str, body: dict[str, Any]) -> None:
+            requests.append((method, path, body))
+
+    storage = PrCommentRunnerStorage(FakeApi())  # type: ignore[arg-type]
+    monkeypatch.setattr(
+        storage,
+        "_iter_comments",
+        lambda *_args, **_kwargs: iter(
+            [
+                {"id": 1, "body": marker, "user": {"login": "untrusted"}},
+                {"id": 2, "body": marker},
+            ]
+        ),
+    )
+    assert storage._find_comment(42, "codex") == {"id": 2, "body": marker}
+    storage.write_record(42, "codex", record)
+    assert requests[0][0:2] == ("POST", "/repos/owner/repo/issues/42/comments")
+
+
+def test_authority_challenge_helper_accepts_only_current_dispatch_and_valid_json(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    for key, value in {
+        "GITHUB_REPOSITORY": "owner/repo",
+        "GITHUB_RUN_ID": "7",
+        "GITHUB_RUN_ATTEMPT": "2",
+        "GITHUB_EVENT_NAME": "workflow_dispatch",
+        "GITHUB_ACTOR": "github-actions[bot]",
+    }.items():
+        monkeypatch.setenv(key, value)
+
+    completed = types.SimpleNamespace(returncode=0, stdout='{"prepared": true}')
+    monkeypatch.setattr(runner_core.subprocess, "run", lambda *_args, **_kwargs: completed)
+    assert runner_core._authority_challenge_command("prepare", 42, "abc", "codex") == {
+        "prepared": True
+    }
+
+    monkeypatch.setattr(
+        runner_core.subprocess,
+        "run",
+        lambda *_args, **_kwargs: types.SimpleNamespace(returncode=1, stdout="failure"),
+    )
+    assert runner_core._authority_challenge_command("finalize", 42, "abc", "codex") is None
+    assert "helper exited 1" in capsys.readouterr().err
+
+    monkeypatch.setattr(
+        runner_core.subprocess,
+        "run",
+        lambda *_args, **_kwargs: types.SimpleNamespace(returncode=0, stdout="not-json"),
+    )
+    assert runner_core._authority_challenge_command("release", 42, "abc", "codex") is None
+    assert "invalid JSON" in capsys.readouterr().err
+
+
+def test_parse_runner_output_collects_content_chunks_and_nested_errors() -> None:
+    raw = "\n".join(
+        [
+            "not-json",
+            json.dumps({"type": "message", "content": " first content "}),
+            json.dumps({"type": "message", "content": [{"text": "second"}, {"text": "third"}]}),
+            json.dumps({"type": "error", "error": {"content": [{"text": "nested failure"}]}}),
+        ]
+    )
+
+    result = parse_runner_output("codex", raw)
+
+    assert result.success is False
+    assert result.error == "nested failure"
+    assert result.final_message == "nested failure"
+
+
+def test_authority_release_terminalizes_only_matching_pending_reservation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    primary, fallback = MemoryRunnerStorage(), MemoryRunnerStorage()
+    storage = runner_core.FallbackRunnerStorage(primary, fallback)
+    for key, value in {
+        "GITHUB_REPOSITORY": "owner/repo",
+        "GITHUB_RUN_ID": "7",
+        "GITHUB_RUN_ATTEMPT": "2",
+    }.items():
+        monkeypatch.setenv(key, value)
+    primary.records[(42, "codex")] = {
+        "status": "pending",
+        "head_sha": "abc",
+        "key": runner_core._runner_key(42, "abc", "codex"),
+        "workflow_attempt_id": "owner/repo:7:2",
+    }
+    monkeypatch.setattr(
+        runner_core,
+        "record_completion",
+        lambda *_args, **_kwargs: {"status": "error"},
+    )
+    monkeypatch.setattr(
+        runner_core,
+        "_authority_challenge_command",
+        lambda command, *_args: {"released": True} if command == "release" else None,
+    )
+
+    assert runner_core.release_authority_challenge(42, "abc", "codex", storage=storage) is True
+
+    primary.records[(42, "codex")]["key"] = "wrong"
+    assert runner_core.release_authority_challenge(42, "abc", "codex", storage=storage) is False
+
+
+def test_storage_factory_and_timestamp_helpers_preserve_backend_and_utc_contract(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    primary, fallback = MemoryRunnerStorage(), MemoryRunnerStorage()
+    monkeypatch.setattr(runner_core.PrCommentRunnerStorage, "from_environment", lambda: primary)
+    monkeypatch.setattr(runner_core.RepoVariableRunnerStorage, "from_environment", lambda: fallback)
+
+    assert runner_core._storage_from_name("pr-comment") is primary
+    assert runner_core._storage_from_name("repo-variable") is fallback
+    automatic = runner_core._storage_from_name("auto")
+    assert isinstance(automatic, runner_core.FallbackRunnerStorage)
+    assert automatic.primary is primary and automatic.fallback is fallback
+    with pytest.raises(ValueError, match="unsupported storage backend"):
+        runner_core._storage_from_name("unknown")
+    assert runner_core._parse_timestamp("2026-01-01T00:00:00").tzinfo == datetime.UTC
+    assert runner_core._parse_timestamp("invalid") is None
+    assert runner_core._pending_record_is_stale({"started_at": "invalid"}) is True
+
+
+def test_authority_finalize_requires_auto_storage_grant_and_matching_reservation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    assert runner_core.finalize_authority_challenge(
+        42, "abc", "codex", storage=MemoryRunnerStorage()
+    ).reason == ("authority-storage-invalid")
+    primary, fallback = MemoryRunnerStorage(), MemoryRunnerStorage()
+    storage = runner_core.FallbackRunnerStorage(primary, fallback)
+    monkeypatch.setattr(
+        runner_core, "_authority_challenge_command", lambda *_args: {"granted": True}
+    )
+    monkeypatch.setenv("GITHUB_REPOSITORY", "owner/repo")
+    monkeypatch.setenv("GITHUB_RUN_ID", "7")
+    monkeypatch.setenv("GITHUB_RUN_ATTEMPT", "2")
+    primary.records[(42, "codex")] = {
+        "status": "pending",
+        "head_sha": "abc",
+        "workflow_attempt_id": "owner/repo:7:2",
+    }
+    assert runner_core.finalize_authority_challenge(
+        42, "abc", "codex", storage=storage
+    ).should_dispatch
+
+    monkeypatch.setattr(
+        runner_core, "_authority_challenge_command", lambda *_args: {"granted": False}
+    )
+    assert runner_core.finalize_authority_challenge(42, "abc", "codex", storage=storage).reason == (
+        "invalid-or-consumed-authority-challenge"
+    )
+
+
+def test_authority_helper_rejects_wrong_context_and_helper_launch_failure(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.delenv("GITHUB_RUN_ID", raising=False)
+    assert runner_core._authority_challenge_command("prepare", 42, "abc", "codex") is None
+    with pytest.raises(ValueError, match="Unsupported authority challenge command"):
+        runner_core._authority_challenge_command("invalid", 42, "abc", "codex")
+
+    for key, value in {
+        "GITHUB_REPOSITORY": "owner/repo",
+        "GITHUB_RUN_ID": "7",
+        "GITHUB_RUN_ATTEMPT": "2",
+        "GITHUB_EVENT_NAME": "workflow_dispatch",
+        "GITHUB_ACTOR": "github-actions[bot]",
+    }.items():
+        monkeypatch.setenv(key, value)
+    monkeypatch.setattr(
+        runner_core.subprocess, "run", lambda *_args, **_kwargs: (_ for _ in ()).throw(OSError())
+    )
+    assert runner_core._authority_challenge_command("prepare", 42, "abc", "codex") is None
+    assert "helper unavailable: OSError" in capsys.readouterr().err
+
+
+def test_fallback_storage_uses_legacy_record_when_primary_read_fails(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    primary, fallback = MemoryRunnerStorage(), MemoryRunnerStorage()
+    fallback.records[(42, "codex")] = {"status": "fallback"}
+    monkeypatch.setattr(
+        primary, "read_record", lambda *_args: (_ for _ in ()).throw(RuntimeError("offline"))
+    )
+    storage = runner_core.FallbackRunnerStorage(primary, fallback)
+    assert storage.read_record(42, "codex") == {"status": "fallback"}
+    assert storage._use_fallback is True
+    assert "primary storage unavailable" in capsys.readouterr().err
+
+
+def test_assemble_prompt_materializes_references_and_uses_keepalive_appendix(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    (tmp_path / "base.md").write_text("base", encoding="utf-8")
+    (tmp_path / "appendix.md").write_text("current tasks", encoding="utf-8")
+    (tmp_path / "AGENTS.md").write_text("repository guidance", encoding="utf-8")
+    (tmp_path / ".reference").mkdir()
+    (tmp_path / ".reference" / "REFERENCE_PACKS.md").write_text("references", encoding="utf-8")
+    calls: list[tuple[Path, str | None, str | None]] = []
+
+    def materialize(workspace: Path, *, reference_pack_name: str | None, token: str | None) -> None:
+        calls.append((workspace, reference_pack_name, token))
+
+    monkeypatch.setattr(runner_core, "materialize_reference_packs", materialize)
+    prompt = assemble_prompt(
+        "baseline",
+        {
+            "workspace": tmp_path,
+            "base_prompt_file": "base.md",
+            "mode": "keepalive",
+            "task_appendix_file": "appendix.md",
+            "materialize_reference_packs": True,
+            "github_token": "token",
+        },
+        "claude",
+    )
+
+    assert calls == [(tmp_path.resolve(), "baseline", "token")]
+    assert "current tasks" in prompt.text
+    assert "repository guidance" in prompt.text
+    assert "references" in prompt.text
+
+
+def test_prompt_and_context_module_errors_are_explicit(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    with pytest.raises(ValueError, match="does not support prompt assembly"):
+        assemble_prompt(None, {"workspace": tmp_path, "base_prompt_file": "missing"}, "autofix")
+    with pytest.raises(ValueError, match="base_prompt_file is required"):
+        assemble_prompt(None, {"workspace": tmp_path}, "codex")
+    with pytest.raises(FileNotFoundError, match="base prompt file not found"):
+        assemble_prompt(None, {"workspace": tmp_path, "base_prompt_file": "missing"}, "codex")
+
+    def missing(name: str) -> None:
+        raise ModuleNotFoundError(name=name)
+
+    monkeypatch.setattr(runner_core.importlib, "import_module", missing)
+    with pytest.raises(RuntimeError, match="orchestrator skill context is not supported"):
+        runner_core._load_orchestrator_skill_module()
+
+
 def test_pr_comment_marker_round_trips_nested_result_payload() -> None:
     result = parse_runner_output("claude", "Done")
     record = {
