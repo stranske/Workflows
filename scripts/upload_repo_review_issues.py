@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import importlib.util
 import json
 import re
 import shlex
@@ -55,6 +56,8 @@ LABELS = {
         "description": "Low-priority weekly repo-review work",
     },
 }
+ORCHESTRATOR_MIRROR = Path.home() / ".codex" / "orchestrator-mirror"
+
 SEMANTIC_DUPLICATE_LABEL = "repo-review-approved"
 SEMANTIC_DUPLICATE_THRESHOLD = 0.20
 SEMANTIC_DUPLICATE_MARGIN = 0.08
@@ -421,12 +424,252 @@ def create_issue(issue: dict[str, Any], prefix: list[str]) -> str:
     return result.stdout.strip()
 
 
+def approval_body_key(body: str) -> tuple[str, ...]:
+    """Allow prose whitespace formatting only; code and every approved word stay fixed."""
+    return tuple(
+        part if index % 2 else re.sub(r"\s+", " ", part).strip()
+        for index, part in enumerate(
+            re.split(r"(```.*?```|~~~.*?~~~|`[^`]*`)", body, flags=re.DOTALL)
+        )
+    )
+
+
+def role_body_errors(body: str, approved_body: str | None = None) -> list[str]:
+    """Apply both the weekly quality bar and the fleet's runnable-acceptance contract."""
+    errors = issue_body_quality_errors(body)
+    if approved_body is not None and approval_body_key(body) != approval_body_key(approved_body):
+        errors.append(
+            "role body changed approved content; retain the approved scope and evidence verbatim"
+        )
+    spec = importlib.util.spec_from_file_location(
+        "_repo_review_issue_format",
+        Path(__file__).resolve().parents[1] / ".github/scripts/issue_format.py",
+    )
+    if spec is None or spec.loader is None:
+        return errors + ["fleet issue-format validator unavailable"]
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    report = module.validate(body)
+    return (
+        errors
+        + list(report.problems)
+        + [f"missing section: {name}" for name in report.missing_required]
+    )
+
+
+def author_issue_batch(
+    issues: list[dict[str, Any]], *, output_root: Path
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """Optional local authoring; validated original bodies remain each item's fallback."""
+    mirror = ORCHESTRATOR_MIRROR
+    if not (mirror / "capability_advisor.py").is_file():
+        return issues, {"state": "mirror-unavailable"}
+    try:
+        output_root.mkdir(parents=True, exist_ok=True)
+        directory = Path(tempfile.mkdtemp(prefix="batch-", dir=output_root)).resolve()
+    except OSError as exc:
+        return issues, {"state": "evidence-directory-unavailable", "error": str(exc)}
+    receipt: dict[str, Any] = {"state": "baseline", "directory": str(directory), "items": []}
+
+    def invoke(name: str, *args: str, timeout: int = 30) -> subprocess.CompletedProcess[str]:
+        try:
+            if not (mirror / name).is_file():
+                raise FileNotFoundError(f"optional mirror tool unavailable: {name}")
+            result = subprocess.run(
+                [sys.executable, str(mirror / name), *args],
+                cwd=mirror,
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+            )
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            result = subprocess.CompletedProcess([name, *args], 1, "", str(exc))
+        (directory / f"{name}.stdout.txt").write_text(result.stdout, encoding="utf-8")
+        (directory / f"{name}.stderr.txt").write_text(result.stderr, encoding="utf-8")
+        return result
+
+    repos = sorted({str(issue["repo"]) for issue in issues})
+    advice_result = invoke(
+        "capability_advisor.py",
+        "--json",
+        "--surface",
+        "repo-review-uploader",
+        "--repository",
+        ",".join(repos),
+        f"Author {len(issues)} approved issue bodies for {', '.join(repos)}; preserve each "
+        "approved scope, acceptance evidence, title and labels, and validate before filing.",
+    )
+    try:
+        advice = json.loads(advice_result.stdout) if advice_result.returncode == 0 else {}
+        if not isinstance(advice, dict):
+            advice = {}
+    except ValueError:
+        advice = {}
+    experiment = advice.get("experiment_id")
+    capabilities = advice.get("capabilities")
+    if not isinstance(capabilities, list):
+        capabilities = []
+    offered = any(
+        isinstance(cap, dict) and cap.get("capability_id") == "role-prompt" for cap in capabilities
+    )
+    receipt["experiment_id"] = experiment
+    receipt["offered"] = offered
+    reason = "The advisor did not offer role-prompt for this batch."
+    kind = "wrong_match"
+    manifests: dict[str, dict[str, Any]] = {}
+    role_directory = directory / "role"
+    targets = [
+        f"{item['repo']}#review-{item_hash(str(item['repo']), str(item['title']))}"
+        for item in issues
+    ]
+    missing_tools = [
+        name for name in ("roles.py", "capability_propensity.py") if not (mirror / name).is_file()
+    ]
+    if offered and missing_tools:
+        receipt["missing_tools"] = missing_tools
+        reason = "Optional prompt-role tools unavailable: " + ", ".join(missing_tools)
+        kind = "precondition_unmet"
+    elif offered and len(issues) >= 3:
+        batch = [
+            {
+                "target": target,
+                "goal": str(item["title"]),
+                "repo": str(item["repo"]),
+                "context": "Preserve the complete approved body and evidence verbatim. Only adjust prose "
+                "whitespace; do not change code, words, requirements or evidence references.\n"
+                + str(item["body"])
+                + "\n"
+                + json.dumps(item.get("review_evidence_trace", {})),
+                "constraints": [
+                    "Keep every approved word and code span; substantive rewrites fall back to the original.",
+                    "Return an issue_body; do not file issues or change titles/labels.",
+                ],
+            }
+            for target, item in zip(targets, issues, strict=True)
+        ]
+        batch_file = directory / "batch.json"
+        batch_file.write_text(json.dumps(batch, indent=2), encoding="utf-8")
+        role_result = invoke(
+            "roles.py",
+            "prompt",
+            "--batch",
+            str(batch_file),
+            "--output",
+            "issue_body",
+            "--output-dir",
+            str(role_directory),
+            "--dispatch",
+            "--json",
+            timeout=600,
+        )
+        receipt["role_exit"] = role_result.returncode
+        # A partial failure exits nonzero but still publishes valid siblings and failed evidence.
+        try:
+            manifest = json.loads((role_directory / "manifest.json").read_text(encoding="utf-8"))
+            for row in manifest.get("items", []):
+                if isinstance(row, dict) and row.get("target") in targets:
+                    target = row["target"]
+                    if target in manifests:
+                        raise ValueError("duplicate target in role manifest")
+                    manifests[target] = row
+        except (OSError, ValueError, TypeError, AttributeError) as exc:
+            receipt["manifest_error"] = str(exc)
+            manifests = {}
+        receipt["role_manifest"] = str(role_directory / "manifest.json")
+        reason, kind = "No role-authored body passed uploader validation.", "precondition_unmet"
+    elif offered:
+        reason, kind = "The upload batch contains fewer than three new items.", "scope_too_small"
+
+    selected = []
+    for target, item in zip(targets, issues, strict=True):
+        row = manifests.get(target, {})
+        errors: list[str] = []
+        body = None
+        if row.get("valid") is True and not row.get("errors") and not row.get("role_record_error"):
+            try:
+                path = Path(row["body_file"]).resolve()
+                if not path.is_relative_to(role_directory.resolve()):
+                    raise ValueError("body file is outside the retained role directory")
+                body = path.read_text(encoding="utf-8")
+                errors = role_body_errors(body, str(item["body"]))
+            except (OSError, ValueError, TypeError, KeyError) as exc:
+                errors = [str(exc)]
+        else:
+            errors = row.get("errors") or ["no valid role body"]
+        used = bool(body and not errors)
+        selected.append({**item, "body": body if used else item["body"]})
+        receipt["items"].append({"target": target, "used_role": used, "errors": errors})
+    receipt["state"] = (
+        "role-authored" if any(row["used_role"] for row in receipt["items"]) else "baseline"
+    )
+    if experiment and receipt["state"] == "baseline":
+        decline = invoke(
+            "capability_propensity.py",
+            "decline",
+            "--capability",
+            "role-prompt",
+            "--experiment",
+            str(experiment),
+            "--surface",
+            "repo-review-uploader",
+            "--kind",
+            kind,
+            "--reason",
+            reason,
+        )
+        receipt["decline"] = {"exit": decline.returncode, "kind": kind, "reason": reason}
+    (directory / "upload-authoring.json").write_text(
+        json.dumps(receipt, indent=2), encoding="utf-8"
+    )
+    return selected, receipt
+
+
+def record_authoring_delivery(receipt: dict[str, Any], index: int, url: str) -> None:
+    """Join a used role body to the actual issue identity, never to a synthetic queue ID."""
+    if not receipt.get("experiment_id") or not receipt.get("items", [])[index]["used_role"]:
+        return
+    parts = url.rstrip("/").split("/")
+    if len(parts) < 5 or parts[-2] != "issues" or not parts[-1].isdigit():
+        return
+    target = "/".join(parts[-4:-2]) + "#" + parts[-1]
+    try:
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(ORCHESTRATOR_MIRROR / "capability_propensity.py"),
+                "trigger",
+                "--capability",
+                "role-prompt",
+                "--experiment",
+                str(receipt["experiment_id"]),
+                "--deliverable",
+                target,
+            ],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        receipt["items"][index]["trigger"] = {
+            "exit": result.returncode,
+            "deliverable": target,
+            "stdout": result.stdout,
+            "stderr": result.stderr,
+        }
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        receipt["items"][index]["trigger"] = {"error": str(exc), "deliverable": target}
+    (Path(receipt["directory"]) / "upload-authoring.json").write_text(
+        json.dumps(receipt, indent=2), encoding="utf-8"
+    )
+
+
 def upload_issues(
     issues: list[dict[str, Any]],
     *,
     prefix: list[str],
     apply: bool,
     repo_filter: set[str] | None = None,
+    authoring_dir: Path | None = None,
 ) -> dict[str, Any]:
     summary: dict[str, Any] = {
         "apply": apply,
@@ -444,6 +687,7 @@ def upload_issues(
             continue
         by_repo.setdefault(repo, []).append(issue)
 
+    pending: list[dict[str, Any]] = []
     for repo, repo_issues in sorted(by_repo.items()):
         # `existing_issues` now includes recently-closed issues (#2272), so a
         # re-run after items were materialized-and-closed does not recreate them.
@@ -462,7 +706,7 @@ def upload_issues(
                 or find_semantic_duplicate(issue, existing_issues)
             )
             if existing:
-                if apply:
+                if apply and existing.get("number") is not None:
                     add_missing_labels(
                         repo,
                         int(existing["number"]),
@@ -482,8 +726,50 @@ def upload_issues(
             if not apply:
                 summary["would_create"].append({"repo": repo, "title": title})
                 continue
+            pending.append(issue)
+            # Preserve same-batch duplicate suppression before optional authoring changes wording.
+            existing_issues.append(
+                {"title": title, "body": body_with_item_marker(repo, title, str(issue["body"]))}
+            )
+            open_by_title[title] = existing_issues[-1]
+    if pending:
+        authored, receipt = author_issue_batch(
+            pending, output_root=authoring_dir or Path("docs/reports/repo-review/prompt-authoring")
+        )
+        summary["authoring"] = receipt
+        snapshots: dict[str, list[dict[str, Any]]] = {}
+        for index, issue in enumerate(authored):
+            # Authoring can take minutes; another uploader may have filed the original meanwhile.
+            repo_name = str(issue["repo"])
+            if repo_name not in snapshots:
+                snapshots[repo_name] = fetch_open_issues(repo_name, prefix)
+            current = snapshots[repo_name]
+            original = pending[index]
+            existing = (
+                find_marker_duplicate(original, current)
+                or next((row for row in current if row.get("title") == original["title"]), None)
+                or find_semantic_duplicate(original, current)
+            )
+            if existing:
+                add_missing_labels(
+                    str(issue["repo"]),
+                    int(existing["number"]),
+                    [str(label) for label in issue.get("labels", [])],
+                    existing.get("labels", []),
+                    prefix,
+                )
+                summary["skipped_duplicates"].append(
+                    {
+                        "repo": issue["repo"],
+                        "title": issue["title"],
+                        "number": existing["number"],
+                        "url": existing.get("url"),
+                    }
+                )
+                continue
             url = create_issue(issue, prefix)
-            summary["created"].append({"repo": repo, "title": title, "url": url})
+            summary["created"].append({"repo": issue["repo"], "title": issue["title"], "url": url})
+            record_authoring_delivery(receipt, index, url)
     return summary
 
 
@@ -502,6 +788,9 @@ def parse_args() -> argparse.Namespace:
         help="Command prefix for GitHub CLI calls, e.g. 'gh' or 'detached-net.sh gh'",
     )
     parser.add_argument("--repo", action="append", default=[], help="Limit upload to this repo.")
+    parser.add_argument(
+        "--authoring-dir", type=Path, help="Retain optional role bodies and failure manifests here."
+    )
     parser.add_argument("--apply", action="store_true", help="Create/edit issues on GitHub.")
     return parser.parse_args()
 
@@ -530,6 +819,7 @@ def main() -> int:
         prefix=shlex.split(args.gh_prefix),
         apply=args.apply,
         repo_filter=set(args.repo) if args.repo else None,
+        authoring_dir=getattr(args, "authoring_dir", None),
     )
     print(json.dumps(summary, indent=2))
     return 0

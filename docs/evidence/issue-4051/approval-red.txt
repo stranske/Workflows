@@ -1,0 +1,198 @@
+FFFF                                                                     [100%]
+=================================== FAILURES ===================================
+_ test_structurally_valid_role_rewrite_cannot_change_approved_content[Implement the smoke in `tests/test_local_smoke.py` using existing public APIs.-Implement a remote service in `tests/test_network.py` using existing public APIs.] _
+
+tmp_path = PosixPath('/private/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/pytest-of-teacher/pytest-5544/test_structurally_valid_role_r0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x109c12b70>
+old = 'Implement the smoke in `tests/test_local_smoke.py` using existing public APIs.'
+new = 'Implement a remote service in `tests/test_network.py` using existing public APIs.'
+
+    @pytest.mark.parametrize(
+        "old,new",
+        [
+            (
+                "Implement the smoke in `tests/test_local_smoke.py` using existing public APIs.",
+                "Implement a remote service in `tests/test_network.py` using existing public APIs.",
+            ),
+            (
+                "- Keep fixtures deterministic and offline.",
+                "- Keep fixtures deterministic and offline.\n- Add a new production database.",
+            ),
+            ("--no-cov", "-k easy"),
+            ("The repo needs", "Also migrate production records. The repo needs"),
+        ],
+    )
+    def test_structurally_valid_role_rewrite_cannot_change_approved_content(
+        tmp_path, monkeypatch, old, new
+    ):
+        calls = authoring_tools(tmp_path, monkeypatch)
+        original_run = uploader.subprocess.run
+
+        def run(args, **kwargs):
+            result = original_run(args, **kwargs)
+            if Path(args[1]).name == "roles.py":
+                directory = Path(args[args.index("--output-dir") + 1])
+                for file in directory.glob("*.md"):
+                    file.write_text(VALID_BODY.replace(old, new))
+            return result
+
+        monkeypatch.setattr(uploader.subprocess, "run", run)
+        items = [issue(title) for title in ("Alpha", "Beta", "Gamma")]
+        selected, receipt = uploader.author_issue_batch(items, output_root=tmp_path / "evidence")
+        assert not uploader.issue_body_quality_errors(VALID_BODY.replace(old, new))
+>       assert selected == items
+E       AssertionError: assert [{'repo': 'ow...mand.', ...}}] == [{'repo': 'ow...mand.', ...}}]
+E
+E         At index 0 diff: {'repo': 'owner/repo', 'title': 'Alpha', 'body': '## Why\n\nThe repo needs a deterministic local smoke so agents can prove the reviewed workflow instead of relying on manual inspection.\n\n## Scope\n\n- Add one focused smoke around the documented local path.\n- Keep fixtures deterministic and offline.\n\n## Non-Goals\n\n- Do not add live external services.\n- Do not refactor unrelated modules.\n\n## Tasks\n\n- [ ] Implement a remote service in `tests/test_network.py` using existing public APIs.\n- [ ] Add fixture data under `tests/fixtures/local_smoke/`...
+E
+E         ...Full output truncated (2 lines hidden), use '-vv' to show
+
+tests/scripts/test_upload_repo_review_issues.py:506: AssertionError
+_ test_structurally_valid_role_rewrite_cannot_change_approved_content[- Keep fixtures deterministic and offline.-- Keep fixtures deterministic and offline.\n- Add a new production database.] _
+
+tmp_path = PosixPath('/private/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/pytest-of-teacher/pytest-5544/test_structurally_valid_role_r1')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x109c6d6a0>
+old = '- Keep fixtures deterministic and offline.'
+new = '- Keep fixtures deterministic and offline.\n- Add a new production database.'
+
+    @pytest.mark.parametrize(
+        "old,new",
+        [
+            (
+                "Implement the smoke in `tests/test_local_smoke.py` using existing public APIs.",
+                "Implement a remote service in `tests/test_network.py` using existing public APIs.",
+            ),
+            (
+                "- Keep fixtures deterministic and offline.",
+                "- Keep fixtures deterministic and offline.\n- Add a new production database.",
+            ),
+            ("--no-cov", "-k easy"),
+            ("The repo needs", "Also migrate production records. The repo needs"),
+        ],
+    )
+    def test_structurally_valid_role_rewrite_cannot_change_approved_content(
+        tmp_path, monkeypatch, old, new
+    ):
+        calls = authoring_tools(tmp_path, monkeypatch)
+        original_run = uploader.subprocess.run
+
+        def run(args, **kwargs):
+            result = original_run(args, **kwargs)
+            if Path(args[1]).name == "roles.py":
+                directory = Path(args[args.index("--output-dir") + 1])
+                for file in directory.glob("*.md"):
+                    file.write_text(VALID_BODY.replace(old, new))
+            return result
+
+        monkeypatch.setattr(uploader.subprocess, "run", run)
+        items = [issue(title) for title in ("Alpha", "Beta", "Gamma")]
+        selected, receipt = uploader.author_issue_batch(items, output_root=tmp_path / "evidence")
+        assert not uploader.issue_body_quality_errors(VALID_BODY.replace(old, new))
+>       assert selected == items
+E       AssertionError: assert [{'repo': 'ow...mand.', ...}}] == [{'repo': 'ow...mand.', ...}}]
+E
+E         At index 0 diff: {'repo': 'owner/repo', 'title': 'Alpha', 'body': '## Why\n\nThe repo needs a deterministic local smoke so agents can prove the reviewed workflow instead of relying on manual inspection.\n\n## Scope\n\n- Add one focused smoke around the documented local path.\n- Keep fixtures deterministic and offline.\n- Add a new production database.\n\n## Non-Goals\n\n- Do not add live external services.\n- Do not refactor unrelated modules.\n\n## Tasks\n\n- [ ] Implement the smoke in `tests/test_local_smoke.py` using existing public APIs.\n- [ ] Add fixture data unde...
+E
+E         ...Full output truncated (2 lines hidden), use '-vv' to show
+
+tests/scripts/test_upload_repo_review_issues.py:506: AssertionError
+_ test_structurally_valid_role_rewrite_cannot_change_approved_content[--no-cov--k easy] _
+
+tmp_path = PosixPath('/private/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/pytest-of-teacher/pytest-5544/test_structurally_valid_role_r2')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x109d3c230>
+old = '--no-cov', new = '-k easy'
+
+    @pytest.mark.parametrize(
+        "old,new",
+        [
+            (
+                "Implement the smoke in `tests/test_local_smoke.py` using existing public APIs.",
+                "Implement a remote service in `tests/test_network.py` using existing public APIs.",
+            ),
+            (
+                "- Keep fixtures deterministic and offline.",
+                "- Keep fixtures deterministic and offline.\n- Add a new production database.",
+            ),
+            ("--no-cov", "-k easy"),
+            ("The repo needs", "Also migrate production records. The repo needs"),
+        ],
+    )
+    def test_structurally_valid_role_rewrite_cannot_change_approved_content(
+        tmp_path, monkeypatch, old, new
+    ):
+        calls = authoring_tools(tmp_path, monkeypatch)
+        original_run = uploader.subprocess.run
+
+        def run(args, **kwargs):
+            result = original_run(args, **kwargs)
+            if Path(args[1]).name == "roles.py":
+                directory = Path(args[args.index("--output-dir") + 1])
+                for file in directory.glob("*.md"):
+                    file.write_text(VALID_BODY.replace(old, new))
+            return result
+
+        monkeypatch.setattr(uploader.subprocess, "run", run)
+        items = [issue(title) for title in ("Alpha", "Beta", "Gamma")]
+        selected, receipt = uploader.author_issue_batch(items, output_root=tmp_path / "evidence")
+        assert not uploader.issue_body_quality_errors(VALID_BODY.replace(old, new))
+>       assert selected == items
+E       AssertionError: assert [{'repo': 'ow...mand.', ...}}] == [{'repo': 'ow...mand.', ...}}]
+E
+E         At index 0 diff: {'repo': 'owner/repo', 'title': 'Alpha', 'body': '## Why\n\nThe repo needs a deterministic local smoke so agents can prove the reviewed workflow instead of relying on manual inspection.\n\n## Scope\n\n- Add one focused smoke around the documented local path.\n- Keep fixtures deterministic and offline.\n\n## Non-Goals\n\n- Do not add live external services.\n- Do not refactor unrelated modules.\n\n## Tasks\n\n- [ ] Implement the smoke in `tests/test_local_smoke.py` using existing public APIs.\n- [ ] Add fixture data under `tests/fixtures/local_smoke/` th...
+E
+E         ...Full output truncated (2 lines hidden), use '-vv' to show
+
+tests/scripts/test_upload_repo_review_issues.py:506: AssertionError
+_ test_structurally_valid_role_rewrite_cannot_change_approved_content[The repo needs-Also migrate production records. The repo needs] _
+
+tmp_path = PosixPath('/private/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/pytest-of-teacher/pytest-5544/test_structurally_valid_role_r3')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x109c6fda0>
+old = 'The repo needs', new = 'Also migrate production records. The repo needs'
+
+    @pytest.mark.parametrize(
+        "old,new",
+        [
+            (
+                "Implement the smoke in `tests/test_local_smoke.py` using existing public APIs.",
+                "Implement a remote service in `tests/test_network.py` using existing public APIs.",
+            ),
+            (
+                "- Keep fixtures deterministic and offline.",
+                "- Keep fixtures deterministic and offline.\n- Add a new production database.",
+            ),
+            ("--no-cov", "-k easy"),
+            ("The repo needs", "Also migrate production records. The repo needs"),
+        ],
+    )
+    def test_structurally_valid_role_rewrite_cannot_change_approved_content(
+        tmp_path, monkeypatch, old, new
+    ):
+        calls = authoring_tools(tmp_path, monkeypatch)
+        original_run = uploader.subprocess.run
+
+        def run(args, **kwargs):
+            result = original_run(args, **kwargs)
+            if Path(args[1]).name == "roles.py":
+                directory = Path(args[args.index("--output-dir") + 1])
+                for file in directory.glob("*.md"):
+                    file.write_text(VALID_BODY.replace(old, new))
+            return result
+
+        monkeypatch.setattr(uploader.subprocess, "run", run)
+        items = [issue(title) for title in ("Alpha", "Beta", "Gamma")]
+        selected, receipt = uploader.author_issue_batch(items, output_root=tmp_path / "evidence")
+        assert not uploader.issue_body_quality_errors(VALID_BODY.replace(old, new))
+>       assert selected == items
+E       AssertionError: assert [{'repo': 'ow...mand.', ...}}] == [{'repo': 'ow...mand.', ...}}]
+E
+E         At index 0 diff: {'repo': 'owner/repo', 'title': 'Alpha', 'body': '## Why\n\nAlso migrate production records. The repo needs a deterministic local smoke so agents can prove the reviewed workflow instead of relying on manual inspection.\n\n## Scope\n\n- Add one focused smoke around the documented local path.\n- Keep fixtures deterministic and offline.\n\n## Non-Goals\n\n- Do not add live external services.\n- Do not refactor unrelated modules.\n\n## Tasks\n\n- [ ] Implement the smoke in `tests/test_local_smoke.py` using existing public APIs.\n- [ ] Add fixture data under...
+E
+E         ...Full output truncated (2 lines hidden), use '-vv' to show
+
+tests/scripts/test_upload_repo_review_issues.py:506: AssertionError
+=========================== short test summary info ============================
+FAILED tests/scripts/test_upload_repo_review_issues.py::test_structurally_valid_role_rewrite_cannot_change_approved_content[Implement the smoke in `tests/test_local_smoke.py` using existing public APIs.-Implement a remote service in `tests/test_network.py` using existing public APIs.]
+FAILED tests/scripts/test_upload_repo_review_issues.py::test_structurally_valid_role_rewrite_cannot_change_approved_content[- Keep fixtures deterministic and offline.-- Keep fixtures deterministic and offline.\n- Add a new production database.]
+FAILED tests/scripts/test_upload_repo_review_issues.py::test_structurally_valid_role_rewrite_cannot_change_approved_content[--no-cov--k easy]
+FAILED tests/scripts/test_upload_repo_review_issues.py::test_structurally_valid_role_rewrite_cannot_change_approved_content[The repo needs-Also migrate production records. The repo needs]
+4 failed, 21 deselected in 3.64s

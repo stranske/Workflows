@@ -1,0 +1,194 @@
+.FF                                                                      [100%]
+=================================== FAILURES ===================================
+_ test_three_item_authoring_keeps_per_item_fallback_and_failure_manifest[1-False] _
+
+tmp_path = PosixPath('/tmp/pytest-of-runner/pytest-2/test_three_item_authoring_keep1')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7fbe43b30640>
+failed = 1, invalid_claim = False
+
+    @pytest.mark.parametrize("failed,invalid_claim", [(None, False), (1, False), (1, True)])
+    def test_three_item_authoring_keeps_per_item_fallback_and_failure_manifest(
+        tmp_path, monkeypatch, failed, invalid_claim
+    ):
+        calls = authoring_tools(tmp_path, monkeypatch, failed=failed, invalid_claim=invalid_claim)
+        monkeypatch.setattr(uploader, "fetch_open_issues", lambda *args: [])
+        monkeypatch.setattr(uploader, "ensure_labels", lambda *args: None)
+        created = []
+    
+        def create(item, prefix):
+            created.append(item)
+            return f"https://github.test/owner/repo/issues/{100 + len(created)}"
+    
+        monkeypatch.setattr(uploader, "create_issue", create)
+        items = [issue(title) for title in ("Alpha", "Beta", "Gamma")]
+        summary = uploader.upload_issues(
+            items, prefix=["gh"], apply=True, authoring_dir=tmp_path / "evidence"
+        )
+        assert len(summary["created"]) == len(created) == 3
+        assert [item["title"] for item in created] == [item["title"] for item in items]
+        for index, item in enumerate(created):
+            if index == failed:
+>               assert item["body"] == VALID_BODY
+E               AssertionError: assert '' == '## Why\n\nTh...esting.md`.\n'
+E                 
+E                 - ## Why
+E                 - 
+E                 - The repo needs a deterministic local smoke so agents can prove the reviewed workflow instead of relying on manual inspection.
+E                 - 
+E                 - ## Scope
+E                 - 
+E                 - - Add one focused smoke around the documented local path.
+E                 - - Keep fixtures deterministic and offline.
+E                 - 
+E                 - ## Non-Goals
+E                 - 
+E                 - - Do not add live external services.
+E                 - - Do not refactor unrelated modules.
+E                 - 
+E                 - ## Tasks
+E                 - 
+E                 - - [ ] Implement the smoke in `tests/test_local_smoke.py` using existing public APIs.
+E                 - - [ ] Add fixture data under `tests/fixtures/local_smoke/` that exercises the reviewed path.
+E                 - - [ ] Assert `tests/test_local_smoke.py` fails when the primary output object is missing.
+E                 - - [ ] Document the smoke command in `docs/local-testing.md`.
+E                 - 
+E                 - ## Acceptance Criteria
+E                 - 
+E                 - - [ ] `python -m pytest tests/test_local_smoke.py --no-cov` exits zero with local fixtures.
+E                 - - [ ] The smoke fails with a clear assertion if the primary output object is not created.
+E                 - - [ ] Documentation names the command and the fixture data used by the smoke.
+E                 - 
+E                 - ## Implementation Notes
+E                 - 
+E                 - Relevant files: `tests/test_local_smoke.py`, `tests/fixtures/local_smoke/`, `docs/local-testing.md`.
+
+tests/scripts/test_upload_repo_review_issues.py:349: AssertionError
+_ test_three_item_authoring_keeps_per_item_fallback_and_failure_manifest[1-True] _
+
+tmp_path = PosixPath('/tmp/pytest-of-runner/pytest-2/test_three_item_authoring_keep2')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7fbe43b6f410>
+failed = 1, invalid_claim = True
+
+    @pytest.mark.parametrize("failed,invalid_claim", [(None, False), (1, False), (1, True)])
+    def test_three_item_authoring_keeps_per_item_fallback_and_failure_manifest(
+        tmp_path, monkeypatch, failed, invalid_claim
+    ):
+        calls = authoring_tools(tmp_path, monkeypatch, failed=failed, invalid_claim=invalid_claim)
+        monkeypatch.setattr(uploader, "fetch_open_issues", lambda *args: [])
+        monkeypatch.setattr(uploader, "ensure_labels", lambda *args: None)
+        created = []
+    
+        def create(item, prefix):
+            created.append(item)
+            return f"https://github.test/owner/repo/issues/{100 + len(created)}"
+    
+        monkeypatch.setattr(uploader, "create_issue", create)
+        items = [issue(title) for title in ("Alpha", "Beta", "Gamma")]
+        summary = uploader.upload_issues(
+            items, prefix=["gh"], apply=True, authoring_dir=tmp_path / "evidence"
+        )
+        assert len(summary["created"]) == len(created) == 3
+        assert [item["title"] for item in created] == [item["title"] for item in items]
+        for index, item in enumerate(created):
+            if index == failed:
+>               assert item["body"] == VALID_BODY
+E               AssertionError: assert '' == '## Why\n\nTh...esting.md`.\n'
+E                 
+E                 - ## Why
+E                 - 
+E                 - The repo needs a deterministic local smoke so agents can prove the reviewed workflow instead of relying on manual inspection.
+E                 - 
+E                 - ## Scope
+E                 - 
+E                 - - Add one focused smoke around the documented local path.
+E                 - - Keep fixtures deterministic and offline.
+E                 - 
+E                 - ## Non-Goals
+E                 - 
+E                 - - Do not add live external services.
+E                 - - Do not refactor unrelated modules.
+E                 - 
+E                 - ## Tasks
+E                 - 
+E                 - - [ ] Implement the smoke in `tests/test_local_smoke.py` using existing public APIs.
+E                 - - [ ] Add fixture data under `tests/fixtures/local_smoke/` that exercises the reviewed path.
+E                 - - [ ] Assert `tests/test_local_smoke.py` fails when the primary output object is missing.
+E                 - - [ ] Document the smoke command in `docs/local-testing.md`.
+E                 - 
+E                 - ## Acceptance Criteria
+E                 - 
+E                 - - [ ] `python -m pytest tests/test_local_smoke.py --no-cov` exits zero with local fixtures.
+E                 - - [ ] The smoke fails with a clear assertion if the primary output object is not created.
+E                 - - [ ] Documentation names the command and the fixture data used by the smoke.
+E                 - 
+E                 - ## Implementation Notes
+E                 - 
+E                 - Relevant files: `tests/test_local_smoke.py`, `tests/fixtures/local_smoke/`, `docs/local-testing.md`.
+
+tests/scripts/test_upload_repo_review_issues.py:349: AssertionError
+=========================== short test summary info ============================
+FAILED tests/scripts/test_upload_repo_review_issues.py::test_three_item_authoring_keeps_per_item_fallback_and_failure_manifest[1-False] - AssertionError: assert '' == '## Why\n\nTh...esting.md`.\n'
+  
+  - ## Why
+  - 
+  - The repo needs a deterministic local smoke so agents can prove the reviewed workflow instead of relying on manual inspection.
+  - 
+  - ## Scope
+  - 
+  - - Add one focused smoke around the documented local path.
+  - - Keep fixtures deterministic and offline.
+  - 
+  - ## Non-Goals
+  - 
+  - - Do not add live external services.
+  - - Do not refactor unrelated modules.
+  - 
+  - ## Tasks
+  - 
+  - - [ ] Implement the smoke in `tests/test_local_smoke.py` using existing public APIs.
+  - - [ ] Add fixture data under `tests/fixtures/local_smoke/` that exercises the reviewed path.
+  - - [ ] Assert `tests/test_local_smoke.py` fails when the primary output object is missing.
+  - - [ ] Document the smoke command in `docs/local-testing.md`.
+  - 
+  - ## Acceptance Criteria
+  - 
+  - - [ ] `python -m pytest tests/test_local_smoke.py --no-cov` exits zero with local fixtures.
+  - - [ ] The smoke fails with a clear assertion if the primary output object is not created.
+  - - [ ] Documentation names the command and the fixture data used by the smoke.
+  - 
+  - ## Implementation Notes
+  - 
+  - Relevant files: `tests/test_local_smoke.py`, `tests/fixtures/local_smoke/`, `docs/local-testing.md`.
+FAILED tests/scripts/test_upload_repo_review_issues.py::test_three_item_authoring_keeps_per_item_fallback_and_failure_manifest[1-True] - AssertionError: assert '' == '## Why\n\nTh...esting.md`.\n'
+  
+  - ## Why
+  - 
+  - The repo needs a deterministic local smoke so agents can prove the reviewed workflow instead of relying on manual inspection.
+  - 
+  - ## Scope
+  - 
+  - - Add one focused smoke around the documented local path.
+  - - Keep fixtures deterministic and offline.
+  - 
+  - ## Non-Goals
+  - 
+  - - Do not add live external services.
+  - - Do not refactor unrelated modules.
+  - 
+  - ## Tasks
+  - 
+  - - [ ] Implement the smoke in `tests/test_local_smoke.py` using existing public APIs.
+  - - [ ] Add fixture data under `tests/fixtures/local_smoke/` that exercises the reviewed path.
+  - - [ ] Assert `tests/test_local_smoke.py` fails when the primary output object is missing.
+  - - [ ] Document the smoke command in `docs/local-testing.md`.
+  - 
+  - ## Acceptance Criteria
+  - 
+  - - [ ] `python -m pytest tests/test_local_smoke.py --no-cov` exits zero with local fixtures.
+  - - [ ] The smoke fails with a clear assertion if the primary output object is not created.
+  - - [ ] Documentation names the command and the fixture data used by the smoke.
+  - 
+  - ## Implementation Notes
+  - 
+  - Relevant files: `tests/test_local_smoke.py`, `tests/fixtures/local_smoke/`, `docs/local-testing.md`.
+2 failed, 1 passed, 35 deselected in 0.94s

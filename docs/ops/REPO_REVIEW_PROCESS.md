@@ -308,6 +308,39 @@ skips open issues with exact matching titles, adds missing review labels to skip
 and creates the remaining approved issues in the individual repos. Deeper-review repos are not
 uploaded until the deeper review produces a new candidate set and the human approves it.
 
+### Optional local batch authoring
+
+On an applied upload, the uploader first validates the approved queue and removes
+already-materialized candidates. It consults the local Orchestrator mirror once
+for that remaining batch on `repo-review-uploader`. When `role-prompt` is offered
+for at least three new items, it invokes the prompt role with `--output issue_body
+--dispatch`, preserving the approved body and evidence trace as authoring context.
+The role never files issues. Titles, labels, evidence traces and stable item
+markers remain owned by the uploader.
+
+Each role body must pass the weekly quality checks and the fleet's issue-format
+validator, and preserve the approved content. The deterministic approval guard
+permits prose whitespace formatting only; every word, requirement, evidence
+reference, and code span must remain unchanged. It intentionally falls back on
+substantive rewrites instead of guessing semantic equivalence or expanding the
+owner-approved queue. A rejected, missing, unreadable or invalid body falls back independently
+to its already-validated approved body, including when the role exits nonzero
+because only part of its batch failed. Failed author output stays in the role's
+`manifest.json` with its failed-body/raw-output files. The uploader retains advice,
+command output, body-selection reasons and per-created-issue capability receipts in
+`upload-authoring.json`. Pass `--authoring-dir PATH` to choose the evidence parent;
+the default is `docs/reports/repo-review/prompt-authoring`.
+
+No advisor mirror means the original upload path. A partial mirror still receives
+one advisor consult; missing authoring or propensity tools preserve the original
+bodies and retain a precondition decline, including its exit status. A failed
+decline is local failure evidence, not proof the experiment recorded it.
+A smaller or unoffered batch records a
+reasoned decline when the advisor supplies an experiment ID. Successful body use
+records a trigger against each actual created `owner/repo#N`; it does not claim
+later opener pickup, merge, or durability. Dry runs, intake holds and approval
+scope conflicts do not invoke a prompt role or bypass their existing gates.
+
 Approved drafts flow through `approved-issue-queue.json`. Opener-lane automations should select from that queue by priority, using `high` before `normal` before `low`, while respecting the repo recorded on each item. Closer-lane automations should continue to sweep PRs, review comments, merge readiness, and verifier status across all active repos rather than focusing on a fixed two-repo list.
 
 ### Scorecard approval flow
