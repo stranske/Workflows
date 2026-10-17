@@ -3029,3 +3029,80 @@ def test_storage_failure_log_discards_credential_fields(
     assert "http_message=" not in error
     assert "https://" not in error
     assert fallback.records == {}
+
+
+@pytest.mark.parametrize(
+    "field",
+    [
+        "pwd",
+        "auth",
+        "credentials",
+        "dbPassword",
+        "service_pwd",
+        "oauthAccessToken",
+        "clientSecretValue",
+        "AUTHORIZATION_HEADER",
+        "credentials_bundle",
+        "prefixAuthSuffix",
+        "_pwd_",
+        "credentialBlob",
+        "credential_value",
+        "db_pwd_value",
+        "apiKey",
+        "privateKeyMaterial",
+        "__secret_value__",
+        "authTokenCache",
+        "passwd_hash",
+        "password",
+        "passwd",
+        "passphrase",
+        "client_secret",
+        "clientSecret",
+        "x-access-token",
+        "Authorization",
+        "credential",
+        "api_key",
+        "apiToken",
+        "authToken",
+        "auth_token",
+        "access_token",
+        "accessToken",
+        "refresh_token",
+        "refreshToken",
+        "private_key",
+        "privateKey",
+        "cookie",
+        "token",
+        "secret",
+        "session_token",
+        "sessionToken",
+    ],
+)
+def test_storage_failure_log_discards_plain_compound_credential_markers(
+    field: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Opaque values cannot hide behind plain or compound credential fields."""
+    primary = MemoryRunnerStorage()
+    fallback = MemoryRunnerStorage()
+    secret = "VALUE123ONLY"
+    body = json.dumps({"message": f"{field} {secret}"})
+    cause = _closed_http_error("https://example.invalid/private", 403, "Forbidden")
+
+    def fail(*_: Any) -> Any:
+        raise RuntimeError(f"GitHub API GET /x failed: 403 {body}") from cause
+
+    primary.read_record = fail  # type: ignore[method-assign]
+    decision = should_dispatch(
+        42,
+        "aaa",
+        "codex",
+        storage=runner_core.FallbackRunnerStorage(primary, fallback),
+    )
+    error = capsys.readouterr().err
+    assert decision.should_dispatch is False
+    assert decision.reason == "authoritative-storage-unavailable"
+    assert "http_status=403" in error
+    assert secret not in error
+    assert "http_message=" not in error
+    assert "https://" not in error
+    assert fallback.records == {}
