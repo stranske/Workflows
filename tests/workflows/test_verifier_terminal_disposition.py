@@ -147,7 +147,10 @@ def test_reusable_verifier_uploads_terminal_disposition_artifact() -> None:
     assert "verified-pass" in write_step["run"]
     assert "needs-human" in write_step["run"]
     assert upload_step.get("if") == "always()"
-    assert upload_step.get("uses") == "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a"
+    assert (
+        upload_step.get("uses")
+        == "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a"
+    )
     assert upload_step["with"]["name"] == "verifier-terminal-disposition-${{ github.run_id }}"
     assert "agent-metrics/verifier-terminal-disposition.ndjson" in upload_step["with"]["path"]
     assert "agent-metrics/verifier-followup-ledger.ndjson" in upload_step["with"]["path"]

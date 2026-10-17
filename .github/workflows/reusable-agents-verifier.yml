@@ -18,7 +18,7 @@ on:
         description: 'JSON array of CI workflow filenames to wait for'
         required: false
         type: string
-        default: '["ci.yml", "pr-00-gate.yml"]'
+        default: '["ci.yml"]'
       ci_wait_timeout_ms:
         description: 'Max time to wait for CI workflows (ms)'
         required: false
@@ -160,7 +160,7 @@ jobs:
       # Optional contents-only token for the caller checkout (no persisted credentials).
       - name: Mint GitHub App token
         id: app_token
-        uses: actions/create-github-app-token@v3
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         continue-on-error: true
         with:
           client-id: ${{ secrets.workflows_app_id || '0' }}
@@ -171,7 +171,7 @@ jobs:
 
       # github.sha is the trusted base SHA for pull_request_target, never the PR head.
       - name: Checkout caller repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           token: ${{ steps.app_token.outputs.token || github.token }}
           ref: ${{ github.sha }}
@@ -191,7 +191,7 @@ jobs:
         uses: ./.github/actions/resolve-default-branch
 
       - name: Checkout Workflows scripts
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           token: ${{ github.token }}
           persist-credentials: false
@@ -225,7 +225,7 @@ jobs:
 
       - name: Wait for CI workflows to complete
         id: wait_ci
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           CI_WORKFLOWS: ${{ inputs.ci_workflows }}
           CI_WAIT_TIMEOUT_MS: ${{ inputs.ci_wait_timeout_ms }}
@@ -270,7 +270,7 @@ jobs:
 
             const targetShas = Array.from(
               new Set(
-                [pr.merge_commit_sha, pr.head?.sha]
+                [pr.merge_commit_sha]
                   .map((value) => String(value || '').trim())
                   .filter(Boolean),
               ),
@@ -418,7 +418,7 @@ jobs:
 
       - name: Build verifier context
         id: context
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           CI_WORKFLOWS: ${{ inputs.ci_workflows }}
           VERIFIER_PR_NUMBER: ${{ inputs.pr_number }}
@@ -443,7 +443,7 @@ jobs:
 
       - name: Prepare source closure plans
         if: steps.context.outputs.should_run == 'true'
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           SOURCE_ISSUE_HASHES: ${{ steps.context.outputs.source_issue_hashes }}
           ISSUE_NUMBERS: ${{ steps.context.outputs.issue_numbers }}
@@ -457,13 +457,17 @@ jobs:
             const plans = [];
             const hashes = JSON.parse(process.env.SOURCE_ISSUE_HASHES || '{}');
             for (const issue_number of JSON.parse(process.env.ISSUE_NUMBERS || '[]')) {
-              const { data: issue } = await withRetry(() => github.rest.issues.get({ ...context.repo, issue_number }));
-              if (hashes[issue_number] !== sourceHash(issue.body)) {
-                throw new Error(`Issue #${issue_number} changed after verifier context capture`);
+              try {
+                const { data: issue } = await withRetry(() => github.rest.issues.get({ ...context.repo, issue_number }));
+                if (hashes[issue_number] !== sourceHash(issue.body)) {
+                  throw new Error(`Issue #${issue_number} changed after verifier context capture`);
+                }
+                plans.push({ issue_number, markdown: issue.body || '', source_hash: sourceHash(issue.body),
+                  repository: `${context.repo.owner}/${context.repo.repo}`,
+                  pr_number: Number(process.env.PR_NUMBER), head_sha: process.env.TARGET_SHA });
+              } catch (error) {
+                core.warning(`Skipping closure plan for issue #${issue_number}: ${error.message}`);
               }
-              plans.push({ issue_number, markdown: issue.body || '', source_hash: sourceHash(issue.body),
-                repository: `${context.repo.owner}/${context.repo.repo}`,
-                pr_number: Number(process.env.PR_NUMBER), head_sha: process.env.TARGET_SHA });
             }
             fs.mkdirSync('closure-plans', { recursive: true });
             fs.writeFileSync('closure-plans/plans.json', JSON.stringify(plans));
@@ -487,7 +491,7 @@ jobs:
 
       - name: Upload source closure plans
         if: steps.context.outputs.should_run == 'true'
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: verifier-closure-plans-${{ github.run_id }}
           path: closure-plans/plans.json
@@ -564,7 +568,7 @@ jobs:
       - name: Resolve agent key from PR labels
         id: agent
         if: steps.context.outputs.should_run == 'true'
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -920,7 +924,7 @@ jobs:
             steps.context.outputs.should_run == 'true' &&
             inputs.mode == 'evaluate'
           }}
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.14'
 
@@ -1239,7 +1243,7 @@ jobs:
             steps.context.outputs.should_run == 'true' &&
             inputs.mode == 'compare'
           }}
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.14'
 
@@ -1512,7 +1516,7 @@ jobs:
             steps.context.outputs.should_run == 'true' &&
             inputs.mode == 'compare'
           }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: comparison-results-${{ github.run_id }}
           path: |
@@ -1529,7 +1533,7 @@ jobs:
 
       - name: Retain complete verifier input transport
         if: always() && inputs.evidence_profile == 'expanded' && inputs.mode == 'compare'
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: verifier-input-capture-${{ github.run_id }}
           path: verifier-evidence/
@@ -1543,7 +1547,7 @@ jobs:
             steps.context.outputs.should_run == 'true' &&
             inputs.mode == 'evaluate'
           }}
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: evaluation-capacity-${{ github.run_id }}
           path: verifier-capacity-checks.jsonl
@@ -1593,7 +1597,7 @@ jobs:
         id: failure_issue
         # Disabled: use agents-verify-to-issue-v2.yml with verify:create-issue label instead
         if: ${{ github.run_id == 0 }}
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           PR_URL: ${{ steps.context.outputs.pr_html_url }}
           RUN_URL: >-
@@ -2078,7 +2082,7 @@ jobs:
 
       - name: Upload verifier terminal disposition
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: verifier-terminal-disposition-${{ github.run_id }}
           path: |
@@ -2128,7 +2132,7 @@ jobs:
 
       - name: Upload verifier metrics
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: agents-verifier-metrics
           path: verifier-metrics.ndjson

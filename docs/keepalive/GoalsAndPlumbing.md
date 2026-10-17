@@ -337,7 +337,13 @@ and comments the chosen rule and immutable merge SHA before closing:
 - `unverifiable-input-merged-head-gates-and-ci`: the verdict is UNVERIFIABLE_INPUT,
   every named acceptance command extracted by the #3985 gate passes on the merge
   commit, and every configured post-merge CI workflow concludes success on that same commit.
-  PR-only Gate runs are not required to exist on the merge SHA.
+  Workflows uses the push-triggered PR 11 and Selftest CI; consumers use their
+  push-triggered `ci.yml`. PR-only Gate is excluded. The reusable wait selects
+  only `pr.merge_commit_sha`; a completed PR-head run cannot satisfy it. Closure
+  independently rechecks the exact merge SHA and refuses missing or pending CI.
+
+Closure-plan lookup or source-hash failures warn and omit only the affected issue;
+verification continues, and that issue remains ineligible for automatic closure.
 
 The latter rule executes gates in a separate job with read-only contents access,
 no secrets or API-client setup, and no persisted checkout credentials. A trusted

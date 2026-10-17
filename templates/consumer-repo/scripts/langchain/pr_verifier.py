@@ -6121,14 +6121,20 @@ def _evaluate_chunked(
             "acceptance context and per-chunk review summaries below. Identify any criterion "
             "that no chunk implements, including cross-file obligations. Local PASS alone "
             "is insufficient: require concrete implementation evidence for every criterion. "
-            "Return JSON with verdict, concerns and summary. Use CONCERNS for a missing "
+            "For every criterion, name its supporting chunks/files and implementation in "
+            "the summary. Return JSON with verdict, concerns and summary. Use CONCERNS for a missing "
             "implementation, UNVERIFIABLE_INPUT if summaries cannot establish completeness."
             "\n<acceptance_context>\n"
             + local_context
             + "\n</acceptance_context>\n"
             + json.dumps(
                 [
-                    {"files": paths, "summary": result.summary, "verdict": result.verdict}
+                    {
+                        "files": paths,
+                        "summary": result.summary,
+                        "concerns": result.concerns,
+                        "verdict": result.verdict,
+                    }
                     for (paths, _), result in zip(chunks, results, strict=True)
                 ]
             )
@@ -6160,6 +6166,7 @@ def _evaluate_chunked(
         provider_used=provider,
         model=model,
         used_llm=any(result.used_llm for result in results),
+        error="; ".join(result.error for result in results if result.error) or None,
         concerns=[item for result in results for item in result.concerns],
         summary="\n\n".join(result.summary or "" for result in results)
         or "Changed files exceed the bounded review capacity.",

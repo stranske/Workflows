@@ -69,3 +69,12 @@ for (const conclusion of ['failure', 'timed_out', 'cancelled', 'startup_failure'
     assert.equal(closingRule({ ...input, verdict: 'PASS', ci: [{head_sha: mergeSha, conclusion}] }), null);
   });
 }
+
+for (const conclusion of ['skipped', 'in_progress', 'queued', 'unknown', null]) {
+  test(`PASS refuses non-green required merge CI ${conclusion}`, () => {
+    assert.equal(closingRule({ ...input, verdict: 'PASS', ci: [{head_sha: mergeSha, conclusion, required: true}] }), null);
+  });
+}
+test('PASS permits explicitly optional skipped CI', () => {
+  assert.equal(closingRule({ ...input, verdict: 'PASS', ci: [{head_sha: mergeSha, conclusion: 'skipped', required: false}] }), 'verifier-pass');
+});

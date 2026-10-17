@@ -147,3 +147,56 @@ def test_closure_ci_lists_only_post_merge_workflows():
         ci_workflows = json.loads(workflow["jobs"]["verifier"]["with"]["ci_workflows"])
         assert ci_workflows
         assert "pr-00-gate.yml" not in ci_workflows
+
+
+def test_ci_wait_does_not_substitute_completed_pr_head_for_merge_commit():
+    workflow = yaml.safe_load((ROOT / ".github/workflows/reusable-agents-verifier.yml").read_text())
+    wait = next(s for s in workflow["jobs"]["verifier"]["steps"] if s.get("id") == "wait_ci")
+    script = wait["with"]["script"]
+    assert "[pr.merge_commit_sha]" in script
+    assert "pr.head?.sha" not in script
+
+
+def test_closure_plan_lookup_failure_does_not_abort_other_issues(tmp_path):
+    import json
+    import subprocess
+
+    workflow = yaml.safe_load((ROOT / ".github/workflows/reusable-agents-verifier.yml").read_text())
+    step = next(
+        s
+        for s in workflow["jobs"]["verifier"]["steps"]
+        if s.get("name") == "Prepare source closure plans"
+    )
+    script = step["with"]["script"]
+    # Execute the actual workflow script with failed, changed, and valid issue reads.
+    script = script.replace(
+        "require('./.workflows-lib/.github/scripts/verifier_closure.js')",
+        f"require({json.dumps(str(ROOT / '.github/scripts/verifier_closure.js'))})",
+    )
+    script = script.replace(
+        "const { withRetry } = require('./.workflows-lib/.github/scripts/github-api-with-retry.js');",
+        "const withRetry = fn => fn();",
+    )
+    harness = r"""
+    const assert = require('node:assert/strict');
+    const {sourceHash} = require(CLOSURE);
+    process.env.ISSUE_NUMBERS = '[1,2,3]';
+    process.env.SOURCE_ISSUE_HASHES = JSON.stringify({2: sourceHash('old'),3: sourceHash('valid')});
+    const context = {repo:{owner:'owner',repo:'repo'}};
+    const warnings=[];
+    const core = {warning: message => warnings.push(message)};
+    const github = {rest:{issues:{get: async ({issue_number}) => {
+      if(issue_number === 1) throw new Error('unavailable');
+      return {data:{body: issue_number === 2 ? 'changed' : 'valid'}};
+    }}}};
+    (async () => {
+      SCRIPT
+      assert.equal(warnings.length, 2);
+      assert.deepEqual(JSON.parse(require('fs').readFileSync('closure-plans/plans.json')).map(p=>p.issue_number), [3]);
+    })().catch(error=>{ console.error(error); process.exit(1); });
+    """.replace("CLOSURE", json.dumps(str(ROOT / ".github/scripts/verifier_closure.js"))).replace(
+        "SCRIPT", script
+    )
+    subprocess.run(
+        ["node", "-e", harness], cwd=tmp_path, check=True, capture_output=True, text=True
+    )

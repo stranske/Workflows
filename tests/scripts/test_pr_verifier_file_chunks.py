@@ -174,3 +174,36 @@ def test_chunk_preflight_receives_the_exact_local_prompt(setup, monkeypatch):
     monkeypatch.setattr(verifier, "_invoke_llm", checked)
     result = evaluate(monkeypatch, Client(), "".join(patch(f"{i}.py") for i in range(9)))
     assert result.verdict == "PASS"
+
+
+@pytest.mark.parametrize("reject", [False, True])
+def test_expanded_chunks_run_preflight_and_preserve_capacity_failure(setup, monkeypatch, reject):
+    from tests.scripts.verifier_capacity_fakes import complete_capture_context, with_capacity
+
+    monkeypatch.setenv("VERIFIER_EVIDENCE_PROFILE", "expanded")
+    client = with_capacity(Client())
+    if reject:
+        client.root_client.responses.input_tokens.count.side_effect = RuntimeError(
+            "counter unavailable"
+        )
+    context = complete_capture_context()
+    first, second = patch("a.py", 40000), patch("b.py", 40000)
+    old = verifier._strip_diff_fence(dict(verifier._split_verifier_context(context))["full_diff"])
+    context = (
+        context.replace(old, first + second)
+        .replace("- Files changed: 1", "- Files changed: 2")
+        .replace("- a.py (+1/-1)", "- a.py (+1/-1)\n- b.py (+1/-1)")
+    )
+    monkeypatch.setattr(verifier, "_get_llm_client", lambda **kwargs: (client, "openai"))
+    result = verifier.evaluate_pr(context, diff=first + second)
+    if reject:
+        assert result.verdict == "UNVERIFIABLE_INPUT"
+        assert result.files_not_reviewed == ["a.py", "b.py"]
+        assert "counter unavailable" in result.summary
+        assert "counter unavailable" in result.error
+        assert not client.prompts
+    else:
+        assert result.verdict == "PASS", result.summary
+        assert result.files_not_reviewed == []
+        assert len(client.prompts) == 3
+        assert client.root_client.responses.input_tokens.count.call_count == 3
