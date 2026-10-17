@@ -155,9 +155,18 @@ async function evaluatePullRequest({ github: rawGithub, core, owner, repo, prNum
 
   const labelsConfig = config.labels || {};
   const fromLabelName = labelsConfig.from || 'from:copilot';
-  // Recognise from:codex, from:claude, and from:auto as agent-origin labels
+  // Recognise from:codex, from:claude, from:auto and from:<registered agent> as agent-origin labels
   const fromLabelAltName = labelsConfig.fromAlt || 'from:codex';
-  const fromLabelAgents = ['from:codex', 'from:claude', 'from:auto'];
+  // Registry-driven so a newly registered agent's PRs (belt workers label them from:<agent>)
+  // are recognised without editing this list; the fixed entries keep the historical set.
+  let registryOriginLabels = [];
+  try {
+    const { loadAgentRegistry } = require('./agent_registry.js');
+    registryOriginLabels = Object.keys((loadAgentRegistry().agents) || {}).map((key) => `from:${key}`);
+  } catch (_) {
+    registryOriginLabels = ['from:cursor', 'from:muse', 'from:gemini'];
+  }
+  const fromLabelAgents = ['from:codex', 'from:claude', 'from:auto', ...registryOriginLabels];
   const automergeLabelName = labelsConfig.automerge || 'automerge';
   const riskLabelName = labelsConfig.risk || 'risk:low';
   const ciLabelName = labelsConfig.ci || 'ci:green';

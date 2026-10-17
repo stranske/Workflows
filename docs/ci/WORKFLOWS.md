@@ -284,6 +284,8 @@ Scheduled health jobs keep the automation ecosystem aligned:
 * [`health-78-backplane-contract.yml`](../../.github/workflows/health-78-backplane-contract.yml) Workflows-internal gate that runs on PRs touching the run-contract/v1 contract set (schemas, registry, validator, fixtures): asserts the three schemas load as valid draft 2020-12 JSON Schema, `config/backplane_participants.json` keeps the required shape, and the bundled valid/invalid fixtures behave (the validator self-smoke).
 * [`health-83-dependency-sync-efficiency.yml`](../../.github/workflows/health-83-dependency-sync-efficiency.yml) publishes a weekly, fixture-backed advisory report for dependency-bot, consumer-sync, and dev-tool-sync maintenance and also runs once for each completed immutable sync plan. Its source-only `dependency_sync_run_window.js` collector subdivides dense created-time intervals before GitHub's filtered 1,000-run ceiling, deduplicates inclusive boundaries, validates page completeness, and reconciles parent counts and observed identities with child unions. This is consistency-checked API observation, not an atomic historical snapshot: undetectable same-count changes to unseen identities cannot be ruled out. A failed, inconsistent or unsplittable interval makes `window_complete=false` and advisory state `unknown`; partial collection is not completion evidence. It measures stable-delivery force pushes, draft/ready cycles, reviewer events, and review-to-seal convergence; all-time history remains explicitly incomplete. The dedicated efficiency tracker (`#2897`) changes only when the material-evidence fingerprint changes.
 * [`health-84-langsmith-observability.yml`](../../.github/workflows/health-84-langsmith-observability.yml) independently monitors LangSmith dashboard/conformance cadence, cloud trace freshness, and intentional pause review dates. It upserts one durable health issue and adds `needs-human` plus `agent:needs-attention` while degraded (daily schedule, manual dispatch).
+* [`health-85-ci-time-budget.yml`](../../.github/workflows/health-85-ci-time-budget.yml) measures Gate bottlenecks daily, publishes the fleet's CI budget, and files/updates/closes `ci-budget` issues using the recovery control below.
+
 * [`maint-68-sync-consumer-repos.yml`](../../.github/workflows/maint-68-sync-consumer-repos.yml) coalesces workflow-template updates into stable ready-for-review `sync/workflows-candidate` and `sync/workflows-delivery` PRs. Scheduled reconciliation uses the full typed manifest; a bounded source repair may use an exact base/head source-delta plan, whose immutable scope and transitive manifest-declared `requires` targets are carried through Maint 71 canary evidence into promotion. Every promotion reconstructs its exact source commit from that evidence; source-delta promotion also reconstructs the exact base, so a later `main` commit cannot join either plan scope. Manifest edits and status-ignore reconciler/template changes require full scope because managed `.gitignore` blocks are plan-wide. Explicit repo filters cannot broaden the canary phase; non-canaries are written only by a plan-bound `promote` run carrying green, review-clear Maint 71 evidence. A successful candidate write wave dispatches the Maint 71 candidate selector; promotion dispatches the fleet campaign selector. Actual head changes restore the staging label and disable auto-merge without changing PR readiness, while exact base/tree no-ops preserve the current review lifecycle. Mutating jobs use one repository-scoped Workflows App token for stable-head verification, GitHub-verified commit creation, and post-publication verification, so an exhausted owner PAT cannot interrupt signed-delivery proof. They fail before publication if the API result is unsigned or its tree differs from the staged tree.
 * Health 68 follows the scheduled Maint 71 janitor by 45 minutes and is also triggered only after that workflow completes; its Actions-cache comparison timestamp debounces extra fan-out without querying up to fifteen historical job payloads on every trigger. Health 68 and Maint 71 retain distinct concurrency groups because GitHub concurrency keeps only one pending run and is not a lossless cross-workflow queue for immutable campaign handoffs. By contrast, the mutating Maint 68 and Maint 71 workflows share `consumer-sync-stable-pr-writers-${{ github.repository }}` across their whole runs: that group provides mutual exclusion for stable-PR writers, while persisted handoffs and explicit replay recover work whose pending run was replaced. Maint 71 completely paginates open PRs, bounds merged-history reads to the two known stable heads, and circuit-breaks the remaining repo loop as soon as primary token rotation is exhausted. Both lanes upload append-only, redacted `rate-limit-incident/v1` evidence after their final API call; primary exhaustion fails immediately, while secondary throttling keeps bounded backoff.
 * [`maint-69-sync-integration-repo.yml`](../../.github/workflows/maint-69-sync-integration-repo.yml) syncs integration-repo templates to Workflows-Integration-Tests repository (template push, manual dispatch with dry-run support). Failed-sync alerts are transient and close after the next successful non-dry run.
@@ -311,6 +313,67 @@ Health 83 subdivides saturated Actions API totals before paging. The explicit
 numeric `2500` cap requires at least 2,500. Both retain parent-observed
 identities and timestamps; other numeric totals reconcile exactly and malformed
 totals remain unknown.
+
+### Daily CI time budget (Health 85)
+
+At 11:35 UTC daily (also manual dispatch), `python -m scripts.ci_time_budget`
+reads the registered consumers from `scripts/list_registered_consumer_repos.py`
+plus Workflows. For completed `pr-00-gate.yml` runs created in the trailing seven
+days, it paginates jobs and measures each run's longest executed job in minutes.
+The p50/p90 use linear interpolation over those per-run bottlenecks; short
+setup/summary jobs do not dilute matrix-job durations. Cancelled and skipped
+runs/jobs are excluded. `longest_job` names and links the longest observed job.
+These are job execution durations, excluding queue time and inter-job overhead,
+not total PR-to-merge or workflow wall-clock latency. Dense run windows are
+subdivided before the Actions API's 1,000-result filtered-query ceiling.
+
+`target=10` minutes, `distance=max(0, p50/target - 1)`. At or below target,
+`share=0`. Above target, `share=min(0.5, BASE_SHARE *
+2**(distance/DOUBLING_DISTANCE - 1))`, where `BASE_SHARE=0.05` and
+`DOUBLING_DISTANCE=0.25` are defined once in `scripts/ci_time_budget.py`.
+This follows #4046's listed curve: 5% at 25% over, 10% at 50%, 20% at 75%,
+40% at 100%, capped at 50%. The issue's unshifted formula conflicts with those
+examples; the exponent subtracts one to reproduce the listed values.
+
+The published report is
+[`docs/reports/ci-budget.json` on `ci-time-budget`](https://github.com/stranske/Workflows/blob/ci-time-budget/docs/reports/ci-budget.json),
+and the same path is uploaded in the daily `ci-time-budget-<run_id>` artifact.
+The dedicated branch avoids daily changes to production `main`. It stores each
+repo's `p50`, `p90`, `target`, `longest_job`, `distance`, `share`, `drainable_in`,
+dated `p50_series`, and issue/filing evidence. Consumers of the report must read
+that branch (not `main`) and check `measured_at` and `status`. The coordinator's
+local opener rule reserves `ceil(share * cap)` slots for `ci-budget` issues in
+each over-target repo before other materializations; this workflow exposes the
+field and does not change the opener. Under-target repos reserve zero slots.
+
+When over target, one open issue labelled `ci-budget` and `priority:high` is
+created if none exists. Existing checklists are preserved; measurements are
+updated in daily comments. First detection is persisted before issue writes,
+and `first_over_target_at`, `issue_filed_at`, `filing_latency_hours`, and
+`filed_under_24h` make the campaign's under-24-hour filing criterion observable
+in both JSON and the job summary. Failure to file is an error, not success.
+
+Latched-gate answers:
+
+- **What decrements?** Falling trailing-seven-day p50 sets `share=0`; each
+  consecutive healthy UTC date reduces `drainable_in` from seven to zero.
+- **Runs while over target?** Yes, daily, with increasing resource share.
+- **One window?** The same trailing-seven-day p50 drives both filing and
+  recovery. Seven consecutive daily observations at or below target close the
+  issue with a comment quoting all seven dated p50 values. Reruns on one date
+  do not accelerate the drain; gaps, unknowns and renewed breaches reset it.
+- **Drained print?** `share=0, issue closed` in the log after confirmed closure and
+  `share=0`, `drainable_in=0`, empty `issue_numbers` in the report.
+
+Missing/failed API evidence yields `status=unknown`, null metrics/share and no
+issue mutations; it never counts toward recovery. Other repos still proceed,
+the partial report is published, and the health job fails visibly. It does not
+fail Gate or block merges. The PAT (`OWNER_PR_PAT`, otherwise `SERVICE_BOT_PAT`)
+needs fleet Actions read and Issues write, plus Workflows Contents write for
+the report branch. A missing credential fails explicitly; it does not fall back
+to the source-only workflow token. Publication uses expected file SHAs and the
+workflow serializes executions. A failed state read/write prevents unsafe
+issue reconciliation; a later run resumes from the persisted measurements.
 
 ## Self-test Harness
 

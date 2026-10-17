@@ -1,0 +1,327 @@
+{
+  "schema": "workflows-agy-pilot/v1",
+  "evidence_class": "exploratory-cli-seeded-defects",
+  "modules": [
+    {
+      "name": "integration_repo",
+      "mutants": [
+        {
+          "line": 35,
+          "from": "and",
+          "to": "or"
+        },
+        {
+          "line": 50,
+          "from": "True",
+          "to": "False"
+        },
+        {
+          "line": 77,
+          "from": "==",
+          "to": "!="
+        }
+      ]
+    },
+    {
+      "name": "resolve_mypy_pin",
+      "mutants": [
+        {
+          "line": 77,
+          "from": "or",
+          "to": "and"
+        },
+        {
+          "line": 92,
+          "from": "==",
+          "to": "!="
+        }
+      ]
+    }
+  ],
+  "results": [
+    {
+      "backend": "agy",
+      "kind": "audit",
+      "mode": "single",
+      "calls": 2,
+      "items": 2,
+      "empty_or_unusable": 0,
+      "errors": [],
+      "tokens_in": 27972,
+      "tokens_out": 1203,
+      "tokens_per_item": 14588,
+      "latency_s": 23.5,
+      "scores": [
+        {
+          "module": "integration_repo",
+          "usable": true,
+          "seeded": 3,
+          "found": 3,
+          "reported": 3,
+          "useful": 3,
+          "resolving": 3
+        },
+        {
+          "module": "resolve_mypy_pin",
+          "usable": true,
+          "seeded": 2,
+          "found": 2,
+          "reported": 2,
+          "useful": 2,
+          "resolving": 2
+        }
+      ],
+      "totals": {
+        "recall": 1.0,
+        "precision": 1.0,
+        "citations_resolving": 1.0
+      }
+    },
+    {
+      "backend": "agy",
+      "kind": "audit",
+      "mode": "batched",
+      "calls": 1,
+      "items": 2,
+      "empty_or_unusable": 0,
+      "errors": [],
+      "tokens_in": 15078,
+      "tokens_out": 632,
+      "tokens_per_item": 7855,
+      "latency_s": 11.8,
+      "scores": [
+        {
+          "module": "integration_repo",
+          "usable": true,
+          "seeded": 3,
+          "found": 3,
+          "reported": 3,
+          "useful": 3,
+          "resolving": 3
+        },
+        {
+          "module": "resolve_mypy_pin",
+          "usable": true,
+          "seeded": 2,
+          "found": 2,
+          "reported": 2,
+          "useful": 2,
+          "resolving": 2
+        }
+      ],
+      "totals": {
+        "recall": 1.0,
+        "precision": 1.0,
+        "citations_resolving": 1.0
+      }
+    },
+    {
+      "backend": "agy",
+      "kind": "testgen",
+      "mode": "single",
+      "calls": 2,
+      "items": 2,
+      "empty_or_unusable": 0,
+      "errors": [],
+      "tokens_in": 27378,
+      "tokens_out": 5727,
+      "tokens_per_item": 16552,
+      "latency_s": 65.3,
+      "scores": [
+        {
+          "module": "integration_repo",
+          "usable": true,
+          "mutants": 3,
+          "killed": 3,
+          "clean_pass": true
+        },
+        {
+          "module": "resolve_mypy_pin",
+          "usable": true,
+          "mutants": 2,
+          "killed": 2,
+          "clean_pass": true
+        }
+      ],
+      "totals": {
+        "kill_rate": 1.0,
+        "clean_pass_rate": 1.0
+      }
+    },
+    {
+      "backend": "agy",
+      "kind": "testgen",
+      "mode": "batched",
+      "calls": 1,
+      "items": 2,
+      "empty_or_unusable": 0,
+      "errors": [],
+      "tokens_in": 14469,
+      "tokens_out": 4963,
+      "tokens_per_item": 9716,
+      "latency_s": 51.5,
+      "scores": [
+        {
+          "module": "integration_repo",
+          "usable": true,
+          "mutants": 3,
+          "killed": 0,
+          "clean_pass": false
+        },
+        {
+          "module": "resolve_mypy_pin",
+          "usable": true,
+          "mutants": 2,
+          "killed": 2,
+          "clean_pass": true
+        }
+      ],
+      "totals": {
+        "kill_rate": 0.4,
+        "clean_pass_rate": 0.5
+      }
+    },
+    {
+      "backend": "claude",
+      "kind": "audit",
+      "mode": "single",
+      "calls": 2,
+      "items": 2,
+      "empty_or_unusable": 0,
+      "errors": [],
+      "tokens_in": 8463,
+      "tokens_out": 482,
+      "tokens_per_item": 4472,
+      "latency_s": 18.1,
+      "scores": [
+        {
+          "module": "integration_repo",
+          "usable": true,
+          "seeded": 3,
+          "found": 3,
+          "reported": 3,
+          "useful": 3,
+          "resolving": 3
+        },
+        {
+          "module": "resolve_mypy_pin",
+          "usable": true,
+          "seeded": 2,
+          "found": 2,
+          "reported": 2,
+          "useful": 2,
+          "resolving": 2
+        }
+      ],
+      "totals": {
+        "recall": 1.0,
+        "precision": 1.0,
+        "citations_resolving": 1.0
+      }
+    },
+    {
+      "backend": "claude",
+      "kind": "audit",
+      "mode": "batched",
+      "calls": 1,
+      "items": 2,
+      "empty_or_unusable": 0,
+      "errors": [],
+      "tokens_in": 5584,
+      "tokens_out": 490,
+      "tokens_per_item": 3037,
+      "latency_s": 7.5,
+      "scores": [
+        {
+          "module": "integration_repo",
+          "usable": true,
+          "seeded": 3,
+          "found": 3,
+          "reported": 3,
+          "useful": 3,
+          "resolving": 3
+        },
+        {
+          "module": "resolve_mypy_pin",
+          "usable": true,
+          "seeded": 2,
+          "found": 2,
+          "reported": 2,
+          "useful": 2,
+          "resolving": 2
+        }
+      ],
+      "totals": {
+        "recall": 1.0,
+        "precision": 1.0,
+        "citations_resolving": 1.0
+      }
+    },
+    {
+      "backend": "claude",
+      "kind": "testgen",
+      "mode": "single",
+      "calls": 2,
+      "items": 2,
+      "empty_or_unusable": 0,
+      "errors": [],
+      "tokens_in": 8036,
+      "tokens_out": 11103,
+      "tokens_per_item": 9570,
+      "latency_s": 92.0,
+      "scores": [
+        {
+          "module": "integration_repo",
+          "usable": true,
+          "mutants": 3,
+          "killed": 3,
+          "clean_pass": true
+        },
+        {
+          "module": "resolve_mypy_pin",
+          "usable": true,
+          "mutants": 2,
+          "killed": 2,
+          "clean_pass": true
+        }
+      ],
+      "totals": {
+        "kill_rate": 1.0,
+        "clean_pass_rate": 1.0
+      }
+    },
+    {
+      "backend": "claude",
+      "kind": "testgen",
+      "mode": "batched",
+      "calls": 1,
+      "items": 2,
+      "empty_or_unusable": 0,
+      "errors": [],
+      "tokens_in": 5145,
+      "tokens_out": 9414,
+      "tokens_per_item": 7280,
+      "latency_s": 76.4,
+      "scores": [
+        {
+          "module": "integration_repo",
+          "usable": true,
+          "mutants": 3,
+          "killed": 3,
+          "clean_pass": true
+        },
+        {
+          "module": "resolve_mypy_pin",
+          "usable": true,
+          "mutants": 2,
+          "killed": 2,
+          "clean_pass": true
+        }
+      ],
+      "totals": {
+        "kill_rate": 1.0,
+        "clean_pass_rate": 1.0
+      }
+    }
+  ]
+}

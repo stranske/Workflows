@@ -1,0 +1,56 @@
+name: Health 85 CI Time Budget
+
+on:
+  schedule:
+    - cron: '35 11 * * *'
+  workflow_dispatch:
+
+# The fleet PAT supplies cross-repository Actions/Issues access and writes only
+# the dedicated report branch in Workflows. The workflow token is read-only.
+permissions:
+  contents: read
+
+concurrency:
+  group: health-85-ci-time-budget
+  cancel-in-progress: false
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: '3.14'
+
+      - name: Install shared API client dependency
+        run: python -m pip install 'requests==2.32.5'
+
+      - name: Measure registered consumers plus Workflows and reconcile issues
+        env:
+          # Never silently fall back to the source-only workflow token.
+          GH_TOKEN: ${{ secrets.OWNER_PR_PAT || secrets.SERVICE_BOT_PAT }}
+        run: |
+          set -euo pipefail
+          python -m scripts.ci_time_budget | tee ci-time-budget.txt
+
+      - name: Publish daily summary
+        if: always()
+        run: |
+          if [ -f ci-time-budget.txt ]; then
+            cat ci-time-budget.txt >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload report artifact
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: ci-time-budget-${{ github.run_id }}
+          retention-days: 30
+          path: |
+            docs/reports/ci-budget.json
+            ci-time-budget.txt
