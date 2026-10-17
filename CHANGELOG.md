@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.41.3](https://github.com/stranske/Workflows/compare/v1.41.2...v1.41.3) (2026-10-17)
+
+
+### Bug Fixes
+
+* **agents:** Cursor/Muse parity fixes; rewrite the add-an-agent guide; agy readiness evaluation ([#4040](https://github.com/stranske/Workflows/issues/4040)) ([26ab860](https://github.com/stranske/Workflows/commit/26ab860d82aea7cf530cc2cedfe9ad88ce475206))
+* **keepalive:** never verify an agent's work with the same agent ([#4041](https://github.com/stranske/Workflows/issues/4041)) ([#4043](https://github.com/stranske/Workflows/issues/4043)) ([95773c2](https://github.com/stranske/Workflows/commit/95773c252ff4183e8aeeefda306ca5c8c64fd23d))
+
 ## [1.41.2](https://github.com/stranske/Workflows/compare/v1.41.1...v1.41.2) (2026-10-17)
 
 
