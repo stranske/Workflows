@@ -52,3 +52,58 @@ test('dry run cannot change delivery and unbound payload cannot enter preparatio
   record.source_commit = '';
   await assert.rejects(prepareIntegrationDelivery(args), /bound source/);
 });
+
+test('sealed delivery explicitly dispatches Gate on the PR branch with PR context', async () => {
+  const { requestSealedGate } = require('../maint71_merge_sync_prs');
+  const calls = [];
+  const client = { rest: { actions: { createWorkflowDispatch: async args => { calls.push(args); return { status: 204 }; } } } };
+  const args = { owner: 'owner', repo: 'repo', pr: { number: 42,
+    head: { ref: 'sync/workflows-delivery', sha: 'a'.repeat(40) } },
+    withRetry: callback => callback(client) };
+  assert.deepEqual(await requestSealedGate(args), { mode: 'dispatch', status: 204 });
+  assert.deepEqual(calls, [{ owner: 'owner', repo: 'repo', workflow_id: 'pr-00-gate.yml',
+    ref: 'sync/workflows-delivery', inputs: { pr_number: '42' } }]);
+  client.rest.actions.createWorkflowDispatch = async () => { throw new Error('dispatch denied'); };
+  await assert.rejects(requestSealedGate(args), /dispatch denied/);
+  await assert.rejects(requestSealedGate({ ...args, pr: { number: 42 } }), /head ref/);
+});
+
+for (const status of [422, 404]) {
+  test(`legacy Gate HTTP ${status} falls back to labels and integration cycle continues`, async () => {
+    const { requestSealedGate } = require('../maint71_merge_sync_prs');
+    const { buildMergeReport, buildMarkdownSummary } = require('../sync_pr_merge_contract');
+    const labels = [];
+    const dispatches = [];
+    const client = { rest: {
+      actions: { createWorkflowDispatch: async args => {
+        dispatches.push(args.repo);
+        if (args.repo === 'legacy') throw Object.assign(new Error('legacy dispatch'), { status });
+        return { status: 204 };
+      } },
+      issues: { addLabels: async args => { labels.push(args); } },
+    } };
+    const results = [];
+    for (const repo of ['legacy', 'modern']) {
+      const { pr, record } = fixture();
+      pr.number = 42;
+      pr.head.ref = 'sync/workflows-delivery';
+      const sealed = await prepareIntegrationDelivery({ pr, record, hold: async () => pr,
+        seal: async () => ({ gateRequest: await requestSealedGate({
+          owner: 'owner', repo, pr, withRetry: callback => callback(client),
+        }) }),
+      });
+      results.push({ repository: `owner/${repo}`, status: 'delivery_sealed_checks_pending',
+        gate_request: sealed.gateRequest });
+    }
+    assert.deepEqual(dispatches, ['legacy', 'modern']);
+    assert.deepEqual(labels, [{ owner: 'owner', repo: 'legacy', issue_number: 42,
+      labels: ['sync:delivery-ready'] }]);
+    assert.deepEqual(results.map(row => row.gate_request), [
+      { mode: 'label-fallback', status }, { mode: 'dispatch', status: 204 },
+    ]);
+    const report = buildMergeReport({ results });
+    assert.equal(report.summary.gate_label_fallback, 1);
+    assert.equal(report.summary.delivery_sealed_checks_pending, 2);
+    assert.match(buildMarkdownSummary(report), /gate_label_fallback \| 1/);
+  });
+}

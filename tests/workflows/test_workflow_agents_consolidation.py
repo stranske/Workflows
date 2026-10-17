@@ -1554,10 +1554,14 @@ def test_gate_workflow_uses_fork_head_for_script_tests_and_ledger():
     scripts_job = jobs.get("github-scripts-tests") or {}
     scripts_steps = scripts_job.get("steps") or []
     assert scripts_steps, "github-scripts-tests job must define steps"
-    checkout_step = scripts_steps[0]
+    checkout_step = next(
+        step for step in scripts_steps if step.get("uses", "").startswith("actions/checkout@")
+    )
     checkout_with = checkout_step.get("with") or {}
-    expected_repo_expr = "${{ github.event.pull_request.head.repo.full_name || github.repository }}"
-    expected_ref_expr = "${{ github.event.pull_request.head.sha || github.sha }}"
+    expected_repo_expr = "${{ fromJSON(needs.resolve-pr.outputs.pull_request).head.repo.full_name || github.repository }}"
+    expected_ref_expr = (
+        "${{ fromJSON(needs.resolve-pr.outputs.pull_request).head.sha || github.sha }}"
+    )
     assert (
         checkout_with.get("repository") == expected_repo_expr
     ), "github-scripts-tests checkout must pull the contributor head repository"

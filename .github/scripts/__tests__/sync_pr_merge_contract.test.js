@@ -2595,6 +2595,7 @@ test('buildMergeReport provides machine-readable summary counts', () => {
     reviewer_settlement_pending: 0,
     delivery_review_not_started: 0,
     delivery_sealed_checks_pending: 0,
+    gate_label_fallback: 0,
     delivery_promotion_evidence_missing: 0,
     sealed_head_mismatch: 0,
     stable_base_refresh_required: 0,
@@ -3591,8 +3592,8 @@ test('maint71 real execution never closes a candidate owned by a different plan'
 });
 
 
-for (const integrationOnly of [false, true]) {
-test(`maint71 clears stale ready labels and preserves hold in ${integrationOnly ? 'integration' : 'legacy review'} mode`, async () => {
+for (const [integrationOnly, dispatchStatus] of [[false, 204], [true, 204], [true, 422], [true, 404]]) {
+test(`maint71 clears stale ready labels and preserves hold in ${integrationOnly ? 'integration' : 'legacy review'} mode (dispatch ${dispatchStatus})`, async () => {
   const originalCwd = process.cwd();
   const envKeys = [
     'REGISTERED_REPOS_INPUT', 'CLEANUP_BRANCHES_INPUT', 'DRY_RUN_INPUT',
@@ -3635,6 +3636,7 @@ test(`maint71 clears stale ready labels and preserves hold in ${integrationOnly 
     base: { ref: 'main' }, head: { ref: 'sync/workflows-candidate', sha: headSha },
     user: { login: 'stranske' },
   };
+  const gateDispatches = [];
   const github = {
     paginate: async (_method, params) => {
       if (params.state === 'open') return [candidate];
@@ -3647,6 +3649,11 @@ test(`maint71 clears stale ready labels and preserves hold in ${integrationOnly 
       repository: { pullRequest: { reviewThreads: { pageInfo: { hasNextPage: false }, nodes: [] } } },
     }),
     rest: {
+      actions: { createWorkflowDispatch: async (args) => {
+        gateDispatches.push(args);
+        if (dispatchStatus !== 204) throw Object.assign(new Error('legacy Gate'), { status: dispatchStatus });
+        return { status: 204 };
+      } },
       pulls: { list: async () => ({ data: [candidate] }), get: async () => ({ data: candidate }) },
       checks: { listForRef: () => {} },
       git: { getCommit: async () => ({ data: { tree: { sha: 'tree-abc' } } }) },
@@ -3732,7 +3739,15 @@ test(`maint71 clears stale ready labels and preserves hold in ${integrationOnly 
     assert.deepEqual([...labels].sort(), integrationOnly ? ['sync:delivery-ready', 'sync:delivery-staging'] : ['sync:delivery-staging']);
     assert.equal(mutations.length, 1);
     assert.equal(reviewRequests.length, integrationOnly ? 0 : 1);
+    assert.deepEqual(gateDispatches, integrationOnly ? [{
+      owner: 'stranske', repo: 'Travel-Plan-Permission', workflow_id: 'pr-00-gate.yml',
+      ref: candidate.head.ref, inputs: { pr_number: String(candidate.number) },
+    }] : []);
     if (integrationOnly) {
+      assert.deepEqual(report.results[0].gate_request, {
+        mode: dispatchStatus === 204 ? 'dispatch' : 'label-fallback', status: dispatchStatus,
+      });
+      assert.equal(report.summary.gate_label_fallback, dispatchStatus === 204 ? 0 : 1);
       assert.match(mutations[0].body, /"delivery_state":"sealed"/);
       assert.match(mutations[0].body, /integration_checks_required/);
       assert.match(mutations[0].body, new RegExp(latestLease));

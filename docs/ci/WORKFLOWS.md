@@ -92,6 +92,16 @@ workflows or consuming outputs in dependent jobs.
 
 ## Pull Request Gate
 
+Labels do not restart or cancel Gate. New commits (`synchronize`) still supersede
+older runs. After sealing a generated delivery, Maint 71 uses its existing API
+client token to dispatch `pr-00-gate.yml` on the PR head branch with `pr_number`.
+Gate resolves the open same-repository PR, verifies that its current head matches
+the dispatched commit, and uses that PR context for the existing checks and
+status reporting. Dispatches queue in the same `pr-<N>-gate` concurrency group
+without cancelling an in-flight Gate; a later synchronize can still supersede them.
+Existing consumers need the updated Gate dispatch input before this wakeup works:
+the Gate template is create-only, so normal sync does not overwrite custom Gates.
+
 * [`Gate`](../../.github/workflows/pr-00-gate.yml) orchestrates the fast-path vs full CI decision, evaluates coverage artifacts, and reports commit status back to the PR.
 * [`Minimal invariant CI`](../../.github/workflows/pr-11-ci-smoke.yml) supplies the lightweight Issue #3651 sweep: install once on Python 3.12 with pip caching, sanity-check imports, and run `pytest tests/test_invariants.py -q` on pushes and PRs targeting `main`.
 * [`Reusable CI (Python)`](../../.github/workflows/reusable-10-ci-python.yml) drives the primary test matrix (lint, type-check, tests, coverage) for PR builds.

@@ -1209,6 +1209,7 @@ function summarizeResults(results) {
     reviewer_settlement_pending: 0,
     delivery_review_not_started: 0,
     delivery_sealed_checks_pending: 0,
+    gate_label_fallback: 0,
     delivery_promotion_evidence_missing: 0,
     sealed_head_mismatch: 0,
     stable_base_refresh_required: 0,
@@ -1230,6 +1231,7 @@ function summarizeResults(results) {
     error: 0,
   };
   for (const result of results || []) {
+    if (result.gate_request?.mode === 'label-fallback') counts.gate_label_fallback += 1;
     if (Object.prototype.hasOwnProperty.call(counts, result.status)) {
       counts[result.status] += 1;
     }
