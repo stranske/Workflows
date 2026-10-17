@@ -429,7 +429,7 @@ def test_fallback_helpers_preserve_fences_and_ignore_non_tasks() -> None:
     ) == ["- [ ] plain", "- [x] complete", "- [ ] placeholder"]
     assert issue_formatter._extract_tasks_from_formatted(
         "## Tasks\nnot a task\n  - [ ] nested\n- [ ] top level\n## Why\nnext"
-    ) == ["nested", "top level"]
+    ) == ["top level"]
 
 
 def test_original_issue_helpers_keep_malformed_details_and_remove_stale_blocks() -> None:
