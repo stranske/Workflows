@@ -7202,7 +7202,7 @@ for (const loopPath of ['../keepalive_loop', '../../../templates/consumer-repo/.
 function replayCompletion({ output, exitCode, provider = 'codex', progressed = false }) {
   const { classifyCompletion } = require('../keepalive_loop.js');
   const { spawnSync } = require('node:child_process');
-  const python = process.env.PYTHON || (process.platform === 'darwin' ? '/opt/anaconda3/bin/python3' : 'python3');
+  const python = process.env.PYTHON || 'python3';
   const result = spawnSync(python, ['-c', `
 import contextlib, io, json, sys
 from scripts.runner_lib import core

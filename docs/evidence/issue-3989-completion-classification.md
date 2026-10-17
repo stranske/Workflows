@@ -63,6 +63,4 @@ outcomes could not be copied into the PR body. No PR checkbox was updated.
 Post-merge live/replayed label-timeline evidence, the 48-hour fleet cleanup check,
 and consumer sync remain unverified.
 
-Staging the source, tests, template, and evidence failed because `.git` is mounted
-read-only (`Unable to create .../.git/index.lock: Read-only file system`). The
-changes remain in the working tree; no commit was created.
+Publication: this evidence is committed in the PR history through `4584495a1d03db74bd9b49ae89472c435967a269`.
