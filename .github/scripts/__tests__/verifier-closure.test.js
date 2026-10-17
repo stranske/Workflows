@@ -13,7 +13,7 @@ const input = { verdict: 'UNVERIFIABLE_INPUT', mergeSha, plan, result, ci, curre
 
 test('PASS closes; incomplete input closes only with exact merge gate and CI PASS', () => {
   assert.equal(closingRule({ ...input, verdict: 'PASS', result: undefined, ci: [] }), 'verifier-pass');
-  assert.equal(closingRule(input), 'unverifiable-input-merged-head-gates-and-ci');
+  assert.equal(closingRule(input), 'unverifiable-input+gate+ci');
 });
 
 for (const verdict of ['CONCERNS', 'FAIL', 'ERROR', 'unknown']) {
@@ -50,7 +50,7 @@ test('closure posts the named rule before changing issue state, preserves provid
   const options = { github, context: { repo: { owner: 'owner', repo: 'repo' } },
     verdict: 'UNVERIFIABLE_INPUT', mergeSha, prNumber: 5, plans: [plan], results: [result], ci };
   assert.deepEqual(await closeVerifiedSources(options), [123]);
-  assert.match(writes[0].body, /unverifiable-input-merged-head-gates-and-ci/);
+  assert.match(writes[0].body, /unverifiable-input\+gate\+ci/);
   assert.match(writes[0].body, /provider verdict remains UNVERIFIABLE_INPUT/);
   assert.equal(writes[1].state, 'closed');
   writes.length = 0;

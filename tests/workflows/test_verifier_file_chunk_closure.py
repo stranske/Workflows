@@ -81,6 +81,7 @@ def test_intake_replay_preserves_trusted_verifier_closures():
       for (const [rule, verdict] of [
         ['verifier-pass', 'PASS'],
         ['unverifiable-input-merged-head-gates-and-ci', 'UNVERIFIABLE_INPUT'],
+        ['unverifiable-input+gate+ci', 'UNVERIFIABLE_INPUT'],
       ]) {
         const comment = { user: {type: 'Bot', login: 'github-actions[bot]'},
           body: `Verification closure rule: **${rule}**. PR #5, merge commit \`${'a'.repeat(40)}\`, verdict **${verdict}**.` };

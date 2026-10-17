@@ -334,7 +334,7 @@ and comments the chosen rule and immutable merge SHA before closing:
 
 - `verifier-pass`: the unified verifier verdict is PASS (the CI-failure floor
   continues to apply).
-- `unverifiable-input-merged-head-gates-and-ci`: the verdict is UNVERIFIABLE_INPUT,
+- `unverifiable-input+gate+ci`: the verdict is UNVERIFIABLE_INPUT,
   every named acceptance command extracted by the #3985 gate passes on the merge
   commit, and every configured post-merge CI workflow concludes success on that same commit.
   Workflows uses the push-triggered PR 11 and Selftest CI; consumers use their

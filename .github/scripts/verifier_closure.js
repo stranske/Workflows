@@ -26,7 +26,7 @@ function closingRule({ verdict, mergeSha, plan, result, ci, currentBody }) {
       && result.results[i].criterion === command.criterion && result.results[i].exit_code === 0)) return null;
   if (!Array.isArray(ci) || !ci.length || !ci.every(run => run.head_sha === mergeSha
       && run.conclusion === 'success' && !run.error_category)) return null;
-  return 'unverifiable-input-merged-head-gates-and-ci';
+  return 'unverifiable-input+gate+ci';
 }
 
 async function closeVerifiedSources({ github, context, verdict, mergeSha, prNumber, plans, results, ci }) {

@@ -1160,7 +1160,7 @@ jobs:
                     function isVerificationClosure(comment) {
                       return comment.user?.type === 'Bot'
                         && comment.user?.login === 'github-actions[bot]'
-                        && /^Verification closure rule: \*\*(?:verifier-pass|unverifiable-input-merged-head-gates-and-ci)\*\*\. PR #\d+, merge commit `([a-f0-9]{40})`, verdict \*\*(?:PASS|UNVERIFIABLE_INPUT)\*\*\./.test(comment.body || '');
+                        && /^Verification closure rule: \*\*(?:verifier-pass|unverifiable-input-merged-head-gates-and-ci|unverifiable-input\+gate\+ci)\*\*\. PR #\d+, merge commit `([a-f0-9]{40})`, verdict \*\*(?:PASS|UNVERIFIABLE_INPUT)\*\*\./.test(comment.body || '');
                     }
                     const closureComments = await withRetry(() => github.paginate(
                       github.rest.issues.listComments,
