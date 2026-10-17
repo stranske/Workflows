@@ -424,9 +424,21 @@ def create_issue(issue: dict[str, Any], prefix: list[str]) -> str:
     return result.stdout.strip()
 
 
-def role_body_errors(body: str) -> list[str]:
+def approval_body_key(body: str) -> tuple[str, ...]:
+    """Allow prose whitespace formatting only; code and every approved word stay fixed."""
+    return tuple(
+        part if index % 2 else re.sub(r"\s+", " ", part).strip()
+        for index, part in enumerate(re.split(r"(```.*?```|`[^`]*`)", body, flags=re.DOTALL))
+    )
+
+
+def role_body_errors(body: str, approved_body: str | None = None) -> list[str]:
     """Apply both the weekly quality bar and the fleet's runnable-acceptance contract."""
     errors = issue_body_quality_errors(body)
+    if approved_body is not None and approval_body_key(body) != approval_body_key(approved_body):
+        errors.append(
+            "role body changed approved content; retain the approved scope and evidence verbatim"
+        )
     spec = importlib.util.spec_from_file_location(
         "_repo_review_issue_format",
         Path(__file__).resolve().parents[1] / ".github/scripts/issue_format.py",
@@ -512,13 +524,13 @@ def author_issue_batch(
                 "target": target,
                 "goal": str(item["title"]),
                 "repo": str(item["repo"]),
-                "context": "Preserve this approved body and evidence trace; improve its concrete "
-                "agent-ready wording without adding scope.\n"
+                "context": "Preserve the complete approved body and evidence verbatim. Only adjust prose "
+                "whitespace; do not change code, words, requirements or evidence references.\n"
                 + str(item["body"])
                 + "\n"
                 + json.dumps(item.get("review_evidence_trace", {})),
                 "constraints": [
-                    "Keep the approved scope and all acceptance criteria.",
+                    "Keep every approved word and code span; substantive rewrites fall back to the original.",
                     "Return an issue_body; do not file issues or change titles/labels.",
                 ],
             }
@@ -568,7 +580,7 @@ def author_issue_batch(
                 if not path.is_relative_to(role_directory.resolve()):
                     raise ValueError("body file is outside the retained role directory")
                 body = path.read_text(encoding="utf-8")
-                errors = role_body_errors(body)
+                errors = role_body_errors(body, str(item["body"]))
             except (OSError, ValueError, TypeError, KeyError) as exc:
                 errors = [str(exc)]
         else:

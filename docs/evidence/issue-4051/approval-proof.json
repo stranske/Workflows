@@ -1,0 +1,8 @@
+{
+  "command": "python -m pytest tests/scripts/test_upload_repo_review_issues.py -q -k structurally_valid_role_rewrite",
+  "mutation": "Bypass approved-body content comparison while retaining standalone format validation.",
+  "red_exit": 1,
+  "green_exit": 0,
+  "source_restored": false,
+  "source_sha256": "0f88008a8b4c24877d536a93197c1d0d3c997eb6031ffffe97944d602cd9c829"
+}

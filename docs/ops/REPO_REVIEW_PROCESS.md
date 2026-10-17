@@ -319,7 +319,11 @@ The role never files issues. Titles, labels, evidence traces and stable item
 markers remain owned by the uploader.
 
 Each role body must pass the weekly quality checks and the fleet's issue-format
-validator. A rejected, missing, unreadable or invalid body falls back independently
+validator, and preserve the approved content. The deterministic approval guard
+permits prose whitespace formatting only; every word, requirement, evidence
+reference, and code span must remain unchanged. It intentionally falls back on
+substantive rewrites instead of guessing semantic equivalence or expanding the
+owner-approved queue. A rejected, missing, unreadable or invalid body falls back independently
 to its already-validated approved body, including when the role exits nonzero
 because only part of its batch failed. Failed author output stays in the role's
 `manifest.json` with its failed-body/raw-output files. The uploader retains advice,

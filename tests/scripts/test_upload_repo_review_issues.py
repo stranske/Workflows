@@ -294,7 +294,7 @@ def authoring_tools(tmp_path, monkeypatch, *, failed=None, invalid_claim=False):
             rows = []
             for index, item in enumerate(batch):
                 assert VALID_BODY in item["context"]
-                body = VALID_BODY.replace("deterministic local smoke", "role-authored smoke")
+                body = VALID_BODY.replace("## Why\n", "## Why\n\n")
                 valid = index != failed
                 body_path = directory / f"{index}.md"
                 body_path.write_text(body if valid else "rejected incomplete body")
@@ -344,7 +344,7 @@ def test_three_item_authoring_keeps_per_item_fallback_and_failure_manifest(
             assert item["body"] == VALID_BODY
             assert not summary["authoring"]["items"][index]["used_role"]
         else:
-            assert "role-authored smoke" in item["body"]
+            assert item["body"] == VALID_BODY.replace("## Why\n", "## Why\n\n")
             assert item["review_evidence_trace"] == VALID_TRACE
     assert sum(Path(args[1]).name == "capability_advisor.py" for args in calls) == 1
     assert sum(Path(args[1]).name == "roles.py" for args in calls) == 1
@@ -468,3 +468,51 @@ def test_advisor_failure_or_no_offer_preserves_baseline(tmp_path, monkeypatch, f
     assert selected == [issue()] * 3
     assert receipt["state"] == "baseline"
     assert not receipt["offered"]
+
+
+@pytest.mark.parametrize(
+    "old,new",
+    [
+        (
+            "Implement the smoke in `tests/test_local_smoke.py` using existing public APIs.",
+            "Implement a remote service in `tests/test_network.py` using existing public APIs.",
+        ),
+        (
+            "- Keep fixtures deterministic and offline.",
+            "- Keep fixtures deterministic and offline.\n- Add a new production database.",
+        ),
+        ("--no-cov", "-k easy"),
+        ("The repo needs", "Also migrate production records. The repo needs"),
+    ],
+)
+def test_structurally_valid_role_rewrite_cannot_change_approved_content(
+    tmp_path, monkeypatch, old, new
+):
+    calls = authoring_tools(tmp_path, monkeypatch)
+    original_run = uploader.subprocess.run
+
+    def run(args, **kwargs):
+        result = original_run(args, **kwargs)
+        if Path(args[1]).name == "roles.py":
+            directory = Path(args[args.index("--output-dir") + 1])
+            for file in directory.glob("*.md"):
+                file.write_text(VALID_BODY.replace(old, new))
+        return result
+
+    monkeypatch.setattr(uploader.subprocess, "run", run)
+    items = [issue(title) for title in ("Alpha", "Beta", "Gamma")]
+    selected, receipt = uploader.author_issue_batch(items, output_root=tmp_path / "evidence")
+    assert not uploader.issue_body_quality_errors(VALID_BODY.replace(old, new))
+    assert selected == items
+    assert receipt["state"] == "baseline"
+    assert all(
+        any("changed approved content" in error for error in row["errors"])
+        for row in receipt["items"]
+    )
+    assert any("decline" in args for args in calls)
+
+
+def test_approved_code_spans_preserve_internal_whitespace():
+    assert uploader.approval_body_key("Gate `echo 'a  b'`.") != uploader.approval_body_key(
+        "Gate `echo 'a b'`."
+    )
