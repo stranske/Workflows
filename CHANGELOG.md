@@ -6,6 +6,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.41.0](https://github.com/stranske/Workflows/compare/v1.40.1...v1.41.0) (2026-10-17)
+
+
+### Features
+
+* **keepalive:** gate completion on named acceptance tests ([#3985](https://github.com/stranske/Workflows/issues/3985)) ([34f7b92](https://github.com/stranske/Workflows/commit/34f7b929a69d133d156ca27d2b6735ffdfd78e9d))
+
+
+### Bug Fixes
+
+* **ci:** stop Gate restarts on label events ([#3983](https://github.com/stranske/Workflows/issues/3983)) ([ac87cd8](https://github.com/stranske/Workflows/commit/ac87cd8fa400f3275276cee6ad9a324a8c36b422))
+* **maint-coverage-guard:** keep the checkout the guard script lives in (part 3) ([#4006](https://github.com/stranske/Workflows/issues/4006)) ([0f49b4e](https://github.com/stranske/Workflows/commit/0f49b4e2f23597a32ee2e2dff7ef14d56c86f978))
+* **sync:** deliver scripts/ledger_validate.py to consumers; guard script references ([#3993](https://github.com/stranske/Workflows/issues/3993)) ([2ae4ac4](https://github.com/stranske/Workflows/commit/2ae4ac47df67fc7cad7a2f3e4b31ea09fb1d2528))
+
+
+### Performance Improvements
+
+* **runners:** cache agent CLIs and hosted setup dependencies ([#3978](https://github.com/stranske/Workflows/issues/3978)) ([60b36d7](https://github.com/stranske/Workflows/commit/60b36d7c5228b99610be4712a4da0db2517c7339))
+
 ## [1.40.1](https://github.com/stranske/Workflows/compare/v1.40.0...v1.40.1) (2026-10-17)
 
 
