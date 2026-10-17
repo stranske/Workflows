@@ -1813,6 +1813,16 @@ def _authority_challenge_command(
 
 
 STORAGE_FAILURE_MESSAGE_MAX_CHARS = 200
+# API message text is untrusted. Discard credential-bearing diagnostics entirely:
+# guessing value boundaries can leave spaced, quoted or multiword secrets behind.
+# Match marker substrings deliberately: camel-case and underscore/prefixed field
+# names must not evade the policy at a regex word boundary.
+_STORAGE_FAILURE_CREDENTIAL_FIELD_RE = re.compile(
+    r"[=:\"']|(?:token|secret|password|passwd|passphrase|pwd|auth|credential|client[\s_-]*secret|"
+    r"x[\s_-]*access[\s_-]*token|authorization|api[\s_-]*key|"
+    r"access[\s_-]*token|refresh[\s_-]*token|private[\s_-]*key|cookie)",
+    re.IGNORECASE,
+)
 _STORAGE_FAILURE_SECRET_RE = re.compile(
     r"(?:gh[pousr]_|github_pat_|sk-)[A-Za-z0-9_\-]*|x-access-token:\S*|bearer\s+\S+|https?://\S*",
     re.IGNORECASE,
@@ -1828,10 +1838,13 @@ def _storage_failure_message(exc: Exception) -> str | None:
         return None
     try:
         payload = json.loads(text[start:])
-    except ValueError:
+    except (ValueError, RecursionError):
+        # Malformed API diagnostics must not interrupt the fail-closed path.
         return None
     message = payload.get("message") if isinstance(payload, dict) else None
     if not isinstance(message, str):
+        return None
+    if _STORAGE_FAILURE_CREDENTIAL_FIELD_RE.search(message):
         return None
     message = _STORAGE_FAILURE_SECRET_RE.sub("<redacted>", " ".join(message.split()))
     return message[:STORAGE_FAILURE_MESSAGE_MAX_CHARS] or None
