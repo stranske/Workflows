@@ -310,7 +310,12 @@ async function discoverCommand() {
     window: plan.window,
     runId: process.env.GITHUB_RUN_ID || '',
     producerRunId: process.env.INPUT_PRODUCER_RUN_ID || '',
-    producerBranch: process.env.INPUT_PRODUCER_BRANCH || process.env.GITHUB_REF_NAME || '',
+    // An exact producer run is the identity of the artifact. Falling back to the CURRENT ref's branch as well rejected
+    // every artifact from a run on another branch (the Maint Coverage Guard locates the newest Gate run on any
+    // branch, then asked for a `main` artifact from it: "not found" for 20+ days after the listing was fixed).
+    producerBranch:
+      process.env.INPUT_PRODUCER_BRANCH ||
+      (process.env.INPUT_PRODUCER_RUN_ID ? '' : process.env.GITHUB_REF_NAME || ''),
   });
 
   if (!artifact) {
