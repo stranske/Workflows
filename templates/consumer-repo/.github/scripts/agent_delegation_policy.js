@@ -18,6 +18,10 @@ const DEFAULT_ROUTE_WEIGHTS_URL = (
 );
 
 const ROUTE_WEIGHTS_SCHEMA = 'orchestrator.route-weights/v1';
+const ROUTE_WEIGHTS_SCHEMAS = new Set([
+  'orchestrator.route-weights/v1',
+  'orchestrator.route-weights/v2',
+]);
 const ROUTE_WEIGHTS_MAX_AGE_MS = 14 * 24 * 60 * 60 * 1000;
 const ROUTE_WEIGHTS_MAX_CLOCK_SKEW_MS = 60 * 1000;
 const ROUTE_WEIGHTS_FETCH_TIMEOUT_MS = 5000;
@@ -59,6 +63,32 @@ function resolveRoundKind({ labels = [], state = {} } = {}) {
     return 'testgen';
   }
   return state.last_action || state.pending_action || 'implement';
+}
+
+/**
+ * Check whether a route-weights document is within the freshness window.
+ *
+ * @param {Object|null|undefined} document
+ * @param {Date|number|string} [now]
+ * @returns {boolean}
+ */
+function isRouteWeightsFresh(document, now) {
+  if (!document || typeof document !== 'object') {
+    return false;
+  }
+  const referenceTime = now instanceof Date ? now.getTime() : new Date(now || Date.now()).getTime();
+  if (!Number.isFinite(referenceTime)) {
+    return false;
+  }
+  const generatedAt = Date.parse(document.generated_at || '');
+  if (
+    !Number.isFinite(generatedAt) ||
+    referenceTime - generatedAt > ROUTE_WEIGHTS_MAX_AGE_MS ||
+    generatedAt - referenceTime > ROUTE_WEIGHTS_MAX_CLOCK_SKEW_MS
+  ) {
+    return false;
+  }
+  return true;
 }
 
 /**
@@ -118,16 +148,11 @@ async function loadRouteWeights({ url = DEFAULT_ROUTE_WEIGHTS_URL, fetchImpl, no
       return null;
     }
 
-    if (!document || document.schema !== ROUTE_WEIGHTS_SCHEMA) {
+    if (!document || !ROUTE_WEIGHTS_SCHEMAS.has(document.schema)) {
       return null;
     }
 
-    const generatedAt = Date.parse(document.generated_at || '');
-    if (
-      !Number.isFinite(generatedAt) ||
-      referenceTime - generatedAt > ROUTE_WEIGHTS_MAX_AGE_MS ||
-      generatedAt - referenceTime > ROUTE_WEIGHTS_MAX_CLOCK_SKEW_MS
-    ) {
+    if (!isRouteWeightsFresh(document, referenceTime)) {
       return null;
     }
 
@@ -139,6 +164,16 @@ async function loadRouteWeights({ url = DEFAULT_ROUTE_WEIGHTS_URL, fetchImpl, no
       clearTimeout(timeoutId);
     }
   }
+}
+
+/**
+ * Fetch the Orchestrator route-weights export for intake and delegation callers.
+ *
+ * @param {Object} [options]
+ * @returns {Promise<Object|null>}
+ */
+async function fetchRouteWeights(options = {}) {
+  return loadRouteWeights(options);
 }
 
 /**
@@ -815,11 +850,198 @@ function pickAgent({
   });
 }
 
+function hasIntakeRunner(agentConfig = {}) {
+  if (!agentConfig || typeof agentConfig !== 'object') {
+    return false;
+  }
+  if (agentConfig.enabled === false || agentConfig.preflight?.enabled === false) {
+    return false;
+  }
+  if (agentConfig.capabilities && agentConfig.capabilities.pr_keepalive === false) {
+    return false;
+  }
+  return Boolean(agentConfig.runner_workflow || agentConfig.runner);
+}
+
+function getAgentPoolState(routeWeights, agent, row) {
+  const key = String(agent || '').trim().toLowerCase();
+  const candidates = [
+    row?.pool_state,
+    row?.poolState,
+    row?.capacity?.state,
+    row?.capacity_state,
+    row?.state,
+    routeWeights?.capacity?.[key]?.state,
+    typeof routeWeights?.capacity?.[key] === 'string' ? routeWeights.capacity[key] : undefined,
+    routeWeights?.pools?.[key]?.state,
+    typeof routeWeights?.pools?.[key] === 'string' ? routeWeights.pools[key] : undefined,
+    routeWeights?.pool_capacity?.[key]?.state,
+    typeof routeWeights?.pool_capacity?.[key] === 'string' ? routeWeights.pool_capacity[key] : undefined,
+  ];
+  for (const candidate of candidates) {
+    if (typeof candidate === 'string' && candidate.trim()) {
+      return candidate.trim().toLowerCase();
+    }
+  }
+  // Until Orchestrator#645 publishes capacity in schema v2, treat every pool as ok.
+  return 'ok';
+}
+
+function makeIntakeDecision({
+  agent,
+  posterior = null,
+  poolState = 'static',
+  delegationSource = 'static',
+  reason = 'static-default',
+}) {
+  const result = {
+    agent,
+    posterior,
+    poolState,
+    pool_state: poolState,
+    delegationSource,
+    reason,
+  };
+  Object.defineProperties(result, {
+    toString: {
+      value() {
+        return this.agent;
+      },
+      enumerable: false,
+    },
+    valueOf: {
+      value() {
+        return this.agent;
+      },
+      enumerable: false,
+    },
+  });
+  return result;
+}
+
+/**
+ * Choose an intake agent from route weights and pool capacity.
+ *
+ * Returns the first agent in posterior order whose registry entry has a runner
+ * and whose pool state is `ok`, or falls back to the static default (`codex`)
+ * when route weights are absent, stale, or yield no eligible candidate.
+ *
+ * @param {string|Object} [taskType='implement']
+ * @param {Object|null} [routeWeights=null]
+ * @param {Object} [registryAgents={}]
+ * @param {Object} [options={}]
+ * @returns {{ agent: string, posterior: number|null, poolState: string, pool_state: string, delegationSource: 'route_weights'|'static', reason: string }}
+ */
+function chooseAgentForIntake(taskType = 'implement', routeWeights = null, registryAgents = {}, options = {}) {
+  if (taskType && typeof taskType === 'object' && !Array.isArray(taskType)) {
+    const opts = taskType;
+    return chooseAgentForIntake(
+      opts.taskType || 'implement',
+      opts.routeWeights ?? null,
+      opts.registryAgents || opts.agents || opts.registry || {},
+      opts
+    );
+  }
+
+  const normalizedTaskType =
+    ROUTE_WEIGHT_TASK_TYPES[taskType] || String(taskType || 'implement').trim().toLowerCase() || 'implement';
+  const agentsMap = (
+    registryAgents &&
+    typeof registryAgents === 'object' &&
+    registryAgents.agents &&
+    typeof registryAgents.agents === 'object'
+  )
+    ? registryAgents.agents
+    : (registryAgents || {});
+  const defaultAgent = String(
+    options?.defaultAgent ||
+    (registryAgents && typeof registryAgents.default_agent === 'string' && registryAgents.default_agent) ||
+    'codex'
+  ).trim().toLowerCase() || 'codex';
+
+  if (!routeWeights || typeof routeWeights !== 'object') {
+    return makeIntakeDecision({
+      agent: defaultAgent,
+      reason: 'route-weights-unavailable',
+    });
+  }
+
+  if (routeWeights.schema !== undefined && !ROUTE_WEIGHTS_SCHEMAS.has(routeWeights.schema)) {
+    return makeIntakeDecision({
+      agent: defaultAgent,
+      reason: 'route-weights-invalid-schema',
+    });
+  }
+
+  if (routeWeights.generated_at !== undefined && !isRouteWeightsFresh(routeWeights, options?.now)) {
+    return makeIntakeDecision({
+      agent: defaultAgent,
+      reason: 'route-weights-stale',
+    });
+  }
+
+  const taskEntry = routeWeights.task_types?.[normalizedTaskType] || routeWeights.task_types?.[taskType];
+  if (!taskEntry || taskEntry.evidence_ok === false) {
+    return makeIntakeDecision({
+      agent: defaultAgent,
+      reason: 'route-weights-insufficient-evidence',
+    });
+  }
+
+  const reserveSet = new Set(getRouteWeightReserveAgents(routeWeights.reserve, normalizedTaskType));
+  const ranking = Array.isArray(taskEntry.ranking) ? taskEntry.ranking : [];
+  const orderedRanking = ranking
+    .map((row, index) => ({ row, index }))
+    .sort((a, b) => {
+      const postA = Number(a.row?.posterior);
+      const postB = Number(b.row?.posterior);
+      const validA = Number.isFinite(postA);
+      const validB = Number.isFinite(postB);
+      if (validA && validB && postB !== postA) {
+        return postB - postA;
+      }
+      if (validA !== validB) {
+        return validA ? -1 : 1;
+      }
+      return a.index - b.index;
+    })
+    .map((entry) => entry.row);
+
+  for (const row of orderedRanking) {
+    const candidate = String(row?.agent || '').trim().toLowerCase();
+    if (!candidate || reserveSet.has(candidate)) {
+      continue;
+    }
+    if (!hasIntakeRunner(agentsMap[candidate])) {
+      continue;
+    }
+    const poolState = getAgentPoolState(routeWeights, candidate, row);
+    if (poolState !== 'ok') {
+      continue;
+    }
+    const posterior = Number.isFinite(Number(row?.posterior)) ? Number(row.posterior) : null;
+    return makeIntakeDecision({
+      agent: candidate,
+      posterior,
+      poolState,
+      delegationSource: 'route_weights',
+      reason: 'route-weights',
+    });
+  }
+
+  return makeIntakeDecision({
+    agent: defaultAgent,
+    reason: 'route-weights-no-eligible-agent',
+  });
+}
+
 module.exports = {
   DEFAULT_ROUTE_WEIGHTS_URL,
   ROUTE_WEIGHT_TASK_TYPES,
   resolveRoundKind,
   loadRouteWeights,
+  fetchRouteWeights,
+  chooseAgentForIntake,
   explorationDraw,
   explorationSeedFromState,
   selectAgentFromRouteWeights,
@@ -833,3 +1055,4 @@ module.exports = {
   formatDelegationSummary,
   hasKeepaliveRunner,
 };
+

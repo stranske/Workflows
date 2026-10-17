@@ -15,6 +15,42 @@ _COVERAGE_FIXTURE = importlib.util.module_from_spec(_COVERAGE_SPEC)
 _COVERAGE_SPEC.loader.exec_module(_COVERAGE_FIXTURE)
 
 
+def _semantic_matrix(*, dimensions, semantic, lexical_spines):
+    """Cross semantic states; sweep aliases on their declared interaction axes.
+
+    Every original value survives. The core keeps every semantic combination;
+    a lexical sweep keeps each alias crossed with its named grammar boundaries.
+    Other lexical axes use their first value. See docs/ci/verifier-grammar-matrices.md
+    for the intentionally unproven high-order lexical combinations and mapping.
+    """
+    from itertools import product
+
+    names = list(dimensions)
+    assert set(semantic).isdisjoint(lexical_spines)
+    assert set(semantic) | set(lexical_spines) == set(names)
+    rows = {}
+
+    def add(axes, label):
+        for indices in product(*(range(len(dimensions[name])) for name in axes)):
+            selected = dict(zip(axes, indices, strict=True))
+            key = tuple(selected.get(name, 0) for name in names)
+            rows.setdefault(key, label + "-" + "-".join(map(str, indices)))
+
+    add(semantic, "semantic")
+    for alias, spine in lexical_spines.items():
+        assert set(spine) <= set(semantic)
+        add((alias, *spine), "lexical-" + alias.replace(",", "-"))
+    flattened = [part.strip() for name in names for part in name.split(",")]
+    values = []
+    for key, label in rows.items():
+        row = []
+        for name, index in zip(names, key, strict=True):
+            value = dimensions[name][index]
+            row.extend(value if "," in name else [value])
+        values.append(pytest.param(*row, id=label))
+    return pytest.mark.parametrize(flattened, values)
+
+
 def _floor_verdict(criterion, *, body, comments, artifacts="present", overall="present"):
     """Use the real prompt and coverage floor with one immutable fixture module."""
     context, _ = _COVERAGE_FIXTURE._context(1, 1000, 1000)
@@ -127,28 +163,32 @@ def test_transport_qualifier_is_not_a_product_component(
         )
 
 
-@pytest.mark.parametrize(
-    "qualifier",
-    [
-        "containing logs",
-        "including test results",
-        "showing failures",
-        "displaying command output",
-        "summarizing validation results",
-        "presenting screenshots",
-        "listing failures",
-        "describing test results",
-    ],
+@_semantic_matrix(
+    dimensions={
+        "independent": [False, True],
+        "passive": [False, True],
+        "actor": ["UI", "reviewer"],
+        "governor": ["must", "may", "must not", "is not expected to"],
+        "component": ["", " results panel"],
+        "destination,channel": [
+            ["the PR body", "body"],
+            ["the PR description", "body"],
+            ["a PR comment", "comments"],
+        ],
+        "qualifier": [
+            "containing logs",
+            "including test results",
+            "showing failures",
+            "displaying command output",
+            "summarizing validation results",
+            "presenting screenshots",
+            "listing failures",
+            "describing test results",
+        ],
+    },
+    semantic=("independent", "passive", "actor", "governor", "component", "destination,channel"),
+    lexical_spines={"qualifier": ("passive", "actor", "governor")},
 )
-@pytest.mark.parametrize(
-    "destination,channel",
-    [("the PR body", "body"), ("the PR description", "body"), ("a PR comment", "comments")],
-)
-@pytest.mark.parametrize("component", ["", " results panel"])
-@pytest.mark.parametrize("governor", ["must", "may", "must not", "is not expected to"])
-@pytest.mark.parametrize("actor", ["UI", "reviewer"])
-@pytest.mark.parametrize("passive", [False, True])
-@pytest.mark.parametrize("independent", [False, True])
 def test_participial_content_is_not_a_component_name(
     qualifier, destination, channel, component, governor, actor, passive, independent
 ):
@@ -323,37 +363,42 @@ def test_product_chain_keeps_genuine_destination_alternatives(actor, body_alias,
         assert _floor_verdict(criterion, body=missing, comments=missing) == "CONCERNS"
 
 
-@pytest.mark.parametrize("first_governor", ["must", "may", "must not", "is not expected to"])
-@pytest.mark.parametrize("middle_governor", ["must", "may", "must not", "is not expected to"])
-@pytest.mark.parametrize(
-    "first_conjunction,last_conjunction",
-    [
-        ("and", "and"),
-        ("and", "or"),
-        ("or", "and"),
-        ("or", "or"),
-    ],
+@_semantic_matrix(
+    dimensions={
+        "reverse": [False, True],
+        "forms": [
+            ["ordinary", "ordinary", "ordinary"],
+            ["perfect", "ordinary", "ordinary"],
+            ["ordinary", "perfect", "perfect"],
+            ["ordinary", "progressive", "progressive"],
+            ["perfect", "progressive", "ordinary"],
+            ["progressive", "perfect", "ordinary"],
+        ],
+        "operation,perfect,progressive": [
+            ["record", "recorded", "recording"],
+            ["supply", "supplied", "supplying"],
+            ["leave", "left", "leaving"],
+        ],
+        "first_conjunction,last_conjunction": [
+            ["and", "and"],
+            ["and", "or"],
+            ["or", "and"],
+            ["or", "or"],
+        ],
+        "middle_governor": ["must", "may", "must not", "is not expected to"],
+        "first_governor": ["must", "may", "must not", "is not expected to"],
+    },
+    semantic=(
+        "reverse",
+        "forms",
+        "first_conjunction,last_conjunction",
+        "middle_governor",
+        "first_governor",
+    ),
+    lexical_spines={
+        "operation,perfect,progressive": ("forms", "middle_governor", "first_governor")
+    },
 )
-@pytest.mark.parametrize(
-    "operation,perfect,progressive",
-    [
-        ("record", "recorded", "recording"),
-        ("supply", "supplied", "supplying"),
-        ("leave", "left", "leaving"),
-    ],
-)
-@pytest.mark.parametrize(
-    "forms",
-    [
-        ("ordinary", "ordinary", "ordinary"),
-        ("perfect", "ordinary", "ordinary"),
-        ("ordinary", "perfect", "perfect"),
-        ("ordinary", "progressive", "progressive"),
-        ("perfect", "progressive", "ordinary"),
-        ("progressive", "perfect", "ordinary"),
-    ],
-)
-@pytest.mark.parametrize("reverse", [False, True])
 def test_product_chain_inherits_latest_explicit_governor_and_aspect(
     first_governor,
     middle_governor,
@@ -569,46 +614,45 @@ def test_repeated_product_predicate_shares_aspect_recipient_and_qualified_actor(
         assert _floor_verdict(criterion, body=missing, comments=missing) == "PASS"
 
 
-@pytest.mark.parametrize("actor", ["UI", "service"])
-@pytest.mark.parametrize(
-    "first_destination",
-    [
-        "in the PR body panel",
-        "in the database",
-        "to clients",
-        "to users of the UI",
-    ],
-)
-@pytest.mark.parametrize(
-    "first_governor",
-    [
-        "must",
-        "may",
-        "must not",
-        "is not expected to",
-        "is not supposed to",
-        "is no longer required to",
-    ],
-)
-@pytest.mark.parametrize(
-    "second_governor",
-    [
-        "",
-        "must ",
-        "may ",
-        "must not ",
-        "is not expected to ",
-        "is not supposed to ",
-        "is no longer required to ",
-    ],
-)
-@pytest.mark.parametrize(
-    "second_destination,coordination",
-    [
-        ("a PR comment panel", "and"),
-        ("a PR comment panel", "or"),
-        ("a PR comment", "and"),
-    ],
+@_semantic_matrix(
+    dimensions={
+        "second_destination,coordination": [
+            ["a PR comment panel", "and"],
+            ["a PR comment panel", "or"],
+            ["a PR comment", "and"],
+        ],
+        "second_governor": [
+            "",
+            "must ",
+            "may ",
+            "must not ",
+            "is not expected to ",
+            "is not supposed to ",
+            "is no longer required to ",
+        ],
+        "first_governor": [
+            "must",
+            "may",
+            "must not",
+            "is not expected to",
+            "is not supposed to",
+            "is no longer required to",
+        ],
+        "first_destination": [
+            "in the PR body panel",
+            "in the database",
+            "to clients",
+            "to users of the UI",
+        ],
+        "actor": ["UI", "service"],
+    },
+    semantic=(
+        "second_destination,coordination",
+        "second_governor",
+        "first_governor",
+        "first_destination",
+    ),
+    lexical_spines={"actor": ("second_governor", "first_governor")},
 )
 def test_product_coordination_preserves_recipients_and_explicit_governor_reset(
     actor, first_destination, first_governor, second_governor, second_destination, coordination
@@ -844,39 +888,45 @@ def test_passive_destination_quantifier_retains_bare_sibling(
         assert result.verdict == "CONCERNS"
 
 
-@pytest.mark.parametrize("actor", ["UI", "application", "service", "renderer"])
-@pytest.mark.parametrize(
-    "operation",
-    [
-        "prove",
-        "provide",
-        "return",
-        "display",
-        "show",
-        "emit",
-        "render",
-        "expose",
-        "store",
-        "upload",
-        "attach",
-        "publish",
-        "post",
-        "record",
-        "capture",
-        "include",
-        "contain",
-        "have",
-        "document",
-        "generate",
-        "link",
-        "add",
-        "leave",
-    ],
+@_semantic_matrix(
+    dimensions={
+        "independent": [False, True],
+        "capability": [False, True],
+        "component": ["panel", "editor", "field"],
+        "destination": ["the PR body", "the PR description", "a PR comment"],
+        "operation": [
+            "prove",
+            "provide",
+            "return",
+            "display",
+            "show",
+            "emit",
+            "render",
+            "expose",
+            "store",
+            "upload",
+            "attach",
+            "publish",
+            "post",
+            "record",
+            "capture",
+            "include",
+            "contain",
+            "have",
+            "document",
+            "generate",
+            "link",
+            "add",
+            "leave",
+        ],
+        "actor": ["UI", "application", "service", "renderer"],
+    },
+    semantic=("independent", "capability", "component", "destination"),
+    lexical_spines={
+        "operation": ("capability", "component", "destination"),
+        "actor": ("capability", "destination"),
+    },
 )
-@pytest.mark.parametrize("destination", ["the PR body", "the PR description", "a PR comment"])
-@pytest.mark.parametrize("component", ["panel", "editor", "field"])
-@pytest.mark.parametrize("capability", [False, True])
-@pytest.mark.parametrize("independent", [False, True])
 def test_product_generation_uses_shared_delivery_operations(
     actor, operation, destination, component, capability, independent
 ):
@@ -894,19 +944,7 @@ def test_product_generation_uses_shared_delivery_operations(
     )
 
 
-@pytest.mark.parametrize("actor", ["UI", "service"])
-@pytest.mark.parametrize("operation", ["generate", "link", "post", "record", "prove", "leave"])
-@pytest.mark.parametrize("product_channel", ["body", "comments"])
-@pytest.mark.parametrize("body_alias", ["body", "description"])
-@pytest.mark.parametrize("reverse", [False, True])
-@pytest.mark.parametrize("coordination", ["and", "or"])
-@pytest.mark.parametrize("independent", [False, True])
-@pytest.mark.parametrize("governor", ["must", "may", "must not"])
-@pytest.mark.parametrize("condition", ["", " if available"])
-@pytest.mark.parametrize(
-    "voice", ["active", "active-perfect", "active-progressive", "agent-before", "agent-after"]
-)
-def test_product_component_coordination_preserves_bare_other_channel(
+def _product_component_case(
     actor,
     operation,
     product_channel,
@@ -954,8 +992,92 @@ def test_product_component_coordination_preserves_bare_other_channel(
     bare_channel = "comments" if product_channel == "body" else "body"
     required = governor == "must" and not condition
     expected = ({bare_channel} if required else set()) | ({"artifacts"} if independent else set())
+    return criterion, expected, required
+
+
+@_semantic_matrix(
+    dimensions={
+        "voice": ["active", "active-perfect", "active-progressive", "agent-before", "agent-after"],
+        "condition": ["", " if available"],
+        "governor": ["must", "may", "must not"],
+        "independent": [False, True],
+        "coordination": ["and", "or"],
+        "reverse": [False, True],
+        "body_alias": ["body", "description"],
+        "product_channel": ["body", "comments"],
+        "operation": ["generate", "link", "post", "record", "prove", "leave"],
+        "actor": ["UI", "service"],
+    },
+    semantic=(
+        "voice",
+        "condition",
+        "governor",
+        "independent",
+        "coordination",
+        "reverse",
+        "product_channel",
+    ),
+    lexical_spines={
+        "operation": ("voice", "governor", "product_channel"),
+        "actor": ("voice", "governor", "product_channel"),
+        "body_alias": ("product_channel", "reverse", "coordination"),
+    },
+)
+def test_product_component_coordination_preserves_bare_other_channel(
+    actor,
+    operation,
+    product_channel,
+    body_alias,
+    reverse,
+    coordination,
+    independent,
+    governor,
+    condition,
+    voice,
+):
+    criterion, expected, _ = _product_component_case(
+        actor,
+        operation,
+        product_channel,
+        body_alias,
+        reverse,
+        coordination,
+        independent,
+        governor,
+        condition,
+        voice,
+    )
     assert verifier._required_evidence_channels(criterion) == expected
     assert verifier._required_evidence_options(criterion) == [expected]
+
+
+@pytest.mark.parametrize("voice", ["active", "agent-before", "agent-after"])
+@pytest.mark.parametrize("governor", ["must", "may", "must not"])
+@pytest.mark.parametrize("condition", ["", " if available"])
+@pytest.mark.parametrize("independent", [False, True])
+@pytest.mark.parametrize("product_channel", ["body", "comments"])
+@pytest.mark.parametrize("coordination", ["and", "or"])
+@pytest.mark.parametrize("reverse", [False, True])
+def test_product_component_coordination_real_floor(
+    voice, governor, condition, independent, product_channel, coordination, reverse
+):
+    """Retain missing-evidence enforcement across every semantic result state.
+
+    Lexical morphology is exercised by the classifier matrix above. The full
+    prompt path receives the resulting requirement and retrieval states here.
+    """
+    criterion, _, required = _product_component_case(
+        "UI",
+        "generate",
+        product_channel,
+        "body",
+        reverse,
+        coordination,
+        independent,
+        governor,
+        condition,
+        voice,
+    )
     fixture = _COVERAGE_FIXTURE
     context, _ = fixture._context(1, 1000, 1000)
     context = context.replace("- " + fixture.ACCEPTANCE_SENTINEL, criterion).replace(
@@ -971,17 +1093,24 @@ def test_product_component_coordination_preserves_bare_other_channel(
     assert result.verdict == ("CONCERNS" if required else "PASS")
 
 
-@pytest.mark.parametrize("actor", ["reviewer", "assigned reviewer", "UI", "service"])
-@pytest.mark.parametrize("operation", ["posted", "generated", "recorded", "linked"])
-@pytest.mark.parametrize("object_", ["Evidence", "Command output"])
-@pytest.mark.parametrize("governor", ["must", "may", "must not", "is not expected to"])
-@pytest.mark.parametrize(
-    "destination,channel",
-    [("the PR body", "body"), ("the PR description", "body"), ("a PR comment", "comments")],
+@_semantic_matrix(
+    dimensions={
+        "aspect": ["be", "have been", "have been being"],
+        "position": ["agent-before", "agent-after"],
+        "component": ["", " settings panel"],
+        "destination,channel": [
+            ["the PR body", "body"],
+            ["the PR description", "body"],
+            ["a PR comment", "comments"],
+        ],
+        "governor": ["must", "may", "must not", "is not expected to"],
+        "object_": ["Evidence", "Command output"],
+        "operation": ["posted", "generated", "recorded", "linked"],
+        "actor": ["reviewer", "assigned reviewer", "UI", "service"],
+    },
+    semantic=("aspect", "position", "component", "destination,channel", "governor", "actor"),
+    lexical_spines={"operation": ("actor", "aspect", "governor"), "object_": ("actor", "aspect")},
 )
-@pytest.mark.parametrize("component", ["", " settings panel"])
-@pytest.mark.parametrize("position", ["agent-before", "agent-after"])
-@pytest.mark.parametrize("aspect", ["be", "have been", "have been being"])
 def test_passive_delivery_agent_position_preserves_actor_and_floor(
     actor, operation, object_, governor, destination, channel, component, position, aspect
 ):
@@ -1007,33 +1136,40 @@ def test_passive_delivery_agent_position_preserves_actor_and_floor(
     )
 
 
-@pytest.mark.parametrize(
-    "operation",
-    [
-        "recorded",
-        "supplied",
-        "shared",
-        "written",
-        "placed",
-        "delivered",
-        "submitted",
-        "pasted",
-        "put",
-    ],
+@_semantic_matrix(
+    dimensions={
+        "missing": ["absent", "unavailable"],
+        "independent": [False, True],
+        "governor": ["must", "may", "must not"],
+        "shape": ["single", "human-and", "human-or", "product-and", "product-or"],
+        "position": ["agent-before", "agent-after"],
+        "destination,channel,other,other_channel": [
+            ["the PR body", "body", "a PR comment", "comments"],
+            ["the PR description", "body", "a PR comment", "comments"],
+            ["a PR comment", "comments", "the PR body", "body"],
+        ],
+        "operation": [
+            "recorded",
+            "supplied",
+            "shared",
+            "written",
+            "placed",
+            "delivered",
+            "submitted",
+            "pasted",
+            "put",
+        ],
+    },
+    semantic=(
+        "missing",
+        "independent",
+        "governor",
+        "shape",
+        "position",
+        "destination,channel,other,other_channel",
+    ),
+    lexical_spines={"operation": ("shape", "governor", "position")},
 )
-@pytest.mark.parametrize(
-    "destination,channel,other,other_channel",
-    [
-        ("the PR body", "body", "a PR comment", "comments"),
-        ("the PR description", "body", "a PR comment", "comments"),
-        ("a PR comment", "comments", "the PR body", "body"),
-    ],
-)
-@pytest.mark.parametrize("position", ["agent-before", "agent-after"])
-@pytest.mark.parametrize("shape", ["single", "human-and", "human-or", "product-and", "product-or"])
-@pytest.mark.parametrize("governor", ["must", "may", "must not"])
-@pytest.mark.parametrize("independent", [False, True])
-@pytest.mark.parametrize("missing", ["absent", "unavailable"])
 def test_passive_aliases_preserve_actor_options_and_actual_floor(
     operation,
     destination,
@@ -1093,24 +1229,34 @@ def test_passive_aliases_preserve_actor_options_and_actual_floor(
         assert result.verdict == ("PASS" if satisfied else "CONCERNS")
 
 
-@pytest.mark.parametrize("operation", ["record", "supply", "leave"])
-@pytest.mark.parametrize("voice", ["active", "agent-before", "agent-after"])
-@pytest.mark.parametrize(
-    "destination,channel,other,other_channel",
-    [
-        ("the PR body", "body", "a PR comment", "comments"),
-        ("the PR description", "body", "a PR comment", "comments"),
-        ("a PR comment", "comments", "the PR body", "body"),
-    ],
+@_semantic_matrix(
+    dimensions={
+        "missing": ["absent", "unavailable"],
+        "independent": [False, True],
+        "governor": ["must", "may", "must not"],
+        "availability": ["", " that is available", " that must always remain available"],
+        "reverse": [False, True],
+        "coordination": ["and", "or"],
+        "destination,channel,other,other_channel": [
+            ["the PR body", "body", "a PR comment", "comments"],
+            ["the PR description", "body", "a PR comment", "comments"],
+            ["a PR comment", "comments", "the PR body", "body"],
+        ],
+        "voice": ["active", "agent-before", "agent-after"],
+        "operation": ["record", "supply", "leave"],
+    },
+    semantic=(
+        "missing",
+        "independent",
+        "governor",
+        "availability",
+        "reverse",
+        "coordination",
+        "destination,channel,other,other_channel",
+        "voice",
+    ),
+    lexical_spines={"operation": ("voice", "governor", "availability")},
 )
-@pytest.mark.parametrize("coordination", ["and", "or"])
-@pytest.mark.parametrize("reverse", [False, True])
-@pytest.mark.parametrize(
-    "availability", ["", " that is available", " that must always remain available"]
-)
-@pytest.mark.parametrize("governor", ["must", "may", "must not"])
-@pytest.mark.parametrize("independent", [False, True])
-@pytest.mark.parametrize("missing", ["absent", "unavailable"])
 def test_component_availability_preserves_bare_sibling_and_passive_actor(
     operation,
     voice,
@@ -1917,22 +2063,29 @@ def test_checklist_suffix_cannot_promote_conditional_or_negative_delivery(
     assert verifier._required_evidence_options(criterion + extra) == [expected]
 
 
-@pytest.mark.parametrize("marker", ["-", "*", "+", "1.", "1)"])
-@pytest.mark.parametrize("relative", ["that", "which"])
-@pytest.mark.parametrize(
-    "predicate",
-    [
-        "need not be provided",
-        "is not expected to be recorded",
-        "may be omitted",
-        "can be provided",
-        "must not be supplied",
-    ],
+@_semantic_matrix(
+    dimensions={
+        "adverb": ["", "now ", "currently "],
+        "independent": [False, True],
+        "joiner": ["; ", " and ", ", and "],
+        "destination": ["a PR comment", "the PR body", "the PR description"],
+        "predicate": [
+            "need not be provided",
+            "is not expected to be recorded",
+            "may be omitted",
+            "can be provided",
+            "must not be supplied",
+        ],
+        "relative": ["that", "which"],
+        "marker": ["-", "*", "+", "1.", "1)"],
+    },
+    semantic=("independent", "joiner", "destination", "predicate"),
+    lexical_spines={
+        "marker": ("joiner", "destination", "predicate"),
+        "adverb": ("predicate", "independent"),
+        "relative": ("predicate", "joiner", "destination"),
+    },
 )
-@pytest.mark.parametrize("destination", ["a PR comment", "the PR body", "the PR description"])
-@pytest.mark.parametrize("joiner", ["; ", " and ", ", and "])
-@pytest.mark.parametrize("independent", [False, True])
-@pytest.mark.parametrize("adverb", ["", "now ", "currently "])
 def test_relative_checklist_delivery_reuses_negative_optional_governor(
     marker, relative, predicate, destination, joiner, independent, adverb
 ):
@@ -1944,42 +2097,48 @@ def test_relative_checklist_delivery_reuses_negative_optional_governor(
     assert verifier._required_evidence_options(criterion) == [expected]
 
 
-@pytest.mark.parametrize("relative", ["that", "which"])
-@pytest.mark.parametrize(
-    "predicate",
-    [
-        "must remain available",
-        "shall stay accessible",
-        "is required to be present",
-        "is available",
-        "is accessible",
-        "are present",
-        "now is available",
-        "currently is available",
-        "now is accessible",
-        "currently is accessible",
-        "now are present",
-        "currently are present",
-        "is now available",
-        "is currently available",
-        "is now accessible",
-        "is currently accessible",
-        "are now present",
-        "are currently present",
-        "must always remain available",
-        "shall always stay accessible",
-        "is required to always be present",
-        "always is available",
-        "is always accessible",
-        "are always present",
-    ],
+@_semantic_matrix(
+    dimensions={
+        "actor": ["nominal", "reviewer", "UI"],
+        "repeat_preposition": [False, True],
+        "first": [False, True],
+        "body_alias": ["body", "description"],
+        "independent": [False, True],
+        "reverse": [False, True],
+        "predicate": [
+            "must remain available",
+            "shall stay accessible",
+            "is required to be present",
+            "is available",
+            "is accessible",
+            "are present",
+            "now is available",
+            "currently is available",
+            "now is accessible",
+            "currently is accessible",
+            "now are present",
+            "currently are present",
+            "is now available",
+            "is currently available",
+            "is now accessible",
+            "is currently accessible",
+            "are now present",
+            "are currently present",
+            "must always remain available",
+            "shall always stay accessible",
+            "is required to always be present",
+            "always is available",
+            "is always accessible",
+            "are always present",
+        ],
+        "relative": ["that", "which"],
+    },
+    semantic=("actor", "repeat_preposition", "first", "independent", "reverse", "relative"),
+    lexical_spines={
+        "predicate": ("actor", "first", "independent"),
+        "body_alias": ("reverse", "first", "repeat_preposition"),
+    },
 )
-@pytest.mark.parametrize("reverse", [False, True])
-@pytest.mark.parametrize("independent", [False, True])
-@pytest.mark.parametrize("body_alias", ["body", "description"])
-@pytest.mark.parametrize("first", [False, True])
-@pytest.mark.parametrize("repeat_preposition", [False, True])
-@pytest.mark.parametrize("actor", ["nominal", "reviewer", "UI"])
 def test_attached_availability_relative_preserves_destination_or(
     relative, predicate, reverse, independent, body_alias, first, repeat_preposition, actor
 ):
@@ -2623,29 +2782,37 @@ def test_compound_role_polarity_and_independent_delivery(role, alias, marker, de
     assert verifier._required_evidence_channels(marker + negative + "; " + positive) == {channel}
 
 
-@pytest.mark.parametrize("role", ["reviewer", "maintainer", "release reviewer"])
-@pytest.mark.parametrize("auxiliary", ["has", "have", "had"])
-@pytest.mark.parametrize("alias", ["supply", "supplies"])
-@pytest.mark.parametrize("inspection", ["inspect", "review", "check"])
-@pytest.mark.parametrize("destination", ["the PR body", "a PR comment", "workflow artifacts"])
-@pytest.mark.parametrize("marker", ["", "- [ ] ", "- [x] "])
-@pytest.mark.parametrize(
-    "before,after",
-    [
-        ("", ""),
-        ("already ", ""),
-        ("currently ", ""),
-        ("still ", ""),
-        ("", "already "),
-        ("", "currently "),
-        ("already ", "still "),
-        ("still already currently ", "now still already "),
-        ("no longer ", ""),
-        ("never ", ""),
-        ("", "not "),
-        ("already no longer ", "currently "),
-        ("still ", "no longer already "),
-    ],
+@_semantic_matrix(
+    dimensions={
+        "before,after": [
+            ["", ""],
+            ["already ", ""],
+            ["currently ", ""],
+            ["still ", ""],
+            ["", "already "],
+            ["", "currently "],
+            ["already ", "still "],
+            ["still already currently ", "now still already "],
+            ["no longer ", ""],
+            ["never ", ""],
+            ["", "not "],
+            ["already no longer ", "currently "],
+            ["still ", "no longer already "],
+        ],
+        "marker": ["", "- [ ] ", "- [x] "],
+        "destination": ["the PR body", "a PR comment", "workflow artifacts"],
+        "inspection": ["inspect", "review", "check"],
+        "alias": ["supply", "supplies"],
+        "auxiliary": ["has", "have", "had"],
+        "role": ["reviewer", "maintainer", "release reviewer"],
+    },
+    semantic=("before,after", "auxiliary", "alias"),
+    lexical_spines={
+        "role": ("auxiliary", "alias"),
+        "inspection": ("auxiliary", "alias"),
+        "destination": ("auxiliary", "alias"),
+        "marker": ("before,after",),
+    },
 )
 def test_possession_auxiliary_cannot_make_supply_noun_a_delivery(
     role, auxiliary, alias, inspection, destination, marker, before, after
@@ -3124,17 +3291,28 @@ def test_supply_clause_subject_preserves_delivery(actor):
     ) == {"comments"}
 
 
-@pytest.mark.parametrize("boundary", [" and ", " while ", "; ", ". ", "! ", "? "])
-@pytest.mark.parametrize("negation", ["doesn't", "doesn’t", "does not", "never", "no longer"])
-@pytest.mark.parametrize("verb", ["supply", "prove", "record"])
-@pytest.mark.parametrize(
-    "negative_destination", ["the PR body", "a PR comment", "workflow artifacts"]
+@_semantic_matrix(
+    dimensions={
+        "positive_first": [True, False],
+        "positive_destination,channel": [
+            ["the PR body", "body"],
+            ["a PR comment", "comments"],
+            ["workflow artifacts", "artifacts"],
+        ],
+        "negative_destination": ["the PR body", "a PR comment", "workflow artifacts"],
+        "verb": ["supply", "prove", "record"],
+        "negation": ["doesn't", "doesn’t", "does not", "never", "no longer"],
+        "boundary": [" and ", " while ", "; ", ". ", "! ", "? "],
+    },
+    semantic=(
+        "positive_first",
+        "positive_destination,channel",
+        "negative_destination",
+        "negation",
+        "boundary",
+    ),
+    lexical_spines={"verb": ("negation", "boundary")},
 )
-@pytest.mark.parametrize(
-    "positive_destination,channel",
-    [("the PR body", "body"), ("a PR comment", "comments"), ("workflow artifacts", "artifacts")],
-)
-@pytest.mark.parametrize("positive_first", [True, False])
 def test_prohibition_polarity_is_clause_order_and_alias_symmetric(
     boundary, negation, verb, negative_destination, positive_destination, channel, positive_first
 ):
@@ -3306,18 +3484,28 @@ def test_negative_active_perfect_governor_preserves_independent_delivery(
     assert verifier._required_evidence_channels(marker + criterion) == {"body"}
 
 
-@pytest.mark.parametrize(
-    "governor",
-    ["must not", "is not required to", "does not need to", "never has to", "no longer needs to"],
+@_semantic_matrix(
+    dimensions={
+        "marker": ["", "- [ ] ", "- [x] ", "* [ ] ", "- "],
+        "second_destination,second_channel": [
+            ["the PR body", "body"],
+            ["a PR comment", "comments"],
+            ["workflow artifacts", "artifacts"],
+        ],
+        "first_destination": ["the PR body", "a PR comment", "workflow artifacts"],
+        "boundary": ["and", "or", "but"],
+        "participle": ["recorded", "supplied", "proved"],
+        "governor": [
+            "must not",
+            "is not required to",
+            "does not need to",
+            "never has to",
+            "no longer needs to",
+        ],
+    },
+    semantic=("second_destination,second_channel", "first_destination", "boundary", "governor"),
+    lexical_spines={"participle": ("governor", "boundary"), "marker": ("governor", "boundary")},
 )
-@pytest.mark.parametrize("participle", ["recorded", "supplied", "proved"])
-@pytest.mark.parametrize("boundary", ["and", "or", "but"])
-@pytest.mark.parametrize("first_destination", ["the PR body", "a PR comment", "workflow artifacts"])
-@pytest.mark.parametrize(
-    "second_destination,second_channel",
-    [("the PR body", "body"), ("a PR comment", "comments"), ("workflow artifacts", "artifacts")],
-)
-@pytest.mark.parametrize("marker", ["", "- [ ] ", "- [x] ", "* [ ] ", "- "])
 def test_negative_passive_coordination_respects_contrast(
     governor, participle, boundary, first_destination, second_destination, second_channel, marker
 ):
@@ -3326,30 +3514,45 @@ def test_negative_passive_coordination_respects_contrast(
     assert verifier._required_evidence_channels(marker + criterion) == expected
 
 
-@pytest.mark.parametrize("adverb", ["already", "recently", "now"])
-@pytest.mark.parametrize("adverb_position", ["before", "after", "both"])
-@pytest.mark.parametrize("participle", ["recorded", "proved", "supplied"])
-@pytest.mark.parametrize("marker", ["", "- [ ] "])
-@pytest.mark.parametrize(
-    "governor",
-    [
-        "is not required to",
-        "does not need to",
-        "never has to",
-        "no longer needs to",
-        "must not",
-        "must",
-        "may",
-    ],
-)
-@pytest.mark.parametrize("boundary", ["and", "or", "but"])
-@pytest.mark.parametrize(
-    "first_destination,first_channel",
-    [("the PR body", "body"), ("a PR comment", "comments"), ("workflow artifacts", "artifacts")],
-)
-@pytest.mark.parametrize(
-    "second_destination,second_channel",
-    [("the PR body", "body"), ("a PR comment", "comments"), ("workflow artifacts", "artifacts")],
+@_semantic_matrix(
+    dimensions={
+        "second_destination,second_channel": [
+            ["the PR body", "body"],
+            ["a PR comment", "comments"],
+            ["workflow artifacts", "artifacts"],
+        ],
+        "first_destination,first_channel": [
+            ["the PR body", "body"],
+            ["a PR comment", "comments"],
+            ["workflow artifacts", "artifacts"],
+        ],
+        "boundary": ["and", "or", "but"],
+        "governor": [
+            "is not required to",
+            "does not need to",
+            "never has to",
+            "no longer needs to",
+            "must not",
+            "must",
+            "may",
+        ],
+        "marker": ["", "- [ ] "],
+        "participle": ["recorded", "proved", "supplied"],
+        "adverb_position": ["before", "after", "both"],
+        "adverb": ["already", "recently", "now"],
+    },
+    semantic=(
+        "second_destination,second_channel",
+        "first_destination,first_channel",
+        "boundary",
+        "governor",
+        "adverb_position",
+    ),
+    lexical_spines={
+        "adverb": ("governor", "boundary", "adverb_position"),
+        "participle": ("governor", "boundary"),
+        "marker": ("governor", "boundary"),
+    },
 )
 def test_active_perfect_elided_delivery_retains_actor_and_governor(
     marker,
@@ -3449,13 +3652,27 @@ def test_supply_imperative_list_marker_preserves_delivery(prefix):
     }
 
 
-@pytest.mark.parametrize("auxiliary", ["do", "does", "did"])
-@pytest.mark.parametrize("role", ["reviewer", "maintainer"])
-@pytest.mark.parametrize("modal", ["may", "can", "could", "would", "should"])
-@pytest.mark.parametrize("governor", ["must", "shall", "needs to", "will"])
-@pytest.mark.parametrize("operation", ["put", "place", "write"])
-@pytest.mark.parametrize(
-    "destinations", list(permutations(["the PR body", "a PR comment", "workflow artifacts"], 2))
+@_semantic_matrix(
+    dimensions={
+        "destinations": [
+            ["the PR body", "a PR comment"],
+            ["the PR body", "workflow artifacts"],
+            ["a PR comment", "the PR body"],
+            ["a PR comment", "workflow artifacts"],
+            ["workflow artifacts", "the PR body"],
+            ["workflow artifacts", "a PR comment"],
+        ],
+        "operation": ["put", "place", "write"],
+        "governor": ["must", "shall", "needs to", "will"],
+        "modal": ["may", "can", "could", "would", "should"],
+        "role": ["reviewer", "maintainer"],
+        "auxiliary": ["do", "does", "did"],
+    },
+    semantic=("destinations", "governor", "modal", "auxiliary"),
+    lexical_spines={
+        "operation": ("governor", "modal", "auxiliary"),
+        "role": ("governor", "modal", "auxiliary"),
+    },
 )
 def test_optional_review_predicate_cannot_suppress_elided_mandatory_delivery(
     auxiliary, role, modal, governor, operation, destinations
@@ -3705,27 +3922,32 @@ def test_direct_storage_governor_reset_retains_mandatory_delivery(
     )
 
 
-@pytest.mark.parametrize("actor", ["service", "API"])
-@pytest.mark.parametrize(
-    "storage", ["in its database", "in the audit log", "to the assigned clients"]
-)
-@pytest.mark.parametrize(
-    "aspect,negative",
-    [
-        ("must be", "must not be"),
-        ("has been", "has not been"),
-        ("will be", "will not be"),
-        ("was", "was not"),
-        ("is", "is not"),
-        ("has already been", "has not already been"),
-        ("will have been", "will not have been"),
-    ],
-)
-@pytest.mark.parametrize("operation", ["put", "placed", "recorded", "written"])
-@pytest.mark.parametrize("preposition", ["in ", ""])
-@pytest.mark.parametrize(
-    "destination,channel",
-    [("the PR body", "body"), ("a PR comment", "comments"), ("workflow artifacts", "artifacts")],
+@_semantic_matrix(
+    dimensions={
+        "destination,channel": [
+            ["the PR body", "body"],
+            ["a PR comment", "comments"],
+            ["workflow artifacts", "artifacts"],
+        ],
+        "preposition": ["in ", ""],
+        "operation": ["put", "placed", "recorded", "written"],
+        "aspect,negative": [
+            ["must be", "must not be"],
+            ["has been", "has not been"],
+            ["will be", "will not be"],
+            ["was", "was not"],
+            ["is", "is not"],
+            ["has already been", "has not already been"],
+            ["will have been", "will not have been"],
+        ],
+        "storage": ["in its database", "in the audit log", "to the assigned clients"],
+        "actor": ["service", "API"],
+    },
+    semantic=("destination,channel", "preposition", "aspect,negative", "storage"),
+    lexical_spines={
+        "operation": ("aspect,negative", "preposition"),
+        "actor": ("aspect,negative", "storage"),
+    },
 )
 def test_passive_product_storage_shared_review_destination(
     actor, storage, aspect, negative, operation, preposition, destination, channel
@@ -5105,29 +5327,30 @@ def test_optional_delivery_modal_does_not_become_a_mandatory_alias(modal, operat
     ) == {"comments"}
 
 
-@pytest.mark.parametrize("proof", ["screenshots", "test results", "validation logs"])
-@pytest.mark.parametrize(
-    "preposition", ["in", "into", "to", "within", "for", "as", "through", "via"]
+@_semantic_matrix(
+    dimensions={
+        "independent": [False, True],
+        "predicate": [
+            "must upload",
+            "must not upload",
+            "may upload",
+            "uploaded",
+            "uploads",
+            "recorded",
+            "puts",
+            "has uploaded",
+            "had uploaded",
+            "was uploading",
+            "has already uploaded",
+            "has not uploaded",
+        ],
+        "separator": [", and ", "; ", ". "],
+        "preposition": ["in", "into", "to", "within", "for", "as", "through", "via"],
+        "proof": ["screenshots", "test results", "validation logs"],
+    },
+    semantic=("independent", "predicate", "separator", "preposition"),
+    lexical_spines={"proof": ("predicate", "separator")},
 )
-@pytest.mark.parametrize("separator", [", and ", "; ", ". "])
-@pytest.mark.parametrize(
-    "predicate",
-    [
-        "must upload",
-        "must not upload",
-        "may upload",
-        "uploaded",
-        "uploads",
-        "recorded",
-        "puts",
-        "has uploaded",
-        "had uploaded",
-        "was uploading",
-        "has already uploaded",
-        "has not uploaded",
-    ],
-)
-@pytest.mark.parametrize("independent", [False, True])
 def test_common_proof_pronoun_reuses_shared_finite_destination_grammar(
     proof, preposition, separator, predicate, independent
 ):
@@ -5145,27 +5368,29 @@ def test_common_proof_pronoun_reuses_shared_finite_destination_grammar(
     assert verifier._required_evidence_channels(criterion) == expected
 
 
-@pytest.mark.parametrize(
-    "proof", ["A recording", "Recordings", "Screenshots", "Test results", "Validation output"]
+@_semantic_matrix(
+    dimensions={
+        "independent": [False, True],
+        "preposition": ["in", "into", "to", "within", "for", "as", "through", "via"],
+        "predicate": [
+            "has been uploaded",
+            "is being uploaded",
+            "had been uploaded",
+            "was uploaded",
+            "uploaded",
+            "must be uploaded",
+            "has not been uploaded",
+            "may be uploaded",
+        ],
+        "qualifier": ["the session", "posted output", "required scenarios"],
+        "proof": ["A recording", "Recordings", "Screenshots", "Test results", "Validation output"],
+    },
+    semantic=("independent", "preposition", "predicate"),
+    lexical_spines={
+        "qualifier": ("predicate", "preposition"),
+        "proof": ("predicate", "preposition"),
+    },
 )
-@pytest.mark.parametrize("qualifier", ["the session", "posted output", "required scenarios"])
-@pytest.mark.parametrize(
-    "predicate",
-    [
-        "has been uploaded",
-        "is being uploaded",
-        "had been uploaded",
-        "was uploaded",
-        "uploaded",
-        "must be uploaded",
-        "has not been uploaded",
-        "may be uploaded",
-    ],
-)
-@pytest.mark.parametrize(
-    "preposition", ["in", "into", "to", "within", "for", "as", "through", "via"]
-)
-@pytest.mark.parametrize("independent", [False, True])
 def test_qualified_common_proof_reuses_shared_governor_boundary(
     proof, qualifier, predicate, preposition, independent
 ):

@@ -218,7 +218,7 @@ agents:
     preflight:
       assign_user: stranske-automation-bot
       command_phrase: ''
-      enabled: false   # issue-intake/invite flow deferred; PR keepalive + autofix only this phase
+      enabled: true    # authenticated issue-intake canary Workflows#3976 / run38960970271
     capabilities:
       pr_keepalive: true
       pr_autofix: true          # wired into agents-autofix-loop.yml (autofix-cursor job)
@@ -250,7 +250,7 @@ agents:
     capabilities:
       pr_keepalive: true
       pr_autofix: true          # wired into agents-autofix-loop.yml (autofix-muse job, Workflows#3919)
-      belt: false              # belt routing deferred (see the belt parity issue)
+      belt: true               # belt is registry-driven; the round runs in the keepalive run-muse job (see docs/keepalive/Agents.md)
       verifier_checkbox: false  # verification stays on the existing judge (config/llm_slots.json)
 
   gemini:

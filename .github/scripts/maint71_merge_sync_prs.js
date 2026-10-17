@@ -1121,6 +1121,260 @@ function devToolBaseRefreshResult(deliveryContext) {
   };
 }
 
+// Promotion consumes only the exact-head evidence collected by run(). Keeping the
+// builder and dispatch together makes the workflow's JSON boundary testable.
+function buildCanaryPromotionEvidence(rows = [], expectedCanaries = []) {
+  const { validateCanaryEvidence } = require('./sync_pr_merge_contract.js');
+  const results = rows.map((row) => ({
+    repo: row.repo,
+    plan_id: row.plan_id,
+    plan_scope: row.plan_scope || 'full',
+    scope_base_sha: row.scope_base_sha || '',
+    source_commit: row.source_commit,
+    pr: row.pr,
+    head_sha: row.head_sha,
+    evidence_source: row.evidence_source,
+    required_check_state: row.required_check_state,
+    active_review_thread_count: row.active_review_thread_count,
+  }));
+  const errors = [];
+  if (!expectedCanaries.length) errors.push('missing_canary_configuration');
+  for (const row of results) {
+    for (const key of ['repo', 'plan_id', 'source_commit', 'head_sha', 'evidence_source']) {
+      if (!row[key]) errors.push(`missing_key:${key}:${row.repo || '<unknown>'}`);
+    }
+    // Match Maint 68's jq type check; String() coercion in the shared
+    // validator must not authorize evidence that the receiving workflow rejects.
+    if (typeof row.plan_id !== 'string') errors.push(`invalid_plan_id:${row.repo}`);
+    if (!/^[0-9a-f]{40,64}$/i.test(row.source_commit || '')) {
+      errors.push(`invalid_source_commit:${row.repo}`);
+    }
+    if (row.plan_scope === 'full' && row.scope_base_sha) {
+      errors.push(`unexpected_scope_base_sha:${row.repo}`);
+    }
+  }
+  if (new Set(results.map((row) => row.source_commit)).size !== 1) {
+    errors.push('missing_or_mixed_source_commit');
+  }
+  const validation = validateCanaryEvidence(results, expectedCanaries);
+  errors.push(...validation.errors);
+  return {
+    ok: errors.length === 0,
+    errors,
+    evidence: {
+      schema: 'workflows.consumer-sync-canary-evidence/v1',
+      version: 1,
+      results,
+    },
+  };
+}
+
+async function listPromotionRuns({ withRetry, context, created }) {
+  const runs = [];
+  for (let page = 1; ; page++) {
+    const { data } = await withRetry((client) => client.rest.actions.listWorkflowRuns({
+      owner: context.repo.owner,
+      repo: context.repo.repo,
+      workflow_id: 'maint-68-sync-consumer-repos.yml',
+      event: 'workflow_dispatch',
+      ...(created ? { created: `>=${created}` } : {}),
+      per_page: 100,
+      page,
+    }));
+    if (!Array.isArray(data.workflow_runs)) throw new Error('promotion_history_unreadable');
+    const batch = data.workflow_runs;
+    runs.push(...batch);
+    // GitHub caps filtered workflow-run searches at 1,000. Never silently
+    // mistake a truncated history for a measured zero or authorize a replay.
+    if (page === 10 && batch.length === 100) throw new Error('promotion_history_truncated');
+    if (batch.length < 100) return runs;
+  }
+}
+
+function promotionRunMatches(run, binding, defaultBranch = 'main') {
+  return run.event === 'workflow_dispatch'
+    && run.head_branch === defaultBranch
+    && String(run.display_title || '').startsWith('Maint 68 promote ')
+    && String(run.display_title).endsWith(` ${binding.plan_id} ${binding.source_commit}`);
+}
+
+async function dispatchCanaryPromotion({
+  report, evidence, expectedCanaries, withRetry, context, core,
+}) {
+  const { candidatePromotionDecision } = require('./sync_pr_merge_contract.js');
+  const built = buildCanaryPromotionEvidence(
+    Array.isArray(evidence) ? evidence : evidence?.results || [], expectedCanaries,
+  );
+  // Current campaigns prepare sealed canaries before fleet commit. Older
+  // campaigns may already have merged them; accept those only with the same
+  // immutable identity as the freshly revalidated evidence.
+  const normalizedReport = { ...report, results: (report.results || []).map((result) => {
+    const row = built.evidence.results.find((item) => item.repo === `${result.owner}/${result.repo}`);
+    return result.status === 'merged' && row && result.plan_id === row.plan_id
+      && result.source_commit === row.source_commit && result.head_sha === row.head_sha
+      && result.pr === row.pr
+      ? { ...result, status: 'evidence_recovered' } : result;
+  }) };
+  const decision = candidatePromotionDecision({
+    report: normalizedReport, evidence: built.evidence, expectedCanaries,
+  });
+  const errors = [...built.errors, ...decision.errors];
+  if (report.inputs?.dry_run || report.inputs?.auto_merge !== true) errors.push('mutation_disabled');
+  const record = async (status, detail) => {
+    const message = `Canary promotion ${decision.plan_id || '<unbound>'}: ${status}; ${detail}`;
+    core.notice(message);
+    await core.summary.addRaw(`${message}\n`).write();
+    return { status, plan_id: decision.plan_id, errors };
+  };
+  if (errors.length) return record('held', errors.join(', '));
+  const binding = built.evidence.results[0];
+  const branch = context.payload.repository?.default_branch || 'main';
+  const { data: source } = await withRetry((client) => client.rest.repos.getCommit({
+    owner: context.repo.owner, repo: context.repo.repo, ref: binding.source_commit,
+  }));
+  const created = source.commit?.committer?.date;
+  if (!Number.isFinite(Date.parse(created))) throw new Error('promotion_source_date_unknown');
+  const runs = await listPromotionRuns({ withRetry, context, created });
+  const successful = runs.find((run) => run.status === 'completed' && run.conclusion === 'success'
+    && promotionRunMatches(run, binding, branch));
+  if (successful) return record('already-promoted', successful.html_url || `run ${successful.id}`);
+  const planRuns = runs.filter((run) => promotionRunMatches(run, binding, branch));
+  const active = planRuns.find((run) =>
+    ['queued', 'in_progress', 'waiting', 'pending', 'requested'].includes(run.status)
+  );
+  if (active) return record('waiting', active.html_url || `active run ${active.id}`);
+  // One initial dispatch plus at most two redispatches for this immutable plan.
+  // Count distinct run IDs, not run_attempt: rerunning a run is not a dispatch.
+  const attempts = new Set(planRuns.map((run) => run.id)).size;
+  if (attempts >= 3) return record('retry-exhausted',
+    `${attempts} dispatches; maximum 2 redispatches; owner repair required`);
+  await withRetry((client) => client.rest.actions.createWorkflowDispatch({
+    owner: context.repo.owner,
+    repo: context.repo.repo,
+    workflow_id: 'maint-68-sync-consumer-repos.yml',
+    ref: branch,
+    inputs: {
+      phase: 'promote',
+      delivery_scope: 'auto', // Maint 68's evidence-inferred scope value.
+      canary_evidence_json: JSON.stringify(built.evidence),
+      dry_run: 'false',
+      force: 'false',
+    },
+  }));
+  return record('dispatched', `source ${binding.source_commit}; completion awaits a successful Maint 68 run`);
+}
+
+function sealedPromotionHealth({ candidates = [], runs = [], now = Date.now(), defaultBranch = 'main' }) {
+  const { parseDeliveryRecord } = require('./sync_pr_lease_contract.js');
+  const plans = new Map();
+  for (const pr of candidates) {
+    const record = parseDeliveryRecord(pr.body);
+    if (!record || record.delivery_state !== 'sealed') continue;
+    const sealedAt = Date.parse(record.sealed_at);
+    if (!Number.isFinite(sealedAt) || sealedAt > now) throw new Error('invalid_sealed_at');
+    if (runs.some((run) => run.status === 'completed' && run.conclusion === 'success'
+      && promotionRunMatches(run, record, defaultBranch))) continue;
+    const key = `${record.plan_id}:${record.source_commit}`;
+    const prior = plans.get(key);
+    if (!prior || sealedAt < prior.sealedAt) plans.set(key, {
+      plan_id: record.plan_id, source_commit: record.source_commit, sealedAt,
+    });
+  }
+  const pending = [...plans.values()].sort((a, b) => a.sealedAt - b.sealedAt);
+  const oldestHours = pending.length ? (now - pending[0].sealedAt) / 3600000 : 0;
+  const exhausted = pending.filter((binding) =>
+    new Set(runs.filter((run) => promotionRunMatches(run, binding, defaultBranch))
+      .map((run) => run.id)).size >= 3);
+  return {
+    pending,
+    retry_exhausted: exhausted,
+    overdue: oldestHours > 48 || exhausted.length > 0,
+    line: `plans sealed awaiting promotion: ${pending.length}, oldest: ${pending.length ? `${oldestHours.toFixed(1)} h` : 'n/a'}`
+      + (exhausted.length ? `; promotion retry exhausted: ${exhausted.map((row) => row.plan_id).join(', ')} (maximum 2 redispatches)` : ''),
+  };
+}
+
+// Publish an independent check: an overdue health verdict must not turn the
+// recovery promotion itself red, which would prevent a successful receipt.
+async function publishPromotionHealthCheck({ github, context, health }) {
+  return github.rest.checks.create({
+    owner: context.repo.owner,
+    repo: context.repo.repo,
+    name: 'health-71',
+    head_sha: context.sha,
+    status: 'completed',
+    conclusion: health && !health.overdue && health.state !== 'unknown' ? 'success' : 'failure',
+    external_id: `maint68-promotion-health:${context.runId}:${context.runAttempt || 1}`,
+    details_url: `${context.serverUrl || 'https://github.com'}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+    output: {
+      title: health?.line || 'plans sealed awaiting promotion: UNKNOWN',
+      summary: health?.line || 'Promotion health could not be measured; inspect the Maint 68 summary.',
+    },
+  });
+}
+
+async function reportSealedPromotionHealth({ withRetry, context, core, expectedCanaries, now = Date.now() }) {
+  const { parseDeliveryRecord } = require('./sync_pr_lease_contract.js');
+  if (!expectedCanaries.length) throw new Error('missing_canary_configuration');
+  const trusted = new Set(['stranske', 'stranske-automation-bot', 'github-actions[bot]']);
+  const candidates = [];
+  for (const repository of expectedCanaries) {
+    // Enforce the owner exclusion before any API call, even if a future config drifts.
+    if (repository.toLowerCase() === 'stranske/collab-admin') continue;
+    const [owner, repo] = repository.split('/');
+    const pulls = [];
+    for (let page = 1; ; page++) {
+      const { data } = await withRetry((client) => client.rest.pulls.list({
+        owner, repo, state: 'all', head: `${owner}:sync/workflows-candidate`,
+        sort: 'created', direction: 'desc', per_page: 100, page,
+      }));
+      if (!Array.isArray(data)) throw new Error('sealed_candidate_history_unreadable');
+      pulls.push(...data);
+      if (data.length < 100) break;
+    }
+    const owned = pulls.filter((pr) => trusted.has(pr.user?.login)
+      && pr.head?.ref === 'sync/workflows-candidate');
+    // Closed unmerged attempts are superseded; old merged generations must not
+    // accumulate forever. Recover the latest merged candidate only without an
+    // open successor, just as the reconciler does.
+    const open = owned.filter((pr) => pr.state === 'open');
+    const current = open.length ? open : owned.filter((pr) => pr.merged_at)
+      .sort((a, b) => Date.parse(b.merged_at) - Date.parse(a.merged_at)).slice(0, 1);
+    for (const pr of current) {
+      const record = parseDeliveryRecord(pr.body);
+      if (/"delivery_state"\s*:\s*"sealed"/.test(String(pr.body || '')) && !record) {
+        throw new Error(`unreadable_sealed_delivery:${repository}#${pr.number}`);
+      }
+      if (record && record.repository !== repository) throw new Error('sealed_repository_mismatch');
+      candidates.push(pr);
+    }
+  }
+  const sources = [...new Set(candidates.map((pr) => parseDeliveryRecord(pr.body))
+    .filter((record) => record?.delivery_state === 'sealed')
+    .map((record) => record.source_commit))];
+  // A reseal must not hide prior dispatches for the same immutable plan.
+  const sourceDates = [];
+  for (const sourceCommit of sources) {
+    const { data } = await withRetry((client) => client.rest.repos.getCommit({
+      owner: context.repo.owner, repo: context.repo.repo, ref: sourceCommit,
+    }));
+    const date = Date.parse(data.commit?.committer?.date);
+    if (!Number.isFinite(date)) throw new Error('promotion_source_date_unknown');
+    sourceDates.push(date);
+  }
+  const runs = sourceDates.length ? await listPromotionRuns({
+    withRetry, context, created: new Date(Math.min(...sourceDates)).toISOString(),
+  }) : [];
+  const health = sealedPromotionHealth({
+    candidates, runs, now, defaultBranch: context.payload.repository?.default_branch || 'main',
+  });
+  await core.summary.addRaw(`${health.line}\n${health.pending.map((plan) =>
+    `- ${plan.plan_id} @ ${plan.source_commit}; sealed ${new Date(plan.sealedAt).toISOString()}`,
+  ).join('\n')}\n`).write();
+  core.setOutput('state', health.overdue ? 'overdue' : 'healthy');
+  return health;
+}
+
 async function run({ github, context, core }) {
   const defaultOwner = context.repo.owner;
   const fs = require('fs');
@@ -3990,6 +4244,11 @@ async function run({ github, context, core }) {
 }
 
 module.exports = {
+  buildCanaryPromotionEvidence,
+  dispatchCanaryPromotion,
+  reportSealedPromotionHealth,
+  publishPromotionHealthCheck,
+  sealedPromotionHealth,
   prepareIntegrationDelivery,
   requestSealedGate,
   independentVerificationDeliveryUnchanged,
