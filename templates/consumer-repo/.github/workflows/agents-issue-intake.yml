@@ -126,6 +126,8 @@ jobs:
           sparse-checkout: |
             .github/agents/registry.yml
             .github/scripts/agent_delegation_policy.js
+            .github/scripts/rate_limit_receipt.js
+            .github/scripts/rate_limit_receipt.json
             .github/scripts/agent_registry.js
             config/model_registry.json
           sparse-checkout-cone-mode: false

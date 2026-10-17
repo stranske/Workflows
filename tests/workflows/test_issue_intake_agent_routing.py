@@ -6,9 +6,11 @@ Runs the real `Normalize inputs` step of agents-63-issue-intake.yml under bash w
 
 import json
 import os
+import shutil
 import subprocess
 from pathlib import Path
 
+import pytest
 import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -319,3 +321,88 @@ def test_qualified_cursor_preflight_is_enabled_without_enabling_muse():
     )
     cursor = next(x for x in json.loads(result.stdout) if x["key"] == "cursor")
     assert cursor["assign_user"] == agents["cursor"]["preflight"]["assign_user"]
+
+
+@pytest.mark.parametrize(
+    ("payload_root", "workflow_path", "job", "step_name"),
+    [
+        (ROOT, INTAKE, "bridge_preflight", "Checkout retry helpers"),
+        (
+            ROOT / "templates/consumer-repo",
+            ROOT / "templates/consumer-repo/.github/workflows/agents-issue-intake.yml",
+            "check_labels",
+            "Checkout delegation policy and registry",
+        ),
+    ],
+    ids=["source", "consumer-alias"],
+)
+def test_preflight_sparse_checkout_loads_policy_and_receipt_dependencies(
+    tmp_path, payload_root, workflow_path, job, step_name
+):
+    """The authored checkout must deliver the real policy's transitive payload."""
+    steps = yaml.safe_load(workflow_path.read_text())["jobs"][job]["steps"]
+    checkout = next(step for step in steps if step.get("name") == step_name)
+    assert checkout["with"]["sparse-checkout-cone-mode"] is False
+    for entry in checkout["with"]["sparse-checkout"].splitlines():
+        entry = entry.strip()
+        if not entry:
+            continue
+        source = payload_root / entry
+        destination = tmp_path / entry
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        if source.is_dir():
+            shutil.copytree(source, destination)
+        else:
+            shutil.copy2(source, destination)
+
+    result = subprocess.run(
+        [
+            "node",
+            "-e",
+            """
+const policy = require('./.github/scripts/agent_delegation_policy.js');
+const receipt = require('./.github/scripts/rate_limit_receipt.js');
+const config = require('./.github/scripts/rate_limit_receipt.json');
+const completed = Date.parse('2026-10-17T00:00:00Z');
+const record = { completed_at: new Date(completed).toISOString(),
+                 completion: { reason: 'rate_limited' } };
+const expiry = completed + config.RATE_LIMIT_RECEIPT_TTL_HOURS * 60 * 60 * 1000;
+console.log(JSON.stringify({
+  chooser: typeof policy.chooseAgentForIntake,
+  ttl: receipt.RATE_LIMIT_RECEIPT_TTL_HOURS,
+  beforeExpiry: receipt.rateLimitExpired(record, expiry - 1),
+  atExpiry: receipt.rateLimitExpired(record, expiry),
+}));
+""",
+        ],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, result.stderr
+    configured_ttl = json.loads(
+        (payload_root / ".github/scripts/rate_limit_receipt.json").read_text()
+    )["RATE_LIMIT_RECEIPT_TTL_HOURS"]
+    assert configured_ttl > 0
+    assert json.loads(result.stdout) == {
+        "chooser": "function",
+        "ttl": configured_ttl,
+        "beforeExpiry": False,
+        "atExpiry": True,
+    }
+
+    # Node can resolve the same-basename JSON when the JS helper is absent;
+    # exercise the helper export as well as the policy import in both controls.
+    for filename in ("rate_limit_receipt.js", "rate_limit_receipt.json"):
+        dependency = tmp_path / ".github/scripts" / filename
+        payload = dependency.read_bytes()
+        dependency.unlink()
+        try:
+            missing = subprocess.run(result.args, cwd=tmp_path, capture_output=True, text=True)
+            assert missing.returncode != 0, f"Missing {filename} went undetected"
+            assert "Cannot find module" in missing.stderr
+        finally:
+            dependency.write_bytes(payload)
+    restored = subprocess.run(result.args, cwd=tmp_path, capture_output=True, text=True)
+    assert restored.returncode == 0, restored.stderr
+    assert restored.stdout == result.stdout
