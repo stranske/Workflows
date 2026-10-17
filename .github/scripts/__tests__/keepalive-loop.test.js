@@ -6,6 +6,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const crypto = require('node:crypto');
+const { execFile } = require('node:child_process');
 
 const {
   countCheckboxes,
@@ -826,6 +827,60 @@ test('deterministic gate summary renders inside the automated status block', () 
   assert.match(rendered, /Deterministic gates: 0\/1 passed\nCriterion 1: FAIL/);
   assert.equal(renderDeterministicGates(rendered, gates), rendered);
 });
+
+for (const passes of [true, false]) {
+  test(`deterministic CLI results publish a non-zero summary (${passes ? 'pass' : 'fail'})`, async (t) => {
+    const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'acceptance-summary-'));
+    t.after(() => fs.rmSync(temporary, { recursive: true, force: true }));
+    fs.writeFileSync(path.join(temporary, 'test_gate.py'),
+      `def test_gate():\n    assert ${passes ? 'True' : 'False'}\n`);
+    const command = 'pytest -q -p no:cacheprovider test_gate.py';
+    const pr = {
+      number: 3979,
+      head: { ref: 'feature/acceptance', sha: 'cli-tested-head' },
+      labels: [{ name: 'agent:codex' }],
+      body: [
+        '<!-- auto-status-summary:start -->',
+        '## Automated Status Summary',
+        '#### Tasks', '- [x] Implement gate',
+        '#### Acceptance criteria', `- [x] \`${command}\` passes`,
+        '', 'Deterministic gates: 0/0 passed',
+        '<!-- auto-status-summary:end -->',
+      ].join('\n'),
+    };
+    const context = buildContext(pr.number);
+    const github = buildGithubStub({ pr });
+    const plan = await acceptanceGatePlan({ github, context, pr, state: {} });
+    assert.equal(plan.total, 1, 'the real extractor must find the named gate');
+    const planPath = path.join(temporary, 'plan.json');
+    const outputPath = path.join(temporary, 'results.json');
+    fs.writeFileSync(planPath, JSON.stringify(plan));
+    await new Promise((resolve, reject) => {
+      execFile(process.env.PYTHON || 'python3', [
+        path.resolve(__dirname, '../../../scripts/runner_lib/acceptance_gate.py'),
+        '--plan', planPath, '--cwd', temporary, '--output', outputPath,
+      ], { encoding: 'utf8', timeout: 30000 }, error => error ? reject(error) : resolve());
+    });
+    const gates = JSON.parse(fs.readFileSync(outputPath, 'utf8'));
+    assert.equal(gates.results[0].exit_code, passes ? 0 : 1);
+
+    await markAgentRunning({ github, context, core: buildCore(), inputs: {
+      pr_number: pr.number, deterministic_gates: gates, tasks_total: 2, tasks_unchecked: 0,
+    } });
+    const summary = pr.body.split('<!-- auto-status-summary:start -->')[1]
+      .split('<!-- auto-status-summary:end -->')[0];
+    assert.ok(summary.includes(`Deterministic gates: ${passes ? 1 : 0}/1 passed`));
+    assert.ok(summary.includes(`Criterion 1: ${passes ? 'PASS' : 'FAIL'}`));
+    assert.equal((pr.body.match(/Deterministic gates:/g) || []).length, 1,
+      'publishing real results must replace the old report');
+    assert.ok(summary.includes(`- [${passes ? 'x' : ' '}] \`${command}\` passes`));
+    const running = github.actions.find(item => item.body && parseStateComment(item.body));
+    const state = parseStateComment(running.body).data;
+    assert.deepEqual(state.deterministic_gates.results, gates.results);
+    const refreshed = await acceptanceGatePlan({ github, context, pr, state });
+    assert.equal(refreshed.complete, passes);
+  });
+}
 
 test('deterministic gate failure unchecks only its acceptance criterion', () => {
   const body = '## Acceptance Criteria\n- [x] `pytest tests/fail.py` passes\n- [x] Human observation\n- [x] `ruff check .` passes';
