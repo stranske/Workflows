@@ -619,6 +619,13 @@ jobs:
             fi
           }
 
+          # Shared fallback pins are delivered by consumer sync. Keep existing
+          # repo-owned autofix overrides authoritative (including older consumers).
+          ci_env="${GITHUB_WORKSPACE}/.github/workflows/ci-python-versions.env"
+          if [ -f "$ci_env" ]; then
+            # shellcheck source=.github/workflows/ci-python-versions.env
+            source "$ci_env"
+          fi
           autofix_env="${GITHUB_WORKSPACE}/.github/workflows/autofix-versions.env"
           require_exact_pin() {
             local tool=$1
@@ -632,6 +639,8 @@ jobs:
           if [ -f "$autofix_env" ]; then
             # shellcheck source=.github/workflows/autofix-versions.env
             source "$autofix_env"
+          fi
+          if [ -f "$ci_env" ] || [ -f "$autofix_env" ]; then
             black_spec=$(resolve_spec "black" "${BLACK_VERSION:-}" "")
             docformatter_spec=$(resolve_spec "docformatter" "${DOCFORMATTER_VERSION:-}" "")
             isort_spec=$(resolve_spec "isort" "${ISORT_VERSION:-}" "")
@@ -1014,6 +1023,13 @@ jobs:
             fi
           }
 
+          # Shared fallback pins are delivered by consumer sync. Keep existing
+          # repo-owned autofix overrides authoritative (including older consumers).
+          ci_env="${GITHUB_WORKSPACE}/.github/workflows/ci-python-versions.env"
+          if [ -f "$ci_env" ]; then
+            # shellcheck source=.github/workflows/ci-python-versions.env
+            source "$ci_env"
+          fi
           autofix_env="${GITHUB_WORKSPACE}/.github/workflows/autofix-versions.env"
           require_exact_pin() {
             local tool=$1
@@ -1027,6 +1043,8 @@ jobs:
           if [ -f "$autofix_env" ]; then
             # shellcheck source=.github/workflows/autofix-versions.env
             source "$autofix_env"
+          fi
+          if [ -f "$ci_env" ] || [ -f "$autofix_env" ]; then
             black_spec=$(resolve_spec "black" "${BLACK_VERSION:-}" "")
             docformatter_spec=$(resolve_spec "docformatter" "${DOCFORMATTER_VERSION:-}" "")
             isort_spec=$(resolve_spec "isort" "${ISORT_VERSION:-}" "")
@@ -1400,6 +1418,13 @@ jobs:
             fi
           }
 
+          # Shared fallback pins are delivered by consumer sync. Keep existing
+          # repo-owned autofix overrides authoritative (including older consumers).
+          ci_env="${GITHUB_WORKSPACE}/.github/workflows/ci-python-versions.env"
+          if [ -f "$ci_env" ]; then
+            # shellcheck source=.github/workflows/ci-python-versions.env
+            source "$ci_env"
+          fi
           autofix_env="${GITHUB_WORKSPACE}/.github/workflows/autofix-versions.env"
           require_exact_pin() {
             local tool=$1
@@ -1413,6 +1438,8 @@ jobs:
           if [ -f "$autofix_env" ]; then
             # shellcheck source=.github/workflows/autofix-versions.env
             source "$autofix_env"
+          fi
+          if [ -f "$ci_env" ] || [ -f "$autofix_env" ]; then
             black_spec=$(resolve_spec "black" "${BLACK_VERSION:-}" "")
             docformatter_spec=$(resolve_spec "docformatter" "${DOCFORMATTER_VERSION:-}" "")
             isort_spec=$(resolve_spec "isort" "${ISORT_VERSION:-}" "")
@@ -1764,6 +1791,13 @@ jobs:
             fi
           }
 
+          # Shared fallback pins are delivered by consumer sync. Keep existing
+          # repo-owned autofix overrides authoritative (including older consumers).
+          ci_env="${GITHUB_WORKSPACE}/.github/workflows/ci-python-versions.env"
+          if [ -f "$ci_env" ]; then
+            # shellcheck source=.github/workflows/ci-python-versions.env
+            source "$ci_env"
+          fi
           autofix_env="${GITHUB_WORKSPACE}/.github/workflows/autofix-versions.env"
           require_exact_pin() {
             local tool=$1
@@ -1777,6 +1811,8 @@ jobs:
           if [ -f "$autofix_env" ]; then
             # shellcheck source=.github/workflows/autofix-versions.env
             source "$autofix_env"
+          fi
+          if [ -f "$ci_env" ] || [ -f "$autofix_env" ]; then
             black_spec=$(resolve_spec "black" "${BLACK_VERSION:-}" "")
             docformatter_spec=$(resolve_spec "docformatter" "${DOCFORMATTER_VERSION:-}" "")
             isort_spec=$(resolve_spec "isort" "${ISORT_VERSION:-}" "")

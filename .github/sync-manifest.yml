@@ -936,6 +936,10 @@ templates:
   - source: .github/path-classification.yml
     description: "Path classification config used by the path-classifier composite action"
 
+  - source: .github/workflows/ci-python-versions.env
+    source_tree: template
+    description: "Shared Python 3.14 CI defaults and compatible test/lint tool pins; repo-owned autofix pins take precedence"
+
 # Actions required by reusable workflows
 actions:
   - source: .github/actions/agent-event-eligibility/
