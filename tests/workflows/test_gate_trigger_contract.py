@@ -82,9 +82,8 @@ def test_dispatch_retains_pr_context_and_queues(workflow_path: str) -> None:
         "${{ github.event_name != 'workflow_dispatch' }}"
     )
     for name in ("issue-consistency", "test-quality"):
-        assert (
-            "fromJSON(needs.resolve-pr.outputs.pull_request).number"
-            in (workflow["jobs"][name]["if"])
+        assert "fromJSON(needs.resolve-pr.outputs.pull_request).number" in (
+            workflow["jobs"][name]["if"]
         ), f"{workflow_path}: {name} must run for PR dispatches too"
     for name, job in workflow["jobs"].items():
         if name == "resolve-pr":
