@@ -1117,21 +1117,40 @@ def test_find_existing_issue_rejects_invalid_json(monkeypatch: pytest.MonkeyPatc
         coverage_guard._find_existing_issue("octo/repo", "title")
 
 
-def test_close_existing_issue_posts_then_closes(monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.parametrize("comment_fails", [False, True])
+def test_close_existing_issue_posts_then_closes(
+    monkeypatch: pytest.MonkeyPatch, comment_fails: bool
+) -> None:
     calls = []
     monkeypatch.setattr(
         coverage_guard,
         "_find_existing_issue",
         lambda *args, **kwargs: {"number": 7, "state": "OPEN"},
     )
-    monkeypatch.setattr("subprocess.run", lambda args, **kwargs: calls.append(args))
 
-    coverage_guard._close_existing_issue("octo/repo", "title", "body", labels=["coverage"])
+    def fake_run(args, **kwargs):
+        calls.append((args, kwargs))
+        if comment_fails and "comment" in args:
+            if kwargs.get("check"):
+                raise subprocess.CalledProcessError(1, args, stderr="comment rejected")
+            return SimpleNamespace(returncode=1, stdout="", stderr="comment rejected")
+        return SimpleNamespace(returncode=0, stdout="", stderr="")
 
-    assert calls == [
-        ["gh", "issue", "comment", "7", "--repo", "octo/repo", "--body", "body"],
-        ["gh", "issue", "close", "7", "--repo", "octo/repo", "--reason", "completed"],
-    ]
+    monkeypatch.setattr("subprocess.run", fake_run)
+
+    if comment_fails:
+        with pytest.raises(subprocess.CalledProcessError, match="returned non-zero exit status 1"):
+            coverage_guard._close_existing_issue("octo/repo", "title", "body", labels=["coverage"])
+    else:
+        coverage_guard._close_existing_issue("octo/repo", "title", "body", labels=["coverage"])
+
+    expected = [["gh", "issue", "comment", "7", "--repo", "octo/repo", "--body", "body"]]
+    if not comment_fails:
+        expected.append(
+            ["gh", "issue", "close", "7", "--repo", "octo/repo", "--reason", "completed"]
+        )
+    assert [args for args, _ in calls] == expected
+    assert all(kwargs.get("check") is True for _, kwargs in calls)
 
 
 # Tests for _load_ndjson
