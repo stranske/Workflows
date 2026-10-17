@@ -3447,10 +3447,18 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
     const isVerificationReason = reason === 'verify-acceptance' || reason === 'fix-verification-gaps';
     let verifierAgentType = agentType;
     if (isVerificationReason) {
-      const AGENT_ALTERNATES = { codex: 'claude', claude: 'codex' };
-      verifierAgentType = normalise(config.verifier_agent) || AGENT_ALTERNATES[agentType] || agentType;
+      const independent = resolveIndependentVerifier({
+        agentType,
+        configuredVerifier: config.verifier_agent,
+        registry: _agentRegistry,
+        env: process.env,
+        workflowText,
+      });
+      verifierAgentType = independent.agent;
       if (verifierAgentType !== agentType && core) {
-        core.info(`Verification step: switching agent from ${agentType} to ${verifierAgentType} for independent verification`);
+        core.info(`Verification step: switching agent from ${agentType} to ${verifierAgentType} for independent verification (${independent.source})`);
+      } else if (verifierAgentType === agentType && core) {
+        core.warning(`Verification step runs on the implementing agent ${agentType}: no other keepalive-capable agent has credentials in this repository (${independent.source}).`);
       }
     }
     const resolvedAgentType = isVerificationReason ? verifierAgentType : agentType;
@@ -6125,7 +6133,69 @@ async function autoReconcileTasks({ github: rawGithub, context, prNumber, baseSh
   };
 }
 
+/**
+ * Pick the agent that verifies an implementing agent's work (Workflows#4041).
+ *
+ * The verification step must not run on the agent that wrote the code: the same model grading
+ * its own work produced false PASS verdicts (PR #228). Resolution order:
+ *   1. an explicit repository `verifier_agent`;
+ *   2. the implementing agent's registry `independent_verifier`, if it is usable;
+ *   3. the historical Codex <-> Claude pairing (kept unconditional so existing behaviour holds);
+ *   4. the first OTHER keepalive-capable agent whose runner job exists and whose credentials are
+ *      present (Codex, then Claude, then registry order);
+ *   5. otherwise the implementing agent itself, reported as `none-available` so the caller can warn.
+ * An alternate whose credentials are absent is never chosen by rules 2 and 4: that would turn a
+ * self-verification into a failed round.
+ */
+function agentHasCredentials(key, env) {
+  const flags = env || {};
+  if (key === 'claude') {
+    return flags.HAS_CLAUDE_AUTH === 'true' || flags.HAS_CLAUDE_OAUTH === 'true';
+  }
+  return flags[`HAS_${String(key).toUpperCase()}_AUTH`] === 'true';
+}
+
+function resolveIndependentVerifier({
+  agentType,
+  configuredVerifier,
+  registry,
+  env = process.env,
+  workflowText = '',
+} = {}) {
+  const implementing = normalise(agentType).toLowerCase();
+  const explicit = normalise(configuredVerifier).toLowerCase();
+  if (explicit) {
+    return { agent: explicit, source: 'config' };
+  }
+  const agents = (registry && registry.agents) || {};
+  const usable = (key) => {
+    if (!key || key === implementing) return false;
+    const entry = agents[key];
+    if (!entry || entry.enabled === false || !entry.runner_workflow) return false;
+    if (!entry.capabilities || entry.capabilities.pr_keepalive !== true) return false;
+    if (!new RegExp(`^  run-${key}:`, 'm').test(workflowText)) return false;
+    return agentHasCredentials(key, env);
+  };
+  const declared = normalise(
+    agents[implementing] && agents[implementing].independent_verifier,
+  ).toLowerCase();
+  if (usable(declared)) {
+    return { agent: declared, source: 'registry' };
+  }
+  const historical = { codex: 'claude', claude: 'codex' }[implementing];
+  if (historical) {
+    return { agent: historical, source: 'historical' };
+  }
+  const order = ['codex', 'claude', ...Object.keys(agents)];
+  const pick = order.find((key, index) => order.indexOf(key) === index && usable(key));
+  if (pick) {
+    return { agent: pick, source: 'first-available' };
+  }
+  return { agent: implementing, source: 'none-available' };
+}
+
 module.exports = {
+  resolveIndependentVerifier,
   classifyCompletion,
   loadLatestCompletion,
   acceptanceGatePlan,
