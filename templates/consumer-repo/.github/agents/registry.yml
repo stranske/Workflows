@@ -219,6 +219,8 @@ agents:
       assign_user: stranske-automation-bot
       command_phrase: ''
       enabled: true    # authenticated issue-intake canary Workflows#3976 / run38960970271
+    # Keepalive verification steps must not run on the implementing agent (Workflows#4041).
+    independent_verifier: claude
     capabilities:
       pr_keepalive: true
       pr_autofix: true          # wired into agents-autofix-loop.yml (autofix-cursor job)
@@ -247,6 +249,8 @@ agents:
       assign_user: stranske-automation-bot
       command_phrase: ''
       enabled: false   # issue-intake/invite flow deferred; PR keepalive + autofix only this phase
+    # Keepalive verification steps must not run on the implementing agent (Workflows#4041).
+    independent_verifier: codex
     capabilities:
       pr_keepalive: true
       pr_autofix: true          # wired into agents-autofix-loop.yml (autofix-muse job, Workflows#3919)

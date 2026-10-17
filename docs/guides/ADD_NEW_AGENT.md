@@ -169,10 +169,13 @@ Known by-design exclusions (do not "fix" these when comparing against Codex and 
 - The verifier judges, the repo-review rounds (`scripts/repo_review_*`) and the `@codex` / `@claude`
   comment-command detection are Codex- and Claude-specific. Hosted Cursor and Muse rounds are
   dispatched without a comment.
-- `AGENT_ALTERNATES` in `keepalive_loop.js` maps only Codex ⇄ Claude for the independent-verification
-  step. For other agents the verification step runs on the same agent unless the repository sets
-  `verifier_agent`. This is a known gap, not a design choice (tracked in Workflows#4041); check it
-  before relying on independent verification for a new agent.
+
+**Independent verification is not an exclusion.** The keepalive loop never runs a verification step on the
+implementing agent (`resolveIndependentVerifier` in `keepalive_loop.js`, Workflows#4041). Resolution order is the
+  repository's `verifier_agent`, the agent's registry `independent_verifier`, the historical Codex ⇄
+Claude pair, then the first other keepalive-capable agent whose runner job exists and whose
+credentials are present. Give a new agent an `independent_verifier` in the registry; an alternate
+without credentials is never chosen.
 
 ## Stage 5 — Deliver to consumer repositories
 
@@ -296,7 +299,7 @@ Evidence class in parentheses: **P** production use, **R** real trial, **W** wir
 | Belt (issue → PR) | P | P | R (consumer canary) | R (consumer canary) |
 | Issue intake (`preflight.enabled`) | W | W | R (qualified 2026-10-16) | — (deferred; intake routes by label regardless) |
 | Verifier judge (`verifier_checkbox`) | W | W | n/a | n/a |
-| Independent verification alternate | W (⇄ Claude) | W (⇄ Codex) | — (known gap, #4041) | — (known gap, #4041) |
+| Independent verification alternate | W (⇄ Claude) | W (⇄ Codex) | W (→ Claude, #4041) | W (→ Codex, #4041) |
 | Health check | W (expiry) | W (inline token detect) | W (presence) | W (presence, CLI, sandbox) |
 | Labels `agent:` `runner:` `from:` | W | W | W | W |
 | Consumer secrets provisioned | P | P | W (all repos) | W (all repos) |
