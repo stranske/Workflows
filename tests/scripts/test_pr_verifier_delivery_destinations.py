@@ -1340,19 +1340,35 @@ def test_component_availability_comma_retains_actual_floor(
         )
 
 
-@pytest.mark.parametrize("operation", ["record", "supply", "leave"])
-@pytest.mark.parametrize("voice", ["active", "agent-before", "agent-after"])
+def _relative_presence_pairs(axis, values):
+    """Combine short xdist marks into one absent/unavailable pair per criterion."""
+    return [
+        pytest.param(
+            *(value if isinstance(value, tuple) else (value,)),
+            marks=pytest.mark.xdist_group(name=f"rp-{axis}{index}"),
+        )
+        for index, value in enumerate(values)
+    ]
+
+
+@pytest.mark.parametrize("operation", _relative_presence_pairs("op", ["record", "supply", "leave"]))
+@pytest.mark.parametrize(
+    "voice", _relative_presence_pairs("v", ["active", "agent-before", "agent-after"])
+)
 @pytest.mark.parametrize(
     "destination,channel,other,other_channel",
-    [
-        ("the PR body", "body", "a PR comment", "comments"),
-        ("the PR description", "body", "a PR comment", "comments"),
-        ("a PR comment", "comments", "the PR body", "body"),
-    ],
+    _relative_presence_pairs(
+        "d",
+        [
+            ("the PR body", "body", "a PR comment", "comments"),
+            ("the PR description", "body", "a PR comment", "comments"),
+            ("a PR comment", "comments", "the PR body", "body"),
+        ],
+    ),
 )
-@pytest.mark.parametrize("reverse", [False, True])
-@pytest.mark.parametrize("coordination", ["and", "or"])
-@pytest.mark.parametrize("governor", ["must", "may", "must not"])
+@pytest.mark.parametrize("reverse", _relative_presence_pairs("r", [False, True]))
+@pytest.mark.parametrize("coordination", _relative_presence_pairs("c", ["and", "or"]))
+@pytest.mark.parametrize("governor", _relative_presence_pairs("g", ["must", "may", "must not"]))
 @pytest.mark.parametrize("missing", ["absent", "unavailable"])
 def test_component_relative_presence_preserves_parent_actual_floor(
     operation,

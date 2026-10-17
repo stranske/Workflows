@@ -217,3 +217,73 @@ The second command validates and hashes the actual immutable inputs without
 executing the large suites. The real hosted pair runs only after the new workflow
 is reviewed and available on the default branch. Rollback is to remove this manual
 workflow and harness; production Gate/reusable CI have no dependency on either.
+
+## Relative-presence cache locality
+
+`test_component_relative_presence_preserves_parent_actual_floor` retains every
+original Cartesian row and assertion: 648 cases, 2,592 classifier/options pairs,
+and 10,368 real prompt/floor evaluations. The target and shared component-helper
+argument lists and assertion bodies are unchanged. No semantic or lexical
+integration combinations are omitted, and the 35,064-case inventory is unchanged.
+
+Only xdist scheduling changes. Six non-missing parameter axes receive short,
+family-specific `xdist_group` marks. Existing xdist 3.8 combines these marks into
+324 distinct two-case work units. Each unit has one identical criterion across
+`absent` and `unavailable` status, so both execute together on the same worker.
+Each still crosses all four relative attachment strings and all four body/comment
+presence sets. Every operation, voice, destination alias/direction, order,
+conjunction and governor retains its original full product with both statuses.
+The groups are exclusive to this family and do not serialize the whole family.
+Serial execution also retains all original checks.
+
+This exploits the existing process-local 512-entry pure-classifier LRU without
+changing production code or cache capacity. Previously the two status blocks put
+1,296 distinct attachment criteria between identical classifier inputs; cache
+entries could expire before reuse. The paired cases share classifier results,
+while still building and checking real evidence contexts for both missing states.
+The optimization relies on the classifier's existing purity/cache contract;
+missing status is an evidence input, never an acceptance-criterion input.
+
+`tests/scripts/test_pr_verifier_relative_presence_groups.py` checks the actual
+parameter marks form exactly 324 pairs with identical non-status coordinates,
+that no other destination regression uses the family group namespace, and that
+all 2,592 unique helper dispatches remain. The existing helper's four presence
+states remain unchanged. This scheduling change leaves production verifier bytes, runtime selection,
+coverage configuration and required gates unchanged.
+
+A matched sequential LOCAL Python 3.12.2 observation used four loadgroup workers,
+standard repository markers/coverage configuration, JUnit and coverage JSON, with
+only the optional rerunfailures plugin disabled. Before/after both passed all 648
+cases: wall time was 75.598 / 60.668 seconds, summed JUnit worker time was
+249.617 / 191.287 seconds, and child CPU time was 278.062 / 219.546 seconds.
+Temporary read-only instrumentation on both runs recorded identical worker
+collections and verified all 324 pairs stayed together. Candidate worker case
+counts were 164, 162, 160 and 162. Executed production lines and arcs were
+identical across all measured files. Source/config hashes, unchanged test-body
+and signature AST hashes, raw logs, group/worker receipts, JUnit and coverage
+JSON are retained in `/tmp/relative-floor-evidence-20261017` for local review.
+This shared-Mac observation does not establish hosted speedup. Normal hosted
+validation on the selected runtime matrix remains required. Merged PR #4016 sets
+default CI to parallel Python 3.13/3.14 while retaining explicit 3.12 overrides.
+
+Private required-channel-empty and coverage-floor-bypass mutations both failed
+a retained assertion, then passed after restoring byte-identical production
+source; their test/source hashes and logs are retained with the local receipts.
+
+A second matched LOCAL observation used the selected default runtimes, the same
+lockfile, four loadgroup workers and branch coverage. Archived baseline
+`e33d5091255dcaa82ed748963d7935c473bc2bc1` and locality candidate
+`f3960dd434be13bc1f57adc1e02bd0f6eb5765d0` ran sequentially:
+
+| Runtime | Wall seconds before / after | Summed worker seconds before / after |
+| --- | ---: | ---: |
+| Python 3.13.13 | 16.370 / 14.555 | 28.857 / 22.513 |
+| Python 3.14.3 | 12.158 / 10.489 | 19.258 / 13.496 |
+
+All four runs passed 648 cases. Both candidates retained all 324 intact pairs
+across four workers, identical original node IDs (apart from xdist group suffixes),
+and identical executed production lines/arcs. Source, lockfile, package versions,
+commands and raw receipts are recorded in
+`/tmp/relative-floor-evidence-20261017/parity313-314/summary.json`.
+These single-pair local observations do not establish a hosted speedup or a
+sub-ten-minute full Gate. The immutable historical comparison is unchanged.
