@@ -6854,6 +6854,26 @@ def _coerce_response_content(content: object) -> str:
             return f"<unserializable {type(content).__name__}>"
 
 
+def _parse_semantic_evaluation_payload(content: str) -> EvaluationPayload:
+    """Accept one JSON value, optionally enclosed in one complete Markdown fence.
+
+    Only the transport envelope is normalized. The caller retains the original
+    raw response for provenance, and strict schema validation remains unchanged.
+    Surrounding prose, multiple blocks, invalid JSON and unknown fields fail.
+    """
+    text = content.strip()
+    fenced = re.fullmatch(
+        r"(?P<opening>`{3,})(?:json)?[ \t]*\r?\n(?P<payload>.*?)\r?\n(?P<closing>`{3,})",
+        text,
+        re.DOTALL,
+    )
+    if fenced is not None:
+        if len(fenced.group("closing")) < len(fenced.group("opening")):
+            raise ValueError("semantic response closing fence is shorter than its opening fence")
+        text = fenced.group("payload")
+    return EvaluationPayload.model_validate(json.loads(text), strict=True, extra="forbid")
+
+
 def _parse_llm_response(
     content: object, provider: str, *, client: object | None = None
 ) -> EvaluationResult:
@@ -7272,9 +7292,7 @@ def _evaluate_pr_multiple_semantic(
             raw: str | bytes, _slot: dict[str, Any], _package: dict[str, Any]
         ) -> dict[str, Any]:
             content = raw.decode() if isinstance(raw, bytes) else raw
-            payload = EvaluationPayload.model_validate(
-                json.loads(content), strict=True, extra="forbid"
-            )
+            payload = _parse_semantic_evaluation_payload(content)
             return {
                 "verdict": payload.verdict,
                 "findings": list(payload.concerns),

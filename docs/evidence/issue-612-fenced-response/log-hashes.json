@@ -1,0 +1,32 @@
+[
+  {
+    "file": "612-red.log",
+    "raw_sha256": "01a72d430d05d83d8fe449fae410ae68d6b0cf7408313f36574e2e76982e4a39",
+    "published_sha256": "88bac571da7023ca4d43809aa23a66b351f5b6ba25b8a5595da029aa4a4f8c25",
+    "transformation": "strip terminal trailing whitespace only; raw preserved in round evidence"
+  },
+  {
+    "file": "612-green.log",
+    "raw_sha256": "7d2df2a0ee2e7dabe1016db9bc1d7069b39e7977367627f80676d397161debad",
+    "published_sha256": "7d2df2a0ee2e7dabe1016db9bc1d7069b39e7977367627f80676d397161debad",
+    "transformation": "strip terminal trailing whitespace only; raw preserved in round evidence"
+  },
+  {
+    "file": "612-full-green.log",
+    "raw_sha256": "a4823a3b3bdf55b758fe0b1c4d085d6760dbb2c7be283a6d5ae3786a50b4532e",
+    "published_sha256": "a4823a3b3bdf55b758fe0b1c4d085d6760dbb2c7be283a6d5ae3786a50b4532e",
+    "transformation": "strip terminal trailing whitespace only; raw preserved in round evidence"
+  },
+  {
+    "file": "612-variable-red.log",
+    "raw_sha256": "1d17b576029817d10f95c0e70f1afa01174bbadf517de3a593bce844a36b8e00",
+    "published_sha256": "1184611f8b1c1c9727b258f0757ccf5d1b088e26d3a651b829214dda1692ee2c",
+    "transformation": "strip terminal trailing whitespace only; raw preserved in round evidence"
+  },
+  {
+    "file": "612-variable-green.log",
+    "raw_sha256": "05f66e592ae018c80c8dc912ab845ee8821548109217f095747c0dacac75195c",
+    "published_sha256": "05f66e592ae018c80c8dc912ab845ee8821548109217f095747c0dacac75195c",
+    "transformation": "strip terminal trailing whitespace only; raw preserved in round evidence"
+  }
+]
