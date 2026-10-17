@@ -53,7 +53,11 @@ def test_semantic_mode_builds_full_matrix_before_offline_native_callbacks(monkey
     raw = '{"verdict":"PASS","concerns":[],"summary":"Fixture review detail"}'
     if fence is not None:
         raw = f"```{fence}\n{raw}\n```"
-    monkeypatch.setattr(_Response, "content", [{"type": "text", "text": raw}])
+    monkeypatch.setattr(
+        _Response,
+        "content",
+        [{"type": "thinking", "thinking": "private"}, {"type": "text", "text": raw}],
+    )
     monkeypatch.setenv("PR_HEAD_SHA", "a" * 40)
     calls: list[str] = []
     clients = [_Client(calls, "one"), _Client(calls, "two")]
