@@ -531,3 +531,36 @@ def test_main_ignores_non_list_runs_and_uses_output_path(monkeypatch, tmp_path: 
     monkeypatch.setenv("GATE_ARTIFACTS_ROOT", str(tmp_path / "missing"))
     post_ci_summary.main()
     assert output.read_text(encoding="utf-8").startswith("body<<EOF\n## Automated Status Summary")
+
+
+def test_post_ci_helpers_preserve_safe_empty_and_fallback_rendering(tmp_path: Path) -> None:
+    artifacts = tmp_path / "artifacts"
+    downloads = artifacts / "downloads"
+    downloads.mkdir(parents=True)
+    (downloads / "summary.json").write_text('{"checks": {}}', encoding="utf-8")
+    malformed = downloads / "malformed"
+    malformed.mkdir()
+    (malformed / "summary.json").write_text("{", encoding="utf-8")
+    junit = downloads / "pytest-junit.xml"
+    junit.write_text(
+        '<testcase name="no-location"><error>plain failure</error></testcase>', encoding="utf-8"
+    )
+
+    assert post_ci_summary._load_gate_summary_records(artifacts) == [{"checks": {}}]
+    assert post_ci_summary._collect_junit_failures(artifacts, 5) == ["plain failure"]
+    assert post_ci_summary._collect_required_segments(
+        [{"present": True, "jobs": [{"name": "Build", "status": "success"}]}],
+        [{"label": "broken", "patterns": ["["]}, {"label": "missing", "patterns": ["Lint"]}],
+    ) == ["missing: ⏳ pending"]
+    summary = post_ci_summary.build_summary_comment(
+        runs=[],
+        head_sha=None,
+        coverage_stats={"coverage_table_markdown": "| only | table |"},
+        coverage_section="",
+        coverage_delta=None,
+        required_groups_env="[]",
+        triage_block=["triage"],
+    )
+    assert "### Coverage Overview" in summary
+    assert "| only | table |" in summary
+    assert "triage" in summary
