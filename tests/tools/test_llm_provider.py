@@ -145,6 +145,19 @@ class TestLangsmithTracing:
             _setup_langsmith_tracing()
             assert os.environ["LANGCHAIN_API_KEY"] == "existing"
 
+    def test_runtime_langsmith_key_enables_tracing_after_import(self):
+        """Runtime secret injection should enable tracing without a module reload."""
+        import tools.llm_provider as mod
+
+        original = mod.LANGSMITH_ENABLED
+        mod.LANGSMITH_ENABLED = False
+        try:
+            with patch.dict(os.environ, {"LANGSMITH_API_KEY": "ls-key"}, clear=True):
+                assert mod._ensure_langsmith_enabled() is True
+                assert os.environ["LANGCHAIN_API_KEY"] == "ls-key"
+        finally:
+            mod.LANGSMITH_ENABLED = original
+
 
 class TestBuildLangsmithMetadata:
     """Tests for the centralized build_langsmith_metadata helper."""

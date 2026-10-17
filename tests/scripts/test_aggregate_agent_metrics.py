@@ -453,6 +453,24 @@ def test_parse_timestamp_variants() -> None:
     assert aggregate_agent_metrics._parse_timestamp(1e20) is None
 
 
+def test_verifier_ledger_counts_needs_human_disposition_without_boolean_flag() -> None:
+    """A terminal needs-human disposition must not depend on an optional duplicate flag."""
+    summary = aggregate_agent_metrics._summarise_verifier(
+        [],
+        ledger_entries=[
+            {
+                "disposition": "needs-human",
+                "pr_number": 41,
+                "followup_issue_number": 42,
+                "chain_depth": 2,
+            }
+        ],
+    )
+
+    assert summary["ledger_needs_human"] == 1
+    assert summary["ledger_prs"] == 1
+
+
 def test_gather_metrics_files_prefers_explicit_paths(tmp_path: Path) -> None:
     explicit = [
         str(tmp_path / "a.ndjson"),

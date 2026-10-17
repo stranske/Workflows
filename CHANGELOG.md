@@ -6,6 +6,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.41.2](https://github.com/stranske/Workflows/compare/v1.41.1...v1.41.2) (2026-10-17)
+
+
+### Bug Fixes
+
+* **agents:** require affirmative intake routing evidence ([#4028](https://github.com/stranske/Workflows/issues/4028)) ([7674cde](https://github.com/stranske/Workflows/commit/7674cde6c49413db015a5de0224cd05b45fd2e54))
+* **intake:** deliver receipt dependencies in preflight checkout ([#4032](https://github.com/stranske/Workflows/issues/4032)) ([fe5cfb0](https://github.com/stranske/Workflows/commit/fe5cfb07626399a78ab4ee7a368c6841548b1fff))
+* **keepalive:** keep same-evaluate switch when prior agent label 404s ([#4029](https://github.com/stranske/Workflows/issues/4029)) ([45abe59](https://github.com/stranske/Workflows/commit/45abe59e15a750087ff395b41233819cdd2b7174))
+* **sync:** refresh blocked stable canaries through Maint 68 ([#4030](https://github.com/stranske/Workflows/issues/4030)) ([efa95c0](https://github.com/stranske/Workflows/commit/efa95c0f3558823bab0fbf88286de883c41b1289))
+
+
+### Performance Improvements
+
+* **keepalive:** consolidate round scaffolding ([#4033](https://github.com/stranske/Workflows/issues/4033)) ([2419bcc](https://github.com/stranske/Workflows/commit/2419bccd89bcc8b053b866c95cd0f2b78b56b3f8))
+
 ## [1.41.1](https://github.com/stranske/Workflows/compare/v1.41.0...v1.41.1) (2026-10-17)
 
 

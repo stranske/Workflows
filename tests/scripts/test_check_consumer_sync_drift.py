@@ -1291,3 +1291,58 @@ def test_drift_network_helpers_fail_closed_without_readable_probe_targets() -> N
     assert check_consumer_sync_drift.response_failure_reason(Response()) == "HTTP 500"
     assert check_consumer_sync_drift.parse_github_timestamp(None) is None
     assert check_consumer_sync_drift.parse_github_timestamp("not-a-timestamp") is None
+
+
+def test_probe_targets_skips_missing_and_create_only_entries_then_uses_directory_child(
+    tmp_path,
+) -> None:
+    """The token preflight must choose a real, remotely managed path per section."""
+    directory = tmp_path / "scripts"
+    directory.mkdir()
+    (directory / "nested.py").write_text("print('ok')\n", encoding="utf-8")
+    missing = _make_entry(source=str(tmp_path / "missing.yml"), target="missing.yml")
+    create_only = _make_entry(
+        source=str(directory), target="create-only", sync_mode="create_only", is_directory=True
+    )
+    managed_directory = _make_entry(
+        source=str(directory), target=".github/scripts", is_directory=True
+    )
+    compiled = SimpleNamespace(
+        section=lambda section: (
+            (missing, create_only, managed_directory) if section == "scripts" else ()
+        )
+    )
+
+    assert check_consumer_sync_drift.probe_targets(compiled, ["scripts"]) == [
+        ".github/scripts/nested.py"
+    ]
+
+
+def test_fetch_remote_tree_ignores_malformed_items_but_keeps_valid_entries() -> None:
+    """A malformed tree record cannot prevent valid remote paths from being compared."""
+
+    class Response:
+        status_code = 200
+
+        def __init__(self, payload):
+            self.payload = payload
+
+        def json(self):
+            return self.payload
+
+    class Session:
+        def __init__(self):
+            self.responses = iter(
+                [
+                    Response({"default_branch": "main"}),
+                    Response({"tree": ["bad", {"path": 3}, {"path": "good.yml", "sha": "abc"}]}),
+                ]
+            )
+
+        def get(self, _url):
+            return next(self.responses)
+
+    tree, error = check_consumer_sync_drift.fetch_remote_tree(Session(), "owner/repo")
+
+    assert error is None
+    assert tree == {"good.yml": {"path": "good.yml", "sha": "abc"}}

@@ -1,5 +1,6 @@
 import argparse
 import json
+import os
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -1795,3 +1796,172 @@ def test_fleet_provenance_failure_quarantines_desktop_notice(
     moved = list((output_dir / "failed-runs").rglob("REPO-REVIEW-ACTION-NEEDED.md"))
     assert len(moved) == 1
     assert moved[0].read_text(encoding="utf-8") == "stale success\n"
+
+
+def test_run_subprocess_records_success_failure_and_timeout(tmp_path: Path, monkeypatch) -> None:
+    log_path = tmp_path / "logs" / "phase.log"
+    monkeypatch.setattr(
+        coordinator.subprocess,
+        "run",
+        lambda *args, **kwargs: SimpleNamespace(returncode=0),
+    )
+    success = coordinator.run_subprocess(
+        ["worker"], cwd=tmp_path, log_path=log_path, name="phase", timeout=3
+    )
+    assert success.succeeded is True
+    assert "phase.log" in success.notes
+
+    monkeypatch.setattr(
+        coordinator.subprocess,
+        "run",
+        lambda *args, **kwargs: SimpleNamespace(returncode=7),
+    )
+    failed = coordinator.run_subprocess(
+        ["worker"], cwd=tmp_path, log_path=log_path, name="phase", timeout=3
+    )
+    assert failed.succeeded is False
+    assert "exit 7" in failed.notes
+
+    def timed_out(*args, **kwargs):
+        raise coordinator.subprocess.TimeoutExpired("worker", 3)
+
+    monkeypatch.setattr(coordinator.subprocess, "run", timed_out)
+    timed_out_result = coordinator.run_subprocess(
+        ["worker"], cwd=tmp_path, log_path=log_path, name="phase", timeout=3
+    )
+    assert timed_out_result.succeeded is False
+    assert "timed out after 3s" in timed_out_result.notes
+
+
+def test_prepare_phase_retry_restores_body_writer_baseline_and_records_feedback(
+    tmp_path: Path,
+) -> None:
+    repo = "stranske/Example"
+    safe = repo.replace("/", "__")
+    round2 = tmp_path / "round2" / safe
+    round2.mkdir(parents=True)
+    (round2 / "converged.json").write_text('{"bad": true}\n', encoding="utf-8")
+    (round2 / "converged.pre-body-writer.json").write_text('{"good": true}\n', encoding="utf-8")
+    failed_log = tmp_path / "logs" / "body-writer.log"
+    failed_log.parent.mkdir()
+    failed_log.write_text("validator rejected body", encoding="utf-8")
+
+    repair = coordinator.prepare_phase_retry(
+        phase="body-writer",
+        repo=repo,
+        output_dir=tmp_path,
+        failed_log=failed_log,
+        repair_number=1,
+    )
+
+    assert (round2 / "converged.json").read_text(encoding="utf-8") == '{"good": true}\n'
+    assert "validator rejected body" in (round2 / "body-writer-repair-feedback.txt").read_text(
+        encoding="utf-8"
+    )
+    assert repair["quarantined"]
+    assert (Path(repair["repair_dir"]) / "repair.json").is_file()
+
+
+def test_archive_prior_cycle_moves_rounds_queue_and_uses_a_unique_same_day_directory(
+    tmp_path: Path,
+) -> None:
+    output_dir = tmp_path / "review"
+    converged = output_dir / "round2" / "stranske__Example" / "converged.json"
+    converged.parent.mkdir(parents=True)
+    converged.write_text('{"repo": "stranske/Example"}\n', encoding="utf-8")
+    (output_dir / "round1").mkdir()
+    (output_dir / "round1" / "finding.json").write_text("{}\n", encoding="utf-8")
+    (output_dir / "approved-issue-queue.json").write_text("{}\n", encoding="utf-8")
+
+    cycle_mtime = 1609459200  # Both cycles are on 2021-01-01 UTC.
+    os.utime(converged, (cycle_mtime, cycle_mtime))
+    first = coordinator.archive_prior_cycle(output_dir)
+    assert first["archived"] is True
+    assert sorted(first["moved_paths"]) == sorted(
+        [
+            f"archive/{first['archive_date']}/round1",
+            f"archive/{first['archive_date']}/round2",
+            f"archive/{first['archive_date']}/approved-issue-queue.json",
+        ]
+    )
+    assert not (output_dir / "round1").exists()
+    assert not (output_dir / "round2").exists()
+
+    second_converged = output_dir / "round2" / "stranske__Example" / "converged.json"
+    second_converged.parent.mkdir(parents=True)
+    second_converged.write_text("{}\n", encoding="utf-8")
+    os.utime(second_converged, (cycle_mtime, cycle_mtime))
+    second = coordinator.archive_prior_cycle(output_dir)
+    assert second["archived"] is True
+    assert second["archive_date"].endswith("-01")
+    assert coordinator.archive_prior_cycle(output_dir)["archived"] is False
+
+
+def test_configuration_helpers_fail_closed_for_malformed_values(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("REPO_REVIEW_CAPACITY_WAIT_MAX_SECONDS", "not-a-number")
+    assert (
+        coordinator.provider_capacity_wait_max_seconds()
+        == coordinator.DEFAULT_PROVIDER_CAPACITY_WAIT_MAX_SECONDS
+    )
+    monkeypatch.setenv("REPO_REVIEW_CAPACITY_WAIT_MAX_SECONDS", "-4")
+    assert coordinator.provider_capacity_wait_max_seconds() == 0
+
+    malformed = tmp_path / "automation.toml"
+    malformed.write_text("[automation\n", encoding="utf-8")
+    assert coordinator.configured_repair_attempts(malformed) == 2
+    assert coordinator.configured_docs_drift_timeout_values(malformed) == (
+        coordinator.DEFAULT_DOCS_DRIFT_PER_DOC_TIMEOUT,
+        coordinator.DEFAULT_DOCS_DRIFT_MIN_TIMEOUT,
+        coordinator.DEFAULT_DOCS_DRIFT_BUFFER_SECONDS,
+    )
+    wrong_values = tmp_path / "wrong-values.toml"
+    wrong_values.write_text(
+        """
+[automation.timeouts]
+docs_drift_per_doc_seconds = false
+docs_drift_minimum_seconds = -1
+docs_drift_buffer_seconds = "slow"
+""",
+        encoding="utf-8",
+    )
+    assert coordinator.configured_docs_drift_timeout_values(wrong_values) == (
+        coordinator.DEFAULT_DOCS_DRIFT_PER_DOC_TIMEOUT,
+        coordinator.DEFAULT_DOCS_DRIFT_MIN_TIMEOUT,
+        coordinator.DEFAULT_DOCS_DRIFT_BUFFER_SECONDS,
+    )
+    with pytest.raises(argparse.ArgumentTypeError):
+        coordinator.nonnegative_int("-1")
+
+
+def test_prepare_head_drift_restart_quarantines_only_selected_repo_artifacts(
+    tmp_path: Path,
+) -> None:
+    repo = "stranske/Example"
+    safe = repo.replace("/", "__")
+    log_dir = tmp_path / "logs"
+    (log_dir / safe).mkdir(parents=True)
+    (log_dir / safe / "body-writer.log").write_text("stale", encoding="utf-8")
+    (tmp_path / "round1" / "codex" / safe).mkdir(parents=True)
+    (tmp_path / "round1" / "codex" / safe / "findings.json").write_text("{}", encoding="utf-8")
+    (tmp_path / "round1" / "claude" / "stranske__Other").mkdir(parents=True)
+    (tmp_path / "round2" / safe).mkdir(parents=True)
+    (tmp_path / "round2" / safe / "converged.json").write_text("{}", encoding="utf-8")
+    (tmp_path / "repos" / safe).mkdir(parents=True)
+    (tmp_path / "repos" / safe / "review-inputs.md").write_text("stale", encoding="utf-8")
+
+    repair = coordinator.prepare_head_drift_restart(
+        repo=repo,
+        output_dir=tmp_path,
+        log_dir=log_dir,
+        restart_number=1,
+        failed_phase="body-writer",
+    )
+
+    repair_dir = Path(repair["repair_dir"])
+    assert (repair_dir / "coordinator-logs" / "body-writer.log").is_file()
+    assert (repair_dir / "round1" / "codex" / "findings.json").is_file()
+    assert (repair_dir / "round2" / "converged.json").is_file()
+    assert (repair_dir / "preflight" / "review-inputs.md").is_file()
+    assert (tmp_path / "round1" / "claude" / "stranske__Other").is_dir()
