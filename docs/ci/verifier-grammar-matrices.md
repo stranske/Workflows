@@ -248,7 +248,9 @@ missing status is an evidence input, never an acceptance-criterion input.
 parameter marks form exactly 324 pairs with identical non-status coordinates,
 that no other destination regression uses the family group namespace, and that
 all 2,592 unique helper dispatches remain. The existing helper's four presence
-states remain unchanged. This scheduling change leaves production verifier bytes, runtime selection,
+states are also observed through the real floor for both missing statuses, with
+all four body/comment pairs and their verdicts checked directly. This scheduling
+change leaves production verifier bytes, runtime selection,
 coverage configuration and required gates unchanged.
 
 A matched sequential LOCAL Python 3.12.2 observation used four loadgroup workers,

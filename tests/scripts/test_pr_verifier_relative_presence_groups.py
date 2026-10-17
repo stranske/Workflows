@@ -3,6 +3,8 @@
 from collections import defaultdict
 from itertools import product
 
+import pytest
+
 from tests.scripts import test_pr_verifier_delivery_destinations as delivery
 
 
@@ -63,7 +65,7 @@ def test_relative_presence_keeps_every_classifier_and_floor_dispatch(monkeypatch
     calls = []
 
     def capture(*args, **kwargs):
-        assert not kwargs  # Every call retains the original real-floor helper.
+        assert not kwargs  # The caller must not opt out of any helper checks.
         calls.append(args)
 
     monkeypatch.setattr(
@@ -72,10 +74,60 @@ def test_relative_presence_keeps_every_classifier_and_floor_dispatch(monkeypatch
     for arguments, _ in _rows():
         delivery.test_component_relative_presence_preserves_parent_actual_floor(**arguments)
     assert len(calls) == len(set(calls)) == 648 * 4
-    assert len(calls) * 4 == 10368  # Four actual-channel presence states per call.
     assert {row[8] for row in calls} == {
         " that may contain command output",
         " that must contain command output",
         " that must not contain command output",
         " that must contain command output if available",
+    }
+
+
+@pytest.mark.parametrize("missing", ["absent", "unavailable"])
+def test_component_helper_executes_all_body_comment_floor_states(monkeypatch, missing):
+    pending = []
+    observed = []
+    real_prompt_coverage = delivery.verifier.prompt_coverage
+    real_floor = delivery.verifier._apply_coverage_floor
+
+    def observe_prompt(context, diff):
+        states = tuple(
+            next(line for line in context.splitlines() if line.startswith(prefix))
+            .removeprefix(prefix)
+            .removesuffix("**")
+            for prefix in ("- PR body: **", "- PR comments: **")
+        )
+        coverage = real_prompt_coverage(context, diff)
+        pending.append((coverage, states))
+        return coverage
+
+    def observe_floor(result, coverage):
+        prompt_coverage, states = pending.pop(0)
+        assert coverage is prompt_coverage
+        result = real_floor(result, coverage)
+        observed.append((*states, result.verdict))
+        return result
+
+    monkeypatch.setattr(delivery.verifier, "prompt_coverage", observe_prompt)
+    monkeypatch.setattr(delivery.verifier, "_apply_coverage_floor", observe_floor)
+    delivery.test_component_availability_preserves_bare_sibling_and_passive_actor(
+        "record",
+        "active",
+        "the PR body",
+        "body",
+        "a PR comment",
+        "comments",
+        "and",
+        False,
+        " that may contain command output",
+        "must",
+        True,
+        missing,
+    )
+    assert not pending
+    assert len(observed) == 4
+    assert set(observed) == {
+        (missing, missing, "CONCERNS"),
+        ("present", missing, "CONCERNS"),
+        (missing, "present", "PASS"),
+        ("present", "present", "PASS"),
     }
