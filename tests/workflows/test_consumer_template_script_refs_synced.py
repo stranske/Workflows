@@ -113,3 +113,10 @@ def test_the_ledger_validator_and_its_import_are_delivered_to_consumers():
     targets = _manifest_targets()
     assert "scripts/ledger_validate.py" in targets
     assert "scripts/belt_ledger_completion.py" in targets
+
+
+def test_optional_by_design_list_stays_exactly_the_reviewed_one():
+    assert sorted(OPTIONAL_BY_DESIGN) == ["scripts/check_issue_consistency.py"]
+    targets = _manifest_targets()
+    assert _synced("scripts/ledger_validate.py", targets) is True
+    assert _synced("scripts/no_such_consumer_script.py", targets) is False
