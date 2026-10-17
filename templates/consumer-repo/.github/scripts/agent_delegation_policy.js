@@ -1023,7 +1023,9 @@ function chooseAgentForIntake(taskType = 'implement', routeWeights = null, regis
   if (!taskEntry || taskEntry.evidence_ok !== true) {
     return makeIntakeDecision({
       agent: defaultAgent,
-      reason: 'route-weights-evidence-not-affirmed',
+      reason: taskEntry?.evidence_ok === false
+        ? 'route-weights-insufficient-evidence'
+        : 'route-weights-evidence-not-affirmed',
     });
   }
 

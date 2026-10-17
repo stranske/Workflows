@@ -47,6 +47,21 @@ for (const [copy, chooseIntake] of [
   ['source', chooseAgentForIntake],
   ['template', require('../../templates/consumer-repo/.github/scripts/agent_delegation_policy.js').chooseAgentForIntake],
 ]) {
+  test(`${copy}: explicit false preserves insufficient-evidence reason and configured default`, () => {
+    const decision = chooseIntake('implement', {
+      task_types: {
+        implement: {
+          evidence_ok: false,
+          ranking: [{ agent: 'claude', posterior: 0.91 }],
+        },
+      },
+    }, mockRegistryAgents, { defaultAgent: 'cursor' });
+    assert.deepEqual(decision, {
+      agent: 'cursor', posterior: null, poolState: 'static', pool_state: 'static',
+      delegationSource: 'static', reason: 'route-weights-insufficient-evidence',
+    });
+  });
+
   for (const [name, evidence] of [
     ['string "false"', { evidence_ok: 'false' }],
     ['missing', {}],
@@ -79,7 +94,10 @@ for (const [copy, chooseIntake] of [
       } else {
         assert.deepEqual(decision, {
           agent: 'codex', posterior: null, poolState: 'static', pool_state: 'static',
-          delegationSource: 'static', reason: 'route-weights-evidence-not-affirmed',
+          delegationSource: 'static',
+          reason: name === 'boolean false'
+            ? 'route-weights-insufficient-evidence'
+            : 'route-weights-evidence-not-affirmed',
         });
       }
     });
