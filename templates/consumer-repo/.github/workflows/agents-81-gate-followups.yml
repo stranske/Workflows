@@ -2134,6 +2134,25 @@ jobs:
       WORKFLOWS_APP_ID: ${{ secrets.WORKFLOWS_APP_ID }}
       WORKFLOWS_APP_PRIVATE_KEY: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
 
+  autofix-cursor:
+    needs: prepare
+    if: >-
+      needs.prepare.outputs.should_run == 'true' &&
+      needs.prepare.outputs.dispatch_should_run == 'true' &&
+      needs.prepare.outputs.agent_type == 'cursor'
+    name: Run Cursor autofix
+    uses: stranske/Workflows/.github/workflows/reusable-cursor-run.yml@main
+    with:
+      prompt_file: .github/codex/prompts/autofix_from_ci_failure.md
+      mode: autofix
+      pr_number: ${{ needs.prepare.outputs.pr_number }}
+      pr_ref: ${{ needs.prepare.outputs.head_ref }}
+      appendix: ${{ needs.prepare.outputs.appendix }}
+    secrets:
+      CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
+      WORKFLOWS_APP_ID: ${{ secrets.WORKFLOWS_APP_ID }}
+      WORKFLOWS_APP_PRIVATE_KEY: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
+
   autofix-muse:
     needs: prepare
     if: >-
@@ -2227,6 +2246,7 @@ jobs:
       - prepare
       - autofix
       - autofix-claude
+      - autofix-cursor
       - autofix-muse
     if: >-
       ${{
@@ -2293,13 +2313,16 @@ jobs:
             const stopReason = '${{ needs.prepare.outputs.stop_reason }}';
             const codexAutofixResult = '${{ needs.autofix.result }}';
             const claudeAutofixResult = '${{ needs.autofix-claude.result }}';
+            const cursorAutofixResult = '${{ needs.autofix-cursor.result }}';
             const museAutofixResult = '${{ needs.autofix-muse.result }}';
             const autofixResult =
               codexAutofixResult && codexAutofixResult !== 'skipped'
                 ? codexAutofixResult
                 : (claudeAutofixResult && claudeAutofixResult !== 'skipped'
                     ? claudeAutofixResult
-                    : museAutofixResult);
+                    : (cursorAutofixResult && cursorAutofixResult !== 'skipped'
+                        ? cursorAutofixResult
+                        : museAutofixResult));
 
             const { owner, repo } = context.repo;
             let fixApplied = false;

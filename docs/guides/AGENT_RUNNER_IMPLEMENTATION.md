@@ -16,7 +16,8 @@ This guide covers the implementation patterns that every agent runner workflow (
 5. [Push Retry with Rebase](#5-push-retry-with-rebase)
 6. [Output Encoding](#6-output-encoding)
 7. [Capability Effect Evidence](#7-capability-effect-evidence)
-8. [Common Pitfalls](#8-common-pitfalls)
+8. [Fail-Closed Guards Before the Agent Runs](#8-fail-closed-guards-before-the-agent-runs)
+9. [Common Pitfalls](#9-common-pitfalls)
 
 ---
 
@@ -62,13 +63,57 @@ Key points:
 - `--dangerously-skip-permissions` removes interactive approval prompts, required for unattended CI.
 - With `--dangerously-skip-permissions`, Claude can execute arbitrary shell commands. This means it may `git add` and `git commit` during its run, leaving a clean working tree but unpushed commits. The commit step **must** detect this (see §2).
 
+### Cursor CLI
+
+```bash
+cursor-agent -p "$prompt_content" --force --output-format text \
+  "${extra_args[@]}" >"$output_file" 2>&1
+```
+
+`--force` applies edits without confirmation. The API key (`CURSOR_API_KEY`) is read from the
+environment; the runner passes it to the run step's own `env:` only.
+
+### Muse CLI
+
+```bash
+perm_flag=()
+if [ "${SKIP_PERMISSIONS:-true}" = "true" ]; then
+  perm_flag=(--disable-approval)        # skips prompts, KEEPS the sandbox
+fi
+
+"$MUSE_BIN" exec --prompt-file "$PROMPT_FILE" \
+  --no-foreign-personal-context \
+  --no-session-log \
+  --max-model-steps "${MAX_MODEL_STEPS:-150}" \
+  "${perm_flag[@]}" \
+  ${MODEL:+--model "$MODEL"} \
+  "${extra_args[@]}" \
+  2>"$STDERR_FILE" | tee "$SESSION_LOG" > "$output_file"
+status=${PIPESTATUS[0]}
+```
+
+Key points:
+- `muse exec` runs one prompt headlessly and prints the final message to stdout; notices go to
+  stderr. The CLI has no usage field in its JSON output, so the runner emits `duration-seconds`.
+- Never use the flag that disables both approvals and the sandbox. `--disable-approval` is the
+  unattended setting.
+- On Linux the CLI needs a working bubblewrap sandbox (see §8). `--no-foreign-personal-context`
+  keeps another tool's personal rules and skills out of a fleet worker.
+- The CLI may commit on its own, so the unpushed-commit checks in §2 apply, and the commit author
+  must be checked (§8).
+
 ### Adding a New Agent CLI
 
-When integrating a new agent (e.g., Gemini, GitHub Models), determine:
+When integrating a new agent, determine:
 
 1. **Can the agent commit?** If the agent has filesystem write access and can run shell commands, it can `git commit`. Your runner must implement unpushed commit detection.
 2. **What output format?** Prefer structured output (JSONL, JSON) over plain text. Capture session logs separately from the final message.
-3. **What sandbox model?** Document the agent's sandbox/permission model in the registry entry.
+3. **What sandbox model?** Document the agent's sandbox/permission model in the registry entry, and probe it on the runner (§8).
+4. **Does a denial exit non-zero?** Some CLIs exit 0 when a permission is denied; the runner must detect "no work done" itself.
+5. **Run the readiness evaluation first** ([Agent Readiness Evaluations](agent-readiness/README.md)).
+
+The complete integration checklist, including everything outside the runner file, is
+[Adding a New Coding Agent](ADD_NEW_AGENT.md).
 
 ---
 
@@ -322,7 +367,38 @@ malformed, oversized, or secret-like records fail closed. Do not parse these
 values from the final message: the caller supplies typed intent and the runner
 only validates and relays it. Downstream promotion remains Orchestrator-owned.
 
-## 8. Common Pitfalls
+## 8. Fail-Closed Guards Before the Agent Runs
+
+The run step normally carries `if: always()` so it can report on earlier failures. That means it
+also runs after a setup step failed or was skipped. Make each guard explicit, in this order, and
+exit non-zero with a named error and the standard error outputs set:
+
+1. **Missing credential.** The preflight step records `missing=true` and an `error` output
+   ("Missing <Agent> auth: set the <SECRET> secret"). The run step checks it first.
+2. **Setup outcome.** Pass `steps.<install>.outcome` and `steps.<guard>.outcome` into the run step's
+   env. Refuse to run the agent unless the CLI/sandbox step's outcome is exactly `success`. A
+   *skipped* step is not a success: if an earlier step failed, GitHub skips the later setup step but
+   still starts an `always()` step.
+3. **Prompt integrity.** A rejected prompt template must stop the run.
+
+Other rules in the same family:
+
+- **Keep the credential out of `GITHUB_ENV`.** Writing it there exposes it to every later step in
+  the job, including third-party actions. Read it from the run step's own `env:` block. A test
+  (`test_no_agent_runner_exports_a_credential_through_github_env`) enforces this for every runner.
+- **Install by download then run.** `curl -fsSL <url> -o "$file"; bash "$file"`, not a pipe to a
+  shell, and pin a version when the vendor allows it.
+- **Probe the sandbox, then fail by name.** Where the CLI needs bubblewrap, probe it, relax the
+  user-namespace restriction if the runner image blocks it, probe again, and fail with a named
+  error rather than continuing unsandboxed.
+- **Check commit attribution on the first real commit.** Read `commits/<sha>` and compare the author
+  with the agent. A CLI that commits under another vendor's identity makes author-based attribution
+  credit the wrong agent; rewrite only *unpushed* commits to the agent's identity if the CLI cannot
+  be configured.
+- **Assert the work happened.** A CLI that can exit 0 without changing files (a historical failure
+  of some agents) needs a runner-side check on the working tree or commit.
+
+## 9. Common Pitfalls
 
 ### Silent loss of agent work
 
@@ -377,6 +453,11 @@ When building a new `reusable-<agent>-run.yml`:
 - [ ] Error classification step populates `error-category`, `error-type`, `error-recovery`
 - [ ] Agent registered in `.github/agents/registry.yml`
 - [ ] All outputs from [agent-runner-output.md](../contracts/agent-runner-output.md) are set on every code path
+- [ ] Missing credential, failed or skipped CLI/sandbox setup and a rejected prompt each stop the run with a named error (§8)
+- [ ] The credential is read only from the run step's `env:` and is never written to `GITHUB_ENV`
+- [ ] Installer is downloaded then run; sandbox is probed on Linux
+- [ ] The first real commit's author was read back and attributes to the agent
+- [ ] `scripts/runner_lib/core.py` `PROVIDERS` includes the agent **and** the change was delivered to consumers (they run their own copy)
 
 ---
 
