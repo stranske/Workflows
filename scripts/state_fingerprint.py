@@ -159,7 +159,8 @@ class GitHubApi:
             with urllib.request.urlopen(request, timeout=30) as response:
                 payload = response.read().decode("utf-8")
         except urllib.error.HTTPError as exc:
-            detail = exc.read().decode("utf-8", errors="replace")
+            with exc:
+                detail = exc.read().decode("utf-8", errors="replace")
             raise RuntimeError(f"GitHub API {method} {path} failed: {exc.code} {detail}") from exc
         except (urllib.error.URLError, TimeoutError, OSError) as exc:
             raise RuntimeError(f"GitHub API {method} {path} failed: {exc}") from exc

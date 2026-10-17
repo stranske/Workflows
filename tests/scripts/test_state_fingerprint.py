@@ -438,13 +438,15 @@ def test_github_api_sends_json_body_with_content_type(monkeypatch: pytest.Monkey
 
 
 def test_github_api_wraps_http_error_with_response_detail(monkeypatch: pytest.MonkeyPatch) -> None:
+    response = io.BytesIO(b"no such repo")
+
     def raise_http_error(*args: object, **kwargs: object) -> None:
         raise urllib.error.HTTPError(
             "https://api.github.com/repos/owner/repo",
             404,
             "Not Found",
             {},  # type: ignore[arg-type]
-            io.BytesIO(b"no such repo"),
+            response,
         )
 
     monkeypatch.setattr(state_fingerprint.urllib.request, "urlopen", raise_http_error)
@@ -454,6 +456,7 @@ def test_github_api_wraps_http_error_with_response_detail(monkeypatch: pytest.Mo
         RuntimeError, match=r"GitHub API GET /repos/owner/repo failed: 404 no such repo"
     ):
         api.request("GET", "/repos/owner/repo")
+    assert response.closed
 
 
 def test_github_api_request_returns_none_for_empty_response_body(
