@@ -274,3 +274,11 @@ def test_artifact_from_verification_text_computes_raw_present_authoritatively() 
 
 def test_artifact_from_verification_text_keeps_empty_input_as_nonterminal() -> None:
     assert artifact_from_verification_text("") == {"raw_present": False}
+
+
+def test_unverifiable_input_is_terminal_without_overriding_real_concerns():
+    artifact = artifact_from_verification_text("Verdict: UNVERIFIABLE_INPUT")
+    assert artifact["verdict"] == "UNVERIFIABLE_INPUT"
+    assert is_terminal_artifact(artifact)
+    artifact = artifact_from_verification_text("Verdict: UNVERIFIABLE_INPUT\nVerdict: CONCERNS")
+    assert artifact["verdict"] == "CONCERNS"

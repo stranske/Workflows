@@ -305,6 +305,52 @@ A changed head or command set skips stale result persistence with a warning;
 the next evaluation requires fresh evidence before completion.
 
 
+### Post-merge verification and source closure
+
+The verifier preserves the authoritative full patch instead of clipping the
+context at 300,000 characters. Standard evaluate and compare review whole file
+patches in successive requests using the named `VERIFIER_DIFF_BUDGET_TOKENS`
+budget (16,000 tokens, using the existing four-character token estimate). Each
+request retains the acceptance sources. At most `MAX_REVIEW_CHUNKS` (64) requests
+are planned per provider. A file exceeding one request, binary input, an unknown
+file inventory, or exhausted capacity remains explicitly unreviewed; no partial
+file is silently counted as reviewed. Expanded semantic verification retains its
+independent native-capacity and acceptance rules.
+
+Every evaluation/comparison report prints **files reviewed N of M** and incomplete
+results carry `files_not_reviewed`. `UNVERIFIABLE_INPUT` means supplied input could
+not support a complete review. A real finding remains **CONCERNS** or **FAIL** and
+dominates incomplete input across chunks and providers. A required deliverable
+proven absent by a complete lookup also remains CONCERNS. Input unavailability
+must never be relabeled provider PASS.
+
+`reusable-agents-verifier.yml` exports its verdict and immutable target to the
+`agents-verifier.yml` caller. The caller applies two source-issue closing rules
+and comments the chosen rule and immutable merge SHA before closing:
+
+- `verifier-pass`: the unified verifier verdict is PASS (the CI-failure floor
+  continues to apply).
+- `unverifiable-input-merged-head-gates-and-ci`: the verdict is UNVERIFIABLE_INPUT,
+  every named acceptance command extracted by the #3985 gate passes on the merge
+  commit, and every configured CI workflow concludes success on that same commit.
+
+The latter rule executes gates in a separate job with read-only contents access,
+no secrets or API-client setup, and no persisted checkout credentials. A trusted
+closure job checks command identities, issue text hash, source/merge bindings and
+fresh exact-merge CI. Empty, failed, stale or missing gate/CI results keep the issue
+open. CONCERNS and FAIL never use this exception. Auto-pilot's verification/reopen
+step remains in place; a merge by itself is insufficient for closure. Consumer
+verifier callers receive these jobs through template sync. Only the trusted
+closing job grants issue-write access; the shared verifier retains issue-read
+access, so existing callers remain compatible while sync is pending.
+
+Local tests establish source behavior only. Acceptance still requires a live
+multi-file report after deployment showing M of M reviewed files without clipping,
+and the October 24, 2026 campaign measurement: zero truncation-CONCERNS reports
+and at least 80% of merged released-issue PRs closed within two hours. Those are
+post-merge observations, not outcomes established by the source PR.
+
+
 ---
 
 ## 12. Issue Context & Status Summary

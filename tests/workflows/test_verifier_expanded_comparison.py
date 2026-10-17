@@ -215,14 +215,19 @@ def test_expanded_all_configured_pass_retains_ci_floor(tmp_path, reverse, ci_fai
     outputs = run_workflow(tmp_path, {"results": arms}, ci_failed=ci_failed)
     assert outputs["verdict"] == "PASS"
     assert outputs["has_results"] == "true"
-    assert outputs["unified"] == ("concerns" if ci_failed == "true" else "PASS")
+    assert outputs["unified"] == ("CONCERNS" if ci_failed == "true" else "PASS")
 
 
 @pytest.mark.parametrize(
     "case, expected",
-    [("one-unused", "PASS"), ("missing", "PASS"), ("all-unused", "PASS"), ("concerns", "CONCERNS")],
+    [
+        ("one-unused", "CONCERNS"),
+        ("missing", "PASS"),
+        ("all-unused", "CONCERNS"),
+        ("concerns", "CONCERNS"),
+    ],
 )
-def test_standard_preserves_legacy_aggregation(tmp_path, case, expected):
+def test_standard_preserves_all_real_findings(tmp_path, case, expected):
     arms = _arms()
     if case in {"one-unused", "all-unused"}:
         arms[0].update(used_llm=False, verdict="CONCERNS" if case == "one-unused" else "PASS")
@@ -344,23 +349,23 @@ def test_source_coverage_floor_survives_workflow_aggregation(tmp_path, monkeypat
     if mode == "compare":
         monkeypatch.setattr(pr_verifier, "_get_llm_clients", lambda *args: clients)
         results = pr_verifier.evaluate_pr_multiple(context, diff)
-        assert all(result.verdict == "CONCERNS" for result in results)
+        assert all(result.verdict == "UNVERIFIABLE_INPUT" for result in results)
         payload = {"results": [result.model_dump() for result in results]}
     else:
         monkeypatch.setattr(pr_verifier, "_get_llm_client", lambda **kwargs: clients[0][:2])
         payload = pr_verifier.evaluate_pr(
             context, diff, provider=arms[0]["provider_used"]
         ).model_dump()
-        assert payload["verdict"] == "CONCERNS"
+        assert payload["verdict"] == "UNVERIFIABLE_INPUT"
     outputs = run_workflow(tmp_path, payload, mode=mode)
-    assert outputs["verdict"] == outputs["unified"] == "CONCERNS"
+    assert outputs["verdict"] == outputs["unified"] == "UNVERIFIABLE_INPUT"
 
 
 @pytest.mark.parametrize("ci_failed", ["false", "true"])
 def test_evaluate_pass_and_ci_floor_preserved(tmp_path, ci_failed):
     outputs = run_workflow(tmp_path, _arms()[0], mode="evaluate", ci_failed=ci_failed)
     assert outputs["verdict"] == "PASS"
-    assert outputs["unified"] == ("concerns" if ci_failed == "true" else "PASS")
+    assert outputs["unified"] == ("CONCERNS" if ci_failed == "true" else "PASS")
 
 
 @pytest.mark.parametrize("provider_index", [0, 1])

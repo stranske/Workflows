@@ -230,6 +230,7 @@ async function queryVerifierCiResults({
   targetShas,
   workflows,
   retryOptions,
+  includeHeadSha = false,
 } = {}) {
   const { owner, repo } = context.repo;
   const candidates = [];
@@ -272,6 +273,7 @@ async function queryVerifierCiResults({
     const conclusion = error ? 'api_error' : normalizeConclusion(run);
     results.push({
       workflow_name: workflowName,
+      ...(includeHeadSha ? { head_sha: run?.head_sha || '' } : {}),
       conclusion,
       run_url: run?.html_url || run?.url || '',
       error_category: error?.category || '',
@@ -287,8 +289,8 @@ async function queryVerifierCiResults({
 
 module.exports = {
   DEFAULT_WORKFLOWS,
-  queryVerifierCiResults: async function ({ github: rawGithub, context, core, targetSha, targetShas, workflows, retryOptions } = {}) {
+  queryVerifierCiResults: async function ({ github: rawGithub, context, core, targetSha, targetShas, workflows, retryOptions, includeHeadSha } = {}) {
     const github = await ensureRateLimitWrapped({ github: rawGithub, core, env: process.env });
-    return queryVerifierCiResults({ github, context, core, targetSha, targetShas, workflows, retryOptions });
+    return queryVerifierCiResults({ github, context, core, targetSha, targetShas, workflows, retryOptions, includeHeadSha });
   },
 };

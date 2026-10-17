@@ -391,7 +391,10 @@ def test_non_pass_output_prefers_summary_over_stale_pass_raw_content(
     _argv(monkeypatch, tmp_path, "--output-file", str(out))
     pr_verifier.main()
     printed = capsys.readouterr().out
-    assert out.read_text(encoding="utf-8") == f"Verdict: CONCERNS\n\n{summary}"
+    assert (
+        out.read_text(encoding="utf-8")
+        == f"files reviewed 0 of 0\n\nVerdict: CONCERNS\n\n{summary}"
+    )
     assert "PASS withheld" in printed
     assert '"verdict": "PASS"' not in printed
 
@@ -404,7 +407,7 @@ def test_the_output_file_receives_the_same_text_as_stdout(
     _argv(monkeypatch, tmp_path, "--output-file", str(out))
     pr_verifier.main()
     printed = capsys.readouterr().out
-    assert out.read_text(encoding="utf-8") == "the raw content"
+    assert out.read_text(encoding="utf-8") == "files reviewed 0 of 0\n\nthe raw content"
     assert "the raw content" in printed
 
 
