@@ -182,6 +182,7 @@ async function listArtifacts({
   token,
   owner,
   repo,
+  name = '',
   apiUrl = process.env.GITHUB_API_URL || DEFAULT_GITHUB_API_URL,
   fetchImpl = global.fetch,
 }) {
@@ -195,12 +196,17 @@ async function listArtifacts({
     throw new Error('GITHUB_REPOSITORY must be set as owner/repo.');
   }
 
+  // Ask GitHub for the one artifact name that selectArtifact will keep anyway. The unfiltered listing pages
+  // through EVERY artifact in the repository (34,868 in Workflows on 2026-10-16) and answers
+  // `500 Internal Server Error` on deep pages, which stopped the Maint Coverage Guard on every
+  // scheduled run for at least 20 days.
+  const nameFilter = name ? `&name=${encodeURIComponent(name)}` : '';
   const artifacts = [];
   let page = 1;
   while (true) {
     const baseUrl = String(apiUrl || DEFAULT_GITHUB_API_URL).replace(/\/+$/, '');
     const response = await fetchImpl(
-      `${baseUrl}/repos/${owner}/${repo}/actions/artifacts?per_page=100&page=${page}`,
+      `${baseUrl}/repos/${owner}/${repo}/actions/artifacts?per_page=100${nameFilter}&page=${page}`,
       {
         headers: {
           accept: 'application/vnd.github+json',
@@ -286,6 +292,7 @@ async function discoverCommand() {
       token: process.env.GITHUB_TOKEN,
       owner,
       repo,
+      name: plan.artifactName,
     });
   } catch (error) {
     const message = `Artifact discovery failed: ${error.message || error}`;
