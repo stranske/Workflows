@@ -1,0 +1,41 @@
+{
+  "target": "scripts/langchain/followup_issue_generator.py",
+  "ranking": {
+    "source": "issue #3956 Orchestrator ranking",
+    "escaped_defect_signals": 21,
+    "churn": 27,
+    "uncovered_units_at_issue_open": 225,
+    "note": "Contract item 1: continue the issue-selected ranked target (escaped-defect, then churn, then uncovered mass); do not pick by file size. List exhausted after this closeout."
+  },
+  "coverage": {
+    "before": "99.92% (846 stmts, 0 miss; 390 branches, 1 partial: 124->126)",
+    "after": "100.00% (846 stmts, 0 miss; 390 branches, 0 partial)",
+    "command": "pytest tests/test_followup_issue_generator.py --cov=scripts.langchain.followup_issue_generator --cov-branch --cov-report=term-missing -m 'not slow'"
+  },
+  "remaining": [],
+  "proofs": [
+    {
+      "name": "empty-label-omits-source",
+      "test_id": "tests/test_followup_issue_generator.py::test_guard_payloads_omits_source_annotation_when_label_empty",
+      "mutation": "if label: -> if True: (always annotate source, including empty labels)",
+      "red_exit": 1,
+      "green_exit": 0,
+      "red_assertion": "reason became 'injection detected (source: )' instead of bare 'injection detected'"
+    },
+    {
+      "name": "nonempty-label-annotates-source",
+      "test_id": "tests/test_followup_issue_generator.py::test_guard_payloads_annotates_reason_with_nonempty_label",
+      "mutation": "if label: -> if False: (never annotate source)",
+      "red_exit": 1,
+      "green_exit": 0,
+      "red_assertion": "reason lost '(source: verification_comment)' suffix"
+    }
+  ],
+  "contract": {
+    "1_ranked_target": true,
+    "2_break_and_revert": true,
+    "3_no_production_bug_found": true,
+    "4_test_only_low_blast_radius": true,
+    "5_one_pr": true
+  }
+}
