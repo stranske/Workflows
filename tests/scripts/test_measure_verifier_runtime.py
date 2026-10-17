@@ -88,3 +88,33 @@ def test_coverage_loss_is_not_reported_as_equivalence():
     result = measure.coverage_comparison(before, after)
     assert result["lost_lines"] == [2]
     assert result["lost_branches"] == [(1, 3)]
+
+
+def test_fresh_graph_requires_explicit_candidate_fetch(tmp_path, monkeypatch):
+    repo = fixture_repo(tmp_path, monkeypatch)
+    fresh = tmp_path / "fresh"
+    fresh.mkdir()
+    subprocess.run(["git", "init", "-q", str(fresh)], check=True)
+    subprocess.run(
+        ["git", "-C", str(fresh), "fetch", "--quiet", str(repo), measure.BASELINE], check=True
+    )
+    subprocess.run(
+        ["git", "-C", str(fresh), "checkout", "--quiet", "--detach", "FETCH_HEAD"], check=True
+    )
+    with pytest.raises(subprocess.CalledProcessError):
+        measure.git(fresh, "archive", measure.CANDIDATE)
+    # The workflow's retained-PR-head fetch supplies this exact object. A normal
+    # branch-history fetch did not: the pre-squash head is a separate graph tip.
+    subprocess.run(
+        ["git", "-C", str(repo), "update-ref", "refs/pull/3950/head", measure.CANDIDATE], check=True
+    )
+    subprocess.run(
+        ["git", "-C", str(fresh), "fetch", "--quiet", str(repo), "refs/pull/3950/head"], check=True
+    )
+    assert measure.git(fresh, "rev-parse", "FETCH_HEAD").decode().strip() == measure.CANDIDATE
+    output = tmp_path / "fresh-output"
+    measure.prepare(fresh, output)
+    assert (
+        json.loads((output / "manifest.json").read_text())["arms"]["candidate"]["commit"]
+        == measure.CANDIDATE
+    )

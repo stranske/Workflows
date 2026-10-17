@@ -29,6 +29,10 @@ jobs:
         uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python }}
+      - name: Fetch retained pre-squash candidate and verify immutable identity
+        run: |
+          git fetch --no-tags origin refs/pull/3950/head
+          test "$(git rev-parse FETCH_HEAD)" = "999ffe5fa00ac9c8ae8a807447f053277032b670"
       - name: Prepare immutable arms
         run: python scripts/measure_verifier_runtime.py prepare --output measurement
       - name: Install one common immutable dependency lock
