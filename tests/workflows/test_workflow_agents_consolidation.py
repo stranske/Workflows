@@ -75,7 +75,7 @@ def test_keepalive_loop_avoids_non_actionable_runner_allocation():
     )
     assert "test-job" not in jobs
 
-    summary_condition = jobs["summary"]["if"]
+    summary_condition = jobs["finish"]["if"]
     assert "needs.evaluate.outputs.pr_number != '0'" in summary_condition
     assert "needs.evaluate.outputs.reason != 'missing-agent-label'" in summary_condition
     assert "needs.evaluate.outputs.action != 'wait'" in summary_condition
@@ -924,7 +924,7 @@ def test_mark_running_uses_same_trusted_app_token_as_summary():
     ).read_text(encoding="utf-8")
 
     for text in (root_loop, consumer_loop):
-        running_start = text.index("  mark-running:")
+        running_start = text.index("      - name: Mint KEEPALIVE_APP running token")
         running_end = text.index("  run-codex:", running_start)
         running_job = text[running_start:running_end]
         assert "id: running_keepalive_app_token" in running_job
@@ -1026,7 +1026,7 @@ def test_keepalive_recovery_uses_active_lane_and_forces_only_due_challenges():
         assert "${{ github.event.inputs.authority_challenge_fingerprint || '' }}" not in text
         assert "${{ github.event.inputs.sweep_recheck || 'false' }}" not in text
 
-    root_summary_start = root_loop.index("  summary:")
+    root_summary_start = root_loop.index("  finish:")
     root_summary_end = root_loop.index(
         "      # Mint KEEPALIVE_APP token for rate limit notification",
         root_summary_start,
@@ -1050,7 +1050,7 @@ def test_keepalive_recovery_uses_active_lane_and_forces_only_due_challenges():
     assert "github-token: ${{ github.token }}" not in update_summary
     assert "trusted_summary_author: process.env.KEEPALIVE_SUMMARY_WRITER" in update_summary
 
-    consumer_summary_start = consumer_loop.index("  summary:")
+    consumer_summary_start = consumer_loop.index("  finish:")
     consumer_summary_end = consumer_loop.index("  prepare:", consumer_summary_start)
     consumer_summary = consumer_loop[consumer_summary_start:consumer_summary_end]
     assert "id: summary_keepalive_app_token" in consumer_summary
@@ -1065,7 +1065,9 @@ def test_keepalive_recovery_uses_active_lane_and_forces_only_due_challenges():
         assert consumer_summary.count(permission) == 2
     assert "Require trusted keepalive summary writer" in consumer_summary
     consumer_update_summary = consumer_summary[
-        consumer_summary.index("- name: Update summary comment") :
+        consumer_summary.index("- name: Update summary comment") : consumer_summary.index(
+            "- name: Measure runner productivity"
+        )
     ]
     assert "steps.summary_keepalive_app_token.outputs.token ||" in consumer_update_summary
     assert "steps.summary_workflows_app_token.outputs.token" in consumer_update_summary
@@ -1091,7 +1093,7 @@ def test_consumer_mark_running_supports_identity_checked_pat():
     consumer_loop = Path(
         "templates/consumer-repo/.github/workflows/agents-81-gate-followups.yml"
     ).read_text(encoding="utf-8")
-    mark_start = consumer_loop.index("  mark-running:")
+    mark_start = consumer_loop.index("      - name: Mint KEEPALIVE_APP running token")
     mark_end = consumer_loop.index("  run-codex:", mark_start)
     mark_running = consumer_loop[mark_start:mark_end]
 
@@ -1837,7 +1839,7 @@ def test_keepalive_preflight_auth_failures_reach_root_and_consumer_summaries():
         data = yaml.safe_load(path.read_text(encoding="utf-8"))
         jobs = data.get("jobs") or {}
         preflight = jobs.get("preflight") or {}
-        summary = jobs.get("summary") or {}
+        summary = jobs.get("finish") or {}
         preflight_outputs = preflight.get("outputs") or {}
         preflight_check = next(
             (step for step in (preflight.get("steps") or []) if step.get("id") == "check"),
