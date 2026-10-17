@@ -10,6 +10,7 @@ import ast
 import re
 from pathlib import Path
 
+import pytest
 import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -32,7 +33,7 @@ MODULE = re.compile(r"python3?\s+-m\s+(scripts(?:\.[A-Za-z0-9_]+)+)")
 
 def _manifest_targets() -> set[str]:
     targets: set[str] = set()
-    for entries in yaml.safe_load(MANIFEST.read_text()).values():
+    for entries in yaml.safe_load(MANIFEST.read_text(encoding="utf-8")).values():
         if not isinstance(entries, list):
             continue
         for entry in entries:
@@ -42,7 +43,7 @@ def _manifest_targets() -> set[str]:
 
 
 def _synced(path: str, targets: set[str]) -> bool:
-    if (TEMPLATE / path).exists() or path in targets:
+    if path in targets:
         return True
     return any(t.endswith("/") and path.startswith(t) for t in targets)
 
@@ -50,7 +51,7 @@ def _synced(path: str, targets: set[str]) -> bool:
 def _references() -> dict[str, set[str]]:
     refs: dict[str, set[str]] = {}
     for workflow in sorted((TEMPLATE / ".github/workflows").glob("*.yml")):
-        text = workflow.read_text()
+        text = workflow.read_text(encoding="utf-8")
         for match in CMD.finditer(text):
             refs.setdefault(match.group(1), set()).add(workflow.name)
         for match in MODULE.finditer(text):
@@ -75,9 +76,23 @@ def test_every_script_a_consumer_workflow_runs_is_synced_or_optional_by_design()
 
 def _local_imports(path: Path) -> set[str]:
     modules: set[str] = set()
-    for node in ast.walk(ast.parse(path.read_text())):
-        if isinstance(node, ast.ImportFrom) and node.module:
-            modules.add(node.module)
+    for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+        if isinstance(node, ast.ImportFrom):
+            if node.level:
+                package = path.parent
+                for _ in range(node.level - 1):
+                    package = package.parent
+                try:
+                    prefix = ".".join(package.relative_to(ROOT).parts)
+                except ValueError:
+                    continue
+                if node.module:
+                    prefix = f"{prefix}.{node.module}"
+            else:
+                prefix = node.module or ""
+            if prefix:
+                modules.add(prefix)
+                modules.update(f"{prefix}.{alias.name}" for alias in node.names)
         elif isinstance(node, ast.Import):
             modules.update(alias.name for alias in node.names)
     found = set()
@@ -120,3 +135,34 @@ def test_optional_by_design_list_stays_exactly_the_reviewed_one():
     targets = _manifest_targets()
     assert _synced("scripts/ledger_validate.py", targets) is True
     assert _synced("scripts/no_such_consumer_script.py", targets) is False
+
+
+def test_template_file_without_manifest_target_is_not_delivered(tmp_path, monkeypatch):
+    template = tmp_path / "template"
+    (template / "scripts").mkdir(parents=True)
+    (template / "scripts/helper.py").write_text("", encoding="utf-8")
+    monkeypatch.setitem(globals(), "TEMPLATE", template)
+    assert _synced("scripts/helper.py", set()) is False
+    assert _synced("scripts/helper.py", {"scripts/helper.py"}) is True
+    assert _synced("scripts/helper.py", {"scripts/"}) is True
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "from scripts.pkg import helper\n",
+        "from . import helper\n",
+        "from .helper import (\n    value,\n)\n",
+        "import scripts.pkg.helper\n",
+    ],
+)
+def test_local_imports_find_submodules_and_relative_multiline_imports(
+    tmp_path, monkeypatch, source
+):
+    package = tmp_path / "scripts/pkg"
+    package.mkdir(parents=True)
+    script = package / "main.py"
+    script.write_text(source, encoding="utf-8")
+    (package / "helper.py").write_text("value = 1\n", encoding="utf-8")
+    monkeypatch.setitem(globals(), "ROOT", tmp_path)
+    assert _local_imports(script) == {"scripts/pkg/helper.py"}
