@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from scripts.langchain import pr_verifier
 
 
@@ -47,7 +49,12 @@ def test_semantic_mode_requires_envelope_and_never_falls_back_to_legacy_pass(mon
     assert pr_verifier.expanded_comparison_verdict({"semantic_acceptance": envelope}) == "CONCERNS"
 
 
-def test_semantic_mode_builds_full_matrix_before_offline_native_callbacks(monkeypatch):
+@pytest.mark.parametrize("fence", [None, "json", ""])
+def test_semantic_mode_builds_full_matrix_before_offline_native_callbacks(monkeypatch, fence):
+    raw = '{"verdict":"PASS","concerns":[],"summary":"Fixture review detail"}'
+    if fence is not None:
+        raw = f"```{fence}\n{raw}\n```"
+    monkeypatch.setattr(_Response, "content", [{"type": "text", "text": raw}])
     monkeypatch.setenv("PR_HEAD_SHA", "a" * 40)
     calls: list[str] = []
     clients = [_Client(calls, "one"), _Client(calls, "two")]
@@ -108,6 +115,7 @@ def test_semantic_mode_builds_full_matrix_before_offline_native_callbacks(monkey
     assert events[:2] == ["preflight:one", "preflight:two"]
     assert calls == ["one", "two"]
     assert run[0].summary == "Fixture review detail"
+    assert run[0].raw_content == raw
     assert "Fixture review detail" in run[0].raw_content
     assert "private" not in run[0].raw_content
     assert run.semantic_acceptance["schema"] == pr_verifier.SEMANTIC_ENVELOPE_SCHEMA
@@ -444,3 +452,22 @@ def test_cli_preserves_crlf_bytes_in_capture_and_line_ending_only_diffs(
         "context": hashlib.sha256(context_bytes).hexdigest(),
         "diff": hashlib.sha256(crlf_bytes).hexdigest(),
     }
+
+
+@pytest.mark.parametrize(
+    "raw",
+    [
+        'prefix\n```json\n{"verdict":"PASS"}\n```',
+        '```json\n{"verdict":"PASS"}\n```\nsuffix',
+        '```python\n{"verdict":"PASS"}\n```',
+        '```json\n{"verdict":"PASS"}',
+        '```json\n{"verdict":"PASS"}\n```\n```json\n{}\n```',
+        '```json\n{"verdict":"NOT_A_VERDICT"}\n```',
+        '```json\n{"verdict":"PASS","confidence":"0.9"}\n```',
+        '```json\n{"verdict":"PASS","unknown":true}\n```',
+        "```json\n[]\n```",
+    ],
+)
+def test_semantic_response_envelope_refuses_ambiguous_or_invalid_payloads(raw):
+    with pytest.raises(ValueError):
+        pr_verifier._parse_semantic_evaluation_payload(raw)
