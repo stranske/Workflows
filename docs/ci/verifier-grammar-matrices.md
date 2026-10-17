@@ -172,3 +172,48 @@ collection errors, stale startup evidence, malformed JSON, invalid durations,
 and entity rejection. The implementation PR retains RED/GREEN command output;
 these controls do not replace the original matched coverage and hosted timing
 acceptance for issue #3904.
+
+## Controlled hosted comparison
+
+`maint-88-verifier-runtime-comparison.yml` is a finite manual experiment for #3904,
+not a new PR gate or recurring benchmark service. After normal review/merge, dispatch
+it once from the reviewed harness commit. It runs Python 3.12 and 3.13 on standard
+`ubuntu-latest` runners. Within each job, both arms share the exact interpreter,
+installed dependency set, four loadgroup workers, markers, coverage configuration,
+commands and runner. The common dependency lock is taken from candidate
+`999ffe5fa00ac9c8ae8a807447f053277032b670`; baseline source is
+`2f9eb2de718d1a561bce6fc0bff46fe8b9867905`. No moving merge ref or `main` supplies
+measured source. The harness refuses unequal production verifier bytes or unequal
+pytest/coverage configuration. This isolates the original test-design change under
+a common candidate environment; it does not compare each historical installation.
+
+No artifact or dependency cache restore runs. Each arm starts in a fresh source
+archive with pytest cache disabled, bytecode writes disabled, and its own temporary
+directory. OS page-cache effects are not controlled; Python 3.12 runs baseline first
+and Python 3.13 runs candidate first. These are one pair per interpreter, not repeated
+trials sufficient to estimate variability. Dependency installation is outside the
+timed arms. This experiment therefore cannot claim that removing the former
+423-second artifact-discovery stall caused a test-execution speedup.
+
+The uploaded manifest records source commits/tree IDs, suite/source/configuration
+hashes, dependency lock hash, reviewed workflow SHA/hash and harness hash. Results
+retain actual package versions before/after both arms, exact commands, outer wall
+time, JUnit elapsed and summed worker timings, raw consoles and branch coverage.
+Startup/collection/reporting are included in outer wall time, not separately inferred.
+Any pytest failure, environment drift, missing coverage, or lost executed verifier
+line/branch fails the measurement job; no coverage threshold or required Gate is
+changed. Retain and adjudicate losses rather than treating aggregate percentage
+equality as equivalence. Passing this experiment does not establish all removed
+lexical tuples equivalent, all required jobs under ten minutes, or closure of #3904.
+
+Local checks before review:
+
+```bash
+python -m pytest tests/scripts/test_measure_verifier_runtime.py tests/workflows/test_workflow_naming.py -q
+python scripts/measure_verifier_runtime.py prepare --output /tmp/issue3904-prepared-unique
+```
+
+The second command validates and hashes the actual immutable inputs without
+executing the large suites. The real hosted pair runs only after the new workflow
+is reviewed and available on the default branch. Rollback is to remove this manual
+workflow and harness; production Gate/reusable CI have no dependency on either.

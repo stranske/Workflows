@@ -1,0 +1,56 @@
+name: Maint 88 Verifier Runtime Comparison
+
+# One finite #3904 experiment. Manual dispatch after ordinary review/merge only.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: verifier-runtime-comparison
+  cancel-in-progress: false
+
+jobs:
+  compare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.12', '3.13']
+    steps:
+      - name: Checkout reviewed harness and immutable source objects
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Set up common interpreter without dependency cache
+        uses: actions/setup-python@v7
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Prepare immutable arms
+        run: python scripts/measure_verifier_runtime.py prepare --output measurement
+      - name: Install one common immutable dependency lock
+        env:
+          PIP_NO_CACHE_DIR: '1'
+          PIP_DISABLE_PIP_VERSION_CHECK: '1'
+        run: python -m pip install --requirement measurement/candidate/requirements.lock
+      - name: Run both arms with identical coverage and four workers
+        run: python scripts/measure_verifier_runtime.py run --output measurement
+      - name: Upload exact source manifests and raw evidence
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: verifier-runtime-${{ matrix.python }}-${{ github.run_id }}
+          retention-days: 30
+          path: |
+            measurement/manifest.json
+            measurement/result.json
+            measurement/*.log
+            measurement/baseline/coverage.json
+            measurement/baseline/coverage.xml
+            measurement/baseline/pytest-junit.xml
+            measurement/candidate/coverage.json
+            measurement/candidate/coverage.xml
+            measurement/candidate/pytest-junit.xml

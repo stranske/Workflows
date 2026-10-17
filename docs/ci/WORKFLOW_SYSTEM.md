@@ -1165,3 +1165,5 @@ the Gate control surface, and treats every non-explicit-success outcome as
 blocking. The full threat model, live context audit, staged consumer rollout,
 and rollback contract are in
 [`docs/keepalive/FORK_GATE_STATUS_PUBLICATION.md`](../keepalive/FORK_GATE_STATUS_PUBLICATION.md).
+
+| **Maint 88 Verifier Runtime Comparison** (`maint-88-verifier-runtime-comparison.yml`, maintenance bucket) | `workflow_dispatch` | Finite #3904 baseline/candidate experiment with immutable inputs, common dependencies, explicit cold application caches, raw JUnit/coverage and source hashes. Retains ordinary Gate acceptance. | ⚪ Manual | [Comparison runs](https://github.com/stranske/Workflows/actions/workflows/maint-88-verifier-runtime-comparison.yml) |

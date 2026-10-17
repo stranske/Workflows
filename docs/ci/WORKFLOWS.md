@@ -312,3 +312,5 @@ Maint 79 joins this bot-published evidence (run/attempt and report URL included)
 to current merged-PR outcomes; missing identities and clean merges with NON_PASS
 decisions cannot create PASS benchmark cases. Staging-only PRs do not change
 approval metrics. See `docs/MODEL_SELECTION_POLICY.md` for the evidence contract.
+
+* [`maint-88-verifier-runtime-comparison.yml`](../../.github/workflows/maint-88-verifier-runtime-comparison.yml) is a manual, finite #3904 experiment. It compares immutable baseline/candidate commits with one common dependency lock and four coverage-instrumented workers. It does not replace Gate or run on a schedule. Review and merge the harness before dispatch; see [the measurement protocol](verifier-grammar-matrices.md#controlled-hosted-comparison).
