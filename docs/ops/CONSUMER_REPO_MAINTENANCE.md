@@ -3151,3 +3151,18 @@ Cross-line anaphoric diagnostics normalize unordered/ordered/task/quote prefixes
 Evidence selection and incidental fallback share one clause classification with the same negative URL-subject spans and independent clause boundaries. Comma-and/or joins between URL subjects stay coordinated; independent non-URL clauses and while/whereas/but contrasts retain their own scope. Cross-line anaphoric cleanup consumes those same boundaries. Native4290073005 causal RED and the1072-case source/template anchored/unanchored coordination matrix are retained, with full157tests PASS. No typed-union, raw-comment, exact-head provenance or channel-completeness floor changes.
 
 Coordinated negative subjects use shared descriptor-aware URL tokens and a bounded scan of separators, avoiding repeated regex partitions. Commas cannot be URL-token content; run/workflow-run descriptors are subject members, while colon-labelled descriptive evidence declarations reopen affirmative scope. Oversized32768-character prose lines make reference-scope/artifact completeness unavailable before classification; raw body/comments and typed evidence remain preserved. Native4290325535/4290325565, CodeRabbit4290327270, real earlier-head timeout and cap RED controls plus full160tests/16892coordination checks are retained.
+
+### Stable canary refresh clock
+
+Maint 71 uses `STALE_CANARY_HOURS = 6` against the producer's
+`head_observed_at` to recover blocked or non-mergeable canaries. Green,
+mergeable canaries follow the normal exact-head merge and campaign evidence
+gates regardless of age. Maint 68 records the current UTC observation on a
+successful verified unchanged-base/tree run too, preserving its review
+lifecycle and head. This canary producer runs while promotion is held; it
+does not require the promotion evidence it helps unblock. Comments do not
+reset the clock. Maint 71 groups refresh requests by plan ID within each run
+and dispatches once for each held plan unless a producer writer is active.
+Upstream finding markers suppress duplicate comments only when authored by
+the authenticated Maint 71 writer. When drained, the summary is
+`canaries: red=0 review_blocked=0 stale=0 refresh_dispatched=0 held_plan=none`.

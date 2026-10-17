@@ -13,12 +13,16 @@ const DEFAULT_REVIEW_POLICY = Object.freeze({
 const GENERATED_DELIVERY_REQUIRED_CONTEXTS = Object.freeze(['Gate / gate']);
 const STALE_CANARY_HOURS = 6;
 
-// Use the producer's head observation, not issue activity: comments and
-// restaging must not make an old generated payload look freshly delivered.
+// Age is a recovery trigger for blocked canaries, never a hold on green ones.
+// Only a successful producer observation resets the clock; comments do not.
 function canaryNeedsRefresh(canary, now = Date.now()) {
   if (canary.mergeable_state === 'behind') return 'behind';
   if (canary.check_status === 'checks_failed') return 'checks_failed';
   if (canary.active_review_thread_count > 0) return 'review_blocked';
+  // Leave healthy heads on the normal exact-head merge/evidence path. Unknown
+  // mergeability still goes through that path's existing fail-closed gates.
+  if (['ready', 'success'].includes(canary.check_status) && canary.mergeable !== false
+    && !['dirty', 'blocked', 'unknown', 'draft'].includes(canary.mergeable_state)) return null;
   const observed = Date.parse(canary.head_observed_at || canary.updated_at || canary.created_at || '');
   if (Number(now) - observed > STALE_CANARY_HOURS * 60 * 60 * 1000) return 'stale';
   return null;
@@ -26,6 +30,9 @@ function canaryNeedsRefresh(canary, now = Date.now()) {
 
 async function routeCanaryReviewUpstream({ canary, manifestEntries, withRetry, context }) {
   const { resolveManifestSyncedSource } = require('./sync_pr_merge_contract');
+  const { data: writer } = await withRetry((client) => client.rest.users.getAuthenticated());
+  const writerLogin = String(writer?.login || '').trim();
+  if (!writerLogin) throw new Error('canary_upstream_writer_unknown');
   const routed = [];
   for (const thread of canary.threads || []) {
     if (thread.isResolved || thread.isOutdated) continue;
@@ -53,7 +60,8 @@ async function routeCanaryReviewUpstream({ canary, manifestEntries, withRetry, c
       { ...location, ...(latest ? { issue_number: latest.number } : { commit_sha: commit }),
         per_page: 100 },
     ));
-    if (comments.some((comment) => String(comment.body || '').includes(marker))) continue;
+    if (comments.some((comment) => comment?.user?.login === writerLogin
+      && String(comment.body || '').includes(marker))) continue;
     const body = [marker,
       `Maint 71: stable canary ${canary.owner}/${canary.repo}#${canary.pr} is review_blocked.`,
       `Upstream source: \`${source.sourcePath}\` (consumer path \`${thread.path}\`).`,
@@ -72,14 +80,15 @@ async function refreshStableCanaries({
   canaries, withRetry, context, core, manifestEntries, enabled, now = Date.now(),
 }) {
   const counts = { red: 0, review_blocked: 0, stale: 0, refresh_dispatched: 0 };
+  // Run-local plan-id deduplication: each distinct held plan gets one request.
   const plans = new Map();
   const errors = [];
   for (const canary of canaries) {
     if (canary.check_status === 'checks_failed') counts.red++;
     if (canary.active_review_thread_count > 0) counts.review_blocked++;
-    if (canaryNeedsRefresh({ ...canary, mergeable_state: '', check_status: '',
-      active_review_thread_count: 0 }, now) === 'stale') counts.stale++;
     const reason = canaryNeedsRefresh(canary, now);
+    if (reason && canaryNeedsRefresh({ ...canary, mergeable_state: '', mergeable: false,
+      check_status: '', active_review_thread_count: 0 }, now) === 'stale') counts.stale++;
     canary.refresh_reason = reason;
     if (!reason) continue;
     if (!canary.plan_id) {
@@ -3422,7 +3431,7 @@ async function run({ github, context, core }) {
         && expectedCanaryRepos.includes(`${owner}/${repo}`)
         && metadata?.sync_phase === 'canary') {
         const canary = { owner, repo, pr: pr.number, plan_id: deliveryContext.plan_id,
-          mergeable_state: pr.mergeable_state, check_status: classification.status,
+          mergeable_state: pr.mergeable_state, mergeable: pr.mergeable, check_status: classification.status,
           active_review_thread_count: activeReviewThreads,
           head_observed_at: deliveryRecord?.head_observed_at,
           updated_at: pr.updated_at, created_at: pr.created_at,

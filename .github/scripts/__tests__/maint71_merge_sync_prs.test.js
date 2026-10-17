@@ -42,6 +42,7 @@ workflows:
     target: .github/workflows/consumer-gate.yml
 `);
   const github = { rest: {
+    users: { getAuthenticated: async () => ({ data: { login: 'maint71-bot' } }) },
     actions: {
       listWorkflowRuns: async () => ({ data: { workflow_runs: [] } }),
       createWorkflowDispatch: async (params) => dispatches.push(params),
@@ -51,9 +52,9 @@ workflows:
       listCommits: async (params) => { reads.push(params); return { data: [{ sha: 'a'.repeat(40) }] }; },
       listPullRequestsAssociatedWithCommit: () => {},
       listCommentsForCommit: () => {},
-      createCommitComment: async (params) => comments.push(params),
+      createCommitComment: async (params) => comments.push({ ...params, user: { login: 'maint71-bot' } }),
     },
-    issues: { listComments: () => {}, createComment: async (params) => comments.push(params) },
+    issues: { listComments: () => {}, createComment: async (params) => comments.push({ ...params, user: { login: 'maint71-bot' } }) },
   }, paginate: async (method) => {
     if (method === github.rest.repos.listPullRequestsAssociatedWithCommit) {
       return overrides.prs ?? [{ number: 4020, merged_at: '2026-10-16T10:00:00Z',
@@ -73,7 +74,7 @@ for (const [state, change] of [
   ['behind', { mergeable_state: 'behind' }],
   ['checks_failed', { check_status: 'checks_failed' }],
   ['review_blocked', { active_review_thread_count: 1 }],
-  ['stale', { head_observed_at: '2026-10-17T05:00:00Z' }],
+  ['stale', { mergeable_state: 'dirty', head_observed_at: '2026-10-17T05:00:00Z' }],
 ]) {
   test(`stable canary ${state} refreshes once per plan with the right reason`, async () => {
     const api = refreshHarness();
@@ -104,7 +105,7 @@ test('all current green canaries and an empty run emit zero counts without dispa
 
 test('staleness uses producer head age, with a strict six-hour boundary', () => {
   assert.equal(STALE_CANARY_HOURS, 6);
-  const atBoundary = refreshCanary({ head_observed_at: new Date(refreshNow - 6 * 3600000).toISOString() });
+  const atBoundary = refreshCanary({ mergeable_state: 'dirty', head_observed_at: new Date(refreshNow - 6 * 3600000).toISOString() });
   assert.equal(canaryNeedsRefresh(atBoundary, refreshNow), null);
   assert.equal(canaryNeedsRefresh(atBoundary, refreshNow + 1), 'stale');
   assert.equal(canaryNeedsRefresh({ ...atBoundary, updated_at: new Date(refreshNow).toISOString() },
@@ -121,6 +122,7 @@ test('canary refresh reasons prioritize blockers over age and retain legacy time
   blocked.check_status = 'success';
   assert.equal(canaryNeedsRefresh(blocked, refreshNow), 'review_blocked');
   blocked.active_review_thread_count = 0;
+  blocked.mergeable_state = 'dirty';
   assert.equal(canaryNeedsRefresh(blocked, refreshNow), 'stale');
   delete blocked.head_observed_at;
   blocked.updated_at = '2026-10-17T05:00:00Z';
@@ -188,7 +190,7 @@ test('review findings route manifest targets upstream once, including template s
 test('an existing upstream comment is reused and direct commits use commit comments', async () => {
   for (const existing of [false, true]) {
     const api = refreshHarness({ prs: [], existing: existing ? [{
-      body: '<!-- maint71-canary-upstream:stranske/Ready:PRRT_4026 -->',
+      user: { login: 'maint71-bot' }, body: '<!-- maint71-canary-upstream:stranske/Ready:PRRT_4026 -->',
     }] : [] });
     await refreshStableCanaries({ ...api, canaries: [refreshCanary({ active_review_thread_count: 1,
       threads: [{ id: 'PRRT_4026', path: 'scripts/shared.js', isResolved: false, isOutdated: false,
@@ -205,12 +207,14 @@ async function assertExecutorCanaryRefresh(t, state) {
   const repository = require('../../../config/consumer_sync_canaries.json').canaries[0].repo;
   const [owner, repo] = repository.split('/');
   const head = 'd'.repeat(40), source = 'c'.repeat(40), plan = `sha256:${'a'.repeat(64)}`;
-  const ageMinutes = state === 'stale' ? (STALE_CANARY_HOURS + 1) * 60 : 20;
-  const observed = new Date(Date.now() - ageMinutes * 60 * 1000).toISOString();
+  t.mock.timers.enable({ apis: ['Date'], now: refreshNow });
+  const ageMinutes = ['stale', 'aged_green'].includes(state) ? (STALE_CANARY_HOURS + 1) * 60 : 20;
+  const observed = new Date(refreshNow - ageMinutes * 60 * 1000).toISOString();
   const { formatDeliveryRecord } = require('../sync_pr_lease_contract');
   const candidate = { number: 4026, title: 'chore: sync workflow templates',
     state: 'open', draft: false, auto_merge: null, user: { login: 'stranske' },
-    mergeable_state: state === 'behind' ? 'behind' : 'clean',
+    mergeable: state !== 'stale',
+    mergeable_state: state === 'behind' ? 'behind' : state === 'stale' ? 'dirty' : 'clean',
     head: { ref: 'sync/workflows-candidate', sha: head }, base: { ref: 'main' },
     created_at: observed, updated_at: observed,
     body: `<!-- workflows-consumer-sync:v1 ${JSON.stringify({
@@ -225,8 +229,9 @@ async function assertExecutorCanaryRefresh(t, state) {
       lease_expires_at: '2099-01-01T00:00:00Z', delivery_state: 'sealed',
       sealed_at: observed, sealed_head_sha: head, review_started_at: observed,
     }) };
-  const dispatches = [], updates = [], summaries = [], failures = [];
+  const dispatches = [], updates = [], summaries = [], failures = [], merges = [];
   const github = { rest: {
+    users: { getAuthenticated: async () => ({ data: { login: 'maint71-bot' } }) },
     pulls: {
       list: () => {}, get: async () => ({ data: structuredClone(candidate) }),
       update: async (params) => {
@@ -235,9 +240,14 @@ async function assertExecutorCanaryRefresh(t, state) {
         return { data: structuredClone(candidate) };
       },
       updateBranch: async () => assert.fail('stable canary must never call pulls.updateBranch'),
-      merge: async () => assert.fail(`${state} canary must never merge`),
+      merge: async (params) => {
+        assert.equal(state, 'aged_green', `${state} canary must never merge`);
+        merges.push(params); return { data: { merged: true } };
+      },
     },
-    git: { getCommit: async () => ({ data: { tree: { sha: 'tree' } } }) },
+    git: { getCommit: async () => ({ data: { tree: { sha: 'tree' } } }),
+      deleteRef: async () => {},
+    },
     repos: {
       getCombinedStatusForRef: async () => ({ data: { statuses: [] } }),
       getBranchProtection: async () => ({ data: { required_status_checks: { contexts: ['Gate / gate'] } } }),
@@ -245,7 +255,13 @@ async function assertExecutorCanaryRefresh(t, state) {
       createDispatchEvent: async () => {},
     },
     checks: { listForRef: () => {} },
-    issues: { addLabels: async () => {}, removeLabel: async () => {} },
+    issues: { addLabels: async () => {}, removeLabel: async () => {},
+      listLabelsOnIssue: async () => ({ data: [] }),
+      listComments: async () => ({ data: [{ id: 71, user: { login: 'maint71-bot' },
+        created_at: observed, body: '@codex review\n<!-- maint71-review-request:v1 ' +
+          JSON.stringify({ plan_id: plan, generation: 'generation', head_sha: head, reviewer: 'codex' }) + ' -->',
+      }] }),
+    },
     actions: {
       listWorkflowRuns: async () => ({ data: { workflow_runs: [] } }),
       createWorkflowDispatch: async (params) => dispatches.push(params),
@@ -258,7 +274,10 @@ async function assertExecutorCanaryRefresh(t, state) {
         conclusion: state === 'checks_failed' ? 'failure' : 'success' },
     ];
     throw new Error('unexpected pagination');
-  }, graphql: async () => ({ repository: { pullRequest: {
+  }, graphql: async () => ({ repository: {
+    object: { signature: { isValid: true, state: 'VALID', wasSignedByGitHub: true } },
+    pullRequest: { state: 'OPEN', headRefOid: head, body: candidate.body,
+    createdAt: observed, updatedAt: observed,
     reviewThreads: { pageInfo: { hasNextPage: false }, nodes: state === 'review_blocked' ? [
       { id: 'PRRT_executor', path: 'consumer-owned.js', isResolved: false, isOutdated: false,
         comments: { pageInfo: { hasNextPage: false }, nodes: [] } },
@@ -274,7 +293,9 @@ async function assertExecutorCanaryRefresh(t, state) {
     ACTIVE_SYNC_HASH_INPUT: 'candidate', EXPECTED_PLAN_ID_INPUT: plan,
     EXPECTED_SOURCE_COMMIT_INPUT: source, EXPECTED_PLAN_SCOPE_INPUT: 'full',
     SYNC_PR_MERGE_REPORT_JSON: path.join(dir, 'report.json'),
-    EVIDENCE_ONLY_INPUT: 'false', RESOLUTION_ONLY_INPUT: 'false', PREPARE_ONLY_INPUT: 'true' };
+    EVIDENCE_ONLY_INPUT: 'false', RESOLUTION_ONLY_INPUT: 'false',
+    CANDIDATE_EVIDENCE_AUTHORIZED: 'true',
+    PREPARE_ONLY_INPUT: state === 'aged_green' ? 'false' : 'true' };
   const original = Object.fromEntries(Object.keys(env).map((key) => [key, process.env[key]]));
   t.after(() => {
     for (const [key, value] of Object.entries(original)) {
@@ -289,7 +310,19 @@ async function assertExecutorCanaryRefresh(t, state) {
   } });
   const report = JSON.parse(fs.readFileSync(env.SYNC_PR_MERGE_REPORT_JSON, 'utf8'));
   assert.deepEqual(failures, [], JSON.stringify(report.results));
-  const row = report.results.find((row) => row.owner === owner && row.repo === repo);
+  const row = report.results.find((row) => row.owner === owner && row.repo === repo
+    && (state !== 'aged_green' || row.status === 'merged'));
+  if (state === 'aged_green') {
+    assert.equal(row.status, 'merged', JSON.stringify(report.results));
+    assert.equal(merges.length, 1);
+    assert.equal(merges[0].sha, head);
+    assert.equal(dispatches.length, 0);
+    assert.equal(updates.length, 0);
+    assert.equal(report.canary_refresh.stale, 0);
+    assert.equal(report.canary_refresh.refresh_dispatched, 0);
+    assert.ok(summaries.includes('canaries: red=0 review_blocked=0 stale=0 refresh_dispatched=0 held_plan=none\n'));
+    return;
+  }
   assert.equal(row.status, 'stable_base_refresh_required', JSON.stringify(report.results));
   assert.equal(row.next_command, 'rerun-after-maint-68-canary-refresh');
   assert.equal(row.refresh_reason, state);
@@ -309,6 +342,49 @@ for (const state of ['behind', 'checks_failed', 'review_blocked', 'stale']) {
   test(`executor refreshes a ${state} stable canary before early exits and preserves the head`,
     async (t) => assertExecutorCanaryRefresh(t, state));
 }
+
+test('executor merges a green mergeable seven-hour canary without refreshing',
+  async (t) => assertExecutorCanaryRefresh(t, 'aged_green'));
+
+test('distinct plans each dispatch once in the same run, deduplicated by plan id', async () => {
+  const api = refreshHarness();
+  const rows = ['plan-A', 'plan-B', 'plan-A', 'plan-B'].map((plan_id, index) =>
+    refreshCanary({ repo: `Repo${index}`, plan_id, check_status: 'checks_failed' }));
+  const result = await refreshStableCanaries({ ...api, canaries: rows });
+  assert.equal(api.dispatches.length, 2);
+  assert.equal(result.refresh_dispatched, 2);
+  assert.deepEqual(result.held_plans, ['plan-A', 'plan-B']);
+});
+
+test('an untrusted marker cannot suppress upstream routing', async () => {
+  const api = refreshHarness({ existing: [{ user: { login: 'someone-else' },
+    body: '<!-- maint71-canary-upstream:stranske/Ready:PRRT_4026 -->' }] });
+  await refreshStableCanaries({ ...api, canaries: [refreshCanary({ active_review_thread_count: 1,
+    threads: [{ id: 'PRRT_4026', path: 'scripts/shared.js', isResolved: false, isOutdated: false,
+      comments: { nodes: [{ url: 'https://github.com/stranske/Ready/pull/12#discussion_r4026' }] } }],
+  })] });
+  assert.equal(api.comments.length, 1);
+});
+
+test('Maint 68 verified unchanged-tree run resets producer observation without changing lifecycle', () => {
+  const workflow = fs.readFileSync(path.join(__dirname, '../../workflows/maint-68-sync-consumer-repos.yml'), 'utf8');
+  const start = workflow.indexOf('          desired_tree_hash=$(git write-tree)');
+  const end = workflow.indexOf('          elif [ -n "$existing_pr" ]', start);
+  assert.ok(start >= 0 && end > start);
+  const script = `set -eu
+    git() { echo tree; }
+    date() { echo 2026-10-17T12:00:00Z; }
+    existing_pr=12 existing_refreshable=true existing_base=base base_sha=base
+    existing_tree=tree existing_verified=true existing_lifecycle_initialized=true
+    existing_head=unchanged head_observed_sha=unchanged head_observed_at=2026-10-17T05:00:00Z
+    delivery_state=sealed review_started_at=prior sealed_at=prior sealed_head_sha=unchanged
+    ${workflow.slice(start, end)}
+    fi
+    echo "RESULT:$head_observed_sha:$head_observed_at:$delivery_state:$sealed_at:$matching_existing"
+  `;
+  const output = require('node:child_process').execFileSync('bash', ['-c', script], { encoding: 'utf8' });
+  assert.match(output, /RESULT:unchanged:2026-10-17T12:00:00Z:sealed:prior:true/);
+});
 
 test('native proof comments are read from the consumer while independent proof comments stay in Workflows', () => {
   const consumer = { owner: 'stranske', repo: 'Ready' };

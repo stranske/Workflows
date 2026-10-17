@@ -1343,10 +1343,9 @@ jobs:
               review_evidence='{}'
               echo "Existing PR #$existing_pr already matches this base and desired tree; migrating its legacy metadata into the staged delivery lifecycle"
             fi
-            if [ "$head_observed_sha" != "$existing_head" ] || [ -z "$head_observed_at" ]; then
-              head_observed_sha="$existing_head"
-              head_observed_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-            fi
+            # A verified no-op is a successful producer observation too.
+            head_observed_sha="$existing_head"
+            head_observed_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
           elif [ -n "$existing_pr" ] \
             && [ "$existing_refreshable" = "true" ] \
             && [ "$existing_base" = "$base_sha" ] \
