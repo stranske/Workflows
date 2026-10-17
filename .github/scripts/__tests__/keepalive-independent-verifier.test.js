@@ -18,12 +18,12 @@ const REGISTRY = {
     claude: { runner_workflow: 'cl.yml', capabilities: { pr_keepalive: true } },
     cursor: {
       runner_workflow: 'cu.yml',
-      independent_verifier: 'claude',
+      independent_verifier: ['claude', 'codex'],
       capabilities: { pr_keepalive: true },
     },
     muse: {
       runner_workflow: 'm.yml',
-      independent_verifier: 'codex',
+      independent_verifier: ['claude', 'codex'],
       capabilities: { pr_keepalive: true },
     },
     gemini: { runner_workflow: 'g.yml', capabilities: { pr_keepalive: true } },
@@ -56,10 +56,30 @@ for (const modulePath of [
       const result = resolve({ agentType });
       assert.notEqual(result.agent, agentType, `${agentType} verified itself`);
     }
-    assert.equal(resolve({ agentType: 'cursor' }).agent, 'claude');
-    assert.equal(resolve({ agentType: 'muse' }).agent, 'codex');
     assert.equal(resolve({ agentType: 'codex' }).agent, 'claude');
     assert.equal(resolve({ agentType: 'claude' }).agent, 'codex');
+  });
+
+  test(`a less proven agent is verified by either proven agent at random (${modulePath})`, () => {
+    for (const agentType of ['cursor', 'muse']) {
+      assert.equal(resolve({ agentType, random: () => 0 }).agent, 'claude');
+      assert.equal(resolve({ agentType, random: () => 0.99 }).agent, 'codex');
+      assert.equal(resolve({ agentType, random: () => 0.5 }).source, 'registry-random');
+    }
+    const seen = new Set();
+    for (let i = 0; i < 200; i += 1) seen.add(resolve({ agentType: 'muse' }).agent);
+    assert.deepEqual([...seen].sort(), ['claude', 'codex']);
+  });
+
+  test(`random choice never lands on an agent without credentials (${modulePath})`, () => {
+    for (const r of [0, 0.5, 0.99]) {
+      const result = resolve({
+        agentType: 'cursor',
+        random: () => r,
+        env: { ...ALL_AUTH, HAS_CLAUDE_AUTH: 'false' },
+      });
+      assert.equal(result.agent, 'codex');
+    }
   });
 
   test(`a declared alternate without credentials is skipped, not chosen (${modulePath})`, () => {
@@ -68,7 +88,7 @@ for (const modulePath of [
       env: { ...ALL_AUTH, HAS_CLAUDE_AUTH: 'false' },
     });
     assert.equal(result.agent, 'codex');
-    assert.equal(result.source, 'first-available');
+    assert.equal(result.source, 'registry');
   });
 
   test(`Claude OAuth alone counts as Claude credentials (${modulePath})`, () => {
