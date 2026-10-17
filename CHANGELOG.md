@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.42.0](https://github.com/stranske/Workflows/compare/v1.41.3...v1.42.0) (2026-10-17)
+
+
+### Features
+
+* **ci:** add daily CI time budget control ([#4050](https://github.com/stranske/Workflows/issues/4050)) ([833696a](https://github.com/stranske/Workflows/commit/833696a703b34b4bd9731365d0ad861f752261f6))
+
 ## [1.41.3](https://github.com/stranske/Workflows/compare/v1.41.2...v1.41.3) (2026-10-17)
 
 
