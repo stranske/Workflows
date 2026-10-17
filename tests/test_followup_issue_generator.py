@@ -2850,8 +2850,27 @@ def test_guard_payloads_annotates_reason_with_nonempty_label(
     }
 
 
-# Ranked target still has uncovered OSError fallbacks at _read_existing_file (2089-2090).
+def test_blocked_reason_with_source_omits_blank_annotation_for_empty_label() -> None:
+    """Empty labels must not produce a blank ``(source: )`` suffix.
+
+    Ranked target gap (issue #3956): escaped-defect priority, then churn, then
+    uncovered mass on ``scripts/langchain/followup_issue_generator.py``. The
+    empty-label branch is exercised via the extracted helper so tests do not
+    mutate ``_guard_payloads`` locals through caller-frame inspection.
+    """
+
+    assert (
+        followup_issue_generator._blocked_reason_with_source("injection detected", "")
+        == "injection detected"
+    )
+    assert (
+        followup_issue_generator._blocked_reason_with_source("injection detected", "codex_log")
+        == "injection detected (source: codex_log)"
+    )
+
+
 # Issue #3956 ranking: escaped-defect priority, then churn, then uncovered mass.
+# OSError fallbacks below close the Path.is_file / read_text defensive paths.
 
 
 def test_read_existing_file_returns_none_when_is_file_raises_oserror(

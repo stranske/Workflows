@@ -102,6 +102,19 @@ NON_PASS_DETAIL_LIMIT = 10
 LOGGER = logging.getLogger(__name__)
 
 
+def _blocked_reason_with_source(reason: str, label: str) -> str:
+    """Annotate a guard block reason with its payload source when *label* is set.
+
+    Production callers always pass nonempty labels today; the empty-label path
+    intentionally omits a blank ``(source: )`` suffix so triage stays readable
+    if a future caller supplies an empty label.
+    """
+
+    if label:
+        return f"{reason} (source: {label})"
+    return reason
+
+
 def _guard_payloads(
     *,
     verification_text: str,
@@ -120,10 +133,10 @@ def _guard_payloads(
     for label, text in payloads:
         result = check_prompt_injection(text)
         if result["blocked"]:
-            reason = result["reason"]
-            if label:
-                reason = f"{reason} (source: {label})"
-            return {"blocked": True, "reason": reason}
+            return {
+                "blocked": True,
+                "reason": _blocked_reason_with_source(str(result["reason"]), label),
+            }
 
     return {"blocked": False, "reason": ""}
 
