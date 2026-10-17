@@ -166,7 +166,7 @@ units come from the capacity ledger; a 429 or shed ends the pilot and is recorde
 | 4. Evaluator replay | Archived experiments whose consensus ranking exists | Argon's `judge_reliability` row: `ready`, weight, mean error vs consensus | Counts in rankings again only when `ready`, at its earned weight |
 
 **First pilot run (2026-10-17, `tools/agy_pilot.py`, evidence `docs/evidence/judge-screen-20261017/agy-pilot-1.json`).**
-Exploratory: 2 modules with 3 seeded defects each (6 defects); a third module yielded no validated mutants. Tokens are as the backend reported them.
+Exploratory: 5 seeded defects across two modules; a third module yielded no validated mutants. Tokens are as the backend reported them.
 
 | Backend | Pilot | Mode | Result | Tokens per item |
 | --- | --- | --- | --- | ---: |
@@ -197,3 +197,5 @@ reported by pilots 3 and 5.
   on an API key, whereas the local seat is `agy` on a subscription login. They bill differently and
   fail differently. Give the local seat its own name before any routing or ledger decision depends on
   the distinction.
+
+Pilot execution safety: generated Python runs only in the deny-by-default macOS sandbox with a minimal environment, scratch-only writes, runtime-only reads and no network. Unsupported hosts or isolation startup failures fail closed. agy prompts use stdin stream events; any reported tool activity makes the call unusable. The archived first pilot predates these controls and is exploratory evidence, not a production qualification.

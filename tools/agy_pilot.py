@@ -14,8 +14,9 @@ module's OWN tests fail on it, which proves it is a behavioural defect and not n
 Each job runs twice, one call per module (single) and one call for several modules (batched), so
 units per item and empty-result failures are measured on the same work (Workflows agy guide, pilots 3
 and 5, option 6). Tokens are reported as the backend states them; a backend that reports none is
-shown as ``None``, never estimated. Models never get tools: agy runs ``--mode plan`` in a scratch
-directory, Claude runs with every tool disabled.
+shown as ``None``, never estimated. Claude runs with every tool disabled; agy stream calls are
+rejected if they report tool activity. Generated tests run only inside a deny-by-default macOS
+sandbox; unsupported hosts or sandbox failures fail closed without running generated code.
 
 This is exploratory evidence from a handful of modules. It can rank candidates against an incumbent
 on the same work; it cannot approve a candidate for anything.
@@ -36,7 +37,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from tools.run_judge_backend_screen import _clean_env, _int, _ms
+from tools.run_judge_backend_screen import _clean_env, _contains_tool_event, _int, _ms
 
 ROOT = Path(__file__).resolve().parent.parent
 SCHEMA = "workflows-agy-pilot/v1"
@@ -109,24 +110,65 @@ def candidate_mutants(source: str) -> list[Mutant]:
     return found
 
 
-def _run_pytest(module_name: str, module_source: str, tests: str, timeout: int = 120) -> bool:
-    """True when `tests` (a pytest file text) passes against `module_source` in a scratch dir."""
+def _sandbox_command(scratch: str, command: list[str]) -> list[str] | None:
+    """Allow only the selected Python runtime, OS libraries and the scratch tree.
+
+    Never fall back to host execution. A stripped environment also excludes secrets
+    with names outside the conventional TOKEN/KEY patterns. No network permission
+    is granted, and scratch is the only writable filesystem tree.
+    """
+    if sys.platform != "darwin" or not Path("/usr/bin/sandbox-exec").is_file():
+        return None
+    readable = [
+        str(Path(sys.base_prefix).resolve()),
+        str(Path(sys.prefix).resolve()),
+        "/System/Library",
+        "/usr/lib",
+        "/Library/Apple/System/Library",
+        str(Path(scratch).resolve()),
+    ]
+    reads = " ".join(f"(subpath {json.dumps(path)})" for path in readable)
+    ancestors = {str(parent) for path in readable for parent in Path(path).parents}
+    directories = " ".join(f"(literal {json.dumps(path)})" for path in sorted(ancestors))
+    profile = (
+        "(version 1)(deny default)(allow process-exec)(allow sysctl-read)"
+        "(allow file-read-metadata)"
+        f'(allow file-read* {reads} {directories} (literal "/dev/null") (literal "/dev/urandom"))'
+        f"(allow file-write* (subpath {json.dumps(str(Path(scratch).resolve()))})"
+        ' (literal "/dev/null"))'
+    )
+    return ["/usr/bin/sandbox-exec", "-p", profile, *command]
+
+
+def _run_pytest(
+    module_name: str, module_source: str, tests: str, timeout: int = 120, *, isolated: bool = False
+) -> bool:
+    """Execute trusted fixtures or sandboxed generated tests; isolation failures fail closed."""
     with tempfile.TemporaryDirectory(prefix="agy-pilot-") as scratch:
         package = Path(scratch) / "tools"
         package.mkdir()
         (package / "__init__.py").write_text("")
         (package / f"{module_name}.py").write_text(module_source)
         (Path(scratch) / f"test_{module_name}_pilot.py").write_text(tests)
+        command = [sys.executable, "-m", "pytest", "-x", "-q", "-p", "no:cacheprovider", scratch]
+        env = _clean_env()
+        if isolated:
+            sandboxed = _sandbox_command(scratch, command)
+            if sandboxed is None:
+                return False
+            command = sandboxed
+            env = {
+                "PATH": str(Path(sys.executable).parent),
+                "HOME": scratch,
+                "TMPDIR": scratch,
+                "PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1",
+                "PYTHONDONTWRITEBYTECODE": "1",
+            }
         try:
             run = subprocess.run(
-                [sys.executable, "-m", "pytest", "-x", "-q", "-p", "no:cacheprovider", scratch],
-                capture_output=True,
-                text=True,
-                timeout=timeout,
-                cwd=scratch,
-                env=_clean_env(),
+                command, capture_output=True, text=True, timeout=timeout, cwd=scratch, env=env
             )
-        except subprocess.TimeoutExpired:
+        except (subprocess.TimeoutExpired, OSError):
             return False
         return run.returncode == 0
 
@@ -220,13 +262,21 @@ def score_audit(findings: list[dict], target: Target) -> dict:
         except (TypeError, ValueError):
             continue
     seeded = [m.line for m in target.mutants]
-    hit = {s for s in seeded if any(abs(s - c) <= LINE_TOLERANCE for c in lines)}
-    useful = [c for c in lines if any(abs(s - c) <= LINE_TOLERANCE for s in seeded)]
+    # Ordered one-to-one matching prevents one citation counting adjacent defects.
+    # For equal-width intervals, matching the earliest available endpoint is maximal.
+    remaining = sorted(set(seeded))
+    matched = 0
+    for cited in sorted({c for c in lines if 1 <= c <= n_lines}):
+        for index, line in enumerate(remaining):
+            if abs(line - cited) <= LINE_TOLERANCE:
+                remaining.pop(index)
+                matched += 1
+                break
     return {
         "seeded": len(seeded),
-        "found": len(hit),
+        "found": matched,
         "reported": len(lines),
-        "useful": len(useful),
+        "useful": matched,
         "resolving": sum(1 <= c <= n_lines for c in lines),
     }
 
@@ -235,9 +285,11 @@ def score_testgen(tests: str | None, target: Target) -> dict:
     """The generated file must pass on clean code; then the share of mutants it kills."""
     if not tests or not tests.strip():
         return {"mutants": len(target.mutants), "killed": 0, "clean_pass": False}
-    clean = _run_pytest(target.name, target.source, tests)
+    clean = _run_pytest(target.name, target.source, tests, isolated=True)
     killed = (
-        sum(not _run_pytest(target.name, m.source, tests) for m in target.mutants) if clean else 0
+        sum(not _run_pytest(target.name, m.source, tests, isolated=True) for m in target.mutants)
+        if clean
+        else 0
     )
     return {"mutants": len(target.mutants), "killed": killed, "clean_pass": clean}
 
@@ -266,12 +318,15 @@ def run_pilot(
         for target in group:
             if kind == "audit":
                 raw = (parsed or {}).get("findings")
-                findings = raw if isinstance(raw, list) else []
+                usable = isinstance(raw, list)
+                findings = raw if usable else []
                 row = score_audit([f for f in findings if isinstance(f, dict)], target)
             else:
-                tests = ((parsed or {}).get("tests") or {}).get(target.name)
-                row = score_testgen(tests if isinstance(tests, str) else None, target)
-            scores.append({"module": target.name, "usable": parsed is not None, **row})
+                payload = (parsed or {}).get("tests")
+                tests = payload.get(target.name) if isinstance(payload, dict) else None
+                usable = isinstance(tests, str) and bool(tests.strip())
+                row = score_testgen(tests if usable else None, target)
+            scores.append({"module": target.name, "usable": usable, **row})
     tokens_in = [c.tokens_in for c in calls]
     tokens_out = [c.tokens_out for c in calls]
     items_done = len(targets)
@@ -335,9 +390,11 @@ def agy_backend(model: str, timeout: int = 480, agy: str = "agy") -> Backend:
                 "--gemini_dir",
                 str(Path(scratch) / ".gemini"),
                 "-p",
-                prompt,
+                "",
+                "--input-format",
+                "stream-json",
                 "--output-format",
-                "json",
+                "stream-json",
                 "--model",
                 model,
                 "--mode",
@@ -350,6 +407,10 @@ def agy_backend(model: str, timeout: int = 480, agy: str = "agy") -> Backend:
             try:
                 run = subprocess.run(
                     command,
+                    input=json.dumps(
+                        {"type": "user", "message": {"role": "user", "content": prompt}}
+                    )
+                    + "\n",
                     capture_output=True,
                     text=True,
                     cwd=scratch,
@@ -357,10 +418,28 @@ def agy_backend(model: str, timeout: int = 480, agy: str = "agy") -> Backend:
                     check=False,
                     env=_clean_env(),
                 )
-            except subprocess.TimeoutExpired:
-                return ModelCall(error="agy timed out", latency_ms=_ms(started))
+            except (subprocess.TimeoutExpired, OSError) as error:
+                return ModelCall(
+                    error=f"agy process failure: {type(error).__name__}", latency_ms=_ms(started)
+                )
         try:
-            envelope = json.loads(run.stdout)
+            events = [json.loads(line) for line in run.stdout.splitlines() if line.strip()]
+            if any(not isinstance(event, dict) for event in events):
+                raise ValueError("invalid stream event")
+            if any(_contains_tool_event(event) for event in events):
+                return ModelCall(error="agy emitted a tool event", latency_ms=_ms(started))
+            envelope = next(
+                (event for event in reversed(events) if event.get("type") == "result"), {}
+            )
+            envelope = {
+                **envelope,
+                "status": (
+                    "ERROR"
+                    if envelope.get("is_error") or envelope.get("subtype") not in {None, "success"}
+                    else "SUCCESS"
+                ),
+                "response": envelope.get("result", ""),
+            }
         except ValueError:
             return ModelCall(
                 error=f"agy output was not JSON (rc {run.returncode})", latency_ms=_ms(started)
@@ -416,8 +495,11 @@ def claude_backend(model: str | None = None, timeout: int = 420, claude: str = "
                     check=False,
                     env=_clean_env({"CLAUDE_CODE_OAUTH_TOKEN"}),
                 )
-            except subprocess.TimeoutExpired:
-                return ModelCall(error="Claude CLI timed out", latency_ms=_ms(started))
+            except (subprocess.TimeoutExpired, OSError) as error:
+                return ModelCall(
+                    error=f"Claude CLI process failure: {type(error).__name__}",
+                    latency_ms=_ms(started),
+                )
         try:
             envelope = json.loads(run.stdout)
         except ValueError:
