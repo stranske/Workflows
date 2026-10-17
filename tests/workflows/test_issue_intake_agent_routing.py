@@ -10,6 +10,7 @@ import shutil
 import subprocess
 from pathlib import Path
 
+import pytest
 import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -322,16 +323,31 @@ def test_qualified_cursor_preflight_is_enabled_without_enabling_muse():
     assert cursor["assign_user"] == agents["cursor"]["preflight"]["assign_user"]
 
 
-def test_preflight_sparse_checkout_loads_policy_and_receipt_dependencies(tmp_path):
+@pytest.mark.parametrize(
+    ("payload_root", "workflow_path", "job", "step_name"),
+    [
+        (ROOT, INTAKE, "bridge_preflight", "Checkout retry helpers"),
+        (
+            ROOT / "templates/consumer-repo",
+            ROOT / "templates/consumer-repo/.github/workflows/agents-issue-intake.yml",
+            "check_labels",
+            "Checkout delegation policy and registry",
+        ),
+    ],
+    ids=["source", "consumer-alias"],
+)
+def test_preflight_sparse_checkout_loads_policy_and_receipt_dependencies(
+    tmp_path, payload_root, workflow_path, job, step_name
+):
     """The authored checkout must deliver the real policy's transitive payload."""
-    steps = yaml.safe_load(INTAKE.read_text())["jobs"]["bridge_preflight"]["steps"]
-    checkout = next(step for step in steps if step.get("name") == "Checkout retry helpers")
+    steps = yaml.safe_load(workflow_path.read_text())["jobs"][job]["steps"]
+    checkout = next(step for step in steps if step.get("name") == step_name)
     assert checkout["with"]["sparse-checkout-cone-mode"] is False
     for entry in checkout["with"]["sparse-checkout"].splitlines():
         entry = entry.strip()
         if not entry:
             continue
-        source = ROOT / entry
+        source = payload_root / entry
         destination = tmp_path / entry
         destination.parent.mkdir(parents=True, exist_ok=True)
         if source.is_dir():
@@ -364,9 +380,9 @@ console.log(JSON.stringify({
         text=True,
     )
     assert result.returncode == 0, result.stderr
-    configured_ttl = json.loads((ROOT / ".github/scripts/rate_limit_receipt.json").read_text())[
-        "RATE_LIMIT_RECEIPT_TTL_HOURS"
-    ]
+    configured_ttl = json.loads(
+        (payload_root / ".github/scripts/rate_limit_receipt.json").read_text()
+    )["RATE_LIMIT_RECEIPT_TTL_HOURS"]
     assert configured_ttl > 0
     assert json.loads(result.stdout) == {
         "chooser": "function",
