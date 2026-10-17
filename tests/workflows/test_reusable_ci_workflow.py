@@ -26,7 +26,7 @@ def _matrix_candidates(python_versions: str, python_version: str) -> list[str]:
     elif fallback:
         chosen = f"[{json.dumps(fallback)}]"
     else:
-        chosen = '["3.12"]'
+        chosen = '["3.13", "3.14"]'
     return json.loads(chosen)
 
 
@@ -60,7 +60,7 @@ def _expected_artifacts(
     inputs: dict[str, object], matrix: list[str], run_attempt: int = 1
 ) -> list[str]:
     prefix = str(inputs.get("artifact-prefix", "gate-"))
-    primary = str(inputs.get("primary-python-version", "3.12"))
+    primary = str(inputs.get("primary-python-version") or matrix[0])
     artifacts: list[str] = []
     for version in matrix:
         artifacts.append(f"{prefix}coverage-{version}-{run_attempt}")
@@ -104,7 +104,7 @@ def test_matrix_expression_supports_arrays_and_singletons() -> None:
     assert _matrix_candidates('["3.12", "3.13"]', "3.12") == ["3.12", "3.13"]
     assert _matrix_candidates("3.13", "3.12") == ["3.13"]
     assert _matrix_candidates("", "3.12") == ["3.12"]
-    assert _matrix_candidates("[]", "") == ["3.12"]
+    assert _matrix_candidates("[]", "") == ["3.13", "3.14"]
 
 
 def test_workflow_inputs_include_python_version_defaults() -> None:
@@ -119,14 +119,15 @@ def test_workflow_inputs_include_python_version_defaults() -> None:
 
     # workflow_call inputs remain complete
     assert call_inputs.get("working-directory", {}).get("default") == "."
-    assert call_inputs.get("python-version", {}).get("default") == "3.12"
+    assert call_inputs.get("python-version", {}).get("default") == ""
     assert call_inputs.get("python-versions", {}).get("default") == "[]"
-    assert call_inputs.get("primary-python-version", {}).get("default") == "3.12"
+    assert call_inputs.get("primary-python-version", {}).get("default") == ""
     assert call_inputs.get("pytest_args", {}).get("default") == ""
+    assert call_inputs.get("pytest-workers", {}).get("default") == "auto"
 
     # workflow_dispatch has reduced inputs (10-input limit) but python-versions remains
     assert dispatch_inputs.get("working-directory", {}).get("default") == "."
-    assert dispatch_inputs.get("python-versions", {}).get("default") == '["3.12", "3.13"]'
+    assert dispatch_inputs.get("python-versions", {}).get("default") == '["3.13", "3.14"]'
     # python-version was removed from workflow_dispatch to meet GitHub's 10-input limit
     assert "python-version" not in dispatch_inputs
     assert "pytest_args" not in dispatch_inputs
@@ -664,3 +665,78 @@ def test_config_only_pyproject_does_not_request_editable_install(tmp_path: Path)
         "legacy",
         {"pyproject.toml": "[tool.coverage.run]\nbranch = true\n", "setup.py": "pass\n"},
     ) == ["-e", ".[app,dev]"]
+
+
+@pytest.mark.parametrize(
+    "versions,single,primary,expected",
+    [
+        ("[]", "", "", "3.13"),
+        ("[]", "3.12", "", "3.12"),
+        ('["3.12", "3.13"]', "", "", "3.12"),
+        ('["3.13", "3.14"]', "", "3.14", "3.14"),
+    ],
+)
+def test_validated_primary_is_shared_by_setup_caches_and_artifacts(
+    tmp_path, versions, single, primary, expected
+):
+    output = tmp_path / "outputs"
+    result = subprocess.run(
+        [sys.executable, "-c", _validate_inputs_script()],
+        env={
+            **os.environ,
+            "PYTHON_VERSIONS": versions,
+            "PYTHON_VERSION": single,
+            "PRIMARY_IN": primary,
+            "GITHUB_OUTPUT": str(output),
+        },
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert output.read_text() == f"primary_python={expected}\n"
+    workflow = _load_workflow()
+    for job_id in ("lint-format", "lint-ruff", "typecheck-mypy"):
+        job = workflow["jobs"][job_id]
+        assert job["needs"] == "validate-inputs"
+        setup = next(step for step in job["steps"] if step.get("name") == "Set up Python")
+        assert "needs.validate-inputs.outputs.primary_python" in setup["with"]["python-version"]
+    tests = workflow["jobs"]["tests"]
+    assert "max-parallel" not in tests["strategy"]
+    assert tests["strategy"]["fail-fast"] is False
+    pytest_step = next(
+        step for step in tests["steps"] if step.get("name") == "Pytest (unit tests with coverage)"
+    )
+    assert '"-n" "${PYTEST_WORKERS}" "--dist=loadgroup"' in pytest_step["run"]
+
+
+@pytest.mark.parametrize("workers", ["0", "-1", "four"])
+def test_validate_inputs_rejects_invalid_worker_requests(workers):
+    result = subprocess.run(
+        [sys.executable, "-c", _validate_inputs_script()],
+        env={"PYTEST_WORKERS": workers},
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode != 0
+    assert "pytest-workers must be auto or a positive integer" in result.stdout
+
+
+@pytest.mark.parametrize(
+    "versions,primary",
+    [
+        ("[]", "3.13\ninjected=value"),
+        ('["3.13\\r\\ninjected=value"]', ""),
+        ('["3.13\\u0000"]', ""),
+    ],
+)
+def test_primary_output_rejects_control_characters(tmp_path, versions, primary):
+    output = tmp_path / "outputs"
+    result = subprocess.run(
+        [sys.executable, "-c", _validate_inputs_script()],
+        env={"PYTHON_VERSIONS": versions, "PRIMARY_IN": primary, "GITHUB_OUTPUT": str(output)},
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode != 0
+    assert "must not contain CR, LF or NUL" in result.stdout
+    assert not output.exists()

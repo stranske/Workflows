@@ -4,10 +4,13 @@ import ast
 import fnmatch
 import importlib
 import json
+import os
 import re
+import subprocess
 import tomllib
 from pathlib import Path
 
+import pytest
 import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -128,22 +131,79 @@ def test_issue2_workflow_tests_are_not_excluded_from_ruff() -> None:
 
 
 def test_issue2_selftest_ci_runs_all_workflow_tests() -> None:
-    workflow_config = yaml.safe_load(
-        (ROOT / ".github/workflows/selftest-ci.yml").read_text(encoding="utf-8")
+    workflow = yaml.safe_load((ROOT / ".github/workflows/selftest-ci.yml").read_text())
+    gate = yaml.safe_load((ROOT / ".github/workflows/pr-00-gate.yml").read_text())
+    canonical = workflow["jobs"]["python-ci"]
+    assert canonical["uses"] == "./.github/workflows/reusable-10-ci-python.yml"
+    assert "github.event_name != 'pull_request'" in canonical["if"]
+    for job in (canonical, gate["jobs"]["python-ci"]):
+        assert job["with"]["python-versions"] == '["3.13", "3.14"]'
+        assert job["with"]["pytest-workers"] == "4"
+        assert not job["with"].get("pytest_args"), "Canonical CI must discover the full suite"
+    # Every non-doc PR formerly protected by Selftest still reaches canonical Gate.
+    assert "is_python_code" not in gate["jobs"]["python-ci"]["if"]
+    assert "doc_only" in gate["jobs"]["python-ci"]["if"]
+    summarize = next(
+        step for step in gate["jobs"]["summary"]["steps"] if step.get("name") == "Summarize results"
     )
-    python_test_steps = [
-        step.get("run", "")
-        for step in workflow_config["jobs"]["test-python"]["steps"]
-        if step.get("name") == "Run Python tests"
-    ]
+    assert re.sub(r"\s+", "", summarize["env"]["PYTHON_REQUIRED"]) == re.sub(
+        r"\s+", "", gate["jobs"]["python-ci"]["if"]
+    )
+    reusable = yaml.safe_load((ROOT / ".github/workflows/reusable-10-ci-python.yml").read_text())
+    run = next(
+        step["run"]
+        for step in reusable["jobs"]["tests"]["steps"]
+        if step.get("name") == "Pytest (unit tests with coverage)"
+    )
+    assert 'pytest -p ci_test_growth "${args[@]}"' in run
+    assert not re.search(r"--ignore(?:-glob)?(?:=|\s+)tests/workflows/?(?:\s|$)", run)
+    config = tomllib.loads((ROOT / "pyproject.toml").read_text())
+    assert "tests" in config["tool"]["pytest"]["ini_options"]["testpaths"]
+    compatibility = workflow["jobs"]["autofix-compatibility"]
+    assert compatibility["strategy"]["matrix"]["python"] == ["3.13", "3.14"]
+    assert "max-parallel" not in compatibility["strategy"]
+    run = next(
+        step["run"] for step in compatibility["steps"] if step.get("name") == "Run Python tests"
+    )
+    for filename in (
+        "test_autofix_pipeline.py",
+        "test_autofix_full_pipeline.py",
+        "test_autofix_pipeline_diverse.py",
+    ):
+        assert filename in run
+    assert "-m 'slow and not quarantine' -n 4 --dist=loadgroup" in run
+    assert workflow["jobs"]["test-python"]["name"] == "Python Tests"
+    assert workflow["jobs"]["test-python"]["if"] == "${{ always() }}"
 
-    assert len(python_test_steps) == 1
-    assert "tests/workflows/" in python_test_steps[0]
-    assert "tests/test_verdict_policy.py" in python_test_steps[0]
-    assert "tests/test_verdict_extract.py" in python_test_steps[0]
-    assert "tests/test_structured_output.py" in python_test_steps[0]
-    assert "tests/scripts/test_pr_verifier_compare.py" in python_test_steps[0]
-    assert "tests/scripts/test_update_versions_from_pypi.py" not in python_test_steps[0]
-    assert not re.search(
-        r"--ignore(?:-glob)?(?:=|\s+)tests/workflows/?(?:\s|$)", python_test_steps[0]
+
+@pytest.mark.parametrize(
+    "event,docs,canonical,compatibility,classify,success",
+    [
+        ("pull_request", "false", "skipped", "success", "success", True),
+        ("push", "false", "success", "success", "success", True),
+        ("pull_request", "true", "skipped", "skipped", "success", True),
+        ("workflow_dispatch", "true", "success", "success", "success", True),
+        ("push", "false", "failure", "success", "success", False),
+        ("pull_request", "false", "skipped", "cancelled", "success", False),
+        ("pull_request", "true", "skipped", "skipped", "failure", False),
+    ],
+)
+def test_selftest_python_check_requires_applicable_results(
+    event, docs, canonical, compatibility, classify, success
+):
+    workflow = yaml.safe_load((ROOT / ".github/workflows/selftest-ci.yml").read_text())
+    script = workflow["jobs"]["test-python"]["steps"][0]["run"]
+    result = subprocess.run(
+        ["bash", "-e", "-c", script],
+        env={
+            **os.environ,
+            "CLASSIFY": classify,
+            "DOCS_ONLY": docs,
+            "CANONICAL": canonical,
+            "COMPATIBILITY": compatibility,
+            "EVENT_NAME": event,
+        },
+        capture_output=True,
+        text=True,
     )
+    assert (result.returncode == 0) is success, result.stderr

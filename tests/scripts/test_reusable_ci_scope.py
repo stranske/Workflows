@@ -144,7 +144,7 @@ def test_python_resolver_preserves_runtime_selection():
     )
     assert selected.matrix == {"include": [{"python-version": "3.12"}, {"python-version": "3.13"}]}
     assert reusable_ci_scope.select_python_matrix("Gate", "", "", [], False).matrix == {
-        "include": [{"python-version": "3.12"}]
+        "include": [{"python-version": "3.13"}, {"python-version": "3.14"}]
     }
     assert reusable_ci_scope.select_python_matrix(
         "Gate", "3.13", "3.12", ["docs/a.md"], True
@@ -152,6 +152,11 @@ def test_python_resolver_preserves_runtime_selection():
     assert reusable_ci_scope.select_python_matrix(
         "Gate", '["3.12"]', "3.12", ["docs/a.md"], False
     ).matrix == {"include": []}
+
+
+def test_python_resolver_keeps_explicit_legacy_runtime():
+    selected = reusable_ci_scope.select_python_matrix("Gate", "[]", "3.12", [], False)
+    assert selected.matrix == {"include": [{"python-version": "3.12"}]}
 
 
 def test_python_resolver_rejects_ambiguous_inputs():

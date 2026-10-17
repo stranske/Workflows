@@ -54,11 +54,41 @@ jobs:
           PATH_CLASSIFIER_REPLAY: '1'
         run: node --test .github/scripts/__tests__/path-classifier-replay.test.js
 
-  test-python:
-    name: Python Tests
+  # Gate owns the full PR matrix. Main pushes and explicit Selftest dispatches
+  # still exercise that same canonical suite instead of a separately maintained subset.
+  python-ci:
+    name: canonical Python suite
+    needs: classify
+    if: >-
+      ${{ github.event_name != 'pull_request' &&
+      (github.event_name == 'workflow_dispatch' || needs.classify.outputs.is_docs_only != 'true') }}
+    uses: ./.github/workflows/reusable-10-ci-python.yml
+    permissions:
+      contents: read
+      actions: read
+    with:
+      workflows_ref: ${{ github.sha }}
+      primary-python-version: '3.13'
+      python-versions: '["3.13", "3.14"]'
+      pytest_markers: 'not quarantine and not slow'
+      pytest-workers: '4'
+      lint: false
+      format_check: false
+      typecheck: false
+      run-mypy: false
+      coverage: true
+      coverage-min: ''
+      artifact-prefix: 'selftest-'
+
+  autofix-compatibility:
+    name: autofix compatibility (${{ matrix.python }})
     needs: classify
     if: ${{ github.event_name == 'workflow_dispatch' || needs.classify.outputs.is_docs_only != 'true' }}
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.13', '3.14']
     steps:
       - uses: actions/checkout@v7
         with:
@@ -66,32 +96,63 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v7
         with:
-          python-version: '3.14'
+          python-version: ${{ matrix.python }}
           cache: pip
-          cache-dependency-path: pyproject.toml
-
+          cache-dependency-path: requirements.lock
       - name: Install dependencies
-        run: |
-          pip install pytest pytest-cov pytest-xdist==3.8.0 defusedxml==0.7.1 pyyaml requests numpy pandas pydantic ruff==0.17.1
-
+        run: python -m pip install --requirement requirements.lock
       - name: Run Python tests
         env:
           PYTHONPATH: ${{ github.workspace }}
         run: |
+          # Fail before collection if missing tools would turn these checks into skips.
+          python -c "import black, docformatter, isort, mypy, ruff"
           python -m pytest \
-            tests/workflows/ \
-            tests/test_verdict_policy.py \
-            tests/test_verdict_extract.py \
-            tests/test_verdict_policy_integration.py \
-            tests/test_structured_output.py \
-            tests/scripts/test_pr_verifier_compare.py \
-            tests/scripts/test_pr_verifier_fallback.py \
-            tests/scripts/test_pr_verifier_chain_depth.py \
-            tests/scripts/test_pr_verifier_comparison_report.py \
-            tests/scripts/test_pr_verifier_structured_output.py \
-            tests/scripts/test_pr_verifier_infra_detection.py \
-            tests/scripts/test_pr_verifier_issue_creation.py \
-            -v
+            tests/workflows/test_autofix_pipeline.py \
+            tests/workflows/test_autofix_full_pipeline.py \
+            tests/workflows/test_autofix_pipeline_diverse.py \
+            -m 'slow and not quarantine' -n 4 --dist=loadgroup \
+            --cov --cov-config=pyproject.toml \
+            --cov-report=xml:coverage.xml --cov-report=json:coverage.json \
+            --junitxml=pytest-junit.xml -q
+      - name: Retain compatibility evidence
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: selftest-autofix-${{ matrix.python }}
+          path: |
+            pytest-junit.xml
+            coverage.xml
+            coverage.json
+
+  test-python:
+    # Keep the established check name while its assertions move to canonical CI
+    # and the intentionally separate slow compatibility matrix.
+    name: Python Tests
+    needs: [classify, python-ci, autofix-compatibility]
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require the applicable Python checks
+        env:
+          CLASSIFY: ${{ needs.classify.result }}
+          DOCS_ONLY: ${{ needs.classify.outputs.is_docs_only }}
+          CANONICAL: ${{ needs.python-ci.result }}
+          COMPATIBILITY: ${{ needs.autofix-compatibility.result }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          test "$CLASSIFY" = success
+          if [ "$DOCS_ONLY" = true ] && [ "$EVENT_NAME" != workflow_dispatch ]; then
+            test "$CANONICAL" = skipped
+            test "$COMPATIBILITY" = skipped
+          else
+            test "$COMPATIBILITY" = success
+            if [ "$EVENT_NAME" = pull_request ]; then
+              test "$CANONICAL" = skipped
+            else
+              test "$CANONICAL" = success
+            fi
+          fi
 
   packages-pdf-extract:
     name: stranske-pdf-extract package tests

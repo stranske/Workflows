@@ -47,13 +47,9 @@ def test_selftest_job_installs_the_consumer_lint_prerequisite():
     import yaml
 
     workflow = yaml.safe_load((ROOT / ".github/workflows/selftest-ci.yml").read_text())
-    jobs = workflow["jobs"].values()
-    job = next(
-        job
-        for job in jobs
-        if any("tests/workflows/" in step.get("run", "") for step in job["steps"])
-    )
+    job = workflow["jobs"]["autofix-compatibility"]
     install = next(
         step["run"] for step in job["steps"] if step.get("name") == "Install dependencies"
     )
-    assert "ruff==0.17.1" in install
+    assert "--requirement requirements.lock" in install
+    assert "ruff==0.17.1" in (ROOT / "requirements.lock").read_text()

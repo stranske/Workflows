@@ -1227,3 +1227,17 @@ No additional configuration needed. The CI failure routing is built into the kee
 3. `fix_ci_failures.md` prompt (in `.github/codex/prompts/`)
 
 Ensure `fix_ci_failures.md` exists in `.github/codex/prompts/` for fix mode to work properly.
+
+### Python CI default migration
+
+Omitting both reusable Python runtime inputs selects Python 3.13 and 3.14 in
+parallel. An explicit `python-version` remains a single-runtime override, including
+3.12; a nonempty `python-versions` array still takes precedence. The primary artifact
+runtime defaults to the first selected runtime. `pytest-workers` accepts `auto`
+(the backward-compatible reusable default) or a positive integer; the first-party
+Gate and new Gate template request `4`.
+
+This changes CI defaults, not the package minimum (>=3.12). Existing create-only
+consumer Gates keep their authored runtime overrides and require separate migration
+review. The universal lock remains compatible with the package minimum; its compile
+baseline alone is not a reason to remove 3.12 support.
