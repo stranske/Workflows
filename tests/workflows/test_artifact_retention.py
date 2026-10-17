@@ -143,6 +143,13 @@ def test_codex_retention_deletion_reports_file_and_line(tmp_path, monkeypatch):
     original = source_path.read_bytes()
     retention_line = b"          retention-days: 14\n"
     assert original.count(retention_line) == 1, "Expected one Codex output retention setting"
+    lines = original.splitlines()
+    retention_index = lines.index(retention_line.rstrip(b"\n"))
+    upload_line = max(
+        index + 1
+        for index, line in enumerate(lines[:retention_index])
+        if b"uses: actions/upload-artifact@" in line
+    )
 
     copied_path = tmp_path / relative_path
     copied_path.parent.mkdir(parents=True)
@@ -155,7 +162,7 @@ def test_codex_retention_deletion_reports_file_and_line(tmp_path, monkeypatch):
     with pytest.raises(AssertionError) as failure:
         test_every_upload_artifact_step_sets_retention_days()
     assert str(failure.value).splitlines()[0] == (
-        ".github/workflows/reusable-codex-run.yml:1818: "
+        f".github/workflows/reusable-codex-run.yml:{upload_line}: "
         "actions/upload-artifact must set retention-days"
     )
 
