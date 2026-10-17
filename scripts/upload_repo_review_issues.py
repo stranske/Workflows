@@ -724,9 +724,13 @@ def upload_issues(
             pending, output_root=authoring_dir or Path("docs/reports/repo-review/prompt-authoring")
         )
         summary["authoring"] = receipt
+        snapshots: dict[str, list[dict[str, Any]]] = {}
         for index, issue in enumerate(authored):
             # Authoring can take minutes; another uploader may have filed the original meanwhile.
-            current = fetch_open_issues(str(issue["repo"]), prefix)
+            repo_name = str(issue["repo"])
+            if repo_name not in snapshots:
+                snapshots[repo_name] = fetch_open_issues(repo_name, prefix)
+            current = snapshots[repo_name]
             original = pending[index]
             existing = (
                 find_marker_duplicate(original, current)

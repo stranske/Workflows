@@ -516,3 +516,71 @@ def test_approved_code_spans_preserve_internal_whitespace():
     assert uploader.approval_body_key("Gate `echo 'a  b'`.") != uploader.approval_body_key(
         "Gate `echo 'a b'`."
     )
+
+
+def test_post_authoring_snapshot_excludes_created_siblings(tmp_path, monkeypatch):
+    authoring_tools(tmp_path, monkeypatch)
+    created = []
+    fetches = []
+
+    def fetch(*args):
+        fetches.append(args)
+        return list(created)
+
+    monkeypatch.setattr(uploader, "fetch_open_issues", fetch)
+    monkeypatch.setattr(uploader, "ensure_labels", lambda *args: None)
+    monkeypatch.setattr(
+        uploader, "add_missing_labels", lambda *args: pytest.fail("must not dedup siblings")
+    )
+
+    def create(item, prefix):
+        row = {
+            **item,
+            "number": 100 + len(created),
+            "labels": [{"name": "repo-review-approved"}],
+            "url": f"https://github.test/owner/repo/issues/{100+len(created)}",
+        }
+        created.append(row)
+        return row["url"]
+
+    monkeypatch.setattr(uploader, "create_issue", create)
+    result = uploader.upload_issues(
+        [issue(title) for title in ("Alpha", "Beta", "Gamma")],
+        prefix=["gh"],
+        apply=True,
+        authoring_dir=tmp_path / "evidence",
+    )
+    assert len(result["created"]) == 3
+    assert result["skipped_duplicates"] == []
+    assert len(fetches) == 2  # initial and one post-authoring snapshot, before creation
+
+
+@pytest.mark.parametrize("fault", ["outside-directory", "duplicate-target", "record-error"])
+def test_manifest_rejection_preserves_approved_bodies(tmp_path, monkeypatch, fault):
+    authoring_tools(tmp_path, monkeypatch)
+    original_run = uploader.subprocess.run
+
+    def run(args, **kwargs):
+        result = original_run(args, **kwargs)
+        if Path(args[1]).name == "roles.py":
+            file = Path(args[args.index("--output-dir") + 1]) / "manifest.json"
+            manifest = json.loads(file.read_text())
+            if fault == "outside-directory":
+                outside = tmp_path / "outside.md"
+                outside.write_text(VALID_BODY)
+                manifest["items"][0]["body_file"] = str(outside)
+            elif fault == "duplicate-target":
+                manifest["items"].append(manifest["items"][0])
+            else:
+                manifest["items"][0]["role_record_error"] = "Brain record failed"
+            file.write_text(json.dumps(manifest))
+        return result
+
+    monkeypatch.setattr(uploader.subprocess, "run", run)
+    items = [issue(title) for title in ("Alpha", "Beta", "Gamma")]
+    selected, receipt = uploader.author_issue_batch(items, output_root=tmp_path / "evidence")
+    assert selected[0]["body"] == VALID_BODY
+    assert not receipt["items"][0]["used_role"]
+    if fault == "duplicate-target":
+        assert selected == items
+        assert all(not row["used_role"] for row in receipt["items"])
