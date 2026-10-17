@@ -5925,9 +5925,16 @@ def _apply_coverage_floor(
             f.status == "complete" and f.path not in result.files_not_reviewed
             for f in coverage.files
         )
-    if coverage.sufficient or result.verdict != "PASS" or not result.used_llm:
+    if (
+        (coverage.sufficient and not result.files_not_reviewed)
+        or result.verdict != "PASS"
+        or not result.used_llm
+    ):
         return result
-    note = "Verifier input coverage incomplete; PASS withheld: " + "; ".join(coverage.reasons)
+    reasons = [*coverage.reasons]
+    if result.files_not_reviewed:
+        reasons.append("files not reviewed: " + ", ".join(result.files_not_reviewed))
+    note = "Verifier input coverage incomplete; PASS withheld: " + "; ".join(reasons)
     result.verdict = "CONCERNS" if coverage.required_evidence_absent else "UNVERIFIABLE_INPUT"
     result.concerns = [note, *result.concerns]
     result.summary = f"{note}\n\n{result.summary}" if result.summary else note

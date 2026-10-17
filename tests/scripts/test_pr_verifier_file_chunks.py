@@ -213,10 +213,25 @@ def test_chunk_aggregate_preserves_provider_unreviewed_files(setup, monkeypatch)
     class PartialClient(Client):
         def invoke(self, prompt, **kwargs):
             response = super().invoke(prompt, **kwargs)
-            response.content = json.dumps({"verdict": "PASS", "files_not_reviewed": ["a.py"]})
+            response.content = json.dumps(
+                {
+                    "verdict": "PASS",
+                    "files_not_reviewed": ["a.py"] if "diff --git a/a.py" in prompt else [],
+                }
+            )
             return response
 
     result = evaluate(monkeypatch, PartialClient(), patch("a.py", 40000) + patch("b.py", 40000))
     assert result.verdict == "UNVERIFIABLE_INPUT"
     assert result.files_not_reviewed == ["a.py"]
     assert result.input_coverage["files_complete"] == 1
+
+
+@pytest.mark.parametrize("verdict", ["PASS", "CONCERNS", "FAIL"])
+def test_provider_omission_withholds_single_review_pass_but_preserves_findings(setup, verdict):
+    result = verifier._apply_coverage_floor(
+        verifier.EvaluationResult(verdict=verdict, used_llm=True, files_not_reviewed=["a.py"]),
+        verifier.prompt_coverage("context", patch("a.py")),
+    )
+    assert result.verdict == ("UNVERIFIABLE_INPUT" if verdict == "PASS" else verdict)
+    assert result.files_not_reviewed == ["a.py"]
