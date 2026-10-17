@@ -21,11 +21,15 @@ inputs:
     required: false
     default: ''
   producer-run-id:
-    description: Optional workflow run id that must own the discovered artifact.
+    description: >-
+      Optional workflow run id that must own the discovered artifact. An exact run id identifies the artifact,
+      so the current ref's branch is not also required to match unless producer-branch is given.
     required: false
     default: ''
   producer-branch:
-    description: Optional branch that must own the discovered artifact. Defaults to the current ref name.
+    description: >-
+      Optional branch that must own the discovered artifact. Defaults to the current ref name when producer-run-id
+      is empty; when producer-run-id is set the default is no branch constraint.
     required: false
     default: ''
 
