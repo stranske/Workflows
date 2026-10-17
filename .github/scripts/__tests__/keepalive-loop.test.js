@@ -7708,6 +7708,24 @@ test('persisted provider quota drives same-evaluate switch with zero stalled rou
     assert.ok(github.actions.some((a) => a.type === 'remove-label' && a.name === 'agent:codex'));
     assert.ok(github.actions.some((a) => a.type === 'label' && a.labels.includes('agent:cursor')));
 
+    // A 404 clearing the previous concrete agent label must not abort the switch.
+    // Without isolation, the rate_limited catch clears agentType entirely.
+    const staleSwitch = buildGithubStub({ pr, comments: replay.comments,
+      workflowRuns: [{ head_sha: 'sha-3989', conclusion: 'success' }],
+      failRemoveLabelStatusByName: { 'agent:codex': 404 } });
+    const staleResult = await evaluateKeepaliveLoop({
+      github: staleSwitch, context: buildContext(3989), core: buildCore(),
+    });
+    assert.equal(staleResult.agentType, 'cursor',
+      '404 removing previous agent must not abort same-evaluate switch');
+    assert.equal(staleResult.delegationShouldSwitch, true);
+    assert.match(staleResult.delegationReason, /codex-rate-limited/);
+    assert.notEqual(staleResult.delegationReason, 'rate-limited-delegation-failed');
+    assert.ok(staleSwitch.actions.some((a) => a.type === 'remove-label-failed'
+      && a.name === 'agent:codex' && a.status === 404));
+    assert.ok(staleSwitch.actions.some((a) => a.type === 'label' && a.labels.includes('agent:cursor')));
+    assert.ok(staleSwitch.actions.some((a) => a.type === 'label' && a.labels.includes('agent:rate-limited')));
+
     const success = replayCompletion({ output: 'Implemented and tested the task', exitCode: 0,
       provider: 'cursor', progressed: true });
     assert.equal(success.record.completion.reason, 'progressed');
