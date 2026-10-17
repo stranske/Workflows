@@ -52,6 +52,18 @@ tried labels too. The hourly sweep can observe expiry without a runner dispatch;
 it prints `rate_limited receipt expired; <agent> eligible` and makes that provider
 eligible again, subject to the normal execution guards.
 
+With `agent:auto` and no current agent, initial selection also requires an `ok`
+provider pool when capacity data is available. This applies to the concrete opener
+label, route ranking, exploration and registry default. If no runnable pool is
+eligible, selection returns no agent. Exports without capacity data retain the
+legacy `ok` assumption; explicit agent selection without `agent:auto` is unchanged.
+
+Provider exit status and measured productivity are separate observations. An
+exit-zero quota message without work retains `rate_limited`: exit zero alone
+does not establish progress. Measured branch or checklist progress overrides the
+classification to `progressed`, including successful summaries quoting quota
+errors, and clears the provider backoff marker.
+
 ### How Keepalive Fits In
 
 | Auto-pilot does... | Keepalive does... |

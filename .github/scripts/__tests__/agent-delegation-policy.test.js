@@ -279,6 +279,96 @@ test('decideNextAgent returns default agent on initial selection', () => {
   assert.equal(result.shouldSwitch, false);
 });
 
+for (const policyPath of [
+  '../agent_delegation_policy.js',
+  '../../../templates/consumer-repo/.github/scripts/agent_delegation_policy.js',
+]) {
+  const policy = require(policyPath);
+  const initialOptions = {
+    state: { current_agent: '', iteration: 1 },
+    labels: ['agent:auto'],
+    secrets: mockSecrets,
+    registry: mockRegistry,
+  };
+
+  test(`initial selection excludes blocked pools from every selection path (${policyPath})`, () => {
+    for (const poolState of ['rate_limited', 'exhausted', 'shed']) {
+      for (const selection of ['label', 'ranking', 'exploration', 'default']) {
+        const decision = policy.decideNextAgent({
+          ...initialOptions,
+          labels: selection === 'label' ? ['agent:auto', 'agent:codex'] : ['agent:auto'],
+          routeWeights: {
+            capacity: { codex: { state: poolState }, claude: { state: 'ok' } },
+            task_types: {
+              implement: {
+                evidence_ok: selection !== 'default',
+                ranking: [{ agent: 'codex' }, { agent: 'claude' }],
+              },
+            },
+            exploration: { rate: 1, challengers: { implement: 'codex' } },
+          },
+        });
+        assert.equal(decision.agent, 'claude', `${selection}: ${poolState}`);
+        assert.equal(decision.shouldSwitch, false);
+        assert.deepEqual(decision.alternatives, []);
+      }
+    }
+  });
+
+  test(`initial selection uses the current task's ranking pool state (${policyPath})`, () => {
+    const decision = policy.decideNextAgent({
+      ...initialOptions,
+      roundKind: 'review',
+      labels: ['agent:auto', 'agent:codex'],
+      routeWeights: {
+        task_types: {
+          implement: { evidence_ok: true, ranking: [{ agent: 'codex', pool_state: 'ok' }] },
+          review: {
+            evidence_ok: true,
+            ranking: [
+              { agent: 'codex', pool_state: 'rate_limited' },
+              { agent: 'claude', pool_state: 'ok' },
+            ],
+          },
+        },
+      },
+    });
+    assert.equal(decision.agent, 'claude');
+    assert.equal(decision.delegationSource, 'route_weights');
+  });
+
+  test(`initial selection refuses when all runnable pools are blocked (${policyPath})`, () => {
+    const routeWeights = { pools: { codex: 'rate_limited', claude: 'exhausted' } };
+    const decision = policy.decideNextAgent({ ...initialOptions, routeWeights });
+    assert.equal(decision.agent, '');
+    assert.equal(decision.reason, 'no-agents-available');
+    assert.equal(decision.shouldSwitch, false);
+    assert.deepEqual(decision.alternatives, []);
+
+    const unavailableAlternative = policy.decideNextAgent({
+      ...initialOptions,
+      runnableAgents: ['codex'],
+      routeWeights: { pools: { codex: 'rate_limited', claude: 'ok' } },
+    });
+    assert.equal(unavailableAlternative.agent, '');
+  });
+
+  test(`initial selection preserves legacy capacity and explicit-only routing (${policyPath})`, () => {
+    const legacy = policy.decideNextAgent(initialOptions);
+    assert.equal(legacy.agent, 'codex');
+    assert.equal(legacy.reason, 'initial-selection');
+
+    const explicit = policy.decideNextAgent({
+      ...initialOptions,
+      labels: ['agent:codex'],
+      routeWeights: { capacity: { codex: 'rate_limited' } },
+    });
+    assert.equal(explicit.agent, 'codex');
+    assert.equal(explicit.reason, 'explicit-label');
+    assert.equal(explicit.shouldSwitch, false);
+  });
+}
+
 test('decideNextAgent returns explicit agent if agent:auto not present', () => {
   const result = decideNextAgent({
     state: {},

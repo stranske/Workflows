@@ -1456,6 +1456,48 @@ def test_record_completion_is_idempotent_for_same_key() -> None:
     assert storage.records[(42, "claude")]["result"]["summary"] == "Done"
 
 
+@pytest.mark.parametrize(
+    ("success", "produced_work", "supplied_reason", "expected_reason"),
+    [
+        (True, False, "rate_limited", "rate_limited"),
+        (False, None, "rate_limited", "rate_limited"),
+        (True, False, "failed", "failed"),
+        (False, None, "failed", "failed"),
+        (True, True, "rate_limited", "progressed"),
+        (False, True, "failed", "progressed"),
+        (True, True, "", "progressed"),
+        (True, False, "progressed", "no_progress"),
+        (True, None, "progressed", "no_progress"),
+        (True, None, "", "no_progress"),
+        (False, False, "no_progress", "failed"),
+        (False, None, "", "failed"),
+    ],
+)
+def test_completion_reason_preserves_provider_failures_until_productivity(
+    success: bool,
+    produced_work: bool | None,
+    supplied_reason: str,
+    expected_reason: str,
+) -> None:
+    storage = MemoryRunnerStorage()
+    should_dispatch(42, "aaa", "codex", storage=storage)
+
+    record = record_completion(
+        42,
+        "aaa",
+        "codex",
+        {"success": success},
+        storage=storage,
+        produced_work=produced_work,
+        completion_reason=supplied_reason,
+    )
+
+    assert record["completion"]["reason"] == expected_reason
+    assert record["status"] == ("completed" if success else "error")
+    assert ("expires_at" in record["completion"]) == (expected_reason == "rate_limited")
+    assert storage.records[(42, "codex")]["completion"] == record["completion"]
+
+
 def test_record_completion_stores_compact_result_payload() -> None:
     storage = MemoryRunnerStorage()
     should_dispatch(42, "aaa", "codex", storage=storage)

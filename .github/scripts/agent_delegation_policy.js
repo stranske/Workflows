@@ -374,14 +374,22 @@ function decideNextAgent({
     });
   }
 
-  // Filter to available agents
+  const taskType = ROUTE_WEIGHT_TASK_TYPES[roundKind] || ROUTE_WEIGHT_TASK_TYPES.implement;
+  const ranking = Array.isArray(routeWeights?.task_types?.[taskType]?.ranking)
+    ? routeWeights.task_types[taskType].ranking : [];
+
+  // Initial selection has no completion to trigger the rate-limit switch path.
+  // Apply pool availability before concrete-label, weighted and default choices.
   const availableAgents = Object.keys(agents).filter((key) => (
     agentPrereqs[key].available && hasKeepaliveRunner(agents[key]) &&
-    (!Array.isArray(runnableAgents) || runnableAgents.includes(key))
+    (!Array.isArray(runnableAgents) || runnableAgents.includes(key)) &&
+    (currentAgent || getAgentPoolState(
+      routeWeights, key, ranking.find((row) => row?.agent === key),
+    ) === 'ok')
   ));
 
   if (availableAgents.length === 0) {
-    core?.warning?.('No agents available (missing secrets)');
+    core?.warning?.('No agents available (prerequisites, runners or pool capacity)');
     return {
       agent: '',
       reason: rateLimited ? 'rate-limited-no-alternatives' : 'no-agents-available',
@@ -399,8 +407,6 @@ function decideNextAgent({
       alternatives: availableAgents.filter(agent => agent !== completion.provider),
       delegationSource: 'static' };
   }
-
-  const taskType = ROUTE_WEIGHT_TASK_TYPES[roundKind] || ROUTE_WEIGHT_TASK_TYPES.implement;
 
   // If no current agent, preserve an explicit opener choice first, then use
   // evidence-bearing route weights, and finally fall back to the registry
@@ -504,8 +510,6 @@ function decideNextAgent({
     const tried = new Set(labels.map(normalizeLabel)
       .filter((label) => label.startsWith('agents:tried-'))
       .map((label) => label.slice('agents:tried-'.length)));
-    const ranking = Array.isArray(routeWeights?.task_types?.[taskType]?.ranking)
-      ? routeWeights.task_types[taskType].ranking : [];
     const alternatives = availableAgents.filter((agent) => agent !== currentAgent &&
       !tried.has(agent) && (!rateLimited || getAgentPoolState(
         routeWeights, agent, ranking.find((row) => row.agent === agent),

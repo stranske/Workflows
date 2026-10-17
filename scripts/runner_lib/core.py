@@ -1986,11 +1986,7 @@ def record_completion(
     if produced_work is True:
         completion_reason = "progressed"
     elif completion_reason not in {"rate_limited", "failed"}:
-        completion_reason = (
-            "failed"
-            if not result_payload.get("success")
-            else "progressed" if produced_work is True else "no_progress"
-        )
+        completion_reason = "no_progress" if result_payload.get("success") else "failed"
     if produced_work is None and prior.get("key") == key and _completion_was_unproductive(prior):
         produced_work = False
     completed_at = (

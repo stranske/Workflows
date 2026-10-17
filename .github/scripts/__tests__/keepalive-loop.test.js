@@ -7199,8 +7199,10 @@ for (const loopPath of ['../keepalive_loop', '../../../templates/consumer-repo/.
 
 // Exercise the real Python writer and its reservation/receipt schema. Only the
 // GitHub transport is replayed; classification, persistence and evaluation are real.
-function replayCompletion({ output, exitCode, provider = 'codex', progressed = false }) {
-  const { classifyCompletion } = require('../keepalive_loop.js');
+function replayCompletion({
+  output, exitCode, provider = 'codex', progressed = false, loopPath = '../keepalive_loop.js',
+}) {
+  const { classifyCompletion } = require(loopPath);
   const { spawnSync } = require('node:child_process');
   const python = process.env.PYTHON || 'python3';
   const result = spawnSync(python, ['-c', `
@@ -7262,6 +7264,39 @@ test('classifyCompletion covers provider quota, HTTP 429, failure and clean succ
   assert.equal(classifyCompletion('usage limits exceeded', 1), 'rate_limited');
   assert.equal(classifyCompletion('quota exceeded', 1, true), 'progressed');
 });
+
+for (const loopPath of [
+  '../keepalive_loop.js',
+  '../../../templates/consumer-repo/.github/scripts/keepalive_loop.js',
+]) {
+  test(`exit-zero quota classification yields to actual productivity (${loopPath})`, () => {
+    const { classifyCompletion } = require(loopPath);
+    for (const output of [
+      "You've hit your usage limit. Try again at 9:01 PM",
+      'Cursor request failed: HTTP 429 Too Many Requests',
+      'Implemented regressions for "provider quota exceeded" and "HTTP 429" responses.',
+    ]) {
+      // Providers can exit zero after an unsuccessful turn. A zero exit alone
+      // cannot clear backoff; measured work does, even if quota text is quoted.
+      assert.equal(classifyCompletion(output, 0), 'rate_limited');
+      assert.equal(classifyCompletion(output, 0, true), 'progressed');
+      const blocked = replayCompletion({ output, exitCode: 0, loopPath }).record;
+      assert.equal(blocked.result.success, true);
+      assert.equal(blocked.productive, false);
+      assert.equal(blocked.completion.reason, 'rate_limited');
+      assert.ok(blocked.completion.expires_at);
+
+      // Workflow callers send the two-argument classification to Python, which
+      // must override it with the separately measured productivity observation.
+      const productive = replayCompletion({
+        output, exitCode: 0, progressed: true, loopPath,
+      }).record;
+      assert.equal(productive.productive, true);
+      assert.equal(productive.completion.reason, 'progressed');
+      assert.equal(productive.completion.expires_at, undefined);
+    }
+  });
+}
 
 test('retry advice alone does not classify a completion as provider quota', () => {
   for (const modulePath of [
