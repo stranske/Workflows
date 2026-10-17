@@ -305,6 +305,91 @@ def calculate(snapshot: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def label_events_from_evaluate_actions(
+    actions: list[dict[str, Any]],
+    *,
+    repo: str,
+    pr: int,
+    at: str,
+) -> list[dict[str, Any]]:
+    """Project keepalive evaluate mutation logs into PR label timeline events.
+
+    ``actions`` matches the shape recorded by the keepalive-loop test github stub
+    (``type: label|remove-label``, ``labels`` / ``name``). Same-second events keep
+    list order so the cadence join can treat them as one evaluate.
+    """
+    events: list[dict[str, Any]] = []
+    for action in actions:
+        kind = str(action.get("type") or action.get("event") or "").lower()
+        if kind in {"label", "labeled"}:
+            names = action.get("labels") or action.get("label") or action.get("name")
+            if isinstance(names, str):
+                names = [names]
+            for name in names or []:
+                label = _label_name(name)
+                if not label:
+                    continue
+                events.append(
+                    {
+                        "repo": repo,
+                        "pr": pr,
+                        "event": "labeled",
+                        "label": label,
+                        "created_at": at,
+                    }
+                )
+        elif kind in {"remove-label", "unlabeled", "unlabel"}:
+            label = _label_name(action.get("name") or action.get("label"))
+            if not label:
+                continue
+            events.append(
+                {
+                    "repo": repo,
+                    "pr": pr,
+                    "event": "unlabeled",
+                    "label": label,
+                    "created_at": at,
+                }
+            )
+    return events
+
+
+def snapshot_from_rate_limit_evaluate(
+    *,
+    repo: str,
+    pr: int,
+    provider: str,
+    completed_at: str,
+    switch_at: str,
+    actions: list[dict[str, Any]],
+    open_labels: list[str] | None = None,
+) -> dict[str, Any]:
+    """Build a portable snapshot for one rate-limited completion + same-evaluate switch."""
+    return {
+        "collection": {
+            "history_complete": True,
+            "limitations": ["evaluate-actions replay after #3997 merge"],
+        },
+        "completions": [
+            {
+                "repo": repo,
+                "pr": pr,
+                "provider": provider,
+                "completed_at": completed_at,
+                "completion": {"reason": "rate_limited"},
+            }
+        ],
+        "label_events": label_events_from_evaluate_actions(actions, repo=repo, pr=pr, at=switch_at),
+        "open_prs": [
+            {
+                "repo": repo,
+                "pr": pr,
+                "labels": list(open_labels or ["agent:auto", "agents:keepalive"]),
+            }
+        ],
+    }
+
+
 def markdown(report: dict[str, Any]) -> str:
     metrics = report["metrics"]
     lines = [
@@ -340,6 +425,28 @@ def markdown(report: dict[str, Any]) -> str:
         )
     if not report["rows"]:
         lines.append("| — | — | — | — | — | — | — | — |")
+    timelines = [row for row in report["rows"] if row.get("label_timeline")]
+    if timelines:
+        lines.extend(["", "## Label timelines", ""])
+        for row in timelines:
+            lines.append(
+                "### {repo}#{pr} ({provider} → {switch})".format(
+                    repo=row["repo"],
+                    pr=row["pr"],
+                    provider=row.get("provider") or "?",
+                    switch=row.get("switch_agent") or "—",
+                )
+            )
+            lines.append("")
+            for entry in row["label_timeline"]:
+                lines.append(
+                    "- `{created_at}` {event} `{label}`".format(
+                        created_at=entry.get("created_at") or "",
+                        event=entry.get("event") or "",
+                        label=entry.get("label") or "",
+                    )
+                )
+            lines.append("")
     lines.extend(["", f"Schema: `{report['schema']}`", ""])
     return "\n".join(lines)
 
