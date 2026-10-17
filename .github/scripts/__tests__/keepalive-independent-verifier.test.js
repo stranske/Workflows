@@ -123,3 +123,22 @@ for (const modulePath of [
     assert.equal(result.source, 'config');
   });
 }
+
+test('the real registry loader yields lists the resolver honours', () => {
+  const path = require('node:path');
+  const { loadAgentRegistry } = require('../agent_registry');
+  for (const file of ['.github/agents/registry.yml', 'templates/consumer-repo/.github/agents/registry.yml']) {
+    const registry = loadAgentRegistry({ registryPath: path.join(__dirname, '../../..', file) });
+    for (const agent of ['cursor', 'muse']) {
+      assert.deepEqual(registry.agents[agent].independent_verifier, ['claude', 'codex'], `${file} ${agent}`);
+    }
+  }
+});
+
+test('a flow-list string, as the loader would hand it, is split', () => {
+  const { resolveIndependentVerifier } = require('../keepalive_loop');
+  const registry = { agents: { ...REGISTRY.agents, cursor: { ...REGISTRY.agents.cursor, independent_verifier: '[claude, codex]' } } };
+  const base = { agentType: 'cursor', registry, env: ALL_AUTH, workflowText: WORKFLOW };
+  assert.equal(resolveIndependentVerifier({ ...base, random: () => 0 }).source, 'registry-random');
+  assert.equal(resolveIndependentVerifier({ ...base, random: () => 0.99 }).agent, 'codex');
+});

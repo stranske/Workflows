@@ -176,7 +176,7 @@ repository's `verifier_agent`, the agent's registry `independent_verifier`, the 
 Claude pair, then the proven agents (Codex, Claude) and finally any other keepalive-capable agent whose
 runner job exists and whose credentials are present. A less proven agent is verified by **both** proven
 agents, chosen at random per round, never by a fixed partner: declare
-`independent_verifier: [claude, codex]`. An alternate without credentials is never chosen, so the other
+an `independent_verifier` block list of `claude` and `codex` (the registry loader does not read `[a, b]` flow lists). An alternate without credentials is never chosen, so the other
 one carries the round. The choice is logged (`registry-random`).
 
 ## Stage 5 — Deliver to consumer repositories

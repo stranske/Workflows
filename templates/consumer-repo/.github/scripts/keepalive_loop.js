@@ -6181,7 +6181,13 @@ function resolveIndependentVerifier({
   };
   const choose = (keys) => keys[Math.min(keys.length - 1, Math.floor(random() * keys.length))];
   const declaredRaw = agents[implementing] && agents[implementing].independent_verifier;
-  const declared = (Array.isArray(declaredRaw) ? declaredRaw : [declaredRaw])
+  // The registry loader reads a flow list (`[a, b]`) as one string, so accept both forms.
+  const declaredList = Array.isArray(declaredRaw)
+    ? declaredRaw
+    : String(declaredRaw || '')
+      .replace(/^\s*\[|\]\s*$/g, '')
+      .split(',');
+  const declared = declaredList
     .map((key) => normalise(key).toLowerCase())
     .filter((key, index, all) => key && all.indexOf(key) === index && usable(key));
   if (declared.length) {
