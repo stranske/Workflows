@@ -88,7 +88,10 @@ def run_workflow(
     binary = tmp_path / "python"
     binary.write_text(f"#!/bin/sh\ncat {shlex.quote(str(fixture))}\n")
     binary.chmod(0o755)
-    (tmp_path / "python3").symlink_to(sys.executable)
+    # Preserve virtualenv identity: a relocated Python symlink loses pyvenv.cfg.
+    python3 = tmp_path / "python3"
+    python3.write_text(f'#!/bin/sh\nexec {shlex.quote(sys.executable)} "$@"\n')
+    python3.chmod(0o755)
     env["PATH"] = str(tmp_path) + os.pathsep + env["PATH"]
     env.update({k: _render(v, values) for k, v in step["env"].items()})
     env["GITHUB_OUTPUT"] = str(tmp_path / "output")
@@ -223,7 +226,7 @@ def test_expanded_all_configured_pass_retains_ci_floor(tmp_path, reverse, ci_fai
     [
         ("one-unused", "CONCERNS"),
         ("missing", "PASS"),
-        ("all-unused", "CONCERNS"),
+        ("all-unused", "UNVERIFIABLE_INPUT"),
         ("concerns", "CONCERNS"),
     ],
 )

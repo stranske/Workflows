@@ -73,5 +73,6 @@ Respond in JSON with:
     "risks": 0-10
   }},
   "concerns": ["..."],
+  "files_not_reviewed": ["path/of/unreviewed/file"],
   "summary": "concise report focusing on code quality and acceptance criteria fulfillment"
 }}

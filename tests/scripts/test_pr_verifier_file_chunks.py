@@ -99,7 +99,7 @@ def test_comparison_uses_same_chunk_review(setup):
     runner = verifier.ComparisonRunner("context", diff, "unused single prompt", [])
     result = runner.run_single(client, "openai", "model")
     assert result.verdict == "PASS"
-    assert len(client.prompts) == 3
+    assert len(client.prompts) == 4  # Three file chunks plus global acceptance reconciliation.
 
 
 def test_incomplete_coverage_does_not_relabel_real_finding(setup):
@@ -131,3 +131,46 @@ def test_provider_unreviewed_file_list_survives_parsing_and_rendering(setup):
     )
     assert result.files_not_reviewed == ["a.py"]
     assert "files reviewed 0 of 1" in verifier.format_comparison_report([result])
+
+
+@pytest.mark.parametrize(
+    "error", [RuntimeError("provider unavailable"), verifier.InputCapacityError("limit")]
+)
+def test_chunk_exception_is_unverifiable_with_exact_unreviewed_files(setup, monkeypatch, error):
+    def invoke(*args, **kwargs):
+        raise error
+
+    monkeypatch.setattr(verifier, "_invoke_llm", invoke)
+    result = evaluate(monkeypatch, Client(), patch("a.py", 40000) + patch("b.py", 40000))
+    assert result.verdict == "UNVERIFIABLE_INPUT"
+    assert result.files_not_reviewed == ["a.py", "b.py"]
+    assert result.input_coverage["files_complete"] == 0
+    assert verifier.comparison_verdict([result]) == "UNVERIFIABLE_INPUT"
+
+
+def test_local_passes_cannot_hide_unimplemented_global_criterion(setup, monkeypatch):
+    client = Client(["PASS", "PASS", "PASS", "CONCERNS"])
+    monkeypatch.setattr(verifier, "_get_llm_client", lambda **kwargs: (client, "openai"))
+    result = verifier.evaluate_pr(
+        "Acceptance: implement a cache invalidation function named invalidate_cache.",
+        diff="".join(patch(f"{i}.py") for i in range(9)),
+    )
+    assert result.files_not_reviewed == []
+    assert result.verdict == "CONCERNS"
+    assert "criterion that no chunk implements" in client.prompts[-1]
+    assert "invalidate_cache" in client.prompts[-1]
+    assert all(f"{i}.py" in client.prompts[-1] for i in range(9))
+
+
+def test_chunk_preflight_receives_the_exact_local_prompt(setup, monkeypatch):
+    invoke = verifier._invoke_llm
+
+    def checked(client, prompt, *, operation, context=None, diff=None):
+        if operation == "evaluate_pr_chunk":
+            assert prompt == verifier._prepare_prompt(context, diff)
+            assert verifier.prompt_coverage(context, diff).sufficient
+        return invoke(client, prompt, operation=operation, context=context, diff=diff)
+
+    monkeypatch.setattr(verifier, "_invoke_llm", checked)
+    result = evaluate(monkeypatch, Client(), "".join(patch(f"{i}.py") for i in range(9)))
+    assert result.verdict == "PASS"

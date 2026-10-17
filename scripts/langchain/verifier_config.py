@@ -21,6 +21,9 @@ EVAL_FOLLOW_UP_BUDGET_TOKENS = DEFAULT_TOKEN_BUDGET
 # VERIFIER_CONTEXT_BUDGET_TOKENS / VERIFIER_DIFF_BUDGET_TOKENS environment variables.
 VERIFIER_CONTEXT_BUDGET_TOKENS = 4000
 VERIFIER_DIFF_BUDGET_TOKENS = 16000
+# Bound provider calls per review alongside the per-call changed-code budget.
+# Exhausting either limit leaves files explicitly UNVERIFIABLE_INPUT.
+MAX_REVIEW_CHUNKS = 64
 # A PASS needs at least this share of changed-code characters in the prompt.
 MIN_CODE_COVERAGE_RATIO = 0.5
 

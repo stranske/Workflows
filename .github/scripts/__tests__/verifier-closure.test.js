@@ -63,3 +63,9 @@ test('PASS cannot close acceptance text changed since context capture or fresh r
   assert.equal(closingRule({ ...input, verdict: 'PASS', currentBody: body + 'new requirement' }), null);
   assert.equal(closingRule({ ...input, verdict: 'PASS', ci: [{head_sha: mergeSha, conclusion: 'failure'}] }), null);
 });
+
+for (const conclusion of ['failure', 'timed_out', 'cancelled', 'startup_failure', 'action_required']) {
+  test(`PASS cannot close with red merge CI ${conclusion}`, () => {
+    assert.equal(closingRule({ ...input, verdict: 'PASS', ci: [{head_sha: mergeSha, conclusion}] }), null);
+  });
+}

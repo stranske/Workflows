@@ -225,7 +225,7 @@ jobs:
 
       - name: Wait for CI workflows to complete
         id: wait_ci
-        uses: actions/github-script@v9
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         env:
           CI_WORKFLOWS: ${{ inputs.ci_workflows }}
           CI_WAIT_TIMEOUT_MS: ${{ inputs.ci_wait_timeout_ms }}
@@ -418,7 +418,7 @@ jobs:
 
       - name: Build verifier context
         id: context
-        uses: actions/github-script@v9
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         env:
           CI_WORKFLOWS: ${{ inputs.ci_workflows }}
           VERIFIER_PR_NUMBER: ${{ inputs.pr_number }}
@@ -443,7 +443,7 @@ jobs:
 
       - name: Prepare source closure plans
         if: steps.context.outputs.should_run == 'true'
-        uses: actions/github-script@v9
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         env:
           SOURCE_ISSUE_HASHES: ${{ steps.context.outputs.source_issue_hashes }}
           ISSUE_NUMBERS: ${{ steps.context.outputs.issue_numbers }}
@@ -487,7 +487,7 @@ jobs:
 
       - name: Upload source closure plans
         if: steps.context.outputs.should_run == 'true'
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: verifier-closure-plans-${{ github.run_id }}
           path: closure-plans/plans.json
@@ -564,7 +564,7 @@ jobs:
       - name: Resolve agent key from PR labels
         id: agent
         if: steps.context.outputs.should_run == 'true'
-        uses: actions/github-script@v9
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -811,7 +811,7 @@ jobs:
               --model "$codex_model" \
               -c 'model_reasoning_effort="medium"' \
               --output-last-message codex-output.md \
-              "$(cat "$PROMPT_FILE")" \
+              - < "$PROMPT_FILE" \
               > codex-stdout.log 2> codex-stderr.log
             codex_exit_code=$?
             set -euo pipefail
@@ -1336,7 +1336,7 @@ jobs:
 
           # Parse result
           if [ -f comparison.json ] && [ -s comparison.json ]; then
-          python3 - <<'PY' > verdict.txt 2>/dev/null || printf '%s' "CONCERNS" > verdict.txt
+          python3 - <<'PY' > verdict.txt 2>/dev/null || printf '%s' "UNVERIFIABLE_INPUT" > verdict.txt
           import json
 
           try:
@@ -1372,7 +1372,7 @@ jobs:
             ]))
           PY
 
-            verdict="$(cat verdict.txt 2>/dev/null || echo CONCERNS)"
+            verdict="$(cat verdict.txt 2>/dev/null || echo UNVERIFIABLE_INPUT)"
             echo "verdict=$verdict" >> "$GITHUB_OUTPUT"
 
           python3 - <<'PY' 2>/dev/null || true
@@ -1512,7 +1512,7 @@ jobs:
             steps.context.outputs.should_run == 'true' &&
             inputs.mode == 'compare'
           }}
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: comparison-results-${{ github.run_id }}
           path: |
@@ -1593,7 +1593,7 @@ jobs:
         id: failure_issue
         # Disabled: use agents-verify-to-issue-v2.yml with verify:create-issue label instead
         if: ${{ github.run_id == 0 }}
-        uses: actions/github-script@v9
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         env:
           PR_URL: ${{ steps.context.outputs.pr_html_url }}
           RUN_URL: >-
@@ -2078,7 +2078,7 @@ jobs:
 
       - name: Upload verifier terminal disposition
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: verifier-terminal-disposition-${{ github.run_id }}
           path: |
@@ -2128,7 +2128,7 @@ jobs:
 
       - name: Upload verifier metrics
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: agents-verifier-metrics
           path: verifier-metrics.ndjson

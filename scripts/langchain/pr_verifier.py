@@ -36,6 +36,7 @@ from scripts.langchain.structured_output import (
 from scripts.langchain.verifier_config import (
     EVAL_PAIR_BUDGET_TOKENS,
     EVAL_SCHEMA_REPAIR_BUDGET_TOKENS,
+    MAX_REVIEW_CHUNKS,
     MIN_CODE_COVERAGE_RATIO,
     VERIFIER_CONTEXT_BUDGET_TOKENS,
     VERIFIER_DIFF_BUDGET_TOKENS,
@@ -5963,13 +5964,8 @@ def _evaluation_output_text(result: EvaluationResult) -> str:
         if raw_detail and raw_detail != result.summary:
             parts.append("Raw model detail (prior to verdict post-processing):\n" + raw_detail)
         body = "\n\n".join(parts)
-        return header + f"Verdict: {result.verdict}\n\n{body}"
+        return f"Verdict: {result.verdict}\n\n" + header + body
     return header + (result.raw_content or result.summary or "")
-
-
-# One changed-code budget, shared with the existing provider prompt configuration.
-# Each request also carries the bounded acceptance/context blocks and rubric.
-MAX_REVIEW_CHUNKS = 64
 
 
 def _review_count(result: EvaluationResult) -> str:
@@ -5988,11 +5984,13 @@ def comparison_verdict(results: list[EvaluationResult]) -> str:
     """Findings dominate incomplete input; unavailable judges never establish PASS."""
     if any(result.verdict == "FAIL" for result in results):
         return "FAIL"
-    if not results or any(result.verdict == "CONCERNS" or result.error for result in results):
+    if any(result.verdict == "CONCERNS" and not result.error for result in results):
         return "CONCERNS"
-    if any(result.verdict == "UNVERIFIABLE_INPUT" for result in results):
+    if not results or any(
+        result.verdict == "UNVERIFIABLE_INPUT" or result.error for result in results
+    ):
         return "UNVERIFIABLE_INPUT"
-    return "PASS" if all(result.used_llm for result in results) else "CONCERNS"
+    return "PASS" if all(result.used_llm for result in results) else "UNVERIFIABLE_INPUT"
 
 
 def _evaluate_chunked(
@@ -6081,27 +6079,32 @@ def _evaluate_chunked(
                 )
             )
             continue
-        prompt = _prepare_prompt(local_context, patch)
-        prompt += (
+        chunk_context = local_context + (
             "\nThis is a per-file review within a multi-file PR. Judge the supplied files "
             "against all acceptance criteria; do not infer missing implementation in sibling "
-            "files. Report real findings as CONCERNS or FAIL. If input is incomplete, use "
-            "UNVERIFIABLE_INPUT. All chunk findings are preserved in the final verdict.\n"
+            "files. In your summary, identify each criterion supported by these files and "
+            "describe its implementation evidence. A final review will reconcile criteria "
+            "across all chunks. Report real findings as CONCERNS or FAIL. If input is "
+            "incomplete, use UNVERIFIABLE_INPUT."
         )
+        prompt = _prepare_prompt(chunk_context, patch)
         try:
             response, trace_id, trace_url = _invoke_llm(
-                client, prompt, operation="evaluate_pr_chunk", context=context, diff=patch
+                client, prompt, operation="evaluate_pr_chunk", context=chunk_context, diff=patch
             )
             result = _parse_llm_response(
                 getattr(response, "content", None) or str(response), provider, client=client
             )
             result.langsmith_trace_id, result.langsmith_trace_url = trace_id, trace_url
             result = _apply_coverage_floor(result, prompt_coverage(local_context, patch))
-        except InputCapacityError:
-            continue
         except Exception as exc:
-            result = _fallback_evaluation(
-                f"Chunk review failed: {exc}", provider=provider, model=model
+            result = EvaluationResult(
+                verdict="UNVERIFIABLE_INPUT",
+                error=f"Chunk review failed: {exc}",
+                summary=f"Chunk review failed: {exc}",
+                provider_used=provider,
+                model=model,
+                files_not_reviewed=paths,
             )
         results.append(result)
         if result.used_llm and not result.error and result.verdict != "UNVERIFIABLE_INPUT":
@@ -6110,6 +6113,45 @@ def _evaluate_chunked(
     verdict = comparison_verdict(results) if results else "UNVERIFIABLE_INPUT"
     if not_reviewed and verdict == "PASS":
         verdict = "UNVERIFIABLE_INPUT"
+    if verdict == "PASS":
+        # Per-file PASS cannot establish that every global criterion is implemented.
+        # Reconcile the complete acceptance sources against every chunk's evidence.
+        synthesis_prompt = (
+            "Reconcile acceptance completeness across the whole PR using the untrusted "
+            "acceptance context and per-chunk review summaries below. Identify any criterion "
+            "that no chunk implements, including cross-file obligations. Local PASS alone "
+            "is insufficient: require concrete implementation evidence for every criterion. "
+            "Return JSON with verdict, concerns and summary. Use CONCERNS for a missing "
+            "implementation, UNVERIFIABLE_INPUT if summaries cannot establish completeness."
+            "\n<acceptance_context>\n"
+            + local_context
+            + "\n</acceptance_context>\n"
+            + json.dumps(
+                [
+                    {"files": paths, "summary": result.summary, "verdict": result.verdict}
+                    for (paths, _), result in zip(chunks, results, strict=True)
+                ]
+            )
+        )
+        try:
+            if len(synthesis_prompt) > budget:
+                raise InputCapacityError("Cross-file acceptance summaries exceed review budget")
+            # This derived-evidence reconciliation has no raw diff obligations of its own;
+            # expanded mode still natively counts the exact synthesis request.
+            response, _, _ = _invoke_llm(
+                client, synthesis_prompt, operation="evaluate_pr_chunk_synthesis"
+            )
+            synthesis = _parse_llm_response(
+                getattr(response, "content", None) or str(response), provider, client=client
+            )
+        except Exception as exc:
+            synthesis = EvaluationResult(
+                verdict="UNVERIFIABLE_INPUT",
+                error=str(exc),
+                summary=f"Cross-file acceptance reconciliation unavailable: {exc}",
+            )
+        results.append(synthesis)
+        verdict = comparison_verdict(results)
     # No calls were possible due solely to input limits.
     if not results:
         verdict = "UNVERIFIABLE_INPUT"

@@ -11,7 +11,7 @@ function closingRule({ verdict, mergeSha, plan, result, ci, currentBody }) {
   if (!/^[a-f0-9]{40}$/.test(mergeSha || '')) return null;
   if (!plan || plan.head_sha !== mergeSha || plan.source_hash !== sourceHash(currentBody)) return null;
   if (verdict === 'PASS') {
-    return Array.isArray(ci) && ci.some(run => run.head_sha === mergeSha && run.conclusion === 'failure')
+    return Array.isArray(ci) && ci.some(run => run.head_sha === mergeSha && ['failure', 'timed_out', 'cancelled', 'startup_failure', 'action_required'].includes(run.conclusion))
       ? null : 'verifier-pass';
   }
   if (verdict !== 'UNVERIFIABLE_INPUT') return null;

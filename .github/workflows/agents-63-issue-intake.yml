@@ -1155,6 +1155,23 @@ jobs:
                     .filter(Boolean);
                   let final = Array.from(new Set([...current, ...uniqueDesired]));
                   const needsStateChange = issueData.data.state === 'closed';
+                  // A verifier closure is terminal; seed replay must not reopen it.
+                  if (needsStateChange) {
+                    function isVerificationClosure(comment) {
+                      return comment.user?.type === 'Bot'
+                        && comment.user?.login === 'github-actions[bot]'
+                        && /^Verification closure rule: \*\*(?:verifier-pass|unverifiable-input-merged-head-gates-and-ci)\*\*\. PR #\d+, merge commit `([a-f0-9]{40})`, verdict \*\*(?:PASS|UNVERIFIABLE_INPUT)\*\*\./.test(comment.body || '');
+                    }
+                    const closureComments = await withRetry(() => github.paginate(
+                      github.rest.issues.listComments,
+                      { owner, repo, issue_number: issueNumber, per_page: 100 },
+                    ));
+                    if (closureComments.some(isVerificationClosure)) {
+                      core.info(`Preserving verification closure for issue #${issueNumber}.`);
+                      skippedCount += 1;
+                      continue;
+                    }
+                  }
                   const existingTitle = (issueData.data.title || '').trim();
                   const needsTitle = existingTitle !== title;
                   const existingBody = (issueData.data.body || '').trim();

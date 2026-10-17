@@ -393,7 +393,7 @@ def test_non_pass_output_prefers_summary_over_stale_pass_raw_content(
     printed = capsys.readouterr().out
     assert (
         out.read_text(encoding="utf-8")
-        == f"files reviewed 0 of 0\n\nVerdict: CONCERNS\n\n{summary}"
+        == f"Verdict: CONCERNS\n\nfiles reviewed 0 of 0\n\n{summary}"
     )
     assert "PASS withheld" in printed
     assert '"verdict": "PASS"' not in printed
