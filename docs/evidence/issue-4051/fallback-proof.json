@@ -1,0 +1,8 @@
+{
+  "command": "python -m pytest tests/scripts/test_upload_repo_review_issues.py -q -k three_item_authoring",
+  "mutation": "Replace approved per-item fallback with an empty body; invalid role body must not lose the approved body.",
+  "red_exit": 1,
+  "green_exit": 0,
+  "restored_identically": true,
+  "source_sha256": "0f88008a8b4c24877d536a93197c1d0d3c997eb6031ffffe97944d602cd9c829"
+}

@@ -1,0 +1,7 @@
+{
+  "finding": "4304544217",
+  "red": "1 failed, 1 passed: tilde command whitespace incorrectly accepted",
+  "green": "202 passed",
+  "production_sha256": "24e134688f20d2b64e611357a9250a79571139e11ad713399b5cfb50a513d85c",
+  "scope": "Backtick and tilde fenced commands retain exact internal whitespace; prose whitespace remains normalized."
+}

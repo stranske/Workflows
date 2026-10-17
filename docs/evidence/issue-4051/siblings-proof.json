@@ -1,0 +1,8 @@
+{
+  "command": "python -m pytest tests/scripts/test_upload_repo_review_issues.py -q -k post_authoring_snapshot_excludes_created_siblings",
+  "mutation": "Restore per-item refresh so earlier approved siblings become semantic duplicate candidates.",
+  "red_exit": 1,
+  "green_exit": 0,
+  "restored_identically": true,
+  "source_sha256": "f9f032020c41aa39765a5ab14bdde11b2cc414bc9e97d82a2f7bd6cb96197243"
+}

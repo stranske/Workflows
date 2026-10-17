@@ -182,6 +182,38 @@ generation without more evidence. agy costs about 2 to 3 times Claude's tokens p
 fixed per-call overhead. Six defects cannot separate the two on quality; the next run needs more
 modules (the harness needs target modules whose own tests are strong enough to validate mutants).
 
+**Second pilot run (2026-10-17): more modules, test generation, and the evaluator replay.**
+Evidence: `agy-pilot-2-agy.json`, `agy-pilot-2-claude.json`, `agy-judge-replay-*.json` in `docs/evidence/judge-screen-20261017/`.
+Exploratory. Nine modules were scored, with 25 planted mutants across all nine module entries in each committed second-pilot evidence file. Generated tests run in a sandbox without sibling modules, so modules that import siblings fail on clean code for every backend: read test generation as a floor, not as quality.
+
+| Backend | Pilot | Single call | Batched | Tokens per item (single / batched) |
+| --- | --- | --- | --- | ---: |
+| agy (`gemini-4-argon-medium`) | audit recall (precision 1.0) | 1.00 | 0.96 | 15,005 / 4,905 |
+| agy | testgen kill rate (clean pass 0.56) | 0.56 | 0.56 | 21,247 / 10,187 |
+| Claude CLI, tools off | audit recall (precision 1.0) | 0.92 | 0.92 | 6,130 / 4,199 |
+| Claude CLI | testgen kill rate (clean pass 0.67 single, 0.33 batched) | 0.68 | 0.36 | 19,308 / not reported |
+
+Evaluator replay (pilot 4): 8 archived experiments, one selected archived judge prompt and anonymized ordering per experiment. The candidate sees the first prompt whose judge has a real score; the replay does not measure sensitivity across all archived prompt permutations.
+
+| Judge | Mean error vs real-judge consensus | Rank agreement |
+| --- | ---: | ---: |
+| agy | 1.479 | 0.838 |
+| Claude CLI | 1.471 | 0.747 |
+| Real judges, each against the others | 1.337 | n/a |
+
+Reading it: agy matches or beats Claude on audit and tracks the real judges as closely as Claude does,
+with better rank agreement. On test generation agy is below Claude single-call (0.56 against 0.68) but
+does not degrade when batched, while Claude's batched output did. Batching cuts agy's audit cost to a
+third at a 4-point recall cost. These are small samples and say nothing yet about Argon's strengths
+beyond this work. The replay writes nothing to the Orchestrator's records: agy is not a ready judge until
+it is fielded and scored in real experiments.
+
+**A harness defect found on the way.** A review round changed the agy backend to stream mode with an
+input shape agy does not accept, and a fixture test using an invented response shape kept passing while
+every real call came back empty. The backend now speaks agy 1.4.0's real shape
+(`{"event":"user","message":{"content":...}}` in, `{"event":"result","result":{...}}` out), a denied tool
+action is an error not an answer, and a test pins the real shape through a fake executable.
+
 Option 6 (batching) is not a separate project: its number is units per item, batched against single,
 reported by pilots 3 and 5.
 

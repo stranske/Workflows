@@ -1,0 +1,57 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+____________ test_post_authoring_snapshot_excludes_created_siblings ____________
+
+tmp_path = PosixPath('/private/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/pytest-of-teacher/pytest-5619/test_post_authoring_snapshot_e0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1120e6f30>
+
+    def test_post_authoring_snapshot_excludes_created_siblings(tmp_path, monkeypatch):
+        authoring_tools(tmp_path, monkeypatch)
+        created = []
+        fetches = []
+
+        def fetch(*args):
+            fetches.append(args)
+            return list(created)
+
+        monkeypatch.setattr(uploader, "fetch_open_issues", fetch)
+        monkeypatch.setattr(uploader, "ensure_labels", lambda *args: None)
+        monkeypatch.setattr(
+            uploader, "add_missing_labels", lambda *args: pytest.fail("must not dedup siblings")
+        )
+
+        def create(item, prefix):
+            row = {
+                **item,
+                "number": 100 + len(created),
+                "labels": [{"name": "repo-review-approved"}],
+                "url": f"https://github.test/owner/repo/issues/{100+len(created)}",
+            }
+            created.append(row)
+            return row["url"]
+
+        monkeypatch.setattr(uploader, "create_issue", create)
+>       result = uploader.upload_issues(
+            [issue(title) for title in ("Alpha", "Beta", "Gamma")],
+            prefix=["gh"],
+            apply=True,
+            authoring_dir=tmp_path / "evidence",
+        )
+
+tests/scripts/test_upload_repo_review_issues.py:547:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+scripts/upload_repo_review_issues.py:738: in upload_issues
+    add_missing_labels(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+args = ('owner/repo', 100, [], [{'name': 'repo-review-approved'}], ['gh'])
+
+>       uploader, "add_missing_labels", lambda *args: pytest.fail("must not dedup siblings")
+                                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+E   Failed: must not dedup siblings
+
+tests/scripts/test_upload_repo_review_issues.py:533: Failed
+=========================== short test summary info ============================
+FAILED tests/scripts/test_upload_repo_review_issues.py::test_post_authoring_snapshot_excludes_created_siblings
+1 failed, 28 deselected in 1.44s
