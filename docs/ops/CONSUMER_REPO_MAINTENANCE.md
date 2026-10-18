@@ -1311,10 +1311,12 @@ plan. Promotion likewise refreshes one stable `sync/workflows-delivery` PR per
 non-canary; immutable plan and desired-tree identity live in the delivery
 record instead of the branch name.
 
-For a stable canary whose delivery record is still `staging` or `reviewing`,
-Maint 71 may continue to the existing seal lifecycle when the exact-head
-`Gate / gate` run, complete job list, and generated-seal annotations prove the
-expected `delivery_not_sealed` hold. This is lifecycle continuation only: the
+For a stable canary with a seal-only failure, Maint 71 may continue to the
+existing seal lifecycle when the exact-head `Gate / gate` run, complete job
+list, generated-seal annotations, and classifier log prove the expected
+`delivery_not_sealed` or `sealed_head_mismatch` hold. This includes a stale
+seal and a failed Gate that started before the current seal was written (using
+the attempt's start time for reruns). This is lifecycle continuation only: the
 original failed check classification remains failed, every other failed or
 nonterminal job still blocks, and only a fresh Gate after sealing can satisfy
 the required check for merge. Missing, incomplete, mismatched, or unreadable
@@ -1697,8 +1699,32 @@ shared defects return to Workflows source before the stable PR is refreshed.
 On older consumers, branch protection also requires `gate-summary` alongside
 the legacy `Gate / gate` status. Maint 71 treats that exact failed pair as one
 pre-seal hold only when both point to the same exact-head Gate run and its
-complete job and seal-annotation proof matches; any other failed required
-check still blocks the lifecycle.
+complete job and seal-annotation proof matches. Direct required checks named
+`generated delivery seal`, `classify changed paths`/`detect changed files`, and
+`gate-summary`/`summary` may describe that same hold, but must bind to the same
+exact-head Gate run. The classifier job log must show the same seal exception
+and no other error; generic exit annotations alone are insufficient. An extra
+failed required check, unrelated classifier error, incomplete evidence, or API
+failure still blocks sealing.
+
+Seal-only failures (including `sealed_head_mismatch`) are reported as
+`seal_pending`, never a repo-local repair request. A stale seal is restaged and
+uses the existing configured reviewer settlement policy; active threads and the
+bounded review wait still hold it. Integration-only delivery continues to reuse
+source review under the existing policy. After settlement, Maint 71 writes the
+exact-head seal once and requests a fresh Gate, retaining failed raw check
+evidence until the new evaluation succeeds. If the head is already sealed and
+the failed run predates that seal, Maint 71 requests fresh Gate evaluation
+without rewriting the seal. A failed evaluation created after the current seal
+remains blocking. Neither recovery path updates the branch or authorizes merge.
+
+Each canary prints `seal: <repo>#<n> sealed|pending(<reason>)|blocked(<check names>)`.
+`canaries: red=` counts only non-seal failures; `drainable` counts proven
+seal-only holds without active threads that can progress through settlement
+and fresh checks. A new
+seal can therefore print `red=0 drainable=1` while promotion remains held.
+After fresh checks and exact-head evidence are green, the existing promotion
+path runs and the drained summary prints `red=0` and `drainable=0`.
 Maint 68 also writes `autofix: false` into every generated PR body. The shared
 reusable autofix workflow independently rejects `sync/workflows-*` heads, so an
 older consumer caller cannot mutate the transition PR while the updated local
@@ -3236,4 +3262,4 @@ dispatch these producers.
 
 Upstream finding markers suppress duplicate comments only when authored by
 the authenticated Maint 71 writer. When drained, the summary is
-`canaries: red=0 review_blocked=0 stale=0 refresh_dispatched=0 held_plan=none`.
+`canaries: red=0 review_blocked=0 stale=0 refresh_dispatched=0 held_plan=none drainable=0`.
