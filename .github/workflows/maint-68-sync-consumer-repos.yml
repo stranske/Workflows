@@ -319,7 +319,7 @@ jobs:
               ignoreRunId: context.runId,
             });
             const line = state.queue_reason ? `refresh: queued (${state.queue_reason})`
-              : state.producer_succeeded
+              : state.producer_succeeded && state.delivery_digest
                 ? `refresh: skipped (delivery digest ${state.delivery_digest} unchanged since ${state.unchanged_since || state.sha})`
                 : `refresh: ${state.eligible ? 'allowed' : 'skipped'} (${state.state})`;
             core.notice(line);

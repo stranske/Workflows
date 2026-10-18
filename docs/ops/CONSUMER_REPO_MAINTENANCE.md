@@ -3248,7 +3248,15 @@ The seal stores the same helper's per-repository digest in
 `review_evidence.delivery_digest`; changing main alone never rewrites that seal
 or the immutable source/plan of the in-flight PR.
 
-A matching payload prints
+Digest renderer or Git snapshot failures print
+`refresh: digest unavailable (<reason>); falling back to sha key` and use the
+previous source-SHA decision, retaining active-writer and debounce protection.
+This fallback also applies to the Maint 68 preparation guard.
+Red, review-blocked and stale canaries remain eligible for one recovery per
+payload and observed head even when the payload is unchanged. Recovery uses a
+`refresh_key`; producer success alone never certifies consumer health.
+
+A healthy canary with a matching payload prints
 `refresh: skipped (delivery digest <d> unchanged since <sha>)` and preserves the
 existing PR head and review lifecycle. REST history reads backwards to the latest
 actual full-set producer receipt, across source SHAs; older successful payloads
@@ -3262,7 +3270,7 @@ ref; the rendered payload comes from the separately pinned source commit.
 If payload content changes during an exact-head sealed cycle, Maint 71 compares
 changed consumer targets with the complete canary diff (including rename origins
 and deletions). Overlap can refresh immediately. Disjoint changes print
-`refresh: queued (...)` until the cycle merges, a fresh post-seal PR Gate fails,
+`refresh: queued (... wait_remaining_ms=<n>, clears at <iso>)` until the cycle merges, a fresh post-seal PR Gate fails,
 or `CANARY_SEALED_REFRESH_WAIT_MS` (one hour) elapses. The seal timestamp is the
 durable wait clock; successive main commits and observations do not reset it.
 A pre-seal failure cannot release this hold. Behind/non-mergeable heads cannot

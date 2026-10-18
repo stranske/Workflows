@@ -250,7 +250,7 @@ def test_canary_digest_guard_runs_before_consumer_mutation_and_tracks_real_recei
     assert "step.name === 'Authorize canary payload mutation'" in executor
     assert "step.conclusion === 'success'" in executor
     assert "deliveryPayload.readDeliveryPayload(record.source_commit" in executor
-    assert "deliveryDigest: payload.digest" in executor
+    assert "deliveryDigest: payload?.digest" in executor
     assert "CANARY_SEALED_REFRESH_WAIT_MS" in executor
     trusted = workflow.split("      - name: Checkout delivery guard at workflow ref")[1].split(
         "      - name: Check content refresh guard"

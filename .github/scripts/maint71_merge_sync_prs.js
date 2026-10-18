@@ -31,6 +31,29 @@ function canaryDriftKey(canary) {
     .update(`${canary.owner}/${canary.repo}:${canary.default_branch_tip_sha}:${canary.head_sha}`).digest('hex');
 }
 
+// Payload equality never grants health or merge authority. Recovery is bounded
+// to the observed head and payload, independently of a prior producer success.
+function canaryRecoveryKey(canary, state) {
+  if (canary.mergeable_state === 'behind') return canaryDriftKey(canary);
+  return require('crypto').createHash('sha256')
+    .update(`${canary.owner}/${canary.repo}:${state.delivery_digest || state.sha}:${canary.head_sha}`).digest('hex');
+}
+
+async function readRefreshPayload(sha, candidates) {
+  try {
+    return await deliveryPayload.readDeliveryPayload(sha, candidates);
+  } catch (error) {
+    console.log(`refresh: digest unavailable (${error.message || String(error)}); falling back to sha key`);
+    return null;
+  }
+}
+
+function shaRefreshFallback(state, now) {
+  return Object.assign(state, canaryRefreshDecision({ runs: state.runs || [], sha: state.sha,
+    candidates: state.candidates, defaultBranch: state.default_branch || 'main',
+    driftKey: state.drift_key, now }), { queue_reason: undefined });
+}
+
 // Only behind canaries need this extra live read. Cache the promise (including
 // failures) so the executor and final refresh pass observe one tip per repo/run.
 async function readCanaryDefaultTip({ canary, withRetry, consumerTipCache }) {
@@ -72,7 +95,7 @@ function canaryRefreshDecision({ runs, sha, candidates, defaultBranch = 'main', 
   const latestSuccess = valid.filter(run => run.status === 'completed' && run.conclusion === 'success'
     && (!deliveryDigest || run.delivery_digest)).sort((a, b) => Number(b.id) - Number(a.id))[0];
   const identityMatches = (run) => !driftKey || String(run.display_title).includes(` drift=${driftKey}`);
-  const successful = matching.find((run) => (!deliveryDigest || run.id === latestSuccess?.id) && identityMatches(run) && run.status === 'completed' && run.conclusion === 'success');
+  const successful = matching.find((run) => (!deliveryDigest || latestSuccess?.delivery_digest === deliveryDigest) && identityMatches(run) && run.status === 'completed' && run.conclusion === 'success');
   const active = matching.find((run) => ACTIVE_SYNC_STATES.includes(run.status));
   const writer = runs.find((run) => ACTIVE_SYNC_STATES.includes(run.status)
     && /^Maint 68 (canary|promote) /.test(run.display_title || ''));
@@ -115,7 +138,7 @@ async function readCanaryRefreshState({ withRetry, context, expectedCanaries, dr
     runs.push(...data.workflow_runs);
   }
   if (writerOnly) return canaryRefreshDecision({ runs, sha: source.sha, candidates, defaultBranch: branch, now });
-  const payload = await deliveryPayload.readDeliveryPayload(source.sha, candidates);
+  let payload = await readRefreshPayload(source.sha, candidates);
   const observed = runs.filter(run => Number(run.id) !== Number(ignoreRunId));
   // Read backwards only as far as the latest actual full-set delivery. Older
   // receipts cannot override that payload; this avoids an ever-growing scan.
@@ -150,18 +173,28 @@ async function readCanaryRefreshState({ withRetry, context, expectedCanaries, dr
           && step.conclusion === 'success'))) continue;
       }
       run.source_commit = match[1];
-      run.delivery_digest = (await deliveryPayload.readDeliveryPayload(match[1], candidates)).digest;
+      if (payload) {
+        const priorPayload = await readRefreshPayload(match[1], candidates);
+        if (!priorPayload) payload = null;
+        else run.delivery_digest = priorPayload.digest;
+      }
       if (run.status === 'completed' && run.conclusion === 'success') {
-        latestReceipt = true;
-        break;
+        // A later same-payload delivery for another head does not erase this
+        // head's recovery receipt. Stop at a changed payload or the exact key.
+        const samePayload = payload ? run.delivery_digest === payload.digest : match[1] === source.sha;
+        if (!driftKey || String(run.display_title).includes(` drift=${driftKey}`) || !samePayload) {
+          latestReceipt = true;
+          break;
+        }
       }
     }
     if (latestReceipt || data.workflow_runs.length < 100) break;
     if (page === 10) throw new Error('canary_refresh_history_truncated');
   }
   const state = canaryRefreshDecision({ runs: observed, sha: source.sha, candidates,
-    defaultBranch: branch, driftKey, deliveryDigest: payload.digest, now });
-  if (state.eligible) await deferSealedCanaryRefresh({ state, payload, withRetry, now });
+    defaultBranch: branch, driftKey, deliveryDigest: payload?.digest, now });
+  state.default_branch = branch;
+  if (state.eligible && payload) await deferSealedCanaryRefresh({ state, payload, withRetry, now });
   return state;
 }
 
@@ -183,7 +216,8 @@ async function deferSealedCanaryRefresh({ state, payload, withRetry, now = Date.
       const record = parseDeliveryRecord(pr.body);
       if (pr.state !== 'open' || !record?.delivery_state
         || record.repository !== repository || record.head_observed_sha !== pr.head?.sha) continue;
-      const prior = await deliveryPayload.readDeliveryPayload(record.source_commit, state.candidates);
+      const prior = await readRefreshPayload(record.source_commit, state.candidates);
+      if (!prior) return shaRefreshFallback(state, now);
       if (prior.digest === payload.digest && !state.drift_key) {
         waiting.push({ reason: 'unchanged', source: record.source_commit });
         continue;
@@ -228,10 +262,11 @@ async function deferSealedCanaryRefresh({ state, payload, withRetry, now = Date.
   // in another. A single full-set producer waits for every protected canary.
   if (waiting.length) {
     const sealed = waiting.filter(row => row.reason === 'sealed');
+    const clearsAt = Math.max(...sealed.map(row => Date.parse(row.sealed_at) + CANARY_SEALED_REFRESH_WAIT_MS));
     Object.assign(state, { eligible: false, state: sealed.length ? 'sealed-cycle' : 'success',
       producer_succeeded: !sealed.length, unchanged_since: waiting[0].source,
       queue_reason: sealed.length ? `delivery digest ${payload.digest}; sealed cycle ${sealed.map(row =>
-        `${row.repository}@${row.head} since ${row.sealed_at}`).join(',')}; wait_ms=${CANARY_SEALED_REFRESH_WAIT_MS}` : undefined });
+        `${row.repository}@${row.head} since ${row.sealed_at}`).join(',')}; wait_ms=${CANARY_SEALED_REFRESH_WAIT_MS} wait_remaining_ms=${Math.max(0, clearsAt - now)}, clears at ${new Date(clearsAt).toISOString()}` : undefined });
   }
   return state;
 }
@@ -263,11 +298,6 @@ async function dispatchCanaryRefresh({ withRetry, context, core, expectedCanarie
 // Age is a recovery trigger for blocked canaries, never a hold on green ones.
 // Only a successful producer observation resets the clock; comments do not.
 function canaryNeedsRefresh(canary, now = Date.now()) {
-  if (canary.mergeable_state === 'behind' && (!canary.refresh_state?.drift_key
-    || canary.refresh_state.drift_key !== canaryDriftKey(canary))) return 'behind';
-  if ((canary.refresh_state?.producer_succeeded || canary.refresh_state?.state === 'success')
-    && (canary.source_commit === canary.refresh_state.sha
-      || canary.refresh_state.delivery_digest)) return null;
   if (canary.mergeable_state === 'behind') return 'behind';
   if (canary.check_status === 'checks_failed' && !canary.expected_preseal_gate_hold) {
     return 'checks_failed';
@@ -528,15 +558,14 @@ async function refreshStableCanaries({
     if (enabled && plans.size) {
       // Keep the existing producer-writer guard. A running promotion or
       // refresh owns these stable heads; leave the request visible for retry.
-      const behind = canaries.find((row) => row.mergeable_state === 'behind'
-        && row.refresh_state?.eligible);
-      const drift = behind || canaries.find((row) => row.mergeable_state === 'behind');
-      const driftState = drift && drift.refresh_state?.drift_key === canaryDriftKey(drift)
-        ? drift.refresh_state : undefined;
-      const state = driftState || (drift
-        ? await readCanaryRefreshState({ withRetry, context, expectedCanaries, now,
-          driftKey: canaryDriftKey(drift) })
-        : refreshState || await readCanaryRefreshState({ withRetry, context, expectedCanaries, now }));
+      const recovery = [...plans.values()].flat().find(row => row.mergeable_state === 'behind')
+        || [...plans.values()][0][0];
+      const baseState = refreshState || recovery.refresh_state
+        || await readCanaryRefreshState({ withRetry, context, expectedCanaries, now });
+      const recoveryKey = canaryRecoveryKey(recovery, baseState);
+      const state = baseState.drift_key === recoveryKey ? baseState
+        : await readCanaryRefreshState({ withRetry, context, expectedCanaries, now,
+          driftKey: recoveryKey });
       for (const [plan, rows] of plans) {
         const refresh = await dispatchCanaryRefresh({ withRetry, context, core,
           expectedCanaries, refreshState: state, now });
@@ -2645,10 +2674,10 @@ async function run({ github, context, core }) {
     if (!refreshState) refreshState = await readCanaryRefreshState({
       withRetry, context, expectedCanaries: expectedCanaryRepos,
     });
-    if (!canary || canary.mergeable_state !== 'behind' || refreshState.queue_reason) return refreshState;
+    if (!canary || !canaryNeedsRefresh(canary)) return refreshState;
     await readCanaryDefaultTip({ canary, withRetry, consumerTipCache });
     return canaryRefreshDecision({ runs: refreshState.runs, sha: refreshState.sha,
-      candidates: refreshState.candidates, driftKey: canaryDriftKey(canary),
+      candidates: refreshState.candidates, driftKey: canaryRecoveryKey(canary, refreshState),
       deliveryDigest: refreshState.delivery_digest,
       defaultBranch: context.payload.repository?.default_branch || 'main' });
   };
@@ -3994,9 +4023,8 @@ async function run({ github, context, core }) {
           updated_at: pr.updated_at, created_at: pr.created_at,
           threads: reviewThreadDetails.threads };
         stableCanaries.push(canary);
-        // A successful producer for this source/set is not a green consumer
-        // Gate. Preserve the review/seal lifecycle and let its later exact-head
-        // checks hold real failures, instead of restaging it on every scan.
+        // Producer success never certifies consumer health. Recovery retains
+        // the active-writer guard and is consumed once per payload/head key.
         if (canaryNeedsRefresh(canary)) canary.refresh_state = await getRefreshState(canary);
         const reason = canaryNeedsRefresh(canary);
         if (reason && !(classification.status === 'checks_failed' && !expectedPresealGateHold)) {
