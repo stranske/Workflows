@@ -1759,12 +1759,22 @@ Under the shared stable-writer mutex, a durable PR comment claim records the
 repository, head, plan ID and source commit before dispatch. `MAX_FORCED_RESTAGES`
 is 2 across all heads for that plan/source binding. At the cap, Maint 71 prints
 `seal: <repo>#<n> forced restage exhausted (<k>/<max>); drainable=0 — needs owner or a new plan`.
-A new plan or source binding resets the budget. Legacy head-only claims resolve their plan/source from the claimed commit;
+A new plan or source binding resets the budget. Only markers authored by
+`TRUSTED_REVIEW_RESOLUTION_ACTORS` (default `stranske,stranske-automation-bot`)
+or the authenticated token's own login count; malformed JSON markers are skipped
+with a warning. Credential rotation among trusted writers retains the budget.
+Legacy head-only claims resolve their plan/source from the claimed commit;
 an unreadable binding blocks further requests rather than replenishing the budget.
 On an unchanged head, a definitive dispatch rejection can retry on a later pass.
 A bound dispatched run must have completed at least `CLAIM_EXPIRY` (two hours)
-ago to retry; active runs, recent completions and ambiguous/unobserved dispatches
-retain their claims. Every retry consumes the same budget and prints
+ago to retry; active runs and recent completions retain their claims. Claims
+without a receipt or with `run_id: null` expire two hours after the timestamp in
+`claim.id`, including ambiguous 5xx dispatch failures and runs not yet observed.
+Legacy claims without an ID expire from the comment's `created_at` time.
+Every suppressed duplicate prints
+`seal: <repo>#<n> forced restage already requested <age>; expires in <t>`;
+ages and remaining times use milliseconds, with unknown timing explicit for
+active runs or unavailable timestamps. Every retry consumes the same budget and prints
 `claim stale, head unchanged; retrying (<k>/<max>)`. Receipts persist dispatch
 failure or the observed run ID; an unobserved run ID is explicitly `unknown`.
 The log prints `seal: <repo>#<n> rerun refused; forced restage requested run=<id>`;

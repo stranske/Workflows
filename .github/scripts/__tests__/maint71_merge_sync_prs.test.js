@@ -2394,7 +2394,7 @@ function boundedRestageHarness(t) {
     users: { getAuthenticated: async () => ({ data: { login: 'writer' } }) },
     issues: {
       listComments: async () => ({ data: comments }),
-      createComment: async ({ body }) => { comments.push({ body, user: { login: 'writer' } }); return { data: {} }; },
+      createComment: async ({ body }) => { comments.push({ body, user: { login: 'writer' }, created_at: new Date(Date.now()).toISOString() }); return { data: {} }; },
     },
     repos: { getCommit: async () => ({ data: { commit: { verification: { verified: true, reason: 'valid' }, message: '' } } }) },
     actions: {
@@ -2402,8 +2402,8 @@ function boundedRestageHarness(t) {
         dispatches.push(params);
         if (state.error) throw Object.assign(new Error('dispatch failed'), { status: state.error });
       },
-      listWorkflowRuns: async () => ({ data: { workflow_runs: [{ id: 5000, event: 'workflow_dispatch',
-        head_branch: 'main', created_at: new Date().toISOString(),
+      listWorkflowRuns: async () => ({ data: { workflow_runs: state.noRun ? [] : [{ id: 5000, event: 'workflow_dispatch',
+        head_branch: 'main', created_at: new Date(Date.now()).toISOString(),
         display_title: 'Maint 68 canary candidates=stranske/Ready dry=false' }] } }),
       getWorkflowRun: async () => ({ data: { status: state.runStatus, updated_at: state.updatedAt } }),
     },
@@ -2443,9 +2443,11 @@ for (const reason of ['failed-dispatch', 'expired-claim', 'active-run', 'recent-
     api.state.error = null;
     if (['expired-claim', 'recent-completion'].includes(reason)) api.state.runStatus = 'completed';
     if (reason !== 'recent-completion') api.state.updatedAt = new Date(Date.now() - CLAIM_EXPIRY).toISOString();
+    if (reason === 'active-run') t.mock.timers.tick(CLAIM_EXPIRY);
     const retry = ['failed-dispatch', 'expired-claim'].includes(reason);
     assert.equal((await api.request()).state, retry ? 'requested' : 'already-requested');
     assert.equal(api.dispatches.length, retry ? 2 : 1);
+    if (!retry) assert.ok(api.logs.some(line => /^seal: stranske\/Ready#4104 forced restage already requested .+; expires in .+/.test(line)));
     if (retry) {
       assert.ok(api.logs.includes('seal: stranske/Ready#4104 claim stale, head unchanged; retrying (2/2)'));
       assert.equal((await api.request()).state, 'exhausted');
@@ -2483,7 +2485,7 @@ test('force reaches the signed rebuild path even for an identical verified tree'
 test('credential rotation does not replenish the forced-restage budget', async t => {
   const api = boundedRestageHarness(t);
   await api.request();
-  api.comments.forEach(row => { row.user.login = 'previous-writer'; });
+  api.comments.forEach(row => { row.user.login = 'stranske-automation-bot'; });
   api.args.pr.head.sha = 'e'.repeat(40);
   await api.request();
   api.args.pr.head.sha = 'f'.repeat(40);
@@ -2501,10 +2503,113 @@ test('legacy markers use claimed commit plan/source and a new plan resets the co
     } } });
     return callback(client);
   });
-  for (const head of ['b', 'c']) api.comments.push({ user: { login: 'previous-writer' },
+  for (const head of ['b', 'c']) api.comments.push({ user: { login: 'stranske-automation-bot' },
     body: `<!-- maint71-forced-restage:stranske/Ready:${head.repeat(40)} -->` });
   assert.equal((await api.request()).state, 'exhausted');
   api.state.plan = 'sha256:new-plan';
   assert.equal((await api.request()).state, 'requested');
   assert.equal(api.dispatches.length, 1);
 });
+
+for (const reason of ['missing-receipt', '5xx-dispatch', 'null-run']) {
+  test(`unobserved forced restage expires by claim age: ${reason}`, async t => {
+    const { CLAIM_EXPIRY } = require('../maint71_merge_sync_prs');
+    const api = boundedRestageHarness(t);
+    if (reason === '5xx-dispatch') {
+      api.state.error = 503;
+      await assert.rejects(api.request(), /dispatch failed/);
+      api.state.error = null;
+      assert.equal(api.comments.length, 1); // Claim survives the ambiguous failure.
+    } else {
+      api.state.noRun = true;
+      assert.deepEqual(await api.request(), { state: 'requested', run_id: null, head_sha: 'd'.repeat(40) });
+      if (reason === 'missing-receipt') api.comments.pop();
+    }
+    // Modern claims use their ID timestamp even if comment time differs.
+    api.comments[0].created_at = new Date(Date.now() + CLAIM_EXPIRY).toISOString();
+    t.mock.timers.tick(CLAIM_EXPIRY - 1);
+    assert.equal((await api.request()).state, 'already-requested');
+    assert.ok(api.logs.includes(`seal: stranske/Ready#4104 forced restage already requested ${CLAIM_EXPIRY - 1}ms; expires in 1ms`));
+    assert.equal(api.dispatches.length, 1);
+    t.mock.timers.tick(1);
+    assert.equal((await api.request()).state, 'requested');
+    assert.equal(api.dispatches.length, 2);
+    assert.ok(api.logs.includes('seal: stranske/Ready#4104 claim stale, head unchanged; retrying (2/2)'));
+    assert.equal((await api.request()).state, 'exhausted');
+    assert.equal(api.dispatches.length, 2);
+  });
+}
+
+test('stray commenter claims cannot consume the forced-restage budget or latch a head', async t => {
+  const api = boundedRestageHarness(t);
+  await api.request();
+  api.comments.forEach(row => { row.user.login = 'stray-commenter'; });
+  // Two otherwise valid claims would exhaust the budget without author filtering.
+  api.comments.push({ ...api.comments[0] });
+  assert.equal((await api.request()).state, 'requested');
+  assert.equal(api.dispatches.length, 2);
+});
+
+for (const payload of ['{broken', '', 'null', '[]', '{"id":123}']) {
+  test(`malformed trusted claim marker is skipped with a warning: ${payload}`, async t => {
+    const api = boundedRestageHarness(t);
+    api.comments.push({ user: { login: 'writer' },
+      body: `<!-- maint71-forced-restage:stranske/Ready:${api.args.pr.head.sha} -->\nClaim: ${payload}` });
+    assert.equal((await api.request()).state, 'requested');
+    assert.ok(api.logs.includes('seal: stranske/Ready#4104 warning: malformed forced restage claim skipped'));
+    assert.equal(api.dispatches.length, 1);
+  });
+}
+
+test('configured trusted writer claims retain the forced-restage budget', async t => {
+  const previous = process.env.TRUSTED_REVIEW_RESOLUTION_ACTORS;
+  t.after(() => {
+    if (previous === undefined) delete process.env.TRUSTED_REVIEW_RESOLUTION_ACTORS;
+    else process.env.TRUSTED_REVIEW_RESOLUTION_ACTORS = previous;
+  });
+  process.env.TRUSTED_REVIEW_RESOLUTION_ACTORS = ' prior-writer ';
+  const api = boundedRestageHarness(t);
+  await api.request();
+  api.comments.forEach(row => { row.user.login = 'prior-writer'; });
+  api.args.pr.head.sha = 'e'.repeat(40);
+  await api.request(); // Current token's own login is trusted too.
+  api.args.pr.head.sha = 'f'.repeat(40);
+  assert.equal((await api.request()).state, 'exhausted');
+  assert.equal(api.dispatches.length, 2);
+});
+
+test('malformed receipt warns and falls back to claim-age expiry', async t => {
+  const { CLAIM_EXPIRY } = require('../maint71_merge_sync_prs');
+  const api = boundedRestageHarness(t);
+  await api.request();
+  api.comments[1].body = api.comments[1].body.split('\n')[0] + '\n{broken';
+  assert.equal((await api.request()).state, 'already-requested');
+  assert.ok(api.logs.includes('seal: stranske/Ready#4104 warning: malformed forced restage receipt skipped'));
+  t.mock.timers.tick(CLAIM_EXPIRY);
+  assert.equal((await api.request()).state, 'requested');
+  assert.equal(api.dispatches.length, 2);
+});
+
+for (const headOnly of [false, true]) {
+  test(`legacy claim without id expires from comment creation (head-only=${headOnly})`, async t => {
+    const { CLAIM_EXPIRY } = require('../maint71_merge_sync_prs');
+    const api = boundedRestageHarness(t);
+    const originalRetry = api.args.withRetry;
+    api.args.withRetry = callback => originalRetry(client => {
+      client.rest.repos.getCommit = async () => ({ data: { commit: {
+        verification: { verified: true, reason: 'valid' },
+        message: `Consumer-sync plan ID: sha256:plan\nSource commit: ${'a'.repeat(40)}`,
+      } } });
+      return callback(client);
+    });
+    api.comments.push({ user: { login: 'stranske-automation-bot' }, created_at: new Date(Date.now()).toISOString(),
+      body: `<!-- maint71-forced-restage:stranske/Ready:${api.args.pr.head.sha} -->` + (headOnly ? ''
+        : `\nClaim: ${JSON.stringify({ head_sha: api.args.pr.head.sha, plan_id: api.state.plan, source_commit: api.state.source })}`) });
+    assert.equal((await api.request()).state, 'already-requested');
+    assert.ok(api.logs.includes(`seal: stranske/Ready#4104 forced restage already requested 0ms; expires in ${CLAIM_EXPIRY}ms`));
+    t.mock.timers.tick(CLAIM_EXPIRY);
+    assert.equal((await api.request()).state, 'requested');
+    assert.equal(api.dispatches.length, 1);
+    assert.equal((await api.request()).state, 'exhausted');
+  });
+}

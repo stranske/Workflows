@@ -831,7 +831,7 @@ async function evaluateSealedGate({ owner, repo, pr, withRetry, sealedAt }) {
 }
 
 // Maint 71 and Maint 68 share the stable-writer mutex. Claim before dispatch:
-// ambiguous dispatches retain their claim until a bound completed run is known.
+// ambiguous/unobserved dispatches retain their claim for at most CLAIM_EXPIRY.
 async function requestForcedSealRestage({ owner, repo, pr, withRetry, context }) {
   const identity = `seal: ${owner}/${repo}#${pr.number}`;
   const { parseDeliveryRecord } = require('./sync_pr_lease_contract');
@@ -859,13 +859,28 @@ async function requestForcedSealRestage({ owner, repo, pr, withRetry, context })
     if (page === 20) throw new Error('Forced restage history truncated');
   }
   const prefix = `<!-- maint71-forced-restage:${owner}/${repo}:`;
-  const claims = history.filter(row => String(row.body || '').includes(prefix)).map(row => {
-    const match = row.body.match(/\nClaim: (.+)/);
-    // Resolve old head-only markers from commit provenance below. Count claims
-    // across writer identities so credential rotation cannot reset the budget.
-    if (!match) return { head_sha: row.body.split(prefix)[1].split(' ')[0], legacy: true };
-    return { ...JSON.parse(match[1]), writer: row.user?.login };
-  });
+  const trustedWriters = new Set(String(
+    process.env.TRUSTED_REVIEW_RESOLUTION_ACTORS || 'stranske,stranske-automation-bot',
+  ).split(',').map(login => login.trim()).filter(Boolean));
+  trustedWriters.add(writer.login);
+  const claims = [];
+  for (const row of history) {
+    if (!trustedWriters.has(row.user?.login) || !String(row.body || '').includes(prefix)) continue;
+    const match = row.body.match(/\nClaim:[ \t]*(.*)/);
+    // Resolve old head-only markers from commit provenance below. Trusted
+    // writers share the budget across credential rotation.
+    let claim;
+    try {
+      claim = match ? JSON.parse(match[1])
+        : { head_sha: row.body.split(prefix)[1].split(' ')[0], legacy: true };
+      if (!claim || typeof claim !== 'object' || Array.isArray(claim)
+          || (claim.id !== undefined && typeof claim.id !== 'string')) throw new Error('invalid claim object');
+    } catch {
+      console.log(`${identity} warning: malformed forced restage claim skipped`);
+      continue;
+    }
+    claims.push({ ...claim, writer: row.user.login, created_at: row.created_at });
+  }
   for (const claim of claims.filter(row => row.legacy)) {
     const { data: oldCommit } = await withRetry(client => client.rest.repos.getCommit({
       owner, repo, ref: claim.head_sha,
@@ -887,17 +902,35 @@ async function requestForcedSealRestage({ owner, repo, pr, withRetry, context })
   if (previous) {
     const receiptPrefix = `<!-- maint71-restage-receipt:${previous.id} -->\n`;
     const receiptRow = previous.id && history.find(row => row.user?.login === previous.writer && row.body?.startsWith(receiptPrefix));
-    const receipt = receiptRow ? JSON.parse(receiptRow.body.slice(receiptPrefix.length)) : null;
-    let stale = receipt?.state === 'dispatch-failed';
+    let receipt = null;
+    if (receiptRow) {
+      try {
+        receipt = JSON.parse(receiptRow.body.slice(receiptPrefix.length));
+      } catch {
+        console.log(`${identity} warning: malformed forced restage receipt skipped`);
+      }
+    }
+    // Claims with no observed run (including ambiguous 5xx dispatches) expire
+    // from the request timestamp. Legacy claims use the comment's creation time.
+    const now = Date.now();
+    const claimedAt = previous.id ? Number(previous.id.split(':')[1]) : Date.parse(previous.created_at);
+    const age = Number.isFinite(claimedAt) ? Math.max(0, now - claimedAt) : null;
+    let remaining = age === null ? null : Math.max(0, CLAIM_EXPIRY - age);
+    let stale = receipt?.state === 'dispatch-failed' || remaining === 0;
     if (receipt?.run_id) {
       const { data: run } = await withRetry(client => client.rest.actions.getWorkflowRun({
         owner: query.owner, repo: query.repo, run_id: receipt.run_id,
       }));
       const finished = Date.parse(run.updated_at);
-      stale = run.status === 'completed' && Number.isFinite(finished)
-        && Date.now() - finished >= CLAIM_EXPIRY;
+      remaining = run.status === 'completed' && Number.isFinite(finished)
+        ? Math.max(0, CLAIM_EXPIRY - (now - finished)) : null;
+      stale = remaining === 0;
     }
-    if (!stale) return { state: 'already-requested' };
+    if (!stale) {
+      const expiresIn = remaining === null ? 'unknown (awaiting run completion or timestamp)' : `${remaining}ms`;
+      console.log(`${identity} forced restage already requested ${age === null ? 'unknown age' : `${age}ms`}; expires in ${expiresIn}`);
+      return { state: 'already-requested' };
+    }
     console.log(`${identity} claim stale, head unchanged; retrying (${scopedClaims.length + 1}/${MAX_FORCED_RESTAGES})`);
   }
   const inputs = { repos: `${owner}/${repo}`, phase, force: 'true', dry_run: 'false',
