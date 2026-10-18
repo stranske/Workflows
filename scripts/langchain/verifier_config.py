@@ -15,18 +15,21 @@ EVAL_SCHEMA_REPAIR_BUDGET_TOKENS = DEFAULT_TOKEN_BUDGET
 EVAL_FOLLOW_UP_BUDGET_TOKENS = DEFAULT_TOKEN_BUDGET
 
 # Prompt-coverage budgets (#3701). The context block carries CI, plan sources and
-# the diff summary; the diff block carries changed code shared fairly across files.
+# the diff summary; changed code is reviewed as whole files across bounded chunks.
 # A prefix cap of EVAL_PAIR_BUDGET_TOKENS // 2 per block silently dropped all or
 # most code on complex PRs, so code gets its own bounded budget. Override with the
 # VERIFIER_CONTEXT_BUDGET_TOKENS / VERIFIER_DIFF_BUDGET_TOKENS environment variables.
 VERIFIER_CONTEXT_BUDGET_TOKENS = 4000
 VERIFIER_DIFF_BUDGET_TOKENS = 16000
+# Bound provider calls per review alongside the per-call changed-code budget.
+# Exhausting either limit leaves files explicitly UNVERIFIABLE_INPUT.
+MAX_REVIEW_CHUNKS = 64
 # A PASS needs at least this share of changed-code characters in the prompt.
 MIN_CODE_COVERAGE_RATIO = 0.5
 
 RepairDecision = Literal["retry", "terminal", "escalate"]
 
-_TERMINAL_VERDICTS = {"pass", "concerns", "fail", "error"}
+_TERMINAL_VERDICTS = {"pass", "concerns", "fail", "error", "unverifiable-input"}
 _TERMINAL_DISPOSITIONS = {
     "follow-up-created",
     "needs-human-depth-limit",
@@ -139,7 +142,7 @@ def artifact_from_verification_text(text: str) -> dict[str, Any]:
 
     verdicts = _extract_verdicts(raw)
     if verdicts:
-        severity = {"PASS": 0, "CONCERNS": 1, "FAIL": 2, "ERROR": 3}
+        severity = {"PASS": 0, "CONCERNS": 1, "FAIL": 2, "ERROR": 3, "UNVERIFIABLE_INPUT": 0.5}
         artifact["verdict"] = max(verdicts, key=lambda verdict: severity.get(verdict, -1))
 
     latest_raw = _latest_verifier_report(raw)
@@ -195,11 +198,15 @@ def _coerce_artifact(value: Any) -> Any:
 
 def _extract_verdicts(text: str) -> list[str]:
     verdicts: list[str] = []
-    for match in re.finditer(r"verdict:\s*\*?\*?\s*(pass|concerns|fail|error)\b", text, re.I):
+    for match in re.finditer(
+        r"verdict:\s*\*?\*?\s*(pass|concerns|fail|error|unverifiable_input)\b", text, re.I
+    ):
         verdicts.append(match.group(1).upper())
 
     for match in re.finditer(
-        r"\|\s*[^|\n]+\s*\|\s*[^|\n]*\|\s*(pass|concerns|fail|error)\s*\|", text, re.I
+        r"\|\s*[^|\n]+\s*\|\s*[^|\n]*\|\s*(pass|concerns|fail|error|unverifiable_input)\s*\|",
+        text,
+        re.I,
     ):
         verdicts.append(match.group(1).upper())
 

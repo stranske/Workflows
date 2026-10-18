@@ -270,3 +270,16 @@ def test_agy_backend_treats_a_denied_tool_action_as_an_error_not_an_answer(tmp_p
     fake.chmod(0o755)
     call = agy_pilot.agy_backend("m", agy=str(fake))("hello")
     assert call.error and call.text == ""
+
+
+@pytest.mark.skipif(sys.platform != "darwin", reason="macOS sandbox integration")
+def test_sibling_imports_work_for_generated_tests_without_host_paths():
+    """Modules that import sibling tools must be scoreable in the sandbox: siblings are copied in."""
+    tests = (
+        "from tools import resolve_mypy_pin\n"
+        "import tools\n"
+        "def test_sibling_is_a_scratch_copy():\n"
+        "    assert 'agy-pilot-' in tools.__file__\n"
+        "    assert 'agy-pilot-' in resolve_mypy_pin.__file__\n"
+    )
+    assert agy_pilot._run_pytest("clamp_mod", SOURCE, tests, isolated=True)

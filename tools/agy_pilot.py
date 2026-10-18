@@ -28,6 +28,7 @@ import argparse
 import io
 import json
 import random
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -148,15 +149,18 @@ def _run_pytest(
         package = Path(scratch) / "tools"
         package.mkdir()
         (package / "__init__.py").write_text("")
-        if not isolated:
-            # trusted repo fixtures only: sibling modules and shared trees are linked so a module
-            # that imports them works. Generated tests (isolated) never see host paths.
-            for sibling in (ROOT / "tools").glob("*.py"):
-                if sibling.stem not in (module_name, "__init__"):
-                    (package / sibling.name).symlink_to(sibling)
-            for shared in ("scripts", "config", "docs"):
-                if (ROOT / shared).exists():
-                    (Path(scratch) / shared).symlink_to(ROOT / shared)
+        # Repo code the module under test imports is COPIED into the scratch tree (never linked), so
+        # generated tests and the sandbox see only scratch paths and no host path is readable.
+        for sibling in (ROOT / "tools").glob("*.py"):
+            if sibling.stem not in (module_name, "__init__"):
+                shutil.copy2(sibling, package / sibling.name)
+        for shared in ("scripts", "config"):
+            if (ROOT / shared).is_dir():
+                shutil.copytree(
+                    ROOT / shared,
+                    Path(scratch) / shared,
+                    ignore=shutil.ignore_patterns("__pycache__", "*.pyc"),
+                )
         (package / f"{module_name}.py").write_text(module_source)
         (Path(scratch) / f"test_{module_name}_pilot.py").write_text(tests)
         command = [sys.executable, "-m", "pytest", "-x", "-q", "-p", "no:cacheprovider", scratch]

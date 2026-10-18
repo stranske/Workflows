@@ -157,6 +157,13 @@ test('only complete exact-head staging Gate evidence suppresses the base-refresh
   const classification = classifySyncPrChecks({
     checkRuns: allChecks, requiredContexts: ['Gate / gate'],
   });
+  const summary = { name: 'gate-summary', status: 'completed', conclusion: 'failure',
+    head_sha: head, app: { slug: 'github-actions' },
+    details_url: `https://github.com/stranske/Ready/actions/runs/${runId}/job/2` };
+  const dualChecks = [gate, summary];
+  const dualClassification = classifySyncPrChecks({
+    checkRuns: dualChecks, requiredContexts: ['Gate / gate', 'gate-summary'],
+  });
   assert.equal(gate.details_url, gateStatus.target_url);
   assert.equal(classification.status, 'checks_failed');
   const jobs = [
@@ -201,6 +208,10 @@ test('only complete exact-head staging Gate evidence suppresses the base-refresh
     deliveryRecord: { delivery_state: 'staging', head_observed_sha: head },
     classification, allChecks };
   assert.equal(await isExpectedPresealGateFailure({ ...args, withRetry: makeRetry() }), true);
+  assert.deepEqual(dualClassification.failed.map((check) => check.name),
+    ['Gate / gate', 'gate-summary']);
+  assert.equal(await isExpectedPresealGateFailure({ ...args, allChecks: dualChecks,
+    classification: dualClassification, withRetry: makeRetry() }), true);
   assert.equal(await isExpectedPresealGateFailure({ ...args,
     withRetry: makeRetry({ jobRows: templateJobs }) }), true);
   assert.equal(canaryNeedsRefresh(refreshCanary({ check_status: 'checks_failed',
@@ -226,6 +237,31 @@ test('only complete exact-head staging Gate evidence suppresses the base-refresh
   ]) {
     assert.equal(await isExpectedPresealGateFailure({ ...args, withRetry }), false);
   }
+  for (const badSummary of [
+    { ...summary, head_sha: 'b'.repeat(40) },
+    { ...summary, details_url: `https://github.com/stranske/Ready/actions/runs/${runId + 1}/job/2` },
+    { ...summary, details_url: `https://github.com/stranske/Other/actions/runs/${runId}/job/2` },
+    { ...summary, app: { slug: 'other-app' } },
+    { ...summary, conclusion: 'timed_out' },
+  ]) {
+    const checks = [gate, badSummary];
+    const state = classifySyncPrChecks({
+      checkRuns: checks, requiredContexts: ['Gate / gate', 'gate-summary'],
+    });
+    assert.equal(await isExpectedPresealGateFailure({ ...args, allChecks: checks,
+      classification: state, withRetry: makeRetry() }), false);
+  }
+  const unrelated = { name: 'python tests', status: 'completed', conclusion: 'failure' };
+  const extraChecks = [...dualChecks, unrelated];
+  const extraState = classifySyncPrChecks({
+    checkRuns: extraChecks, requiredContexts: ['Gate / gate', 'gate-summary', 'python tests'],
+  });
+  assert.equal(await isExpectedPresealGateFailure({ ...args, allChecks: extraChecks,
+    classification: extraState, withRetry: makeRetry() }), false);
+  assert.equal(await isExpectedPresealGateFailure({ ...args, allChecks: dualChecks,
+    classification: dualClassification,
+    withRetry: makeRetry({ rows: [{ annotation_level: 'failure', message: 'unrelated failure' }],
+      count: 1 }) }), false);
   for (const targetUrl of [undefined, 'not-a-url',
     `https://github.com/another-repo/Ready/actions/runs/${runId}`]) {
     const status = { ...gateStatus };
@@ -324,8 +360,9 @@ async function assertExecutorCanaryRefresh(t, state) {
   const ageMinutes = ['stale', 'aged_green'].includes(state) ? (STALE_CANARY_HOURS + 1) * 60 : 20;
   const observed = new Date(refreshNow - ageMinutes * 60 * 1000).toISOString();
   const { formatDeliveryRecord } = require('../sync_pr_lease_contract');
-  const preseal = ['preseal_gate', 'producer_success_staging'].includes(state);
+  const preseal = ['preseal_gate', 'preseal_gate_dual', 'producer_success_staging'].includes(state);
   const producerSucceeded = state.startsWith('producer_success');
+  const presealDual = state === 'preseal_gate_dual';
   const candidate = { number: 4026, title: 'chore: sync workflow templates',
     state: 'open', draft: false, auto_merge: null, user: { login: 'stranske' },
     mergeable: state !== 'stale',
@@ -370,7 +407,9 @@ async function assertExecutorCanaryRefresh(t, state) {
         target_url: `https://github.com/${owner}/${repo}/actions/runs/4027`,
         updated_at: observed, description: 'Path classification failed',
       }] : [] } }),
-      getBranchProtection: async () => ({ data: { required_status_checks: { contexts: ['Gate / gate'] } } }),
+      getBranchProtection: async () => ({ data: { required_status_checks: {
+        contexts: presealDual ? ['Gate / gate', 'gate-summary'] : ['Gate / gate'],
+      } } }),
       getCommit: async () => ({ data: { sha: source, commit: { committer: { date: observed } } } }),
       getContent: async ({ path: filePath }) => {
         if (filePath === 'config/consumer_sync_canaries.json') return { data: { content:
@@ -409,6 +448,11 @@ async function assertExecutorCanaryRefresh(t, state) {
   }, paginate: async (method, params) => {
     if (method === github.rest.pulls.list) return state !== 'no_change' && params.state === 'open' && params.repo === repo
       ? [structuredClone(candidate)] : [];
+    if (method === github.rest.checks.listForRef && presealDual) return [
+      { name: 'gate-summary', status: 'completed', conclusion: 'failure', head_sha: head,
+        app: { slug: 'github-actions' },
+        details_url: `https://github.com/${owner}/${repo}/actions/runs/4027/job/2` },
+    ];
     if (method === github.rest.checks.listForRef) return preseal ? [] : [
       { name: 'Gate / gate', status: 'completed',
         conclusion: ['checks_failed', 'producer_success_red'].includes(state) ? 'failure' : 'success' },
@@ -531,6 +575,9 @@ for (const state of ['behind', 'checks_failed', 'review_blocked', 'stale']) {
 
 test('exact pre-seal Gate failure advances only to the existing seal lifecycle', async (t) =>
   assertExecutorCanaryRefresh(t, 'preseal_gate'));
+
+test('branch-protected gate-summary and legacy Gate failure share the pre-seal hold', async (t) =>
+  assertExecutorCanaryRefresh(t, 'preseal_gate_dual'));
 
 test('executor merges a green mergeable seven-hour canary without refreshing',
   async (t) => assertExecutorCanaryRefresh(t, 'aged_green'));

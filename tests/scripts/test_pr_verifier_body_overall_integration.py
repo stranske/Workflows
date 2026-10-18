@@ -39,7 +39,16 @@ def test_direct_common_proof_upload_actual_body_floor(
     missing = (governor == "must" and body_status != "present") or (
         independent and comment_status != "present"
     )
-    assert result.verdict == ("CONCERNS" if missing else "PASS")
+    assert result.verdict == (
+        (
+            "CONCERNS"
+            if (governor == "must" and body_status == "absent")
+            or (independent and comment_status == "absent")
+            else "UNVERIFIABLE_INPUT"
+        )
+        if missing
+        else "PASS"
+    )
 
 
 @pytest.mark.parametrize("overall_status", ["present", "absent", "unavailable"])
@@ -73,7 +82,16 @@ def test_common_proof_context_and_qualifier_actual_floor(
     missing = (case == "qualified-recording" and body_status != "present") or (
         independent and comment_status != "present"
     )
-    assert result.verdict == ("CONCERNS" if missing else "PASS")
+    assert result.verdict == (
+        (
+            "CONCERNS"
+            if (case == "qualified-recording" and body_status == "absent")
+            or (independent and comment_status == "absent")
+            else "UNVERIFIABLE_INPUT"
+        )
+        if missing
+        else "PASS"
+    )
 
 
 @pytest.mark.parametrize("overall_status", ["present", "absent", "unavailable"])
@@ -102,7 +120,11 @@ def test_common_proof_exclusions_do_not_add_overall_floor(
         pr_verifier.EvaluationResult(verdict="PASS", used_llm=True),
         pr_verifier.prompt_coverage(context, None),
     )
-    assert result.verdict == ("CONCERNS" if independent and comment_status != "present" else "PASS")
+    assert result.verdict == (
+        ("CONCERNS" if comment_status == "absent" else "UNVERIFIABLE_INPUT")
+        if independent and comment_status != "present"
+        else "PASS"
+    )
 
 
 @pytest.mark.parametrize("status", ["absent", "unavailable", "present"])
@@ -126,7 +148,11 @@ def test_common_proof_punctuated_pronoun_actual_floor(status, joiner, governor, 
         pr_verifier.EvaluationResult(verdict="PASS", used_llm=True),
         pr_verifier.prompt_coverage(context, None),
     )
-    assert result.verdict == ("CONCERNS" if governor == "must" and status != "present" else "PASS")
+    assert result.verdict == (
+        ("UNVERIFIABLE_INPUT" if status == "unavailable" else "CONCERNS")
+        if governor == "must" and status != "present"
+        else "PASS"
+    )
 
 
 @pytest.mark.parametrize("status", ["absent", "unavailable", "present"])
@@ -170,7 +196,9 @@ def test_proof_actor_and_comment_compound_actual_floor(status, case):
         pr_verifier.prompt_coverage(context, None),
     )
     assert result.verdict == (
-        "CONCERNS" if case in {"pronoun", "alias-pronoun"} and status != "present" else "PASS"
+        ("UNVERIFIABLE_INPUT" if status == "unavailable" else "CONCERNS")
+        if case in {"pronoun", "alias-pronoun"} and status != "present"
+        else "PASS"
     )
 
 
@@ -202,7 +230,11 @@ def test_qualified_recording_actual_floor(status, governor, destination, channel
         pr_verifier.EvaluationResult(verdict="PASS", used_llm=True),
         pr_verifier.prompt_coverage(context, None),
     )
-    assert result.verdict == ("CONCERNS" if governor == "must" and status != "present" else "PASS")
+    assert result.verdict == (
+        ("UNVERIFIABLE_INPUT" if status == "unavailable" else "CONCERNS")
+        if governor == "must" and status != "present"
+        else "PASS"
+    )
 
 
 @pytest.mark.parametrize("actor", ["The UI", "The reviewer"])
@@ -222,7 +254,9 @@ def test_product_link_actual_floor(actor, status):
         pr_verifier.prompt_coverage(context, None),
     )
     assert result.verdict == (
-        "CONCERNS" if actor == "The reviewer" and status != "present" else "PASS"
+        ("UNVERIFIABLE_INPUT" if status == "unavailable" else "CONCERNS")
+        if actor == "The reviewer" and status != "present"
+        else "PASS"
     )
 
 
@@ -242,7 +276,11 @@ def test_pr_contained_comment_actual_floor(status, governor):
         pr_verifier.EvaluationResult(verdict="PASS", used_llm=True),
         pr_verifier.prompt_coverage(context, None),
     )
-    assert result.verdict == ("CONCERNS" if governor == "must" and status != "present" else "PASS")
+    assert result.verdict == (
+        ("UNVERIFIABLE_INPUT" if status == "unavailable" else "CONCERNS")
+        if governor == "must" and status != "present"
+        else "PASS"
+    )
 
 
 @pytest.mark.parametrize(
@@ -272,7 +310,11 @@ def test_common_body_proof_objects_actual_floor(object_name, status, negative):
         pr_verifier.EvaluationResult(verdict="PASS", used_llm=True),
         pr_verifier.prompt_coverage(context, None),
     )
-    assert result.verdict == ("CONCERNS" if not negative and status != "present" else "PASS")
+    assert result.verdict == (
+        ("UNVERIFIABLE_INPUT" if status == "unavailable" else "CONCERNS")
+        if not negative and status != "present"
+        else "PASS"
+    )
 
 
 @pytest.mark.parametrize("governor", ["is not expected to", "is not supposed to"])
@@ -301,7 +343,9 @@ def test_negative_comment_presence_does_not_floor_pass(governor, status, positiv
         pr_verifier.prompt_coverage(context, None),
     )
     assert result.verdict == (
-        "CONCERNS" if positive_position != "none" and status != "present" else "PASS"
+        ("UNVERIFIABLE_INPUT" if status == "unavailable" else "CONCERNS")
+        if positive_position != "none" and status != "present"
+        else "PASS"
     )
 
 
@@ -325,7 +369,11 @@ def test_permit_capability_and_share_delivery_use_actual_floor(status, kind):
         pr_verifier.EvaluationResult(verdict="PASS", used_llm=True),
         pr_verifier.prompt_coverage(context, None),
     )
-    assert result.verdict == ("CONCERNS" if kind == "share" and status != "present" else "PASS")
+    assert result.verdict == (
+        ("UNVERIFIABLE_INPUT" if status == "unavailable" else "CONCERNS")
+        if kind == "share" and status != "present"
+        else "PASS"
+    )
 
 
 @pytest.mark.parametrize("actor", ["app", "parser", "schema", "module"])
@@ -379,7 +427,11 @@ def test_negative_coordinated_presence_actual_floor(status, position, destinatio
         pr_verifier.EvaluationResult(verdict="PASS", used_llm=True),
         pr_verifier.prompt_coverage(context, None),
     )
-    assert result.verdict == ("CONCERNS" if position != "none" and status != "present" else "PASS")
+    assert result.verdict == (
+        ("UNVERIFIABLE_INPUT" if status == "unavailable" else "CONCERNS")
+        if position != "none" and status != "present"
+        else "PASS"
+    )
 
 
 @pytest.mark.parametrize("status", ["absent", "unavailable", "present"])
@@ -411,7 +463,11 @@ def test_independent_destination_actor_actual_floor(
         pr_verifier.EvaluationResult(verdict="PASS", used_llm=True),
         pr_verifier.prompt_coverage(context, None),
     )
-    assert result.verdict == ("PASS" if status == "present" else "CONCERNS")
+    assert result.verdict == (
+        "PASS"
+        if status == "present"
+        else ("UNVERIFIABLE_INPUT" if status == "unavailable" else "CONCERNS")
+    )
 
 
 @pytest.mark.skipif(NODE is None, reason="Node is required for producer integration")
@@ -444,7 +500,7 @@ fetchVerifierEvidence({github,owner:'owner',repo:'repo',pullNumber:1,evidenceTex
         pr_verifier.prompt_coverage(context, None),
     )
     # Explicit body retrieval is complete; the model still judges its contents.
-    assert result.verdict == ("CONCERNS" if channel == "overall" else "PASS")
+    assert result.verdict == ("UNVERIFIABLE_INPUT" if channel == "overall" else "PASS")
 
 
 @pytest.mark.parametrize("predicate", ["appear", "be present"])
@@ -481,7 +537,11 @@ def test_mandatory_evidence_presence_in_comments_cannot_use_other_channels(
             pr_verifier.EvaluationResult(verdict="PASS", used_llm=True),
             pr_verifier.prompt_coverage(context, None),
         )
-        assert result.verdict == ("PASS" if status == "present" else "CONCERNS")
+        assert result.verdict == (
+            "PASS"
+            if status == "present"
+            else ("UNVERIFIABLE_INPUT" if status == "unavailable" else "CONCERNS")
+        )
 
 
 @pytest.mark.parametrize(
@@ -552,7 +612,11 @@ def test_qualified_body_delivery_cannot_use_another_present_channel(operation, n
             pr_verifier.EvaluationResult(verdict="PASS", used_llm=True),
             pr_verifier.prompt_coverage(context, None),
         )
-        assert result.verdict == ("PASS" if body_status == "present" else "CONCERNS")
+        assert result.verdict == (
+            "PASS"
+            if body_status == "present"
+            else ("UNVERIFIABLE_INPUT" if body_status == "unavailable" else "CONCERNS")
+        )
 
 
 @pytest.mark.parametrize(
@@ -753,7 +817,7 @@ fetchVerifierEvidence({github,owner:'owner',repo:'repo',pullNumber:1,pullRequest
         pr_verifier.EvaluationResult(verdict="PASS", used_llm=True),
         pr_verifier.prompt_coverage(context, None),
     )
-    assert result.verdict == ("CONCERNS" if expired else "PASS")
+    assert result.verdict == ("UNVERIFIABLE_INPUT" if expired else "PASS")
 
 
 @pytest.mark.skipif(NODE is None, reason="Node is required for producer integration")
@@ -801,7 +865,11 @@ fetchVerifierEvidence({github,owner:'owner',repo:'repo',pullNumber:1,evidenceTex
         pr_verifier.EvaluationResult(verdict="PASS", used_llm=True),
         pr_verifier.prompt_coverage(context, None),
     )
-    assert result.verdict == ("PASS" if comment and channel == "comments" else "CONCERNS")
+    assert result.verdict == (
+        "PASS"
+        if comment and channel == "comments"
+        else ("CONCERNS" if channel == "comments" else "UNVERIFIABLE_INPUT")
+    )
 
 
 @pytest.mark.skipif(NODE is None, reason="Node is required for producer integration")
@@ -847,7 +915,19 @@ fetchVerifierEvidence({github,owner:'owner',repo:'repo',pullNumber:1,evidenceTex
         pr_verifier.EvaluationResult(verdict="PASS", used_llm=True),
         pr_verifier.prompt_coverage(context, None),
     )
-    expected = "PASS" if channel in {"overall", "body"} and status == "present" else "CONCERNS"
+    expected = (
+        (
+            "PASS"
+            if status == "present"
+            else ("UNVERIFIABLE_INPUT" if status == "unavailable" else "CONCERNS")
+        )
+        if channel in {"overall", "body"}
+        else (
+            "UNVERIFIABLE_INPUT"
+            if channel == "artifacts" and status == "unavailable"
+            else "CONCERNS"
+        )
+    )
     assert result.verdict == expected
 
 
@@ -877,7 +957,15 @@ def test_common_proof_finite_and_shared_preposition_actual_floor(
         pr_verifier.prompt_coverage(context, None),
     )
     missing = body_status != "present" or (independent and comment_status != "present")
-    assert result.verdict == ("CONCERNS" if missing else "PASS")
+    assert result.verdict == (
+        (
+            "CONCERNS"
+            if (True and body_status == "absent") or (independent and comment_status == "absent")
+            else "UNVERIFIABLE_INPUT"
+        )
+        if missing
+        else "PASS"
+    )
 
 
 @pytest.mark.parametrize(
@@ -904,4 +992,12 @@ def test_qualified_common_proof_governor_actual_floor(
         pr_verifier.prompt_coverage(context, None),
     )
     missing = body_status != "present" or (independent and comment_status != "present")
-    assert result.verdict == ("CONCERNS" if missing else "PASS")
+    assert result.verdict == (
+        (
+            "CONCERNS"
+            if (True and body_status == "absent") or (independent and comment_status == "absent")
+            else "UNVERIFIABLE_INPUT"
+        )
+        if missing
+        else "PASS"
+    )

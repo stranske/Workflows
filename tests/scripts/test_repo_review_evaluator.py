@@ -290,6 +290,60 @@ def test_material_status_lines_filters_generated_cache_noise() -> None:
     assert evaluator.material_status_lines(lines) == [" M src/pension_data/db/strategy.py"]
 
 
+def test_run_git_and_design_collection_degrade_for_missing_local_clone(tmp_path: Path) -> None:
+    missing = tmp_path / "missing"
+
+    assert evaluator.run_git(missing, ["status"]) == ""
+    assert evaluator.collect_design_files(missing) == []
+    assert evaluator.collect_implementation_areas(missing) == []
+
+
+def test_dynamic_run_evidence_classifies_fresh_and_tracked_findings(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    cli = tmp_path / "keepalive_evidence.py"
+    cli.write_text("# fixture", encoding="utf-8")
+    monkeypatch.setattr(evaluator, "_resolve_orchestrator_cli", lambda: cli)
+    monkeypatch.setattr(
+        evaluator.subprocess,
+        "run",
+        lambda *_args, **_kwargs: subprocess.CompletedProcess(
+            args=[],
+            returncode=0,
+            stdout=json.dumps(
+                {
+                    "lookback_days": 7,
+                    "signals": {"durable_rate": 0.5},
+                    "candidates": [
+                        {"type": "reverted", "severity": "HIGH", "seed": "gate reverted"},
+                        {
+                            "type": "recurring",
+                            "severity": "LOW",
+                            "seed": "already tracked",
+                            "possible_duplicate": True,
+                            "evidence": {"pr": 12},
+                            "dup_issue": 34,
+                        },
+                    ],
+                }
+            ),
+            stderr="",
+        ),
+    )
+
+    evidence = evaluator.build_dynamic_run_evidence({"repo": "owner/demo"})
+
+    assert evidence is not None
+    assert evidence["gap_severity"] == "material"
+    assert evidence["issue_draft_needed"] == "yes"
+    assert "Net-new candidates: 1" in evidence["evidence"][1]
+
+
+def test_dynamic_run_evidence_returns_none_without_a_repo(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(evaluator, "_resolve_orchestrator_cli", lambda: Path("/tmp/unused"))
+    assert evaluator.build_dynamic_run_evidence({}) is None
+
+
 def test_collect_repo_state_uses_profile_and_gitnexus_meta(tmp_path: Path) -> None:
     repo_dir = tmp_path / "demo"
     repo_dir.mkdir()

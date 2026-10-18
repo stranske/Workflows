@@ -85,8 +85,12 @@ def test_expanded_manifest_gaps_block_before_count_and_generation(monkeypatch, d
         result = runner.run_single(client, "unit", "unit-test-model")
     else:
         result = pr_verifier.evaluate_pr(context)
-    assert result.verdict == "CONCERNS"
-    assert "capture" in result.error.lower()
+    assert result.verdict == ("UNVERIFIABLE_INPUT" if defect == "discovery" else "CONCERNS")
+    assert (
+        "capture" in (result.error or result.summary).lower()
+        if defect != "discovery"
+        else "incomplete" in result.summary.lower()
+    )
     assert not result.used_llm
     client.root_client.responses.input_tokens.count.assert_not_called()
     client.invoke.assert_not_called()
@@ -98,8 +102,8 @@ def test_expanded_prompt_clipping_blocks_complete_capture(monkeypatch):
     client = with_capacity(mock.Mock())
     monkeypatch.setattr(pr_verifier, "_get_llm_client", lambda **kwargs: (client, "unit"))
     result = pr_verifier.evaluate_pr(complete_capture_context())
-    assert result.verdict == "CONCERNS"
-    assert "prompt" in result.error.lower()
+    assert result.verdict == "UNVERIFIABLE_INPUT"
+    assert "Chunk review failed" in result.summary or "bounded" in result.summary
     client.invoke.assert_not_called()
 
 

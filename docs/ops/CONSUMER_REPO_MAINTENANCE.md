@@ -1694,6 +1694,11 @@ Generated `sync/workflows-*` PRs are excluded from both the basic and agent
 autofix lanes. Their intentional pre-seal Gate failure is a delivery hold, not
 a request for a consumer-branch repair commit; Maint 71 advances the record and
 shared defects return to Workflows source before the stable PR is refreshed.
+On older consumers, branch protection also requires `gate-summary` alongside
+the legacy `Gate / gate` status. Maint 71 treats that exact failed pair as one
+pre-seal hold only when both point to the same exact-head Gate run and its
+complete job and seal-annotation proof matches; any other failed required
+check still blocks the lifecycle.
 Maint 68 also writes `autofix: false` into every generated PR body. The shared
 reusable autofix workflow independently rejects `sync/workflows-*` heads, so an
 older consumer caller cannot mutate the transition PR while the updated local

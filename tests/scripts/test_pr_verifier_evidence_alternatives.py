@@ -127,7 +127,7 @@ def test_artifact_provenance_property_does_not_require_delivery(prefix, qualifie
 )
 def test_provenance_review_delivery_still_requires_comments(prefix, form):
     assert verifier._required_evidence_channels(prefix + form) == {"comments"}
-    assert verdict(prefix + form, comments="unavailable") == "CONCERNS"
+    assert verdict(prefix + form, comments="unavailable") == "UNVERIFIABLE_INPUT"
     assert verdict(prefix + form, comments="present", artifacts="unavailable") == "PASS"
 
 
@@ -139,7 +139,7 @@ def test_provenance_property_cannot_erase_independent_artifact_delivery(joiner):
         + "the reviewer must attach a workflow artifact."
     )
     assert verifier._required_evidence_channels(criterion) == {"artifacts"}
-    assert verdict(criterion, artifacts="unavailable") == "CONCERNS"
+    assert verdict(criterion, artifacts="unavailable") == "UNVERIFIABLE_INPUT"
     assert verdict(criterion, artifacts="present") == "PASS"
 
 
@@ -164,7 +164,9 @@ def test_provenance_delivery_channel_matrix(destination, channel, verb, state):
     subject = " artifact provenance" if verb == "Provide" else ""
     criterion = f"- [x] {verb}{subject} in {destination}."
     assert verifier._required_evidence_channels(criterion) == {channel}
-    assert verdict(criterion, **{channel: state}) == "CONCERNS"
+    assert verdict(criterion, **{channel: state}) == (
+        "UNVERIFIABLE_INPUT" if state == "unavailable" else "CONCERNS"
+    )
     assert verdict(criterion, **{channel: "present"}) == "PASS"
 
 
@@ -176,7 +178,7 @@ def test_provenance_optional_and_negative_governors_preserve_independent_deliver
     assert verifier._required_evidence_channels(optional) == set()
     combined = optional + " The reviewer must attach a workflow artifact."
     assert verifier._required_evidence_channels(combined) == {"artifacts"}
-    assert verdict(combined, artifacts="unavailable") == "CONCERNS"
+    assert verdict(combined, artifacts="unavailable") == "UNVERIFIABLE_INPUT"
 
 
 @pytest.mark.parametrize("order", [False, True])
@@ -189,7 +191,7 @@ def test_provenance_property_keeps_separate_reviewer_actor(order):
         parts.reverse()
     criterion = "- [x] " + "; ".join(parts)
     assert verifier._required_evidence_channels(criterion) == {"comments"}
-    assert verdict(criterion, comments="unavailable") == "CONCERNS"
+    assert verdict(criterion, comments="unavailable") == "UNVERIFIABLE_INPUT"
 
 
 @pytest.mark.parametrize("prefix", ["", "[ ] "])
