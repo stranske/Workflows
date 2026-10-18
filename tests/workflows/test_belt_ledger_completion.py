@@ -81,6 +81,36 @@ def test_real_artifact_commit_can_complete(tmp_path: Path) -> None:
     assert completion_errors(_task(), commit, repo_root=repo) == []
 
 
+def test_completion_searches_earlier_artifact_commit_after_unrelated_change(tmp_path: Path) -> None:
+    repo = _repo(tmp_path)
+    (repo / "initial.txt").write_text("initial\n", encoding="utf-8")
+    start = _commit(repo, "initial state")
+    (repo / "source.py").write_text("VALUE = 1\n", encoding="utf-8")
+    artifact_commit = _commit(repo, "create named artifact")
+    (repo / "other.py").write_text("OTHER = 1\n", encoding="utf-8")
+    end = _commit(repo, "unrelated later change")
+    task = _task()
+    task["title"] = "Create `source.py`."
+
+    assert resolve_completion_commit(task, start, end, repo_root=repo) == (artifact_commit, [])
+
+
+def test_deleted_changed_artifact_cannot_borrow_unchanged_basename(tmp_path: Path) -> None:
+    repo = _repo(tmp_path)
+    (repo / "sub").mkdir()
+    (repo / "source.py").write_text("ROOT = 1\n", encoding="utf-8")
+    (repo / "sub" / "source.py").write_text("NESTED = 1\n", encoding="utf-8")
+    _commit(repo, "initial matching basenames")
+    (repo / "sub" / "source.py").unlink()
+    deleted = _commit(repo, "delete only the changed matching artifact")
+    task = _task()
+    task["title"] = "Update `source.py`."
+
+    assert completion_errors(task, deleted, repo_root=repo) == [
+        f"task task-01 commit {deleted} is missing named artifact(s): source.py"
+    ]
+
+
 def test_commit_files_reports_unverifiable_distinctly(tmp_path: Path) -> None:
     repo = _repo(tmp_path)
     ledger = repo / ".agents" / "issue-1-ledger.yml"
@@ -354,3 +384,21 @@ def test_worker_checks_evidence_before_done_and_gates_persistence(workflow_path:
     assert "steps.ledger_finalize.outcome == 'success'" in workflow
     assert "steps.ledger_final_validation.outcome == 'success'" in workflow
     assert "Belt task counts:" not in workflow  # rendered by the shared helper
+
+
+@pytest.mark.parametrize("title", ["Update `source.py`.", "Update `./source.py`."])
+def test_preexisting_unchanged_artifact_cannot_complete(tmp_path: Path, title: str) -> None:
+    repo = _repo(tmp_path)
+    (repo / "source.py").write_text("VALUE = 1\n")
+    _commit(repo, "initial artifact")
+    (repo / "other.py").write_text("OTHER = 1\n")
+    unrelated = _commit(repo, "unrelated substantive change")
+    task = _task()
+    task["title"] = title
+    assert any(
+        "missing named artifact" in error
+        for error in completion_errors(task, unrelated, repo_root=repo)
+    )
+    (repo / "source.py").write_text("VALUE = 2\n")
+    changed = _commit(repo, "update artifact")
+    assert completion_errors(task, changed, repo_root=repo) == []
