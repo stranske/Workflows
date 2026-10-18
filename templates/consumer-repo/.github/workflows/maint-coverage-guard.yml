@@ -497,9 +497,9 @@ jobs:
           # the guard actually reads. That test cannot drift from the producer's directory layout,
           # because it does not mention the layout.
           for candidate in \
-            "coverage_artifacts/payload/coverage/runtimes/3.12/coverage.json" \
+            "coverage_artifacts/payload/coverage/runtimes/3.14/coverage.json" \
             "coverage_artifacts/payload/coverage/runtimes/3.13/coverage.json" \
-            "coverage_artifacts/payload/artifacts/coverage/runtimes/3.12/coverage.json" \
+            "coverage_artifacts/payload/artifacts/coverage/runtimes/3.14/coverage.json" \
             "coverage_artifacts/payload/artifacts/coverage/runtimes/3.13/coverage.json" \
             "coverage_artifacts/payload/gate-coverage.json" \
             "coverage_artifacts/payload/coverage.json" \

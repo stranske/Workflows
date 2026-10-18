@@ -320,7 +320,7 @@ jobs:
       needs.resolve.outputs.run_verify_to_issue == 'true'
     runs-on: ubuntu-latest
     env:
-      PYTHON_VERSION: "3.12"
+      PYTHON_VERSION: "3.14"
     steps:
       - name: Check PR is merged
         id: check-merged

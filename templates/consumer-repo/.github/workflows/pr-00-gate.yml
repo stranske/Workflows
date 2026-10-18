@@ -266,7 +266,8 @@ jobs:
       contents: read
       actions: read
     with:
-      primary-python-version: '3.13'
+      primary-python-version: '3.14'
+      coverage-python-version: '3.14'
       python-versions: '["3.13", "3.14"]'
       pytest-workers: '4'
       marker: "not quarantine and not slow"

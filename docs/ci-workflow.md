@@ -19,14 +19,16 @@ Core:
 ```
 python-version               Explicit single-runtime override (default empty)
 python-versions              JSON list override (default []; omitted runtimes select 3.13 and 3.14)
-primary-python-version       Artifact/tooling runtime (default first selected runtime)
+primary-python-version       Artifact/tooling runtime (default shared CI_PYTHON_VERSION when selected, else first selected runtime)
 pytest-workers               xdist workers (default auto; first-party Gate requests 4)
+coverage-python-version      Optional coverage runtime, matching primary (default empty: all runtimes)
 coverage-min                 Minimum coverage percentage to pass (default 70)
 run-mypy                     'true'/'false' toggle to run mypy job (default true)
 ```
 
 Gate applies the same full-suite discovery, `not quarantine and not slow` markers,
-common `requirements.lock`, and branch-coverage configuration to both runtimes.
+common `requirements.lock` to both runtimes. Gate measures branch coverage on
+3.14 only; 3.13 runs plain pytest with the same selected suite.
 Python >=3.12 remains the package minimum; an explicit `python-version: "3.12"`
 still selects only that runtime. Existing create-only consumer Gates retain their
 explicit version policy until a separate migration.

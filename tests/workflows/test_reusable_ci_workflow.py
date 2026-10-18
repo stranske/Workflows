@@ -670,7 +670,7 @@ def test_config_only_pyproject_does_not_request_editable_install(tmp_path: Path)
 @pytest.mark.parametrize(
     "versions,single,primary,expected",
     [
-        ("[]", "", "", "3.13"),
+        ("[]", "", "", "3.14"),
         ("[]", "3.12", "", "3.12"),
         ("[]", "3.12", "3.12", "3.12"),
         ('["3.12", "3.13"]', "", "", "3.12"),

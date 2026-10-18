@@ -39,7 +39,7 @@ on:
         default: false
         type: boolean
       primary-python-version:
-        description: Preferred selected artifact runtime; omitted resolves the first selected runtime.
+        description: Preferred selected artifact runtime; omitted uses CI_PYTHON_VERSION when selected, otherwise the first runtime.
         required: false
         default: ''
         type: string
@@ -88,6 +88,11 @@ on:
         required: false
         default: true
         type: boolean
+      coverage-python-version:
+        description: Optional runtime for coverage; empty instruments all selected runtimes.
+        required: false
+        default: ''
+        type: string
       coverage:
         description: Toggle coverage instrumentation, packaging, and enforcement.
         required: false
@@ -231,10 +236,19 @@ jobs:
       contents: read
     timeout-minutes: 1
     steps:
+      - name: Checkout shared CI defaults
+        uses: actions/checkout@v7
+        with:
+          repository: stranske/Workflows
+          ref: ${{ inputs.workflows_ref || 'main' }}
+          persist-credentials: false
+          sparse-checkout: .github/workflows/ci-python-versions.env
+          sparse-checkout-cone-mode: false
       - name: Validate workflow inputs
         id: validate
         env:
           PRIMARY_IN: ${{ inputs['primary-python-version'] || '' }}
+          COVERAGE_PYTHON_VERSION: ${{ inputs['coverage-python-version'] || '' }}
           PYTHON_VERSION: ${{ inputs['python-version'] || '' }}
           PYTHON_VERSIONS: ${{ inputs['python-versions'] || '' }}
           PYTEST_WORKERS: ${{ inputs['pytest-workers'] || 'auto' }}
@@ -263,6 +277,7 @@ jobs:
           import os
           import re
           import sys
+          from pathlib import Path
           from typing import NoReturn
 
           def fail(message: str) -> NoReturn:
@@ -385,11 +400,23 @@ jobs:
             single = (os.getenv("PYTHON_VERSION") or "").strip()
             candidates = [single] if single else ["3.13", "3.14"]
           primary_input = os.getenv("PRIMARY_IN") or ""
-          primary = primary_input.strip() or candidates[0]
+          shared_pins = dict(
+              line.split("=", 1)
+              for line in Path(".github/workflows/ci-python-versions.env").read_text().splitlines()
+              if line and not line.startswith("#")
+          )
+          default_python = shared_pins["CI_PYTHON_VERSION"]
+          primary = primary_input.strip() or (default_python if default_python in candidates else candidates[0])
           if any(char in primary_input or char in primary for char in "\r\n\0"):
             fail("resolved primary Python runtime must not contain CR, LF or NUL")
           if primary not in candidates:
             fail("primary-python-version must be one of the selected Python runtimes")
+          coverage_python = os.getenv("COVERAGE_PYTHON_VERSION", "")
+          if coverage_python and os.getenv("COVERAGE", "true").lower() == "true":
+            if coverage_python not in candidates:
+              fail("coverage-python-version must be one of the selected Python runtimes")
+            if coverage_python != primary:
+              fail("coverage-python-version must match the primary artifact runtime")
           output = os.getenv("GITHUB_OUTPUT")
           if output:
             with open(output, "a", encoding="utf-8") as handle:
@@ -2035,7 +2062,7 @@ jobs:
             pytest-${{ runner.os }}-
       - name: Record Python execution context
         env:
-          COVERAGE_ENABLED: ${{ inputs.coverage }}
+          COVERAGE_ENABLED: ${{ (inputs.coverage && (inputs['coverage-python-version'] == '' || inputs['coverage-python-version'] == matrix.python-version)) }}
           PYTEST_WORKERS: ${{ inputs['pytest-workers'] || 'auto' }}
         run: |
           python - <<'PYCTX'
@@ -2088,7 +2115,7 @@ jobs:
             }}
           PYTEST_ARGS: ${{ inputs['pytest_args'] || '' }}
           PYTEST_WORKERS: ${{ inputs['pytest-workers'] || 'auto' }}
-          COVERAGE_ENABLED: ${{ inputs.coverage }}
+          COVERAGE_ENABLED: ${{ (inputs.coverage && (inputs['coverage-python-version'] == '' || inputs['coverage-python-version'] == matrix.python-version)) }}
           RESOURCE_UV_CACHE_HIT: ${{ steps.resource-uv-cache.outputs.cache-hit }}
           RESOURCE_PYTEST_CACHE_HIT: ${{ steps.resource-pytest-cache.outputs.cache-hit }}
           RESOURCE_ARTIFACT_CACHE_HIT: ${{ steps.ci-artifact-cache.outputs.cache-hit }}
@@ -2109,6 +2136,10 @@ jobs:
             args+=("--cov-report=xml:coverage.xml")
             args+=("--cov-report=term-missing")
             args+=("--cov-report=json:coverage.json")
+          fi
+          if [ "${COVERAGE_ENABLED}" != "true" ] && python -c "import pytest_cov" 2>/dev/null; then
+            # Override any consumer addopts coverage flags without changing selection.
+            args+=("--no-cov")
           fi
           if [ -n "${PYTEST_MARKERS}" ]; then
             args=("-m" "${PYTEST_MARKERS}" "${args[@]}")
@@ -2348,7 +2379,7 @@ jobs:
           pytest -p ci_test_growth "${args[@]}"
       - name: Enforce coverage minimum
         id: coverage_min
-        if: ${{ inputs.coverage && inputs['coverage-min'] != '' }}
+        if: ${{ (inputs.coverage && (inputs['coverage-python-version'] == '' || inputs['coverage-python-version'] == matrix.python-version)) && inputs['coverage-min'] != '' }}
         continue-on-error: true
         env:
           COVERAGE_MIN: ${{ inputs['coverage-min'] }}
@@ -2378,7 +2409,7 @@ jobs:
       - name: Stage coverage artifact layout
         if: always()
         env:
-          COVERAGE_ENABLED: ${{ inputs.coverage }}
+          COVERAGE_ENABLED: ${{ (inputs.coverage && (inputs['coverage-python-version'] == '' || inputs['coverage-python-version'] == matrix.python-version)) }}
         run: |
           set -euo pipefail
           runtime="${{ matrix.python-version }}"
@@ -2417,7 +2448,7 @@ jobs:
           PYTHON_VERSION: ${{ matrix.python-version }}
           PYTEST_OUTCOME: ${{ steps.pytest.outcome || 'skipped' }}
           COVERAGE_MIN_OUTCOME: ${{ steps.coverage_min.outcome || 'skipped' }}
-          COVERAGE_ENABLED: ${{ inputs.coverage }}
+          COVERAGE_ENABLED: ${{ (inputs.coverage && (inputs['coverage-python-version'] == '' || inputs['coverage-python-version'] == matrix.python-version)) }}
         run: |
           python - <<'PY'
           import json
@@ -2665,7 +2696,7 @@ jobs:
         id: coverage_paths
         env:
           PYTHON_VERSION: ${{ matrix.python-version }}
-          COVERAGE_ENABLED: ${{ inputs.coverage }}
+          COVERAGE_ENABLED: ${{ (inputs.coverage && (inputs['coverage-python-version'] == '' || inputs['coverage-python-version'] == matrix.python-version)) }}
           SUMMARY_PATH: ${{ steps.ci-summary.outputs.summary_path }}
         run: |
           python - <<'PY'
@@ -2736,7 +2767,7 @@ jobs:
         env:
           PYTEST_OUTCOME: ${{ steps.pytest.outcome || 'skipped' }}
           COVERAGE_MIN_OUTCOME: ${{ steps.coverage_min.outcome || 'skipped' }}
-          COVERAGE_ENABLED: ${{ inputs.coverage }}
+          COVERAGE_ENABLED: ${{ (inputs.coverage && (inputs['coverage-python-version'] == '' || inputs['coverage-python-version'] == matrix.python-version)) }}
           COVERAGE_MIN: ${{ inputs['coverage-min'] }}
         run: |
           set -euo pipefail
@@ -2864,7 +2895,7 @@ jobs:
       - name: Compute coverage delta
         if: >-
           ${{
-          inputs.coverage
+          (inputs.coverage && (inputs['coverage-python-version'] == '' || inputs['coverage-python-version'] == matrix.python-version))
           && inputs['enable-coverage-delta']
           && matrix.python-version == env.PRIMARY_PYTHON_VERSION
           }}
@@ -2880,7 +2911,7 @@ jobs:
       - name: Upload coverage delta artifact
         if: >-
           ${{
-          inputs.coverage
+          (inputs.coverage && (inputs['coverage-python-version'] == '' || inputs['coverage-python-version'] == matrix.python-version))
           && inputs['enable-coverage-delta']
           && matrix.python-version == env.PRIMARY_PYTHON_VERSION
           }}
@@ -2895,7 +2926,7 @@ jobs:
       - name: Generate coverage trend summary
         if: >-
           ${{
-          inputs.coverage
+          (inputs.coverage && (inputs['coverage-python-version'] == '' || inputs['coverage-python-version'] == matrix.python-version))
           && inputs['enable-soft-gate']
           && matrix.python-version == env.PRIMARY_PYTHON_VERSION
           }}
@@ -2946,7 +2977,7 @@ jobs:
       - name: Annotate coverage trend record
         if: >-
           ${{
-          inputs.coverage
+          (inputs.coverage && (inputs['coverage-python-version'] == '' || inputs['coverage-python-version'] == matrix.python-version))
           && inputs['enable-soft-gate']
           && matrix.python-version == env.PRIMARY_PYTHON_VERSION
           }}
@@ -2968,7 +2999,7 @@ jobs:
       - name: Append coverage trend history
         if: >-
           ${{
-          inputs.coverage
+          (inputs.coverage && (inputs['coverage-python-version'] == '' || inputs['coverage-python-version'] == matrix.python-version))
           && inputs['enable-soft-gate']
           && matrix.python-version == env.PRIMARY_PYTHON_VERSION
           }}
@@ -2981,7 +3012,7 @@ jobs:
       - name: Upload coverage summary artifact
         if: >-
           ${{
-          inputs.coverage
+          (inputs.coverage && (inputs['coverage-python-version'] == '' || inputs['coverage-python-version'] == matrix.python-version))
           && inputs['enable-soft-gate']
           && matrix.python-version == env.PRIMARY_PYTHON_VERSION
           }}
@@ -2997,7 +3028,7 @@ jobs:
       - name: Upload coverage trend artifact
         if: >-
           ${{
-          inputs.coverage
+          (inputs.coverage && (inputs['coverage-python-version'] == '' || inputs['coverage-python-version'] == matrix.python-version))
           && inputs['enable-soft-gate']
           && matrix.python-version == env.PRIMARY_PYTHON_VERSION
           }}
@@ -3013,7 +3044,7 @@ jobs:
       - name: Upload coverage trend history artifact
         if: >-
           ${{
-          inputs.coverage
+          (inputs.coverage && (inputs['coverage-python-version'] == '' || inputs['coverage-python-version'] == matrix.python-version))
           && inputs['enable-soft-gate']
           && matrix.python-version == env.PRIMARY_PYTHON_VERSION
           }}
