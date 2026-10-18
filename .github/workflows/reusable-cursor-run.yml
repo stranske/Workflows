@@ -792,10 +792,12 @@ jobs:
           fi
 
       - name: Expose cached Cursor CLI
+        if: ${{ !cancelled() }}
         run: echo "${{ runner.temp }}/agent-cli/cursor" >> "$GITHUB_PATH"
 
       - name: Cache Cursor CLI
         id: cursor_cli_cache
+        if: ${{ !cancelled() }}
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: ${{ runner.temp }}/agent-cli/cursor
@@ -803,6 +805,7 @@ jobs:
 
       - name: Preflight auth
         id: preflight
+        if: ${{ !cancelled() && steps.capability_evidence.outcome != 'failure' }}
         env:
           CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY || '' }}
         run: |
@@ -823,23 +826,17 @@ jobs:
           fi
 
       - name: Ensure Cursor CLI
-        if: steps.preflight.outputs.missing != 'true'
+        if: ${{ !cancelled() && steps.preflight.outputs.missing == 'false' && steps.capability_evidence.outcome != 'failure' }}
         run: |
           set -euo pipefail
 
           # Resolve the cursor-agent binary if it is already on PATH (binary is
-          # named "cursor-agent"; "agent" is an accepted alias).
+          # named "cursor-agent"; do not accept an unrelated system "agent" command).
           if command -v cursor-agent >/dev/null 2>&1; then
             echo "Cursor CLI already present: $(command -v cursor-agent)"
-            cursor-agent --version || true
+            cursor-agent --version
             exit 0
           fi
-          if command -v agent >/dev/null 2>&1; then
-            echo "Cursor CLI already present (as 'agent'): $(command -v agent)"
-            agent --version || true
-            exit 0
-          fi
-
           # Same versioned archive and layout as the vendor installer, without
           # following its moving latest release or caching unrelated ~/.local files.
           cli_dir="${{ runner.temp }}/agent-cli/cursor"
@@ -852,27 +849,46 @@ jobs:
           curl -fsSL "https://downloads.cursor.com/lab/${CURSOR_CLI_VERSION}/linux/${arch}/agent-cli-package.tar.gz" \
             | tar --strip-components=1 -xzf - -C "$cli_dir"
           ln -sf cursor-agent "$cli_dir/agent"
+          echo "$cli_dir" >> "$GITHUB_PATH"
           export PATH="$cli_dir:$PATH"
 
           if command -v cursor-agent >/dev/null 2>&1; then
             echo "Installed Cursor CLI: $(command -v cursor-agent)"
-            cursor-agent --version || true
-          elif command -v agent >/dev/null 2>&1; then
-            echo "Installed Cursor CLI (as 'agent'): $(command -v agent)"
-            agent --version || true
+            cursor-agent --version
           else
-            echo "::error::Cursor CLI (cursor-agent) not found after install."
-            echo "::error::Expected the binary in \$HOME/.local/bin or "\
-              "\$HOME/.cursor/bin; check the installer output above."
+            echo "::error::Cursor CLI install/preflight failed: cursor-agent absent from $cli_dir"
             exit 1
           fi
+
+      - name: Preflight Cursor CLI
+        id: cursor_cli_preflight
+        if: ${{ !cancelled() && steps.preflight.outputs.missing != 'true' && steps.capability_evidence.outcome != 'failure' }}
+        run: |
+          set -euo pipefail
+          fail_preflight() {
+            message="Cursor CLI preflight failed: $1"
+            echo "::error::$message"
+            echo "error=$message" >> "$GITHUB_OUTPUT"
+            exit 1
+          }
+          # The pinned archive lives in runner.temp; also expose the vendor's
+          # documented install locations for existing runner installations.
+          for cli_dir in "${{ runner.temp }}/agent-cli/cursor" "$HOME/.cursor/bin" "$HOME/.local/bin"; do
+            echo "$cli_dir" >> "$GITHUB_PATH"
+          done
+          export PATH="${{ runner.temp }}/agent-cli/cursor:$HOME/.cursor/bin:$HOME/.local/bin:$PATH"
+          command -v cursor-agent >/dev/null 2>&1 ||
+            fail_preflight "cursor-agent not found on PATH after install"
+          cursor-agent --version || fail_preflight "cursor-agent --version failed"
+          echo "ready=true" >> "$GITHUB_OUTPUT"
 
       - name: Run Cursor
         id: run_cursor
         if: always() && steps.capability_evidence.outcome != 'failure'
         env:
-          PREFLIGHT_MISSING: ${{ steps.preflight.outputs.missing || 'false' }}
-          PREFLIGHT_ERROR: ${{ steps.preflight.outputs.error || '' }}
+          PREFLIGHT_MISSING: ${{ steps.preflight.outputs.missing == 'true' || steps.cursor_cli_preflight.outputs.ready != 'true' }}
+          PREFLIGHT_ERROR: >-
+            ${{ steps.preflight.outputs.error || steps.cursor_cli_preflight.outputs.error || 'Cursor CLI install/preflight failed: setup did not complete' }}
           PROMPT_FILE: ${{ steps.prompt.outputs.file || '' }}
           EXTRA_ARGS_RAW: ${{ inputs.cursor_cli_args }}
           PR_NUMBER: ${{ inputs.pr_number }}
@@ -881,6 +897,15 @@ jobs:
           PR_REF: ${{ inputs.pr_ref }}
         run: |
           set -euo pipefail
+
+          if [ "$PREFLIGHT_MISSING" = "true" ]; then
+            summary="$PREFLIGHT_ERROR"
+            echo "exit-code=1" >> "$GITHUB_OUTPUT"
+            echo "error-summary=$summary" >> "$GITHUB_OUTPUT"
+            echo "final-message=" >> "$GITHUB_OUTPUT"
+            echo "final-message-summary=$summary" >> "$GITHUB_OUTPUT"
+            exit 1
+          fi
 
           extra_args_file="${RUNNER_TEMP:-/tmp}/cursor-extra-args.txt"
           : > "$extra_args_file"
@@ -924,15 +949,6 @@ jobs:
           PY
           fi
           mapfile -t extra_args < "$extra_args_file" || true
-
-          if [ "$PREFLIGHT_MISSING" = "true" ]; then
-            summary="$PREFLIGHT_ERROR"
-            echo "exit-code=1" >> "$GITHUB_OUTPUT"
-            echo "error-summary=$summary" >> "$GITHUB_OUTPUT"
-            echo "final-message=" >> "$GITHUB_OUTPUT"
-            echo "final-message-summary=$summary" >> "$GITHUB_OUTPUT"
-            exit 1
-          fi
 
           if [ -z "${PROMPT_FILE:-}" ]; then
             if [ -n "${PR_NUMBER:-}" ]; then
@@ -1529,7 +1545,7 @@ jobs:
         env:
           EXIT_CODE: ${{ steps.run_cursor.outputs.exit-code }}
           OUTPUT_SUMMARY: ${{ steps.run_cursor.outputs.final-message-summary }}
-          PREFLIGHT_ERROR: ${{ steps.preflight.outputs.error || '' }}
+          PREFLIGHT_ERROR: ${{ steps.preflight.outputs.error || steps.cursor_cli_preflight.outputs.error || '' }}
           MODE: ${{ inputs.mode }}
           PR_NUMBER: ${{ inputs.pr_number }}
         with:

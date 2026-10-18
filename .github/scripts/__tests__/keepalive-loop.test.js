@@ -7932,3 +7932,51 @@ for (const modulePath of ['../keepalive_loop']) {
     });
   }
 }
+
+for (const loopPath of ['../keepalive_loop.js',
+  '../../../templates/consumer-repo/.github/scripts/keepalive_loop.js']) {
+  test(`sweep recheck rotates install failure even during cooldown (${loopPath})`, async () => {
+    const oldFetch = global.fetch;
+    const keys = ['HAS_CODEX_AUTH', 'HAS_CLAUDE_OAUTH', 'HAS_CURSOR_AUTH'];
+    const saved = Object.fromEntries(keys.map(key => [key, process.env[key]]));
+    keys.forEach(key => { process.env[key] = 'true'; });
+    global.fetch = async () => ({ status: 200, json: async () => ({
+      schema: 'orchestrator.route-weights/v2', generated_at: new Date().toISOString(),
+      task_types: { implement: { evidence_ok: true, ranking: [{ agent: 'cursor' }, { agent: 'codex' }] } },
+    }) });
+    try {
+      const replay = replayCompletion({ provider: 'cursor', exitCode: 127,
+        output: 'cursor-agent: command not found', loopPath });
+      for (const auto of [false, true]) {
+        const pr = { number: 3989, head: { sha: 'sha-3989', ref: 'cursor/issue-3989' },
+          labels: [{ name: 'agent:cursor' }, { name: 'agents:keepalive' },
+            ...(auto ? [{ name: 'agent:auto' }] : [])], body: prBodyFixture };
+        const github = buildGithubStub({ pr, comments: [...replay.comments, { id: 20,
+          user: { login: 'stranske-keepalive[bot]' }, body: formatStateComment({
+            current_agent: 'cursor', iteration: 1, last_switch_iteration: 1,
+          }) }], workflowRuns: [{ head_sha: 'sha-3989', conclusion: 'success' }] });
+        const result = await require(loopPath).evaluateKeepaliveLoop({ github,
+          context: buildContext(3989), core: buildCore(), forceRetry: true });
+        assert.equal(result.agentType, 'codex');
+        assert.equal(result.delegationShouldSwitch, true);
+        assert.equal(result.delegationReason, 'cursor-install-preflight-failed');
+        assert.ok(github.actions.some(a => a.type === 'label' && a.labels.includes('agents:tried-cursor')));
+        assert.ok(github.actions.some(a => a.type === 'label' && a.labels.includes('agent:codex')));
+        assert.ok(github.actions.some(a => a.type === 'remove-label' && a.name === 'agent:cursor'));
+        const deniedGithub = buildGithubStub({ pr, comments: replay.comments,
+          failRemoveLabelStatusByName: { 'agent:cursor': 403 },
+          workflowRuns: [{ head_sha: 'sha-3989', conclusion: 'success' }] });
+        const denied = await require(loopPath).evaluateKeepaliveLoop({ github: deniedGithub,
+          context: buildContext(3989), core: buildCore(), forceRetry: true });
+        assert.equal(denied.agentType, '');
+        assert.equal(denied.action, 'wait');
+        assert.equal(denied.reason, 'install-failed-delegation-failed');
+      }
+    } finally {
+      global.fetch = oldFetch;
+      for (const [key, value] of Object.entries(saved)) {
+        if (value === undefined) delete process.env[key]; else process.env[key] = value;
+      }
+    }
+  });
+}

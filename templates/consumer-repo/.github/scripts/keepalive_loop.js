@@ -228,8 +228,13 @@ async function loadLatestCompletion({ github, context, prNumber }) {
   if (!latest || Date.parse(latest.completed_at) < newestPendingAt) return null;
   const progressedAt = Math.max(0, ...records.filter(r => r.completion?.reason === 'progressed')
     .map(r => Date.parse(r.completed_at)));
-  return { ...latest, rate_limit_receipts: records.filter(r =>
-    r.completion?.reason === 'rate_limited' && Date.parse(r.completed_at) > progressedAt) };
+  const { isAgentInstallFailure } = require('./agent_delegation_policy.js');
+  return {
+    ...latest,
+    install_failure_receipts: records.filter(isAgentInstallFailure),
+    rate_limit_receipts: records.filter(r =>
+      r.completion?.reason === 'rate_limited' && Date.parse(r.completed_at) > progressedAt),
+  };
 }
 
 const TIMEOUT_VARIABLE_NAMES = [
@@ -2985,8 +2990,12 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
     const deterministicGates = deterministicGatesEnabled && allTasksDone && tasksPresent
       ? await acceptanceGatePlan({ github, context, pr, state }) : null;
 
-    // agent:auto delegation — resolve actual agent via policy after state is available
-    if (agentRoutingMode === 'auto') {
+    // Sweep and event wakeups share startup recovery and agent:auto delegation.
+    const { recentInstallFailures } = require('./agent_delegation_policy.js');
+    const installFailures = recentInstallFailures(completion);
+    let recoveringInstallFailure = installFailures.has(agentType) ||
+      (agentRoutingMode === 'auto' && installFailures.has(state.current_agent));
+    if (agentRoutingMode === 'auto' || recoveringInstallFailure) {
       try {
         const { decideNextAgent, fetchRouteWeights, resolveRoundKind, DEFAULT_ROUTE_WEIGHTS_URL } =
           require('./agent_delegation_policy.js');
@@ -3023,11 +3032,13 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
           roundKind,
           core,
         });
+        recoveringInstallFailure ||= installFailures.has(decision.previousAgent);
         if (decision.agent) {
           if (decision.shouldSwitch && !pausedByLabel && !humanBlocked && !runCapZero && keepaliveEnabled) {
+            agentRoutingMode = 'auto';
             await github.rest.issues.addLabels({
               ...context.repo, issue_number: prNumber,
-              labels: [`agents:tried-${decision.previousAgent}`],
+              labels: ['agent:auto', `agents:tried-${decision.previousAgent}`],
             });
             // Preserve one concrete route label alongside agent:auto. Always apply
             // the new agent even when the previous label is already absent: nesting
@@ -3063,7 +3074,7 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
           }
         } else {
           core?.warning?.(`Delegation policy returned no agent: ${decision.reason}`);
-          if (['multiple-agent-labels', 'rate-limited-no-alternatives'].includes(decision.reason)) {
+          if (['multiple-agent-labels', 'rate-limited-no-alternatives', 'install-failed-no-alternatives'].includes(decision.reason)) {
             agentType = '';
             hasAgentLabel = false;
             keepaliveEnabled = false;
@@ -3075,11 +3086,14 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
         }
       } catch (err) {
         core?.warning?.(`Delegation policy failed, keeping ${agentType}: ${err.message}`);
-        if (completion?.completion?.reason === 'rate_limited') {
+        if (completion?.completion?.reason === 'rate_limited' || recoveringInstallFailure) {
           // Never turn a policy or label-write error into a retry of the provider
-          // whose authoritative completion just reported a quota failure.
+          // whose authoritative completion reported a quota or startup failure.
+          delegationReason = recoveringInstallFailure
+            ? 'install-failed-delegation-failed' : 'rate-limited-delegation-failed';
           agentType = '';
-          delegationReason = 'rate-limited-delegation-failed';
+          hasAgentLabel = false;
+          keepaliveEnabled = false;
           delegationShouldSwitch = false;
         }
       }
@@ -3259,7 +3273,8 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
     } else if (hasDefinitiveConflict && hasAgentLabel && keepaliveEnabled) {
       action = 'conflict';
       reason = `merge-conflict-${conflictResult.primarySource || 'detected'}`;
-    } else if (['rate-limited-no-alternatives', 'rate-limited-delegation-failed'].includes(delegationReason)) {
+    } else if (['rate-limited-no-alternatives', 'rate-limited-delegation-failed',
+      'install-failed-no-alternatives', 'install-failed-delegation-failed'].includes(delegationReason)) {
       action = 'wait';
       reason = delegationReason;
     } else if (runnerUnavailable) {

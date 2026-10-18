@@ -160,3 +160,30 @@ changes and deletions are staged. Intentional source, tests, docs, and
 validate them with its disposable Git regression tests. A checkpoint with only
 excluded artifacts creates no commit; unpushed existing commits retain their
 existing push path.
+
+### Hosted agent startup recovery
+
+The pinned Cursor archive is installed in `runner.temp/agent-cli/cursor` and
+exported through `GITHUB_PATH`. Setup uses explicit `!cancelled()` conditions so
+an earlier artifact-download failure cannot skip installation while the worker
+still launches. `Preflight Cursor CLI` requires `cursor-agent --version` to
+succeed and emits `Cursor CLI preflight failed: ...` when the executable is absent
+or broken. The worker publishes that failure summary without invoking the agent.
+
+Root and consumer completion writers preserve exit 127 as an explicit startup
+failure in the durable summary. Delegation reads the latest reservation-bound
+completion for each provider and excludes recent command-not-found, exit-127,
+and CLI install/preflight failures for
+`AGENT_INSTALL_FAILURE_BACKOFF_HOURS` (six hours). Another provider's completion
+does not clear this exclusion. The failed provider's newer successful completion
+or expiry of the window makes it eligible again; `agents:tried-*` still applies
+to ordinary stall rotation.
+
+Both event evaluation and hourly sweep rechecks use this policy before cooldown
+or weighted selection. A failed explicit route also enters recovery: the loop
+records `agents:tried-<provider>`, enables `agent:auto`, and replaces the concrete
+agent label with an available runner. With no replacement it returns
+`install-failed-no-alternatives` and waits for a later evaluation. Pause, human
+block, and run-cap controls apply before any recovery label changes or dispatch.
+Source repair does not establish hosted success: issue #4101 requires a live
+post-merge Cursor round past preflight and a separate 48-hour observation.
