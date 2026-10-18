@@ -219,6 +219,7 @@ import functools  # noqa: E402
 import os  # noqa: E402
 import shutil  # noqa: E402
 import subprocess  # noqa: E402
+import sys  # noqa: E402
 
 import pytest  # noqa: E402
 
@@ -241,6 +242,24 @@ def _resolve_env(step_env: dict, outputs: dict) -> dict:
         expr = str(expr)
         if key == "UNIFIED_VERDICT_OUTCOME":
             env[key] = outputs["outcome"]
+        elif key in {"CONTEXT_OUTCOME", "VERIFIER_OUTCOME", "CI_FAILED"}:
+            expression = " ".join(expr.removeprefix("${{").removesuffix("}}").split())
+            expression = expression.replace("inputs.mode", repr(outputs["mode"]))
+            expression = expression.replace(
+                "steps.context.outputs.ci_failed", repr(str(outputs["ci_failed"]).lower())
+            )
+            expression = re.sub(
+                r"steps\.(\w+)\.outcome",
+                lambda match: repr(outputs["step_outcomes"].get(match[1], "")),
+                expression,
+            )
+            env[key] = str(
+                eval(
+                    expression.replace("&&", " and ").replace("||", " or "),
+                    {"__builtins__": {}},
+                    {},
+                )
+            )
         elif key in {"VERDICT", "FINAL_VERDICT"}:
             # Only steps.<id>.outputs.verdict references resolve to a value;
             # skipped/absent steps resolve to the empty string.
@@ -252,14 +271,41 @@ def _resolve_env(step_env: dict, outputs: dict) -> dict:
     return env
 
 
-def _run_sinks(tmp_path: Path, *, should_run: bool, outcome: str, verdicts: dict) -> dict:
+def _run_sinks(
+    tmp_path: Path,
+    *,
+    should_run: bool | None,
+    outcome: str,
+    verdicts: dict,
+    context_outcome: str = "success",
+    verifier_outcome: str = "success",
+    ci_failed: bool = False,
+    verifier_mode: str = "checkbox",
+) -> dict:
     steps = _verifier_steps()
     collect = steps["Collect verifier metrics"]
     write = steps["Write verifier terminal disposition"]
-    outputs = {"outcome": outcome, "verdicts": verdicts}
+    outputs = {
+        "outcome": outcome,
+        "verdicts": verdicts,
+        "mode": verifier_mode,
+        "ci_failed": ci_failed,
+        "step_outcomes": {
+            "context": context_outcome,
+            "verdict": "skipped",
+            "llm_evaluate": "skipped",
+            "llm_compare": "skipped",
+        },
+    }
+    provider_step = {"checkbox": "verdict", "evaluate": "llm_evaluate", "compare": "llm_compare"}
+    outputs["step_outcomes"][provider_step[verifier_mode]] = verifier_outcome
     base = {
         "PATH": os.environ["PATH"],
-        "SHOULD_RUN": "true" if should_run else "false",
+        "SHOULD_RUN": "" if should_run is None else str(should_run).lower(),
+        "CONTEXT_OUTCOME": context_outcome,
+        "VERIFIER_OUTCOME": verifier_outcome,
+        "CI_FAILED": str(ci_failed).lower(),
+        "VERIFIER_MODE": verifier_mode,
         "PR_NUMBER": "7",
         "GITHUB_RUN_ID": "1",
         "GITHUB_OUTPUT": str(tmp_path / "gh_output"),
@@ -269,7 +315,11 @@ def _run_sinks(tmp_path: Path, *, should_run: bool, outcome: str, verdicts: dict
     collect_env = {**base, **_resolve_env(collect["env"], outputs)}
     py = _heredoc(collect["run"], "python3 - <<'PY'\n", "PY")
     subprocess.run(
-        ["python3", "-I", "-c", py], cwd=tmp_path, env=collect_env, check=True, capture_output=True
+        [sys.executable, "-I", "-c", py],
+        cwd=tmp_path,
+        env=collect_env,
+        check=True,
+        capture_output=True,
     )
     line = next(
         ln
@@ -289,7 +339,32 @@ def _run_sinks(tmp_path: Path, *, should_run: bool, outcome: str, verdicts: dict
         .read_text()
         .splitlines()[0]
     )
-    return {"metrics": json.loads(metrics_json), "record": record}
+    ledger = json.loads((tmp_path / "agent-metrics/verifier-followup-ledger.ndjson").read_text())
+    result = {"metrics": json.loads(metrics_json), "record": record, "ledger": ledger}
+    if trace_dir := os.environ.get("VERIFIER_SETTLEMENT_TRACE_DIR"):
+        import hashlib
+
+        trace = {
+            "inputs": {
+                "should_run": should_run,
+                "context_outcome": context_outcome,
+                "verifier_outcome": verifier_outcome,
+                "settlement_outcome": outcome,
+                "verdicts": verdicts,
+                "ci_failed": ci_failed,
+            },
+            "verifier_mode": verifier_mode,
+            "upload_probe_outcome": os.environ.get("SETTLEMENT_UPLOAD_OUTCOME", "modeled-failure"),
+            "workflow_sha256": hashlib.sha256(
+                (ROOT / ".github/workflows/reusable-agents-verifier.yml").read_bytes()
+            ).hexdigest(),
+            **result,
+        }
+        destination = Path(trace_dir)
+        destination.mkdir(parents=True, exist_ok=True)
+        payload = json.dumps(trace, sort_keys=True, indent=2)
+        (destination / (hashlib.sha256(payload.encode()).hexdigest() + ".json")).write_text(payload)
+    return result
 
 
 def _run_set_unified_verdict(
@@ -425,3 +500,74 @@ def test_post_gate_tracker_helpers_have_no_workflow_caller() -> None:
         + ", ".join(set(helpers) - set(unwired))
         + " - update docs/ops/VERIFIER_GATE_EVIDENCE_PATH_AUDIT.md and this test"
     )
+
+
+def _settlement_condition_after_failure(should_run: bool) -> bool:
+    """Evaluate this authored condition, including Actions' implicit success()."""
+    condition = _verifier_steps()["Set unified verdict"]["if"]
+    has_status = bool(re.search(r"\b(always|success|failure|cancelled)\(\)", condition))
+    if not has_status:
+        return False  # an earlier failed upload makes implicit success() false
+    expression = condition.replace("always()", "True").replace("success()", "False")
+    expression = expression.replace("failure()", "True").replace("cancelled()", "False")
+    expression = expression.replace(
+        "steps.context.outputs.should_run", repr(str(should_run).lower())
+    )
+    expression = expression.replace("&&", " and ").replace("||", " or ")
+    return bool(eval(expression, {"__builtins__": {}}, {}))
+
+
+@_needs_node
+@pytest.mark.parametrize("mode", ["checkbox", "evaluate", "compare"])
+def test_failed_upload_ci_floor_reaches_all_sinks(tmp_path: Path, mode: str) -> None:
+    # Model only the failed upload outcome; run the actual authored settlement
+    # shell, metrics Python and terminal JS with their real helper, without providers.
+    runs = _settlement_condition_after_failure(True)
+    verdict = (
+        _run_set_unified_verdict(
+            tmp_path,
+            ci_failed=True,
+            checkbox_verdict="PASS",
+            llm_verdict="PASS",
+            compare_verdict="PASS",
+            verifier_mode=mode,
+        )
+        if runs
+        else ""
+    )
+    result = _run_sinks(
+        tmp_path,
+        should_run=True,
+        outcome="success" if runs else "skipped",
+        verdicts={"unified_verdict": verdict, "verdict": "PASS", "llm_compare": "PASS"},
+        ci_failed=True,
+        verifier_mode=mode,
+    )
+    assert result["metrics"]["verdict"].lower() == "concerns"
+    assert result["record"]["disposition"] == "needs-human"
+    assert result["ledger"]["disposition"] == "needs-human"
+    assert result["ledger"]["followup_policy"]["action"] == "needs-human"
+    assert result["record"]["needs_human"] is True
+    assert _settlement_condition_after_failure(False) is False
+
+
+@_needs_node
+@pytest.mark.parametrize(
+    "case", ["missing-context", "missing-verdict", "provider-error", "sink-ci-floor"]
+)
+def test_terminal_sinks_refuse_incomplete_or_unfloored_evidence(tmp_path: Path, case: str) -> None:
+    result = _run_sinks(
+        tmp_path,
+        should_run=None if case == "missing-context" else True,
+        outcome="success",
+        context_outcome="failure" if case == "missing-context" else "success",
+        verifier_outcome="failure" if case == "provider-error" else "success",
+        verdicts={} if case == "missing-verdict" else {"unified_verdict": "PASS"},
+        ci_failed=case == "sink-ci-floor",
+    )
+    expected = "concerns" if case == "sink-ci-floor" else "error"
+    assert result["metrics"]["verdict"].lower() == expected
+    assert result["record"]["verdict"].lower() == expected
+    assert result["record"]["needs_human"] is True
+    assert result["ledger"]["disposition"] == "needs-human"
+    assert result["ledger"]["followup_policy"]["action"] == "needs-human"

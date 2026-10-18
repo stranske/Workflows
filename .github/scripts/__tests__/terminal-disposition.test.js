@@ -203,3 +203,26 @@ test('formats terminal disposition summary as markdown', () => {
   assert.match(markdown, /follow-up-created \(1\)/);
   assert.match(markdown, /#11/);
 });
+
+
+test('settlement evidence overrides unsafe PASS and no-op ledger hints', () => {
+  const base = { should_run: true, context_outcome: 'success', settlement_outcome: 'success',
+    verifier_outcome: 'success', verdict: 'PASS', terminal_state: 'verified-pass',
+    followup_policy: { action: 'no-op' }, pr_number: 7 };
+  const cases = [
+    [{ context_outcome: 'failure', should_run: '' }, 'error', 'needs-human', true, 'needs-human'],
+    [{ should_run: false }, 'skipped', 'skipped', false, 'skip-follow-up'],
+    [{ verdict: '' }, 'error', 'needs-human', true, 'needs-human'],
+    [{ verifier_outcome: 'failure' }, 'error', 'needs-human', true, 'needs-human'],
+    [{}, 'pass', 'merge', false, 'no-op'],
+    [{ ci_failed: true }, 'concerns', 'needs-human', true, 'needs-human'],
+    [{ settlement_outcome: 'skipped' }, 'error', 'needs-human', true, 'needs-human'],
+  ];
+  for (const [patch, verdict, disposition, human, action] of cases) {
+    const record = normalizeVerifierFollowupLedger({ ...base, ...patch });
+    assert.equal(record.verdict.toLowerCase(), verdict);
+    assert.equal(record.disposition, disposition);
+    assert.equal(record.needs_human, human);
+    assert.equal(record.followup_policy.action, action);
+  }
+});

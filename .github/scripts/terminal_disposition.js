@@ -86,7 +86,41 @@ function cleanIntArray(value) {
   )].sort((a, b) => a - b);
 }
 
+function hasVerifierSettlement(input) {
+  return ['context_outcome', 'settlement_outcome', 'verifier_outcome'].some(
+    (key) => Object.prototype.hasOwnProperty.call(input, key)
+  );
+}
+
+// Only explicit successful context may declare ineligibility. Missing context,
+// provider or settlement evidence cannot turn a raw PASS into a terminal PASS.
+function settleVerifierOutcome(input = {}) {
+  const contextOk = input.context_outcome === 'success';
+  const shouldRun = cleanBool(input.should_run);
+  const skipped = contextOk && shouldRun === false;
+  const raw = cleanString(input.verdict).toLowerCase();
+  const known = ['pass', 'passed', 'fail', 'failed', 'concerns', 'error', 'unverifiable_input'];
+  const interrupted = !skipped && (
+    !contextOk || shouldRun !== true || input.settlement_outcome !== 'success' ||
+    input.verifier_outcome !== 'success' || !known.includes(raw)
+  );
+  let verdict = skipped ? 'skipped' : interrupted ? 'error' : raw;
+  if (cleanBool(input.ci_failed) === true && ['pass', 'passed'].includes(verdict)) {
+    verdict = 'concerns';
+  }
+  return { verdict, skipped, interrupted };
+}
+
 function normalizeLedgerDisposition(input = {}) {
+  if (hasVerifierSettlement(input)) {
+    const settled = settleVerifierOutcome(input);
+    if (settled.skipped) return 'skipped';
+    if (settled.interrupted) return 'needs-human';
+    if (['pass', 'passed'].includes(settled.verdict)) return 'merge';
+    const followup = cleanInt(input.followup_issue_number ?? input.followupIssueNumber) !== null ||
+      cleanInt(input.followup_pr_number ?? input.followupPrNumber) !== null;
+    return followup ? 'follow-up' : 'needs-human';
+  }
   const explicit = cleanString(input.disposition ?? input.terminal_disposition);
   const normalized = explicit.toLowerCase().replace(/_/g, '-');
   const allowed = new Set(['merge', 'supersede', 'follow-up', 'accept-risk', 'needs-human']);
@@ -149,6 +183,11 @@ function normalizeVerifierFollowupPolicy(input = {}) {
     'unknown',
   ]);
   if (!allowedActions.has(action)) action = '';
+  if (hasVerifierSettlement(input)) {
+    action = disposition === 'skipped' ? 'skip-follow-up' :
+      disposition === 'needs-human' ? 'needs-human' :
+      disposition === 'follow-up' ? 'create-follow-up' : 'no-op';
+  }
   if (!action) {
     if (needsHuman === true || disposition === 'needs-human') {
       action = 'needs-human';
@@ -255,6 +294,11 @@ function normalizeTerminalDisposition(input = {}) {
 }
 
 function normalizeVerifierFollowupLedger(input = {}) {
+  if (hasVerifierSettlement(input)) {
+    const settled = settleVerifierOutcome(input);
+    const disposition = normalizeLedgerDisposition(input);
+    input = { ...input, verdict: settled.verdict, needs_human: disposition === 'needs-human' };
+  }
   const prNumber = cleanInt(input.pr_number ?? input.prNumber ?? input.pr);
   const verificationRunId = normalizeSourceId(
     input.verification_run_id ?? input.verificationRunId ?? input.run_id ?? input.runId,
@@ -380,6 +424,7 @@ function formatTerminalDispositionMarkdown(records = []) {
 }
 
 module.exports = {
+  settleVerifierOutcome,
   normalizeTerminalDisposition,
   normalizeVerifierFollowupLedger,
   normalizeVerifierFollowupPolicy,
