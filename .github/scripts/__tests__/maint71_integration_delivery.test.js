@@ -53,33 +53,43 @@ test('dry run cannot change delivery and unbound payload cannot enter preparatio
   await assert.rejects(prepareIntegrationDelivery(args), /bound source/);
 });
 
-test('sealed delivery explicitly dispatches Gate on the PR branch with PR context', async () => {
+test('sealed delivery explicitly dispatches Gate on the PR branch with PR context', async (t) => {
   const { requestSealedGate } = require('../maint71_merge_sync_prs');
   const calls = [];
-  const client = { rest: { actions: { createWorkflowDispatch: async args => { calls.push(args); return { status: 204 }; } } } };
+  t.mock.method(console, 'log', () => {});
+  const client = { rest: { actions: {
+    createWorkflowDispatch: async args => { calls.push(args); return { status: 204 }; },
+    listWorkflowRuns: async () => ({ data: { workflow_runs: [{ id: 4104,
+      event: 'workflow_dispatch', head_branch: 'sync/workflows-delivery',
+      head_sha: 'a'.repeat(40), created_at: new Date().toISOString() }] } }),
+  } } };
   const args = { owner: 'owner', repo: 'repo', pr: { number: 42,
     head: { ref: 'sync/workflows-delivery', sha: 'a'.repeat(40) } },
     withRetry: callback => callback(client) };
-  assert.deepEqual(await requestSealedGate(args), { mode: 'dispatch', status: 204 });
+  assert.deepEqual(await requestSealedGate(args), { mode: 'dispatch', status: 204, run_id: 4104 });
   assert.deepEqual(calls, [{ owner: 'owner', repo: 'repo', workflow_id: 'pr-00-gate.yml',
     ref: 'sync/workflows-delivery', inputs: { pr_number: '42' } }]);
   client.rest.actions.createWorkflowDispatch = async () => { throw new Error('dispatch denied'); };
-  await assert.rejects(requestSealedGate(args), /dispatch denied/);
-  await assert.rejects(requestSealedGate({ ...args, pr: { number: 42 } }), /head ref/);
+  assert.deepEqual(await requestSealedGate(args), { mode: 'failed', status: 'unknown', reason: 'dispatch denied' });
+  assert.match((await requestSealedGate({ ...args, pr: { number: 42 } })).reason, /head ref/);
 });
 
 for (const status of [422, 404]) {
-  test(`legacy Gate HTTP ${status} falls back to labels and integration cycle continues`, async () => {
+  test(`legacy Gate HTTP ${status} reports failure without label fallback and integration cycle continues`, async (t) => {
     const { requestSealedGate } = require('../maint71_merge_sync_prs');
     const { buildMergeReport, buildMarkdownSummary } = require('../sync_pr_merge_contract');
     const labels = [];
     const dispatches = [];
+    const logs = [];
+    t.mock.method(console, 'log', (...args) => logs.push(args.join(' ')));
     const client = { rest: {
       actions: { createWorkflowDispatch: async args => {
         dispatches.push(args.repo);
         if (args.repo === 'legacy') throw Object.assign(new Error('legacy dispatch'), { status });
         return { status: 204 };
-      } },
+      }, listWorkflowRuns: async () => ({ data: { workflow_runs: [{ id: 4104,
+        event: 'workflow_dispatch', head_branch: 'sync/workflows-delivery',
+        head_sha: 'a'.repeat(40), created_at: new Date().toISOString() }] } }) },
       issues: { addLabels: async args => { labels.push(args); } },
     } };
     const results = [];
@@ -96,14 +106,14 @@ for (const status of [422, 404]) {
         gate_request: sealed.gateRequest });
     }
     assert.deepEqual(dispatches, ['legacy', 'modern']);
-    assert.deepEqual(labels, [{ owner: 'owner', repo: 'legacy', issue_number: 42,
-      labels: ['sync:delivery-ready'] }]);
+    assert.deepEqual(labels, []);
+    assert.ok(logs.includes(`seal: owner/legacy#42 gate request failed: ${status} legacy dispatch`));
     assert.deepEqual(results.map(row => row.gate_request), [
-      { mode: 'label-fallback', status }, { mode: 'dispatch', status: 204 },
+      { mode: 'failed', status, reason: 'legacy dispatch' }, { mode: 'dispatch', status: 204, run_id: 4104 },
     ]);
     const report = buildMergeReport({ results });
-    assert.equal(report.summary.gate_label_fallback, 1);
+    assert.equal(report.summary.gate_label_fallback, 0);
     assert.equal(report.summary.delivery_sealed_checks_pending, 2);
-    assert.match(buildMarkdownSummary(report), /gate_label_fallback \| 1/);
+    assert.doesNotMatch(buildMarkdownSummary(report), /gate_label_fallback/);
   });
 }

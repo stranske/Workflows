@@ -23,11 +23,98 @@ const {
   canaryNeedsRefresh, refreshStableCanaries, STALE_CANARY_HOURS,
   CANARY_REFRESH_DEBOUNCE_MS, canaryRefreshDecision, readCanaryRefreshState,
   dispatchCanaryRefresh, dispatchCanaryPromotion,
-  isExpectedPresealGateFailure, legacyStatusAsCheck,
+  isExpectedPresealGateFailure, legacyStatusAsCheck, requestSealedGate,
 } = require('../maint71_merge_sync_prs');
 const { classifySyncPrChecks } = require('../sync_pr_merge_contract');
 
 const refreshNow = Date.parse('2026-10-17T12:00:00Z');
+
+function sealedGateHarness(t) {
+  const pr = { number: 4104, head: { ref: 'sync/workflows-candidate', sha: 'd'.repeat(40) } };
+  const sealedAt = '2026-10-17T11:00:00Z';
+  const run = { id: 4105, head_branch: pr.head.ref, head_sha: pr.head.sha,
+    event: 'workflow_dispatch', created_at: new Date(refreshNow).toISOString() };
+  const reads = [], dispatches = [], logs = [];
+  const state = { before: [{ ...run, id: 4103, created_at: '2026-10-17T10:00:00Z' }], after: [run] };
+  t.mock.timers.enable({ apis: ['Date'], now: refreshNow });
+  t.mock.method(console, 'log', (...args) => logs.push(args.join(' ')));
+  const withRetry = async (callback) => callback({ rest: { actions: {
+    listWorkflowRuns: async (params) => {
+      reads.push(params);
+      if (state.lookupError) throw Object.assign(new Error('history denied'), { status: 403 });
+      return { data: { workflow_runs: params.event ? state.after : state.before } };
+    },
+    createWorkflowDispatch: async (params) => {
+      dispatches.push(params);
+      if (state.dispatchError) throw Object.assign(new Error('dispatch denied'), { status: state.dispatchError });
+      return { status: 204 };
+    },
+  }, issues: { addLabels: async () => assert.fail('labels cannot wake Gate') } } });
+  return { args: { owner: 'stranske', repo: 'Ready', pr, sealedAt, withRetry },
+    state, run, reads, dispatches, logs };
+}
+
+test('sealed Gate request observes one consumer dispatch and retries rejected requests next pass', async (t) => {
+  const api = sealedGateHarness(t);
+  for (const status of [422, 404, 403]) {
+    api.state.dispatchError = status;
+    const result = await requestSealedGate(api.args);
+    assert.deepEqual(result, { mode: 'failed', status, reason: 'dispatch denied' });
+    assert.ok(api.logs.includes(`seal: stranske/Ready#4104 gate request failed: ${status} dispatch denied`));
+  }
+  api.state.dispatchError = null;
+  assert.deepEqual(await requestSealedGate(api.args), { mode: 'dispatch', status: 204, run_id: 4105 });
+  assert.equal(api.dispatches.length, 4, 'a failed request never latches the next pass');
+  assert.ok(api.dispatches.every(p => p.owner === 'stranske' && p.repo === 'Ready'
+    && p.workflow_id === 'pr-00-gate.yml' && p.ref === api.args.pr.head.ref
+    && p.inputs.pr_number === '4104'));
+  assert.deepEqual(api.reads.at(-1), { owner: 'stranske', repo: 'Ready',
+    workflow_id: 'pr-00-gate.yml', branch: api.args.pr.head.ref,
+    head_sha: api.args.pr.head.sha, per_page: 100, event: 'workflow_dispatch' });
+});
+
+test('post-seal queued Gate and later rerun suppress duplicate dispatch on this exact head', async (t) => {
+  const api = sealedGateHarness(t);
+  for (const run of [
+    { ...api.run, status: 'queued' },
+    { ...api.run, event: 'pull_request', created_at: '2026-10-17T10:00:00Z',
+      run_started_at: '2026-10-17T11:30:00Z', run_attempt: 2 },
+  ]) {
+    api.state.before = [run];
+    assert.deepEqual(await requestSealedGate(api.args), { mode: 'existing', run_id: run.id });
+  }
+  assert.equal(api.dispatches.length, 0);
+});
+
+test('Gate receipt rejects old, wrong-head, wrong-branch and wrong-event runs without claiming success', async (t) => {
+  const api = sealedGateHarness(t);
+  api.state.after = [
+    { ...api.run, created_at: '2026-10-17T10:00:00Z' },
+    { ...api.run, head_sha: 'e'.repeat(40) },
+    { ...api.run, head_branch: 'main' },
+    { ...api.run, event: 'pull_request' },
+  ];
+  const result = await requestSealedGate(api.args);
+  assert.equal(result.run_id, null);
+  assert.match(result.reason, /not observed/);
+  assert.equal(api.dispatches.length, 1);
+  assert.equal(api.reads.length, 2, 'one history read and exactly one receipt poll');
+  assert.ok(api.logs.some(line => line.includes('gate request failed: 204 Gate run not observed')));
+  assert.ok(api.logs.every(line => !line.includes('gate requested run=')));
+});
+
+test('Gate history failure prints the reason and missing history requests evaluation', async (t) => {
+  const api = sealedGateHarness(t);
+  api.state.lookupError = true;
+  assert.deepEqual(await requestSealedGate(api.args), { mode: 'failed', status: 403, reason: 'history denied' });
+  assert.equal(api.dispatches.length, 0);
+  assert.match(api.logs[0], /gate request failed: 403 history denied/);
+  api.state.lookupError = false;
+  api.state.before = [];
+  assert.equal((await requestSealedGate(api.args)).run_id, 4105);
+  assert.equal(api.dispatches.length, 1);
+});
+
 function refreshCanary(overrides = {}) {
   return { owner: 'stranske', repo: 'Ready', pr: 12, plan_id: 'plan-4026',
     source_commit: 'a'.repeat(40), base_sha: 'b'.repeat(40), default_branch_tip_sha: 'b'.repeat(40), head_sha: 'c'.repeat(40),
@@ -391,9 +478,12 @@ async function assertExecutorCanaryRefresh(t, state) {
   const { formatDeliveryRecord } = require('../sync_pr_lease_contract');
   const sealRecovery = state.startsWith('seal_') && state !== 'seal_drained';
   const reviewRecovery = state.startsWith('seal_review_');
-  const preseal = sealRecovery || ['preseal_gate', 'preseal_gate_dual', 'producer_success_staging'].includes(state);
+  const alreadySealed = state.startsWith('seal_already_');
+  const olderGreen = state === 'seal_already_green';
+  const dispatchError = state.endsWith('_422') ? 422 : state.endsWith('_404') ? 404 : null;
+  const preseal = !olderGreen && (sealRecovery || ['preseal_gate', 'preseal_gate_dual', 'producer_success_staging'].includes(state));
   const producerSucceeded = state.startsWith('producer_success');
-  const presealDual = state === 'preseal_gate_dual' || sealRecovery;
+  const presealDual = !olderGreen && (state === 'preseal_gate_dual' || sealRecovery);
   const sealMessage = 'Mutable generated delivery is not mergeable: ' +
     (sealRecovery ? 'sealed_head_mismatch' : 'delivery_not_sealed:staging') +
     '. Maint 71 must seal this exact head after bounded reviewer settlement.';
@@ -413,9 +503,10 @@ async function assertExecutorCanaryRefresh(t, state) {
       generation: 'generation', desired_tree_hash: 'tree', source_commit: source,
       head_observed_sha: head, head_observed_at: observed,
       lease_expires_at: '2099-01-01T00:00:00Z', delivery_state: reviewRecovery ? 'reviewing' : sealRecovery ? 'sealed' : preseal ? 'staging' : 'sealed',
-      sealed_at: observed, sealed_head_sha: sealRecovery && state !== 'seal_already_current' ? 'f'.repeat(40) : head, review_started_at: reviewStarted,
+      sealed_at: observed, sealed_head_sha: sealRecovery && !alreadySealed ? 'f'.repeat(40) : head, review_started_at: reviewStarted,
     }) };
   const dispatches = [], updates = [], summaries = [], failures = [], merges = [], tipReads = [];
+  const gateReads = [], labelWrites = [];
   const github = { rest: {
     users: { getAuthenticated: async () => ({ data: { login: 'maint71-bot' } }) },
     pulls: {
@@ -468,7 +559,7 @@ async function assertExecutorCanaryRefresh(t, state) {
         { annotation_level: 'failure', message: 'Process completed with exit code 1.' },
       ] }),
     },
-    issues: { addLabels: async () => {}, removeLabel: async () => {},
+    issues: { addLabels: async (params) => labelWrites.push(params), removeLabel: async () => {},
       listLabelsOnIssue: async () => ({ data: [] }),
       listComments: async () => ({ data: [{ id: 71, user: { login: 'maint71-bot' },
         created_at: reviewStarted, body: '@codex review\n<!-- maint71-review-request:v1 ' +
@@ -476,10 +567,28 @@ async function assertExecutorCanaryRefresh(t, state) {
       }] }),
     },
     actions: {
-      listWorkflowRuns: async () => ({ data: { workflow_runs: producerSucceeded ? [{
+      listWorkflowRuns: async (params) => {
+        if (params.workflow_id === 'pr-00-gate.yml') {
+          gateReads.push(params);
+          const requested = dispatches.some(d => d.workflow_id === 'pr-00-gate.yml');
+          return { data: { workflow_runs: [{ id: requested ? 4104 : 4027,
+            event: requested ? 'workflow_dispatch' : 'pull_request',
+            head_sha: head, head_branch: candidate.head.ref,
+            created_at: alreadySealed && !requested
+              ? new Date(Date.parse(observed) - 60000).toISOString()
+              : new Date(refreshNow).toISOString() }] } };
+        }
+        return { data: { workflow_runs: producerSucceeded ? [{
         ...producerRun(), head_sha: source, display_title: `Maint 68 canary full source=${source} candidates=* dry=false`,
-      }] : [] } }),
-      createWorkflowDispatch: async (params) => dispatches.push(params),
+      }] : [] } };
+      },
+      createWorkflowDispatch: async (params) => {
+        dispatches.push(params);
+        if (params.workflow_id === 'pr-00-gate.yml' && dispatchError) {
+          throw Object.assign(new Error('consumer Gate unavailable'), { status: dispatchError });
+        }
+        return { status: 204 };
+      },
       getWorkflowRun: async () => ({ data: { id: 4027, head_sha: head, name: state === 'producer_success_staging' ? 'Unrecognized Gate' : 'Gate',
         path: '.github/workflows/pr-00-gate.yml', created_at: observed, status: 'completed', conclusion: 'failure' } }),
       downloadJobLogsForWorkflowRun: async () => ({ data: 'Error: ' + sealMessage }),
@@ -525,7 +634,8 @@ async function assertExecutorCanaryRefresh(t, state) {
   const retryHelpers = require('../github-api-with-retry');
   t.mock.method(retryHelpers, 'createTokenAwareRetry', async () => null);
   t.mock.method(retryHelpers, 'withRetry', async (fn) => fn(github));
-  t.mock.method(console, 'log', () => {});
+  const logs = [];
+  t.mock.method(console, 'log', (...args) => logs.push(args.join(' ')));
   const env = { REGISTERED_REPOS_INPUT: repository, REPOS_INPUT: repository,
     OWNER_PR_PAT: 'test-owner-token', TRUSTED_SYNC_ACTORS: 'stranske',
     CLEANUP_BRANCHES_INPUT: 'false', AUTO_MERGE_INPUT: 'true', DRY_RUN_INPUT: 'false',
@@ -541,7 +651,7 @@ async function assertExecutorCanaryRefresh(t, state) {
     }) : '',
     CANDIDATE_EVIDENCE_AUTHORIZED: 'true',
     PREPARE_ONLY_INPUT: ['aged_green', 'seal_drained'].includes(state) ? 'false' : 'true',
-    ...(preseal ? { DRY_RUN_INPUT: sealRecovery ? 'false' : 'true', CONSUMER_SYNC_REVIEW_POLICY_PATH:
+    ...(preseal || olderGreen ? { DRY_RUN_INPUT: sealRecovery ? 'false' : 'true', CONSUMER_SYNC_REVIEW_POLICY_PATH:
       reviewRecovery ? legacyPolicyPath : path.resolve(__dirname, '../../../config/consumer_sync_review_policy.json') } : {}),
     ...(state === 'seal_drained' ? { CONSUMER_SYNC_REVIEW_POLICY_PATH: path.resolve(__dirname, '../../../config/consumer_sync_review_policy.json') } : {}) };
   const original = Object.fromEntries(Object.keys(env).map((key) => [key, process.env[key]]));
@@ -609,20 +719,36 @@ async function assertExecutorCanaryRefresh(t, state) {
     assert.equal(row.status, blocked ? 'checks_failed' : 'delivery_sealed_checks_pending', JSON.stringify(report.results));
     assert.equal(row.delivery_disposition, blocked ? 'repo-local-failure' : 'awaiting-sealed-gate');
     const sealWrites = updates.filter(({body}) => require('../sync_pr_lease_contract').parseDeliveryRecord(body)?.delivery_state === 'sealed');
-    assert.equal(sealWrites.length, blocked || state === 'seal_already_current' ? 0 : 1, 'seal exact head once');
+    assert.equal(sealWrites.length, blocked || alreadySealed ? 0 : 1, 'seal exact head once');
     if (!blocked) {
-      assert.equal(row.seal_pending, true);
-      assert.equal(row.check_status, 'seal_pending');
-      assert.equal(row.raw_check_status, 'checks_failed');
-      assert.equal(row.gate_request.mode, 'dispatch');
-      assert.equal(dispatches.filter(d => d.workflow_id === 'pr-00-gate.yml').length, 1);
+      if (!olderGreen) {
+        assert.equal(row.seal_pending, true);
+        assert.equal(row.check_status, 'seal_pending');
+        assert.equal(row.raw_check_status, 'checks_failed');
+      }
+      assert.equal(row.gate_request.mode, dispatchError ? 'failed' : 'dispatch');
+      assert.deepEqual(dispatches.filter(d => d.workflow_id === 'pr-00-gate.yml'), [{
+        owner, repo, workflow_id: 'pr-00-gate.yml', ref: candidate.head.ref,
+        inputs: { pr_number: String(candidate.number) },
+      }]);
+      if (dispatchError) {
+        assert.equal(row.gate_request.status, dispatchError);
+        assert.match(row.gate_request.reason, /consumer Gate unavailable/);
+        assert.ok(logs.includes(`seal: ${repository}#4026 gate request failed: ${dispatchError} consumer Gate unavailable`));
+        assert.equal(labelWrites.length, 0, 'a failed dispatch must not use labels as fallback');
+        assert.equal(gateReads.length, 1, 'a rejected dispatch has no created run to poll');
+      } else {
+        assert.equal(row.gate_request.run_id, 4104);
+        assert.ok(logs.includes(`seal: ${repository}#4026 gate requested run=4104`));
+        assert.equal(gateReads.filter(p => p.event === 'workflow_dispatch').length, 1);
+      }
       assert.ok(summaries.includes(`seal: ${repository}#4026 sealed\n`));
     } else {
       assert.ok(summaries.some(s => s.includes('blocked(Gate / gate,') && s.includes('production tests')));
     }
     assert.equal(merges.length, 0);
     assert.equal(report.canary_refresh.red, Number(blocked));
-    assert.equal(report.canary_refresh.drainable, Number(!blocked));
+    assert.equal(report.canary_refresh.drainable, Number(!blocked && !olderGreen));
     return;
   }
   if (preseal) {
@@ -681,7 +807,7 @@ for (const state of ['behind', 'checks_failed', 'review_blocked', 'stale']) {
     async (t) => assertExecutorCanaryRefresh(t, state));
 }
 
-for (const state of ['seal_mismatch', 'seal_real_failure', 'seal_already_current', 'seal_review_settled', 'seal_review_wait', 'seal_review_threads', 'seal_drained']) {
+for (const state of ['seal_mismatch', 'seal_real_failure', 'seal_already_current', 'seal_already_green', 'seal_already_422', 'seal_already_404', 'seal_review_settled', 'seal_review_wait', 'seal_review_threads', 'seal_drained']) {
   test(`seal recovery ${state} preserves real check blockers`, async (t) => assertExecutorCanaryRefresh(t, state));
 }
 

@@ -572,9 +572,24 @@ function normalizeReviewPolicy(policy = {}) {
 
 // Dispatch on the PR branch so workflow execution and check suites bind to its
 // head. Gate resolves pr_number and rejects a head race before running checks.
-async function requestSealedGate({ owner, repo, pr, withRetry }) {
-  if (!pr.head?.ref) throw new Error('Gate dispatch requires the PR head ref');
+async function requestSealedGate({ owner, repo, pr, withRetry, sealedAt }) {
+  const identity = `seal: ${owner}/${repo}#${pr.number}`;
+  const query = { owner, repo, workflow_id: 'pr-00-gate.yml',
+    branch: pr.head?.ref, head_sha: pr.head?.sha, per_page: 100 };
   try {
+    if (!pr.head?.ref || !pr.head?.sha) throw new Error('Gate dispatch requires the PR head ref and SHA');
+    if (sealedAt !== undefined) {
+      if (!Number.isFinite(Date.parse(sealedAt))) throw new Error('Gate dispatch requires a valid seal time');
+      const { data } = await withRetry((client) => client.rest.actions.listWorkflowRuns(query));
+      if (!Array.isArray(data?.workflow_runs)) throw new Error('Gate history unreadable');
+      // Include queued runs and reruns. A fresh attempt already evaluating this
+      // seal must not be duplicated just because old failed checks remain visible.
+      const existing = data.workflow_runs.find((run) => run.id && run.head_sha === pr.head.sha
+        && run.head_branch === pr.head.ref
+        && Date.parse(run.run_started_at || run.created_at) >= Date.parse(sealedAt));
+      if (existing) return { mode: 'existing', run_id: existing.id };
+    }
+    const requestedAt = Date.now();
     const response = await withRetry((client) => client.rest.actions.createWorkflowDispatch({
       owner,
       repo,
@@ -582,15 +597,29 @@ async function requestSealedGate({ owner, repo, pr, withRetry }) {
       ref: pr.head.ref,
       inputs: { pr_number: String(pr.number) },
     }));
-    return { mode: 'dispatch', status: response.status };
-  } catch (error) {
-    const status = error?.status || error?.response?.status;
-    if (status !== 422 && status !== 404) throw error;
-    console.log('consumer Gate predates pr_number input; falling back to label wakeup');
-    await withRetry((client) => client.rest.issues.addLabels({
-      owner, repo, issue_number: pr.number, labels: ['sync:delivery-ready'],
+    // Dispatch normally returns 204, without a run ID. Poll once, binding the
+    // receipt to this branch, exact head, event and request time. Never claim
+    // that a label or an older run is proof that this request started Gate.
+    const { data } = await withRetry((client) => client.rest.actions.listWorkflowRuns({
+      ...query, event: 'workflow_dispatch',
     }));
-    return { mode: 'label-fallback', status };
+    const run = data?.workflow_runs?.filter((row) => row.id
+      && row.event === 'workflow_dispatch' && row.head_branch === pr.head.ref
+      && row.head_sha === pr.head.sha
+      && Date.parse(row.created_at) >= Math.floor(requestedAt / 1000) * 1000)
+      .sort((a, b) => Number(b.id) - Number(a.id))[0];
+    if (!run) {
+      const reason = 'Gate run not observed after dispatch; retry next Maint 71 run';
+      console.log(`${identity} gate request failed: ${response.status} ${reason}`);
+      return { mode: 'dispatch', status: response.status, run_id: null, reason };
+    }
+    console.log(`${identity} gate requested run=${run.id}`);
+    return { mode: 'dispatch', status: response.status, run_id: run.id };
+  } catch (error) {
+    const status = error?.status || error?.response?.status || 'unknown';
+    const reason = error?.response?.data?.message || error.message || 'Gate request failed';
+    console.log(`${identity} gate request failed: ${status} ${reason}`);
+    return { mode: 'failed', status, reason };
   }
 }
 
@@ -2811,7 +2840,7 @@ async function run({ github, context, core }) {
       body,
     }));
     // Mark the lifecycle state, then explicitly request Gate on this head.
-    // Current Gates use dispatch; legacy consumers may use the label wakeup.
+    // Labels describe lifecycle state; they do not wake consumer Gates.
     // Keep the staging hold until the Maint 71 exact-head merge completes: generic merge lanes use
     // it as their hard stop, while this workflow's dedicated guard explicitly
     // authorizes the sealed delivery path.
@@ -3813,6 +3842,11 @@ async function run({ github, context, core }) {
           updated_at: pr.updated_at, created_at: pr.created_at,
           threads: reviewThreadDetails.threads };
         stableCanaries.push(canary);
+        if (deliveryRecord?.delivery_state === 'sealed'
+          && deliveryRecord.sealed_head_sha === pr.head.sha && autoMerge && !dryRun) {
+          deliveryContext.gate_request = await requestSealedGate({ owner, repo, pr, withRetry,
+            sealedAt: deliveryRecord.sealed_at });
+        }
         // A successful producer for this source/set is not a green consumer
         // Gate. Preserve the review/seal lifecycle and let its later exact-head
         // checks hold real failures, instead of restaging it on every scan.
@@ -3866,12 +3900,21 @@ async function run({ github, context, core }) {
           });
           continue;
         }
+        if (canary && deliveryContext.gate_request
+          && deliveryContext.gate_request.mode !== 'existing') {
+          canary.seal_state = 'sealed';
+          results.push({ ...deliveryContext, status: 'delivery_sealed_checks_pending',
+            delivery_disposition: 'awaiting-sealed-gate', blocker_owner: 'ci',
+            next_command: 'rerun-after-generated-delivery-seal-gate' });
+          continue;
+        }
         if (expectedPresealGateHold && deliveryRecord.delivery_state === 'sealed') {
           if (deliveryRecord.sealed_head_sha === pr.head.sha) {
             // The seal is already current; the failed Gate used an old body.
             // Wake a fresh evaluation without rewriting the seal or the head.
-            const gateRequest = autoMerge && !dryRun
-              ? await requestSealedGate({ owner, repo, pr, withRetry }) : undefined;
+            const gateRequest = deliveryContext.gate_request || (autoMerge && !dryRun
+              ? await requestSealedGate({ owner, repo, pr, withRetry,
+                sealedAt: deliveryRecord.sealed_at }) : undefined);
             if (canary) canary.seal_state = 'sealed';
             results.push({ ...deliveryContext, status: 'delivery_sealed_checks_pending',
               delivery_disposition: 'awaiting-sealed-gate', blocker_owner: 'ci',
@@ -3904,7 +3947,7 @@ async function run({ github, context, core }) {
               } catch (error) {
                 if (error?.status !== 404) throw error;
               }
-              // Clearing a stale ready label lets sealing trigger actual fresh CI.
+              // Clear the stale lifecycle label before sealing and dispatching Gate.
               return (await withRetry((client) => client.rest.pulls.get({
                 owner, repo, pull_number: pr.number,
               }))).data;

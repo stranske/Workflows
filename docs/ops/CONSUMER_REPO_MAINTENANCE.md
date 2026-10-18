@@ -1715,7 +1715,17 @@ source review under the existing policy. After settlement, Maint 71 writes the
 exact-head seal once and requests a fresh Gate, retaining failed raw check
 evidence until the new evaluation succeeds. If the head is already sealed and
 the failed run predates that seal, Maint 71 requests fresh Gate evaluation
-without rewriting the seal. A failed evaluation created after the current seal
+without rewriting the seal. Already-sealed canaries also inspect Gate history
+on the exact head and branch: a post-seal run (including queued runs and reruns)
+suppresses another request, while older or absent runs require dispatch. Maint 71
+polls once for the new `workflow_dispatch` run and prints
+`seal: <repo>#<n> gate requested run=<id>` only when it observes a matching run.
+Dispatch or lookup failures print `gate request failed: <status> <message>` and
+remain in the report's `gate_request`; an accepted dispatch whose run is not yet
+visible reports that uncertainty explicitly. The delivery stays
+`awaiting-sealed-gate` for retry on the next Maint 71 pass. There is no label
+wakeup fallback: `sync:delivery-ready` records lifecycle state only. Existing
+required-check and review blockers still apply. A failed evaluation created after the current seal
 remains blocking. Neither recovery path updates the branch or authorizes merge.
 
 Each canary prints `seal: <repo>#<n> sealed|pending(<reason>)|blocked(<check names>)`.
