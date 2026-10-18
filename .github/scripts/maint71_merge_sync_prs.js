@@ -58,24 +58,36 @@ function workflowRunIdFromUrl(value, owner, repo) {
 async function isExpectedPresealGateFailure({
   owner, repo, headSha, deliveryRecord, deliveryState, classification, allChecks, withRetry,
 }) {
+  const failed = classification?.failed;
+  const gateCheck = Array.isArray(failed)
+    ? failed.find((check) => String(check?.name || '').trim() === 'Gate / gate') : null;
+  const summaryCheck = Array.isArray(failed) && failed.length === 2
+    ? failed.find((check) => String(check?.name || '').trim() === 'gate-summary') : null;
   if (!['staging', 'reviewing'].includes(deliveryState)
     || !/^[a-f0-9]{40}$/i.test(String(headSha || ''))
     || deliveryRecord?.delivery_state !== deliveryState
     || String(deliveryRecord?.head_observed_sha || '').toLowerCase() !== headSha.toLowerCase()
     || classification?.status !== 'checks_failed'
-    || !Array.isArray(classification.failed) || classification.failed.length !== 1
-    || String(classification.failed[0]?.name || '').trim() !== 'Gate / gate'
-    || String(classification.failed[0]?.conclusion || '').toLowerCase() !== 'failure') {
+    || !Array.isArray(failed) || ![1, 2].includes(failed.length)
+    || !gateCheck || (failed.length === 2 && !summaryCheck)
+    || String(gateCheck.conclusion || '').toLowerCase() !== 'failure') {
     return false;
   }
-  const gateCheck = (allChecks || []).find((check) => check === classification.failed[0]
-    || (String(check?.name || '').trim() === 'Gate / gate'
-      && String(check?.head_sha || '').toLowerCase() === headSha.toLowerCase()
-      && String(check?.conclusion || '').toLowerCase() === 'failure'));
+  if (!(allChecks || []).includes(gateCheck)) return false;
   const runId = workflowRunIdFromUrl(
     gateCheck?.details_url || gateCheck?.html_url, owner, repo,
   );
   if (!runId) return false;
+  // Legacy Gate / gate is a commit status while gate-summary is a branch-
+  // protected check run. Some consumers require both. Their two red rows only
+  // describe one pre-seal hold when the check run belongs to that same Gate
+  // run and exact head; any other failed required context remains a blocker.
+  if (summaryCheck && (!(allChecks || []).includes(summaryCheck)
+    || summaryCheck.status !== 'completed' || summaryCheck.conclusion !== 'failure'
+    || String(summaryCheck.head_sha || '').toLowerCase() !== headSha.toLowerCase()
+    || String(summaryCheck.app?.slug || '').toLowerCase() !== 'github-actions'
+    || workflowRunIdFromUrl(summaryCheck.details_url || summaryCheck.html_url,
+      owner, repo) !== runId)) return false;
   try {
     const { data: run } = await withRetry((client) => client.rest.actions.getWorkflowRun({
       owner, repo, run_id: runId,
