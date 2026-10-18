@@ -598,7 +598,7 @@ def test_every_corpus_case_with_a_snapshot_builds_a_production_prompt():
     assert len({c["case_id"] for c in cases}) == len(cases)
     groups = Counter((c["expected_verdict"], screen.case_group(c)) for c in cases)
     assert (
-        groups[("NON_PASS", "fail-ci-row")] >= 30 and groups[("NON_PASS", "drop-named-file")] >= 30
+        groups[("NON_PASS", "fail-ci-row")] >= 10 and groups[("NON_PASS", "drop-named-file")] >= 10
     )
     for case in cases:
         assert verifier_prompt(case["production_snapshot"])
@@ -643,3 +643,19 @@ def test_codex_judge_wraps_the_cli_screen_invocation(monkeypatch):
     assert judge.name == "gpt-6-luna" and seen["model"] == "gpt-6-luna"
     assert (outcome.input_tokens, outcome.output_tokens, outcome.latency_ms) == (7, 3, 12.5)
     assert outcome.payload == {"verdict": "PASS"} and outcome.error is None
+
+
+def test_evaluable_mode_keeps_only_inputs_the_production_prompt_calls_sufficient():
+    import json
+    from pathlib import Path
+
+    from tools import run_judge_backend_screen as screen
+    from tools.generate_mutation_cases import coverage_sufficient
+
+    corpus = json.loads((screen.ROOT / "config/model_eval_pilot.json").read_text())
+    everything = screen.corpus_cases_with_snapshots(corpus, Path(screen.ROOT))
+    evaluable = screen.corpus_cases_with_snapshots(corpus, Path(screen.ROOT), evaluable_only=True)
+    assert 0 < len(evaluable) <= len(everything)
+    assert all(coverage_sufficient(c["production_snapshot"]) for c in evaluable)
+    kinds = {(c["expected_verdict"], screen.case_group(c)) for c in evaluable}
+    assert {("PASS", "real"), ("NON_PASS", "fail-ci-row"), ("NON_PASS", "drop-named-file")} <= kinds

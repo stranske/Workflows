@@ -736,7 +736,11 @@ def case_group(case: dict[str, Any]) -> str:
 
 
 def corpus_cases_with_snapshots(
-    corpus: dict[str, Any], root: Path, *, limit_per_group: int | None = None
+    corpus: dict[str, Any],
+    root: Path,
+    *,
+    limit_per_group: int | None = None,
+    evaluable_only: bool = False,
 ) -> list[dict[str, Any]]:
     """Every corpus case a prompt can be built for: the screen cases plus cases with a snapshot
     reference or mutation recipe (loaded through ``generate_mutation_cases.load_case``).
@@ -755,6 +759,11 @@ def corpus_cases_with_snapshots(
         if case["case_id"] in seen or not (case.get("snapshot_ref") or case.get("mutation_recipe")):
             continue
         cases.append(load_case(case, root))
+    if evaluable_only:
+        # the production prompt's own sufficiency check: an insufficient input measures the capture
+        from tools.generate_mutation_cases import coverage_sufficient
+
+        cases = [c for c in cases if coverage_sufficient(c["production_snapshot"])]
     if limit_per_group is None:
         return cases
     kept: dict[tuple[str, str, str], int] = {}
@@ -930,9 +939,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--baseline-model")
     parser.add_argument(
         "--cases",
-        choices=("screen", "all"),
+        choices=("screen", "all", "evaluable"),
         default="screen",
-        help="screen: the 8 captured screen cases; all: every case with a snapshot or recipe",
+        help="screen: the 8 captured screen cases; all: every case with a snapshot or recipe; "
+        "evaluable: those whose production prompt is sufficient (the approval set)",
     )
     parser.add_argument(
         "--limit-per-group",
@@ -960,8 +970,13 @@ def main(argv: list[str] | None = None) -> int:
             {str(c["repo"]) for c in corpus.get("screen_cases", []) + corpus.get("cases", [])}
         )
     override = (
-        corpus_cases_with_snapshots(corpus, ROOT, limit_per_group=args.limit_per_group)
-        if args.cases == "all"
+        corpus_cases_with_snapshots(
+            corpus,
+            ROOT,
+            limit_per_group=args.limit_per_group,
+            evaluable_only=args.cases == "evaluable",
+        )
+        if args.cases in ("all", "evaluable")
         else None
     )
     payload = run_screen(
