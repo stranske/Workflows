@@ -1309,7 +1309,7 @@ for (const [name, files, codeChars, acceptanceChars] of [
   });
 }
 
-test('generated coverage names included, truncated, and late omitted code while preserving the full patch', async () => {
+test('generated coverage retains every file despite legacy context clipping settings', async () => {
   const patches = ['first.py', 'partial.py', 'late.py'].map(name => coveragePatch(name, 2000));
   const limit = patches[0].length + 100;
   await withEnv('VERIFIER_DIFF_MAX_CHARS', String(limit), async () => {
@@ -1317,12 +1317,12 @@ test('generated coverage names included, truncated, and late omitted code while 
     try {
       assert.ok(patches[0].length > 8000);
       const sources = result.sourceCoverage.changed_code_sources;
-      assert.deepEqual(sources.map(source => source.status), ['included', 'truncated', 'omitted']);
-      assert.equal(sources[1].included_chars, 100);
+      assert.deepEqual(sources.map(source => source.status), ['included', 'included', 'included']);
+      assert.equal(sources[1].included_chars, sources[1].total_chars);
       assert.equal(sources[2].source, 'late.py');
-      assert.equal(sources[2].included_chars, 0);
-      assert.ok(result.markdown.includes('diff truncated after'));
-      assert.ok(!result.markdown.includes('diff --git a/late.py'));
+      assert.equal(sources[2].included_chars, sources[2].total_chars);
+      assert.ok(!result.markdown.includes('diff truncated after'));
+      assert.ok(result.markdown.includes('diff --git a/late.py'));
       assert.ok(fs.readFileSync(result.diffPath, 'utf8').includes('diff --git a/late.py'));
       assert.equal(result.sourceCoverage.full_diff_artifact.status, 'included');
       const rawPatch = fs.readFileSync(result.diffPath);
@@ -2915,11 +2915,11 @@ test('buildVerifierContext skips push events when PR lookup fails', async () => 
   assert.equal(core.warnings.length, 1);
 });
 
-test('formatDiffForContext truncates long diffs', () => {
+test('formatDiffForContext never clips a file to the legacy character limit', () => {
   const diff = 'a'.repeat(50);
   const result = formatDiffForContext(diff, 10);
-  assert.ok(result.startsWith('a'.repeat(10)));
-  assert.ok(result.includes('diff truncated after 10 characters'));
+  assert.equal(result, diff);
+  assert.ok(!result.includes('truncated'));
 });
 
 test('formatDiffForContext returns placeholder for empty diff', () => {

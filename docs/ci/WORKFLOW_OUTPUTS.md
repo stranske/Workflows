@@ -205,6 +205,11 @@ reusable workflow in the no-output section.
 | `reusable-gemini-run.yml` | `error-category` | string | Error category (transient/auth/resource/logic/unknown) | `needs.gemini.outputs.error-category` |
 | `reusable-gemini-run.yml` | `error-type` | string | Error type (gemini/infrastructure/auth/unknown) | `needs.gemini.outputs.error-type` |
 | `reusable-gemini-run.yml` | `error-recovery` | string | Suggested recovery action | `needs.gemini.outputs.error-recovery` |
+| `reusable-agents-verifier.yml` | `verdict` | string | Trusted verifier verdict for caller-owned source closure | `needs.verifier.outputs.verdict` |
+| `reusable-agents-verifier.yml` | `target_sha` | string | Trusted verifier target_sha for caller-owned source closure | `needs.verifier.outputs.target_sha` |
+| `reusable-agents-verifier.yml` | `pr_number` | string | Trusted verifier pr_number for caller-owned source closure | `needs.verifier.outputs.pr_number` |
+| `reusable-agents-verifier.yml` | `should_run` | string | Trusted verifier should_run for caller-owned source closure | `needs.verifier.outputs.should_run` |
+| `reusable-agents-verifier.yml` | `workflows_ref` | string | Trusted verifier workflows_ref for caller-owned source closure | `needs.verifier.outputs.workflows_ref` |
 <!-- OUTPUT-REFERENCE-END -->
 
 ## Workflows without workflow_call outputs
@@ -221,7 +226,6 @@ The workflows below do not expose `workflow_call` outputs. They publish artifact
 - `reusable-70-orchestrator-main.yml`
 - `reusable-agents-issue-bridge.yml`
 - `reusable-agents-pr-health.yml`
-- `reusable-agents-verifier.yml`
 - `reusable-model-profile-trial.yml`
 <!-- OUTPUT-NONE-END -->
 

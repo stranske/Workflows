@@ -55,12 +55,15 @@ coverage.
   unless a test or evidence artifact is itself an explicit acceptance deliverable.
 - **CONCERNS**: significant correctness or completeness issues exist, OR the
   implementation introduces meaningful risks.
+- **UNVERIFIABLE_INPUT**: the supplied review input is incomplete or unavailable. List
+  `files_not_reviewed`. Preserve real findings as CONCERNS or FAIL even when
+  some input could not be reviewed.
 - **FAIL**: the changes do not address the acceptance criteria or introduce
   breaking problems.
 
 Respond in JSON with:
 {{
-  "verdict": "PASS | CONCERNS | FAIL",
+  "verdict": "PASS | CONCERNS | FAIL | UNVERIFIABLE_INPUT",
   "confidence": 0.0-1.0,
   "scores": {{
     "correctness": 0-10,
@@ -70,5 +73,6 @@ Respond in JSON with:
     "risks": 0-10
   }},
   "concerns": ["..."],
+  "files_not_reviewed": ["path/of/unreviewed/file"],
   "summary": "concise report focusing on code quality and acceptance criteria fulfillment"
 }}
