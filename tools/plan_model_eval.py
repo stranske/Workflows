@@ -70,7 +70,18 @@ def build_plan(
     counts = Counter(str(case["category"]) for case in cases)
     minimum = int(approval["minimum_adjudicated_cases"])
     positive_cases = sum(case.get("expected_verdict") == "PASS" for case in cases)
-    negative_cases = sum(case.get("expected_verdict") == "NON_PASS" for case in cases)
+    mutation_policy = approval.get("controlled_mutation") or {}
+    all_non_pass = sum(case.get("expected_verdict") == "NON_PASS" for case in cases)
+    mutation_cases = sum(
+        case.get("expected_verdict") == "NON_PASS"
+        and case.get("provenance") == "controlled-mutation"
+        for case in cases
+    )
+    real_non_pass = all_non_pass - mutation_cases
+    # Controlled-mutation cases count toward the false-PASS bound only when the policy says so.
+    negative_cases = (
+        all_non_pass if mutation_policy.get("counts_toward_false_pass_bound") else real_non_pass
+    )
     false_pass_floor = _zero_error_denominator(
         float(approval["quality_gates"]["false_pass_rate_wilson_upper_bound"]),
         float(approval["confidence_level"]),
@@ -80,6 +91,7 @@ def build_plan(
         float(approval["confidence_level"]),
     )
     additional_non_pass = max(0, false_pass_floor - negative_cases)
+    minimum_real_non_pass = int(mutation_policy.get("minimum_real_non_pass_cases", 0))
     additional_pass = max(0, false_fail_floor - positive_cases)
     best_case_total = len(cases) + additional_non_pass + additional_pass
     confidence_label = f"{float(approval['confidence_level']):.0%}"
@@ -193,6 +205,11 @@ def build_plan(
             f"Even with zero false passes, the {confidence_label} Wilson gate needs {false_pass_floor} "
             f"NON_PASS cases; only {negative_cases} exist ({additional_non_pass} more needed)."
         )
+    if real_non_pass < minimum_real_non_pass:
+        reasons.append(
+            f"Only {real_non_pass} real-outcome NON_PASS cases exist; the policy requires at "
+            f"least {minimum_real_non_pass} alongside {mutation_cases} controlled-mutation cases."
+        )
     if additional_pass:
         reasons.append(
             f"Even with zero false fails, the {confidence_label} Wilson gate needs {false_fail_floor} "
@@ -269,6 +286,8 @@ def build_plan(
         "corpus_cases": len(cases),
         "expected_pass_cases": positive_cases,
         "expected_non_pass_cases": negative_cases,
+        "real_non_pass_cases": real_non_pass,
+        "controlled_mutation_non_pass_cases": mutation_cases,
         "zero_error_false_pass_denominator": false_pass_floor,
         "zero_error_false_fail_denominator": false_fail_floor,
         "additional_non_pass_cases_for_best_case_gate": additional_non_pass,
