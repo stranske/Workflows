@@ -291,3 +291,13 @@ def test_unverifiable_input_is_a_valid_verdict_and_never_a_pass(tmp_path):
     decisions, truth = ens.load_judgments([path])
     assert decisions["j"]["c"] == "UNVERIFIABLE_INPUT"
     assert ens._fail_closed(decisions["j"]["c"]) == "NON_PASS"
+
+
+def test_group_breakdown_separates_real_and_mutation_cases():
+    decisions = {"j": {"a": "PASS", "b": "PASS", "c": "NON_PASS", "d": "NON_PASS"}}
+    truth = {"a": "NON_PASS", "b": "NON_PASS", "c": "PASS", "d": "NON_PASS"}
+    groups = {"a": "fail-ci-row", "b": "drop-named-file", "c": "real"}
+    breakdown = ens.group_breakdown(decisions, truth, groups)["j"]
+    assert breakdown["fail-ci-row"] == {"cases": 1, "false_pass": 1, "false_fail": 0}
+    assert breakdown["drop-named-file"] == {"cases": 1, "false_pass": 1, "false_fail": 0}
+    assert breakdown["real"] == {"cases": 2, "false_pass": 0, "false_fail": 1}  # d defaults to real

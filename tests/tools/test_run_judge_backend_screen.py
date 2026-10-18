@@ -571,3 +571,75 @@ def test_each_muse_api_model_gets_its_own_judge_name_and_price_key():
 
     assert screen.MuseApiJudge().name == "muse-api"
     assert screen.MuseApiJudge(model="muse-wonder-1.0").name == "muse-api:muse-wonder-1.0"
+
+
+def test_case_group_names_real_cases_and_mutation_types():
+    from tools import run_judge_backend_screen as screen
+
+    assert screen.case_group({"expected_verdict": "PASS"}) == "real"
+    mutant = {
+        "provenance": "controlled-mutation",
+        "production_snapshot": {"mutation": "fail-ci-row"},
+    }
+    assert screen.case_group(mutant) == "fail-ci-row"
+
+
+def test_every_corpus_case_with_a_snapshot_builds_a_production_prompt():
+    """The approval corpus is only usable if each case, including every mutation recipe, yields the
+    exact prompt production would build."""
+    import json
+    from collections import Counter
+
+    from tools import run_judge_backend_screen as screen
+    from tools.model_eval_snapshots import verifier_prompt
+
+    corpus = json.loads((screen.ROOT / "config/model_eval_pilot.json").read_text())
+    cases = screen.corpus_cases_with_snapshots(corpus, screen.ROOT)
+    assert len({c["case_id"] for c in cases}) == len(cases)
+    groups = Counter((c["expected_verdict"], screen.case_group(c)) for c in cases)
+    assert (
+        groups[("NON_PASS", "fail-ci-row")] >= 30 and groups[("NON_PASS", "drop-named-file")] >= 30
+    )
+    for case in cases:
+        assert verifier_prompt(case["production_snapshot"])
+
+
+def test_limit_per_group_is_deterministic_and_spans_every_kind_of_case():
+    import json
+
+    from tools import run_judge_backend_screen as screen
+
+    corpus = json.loads((screen.ROOT / "config/model_eval_pilot.json").read_text())
+    first = screen.corpus_cases_with_snapshots(corpus, screen.ROOT, limit_per_group=2)
+    second = screen.corpus_cases_with_snapshots(corpus, screen.ROOT, limit_per_group=2)
+    assert [c["case_id"] for c in first] == [c["case_id"] for c in second]
+    kinds = {(c["expected_verdict"], screen.case_group(c)) for c in first}
+    assert kinds == {
+        ("PASS", "real"),
+        ("NON_PASS", "real"),
+        ("NON_PASS", "fail-ci-row"),
+        ("NON_PASS", "drop-named-file"),
+    }
+    assert all(
+        sum(1 for c in first if (c["expected_verdict"], screen.case_group(c), c["category"]) == k)
+        <= 2
+        for k in {(c["expected_verdict"], screen.case_group(c), c["category"]) for c in first}
+    )
+
+
+def test_codex_judge_wraps_the_cli_screen_invocation(monkeypatch):
+    from tools import run_judge_backend_screen as screen
+    from tools import run_model_eval_cli_screen as cli
+
+    seen = {}
+
+    def fake(codex, model, prompt):
+        seen.update(codex=codex, model=model, prompt=prompt)
+        return cli.CliResult({"verdict": "PASS"}, 7, 3, 12.5)
+
+    monkeypatch.setattr(cli, "invoke_cli", fake)
+    judge = screen.CodexCliJudge(model="gpt-6-luna")
+    outcome = judge.invoke("p")
+    assert judge.name == "gpt-6-luna" and seen["model"] == "gpt-6-luna"
+    assert (outcome.input_tokens, outcome.output_tokens, outcome.latency_ms) == (7, 3, 12.5)
+    assert outcome.payload == {"verdict": "PASS"} and outcome.error is None

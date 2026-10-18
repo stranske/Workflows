@@ -354,6 +354,32 @@ def _contains_tool_event(value: Any) -> bool:
     return False
 
 
+class CodexCliJudge:
+    """The incumbent family: the Codex CLI exactly as the MAINT-78 screen drives it (tools off,
+    read-only, ephemeral, strict config). Usage is the CLI's own count."""
+
+    evidence_class = "exploratory-cli"
+    api_key_calls = False
+
+    def __init__(self, *, model: str = "gpt-5.6-terra", codex: str = "codex") -> None:
+        self.model, self.codex = model, codex
+        self.name = model
+
+    def invoke(self, prompt: str) -> JudgeOutcome:
+        from tools.run_model_eval_cli_screen import invoke_cli
+
+        result = invoke_cli(self.codex, self.model, prompt)
+        return JudgeOutcome(
+            result.payload,
+            result.latency_ms,
+            result.input_tokens or None,
+            result.output_tokens or None,
+            self.model,
+            result.error,
+            stop=result.stop_screen,
+        )
+
+
 class AgyCliJudge:
     """Antigravity CLI (``agy``): local use only. Guards against its documented silent-success modes.
 
@@ -701,6 +727,46 @@ def load_baseline_rows(path: Path, model_id: str | None) -> tuple[str, list[dict
     return str(judge), [r for r in rows if r.get("model_id") == judge]
 
 
+def case_group(case: dict[str, Any]) -> str:
+    """real, or the mutation type of a controlled-mutation case, for per-group reporting."""
+    snapshot = case.get("production_snapshot") or {}
+    if case.get("provenance") == "controlled-mutation":
+        return str(snapshot.get("mutation") or "controlled-mutation")
+    return "real"
+
+
+def corpus_cases_with_snapshots(
+    corpus: dict[str, Any], root: Path, *, limit_per_group: int | None = None
+) -> list[dict[str, Any]]:
+    """Every corpus case a prompt can be built for: the screen cases plus cases with a snapshot
+    reference or mutation recipe (loaded through ``generate_mutation_cases.load_case``).
+
+    ``limit_per_group`` keeps the first N per (expected verdict, group, category) in corpus order,
+    so a bounded pilot is deterministic and still spans every kind of case.
+    """
+    from tools.generate_mutation_cases import load_case
+
+    seen: set[str] = set()
+    cases: list[dict[str, Any]] = []
+    for case in corpus.get("screen_cases", []):
+        seen.add(case["case_id"])
+        cases.append(case)
+    for case in corpus.get("cases", []):
+        if case["case_id"] in seen or not (case.get("snapshot_ref") or case.get("mutation_recipe")):
+            continue
+        cases.append(load_case(case, root))
+    if limit_per_group is None:
+        return cases
+    kept: dict[tuple[str, str, str], int] = {}
+    out = []
+    for case in cases:
+        key = (case["expected_verdict"], case_group(case), case["category"])
+        if kept.get(key, 0) < limit_per_group:
+            kept[key] = kept.get(key, 0) + 1
+            out.append(case)
+    return out
+
+
 def run_screen(
     judges: list[Judge],
     *,
@@ -709,6 +775,7 @@ def run_screen(
     policy: dict[str, Any],
     baseline: tuple[str, list[dict[str, Any]]] | None = None,
     prices: dict[str, tuple[float, float]] | None = None,
+    cases_override: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     plan = build_plan(corpus, registry, policy)
     if not plan["screen_ready"]:
@@ -717,6 +784,8 @@ def run_screen(
     cases, blockers = screen_cases(corpus, stage)
     if blockers:
         raise ValueError(f"production-context inputs are invalid: {blockers}")
+    if cases_override is not None:
+        cases = cases_override
     prompts = {c["case_id"]: verifier_prompt(c["production_snapshot"]) for c in cases}
     expected_pass = sum(c["expected_verdict"] == "PASS" for c in cases)
     expected_non_pass = len(cases) - expected_pass
@@ -736,6 +805,7 @@ def run_screen(
                     "evidence_class": judge.evidence_class,
                     "case_id": case["case_id"],
                     "category": case["category"],
+                    "group": case_group(case),
                     "expected_verdict": case["expected_verdict"],
                     "actual_verdict": (
                         "PASS"
@@ -817,6 +887,8 @@ def build_judges(args: argparse.Namespace) -> list[Judge]:
             judges.append(CursorCliJudge(model=args.cursor_model))
         elif name == "agy-cli":
             judges.append(AgyCliJudge(model=args.agy_model))
+        elif name == "codex-cli":
+            judges.append(CodexCliJudge(model=args.codex_model))
         elif name == "claude-cli":
             judges.append(ClaudeCliJudge(model=args.claude_model))
         elif name == "muse-api":
@@ -842,6 +914,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--muse-effort", default="medium")
     parser.add_argument("--cursor-model")
     parser.add_argument("--claude-model")
+    parser.add_argument("--codex-model", default="gpt-5.6-terra")
     parser.add_argument("--agy-model", default="gemini-4-argon-medium")
     parser.add_argument("--muse-api-model", default=MUSE_API_DEFAULT_MODEL)
     parser.add_argument("--muse-api-base-url", default=MUSE_API_DEFAULT_BASE_URL)
@@ -855,6 +928,17 @@ def main(argv: list[str] | None = None) -> int:
         "--baseline", type=Path, help="prior Codex CLI screen or this tool's output"
     )
     parser.add_argument("--baseline-model")
+    parser.add_argument(
+        "--cases",
+        choices=("screen", "all"),
+        default="screen",
+        help="screen: the 8 captured screen cases; all: every case with a snapshot or recipe",
+    )
+    parser.add_argument(
+        "--limit-per-group",
+        type=int,
+        help="with --cases all: keep the first N per verdict, group and category",
+    )
     parser.add_argument(
         "--allow-contributor-tier",
         action="store_true",
@@ -872,9 +956,17 @@ def main(argv: list[str] | None = None) -> int:
     baseline = load_baseline_rows(args.baseline, args.baseline_model) if args.baseline else None
     corpus = json.loads(args.corpus.read_text())
     if args.allow_contributor_tier:
-        require_public_sources({str(c["repo"]) for c in corpus.get("screen_cases", [])})
+        require_public_sources(
+            {str(c["repo"]) for c in corpus.get("screen_cases", []) + corpus.get("cases", [])}
+        )
+    override = (
+        corpus_cases_with_snapshots(corpus, ROOT, limit_per_group=args.limit_per_group)
+        if args.cases == "all"
+        else None
+    )
     payload = run_screen(
         build_judges(args),
+        cases_override=override,
         corpus=corpus,
         registry=json.loads(args.registry.read_text()),
         policy=json.loads(args.policy.read_text()),
