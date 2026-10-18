@@ -710,42 +710,10 @@ jobs:
               core.notice(`Candidate refresh not required: ${decision.errors.join(', ')}`);
               return;
             }
-            const { data: runs } = await withRetry((client) =>
-              client.rest.actions.listWorkflowRuns({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                workflow_id: 'maint-68-sync-consumer-repos.yml',
-                per_page: 20,
-              }),
-            );
-            const activeSync = (runs.workflow_runs || []).find((run) =>
-              ['queued', 'in_progress', 'waiting', 'pending'].includes(run.status)
-              && (
-                String(run.display_title || '').includes('Maint 68 canary')
-                || String(run.display_title || '').includes('Maint 68 promote')
-              ),
-            );
-            if (activeSync) {
-              core.notice(
-                `Maint 68 ${activeSync.id} is already active; candidate refresh remains queued`,
-              );
-              return;
-            }
-            await withRetry((client) => client.rest.actions.createWorkflowDispatch({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              workflow_id: 'maint-68-sync-consumer-repos.yml',
-              ref: context.payload.repository?.default_branch || 'main',
-              inputs: {
-                phase: 'canary',
-                delivery_scope: 'full',
-                dry_run: 'false',
-                force: 'false',
-              },
-            }));
-            core.notice(
-              `Dispatched no-filter canary refresh for ${decision.repositories.join(', ')}`,
-            );
+            const { dispatchCanaryRefresh } = require('./.github/scripts/maint71_merge_sync_prs.js');
+            const config = JSON.parse(fs.readFileSync('config/consumer_sync_canaries.json', 'utf8'));
+            await dispatchCanaryRefresh({ withRetry, context, core,
+              expectedCanaries: (config.canaries || []).map((entry) => entry.repo) });
 
       - name: Refresh stale delivery bases
         id: refresh_delivery
@@ -788,44 +756,12 @@ jobs:
               core.notice(`Delivery refresh not required: ${decision.errors.join(', ')}`);
               return;
             }
-            const { data: runs } = await withRetry((client) =>
-              client.rest.actions.listWorkflowRuns({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                workflow_id: 'maint-68-sync-consumer-repos.yml',
-                per_page: 20,
-              }),
+            const { dispatchDeliveryRefresh } = require(
+              './.github/scripts/maint71_merge_sync_prs.js'
             );
-            const activeSync = (runs.workflow_runs || []).find((run) =>
-              ['queued', 'in_progress', 'waiting', 'pending'].includes(run.status)
-              && (
-                String(run.display_title || '').includes('Maint 68 canary')
-                || String(run.display_title || '').includes('Maint 68 promote')
-              ),
-            );
-            if (activeSync) {
-              core.notice(
-                `Maint 68 ${activeSync.id} is already active; delivery refresh remains queued`,
-              );
-              return;
-            }
-            await withRetry((client) => client.rest.actions.createWorkflowDispatch({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              workflow_id: 'maint-68-sync-consumer-repos.yml',
-              ref: context.payload.repository?.default_branch || 'main',
-              inputs: {
-                phase: 'promote',
-                canary_evidence_json: JSON.stringify(decision.evidence),
-                delivery_scope: 'auto',
-                dry_run: 'false',
-                force: 'false',
-              },
-            }));
-            core.notice(
-              `Replayed exact-plan promotion ${decision.plan_id} for ` +
-                `${decision.repositories.join(', ')}`,
-            );
+            await dispatchDeliveryRefresh({
+              decision, expectedCanaries, withRetry, context, core,
+            });
 
       - name: Promote complete exact-plan canary evidence
         id: promote

@@ -3188,8 +3188,52 @@ gates regardless of age. Maint 68 records the current UTC observation on a
 successful verified unchanged-base/tree run too, preserving its review
 lifecycle and head. This canary producer runs while promotion is held; it
 does not require the promotion evidence it helps unblock. Comments do not
-reset the clock. Maint 71 groups refresh requests by plan ID within each run
-and dispatches once for each held plan unless a producer writer is active.
+reset the clock. Maint 71 groups refresh reasons by plan, but dispatches at
+most one full configured-candidate refresh per invocation, pinned to the current main SHA. Both the
+executor and the workflow's missing-candidate refresh use the same REST-history
+guard. The Maint 68 run title records the source SHA, actual candidate selection,
+and dry-run state; a successful full/auto producer for the same SHA and sorted
+candidate set suppresses further refreshes permanently for that immutable key.
+A behind canary adds the repository and current consumer default-branch tip/head SHA pair
+(as a SHA-256 `refresh_key`, recorded as `drift=` in the producer title).
+An older source-only success cannot suppress that new identity; a success for
+the same pair does. The current tip is read from the branches API once per behind
+consumer per run and cached across refresh paths; the PR-recorded base SHA does
+not establish current drift. Unknown default-tip/head identity fails closed. Active writers and
+recent failures still hold new identities.
+Any active canary or promotion writer holds refresh, including a different plan.
+Failed producer retries use `CANARY_REFRESH_DEBOUNCE_MS` (six hours); the decision
+and `debounce_ms` report consume this one constant. History/configuration errors
+and truncated history fail closed. Source-delta, dry-run, other-branch, or subset
+runs cannot supply full-set success. Legacy titles without a candidate selection
+cannot prove the key; a new source deployment establishes its first bound run.
+
+The log states `refresh: skipped (canary for <sha> already <state>)`. A successful
+producer is not consumer CI success: when the candidate already carries that
+source, Maint 71 preserves its review/seal lifecycle instead of repeatedly
+restaging it for the intentional pre-seal failure. Real failed required checks,
+active review threads, exact-head signatures, and the sealed Gate still block
+promotion/merge. No canary branch is updated via `pulls.updateBranch`.
+
+No-change recovery retains the plan, source, and head in both the report and
+evidence artifact so the promotion handoff can compare their immutable identity.
+Promotion reports `promote: blocked <reason>; canaries green <n>/<m>; drainable <k>`
+on one line. Green counts configured canaries with successful required checks
+and zero active review threads; drainable counts their prepared/recovered,
+identity-matching evidence rows. A promotion already active/completed, disabled
+mutation, or exhausted retries has zero remaining drainable work in that run.
+Completed promotion prints `promote: drained; canaries green <n>/<m>; drainable 0`.
+Missing evidence prints `drainable UNKNOWN (unmeasurable)` rather than a measured zero.
+A producer success alone never supplies these quantities or authorizes promotion.
+
+Delivery-base refresh replays the same immutable promotion evidence through the
+shared helper: all active-writer states are scanned independently of source SHA,
+and exact-plan promotion runs are paginated. Any recent matching promotion
+(including success) holds replay for `CANARY_REFRESH_DEBOUNCE_MS`; after that
+window, a persistent base-refresh request may remint the delivery. Unreadable or
+truncated history fails closed. Health 71 only lists workflow runs; it does not
+dispatch these producers.
+
 Upstream finding markers suppress duplicate comments only when authored by
 the authenticated Maint 71 writer. When drained, the summary is
 `canaries: red=0 review_blocked=0 stale=0 refresh_dispatched=0 held_plan=none`.
