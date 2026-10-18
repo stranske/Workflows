@@ -78,6 +78,13 @@ async function readCanaryDefaultTip({ canary, withRetry, consumerTipCache }) {
   canary.default_branch_tip_sha = await consumerTipCache.get(key);
 }
 
+// Reruns retain their run ID. Execution time must precede ID in receipt order.
+function newestRefreshExecution(a, b) {
+  const started = run => Date.parse(run.run_started_at || run.created_at) || 0;
+  return started(b) - started(a) || Number(b.run_attempt || 1) - Number(a.run_attempt || 1)
+    || Number(b.id) - Number(a.id);
+}
+
 // The latest delivered payload is reusable across SHAs. Older payload receipts
 // cannot mask a rollback after a different payload was delivered. The retry
 // window bounds failed producers; an active writer never expires into a second writer.
@@ -93,7 +100,7 @@ function canaryRefreshDecision({ runs, sha, candidates, defaultBranch = 'main', 
   const matching = valid.filter(run => deliveryDigest ? run.delivery_digest === deliveryDigest
     : run.source_commit === sha);
   const latestSuccess = valid.filter(run => run.status === 'completed' && run.conclusion === 'success'
-    && (!deliveryDigest || run.delivery_digest)).sort((a, b) => Number(b.id) - Number(a.id))[0];
+    && (!deliveryDigest || run.delivery_digest)).sort(newestRefreshExecution)[0];
   const identityMatches = (run) => !driftKey || String(run.display_title).includes(` drift=${driftKey}`);
   const successful = matching.find((run) => (!deliveryDigest || latestSuccess?.delivery_digest === deliveryDigest) && identityMatches(run) && run.status === 'completed' && run.conclusion === 'success');
   const active = matching.find((run) => ACTIVE_SYNC_STATES.includes(run.status));
@@ -140,57 +147,58 @@ async function readCanaryRefreshState({ withRetry, context, expectedCanaries, dr
   if (writerOnly) return canaryRefreshDecision({ runs, sha: source.sha, candidates, defaultBranch: branch, now });
   let payload = await readRefreshPayload(source.sha, candidates);
   const observed = runs.filter(run => Number(run.id) !== Number(ignoreRunId));
-  // Read backwards only as far as the latest actual full-set delivery. Older
-  // receipts cannot override that payload; this avoids an ever-growing scan.
-  let latestReceipt = false;
+  // The API lists by creation, not latest attempt. Collect metadata before
+  // selecting receipts, including older IDs rerun after a newer delivery.
+  const history = [];
   for (let page = 1; ; page++) {
     const { data } = await withRetry(client => client.rest.actions.listWorkflowRuns({
       ...location, workflow_id: 'maint-68-sync-consumer-repos.yml', branch, per_page: 100, page,
     }));
     if (!Array.isArray(data.workflow_runs)) throw new Error('canary_refresh_history_unreadable');
-    for (const original of data.workflow_runs) {
-      if (Number(original.id) === Number(ignoreRunId)) continue;
-      const run = { ...original };
-      observed.push(run);
-      const match = String(run.display_title || '').trim().match(
-        /^Maint 68 canary (?:full|auto)\s+source=([a-f0-9]{40}) candidates=(\S+) dry=false(?: drift=([a-f0-9]{64}))?(?: guard=delivery-v1)?$/);
-      if (!match || run.head_branch !== branch || !/^[a-f0-9]{40}$/.test(run.head_sha || '')
-        || (match[2] !== '*' && candidateSet(match[2].split(',')).join(',') !== candidates.join(','))) continue;
-      if (match[2] === '*') {
-        const { data: priorConfig } = await withRetry(client => client.rest.repos.getContent({
-          ...location, path: 'config/consumer_sync_canaries.json', ref: match[1],
-        }));
-        const prior = JSON.parse(Buffer.from(priorConfig.content, 'base64').toString('utf8'));
-        if (candidateSet((prior.canaries || []).map(row => row.repo)).join(',') !== candidates.join(',')) continue;
-      }
-      // A guarded producer can succeed after queueing, without delivery. Its
-      // explicit authorization step is the receipt, not the run conclusion.
-      if (run.status === 'completed' && run.conclusion === 'success'
-        && String(run.display_title).endsWith(' guard=delivery-v1')) {
-        const jobs = await withRetry(client => client.paginate(client.rest.actions.listJobsForWorkflowRun,
-          { ...location, run_id: run.id, per_page: 100 }));
-        if (!jobs.some(job => job.steps?.some(step => step.name === 'Authorize canary payload mutation'
-          && step.conclusion === 'success'))) continue;
-      }
-      run.source_commit = match[1];
-      if (payload) {
-        const priorPayload = await readRefreshPayload(match[1], candidates);
-        if (!priorPayload) payload = null;
-        else run.delivery_digest = priorPayload.digest;
-      }
-      if (run.status === 'completed' && run.conclusion === 'success') {
-        // A later same-payload delivery for another head does not erase this
-        // head's recovery receipt. Stop at a changed payload or the exact key.
-        const samePayload = payload ? run.delivery_digest === payload.digest : match[1] === source.sha;
-        if (!driftKey || String(run.display_title).includes(` drift=${driftKey}`) || !samePayload) {
-          latestReceipt = true;
-          break;
-        }
+    history.push(...data.workflow_runs);
+    if (data.workflow_runs.length < 100) break;
+    if (page === 100) throw new Error('canary_refresh_history_truncated');
+  }
+  for (const original of history.sort(newestRefreshExecution)) {
+    if (Number(original.id) === Number(ignoreRunId)) continue;
+    const run = { ...original };
+    observed.push(run);
+    const match = String(run.display_title || '').trim().match(
+      /^Maint 68 canary (?:full|auto)\s+source=([a-f0-9]{40}) candidates=(\S+) dry=false(?: drift=([a-f0-9]{64}))?(?: guard=delivery-v1)?$/);
+    if (!match || run.head_branch !== branch || !/^[a-f0-9]{40}$/.test(run.head_sha || '')
+      || (match[2] !== '*' && candidateSet(match[2].split(',')).join(',') !== candidates.join(','))) continue;
+    if (match[2] === '*') {
+      const { data: priorConfig } = await withRetry(client => client.rest.repos.getContent({
+        ...location, path: 'config/consumer_sync_canaries.json', ref: match[1],
+      }));
+      const prior = JSON.parse(Buffer.from(priorConfig.content, 'base64').toString('utf8'));
+      if (candidateSet((prior.canaries || []).map(row => row.repo)).join(',') !== candidates.join(',')) continue;
+    }
+    // A guarded producer can succeed after queueing, without delivery. Its
+    // explicit authorization step is the receipt, not the run conclusion.
+    if (run.status === 'completed' && run.conclusion === 'success'
+      && String(run.display_title).endsWith(' guard=delivery-v1')) {
+      const jobs = await withRetry(client => client.paginate(client.rest.actions.listJobsForWorkflowRun,
+        { ...location, run_id: run.id, per_page: 100 }));
+      if (!jobs.some(job => job.steps?.some(step => step.name === 'Authorize canary payload mutation'
+        && step.conclusion === 'success'))) continue;
+    }
+    run.source_commit = match[1];
+    if (payload) {
+      const priorPayload = await readRefreshPayload(match[1], candidates);
+      if (!priorPayload) payload = null;
+      else run.delivery_digest = priorPayload.digest;
+    }
+    if (run.status === 'completed' && run.conclusion === 'success') {
+      // A later same-payload delivery for another head does not erase this
+      // head's recovery receipt. Stop at a changed payload or the exact key.
+      const samePayload = payload ? run.delivery_digest === payload.digest : match[1] === source.sha;
+      if (!driftKey || String(run.display_title).includes(` drift=${driftKey}`) || !samePayload) {
+        break;
       }
     }
-    if (latestReceipt || data.workflow_runs.length < 100) break;
-    if (page === 10) throw new Error('canary_refresh_history_truncated');
   }
+
   const state = canaryRefreshDecision({ runs: observed, sha: source.sha, candidates,
     defaultBranch: branch, driftKey, deliveryDigest: payload?.digest, now });
   state.default_branch = branch;

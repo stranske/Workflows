@@ -1791,7 +1791,7 @@ test('unreadable or truncated history and changed main configuration fail closed
         ? status ? [] : Array(100).fill(producerRun({ conclusion: 'failure' })) : null } };
     } } });
     await assert.rejects(readCanaryRefreshState(api), truncated ? /history_truncated/ : /history_unreadable/);
-    if (truncated) assert.deepEqual(pages, [1,2,3,4,5,6,7,8,9,10]);
+    if (truncated) assert.deepEqual(pages, Array.from({ length: 100 }, (_, i) => i + 1));
     assert.equal(api.dispatches.length, 0);
   }
   const api = refreshHarness();
@@ -2197,3 +2197,51 @@ for (const writerActive of [false, true]) {
     assert.equal(api.dispatches.length, 0, 'prepare never dispatches a workflow');
   });
 }
+
+
+test('an older run ID rerun on a later page is the newest delivered receipt', async () => {
+  const old = producerRun({ id: 1, run_attempt: 2, run_started_at: '2026-10-17T11:00:00Z' });
+  const newer = producerRun({ id: 2, run_attempt: 1, run_started_at: '2026-10-17T10:00:00Z',
+    head_sha: 'b'.repeat(40),
+    display_title: producerRun().display_title.replace('a'.repeat(40), 'b'.repeat(40)) });
+  const api = refreshHarness({ actions: { listWorkflowRuns: async ({ status, page }) => ({ data: {
+    workflow_runs: status ? [] : page === 1 ? Array(100).fill(newer) : [old],
+  } }) } });
+  const state = await readCanaryRefreshState(api);
+  assert.equal(state.producer_succeeded, true);
+  assert.equal(state.run_id, 1);
+  assert.equal(state.eligible, false, 'the later attempt restored the requested payload');
+  const runs = [{ ...newer, delivery_digest: 'B' }, { ...old, delivery_digest: 'A' }];
+  assert.equal(canaryRefreshDecision({ runs, sha: 'b'.repeat(40), candidates: api.expectedCanaries,
+    deliveryDigest: 'B', now: refreshNow }).eligible, true, 'payload B must repair the rerun rollback');
+  // Equal execution timestamps use attempt as the deterministic tie breaker.
+  runs[0].run_started_at = runs[1].run_started_at;
+  assert.equal(canaryRefreshDecision({ runs, sha: 'b'.repeat(40), candidates: api.expectedCanaries,
+    deliveryDigest: 'B', now: refreshNow }).eligible, true);
+});
+
+test('Maint 68 force authorizes mutation without consulting an unchanged digest', async () => {
+  const workflow = fs.readFileSync(path.join(__dirname, '../../workflows/maint-68-sync-consumer-repos.yml'), 'utf8');
+  const guard = workflow.split('      - name: Check content refresh guard')[1]
+    .split('      - name: Authorize canary payload mutation')[0];
+  assert.match(guard, /FORCE: \$\{\{ inputs.force \|\| false \}\}/);
+  const script = guard.split('          script: |\n')[1].split('\n')
+    .map(line => line.replace(/^            /, '')).join('\n');
+  const outputs = {}, lines = [];
+  const core = { notice: line => lines.push(line), setOutput: (key, value) => { outputs[key] = value; },
+    summary: { addRaw() { return this; }, async write() {} } };
+  const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
+  const execute = new AsyncFunction('core', 'require', 'process', 'github', 'context', script);
+  await execute(core, name => name.includes('maint71_merge_sync_prs')
+    ? { readCanaryRefreshState: async () => ({ eligible: false, producer_succeeded: true,
+      delivery_digest: 'unchanged', unchanged_since: 'a'.repeat(40) }) }
+    : { canaries: [{ repo: 'stranske/Ready' }] }, { env: { FORCE: 'false' } }, {}, { runId: 1 });
+  assert.equal(outputs.allowed, 'false', 'the same payload blocks an ordinary refresh');
+  assert.match(lines.pop(), /digest unchanged unchanged since/);
+  await execute(core, () => {
+    assert.fail('forced repair must bypass digest/history reads, even when payload is unchanged');
+  }, { env: { FORCE: 'true' } });
+  assert.equal(outputs.allowed, 'true');
+  assert.deepEqual(lines, ['refresh: forced (digest guard bypassed)']);
+  assert.match(workflow, /needs.prepare.outputs.refresh_allowed != 'false'/);
+});

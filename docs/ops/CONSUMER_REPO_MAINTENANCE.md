@@ -3258,9 +3258,14 @@ payload and observed head even when the payload is unchanged. Recovery uses a
 
 A healthy canary with a matching payload prints
 `refresh: skipped (delivery digest <d> unchanged since <sha>)` and preserves the
-existing PR head and review lifecycle. REST history reads backwards to the latest
-actual full-set producer receipt, across source SHAs; older successful payloads
-cannot mask a later different delivery. Maint 68 marks guarded runs with
+existing PR head and review lifecycle. Operator `force: true` bypasses this
+payload guard, authorizes mutation, and prints
+`refresh: forced (digest guard bypassed)`.
+REST history metadata is collected across source SHAs (up to 100 pages, failing
+closed on truncation), then receipts are read in execution-time order using
+`run_started_at`, with `run_attempt` and run ID as tie breakers. Rerunning an older
+run ID can therefore supersede a newer run's payload; historical successful
+payloads cannot mask a later different delivery. Maint 68 marks guarded runs with
 `guard=delivery-v1`; only a successful `Authorize canary payload mutation` step
 counts as a delivery receipt, so a successful run that queued/skipped its mutation
 cannot falsely claim delivery. Scheduled and source-delta producers use the same

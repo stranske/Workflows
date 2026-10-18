@@ -291,7 +291,7 @@ jobs:
 
       - name: Checkout delivery guard at workflow ref
         if: (inputs.phase || 'canary') == 'canary' && inputs.dry_run != true
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.sha }}
           path: .delivery-tools
@@ -307,9 +307,17 @@ jobs:
         env:
           SOURCE_COMMIT: ${{ steps.scope_request.outputs.source_commit }}
           REFRESH_KEY: ${{ inputs.refresh_key || '' }}
+          FORCE: ${{ inputs.force || false }}
         with:
           github-token: ${{ secrets.OWNER_PR_PAT }}
           script: |
+            if (process.env.FORCE === 'true') {
+              const line = 'refresh: forced (digest guard bypassed)';
+              core.notice(line);
+              await core.summary.addRaw(`${line}\n`).write();
+              core.setOutput('allowed', 'true');
+              return;
+            }
             const { readCanaryRefreshState } = require('./.delivery-tools/.github/scripts/maint71_merge_sync_prs');
             const config = require('./config/consumer_sync_canaries.json');
             const state = await readCanaryRefreshState({
