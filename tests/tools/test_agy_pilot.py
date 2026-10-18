@@ -272,6 +272,7 @@ def test_agy_backend_treats_a_denied_tool_action_as_an_error_not_an_answer(tmp_p
     assert call.error and call.text == ""
 
 
+@pytest.mark.skipif(sys.platform != "darwin", reason="macOS sandbox integration")
 def test_sibling_imports_work_for_generated_tests_without_host_paths():
     """Modules that import sibling tools must be scoreable in the sandbox: siblings are copied in."""
     tests = (
