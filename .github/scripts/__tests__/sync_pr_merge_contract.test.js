@@ -2,6 +2,12 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const deliveryPayload = require('../consumer_delivery_digest');
+test.beforeEach(t => t.mock.method(deliveryPayload, 'readDeliveryPayload', async (sha, repos) => ({
+  digest: `sha256:${sha[0].repeat(64)}`,
+  files: Object.fromEntries(repos.map(repo => [repo, {}])),
+})));
+
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');

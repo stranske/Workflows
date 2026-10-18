@@ -232,3 +232,38 @@ def test_maint68_holds_stable_generation_when_a_legacy_sync_pr_is_open():
     assert r"present=${held.length ? 'true' : 'false'}\\n" not in maint68
     assert "steps.legacy_hold.outputs.present != 'true'" in maint68
     assert "steps.sync.outcome == 'success' && inputs.dry_run != true" in maint68
+
+
+def test_canary_digest_guard_runs_before_consumer_mutation_and_tracks_real_receipts():
+    workflow = Path(".github/workflows/maint-68-sync-consumer-repos.yml").read_text()
+    executor = Path(".github/scripts/maint71_merge_sync_prs.js").read_text()
+    guard = workflow.split("      - name: Check content refresh guard")[1].split(
+        "      - name: Compile typed consumer sync plan"
+    )[0]
+    assert "readCanaryRefreshState" in guard
+    assert "ignoreRunId: context.runId" in guard
+    assert "sourceSha: process.env.SOURCE_COMMIT" in guard
+    assert "createWorkflowDispatch" not in guard
+    assert "refresh_allowed: ${{ steps.refresh.outputs.allowed }}" in workflow
+    assert "needs.prepare.outputs.refresh_allowed != 'false'" in workflow
+    assert "Authorize canary payload mutation" in guard
+    assert "step.name === 'Authorize canary payload mutation'" in executor
+    assert "step.conclusion === 'success'" in executor
+    assert "deliveryPayload.readDeliveryPayload(record.source_commit" in executor
+    assert "deliveryDigest: payload?.digest" in executor
+    assert "CANARY_SEALED_REFRESH_WAIT_MS" in executor
+    trusted = workflow.split("      - name: Checkout delivery guard at workflow ref")[1].split(
+        "      - name: Check content refresh guard"
+    )[0]
+    assert "ref: ${{ github.sha }}" in trusted
+    assert "persist-credentials: false" in trusted
+    assert "require('./.delivery-tools/.github/scripts/maint71_merge_sync_prs')" in guard
+
+
+def test_maint71_provisions_the_shared_manifest_renderer_runtime():
+    workflow = Path(".github/workflows/maint-71-merge-sync-prs.yml").read_text()
+    assert "name: Setup delivery renderer Python" in workflow
+    assert "run: python -m pip install pyyaml" in workflow
+    assert workflow.index("name: Setup delivery renderer Python") < workflow.index(
+        "name: Check and merge sync PRs"
+    )

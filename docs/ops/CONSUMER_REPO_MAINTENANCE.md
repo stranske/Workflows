@@ -3235,31 +3235,62 @@ successful verified unchanged-base/tree run too, preserving its review
 lifecycle and head. This canary producer runs while promotion is held; it
 does not require the promotion evidence it helps unblock. Comments do not
 reset the clock. Maint 71 groups refresh reasons by plan, but dispatches at
-most one full configured-candidate refresh per invocation, pinned to the current main SHA. Both the
-executor and the workflow's missing-candidate refresh use the same REST-history
-guard. The Maint 68 run title records the source SHA, actual candidate selection,
-and dry-run state; a successful full/auto producer for the same SHA and sorted
-candidate set suppresses further refreshes permanently for that immutable key.
-A behind canary adds the repository and current consumer default-branch tip/head SHA pair
-(as a SHA-256 `refresh_key`, recorded as `drift=` in the producer title).
-An older source-only success cannot suppress that new identity; a success for
-the same pair does. The current tip is read from the branches API once per behind
-consumer per run and cached across refresh paths; the PR-recorded base SHA does
-not establish current drift. Unknown default-tip/head identity fails closed. Active writers and
-recent failures still hold new identities.
-Any active canary or promotion writer holds refresh, including a different plan.
-Failed producer retries use `CANARY_REFRESH_DEBOUNCE_MS` (six hours); the decision
-and `debounce_ms` report consume this one constant. History/configuration errors
-and truncated history fail closed. Source-delta, dry-run, other-branch, or subset
-runs cannot supply full-set success. Legacy titles without a candidate selection
-cannot prove the key; a new source deployment establishes its first bound run.
+most one full configured-candidate refresh per invocation, pinned to an immutable
+source SHA. Refresh identity is the **rendered delivery digest**, not the main
+SHA. `scripts/consumer_delivery_digest.py:delivery_digest` is the single hashing
+implementation used by refresh, Maint 68 preparation, and the seal writer.
+It hashes manifest copies at their consumer target paths, directory children,
+repository inclusion/exclusion and create-only effects, removals, and the generated
+status-file `.gitignore` block. Source SHA, descriptions and manifest comments
+are absent from the payload identity. Consumer-local files remain outside this
+intent digest; all integration, review, signature and exact-head gates still apply.
+The seal stores the same helper's per-repository digest in
+`review_evidence.delivery_digest`; changing main alone never rewrites that seal
+or the immutable source/plan of the in-flight PR.
 
-The log states `refresh: skipped (canary for <sha> already <state>)`. A successful
-producer is not consumer CI success: when the candidate already carries that
-source, Maint 71 preserves its review/seal lifecycle instead of repeatedly
-restaging it for the intentional pre-seal failure. Real failed required checks,
-active review threads, exact-head signatures, and the sealed Gate still block
-promotion/merge. No canary branch is updated via `pulls.updateBranch`.
+Digest renderer or Git snapshot failures print
+`refresh: digest unavailable (<reason>); falling back to sha key` and use the
+previous source-SHA decision, retaining active-writer and debounce protection.
+This fallback also applies to the Maint 68 preparation guard.
+Red, review-blocked and stale canaries remain eligible for one recovery per
+payload and observed head even when the payload is unchanged. Recovery uses a
+`refresh_key`; producer success alone never certifies consumer health.
+
+A healthy canary with a matching payload prints
+`refresh: skipped (delivery digest <d> unchanged since <sha>)` and preserves the
+existing PR head and review lifecycle. Operator `force: true` bypasses this
+payload guard, authorizes mutation, and prints
+`refresh: forced (digest guard bypassed)`.
+REST history metadata is collected across source SHAs (up to 100 pages, failing
+closed on truncation), then receipts are read in execution-time order using
+`run_started_at`, with `run_attempt` and run ID as tie breakers. Rerunning an older
+run ID can therefore supersede a newer run's payload; historical successful
+payloads cannot mask a later different delivery. Maint 68 marks guarded runs with
+`guard=delivery-v1`; only a successful `Authorize canary payload mutation` step
+counts as a delivery receipt, so a successful run that queued/skipped its mutation
+cannot falsely claim delivery. Scheduled and source-delta producers use the same
+guard before any consumer sync job. Guard code comes from the immutable workflow
+ref; the rendered payload comes from the separately pinned source commit.
+
+If payload content changes during an exact-head sealed cycle, Maint 71 compares
+changed consumer targets with the complete canary diff (including rename origins
+and deletions). Overlap can refresh immediately. Disjoint changes print
+`refresh: queued (... wait_remaining_ms=<n>, clears at <iso>)` until the cycle merges, a fresh post-seal PR Gate fails,
+or `CANARY_SEALED_REFRESH_WAIT_MS` (one hour) elapses. The seal timestamp is the
+durable wait clock; successive main commits and observations do not reset it.
+A pre-seal failure cannot release this hold. Behind/non-mergeable heads cannot
+finish their cycle and may refresh immediately. A full-set producer waits for
+all protected sealed canaries, even if another canary permits refresh.
+
+A behind canary still adds its repository and current consumer default-branch
+tip/head pair as a SHA-256 `refresh_key` (`drift=` in the title). The live branches
+API supplies the tip, cached once per behind consumer per run. Unknown tip/head,
+diff, configuration, or bounded history evidence fails closed. Active canary or
+promotion writers hold refresh across all plans. Failed producer retries use
+`CANARY_REFRESH_DEBOUNCE_MS` (six hours). Source-delta, dry-run, other-branch or
+subset runs cannot supply full-set success. No canary uses `pulls.updateBranch`.
+Producer success never substitutes for passing consumer CI, settled review,
+valid signatures or an exact-head sealed Gate before promotion/merge.
 
 No-change recovery retains the plan, source, and head in both the report and
 evidence artifact so the promotion handoff can compare their immutable identity.

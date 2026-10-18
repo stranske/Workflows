@@ -189,6 +189,14 @@ when an earlier commit, patch, or push step failed.
 * [`maint-87-docs-drift-fix-agent.yml`](../../.github/workflows/maint-87-docs-drift-fix-agent.yml) runs the deterministic docs-drift check weekly and turns its output into bounded, agent-ready repair batches via `scripts/docs_drift_fix_agent.py`. Complements maint-48: that seeds an LLM semantic diff, this proves mechanical drift (dangling refs, workflow-inventory omissions). Scheduled runs are report-only; explicit `apply` dispatches create idempotent repair issues in a non-cancelling concurrency lane. Workflows retains the fleet-wide docs registry; each consumer receives only a local README/agent-guidance config.
 * [`maint-60-release.yml`](../../.github/workflows/maint-60-release.yml) creates GitHub releases automatically when version tags (`v*`) are pushed.
 * [`maint-61-release-please.yml`](../../.github/workflows/maint-61-release-please.yml) runs release-please on pushes to `main`, using the Workflows GitHub App token when configured, to maintain the Conventional Commits-driven Release PR, changelog, tags, and GitHub releases from the manifest seeded at `1.1.2`.
+Maint 68 and Maint 71 compare the rendered consumer delivery digest across main
+commits before refreshing canaries. Their shared renderer uses the manifest
+compiler, copied payload, repository scopes/removals and generated status-ignore
+block. Maint 71 provisions Python/PyYAML explicitly for this renderer. A disjoint
+payload change waits for the sealed cycle to finish, fail, or reach the one-hour
+bound; unchanged content preserves its reviewed head and seal. See the
+[refresh contract](../ops/CONSUMER_REPO_MAINTENANCE.md) for receipt and queue rules.
+
 ## Agents Control Plane
 
 Manual Agents Verifier dispatch supports `evidence_profile=expanded` for a
