@@ -180,6 +180,23 @@ records. Do not hand-enter aggregate rates or recommendation rankings.
   approval unreachable without hand-labelling roughly 22 cases. The 75-case total
   and every statistical gate still apply to the whole corpus; raise these floors
   toward 10 as owner-labelled cases accumulate. See issue #2819.
+
+  **Owner decision 2026-10-18 (making approval reachable).** The false-PASS gate is
+  computed over expected-NON_PASS cases, so at zero errors it needs 73 of them, while
+  realized outcomes supply about 8% (4 of 51), and the weekly harvest promoted nothing
+  in eight consecutive runs (the verifier-decision marker it joins on is only emitted
+  since about 2026-10-15, plus a 30-day stability wait). Three parameter changes follow:
+  (1) `approval_stage.controlled_mutation`: cases with `provenance: controlled-mutation`
+  (a real PASS PR whose evidence for one acceptance criterion is removed, objectively
+  NON_PASS) count toward the NON_PASS total and the false-PASS bound, are reported
+  apart from real cases, and may not replace them (at least
+  `minimum_real_non_pass_cases`, now 3, real NON_PASS cases must exist; set
+  `counts_toward_false_pass_bound` to false to go back to real evidence only);
+  (2) `missing-acceptance-criterion` is raised from 1 to 10 because mutations supply it
+  mechanically; (3) `follow-up-required` is lowered from 10 to 3 (representation)
+  because resolved verifier follow-ups are too rare to reach 10. `plan_model_eval`
+  reports `real_non_pass_cases` and `controlled_mutation_non_pass_cases` separately. Human approval
+  of any promotion is unchanged.
 - Report Wilson 95% confidence intervals for task success, false PASS, false
   FAIL, and schema errors.
 - Require the configured bounds and a paired success result no more than two

@@ -142,7 +142,10 @@ def test_current_plan_allows_fast_screen_without_statistical_approval():
     assert plan["zero_error_false_pass_denominator"] == 73
     assert plan["additional_non_pass_cases_for_best_case_gate"] == 69
     assert plan["best_case_minimum_corpus_cases"] == 120
-    assert plan["category_shortfalls"]["follow-up-required"] > 0
+    # follow-up-required needs 3 (representation) and has 3; missing-acceptance-criterion needs 10
+    # and has 1 until controlled-mutation cases supply it (policy update 2026-10-18)
+    assert "follow-up-required" not in plan["category_shortfalls"]
+    assert plan["category_shortfalls"]["missing-acceptance-criterion"] == 9
     assert plan["unpriced_openai_models"] == []
 
 
@@ -911,3 +914,50 @@ def test_snapshot_import_hashes_crlf_diff_bytes_before_decoding(tmp_path):
         adjudication_rationale="The captured bytes are valid and complete.",
     )
     assert case["production_snapshot"]["diff"] == diff.decode("utf-8")
+
+
+def _with_mutations(corpus, count):
+    extra = [
+        {
+            "case_id": f"mutation-{index}",
+            "repo": "stranske/Workflows",
+            "pr": 1000 + index,
+            "expected_verdict": "NON_PASS",
+            "category": "missing-acceptance-criterion",
+            "provenance": "controlled-mutation",
+        }
+        for index in range(count)
+    ]
+    return {**corpus, "cases": [*corpus["cases"], *extra]}
+
+
+def test_controlled_mutation_cases_count_toward_the_false_pass_floor_and_are_reported_apart():
+    corpus, registry, policy = _inputs()
+    real = build_plan(corpus, registry, policy)
+    plan = build_plan(_with_mutations(corpus, 69), registry, policy)
+    assert real["controlled_mutation_non_pass_cases"] == 0
+    assert plan["controlled_mutation_non_pass_cases"] == 69
+    assert plan["real_non_pass_cases"] == real["real_non_pass_cases"] == 4
+    assert plan["expected_non_pass_cases"] == 73
+    assert plan["additional_non_pass_cases_for_best_case_gate"] == 0
+
+
+def test_mutation_cases_do_not_count_when_the_policy_turns_them_off():
+    corpus, registry, policy = _inputs()
+    off = json.loads(json.dumps(policy))
+    off["profiles"]["verifier-balanced"]["approval_stage"]["controlled_mutation"][
+        "counts_toward_false_pass_bound"
+    ] = False
+    plan = build_plan(_with_mutations(corpus, 69), registry, off)
+    assert plan["expected_non_pass_cases"] == 4
+    assert plan["additional_non_pass_cases_for_best_case_gate"] == 69
+
+
+def test_mutation_cases_cannot_replace_real_non_pass_signal():
+    corpus, registry, policy = _inputs()
+    only_mutations = {
+        **corpus,
+        "cases": [c for c in corpus["cases"] if c["expected_verdict"] == "PASS"],
+    }
+    plan = build_plan(_with_mutations(only_mutations, 80), registry, policy)
+    assert any("real-outcome NON_PASS" in reason for reason in plan["approval_blockers"])
