@@ -11,10 +11,13 @@ const DEFAULT_REVIEW_POLICY = Object.freeze({
 });
 
 const GENERATED_DELIVERY_REQUIRED_CONTEXTS = Object.freeze(['Gate / gate']);
+const MAX_FORCED_RESTAGES = 2;
+const CLAIM_EXPIRY = 2 * 60 * 60 * 1000;
 const STALE_CANARY_HOURS = 6;
 const CANARY_REFRESH_DEBOUNCE_MS = 6 * 60 * 60 * 1000;
 const CANARY_SEALED_REFRESH_WAIT_MS = 60 * 60 * 1000;
 const deliveryPayload = require('./consumer_delivery_digest');
+const { SEAL_PRECONDITION_REASONS } = require('./sync_pr_lease_contract');
 const ACTIVE_SYNC_STATES = ['queued', 'in_progress', 'waiting', 'pending', 'requested'];
 
 function candidateSet(repositories) {
@@ -436,7 +439,7 @@ async function isExpectedPresealGateFailure({
     if (!Array.isArray(annotations)
       || annotations.length !== sealCheck.output.annotations_count) return false;
     const failures = annotations.filter((row) => row?.annotation_level === 'failure');
-    const reasons = ['delivery_not_sealed:staging', 'delivery_not_sealed:reviewing', 'sealed_head_mismatch']
+    const reasons = Object.values(SEAL_PRECONDITION_REASONS)
       .map((reason) => `Mutable generated delivery is not mergeable: ${reason}. Maint 71 must seal this exact head after bounded reviewer settlement.`);
     const exactReason = failures.find((row) => reasons.includes(String(row?.message || '').trim()))?.message?.trim();
     if (!exactReason) return false;
@@ -737,10 +740,12 @@ function normalizeReviewPolicy(policy = {}) {
 }
 
 // Recover the PR-event checks; dispatch alone skips Gate's PR-only jobs.
-async function requestSealedGate({ owner, repo, pr, withRetry, sealedAt }) {
+async function evaluateSealedGate({ owner, repo, pr, withRetry, sealedAt }) {
   const identity = `seal: ${owner}/${repo}#${pr.number}`;
   const query = { owner, repo, workflow_id: 'pr-00-gate.yml',
     head_sha: pr.head?.sha, per_page: 100 };
+  let refusal = {};
+  const receipt = result => ({ ...result, ...refusal });
   try {
     if (!pr.head?.ref || !pr.head?.sha) throw new Error('Gate recovery requires the PR head ref and SHA');
     if (sealedAt !== undefined && !Number.isFinite(Date.parse(sealedAt))) {
@@ -758,22 +763,36 @@ async function requestSealedGate({ owner, repo, pr, withRetry, sealedAt }) {
       if (latest.status !== 'completed' || (sealedAt && gateEvaluatesSeal(latest, sealedAt))) {
         return { mode: 'existing', run_id: latest.id };
       }
-      const response = await withRetry(client => client.rest.actions.reRunWorkflowFailedJobs({
-        owner, repo, run_id: latest.id,
-      }));
-      console.log(`${identity} gate rerun run=${latest.id}`);
-      return { mode: 'rerun', status: response.status, run_id: latest.id };
+      try {
+        const response = await withRetry(client => client.rest.actions.reRunWorkflowFailedJobs({
+          owner, repo, run_id: latest.id,
+        }));
+        console.log(`${identity} gate rerun run=${latest.id}`);
+        return { mode: 'rerun', status: response.status, run_id: latest.id };
+      } catch (error) {
+        const status = Number(error?.status || error?.response?.status);
+        const reason = error?.response?.data?.message || error.message || '';
+        // Permission/rate-limit failures are not evidence of a refused rerun.
+        if (status !== 422 && !(status === 403 && /cannot be retried/i.test(reason))) throw error;
+        refusal = { blocked: 'rerun-refused', rerun_status: status, rerun_reason: reason };
+        console.log(`${identity} blocked(rerun-refused)`);
+      }
     }
-    // No PR-event run exists. Debounce fallback dispatches using the same
-    // seal boundary, including queued runs whose execution has not started.
+    // No PR-event run exists, or GitHub refused to retry it. A dispatch provides
+    // canary evidence only: it skips PR-only jobs and cannot waive merge checks.
+    // Debounce using the same seal boundary, including queued runs.
     if (sealedAt) {
       const { data: fallback } = await withRetry(client => client.rest.actions.listWorkflowRuns({
         ...query, event: 'workflow_dispatch',
       }));
       const existing = fallback?.workflow_runs?.find(run => run.id
         && run.event === 'workflow_dispatch' && run.head_sha === pr.head.sha
+        && run.head_branch === pr.head.ref
         && (run.status !== 'completed' || gateEvaluatesSeal(run, sealedAt)));
-      if (existing) return { mode: 'existing', run_id: existing.id };
+      if (existing) {
+        if (refusal.blocked) console.log(`${identity} gate rerun refused; dispatched run=${existing.id} (existing)`);
+        return receipt({ mode: 'existing', run_id: existing.id });
+      }
     }
     console.log(`${identity} gate dispatch fallback`);
     const requestedAt = Date.now();
@@ -798,16 +817,194 @@ async function requestSealedGate({ owner, repo, pr, withRetry, sealedAt }) {
     if (!run) {
       const reason = 'Gate run not observed after dispatch; retry next Maint 71 run';
       console.log(`${identity} gate request failed: ${response.status} ${reason}`);
-      return { mode: 'dispatch', status: response.status, run_id: null, reason };
+      return receipt({ mode: 'dispatch', status: response.status, run_id: null, reason });
     }
     console.log(`${identity} gate requested run=${run.id}`);
-    return { mode: 'dispatch', status: response.status, run_id: run.id };
+    if (refusal.blocked) console.log(`${identity} gate rerun refused; dispatched run=${run.id}`);
+    return receipt({ mode: 'dispatch', status: response.status, run_id: run.id });
   } catch (error) {
     const status = error?.status || error?.response?.status || 'unknown';
     const reason = error?.response?.data?.message || error.message || 'Gate request failed';
     console.log(`${identity} gate request failed: ${status} ${reason}`);
-    return { mode: 'failed', status, reason };
+    return receipt({ mode: 'failed', status, reason });
   }
+}
+
+// Maint 71 and Maint 68 share the stable-writer mutex. Claim before dispatch:
+// ambiguous/unobserved dispatches retain their claim for at most CLAIM_EXPIRY.
+async function requestForcedSealRestage({ owner, repo, pr, withRetry, context }) {
+  const identity = `seal: ${owner}/${repo}#${pr.number}`;
+  const { parseDeliveryRecord } = require('./sync_pr_lease_contract');
+  const { data: current } = await withRetry(client => client.rest.pulls.get({
+    owner, repo, pull_number: pr.number,
+  }));
+  if (current.state !== 'open' || current.head?.sha !== pr.head.sha) {
+    return { state: 'head-changed' };
+  }
+  const { data: writer } = await withRetry(client => client.rest.users.getAuthenticated());
+  if (!writer?.login) throw new Error('Forced restage writer identity is unknown');
+  const record = parseDeliveryRecord(current.body || '');
+  if (!record?.source_commit || !record?.plan_id) throw new Error('Forced restage requires a bound delivery record');
+  const phase = pr.head.ref === 'sync/workflows-candidate' ? 'canary'
+    : pr.head.ref === 'sync/workflows-delivery' ? 'promote' : null;
+  if (!phase) throw new Error('Forced restage requires a stable delivery branch');
+  const history = [];
+  for (let page = 1; ; page++) {
+    const { data: comments } = await withRetry(client => client.rest.issues.listComments({
+      owner, repo, issue_number: pr.number, per_page: 100, page,
+    }));
+    if (!Array.isArray(comments)) throw new Error('Forced restage history unreadable');
+    history.push(...comments);
+    if (comments.length < 100) break;
+    if (page === 20) throw new Error('Forced restage history truncated');
+  }
+  const prefix = `<!-- maint71-forced-restage:${owner}/${repo}:`;
+  const trustedWriters = new Set(String(
+    process.env.TRUSTED_REVIEW_RESOLUTION_ACTORS || 'stranske,stranske-automation-bot',
+  ).split(',').map(login => login.trim()).filter(Boolean));
+  trustedWriters.add(writer.login);
+  const claims = [];
+  for (const row of history) {
+    if (!trustedWriters.has(row.user?.login) || !String(row.body || '').includes(prefix)) continue;
+    const match = row.body.match(/\nClaim:[ \t]*(.*)/);
+    // Resolve old head-only markers from commit provenance below. Trusted
+    // writers share the budget across credential rotation.
+    let claim;
+    try {
+      claim = match ? JSON.parse(match[1])
+        : { head_sha: row.body.split(prefix)[1].split(' ')[0], legacy: true };
+      if (!claim || typeof claim !== 'object' || Array.isArray(claim)
+          || (claim.id !== undefined && typeof claim.id !== 'string')) throw new Error('invalid claim object');
+    } catch {
+      console.log(`${identity} warning: malformed forced restage claim skipped`);
+      continue;
+    }
+    claims.push({ ...claim, writer: row.user.login, created_at: row.created_at });
+  }
+  for (const claim of claims.filter(row => row.legacy)) {
+    const { data: oldCommit } = await withRetry(client => client.rest.repos.getCommit({
+      owner, repo, ref: claim.head_sha,
+    }));
+    const message = oldCommit?.commit?.message || '';
+    claim.plan_id = message.match(/^Consumer-sync plan ID: (.+)$/m)?.[1];
+    claim.source_commit = message.match(/^Source commit: ([a-f0-9]{40})$/m)?.[1];
+    if (!claim.plan_id || !claim.source_commit) throw new Error('Legacy forced restage plan binding unknown');
+  }
+  const scopedClaims = claims.filter(claim => claim.plan_id === record.plan_id
+    && claim.source_commit === record.source_commit);
+  if (scopedClaims.length >= MAX_FORCED_RESTAGES) {
+    console.log(`${identity} forced restage exhausted (${scopedClaims.length}/${MAX_FORCED_RESTAGES}); drainable=0 — needs owner or a new plan`);
+    return { state: 'exhausted', attempts: scopedClaims.length, max: MAX_FORCED_RESTAGES };
+  }
+  const previous = scopedClaims.filter(claim => claim.head_sha === pr.head.sha).at(-1);
+  const query = { owner: context.repo.owner, repo: context.repo.repo,
+    workflow_id: 'maint-68-sync-consumer-repos.yml' };
+  if (previous) {
+    const receiptPrefix = `<!-- maint71-restage-receipt:${previous.id} -->\n`;
+    const receiptRow = previous.id && history.find(row => row.user?.login === previous.writer && row.body?.startsWith(receiptPrefix));
+    let receipt = null;
+    if (receiptRow) {
+      try {
+        receipt = JSON.parse(receiptRow.body.slice(receiptPrefix.length));
+      } catch {
+        console.log(`${identity} warning: malformed forced restage receipt skipped`);
+      }
+    }
+    // Claims with no observed run (including ambiguous 5xx dispatches) expire
+    // from the request timestamp. Legacy claims use the comment's creation time.
+    const now = Date.now();
+    const claimedAt = previous.id ? Number(previous.id.split(':')[1]) : Date.parse(previous.created_at);
+    const age = Number.isFinite(claimedAt) ? Math.max(0, now - claimedAt) : null;
+    let remaining = age === null ? null : Math.max(0, CLAIM_EXPIRY - age);
+    let stale = receipt?.state === 'dispatch-failed' || remaining === 0;
+    if (receipt?.run_id) {
+      const { data: run } = await withRetry(client => client.rest.actions.getWorkflowRun({
+        owner: query.owner, repo: query.repo, run_id: receipt.run_id,
+      }));
+      const finished = Date.parse(run.updated_at);
+      remaining = run.status === 'completed' && Number.isFinite(finished)
+        ? Math.max(0, CLAIM_EXPIRY - (now - finished)) : null;
+      stale = remaining === 0;
+    }
+    if (!stale) {
+      const expiresIn = remaining === null ? 'unknown (awaiting run completion or timestamp)' : `${remaining}ms`;
+      console.log(`${identity} forced restage already requested ${age === null ? 'unknown age' : `${age}ms`}; expires in ${expiresIn}`);
+      return { state: 'already-requested' };
+    }
+    console.log(`${identity} claim stale, head unchanged; retrying (${scopedClaims.length + 1}/${MAX_FORCED_RESTAGES})`);
+  }
+  const inputs = { repos: `${owner}/${repo}`, phase, force: 'true', dry_run: 'false',
+    scope_head_sha: record.source_commit, delivery_scope: 'full' };
+  const { data: commit } = await withRetry(client => client.rest.repos.getCommit({
+    owner, repo, ref: pr.head.sha,
+  }));
+  if (commit?.commit?.verification?.verified !== true
+      || commit.commit.verification.reason !== 'valid') {
+    throw new Error('Forced restage requires a verified generated head');
+  }
+  const message = commit.commit.message || '';
+  if (/^Plan scope: source-delta$/m.test(message)) {
+    const base = message.match(/^Scope base SHA: ([a-f0-9]{40})$/m)?.[1];
+    if (!base) throw new Error('Forced restage source-delta base is missing');
+    inputs.delivery_scope = 'source-delta';
+    inputs.scope_base_sha = base;
+  }
+  if (phase === 'promote') {
+    const { parsePromotionEvidenceFromCommitMessage } = require('./sync_pr_merge_contract');
+    const evidence = parsePromotionEvidenceFromCommitMessage(commit?.commit?.message);
+    if (!commit?.commit?.verification?.verified || !evidence) {
+      throw new Error('Forced promotion restage requires verified head canary evidence');
+    }
+    inputs.canary_evidence_json = JSON.stringify(evidence);
+    inputs.delivery_scope = 'auto';
+  }
+  const requestedAt = Date.now();
+  const claim = { id: `${pr.head.sha}:${requestedAt}:${scopedClaims.length + 1}`,
+    head_sha: pr.head.sha, plan_id: record.plan_id, source_commit: record.source_commit };
+  const marker = `${prefix}${pr.head.sha} -->`;
+  const writeReceipt = receipt => withRetry(client => client.rest.issues.createComment({
+    owner, repo, issue_number: pr.number,
+    body: `<!-- maint71-restage-receipt:${claim.id} -->\n${JSON.stringify(receipt)}`,
+  }), { maxRetries: 0 });
+  await withRetry(client => client.rest.issues.createComment({ owner, repo, issue_number: pr.number,
+    body: `${marker}\nClaim: ${JSON.stringify(claim)}`,
+  }), { maxRetries: 0 });
+  // Never retry non-idempotent dispatch automatically. Only definitive API
+  // rejections release the head for a later bounded attempt.
+  try {
+    await withRetry(client => client.rest.actions.createWorkflowDispatch({ ...query,
+      ref: context.payload.repository?.default_branch || 'main', inputs,
+    }), { maxRetries: 0 });
+  } catch (error) {
+    const status = error?.status || error?.response?.status;
+    if ([400, 401, 403, 404, 422].includes(status)) await writeReceipt({ state: 'dispatch-failed', status });
+    throw error;
+  }
+  const { data } = await withRetry(client => client.rest.actions.listWorkflowRuns({
+    ...query, event: 'workflow_dispatch', per_page: 100,
+  }));
+  const run = data?.workflow_runs?.filter(row => row.id && row.event === 'workflow_dispatch'
+    && row.head_branch === (context.payload.repository?.default_branch || 'main')
+    && Date.parse(row.created_at) >= Math.floor(requestedAt / 1000) * 1000
+    && String(row.display_title || '').includes(phase === 'canary'
+      ? `candidates=${owner}/${repo} ` : ` ${record.plan_id} ${record.source_commit}`))
+    .sort((a, b) => Number(b.id) - Number(a.id))[0];
+  await writeReceipt({ state: 'dispatched', run_id: run?.id || null });
+  console.log(`${identity} rerun refused; forced restage requested run=${run?.id || 'unknown'}`);
+  return { state: 'requested', run_id: run?.id || null, head_sha: pr.head.sha };
+}
+
+async function requestSealedGate(args) {
+  const result = await evaluateSealedGate(args);
+  if (result.blocked === 'rerun-refused' && args.context) {
+    try {
+      result.forced_restage = await requestForcedSealRestage(args);
+    } catch (error) {
+      result.forced_restage = { state: 'failed', reason: error.message };
+      console.log(`seal: ${args.owner}/${args.repo}#${args.pr.number} forced restage failed: ${error.message}`);
+    }
+  }
+  return result;
 }
 
 // This prepares the exact delivery for consumer CI; it is not a PASS or merge.
@@ -3039,7 +3236,7 @@ async function run({ github, context, core }) {
       issue_number: pr.number,
       labels: ['sync:delivery-ready'],
     }));
-    const gateRequest = await requestSealedGate({ owner, repo, pr, withRetry, sealedAt });
+    const gateRequest = await requestSealedGate({ owner, repo, pr, withRetry, sealedAt, context });
     return { sealedAt, reviewEvidence, body, gateRequest, dryRun: false };
   }
 
@@ -4117,7 +4314,8 @@ async function run({ github, context, core }) {
             seal: ({ pr: current, record, settlement }) => sealStableDelivery({
               owner, repo, pr: current, record, settlement, dryRunMode: false }),
           });
-          if (canary) canary.seal_state = dryRun ? 'pending(dry-run)' : 'sealed';
+          if (canary) canary.seal_state = dryRun ? 'pending(dry-run)'
+            : sealed.gateRequest?.blocked ? 'blocked(rerun-refused)' : 'sealed';
           results.push({ ...deliveryContext,
             status: dryRun ? 'dry_run_seal' : 'delivery_sealed_checks_pending',
             gate_request: sealed.gateRequest,
@@ -4303,7 +4501,8 @@ async function run({ github, context, core }) {
             settlement,
             dryRunMode: dryRun,
           });
-          if (canary) canary.seal_state = dryRun ? 'pending(dry-run)' : 'sealed';
+          if (canary) canary.seal_state = dryRun ? 'pending(dry-run)'
+            : sealed.gateRequest?.blocked ? 'blocked(rerun-refused)' : 'sealed';
           if (dryRun) {
             results.push({
               ...deliveryContext,
@@ -4413,10 +4612,10 @@ async function run({ github, context, core }) {
         // All restage/readiness/reviewer decisions precede recovery. This
         // applies equally to candidate and promoted delivery branches.
         const gateRequest = autoMerge && !dryRun
-          ? await requestSealedGate({ owner, repo, pr, withRetry, sealedAt: deliveryRecord.sealed_at })
+          ? await requestSealedGate({ owner, repo, pr, withRetry, sealedAt: deliveryRecord.sealed_at, context })
           : undefined;
-        if (expectedPresealGateHold || (gateRequest && gateRequest.mode !== 'existing')) {
-          if (canary) canary.seal_state = 'sealed';
+        if (expectedPresealGateHold || gateRequest?.blocked || (gateRequest && gateRequest.mode !== 'existing')) {
+          if (canary) canary.seal_state = gateRequest?.blocked ? 'blocked(rerun-refused)' : 'sealed';
           results.push({ ...deliveryContext, status: 'delivery_sealed_checks_pending',
             delivery_disposition: 'awaiting-sealed-gate', blocker_owner: 'ci',
             next_command: 'rerun-after-generated-delivery-seal-gate', gate_request: gateRequest });
@@ -5068,6 +5267,9 @@ async function run({ github, context, core }) {
 }
 
 module.exports = {
+  MAX_FORCED_RESTAGES,
+  CLAIM_EXPIRY,
+  requestForcedSealRestage,
   STALE_CANARY_HOURS,
   CANARY_REFRESH_DEBOUNCE_MS,
   CANARY_SEALED_REFRESH_WAIT_MS,

@@ -1707,7 +1707,14 @@ and no other error; generic exit annotations alone are insufficient. An extra
 failed required check, unrelated classifier error, incomplete evidence, or API
 failure still blocks sealing.
 
-Seal-only failures (including `sealed_head_mismatch`) are reported as
+Seal-only failures use the single exported `SEAL_PRECONDITION_REASONS` vocabulary
+in `sync_pr_lease_contract.js`, shared by the seal action and Maint 71:
+`delivery_not_sealed:staging`, `delivery_not_sealed:reviewing`,
+`delivery_not_sealed:legacy`, and `sealed_head_mismatch`. An annotation from a
+legacy PR-body snapshot does not waive the current record's staging/reviewing/
+sealed validation. Invalid records, terminal dispositions, expired leases,
+repository mismatches and forked stable heads are not seal preconditions.
+Proven seal-only failures are reported as
 `seal_pending`, never a repo-local repair request. A stale seal is restaged and
 uses the existing configured reviewer settlement policy; active threads and the
 bounded review wait still hold it. Integration-only delivery continues to reuse
@@ -1727,16 +1734,60 @@ attempts and completed post-seal evaluations suppress repeat requests. The
 shared seal-time comparison treats equality as pre-seal for the original
 attempt (timestamps have second precision); a rerun attempt at equality counts
 as a fresh evaluation. A completed failure after the seal remains blocking.
-Only when no exact-head PR run exists does Maint 71 print `gate dispatch fallback`
-and dispatch on the PR branch with `pr_number`. It polls once for that fallback
+When no exact-head PR run exists, or GitHub refuses a rerun with HTTP 403
+(`cannot be retried`) or 422, Maint 71 prints `gate dispatch fallback` and
+dispatches on the PR branch with `pr_number`. It polls once for the fallback
 run and prints `gate requested run=<id>` only upon observing a matching run.
+Other 403 failures remain errors.
+A refused rerun prints `seal: <repo>#<n> blocked(rerun-refused)` and records the
+original status/reason in `gate_request`, even if the fallback fails. Observed
+fallbacks also print `gate rerun refused; dispatched run=<id>`. A queued or
+post-seal dispatch on the same branch/head suppresses another dispatch.
+A dispatched Gate can supply canary evidence, but skips PR-only jobs and cannot
+establish merge readiness. The blocker remains visible beside the drainable
+count until a fresh PR Gate is available. After a refused rerun, even an observed
+dispatch cannot produce the required PR-only jobs. Maint 71 requests one forced
+regeneration via `maint-68-sync-consumer-repos.yml`, with `force=true`,
+`repos=<owner/repo>` and phase `canary` for candidate PRs or `promote` for delivery
+PRs. It retains the source binding and source-delta scope; promotion reuses the
+verified head's canary evidence and Maint 68 still validates it. Forced sync
+rebuilds the signed delivery from its base and selected payload even when its
+tree matches the existing PR, resetting settlement and seal for the new head.
+The resulting push starts a fresh `pull_request` Gate, handled by the normal
+seal/rerun flow. Metadata-only restaging cannot wake that Gate.
+Under the shared stable-writer mutex, a durable PR comment claim records the
+repository, head, plan ID and source commit before dispatch. `MAX_FORCED_RESTAGES`
+is 2 across all heads for that plan/source binding. At the cap, Maint 71 prints
+`seal: <repo>#<n> forced restage exhausted (<k>/<max>); drainable=0 — needs owner or a new plan`.
+A new plan or source binding resets the budget. Only markers authored by
+`TRUSTED_REVIEW_RESOLUTION_ACTORS` (default `stranske,stranske-automation-bot`)
+or the authenticated token's own login count; malformed JSON markers are skipped
+with a warning. Credential rotation among trusted writers retains the budget.
+Legacy head-only claims resolve their plan/source from the claimed commit;
+an unreadable binding blocks further requests rather than replenishing the budget.
+On an unchanged head, a definitive dispatch rejection can retry on a later pass.
+A bound dispatched run must have completed at least `CLAIM_EXPIRY` (two hours)
+ago to retry; active runs and recent completions retain their claims. Claims
+without a receipt or with `run_id: null` expire two hours after the timestamp in
+`claim.id`, including ambiguous 5xx dispatch failures and runs not yet observed.
+Legacy claims without an ID expire from the comment's `created_at` time.
+Every suppressed duplicate prints
+`seal: <repo>#<n> forced restage already requested <age>; expires in <t>`;
+ages and remaining times use milliseconds, with unknown timing explicit for
+active runs or unavailable timestamps. Every retry consumes the same budget and prints
+`claim stale, head unchanged; retrying (<k>/<max>)`. Receipts persist dispatch
+failure or the observed run ID; an unobserved run ID is explicitly `unknown`.
+The log prints `seal: <repo>#<n> rerun refused; forced restage requested run=<id>`;
+`gate_request.forced_restage` and the Markdown report retain the drain receipt.
+Recovery must not close/reopen a PR or push an empty commit.
 Dispatch or lookup failures print `gate request failed: <status> <message>` and
 remain in the report's `gate_request`; an accepted dispatch whose run is not yet
 visible reports that uncertainty explicitly. The delivery stays
 `awaiting-sealed-gate` for retry on the next Maint 71 pass. There is no label
 wakeup fallback: `sync:delivery-ready` records lifecycle state only. Existing
 required-check and review blockers still apply. A failed evaluation created after the current seal
-remains blocking. Neither recovery path updates the branch or authorizes merge.
+remains blocking. Gate rerun/dispatch alone does not update the branch; forced regeneration changes
+the head through Maint 68 and grants no merge authority.
 
 Each canary prints `seal: <repo>#<n> sealed|pending(<reason>)|blocked(<check names>)`.
 `canaries: red=` counts only non-seal failures; `drainable` counts proven

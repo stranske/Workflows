@@ -54,10 +54,14 @@ function sealedGateHarness(t) {
     },
     reRunWorkflowFailedJobs: async params => {
       reruns.push(params);
-      if (state.rerunError) throw Object.assign(new Error('rerun denied'), { status: state.rerunError });
+      if (state.rerunError) throw Object.assign(new Error(state.rerunReason || 'rerun denied'), { status: state.rerunError });
       return { status: 201 };
     },
-    createWorkflowDispatch: async params => { dispatches.push(params); return { status: 204 }; },
+    createWorkflowDispatch: async params => {
+      dispatches.push(params);
+      if (state.dispatchError) throw Object.assign(new Error('dispatch denied'), { status: state.dispatchError });
+      return { status: 204 };
+    },
   } } });
   return { args: { owner: 'stranske', repo: 'Ready', pr, sealedAt, withRetry },
     state, run, reads, reruns, dispatches, logs };
@@ -91,6 +95,38 @@ for (const status of [403, 404]) {
     assert.equal(api.dispatches.length, 0);
   });
 }
+
+for (const status of [403, 422]) {
+  test(`refused rerun HTTP ${status} dispatches once, records its run and keeps the merge blocker`, async t => {
+    const api = sealedGateHarness(t);
+    api.state.rerunError = status;
+    api.state.rerunReason = 'This workflow run cannot be retried';
+    const refusal = { blocked: 'rerun-refused', rerun_status: status,
+      rerun_reason: api.state.rerunReason };
+    assert.deepEqual(await requestSealedGate(api.args), {
+      mode: 'dispatch', status: 204, run_id: 4105, ...refusal,
+    });
+    assert.deepEqual(api.dispatches, [{ owner: 'stranske', repo: 'Ready',
+      workflow_id: 'pr-00-gate.yml', ref: api.args.pr.head.ref, inputs: { pr_number: '4104' } }]);
+    assert.ok(api.logs.includes('seal: stranske/Ready#4104 gate rerun refused; dispatched run=4105'));
+    assert.ok(api.logs.includes('seal: stranske/Ready#4104 blocked(rerun-refused)'));
+    assert.deepEqual(await requestSealedGate(api.args), { mode: 'existing', run_id: 4105, ...refusal });
+    assert.equal(api.dispatches.length, 1, 'a queued fallback on this sealed head prevents duplicate dispatch');
+  });
+}
+
+test('fallback dispatch failure retains rerun refusal and prints both failures', async t => {
+  const api = sealedGateHarness(t);
+  api.state.rerunError = 422;
+  api.state.dispatchError = 404;
+  const result = await requestSealedGate(api.args);
+  assert.equal(result.mode, 'failed');
+  assert.equal(result.status, 404);
+  assert.equal(result.rerun_status, 422);
+  assert.equal(result.blocked, 'rerun-refused');
+  assert.ok(api.logs.includes('seal: stranske/Ready#4104 blocked(rerun-refused)'));
+  assert.ok(api.logs.includes('seal: stranske/Ready#4104 gate request failed: 404 dispatch denied'));
+});
 
 test('missing PR Gate uses dispatch fallback; unreadable history fails closed', async t => {
   const api = sealedGateHarness(t);
@@ -293,6 +329,14 @@ test('only complete exact-head staging Gate evidence suppresses the base-refresh
     deliveryRecord: { delivery_state: 'staging', head_observed_sha: head },
     classification, allChecks };
   assert.equal(await isExpectedPresealGateFailure({ ...args, withRetry: makeRetry() }), true);
+  // Independent expected literals catch omissions from the shared vocabulary.
+  for (const reason of ['delivery_not_sealed:staging', 'delivery_not_sealed:reviewing',
+    'delivery_not_sealed:legacy', 'sealed_head_mismatch']) {
+    const message = `Mutable generated delivery is not mergeable: ${reason}. ` +
+      'Maint 71 must seal this exact head after bounded reviewer settlement.';
+    assert.equal(await isExpectedPresealGateFailure({ ...args,
+      withRetry: makeRetry({ rows: [{ annotation_level: 'failure', message }] }) }), true, reason);
+  }
   assert.deepEqual(dualClassification.failed.map((check) => check.name),
     ['Gate / gate', 'gate-summary']);
   assert.equal(await isExpectedPresealGateFailure({ ...args, allChecks: dualChecks,
@@ -471,16 +515,20 @@ async function assertExecutorCanaryRefresh(t, state) {
   const reviewStarted = state === 'seal_review_wait' ? new Date(refreshNow - 60000).toISOString() : observed;
   const { formatDeliveryRecord } = require('../sync_pr_lease_contract');
   const sealRecovery = state.startsWith('seal_') && state !== 'seal_drained';
+  const neverSealed = state.startsWith('seal_never_');
+  const realFailure = ['seal_real_failure', 'seal_never_real_failure'].includes(state);
+  const rerunRefused = state.includes('rerun_refused');
   const reviewRecovery = state.startsWith('seal_review_');
   const alreadySealed = state.startsWith('seal_already_');
   const delivery = state === 'seal_already_delivery';
   const olderGreen = state === 'seal_already_green';
   const dispatchError = state.endsWith('_422') ? 422 : state.endsWith('_404') ? 404 : null;
+  const rerunError = rerunRefused ? 403 : dispatchError;
   const preseal = !olderGreen && (sealRecovery || ['preseal_gate', 'preseal_gate_dual', 'producer_success_staging'].includes(state));
   const producerSucceeded = state.startsWith('producer_success');
   const presealDual = !olderGreen && (state === 'preseal_gate_dual' || sealRecovery);
   const sealMessage = 'Mutable generated delivery is not mergeable: ' +
-    (sealRecovery ? 'sealed_head_mismatch' : 'delivery_not_sealed:staging') +
+    (sealRecovery && !neverSealed ? 'sealed_head_mismatch' : 'delivery_not_sealed:staging') +
     '. Maint 71 must seal this exact head after bounded reviewer settlement.';
   const candidate = { number: 4026, title: 'chore: sync workflow templates',
     state: 'open', draft: false, auto_merge: null, user: { login: 'stranske' },
@@ -497,8 +545,8 @@ async function assertExecutorCanaryRefresh(t, state) {
       durable_issue_url: 'https://github.com/stranske/Workflows/issues/1836',
       generation: 'generation', desired_tree_hash: 'tree', source_commit: source,
       head_observed_sha: head, head_observed_at: observed,
-      lease_expires_at: '2099-01-01T00:00:00Z', delivery_state: reviewRecovery ? 'reviewing' : sealRecovery ? 'sealed' : preseal ? 'staging' : 'sealed',
-      sealed_at: observed, sealed_head_sha: sealRecovery && !alreadySealed ? 'f'.repeat(40) : head, review_started_at: reviewStarted,
+      lease_expires_at: '2099-01-01T00:00:00Z', delivery_state: neverSealed ? 'staging' : reviewRecovery ? 'reviewing' : sealRecovery ? 'sealed' : preseal ? 'staging' : 'sealed',
+      sealed_at: neverSealed ? '' : observed, sealed_head_sha: neverSealed ? '' : sealRecovery && !alreadySealed ? 'f'.repeat(40) : head, review_started_at: neverSealed ? '' : reviewStarted,
     }) };
   const reruns = [], dispatches = [], updates = [], summaries = [], failures = [], merges = [], tipReads = [];
   const gateReads = [], labelWrites = [];
@@ -534,7 +582,7 @@ async function assertExecutorCanaryRefresh(t, state) {
       }] : [] } }),
       getBranchProtection: async () => ({ data: { required_status_checks: {
         contexts: presealDual ? ['Gate / gate', 'gate-summary', ...(sealRecovery ? ['generated delivery seal', 'classify changed paths'] : []),
-          ...(state === 'seal_real_failure' ? ['production tests'] : [])] : ['Gate / gate'],
+          ...(realFailure ? ['production tests'] : [])] : ['Gate / gate'],
       } } }),
       getCommit: async ({ ref }) => ({ data: { sha: ref === 'main' && !producerSucceeded ? 'a'.repeat(40) : source, commit: { committer: { date: observed } } } }),
       getContent: async ({ path: filePath }) => {
@@ -580,7 +628,7 @@ async function assertExecutorCanaryRefresh(t, state) {
       },
       reRunWorkflowFailedJobs: async params => {
         reruns.push(params);
-        if (dispatchError) throw Object.assign(new Error('consumer Gate unavailable'), { status: dispatchError });
+        if (rerunError) throw Object.assign(new Error(rerunRefused ? 'This workflow run cannot be retried' : 'consumer Gate unavailable'), { status: rerunError });
         return { status: 201 };
       },
       createWorkflowDispatch: async (params) => {
@@ -602,7 +650,7 @@ async function assertExecutorCanaryRefresh(t, state) {
       ...(sealRecovery ? ['generated delivery seal', 'classify changed paths'].map(name => ({
         name, status: 'completed', conclusion: 'failure', head_sha: head, app: { slug: 'github-actions' },
         details_url: `https://github.com/${owner}/${repo}/actions/runs/4027/job/3` })) : []),
-      ...(state === 'seal_real_failure' ? [{ name: 'production tests', status: 'completed', conclusion: 'failure' }] : []),
+      ...(realFailure ? [{ name: 'production tests', status: 'completed', conclusion: 'failure' }] : []),
       { name: 'gate-summary', status: 'completed', conclusion: 'failure', head_sha: head,
         app: { slug: 'github-actions' },
         details_url: `https://github.com/${owner}/${repo}/actions/runs/4027/job/2` },
@@ -724,7 +772,7 @@ async function assertExecutorCanaryRefresh(t, state) {
     return;
   }
   if (sealRecovery) {
-    const blocked = state === 'seal_real_failure';
+    const blocked = realFailure;
     assert.equal(row.status, blocked ? 'checks_failed' : 'delivery_sealed_checks_pending', JSON.stringify(report.results));
     assert.equal(row.delivery_disposition, blocked ? 'repo-local-failure' : 'awaiting-sealed-gate');
     const sealWrites = updates.filter(({body}) => require('../sync_pr_lease_contract').parseDeliveryRecord(body)?.delivery_state === 'sealed');
@@ -737,17 +785,22 @@ async function assertExecutorCanaryRefresh(t, state) {
         assert.equal(row.check_status, 'seal_pending');
         assert.equal(row.raw_check_status, 'checks_failed');
       }
-      assert.equal(row.gate_request.mode, dispatchError ? 'failed' : 'rerun');
+      assert.equal(row.gate_request.mode, dispatchError ? 'failed' : rerunRefused ? 'dispatch' : 'rerun');
       assert.deepEqual(reruns, [{ owner, repo, run_id: 4027 }]);
-      assert.equal(dispatches.length, 0);
+      assert.equal(dispatches.length, Number(rerunRefused || dispatchError === 422));
       if (dispatchError) {
         assert.equal(row.gate_request.status, dispatchError);
         assert.ok(logs.includes(`seal: ${repository}#4026 gate request failed: ${dispatchError} consumer Gate unavailable`));
+      } else if (rerunRefused) {
+        assert.equal(row.gate_request.run_id, 4104);
+        assert.equal(row.gate_request.blocked, 'rerun-refused');
+        assert.ok(logs.includes(`seal: ${repository}#4026 gate rerun refused; dispatched run=4104`));
       } else {
         assert.equal(row.gate_request.run_id, 4027);
         assert.ok(logs.includes(`seal: ${repository}#4026 gate rerun run=4027`));
       }
-      if (!delivery) assert.ok(summaries.includes(`seal: ${repository}#4026 sealed\n`));
+      if (!delivery) assert.ok(summaries.includes(`seal: ${repository}#4026 ${rerunRefused || dispatchError === 422 ? 'blocked(rerun-refused)' : 'sealed'}\n`));
+      if (rerunRefused) assert.ok(summaries.some(line => line.includes('drainable=1')));
     } else {
       assert.ok(summaries.some(s => s.includes('blocked(Gate / gate,') && s.includes('production tests')));
     }
@@ -827,7 +880,7 @@ for (const state of ['behind', 'checks_failed', 'review_blocked', 'stale']) {
     async (t) => assertExecutorCanaryRefresh(t, state));
 }
 
-for (const state of ['seal_mismatch', 'seal_real_failure', 'seal_already_current', 'seal_already_delivery', 'seal_already_behind', 'seal_already_green', 'seal_already_422', 'seal_already_404', 'seal_review_settled', 'seal_review_wait', 'seal_review_threads', 'seal_drained']) {
+for (const state of ['seal_never_staging', 'seal_never_real_failure', 'seal_never_rerun_refused', 'seal_already_rerun_refused', 'seal_mismatch', 'seal_real_failure', 'seal_already_current', 'seal_already_delivery', 'seal_already_behind', 'seal_already_green', 'seal_already_422', 'seal_already_404', 'seal_review_settled', 'seal_review_wait', 'seal_review_threads', 'seal_drained']) {
   test(`seal recovery ${state} preserves real check blockers`, async (t) => assertExecutorCanaryRefresh(t, state));
 }
 
@@ -876,8 +929,13 @@ test('Maint 68 verified unchanged-tree run resets producer observation without c
     fi
     echo "RESULT:$head_observed_sha:$head_observed_at:$delivery_state:$sealed_at:$matching_existing"
   `;
-  const output = require('node:child_process').execFileSync('bash', ['-c', script], { encoding: 'utf8' });
+  const output = require('node:child_process').execFileSync('bash', ['-c', script], { encoding: 'utf8', env: { ...process.env, FORCE: 'false' } });
   assert.match(output, /RESULT:unchanged:2026-10-17T12:00:00Z:sealed:prior:true/);
+  const forcedOutput = require('node:child_process').execFileSync('bash', ['-c', script], {
+    encoding: 'utf8', env: { ...process.env, FORCE: 'true' },
+  });
+  assert.match(forcedOutput, /RESULT:unchanged:2026-10-17T05:00:00Z:sealed:prior:false/,
+    'force must leave matching_existing false so the signed payload is regenerated');
 });
 
 test('native proof comments are read from the consumer while independent proof comments stay in Workflows', () => {
@@ -2245,3 +2303,313 @@ test('Maint 68 force authorizes mutation without consulting an unchanged digest'
   assert.deepEqual(lines, ['refresh: forced (digest guard bypassed)']);
   assert.match(workflow, /needs.prepare.outputs.refresh_allowed != 'false'/);
 });
+
+for (const [branch, dispatchError] of ['sync/workflows-candidate', 'sync/workflows-delivery'].flatMap(branch => [null, 404].map(error => [branch, error]))) {
+  test(`refused Gate drains ${branch} through one durable forced restage per head (fallback error=${dispatchError})`, async t => {
+    const api = sealedGateHarness(t);
+    api.args.pr.head.ref = branch;
+    api.state.rerunError = 403;
+    api.state.rerunReason = 'This workflow run cannot be retried';
+    api.state.dispatchError = dispatchError;
+    api.args.context = { repo: { owner: 'stranske', repo: 'Workflows' },
+      payload: { repository: { default_branch: 'main' } } };
+    const { formatDeliveryRecord } = require('../sync_pr_lease_contract');
+    let body = formatDeliveryRecord({ source_commit: 'a'.repeat(40), plan_id: 'sha256:plan', durable_issue_url: 'https://github.com/stranske/Workflows/issues/4117', generation: 'gen', repository: 'stranske/Ready', desired_tree_hash: 'tree', lease_expires_at: '2026-10-20T00:00:00Z' });
+    const forced = [], writes = [], options = [], comments = [];
+    const baseRetry = api.args.withRetry;
+    const evidence = { results: [{ plan_id: 'sha256:plan', source_commit: 'a'.repeat(40) }] };
+    api.args.withRetry = (callback, config) => baseRetry(client => {
+      const actions = client.rest.actions;
+      const list = actions.listWorkflowRuns;
+      const dispatch = actions.createWorkflowDispatch;
+      actions.getWorkflowRun = async () => ({ data: { status: 'in_progress' } });
+      actions.listWorkflowRuns = params => params.workflow_id === 'maint-68-sync-consumer-repos.yml'
+        ? { data: { workflow_runs: [{ id: 5000, event: 'workflow_dispatch', head_branch: 'main',
+          created_at: new Date().toISOString(), display_title: branch.endsWith('candidate')
+            ? 'Maint 68 canary source=abc candidates=stranske/Ready dry=false'
+            : `Maint 68 promote sha256:plan ${'a'.repeat(40)}` }] } } : list(params);
+      actions.createWorkflowDispatch = params => {
+        if (params.workflow_id !== 'maint-68-sync-consumer-repos.yml') return dispatch(params);
+        forced.push(params);
+        options.push(config);
+        if (api.state.forceError) throw new Error('ambiguous dispatch');
+        return { status: 204 };
+      };
+      client.rest.pulls = {
+        get: async () => ({ data: { state: 'open', head: { sha: api.args.pr.head.sha }, body } }),
+      };
+      client.rest.users = { getAuthenticated: async () => ({ data: { login: 'stranske' } }) };
+      client.rest.issues = {
+        listComments: async () => ({ data: comments }),
+        createComment: async params => { comments.push({ body: params.body, user: { login: 'stranske' } }); writes.push(params); return { data: {} }; },
+      };
+      client.rest.repos = { getCommit: async () => ({ data: { commit: {
+        verification: { verified: true, reason: 'valid' },
+        message: `Plan scope: source-delta\nScope base SHA: ${'b'.repeat(40)}\nCanary evidence JSON (base64): ${Buffer.from(JSON.stringify(evidence)).toString('base64')}`,
+      } } }) };
+      return callback(client);
+    });
+    const result = await requestSealedGate(api.args);
+    assert.equal(result.blocked, 'rerun-refused');
+    assert.deepEqual(result.forced_restage, { state: 'requested', run_id: 5000, head_sha: 'd'.repeat(40) });
+    assert.equal(forced.length, 1);
+    assert.equal(forced[0].inputs.force, 'true');
+    assert.equal(forced[0].inputs.repos, 'stranske/Ready');
+    assert.equal(forced[0].inputs.phase, branch.endsWith('candidate') ? 'canary' : 'promote');
+    assert.equal(forced[0].inputs.scope_head_sha, 'a'.repeat(40));
+    if (branch.endsWith('delivery')) assert.deepEqual(JSON.parse(forced[0].inputs.canary_evidence_json), evidence);
+    else assert.equal(forced[0].inputs.scope_base_sha, 'b'.repeat(40));
+    assert.deepEqual(options, [{ maxRetries: 0 }]);
+    assert.ok(api.logs.includes('seal: stranske/Ready#4104 rerun refused; forced restage requested run=5000'));
+    assert.equal((await requestSealedGate(api.args)).forced_restage.state, 'already-requested');
+    assert.equal(forced.length, 1);
+    assert.equal(writes.length, 2);
+    // A new head follows normal Gate rerun handling; no regeneration by default.
+    api.args.pr.head.sha = 'e'.repeat(40);
+    api.state.runs = [{ ...api.run, head_branch: branch, head_sha: api.args.pr.head.sha }];
+    api.state.rerunError = null;
+    assert.equal((await requestSealedGate(api.args)).mode, 'rerun');
+    assert.equal(forced.length, 1);
+    // A new refusal gets its own bounded claim, even if dispatch is ambiguous.
+    api.state.rerunError = 403;
+    api.state.forceError = true;
+    assert.equal((await requestSealedGate(api.args)).forced_restage.state, 'failed');
+    assert.equal((await requestSealedGate(api.args)).forced_restage.state, 'exhausted');
+    assert.equal(forced.length, 2);
+  });
+}
+
+function boundedRestageHarness(t) {
+  const api = sealedGateHarness(t);
+  const { formatDeliveryRecord } = require('../sync_pr_lease_contract');
+  const comments = [], dispatches = [];
+  const state = { plan: 'sha256:plan', source: 'a'.repeat(40), runStatus: 'in_progress',
+    updatedAt: new Date().toISOString() };
+  api.args.context = { repo: { owner: 'stranske', repo: 'Workflows' }, payload: {} };
+  api.args.withRetry = async callback => callback({ rest: {
+    pulls: { get: async () => ({ data: { state: 'open', head: api.args.pr.head,
+      body: formatDeliveryRecord({ source_commit: state.source, plan_id: state.plan,
+        durable_issue_url: 'https://github.com/stranske/Workflows/issues/4117', generation: 'gen',
+        repository: 'stranske/Ready', desired_tree_hash: 'tree', lease_expires_at: '2026-10-20T00:00:00Z' }) } }) },
+    users: { getAuthenticated: async () => ({ data: { login: 'writer' } }) },
+    issues: {
+      listComments: async () => ({ data: comments }),
+      createComment: async ({ body }) => { comments.push({ body, user: { login: 'writer' }, created_at: new Date(Date.now()).toISOString() }); return { data: {} }; },
+    },
+    repos: { getCommit: async () => ({ data: { commit: { verification: { verified: true, reason: 'valid' }, message: '' } } }) },
+    actions: {
+      createWorkflowDispatch: async params => {
+        dispatches.push(params);
+        if (state.error) throw Object.assign(new Error('dispatch failed'), { status: state.error });
+      },
+      listWorkflowRuns: async () => ({ data: { workflow_runs: state.noRun ? [] : [{ id: 5000, event: 'workflow_dispatch',
+        head_branch: 'main', created_at: new Date(Date.now()).toISOString(),
+        display_title: 'Maint 68 canary candidates=stranske/Ready dry=false' }] } }),
+      getWorkflowRun: async () => ({ data: { status: state.runStatus, updated_at: state.updatedAt } }),
+    },
+  } });
+  const { requestForcedSealRestage } = require('../maint71_merge_sync_prs');
+  return { ...api, state, comments, dispatches, request: () => requestForcedSealRestage(api.args) };
+}
+
+test('structural refusal has a two-restage budget across heads; plan or source resets it', async t => {
+  const api = boundedRestageHarness(t);
+  for (const head of ['d', 'e']) {
+    api.args.pr.head.sha = head.repeat(40);
+    assert.equal((await api.request()).state, 'requested');
+  }
+  api.args.pr.head.sha = 'f'.repeat(40);
+  assert.equal((await api.request()).state, 'exhausted');
+  assert.equal(api.dispatches.length, 2);
+  assert.ok(api.logs.includes('seal: stranske/Ready#4104 forced restage exhausted (2/2); drainable=0 — needs owner or a new plan'));
+  api.state.plan = 'sha256:new-plan';
+  assert.equal((await api.request()).state, 'requested');
+  api.state.source = 'b'.repeat(40);
+  assert.equal((await api.request()).state, 'requested');
+  assert.equal(api.dispatches.length, 4);
+  for (const request of api.dispatches) {
+    assert.equal(request.inputs.force, 'true');
+    assert.equal(request.inputs.repos, 'stranske/Ready');
+  }
+});
+
+for (const reason of ['failed-dispatch', 'expired-claim', 'active-run', 'recent-completion', 'ambiguous-dispatch']) {
+  test(`unchanged-head retry: ${reason}`, async t => {
+    const api = boundedRestageHarness(t);
+    const { CLAIM_EXPIRY } = require('../maint71_merge_sync_prs');
+    if (reason.includes('dispatch')) api.state.error = reason === 'failed-dispatch' ? 422 : 503;
+    if (api.state.error) await assert.rejects(api.request(), /dispatch failed/);
+    else assert.equal((await api.request()).state, 'requested');
+    api.state.error = null;
+    if (['expired-claim', 'recent-completion'].includes(reason)) api.state.runStatus = 'completed';
+    if (reason !== 'recent-completion') api.state.updatedAt = new Date(Date.now() - CLAIM_EXPIRY).toISOString();
+    if (reason === 'active-run') t.mock.timers.tick(CLAIM_EXPIRY);
+    const retry = ['failed-dispatch', 'expired-claim'].includes(reason);
+    assert.equal((await api.request()).state, retry ? 'requested' : 'already-requested');
+    assert.equal(api.dispatches.length, retry ? 2 : 1);
+    if (!retry) assert.ok(api.logs.some(line => /^seal: stranske\/Ready#4104 forced restage already requested .+; expires in .+/.test(line)));
+    if (retry) {
+      assert.ok(api.logs.includes('seal: stranske/Ready#4104 claim stale, head unchanged; retrying (2/2)'));
+      assert.equal((await api.request()).state, 'exhausted');
+      assert.equal(api.dispatches.length, 2);
+    }
+  });
+}
+
+test('force reaches the signed rebuild path even for an identical verified tree', () => {
+  // The fixtures have no GitHub signing service and cannot mint a real signed SHA.
+  // Execute the production reuse guard; verify its false branch calls the signer
+  // and publishes the returned SHA rather than preserving the previous head.
+  const { spawnSync } = require('node:child_process');
+  const workflow = fs.readFileSync(path.join(__dirname, '../../workflows/maint-68-sync-consumer-repos.yml'), 'utf8');
+  const block = workflow.slice(workflow.indexOf('          matching_existing=false'),
+    workflow.indexOf('          if git diff --cached --quiet'));
+  for (const force of ['false', 'true']) {
+    const result = spawnSync('bash', ['-c', `${block}\nprintf '%s' "$matching_existing"`], {
+      encoding: 'utf8', env: { ...process.env, FORCE: force, existing_pr: '1',
+        existing_refreshable: 'true', existing_base: 'base', base_sha: 'base',
+        existing_tree: 'identical', desired_tree_hash: 'identical', existing_verified: 'true',
+        existing_lifecycle_initialized: 'true', existing_head: 'old-head' },
+    });
+    assert.equal(result.status, 0, result.stderr);
+    assert.ok(result.stdout.endsWith(force === 'true' ? 'false' : 'true'));
+  }
+  // Dispatch input is bound to the environment used by the guard above.
+  assert.match(workflow, /FORCE: \$\{\{ inputs.force \|\| false \}\}/);
+  const rebuild = workflow.slice(workflow.indexOf('          if [ "$matching_existing" != "true" ]; then'));
+  assert.match(rebuild, /--operation create-commit/);
+  assert.ok(rebuild.includes('signed_commit_sha=$(jq -er'));
+  assert.ok(rebuild.includes('origin "$signed_commit_sha:refs/heads/$branch_name"'));
+});
+
+test('credential rotation does not replenish the forced-restage budget', async t => {
+  const api = boundedRestageHarness(t);
+  await api.request();
+  api.comments.forEach(row => { row.user.login = 'stranske-automation-bot'; });
+  api.args.pr.head.sha = 'e'.repeat(40);
+  await api.request();
+  api.args.pr.head.sha = 'f'.repeat(40);
+  assert.equal((await api.request()).state, 'exhausted');
+  assert.equal(api.dispatches.length, 2);
+});
+
+test('legacy markers use claimed commit plan/source and a new plan resets the count', async t => {
+  const api = boundedRestageHarness(t);
+  const originalRetry = api.args.withRetry;
+  api.args.withRetry = callback => originalRetry(client => {
+    client.rest.repos.getCommit = async () => ({ data: { commit: {
+      verification: { verified: true, reason: 'valid' },
+      message: `Consumer-sync plan ID: sha256:plan\nSource commit: ${'a'.repeat(40)}`,
+    } } });
+    return callback(client);
+  });
+  for (const head of ['b', 'c']) api.comments.push({ user: { login: 'stranske-automation-bot' },
+    body: `<!-- maint71-forced-restage:stranske/Ready:${head.repeat(40)} -->` });
+  assert.equal((await api.request()).state, 'exhausted');
+  api.state.plan = 'sha256:new-plan';
+  assert.equal((await api.request()).state, 'requested');
+  assert.equal(api.dispatches.length, 1);
+});
+
+for (const reason of ['missing-receipt', '5xx-dispatch', 'null-run']) {
+  test(`unobserved forced restage expires by claim age: ${reason}`, async t => {
+    const { CLAIM_EXPIRY } = require('../maint71_merge_sync_prs');
+    const api = boundedRestageHarness(t);
+    if (reason === '5xx-dispatch') {
+      api.state.error = 503;
+      await assert.rejects(api.request(), /dispatch failed/);
+      api.state.error = null;
+      assert.equal(api.comments.length, 1); // Claim survives the ambiguous failure.
+    } else {
+      api.state.noRun = true;
+      assert.deepEqual(await api.request(), { state: 'requested', run_id: null, head_sha: 'd'.repeat(40) });
+      if (reason === 'missing-receipt') api.comments.pop();
+    }
+    // Modern claims use their ID timestamp even if comment time differs.
+    api.comments[0].created_at = new Date(Date.now() + CLAIM_EXPIRY).toISOString();
+    t.mock.timers.tick(CLAIM_EXPIRY - 1);
+    assert.equal((await api.request()).state, 'already-requested');
+    assert.ok(api.logs.includes(`seal: stranske/Ready#4104 forced restage already requested ${CLAIM_EXPIRY - 1}ms; expires in 1ms`));
+    assert.equal(api.dispatches.length, 1);
+    t.mock.timers.tick(1);
+    assert.equal((await api.request()).state, 'requested');
+    assert.equal(api.dispatches.length, 2);
+    assert.ok(api.logs.includes('seal: stranske/Ready#4104 claim stale, head unchanged; retrying (2/2)'));
+    assert.equal((await api.request()).state, 'exhausted');
+    assert.equal(api.dispatches.length, 2);
+  });
+}
+
+test('stray commenter claims cannot consume the forced-restage budget or latch a head', async t => {
+  const api = boundedRestageHarness(t);
+  await api.request();
+  api.comments.forEach(row => { row.user.login = 'stray-commenter'; });
+  // Two otherwise valid claims would exhaust the budget without author filtering.
+  api.comments.push({ ...api.comments[0] });
+  assert.equal((await api.request()).state, 'requested');
+  assert.equal(api.dispatches.length, 2);
+});
+
+for (const payload of ['{broken', '', 'null', '[]', '{"id":123}']) {
+  test(`malformed trusted claim marker is skipped with a warning: ${payload}`, async t => {
+    const api = boundedRestageHarness(t);
+    api.comments.push({ user: { login: 'writer' },
+      body: `<!-- maint71-forced-restage:stranske/Ready:${api.args.pr.head.sha} -->\nClaim: ${payload}` });
+    assert.equal((await api.request()).state, 'requested');
+    assert.ok(api.logs.includes('seal: stranske/Ready#4104 warning: malformed forced restage claim skipped'));
+    assert.equal(api.dispatches.length, 1);
+  });
+}
+
+test('configured trusted writer claims retain the forced-restage budget', async t => {
+  const previous = process.env.TRUSTED_REVIEW_RESOLUTION_ACTORS;
+  t.after(() => {
+    if (previous === undefined) delete process.env.TRUSTED_REVIEW_RESOLUTION_ACTORS;
+    else process.env.TRUSTED_REVIEW_RESOLUTION_ACTORS = previous;
+  });
+  process.env.TRUSTED_REVIEW_RESOLUTION_ACTORS = ' prior-writer ';
+  const api = boundedRestageHarness(t);
+  await api.request();
+  api.comments.forEach(row => { row.user.login = 'prior-writer'; });
+  api.args.pr.head.sha = 'e'.repeat(40);
+  await api.request(); // Current token's own login is trusted too.
+  api.args.pr.head.sha = 'f'.repeat(40);
+  assert.equal((await api.request()).state, 'exhausted');
+  assert.equal(api.dispatches.length, 2);
+});
+
+test('malformed receipt warns and falls back to claim-age expiry', async t => {
+  const { CLAIM_EXPIRY } = require('../maint71_merge_sync_prs');
+  const api = boundedRestageHarness(t);
+  await api.request();
+  api.comments[1].body = api.comments[1].body.split('\n')[0] + '\n{broken';
+  assert.equal((await api.request()).state, 'already-requested');
+  assert.ok(api.logs.includes('seal: stranske/Ready#4104 warning: malformed forced restage receipt skipped'));
+  t.mock.timers.tick(CLAIM_EXPIRY);
+  assert.equal((await api.request()).state, 'requested');
+  assert.equal(api.dispatches.length, 2);
+});
+
+for (const headOnly of [false, true]) {
+  test(`legacy claim without id expires from comment creation (head-only=${headOnly})`, async t => {
+    const { CLAIM_EXPIRY } = require('../maint71_merge_sync_prs');
+    const api = boundedRestageHarness(t);
+    const originalRetry = api.args.withRetry;
+    api.args.withRetry = callback => originalRetry(client => {
+      client.rest.repos.getCommit = async () => ({ data: { commit: {
+        verification: { verified: true, reason: 'valid' },
+        message: `Consumer-sync plan ID: sha256:plan\nSource commit: ${'a'.repeat(40)}`,
+      } } });
+      return callback(client);
+    });
+    api.comments.push({ user: { login: 'stranske-automation-bot' }, created_at: new Date(Date.now()).toISOString(),
+      body: `<!-- maint71-forced-restage:stranske/Ready:${api.args.pr.head.sha} -->` + (headOnly ? ''
+        : `\nClaim: ${JSON.stringify({ head_sha: api.args.pr.head.sha, plan_id: api.state.plan, source_commit: api.state.source })}`) });
+    assert.equal((await api.request()).state, 'already-requested');
+    assert.ok(api.logs.includes(`seal: stranske/Ready#4104 forced restage already requested 0ms; expires in ${CLAIM_EXPIRY}ms`));
+    t.mock.timers.tick(CLAIM_EXPIRY);
+    assert.equal((await api.request()).state, 'requested');
+    assert.equal(api.dispatches.length, 1);
+    assert.equal((await api.request()).state, 'exhausted');
+  });
+}

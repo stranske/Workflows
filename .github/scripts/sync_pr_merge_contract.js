@@ -1743,6 +1743,10 @@ function buildMarkdownSummary(report) {
       lines.push(`| ${status} | ${count} |`);
     }
   }
+  for (const result of report.results || []) {
+    const restage = result.gate_request?.forced_restage;
+    if (restage) lines.push('', `seal: ${result.owner ? `${result.owner}/` : ''}${result.repo}#${result.pr_number || result.pr} rerun refused; forced restage ${restage.state} run=${restage.run_id || 'unknown'}${restage.reason ? ` (${restage.reason})` : ''}`);
+  }
   lines.push('', 'Artifact: `sync-pr-merge-report`');
   return `${lines.join('\n')}\n`;
 }
