@@ -1318,13 +1318,17 @@ def test_round2_input_manifest_rejects_mismatched_source_commits(
 
 
 @pytest.mark.parametrize(
-    ("agent_proposals", "expected_status"),
+    ("agent_proposals", "expected_status", "expect_proposal"),
     [
-        ({}, "absent"),
-        ({"codex": {"proposed": True}}, "single-side"),
+        ({}, "absent", False),
+        # single-side has two shapes: the other agent's entry is missing (nothing is returned),
+        # or present without a proposal (the lone proposal is returned).
+        ({"codex": {"proposed": True}}, "single-side", False),
+        ({"codex": {"proposed": True}, "claude": {}}, "single-side", True),
         (
             {"codex": {"proposed": True}, "claude": {"proposed": False}},
             "deadlocked",
+            True,
         ),
         (
             {
@@ -1338,23 +1342,17 @@ def test_round2_input_manifest_rejects_mismatched_source_commits(
                 },
             },
             "deadlocked",
+            False,
         ),
     ],
 )
 def test_converge_meta_handles_absence_single_side_and_disagreement(
-    agent_proposals: dict[str, dict[str, object]], expected_status: str
+    agent_proposals: dict[str, dict[str, object]], expected_status: str, expect_proposal: bool
 ) -> None:
     proposal, status = runner.converge_meta(agent_proposals, {"codex", "claude"})
 
     assert status == expected_status
-    if expected_status in {"absent", "single-side"} or (
-        expected_status == "deadlocked"
-        and len(agent_proposals) == 2
-        and all(item.get("proposed") is True for item in agent_proposals.values())
-    ):
-        assert proposal is None
-    else:
-        assert proposal is not None
+    assert (proposal is not None) is expect_proposal
 
 
 def test_validate_reviewed_source_commit_rejects_bad_head_and_provenance(
