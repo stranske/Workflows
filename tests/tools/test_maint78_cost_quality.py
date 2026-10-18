@@ -144,11 +144,17 @@ def test_current_plan_allows_fast_screen_without_statistical_approval():
     assert plan["expected_non_pass_cases"] == 4 + mutants
     # only inputs the production prompt calls sufficient can score a judge fairly
     assert 0 < plan["evaluable_non_pass_cases"] <= plan["expected_non_pass_cases"]
-    assert 0 < plan["evaluable_pass_cases"] < plan["zero_error_false_fail_denominator"]
-    assert any("evaluable" in reason for reason in plan["approval_blockers"])
-    assert plan["zero_error_false_pass_denominator"] == 73
+    assert plan["evaluable_pass_cases"] >= plan["zero_error_false_fail_denominator"]  # 16 at 0.20
+    # the corpus now supplies every floor, so no corpus-size blocker remains; the one left is the
+    # missing paired production benchmark
+    assert not any("evaluable" in reason for reason in plan["approval_blockers"])
+    assert (
+        len(plan["approval_blockers"]) == 1
+        and "paired production API benchmark" in plan["approval_blockers"][0]
+    )
+    assert plan["zero_error_false_pass_denominator"] == 35  # 0.10 bound at 95% confidence
     assert plan["additional_non_pass_cases_for_best_case_gate"] == max(
-        0, 73 - plan["expected_non_pass_cases"]
+        0, 35 - plan["expected_non_pass_cases"]
     )
     # follow-up-required needs 3 (representation) and has 3; missing-acceptance-criterion needs 10
     # and is supplied by controlled-mutation cases (policy update 2026-10-18, issue #4113)
@@ -950,11 +956,13 @@ def test_controlled_mutation_cases_count_toward_the_false_pass_floor_and_are_rep
     corpus, registry, policy = _inputs()
     corpus = _real_only(corpus)
     real = build_plan(corpus, registry, policy)
-    plan = build_plan(_with_mutations(corpus, 69), registry, policy)
+    floor = real["zero_error_false_pass_denominator"]
+    needed = floor - real["real_non_pass_cases"]
+    plan = build_plan(_with_mutations(corpus, needed), registry, policy)
     assert real["controlled_mutation_non_pass_cases"] == 0
-    assert plan["controlled_mutation_non_pass_cases"] == 69
+    assert plan["controlled_mutation_non_pass_cases"] == needed
     assert plan["real_non_pass_cases"] == real["real_non_pass_cases"] == 4
-    assert plan["expected_non_pass_cases"] == 73
+    assert plan["expected_non_pass_cases"] == floor
     assert plan["additional_non_pass_cases_for_best_case_gate"] == 0
 
 
@@ -965,9 +973,10 @@ def test_mutation_cases_do_not_count_when_the_policy_turns_them_off():
     off["profiles"]["verifier-balanced"]["approval_stage"]["controlled_mutation"][
         "counts_toward_false_pass_bound"
     ] = False
-    plan = build_plan(_with_mutations(corpus, 69), registry, off)
+    floor = build_plan(corpus, registry, off)["zero_error_false_pass_denominator"]
+    plan = build_plan(_with_mutations(corpus, floor - 4), registry, off)
     assert plan["expected_non_pass_cases"] == 4
-    assert plan["additional_non_pass_cases_for_best_case_gate"] == 69
+    assert plan["additional_non_pass_cases_for_best_case_gate"] == floor - 4
 
 
 def test_mutation_cases_cannot_replace_real_non_pass_signal():
