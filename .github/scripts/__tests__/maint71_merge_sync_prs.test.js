@@ -30,7 +30,7 @@ const { classifySyncPrChecks } = require('../sync_pr_merge_contract');
 const refreshNow = Date.parse('2026-10-17T12:00:00Z');
 function refreshCanary(overrides = {}) {
   return { owner: 'stranske', repo: 'Ready', pr: 12, plan_id: 'plan-4026',
-    source_commit: 'a'.repeat(40), base_sha: 'b'.repeat(40), head_sha: 'c'.repeat(40),
+    source_commit: 'a'.repeat(40), base_sha: 'b'.repeat(40), default_branch_tip_sha: 'b'.repeat(40), head_sha: 'c'.repeat(40),
     check_status: 'success', active_review_thread_count: 0,
     head_observed_at: new Date(refreshNow - 60 * 60 * 1000).toISOString(),
     ...overrides };
@@ -54,6 +54,9 @@ workflows:
       ...overrides.actions,
     },
     repos: {
+      get: async () => ({ data: { default_branch: 'trunk' } }),
+      getBranch: async () => ({ data: { commit: { sha: 'b'.repeat(40) } } }),
+      ...overrides.repos,
       getCommit: async () => ({ data: { sha: 'a'.repeat(40) } }),
       getContent: async () => ({ data: { content: Buffer.from(JSON.stringify({
         canaries: ['stranske/Ready', 'stranske/Template'].map((repo) => ({ repo })),
@@ -100,7 +103,7 @@ for (const [state, change] of [
       inputs: { phase: 'canary', delivery_scope: 'full', scope_head_sha: 'a'.repeat(40),
         repos: 'stranske/Ready,stranske/Template', dry_run: 'false', force: 'false',
         ...(state === 'behind' ? { refresh_key: require('crypto').createHash('sha256')
-          .update(`stranske/Ready:${canary.base_sha}:${canary.head_sha}`).digest('hex') } : {}) } });
+          .update(`stranske/Ready:${canary.default_branch_tip_sha}:${canary.head_sha}`).digest('hex') } : {}) } });
     assert.match(api.summaries.join(''), /refresh_dispatched=1 held_plan=plan-4026/);
     assert.deepEqual(api.failures, []);
   });
@@ -127,7 +130,7 @@ test('staleness uses producer head age, with a strict six-hour boundary', () => 
 });
 
 test('canary refresh reasons prioritize blockers over age and retain legacy timestamp fallbacks', () => {
-  const blocked = refreshCanary({ mergeable_state: 'behind', base_sha: 'b'.repeat(40), head_sha: 'c'.repeat(40), check_status: 'checks_failed',
+  const blocked = refreshCanary({ mergeable_state: 'behind', base_sha: 'b'.repeat(40), default_branch_tip_sha: 'b'.repeat(40), head_sha: 'c'.repeat(40), check_status: 'checks_failed',
     active_review_thread_count: 1, head_observed_at: '2026-10-17T05:00:00Z' });
   assert.equal(canaryNeedsRefresh(blocked, refreshNow), 'behind');
   delete blocked.mergeable_state;
@@ -383,7 +386,7 @@ async function assertExecutorCanaryRefresh(t, state) {
       lease_expires_at: '2099-01-01T00:00:00Z', delivery_state: preseal ? 'staging' : 'sealed',
       sealed_at: observed, sealed_head_sha: head, review_started_at: observed,
     }) };
-  const dispatches = [], updates = [], summaries = [], failures = [], merges = [];
+  const dispatches = [], updates = [], summaries = [], failures = [], merges = [], tipReads = [];
   const github = { rest: {
     users: { getAuthenticated: async () => ({ data: { login: 'maint71-bot' } }) },
     pulls: {
@@ -404,6 +407,10 @@ async function assertExecutorCanaryRefresh(t, state) {
     },
     repos: {
       get: async () => ({ data: { default_branch: 'main' } }),
+      getBranch: async (params) => {
+        tipReads.push(params);
+        return { data: { commit: { sha: 'e'.repeat(40) } } };
+      },
       getCombinedStatusForRef: async () => ({ data: { statuses: preseal ? [{
         context: 'Gate / gate', state: 'failure',
         target_url: `https://github.com/${owner}/${repo}/actions/runs/4027`,
@@ -513,6 +520,13 @@ async function assertExecutorCanaryRefresh(t, state) {
     summary: { addRaw(text) { summaries.push(text); return this; }, async write() {} },
   } });
   const report = JSON.parse(fs.readFileSync(env.SYNC_PR_MERGE_REPORT_JSON, 'utf8'));
+  assert.equal(tipReads.length, candidate.mergeable_state === 'behind' ? 1 : 0,
+    'executor and final refresh pass share one live read, only for behind canaries');
+  if (tipReads.length) {
+    assert.deepEqual(tipReads[0], { owner, repo, branch: 'main' });
+    assert.equal(dispatches[0].inputs.refresh_key, require('crypto').createHash('sha256')
+      .update(`${repository}:${'e'.repeat(40)}:${head}`).digest('hex'));
+  }
   assert.deepEqual(failures, [], JSON.stringify(report.results));
   const row = report.results.find((row) => row.owner === owner && row.repo === repo
     && (state !== 'aged_green' || row.status === 'merged'));
@@ -1616,38 +1630,75 @@ test('an active promotion cannot erase prior producer success and restage its ca
 });
 
 
-test('base drift after source success refreshes once per observed base/head pair', async () => {
-  let runs = [producerRun()];
-  const api = refreshHarness({ actions: {
-    listWorkflowRuns: async () => ({ data: { workflow_runs: runs } }),
-  } });
-  const canary = refreshCanary({ mergeable_state: 'behind' });
-  assert.equal(canaryNeedsRefresh({ ...canary, refresh_state: {
-    sha: canary.source_commit, producer_succeeded: true } }), 'behind');
+test('live default-branch drift re-arms once while the PR base and head stay fixed', async () => {
+  let tip = 'b'.repeat(40);
+  const head = 'c'.repeat(40);
+  const keyFor = (value) => require('crypto').createHash('sha256')
+    .update(`stranske/Ready:${value}:${head}`).digest('hex');
+  const success = (key) => producerRun({
+    display_title: `${producerRun().display_title} drift=${key}`,
+  });
+  let runs = [success(keyFor(tip))];
+  const reads = [];
+  const api = refreshHarness({
+    repos: { getBranch: async (params) => {
+      reads.push(params);
+      return { data: { commit: { sha: tip } } };
+    } },
+    actions: { listWorkflowRuns: async () => ({ data: { workflow_runs: runs } }) },
+  });
+  const canary = refreshCanary({ mergeable_state: 'behind', base_sha: 'b'.repeat(40) });
   const refresh = () => refreshStableCanaries({ ...api, canaries: [canary] });
   await refresh();
-  assert.equal(api.dispatches.length, 1);
-  const key = api.dispatches[0].inputs.refresh_key;
-  assert.match(key, /^[a-f0-9]{64}$/);
-  runs = [producerRun({ display_title: `${producerRun().display_title} drift=${key}` })];
   await refresh();
-  assert.equal(api.dispatches.length, 1, 'same observed base/head must stay debounced');
-  canary.base_sha = 'd'.repeat(40);
+  assert.equal(api.dispatches.length, 0, 'success for T1 suppresses unchanged live tip');
+  tip = 'd'.repeat(40);
   await refresh();
-  assert.equal(api.dispatches.length, 2, 'new consumer base re-arms refresh');
-  assert.notEqual(api.dispatches[1].inputs.refresh_key, key);
+  assert.equal(api.dispatches.length, 1, 'new live tip T2 dispatches exactly once');
+  assert.equal(api.dispatches[0].inputs.refresh_key, keyFor(tip));
+  runs = [success(keyFor(tip))];
+  await refresh();
+  await refresh();
+  assert.equal(api.dispatches.length, 1, 'success for T2 suppresses all repeats');
+  assert.equal(canary.base_sha, 'b'.repeat(40), 'PR recorded base never moved');
+  assert.equal(canary.head_sha, head, 'PR head never moved');
+  assert.equal(reads.length, 5, 'one live branch read per behind canary per run');
+  assert.ok(reads.every((row) => row.branch === 'trunk' && row.repo === 'Ready'));
+  const consumerTipCache = new Map();
+  await refreshStableCanaries({ ...api, consumerTipCache, canaries: [canary, { ...canary }] });
+  assert.equal(reads.length, 6, 'multiple rows for a repo share a run-scoped read');
+  await refreshStableCanaries({ ...api, canaries: [refreshCanary()] });
+  assert.equal(reads.length, 6, 'healthy canary needs no live tip read');
   canary.head_sha = 'e'.repeat(40);
   runs = [producerRun({ status: 'queued', conclusion: null })];
   await refresh();
-  assert.equal(api.dispatches.length, 2, 'active writer must still hold a new identity');
+  assert.equal(api.dispatches.length, 1, 'active writer holds a new head identity');
   runs = [producerRun({ conclusion: 'failure' })];
   await refresh();
-  assert.equal(api.dispatches.length, 2, 'recent failure must still hold a new identity');
-  runs = [producerRun({ display_title: `${producerRun().display_title} drift=${api.dispatches[1].inputs.refresh_key}` })];
+  assert.equal(api.dispatches.length, 1, 'recent failure holds a new head identity');
+  runs = [success(keyFor(tip))];
   await refresh();
-  assert.equal(api.dispatches.length, 3, 'new consumer head re-arms refresh independently of base');
+  assert.equal(api.dispatches.length, 2, 'new head re-arms independently of live tip');
 });
 
 
 test('executor refreshes a behind canary after same-source producer success',
   async (t) => assertExecutorCanaryRefresh(t, 'producer_success_behind'));
+
+for (const failure of ['unreadable', 'invalid']) {
+  test(`behind canary with ${failure} live tip fails closed and caches failure`, async () => {
+    let reads = 0;
+    const api = refreshHarness({ repos: { getBranch: async () => {
+      reads++;
+      if (failure === 'unreadable') throw new Error('branch unavailable');
+      return { data: { commit: { sha: 'invalid' } } };
+    } } });
+    const canary = refreshCanary({ mergeable_state: 'behind' });
+    const result = await refreshStableCanaries({ ...api, canaries: [canary, { ...canary }] });
+    assert.equal(reads, 1);
+    assert.equal(api.dispatches.length, 0);
+    assert.equal(result.errors.length, 2);
+    assert.ok(result.errors.every((error) => error.startsWith('canary_refresh_tip_unreadable:')));
+    assert.equal(api.failures.length, 2);
+  });
+}

@@ -3185,10 +3185,12 @@ executor and the workflow's missing-candidate refresh use the same REST-history
 guard. The Maint 68 run title records the source SHA, actual candidate selection,
 and dry-run state; a successful full/auto producer for the same SHA and sorted
 candidate set suppresses further refreshes permanently for that immutable key.
-A behind canary adds the repository and observed consumer base/head SHA pair
+A behind canary adds the repository and current consumer default-branch tip/head SHA pair
 (as a SHA-256 `refresh_key`, recorded as `drift=` in the producer title).
 An older source-only success cannot suppress that new identity; a success for
-the same pair does. Unknown base/head identity fails closed. Active writers and
+the same pair does. The current tip is read from the branches API once per behind
+consumer per run and cached across refresh paths; the PR-recorded base SHA does
+not establish current drift. Unknown default-tip/head identity fails closed. Active writers and
 recent failures still hold new identities.
 Any active canary or promotion writer holds refresh, including a different plan.
 Failed producer retries use `CANARY_REFRESH_DEBOUNCE_MS` (six hours); the decision

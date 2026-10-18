@@ -21,15 +21,39 @@ function candidateSet(repositories) {
 
 function canaryDriftKey(canary) {
   if (canary.mergeable_state !== 'behind') return '';
-  if (!/^[a-f0-9]{40}$/.test(canary.base_sha || '')
+  if (!/^[a-f0-9]{40}$/.test(canary.default_branch_tip_sha || '')
     || !/^[a-f0-9]{40}$/.test(canary.head_sha || '')) {
-    throw new Error('canary_refresh_base_head_unknown');
+    throw new Error('canary_refresh_default_tip_head_unknown');
   }
   return require('crypto').createHash('sha256')
-    .update(`${canary.owner}/${canary.repo}:${canary.base_sha}:${canary.head_sha}`).digest('hex');
+    .update(`${canary.owner}/${canary.repo}:${canary.default_branch_tip_sha}:${canary.head_sha}`).digest('hex');
 }
 
-// Success is permanent for an immutable source/set/base/head. The window bounds retries
+// Only behind canaries need this extra live read. Cache the promise (including
+// failures) so the executor and final refresh pass observe one tip per repo/run.
+async function readCanaryDefaultTip({ canary, withRetry, consumerTipCache }) {
+  if (canary.mergeable_state !== 'behind') return;
+  const key = `${canary.owner}/${canary.repo}`;
+  if (!consumerTipCache.has(key)) {
+    consumerTipCache.set(key, (async () => {
+      const location = { owner: canary.owner, repo: canary.repo };
+      const branch = canary.default_branch || (await withRetry((client) =>
+        client.rest.repos.get(location))).data.default_branch;
+      if (!branch) throw new Error('canary_refresh_default_branch_unknown');
+      const { data } = await withRetry((client) => client.rest.repos.getBranch({
+        ...location, branch,
+      }));
+      const tip = data.commit?.sha;
+      if (!/^[a-f0-9]{40}$/.test(tip || '')) {
+        throw new Error('canary_refresh_default_tip_unknown');
+      }
+      return tip;
+    })());
+  }
+  canary.default_branch_tip_sha = await consumerTipCache.get(key);
+}
+
+// Success is permanent for an immutable source/set/default-tip/head. The window bounds retries
 // after failed producers; an in-flight writer never expires into a second writer.
 function canaryRefreshDecision({ runs, sha, candidates, defaultBranch = 'main', driftKey = '', now = Date.now() }) {
   const key = candidateSet(candidates).join(',');
@@ -298,13 +322,19 @@ async function routeCanaryReviewUpstream({ canary, manifestEntries, withRetry, c
 
 async function refreshStableCanaries({
   canaries, withRetry, context, core, manifestEntries, enabled, expectedCanaries,
-  refreshState, now = Date.now(),
+  refreshState, consumerTipCache = new Map(), now = Date.now(),
 }) {
   const counts = { red: 0, review_blocked: 0, stale: 0, refresh_dispatched: 0 };
   // Preserve every held plan's reasons, but refresh the full candidate set once.
   const plans = new Map();
   const errors = [];
   for (const canary of canaries) {
+    try {
+      await readCanaryDefaultTip({ canary, withRetry, consumerTipCache });
+    } catch (error) {
+      errors.push(`canary_refresh_tip_unreadable:${canary.owner}/${canary.repo}:${error.message}`);
+      continue;
+    }
     if (canary.check_status === 'checks_failed') counts.red++;
     if (canary.active_review_thread_count > 0) counts.review_blocked++;
     const reason = canaryNeedsRefresh(canary, now);
@@ -2398,11 +2428,13 @@ async function run({ github, context, core }) {
   }
 
   let refreshState;
+  const consumerTipCache = new Map();
   const getRefreshState = async (canary) => {
     if (!refreshState) refreshState = await readCanaryRefreshState({
       withRetry, context, expectedCanaries: expectedCanaryRepos,
     });
     if (!canary || canary.mergeable_state !== 'behind') return refreshState;
+    await readCanaryDefaultTip({ canary, withRetry, consumerTipCache });
     return canaryRefreshDecision({ runs: refreshState.runs, sha: refreshState.sha,
       candidates: refreshState.candidates, driftKey: canaryDriftKey(canary),
       defaultBranch: context.payload.repository?.default_branch || 'main' });
@@ -3728,7 +3760,7 @@ async function run({ github, context, core }) {
             withRetry });
         const canary = { owner, repo, pr: pr.number, plan_id: deliveryContext.plan_id,
           source_commit: deliveryContext.source_commit,
-          base_sha: pr.base?.sha, head_sha: pr.head.sha,
+          default_branch: pr.base?.repo?.default_branch, head_sha: pr.head.sha,
           mergeable_state: pr.mergeable_state, mergeable: pr.mergeable, check_status: classification.status,
           expected_preseal_gate_hold: expectedPresealGateHold,
           active_review_thread_count: activeReviewThreads,
@@ -4609,6 +4641,7 @@ async function run({ github, context, core }) {
 
   // Summary
   const canaryRefresh = await refreshStableCanaries({
+    consumerTipCache,
     canaries: stableCanaries, withRetry, context, core, manifestEntries,
     expectedCanaries: expectedCanaryRepos, refreshState,
     enabled: autoMerge && !dryRun && !resolutionOnly && !evidenceOnly,
