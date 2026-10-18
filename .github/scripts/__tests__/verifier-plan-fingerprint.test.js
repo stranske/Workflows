@@ -37,6 +37,7 @@ function githubMock(issues = []) {
     graphql: async () => ({
       repository: {
         pullRequest: {
+          repository: { nameWithOwner: 'stranske/Orchestrator' },
           closingIssuesReferences: {
             totalCount: issues.length,
             pageInfo: { hasNextPage: false },
@@ -73,7 +74,10 @@ test('criteria-only change produces a different plan fingerprint', async () => {
 });
 
 test('linked source issue criteria and lineage participate in the fingerprint', async () => {
-  const issue = (body) => ({ number: 675, title: 'Evidence contract', body });
+  const issue = (body) => ({
+    number: 675, title: 'Evidence contract', body,
+    repository: { nameWithOwner: 'stranske/Orchestrator' },
+  });
   const basePull = pull('<!-- meta:issue:675 -->\n\n## Tasks\n- [ ] Follow source requirements.\n\n## Acceptance Criteria\n- [ ] Source criteria verified.');
   const first = await verifierPlanSourceFingerprint({
     github: githubMock([issue('## Tasks\n- [ ] Keep the original task.\n\n## Acceptance Criteria\n- [ ] Verify current evidence.')]),
@@ -104,4 +108,35 @@ test('a known non-closing source issue is included and validated', async () => {
     pull: pull(pullBody, { body: `${pullBody}\n\n<!-- meta:issue:675 -->` }),
   });
   assert.notEqual(first, changed);
+});
+
+test('incomplete linked-issue pagination fails closed instead of hashing a partial source set', async () => {
+  const github = githubMock();
+  github.graphql = async () => ({
+    repository: {
+      pullRequest: {
+        repository: { nameWithOwner: 'stranske/Orchestrator' },
+        closingIssuesReferences: {
+          totalCount: 21,
+          pageInfo: { hasNextPage: true },
+          nodes: Array.from({ length: 20 }, (_, index) => ({
+            number: index + 1,
+            title: `Issue ${index + 1}`,
+            body: '## Tasks\n- [ ] Work\n\n## Acceptance Criteria\n- [ ] Verify',
+            repository: { nameWithOwner: 'stranske/Orchestrator' },
+          })),
+        },
+      },
+    },
+  });
+
+  await assert.rejects(
+    verifierPlanSourceFingerprint({
+      github,
+      owner: 'stranske',
+      repo: 'Orchestrator',
+      pull: pull('## Tasks\n- [ ] Work\n\n## Acceptance Criteria\n- [ ] Verify'),
+    }),
+    /cannot prove complete linked-issue coverage/,
+  );
 });
