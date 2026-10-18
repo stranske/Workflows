@@ -221,5 +221,12 @@ def test_the_failure_message_can_say_measured_under_an_unusable_name(guard):
 def test_the_downloaded_matrix_payload_layout_is_probed(guard):
     """The downloaded artifact starts at coverage/, not artifacts/coverage/."""
     text = guard.read_text(encoding="utf-8")
-    assert '"coverage_artifacts/payload/coverage/runtimes/3.12/coverage.json"' in text
-    assert '"coverage_artifacts/payload/coverage/runtimes/3.13/coverage.json"' in text
+    pins = dict(
+        line.split("=", 1)
+        for line in (REPO_ROOT / ".github/workflows/ci-python-versions.env")
+        .read_text()
+        .splitlines()
+        if line and not line.startswith("#")
+    )
+    for runtime in pins["CI_PYTHON_VERSIONS"].split(","):
+        assert f'"coverage_artifacts/payload/coverage/runtimes/{runtime}/coverage.json"' in text
