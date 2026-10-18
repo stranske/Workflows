@@ -2504,13 +2504,14 @@ def test_reference_pack_materialization_uses_askpass_for_sha_refs(
 
     def fake_run_git(command: list[str], env: dict[str, str] | None = None) -> None:
         commands.append(command)
+        if command[:2] == ["git", "clone"] or command[3:5] == ["fetch", "origin"]:
+            assert env is not None
+            assert env["GIT_ASKPASS_PASSWORD"] == "secret-token"
         if command[:2] == ["git", "clone"]:
             clone_dir = Path(command[-1])
             source = clone_dir / "docs"
             source.mkdir(parents=True)
             (source / "guide.md").write_text("guide", encoding="utf-8")
-            assert env is not None
-            assert env["GIT_ASKPASS_PASSWORD"] == "secret-token"
 
     monkeypatch.setattr(runner_core, "_run_git", fake_run_git)
 
