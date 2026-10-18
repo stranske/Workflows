@@ -50,25 +50,32 @@ function githubMock(issues = []) {
   };
 }
 
+function fingerprint(options) {
+  return verifierPlanSourceFingerprint({
+    ...options,
+    withRetry: options.withRetry || ((callback) => callback(options.github)),
+  });
+}
+
 test('plan fingerprint ignores unrelated volatile PR body text', async () => {
-  const first = await verifierPlanSourceFingerprint({
+  const first = await fingerprint({
     github: githubMock(), owner: 'stranske', repo: 'Orchestrator', pull: pull(localBody('All criteria are covered.')),
   });
-  const statusOnly = await verifierPlanSourceFingerprint({
+  const statusOnly = await fingerprint({
     github: githubMock(), owner: 'stranske', repo: 'Orchestrator', pull: pull(localBody('All criteria are covered.', 'checks refreshed')),
   });
   assert.equal(first, statusOnly);
 });
 
 test('criteria-only change produces a different plan fingerprint', async () => {
-  const first = await verifierPlanSourceFingerprint({
+  const first = await fingerprint({
     github: githubMock(), owner: 'stranske', repo: 'Orchestrator', pull: pull(localBody('All criteria are covered.')),
   });
-  const changed = await verifierPlanSourceFingerprint({
+  const changed = await fingerprint({
     github: githubMock(), owner: 'stranske', repo: 'Orchestrator', pull: pull(localBody('All criteria are covered with a current-head receipt.')),
   });
   assert.notEqual(first, changed);
-  assert.equal(changed, await verifierPlanSourceFingerprint({
+  assert.equal(changed, await fingerprint({
     github: githubMock(), owner: 'stranske', repo: 'Orchestrator', pull: pull(localBody('All criteria are covered with a current-head receipt.')),
   }));
 });
@@ -79,11 +86,11 @@ test('linked source issue criteria and lineage participate in the fingerprint', 
     repository: { nameWithOwner: 'stranske/Orchestrator' },
   });
   const basePull = pull('<!-- meta:issue:675 -->\n\n## Tasks\n- [ ] Follow source requirements.\n\n## Acceptance Criteria\n- [ ] Source criteria verified.');
-  const first = await verifierPlanSourceFingerprint({
+  const first = await fingerprint({
     github: githubMock([issue('## Tasks\n- [ ] Keep the original task.\n\n## Acceptance Criteria\n- [ ] Verify current evidence.')]),
     owner: 'stranske', repo: 'Orchestrator', pull: basePull,
   });
-  const changedSource = await verifierPlanSourceFingerprint({
+  const changedSource = await fingerprint({
     github: githubMock([issue('## Tasks\n- [ ] Keep the original task.\n\n## Acceptance Criteria\n- [ ] Verify current evidence and provenance.')]),
     owner: 'stranske', repo: 'Orchestrator', pull: basePull,
   });
@@ -96,14 +103,14 @@ test('a known non-closing source issue is included and validated', async () => {
   github.rest.issues.get = async () => ({
     data: { number: 675, title: 'Source requirements', body: '## Tasks\n- [ ] Build it.\n\n## Acceptance Criteria\n- [ ] Prove it.' },
   });
-  const first = await verifierPlanSourceFingerprint({
+  const first = await fingerprint({
     github, owner: 'stranske', repo: 'Orchestrator',
     pull: pull(pullBody, { body: `${pullBody}\n\n<!-- meta:issue:675 -->` }),
   });
   github.rest.issues.get = async () => ({
     data: { number: 675, title: 'Source requirements', body: '## Tasks\n- [ ] Build it.\n\n## Acceptance Criteria\n- [ ] Prove current-head behavior.' },
   });
-  const changed = await verifierPlanSourceFingerprint({
+  const changed = await fingerprint({
     github, owner: 'stranske', repo: 'Orchestrator',
     pull: pull(pullBody, { body: `${pullBody}\n\n<!-- meta:issue:675 -->` }),
   });
@@ -131,7 +138,7 @@ test('incomplete linked-issue pagination fails closed instead of hashing a parti
   });
 
   await assert.rejects(
-    verifierPlanSourceFingerprint({
+    fingerprint({
       github,
       owner: 'stranske',
       repo: 'Orchestrator',

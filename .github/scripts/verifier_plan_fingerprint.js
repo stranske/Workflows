@@ -37,8 +37,12 @@ function planSourceRow(sourceType, repository, number, title, body) {
   };
 }
 
-async function fetchClosingIssueSources({ github, owner, repo, pullNumber }) {
-  const response = await github.graphql(CLOSING_ISSUES_QUERY, { owner, repo, prNumber: pullNumber });
+async function fetchClosingIssueSources({ github, withRetry, owner, repo, pullNumber }) {
+  // github/withRetry are supplied by the workflow's createTokenAwareRetry
+  // wrapper so GraphQL and REST reads share the existing credential controls.
+  const response = await withRetry((client) =>
+    client.graphql(CLOSING_ISSUES_QUERY, { owner, repo, prNumber: pullNumber })
+  );
   const connection = response?.repository?.pullRequest?.closingIssuesReferences;
   if (!Array.isArray(connection?.nodes)) {
     throw new Error('Verifier plan-source fingerprint could not read linked issue sources.');
@@ -69,7 +73,10 @@ async function fetchClosingIssueSources({ github, owner, repo, pullNumber }) {
   };
 }
 
-async function verifierPlanSourceFingerprint({ github, owner, repo, pull }) {
+async function verifierPlanSourceFingerprint({ github, withRetry, owner, repo, pull }) {
+  if (typeof withRetry !== 'function') {
+    throw new Error('Verifier plan-source fingerprint requires the token-aware API wrapper.');
+  }
   const pullNumber = Number(pull?.number);
   if (!Number.isSafeInteger(pullNumber) || pullNumber <= 0 || typeof pull?.body !== 'string') {
     throw new Error('Verifier plan-source fingerprint requires a fresh pull request body.');
@@ -78,7 +85,7 @@ async function verifierPlanSourceFingerprint({ github, owner, repo, pull }) {
   const sourceContext = resolvePrSourceContext(pull);
   const repository = `${owner}/${repo}`;
   const pullSource = planSourceRow('pull_request', repository, pullNumber, pull.title, pull.body);
-  const discovery = await fetchClosingIssueSources({ github, owner, repo, pullNumber });
+  const discovery = await fetchClosingIssueSources({ github, withRetry, owner, repo, pullNumber });
   if (discovery.repository !== repository) {
     throw new Error('Verifier plan-source fingerprint repository binding changed.');
   }
@@ -90,11 +97,11 @@ async function verifierPlanSourceFingerprint({ github, owner, repo, pull }) {
     sourceContext.issueNumber > 0 &&
     !issues.some((issue) => issue.repository === repository && issue.number === sourceContext.issueNumber)
   ) {
-    const { data: issue } = await github.rest.issues.get({
+    const { data: issue } = await withRetry((client) => client.rest.issues.get({
       owner,
       repo,
       issue_number: sourceContext.issueNumber,
-    });
+    }));
     if (
       !issue || issue.number !== sourceContext.issueNumber || issue.pull_request ||
       typeof issue.title !== 'string' || !(typeof issue.body === 'string' || issue.body === null)

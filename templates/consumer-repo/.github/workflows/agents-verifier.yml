@@ -149,14 +149,17 @@ jobs:
               try {
                 const digest = await verifierPlanSourceFingerprint({
                   github,
+                  withRetry,
                   owner: context.repo.owner,
                   repo: context.repo.repo,
                   pull,
                 });
                 core.setOutput('plan_source_sha256', digest);
+                return true;
               } catch (err) {
                 core.setFailed(`Failed to fingerprint verifier plan sources: ${err.message}`);
                 core.setOutput('should_run', 'false');
+                return false;
               }
             }
 
@@ -182,8 +185,7 @@ jobs:
                   return;
                 }
 
-                await setPlanSourceFingerprint(pr);
-                if (core.isFailed()) return;
+                if (!(await setPlanSourceFingerprint(pr))) return;
 
                 const logMsg = `Manual dispatch: PR #${prNumber}, mode=${mode}`;
                 core.info(`${logMsg}, model=${model}, model2=${model2}, provider=${provider}`);
@@ -245,8 +247,7 @@ jobs:
               core.setOutput('should_run', 'false');
               return;
             }
-            await setPlanSourceFingerprint(currentPr);
-            if (core.isFailed()) return;
+            if (!(await setPlanSourceFingerprint(currentPr))) return;
 
             core.info(`Verifier triggered with mode: ${mode}`);
             core.setOutput('should_run', 'true');
