@@ -4,6 +4,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+from scripts import check_template_drift
 from scripts.check_template_drift import (
     AllowlistEntry,
     TemplateDriftAllowlist,
@@ -13,7 +15,9 @@ from scripts.check_template_drift import (
     drift_between,
     main,
     normalized_sha256,
+    read_allowlist,
     read_manifest_workflow_names,
+    render_summary,
 )
 
 
@@ -438,6 +442,68 @@ def test_check_pairs_reports_in_sync_status(tmp_path: Path) -> None:
     assert len(results) == 1
     assert results[0].status == "in_sync"
     assert results[0].reason == ""
+
+
+def test_read_allowlist_and_render_summary_cover_review_metadata(tmp_path: Path) -> None:
+    allowlist_path = tmp_path / "allowlist.ini"
+    allowlist_path.write_text(
+        """
+[pair.demo]
+main = .github/workflows/main.yml
+template = templates/consumer-repo/.github/workflows/main.yml
+main_sha256 = main
+template_sha256 = template
+divergence = intentional
+divergence_reviewed = 2026-10-10
+fingerprint_refreshed = 2026-10-10
+""",
+        encoding="utf-8",
+    )
+
+    allowlist = read_allowlist(allowlist_path)
+    assert allowlist.entries[0].reason == "intentional"
+    assert (
+        check_template_drift._days_since(
+            "2026-10-10", today=check_template_drift.date(2026, 10, 17)
+        )
+        == 7
+    )
+    assert check_template_drift._days_since("not-a-date") is None
+
+    summary = render_summary(
+        [
+            check_template_drift.PairResult("main.yml", "template.yml", "in_sync", "a", "b"),
+            check_template_drift.PairResult(
+                "drift.yml", "template.yml", "drift", "a", "b", "changed"
+            ),
+            check_template_drift.PairResult(
+                "allowed.yml",
+                "template.yml",
+                "allowlisted",
+                "a",
+                "b",
+                "intentional",
+                "2026-10-10",
+                "2026-10-10",
+            ),
+        ]
+    )
+    assert "unallowlisted drift: 1" in summary
+    assert "pairs where divergence_reviewed == fingerprint_refreshed: 1 of 1" in summary
+    assert "7d ago" in summary
+
+
+def test_main_writes_summary_and_prints_allowlist_template(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    _write_pair(tmp_path, "agents-demo.yml", "one\n", "two\n")
+    summary_path = tmp_path / "summary.md"
+
+    assert main(["--repo-root", str(tmp_path), "--summary", str(summary_path)]) == 1
+    assert "Unallowlisted Drift" in summary_path.read_text(encoding="utf-8")
+
+    assert main(["--repo-root", str(tmp_path), "--print-allowlist-template"]) == 0
+    assert "[pair.1]" in capsys.readouterr().out
 
 
 def _write_pair(tmp_path: Path, filename: str, main: str, template: str) -> None:

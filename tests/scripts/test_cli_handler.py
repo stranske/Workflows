@@ -11,6 +11,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
+from scripts import cli_handler
 from scripts.cli_handler import (
     _confirm_issue_creation,
     _load_allowed_scopes,
@@ -19,7 +20,81 @@ from scripts.cli_handler import (
     _parse_allowlist,
     _parse_labels,
     _parse_scopes,
+    main,
 )
+
+
+def _main_args(*extra: str) -> list[str]:
+    return ["--repo", "owner/repo", "--allowlist", "owner/repo", *extra]
+
+
+def _with_token(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("GITHUB_TOKEN", "token")
+
+
+def test_main_rejects_empty_allowlist_wrong_repository_and_missing_token(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    assert main(["--repo", "owner/repo"]) == 1
+    assert "allowlist is empty" in capsys.readouterr().err
+
+    assert main(["--repo", "owner/repo", "--allowlist", "someone/else"]) == 1
+    assert "is not in the allowlist" in capsys.readouterr().err
+
+    monkeypatch.delenv("GITHUB_TOKEN", raising=False)
+    assert main(_main_args("--title", "demo")) == 1
+    assert "Missing GitHub token" in capsys.readouterr().err
+
+
+def test_main_validates_option_combinations_before_network_calls(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    _with_token(monkeypatch)
+    assert main(_main_args("--check-issue", "1", "--check-unique", "2")) == 1
+    assert "Choose only one" in capsys.readouterr().err
+    assert main(_main_args("--expected-issue-number", "1", "--title", "demo")) == 1
+    assert "requires --check-issue" in capsys.readouterr().err
+    assert main(_main_args("--show-source", "--confirm-source", "--title", "demo")) == 1
+    assert "Choose only one" in capsys.readouterr().err
+
+
+def test_main_supports_duplicate_unique_list_and_dry_run_modes(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    _with_token(monkeypatch)
+    monkeypatch.setattr(cli_handler, "check_issue_for_duplicate", lambda *args, **kwargs: None)
+    assert main(_main_args("--check-issue", "7")) == 1
+    assert "Duplicate detection comment not found" in capsys.readouterr().out
+
+    monkeypatch.setattr(cli_handler, "check_issue_for_no_duplicate", lambda *args, **kwargs: True)
+    assert main(_main_args("--check-unique", "7")) == 0
+    assert "Unique issue accepted" in capsys.readouterr().out
+
+    match = MagicMock(number=9, title="Matching", url=None)
+    monkeypatch.setattr(cli_handler, "collect_matching_issues", lambda *args, **kwargs: [match])
+    assert main(_main_args("--list-issues", "--find-issue", "match")) == 0
+    assert "#9 Matching (unknown)" in capsys.readouterr().out
+
+    assert main(_main_args("--title", "Demo", "--body", "Body", "--dry-run")) == 0
+    assert "'title': 'Demo'" in capsys.readouterr().out
+
+
+def test_main_creates_issue_after_confirmation(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    _with_token(monkeypatch)
+    monkeypatch.setattr(cli_handler, "_confirm_issue_creation", lambda *args, **kwargs: True)
+    monkeypatch.setattr(
+        cli_handler,
+        "api_client",
+        MagicMock(
+            create_issue=lambda *args, **kwargs: {"html_url": "https://example.test/issues/1"}
+        ),
+    )
+
+    assert main(_main_args("--title", "Demo", "--yes")) == 0
+    assert "Issue created: https://example.test/issues/1" in capsys.readouterr().out
+
 
 # =============================================================================
 # _parse_labels tests
