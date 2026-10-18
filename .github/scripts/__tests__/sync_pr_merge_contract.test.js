@@ -3649,7 +3649,11 @@ test(`maint71 clears stale ready labels and preserves hold in ${integrationOnly 
       repository: { pullRequest: { reviewThreads: { pageInfo: { hasNextPage: false }, nodes: [] } } },
     }),
     rest: {
-      actions: { createWorkflowDispatch: async (args) => {
+      actions: { listWorkflowRuns: async ({ event }) => ({ data: { workflow_runs:
+        event === 'pull_request' || !gateDispatches.length ? [] : [{ id: 4105,
+          event: 'workflow_dispatch', head_sha: headSha, head_branch: candidate.head.ref,
+          status: 'queued', created_at: new Date().toISOString() }] } }),
+        createWorkflowDispatch: async (args) => {
         gateDispatches.push(args);
         if (dispatchStatus !== 204) throw Object.assign(new Error('legacy Gate'), { status: dispatchStatus });
         return { status: 204 };
@@ -3745,9 +3749,11 @@ test(`maint71 clears stale ready labels and preserves hold in ${integrationOnly 
     }] : []);
     if (integrationOnly) {
       assert.deepEqual(report.results[0].gate_request, {
-        mode: dispatchStatus === 204 ? 'dispatch' : 'label-fallback', status: dispatchStatus,
+        // Sealing succeeded even when Gate recovery failed: stay awaiting sealed checks.
+        ...(dispatchStatus === 204 ? { mode: 'dispatch', status: 204, run_id: 4105 }
+          : { mode: 'failed', status: dispatchStatus, reason: 'legacy Gate' }),
       });
-      assert.equal(report.summary.gate_label_fallback, dispatchStatus === 204 ? 0 : 1);
+      assert.equal(report.summary.gate_label_fallback, 0);
       assert.match(mutations[0].body, /"delivery_state":"sealed"/);
       assert.match(mutations[0].body, /integration_checks_required/);
       assert.match(mutations[0].body, new RegExp(latestLease));
