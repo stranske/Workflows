@@ -35,6 +35,20 @@ from tools.model_eval_snapshots import snapshot_digest
 DIFF_HEADING = "## PR Diff (full)"
 SUMMARY_HEADING = "## PR Diff Summary"
 MUTATION = "drop-named-file"
+MUTATION_CI = "fail-ci-row"
+CATEGORY_DROP = "missing-acceptance-criterion"
+CATEGORY_CI = "ci-failure-disqualifier"
+CI_RULE = "a CI workflow concluding `failure` disqualifies a PASS verdict"
+_CI_ROW = re.compile(
+    r"^\| (?P<wf>[\w.-]+\.ya?ml) \| success \| (?P<run>\[run\]\([^)]*\)) \| (?P<jobs>.*) \|$", re.M
+)
+_CI_JOBS = re.compile(r"^success: (\d+)")
+_TASKS_SECTION = re.compile(r"^#### Tasks\n(.*?)(?=^#{3,4} |\Z)", re.M | re.S)
+_CHANGE_VERB = re.compile(
+    r"\b(add|adds|extend|update|replace|remove|implement|create|change|fix|wire|restore|rename|"
+    r"move|introduce|define|write|emit|enforce|reject|handle)\b",
+    re.I,
+)
 _REQUIREMENT_SECTION = re.compile(
     r"^#### (?:Tasks|Acceptance Criteria)\n(.*?)(?=^#{3,4} |\Z)", re.M | re.S
 )
@@ -82,6 +96,26 @@ def diff_blocks(body: str) -> list[tuple[str, str]]:
     return blocks
 
 
+def _is_new_file(block_text: str) -> bool:
+    head = block_text.split("\n@@", 1)[0]
+    return "--- /dev/null" in head or "\nnew file mode" in head
+
+
+def _requires_the_change(path: str, text: str, tasks: str, requirements: str) -> bool:
+    """Whether dropping this file's diff makes a stated requirement objectively unmet.
+
+    A NEWLY ADDED file named anywhere in the requirements (or defining a test identifier they name)
+    no longer exists in the change. A MODIFIED non-test file counts only when a Tasks line names it
+    together with a change verb ("extend X in path"); a modified file merely named in a run command
+    or acceptance bullet may already satisfy the requirement from the base commit, so it is skipped.
+    """
+    if _is_new_file(text):
+        return path in requirements or any(i in requirements for i in _identifiers(text))
+    if _is_test_path(path):
+        return False
+    return any(path in line and _CHANGE_VERB.search(line) for line in tasks.splitlines())
+
+
 def _identifiers(block_text: str) -> set[str]:
     return {a or b for a, b in _TEST_ID.findall(block_text)}
 
@@ -116,12 +150,10 @@ def mutate_drop_named_file(snapshot: dict[str, Any]) -> list[dict[str, Any]]:
         return []
     # Only text under Tasks / Acceptance Criteria is a requirement; Scope and context may merely mention files.
     requirements = "\n".join(_REQUIREMENT_SECTION.findall(plan))
+    tasks = "\n".join(_TASKS_SECTION.findall(plan))
     mutants = []
     for path, text in blocks:
-        named = path in requirements or any(
-            identifier in requirements for identifier in _identifiers(text)
-        )
-        if not named:
+        if not _requires_the_change(path, text, tasks, requirements):
             continue
         counts = _FILE_LINE.search(
             "\n".join(line for line in summary.splitlines() if f"- {path} " in line)
@@ -178,6 +210,63 @@ def mutate_drop_named_file(snapshot: dict[str, Any]) -> list[dict[str, Any]]:
         if validate(snapshot, mutated, path):
             mutants.append(mutated)
     return mutants
+
+
+def mutate_fail_ci(snapshot: dict[str, Any]) -> list[dict[str, Any]]:
+    """The ``fail-ci-row`` mutant: one passing CI row of the context becomes a failure.
+
+    The verifier input itself states the rule ("a CI workflow concluding `failure` disqualifies a
+    PASS verdict"), so the mutant is objectively NON_PASS. Only offered when the input states that
+    rule, has no failing row already, and has at least one passing workflow row to flip. The diff,
+    plan text and every other row are untouched.
+    """
+    context = snapshot.get("context", "")
+    head = context.split("## Plan sources", 1)[0]
+    if CI_RULE not in head or re.search(r"^\| [\w.-]+\.ya?ml \| (?!success)", head, re.M):
+        return []
+    rows = list(_CI_ROW.finditer(head))
+    if not rows:
+        return []
+    row = next((r for r in rows if r.group("wf").startswith("pr-00-gate")), rows[0])
+    jobs = row.group("jobs")
+    counted = _CI_JOBS.match(jobs)
+    if counted and int(counted.group(1)) >= 1:
+        jobs = _CI_JOBS.sub(f"failure: 1, success: {int(counted.group(1)) - 1}", jobs, count=1)
+    new_row = f"| {row.group('wf')} | failure | {row.group('run')} | {jobs} |"
+    new_head = head[: row.start()] + new_row + head[row.end() :]
+    mutated_context = new_head + context[len(head) :]
+    mutated = {
+        **snapshot,
+        "context": mutated_context,
+        "input_kind": "controlled_defect",
+        "mutation": MUTATION_CI,
+        "mutation_path": row.group("wf"),
+        "mutation_note": (
+            f"Changed the CI row for `{row.group('wf')}` from success to failure; the input states "
+            "that a failing CI workflow disqualifies a PASS verdict. Nothing else changed."
+        ),
+        "source_context_sha256": _sha(context),
+        "adjudication_rationale": (
+            f"Controlled variant reports `{row.group('wf')}` as failed, which the verifier input "
+            "itself says disqualifies a PASS verdict."
+        ),
+        "adjudicated_by": "controlled-mutation generator (machine ground truth)",
+    }
+    mutated["sha256"] = _digest(mutated)
+    return [mutated] if validate_ci(snapshot, mutated) else []
+
+
+def validate_ci(original: dict[str, Any], mutated: dict[str, Any]) -> bool:
+    """Exactly one table row differs; the rest of the input, including the diff, is identical."""
+    a, b = original["context"].splitlines(), mutated["context"].splitlines()
+    changed = [i for i, (x, y) in enumerate(zip(a, b, strict=False)) if x != y]
+    return (
+        len(a) == len(b)
+        and len(changed) == 1
+        and "| failure |" in b[changed[0]]
+        and original.get("diff") == mutated.get("diff")
+        and original.get("diff_summary") == mutated.get("diff_summary")
+    )
 
 
 def validate(original: dict[str, Any], mutated: dict[str, Any], removed_path: str) -> bool:
@@ -264,11 +353,24 @@ def snapshots_from_artifacts(
     return out
 
 
-MAX_PER_SOURCE = 3  # mutants of one PR share almost all their input: not independent cases
+MAX_PER_SOURCE = 2  # drop-file mutants per PR (plus one fail-ci): they share nearly all their input
 
 
 def _is_test_path(path: str) -> bool:
     return "/tests/" in f"/{path}" or "__tests__" in path or Path(path).name.startswith("test_")
+
+
+def _mutation_case(case: dict[str, Any], case_id: str, category: str, mutant: dict[str, Any]):
+    return {
+        "case_id": case_id,
+        "repo": case["repo"],
+        "pr": case["pr"],
+        "expected_verdict": "NON_PASS",
+        "category": category,
+        "provenance": "controlled-mutation",
+        "source_case_id": case["case_id"],
+        "production_snapshot": mutant,
+    }
 
 
 def generate_from_snapshots(
@@ -289,17 +391,10 @@ def generate_from_snapshots(
         )[:max_per_source]
         for index, mutant in enumerate(mutants):
             out.append(
-                {
-                    "case_id": f"{case_id}-mut-drop{index + 1}",
-                    "repo": case["repo"],
-                    "pr": case["pr"],
-                    "expected_verdict": "NON_PASS",
-                    "category": "missing-acceptance-criterion",
-                    "provenance": "controlled-mutation",
-                    "source_case_id": case_id,
-                    "production_snapshot": mutant,
-                }
+                _mutation_case(case, f"{case_id}-mut-drop{index + 1}", CATEGORY_DROP, mutant)
             )
+        for mutant in mutate_fail_ci(case["production_snapshot"]):
+            out.append(_mutation_case(case, f"{case_id}-mut-ci", CATEGORY_CI, mutant))
     return out
 
 
@@ -309,15 +404,14 @@ def generate(corpus: dict[str, Any]) -> list[dict[str, Any]]:
     return generate_from_snapshots(screen)
 
 
-def materialize_mutant(source_case: dict[str, Any], path: str) -> dict[str, Any]:
-    """Rebuild one mutant snapshot from its source case and the dropped path (deterministic)."""
-    matches = [
-        m
-        for m in mutate_drop_named_file(source_case["production_snapshot"])
-        if m["mutation_path"] == path
-    ]
+def materialize_mutant(
+    source_case: dict[str, Any], path: str, mutation: str = MUTATION
+) -> dict[str, Any]:
+    """Rebuild one mutant snapshot from its source case, mutation type and path (deterministic)."""
+    make = mutate_fail_ci if mutation == MUTATION_CI else mutate_drop_named_file
+    matches = [m for m in make(source_case["production_snapshot"]) if m["mutation_path"] == path]
     if len(matches) != 1:
-        raise ValueError(f"cannot reproduce the {MUTATION} mutant for {path}")
+        raise ValueError(f"cannot reproduce the {mutation} mutant for {path}")
     return matches[0]
 
 
@@ -330,7 +424,7 @@ def load_case(case: dict[str, Any], root: Path = Path(".")) -> dict[str, Any]:
     recipe = case.get("mutation_recipe")
     if recipe:
         source = load_case({"snapshot_ref": recipe["source_snapshot_ref"]}, root)
-        snapshot = materialize_mutant(source, recipe["path"])
+        snapshot = materialize_mutant(source, recipe["path"], recipe.get("mutation", MUTATION))
         return {
             **{k: v for k, v in case.items() if k != "mutation_recipe"},
             "production_snapshot": snapshot,
@@ -376,7 +470,7 @@ def write_corpus(
                 (existing.get(case["source_case_id"]) or {}).get("snapshot_ref")
                 or f"{snapshot_dir.as_posix()}/{case['source_case_id']}.json.gz",
             ),
-            "mutation": MUTATION,
+            "mutation": case["production_snapshot"]["mutation"],
             "path": case["production_snapshot"]["mutation_path"],
         }
         corpus["cases"].append(record)

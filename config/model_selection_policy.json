@@ -86,7 +86,7 @@
         "stability_days": 30,
         "staging_expiry_days": 60,
         "harvest_window_days": 60,
-        "max_corpus_size": 150,
+        "max_corpus_size": 200,
         "auto_promote_confidence": "high",
         "category_caps": {
           "clean-pass": 40,
