@@ -21,8 +21,9 @@ const {
   devToolBaseRefreshResult, ensureExactHeadReviewRequest, hasCompleteReviewThreadEvidence,
   parseReviewReassessmentRequest, runReviewReassessment, run, acceptanceCommentLocation,
   canaryNeedsRefresh, refreshStableCanaries, STALE_CANARY_HOURS,
-  isExpectedPresealGateFailure,
+  isExpectedPresealGateFailure, legacyStatusAsCheck,
 } = require('../maint71_merge_sync_prs');
+const { classifySyncPrChecks } = require('../sync_pr_merge_contract');
 
 const refreshNow = Date.parse('2026-10-17T12:00:00Z');
 function refreshCanary(overrides = {}) {
@@ -140,9 +141,15 @@ test('canary refresh reasons prioritize blockers over age and retain legacy time
 test('only complete exact-head staging Gate evidence suppresses the base-refresh loop', async () => {
   const head = 'a'.repeat(40);
   const runId = 123456;
-  const gate = { name: 'Gate / gate', status: 'completed', conclusion: 'failure',
-    head_sha: head, details_url: `https://github.com/stranske/Ready/actions/runs/${runId}` };
-  const classification = { status: 'checks_failed', failed: [gate] };
+  const gateStatus = { context: 'Gate / gate', state: 'failure',
+    target_url: `https://github.com/stranske/Ready/actions/runs/${runId}` };
+  const gate = legacyStatusAsCheck(gateStatus);
+  const allChecks = [gate];
+  const classification = classifySyncPrChecks({
+    checkRuns: allChecks, requiredContexts: ['Gate / gate'],
+  });
+  assert.equal(gate.details_url, gateStatus.target_url);
+  assert.equal(classification.status, 'checks_failed');
   const jobs = [
     { id: 1, name: 'classify changed paths', status: 'completed', conclusion: 'failure' },
     { id: 2, name: 'gate-summary', status: 'completed', conclusion: 'failure' },
@@ -183,7 +190,7 @@ test('only complete exact-head staging Gate evidence suppresses the base-refresh
   });
   const args = { owner: 'stranske', repo: 'Ready', headSha: head, deliveryState: 'staging',
     deliveryRecord: { delivery_state: 'staging', head_observed_sha: head },
-    classification, allChecks: [gate] };
+    classification, allChecks };
   assert.equal(await isExpectedPresealGateFailure({ ...args, withRetry: makeRetry() }), true);
   assert.equal(await isExpectedPresealGateFailure({ ...args,
     withRetry: makeRetry({ jobRows: templateJobs }) }), true);
@@ -209,6 +216,19 @@ test('only complete exact-head staging Gate evidence suppresses the base-refresh
     makeRetry({ apiError: true }),
   ]) {
     assert.equal(await isExpectedPresealGateFailure({ ...args, withRetry }), false);
+  }
+  for (const targetUrl of [undefined, 'not-a-url',
+    `https://github.com/another-repo/Ready/actions/runs/${runId}`]) {
+    const status = { ...gateStatus };
+    if (targetUrl === undefined) delete status.target_url;
+    else status.target_url = targetUrl;
+    const check = legacyStatusAsCheck(status);
+    const checks = [check];
+    const statusClassification = classifySyncPrChecks({
+      checkRuns: checks, requiredContexts: ['Gate / gate'],
+    });
+    assert.equal(await isExpectedPresealGateFailure({ ...args,
+      allChecks: checks, classification: statusClassification, withRetry: makeRetry() }), false);
   }
   assert.equal(await isExpectedPresealGateFailure({ ...args, deliveryState: 'sealed',
     withRetry: makeRetry() }), false);
@@ -334,7 +354,11 @@ async function assertExecutorCanaryRefresh(t, state) {
       deleteRef: async () => {},
     },
     repos: {
-      getCombinedStatusForRef: async () => ({ data: { statuses: [] } }),
+      getCombinedStatusForRef: async () => ({ data: { statuses: preseal ? [{
+        context: 'Gate / gate', state: 'failure',
+        target_url: `https://github.com/${owner}/${repo}/actions/runs/4027`,
+        updated_at: observed, description: 'Path classification failed',
+      }] : [] } }),
       getBranchProtection: async () => ({ data: { required_status_checks: { contexts: ['Gate / gate'] } } }),
       getContent: async () => { throw Object.assign(new Error('not declared'), { status: 404 }); },
       createDispatchEvent: async () => {},
@@ -367,11 +391,9 @@ async function assertExecutorCanaryRefresh(t, state) {
   }, paginate: async (method, params) => {
     if (method === github.rest.pulls.list) return params.state === 'open' && params.repo === repo
       ? [structuredClone(candidate)] : [];
-    if (method === github.rest.checks.listForRef) return [
+    if (method === github.rest.checks.listForRef) return preseal ? [] : [
       { name: 'Gate / gate', status: 'completed',
-        conclusion: state === 'checks_failed' || preseal ? 'failure' : 'success',
-        ...(preseal ? { head_sha: head,
-          details_url: `https://github.com/${owner}/${repo}/actions/runs/4027` } : {}) },
+        conclusion: state === 'checks_failed' ? 'failure' : 'success' },
     ];
     if (method === github.rest.actions.listJobsForWorkflowRun) return [
       { id: 1, name: 'classify changed paths', status: 'completed', conclusion: 'failure' },
