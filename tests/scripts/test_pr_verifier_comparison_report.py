@@ -67,3 +67,15 @@ def test_format_comparison_report_single_provider_note() -> None:
     report = pr_verifier.format_comparison_report([result])
 
     assert "Only one provider was available; comparison skipped." in report
+
+
+def test_comparison_reports_coverage_blocked_without_model_review():
+    result = pr_verifier.EvaluationResult(
+        verdict="UNVERIFIABLE_INPUT",
+        used_llm=False,
+        summary="Required evidence unavailable",
+        input_coverage={"files_total": 10, "files_complete": 10},
+    )
+    report = pr_verifier.format_comparison_report([result])
+    assert "files reviewed 0 of 10" in report
+    assert "no model review: Required evidence unavailable" in report

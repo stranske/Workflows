@@ -374,3 +374,36 @@ These outputs land in the Actions run summary, with any follow-up issue filed in
 - **`reusable-pr-context.yml`** — GraphQL-based PR context fetcher used across workflows to gather labels/files/CI state in one call. Falls back to the caller’s token but prefers the GitHub App token or owner PAT when available to reduce per-run API limits.
 - **`selftest-ci.yml`** — Workflows’ own CI smoke (JS tests, Python tests, lint/YAML validation). Now relies solely on the default workflow token because the jobs only read this repo.
 - **`selftest-reusable-ci.yml`** — Scheduled/manual harness that drives `reusable-10-ci-python.yml` across multiple feature combinations (metrics, history, coverage delta, soft gate) and posts summary/comment outputs. Relies on the default workflow token plus inherited secrets—no extra token plumbing needed.
+
+
+### Post-merge verifier evidence and visible dispositions
+
+The standard verifier queries configured CI workflow filenames at the exact PR
+head/merge SHA, with a 100-run budget and at most 10 pages per listing. Legacy
+callers without configured names retain bounded repository discovery at that SHA. `DEFAULT_EVIDENCE_RUN_LIMIT` and
+`DEFAULT_EVIDENCE_RUN_PAGES` in `agents_verifier_context.js` name these bounds;
+`VERIFIER_EVIDENCE_RUN_LIMIT` / `VERIFIER_EVIDENCE_RUN_PAGES` override them.
+Conversation, inline comments and reviews use bounded pagination. Bot chatter
+is filtered before the comment budget; bot proof, run links and review findings
+remain evidence. Incomplete channels retain their reasons and non-PASS floors.
+
+Comparison reports are posted even when input coverage prevents a model call.
+They state `no model review: <reason>` and files reviewed N of M. Skipped
+verification emits a warning and comments on the resolved PR with its reason;
+when no PR can be resolved, the warning is the available disposition.
+
+Local diffs decode invalid UTF-8 content with replacement characters and emit a
+warning; filename decoding stays strict. If local reconstruction fails, paginated
+PR files supply reviewable patches. API patches can be omitted or truncated, so
+this fallback explicitly withholds PASS until authoritative coverage is restored.
+
+Deterministic acceptance gates prepare an editable project with declared `dev`
+and `test` extras when available, then install `requirements*.lock`
+(preferred over same-stem `.txt`) from the root, tools or scripts directory.
+Pytest addopts containing `--cov` cause `pytest-cov` to be installed. Preparation
+prints its install sources and retains the isolated, credential-free gate runtime.
+
+Issue #4097's production check remains due at merge + 48 hours: retrieval
+`unavailable` must be at most 10% of post-merge issue-linked verifier runs, and at
+least five issues must close with a “Verification closure rule” comment. Local
+regression success does not establish either production outcome.

@@ -546,14 +546,14 @@ jobs:
               'input_limits': {
                   'comment_records': int(os.environ.get('VERIFIER_EVIDENCE_COMMENT_LIMIT', '50')),
                   'comment_chars': int(os.environ.get('VERIFIER_EVIDENCE_COMMENT_CHARS', '40000')),
-                  'workflow_runs': int(os.environ.get('VERIFIER_EVIDENCE_RUN_LIMIT', '5')),
+                  'workflow_runs': int(os.environ.get('VERIFIER_EVIDENCE_RUN_LIMIT', '100')),
                   'artifacts': int(os.environ.get('VERIFIER_EVIDENCE_ARTIFACT_LIMIT', '10')),
                   'archive_bytes': int(os.environ.get('VERIFIER_EVIDENCE_ARCHIVE_BYTES', '2097152')),
                   'archive_entries': int(os.environ.get('VERIFIER_EVIDENCE_ENTRY_LIMIT', '20')),
                   'artifact_chars': int(os.environ.get('VERIFIER_EVIDENCE_ARTIFACT_CHARS', '60000')),
                   'body_chars': int(os.environ.get('VERIFIER_EVIDENCE_BODY_CHARS', '40000')),
                   'comment_pages': int(os.environ.get('VERIFIER_EVIDENCE_COMMENT_PAGES', '10')),
-                  'run_pages': int(os.environ.get('VERIFIER_EVIDENCE_RUN_PAGES', '1')),
+                  'run_pages': int(os.environ.get('VERIFIER_EVIDENCE_RUN_PAGES', '10')),
                   'artifact_pages': int(os.environ.get('VERIFIER_EVIDENCE_ARTIFACT_PAGES', '1')),
                   'total_archive_bytes': int(os.environ.get('VERIFIER_EVIDENCE_TOTAL_ARCHIVE_BYTES', '33554432')),
                   'total_extract_bytes': int(os.environ.get('VERIFIER_EVIDENCE_TOTAL_EXTRACT_BYTES', '67108864')),
@@ -630,8 +630,18 @@ jobs:
 
       - name: Stop when verifier is skipped
         if: steps.context.outputs.should_run != 'true'
+        env:
+          SKIP_REASON: ${{ steps.context.outputs.skip_reason || 'no reason provided' }}
+          PR_NUMBER: ${{ steps.context.outputs.pr_number }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          echo "Verifier skipped: ${{ steps.context.outputs.skip_reason || 'no reason provided' }}"
+          set -euo pipefail
+          printf '::warning::Verifier skipped: %s\n' "$SKIP_REASON"
+          if [ -n "$PR_NUMBER" ]; then
+            printf '## Verifier skipped\n\nNo model review: %s. Files reviewed 0; changed-file total unavailable.\n' \
+              "$SKIP_REASON" > verifier-skip-comment.md
+            gh pr comment "$PR_NUMBER" --body-file verifier-skip-comment.md
+          fi
 
       - name: Prepare verifier prompt
         if: steps.context.outputs.should_run == 'true'
@@ -1496,8 +1506,8 @@ jobs:
         if: >-
           ${{
             steps.context.outputs.should_run == 'true' &&
-            inputs.mode == 'compare' &&
-            steps.llm_compare.outputs.has_results == 'true'
+            always() &&
+            inputs.mode == 'compare'
           }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -1508,11 +1518,17 @@ jobs:
         run: |
           set -euo pipefail
           verifier_pr="$PR_NUMBER"
-          if [ -n "$verifier_pr" ] && [ -f "comparison-comment.md" ]; then
-            python .workflows-lib/tools/verifier_corpus_evidence.py \
-              --comparison comparison.json --comment comparison-comment.md
-            gh pr comment "$verifier_pr" --body-file comparison-comment.md || \
-              echo "Warning: Could not post comment"
+          if [ -n "$verifier_pr" ]; then
+            if [ ! -s comparison-comment.md ]; then
+              printf '## Provider Comparison Report\n\nUNVERIFIABLE_INPUT: no model review: comparison output unavailable; files reviewed 0, total unavailable.\n' \
+                > comparison-comment.md
+            fi
+            if [ -s comparison.json ]; then
+              python .workflows-lib/tools/verifier_corpus_evidence.py \
+                --comparison comparison.json --comment comparison-comment.md || \
+                echo '::warning::Corpus annotation failed; posting the verifier report without it'
+            fi
+            gh pr comment "$verifier_pr" --body-file comparison-comment.md
           fi
 
       - name: Upload comparison artifacts

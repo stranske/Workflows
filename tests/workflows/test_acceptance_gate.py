@@ -247,3 +247,69 @@ def test_failed_preparation_keeps_aggregate_output_bounded(tmp_path, monkeypatch
     assert (
         sum(len(result.output.encode()) for result in results) <= acceptance_gate.TOTAL_OUTPUT_BYTES
     )
+
+
+def test_lock_only_preparation_installs_and_runs_gate(tmp_path, monkeypatch, capsys):
+    import zipfile
+
+    wheel = tmp_path / "gate_fixture-1.0-py3-none-any.whl"
+    with zipfile.ZipFile(wheel, "w") as archive:
+        archive.writestr("gate_fixture.py", "VALUE = 4097\n")
+        archive.writestr(
+            "gate_fixture-1.0.dist-info/METADATA",
+            "Metadata-Version: 2.1\nName: gate-fixture\nVersion: 1.0\n",
+        )
+        archive.writestr(
+            "gate_fixture-1.0.dist-info/WHEEL",
+            "Wheel-Version: 1.0\nGenerator: fixture\nRoot-Is-Purelib: true\nTag: py3-none-any\n",
+        )
+        archive.writestr("gate_fixture-1.0.dist-info/RECORD", "")
+    target = tmp_path / "installed"
+    (tmp_path / "requirements.lock").write_text(f"--no-index\n{wheel}\n")
+    (tmp_path / "test_gate.py").write_text(
+        "from gate_fixture import VALUE\ndef test_value(): assert VALUE == 4097\n"
+    )
+    real_run = acceptance_gate.run
+    calls = []
+
+    def offline_run(commands, cwd):
+        calls.extend(command.command for command in commands)
+        # Tools are already provided by the test runtime. The project's lock
+        # installation runs real pip; no package network access is used.
+        if commands[0].command.endswith("pip install pytest ruff mypy"):
+            return [acceptance_gate.Result(-1, commands[0].command, 0, "tools present")]
+        isolated = [
+            Command(command.criterion, f"{command.command} --target {target}")
+            for command in commands
+        ]
+        return real_run(isolated, cwd)
+
+    monkeypatch.setattr(acceptance_gate, "run", offline_run)
+    commands = [Command(0, "pytest test_gate.py")]
+    assert acceptance_gate.prepare(commands, tmp_path) == []
+    monkeypatch.setenv("PYTHONPATH", str(target))
+    results = real_run([Command(0, f"{sys.executable} -m pytest -q test_gate.py")], tmp_path)
+    assert results[0].exit_code == 0, results[0].output
+    assert any("-r requirements.lock" in call for call in calls)
+    assert "Gate install source: requirements requirements.lock" in capsys.readouterr().out
+
+
+def test_prepare_uses_declared_extras_lock_and_cov_like_ci(tmp_path, monkeypatch, capsys):
+    (tmp_path / "pyproject.toml").write_text(
+        '[project]\nname="fixture"\nversion="1"\n'
+        "[project.optional-dependencies]\ndev=[]\ntest=[]\n"
+        '[tool.pytest.ini_options]\naddopts="--cov=src"\n'
+    )
+    (tmp_path / "requirements.lock").write_text("do-not-install\n")
+    calls = []
+
+    def capture(commands, cwd):
+        calls.extend(command.command for command in commands)
+        return [acceptance_gate.Result(-1, commands[0].command, 0, "")]
+
+    monkeypatch.setattr(acceptance_gate, "run", capture)
+    assert acceptance_gate.prepare([Command(0, "pytest tests")], tmp_path) == []
+    assert any("pytest-cov" in call for call in calls)
+    assert any("-e '.[dev,test]'" in call for call in calls)
+    assert any("-r requirements.lock" in call for call in calls)
+    assert "editable project .[dev,test]" in capsys.readouterr().out
