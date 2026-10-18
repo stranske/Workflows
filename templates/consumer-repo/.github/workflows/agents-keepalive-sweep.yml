@@ -241,6 +241,8 @@ jobs:
                   inputs: {
                     pr_number: String(pr.number),
                     force_retry: String(Boolean(dueChallenge)),
+                    // Re-evaluate startup-failure receipts before choosing a runner;
+                    // explicit agent labels also recover through the shared policy.
                     sweep_recheck: 'true',
                     authority_challenge_fingerprint:
                       dueChallenge?.boundaryFingerprint || '',
@@ -436,6 +438,8 @@ jobs:
                   inputs: {
                     pr_number: String(pr.number),
                     force_retry: String(Boolean(dueChallenge)),
+                    // Re-evaluate startup-failure receipts before choosing a runner;
+                    // explicit agent labels also recover through the shared policy.
                     sweep_recheck: 'true',
                     authority_challenge_fingerprint:
                       dueChallenge?.boundaryFingerprint || '',
