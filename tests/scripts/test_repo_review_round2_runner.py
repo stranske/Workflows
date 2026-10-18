@@ -1259,3 +1259,341 @@ def test_invoke_agent_routes_pilot_labels_and_rejects_unknown_agent(
     )
     assert not ok and "unknown agent label" in message
     assert calls == ["codex", "claude"]
+
+
+@pytest.mark.parametrize(
+    ("provenance", "expected"),
+    [
+        ({}, "schema=None"),
+        (
+            {
+                "schema": "repo-review-round1-provenance/v1",
+                "repo": "stranske/Elsewhere",
+                "agent": "codex",
+                "source_commit": "a" * 40,
+            },
+            "repo='stranske/Elsewhere'",
+        ),
+        (
+            {
+                "schema": "repo-review-round1-provenance/v1",
+                "repo": "stranske/Example",
+                "agent": "codex",
+            },
+            "source_commit is missing",
+        ),
+    ],
+)
+def test_round2_input_manifest_rejects_invalid_round1_provenance(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    provenance: dict[str, str],
+    expected: str,
+) -> None:
+    repo, _output_dir, agents = _round2_cache_inputs(tmp_path, monkeypatch)
+    agents["codex"].with_name("findings.provenance.json").write_text(
+        json.dumps(provenance), encoding="utf-8"
+    )
+
+    manifest, error = runner.round2_input_manifest(
+        repo=repo, turn=1, agent="codex", round1_paths=agents
+    )
+
+    assert manifest is None
+    assert expected in error
+
+
+def test_round2_input_manifest_rejects_mismatched_source_commits(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo, _output_dir, agents = _round2_cache_inputs(tmp_path, monkeypatch)
+    _write_round1_provenance(agents["claude"], agent="claude", repo=repo, source_commit="b" * 40)
+
+    manifest, error = runner.round2_input_manifest(
+        repo=repo, turn=1, agent="codex", round1_paths=agents
+    )
+
+    assert manifest is None
+    assert error == "round-1 findings provenance source commits do not match"
+
+
+@pytest.mark.parametrize(
+    ("agent_proposals", "expected_status", "expect_proposal"),
+    [
+        ({}, "absent", False),
+        # single-side has two shapes: the other agent's entry is missing (nothing is returned),
+        # or present without a proposal (the lone proposal is returned).
+        ({"codex": {"proposed": True}}, "single-side", False),
+        ({"codex": {"proposed": True}, "claude": {}}, "single-side", True),
+        (
+            {"codex": {"proposed": True}, "claude": {"proposed": False}},
+            "deadlocked",
+            True,
+        ),
+        (
+            {
+                "codex": {
+                    "proposed": True,
+                    "supporting_candidate_indexes": [{"agent": "codex", "candidate_index": 1}],
+                },
+                "claude": {
+                    "proposed": True,
+                    "supporting_candidate_indexes": [{"agent": "claude", "candidate_index": 2}],
+                },
+            },
+            "deadlocked",
+            False,
+        ),
+    ],
+)
+def test_converge_meta_handles_absence_single_side_and_disagreement(
+    agent_proposals: dict[str, dict[str, object]], expected_status: str, expect_proposal: bool
+) -> None:
+    proposal, status = runner.converge_meta(agent_proposals, {"codex", "claude"})
+
+    assert status == expected_status
+    assert (proposal is not None) is expect_proposal
+
+
+def test_validate_reviewed_source_commit_rejects_bad_head_and_provenance(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo, _output_dir, agents = _round2_cache_inputs(tmp_path, monkeypatch)
+    monkeypatch.setattr(
+        runner.subprocess,
+        "run",
+        lambda *_args, **_kwargs: SimpleNamespace(returncode=1, stdout="", stderr="nope"),
+    )
+    assert (
+        runner.validate_reviewed_source_commit(tmp_path, agents)
+        == "cannot resolve reviewed repo HEAD"
+    )
+
+    monkeypatch.setattr(
+        runner.subprocess,
+        "run",
+        lambda *_args, **_kwargs: SimpleNamespace(returncode=0, stdout="b" * 40 + "\n", stderr=""),
+    )
+    assert "does not match reviewed repo HEAD" in runner.validate_reviewed_source_commit(
+        tmp_path, agents
+    )
+
+
+def test_run_returns_failure_for_missing_registry_repo_or_reviewed_path(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    args = _run_args("stranske/Example", tmp_path / "out", tmp_path / "registry.json")
+    monkeypatch.setattr(runner, "load_registry", lambda _path: (tmp_path, [], [], []))
+    assert runner.run(args) == 2
+
+    monkeypatch.setattr(
+        runner,
+        "load_registry",
+        lambda _path: (tmp_path, [], [SimpleNamespace(repo=args.repo, local_path="missing")], []),
+    )
+    assert runner.run(args) == 2
+
+
+def test_run_returns_failure_for_source_error_and_failed_turn(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo, output_dir, agents = _round2_cache_inputs(tmp_path, monkeypatch)
+    (tmp_path / "reviewed").mkdir()
+    monkeypatch.setattr(
+        runner,
+        "load_registry",
+        lambda _path: (tmp_path, [], [SimpleNamespace(repo=repo, local_path="reviewed")], []),
+    )
+    monkeypatch.setattr(runner, "resolve_negotiation_agents", lambda *_args: agents)
+    monkeypatch.setattr(runner, "validate_reviewed_source_commit", lambda *_args: "stale source")
+    assert runner.run(_run_args(repo, output_dir, tmp_path / "registry.json")) == 2
+
+    monkeypatch.setattr(runner, "validate_reviewed_source_commit", lambda *_args: "")
+    monkeypatch.setattr(
+        runner,
+        "run_one_turn",
+        lambda **_kwargs: {
+            label: runner.AgentTurnResult(label, 1, Path(label), False, False, "no output")
+            for label in agents
+        },
+    )
+    assert runner.run(_run_args(repo, output_dir, tmp_path / "registry.json")) == 2
+
+
+@pytest.mark.parametrize(
+    ("result", "expected"),
+    [
+        (
+            SimpleNamespace(succeeded=False, stuck=True, timed_out=False, returncode=1, note="x"),
+            "stuck",
+        ),
+        (
+            SimpleNamespace(succeeded=False, stuck=False, timed_out=True, returncode=1, note="x"),
+            "timed out",
+        ),
+        (
+            SimpleNamespace(
+                succeeded=False, stuck=False, timed_out=False, returncode=7, note="bad"
+            ),
+            "exited 7",
+        ),
+    ],
+)
+def test_invoke_codex_reports_heartbeat_failures(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, result: SimpleNamespace, expected: str
+) -> None:
+    monkeypatch.setattr(runner.shutil, "which", lambda _name: "/usr/local/bin/codex")
+    monkeypatch.setattr(
+        runner.subprocess,
+        "run",
+        lambda cmd, **_kwargs: SimpleNamespace(
+            returncode=0,
+            stdout="codex-cli 0.153.4" if cmd[-1] == "--version" else "--approve-for-me",
+            stderr="",
+        ),
+    )
+    monkeypatch.setattr(runner, "run_with_heartbeat", lambda *_args, **_kwargs: result)
+
+    ok, message = runner.invoke_codex("prompt", cwd=tmp_path, log_file=tmp_path / "log", timeout=30)
+
+    assert not ok
+    assert expected in message
+
+
+@pytest.mark.parametrize(
+    ("result", "expected"),
+    [
+        (
+            SimpleNamespace(succeeded=True, stuck=False, timed_out=False, returncode=0, note="ok"),
+            None,
+        ),
+        (
+            SimpleNamespace(succeeded=False, stuck=True, timed_out=False, returncode=1, note="x"),
+            "stuck",
+        ),
+        (
+            SimpleNamespace(succeeded=False, stuck=False, timed_out=True, returncode=1, note="x"),
+            "timed out",
+        ),
+        (
+            SimpleNamespace(
+                succeeded=False, stuck=False, timed_out=False, returncode=7, note="bad"
+            ),
+            "exited 7",
+        ),
+    ],
+)
+def test_invoke_claude_handles_heartbeat_outcomes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, result: SimpleNamespace, expected: str | None
+) -> None:
+    monkeypatch.setattr(runner, "_resolve_claude_binary", lambda: "/usr/local/bin/claude")
+    monkeypatch.setattr(runner, "_build_claude_env", lambda: {"PATH": "/usr/bin"})
+    monkeypatch.setattr(runner, "run_with_heartbeat", lambda *_args, **_kwargs: result)
+    monkeypatch.setattr(runner, "claude_capacity_reset_at", lambda _path: None)
+
+    ok, message = runner.invoke_claude(
+        "prompt", cwd=tmp_path, additional_dirs=[tmp_path], log_file=tmp_path / "log", timeout=30
+    )
+
+    assert ok is (expected is None)
+    if expected is None:
+        assert message == str(tmp_path / "log")
+    else:
+        assert expected in message
+
+
+def test_invoke_claude_rejects_missing_binary_and_builds_a_clean_token_env(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(runner, "_resolve_claude_binary", lambda: None)
+    ok, message = runner.invoke_claude(
+        "prompt", cwd=tmp_path, additional_dirs=[], log_file=tmp_path / "log", timeout=30
+    )
+    assert not ok
+    assert "not found" in message
+
+    monkeypatch.setenv("CLAUDECODE", "host-managed")
+    monkeypatch.setenv("USER", "must-not-leak")
+    monkeypatch.setenv("PATH", "/usr/bin")
+    monkeypatch.setattr(runner, "_read_claude_oauth_token", lambda: "token")
+    env = runner._build_claude_env()
+    assert env["PATH"] == "/usr/bin"
+    assert env["CLAUDE_CODE_OAUTH_TOKEN"] == "token"
+    assert "CLAUDECODE" not in env
+    assert "USER" not in env
+
+
+def test_synthesize_converged_collapses_duplicate_merges_and_surfaces_human_work(
+    tmp_path: Path,
+) -> None:
+    repo = "stranske/Example"
+    output_dir = tmp_path / "review"
+    codex_path = runner.round1_findings_path(output_dir, "codex", repo)
+    claude_path = runner.round1_findings_path(output_dir, "claude", repo)
+    _write_round1_findings(
+        codex_path,
+        agent="codex",
+        repo=repo,
+        candidates=[_candidate("First"), _candidate("Second"), _candidate("Dropped")],
+    )
+    _write_round1_findings(claude_path, agent="claude", repo=repo, candidates=[])
+    proposal = {"title": "Merged seam", "required_change": "One joined change."}
+    resolutions = {
+        runner.CandidateKey("codex", 1): runner.CandidateResolution(
+            key=runner.CandidateKey("codex", 1),
+            status="converged-merge",
+            merge_proposal=proposal,
+        ),
+        runner.CandidateKey("codex", 2): runner.CandidateResolution(
+            key=runner.CandidateKey("codex", 2),
+            status="converged-merge",
+            merge_proposal=proposal,
+        ),
+        runner.CandidateKey("codex", 3): runner.CandidateResolution(
+            key=runner.CandidateKey("codex", 3),
+            status="converged-drop",
+            drop_reason="Already done.",
+        ),
+    }
+    meta = {
+        "title": "Audit recurring seam",
+        "pattern": "Shared implementation gap",
+        "rationale": "Several candidates point at it.",
+        "supporting_candidate_indexes": [{"agent": "codex", "candidate_index": 1}],
+        "priority": "low",
+        "confidence": "low",
+        "__rejected_by": ["claude"],
+    }
+    payload = runner.synthesize_converged(
+        repo=repo,
+        output_dir=output_dir,
+        round1_paths={"codex": codex_path, "claude": claude_path},
+        turn_outputs=[
+            {"agent": "codex", "turn": 1, "meta_candidate_proposal": {"proposed": True}},
+            {
+                "agent": "claude",
+                "turn": 1,
+                "meta_candidate_proposal": {"proposed": False, "rationale": "Not systemic."},
+            },
+        ],
+        turns_completed=1,
+        final_resolutions=resolutions,
+        meta_proposal=meta,
+        meta_status="deadlocked",
+        deadlocked_reason_max_turns_exhausted=False,
+    )
+
+    assert [candidate["title"] for candidate in payload["converged_candidates"]] == ["Merged seam"]
+    assert payload["converged_candidates"][0]["origin"]["merged_from"] == [
+        {"agent": "codex", "round1_index": 1},
+        {"agent": "codex", "round1_index": 2},
+    ]
+    assert payload["dropped_candidates"] == [
+        {
+            "title": "Dropped",
+            "source_agent": "codex",
+            "round1_index": 3,
+            "drop_reason": "Already done.",
+        }
+    ]
+    assert payload["deadlocked_meta"]["rejection_reasons"] == {"claude": "Not systemic."}
