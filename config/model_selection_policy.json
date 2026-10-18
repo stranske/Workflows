@@ -39,6 +39,11 @@
           "missing-acceptance-criterion": 10
         },
         "minimum_cases_per_category_overrides_note": "These three categories cannot be labelled from realized downstream outcomes, so tools/harvest_verifier_corpus.py never produces them and they remain owner-sourced. Holding them to the machine-harvestable floor of 10 made `approved` unreachable without ~22 hand-labelled cases, so for them the floor asserts REPRESENTATION (at least one adjudicated example of the failure mode) rather than statistical power. The statistical gates (false-pass/false-fail/schema-error Wilson bounds, paired non-inferiority) still run over the whole corpus, and minimum_adjudicated_cases=75 still applies. Raise these toward 10 as owner-labelled cases accumulate. See #2819. Update 2026-10-18: missing-acceptance-criterion is raised to 10 because controlled-mutation cases supply it mechanically; follow-up-required is lowered from 10 to 3 because resolved verifier follow-ups are too rare to reach 10 (3 exist, none new in 8 weekly harvests), so it asserts representation.",
+        "stable_merge_pass": {
+          "enabled": true,
+          "minimum_age_days": 30,
+          "note": "Owner decision 2026-10-18. PASS cases that join a verifier decision only begin to appear about a month after the decision marker was introduced (about 2026-10-15), so the false-fail floor could not be met. A captured merged PR may be labelled PASS by realized outcome alone: merged at least minimum_age_days ago, not reverted, no verifier follow-up label, and an input the production prompt calls sufficient. These cases carry provenance stable-merge. The label is weaker (no verifier run is joined, and a repair without a follow-up label is invisible); a mislabelled PASS counts as a false FAIL, so the error is conservative. Set enabled to false to stop using them."
+        },
         "controlled_mutation": {
           "counts_toward_false_pass_bound": true,
           "minimum_real_non_pass_cases": 3,

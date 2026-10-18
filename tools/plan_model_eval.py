@@ -56,7 +56,7 @@ def _zero_error_denominator(maximum_rate: float, confidence_level: float) -> int
     )
 
 
-def _evaluable_counts(corpus: dict[str, Any]) -> dict[str, int]:
+def _evaluable_counts(corpus: dict[str, Any], count_stable: bool = True) -> dict[str, int]:
     """PASS and NON_PASS cases a judge can be fairly scored on.
 
     A case is evaluable when a prompt can be built for it (a snapshot reference or mutation recipe,
@@ -81,6 +81,8 @@ def _evaluable_counts(corpus: dict[str, Any]) -> dict[str, int]:
             ok = False
         count(case, ok)
     for case in corpus.get("cases", []):
+        if case.get("provenance") == "stable-merge" and not count_stable:
+            continue
         replayable = bool(case.get("snapshot_ref") or case.get("mutation_recipe"))
         count(case, replayable and case.get("coverage_sufficient") is True)
     return counts
@@ -99,7 +101,15 @@ def build_plan(
     cases = corpus["cases"]
     counts = Counter(str(case["category"]) for case in cases)
     minimum = int(approval["minimum_adjudicated_cases"])
-    positive_cases = sum(case.get("expected_verdict") == "PASS" for case in cases)
+    stable_policy = approval.get("stable_merge_pass") or {}
+    stable_cases = sum(
+        case.get("expected_verdict") == "PASS" and case.get("provenance") == "stable-merge"
+        for case in cases
+    )
+    # Stable-merge PASS cases count only while the policy allows that label source.
+    positive_cases = sum(case.get("expected_verdict") == "PASS" for case in cases) - (
+        0 if stable_policy.get("enabled") else stable_cases
+    )
     mutation_policy = approval.get("controlled_mutation") or {}
     all_non_pass = sum(case.get("expected_verdict") == "NON_PASS" for case in cases)
     mutation_cases = sum(
@@ -121,7 +131,7 @@ def build_plan(
         float(approval["confidence_level"]),
     )
     additional_non_pass = max(0, false_pass_floor - negative_cases)
-    evaluable = _evaluable_counts(corpus)
+    evaluable = _evaluable_counts(corpus, count_stable=bool(stable_policy.get("enabled")))
     minimum_real_non_pass = int(mutation_policy.get("minimum_real_non_pass_cases", 0))
     additional_pass = max(0, false_fail_floor - positive_cases)
     best_case_total = len(cases) + additional_non_pass + additional_pass
@@ -328,6 +338,7 @@ def build_plan(
         "corpus_cases": len(cases),
         "expected_pass_cases": positive_cases,
         "expected_non_pass_cases": negative_cases,
+        "stable_merge_pass_cases": stable_cases if stable_policy.get("enabled") else 0,
         "evaluable_pass_cases": evaluable["pass"],
         "evaluable_non_pass_cases": evaluable["non_pass"],
         "real_non_pass_cases": real_non_pass,

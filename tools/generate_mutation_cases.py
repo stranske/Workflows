@@ -463,6 +463,7 @@ def write_corpus(
     mutants: list[dict[str, Any]],
     *,
     rebuild: bool = False,
+    extra_cases: list[dict[str, Any]] | None = None,
 ) -> tuple[int, int]:
     """Write source snapshots (gzip) and append deduplicated case records to the corpus.
 
@@ -475,7 +476,9 @@ def write_corpus(
     snapshot_dir.mkdir(parents=True, exist_ok=True)
     if rebuild:  # drop earlier generated cases and snapshot files, then write the current set
         corpus["cases"] = [
-            c for c in corpus["cases"] if c.get("provenance") != "controlled-mutation"
+            c
+            for c in corpus["cases"]
+            if c.get("provenance") not in ("controlled-mutation", "stable-merge")
         ]
         for old in snapshot_dir.glob("*.json.gz"):
             old.unlink()
@@ -483,6 +486,10 @@ def write_corpus(
             case.pop("snapshot_ref", None)
             case.pop("coverage_sufficient", None)
     existing = {case["case_id"]: case for case in corpus["cases"]}
+    for extra in extra_cases or []:  # stable-merge PASS cases become listed cases of the corpus
+        if extra["case_id"] not in existing:
+            corpus["cases"].append(dict(extra))
+            existing[extra["case_id"]] = corpus["cases"][-1]
     refs: dict[str, str] = {}
     referenced = added = 0
     needed = {m["source_case_id"] for m in mutants}
@@ -542,6 +549,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--snapshot-dir", type=Path, default=SNAPSHOT_DIR)
     parser.add_argument("--max-per-source", type=int, default=MAX_PER_SOURCE)
     parser.add_argument(
+        "--stable-pass",
+        action="store_true",
+        help="also add stable-merge PASS cases from unlisted sources (policy: stable_merge_pass)",
+    )
+    parser.add_argument("--policy", type=Path, default=Path("config/model_selection_policy.json"))
+    parser.add_argument(
         "--rebuild",
         action="store_true",
         help="with --write: first remove generated cases and snapshot files, then write the current set",
@@ -553,15 +566,41 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
     corpus = json.loads(args.corpus.read_text())
+    if args.rebuild:  # earlier generated cases must not look like the sources' own corpus cases
+        corpus["cases"] = [
+            c
+            for c in corpus["cases"]
+            if c.get("provenance") not in ("controlled-mutation", "stable-merge")
+        ]
     sources = (
         snapshots_from_artifacts(corpus, args.artifacts, allow_unlisted=args.allow_unlisted)
         if args.artifacts
         else {}
     )
+    stable: list[dict[str, Any]] = []
+    if args.stable_pass and sources:
+        from tools.stable_pass_cases import stable_pass_cases
+
+        rule = json.loads(args.policy.read_text())["profiles"]["verifier-balanced"][
+            "approval_stage"
+        ].get("stable_merge_pass", {})
+        if rule.get("enabled"):
+            stable = stable_pass_cases(
+                sources,
+                minimum_age_days=int(rule["minimum_age_days"]),
+                coverage_sufficient=coverage_sufficient,
+            )
+            for case in stable:  # stable-merge sources count as listed PASS cases from here on
+                sources[case["case_id"]].pop("source_only", None)
     cases = generate_from_snapshots(sources, args.max_per_source) if sources else generate(corpus)
     if args.write:
         referenced, added = write_corpus(
-            args.corpus, args.snapshot_dir, sources, cases, rebuild=args.rebuild
+            args.corpus,
+            args.snapshot_dir,
+            sources,
+            cases,
+            rebuild=args.rebuild,
+            extra_cases=stable,
         )
         print(
             f"wrote {len(sources)} source snapshot(s) ({referenced} newly referenced), {added} new mutant case(s)"
