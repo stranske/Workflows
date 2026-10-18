@@ -84,7 +84,15 @@ def test_checkout_executes_trusted_source_without_credentials(path: str) -> None
         options = checkout["with"]
         assert options["persist-credentials"] is False
         if options.get("repository") == "stranske/Workflows":
-            assert options["ref"] == "${{ steps.workflows_ref.outputs.ref }}"
+            assert options["ref"] in {
+                "${{ steps.workflows_ref.outputs.ref }}",
+                "${{ needs.verifier.outputs.workflows_ref }}",
+            }
+        elif options.get("path") == "acceptance-head":
+            assert options["ref"] == "${{ needs.verifier.outputs.target_sha }}"
+            gates = workflow(path)["jobs"]["acceptance-gates"]
+            assert gates["permissions"] == {"contents": "read"}
+            assert "secrets." not in str(gates)
         else:
             assert options["ref"] == "${{ github.sha }}"
     if path == REUSABLE:

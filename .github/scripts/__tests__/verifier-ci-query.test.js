@@ -399,3 +399,13 @@ test('queryVerifierCiResults returns api_error after max retries', async (t) => 
     });
   }
 });
+
+test('closure can request exact CI head identity without changing legacy result shape', async () => {
+  const github = buildGithubStub({ runsByWorkflow: {
+    'ci.yml': [{ id: 1, head_sha: 'merge-sha', status: 'completed', conclusion: 'success' }],
+  } });
+  const results = await queryVerifierCiResults({ github, context: { repo: { owner: 'o', repo: 'r' } },
+    targetSha: 'merge-sha', workflows: [{ workflow_id: 'ci.yml' }], includeHeadSha: true });
+  assert.equal(results[0].head_sha, 'merge-sha');
+  assert.equal(results[0].conclusion, 'success');
+});

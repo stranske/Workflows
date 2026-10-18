@@ -18,7 +18,7 @@ FENCED_BLOCK_RE = re.compile(
     re.MULTILINE | re.DOTALL,
 )
 
-VALID_VERDICTS = {"pass", "concerns", "fail", "error"}
+VALID_VERDICTS = {"pass", "concerns", "fail", "error", "unverifiable-input"}
 
 
 def _normalize_verdict(value: object) -> str:

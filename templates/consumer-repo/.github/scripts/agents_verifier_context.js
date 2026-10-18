@@ -1369,16 +1369,9 @@ function fullDiffArtifactBytes(diffText) {
   return diff ? Buffer.from(`${diff}\n`, 'utf8') : Buffer.alloc(0);
 }
 
-function formatDiffForContext(diffText, maxChars) {
-  const diff = normalizeDiffPatch(diffText);
-  if (!diff) {
-    return '_Diff unavailable or empty._';
-  }
-  const limit = Number.isFinite(maxChars) ? Math.max(0, maxChars) : DEFAULT_DIFF_MAX_CHARS;
-  if (diff.length <= limit) {
-    return diff;
-  }
-  return `${diff.slice(0, limit)}\n\n...diff truncated after ${limit} characters.`;
+function formatDiffForContext(diffText) {
+  // Preserve complete file patches. The provider review planner owns budgeting.
+  return normalizeDiffPatch(diffText) || '_Diff unavailable or empty._';
 }
 
 function buildContextSourceCoverage({ planSources, diffText, diffMaxChars, evidence, fullDiffBytes }) {
@@ -2021,7 +2014,7 @@ async function buildVerifierContext({
   }
 
   const diffMaxBytes = Number.parseInt(process.env.VERIFIER_DIFF_MAX_BYTES || '', 10);
-  const diffMaxChars = Number.parseInt(process.env.VERIFIER_DIFF_MAX_CHARS || '', 10);
+
   let baseSha = pull.base?.sha;
   const headSha = pull.head?.sha;
   let firstCommitSha;
@@ -2078,7 +2071,7 @@ async function buildVerifierContext({
     core?.setOutput?.('evidence_status', verifierEvidence.status);
     return { shouldRun: false, reason: skipReason, ciResults, ciFailed };
   }
-  const diffSummary = summarizeDiff(diffText, DIFF_SUMMARY_LIMITS);
+  const diffSummary = summarizeDiff(diffText, { maxFiles: Number.MAX_SAFE_INTEGER, maxLines: Number.MAX_SAFE_INTEGER });
   content.push('');
   content.push(diffSummary);
   if (diffText) {
@@ -2086,7 +2079,7 @@ async function buildVerifierContext({
     content.push('## PR Diff (full)');
     content.push('');
     content.push('```diff');
-    content.push(formatDiffForContext(diffText, Number.isFinite(diffMaxChars) ? diffMaxChars : DEFAULT_DIFF_MAX_CHARS));
+    content.push(formatDiffForContext(diffText, diffText.length));
     content.push('```');
   }
 
@@ -2095,7 +2088,7 @@ async function buildVerifierContext({
     planSources,
     diffText,
     fullDiffBytes,
-    diffMaxChars: Number.isFinite(diffMaxChars) ? diffMaxChars : DEFAULT_DIFF_MAX_CHARS,
+    diffMaxChars: diffText.length,
     evidence: verifierEvidence,
   });
   const missingIssueSource =
@@ -2146,6 +2139,9 @@ async function buildVerifierContext({
   core?.setOutput?.('chain_depth', String(chainDepth));
   core?.setOutput?.('evidence_status', verifierEvidence.status);
   core?.setOutput?.('source_coverage', JSON.stringify(sourceCoverage));
+  core?.setOutput?.('source_issue_hashes', JSON.stringify(Object.fromEntries(
+    closingIssues.map(issue => [issue.number, createHash('sha256').update(issue.body || '').digest('hex')])
+  )));
 
   return {
     shouldRun: true,

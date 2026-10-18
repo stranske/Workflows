@@ -18,7 +18,7 @@ on:
         description: 'JSON array of CI workflow filenames to wait for'
         required: false
         type: string
-        default: '["ci.yml", "pr-00-gate.yml"]'
+        default: '["ci.yml"]'
       ci_wait_timeout_ms:
         description: 'Max time to wait for CI workflows (ms)'
         required: false
@@ -49,6 +49,22 @@ on:
         required: false
         type: string
         default: ''
+    outputs:
+      verdict:
+        description: 'Trusted verifier verdict for caller-owned source closure'
+        value: ${{ jobs.verifier.outputs.verdict }}
+      target_sha:
+        description: 'Trusted verifier target_sha for caller-owned source closure'
+        value: ${{ jobs.verifier.outputs.target_sha }}
+      pr_number:
+        description: 'Trusted verifier pr_number for caller-owned source closure'
+        value: ${{ jobs.verifier.outputs.pr_number }}
+      should_run:
+        description: 'Trusted verifier should_run for caller-owned source closure'
+        value: ${{ jobs.verifier.outputs.should_run }}
+      workflows_ref:
+        description: 'Trusted verifier workflows_ref for caller-owned source closure'
+        value: ${{ jobs.verifier.outputs.workflows_ref }}
     secrets:
       CODEX_AUTH_JSON:
         required: false
@@ -97,6 +113,12 @@ jobs:
       VERIFIER_CAPACITY_REPORT_PATH: verifier-capacity-checks.jsonl
       VERIFIER_EVIDENCE_PROFILE: ${{ inputs.evidence_profile }}
       VERIFIER_SEMANTIC_MODE: ${{ inputs.evidence_profile == 'expanded' && inputs.mode == 'compare' && '1' || '0' }}
+    outputs:
+      verdict: ${{ steps.unified_verdict.outputs.verdict }}
+      target_sha: ${{ steps.context.outputs.target_sha }}
+      pr_number: ${{ steps.context.outputs.pr_number }}
+      should_run: ${{ steps.context.outputs.should_run }}
+      workflows_ref: ${{ steps.workflows_ref.outputs.ref }}
     steps:
       - name: Select bounded verifier evidence profile
         env:
@@ -138,7 +160,7 @@ jobs:
       # Optional contents-only token for the caller checkout (no persisted credentials).
       - name: Mint GitHub App token
         id: app_token
-        uses: actions/create-github-app-token@v3
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         continue-on-error: true
         with:
           client-id: ${{ secrets.workflows_app_id || '0' }}
@@ -149,7 +171,7 @@ jobs:
 
       # github.sha is the trusted base SHA for pull_request_target, never the PR head.
       - name: Checkout caller repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           token: ${{ steps.app_token.outputs.token || github.token }}
           ref: ${{ github.sha }}
@@ -169,7 +191,7 @@ jobs:
         uses: ./.github/actions/resolve-default-branch
 
       - name: Checkout Workflows scripts
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           token: ${{ github.token }}
           persist-credentials: false
@@ -203,7 +225,7 @@ jobs:
 
       - name: Wait for CI workflows to complete
         id: wait_ci
-        uses: actions/github-script@v9
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           CI_WORKFLOWS: ${{ inputs.ci_workflows }}
           CI_WAIT_TIMEOUT_MS: ${{ inputs.ci_wait_timeout_ms }}
@@ -248,7 +270,7 @@ jobs:
 
             const targetShas = Array.from(
               new Set(
-                [pr.merge_commit_sha, pr.head?.sha]
+                [pr.merge_commit_sha]
                   .map((value) => String(value || '').trim())
                   .filter(Boolean),
               ),
@@ -396,7 +418,7 @@ jobs:
 
       - name: Build verifier context
         id: context
-        uses: actions/github-script@v9
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           CI_WORKFLOWS: ${{ inputs.ci_workflows }}
           VERIFIER_PR_NUMBER: ${{ inputs.pr_number }}
@@ -418,6 +440,63 @@ jobs:
                 throw err;
               }
             }
+
+      - name: Prepare source closure plans
+        if: steps.context.outputs.should_run == 'true'
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          SOURCE_ISSUE_HASHES: ${{ steps.context.outputs.source_issue_hashes }}
+          ISSUE_NUMBERS: ${{ steps.context.outputs.issue_numbers }}
+          TARGET_SHA: ${{ steps.context.outputs.target_sha }}
+          PR_NUMBER: ${{ steps.context.outputs.pr_number }}
+        with:
+          script: |
+            const fs = require('fs');
+            const { sourceHash } = require('./.workflows-lib/.github/scripts/verifier_closure.js');
+            const { withRetry } = require('./.workflows-lib/.github/scripts/github-api-with-retry.js');
+            const plans = [];
+            const hashes = JSON.parse(process.env.SOURCE_ISSUE_HASHES || '{}');
+            for (const issue_number of JSON.parse(process.env.ISSUE_NUMBERS || '[]')) {
+              try {
+                const { data: issue } = await withRetry(() => github.rest.issues.get({ ...context.repo, issue_number }));
+                if (hashes[issue_number] !== sourceHash(issue.body)) {
+                  throw new Error(`Issue #${issue_number} changed after verifier context capture`);
+                }
+                plans.push({ issue_number, markdown: issue.body || '', source_hash: sourceHash(issue.body),
+                  repository: `${context.repo.owner}/${context.repo.repo}`,
+                  pr_number: Number(process.env.PR_NUMBER), head_sha: process.env.TARGET_SHA });
+              } catch (error) {
+                // # best-effort: omit this issue's closure authority; verification continues and the issue stays open.
+                core.warning(`Skipping closure plan for issue #${issue_number}: ${error.message}`);
+              }
+            }
+            fs.mkdirSync('closure-plans', { recursive: true });
+            fs.writeFileSync('closure-plans/plans.json', JSON.stringify(plans));
+
+      - name: Extract exact acceptance command sets
+        if: steps.context.outputs.should_run == 'true'
+        run: |
+          python3 - <<'PY'
+          import sys
+          sys.path.insert(0, '.workflows-lib')
+          import dataclasses
+          import json
+          from pathlib import Path
+          from scripts.runner_lib.acceptance_gate import extract_commands
+          path = Path('closure-plans/plans.json')
+          plans = json.loads(path.read_text())
+          for plan in plans:
+              plan['commands'] = [dataclasses.asdict(c) for c in extract_commands(plan['markdown'])]
+          path.write_text(json.dumps(plans))
+          PY
+
+      - name: Upload source closure plans
+        if: steps.context.outputs.should_run == 'true'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: verifier-closure-plans-${{ github.run_id }}
+          path: closure-plans/plans.json
+          retention-days: 14
 
       - name: Record verifier input identity for model evaluation
         if: steps.context.outputs.should_run == 'true' && inputs.mode == 'compare'
@@ -490,7 +569,7 @@ jobs:
       - name: Resolve agent key from PR labels
         id: agent
         if: steps.context.outputs.should_run == 'true'
-        uses: actions/github-script@v9
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -737,7 +816,7 @@ jobs:
               --model "$codex_model" \
               -c 'model_reasoning_effort="medium"' \
               --output-last-message codex-output.md \
-              "$(cat "$PROMPT_FILE")" \
+              - < "$PROMPT_FILE" \
               > codex-stdout.log 2> codex-stderr.log
             codex_exit_code=$?
             set -euo pipefail
@@ -846,7 +925,7 @@ jobs:
             steps.context.outputs.should_run == 'true' &&
             inputs.mode == 'evaluate'
           }}
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.14'
 
@@ -1037,7 +1116,12 @@ jobs:
               with open('evaluation.json') as f:
                   data = json.load(f)
 
-              lines = ["## LLM Evaluation Report", ""]
+              coverage = data.get('input_coverage') or {}
+              reviewed = coverage.get('files_complete', 0) if data.get('used_llm') else 0
+              total = coverage.get('files_total', 0)
+              lines = ["## LLM Evaluation Report", "", f"files reviewed {reviewed} of {total}", ""]
+              if data.get('files_not_reviewed'):
+                  lines.append('files_not_reviewed: ' + json.dumps(data['files_not_reviewed']))
               lines.append(f"**Verdict:** {data.get('verdict', 'UNKNOWN')}")
               lines.append("")
 
@@ -1160,7 +1244,7 @@ jobs:
             steps.context.outputs.should_run == 'true' &&
             inputs.mode == 'compare'
           }}
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.14'
 
@@ -1257,7 +1341,7 @@ jobs:
 
           # Parse result
           if [ -f comparison.json ] && [ -s comparison.json ]; then
-          python3 - <<'PY' > verdict.txt 2>/dev/null || printf '%s' "CONCERNS" > verdict.txt
+          python3 - <<'PY' > verdict.txt 2>/dev/null || printf '%s' "UNVERIFIABLE_INPUT" > verdict.txt
           import json
 
           try:
@@ -1285,17 +1369,15 @@ jobs:
               model2=os.environ.get('VERIFIER_MODEL2') or None,
             ))
           else:
-            # Standard retains its existing aggregation contract.
-            results = data.get('results', [])
-            usable = [r for r in results if r.get('used_llm') and r.get('verdict')]
-            verdicts = [r.get('verdict') for r in (usable if usable else results) if r.get('verdict')]
-            if verdicts and all(v == 'PASS' for v in verdicts):
-              print('PASS')
-            else:
-              print('CONCERNS')
+            import sys
+            sys.path.insert(0, os.path.abspath('.workflows-lib'))
+            from scripts.langchain.pr_verifier import EvaluationResult, comparison_verdict
+            print(comparison_verdict([
+              EvaluationResult.model_validate(result) for result in data.get('results', [])
+            ]))
           PY
 
-            verdict="$(cat verdict.txt 2>/dev/null || echo CONCERNS)"
+            verdict="$(cat verdict.txt 2>/dev/null || echo UNVERIFIABLE_INPUT)"
             echo "verdict=$verdict" >> "$GITHUB_OUTPUT"
 
           python3 - <<'PY' 2>/dev/null || true
@@ -1435,7 +1517,7 @@ jobs:
             steps.context.outputs.should_run == 'true' &&
             inputs.mode == 'compare'
           }}
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: comparison-results-${{ github.run_id }}
           path: |
@@ -1452,7 +1534,7 @@ jobs:
 
       - name: Retain complete verifier input transport
         if: always() && inputs.evidence_profile == 'expanded' && inputs.mode == 'compare'
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: verifier-input-capture-${{ github.run_id }}
           path: verifier-evidence/
@@ -1466,7 +1548,7 @@ jobs:
             steps.context.outputs.should_run == 'true' &&
             inputs.mode == 'evaluate'
           }}
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: evaluation-capacity-${{ github.run_id }}
           path: verifier-capacity-checks.jsonl
@@ -1506,6 +1588,7 @@ jobs:
             final_verdict="concerns"
           fi
 
+          final_verdict="$(printf '%s' "$final_verdict" | tr '[:lower:]-' '[:upper:]_')"
           echo "verdict=$final_verdict" >> "$GITHUB_OUTPUT"
           echo "Final verdict: $final_verdict"
 
@@ -1515,7 +1598,7 @@ jobs:
         id: failure_issue
         # Disabled: use agents-verify-to-issue-v2.yml with verify:create-issue label instead
         if: ${{ github.run_id == 0 }}
-        uses: actions/github-script@v9
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           PR_URL: ${{ steps.context.outputs.pr_html_url }}
           RUN_URL: >-
@@ -1881,7 +1964,7 @@ jobs:
           } else if (followupIssueNumber || Number(metrics.issues_created || 0) > 0) {
             disposition = 'follow-up-created';
             reason = 'Verifier reported concerns and created a follow-up issue.';
-          } else if (['fail', 'failed', 'concerns', 'error'].includes(verdict)) {
+          } else if (['fail', 'failed', 'concerns', 'error', 'unverifiable_input'].includes(verdict)) {
             disposition = verdict === 'error' ? 'verifier-error' : 'needs-human';
             reason = 'Verifier reported a non-passing verdict without creating a follow-up issue.';
           }
@@ -2000,7 +2083,7 @@ jobs:
 
       - name: Upload verifier terminal disposition
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: verifier-terminal-disposition-${{ github.run_id }}
           path: |
@@ -2050,7 +2133,7 @@ jobs:
 
       - name: Upload verifier metrics
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: agents-verifier-metrics
           path: verifier-metrics.ndjson

@@ -187,7 +187,7 @@ def test_reusable_verifier_uploads_comparison_artifact_bundle() -> None:
     )
     steps = workflow["jobs"]["verifier"]["steps"]
     upload = next(step for step in steps if step.get("name") == "Upload comparison artifacts")
-    assert upload["uses"] == "actions/upload-artifact@v7"
+    assert upload["uses"] == "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a"
     assert upload["with"]["name"] == "comparison-results-${{ github.run_id }}"
     path_block = upload["with"]["path"]
     for name in receipt.COMPARISON_ARTIFACT_FILES:
