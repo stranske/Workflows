@@ -338,3 +338,28 @@ def test_spawn_uses_new_session_and_killpg(tmp_path: Path) -> None:
     assert (
         first_killpg_call.args[0] == fake_pgid
     ), f"os.killpg first arg must be the pgid ({fake_pgid}), got {first_killpg_call.args[0]}"
+
+
+def test_prompt_broken_pipe_does_not_mask_clean_process_exit(tmp_path: Path) -> None:
+    """A child that closes stdin before the prompt is sent is still observed."""
+    log = tmp_path / "broken-pipe.log"
+    mock_proc = MagicMock()
+    mock_proc.pid = 123
+    mock_proc.poll.return_value = 0
+    mock_proc.stdin.write.side_effect = BrokenPipeError
+
+    with patch("subprocess.Popen", return_value=mock_proc):
+        result = heartbeat.run_with_heartbeat(
+            ["fake-agent"],
+            prompt="prompt",
+            cwd=tmp_path,
+            env=None,
+            log_file=log,
+            timeout=5,
+            heartbeat_interval=1,
+            stall_threshold=5,
+        )
+
+    assert result.succeeded is True
+    assert result.returncode == 0
+    mock_proc.stdin.close.assert_not_called()
