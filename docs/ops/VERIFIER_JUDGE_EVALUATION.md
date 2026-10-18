@@ -202,12 +202,86 @@ Reading the table:
 **Sample:** 4 NON_PASS case(s) observed; 73 are needed with zero false PASS to bound the false-PASS rate at 0.05. Small-sample results cannot enable either option.
 
 
-### Muse Spark 1.3 (measured 2026-10-18)
+## 7b. Current-prompt comparison, Muse tiers and the contributor policy (2026-10-18)
+
+**Prompt version.** The production verifier prompt changed between the first screens (2026-10-17) and
+these (prompt fingerprint `5d53daf386…`), and it adds a verdict, `UNVERIFIABLE_INPUT` ("the input is not
+enough to judge"). The analyzer refuses to mix prompt versions, so every judge below was re-run on the
+current prompt; the 2026-10-17 tables above are historical. `UNVERIFIABLE_INPUT` counts as non-PASS,
+so on a PASS case it is a false FAIL (cautious), never a false PASS.
+
+Same 8 cases (4 PASS, 4 NON_PASS), current prompt, evidence in `docs/evidence/judge-screen-20261017/`:
+
+| Judge | Correct | False PASS | Cost for the 8 cases | Usage class |
+| --- | ---: | ---: | --- | --- |
+| gpt-5.6-terra (incumbent, Codex CLI screen) | 6/8 | 0 | 0.0437 USD | CLI screen |
+| gpt-6-luna (Codex CLI screen) | 6/8 | 0 | 0.0021 USD | CLI screen |
+| Cursor CLI | 5/8 | 2 | not reported | exploratory CLI |
+| Claude Code CLI, tools off | 4/8 | 2 | not reported | exploratory CLI |
+| muse-spark-1.2 API, standard | 4/8 | 4 | about 0.11 USD | api-observed |
+| muse-spark-1.2-contributor API | 6/8 | 2 | 0.0075 USD | api-observed |
+| muse-spark-1.3 API, standard | 4/8 | 2 | 0.122 USD | api-observed |
+| muse-spark-1.3-contributor API | 3/8 | 3 | 0.0064 USD | api-observed |
+| muse-wonder-1.0 API | 4/8 | 2 | 0.498 USD | api-observed |
+| agy | not re-run | | | seat quota exhausted until the weekly reset |
+
+Only the two Codex-served GPT judges had no false PASS. Every other judge passed the same two
+`follow-up-required` cases that the GPT judges rejected, and no judge, including those two, meets the
+PASS-authority gates (four NON_PASS cases bound the false-PASS rate only below about 0.49; 73 are
+needed for 0.05). Tie-break and failover therefore stay not enabled (`analyze_judge_ensemble`). The
+1.2 versus 1.3 and standard versus contributor differences are within what eight cases can show;
+the same model changed from 6/8 to 4/8 with the prompt change alone.
+
+### Muse prices (Meta's pricing page, read 2026-10-18)
+
+Per million tokens (<https://dev.meta.ai/docs/pricing-rate-limits>):
+
+| Model | Cached input | Input | Output | Mode |
+| --- | ---: | ---: | ---: | --- |
+| muse-spark-1.3, 1.2, 1.1 | 0.15 | 1.25 | 4.25 | standard |
+| muse-spark-1.3-contributor, 1.2-contributor | 0.002 | 0.10 | 0.20 | contributor (trains) |
+| muse-wonder-1.0 | 0.20 | 4.00 | 20.00 | standard only |
+
+Contributor mode is 12.5 times cheaper on input and 21 times on output; measured on these eight
+prompts the 1.2 model cost 0.0075 USD against 0.11 USD standard. Contributor grants Meta permission to
+use "the prompts, code, files, and context you send, plus the model responses you get back" to train
+future models; the page states no opt-out or retention policy for the API. Wonder is the model the Muse
+CLI serves; through the API it costs about four times Spark standard on this workload.
+
+### Where training on the data is not a security concern, and where it is
+
+All 17 repositories in the lane fleet are public (checked with GitHub's visibility field on
+2026-10-18). A verifier prompt is built from a pushed PR: its diff, the linked issue, the CI summary.
+That content is already published, so contributor-tier training adds no confidentiality exposure for it.
+
+| Work | Contributor tier |
+| --- | --- |
+| Verification of a pushed PR in a public repository (diff, issue, CI summary) | Allowed once the judge has earned authority; quality, not security, is the open question |
+| The judge-screen corpus (built from pushed PRs in public repositories) | Allowed |
+| Experiment evaluator prompts (A/B/C/D diffs are unpushed worktree changes) | **Refused**: not yet published |
+| Anything unpublished or local (audits, personal notes, local projects, the Brain), private or internal repositories, secrets or credential values, personal data | **Refused** |
+
+The guard is mechanical: `--allow-contributor-tier` is refused unless GitHub confirms every case
+repository is public, and an unknown answer counts as not public (`require_public_sources`; tests pin it).
+Residual risks: CI logs in a public repository can still carry text a masking rule missed; a
+repository that later turns private would need the flag withdrawn; and the policy cannot see what Meta
+retains. These are reasons to keep the cheap tier behind the quality gates, not to refuse it.
+
+### What this says about the verifier pool
+
+The production keepalive pool stays Claude and Codex, with Cursor and Muse work verified by either of
+them at random (Workflows#4049/#4053); a live canary on a Cursor PR logged the pick (Codex). Cursor,
+Muse (API and CLI) and agy are screened here but are not in the PASS pool: on this evidence none has
+earned it, and the Muse contributor tier is the cheapest way to keep measuring. Adding a judge to the
+pool needs the preconditions in section 6 plus the approval corpus; the corpus is the bottleneck.
+
+### Muse Spark 1.3 on the 2026-10-17 prompt (historical)
 
 Meta's models page names 1.3 as the latest Muse Spark, so the API judge was screened again on the same 8
 cases (`muse-spark-1-3-screen.json`): 4 of 8 correct, 2 false PASS, 0 schema errors, modelled cost
 0.12 USD for 22,365 input and 22,171 output tokens (api-observed usage at the verified price). 1.2 scored 6 of
-8 with 2 false PASS on the same cases. Neither qualifies for PASS authority, and the 1.2 to 1.3 change on
+8 with 2 false PASS on the same cases at that prompt version; the current-prompt figures are in the table
+above (1.3: 4 of 8, 1.2: 4 of 8). Neither qualifies for PASS authority, and the 1.2 to 1.3 change on
 eight cases is a reminder of how little a screen of this size can rank.
 
 ## 8. Next steps and how each is measured
