@@ -139,7 +139,11 @@ def test_missing_or_unclosed_managed_section_is_ignored(tmp_path):
 
 def test_duplicate_bad_references_are_reported_once_and_invalid_shell_is_safe(tmp_path):
     (tmp_path / "AGENTS.md").write_text(
-        _agents_md("docs/missing.md", "docs/missing.md", "missing-command --flag"),
+        _agents_md(
+            "docs/missing.md",
+            "docs/missing.md",
+            '"unclosed-arg --flag',
+        ),
         encoding="utf-8",
     )
 
@@ -147,7 +151,7 @@ def test_duplicate_bad_references_are_reported_once_and_invalid_shell_is_safe(tm
 
     assert [(finding.kind, finding.value) for finding in findings] == [
         ("path", "docs/missing.md"),
-        ("command", "missing-command --flag"),
+        ("command", '"unclosed-arg --flag'),
     ]
 
 
