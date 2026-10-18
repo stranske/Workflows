@@ -56,6 +56,36 @@ def _zero_error_denominator(maximum_rate: float, confidence_level: float) -> int
     )
 
 
+def _evaluable_counts(corpus: dict[str, Any]) -> dict[str, int]:
+    """PASS and NON_PASS cases a judge can be fairly scored on.
+
+    A case is evaluable when a prompt can be built for it (a snapshot reference or mutation recipe,
+    or a captured screen case) and the production prompt's own coverage check calls the input
+    sufficient. Historical cases without a snapshot cannot be replayed, and an insufficient input
+    makes every correct judge answer UNVERIFIABLE_INPUT, which measures the capture.
+    """
+    from tools.model_eval_snapshots import verifier_prompt_coverage
+
+    counts = {"pass": 0, "non_pass": 0}
+    seen: set[str] = set()
+
+    def count(case: dict[str, Any], ok: bool) -> None:
+        if ok and case["case_id"] not in seen:
+            seen.add(case["case_id"])
+            counts["pass" if case.get("expected_verdict") == "PASS" else "non_pass"] += 1
+
+    for case in corpus.get("screen_cases", []):
+        try:
+            ok = bool(verifier_prompt_coverage(case["production_snapshot"])["sufficient"])
+        except (KeyError, TypeError, ValueError):
+            ok = False
+        count(case, ok)
+    for case in corpus.get("cases", []):
+        replayable = bool(case.get("snapshot_ref") or case.get("mutation_recipe"))
+        count(case, replayable and case.get("coverage_sufficient") is True)
+    return counts
+
+
 def build_plan(
     corpus: dict[str, Any],
     registry: dict[str, Any],
@@ -91,6 +121,7 @@ def build_plan(
         float(approval["confidence_level"]),
     )
     additional_non_pass = max(0, false_pass_floor - negative_cases)
+    evaluable = _evaluable_counts(corpus)
     minimum_real_non_pass = int(mutation_policy.get("minimum_real_non_pass_cases", 0))
     additional_pass = max(0, false_fail_floor - positive_cases)
     best_case_total = len(cases) + additional_non_pass + additional_pass
@@ -210,6 +241,17 @@ def build_plan(
             f"Only {real_non_pass} real-outcome NON_PASS cases exist; the policy requires at "
             f"least {minimum_real_non_pass} alongside {mutation_cases} controlled-mutation cases."
         )
+    if evaluable["non_pass"] < false_pass_floor:
+        reasons.append(
+            f"Only {evaluable['non_pass']} of the {negative_cases} NON_PASS cases are evaluable "
+            "(a captured input the production prompt calls sufficient; the rest would make a judge "
+            f"abstain on missing evidence, not on its own quality); the gate needs {false_pass_floor}."
+        )
+    if evaluable["pass"] < false_fail_floor:
+        reasons.append(
+            f"Only {evaluable['pass']} of the {positive_cases} PASS cases are evaluable; the "
+            f"false-fail gate needs {false_fail_floor}."
+        )
     if additional_pass:
         reasons.append(
             f"Even with zero false fails, the {confidence_label} Wilson gate needs {false_fail_floor} "
@@ -286,6 +328,8 @@ def build_plan(
         "corpus_cases": len(cases),
         "expected_pass_cases": positive_cases,
         "expected_non_pass_cases": negative_cases,
+        "evaluable_pass_cases": evaluable["pass"],
+        "evaluable_non_pass_cases": evaluable["non_pass"],
         "real_non_pass_cases": real_non_pass,
         "controlled_mutation_non_pass_cases": mutation_cases,
         "zero_error_false_pass_denominator": false_pass_floor,

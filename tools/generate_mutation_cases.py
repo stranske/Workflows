@@ -293,6 +293,8 @@ SNAPSHOT_DIR = Path("config/model_eval_snapshots")
 def corpus_case_for(corpus: dict[str, Any], repo: str, pr: int) -> dict[str, Any] | None:
     """The corpus case for a captured PR (repository and PR number, case-insensitive repo)."""
     for case in corpus.get("cases", []):
+        if case.get("provenance") == "controlled-mutation":
+            continue  # a mutant shares its source PR's number; it is never the source's own case
         if str(case.get("repo", "")).lower() == repo.lower() and str(case.get("pr")) == str(pr):
             return case
     return None
@@ -360,6 +362,22 @@ def _is_test_path(path: str) -> bool:
     return "/tests/" in f"/{path}" or "__tests__" in path or Path(path).name.startswith("test_")
 
 
+def coverage_sufficient(snapshot: dict[str, Any]) -> bool:
+    """Whether the production prompt built from this snapshot covers enough to judge (its own check).
+
+    An input the verifier itself calls insufficient (``UNVERIFIABLE_INPUT``: required acceptance
+    evidence or the local diff is missing from a retrospective capture) measures the capture, not the
+    judge: a judge that abstains there is right for the wrong reason. Such inputs never enter the
+    approval corpus.
+    """
+    from tools.model_eval_snapshots import verifier_prompt_coverage
+
+    try:
+        return bool(verifier_prompt_coverage(snapshot)["sufficient"])
+    except (KeyError, TypeError, ValueError):
+        return False
+
+
 def _mutation_case(case: dict[str, Any], case_id: str, category: str, mutant: dict[str, Any]):
     return {
         "case_id": case_id,
@@ -386,7 +404,11 @@ def generate_from_snapshots(
         if case.get("expected_verdict") != "PASS":
             continue
         mutants = sorted(
-            mutate_drop_named_file(case["production_snapshot"]),
+            (
+                m
+                for m in mutate_drop_named_file(case["production_snapshot"])
+                if coverage_sufficient(m)
+            ),
             key=lambda m: (not _is_test_path(m["mutation_path"]), m["mutation_path"]),
         )[:max_per_source]
         for index, mutant in enumerate(mutants):
@@ -394,7 +416,8 @@ def generate_from_snapshots(
                 _mutation_case(case, f"{case_id}-mut-drop{index + 1}", CATEGORY_DROP, mutant)
             )
         for mutant in mutate_fail_ci(case["production_snapshot"]):
-            out.append(_mutation_case(case, f"{case_id}-mut-ci", CATEGORY_CI, mutant))
+            if coverage_sufficient(mutant):
+                out.append(_mutation_case(case, f"{case_id}-mut-ci", CATEGORY_CI, mutant))
     return out
 
 
@@ -438,6 +461,8 @@ def write_corpus(
     snapshot_dir: Path,
     sources: dict[str, dict[str, Any]],
     mutants: list[dict[str, Any]],
+    *,
+    rebuild: bool = False,
 ) -> tuple[int, int]:
     """Write source snapshots (gzip) and append deduplicated case records to the corpus.
 
@@ -448,21 +473,38 @@ def write_corpus(
     """
     corpus = json.loads(corpus_path.read_text())
     snapshot_dir.mkdir(parents=True, exist_ok=True)
+    if rebuild:  # drop earlier generated cases and snapshot files, then write the current set
+        corpus["cases"] = [
+            c for c in corpus["cases"] if c.get("provenance") != "controlled-mutation"
+        ]
+        for old in snapshot_dir.glob("*.json.gz"):
+            old.unlink()
+        for case in corpus["cases"]:
+            case.pop("snapshot_ref", None)
+            case.pop("coverage_sufficient", None)
     existing = {case["case_id"]: case for case in corpus["cases"]}
     refs: dict[str, str] = {}
     referenced = added = 0
+    needed = {m["source_case_id"] for m in mutants}
     for case_id, case in sources.items():
+        if case_id not in existing and case_id not in needed:
+            continue  # an unlisted source that produced no evaluable mutant is not stored
         ref = f"{snapshot_dir.as_posix()}/{case_id}.json.gz"
         refs[case_id] = ref
         with gzip.open(snapshot_dir / f"{case_id}.json.gz", "wt", compresslevel=9) as handle:
             json.dump(case, handle, sort_keys=True)
-        if case_id in existing and existing[case_id].get("snapshot_ref") != ref:
-            existing[case_id]["snapshot_ref"] = ref
-            referenced += 1
+        if case_id in existing:
+            existing[case_id]["coverage_sufficient"] = coverage_sufficient(
+                case["production_snapshot"]
+            )
+            if existing[case_id].get("snapshot_ref") != ref:
+                existing[case_id]["snapshot_ref"] = ref
+                referenced += 1
     for case in mutants:
         if case["case_id"] in existing:
             continue
         record = {k: v for k, v in case.items() if k != "production_snapshot"}
+        record["coverage_sufficient"] = True  # generation keeps only evaluable mutants
         record["mutation_recipe"] = {
             "source_case_id": case["source_case_id"],
             "source_snapshot_ref": refs.get(
@@ -500,6 +542,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--snapshot-dir", type=Path, default=SNAPSHOT_DIR)
     parser.add_argument("--max-per-source", type=int, default=MAX_PER_SOURCE)
     parser.add_argument(
+        "--rebuild",
+        action="store_true",
+        help="with --write: first remove generated cases and snapshot files, then write the current set",
+    )
+    parser.add_argument(
         "--allow-unlisted",
         action="store_true",
         help="also mutate merged PRs that are not corpus cases (mutation source only)",
@@ -513,7 +560,9 @@ def main(argv: list[str] | None = None) -> int:
     )
     cases = generate_from_snapshots(sources, args.max_per_source) if sources else generate(corpus)
     if args.write:
-        referenced, added = write_corpus(args.corpus, args.snapshot_dir, sources, cases)
+        referenced, added = write_corpus(
+            args.corpus, args.snapshot_dir, sources, cases, rebuild=args.rebuild
+        )
         print(
             f"wrote {len(sources)} source snapshot(s) ({referenced} newly referenced), {added} new mutant case(s)"
         )

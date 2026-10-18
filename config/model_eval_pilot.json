@@ -206,6 +206,7 @@
       "pr": 2744,
       "expected_verdict": "PASS",
       "category": "clean-pass",
+      "coverage_sufficient": true,
       "snapshot_ref": "config/model_eval_snapshots/workflows-2744.json.gz"
     },
     {
@@ -214,6 +215,7 @@
       "pr": 2746,
       "expected_verdict": "PASS",
       "category": "clean-pass",
+      "coverage_sufficient": true,
       "snapshot_ref": "config/model_eval_snapshots/workflows-2746.json.gz"
     },
     {
@@ -222,6 +224,7 @@
       "pr": 2747,
       "expected_verdict": "PASS",
       "category": "clean-pass",
+      "coverage_sufficient": false,
       "snapshot_ref": "config/model_eval_snapshots/workflows-2747.json.gz"
     },
     {
@@ -230,6 +233,7 @@
       "pr": 704,
       "expected_verdict": "PASS",
       "category": "clean-pass",
+      "coverage_sufficient": false,
       "snapshot_ref": "config/model_eval_snapshots/pension-704.json.gz"
     },
     {
@@ -238,6 +242,7 @@
       "pr": 702,
       "expected_verdict": "PASS",
       "category": "stale-verifier-claim",
+      "coverage_sufficient": false,
       "snapshot_ref": "config/model_eval_snapshots/pension-702.json.gz"
     },
     {
@@ -253,6 +258,7 @@
       "pr": 2756,
       "expected_verdict": "PASS",
       "category": "clean-pass",
+      "coverage_sufficient": false,
       "snapshot_ref": "config/model_eval_snapshots/workflows-2756.json.gz"
     },
     {
@@ -261,6 +267,7 @@
       "pr": 2757,
       "expected_verdict": "PASS",
       "category": "review-thread-debt",
+      "coverage_sufficient": false,
       "snapshot_ref": "config/model_eval_snapshots/workflows-2757.json.gz"
     },
     {
@@ -269,6 +276,7 @@
       "pr": 708,
       "expected_verdict": "PASS",
       "category": "stale-verifier-claim",
+      "coverage_sufficient": false,
       "snapshot_ref": "config/model_eval_snapshots/pension-708.json.gz"
     },
     {
@@ -277,6 +285,7 @@
       "pr": 711,
       "expected_verdict": "PASS",
       "category": "clean-pass",
+      "coverage_sufficient": false,
       "snapshot_ref": "config/model_eval_snapshots/pension-711.json.gz"
     },
     {
@@ -285,6 +294,7 @@
       "pr": 712,
       "expected_verdict": "PASS",
       "category": "clean-pass",
+      "coverage_sufficient": false,
       "snapshot_ref": "config/model_eval_snapshots/pension-712.json.gz"
     },
     {
@@ -293,6 +303,7 @@
       "pr": 713,
       "expected_verdict": "PASS",
       "category": "stale-verifier-claim",
+      "coverage_sufficient": false,
       "snapshot_ref": "config/model_eval_snapshots/pension-713.json.gz"
     },
     {
@@ -301,6 +312,7 @@
       "pr": 714,
       "expected_verdict": "PASS",
       "category": "clean-pass",
+      "coverage_sufficient": false,
       "snapshot_ref": "config/model_eval_snapshots/pension-714.json.gz"
     },
     {
@@ -309,6 +321,7 @@
       "pr": 1408,
       "expected_verdict": "PASS",
       "category": "clean-pass",
+      "coverage_sufficient": false,
       "snapshot_ref": "config/model_eval_snapshots/manager-1408.json.gz"
     },
     {
@@ -317,6 +330,7 @@
       "pr": 1411,
       "expected_verdict": "PASS",
       "category": "clean-pass",
+      "coverage_sufficient": false,
       "snapshot_ref": "config/model_eval_snapshots/manager-1411.json.gz"
     },
     {
@@ -325,6 +339,7 @@
       "pr": 1407,
       "expected_verdict": "PASS",
       "category": "clean-pass",
+      "coverage_sufficient": false,
       "snapshot_ref": "config/model_eval_snapshots/manager-1407.json.gz"
     },
     {
@@ -333,6 +348,7 @@
       "pr": 1412,
       "expected_verdict": "PASS",
       "category": "review-thread-debt",
+      "coverage_sufficient": false,
       "snapshot_ref": "config/model_eval_snapshots/manager-1412.json.gz"
     },
     {
@@ -348,6 +364,7 @@
       "pr": 244,
       "expected_verdict": "PASS",
       "category": "clean-pass",
+      "coverage_sufficient": false,
       "snapshot_ref": "config/model_eval_snapshots/fine-art-244.json.gz"
     },
     {
@@ -356,6 +373,7 @@
       "pr": 255,
       "expected_verdict": "PASS",
       "category": "clean-pass",
+      "coverage_sufficient": false,
       "snapshot_ref": "config/model_eval_snapshots/fine-art-255.json.gz"
     },
     {
@@ -364,6 +382,7 @@
       "pr": 256,
       "expected_verdict": "PASS",
       "category": "clean-pass",
+      "coverage_sufficient": false,
       "snapshot_ref": "config/model_eval_snapshots/fine-art-256.json.gz"
     },
     {
@@ -379,6 +398,7 @@
       "pr": 768,
       "expected_verdict": "PASS",
       "category": "stale-verifier-claim",
+      "coverage_sufficient": false,
       "snapshot_ref": "config/model_eval_snapshots/inv-man-768.json.gz"
     },
     {
@@ -387,6 +407,7 @@
       "pr": 781,
       "expected_verdict": "PASS",
       "category": "clean-pass",
+      "coverage_sufficient": false,
       "snapshot_ref": "config/model_eval_snapshots/inv-man-781.json.gz"
     },
     {
@@ -395,6 +416,7 @@
       "pr": 778,
       "expected_verdict": "PASS",
       "category": "clean-pass",
+      "coverage_sufficient": false,
       "snapshot_ref": "config/model_eval_snapshots/inv-man-778.json.gz"
     },
     {
@@ -403,6 +425,7 @@
       "pr": 776,
       "expected_verdict": "PASS",
       "category": "clean-pass",
+      "coverage_sufficient": false,
       "snapshot_ref": "config/model_eval_snapshots/inv-man-776.json.gz"
     },
     {
@@ -411,6 +434,7 @@
       "pr": 774,
       "expected_verdict": "PASS",
       "category": "clean-pass",
+      "coverage_sufficient": false,
       "snapshot_ref": "config/model_eval_snapshots/inv-man-774.json.gz"
     },
     {
@@ -419,6 +443,7 @@
       "pr": 1494,
       "expected_verdict": "PASS",
       "category": "stale-verifier-claim",
+      "coverage_sufficient": false,
       "snapshot_ref": "config/model_eval_snapshots/trip-1494.json.gz"
     },
     {
@@ -427,6 +452,7 @@
       "pr": 393,
       "expected_verdict": "PASS",
       "category": "clean-pass",
+      "coverage_sufficient": false,
       "snapshot_ref": "config/model_eval_snapshots/lms-393.json.gz"
     },
     {
@@ -444,6 +470,7 @@
       "category": "clean-pass",
       "provenance": "harvested",
       "harvested_at": "2026-07-27",
+      "coverage_sufficient": true,
       "snapshot_ref": "config/model_eval_snapshots/workflows-2545.json.gz"
     },
     {
@@ -454,6 +481,7 @@
       "category": "clean-pass",
       "provenance": "harvested",
       "harvested_at": "2026-07-27",
+      "coverage_sufficient": true,
       "snapshot_ref": "config/model_eval_snapshots/workflows-2544.json.gz"
     },
     {
@@ -464,6 +492,7 @@
       "category": "clean-pass",
       "provenance": "harvested",
       "harvested_at": "2026-07-27",
+      "coverage_sufficient": true,
       "snapshot_ref": "config/model_eval_snapshots/workflows-2543.json.gz"
     },
     {
@@ -474,6 +503,7 @@
       "category": "clean-pass",
       "provenance": "harvested",
       "harvested_at": "2026-07-27",
+      "coverage_sufficient": true,
       "snapshot_ref": "config/model_eval_snapshots/workflows-2540.json.gz"
     },
     {
@@ -484,6 +514,7 @@
       "category": "clean-pass",
       "provenance": "harvested",
       "harvested_at": "2026-07-27",
+      "coverage_sufficient": true,
       "snapshot_ref": "config/model_eval_snapshots/workflows-2539.json.gz"
     },
     {
@@ -494,6 +525,7 @@
       "category": "clean-pass",
       "provenance": "harvested",
       "harvested_at": "2026-07-27",
+      "coverage_sufficient": true,
       "snapshot_ref": "config/model_eval_snapshots/workflows-2538.json.gz"
     },
     {
@@ -504,6 +536,7 @@
       "category": "clean-pass",
       "provenance": "harvested",
       "harvested_at": "2026-07-27",
+      "coverage_sufficient": true,
       "snapshot_ref": "config/model_eval_snapshots/workflows-2537.json.gz"
     },
     {
@@ -514,6 +547,7 @@
       "category": "clean-pass",
       "provenance": "harvested",
       "harvested_at": "2026-07-27",
+      "coverage_sufficient": true,
       "snapshot_ref": "config/model_eval_snapshots/workflows-2536.json.gz"
     },
     {
@@ -524,6 +558,7 @@
       "category": "clean-pass",
       "provenance": "harvested",
       "harvested_at": "2026-07-27",
+      "coverage_sufficient": true,
       "snapshot_ref": "config/model_eval_snapshots/workflows-2535.json.gz"
     },
     {
@@ -579,6 +614,7 @@
       "category": "clean-pass",
       "provenance": "harvested",
       "harvested_at": "2026-07-27",
+      "coverage_sufficient": true,
       "snapshot_ref": "config/model_eval_snapshots/workflows-2528.json.gz"
     },
     {
@@ -589,6 +625,7 @@
       "category": "clean-pass",
       "provenance": "harvested",
       "harvested_at": "2026-07-27",
+      "coverage_sufficient": true,
       "snapshot_ref": "config/model_eval_snapshots/workflows-2527.json.gz"
     },
     {
@@ -599,6 +636,7 @@
       "category": "clean-pass",
       "provenance": "harvested",
       "harvested_at": "2026-07-27",
+      "coverage_sufficient": true,
       "snapshot_ref": "config/model_eval_snapshots/workflows-2524.json.gz"
     },
     {
@@ -638,831 +676,6 @@
       "harvested_at": "2026-07-27"
     },
     {
-      "case_id": "fine-art-244-mut-ci",
-      "repo": "stranske/Fine-Art-Archive",
-      "pr": 244,
-      "expected_verdict": "NON_PASS",
-      "category": "ci-failure-disqualifier",
-      "provenance": "controlled-mutation",
-      "source_case_id": "fine-art-244",
-      "mutation_recipe": {
-        "source_case_id": "fine-art-244",
-        "source_snapshot_ref": "config/model_eval_snapshots/fine-art-244.json.gz",
-        "mutation": "fail-ci-row",
-        "path": "pr-00-gate.yml"
-      }
-    },
-    {
-      "case_id": "fine-art-255-mut-drop1",
-      "repo": "stranske/Fine-Art-Archive",
-      "pr": 255,
-      "expected_verdict": "NON_PASS",
-      "category": "missing-acceptance-criterion",
-      "provenance": "controlled-mutation",
-      "source_case_id": "fine-art-255",
-      "mutation_recipe": {
-        "source_case_id": "fine-art-255",
-        "source_snapshot_ref": "config/model_eval_snapshots/fine-art-255.json.gz",
-        "mutation": "drop-named-file",
-        "path": "tests/test_getty_resolve.py"
-      }
-    },
-    {
-      "case_id": "fine-art-256-mut-drop1",
-      "repo": "stranske/Fine-Art-Archive",
-      "pr": 256,
-      "expected_verdict": "NON_PASS",
-      "category": "missing-acceptance-criterion",
-      "provenance": "controlled-mutation",
-      "source_case_id": "fine-art-256",
-      "mutation_recipe": {
-        "source_case_id": "fine-art-256",
-        "source_snapshot_ref": "config/model_eval_snapshots/fine-art-256.json.gz",
-        "mutation": "drop-named-file",
-        "path": "tests/test_fixity.py"
-      }
-    },
-    {
-      "case_id": "fine-art-archive-342-mut-ci",
-      "repo": "stranske/Fine-Art-Archive",
-      "pr": 342,
-      "expected_verdict": "NON_PASS",
-      "category": "ci-failure-disqualifier",
-      "provenance": "controlled-mutation",
-      "source_case_id": "fine-art-archive-342",
-      "mutation_recipe": {
-        "source_case_id": "fine-art-archive-342",
-        "source_snapshot_ref": "config/model_eval_snapshots/fine-art-archive-342.json.gz",
-        "mutation": "fail-ci-row",
-        "path": "pr-00-gate.yml"
-      }
-    },
-    {
-      "case_id": "fine-art-archive-343-mut-ci",
-      "repo": "stranske/Fine-Art-Archive",
-      "pr": 343,
-      "expected_verdict": "NON_PASS",
-      "category": "ci-failure-disqualifier",
-      "provenance": "controlled-mutation",
-      "source_case_id": "fine-art-archive-343",
-      "mutation_recipe": {
-        "source_case_id": "fine-art-archive-343",
-        "source_snapshot_ref": "config/model_eval_snapshots/fine-art-archive-343.json.gz",
-        "mutation": "fail-ci-row",
-        "path": "pr-00-gate.yml"
-      }
-    },
-    {
-      "case_id": "fine-art-archive-382-mut-ci",
-      "repo": "stranske/Fine-Art-Archive",
-      "pr": 382,
-      "expected_verdict": "NON_PASS",
-      "category": "ci-failure-disqualifier",
-      "provenance": "controlled-mutation",
-      "source_case_id": "fine-art-archive-382",
-      "mutation_recipe": {
-        "source_case_id": "fine-art-archive-382",
-        "source_snapshot_ref": "config/model_eval_snapshots/fine-art-archive-382.json.gz",
-        "mutation": "fail-ci-row",
-        "path": "pr-00-gate.yml"
-      }
-    },
-    {
-      "case_id": "fine-art-archive-385-mut-ci",
-      "repo": "stranske/Fine-Art-Archive",
-      "pr": 385,
-      "expected_verdict": "NON_PASS",
-      "category": "ci-failure-disqualifier",
-      "provenance": "controlled-mutation",
-      "source_case_id": "fine-art-archive-385",
-      "mutation_recipe": {
-        "source_case_id": "fine-art-archive-385",
-        "source_snapshot_ref": "config/model_eval_snapshots/fine-art-archive-385.json.gz",
-        "mutation": "fail-ci-row",
-        "path": "pr-00-gate.yml"
-      }
-    },
-    {
-      "case_id": "fine-art-archive-470-mut-ci",
-      "repo": "stranske/Fine-Art-Archive",
-      "pr": 470,
-      "expected_verdict": "NON_PASS",
-      "category": "ci-failure-disqualifier",
-      "provenance": "controlled-mutation",
-      "source_case_id": "fine-art-archive-470",
-      "mutation_recipe": {
-        "source_case_id": "fine-art-archive-470",
-        "source_snapshot_ref": "config/model_eval_snapshots/fine-art-archive-470.json.gz",
-        "mutation": "fail-ci-row",
-        "path": "pr-00-gate.yml"
-      }
-    },
-    {
-      "case_id": "fine-art-archive-472-mut-drop1",
-      "repo": "stranske/Fine-Art-Archive",
-      "pr": 472,
-      "expected_verdict": "NON_PASS",
-      "category": "missing-acceptance-criterion",
-      "provenance": "controlled-mutation",
-      "source_case_id": "fine-art-archive-472",
-      "mutation_recipe": {
-        "source_case_id": "fine-art-archive-472",
-        "source_snapshot_ref": "config/model_eval_snapshots/fine-art-archive-472.json.gz",
-        "mutation": "drop-named-file",
-        "path": ".github/scripts/issue_format.py"
-      }
-    },
-    {
-      "case_id": "fine-art-archive-473-mut-drop1",
-      "repo": "stranske/Fine-Art-Archive",
-      "pr": 473,
-      "expected_verdict": "NON_PASS",
-      "category": "missing-acceptance-criterion",
-      "provenance": "controlled-mutation",
-      "source_case_id": "fine-art-archive-473",
-      "mutation_recipe": {
-        "source_case_id": "fine-art-archive-473",
-        "source_snapshot_ref": "config/model_eval_snapshots/fine-art-archive-473.json.gz",
-        "mutation": "drop-named-file",
-        "path": "tests/test_dimension_utils.py"
-      }
-    },
-    {
-      "case_id": "fine-art-archive-473-mut-ci",
-      "repo": "stranske/Fine-Art-Archive",
-      "pr": 473,
-      "expected_verdict": "NON_PASS",
-      "category": "ci-failure-disqualifier",
-      "provenance": "controlled-mutation",
-      "source_case_id": "fine-art-archive-473",
-      "mutation_recipe": {
-        "source_case_id": "fine-art-archive-473",
-        "source_snapshot_ref": "config/model_eval_snapshots/fine-art-archive-473.json.gz",
-        "mutation": "fail-ci-row",
-        "path": "pr-00-gate.yml"
-      }
-    },
-    {
-      "case_id": "inv-man-768-mut-drop1",
-      "repo": "stranske/Inv-Man-Intake",
-      "pr": 768,
-      "expected_verdict": "NON_PASS",
-      "category": "missing-acceptance-criterion",
-      "provenance": "controlled-mutation",
-      "source_case_id": "inv-man-768",
-      "mutation_recipe": {
-        "source_case_id": "inv-man-768",
-        "source_snapshot_ref": "config/model_eval_snapshots/inv-man-768.json.gz",
-        "mutation": "drop-named-file",
-        "path": "src/inv_man_intake/extraction/cross_check.py"
-      }
-    },
-    {
-      "case_id": "inv-man-768-mut-ci",
-      "repo": "stranske/Inv-Man-Intake",
-      "pr": 768,
-      "expected_verdict": "NON_PASS",
-      "category": "ci-failure-disqualifier",
-      "provenance": "controlled-mutation",
-      "source_case_id": "inv-man-768",
-      "mutation_recipe": {
-        "source_case_id": "inv-man-768",
-        "source_snapshot_ref": "config/model_eval_snapshots/inv-man-768.json.gz",
-        "mutation": "fail-ci-row",
-        "path": "pr-00-gate.yml"
-      }
-    },
-    {
-      "case_id": "inv-man-774-mut-drop1",
-      "repo": "stranske/Inv-Man-Intake",
-      "pr": 774,
-      "expected_verdict": "NON_PASS",
-      "category": "missing-acceptance-criterion",
-      "provenance": "controlled-mutation",
-      "source_case_id": "inv-man-774",
-      "mutation_recipe": {
-        "source_case_id": "inv-man-774",
-        "source_snapshot_ref": "config/model_eval_snapshots/inv-man-774.json.gz",
-        "mutation": "drop-named-file",
-        "path": "tests/extraction/test_extraction_service.py"
-      }
-    },
-    {
-      "case_id": "inv-man-774-mut-drop2",
-      "repo": "stranske/Inv-Man-Intake",
-      "pr": 774,
-      "expected_verdict": "NON_PASS",
-      "category": "missing-acceptance-criterion",
-      "provenance": "controlled-mutation",
-      "source_case_id": "inv-man-774",
-      "mutation_recipe": {
-        "source_case_id": "inv-man-774",
-        "source_snapshot_ref": "config/model_eval_snapshots/inv-man-774.json.gz",
-        "mutation": "drop-named-file",
-        "path": "src/inv_man_intake/extraction/service.py"
-      }
-    },
-    {
-      "case_id": "inv-man-774-mut-ci",
-      "repo": "stranske/Inv-Man-Intake",
-      "pr": 774,
-      "expected_verdict": "NON_PASS",
-      "category": "ci-failure-disqualifier",
-      "provenance": "controlled-mutation",
-      "source_case_id": "inv-man-774",
-      "mutation_recipe": {
-        "source_case_id": "inv-man-774",
-        "source_snapshot_ref": "config/model_eval_snapshots/inv-man-774.json.gz",
-        "mutation": "fail-ci-row",
-        "path": "pr-00-gate.yml"
-      }
-    },
-    {
-      "case_id": "inv-man-776-mut-ci",
-      "repo": "stranske/Inv-Man-Intake",
-      "pr": 776,
-      "expected_verdict": "NON_PASS",
-      "category": "ci-failure-disqualifier",
-      "provenance": "controlled-mutation",
-      "source_case_id": "inv-man-776",
-      "mutation_recipe": {
-        "source_case_id": "inv-man-776",
-        "source_snapshot_ref": "config/model_eval_snapshots/inv-man-776.json.gz",
-        "mutation": "fail-ci-row",
-        "path": "pr-00-gate.yml"
-      }
-    },
-    {
-      "case_id": "inv-man-778-mut-ci",
-      "repo": "stranske/Inv-Man-Intake",
-      "pr": 778,
-      "expected_verdict": "NON_PASS",
-      "category": "ci-failure-disqualifier",
-      "provenance": "controlled-mutation",
-      "source_case_id": "inv-man-778",
-      "mutation_recipe": {
-        "source_case_id": "inv-man-778",
-        "source_snapshot_ref": "config/model_eval_snapshots/inv-man-778.json.gz",
-        "mutation": "fail-ci-row",
-        "path": "pr-00-gate.yml"
-      }
-    },
-    {
-      "case_id": "inv-man-781-mut-drop1",
-      "repo": "stranske/Inv-Man-Intake",
-      "pr": 781,
-      "expected_verdict": "NON_PASS",
-      "category": "missing-acceptance-criterion",
-      "provenance": "controlled-mutation",
-      "source_case_id": "inv-man-781",
-      "mutation_recipe": {
-        "source_case_id": "inv-man-781",
-        "source_snapshot_ref": "config/model_eval_snapshots/inv-man-781.json.gz",
-        "mutation": "drop-named-file",
-        "path": "app/index.html"
-      }
-    },
-    {
-      "case_id": "inv-man-781-mut-drop2",
-      "repo": "stranske/Inv-Man-Intake",
-      "pr": 781,
-      "expected_verdict": "NON_PASS",
-      "category": "missing-acceptance-criterion",
-      "provenance": "controlled-mutation",
-      "source_case_id": "inv-man-781",
-      "mutation_recipe": {
-        "source_case_id": "inv-man-781",
-        "source_snapshot_ref": "config/model_eval_snapshots/inv-man-781.json.gz",
-        "mutation": "drop-named-file",
-        "path": "app/static_operator_app.js"
-      }
-    },
-    {
-      "case_id": "inv-man-intake-802-mut-ci",
-      "repo": "stranske/Inv-Man-Intake",
-      "pr": 802,
-      "expected_verdict": "NON_PASS",
-      "category": "ci-failure-disqualifier",
-      "provenance": "controlled-mutation",
-      "source_case_id": "inv-man-intake-802",
-      "mutation_recipe": {
-        "source_case_id": "inv-man-intake-802",
-        "source_snapshot_ref": "config/model_eval_snapshots/inv-man-intake-802.json.gz",
-        "mutation": "fail-ci-row",
-        "path": "pr-00-gate.yml"
-      }
-    },
-    {
-      "case_id": "learning-management-system-490-mut-ci",
-      "repo": "stranske/learning-management-system",
-      "pr": 490,
-      "expected_verdict": "NON_PASS",
-      "category": "ci-failure-disqualifier",
-      "provenance": "controlled-mutation",
-      "source_case_id": "learning-management-system-490",
-      "mutation_recipe": {
-        "source_case_id": "learning-management-system-490",
-        "source_snapshot_ref": "config/model_eval_snapshots/learning-management-system-490.json.gz",
-        "mutation": "fail-ci-row",
-        "path": "pr-00-gate.yml"
-      }
-    },
-    {
-      "case_id": "manager-1407-mut-ci",
-      "repo": "stranske/Manager-Database",
-      "pr": 1407,
-      "expected_verdict": "NON_PASS",
-      "category": "ci-failure-disqualifier",
-      "provenance": "controlled-mutation",
-      "source_case_id": "manager-1407",
-      "mutation_recipe": {
-        "source_case_id": "manager-1407",
-        "source_snapshot_ref": "config/model_eval_snapshots/manager-1407.json.gz",
-        "mutation": "fail-ci-row",
-        "path": "pr-00-gate.yml"
-      }
-    },
-    {
-      "case_id": "manager-1408-mut-ci",
-      "repo": "stranske/Manager-Database",
-      "pr": 1408,
-      "expected_verdict": "NON_PASS",
-      "category": "ci-failure-disqualifier",
-      "provenance": "controlled-mutation",
-      "source_case_id": "manager-1408",
-      "mutation_recipe": {
-        "source_case_id": "manager-1408",
-        "source_snapshot_ref": "config/model_eval_snapshots/manager-1408.json.gz",
-        "mutation": "fail-ci-row",
-        "path": "pr-00-gate.yml"
-      }
-    },
-    {
-      "case_id": "manager-1411-mut-ci",
-      "repo": "stranske/Manager-Database",
-      "pr": 1411,
-      "expected_verdict": "NON_PASS",
-      "category": "ci-failure-disqualifier",
-      "provenance": "controlled-mutation",
-      "source_case_id": "manager-1411",
-      "mutation_recipe": {
-        "source_case_id": "manager-1411",
-        "source_snapshot_ref": "config/model_eval_snapshots/manager-1411.json.gz",
-        "mutation": "fail-ci-row",
-        "path": "pr-00-gate.yml"
-      }
-    },
-    {
-      "case_id": "manager-1412-mut-drop1",
-      "repo": "stranske/Manager-Database",
-      "pr": 1412,
-      "expected_verdict": "NON_PASS",
-      "category": "missing-acceptance-criterion",
-      "provenance": "controlled-mutation",
-      "source_case_id": "manager-1412",
-      "mutation_recipe": {
-        "source_case_id": "manager-1412",
-        "source_snapshot_ref": "config/model_eval_snapshots/manager-1412.json.gz",
-        "mutation": "drop-named-file",
-        "path": "docs/activism_campaign_lifecycle_design.md"
-      }
-    },
-    {
-      "case_id": "manager-1412-mut-ci",
-      "repo": "stranske/Manager-Database",
-      "pr": 1412,
-      "expected_verdict": "NON_PASS",
-      "category": "ci-failure-disqualifier",
-      "provenance": "controlled-mutation",
-      "source_case_id": "manager-1412",
-      "mutation_recipe": {
-        "source_case_id": "manager-1412",
-        "source_snapshot_ref": "config/model_eval_snapshots/manager-1412.json.gz",
-        "mutation": "fail-ci-row",
-        "path": "pr-00-gate.yml"
-      }
-    },
-    {
-      "case_id": "manager-database-1435-mut-ci",
-      "repo": "stranske/Manager-Database",
-      "pr": 1435,
-      "expected_verdict": "NON_PASS",
-      "category": "ci-failure-disqualifier",
-      "provenance": "controlled-mutation",
-      "source_case_id": "manager-database-1435",
-      "mutation_recipe": {
-        "source_case_id": "manager-database-1435",
-        "source_snapshot_ref": "config/model_eval_snapshots/manager-database-1435.json.gz",
-        "mutation": "fail-ci-row",
-        "path": "pr-00-gate.yml"
-      }
-    },
-    {
-      "case_id": "manager-database-1512-mut-ci",
-      "repo": "stranske/Manager-Database",
-      "pr": 1512,
-      "expected_verdict": "NON_PASS",
-      "category": "ci-failure-disqualifier",
-      "provenance": "controlled-mutation",
-      "source_case_id": "manager-database-1512",
-      "mutation_recipe": {
-        "source_case_id": "manager-database-1512",
-        "source_snapshot_ref": "config/model_eval_snapshots/manager-database-1512.json.gz",
-        "mutation": "fail-ci-row",
-        "path": "pr-00-gate.yml"
-      }
-    },
-    {
-      "case_id": "pension-702-mut-ci",
-      "repo": "stranske/Pension-Data",
-      "pr": 702,
-      "expected_verdict": "NON_PASS",
-      "category": "ci-failure-disqualifier",
-      "provenance": "controlled-mutation",
-      "source_case_id": "pension-702",
-      "mutation_recipe": {
-        "source_case_id": "pension-702",
-        "source_snapshot_ref": "config/model_eval_snapshots/pension-702.json.gz",
-        "mutation": "fail-ci-row",
-        "path": "pr-00-gate.yml"
-      }
-    },
-    {
-      "case_id": "pension-704-mut-drop1",
-      "repo": "stranske/Pension-Data",
-      "pr": 704,
-      "expected_verdict": "NON_PASS",
-      "category": "missing-acceptance-criterion",
-      "provenance": "controlled-mutation",
-      "source_case_id": "pension-704",
-      "mutation_recipe": {
-        "source_case_id": "pension-704",
-        "source_snapshot_ref": "config/model_eval_snapshots/pension-704.json.gz",
-        "mutation": "drop-named-file",
-        "path": "tests/ops/test_backplane_emitter.py"
-      }
-    },
-    {
-      "case_id": "pension-704-mut-drop2",
-      "repo": "stranske/Pension-Data",
-      "pr": 704,
-      "expected_verdict": "NON_PASS",
-      "category": "missing-acceptance-criterion",
-      "provenance": "controlled-mutation",
-      "source_case_id": "pension-704",
-      "mutation_recipe": {
-        "source_case_id": "pension-704",
-        "source_snapshot_ref": "config/model_eval_snapshots/pension-704.json.gz",
-        "mutation": "drop-named-file",
-        "path": ".github/workflows/backplane-conformance.yml"
-      }
-    },
-    {
-      "case_id": "pension-704-mut-ci",
-      "repo": "stranske/Pension-Data",
-      "pr": 704,
-      "expected_verdict": "NON_PASS",
-      "category": "ci-failure-disqualifier",
-      "provenance": "controlled-mutation",
-      "source_case_id": "pension-704",
-      "mutation_recipe": {
-        "source_case_id": "pension-704",
-        "source_snapshot_ref": "config/model_eval_snapshots/pension-704.json.gz",
-        "mutation": "fail-ci-row",
-        "path": "pr-00-gate.yml"
-      }
-    },
-    {
-      "case_id": "pension-708-mut-drop1",
-      "repo": "stranske/Pension-Data",
-      "pr": 708,
-      "expected_verdict": "NON_PASS",
-      "category": "missing-acceptance-criterion",
-      "provenance": "controlled-mutation",
-      "source_case_id": "pension-708",
-      "mutation_recipe": {
-        "source_case_id": "pension-708",
-        "source_snapshot_ref": "config/model_eval_snapshots/pension-708.json.gz",
-        "mutation": "drop-named-file",
-        "path": "langsmith-fleet-worker-attempt.json"
-      }
-    },
-    {
-      "case_id": "pension-708-mut-ci",
-      "repo": "stranske/Pension-Data",
-      "pr": 708,
-      "expected_verdict": "NON_PASS",
-      "category": "ci-failure-disqualifier",
-      "provenance": "controlled-mutation",
-      "source_case_id": "pension-708",
-      "mutation_recipe": {
-        "source_case_id": "pension-708",
-        "source_snapshot_ref": "config/model_eval_snapshots/pension-708.json.gz",
-        "mutation": "fail-ci-row",
-        "path": "pr-00-gate.yml"
-      }
-    },
-    {
-      "case_id": "pension-711-mut-drop1",
-      "repo": "stranske/Pension-Data",
-      "pr": 711,
-      "expected_verdict": "NON_PASS",
-      "category": "missing-acceptance-criterion",
-      "provenance": "controlled-mutation",
-      "source_case_id": "pension-711",
-      "mutation_recipe": {
-        "source_case_id": "pension-711",
-        "source_snapshot_ref": "config/model_eval_snapshots/pension-711.json.gz",
-        "mutation": "drop-named-file",
-        "path": ".agents/issue-636-ledger.yml"
-      }
-    },
-    {
-      "case_id": "pension-711-mut-ci",
-      "repo": "stranske/Pension-Data",
-      "pr": 711,
-      "expected_verdict": "NON_PASS",
-      "category": "ci-failure-disqualifier",
-      "provenance": "controlled-mutation",
-      "source_case_id": "pension-711",
-      "mutation_recipe": {
-        "source_case_id": "pension-711",
-        "source_snapshot_ref": "config/model_eval_snapshots/pension-711.json.gz",
-        "mutation": "fail-ci-row",
-        "path": "pr-00-gate.yml"
-      }
-    },
-    {
-      "case_id": "pension-712-mut-ci",
-      "repo": "stranske/Pension-Data",
-      "pr": 712,
-      "expected_verdict": "NON_PASS",
-      "category": "ci-failure-disqualifier",
-      "provenance": "controlled-mutation",
-      "source_case_id": "pension-712",
-      "mutation_recipe": {
-        "source_case_id": "pension-712",
-        "source_snapshot_ref": "config/model_eval_snapshots/pension-712.json.gz",
-        "mutation": "fail-ci-row",
-        "path": "pr-00-gate.yml"
-      }
-    },
-    {
-      "case_id": "pension-713-mut-ci",
-      "repo": "stranske/Pension-Data",
-      "pr": 713,
-      "expected_verdict": "NON_PASS",
-      "category": "ci-failure-disqualifier",
-      "provenance": "controlled-mutation",
-      "source_case_id": "pension-713",
-      "mutation_recipe": {
-        "source_case_id": "pension-713",
-        "source_snapshot_ref": "config/model_eval_snapshots/pension-713.json.gz",
-        "mutation": "fail-ci-row",
-        "path": "pr-00-gate.yml"
-      }
-    },
-    {
-      "case_id": "pension-714-mut-ci",
-      "repo": "stranske/Pension-Data",
-      "pr": 714,
-      "expected_verdict": "NON_PASS",
-      "category": "ci-failure-disqualifier",
-      "provenance": "controlled-mutation",
-      "source_case_id": "pension-714",
-      "mutation_recipe": {
-        "source_case_id": "pension-714",
-        "source_snapshot_ref": "config/model_eval_snapshots/pension-714.json.gz",
-        "mutation": "fail-ci-row",
-        "path": "pr-00-gate.yml"
-      }
-    },
-    {
-      "case_id": "pension-data-775-mut-ci",
-      "repo": "stranske/Pension-Data",
-      "pr": 775,
-      "expected_verdict": "NON_PASS",
-      "category": "ci-failure-disqualifier",
-      "provenance": "controlled-mutation",
-      "source_case_id": "pension-data-775",
-      "mutation_recipe": {
-        "source_case_id": "pension-data-775",
-        "source_snapshot_ref": "config/model_eval_snapshots/pension-data-775.json.gz",
-        "mutation": "fail-ci-row",
-        "path": "pr-00-gate.yml"
-      }
-    },
-    {
-      "case_id": "pension-data-776-mut-drop1",
-      "repo": "stranske/Pension-Data",
-      "pr": 776,
-      "expected_verdict": "NON_PASS",
-      "category": "missing-acceptance-criterion",
-      "provenance": "controlled-mutation",
-      "source_case_id": "pension-data-776",
-      "mutation_recipe": {
-        "source_case_id": "pension-data-776",
-        "source_snapshot_ref": "config/model_eval_snapshots/pension-data-776.json.gz",
-        "mutation": "drop-named-file",
-        "path": "scripts/web/build_workspace_bundle.py"
-      }
-    },
-    {
-      "case_id": "pension-data-776-mut-ci",
-      "repo": "stranske/Pension-Data",
-      "pr": 776,
-      "expected_verdict": "NON_PASS",
-      "category": "ci-failure-disqualifier",
-      "provenance": "controlled-mutation",
-      "source_case_id": "pension-data-776",
-      "mutation_recipe": {
-        "source_case_id": "pension-data-776",
-        "source_snapshot_ref": "config/model_eval_snapshots/pension-data-776.json.gz",
-        "mutation": "fail-ci-row",
-        "path": "pr-00-gate.yml"
-      }
-    },
-    {
-      "case_id": "pension-data-795-mut-ci",
-      "repo": "stranske/Pension-Data",
-      "pr": 795,
-      "expected_verdict": "NON_PASS",
-      "category": "ci-failure-disqualifier",
-      "provenance": "controlled-mutation",
-      "source_case_id": "pension-data-795",
-      "mutation_recipe": {
-        "source_case_id": "pension-data-795",
-        "source_snapshot_ref": "config/model_eval_snapshots/pension-data-795.json.gz",
-        "mutation": "fail-ci-row",
-        "path": "pr-00-gate.yml"
-      }
-    },
-    {
-      "case_id": "pension-data-796-mut-ci",
-      "repo": "stranske/Pension-Data",
-      "pr": 796,
-      "expected_verdict": "NON_PASS",
-      "category": "ci-failure-disqualifier",
-      "provenance": "controlled-mutation",
-      "source_case_id": "pension-data-796",
-      "mutation_recipe": {
-        "source_case_id": "pension-data-796",
-        "source_snapshot_ref": "config/model_eval_snapshots/pension-data-796.json.gz",
-        "mutation": "fail-ci-row",
-        "path": "pr-00-gate.yml"
-      }
-    },
-    {
-      "case_id": "ready-436-mut-ci",
-      "repo": "stranske/Ready",
-      "pr": 436,
-      "expected_verdict": "NON_PASS",
-      "category": "ci-failure-disqualifier",
-      "provenance": "controlled-mutation",
-      "source_case_id": "ready-436",
-      "mutation_recipe": {
-        "source_case_id": "ready-436",
-        "source_snapshot_ref": "config/model_eval_snapshots/ready-436.json.gz",
-        "mutation": "fail-ci-row",
-        "path": "pr-00-gate.yml"
-      }
-    },
-    {
-      "case_id": "ready-473-mut-ci",
-      "repo": "stranske/Ready",
-      "pr": 473,
-      "expected_verdict": "NON_PASS",
-      "category": "ci-failure-disqualifier",
-      "provenance": "controlled-mutation",
-      "source_case_id": "ready-473",
-      "mutation_recipe": {
-        "source_case_id": "ready-473",
-        "source_snapshot_ref": "config/model_eval_snapshots/ready-473.json.gz",
-        "mutation": "fail-ci-row",
-        "path": "pr-00-gate.yml"
-      }
-    },
-    {
-      "case_id": "ready-474-mut-ci",
-      "repo": "stranske/Ready",
-      "pr": 474,
-      "expected_verdict": "NON_PASS",
-      "category": "ci-failure-disqualifier",
-      "provenance": "controlled-mutation",
-      "source_case_id": "ready-474",
-      "mutation_recipe": {
-        "source_case_id": "ready-474",
-        "source_snapshot_ref": "config/model_eval_snapshots/ready-474.json.gz",
-        "mutation": "fail-ci-row",
-        "path": "pr-00-gate.yml"
-      }
-    },
-    {
-      "case_id": "ready-484-mut-ci",
-      "repo": "stranske/Ready",
-      "pr": 484,
-      "expected_verdict": "NON_PASS",
-      "category": "ci-failure-disqualifier",
-      "provenance": "controlled-mutation",
-      "source_case_id": "ready-484",
-      "mutation_recipe": {
-        "source_case_id": "ready-484",
-        "source_snapshot_ref": "config/model_eval_snapshots/ready-484.json.gz",
-        "mutation": "fail-ci-row",
-        "path": "pr-00-gate.yml"
-      }
-    },
-    {
-      "case_id": "travel-plan-permission-1349-mut-ci",
-      "repo": "stranske/Travel-Plan-Permission",
-      "pr": 1349,
-      "expected_verdict": "NON_PASS",
-      "category": "ci-failure-disqualifier",
-      "provenance": "controlled-mutation",
-      "source_case_id": "travel-plan-permission-1349",
-      "mutation_recipe": {
-        "source_case_id": "travel-plan-permission-1349",
-        "source_snapshot_ref": "config/model_eval_snapshots/travel-plan-permission-1349.json.gz",
-        "mutation": "fail-ci-row",
-        "path": "pr-00-gate.yml"
-      }
-    },
-    {
-      "case_id": "trip-1494-mut-drop1",
-      "repo": "stranske/trip-planner",
-      "pr": 1494,
-      "expected_verdict": "NON_PASS",
-      "category": "missing-acceptance-criterion",
-      "provenance": "controlled-mutation",
-      "source_case_id": "trip-1494",
-      "mutation_recipe": {
-        "source_case_id": "trip-1494",
-        "source_snapshot_ref": "config/model_eval_snapshots/trip-1494.json.gz",
-        "mutation": "drop-named-file",
-        "path": "tests/scripts/test_autopilot_step_timer.py"
-      }
-    },
-    {
-      "case_id": "trip-1494-mut-drop2",
-      "repo": "stranske/trip-planner",
-      "pr": 1494,
-      "expected_verdict": "NON_PASS",
-      "category": "missing-acceptance-criterion",
-      "provenance": "controlled-mutation",
-      "source_case_id": "trip-1494",
-      "mutation_recipe": {
-        "source_case_id": "trip-1494",
-        "source_snapshot_ref": "config/model_eval_snapshots/trip-1494.json.gz",
-        "mutation": "drop-named-file",
-        "path": "scripts/autopilot_step_timer.py"
-      }
-    },
-    {
-      "case_id": "trip-1494-mut-ci",
-      "repo": "stranske/trip-planner",
-      "pr": 1494,
-      "expected_verdict": "NON_PASS",
-      "category": "ci-failure-disqualifier",
-      "provenance": "controlled-mutation",
-      "source_case_id": "trip-1494",
-      "mutation_recipe": {
-        "source_case_id": "trip-1494",
-        "source_snapshot_ref": "config/model_eval_snapshots/trip-1494.json.gz",
-        "mutation": "fail-ci-row",
-        "path": "pr-00-gate.yml"
-      }
-    },
-    {
-      "case_id": "trip-planner-1581-mut-ci",
-      "repo": "stranske/trip-planner",
-      "pr": 1581,
-      "expected_verdict": "NON_PASS",
-      "category": "ci-failure-disqualifier",
-      "provenance": "controlled-mutation",
-      "source_case_id": "trip-planner-1581",
-      "mutation_recipe": {
-        "source_case_id": "trip-planner-1581",
-        "source_snapshot_ref": "config/model_eval_snapshots/trip-planner-1581.json.gz",
-        "mutation": "fail-ci-row",
-        "path": "pr-00-gate.yml"
-      }
-    },
-    {
-      "case_id": "trip-planner-1582-mut-ci",
-      "repo": "stranske/trip-planner",
-      "pr": 1582,
-      "expected_verdict": "NON_PASS",
-      "category": "ci-failure-disqualifier",
-      "provenance": "controlled-mutation",
-      "source_case_id": "trip-planner-1582",
-      "mutation_recipe": {
-        "source_case_id": "trip-planner-1582",
-        "source_snapshot_ref": "config/model_eval_snapshots/trip-planner-1582.json.gz",
-        "mutation": "fail-ci-row",
-        "path": "pr-00-gate.yml"
-      }
-    },
-    {
       "case_id": "workflows-2524-mut-ci",
       "repo": "stranske/Workflows",
       "pr": 2524,
@@ -1470,6 +683,7 @@
       "category": "ci-failure-disqualifier",
       "provenance": "controlled-mutation",
       "source_case_id": "workflows-2524",
+      "coverage_sufficient": true,
       "mutation_recipe": {
         "source_case_id": "workflows-2524",
         "source_snapshot_ref": "config/model_eval_snapshots/workflows-2524.json.gz",
@@ -1485,6 +699,7 @@
       "category": "ci-failure-disqualifier",
       "provenance": "controlled-mutation",
       "source_case_id": "workflows-2527",
+      "coverage_sufficient": true,
       "mutation_recipe": {
         "source_case_id": "workflows-2527",
         "source_snapshot_ref": "config/model_eval_snapshots/workflows-2527.json.gz",
@@ -1500,6 +715,7 @@
       "category": "missing-acceptance-criterion",
       "provenance": "controlled-mutation",
       "source_case_id": "workflows-2528",
+      "coverage_sufficient": true,
       "mutation_recipe": {
         "source_case_id": "workflows-2528",
         "source_snapshot_ref": "config/model_eval_snapshots/workflows-2528.json.gz",
@@ -1515,6 +731,7 @@
       "category": "missing-acceptance-criterion",
       "provenance": "controlled-mutation",
       "source_case_id": "workflows-2528",
+      "coverage_sufficient": true,
       "mutation_recipe": {
         "source_case_id": "workflows-2528",
         "source_snapshot_ref": "config/model_eval_snapshots/workflows-2528.json.gz",
@@ -1530,6 +747,7 @@
       "category": "ci-failure-disqualifier",
       "provenance": "controlled-mutation",
       "source_case_id": "workflows-2528",
+      "coverage_sufficient": true,
       "mutation_recipe": {
         "source_case_id": "workflows-2528",
         "source_snapshot_ref": "config/model_eval_snapshots/workflows-2528.json.gz",
@@ -1545,6 +763,7 @@
       "category": "ci-failure-disqualifier",
       "provenance": "controlled-mutation",
       "source_case_id": "workflows-2536",
+      "coverage_sufficient": true,
       "mutation_recipe": {
         "source_case_id": "workflows-2536",
         "source_snapshot_ref": "config/model_eval_snapshots/workflows-2536.json.gz",
@@ -1560,6 +779,7 @@
       "category": "ci-failure-disqualifier",
       "provenance": "controlled-mutation",
       "source_case_id": "workflows-2537",
+      "coverage_sufficient": true,
       "mutation_recipe": {
         "source_case_id": "workflows-2537",
         "source_snapshot_ref": "config/model_eval_snapshots/workflows-2537.json.gz",
@@ -1575,6 +795,7 @@
       "category": "ci-failure-disqualifier",
       "provenance": "controlled-mutation",
       "source_case_id": "workflows-2539",
+      "coverage_sufficient": true,
       "mutation_recipe": {
         "source_case_id": "workflows-2539",
         "source_snapshot_ref": "config/model_eval_snapshots/workflows-2539.json.gz",
@@ -1590,6 +811,7 @@
       "category": "ci-failure-disqualifier",
       "provenance": "controlled-mutation",
       "source_case_id": "workflows-2540",
+      "coverage_sufficient": true,
       "mutation_recipe": {
         "source_case_id": "workflows-2540",
         "source_snapshot_ref": "config/model_eval_snapshots/workflows-2540.json.gz",
@@ -1605,6 +827,7 @@
       "category": "ci-failure-disqualifier",
       "provenance": "controlled-mutation",
       "source_case_id": "workflows-2543",
+      "coverage_sufficient": true,
       "mutation_recipe": {
         "source_case_id": "workflows-2543",
         "source_snapshot_ref": "config/model_eval_snapshots/workflows-2543.json.gz",
@@ -1620,6 +843,7 @@
       "category": "ci-failure-disqualifier",
       "provenance": "controlled-mutation",
       "source_case_id": "workflows-2545",
+      "coverage_sufficient": true,
       "mutation_recipe": {
         "source_case_id": "workflows-2545",
         "source_snapshot_ref": "config/model_eval_snapshots/workflows-2545.json.gz",
@@ -1635,6 +859,7 @@
       "category": "missing-acceptance-criterion",
       "provenance": "controlled-mutation",
       "source_case_id": "workflows-2744",
+      "coverage_sufficient": true,
       "mutation_recipe": {
         "source_case_id": "workflows-2744",
         "source_snapshot_ref": "config/model_eval_snapshots/workflows-2744.json.gz",
@@ -1650,6 +875,7 @@
       "category": "missing-acceptance-criterion",
       "provenance": "controlled-mutation",
       "source_case_id": "workflows-2744",
+      "coverage_sufficient": true,
       "mutation_recipe": {
         "source_case_id": "workflows-2744",
         "source_snapshot_ref": "config/model_eval_snapshots/workflows-2744.json.gz",
@@ -1665,6 +891,7 @@
       "category": "ci-failure-disqualifier",
       "provenance": "controlled-mutation",
       "source_case_id": "workflows-2744",
+      "coverage_sufficient": true,
       "mutation_recipe": {
         "source_case_id": "workflows-2744",
         "source_snapshot_ref": "config/model_eval_snapshots/workflows-2744.json.gz",
@@ -1680,6 +907,7 @@
       "category": "missing-acceptance-criterion",
       "provenance": "controlled-mutation",
       "source_case_id": "workflows-2746",
+      "coverage_sufficient": true,
       "mutation_recipe": {
         "source_case_id": "workflows-2746",
         "source_snapshot_ref": "config/model_eval_snapshots/workflows-2746.json.gz",
@@ -1695,6 +923,7 @@
       "category": "missing-acceptance-criterion",
       "provenance": "controlled-mutation",
       "source_case_id": "workflows-2746",
+      "coverage_sufficient": true,
       "mutation_recipe": {
         "source_case_id": "workflows-2746",
         "source_snapshot_ref": "config/model_eval_snapshots/workflows-2746.json.gz",
@@ -1710,99 +939,10 @@
       "category": "ci-failure-disqualifier",
       "provenance": "controlled-mutation",
       "source_case_id": "workflows-2746",
+      "coverage_sufficient": true,
       "mutation_recipe": {
         "source_case_id": "workflows-2746",
         "source_snapshot_ref": "config/model_eval_snapshots/workflows-2746.json.gz",
-        "mutation": "fail-ci-row",
-        "path": "pr-00-gate.yml"
-      }
-    },
-    {
-      "case_id": "workflows-2747-mut-drop1",
-      "repo": "stranske/Workflows",
-      "pr": 2747,
-      "expected_verdict": "NON_PASS",
-      "category": "missing-acceptance-criterion",
-      "provenance": "controlled-mutation",
-      "source_case_id": "workflows-2747",
-      "mutation_recipe": {
-        "source_case_id": "workflows-2747",
-        "source_snapshot_ref": "config/model_eval_snapshots/workflows-2747.json.gz",
-        "mutation": "drop-named-file",
-        "path": "config/backplane_participants.json"
-      }
-    },
-    {
-      "case_id": "workflows-2747-mut-drop2",
-      "repo": "stranske/Workflows",
-      "pr": 2747,
-      "expected_verdict": "NON_PASS",
-      "category": "missing-acceptance-criterion",
-      "provenance": "controlled-mutation",
-      "source_case_id": "workflows-2747",
-      "mutation_recipe": {
-        "source_case_id": "workflows-2747",
-        "source_snapshot_ref": "config/model_eval_snapshots/workflows-2747.json.gz",
-        "mutation": "drop-named-file",
-        "path": "scripts/validate_backplane_registry.py"
-      }
-    },
-    {
-      "case_id": "workflows-2747-mut-ci",
-      "repo": "stranske/Workflows",
-      "pr": 2747,
-      "expected_verdict": "NON_PASS",
-      "category": "ci-failure-disqualifier",
-      "provenance": "controlled-mutation",
-      "source_case_id": "workflows-2747",
-      "mutation_recipe": {
-        "source_case_id": "workflows-2747",
-        "source_snapshot_ref": "config/model_eval_snapshots/workflows-2747.json.gz",
-        "mutation": "fail-ci-row",
-        "path": "pr-00-gate.yml"
-      }
-    },
-    {
-      "case_id": "workflows-2757-mut-drop1",
-      "repo": "stranske/Workflows",
-      "pr": 2757,
-      "expected_verdict": "NON_PASS",
-      "category": "missing-acceptance-criterion",
-      "provenance": "controlled-mutation",
-      "source_case_id": "workflows-2757",
-      "mutation_recipe": {
-        "source_case_id": "workflows-2757",
-        "source_snapshot_ref": "config/model_eval_snapshots/workflows-2757.json.gz",
-        "mutation": "drop-named-file",
-        "path": "tests/scripts/test_consumer_sync_shadow_handoff.py"
-      }
-    },
-    {
-      "case_id": "workflows-2757-mut-drop2",
-      "repo": "stranske/Workflows",
-      "pr": 2757,
-      "expected_verdict": "NON_PASS",
-      "category": "missing-acceptance-criterion",
-      "provenance": "controlled-mutation",
-      "source_case_id": "workflows-2757",
-      "mutation_recipe": {
-        "source_case_id": "workflows-2757",
-        "source_snapshot_ref": "config/model_eval_snapshots/workflows-2757.json.gz",
-        "mutation": "drop-named-file",
-        "path": "scripts/build_consumer_sync_shadow_handoff.py"
-      }
-    },
-    {
-      "case_id": "workflows-2757-mut-ci",
-      "repo": "stranske/Workflows",
-      "pr": 2757,
-      "expected_verdict": "NON_PASS",
-      "category": "ci-failure-disqualifier",
-      "provenance": "controlled-mutation",
-      "source_case_id": "workflows-2757",
-      "mutation_recipe": {
-        "source_case_id": "workflows-2757",
-        "source_snapshot_ref": "config/model_eval_snapshots/workflows-2757.json.gz",
         "mutation": "fail-ci-row",
         "path": "pr-00-gate.yml"
       }
@@ -1815,6 +955,7 @@
       "category": "ci-failure-disqualifier",
       "provenance": "controlled-mutation",
       "source_case_id": "workflows-2765",
+      "coverage_sufficient": true,
       "mutation_recipe": {
         "source_case_id": "workflows-2765",
         "source_snapshot_ref": "config/model_eval_snapshots/workflows-2765.json.gz",
@@ -1830,6 +971,7 @@
       "category": "ci-failure-disqualifier",
       "provenance": "controlled-mutation",
       "source_case_id": "workflows-2790",
+      "coverage_sufficient": true,
       "mutation_recipe": {
         "source_case_id": "workflows-2790",
         "source_snapshot_ref": "config/model_eval_snapshots/workflows-2790.json.gz",
@@ -1845,6 +987,7 @@
       "category": "ci-failure-disqualifier",
       "provenance": "controlled-mutation",
       "source_case_id": "workflows-2791",
+      "coverage_sufficient": true,
       "mutation_recipe": {
         "source_case_id": "workflows-2791",
         "source_snapshot_ref": "config/model_eval_snapshots/workflows-2791.json.gz",
@@ -1860,6 +1003,7 @@
       "category": "missing-acceptance-criterion",
       "provenance": "controlled-mutation",
       "source_case_id": "workflows-2831",
+      "coverage_sufficient": true,
       "mutation_recipe": {
         "source_case_id": "workflows-2831",
         "source_snapshot_ref": "config/model_eval_snapshots/workflows-2831.json.gz",
@@ -1875,6 +1019,7 @@
       "category": "missing-acceptance-criterion",
       "provenance": "controlled-mutation",
       "source_case_id": "workflows-2831",
+      "coverage_sufficient": true,
       "mutation_recipe": {
         "source_case_id": "workflows-2831",
         "source_snapshot_ref": "config/model_eval_snapshots/workflows-2831.json.gz",
@@ -1890,6 +1035,7 @@
       "category": "missing-acceptance-criterion",
       "provenance": "controlled-mutation",
       "source_case_id": "workflows-2832",
+      "coverage_sufficient": true,
       "mutation_recipe": {
         "source_case_id": "workflows-2832",
         "source_snapshot_ref": "config/model_eval_snapshots/workflows-2832.json.gz",
@@ -1905,6 +1051,7 @@
       "category": "ci-failure-disqualifier",
       "provenance": "controlled-mutation",
       "source_case_id": "workflows-2832",
+      "coverage_sufficient": true,
       "mutation_recipe": {
         "source_case_id": "workflows-2832",
         "source_snapshot_ref": "config/model_eval_snapshots/workflows-2832.json.gz",
@@ -1920,6 +1067,7 @@
       "category": "ci-failure-disqualifier",
       "provenance": "controlled-mutation",
       "source_case_id": "workflows-2833",
+      "coverage_sufficient": true,
       "mutation_recipe": {
         "source_case_id": "workflows-2833",
         "source_snapshot_ref": "config/model_eval_snapshots/workflows-2833.json.gz",
@@ -1935,6 +1083,7 @@
       "category": "missing-acceptance-criterion",
       "provenance": "controlled-mutation",
       "source_case_id": "workflows-2885",
+      "coverage_sufficient": true,
       "mutation_recipe": {
         "source_case_id": "workflows-2885",
         "source_snapshot_ref": "config/model_eval_snapshots/workflows-2885.json.gz",
@@ -1950,6 +1099,7 @@
       "category": "missing-acceptance-criterion",
       "provenance": "controlled-mutation",
       "source_case_id": "workflows-2885",
+      "coverage_sufficient": true,
       "mutation_recipe": {
         "source_case_id": "workflows-2885",
         "source_snapshot_ref": "config/model_eval_snapshots/workflows-2885.json.gz",
@@ -1965,54 +1115,10 @@
       "category": "ci-failure-disqualifier",
       "provenance": "controlled-mutation",
       "source_case_id": "workflows-2885",
+      "coverage_sufficient": true,
       "mutation_recipe": {
         "source_case_id": "workflows-2885",
         "source_snapshot_ref": "config/model_eval_snapshots/workflows-2885.json.gz",
-        "mutation": "fail-ci-row",
-        "path": "pr-00-gate.yml"
-      }
-    },
-    {
-      "case_id": "workflows-2886-mut-drop1",
-      "repo": "stranske/Workflows",
-      "pr": 2886,
-      "expected_verdict": "NON_PASS",
-      "category": "missing-acceptance-criterion",
-      "provenance": "controlled-mutation",
-      "source_case_id": "workflows-2886",
-      "mutation_recipe": {
-        "source_case_id": "workflows-2886",
-        "source_snapshot_ref": "config/model_eval_snapshots/workflows-2886.json.gz",
-        "mutation": "drop-named-file",
-        "path": "tests/scripts/test_select_consumer_sync_phase.py"
-      }
-    },
-    {
-      "case_id": "workflows-2886-mut-drop2",
-      "repo": "stranske/Workflows",
-      "pr": 2886,
-      "expected_verdict": "NON_PASS",
-      "category": "missing-acceptance-criterion",
-      "provenance": "controlled-mutation",
-      "source_case_id": "workflows-2886",
-      "mutation_recipe": {
-        "source_case_id": "workflows-2886",
-        "source_snapshot_ref": "config/model_eval_snapshots/workflows-2886.json.gz",
-        "mutation": "drop-named-file",
-        "path": ".github/workflows/maint-68-sync-consumer-repos.yml"
-      }
-    },
-    {
-      "case_id": "workflows-2886-mut-ci",
-      "repo": "stranske/Workflows",
-      "pr": 2886,
-      "expected_verdict": "NON_PASS",
-      "category": "ci-failure-disqualifier",
-      "provenance": "controlled-mutation",
-      "source_case_id": "workflows-2886",
-      "mutation_recipe": {
-        "source_case_id": "workflows-2886",
-        "source_snapshot_ref": "config/model_eval_snapshots/workflows-2886.json.gz",
         "mutation": "fail-ci-row",
         "path": "pr-00-gate.yml"
       }
@@ -2025,6 +1131,7 @@
       "category": "ci-failure-disqualifier",
       "provenance": "controlled-mutation",
       "source_case_id": "workflows-2887",
+      "coverage_sufficient": true,
       "mutation_recipe": {
         "source_case_id": "workflows-2887",
         "source_snapshot_ref": "config/model_eval_snapshots/workflows-2887.json.gz",
@@ -2040,6 +1147,7 @@
       "category": "ci-failure-disqualifier",
       "provenance": "controlled-mutation",
       "source_case_id": "workflows-2888",
+      "coverage_sufficient": true,
       "mutation_recipe": {
         "source_case_id": "workflows-2888",
         "source_snapshot_ref": "config/model_eval_snapshots/workflows-2888.json.gz",
@@ -2055,6 +1163,7 @@
       "category": "missing-acceptance-criterion",
       "provenance": "controlled-mutation",
       "source_case_id": "workflows-2891",
+      "coverage_sufficient": true,
       "mutation_recipe": {
         "source_case_id": "workflows-2891",
         "source_snapshot_ref": "config/model_eval_snapshots/workflows-2891.json.gz",
@@ -2070,54 +1179,10 @@
       "category": "ci-failure-disqualifier",
       "provenance": "controlled-mutation",
       "source_case_id": "workflows-2891",
+      "coverage_sufficient": true,
       "mutation_recipe": {
         "source_case_id": "workflows-2891",
         "source_snapshot_ref": "config/model_eval_snapshots/workflows-2891.json.gz",
-        "mutation": "fail-ci-row",
-        "path": "pr-00-gate.yml"
-      }
-    },
-    {
-      "case_id": "workflows-2893-mut-drop1",
-      "repo": "stranske/Workflows",
-      "pr": 2893,
-      "expected_verdict": "NON_PASS",
-      "category": "missing-acceptance-criterion",
-      "provenance": "controlled-mutation",
-      "source_case_id": "workflows-2893",
-      "mutation_recipe": {
-        "source_case_id": "workflows-2893",
-        "source_snapshot_ref": "config/model_eval_snapshots/workflows-2893.json.gz",
-        "mutation": "drop-named-file",
-        "path": "tests/workflows/test_renovate_fleet_policy.py"
-      }
-    },
-    {
-      "case_id": "workflows-2893-mut-drop2",
-      "repo": "stranske/Workflows",
-      "pr": 2893,
-      "expected_verdict": "NON_PASS",
-      "category": "missing-acceptance-criterion",
-      "provenance": "controlled-mutation",
-      "source_case_id": "workflows-2893",
-      "mutation_recipe": {
-        "source_case_id": "workflows-2893",
-        "source_snapshot_ref": "config/model_eval_snapshots/workflows-2893.json.gz",
-        "mutation": "drop-named-file",
-        "path": "docs/WORKFLOW_GUIDE.md"
-      }
-    },
-    {
-      "case_id": "workflows-2893-mut-ci",
-      "repo": "stranske/Workflows",
-      "pr": 2893,
-      "expected_verdict": "NON_PASS",
-      "category": "ci-failure-disqualifier",
-      "provenance": "controlled-mutation",
-      "source_case_id": "workflows-2893",
-      "mutation_recipe": {
-        "source_case_id": "workflows-2893",
-        "source_snapshot_ref": "config/model_eval_snapshots/workflows-2893.json.gz",
         "mutation": "fail-ci-row",
         "path": "pr-00-gate.yml"
       }
@@ -2130,6 +1195,7 @@
       "category": "missing-acceptance-criterion",
       "provenance": "controlled-mutation",
       "source_case_id": "workflows-2895",
+      "coverage_sufficient": true,
       "mutation_recipe": {
         "source_case_id": "workflows-2895",
         "source_snapshot_ref": "config/model_eval_snapshots/workflows-2895.json.gz",
@@ -2145,6 +1211,7 @@
       "category": "missing-acceptance-criterion",
       "provenance": "controlled-mutation",
       "source_case_id": "workflows-2895",
+      "coverage_sufficient": true,
       "mutation_recipe": {
         "source_case_id": "workflows-2895",
         "source_snapshot_ref": "config/model_eval_snapshots/workflows-2895.json.gz",
@@ -2160,41 +1227,12 @@
       "category": "ci-failure-disqualifier",
       "provenance": "controlled-mutation",
       "source_case_id": "workflows-2895",
+      "coverage_sufficient": true,
       "mutation_recipe": {
         "source_case_id": "workflows-2895",
         "source_snapshot_ref": "config/model_eval_snapshots/workflows-2895.json.gz",
         "mutation": "fail-ci-row",
         "path": "pr-00-gate.yml"
-      }
-    },
-    {
-      "case_id": "workflows-2896-mut-drop1",
-      "repo": "stranske/Workflows",
-      "pr": 2896,
-      "expected_verdict": "NON_PASS",
-      "category": "missing-acceptance-criterion",
-      "provenance": "controlled-mutation",
-      "source_case_id": "workflows-2896",
-      "mutation_recipe": {
-        "source_case_id": "workflows-2896",
-        "source_snapshot_ref": "config/model_eval_snapshots/workflows-2896.json.gz",
-        "mutation": "drop-named-file",
-        "path": ".github/workflows/health-83-dependency-sync-efficiency.yml"
-      }
-    },
-    {
-      "case_id": "workflows-2896-mut-drop2",
-      "repo": "stranske/Workflows",
-      "pr": 2896,
-      "expected_verdict": "NON_PASS",
-      "category": "missing-acceptance-criterion",
-      "provenance": "controlled-mutation",
-      "source_case_id": "workflows-2896",
-      "mutation_recipe": {
-        "source_case_id": "workflows-2896",
-        "source_snapshot_ref": "config/model_eval_snapshots/workflows-2896.json.gz",
-        "mutation": "drop-named-file",
-        "path": "docs/ops/DEPENDENCY_SYNC_EFFICIENCY.md"
       }
     },
     {
@@ -2205,6 +1243,7 @@
       "category": "missing-acceptance-criterion",
       "provenance": "controlled-mutation",
       "source_case_id": "workflows-2898",
+      "coverage_sufficient": true,
       "mutation_recipe": {
         "source_case_id": "workflows-2898",
         "source_snapshot_ref": "config/model_eval_snapshots/workflows-2898.json.gz",
@@ -2220,6 +1259,7 @@
       "category": "missing-acceptance-criterion",
       "provenance": "controlled-mutation",
       "source_case_id": "workflows-2898",
+      "coverage_sufficient": true,
       "mutation_recipe": {
         "source_case_id": "workflows-2898",
         "source_snapshot_ref": "config/model_eval_snapshots/workflows-2898.json.gz",
@@ -2235,6 +1275,7 @@
       "category": "ci-failure-disqualifier",
       "provenance": "controlled-mutation",
       "source_case_id": "workflows-2898",
+      "coverage_sufficient": true,
       "mutation_recipe": {
         "source_case_id": "workflows-2898",
         "source_snapshot_ref": "config/model_eval_snapshots/workflows-2898.json.gz",
