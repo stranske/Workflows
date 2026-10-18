@@ -60,8 +60,12 @@ source of executable workflow helpers. Merging code admits it to the trusted
 base; this contract does not protect against malicious code a maintainer merges
 or a privileged user dispatches from a branch they control.
 
-Workflow defaults grant no permissions. The caller check job only reads contents
-and PRs, using its workflow token without PAT/App rotation. The verifier job
+Workflow defaults grant no permissions. The source caller check job reads contents
+and PRs; the consumer check job also reads issues to bind linked-source Tasks and
+Acceptance Criteria into its existing changed-input fingerprint. Both use their
+workflow token without PAT/App rotation. Unchanged plan inputs still skip, and
+incomplete linked-source discovery fails closed rather than hashing a partial plan.
+The verifier job
 reads contents, issues, Actions and Models and writes PR comments; the consumer
 fingerprint store alone also needs PR write. Issues write is unnecessary because
 the legacy automatic issue-creation step is disabled; enabling that behavior
