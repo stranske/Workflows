@@ -725,6 +725,34 @@ def test_apply_suggestions_langsmith_trace_fields(monkeypatch: pytest.MonkeyPatc
     assert result["provider_used"] == "test-provider"
 
 
+def test_context_environment_helpers_accept_only_safe_values(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A malformed context budget must retain the bounded default."""
+    monkeypatch.setenv("ISSUE_PR_CONTEXT_TOKEN_BUDGET", "not-a-number")
+    assert issue_optimizer._context_token_budget() == 4000
+    monkeypatch.setenv("ISSUE_PR_CONTEXT_TOKEN_BUDGET", "250")
+    monkeypatch.setenv("ISSUE_PR_CONTEXT_WORKFLOW", "custom-consumer")
+    assert issue_optimizer._context_token_budget() == 250
+    assert issue_optimizer._context_workflow("issue_optimizer") == "custom-consumer"
+
+
+def test_invoke_llm_retries_without_config_for_legacy_chain() -> None:
+    """The compatibility retry is required for chains without config support."""
+    chain = mock.MagicMock()
+    response = object()
+    chain.invoke.side_effect = [TypeError("unexpected config"), response]
+
+    actual, trace_id, trace_url = issue_optimizer._invoke_llm_with_trace(
+        chain, {"body": "issue"}, operation="analyze_issue"
+    )
+
+    assert actual is response
+    assert trace_id is None
+    assert trace_url is None
+    assert chain.invoke.call_args_list[1].args == ({"body": "issue"},)
+
+
 # ---------------------------------------------------------------------------
 # Anti-bloat: decomposition caps, idempotency, no-silent-loss with sentinels
 # ---------------------------------------------------------------------------
