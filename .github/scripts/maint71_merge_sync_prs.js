@@ -341,6 +341,8 @@ function legacyStatusAsCheck(status = {}) {
   const state = String(status.state || '').toLowerCase();
   return {
     name: status.context,
+    ...(typeof status.target_url === 'string' && status.target_url.trim()
+      ? { details_url: status.target_url.trim() } : {}),
     status: state === 'pending' ? 'in_progress' : 'completed',
     conclusion:
       state === 'success'
