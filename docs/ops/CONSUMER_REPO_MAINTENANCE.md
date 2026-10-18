@@ -2926,6 +2926,12 @@ closes any open alert so a recovered incident cannot remain as a stale red issue
 
 - Files marked with `sync_mode: create_only` are excluded, except for repos
   listed in the entry's `overwrite_repos` override.
+- Gate `on.pull_request.types` is compared separately even for create-only Gates,
+  respecting the manifest's repo exclusions. Logs, step summary, and the report's
+  `gate_triggers` list show FYI lines `gate triggers: <repo> extra=<list>` (plus
+  `missing=<list>` when needed), or `gate triggers: all match` after every eligible
+  consumer matches. Unreadable or invalid Gates are reported as unknown. These
+  lines do not fail Health 68, create an alert, or authorize overwriting a Gate.
 - The uploaded `consumer-sync-drift-report` artifact uses
   `workflows-consumer-sync-drift/v1` and includes safe
   `token_diagnostics` (`workflows-drift-token-selection/v1`) so permission or

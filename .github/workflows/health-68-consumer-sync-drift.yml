@@ -1,7 +1,8 @@
 name: Health 68 Consumer Sync Drift Check
 
 # Validates that registered consumer repos stay in sync with templates and manifest entries.
-# Skips files marked with sync_mode: create_only.
+# Skips files marked with sync_mode: create_only for actionable drift;
+# reports Gate pull_request.types differences separately as FYI.
 
 on:
   push:

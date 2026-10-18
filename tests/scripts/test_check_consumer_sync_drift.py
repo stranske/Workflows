@@ -4,6 +4,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
 from scripts import check_consumer_sync_drift
 from scripts.sync_manifest_compiler import (
     ManifestEntry,
@@ -259,6 +260,136 @@ def test_manifest_skip_reason_supports_repo_specific_policy() -> None:
         == "Uses historical Agents.md casing"
     )
     assert check_consumer_sync_drift.manifest_skip_reason(entry, "owner/standard") == ""
+
+
+@pytest.mark.parametrize(
+    ("remote", "expected"),
+    [
+        (
+            "on:\n  pull_request:\n    types: [opened, synchronize, labeled]\n",
+            "gate triggers: owner/repo extra=['labeled']",
+        ),
+        (
+            "on:\n  pull_request:\n    types:\n      - opened\n",
+            "gate triggers: owner/repo extra=[] missing=['synchronize']",
+        ),
+        (
+            "on:\n  pull_request:\n    types: [synchronize, opened]\njobs: {}\n",
+            "gate triggers: all match",
+        ),
+        (None, "gate triggers: owner/repo unknown (Gate unreadable)"),
+        ("on: [", "gate triggers: owner/repo unknown (invalid pull_request.types)"),
+        ("on: {}", "gate triggers: owner/repo unknown (invalid pull_request.types)"),
+        (
+            "on:\n  pull_request:\n    types: opened\n",
+            "gate triggers: owner/repo unknown (invalid pull_request.types)",
+        ),
+    ],
+)
+def test_gate_trigger_fyi_compares_only_activity_types(tmp_path, remote, expected) -> None:
+    source = tmp_path / "gate.yml"
+    source.write_text("on:\n  pull_request:\n    types: [opened, synchronize]\n")
+    entry = _make_entry(source=str(source), target=".github/workflows/pr-00-gate.yml")
+    trees = {"owner/repo": {entry.target: {"type": "blob", "sha": "remote"}}}
+    assert check_consumer_sync_drift.gate_trigger_lines(
+        ["owner/repo"], entry, trees, lambda *_args: remote
+    ) == [expected]
+
+
+def test_gate_trigger_fyi_respects_exclusions_and_unknowns(tmp_path) -> None:
+    source = tmp_path / "gate.yml"
+    source.write_text("on:\n  pull_request:\n    types: [opened]\n")
+    entry = _make_entry(
+        source=str(source),
+        target=".github/workflows/pr-00-gate.yml",
+        skip_repos=(SkipRepo(repo="owner/custom", reason="Custom Gate"),),
+    )
+    trees = {
+        "owner/match": {
+            entry.target: {
+                "type": "blob",
+                "sha": check_consumer_sync_drift.git_blob_hash(source.read_bytes()),
+            }
+        }
+    }
+
+    def no_fetch(*_args):
+        pytest.fail("Identical or excluded Gates must not fetch a blob")
+
+    assert check_consumer_sync_drift.gate_trigger_lines(
+        ["owner/custom", "owner/match"], entry, trees, no_fetch
+    ) == ["gate triggers: all match"]
+    assert check_consumer_sync_drift.gate_trigger_lines(
+        ["owner/custom"], entry, trees, no_fetch
+    ) == ["gate triggers: no eligible repos"]
+    assert check_consumer_sync_drift.gate_trigger_lines(
+        ["owner/match", "owner/missing"], entry, trees, no_fetch
+    ) == ["gate triggers: owner/missing unknown (Gate/tree unavailable)"]
+    source.write_text("on: [")
+    assert check_consumer_sync_drift.gate_trigger_lines(
+        ["owner/match"], entry, trees, no_fetch
+    ) == ["gate triggers: unknown (template unreadable or invalid)"]
+    source.unlink()
+    assert check_consumer_sync_drift.gate_trigger_lines(
+        ["owner/match"], entry, trees, no_fetch
+    ) == ["gate triggers: unknown (template unreadable or invalid)"]
+
+
+@pytest.mark.parametrize("overwrite", [False, True])
+def test_main_reports_create_only_gate_fyi_without_authorizing_sync(
+    tmp_path, monkeypatch, capsys, overwrite
+) -> None:
+    source = tmp_path / "gate.yml"
+    source.write_text("on:\n  pull_request:\n    types: [opened]\n")
+    entry = _make_entry(
+        source=str(source),
+        target=".github/workflows/pr-00-gate.yml",
+        sync_mode="create_only",
+        overwrite_repos=("owner/repo",) if overwrite else (),
+    )
+    compiled = SimpleNamespace(
+        to_plan=lambda: {"plan_id": "sha256:" + "a" * 64},
+        section=lambda section: (entry,) if section == "workflows" else (),
+        removals=(),
+    )
+    args = SimpleNamespace(
+        repos="owner/repo",
+        manifest=str(tmp_path / "manifest.yml"),
+        canaries="unused.json",
+        report_json=str(tmp_path / "report.json"),
+        summary=str(tmp_path / "summary.md"),
+    )
+    Path(args.manifest).write_text("version: 1\n")
+    monkeypatch.setattr(check_consumer_sync_drift, "COPY_SYNCED_SECTIONS", ("workflows",))
+    monkeypatch.setattr(check_consumer_sync_drift, "parse_args", lambda: args)
+    monkeypatch.setattr(check_consumer_sync_drift, "token_candidates", lambda: [{"token": "x"}])
+    monkeypatch.setattr(check_consumer_sync_drift, "compile_manifest", lambda _path: compiled)
+    monkeypatch.setattr(check_consumer_sync_drift, "resolve_candidate_repos", lambda *_args: set())
+    monkeypatch.setattr(
+        check_consumer_sync_drift, "select_read_token", lambda **_kw: (object(), {})
+    )
+    monkeypatch.setattr(
+        check_consumer_sync_drift,
+        "fetch_remote_tree",
+        lambda *_args: ({entry.target: {"type": "blob", "sha": "remote"}}, None),
+    )
+    monkeypatch.setattr(check_consumer_sync_drift, "fetch_open_sync_prs", lambda *_args: ([], None))
+    calls = []
+
+    def read_blob(*args):
+        calls.append(args)
+        return "on:\n  pull_request:\n    types: [opened, labeled]\n"
+
+    monkeypatch.setattr(check_consumer_sync_drift, "remote_blob_text", read_blob)
+    assert check_consumer_sync_drift.main() == int(overwrite)
+    assert len(calls) == 1, "FYI and regular comparison must share the cached blob"
+    report = json.loads(Path(args.report_json).read_text())
+    line = "gate triggers: owner/repo extra=['labeled']"
+    assert report["gate_triggers"] == [line]
+    assert line in capsys.readouterr().out
+    assert line in Path(args.summary).read_text()
+    assert report["counts"]["drift"] == int(overwrite)
+    assert report["counts"]["unmeasured_create_only"] == int(not overwrite)
 
 
 def test_manifest_skip_reason_honors_include_repos() -> None:
