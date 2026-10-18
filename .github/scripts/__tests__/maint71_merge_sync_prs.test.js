@@ -2322,6 +2322,7 @@ for (const [branch, dispatchError] of ['sync/workflows-candidate', 'sync/workflo
       const actions = client.rest.actions;
       const list = actions.listWorkflowRuns;
       const dispatch = actions.createWorkflowDispatch;
+      actions.getWorkflowRun = async () => ({ data: { status: 'in_progress' } });
       actions.listWorkflowRuns = params => params.workflow_id === 'maint-68-sync-consumer-repos.yml'
         ? { data: { workflow_runs: [{ id: 5000, event: 'workflow_dispatch', head_branch: 'main',
           created_at: new Date().toISOString(), display_title: branch.endsWith('candidate')
@@ -2362,7 +2363,7 @@ for (const [branch, dispatchError] of ['sync/workflows-candidate', 'sync/workflo
     assert.ok(api.logs.includes('seal: stranske/Ready#4104 rerun refused; forced restage requested run=5000'));
     assert.equal((await requestSealedGate(api.args)).forced_restage.state, 'already-requested');
     assert.equal(forced.length, 1);
-    assert.equal(writes.length, 1);
+    assert.equal(writes.length, 2);
     // A new head follows normal Gate rerun handling; no regeneration by default.
     api.args.pr.head.sha = 'e'.repeat(40);
     api.state.runs = [{ ...api.run, head_branch: branch, head_sha: api.args.pr.head.sha }];
@@ -2373,7 +2374,137 @@ for (const [branch, dispatchError] of ['sync/workflows-candidate', 'sync/workflo
     api.state.rerunError = 403;
     api.state.forceError = true;
     assert.equal((await requestSealedGate(api.args)).forced_restage.state, 'failed');
-    assert.equal((await requestSealedGate(api.args)).forced_restage.state, 'already-requested');
+    assert.equal((await requestSealedGate(api.args)).forced_restage.state, 'exhausted');
     assert.equal(forced.length, 2);
   });
 }
+
+function boundedRestageHarness(t) {
+  const api = sealedGateHarness(t);
+  const { formatDeliveryRecord } = require('../sync_pr_lease_contract');
+  const comments = [], dispatches = [];
+  const state = { plan: 'sha256:plan', source: 'a'.repeat(40), runStatus: 'in_progress',
+    updatedAt: new Date().toISOString() };
+  api.args.context = { repo: { owner: 'stranske', repo: 'Workflows' }, payload: {} };
+  api.args.withRetry = async callback => callback({ rest: {
+    pulls: { get: async () => ({ data: { state: 'open', head: api.args.pr.head,
+      body: formatDeliveryRecord({ source_commit: state.source, plan_id: state.plan,
+        durable_issue_url: 'https://github.com/stranske/Workflows/issues/4117', generation: 'gen',
+        repository: 'stranske/Ready', desired_tree_hash: 'tree', lease_expires_at: '2026-10-20T00:00:00Z' }) } }) },
+    users: { getAuthenticated: async () => ({ data: { login: 'writer' } }) },
+    issues: {
+      listComments: async () => ({ data: comments }),
+      createComment: async ({ body }) => { comments.push({ body, user: { login: 'writer' } }); return { data: {} }; },
+    },
+    repos: { getCommit: async () => ({ data: { commit: { verification: { verified: true, reason: 'valid' }, message: '' } } }) },
+    actions: {
+      createWorkflowDispatch: async params => {
+        dispatches.push(params);
+        if (state.error) throw Object.assign(new Error('dispatch failed'), { status: state.error });
+      },
+      listWorkflowRuns: async () => ({ data: { workflow_runs: [{ id: 5000, event: 'workflow_dispatch',
+        head_branch: 'main', created_at: new Date().toISOString(),
+        display_title: 'Maint 68 canary candidates=stranske/Ready dry=false' }] } }),
+      getWorkflowRun: async () => ({ data: { status: state.runStatus, updated_at: state.updatedAt } }),
+    },
+  } });
+  const { requestForcedSealRestage } = require('../maint71_merge_sync_prs');
+  return { ...api, state, comments, dispatches, request: () => requestForcedSealRestage(api.args) };
+}
+
+test('structural refusal has a two-restage budget across heads; plan or source resets it', async t => {
+  const api = boundedRestageHarness(t);
+  for (const head of ['d', 'e']) {
+    api.args.pr.head.sha = head.repeat(40);
+    assert.equal((await api.request()).state, 'requested');
+  }
+  api.args.pr.head.sha = 'f'.repeat(40);
+  assert.equal((await api.request()).state, 'exhausted');
+  assert.equal(api.dispatches.length, 2);
+  assert.ok(api.logs.includes('seal: stranske/Ready#4104 forced restage exhausted (2/2); drainable=0 — needs owner or a new plan'));
+  api.state.plan = 'sha256:new-plan';
+  assert.equal((await api.request()).state, 'requested');
+  api.state.source = 'b'.repeat(40);
+  assert.equal((await api.request()).state, 'requested');
+  assert.equal(api.dispatches.length, 4);
+  for (const request of api.dispatches) {
+    assert.equal(request.inputs.force, 'true');
+    assert.equal(request.inputs.repos, 'stranske/Ready');
+  }
+});
+
+for (const reason of ['failed-dispatch', 'expired-claim', 'active-run', 'recent-completion', 'ambiguous-dispatch']) {
+  test(`unchanged-head retry: ${reason}`, async t => {
+    const api = boundedRestageHarness(t);
+    const { CLAIM_EXPIRY } = require('../maint71_merge_sync_prs');
+    if (reason.includes('dispatch')) api.state.error = reason === 'failed-dispatch' ? 422 : 503;
+    if (api.state.error) await assert.rejects(api.request(), /dispatch failed/);
+    else assert.equal((await api.request()).state, 'requested');
+    api.state.error = null;
+    if (['expired-claim', 'recent-completion'].includes(reason)) api.state.runStatus = 'completed';
+    if (reason !== 'recent-completion') api.state.updatedAt = new Date(Date.now() - CLAIM_EXPIRY).toISOString();
+    const retry = ['failed-dispatch', 'expired-claim'].includes(reason);
+    assert.equal((await api.request()).state, retry ? 'requested' : 'already-requested');
+    assert.equal(api.dispatches.length, retry ? 2 : 1);
+    if (retry) {
+      assert.ok(api.logs.includes('seal: stranske/Ready#4104 claim stale, head unchanged; retrying (2/2)'));
+      assert.equal((await api.request()).state, 'exhausted');
+      assert.equal(api.dispatches.length, 2);
+    }
+  });
+}
+
+test('force reaches the signed rebuild path even for an identical verified tree', () => {
+  // The fixtures have no GitHub signing service and cannot mint a real signed SHA.
+  // Execute the production reuse guard; verify its false branch calls the signer
+  // and publishes the returned SHA rather than preserving the previous head.
+  const { spawnSync } = require('node:child_process');
+  const workflow = fs.readFileSync(path.join(__dirname, '../../workflows/maint-68-sync-consumer-repos.yml'), 'utf8');
+  const block = workflow.slice(workflow.indexOf('          matching_existing=false'),
+    workflow.indexOf('          if git diff --cached --quiet'));
+  for (const force of ['false', 'true']) {
+    const result = spawnSync('bash', ['-c', `${block}\nprintf '%s' "$matching_existing"`], {
+      encoding: 'utf8', env: { ...process.env, FORCE: force, existing_pr: '1',
+        existing_refreshable: 'true', existing_base: 'base', base_sha: 'base',
+        existing_tree: 'identical', desired_tree_hash: 'identical', existing_verified: 'true',
+        existing_lifecycle_initialized: 'true', existing_head: 'old-head' },
+    });
+    assert.equal(result.status, 0, result.stderr);
+    assert.ok(result.stdout.endsWith(force === 'true' ? 'false' : 'true'));
+  }
+  // Dispatch input is bound to the environment used by the guard above.
+  assert.match(workflow, /FORCE: \$\{\{ inputs.force \|\| false \}\}/);
+  const rebuild = workflow.slice(workflow.indexOf('          if [ "$matching_existing" != "true" ]; then'));
+  assert.match(rebuild, /--operation create-commit/);
+  assert.ok(rebuild.includes('signed_commit_sha=$(jq -er'));
+  assert.ok(rebuild.includes('origin "$signed_commit_sha:refs/heads/$branch_name"'));
+});
+
+test('credential rotation does not replenish the forced-restage budget', async t => {
+  const api = boundedRestageHarness(t);
+  await api.request();
+  api.comments.forEach(row => { row.user.login = 'previous-writer'; });
+  api.args.pr.head.sha = 'e'.repeat(40);
+  await api.request();
+  api.args.pr.head.sha = 'f'.repeat(40);
+  assert.equal((await api.request()).state, 'exhausted');
+  assert.equal(api.dispatches.length, 2);
+});
+
+test('legacy markers use claimed commit plan/source and a new plan resets the count', async t => {
+  const api = boundedRestageHarness(t);
+  const originalRetry = api.args.withRetry;
+  api.args.withRetry = callback => originalRetry(client => {
+    client.rest.repos.getCommit = async () => ({ data: { commit: {
+      verification: { verified: true, reason: 'valid' },
+      message: `Consumer-sync plan ID: sha256:plan\nSource commit: ${'a'.repeat(40)}`,
+    } } });
+    return callback(client);
+  });
+  for (const head of ['b', 'c']) api.comments.push({ user: { login: 'previous-writer' },
+    body: `<!-- maint71-forced-restage:stranske/Ready:${head.repeat(40)} -->` });
+  assert.equal((await api.request()).state, 'exhausted');
+  api.state.plan = 'sha256:new-plan';
+  assert.equal((await api.request()).state, 'requested');
+  assert.equal(api.dispatches.length, 1);
+});

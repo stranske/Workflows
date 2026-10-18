@@ -11,6 +11,8 @@ const DEFAULT_REVIEW_POLICY = Object.freeze({
 });
 
 const GENERATED_DELIVERY_REQUIRED_CONTEXTS = Object.freeze(['Gate / gate']);
+const MAX_FORCED_RESTAGES = 2;
+const CLAIM_EXPIRY = 2 * 60 * 60 * 1000;
 const STALE_CANARY_HOURS = 6;
 const CANARY_REFRESH_DEBOUNCE_MS = 6 * 60 * 60 * 1000;
 const CANARY_SEALED_REFRESH_WAIT_MS = 60 * 60 * 1000;
@@ -829,10 +831,10 @@ async function evaluateSealedGate({ owner, repo, pr, withRetry, sealedAt }) {
 }
 
 // Maint 71 and Maint 68 share the stable-writer mutex. Claim before dispatch:
-// an ambiguous API response must never cause a second regeneration of this head.
+// ambiguous dispatches retain their claim until a bound completed run is known.
 async function requestForcedSealRestage({ owner, repo, pr, withRetry, context }) {
   const identity = `seal: ${owner}/${repo}#${pr.number}`;
-  const marker = `<!-- maint71-forced-restage:${owner}/${repo}:${pr.head.sha} -->`;
+  const { parseDeliveryRecord } = require('./sync_pr_lease_contract');
   const { data: current } = await withRetry(client => client.rest.pulls.get({
     owner, repo, pull_number: pr.number,
   }));
@@ -841,23 +843,63 @@ async function requestForcedSealRestage({ owner, repo, pr, withRetry, context })
   }
   const { data: writer } = await withRetry(client => client.rest.users.getAuthenticated());
   if (!writer?.login) throw new Error('Forced restage writer identity is unknown');
+  const record = parseDeliveryRecord(current.body || '');
+  if (!record?.source_commit || !record?.plan_id) throw new Error('Forced restage requires a bound delivery record');
+  const phase = pr.head.ref === 'sync/workflows-candidate' ? 'canary'
+    : pr.head.ref === 'sync/workflows-delivery' ? 'promote' : null;
+  if (!phase) throw new Error('Forced restage requires a stable delivery branch');
+  const history = [];
   for (let page = 1; ; page++) {
     const { data: comments } = await withRetry(client => client.rest.issues.listComments({
       owner, repo, issue_number: pr.number, per_page: 100, page,
     }));
     if (!Array.isArray(comments)) throw new Error('Forced restage history unreadable');
-    if (comments.some(row => row.user?.login === writer.login && String(row.body || '').includes(marker))) {
-      return { state: 'already-requested' };
-    }
+    history.push(...comments);
     if (comments.length < 100) break;
     if (page === 20) throw new Error('Forced restage history truncated');
   }
-  const phase = pr.head.ref === 'sync/workflows-candidate' ? 'canary'
-    : pr.head.ref === 'sync/workflows-delivery' ? 'promote' : null;
-  if (!phase) throw new Error('Forced restage requires a stable delivery branch');
-  const { parseDeliveryRecord } = require('./sync_pr_lease_contract');
-  const record = parseDeliveryRecord(current.body || '');
-  if (!record?.source_commit) throw new Error('Forced restage requires a bound delivery record');
+  const prefix = `<!-- maint71-forced-restage:${owner}/${repo}:`;
+  const claims = history.filter(row => String(row.body || '').includes(prefix)).map(row => {
+    const match = row.body.match(/\nClaim: (.+)/);
+    // Resolve old head-only markers from commit provenance below. Count claims
+    // across writer identities so credential rotation cannot reset the budget.
+    if (!match) return { head_sha: row.body.split(prefix)[1].split(' ')[0], legacy: true };
+    return { ...JSON.parse(match[1]), writer: row.user?.login };
+  });
+  for (const claim of claims.filter(row => row.legacy)) {
+    const { data: oldCommit } = await withRetry(client => client.rest.repos.getCommit({
+      owner, repo, ref: claim.head_sha,
+    }));
+    const message = oldCommit?.commit?.message || '';
+    claim.plan_id = message.match(/^Consumer-sync plan ID: (.+)$/m)?.[1];
+    claim.source_commit = message.match(/^Source commit: ([a-f0-9]{40})$/m)?.[1];
+    if (!claim.plan_id || !claim.source_commit) throw new Error('Legacy forced restage plan binding unknown');
+  }
+  const scopedClaims = claims.filter(claim => claim.plan_id === record.plan_id
+    && claim.source_commit === record.source_commit);
+  if (scopedClaims.length >= MAX_FORCED_RESTAGES) {
+    console.log(`${identity} forced restage exhausted (${scopedClaims.length}/${MAX_FORCED_RESTAGES}); drainable=0 — needs owner or a new plan`);
+    return { state: 'exhausted', attempts: scopedClaims.length, max: MAX_FORCED_RESTAGES };
+  }
+  const previous = scopedClaims.filter(claim => claim.head_sha === pr.head.sha).at(-1);
+  const query = { owner: context.repo.owner, repo: context.repo.repo,
+    workflow_id: 'maint-68-sync-consumer-repos.yml' };
+  if (previous) {
+    const receiptPrefix = `<!-- maint71-restage-receipt:${previous.id} -->\n`;
+    const receiptRow = previous.id && history.find(row => row.user?.login === previous.writer && row.body?.startsWith(receiptPrefix));
+    const receipt = receiptRow ? JSON.parse(receiptRow.body.slice(receiptPrefix.length)) : null;
+    let stale = receipt?.state === 'dispatch-failed';
+    if (receipt?.run_id) {
+      const { data: run } = await withRetry(client => client.rest.actions.getWorkflowRun({
+        owner: query.owner, repo: query.repo, run_id: receipt.run_id,
+      }));
+      const finished = Date.parse(run.updated_at);
+      stale = run.status === 'completed' && Number.isFinite(finished)
+        && Date.now() - finished >= CLAIM_EXPIRY;
+    }
+    if (!stale) return { state: 'already-requested' };
+    console.log(`${identity} claim stale, head unchanged; retrying (${scopedClaims.length + 1}/${MAX_FORCED_RESTAGES})`);
+  }
   const inputs = { repos: `${owner}/${repo}`, phase, force: 'true', dry_run: 'false',
     scope_head_sha: record.source_commit, delivery_scope: 'full' };
   const { data: commit } = await withRetry(client => client.rest.repos.getCommit({
@@ -883,16 +925,28 @@ async function requestForcedSealRestage({ owner, repo, pr, withRetry, context })
     inputs.canary_evidence_json = JSON.stringify(evidence);
     inputs.delivery_scope = 'auto';
   }
-  await withRetry(client => client.rest.issues.createComment({ owner, repo, issue_number: pr.number,
-    body: `${marker}\nForced restage claimed for refused PR Gate on ${pr.head.sha}.`,
-  }), { maxRetries: 0 });
-  const query = { owner: context.repo.owner, repo: context.repo.repo,
-    workflow_id: 'maint-68-sync-consumer-repos.yml' };
   const requestedAt = Date.now();
-  // Do not retry a non-idempotent dispatch after an ambiguous response.
-  await withRetry(client => client.rest.actions.createWorkflowDispatch({ ...query,
-    ref: context.payload.repository?.default_branch || 'main', inputs,
+  const claim = { id: `${pr.head.sha}:${requestedAt}:${scopedClaims.length + 1}`,
+    head_sha: pr.head.sha, plan_id: record.plan_id, source_commit: record.source_commit };
+  const marker = `${prefix}${pr.head.sha} -->`;
+  const writeReceipt = receipt => withRetry(client => client.rest.issues.createComment({
+    owner, repo, issue_number: pr.number,
+    body: `<!-- maint71-restage-receipt:${claim.id} -->\n${JSON.stringify(receipt)}`,
   }), { maxRetries: 0 });
+  await withRetry(client => client.rest.issues.createComment({ owner, repo, issue_number: pr.number,
+    body: `${marker}\nClaim: ${JSON.stringify(claim)}`,
+  }), { maxRetries: 0 });
+  // Never retry non-idempotent dispatch automatically. Only definitive API
+  // rejections release the head for a later bounded attempt.
+  try {
+    await withRetry(client => client.rest.actions.createWorkflowDispatch({ ...query,
+      ref: context.payload.repository?.default_branch || 'main', inputs,
+    }), { maxRetries: 0 });
+  } catch (error) {
+    const status = error?.status || error?.response?.status;
+    if ([400, 401, 403, 404, 422].includes(status)) await writeReceipt({ state: 'dispatch-failed', status });
+    throw error;
+  }
   const { data } = await withRetry(client => client.rest.actions.listWorkflowRuns({
     ...query, event: 'workflow_dispatch', per_page: 100,
   }));
@@ -902,6 +956,7 @@ async function requestForcedSealRestage({ owner, repo, pr, withRetry, context })
     && String(row.display_title || '').includes(phase === 'canary'
       ? `candidates=${owner}/${repo} ` : ` ${record.plan_id} ${record.source_commit}`))
     .sort((a, b) => Number(b.id) - Number(a.id))[0];
+  await writeReceipt({ state: 'dispatched', run_id: run?.id || null });
   console.log(`${identity} rerun refused; forced restage requested run=${run?.id || 'unknown'}`);
   return { state: 'requested', run_id: run?.id || null, head_sha: pr.head.sha };
 }
@@ -5179,6 +5234,9 @@ async function run({ github, context, core }) {
 }
 
 module.exports = {
+  MAX_FORCED_RESTAGES,
+  CLAIM_EXPIRY,
+  requestForcedSealRestage,
   STALE_CANARY_HOURS,
   CANARY_REFRESH_DEBOUNCE_MS,
   CANARY_SEALED_REFRESH_WAIT_MS,

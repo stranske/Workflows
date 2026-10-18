@@ -1755,11 +1755,18 @@ rebuilds the signed delivery from its base and selected payload even when its
 tree matches the existing PR, resetting settlement and seal for the new head.
 The resulting push starts a fresh `pull_request` Gate, handled by the normal
 seal/rerun flow. Metadata-only restaging cannot wake that Gate.
-Under the shared stable-writer mutex, a durable PR comment marker from the authenticated writer, keyed by repository
-and head SHA is written before dispatch. A second pass on the same head never
-requests another regeneration; a new head returns to normal Gate processing.
-Ambiguous or failed dispatches retain the claim and report the failure rather
-than risking duplicate writes. An unobserved run ID is explicitly `unknown`.
+Under the shared stable-writer mutex, a durable PR comment claim records the
+repository, head, plan ID and source commit before dispatch. `MAX_FORCED_RESTAGES`
+is 2 across all heads for that plan/source binding. At the cap, Maint 71 prints
+`seal: <repo>#<n> forced restage exhausted (<k>/<max>); drainable=0 — needs owner or a new plan`.
+A new plan or source binding resets the budget. Legacy head-only claims resolve their plan/source from the claimed commit;
+an unreadable binding blocks further requests rather than replenishing the budget.
+On an unchanged head, a definitive dispatch rejection can retry on a later pass.
+A bound dispatched run must have completed at least `CLAIM_EXPIRY` (two hours)
+ago to retry; active runs, recent completions and ambiguous/unobserved dispatches
+retain their claims. Every retry consumes the same budget and prints
+`claim stale, head unchanged; retrying (<k>/<max>)`. Receipts persist dispatch
+failure or the observed run ID; an unobserved run ID is explicitly `unknown`.
 The log prints `seal: <repo>#<n> rerun refused; forced restage requested run=<id>`;
 `gate_request.forced_restage` and the Markdown report retain the drain receipt.
 Recovery must not close/reopen a PR or push an empty commit.
