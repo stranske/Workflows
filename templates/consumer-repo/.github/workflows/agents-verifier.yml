@@ -438,7 +438,7 @@ jobs:
             --storage pr-comment
 
   acceptance-gates:
-    name: Verify named gates on immutable merge commit
+    name: Prepare acceptance commands or required merge CI gate
     needs: verifier
     if: needs.verifier.outputs.should_run == 'true' && needs.verifier.outputs.verdict == 'UNVERIFIABLE_INPUT'
     runs-on: ubuntu-latest
@@ -474,6 +474,11 @@ jobs:
           from pathlib import Path
           results = []
           for index, plan in enumerate(json.loads(Path('closure-plans/plans.json').read_text())):
+              if plan.get('plan_error'):
+                  continue
+              if plan.get('gate_source') == 'required-ci' and not plan['commands']:
+                  results.append({**plan, 'results': []})
+                  continue
               source = Path(f'/tmp/closure-plan-{index}.json')
               output = Path(f'/tmp/closure-result-{index}.json')
               source.write_text(json.dumps(plan))
@@ -496,8 +501,7 @@ jobs:
     if: >-
       always() && needs.verifier.result == 'success' &&
       needs.verifier.outputs.should_run == 'true' &&
-      (needs.verifier.outputs.verdict == 'PASS' ||
-       (needs.verifier.outputs.verdict == 'UNVERIFIABLE_INPUT' && needs.acceptance-gates.result == 'success'))
+      needs.verifier.outputs.verdict != ''
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -517,7 +521,8 @@ jobs:
           name: verifier-closure-plans-${{ github.run_id }}
           path: closure-plans
       - name: Download merge gate results
-        if: needs.verifier.outputs.verdict == 'UNVERIFIABLE_INPUT'
+        if: needs.verifier.outputs.verdict == 'UNVERIFIABLE_INPUT' && needs.acceptance-gates.result == 'success'
+        continue-on-error: true
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: verifier-closure-results-${{ github.run_id }}
@@ -538,7 +543,7 @@ jobs:
             const ci = await queryVerifierCiResults({ github, context, core,
               targetSha: process.env.TARGET_SHA, workflows, includeHeadSha: true });
             const resultsPath = 'closure-results/closure-results.json';
-            const closed = await closeVerifiedSources({ github, context,
+            const closed = await closeVerifiedSources({ github, context, core,
               verdict: process.env.VERDICT, mergeSha: process.env.TARGET_SHA,
               prNumber: Number(process.env.PR_NUMBER), ci,
               plans: JSON.parse(fs.readFileSync('closure-plans/plans.json', 'utf8')),

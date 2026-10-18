@@ -235,3 +235,57 @@ def test_provider_omission_withholds_single_review_pass_but_preserves_findings(s
     )
     assert result.verdict == ("UNVERIFIABLE_INPUT" if verdict == "PASS" else verdict)
     assert result.files_not_reviewed == ["a.py"]
+
+
+@pytest.mark.parametrize(
+    "reason",
+    [
+        "Acceptance artifacts could not be retrieved.",
+        "Unable to retrieve required acceptance artifacts.",
+        "Required evidence is unavailable due to API errors.",
+        "Workflow artifact retrieval failed.",
+        "Files reviewed 34 of 47. Verification failed because acceptance artifacts could not be retrieved.",
+    ],
+)
+def test_retrieval_only_provider_fail_is_unverifiable_input(reason):
+    failed = verifier.EvaluationResult(
+        verdict="FAIL", used_llm=True, concerns=[reason], summary=reason
+    )
+    passed = verifier.EvaluationResult(verdict="PASS", used_llm=True)
+    incomplete = verifier.EvaluationResult(verdict="UNVERIFIABLE_INPUT")
+    assert verifier.comparison_verdict([passed, failed, incomplete]) == "UNVERIFIABLE_INPUT"
+    assert verifier.comparison_verdict([failed]) == "UNVERIFIABLE_INPUT"
+    # Aggregation changes the disposition, preserving the original provider evidence.
+    assert failed.verdict == "FAIL"
+
+
+@pytest.mark.parametrize(
+    "finding",
+    [
+        "Real code defect: authorization is bypassed.",
+        "Acceptance artifacts are absent.",
+        "Required evidence was never produced.",
+        "Unable to retrieve acceptance artifacts and authorization is broken.",
+        "Artifact parser crashes on an empty response.",
+        "",
+    ],
+)
+def test_retrieval_unavailability_never_erases_a_concrete_or_unknown_failure(finding):
+    failed = verifier.EvaluationResult(verdict="FAIL", used_llm=True, summary=finding)
+    retrieval = verifier.EvaluationResult(
+        verdict="FAIL", used_llm=True, concerns=["Acceptance artifacts could not be retrieved."]
+    )
+    assert verifier.comparison_verdict([retrieval, failed]) == "FAIL"
+    if finding:
+        mixed = retrieval.model_copy(update={"summary": finding})
+        assert verifier.comparison_verdict([mixed]) == "FAIL"
+        mixed = retrieval.model_copy(update={"concerns": [*retrieval.concerns, finding]})
+        assert verifier.comparison_verdict([mixed]) == "FAIL"
+
+
+def test_real_concern_dominates_retrieval_only_provider_fail():
+    retrieval = verifier.EvaluationResult(
+        verdict="FAIL", used_llm=True, summary="Acceptance artifacts could not be retrieved."
+    )
+    concern = verifier.EvaluationResult(verdict="CONCERNS", concerns=["Missing implementation"])
+    assert verifier.comparison_verdict([retrieval, concern]) == "CONCERNS"

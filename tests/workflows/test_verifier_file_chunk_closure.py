@@ -34,11 +34,17 @@ def test_incomplete_input_closure_is_wired_through_isolated_merge_gates():
         assert checkout["with"]["persist-credentials"] is False
         assert "'--prepare'" in str(gates)
         assert closer["needs"] == ["verifier", "acceptance-gates"]
-        assert "needs.acceptance-gates.result == 'success'" in closer["if"]
+        # Diagnostics run for every verdict, even if the isolated gate job failed.
+        assert "needs.acceptance-gates.result" not in closer["if"]
+        assert "needs.verifier.outputs.verdict != ''" in closer["if"]
         assert closer["permissions"]["issues"] == "write"
         assert jobs["verifier"]["permissions"]["issues"] == "read"
         assert "closeVerifiedSources" in str(closer)
         assert "includeHeadSha: true" in str(closer)
+        assert "closeVerifiedSources({ github, context, core," in str(closer)
+        download = next(s for s in closer["steps"] if s["name"] == "Download merge gate results")
+        assert "needs.acceptance-gates.result == 'success'" in download["if"]
+        assert download["continue-on-error"] is True
         ci_step = next(
             step
             for step in closer["steps"]
@@ -193,7 +199,11 @@ def test_closure_plan_lookup_failure_does_not_abort_other_issues(tmp_path):
     (async () => {
       SCRIPT
       assert.equal(warnings.length, 2);
-      assert.deepEqual(JSON.parse(require('fs').readFileSync('closure-plans/plans.json')).map(p=>p.issue_number), [3]);
+      const storedPlans = JSON.parse(require('fs').readFileSync('closure-plans/plans.json'));
+      assert.deepEqual(storedPlans.map(p=>p.issue_number), [1,2,3]);
+      assert.equal(storedPlans[0].plan_error, 'closure-plan-unavailable');
+      assert.equal(storedPlans[1].plan_error, 'closure-plan-unavailable');
+      assert.equal(storedPlans[2].plan_error, undefined);
     })().catch(error=>{ console.error(error); process.exit(1); });
     """.replace("CLOSURE", json.dumps(str(ROOT / ".github/scripts/verifier_closure.js"))).replace(
         "SCRIPT", script
@@ -201,3 +211,162 @@ def test_closure_plan_lookup_failure_does_not_abort_other_issues(tmp_path):
     subprocess.run(
         ["node", "-e", harness], cwd=tmp_path, check=True, capture_output=True, text=True
     )
+
+
+def test_authored_workflow_closes_both_gate_sources_and_logs_refusals(tmp_path):
+    """Execute production extraction, isolated gates and both caller closure scripts."""
+    import hashlib
+    import json
+    import os
+    import subprocess
+    import sys
+
+    merge_sha = "a" * 40
+    plans = []
+    for number, criterion in [(1, "`make gate` passes"), (2, "The feature works")]:
+        markdown = f"## Acceptance Criteria\n- [ ] {criterion}\n"
+        plans.append(
+            {
+                "issue_number": number,
+                "repository": "owner/repo",
+                "pr_number": 5,
+                "head_sha": merge_sha,
+                "source_hash": hashlib.sha256(markdown.encode()).hexdigest(),
+                "markdown": markdown,
+            }
+        )
+    plans.append(
+        {
+            "issue_number": 3,
+            "repository": "owner/repo",
+            "pr_number": 5,
+            "plan_error": "closure-plan-unavailable",
+        }
+    )
+    (tmp_path / ".workflows-lib").symlink_to(ROOT, target_is_directory=True)
+    (tmp_path / "gate-runner").symlink_to(ROOT, target_is_directory=True)
+    (tmp_path / "closure-plans").mkdir()
+    (tmp_path / "closure-results").mkdir()
+    (tmp_path / "acceptance-head").mkdir()
+    binaries = tmp_path / "bin"
+    binaries.mkdir()
+    make = binaries / "make"
+    make.write_text('#!/bin/sh\n[ "$1" = gate ] || exit 1\ntouch named-gate-ran\n')
+    make.chmod(0o755)
+    env = os.environ | {"PATH": f"{binaries}:{os.environ['PATH']}"}
+    reusable = yaml.safe_load((ROOT / ".github/workflows/reusable-agents-verifier.yml").read_text())
+    extraction = next(
+        s["run"]
+        for s in reusable["jobs"]["verifier"]["steps"]
+        if s["name"] == "Extract exact acceptance command sets"
+    )
+    plan_path = tmp_path / "closure-plans/plans.json"
+    plan_path.write_text(json.dumps(plans))
+    subprocess.run(
+        ["bash", "-eu", "-c", extraction.replace("python3 -", f"{sys.executable} -")],
+        cwd=tmp_path,
+        env=env,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    extracted = json.loads(plan_path.read_text())
+    assert [p["gate_source"] for p in extracted if not p.get("plan_error")] == [
+        "acceptance-commands",
+        "required-ci",
+    ]
+
+    for relative in [
+        ".github/workflows/agents-verifier.yml",
+        "templates/consumer-repo/.github/workflows/agents-verifier.yml",
+    ]:
+        jobs = yaml.safe_load((ROOT / relative).read_text())["jobs"]
+        gate = next(s["run"] for s in jobs["acceptance-gates"]["steps"] if "run" in s)
+        subprocess.run(
+            ["bash", "-eu", "-c", gate.replace("python3 -", f"{sys.executable} -")],
+            cwd=tmp_path,
+            env=env,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        assert (tmp_path / "acceptance-head/named-gate-ran").is_file()
+        gate_results = json.loads((tmp_path / "closure-results.json").read_text())
+        assert gate_results[0]["results"][0]["exit_code"] == 0
+        assert gate_results[1]["results"] == []
+        (tmp_path / "closure-results/closure-results.json").write_text(json.dumps(gate_results))
+        close = next(s for s in jobs["close-sources"]["steps"] if "script" in s.get("with", {}))
+        harness = r"""
+        const fs = require('fs');
+        const [script, closurePath, ci] = JSON.parse(process.argv[1]);
+        const plans = JSON.parse(fs.readFileSync('closure-plans/plans.json'));
+        const messages = [], comments = [], closed = [];
+        const core = {info: message => messages.push(message)};
+        const context = {repo: {owner: 'owner', repo: 'repo'}};
+        const github = {rest: {
+          pulls: {get: async () => ({data: {merged: true, merge_commit_sha: 'a'.repeat(40)}})},
+          issues: {
+            get: async ({issue_number}) => ({data: {state: 'open', body: plans.find(p=>p.issue_number===issue_number).markdown}}),
+            createComment: async args => comments.push(args.body),
+            update: async args => closed.push(args.issue_number),
+          },
+        }};
+        const fakeRequire = name => {
+          if (name === 'fs') return fs;
+          if (name.endsWith('/verifier_closure.js')) return require(closurePath);
+          if (name.endsWith('/verifier_ci_query.js')) return {queryVerifierCiResults: async options => {
+            require('assert').equal(options.targetSha, 'a'.repeat(40));
+            require('assert').equal(options.includeHeadSha, true);
+            require('assert').deepEqual(options.workflows, JSON.parse(process.env.CI_WORKFLOWS).map(workflow_id=>({workflow_id})));
+            return ci;
+          }};
+          throw Error(name);
+        };
+        (async () => {
+          await Object.getPrototypeOf(async function(){}).constructor('require','github','context','core',script)(fakeRequire,github,context,core);
+          process.stdout.write(JSON.stringify({closed, comments, messages}));
+        })().catch(error=>{console.error(error);process.exit(1)});
+        """
+        for ci in [
+            [{"head_sha": merge_sha, "conclusion": "success"}],
+            [],
+            [{"head_sha": "b" * 40, "conclusion": "success"}],
+        ]:
+            output = subprocess.run(
+                [
+                    "node",
+                    "-e",
+                    harness,
+                    json.dumps(
+                        [
+                            close["with"]["script"],
+                            str(ROOT / ".github/scripts/verifier_closure.js"),
+                            ci,
+                        ]
+                    ),
+                ],
+                cwd=tmp_path,
+                env=env
+                | {
+                    **close["env"],
+                    "VERDICT": "UNVERIFIABLE_INPUT",
+                    "TARGET_SHA": merge_sha,
+                    "PR_NUMBER": "5",
+                },
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            receipt = json.loads(output.stdout)
+            assert "owner/repo#3: kept open — closure-plan-unavailable" in receipt["messages"]
+            if ci and ci[0]["head_sha"] == merge_sha:
+                assert receipt["closed"] == [1, 2]
+                assert "gate_source=acceptance-commands" in receipt["comments"][0]
+                assert "gate_source=required-ci" in receipt["comments"][1]
+            else:
+                assert receipt["closed"] == []
+                assert receipt["comments"] == []
+                assert all(
+                    "kept open — gate-ci-missing-stale-or-not-successful" in line
+                    for line in receipt["messages"][:2]
+                )

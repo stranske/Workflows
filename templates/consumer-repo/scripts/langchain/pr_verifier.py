@@ -5987,14 +5987,54 @@ def _review_count(result: EvaluationResult) -> str:
     return f"files reviewed {reviewed} of {total}" + missing
 
 
+def _retrieval_only_failure(result: EvaluationResult) -> bool:
+    """Recognize explicit retrieval-only reasons, never infer away a finding.
+
+    Match complete statements rather than looking for an 'artifact' keyword:
+    a missing deliverable or a mixed retrieval/code finding must retain FAIL.
+    Unknown phrasing deliberately retains the provider verdict.
+    """
+    evidence = r"(?:(?:the|required|acceptance|workflow|ci|validation|test)\s+)*(?:artifacts?|evidence|logs?)"
+    unavailable = (
+        r"(?:(?:is|are|was|were)\s+)?(?:unavailable|inaccessible|not accessible|not available)"
+        r"|(?:could not|cannot|can't)\s+be\s+(?:retrieved|fetched|downloaded|accessed)"
+    )
+    reason = re.compile(
+        rf"(?:{evidence}\s+(?:{unavailable})"
+        rf"|(?:unable to|failed to|could not|cannot)\s+(?:retrieve|fetch|download|access)\s+{evidence}"
+        rf"|{evidence}\s+retrieval\s+(?:failed|was unavailable|is unavailable|unavailable))"
+        r"(?:\s+due to\s+(?:api|network|retrieval|transport|permission|authorization)"
+        r"\s+(?:errors?|failures?|limits?|restrictions?|denied))?",
+        re.I,
+    )
+    statements = []
+    for text in [*result.concerns, result.summary or "", result.error or ""]:
+        for statement in re.split(r"[.!;\n]+", text):
+            statement = statement.strip(" -*\t")
+            if not statement or re.fullmatch(r"files reviewed \d+ of \d+", statement, re.I):
+                continue
+            statement = re.sub(
+                r"^(?:verification failed|fail)\s+(?:only\s+)?because\s+", "", statement, flags=re.I
+            )
+            statements.append(statement)
+    return bool(statements) and all(reason.fullmatch(text) for text in statements)
+
+
 def comparison_verdict(results: list[EvaluationResult]) -> str:
     """Findings dominate incomplete input; unavailable judges never establish PASS."""
-    if any(result.verdict == "FAIL" for result in results):
+    retrieval_failures = {
+        id(result)
+        for result in results
+        if result.verdict == "FAIL" and _retrieval_only_failure(result)
+    }
+    if any(result.verdict == "FAIL" and id(result) not in retrieval_failures for result in results):
         return "FAIL"
     if any(result.verdict == "CONCERNS" and not result.error for result in results):
         return "CONCERNS"
-    if not results or any(
-        result.verdict == "UNVERIFIABLE_INPUT" or result.error for result in results
+    if (
+        retrieval_failures
+        or not results
+        or any(result.verdict == "UNVERIFIABLE_INPUT" or result.error for result in results)
     ):
         return "UNVERIFIABLE_INPUT"
     return "PASS" if all(result.used_llm for result in results) else "UNVERIFIABLE_INPUT"
