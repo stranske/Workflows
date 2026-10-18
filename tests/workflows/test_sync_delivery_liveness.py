@@ -125,8 +125,13 @@ def test_maint71_has_proof_bound_review_resolution_and_exact_evidence_promotion(
     assert "deliveryRefreshDecision" in workflow
     assert "Refresh stale candidate bases" in workflow
     assert "Refresh stale delivery bases" in workflow
-    assert "phase: 'canary'" in workflow
-    assert "delivery_scope: 'full'" in workflow
+    candidate_refresh = workflow.split("      - name: Refresh stale candidate bases")[1].split(
+        "      - name: Refresh stale delivery bases"
+    )[0]
+    assert "await dispatchCanaryRefresh({" in candidate_refresh
+    assert "createWorkflowDispatch" not in candidate_refresh
+    assert "scope_head_sha: state.sha" in executor
+    assert "phase: 'canary', delivery_scope: 'full'" in executor
     assert "canary_evidence_json: JSON.stringify(built.evidence)" in executor
     assert "cancel-in-progress: false" in workflow
     assert "EXCLUDED_REPOS_INPUT: stranske/Collab-Admin" in workflow

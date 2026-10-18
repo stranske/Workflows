@@ -2,7 +2,7 @@ name: Maint 68 Sync Consumer Repos
 run-name: >-
   Maint 68 ${{ inputs.phase || 'canary' }} ${{ inputs.delivery_scope || 'auto' }}
   ${{ inputs.phase == 'promote' && (fromJSON(inputs.canary_evidence_json || '{"results":[]}').results[0].plan_id || fromJSON(inputs.canary_evidence_json || '{"results":[]}')[0].plan_id) || '' }}
-  ${{ inputs.phase == 'promote' && (fromJSON(inputs.canary_evidence_json || '{"results":[]}').results[0].source_commit || fromJSON(inputs.canary_evidence_json || '{"results":[]}')[0].source_commit) || '' }}
+  ${{ inputs.phase == 'promote' && (fromJSON(inputs.canary_evidence_json || '{"results":[]}').results[0].source_commit || fromJSON(inputs.canary_evidence_json || '{"results":[]}')[0].source_commit) || format('source={0} candidates={1} dry={2}', inputs.scope_head_sha || github.sha, inputs.repos || '*', inputs.dry_run || false) }}
 
 # Push workflow template updates to registered consumer repositories
 #

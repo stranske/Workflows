@@ -12,10 +12,103 @@ const DEFAULT_REVIEW_POLICY = Object.freeze({
 
 const GENERATED_DELIVERY_REQUIRED_CONTEXTS = Object.freeze(['Gate / gate']);
 const STALE_CANARY_HOURS = 6;
+const CANARY_REFRESH_DEBOUNCE_MS = 6 * 60 * 60 * 1000;
+const ACTIVE_SYNC_STATES = ['queued', 'in_progress', 'waiting', 'pending', 'requested'];
+
+function candidateSet(repositories) {
+  return [...new Set(repositories.map((repo) => String(repo).trim()).filter(Boolean))].sort();
+}
+
+// Success is permanent for an immutable source/set. The window bounds retries
+// after failed producers; an in-flight writer never expires into a second writer.
+function canaryRefreshDecision({ runs, sha, candidates, defaultBranch = 'main', now = Date.now() }) {
+  const key = candidateSet(candidates).join(',');
+  const matching = runs.filter((run) => {
+    const title = String(run.display_title || '').trim();
+    const match = title.match(/^Maint 68 canary (?:full|auto)\s+source=([a-f0-9]{40}) candidates=(\S+) dry=false$/);
+    return run.head_branch === defaultBranch && run.head_sha === sha && match?.[1] === sha
+      && (match[2] === '*' || candidateSet(match[2].split(',')).join(',') === key);
+  });
+  const successful = matching.find((run) => run.status === 'completed' && run.conclusion === 'success');
+  const active = matching.find((run) => ACTIVE_SYNC_STATES.includes(run.status));
+  const writer = runs.find((run) => ACTIVE_SYNC_STATES.includes(run.status)
+    && /^Maint 68 (canary|promote) /.test(run.display_title || ''));
+  const recent = matching.find((run) => run.status === 'completed' && run.conclusion !== 'success'
+    && now - Date.parse(run.updated_at || run.created_at) < CANARY_REFRESH_DEBOUNCE_MS);
+  const prior = active || writer || successful || recent;
+  return { sha, candidates: candidateSet(candidates), eligible: !prior,
+    producer_succeeded: Boolean(successful),
+    state: active ? active.status : writer ? 'writer-active' : successful ? 'success'
+      : recent ? recent.conclusion || 'completed' : 'unseen',
+    run_id: prior?.id,
+    debounce_ms: CANARY_REFRESH_DEBOUNCE_MS };
+}
+
+async function readCanaryRefreshState({ withRetry, context, expectedCanaries, now = Date.now() }) {
+  const location = { owner: context.repo.owner, repo: context.repo.repo };
+  const branch = context.payload.repository?.default_branch || 'main';
+  const { data: source } = await withRetry((client) => client.rest.repos.getCommit({ ...location, ref: branch }));
+  if (!/^[a-f0-9]{40}$/.test(source.sha || '')) throw new Error('canary_refresh_main_sha_unknown');
+  const { data: file } = await withRetry((client) => client.rest.repos.getContent({
+    ...location, path: 'config/consumer_sync_canaries.json', ref: source.sha,
+  }));
+  const config = JSON.parse(Buffer.from(file.content, 'base64').toString('utf8'));
+  const candidates = candidateSet((config.canaries || []).map((row) => row.repo));
+  if (!candidates.length || candidates.join(',') !== candidateSet(expectedCanaries).join(',')) {
+    throw new Error('canary_refresh_configuration_changed');
+  }
+  const runs = [];
+  // Read active writers independently of SHA; a promotion for an older plan
+  // still owns the same stable branches. Paginate rather than losing a success
+  // behind the very loop this guard is intended to stop.
+  for (const status of ACTIVE_SYNC_STATES) {
+    const { data } = await withRetry((client) => client.rest.actions.listWorkflowRuns({
+      ...location, workflow_id: 'maint-68-sync-consumer-repos.yml', status, per_page: 100,
+    }));
+    if (!Array.isArray(data.workflow_runs) || data.workflow_runs.length === 100) {
+      throw new Error('canary_refresh_active_history_unreadable');
+    }
+    runs.push(...data.workflow_runs);
+  }
+  // Successes for this exact SHA remain authoritative beyond the retry window.
+  for (let page = 1; ; page++) {
+    const { data } = await withRetry((client) => client.rest.actions.listWorkflowRuns({
+      ...location, workflow_id: 'maint-68-sync-consumer-repos.yml', head_sha: source.sha,
+      per_page: 100, page,
+    }));
+    if (!Array.isArray(data.workflow_runs)) throw new Error('canary_refresh_history_unreadable');
+    runs.push(...data.workflow_runs);
+    if (page === 10 && data.workflow_runs.length === 100) throw new Error('canary_refresh_history_truncated');
+    if (data.workflow_runs.length < 100) break;
+  }
+  return canaryRefreshDecision({ runs, sha: source.sha, candidates, defaultBranch: branch, now });
+}
+
+async function dispatchCanaryRefresh({ withRetry, context, core, expectedCanaries, refreshState, now }) {
+  const state = refreshState || await readCanaryRefreshState({ withRetry, context, expectedCanaries, now });
+  const line = state.eligible
+    ? `refresh: dispatching canary for ${state.sha}`
+    : `refresh: skipped (canary for ${state.sha} already ${state.state})`;
+  core.notice(line);
+  await core.summary.addRaw(`${line}; candidates=${state.candidates.join(',')}; debounce_ms=${CANARY_REFRESH_DEBOUNCE_MS}\n`).write();
+  if (!state.eligible) return { ...state, dispatched: false };
+  await withRetry((client) => client.rest.actions.createWorkflowDispatch({
+    owner: context.repo.owner, repo: context.repo.repo,
+    workflow_id: 'maint-68-sync-consumer-repos.yml',
+    ref: context.payload.repository?.default_branch || 'main',
+    inputs: { phase: 'canary', delivery_scope: 'full', scope_head_sha: state.sha,
+      repos: state.candidates.join(','), dry_run: 'false', force: 'false' },
+  }));
+  // Covers a second request in this run before REST exposes the queued run.
+  Object.assign(state, { eligible: false, state: 'requested' });
+  return { ...state, dispatched: true };
+}
 
 // Age is a recovery trigger for blocked canaries, never a hold on green ones.
 // Only a successful producer observation resets the clock; comments do not.
 function canaryNeedsRefresh(canary, now = Date.now()) {
+  if ((canary.refresh_state?.producer_succeeded || canary.refresh_state?.state === 'success')
+    && canary.source_commit === canary.refresh_state.sha) return null;
   if (canary.mergeable_state === 'behind') return 'behind';
   if (canary.check_status === 'checks_failed' && !canary.expected_preseal_gate_hold) {
     return 'checks_failed';
@@ -178,10 +271,11 @@ async function routeCanaryReviewUpstream({ canary, manifestEntries, withRetry, c
 }
 
 async function refreshStableCanaries({
-  canaries, withRetry, context, core, manifestEntries, enabled, now = Date.now(),
+  canaries, withRetry, context, core, manifestEntries, enabled, expectedCanaries,
+  refreshState, now = Date.now(),
 }) {
   const counts = { red: 0, review_blocked: 0, stale: 0, refresh_dispatched: 0 };
-  // Run-local plan-id deduplication: each distinct held plan gets one request.
+  // Preserve every held plan's reasons, but refresh the full candidate set once.
   const plans = new Map();
   const errors = [];
   for (const canary of canaries) {
@@ -200,37 +294,29 @@ async function refreshStableCanaries({
     plans.get(canary.plan_id).push(canary);
   }
   try {
+    // Review debt remains source-owned even when the SHA refresh is debounced.
+    for (const canary of enabled ? canaries.filter((row) => row.active_review_thread_count > 0) : []) {
+      try {
+        canary.upstream_comments = await routeCanaryReviewUpstream({
+          canary, manifestEntries, withRetry, context,
+        });
+      } catch (error) {
+        errors.push(`canary_upstream_routing_failed:${error.message}`);
+      }
+    }
+    if (enabled && refreshState && !refreshState.eligible && !plans.size) {
+      await dispatchCanaryRefresh({ withRetry, context, core, expectedCanaries, refreshState, now });
+    }
     if (enabled && plans.size) {
       // Keep the existing producer-writer guard. A running promotion or
       // refresh owns these stable heads; leave the request visible for retry.
-      const { data } = await withRetry((client) => client.rest.actions.listWorkflowRuns({
-        owner: context.repo.owner, repo: context.repo.repo,
-        workflow_id: 'maint-68-sync-consumer-repos.yml', per_page: 100,
-      }));
-      if (!Array.isArray(data.workflow_runs)) throw new Error('canary_refresh_history_unreadable');
-      const active = data.workflow_runs.some((run) =>
-        ['queued', 'in_progress', 'waiting', 'pending', 'requested'].includes(run.status)
-        && /^Maint 68 (canary|promote) /.test(run.display_title || ''));
+      const state = refreshState || await readCanaryRefreshState({
+        withRetry, context, expectedCanaries, now,
+      });
       for (const [plan, rows] of plans) {
-        for (const canary of rows.filter((row) => row.active_review_thread_count > 0)) {
-          try {
-            canary.upstream_comments = await routeCanaryReviewUpstream({
-              canary, manifestEntries, withRetry, context,
-            });
-          } catch (error) {
-            errors.push(`canary_upstream_routing_failed:${error.message}`);
-          }
-        }
-        if (active) {
-          core.notice(`Canary refresh ${plan} queued: Maint 68 writer already active`);
-          continue;
-        }
-        await withRetry((client) => client.rest.actions.createWorkflowDispatch({
-          owner: context.repo.owner, repo: context.repo.repo,
-          workflow_id: 'maint-68-sync-consumer-repos.yml',
-          ref: context.payload.repository?.default_branch || 'main',
-          inputs: { phase: 'canary', delivery_scope: 'full', dry_run: 'false', force: 'false' },
-        }));
+        const refresh = await dispatchCanaryRefresh({ withRetry, context, core,
+          expectedCanaries, refreshState: state, now });
+        if (!refresh.dispatched) continue;
         counts.refresh_dispatched++;
         core.notice(`dispatch-maint-68-phase-canary-no-filter: ${plan}; reasons=` +
           rows.map((row) => `${row.owner}/${row.repo}:${row.refresh_reason}`).join(', ') +
@@ -246,7 +332,7 @@ async function refreshStableCanaries({
   console.log(line);
   await core.summary.addRaw(`${line}\n`).write();
   for (const error of errors) core.setFailed(error);
-  return { ...counts, held_plans: [...plans.keys()], errors, canaries };
+  return { ...counts, held_plans: [...plans.keys()], errors, canaries, dispatch_state: refreshState };
 }
 
 function enforceGeneratedDeliveryRequiredContexts(contexts = []) {
@@ -1471,7 +1557,24 @@ async function dispatchCanaryPromotion({
   const errors = [...built.errors, ...decision.errors];
   if (report.inputs?.dry_run || report.inputs?.auto_merge !== true) errors.push('mutation_disabled');
   const record = async (status, detail) => {
-    const message = `Canary promotion ${decision.plan_id || '<unbound>'}: ${status}; ${detail}`;
+    const green = expectedCanaries.filter((repo) => {
+      const rows = built.evidence.results.filter((row) => row.repo === repo);
+      return rows.length === 1 && rows[0].required_check_state === 'success'
+        && rows[0].active_review_thread_count === 0;
+    }).length;
+    // Heads whose checks are green AND whose prepared report identity matches
+    // the evidence can be consumed by promotion. Owned/completed dispatches
+    // have no remaining drainable work in this invocation.
+    const drainable = ['held', 'dispatched'].includes(status) && !errors.includes('mutation_disabled')
+      ? expectedCanaries.filter((repo) => buildCanaryPromotionEvidence(
+        built.evidence.results.filter((row) => row.repo === repo), [repo],
+      ).ok && candidatePromotionDecision({
+        report: normalizedReport, evidence: { results: built.evidence.results.filter((row) => row.repo === repo) },
+        expectedCanaries: [repo],
+      }).eligible).length : 0;
+    const reason = status === 'dispatched' ? 'none' : `${status}: ${detail}`;
+    const message = `promote: blocked ${reason}; canaries green ${green}/${expectedCanaries.length}; drainable ${drainable}; ` +
+      `Canary promotion ${decision.plan_id || '<unbound>'}: ${status}; ${detail}`;
     core.notice(message);
     await core.summary.addRaw(`${message}\n`).write();
     return { status, plan_id: decision.plan_id, errors };
@@ -2226,6 +2329,14 @@ async function run({ github, context, core }) {
       .filter((repo) => repo && !excludedRepos.has(repo));
   }
 
+  let refreshState;
+  const getRefreshState = async () => {
+    if (!refreshState) refreshState = await readCanaryRefreshState({
+      withRetry, context, expectedCanaries: expectedCanaryRepos,
+    });
+    return refreshState;
+  };
+
   const rawBaselineEvidence = String(
     process.env.CANARY_BASELINE_EVIDENCE_JSON || '',
   ).trim();
@@ -2978,6 +3089,9 @@ async function run({ github, context, core }) {
         results.push({
           owner,
           repo,
+          plan_id: baselineEvidence.plan_id,
+          source_commit: baselineEvidence.source_commit,
+          head_sha: baselineEvidence.head_sha,
           status: 'evidence_recovered',
           delivery_disposition: 'no-change-canary-confirmed',
           branch: syncBranchForHash('candidate'),
@@ -3542,6 +3656,7 @@ async function run({ github, context, core }) {
             deliveryRecord, deliveryState: deliveryRecord?.delivery_state, classification, allChecks,
             withRetry });
         const canary = { owner, repo, pr: pr.number, plan_id: deliveryContext.plan_id,
+          source_commit: deliveryContext.source_commit,
           mergeable_state: pr.mergeable_state, mergeable: pr.mergeable, check_status: classification.status,
           expected_preseal_gate_hold: expectedPresealGateHold,
           active_review_thread_count: activeReviewThreads,
@@ -3549,6 +3664,10 @@ async function run({ github, context, core }) {
           updated_at: pr.updated_at, created_at: pr.created_at,
           threads: reviewThreadDetails.threads };
         stableCanaries.push(canary);
+        // A successful producer for this source/set is not a green consumer
+        // Gate. Preserve the review/seal lifecycle and let its later exact-head
+        // checks hold real failures, instead of restaging it on every scan.
+        if (canaryNeedsRefresh(canary)) canary.refresh_state = await getRefreshState();
         const reason = canaryNeedsRefresh(canary);
         if (reason) {
           // Refresh belongs to Maint 68. Do not let review/CI early exits hide
@@ -4419,6 +4538,7 @@ async function run({ github, context, core }) {
   // Summary
   const canaryRefresh = await refreshStableCanaries({
     canaries: stableCanaries, withRetry, context, core, manifestEntries,
+    expectedCanaries: expectedCanaryRepos, refreshState,
     enabled: autoMerge && !dryRun && !resolutionOnly && !evidenceOnly,
   });
   if (canaryRefresh.refresh_dispatched > 0) {
@@ -4553,6 +4673,10 @@ async function run({ github, context, core }) {
 
 module.exports = {
   STALE_CANARY_HOURS,
+  CANARY_REFRESH_DEBOUNCE_MS,
+  canaryRefreshDecision,
+  readCanaryRefreshState,
+  dispatchCanaryRefresh,
   canaryNeedsRefresh,
   isExpectedPresealGateFailure,
   refreshStableCanaries,
