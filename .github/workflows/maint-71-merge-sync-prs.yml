@@ -193,6 +193,14 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Setup delivery renderer Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.14'
+
+      - name: Install delivery renderer dependencies
+        run: python -m pip install pyyaml
+
       - name: Setup API client
         uses: ./.github/actions/setup-api-client
         with:

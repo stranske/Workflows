@@ -335,7 +335,8 @@ def test_sync_fanout_is_canary_gated_and_promotion_is_plan_bound() -> None:
     assert prepare["outputs"]["has_plan_items"] == "${{ steps.manifest.outputs.has_plan_items }}"
     assert sync["if"] == (
         "needs.prepare.outputs.phase != 'preview' && "
-        "needs.prepare.outputs.has_plan_items == 'true'"
+        "needs.prepare.outputs.has_plan_items == 'true' && "
+        "needs.prepare.outputs.refresh_allowed != 'false'"
     )
     assert "scope_consumer_sync_plan.py" in source
     assert "Validate immutable source reachability" in source

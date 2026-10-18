@@ -4,6 +4,7 @@ run-name: >-
   ${{ inputs.phase == 'promote' && (fromJSON(inputs.canary_evidence_json || '{"results":[]}').results[0].plan_id || fromJSON(inputs.canary_evidence_json || '{"results":[]}')[0].plan_id) || '' }}
   ${{ inputs.phase == 'promote' && (fromJSON(inputs.canary_evidence_json || '{"results":[]}').results[0].source_commit || fromJSON(inputs.canary_evidence_json || '{"results":[]}')[0].source_commit) || format('source={0} candidates={1} dry={2}', inputs.scope_head_sha || github.sha, inputs.repos || '*', inputs.dry_run || false) }}
   ${{ inputs.phase != 'promote' && inputs.refresh_key && format('drift={0}', inputs.refresh_key) || '' }}
+  ${{ inputs.phase != 'promote' && 'guard=delivery-v1' || '' }}
 
 # Push workflow template updates to registered consumer repositories
 #
@@ -109,6 +110,7 @@ jobs:
     name: Prepare sync from manifest
     runs-on: ubuntu-latest
     outputs:
+      refresh_allowed: ${{ steps.refresh.outputs.allowed }}
       repos: ${{ steps.repos.outputs.matrix }}
       template_hash: ${{ steps.manifest.outputs.template_hash }}
       plan_id: ${{ steps.manifest.outputs.plan_id }}
@@ -286,6 +288,47 @@ jobs:
 
       - name: Install dependencies
         run: pip install pyyaml
+
+      - name: Checkout delivery guard at workflow ref
+        if: (inputs.phase || 'canary') == 'canary' && inputs.dry_run != true
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          path: .delivery-tools
+          persist-credentials: false
+          sparse-checkout: |
+            .github/scripts
+            scripts
+
+      - name: Check content refresh guard
+        id: refresh
+        if: (inputs.phase || 'canary') == 'canary' && inputs.dry_run != true
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        env:
+          SOURCE_COMMIT: ${{ steps.scope_request.outputs.source_commit }}
+          REFRESH_KEY: ${{ inputs.refresh_key || '' }}
+        with:
+          github-token: ${{ secrets.OWNER_PR_PAT }}
+          script: |
+            const { readCanaryRefreshState } = require('./.delivery-tools/.github/scripts/maint71_merge_sync_prs');
+            const config = require('./config/consumer_sync_canaries.json');
+            const state = await readCanaryRefreshState({
+              withRetry: async fn => fn(github), context,
+              expectedCanaries: config.canaries.map(row => row.repo),
+              sourceSha: process.env.SOURCE_COMMIT, driftKey: process.env.REFRESH_KEY,
+              ignoreRunId: context.runId,
+            });
+            const line = state.queue_reason ? `refresh: queued (${state.queue_reason})`
+              : state.producer_succeeded
+                ? `refresh: skipped (delivery digest ${state.delivery_digest} unchanged since ${state.unchanged_since || state.sha})`
+                : `refresh: ${state.eligible ? 'allowed' : 'skipped'} (${state.state})`;
+            core.notice(line);
+            await core.summary.addRaw(`${line}\n`).write();
+            core.setOutput('allowed', String(state.eligible));
+
+      - name: Authorize canary payload mutation
+        if: steps.refresh.outputs.allowed == 'true'
+        run: echo "Rendered delivery payload may advance"
 
       - name: Compile typed consumer sync plan
         run: |
@@ -476,7 +519,7 @@ jobs:
   sync:
     name: Sync ${{ matrix.repo }}
     needs: [prepare, validate]
-    if: needs.prepare.outputs.phase != 'preview' && needs.prepare.outputs.has_plan_items == 'true'
+    if: needs.prepare.outputs.phase != 'preview' && needs.prepare.outputs.has_plan_items == 'true' && needs.prepare.outputs.refresh_allowed != 'false'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
