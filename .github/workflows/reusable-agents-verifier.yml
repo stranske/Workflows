@@ -1756,13 +1756,11 @@ jobs:
         env:
           SHOULD_RUN: ${{ steps.context.outputs.should_run }}
           PR_NUMBER: ${{ steps.context.outputs.pr_number }}
-          VERDICT: >-
-            ${{
-              steps.unified_verdict.outputs.verdict ||
-              steps.verdict.outputs.verdict ||
-              steps.llm_evaluate.outputs.verdict ||
-              steps.llm_compare.outputs.verdict
-            }}
+          # Only the settled unified verdict is consumed. Raw per-mode verdicts
+          # skip the CI-failure floor, so they must never stand in for it when
+          # settlement was skipped or failed (see UNIFIED_VERDICT_OUTCOME).
+          VERDICT: ${{ steps.unified_verdict.outputs.verdict }}
+          UNIFIED_VERDICT_OUTCOME: ${{ steps.unified_verdict.outcome }}
           CONTEXT_PATH: ${{ steps.context.outputs.context_path }}
           ISSUE_NUMBER: ${{ steps.failure_issue.outputs.issue_number }}
           SKIP_REASON: ${{ steps.context.outputs.skip_reason }}
@@ -1795,8 +1793,15 @@ jobs:
           verifier_mode = os.environ.get("VERIFIER_MODE") or ""
           chain_depth = int(os.environ.get("CHAIN_DEPTH") or 0)
 
+          unified_outcome = os.environ.get("UNIFIED_VERDICT_OUTCOME") or ""
+          settlement_interrupted = should_run and unified_outcome != "success"
+
           if not should_run:
               verdict = "skipped"
+          elif settlement_interrupted:
+              # Settlement (CI-failure floor) did not complete; record an error
+              # rather than an unguarded or empty verdict.
+              verdict = "error"
 
           issues_created = 1 if issue_number else 0
           issue_numbers = [issue_number] if issue_number else []
@@ -1867,6 +1872,7 @@ jobs:
               "codex_cli_version": codex_cli_version,
               "verifier_mode": verifier_mode,
               "chain_depth": chain_depth,
+              "settlement_interrupted": settlement_interrupted,
               "recorded_at": datetime.now(timezone.utc).isoformat(),
           }
           if langsmith_traces:
@@ -1896,13 +1902,8 @@ jobs:
           CODEX_CLI_VERSION: ${{ steps.codex_cli.outputs.version }}
           VERIFIER_MODE: ${{ inputs.mode }}
           CHAIN_DEPTH: ${{ steps.context.outputs.chain_depth || '0' }}
-          FINAL_VERDICT: >-
-            ${{
-              steps.unified_verdict.outputs.verdict ||
-              steps.verdict.outputs.verdict ||
-              steps.llm_evaluate.outputs.verdict ||
-              steps.llm_compare.outputs.verdict
-            }}
+          FINAL_VERDICT: ${{ steps.unified_verdict.outputs.verdict }}
+          UNIFIED_VERDICT_OUTCOME: ${{ steps.unified_verdict.outcome }}
         run: |
           set -euo pipefail
           mkdir -p agent-metrics
@@ -1946,7 +1947,11 @@ jobs:
           const shouldRun = String(process.env.SHOULD_RUN || '').toLowerCase() === 'true';
           const prNumber =
             Number.parseInt(process.env.PR_NUMBER || metrics.pr_number || '0', 10) || null;
-          const verdict = normalizeVerdict(process.env.FINAL_VERDICT || metrics.verdict);
+          const settled = process.env.UNIFIED_VERDICT_OUTCOME === 'success';
+          const settlementInterrupted = shouldRun && !settled;
+          const verdict = settlementInterrupted
+            ? 'error'
+            : normalizeVerdict(process.env.FINAL_VERDICT || metrics.verdict);
           const followupIssueNumber =
             Number.parseInt(process.env.FOLLOWUP_ISSUE_NUMBER || '', 10) || null;
           const skipReason = process.env.SKIP_REASON || metrics.skip_reason || '';
@@ -1963,6 +1968,9 @@ jobs:
           if (!shouldRun) {
             disposition = 'skipped';
             reason = skipReason || 'Verifier did not have an eligible source to evaluate.';
+          } else if (settlementInterrupted) {
+            disposition = 'verifier-error';
+            reason = 'Verifier verdict settlement did not complete; no unguarded verdict was recorded.';
           } else if (['pass', 'passed'].includes(verdict)) {
             disposition = 'verified-pass';
             reason = 'Verifier completed and reported a passing verdict.';
