@@ -412,7 +412,7 @@ def test_unified_mode_is_literal_environment_transport(tmp_path, mode, expected)
     )
     assert run.returncode == 0, run.stderr
     assert "MODE_INTERPOLATION_EXECUTED" not in run.stdout + run.stderr
-    assert Path(env["GITHUB_OUTPUT"]).read_text().strip() == f"verdict={expected}"
+    assert Path(env["GITHUB_OUTPUT"]).read_text().strip() == f"verdict={expected.upper()}"
 
 
 @pytest.mark.parametrize(

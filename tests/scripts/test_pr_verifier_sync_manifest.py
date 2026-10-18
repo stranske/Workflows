@@ -95,7 +95,7 @@ def test_doc_lineage_binary_finding_blocks_pass(binary_marker: str) -> None:
     result = pr_verifier._apply_coverage_floor(
         pr_verifier.EvaluationResult(verdict="PASS", used_llm=True), inputs.coverage
     )
-    assert result.verdict == "CONCERNS"
+    assert result.verdict == "UNVERIFIABLE_INPUT"
 
 
 def test_doc_lineage_summary_finding_blocks_pass() -> None:
@@ -107,7 +107,7 @@ def test_doc_lineage_summary_finding_blocks_pass() -> None:
     result = pr_verifier._apply_coverage_floor(
         pr_verifier.EvaluationResult(verdict="PASS", used_llm=True), inputs.coverage
     )
-    assert result.verdict == "CONCERNS"
+    assert result.verdict == "UNVERIFIABLE_INPUT"
 
 
 @pytest.mark.parametrize("budget", [0, 1, 40, 512, 4096])

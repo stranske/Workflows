@@ -89,10 +89,9 @@ def test_multiline_quoted_criteria_cannot_create_delivery(
     for missing in ("absent", "unavailable"):
         assert _floor_verdict(criterion, body=missing, comments=missing) == "PASS"
         if independent:
-            assert (
-                _floor_verdict(criterion, body="present", comments="present", artifacts=missing)
-                == "CONCERNS"
-            )
+            assert _floor_verdict(
+                criterion, body="present", comments="present", artifacts=missing
+            ) == ("UNVERIFIABLE_INPUT" if missing == "unavailable" else "CONCERNS")
 
 
 @pytest.mark.parametrize(
@@ -106,7 +105,11 @@ def test_passive_object_boundary_preserves_legitimate_soft_wrap(
     criterion = f"{modifier}Evidence{wrap}must be recorded by the reviewer in {destination}"
     assert verifier._required_evidence_options(criterion) == [{channel}]
     for missing in ("absent", "unavailable"):
-        assert _floor_verdict(criterion, body=missing, comments=missing) == "CONCERNS"
+        assert _floor_verdict(criterion, body=missing, comments=missing) == (
+            "UNVERIFIABLE_INPUT"
+            if missing == "unavailable"
+            else ("UNVERIFIABLE_INPUT" if missing == "unavailable" else "CONCERNS")
+        )
 
 
 @pytest.mark.parametrize("marker", ["-", "*", "1.", "- [ ]"])
@@ -129,7 +132,9 @@ def test_passive_object_does_not_capture_previous_list_item(
     assert verifier._required_evidence_options(criterion) == [expected]
     for missing in ("absent", "unavailable"):
         assert _floor_verdict(criterion, body=missing, comments=missing) == (
-            "CONCERNS" if expected else "PASS"
+            ("UNVERIFIABLE_INPUT" if missing == "unavailable" else "CONCERNS")
+            if expected
+            else "PASS"
         )
 
 
@@ -159,7 +164,9 @@ def test_transport_qualifier_is_not_a_product_component(
     assert verifier._required_evidence_options(criterion) == [expected]
     for missing in ("absent", "unavailable"):
         assert _floor_verdict(criterion, body=missing, comments=missing) == (
-            "CONCERNS" if channel in expected else "PASS"
+            ("UNVERIFIABLE_INPUT" if missing == "unavailable" else "CONCERNS")
+            if channel in expected
+            else "PASS"
         )
 
 
@@ -206,7 +213,9 @@ def test_participial_content_is_not_a_component_name(
     assert verifier._required_evidence_options(criterion) == [expected]
     for missing in ("absent", "unavailable"):
         assert _floor_verdict(criterion, body=missing, comments=missing) == (
-            "CONCERNS" if channel in expected else "PASS"
+            ("UNVERIFIABLE_INPUT" if missing == "unavailable" else "CONCERNS")
+            if channel in expected
+            else "PASS"
         )
 
 
@@ -249,7 +258,20 @@ def test_content_qualifiers_preserve_destination_alternatives(
                 | ({"comments"} if comments == "present" else set())
             )
             assert _floor_verdict(criterion, body=body, comments=comments) == (
-                "PASS" if any(s <= available for s in expected) else "CONCERNS"
+                "PASS"
+                if any(s <= available for s in expected)
+                else (
+                    "CONCERNS"
+                    if all(
+                        any(
+                            {"body": body, "comments": comments, "artifacts": "present"}[channel]
+                            == "absent"
+                            for channel in option
+                        )
+                        for option in expected
+                    )
+                    else "UNVERIFIABLE_INPUT"
+                )
             )
 
 
@@ -269,7 +291,9 @@ def test_content_object_polarity_does_not_change_delivery_governor(
     assert verifier._required_evidence_options(criterion) == [expected]
     for missing in ("absent", "unavailable"):
         assert _floor_verdict(criterion, body=missing, comments=missing) == (
-            "CONCERNS" if governor == "must" else "PASS"
+            ("UNVERIFIABLE_INPUT" if missing == "unavailable" else "CONCERNS")
+            if governor == "must"
+            else "PASS"
         )
 
 
@@ -306,7 +330,9 @@ def test_content_object_polarity_across_passive_agents(
         )
     for missing in ("absent", "unavailable"):
         assert _floor_verdict(criterion, body=missing, comments=missing) == (
-            "CONCERNS" if channel in expected else "PASS"
+            ("UNVERIFIABLE_INPUT" if missing == "unavailable" else "CONCERNS")
+            if channel in expected
+            else "PASS"
         )
 
 
@@ -329,11 +355,14 @@ def test_content_qualifier_preserves_literals_conditions_and_independent_duties(
     assert verifier._required_evidence_options(criterion) == [expected]
     for missing in ("absent", "unavailable"):
         assert _floor_verdict(criterion, body=missing, comments=missing) == (
-            "CONCERNS" if channel in expected else "PASS"
+            ("UNVERIFIABLE_INPUT" if missing == "unavailable" else "CONCERNS")
+            if channel in expected
+            else "PASS"
         )
-        assert (
-            _floor_verdict(criterion, body="present", comments="present", artifacts=missing)
-            == "CONCERNS"
+        assert _floor_verdict(criterion, body="present", comments="present", artifacts=missing) == (
+            "UNVERIFIABLE_INPUT"
+            if missing == "unavailable"
+            else ("UNVERIFIABLE_INPUT" if missing == "unavailable" else "CONCERNS")
         )
 
 
@@ -360,7 +389,11 @@ def test_product_chain_keeps_genuine_destination_alternatives(actor, body_alias,
     for missing in ("absent", "unavailable"):
         assert _floor_verdict(criterion, body=missing, comments="present") == "PASS"
         assert _floor_verdict(criterion, body="present", comments=missing) == "PASS"
-        assert _floor_verdict(criterion, body=missing, comments=missing) == "CONCERNS"
+        assert _floor_verdict(criterion, body=missing, comments=missing) == (
+            "UNVERIFIABLE_INPUT"
+            if missing == "unavailable"
+            else ("UNVERIFIABLE_INPUT" if missing == "unavailable" else "CONCERNS")
+        )
 
 
 @_semantic_matrix(
@@ -439,7 +472,9 @@ def test_product_chain_inherits_latest_explicit_governor_and_aspect(
     assert verifier._required_evidence_options(criterion) == [expected]
     for missing in ("absent", "unavailable"):
         assert _floor_verdict(criterion, body=missing, comments=missing) == (
-            "CONCERNS" if channel in expected else "PASS"
+            ("UNVERIFIABLE_INPUT" if missing == "unavailable" else "CONCERNS")
+            if channel in expected
+            else "PASS"
         )
 
 
@@ -476,7 +511,11 @@ def test_irregular_perfect_delivery_inherits_actor_and_polarity(
                 criterion,
                 body=missing if channel == "body" else "present",
                 comments=missing if channel == "comments" else "present",
-            ) == ("CONCERNS" if channel in expected else "PASS")
+            ) == (
+                ("UNVERIFIABLE_INPUT" if missing == "unavailable" else "CONCERNS")
+                if channel in expected
+                else "PASS"
+            )
 
 
 @pytest.mark.parametrize("actor", ["UI", "service", "interface"])
@@ -536,7 +575,7 @@ def test_passive_both_preposition_order_retains_actor_and_destinations(
     }
     for missing in ("absent", "unavailable"):
         assert _floor_verdict(criterion, body="present", comments=missing) == (
-            "CONCERNS"
+            ("UNVERIFIABLE_INPUT" if missing == "unavailable" else "CONCERNS")
             if "comments" in expected and not (actor == "reviewer" and quantifier == "either")
             else "PASS"
         )
@@ -672,7 +711,9 @@ def test_product_coordination_preserves_recipients_and_explicit_governor_reset(
     assert verifier._required_evidence_options(criterion) == [expected]
     for missing in ("absent", "unavailable"):
         assert _floor_verdict(criterion, body=missing, comments=missing) == (
-            "CONCERNS" if "comments" in expected else "PASS"
+            ("UNVERIFIABLE_INPUT" if missing == "unavailable" else "CONCERNS")
+            if "comments" in expected
+            else "PASS"
         )
 
 
@@ -842,7 +883,9 @@ def test_relative_qualifier_preserves_parent_and_local_condition_scope(
                 verifier.prompt_coverage(context, None),
             )
             assert result.verdict == (
-                "PASS" if expected <= (present | {"artifacts"}) else "CONCERNS"
+                "PASS"
+                if expected <= (present | {"artifacts"})
+                else ("UNVERIFIABLE_INPUT" if missing == "unavailable" else "CONCERNS")
             )
 
 
@@ -885,7 +928,7 @@ def test_passive_destination_quantifier_retains_bare_sibling(
             verifier.EvaluationResult(verdict="PASS", used_llm=True),
             verifier.prompt_coverage(context, None),
         )
-        assert result.verdict == "CONCERNS"
+        assert result.verdict == ("UNVERIFIABLE_INPUT" if missing == "unavailable" else "CONCERNS")
 
 
 @_semantic_matrix(
@@ -1226,7 +1269,11 @@ def test_passive_aliases_preserve_actor_options_and_actual_floor(
             verifier.prompt_coverage(context, None),
         )
         satisfied = any(option <= (present | {"artifacts"}) for option in expected)
-        assert result.verdict == ("PASS" if satisfied else "CONCERNS")
+        assert result.verdict == (
+            "PASS"
+            if satisfied
+            else ("UNVERIFIABLE_INPUT" if missing == "unavailable" else "CONCERNS")
+        )
 
 
 @_semantic_matrix(
@@ -1304,7 +1351,11 @@ def test_component_availability_preserves_bare_sibling_and_passive_actor(
             verifier.EvaluationResult(verdict="PASS", used_llm=True),
             verifier.prompt_coverage(context, None),
         )
-        assert result.verdict == ("PASS" if expected <= (present | {"artifacts"}) else "CONCERNS")
+        assert result.verdict == (
+            "PASS"
+            if expected <= (present | {"artifacts"})
+            else ("UNVERIFIABLE_INPUT" if missing == "unavailable" else "CONCERNS")
+        )
 
 
 @pytest.mark.parametrize("operation", ["record", "supply", "leave"])
@@ -2248,7 +2299,19 @@ def test_checklist_destination_lists_control_real_floor(
         if operator == "and"
         else (comment_status == "present" or body_status == "present")
     )
-    assert result.verdict == ("PASS" if expected else "CONCERNS")
+    assert result.verdict == (
+        "PASS"
+        if expected
+        else (
+            "CONCERNS"
+            if (
+                ("absent" in {body_status, comment_status})
+                if operator == "and"
+                else body_status == comment_status == "absent"
+            )
+            else "UNVERIFIABLE_INPUT"
+        )
+    )
 
 
 @pytest.mark.parametrize(
@@ -2994,15 +3057,12 @@ def test_report_alias_reuses_delivery_polarity_destinations_and_floor(
     assert verifier._required_evidence_channels(positive) == {channel}
     assert verifier._required_evidence_options(positive) == [{channel}]
     for missing in ("absent", "unavailable"):
-        assert (
-            _floor_verdict(
-                positive,
-                body=missing if channel == "body" else "present",
-                comments=missing if channel == "comments" else "present",
-                artifacts=missing if channel == "artifacts" else "present",
-            )
-            == "CONCERNS"
-        )
+        assert _floor_verdict(
+            positive,
+            body=missing if channel == "body" else "present",
+            comments=missing if channel == "comments" else "present",
+            artifacts=missing if channel == "artifacts" else "present",
+        ) == ("UNVERIFIABLE_INPUT" if missing == "unavailable" else "CONCERNS")
 
     assert (
         verifier._required_evidence_channels(
@@ -4761,7 +4821,11 @@ def test_fresh_canary_findings_control_actual_coverage_floor(criterion, channel,
         verifier.EvaluationResult(verdict="PASS", used_llm=True),
         verifier.prompt_coverage(context, None),
     )
-    assert result.verdict == ("CONCERNS" if channel and status != "present" else "PASS")
+    assert result.verdict == (
+        ("UNVERIFIABLE_INPUT" if status == "unavailable" else "CONCERNS")
+        if channel and status != "present"
+        else "PASS"
+    )
 
 
 @pytest.mark.parametrize("prefix", ["", "- [ ] "])
@@ -4797,12 +4861,17 @@ def test_negative_checklist_does_not_regain_actual_evidence_floor(
         verifier.EvaluationResult(verdict="PASS", used_llm=True),
         verifier.prompt_coverage(context, None),
     )
-    assert result.verdict == ("CONCERNS" if positive and body_status != "present" else "PASS")
+    assert result.verdict == (
+        ("UNVERIFIABLE_INPUT" if body_status == "unavailable" else "CONCERNS")
+        if positive and body_status != "present"
+        else "PASS"
+    )
 
 
 @pytest.mark.parametrize("prefix", ["", "- [ ] "])
 @pytest.mark.parametrize(
-    "status,expected", [("present", "PASS"), ("absent", "CONCERNS"), ("unavailable", "CONCERNS")]
+    "status,expected",
+    [("present", "PASS"), ("absent", "CONCERNS"), ("unavailable", "UNVERIFIABLE_INPUT")],
 )
 def test_generated_docs_drift_body_requirement_controls_floor(prefix, status, expected):
     finding = fix_agent.Finding(
@@ -4927,7 +4996,8 @@ def test_body_is_its_own_evidence_channel():
 
 
 @pytest.mark.parametrize(
-    "status, verdict", [("present", "PASS"), ("absent", "CONCERNS"), ("unavailable", "CONCERNS")]
+    "status, verdict",
+    [("present", "PASS"), ("absent", "CONCERNS"), ("unavailable", "UNVERIFIABLE_INPUT")],
 )
 def test_actual_body_channel_controls_full_coverage_floor(status, verdict):
     fixture = _COVERAGE_FIXTURE
@@ -5194,7 +5264,11 @@ def test_body_clause_matrix_controls_real_coverage_floor(criterion, expected, st
     result = verifier._apply_coverage_floor(
         verifier.EvaluationResult(verdict="PASS", used_llm=True), coverage
     )
-    assert result.verdict == ("CONCERNS" if channel in expected and status != "present" else "PASS")
+    assert result.verdict == (
+        ("UNVERIFIABLE_INPUT" if status == "unavailable" else "CONCERNS")
+        if channel in expected and status != "present"
+        else "PASS"
+    )
 
 
 @pytest.mark.parametrize("predicate", ["must describe the change", "should describe the change"])
@@ -5527,7 +5601,9 @@ def test_issue3835_nongating_controls(criterion, independent, status):
     assert verifier._required_evidence_channels(criterion) == expected
     assert verifier._required_evidence_options(criterion) == [expected]
     assert _floor_verdict(criterion, body="present", comments=status, artifacts=status) == (
-        "CONCERNS" if independent and status != "present" else "PASS"
+        ("UNVERIFIABLE_INPUT" if status == "unavailable" else "CONCERNS")
+        if independent and status != "present"
+        else "PASS"
     )
 
 
@@ -5580,7 +5656,11 @@ def test_issue3835_review_alias_discovery_and_missing_floor(destination, criteri
     assert verifier._required_evidence_channels(text) == {"comments"}
     assert verifier._required_evidence_options(text) == [{"comments"}]
     for missing in ("absent", "unavailable"):
-        assert _floor_verdict(text, body="present", comments=missing) == "CONCERNS"
+        assert _floor_verdict(text, body="present", comments=missing) == (
+            "UNVERIFIABLE_INPUT"
+            if missing == "unavailable"
+            else ("UNVERIFIABLE_INPUT" if missing == "unavailable" else "CONCERNS")
+        )
 
 
 @pytest.mark.parametrize(
@@ -6399,7 +6479,11 @@ def test_issue3835_independent_clause_boundary_shares_actor_grammar(prefix, boun
                 _floor_verdict(criterion, body="present", comments="present", artifacts=missing)
                 == "PASS"
             )
-            assert _floor_verdict(criterion, body=missing, comments=missing) == "CONCERNS"
+            assert _floor_verdict(criterion, body=missing, comments=missing) == (
+                "UNVERIFIABLE_INPUT"
+                if missing == "unavailable"
+                else ("UNVERIFIABLE_INPUT" if missing == "unavailable" else "CONCERNS")
+            )
 
 
 @pytest.mark.parametrize("boundary", [" and ", ", and ", " but ", " while "])
@@ -6430,7 +6514,11 @@ def test_issue3835_same_subject_product_predicate_cannot_borrow_delivery(boundar
                 == "PASS"
             )
             if "comments" in expected:
-                assert _floor_verdict(text, body="present", comments=missing) == "CONCERNS"
+                assert _floor_verdict(text, body="present", comments=missing) == (
+                    "UNVERIFIABLE_INPUT"
+                    if missing == "unavailable"
+                    else ("UNVERIFIABLE_INPUT" if missing == "unavailable" else "CONCERNS")
+                )
 
 
 @pytest.mark.parametrize(
@@ -6446,9 +6534,10 @@ def test_issue3835_same_subject_real_artifact_delivery_retains_floor(text):
     assert verifier._required_evidence_channels(text) == {"body", "artifacts"}
     assert verifier._required_evidence_options(text) == [{"body", "artifacts"}]
     for missing in ("absent", "unavailable"):
-        assert (
-            _floor_verdict(text, body="present", comments="present", artifacts=missing)
-            == "CONCERNS"
+        assert _floor_verdict(text, body="present", comments="present", artifacts=missing) == (
+            "UNVERIFIABLE_INPUT"
+            if missing == "unavailable"
+            else ("UNVERIFIABLE_INPUT" if missing == "unavailable" else "CONCERNS")
         )
 
 
@@ -6468,7 +6557,9 @@ def test_issue3835_hyphenated_qualified_review_destination(destination, governor
     assert verifier._required_evidence_options(text) == [expected]
     for missing in ("absent", "unavailable"):
         assert _floor_verdict(text, body="present", comments=missing) == (
-            "CONCERNS" if expected else "PASS"
+            ("UNVERIFIABLE_INPUT" if missing == "unavailable" else "CONCERNS")
+            if expected
+            else "PASS"
         )
     if expected:
         alternative = text + " or in the PR body"
@@ -7519,7 +7610,9 @@ def test_issue3883_filename_qualified_controls_preserve_independent_body_floor(
     assert verifier._required_evidence_channels(criterion) == {"body"}
     assert verifier._required_evidence_options(criterion) == [{"body"}]
     assert _floor_verdict(criterion, body=body, comments="absent", artifacts="absent") == (
-        "PASS" if body == "present" else "CONCERNS"
+        "PASS"
+        if body == "present"
+        else ("UNVERIFIABLE_INPUT" if body == "unavailable" else "CONCERNS")
     )
 
 
@@ -7550,9 +7643,9 @@ def test_issue3883_filename_qualified_retains_independent_reviewer_body_duty():
         ("absent", "present", "absent", "CONCERNS"),
         ("absent", "absent", "present", "CONCERNS"),
         ("absent", "absent", "absent", "CONCERNS"),
-        ("unavailable", "present", "present", "CONCERNS"),
-        ("present", "unavailable", "absent", "CONCERNS"),
-        ("present", "absent", "unavailable", "CONCERNS"),
+        ("unavailable", "present", "present", "UNVERIFIABLE_INPUT"),
+        ("present", "unavailable", "absent", "UNVERIFIABLE_INPUT"),
+        ("present", "absent", "unavailable", "UNVERIFIABLE_INPUT"),
     ],
 )
 def test_issue3883_filename_qualified_either_retains_independent_body_floor(
@@ -7691,7 +7784,11 @@ def test_save_persist_log_product_storage_does_not_require_review_evidence(crite
         )
         independent = criterion + "; the reviewer must report test results in a PR comment"
         assert verifier._required_evidence_channels(independent) == {"comments"}
-        assert _floor_verdict(independent, body="present", comments=missing) == "CONCERNS"
+        assert _floor_verdict(independent, body="present", comments=missing) == (
+            "UNVERIFIABLE_INPUT"
+            if missing == "unavailable"
+            else ("UNVERIFIABLE_INPUT" if missing == "unavailable" else "CONCERNS")
+        )
 
 
 @pytest.mark.parametrize("operation", ["save", "persist", "log"])
@@ -7706,12 +7803,9 @@ def test_bounded_storage_shared_review_destination_preserves_floor(
     criterion = f"The service must {operation} {payload} in its database and in {destination}"
     assert verifier._required_evidence_channels(criterion) == {channel}
     for missing in ("absent", "unavailable"):
-        assert (
-            _floor_verdict(
-                criterion,
-                body=missing if channel == "body" else "present",
-                comments=missing if channel == "comments" else "present",
-                artifacts=missing if channel == "artifacts" else "present",
-            )
-            == "CONCERNS"
-        )
+        assert _floor_verdict(
+            criterion,
+            body=missing if channel == "body" else "present",
+            comments=missing if channel == "comments" else "present",
+            artifacts=missing if channel == "artifacts" else "present",
+        ) == ("UNVERIFIABLE_INPUT" if missing == "unavailable" else "CONCERNS")

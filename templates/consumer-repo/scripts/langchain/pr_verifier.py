@@ -36,6 +36,7 @@ from scripts.langchain.structured_output import (
 from scripts.langchain.verifier_config import (
     EVAL_PAIR_BUDGET_TOKENS,
     EVAL_SCHEMA_REPAIR_BUDGET_TOKENS,
+    MAX_REVIEW_CHUNKS,
     MIN_CODE_COVERAGE_RATIO,
     VERIFIER_CONTEXT_BUDGET_TOKENS,
     VERIFIER_DIFF_BUDGET_TOKENS,
@@ -267,7 +268,7 @@ class EvaluationScores(BaseModel):
 
 
 class EvaluationResult(BaseModel):
-    verdict: Literal["PASS", "CONCERNS", "FAIL"]
+    verdict: Literal["PASS", "CONCERNS", "FAIL", "UNVERIFIABLE_INPUT"]
     scores: EvaluationScores | None = None
     confidence: float | None = Field(default=None, ge=0, le=1)
     concerns: list[str] = Field(default_factory=list)
@@ -282,15 +283,17 @@ class EvaluationResult(BaseModel):
     langsmith_trace_url: str | None = None
     input_coverage: dict[str, object] | None = None
     partition_recovery: dict[str, Any] | None = None
+    files_not_reviewed: list[str] = Field(default_factory=list)
 
 
 class EvaluationPayload(BaseModel):
     model_config = {"extra": "ignore"}
-    verdict: Literal["PASS", "CONCERNS", "FAIL"]
+    verdict: Literal["PASS", "CONCERNS", "FAIL", "UNVERIFIABLE_INPUT"]
     scores: EvaluationScores | None = None
     confidence: float | None = Field(default=None, ge=0, le=1)
     concerns: list[str] = Field(default_factory=list)
     summary: str | None = None
+    files_not_reviewed: list[str] = Field(default_factory=list)
 
 
 SEMANTIC_ENVELOPE_SCHEMA = "workflows-verifier-semantic-acceptance-envelope/v1"
@@ -349,6 +352,9 @@ class ComparisonRunner:
         )
 
     def run_single(self, client: object, provider: str, model: str) -> EvaluationResult:
+        chunked = _evaluate_chunked(client, self.context, self.diff, provider, model)
+        if chunked is not None:
+            return chunked
         try:
             response, trace_id, trace_url = _invoke_llm(
                 client,
@@ -474,6 +480,7 @@ class PromptCoverage:
     context_truncated: bool
     reasons: tuple[str, ...]
     acceptance_source_discovery: CoverageStatus = "not_declared"
+    required_evidence_absent: bool = False
 
     @property
     def sufficient(self) -> bool:
@@ -501,6 +508,7 @@ class PromptCoverage:
             "files_truncated": status_counts["truncated"],
             "files_omitted": status_counts["omitted"],
             "omitted_files": [item.path for item in self.files if item.status == "omitted"],
+            "files_not_reviewed": [item.path for item in self.files if item.status != "complete"],
             "code_included_chars": self.code_included_chars,
             "code_total_chars": self.code_total_chars,
             "code_ratio": round(self.code_ratio, 4),
@@ -521,8 +529,12 @@ class PromptCoverage:
             (
                 f"- Changed code: {self.code} — {len(self.files)} file(s); "
                 f"{sum(1 for f in self.files if f.status == 'complete')} complete, "
-                f"{sum(1 for f in self.files if f.status == 'truncated')} truncated, "
-                f"{sum(1 for f in self.files if f.status == 'omitted')} omitted; "
+                + (
+                    f"{sum(1 for f in self.files if f.status == 'truncated')} truncated, "
+                    if any(f.status == "truncated" for f in self.files)
+                    else ""
+                )
+                + f"{sum(1 for f in self.files if f.status == 'omitted')} omitted; "
                 f"{self.code_included_chars}/{self.code_total_chars} characters shown"
             ),
         ]
@@ -5649,7 +5661,9 @@ def _required_evidence_options(acceptance: str) -> list[set[str]]:
     ]
 
 
-def _required_evidence_is_missing(evidence: str, channels: set[str]) -> bool:
+def _required_evidence_is_missing(
+    evidence: str, channels: set[str], *, absent_only: bool = False
+) -> bool:
     """Read only builder-owned statuses for the required retrieval channels."""
     # Comment and artifact bodies are untrusted. Their status-looking lines
     # cannot overwrite the builder's own preamble.
@@ -5670,7 +5684,10 @@ def _required_evidence_is_missing(evidence: str, channels: set[str]) -> bool:
             preamble,
             flags=re.IGNORECASE | re.MULTILINE,
         )
-        if not match or match.group(1).lower() != "present":
+        if absent_only:
+            if match and match.group(1).lower() == "absent":
+                return True
+        elif not match or match.group(1).lower() != "present":
             return True
     return False
 
@@ -5874,6 +5891,11 @@ def build_prompt_inputs(context: str, diff: str | None, *, lossless: bool = Fals
         context_truncated=context_truncated,
         reasons=tuple(reasons),
         acceptance_source_discovery=acceptance_source_discovery,
+        required_evidence_absent=bool(all(required_evidence_options))
+        and all(
+            _required_evidence_is_missing(evidence_source, channels, absent_only=True)
+            for channels in required_evidence_options
+        ),
     )
     context_block = coverage.render() + "\n\n" + (context_block or "(context unavailable)")
     return PromptInputs(context_block=context_block, diff_block=diff_block, coverage=coverage)
@@ -5890,10 +5912,30 @@ def _apply_coverage_floor(
     if coverage is None:
         return result
     result.input_coverage = coverage.to_dict()
-    if coverage.sufficient or result.verdict != "PASS" or not result.used_llm:
+    result.files_not_reviewed = list(
+        dict.fromkeys(
+            [
+                *result.files_not_reviewed,
+                *(f.path for f in coverage.files if f.status != "complete"),
+            ]
+        )
+    )
+    if result.files_not_reviewed:
+        result.input_coverage["files_complete"] = sum(
+            f.status == "complete" and f.path not in result.files_not_reviewed
+            for f in coverage.files
+        )
+    if (
+        (coverage.sufficient and not result.files_not_reviewed)
+        or result.verdict != "PASS"
+        or not result.used_llm
+    ):
         return result
-    note = "Verifier input coverage incomplete; PASS withheld: " + "; ".join(coverage.reasons)
-    result.verdict = "CONCERNS"
+    reasons = [*coverage.reasons]
+    if result.files_not_reviewed:
+        reasons.append("files not reviewed: " + ", ".join(result.files_not_reviewed))
+    note = "Verifier input coverage incomplete; PASS withheld: " + "; ".join(reasons)
+    result.verdict = "CONCERNS" if coverage.required_evidence_absent else "UNVERIFIABLE_INPUT"
     result.concerns = [note, *result.concerns]
     result.summary = f"{note}\n\n{result.summary}" if result.summary else note
     return result
@@ -5901,6 +5943,7 @@ def _apply_coverage_floor(
 
 def _evaluation_output_text(result: EvaluationResult) -> str:
     """CLI/file text aligned with the structured verdict after post-processing."""
+    header = _review_count(result) + "\n\n"
     if result.verdict != "PASS":
         parts = [result.summary] if result.summary else []
         if result.concerns:
@@ -5928,8 +5971,222 @@ def _evaluation_output_text(result: EvaluationResult) -> str:
         if raw_detail and raw_detail != result.summary:
             parts.append("Raw model detail (prior to verdict post-processing):\n" + raw_detail)
         body = "\n\n".join(parts)
-        return f"Verdict: {result.verdict}\n\n{body}"
-    return result.raw_content or result.summary or ""
+        return f"Verdict: {result.verdict}\n\n" + header + body
+    return header + (result.raw_content or result.summary or "")
+
+
+def _review_count(result: EvaluationResult) -> str:
+    coverage = result.input_coverage or {}
+    reviewed = coverage.get("files_complete", 0) if result.used_llm else 0
+    total = coverage.get("files_total", 0)
+    missing = (
+        f"; files_not_reviewed: {json.dumps(result.files_not_reviewed)}"
+        if result.files_not_reviewed
+        else ""
+    )
+    return f"files reviewed {reviewed} of {total}" + missing
+
+
+def comparison_verdict(results: list[EvaluationResult]) -> str:
+    """Findings dominate incomplete input; unavailable judges never establish PASS."""
+    if any(result.verdict == "FAIL" for result in results):
+        return "FAIL"
+    if any(result.verdict == "CONCERNS" and not result.error for result in results):
+        return "CONCERNS"
+    if not results or any(
+        result.verdict == "UNVERIFIABLE_INPUT" or result.error for result in results
+    ):
+        return "UNVERIFIABLE_INPUT"
+    return "PASS" if all(result.used_llm for result in results) else "UNVERIFIABLE_INPUT"
+
+
+def _evaluate_chunked(
+    client: object, context: str, diff: str | None, provider: str, model: str | None
+) -> EvaluationResult | None:
+    """Review complete file patches in bounded calls, never fair-share excerpts.
+
+    Oversized individual files are explicitly unreviewed, rather than cutting a
+    file mid-hunk or claiming that a partial file establishes acceptance.
+    """
+    budget = (
+        _budget_from_env("VERIFIER_DIFF_BUDGET_TOKENS", VERIFIER_DIFF_BUDGET_TOKENS) * TOKEN_CHARS
+    )
+    sections = _split_verifier_context(context)
+    source = diff or next(
+        (_strip_diff_fence(body) for name, body in sections or [] if name == "full_diff"), ""
+    )
+    if len(source) <= budget:
+        if source or sections is not None:
+            coverage = prompt_coverage(context, diff)
+            if not coverage.sufficient:
+                result = _apply_coverage_floor(
+                    EvaluationResult(
+                        verdict="PASS", used_llm=True, provider_used=provider, model=model
+                    ),
+                    coverage,
+                )
+                result.used_llm = False
+                result.files_not_reviewed = [item.path for item in coverage.files]
+                result.input_coverage = {**coverage.to_dict(), "files_complete": 0}
+                return result
+        return None
+    files = _split_diff_files(source)
+    if not files or any(path is None for path, _ in files):
+        return EvaluationResult(
+            verdict="UNVERIFIABLE_INPUT",
+            provider_used=provider,
+            model=model,
+            summary="Changed-file inventory is unavailable; no complete review is possible.",
+            files_not_reviewed=["(unknown changed files)"],
+        )
+    full_coverage = build_prompt_inputs(context, diff, lossless=True).coverage
+    if not full_coverage.sufficient:
+        return EvaluationResult(
+            verdict="CONCERNS" if full_coverage.required_evidence_absent else "UNVERIFIABLE_INPUT",
+            provider_used=provider,
+            model=model,
+            summary="Input unavailable: " + "; ".join(full_coverage.reasons),
+            files_not_reviewed=[path for path, _ in files],
+            input_coverage={**full_coverage.to_dict(), "files_complete": 0},
+        )
+    # Whole-file requests retain all acceptance sources. The full-set summary is
+    # removed from a local review so absent sibling files are not called defects.
+    local_context = (
+        "\n\n".join(
+            body for name, body in sections or [] if name not in {"full_diff", "diff_summary"}
+        )
+        if sections is not None
+        else context
+    )
+    chunks: list[tuple[list[str], str]] = []
+    for path, patch in files:
+        assert path is not None
+        if len(patch) > budget or _diff_file_is_binary_descriptor(patch):
+            continue
+        elif chunks and len(chunks[-1][1]) + len(patch) <= budget:
+            paths, text = chunks[-1]
+            chunks[-1] = ([*paths, path], text + patch)
+        elif len(chunks) < MAX_REVIEW_CHUNKS:
+            chunks.append(([path], patch))
+        else:
+            continue
+    results = []
+    reviewed: set[str] = set()
+    for paths, patch in chunks:
+        coverage = prompt_coverage(local_context, patch)
+        if not coverage.sufficient:
+            results.append(
+                EvaluationResult(
+                    verdict=(
+                        "CONCERNS" if coverage.required_evidence_absent else "UNVERIFIABLE_INPUT"
+                    ),
+                    provider_used=provider,
+                    summary="Input unavailable: " + "; ".join(coverage.reasons),
+                    files_not_reviewed=paths,
+                )
+            )
+            continue
+        chunk_context = local_context + (
+            "\nThis is a per-file review within a multi-file PR. Judge the supplied files "
+            "against all acceptance criteria; do not infer missing implementation in sibling "
+            "files. In your summary, identify each criterion supported by these files and "
+            "describe its implementation evidence. A final review will reconcile criteria "
+            "across all chunks. Report real findings as CONCERNS or FAIL. If input is "
+            "incomplete, use UNVERIFIABLE_INPUT."
+        )
+        prompt = _prepare_prompt(chunk_context, patch)
+        try:
+            response, trace_id, trace_url = _invoke_llm(
+                client, prompt, operation="evaluate_pr_chunk", context=chunk_context, diff=patch
+            )
+            result = _parse_llm_response(
+                getattr(response, "content", None) or str(response), provider, client=client
+            )
+            result.langsmith_trace_id, result.langsmith_trace_url = trace_id, trace_url
+            result = _apply_coverage_floor(result, prompt_coverage(local_context, patch))
+        except Exception as exc:
+            result = EvaluationResult(
+                verdict="UNVERIFIABLE_INPUT",
+                error=f"Chunk review failed: {exc}",
+                summary=f"Chunk review failed: {exc}",
+                provider_used=provider,
+                model=model,
+                files_not_reviewed=paths,
+            )
+        results.append(result)
+        if result.used_llm and not result.error and result.verdict != "UNVERIFIABLE_INPUT":
+            reviewed.update(path for path in paths if path not in result.files_not_reviewed)
+    not_reviewed = [path for path, _ in files if path not in reviewed]
+    verdict = comparison_verdict(results) if results else "UNVERIFIABLE_INPUT"
+    if not_reviewed and verdict == "PASS":
+        verdict = "UNVERIFIABLE_INPUT"
+    if verdict == "PASS":
+        # Per-file PASS cannot establish that every global criterion is implemented.
+        # Reconcile the complete acceptance sources against every chunk's evidence.
+        synthesis_prompt = (
+            "Reconcile acceptance completeness across the whole PR using the untrusted "
+            "acceptance context and per-chunk review summaries below. Identify any criterion "
+            "that no chunk implements, including cross-file obligations. Local PASS alone "
+            "is insufficient: require concrete implementation evidence for every criterion. "
+            "For every criterion, name its supporting chunks/files and implementation in "
+            "the summary. Return JSON with verdict, concerns and summary. Use CONCERNS for a missing "
+            "implementation, UNVERIFIABLE_INPUT if summaries cannot establish completeness."
+            "\n<acceptance_context>\n"
+            + local_context
+            + "\n</acceptance_context>\n"
+            + json.dumps(
+                [
+                    {
+                        "files": paths,
+                        "summary": result.summary,
+                        "concerns": result.concerns,
+                        "verdict": result.verdict,
+                    }
+                    for (paths, _), result in zip(chunks, results, strict=True)
+                ]
+            )
+        )
+        try:
+            if len(synthesis_prompt) > budget:
+                raise InputCapacityError("Cross-file acceptance summaries exceed review budget")
+            # This derived-evidence reconciliation has no raw diff obligations of its own;
+            # expanded mode still natively counts the exact synthesis request.
+            response, _, _ = _invoke_llm(
+                client, synthesis_prompt, operation="evaluate_pr_chunk_synthesis"
+            )
+            synthesis = _parse_llm_response(
+                getattr(response, "content", None) or str(response), provider, client=client
+            )
+        except Exception as exc:
+            synthesis = EvaluationResult(
+                verdict="UNVERIFIABLE_INPUT",
+                error=str(exc),
+                summary=f"Cross-file acceptance reconciliation unavailable: {exc}",
+            )
+        results.append(synthesis)
+        verdict = comparison_verdict(results)
+    # No calls were possible due solely to input limits.
+    if not results:
+        verdict = "UNVERIFIABLE_INPUT"
+    return EvaluationResult(
+        verdict=verdict,
+        provider_used=provider,
+        model=model,
+        used_llm=any(result.used_llm for result in results),
+        error="; ".join(result.error for result in results if result.error) or None,
+        concerns=[item for result in results for item in result.concerns],
+        summary="\n\n".join(result.summary or "" for result in results)
+        or "Changed files exceed the bounded review capacity.",
+        files_not_reviewed=not_reviewed,
+        input_coverage={
+            **full_coverage.to_dict(),
+            "sufficient": not not_reviewed,
+            "files_total": len(files),
+            "files_complete": len(reviewed),
+            "files_not_reviewed": not_reviewed,
+            "chunks": len(chunks),
+        },
+    )
 
 
 def _prepare_prompt(context: str, diff: str | None) -> str:
@@ -6911,6 +7168,7 @@ def _parse_llm_response(
     payload = parsed.payload
     return EvaluationResult(
         verdict=payload.verdict,
+        files_not_reviewed=payload.files_not_reviewed,
         scores=payload.scores,
         confidence=payload.confidence,
         concerns=payload.concerns,
@@ -6980,6 +7238,9 @@ def evaluate_pr(
         )
 
     client, provider_name = resolved
+    chunked = _evaluate_chunked(client, context, diff, provider_name, model)
+    if chunked is not None:
+        return chunked
     prompt = _prepare_prompt(context, diff)
     change_type = _classify_change_type(_bounded_diff_for_classification(diff))
     pr_number, _ = _extract_pr_metadata(context)
@@ -7421,32 +7682,49 @@ def expanded_comparison_verdict(
     complete = len(results) == len(expected)
     observed = []
     failed = False
+    input_only = len(results) == len(expected)
+    saw_unverifiable = False
     for arm in results:
         if (
             not isinstance(arm, dict)
             or not {"provider_used", "model", "verdict", "used_llm"} <= arm.keys()
         ):
             complete = False
+            input_only = False
             continue
         try:
             result = EvaluationResult.model_validate(arm, strict=True, extra="forbid")
         except ValueError:
             complete = False
+            input_only = False
             continue
         identity = (result.provider_used, result.model)
-        if identity not in expected or result.used_llm is not True:
+        if identity not in expected or (
+            result.used_llm is not True and result.verdict != "UNVERIFIABLE_INPUT"
+        ):
             complete = False
+            input_only = False
             continue
         # A valid configured judge's FAIL survives a missing, duplicate, errored
         # or malformed sibling. Incompleteness blocks PASS; it cannot erase FAIL.
         # Unbound/fallback/unused or invalid-schema arms cannot impersonate a judge.
         if result.verdict == "FAIL":
             failed = True
+        if result.verdict == "UNVERIFIABLE_INPUT":
+            saw_unverifiable = True
+        if (
+            result.verdict not in {"PASS", "UNVERIFIABLE_INPUT"}
+            or result.error
+            or identity in observed
+        ):
+            input_only = False
         if identity in observed or result.verdict != "PASS" or result.error:
             complete = False
         observed.append(identity)
     if failed:
         return "FAIL"
+    if input_only and saw_unverifiable and set(observed) == set(expected):
+        return "UNVERIFIABLE_INPUT"
     return "PASS" if complete and set(observed) == set(expected) else "CONCERNS"
 
 
@@ -7562,6 +7840,11 @@ def _unique_concerns(results: list[EvaluationResult]) -> dict[int, list[str]]:
 
 def format_comparison_report(results: list[EvaluationResult]) -> str:
     lines = ["## Provider Comparison Report", ""]
+    for result in results:
+        lines.append(f"- {result.provider_used or 'provider'}: {_review_count(result)}")
+    if not results:
+        lines.append("files reviewed 0 of 0 (coverage unavailable)")
+    lines.append("")
     if not results:
         lines.append("No evaluation results available.")
         return "\n".join(lines).strip() + "\n"

@@ -173,7 +173,7 @@ def _pass_client() -> mock.MagicMock:
 
 
 @pytest.mark.parametrize(("files", "code_chars", "acceptance_chars", "sufficient"), CAPTURED_SHAPES)
-def test_model_pass_is_withheld_when_most_code_is_missing(
+def test_multi_file_model_pass_uses_complete_chunk_review(
     monkeypatch: pytest.MonkeyPatch,
     files: int,
     code_chars: int,
@@ -194,12 +194,9 @@ def test_model_pass_is_withheld_when_most_code_is_missing(
 
     for verdict in (result, compare):
         assert verdict.input_coverage is not None
-        assert verdict.input_coverage["sufficient"] is sufficient
-        if sufficient:
-            assert verdict.verdict == "PASS"
-        else:
-            assert verdict.verdict == "CONCERNS"
-            assert verdict.concerns[0].startswith("Verifier input coverage incomplete")
+        assert verdict.input_coverage["sufficient"] is True
+        assert verdict.verdict == "PASS"
+        assert verdict.input_coverage["files_complete"] == files
 
 
 @pytest.mark.parametrize(
@@ -228,7 +225,7 @@ def test_deliberate_omission_after_first_8000_chars_is_inconclusive(
         pr_verifier, "_get_llm_client", lambda model=None, provider=None: (client, "openai")
     )
     result = pr_verifier.evaluate_pr(context)
-    assert result.verdict == "CONCERNS"
+    assert result.verdict == "UNVERIFIABLE_INPUT"
     assert reason in result.concerns[0]
 
 
@@ -321,7 +318,7 @@ def test_required_unavailable_acceptance_evidence_withholds_model_pass(
         pr_verifier, "_get_llm_client", lambda model=None, provider=None: (client, "openai")
     )
     result = pr_verifier.evaluate_pr(context)
-    assert result.verdict == "CONCERNS"
+    assert result.verdict == "UNVERIFIABLE_INPUT"
     assert "Required acceptance evidence is unavailable" in result.concerns[0]
 
 
@@ -780,12 +777,18 @@ def test_passive_output_and_plural_delivery_keep_channels() -> None:
     ("criterion", "expected"),
     [
         ("The handler must emit command output", "PASS"),
-        ("The response must include an artifact and attach it to the PR", "CONCERNS"),
-        ("The response must include an artifact; it must be attached to the PR", "CONCERNS"),
-        ("The response must include command output; it must be attached to the PR", "CONCERNS"),
+        ("The response must include an artifact and attach it to the PR", "UNVERIFIABLE_INPUT"),
+        (
+            "The response must include an artifact; it must be attached to the PR",
+            "UNVERIFIABLE_INPUT",
+        ),
+        (
+            "The response must include command output; it must be attached to the PR",
+            "UNVERIFIABLE_INPUT",
+        ),
         (
             "The response must include an artifact and command output and attach them to the PR",
-            "CONCERNS",
+            "UNVERIFIABLE_INPUT",
         ),
     ],
 )
@@ -836,7 +839,7 @@ def test_explicit_artifact_delivery_survives_product_context(
     monkeypatch.setattr(
         pr_verifier, "_get_llm_client", lambda model=None, provider=None: (client, "openai")
     )
-    assert pr_verifier.evaluate_pr(context).verdict == "CONCERNS"
+    assert pr_verifier.evaluate_pr(context).verdict == "UNVERIFIABLE_INPUT"
 
 
 @pytest.mark.parametrize(
@@ -1127,7 +1130,9 @@ def test_supported_list_markers_keep_optional_and_required_criteria_separate(mar
             pr_verifier.EvaluationResult(verdict="PASS", used_llm=True),
             pr_verifier.prompt_coverage(context, None),
         )
-        assert result.verdict == ("PASS" if status == "present" else "CONCERNS")
+        assert result.verdict == (
+            {"present": "PASS", "absent": "CONCERNS", "unavailable": "UNVERIFIABLE_INPUT"}[status]
+        )
 
 
 @pytest.mark.parametrize("marker", ["-", "*", "+", "1.", "1)"])
@@ -1234,7 +1239,7 @@ def test_optional_artifact_preserves_mandatory_comment_sentences(
     monkeypatch.setattr(
         pr_verifier, "_get_llm_client", lambda model=None, provider=None: (client, "openai")
     )
-    assert pr_verifier.evaluate_pr(context).verdict == "CONCERNS"
+    assert pr_verifier.evaluate_pr(context).verdict == "UNVERIFIABLE_INPUT"
     context = context.replace("- PR comments: **unavailable**", "- PR comments: **present**")
     assert pr_verifier.evaluate_pr(context).verdict == "PASS"
 
@@ -1269,7 +1274,7 @@ def test_optional_artifact_preserves_equivalent_mandatory_comment_clauses(
     monkeypatch.setattr(
         pr_verifier, "_get_llm_client", lambda model=None, provider=None: (client, "openai")
     )
-    assert pr_verifier.evaluate_pr(context).verdict == "CONCERNS"
+    assert pr_verifier.evaluate_pr(context).verdict == "UNVERIFIABLE_INPUT"
     context = context.replace("- PR comments: **unavailable**", "- PR comments: **present**")
     assert pr_verifier.evaluate_pr(context).verdict == "PASS"
 
@@ -1294,7 +1299,7 @@ def test_quoted_parser_delivery_examples_are_inert(
     )
     assert pr_verifier.evaluate_pr(context).verdict == "PASS"
     context = context.replace(criterion, criterion + "; post a PR comment")
-    assert pr_verifier.evaluate_pr(context).verdict == "CONCERNS"
+    assert pr_verifier.evaluate_pr(context).verdict == "UNVERIFIABLE_INPUT"
 
 
 def test_optional_subject_does_not_hide_required_explanation_comment() -> None:
@@ -1442,7 +1447,7 @@ def test_checklist_noun_only_deliverable_floors_pass_when_unavailable(
         client, "openai", "model"
     )
     for verdict in (result, compare):
-        assert verdict.verdict == "CONCERNS"
+        assert verdict.verdict == "UNVERIFIABLE_INPUT"
         assert "Required acceptance evidence is unavailable" in verdict.concerns[0]
 
 
@@ -2015,7 +2020,7 @@ def test_delivery_destination_word_order_has_its_own_required_channel(
         "## PR Diff Summary",
         "## Acceptance evidence\n\n- Overall retrieval status: **present**\n"
         f"- PR comments: **{status if channel == 'comments' else 'present'}**\n"
-        f"- Referenced artifacts: **{status if channel == 'artifacts' else 'present'}**\n\n"
+        f"- Referenced workflow artifacts: **{status if channel == 'artifacts' else 'present'}**\n\n"
         "## PR Diff Summary",
     )
     coverage = pr_verifier.prompt_coverage(context, None)
@@ -2023,7 +2028,7 @@ def test_delivery_destination_word_order_has_its_own_required_channel(
     result = pr_verifier._apply_coverage_floor(
         pr_verifier.EvaluationResult(verdict="PASS", used_llm=True), coverage
     )
-    assert result.verdict == "CONCERNS"
+    assert result.verdict == ("CONCERNS" if status == "absent" else "UNVERIFIABLE_INPUT")
 
 
 @pytest.mark.parametrize(
@@ -2102,7 +2107,7 @@ def test_marker_like_omitted_file_cannot_be_hidden_from_coverage() -> None:
     result = pr_verifier._apply_coverage_floor(
         pr_verifier.EvaluationResult(verdict="PASS", used_llm=True), coverage
     )
-    assert result.verdict == "CONCERNS"
+    assert result.verdict == "UNVERIFIABLE_INPUT"
 
 
 @pytest.mark.parametrize(
@@ -2652,16 +2657,13 @@ def test_mandatory_passive_artifact_destination_keeps_channel(auxiliary: str, st
     context, _ = _context(1, 1000, 1000)
     context = context.replace(ACCEPTANCE_SENTINEL, criterion).replace(
         "## PR Diff Summary",
-        f"## Acceptance evidence\n\n- Overall retrieval status: **present**\n- PR comments: **present**\n- Workflow artifacts: **{status}**\n\n## PR Diff Summary",
+        f"## Acceptance evidence\n\n- Overall retrieval status: **present**\n- PR comments: **present**\n- Referenced workflow artifacts: **{status}**\n\n## PR Diff Summary",
     )
     coverage = pr_verifier.prompt_coverage(context, None)
     assert not coverage.sufficient
-    assert (
-        pr_verifier._apply_coverage_floor(
-            pr_verifier.EvaluationResult(verdict="PASS", used_llm=True), coverage
-        ).verdict
-        == "CONCERNS"
-    )
+    assert pr_verifier._apply_coverage_floor(
+        pr_verifier.EvaluationResult(verdict="PASS", used_llm=True), coverage
+    ).verdict == ("CONCERNS" if status == "absent" else "UNVERIFIABLE_INPUT")
 
 
 @pytest.mark.parametrize("actor", ["reviewers", "the reviewer", "API reviewers"])
@@ -3711,4 +3713,6 @@ def test_issue3835_named_destination_cannot_borrow_present_body(criterion, chann
         pr_verifier.EvaluationResult(verdict="PASS", used_llm=True),
         pr_verifier.prompt_coverage(context, None),
     )
-    assert result.verdict == ("PASS" if missing == "present" else "CONCERNS")
+    assert result.verdict == (
+        {"present": "PASS", "absent": "CONCERNS", "unavailable": "UNVERIFIABLE_INPUT"}[missing]
+    )

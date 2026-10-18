@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.43.1](https://github.com/stranske/Workflows/compare/v1.43.0...v1.43.1) (2026-10-18)
+
+
+### Bug Fixes
+
+* **ci:** complete Python 3.14 defaults and matrix contract ([#4048](https://github.com/stranske/Workflows/issues/4048)) ([9b9bdbf](https://github.com/stranske/Workflows/commit/9b9bdbf2febc32c0484ec412a1a15583d8b89519))
+* **maint71:** advance verified staging holds to sealing ([#4064](https://github.com/stranske/Workflows/issues/4064)) ([f9f237d](https://github.com/stranske/Workflows/commit/f9f237d4995eb813f6cd1dc27221c8986d630d29))
+* **maint71:** retain legacy status target urls ([#4066](https://github.com/stranske/Workflows/issues/4066)) ([7e10b64](https://github.com/stranske/Workflows/commit/7e10b64adea721d8e6ef407a317a7ff6b5585470))
+* **verifier:** fingerprint source plan criteria for dedup ([#4061](https://github.com/stranske/Workflows/issues/4061)) ([08ad16e](https://github.com/stranske/Workflows/commit/08ad16ec7ccb0979c082eee63b09dbecbfa394e0))
+* **verifier:** review complete file chunks and guard source closure ([#4037](https://github.com/stranske/Workflows/issues/4037)) ([021ec67](https://github.com/stranske/Workflows/commit/021ec67ef580c83a88402a1574e27ea34db14dde))
+
 ## [1.43.0](https://github.com/stranske/Workflows/compare/v1.42.0...v1.43.0) (2026-10-17)
 
 

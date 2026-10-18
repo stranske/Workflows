@@ -141,13 +141,9 @@ def test_evidence_floor_is_unconditional(profile, gap, monkeypatch):
     client, _ = capacity_client(window=1_000_000)
     monkeypatch.setattr(pr_verifier, "_get_llm_client", lambda **kwargs: (client, "configured"))
     result = pr_verifier.evaluate_pr(context)
-    if profile == "expanded":
-        client.invoke.assert_not_called()
-        assert "capture" in result.error.lower()
-    else:
-        client.invoke.assert_called_once()
-        assert "retained" in result.concerns
-    assert result.verdict == "CONCERNS"
+    client.invoke.assert_not_called()
+    assert result.verdict == "UNVERIFIABLE_INPUT"
+    assert "incomplete" in result.summary.lower()
     assert not result.input_coverage["sufficient"]
 
 
