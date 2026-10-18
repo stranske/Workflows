@@ -116,8 +116,11 @@ the Gate template is create-only, so normal sync does not overwrite custom Gates
 * [`Gate`](../../.github/workflows/pr-00-gate.yml) orchestrates the fast-path vs full CI decision, evaluates coverage artifacts, and reports commit status back to the PR.
 * [`Minimal invariant CI`](../../.github/workflows/pr-11-ci-smoke.yml) supplies the lightweight Issue #3651 sweep: install once on Python 3.12 with pip caching, sanity-check imports, and run `pytest tests/test_invariants.py -q` on pushes and PRs targeting `main`.
 * [`Reusable CI (Python)`](../../.github/workflows/reusable-10-ci-python.yml) drives the primary test matrix (lint, type-check, tests, coverage) for PR builds.
-    * Tool/test pins come from `.github/workflows/autofix-versions.env`; consumers can copy that file or set the same variables in their caller to override pins. Keep paired packages compatible (for example, align `pydantic` with `pydantic-core`).
-    * The workflow now defaults to `hypothesis 6.115.1` and `pydantic-core 2.27.1` when no override file is present to stay Python 3.12 compatible.
+    * Workflows Gate and the new-consumer Gate template select **3.13 and 3.14 in parallel**, with identical full-suite selection, identical markers, the same dependency lock, branch coverage on 3.14 only, and four pytest workers using `loadgroup`. Neither runtime selects a reduced suite. Python >=3.12 package/runtime support and explicit consumer overrides remain supported.
+    * Shared defaults in `.github/workflows/ci-python-versions.env` select `CI_PYTHON_VERSION=3.14` and pin Black 26.10.1, Ruff 0.17.1, mypy 2.4.0, pytest 9.1.1, pytest-cov 7.1.0, pytest-xdist 3.8.0, coverage 7.16.2, docformatter 1.7.8, and isort 9.0.2. These replace the stale Black 24.8.0 / Ruff 0.6.3 / mypy 1.8.0 / pytest 8.3.2 / pytest-cov 5.0.0 / coverage 7.6.1 baseline with the repo's existing compatible toolchain. The reusable loads shared pins first, then repo-owned `.github/workflows/autofix-versions.env` overrides; the latter remains authoritative and is not copy-synced. Keep paired packages compatible (for example, align `pydantic` with `pydantic-core`).
+    * The shared CI env has an identical consumer mirror and an overwrite-capable sync-manifest entry. Existing consumer Gates remain **create-only**: delivering the env does not change an authored `python-versions` override or migrate every consumer Gate automatically.
+    * Duration diagnosis on 2026-10-17: Gate runs [39044680807](https://github.com/stranske/Workflows/actions/runs/39044680807) and [39046298918](https://github.com/stranske/Workflows/actions/runs/39046298918) each selected 51,018 tests on both versions, with identical markers, four workers and matching lock hashes. Job durations (3.13 / 3.14) were 14m52s / 5m27s and 15m27s / 9m06s; pytest alone took 845.60s / 294.76s and 889.95s / 513.45s. Both versions restored their runtime-specific dependency and pytest caches. Coverage used `CTracer` on 3.13 and `SysMonitor` on 3.14; the first run's active worker records confirm branch coverage on both, with different runner CPU models. This is evidence of instrumentation/runner asymmetry, not unequal suite selection. [Coverage cannot monitor branches through `sys.monitoring` before Python 3.14](https://coverage.readthedocs.io/en/latest/messages.html#warning-no-sysmon); measure branch coverage on 3.14 and run plain pytest on 3.13. The exact contribution of each cause is not isolated by these runs.
+    * Run `python -m pytest tests/workflows/test_python_matrix_contract.py -q` to enforce the matrix, common workload and shared-env delivery contract. Hosted acceptance still requires this PR's own green Gate and a duration gap no greater than 20%; equivalent workloads alone do not prove that timing target. Check the seven-day Gate p90 (<15 minutes) after merge; local tests cannot establish it.
     * Non-package consumers are supported. `coverage: true` no longer requires a `pyproject.toml`: `--cov-config` is passed only when that file exists, otherwise coverage falls back to its own `.coveragerc` / `setup.cfg` / `tox.ini` discovery. Passing a missing path is fatal (`Couldn't read 'pyproject.toml' as a config file`) and kills collection before any test runs.
     * The editable `-e .[app,dev]` install is gated on the repo actually declaring a distribution — `[project]`, `[build-system]` or `[tool.poetry]` in `pyproject.toml`, or a `setup.cfg` / `setup.py`. A `pyproject.toml` that carries only tool configuration (e.g. `[tool.coverage]`) is therefore not mistaken for an installable package, so a consumer can hold tool config without CI trying to install it.
 * [`Reusable CI (Node)`](../../.github/workflows/reusable-11-ci-node.yml) (`reusable-11-ci-node.yml`) runs lint/format/typecheck/test legs for Node projects with optional multi-version matrices.
@@ -438,3 +441,20 @@ Selftest: Reusables retains all six optional-feature/artifact profiles on a smal
 six-case consumer fixture, with the same default parallel Python pair, four workers,
 common lock and a fixture-specific 70% guard. It no longer repeats the full repository
 suite six times. See [the profile contract](SELFTESTS.md) for ownership and overrides.
+
+### Python runtime and coverage policy
+
+Gate runs the same selected tests with four xdist workers on Python 3.13 and
+3.14. `coverage-python-version: '3.14'` instruments only 3.14; 3.13 runs plain
+pytest. Branch coverage cannot use coverage.py's sysmon core on Python 3.13.
+The reusable's optional coverage runtime selector defaults to all runtimes, so
+existing callers retain coverage unless they opt in. Coverage thresholds remain
+in force on the instrumented runtime. The ten-minute target requires hosted
+run measurements; the CI time budget guard is maintained separately in #4050.
+
+The reusable reads `CI_PYTHON_VERSION` from its checked-out shared
+`.github/workflows/ci-python-versions.env` for the default lint, formatting,
+typing and primary artifact runtime when it belongs to the selected matrix.
+Explicit `primary-python-version` takes precedence; an explicit matrix without
+the shared runtime uses its first member. Repository-owned autofix tool pins
+continue to override the shared fallback pins.

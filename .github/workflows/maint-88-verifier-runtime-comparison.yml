@@ -18,7 +18,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ['3.12', '3.13']
+        python: ['3.13', '3.14']
     steps:
       - name: Checkout reviewed harness and immutable source objects
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7

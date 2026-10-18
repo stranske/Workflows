@@ -612,7 +612,7 @@ def test_real_manifest_compiles_every_declared_copy_entry() -> None:
         ],
     }
     Draft202012Validator(schema).validate(legacy_plan)
-    assert len(plan["entries"]) == 260
+    assert len(plan["entries"]) == 261  # +ci-python-versions.env (#4045)
     assert {
         ".github/scripts/rate_limit_receipt.js",
         ".github/scripts/rate_limit_receipt.json",

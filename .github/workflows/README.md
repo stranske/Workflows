@@ -9,7 +9,7 @@ inventory and naming rules.
 ## 1. Architecture Snapshot
 Core layers:
 - Gate orchestrator (`pr-00-gate.yml`): single required check that fans out to parallel Python 3.13/3.14 CI and the Docker smoke test using the reusable workflows, then enforces that every leg succeeds.
-- Minimal invariant CI (`pr-11-ci-smoke.yml`): lean push/PR workflow that installs the project once on Python 3.12, sanity-checks imports, and executes the invariant tests from Issue #3651 so regressions surface quickly.
+- Minimal invariant CI (`pr-11-ci-smoke.yml`): lean push/PR workflow that loads Python from `ci-python-versions.env` (currently 3.14), validates workflow YAML syntax, and checks script syntax.
 - Gate summary (`pr-00-gate.yml` post-CI jobs): integrated post-CI reporting that batches small hygiene fixes, posts Gate summaries, and manages trivial failure remediation using the composite autofix action.
 - Agents orchestration (`agents-70-orchestrator.yml` + `reusable-16-agents.yml`): single entry point for Codex readiness, bootstrap, diagnostics, and watchdog sweeps. Use the [Agent task issue template][agent-task-template] (auto-labels `agents` + `agent:codex`) to raise work for Codex; the issue bridge listens for `agent:codex` and hands issues to the orchestrator. Legacy consumer shims remain removed following Issue #2650.
 - Model-profile trial (`agents-model-profile-trial.yml` + `reusable-model-profile-trial.yml`): Workflows-only manual transport for one immutable, read-only Sol/Terra/Luna instrumentation arm. A separately pinned helper requires the target to equal current remote `main` before auth and uploads v2 quarantine telemetry with source-manifest and GitHub provenance. It has no commit, push, comment, auth-refresh, evaluator, provider-resolution, or ordinary Keepalive path.
@@ -32,6 +32,8 @@ The CI stack now routes every pull request through a single Gate workflow that o
 | Reusable CI | `reusable-10-ci-python.yml` via `pr-00-gate.yml` | Standard Python toolchain (Black, Ruff, mypy, pytest, coverage upload) used by Gate | Called by Gate | Continue to be the single CI entry point |
 | Reusable Docker smoke | `reusable-12-ci-docker.yml` via `pr-00-gate.yml` | Deterministic Docker build and smoke probe | Called by Gate | Continue to be the single Docker entry point |
 | Gate summary | `pr-00-gate.yml` post-CI jobs | Integrated reporting that posts Gate summaries, commits small hygiene fixes (success runs), and retries trivial CI failures | Not required | Remains optional |
+
+`ci-python-versions.env` records the allowed first-party matrix in `CI_PYTHON_VERSIONS` and the primary runtime in `CI_PYTHON_VERSION`; the runtime-literal guard checks workflows, actions, starter workflows and consumer mirrors against that list.
 
 Both Gate runtimes use the same suite, markers, lock, branch coverage and four pytest workers. The package minimum remains Python >=3.12, and explicit reusable-call 3.12 overrides remain supported. Existing create-only consumer Gates retain their runtime policy until separately migrated.
 

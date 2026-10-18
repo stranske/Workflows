@@ -76,7 +76,7 @@ jobs:
               "include": [
                   {
                       "name": "basic",
-                      "python-versions": '["3.12"]',
+                      "python-versions": '["3.13"]',
                       "coverage": False,
                       "format-check": False,
                       "lint": False,
@@ -91,7 +91,7 @@ jobs:
                   },
                   {
                       "name": "full",
-                      "python-versions": '["3.12","3.13"]',
+                      "python-versions": '["3.13","3.14"]',
                       "coverage": True,
                       "format-check": True,
                       "lint": True,
@@ -106,7 +106,7 @@ jobs:
                   },
                   {
                       "name": "monorepo",
-                      "python-versions": '["3.12"]',
+                      "python-versions": '["3.13"]',
                       "coverage": True,
                       "format-check": True,
                       "lint": True,
