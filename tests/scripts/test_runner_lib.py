@@ -2450,6 +2450,80 @@ def test_prompt_and_context_module_errors_are_explicit(
         runner_core._load_orchestrator_skill_module()
 
 
+def test_runner_core_helper_boundaries_reject_invalid_inputs(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    invalid_utf8 = tmp_path / "invalid-utf8.txt"
+    invalid_utf8.write_bytes(b"\x80")
+    with pytest.raises(ValueError, match="must be valid UTF-8"):
+        runner_core._read_text(invalid_utf8)
+
+    def missing_unrelated_module(_name: str) -> None:
+        raise ModuleNotFoundError(name="unrelated_dependency")
+
+    monkeypatch.setattr(runner_core.importlib, "import_module", missing_unrelated_module)
+    with pytest.raises(ModuleNotFoundError) as reference_error:
+        runner_core._load_reference_packs_module()
+    assert reference_error.value.name == "unrelated_dependency"
+    with pytest.raises(ModuleNotFoundError) as skill_error:
+        runner_core._load_orchestrator_skill_module()
+    assert skill_error.value.name == "unrelated_dependency"
+
+    assert runner_core._parse_jsonl_output("\n[]\nnot-json\n") == ([], [])
+    assert runner_core._marker_safe_text("a" * 5, limit=3) == "aaa...[truncated 2 chars]"
+    assert runner_core._marker_safe_text("marker --> text") == "marker --\\u003e text"
+    assert runner_core._is_trusted_marker_comment({"author_association": "MEMBER"})
+
+    assert runner_core._parse_optional_bool(" yes ") is True
+    assert runner_core._parse_optional_bool("OFF") is False
+    assert runner_core._parse_optional_bool("") is None
+    with pytest.raises(ValueError, match="must be true or false"):
+        runner_core._parse_optional_bool("sometimes")
+
+
+def test_reference_pack_materialization_uses_askpass_for_sha_refs(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    plan = types.SimpleNamespace(
+        name="evidence",
+        repo="owner/evidence",
+        ref="a" * 40,
+        paths=["docs/guide.md", "missing.md"],
+        checkout_path=".reference/evidence",
+    )
+    snapshot = types.SimpleNamespace(exists=True, packs=[plan])
+    monkeypatch.setattr(
+        runner_core,
+        "_load_reference_packs_module",
+        lambda: types.SimpleNamespace(
+            load_reference_packs=lambda _workspace: snapshot,
+            build_checkout_plan=lambda _packs: [plan],
+        ),
+    )
+    commands: list[list[str]] = []
+
+    def fake_run_git(command: list[str], env: dict[str, str] | None = None) -> None:
+        commands.append(command)
+        if command[:2] == ["git", "clone"]:
+            clone_dir = Path(command[-1])
+            source = clone_dir / "docs"
+            source.mkdir(parents=True)
+            (source / "guide.md").write_text("guide", encoding="utf-8")
+            assert env is not None
+            assert env["GIT_ASKPASS_PASSWORD"] == "secret-token"
+
+    monkeypatch.setattr(runner_core, "_run_git", fake_run_git)
+
+    summary = runner_core.materialize_reference_packs(tmp_path, token="secret-token")
+
+    assert summary == tmp_path / ".reference" / "REFERENCE_PACKS.md"
+    assert (tmp_path / ".reference" / "evidence" / "docs" / "guide.md").read_text() == "guide"
+    assert "`docs/guide.md`" in summary.read_text(encoding="utf-8")
+    assert all("secret-token" not in " ".join(command) for command in commands)
+    assert any(command[3:5] == ["fetch", "origin"] for command in commands)
+    assert any(command[3] == "checkout" for command in commands)
+
+
 def test_pr_comment_marker_round_trips_nested_result_payload() -> None:
     result = parse_runner_output("claude", "Done")
     record = {
