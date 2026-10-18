@@ -1311,6 +1311,15 @@ plan. Promotion likewise refreshes one stable `sync/workflows-delivery` PR per
 non-canary; immutable plan and desired-tree identity live in the delivery
 record instead of the branch name.
 
+For a stable canary whose delivery record is still `staging` or `reviewing`,
+Maint 71 may continue to the existing seal lifecycle when the exact-head
+`Gate / gate` run, complete job list, and generated-seal annotations prove the
+expected `delivery_not_sealed` hold. This is lifecycle continuation only: the
+original failed check classification remains failed, every other failed or
+nonterminal job still blocks, and only a fresh Gate after sealing can satisfy
+the required check for merge. Missing, incomplete, mismatched, or unreadable
+workflow evidence keeps the base-refresh path blocked as before.
+
 Do not wait for consumer CI in that workflow. Maint 71's
 `active_sync_hash=candidate` pass publishes `sync-canary-evidence.json` and
 uses the existing API client token to dispatch Maint 68 with `phase=promote`,
