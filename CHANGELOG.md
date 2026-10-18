@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.44.1](https://github.com/stranske/Workflows/compare/v1.44.0...v1.44.1) (2026-10-18)
+
+
+### Bug Fixes
+
+* restore post-merge verifier evidence and visible outcomes ([#4099](https://github.com/stranske/Workflows/issues/4099)) ([d236389](https://github.com/stranske/Workflows/commit/d23638939bc6442cf52999be7d5cfe6186ffac3e))
+* **sync:** drain seal-only canary Gate failures ([#4100](https://github.com/stranske/Workflows/issues/4100)) ([b346135](https://github.com/stranske/Workflows/commit/b346135ac7cf35e61835a7559701299e2a89d0cc))
+
 ## [1.44.0](https://github.com/stranske/Workflows/compare/v1.43.3...v1.44.0) (2026-10-18)
 
 
