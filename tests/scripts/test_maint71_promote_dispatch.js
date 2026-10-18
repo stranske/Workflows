@@ -7,7 +7,8 @@ const os = require('node:os');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 const {
-  buildCanaryPromotionEvidence, dispatchCanaryPromotion,
+  buildCanaryPromotionEvidence, dispatchCanaryPromotion, dispatchDeliveryRefresh,
+  CANARY_REFRESH_DEBOUNCE_MS,
   sealedPromotionHealth, reportSealedPromotionHealth, publishPromotionHealthCheck,
 } = require('../../.github/scripts/maint71_merge_sync_prs');
 const { formatDeliveryRecord } = require('../../.github/scripts/sync_pr_lease_contract');
@@ -149,6 +150,7 @@ test('unprepared, changed merged identity, and disabled mutation cannot dispatch
 
 for (const [run, status] of [
   [promotionRun(), 'already-promoted'],
+  [promotionRun({ display_title: `${promotionRun().display_title} ` }), 'already-promoted'],
   [promotionRun({ status: 'queued', conclusion: null }), 'waiting'],
   [promotionRun({ status: 'waiting', conclusion: null }), 'waiting'],
   [promotionRun({ conclusion: 'failure' }), 'dispatched'],
@@ -435,4 +437,41 @@ test('resealing cannot hide the exhausted promotion history', async () => {
   assert.equal(api.reads[0].created, '>=2026-10-01T00:00:00.000Z');
   assert.equal(health.retry_exhausted.length, 1);
   assert.equal(health.overdue, true);
+});
+
+
+test('fully drained promotion prints measured zero, empty evidence is unmeasurable', async () => {
+  const drained = harness([promotionRun()]);
+  assert.equal((await dispatchCanaryPromotion({ ...fixture(), ...drained })).status, 'already-promoted');
+  assert.match(drained.summaries.join(''), /promote: drained; canaries green 3\/3; drainable 0/);
+  const unknown = harness();
+  await dispatchCanaryPromotion({ ...fixture(), ...unknown, evidence: { results: [] } });
+  assert.match(unknown.summaries.join(''), /drainable UNKNOWN \(unmeasurable\)/);
+  assert.equal(unknown.dispatched.length, 0);
+});
+
+test('delivery refresh shares active-writer scan, exact-plan debounce and fails closed', async () => {
+  for (const mode of ['active', 'recent-success', 'recent-failure', 'expired', 'truncated']) {
+    const api = harness();
+    api.client.rest.repos.getCommit = async () => ({ data: { sha: sourceCommit,
+      commit: { committer: { date: '2026-10-01T00:00:00Z' } } } });
+    api.client.rest.repos.getContent = async () => ({ data: { content: Buffer.from(JSON.stringify({
+      canaries: expectedCanaries.map((repo) => ({ repo })),
+    })).toString('base64') } });
+    api.client.rest.actions.listWorkflowRuns = async (params) => {
+      api.reads.push(params);
+      const run = promotionRun({ created_at: new Date(now - (mode === 'expired'
+        ? CANARY_REFRESH_DEBOUNCE_MS + 1 : 1000)).toISOString(),
+        ...(mode === 'recent-failure' ? { conclusion: 'failure' } : {}) });
+      return { data: { workflow_runs: params.status
+        ? mode === 'active' && params.status === 'queued' ? [{ ...run, status: 'queued' }] : []
+        : params.head_sha ? [] : mode === 'truncated' ? Array(100).fill(run) : [run] } };
+    };
+    const args = { ...api, expectedCanaries, now, decision: {
+      plan_id: planId, evidence: fixture().evidence,
+    } };
+    if (mode === 'truncated') await assert.rejects(dispatchDeliveryRefresh(args), /history_truncated/);
+    else assert.equal((await dispatchDeliveryRefresh(args)).dispatched, mode === 'expired', mode);
+    assert.equal(api.dispatched.length, mode === 'expired' ? 1 : 0);
+  }
 });

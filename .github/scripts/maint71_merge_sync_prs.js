@@ -19,24 +19,35 @@ function candidateSet(repositories) {
   return [...new Set(repositories.map((repo) => String(repo).trim()).filter(Boolean))].sort();
 }
 
-// Success is permanent for an immutable source/set. The window bounds retries
+function canaryDriftKey(canary) {
+  if (canary.mergeable_state !== 'behind') return '';
+  if (!/^[a-f0-9]{40}$/.test(canary.base_sha || '')
+    || !/^[a-f0-9]{40}$/.test(canary.head_sha || '')) {
+    throw new Error('canary_refresh_base_head_unknown');
+  }
+  return require('crypto').createHash('sha256')
+    .update(`${canary.owner}/${canary.repo}:${canary.base_sha}:${canary.head_sha}`).digest('hex');
+}
+
+// Success is permanent for an immutable source/set/base/head. The window bounds retries
 // after failed producers; an in-flight writer never expires into a second writer.
-function canaryRefreshDecision({ runs, sha, candidates, defaultBranch = 'main', now = Date.now() }) {
+function canaryRefreshDecision({ runs, sha, candidates, defaultBranch = 'main', driftKey = '', now = Date.now() }) {
   const key = candidateSet(candidates).join(',');
   const matching = runs.filter((run) => {
     const title = String(run.display_title || '').trim();
-    const match = title.match(/^Maint 68 canary (?:full|auto)\s+source=([a-f0-9]{40}) candidates=(\S+) dry=false$/);
+    const match = title.match(/^Maint 68 canary (?:full|auto)\s+source=([a-f0-9]{40}) candidates=(\S+) dry=false(?: drift=([a-f0-9]{64}))?$/);
     return run.head_branch === defaultBranch && run.head_sha === sha && match?.[1] === sha
       && (match[2] === '*' || candidateSet(match[2].split(',')).join(',') === key);
   });
-  const successful = matching.find((run) => run.status === 'completed' && run.conclusion === 'success');
+  const identityMatches = (run) => !driftKey || String(run.display_title).trim().endsWith(` drift=${driftKey}`);
+  const successful = matching.find((run) => identityMatches(run) && run.status === 'completed' && run.conclusion === 'success');
   const active = matching.find((run) => ACTIVE_SYNC_STATES.includes(run.status));
   const writer = runs.find((run) => ACTIVE_SYNC_STATES.includes(run.status)
     && /^Maint 68 (canary|promote) /.test(run.display_title || ''));
   const recent = matching.find((run) => run.status === 'completed' && run.conclusion !== 'success'
     && now - Date.parse(run.updated_at || run.created_at) < CANARY_REFRESH_DEBOUNCE_MS);
   const prior = active || writer || successful || recent;
-  return { sha, candidates: candidateSet(candidates), eligible: !prior,
+  return { sha, drift_key: driftKey, runs, candidates: candidateSet(candidates), eligible: !prior,
     producer_succeeded: Boolean(successful),
     state: active ? active.status : writer ? 'writer-active' : successful ? 'success'
       : recent ? recent.conclusion || 'completed' : 'unseen',
@@ -44,7 +55,7 @@ function canaryRefreshDecision({ runs, sha, candidates, defaultBranch = 'main', 
     debounce_ms: CANARY_REFRESH_DEBOUNCE_MS };
 }
 
-async function readCanaryRefreshState({ withRetry, context, expectedCanaries, now = Date.now() }) {
+async function readCanaryRefreshState({ withRetry, context, expectedCanaries, driftKey = '', now = Date.now() }) {
   const location = { owner: context.repo.owner, repo: context.repo.repo };
   const branch = context.payload.repository?.default_branch || 'main';
   const { data: source } = await withRetry((client) => client.rest.repos.getCommit({ ...location, ref: branch }));
@@ -81,7 +92,7 @@ async function readCanaryRefreshState({ withRetry, context, expectedCanaries, no
     if (page === 10 && data.workflow_runs.length === 100) throw new Error('canary_refresh_history_truncated');
     if (data.workflow_runs.length < 100) break;
   }
-  return canaryRefreshDecision({ runs, sha: source.sha, candidates, defaultBranch: branch, now });
+  return canaryRefreshDecision({ runs, sha: source.sha, candidates, defaultBranch: branch, driftKey, now });
 }
 
 async function dispatchCanaryRefresh({ withRetry, context, core, expectedCanaries, refreshState, now }) {
@@ -97,7 +108,8 @@ async function dispatchCanaryRefresh({ withRetry, context, core, expectedCanarie
     workflow_id: 'maint-68-sync-consumer-repos.yml',
     ref: context.payload.repository?.default_branch || 'main',
     inputs: { phase: 'canary', delivery_scope: 'full', scope_head_sha: state.sha,
-      repos: state.candidates.join(','), dry_run: 'false', force: 'false' },
+      repos: state.candidates.join(','), dry_run: 'false', force: 'false',
+      ...(state.drift_key ? { refresh_key: state.drift_key } : {}) },
   }));
   // Covers a second request in this run before REST exposes the queued run.
   Object.assign(state, { eligible: false, state: 'requested' });
@@ -107,6 +119,8 @@ async function dispatchCanaryRefresh({ withRetry, context, core, expectedCanarie
 // Age is a recovery trigger for blocked canaries, never a hold on green ones.
 // Only a successful producer observation resets the clock; comments do not.
 function canaryNeedsRefresh(canary, now = Date.now()) {
+  if (canary.mergeable_state === 'behind' && (!canary.refresh_state?.drift_key
+    || canary.refresh_state.drift_key !== canaryDriftKey(canary))) return 'behind';
   if ((canary.refresh_state?.producer_succeeded || canary.refresh_state?.state === 'success')
     && canary.source_commit === canary.refresh_state.sha) return null;
   if (canary.mergeable_state === 'behind') return 'behind';
@@ -322,9 +336,15 @@ async function refreshStableCanaries({
     if (enabled && plans.size) {
       // Keep the existing producer-writer guard. A running promotion or
       // refresh owns these stable heads; leave the request visible for retry.
-      const state = refreshState || await readCanaryRefreshState({
-        withRetry, context, expectedCanaries, now,
-      });
+      const behind = canaries.find((row) => row.mergeable_state === 'behind'
+        && row.refresh_state?.eligible);
+      const drift = behind || canaries.find((row) => row.mergeable_state === 'behind');
+      const driftState = drift && drift.refresh_state?.drift_key === canaryDriftKey(drift)
+        ? drift.refresh_state : undefined;
+      const state = driftState || (drift
+        ? await readCanaryRefreshState({ withRetry, context, expectedCanaries, now,
+          driftKey: canaryDriftKey(drift) })
+        : refreshState || await readCanaryRefreshState({ withRetry, context, expectedCanaries, now }));
       for (const [plan, rows] of plans) {
         const refresh = await dispatchCanaryRefresh({ withRetry, context, core,
           expectedCanaries, refreshState: state, now });
@@ -1543,7 +1563,41 @@ function promotionRunMatches(run, binding, defaultBranch = 'main') {
   return run.event === 'workflow_dispatch'
     && run.head_branch === defaultBranch
     && String(run.display_title || '').startsWith('Maint 68 promote ')
-    && String(run.display_title).endsWith(` ${binding.plan_id} ${binding.source_commit}`);
+    && String(run.display_title).trim().endsWith(` ${binding.plan_id} ${binding.source_commit}`);
+}
+
+// Delivery reminting is deliberately replayable after base drift. Share the
+// active-writer scan and retry window rather than relying on the newest 20 runs.
+async function dispatchDeliveryRefresh({ decision, expectedCanaries, withRetry, context, core, now = Date.now() }) {
+  const state = await readCanaryRefreshState({ withRetry, context, expectedCanaries, now });
+  if (['writer-active', ...ACTIVE_SYNC_STATES].includes(state.state)) {
+    core.notice(`Delivery refresh skipped: Maint 68 writer ${state.run_id} is active`);
+    return { dispatched: false };
+  }
+  const rows = Array.isArray(decision.evidence) ? decision.evidence : decision.evidence.results;
+  const binding = rows[0];
+  const { data: source } = await withRetry((client) => client.rest.repos.getCommit({
+    owner: context.repo.owner, repo: context.repo.repo, ref: binding.source_commit,
+  }));
+  const created = source.commit?.committer?.date;
+  if (!Number.isFinite(Date.parse(created))) throw new Error('promotion_source_date_unknown');
+  const runs = await listPromotionRuns({ withRetry, context, created });
+  const recent = runs.find((run) => promotionRunMatches(run, binding,
+    context.payload.repository?.default_branch || 'main')
+    && now - Date.parse(run.updated_at || run.created_at) < CANARY_REFRESH_DEBOUNCE_MS);
+  if (recent) {
+    core.notice(`Delivery refresh skipped: exact-plan promote ${recent.id} is recent; debounce_ms=${CANARY_REFRESH_DEBOUNCE_MS}`);
+    return { dispatched: false };
+  }
+  await withRetry((client) => client.rest.actions.createWorkflowDispatch({
+    owner: context.repo.owner, repo: context.repo.repo,
+    workflow_id: 'maint-68-sync-consumer-repos.yml',
+    ref: context.payload.repository?.default_branch || 'main',
+    inputs: { phase: 'promote', canary_evidence_json: JSON.stringify(decision.evidence),
+      delivery_scope: 'auto', dry_run: 'false', force: 'false' },
+  }));
+  core.notice(`Replayed exact-plan promotion ${decision.plan_id}`);
+  return { dispatched: true };
 }
 
 async function dispatchCanaryPromotion({
@@ -1584,8 +1638,10 @@ async function dispatchCanaryPromotion({
         report: normalizedReport, evidence: { results: built.evidence.results.filter((row) => row.repo === repo) },
         expectedCanaries: [repo],
       }).eligible).length : 0;
-    const reason = status === 'dispatched' ? 'none' : `${status}: ${detail}`;
-    const message = `promote: blocked ${reason}; canaries green ${green}/${expectedCanaries.length}; drainable ${drainable}; ` +
+    const reason = ['dispatched', 'already-promoted'].includes(status) ? 'none' : `${status}: ${detail}`;
+    const quantity = built.evidence.results.length === 0 ? 'UNKNOWN (unmeasurable)' : drainable;
+    const label = status === 'already-promoted' ? 'drained' : `blocked ${reason}`;
+    const message = `promote: ${label}; canaries green ${green}/${expectedCanaries.length}; drainable ${quantity}; ` +
       `Canary promotion ${decision.plan_id || '<unbound>'}: ${status}; ${detail}`;
     core.notice(message);
     await core.summary.addRaw(`${message}\n`).write();
@@ -2342,11 +2398,14 @@ async function run({ github, context, core }) {
   }
 
   let refreshState;
-  const getRefreshState = async () => {
+  const getRefreshState = async (canary) => {
     if (!refreshState) refreshState = await readCanaryRefreshState({
       withRetry, context, expectedCanaries: expectedCanaryRepos,
     });
-    return refreshState;
+    if (!canary || canary.mergeable_state !== 'behind') return refreshState;
+    return canaryRefreshDecision({ runs: refreshState.runs, sha: refreshState.sha,
+      candidates: refreshState.candidates, driftKey: canaryDriftKey(canary),
+      defaultBranch: context.payload.repository?.default_branch || 'main' });
   };
 
   const rawBaselineEvidence = String(
@@ -3669,6 +3728,7 @@ async function run({ github, context, core }) {
             withRetry });
         const canary = { owner, repo, pr: pr.number, plan_id: deliveryContext.plan_id,
           source_commit: deliveryContext.source_commit,
+          base_sha: pr.base?.sha, head_sha: pr.head.sha,
           mergeable_state: pr.mergeable_state, mergeable: pr.mergeable, check_status: classification.status,
           expected_preseal_gate_hold: expectedPresealGateHold,
           active_review_thread_count: activeReviewThreads,
@@ -3679,7 +3739,7 @@ async function run({ github, context, core }) {
         // A successful producer for this source/set is not a green consumer
         // Gate. Preserve the review/seal lifecycle and let its later exact-head
         // checks hold real failures, instead of restaging it on every scan.
-        if (canaryNeedsRefresh(canary)) canary.refresh_state = await getRefreshState();
+        if (canaryNeedsRefresh(canary)) canary.refresh_state = await getRefreshState(canary);
         const reason = canaryNeedsRefresh(canary);
         if (reason) {
           // Refresh belongs to Maint 68. Do not let review/CI early exits hide
@@ -4695,6 +4755,7 @@ module.exports = {
   routeCanaryReviewUpstream,
   buildCanaryPromotionEvidence,
   dispatchCanaryPromotion,
+  dispatchDeliveryRefresh,
   reportSealedPromotionHealth,
   publishPromotionHealthCheck,
   sealedPromotionHealth,

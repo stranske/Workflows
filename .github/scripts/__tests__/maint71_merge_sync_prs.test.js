@@ -30,7 +30,7 @@ const { classifySyncPrChecks } = require('../sync_pr_merge_contract');
 const refreshNow = Date.parse('2026-10-17T12:00:00Z');
 function refreshCanary(overrides = {}) {
   return { owner: 'stranske', repo: 'Ready', pr: 12, plan_id: 'plan-4026',
-    source_commit: 'a'.repeat(40),
+    source_commit: 'a'.repeat(40), base_sha: 'b'.repeat(40), head_sha: 'c'.repeat(40),
     check_status: 'success', active_review_thread_count: 0,
     head_observed_at: new Date(refreshNow - 60 * 60 * 1000).toISOString(),
     ...overrides };
@@ -98,7 +98,9 @@ for (const [state, change] of [
     assert.deepEqual(api.dispatches[0], { owner: 'stranske', repo: 'Workflows',
       workflow_id: 'maint-68-sync-consumer-repos.yml', ref: 'main',
       inputs: { phase: 'canary', delivery_scope: 'full', scope_head_sha: 'a'.repeat(40),
-        repos: 'stranske/Ready,stranske/Template', dry_run: 'false', force: 'false' } });
+        repos: 'stranske/Ready,stranske/Template', dry_run: 'false', force: 'false',
+        ...(state === 'behind' ? { refresh_key: require('crypto').createHash('sha256')
+          .update(`stranske/Ready:${canary.base_sha}:${canary.head_sha}`).digest('hex') } : {}) } });
     assert.match(api.summaries.join(''), /refresh_dispatched=1 held_plan=plan-4026/);
     assert.deepEqual(api.failures, []);
   });
@@ -125,7 +127,7 @@ test('staleness uses producer head age, with a strict six-hour boundary', () => 
 });
 
 test('canary refresh reasons prioritize blockers over age and retain legacy timestamp fallbacks', () => {
-  const blocked = refreshCanary({ mergeable_state: 'behind', check_status: 'checks_failed',
+  const blocked = refreshCanary({ mergeable_state: 'behind', base_sha: 'b'.repeat(40), head_sha: 'c'.repeat(40), check_status: 'checks_failed',
     active_review_thread_count: 1, head_observed_at: '2026-10-17T05:00:00Z' });
   assert.equal(canaryNeedsRefresh(blocked, refreshNow), 'behind');
   delete blocked.mergeable_state;
@@ -366,8 +368,8 @@ async function assertExecutorCanaryRefresh(t, state) {
   const candidate = { number: 4026, title: 'chore: sync workflow templates',
     state: 'open', draft: false, auto_merge: null, user: { login: 'stranske' },
     mergeable: state !== 'stale',
-    mergeable_state: state === 'behind' ? 'behind' : state === 'stale' ? 'dirty' : 'clean',
-    head: { ref: 'sync/workflows-candidate', sha: head }, base: { ref: 'main' },
+    mergeable_state: ['behind', 'producer_success_behind'].includes(state) ? 'behind' : state === 'stale' ? 'dirty' : 'clean',
+    head: { ref: 'sync/workflows-candidate', sha: head }, base: { ref: 'main', sha: 'b'.repeat(40) },
     created_at: observed, updated_at: observed,
     body: `<!-- workflows-consumer-sync:v1 ${JSON.stringify({
       schema: 'workflows-consumer-sync-pr/v1', consumer_repo: repository,
@@ -526,6 +528,14 @@ async function assertExecutorCanaryRefresh(t, state) {
     })).status, 'dispatched');
     assert.equal(dispatches.length, 1);
     assert.equal(dispatches[0].inputs.phase, 'promote');
+    return;
+  }
+  if (state === 'producer_success_behind') {
+    assert.equal(row.status, 'stable_base_refresh_required');
+    assert.equal(row.refresh_reason, 'behind');
+    assert.equal(dispatches.length, 1, 'a pre-drift producer must not latch behind forever');
+    assert.match(dispatches[0].inputs.refresh_key, /^[a-f0-9]{64}$/);
+    assert.equal(merges.length, 0);
     return;
   }
   if (producerSucceeded) {
@@ -1509,9 +1519,15 @@ test('refresh identity includes the sorted candidate set, scope, source, branch 
 });
 
 test('unreadable or truncated history and changed main configuration fail closed', async () => {
-  for (const workflow_runs of [null, Array(100).fill(producerRun())]) {
-    const api = refreshHarness({ actions: { listWorkflowRuns: async () => ({ data: { workflow_runs } }) } });
-    await assert.rejects(readCanaryRefreshState(api), /history_(unreadable|truncated)/);
+  for (const truncated of [false, true]) {
+    const pages = [];
+    const api = refreshHarness({ actions: { listWorkflowRuns: async ({ status, page }) => {
+      if (page) pages.push(page);
+      return { data: { workflow_runs: truncated
+        ? status ? [] : Array(100).fill(producerRun()) : null } };
+    } } });
+    await assert.rejects(readCanaryRefreshState(api), truncated ? /history_truncated/ : /history_unreadable/);
+    if (truncated) assert.deepEqual(pages, [1,2,3,4,5,6,7,8,9,10]);
     assert.equal(api.dispatches.length, 0);
   }
   const api = refreshHarness();
@@ -1598,3 +1614,40 @@ test('an active promotion cannot erase prior producer success and restage its ca
   assert.equal(canaryNeedsRefresh(refreshCanary({ check_status: 'checks_failed',
     refresh_state: state }), refreshNow), null);
 });
+
+
+test('base drift after source success refreshes once per observed base/head pair', async () => {
+  let runs = [producerRun()];
+  const api = refreshHarness({ actions: {
+    listWorkflowRuns: async () => ({ data: { workflow_runs: runs } }),
+  } });
+  const canary = refreshCanary({ mergeable_state: 'behind' });
+  assert.equal(canaryNeedsRefresh({ ...canary, refresh_state: {
+    sha: canary.source_commit, producer_succeeded: true } }), 'behind');
+  const refresh = () => refreshStableCanaries({ ...api, canaries: [canary] });
+  await refresh();
+  assert.equal(api.dispatches.length, 1);
+  const key = api.dispatches[0].inputs.refresh_key;
+  assert.match(key, /^[a-f0-9]{64}$/);
+  runs = [producerRun({ display_title: `${producerRun().display_title} drift=${key}` })];
+  await refresh();
+  assert.equal(api.dispatches.length, 1, 'same observed base/head must stay debounced');
+  canary.base_sha = 'd'.repeat(40);
+  await refresh();
+  assert.equal(api.dispatches.length, 2, 'new consumer base re-arms refresh');
+  assert.notEqual(api.dispatches[1].inputs.refresh_key, key);
+  canary.head_sha = 'e'.repeat(40);
+  runs = [producerRun({ status: 'queued', conclusion: null })];
+  await refresh();
+  assert.equal(api.dispatches.length, 2, 'active writer must still hold a new identity');
+  runs = [producerRun({ conclusion: 'failure' })];
+  await refresh();
+  assert.equal(api.dispatches.length, 2, 'recent failure must still hold a new identity');
+  runs = [producerRun({ display_title: `${producerRun().display_title} drift=${api.dispatches[1].inputs.refresh_key}` })];
+  await refresh();
+  assert.equal(api.dispatches.length, 3, 'new consumer head re-arms refresh independently of base');
+});
+
+
+test('executor refreshes a behind canary after same-source producer success',
+  async (t) => assertExecutorCanaryRefresh(t, 'producer_success_behind'));

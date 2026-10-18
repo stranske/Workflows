@@ -130,6 +130,12 @@ def test_maint71_has_proof_bound_review_resolution_and_exact_evidence_promotion(
     )[0]
     assert "await dispatchCanaryRefresh({" in candidate_refresh
     assert "createWorkflowDispatch" not in candidate_refresh
+    delivery_refresh = workflow.split("      - name: Refresh stale delivery bases")[1].split(
+        "      - name: Promote complete exact-plan canary evidence"
+    )[0]
+    assert "await dispatchDeliveryRefresh({" in delivery_refresh
+    assert "createWorkflowDispatch" not in delivery_refresh
+    assert "per_page: 20" not in delivery_refresh
     assert "scope_head_sha: state.sha" in executor
     assert "phase: 'canary', delivery_scope: 'full'" in executor
     assert "canary_evidence_json: JSON.stringify(built.evidence)" in executor
