@@ -541,3 +541,33 @@ def test_agy_invalid_or_error_stream_does_not_produce_a_verdict(monkeypatch, out
     monkeypatch.setattr(screen.subprocess, "run", fake_run)
     result = screen.AgyCliJudge().invoke("fixture prompt")
     assert result.payload is None and result.error
+
+
+def test_contributor_tier_needs_every_source_repository_confirmed_public():
+    from tools import run_judge_backend_screen as screen
+
+    screen.require_public_sources({"a/x", "b/y"}, lookup=lambda repo: "public")
+    for answers, repos in (
+        ({"a/x": "public", "b/y": "private"}, {"a/x", "b/y"}),
+        ({"a/x": "unknown"}, {"a/x"}),
+        ({"a/x": "internal"}, {"a/x"}),
+    ):
+        with pytest.raises(SystemExit, match="not confirmed public"):
+            screen.require_public_sources(repos, lookup=answers.get)
+    with pytest.raises(SystemExit):
+        screen.require_public_sources(set(), lookup=lambda repo: "public")
+
+
+def test_contributor_models_are_still_refused_without_the_flag():
+    from tools import run_judge_backend_screen as screen
+
+    with pytest.raises(ValueError, match="contributor"):
+        screen.MuseApiJudge(model="muse-spark-1.3-contributor")
+    assert screen.MuseApiJudge(model="muse-spark-1.3-contributor", allow_contributor_tier=True)
+
+
+def test_each_muse_api_model_gets_its_own_judge_name_and_price_key():
+    from tools import run_judge_backend_screen as screen
+
+    assert screen.MuseApiJudge().name == "muse-api"
+    assert screen.MuseApiJudge(model="muse-wonder-1.0").name == "muse-api:muse-wonder-1.0"

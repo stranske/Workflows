@@ -474,6 +474,39 @@ class AgyCliJudge:
         )
 
 
+def muse_api_name(model: str) -> str:
+    """The judge name in a screen: the default model keeps the historical name, others are tagged."""
+    return "muse-api" if model == MUSE_API_DEFAULT_MODEL else f"muse-api:{model}"
+
+
+def repo_visibility(repo: str) -> str:
+    """GitHub's visibility for ``owner/name`` ("public", "private", "internal"); "unknown" on failure."""
+    try:
+        run = subprocess.run(
+            ["gh", "api", f"repos/{repo}", "--jq", ".visibility"],
+            capture_output=True,
+            text=True,
+            timeout=60,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return "unknown"
+    return run.stdout.strip() or "unknown"
+
+
+def require_public_sources(repos: set[str], lookup: Callable[[str], str] | None = None) -> None:
+    """Contributor tier trains on what it is sent. Allow it only when EVERY prompt is built from
+    content already published in a public repository; anything else (private, internal, unknown,
+    unpublished local work) refuses, and a lookup failure counts as not public."""
+    lookup = lookup or repo_visibility
+    not_public = sorted(r for r in repos if lookup(r) != "public")
+    if not repos or not_public:
+        raise SystemExit(
+            "refusing contributor-tier models: prompts must come only from public repositories; "
+            f"not confirmed public: {not_public or 'no repositories named'}"
+        )
+
+
 class MuseApiJudge:
     """Meta Model API (OpenAI-compatible chat completions) with its own pay-as-you-go key."""
 
@@ -496,6 +529,7 @@ class MuseApiJudge:
                 "refusing a contributor-tier model: it may train on prompts, and verifier "
                 "prompts contain PR diffs"
             )
+        self.name = muse_api_name(model)
         self.model, self.base_url, self.key_env = model, base_url.rstrip("/"), key_env
         self.timeout, self._open = timeout, opener
 
@@ -790,7 +824,7 @@ def build_judges(args: argparse.Namespace) -> list[Judge]:
                 MuseApiJudge(
                     model=args.muse_api_model,
                     base_url=args.muse_api_base_url,
-                    allow_contributor_tier=False,
+                    allow_contributor_tier=bool(getattr(args, "allow_contributor_tier", False)),
                 )
             )
         else:
@@ -821,15 +855,27 @@ def main(argv: list[str] | None = None) -> int:
         "--baseline", type=Path, help="prior Codex CLI screen or this tool's output"
     )
     parser.add_argument("--baseline-model")
+    parser.add_argument(
+        "--allow-contributor-tier",
+        action="store_true",
+        help="allow *-contributor models, which may train on prompts; refused unless every case "
+        "repository is confirmed public",
+    )
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args(argv)
     prices = {}
     if args.muse_api_price_in is not None and args.muse_api_price_out is not None:
-        prices["muse-api"] = (args.muse_api_price_in, args.muse_api_price_out)
+        prices[muse_api_name(args.muse_api_model)] = (
+            args.muse_api_price_in,
+            args.muse_api_price_out,
+        )
     baseline = load_baseline_rows(args.baseline, args.baseline_model) if args.baseline else None
+    corpus = json.loads(args.corpus.read_text())
+    if args.allow_contributor_tier:
+        require_public_sources({str(c["repo"]) for c in corpus.get("screen_cases", [])})
     payload = run_screen(
         build_judges(args),
-        corpus=json.loads(args.corpus.read_text()),
+        corpus=corpus,
         registry=json.loads(args.registry.read_text()),
         policy=json.loads(args.policy.read_text()),
         baseline=baseline,
