@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.44.0](https://github.com/stranske/Workflows/compare/v1.43.3...v1.44.0) (2026-10-18)
+
+
+### Features
+
+* deliver experiment tick-1792316622-stranske-workflows-3973 ([#4088](https://github.com/stranske/Workflows/issues/4088)) ([6b3cf80](https://github.com/stranske/Workflows/commit/6b3cf8015b48f60c64bcf538ce860d9967fa1e66))
+
 ## [1.43.3](https://github.com/stranske/Workflows/compare/v1.43.2...v1.43.3) (2026-10-18)
 
 
