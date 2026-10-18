@@ -144,3 +144,129 @@ def test_real_captured_snapshots_are_handled_in_their_real_format():
     }
     for mutant in mutants:
         assert g.validate(snapshot, mutant, mutant["mutation_note"].split("`")[1])
+
+
+def _artifact(tmp_path: Path, repo="o/r", pr=7) -> Path:
+    """A MAINT-78 capture artifact: captured-inputs/case-1 with consistent hashes."""
+    import hashlib
+
+    root = tmp_path / f"artifact-{repo.replace('/', '_')}-{pr}"
+    case = root / "captured-inputs" / "case-1"
+    case.mkdir(parents=True)
+    context = _context("`pytest tests/test_feature.py -k test_feature_behaves` passes.")
+    patch = context.split("```diff\n")[1].rsplit("```", 1)[0]
+    summary = context.split("## PR Diff Summary")[1].split("## PR Diff (full)")[0]
+    summary = "## PR Diff Summary" + summary
+    (case / "verifier-context.md").write_text(context)
+    (case / "verifier-diff-summary.md").write_text(summary)
+    (case / "verifier-pr-diff.patch").write_text(patch)
+    sha = lambda text: hashlib.sha256(text.encode()).hexdigest()  # noqa: E731
+    (case / "verifier-input-manifest.json").write_text(
+        json.dumps(
+            {
+                "schema": "workflows-verifier-input-snapshot/v1",
+                "capture_kind": "retrospective",
+                "repository": repo,
+                "pr": pr,
+                "merge_sha": "a" * 40,
+                "source_run_id": "1",
+                "chain_depth": 0,
+                "context_sha256": sha(context),
+                "diff_summary_sha256": sha(summary),
+                "diff_sha256": sha(patch),
+            }
+        )
+    )
+    return root
+
+
+def _corpus(tmp_path: Path, repo="o/r", pr=7) -> Path:
+    path = tmp_path / "corpus.json"
+    path.write_text(
+        json.dumps(
+            {
+                "cases": [
+                    {
+                        "case_id": "case-7",
+                        "repo": repo,
+                        "pr": str(pr),
+                        "expected_verdict": "PASS",
+                        "category": "clean-pass",
+                    },
+                    {
+                        "case_id": "case-8",
+                        "repo": repo,
+                        "pr": "99",
+                        "expected_verdict": "NON_PASS",
+                        "category": "follow-up-required",
+                    },
+                ],
+                "screen_cases": [],
+            }
+        )
+    )
+    return path
+
+
+def test_captured_artifacts_become_pass_snapshots_and_mutants_edit_the_separate_diff(tmp_path):
+    corpus_path = _corpus(tmp_path)
+    corpus = json.loads(corpus_path.read_text())
+    sources = g.snapshots_from_artifacts(corpus, [_artifact(tmp_path)])
+    assert list(sources) == ["case-7"]
+    snapshot = sources["case-7"]["production_snapshot"]
+    assert (
+        snapshot["diff"].startswith("diff --git")
+        and snapshot["input_kind"] == "retrospective_capture"
+    )
+    mutants = g.generate_from_snapshots(sources)
+    assert mutants
+    for case in mutants:
+        mutant = case["production_snapshot"]
+        dropped = mutant["mutation_path"]
+        assert f"b/{dropped}" not in mutant["diff"] and f"b/{dropped}" in snapshot["diff"]
+        assert g.validate(snapshot, mutant, dropped)
+
+
+def test_a_captured_pr_that_is_not_a_pass_corpus_case_is_skipped(tmp_path):
+    corpus = json.loads(_corpus(tmp_path).read_text())  # PR 99 is the NON_PASS case
+    assert g.snapshots_from_artifacts(corpus, [_artifact(tmp_path, pr=99)]) == {}
+    assert g.snapshots_from_artifacts(corpus, [_artifact(tmp_path, repo="x/y", pr=7)]) == {}
+
+
+def test_mutants_per_source_are_capped_tests_first(tmp_path):
+    sources = g.snapshots_from_artifacts(
+        json.loads(_corpus(tmp_path).read_text()), [_artifact(tmp_path)]
+    )
+    assert len(g.generate_from_snapshots(sources, max_per_source=1)) == 1
+    first = g.generate_from_snapshots(sources, max_per_source=1)[0]
+    assert first["production_snapshot"]["mutation_path"] == "tests/test_feature.py"
+
+
+def test_write_appends_deduplicated_recipes_and_loading_rederives_the_mutants(tmp_path):
+    corpus_path = _corpus(tmp_path)
+    snapshot_dir = tmp_path / "snaps"
+    sources = g.snapshots_from_artifacts(json.loads(corpus_path.read_text()), [_artifact(tmp_path)])
+    mutants = g.generate_from_snapshots(sources)
+    first = g.write_corpus(corpus_path, snapshot_dir, sources, mutants)
+    second = g.write_corpus(corpus_path, snapshot_dir, sources, mutants)
+    corpus = json.loads(corpus_path.read_text())
+    ids = [c["case_id"] for c in corpus["cases"]]
+    assert first == (1, len(mutants)) and second == (0, 0)
+    assert len(ids) == len(set(ids)) == 2 + len(mutants)
+    added = [c for c in corpus["cases"] if c.get("provenance") == "controlled-mutation"]
+    assert all(
+        c["expected_verdict"] == "NON_PASS" and "production_snapshot" not in c for c in added
+    )
+    assert sorted(p.name for p in snapshot_dir.iterdir()) == [
+        "case-7.json.gz"
+    ]  # mutants cost no files
+    # loading re-derives each mutant exactly as the generator produced it
+    for record, original in zip(added, mutants, strict=True):
+        loaded = g.load_case(record, tmp_path)
+        assert loaded["production_snapshot"] == original["production_snapshot"]
+        assert loaded["expected_verdict"] == "NON_PASS"
+    real = next(c for c in corpus["cases"] if c["case_id"] == "case-7")
+    assert (
+        g.load_case(real, tmp_path)["production_snapshot"]
+        == sources["case-7"]["production_snapshot"]
+    )
