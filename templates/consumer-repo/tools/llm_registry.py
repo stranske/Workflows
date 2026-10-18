@@ -93,7 +93,7 @@ def native_capacity_facts_for(provider: str, model: str) -> NativeCapacityFacts:
             result[key] = value
         return result
 
-    def reject_constant(value: str) -> object:
+    def reject_constant(_value: str) -> object:
         raise ValueError("non-finite native capacity registry JSON number")
 
     path = _registry_path()
