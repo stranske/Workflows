@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.44.4](https://github.com/stranske/Workflows/compare/v1.44.3...v1.44.4) (2026-10-18)
+
+
+### Bug Fixes
+
+* **sync:** share seal preconditions and recover refused Gate reruns ([#4118](https://github.com/stranske/Workflows/issues/4118)) ([a32266f](https://github.com/stranske/Workflows/commit/a32266fc59548fbeeae2387ea40ea5f91dd74723))
+
 ## [1.44.3](https://github.com/stranske/Workflows/compare/v1.44.2...v1.44.3) (2026-10-18)
 
 
