@@ -170,10 +170,11 @@ still launches. `Preflight Cursor CLI` requires `cursor-agent --version` to
 succeed and emits `Cursor CLI preflight failed: ...` when the executable is absent
 or broken. The worker publishes that failure summary without invoking the agent.
 
-Root and consumer completion writers preserve exit 127 as an explicit startup
-failure in the durable summary. Delegation reads the latest reservation-bound
-completion for each provider and excludes recent command-not-found, exit-127,
-and CLI install/preflight failures for
+Root and consumer completion writers preserve the explicit preflight diagnostic
+in the durable summary; a bare exit 127 does not establish a startup failure.
+Delegation reads the latest reservation-bound completion for each provider and excludes explicit CLI startup/preflight failure
+diagnostics (including startup exit 127), not missing inner tools mentioned in
+an agent summary, for
 `AGENT_INSTALL_FAILURE_BACKOFF_HOURS` (six hours). Another provider's completion
 does not clear this exclusion. The failed provider's newer successful completion
 or expiry of the window makes it eligible again; `agents:tried-*` still applies

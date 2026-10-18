@@ -7946,7 +7946,7 @@ for (const loopPath of ['../keepalive_loop.js',
     }) });
     try {
       const replay = replayCompletion({ provider: 'cursor', exitCode: 127,
-        output: 'cursor-agent: command not found', loopPath });
+        output: 'Cursor CLI preflight failed: cursor-agent: command not found', loopPath });
       for (const auto of [false, true]) {
         const pr = { number: 3989, head: { sha: 'sha-3989', ref: 'cursor/issue-3989' },
           labels: [{ name: 'agent:cursor' }, { name: 'agents:keepalive' },
@@ -7978,5 +7978,38 @@ for (const loopPath of ['../keepalive_loop.js',
         if (value === undefined) delete process.env[key]; else process.env[key] = value;
       }
     }
+  });
+}
+
+for (const loopPath of ['../keepalive_loop.js',
+  '../../../templates/consumer-repo/.github/scripts/keepalive_loop.js']) {
+  test(`completion reader retains provider success behind another provider (${loopPath})`, async () => {
+    const now = Date.now();
+    const comments = [];
+    for (const [provider, success, offset] of [['cursor', true, -2000], ['codex', false, -1000]]) {
+      const record = { provider, pr_number: 3989, reservation_id: `${provider}-attempt`,
+        status: success ? 'completed' : 'error', completed_at: new Date(now + offset).toISOString(),
+        completion: { reason: success ? 'progressed' : 'failed' },
+        result: { success, summary: success ? 'Done' : 'Test failure' } };
+      for (const [kind, payload] of [['reservation', record], ['completion', {
+        provider, schema: 'runner-completion-receipt/v1',
+        reservation_id: record.reservation_id, record,
+      }]]) {
+        comments.push({ id: comments.length + 1, user: { login: 'github-actions[bot]' },
+          body: `<!-- runner-${kind}:${provider}:3989:v1 base64:${Buffer.from(JSON.stringify(payload)).toString('base64')} -->` });
+      }
+    }
+    const completion = await require(loopPath).loadLatestCompletion({
+      github: buildGithubStub({ comments }), context: buildContext(3989), prNumber: 3989,
+    });
+    assert.equal(completion.provider, 'codex');
+    assert.deepEqual(completion.successful_completion_receipts.map(r => r.provider), ['cursor']);
+    const policy = require(loopPath.replace('keepalive_loop', 'agent_delegation_policy'));
+    completion.install_failure_receipts = [{ provider: 'cursor', status: 'error',
+      completed_at: new Date(now - 3000).toISOString(),
+      result: { success: false, summary: 'Cursor CLI preflight failed: missing executable' } }];
+    assert.equal(policy.recentInstallFailures(completion, now).has('cursor'), false);
+    completion.install_failure_receipts[0].completed_at = new Date(now - 1500).toISOString();
+    assert.equal(policy.recentInstallFailures(completion, now).has('cursor'), true);
   });
 }

@@ -19,7 +19,7 @@ The reusable workflow retains that pinned archive and its bounded runner-temp
 cache, exports the install directory, and adds a strict executable/version
 preflight. Setup now explicitly handles earlier step failures.
 
-## Local verification
+## Initial implementation verification (before PR #4103 fix round)
 
 - Full `pytest tests/workflows -q -x`: **2,821 passed, 10 skipped** in 321.50 seconds
   with the sandbox runtime adjustment documented below. Skips cover six
@@ -107,3 +107,40 @@ expiry, successful recovery, no available replacement, and failed label updates.
   command-not-found/exit-127 failures and recovery within one sweep when an
   eligible replacement exists. If every runner is unavailable, evaluation waits
   rather than dispatching the failed provider.
+
+## PR #4103 fix round — 2026-10-18
+
+Merged current `origin/main` before the repair. The sweep root/template pair
+was reviewed in full: root dispatches `agents-keepalive-loop.yml`; consumers
+have explicit consolidated/non-consolidated modes dispatching
+`agents-81-gate-followups.yml`, plus claim reclaim otherwise supplied by root
+Health 40. All three sweep paths recover install failures. The allowlist now
+records this actual review and the current normalized fingerprints.
+
+Startup exclusion now requires an explicit CLI startup/preflight diagnostic.
+The completion writer no longer turns any exit 127 into a startup diagnosis;
+inner-tool `command not found` and exit-127 summaries do not exclude providers.
+Cursor setup fallbacks use the same `Cursor CLI preflight failed:` diagnostic.
+A newer successful completion from the same provider drains the exclusion;
+older, same-time, future-dated, and other-provider successes do not. The trusted,
+PR-bound completion reader preserves successful receipts even when another
+provider has the latest completion. Root and consumer script copies match.
+
+Validation on the repaired source:
+
+- `TMPDIR=/Users/teacher/.codex/orchestrator/agent-runtime/codex/tmp PATH=/tmp/workflows-4103-tools:/opt/anaconda3/bin:$PATH /opt/anaconda3/bin/python3 -m pytest tests/workflows -q -x` — **2,821 passed, 10 skipped** in 286.46 seconds. The task-local `mktemp` wrapper follows the sandbox adjustment documented above; no shared launcher changed.
+- `PYTHON=/opt/anaconda3/bin/python3 node --test .github/scripts/agent_delegation_policy.test.js .github/scripts/__tests__/agent-delegation-policy.test.js .github/scripts/__tests__/agent-install-failure.test.js .github/scripts/__tests__/keepalive-loop.test.js tests/scripts/test_agent_delegation_policy_intake.js` — **374 passed**.
+- `/opt/anaconda3/bin/python3 scripts/check_template_drift.py --allowlist config/template-drift-allowlist.txt` — exit 0.
+- `PATH=/opt/anaconda3/bin:$PATH bash scripts/sync_templates.sh`, `/opt/anaconda3/bin/python3 scripts/validate_template_sync.py`, and `/opt/anaconda3/bin/python3 scripts/validate_template_completeness.py` — passed; no extra files changed.
+- `actionlint -ignore SC2129` on the three workflows changed in this fix round — passed; the initial verification above explains the pre-existing SC2129 warnings.
+- `ruff check`, `ruff format --check` for `tests/workflows/test_cursor_cli_preflight.py`, and `git diff --check` — passed.
+
+Regression control: copied the new policy tests into an isolated tree with the
+pre-fix policy modules from Git. Running
+`node --test --test-name-pattern='inner tool failures|only newer same-provider success' .github/scripts/__tests__/agent-install-failure.test.js`
+failed with four behavioral assertions (`claude` instead of `cursor`, both
+surfaces and both new behaviors), exit 1. The repaired source passes those tests
+in the full 374-test JS run. No live agent invocation or CI wait was used.
+
+Post-push handoff: hosted CI and delayed bot/inline review remain for the next
+closer pass on the pushed head. This fix round does not wait for CI or merge.

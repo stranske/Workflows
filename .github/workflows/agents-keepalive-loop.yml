@@ -2202,9 +2202,6 @@ jobs:
               EXIT_CODE=1
             fi
           fi
-          if [ "$EXIT_CODE" = "127" ]; then
-            SUMMARY="Agent CLI install/preflight failed (exit 127): ${SUMMARY:-}"
-          fi
           COMPLETION_REASON=$(node -e '
             const { classifyCompletion } = require("./.github/scripts/keepalive_loop.js");
             process.stdout.write(classifyCompletion(process.env.SUMMARY, process.env.EXIT_CODE));

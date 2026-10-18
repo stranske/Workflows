@@ -232,6 +232,8 @@ async function loadLatestCompletion({ github, context, prNumber }) {
   return {
     ...latest,
     install_failure_receipts: records.filter(isAgentInstallFailure),
+    successful_completion_receipts: records.filter(r => r.status === 'completed' &&
+      (r.completion?.reason === 'progressed' || r.result?.success === true)),
     rate_limit_receipts: records.filter(r =>
       r.completion?.reason === 'rate_limited' && Date.parse(r.completed_at) > progressedAt),
   };

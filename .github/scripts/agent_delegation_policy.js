@@ -28,24 +28,38 @@ const ROUTE_WEIGHTS_MAX_AGE_MS = 14 * 24 * 60 * 60 * 1000;
 const ROUTE_WEIGHTS_MAX_CLOCK_SKEW_MS = 60 * 1000;
 const ROUTE_WEIGHTS_FETCH_TIMEOUT_MS = 5000;
 
-// A per-PR startup failure expires with time, independently of switch cooldowns.
+// A per-PR startup failure drains on newer provider success or time expiry.
 const AGENT_INSTALL_FAILURE_BACKOFF_HOURS = 6;
 
 function isAgentInstallFailure(record) {
   if (!record || !['error', 'completed'].includes(record.status) ||
       record.completion?.reason === 'progressed' || record.result?.success === true) return false;
   const result = record.result || {};
-  const text = [result.summary, result.error, record.summary].filter(Boolean).join(' ');
-  return Number(record.exit_code ?? result.exit_code) === 127 ||
-    /command not found|(?:exit(?:ed)?(?:[ -]code)?[ :=]+127)\b|(?:CLI|agent) install\/preflight failed|CLI preflight failed/i.test(text);
+  // Only the runner's explicit startup/preflight diagnostic is evidence. An
+  // agent can mention a missing inner tool (or exit 127) in its task summary.
+  return [result.summary, result.error, record.summary].some(text =>
+    /^[a-z0-9_-]+ CLI preflight failed:/i
+      .test(String(text || '').trim()));
 }
 
 function recentInstallFailures(completion, now = Date.now()) {
-  const records = [...(completion?.install_failure_receipts || []), completion].filter(Boolean);
+  const records = [...(completion?.install_failure_receipts || []),
+    ...(completion?.successful_completion_receipts || []), completion].filter(Boolean);
+  const successfulAt = new Map();
+  for (const record of records) {
+    const at = Date.parse(record.completed_at);
+    if (record.status === 'completed' &&
+        (record.completion?.reason === 'progressed' || record.result?.success === true) &&
+        Number.isFinite(at) && at <= Number(now)) {
+      successfulAt.set(record.provider, Math.max(successfulAt.get(record.provider) || 0, at));
+    }
+  }
   return new Set(records.filter(record => {
-    const age = Number(now) - Date.parse(record.completed_at);
+    const at = Date.parse(record.completed_at);
+    const age = Number(now) - at;
     return isAgentInstallFailure(record) && Number.isFinite(age) && age >= 0 &&
-      age < AGENT_INSTALL_FAILURE_BACKOFF_HOURS * 60 * 60 * 1000;
+      age < AGENT_INSTALL_FAILURE_BACKOFF_HOURS * 60 * 60 * 1000 &&
+      !(successfulAt.get(record.provider) > at);
   }).map(record => record.provider));
 }
 

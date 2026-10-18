@@ -856,7 +856,7 @@ jobs:
             echo "Installed Cursor CLI: $(command -v cursor-agent)"
             cursor-agent --version
           else
-            echo "::error::Cursor CLI install/preflight failed: cursor-agent absent from $cli_dir"
+            echo "::error::Cursor CLI preflight failed: cursor-agent absent from $cli_dir"
             exit 1
           fi
 
@@ -888,7 +888,7 @@ jobs:
         env:
           PREFLIGHT_MISSING: ${{ steps.preflight.outputs.missing == 'true' || steps.cursor_cli_preflight.outputs.ready != 'true' }}
           PREFLIGHT_ERROR: >-
-            ${{ steps.preflight.outputs.error || steps.cursor_cli_preflight.outputs.error || 'Cursor CLI install/preflight failed: setup did not complete' }}
+            ${{ steps.preflight.outputs.error || steps.cursor_cli_preflight.outputs.error || 'Cursor CLI preflight failed: setup did not complete' }}
           PROMPT_FILE: ${{ steps.prompt.outputs.file || '' }}
           EXTRA_ARGS_RAW: ${{ inputs.cursor_cli_args }}
           PR_NUMBER: ${{ inputs.pr_number }}

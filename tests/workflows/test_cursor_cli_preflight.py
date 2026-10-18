@@ -60,14 +60,14 @@ def test_skipped_setup_cannot_enter_cursor_worker(tmp_path):
     env = {
         **os.environ,
         "PREFLIGHT_MISSING": "true",
-        "PREFLIGHT_ERROR": "Cursor CLI install/preflight failed: setup did not complete",
+        "PREFLIGHT_ERROR": "Cursor CLI preflight failed: setup did not complete",
         "GITHUB_OUTPUT": str(tmp_path / "output"),
     }
     result = subprocess.run(["/bin/bash", "-c", run], env=env, text=True, capture_output=True)
     assert result.returncode == 1
     output = (tmp_path / "output").read_text()
     assert "exit-code=1" in output
-    assert "final-message-summary=Cursor CLI install/preflight failed:" in output
+    assert "final-message-summary=Cursor CLI preflight failed:" in output
 
 
 def test_cursor_setup_runs_after_an_earlier_step_failed():

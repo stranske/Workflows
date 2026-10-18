@@ -27,7 +27,7 @@ for (const policyPath of ['../agent_delegation_policy.js',
   });
 
   test(`recent install failure skips weighted target and picks next (${policyPath})`, () => {
-    const decision = decide({ completion: failed('cursor-agent: command not found') });
+    const decision = decide({ completion: failed('Cursor CLI preflight failed: cursor-agent: command not found') });
     assert.equal(decision.agent, 'claude');
     assert.equal(decision.shouldSwitch, true);
     assert.ok(!decision.alternatives.includes('cursor'));
@@ -35,8 +35,7 @@ for (const policyPath of ['../agent_delegation_policy.js',
 
   test(`startup failure overrides cooldown and explicit route (${policyPath})`, () => {
     for (const labels of [['agent:auto', 'agent:cursor'], ['agent:cursor']]) {
-      for (const summary of ['cursor-agent: command not found',
-        'Agent CLI install/preflight failed (exit 127)',
+      for (const summary of ['Cursor CLI preflight failed: cursor-agent: command not found',
         'Cursor CLI preflight failed: cursor-agent --version failed']) {
         const decision = decide({ labels, completion: failed(summary),
           state: { current_agent: 'cursor', iteration: 1, last_switch_iteration: 1 } });
@@ -51,12 +50,41 @@ for (const policyPath of ['../agent_delegation_policy.js',
     const decision = decide({ completion: { provider: 'codex', status: 'error',
       completed_at: new Date(nowMs).toISOString(), completion: { reason: 'failed' },
       result: { summary: 'unrelated error' },
-      install_failure_receipts: [failed('cursor-agent: command not found')] } });
+      install_failure_receipts: [failed('Cursor CLI preflight failed: cursor-agent: command not found')] } });
     assert.equal(decision.agent, 'claude');
   });
 
+  test(`inner tool failures never exclude the provider (${policyPath})`, () => {
+    for (const summary of ['Inner tool: command not found', 'Tool exited with exit code 127',
+      'Agent CLI install/preflight failed (exit 127): inner tool command not found',
+      'Investigated Cursor CLI preflight failed: from a previous run']) {
+      assert.equal(decide({ completion: failed(summary, { exit_code: 127 }) }).agent, 'cursor');
+    }
+  });
+
+  test(`only newer same-provider success drains startup backoff (${policyPath})`, () => {
+    const failure = failed('Cursor CLI preflight failed: missing executable');
+    for (const [provider, offset, expected] of [
+      ['cursor', 0, 'cursor'], ['codex', 0, 'claude'],
+      ['cursor', -2000, 'claude'], ['cursor', -1000, 'claude'],
+      ['cursor', 1000, 'claude'],
+    ]) {
+      const success = { provider, status: 'completed',
+        completed_at: new Date(nowMs + offset).toISOString(),
+        completion: { reason: 'progressed' }, result: { success: true } };
+      assert.equal(decide({ completion: {
+        provider: 'claude', status: 'completed', completed_at: new Date(nowMs).toISOString(),
+        install_failure_receipts: [failure], successful_completion_receipts: [success],
+      } }).agent, expected);
+    }
+    // The latest completion itself can also prove recovery.
+    assert.equal(decide({ completion: { provider: 'cursor', status: 'completed',
+      completed_at: new Date(nowMs).toISOString(), result: { success: true },
+      install_failure_receipts: [failure] } }).agent, 'cursor');
+  });
+
   test(`install backoff expires without head or label changes (${policyPath})`, () => {
-    const completion = failed('cursor-agent: command not found', {
+    const completion = failed('Cursor CLI preflight failed: cursor-agent: command not found', {
       completed_at: new Date(nowMs - policy.AGENT_INSTALL_FAILURE_BACKOFF_HOURS * 3600000).toISOString(),
     });
     assert.equal(decide({ completion }).agent, 'cursor');
@@ -70,7 +98,7 @@ for (const policyPath of ['../agent_delegation_policy.js',
   test(`all startup candidates unavailable refuses dispatch (${policyPath})`, () => {
     const registry = { default_agent: 'cursor', agents: { cursor: mockRegistry.agents.cursor } };
     const decision = decide({ registry, labels: ['agent:cursor'], state: {},
-      completion: failed('cursor-agent: command not found') });
+      completion: failed('Cursor CLI preflight failed: cursor-agent: command not found') });
     assert.equal(decision.agent, '');
     assert.equal(decision.reason, 'install-failed-no-alternatives');
   });
