@@ -83,6 +83,7 @@ jobs:
        contains(fromJSON('["verify:checkbox", "verify:evaluate", "verify:compare"]'), github.event.label.name))
     permissions:
       contents: read
+      issues: read
       pull-requests: read
     runs-on: ubuntu-latest
     outputs:
@@ -95,6 +96,7 @@ jobs:
       fingerprint_should_run: ${{ steps.fingerprint.outputs.should_run || 'true' }}
       fingerprint_reason: ${{ steps.fingerprint.outputs.reason }}
       fingerprint_current_hash: ${{ steps.fingerprint.outputs.current_hash }}
+      plan_source_sha256: ${{ steps.check.outputs.plan_source_sha256 }}
     steps:
       - name: Checkout retry helpers
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -105,7 +107,10 @@ jobs:
             .github/actions/setup-api-client
             .github/scripts/error_classifier.js
             .github/scripts/github-api-with-retry.js
+            .github/scripts/issue_scope_parser.js
+            .github/scripts/source_context.js
             .github/scripts/token_load_balancer.js
+            .github/scripts/verifier_plan_fingerprint.js
             scripts/state_fingerprint.py
           sparse-checkout-cone-mode: false
       - name: Setup API client
@@ -138,6 +143,25 @@ jobs:
               minRemaining: 50,
             });
             github = balancedGithub;
+            const { verifierPlanSourceFingerprint } = require('./.github/scripts/verifier_plan_fingerprint.js');
+
+            async function setPlanSourceFingerprint(pull) {
+              try {
+                const digest = await verifierPlanSourceFingerprint({
+                  github,
+                  withRetry,
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  pull,
+                });
+                core.setOutput('plan_source_sha256', digest);
+                return true;
+              } catch (err) {
+                core.setFailed(`Failed to fingerprint verifier plan sources: ${err.message}`);
+                core.setOutput('should_run', 'false');
+                return false;
+              }
+            }
 
             // Handle workflow_dispatch trigger
             if (context.eventName === 'workflow_dispatch') {
@@ -160,6 +184,8 @@ jobs:
                   core.setOutput('should_run', 'false');
                   return;
                 }
+
+                if (!(await setPlanSourceFingerprint(pr))) return;
 
                 const logMsg = `Manual dispatch: PR #${prNumber}, mode=${mode}`;
                 core.info(`${logMsg}, model=${model}, model2=${model2}, provider=${provider}`);
@@ -203,6 +229,26 @@ jobs:
               return;
             }
 
+            // Fetch the current merged body instead of trusting the event snapshot.
+            // Criteria changes are detected on the next normal verify:* label or
+            // workflow_dispatch invocation; edits alone do not trigger this workflow.
+            let currentPr;
+            try {
+              ({ data: currentPr } = await withRetry((client) => client.rest.pulls.get({
+                ...context.repo,
+                pull_number: pr.number,
+              })));
+            } catch (err) {
+              core.setFailed(`Failed to refresh PR #${pr.number} before fingerprinting: ${err.message}`);
+              core.setOutput('should_run', 'false');
+              return;
+            }
+            if (!currentPr.merged) {
+              core.setOutput('should_run', 'false');
+              return;
+            }
+            if (!(await setPlanSourceFingerprint(currentPr))) return;
+
             core.info(`Verifier triggered with mode: ${mode}`);
             core.setOutput('should_run', 'true');
             core.setOutput('mode', mode);
@@ -229,6 +275,7 @@ jobs:
           VERIFY_MODEL2: ${{ steps.check.outputs.model2 }}
           VERIFY_PROVIDER: ${{ steps.check.outputs.provider }}
           VERIFY_EVIDENCE_PROFILE: ${{ inputs.evidence_profile || 'standard' }}
+          VERIFIER_PLAN_SOURCE_SHA256: ${{ steps.check.outputs.plan_source_sha256 }}
         run: |
           python - <<'PY' > /tmp/state-fingerprint-inputs.json
           import hashlib
@@ -238,6 +285,9 @@ jobs:
           import urllib.request
 
           repo = os.environ["GITHUB_REPOSITORY"]
+          plan_source_sha256 = os.environ.get("VERIFIER_PLAN_SOURCE_SHA256", "")
+          if len(plan_source_sha256) != 64 or any(ch not in "0123456789abcdef" for ch in plan_source_sha256):
+              raise SystemExit("Missing or invalid verifier plan-source fingerprint")
           token = os.environ["GITHUB_TOKEN"]
           pr_number = os.environ["PR_NUMBER"]
           headers = {
@@ -284,6 +334,7 @@ jobs:
           ).hexdigest()
           payload = {
               "pr_number": int(pr_number),
+              "plan_source_sha256": plan_source_sha256,
               "head_sha": pr.get("head", {}).get("sha", ""),
               "diff_hash": diff_hash,
               "mode": os.environ.get("VERIFY_MODE", ""),

@@ -125,6 +125,7 @@
         ".github/scripts/token_load_balancer.js",
         ".github/scripts/verifier_ci_query.js",
         ".github/scripts/verifier_issue_formatter.js",
+        ".github/scripts/verifier_plan_fingerprint.js",
         ".github/scripts/verifier_verdict_json.py",
         ".github/scripts/weekly_metrics_artifacts.js",
         ".github/scripts/weekly_metrics_download_manifest.js",

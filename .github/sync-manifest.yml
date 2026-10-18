@@ -110,7 +110,7 @@ workflows:
 
   # Post-merge trusted-base execution, job-scoped permissions and declared secrets.
   - source: .github/workflows/agents-verifier.yml
-    description: "Verifier - validates acceptance criteria with standard or bounded expanded evidence/full-diff recovery; profile participates in consumer state fingerprint"
+    description: "Verifier - validates acceptance criteria with standard or bounded expanded evidence/full-diff recovery; consumer dedup binds canonical PR and linked-source Tasks/Acceptance Criteria"
 
   - source: .github/workflows/list-llm-models.yml
     description: "List LLM Models - helper to show available models for verifier"
@@ -604,6 +604,10 @@ scripts:
 
   - source: .github/scripts/verifier_verdict_json.py
     description: "Extracts structured post-merge verifier verdict JSON without trusting diff text"
+
+  - source: .github/scripts/verifier_plan_fingerprint.js
+    description: "Hashes canonical parsed Tasks/Acceptance Criteria and linked source lineage for consumer verifier deduplication"
+    delivery: copy
 
   - source: .github/scripts/agents_orchestrator_resolve.js
     description: "Resolves agent orchestrator state"

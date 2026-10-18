@@ -616,6 +616,7 @@ def test_real_manifest_compiles_every_declared_copy_entry() -> None:
     assert {
         ".github/scripts/rate_limit_receipt.js",
         ".github/scripts/rate_limit_receipt.json",
+        ".github/scripts/verifier_plan_fingerprint.js",
         "docs/CI_FAILURE_PLAYBOOK.md",
         "docs/contracts/document-identity-conventions.md",
         "docs/contracts/document-mirror-v1.md",
