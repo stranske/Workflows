@@ -148,6 +148,11 @@ test('only complete exact-head staging Gate evidence suppresses the base-refresh
     { id: 2, name: 'gate-summary', status: 'completed', conclusion: 'failure' },
     { id: 3, name: 'generated delivery seal', status: 'completed', conclusion: 'failure' },
   ];
+  const templateJobs = [
+    { id: 11, name: 'detect changed files', status: 'completed', conclusion: 'failure' },
+    { id: 12, name: 'generated delivery seal', status: 'completed', conclusion: 'failure' },
+    { id: 13, name: 'summary', status: 'completed', conclusion: 'failure' },
+  ];
   const exactReason = 'Mutable generated delivery is not mergeable: delivery_not_sealed:staging. ' +
     'Maint 71 must seal this exact head after bounded reviewer settlement.';
   const annotations = [
@@ -180,6 +185,8 @@ test('only complete exact-head staging Gate evidence suppresses the base-refresh
     deliveryRecord: { delivery_state: 'staging', head_observed_sha: head },
     classification, allChecks: [gate] };
   assert.equal(await isExpectedPresealGateFailure({ ...args, withRetry: makeRetry() }), true);
+  assert.equal(await isExpectedPresealGateFailure({ ...args,
+    withRetry: makeRetry({ jobRows: templateJobs }) }), true);
   assert.equal(canaryNeedsRefresh(refreshCanary({ check_status: 'checks_failed',
     expected_preseal_gate_hold: true }), refreshNow), null);
   assert.equal(canaryNeedsRefresh(refreshCanary({ check_status: 'checks_failed' }), refreshNow),
@@ -190,6 +197,9 @@ test('only complete exact-head staging Gate evidence suppresses the base-refresh
     makeRetry({ run: { path: 'untrusted/.github/workflows/pr-00-gate.yml' } }),
     makeRetry({ jobRows: [...jobs, { id: 4, name: 'python tests', status: 'completed',
       conclusion: 'failure' }] }),
+    makeRetry({ jobRows: [...templateJobs, { id: 14, name: 'python tests', status: 'completed',
+      conclusion: 'failure' }] }),
+    makeRetry({ jobRows: [...jobs, templateJobs[0]] }),
     makeRetry({ jobRows: [...jobs, { id: 4, name: 'python tests', status: 'completed',
       conclusion: 'timed_out' }] }),
     makeRetry({ jobRows: [...jobs, { id: 4, name: 'python tests', status: 'in_progress',

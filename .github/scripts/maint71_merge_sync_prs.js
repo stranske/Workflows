@@ -30,8 +30,11 @@ function canaryNeedsRefresh(canary, now = Date.now()) {
   return null;
 }
 
-const EXPECTED_PRESEAL_GATE_JOBS = Object.freeze([
-  'classify changed paths', 'gate-summary', 'generated delivery seal',
+const EXPECTED_PRESEAL_GATE_JOB_SETS = Object.freeze([
+  // Current consumer template.
+  Object.freeze(['detect changed files', 'generated delivery seal', 'summary']),
+  // Legacy checks still present on already-open stable canaries.
+  Object.freeze(['classify changed paths', 'gate-summary', 'generated delivery seal']),
 ]);
 const EXPECTED_PRESEAL_ANNOTATION = 'Process completed with exit code 1.';
 
@@ -90,12 +93,13 @@ async function isExpectedPresealGateFailure({
     if (!Array.isArray(jobs) || jobs.length === 0) return false;
     const failed = jobs.filter((job) => job?.status === 'completed'
       && job?.conclusion === 'failure').map((job) => String(job?.name || '').trim()).sort();
-    if (failed.length !== EXPECTED_PRESEAL_GATE_JOBS.length
-      || failed.some((name, index) => name !== EXPECTED_PRESEAL_GATE_JOBS[index])) return false;
+    const expectedJobs = EXPECTED_PRESEAL_GATE_JOB_SETS.find((names) =>
+      names.length === failed.length && names.every((name, index) => name === failed[index]));
+    if (!expectedJobs) return false;
     if (jobs.some((job) => job?.status !== 'completed'
       || !['success', 'skipped', 'neutral', 'failure'].includes(job?.conclusion)
       || (job.conclusion === 'failure'
-        && !EXPECTED_PRESEAL_GATE_JOBS.includes(String(job?.name || '').trim())))) return false;
+        && !expectedJobs.includes(String(job?.name || '').trim())))) return false;
     const sealJob = jobs.find((job) => job?.name === 'generated delivery seal'
       && job?.status === 'completed' && job?.conclusion === 'failure');
     if (!Number.isSafeInteger(Number(sealJob?.id)) || Number(sealJob.id) <= 0) return false;
