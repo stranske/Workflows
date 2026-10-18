@@ -205,32 +205,45 @@ def gate_trigger_lines(
 
     lines: list[str] = []
     checked = 0
+    all_match = True
     for repo in repos:
-        if manifest_skip_reason(entry, repo):
+        if entry.include_repos and repo not in entry.include_repos:
             continue
+        custom_gate = any(skip.repo == repo for skip in entry.skip_repos)
+        label = f"gate triggers: {repo}"
+        if custom_gate:
+            label += " (custom gate, never overwritten)"
         checked += 1
         remote = remote_trees.get(repo, {}).get(entry.target)
         if not remote or remote.get("type") != "blob" or not remote.get("sha"):
             lines.append(f"gate triggers: {repo} unknown (Gate/tree unavailable)")
+            all_match = False
             continue
         if remote["sha"] == git_blob_hash(local_bytes):
+            if custom_gate:
+                lines.append(f"{label} matches")
             continue
         text = read_blob(repo, str(remote["sha"]))
         if text is None:
             lines.append(f"gate triggers: {repo} unknown (Gate unreadable)")
+            all_match = False
             continue
         try:
             actual = gate_pull_request_types(text)
         except ValueError:
             lines.append(f"gate triggers: {repo} unknown (invalid pull_request.types)")
+            all_match = False
             continue
         extra, missing = sorted(actual - expected), sorted(expected - actual)
         if extra or missing:
-            line = f"gate triggers: {repo} extra={extra}"
+            all_match = False
+            line = f"{label} extra={extra}"
             if missing:
                 line += f" missing={missing}"
             lines.append(line)
-    if not lines:
+        elif custom_gate:
+            lines.append(f"{label} matches")
+    if all_match:
         lines.append("gate triggers: all match" if checked else "gate triggers: no eligible repos")
     return lines
 

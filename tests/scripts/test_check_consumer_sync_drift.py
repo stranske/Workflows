@@ -314,14 +314,47 @@ def test_gate_trigger_fyi_respects_exclusions_and_unknowns(tmp_path) -> None:
     }
 
     def no_fetch(*_args):
-        pytest.fail("Identical or excluded Gates must not fetch a blob")
+        pytest.fail("Identical Gates must not fetch a blob")
 
     assert check_consumer_sync_drift.gate_trigger_lines(
         ["owner/custom", "owner/match"], entry, trees, no_fetch
-    ) == ["gate triggers: all match"]
+    ) == ["gate triggers: owner/custom unknown (Gate/tree unavailable)"]
+    trees["owner/custom"] = {entry.target: {"type": "blob", "sha": "custom"}}
+    for remote, expected in [
+        (
+            "on:\n  pull_request:\n    types: [opened, labeled]\n",
+            ["gate triggers: owner/custom (custom gate, never overwritten) extra=['labeled']"],
+        ),
+        (
+            "on:\n  pull_request:\n    types: [opened]\njobs: {}\n",
+            [
+                "gate triggers: owner/custom (custom gate, never overwritten) matches",
+                "gate triggers: all match",
+            ],
+        ),
+        (None, ["gate triggers: owner/custom unknown (Gate unreadable)"]),
+        ("on: [", ["gate triggers: owner/custom unknown (invalid pull_request.types)"]),
+    ]:
+        reads = []
+
+        def read_custom(repo, sha, reads=reads, remote=remote):
+            reads.append((repo, sha))
+            return remote
+
+        assert (
+            check_consumer_sync_drift.gate_trigger_lines(
+                ["owner/custom", "owner/match"], entry, trees, read_custom
+            )
+            == expected
+        )
+        assert reads == [("owner/custom", "custom")]
+    trees["owner/custom"] = trees["owner/match"]
     assert check_consumer_sync_drift.gate_trigger_lines(
-        ["owner/custom"], entry, trees, no_fetch
-    ) == ["gate triggers: no eligible repos"]
+        ["owner/custom", "owner/match"], entry, trees, no_fetch
+    ) == [
+        "gate triggers: owner/custom (custom gate, never overwritten) matches",
+        "gate triggers: all match",
+    ]
     assert check_consumer_sync_drift.gate_trigger_lines(
         ["owner/match", "owner/missing"], entry, trees, no_fetch
     ) == ["gate triggers: owner/missing unknown (Gate/tree unavailable)"]
