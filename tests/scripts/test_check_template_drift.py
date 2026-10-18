@@ -470,6 +470,8 @@ fingerprint_refreshed = 2026-10-10
     )
     assert check_template_drift._days_since("not-a-date") is None
 
+    reviewed_age = check_template_drift._days_since("2026-10-10")
+    assert reviewed_age is not None
     summary = render_summary(
         [
             check_template_drift.PairResult("main.yml", "template.yml", "in_sync", "a", "b"),
@@ -490,7 +492,7 @@ fingerprint_refreshed = 2026-10-10
     )
     assert "unallowlisted drift: 1" in summary
     assert "pairs where divergence_reviewed == fingerprint_refreshed: 1 of 1" in summary
-    assert "7d ago" in summary
+    assert f"{reviewed_age}d ago" in summary
 
 
 def test_main_writes_summary_and_prints_allowlist_template(
