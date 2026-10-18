@@ -21,6 +21,7 @@ const {
   devToolBaseRefreshResult, ensureExactHeadReviewRequest, hasCompleteReviewThreadEvidence,
   parseReviewReassessmentRequest, runReviewReassessment, run, acceptanceCommentLocation,
   canaryNeedsRefresh, refreshStableCanaries, STALE_CANARY_HOURS,
+  isExpectedPresealGateFailure,
 } = require('../maint71_merge_sync_prs');
 
 const refreshNow = Date.parse('2026-10-17T12:00:00Z');
@@ -136,6 +137,79 @@ test('canary refresh reasons prioritize blockers over age and retain legacy time
   assert.equal(canaryNeedsRefresh(blocked, refreshNow), null);
 });
 
+test('only complete exact-head staging Gate evidence suppresses the base-refresh loop', async () => {
+  const head = 'a'.repeat(40);
+  const runId = 123456;
+  const gate = { name: 'Gate / gate', status: 'completed', conclusion: 'failure',
+    head_sha: head, details_url: `https://github.com/stranske/Ready/actions/runs/${runId}` };
+  const classification = { status: 'checks_failed', failed: [gate] };
+  const jobs = [
+    { id: 1, name: 'classify changed paths', status: 'completed', conclusion: 'failure' },
+    { id: 2, name: 'gate-summary', status: 'completed', conclusion: 'failure' },
+    { id: 3, name: 'generated delivery seal', status: 'completed', conclusion: 'failure' },
+  ];
+  const exactReason = 'Mutable generated delivery is not mergeable: delivery_not_sealed:staging. ' +
+    'Maint 71 must seal this exact head after bounded reviewer settlement.';
+  const annotations = [
+    { annotation_level: 'failure', message: exactReason },
+    { annotation_level: 'failure', message: 'Process completed with exit code 1.' },
+    { annotation_level: 'warning', message: 'The staging label remains active.' },
+  ];
+  const makeRetry = ({ run = {}, jobRows = jobs, rows = annotations, count = rows.length,
+    apiError = false, check = {} } = {}) => async (callback) => callback({
+    rest: {
+      actions: {
+        getWorkflowRun: async () => {
+          if (apiError) throw new Error('API unavailable');
+          return { data: { id: runId, head_sha: head, name: 'Gate',
+            path: '.github/workflows/pr-00-gate.yml', status: 'completed',
+            conclusion: 'failure', ...run } };
+        },
+        listJobsForWorkflowRun: async () => ({ data: { jobs: jobRows } }),
+      },
+      checks: {
+        get: async () => ({ data: { name: 'generated delivery seal', head_sha: head,
+          status: 'completed', conclusion: 'failure', app: { slug: 'github-actions' },
+          output: { annotations_count: count }, ...check } }),
+        listAnnotations: async () => ({ data: rows }),
+      },
+    },
+    paginate: async (method) => method.name === 'listJobsForWorkflowRun' ? jobRows : rows,
+  });
+  const args = { owner: 'stranske', repo: 'Ready', headSha: head, deliveryState: 'staging',
+    deliveryRecord: { delivery_state: 'staging', head_observed_sha: head },
+    classification, allChecks: [gate] };
+  assert.equal(await isExpectedPresealGateFailure({ ...args, withRetry: makeRetry() }), true);
+  assert.equal(canaryNeedsRefresh(refreshCanary({ check_status: 'checks_failed',
+    expected_preseal_gate_hold: true }), refreshNow), null);
+  assert.equal(canaryNeedsRefresh(refreshCanary({ check_status: 'checks_failed' }), refreshNow),
+    'checks_failed');
+
+  for (const withRetry of [
+    makeRetry({ run: { head_sha: 'b'.repeat(40) } }),
+    makeRetry({ run: { path: 'untrusted/.github/workflows/pr-00-gate.yml' } }),
+    makeRetry({ jobRows: [...jobs, { id: 4, name: 'python tests', status: 'completed',
+      conclusion: 'failure' }] }),
+    makeRetry({ jobRows: [...jobs, { id: 4, name: 'python tests', status: 'completed',
+      conclusion: 'timed_out' }] }),
+    makeRetry({ jobRows: [...jobs, { id: 4, name: 'python tests', status: 'in_progress',
+      conclusion: null }] }),
+    makeRetry({ rows: annotations.slice(0, 1), count: 4 }),
+    makeRetry({ rows: [...annotations, { annotation_level: 'failure', message: 'another error' }] }),
+    makeRetry({ apiError: true }),
+  ]) {
+    assert.equal(await isExpectedPresealGateFailure({ ...args, withRetry }), false);
+  }
+  assert.equal(await isExpectedPresealGateFailure({ ...args, deliveryState: 'sealed',
+    withRetry: makeRetry() }), false);
+  assert.equal(await isExpectedPresealGateFailure({ ...args,
+    deliveryRecord: { ...args.deliveryRecord, head_observed_sha: 'b'.repeat(40) },
+    withRetry: makeRetry() }), false);
+  assert.equal(await isExpectedPresealGateFailure({ ...args,
+    classification: { status: 'checks_failed', failed: [gate, { name: 'python', conclusion: 'failure' }] },
+    withRetry: makeRetry() }), false);
+});
+
 test('overlapping blockers are counted independently and dry-run cannot mutate', async () => {
   const api = refreshHarness();
   const canary = refreshCanary({ check_status: 'checks_failed', active_review_thread_count: 1,
@@ -211,6 +285,7 @@ async function assertExecutorCanaryRefresh(t, state) {
   const ageMinutes = ['stale', 'aged_green'].includes(state) ? (STALE_CANARY_HOURS + 1) * 60 : 20;
   const observed = new Date(refreshNow - ageMinutes * 60 * 1000).toISOString();
   const { formatDeliveryRecord } = require('../sync_pr_lease_contract');
+  const preseal = state === 'preseal_gate';
   const candidate = { number: 4026, title: 'chore: sync workflow templates',
     state: 'open', draft: false, auto_merge: null, user: { login: 'stranske' },
     mergeable: state !== 'stale',
@@ -226,7 +301,7 @@ async function assertExecutorCanaryRefresh(t, state) {
       durable_issue_url: 'https://github.com/stranske/Workflows/issues/1836',
       generation: 'generation', desired_tree_hash: 'tree', source_commit: source,
       head_observed_sha: head, head_observed_at: observed,
-      lease_expires_at: '2099-01-01T00:00:00Z', delivery_state: 'sealed',
+      lease_expires_at: '2099-01-01T00:00:00Z', delivery_state: preseal ? 'staging' : 'sealed',
       sealed_at: observed, sealed_head_sha: head, review_started_at: observed,
     }) };
   const dispatches = [], updates = [], summaries = [], failures = [], merges = [];
@@ -254,7 +329,17 @@ async function assertExecutorCanaryRefresh(t, state) {
       getContent: async () => { throw Object.assign(new Error('not declared'), { status: 404 }); },
       createDispatchEvent: async () => {},
     },
-    checks: { listForRef: () => {} },
+    checks: {
+      listForRef: () => {},
+      get: async () => ({ data: { name: 'generated delivery seal', head_sha: head,
+        status: 'completed', conclusion: 'failure', app: { slug: 'github-actions' },
+        output: { annotations_count: 2 } } }),
+      listAnnotations: async () => ({ data: [
+        { annotation_level: 'failure', message: 'Mutable generated delivery is not mergeable: ' +
+          'delivery_not_sealed:staging. Maint 71 must seal this exact head after bounded reviewer settlement.' },
+        { annotation_level: 'failure', message: 'Process completed with exit code 1.' },
+      ] }),
+    },
     issues: { addLabels: async () => {}, removeLabel: async () => {},
       listLabelsOnIssue: async () => ({ data: [] }),
       listComments: async () => ({ data: [{ id: 71, user: { login: 'maint71-bot' },
@@ -265,13 +350,28 @@ async function assertExecutorCanaryRefresh(t, state) {
     actions: {
       listWorkflowRuns: async () => ({ data: { workflow_runs: [] } }),
       createWorkflowDispatch: async (params) => dispatches.push(params),
+      getWorkflowRun: async () => ({ data: { id: 4027, head_sha: head, name: 'Gate',
+        path: '.github/workflows/pr-00-gate.yml', status: 'completed', conclusion: 'failure' } }),
+      listJobsForWorkflowRun: () => {},
     },
   }, paginate: async (method, params) => {
     if (method === github.rest.pulls.list) return params.state === 'open' && params.repo === repo
       ? [structuredClone(candidate)] : [];
     if (method === github.rest.checks.listForRef) return [
       { name: 'Gate / gate', status: 'completed',
-        conclusion: state === 'checks_failed' ? 'failure' : 'success' },
+        conclusion: state === 'checks_failed' || preseal ? 'failure' : 'success',
+        ...(preseal ? { head_sha: head,
+          details_url: `https://github.com/${owner}/${repo}/actions/runs/4027` } : {}) },
+    ];
+    if (method === github.rest.actions.listJobsForWorkflowRun) return [
+      { id: 1, name: 'classify changed paths', status: 'completed', conclusion: 'failure' },
+      { id: 2, name: 'gate-summary', status: 'completed', conclusion: 'failure' },
+      { id: 3, name: 'generated delivery seal', status: 'completed', conclusion: 'failure' },
+    ];
+    if (method === github.rest.checks.listAnnotations) return [
+      { annotation_level: 'failure', message: 'Mutable generated delivery is not mergeable: ' +
+        'delivery_not_sealed:staging. Maint 71 must seal this exact head after bounded reviewer settlement.' },
+      { annotation_level: 'failure', message: 'Process completed with exit code 1.' },
     ];
     throw new Error('unexpected pagination');
   }, graphql: async () => ({ repository: {
@@ -295,7 +395,9 @@ async function assertExecutorCanaryRefresh(t, state) {
     SYNC_PR_MERGE_REPORT_JSON: path.join(dir, 'report.json'),
     EVIDENCE_ONLY_INPUT: 'false', RESOLUTION_ONLY_INPUT: 'false',
     CANDIDATE_EVIDENCE_AUTHORIZED: 'true',
-    PREPARE_ONLY_INPUT: state === 'aged_green' ? 'false' : 'true' };
+    PREPARE_ONLY_INPUT: state === 'aged_green' ? 'false' : 'true',
+    ...(preseal ? { DRY_RUN_INPUT: 'true', CONSUMER_SYNC_REVIEW_POLICY_PATH:
+      path.resolve(__dirname, '../../../config/consumer_sync_review_policy.json') } : {}) };
   const original = Object.fromEntries(Object.keys(env).map((key) => [key, process.env[key]]));
   t.after(() => {
     for (const [key, value] of Object.entries(original)) {
@@ -312,6 +414,13 @@ async function assertExecutorCanaryRefresh(t, state) {
   assert.deepEqual(failures, [], JSON.stringify(report.results));
   const row = report.results.find((row) => row.owner === owner && row.repo === repo
     && (state !== 'aged_green' || row.status === 'merged'));
+  if (preseal) {
+    assert.equal(row.status, 'dry_run_seal', JSON.stringify(report.results));
+    assert.equal(report.canary_refresh.refresh_dispatched, 0);
+    assert.equal(updates.length, 0, 'the dry-run staging exception must not mutate the PR');
+    assert.equal(dispatches.length, 0);
+    return;
+  }
   if (state === 'aged_green') {
     assert.equal(row.status, 'merged', JSON.stringify(report.results));
     assert.equal(merges.length, 1);
@@ -342,6 +451,9 @@ for (const state of ['behind', 'checks_failed', 'review_blocked', 'stale']) {
   test(`executor refreshes a ${state} stable canary before early exits and preserves the head`,
     async (t) => assertExecutorCanaryRefresh(t, state));
 }
+
+test('exact pre-seal Gate failure advances only to the existing seal lifecycle', async (t) =>
+  assertExecutorCanaryRefresh(t, 'preseal_gate'));
 
 test('executor merges a green mergeable seven-hour canary without refreshing',
   async (t) => assertExecutorCanaryRefresh(t, 'aged_green'));

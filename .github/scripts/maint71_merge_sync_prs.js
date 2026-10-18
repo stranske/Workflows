@@ -17,7 +17,9 @@ const STALE_CANARY_HOURS = 6;
 // Only a successful producer observation resets the clock; comments do not.
 function canaryNeedsRefresh(canary, now = Date.now()) {
   if (canary.mergeable_state === 'behind') return 'behind';
-  if (canary.check_status === 'checks_failed') return 'checks_failed';
+  if (canary.check_status === 'checks_failed' && !canary.expected_preseal_gate_hold) {
+    return 'checks_failed';
+  }
   if (canary.active_review_thread_count > 0) return 'review_blocked';
   // Leave healthy heads on the normal exact-head merge/evidence path. Unknown
   // mergeability still goes through that path's existing fail-closed gates.
@@ -26,6 +28,101 @@ function canaryNeedsRefresh(canary, now = Date.now()) {
   const observed = Date.parse(canary.head_observed_at || canary.updated_at || canary.created_at || '');
   if (Number(now) - observed > STALE_CANARY_HOURS * 60 * 60 * 1000) return 'stale';
   return null;
+}
+
+const EXPECTED_PRESEAL_GATE_JOBS = Object.freeze([
+  'classify changed paths', 'gate-summary', 'generated delivery seal',
+]);
+const EXPECTED_PRESEAL_ANNOTATION = 'Process completed with exit code 1.';
+
+function workflowRunIdFromUrl(value, owner, repo) {
+  try {
+    const url = new URL(String(value || ''));
+    if (url.hostname !== 'github.com'
+      || url.pathname.split('/').slice(1, 3).join('/') !== `${owner}/${repo}`) return 0;
+    const match = url.pathname.match(/\/actions\/runs\/(\d+)(?:\/|$)/);
+    return match ? Number(match[1]) : 0;
+  } catch {
+    return 0;
+  }
+}
+
+// This recognizes only the exact-head staging/reviewing seal hold so the
+// existing lifecycle can run. The classifier check exposes only a generic
+// process-exit annotation, so a concurrent classifier error may also advance
+// to sealing; the raw checks remain failed and only a fresh post-seal Gate can
+// authorize the existing merge path.
+async function isExpectedPresealGateFailure({
+  owner, repo, headSha, deliveryRecord, deliveryState, classification, allChecks, withRetry,
+}) {
+  if (!['staging', 'reviewing'].includes(deliveryState)
+    || !/^[a-f0-9]{40}$/i.test(String(headSha || ''))
+    || deliveryRecord?.delivery_state !== deliveryState
+    || String(deliveryRecord?.head_observed_sha || '').toLowerCase() !== headSha.toLowerCase()
+    || classification?.status !== 'checks_failed'
+    || !Array.isArray(classification.failed) || classification.failed.length !== 1
+    || String(classification.failed[0]?.name || '').trim() !== 'Gate / gate'
+    || String(classification.failed[0]?.conclusion || '').toLowerCase() !== 'failure') {
+    return false;
+  }
+  const gateCheck = (allChecks || []).find((check) => check === classification.failed[0]
+    || (String(check?.name || '').trim() === 'Gate / gate'
+      && String(check?.head_sha || '').toLowerCase() === headSha.toLowerCase()
+      && String(check?.conclusion || '').toLowerCase() === 'failure'));
+  const runId = workflowRunIdFromUrl(
+    gateCheck?.details_url || gateCheck?.html_url, owner, repo,
+  );
+  if (!runId) return false;
+  try {
+    const { data: run } = await withRetry((client) => client.rest.actions.getWorkflowRun({
+      owner, repo, run_id: runId,
+    }));
+    if (Number(run?.id) !== runId
+      || String(run?.head_sha || '').toLowerCase() !== headSha.toLowerCase()
+      || String(run?.name || '').trim() !== 'Gate'
+      || String(run?.path || '') !== '.github/workflows/pr-00-gate.yml'
+      || run?.status !== 'completed' || run?.conclusion !== 'failure') return false;
+
+    const jobs = await withRetry((client) => client.paginate(
+      client.rest.actions.listJobsForWorkflowRun,
+      { owner, repo, run_id: runId, per_page: 100 },
+    ));
+    if (!Array.isArray(jobs) || jobs.length === 0) return false;
+    const failed = jobs.filter((job) => job?.status === 'completed'
+      && job?.conclusion === 'failure').map((job) => String(job?.name || '').trim()).sort();
+    if (failed.length !== EXPECTED_PRESEAL_GATE_JOBS.length
+      || failed.some((name, index) => name !== EXPECTED_PRESEAL_GATE_JOBS[index])) return false;
+    if (jobs.some((job) => job?.status !== 'completed'
+      || !['success', 'skipped', 'neutral', 'failure'].includes(job?.conclusion)
+      || (job.conclusion === 'failure'
+        && !EXPECTED_PRESEAL_GATE_JOBS.includes(String(job?.name || '').trim())))) return false;
+    const sealJob = jobs.find((job) => job?.name === 'generated delivery seal'
+      && job?.status === 'completed' && job?.conclusion === 'failure');
+    if (!Number.isSafeInteger(Number(sealJob?.id)) || Number(sealJob.id) <= 0) return false;
+
+    const { data: sealCheck } = await withRetry((client) => client.rest.checks.get({
+      owner, repo, check_run_id: Number(sealJob.id),
+    }));
+    if (String(sealCheck?.name || '').trim() !== 'generated delivery seal'
+      || String(sealCheck?.head_sha || '').toLowerCase() !== headSha.toLowerCase()
+      || sealCheck?.status !== 'completed' || sealCheck?.conclusion !== 'failure'
+      || String(sealCheck?.app?.slug || '').toLowerCase() !== 'github-actions'
+      || !Number.isSafeInteger(sealCheck?.output?.annotations_count)) return false;
+    const annotations = await withRetry((client) => client.paginate(
+      client.rest.checks.listAnnotations,
+      { owner, repo, check_run_id: Number(sealJob.id), per_page: 100 },
+    ));
+    if (!Array.isArray(annotations)
+      || annotations.length !== sealCheck.output.annotations_count) return false;
+    const failures = annotations.filter((row) => row?.annotation_level === 'failure');
+    const exactReason = `Mutable generated delivery is not mergeable: delivery_not_sealed:${deliveryState}. Maint 71 must seal this exact head after bounded reviewer settlement.`;
+    if (failures.filter((row) => String(row?.message || '').trim() === exactReason).length !== 1
+      || failures.some((row) => ![exactReason, EXPECTED_PRESEAL_ANNOTATION]
+        .includes(String(row?.message || '').trim()))) return false;
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 async function routeCanaryReviewUpstream({ canary, manifestEntries, withRetry, context }) {
@@ -3430,8 +3527,17 @@ async function run({ github, context, core }) {
       if (stableDelivery && !recoveredMergedCandidate
         && expectedCanaryRepos.includes(`${owner}/${repo}`)
         && metadata?.sync_phase === 'canary') {
+        // This only lets the existing staging/reviewing lifecycle advance to
+        // sealing. The failure stays in `classification`; after sealing, this
+        // exact-state predicate no longer matches, so the fresh Gate must pass
+        // before any merge path can proceed.
+        const expectedPresealGateHold = classification.status === 'checks_failed'
+          && await isExpectedPresealGateFailure({ owner, repo, headSha: pr.head.sha,
+            deliveryRecord, deliveryState: deliveryRecord?.delivery_state, classification, allChecks,
+            withRetry });
         const canary = { owner, repo, pr: pr.number, plan_id: deliveryContext.plan_id,
           mergeable_state: pr.mergeable_state, mergeable: pr.mergeable, check_status: classification.status,
+          expected_preseal_gate_hold: expectedPresealGateHold,
           active_review_thread_count: activeReviewThreads,
           head_observed_at: deliveryRecord?.head_observed_at,
           updated_at: pr.updated_at, created_at: pr.created_at,
@@ -4442,6 +4548,7 @@ async function run({ github, context, core }) {
 module.exports = {
   STALE_CANARY_HOURS,
   canaryNeedsRefresh,
+  isExpectedPresealGateFailure,
   refreshStableCanaries,
   routeCanaryReviewUpstream,
   buildCanaryPromotionEvidence,
