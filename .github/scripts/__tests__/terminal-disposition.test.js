@@ -209,20 +209,21 @@ test('settlement evidence overrides unsafe PASS and no-op ledger hints', () => {
   const base = { should_run: true, context_outcome: 'success', settlement_outcome: 'success',
     verifier_outcome: 'success', verdict: 'PASS', terminal_state: 'verified-pass',
     followup_policy: { action: 'no-op' }, pr_number: 7 };
+  // Six-case acceptance matrix plus interrupted settlement after a skipped settle step.
   const cases = [
-    [{ context_outcome: 'failure', should_run: '' }, 'error', 'needs-human', true, 'needs-human'],
-    [{ should_run: false }, 'skipped', 'skipped', false, 'skip-follow-up'],
-    [{ verdict: '' }, 'error', 'needs-human', true, 'needs-human'],
-    [{ verifier_outcome: 'failure' }, 'error', 'needs-human', true, 'needs-human'],
-    [{}, 'pass', 'merge', false, 'no-op'],
-    [{ ci_failed: true }, 'concerns', 'needs-human', true, 'needs-human'],
-    [{ settlement_outcome: 'skipped' }, 'error', 'needs-human', true, 'needs-human'],
+    ['missing-context', { context_outcome: 'failure', should_run: '' }, 'error', 'needs-human', true, 'needs-human'],
+    ['explicit-ineligibility', { should_run: false }, 'skipped', 'skipped', false, 'skip-follow-up'],
+    ['eligible-missing-verdict', { verdict: '' }, 'error', 'needs-human', true, 'needs-human'],
+    ['provider-error', { verifier_outcome: 'failure' }, 'error', 'needs-human', true, 'needs-human'],
+    ['normal-pass', {}, 'pass', 'merge', false, 'no-op'],
+    ['ci-floored-pass', { ci_failed: true }, 'concerns', 'needs-human', true, 'needs-human'],
+    ['settlement-skipped', { settlement_outcome: 'skipped' }, 'error', 'needs-human', true, 'needs-human'],
   ];
-  for (const [patch, verdict, disposition, human, action] of cases) {
+  for (const [label, patch, verdict, disposition, human, action] of cases) {
     const record = normalizeVerifierFollowupLedger({ ...base, ...patch });
-    assert.equal(record.verdict.toLowerCase(), verdict);
-    assert.equal(record.disposition, disposition);
-    assert.equal(record.needs_human, human);
-    assert.equal(record.followup_policy.action, action);
+    assert.equal(record.verdict.toLowerCase(), verdict, label);
+    assert.equal(record.disposition, disposition, label);
+    assert.equal(record.needs_human, human, label);
+    assert.equal(record.followup_policy.action, action, label);
   }
 });

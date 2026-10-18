@@ -571,3 +571,92 @@ def test_terminal_sinks_refuse_incomplete_or_unfloored_evidence(tmp_path: Path, 
     assert result["record"]["needs_human"] is True
     assert result["ledger"]["disposition"] == "needs-human"
     assert result["ledger"]["followup_policy"]["action"] == "needs-human"
+
+
+_RAW_VERDICT_FALLBACK = """\
+          VERDICT: >-
+            ${{
+              steps.unified_verdict.outputs.verdict ||
+              steps.verdict.outputs.verdict ||
+              steps.llm_evaluate.outputs.verdict ||
+              steps.llm_compare.outputs.verdict
+            }}"""
+
+_SETTLED_VERDICT_ONLY = "          VERDICT: ${{ steps.unified_verdict.outputs.verdict }}"
+_SETTLEMENT_ALWAYS = (
+    "        if: always() && steps.context.outputs.should_run == 'true'\n"
+    "        env:\n"
+    "          VERIFIER_MODE: ${{ inputs.mode }}"
+)
+_SETTLEMENT_IMPLICIT_SUCCESS = (
+    "        if: steps.context.outputs.should_run == 'true'\n"
+    "        env:\n"
+    "          VERIFIER_MODE: ${{ inputs.mode }}"
+)
+
+
+@_needs_node
+def test_deliberate_break_restored_raw_verdict_fallback_then_restore() -> None:
+    """Acceptance deliberate-break: restore the pre-fix skip+fallback path.
+
+    Recreate the interrupted-upload failure mode by (1) dropping ``always()``
+    so a failed preceding upload skips settlement and (2) restoring the raw
+    VERDICT ``||`` fallback. The failed-upload suite must then fail; byte-exact
+    restoration must pass again.
+
+    Named to avoid the selftest smoke ``-k failed_upload`` filter, which must
+    not mutate the workflow under a hosted controlled-failure run.
+    """
+    workflow = ROOT / ".github/workflows/reusable-agents-verifier.yml"
+    original = workflow.read_bytes()
+    target = "failed_upload_ci_floor_reaches_all_sinks"
+    try:
+        text = original.decode()
+        assert _SETTLED_VERDICT_ONLY in text
+        assert _SETTLEMENT_ALWAYS in text
+        broken = text.replace(_SETTLEMENT_ALWAYS, _SETTLEMENT_IMPLICIT_SUCCESS, 1)
+        broken = broken.replace(_SETTLED_VERDICT_ONLY, _RAW_VERDICT_FALLBACK, 1)
+        assert broken != text
+        workflow.write_text(broken)
+
+        broken_run = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "pytest",
+                "-q",
+                "-o",
+                "addopts=",
+                str(Path(__file__).resolve()),
+                "-k",
+                target,
+            ],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        assert broken_run.returncode != 0, broken_run.stdout + broken_run.stderr
+        assert "FAILED" in broken_run.stdout or "failed" in broken_run.stdout
+    finally:
+        workflow.write_bytes(original)
+
+    assert workflow.read_bytes() == original
+    restored_run = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "pytest",
+            "-q",
+            "-o",
+            "addopts=",
+            str(Path(__file__).resolve()),
+            "-k",
+            target,
+        ],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert restored_run.returncode == 0, restored_run.stdout + restored_run.stderr
