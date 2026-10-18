@@ -354,3 +354,21 @@ def test_worker_checks_evidence_before_done_and_gates_persistence(workflow_path:
     assert "steps.ledger_finalize.outcome == 'success'" in workflow
     assert "steps.ledger_final_validation.outcome == 'success'" in workflow
     assert "Belt task counts:" not in workflow  # rendered by the shared helper
+
+
+@pytest.mark.parametrize("title", ["Update `source.py`.", "Update `./source.py`."])
+def test_preexisting_unchanged_artifact_cannot_complete(tmp_path: Path, title: str) -> None:
+    repo = _repo(tmp_path)
+    (repo / "source.py").write_text("VALUE = 1\n")
+    _commit(repo, "initial artifact")
+    (repo / "other.py").write_text("OTHER = 1\n")
+    unrelated = _commit(repo, "unrelated substantive change")
+    task = _task()
+    task["title"] = title
+    assert any(
+        "missing named artifact" in error
+        for error in completion_errors(task, unrelated, repo_root=repo)
+    )
+    (repo / "source.py").write_text("VALUE = 2\n")
+    changed = _commit(repo, "update artifact")
+    assert completion_errors(task, changed, repo_root=repo) == []

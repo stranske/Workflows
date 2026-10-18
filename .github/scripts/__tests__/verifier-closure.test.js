@@ -12,7 +12,7 @@ const ci = [{ head_sha: mergeSha, conclusion: 'success' }];
 const input = { verdict: 'UNVERIFIABLE_INPUT', mergeSha, plan, result, ci, currentBody: body };
 
 test('PASS closes; incomplete input closes only with exact merge gate and CI PASS', () => {
-  assert.equal(closingRule({ ...input, verdict: 'PASS', result: undefined, ci: [] }), 'verifier-pass');
+  assert.equal(closingRule({ ...input, verdict: 'PASS', result: undefined }), 'verifier-pass');
   assert.equal(closingRule(input), 'unverifiable-input+gate+ci');
 });
 
@@ -78,3 +78,13 @@ for (const conclusion of ['skipped', 'in_progress', 'queued', 'unknown', null]) 
 test('PASS permits explicitly optional skipped CI', () => {
   assert.equal(closingRule({ ...input, verdict: 'PASS', ci: [{head_sha: mergeSha, conclusion: 'skipped', required: false}] }), 'verifier-pass');
 });
+
+for (const [name, ci] of Object.entries({
+  absent: undefined, empty: [], foreign: [{head_sha: 'b'.repeat(40), conclusion: 'success'}],
+  mixed: [{head_sha: mergeSha, conclusion: 'success'}, {head_sha: 'b'.repeat(40), conclusion: 'success'}],
+  queryError: [{head_sha: mergeSha, conclusion: 'success', error_category: 'api_error'}],
+})) {
+  test(`PASS retains source with ${name} CI evidence`, () => {
+    assert.equal(closingRule({...input, verdict: 'PASS', ci}), null);
+  });
+}

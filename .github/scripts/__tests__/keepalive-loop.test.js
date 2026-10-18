@@ -734,6 +734,9 @@ test('deterministic evidence requires current head and live source commands', as
     { ...plan.commands[0], exit_code: 0, output: '1 passed' },
   ] } };
   assert.equal((await acceptanceGatePlan({ github, context, pr, state })).complete, true);
+  source = source.replace('passes', 'passes with every permission enforced');
+  assert.equal((await acceptanceGatePlan({ github, context, pr, state })).complete, false);
+  source = source.replace('passes with every permission enforced', 'passes');
   pr.head.sha = 'new-head';
   assert.equal((await acceptanceGatePlan({ github, context, pr, state })).complete, false);
   pr.head.sha = 'gate-head';

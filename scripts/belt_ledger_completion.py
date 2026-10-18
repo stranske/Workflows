@@ -183,7 +183,15 @@ def completion_issues(
     missing = [
         path
         for path in task_artifacts(task)
-        if not commit_has_path(commit, path, repo_root=repo_root)
+        if not any(
+            (
+                changed == path.removeprefix("./")
+                if path.startswith("./") or "/" in path
+                else PurePosixPath(changed).name == path
+            )
+            for changed in substantive
+        )
+        or not commit_has_path(commit, path, repo_root=repo_root)
     ]
     if missing:
         issues.append(
