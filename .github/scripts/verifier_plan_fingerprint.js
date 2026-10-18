@@ -78,13 +78,20 @@ async function verifierPlanSourceFingerprint({ github, withRetry, owner, repo, p
     throw new Error('Verifier plan-source fingerprint requires the token-aware API wrapper.');
   }
   const pullNumber = Number(pull?.number);
-  if (!Number.isSafeInteger(pullNumber) || pullNumber <= 0 || typeof pull?.body !== 'string') {
+  if (
+    !Number.isSafeInteger(pullNumber) || pullNumber <= 0 ||
+    !(typeof pull?.body === 'string' || pull?.body === null)
+  ) {
     throw new Error('Verifier plan-source fingerprint requires a fresh pull request body.');
   }
 
-  const sourceContext = resolvePrSourceContext(pull);
+  // GitHub's REST API represents an absent PR description as null. Normalize
+  // that documented value to the empty body while still rejecting omitted or
+  // malformed body fields, which can indicate a stale/incomplete API response.
+  const pullBody = pull.body === null ? '' : pull.body;
+  const sourceContext = resolvePrSourceContext({ ...pull, body: pullBody });
   const repository = `${owner}/${repo}`;
-  const pullSource = planSourceRow('pull_request', repository, pullNumber, pull.title, pull.body);
+  const pullSource = planSourceRow('pull_request', repository, pullNumber, pull.title, pullBody);
   const discovery = await fetchClosingIssueSources({ github, withRetry, owner, repo, pullNumber });
   if (discovery.repository !== repository) {
     throw new Error('Verifier plan-source fingerprint repository binding changed.');

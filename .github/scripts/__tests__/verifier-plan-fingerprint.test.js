@@ -117,6 +117,39 @@ test('a known non-closing source issue is included and validated', async () => {
   assert.notEqual(first, changed);
 });
 
+test('null PR body is empty content while linked source criteria still affect the digest', async () => {
+  const issue = (body) => ({
+    number: 4056,
+    title: 'Source criteria',
+    body,
+    repository: { nameWithOwner: 'stranske/Orchestrator' },
+  });
+  const sourcePull = pull(null, { title: 'Fix #4056' });
+  const first = await fingerprint({
+    github: githubMock([issue('## Tasks\n- [ ] Implement fix.\n\n## Acceptance Criteria\n- [ ] Verify behavior.')]),
+    owner: 'stranske', repo: 'Orchestrator', pull: sourcePull,
+  });
+  const changed = await fingerprint({
+    github: githubMock([issue('## Tasks\n- [ ] Implement fix.\n\n## Acceptance Criteria\n- [ ] Verify behavior and regression.')]),
+    owner: 'stranske', repo: 'Orchestrator', pull: sourcePull,
+  });
+  assert.notEqual(first, changed);
+});
+
+test('missing PR body remains invalid instead of being treated as empty', async () => {
+  const malformedPull = pull(undefined);
+  delete malformedPull.body;
+  await assert.rejects(
+    fingerprint({
+      github: githubMock(),
+      owner: 'stranske',
+      repo: 'Orchestrator',
+      pull: malformedPull,
+    }),
+    /requires a fresh pull request body/,
+  );
+});
+
 test('incomplete linked-issue pagination fails closed instead of hashing a partial source set', async () => {
   const github = githubMock();
   github.graphql = async () => ({
