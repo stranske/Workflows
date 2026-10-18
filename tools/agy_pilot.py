@@ -42,6 +42,7 @@ from tools.run_judge_backend_screen import _clean_env, _contains_tool_event, _in
 
 ROOT = Path(__file__).resolve().parent.parent
 SCHEMA = "workflows-agy-pilot/v1"
+QUOTA_ERROR = "agy quota exhausted"
 LINE_TOLERANCE = 1
 
 _SWAPS = {
@@ -321,6 +322,11 @@ def run_pilot(
     )
     calls, scores = [], []
     for group in groups:
+        if any((c.error or "").startswith(QUOTA_ERROR) for c in calls):
+            calls.append(ModelCall(error=calls[-1].error))  # exhausted: record, do not call again
+            for target in group:
+                scores.append({"module": target.name, "usable": False, "seeded": 0, "mutants": 0})
+            continue
         if kind == "audit":
             items = [(t.name, apply_all(t.source, t.mutants)) for t in group]
             call = backend(audit_prompt(items))
@@ -442,6 +448,11 @@ def agy_backend(model: str, timeout: int = 480, agy: str = "agy") -> Backend:
                 (event for event in reversed(events) if event.get("event") == "result"), {}
             )
             envelope = result.get("result") if isinstance(result.get("result"), dict) else {}
+            failure = str(envelope.get("error") or "")
+            if envelope.get("status") == "ERROR" and (
+                "quota" in failure.lower() or "RESOURCE_EXHAUSTED" in run.stderr
+            ):
+                return ModelCall(error=f"{QUOTA_ERROR}: {failure[:120]}", latency_ms=_ms(started))
             if envelope.get("denied_actions"):
                 return ModelCall(
                     error="agy attempted a denied tool action", latency_ms=_ms(started)

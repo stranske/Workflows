@@ -214,6 +214,14 @@ every real call came back empty. The backend now speaks agy 1.4.0's real shape
 (`{"event":"user","message":{"content":...}}` in, `{"event":"result","result":{...}}` out), a denied tool
 action is an error not an answer, and a test pins the real shape through a fake executable.
 
+**The seat's weekly quota is real, and we reached it (2026-10-18).** After the two pilot rounds and the
+replays, agy answered `Individual quota reached ... Resets in 132h` (HTTP 429, RESOURCE_EXHAUSTED). This
+replaces the earlier "real limits unknown" with a measurement: roughly 60 pilot and replay calls of 10k to
+22k input tokens each, on top of normal Orchestrator use, exhausted the weekly allowance. The harness used
+to report this as an "empty response"; it now names it, stops spending, and records the remaining items as
+unusable. Larger pilots (30 replayed experiments, 8 audit modules) wait for the reset; plan them as part
+of the drain queue (option 2) so they spend only leftover capacity.
+
 Option 6 (batching) is not a separate project: its number is units per item, batched against single,
 reported by pilots 3 and 5.
 
