@@ -949,6 +949,7 @@ def test_optimizer_helpers_preserve_usable_data_and_cap_overflow() -> None:
         [
             "## Tasks",
             "- [ ] First task",
+            "  - [ ] Retained detail",
             "- [ ] Second task",
             "  - [ ] Nested detail",
             "## Acceptance Criteria",
@@ -958,7 +959,8 @@ def test_optimizer_helpers_preserve_usable_data_and_cap_overflow() -> None:
     capped = issue_optimizer._cap_section_items(source, "## Tasks", 1, kind="tasks")
     assert "- [ ] First task" in capped
     assert "- [ ] Second task" not in capped
-    assert "  - [ ] Nested detail" in capped
+    assert "  - [ ] Retained detail" in capped
+    assert "  - [ ] Nested detail" not in capped
     assert task_decomposer.elision_sentinel(1, kind="tasks") in capped
     assert issue_optimizer._cap_section_items(source, "## Missing", 1, kind="tasks") == source
 
@@ -1292,11 +1294,20 @@ def test_structural_helpers_handle_empty_sections_sentinels_and_invalid_entries(
     deferred = issue_optimizer._append_deferred_tasks(
         body, {"blocked_tasks": [{"task": "Ask human"}]}
     )
+    updated = issue_optimizer._append_deferred_tasks(
+        deferred + "\n\n## Notes\nPreserve this section",
+        {"blocked_tasks": [{"task": "Different task"}]},
+    )
+    assert updated.count("## Deferred Tasks (Requires Human)") == 1
+    assert "- [ ] Ask human" in updated
+    assert "- [ ] Different task" in updated
+    assert updated.index("Different task") < updated.index("## Notes")
+    assert updated.endswith("Preserve this section")
     assert (
         issue_optimizer._append_deferred_tasks(
-            deferred, {"blocked_tasks": [{"task": "Different task"}]}
+            updated, {"blocked_tasks": [{"task": "Different task"}]}
         )
-        == deferred
+        == updated
     )
 
 

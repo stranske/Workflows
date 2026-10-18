@@ -835,13 +835,15 @@ def _cap_checkbox_lines(lines: list[str], max_items: int, *, kind: str) -> tuple
 
     Top-level checkbox items beyond the cap are dropped and a single explicit
     elision sentinel is appended so the no-silent-loss audit still reconciles.
-    Nested sub-task lines, blank lines, and existing sentinels are preserved as
-    structure and do not count toward the cap. Returns ``(new_lines, elided)``.
+    Nested lines remain with their retained parent, or are elided with it.
+    Blank lines and existing sentinels do not count toward the cap.
+    Returns ``(new_lines, elided)``.
     """
     decomposer = _decomposer_module()
     kept: list[str] = []
     top_level_count = 0
     elided = 0
+    dropping_parent = False
     for line in lines:
         stripped = line.strip()
         indent = line[: len(line) - len(line.lstrip())]
@@ -851,13 +853,19 @@ def _cap_checkbox_lines(lines: list[str], max_items: int, *, kind: str) -> tuple
             and not decomposer.is_elision_sentinel(stripped)
         )
         if not is_top_checkbox:
+            if indent and dropping_parent:
+                continue
+            if stripped and not indent:
+                dropping_parent = False
             kept.append(line)
             continue
         if top_level_count < max_items:
             kept.append(line)
             top_level_count += 1
+            dropping_parent = False
         else:
             elided += 1
+            dropping_parent = True
     if elided:
         kept.append(f"- [ ] {decomposer.elision_sentinel(elided, kind=kind)}")
     return kept, elided
@@ -1172,8 +1180,22 @@ def _append_deferred_tasks(formatted_body: str, suggestions: dict[str, Any]) -> 
     if not blocked_lines:
         return formatted_body
     header = "## Deferred Tasks (Requires Human)"
-    if header in formatted_body:
-        return formatted_body
+    lines = formatted_body.splitlines()
+    bounds = _section_bounds(lines, header)
+    if bounds is not None:
+        header_idx, end_idx = bounds
+        existing = {line.strip() for line in lines[header_idx + 1 : end_idx]}
+        additions = []
+        for line in blocked_lines:
+            if line.strip() not in existing:
+                additions.append(line)
+                existing.add(line.strip())
+        if not additions:
+            return formatted_body
+        insertion = end_idx
+        while insertion > header_idx + 1 and not lines[insertion - 1].strip():
+            insertion -= 1
+        return "\n".join(lines[:insertion] + additions + [""] + lines[end_idx:]).strip()
     parts = [
         formatted_body.rstrip(),
         "",
