@@ -324,9 +324,7 @@ def test_selected_profile_reaches_python_process(tmp_path, step_id, profile):
                 resolved[key] = (
                     profile
                     if value == "${{ inputs.evidence_profile }}"
-                    else step_id.removeprefix("llm_")
-                    if value == "${{ inputs.mode }}"
-                    else ""
+                    else step_id.removeprefix("llm_") if value == "${{ inputs.mode }}" else ""
                 )
         return resolved
 
