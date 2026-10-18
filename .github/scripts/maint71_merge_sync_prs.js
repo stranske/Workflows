@@ -738,7 +738,7 @@ function normalizeReviewPolicy(policy = {}) {
 }
 
 // Recover the PR-event checks; dispatch alone skips Gate's PR-only jobs.
-async function requestSealedGate({ owner, repo, pr, withRetry, sealedAt }) {
+async function evaluateSealedGate({ owner, repo, pr, withRetry, sealedAt }) {
   const identity = `seal: ${owner}/${repo}#${pr.number}`;
   const query = { owner, repo, workflow_id: 'pr-00-gate.yml',
     head_sha: pr.head?.sha, per_page: 100 };
@@ -826,6 +826,97 @@ async function requestSealedGate({ owner, repo, pr, withRetry, sealedAt }) {
     console.log(`${identity} gate request failed: ${status} ${reason}`);
     return receipt({ mode: 'failed', status, reason });
   }
+}
+
+// Maint 71 and Maint 68 share the stable-writer mutex. Claim before dispatch:
+// an ambiguous API response must never cause a second regeneration of this head.
+async function requestForcedSealRestage({ owner, repo, pr, withRetry, context }) {
+  const identity = `seal: ${owner}/${repo}#${pr.number}`;
+  const marker = `<!-- maint71-forced-restage:${owner}/${repo}:${pr.head.sha} -->`;
+  const { data: current } = await withRetry(client => client.rest.pulls.get({
+    owner, repo, pull_number: pr.number,
+  }));
+  if (current.state !== 'open' || current.head?.sha !== pr.head.sha) {
+    return { state: 'head-changed' };
+  }
+  const { data: writer } = await withRetry(client => client.rest.users.getAuthenticated());
+  if (!writer?.login) throw new Error('Forced restage writer identity is unknown');
+  for (let page = 1; ; page++) {
+    const { data: comments } = await withRetry(client => client.rest.issues.listComments({
+      owner, repo, issue_number: pr.number, per_page: 100, page,
+    }));
+    if (!Array.isArray(comments)) throw new Error('Forced restage history unreadable');
+    if (comments.some(row => row.user?.login === writer.login && String(row.body || '').includes(marker))) {
+      return { state: 'already-requested' };
+    }
+    if (comments.length < 100) break;
+    if (page === 20) throw new Error('Forced restage history truncated');
+  }
+  const phase = pr.head.ref === 'sync/workflows-candidate' ? 'canary'
+    : pr.head.ref === 'sync/workflows-delivery' ? 'promote' : null;
+  if (!phase) throw new Error('Forced restage requires a stable delivery branch');
+  const { parseDeliveryRecord } = require('./sync_pr_lease_contract');
+  const record = parseDeliveryRecord(current.body || '');
+  if (!record?.source_commit) throw new Error('Forced restage requires a bound delivery record');
+  const inputs = { repos: `${owner}/${repo}`, phase, force: 'true', dry_run: 'false',
+    scope_head_sha: record.source_commit, delivery_scope: 'full' };
+  const { data: commit } = await withRetry(client => client.rest.repos.getCommit({
+    owner, repo, ref: pr.head.sha,
+  }));
+  if (commit?.commit?.verification?.verified !== true
+      || commit.commit.verification.reason !== 'valid') {
+    throw new Error('Forced restage requires a verified generated head');
+  }
+  const message = commit.commit.message || '';
+  if (/^Plan scope: source-delta$/m.test(message)) {
+    const base = message.match(/^Scope base SHA: ([a-f0-9]{40})$/m)?.[1];
+    if (!base) throw new Error('Forced restage source-delta base is missing');
+    inputs.delivery_scope = 'source-delta';
+    inputs.scope_base_sha = base;
+  }
+  if (phase === 'promote') {
+    const { parsePromotionEvidenceFromCommitMessage } = require('./sync_pr_merge_contract');
+    const evidence = parsePromotionEvidenceFromCommitMessage(commit?.commit?.message);
+    if (!commit?.commit?.verification?.verified || !evidence) {
+      throw new Error('Forced promotion restage requires verified head canary evidence');
+    }
+    inputs.canary_evidence_json = JSON.stringify(evidence);
+    inputs.delivery_scope = 'auto';
+  }
+  await withRetry(client => client.rest.issues.createComment({ owner, repo, issue_number: pr.number,
+    body: `${marker}\nForced restage claimed for refused PR Gate on ${pr.head.sha}.`,
+  }), { maxRetries: 0 });
+  const query = { owner: context.repo.owner, repo: context.repo.repo,
+    workflow_id: 'maint-68-sync-consumer-repos.yml' };
+  const requestedAt = Date.now();
+  // Do not retry a non-idempotent dispatch after an ambiguous response.
+  await withRetry(client => client.rest.actions.createWorkflowDispatch({ ...query,
+    ref: context.payload.repository?.default_branch || 'main', inputs,
+  }), { maxRetries: 0 });
+  const { data } = await withRetry(client => client.rest.actions.listWorkflowRuns({
+    ...query, event: 'workflow_dispatch', per_page: 100,
+  }));
+  const run = data?.workflow_runs?.filter(row => row.id && row.event === 'workflow_dispatch'
+    && row.head_branch === (context.payload.repository?.default_branch || 'main')
+    && Date.parse(row.created_at) >= Math.floor(requestedAt / 1000) * 1000
+    && String(row.display_title || '').includes(phase === 'canary'
+      ? `candidates=${owner}/${repo} ` : ` ${record.plan_id} ${record.source_commit}`))
+    .sort((a, b) => Number(b.id) - Number(a.id))[0];
+  console.log(`${identity} rerun refused; forced restage requested run=${run?.id || 'unknown'}`);
+  return { state: 'requested', run_id: run?.id || null, head_sha: pr.head.sha };
+}
+
+async function requestSealedGate(args) {
+  const result = await evaluateSealedGate(args);
+  if (result.blocked === 'rerun-refused' && args.context) {
+    try {
+      result.forced_restage = await requestForcedSealRestage(args);
+    } catch (error) {
+      result.forced_restage = { state: 'failed', reason: error.message };
+      console.log(`seal: ${args.owner}/${args.repo}#${args.pr.number} forced restage failed: ${error.message}`);
+    }
+  }
+  return result;
 }
 
 // This prepares the exact delivery for consumer CI; it is not a PASS or merge.
@@ -3057,7 +3148,7 @@ async function run({ github, context, core }) {
       issue_number: pr.number,
       labels: ['sync:delivery-ready'],
     }));
-    const gateRequest = await requestSealedGate({ owner, repo, pr, withRetry, sealedAt });
+    const gateRequest = await requestSealedGate({ owner, repo, pr, withRetry, sealedAt, context });
     return { sealedAt, reviewEvidence, body, gateRequest, dryRun: false };
   }
 
@@ -4433,7 +4524,7 @@ async function run({ github, context, core }) {
         // All restage/readiness/reviewer decisions precede recovery. This
         // applies equally to candidate and promoted delivery branches.
         const gateRequest = autoMerge && !dryRun
-          ? await requestSealedGate({ owner, repo, pr, withRetry, sealedAt: deliveryRecord.sealed_at })
+          ? await requestSealedGate({ owner, repo, pr, withRetry, sealedAt: deliveryRecord.sealed_at, context })
           : undefined;
         if (expectedPresealGateHold || gateRequest?.blocked || (gateRequest && gateRequest.mode !== 'existing')) {
           if (canary) canary.seal_state = gateRequest?.blocked ? 'blocked(rerun-refused)' : 'sealed';

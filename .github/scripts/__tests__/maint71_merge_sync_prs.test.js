@@ -929,8 +929,13 @@ test('Maint 68 verified unchanged-tree run resets producer observation without c
     fi
     echo "RESULT:$head_observed_sha:$head_observed_at:$delivery_state:$sealed_at:$matching_existing"
   `;
-  const output = require('node:child_process').execFileSync('bash', ['-c', script], { encoding: 'utf8' });
+  const output = require('node:child_process').execFileSync('bash', ['-c', script], { encoding: 'utf8', env: { ...process.env, FORCE: 'false' } });
   assert.match(output, /RESULT:unchanged:2026-10-17T12:00:00Z:sealed:prior:true/);
+  const forcedOutput = require('node:child_process').execFileSync('bash', ['-c', script], {
+    encoding: 'utf8', env: { ...process.env, FORCE: 'true' },
+  });
+  assert.match(forcedOutput, /RESULT:unchanged:2026-10-17T05:00:00Z:sealed:prior:false/,
+    'force must leave matching_existing false so the signed payload is regenerated');
 });
 
 test('native proof comments are read from the consumer while independent proof comments stay in Workflows', () => {
@@ -2298,3 +2303,77 @@ test('Maint 68 force authorizes mutation without consulting an unchanged digest'
   assert.deepEqual(lines, ['refresh: forced (digest guard bypassed)']);
   assert.match(workflow, /needs.prepare.outputs.refresh_allowed != 'false'/);
 });
+
+for (const [branch, dispatchError] of ['sync/workflows-candidate', 'sync/workflows-delivery'].flatMap(branch => [null, 404].map(error => [branch, error]))) {
+  test(`refused Gate drains ${branch} through one durable forced restage per head (fallback error=${dispatchError})`, async t => {
+    const api = sealedGateHarness(t);
+    api.args.pr.head.ref = branch;
+    api.state.rerunError = 403;
+    api.state.rerunReason = 'This workflow run cannot be retried';
+    api.state.dispatchError = dispatchError;
+    api.args.context = { repo: { owner: 'stranske', repo: 'Workflows' },
+      payload: { repository: { default_branch: 'main' } } };
+    const { formatDeliveryRecord } = require('../sync_pr_lease_contract');
+    let body = formatDeliveryRecord({ source_commit: 'a'.repeat(40), plan_id: 'sha256:plan', durable_issue_url: 'https://github.com/stranske/Workflows/issues/4117', generation: 'gen', repository: 'stranske/Ready', desired_tree_hash: 'tree', lease_expires_at: '2026-10-20T00:00:00Z' });
+    const forced = [], writes = [], options = [], comments = [];
+    const baseRetry = api.args.withRetry;
+    const evidence = { results: [{ plan_id: 'sha256:plan', source_commit: 'a'.repeat(40) }] };
+    api.args.withRetry = (callback, config) => baseRetry(client => {
+      const actions = client.rest.actions;
+      const list = actions.listWorkflowRuns;
+      const dispatch = actions.createWorkflowDispatch;
+      actions.listWorkflowRuns = params => params.workflow_id === 'maint-68-sync-consumer-repos.yml'
+        ? { data: { workflow_runs: [{ id: 5000, event: 'workflow_dispatch', head_branch: 'main',
+          created_at: new Date().toISOString(), display_title: branch.endsWith('candidate')
+            ? 'Maint 68 canary source=abc candidates=stranske/Ready dry=false'
+            : `Maint 68 promote sha256:plan ${'a'.repeat(40)}` }] } } : list(params);
+      actions.createWorkflowDispatch = params => {
+        if (params.workflow_id !== 'maint-68-sync-consumer-repos.yml') return dispatch(params);
+        forced.push(params);
+        options.push(config);
+        if (api.state.forceError) throw new Error('ambiguous dispatch');
+        return { status: 204 };
+      };
+      client.rest.pulls = {
+        get: async () => ({ data: { state: 'open', head: { sha: api.args.pr.head.sha }, body } }),
+      };
+      client.rest.users = { getAuthenticated: async () => ({ data: { login: 'stranske' } }) };
+      client.rest.issues = {
+        listComments: async () => ({ data: comments }),
+        createComment: async params => { comments.push({ body: params.body, user: { login: 'stranske' } }); writes.push(params); return { data: {} }; },
+      };
+      client.rest.repos = { getCommit: async () => ({ data: { commit: {
+        verification: { verified: true, reason: 'valid' },
+        message: `Plan scope: source-delta\nScope base SHA: ${'b'.repeat(40)}\nCanary evidence JSON (base64): ${Buffer.from(JSON.stringify(evidence)).toString('base64')}`,
+      } } }) };
+      return callback(client);
+    });
+    const result = await requestSealedGate(api.args);
+    assert.equal(result.blocked, 'rerun-refused');
+    assert.deepEqual(result.forced_restage, { state: 'requested', run_id: 5000, head_sha: 'd'.repeat(40) });
+    assert.equal(forced.length, 1);
+    assert.equal(forced[0].inputs.force, 'true');
+    assert.equal(forced[0].inputs.repos, 'stranske/Ready');
+    assert.equal(forced[0].inputs.phase, branch.endsWith('candidate') ? 'canary' : 'promote');
+    assert.equal(forced[0].inputs.scope_head_sha, 'a'.repeat(40));
+    if (branch.endsWith('delivery')) assert.deepEqual(JSON.parse(forced[0].inputs.canary_evidence_json), evidence);
+    else assert.equal(forced[0].inputs.scope_base_sha, 'b'.repeat(40));
+    assert.deepEqual(options, [{ maxRetries: 0 }]);
+    assert.ok(api.logs.includes('seal: stranske/Ready#4104 rerun refused; forced restage requested run=5000'));
+    assert.equal((await requestSealedGate(api.args)).forced_restage.state, 'already-requested');
+    assert.equal(forced.length, 1);
+    assert.equal(writes.length, 1);
+    // A new head follows normal Gate rerun handling; no regeneration by default.
+    api.args.pr.head.sha = 'e'.repeat(40);
+    api.state.runs = [{ ...api.run, head_branch: branch, head_sha: api.args.pr.head.sha }];
+    api.state.rerunError = null;
+    assert.equal((await requestSealedGate(api.args)).mode, 'rerun');
+    assert.equal(forced.length, 1);
+    // A new refusal gets its own bounded claim, even if dispatch is ambiguous.
+    api.state.rerunError = 403;
+    api.state.forceError = true;
+    assert.equal((await requestSealedGate(api.args)).forced_restage.state, 'failed');
+    assert.equal((await requestSealedGate(api.args)).forced_restage.state, 'already-requested');
+    assert.equal(forced.length, 2);
+  });
+}

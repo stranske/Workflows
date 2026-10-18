@@ -1123,6 +1123,7 @@ jobs:
           DELIVERY_GENERATION: ${{ needs.prepare.outputs.template_hash }}
           DELIVERY_REPOSITORY: ${{ matrix.repo }}
           SYNC_BRANCH: ${{ needs.prepare.outputs.sync_branch }}
+          FORCE: ${{ inputs.force || false }}
           CHANGES_COUNT: ${{ steps.sync.outputs.changes_count || '0' }}
         run: |
           cd consumer
@@ -1380,13 +1381,18 @@ jobs:
           fi
 
           desired_tree_hash=$(git write-tree)
+          # Force remints the selected payload so a refused PR Gate gets a new head.
+          if [ "$FORCE" = "true" ]; then
+            echo "Forced sync: regenerating signed delivery instead of preserving an identical head"
+          fi
           matching_existing=false
           migrating_legacy_lifecycle=false
           if [ -n "$existing_pr" ] \
             && [ "$existing_refreshable" = "true" ] \
             && [ "$existing_base" = "$base_sha" ] \
             && [ "$existing_tree" = "$desired_tree_hash" ] \
-            && [ "$existing_verified" = "true" ]; then
+            && [ "$existing_verified" = "true" ] \
+            && [ "$FORCE" != "true" ]; then
             matching_existing=true
             if [ "$existing_lifecycle_initialized" = "true" ]; then
               echo "Existing PR #$existing_pr already matches this base and desired tree; preserving its review lifecycle while refreshing metadata"
@@ -1405,7 +1411,8 @@ jobs:
           elif [ -n "$existing_pr" ] \
             && [ "$existing_refreshable" = "true" ] \
             && [ "$existing_base" = "$base_sha" ] \
-            && [ "$existing_tree" = "$desired_tree_hash" ]; then
+            && [ "$existing_tree" = "$desired_tree_hash" ] \
+            && [ "$existing_verified" != "true" ]; then
             echo "Existing PR #$existing_pr matches the desired tree but its head is not verified."
             echo "Reason: ${existing_verification_reason}; replacing it with a signed commit."
           elif [ -n "$existing_pr" ] && [ "$existing_refreshable" != "true" ]; then

@@ -3944,3 +3944,11 @@ test(`maint71 clears stale ready labels and preserves hold in ${integrationOnly 
 });
 
 }
+
+
+test('Markdown report retains the refused Gate forced-restage drain receipt', () => {
+  const markdown = buildMarkdownSummary({ results: [{ owner: 'stranske', repo: 'Ready', pr: 12,
+    gate_request: { blocked: 'rerun-refused', forced_restage: { state: 'requested', run_id: 5000 } },
+  }] });
+  assert.match(markdown, /seal: stranske\/Ready#12 rerun refused; forced restage requested run=5000/);
+});

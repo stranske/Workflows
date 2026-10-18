@@ -1745,16 +1745,32 @@ fallbacks also print `gate rerun refused; dispatched run=<id>`. A queued or
 post-seal dispatch on the same branch/head suppresses another dispatch.
 A dispatched Gate can supply canary evidence, but skips PR-only jobs and cannot
 establish merge readiness. The blocker remains visible beside the drainable
-count until a fresh PR Gate is available. The metadata-only restage path does
-not trigger a fresh PR Gate; recovery must not close/reopen a PR or push an
-empty commit.
+count until a fresh PR Gate is available. After a refused rerun, even an observed
+dispatch cannot produce the required PR-only jobs. Maint 71 requests one forced
+regeneration via `maint-68-sync-consumer-repos.yml`, with `force=true`,
+`repos=<owner/repo>` and phase `canary` for candidate PRs or `promote` for delivery
+PRs. It retains the source binding and source-delta scope; promotion reuses the
+verified head's canary evidence and Maint 68 still validates it. Forced sync
+rebuilds the signed delivery from its base and selected payload even when its
+tree matches the existing PR, resetting settlement and seal for the new head.
+The resulting push starts a fresh `pull_request` Gate, handled by the normal
+seal/rerun flow. Metadata-only restaging cannot wake that Gate.
+Under the shared stable-writer mutex, a durable PR comment marker from the authenticated writer, keyed by repository
+and head SHA is written before dispatch. A second pass on the same head never
+requests another regeneration; a new head returns to normal Gate processing.
+Ambiguous or failed dispatches retain the claim and report the failure rather
+than risking duplicate writes. An unobserved run ID is explicitly `unknown`.
+The log prints `seal: <repo>#<n> rerun refused; forced restage requested run=<id>`;
+`gate_request.forced_restage` and the Markdown report retain the drain receipt.
+Recovery must not close/reopen a PR or push an empty commit.
 Dispatch or lookup failures print `gate request failed: <status> <message>` and
 remain in the report's `gate_request`; an accepted dispatch whose run is not yet
 visible reports that uncertainty explicitly. The delivery stays
 `awaiting-sealed-gate` for retry on the next Maint 71 pass. There is no label
 wakeup fallback: `sync:delivery-ready` records lifecycle state only. Existing
 required-check and review blockers still apply. A failed evaluation created after the current seal
-remains blocking. Neither recovery path updates the branch or authorizes merge.
+remains blocking. Gate rerun/dispatch alone does not update the branch; forced regeneration changes
+the head through Maint 68 and grants no merge authority.
 
 Each canary prints `seal: <repo>#<n> sealed|pending(<reason>)|blocked(<check names>)`.
 `canaries: red=` counts only non-seal failures; `drainable` counts proven
