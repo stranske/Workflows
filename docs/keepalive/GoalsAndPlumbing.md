@@ -323,6 +323,10 @@ not support a complete review. A real finding remains **CONCERNS** or **FAIL** a
 dominates incomplete input across chunks and providers. A required deliverable
 proven absent by a complete lookup also remains CONCERNS. Provider or transport failures during chunk review also yield UNVERIFIABLE_INPUT
 with the affected files listed. Input unavailability must never be relabeled provider PASS.
+Comparison treats a provider FAIL supported only by explicit artifact/retrieval
+unavailability as UNVERIFIABLE_INPUT. It retains the raw provider verdict and
+reasons; mixed code findings, proven absent deliverables and unknown failure
+reasons retain FAIL. Real CONCERNS from another provider still dominate.
 A final acceptance reconciliation reviews every chunk summary before a global
 PASS is possible; a missing cross-file implementation remains CONCERNS.
 Both per-call token limits and the total chunk-call cap live in
@@ -332,8 +336,10 @@ Both per-call token limits and the total chunk-call cap live in
 `agents-verifier.yml` caller. The caller applies two source-issue closing rules
 and comments the chosen rule and immutable merge SHA before closing:
 
-- `verifier-pass`: the unified verifier verdict is PASS (the CI-failure floor
-  continues to apply).
+- `verifier-pass`: the unified verifier verdict is PASS and a non-empty CI set
+  contains only successful rows bound to the merge SHA. Missing or stale rows
+  refuse closure with `pass-without-ci`; failed, skipped or pending rows also
+  refuse closure, including explicitly optional skipped rows.
 - `unverifiable-input+gate+ci`: the verdict is UNVERIFIABLE_INPUT,
   every named acceptance command extracted by the #3985 gate passes on the merge
   commit, and every configured post-merge CI workflow concludes success on that same commit.
@@ -341,15 +347,25 @@ and comments the chosen rule and immutable merge SHA before closing:
   push-triggered `ci.yml`. PR-only Gate is excluded. The reusable wait selects
   only `pr.merge_commit_sha`; a completed PR-head run cannot satisfy it. Closure
   independently rechecks the exact merge SHA and refuses missing or pending CI.
+  Plans and results record `gate_source=acceptance-commands` for extracted commands.
+  If none are extractable, they record `gate_source=required-ci`: the caller's
+  required post-merge CI workflows on the merge SHA supply the deterministic
+  gate input. This is the same non-empty, all-successful CI set checked at closure;
+  PR-head checks and PR-only Gate cannot substitute for it. Failed extracted
+  commands never fall back to required CI.
 
-Closure-plan lookup or source-hash failures warn and omit only the affected issue;
-verification continues, and that issue remains ineligible for automatic closure.
+Closure-plan lookup or source-hash failures retain a diagnostic entry without
+closure authority; verification continues, and the closer reports that issue as
+ineligible with `closure-plan-unavailable`.
 
 The latter rule executes gates in a separate job with read-only contents access,
 no secrets or API-client setup, and no persisted checkout credentials. A trusted
 closure job checks command identities, issue text hash, source/merge bindings and
-fresh exact-merge CI. Empty, failed, stale or missing gate/CI results keep the issue
-open. CONCERNS and FAIL never use this exception. Auto-pilot's closed-issue step requests verification without changing issue state.
+fresh exact-merge CI. Failed, stale or missing gate results and empty, failed,
+stale or missing CI keep the issue open. The closer logs one outcome and deciding
+rule per linked issue, even when nothing closes or the verdict is CONCERNS/FAIL.
+Gate-job failures retain per-issue diagnostics without granting closure.
+CONCERNS and FAIL never use this exception. Auto-pilot's closed-issue step requests verification without changing issue state.
 The intake seed-replay reopen path recognizes named verifier closure receipts
 authored by `github-actions[bot]` and preserves those closed issues; arbitrary
 user comments cannot suppress reopening. A merge by itself is insufficient for closure. Consumer
