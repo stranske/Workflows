@@ -10,6 +10,7 @@ from scripts.orchestrator_skill import (
     OrchestratorSkillConfigError,
     build_orchestrator_skill_summary,
     load_orchestrator_skill,
+    main,
     parse_orchestrator_skill_config,
     resolve_orchestrator_skill_plan,
 )
@@ -137,3 +138,60 @@ def test_summary_instructs_agent_to_read_exported_material(tmp_path: Path) -> No
     assert "not** a live mount" in summary
     assert "Read and apply the materialized Orchestrator skill files" in summary
     assert "`SKILL.md`" in summary
+
+
+@pytest.mark.parametrize("enabled", ["yes", "on", "1", True])
+def test_enabled_values_enable_pack(enabled: object) -> None:
+    is_enabled, plan = parse_orchestrator_skill_config({"enabled": enabled, "pack": "safe-pack"})
+
+    assert is_enabled is True
+    assert plan is not None and plan.pack == "safe-pack"
+
+
+@pytest.mark.parametrize("value", ["maybe", 1, [], object()])
+def test_invalid_enabled_values_are_rejected(value: object) -> None:
+    with pytest.raises(OrchestratorSkillConfigError, match="enabled must be a boolean"):
+        parse_orchestrator_skill_config({"enabled": value, "pack": "safe-pack"})
+
+
+@pytest.mark.parametrize(
+    "paths, message",
+    [
+        ([], "non-empty array"),
+        (["../secret.md"], "traverse parent"),
+        (["/absolute.md"], "relative"),
+        (["docs/ORCHESTRATOR/brain.md"], "local Orchestrator runtime"),
+    ],
+)
+def test_inline_paths_are_strictly_bounded(paths: list[str], message: str) -> None:
+    with pytest.raises(OrchestratorSkillConfigError, match=message):
+        parse_orchestrator_skill_config(
+            {"enabled": True, "repo": "owner/repo", "ref": "main", "paths": paths}
+        )
+
+
+def test_config_rejects_mixed_sources_and_malformed_json(tmp_path: Path) -> None:
+    with pytest.raises(OrchestratorSkillConfigError, match="either 'pack' or inline"):
+        parse_orchestrator_skill_config(
+            {"pack": "safe", "repo": "owner/repo", "ref": "main", "paths": ["README.md"]}
+        )
+    config = tmp_path / ".github" / "orchestrator_skill.json"
+    config.parent.mkdir()
+    config.write_text("{bad", encoding="utf-8")
+    with pytest.raises(OrchestratorSkillConfigError, match="Malformed JSON"):
+        load_orchestrator_skill(tmp_path)
+
+
+def test_cli_self_check_and_json_report_config_state(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    assert main(["--workspace", str(tmp_path), "--format", "self-check"]) == 0
+    assert "skipped" in capsys.readouterr().err
+
+    config = tmp_path / ".github" / "orchestrator_skill.json"
+    config.parent.mkdir()
+    config.write_text(json.dumps({"enabled": False}), encoding="utf-8")
+    assert main(["--workspace", str(tmp_path), "--format", "self-check"]) == 0
+    assert "disabled" in capsys.readouterr().err
+    assert main(["--workspace", str(tmp_path)]) == 0
+    assert json.loads(capsys.readouterr().out)["enabled"] is False

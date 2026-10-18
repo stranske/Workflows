@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from scripts.check_agents_md_freshness import check_agents_md, main
+from scripts.check_agents_md_freshness import check_agents_md, main, managed_section
 
 
 def _agents_md(*refs: str, prefix: str = "") -> str:
@@ -126,3 +126,49 @@ def test_managed_section_ignores_stray_end_marker_before_start(tmp_path):
     )
 
     assert check_agents_md(tmp_path) == []
+
+
+def test_missing_or_unclosed_managed_section_is_ignored(tmp_path):
+    missing = "# AGENTS.md\nNo generated content.\n"
+    unclosed = "# AGENTS.md\n<!-- BEGIN orch-playbook -->\n`docs/missing.md`\n"
+    assert managed_section(missing) is None
+    assert managed_section(unclosed) is None
+    (tmp_path / "AGENTS.md").write_text(unclosed, encoding="utf-8")
+    assert check_agents_md(tmp_path) == []
+
+
+def test_duplicate_bad_references_are_reported_once_and_invalid_shell_is_safe(tmp_path):
+    (tmp_path / "AGENTS.md").write_text(
+        _agents_md(
+            "docs/missing.md",
+            "docs/missing.md",
+            '"unclosed-arg --flag',
+        ),
+        encoding="utf-8",
+    )
+
+    findings = check_agents_md(tmp_path)
+
+    assert [(finding.kind, finding.value) for finding in findings] == [
+        ("path", "docs/missing.md"),
+        ("command", '"unclosed-arg --flag'),
+    ]
+
+
+def test_cli_json_annotations_and_strict_exit_are_consistent(tmp_path, capsys):
+    (tmp_path / "AGENTS.md").write_text(_agents_md("docs/missing.md"), encoding="utf-8")
+
+    result = main(
+        [
+            "--repo-root",
+            str(tmp_path),
+            "--json",
+            "--github-annotations",
+            "--strict",
+        ]
+    )
+
+    output = capsys.readouterr().out
+    assert result == 1
+    assert '"docs/missing.md"' in output
+    assert "::warning title=AGENTS.md freshness::" in output
