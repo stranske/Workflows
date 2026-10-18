@@ -244,7 +244,10 @@ def _resolve_env(step_env: dict, outputs: dict) -> dict:
             # Only steps.<id>.outputs.verdict references resolve to a value;
             # skipped/absent steps resolve to the empty string.
             refs = re.findall(r"steps\.(\w+)\.outputs\.verdict", expr)
-            env[key] = next((outputs["verdicts"].get(ref, "") for ref in refs if outputs["verdicts"].get(ref)), "")
+            env[key] = next(
+                (outputs["verdicts"].get(ref, "") for ref in refs if outputs["verdicts"].get(ref)),
+                "",
+            )
     return env
 
 
@@ -268,7 +271,9 @@ def _run_sinks(tmp_path: Path, *, should_run: bool, outcome: str, verdicts: dict
         ["python3", "-I", "-c", py], cwd=tmp_path, env=collect_env, check=True, capture_output=True
     )
     line = next(
-        ln for ln in (tmp_path / "gh_output").read_text().splitlines() if ln.startswith("metrics_json=")
+        ln
+        for ln in (tmp_path / "gh_output").read_text().splitlines()
+        if ln.startswith("metrics_json=")
     )
     metrics_json = line.split("=", 1)[1]
     js = _heredoc(write["run"], "node <<'NODE'\n", "NODE")
@@ -279,7 +284,9 @@ def _run_sinks(tmp_path: Path, *, should_run: bool, outcome: str, verdicts: dict
     write_env = {**base, **_resolve_env(write["env"], outputs), "METRICS_JSON": metrics_json}
     subprocess.run(["node", "-e", js], cwd=tmp_path, env=write_env, check=True, capture_output=True)
     record = json.loads(
-        (tmp_path / "agent-metrics/verifier-terminal-disposition.ndjson").read_text().splitlines()[0]
+        (tmp_path / "agent-metrics/verifier-terminal-disposition.ndjson")
+        .read_text()
+        .splitlines()[0]
     )
     return {"metrics": json.loads(metrics_json), "record": record}
 
