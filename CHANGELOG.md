@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.44.2](https://github.com/stranske/Workflows/compare/v1.44.1...v1.44.2) (2026-10-18)
+
+
+### Bug Fixes
+
+* **keepalive:** recover from hosted Cursor startup failures ([#4103](https://github.com/stranske/Workflows/issues/4103)) ([1499fd5](https://github.com/stranske/Workflows/commit/1499fd504401f9fd39f95bf98dc19e86c8564fe9))
+* **sync:** dispatch Gate for already-sealed canaries ([#4105](https://github.com/stranske/Workflows/issues/4105)) ([e337a3e](https://github.com/stranske/Workflows/commit/e337a3eb489900090f2f38ce6bde9ad9c0d50972))
+
 ## [1.44.1](https://github.com/stranske/Workflows/compare/v1.44.0...v1.44.1) (2026-10-18)
 
 
