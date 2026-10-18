@@ -57,10 +57,13 @@ def test_job_scoped_permissions(path: str) -> None:
     assert data["permissions"] == {}
     assert data["jobs"]["verifier"]["permissions"] == VERIFIER_PERMISSIONS
     if path in CALLERS:
-        assert data["jobs"]["check"]["permissions"] == {
+        expected_check_permissions = {
             "contents": "read",
             "pull-requests": "read",
         }
+        if path == CALLERS[1]:
+            expected_check_permissions["issues"] = "read"
+        assert data["jobs"]["check"]["permissions"] == expected_check_permissions
     if "persist-fingerprint" in data["jobs"]:
         assert data["jobs"]["persist-fingerprint"]["permissions"] == {
             "contents": "read",
@@ -161,6 +164,8 @@ const context = {eventName: 'workflow_dispatch', repo: {owner: 'base', repo: 're
   payload: {inputs: {pr_number: '42', mode: 'compare', model: '', provider: 'auto'}}};
 const github = {rest: {pulls: {get: async () => ({data: {merged}})}}};
 const fakeRequire = name => {if (name === 'fs') return {existsSync: () => false};
+                            if (name === './.github/scripts/verifier_plan_fingerprint.js')
+                              return {verifierPlanSourceFingerprint: async () => 'a'.repeat(64)};
                             throw Error('Unexpected module ' + name)};
 (async () => {
   await (Object.getPrototypeOf(async function(){}).constructor)(

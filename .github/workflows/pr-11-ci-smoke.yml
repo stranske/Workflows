@@ -26,10 +26,16 @@ jobs:
         with:
           fetch-depth: 1  # Shallow clone for faster checkout
 
+      - name: Load shared Python runtime
+        shell: bash
+        run: |
+          source .github/workflows/ci-python-versions.env
+          echo "CI_PYTHON_VERSION=${CI_PYTHON_VERSION}" >> "$GITHUB_ENV"
+
       - name: Set up Python
         uses: actions/setup-python@v7
         with:
-          python-version: '3.14'
+          python-version: ${{ env.CI_PYTHON_VERSION }}
           cache: pip
           cache-dependency-path: pyproject.toml
 

@@ -60,8 +60,12 @@ source of executable workflow helpers. Merging code admits it to the trusted
 base; this contract does not protect against malicious code a maintainer merges
 or a privileged user dispatches from a branch they control.
 
-Workflow defaults grant no permissions. The caller check job only reads contents
-and PRs, using its workflow token without PAT/App rotation. The verifier job
+Workflow defaults grant no permissions. The source caller check job reads contents
+and PRs; the consumer check job also reads issues to bind linked-source Tasks and
+Acceptance Criteria into its existing changed-input fingerprint. Both use their
+workflow token without PAT/App rotation. Unchanged plan inputs still skip, and
+incomplete linked-source discovery fails closed rather than hashing a partial plan.
+The verifier job
 reads contents, issues, Actions and Models and writes PR comments; the consumer
 fingerprint store alone also needs PR write. Issues write is unnecessary because
 the legacy automatic issue-creation step is disabled; enabling that behavior
@@ -1306,6 +1310,15 @@ and its existing PR instead of opening another hash-named PR for every candidate
 plan. Promotion likewise refreshes one stable `sync/workflows-delivery` PR per
 non-canary; immutable plan and desired-tree identity live in the delivery
 record instead of the branch name.
+
+For a stable canary whose delivery record is still `staging` or `reviewing`,
+Maint 71 may continue to the existing seal lifecycle when the exact-head
+`Gate / gate` run, complete job list, and generated-seal annotations prove the
+expected `delivery_not_sealed` hold. This is lifecycle continuation only: the
+original failed check classification remains failed, every other failed or
+nonterminal job still blocks, and only a fresh Gate after sealing can satisfy
+the required check for merge. Missing, incomplete, mismatched, or unreadable
+workflow evidence keeps the base-refresh path blocked as before.
 
 Do not wait for consumer CI in that workflow. Maint 71's
 `active_sync_hash=candidate` pass publishes `sync-canary-evidence.json` and

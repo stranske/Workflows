@@ -1233,7 +1233,9 @@ Ensure `fix_ci_failures.md` exists in `.github/codex/prompts/` for fix mode to w
 Omitting both reusable Python runtime inputs selects Python 3.13 and 3.14 in
 parallel. An explicit `python-version` remains a single-runtime override, including
 3.12; a nonempty `python-versions` array still takes precedence. The primary artifact
-runtime defaults to the first selected runtime. `pytest-workers` accepts `auto`
+runtime defaults to shared `CI_PYTHON_VERSION` when selected, otherwise the first
+selected runtime. Gate requests coverage on 3.14 only through
+`coverage-python-version`; both runtimes retain identical test selection. `pytest-workers` accepts `auto`
 (the backward-compatible reusable default) or a positive integer; the first-party
 Gate and new Gate template request `4`.
 

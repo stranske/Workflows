@@ -62,6 +62,7 @@ must exist in `.github/workflows/reusable-10-ci-python.yml`.
 | `format_check` | No | `true` | Toggle Black format check execution |
 | `typecheck` | No | `true` | Toggle mypy execution |
 | `coverage` | No | `true` | Toggle coverage instrumentation, packaging, and enforcement |
+| `coverage-python-version` | No | `""` | Optional runtime for coverage; when set, must match the primary runtime. Empty instruments every selected runtime |
 | `coverage-min` | No | `"70"` | Minimum coverage percentage required to pass |
 <!-- REUSABLE-10-INPUTS-END -->
 

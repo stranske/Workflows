@@ -1965,3 +1965,30 @@ def test_prepare_head_drift_restart_quarantines_only_selected_repo_artifacts(
     assert (repair_dir / "round2" / "converged.json").is_file()
     assert (repair_dir / "preflight" / "review-inputs.md").is_file()
     assert (tmp_path / "round1" / "claude" / "stranske__Other").is_dir()
+
+
+def test_coordinator_config_and_docs_drift_failures_are_bounded(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    config = tmp_path / "config.toml"
+    config.write_text(
+        "[automation]\n[automation.timeouts]\nrepair_attempts_per_phase = 4\n", encoding="utf-8"
+    )
+    assert coordinator.configured_repair_attempts(config) == 4
+    config.write_text(
+        "[automation]\n[automation.timeouts]\nrepair_attempts_per_phase = -1\n", encoding="utf-8"
+    )
+    assert coordinator.configured_repair_attempts(config) == 2
+    monkeypatch.setenv("REPO_REVIEW_CAPACITY_WAIT_MAX_SECONDS", "not-a-number")
+    assert (
+        coordinator.provider_capacity_wait_max_seconds()
+        == coordinator.DEFAULT_PROVIDER_CAPACITY_WAIT_MAX_SECONDS
+    )
+    monkeypatch.setenv("REPO_REVIEW_CAPACITY_WAIT_MAX_SECONDS", "-2")
+    assert coordinator.provider_capacity_wait_max_seconds() == 0
+
+    missing = tmp_path / "missing.json"
+    assert coordinator.validate_docs_drift_output(missing, expected_doc_count=1)[0] is False
+    bad = tmp_path / "bad.json"
+    bad.write_text("[]", encoding="utf-8")
+    assert coordinator.validate_docs_drift_output(bad, expected_doc_count=1)[0] is False
