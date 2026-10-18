@@ -57,7 +57,7 @@ test('expanded pagination retains bounded overflow and later-page failure gaps',
       const evidence = await fetchVerifierEvidence({github, owner:'o', repo:'r', pullNumber:1, pullRequestBody:''});
       assert.equal(evidence.comments.complete, false);
       assert.equal(evidence.comments.status, 'unavailable');
-      assert.equal(calls, failSecond ? 2 : 3);
+      assert.equal(calls, failSecond ? 2 : 10);
     }
   });
 });
@@ -1672,7 +1672,7 @@ test('buildVerifierContext fails closed when associated workflow run discovery f
   assert.match(failure.result.markdown, /Referenced workflow artifacts: \*\*unavailable\*\*/);
   removeVerifierDiffArtifacts(failure.result);
 
-  const limit = await buildEvidenceContext({
+  const limit = await withEnv('VERIFIER_EVIDENCE_RUN_LIMIT', '5', async () => buildEvidenceContext({
     listWorkflowRunsForRepoResponse: {
       data: {
         total_count: 6,
@@ -1684,7 +1684,7 @@ test('buildVerifierContext fails closed when associated workflow run discovery f
       headers: {},
     },
     artifactsByRun: { 777: [] },
-  });
+  }));
   assert.equal(limit.core.outputs.evidence_status, 'unavailable');
   assert.match(limit.result.markdown, /run_record:.*exceeded the bounded result limit/);
   removeVerifierDiffArtifacts(limit.result);
@@ -2235,7 +2235,7 @@ test('buildVerifierContext reports a truncated comment listing as unavailable', 
     commentLink: '<https://api.example.com/comments?page=2>; rel="next"',
   });
   assert.equal(core.outputs.evidence_status, 'unavailable');
-  assert.match(result.markdown, /comment count or character limit prevented complete inspection/);
+  assert.match(result.markdown, /paginated comment ID unavailable/);
   removeVerifierDiffArtifacts(result);
 });
 
@@ -2912,7 +2912,7 @@ test('buildVerifierContext skips push events when PR lookup fails', async () => 
   assert.equal(result.shouldRun, false);
   assert.equal(core.outputs.should_run, 'false');
   assert.ok(core.outputs.skip_reason.includes('Unable to resolve pull request'));
-  assert.equal(core.warnings.length, 1);
+  assert.equal(core.warnings.length, 2);
 });
 
 test('formatDiffForContext never clips a file to the legacy character limit', () => {
@@ -2947,15 +2947,16 @@ test('fetchLocalGitDiff skips invalid shas', () => {
   assert.equal(called, false);
 });
 
-test('fetchLocalGitDiff rejects invalid UTF-8 instead of replacement-decoding a patch', () => {
+test('fetchLocalGitDiff replacement-decodes invalid UTF-8 into a reviewable patch', () => {
   const warnings = [];
   const result = fetchLocalGitDiff({
     baseSha: 'a1b2c3d',
     headSha: 'deadbeef',
     core: { warning: message => warnings.push(message) },
-    execFile: () => Buffer.from([0x64, 0x69, 0x66, 0x66, 0x20, 0xff]),
+    execFile: () => Buffer.concat([Buffer.from('diff --git a/x b/x\n--- a/x\n+++ b/x\n@@ -1 +1 @@\n-old\n+'), Buffer.from([0xff]), Buffer.from('\n')]),
   });
-  assert.equal(result, '');
+  assert.match(result, /\+\uFFFD/);
+  assert.match(summarizeDiff(result), /x/);
   assert.equal(warnings.length, 1);
   assert.match(warnings[0], /diff|UTF-8|utf-8/i);
 });
@@ -5186,4 +5187,82 @@ test('historical manual verifier binding admits only the exact reviewed run and 
     assert.equal(validateHistoricalManualArtifact(bound,{...artifact,...change},artifact.digest.slice(7)),false);
   }
   assert.equal(validateHistoricalManualArtifact(bound,artifact,'d'.repeat(64)),false);
+});
+
+// #4097 production shape: ten runs over two sparse pages under the standard profile.
+test('standard discovery retrieves 10 runs across 2 pages by SHA and workflow name', async () => {
+  for (const [name, collect] of evidenceCollectors) {
+    const sha = 'a'.repeat(40);
+    const calls = [];
+    const list = async params => {
+      calls.push(params);
+      assert.equal(params.head_sha, sha);
+      const start = params.page === 1 ? 0 : 5;
+      return {data: {total_count: 10, workflow_runs: Array.from({length: 5}, (_, i) =>
+        ({id: start + i + 1, head_sha: sha, path: '.github/workflows/ci.yml'}))},
+        headers: params.page === 1 ? {link: '<next>; rel="next"'} : {}};
+    };
+    const result = await collect({owner:'o', repo:'r', pullNumber:1, pullRequestBody:'', associatedCommitShas:[sha], workflows:['ci.yml'],
+      extractArtifactText: () => ({text:'late-page test proof', truncated:false}),
+      github: {rest: {
+        issues:{listComments:async () => ({data:[]})},
+        pulls:{listReviewComments:async () => ({data:[]}), listReviews:async () => ({data:[]})},
+        actions:{listWorkflowRunsForRepo:async () => {throw new Error("must use named workflow lookup");}, listWorkflowRuns:list,
+          listWorkflowRunArtifacts:async ({run_id}) => ({data:{total_count:run_id === 10 ? 1 : 0,
+            artifacts:run_id === 10 ? [{id:99, name:"proof.txt", size_in_bytes:3, expired:false}] : []}}),
+          downloadArtifact:async () => ({data:Buffer.from("zip")})},
+      }}});
+    assert.equal(result.artifacts.complete, true, name + JSON.stringify(result.diagnostics.failures));
+    assert.equal(result.artifacts.status, 'present', name);
+    assert.equal(result.artifacts.records[0].runId, 10, name);
+    assert.equal(result.artifacts.records[0].text, 'late-page test proof', name);
+    assert.ok(calls.some(p => p.workflow_id === 'ci.yml' && p.page === 2), name);
+  }
+});
+
+test('standard comments paginate past bot chatter and retain bot proof', async () => {
+  const sha = 'a'.repeat(40);
+  const result = await fetchVerifierEvidence({pullRequestBody:'', associatedCommitShas:[sha], github:{rest:{
+    issues:{listComments:async ({page}) => page === 1
+      ? {data:[{id:1, body:'Working on it', user:{type:'Bot', login:'worker[bot]'}}], headers:{link:'<next>; rel="next"'}}
+      : {data:[{id:2, body:'Test evidence: all passed', user:{type:'Bot', login:'worker[bot]'}}]}},
+    pulls:{listReviewComments:async () => ({data:[]}), listReviews:async () => ({data:[]})},
+    actions:{listWorkflowRunsForRepo:async () => ({data:{total_count:0, workflow_runs:[]}})},
+  }}});
+  assert.equal(result.comments.complete, true);
+  assert.deepEqual(result.comments.records.map(r => r.body), ['Test evidence: all passed']);
+});
+
+test('PR files API fallback paginates, preserves paths and reports missing patches', async () => {
+  const {fetchPullRequestFilesDiff} = require('../agents_verifier_context.js');
+  const pages = [];
+  const result = await fetchPullRequestFilesDiff({expectedFiles:2, github:{rest:{pulls:{listFiles:async ({page}) => {
+    pages.push(page);
+    return page === 1 ? {data:[{filename:'file with spaces.txt', patch:'@@ -1 +1 @@\n-old\n+new'}], headers:{link:'<next>; rel="next"'}}
+      : {data:[{filename:'binary.bin'}]};
+  }}}}});
+  assert.deepEqual(pages, [1,2]);
+  assert.equal(result.complete, false);
+  assert.match(result.text, /new/);
+  assert.match(result.text, /Binary files/);
+  assert.match(summarizeDiff(result.text), /file with spaces.txt/);
+});
+
+test('context uses API diff fallback and records a non-PASS coverage gap in both mirrors', async () => {
+  for (const builder of [buildVerifierContextImpl,
+    require('../../../templates/consumer-repo/.github/scripts/agents_verifier_context.js').buildVerifierContext]) {
+    const {result} = await buildEvidenceContext({}, {fetchLocalDiff: () => ''}, async options => {
+      options.github.rest.pulls.listFiles = async () => ({data:[{
+        filename:'recovered.py', patch:'@@ -1 +1 @@\n-old\n+recovered',
+      }]});
+      return builder(options);
+    });
+    try {
+      assert.equal(result.shouldRun, true);
+      assert.match(result.markdown, /\+recovered/);
+      assert.equal(result.sourceCoverage.diff_retrieval.complete, false);
+      assert.ok(result.sourceCoverage.changed_code_sources.some(item =>
+        item.source === 'GitHub PR files API fallback' && item.status === 'unavailable'));
+    } finally { removeVerifierDiffArtifacts(result); }
+  }
 });

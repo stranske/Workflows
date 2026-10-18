@@ -22,7 +22,8 @@ const DEFAULT_DIFF_MAX_BYTES = 8 * 1024 * 1024;
 const DEFAULT_DIFF_MAX_CHARS = 300000;
 const DEFAULT_EVIDENCE_COMMENT_LIMIT = 50;
 const DEFAULT_EVIDENCE_COMMENT_CHARS = 40000;
-const DEFAULT_EVIDENCE_RUN_LIMIT = 5;
+const DEFAULT_EVIDENCE_RUN_LIMIT = 100;
+const DEFAULT_EVIDENCE_RUN_PAGES = 10;
 const DEFAULT_EVIDENCE_ARTIFACT_LIMIT = 10;
 const DEFAULT_EVIDENCE_ARCHIVE_BYTES = 2 * 1024 * 1024;
 const DEFAULT_EVIDENCE_ENTRY_LIMIT = 20;
@@ -778,6 +779,7 @@ function commentPageSignature(response) {
     id: comment?.id,
     body: comment?.body,
     author: comment?.user?.login || comment?.author?.login || 'unknown',
+    authorType: comment?.user?.type,
     url: comment?.html_url || comment?.url || '',
   }));
   const hasNext = Boolean(response?.headers?.link?.includes('rel="next"'));
@@ -795,6 +797,7 @@ async function fetchVerifierEvidence({
   referenceSourcesComplete = true,
   pullRequestBody,
   associatedCommitShas = [],
+  workflows = [],
   extractArtifactText = extractArtifactArchiveText,
 }) {
   const diagnostics = { counters: { comment_pages: 0, comment_records: 0, comment_chars: 0, body_chars: 0, artifact_chars: 0, run_pages: 0, run_records: 0, artifact_pages: 0, artifact_records: 0, archive_bytes: 0, extracted_bytes: 0, entries: 0, unsupported_payloads: 0, provenance_failures: 0 }, failures: [] };
@@ -846,7 +849,7 @@ async function fetchVerifierEvidence({
     try {
       if (!source.method) throw new Error(`${source.name} API is unavailable`);
       const perPage = Math.min(commentLimit, 100);
-      const maxPages = Math.min(commentPageLimit, Math.ceil(commentLimit / perPage));
+      const maxPages = commentPageLimit;
       let truncated = false;
       const seenCommentIds = new Set();
       let lastCommentId;
@@ -882,6 +885,11 @@ async function fetchVerifierEvidence({
           }
           if (comment?.body != null && typeof comment.body !== 'string') throw new Error('invalid comment body');
           if (typeof comment?.body !== 'string' || !comment.body.trim()) continue;
+          // Exclude bot chatter before budgeting, but retain bot-authored proof,
+          // review findings and run links. Reviews themselves are never filtered.
+          const bot = comment?.user?.type === 'Bot' || /\[bot\]$/.test(comment?.user?.login || '');
+          if (source.name === 'conversation comments' && bot
+              && !/evidence|proof|test|review|verif|concern|fail|actions\/runs\//i.test(comment.body)) continue;
           if (comments.records.length >= commentLimit) {
             truncated = true;
             fail("comments", "record", source.name);
@@ -1095,14 +1103,30 @@ async function fetchVerifierEvidence({
       continue;
     }
     try {
-      if (!github?.rest?.actions?.listWorkflowRunsForRepo) {
-        throw new Error('workflow run discovery API is unavailable');
+      // Production callers supply their CI workflow names. Query each name at
+      // the exact PR SHA, rather than spending a repository-wide run budget on
+      // unrelated automation. Legacy callers without names retain SHA discovery.
+      const workflowIds = [...new Set((workflows || []).map(workflow =>
+        typeof workflow === 'string' ? workflow : workflow.workflow_id).filter(Boolean))];
+      const listing = {items: [], failure: null, detail: ''};
+      for (const workflowId of workflowIds.length ? workflowIds : [null]) {
+        const method = workflowId ? github?.rest?.actions?.listWorkflowRuns
+          : github?.rest?.actions?.listWorkflowRunsForRepo;
+        if (!method) throw new Error(`workflow run discovery API unavailable: ${workflowId || 'repository'}`);
+        const result = await boundedEvidencePages({
+          method,
+          params: {owner, repo, head_sha: commitSha, ...(workflowId ? {workflow_id: workflowId} : {})},
+          key: 'workflow_runs', recordLimit: runLimit,
+          pageLimit: positiveLimit('VERIFIER_EVIDENCE_RUN_PAGES', DEFAULT_EVIDENCE_RUN_PAGES),
+          kind: 'run', diagnostics,
+        });
+        listing.items.push(...result.items);
+        if (result.failure) {
+          listing.failure = result.failure;
+          listing.detail = `${workflowId || 'repository'}: ${result.detail || result.failure}`;
+          fail('artifacts', 'workflow_listing', listing.detail);
+        }
       }
-      const listing = await boundedEvidencePages({
-        method: github.rest.actions.listWorkflowRunsForRepo,
-        params: { owner, repo, head_sha: commitSha }, key: 'workflow_runs', recordLimit: runLimit,
-        pageLimit: positiveLimit('VERIFIER_EVIDENCE_RUN_PAGES', Math.ceil(runLimit / 100)), kind: 'run', diagnostics,
-      });
       const workflowRuns = listing.items;
       if (listing.failure) {
         associatedRunDiscoveryComplete = false;
@@ -1561,13 +1585,50 @@ function fetchLocalGitDiff({
     const buffer = execFile('git', ['diff', '--no-color', `${baseSha}...${headSha}`], {
       maxBuffer: Number.isFinite(maxBytes) ? maxBytes : DEFAULT_DIFF_MAX_BYTES,
     });
-    // Git output is a raw capture. Replacement decoding would silently change
-    // the patch while preserving an apparent successful retrieval.
-    return new TextDecoder('utf-8', { fatal: true }).decode(buffer);
+    // Non-UTF-8 source content remains reviewable. Keep path decoding strict:
+    // ambiguous byte filenames must still fail the coverage inventory.
+    const decoded = new TextDecoder('utf-8', { fatal: false }).decode(buffer);
+    if (!Buffer.from(decoded, 'utf8').equals(buffer)) {
+      core?.warning?.('Git diff contains non-UTF-8 bytes; decoded with replacement characters.');
+    }
+    return decoded;
   } catch (error) {
     core?.warning?.(`Failed to generate git diff locally: ${error.message}`);
     return '';
   }
+}
+
+// The PR files endpoint is bounded at 3,000 files and can omit patches. A
+// fallback is reviewable input, but never evidence of complete local capture.
+async function fetchPullRequestFilesDiff({github, core, owner, repo, pullNumber, expectedFiles}) {
+  const files = [];
+  let complete = false;
+  try {
+    for (let page = 1; page <= 30; page += 1) {
+      const response = await github.rest.pulls.listFiles({owner, repo, pull_number: pullNumber, per_page: 100, page});
+      if (!Array.isArray(response?.data)) throw new Error('invalid PR files response');
+      files.push(...response.data);
+      const more = response?.headers?.link?.includes('rel="next"') || response.data.length === 100;
+      if (!more) { complete = true; break; }
+    }
+  } catch (error) {
+    core?.warning?.(`PR files diff fallback incomplete: ${error.message}`);
+  }
+  if (Number.isInteger(expectedFiles) && files.length !== expectedFiles) complete = false;
+  const seen = new Set();
+  const patches = files.map(file => {
+    if (!file?.filename || seen.has(file.filename)) { complete = false; return ''; }
+    seen.add(file.filename);
+    const from = JSON.stringify(`a/${file.previous_filename || file.filename}`);
+    const to = JSON.stringify(`b/${file.filename}`);
+    const header = `diff --git ${from} ${to}\n`;
+    if (typeof file.patch !== 'string' || !file.patch.trim()) {
+      complete = false;
+      return `${header}Binary files ${from} and ${to} differ\n`;
+    }
+    return `${header}--- ${file.status === 'added' ? '/dev/null' : from}\n+++ ${file.status === 'removed' ? '/dev/null' : to}\n${file.patch}\n`;
+  });
+  return {text: patches.join(''), complete: complete && files.length > 0};
 }
 
 async function resolvePullRequest({ github, context, core }) {
@@ -1718,7 +1779,7 @@ async function buildVerifierContext({
   const { owner, repo } = context.repo;
   const { pr, reason: resolveReason } = await resolvePullRequest({ github, context, core });
   if (!pr) {
-    core?.notice?.(resolveReason || 'No pull request detected; skipping verifier.');
+    core?.warning?.(resolveReason || 'No pull request detected; skipping verifier.');
     core?.setOutput?.('should_run', 'false');
     core?.setOutput?.('skip_reason', resolveReason || 'No pull request detected.');
     core?.setOutput?.('pr_number', '');
@@ -1747,7 +1808,7 @@ async function buildVerifierContext({
 
   if (isForkPullRequest(pull)) {
     const skipReason = 'Pull request is from a fork; skipping verifier.';
-    core?.notice?.(skipReason);
+    core?.warning?.(skipReason);
     core?.setOutput?.('should_run', 'false');
     core?.setOutput?.('skip_reason', skipReason);
     core?.setOutput?.('pr_number', String(pull.number || ''));
@@ -1767,7 +1828,7 @@ async function buildVerifierContext({
   const sourceContext = resolvePrSourceContext(pull);
   if (sourceContext.isRecurringDataJob) {
     const skipReason = 'Recurring verifier corpus data-job PR; issue acceptance verification does not apply.';
-    core?.notice?.(skipReason);
+    core?.warning?.(skipReason);
     core?.setOutput?.('should_run', 'false');
     core?.setOutput?.('skip_reason', skipReason);
     core?.setOutput?.('pr_number', String(pull.number || ''));
@@ -1854,6 +1915,29 @@ async function buildVerifierContext({
     );
   }
 
+  // Parse ciWorkflows if provided (can be array or JSON string)
+  let workflows = null;
+  if (Array.isArray(ciWorkflows)) {
+    workflows = ciWorkflows.map((w) =>
+      typeof w === 'string' ? { workflow_id: w, workflow_name: w } : w
+    );
+  } else if (typeof ciWorkflows === 'string') {
+    const trimmed = ciWorkflows.trim();
+    if (trimmed) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        workflows = Array.isArray(parsed)
+          ? parsed.map((w) =>
+              typeof w === 'string' ? { workflow_id: w, workflow_name: w } : w
+            )
+          : null;
+      } catch {
+        // Not valid JSON, treat as single workflow name
+        workflows = [{ workflow_id: trimmed, workflow_name: trimmed }];
+      }
+    }
+  }
+
   const verifierEvidence = await fetchVerifierEvidence({
     github,
     core,
@@ -1864,6 +1948,7 @@ async function buildVerifierContext({
     referenceTexts: closingIssues.map((issue) => issue.body || ''),
     referenceSourcesComplete: closingIssueDiscovery.status === 'included',
     associatedCommitShas: [pull.head?.sha, pull.merge_commit_sha],
+    workflows: workflows || [],
     extractArtifactText,
   });
 
@@ -1904,29 +1989,6 @@ async function buildVerifierContext({
     content.push(`- Chain depth: ${chainDepth} (follow-up iteration)`);
   }
   content.push('');
-
-  // Parse ciWorkflows if provided (can be array or JSON string)
-  let workflows = null;
-  if (Array.isArray(ciWorkflows)) {
-    workflows = ciWorkflows.map((w) =>
-      typeof w === 'string' ? { workflow_id: w, workflow_name: w } : w
-    );
-  } else if (typeof ciWorkflows === 'string') {
-    const trimmed = ciWorkflows.trim();
-    if (trimmed) {
-      try {
-        const parsed = JSON.parse(trimmed);
-        workflows = Array.isArray(parsed)
-          ? parsed.map((w) =>
-              typeof w === 'string' ? { workflow_id: w, workflow_name: w } : w
-            )
-          : null;
-      } catch {
-        // Not valid JSON, treat as single workflow name
-        workflows = [{ workflow_id: trimmed, workflow_name: trimmed }];
-      }
-    }
-  }
 
   const ciResults = await queryVerifierCiResults({
     github,
@@ -1995,7 +2057,7 @@ async function buildVerifierContext({
     if (!hasTasksContent) missingParts.push('tasks');
     if (!hasAcceptanceContent) missingParts.push('acceptance criteria');
     const skipReason = `No ${missingParts.join(' and ')} found in PR or linked issues; skipping verifier.`;
-    core?.notice?.(skipReason);
+    core?.warning?.(skipReason);
     core?.setOutput?.('should_run', 'false');
     core?.setOutput?.('skip_reason', skipReason);
     core?.setOutput?.('pr_number', String(pull.number || ''));
@@ -2023,7 +2085,7 @@ async function buildVerifierContext({
   if (pull.merged || pull.merged_at || pr.merged || context.payload?.pull_request?.merged) {
     // A fresh PR payload's base can already contain the head. Anchor the range
     // using original commit metadata and historical merge ancestry, not the moving base tip.
-    // Only commit metadata comes from the API; the full patch remains local.
+    // Prefer local patches; any API fallback below retains a non-PASS gap.
     baseSha = undefined;
     try {
       const { data: commits } = await github.rest.pulls.listCommits({
@@ -2039,9 +2101,9 @@ async function buildVerifierContext({
     }
     originalRangeAvailable = Boolean(baseSha);
   }
-  // The caller checkout has full history. Fail closed when the original range
-  // is unavailable instead of substituting a bounded rendered/API patch.
-  const diffText = originalRangeAvailable ? fetchLocalDiff({
+  // Prefer the caller's full history. If reconstruction fails, retain bounded
+  // API patches for inspection with an explicit completeness gap.
+  let diffText = originalRangeAvailable ? fetchLocalDiff({
     baseSha,
     headSha,
     mergeSha,
@@ -2052,9 +2114,16 @@ async function buildVerifierContext({
     maxBytes: Number.isFinite(diffMaxBytes) ? diffMaxBytes : DEFAULT_DIFF_MAX_BYTES,
     core,
   }) : '';
+  let apiDiffFallback = null;
+  if (!diffText) {
+    core?.warning?.('Local PR diff unavailable; falling back to the GitHub PR files API.');
+    apiDiffFallback = await fetchPullRequestFilesDiff({github, core, owner, repo,
+      pullNumber: pull.number, expectedFiles: pull.changed_files});
+    diffText = apiDiffFallback.text;
+  }
   if (!diffText) {
     const skipReason = `Authoritative pull request diff unavailable for PR #${pull.number}; skipping verifier.`;
-    core?.notice?.(skipReason);
+    core?.warning?.(skipReason);
     core?.setOutput?.('should_run', 'false');
     core?.setOutput?.('skip_reason', skipReason);
     core?.setOutput?.('pr_number', String(pull.number || ''));
@@ -2091,6 +2160,16 @@ async function buildVerifierContext({
     diffMaxChars: diffText.length,
     evidence: verifierEvidence,
   });
+  if (apiDiffFallback) {
+    // GitHub may silently truncate individual patches. Even a complete file
+    // inventory cannot prove a lossless patch, so withhold PASS on this path.
+    sourceCoverage.diff_retrieval = {source: 'GitHub PR files API', complete: false,
+      reason: 'API patch completeness cannot be established without a local diff.'};
+    sourceCoverage.changed_code_sources.push({source: 'GitHub PR files API fallback',
+      status: 'unavailable', reason: apiDiffFallback.complete
+        ? 'API file inventory retrieved; patch completeness cannot be established without a local diff.'
+        : 'API file inventory or one or more file patches are incomplete.'});
+  }
   const missingIssueSource =
     sourceContext.requiresIssue &&
     closingIssues.length === 0 &&
@@ -2181,6 +2260,7 @@ module.exports = {
     });
   },
   fetchVerifierEvidence,
+  fetchPullRequestFilesDiff,
   historicalManualVerifierBinding,
   validateHistoricalManualArtifact,
   retainCaptureBytes,

@@ -5749,6 +5749,9 @@ def build_prompt_inputs(context: str, diff: str | None, *, lossless: bool = Fals
     sections = _split_verifier_context(context_text) if context_text else None
     reasons: list[str] = []
     source_coverage = parse_context_source_coverage(context_text) or {}
+    retrieval = source_coverage.get("diff_retrieval", {})
+    if isinstance(retrieval, dict) and retrieval.get("complete") is False:
+        reasons.append("PR diff retrieval incomplete: " + str(retrieval.get("reason", "unknown")))
     raw_inventory = source_coverage.get("artifact_capture_inventory")
     if (
         not lossless
@@ -7881,7 +7884,11 @@ def _unique_concerns(results: list[EvaluationResult]) -> dict[int, list[str]]:
 def format_comparison_report(results: list[EvaluationResult]) -> str:
     lines = ["## Provider Comparison Report", ""]
     for result in results:
-        lines.append(f"- {result.provider_used or 'provider'}: {_review_count(result)}")
+        no_review = ""
+        if not result.used_llm:
+            reason = result.error or result.summary or result.verdict
+            no_review = f"; no model review: {reason}"
+        lines.append(f"- {result.provider_used or 'provider'}: {_review_count(result)}{no_review}")
     if not results:
         lines.append("files reviewed 0 of 0 (coverage unavailable)")
     lines.append("")

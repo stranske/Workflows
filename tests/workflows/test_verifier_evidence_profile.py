@@ -488,3 +488,39 @@ def test_expanded_evaluate_does_not_admit_raw_capture_recovery(tmp_path):
     )
     assert result.returncode == 0, result.stderr
     assert "VERIFIER_EVIDENCE_CAPTURE_DIR" not in output.read_text()
+
+
+@pytest.mark.parametrize("override", [None, "", "7"])
+def test_input_manifest_inherits_js_run_defaults_unless_overridden(tmp_path, override):
+    import json
+
+    workflow = yaml.load(
+        Path(".github/workflows/reusable-agents-verifier.yml").read_text(), Loader=yaml.BaseLoader
+    )
+    step = next(
+        s
+        for s in workflow["jobs"]["verifier"]["steps"]
+        if s.get("name") == "Record verifier input identity for model evaluation"
+    )
+    for name in ("verifier-context.md", "verifier-diff-summary.md", "verifier-pr-diff.patch"):
+        (tmp_path / name).write_text("evidence")
+    env = {key: value for key, value in os.environ.items() if not key.startswith("VERIFIER_")}
+    env.update(
+        GITHUB_REPOSITORY="stranske/Workflows",
+        GITHUB_RUN_ID="123",
+        VERIFIER_PR_NUMBER="4099",
+        VERIFIER_TARGET_SHA="head",
+        VERIFIER_CHAIN_DEPTH="0",
+        VERIFIER_EVIDENCE_PROFILE="standard",
+    )
+    if override is not None:
+        env.update(VERIFIER_EVIDENCE_RUN_LIMIT=override, VERIFIER_EVIDENCE_RUN_PAGES=override)
+    script = step["run"].split("<<'PY'\n", 1)[1].rsplit("\nPY", 1)[0]
+    subprocess.run([sys.executable, "-c", script], cwd=tmp_path, env=env, check=True)
+    limits = json.loads((tmp_path / "verifier-input-manifest.json").read_text())["input_limits"]
+    if override:
+        assert limits["workflow_runs"] == 7
+        assert limits["run_pages"] == 7
+    else:
+        assert limits["workflow_runs"] is None
+        assert limits["run_pages"] is None
