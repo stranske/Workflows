@@ -37,3 +37,39 @@ def test_read_ndjson_file_missing_path(tmp_path: Path) -> None:
 
     assert entries == []
     assert errors
+
+
+def test_read_ndjson_file_reports_bad_lines_and_accepts_objects(tmp_path: Path) -> None:
+    path = tmp_path / "mixed.ndjson"
+    path.write_text('{"first": 1}\nnot-json\n[]\n{"second": 2}\n', encoding="utf-8")
+
+    entries, errors = ndjson_parser.read_ndjson_file(path)
+
+    assert entries == [{"first": 1}, {"second": 2}]
+    assert len(errors) == 2
+    assert "invalid JSON" in errors[0]
+    assert "expected object, got list" in errors[1]
+
+
+def test_read_ndjson_file_falls_back_to_legacy_json_object_and_list(tmp_path: Path) -> None:
+    object_path = tmp_path / "legacy-object.json"
+    object_path.write_text('{\n  "legacy": true\n}\n', encoding="utf-8")
+    list_path = tmp_path / "legacy-list.json"
+    list_path.write_text('[\n {"one": 1},\n {"two": 2}\n]\n', encoding="utf-8")
+
+    assert ndjson_parser.read_ndjson_file(object_path) == ([{"legacy": True}], [])
+    assert ndjson_parser.read_ndjson_file(list_path) == ([{"one": 1}, {"two": 2}], [])
+
+
+def test_read_ndjson_file_rejects_legacy_scalar_and_bounded_fallback(tmp_path: Path) -> None:
+    scalar_path = tmp_path / "scalar.json"
+    scalar_path.write_text("[1, 2]\n", encoding="utf-8")
+    entries, errors = ndjson_parser.read_ndjson_file(scalar_path)
+    assert entries == []
+    assert errors
+
+    bounded_path = tmp_path / "oversized.json"
+    bounded_path.write_text("x" * (1024 * 1024 + 1), encoding="utf-8")
+    entries, errors = ndjson_parser.read_ndjson_file(bounded_path)
+    assert entries == []
+    assert errors[-1].endswith("legacy-json-fallback-buffer-limit")

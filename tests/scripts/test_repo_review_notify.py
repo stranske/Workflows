@@ -8,8 +8,13 @@ from scripts.repo_review_notify import (
     format_auto_labeled_section,
     format_docs_drift_section,
     format_needs_human_section,
+    format_scorecard_section,
+    load_backlog_scan,
+    load_docs_drift_scan,
     load_queue,
     summarize_queue,
+    summarize_scorecard,
+    write_desktop_reminder,
 )
 
 
@@ -238,3 +243,135 @@ def test_held_approval_state_requires_review_on_both_surfaces(
     assert f"{held} approval(s), {conflicts} unresolved scope conflict(s)" in desktop
     assert "Clean week" not in desktop
     assert "--apply" not in desktop
+
+
+def test_write_desktop_reminder_covers_clean_and_uploadable_states(
+    tmp_path: Path, monkeypatch
+) -> None:
+
+    monkeypatch.setenv("HOME", str(tmp_path))
+    clean = write_desktop_reminder(
+        queue_summary={"total": 0, "by_repo": {}, "skipped_count": 0, "issue_titles": []},
+        backlog={},
+        docs_drift={},
+        scorecard={},
+        packet_path=tmp_path / "packet.md",
+        queue_path=tmp_path / "queue.json",
+        output_dir=tmp_path / "out",
+        workflows_steward_root=tmp_path,
+    )
+    assert "Clean week" in clean.read_text(encoding="utf-8")
+
+    uploadable = write_desktop_reminder(
+        queue_summary={
+            "total": 1,
+            "by_repo": {"stranske/Workflows": 1},
+            "skipped_count": 1,
+            "issue_titles": ["Fix coverage"],
+        },
+        backlog={"needs_human": [{"repo": "x", "number": 1, "title": "Decide", "age_days": 8}]},
+        docs_drift={},
+        scorecard={},
+        packet_path=tmp_path / "packet.md",
+        queue_path=tmp_path / "queue.json",
+        output_dir=tmp_path / "out",
+        workflows_steward_root=tmp_path,
+    )
+    text = uploadable.read_text(encoding="utf-8")
+    assert "1 issue ready to upload" in text
+    assert "Next action — upload the queued issues" in text
+    assert "1 repo decision(s) skipped" in text
+
+
+def test_scorecard_summary_uses_bucket_fallback_and_empty_sections() -> None:
+    assert summarize_scorecard({"by_repo": [{"findings": [{}, {}], "errors": [{}]}]}) == (2, 1)
+    assert format_auto_labeled_section({}) == ""
+    assert format_needs_human_section({}) == ""
+    assert format_docs_drift_section({"by_repo": []}) == ""
+
+
+def test_notification_and_scan_loaders_handle_best_effort_failures(
+    tmp_path: Path, monkeypatch, capsys
+) -> None:
+    from scripts import repo_review_notify as notify
+
+    missing = tmp_path / "missing.json"
+    assert load_backlog_scan(None) == {"items": []}
+    assert load_backlog_scan(missing) == {"items": []}
+    assert load_docs_drift_scan(None) == {"by_repo": []}
+    assert load_docs_drift_scan(missing) == {"by_repo": []}
+    missing.write_text("{bad", encoding="utf-8")
+    assert load_backlog_scan(missing) == {"items": []}
+    assert load_docs_drift_scan(missing) == {"by_repo": []}
+
+    monkeypatch.setattr(notify.shutil, "which", lambda _: None)
+    notify.display_notification("title", "subtitle", "message")
+    assert "not on PATH" in capsys.readouterr().err
+
+    calls = []
+    monkeypatch.setattr(notify.shutil, "which", lambda _: "/usr/bin/osascript")
+    monkeypatch.setattr(
+        notify.subprocess, "run", lambda args, **kwargs: calls.append((args, kwargs))
+    )
+    notify.display_notification('a"b', "sub", r"slash\\quote\"")
+    assert calls[0][0][:2] == ["osascript", "-e"]
+    assert '\\"' in calls[0][0][2]
+
+
+def test_scorecard_and_reminder_cover_error_and_decision_headlines(
+    tmp_path: Path, monkeypatch
+) -> None:
+    rendered = format_scorecard_section(
+        {
+            "by_repo": [
+                {"repo": "a/b", "errors": [{"error": "nope"}]},
+                {
+                    "repo": "c/d",
+                    "findings": [
+                        "bad",
+                        {
+                            "finding_id": "x",
+                            "check": "Binary",
+                            "score": 1,
+                            "reason": "low",
+                            "documentation_url": "https://docs",
+                        },
+                    ],
+                },
+            ]
+        }
+    )
+    assert "Scan errors: 1" in rendered
+    assert "**x**" in rendered and "https://docs" in rendered
+
+    monkeypatch.setenv("HOME", str(tmp_path))
+    common = {
+        "packet_path": tmp_path / "packet",
+        "queue_path": tmp_path / "queue",
+        "output_dir": tmp_path / "out",
+        "workflows_steward_root": tmp_path,
+    }
+    path = write_desktop_reminder(
+        queue_summary={"total": 0, "by_repo": {}, "skipped_count": 0, "issue_titles": []},
+        backlog={"needs_human": [{"repo": "a", "number": 1, "title": "x", "age_days": 8}]},
+        docs_drift={
+            "by_repo": [
+                {
+                    "repo": "a",
+                    "drift_instances": [
+                        {
+                            "doc_path": "README.md",
+                            "classification": "stale",
+                            "claim": "old",
+                            "authoritative_source": "docs/guide.md",
+                        }
+                    ],
+                }
+            ]
+        },
+        scorecard={},
+        **common,
+    )
+    assert "backlog item and 1 doc-drift item need your decision" in path.read_text(
+        encoding="utf-8"
+    )
