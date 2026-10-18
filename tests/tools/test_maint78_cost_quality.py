@@ -64,7 +64,7 @@ def _complex_context(case_id: str, files: int = 6) -> str:
 def _screen_inputs():
     corpus, registry, policy = _inputs()
     corpus["screen_input_status"] = "production_context_adjudicated"
-    cases = select_cases(corpus["cases"])
+    cases = select_cases(_real_only(corpus)["cases"])
     corpus["screen_cases"] = json.loads(json.dumps(cases))
     cases = corpus["screen_cases"]
     for case in cases:
@@ -136,16 +136,17 @@ def test_current_plan_allows_fast_screen_without_statistical_approval():
     assert plan["screen_blockers"] == []
     assert len(plan["screen_case_kinds"]) == 8
     assert plan["automatic_api_calls"] == 0
-    assert plan["corpus_cases"] == 51
+    # 51 real cases (4 NON_PASS) plus the generated controlled-mutation NON_PASS cases (#4113)
+    assert plan["corpus_cases"] == 51 + plan["controlled_mutation_non_pass_cases"]
     assert plan["approval_minimum_cases"] == 75
-    assert plan["expected_non_pass_cases"] == 4
+    assert plan["real_non_pass_cases"] == 4
+    assert plan["controlled_mutation_non_pass_cases"] >= 69
+    assert plan["expected_non_pass_cases"] == 4 + plan["controlled_mutation_non_pass_cases"]
     assert plan["zero_error_false_pass_denominator"] == 73
-    assert plan["additional_non_pass_cases_for_best_case_gate"] == 69
-    assert plan["best_case_minimum_corpus_cases"] == 120
+    assert plan["additional_non_pass_cases_for_best_case_gate"] == 0
     # follow-up-required needs 3 (representation) and has 3; missing-acceptance-criterion needs 10
-    # and has 1 until controlled-mutation cases supply it (policy update 2026-10-18)
-    assert "follow-up-required" not in plan["category_shortfalls"]
-    assert plan["category_shortfalls"]["missing-acceptance-criterion"] == 9
+    # and is supplied by controlled-mutation cases (policy update 2026-10-18, issue #4113)
+    assert plan["category_shortfalls"] == {}
     assert plan["unpriced_openai_models"] == []
 
 
@@ -255,8 +256,7 @@ def test_controlled_defect_screen_case_does_not_enter_statistical_denominator():
     negative["production_snapshot"]["mutation_note"] = "Controlled missing acceptance item."
     plan = build_plan(corpus, registry, policy)
     assert plan["screen_ready"]
-    assert plan["corpus_cases"] == 51
-    assert plan["expected_non_pass_cases"] == 4
+    assert plan["real_non_pass_cases"] == 4  # a controlled screen case is not a counted corpus case
     assert plan["screen_case_kinds"][negative["case_id"]] == "controlled_defect"
     assert {case["category"] for case in corpus["screen_cases"]} == {
         "clean-pass",
@@ -290,9 +290,11 @@ def test_plan_surfaces_models_missing_from_pinned_cli_catalog():
 
 def test_cli_screen_is_bounded_and_reports_comparative_cost():
     corpus, registry, policy = _screen_inputs()
-    cases = select_cases(corpus["cases"])
+    cases = select_cases(_real_only(corpus)["cases"])
     assert len(cases) == 8
-    assert {case["category"] for case in cases} == {case["category"] for case in corpus["cases"]}
+    assert {case["category"] for case in cases} == {
+        case["category"] for case in _real_only(corpus)["cases"]
+    }
     assert sum(case["expected_verdict"] == "NON_PASS" for case in cases) == 4
     assert (
         api_list_price_estimate(
@@ -322,7 +324,7 @@ def test_cli_screen_is_bounded_and_reports_comparative_cost():
 
 def test_cli_screen_advances_only_a_safer_cheaper_paired_candidate():
     corpus, registry, policy = _screen_inputs()
-    cases = select_cases(corpus["cases"])
+    cases = select_cases(_real_only(corpus)["cases"])
     rows = []
     for model, cost in (("gpt-5.6-terra", 0.008), ("gpt-6-luna", 0.001)):
         for case in cases:
@@ -640,7 +642,7 @@ def test_invalid_json_preserves_cli_usage_and_does_not_stop_screen(monkeypatch):
 
 def test_all_non_pass_candidate_cannot_advance_from_balanced_screen():
     corpus, registry, policy = _screen_inputs()
-    cases = select_cases(corpus["cases"])
+    cases = select_cases(_real_only(corpus)["cases"])
     rows = []
     for model in ("gpt-5.6-terra", "gpt-6-luna"):
         for case in cases:
@@ -931,8 +933,16 @@ def _with_mutations(corpus, count):
     return {**corpus, "cases": [*corpus["cases"], *extra]}
 
 
+def _real_only(corpus):
+    return {
+        **corpus,
+        "cases": [c for c in corpus["cases"] if c.get("provenance") != "controlled-mutation"],
+    }
+
+
 def test_controlled_mutation_cases_count_toward_the_false_pass_floor_and_are_reported_apart():
     corpus, registry, policy = _inputs()
+    corpus = _real_only(corpus)
     real = build_plan(corpus, registry, policy)
     plan = build_plan(_with_mutations(corpus, 69), registry, policy)
     assert real["controlled_mutation_non_pass_cases"] == 0
@@ -944,6 +954,7 @@ def test_controlled_mutation_cases_count_toward_the_false_pass_floor_and_are_rep
 
 def test_mutation_cases_do_not_count_when_the_policy_turns_them_off():
     corpus, registry, policy = _inputs()
+    corpus = _real_only(corpus)
     off = json.loads(json.dumps(policy))
     off["profiles"]["verifier-balanced"]["approval_stage"]["controlled_mutation"][
         "counts_toward_false_pass_bound"
@@ -955,6 +966,7 @@ def test_mutation_cases_do_not_count_when_the_policy_turns_them_off():
 
 def test_mutation_cases_cannot_replace_real_non_pass_signal():
     corpus, registry, policy = _inputs()
+    corpus = _real_only(corpus)
     only_mutations = {
         **corpus,
         "cases": [c for c in corpus["cases"] if c["expected_verdict"] == "PASS"],

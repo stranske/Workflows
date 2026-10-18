@@ -197,6 +197,18 @@ records. Do not hand-enter aggregate rates or recommendation rankings.
   because resolved verifier follow-ups are too rare to reach 10. `plan_model_eval`
   reports `real_non_pass_cases` and `controlled_mutation_non_pass_cases` separately. Human approval
   of any promotion is unchanged.
+
+  **Generated cases (issue #4113).** `tools/generate_mutation_cases.py` builds them from captured
+  verifier inputs with two mutations: `drop-named-file` removes the diff of a file the plan requires
+  (a newly added file named anywhere in Tasks or Acceptance Criteria, or a modified source file a
+  Tasks line names with a change verb; a modified file merely named in a run command is never
+  dropped because the base commit may already satisfy it), and `fail-ci-row` turns one passing CI row
+  into a failure, which the verifier input itself says disqualifies a PASS verdict. Source snapshots
+  live gzipped in `config/model_eval_snapshots/`; mutant cases are recipes (`mutation_recipe`) that
+  `load_case` re-derives, so they cost no storage and cannot drift from their source. Any merged PR
+  with a captured input can be a mutation source, because the mutant's NON_PASS truth does not depend
+  on the source's own verdict; sources outside the corpus are never corpus cases. Mutants are capped
+  at two file drops plus one CI failure per PR. `max_corpus_size` rises from 150 to 200 to hold them.
 - Report Wilson 95% confidence intervals for task success, false PASS, false
   FAIL, and schema errors.
 - Require the configured bounds and a paired success result no more than two
