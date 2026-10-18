@@ -1048,3 +1048,214 @@ def test_verify_turn_input_binding_survives_output_relocation(
     )
 
     assert errors == []
+
+
+def _run_args(
+    repo: str, output_dir: Path, registry: Path, *, dry_run: bool = True
+) -> SimpleNamespace:
+    return SimpleNamespace(
+        repo=repo,
+        output_dir=str(output_dir),
+        registry=str(registry),
+        agents="codex,claude",
+        max_turns=1,
+        turn_timeout=30,
+        retries=0,
+        dry_run=dry_run,
+    )
+
+
+def test_run_synthesizes_empty_round_one_without_spawning_agents(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo, output_dir, agents = _round2_cache_inputs(tmp_path, monkeypatch)
+    for label, path in agents.items():
+        _write_round1_findings(path, agent=label, repo=repo, candidates=[])
+    repo_path = tmp_path / "reviewed"
+    repo_path.mkdir()
+    monkeypatch.setattr(
+        runner,
+        "load_registry",
+        lambda _path: (tmp_path, [], [SimpleNamespace(repo=repo, local_path="reviewed")], []),
+    )
+    monkeypatch.setattr(runner, "resolve_negotiation_agents", lambda *_args: agents)
+    monkeypatch.setattr(runner, "validate_reviewed_source_commit", lambda *_args: "")
+    monkeypatch.setattr(runner, "validate_converged_set", lambda *_args, **_kwargs: [])
+    monkeypatch.setattr(
+        runner,
+        "run_one_turn",
+        lambda *_args, **_kwargs: pytest.fail("empty findings must skip agent negotiation"),
+    )
+
+    assert runner.run(_run_args(repo, output_dir, tmp_path / "registry.json")) == 0
+    payload = json.loads(runner.round2_converged_path(output_dir, repo).read_text(encoding="utf-8"))
+    assert payload["turns_completed"] == 0
+    assert payload["converged_candidates"] == []
+    assert {item["agent"] for item in payload["no_new_work_justifications"]} == set(agents)
+
+
+def test_run_converges_one_turn_and_writes_the_synthesized_packet(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo, output_dir, agents = _round2_cache_inputs(tmp_path, monkeypatch)
+    repo_path = tmp_path / "reviewed"
+    repo_path.mkdir()
+    monkeypatch.setattr(
+        runner,
+        "load_registry",
+        lambda _path: (tmp_path, [], [SimpleNamespace(repo=repo, local_path="reviewed")], []),
+    )
+    monkeypatch.setattr(runner, "resolve_negotiation_agents", lambda *_args: agents)
+    monkeypatch.setattr(runner, "validate_reviewed_source_commit", lambda *_args: "")
+    monkeypatch.setattr(runner, "validate_or_die", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(runner, "validate_converged_set", lambda *_args, **_kwargs: [])
+    monkeypatch.setattr(
+        runner,
+        "run_one_turn",
+        lambda **_kwargs: {
+            label: runner.AgentTurnResult(label, 1, Path(f"{label}.json"), True, True)
+            for label in agents
+        },
+    )
+    turn_outputs = {
+        "codex": {
+            "agent": "codex",
+            "turn": 1,
+            "marks": [
+                {"source_agent": "codex", "candidate_index": 1, "mark": "agree-keep"},
+                {"source_agent": "claude", "candidate_index": 1, "mark": "agree-keep"},
+            ],
+            "meta_candidate_proposal": {"proposed": False},
+        },
+        "claude": {
+            "agent": "claude",
+            "turn": 1,
+            "marks": [
+                {"source_agent": "codex", "candidate_index": 1, "mark": "agree-keep"},
+                {"source_agent": "claude", "candidate_index": 1, "mark": "agree-keep"},
+            ],
+            "meta_candidate_proposal": {"proposed": False},
+        },
+    }
+    monkeypatch.setattr(runner, "load_turn", lambda path: turn_outputs[path.stem])
+
+    assert runner.run(_run_args(repo, output_dir, tmp_path / "registry.json")) == 0
+    payload = json.loads(runner.round2_converged_path(output_dir, repo).read_text(encoding="utf-8"))
+    assert payload["turns_completed"] == 1
+    assert len(payload["converged_candidates"]) == 2
+
+
+def test_resolve_negotiation_agents_accepts_one_suffix_and_rejects_ambiguous_or_missing(
+    tmp_path: Path,
+) -> None:
+    repo = "stranske/Example"
+    output_dir = tmp_path / "review"
+    for agent in ("codex", "pilot-claude"):
+        path = runner.round1_findings_path(output_dir, agent, repo)
+        _write_round1_findings(path, agent=agent, repo=repo)
+
+    resolved = runner.resolve_negotiation_agents(output_dir, repo, ("codex", "claude"))
+    assert set(resolved) == {"codex", "pilot-claude"}
+
+    _write_round1_findings(
+        runner.round1_findings_path(output_dir, "alternate-claude", repo),
+        agent="alternate-claude",
+        repo=repo,
+    )
+    with pytest.raises(SystemExit, match="ambiguous"):
+        runner.resolve_negotiation_agents(output_dir, repo, ("claude",))
+    with pytest.raises(SystemExit, match="No round-1 findings"):
+        runner.resolve_negotiation_agents(output_dir, repo, ("gemini",))
+
+
+def test_run_persists_a_completed_round_when_not_dry_run(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo, output_dir, agents = _round2_cache_inputs(tmp_path, monkeypatch)
+    for label, path in agents.items():
+        _write_round1_findings(path, agent=label, repo=repo, candidates=[])
+    (tmp_path / "reviewed").mkdir()
+    calls: list[str] = []
+    monkeypatch.setattr(
+        runner,
+        "load_registry",
+        lambda _path: (tmp_path, [], [SimpleNamespace(repo=repo, local_path="reviewed")], []),
+    )
+    monkeypatch.setattr(runner, "resolve_negotiation_agents", lambda *_args: agents)
+    monkeypatch.setattr(runner, "validate_reviewed_source_commit", lambda *_args: "")
+    monkeypatch.setattr(runner, "validate_converged_set", lambda *_args, **_kwargs: [])
+    monkeypatch.setattr(runner, "load_state", lambda *_args: {"status": "round1-complete"})
+    monkeypatch.setattr(runner, "begin_attempt", lambda *_args, **_kwargs: {"id": "attempt"})
+    monkeypatch.setattr(runner, "finish_attempt", lambda *_args, **_kwargs: calls.append("finish"))
+    monkeypatch.setattr(runner, "record_round2_converged", lambda *_args: calls.append("record"))
+    monkeypatch.setattr(
+        runner, "transition", lambda *_args, **kwargs: calls.append(kwargs["status"])
+    )
+    monkeypatch.setattr(runner, "save_state", lambda *_args: calls.append("save"))
+    monkeypatch.setattr(
+        runner,
+        "run_one_turn",
+        lambda *_args, **_kwargs: pytest.fail("empty findings must not run agents"),
+    )
+
+    assert runner.run(_run_args(repo, output_dir, tmp_path / "registry.json", dry_run=False)) == 0
+    assert calls == ["finish", "record", "round2-converged", "save"]
+
+
+def test_resolve_claude_binary_prefers_verified_desktop_install_then_path_fallback(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    desktop_root = tmp_path / "claude-code"
+    older = desktop_root / "2.1.45" / "claude.app" / "Contents" / "MacOS" / "claude"
+    newer = desktop_root / "2.1.128" / "claude.app" / "Contents" / "MacOS" / "claude"
+    for binary in (older, newer):
+        binary.parent.mkdir(parents=True)
+        binary.write_text("", encoding="utf-8")
+    monkeypatch.delenv("CLAUDE_CODE_EXECPATH", raising=False)
+    monkeypatch.setattr(runner.os.path, "expanduser", lambda _path: str(desktop_root))
+    monkeypatch.setattr(runner.shutil, "which", lambda _name: "/path/claude")
+
+    assert runner._resolve_claude_binary() == str(newer)
+    monkeypatch.setenv("CLAUDE_CODE_EXECPATH", str(older))
+    assert runner._resolve_claude_binary() == str(older)
+    monkeypatch.setenv("CLAUDE_CODE_EXECPATH", str(tmp_path / "missing"))
+    monkeypatch.setattr(runner.Path, "is_dir", lambda self: False)
+    assert runner._resolve_claude_binary() == "/path/claude"
+
+
+def test_invoke_agent_routes_pilot_labels_and_rejects_unknown_agent(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    calls: list[str] = []
+    monkeypatch.setattr(
+        runner,
+        "invoke_codex",
+        lambda *_args, **_kwargs: (calls.append("codex") or True, "ok"),
+    )
+    monkeypatch.setattr(
+        runner,
+        "invoke_claude",
+        lambda *_args, **_kwargs: (calls.append("claude") or True, "ok"),
+    )
+
+    assert runner.invoke_agent(
+        "pilot-codex",
+        "prompt",
+        cwd=tmp_path,
+        additional_dirs=[],
+        log_file=tmp_path / "x",
+        timeout=1,
+    ) == (True, "ok")
+    assert runner.invoke_agent(
+        "pilot-claude",
+        "prompt",
+        cwd=tmp_path,
+        additional_dirs=[],
+        log_file=tmp_path / "x",
+        timeout=1,
+    ) == (True, "ok")
+    ok, message = runner.invoke_agent(
+        "gemini", "prompt", cwd=tmp_path, additional_dirs=[], log_file=tmp_path / "x", timeout=1
+    )
+    assert not ok and "unknown agent label" in message
+    assert calls == ["codex", "claude"]

@@ -25,7 +25,7 @@ import math
 import statistics
 from pathlib import Path
 
-from tools.agy_pilot import Backend, agy_backend, claude_backend
+from tools.agy_pilot import QUOTA_ERROR, Backend, agy_backend, claude_backend
 
 SCHEMA = "workflows-agy-judge-replay/v1"
 
@@ -166,13 +166,19 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     backend = agy_backend(args.agy_model) if args.backend == "agy" else claude_backend()
     rows = []
+    exhausted = None
     for path in args.experiments:
+        if exhausted:
+            rows.append({"experiment": path.name, "usable": False, "reason": exhausted})
+            continue
         experiment = load_experiment(path)
         rows.append(
             {"experiment": path.name, **replay_experiment(experiment, backend)}
             if experiment
             else {"experiment": path.name, "usable": False, "reason": "no eval-maps.json"}
         )
+        if str(rows[-1].get("reason") or "").startswith(QUOTA_ERROR):
+            exhausted = rows[-1]["reason"]  # the seat is out: record the rest, spend nothing more
     result = {"schema": SCHEMA, "backend": args.backend, "summary": summarise(rows), "rows": rows}
     args.output.write_text(json.dumps(result, indent=2) + "\n")
     print(json.dumps(result["summary"]))

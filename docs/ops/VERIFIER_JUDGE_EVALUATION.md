@@ -63,9 +63,15 @@ MUSE_API_KEY=... CURSOR_API_KEY=... python -m tools.run_judge_backend_screen \
   --muse-api-price-in <USD/M> --muse-api-price-out <USD/M> --output judge-screen.json
 ```
 
-Muse API pricing: take it from Meta's pricing page. Until a verified price is entered in
-`config/model_registry.json`, the candidate-derivation and promotion tools correctly refuse the
-model (`models lack verified registry prices`); modelled cost in a screen is labelled unverified.
+Muse API pricing, verified from Meta's own pricing page on 2026-10-18
+(<https://dev.meta.ai/docs/pricing-rate-limits>): `muse-spark-1.3` and `muse-spark-1.2`, standard mode,
+cost 1.25 USD per million input tokens, 4.25 per million output tokens and 0.15 per million cached input
+tokens (rate limit 3,000 requests and 4,000,000 tokens per minute). The `-contributor` variants are cheaper
+because Meta may train on the prompts; they are refused here. Pass the two prices to the screen
+(`--muse-api-price-in 1.25 --muse-api-price-out 4.25`); the modelled cost is then labelled with the page it
+came from. The price is **not** entered in `config/model_registry.json`: the registry's native-capacity
+reader accepts only the openai, anthropic and github-models providers, so a `meta` row fails 30 existing
+registry tests until provider support exists (section 6 lists it as a precondition).
 
 ## 4. Deciding on a third judge or a backup: `tools/analyze_judge_ensemble.py`
 
@@ -268,6 +274,15 @@ them at random (Workflows#4049/#4053); a live canary on a Cursor PR logged the p
 Muse (API and CLI) and agy are screened here but are not in the PASS pool: on this evidence none has
 earned it, and the Muse contributor tier is the cheapest way to keep measuring. Adding a judge to the
 pool needs the preconditions in section 6 plus the approval corpus; the corpus is the bottleneck.
+
+### Muse Spark 1.3 on the 2026-10-17 prompt (historical)
+
+Meta's models page names 1.3 as the latest Muse Spark, so the API judge was screened again on the same 8
+cases (`muse-spark-1-3-screen.json`): 4 of 8 correct, 2 false PASS, 0 schema errors, modelled cost
+0.12 USD for 22,365 input and 22,171 output tokens (api-observed usage at the verified price). 1.2 scored 6 of
+8 with 2 false PASS on the same cases at that prompt version; the current-prompt figures are in the table
+above (1.3: 4 of 8, 1.2: 4 of 8). Neither qualifies for PASS authority, and the 1.2 to 1.3 change on
+eight cases is a reminder of how little a screen of this size can rank.
 
 ## 8. Next steps and how each is measured
 

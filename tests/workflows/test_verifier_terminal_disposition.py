@@ -211,3 +211,217 @@ def test_reusable_verifier_floors_ci_failure_comments_before_posting() -> None:
     assert "steps.llm_compare.outputs.verdict == 'PASS'" in compare_floor["if"]
     assert "comparison-comment.md" in compare_floor["run"]
     assert "Provider rows below are preserved for auditability" in compare_floor["run"]
+
+
+# --- F48: executable event-to-sink traces for the verifier failure paths -----
+
+import functools  # noqa: E402
+import os  # noqa: E402
+import shutil  # noqa: E402
+import subprocess  # noqa: E402
+
+import pytest  # noqa: E402
+
+
+def _verifier_steps() -> dict:
+    workflow = _load_yaml(ROOT / ".github/workflows/reusable-agents-verifier.yml")
+    return {step.get("name"): step for step in workflow["jobs"]["verifier"]["steps"]}
+
+
+def _heredoc(run: str, opener: str, terminator: str) -> str:
+    start = run.index(opener) + len(opener)
+    body = run[start:]
+    return body[: body.index(f"\n{terminator}")]
+
+
+def _resolve_env(step_env: dict, outputs: dict) -> dict:
+    """Mimic Actions expression resolution for the unified-verdict wiring."""
+    env = {}
+    for key, expr in step_env.items():
+        expr = str(expr)
+        if key == "UNIFIED_VERDICT_OUTCOME":
+            env[key] = outputs["outcome"]
+        elif key in {"VERDICT", "FINAL_VERDICT"}:
+            # Only steps.<id>.outputs.verdict references resolve to a value;
+            # skipped/absent steps resolve to the empty string.
+            refs = re.findall(r"steps\.(\w+)\.outputs\.verdict", expr)
+            env[key] = next(
+                (outputs["verdicts"].get(ref, "") for ref in refs if outputs["verdicts"].get(ref)),
+                "",
+            )
+    return env
+
+
+def _run_sinks(tmp_path: Path, *, should_run: bool, outcome: str, verdicts: dict) -> dict:
+    steps = _verifier_steps()
+    collect = steps["Collect verifier metrics"]
+    write = steps["Write verifier terminal disposition"]
+    outputs = {"outcome": outcome, "verdicts": verdicts}
+    base = {
+        "PATH": os.environ["PATH"],
+        "SHOULD_RUN": "true" if should_run else "false",
+        "PR_NUMBER": "7",
+        "GITHUB_RUN_ID": "1",
+        "GITHUB_OUTPUT": str(tmp_path / "gh_output"),
+        "SOURCE_ISSUE_NUMBERS_JSON": "[]",
+    }
+    (tmp_path / "gh_output").write_text("")
+    collect_env = {**base, **_resolve_env(collect["env"], outputs)}
+    py = _heredoc(collect["run"], "python3 - <<'PY'\n", "PY")
+    subprocess.run(
+        ["python3", "-I", "-c", py], cwd=tmp_path, env=collect_env, check=True, capture_output=True
+    )
+    line = next(
+        ln
+        for ln in (tmp_path / "gh_output").read_text().splitlines()
+        if ln.startswith("metrics_json=")
+    )
+    metrics_json = line.split("=", 1)[1]
+    js = _heredoc(write["run"], "node <<'NODE'\n", "NODE")
+    lib = tmp_path / ".workflows-lib"
+    lib.mkdir()
+    (lib / ".github").symlink_to(ROOT / ".github")
+    (tmp_path / "agent-metrics").mkdir(exist_ok=True)
+    write_env = {**base, **_resolve_env(write["env"], outputs), "METRICS_JSON": metrics_json}
+    subprocess.run(["node", "-e", js], cwd=tmp_path, env=write_env, check=True, capture_output=True)
+    record = json.loads(
+        (tmp_path / "agent-metrics/verifier-terminal-disposition.ndjson")
+        .read_text()
+        .splitlines()[0]
+    )
+    return {"metrics": json.loads(metrics_json), "record": record}
+
+
+def _run_set_unified_verdict(
+    tmp_path: Path,
+    *,
+    ci_failed: bool,
+    checkbox_verdict: str = "PASS",
+    llm_verdict: str = "",
+    compare_verdict: str = "",
+    verifier_mode: str = "checkbox",
+) -> str:
+    """Execute the workflow's Set unified verdict step with substituted inputs."""
+    step = _verifier_steps()["Set unified verdict"]
+    script = step["run"]
+    substitutions = {
+        "${{ steps.verdict.outputs.verdict }}": checkbox_verdict,
+        "${{ steps.llm_evaluate.outputs.verdict }}": llm_verdict,
+        "${{ steps.llm_compare.outputs.verdict }}": compare_verdict,
+        "${{ steps.context.outputs.ci_failed }}": "true" if ci_failed else "false",
+    }
+    for token, value in substitutions.items():
+        script = script.replace(token, value)
+    gh_output = tmp_path / "unified_verdict_gh_output"
+    gh_output.write_text("")
+    env = {
+        **os.environ,
+        "VERIFIER_MODE": verifier_mode,
+        "GITHUB_OUTPUT": str(gh_output),
+    }
+    subprocess.run(
+        ["bash", "-euo", "pipefail", "-c", script],
+        cwd=tmp_path,
+        env=env,
+        check=True,
+        capture_output=True,
+    )
+    for line in gh_output.read_text().splitlines():
+        if line.startswith("verdict="):
+            return line.split("=", 1)[1]
+    raise AssertionError("Set unified verdict produced no verdict= output")
+
+
+def _needs_node(func):
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        if shutil.which("node") is None:
+            pytest.fail("node is required for the event-to-sink trace")
+        return func(*args, **kwargs)
+
+    return wrapper
+
+
+@_needs_node
+@pytest.mark.parametrize(
+    "verdicts",
+    [
+        {"verdict": "PASS"},  # raw checkbox PASS never passed through the CI floor
+        {"llm_evaluate": "PASS"},
+        {},  # nothing resolved at all
+    ],
+)
+def test_terminal_disposition_interrupted_settlement_is_not_unguarded_pass(
+    tmp_path: Path, verdicts: dict
+) -> None:
+    result = _run_sinks(tmp_path, should_run=True, outcome="skipped", verdicts=verdicts)
+    assert result["metrics"]["verdict"] == "error"
+    assert result["metrics"]["settlement_interrupted"] is True
+    assert result["record"]["disposition"] == "verifier-error"
+    assert result["record"]["verdict"] == "error"
+    assert result["record"]["needs_human"] is True
+
+
+@_needs_node
+def test_terminal_disposition_settled_and_skipped_paths(tmp_path: Path) -> None:
+    (tmp_path / "a").mkdir()
+    passed = _run_sinks(
+        tmp_path / "a",
+        should_run=True,
+        outcome="success",
+        verdicts={"unified_verdict": "PASS"},
+    )
+    assert passed["record"]["disposition"] == "verified-pass"
+    assert passed["metrics"]["settlement_interrupted"] is False
+
+    (tmp_path / "b").mkdir()
+    floored_verdict = _run_set_unified_verdict(
+        tmp_path / "b", ci_failed=True, checkbox_verdict="PASS"
+    )
+    assert floored_verdict == "CONCERNS"
+    floored = _run_sinks(
+        tmp_path / "b",
+        should_run=True,
+        outcome="success",
+        verdicts={"unified_verdict": floored_verdict},
+    )
+    assert floored["record"]["disposition"] == "needs-human"
+
+    (tmp_path / "c").mkdir()
+    skipped = _run_sinks(tmp_path / "c", should_run=False, outcome="skipped", verdicts={})
+    assert skipped["record"]["disposition"] == "skipped"
+    assert skipped["metrics"]["settlement_interrupted"] is False
+
+
+def test_terminal_disposition_writers_do_not_fall_back_to_raw_verdicts() -> None:
+    steps = _verifier_steps()
+    for name, key in (
+        ("Collect verifier metrics", "VERDICT"),
+        ("Write verifier terminal disposition", "FINAL_VERDICT"),
+    ):
+        expr = str(steps[name]["env"][key])
+        assert "steps.unified_verdict.outputs.verdict" in expr
+        for raw in ("steps.verdict.", "steps.llm_evaluate.", "steps.llm_compare."):
+            assert raw not in expr, f"{name} must not consume raw outcome {raw}"
+        assert steps[name]["env"]["UNIFIED_VERDICT_OUTCOME"] == (
+            "${{ steps.unified_verdict.outcome }}"
+        )
+
+
+def test_post_gate_tracker_helpers_have_no_workflow_caller() -> None:
+    """F45 link: records the confirmed gap; flips (and must be updated) once wired."""
+    helpers = (
+        "updateFailureTracker",
+        "resolveFailureIssuesForRecoveredPR",
+        "autoHealFailureIssues",
+        "snapshotFailureIssues",
+    )
+    corpus = "\n".join(
+        p.read_text(encoding="utf-8") for p in (ROOT / ".github/workflows").glob("*.yml")
+    )
+    unwired = [h for h in helpers if h not in corpus]
+    assert unwired == list(helpers), (
+        "F45 appears repaired for: "
+        + ", ".join(set(helpers) - set(unwired))
+        + " - update docs/ops/VERIFIER_GATE_EVIDENCE_PATH_AUDIT.md and this test"
+    )
