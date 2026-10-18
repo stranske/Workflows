@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import argparse
 import json
 import sys
 import types
+from pathlib import Path
 from unittest import mock
 
 import pytest
@@ -911,3 +913,508 @@ def test_apply_no_silent_loss_audit_passes_with_caps() -> None:
     assert reformatted["formatted_body"] is not None
     # The sentinel survives the validator round-trip.
     assert "elided" in reformatted["formatted_body"]
+
+
+def test_optimizer_helpers_preserve_usable_data_and_cap_overflow() -> None:
+    """Malformed suggestions are ignored while real checkbox overflow remains explicit."""
+    result = issue_optimizer.IssueOptimizationResult(
+        task_splitting=[{"task": "Split the import work", "reason": "two actions"}, "bad"],
+        blocked_tasks=[{"task": "", "reason": "ignored"}, "bad"],
+        objective_criteria=[{"criterion": "", "issue": "ignored"}, "bad"],
+        missing_sections=[],
+        formatting_issues=[],
+        overall_notes="",
+        provider_used="provider",
+        guard_blocked=True,
+        guard_reason="unsafe input",
+        langsmith_trace_id="trace-1",
+        langsmith_trace_url="https://example.invalid/trace-1",
+    )
+    payload = result.to_dict()
+
+    assert payload["guard_reason"] == "unsafe input"
+    assert payload["langsmith_trace_id"] == "trace-1"
+    assert issue_optimizer._format_task_splitting(result.task_splitting) == [
+        "Split the import work (two actions)."
+    ]
+    assert issue_optimizer._format_blocked_tasks(result.blocked_tasks) == []
+    assert issue_optimizer._format_objective_criteria(result.objective_criteria) == []
+    assert issue_optimizer._coerce_split_suggestions(
+        {"split_suggestions": ["Tiny", "Write a focused regression test for parsing"]}
+    ) == ["Write a focused regression test for parsing"]
+
+    from scripts.langchain import task_decomposer
+
+    source = "\n".join(
+        [
+            "## Tasks",
+            "- [ ] First task",
+            "- [ ] Second task",
+            "  - [ ] Nested detail",
+            "## Acceptance Criteria",
+            "- [ ] Check one",
+        ]
+    )
+    capped = issue_optimizer._cap_section_items(source, "## Tasks", 1, kind="tasks")
+    assert "- [ ] First task" in capped
+    assert "- [ ] Second task" not in capped
+    assert "  - [ ] Nested detail" in capped
+    assert task_decomposer.elision_sentinel(1, kind="tasks") in capped
+    assert issue_optimizer._cap_section_items(source, "## Missing", 1, kind="tasks") == source
+
+
+def test_fallback_paths_keep_structured_issue_when_llm_is_unavailable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Both public operations retain useful output when no provider is configured."""
+    monkeypatch.setattr(issue_optimizer, "_get_llm_client", lambda **_kwargs: None)
+    body = "## Tasks\n- [ ] Update docs and tests\n\n## Acceptance Criteria\n- [ ] pytest tests/scripts\n"
+
+    analyzed = issue_optimizer.analyze_issue(body, use_llm=True)
+    applied = issue_optimizer.apply_suggestions(
+        body,
+        {
+            "task_splitting": [None, {"task": "", "split_suggestions": ["ignored"]}],
+            "blocked_tasks": [None, {"reason": "missing task"}],
+        },
+        use_llm=True,
+    )
+
+    assert analyzed.provider_used is None
+    assert "Fallback analysis used" in (analyzed.overall_notes or "")
+    assert applied["used_llm"] is False
+    assert "## Tasks" in applied["formatted_body"]
+    assert "Deferred Tasks" not in applied["formatted_body"]
+
+
+def test_provider_token_limit_falls_back_to_formatter_when_openai_is_unavailable(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """A GitHub Models token-limit failure does not discard an issue body."""
+    primary_chain = mock.MagicMock()
+    primary_chain.invoke.side_effect = RuntimeError("token limit")
+    mock_template = mock.MagicMock()
+    mock_template.__or__ = mock.MagicMock(return_value=primary_chain)
+
+    class FakeChatPromptTemplate:
+        @staticmethod
+        def from_template(_: str):
+            return mock_template
+
+    fake_prompts = types.SimpleNamespace(ChatPromptTemplate=FakeChatPromptTemplate)
+    monkeypatch.setitem(sys.modules, "langchain_core", types.SimpleNamespace(prompts=fake_prompts))
+    monkeypatch.setitem(sys.modules, "langchain_core.prompts", fake_prompts)
+    monkeypatch.setattr(
+        issue_optimizer,
+        "_get_llm_client",
+        mock.MagicMock(side_effect=[(mock.MagicMock(), "github-models"), None]),
+    )
+    monkeypatch.setattr("tools.llm_provider._is_token_limit_error", lambda _error: True)
+
+    result = issue_optimizer.analyze_issue("## Tasks\n- [ ] Add tests", use_llm=True)
+
+    assert result.provider_used is None
+    assert "Fallback analysis used" in (result.overall_notes or "")
+    assert "retrying with OpenAI API" in capsys.readouterr().err
+
+
+def test_analyze_issue_recovers_with_openai_after_github_models_token_limit(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """A successful OpenAI retry is returned instead of the local heuristic fallback."""
+    primary_chain = mock.MagicMock()
+    primary_chain.invoke.side_effect = RuntimeError("token limit")
+    openai_chain = mock.MagicMock()
+    openai_chain.invoke.return_value = _response_with(json.dumps(_valid_issue_payload()))
+    mock_template = mock.MagicMock()
+    mock_template.__or__ = mock.MagicMock(side_effect=[primary_chain, openai_chain])
+
+    class FakeChatPromptTemplate:
+        @staticmethod
+        def from_template(_: str):
+            return mock_template
+
+    fake_prompts = types.SimpleNamespace(ChatPromptTemplate=FakeChatPromptTemplate)
+    monkeypatch.setitem(sys.modules, "langchain_core", types.SimpleNamespace(prompts=fake_prompts))
+    monkeypatch.setitem(sys.modules, "langchain_core.prompts", fake_prompts)
+    monkeypatch.setattr(
+        issue_optimizer,
+        "_get_llm_client",
+        mock.MagicMock(
+            side_effect=[
+                (mock.MagicMock(), "github-models"),
+                (mock.MagicMock(), "openai"),
+            ]
+        ),
+    )
+    monkeypatch.setattr("tools.llm_provider._is_token_limit_error", lambda _error: True)
+
+    result = issue_optimizer.analyze_issue("Issue body", use_llm=True)
+
+    assert result.provider_used == "openai"
+    assert result.missing_sections == ["Scope"]
+    assert "Successfully analyzed with OpenAI API" in capsys.readouterr().err
+
+
+def test_apply_suggestions_recovers_with_openai_after_github_models_token_limit(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Suggestion application retries a token-limited provider without losing a valid body."""
+    primary_chain = mock.MagicMock()
+    primary_chain.invoke.side_effect = RuntimeError("token limit")
+    openai_chain = mock.MagicMock()
+    openai_chain.invoke.return_value = _response_with(
+        "## Tasks\n- [ ] Preserve original task\n\n## Acceptance Criteria\n- [ ] pytest passes"
+    )
+    mock_template = mock.MagicMock()
+    mock_template.__or__ = mock.MagicMock(side_effect=[primary_chain, openai_chain])
+
+    class FakeChatPromptTemplate:
+        @staticmethod
+        def from_template(_: str):
+            return mock_template
+
+    fake_prompts = types.SimpleNamespace(ChatPromptTemplate=FakeChatPromptTemplate)
+    monkeypatch.setitem(sys.modules, "langchain_core", types.SimpleNamespace(prompts=fake_prompts))
+    monkeypatch.setitem(sys.modules, "langchain_core.prompts", fake_prompts)
+    monkeypatch.setattr(
+        issue_optimizer,
+        "_get_llm_client",
+        mock.MagicMock(
+            side_effect=[
+                (mock.MagicMock(), "github-models"),
+                (mock.MagicMock(), "openai"),
+            ]
+        ),
+    )
+    monkeypatch.setattr("tools.llm_provider._is_token_limit_error", lambda _error: True)
+
+    result = issue_optimizer.apply_suggestions("Issue body", {}, use_llm=True)
+
+    assert result["provider_used"] == "openai"
+    assert result["used_llm"] is True
+    assert "Preserve original task" in result["formatted_body"]
+    assert "Successfully applied suggestions with OpenAI API" in capsys.readouterr().err
+
+
+def test_apply_suggestions_falls_back_when_openai_retry_fails(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """A failed OpenAI retry leaves the formatter fallback available to the operator."""
+    primary_chain = mock.MagicMock()
+    primary_chain.invoke.side_effect = RuntimeError("token limit")
+    openai_chain = mock.MagicMock()
+    openai_chain.invoke.side_effect = RuntimeError("service unavailable")
+    mock_template = mock.MagicMock()
+    mock_template.__or__ = mock.MagicMock(side_effect=[primary_chain, openai_chain])
+
+    class FakeChatPromptTemplate:
+        @staticmethod
+        def from_template(_: str):
+            return mock_template
+
+    fake_prompts = types.SimpleNamespace(ChatPromptTemplate=FakeChatPromptTemplate)
+    monkeypatch.setitem(sys.modules, "langchain_core", types.SimpleNamespace(prompts=fake_prompts))
+    monkeypatch.setitem(sys.modules, "langchain_core.prompts", fake_prompts)
+    monkeypatch.setattr(
+        issue_optimizer,
+        "_get_llm_client",
+        mock.MagicMock(
+            side_effect=[
+                (mock.MagicMock(), "github-models"),
+                (mock.MagicMock(), "openai"),
+            ]
+        ),
+    )
+    monkeypatch.setattr("tools.llm_provider._is_token_limit_error", lambda _error: True)
+
+    result = issue_optimizer.apply_suggestions("## Tasks\n- [ ] Preserve task", {}, use_llm=True)
+
+    assert result["provider_used"] is None
+    assert result["used_llm"] is False
+    assert "OpenAI API also failed" in capsys.readouterr().err
+
+
+def test_cli_main_emits_plain_text_for_analysis_and_apply(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Human CLI output follows the same public paths as JSON output."""
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["issue_optimizer.py", "--input-text", "## Tasks\n- [ ] Test", "--no-llm"],
+    )
+    issue_optimizer.main()
+    assert "Fallback analysis used" in capsys.readouterr().out
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "issue_optimizer.py",
+            "--input-text",
+            "## Tasks\n- [ ] Test\n\n## Acceptance Criteria\n- [ ] pytest",
+            "--apply-suggestions",
+            "--suggestions-json",
+            "{}",
+            "--no-llm",
+        ],
+    )
+    issue_optimizer.main()
+    assert "## Tasks" in capsys.readouterr().out
+
+
+def test_cli_loaders_and_main_handle_all_supported_suggestion_sources(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """CLI loading accepts supported sources and exits visibly on invalid apply input."""
+    path = tmp_path / "issue.md"
+    path.write_text("from file", encoding="utf-8")
+    suggestions = tmp_path / "suggestions.json"
+    suggestions.write_text('{"blocked_tasks": []}', encoding="utf-8")
+    comment = tmp_path / "comment.md"
+    comment.write_text('<!-- suggestions-json: {"blocked_tasks": []} -->', encoding="utf-8")
+
+    assert (
+        issue_optimizer._load_input(argparse.Namespace(input_file=str(path), input_text=None))
+        == "from file"
+    )
+    assert (
+        issue_optimizer._load_input(argparse.Namespace(input_file=None, input_text="inline"))
+        == "inline"
+    )
+    assert issue_optimizer._load_suggestions(
+        argparse.Namespace(
+            suggestions_json='{"blocked_tasks": []}',
+            suggestions_file=None,
+            suggestions_comment_file=None,
+            suggestions_comment_text=None,
+        )
+    ) == {"blocked_tasks": []}
+    assert issue_optimizer._load_suggestions(
+        argparse.Namespace(
+            suggestions_json=None,
+            suggestions_file=str(suggestions),
+            suggestions_comment_file=None,
+            suggestions_comment_text=None,
+        )
+    ) == {"blocked_tasks": []}
+    assert issue_optimizer._load_suggestions(
+        argparse.Namespace(
+            suggestions_json=None,
+            suggestions_file=None,
+            suggestions_comment_file=str(comment),
+            suggestions_comment_text=None,
+        )
+    ) == {"blocked_tasks": []}
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["issue_optimizer.py", "--input-text", "raw", "--apply-suggestions", "--no-llm"],
+    )
+    with pytest.raises(SystemExit, match="1"):
+        issue_optimizer.main()
+    assert "Failed to load suggestions JSON." in capsys.readouterr().err
+
+
+def test_cli_main_emits_json_for_analysis_and_apply(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The command-line entry point exposes both machine-readable public operations."""
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["issue_optimizer.py", "--input-text", "## Tasks\n- [ ] Test", "--no-llm", "--json"],
+    )
+    issue_optimizer.main()
+    analysis = json.loads(capsys.readouterr().out)
+    assert analysis["provider_used"] is None
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "issue_optimizer.py",
+            "--input-text",
+            "## Tasks\n- [ ] Test\n\n## Acceptance Criteria\n- [ ] pytest",
+            "--apply-suggestions",
+            "--suggestions-json",
+            "{}",
+            "--no-llm",
+            "--json",
+        ],
+    )
+    issue_optimizer.main()
+    applied = json.loads(capsys.readouterr().out)
+    assert applied["used_llm"] is False
+    assert "## Tasks" in applied["formatted_body"]
+
+
+def test_structural_helpers_handle_empty_sections_sentinels_and_invalid_entries() -> None:
+    """Section manipulation keeps non-task structure and rejects unusable suggestions."""
+    from scripts.langchain import task_decomposer
+
+    assert issue_optimizer._deduplicate_task_lines("No task header") == "No task header"
+    assert issue_optimizer._section_bounds(["## Tasks", "- [ ] one"], "## Missing") is None
+    assert issue_optimizer._section_duplication_ratio("plain text") == 0.0
+    assert issue_optimizer._section_duplication_ratio("## Tasks\n- one\n## tasks\n- two") == 1.0
+    assert issue_optimizer._is_near_duplicate(frozenset(), [frozenset({"task"})]) is False
+    assert issue_optimizer._is_near_duplicate(frozenset({"task"}), [frozenset()]) is False
+    assert issue_optimizer._is_near_duplicate(
+        frozenset({"add", "tests", "parser"}), [frozenset({"add", "tests", "parser"})]
+    )
+
+    sentinel = task_decomposer.elision_sentinel(2, kind="sub-tasks")
+    body = "\n".join(
+        [
+            "## Tasks",
+            "- [ ] Parent task",
+            "## Acceptance Criteria",
+            "- [ ] pytest",
+        ]
+    )
+    applied = issue_optimizer._apply_task_decomposition(
+        body,
+        {
+            "task_splitting": [
+                None,
+                {"task": "", "split_suggestions": ["ignored"]},
+                {"task": "Parent task", "split_suggestions": [sentinel, "Tiny"]},
+            ]
+        },
+    )
+    assert sentinel in applied
+    assert "  - [ ] Tiny" not in applied
+    assert issue_optimizer._apply_task_decomposition(None, {}) == ""
+    assert issue_optimizer._apply_task_decomposition(body, {"task_splitting": []}) == body
+    assert issue_optimizer._append_deferred_tasks(body, {"blocked_tasks": "invalid"}) == body
+    deferred = issue_optimizer._append_deferred_tasks(
+        body, {"blocked_tasks": [{"task": "Ask human"}]}
+    )
+    assert (
+        issue_optimizer._append_deferred_tasks(
+            deferred, {"blocked_tasks": [{"task": "Different task"}]}
+        )
+        == deferred
+    )
+
+
+def test_loaders_and_llm_response_errors_are_explicit(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Invalid file/JSON input and failed structured output stay non-authorizing."""
+    missing = tmp_path / "missing.json"
+    malformed = tmp_path / "malformed.json"
+    malformed.write_text("not json", encoding="utf-8")
+    common = {
+        "suggestions_json": None,
+        "suggestions_file": None,
+        "suggestions_comment_file": None,
+        "suggestions_comment_text": None,
+    }
+    assert (
+        issue_optimizer._load_suggestions(
+            argparse.Namespace(**{**common, "suggestions_json": "[]"})
+        )
+        is None
+    )
+    assert (
+        issue_optimizer._load_suggestions(
+            argparse.Namespace(**{**common, "suggestions_file": str(missing)})
+        )
+        is None
+    )
+    assert (
+        issue_optimizer._load_suggestions(
+            argparse.Namespace(**{**common, "suggestions_file": str(malformed)})
+        )
+        is None
+    )
+    assert (
+        issue_optimizer._load_suggestions(
+            argparse.Namespace(**{**common, "suggestions_comment_file": str(missing)})
+        )
+        is None
+    )
+    assert (
+        issue_optimizer._load_suggestions(
+            argparse.Namespace(**{**common, "suggestions_comment_text": "not a marker"})
+        )
+        is None
+    )
+    monkeypatch.setattr(sys, "stdin", types.SimpleNamespace(read=lambda: "from stdin"))
+    assert (
+        issue_optimizer._load_input(argparse.Namespace(input_file=None, input_text=None))
+        == "from stdin"
+    )
+
+    for stage, expected in (
+        ("repair_unavailable", "could not be repaired"),
+        ("repair_validation", "repair failed validation"),
+        ("validation", "output failed validation"),
+    ):
+        parsed = types.SimpleNamespace(payload=None, error_stage=stage, error_detail="bad schema")
+        monkeypatch.setattr(
+            issue_optimizer,
+            "parse_structured_output",
+            lambda *_args, parsed=parsed, **_kwargs: parsed,
+        )
+        result, error = issue_optimizer._process_llm_response(object(), "provider", use_llm=False)
+        assert result is None
+        assert expected in (error or "")
+
+
+def test_local_prompt_fallbacks_work_without_optional_prompt_files(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Local execution uses built-in prompts and metadata when optional services are absent."""
+    monkeypatch.setattr(issue_optimizer, "PROMPT_PATH", tmp_path / "missing-analyze.md")
+    monkeypatch.setattr(issue_optimizer, "APPLY_PROMPT_PATH", tmp_path / "missing-apply.md")
+    monkeypatch.setitem(sys.modules, "tools.llm_provider", None)
+    monkeypatch.setenv("GITHUB_REPOSITORY", "stranske/Workflows")
+    monkeypatch.setenv("RUN_ID", "run-7")
+    monkeypatch.setenv("ISSUE_NUMBER", "42")
+
+    assert issue_optimizer._load_prompt() == issue_optimizer.ANALYZE_ISSUE_PROMPT
+    assert issue_optimizer._load_apply_prompt() == issue_optimizer.APPLY_SUGGESTIONS_PROMPT
+    config = issue_optimizer._build_llm_config(operation="analyze_issue")
+    assert config["metadata"]["issue_or_pr_number"] == "42"
+    assert "repo:stranske/Workflows" in config["tags"]
+
+
+def test_parser_and_invoker_handle_code_blocks_and_legacy_chain_signature(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The parser ignores checklist-looking code and invocation retries legacy chains."""
+    body = "\n".join(
+        [
+            "## Tasks",
+            "```text",
+            "- [ ] Not a task",
+            "```",
+            "Task prose",
+            "## Acceptance Criteria",
+            "- [ ] Real check",
+        ]
+    )
+    sections = issue_optimizer._parse_sections(body)
+    assert issue_optimizer._parse_checklist(sections["tasks"]) == []
+    assert issue_optimizer._detect_formatting_issues(sections["tasks"]) == [
+        "Non-bulleted content found in checklist section"
+    ]
+    assert issue_optimizer._strip_checkbox("plain text") == "plain text"
+    assert issue_optimizer._extract_json_payload("prefix only") is None
+    assert issue_optimizer._formatted_output_valid("") is False
+
+    chain = mock.MagicMock()
+    response = object()
+    chain.invoke.side_effect = [TypeError("no config"), response]
+    monkeypatch.setattr(issue_optimizer, "_build_llm_config", lambda **_kwargs: {"metadata": {}})
+    actual, trace_id, trace_url = issue_optimizer._invoke_llm_with_trace(
+        chain, {"body": "x"}, operation="test"
+    )
+    assert actual is response
+    assert trace_id is None
+    assert trace_url is None
+    assert chain.invoke.call_count == 2
