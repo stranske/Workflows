@@ -220,12 +220,23 @@ import os  # noqa: E402
 import shutil  # noqa: E402
 import subprocess  # noqa: E402
 import sys  # noqa: E402
+import tempfile  # noqa: E402
 
 import pytest  # noqa: E402
 
+# Nested deliberate-break runs may point at a temp copy; never mutate the
+# checked-in workflow under xdist (other workers also read this path).
+_WORKFLOW_ENV = "VERIFIER_WORKFLOW_UNDER_TEST"
+_DEFAULT_WORKFLOW = ROOT / ".github/workflows/reusable-agents-verifier.yml"
+
+
+def _workflow_under_test() -> Path:
+    override = os.environ.get(_WORKFLOW_ENV, "").strip()
+    return Path(override) if override else _DEFAULT_WORKFLOW
+
 
 def _verifier_steps() -> dict:
-    workflow = _load_yaml(ROOT / ".github/workflows/reusable-agents-verifier.yml")
+    workflow = _load_yaml(_workflow_under_test())
     return {step.get("name"): step for step in workflow["jobs"]["verifier"]["steps"]}
 
 
@@ -355,9 +366,7 @@ def _run_sinks(
             },
             "verifier_mode": verifier_mode,
             "upload_probe_outcome": os.environ.get("SETTLEMENT_UPLOAD_OUTCOME", "modeled-failure"),
-            "workflow_sha256": hashlib.sha256(
-                (ROOT / ".github/workflows/reusable-agents-verifier.yml").read_bytes()
-            ).hexdigest(),
+            "workflow_sha256": hashlib.sha256(_workflow_under_test().read_bytes()).hexdigest(),
             **result,
         }
         destination = Path(trace_dir)
@@ -601,24 +610,25 @@ def test_deliberate_break_restored_raw_verdict_fallback_then_restore() -> None:
 
     Recreate the interrupted-upload failure mode by (1) dropping ``always()``
     so a failed preceding upload skips settlement and (2) restoring the raw
-    VERDICT ``||`` fallback. The failed-upload suite must then fail; byte-exact
-    restoration must pass again.
+    VERDICT ``||`` fallback. The failed-upload suite must then fail against a
+    temp workflow copy; the checked-in file is never mutated (xdist-safe).
 
     Named to avoid the selftest smoke ``-k failed_upload`` filter, which must
     not mutate the workflow under a hosted controlled-failure run.
     """
-    workflow = ROOT / ".github/workflows/reusable-agents-verifier.yml"
-    original = workflow.read_bytes()
+    original_text = _DEFAULT_WORKFLOW.read_text(encoding="utf-8")
+    original_bytes = _DEFAULT_WORKFLOW.read_bytes()
     target = "failed_upload_ci_floor_reaches_all_sinks"
-    try:
-        text = original.decode()
-        assert _SETTLED_VERDICT_ONLY in text
-        assert _SETTLEMENT_ALWAYS in text
-        broken = text.replace(_SETTLEMENT_ALWAYS, _SETTLEMENT_IMPLICIT_SUCCESS, 1)
-        broken = broken.replace(_SETTLED_VERDICT_ONLY, _RAW_VERDICT_FALLBACK, 1)
-        assert broken != text
-        workflow.write_text(broken)
+    assert _SETTLED_VERDICT_ONLY in original_text
+    assert _SETTLEMENT_ALWAYS in original_text
+    broken = original_text.replace(_SETTLEMENT_ALWAYS, _SETTLEMENT_IMPLICIT_SUCCESS, 1)
+    broken = broken.replace(_SETTLED_VERDICT_ONLY, _RAW_VERDICT_FALLBACK, 1)
+    assert broken != original_text
 
+    with tempfile.TemporaryDirectory(prefix="verifier-deliberate-break-") as tmp:
+        broken_path = Path(tmp) / "reusable-agents-verifier.yml"
+        broken_path.write_text(broken, encoding="utf-8")
+        broken_env = {**os.environ, _WORKFLOW_ENV: str(broken_path)}
         broken_run = subprocess.run(
             [
                 sys.executable,
@@ -632,16 +642,15 @@ def test_deliberate_break_restored_raw_verdict_fallback_then_restore() -> None:
                 target,
             ],
             cwd=ROOT,
+            env=broken_env,
             capture_output=True,
             text=True,
             check=False,
         )
         assert broken_run.returncode != 0, broken_run.stdout + broken_run.stderr
         assert "FAILED" in broken_run.stdout or "failed" in broken_run.stdout
-    finally:
-        workflow.write_bytes(original)
 
-    assert workflow.read_bytes() == original
+    assert _DEFAULT_WORKFLOW.read_bytes() == original_bytes
     restored_run = subprocess.run(
         [
             sys.executable,
