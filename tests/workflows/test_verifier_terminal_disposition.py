@@ -215,6 +215,7 @@ def test_reusable_verifier_floors_ci_failure_comments_before_posting() -> None:
 
 # --- F48: executable event-to-sink traces for the verifier failure paths -----
 
+import functools  # noqa: E402
 import os  # noqa: E402
 import shutil  # noqa: E402
 import subprocess  # noqa: E402
@@ -291,12 +292,57 @@ def _run_sinks(tmp_path: Path, *, should_run: bool, outcome: str, verdicts: dict
     return {"metrics": json.loads(metrics_json), "record": record}
 
 
-needs_runtimes = pytest.mark.skipif(
-    shutil.which("node") is None, reason="node is required for the event-to-sink trace"
-)
+def _run_set_unified_verdict(
+    tmp_path: Path,
+    *,
+    ci_failed: bool,
+    checkbox_verdict: str = "PASS",
+    llm_verdict: str = "",
+    compare_verdict: str = "",
+    verifier_mode: str = "checkbox",
+) -> str:
+    """Execute the workflow's Set unified verdict step with substituted inputs."""
+    step = _verifier_steps()["Set unified verdict"]
+    script = step["run"]
+    substitutions = {
+        "${{ steps.verdict.outputs.verdict }}": checkbox_verdict,
+        "${{ steps.llm_evaluate.outputs.verdict }}": llm_verdict,
+        "${{ steps.llm_compare.outputs.verdict }}": compare_verdict,
+        "${{ steps.context.outputs.ci_failed }}": "true" if ci_failed else "false",
+    }
+    for token, value in substitutions.items():
+        script = script.replace(token, value)
+    gh_output = tmp_path / "unified_verdict_gh_output"
+    gh_output.write_text("")
+    env = {
+        **os.environ,
+        "VERIFIER_MODE": verifier_mode,
+        "GITHUB_OUTPUT": str(gh_output),
+    }
+    subprocess.run(
+        ["bash", "-euo", "pipefail", "-c", script],
+        cwd=tmp_path,
+        env=env,
+        check=True,
+        capture_output=True,
+    )
+    for line in gh_output.read_text().splitlines():
+        if line.startswith("verdict="):
+            return line.split("=", 1)[1]
+    raise AssertionError("Set unified verdict produced no verdict= output")
 
 
-@needs_runtimes
+def _needs_node(func):
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        if shutil.which("node") is None:
+            pytest.fail("node is required for the event-to-sink trace")
+        return func(*args, **kwargs)
+
+    return wrapper
+
+
+@_needs_node
 @pytest.mark.parametrize(
     "verdicts",
     [
@@ -316,7 +362,7 @@ def test_terminal_disposition_interrupted_settlement_is_not_unguarded_pass(
     assert result["record"]["needs_human"] is True
 
 
-@needs_runtimes
+@_needs_node
 def test_terminal_disposition_settled_and_skipped_paths(tmp_path: Path) -> None:
     (tmp_path / "a").mkdir()
     passed = _run_sinks(
@@ -329,8 +375,15 @@ def test_terminal_disposition_settled_and_skipped_paths(tmp_path: Path) -> None:
     assert passed["metrics"]["settlement_interrupted"] is False
 
     (tmp_path / "b").mkdir()
+    floored_verdict = _run_set_unified_verdict(
+        tmp_path / "b", ci_failed=True, checkbox_verdict="PASS"
+    )
+    assert floored_verdict == "CONCERNS"
     floored = _run_sinks(
-        tmp_path / "b", should_run=True, outcome="success", verdicts={"unified_verdict": "CONCERNS"}
+        tmp_path / "b",
+        should_run=True,
+        outcome="success",
+        verdicts={"unified_verdict": floored_verdict},
     )
     assert floored["record"]["disposition"] == "needs-human"
 
