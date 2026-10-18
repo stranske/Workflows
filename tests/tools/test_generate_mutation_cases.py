@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
 from tools import generate_mutation_cases as g
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -392,3 +393,68 @@ def test_fail_ci_works_on_a_real_captured_context_and_round_trips_as_a_recipe():
     assert mutant["mutation_path"] == "pr-00-gate.yml" and g.validate_ci(snapshot, mutant)
     rebuilt = g.materialize_mutant(case, "pr-00-gate.yml", g.MUTATION_CI)
     assert rebuilt["context"] == mutant["context"]
+
+
+@pytest.fixture
+def evaluable(monkeypatch):
+    monkeypatch.setattr(g, "coverage_sufficient", lambda snapshot: True)
+
+
+def test_mutants_from_an_insufficient_input_never_enter_the_corpus(monkeypatch):
+    corpus = {
+        "screen_cases": [
+            {
+                "case_id": "c1",
+                "repo": "o/r",
+                "pr": 1,
+                "expected_verdict": "PASS",
+                "production_snapshot": _snapshot(),
+            }
+        ]
+    }
+    monkeypatch.setattr(g, "coverage_sufficient", lambda snapshot: False)
+    assert g.generate(corpus) == []
+    monkeypatch.setattr(g, "coverage_sufficient", lambda snapshot: True)
+    assert g.generate(corpus)
+
+
+def test_coverage_check_is_the_verifiers_own_and_real_captures_are_mostly_insufficient():
+    corpus = json.loads((ROOT / "config/model_eval_pilot.json").read_text())
+    by_id = {c["case_id"]: c for c in corpus["screen_cases"]}
+    assert g.coverage_sufficient(by_id["wf-3676-evidence-pass"]["production_snapshot"]) is True
+    assert g.coverage_sufficient(by_id["wf-3668-evidence-pass"]["production_snapshot"]) is False
+    assert g.coverage_sufficient({"context": "no chain depth"}) is False  # malformed never counts
+
+
+def test_rebuild_replaces_earlier_generated_cases_and_files(tmp_path, evaluable):
+    corpus_path = _corpus(tmp_path)
+    snapshot_dir = tmp_path / "snaps"
+    sources = g.snapshots_from_artifacts(json.loads(corpus_path.read_text()), [_artifact(tmp_path)])
+    mutants = g.generate_from_snapshots(sources)
+    g.write_corpus(corpus_path, snapshot_dir, sources, mutants)
+    (snapshot_dir / "stale.json.gz").write_bytes(b"x")
+    corpus = json.loads(corpus_path.read_text())
+    corpus["cases"].append(
+        {"case_id": "old-mut", "provenance": "controlled-mutation", "expected_verdict": "NON_PASS"}
+    )
+    corpus_path.write_text(json.dumps(corpus))
+    g.write_corpus(corpus_path, snapshot_dir, sources, mutants[:1], rebuild=True)
+    after = json.loads(corpus_path.read_text())["cases"]
+    ids = {c["case_id"] for c in after}
+    assert "old-mut" not in ids and not (snapshot_dir / "stale.json.gz").exists()
+    assert sum(c.get("provenance") == "controlled-mutation" for c in after) == 1
+
+
+def test_a_mutant_record_is_never_mistaken_for_its_sources_corpus_case(tmp_path, evaluable):
+    corpus = json.loads(_corpus(tmp_path).read_text())
+    corpus["cases"].append(
+        {
+            "case_id": "case-7-mut-drop1",
+            "repo": "o/r",
+            "pr": "7",
+            "provenance": "controlled-mutation",
+            "expected_verdict": "NON_PASS",
+        }
+    )
+    assert g.corpus_case_for(corpus, "o/r", 7)["case_id"] == "case-7"
+    assert list(g.snapshots_from_artifacts(corpus, [_artifact(tmp_path)])) == ["case-7"]

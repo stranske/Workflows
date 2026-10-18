@@ -209,6 +209,18 @@ records. Do not hand-enter aggregate rates or recommendation rankings.
   with a captured input can be a mutation source, because the mutant's NON_PASS truth does not depend
   on the source's own verdict; sources outside the corpus are never corpus cases. Mutants are capped
   at two file drops plus one CI failure per PR. `max_corpus_size` rises from 150 to 200 to hold them.
+
+  **Evaluable cases only (correction, 2026-10-18).** Scoring a judge needs an input the production
+  prompt itself calls sufficient. Its coverage check flags most retrospective captures as
+  insufficient (required acceptance evidence is not in the capture, or the local diff is
+  incomplete), and a correct judge then answers `UNVERIFIABLE_INPUT`: that measures the capture. In the
+  first generated corpus every strong judge "caught" every mutant, but with `UNVERIFIABLE_INPUT`
+  rather than by finding the defect, and 7 of 8 real PASS cases were rejected the same way. The
+  generator therefore keeps only mutants whose own input is sufficient (`coverage_sufficient`), the
+  planner counts only evaluable PASS and NON_PASS cases against the zero-error floors
+  (`evaluable_pass_cases`, `evaluable_non_pass_cases`), and the approval blockers say how many are
+  missing. Measured then: 27 of 128 captured sources (21%) were sufficient; 38 evaluable mutants,
+  41 evaluable NON_PASS and 16 evaluable PASS against floors of 73 and 35.
 - Report Wilson 95% confidence intervals for task success, false PASS, false
   FAIL, and schema errors.
 - Require the configured bounds and a paired success result no more than two

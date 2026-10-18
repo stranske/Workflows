@@ -137,13 +137,19 @@ def test_current_plan_allows_fast_screen_without_statistical_approval():
     assert len(plan["screen_case_kinds"]) == 8
     assert plan["automatic_api_calls"] == 0
     # 51 real cases (4 NON_PASS) plus the generated controlled-mutation NON_PASS cases (#4113)
-    assert plan["corpus_cases"] == 51 + plan["controlled_mutation_non_pass_cases"]
+    mutants = plan["controlled_mutation_non_pass_cases"]
+    assert plan["corpus_cases"] == 51 + mutants
     assert plan["approval_minimum_cases"] == 75
     assert plan["real_non_pass_cases"] == 4
-    assert plan["controlled_mutation_non_pass_cases"] >= 69
-    assert plan["expected_non_pass_cases"] == 4 + plan["controlled_mutation_non_pass_cases"]
+    assert plan["expected_non_pass_cases"] == 4 + mutants
+    # only inputs the production prompt calls sufficient can score a judge fairly
+    assert 0 < plan["evaluable_non_pass_cases"] <= plan["expected_non_pass_cases"]
+    assert 0 < plan["evaluable_pass_cases"] < plan["zero_error_false_fail_denominator"]
+    assert any("evaluable" in reason for reason in plan["approval_blockers"])
     assert plan["zero_error_false_pass_denominator"] == 73
-    assert plan["additional_non_pass_cases_for_best_case_gate"] == 0
+    assert plan["additional_non_pass_cases_for_best_case_gate"] == max(
+        0, 73 - plan["expected_non_pass_cases"]
+    )
     # follow-up-required needs 3 (representation) and has 3; missing-acceptance-criterion needs 10
     # and is supplied by controlled-mutation cases (policy update 2026-10-18, issue #4113)
     assert plan["category_shortfalls"] == {}
