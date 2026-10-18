@@ -270,3 +270,30 @@ def test_write_appends_deduplicated_recipes_and_loading_rederives_the_mutants(tm
         g.load_case(real, tmp_path)["production_snapshot"]
         == sources["case-7"]["production_snapshot"]
     )
+
+
+def test_quoted_diff_headers_are_parsed_like_unquoted_ones():
+    body = (
+        'diff --git "a/src/x y.py" "b/src/x y.py"\n--- a\n+++ b\n@@ -1 +1 @@\n-a\n+b\n'
+        "diff --git a/tests/t.py b/tests/t.py\n--- a\n+++ b\n@@ -1 +1 @@\n-a\n+b\n"
+    )
+    assert [p for p, _ in g.diff_blocks(body)] == ["src/x y.py", "tests/t.py"]
+
+
+def test_unlisted_sources_are_mutated_but_never_become_corpus_cases(tmp_path):
+    corpus_path = _corpus(tmp_path)
+    corpus = json.loads(corpus_path.read_text())
+    artifact = _artifact(tmp_path, repo="o/other", pr=55)  # not in the corpus
+    assert g.snapshots_from_artifacts(corpus, [artifact]) == {}
+    sources = g.snapshots_from_artifacts(corpus, [artifact], allow_unlisted=True)
+    assert list(sources) == ["other-55"] and sources["other-55"]["source_only"] is True
+    mutants = g.generate_from_snapshots(sources)
+    assert mutants and all(m["source_case_id"] == "other-55" for m in mutants)
+    snapshot_dir = tmp_path / "snaps"
+    g.write_corpus(corpus_path, snapshot_dir, sources, mutants)
+    written = json.loads(corpus_path.read_text())["cases"]
+    assert "other-55" not in {c["case_id"] for c in written}  # the source is not a corpus case
+    added = [c for c in written if c.get("provenance") == "controlled-mutation"]
+    assert added and (snapshot_dir / "other-55.json.gz").exists()
+    for record in added:  # recipes still load: the source snapshot file is found by reference
+        assert g.load_case(record, tmp_path)["expected_verdict"] == "NON_PASS"

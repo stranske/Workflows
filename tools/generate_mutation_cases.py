@@ -76,7 +76,7 @@ def diff_blocks(body: str) -> list[tuple[str, str]]:
     for index, start in enumerate(starts):
         end = starts[index + 1] if index + 1 < len(starts) else len(body)
         text = body[start:end]
-        match = re.match(r"diff --git a/(\S+) b/\S+", text)
+        match = re.match(r'diff --git "?a/(.+?)"? "?b/', text)
         if match:
             blocks.append((match.group(1), text))
     return blocks
@@ -135,14 +135,18 @@ def mutate_drop_named_file(snapshot: dict[str, Any]) -> list[dict[str, Any]]:
             new_body += "```\n"  # the removed block carried the closing fence
         new_summary = _rebuild_summary(summary, path, added, deleted)
         gone = {path} | {i for i in _identifiers(text) if i in requirements}
-        if any(g in new_body for g in gone if g != path) or f"b/{path}" in new_body:
+        if any(g in new_body for g in gone if g != path) or path in {
+            p for p, _ in diff_blocks(new_body)
+        }:
             continue  # the evidence also lives in another block, so it was not removed
         new_patch = None
         if patch:
             if len(patch_blocks) < 2 or path not in {p for p, _ in patch_blocks}:
                 continue
             new_patch = "".join(t for p, t in patch_blocks if p != path)
-            if any(g in new_patch for g in gone if g != path) or f"b/{path}" in new_patch:
+            if any(g in new_patch for g in gone if g != path) or path in {
+                p for p, _ in diff_blocks(new_patch)
+            }:
                 continue
         mutated_context = plan + new_summary + DIFF_HEADING + diff_head + new_body
         mutated = {
@@ -205,13 +209,21 @@ def corpus_case_for(corpus: dict[str, Any], repo: str, pr: int) -> dict[str, Any
     return None
 
 
+def _source_id(repo: str, pr: int) -> str:
+    return f"{repo.split('/')[-1].lower()}-{pr}"
+
+
 def snapshots_from_artifacts(
-    corpus: dict[str, Any], artifact_roots: list[Path]
+    corpus: dict[str, Any], artifact_roots: list[Path], *, allow_unlisted: bool = False
 ) -> dict[str, dict[str, Any]]:
     """case_id -> full case (with production_snapshot) for each captured PASS corpus case.
 
     ``artifact_roots`` are directories holding ``captured-inputs/case-N`` (a MAINT-78 capture
-    artifact). A captured PR that is not a PASS case in the corpus is skipped.
+    artifact). A captured PR that is not a PASS case in the corpus is skipped, unless
+    ``allow_unlisted``: a controlled mutation's NON_PASS truth does not depend on the source having
+    been adjudicated PASS (the removed file is required either way), so any merged PR with a captured
+    input can be a mutation source. Unlisted sources are marked ``source_only`` and never become
+    corpus cases of their own.
     """
     out: dict[str, dict[str, Any]] = {}
     for root in artifact_roots:
@@ -220,20 +232,35 @@ def snapshots_from_artifacts(
         ):
             manifest = json.loads(manifest_path.read_text())
             case = corpus_case_for(corpus, manifest["repository"], manifest["pr"])
-            if case is None or case.get("expected_verdict") != "PASS":
+            listed = case is not None
+            if listed and case.get("expected_verdict") != "PASS":
                 continue
+            if not listed:
+                if not allow_unlisted:
+                    continue
+                case = {
+                    "case_id": _source_id(manifest["repository"], manifest["pr"]),
+                    "category": "mutation-source",
+                }
             out[case["case_id"]] = create_case(
                 manifest_path.parent,
                 case_id=case["case_id"],
                 expected_verdict="PASS",
                 category=case["category"],
                 adjudication_evidence=f"https://github.com/{manifest['repository']}/pull/{manifest['pr']}",
-                adjudicated_by="realized-outcome harvest (corpus case)",
+                adjudicated_by=(
+                    "realized-outcome harvest (corpus case)" if listed else "mutation source only"
+                ),
                 adjudication_rationale=(
                     f"Corpus case {case['case_id']} ({case['category']}): the merged PR was "
                     "adjudicated PASS by realized outcome; the input is replayed unmodified."
+                    if listed
+                    else "Merged PR used only as the source of controlled mutations; its own "
+                    "verdict is not asserted and it is not a corpus case."
                 ),
             )
+            if not listed:
+                out[case["case_id"]]["source_only"] = True
     return out
 
 
@@ -335,7 +362,7 @@ def write_corpus(
         refs[case_id] = ref
         with gzip.open(snapshot_dir / f"{case_id}.json.gz", "wt", compresslevel=9) as handle:
             json.dump(case, handle, sort_keys=True)
-        if existing[case_id].get("snapshot_ref") != ref:
+        if case_id in existing and existing[case_id].get("snapshot_ref") != ref:
             existing[case_id]["snapshot_ref"] = ref
             referenced += 1
     for case in mutants:
@@ -345,7 +372,9 @@ def write_corpus(
         record["mutation_recipe"] = {
             "source_case_id": case["source_case_id"],
             "source_snapshot_ref": refs.get(
-                case["source_case_id"], existing[case["source_case_id"]].get("snapshot_ref")
+                case["source_case_id"],
+                (existing.get(case["source_case_id"]) or {}).get("snapshot_ref")
+                or f"{snapshot_dir.as_posix()}/{case['source_case_id']}.json.gz",
             ),
             "mutation": MUTATION,
             "path": case["production_snapshot"]["mutation_path"],
@@ -376,9 +405,18 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--write", action="store_true", help="append to the corpus and snapshots")
     parser.add_argument("--snapshot-dir", type=Path, default=SNAPSHOT_DIR)
     parser.add_argument("--max-per-source", type=int, default=MAX_PER_SOURCE)
+    parser.add_argument(
+        "--allow-unlisted",
+        action="store_true",
+        help="also mutate merged PRs that are not corpus cases (mutation source only)",
+    )
     args = parser.parse_args(argv)
     corpus = json.loads(args.corpus.read_text())
-    sources = snapshots_from_artifacts(corpus, args.artifacts) if args.artifacts else {}
+    sources = (
+        snapshots_from_artifacts(corpus, args.artifacts, allow_unlisted=args.allow_unlisted)
+        if args.artifacts
+        else {}
+    )
     cases = generate_from_snapshots(sources, args.max_per_source) if sources else generate(corpus)
     if args.write:
         referenced, added = write_corpus(args.corpus, args.snapshot_dir, sources, cases)
