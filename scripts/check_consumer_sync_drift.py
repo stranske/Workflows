@@ -8,10 +8,12 @@ import base64
 import hashlib
 import json
 import os
+from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import requests
+import yaml
 
 try:
     from sync_manifest_compiler import (
@@ -173,6 +175,77 @@ def manifest_skip_reason(entry: ManifestEntry, repo: str) -> str:
 def repo_overwrites_create_only(entry: ManifestEntry, repo: str) -> bool:
     """Return whether repo should be drift-checked for create_only entries."""
     return repo in entry.overwrite_repos
+
+
+def gate_pull_request_types(text: str) -> set[str]:
+    """Read activity types without YAML 1.1 interpreting the `on` key as True."""
+    try:
+        workflow = yaml.load(text, Loader=yaml.BaseLoader)
+        types = workflow["on"]["pull_request"]["types"]
+    except (yaml.YAMLError, KeyError, TypeError) as exc:
+        raise ValueError("invalid or absent pull_request.types") from exc
+    if not isinstance(types, list) or not types or not all(isinstance(t, str) for t in types):
+        raise ValueError("invalid or absent pull_request.types")
+    return set(types)
+
+
+def gate_trigger_lines(
+    repos: list[str],
+    entry: ManifestEntry,
+    remote_trees: dict[str, dict[str, dict[str, object]]],
+    read_blob: Callable[[str, str], str | None],
+) -> list[str]:
+    """Report trigger drift as FYI, including create-only Gates, without sync authority."""
+    source = Path(entry.resolved_source)
+    try:
+        local_bytes = source.read_bytes()
+        expected = gate_pull_request_types(local_bytes.decode("utf-8"))
+    except (OSError, UnicodeDecodeError, ValueError):
+        return ["gate triggers: unknown (template unreadable or invalid)"]
+
+    lines: list[str] = []
+    checked = 0
+    all_match = True
+    for repo in repos:
+        if entry.include_repos and repo not in entry.include_repos:
+            continue
+        custom_gate = any(skip.repo == repo for skip in entry.skip_repos)
+        label = f"gate triggers: {repo}"
+        if custom_gate:
+            label += " (custom gate, never overwritten)"
+        checked += 1
+        remote = remote_trees.get(repo, {}).get(entry.target)
+        if not remote or remote.get("type") != "blob" or not remote.get("sha"):
+            lines.append(f"gate triggers: {repo} unknown (Gate/tree unavailable)")
+            all_match = False
+            continue
+        if remote["sha"] == git_blob_hash(local_bytes):
+            if custom_gate:
+                lines.append(f"{label} matches")
+            continue
+        text = read_blob(repo, str(remote["sha"]))
+        if text is None:
+            lines.append(f"gate triggers: {repo} unknown (Gate unreadable)")
+            all_match = False
+            continue
+        try:
+            actual = gate_pull_request_types(text)
+        except ValueError:
+            lines.append(f"gate triggers: {repo} unknown (invalid pull_request.types)")
+            all_match = False
+            continue
+        extra, missing = sorted(actual - expected), sorted(expected - actual)
+        if extra or missing:
+            all_match = False
+            line = f"{label} extra={extra}"
+            if missing:
+                line += f" missing={missing}"
+            lines.append(line)
+        elif custom_gate:
+            lines.append(f"{label} matches")
+    if all_match:
+        lines.append("gate triggers: all match" if checked else "gate triggers: no eligible repos")
+    return lines
 
 
 def token_candidates(env: dict[str, str] | None = None) -> list[dict[str, str]]:
@@ -697,6 +770,11 @@ def write_summary_markdown(path: str, report: dict[str, object]) -> None:
     with summary_path.open("a", encoding="utf-8") as handle:
         handle.write("## Consumer Sync Drift Check\n")
         handle.write(f"Checked repos: {', '.join(str(repo) for repo in repos)}\n\n")
+        gate_lines = report.get("gate_triggers", [])
+        if isinstance(gate_lines, list) and gate_lines:
+            for line in gate_lines:
+                handle.write(f"- {line}\n")
+            handle.write("\n")
         handle.write("### Counts\n")
         for category in ("drift", "missing", "errors", "obsolete", "unmeasured_create_only"):
             handle.write(f"- {category}: {counts.get(category, 0)}\n")
@@ -965,6 +1043,14 @@ def main() -> int:
     skipped: set[str] = set()
 
     remote_trees: dict[str, dict[str, dict[str, object]]] = {}
+    blob_text_cache: dict[tuple[str, str], str | None] = {}
+
+    def read_blob(repo: str, sha: str) -> str | None:
+        key = (repo, sha)
+        if key not in blob_text_cache:
+            blob_text_cache[key] = remote_blob_text(session, repo, sha)
+        return blob_text_cache[key]
+
     open_sync_prs: list[dict[str, object]] = []
     sync_pr_lookup_errors: list[str] = []
     for repo in repos:
@@ -995,7 +1081,7 @@ def main() -> int:
         # something the syncer will NEVER rewrite; reporting it as drift would be an
         # eternal false positive (review E1). Confirm real drift the same way before
         # flagging. On any fetch/decode failure, fall back to the raw-bytes verdict.
-        remote_text = remote_blob_text(session, repo, str(remote_entry["sha"]))
+        remote_text = read_blob(repo, str(remote_entry["sha"]))
         try:
             local_text = local_bytes.decode("utf-8")
         except UnicodeDecodeError:
@@ -1063,6 +1149,19 @@ def main() -> int:
         current_plan_id=current_plan_id,
         candidate_repos=candidate_repos,
     )
+    gate_entry = next(
+        (
+            entry
+            for entry in compiled.section("workflows")
+            if entry.target == ".github/workflows/pr-00-gate.yml"
+        ),
+        None,
+    )
+    if gate_entry is not None:
+        gate_lines = gate_trigger_lines(repos, gate_entry, remote_trees, read_blob)
+        report["gate_triggers"] = gate_lines
+        for line in gate_lines:
+            print(line)
     write_report_json(args.report_json, report)
     write_summary_markdown(args.summary, report)
 
