@@ -28,6 +28,41 @@ const ROUTE_WEIGHTS_MAX_AGE_MS = 14 * 24 * 60 * 60 * 1000;
 const ROUTE_WEIGHTS_MAX_CLOCK_SKEW_MS = 60 * 1000;
 const ROUTE_WEIGHTS_FETCH_TIMEOUT_MS = 5000;
 
+// A per-PR startup failure drains on newer provider success or time expiry.
+const AGENT_INSTALL_FAILURE_BACKOFF_HOURS = 6;
+
+function isAgentInstallFailure(record) {
+  if (!record || !['error', 'completed'].includes(record.status) ||
+      record.completion?.reason === 'progressed' || record.result?.success === true) return false;
+  const result = record.result || {};
+  // Only the runner's explicit startup/preflight diagnostic is evidence. An
+  // agent can mention a missing inner tool (or exit 127) in its task summary.
+  return [result.summary, result.error, record.summary].some(text =>
+    /^[a-z0-9_-]+ CLI preflight failed:/i
+      .test(String(text || '').trim()));
+}
+
+function recentInstallFailures(completion, now = Date.now()) {
+  const records = [...(completion?.install_failure_receipts || []),
+    ...(completion?.successful_completion_receipts || []), completion].filter(Boolean);
+  const successfulAt = new Map();
+  for (const record of records) {
+    const at = Date.parse(record.completed_at);
+    if (record.status === 'completed' &&
+        (record.completion?.reason === 'progressed' || record.result?.success === true) &&
+        Number.isFinite(at) && at <= Number(now)) {
+      successfulAt.set(record.provider, Math.max(successfulAt.get(record.provider) || 0, at));
+    }
+  }
+  return new Set(records.filter(record => {
+    const at = Date.parse(record.completed_at);
+    const age = Number(now) - at;
+    return isAgentInstallFailure(record) && Number.isFinite(age) && age >= 0 &&
+      age < AGENT_INSTALL_FAILURE_BACKOFF_HOURS * 60 * 60 * 1000 &&
+      !(successfulAt.get(record.provider) > at);
+  }).map(record => record.provider));
+}
+
 /**
  * Keepalive round kind → Orchestrator route-weights task type.
  *
@@ -319,6 +354,7 @@ function decideNextAgent({
   routeWeights = null,
   roundKind = 'implement',
   core,
+  now = Date.now(),
 }) {
   const agents = registry.agents || {};
   const defaultAgent = registry.default_agent || 'codex';
@@ -326,9 +362,10 @@ function decideNextAgent({
   // Check if agent:auto is present
   const hasAutoLabel = labels.some((label) => normalizeLabel(label) === 'agent:auto');
 
-  // If no agent:auto, use explicit agent labels or default
-  if (!hasAutoLabel) {
-    const explicitAgent = getExplicitAgentFromLabels(labels, agents);
+  const installFailures = recentInstallFailures(completion, now);
+  const explicitAgent = getExplicitAgentFromLabels(labels, agents);
+  // Explicit routes also recover from a failed startup, without requiring agent:auto.
+  if (!hasAutoLabel && !installFailures.has(explicitAgent || defaultAgent)) {
     return {
       agent: explicitAgent || defaultAgent,
       reason: explicitAgent ? 'explicit-label' : 'default',
@@ -339,7 +376,7 @@ function decideNextAgent({
   }
 
   // agent:auto is present - run delegation logic
-  core?.info?.('agent:auto detected - running delegation policy');
+  core?.info?.('Running delegation policy (auto routing or startup recovery)');
 
   const explicitAgents = getExplicitAgentsFromLabels(labels, agents);
   if (explicitAgents.length > 1) {
@@ -353,8 +390,9 @@ function decideNextAgent({
     };
   }
 
-  const currentAgent = state.current_agent ||
-    (completion?.completion?.reason === 'rate_limited' ? completion.provider : '');
+  const currentAgent = (!hasAutoLabel && explicitAgent) || state.current_agent ||
+    (completion?.completion?.reason === 'rate_limited' ? completion.provider : '') ||
+    (installFailures.has(explicitAgent || defaultAgent) ? (explicitAgent || defaultAgent) : '');
   const expired = rateLimitExpired(completion);
   const rateLimited = !expired && completion?.completion?.reason === 'rate_limited' &&
     completion.provider === currentAgent;
@@ -390,9 +428,9 @@ function decideNextAgent({
   // Apply pool availability before concrete-label, weighted and default choices.
   const availableAgents = Object.keys(agents).filter((key) => (
     agentPrereqs[key].available && hasKeepaliveRunner(agents[key]) &&
-    !activeRateLimited.has(key) &&
+    !activeRateLimited.has(key) && !installFailures.has(key) &&
     (!Array.isArray(runnableAgents) || runnableAgents.includes(key)) &&
-    (currentAgent || getAgentPoolState(
+    ((currentAgent && !installFailures.has(currentAgent)) || getAgentPoolState(
       routeWeights, key, ranking.find((row) => row?.agent === key),
     ) === 'ok')
   ));
@@ -401,7 +439,8 @@ function decideNextAgent({
     core?.warning?.('No agents available (prerequisites, runners or pool capacity)');
     return {
       agent: '',
-      reason: rateLimited ? 'rate-limited-no-alternatives' : 'no-agents-available',
+      reason: installFailures.has(currentAgent) ? 'install-failed-no-alternatives'
+        : (rateLimited ? 'rate-limited-no-alternatives' : 'no-agents-available'),
       shouldSwitch: false,
       alternatives: [],
       delegationSource: 'static',
@@ -475,7 +514,8 @@ function decideNextAgent({
     core?.info?.(`Switching from unavailable ${currentAgent} to ${nextAgent}`);
     return {
       agent: nextAgent,
-      reason: `${currentAgent}-unavailable`,
+      reason: installFailures.has(currentAgent) ? `${currentAgent}-install-preflight-failed`
+        : `${currentAgent}-unavailable`,
       shouldSwitch: true,
       previousAgent: currentAgent,
       alternatives: availableAgents.filter((agent) => agent !== nextAgent),
@@ -1077,6 +1117,9 @@ function chooseAgentForIntake(taskType = 'implement', routeWeights = null, regis
 }
 
 module.exports = {
+  AGENT_INSTALL_FAILURE_BACKOFF_HOURS,
+  isAgentInstallFailure,
+  recentInstallFailures,
   DEFAULT_ROUTE_WEIGHTS_URL,
   ROUTE_WEIGHT_TASK_TYPES,
   resolveRoundKind,

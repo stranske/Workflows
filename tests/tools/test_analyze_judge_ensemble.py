@@ -266,3 +266,28 @@ def test_loader_preserves_hard_fail_and_rejects_conflicting_repeats(tmp_path):
     path.write_text(json.dumps({"rows": [row, {**row, "raw_verdict": "CONCERNS"}]}))
     with pytest.raises(ValueError, match="conflicting"):
         ens.load_judgments([path])
+
+
+def test_unverifiable_input_is_a_valid_verdict_and_never_a_pass(tmp_path):
+    path = tmp_path / "screen.json"
+    path.write_text(
+        json.dumps(
+            {
+                "input_fingerprint": "f",
+                "prompt_sha256_by_case": {"c": "h"},
+                "rows": [
+                    {
+                        "judge": "j",
+                        "case_id": "c",
+                        "expected_verdict": "PASS",
+                        "actual_verdict": "NON_PASS",
+                        "raw_verdict": "UNVERIFIABLE_INPUT",
+                        "schema_valid": True,
+                    }
+                ],
+            }
+        )
+    )
+    decisions, truth = ens.load_judgments([path])
+    assert decisions["j"]["c"] == "UNVERIFIABLE_INPUT"
+    assert ens._fail_closed(decisions["j"]["c"]) == "NON_PASS"

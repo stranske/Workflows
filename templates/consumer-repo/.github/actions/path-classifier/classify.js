@@ -10,7 +10,7 @@ const vm = require('node:vm');
 // branch that does not contain it yet.  The classifier must never execute an
 // arbitrary module supplied by that PR: accept only the exact source contract
 // published by Workflows.  Subsequent deliveries read the trusted base copy.
-const BOOTSTRAP_DELIVERY_CONTRACT_SHA256 = 'b61558cca342ffffbdfc22453e585e252a7465a2d3407020e10e4bda73065023';
+const BOOTSTRAP_DELIVERY_CONTRACT_SHA256 = '81d6a750d9a70accd88845d40c3f8cfba76e170a98ae5db3812d3110617004e6';
 
 const OUTPUT_NAMES = {
   'docs-only': 'is-docs-only',

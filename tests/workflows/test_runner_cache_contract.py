@@ -224,6 +224,7 @@ def test_cursor_archive_restore_exposes_cli_without_download(tmp_path: Path) -> 
         "CURSOR_CLI_VERSION": "test-release",
         "DOWNLOAD_LOG": str(log),
         "TEST_ARCHIVE": str(archive),
+        "GITHUB_PATH": str(tmp_path / "github-path"),
     }
     install = install.replace("${{ runner.temp }}", str(tmp_path / "cold"))
     subprocess.run(

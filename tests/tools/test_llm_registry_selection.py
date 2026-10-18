@@ -102,6 +102,43 @@ def test_configured_model_ignores_legacy_tier_when_profile_is_explicit(
     )
 
 
+def test_unapproved_or_ambiguous_decisions_do_not_select_a_model(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """A registry decision is usable only when it is singular and reviewed."""
+    registry_path = tmp_path / "registry.json"
+    _write_registry(registry_path)
+    payload = json.loads(registry_path.read_text(encoding="utf-8"))
+    payload["selections"][0]["status"] = "draft"
+    registry_path.write_text(json.dumps(payload), encoding="utf-8")
+    monkeypatch.setenv(registry.ENV_MODEL_REGISTRY_CONFIG, str(registry_path))
+
+    assert registry.select_model_for_profile(provider="openai") is None
+
+    payload["selections"][0]["status"] = "approved"
+    payload["selections"].append(dict(payload["selections"][0]))
+    registry_path.write_text(json.dumps(payload), encoding="utf-8")
+    with caplog.at_level("WARNING"):
+        assert registry.select_model_for_profile(provider="openai") is None
+    assert "Ambiguous model selections" in caplog.text
+
+
+def test_deprecated_tier_adapter_and_slot_allowlist_missing_provider_fail_closed(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    registry_path = tmp_path / "registry.json"
+    slots_path = tmp_path / "slots.json"
+    _write_registry(registry_path)
+    _write_slots(slots_path, model="model-balanced", profile="")
+    monkeypatch.setenv(registry.ENV_MODEL_REGISTRY_CONFIG, str(registry_path))
+    monkeypatch.setenv(registry.ENV_SLOT_CONFIG, str(slots_path))
+
+    with caplog.at_level("WARNING"):
+        assert registry.select_model_for_tier(provider="openai", tier="legacy") == "model-balanced"
+    assert "quality tier legacy is deprecated" in caplog.text
+    assert registry.configured_model_for_provider("anthropic", fallback="unsafe-fallback") == ""
+
+
 def test_loaded_registry_entries_leave_compatibility_quality_unset(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:

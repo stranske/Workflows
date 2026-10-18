@@ -6,6 +6,51 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.44.4](https://github.com/stranske/Workflows/compare/v1.44.3...v1.44.4) (2026-10-18)
+
+
+### Bug Fixes
+
+* **sync:** share seal preconditions and recover refused Gate reruns ([#4118](https://github.com/stranske/Workflows/issues/4118)) ([a32266f](https://github.com/stranske/Workflows/commit/a32266fc59548fbeeae2387ea40ea5f91dd74723))
+
+## [1.44.3](https://github.com/stranske/Workflows/compare/v1.44.2...v1.44.3) (2026-10-18)
+
+
+### Bug Fixes
+
+* **sync:** key canary refresh on rendered delivery digest ([#4111](https://github.com/stranske/Workflows/issues/4111)) ([52c45e0](https://github.com/stranske/Workflows/commit/52c45e0c74ccd64eeaafd6d43433381cef04a976))
+
+## [1.44.2](https://github.com/stranske/Workflows/compare/v1.44.1...v1.44.2) (2026-10-18)
+
+
+### Bug Fixes
+
+* **keepalive:** recover from hosted Cursor startup failures ([#4103](https://github.com/stranske/Workflows/issues/4103)) ([1499fd5](https://github.com/stranske/Workflows/commit/1499fd504401f9fd39f95bf98dc19e86c8564fe9))
+* **sync:** dispatch Gate for already-sealed canaries ([#4105](https://github.com/stranske/Workflows/issues/4105)) ([e337a3e](https://github.com/stranske/Workflows/commit/e337a3eb489900090f2f38ce6bde9ad9c0d50972))
+
+## [1.44.1](https://github.com/stranske/Workflows/compare/v1.44.0...v1.44.1) (2026-10-18)
+
+
+### Bug Fixes
+
+* restore post-merge verifier evidence and visible outcomes ([#4099](https://github.com/stranske/Workflows/issues/4099)) ([d236389](https://github.com/stranske/Workflows/commit/d23638939bc6442cf52999be7d5cfe6186ffac3e))
+* **sync:** drain seal-only canary Gate failures ([#4100](https://github.com/stranske/Workflows/issues/4100)) ([b346135](https://github.com/stranske/Workflows/commit/b346135ac7cf35e61835a7559701299e2a89d0cc))
+
+## [1.44.0](https://github.com/stranske/Workflows/compare/v1.43.3...v1.44.0) (2026-10-18)
+
+
+### Features
+
+* deliver experiment tick-1792316622-stranske-workflows-3973 ([#4088](https://github.com/stranske/Workflows/issues/4088)) ([6b3cf80](https://github.com/stranske/Workflows/commit/6b3cf8015b48f60c64bcf538ce860d9967fa1e66))
+
+## [1.43.3](https://github.com/stranske/Workflows/compare/v1.43.2...v1.43.3) (2026-10-18)
+
+
+### Bug Fixes
+
+* **maint71:** debounce canary refreshes and restore promotion handoffs ([#4069](https://github.com/stranske/Workflows/issues/4069)) ([f641a42](https://github.com/stranske/Workflows/commit/f641a42eae4419a444a15c7a4ec7961da4b48078))
+* **verifier:** enforce merge CI and explain source closure decisions ([#4085](https://github.com/stranske/Workflows/issues/4085)) ([65347f1](https://github.com/stranske/Workflows/commit/65347f1f00cac4e0802c7a68e171ad1b6b569bd3))
+
 ## [1.43.2](https://github.com/stranske/Workflows/compare/v1.43.1...v1.43.2) (2026-10-18)
 
 

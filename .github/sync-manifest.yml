@@ -570,7 +570,7 @@ scripts:
     description: "Blocks external merge lanes for PRs that require local Orchestrator runtime acceptance checks"
 
   - source: .github/scripts/sync_pr_lease_contract.js
-    description: "Validates generated delivery lifecycle records and exact-head seals"
+    description: "Validates generated delivery lifecycle records and owns the shared seal-precondition reasons"
 
   - source: .github/scripts/comment-dedupe.js
     description: "Deduplicates bot comments on issues/PRs"
@@ -597,7 +597,7 @@ scripts:
     description: "Posts completion comments on PRs"
 
   - source: .github/scripts/verifier_closure.js
-    description: "Closes source issues only with nonempty exact-merge CI proof on PASS or deterministic gates for UNVERIFIABLE_INPUT"
+    description: "Closes source issues only with nonempty exact-merge CI proof on PASS or successful exact-merge CI proof and deterministic gates for UNVERIFIABLE_INPUT"
 
   - source: .github/scripts/verifier_ci_query.js
     description: "Queries CI status for verifier workflow"

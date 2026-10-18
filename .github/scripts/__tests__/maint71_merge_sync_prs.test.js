@@ -2,6 +2,12 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const deliveryPayload = require('../consumer_delivery_digest');
+test.beforeEach(t => t.mock.method(deliveryPayload, 'readDeliveryPayload', async (sha, repos) => ({
+  digest: `sha256:${sha[0].repeat(64)}`,
+  files: Object.fromEntries(repos.map(repo => [repo, { 'scripts/shared.js': { content: sha[0] } }])),
+})));
+
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
@@ -21,13 +27,123 @@ const {
   devToolBaseRefreshResult, ensureExactHeadReviewRequest, hasCompleteReviewThreadEvidence,
   parseReviewReassessmentRequest, runReviewReassessment, run, acceptanceCommentLocation,
   canaryNeedsRefresh, refreshStableCanaries, STALE_CANARY_HOURS,
-  isExpectedPresealGateFailure, legacyStatusAsCheck,
+  CANARY_REFRESH_DEBOUNCE_MS, CANARY_SEALED_REFRESH_WAIT_MS, deferSealedCanaryRefresh, canaryRefreshDecision, readCanaryRefreshState,
+  dispatchCanaryRefresh, dispatchCanaryPromotion,
+  isExpectedPresealGateFailure, legacyStatusAsCheck, requestSealedGate,
 } = require('../maint71_merge_sync_prs');
 const { classifySyncPrChecks } = require('../sync_pr_merge_contract');
 
 const refreshNow = Date.parse('2026-10-17T12:00:00Z');
+
+function sealedGateHarness(t) {
+  const pr = { number: 4104, head: { ref: 'sync/workflows-candidate', sha: 'd'.repeat(40) } };
+  const sealedAt = '2026-10-17T11:00:00Z';
+  const run = { id: 4105, head_branch: pr.head.ref, head_sha: pr.head.sha,
+    event: 'pull_request', status: 'completed', conclusion: 'failure',
+    run_attempt: 1, created_at: sealedAt, run_started_at: sealedAt };
+  const reads = [], reruns = [], dispatches = [], logs = [];
+  const state = { runs: [run] };
+  t.mock.timers.enable({ apis: ['Date'], now: refreshNow });
+  t.mock.method(console, 'log', (...args) => logs.push(args.join(' ')));
+  const withRetry = async callback => callback({ rest: { actions: {
+    listWorkflowRuns: async params => {
+      reads.push(params);
+      if (state.lookupError) throw Object.assign(new Error('history denied'), { status: 403 });
+      return { data: { workflow_runs: params.event === 'pull_request' ? state.runs
+        : dispatches.length ? [{ ...run, event: 'workflow_dispatch', status: 'queued', created_at: new Date().toISOString() }] : [] } };
+    },
+    reRunWorkflowFailedJobs: async params => {
+      reruns.push(params);
+      if (state.rerunError) throw Object.assign(new Error(state.rerunReason || 'rerun denied'), { status: state.rerunError });
+      return { status: 201 };
+    },
+    createWorkflowDispatch: async params => {
+      dispatches.push(params);
+      if (state.dispatchError) throw Object.assign(new Error('dispatch denied'), { status: state.dispatchError });
+      return { status: 204 };
+    },
+  } } });
+  return { args: { owner: 'stranske', repo: 'Ready', pr, sealedAt, withRetry },
+    state, run, reads, reruns, dispatches, logs };
+}
+
+for (const branch of ['sync/workflows-candidate', 'sync/workflows-delivery']) {
+  test(`sealed ${branch} reruns latest exact-head PR Gate once, including equality`, async t => {
+    const api = sealedGateHarness(t);
+    api.args.pr.head.ref = branch;
+    api.state.runs = [{ ...api.run, id: 9999, head_sha: 'e'.repeat(40) },
+      { ...api.run, id: 9998, event: 'workflow_dispatch' }, { ...api.run, id: 4000 }, api.run];
+    assert.deepEqual(await requestSealedGate(api.args), { mode: 'rerun', status: 201, run_id: 4105 });
+    assert.deepEqual(api.reruns, [{ owner: 'stranske', repo: 'Ready', run_id: 4105 }]);
+    assert.ok(api.logs.includes('seal: stranske/Ready#4104 gate rerun run=4105'));
+    for (const status of ['queued', 'in_progress', 'completed']) {
+      api.state.runs = [{ ...api.run, run_attempt: 2, status,
+        conclusion: status === 'completed' ? 'success' : null }];
+      assert.deepEqual(await requestSealedGate(api.args), { mode: 'existing', run_id: 4105 });
+    }
+    assert.equal(api.reruns.length, 1);
+    assert.equal(api.dispatches.length, 0);
+  });
+}
+
+for (const status of [403, 404]) {
+  test(`rerun HTTP ${status} is printed and never dispatches`, async t => {
+    const api = sealedGateHarness(t);
+    api.state.rerunError = status;
+    assert.deepEqual(await requestSealedGate(api.args), { mode: 'failed', status, reason: 'rerun denied' });
+    assert.ok(api.logs.includes(`seal: stranske/Ready#4104 gate request failed: ${status} rerun denied`));
+    assert.equal(api.dispatches.length, 0);
+  });
+}
+
+for (const status of [403, 422]) {
+  test(`refused rerun HTTP ${status} dispatches once, records its run and keeps the merge blocker`, async t => {
+    const api = sealedGateHarness(t);
+    api.state.rerunError = status;
+    api.state.rerunReason = 'This workflow run cannot be retried';
+    const refusal = { blocked: 'rerun-refused', rerun_status: status,
+      rerun_reason: api.state.rerunReason };
+    assert.deepEqual(await requestSealedGate(api.args), {
+      mode: 'dispatch', status: 204, run_id: 4105, ...refusal,
+    });
+    assert.deepEqual(api.dispatches, [{ owner: 'stranske', repo: 'Ready',
+      workflow_id: 'pr-00-gate.yml', ref: api.args.pr.head.ref, inputs: { pr_number: '4104' } }]);
+    assert.ok(api.logs.includes('seal: stranske/Ready#4104 gate rerun refused; dispatched run=4105'));
+    assert.ok(api.logs.includes('seal: stranske/Ready#4104 blocked(rerun-refused)'));
+    assert.deepEqual(await requestSealedGate(api.args), { mode: 'existing', run_id: 4105, ...refusal });
+    assert.equal(api.dispatches.length, 1, 'a queued fallback on this sealed head prevents duplicate dispatch');
+  });
+}
+
+test('fallback dispatch failure retains rerun refusal and prints both failures', async t => {
+  const api = sealedGateHarness(t);
+  api.state.rerunError = 422;
+  api.state.dispatchError = 404;
+  const result = await requestSealedGate(api.args);
+  assert.equal(result.mode, 'failed');
+  assert.equal(result.status, 404);
+  assert.equal(result.rerun_status, 422);
+  assert.equal(result.blocked, 'rerun-refused');
+  assert.ok(api.logs.includes('seal: stranske/Ready#4104 blocked(rerun-refused)'));
+  assert.ok(api.logs.includes('seal: stranske/Ready#4104 gate request failed: 404 dispatch denied'));
+});
+
+test('missing PR Gate uses dispatch fallback; unreadable history fails closed', async t => {
+  const api = sealedGateHarness(t);
+  api.state.lookupError = true;
+  assert.equal((await requestSealedGate(api.args)).mode, 'failed');
+  assert.equal(api.dispatches.length, 0);
+  api.state.lookupError = false;
+  api.state.runs = [];
+  assert.deepEqual(await requestSealedGate(api.args), { mode: 'dispatch', status: 204, run_id: 4105 });
+  assert.ok(api.logs.includes('seal: stranske/Ready#4104 gate dispatch fallback'));
+  assert.deepEqual(await requestSealedGate(api.args), { mode: 'existing', run_id: 4105 });
+  assert.equal(api.dispatches.length, 1);
+});
+
 function refreshCanary(overrides = {}) {
   return { owner: 'stranske', repo: 'Ready', pr: 12, plan_id: 'plan-4026',
+    source_commit: 'a'.repeat(40), base_sha: 'b'.repeat(40), default_branch_tip_sha: 'b'.repeat(40), head_sha: 'c'.repeat(40),
     check_status: 'success', active_review_thread_count: 0,
     head_observed_at: new Date(refreshNow - 60 * 60 * 1000).toISOString(),
     ...overrides };
@@ -44,6 +160,7 @@ workflows:
     target: .github/workflows/consumer-gate.yml
 `);
   const github = { rest: {
+    pulls: { list: async () => ({ data: [] }) },
     users: { getAuthenticated: async () => ({ data: { login: 'maint71-bot' } }) },
     actions: {
       listWorkflowRuns: async () => ({ data: { workflow_runs: [] } }),
@@ -51,6 +168,13 @@ workflows:
       ...overrides.actions,
     },
     repos: {
+      get: async () => ({ data: { default_branch: 'trunk' } }),
+      getBranch: async () => ({ data: { commit: { sha: 'b'.repeat(40) } } }),
+      ...overrides.repos,
+      getCommit: async () => ({ data: { sha: 'a'.repeat(40) } }),
+      getContent: async () => ({ data: { content: Buffer.from(JSON.stringify({
+        canaries: ['stranske/Ready', 'stranske/Template'].map((repo) => ({ repo })),
+      })).toString('base64') } }),
       listCommits: async (params) => { reads.push(params); return { data: [{ sha: 'a'.repeat(40) }] }; },
       listPullRequestsAssociatedWithCommit: () => {},
       listCommentsForCommit: () => {},
@@ -68,6 +192,7 @@ workflows:
     summary: { addRaw(text) { summaries.push(text); return this; }, async write() {} } };
   return { dispatches, comments, summaries, failures, reads, manifestEntries, core,
     withRetry: async (fn) => fn(github), enabled: true, now: refreshNow,
+    expectedCanaries: ['stranske/Ready', 'stranske/Template'],
     context: { repo: { owner: 'stranske', repo: 'Workflows' },
       payload: { repository: { default_branch: 'main' } } } };
 }
@@ -89,7 +214,11 @@ for (const [state, change] of [
     assert.deepEqual(result.canaries.map((row) => row.refresh_reason), [state, state]);
     assert.deepEqual(api.dispatches[0], { owner: 'stranske', repo: 'Workflows',
       workflow_id: 'maint-68-sync-consumer-repos.yml', ref: 'main',
-      inputs: { phase: 'canary', delivery_scope: 'full', dry_run: 'false', force: 'false' } });
+      inputs: { phase: 'canary', delivery_scope: 'full', scope_head_sha: 'a'.repeat(40),
+        repos: 'stranske/Ready,stranske/Template', dry_run: 'false', force: 'false',
+        refresh_key: require('crypto').createHash('sha256')
+          .update(state === 'behind' ? `stranske/Ready:${canary.default_branch_tip_sha}:${canary.head_sha}`
+            : `stranske/Ready:sha256:${'a'.repeat(64)}:${canary.head_sha}`).digest('hex') } });
     assert.match(api.summaries.join(''), /refresh_dispatched=1 held_plan=plan-4026/);
     assert.deepEqual(api.failures, []);
   });
@@ -100,8 +229,8 @@ test('all current green canaries and an empty run emit zero counts without dispa
     const api = refreshHarness();
     await refreshStableCanaries({ ...api, canaries });
     assert.equal(api.dispatches.length, 0);
-    assert.equal(api.summaries.join(''),
-      'canaries: red=0 review_blocked=0 stale=0 refresh_dispatched=0 held_plan=none\n');
+    assert.ok(api.summaries.includes(
+      'canaries: red=0 review_blocked=0 stale=0 refresh_dispatched=0 held_plan=none drainable=0\n'));
   }
 });
 
@@ -116,7 +245,7 @@ test('staleness uses producer head age, with a strict six-hour boundary', () => 
 });
 
 test('canary refresh reasons prioritize blockers over age and retain legacy timestamp fallbacks', () => {
-  const blocked = refreshCanary({ mergeable_state: 'behind', check_status: 'checks_failed',
+  const blocked = refreshCanary({ mergeable_state: 'behind', base_sha: 'b'.repeat(40), default_branch_tip_sha: 'b'.repeat(40), head_sha: 'c'.repeat(40), check_status: 'checks_failed',
     active_review_thread_count: 1, head_observed_at: '2026-10-17T05:00:00Z' });
   assert.equal(canaryNeedsRefresh(blocked, refreshNow), 'behind');
   delete blocked.mergeable_state;
@@ -175,7 +304,7 @@ test('only complete exact-head staging Gate evidence suppresses the base-refresh
     { annotation_level: 'warning', message: 'The staging label remains active.' },
   ];
   const makeRetry = ({ run = {}, jobRows = jobs, rows = annotations, count = rows.length,
-    apiError = false, check = {} } = {}) => async (callback) => callback({
+    apiError = false, check = {}, log } = {}) => async (callback) => callback({
     rest: {
       actions: {
         getWorkflowRun: async () => {
@@ -185,6 +314,7 @@ test('only complete exact-head staging Gate evidence suppresses the base-refresh
             conclusion: 'failure', ...run } };
         },
         listJobsForWorkflowRun: async () => ({ data: { jobs: jobRows } }),
+        downloadJobLogsForWorkflowRun: async () => ({ data: log ?? 'Error: ' + rows.find(r => r.message?.startsWith('Mutable generated'))?.message }),
       },
       checks: {
         get: async () => ({ data: { name: 'generated delivery seal', head_sha: head,
@@ -199,12 +329,40 @@ test('only complete exact-head staging Gate evidence suppresses the base-refresh
     deliveryRecord: { delivery_state: 'staging', head_observed_sha: head },
     classification, allChecks };
   assert.equal(await isExpectedPresealGateFailure({ ...args, withRetry: makeRetry() }), true);
+  // Independent expected literals catch omissions from the shared vocabulary.
+  for (const reason of ['delivery_not_sealed:staging', 'delivery_not_sealed:reviewing',
+    'delivery_not_sealed:legacy', 'sealed_head_mismatch']) {
+    const message = `Mutable generated delivery is not mergeable: ${reason}. ` +
+      'Maint 71 must seal this exact head after bounded reviewer settlement.';
+    assert.equal(await isExpectedPresealGateFailure({ ...args,
+      withRetry: makeRetry({ rows: [{ annotation_level: 'failure', message }] }) }), true, reason);
+  }
   assert.deepEqual(dualClassification.failed.map((check) => check.name),
     ['Gate / gate', 'gate-summary']);
   assert.equal(await isExpectedPresealGateFailure({ ...args, allChecks: dualChecks,
     classification: dualClassification, withRetry: makeRetry() }), true);
+  const directOnly = classifySyncPrChecks({ checkRuns: [summary], requiredContexts: ['gate-summary'] });
+  assert.equal(await isExpectedPresealGateFailure({ ...args, allChecks: [summary],
+    classification: directOnly, withRetry: makeRetry() }), true, 'a direct required Gate check can supply the run binding');
   assert.equal(await isExpectedPresealGateFailure({ ...args,
     withRetry: makeRetry({ jobRows: templateJobs }) }), true);
+  assert.equal(await isExpectedPresealGateFailure({ ...args,
+    withRetry: makeRetry({ jobRows: jobs.map(job => job.name === 'classify changed paths'
+      ? { ...job, conclusion: 'success' } : job) }) }), true);
+  const sealedArgs = { ...args, deliveryState: 'sealed', deliveryRecord: {
+    delivery_state: 'sealed', head_observed_sha: head, sealed_head_sha: head,
+    sealed_at: '2026-10-17T12:00:00Z' } };
+  assert.equal(await isExpectedPresealGateFailure({ ...sealedArgs,
+    withRetry: makeRetry({ run: { created_at: '2026-10-17T11:00:00Z' } }) }), true);
+  assert.equal(await isExpectedPresealGateFailure({ ...sealedArgs,
+    withRetry: makeRetry({ run: { created_at: sealedArgs.deliveryRecord.sealed_at } }) }), true);
+  assert.equal(await isExpectedPresealGateFailure({ ...sealedArgs,
+    withRetry: makeRetry({ run: { created_at: '2026-10-17T13:00:00Z' } }) }), false);
+  assert.equal(await isExpectedPresealGateFailure({ ...sealedArgs,
+    withRetry: makeRetry({ run: { created_at: '2026-10-17T11:00:00Z',
+      run_started_at: '2026-10-17T13:00:00Z' } }) }), false, 'a later rerun cannot reuse old creation time');
+  assert.equal(await isExpectedPresealGateFailure({ ...sealedArgs,
+    withRetry: makeRetry() }), false, 'unknown run time must not wake an already sealed head');
   assert.equal(canaryNeedsRefresh(refreshCanary({ check_status: 'checks_failed',
     expected_preseal_gate_hold: true }), refreshNow), null);
   assert.equal(canaryNeedsRefresh(refreshCanary({ check_status: 'checks_failed' }), refreshNow),
@@ -218,6 +376,7 @@ test('only complete exact-head staging Gate evidence suppresses the base-refresh
     makeRetry({ jobRows: [...templateJobs, { id: 14, name: 'python tests', status: 'completed',
       conclusion: 'failure' }] }),
     makeRetry({ jobRows: [...jobs, templateJobs[0]] }),
+    makeRetry({ jobRows: [...jobs, { ...jobs[0], id: 4 }] }),
     makeRetry({ jobRows: [...jobs, { id: 4, name: 'python tests', status: 'completed',
       conclusion: 'timed_out' }] }),
     makeRetry({ jobRows: [...jobs, { id: 4, name: 'python tests', status: 'in_progress',
@@ -225,6 +384,9 @@ test('only complete exact-head staging Gate evidence suppresses the base-refresh
     makeRetry({ rows: annotations.slice(0, 1), count: 4 }),
     makeRetry({ rows: [...annotations, { annotation_level: 'failure', message: 'another error' }] }),
     makeRetry({ apiError: true }),
+    makeRetry({ log: 'Error: unrelated classifier failure' }),
+    makeRetry({ log: `Error: ${exactReason}\nError: also unrelated` }),
+    makeRetry({ log: `Error: ${exactReason}\nTypeError: also unrelated` }),
   ]) {
     assert.equal(await isExpectedPresealGateFailure({ ...args, withRetry }), false);
   }
@@ -350,32 +512,49 @@ async function assertExecutorCanaryRefresh(t, state) {
   t.mock.timers.enable({ apis: ['Date'], now: refreshNow });
   const ageMinutes = ['stale', 'aged_green'].includes(state) ? (STALE_CANARY_HOURS + 1) * 60 : 20;
   const observed = new Date(refreshNow - ageMinutes * 60 * 1000).toISOString();
+  const reviewStarted = state === 'seal_review_wait' ? new Date(refreshNow - 60000).toISOString() : observed;
   const { formatDeliveryRecord } = require('../sync_pr_lease_contract');
-  const preseal = ['preseal_gate', 'preseal_gate_dual'].includes(state);
-  const presealDual = state === 'preseal_gate_dual';
+  const sealRecovery = state.startsWith('seal_') && state !== 'seal_drained';
+  const neverSealed = state.startsWith('seal_never_');
+  const realFailure = ['seal_real_failure', 'seal_never_real_failure'].includes(state);
+  const rerunRefused = state.includes('rerun_refused');
+  const reviewRecovery = state.startsWith('seal_review_');
+  const alreadySealed = state.startsWith('seal_already_');
+  const delivery = state === 'seal_already_delivery';
+  const olderGreen = state === 'seal_already_green';
+  const dispatchError = state.endsWith('_422') ? 422 : state.endsWith('_404') ? 404 : null;
+  const rerunError = rerunRefused ? 403 : dispatchError;
+  const preseal = !olderGreen && (sealRecovery || ['preseal_gate', 'preseal_gate_dual', 'producer_success_staging'].includes(state));
+  const producerSucceeded = state.startsWith('producer_success');
+  const presealDual = !olderGreen && (state === 'preseal_gate_dual' || sealRecovery);
+  const sealMessage = 'Mutable generated delivery is not mergeable: ' +
+    (sealRecovery && !neverSealed ? 'sealed_head_mismatch' : 'delivery_not_sealed:staging') +
+    '. Maint 71 must seal this exact head after bounded reviewer settlement.';
   const candidate = { number: 4026, title: 'chore: sync workflow templates',
     state: 'open', draft: false, auto_merge: null, user: { login: 'stranske' },
     mergeable: state !== 'stale',
-    mergeable_state: state === 'behind' ? 'behind' : state === 'stale' ? 'dirty' : 'clean',
-    head: { ref: 'sync/workflows-candidate', sha: head }, base: { ref: 'main' },
+    mergeable_state: ['behind', 'producer_success_behind', 'seal_already_behind'].includes(state) ? 'behind' : state === 'stale' ? 'dirty' : 'clean',
+    head: { ref: delivery ? 'sync/workflows-delivery' : 'sync/workflows-candidate', sha: head }, base: { ref: 'main', sha: 'b'.repeat(40) },
     created_at: observed, updated_at: observed,
     body: `<!-- workflows-consumer-sync:v1 ${JSON.stringify({
       schema: 'workflows-consumer-sync-pr/v1', consumer_repo: repository,
       plan_id: plan, plan_scope: 'full', source_commit: source, source_sha: source,
-      template_hash: 'generation', sync_phase: 'canary',
+      template_hash: 'generation', sync_phase: delivery ? 'promote' : 'canary',
     })} -->\n` + formatDeliveryRecord({
       schema: 'sync-pr-delivery-record/v1', repository, plan_id: plan,
       durable_issue_url: 'https://github.com/stranske/Workflows/issues/1836',
       generation: 'generation', desired_tree_hash: 'tree', source_commit: source,
       head_observed_sha: head, head_observed_at: observed,
-      lease_expires_at: '2099-01-01T00:00:00Z', delivery_state: preseal ? 'staging' : 'sealed',
-      sealed_at: observed, sealed_head_sha: head, review_started_at: observed,
+      lease_expires_at: '2099-01-01T00:00:00Z', delivery_state: neverSealed ? 'staging' : reviewRecovery ? 'reviewing' : sealRecovery ? 'sealed' : preseal ? 'staging' : 'sealed',
+      sealed_at: neverSealed ? '' : observed, sealed_head_sha: neverSealed ? '' : sealRecovery && !alreadySealed ? 'f'.repeat(40) : head, review_started_at: neverSealed ? '' : reviewStarted,
     }) };
-  const dispatches = [], updates = [], summaries = [], failures = [], merges = [];
+  const reruns = [], dispatches = [], updates = [], summaries = [], failures = [], merges = [], tipReads = [];
+  const gateReads = [], labelWrites = [];
   const github = { rest: {
     users: { getAuthenticated: async () => ({ data: { login: 'maint71-bot' } }) },
     pulls: {
-      list: () => {}, get: async () => ({ data: structuredClone(candidate) }),
+      list: async params => ({ data: params.repo === repo && params.state === 'open' ? [structuredClone(candidate)] : [] }),
+      listFiles: async () => ({ data: [{ filename: 'scripts/shared.js' }] }), get: async () => ({ data: structuredClone(candidate) }),
       update: async (params) => {
         assert.ok(params.body, 'refresh must never close or update the stable branch');
         updates.push(params); candidate.body = params.body;
@@ -383,23 +562,34 @@ async function assertExecutorCanaryRefresh(t, state) {
       },
       updateBranch: async () => assert.fail('stable canary must never call pulls.updateBranch'),
       merge: async (params) => {
-        assert.equal(state, 'aged_green', `${state} canary must never merge`);
+        assert.ok(['aged_green', 'seal_drained'].includes(state), `${state} canary must never merge`);
         merges.push(params); return { data: { merged: true } };
       },
     },
-    git: { getCommit: async () => ({ data: { tree: { sha: 'tree' } } }),
+    git: { getRef: async () => ({ data: { object: { sha: head } } }), getCommit: async () => ({ data: { tree: { sha: 'tree' } } }),
       deleteRef: async () => {},
     },
     repos: {
+      get: async () => ({ data: { default_branch: 'main' } }),
+      getBranch: async (params) => {
+        tipReads.push(params);
+        return { data: { commit: { sha: 'e'.repeat(40) } } };
+      },
       getCombinedStatusForRef: async () => ({ data: { statuses: preseal ? [{
         context: 'Gate / gate', state: 'failure',
         target_url: `https://github.com/${owner}/${repo}/actions/runs/4027`,
         updated_at: observed, description: 'Path classification failed',
       }] : [] } }),
       getBranchProtection: async () => ({ data: { required_status_checks: {
-        contexts: presealDual ? ['Gate / gate', 'gate-summary'] : ['Gate / gate'],
+        contexts: presealDual ? ['Gate / gate', 'gate-summary', ...(sealRecovery ? ['generated delivery seal', 'classify changed paths'] : []),
+          ...(realFailure ? ['production tests'] : [])] : ['Gate / gate'],
       } } }),
-      getContent: async () => { throw Object.assign(new Error('not declared'), { status: 404 }); },
+      getCommit: async ({ ref }) => ({ data: { sha: ref === 'main' && !producerSucceeded ? 'a'.repeat(40) : source, commit: { committer: { date: observed } } } }),
+      getContent: async ({ path: filePath }) => {
+        if (filePath === 'config/consumer_sync_canaries.json') return { data: { content:
+          Buffer.from(JSON.stringify(require('../../../config/consumer_sync_canaries.json'))).toString('base64') } };
+        throw Object.assign(new Error('not declared'), { status: 404 });
+      },
       createDispatchEvent: async () => {},
     },
     checks: {
@@ -413,31 +603,61 @@ async function assertExecutorCanaryRefresh(t, state) {
         { annotation_level: 'failure', message: 'Process completed with exit code 1.' },
       ] }),
     },
-    issues: { addLabels: async () => {}, removeLabel: async () => {},
+    issues: { addLabels: async (params) => labelWrites.push(params), removeLabel: async () => {},
       listLabelsOnIssue: async () => ({ data: [] }),
       listComments: async () => ({ data: [{ id: 71, user: { login: 'maint71-bot' },
-        created_at: observed, body: '@codex review\n<!-- maint71-review-request:v1 ' +
+        created_at: reviewStarted, body: '@codex review\n<!-- maint71-review-request:v1 ' +
           JSON.stringify({ plan_id: plan, generation: 'generation', head_sha: head, reviewer: 'codex' }) + ' -->',
       }] }),
     },
     actions: {
-      listWorkflowRuns: async () => ({ data: { workflow_runs: [] } }),
-      createWorkflowDispatch: async (params) => dispatches.push(params),
-      getWorkflowRun: async () => ({ data: { id: 4027, head_sha: head, name: 'Gate',
-        path: '.github/workflows/pr-00-gate.yml', status: 'completed', conclusion: 'failure' } }),
+      listWorkflowRuns: async (params) => {
+        if (params.workflow_id === 'pr-00-gate.yml') {
+          gateReads.push(params);
+          const requested = dispatches.some(d => d.workflow_id === 'pr-00-gate.yml');
+          return { data: { workflow_runs: [{ id: requested ? 4104 : 4027,
+            event: requested ? 'workflow_dispatch' : 'pull_request', status: 'completed', conclusion: 'failure',
+            head_sha: head, head_branch: candidate.head.ref,
+            created_at: alreadySealed && !requested
+              ? new Date(Date.parse(observed) - 60000).toISOString()
+              : new Date(refreshNow).toISOString() }] } };
+        }
+        return { data: { workflow_runs: producerSucceeded ? [{
+        ...producerRun(), head_sha: source, display_title: `Maint 68 canary full source=${source} candidates=* dry=false`,
+      }] : [] } };
+      },
+      reRunWorkflowFailedJobs: async params => {
+        reruns.push(params);
+        if (rerunError) throw Object.assign(new Error(rerunRefused ? 'This workflow run cannot be retried' : 'consumer Gate unavailable'), { status: rerunError });
+        return { status: 201 };
+      },
+      createWorkflowDispatch: async (params) => {
+        dispatches.push(params);
+        if (params.workflow_id === 'pr-00-gate.yml' && dispatchError) {
+          throw Object.assign(new Error('consumer Gate unavailable'), { status: dispatchError });
+        }
+        return { status: 204 };
+      },
+      getWorkflowRun: async () => ({ data: { id: 4027, head_sha: head, name: state === 'producer_success_staging' ? 'Unrecognized Gate' : 'Gate',
+        path: '.github/workflows/pr-00-gate.yml', created_at: observed, status: 'completed', conclusion: 'failure' } }),
+      downloadJobLogsForWorkflowRun: async () => ({ data: 'Error: ' + sealMessage }),
       listJobsForWorkflowRun: () => {},
     },
   }, paginate: async (method, params) => {
-    if (method === github.rest.pulls.list) return params.state === 'open' && params.repo === repo
+    if (method === github.rest.pulls.list) return state !== 'no_change' && params.state === 'open' && params.repo === repo
       ? [structuredClone(candidate)] : [];
     if (method === github.rest.checks.listForRef && presealDual) return [
+      ...(sealRecovery ? ['generated delivery seal', 'classify changed paths'].map(name => ({
+        name, status: 'completed', conclusion: 'failure', head_sha: head, app: { slug: 'github-actions' },
+        details_url: `https://github.com/${owner}/${repo}/actions/runs/4027/job/3` })) : []),
+      ...(realFailure ? [{ name: 'production tests', status: 'completed', conclusion: 'failure' }] : []),
       { name: 'gate-summary', status: 'completed', conclusion: 'failure', head_sha: head,
         app: { slug: 'github-actions' },
         details_url: `https://github.com/${owner}/${repo}/actions/runs/4027/job/2` },
     ];
     if (method === github.rest.checks.listForRef) return preseal ? [] : [
       { name: 'Gate / gate', status: 'completed',
-        conclusion: state === 'checks_failed' ? 'failure' : 'success' },
+        conclusion: ['checks_failed', 'producer_success_red'].includes(state) ? 'failure' : 'success' },
     ];
     if (method === github.rest.actions.listJobsForWorkflowRun) return [
       { id: 1, name: 'classify changed paths', status: 'completed', conclusion: 'failure' },
@@ -445,8 +665,7 @@ async function assertExecutorCanaryRefresh(t, state) {
       { id: 3, name: 'generated delivery seal', status: 'completed', conclusion: 'failure' },
     ];
     if (method === github.rest.checks.listAnnotations) return [
-      { annotation_level: 'failure', message: 'Mutable generated delivery is not mergeable: ' +
-        'delivery_not_sealed:staging. Maint 71 must seal this exact head after bounded reviewer settlement.' },
+      { annotation_level: 'failure', message: sealMessage },
       { annotation_level: 'failure', message: 'Process completed with exit code 1.' },
     ];
     throw new Error('unexpected pagination');
@@ -454,7 +673,9 @@ async function assertExecutorCanaryRefresh(t, state) {
     object: { signature: { isValid: true, state: 'VALID', wasSignedByGitHub: true } },
     pullRequest: { state: 'OPEN', headRefOid: head, body: candidate.body,
     createdAt: observed, updatedAt: observed,
-    reviewThreads: { pageInfo: { hasNextPage: false }, nodes: state === 'review_blocked' ? [
+    comments: { pageInfo: { hasNextPage: false }, nodes: [] },
+    reviews: { pageInfo: { hasNextPage: false }, nodes: [] },
+    reviewThreads: { pageInfo: { hasNextPage: false }, nodes: ['review_blocked', 'seal_review_threads'].includes(state) ? [
       { id: 'PRRT_executor', path: 'consumer-owned.js', isResolved: false, isOutdated: false,
         comments: { pageInfo: { hasNextPage: false }, nodes: [] } },
     ] : [] },
@@ -462,18 +683,26 @@ async function assertExecutorCanaryRefresh(t, state) {
   const retryHelpers = require('../github-api-with-retry');
   t.mock.method(retryHelpers, 'createTokenAwareRetry', async () => null);
   t.mock.method(retryHelpers, 'withRetry', async (fn) => fn(github));
-  t.mock.method(console, 'log', () => {});
+  const logs = [];
+  t.mock.method(console, 'log', (...args) => logs.push(args.join(' ')));
   const env = { REGISTERED_REPOS_INPUT: repository, REPOS_INPUT: repository,
     OWNER_PR_PAT: 'test-owner-token', TRUSTED_SYNC_ACTORS: 'stranske',
     CLEANUP_BRANCHES_INPUT: 'false', AUTO_MERGE_INPUT: 'true', DRY_RUN_INPUT: 'false',
-    ACTIVE_SYNC_HASH_INPUT: 'candidate', EXPECTED_PLAN_ID_INPUT: plan,
+    ACTIVE_SYNC_HASH_INPUT: delivery ? 'delivery' : 'candidate', EXPECTED_PLAN_ID_INPUT: plan,
     EXPECTED_SOURCE_COMMIT_INPUT: source, EXPECTED_PLAN_SCOPE_INPUT: 'full',
     SYNC_PR_MERGE_REPORT_JSON: path.join(dir, 'report.json'),
     EVIDENCE_ONLY_INPUT: 'false', RESOLUTION_ONLY_INPUT: 'false',
+    CANARY_BASELINE_EVIDENCE_JSON: state === 'no_change' ? JSON.stringify({
+      schema: 'workflows.consumer-sync-canary-evidence/v1', version: 1,
+      results: [{ repo: repository, plan_id: plan, plan_scope: 'full', scope_base_sha: '',
+        source_commit: source, head_sha: head, evidence_source: 'no-change-canary',
+        required_check_state: 'success', active_review_thread_count: 0 }],
+    }) : '',
     CANDIDATE_EVIDENCE_AUTHORIZED: 'true',
-    PREPARE_ONLY_INPUT: state === 'aged_green' ? 'false' : 'true',
-    ...(preseal ? { DRY_RUN_INPUT: 'true', CONSUMER_SYNC_REVIEW_POLICY_PATH:
-      path.resolve(__dirname, '../../../config/consumer_sync_review_policy.json') } : {}) };
+    PREPARE_ONLY_INPUT: ['aged_green', 'seal_drained'].includes(state) ? 'false' : 'true',
+    ...(preseal || olderGreen ? { DRY_RUN_INPUT: sealRecovery ? 'false' : 'true', CONSUMER_SYNC_REVIEW_POLICY_PATH:
+      reviewRecovery ? legacyPolicyPath : path.resolve(__dirname, '../../../config/consumer_sync_review_policy.json') } : {}),
+    ...(state === 'seal_drained' ? { CONSUMER_SYNC_REVIEW_POLICY_PATH: path.resolve(__dirname, '../../../config/consumer_sync_review_policy.json') } : {}) };
   const original = Object.fromEntries(Object.keys(env).map((key) => [key, process.env[key]]));
   t.after(() => {
     for (const [key, value] of Object.entries(original)) {
@@ -487,9 +716,114 @@ async function assertExecutorCanaryRefresh(t, state) {
     summary: { addRaw(text) { summaries.push(text); return this; }, async write() {} },
   } });
   const report = JSON.parse(fs.readFileSync(env.SYNC_PR_MERGE_REPORT_JSON, 'utf8'));
+  assert.equal(tipReads.length, candidate.mergeable_state === 'behind' ? 1 : 0,
+    'executor and final refresh pass share one live read, only for behind canaries');
+  if (tipReads.length) {
+    assert.deepEqual(tipReads[0], { owner, repo, branch: 'main' });
+    assert.equal(dispatches[0].inputs.refresh_key, require('crypto').createHash('sha256')
+      .update(`${repository}:${'e'.repeat(40)}:${head}`).digest('hex'));
+  }
   assert.deepEqual(failures, [], JSON.stringify(report.results));
   const row = report.results.find((row) => row.owner === owner && row.repo === repo
-    && (state !== 'aged_green' || row.status === 'merged'));
+    && (!['aged_green', 'seal_drained'].includes(state) || row.status === 'merged'));
+  if (state === 'no_change') {
+    assert.equal(row.status, 'evidence_recovered');
+    assert.equal(row.plan_id, plan, 'no-change report must retain plan identity');
+    assert.equal(row.source_commit, source, 'no-change report must retain source identity');
+    assert.equal(row.head_sha, head, 'no-change report must retain exact head');
+    const evidence = JSON.parse(fs.readFileSync('artifacts/sync-canary-evidence.json', 'utf8'));
+    assert.equal((await dispatchCanaryPromotion({ report, evidence, expectedCanaries: [repository],
+      withRetry: async (fn) => fn(github), context: { repo: { owner: 'stranske', repo: 'Workflows' }, payload: {} },
+      core: { notice() {}, summary: { addRaw() { return this; }, async write() {} } },
+    })).status, 'dispatched');
+    assert.equal(dispatches.length, 1);
+    assert.equal(dispatches[0].inputs.phase, 'promote');
+    return;
+  }
+  if (state === 'producer_success_behind') {
+    assert.equal(row.status, 'stable_base_refresh_required');
+    assert.equal(row.refresh_reason, 'behind');
+    assert.equal(dispatches.length, 1, 'a pre-drift producer must not latch behind forever');
+    assert.match(dispatches[0].inputs.refresh_key, /^[a-f0-9]{64}$/);
+    assert.equal(merges.length, 0);
+    return;
+  }
+  if (producerSucceeded) {
+    assert.equal(row.status, 'checks_failed', JSON.stringify(report.results));
+    assert.equal(dispatches.length, state === 'producer_success_red' ? 1 : 0,
+      'red canary gets one recovery; expected seal-only holds preserve lifecycle');
+    assert.equal(updates.length, 0, 'producer success must preserve the existing lifecycle');
+    assert.equal(merges.length, 0, 'producer success must not authorize failed consumer checks');
+    return;
+  }
+  if (['seal_review_wait', 'seal_review_threads'].includes(state)) {
+    assert.equal(report.canary_refresh.drainable, Number(state === 'seal_review_wait'));
+    assert.equal(row.status, state === 'seal_review_wait' ? 'reviewer_settlement_pending' : 'stable_base_refresh_required', JSON.stringify(report.results));
+    assert.equal(reruns.length, 0, 'restaged or unsettled head must not rerun Gate');
+    assert.equal(updates.filter(({body}) => require('../sync_pr_lease_contract').parseDeliveryRecord(body)?.delivery_state === 'sealed').length, 0);
+    assert.equal(merges.length, 0);
+    if (state === 'seal_review_wait') assert.ok(summaries.includes(`seal: ${repository}#4026 pending(seal_pending)\n`));
+    return;
+  }
+  if (state === 'seal_already_behind') {
+    assert.equal(row.status, 'stable_base_refresh_required');
+    assert.equal(reruns.length, 0, 'an exact sealed head about to restage must never rerun');
+    assert.equal(require('../sync_pr_lease_contract').parseDeliveryRecord(candidate.body).delivery_state, 'staging');
+    return;
+  }
+  if (sealRecovery) {
+    const blocked = realFailure;
+    assert.equal(row.status, blocked ? 'checks_failed' : 'delivery_sealed_checks_pending', JSON.stringify(report.results));
+    assert.equal(row.delivery_disposition, blocked ? 'repo-local-failure' : 'awaiting-sealed-gate');
+    const sealWrites = updates.filter(({body}) => require('../sync_pr_lease_contract').parseDeliveryRecord(body)?.delivery_state === 'sealed');
+    assert.equal(sealWrites.length, blocked || alreadySealed ? 0 : 1, 'seal exact head once');
+    if (sealWrites.length) assert.equal(require('../sync_pr_lease_contract')
+      .parseDeliveryRecord(sealWrites[0].body).review_evidence.delivery_digest, `sha256:${source[0].repeat(64)}`);
+    if (!blocked) {
+      if (!olderGreen) {
+        assert.equal(row.seal_pending, true);
+        assert.equal(row.check_status, 'seal_pending');
+        assert.equal(row.raw_check_status, 'checks_failed');
+      }
+      assert.equal(row.gate_request.mode, dispatchError ? 'failed' : rerunRefused ? 'dispatch' : 'rerun');
+      assert.deepEqual(reruns, [{ owner, repo, run_id: 4027 }]);
+      assert.equal(dispatches.length, Number(rerunRefused || dispatchError === 422));
+      if (dispatchError) {
+        assert.equal(row.gate_request.status, dispatchError);
+        assert.ok(logs.includes(`seal: ${repository}#4026 gate request failed: ${dispatchError} consumer Gate unavailable`));
+      } else if (rerunRefused) {
+        assert.equal(row.gate_request.run_id, 4104);
+        assert.equal(row.gate_request.blocked, 'rerun-refused');
+        assert.ok(logs.includes(`seal: ${repository}#4026 gate rerun refused; dispatched run=4104`));
+      } else {
+        assert.equal(row.gate_request.run_id, 4027);
+        assert.ok(logs.includes(`seal: ${repository}#4026 gate rerun run=4027`));
+      }
+      if (!delivery) assert.ok(summaries.includes(`seal: ${repository}#4026 ${rerunRefused || dispatchError === 422 ? 'blocked(rerun-refused)' : 'sealed'}\n`));
+      if (rerunRefused) assert.ok(summaries.some(line => line.includes('drainable=1')));
+    } else {
+      assert.ok(summaries.some(s => s.includes('blocked(Gate / gate,') && s.includes('production tests')));
+    }
+    assert.equal(merges.length, 0);
+    if (state === 'seal_already_current') {
+      for (const status of ['in_progress', 'completed']) {
+        github.rest.actions.listWorkflowRuns = async () => ({ data: { workflow_runs: [{
+          id: 4027, event: 'pull_request', head_sha: head, status, run_attempt: 2,
+          conclusion: status === 'completed' ? 'success' : null,
+          run_started_at: new Date(refreshNow).toISOString(),
+        }] } });
+        await run({ github, context: { repo: { owner: 'stranske', repo: 'Workflows' }, payload: {},
+          eventName: 'workflow_dispatch', runId: 4026 }, core: {
+          notice() {}, warning() {}, setFailed: message => failures.push(message),
+          summary: { addRaw() { return this; }, async write() {} },
+        } });
+        assert.equal(reruns.length, 1, 'second Maint 71 pass must not rerun an active or succeeded attempt');
+      }
+    }
+    assert.equal(report.canary_refresh.red, Number(blocked));
+    assert.equal(report.canary_refresh.drainable, Number(!blocked && !olderGreen && !delivery));
+    return;
+  }
   if (preseal) {
     assert.equal(row.status, 'dry_run_seal', JSON.stringify(report.results));
     assert.equal(report.canary_refresh.refresh_dispatched, 0);
@@ -497,15 +831,33 @@ async function assertExecutorCanaryRefresh(t, state) {
     assert.equal(dispatches.length, 0);
     return;
   }
-  if (state === 'aged_green') {
+  if (['aged_green', 'seal_drained'].includes(state)) {
     assert.equal(row.status, 'merged', JSON.stringify(report.results));
     assert.equal(merges.length, 1);
     assert.equal(merges[0].sha, head);
+    if (state === 'seal_drained') {
+      const evidence = JSON.parse(fs.readFileSync('artifacts/sync-canary-evidence.json', 'utf8'));
+      const promotion = await dispatchCanaryPromotion({ report, evidence, expectedCanaries: [repository],
+        withRetry: async fn => fn(github), context: { repo: { owner: 'stranske', repo: 'Workflows' }, payload: {} },
+        core: { notice() {}, summary: { addRaw() { return this; }, async write() {} } } });
+      assert.equal(promotion.status, 'dispatched');
+      assert.equal(dispatches.length, 1);
+      assert.equal(dispatches[0].inputs.phase, 'promote');
+      assert.ok(summaries.includes('canaries: red=0 review_blocked=0 stale=0 refresh_dispatched=0 held_plan=none drainable=0\n'));
+      return;
+    }
     assert.equal(dispatches.length, 0);
     assert.equal(updates.length, 0);
     assert.equal(report.canary_refresh.stale, 0);
     assert.equal(report.canary_refresh.refresh_dispatched, 0);
-    assert.ok(summaries.includes('canaries: red=0 review_blocked=0 stale=0 refresh_dispatched=0 held_plan=none\n'));
+    assert.ok(summaries.includes('canaries: red=0 review_blocked=0 stale=0 refresh_dispatched=0 held_plan=none drainable=0\n'));
+    return;
+  }
+  if (state === 'checks_failed') {
+    assert.equal(row.status, 'checks_failed');
+    assert.equal(row.delivery_disposition, 'repo-local-failure');
+    assert.equal(updates.length, 0);
+    assert.equal(dispatches.length, 1);
     return;
   }
   assert.equal(row.status, 'stable_base_refresh_required', JSON.stringify(report.results));
@@ -520,12 +872,16 @@ async function assertExecutorCanaryRefresh(t, state) {
   assert.ok(summaries.some((line) => line ===
     `canaries: red=${Number(state === 'checks_failed')} ` +
     `review_blocked=${Number(state === 'review_blocked')} ` +
-    `stale=${Number(state === 'stale')} refresh_dispatched=1 held_plan=${plan}\n`));
+    `stale=${Number(state === 'stale')} refresh_dispatched=1 held_plan=${plan} drainable=0\n`));
 }
 
 for (const state of ['behind', 'checks_failed', 'review_blocked', 'stale']) {
   test(`executor refreshes a ${state} stable canary before early exits and preserves the head`,
     async (t) => assertExecutorCanaryRefresh(t, state));
+}
+
+for (const state of ['seal_never_staging', 'seal_never_real_failure', 'seal_never_rerun_refused', 'seal_already_rerun_refused', 'seal_mismatch', 'seal_real_failure', 'seal_already_current', 'seal_already_delivery', 'seal_already_behind', 'seal_already_green', 'seal_already_422', 'seal_already_404', 'seal_review_settled', 'seal_review_wait', 'seal_review_threads', 'seal_drained']) {
+  test(`seal recovery ${state} preserves real check blockers`, async (t) => assertExecutorCanaryRefresh(t, state));
 }
 
 test('exact pre-seal Gate failure advances only to the existing seal lifecycle', async (t) =>
@@ -537,13 +893,13 @@ test('branch-protected gate-summary and legacy Gate failure share the pre-seal h
 test('executor merges a green mergeable seven-hour canary without refreshing',
   async (t) => assertExecutorCanaryRefresh(t, 'aged_green'));
 
-test('distinct plans each dispatch once in the same run, deduplicated by plan id', async () => {
+test('distinct held plans share one full candidate-set dispatch for the main SHA', async () => {
   const api = refreshHarness();
   const rows = ['plan-A', 'plan-B', 'plan-A', 'plan-B'].map((plan_id, index) =>
     refreshCanary({ repo: `Repo${index}`, plan_id, check_status: 'checks_failed' }));
   const result = await refreshStableCanaries({ ...api, canaries: rows });
-  assert.equal(api.dispatches.length, 2);
-  assert.equal(result.refresh_dispatched, 2);
+  assert.equal(api.dispatches.length, 1);
+  assert.equal(result.refresh_dispatched, 1);
   assert.deepEqual(result.held_plans, ['plan-A', 'plan-B']);
 });
 
@@ -573,8 +929,13 @@ test('Maint 68 verified unchanged-tree run resets producer observation without c
     fi
     echo "RESULT:$head_observed_sha:$head_observed_at:$delivery_state:$sealed_at:$matching_existing"
   `;
-  const output = require('node:child_process').execFileSync('bash', ['-c', script], { encoding: 'utf8' });
+  const output = require('node:child_process').execFileSync('bash', ['-c', script], { encoding: 'utf8', env: { ...process.env, FORCE: 'false' } });
   assert.match(output, /RESULT:unchanged:2026-10-17T12:00:00Z:sealed:prior:true/);
+  const forcedOutput = require('node:child_process').execFileSync('bash', ['-c', script], {
+    encoding: 'utf8', env: { ...process.env, FORCE: 'true' },
+  });
+  assert.match(forcedOutput, /RESULT:unchanged:2026-10-17T05:00:00Z:sealed:prior:false/,
+    'force must leave matching_existing false so the signed payload is regenerated');
 });
 
 test('native proof comments are read from the consumer while independent proof comments stay in Workflows', () => {
@@ -1402,3 +1763,853 @@ test('native conversation task marker is consumable by the consumer-bound verifi
   assert.equal(verify.ok, true); tasks.push({ user: { login: 'coderabbitai' }, author: { login: 'coderabbitai' }, body: `REJECT\n${marker}`, created_at: '2026-10-14T03:02:30Z' });
   await runReviewReassessment(args); assert.equal(taskPosts, 1); assert.equal(replies, 1); assert.equal(result.task_status, 'native-conversation-disposition_task_requested'); assert.deepEqual(commentReads, []); fs.rmSync(policyPath, { force: true });
 });
+
+function producerRun(overrides = {}) {
+  return { id: 4068, event: 'workflow_dispatch', head_branch: 'main', head_sha: 'a'.repeat(40),
+    display_title: `Maint 68 canary full source=${'a'.repeat(40)} candidates=stranske/Ready,stranske/Template dry=false`,
+    status: 'completed', conclusion: 'success', created_at: new Date(refreshNow).toISOString(),
+    ...overrides };
+}
+
+for (const [reason, change] of [
+  ['red', { check_status: 'checks_failed' }],
+  ['review-blocked', { active_review_thread_count: 1 }],
+  ['stale', { mergeable_state: 'dirty', head_observed_at: '2026-10-17T05:00:00Z' }],
+]) {
+  test(`${reason} canary with unchanged digest refreshes exactly once per payload and head`, async () => {
+    let runs = [producerRun()];
+    const api = refreshHarness({ actions: {
+      listWorkflowRuns: async () => ({ data: { workflow_runs: runs } }),
+    } });
+    const canary = refreshCanary({ ...change, refresh_state: await readCanaryRefreshState(api) });
+    const refresh = () => refreshStableCanaries({ ...api, canaries: [canary] });
+    assert.equal((await refresh()).refresh_dispatched, 1);
+    const key = api.dispatches[0].inputs.refresh_key;
+    runs = [producerRun({ id: 4069, status: 'queued', conclusion: null,
+      display_title: `${producerRun().display_title} drift=${key}` }), ...runs];
+    assert.equal((await refresh()).refresh_dispatched, 0, 'active writer debounces recovery');
+    runs[0] = { ...runs[0], status: 'completed', conclusion: 'success' };
+    assert.equal((await refresh()).refresh_dispatched, 0, 'successful recovery is consumed for this head');
+    assert.equal(api.dispatches.length, 1);
+    runs.unshift(producerRun({ id: 4070 }));
+    assert.equal((await refresh()).refresh_dispatched, 0,
+      'another same-payload producer cannot erase this head recovery receipt');
+    canary.head_sha = 'd'.repeat(40);
+    assert.equal((await refresh()).refresh_dispatched, 1, 'new head re-arms recovery');
+  });
+}
+
+test('new main SHA dispatches exactly once across held plans and subsequent observations', async () => {
+  let runs = [producerRun({ head_sha: 'b'.repeat(40),
+    display_title: producerRun().display_title.replace('a'.repeat(40), 'b'.repeat(40)) })];
+  const api = refreshHarness({ actions: {
+    listWorkflowRuns: async () => ({ data: { workflow_runs: runs } }),
+  } });
+  const canaries = [refreshCanary({ check_status: 'checks_failed' }),
+    refreshCanary({ repo: 'Template', plan_id: 'another-plan', check_status: 'checks_failed' })];
+  await refreshStableCanaries({ ...api, canaries });
+  assert.equal(api.dispatches.length, 1);
+  assert.equal(api.dispatches[0].inputs.scope_head_sha, 'a'.repeat(40));
+  runs = [producerRun({ status: 'queued', conclusion: null }), ...runs];
+  await refreshStableCanaries({ ...api, canaries });
+  assert.equal(api.dispatches.length, 1, 'in-flight same-SHA run must debounce the next observer');
+});
+
+test('refresh identity includes the sorted candidate set, scope, source, branch and dry-run state', () => {
+  const decide = (runs) => canaryRefreshDecision({ runs, sha: 'a'.repeat(40),
+    candidates: ['stranske/Template', 'stranske/Ready'], now: refreshNow });
+  assert.equal(decide([producerRun()]).eligible, false);
+  assert.equal(decide([producerRun({ display_title: producerRun().display_title.replace(
+    'stranske/Ready,stranske/Template', 'stranske/Template,stranske/Ready') })]).eligible, false);
+  // A no-filter producer uses the configured set at the exact source SHA.
+  assert.equal(decide([producerRun({ display_title: producerRun().display_title.replace(
+    'stranske/Ready,stranske/Template', '*') })]).eligible, false);
+  for (const run of [
+    producerRun({ display_title: producerRun().display_title.replace(',stranske/Template', '') }),
+    producerRun({ display_title: producerRun().display_title.replace('canary full', 'canary source-delta') }),
+    producerRun({ display_title: producerRun().display_title.replace('dry=false', 'dry=true') }),
+    producerRun({ display_title: producerRun().display_title.replace('a'.repeat(40), 'b'.repeat(40)) }),
+    producerRun({ head_branch: 'feature' }),
+  ]) assert.equal(decide([run]).eligible, true, run.display_title);
+  assert.equal(decide([producerRun({ created_at: '2020-01-01T00:00:00Z' })]).eligible, false,
+    'successful immutable evidence must not expire into another refresh');
+  const failure = producerRun({ conclusion: 'failure',
+    created_at: new Date(refreshNow - CANARY_REFRESH_DEBOUNCE_MS).toISOString() });
+  assert.equal(decide([failure]).eligible, true);
+  failure.created_at = new Date(refreshNow - CANARY_REFRESH_DEBOUNCE_MS + 1).toISOString();
+  assert.equal(decide([failure]).eligible, false);
+});
+
+test('unreadable or truncated history and changed main configuration fail closed', async () => {
+  for (const truncated of [false, true]) {
+    const pages = [];
+    const api = refreshHarness({ actions: { listWorkflowRuns: async ({ status, page }) => {
+      if (page) pages.push(page);
+      return { data: { workflow_runs: truncated
+        ? status ? [] : Array(100).fill(producerRun({ conclusion: 'failure' })) : null } };
+    } } });
+    await assert.rejects(readCanaryRefreshState(api), truncated ? /history_truncated/ : /history_unreadable/);
+    if (truncated) assert.deepEqual(pages, Array.from({ length: 100 }, (_, i) => i + 1));
+    assert.equal(api.dispatches.length, 0);
+  }
+  const api = refreshHarness();
+  await assert.rejects(readCanaryRefreshState({ ...api, expectedCanaries: ['stranske/Ready'] }),
+    /configuration_changed/);
+});
+
+test('successful canary beyond page one still debounces refresh', async () => {
+  const api = refreshHarness({ actions: { listWorkflowRuns: async ({ page, status }) => ({ data: {
+    workflow_runs: status ? [] : page === 1
+      ? Array(100).fill(producerRun({ conclusion: 'failure', created_at: '2020-01-01T00:00:00Z' }))
+      : [producerRun()],
+  } }) } });
+  assert.equal((await readCanaryRefreshState(api)).state, 'success');
+  assert.equal(api.dispatches.length, 0);
+});
+
+test('green exact-head evidence dispatches promote once and reports blocking and drainable quantities', async () => {
+  const api = refreshHarness(), candidates = api.expectedCanaries;
+  const evidence = { results: candidates.map((repo, i) => ({
+    repo, plan_id: 'plan-green', source_commit: 'a'.repeat(40), head_sha: String(i + 1).repeat(40),
+    plan_scope: 'full', scope_base_sha: '', evidence_source: 'no-change-canary',
+    required_check_state: 'success', active_review_thread_count: 0,
+  })) };
+  const report = { inputs: { sync_hash: 'candidate', auto_merge: true, dry_run: false },
+    results: evidence.results.map((row) => ({
+      owner: row.repo.split('/')[0], repo: row.repo.split('/')[1], branch: 'sync/workflows-candidate',
+      status: 'evidence_recovered', plan_id: row.plan_id, source_commit: row.source_commit, head_sha: row.head_sha,
+    })) };
+  // Promotion history is tied to the source date, rather than the retry window.
+  const github = { rest: { repos: { getCommit: async () => ({ data: {
+    commit: { committer: { date: '2026-10-17T00:00:00Z' } },
+  } }) }, actions: {
+    listWorkflowRuns: async () => ({ data: { workflow_runs: api.dispatches.length ? [{
+      ...producerRun({ status: 'queued', conclusion: null }),
+      display_title: `Maint 68 promote auto plan-green ${'a'.repeat(40)}`,
+    }] : [] } }),
+    createWorkflowDispatch: async (params) => api.dispatches.push(params),
+  } } };
+  const args = { report, evidence, ...api, withRetry: async (fn) => fn(github) };
+  assert.equal((await dispatchCanaryPromotion(args)).status, 'dispatched');
+  assert.equal((await dispatchCanaryPromotion(args)).status, 'waiting');
+  assert.equal(api.dispatches.length, 1);
+  assert.equal(api.dispatches[0].inputs.phase, 'promote');
+  assert.match(api.summaries.join(''), /promote: blocked none; canaries green 2\/2; drainable 2/);
+  const missing = { ...evidence, results: evidence.results.slice(0, 1) };
+  assert.equal((await dispatchCanaryPromotion({ ...args, evidence: missing })).status, 'held');
+  assert.match(api.summaries.join(''), /promote: blocked held: .*; canaries green 1\/2; drainable 1/);
+});
+
+for (const state of ['producer_success_red', 'producer_success_staging']) {
+  test(`executor preserves lifecycle after ${state} without weakening consumer Gate`,
+    async (t) => assertExecutorCanaryRefresh(t, state));
+}
+
+test('live no-change recovery preserves immutable report identity and reaches promotion',
+  async (t) => assertExecutorCanaryRefresh(t, 'no_change'));
+
+test('successful producer recovery still routes active manifest review debt upstream', async () => {
+  const api = refreshHarness({ actions: {
+    listWorkflowRuns: async () => ({ data: { workflow_runs: [producerRun()] } }),
+  } });
+  const state = await readCanaryRefreshState(api);
+  const canary = refreshCanary({ refresh_state: state, active_review_thread_count: 1,
+    threads: [{ id: 'PRRT_success', path: 'scripts/shared.js', isResolved: false, isOutdated: false,
+      comments: { nodes: [{ url: 'https://github.com/stranske/Ready/pull/12#discussion_success' }] } }],
+  });
+  const result = await refreshStableCanaries({ ...api, refreshState: state, canaries: [canary] });
+  assert.equal(result.refresh_dispatched, 1);
+  assert.equal(result.review_blocked, 1);
+  assert.equal(api.comments.length, 1, 'debounce must not lose source-owned review findings');
+  assert.match(api.comments[0].body, /PRRT_success/);
+});
+
+test('an active promotion holds recovery despite a red consumer and prior producer success', () => {
+  const state = canaryRefreshDecision({ sha: 'a'.repeat(40),
+    candidates: ['stranske/Ready', 'stranske/Template'], now: refreshNow,
+    runs: [producerRun(), producerRun({ id: 4069, status: 'queued', conclusion: null,
+      display_title: 'Maint 68 promote auto plan source' })],
+  });
+  assert.equal(state.eligible, false);
+  assert.equal(state.state, 'writer-active');
+  assert.equal(state.producer_succeeded, true);
+  assert.equal(canaryNeedsRefresh(refreshCanary({ check_status: 'checks_failed',
+    refresh_state: state }), refreshNow), 'checks_failed');
+});
+
+
+test('live default-branch drift re-arms once while the PR base and head stay fixed', async () => {
+  let tip = 'b'.repeat(40);
+  const head = 'c'.repeat(40);
+  const keyFor = (value) => require('crypto').createHash('sha256')
+    .update(`stranske/Ready:${value}:${head}`).digest('hex');
+  const success = (key) => producerRun({
+    display_title: `${producerRun().display_title} drift=${key}`,
+  });
+  let runs = [success(keyFor(tip))];
+  const reads = [];
+  const api = refreshHarness({
+    repos: { getBranch: async (params) => {
+      reads.push(params);
+      return { data: { commit: { sha: tip } } };
+    } },
+    actions: { listWorkflowRuns: async () => ({ data: { workflow_runs: runs } }) },
+  });
+  const canary = refreshCanary({ mergeable_state: 'behind', base_sha: 'b'.repeat(40) });
+  const refresh = () => refreshStableCanaries({ ...api, canaries: [canary] });
+  await refresh();
+  await refresh();
+  assert.equal(api.dispatches.length, 0, 'success for T1 suppresses unchanged live tip');
+  tip = 'd'.repeat(40);
+  await refresh();
+  assert.equal(api.dispatches.length, 1, 'new live tip T2 dispatches exactly once');
+  assert.equal(api.dispatches[0].inputs.refresh_key, keyFor(tip));
+  runs = [success(keyFor(tip))];
+  await refresh();
+  await refresh();
+  assert.equal(api.dispatches.length, 1, 'success for T2 suppresses all repeats');
+  assert.equal(canary.base_sha, 'b'.repeat(40), 'PR recorded base never moved');
+  assert.equal(canary.head_sha, head, 'PR head never moved');
+  assert.equal(reads.length, 5, 'one live branch read per behind canary per run');
+  assert.ok(reads.every((row) => row.branch === 'trunk' && row.repo === 'Ready'));
+  const consumerTipCache = new Map();
+  await refreshStableCanaries({ ...api, consumerTipCache, canaries: [canary, { ...canary }] });
+  assert.equal(reads.length, 6, 'multiple rows for a repo share a run-scoped read');
+  await refreshStableCanaries({ ...api, canaries: [refreshCanary()] });
+  assert.equal(reads.length, 6, 'healthy canary needs no live tip read');
+  canary.head_sha = 'e'.repeat(40);
+  runs = [producerRun({ status: 'queued', conclusion: null })];
+  await refresh();
+  assert.equal(api.dispatches.length, 1, 'active writer holds a new head identity');
+  runs = [producerRun({ conclusion: 'failure' })];
+  await refresh();
+  assert.equal(api.dispatches.length, 1, 'recent failure holds a new head identity');
+  runs = [success(keyFor(tip))];
+  await refresh();
+  assert.equal(api.dispatches.length, 2, 'new head re-arms independently of live tip');
+});
+
+
+test('executor refreshes a behind canary after same-source producer success',
+  async (t) => assertExecutorCanaryRefresh(t, 'producer_success_behind'));
+
+for (const failure of ['unreadable', 'invalid']) {
+  test(`behind canary with ${failure} live tip fails closed and caches failure`, async () => {
+    let reads = 0;
+    const api = refreshHarness({ repos: { getBranch: async () => {
+      reads++;
+      if (failure === 'unreadable') throw new Error('branch unavailable');
+      return { data: { commit: { sha: 'invalid' } } };
+    } } });
+    const canary = refreshCanary({ mergeable_state: 'behind' });
+    const result = await refreshStableCanaries({ ...api, canaries: [canary, { ...canary }] });
+    assert.equal(reads, 1);
+    assert.equal(api.dispatches.length, 0);
+    assert.equal(result.errors.length, 2);
+    assert.ok(result.errors.every((error) => error.startsWith('canary_refresh_tip_unreadable:')));
+    assert.equal(api.failures.length, 2);
+  });
+}
+
+test('fallback receipt rejects old, wrong-head, wrong-branch and wrong-event runs', async t => {
+  const api = sealedGateHarness(t);
+  const client = { rest: { actions: {
+    listWorkflowRuns: async ({ event }) => ({ data: { workflow_runs: event === 'pull_request' ? [] : [
+      { ...api.run, event: 'workflow_dispatch', created_at: '2026-10-17T10:00:00Z' },
+      { ...api.run, event: 'workflow_dispatch', head_sha: 'e'.repeat(40) },
+      { ...api.run, event: 'workflow_dispatch', head_branch: 'main' },
+      { ...api.run, created_at: new Date().toISOString() },
+    ] } }),
+    createWorkflowDispatch: async () => ({ status: 204 }),
+  } } };
+  const result = await requestSealedGate({ ...api.args, sealedAt: undefined,
+    withRetry: callback => callback(client) });
+  assert.equal(result.run_id, null);
+  assert.match(result.reason, /not observed/);
+  assert.ok(api.logs.every(line => !line.includes('gate requested run=')));
+});
+
+test('completed evaluation after the seal is not rerun even when it failed', async t => {
+  const api = sealedGateHarness(t);
+  api.state.runs = [{ ...api.run, run_started_at: '2026-10-17T11:01:00Z' }];
+  assert.deepEqual(await requestSealedGate(api.args), { mode: 'existing', run_id: 4105 });
+  assert.equal(api.reruns.length, 0);
+});
+
+test('main moves with unchanged rendered delivery digest: no canary regeneration', async t => {
+  t.mock.method(deliveryPayload, 'readDeliveryPayload', async (sha, repos) => ({
+    digest: `sha256:${'f'.repeat(64)}`, files: Object.fromEntries(repos.map(repo => [repo, {}])),
+  }));
+  const oldSource = 'b'.repeat(40);
+  const api = refreshHarness({ actions: { listWorkflowRuns: async () => ({ data: {
+    workflow_runs: [producerRun({ head_sha: oldSource,
+      display_title: producerRun().display_title.replace('a'.repeat(40), oldSource) })],
+  } }) } });
+  const result = await refreshStableCanaries({ ...api,
+    refreshState: await readCanaryRefreshState(api),
+    canaries: [refreshCanary({ source_commit: oldSource, check_status: 'success' })] });
+  assert.equal(result.refresh_dispatched, 0, 'unchanged digest must preserve the in-flight canary');
+  assert.equal(api.dispatches.length, 0);
+  assert.match(api.summaries.join(''), /delivery digest sha256:f{64} unchanged since b{40}/);
+});
+
+function sealedRefreshFixture(t) {
+  const repository = 'stranske/Ready', oldSource = 'b'.repeat(40), head = 'c'.repeat(40);
+  const { formatDeliveryRecord, parseDeliveryRecord } = require('../sync_pr_lease_contract');
+  const record = { repository, durable_issue_url: 'https://github.com/stranske/Workflows/issues/4110',
+    plan_id: 'old-plan', generation: 'old-generation', desired_tree_hash: 'old-tree',
+    source_commit: oldSource, head_observed_sha: head,
+    head_observed_at: new Date(refreshNow - 30 * 60000).toISOString(),
+    delivery_state: 'sealed', sealed_head_sha: head,
+    sealed_at: new Date(refreshNow - 30 * 60000).toISOString(),
+    review_started_at: new Date(refreshNow - 40 * 60000).toISOString(),
+    lease_expires_at: '2099-01-01T00:00:00Z' };
+  const pr = { number: 12, state: 'open', head: { ref: 'sync/workflows-candidate', sha: head },
+    body: formatDeliveryRecord(record), changed_files: 1 };
+  const gate = { id: 4110, event: 'pull_request', head_sha: head, status: 'in_progress',
+    created_at: new Date(refreshNow - 10 * 60000).toISOString(), run_attempt: 2 };
+  const api = refreshHarness();
+  const state = () => ({ sha: 'a'.repeat(40), candidates: [repository], eligible: true,
+    delivery_digest: `sha256:${'a'.repeat(64)}` });
+  const payload = { digest: state().delivery_digest, files: { [repository]: {
+    'new-file.js': { content: 'new' }, 'reviewed.js': { content: 'stable' },
+  } } };
+  t.mock.method(deliveryPayload, 'readDeliveryPayload', async () => ({
+    digest: `sha256:${'b'.repeat(64)}`, files: { [repository]: {
+      'new-file.js': { content: 'old' }, 'reviewed.js': { content: 'stable' },
+    } },
+  }));
+  const files = [{ filename: 'reviewed.js' }];
+  const withRetry = async fn => fn({ rest: {
+    pulls: { list: async () => ({ data: pr.state === 'open' ? [pr] : [] }),
+      get: async () => ({ data: pr }), listFiles: async () => ({ data: files }) },
+    actions: { listWorkflowRuns: async () => ({ data: { workflow_runs: [gate] } }),
+      createWorkflowDispatch: async params => api.dispatches.push(params) },
+  } });
+  return { api, pr, record, gate, files, payload, state, withRetry, parseDeliveryRecord,
+    decide: async (now = refreshNow) => deferSealedCanaryRefresh({ state: state(), payload, withRetry, now }) };
+}
+
+test('changed delivered file while sealed queues refresh, then applies after merge or bounded wait', async t => {
+  const f = sealedRefreshFixture(t);
+  const body = f.pr.body;
+  const queued = await f.decide();
+  assert.equal(queued.eligible, false);
+  assert.match(queued.queue_reason, /wait_remaining_ms=1800000, clears at 2026-10-17T12:30:00.000Z/);
+  assert.match((await f.decide(refreshNow + 60000)).queue_reason, /wait_remaining_ms=1740000/);
+  assert.match(queued.queue_reason, /sealed cycle stranske\/Ready@c{40}/);
+  await dispatchCanaryRefresh({ ...f.api, withRetry: f.withRetry, refreshState: queued });
+  assert.equal(f.api.dispatches.length, 0);
+  assert.equal(f.pr.body, body, 'queueing must not restage, rewrite the source, or invalidate the seal');
+  assert.equal(f.parseDeliveryRecord(f.pr.body).sealed_head_sha, f.pr.head.sha);
+  for (const terminal of ['merged', 'failed', 'expired']) {
+    f.pr.state = terminal === 'merged' ? 'closed' : 'open';
+    f.gate.status = terminal === 'failed' ? 'completed' : 'in_progress';
+    f.gate.conclusion = terminal === 'failed' ? 'failure' : null;
+    const now = terminal === 'expired' ? Date.parse(f.record.sealed_at) + CANARY_SEALED_REFRESH_WAIT_MS : refreshNow;
+    const ready = await f.decide(now);
+    assert.equal(ready.eligible, true, terminal);
+    await dispatchCanaryRefresh({ ...f.api, withRetry: f.withRetry, refreshState: ready, now });
+  }
+  assert.equal(f.api.dispatches.length, 3);
+  assert.match(f.api.summaries.join(''), /refresh: queued/);
+});
+
+test('overlap with the canary diff refreshes immediately, including renamed/deleted targets', async t => {
+  const f = sealedRefreshFixture(t);
+  for (const row of [{ filename: 'new-file.js' },
+    { filename: 'reviewed.js', previous_filename: 'new-file.js' }]) {
+    f.files[0] = row;
+    assert.equal((await f.decide()).eligible, true);
+  }
+  f.payload.files['stranske/Ready'] = { 'reviewed.js': { content: 'stable' } };
+  f.files[0] = { filename: 'new-file.js' };
+  assert.equal((await f.decide()).eligible, true);
+});
+
+test('identical digest across SHAs preserves the exact-head seal even beyond the queue bound', async t => {
+  const f = sealedRefreshFixture(t);
+  t.mock.method(deliveryPayload, 'readDeliveryPayload', async () => f.payload);
+  const body = f.pr.body;
+  const state = await f.decide(refreshNow + CANARY_SEALED_REFRESH_WAIT_MS * 3);
+  assert.equal(state.eligible, false);
+  assert.equal(state.producer_succeeded, true);
+  assert.equal(state.unchanged_since, f.record.source_commit);
+  assert.equal(f.pr.body, body);
+  assert.equal(f.parseDeliveryRecord(f.pr.body).sealed_head_sha, f.pr.head.sha);
+});
+
+test('pre-seal Gate failure does not release a queued refresh; unreadable diff fails closed', async t => {
+  const f = sealedRefreshFixture(t);
+  f.gate.status = 'completed'; f.gate.conclusion = 'failure';
+  f.gate.created_at = f.record.sealed_at; f.gate.run_attempt = 1;
+  assert.equal((await f.decide()).eligible, false);
+  f.pr.changed_files = 2;
+  await assert.rejects(f.decide(), /diff_incomplete/);
+});
+
+test('a historical identical payload cannot suppress redelivery after a different payload won', () => {
+  const old = producerRun({ id: 1, delivery_digest: `sha256:${'a'.repeat(64)}` });
+  const newer = producerRun({ id: 2, head_sha: 'b'.repeat(40), delivery_digest: `sha256:${'b'.repeat(64)}`,
+    display_title: producerRun().display_title.replace('a'.repeat(40), 'b'.repeat(40)) });
+  assert.equal(canaryRefreshDecision({ sha: 'c'.repeat(40), candidates: ['stranske/Ready', 'stranske/Template'],
+    deliveryDigest: old.delivery_digest, runs: [newer, old], now: refreshNow }).eligible, true);
+});
+
+test('producer success after a queued refresh is not a delivered-digest receipt', async () => {
+  const api = refreshHarness();
+  const guarded = producerRun({ display_title: `${producerRun().display_title} guard=delivery-v1` });
+  const reads = [];
+  const withRetry = async fn => fn({ rest: {
+    repos: { getCommit: async () => ({ data: { sha: 'a'.repeat(40) } }),
+      getContent: async () => ({ data: { content: Buffer.from(JSON.stringify({
+        canaries: api.expectedCanaries.map(repo => ({ repo })),
+      })).toString('base64') } }) },
+    pulls: { list: async () => ({ data: [] }) },
+    actions: { listWorkflowRuns: async ({ status }) => ({ data: { workflow_runs: status ? [] : [guarded] } }),
+      listJobsForWorkflowRun: () => {} },
+  }, paginate: async (method, params) => { reads.push(params); return [
+    { steps: [{ name: 'Authorize canary payload mutation', conclusion: 'skipped' }] },
+  ]; } });
+  assert.equal((await readCanaryRefreshState({ ...api, withRetry })).eligible, true);
+  assert.equal(reads.length, 1);
+});
+
+
+test('pinned payload receipt survives main moving between refresh decision and workflow dispatch', async () => {
+  const api = refreshHarness({ actions: { listWorkflowRuns: async () => ({ data: {
+    workflow_runs: [producerRun({ head_sha: 'b'.repeat(40) })],
+  } }) } });
+  const state = await readCanaryRefreshState(api);
+  assert.equal(state.producer_succeeded, true);
+  assert.equal(state.eligible, false);
+  assert.equal(state.unchanged_since, 'a'.repeat(40));
+});
+
+for (const failingSource of ['current', 'receipt', 'sealed']) {
+  test(`digest renderer failure at ${failingSource} falls back to SHA decision`, async t => {
+    const logs = [];
+    t.mock.method(console, 'log', line => logs.push(line));
+    const oldSource = 'b'.repeat(40);
+    const api = refreshHarness({ actions: { listWorkflowRuns: async () => ({ data: {
+      workflow_runs: [producerRun({ head_sha: oldSource,
+        display_title: producerRun().display_title.replace('a'.repeat(40), oldSource) })],
+    } }) } });
+    if (failingSource === 'sealed') {
+      const f = sealedRefreshFixture(t);
+      t.mock.method(deliveryPayload, 'readDeliveryPayload', async () => { throw new Error('git snapshot missing'); });
+      const state = await f.decide();
+      assert.equal(state.eligible, true);
+      assert.equal(state.delivery_digest, '');
+      assert.equal(state.queue_reason, undefined);
+    } else {
+      t.mock.method(deliveryPayload, 'readDeliveryPayload', async sha => {
+        if (failingSource === 'current' || sha === oldSource) throw new Error('git snapshot missing');
+        return { digest: `sha256:${'a'.repeat(64)}`, files: {} };
+      });
+      const state = await readCanaryRefreshState(api);
+      assert.equal(state.delivery_digest, '');
+      assert.equal(state.eligible, true, 'old SHA success does not suppress new SHA');
+      await dispatchCanaryRefresh({ ...api, refreshState: state });
+      assert.equal(api.dispatches.length, 1);
+      // The exact same SHA still suppresses delivery under the fallback.
+      api.withRetry = async fn => fn({ rest: { repos: {
+        getCommit: async () => ({ data: { sha: oldSource } }),
+        getContent: async () => ({ data: { content: Buffer.from(JSON.stringify({ canaries:
+          api.expectedCanaries.map(repo => ({ repo })) })).toString('base64') } }),
+      }, actions: { listWorkflowRuns: async () => ({ data: { workflow_runs: [producerRun({
+        display_title: producerRun().display_title.replace('a'.repeat(40), oldSource), head_sha: oldSource,
+      })] } }) } } });
+      assert.equal((await readCanaryRefreshState(api)).eligible, false);
+    }
+    assert.ok(logs.includes('refresh: digest unavailable (git snapshot missing); falling back to sha key'));
+  });
+}
+
+for (const writerActive of [false, true]) {
+  test(`Maint 68 prepare digest failure uses SHA fallback with active writer=${writerActive}`, async t => {
+    t.mock.method(deliveryPayload, 'readDeliveryPayload', async () => { throw new Error('renderer failed'); });
+    const logs = [];
+    t.mock.method(console, 'log', line => logs.push(line));
+    const api = refreshHarness({ actions: { listWorkflowRuns: async ({ status }) => ({ data: {
+      workflow_runs: writerActive && status === 'in_progress' ? [producerRun({
+        status: 'in_progress', conclusion: null, id: 999,
+      })] : [],
+    } }) } });
+    const workflow = fs.readFileSync(path.join(__dirname, '../../workflows/maint-68-sync-consumer-repos.yml'), 'utf8');
+    const block = workflow.split('      - name: Check content refresh guard')[1]
+      .split('      - name: Authorize canary payload mutation')[0];
+    const script = block.split('          script: |\n')[1].split('\n')
+      .map(line => line.replace(/^ {12}/, '')).join('\n');
+    const outputs = {};
+    const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
+    await new AsyncFunction('require', 'github', 'context', 'core', 'process', script)(
+      name => name.includes('maint71_merge_sync_prs') ? { readCanaryRefreshState }
+        : { canaries: api.expectedCanaries.map(repo => ({ repo })) },
+      await api.withRetry(client => client), { ...api.context, runId: 1000 },
+      { ...api.core, setOutput: (key, value) => { outputs[key] = value; } },
+      { env: { SOURCE_COMMIT: 'a'.repeat(40), REFRESH_KEY: '' } },
+    );
+    assert.equal(outputs.allowed, String(!writerActive));
+    assert.ok(logs.includes('refresh: digest unavailable (renderer failed); falling back to sha key'));
+    assert.equal(api.dispatches.length, 0, 'prepare never dispatches a workflow');
+  });
+}
+
+
+test('an older run ID rerun on a later page is the newest delivered receipt', async () => {
+  const old = producerRun({ id: 1, run_attempt: 2, run_started_at: '2026-10-17T11:00:00Z' });
+  const newer = producerRun({ id: 2, run_attempt: 1, run_started_at: '2026-10-17T10:00:00Z',
+    head_sha: 'b'.repeat(40),
+    display_title: producerRun().display_title.replace('a'.repeat(40), 'b'.repeat(40)) });
+  const api = refreshHarness({ actions: { listWorkflowRuns: async ({ status, page }) => ({ data: {
+    workflow_runs: status ? [] : page === 1 ? Array(100).fill(newer) : [old],
+  } }) } });
+  const state = await readCanaryRefreshState(api);
+  assert.equal(state.producer_succeeded, true);
+  assert.equal(state.run_id, 1);
+  assert.equal(state.eligible, false, 'the later attempt restored the requested payload');
+  const runs = [{ ...newer, delivery_digest: 'B' }, { ...old, delivery_digest: 'A' }];
+  assert.equal(canaryRefreshDecision({ runs, sha: 'b'.repeat(40), candidates: api.expectedCanaries,
+    deliveryDigest: 'B', now: refreshNow }).eligible, true, 'payload B must repair the rerun rollback');
+  // Equal execution timestamps use attempt as the deterministic tie breaker.
+  runs[0].run_started_at = runs[1].run_started_at;
+  assert.equal(canaryRefreshDecision({ runs, sha: 'b'.repeat(40), candidates: api.expectedCanaries,
+    deliveryDigest: 'B', now: refreshNow }).eligible, true);
+});
+
+test('Maint 68 force authorizes mutation without consulting an unchanged digest', async () => {
+  const workflow = fs.readFileSync(path.join(__dirname, '../../workflows/maint-68-sync-consumer-repos.yml'), 'utf8');
+  const guard = workflow.split('      - name: Check content refresh guard')[1]
+    .split('      - name: Authorize canary payload mutation')[0];
+  assert.match(guard, /FORCE: \$\{\{ inputs.force \|\| false \}\}/);
+  const script = guard.split('          script: |\n')[1].split('\n')
+    .map(line => line.replace(/^            /, '')).join('\n');
+  const outputs = {}, lines = [];
+  const core = { notice: line => lines.push(line), setOutput: (key, value) => { outputs[key] = value; },
+    summary: { addRaw() { return this; }, async write() {} } };
+  const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
+  const execute = new AsyncFunction('core', 'require', 'process', 'github', 'context', script);
+  await execute(core, name => name.includes('maint71_merge_sync_prs')
+    ? { readCanaryRefreshState: async () => ({ eligible: false, producer_succeeded: true,
+      delivery_digest: 'unchanged', unchanged_since: 'a'.repeat(40) }) }
+    : { canaries: [{ repo: 'stranske/Ready' }] }, { env: { FORCE: 'false' } }, {}, { runId: 1 });
+  assert.equal(outputs.allowed, 'false', 'the same payload blocks an ordinary refresh');
+  assert.match(lines.pop(), /digest unchanged unchanged since/);
+  await execute(core, () => {
+    assert.fail('forced repair must bypass digest/history reads, even when payload is unchanged');
+  }, { env: { FORCE: 'true' } });
+  assert.equal(outputs.allowed, 'true');
+  assert.deepEqual(lines, ['refresh: forced (digest guard bypassed)']);
+  assert.match(workflow, /needs.prepare.outputs.refresh_allowed != 'false'/);
+});
+
+for (const [branch, dispatchError] of ['sync/workflows-candidate', 'sync/workflows-delivery'].flatMap(branch => [null, 404].map(error => [branch, error]))) {
+  test(`refused Gate drains ${branch} through one durable forced restage per head (fallback error=${dispatchError})`, async t => {
+    const api = sealedGateHarness(t);
+    api.args.pr.head.ref = branch;
+    api.state.rerunError = 403;
+    api.state.rerunReason = 'This workflow run cannot be retried';
+    api.state.dispatchError = dispatchError;
+    api.args.context = { repo: { owner: 'stranske', repo: 'Workflows' },
+      payload: { repository: { default_branch: 'main' } } };
+    const { formatDeliveryRecord } = require('../sync_pr_lease_contract');
+    let body = formatDeliveryRecord({ source_commit: 'a'.repeat(40), plan_id: 'sha256:plan', durable_issue_url: 'https://github.com/stranske/Workflows/issues/4117', generation: 'gen', repository: 'stranske/Ready', desired_tree_hash: 'tree', lease_expires_at: '2026-10-20T00:00:00Z' });
+    const forced = [], writes = [], options = [], comments = [];
+    const baseRetry = api.args.withRetry;
+    const evidence = { results: [{ plan_id: 'sha256:plan', source_commit: 'a'.repeat(40) }] };
+    api.args.withRetry = (callback, config) => baseRetry(client => {
+      const actions = client.rest.actions;
+      const list = actions.listWorkflowRuns;
+      const dispatch = actions.createWorkflowDispatch;
+      actions.getWorkflowRun = async () => ({ data: { status: 'in_progress' } });
+      actions.listWorkflowRuns = params => params.workflow_id === 'maint-68-sync-consumer-repos.yml'
+        ? { data: { workflow_runs: [{ id: 5000, event: 'workflow_dispatch', head_branch: 'main',
+          created_at: new Date().toISOString(), display_title: branch.endsWith('candidate')
+            ? 'Maint 68 canary source=abc candidates=stranske/Ready dry=false'
+            : `Maint 68 promote sha256:plan ${'a'.repeat(40)}` }] } } : list(params);
+      actions.createWorkflowDispatch = params => {
+        if (params.workflow_id !== 'maint-68-sync-consumer-repos.yml') return dispatch(params);
+        forced.push(params);
+        options.push(config);
+        if (api.state.forceError) throw new Error('ambiguous dispatch');
+        return { status: 204 };
+      };
+      client.rest.pulls = {
+        get: async () => ({ data: { state: 'open', head: { sha: api.args.pr.head.sha }, body } }),
+      };
+      client.rest.users = { getAuthenticated: async () => ({ data: { login: 'stranske' } }) };
+      client.rest.issues = {
+        listComments: async () => ({ data: comments }),
+        createComment: async params => { comments.push({ body: params.body, user: { login: 'stranske' } }); writes.push(params); return { data: {} }; },
+      };
+      client.rest.repos = { getCommit: async () => ({ data: { commit: {
+        verification: { verified: true, reason: 'valid' },
+        message: `Plan scope: source-delta\nScope base SHA: ${'b'.repeat(40)}\nCanary evidence JSON (base64): ${Buffer.from(JSON.stringify(evidence)).toString('base64')}`,
+      } } }) };
+      return callback(client);
+    });
+    const result = await requestSealedGate(api.args);
+    assert.equal(result.blocked, 'rerun-refused');
+    assert.deepEqual(result.forced_restage, { state: 'requested', run_id: 5000, head_sha: 'd'.repeat(40) });
+    assert.equal(forced.length, 1);
+    assert.equal(forced[0].inputs.force, 'true');
+    assert.equal(forced[0].inputs.repos, 'stranske/Ready');
+    assert.equal(forced[0].inputs.phase, branch.endsWith('candidate') ? 'canary' : 'promote');
+    assert.equal(forced[0].inputs.scope_head_sha, 'a'.repeat(40));
+    if (branch.endsWith('delivery')) assert.deepEqual(JSON.parse(forced[0].inputs.canary_evidence_json), evidence);
+    else assert.equal(forced[0].inputs.scope_base_sha, 'b'.repeat(40));
+    assert.deepEqual(options, [{ maxRetries: 0 }]);
+    assert.ok(api.logs.includes('seal: stranske/Ready#4104 rerun refused; forced restage requested run=5000'));
+    assert.equal((await requestSealedGate(api.args)).forced_restage.state, 'already-requested');
+    assert.equal(forced.length, 1);
+    assert.equal(writes.length, 2);
+    // A new head follows normal Gate rerun handling; no regeneration by default.
+    api.args.pr.head.sha = 'e'.repeat(40);
+    api.state.runs = [{ ...api.run, head_branch: branch, head_sha: api.args.pr.head.sha }];
+    api.state.rerunError = null;
+    assert.equal((await requestSealedGate(api.args)).mode, 'rerun');
+    assert.equal(forced.length, 1);
+    // A new refusal gets its own bounded claim, even if dispatch is ambiguous.
+    api.state.rerunError = 403;
+    api.state.forceError = true;
+    assert.equal((await requestSealedGate(api.args)).forced_restage.state, 'failed');
+    assert.equal((await requestSealedGate(api.args)).forced_restage.state, 'exhausted');
+    assert.equal(forced.length, 2);
+  });
+}
+
+function boundedRestageHarness(t) {
+  const api = sealedGateHarness(t);
+  const { formatDeliveryRecord } = require('../sync_pr_lease_contract');
+  const comments = [], dispatches = [];
+  const state = { plan: 'sha256:plan', source: 'a'.repeat(40), runStatus: 'in_progress',
+    updatedAt: new Date().toISOString() };
+  api.args.context = { repo: { owner: 'stranske', repo: 'Workflows' }, payload: {} };
+  api.args.withRetry = async callback => callback({ rest: {
+    pulls: { get: async () => ({ data: { state: 'open', head: api.args.pr.head,
+      body: formatDeliveryRecord({ source_commit: state.source, plan_id: state.plan,
+        durable_issue_url: 'https://github.com/stranske/Workflows/issues/4117', generation: 'gen',
+        repository: 'stranske/Ready', desired_tree_hash: 'tree', lease_expires_at: '2026-10-20T00:00:00Z' }) } }) },
+    users: { getAuthenticated: async () => ({ data: { login: 'writer' } }) },
+    issues: {
+      listComments: async () => ({ data: comments }),
+      createComment: async ({ body }) => { comments.push({ body, user: { login: 'writer' }, created_at: new Date(Date.now()).toISOString() }); return { data: {} }; },
+    },
+    repos: { getCommit: async () => ({ data: { commit: { verification: { verified: true, reason: 'valid' }, message: '' } } }) },
+    actions: {
+      createWorkflowDispatch: async params => {
+        dispatches.push(params);
+        if (state.error) throw Object.assign(new Error('dispatch failed'), { status: state.error });
+      },
+      listWorkflowRuns: async () => ({ data: { workflow_runs: state.noRun ? [] : [{ id: 5000, event: 'workflow_dispatch',
+        head_branch: 'main', created_at: new Date(Date.now()).toISOString(),
+        display_title: 'Maint 68 canary candidates=stranske/Ready dry=false' }] } }),
+      getWorkflowRun: async () => ({ data: { status: state.runStatus, updated_at: state.updatedAt } }),
+    },
+  } });
+  const { requestForcedSealRestage } = require('../maint71_merge_sync_prs');
+  return { ...api, state, comments, dispatches, request: () => requestForcedSealRestage(api.args) };
+}
+
+test('structural refusal has a two-restage budget across heads; plan or source resets it', async t => {
+  const api = boundedRestageHarness(t);
+  for (const head of ['d', 'e']) {
+    api.args.pr.head.sha = head.repeat(40);
+    assert.equal((await api.request()).state, 'requested');
+  }
+  api.args.pr.head.sha = 'f'.repeat(40);
+  assert.equal((await api.request()).state, 'exhausted');
+  assert.equal(api.dispatches.length, 2);
+  assert.ok(api.logs.includes('seal: stranske/Ready#4104 forced restage exhausted (2/2); drainable=0 — needs owner or a new plan'));
+  api.state.plan = 'sha256:new-plan';
+  assert.equal((await api.request()).state, 'requested');
+  api.state.source = 'b'.repeat(40);
+  assert.equal((await api.request()).state, 'requested');
+  assert.equal(api.dispatches.length, 4);
+  for (const request of api.dispatches) {
+    assert.equal(request.inputs.force, 'true');
+    assert.equal(request.inputs.repos, 'stranske/Ready');
+  }
+});
+
+for (const reason of ['failed-dispatch', 'expired-claim', 'active-run', 'recent-completion', 'ambiguous-dispatch']) {
+  test(`unchanged-head retry: ${reason}`, async t => {
+    const api = boundedRestageHarness(t);
+    const { CLAIM_EXPIRY } = require('../maint71_merge_sync_prs');
+    if (reason.includes('dispatch')) api.state.error = reason === 'failed-dispatch' ? 422 : 503;
+    if (api.state.error) await assert.rejects(api.request(), /dispatch failed/);
+    else assert.equal((await api.request()).state, 'requested');
+    api.state.error = null;
+    if (['expired-claim', 'recent-completion'].includes(reason)) api.state.runStatus = 'completed';
+    if (reason !== 'recent-completion') api.state.updatedAt = new Date(Date.now() - CLAIM_EXPIRY).toISOString();
+    if (reason === 'active-run') t.mock.timers.tick(CLAIM_EXPIRY);
+    const retry = ['failed-dispatch', 'expired-claim'].includes(reason);
+    assert.equal((await api.request()).state, retry ? 'requested' : 'already-requested');
+    assert.equal(api.dispatches.length, retry ? 2 : 1);
+    if (!retry) assert.ok(api.logs.some(line => /^seal: stranske\/Ready#4104 forced restage already requested .+; expires in .+/.test(line)));
+    if (retry) {
+      assert.ok(api.logs.includes('seal: stranske/Ready#4104 claim stale, head unchanged; retrying (2/2)'));
+      assert.equal((await api.request()).state, 'exhausted');
+      assert.equal(api.dispatches.length, 2);
+    }
+  });
+}
+
+test('force reaches the signed rebuild path even for an identical verified tree', () => {
+  // The fixtures have no GitHub signing service and cannot mint a real signed SHA.
+  // Execute the production reuse guard; verify its false branch calls the signer
+  // and publishes the returned SHA rather than preserving the previous head.
+  const { spawnSync } = require('node:child_process');
+  const workflow = fs.readFileSync(path.join(__dirname, '../../workflows/maint-68-sync-consumer-repos.yml'), 'utf8');
+  const block = workflow.slice(workflow.indexOf('          matching_existing=false'),
+    workflow.indexOf('          if git diff --cached --quiet'));
+  for (const force of ['false', 'true']) {
+    const result = spawnSync('bash', ['-c', `${block}\nprintf '%s' "$matching_existing"`], {
+      encoding: 'utf8', env: { ...process.env, FORCE: force, existing_pr: '1',
+        existing_refreshable: 'true', existing_base: 'base', base_sha: 'base',
+        existing_tree: 'identical', desired_tree_hash: 'identical', existing_verified: 'true',
+        existing_lifecycle_initialized: 'true', existing_head: 'old-head' },
+    });
+    assert.equal(result.status, 0, result.stderr);
+    assert.ok(result.stdout.endsWith(force === 'true' ? 'false' : 'true'));
+  }
+  // Dispatch input is bound to the environment used by the guard above.
+  assert.match(workflow, /FORCE: \$\{\{ inputs.force \|\| false \}\}/);
+  const rebuild = workflow.slice(workflow.indexOf('          if [ "$matching_existing" != "true" ]; then'));
+  assert.match(rebuild, /--operation create-commit/);
+  assert.ok(rebuild.includes('signed_commit_sha=$(jq -er'));
+  assert.ok(rebuild.includes('origin "$signed_commit_sha:refs/heads/$branch_name"'));
+});
+
+test('credential rotation does not replenish the forced-restage budget', async t => {
+  const api = boundedRestageHarness(t);
+  await api.request();
+  api.comments.forEach(row => { row.user.login = 'stranske-automation-bot'; });
+  api.args.pr.head.sha = 'e'.repeat(40);
+  await api.request();
+  api.args.pr.head.sha = 'f'.repeat(40);
+  assert.equal((await api.request()).state, 'exhausted');
+  assert.equal(api.dispatches.length, 2);
+});
+
+test('legacy markers use claimed commit plan/source and a new plan resets the count', async t => {
+  const api = boundedRestageHarness(t);
+  const originalRetry = api.args.withRetry;
+  api.args.withRetry = callback => originalRetry(client => {
+    client.rest.repos.getCommit = async () => ({ data: { commit: {
+      verification: { verified: true, reason: 'valid' },
+      message: `Consumer-sync plan ID: sha256:plan\nSource commit: ${'a'.repeat(40)}`,
+    } } });
+    return callback(client);
+  });
+  for (const head of ['b', 'c']) api.comments.push({ user: { login: 'stranske-automation-bot' },
+    body: `<!-- maint71-forced-restage:stranske/Ready:${head.repeat(40)} -->` });
+  assert.equal((await api.request()).state, 'exhausted');
+  api.state.plan = 'sha256:new-plan';
+  assert.equal((await api.request()).state, 'requested');
+  assert.equal(api.dispatches.length, 1);
+});
+
+for (const reason of ['missing-receipt', '5xx-dispatch', 'null-run']) {
+  test(`unobserved forced restage expires by claim age: ${reason}`, async t => {
+    const { CLAIM_EXPIRY } = require('../maint71_merge_sync_prs');
+    const api = boundedRestageHarness(t);
+    if (reason === '5xx-dispatch') {
+      api.state.error = 503;
+      await assert.rejects(api.request(), /dispatch failed/);
+      api.state.error = null;
+      assert.equal(api.comments.length, 1); // Claim survives the ambiguous failure.
+    } else {
+      api.state.noRun = true;
+      assert.deepEqual(await api.request(), { state: 'requested', run_id: null, head_sha: 'd'.repeat(40) });
+      if (reason === 'missing-receipt') api.comments.pop();
+    }
+    // Modern claims use their ID timestamp even if comment time differs.
+    api.comments[0].created_at = new Date(Date.now() + CLAIM_EXPIRY).toISOString();
+    t.mock.timers.tick(CLAIM_EXPIRY - 1);
+    assert.equal((await api.request()).state, 'already-requested');
+    assert.ok(api.logs.includes(`seal: stranske/Ready#4104 forced restage already requested ${CLAIM_EXPIRY - 1}ms; expires in 1ms`));
+    assert.equal(api.dispatches.length, 1);
+    t.mock.timers.tick(1);
+    assert.equal((await api.request()).state, 'requested');
+    assert.equal(api.dispatches.length, 2);
+    assert.ok(api.logs.includes('seal: stranske/Ready#4104 claim stale, head unchanged; retrying (2/2)'));
+    assert.equal((await api.request()).state, 'exhausted');
+    assert.equal(api.dispatches.length, 2);
+  });
+}
+
+test('stray commenter claims cannot consume the forced-restage budget or latch a head', async t => {
+  const api = boundedRestageHarness(t);
+  await api.request();
+  api.comments.forEach(row => { row.user.login = 'stray-commenter'; });
+  // Two otherwise valid claims would exhaust the budget without author filtering.
+  api.comments.push({ ...api.comments[0] });
+  assert.equal((await api.request()).state, 'requested');
+  assert.equal(api.dispatches.length, 2);
+});
+
+for (const payload of ['{broken', '', 'null', '[]', '{"id":123}']) {
+  test(`malformed trusted claim marker is skipped with a warning: ${payload}`, async t => {
+    const api = boundedRestageHarness(t);
+    api.comments.push({ user: { login: 'writer' },
+      body: `<!-- maint71-forced-restage:stranske/Ready:${api.args.pr.head.sha} -->\nClaim: ${payload}` });
+    assert.equal((await api.request()).state, 'requested');
+    assert.ok(api.logs.includes('seal: stranske/Ready#4104 warning: malformed forced restage claim skipped'));
+    assert.equal(api.dispatches.length, 1);
+  });
+}
+
+test('configured trusted writer claims retain the forced-restage budget', async t => {
+  const previous = process.env.TRUSTED_REVIEW_RESOLUTION_ACTORS;
+  t.after(() => {
+    if (previous === undefined) delete process.env.TRUSTED_REVIEW_RESOLUTION_ACTORS;
+    else process.env.TRUSTED_REVIEW_RESOLUTION_ACTORS = previous;
+  });
+  process.env.TRUSTED_REVIEW_RESOLUTION_ACTORS = ' prior-writer ';
+  const api = boundedRestageHarness(t);
+  await api.request();
+  api.comments.forEach(row => { row.user.login = 'prior-writer'; });
+  api.args.pr.head.sha = 'e'.repeat(40);
+  await api.request(); // Current token's own login is trusted too.
+  api.args.pr.head.sha = 'f'.repeat(40);
+  assert.equal((await api.request()).state, 'exhausted');
+  assert.equal(api.dispatches.length, 2);
+});
+
+test('malformed receipt warns and falls back to claim-age expiry', async t => {
+  const { CLAIM_EXPIRY } = require('../maint71_merge_sync_prs');
+  const api = boundedRestageHarness(t);
+  await api.request();
+  api.comments[1].body = api.comments[1].body.split('\n')[0] + '\n{broken';
+  assert.equal((await api.request()).state, 'already-requested');
+  assert.ok(api.logs.includes('seal: stranske/Ready#4104 warning: malformed forced restage receipt skipped'));
+  t.mock.timers.tick(CLAIM_EXPIRY);
+  assert.equal((await api.request()).state, 'requested');
+  assert.equal(api.dispatches.length, 2);
+});
+
+for (const headOnly of [false, true]) {
+  test(`legacy claim without id expires from comment creation (head-only=${headOnly})`, async t => {
+    const { CLAIM_EXPIRY } = require('../maint71_merge_sync_prs');
+    const api = boundedRestageHarness(t);
+    const originalRetry = api.args.withRetry;
+    api.args.withRetry = callback => originalRetry(client => {
+      client.rest.repos.getCommit = async () => ({ data: { commit: {
+        verification: { verified: true, reason: 'valid' },
+        message: `Consumer-sync plan ID: sha256:plan\nSource commit: ${'a'.repeat(40)}`,
+      } } });
+      return callback(client);
+    });
+    api.comments.push({ user: { login: 'stranske-automation-bot' }, created_at: new Date(Date.now()).toISOString(),
+      body: `<!-- maint71-forced-restage:stranske/Ready:${api.args.pr.head.sha} -->` + (headOnly ? ''
+        : `\nClaim: ${JSON.stringify({ head_sha: api.args.pr.head.sha, plan_id: api.state.plan, source_commit: api.state.source })}`) });
+    assert.equal((await api.request()).state, 'already-requested');
+    assert.ok(api.logs.includes(`seal: stranske/Ready#4104 forced restage already requested 0ms; expires in ${CLAIM_EXPIRY}ms`));
+    t.mock.timers.tick(CLAIM_EXPIRY);
+    assert.equal((await api.request()).state, 'requested');
+    assert.equal(api.dispatches.length, 1);
+    assert.equal((await api.request()).state, 'exhausted');
+  });
+}

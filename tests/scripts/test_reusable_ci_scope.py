@@ -336,3 +336,24 @@ def test_changed_files_environment_and_delimiter_collision(
     destination = tmp_path / "output.txt"
     reusable_ci_scope._write_github_outputs(str(destination), {"x": "__REUSABLE_CI_SCOPE_X__"})
     assert "___REUSABLE_CI_SCOPE_X___" in destination.read_text(encoding="utf-8")
+
+
+@pytest.mark.parametrize(
+    ("python_versions", "python_version", "changed_files", "force_full", "message"),
+    [
+        ('["3.12"]', "3.12", [None], False, "changed_files"),
+        ('["3.12"]', "3.12", [], "yes", "force_full"),
+        ("[3.12]", "3.12", [], False, "nonempty strings"),
+    ],
+)
+def test_python_matrix_rejects_invalid_selector_inputs(
+    python_versions: str,
+    python_version: str,
+    changed_files: list[object],
+    force_full: object,
+    message: str,
+) -> None:
+    with pytest.raises(ValueError, match=message):
+        reusable_ci_scope.select_python_matrix(
+            "Gate", python_versions, python_version, changed_files, force_full
+        )

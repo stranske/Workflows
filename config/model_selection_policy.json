@@ -35,14 +35,26 @@
         "minimum_cases_per_category_overrides": {
           "stale-verifier-claim": 1,
           "review-thread-debt": 1,
-          "missing-acceptance-criterion": 1
+          "follow-up-required": 3,
+          "missing-acceptance-criterion": 10
         },
-        "minimum_cases_per_category_overrides_note": "These three categories cannot be labelled from realized downstream outcomes, so tools/harvest_verifier_corpus.py never produces them and they remain owner-sourced. Holding them to the machine-harvestable floor of 10 made `approved` unreachable without ~22 hand-labelled cases, so for them the floor asserts REPRESENTATION (at least one adjudicated example of the failure mode) rather than statistical power. The statistical gates (false-pass/false-fail/schema-error Wilson bounds, paired non-inferiority) still run over the whole corpus, and minimum_adjudicated_cases=75 still applies. Raise these toward 10 as owner-labelled cases accumulate. See #2819.",
+        "minimum_cases_per_category_overrides_note": "These three categories cannot be labelled from realized downstream outcomes, so tools/harvest_verifier_corpus.py never produces them and they remain owner-sourced. Holding them to the machine-harvestable floor of 10 made `approved` unreachable without ~22 hand-labelled cases, so for them the floor asserts REPRESENTATION (at least one adjudicated example of the failure mode) rather than statistical power. The statistical gates (false-pass/false-fail/schema-error Wilson bounds, paired non-inferiority) still run over the whole corpus, and minimum_adjudicated_cases=75 still applies. Raise these toward 10 as owner-labelled cases accumulate. See #2819. Update 2026-10-18: missing-acceptance-criterion is raised to 10 because controlled-mutation cases supply it mechanically; follow-up-required is lowered from 10 to 3 because resolved verifier follow-ups are too rare to reach 10 (3 exist, none new in 8 weekly harvests), so it asserts representation.",
+        "stable_merge_pass": {
+          "enabled": true,
+          "minimum_age_days": 30,
+          "note": "Owner decision 2026-10-18. PASS cases that join a verifier decision only begin to appear about a month after the decision marker was introduced (about 2026-10-15), so the false-fail floor could not be met. A captured merged PR may be labelled PASS by realized outcome alone: merged at least minimum_age_days ago, not reverted, no verifier follow-up label, and an input the production prompt calls sufficient. These cases carry provenance stable-merge. The label is weaker (no verifier run is joined, and a repair without a follow-up label is invisible); a mislabelled PASS counts as a false FAIL, so the error is conservative. Set enabled to false to stop using them."
+        },
+        "bounds_note": "Owner direction 2026-10-18: make approval practically achievable. At 95% confidence a zero-error run needs 73 cases for a 0.05 bound, 35 for 0.10, 22 for 0.15 and 16 for 0.20. The old 0.05 / 0.10 bounds needed 73 NON_PASS and 35 PASS evaluable cases; the corpus can supply 41 and 16 (captured inputs the production prompt calls sufficient), so the bounds are now 0.10 false PASS (35 NON_PASS) and 0.20 false FAIL (16 PASS). A bound is a statement about what the sample cannot rule out; approval remains a reversible, human-approved provisional selection with rollback on any false PASS and live monitoring, so these are screening-grade guarantees, not population claims. A false FAIL costs rework, a false PASS costs safety, which is why the false-PASS bound stays tighter. Tighten the bounds again as evaluable cases accumulate.",
+        "controlled_mutation": {
+          "counts_toward_false_pass_bound": true,
+          "minimum_real_non_pass_cases": 3,
+          "note": "Owner decision 2026-10-18. Realized outcomes supply NON_PASS cases at about 8% of harvested cases (4 of 51), while the false-PASS gate needs 73 NON_PASS at zero errors, so the gate was unreachable. Controlled-mutation cases (provenance controlled-mutation: a real PASS PR whose evidence for one acceptance criterion is removed, objectively NON_PASS) count toward the NON_PASS total and the false-PASS bound, are reported separately from real cases, and may not replace real signal: at least minimum_real_non_pass_cases real NON_PASS cases must exist. Set counts_toward_false_pass_bound to false to return to real-outcome evidence only."
+        },
         "confidence_level": 0.95,
         "quality_gates": {
           "task_success_rate_wilson_lower_bound": 0.85,
-          "false_pass_rate_wilson_upper_bound": 0.05,
-          "false_fail_rate_wilson_upper_bound": 0.1,
+          "false_pass_rate_wilson_upper_bound": 0.1,
+          "false_fail_rate_wilson_upper_bound": 0.2,
           "schema_error_rate_wilson_upper_bound": 0.05,
           "paired_success_noninferiority_margin": 0.02
         }
@@ -80,7 +92,7 @@
         "stability_days": 30,
         "staging_expiry_days": 60,
         "harvest_window_days": 60,
-        "max_corpus_size": 150,
+        "max_corpus_size": 200,
         "auto_promote_confidence": "high",
         "category_caps": {
           "clean-pass": 40,

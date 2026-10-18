@@ -1311,10 +1311,12 @@ plan. Promotion likewise refreshes one stable `sync/workflows-delivery` PR per
 non-canary; immutable plan and desired-tree identity live in the delivery
 record instead of the branch name.
 
-For a stable canary whose delivery record is still `staging` or `reviewing`,
-Maint 71 may continue to the existing seal lifecycle when the exact-head
-`Gate / gate` run, complete job list, and generated-seal annotations prove the
-expected `delivery_not_sealed` hold. This is lifecycle continuation only: the
+For a stable canary with a seal-only failure, Maint 71 may continue to the
+existing seal lifecycle when the exact-head `Gate / gate` run, complete job
+list, generated-seal annotations, and classifier log prove the expected
+`delivery_not_sealed` or `sealed_head_mismatch` hold. This includes a stale
+seal and a failed Gate that started before the current seal was written (using
+the attempt's start time for reruns). This is lifecycle continuation only: the
 original failed check classification remains failed, every other failed or
 nonterminal job still blocks, and only a fresh Gate after sealing can satisfy
 the required check for merge. Missing, incomplete, mismatched, or unreadable
@@ -1697,8 +1699,103 @@ shared defects return to Workflows source before the stable PR is refreshed.
 On older consumers, branch protection also requires `gate-summary` alongside
 the legacy `Gate / gate` status. Maint 71 treats that exact failed pair as one
 pre-seal hold only when both point to the same exact-head Gate run and its
-complete job and seal-annotation proof matches; any other failed required
-check still blocks the lifecycle.
+complete job and seal-annotation proof matches. Direct required checks named
+`generated delivery seal`, `classify changed paths`/`detect changed files`, and
+`gate-summary`/`summary` may describe that same hold, but must bind to the same
+exact-head Gate run. The classifier job log must show the same seal exception
+and no other error; generic exit annotations alone are insufficient. An extra
+failed required check, unrelated classifier error, incomplete evidence, or API
+failure still blocks sealing.
+
+Seal-only failures use the single exported `SEAL_PRECONDITION_REASONS` vocabulary
+in `sync_pr_lease_contract.js`, shared by the seal action and Maint 71:
+`delivery_not_sealed:staging`, `delivery_not_sealed:reviewing`,
+`delivery_not_sealed:legacy`, and `sealed_head_mismatch`. An annotation from a
+legacy PR-body snapshot does not waive the current record's staging/reviewing/
+sealed validation. Invalid records, terminal dispositions, expired leases,
+repository mismatches and forked stable heads are not seal preconditions.
+Proven seal-only failures are reported as
+`seal_pending`, never a repo-local repair request. A stale seal is restaged and
+uses the existing configured reviewer settlement policy; active threads and the
+bounded review wait still hold it. Integration-only delivery continues to reuse
+source review under the existing policy. After settlement, Maint 71 writes the
+exact-head seal once and requests a fresh Gate, retaining failed raw check
+evidence until the new evaluation succeeds. If the head is already sealed and
+the failed run predates that seal, Maint 71 requests fresh Gate evaluation
+without rewriting the seal. This applies to canaries and promoted delivery PRs
+(`sync/workflows-delivery`, staging/ready labels). Restage, readiness recovery,
+and reviewer-request validation precede any Gate recovery; a head about to be
+restaged must never be rerun. Maint 71 selects the latest exact-head
+`pull_request` run of the consumer's `pr-00-gate.yml` and calls
+`actions.reRunWorkflowFailedJobs`, printing
+`seal: <repo>#<n> gate rerun run=<id>`. This preserves the PR-only seal,
+classification, and summary jobs that a dispatch skips. Queued/in-progress
+attempts and completed post-seal evaluations suppress repeat requests. The
+shared seal-time comparison treats equality as pre-seal for the original
+attempt (timestamps have second precision); a rerun attempt at equality counts
+as a fresh evaluation. A completed failure after the seal remains blocking.
+When no exact-head PR run exists, or GitHub refuses a rerun with HTTP 403
+(`cannot be retried`) or 422, Maint 71 prints `gate dispatch fallback` and
+dispatches on the PR branch with `pr_number`. It polls once for the fallback
+run and prints `gate requested run=<id>` only upon observing a matching run.
+Other 403 failures remain errors.
+A refused rerun prints `seal: <repo>#<n> blocked(rerun-refused)` and records the
+original status/reason in `gate_request`, even if the fallback fails. Observed
+fallbacks also print `gate rerun refused; dispatched run=<id>`. A queued or
+post-seal dispatch on the same branch/head suppresses another dispatch.
+A dispatched Gate can supply canary evidence, but skips PR-only jobs and cannot
+establish merge readiness. The blocker remains visible beside the drainable
+count until a fresh PR Gate is available. After a refused rerun, even an observed
+dispatch cannot produce the required PR-only jobs. Maint 71 requests one forced
+regeneration via `maint-68-sync-consumer-repos.yml`, with `force=true`,
+`repos=<owner/repo>` and phase `canary` for candidate PRs or `promote` for delivery
+PRs. It retains the source binding and source-delta scope; promotion reuses the
+verified head's canary evidence and Maint 68 still validates it. Forced sync
+rebuilds the signed delivery from its base and selected payload even when its
+tree matches the existing PR, resetting settlement and seal for the new head.
+The resulting push starts a fresh `pull_request` Gate, handled by the normal
+seal/rerun flow. Metadata-only restaging cannot wake that Gate.
+Under the shared stable-writer mutex, a durable PR comment claim records the
+repository, head, plan ID and source commit before dispatch. `MAX_FORCED_RESTAGES`
+is 2 across all heads for that plan/source binding. At the cap, Maint 71 prints
+`seal: <repo>#<n> forced restage exhausted (<k>/<max>); drainable=0 — needs owner or a new plan`.
+A new plan or source binding resets the budget. Only markers authored by
+`TRUSTED_REVIEW_RESOLUTION_ACTORS` (default `stranske,stranske-automation-bot`)
+or the authenticated token's own login count; malformed JSON markers are skipped
+with a warning. Credential rotation among trusted writers retains the budget.
+Legacy head-only claims resolve their plan/source from the claimed commit;
+an unreadable binding blocks further requests rather than replenishing the budget.
+On an unchanged head, a definitive dispatch rejection can retry on a later pass.
+A bound dispatched run must have completed at least `CLAIM_EXPIRY` (two hours)
+ago to retry; active runs and recent completions retain their claims. Claims
+without a receipt or with `run_id: null` expire two hours after the timestamp in
+`claim.id`, including ambiguous 5xx dispatch failures and runs not yet observed.
+Legacy claims without an ID expire from the comment's `created_at` time.
+Every suppressed duplicate prints
+`seal: <repo>#<n> forced restage already requested <age>; expires in <t>`;
+ages and remaining times use milliseconds, with unknown timing explicit for
+active runs or unavailable timestamps. Every retry consumes the same budget and prints
+`claim stale, head unchanged; retrying (<k>/<max>)`. Receipts persist dispatch
+failure or the observed run ID; an unobserved run ID is explicitly `unknown`.
+The log prints `seal: <repo>#<n> rerun refused; forced restage requested run=<id>`;
+`gate_request.forced_restage` and the Markdown report retain the drain receipt.
+Recovery must not close/reopen a PR or push an empty commit.
+Dispatch or lookup failures print `gate request failed: <status> <message>` and
+remain in the report's `gate_request`; an accepted dispatch whose run is not yet
+visible reports that uncertainty explicitly. The delivery stays
+`awaiting-sealed-gate` for retry on the next Maint 71 pass. There is no label
+wakeup fallback: `sync:delivery-ready` records lifecycle state only. Existing
+required-check and review blockers still apply. A failed evaluation created after the current seal
+remains blocking. Gate rerun/dispatch alone does not update the branch; forced regeneration changes
+the head through Maint 68 and grants no merge authority.
+
+Each canary prints `seal: <repo>#<n> sealed|pending(<reason>)|blocked(<check names>)`.
+`canaries: red=` counts only non-seal failures; `drainable` counts proven
+seal-only holds without active threads that can progress through settlement
+and fresh checks. A new
+seal can therefore print `red=0 drainable=1` while promotion remains held.
+After fresh checks and exact-head evidence are green, the existing promotion
+path runs and the drained summary prints `red=0` and `drainable=0`.
 Maint 68 also writes `autofix: false` into every generated PR body. The shared
 reusable autofix workflow independently rejects `sync/workflows-*` heads, so an
 older consumer caller cannot mutate the transition PR while the updated local
@@ -2926,6 +3023,15 @@ closes any open alert so a recovered incident cannot remain as a stale red issue
 
 - Files marked with `sync_mode: create_only` are excluded, except for repos
   listed in the entry's `overwrite_repos` override.
+- Gate `on.pull_request.types` is compared separately even for create-only Gates,
+  including consumers in the manifest's `skip_repos` (while retaining `include_repos`
+  scope). Logs, step summary, and the report's `gate_triggers` list show FYI lines
+  `gate triggers: <repo> extra=<list>` (plus `missing=<list>` when needed).
+  Skipped consumers show `(custom gate, never overwritten)` before the comparison,
+  including an explicit `matches` when aligned. `gate triggers: all match` appears
+  only after every in-scope consumer, including skipped consumers, matches.
+  Unreadable or invalid Gates are reported as unknown and prevent all-match. These
+  lines do not fail Health 68, create an alert, or authorize overwriting a Gate.
 - The uploaded `consumer-sync-drift-report` artifact uses
   `workflows-consumer-sync-drift/v1` and includes safe
   `token_diagnostics` (`workflows-drift-token-selection/v1`) so permission or
@@ -3179,8 +3285,83 @@ gates regardless of age. Maint 68 records the current UTC observation on a
 successful verified unchanged-base/tree run too, preserving its review
 lifecycle and head. This canary producer runs while promotion is held; it
 does not require the promotion evidence it helps unblock. Comments do not
-reset the clock. Maint 71 groups refresh requests by plan ID within each run
-and dispatches once for each held plan unless a producer writer is active.
+reset the clock. Maint 71 groups refresh reasons by plan, but dispatches at
+most one full configured-candidate refresh per invocation, pinned to an immutable
+source SHA. Refresh identity is the **rendered delivery digest**, not the main
+SHA. `scripts/consumer_delivery_digest.py:delivery_digest` is the single hashing
+implementation used by refresh, Maint 68 preparation, and the seal writer.
+It hashes manifest copies at their consumer target paths, directory children,
+repository inclusion/exclusion and create-only effects, removals, and the generated
+status-file `.gitignore` block. Source SHA, descriptions and manifest comments
+are absent from the payload identity. Consumer-local files remain outside this
+intent digest; all integration, review, signature and exact-head gates still apply.
+The seal stores the same helper's per-repository digest in
+`review_evidence.delivery_digest`; changing main alone never rewrites that seal
+or the immutable source/plan of the in-flight PR.
+
+Digest renderer or Git snapshot failures print
+`refresh: digest unavailable (<reason>); falling back to sha key` and use the
+previous source-SHA decision, retaining active-writer and debounce protection.
+This fallback also applies to the Maint 68 preparation guard.
+Red, review-blocked and stale canaries remain eligible for one recovery per
+payload and observed head even when the payload is unchanged. Recovery uses a
+`refresh_key`; producer success alone never certifies consumer health.
+
+A healthy canary with a matching payload prints
+`refresh: skipped (delivery digest <d> unchanged since <sha>)` and preserves the
+existing PR head and review lifecycle. Operator `force: true` bypasses this
+payload guard, authorizes mutation, and prints
+`refresh: forced (digest guard bypassed)`.
+REST history metadata is collected across source SHAs (up to 100 pages, failing
+closed on truncation), then receipts are read in execution-time order using
+`run_started_at`, with `run_attempt` and run ID as tie breakers. Rerunning an older
+run ID can therefore supersede a newer run's payload; historical successful
+payloads cannot mask a later different delivery. Maint 68 marks guarded runs with
+`guard=delivery-v1`; only a successful `Authorize canary payload mutation` step
+counts as a delivery receipt, so a successful run that queued/skipped its mutation
+cannot falsely claim delivery. Scheduled and source-delta producers use the same
+guard before any consumer sync job. Guard code comes from the immutable workflow
+ref; the rendered payload comes from the separately pinned source commit.
+
+If payload content changes during an exact-head sealed cycle, Maint 71 compares
+changed consumer targets with the complete canary diff (including rename origins
+and deletions). Overlap can refresh immediately. Disjoint changes print
+`refresh: queued (... wait_remaining_ms=<n>, clears at <iso>)` until the cycle merges, a fresh post-seal PR Gate fails,
+or `CANARY_SEALED_REFRESH_WAIT_MS` (one hour) elapses. The seal timestamp is the
+durable wait clock; successive main commits and observations do not reset it.
+A pre-seal failure cannot release this hold. Behind/non-mergeable heads cannot
+finish their cycle and may refresh immediately. A full-set producer waits for
+all protected sealed canaries, even if another canary permits refresh.
+
+A behind canary still adds its repository and current consumer default-branch
+tip/head pair as a SHA-256 `refresh_key` (`drift=` in the title). The live branches
+API supplies the tip, cached once per behind consumer per run. Unknown tip/head,
+diff, configuration, or bounded history evidence fails closed. Active canary or
+promotion writers hold refresh across all plans. Failed producer retries use
+`CANARY_REFRESH_DEBOUNCE_MS` (six hours). Source-delta, dry-run, other-branch or
+subset runs cannot supply full-set success. No canary uses `pulls.updateBranch`.
+Producer success never substitutes for passing consumer CI, settled review,
+valid signatures or an exact-head sealed Gate before promotion/merge.
+
+No-change recovery retains the plan, source, and head in both the report and
+evidence artifact so the promotion handoff can compare their immutable identity.
+Promotion reports `promote: blocked <reason>; canaries green <n>/<m>; drainable <k>`
+on one line. Green counts configured canaries with successful required checks
+and zero active review threads; drainable counts their prepared/recovered,
+identity-matching evidence rows. A promotion already active/completed, disabled
+mutation, or exhausted retries has zero remaining drainable work in that run.
+Completed promotion prints `promote: drained; canaries green <n>/<m>; drainable 0`.
+Missing evidence prints `drainable UNKNOWN (unmeasurable)` rather than a measured zero.
+A producer success alone never supplies these quantities or authorizes promotion.
+
+Delivery-base refresh replays the same immutable promotion evidence through the
+shared helper: all active-writer states are scanned independently of source SHA,
+and exact-plan promotion runs are paginated. Any recent matching promotion
+(including success) holds replay for `CANARY_REFRESH_DEBOUNCE_MS`; after that
+window, a persistent base-refresh request may remint the delivery. Unreadable or
+truncated history fails closed. Health 71 only lists workflow runs; it does not
+dispatch these producers.
+
 Upstream finding markers suppress duplicate comments only when authored by
 the authenticated Maint 71 writer. When drained, the summary is
-`canaries: red=0 review_blocked=0 stale=0 refresh_dispatched=0 held_plan=none`.
+`canaries: red=0 review_blocked=0 stale=0 refresh_dispatched=0 held_plan=none drainable=0`.

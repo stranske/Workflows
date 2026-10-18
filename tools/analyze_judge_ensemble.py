@@ -62,7 +62,7 @@ def load_judgments(paths: list[Path]) -> tuple[dict[str, dict[str, str | None]],
                 raise ValueError(f"inconsistent expected verdict for {case}")
             valid = row.get("schema_valid", True)
             value = (row.get("raw_verdict") or row["actual_verdict"]) if valid else None
-            if value not in {None, "PASS", "NON_PASS", "CONCERNS", "FAIL"}:
+            if value not in {None, "PASS", "NON_PASS", "CONCERNS", "FAIL", "UNVERIFIABLE_INPUT"}:
                 raise ValueError(f"invalid verdict for {judge} on {case}")
             observed = decisions.setdefault(judge, {})
             if case in observed and observed[case] != value:

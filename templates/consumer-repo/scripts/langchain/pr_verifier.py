@@ -5749,6 +5749,9 @@ def build_prompt_inputs(context: str, diff: str | None, *, lossless: bool = Fals
     sections = _split_verifier_context(context_text) if context_text else None
     reasons: list[str] = []
     source_coverage = parse_context_source_coverage(context_text) or {}
+    retrieval = source_coverage.get("diff_retrieval", {})
+    if isinstance(retrieval, dict) and retrieval.get("complete") is False:
+        reasons.append("PR diff retrieval incomplete: " + str(retrieval.get("reason", "unknown")))
     raw_inventory = source_coverage.get("artifact_capture_inventory")
     if (
         not lossless
@@ -5987,14 +5990,54 @@ def _review_count(result: EvaluationResult) -> str:
     return f"files reviewed {reviewed} of {total}" + missing
 
 
+def _retrieval_only_failure(result: EvaluationResult) -> bool:
+    """Recognize explicit retrieval-only reasons, never infer away a finding.
+
+    Match complete statements rather than looking for an 'artifact' keyword:
+    a missing deliverable or a mixed retrieval/code finding must retain FAIL.
+    Unknown phrasing deliberately retains the provider verdict.
+    """
+    evidence = r"(?:(?:the|required|acceptance|workflow|ci|validation|test)\s+)*(?:artifacts?|evidence|logs?)"
+    unavailable = (
+        r"(?:(?:is|are|was|were)\s+)?(?:unavailable|inaccessible|not accessible|not available)"
+        r"|(?:could not|cannot|can't)\s+be\s+(?:retrieved|fetched|downloaded|accessed)"
+    )
+    reason = re.compile(
+        rf"(?:{evidence}\s+(?:{unavailable})"
+        rf"|(?:unable to|failed to|could not|cannot)\s+(?:retrieve|fetch|download|access)\s+{evidence}"
+        rf"|{evidence}\s+retrieval\s+(?:failed|was unavailable|is unavailable|unavailable))"
+        r"(?:\s+due to\s+(?:api|network|retrieval|transport|permission|authorization)"
+        r"\s+(?:errors?|failures?|limits?|restrictions?|denied))?",
+        re.I,
+    )
+    statements = []
+    for text in [*result.concerns, result.summary or "", result.error or ""]:
+        for statement in re.split(r"[.!;\n]+", text):
+            statement = statement.strip(" -*\t")
+            if not statement or re.fullmatch(r"files reviewed \d+ of \d+", statement, re.I):
+                continue
+            statement = re.sub(
+                r"^(?:verification failed|fail)\s+(?:only\s+)?because\s+", "", statement, flags=re.I
+            )
+            statements.append(statement)
+    return bool(statements) and all(reason.fullmatch(text) for text in statements)
+
+
 def comparison_verdict(results: list[EvaluationResult]) -> str:
     """Findings dominate incomplete input; unavailable judges never establish PASS."""
-    if any(result.verdict == "FAIL" for result in results):
+    retrieval_failures = {
+        id(result)
+        for result in results
+        if result.verdict == "FAIL" and _retrieval_only_failure(result)
+    }
+    if any(result.verdict == "FAIL" and id(result) not in retrieval_failures for result in results):
         return "FAIL"
     if any(result.verdict == "CONCERNS" and not result.error for result in results):
         return "CONCERNS"
-    if not results or any(
-        result.verdict == "UNVERIFIABLE_INPUT" or result.error for result in results
+    if (
+        retrieval_failures
+        or not results
+        or any(result.verdict == "UNVERIFIABLE_INPUT" or result.error for result in results)
     ):
         return "UNVERIFIABLE_INPUT"
     return "PASS" if all(result.used_llm for result in results) else "UNVERIFIABLE_INPUT"
@@ -7841,7 +7884,11 @@ def _unique_concerns(results: list[EvaluationResult]) -> dict[int, list[str]]:
 def format_comparison_report(results: list[EvaluationResult]) -> str:
     lines = ["## Provider Comparison Report", ""]
     for result in results:
-        lines.append(f"- {result.provider_used or 'provider'}: {_review_count(result)}")
+        no_review = ""
+        if not result.used_llm:
+            reason = result.error or result.summary or result.verdict
+            no_review = f"; no model review: {reason}"
+        lines.append(f"- {result.provider_used or 'provider'}: {_review_count(result)}{no_review}")
     if not results:
         lines.append("files reviewed 0 of 0 (coverage unavailable)")
     lines.append("")

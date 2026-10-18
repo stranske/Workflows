@@ -466,8 +466,10 @@ jobs:
                   repository: `${context.repo.owner}/${context.repo.repo}`,
                   pr_number: Number(process.env.PR_NUMBER), head_sha: process.env.TARGET_SHA });
               } catch (error) {
-                // # best-effort: omit this issue's closure authority; verification continues and the issue stays open.
-                core.warning(`Skipping closure plan for issue #${issue_number}: ${error.message}`);
+                // # best-effort: retain a diagnostic entry without closure authority; verification continues.
+                core.warning(`${context.repo.owner}/${context.repo.repo}#${issue_number}: kept open — closure-plan-unavailable: ${error.message}`);
+                plans.push({ issue_number, repository: `${context.repo.owner}/${context.repo.repo}`,
+                  pr_number: Number(process.env.PR_NUMBER), plan_error: 'closure-plan-unavailable' });
               }
             }
             fs.mkdirSync('closure-plans', { recursive: true });
@@ -486,7 +488,10 @@ jobs:
           path = Path('closure-plans/plans.json')
           plans = json.loads(path.read_text())
           for plan in plans:
+              if plan.get('plan_error'):
+                  continue
               plan['commands'] = [dataclasses.asdict(c) for c in extract_commands(plan['markdown'])]
+              plan['gate_source'] = 'acceptance-commands' if plan['commands'] else 'required-ci'
           path.write_text(json.dumps(plans))
           PY
 
@@ -541,14 +546,14 @@ jobs:
               'input_limits': {
                   'comment_records': int(os.environ.get('VERIFIER_EVIDENCE_COMMENT_LIMIT', '50')),
                   'comment_chars': int(os.environ.get('VERIFIER_EVIDENCE_COMMENT_CHARS', '40000')),
-                  'workflow_runs': int(os.environ.get('VERIFIER_EVIDENCE_RUN_LIMIT', '5')),
+                  'workflow_runs': int(os.environ['VERIFIER_EVIDENCE_RUN_LIMIT']) if os.environ.get('VERIFIER_EVIDENCE_RUN_LIMIT') else None,
                   'artifacts': int(os.environ.get('VERIFIER_EVIDENCE_ARTIFACT_LIMIT', '10')),
                   'archive_bytes': int(os.environ.get('VERIFIER_EVIDENCE_ARCHIVE_BYTES', '2097152')),
                   'archive_entries': int(os.environ.get('VERIFIER_EVIDENCE_ENTRY_LIMIT', '20')),
                   'artifact_chars': int(os.environ.get('VERIFIER_EVIDENCE_ARTIFACT_CHARS', '60000')),
                   'body_chars': int(os.environ.get('VERIFIER_EVIDENCE_BODY_CHARS', '40000')),
                   'comment_pages': int(os.environ.get('VERIFIER_EVIDENCE_COMMENT_PAGES', '10')),
-                  'run_pages': int(os.environ.get('VERIFIER_EVIDENCE_RUN_PAGES', '1')),
+                  'run_pages': int(os.environ['VERIFIER_EVIDENCE_RUN_PAGES']) if os.environ.get('VERIFIER_EVIDENCE_RUN_PAGES') else None,
                   'artifact_pages': int(os.environ.get('VERIFIER_EVIDENCE_ARTIFACT_PAGES', '1')),
                   'total_archive_bytes': int(os.environ.get('VERIFIER_EVIDENCE_TOTAL_ARCHIVE_BYTES', '33554432')),
                   'total_extract_bytes': int(os.environ.get('VERIFIER_EVIDENCE_TOTAL_EXTRACT_BYTES', '67108864')),
@@ -625,8 +630,18 @@ jobs:
 
       - name: Stop when verifier is skipped
         if: steps.context.outputs.should_run != 'true'
+        env:
+          SKIP_REASON: ${{ steps.context.outputs.skip_reason || 'no reason provided' }}
+          PR_NUMBER: ${{ steps.context.outputs.pr_number }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          echo "Verifier skipped: ${{ steps.context.outputs.skip_reason || 'no reason provided' }}"
+          set -euo pipefail
+          printf '::warning::Verifier skipped: %s\n' "$SKIP_REASON"
+          if [ -n "$PR_NUMBER" ]; then
+            printf '## Verifier skipped\n\nNo model review: %s. Files reviewed 0; changed-file total unavailable.\n' \
+              "$SKIP_REASON" > verifier-skip-comment.md
+            gh pr comment "$PR_NUMBER" --body-file verifier-skip-comment.md
+          fi
 
       - name: Prepare verifier prompt
         if: steps.context.outputs.should_run == 'true'
@@ -1491,8 +1506,8 @@ jobs:
         if: >-
           ${{
             steps.context.outputs.should_run == 'true' &&
-            inputs.mode == 'compare' &&
-            steps.llm_compare.outputs.has_results == 'true'
+            always() &&
+            inputs.mode == 'compare'
           }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -1503,11 +1518,17 @@ jobs:
         run: |
           set -euo pipefail
           verifier_pr="$PR_NUMBER"
-          if [ -n "$verifier_pr" ] && [ -f "comparison-comment.md" ]; then
-            python .workflows-lib/tools/verifier_corpus_evidence.py \
-              --comparison comparison.json --comment comparison-comment.md
-            gh pr comment "$verifier_pr" --body-file comparison-comment.md || \
-              echo "Warning: Could not post comment"
+          if [ -n "$verifier_pr" ]; then
+            if [ ! -s comparison-comment.md ]; then
+              printf '## Provider Comparison Report\n\nUNVERIFIABLE_INPUT: no model review: comparison output unavailable; files reviewed 0, total unavailable.\n' \
+                > comparison-comment.md
+            fi
+            if [ -s comparison.json ]; then
+              python .workflows-lib/tools/verifier_corpus_evidence.py \
+                --comparison comparison.json --comment comparison-comment.md || \
+                echo '::warning::Corpus annotation failed; posting the verifier report without it'
+            fi
+            gh pr comment "$verifier_pr" --body-file comparison-comment.md
           fi
 
       - name: Upload comparison artifacts
@@ -1751,13 +1772,11 @@ jobs:
         env:
           SHOULD_RUN: ${{ steps.context.outputs.should_run }}
           PR_NUMBER: ${{ steps.context.outputs.pr_number }}
-          VERDICT: >-
-            ${{
-              steps.unified_verdict.outputs.verdict ||
-              steps.verdict.outputs.verdict ||
-              steps.llm_evaluate.outputs.verdict ||
-              steps.llm_compare.outputs.verdict
-            }}
+          # Only the settled unified verdict is consumed. Raw per-mode verdicts
+          # skip the CI-failure floor, so they must never stand in for it when
+          # settlement was skipped or failed (see UNIFIED_VERDICT_OUTCOME).
+          VERDICT: ${{ steps.unified_verdict.outputs.verdict }}
+          UNIFIED_VERDICT_OUTCOME: ${{ steps.unified_verdict.outcome }}
           CONTEXT_PATH: ${{ steps.context.outputs.context_path }}
           ISSUE_NUMBER: ${{ steps.failure_issue.outputs.issue_number }}
           SKIP_REASON: ${{ steps.context.outputs.skip_reason }}
@@ -1790,8 +1809,15 @@ jobs:
           verifier_mode = os.environ.get("VERIFIER_MODE") or ""
           chain_depth = int(os.environ.get("CHAIN_DEPTH") or 0)
 
+          unified_outcome = os.environ.get("UNIFIED_VERDICT_OUTCOME") or ""
+          settlement_interrupted = should_run and unified_outcome != "success"
+
           if not should_run:
               verdict = "skipped"
+          elif settlement_interrupted:
+              # Settlement (CI-failure floor) did not complete; record an error
+              # rather than an unguarded or empty verdict.
+              verdict = "error"
 
           issues_created = 1 if issue_number else 0
           issue_numbers = [issue_number] if issue_number else []
@@ -1862,6 +1888,7 @@ jobs:
               "codex_cli_version": codex_cli_version,
               "verifier_mode": verifier_mode,
               "chain_depth": chain_depth,
+              "settlement_interrupted": settlement_interrupted,
               "recorded_at": datetime.now(timezone.utc).isoformat(),
           }
           if langsmith_traces:
@@ -1891,13 +1918,8 @@ jobs:
           CODEX_CLI_VERSION: ${{ steps.codex_cli.outputs.version }}
           VERIFIER_MODE: ${{ inputs.mode }}
           CHAIN_DEPTH: ${{ steps.context.outputs.chain_depth || '0' }}
-          FINAL_VERDICT: >-
-            ${{
-              steps.unified_verdict.outputs.verdict ||
-              steps.verdict.outputs.verdict ||
-              steps.llm_evaluate.outputs.verdict ||
-              steps.llm_compare.outputs.verdict
-            }}
+          FINAL_VERDICT: ${{ steps.unified_verdict.outputs.verdict }}
+          UNIFIED_VERDICT_OUTCOME: ${{ steps.unified_verdict.outcome }}
         run: |
           set -euo pipefail
           mkdir -p agent-metrics
@@ -1941,7 +1963,11 @@ jobs:
           const shouldRun = String(process.env.SHOULD_RUN || '').toLowerCase() === 'true';
           const prNumber =
             Number.parseInt(process.env.PR_NUMBER || metrics.pr_number || '0', 10) || null;
-          const verdict = normalizeVerdict(process.env.FINAL_VERDICT || metrics.verdict);
+          const settled = process.env.UNIFIED_VERDICT_OUTCOME === 'success';
+          const settlementInterrupted = shouldRun && !settled;
+          const verdict = settlementInterrupted
+            ? 'error'
+            : normalizeVerdict(process.env.FINAL_VERDICT || metrics.verdict);
           const followupIssueNumber =
             Number.parseInt(process.env.FOLLOWUP_ISSUE_NUMBER || '', 10) || null;
           const skipReason = process.env.SKIP_REASON || metrics.skip_reason || '';
@@ -1958,6 +1984,9 @@ jobs:
           if (!shouldRun) {
             disposition = 'skipped';
             reason = skipReason || 'Verifier did not have an eligible source to evaluate.';
+          } else if (settlementInterrupted) {
+            disposition = 'verifier-error';
+            reason = 'Verifier verdict settlement did not complete; no unguarded verdict was recorded.';
           } else if (['pass', 'passed'].includes(verdict)) {
             disposition = 'verified-pass';
             reason = 'Verifier completed and reported a passing verdict.';

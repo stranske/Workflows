@@ -421,3 +421,19 @@ test('custom Gate classifier accepts only the sealed exact head', () => {
     false,
   );
 });
+
+
+test('bootstrap contract pins match the published source and consumer contract bytes', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const crypto = require('node:crypto');
+  for (const prefix of ['../../..', '../../../templates/consumer-repo']) {
+    const root = path.resolve(__dirname, prefix);
+    const source = fs.readFileSync(path.join(root, '.github/scripts/sync_pr_lease_contract.js'), 'utf8');
+    const classifier = fs.readFileSync(path.join(root, '.github/actions/path-classifier/classify.js'), 'utf8');
+    const pin = classifier.match(/const BOOTSTRAP_DELIVERY_CONTRACT_SHA256 = '([a-f0-9]{64})';/);
+    assert.ok(pin, `${prefix}: bootstrap contract pin is missing`);
+    assert.equal(pin[1], crypto.createHash('sha256').update(String(source)).digest('hex'),
+      `${prefix}: sync_pr_lease_contract.js changed; update BOOTSTRAP_DELIVERY_CONTRACT_SHA256 in BOTH classifiers`);
+  }
+});

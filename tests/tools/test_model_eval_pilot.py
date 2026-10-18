@@ -22,7 +22,9 @@ def _load_cases():
 
 def test_pilot_seed_is_frozen() -> None:
     payload, cases = _load_cases()
-    seed = [case for case in cases if case.get("provenance") != "harvested"]
+    seed = [
+        case for case in cases if case.get("provenance") not in ("harvested", "controlled-mutation")
+    ]
 
     assert payload["schema"] == "workflows-verifier-pilot-corpus/v1"
     # Version keeps its adjudicated base; harvest runs append a "+harvestN" suffix.

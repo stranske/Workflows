@@ -189,6 +189,14 @@ when an earlier commit, patch, or push step failed.
 * [`maint-87-docs-drift-fix-agent.yml`](../../.github/workflows/maint-87-docs-drift-fix-agent.yml) runs the deterministic docs-drift check weekly and turns its output into bounded, agent-ready repair batches via `scripts/docs_drift_fix_agent.py`. Complements maint-48: that seeds an LLM semantic diff, this proves mechanical drift (dangling refs, workflow-inventory omissions). Scheduled runs are report-only; explicit `apply` dispatches create idempotent repair issues in a non-cancelling concurrency lane. Workflows retains the fleet-wide docs registry; each consumer receives only a local README/agent-guidance config.
 * [`maint-60-release.yml`](../../.github/workflows/maint-60-release.yml) creates GitHub releases automatically when version tags (`v*`) are pushed.
 * [`maint-61-release-please.yml`](../../.github/workflows/maint-61-release-please.yml) runs release-please on pushes to `main`, using the Workflows GitHub App token when configured, to maintain the Conventional Commits-driven Release PR, changelog, tags, and GitHub releases from the manifest seeded at `1.1.2`.
+Maint 68 and Maint 71 compare the rendered consumer delivery digest across main
+commits before refreshing canaries. Their shared renderer uses the manifest
+compiler, copied payload, repository scopes/removals and generated status-ignore
+block. Maint 71 provisions Python/PyYAML explicitly for this renderer. A disjoint
+payload change waits for the sealed cycle to finish, fail, or reach the one-hour
+bound; unchanged content preserves its reviewed head and seal. See the
+[refresh contract](../ops/CONSUMER_REPO_MAINTENANCE.md) for receipt and queue rules.
+
 ## Agents Control Plane
 
 Manual Agents Verifier dispatch supports `evidence_profile=expanded` for a
@@ -275,7 +283,7 @@ Scheduled health jobs keep the automation ecosystem aligned:
 * [`health-52-semgrep.yml`](../../.github/workflows/health-52-semgrep.yml) runs advisory Semgrep CE analysis for Python, GitHub Actions, default, and secrets rulesets, then uploads SARIF to code scanning when a report is produced (push, PR, weekly schedule).
 * [`health-53-scorecard.yml`](../../.github/workflows/health-53-scorecard.yml) runs the OpenSSF Scorecard supply-chain posture scan (report-only/advisory) and uploads findings to code scanning (push to main, `branch_protection_rule`, weekly schedule, manual dispatch). The weekly repo-review coordinator also consumes the published Scorecard API results as a human-gated supplemental candidate source (`scorecard-scan.json`).
 * [`health-67-integration-sync-check.yml`](../../.github/workflows/health-67-integration-sync-check.yml) validates that Workflows-Integration-Tests repo stays in sync with templates (push, `repository_dispatch`, daily schedule).
-* [`health-68-consumer-sync-drift.yml`](../../.github/workflows/health-68-consumer-sync-drift.yml) detects drift in registered consumer repos, maintains a transient alert only while drift is actionable, and closes the alert after a clean comparison (template/manifest changes, daily schedule, manual dispatch).
+* [`health-68-consumer-sync-drift.yml`](../../.github/workflows/health-68-consumer-sync-drift.yml) detects drift in registered consumer repos, maintains a transient alert only while drift is actionable, and closes the alert after a clean comparison (template/manifest changes, daily schedule, manual dispatch). Gate activity-type differences are reported separately as FYI, including create-only Gates and respecting manifest exclusions.
 * [`health-69-consumer-sync-shadow-evidence.yml`](../../.github/workflows/health-69-consumer-sync-shadow-evidence.yml) publishes the typed plan, a read-only non-promoting handoff artifact, and a typed `completion-evidence.json` record produced by the versioned `scripts/orchestrator_runtime/` rail (weekly schedule, main changes, manual dispatch).
 * [`health-70-validate-sync-manifest.yml`](../../.github/workflows/health-70-validate-sync-manifest.yml) validates that sync-manifest.yml is complete - ensures all sync-able files are declared (PR, push).
 * [`health-71-sync-health-check.yml`](../../.github/workflows/health-71-sync-health-check.yml) monitors sync workflow health daily - creates issues if all recent runs failed or sync is stale (daily schedule, manual dispatch).

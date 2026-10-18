@@ -12,6 +12,7 @@ import signal
 import subprocess
 import sys
 import tempfile
+import tomllib
 from pathlib import Path
 
 COMMAND_PREFIX = re.compile(r"^(?:pytest|python -m pytest|npm test|npm run|ruff|mypy|make)(?:\s|$)")
@@ -129,21 +130,47 @@ def run(commands: list[Command], cwd: str | Path) -> list[Result]:
 
 
 def prepare(commands: list[Command], cwd: Path) -> list[Result]:
-    """Provision the same conventional requirements files as the agent runners."""
+    """Prepare Python gates from project metadata or CI-style requirements."""
     setup = []
     if any(
         command.command.startswith(("pytest", "python -m pytest", "ruff", "mypy"))
         for command in commands
     ):
-        setup.append(f"{shlex.quote(sys.executable)} -m pip install pytest ruff mypy")
-        for name in (
-            "requirements.txt",
-            "requirements-dev.txt",
-            "tools/requirements.txt",
-            "scripts/requirements.txt",
-        ):
-            if (cwd / name).is_file():
-                setup.append(f"{shlex.quote(sys.executable)} -m pip install -r {name}")
+        python = shlex.quote(sys.executable)
+        tools = "pytest ruff mypy"
+        config_files = [
+            cwd / name for name in ("pyproject.toml", "pytest.ini", "setup.cfg", "tox.ini")
+        ]
+        if any(path.is_file() and "--cov" in path.read_text() for path in config_files):
+            tools += " pytest-cov"
+        setup.append(f"{python} -m pip install {tools}")
+        project = cwd / "pyproject.toml"
+        try:
+            metadata = tomllib.loads(project.read_text()) if project.is_file() else {}
+        except tomllib.TOMLDecodeError as error:
+            print(f"Gate install source warning: invalid pyproject.toml: {error}", flush=True)
+            metadata = {}
+        if "project" in metadata or "build-system" in metadata or (cwd / "setup.py").is_file():
+            extras = metadata.get("project", {}).get("optional-dependencies", {})
+            selected = [name for name in ("dev", "test") if name in extras]
+            target = ".[" + ",".join(selected) + "]" if selected else "."
+            print(f"Gate install source: editable project {target}", flush=True)
+            setup.append(f"{python} -m pip install -e {shlex.quote(target)}")
+        requirements = sorted(
+            {
+                path
+                for directory in (cwd, cwd / "tools", cwd / "scripts")
+                for pattern in ("requirements*.lock", "requirements*.txt")
+                for path in directory.glob(pattern)
+                if path.is_file()
+                and (path.suffix == ".lock" or not path.with_suffix(".lock").is_file())
+            }
+        )
+        for path in requirements:
+            name = str(path.relative_to(cwd))
+            print(f"Gate install source: requirements {name}", flush=True)
+            setup.append(f"{python} -m pip install -r {shlex.quote(name)}")
+        print(f"Gate install source: tools {tools}", flush=True)
     if any(command.command.startswith("npm ") for command in commands):
         setup.append("npm ci" if (cwd / "package-lock.json").is_file() else "npm install")
     for step in setup:

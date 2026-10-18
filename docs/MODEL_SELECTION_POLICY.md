@@ -180,6 +180,57 @@ records. Do not hand-enter aggregate rates or recommendation rankings.
   approval unreachable without hand-labelling roughly 22 cases. The 75-case total
   and every statistical gate still apply to the whole corpus; raise these floors
   toward 10 as owner-labelled cases accumulate. See issue #2819.
+
+  **Owner decision 2026-10-18 (making approval reachable).** The false-PASS gate is
+  computed over expected-NON_PASS cases, so at zero errors it needs 73 of them, while
+  realized outcomes supply about 8% (4 of 51), and the weekly harvest promoted nothing
+  in eight consecutive runs (the verifier-decision marker it joins on is only emitted
+  since about 2026-10-15, plus a 30-day stability wait). Three parameter changes follow:
+  (1) `approval_stage.controlled_mutation`: cases with `provenance: controlled-mutation`
+  (a real PASS PR whose evidence for one acceptance criterion is removed, objectively
+  NON_PASS) count toward the NON_PASS total and the false-PASS bound, are reported
+  apart from real cases, and may not replace them (at least
+  `minimum_real_non_pass_cases`, now 3, real NON_PASS cases must exist; set
+  `counts_toward_false_pass_bound` to false to go back to real evidence only);
+  (2) `missing-acceptance-criterion` is raised from 1 to 10 because mutations supply it
+  mechanically; (3) `follow-up-required` is lowered from 10 to 3 (representation)
+  because resolved verifier follow-ups are too rare to reach 10. `plan_model_eval`
+  reports `real_non_pass_cases` and `controlled_mutation_non_pass_cases` separately. Human approval
+  of any promotion is unchanged.
+
+  **Generated cases (issue #4113).** `tools/generate_mutation_cases.py` builds them from captured
+  verifier inputs with two mutations: `drop-named-file` removes the diff of a file the plan requires
+  (a newly added file named anywhere in Tasks or Acceptance Criteria, or a modified source file a
+  Tasks line names with a change verb; a modified file merely named in a run command is never
+  dropped because the base commit may already satisfy it), and `fail-ci-row` turns one passing CI row
+  into a failure, which the verifier input itself says disqualifies a PASS verdict. Source snapshots
+  live gzipped in `config/model_eval_snapshots/`; mutant cases are recipes (`mutation_recipe`) that
+  `load_case` re-derives, so they cost no storage and cannot drift from their source. Any merged PR
+  with a captured input can be a mutation source, because the mutant's NON_PASS truth does not depend
+  on the source's own verdict; sources outside the corpus are never corpus cases. Mutants are capped
+  at two file drops plus one CI failure per PR. `max_corpus_size` rises from 150 to 200 to hold them.
+
+  **Evaluable cases only (correction, 2026-10-18).** Scoring a judge needs an input the production
+  prompt itself calls sufficient. Its coverage check flags most retrospective captures as
+  insufficient (required acceptance evidence is not in the capture, or the local diff is
+  incomplete), and a correct judge then answers `UNVERIFIABLE_INPUT`: that measures the capture. In the
+  first generated corpus every strong judge "caught" every mutant, but with `UNVERIFIABLE_INPUT`
+  rather than by finding the defect, and 7 of 8 real PASS cases were rejected the same way. The
+  generator therefore keeps only mutants whose own input is sufficient (`coverage_sufficient`), the
+  planner counts only evaluable PASS and NON_PASS cases against the zero-error floors
+  (`evaluable_pass_cases`, `evaluable_non_pass_cases`), and the approval blockers say how many are
+  missing. Measured then: 27 of 128 captured sources (21%) were sufficient; 38 evaluable mutants,
+  41 evaluable NON_PASS and 16 evaluable PASS against floors of 73 and 35.
+
+  **Practical bounds (owner direction 2026-10-18).** Meeting 73 and 35 would have needed about
+  110 more captured PRs and a month of waiting for joined PASS cases, and the instruction was to make approval
+  achievable. At 95% confidence a zero-error run needs 73 cases for a 0.05 bound, 35 for 0.10, 22
+  for 0.15 and 16 for 0.20, so the approval gates are now false PASS <= 0.10 and false FAIL <= 0.20,
+  which the corpus meets today (41 evaluable NON_PASS against 35, 16 evaluable PASS against 16). A bound
+  states what the sample cannot rule out; approval stays a reversible, human-approved provisional
+  selection with rollback on any false PASS and live monitoring. The false-PASS bound stays tighter
+  because a false PASS costs safety and a false FAIL costs rework. Tighten both as evaluable cases
+  accumulate (`bounds_note` in the policy).
 - Report Wilson 95% confidence intervals for task success, false PASS, false
   FAIL, and schema errors.
 - Require the configured bounds and a paired success result no more than two

@@ -6,6 +6,14 @@
 const DELIVERY_RECORD_SCHEMA = 'sync-pr-delivery-record/v1';
 const DELIVERY_RECORD_MARKER = 'sync-pr-delivery-record:v1';
 const DELIVERY_STATES = new Set(['staging', 'reviewing', 'sealed']);
+// The seal action emits these through mergeEligibility; Maint 71 consumes the
+// same vocabulary when proving that Gate failed only on a seal precondition.
+const SEAL_PRECONDITION_REASONS = Object.freeze({
+  staging: 'delivery_not_sealed:staging',
+  reviewing: 'delivery_not_sealed:reviewing',
+  legacy: 'delivery_not_sealed:legacy',
+  head_mismatch: 'sealed_head_mismatch',
+});
 
 function clean(value) {
   return String(value || '').trim();
@@ -130,11 +138,11 @@ function mergeEligibility(
   if (requireSealed && normalized.delivery_state !== 'sealed') {
     return {
       eligible: false,
-      reason: `delivery_not_sealed:${normalized.delivery_state || 'legacy'}`,
+      reason: SEAL_PRECONDITION_REASONS[normalized.delivery_state || 'legacy'],
     };
   }
   if (requireSealed && clean(headSha) && normalized.sealed_head_sha !== clean(headSha)) {
-    return { eligible: false, reason: 'sealed_head_mismatch' };
+    return { eligible: false, reason: SEAL_PRECONDITION_REASONS.head_mismatch };
   }
   return { eligible: true, reason: 'current_unexpired' };
 }
@@ -143,6 +151,7 @@ module.exports = {
   DELIVERY_RECORD_SCHEMA,
   DELIVERY_RECORD_MARKER,
   DELIVERY_STATES,
+  SEAL_PRECONDITION_REASONS,
   normalizeRecord,
   deliveryRecordErrors,
   formatDeliveryRecord,

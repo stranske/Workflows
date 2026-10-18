@@ -1,0 +1,6271 @@
+{
+  "schema": "workflows-judge-ensemble-analysis/v1",
+  "cases": 8,
+  "non_pass_cases": 4,
+  "judges": [
+    {
+      "approval_gates": {
+        "minimum_adjudicated_cases": false,
+        "minimum_cases_per_category": false,
+        "task_success_rate_wilson_lower_bound": false,
+        "false_pass_rate_wilson_upper_bound": false,
+        "false_fail_rate_wilson_upper_bound": false,
+        "schema_error_rate_wilson_upper_bound": false,
+        "paired_success_noninferiority": false
+      },
+      "judge": "claude-cli",
+      "cases": 8,
+      "correct": 4,
+      "false_pass": 2,
+      "false_fail": 2,
+      "false_pass_wilson_upper_bound": 0.85,
+      "invalid": 0,
+      "authority_blockers": [
+        "2 false PASS observed",
+        "false-PASS upper bound 0.85 exceeds 0.05 on 4 NON_PASS case(s); 73 are needed with zero errors",
+        "approval gate failed or unmeasured: minimum_adjudicated_cases",
+        "approval gate failed or unmeasured: minimum_cases_per_category",
+        "approval gate failed or unmeasured: task_success_rate_wilson_lower_bound",
+        "approval gate failed or unmeasured: false_pass_rate_wilson_upper_bound",
+        "approval gate failed or unmeasured: false_fail_rate_wilson_upper_bound",
+        "approval gate failed or unmeasured: schema_error_rate_wilson_upper_bound",
+        "approval gate failed or unmeasured: paired_success_noninferiority"
+      ],
+      "may_hold_pass_authority": false
+    },
+    {
+      "approval_gates": {
+        "minimum_adjudicated_cases": false,
+        "minimum_cases_per_category": false,
+        "task_success_rate_wilson_lower_bound": false,
+        "false_pass_rate_wilson_upper_bound": false,
+        "false_fail_rate_wilson_upper_bound": false,
+        "schema_error_rate_wilson_upper_bound": false,
+        "paired_success_noninferiority": false
+      },
+      "judge": "cursor-cli",
+      "cases": 8,
+      "correct": 5,
+      "false_pass": 2,
+      "false_fail": 1,
+      "false_pass_wilson_upper_bound": 0.85,
+      "invalid": 0,
+      "authority_blockers": [
+        "2 false PASS observed",
+        "false-PASS upper bound 0.85 exceeds 0.05 on 4 NON_PASS case(s); 73 are needed with zero errors",
+        "approval gate failed or unmeasured: minimum_adjudicated_cases",
+        "approval gate failed or unmeasured: minimum_cases_per_category",
+        "approval gate failed or unmeasured: task_success_rate_wilson_lower_bound",
+        "approval gate failed or unmeasured: false_pass_rate_wilson_upper_bound",
+        "approval gate failed or unmeasured: false_fail_rate_wilson_upper_bound",
+        "approval gate failed or unmeasured: schema_error_rate_wilson_upper_bound",
+        "approval gate failed or unmeasured: paired_success_noninferiority"
+      ],
+      "may_hold_pass_authority": false
+    },
+    {
+      "approval_gates": {
+        "minimum_adjudicated_cases": false,
+        "minimum_cases_per_category": false,
+        "task_success_rate_wilson_lower_bound": false,
+        "false_pass_rate_wilson_upper_bound": false,
+        "false_fail_rate_wilson_upper_bound": false,
+        "schema_error_rate_wilson_upper_bound": false,
+        "paired_success_noninferiority": false
+      },
+      "judge": "gpt-5.6-terra",
+      "cases": 8,
+      "correct": 6,
+      "false_pass": 0,
+      "false_fail": 2,
+      "false_pass_wilson_upper_bound": 0.4899,
+      "invalid": 0,
+      "authority_blockers": [
+        "false-PASS upper bound 0.4899 exceeds 0.05 on 4 NON_PASS case(s); 73 are needed with zero errors",
+        "approval gate failed or unmeasured: minimum_adjudicated_cases",
+        "approval gate failed or unmeasured: minimum_cases_per_category",
+        "approval gate failed or unmeasured: task_success_rate_wilson_lower_bound",
+        "approval gate failed or unmeasured: false_pass_rate_wilson_upper_bound",
+        "approval gate failed or unmeasured: false_fail_rate_wilson_upper_bound",
+        "approval gate failed or unmeasured: schema_error_rate_wilson_upper_bound",
+        "approval gate failed or unmeasured: paired_success_noninferiority"
+      ],
+      "may_hold_pass_authority": false
+    },
+    {
+      "approval_gates": {
+        "minimum_adjudicated_cases": false,
+        "minimum_cases_per_category": false,
+        "task_success_rate_wilson_lower_bound": false,
+        "false_pass_rate_wilson_upper_bound": false,
+        "false_fail_rate_wilson_upper_bound": false,
+        "schema_error_rate_wilson_upper_bound": false,
+        "paired_success_noninferiority": false
+      },
+      "judge": "gpt-6-luna",
+      "cases": 8,
+      "correct": 6,
+      "false_pass": 0,
+      "false_fail": 2,
+      "false_pass_wilson_upper_bound": 0.4899,
+      "invalid": 0,
+      "authority_blockers": [
+        "false-PASS upper bound 0.4899 exceeds 0.05 on 4 NON_PASS case(s); 73 are needed with zero errors",
+        "approval gate failed or unmeasured: minimum_adjudicated_cases",
+        "approval gate failed or unmeasured: minimum_cases_per_category",
+        "approval gate failed or unmeasured: task_success_rate_wilson_lower_bound",
+        "approval gate failed or unmeasured: false_pass_rate_wilson_upper_bound",
+        "approval gate failed or unmeasured: false_fail_rate_wilson_upper_bound",
+        "approval gate failed or unmeasured: schema_error_rate_wilson_upper_bound",
+        "approval gate failed or unmeasured: paired_success_noninferiority"
+      ],
+      "may_hold_pass_authority": false
+    },
+    {
+      "approval_gates": {
+        "minimum_adjudicated_cases": false,
+        "minimum_cases_per_category": false,
+        "task_success_rate_wilson_lower_bound": false,
+        "false_pass_rate_wilson_upper_bound": false,
+        "false_fail_rate_wilson_upper_bound": false,
+        "schema_error_rate_wilson_upper_bound": false,
+        "paired_success_noninferiority": false
+      },
+      "judge": "muse-api",
+      "cases": 8,
+      "correct": 4,
+      "false_pass": 4,
+      "false_fail": 0,
+      "false_pass_wilson_upper_bound": 1.0,
+      "invalid": 0,
+      "authority_blockers": [
+        "4 false PASS observed",
+        "false-PASS upper bound 1.0 exceeds 0.05 on 4 NON_PASS case(s); 73 are needed with zero errors",
+        "approval gate failed or unmeasured: minimum_adjudicated_cases",
+        "approval gate failed or unmeasured: minimum_cases_per_category",
+        "approval gate failed or unmeasured: task_success_rate_wilson_lower_bound",
+        "approval gate failed or unmeasured: false_pass_rate_wilson_upper_bound",
+        "approval gate failed or unmeasured: false_fail_rate_wilson_upper_bound",
+        "approval gate failed or unmeasured: schema_error_rate_wilson_upper_bound",
+        "approval gate failed or unmeasured: paired_success_noninferiority"
+      ],
+      "may_hold_pass_authority": false
+    },
+    {
+      "approval_gates": {
+        "minimum_adjudicated_cases": false,
+        "minimum_cases_per_category": false,
+        "task_success_rate_wilson_lower_bound": false,
+        "false_pass_rate_wilson_upper_bound": false,
+        "false_fail_rate_wilson_upper_bound": false,
+        "schema_error_rate_wilson_upper_bound": false,
+        "paired_success_noninferiority": false
+      },
+      "judge": "muse-api:muse-spark-1.2-contributor",
+      "cases": 8,
+      "correct": 6,
+      "false_pass": 2,
+      "false_fail": 0,
+      "false_pass_wilson_upper_bound": 0.85,
+      "invalid": 0,
+      "authority_blockers": [
+        "2 false PASS observed",
+        "false-PASS upper bound 0.85 exceeds 0.05 on 4 NON_PASS case(s); 73 are needed with zero errors",
+        "approval gate failed or unmeasured: minimum_adjudicated_cases",
+        "approval gate failed or unmeasured: minimum_cases_per_category",
+        "approval gate failed or unmeasured: task_success_rate_wilson_lower_bound",
+        "approval gate failed or unmeasured: false_pass_rate_wilson_upper_bound",
+        "approval gate failed or unmeasured: false_fail_rate_wilson_upper_bound",
+        "approval gate failed or unmeasured: schema_error_rate_wilson_upper_bound",
+        "approval gate failed or unmeasured: paired_success_noninferiority"
+      ],
+      "may_hold_pass_authority": false
+    },
+    {
+      "approval_gates": {
+        "minimum_adjudicated_cases": false,
+        "minimum_cases_per_category": false,
+        "task_success_rate_wilson_lower_bound": false,
+        "false_pass_rate_wilson_upper_bound": false,
+        "false_fail_rate_wilson_upper_bound": false,
+        "schema_error_rate_wilson_upper_bound": false,
+        "paired_success_noninferiority": false
+      },
+      "judge": "muse-api:muse-spark-1.3",
+      "cases": 8,
+      "correct": 4,
+      "false_pass": 2,
+      "false_fail": 2,
+      "false_pass_wilson_upper_bound": 0.85,
+      "invalid": 0,
+      "authority_blockers": [
+        "2 false PASS observed",
+        "false-PASS upper bound 0.85 exceeds 0.05 on 4 NON_PASS case(s); 73 are needed with zero errors",
+        "approval gate failed or unmeasured: minimum_adjudicated_cases",
+        "approval gate failed or unmeasured: minimum_cases_per_category",
+        "approval gate failed or unmeasured: task_success_rate_wilson_lower_bound",
+        "approval gate failed or unmeasured: false_pass_rate_wilson_upper_bound",
+        "approval gate failed or unmeasured: false_fail_rate_wilson_upper_bound",
+        "approval gate failed or unmeasured: schema_error_rate_wilson_upper_bound",
+        "approval gate failed or unmeasured: paired_success_noninferiority"
+      ],
+      "may_hold_pass_authority": false
+    },
+    {
+      "approval_gates": {
+        "minimum_adjudicated_cases": false,
+        "minimum_cases_per_category": false,
+        "task_success_rate_wilson_lower_bound": false,
+        "false_pass_rate_wilson_upper_bound": false,
+        "false_fail_rate_wilson_upper_bound": false,
+        "schema_error_rate_wilson_upper_bound": false,
+        "paired_success_noninferiority": false
+      },
+      "judge": "muse-api:muse-spark-1.3-contributor",
+      "cases": 8,
+      "correct": 3,
+      "false_pass": 3,
+      "false_fail": 2,
+      "false_pass_wilson_upper_bound": 0.9544,
+      "invalid": 0,
+      "authority_blockers": [
+        "3 false PASS observed",
+        "false-PASS upper bound 0.9544 exceeds 0.05 on 4 NON_PASS case(s); 73 are needed with zero errors",
+        "approval gate failed or unmeasured: minimum_adjudicated_cases",
+        "approval gate failed or unmeasured: minimum_cases_per_category",
+        "approval gate failed or unmeasured: task_success_rate_wilson_lower_bound",
+        "approval gate failed or unmeasured: false_pass_rate_wilson_upper_bound",
+        "approval gate failed or unmeasured: false_fail_rate_wilson_upper_bound",
+        "approval gate failed or unmeasured: schema_error_rate_wilson_upper_bound",
+        "approval gate failed or unmeasured: paired_success_noninferiority"
+      ],
+      "may_hold_pass_authority": false
+    },
+    {
+      "approval_gates": {
+        "minimum_adjudicated_cases": false,
+        "minimum_cases_per_category": false,
+        "task_success_rate_wilson_lower_bound": false,
+        "false_pass_rate_wilson_upper_bound": false,
+        "false_fail_rate_wilson_upper_bound": false,
+        "schema_error_rate_wilson_upper_bound": false,
+        "paired_success_noninferiority": false
+      },
+      "judge": "muse-api:muse-wonder-1.0",
+      "cases": 8,
+      "correct": 4,
+      "false_pass": 2,
+      "false_fail": 2,
+      "false_pass_wilson_upper_bound": 0.85,
+      "invalid": 0,
+      "authority_blockers": [
+        "2 false PASS observed",
+        "false-PASS upper bound 0.85 exceeds 0.05 on 4 NON_PASS case(s); 73 are needed with zero errors",
+        "approval gate failed or unmeasured: minimum_adjudicated_cases",
+        "approval gate failed or unmeasured: minimum_cases_per_category",
+        "approval gate failed or unmeasured: task_success_rate_wilson_lower_bound",
+        "approval gate failed or unmeasured: false_pass_rate_wilson_upper_bound",
+        "approval gate failed or unmeasured: false_fail_rate_wilson_upper_bound",
+        "approval gate failed or unmeasured: schema_error_rate_wilson_upper_bound",
+        "approval gate failed or unmeasured: paired_success_noninferiority"
+      ],
+      "may_hold_pass_authority": false
+    }
+  ],
+  "pairs": [
+    {
+      "judges": [
+        "claude-cli",
+        "cursor-cli"
+      ],
+      "cases": 8,
+      "agreement": 0.625,
+      "both_wrong": 2,
+      "strict_and": {
+        "cases": 8,
+        "correct": 5,
+        "false_pass": 1,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.6994
+      }
+    },
+    {
+      "judges": [
+        "claude-cli",
+        "gpt-5.6-terra"
+      ],
+      "cases": 8,
+      "agreement": 0.75,
+      "both_wrong": 2,
+      "strict_and": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      }
+    },
+    {
+      "judges": [
+        "claude-cli",
+        "gpt-6-luna"
+      ],
+      "cases": 8,
+      "agreement": 0.75,
+      "both_wrong": 2,
+      "strict_and": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      }
+    },
+    {
+      "judges": [
+        "claude-cli",
+        "muse-api"
+      ],
+      "cases": 8,
+      "agreement": 0.5,
+      "both_wrong": 2,
+      "strict_and": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      }
+    },
+    {
+      "judges": [
+        "claude-cli",
+        "muse-api:muse-spark-1.2-contributor"
+      ],
+      "cases": 8,
+      "agreement": 0.75,
+      "both_wrong": 2,
+      "strict_and": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      }
+    },
+    {
+      "judges": [
+        "claude-cli",
+        "muse-api:muse-spark-1.3"
+      ],
+      "cases": 8,
+      "agreement": 1.0,
+      "both_wrong": 4,
+      "strict_and": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      }
+    },
+    {
+      "judges": [
+        "claude-cli",
+        "muse-api:muse-spark-1.3-contributor"
+      ],
+      "cases": 8,
+      "agreement": 0.875,
+      "both_wrong": 4,
+      "strict_and": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      }
+    },
+    {
+      "judges": [
+        "claude-cli",
+        "muse-api:muse-wonder-1.0"
+      ],
+      "cases": 8,
+      "agreement": 1.0,
+      "both_wrong": 4,
+      "strict_and": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      }
+    },
+    {
+      "judges": [
+        "cursor-cli",
+        "gpt-5.6-terra"
+      ],
+      "cases": 8,
+      "agreement": 0.625,
+      "both_wrong": 1,
+      "strict_and": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      }
+    },
+    {
+      "judges": [
+        "cursor-cli",
+        "gpt-6-luna"
+      ],
+      "cases": 8,
+      "agreement": 0.625,
+      "both_wrong": 1,
+      "strict_and": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      }
+    },
+    {
+      "judges": [
+        "cursor-cli",
+        "muse-api"
+      ],
+      "cases": 8,
+      "agreement": 0.625,
+      "both_wrong": 2,
+      "strict_and": {
+        "cases": 8,
+        "correct": 5,
+        "false_pass": 2,
+        "false_fail": 1,
+        "false_pass_wilson_upper_bound": 0.85
+      }
+    },
+    {
+      "judges": [
+        "cursor-cli",
+        "muse-api:muse-spark-1.2-contributor"
+      ],
+      "cases": 8,
+      "agreement": 0.625,
+      "both_wrong": 1,
+      "strict_and": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 1,
+        "false_fail": 1,
+        "false_pass_wilson_upper_bound": 0.6994
+      }
+    },
+    {
+      "judges": [
+        "cursor-cli",
+        "muse-api:muse-spark-1.3"
+      ],
+      "cases": 8,
+      "agreement": 0.625,
+      "both_wrong": 2,
+      "strict_and": {
+        "cases": 8,
+        "correct": 5,
+        "false_pass": 1,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.6994
+      }
+    },
+    {
+      "judges": [
+        "cursor-cli",
+        "muse-api:muse-spark-1.3-contributor"
+      ],
+      "cases": 8,
+      "agreement": 0.5,
+      "both_wrong": 2,
+      "strict_and": {
+        "cases": 8,
+        "correct": 5,
+        "false_pass": 1,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.6994
+      }
+    },
+    {
+      "judges": [
+        "cursor-cli",
+        "muse-api:muse-wonder-1.0"
+      ],
+      "cases": 8,
+      "agreement": 0.625,
+      "both_wrong": 2,
+      "strict_and": {
+        "cases": 8,
+        "correct": 5,
+        "false_pass": 1,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.6994
+      }
+    },
+    {
+      "judges": [
+        "gpt-5.6-terra",
+        "gpt-6-luna"
+      ],
+      "cases": 8,
+      "agreement": 1.0,
+      "both_wrong": 2,
+      "strict_and": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      }
+    },
+    {
+      "judges": [
+        "gpt-5.6-terra",
+        "muse-api"
+      ],
+      "cases": 8,
+      "agreement": 0.25,
+      "both_wrong": 0,
+      "strict_and": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      }
+    },
+    {
+      "judges": [
+        "gpt-5.6-terra",
+        "muse-api:muse-spark-1.2-contributor"
+      ],
+      "cases": 8,
+      "agreement": 0.5,
+      "both_wrong": 0,
+      "strict_and": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      }
+    },
+    {
+      "judges": [
+        "gpt-5.6-terra",
+        "muse-api:muse-spark-1.3"
+      ],
+      "cases": 8,
+      "agreement": 0.75,
+      "both_wrong": 2,
+      "strict_and": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      }
+    },
+    {
+      "judges": [
+        "gpt-5.6-terra",
+        "muse-api:muse-spark-1.3-contributor"
+      ],
+      "cases": 8,
+      "agreement": 0.625,
+      "both_wrong": 2,
+      "strict_and": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      }
+    },
+    {
+      "judges": [
+        "gpt-5.6-terra",
+        "muse-api:muse-wonder-1.0"
+      ],
+      "cases": 8,
+      "agreement": 0.75,
+      "both_wrong": 2,
+      "strict_and": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      }
+    },
+    {
+      "judges": [
+        "gpt-6-luna",
+        "muse-api"
+      ],
+      "cases": 8,
+      "agreement": 0.25,
+      "both_wrong": 0,
+      "strict_and": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      }
+    },
+    {
+      "judges": [
+        "gpt-6-luna",
+        "muse-api:muse-spark-1.2-contributor"
+      ],
+      "cases": 8,
+      "agreement": 0.5,
+      "both_wrong": 0,
+      "strict_and": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      }
+    },
+    {
+      "judges": [
+        "gpt-6-luna",
+        "muse-api:muse-spark-1.3"
+      ],
+      "cases": 8,
+      "agreement": 0.75,
+      "both_wrong": 2,
+      "strict_and": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      }
+    },
+    {
+      "judges": [
+        "gpt-6-luna",
+        "muse-api:muse-spark-1.3-contributor"
+      ],
+      "cases": 8,
+      "agreement": 0.625,
+      "both_wrong": 2,
+      "strict_and": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      }
+    },
+    {
+      "judges": [
+        "gpt-6-luna",
+        "muse-api:muse-wonder-1.0"
+      ],
+      "cases": 8,
+      "agreement": 0.75,
+      "both_wrong": 2,
+      "strict_and": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      }
+    },
+    {
+      "judges": [
+        "muse-api",
+        "muse-api:muse-spark-1.2-contributor"
+      ],
+      "cases": 8,
+      "agreement": 0.75,
+      "both_wrong": 2,
+      "strict_and": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 2,
+        "false_fail": 0,
+        "false_pass_wilson_upper_bound": 0.85
+      }
+    },
+    {
+      "judges": [
+        "muse-api",
+        "muse-api:muse-spark-1.3"
+      ],
+      "cases": 8,
+      "agreement": 0.5,
+      "both_wrong": 2,
+      "strict_and": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      }
+    },
+    {
+      "judges": [
+        "muse-api",
+        "muse-api:muse-spark-1.3-contributor"
+      ],
+      "cases": 8,
+      "agreement": 0.625,
+      "both_wrong": 3,
+      "strict_and": {
+        "cases": 8,
+        "correct": 3,
+        "false_pass": 3,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.9544
+      }
+    },
+    {
+      "judges": [
+        "muse-api",
+        "muse-api:muse-wonder-1.0"
+      ],
+      "cases": 8,
+      "agreement": 0.5,
+      "both_wrong": 2,
+      "strict_and": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      }
+    },
+    {
+      "judges": [
+        "muse-api:muse-spark-1.2-contributor",
+        "muse-api:muse-spark-1.3"
+      ],
+      "cases": 8,
+      "agreement": 0.75,
+      "both_wrong": 2,
+      "strict_and": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      }
+    },
+    {
+      "judges": [
+        "muse-api:muse-spark-1.2-contributor",
+        "muse-api:muse-spark-1.3-contributor"
+      ],
+      "cases": 8,
+      "agreement": 0.625,
+      "both_wrong": 2,
+      "strict_and": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      }
+    },
+    {
+      "judges": [
+        "muse-api:muse-spark-1.2-contributor",
+        "muse-api:muse-wonder-1.0"
+      ],
+      "cases": 8,
+      "agreement": 0.75,
+      "both_wrong": 2,
+      "strict_and": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      }
+    },
+    {
+      "judges": [
+        "muse-api:muse-spark-1.3",
+        "muse-api:muse-spark-1.3-contributor"
+      ],
+      "cases": 8,
+      "agreement": 0.875,
+      "both_wrong": 4,
+      "strict_and": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      }
+    },
+    {
+      "judges": [
+        "muse-api:muse-spark-1.3",
+        "muse-api:muse-wonder-1.0"
+      ],
+      "cases": 8,
+      "agreement": 1.0,
+      "both_wrong": 4,
+      "strict_and": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      }
+    },
+    {
+      "judges": [
+        "muse-api:muse-spark-1.3-contributor",
+        "muse-api:muse-wonder-1.0"
+      ],
+      "cases": 8,
+      "agreement": 0.875,
+      "both_wrong": 4,
+      "strict_and": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      }
+    }
+  ],
+  "tie_breaks": [
+    {
+      "pair": [
+        "claude-cli",
+        "cursor-cli"
+      ],
+      "tie_breaker": "gpt-5.6-terra",
+      "cases": 8,
+      "disagreements": 2,
+      "tie_breaker_right_on_disagreements": 2,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "claude-cli",
+        "cursor-cli"
+      ],
+      "tie_breaker": "gpt-6-luna",
+      "cases": 8,
+      "disagreements": 2,
+      "tie_breaker_right_on_disagreements": 2,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "claude-cli",
+        "cursor-cli"
+      ],
+      "tie_breaker": "muse-api",
+      "cases": 8,
+      "disagreements": 2,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 3,
+        "false_pass": 3,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.9544
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "claude-cli",
+        "cursor-cli"
+      ],
+      "tie_breaker": "muse-api:muse-spark-1.2-contributor",
+      "cases": 8,
+      "disagreements": 2,
+      "tie_breaker_right_on_disagreements": 1,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "claude-cli",
+        "cursor-cli"
+      ],
+      "tie_breaker": "muse-api:muse-spark-1.3",
+      "cases": 8,
+      "disagreements": 2,
+      "tie_breaker_right_on_disagreements": 1,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "claude-cli",
+        "cursor-cli"
+      ],
+      "tie_breaker": "muse-api:muse-spark-1.3-contributor",
+      "cases": 8,
+      "disagreements": 2,
+      "tie_breaker_right_on_disagreements": 1,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "claude-cli",
+        "cursor-cli"
+      ],
+      "tie_breaker": "muse-api:muse-wonder-1.0",
+      "cases": 8,
+      "disagreements": 2,
+      "tie_breaker_right_on_disagreements": 1,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "claude-cli",
+        "gpt-5.6-terra"
+      ],
+      "tie_breaker": "cursor-cli",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "claude-cli",
+        "gpt-5.6-terra"
+      ],
+      "tie_breaker": "gpt-6-luna",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "claude-cli",
+        "gpt-5.6-terra"
+      ],
+      "tie_breaker": "muse-api",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "claude-cli",
+        "gpt-5.6-terra"
+      ],
+      "tie_breaker": "muse-api:muse-spark-1.2-contributor",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "claude-cli",
+        "gpt-5.6-terra"
+      ],
+      "tie_breaker": "muse-api:muse-spark-1.3",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "claude-cli",
+        "gpt-5.6-terra"
+      ],
+      "tie_breaker": "muse-api:muse-spark-1.3-contributor",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "claude-cli",
+        "gpt-5.6-terra"
+      ],
+      "tie_breaker": "muse-api:muse-wonder-1.0",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "claude-cli",
+        "gpt-6-luna"
+      ],
+      "tie_breaker": "cursor-cli",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "claude-cli",
+        "gpt-6-luna"
+      ],
+      "tie_breaker": "gpt-5.6-terra",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "claude-cli",
+        "gpt-6-luna"
+      ],
+      "tie_breaker": "muse-api",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "claude-cli",
+        "gpt-6-luna"
+      ],
+      "tie_breaker": "muse-api:muse-spark-1.2-contributor",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "claude-cli",
+        "gpt-6-luna"
+      ],
+      "tie_breaker": "muse-api:muse-spark-1.3",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "claude-cli",
+        "gpt-6-luna"
+      ],
+      "tie_breaker": "muse-api:muse-spark-1.3-contributor",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "claude-cli",
+        "gpt-6-luna"
+      ],
+      "tie_breaker": "muse-api:muse-wonder-1.0",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "claude-cli",
+        "muse-api"
+      ],
+      "tie_breaker": "cursor-cli",
+      "cases": 8,
+      "disagreements": 2,
+      "tie_breaker_right_on_disagreements": 1,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 3,
+        "false_pass": 3,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.9544
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "claude-cli",
+        "muse-api"
+      ],
+      "tie_breaker": "gpt-5.6-terra",
+      "cases": 8,
+      "disagreements": 2,
+      "tie_breaker_right_on_disagreements": 2,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "claude-cli",
+        "muse-api"
+      ],
+      "tie_breaker": "gpt-6-luna",
+      "cases": 8,
+      "disagreements": 2,
+      "tie_breaker_right_on_disagreements": 2,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "claude-cli",
+        "muse-api"
+      ],
+      "tie_breaker": "muse-api:muse-spark-1.2-contributor",
+      "cases": 8,
+      "disagreements": 2,
+      "tie_breaker_right_on_disagreements": 2,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "claude-cli",
+        "muse-api"
+      ],
+      "tie_breaker": "muse-api:muse-spark-1.3",
+      "cases": 8,
+      "disagreements": 2,
+      "tie_breaker_right_on_disagreements": 2,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "claude-cli",
+        "muse-api"
+      ],
+      "tie_breaker": "muse-api:muse-spark-1.3-contributor",
+      "cases": 8,
+      "disagreements": 2,
+      "tie_breaker_right_on_disagreements": 1,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 3,
+        "false_pass": 3,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.9544
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "claude-cli",
+        "muse-api"
+      ],
+      "tie_breaker": "muse-api:muse-wonder-1.0",
+      "cases": 8,
+      "disagreements": 2,
+      "tie_breaker_right_on_disagreements": 2,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "claude-cli",
+        "muse-api:muse-spark-1.2-contributor"
+      ],
+      "tie_breaker": "cursor-cli",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "claude-cli",
+        "muse-api:muse-spark-1.2-contributor"
+      ],
+      "tie_breaker": "gpt-5.6-terra",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "claude-cli",
+        "muse-api:muse-spark-1.2-contributor"
+      ],
+      "tie_breaker": "gpt-6-luna",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "claude-cli",
+        "muse-api:muse-spark-1.2-contributor"
+      ],
+      "tie_breaker": "muse-api",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "claude-cli",
+        "muse-api:muse-spark-1.2-contributor"
+      ],
+      "tie_breaker": "muse-api:muse-spark-1.3",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "claude-cli",
+        "muse-api:muse-spark-1.2-contributor"
+      ],
+      "tie_breaker": "muse-api:muse-spark-1.3-contributor",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "claude-cli",
+        "muse-api:muse-spark-1.2-contributor"
+      ],
+      "tie_breaker": "muse-api:muse-wonder-1.0",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "claude-cli",
+        "muse-api:muse-spark-1.3"
+      ],
+      "tie_breaker": "cursor-cli",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "claude-cli",
+        "muse-api:muse-spark-1.3"
+      ],
+      "tie_breaker": "gpt-5.6-terra",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "claude-cli",
+        "muse-api:muse-spark-1.3"
+      ],
+      "tie_breaker": "gpt-6-luna",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "claude-cli",
+        "muse-api:muse-spark-1.3"
+      ],
+      "tie_breaker": "muse-api",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "claude-cli",
+        "muse-api:muse-spark-1.3"
+      ],
+      "tie_breaker": "muse-api:muse-spark-1.2-contributor",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "claude-cli",
+        "muse-api:muse-spark-1.3"
+      ],
+      "tie_breaker": "muse-api:muse-spark-1.3-contributor",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "claude-cli",
+        "muse-api:muse-spark-1.3"
+      ],
+      "tie_breaker": "muse-api:muse-wonder-1.0",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "claude-cli",
+        "muse-api:muse-spark-1.3-contributor"
+      ],
+      "tie_breaker": "cursor-cli",
+      "cases": 8,
+      "disagreements": 1,
+      "tie_breaker_right_on_disagreements": 1,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "claude-cli",
+        "muse-api:muse-spark-1.3-contributor"
+      ],
+      "tie_breaker": "gpt-5.6-terra",
+      "cases": 8,
+      "disagreements": 1,
+      "tie_breaker_right_on_disagreements": 1,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "claude-cli",
+        "muse-api:muse-spark-1.3-contributor"
+      ],
+      "tie_breaker": "gpt-6-luna",
+      "cases": 8,
+      "disagreements": 1,
+      "tie_breaker_right_on_disagreements": 1,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "claude-cli",
+        "muse-api:muse-spark-1.3-contributor"
+      ],
+      "tie_breaker": "muse-api",
+      "cases": 8,
+      "disagreements": 1,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 3,
+        "false_pass": 3,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.9544
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "claude-cli",
+        "muse-api:muse-spark-1.3-contributor"
+      ],
+      "tie_breaker": "muse-api:muse-spark-1.2-contributor",
+      "cases": 8,
+      "disagreements": 1,
+      "tie_breaker_right_on_disagreements": 1,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "claude-cli",
+        "muse-api:muse-spark-1.3-contributor"
+      ],
+      "tie_breaker": "muse-api:muse-spark-1.3",
+      "cases": 8,
+      "disagreements": 1,
+      "tie_breaker_right_on_disagreements": 1,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "claude-cli",
+        "muse-api:muse-spark-1.3-contributor"
+      ],
+      "tie_breaker": "muse-api:muse-wonder-1.0",
+      "cases": 8,
+      "disagreements": 1,
+      "tie_breaker_right_on_disagreements": 1,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "claude-cli",
+        "muse-api:muse-wonder-1.0"
+      ],
+      "tie_breaker": "cursor-cli",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "claude-cli",
+        "muse-api:muse-wonder-1.0"
+      ],
+      "tie_breaker": "gpt-5.6-terra",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "claude-cli",
+        "muse-api:muse-wonder-1.0"
+      ],
+      "tie_breaker": "gpt-6-luna",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "claude-cli",
+        "muse-api:muse-wonder-1.0"
+      ],
+      "tie_breaker": "muse-api",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "claude-cli",
+        "muse-api:muse-wonder-1.0"
+      ],
+      "tie_breaker": "muse-api:muse-spark-1.2-contributor",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "claude-cli",
+        "muse-api:muse-wonder-1.0"
+      ],
+      "tie_breaker": "muse-api:muse-spark-1.3",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "claude-cli",
+        "muse-api:muse-wonder-1.0"
+      ],
+      "tie_breaker": "muse-api:muse-spark-1.3-contributor",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "cursor-cli",
+        "gpt-5.6-terra"
+      ],
+      "tie_breaker": "claude-cli",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "cursor-cli",
+        "gpt-5.6-terra"
+      ],
+      "tie_breaker": "gpt-6-luna",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "cursor-cli",
+        "gpt-5.6-terra"
+      ],
+      "tie_breaker": "muse-api",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "cursor-cli",
+        "gpt-5.6-terra"
+      ],
+      "tie_breaker": "muse-api:muse-spark-1.2-contributor",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "cursor-cli",
+        "gpt-5.6-terra"
+      ],
+      "tie_breaker": "muse-api:muse-spark-1.3",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "cursor-cli",
+        "gpt-5.6-terra"
+      ],
+      "tie_breaker": "muse-api:muse-spark-1.3-contributor",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "cursor-cli",
+        "gpt-5.6-terra"
+      ],
+      "tie_breaker": "muse-api:muse-wonder-1.0",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "cursor-cli",
+        "gpt-6-luna"
+      ],
+      "tie_breaker": "claude-cli",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "cursor-cli",
+        "gpt-6-luna"
+      ],
+      "tie_breaker": "gpt-5.6-terra",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "cursor-cli",
+        "gpt-6-luna"
+      ],
+      "tie_breaker": "muse-api",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "cursor-cli",
+        "gpt-6-luna"
+      ],
+      "tie_breaker": "muse-api:muse-spark-1.2-contributor",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "cursor-cli",
+        "gpt-6-luna"
+      ],
+      "tie_breaker": "muse-api:muse-spark-1.3",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "cursor-cli",
+        "gpt-6-luna"
+      ],
+      "tie_breaker": "muse-api:muse-spark-1.3-contributor",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "cursor-cli",
+        "gpt-6-luna"
+      ],
+      "tie_breaker": "muse-api:muse-wonder-1.0",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "cursor-cli",
+        "muse-api"
+      ],
+      "tie_breaker": "claude-cli",
+      "cases": 8,
+      "disagreements": 2,
+      "tie_breaker_right_on_disagreements": 1,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 3,
+        "false_pass": 3,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.9544
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "cursor-cli",
+        "muse-api"
+      ],
+      "tie_breaker": "gpt-5.6-terra",
+      "cases": 8,
+      "disagreements": 2,
+      "tie_breaker_right_on_disagreements": 2,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "cursor-cli",
+        "muse-api"
+      ],
+      "tie_breaker": "gpt-6-luna",
+      "cases": 8,
+      "disagreements": 2,
+      "tie_breaker_right_on_disagreements": 2,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "cursor-cli",
+        "muse-api"
+      ],
+      "tie_breaker": "muse-api:muse-spark-1.2-contributor",
+      "cases": 8,
+      "disagreements": 2,
+      "tie_breaker_right_on_disagreements": 1,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 3,
+        "false_fail": 1,
+        "false_pass_wilson_upper_bound": 0.9544
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "cursor-cli",
+        "muse-api"
+      ],
+      "tie_breaker": "muse-api:muse-spark-1.3",
+      "cases": 8,
+      "disagreements": 2,
+      "tie_breaker_right_on_disagreements": 1,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "cursor-cli",
+        "muse-api"
+      ],
+      "tie_breaker": "muse-api:muse-spark-1.3-contributor",
+      "cases": 8,
+      "disagreements": 2,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 3,
+        "false_pass": 3,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.9544
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "cursor-cli",
+        "muse-api"
+      ],
+      "tie_breaker": "muse-api:muse-wonder-1.0",
+      "cases": 8,
+      "disagreements": 2,
+      "tie_breaker_right_on_disagreements": 1,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "cursor-cli",
+        "muse-api:muse-spark-1.2-contributor"
+      ],
+      "tie_breaker": "claude-cli",
+      "cases": 8,
+      "disagreements": 2,
+      "tie_breaker_right_on_disagreements": 1,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "cursor-cli",
+        "muse-api:muse-spark-1.2-contributor"
+      ],
+      "tie_breaker": "gpt-5.6-terra",
+      "cases": 8,
+      "disagreements": 2,
+      "tie_breaker_right_on_disagreements": 2,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "cursor-cli",
+        "muse-api:muse-spark-1.2-contributor"
+      ],
+      "tie_breaker": "gpt-6-luna",
+      "cases": 8,
+      "disagreements": 2,
+      "tie_breaker_right_on_disagreements": 2,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "cursor-cli",
+        "muse-api:muse-spark-1.2-contributor"
+      ],
+      "tie_breaker": "muse-api",
+      "cases": 8,
+      "disagreements": 2,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 3,
+        "false_fail": 1,
+        "false_pass_wilson_upper_bound": 0.9544
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "cursor-cli",
+        "muse-api:muse-spark-1.2-contributor"
+      ],
+      "tie_breaker": "muse-api:muse-spark-1.3",
+      "cases": 8,
+      "disagreements": 2,
+      "tie_breaker_right_on_disagreements": 1,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "cursor-cli",
+        "muse-api:muse-spark-1.2-contributor"
+      ],
+      "tie_breaker": "muse-api:muse-spark-1.3-contributor",
+      "cases": 8,
+      "disagreements": 2,
+      "tie_breaker_right_on_disagreements": 1,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "cursor-cli",
+        "muse-api:muse-spark-1.2-contributor"
+      ],
+      "tie_breaker": "muse-api:muse-wonder-1.0",
+      "cases": 8,
+      "disagreements": 2,
+      "tie_breaker_right_on_disagreements": 1,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "cursor-cli",
+        "muse-api:muse-spark-1.3"
+      ],
+      "tie_breaker": "claude-cli",
+      "cases": 8,
+      "disagreements": 1,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "cursor-cli",
+        "muse-api:muse-spark-1.3"
+      ],
+      "tie_breaker": "gpt-5.6-terra",
+      "cases": 8,
+      "disagreements": 1,
+      "tie_breaker_right_on_disagreements": 1,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "cursor-cli",
+        "muse-api:muse-spark-1.3"
+      ],
+      "tie_breaker": "gpt-6-luna",
+      "cases": 8,
+      "disagreements": 1,
+      "tie_breaker_right_on_disagreements": 1,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "cursor-cli",
+        "muse-api:muse-spark-1.3"
+      ],
+      "tie_breaker": "muse-api",
+      "cases": 8,
+      "disagreements": 1,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "cursor-cli",
+        "muse-api:muse-spark-1.3"
+      ],
+      "tie_breaker": "muse-api:muse-spark-1.2-contributor",
+      "cases": 8,
+      "disagreements": 1,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "cursor-cli",
+        "muse-api:muse-spark-1.3"
+      ],
+      "tie_breaker": "muse-api:muse-spark-1.3-contributor",
+      "cases": 8,
+      "disagreements": 1,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "cursor-cli",
+        "muse-api:muse-spark-1.3"
+      ],
+      "tie_breaker": "muse-api:muse-wonder-1.0",
+      "cases": 8,
+      "disagreements": 1,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "cursor-cli",
+        "muse-api:muse-spark-1.3-contributor"
+      ],
+      "tie_breaker": "claude-cli",
+      "cases": 8,
+      "disagreements": 2,
+      "tie_breaker_right_on_disagreements": 1,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "cursor-cli",
+        "muse-api:muse-spark-1.3-contributor"
+      ],
+      "tie_breaker": "gpt-5.6-terra",
+      "cases": 8,
+      "disagreements": 2,
+      "tie_breaker_right_on_disagreements": 2,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "cursor-cli",
+        "muse-api:muse-spark-1.3-contributor"
+      ],
+      "tie_breaker": "gpt-6-luna",
+      "cases": 8,
+      "disagreements": 2,
+      "tie_breaker_right_on_disagreements": 2,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "cursor-cli",
+        "muse-api:muse-spark-1.3-contributor"
+      ],
+      "tie_breaker": "muse-api",
+      "cases": 8,
+      "disagreements": 2,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 3,
+        "false_pass": 3,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.9544
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "cursor-cli",
+        "muse-api:muse-spark-1.3-contributor"
+      ],
+      "tie_breaker": "muse-api:muse-spark-1.2-contributor",
+      "cases": 8,
+      "disagreements": 2,
+      "tie_breaker_right_on_disagreements": 1,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "cursor-cli",
+        "muse-api:muse-spark-1.3-contributor"
+      ],
+      "tie_breaker": "muse-api:muse-spark-1.3",
+      "cases": 8,
+      "disagreements": 2,
+      "tie_breaker_right_on_disagreements": 1,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "cursor-cli",
+        "muse-api:muse-spark-1.3-contributor"
+      ],
+      "tie_breaker": "muse-api:muse-wonder-1.0",
+      "cases": 8,
+      "disagreements": 2,
+      "tie_breaker_right_on_disagreements": 1,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "cursor-cli",
+        "muse-api:muse-wonder-1.0"
+      ],
+      "tie_breaker": "claude-cli",
+      "cases": 8,
+      "disagreements": 1,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "cursor-cli",
+        "muse-api:muse-wonder-1.0"
+      ],
+      "tie_breaker": "gpt-5.6-terra",
+      "cases": 8,
+      "disagreements": 1,
+      "tie_breaker_right_on_disagreements": 1,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "cursor-cli",
+        "muse-api:muse-wonder-1.0"
+      ],
+      "tie_breaker": "gpt-6-luna",
+      "cases": 8,
+      "disagreements": 1,
+      "tie_breaker_right_on_disagreements": 1,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "cursor-cli",
+        "muse-api:muse-wonder-1.0"
+      ],
+      "tie_breaker": "muse-api",
+      "cases": 8,
+      "disagreements": 1,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "cursor-cli",
+        "muse-api:muse-wonder-1.0"
+      ],
+      "tie_breaker": "muse-api:muse-spark-1.2-contributor",
+      "cases": 8,
+      "disagreements": 1,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "cursor-cli",
+        "muse-api:muse-wonder-1.0"
+      ],
+      "tie_breaker": "muse-api:muse-spark-1.3",
+      "cases": 8,
+      "disagreements": 1,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "cursor-cli",
+        "muse-api:muse-wonder-1.0"
+      ],
+      "tie_breaker": "muse-api:muse-spark-1.3-contributor",
+      "cases": 8,
+      "disagreements": 1,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "gpt-5.6-terra",
+        "gpt-6-luna"
+      ],
+      "tie_breaker": "claude-cli",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "gpt-5.6-terra",
+        "gpt-6-luna"
+      ],
+      "tie_breaker": "cursor-cli",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "gpt-5.6-terra",
+        "gpt-6-luna"
+      ],
+      "tie_breaker": "muse-api",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "gpt-5.6-terra",
+        "gpt-6-luna"
+      ],
+      "tie_breaker": "muse-api:muse-spark-1.2-contributor",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "gpt-5.6-terra",
+        "gpt-6-luna"
+      ],
+      "tie_breaker": "muse-api:muse-spark-1.3",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "gpt-5.6-terra",
+        "gpt-6-luna"
+      ],
+      "tie_breaker": "muse-api:muse-spark-1.3-contributor",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "gpt-5.6-terra",
+        "gpt-6-luna"
+      ],
+      "tie_breaker": "muse-api:muse-wonder-1.0",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "gpt-5.6-terra",
+        "muse-api"
+      ],
+      "tie_breaker": "claude-cli",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "gpt-5.6-terra",
+        "muse-api"
+      ],
+      "tie_breaker": "cursor-cli",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "gpt-5.6-terra",
+        "muse-api"
+      ],
+      "tie_breaker": "gpt-6-luna",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "gpt-5.6-terra",
+        "muse-api"
+      ],
+      "tie_breaker": "muse-api:muse-spark-1.2-contributor",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "gpt-5.6-terra",
+        "muse-api"
+      ],
+      "tie_breaker": "muse-api:muse-spark-1.3",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "gpt-5.6-terra",
+        "muse-api"
+      ],
+      "tie_breaker": "muse-api:muse-spark-1.3-contributor",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "gpt-5.6-terra",
+        "muse-api"
+      ],
+      "tie_breaker": "muse-api:muse-wonder-1.0",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "gpt-5.6-terra",
+        "muse-api:muse-spark-1.2-contributor"
+      ],
+      "tie_breaker": "claude-cli",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "gpt-5.6-terra",
+        "muse-api:muse-spark-1.2-contributor"
+      ],
+      "tie_breaker": "cursor-cli",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "gpt-5.6-terra",
+        "muse-api:muse-spark-1.2-contributor"
+      ],
+      "tie_breaker": "gpt-6-luna",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "gpt-5.6-terra",
+        "muse-api:muse-spark-1.2-contributor"
+      ],
+      "tie_breaker": "muse-api",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "gpt-5.6-terra",
+        "muse-api:muse-spark-1.2-contributor"
+      ],
+      "tie_breaker": "muse-api:muse-spark-1.3",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "gpt-5.6-terra",
+        "muse-api:muse-spark-1.2-contributor"
+      ],
+      "tie_breaker": "muse-api:muse-spark-1.3-contributor",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "gpt-5.6-terra",
+        "muse-api:muse-spark-1.2-contributor"
+      ],
+      "tie_breaker": "muse-api:muse-wonder-1.0",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "gpt-5.6-terra",
+        "muse-api:muse-spark-1.3"
+      ],
+      "tie_breaker": "claude-cli",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "gpt-5.6-terra",
+        "muse-api:muse-spark-1.3"
+      ],
+      "tie_breaker": "cursor-cli",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "gpt-5.6-terra",
+        "muse-api:muse-spark-1.3"
+      ],
+      "tie_breaker": "gpt-6-luna",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "gpt-5.6-terra",
+        "muse-api:muse-spark-1.3"
+      ],
+      "tie_breaker": "muse-api",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "gpt-5.6-terra",
+        "muse-api:muse-spark-1.3"
+      ],
+      "tie_breaker": "muse-api:muse-spark-1.2-contributor",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "gpt-5.6-terra",
+        "muse-api:muse-spark-1.3"
+      ],
+      "tie_breaker": "muse-api:muse-spark-1.3-contributor",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "gpt-5.6-terra",
+        "muse-api:muse-spark-1.3"
+      ],
+      "tie_breaker": "muse-api:muse-wonder-1.0",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "gpt-5.6-terra",
+        "muse-api:muse-spark-1.3-contributor"
+      ],
+      "tie_breaker": "claude-cli",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "gpt-5.6-terra",
+        "muse-api:muse-spark-1.3-contributor"
+      ],
+      "tie_breaker": "cursor-cli",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "gpt-5.6-terra",
+        "muse-api:muse-spark-1.3-contributor"
+      ],
+      "tie_breaker": "gpt-6-luna",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "gpt-5.6-terra",
+        "muse-api:muse-spark-1.3-contributor"
+      ],
+      "tie_breaker": "muse-api",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "gpt-5.6-terra",
+        "muse-api:muse-spark-1.3-contributor"
+      ],
+      "tie_breaker": "muse-api:muse-spark-1.2-contributor",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "gpt-5.6-terra",
+        "muse-api:muse-spark-1.3-contributor"
+      ],
+      "tie_breaker": "muse-api:muse-spark-1.3",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "gpt-5.6-terra",
+        "muse-api:muse-spark-1.3-contributor"
+      ],
+      "tie_breaker": "muse-api:muse-wonder-1.0",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "gpt-5.6-terra",
+        "muse-api:muse-wonder-1.0"
+      ],
+      "tie_breaker": "claude-cli",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "gpt-5.6-terra",
+        "muse-api:muse-wonder-1.0"
+      ],
+      "tie_breaker": "cursor-cli",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "gpt-5.6-terra",
+        "muse-api:muse-wonder-1.0"
+      ],
+      "tie_breaker": "gpt-6-luna",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "gpt-5.6-terra",
+        "muse-api:muse-wonder-1.0"
+      ],
+      "tie_breaker": "muse-api",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "gpt-5.6-terra",
+        "muse-api:muse-wonder-1.0"
+      ],
+      "tie_breaker": "muse-api:muse-spark-1.2-contributor",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "gpt-5.6-terra",
+        "muse-api:muse-wonder-1.0"
+      ],
+      "tie_breaker": "muse-api:muse-spark-1.3",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "gpt-5.6-terra",
+        "muse-api:muse-wonder-1.0"
+      ],
+      "tie_breaker": "muse-api:muse-spark-1.3-contributor",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "gpt-6-luna",
+        "muse-api"
+      ],
+      "tie_breaker": "claude-cli",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "gpt-6-luna",
+        "muse-api"
+      ],
+      "tie_breaker": "cursor-cli",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "gpt-6-luna",
+        "muse-api"
+      ],
+      "tie_breaker": "gpt-5.6-terra",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "gpt-6-luna",
+        "muse-api"
+      ],
+      "tie_breaker": "muse-api:muse-spark-1.2-contributor",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "gpt-6-luna",
+        "muse-api"
+      ],
+      "tie_breaker": "muse-api:muse-spark-1.3",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "gpt-6-luna",
+        "muse-api"
+      ],
+      "tie_breaker": "muse-api:muse-spark-1.3-contributor",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "gpt-6-luna",
+        "muse-api"
+      ],
+      "tie_breaker": "muse-api:muse-wonder-1.0",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "gpt-6-luna",
+        "muse-api:muse-spark-1.2-contributor"
+      ],
+      "tie_breaker": "claude-cli",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "gpt-6-luna",
+        "muse-api:muse-spark-1.2-contributor"
+      ],
+      "tie_breaker": "cursor-cli",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "gpt-6-luna",
+        "muse-api:muse-spark-1.2-contributor"
+      ],
+      "tie_breaker": "gpt-5.6-terra",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "gpt-6-luna",
+        "muse-api:muse-spark-1.2-contributor"
+      ],
+      "tie_breaker": "muse-api",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "gpt-6-luna",
+        "muse-api:muse-spark-1.2-contributor"
+      ],
+      "tie_breaker": "muse-api:muse-spark-1.3",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "gpt-6-luna",
+        "muse-api:muse-spark-1.2-contributor"
+      ],
+      "tie_breaker": "muse-api:muse-spark-1.3-contributor",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "gpt-6-luna",
+        "muse-api:muse-spark-1.2-contributor"
+      ],
+      "tie_breaker": "muse-api:muse-wonder-1.0",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "gpt-6-luna",
+        "muse-api:muse-spark-1.3"
+      ],
+      "tie_breaker": "claude-cli",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "gpt-6-luna",
+        "muse-api:muse-spark-1.3"
+      ],
+      "tie_breaker": "cursor-cli",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "gpt-6-luna",
+        "muse-api:muse-spark-1.3"
+      ],
+      "tie_breaker": "gpt-5.6-terra",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "gpt-6-luna",
+        "muse-api:muse-spark-1.3"
+      ],
+      "tie_breaker": "muse-api",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "gpt-6-luna",
+        "muse-api:muse-spark-1.3"
+      ],
+      "tie_breaker": "muse-api:muse-spark-1.2-contributor",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "gpt-6-luna",
+        "muse-api:muse-spark-1.3"
+      ],
+      "tie_breaker": "muse-api:muse-spark-1.3-contributor",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "gpt-6-luna",
+        "muse-api:muse-spark-1.3"
+      ],
+      "tie_breaker": "muse-api:muse-wonder-1.0",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "gpt-6-luna",
+        "muse-api:muse-spark-1.3-contributor"
+      ],
+      "tie_breaker": "claude-cli",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "gpt-6-luna",
+        "muse-api:muse-spark-1.3-contributor"
+      ],
+      "tie_breaker": "cursor-cli",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "gpt-6-luna",
+        "muse-api:muse-spark-1.3-contributor"
+      ],
+      "tie_breaker": "gpt-5.6-terra",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "gpt-6-luna",
+        "muse-api:muse-spark-1.3-contributor"
+      ],
+      "tie_breaker": "muse-api",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "gpt-6-luna",
+        "muse-api:muse-spark-1.3-contributor"
+      ],
+      "tie_breaker": "muse-api:muse-spark-1.2-contributor",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "gpt-6-luna",
+        "muse-api:muse-spark-1.3-contributor"
+      ],
+      "tie_breaker": "muse-api:muse-spark-1.3",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "gpt-6-luna",
+        "muse-api:muse-spark-1.3-contributor"
+      ],
+      "tie_breaker": "muse-api:muse-wonder-1.0",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "gpt-6-luna",
+        "muse-api:muse-wonder-1.0"
+      ],
+      "tie_breaker": "claude-cli",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "gpt-6-luna",
+        "muse-api:muse-wonder-1.0"
+      ],
+      "tie_breaker": "cursor-cli",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "gpt-6-luna",
+        "muse-api:muse-wonder-1.0"
+      ],
+      "tie_breaker": "gpt-5.6-terra",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "gpt-6-luna",
+        "muse-api:muse-wonder-1.0"
+      ],
+      "tie_breaker": "muse-api",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "gpt-6-luna",
+        "muse-api:muse-wonder-1.0"
+      ],
+      "tie_breaker": "muse-api:muse-spark-1.2-contributor",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "gpt-6-luna",
+        "muse-api:muse-wonder-1.0"
+      ],
+      "tie_breaker": "muse-api:muse-spark-1.3",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "gpt-6-luna",
+        "muse-api:muse-wonder-1.0"
+      ],
+      "tie_breaker": "muse-api:muse-spark-1.3-contributor",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "muse-api",
+        "muse-api:muse-spark-1.2-contributor"
+      ],
+      "tie_breaker": "claude-cli",
+      "cases": 8,
+      "disagreements": 2,
+      "tie_breaker_right_on_disagreements": 2,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "muse-api",
+        "muse-api:muse-spark-1.2-contributor"
+      ],
+      "tie_breaker": "cursor-cli",
+      "cases": 8,
+      "disagreements": 2,
+      "tie_breaker_right_on_disagreements": 1,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 3,
+        "false_fail": 1,
+        "false_pass_wilson_upper_bound": 0.9544
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "muse-api",
+        "muse-api:muse-spark-1.2-contributor"
+      ],
+      "tie_breaker": "gpt-5.6-terra",
+      "cases": 8,
+      "disagreements": 2,
+      "tie_breaker_right_on_disagreements": 2,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "muse-api",
+        "muse-api:muse-spark-1.2-contributor"
+      ],
+      "tie_breaker": "gpt-6-luna",
+      "cases": 8,
+      "disagreements": 2,
+      "tie_breaker_right_on_disagreements": 2,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "muse-api",
+        "muse-api:muse-spark-1.2-contributor"
+      ],
+      "tie_breaker": "muse-api:muse-spark-1.3",
+      "cases": 8,
+      "disagreements": 2,
+      "tie_breaker_right_on_disagreements": 2,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "muse-api",
+        "muse-api:muse-spark-1.2-contributor"
+      ],
+      "tie_breaker": "muse-api:muse-spark-1.3-contributor",
+      "cases": 8,
+      "disagreements": 2,
+      "tie_breaker_right_on_disagreements": 1,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 3,
+        "false_pass": 3,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.9544
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "muse-api",
+        "muse-api:muse-spark-1.2-contributor"
+      ],
+      "tie_breaker": "muse-api:muse-wonder-1.0",
+      "cases": 8,
+      "disagreements": 2,
+      "tie_breaker_right_on_disagreements": 2,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "muse-api",
+        "muse-api:muse-spark-1.3"
+      ],
+      "tie_breaker": "claude-cli",
+      "cases": 8,
+      "disagreements": 1,
+      "tie_breaker_right_on_disagreements": 1,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "muse-api",
+        "muse-api:muse-spark-1.3"
+      ],
+      "tie_breaker": "cursor-cli",
+      "cases": 8,
+      "disagreements": 1,
+      "tie_breaker_right_on_disagreements": 1,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "muse-api",
+        "muse-api:muse-spark-1.3"
+      ],
+      "tie_breaker": "gpt-5.6-terra",
+      "cases": 8,
+      "disagreements": 1,
+      "tie_breaker_right_on_disagreements": 1,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "muse-api",
+        "muse-api:muse-spark-1.3"
+      ],
+      "tie_breaker": "gpt-6-luna",
+      "cases": 8,
+      "disagreements": 1,
+      "tie_breaker_right_on_disagreements": 1,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "muse-api",
+        "muse-api:muse-spark-1.3"
+      ],
+      "tie_breaker": "muse-api:muse-spark-1.2-contributor",
+      "cases": 8,
+      "disagreements": 1,
+      "tie_breaker_right_on_disagreements": 1,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "muse-api",
+        "muse-api:muse-spark-1.3"
+      ],
+      "tie_breaker": "muse-api:muse-spark-1.3-contributor",
+      "cases": 8,
+      "disagreements": 1,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 3,
+        "false_pass": 3,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.9544
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "muse-api",
+        "muse-api:muse-spark-1.3"
+      ],
+      "tie_breaker": "muse-api:muse-wonder-1.0",
+      "cases": 8,
+      "disagreements": 1,
+      "tie_breaker_right_on_disagreements": 1,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "muse-api",
+        "muse-api:muse-spark-1.3-contributor"
+      ],
+      "tie_breaker": "claude-cli",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 3,
+        "false_pass": 3,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.9544
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "muse-api",
+        "muse-api:muse-spark-1.3-contributor"
+      ],
+      "tie_breaker": "cursor-cli",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 3,
+        "false_pass": 3,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.9544
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "muse-api",
+        "muse-api:muse-spark-1.3-contributor"
+      ],
+      "tie_breaker": "gpt-5.6-terra",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "muse-api",
+        "muse-api:muse-spark-1.3-contributor"
+      ],
+      "tie_breaker": "gpt-6-luna",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "muse-api",
+        "muse-api:muse-spark-1.3-contributor"
+      ],
+      "tie_breaker": "muse-api:muse-spark-1.2-contributor",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 3,
+        "false_pass": 3,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.9544
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "muse-api",
+        "muse-api:muse-spark-1.3-contributor"
+      ],
+      "tie_breaker": "muse-api:muse-spark-1.3",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 3,
+        "false_pass": 3,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.9544
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "muse-api",
+        "muse-api:muse-spark-1.3-contributor"
+      ],
+      "tie_breaker": "muse-api:muse-wonder-1.0",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "muse-api",
+        "muse-api:muse-wonder-1.0"
+      ],
+      "tie_breaker": "claude-cli",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "muse-api",
+        "muse-api:muse-wonder-1.0"
+      ],
+      "tie_breaker": "cursor-cli",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "muse-api",
+        "muse-api:muse-wonder-1.0"
+      ],
+      "tie_breaker": "gpt-5.6-terra",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "muse-api",
+        "muse-api:muse-wonder-1.0"
+      ],
+      "tie_breaker": "gpt-6-luna",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "muse-api",
+        "muse-api:muse-wonder-1.0"
+      ],
+      "tie_breaker": "muse-api:muse-spark-1.2-contributor",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "muse-api",
+        "muse-api:muse-wonder-1.0"
+      ],
+      "tie_breaker": "muse-api:muse-spark-1.3",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "muse-api",
+        "muse-api:muse-wonder-1.0"
+      ],
+      "tie_breaker": "muse-api:muse-spark-1.3-contributor",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "muse-api:muse-spark-1.2-contributor",
+        "muse-api:muse-spark-1.3"
+      ],
+      "tie_breaker": "claude-cli",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "muse-api:muse-spark-1.2-contributor",
+        "muse-api:muse-spark-1.3"
+      ],
+      "tie_breaker": "cursor-cli",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "muse-api:muse-spark-1.2-contributor",
+        "muse-api:muse-spark-1.3"
+      ],
+      "tie_breaker": "gpt-5.6-terra",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "muse-api:muse-spark-1.2-contributor",
+        "muse-api:muse-spark-1.3"
+      ],
+      "tie_breaker": "gpt-6-luna",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "muse-api:muse-spark-1.2-contributor",
+        "muse-api:muse-spark-1.3"
+      ],
+      "tie_breaker": "muse-api",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "muse-api:muse-spark-1.2-contributor",
+        "muse-api:muse-spark-1.3"
+      ],
+      "tie_breaker": "muse-api:muse-spark-1.3-contributor",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "muse-api:muse-spark-1.2-contributor",
+        "muse-api:muse-spark-1.3"
+      ],
+      "tie_breaker": "muse-api:muse-wonder-1.0",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "muse-api:muse-spark-1.2-contributor",
+        "muse-api:muse-spark-1.3-contributor"
+      ],
+      "tie_breaker": "claude-cli",
+      "cases": 8,
+      "disagreements": 1,
+      "tie_breaker_right_on_disagreements": 1,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "muse-api:muse-spark-1.2-contributor",
+        "muse-api:muse-spark-1.3-contributor"
+      ],
+      "tie_breaker": "cursor-cli",
+      "cases": 8,
+      "disagreements": 1,
+      "tie_breaker_right_on_disagreements": 1,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "muse-api:muse-spark-1.2-contributor",
+        "muse-api:muse-spark-1.3-contributor"
+      ],
+      "tie_breaker": "gpt-5.6-terra",
+      "cases": 8,
+      "disagreements": 1,
+      "tie_breaker_right_on_disagreements": 1,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "muse-api:muse-spark-1.2-contributor",
+        "muse-api:muse-spark-1.3-contributor"
+      ],
+      "tie_breaker": "gpt-6-luna",
+      "cases": 8,
+      "disagreements": 1,
+      "tie_breaker_right_on_disagreements": 1,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "muse-api:muse-spark-1.2-contributor",
+        "muse-api:muse-spark-1.3-contributor"
+      ],
+      "tie_breaker": "muse-api",
+      "cases": 8,
+      "disagreements": 1,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 3,
+        "false_pass": 3,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.9544
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "muse-api:muse-spark-1.2-contributor",
+        "muse-api:muse-spark-1.3-contributor"
+      ],
+      "tie_breaker": "muse-api:muse-spark-1.3",
+      "cases": 8,
+      "disagreements": 1,
+      "tie_breaker_right_on_disagreements": 1,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "muse-api:muse-spark-1.2-contributor",
+        "muse-api:muse-spark-1.3-contributor"
+      ],
+      "tie_breaker": "muse-api:muse-wonder-1.0",
+      "cases": 8,
+      "disagreements": 1,
+      "tie_breaker_right_on_disagreements": 1,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "muse-api:muse-spark-1.2-contributor",
+        "muse-api:muse-wonder-1.0"
+      ],
+      "tie_breaker": "claude-cli",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "muse-api:muse-spark-1.2-contributor",
+        "muse-api:muse-wonder-1.0"
+      ],
+      "tie_breaker": "cursor-cli",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "muse-api:muse-spark-1.2-contributor",
+        "muse-api:muse-wonder-1.0"
+      ],
+      "tie_breaker": "gpt-5.6-terra",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "muse-api:muse-spark-1.2-contributor",
+        "muse-api:muse-wonder-1.0"
+      ],
+      "tie_breaker": "gpt-6-luna",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "muse-api:muse-spark-1.2-contributor",
+        "muse-api:muse-wonder-1.0"
+      ],
+      "tie_breaker": "muse-api",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "muse-api:muse-spark-1.2-contributor",
+        "muse-api:muse-wonder-1.0"
+      ],
+      "tie_breaker": "muse-api:muse-spark-1.3",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "muse-api:muse-spark-1.2-contributor",
+        "muse-api:muse-wonder-1.0"
+      ],
+      "tie_breaker": "muse-api:muse-spark-1.3-contributor",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "muse-api:muse-spark-1.3",
+        "muse-api:muse-spark-1.3-contributor"
+      ],
+      "tie_breaker": "claude-cli",
+      "cases": 8,
+      "disagreements": 1,
+      "tie_breaker_right_on_disagreements": 1,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "muse-api:muse-spark-1.3",
+        "muse-api:muse-spark-1.3-contributor"
+      ],
+      "tie_breaker": "cursor-cli",
+      "cases": 8,
+      "disagreements": 1,
+      "tie_breaker_right_on_disagreements": 1,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "muse-api:muse-spark-1.3",
+        "muse-api:muse-spark-1.3-contributor"
+      ],
+      "tie_breaker": "gpt-5.6-terra",
+      "cases": 8,
+      "disagreements": 1,
+      "tie_breaker_right_on_disagreements": 1,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "muse-api:muse-spark-1.3",
+        "muse-api:muse-spark-1.3-contributor"
+      ],
+      "tie_breaker": "gpt-6-luna",
+      "cases": 8,
+      "disagreements": 1,
+      "tie_breaker_right_on_disagreements": 1,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "muse-api:muse-spark-1.3",
+        "muse-api:muse-spark-1.3-contributor"
+      ],
+      "tie_breaker": "muse-api",
+      "cases": 8,
+      "disagreements": 1,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 3,
+        "false_pass": 3,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.9544
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "muse-api:muse-spark-1.3",
+        "muse-api:muse-spark-1.3-contributor"
+      ],
+      "tie_breaker": "muse-api:muse-spark-1.2-contributor",
+      "cases": 8,
+      "disagreements": 1,
+      "tie_breaker_right_on_disagreements": 1,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "muse-api:muse-spark-1.3",
+        "muse-api:muse-spark-1.3-contributor"
+      ],
+      "tie_breaker": "muse-api:muse-wonder-1.0",
+      "cases": 8,
+      "disagreements": 1,
+      "tie_breaker_right_on_disagreements": 1,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "muse-api:muse-spark-1.3",
+        "muse-api:muse-wonder-1.0"
+      ],
+      "tie_breaker": "claude-cli",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "muse-api:muse-spark-1.3",
+        "muse-api:muse-wonder-1.0"
+      ],
+      "tie_breaker": "cursor-cli",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "muse-api:muse-spark-1.3",
+        "muse-api:muse-wonder-1.0"
+      ],
+      "tie_breaker": "gpt-5.6-terra",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "muse-api:muse-spark-1.3",
+        "muse-api:muse-wonder-1.0"
+      ],
+      "tie_breaker": "gpt-6-luna",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "muse-api:muse-spark-1.3",
+        "muse-api:muse-wonder-1.0"
+      ],
+      "tie_breaker": "muse-api",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "muse-api:muse-spark-1.3",
+        "muse-api:muse-wonder-1.0"
+      ],
+      "tie_breaker": "muse-api:muse-spark-1.2-contributor",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "muse-api:muse-spark-1.3",
+        "muse-api:muse-wonder-1.0"
+      ],
+      "tie_breaker": "muse-api:muse-spark-1.3-contributor",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "muse-api:muse-spark-1.3-contributor",
+        "muse-api:muse-wonder-1.0"
+      ],
+      "tie_breaker": "claude-cli",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "muse-api:muse-spark-1.3-contributor",
+        "muse-api:muse-wonder-1.0"
+      ],
+      "tie_breaker": "cursor-cli",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "muse-api:muse-spark-1.3-contributor",
+        "muse-api:muse-wonder-1.0"
+      ],
+      "tie_breaker": "gpt-5.6-terra",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "muse-api:muse-spark-1.3-contributor",
+        "muse-api:muse-wonder-1.0"
+      ],
+      "tie_breaker": "gpt-6-luna",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "muse-api:muse-spark-1.3-contributor",
+        "muse-api:muse-wonder-1.0"
+      ],
+      "tie_breaker": "muse-api",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "muse-api:muse-spark-1.3-contributor",
+        "muse-api:muse-wonder-1.0"
+      ],
+      "tie_breaker": "muse-api:muse-spark-1.2-contributor",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    },
+    {
+      "pair": [
+        "muse-api:muse-spark-1.3-contributor",
+        "muse-api:muse-wonder-1.0"
+      ],
+      "tie_breaker": "muse-api:muse-spark-1.3",
+      "cases": 8,
+      "disagreements": 0,
+      "tie_breaker_right_on_disagreements": 0,
+      "majority_of_three": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "estimable": false
+    }
+  ],
+  "failovers": [
+    {
+      "unavailable": "claude-cli",
+      "backup": "cursor-cli",
+      "backup_alone": {
+        "cases": 8,
+        "correct": 5,
+        "false_pass": 2,
+        "false_fail": 1,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "backup_may_hold_pass_authority": false
+    },
+    {
+      "unavailable": "claude-cli",
+      "backup": "gpt-5.6-terra",
+      "backup_alone": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "backup_may_hold_pass_authority": false
+    },
+    {
+      "unavailable": "claude-cli",
+      "backup": "gpt-6-luna",
+      "backup_alone": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "backup_may_hold_pass_authority": false
+    },
+    {
+      "unavailable": "claude-cli",
+      "backup": "muse-api",
+      "backup_alone": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 4,
+        "false_fail": 0,
+        "false_pass_wilson_upper_bound": 1.0
+      },
+      "backup_may_hold_pass_authority": false
+    },
+    {
+      "unavailable": "claude-cli",
+      "backup": "muse-api:muse-spark-1.2-contributor",
+      "backup_alone": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 2,
+        "false_fail": 0,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "backup_may_hold_pass_authority": false
+    },
+    {
+      "unavailable": "claude-cli",
+      "backup": "muse-api:muse-spark-1.3",
+      "backup_alone": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "backup_may_hold_pass_authority": false
+    },
+    {
+      "unavailable": "claude-cli",
+      "backup": "muse-api:muse-spark-1.3-contributor",
+      "backup_alone": {
+        "cases": 8,
+        "correct": 3,
+        "false_pass": 3,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.9544
+      },
+      "backup_may_hold_pass_authority": false
+    },
+    {
+      "unavailable": "claude-cli",
+      "backup": "muse-api:muse-wonder-1.0",
+      "backup_alone": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "backup_may_hold_pass_authority": false
+    },
+    {
+      "unavailable": "cursor-cli",
+      "backup": "claude-cli",
+      "backup_alone": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "backup_may_hold_pass_authority": false
+    },
+    {
+      "unavailable": "cursor-cli",
+      "backup": "gpt-5.6-terra",
+      "backup_alone": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "backup_may_hold_pass_authority": false
+    },
+    {
+      "unavailable": "cursor-cli",
+      "backup": "gpt-6-luna",
+      "backup_alone": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "backup_may_hold_pass_authority": false
+    },
+    {
+      "unavailable": "cursor-cli",
+      "backup": "muse-api",
+      "backup_alone": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 4,
+        "false_fail": 0,
+        "false_pass_wilson_upper_bound": 1.0
+      },
+      "backup_may_hold_pass_authority": false
+    },
+    {
+      "unavailable": "cursor-cli",
+      "backup": "muse-api:muse-spark-1.2-contributor",
+      "backup_alone": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 2,
+        "false_fail": 0,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "backup_may_hold_pass_authority": false
+    },
+    {
+      "unavailable": "cursor-cli",
+      "backup": "muse-api:muse-spark-1.3",
+      "backup_alone": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "backup_may_hold_pass_authority": false
+    },
+    {
+      "unavailable": "cursor-cli",
+      "backup": "muse-api:muse-spark-1.3-contributor",
+      "backup_alone": {
+        "cases": 8,
+        "correct": 3,
+        "false_pass": 3,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.9544
+      },
+      "backup_may_hold_pass_authority": false
+    },
+    {
+      "unavailable": "cursor-cli",
+      "backup": "muse-api:muse-wonder-1.0",
+      "backup_alone": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "backup_may_hold_pass_authority": false
+    },
+    {
+      "unavailable": "gpt-5.6-terra",
+      "backup": "claude-cli",
+      "backup_alone": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "backup_may_hold_pass_authority": false
+    },
+    {
+      "unavailable": "gpt-5.6-terra",
+      "backup": "cursor-cli",
+      "backup_alone": {
+        "cases": 8,
+        "correct": 5,
+        "false_pass": 2,
+        "false_fail": 1,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "backup_may_hold_pass_authority": false
+    },
+    {
+      "unavailable": "gpt-5.6-terra",
+      "backup": "gpt-6-luna",
+      "backup_alone": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "backup_may_hold_pass_authority": false
+    },
+    {
+      "unavailable": "gpt-5.6-terra",
+      "backup": "muse-api",
+      "backup_alone": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 4,
+        "false_fail": 0,
+        "false_pass_wilson_upper_bound": 1.0
+      },
+      "backup_may_hold_pass_authority": false
+    },
+    {
+      "unavailable": "gpt-5.6-terra",
+      "backup": "muse-api:muse-spark-1.2-contributor",
+      "backup_alone": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 2,
+        "false_fail": 0,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "backup_may_hold_pass_authority": false
+    },
+    {
+      "unavailable": "gpt-5.6-terra",
+      "backup": "muse-api:muse-spark-1.3",
+      "backup_alone": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "backup_may_hold_pass_authority": false
+    },
+    {
+      "unavailable": "gpt-5.6-terra",
+      "backup": "muse-api:muse-spark-1.3-contributor",
+      "backup_alone": {
+        "cases": 8,
+        "correct": 3,
+        "false_pass": 3,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.9544
+      },
+      "backup_may_hold_pass_authority": false
+    },
+    {
+      "unavailable": "gpt-5.6-terra",
+      "backup": "muse-api:muse-wonder-1.0",
+      "backup_alone": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "backup_may_hold_pass_authority": false
+    },
+    {
+      "unavailable": "gpt-6-luna",
+      "backup": "claude-cli",
+      "backup_alone": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "backup_may_hold_pass_authority": false
+    },
+    {
+      "unavailable": "gpt-6-luna",
+      "backup": "cursor-cli",
+      "backup_alone": {
+        "cases": 8,
+        "correct": 5,
+        "false_pass": 2,
+        "false_fail": 1,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "backup_may_hold_pass_authority": false
+    },
+    {
+      "unavailable": "gpt-6-luna",
+      "backup": "gpt-5.6-terra",
+      "backup_alone": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "backup_may_hold_pass_authority": false
+    },
+    {
+      "unavailable": "gpt-6-luna",
+      "backup": "muse-api",
+      "backup_alone": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 4,
+        "false_fail": 0,
+        "false_pass_wilson_upper_bound": 1.0
+      },
+      "backup_may_hold_pass_authority": false
+    },
+    {
+      "unavailable": "gpt-6-luna",
+      "backup": "muse-api:muse-spark-1.2-contributor",
+      "backup_alone": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 2,
+        "false_fail": 0,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "backup_may_hold_pass_authority": false
+    },
+    {
+      "unavailable": "gpt-6-luna",
+      "backup": "muse-api:muse-spark-1.3",
+      "backup_alone": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "backup_may_hold_pass_authority": false
+    },
+    {
+      "unavailable": "gpt-6-luna",
+      "backup": "muse-api:muse-spark-1.3-contributor",
+      "backup_alone": {
+        "cases": 8,
+        "correct": 3,
+        "false_pass": 3,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.9544
+      },
+      "backup_may_hold_pass_authority": false
+    },
+    {
+      "unavailable": "gpt-6-luna",
+      "backup": "muse-api:muse-wonder-1.0",
+      "backup_alone": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "backup_may_hold_pass_authority": false
+    },
+    {
+      "unavailable": "muse-api",
+      "backup": "claude-cli",
+      "backup_alone": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "backup_may_hold_pass_authority": false
+    },
+    {
+      "unavailable": "muse-api",
+      "backup": "cursor-cli",
+      "backup_alone": {
+        "cases": 8,
+        "correct": 5,
+        "false_pass": 2,
+        "false_fail": 1,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "backup_may_hold_pass_authority": false
+    },
+    {
+      "unavailable": "muse-api",
+      "backup": "gpt-5.6-terra",
+      "backup_alone": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "backup_may_hold_pass_authority": false
+    },
+    {
+      "unavailable": "muse-api",
+      "backup": "gpt-6-luna",
+      "backup_alone": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "backup_may_hold_pass_authority": false
+    },
+    {
+      "unavailable": "muse-api",
+      "backup": "muse-api:muse-spark-1.2-contributor",
+      "backup_alone": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 2,
+        "false_fail": 0,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "backup_may_hold_pass_authority": false
+    },
+    {
+      "unavailable": "muse-api",
+      "backup": "muse-api:muse-spark-1.3",
+      "backup_alone": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "backup_may_hold_pass_authority": false
+    },
+    {
+      "unavailable": "muse-api",
+      "backup": "muse-api:muse-spark-1.3-contributor",
+      "backup_alone": {
+        "cases": 8,
+        "correct": 3,
+        "false_pass": 3,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.9544
+      },
+      "backup_may_hold_pass_authority": false
+    },
+    {
+      "unavailable": "muse-api",
+      "backup": "muse-api:muse-wonder-1.0",
+      "backup_alone": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "backup_may_hold_pass_authority": false
+    },
+    {
+      "unavailable": "muse-api:muse-spark-1.2-contributor",
+      "backup": "claude-cli",
+      "backup_alone": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "backup_may_hold_pass_authority": false
+    },
+    {
+      "unavailable": "muse-api:muse-spark-1.2-contributor",
+      "backup": "cursor-cli",
+      "backup_alone": {
+        "cases": 8,
+        "correct": 5,
+        "false_pass": 2,
+        "false_fail": 1,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "backup_may_hold_pass_authority": false
+    },
+    {
+      "unavailable": "muse-api:muse-spark-1.2-contributor",
+      "backup": "gpt-5.6-terra",
+      "backup_alone": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "backup_may_hold_pass_authority": false
+    },
+    {
+      "unavailable": "muse-api:muse-spark-1.2-contributor",
+      "backup": "gpt-6-luna",
+      "backup_alone": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "backup_may_hold_pass_authority": false
+    },
+    {
+      "unavailable": "muse-api:muse-spark-1.2-contributor",
+      "backup": "muse-api",
+      "backup_alone": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 4,
+        "false_fail": 0,
+        "false_pass_wilson_upper_bound": 1.0
+      },
+      "backup_may_hold_pass_authority": false
+    },
+    {
+      "unavailable": "muse-api:muse-spark-1.2-contributor",
+      "backup": "muse-api:muse-spark-1.3",
+      "backup_alone": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "backup_may_hold_pass_authority": false
+    },
+    {
+      "unavailable": "muse-api:muse-spark-1.2-contributor",
+      "backup": "muse-api:muse-spark-1.3-contributor",
+      "backup_alone": {
+        "cases": 8,
+        "correct": 3,
+        "false_pass": 3,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.9544
+      },
+      "backup_may_hold_pass_authority": false
+    },
+    {
+      "unavailable": "muse-api:muse-spark-1.2-contributor",
+      "backup": "muse-api:muse-wonder-1.0",
+      "backup_alone": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "backup_may_hold_pass_authority": false
+    },
+    {
+      "unavailable": "muse-api:muse-spark-1.3",
+      "backup": "claude-cli",
+      "backup_alone": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "backup_may_hold_pass_authority": false
+    },
+    {
+      "unavailable": "muse-api:muse-spark-1.3",
+      "backup": "cursor-cli",
+      "backup_alone": {
+        "cases": 8,
+        "correct": 5,
+        "false_pass": 2,
+        "false_fail": 1,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "backup_may_hold_pass_authority": false
+    },
+    {
+      "unavailable": "muse-api:muse-spark-1.3",
+      "backup": "gpt-5.6-terra",
+      "backup_alone": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "backup_may_hold_pass_authority": false
+    },
+    {
+      "unavailable": "muse-api:muse-spark-1.3",
+      "backup": "gpt-6-luna",
+      "backup_alone": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "backup_may_hold_pass_authority": false
+    },
+    {
+      "unavailable": "muse-api:muse-spark-1.3",
+      "backup": "muse-api",
+      "backup_alone": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 4,
+        "false_fail": 0,
+        "false_pass_wilson_upper_bound": 1.0
+      },
+      "backup_may_hold_pass_authority": false
+    },
+    {
+      "unavailable": "muse-api:muse-spark-1.3",
+      "backup": "muse-api:muse-spark-1.2-contributor",
+      "backup_alone": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 2,
+        "false_fail": 0,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "backup_may_hold_pass_authority": false
+    },
+    {
+      "unavailable": "muse-api:muse-spark-1.3",
+      "backup": "muse-api:muse-spark-1.3-contributor",
+      "backup_alone": {
+        "cases": 8,
+        "correct": 3,
+        "false_pass": 3,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.9544
+      },
+      "backup_may_hold_pass_authority": false
+    },
+    {
+      "unavailable": "muse-api:muse-spark-1.3",
+      "backup": "muse-api:muse-wonder-1.0",
+      "backup_alone": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "backup_may_hold_pass_authority": false
+    },
+    {
+      "unavailable": "muse-api:muse-spark-1.3-contributor",
+      "backup": "claude-cli",
+      "backup_alone": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "backup_may_hold_pass_authority": false
+    },
+    {
+      "unavailable": "muse-api:muse-spark-1.3-contributor",
+      "backup": "cursor-cli",
+      "backup_alone": {
+        "cases": 8,
+        "correct": 5,
+        "false_pass": 2,
+        "false_fail": 1,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "backup_may_hold_pass_authority": false
+    },
+    {
+      "unavailable": "muse-api:muse-spark-1.3-contributor",
+      "backup": "gpt-5.6-terra",
+      "backup_alone": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "backup_may_hold_pass_authority": false
+    },
+    {
+      "unavailable": "muse-api:muse-spark-1.3-contributor",
+      "backup": "gpt-6-luna",
+      "backup_alone": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "backup_may_hold_pass_authority": false
+    },
+    {
+      "unavailable": "muse-api:muse-spark-1.3-contributor",
+      "backup": "muse-api",
+      "backup_alone": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 4,
+        "false_fail": 0,
+        "false_pass_wilson_upper_bound": 1.0
+      },
+      "backup_may_hold_pass_authority": false
+    },
+    {
+      "unavailable": "muse-api:muse-spark-1.3-contributor",
+      "backup": "muse-api:muse-spark-1.2-contributor",
+      "backup_alone": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 2,
+        "false_fail": 0,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "backup_may_hold_pass_authority": false
+    },
+    {
+      "unavailable": "muse-api:muse-spark-1.3-contributor",
+      "backup": "muse-api:muse-spark-1.3",
+      "backup_alone": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "backup_may_hold_pass_authority": false
+    },
+    {
+      "unavailable": "muse-api:muse-spark-1.3-contributor",
+      "backup": "muse-api:muse-wonder-1.0",
+      "backup_alone": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "backup_may_hold_pass_authority": false
+    },
+    {
+      "unavailable": "muse-api:muse-wonder-1.0",
+      "backup": "claude-cli",
+      "backup_alone": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "backup_may_hold_pass_authority": false
+    },
+    {
+      "unavailable": "muse-api:muse-wonder-1.0",
+      "backup": "cursor-cli",
+      "backup_alone": {
+        "cases": 8,
+        "correct": 5,
+        "false_pass": 2,
+        "false_fail": 1,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "backup_may_hold_pass_authority": false
+    },
+    {
+      "unavailable": "muse-api:muse-wonder-1.0",
+      "backup": "gpt-5.6-terra",
+      "backup_alone": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "backup_may_hold_pass_authority": false
+    },
+    {
+      "unavailable": "muse-api:muse-wonder-1.0",
+      "backup": "gpt-6-luna",
+      "backup_alone": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 0,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.4899
+      },
+      "backup_may_hold_pass_authority": false
+    },
+    {
+      "unavailable": "muse-api:muse-wonder-1.0",
+      "backup": "muse-api",
+      "backup_alone": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 4,
+        "false_fail": 0,
+        "false_pass_wilson_upper_bound": 1.0
+      },
+      "backup_may_hold_pass_authority": false
+    },
+    {
+      "unavailable": "muse-api:muse-wonder-1.0",
+      "backup": "muse-api:muse-spark-1.2-contributor",
+      "backup_alone": {
+        "cases": 8,
+        "correct": 6,
+        "false_pass": 2,
+        "false_fail": 0,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "backup_may_hold_pass_authority": false
+    },
+    {
+      "unavailable": "muse-api:muse-wonder-1.0",
+      "backup": "muse-api:muse-spark-1.3",
+      "backup_alone": {
+        "cases": 8,
+        "correct": 4,
+        "false_pass": 2,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.85
+      },
+      "backup_may_hold_pass_authority": false
+    },
+    {
+      "unavailable": "muse-api:muse-wonder-1.0",
+      "backup": "muse-api:muse-spark-1.3-contributor",
+      "backup_alone": {
+        "cases": 8,
+        "correct": 3,
+        "false_pass": 3,
+        "false_fail": 2,
+        "false_pass_wilson_upper_bound": 0.9544
+      },
+      "backup_may_hold_pass_authority": false
+    }
+  ],
+  "recommendation": {
+    "tie_break": "not enabled: 0 of the judges meet the PASS-authority gates (three are needed so that every vote carries authority)",
+    "failover": "not enabled: 0 judge(s) meet the PASS-authority gates; a backup must earn the same authority as the judge it replaces",
+    "sample_note": "4 NON_PASS case(s) observed; 73 are needed with zero false PASS to bound the false-PASS rate at 0.05. Small-sample results cannot enable either option."
+  },
+  "enables_anything": false,
+  "ordered_input_manifest": [
+    "/tmp/judge-screen/codex-rerun.json",
+    "/tmp/judge-screen/rerun-screen.json",
+    "/tmp/judge-screen/muse13-renamed.json",
+    "/tmp/judge-screen/muse13c-screen.json",
+    "/tmp/judge-screen/muse12c-screen.json",
+    "/tmp/judge-screen/wonder-screen.json"
+  ]
+}
