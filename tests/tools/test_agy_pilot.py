@@ -283,3 +283,29 @@ def test_sibling_imports_work_for_generated_tests_without_host_paths():
         "    assert 'agy-pilot-' in resolve_mypy_pin.__file__\n"
     )
     assert agy_pilot._run_pytest("clamp_mod", SOURCE, tests, isolated=True)
+
+
+def test_a_quota_error_is_reported_as_such_and_stops_further_calls(tmp_path):
+    fake = tmp_path / "agy"
+    fake.write_text(
+        "#!/usr/bin/env python3\n"
+        "import json, sys\n"
+        "sys.stdin.readline()\n"
+        "print(json.dumps({'event': 'result', 'result': {'status': 'ERROR', 'response': '',"
+        " 'error': 'Individual quota reached. Resets in 132h25m10s.'}}))\n"
+    )
+    fake.chmod(0o755)
+    backend = agy_pilot.agy_backend("m", agy=str(fake))
+    call = backend("hello")
+    assert call.error.startswith(agy_pilot.QUOTA_ERROR) and "132h" in call.error
+
+    calls = []
+
+    def counting(prompt):
+        calls.append(prompt)
+        return call
+
+    targets = [_target(), Target("two", SOURCE, None, _target().mutants)]
+    result = agy_pilot.run_pilot(counting, targets, "audit", "single", 1)
+    assert len(calls) == 1 and result["empty_or_unusable"] == 2
+    assert any(agy_pilot.QUOTA_ERROR in e for e in result["errors"])
