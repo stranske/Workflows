@@ -1715,7 +1715,27 @@ source review under the existing policy. After settlement, Maint 71 writes the
 exact-head seal once and requests a fresh Gate, retaining failed raw check
 evidence until the new evaluation succeeds. If the head is already sealed and
 the failed run predates that seal, Maint 71 requests fresh Gate evaluation
-without rewriting the seal. A failed evaluation created after the current seal
+without rewriting the seal. This applies to canaries and promoted delivery PRs
+(`sync/workflows-delivery`, staging/ready labels). Restage, readiness recovery,
+and reviewer-request validation precede any Gate recovery; a head about to be
+restaged must never be rerun. Maint 71 selects the latest exact-head
+`pull_request` run of the consumer's `pr-00-gate.yml` and calls
+`actions.reRunWorkflowFailedJobs`, printing
+`seal: <repo>#<n> gate rerun run=<id>`. This preserves the PR-only seal,
+classification, and summary jobs that a dispatch skips. Queued/in-progress
+attempts and completed post-seal evaluations suppress repeat requests. The
+shared seal-time comparison treats equality as pre-seal for the original
+attempt (timestamps have second precision); a rerun attempt at equality counts
+as a fresh evaluation. A completed failure after the seal remains blocking.
+Only when no exact-head PR run exists does Maint 71 print `gate dispatch fallback`
+and dispatch on the PR branch with `pr_number`. It polls once for that fallback
+run and prints `gate requested run=<id>` only upon observing a matching run.
+Dispatch or lookup failures print `gate request failed: <status> <message>` and
+remain in the report's `gate_request`; an accepted dispatch whose run is not yet
+visible reports that uncertainty explicitly. The delivery stays
+`awaiting-sealed-gate` for retry on the next Maint 71 pass. There is no label
+wakeup fallback: `sync:delivery-ready` records lifecycle state only. Existing
+required-check and review blockers still apply. A failed evaluation created after the current seal
 remains blocking. Neither recovery path updates the branch or authorizes merge.
 
 Each canary prints `seal: <repo>#<n> sealed|pending(<reason>)|blocked(<check names>)`.
