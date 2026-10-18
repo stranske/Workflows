@@ -107,30 +107,83 @@ def test_validation_rejects_an_unchanged_or_plan_altering_mutant():
     assert not g.validate(snap, altered, "src/feature.py")
 
 
-def test_generate_labels_cases_as_controlled_mutation_non_pass():
+def test_generate_labels_cases_as_controlled_mutation_non_pass(tmp_path: Path):
+    snapshot_dir = tmp_path / "snapshots"
+    snapshot_dir.mkdir()
     corpus = {
-        "screen_cases": [
+        "cases": [
             {
                 "case_id": "c1",
                 "repo": "o/r",
                 "pr": 1,
                 "expected_verdict": "PASS",
-                "production_snapshot": _snapshot(),
+                "category": "clean-pass",
             },
             {
                 "case_id": "c2",
                 "repo": "o/r",
                 "pr": 2,
                 "expected_verdict": "NON_PASS",
-                "production_snapshot": _snapshot(),
+                "category": "clean-pass",
             },
-        ]
+        ],
+        "screen_cases": [],
     }
-    cases = g.generate(corpus)
+    (snapshot_dir / "c1.json").write_text(
+        json.dumps(
+            {
+                "schema": g.SNAPSHOT_SCHEMA,
+                "case_id": "c1",
+                "production_snapshot": _snapshot(),
+            }
+        )
+        + "\n"
+    )
+    cases = g.generate(corpus, snapshot_dir=snapshot_dir)
     assert cases and all(c["expected_verdict"] == "NON_PASS" for c in cases)
     assert all(c["provenance"] == "controlled-mutation" for c in cases)
     assert all(c["category"] == "missing-acceptance-criterion" for c in cases)
     assert {c["source_case_id"] for c in cases} == {"c1"}  # never mutates an already-NON_PASS case
+
+
+def test_generate_reads_snapshot_files_and_write_appends_deduplicated_cases(tmp_path: Path):
+    snapshot_dir = tmp_path / "snapshots"
+    snapshot_dir.mkdir()
+    corpus_path = tmp_path / "corpus.json"
+    corpus = {
+        "cases": [
+            {
+                "case_id": "pass-from-file",
+                "repo": "o/r",
+                "pr": 9,
+                "expected_verdict": "PASS",
+                "category": "clean-pass",
+            }
+        ],
+        "screen_cases": [],
+    }
+    corpus_path.write_text(json.dumps(corpus) + "\n")
+    source_snapshot = _snapshot("Require `src/feature.py` in the diff.")
+    (snapshot_dir / "pass-from-file.json").write_text(
+        json.dumps(
+            {
+                "schema": g.SNAPSHOT_SCHEMA,
+                "case_id": "pass-from-file",
+                "production_snapshot": source_snapshot,
+            }
+        )
+        + "\n"
+    )
+    generated = g.generate(corpus, snapshot_dir=snapshot_dir)
+    assert generated
+    assert {case["source_case_id"] for case in generated} == {"pass-from-file"}
+
+    first_added = g.write_cases(corpus_path, generated, snapshot_dir=snapshot_dir)
+    second_added = g.write_cases(corpus_path, generated, snapshot_dir=snapshot_dir)
+    assert first_added == len(generated)
+    assert second_added == 0
+    stored = json.loads(corpus_path.read_text())
+    assert len(stored["cases"]) == 1 + len(generated)
 
 
 def test_real_captured_snapshots_are_handled_in_their_real_format():
