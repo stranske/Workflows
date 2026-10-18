@@ -1707,7 +1707,14 @@ and no other error; generic exit annotations alone are insufficient. An extra
 failed required check, unrelated classifier error, incomplete evidence, or API
 failure still blocks sealing.
 
-Seal-only failures (including `sealed_head_mismatch`) are reported as
+Seal-only failures use the single exported `SEAL_PRECONDITION_REASONS` vocabulary
+in `sync_pr_lease_contract.js`, shared by the seal action and Maint 71:
+`delivery_not_sealed:staging`, `delivery_not_sealed:reviewing`,
+`delivery_not_sealed:legacy`, and `sealed_head_mismatch`. An annotation from a
+legacy PR-body snapshot does not waive the current record's staging/reviewing/
+sealed validation. Invalid records, terminal dispositions, expired leases,
+repository mismatches and forked stable heads are not seal preconditions.
+Proven seal-only failures are reported as
 `seal_pending`, never a repo-local repair request. A stale seal is restaged and
 uses the existing configured reviewer settlement policy; active threads and the
 bounded review wait still hold it. Integration-only delivery continues to reuse
@@ -1727,9 +1734,20 @@ attempts and completed post-seal evaluations suppress repeat requests. The
 shared seal-time comparison treats equality as pre-seal for the original
 attempt (timestamps have second precision); a rerun attempt at equality counts
 as a fresh evaluation. A completed failure after the seal remains blocking.
-Only when no exact-head PR run exists does Maint 71 print `gate dispatch fallback`
-and dispatch on the PR branch with `pr_number`. It polls once for that fallback
+When no exact-head PR run exists, or GitHub refuses a rerun with HTTP 403
+(`cannot be retried`) or 422, Maint 71 prints `gate dispatch fallback` and
+dispatches on the PR branch with `pr_number`. It polls once for the fallback
 run and prints `gate requested run=<id>` only upon observing a matching run.
+Other 403 failures remain errors.
+A refused rerun prints `seal: <repo>#<n> blocked(rerun-refused)` and records the
+original status/reason in `gate_request`, even if the fallback fails. Observed
+fallbacks also print `gate rerun refused; dispatched run=<id>`. A queued or
+post-seal dispatch on the same branch/head suppresses another dispatch.
+A dispatched Gate can supply canary evidence, but skips PR-only jobs and cannot
+establish merge readiness. The blocker remains visible beside the drainable
+count until a fresh PR Gate is available. The metadata-only restage path does
+not trigger a fresh PR Gate; recovery must not close/reopen a PR or push an
+empty commit.
 Dispatch or lookup failures print `gate request failed: <status> <message>` and
 remain in the report's `gate_request`; an accepted dispatch whose run is not yet
 visible reports that uncertainty explicitly. The delivery stays

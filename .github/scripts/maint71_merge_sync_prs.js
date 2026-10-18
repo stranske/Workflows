@@ -15,6 +15,7 @@ const STALE_CANARY_HOURS = 6;
 const CANARY_REFRESH_DEBOUNCE_MS = 6 * 60 * 60 * 1000;
 const CANARY_SEALED_REFRESH_WAIT_MS = 60 * 60 * 1000;
 const deliveryPayload = require('./consumer_delivery_digest');
+const { SEAL_PRECONDITION_REASONS } = require('./sync_pr_lease_contract');
 const ACTIVE_SYNC_STATES = ['queued', 'in_progress', 'waiting', 'pending', 'requested'];
 
 function candidateSet(repositories) {
@@ -436,7 +437,7 @@ async function isExpectedPresealGateFailure({
     if (!Array.isArray(annotations)
       || annotations.length !== sealCheck.output.annotations_count) return false;
     const failures = annotations.filter((row) => row?.annotation_level === 'failure');
-    const reasons = ['delivery_not_sealed:staging', 'delivery_not_sealed:reviewing', 'sealed_head_mismatch']
+    const reasons = Object.values(SEAL_PRECONDITION_REASONS)
       .map((reason) => `Mutable generated delivery is not mergeable: ${reason}. Maint 71 must seal this exact head after bounded reviewer settlement.`);
     const exactReason = failures.find((row) => reasons.includes(String(row?.message || '').trim()))?.message?.trim();
     if (!exactReason) return false;
@@ -741,6 +742,8 @@ async function requestSealedGate({ owner, repo, pr, withRetry, sealedAt }) {
   const identity = `seal: ${owner}/${repo}#${pr.number}`;
   const query = { owner, repo, workflow_id: 'pr-00-gate.yml',
     head_sha: pr.head?.sha, per_page: 100 };
+  let refusal = {};
+  const receipt = result => ({ ...result, ...refusal });
   try {
     if (!pr.head?.ref || !pr.head?.sha) throw new Error('Gate recovery requires the PR head ref and SHA');
     if (sealedAt !== undefined && !Number.isFinite(Date.parse(sealedAt))) {
@@ -758,22 +761,36 @@ async function requestSealedGate({ owner, repo, pr, withRetry, sealedAt }) {
       if (latest.status !== 'completed' || (sealedAt && gateEvaluatesSeal(latest, sealedAt))) {
         return { mode: 'existing', run_id: latest.id };
       }
-      const response = await withRetry(client => client.rest.actions.reRunWorkflowFailedJobs({
-        owner, repo, run_id: latest.id,
-      }));
-      console.log(`${identity} gate rerun run=${latest.id}`);
-      return { mode: 'rerun', status: response.status, run_id: latest.id };
+      try {
+        const response = await withRetry(client => client.rest.actions.reRunWorkflowFailedJobs({
+          owner, repo, run_id: latest.id,
+        }));
+        console.log(`${identity} gate rerun run=${latest.id}`);
+        return { mode: 'rerun', status: response.status, run_id: latest.id };
+      } catch (error) {
+        const status = Number(error?.status || error?.response?.status);
+        const reason = error?.response?.data?.message || error.message || '';
+        // Permission/rate-limit failures are not evidence of a refused rerun.
+        if (status !== 422 && !(status === 403 && /cannot be retried/i.test(reason))) throw error;
+        refusal = { blocked: 'rerun-refused', rerun_status: status, rerun_reason: reason };
+        console.log(`${identity} blocked(rerun-refused)`);
+      }
     }
-    // No PR-event run exists. Debounce fallback dispatches using the same
-    // seal boundary, including queued runs whose execution has not started.
+    // No PR-event run exists, or GitHub refused to retry it. A dispatch provides
+    // canary evidence only: it skips PR-only jobs and cannot waive merge checks.
+    // Debounce using the same seal boundary, including queued runs.
     if (sealedAt) {
       const { data: fallback } = await withRetry(client => client.rest.actions.listWorkflowRuns({
         ...query, event: 'workflow_dispatch',
       }));
       const existing = fallback?.workflow_runs?.find(run => run.id
         && run.event === 'workflow_dispatch' && run.head_sha === pr.head.sha
+        && run.head_branch === pr.head.ref
         && (run.status !== 'completed' || gateEvaluatesSeal(run, sealedAt)));
-      if (existing) return { mode: 'existing', run_id: existing.id };
+      if (existing) {
+        if (refusal.blocked) console.log(`${identity} gate rerun refused; dispatched run=${existing.id} (existing)`);
+        return receipt({ mode: 'existing', run_id: existing.id });
+      }
     }
     console.log(`${identity} gate dispatch fallback`);
     const requestedAt = Date.now();
@@ -798,15 +815,16 @@ async function requestSealedGate({ owner, repo, pr, withRetry, sealedAt }) {
     if (!run) {
       const reason = 'Gate run not observed after dispatch; retry next Maint 71 run';
       console.log(`${identity} gate request failed: ${response.status} ${reason}`);
-      return { mode: 'dispatch', status: response.status, run_id: null, reason };
+      return receipt({ mode: 'dispatch', status: response.status, run_id: null, reason });
     }
     console.log(`${identity} gate requested run=${run.id}`);
-    return { mode: 'dispatch', status: response.status, run_id: run.id };
+    if (refusal.blocked) console.log(`${identity} gate rerun refused; dispatched run=${run.id}`);
+    return receipt({ mode: 'dispatch', status: response.status, run_id: run.id });
   } catch (error) {
     const status = error?.status || error?.response?.status || 'unknown';
     const reason = error?.response?.data?.message || error.message || 'Gate request failed';
     console.log(`${identity} gate request failed: ${status} ${reason}`);
-    return { mode: 'failed', status, reason };
+    return receipt({ mode: 'failed', status, reason });
   }
 }
 
@@ -4117,7 +4135,8 @@ async function run({ github, context, core }) {
             seal: ({ pr: current, record, settlement }) => sealStableDelivery({
               owner, repo, pr: current, record, settlement, dryRunMode: false }),
           });
-          if (canary) canary.seal_state = dryRun ? 'pending(dry-run)' : 'sealed';
+          if (canary) canary.seal_state = dryRun ? 'pending(dry-run)'
+            : sealed.gateRequest?.blocked ? 'blocked(rerun-refused)' : 'sealed';
           results.push({ ...deliveryContext,
             status: dryRun ? 'dry_run_seal' : 'delivery_sealed_checks_pending',
             gate_request: sealed.gateRequest,
@@ -4303,7 +4322,8 @@ async function run({ github, context, core }) {
             settlement,
             dryRunMode: dryRun,
           });
-          if (canary) canary.seal_state = dryRun ? 'pending(dry-run)' : 'sealed';
+          if (canary) canary.seal_state = dryRun ? 'pending(dry-run)'
+            : sealed.gateRequest?.blocked ? 'blocked(rerun-refused)' : 'sealed';
           if (dryRun) {
             results.push({
               ...deliveryContext,
@@ -4415,8 +4435,8 @@ async function run({ github, context, core }) {
         const gateRequest = autoMerge && !dryRun
           ? await requestSealedGate({ owner, repo, pr, withRetry, sealedAt: deliveryRecord.sealed_at })
           : undefined;
-        if (expectedPresealGateHold || (gateRequest && gateRequest.mode !== 'existing')) {
-          if (canary) canary.seal_state = 'sealed';
+        if (expectedPresealGateHold || gateRequest?.blocked || (gateRequest && gateRequest.mode !== 'existing')) {
+          if (canary) canary.seal_state = gateRequest?.blocked ? 'blocked(rerun-refused)' : 'sealed';
           results.push({ ...deliveryContext, status: 'delivery_sealed_checks_pending',
             delivery_disposition: 'awaiting-sealed-gate', blocker_owner: 'ci',
             next_command: 'rerun-after-generated-delivery-seal-gate', gate_request: gateRequest });

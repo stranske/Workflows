@@ -84,6 +84,18 @@ test('a seal for a different head is rejected', () => {
   assert.equal(result.reason, 'sealed_head_mismatch');
 });
 
+test('the action emits exactly the shared seal-precondition vocabulary', () => {
+  const { SEAL_PRECONDITION_REASONS } = require('../sync_pr_lease_contract.js');
+  const reasons = ['', 'staging', 'reviewing'].map(delivery_state => evaluateDeliverySeal(
+    event({ body: record({ delivery_state }) }), REPOSITORY, NOW,
+  ).reason);
+  reasons.push(evaluateDeliverySeal(event({ body: record({ sealed_head_sha: 'c'.repeat(40) }) }),
+    REPOSITORY, NOW).reason);
+  assert.deepEqual(reasons.sort(), Object.values(SEAL_PRECONDITION_REASONS).sort());
+  assert.deepEqual(reasons, ['delivery_not_sealed:legacy', 'delivery_not_sealed:reviewing',
+    'delivery_not_sealed:staging', 'sealed_head_mismatch']);
+});
+
 test('forked stable-delivery heads are rejected', () => {
   const result = evaluateDeliverySeal(
     event({ headRepo: 'attacker/example' }),
