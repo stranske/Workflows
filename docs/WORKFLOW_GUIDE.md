@@ -382,6 +382,8 @@ The standard verifier queries configured CI workflow filenames at the exact PR
 head/merge SHA, with a 100-run budget and at most 10 pages per listing. Legacy
 callers without configured names retain bounded repository discovery at that SHA. `DEFAULT_EVIDENCE_RUN_LIMIT` and
 `DEFAULT_EVIDENCE_RUN_PAGES` in `agents_verifier_context.js` name these bounds;
+the input manifest records `null` for unset run-limit/page overrides, inheriting
+those JS defaults, and records integers for explicit overrides;
 `VERIFIER_EVIDENCE_RUN_LIMIT` / `VERIFIER_EVIDENCE_RUN_PAGES` override them.
 Conversation, inline comments and reviews use bounded pagination. Bot chatter
 is filtered before the comment budget; bot proof, run links and review findings

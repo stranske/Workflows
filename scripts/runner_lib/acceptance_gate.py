@@ -145,7 +145,11 @@ def prepare(commands: list[Command], cwd: Path) -> list[Result]:
             tools += " pytest-cov"
         setup.append(f"{python} -m pip install {tools}")
         project = cwd / "pyproject.toml"
-        metadata = tomllib.loads(project.read_text()) if project.is_file() else {}
+        try:
+            metadata = tomllib.loads(project.read_text()) if project.is_file() else {}
+        except tomllib.TOMLDecodeError as error:
+            print(f"Gate install source warning: invalid pyproject.toml: {error}", flush=True)
+            metadata = {}
         if "project" in metadata or "build-system" in metadata or (cwd / "setup.py").is_file():
             extras = metadata.get("project", {}).get("optional-dependencies", {})
             selected = [name for name in ("dev", "test") if name in extras]

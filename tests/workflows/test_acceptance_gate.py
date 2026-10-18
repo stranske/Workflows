@@ -313,3 +313,20 @@ def test_prepare_uses_declared_extras_lock_and_cov_like_ci(tmp_path, monkeypatch
     assert any("-e '.[dev,test]'" in call for call in calls)
     assert any("-r requirements.lock" in call for call in calls)
     assert "editable project .[dev,test]" in capsys.readouterr().out
+
+
+def test_prepare_warns_on_malformed_pyproject_and_keeps_requirements(tmp_path, monkeypatch, capsys):
+    (tmp_path / "pyproject.toml").write_text("[project\n")
+    (tmp_path / "requirements.lock").write_text("fixture\n")
+    calls = []
+
+    def capture(commands, cwd):
+        calls.extend(command.command for command in commands)
+        return [acceptance_gate.Result(-1, commands[0].command, 0, "")]
+
+    monkeypatch.setattr(acceptance_gate, "run", capture)
+    assert acceptance_gate.prepare([Command(0, "pytest tests")], tmp_path) == []
+    output = capsys.readouterr().out
+    assert output.startswith("Gate install source warning: invalid pyproject.toml:")
+    assert "Gate install source: requirements requirements.lock" in output
+    assert any("-r requirements.lock" in call for call in calls)
