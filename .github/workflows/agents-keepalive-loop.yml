@@ -1315,7 +1315,7 @@ jobs:
         run: pip install -r tools/requirements-subscription-analysis.txt
 
       - name: Setup Node for subscription analysis
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: '24'
 
@@ -1326,7 +1326,6 @@ jobs:
           set -euo pipefail
           if [ -n "$CODEX_AUTH_JSON" ]; then
             npm ci --prefix .github/actions/maint78-codex-cli --ignore-scripts
-            echo "$(pwd)/.github/actions/maint78-codex-cli/node_modules/.bin" >> "$GITHUB_PATH"
             mkdir -p "$HOME/.codex"
             printf '%s' "$CODEX_AUTH_JSON" > "$HOME/.codex/auth.json"
             chmod 600 "$HOME/.codex/auth.json"
@@ -1427,6 +1426,7 @@ jobs:
           FILES: ${{ steps.commits.outputs.files }}
           ROUNDS: ${{ needs.evaluate.outputs.rounds_without_task_completion }}
         run: |
+          export PATH="$PWD/.github/actions/maint78-codex-cli/node_modules/.bin:$PATH"
           mapfile -t criteria_array < <(printf '%s\n' "$CRITERIA" | jq -r '.[]')
           mapfile -t commits_array < <(printf '%s\n' "$COMMITS" | jq -r '.[]')
           mapfile -t files_array < <(printf '%s\n' "$FILES" | jq -r '.[]')
