@@ -1674,6 +1674,12 @@ def test_round2_manifest_and_discovery_fail_closed_on_malformed_inputs(tmp_path:
 def test_invoke_codex_rejects_invalid_purpose_and_unverifiable_astra(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, purpose: str, expected: str
 ) -> None:
+    monkeypatch.setenv("REPO_REVIEW_CODEX_MODEL", "gpt-6-astra")
+    monkeypatch.setattr(
+        runner,
+        "run_with_heartbeat",
+        lambda *_args, **_kwargs: pytest.fail("invalid invocation must not start Codex"),
+    )
     monkeypatch.setattr(runner.shutil, "which", lambda _name: "/usr/local/bin/codex")
     monkeypatch.setattr(
         runner.subprocess,
