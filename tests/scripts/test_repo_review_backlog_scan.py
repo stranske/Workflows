@@ -824,13 +824,37 @@ def test_gh_helpers_cover_missing_binary_failures_and_success(monkeypatch, capsy
     assert scanner.gh_list_open_issues("owner/repo") == []
     assert scanner.gh_add_label("owner/repo", 1, "priority:normal") == (False, "rc=1: denied")
 
-    monkeypatch.setattr(
-        scanner.subprocess,
-        "run",
-        lambda *args, **kwargs: subprocess.CompletedProcess(args[0], 0, '[{"number": 1}]', ""),
-    )
+    calls = []
+
+    def successful_run(argv, **kwargs):
+        calls.append((argv, kwargs))
+        return subprocess.CompletedProcess(argv, 0, '[{"number": 1}]', "")
+
+    monkeypatch.setattr(scanner.subprocess, "run", successful_run)
     assert scanner.gh_list_open_issues("owner/repo") == [{"number": 1}]
     assert scanner.gh_add_label("owner/repo", 1, "priority:normal") == (True, "labeled")
+    assert calls == [
+        (
+            [
+                "gh",
+                "issue",
+                "list",
+                "--repo",
+                "owner/repo",
+                "--state",
+                "open",
+                "--limit",
+                "500",
+                "--json",
+                "number,title,body,labels,updatedAt,createdAt,url",
+            ],
+            {"check": False, "capture_output": True, "text": True, "timeout": 60},
+        ),
+        (
+            ["gh", "issue", "edit", "1", "--repo", "owner/repo", "--add-label", "priority:normal"],
+            {"check": False, "capture_output": True, "text": True, "timeout": 30},
+        ),
+    ]
 
 
 def test_scan_classifies_and_sorts_apply_outcomes(monkeypatch) -> None:
