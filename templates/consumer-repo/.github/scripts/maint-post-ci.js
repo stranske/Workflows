@@ -897,6 +897,8 @@ async function autoHealFailureIssues({ github: rawGithub, context, core }) {
     const issue_number = item.number;
     const issue = await github.rest.issues.get({ owner, repo, issue_number });
     const body = issue.data.body || '';
+    // A different PR's unresolved association is not proof of stability.
+    if (/<!-- tracked-pr: \d+ -->/.test(body)) continue;
     const m = body.match(/Last seen:\s*(.+)/i);
     if (!m) continue;
     const lastSeenTs = Date.parse(m[1].trim());

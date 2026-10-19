@@ -109,3 +109,15 @@ def test_maint46_refuses_fork_or_unknown_repository_identity_without_pr_associat
     assert "Gate repository identity is incomplete" in source
     assert "Fork Gate run is owned by Gate Fork Status Publisher" in source
     assert "run.pull_requests" not in source
+
+
+def test_tracker_serializes_pending_events_without_single_slot_replacement():
+    workflow = yaml.safe_load(Path(".github/workflows/maint-46-post-ci.yml").read_text())
+    job = workflow["jobs"]["failure-tracker"]
+    assert job["concurrency"]["queue"] == "max"
+    assert job["concurrency"]["cancel-in-progress"] is False
+    assert job["permissions"]["issues"] == "write"
+    assert "issues" not in workflow["permissions"]
+    checkout = next(step for step in job["steps"] if step.get("uses", "").startswith("actions/checkout@"))
+    assert checkout["with"]["ref"] == "${{ github.sha }}"
+    assert checkout["with"]["persist-credentials"] is False

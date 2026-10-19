@@ -651,6 +651,8 @@ test('authored Gate tracker retains other PRs in a cooldown aggregate on recover
   await inTrackerReplay(async h => {
     await h.replay();
     h.issues[0].body += '\n<!-- tracked-pr: 6 -->';
+    const stale = new Date(Date.now() - 48 * 3_600_000).toISOString();
+    h.issues[0].body = h.issues[0].body.replace(/^Last seen: .+$/m, `Last seen: ${stale}`);
     h.run.id = 101;
     h.run.conclusion = 'success';
     h.state.jobs[1].conclusion = 'success';

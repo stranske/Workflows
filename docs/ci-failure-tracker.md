@@ -30,7 +30,7 @@ variable APIs or an artificial retry delay.
 
 A healthy completed Gate closes its PR-tagged failure issues. An aggregate that
 still tracks another PR stays open, with only the recovered PR tag removed.
-The healthy path also checks the documented inactivity window. Cancelled or
+The healthy path also checks the documented inactivity window for untagged issues; any remaining tracked PR prevents inactivity-only closure. Repository-wide serialization uses `queue: max` to retain up to100 pending jobs rather than replacing the sole pending event. Queue overflow remains a platform limit. Cancelled or
 unknown outcomes do not establish recovery. Both valid failure and success paths
 write the same snapshot schema, including `monitored_run` identity and current
 open issues; snapshot writing runs in `finally` after a tracker action fails.
