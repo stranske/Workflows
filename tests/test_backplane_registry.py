@@ -502,12 +502,34 @@ def test_status_report_matches_registry() -> None:
     assert vbr.main(["--check-status", str(report_path)]) == 0
 
 
-def test_status_report_flags_drift(tmp_path: Path) -> None:
+def test_write_status_writes_rendered_markdown(tmp_path: Path) -> None:
+    registry = _registry()
     registry_path = tmp_path / "registry.json"
-    registry_path.write_text(json.dumps(_registry()), encoding="utf-8")
-    report_path = tmp_path / "backplane_registry_status.md"
-    report_path.write_text("stale report\n", encoding="utf-8")
+    registry_path.write_text(json.dumps(registry), encoding="utf-8")
+    out_path = tmp_path / "status.md"
 
+    assert vbr.main(["--write-status", str(out_path), str(registry_path)]) == 0
+    assert out_path.read_text(encoding="utf-8") == vbr.render_status_markdown(registry)
+
+
+def test_status_report_flags_drift(tmp_path: Path) -> None:
+    registry = copy.deepcopy(_registry())
+    registry_path = tmp_path / "registry.json"
+    registry_path.write_text(json.dumps(registry), encoding="utf-8")
+    report_path = tmp_path / "backplane_registry_status.md"
+    report_path.write_text(vbr.render_status_markdown(registry), encoding="utf-8")
+
+    # Drift via stale committed report.
+    report_path.write_text("stale report\n", encoding="utf-8")
+    assert vbr.main(["--check-status", str(report_path), str(registry_path)]) == 1
+
+    # Drift via registry status change without regenerating the report.
+    report_path.write_text(vbr.render_status_markdown(registry), encoding="utf-8")
+    for entry in registry["participants"]:
+        if entry["repo"] == "stranske/Inv-Man-Intake":
+            entry["status"] = "planned"
+            break
+    registry_path.write_text(json.dumps(registry), encoding="utf-8")
     assert vbr.main(["--check-status", str(report_path), str(registry_path)]) == 1
 
 
