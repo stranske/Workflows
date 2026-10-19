@@ -61,11 +61,27 @@ def _sha256_bytes(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
+def _normalize_transcript(blob: bytes) -> bytes:
+    """Drop pytest wall-clock noise so deliberate-break receipts stay reproducible."""
+
+    text = blob.decode("utf-8", errors="replace")
+    # "2 passed in 0.94s" / "1 failed in 0.23s" — duration is not evidence.
+    text = re.sub(
+        r"\b(\d+ (?:passed|failed|skipped|xfailed|xpassed|error|errors)) in [0-9.]+s\b",
+        r"\1 in <time>",
+        text,
+    )
+    # Rare pytest variants: "in 1.23s =" suffixes on progress lines.
+    text = re.sub(r"\bin [0-9.]+s\b", "in <time>", text)
+    return text.encode("utf-8")
+
+
 def _write_transcript(name: str, payload: bytes) -> str:
     OUT_DIR.mkdir(parents=True, exist_ok=True)
+    normalized = _normalize_transcript(payload)
     path = OUT_DIR / name
-    path.write_bytes(payload)
-    digest = _sha256_bytes(payload)
+    path.write_bytes(normalized)
+    digest = _sha256_bytes(normalized)
     (OUT_DIR / f"{name}.sha256").write_text(digest + "\n", encoding="utf-8")
     return digest
 
@@ -86,7 +102,7 @@ def _run_pytest(nodes: list[str]) -> subprocess.CompletedProcess[bytes]:
 
 
 def _summarize_pytest(blob: bytes) -> str:
-    text = blob.decode("utf-8", errors="replace")
+    text = _normalize_transcript(blob).decode("utf-8", errors="replace")
     for pattern, label in (
         (r"(\d+) failed", "failed"),
         (r"(\d+) passed", "passed"),
@@ -211,6 +227,16 @@ def main() -> int:
     if CONFIG_PATH.read_bytes() != original_config or TEST_PATH.read_bytes() != original_test:
         raise RuntimeError("working tree not restored byte-for-byte")
 
+    # Idempotence guard: normalized transcripts must hash stably across re-runs.
+    for label, blob, digest in (
+        ("with_fix", with_fix_blob, with_fix_sha),
+        ("fix_disconnected", disconnected_blob, disconnected_sha),
+        ("fix_restored", restored_blob, restored_sha),
+    ):
+        again = _sha256_bytes(_normalize_transcript(blob))
+        if again != digest:
+            raise RuntimeError(f"transcript normalization not idempotent for {label}")
+
     receipt = {
         "regression": REGRESSION_NODE,
         "positive_control": POSITIVE_NODE,
@@ -218,6 +244,7 @@ def main() -> int:
             "scripts/langchain/verifier_config.py artifact_from_verification_text: "
             "extract verdicts from _latest_verifier_report(raw) only"
         ),
+        "transcript_normalization": "pytest wall-clock durations replaced with <time>",
         "with_fix": {
             "result": _summarize_pytest(with_fix_blob),
             "sha256": with_fix_sha,

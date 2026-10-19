@@ -17,6 +17,6 @@ E       AssertionError: assert 'verdict' not in {'raw_present': True, 'verdict':
 tests/scripts/test_verifier_config.py:303: AssertionError
 =========================== short test summary info ============================
 FAILED tests/scripts/test_verifier_config.py::test_artifact_from_verification_text_ignores_historical_pass_when_latest_incomplete - AssertionError: assert 'verdict' not in {'raw_present': True, 'verdict': 'PASS', 'artifact_family': 'verifier-report'}
-1 failed in 0.13s
+1 failed in <time>
 
 --- stderr ---
