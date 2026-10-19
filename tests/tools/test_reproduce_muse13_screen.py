@@ -83,7 +83,9 @@ def test_changed_case_or_aggregate_is_rejected(preserved, location):
     file = preserved / target
     data = json.loads(file.read_text())
     if location == "prediction":
-        data["rows"][0]["raw_verdict"] = "FAIL"
+        data["rows"][0]["prediction"] = (
+            "FAIL" if data["rows"][0]["prediction"] != "FAIL" else "PASS"
+        )
     elif location == "expected":
         data["rows"][0]["expected_verdict"] = "NON_PASS"
     elif location == "digest":
@@ -91,7 +93,7 @@ def test_changed_case_or_aggregate_is_rejected(preserved, location):
     elif location == "revision":
         data["rows"][0]["source_revision"] = "0" * 40
     elif location == "pair":
-        data["pairs"][0]["agreements"] = 999
+        data["pairs"][0]["agreement"] = 999
     elif location == "aggregate":
         data["judges"][0]["correct"] = 999
     elif location == "manifest":
@@ -136,3 +138,35 @@ def test_replay_passes_pinned_policy_into_analyze(preserved, monkeypatch):
         ]
         == 75
     )
+
+
+def test_write_recreates_artifact_and_receipt_then_cli_check_accepts(
+    preserved, monkeypatch, capsys
+):
+    import sys
+
+    artifact = preserved / proof.ARTIFACT
+    artifact.unlink()
+    ensemble = preserved / proof.ENSEMBLE
+    stored = json.loads(ensemble.read_text())
+    stored.pop("evidence_reproduction")
+    stored.pop("ordered_input_manifest")
+    ensemble.write_text(json.dumps(stored))
+
+    expected = {"cases": 8, "judges": 9, "pairs": 36, "tie_breaks": 252}
+    assert proof.verify(write=True, root=preserved) == expected
+    assert json.loads(artifact.read_text()) == proof.standard_observations(preserved)
+    rewritten = json.loads(ensemble.read_text())
+    assert rewritten["ordered_input_manifest"] == [str(path) for path in proof.INPUTS]
+    assert rewritten["evidence_reproduction"]["offline"] is True
+    assert rewritten["evidence_reproduction"]["input_sha256"] == proof.verify_pinned_inputs(
+        preserved
+    )
+    assert {k: v for k, v in rewritten.items() if k in stored} == stored
+
+    # The CLI uses its real verifier, rooted only at the disposable evidence copy.
+    real_verify = proof.verify
+    monkeypatch.setattr(proof, "verify", lambda **kwargs: real_verify(root=preserved, **kwargs))
+    monkeypatch.setattr(sys, "argv", ["reproduce_muse13_screen", "--check"])
+    assert proof.main() == 0
+    assert json.loads(capsys.readouterr().out) == expected
