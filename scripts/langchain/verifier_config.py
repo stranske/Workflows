@@ -156,7 +156,12 @@ def artifact_from_verification_text(text: str) -> dict[str, Any]:
             "partial verifier output",
         )
     )
-    if "## pr verification" in lowered or "verdict:" in lowered:
+    if (
+        "## pr verification" in lowered
+        or "## llm evaluation report" in lowered
+        or "## provider comparison report" in lowered
+        or "verdict:" in lowered
+    ):
         artifact["artifact_family"] = "verifier-report"
     if repair_pending:
         artifact["repair_pending"] = True

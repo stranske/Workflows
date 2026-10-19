@@ -324,4 +324,35 @@ def test_latest_report_recognizes_production_headings(heading):
     current = heading + "\nSchema repair pending; see older run"
     text = "## PR Verification Report\nVerdict: FAIL\n\n" + current
     assert latest_verifier_report(text) == current
-    assert not is_terminal_artifact(artifact_from_verification_text(text))
+    artifact = artifact_from_verification_text(text)
+    assert artifact.get("repair_pending") is True
+    assert artifact.get("artifact_family") == "verifier-report"
+    assert "verdict" not in artifact
+    assert not is_terminal_artifact(artifact)
+
+
+def test_historical_fail_then_latest_pass_resolves_to_pass():
+    history = (
+        "## PR Verification Report\nVerdict: FAIL\n\n---\n\n"
+        "## PR Verification Report\nVerdict: PASS"
+    )
+    artifact = artifact_from_verification_text(history)
+    assert artifact["verdict"] == "PASS"
+    assert is_terminal_artifact(artifact)
+
+
+def test_provider_comparison_report_heading_aggregates_worst_verdict():
+    artifact = artifact_from_verification_text(
+        "\n".join(
+            [
+                "## Provider Comparison Report",
+                "| Provider | Model | Verdict | Confidence | Summary |",
+                "| --- | --- | --- | --- | --- |",
+                "| openai | gpt | PASS | 90% | ok |",
+                "| anthropic | claude | FAIL | 70% | gap |",
+            ]
+        )
+    )
+    assert artifact["verdict"] == "FAIL"
+    assert artifact["artifact_family"] == "verifier-report"
+    assert is_terminal_artifact(artifact)
