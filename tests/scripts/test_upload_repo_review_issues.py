@@ -1,5 +1,7 @@
+import argparse
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from scripts import upload_repo_review_issues as uploader
@@ -702,3 +704,78 @@ def test_manifest_rejection_preserves_approved_bodies(tmp_path, monkeypatch, fau
     if fault == "duplicate-target":
         assert selected == items
         assert all(not row["used_role"] for row in receipt["items"])
+
+
+def test_duplicate_helpers_and_label_mutations_preserve_the_dedup_contract(monkeypatch):
+    """The uploader must only mutate labels when a duplicate actually lacks one.
+
+    Deliberately removing the ``if not missing`` guard makes the final assertion
+    fail by issuing a needless GitHub edit for an already-labelled issue.
+    """
+    candidate = issue("Deterministic uploader smoke")
+    matching = issue("Deterministic uploader smoke") | {
+        "labels": [{"name": "repo-review-approved"}]
+    }
+    assert uploader.duplicate_tokens("The THE tiny useful_token") == {"tiny", "useful_token"}
+    assert uploader.duplicate_similarity(candidate, {"title": "", "body": ""}) == 0.0
+    assert uploader.find_semantic_duplicate(candidate, [matching]) == matching
+    assert uploader.find_semantic_duplicate(candidate, [{"title": "same"}]) is None
+
+    commands: list[tuple[list[str], bool]] = []
+
+    def fake_run(args, *, check=False):
+        commands.append((args, check))
+        return SimpleNamespace(stdout="")
+
+    monkeypatch.setattr(uploader, "run_command", fake_run)
+    uploader.ensure_labels("owner/repo", ["priority:high", "future-label"], ["gh"])
+    uploader.add_missing_labels(
+        "owner/repo", 7, ["priority:high"], [{"name": "priority:high"}], ["gh"]
+    )
+    uploader.add_missing_labels("owner/repo", 7, ["future-label"], [], ["gh"])
+
+    assert len(commands) == 3
+    assert commands[-1][0][-2:] == ["--add-label", "future-label"]
+    assert commands[-1][1] is True
+
+
+def test_main_validates_metadata_and_delegates_with_parsed_filter(tmp_path, monkeypatch, capsys):
+    """CLI metadata gates run before upload; a valid queue delegates exactly once.
+
+    Changing either boolean type gate to accept a string makes the first branch
+    return success instead of the asserted fail-closed status.
+    """
+    bad = tmp_path / "bad.json"
+    bad.write_text(json.dumps({"issues": [], "intake_hold": {"active": "false"}}))
+    monkeypatch.setattr(
+        uploader,
+        "parse_args",
+        lambda: argparse.Namespace(
+            queue=bad, apply=False, gh_prefix="gh", repo=[], authoring_dir=None
+        ),
+    )
+    assert uploader.main() == 2
+    assert "Invalid intake hold state" in capsys.readouterr().err
+
+    good = tmp_path / "good.json"
+    good.write_text(json.dumps({"issues": [issue()], "intake_hold": {"active": False}}))
+    captured: dict[str, object] = {}
+    monkeypatch.setattr(
+        uploader,
+        "parse_args",
+        lambda: argparse.Namespace(
+            queue=good,
+            apply=False,
+            gh_prefix="gh --hostname github.test",
+            repo=["owner/repo"],
+            authoring_dir=tmp_path / "authoring",
+        ),
+    )
+    monkeypatch.setattr(
+        uploader,
+        "upload_issues",
+        lambda issues, **kwargs: captured.update(issues=issues, **kwargs) or {"would_create": []},
+    )
+    assert uploader.main() == 0
+    assert captured["repo_filter"] == {"owner/repo"}
+    assert captured["authoring_dir"] == tmp_path / "authoring"
