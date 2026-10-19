@@ -224,9 +224,9 @@ The following workflows were decommissioned during the CI consolidation effort. 
 3. Reusable workflows stay invisible in the Actions tab; top-level consumers should include summary steps for observability.
 
 ### Failure rollup quick reference
-- The Gate summary job updates the "CI failures in last 24 h" issue labelled `ci-failure`, aggregating failure signatures with links back to the offending Gate runs.
-- Auto-heal closes the issue after a full day without repeats while preserving an occurrence history in the body.
-- Escalations apply the `priority: high` label once the same signature fires three times.
+- Maint46's independent `failure-tracker` job handles completed same-repository Gate runs, including a successful summary with a failed upstream CI leg. Trusted current-run/attempt/head validation precedes issue writes; summary recovery remains a separate path.
+- Existing-signature issues are updated with occurrence/run metadata; cooldown appends avoid duplicates and recurrence comments are rate-limited. Healthy PR recovery and the inactivity scan close eligible issues without discarding other tracked PRs.
+- Both paths upload `artifacts/ci_failures_snapshot.json` with monitored run/attempt/head identity. See [CI Failure Tracker](ci-failure-tracker.md) for the executable replay, supported settings and controlled hosted receipt.
 
 ## Agent Operations
 - Use **Agents 70 Orchestrator** for readiness checks, Codex bootstrap, diagnostics, and keepalive sweeps. The **Agents 71–73 Codex Belt** now owns the queue automation loop—dispatcher selects issues, worker opens/refreshes the PR, conveyor merges after Gate, and the dispatcher is re-triggered. Historical consumer shims remain retired (see [ARCHIVE_WORKFLOWS.md](archive/ARCHIVE_WORKFLOWS.md)), and the Agent task issue template still auto-labels issues (`agents`, `agent:codex`) so the bridge can open the branch/PR before the belt takes over.

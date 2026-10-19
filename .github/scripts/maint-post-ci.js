@@ -609,7 +609,43 @@ async function evaluateAutofixRerunGuard({ github: rawGithub, context, core }) {
   setOutputs(false);
 }
 
-async function updateFailureTracker({ github: rawGithub, context, core }) {
+async function resolveGateTrackingContext({ github, context, core }) {
+  const payload = context.payload.workflow_run;
+  const repositoryId = context.payload.repository?.id;
+  if (!payload || payload.event !== 'pull_request' || !repositoryId
+    || payload.repository?.id !== repositoryId || payload.head_repository?.id !== repositoryId) {
+    core.info('Gate tracker requires a same-repository pull_request run.');
+    return null;
+  }
+  const { owner, repo } = context.repo;
+  const { data: run } = await github.rest.actions.getWorkflowRun({ owner, repo, run_id: payload.id });
+  if (run.id !== payload.id || run.run_attempt !== payload.run_attempt || run.status !== 'completed'
+    || run.head_sha !== payload.head_sha || run.event !== 'pull_request'
+    || run.path !== '.github/workflows/pr-00-gate.yml'
+    || run.repository?.id !== repositoryId || run.head_repository?.id !== repositoryId) return null;
+  const refs = run.pull_requests || [];
+  if (refs.length !== 1 || !refs[0].head?.sha) return null;
+  const { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number: refs[0].number });
+  if (pr.head?.repo?.id !== repositoryId || pr.head?.sha !== refs[0].head.sha) return null;
+  const runs = await github.paginate(github.rest.actions.listWorkflowRuns, {
+    owner, repo, workflow_id: run.workflow_id, branch: run.head_branch || undefined, event: 'pull_request', per_page: 100,
+  });
+  const samePrHead = other => (other.pull_requests || []).some(ref =>
+    ref.number === refs[0].number && ref.head?.sha === refs[0].head.sha);
+  const newer = runs.some(other => other.id > run.id
+    && (other.head_sha === run.head_sha || samePrHead(other)));
+  if (!runs.some(other => other.id === run.id && other.run_attempt === run.run_attempt) || newer) return null;
+  const jobs = await github.paginate(github.rest.actions.listJobsForWorkflowRunAttempt, {
+    owner, repo, run_id: run.id, attempt_number: run.run_attempt, per_page: 100,
+  });
+  if (!jobs.length || jobs.some(job => job.status !== 'completed')) return null;
+  const failed = jobs.some(job => ['failure', 'timed_out', 'action_required', 'startup_failure'].includes(job.conclusion));
+  const healthy = !failed && run.conclusion === 'success'
+    && jobs.every(job => ['success', 'skipped', 'neutral'].includes(job.conclusion));
+  return { run, jobs, prNumber: pr.number, failed, healthy };
+}
+
+async function updateFailureTracker({ github: rawGithub, context, core, jobs: suppliedJobs }) {
   // Wrap github client with rate-limit-aware retry
   let github;
   try {
@@ -643,11 +679,11 @@ async function updateFailureTracker({ github: rawGithub, context, core }) {
   const RATE_LIMIT_MINUTES = parseInt(process.env.RATE_LIMIT_MINUTES || '15', 10);
   const STACK_TOKENS_ENABLED = /^true$/i.test(process.env.STACK_TOKENS_ENABLED || 'true');
   const STACK_TOKEN_MAX_LEN = parseInt(process.env.STACK_TOKEN_MAX_LEN || '160', 10);
-  const FAILURE_INACTIVITY_HEAL_HOURS = parseFloat(process.env.FAILURE_INACTIVITY_HEAL_HOURS || '0');
   const HEAL_THRESHOLD_DESC = `Auto-heal after ${process.env.AUTO_HEAL_INACTIVITY_HOURS || '24'}h stability (success path)`;
 
-  const jobsResp = await github.rest.actions.listJobsForWorkflowRun({ owner, repo, run_id: runId, per_page: 100 });
-  const failedJobs = jobsResp.data.jobs.filter(j => (j.conclusion || '').toLowerCase() !== 'success');
+  if (/^true$/i.test(process.env.DISABLE_FAILURE_ISSUES || 'false')) return;
+  const jobs = suppliedJobs || (await github.rest.actions.listJobsForWorkflowRun({ owner, repo, run_id: runId, per_page: 100 })).data.jobs;
+  const failedJobs = jobs.filter(j => ['failure', 'timed_out', 'action_required', 'startup_failure'].includes((j.conclusion || '').toLowerCase()));
   if (!failedJobs.length) {
     core.info('No failed jobs found despite run-level failure — aborting.');
     return;
@@ -706,63 +742,73 @@ async function updateFailureTracker({ github: rawGithub, context, core }) {
 
   const signatureParts = failedJobs.map(job => `${job.name} (${job.conclusion || job.status || 'unknown'})`);
   const title = `${slugify(run.name || run.display_title || 'Gate')} failure: ${signatureParts.join(', ')}`;
-  const descriptionLines = [
-    `Workflow: ${run.name || run.display_title || 'Gate'}`,
-    `Run ID: ${runId}`,
-    `Run URL: ${run.html_url || ''}`,
-    prLine,
-    stackTokenNote,
-  ].filter(Boolean);
-
   const labels = ['ci-failure'];
-  const cooldownHours = parseFloat(process.env.NEW_ISSUE_COOLDOWN_HOURS || '12');
-  const retryMs = parseInt(process.env.COOLDOWN_RETRY_MS || '3000', 10);
-
-  async function attemptCooldownAppend(stage) {
-    try {
-      const listName = `failure-cooldown-${slugify(run.name || 'gate')}`;
-      const response = await github.rest.actions.getEnvironmentVariable({ owner, repo, name: listName });
-      const lastEntries = response.data.value ? JSON.parse(response.data.value) : [];
-      const now = Date.now();
-      const recent = lastEntries.find(entry => now - entry.timestamp < cooldownHours * 3600_000);
-      if (recent) {
-        core.info(`Cooldown active (${stage}); skipping failure issue creation.`);
-        return true;
-      }
-      lastEntries.push({ timestamp: now, run_id: runId });
-      await github.rest.actions.updateEnvironmentVariable({ owner, repo, name: listName, value: JSON.stringify(lastEntries.slice(-25)) });
-      core.info(`Recorded cooldown entry for run ${runId} (${stage}).`);
-      return true;
-    } catch (error) {
-      core.info(`Cooldown list retrieval failed (${stage}): ${error.message}`);
-    }
-    return false;
+  const cooldownHours = Number(process.env.NEW_ISSUE_COOLDOWN_HOURS || '12');
+  const params = { owner, repo, state: 'open', labels: 'ci-failure', per_page: 100 };
+  const openIssues = github.paginate
+    ? await github.paginate(github.rest.issues.listForRepo, params)
+    : (await github.rest.issues.listForRepo(params)).data;
+  const now = Date.now();
+  const nowIso = new Date(now).toISOString();
+  const runMarker = `<!-- tracked-run: ${runId}:${run.run_attempt || 1} -->`;
+  const signatureIssue = openIssues.find(item => !item.pull_request && item.title === title);
+  const scope = process.env.COOLDOWN_SCOPE || 'global';
+  const recentIssues = openIssues.filter(item => {
+    if (item.pull_request) return false;
+    if (scope === 'signature' && item.title !== title) return false;
+    if (scope === 'workflow' && !item.title.startsWith(`${slugify(run.name || 'Gate')} failure:`)) return false;
+    const lastSeen = (item.body || '').match(/^Last seen: (.+)$/m);
+    const timestamp = lastSeen ? Date.parse(lastSeen[1]) : NaN;
+    return timestamp <= now && now - timestamp < cooldownHours * 3_600_000;
+  }).sort((a, b) => Date.parse(b.updated_at) - Date.parse(a.updated_at));
+  const existing = signatureIssue || recentIssues[0];
+  if (existing && (existing.body || '').includes(runMarker)) {
+    core.info(`Run ${runId} already tracked; leaving occurrence count unchanged.`);
+    return;
   }
-
-  let appendedViaCooldown = await attemptCooldownAppend('initial');
-  if (!appendedViaCooldown && cooldownHours > 0 && retryMs > 0) {
-    await new Promise(r => setTimeout(r, retryMs));
-    appendedViaCooldown = await attemptCooldownAppend('retry');
-  }
-  if (appendedViaCooldown) return;
-
-  const nowIso = new Date().toISOString();
-  const headerMeta = [
-    'Occurrences: 1',
+  const oldBody = existing?.body || '';
+  const occurrences = existing ? Number((oldBody.match(/^Occurrences: (\d+)/m) || [])[1] || 0) + 1 : 1;
+  const tags = new Set(oldBody.match(/<!-- tracked-pr: \d+ -->/g) || []);
+  if (prTag) tags.add(prTag);
+  const lastComment = (oldBody.match(/^Last comment: (.+)$/m) || [])[1];
+  const shouldComment = existing && (!lastComment || now - Date.parse(lastComment) >= RATE_LIMIT_MINUTES * 60_000);
+  const managedBody = [
+    '<!-- ci-failure-managed:start -->',
+    `Occurrences: ${occurrences}`,
     `Last seen: ${nowIso}`,
+    `Last comment: ${shouldComment ? nowIso : (lastComment || '')}`,
     `Healing threshold: ${HEAL_THRESHOLD_DESC}`,
+    runMarker,
+    ...tags,
     '',
-  ].join('\n');
-  const bodyBlock = [
     '## Failure summary',
-    ...failedJobs.map(job => `- ${job.name} (${job.conclusion || job.status || 'unknown'})`),
+    `Workflow: ${run.name || 'Gate'}`,
+    `Run ID: ${runId} (attempt ${run.run_attempt || 1})`,
+    `Head: ${run.head_sha || ''}`,
+    `Run URL: ${run.html_url || ''}`,
+    ...(prLine ? [prLine] : []),
+    ...failedJobs.map(job => `- ${job.name} (${job.conclusion})`),
     '',
     stackTokenNote,
+    '<!-- ci-failure-managed:end -->',
     '',
-    ...(prTag ? [prTag] : []),
   ].join('\n');
-  const created = await github.rest.issues.create({ owner, repo, title, body: headerMeta + bodyBlock, labels });
-  core.info(`Created new failure issue #${created.data.number}`);
+  const managedRegion = /<!-- ci-failure-managed:start -->[\s\S]*?<!-- ci-failure-managed:end -->\n?/;
+  const body = managedRegion.test(oldBody)
+    ? oldBody.replace(managedRegion, () => managedBody)
+    : managedBody + (oldBody ? `\n${oldBody}` : '');
+  if (existing) {
+    await github.rest.issues.update({ owner, repo, issue_number: existing.number, body });
+    if (shouldComment) {
+      await github.rest.issues.createComment({ owner, repo, issue_number: existing.number,
+        body: `Recurrence ${occurrences}: ${title}\n${run.html_url || `Run ${runId}`}\n${runMarker}` });
+    }
+    core.info(`Updated failure issue #${existing.number} (${occurrences} occurrences).`);
+  } else {
+    const created = await github.rest.issues.create({ owner, repo, title, body, labels });
+    core.info(`Created new failure issue #${created.data.number}`);
+  }
+
 }
 
 async function resolveFailureIssuesForRecoveredPR({ github: rawGithub, context, core }) {
@@ -783,17 +829,25 @@ async function resolveFailureIssuesForRecoveredPR({ github: rawGithub, context, 
   const { owner, repo } = context.repo;
   const tag = `<!-- tracked-pr: ${pr} -->`;
   const query = `repo:${owner}/${repo} is:issue is:open label:ci-failure "${tag}"`;
-  const search = await github.rest.search.issuesAndPullRequests({ q: query, per_page: 10 });
-  if (!search.data.items.length) {
+  const items = github.paginate
+    ? await github.paginate(github.rest.search.issuesAndPullRequests, { q: query, per_page: 100 })
+    : (await github.rest.search.issuesAndPullRequests({ q: query, per_page: 100 })).data.items;
+  if (!items.length) {
     core.info(`No open failure issues tagged for PR #${pr}.`);
     return;
   }
   const runUrl = process.env.RUN_URL || (context.payload.workflow_run && context.payload.workflow_run.html_url) || '';
   const nowIso = new Date().toISOString();
-  for (const item of search.data.items) {
+  for (const item of items) {
     const issue_number = item.number;
     const issue = await github.rest.issues.get({ owner, repo, issue_number });
     let body = issue.data.body || '';
+    const remainingTags = (body.match(/<!-- tracked-pr: \d+ -->/g) || []).filter(value => value !== tag);
+    if (remainingTags.length) {
+      await github.rest.issues.update({ owner, repo, issue_number, body: body.replaceAll(tag, '') });
+      core.info(`PR #${pr} recovered; issue #${issue_number} still tracks other PRs.`);
+      continue;
+    }
     body = body
       .replace(/^Resolved:.*$/gim, '')
       .replace(/\n{3,}/g, '\n\n')
@@ -836,11 +890,29 @@ async function autoHealFailureIssues({ github: rawGithub, context, core }) {
   const INACTIVITY_HOURS = parseFloat(process.env.AUTO_HEAL_INACTIVITY_HOURS || '24');
   const now = Date.now();
   const q = `repo:${owner}/${repo} is:issue is:open label:ci-failure`;
-  const search = await github.rest.search.issuesAndPullRequests({ q, per_page: 100 });
-  for (const item of search.data.items) {
+  const items = github.paginate
+    ? await github.paginate(github.rest.search.issuesAndPullRequests, { q, per_page: 100 })
+    : (await github.rest.search.issuesAndPullRequests({ q, per_page: 100 })).data.items;
+  for (const item of items) {
     const issue_number = item.number;
     const issue = await github.rest.issues.get({ owner, repo, issue_number });
-    const body = issue.data.body || '';
+    if (issue.data.state !== 'open') continue;
+    let body = issue.data.body || '';
+    // Only an explicitly closed PR can retire its association. Unknown/API
+    // failures retain the tag, preventing inactivity-only false recovery.
+    const tags = [...body.matchAll(/<!-- tracked-pr: (\d+) -->/g)];
+    for (const tag of tags) {
+      try {
+        const pr = await github.rest.pulls.get({ owner, repo, pull_number: Number(tag[1]) });
+        if (pr.data.state === 'closed') body = body.replaceAll(tag[0], '');
+      } catch (error) {
+        core.warning(`Retaining unresolved PR #${tag[1]} association: ${error.message}`);
+      }
+    }
+    if (body !== (issue.data.body || '')) {
+      await github.rest.issues.update({ owner, repo, issue_number, body });
+    }
+    if (/<!-- tracked-pr: \d+ -->/.test(body)) continue;
     const m = body.match(/Last seen:\s*(.+)/i);
     if (!m) continue;
     const lastSeenTs = Date.parse(m[1].trim());
@@ -869,11 +941,23 @@ async function snapshotFailureIssues({ github: rawGithub, context, core }) {
   }
 
   const { owner, repo } = context.repo;
-  const q = `repo:${owner}/${repo} is:issue is:open label:ci-failure`;
-  const search = await github.rest.search.issuesAndPullRequests({ q, per_page: 100 });
+  // Search indexing may lag the issue writes in this very workflow step.
+  const params = { owner, repo, labels: 'ci-failure', state: 'open', per_page: 100 };
+  const items = [];
+  if (github.paginate) {
+    items.push(...await github.paginate(github.rest.issues.listForRepo, params));
+  } else {
+    for (let page = 1; ; page += 1) {
+      const result = await github.rest.issues.listForRepo({ ...params, page });
+      items.push(...result.data);
+      if (result.data.length < 100) break;
+    }
+  }
   const issues = [];
-  for (const item of search.data.items) {
+  for (const item of items) {
+    if (item.pull_request) continue;
     const issue = await github.rest.issues.get({ owner, repo, issue_number: item.number });
+    if (issue.data.state !== 'open' || issue.data.pull_request) continue;
     const body = issue.data.body || '';
     const occ = (body.match(/Occurrences:\s*(\d+)/i) || [])[1] || null;
     const lastSeen = (body.match(/Last seen:\s*(.*)/i) || [])[1] || null;
@@ -890,7 +974,11 @@ async function snapshotFailureIssues({ github: rawGithub, context, core }) {
   fs.mkdirSync('artifacts', { recursive: true });
   fs.writeFileSync(
     path.join('artifacts', 'ci_failures_snapshot.json'),
-    JSON.stringify({ generated_at: new Date().toISOString(), issues }, null, 2),
+    JSON.stringify({ generated_at: new Date().toISOString(), monitored_run: {
+      id: context.payload?.workflow_run?.id || null,
+      attempt: context.payload?.workflow_run?.run_attempt || null,
+      head_sha: context.payload?.workflow_run?.head_sha || null,
+    }, issues }, null, 2),
   );
   core.info(`Snapshot written with ${issues.length} open failure issues.`);
 }
@@ -1060,6 +1148,7 @@ module.exports = {
   inspectFailingJobs,
   evaluateAutofixRerunGuard,
   ensureAutofixComment,
+  resolveGateTrackingContext,
   updateFailureTracker,
   resolveFailureIssuesForRecoveredPR,
   autoHealFailureIssues,

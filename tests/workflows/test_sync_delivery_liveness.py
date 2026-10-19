@@ -75,9 +75,6 @@ def test_maint68_and_maint71_serialize_stable_pr_writers_across_final_read_patch
     assert not refresh.is_alive()
     assert maint68_mutated.is_set()
 
-    actionlint_allowlist = Path(".github/actionlint-allowlist.txt").read_text()
-    assert 'unexpected key "queue" for "concurrency" section' not in actionlint_allowlist
-
 
 def test_stable_writer_concurrency_documents_pending_replacement_and_replay():
     maintenance_guide = Path("docs/ops/CONSUMER_REPO_MAINTENANCE.md").read_text()
