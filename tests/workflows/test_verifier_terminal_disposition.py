@@ -625,10 +625,15 @@ def test_deliberate_break_restored_raw_verdict_fallback_then_restore() -> None:
     broken = broken.replace(_SETTLED_VERDICT_ONLY, _RAW_VERDICT_FALLBACK, 1)
     assert broken != original_text
 
+    child_env = {
+        key: value
+        for key, value in os.environ.items()
+        if key not in {"VERIFIER_SETTLEMENT_TRACE_DIR", "SETTLEMENT_UPLOAD_OUTCOME"}
+    }
     with tempfile.TemporaryDirectory(prefix="verifier-deliberate-break-") as tmp:
         broken_path = Path(tmp) / "reusable-agents-verifier.yml"
         broken_path.write_text(broken, encoding="utf-8")
-        broken_env = {**os.environ, _WORKFLOW_ENV: str(broken_path)}
+        broken_env = {**child_env, _WORKFLOW_ENV: str(broken_path)}
         broken_run = subprocess.run(
             [
                 sys.executable,
@@ -664,8 +669,19 @@ def test_deliberate_break_restored_raw_verdict_fallback_then_restore() -> None:
             target,
         ],
         cwd=ROOT,
+        env=child_env,
         capture_output=True,
         text=True,
         check=False,
     )
     assert restored_run.returncode == 0, restored_run.stdout + restored_run.stderr
+
+
+@_needs_node
+def test_deliberate_break_children_do_not_publish_acceptance_traces(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setenv("VERIFIER_SETTLEMENT_TRACE_DIR", str(tmp_path))
+    monkeypatch.setenv("SETTLEMENT_UPLOAD_OUTCOME", "failed")
+    test_deliberate_break_restored_raw_verdict_fallback_then_restore()
+    assert not list(tmp_path.iterdir()), "Child mutation traces polluted acceptance evidence"
