@@ -318,6 +318,40 @@ def test_notification_and_scan_loaders_handle_best_effort_failures(
     assert '\\"' in calls[0][0][2]
 
 
+def test_notification_ignores_os_error_and_reminder_falls_back_to_output_dir(
+    tmp_path: Path, monkeypatch, capsys
+) -> None:
+    from scripts import repo_review_notify as notify
+
+    monkeypatch.setattr(notify.shutil, "which", lambda _: "/usr/bin/osascript")
+    monkeypatch.setattr(
+        notify.subprocess, "run", lambda *_, **__: (_ for _ in ()).throw(OSError("no"))
+    )
+    notify.display_notification("title", "subtitle", "message")
+    assert "osascript failed" in capsys.readouterr().err
+
+    monkeypatch.setenv("HOME", str(tmp_path))
+    original_mkdir = Path.mkdir
+
+    def fail_desktop_mkdir(path: Path, **kwargs) -> None:
+        if path.name == "Desktop":
+            raise OSError("no desktop")
+        original_mkdir(path, **kwargs)
+
+    monkeypatch.setattr(Path, "mkdir", fail_desktop_mkdir)
+    target = notify.write_desktop_reminder(
+        queue_summary={"total": 0, "by_repo": {}, "skipped_count": 0, "issue_titles": []},
+        backlog={},
+        docs_drift={},
+        scorecard={},
+        packet_path=tmp_path / "packet",
+        queue_path=tmp_path / "queue",
+        output_dir=tmp_path / "out",
+        workflows_steward_root=tmp_path,
+    )
+    assert target == tmp_path / "out" / notify.DESKTOP_FILENAME
+
+
 def test_scorecard_and_reminder_cover_error_and_decision_headlines(
     tmp_path: Path, monkeypatch
 ) -> None:
