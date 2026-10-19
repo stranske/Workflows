@@ -896,8 +896,22 @@ async function autoHealFailureIssues({ github: rawGithub, context, core }) {
   for (const item of items) {
     const issue_number = item.number;
     const issue = await github.rest.issues.get({ owner, repo, issue_number });
-    const body = issue.data.body || '';
-    // A different PR's unresolved association is not proof of stability.
+    if (issue.data.state !== 'open') continue;
+    let body = issue.data.body || '';
+    // Only an explicitly closed PR can retire its association. Unknown/API
+    // failures retain the tag, preventing inactivity-only false recovery.
+    const tags = [...body.matchAll(/<!-- tracked-pr: (\d+) -->/g)];
+    for (const tag of tags) {
+      try {
+        const pr = await github.rest.pulls.get({ owner, repo, pull_number: Number(tag[1]) });
+        if (pr.data.state === 'closed') body = body.replaceAll(tag[0], '');
+      } catch (error) {
+        core.warning(`Retaining unresolved PR #${tag[1]} association: ${error.message}`);
+      }
+    }
+    if (body !== (issue.data.body || '')) {
+      await github.rest.issues.update({ owner, repo, issue_number, body });
+    }
     if (/<!-- tracked-pr: \d+ -->/.test(body)) continue;
     const m = body.match(/Last seen:\s*(.+)/i);
     if (!m) continue;
@@ -927,13 +941,23 @@ async function snapshotFailureIssues({ github: rawGithub, context, core }) {
   }
 
   const { owner, repo } = context.repo;
-  const q = `repo:${owner}/${repo} is:issue is:open label:ci-failure`;
-  const items = github.paginate
-    ? await github.paginate(github.rest.search.issuesAndPullRequests, { q, per_page: 100 })
-    : (await github.rest.search.issuesAndPullRequests({ q, per_page: 100 })).data.items;
+  // Search indexing may lag the issue writes in this very workflow step.
+  const params = { owner, repo, labels: 'ci-failure', state: 'open', per_page: 100 };
+  const items = [];
+  if (github.paginate) {
+    items.push(...await github.paginate(github.rest.issues.listForRepo, params));
+  } else {
+    for (let page = 1; ; page += 1) {
+      const result = await github.rest.issues.listForRepo({ ...params, page });
+      items.push(...result.data);
+      if (result.data.length < 100) break;
+    }
+  }
   const issues = [];
   for (const item of items) {
+    if (item.pull_request) continue;
     const issue = await github.rest.issues.get({ owner, repo, issue_number: item.number });
+    if (issue.data.state !== 'open' || issue.data.pull_request) continue;
     const body = issue.data.body || '';
     const occ = (body.match(/Occurrences:\s*(\d+)/i) || [])[1] || null;
     const lastSeen = (body.match(/Last seen:\s*(.*)/i) || [])[1] || null;

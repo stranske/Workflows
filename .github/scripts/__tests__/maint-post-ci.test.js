@@ -368,7 +368,7 @@ test('autoHealFailureIssues closes stale entries and writes summary', async () =
         issuesAndPullRequests: async () => ({ data: { items: [{ number: 11 }] } }),
       },
       issues: {
-        get: async () => ({ data: { body: `Occurrences: 1\nLast seen: ${staleTime}` } }),
+        get: async () => ({ data: { state: 'open', body: `Occurrences: 1\nLast seen: ${staleTime}` } }),
         createComment: async () => {},
         update: async () => { closed += 1; },
       },
@@ -392,9 +392,11 @@ test('snapshotFailureIssues writes artifact snapshot', async () => {
           issuesAndPullRequests: async () => ({ data: { items: [{ number: 21 }] } }),
         },
         issues: {
+          listForRepo: async () => ({ data: [{ number: 21 }] }),
           get: async () => ({
             data: {
               number: 21,
+              state: 'open',
               title: 'Failure',
               body: 'Occurrences: 1\nLast seen: 2024-01-01T00:00:00Z',
               html_url: 'issue-url',
@@ -494,7 +496,7 @@ function trackerReplayHarness() {
     repository: { id: 10 }, head_repository: { id: 10 },
     pull_requests: [{ number: 5, head: { sha: 'b'.repeat(40) } }],
   };
-  const pr = { number: 5, head: { sha: 'b'.repeat(40), repo: { id: 10 } } };
+  const pr = { number: 5, state: 'open', head: { sha: 'b'.repeat(40), repo: { id: 10 } } };
   const state = {
     jobs: [{ id: 1, name: 'summary', status: 'completed', conclusion: 'success' },
       { id: 2, name: 'Python CI', status: 'completed', conclusion: 'failure' },
@@ -515,7 +517,7 @@ function trackerReplayHarness() {
     pulls: { get: async () => ({ data: pr }) },
     search: { issuesAndPullRequests: async ({ q }) => {
       const tag = q.match(/tracked-pr: (\d+)/);
-      return { data: { items: issues.filter(item => item.state === 'open'
+      return { data: { items: state.searchItems || issues.filter(item => item.state === 'open'
         && (!tag || item.body.includes(`<!-- tracked-pr: ${tag[1]} -->`))) } };
     } },
     issues: {
@@ -703,3 +705,48 @@ test('authored Gate tracker does not heal cancelled outcomes', async () => {
     assert.equal(readTrackerSnapshot().issues.length, 1);
   });
 });
+
+
+test('snapshot uses consistent issue list despite delayed search writes', async () => {
+  await inTrackerReplay(async h => {
+    h.state.searchItems = [];
+    await h.replay();
+    assert.equal(readTrackerSnapshot().issues.length, 1);
+    const closed = h.issues[0];
+    closed.state = 'closed';
+    // Even an older list page cannot turn a closed issue into an open failure.
+    h.state.searchItems = [closed];
+    const github = { rest: { issues: {
+      listForRepo: async () => ({ data: [closed, { number: 999, pull_request: {} }] }),
+      get: async () => ({ data: closed }),
+    } } };
+    await snapshotFailureIssues({ github, context: h.context, core: h.core });
+    assert.deepEqual(readTrackerSnapshot().issues, []);
+  });
+});
+
+for (const state of ['closed', 'open', 'unavailable']) {
+  test(`inactivity retires only confirmed closed PR tags: ${state}`, async () => {
+    await inTrackerReplay(async h => {
+      await h.replay();
+      const issue = h.issues[0];
+      const stale = new Date(Date.now() - 48 * 3600_000).toISOString();
+      issue.body = issue.body.replace(/^Last seen: .+$/m, `Last seen: ${stale}`);
+      const github = { rest: {
+        search: { issuesAndPullRequests: async () => ({ data: { items: [issue] } }) },
+        pulls: { get: async () => {
+          if (state === 'unavailable') throw new Error('unavailable');
+          return { data: { state } };
+        } },
+        issues: {
+          get: async () => ({ data: issue }),
+          update: async payload => Object.assign(issue, payload),
+          createComment: async () => {},
+        },
+      } };
+      await autoHealFailureIssues({ github, context: h.context, core: h.core });
+      assert.equal(issue.state, state === 'closed' ? 'closed' : 'open');
+      assert.equal(/<!-- tracked-pr: 5 -->/.test(issue.body), state !== 'closed');
+    });
+  });
+}
