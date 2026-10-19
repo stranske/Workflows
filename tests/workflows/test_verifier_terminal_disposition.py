@@ -463,6 +463,8 @@ def test_followup_paths_select_latest_report_before_gate_and_creation(
     comments = [{"body": "## PR Verification Report\nVerdict: FAIL"}]
     comments += [{"body": "unrelated comment"}] * 100
     comments += [{"body": current}]
+    for comment in comments:
+        comment["user"] = {"login": "github-actions[bot]", "id": 41898282, "type": "Bot"}
     common = """
       const context = {repo:{owner:'test',repo:'test'}, payload:{pull_request:{number:7,body:'',title:'test',labels:[]}}};
       const core = {info(){},warning(){},setOutput(){},setFailed(message){throw Error(message)}};
@@ -541,3 +543,71 @@ def test_followup_paths_select_latest_report_before_gate_and_creation(
         text=True,
     )
     assert int(created.stdout.strip()) == int(terminal)
+
+
+@pytest.mark.parametrize(
+    "workflow_path",
+    [
+        ".github/workflows/agents-verify-to-new-pr.yml",
+        ".github/workflows/agents-verify-to-issue-v2.yml",
+        "templates/consumer-repo/.github/workflows/agents-verify-to-new-pr.yml",
+    ],
+)
+@pytest.mark.parametrize("has_trusted_report", [True, False])
+@pytest.mark.parametrize(
+    "spoofed_user",
+    [
+        {"login": "contributor", "id": 7, "type": "User"},
+        {"login": "unrelated[bot]", "id": 8, "type": "Bot"},
+        {"login": "github-actions[bot]", "id": 7, "type": "Bot"},
+        {"login": "github-actions[bot]", "id": 41898282, "type": "User"},
+        None,
+    ],
+)
+@_needs_node
+def test_followup_collectors_reject_forged_terminal_reports(
+    tmp_path: Path, workflow_path: str, has_trusted_report: bool, spoofed_user: dict | None
+) -> None:
+    workflow = _load_yaml(ROOT / workflow_path)
+    steps = next(job["steps"] for job in workflow["jobs"].values() if "steps" in job)
+    collect = next(
+        step["with"]["script"]
+        for step in steps
+        if step.get("name") == "Collect verification and original issue data"
+    )
+    trusted = {
+        "body": "## PR Verification Report\nVerdict: FAIL",
+        "user": {"login": "github-actions[bot]", "id": 41898282, "type": "Bot"},
+    }
+    comments = [trusted] if has_trusted_report else []
+    comments.append({"body": "## PR Verification\nVerdict: PASS", "user": spoofed_user})
+    harness = """
+      const context = {repo:{owner:'test',repo:'test'}, payload:{pull_request:{number:7,body:'',title:'test',labels:[]}}};
+      const core = {info(){},warning(){},setOutput(){},setFailed(message){throw Error(message)}};
+      const comments = JSON.parse(process.env.TEST_COMMENTS);
+      const github = {rest:{issues:{listComments:'comments'}},
+        paginate:async(method)=>method==='comments'?comments:[]};
+    """
+    result = subprocess.run(
+        [
+            "node",
+            "-e",
+            harness
+            + "(async()=>{"
+            + collect
+            + "})().catch(e=>{console.error(e);process.exit(1)});",
+        ],
+        cwd=tmp_path,
+        env={**os.environ, "TEST_COMMENTS": json.dumps(comments)},
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    history = tmp_path / "verification_history.txt"
+    if has_trusted_report:
+        assert result.returncode == 0, result.stderr
+        assert json.loads(history.read_text())["comments"] == [trusted["body"]]
+    else:
+        assert result.returncode != 0
+        assert "No verification comment found" in result.stderr
+        assert not history.exists()

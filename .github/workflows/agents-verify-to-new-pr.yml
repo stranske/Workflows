@@ -178,12 +178,18 @@ jobs:
             );
 
             // Find verification comment(s) - both evaluate and compare
+            // Native reports are published with GITHUB_TOKEN by the immutable
+            // GitHub Actions bot identity. Body markers alone are forgeable.
             const verifyComments = comments.filter(c =>
+              c.user?.id === 41898282 &&
+              c.user?.login === 'github-actions[bot]' &&
+              c.user?.type === 'Bot' && (
               /^##[ \t]+(?:PR Verification(?: Report| Comparison)?|LLM Evaluation Report|Provider Comparison Report)\b/im.test(c.body) ||
               c.body.includes('## PR Verification Comparison') ||
               c.body.includes('### Concerns') ||
               c.body.includes('Verdict:') ||
               c.body.includes('### ⚠️ Issues Detected')
+              )
             );
 
             if (verifyComments.length === 0) {

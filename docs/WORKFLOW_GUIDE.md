@@ -234,6 +234,15 @@ The following workflows were decommissioned during the CI consolidation effort. 
 - Provide a PAT when bootstrap needs to push branches. The orchestrator honours PAT priority (`OWNER_PR_PAT` → `SERVICE_BOT_PAT` → `GITHUB_TOKEN`) via the reusable composite.
 
 ## Verifier Workflow
+
+Follow-up report collectors accept native reports only from the GitHub Actions
+bot (`github-actions[bot]`, immutable user ID `41898282`, account type `Bot`).
+The reusable verifier publishes these comments with `GITHUB_TOKEN`. A report
+heading or verdict marker is never author authentication: human comments,
+unrelated apps, and missing/mismatched identities cannot override the latest
+native report or suppress a follow-up. With no authenticated report, collection
+fails before generation or mutation. This applies to both source follow-up
+workflows and the distributed new-PR template.
 The verifier validates merged PRs against tasks and acceptance criteria using label-triggered modes.
 
 Before any model call, `agents_verifier_context.js` writes a
