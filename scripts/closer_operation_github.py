@@ -175,7 +175,7 @@ def decode_git_record_blob(meta: Mapping[str, Any], blob: Mapping[str, Any]) -> 
     except (KeyError, ValueError) as exc:
         raise CloserRuntimeError("malformed immutable blob content") from exc
     # Git object identity is protocol interoperability; SHA-256 binds our record evidence.
-    actual_sha = hashlib.sha1(
+    actual_sha = hashlib.sha1(  # nosemgrep: python.lang.security.insecure-hash-algorithms.insecure-hash-algorithm-sha1
         b"blob " + str(len(raw)).encode() + b"\0" + raw, usedforsecurity=False
     ).hexdigest()
     if len(raw) != size or actual_sha != sha:
