@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 
+import pytest
+from scripts import repo_review_queue_builder as queue_builder
 from scripts.repo_review_queue_builder import (
     build_queue,
     is_uploadable_body,
@@ -674,3 +677,66 @@ def test_include_meta_candidate_not_specified_excludes_meta(tmp_path: Path) -> N
     issue_titles = {item["title"] for item in result["issues"]}
     assert "Test issue" in issue_titles
     assert "Meta audit" not in issue_titles
+
+
+def test_build_queue_reports_missing_directory_and_invalid_converged_json(tmp_path: Path) -> None:
+    feedback = tmp_path / "feedback.json"
+    feedback.write_text(json.dumps({"decisions": {"owner/repo": {"decision": "approve"}}}))
+    with pytest.raises(FileNotFoundError, match="round2 dir not found"):
+        build_queue(tmp_path / "missing", feedback, {"by_repo": []})
+
+    round2 = tmp_path / "round2"
+    path = round2 / "owner__repo" / "converged.json"
+    path.parent.mkdir(parents=True)
+    path.write_text("not json")
+    result = build_queue(round2, feedback, {"issues": [], "pending": [], "dropped": []})
+    assert result["issues"] == []
+    assert "parse error" in result["skipped"][0]["reason"]
+
+
+def test_main_writes_queue_and_prints_per_repo(tmp_path: Path, monkeypatch, capsys) -> None:
+    round2 = tmp_path / "round2"
+    _write_converged(round2, "owner/repo", "Queued", body=_valid_body())
+    feedback = tmp_path / "feedback.json"
+    feedback.write_text(json.dumps({"decisions": {"owner/repo": {"decision": "approve"}}}))
+    scorecard = tmp_path / "scorecard.json"
+    scorecard.write_text(json.dumps({"schema": SCHEMA, "by_repo": []}))
+    output = tmp_path / "out" / "queue.json"
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "queue-builder",
+            "--round2-dir",
+            str(round2),
+            "--feedback",
+            str(feedback),
+            "--scorecard-scan",
+            str(scorecard),
+            "--out",
+            str(output),
+        ],
+    )
+    assert queue_builder.main() == 0
+    assert json.loads(output.read_text())["issues"][0]["title"] == "Queued"
+    assert "owner/repo: 1" in capsys.readouterr().out
+
+
+def test_main_reports_missing_round2_directory(tmp_path: Path, monkeypatch, capsys) -> None:
+    feedback = tmp_path / "feedback.json"
+    feedback.write_text(json.dumps({"decisions": {}}))
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "queue-builder",
+            "--round2-dir",
+            str(tmp_path / "missing"),
+            "--feedback",
+            str(feedback),
+            "--out",
+            str(tmp_path / "queue.json"),
+        ],
+    )
+    assert queue_builder.main() == 2
+    assert "round2 dir not found" in capsys.readouterr().err

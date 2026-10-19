@@ -7,6 +7,8 @@ the live GitHub CLI (gh). All tests use synthetic data and temporary files.
 from __future__ import annotations
 
 import json
+import subprocess
+import sys
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -777,3 +779,113 @@ def test_backlog_omits_excluded_repos_and_parent_references(monkeypatch):
     assert calls == ["owner/demo"]
     assert result["scanned_open_issues"] == 2
     assert result["by_repo"]["owner/demo"]["open_issues"] == 2
+
+
+def _old_timestamp(days: int = 10) -> str:
+    return (datetime.now(tz=UTC) - timedelta(days=days)).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _scannable_issue(number: int, **changes: object) -> dict:
+    issue = {
+        "number": number,
+        "title": "Add leaf feature",
+        "body": "A leaf issue",
+        "labels": [{"name": "enhancement"}],
+        "updatedAt": _old_timestamp(),
+        "createdAt": _old_timestamp(100),
+        "url": f"https://example.test/issues/{number}",
+    }
+    issue.update(changes)
+    return issue
+
+
+def test_gh_helpers_cover_missing_binary_failures_and_success(monkeypatch, capsys) -> None:
+    from scripts import repo_review_backlog_scan as scanner
+
+    monkeypatch.setattr(scanner.shutil, "which", lambda _name: None)
+    assert scanner.gh_list_open_issues("owner/repo") == []
+    assert "gh not on PATH" in capsys.readouterr().err
+    assert scanner.gh_add_label("owner/repo", 1, "priority:normal") == (False, "gh not on PATH")
+
+    monkeypatch.setattr(scanner.shutil, "which", lambda _name: "/usr/bin/gh")
+    monkeypatch.setattr(
+        scanner.subprocess,
+        "run",
+        lambda *args, **kwargs: (_ for _ in ()).throw(subprocess.TimeoutExpired("gh", 60)),
+    )
+    assert scanner.gh_list_open_issues("owner/repo") == []
+    assert scanner.gh_add_label("owner/repo", 1, "priority:normal") == (False, "gh timed out")
+
+    monkeypatch.setattr(
+        scanner.subprocess,
+        "run",
+        lambda *args, **kwargs: subprocess.CompletedProcess(args[0], 1, "", "denied"),
+    )
+    assert scanner.gh_list_open_issues("owner/repo") == []
+    assert scanner.gh_add_label("owner/repo", 1, "priority:normal") == (False, "rc=1: denied")
+
+    monkeypatch.setattr(
+        scanner.subprocess,
+        "run",
+        lambda *args, **kwargs: subprocess.CompletedProcess(args[0], 0, '[{"number": 1}]', ""),
+    )
+    assert scanner.gh_list_open_issues("owner/repo") == [{"number": 1}]
+    assert scanner.gh_add_label("owner/repo", 1, "priority:normal") == (True, "labeled")
+
+
+def test_scan_classifies_and_sorts_apply_outcomes(monkeypatch) -> None:
+    from scripts import repo_review_backlog_scan as scanner
+
+    issues = [
+        _scannable_issue(1, updatedAt=_old_timestamp(12)),
+        _scannable_issue(2, title="Epic work", updatedAt=_old_timestamp(20)),
+        _scannable_issue(3, updatedAt=_old_timestamp(30)),
+        _scannable_issue(4, labels=[{"name": "bug"}]),
+        _scannable_issue(5, labels=[{"name": "priority:low"}]),
+        _scannable_issue(6, updatedAt=_old_timestamp(1)),
+    ]
+    monkeypatch.setattr(scanner, "gh_list_open_issues", lambda _repo: issues)
+    monkeypatch.setattr(
+        scanner,
+        "gh_add_label",
+        lambda _repo, number, _label: (False, "denied") if number == 3 else (True, "labeled"),
+    )
+    result = scanner.scan(["owner/repo"], 7, True)
+    assert [item["number"] for item in result["auto_labeled"]] == [1]
+    assert result["auto_labeled"][0]["applied"] is True
+    assert [item["number"] for item in result["needs_human"]] == [3, 2]
+    assert result["needs_human"][0]["surface_reason"] == "auto-label FAILED: denied"
+    assert result["by_repo"]["owner/repo"] == {
+        "open_issues": 6,
+        "auto_labeled": 1,
+        "needs_human": 2,
+    }
+
+
+def test_main_writes_scan_and_handles_bad_registry(tmp_path: Path, monkeypatch, capsys) -> None:
+    from scripts import repo_review_backlog_scan as scanner
+
+    registry = tmp_path / "registry.json"
+    registry.write_text(json.dumps({"repos": [{"repo": "owner/repo", "status": "active"}]}))
+    output = tmp_path / "out" / "scan.json"
+    monkeypatch.setattr(
+        scanner,
+        "scan",
+        lambda *args, **kwargs: {
+            "scanned_open_issues": 1,
+            "auto_labeled": [],
+            "needs_human": [],
+        },
+    )
+    monkeypatch.setattr(
+        sys, "argv", ["backlog-scan", "--registry", str(registry), "--out", str(output), "--quiet"]
+    )
+    assert scanner.main() == 0
+    assert json.loads(output.read_text())["scanned_open_issues"] == 1
+    assert "scanned 1 open issues" in capsys.readouterr().out
+
+    monkeypatch.setattr(
+        sys, "argv", ["backlog-scan", "--registry", str(tmp_path / "missing"), "--out", str(output)]
+    )
+    assert scanner.main() == 2
+    assert "cannot load registry" in capsys.readouterr().err
