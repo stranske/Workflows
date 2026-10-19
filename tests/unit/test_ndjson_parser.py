@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
+
+import pytest
 
 from src import ndjson_parser
 
@@ -73,3 +76,22 @@ def test_read_ndjson_file_rejects_legacy_scalar_and_bounded_fallback(tmp_path: P
     entries, errors = ndjson_parser.read_ndjson_file(bounded_path)
     assert entries == []
     assert errors[-1].endswith("legacy-json-fallback-buffer-limit")
+
+
+@pytest.mark.parametrize("prefix_count", [1, 3])
+@pytest.mark.parametrize("invalid", ["not-json", "[]", "42"])
+def test_read_ndjson_keeps_valid_prefix_before_malformed_line(
+    tmp_path: Path, prefix_count: int, invalid: str
+) -> None:
+    prefix = [{"before": index} for index in range(prefix_count)]
+    path = tmp_path / "history.ndjson"
+    path.write_text(
+        "\n".join([*(json.dumps(item) for item in prefix), invalid, '{"after": true}']) + "\n",
+        encoding="utf-8",
+    )
+
+    entries, errors = ndjson_parser.read_ndjson_file(path)
+
+    assert entries == [*prefix, {"after": True}]
+    assert len(errors) == 1
+    assert f":{prefix_count + 1}:" in errors[0]
