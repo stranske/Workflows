@@ -304,11 +304,33 @@ function evaluateSyncFindingDispositions({
   });
   const unknown = findings.filter((finding) => finding.disposition === 'unknown');
   const blocking = findings.filter((finding) => finding.disposition !== 'unrelated');
+  const nonblocking = findings.filter((finding) => finding.disposition === 'unrelated');
+  const dispositionThreadIds = {
+    'shared-source': findings.filter((finding) => finding.disposition === 'shared-source')
+      .map((finding) => finding.thread_id),
+    'sync-caused': findings.filter((finding) => finding.disposition === 'sync-caused')
+      .map((finding) => finding.thread_id),
+    unrelated: nonblocking.map((finding) => finding.thread_id),
+    unknown: unknown.map((finding) => finding.thread_id),
+  };
+  const aggregates = {
+    blocking: blocking.length,
+    nonblocking: nonblocking.length,
+    unknown: unknown.length,
+    by_disposition: {
+      'shared-source': dispositionThreadIds['shared-source'].length,
+      'sync-caused': dispositionThreadIds['sync-caused'].length,
+      unrelated: dispositionThreadIds.unrelated.length,
+      unknown: dispositionThreadIds.unknown.length,
+    },
+  };
   return { schema: 'sync-finding-evaluation/v1', binding, raw_active_count: count,
-    blocked: errors.length > 0 || blocking.length > 0, errors, findings,
+    blocked: errors.length > 0 || blocking.length > 0, errors, findings, aggregates,
+    disposition_thread_ids: dispositionThreadIds,
     blocking_thread_ids: blocking.map((finding) => finding.thread_id),
+    nonblocking_thread_ids: nonblocking.map((finding) => finding.thread_id),
     unknown_thread_ids: unknown.map((finding) => finding.thread_id),
-    unrelated_handoffs: findings.filter((finding) => finding.disposition === 'unrelated')
+    unrelated_handoffs: nonblocking
       .map((finding) => ({ thread_id: finding.thread_id, owner: finding.record.remediation_owner,
         url: finding.record.handoff_url })),
   };
@@ -357,11 +379,26 @@ function classifyReviewBlockedDisposition({
   reviewPolicyLoaded = true,
   findingEvidence = null,
 } = {}) {
+  const emptyAggregates = {
+    blocking: 0,
+    nonblocking: 0,
+    unknown: 0,
+    by_disposition: {
+      'shared-source': 0,
+      'sync-caused': 0,
+      unrelated: 0,
+      unknown: 0,
+    },
+  };
   if (!reviewPolicyLoaded) {
     return {
       disposition: 'review-blocked',
       blocker_owner: 'closer',
       next_command: REVIEW_POLICY_UNAVAILABLE_COMMAND,
+      raw_active_count: Number.isFinite(Number(activeReviewThreadCount))
+        ? Number(activeReviewThreadCount)
+        : -1,
+      aggregates: emptyAggregates,
     };
   }
 
@@ -371,14 +408,25 @@ function classifyReviewBlockedDisposition({
       disposition: 'review-blocked',
       blocker_owner: 'closer',
       next_command: 'retry-review-thread-query',
+      raw_active_count: Number.isFinite(reviewThreadCount) ? reviewThreadCount : -1,
+      aggregates: emptyAggregates,
     };
   }
   const findingDisposition = evaluateSyncFindingDispositions({
     ...(findingEvidence || {}), reviewThreads: findingEvidence?.reviewThreads || reviewThreads,
     activeReviewThreadCount: reviewThreadCount,
   });
+  // Nonblocking relevance (all verified unrelated, or zero active debt) stays
+  // falsy for callers that treat a return as a delivery review block. Raw
+  // counts and aggregates remain on findingDisposition for audit consumers.
   if (!findingDisposition.blocked) return null;
 
+  const audit = {
+    raw_active_count: findingDisposition.raw_active_count,
+    aggregates: findingDisposition.aggregates,
+    disposition_thread_ids: findingDisposition.disposition_thread_ids,
+    finding_disposition: findingDisposition,
+  };
   const activeThreads = normalizeActiveReviewThreads(reviewThreads, reviewerProfiles);
   if (
     activeThreads.length > 0
@@ -394,7 +442,7 @@ function classifyReviewBlockedDisposition({
       // exact generated head must remain blocked until regeneration or the
       // originating reviewer explicitly accepts the fix.
       next_command: 'repair-upstream-and-request-reviewer-disposition',
-      finding_disposition: findingDisposition,
+      ...audit,
     };
   }
 
@@ -402,7 +450,7 @@ function classifyReviewBlockedDisposition({
     disposition: 'review-blocked',
     blocker_owner: 'closer',
     next_command: 'resolve-active-review-threads',
-    finding_disposition: findingDisposition,
+    ...audit,
   };
 }
 

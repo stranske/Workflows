@@ -23,7 +23,9 @@ opened or expanded. This does not clear the pre-existing shared-code findings.
 ## Executed validation
 
 - `node --test .github/scripts/__tests__/sync_pr_merge_contract.test.js .github/scripts/__tests__/maint71_merge_sync_prs.test.js`:
-  220 tests passed, zero failures/skips.
+  221 tests passed, zero failures/skips. `classifyReviewBlockedDisposition`
+  now surfaces `raw_active_count`, per-disposition thread IDs, and
+  blocking/nonblocking/unknown aggregates on every blocked return.
 - `node --test .github/scripts/__tests__/*.test.js`: 2,554 passed, zero failures,
   one existing skipped test (2,555 total).
 - `python -m pytest tests/scripts/test_select_consumer_sync_phase.py -q`:

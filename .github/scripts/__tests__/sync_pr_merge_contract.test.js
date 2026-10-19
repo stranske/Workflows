@@ -3957,6 +3957,40 @@ test('Markdown report retains the refused Gate forced-restage drain receipt', ()
 const { findingPacket, changeProof } = require('./fixtures/sync_finding_disposition');
 const { evaluateSyncFindingDispositions } = require('../sync_pr_merge_contract');
 
+test('classifyReviewBlockedDisposition surfaces four dispositions and aggregate outcomes', () => {
+  for (const disposition of ['shared-source', 'sync-caused', 'unknown', 'unrelated']) {
+    const packet = findingPacket(disposition);
+    const routed = classifyReviewBlockedDisposition({
+      activeReviewThreadCount: 1,
+      reviewThreads: packet.reviewThreads,
+      findingEvidence: packet,
+    });
+    const evaluation = evaluateSyncFindingDispositions(packet);
+    assert.equal(evaluation.raw_active_count, 1);
+    assert.equal(evaluation.aggregates.by_disposition[disposition], 1);
+    assert.equal(evaluation.disposition_thread_ids[disposition].length, 1);
+    if (disposition === 'unrelated') {
+      assert.equal(routed, null, 'verified unrelated debt is nonblocking at the review gate');
+      assert.equal(evaluation.blocked, false);
+      assert.equal(evaluation.aggregates.nonblocking, 1);
+      assert.equal(evaluation.aggregates.blocking, 0);
+      assert.equal(evaluation.aggregates.unknown, 0);
+      assert.equal(packet.reviewThreads[0].isResolved, false);
+    } else {
+      assert.equal(routed.disposition, 'review-blocked');
+      assert.equal(routed.raw_active_count, 1);
+      assert.equal(routed.aggregates.blocking, 1);
+      assert.equal(routed.aggregates.nonblocking, 0);
+      assert.equal(
+        routed.aggregates.unknown,
+        disposition === 'unknown' ? 1 : 0,
+      );
+      assert.equal(routed.finding_disposition.findings[0].disposition, disposition);
+      assert.deepEqual(routed.disposition_thread_ids[disposition], ['PRRT_finding']);
+    }
+  }
+});
+
 test('sync finding unknown fails closed and mixed findings retain every blocker', () => {
   for (const disposition of ['shared-source', 'sync-caused', 'unknown', 'unrelated']) {
     const packet = findingPacket(disposition);
@@ -3965,6 +3999,7 @@ test('sync finding unknown fails closed and mixed findings retain every blocker'
     assert.equal(result.findings[0].disposition, disposition);
     // An unmanaged consumer path does not waive a sync-caused incompatibility.
     assert.equal(result.raw_active_count, 1);
+    assert.equal(result.aggregates.by_disposition[disposition], 1);
     assert.equal(packet.reviewThreads[0].isResolved, false);
   }
   for (const disposition of ['shared-source', 'sync-caused', 'unknown']) {
@@ -3981,7 +4016,20 @@ test('sync finding unknown fails closed and mixed findings retain every blocker'
     const result = evaluateSyncFindingDispositions(packet);
     assert.equal(result.blocked, true);
     assert.deepEqual(result.blocking_thread_ids, ['PRRT_other']);
+    assert.deepEqual(result.nonblocking_thread_ids, ['PRRT_finding']);
+    assert.equal(result.aggregates.blocking, 1);
+    assert.equal(result.aggregates.nonblocking, 1);
+    assert.equal(result.aggregates.unknown, disposition === 'unknown' ? 1 : 0);
     assert.equal(result.unrelated_handoffs.length, 1);
+    const routed = classifyReviewBlockedDisposition({
+      activeReviewThreadCount: 2,
+      reviewThreads: packet.reviewThreads,
+      findingEvidence: packet,
+    });
+    assert.equal(routed.disposition, 'review-blocked');
+    assert.equal(routed.raw_active_count, 2);
+    assert.equal(routed.aggregates.blocking, 1);
+    assert.equal(routed.aggregates.nonblocking, 1);
   }
 });
 
