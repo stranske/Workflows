@@ -641,11 +641,11 @@ def test_merge_reconciliation_unreadable_evidence_is_unknown_not_traceback(monke
     "status,expected", [(401, False), (404, False), (500, False), (403, True), (429, True)]
 )
 def test_rate_limit_headers_never_reclassify_other_http_statuses(status, expected):
-    error = urllib.error.HTTPError(
+    with urllib.error.HTTPError(
         "https://example.invalid",
         status,
         "rate limit",
         {"Retry-After": "30", "X-RateLimit-Remaining": "0"},
         None,
-    )
-    assert gh._rate_limited(error) is expected
+    ) as error:
+        assert gh._rate_limited(error) is expected

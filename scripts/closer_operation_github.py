@@ -116,7 +116,13 @@ class NativeGitHubTransport:
             raise PolicyDenied("unsupported native API operation")
         if not self.token:
             raise PolicyDenied("native transport requires an independently supplied GitHub token")
-        return api_client.request_json_once(method, path, self.token, body, opener=self.opener)
+        try:
+            return api_client.request_json_once(method, path, self.token, body, opener=self.opener)
+        except urllib.error.HTTPError as exc:
+            # urlopen raises a response object before its context manager is entered.
+            # Callers need status/headers, never an open response body.
+            _close_http_error(exc)
+            raise
 
 
 def contents_api_path(repository: str, store_key: str) -> str:
@@ -187,6 +193,17 @@ def _status(exc):
     return getattr(exc, "status", getattr(exc, "code", None))
 
 
+def _close_http_error(exc: BaseException) -> None:
+    """Release an error response while retaining its classification metadata."""
+    if isinstance(exc, urllib.error.HTTPError) and not exc.closed:
+        # Closing is best-effort only on its error path: the same authoritative
+        # HTTP exception must survive even if a response implementation fails close.
+        try:
+            exc.close()
+        except Exception as close_error:
+            exc.add_note(f"HTTP error response close failed: {type(close_error).__name__}")
+
+
 class GitHubContentsOperationStore(LocalOperationStore):
     """Same claim protocol as local store; GitHub blob SHA is the global fence.
 
@@ -210,6 +227,7 @@ class GitHubContentsOperationStore(LocalOperationStore):
         try:
             return self._request("GET", path, None)
         except Exception as exc:
+            _close_http_error(exc)  # injected transports have the same response ownership
             if isinstance(exc, PolicyDenied):
                 raise PolicyDenied("github permission denied; no fallback") from exc
             if _rate_limited(exc):
@@ -251,6 +269,7 @@ class GitHubContentsOperationStore(LocalOperationStore):
             )
             self._branch_head()
         except Exception as exc:
+            _close_http_error(exc)
             if isinstance(exc, PolicyDenied) or _status(exc) in (401, 403):
                 raise PolicyDenied("github branch creation denied") from exc
             # Includes 422 (another bootstrap won) and timeout-after-write.
@@ -365,6 +384,7 @@ class GitHubContentsOperationStore(LocalOperationStore):
         try:
             self._request("PUT", contents_api_path(self.repository, store_key), body)
         except Exception as exc:
+            _close_http_error(exc)
             if _status(exc) in (409, 422):
                 raise CasConflict("github contents SHA CAS lost race") from exc
             if isinstance(exc, PolicyDenied):
@@ -398,6 +418,14 @@ class MockGitHubBackend:
         self.branch = branch
         self.files = {}
 
+    @staticmethod
+    def _error(path, status, message):
+        # Even fp=None creates an owned response wrapper. This offline error has
+        # no body for a consumer to read, so release it before raising metadata.
+        error = urllib.error.HTTPError(path, status, message, {}, None)
+        error.close()
+        return error
+
     def request(self, method, path, body):
         if method == "GET" and "?ref=" not in path:
             if "/git/ref/" in path:
@@ -405,17 +433,17 @@ class MockGitHubBackend:
             return {"default_branch": "main"}
         if method == "GET":
             if path.split("?ref=", 1)[-1] != self.branch:
-                raise urllib.error.HTTPError(path, 404, "branch not found", {}, None)
+                raise self._error(path, 404, "branch not found")
             entry = self.files.get(path.split("?", 1)[0])
             if entry is None:
-                raise urllib.error.HTTPError(path, 404, "not found", {}, None)
+                raise self._error(path, 404, "not found")
             return dict(entry)
         if method == "PUT":
             if body.get("branch") != self.branch:
-                raise urllib.error.HTTPError(path, 422, "invalid branch", {}, None)
+                raise self._error(path, 422, "invalid branch")
             prior = self.files.get(path)
             if (prior and body.get("sha") != prior["sha"]) or (not prior and body.get("sha")):
-                raise urllib.error.HTTPError(path, 409 if prior else 422, "CAS conflict", {}, None)
+                raise self._error(path, 409 if prior else 422, "CAS conflict")
             raw = base64.b64decode(body["content"])
             # Git's Contents API identifies blobs using its SHA-1 object format.
             # This is an interoperability identifier, never a security signature.
