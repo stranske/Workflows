@@ -371,13 +371,13 @@ def _reference_rows(registry: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 def _format_issue_state(row: dict[str, Any]) -> str:
+    issue = row.get("issue")
+    if issue:
+        return f"`{issue}`"
     deferred_until = row.get("deferred_until")
     if deferred_until:
         date_part = str(deferred_until).split("T", 1)[0]
         return f"deferred until {date_part}"
-    issue = row.get("issue")
-    if issue:
-        return f"`{issue}`"
     return "none"
 
 
@@ -468,13 +468,14 @@ def main(argv: list[str] | None = None) -> int:
             "(mirrors the langsmith contract's opt-in enforce_block)."
         ),
     )
-    parser.add_argument(
+    status_mode = parser.add_mutually_exclusive_group()
+    status_mode.add_argument(
         "--write-status",
         type=Path,
         metavar="PATH",
         help="Write the markdown status report rendered from the registry.",
     )
-    parser.add_argument(
+    status_mode.add_argument(
         "--check-status",
         type=Path,
         metavar="PATH",

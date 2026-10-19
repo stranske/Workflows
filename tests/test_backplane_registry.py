@@ -512,7 +512,7 @@ def test_write_status_writes_rendered_markdown(tmp_path: Path) -> None:
     assert out_path.read_text(encoding="utf-8") == vbr.render_status_markdown(registry)
 
 
-def test_status_report_flags_drift(tmp_path: Path) -> None:
+def test_status_report_flags_drift(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     registry = copy.deepcopy(_registry())
     registry_path = tmp_path / "registry.json"
     registry_path.write_text(json.dumps(registry), encoding="utf-8")
@@ -522,6 +522,10 @@ def test_status_report_flags_drift(tmp_path: Path) -> None:
     # Drift via stale committed report.
     report_path.write_text("stale report\n", encoding="utf-8")
     assert vbr.main(["--check-status", str(report_path), str(registry_path)]) == 1
+    output = capsys.readouterr().out
+    assert f"--- {report_path}" in output
+    assert "+++ rendered" in output
+    assert "-stale report" in output
 
     # Drift via registry status change without regenerating the report.
     report_path.write_text(vbr.render_status_markdown(registry), encoding="utf-8")
@@ -540,3 +544,22 @@ def test_status_report_none_deferred_line_when_no_deferrals() -> None:
 
     rendered = vbr.render_status_markdown(registry)
     assert "Deferrals: none deferred." in rendered
+
+
+def test_status_report_prefers_assigned_issue_over_retained_deferral() -> None:
+    registry = copy.deepcopy(_registry())
+    entry = next(row for row in registry["participants"] if row.get("issue_deferred"))
+    entry["issue"] = "stranske/Workflows#3972"
+    rendered = vbr.render_status_markdown(registry)
+    row = next(line for line in rendered.splitlines() if line.startswith(f"| {entry['repo']} |"))
+    assert "`stranske/Workflows#3972`" in row
+    assert "deferred until" not in row
+
+
+def test_status_report_rejects_conflicting_modes_without_writing(tmp_path: Path) -> None:
+    report = tmp_path / "status.md"
+    report.write_text("stale report\n", encoding="utf-8")
+    with pytest.raises(SystemExit) as exc:
+        vbr.main(["--write-status", str(report), "--check-status", str(report)])
+    assert exc.value.code == 2
+    assert report.read_text(encoding="utf-8") == "stale report\n"
