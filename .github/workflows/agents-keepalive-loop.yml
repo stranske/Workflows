@@ -1302,18 +1302,18 @@ jobs:
 
 
       - name: Setup Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
         with:
           python-version: '3.14'
           cache: pip
           # These requirements define the progress-review dependency family.
-          cache-dependency-path: tools/requirements-llm.txt
+          cache-dependency-path: tools/requirements-subscription-analysis.txt
 
       - name: Install analysis dependencies
-        run: pip install pydantic PyYAML
+        run: pip install -r tools/requirements-subscription-analysis.txt
 
       - name: Setup Node for subscription analysis
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: '24'
 
@@ -1884,6 +1884,7 @@ jobs:
               github.event.inputs.authority_challenge_claim || '' }}
           AUTHORITY_CHALLENGE_SIGNING_KEY: >-
             ${{ secrets.KEEPALIVE_AUTHORITY_SIGNING_KEY || '' }}
+          LLM_TICKED_TASKS: ${{ steps.reconcile.outputs.llm_ticked_tasks }}
           KEEPALIVE_SUMMARY_WRITER: >-
             ${{
               steps.summary_keepalive_app_token.outputs.token != '' &&
@@ -2018,7 +2019,7 @@ jobs:
               llm_model: llmModel,
               llm_confidence: llmConfidence,
               llm_analysis_run: llmAnalysisRun,
-              llm_ticked_tasks: Number('${{ steps.reconcile.outputs.llm_ticked_tasks }}') || 0,
+              llm_ticked_tasks: Number(process.env.LLM_TICKED_TASKS) || 0,
               force_retry: process.env.EVALUATE_FORCE_RETRY || '',
               authority_challenge_fingerprint:
                 process.env.AUTHORITY_CHALLENGE_FINGERPRINT || '',

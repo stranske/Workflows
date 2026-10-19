@@ -28,7 +28,9 @@ def test_runner_analysis_has_no_api_key_or_second_invocation(agent):
             assert forbidden not in json.dumps(step.get("env", {})), str(file)
             assert forbidden not in step.get("run", ""), str(file)
     # Analysis no longer accepts provider API secrets on the reusable workflow.
-    workflow_secrets = json.dumps(doc.get("on", {}).get("workflow_call", {}).get("secrets", {}))
+    triggers = doc.get("on", doc.get(True, {}))
+    assert "workflow_call" in triggers, str(file)
+    workflow_secrets = json.dumps(triggers["workflow_call"].get("secrets", {}))
     assert "OPENAI_API_KEY" not in workflow_secrets, str(file)
     assert "CLAUDE_API_STRANSKE" not in workflow_secrets, str(file)
     assert analysis["env"]["WORKFLOWS_ANALYSIS_CLI"] == ("claude" if agent == "claude" else "codex")
@@ -197,4 +199,6 @@ def test_counter_is_forwarded_from_real_reconciliation_step(relative):
     reconcile = next(s for s in steps if s.get("id") == "reconcile")
     assert "result.llmTasksChecked" in reconcile["with"]["script"]
     summary = next(s for s in steps if s.get("id") == "update-summary")
-    assert "steps.reconcile.outputs.llm_ticked_tasks" in summary["with"]["script"]
+    assert summary["env"]["LLM_TICKED_TASKS"] == "${{ steps.reconcile.outputs.llm_ticked_tasks }}"
+    assert "Number(process.env.LLM_TICKED_TASKS)" in summary["with"]["script"]
+    assert "${{ steps.reconcile.outputs.llm_ticked_tasks }}" not in summary["with"]["script"]

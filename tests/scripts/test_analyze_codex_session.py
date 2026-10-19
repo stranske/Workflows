@@ -364,3 +364,46 @@ class TestCLIScript:
         )
 
         assert result.returncode == 0
+
+
+def test_subscription_error_does_not_emit_outputs_or_update_body(monkeypatch, tmp_path, capsys):
+    from scripts import analyze_codex_session as command
+
+    session = tmp_path / "session.txt"
+    session.write_text("Implemented Task")
+    updated = tmp_path / "updated.md"
+    outputs = tmp_path / "outputs"
+    outputs.write_text("existing=true\n")
+    monkeypatch.setenv("WORKFLOWS_ANALYSIS_CLI", "codex")
+    monkeypatch.setenv("GITHUB_OUTPUT", str(outputs))
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "analyze_codex_session",
+            "--session-file",
+            str(session),
+            "--pr-body",
+            "- [ ] Task",
+            "--output",
+            "github-actions",
+            "--update-pr-body",
+            "--updated-body-file",
+            str(updated),
+        ],
+    )
+    result = AnalysisResult(
+        completion=CompletionAnalysis(
+            completed_tasks=["Task"],
+            in_progress_tasks=[],
+            blocked_tasks=[],
+            confidence=1.0,
+            reasoning="fixture subscription failure",
+            provider_used="error",
+        )
+    )
+    monkeypatch.setattr(command, "analyze_session", lambda **kwargs: result)
+    assert command.main() == 1
+    assert not updated.exists()
+    assert outputs.read_text() == "existing=true\n"
+    assert capsys.readouterr().out == ""
