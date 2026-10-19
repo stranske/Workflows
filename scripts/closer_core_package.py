@@ -37,6 +37,9 @@ CORE_OWNED_PATHS: tuple[str, ...] = (
     "scripts/api_client.py",
     "scripts/reusable_ci_scope.py",
     "fixtures/closer-operation/v1/operation.schema.json",
+    ".github/workflows/reusable-10-ci-python.yml",
+    ".github/workflows/selftest-reusable-ci.yml",
+    ".github/workflows/maint-62-integration-consumer.yml",
 )
 
 # Declared third-party runtime deps; each line affects package_digest.
@@ -189,6 +192,14 @@ def verify_installed_tree(package_root: Path, descriptor: Mapping[str, Any]) -> 
     if problems:
         return problems
     package_root = package_root.resolve()
+    expected_files = set(CORE_OWNED_PATHS) | {"closer-core-package.json"}
+    actual_files = {
+        str(path.relative_to(package_root))
+        for path in package_root.rglob("*")
+        if path.is_file() or path.is_symlink()
+    }
+    if actual_files != expected_files:
+        problems.append("installed tree differs from closed package files")
     for rel, digest in descriptor["files"].items():
         path = package_root / rel
         try:
@@ -296,6 +307,7 @@ def run_sealed_entrypoint(
     env["CLOSER_CORE_PACKAGE_DIGEST"] = str(descriptor["package_digest"])
     # Package root must precede any inherited path so generic scripts/* caches cannot win.
     env["PYTHONPATH"] = str(package_root.resolve())
+    env["PYTHONDONTWRITEBYTECODE"] = "1"
     if extra_env:
         if any(
             k
@@ -310,7 +322,7 @@ def run_sealed_entrypoint(
             raise CorePackageError("extra environment cannot override sealed package bindings")
         env.update(extra_env)
     return subprocess.run(
-        [python, str(script), *argv],
+        [python, "-B", str(script), *argv],
         capture_output=True,
         text=True,
         env=env,

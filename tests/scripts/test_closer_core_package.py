@@ -11,13 +11,11 @@ import tempfile
 from pathlib import Path
 
 import pytest
+from scripts import closer_core_package as core_pkg
 
 ROOT = Path(__file__).resolve().parents[2]
 SCRIPTS = ROOT / "scripts"
 PORTABLE_ROOT = ROOT
-
-sys.path.insert(0, str(SCRIPTS))
-import closer_core_package as core_pkg  # noqa: E402
 
 
 @pytest.fixture()
@@ -202,3 +200,40 @@ def test_cli_verify_checks_declared_dependencies(tmp_path, monkeypatch, source_c
     monkeypatch.setattr(core_pkg, "verify_runtime_dependencies", unavailable)
     with pytest.raises(core_pkg.CorePackageError, match="dependency unsupported"):
         core_pkg.main(["verify", str(root)])
+
+
+@pytest.mark.parametrize(
+    "extra", ["scripts/__init__.py", "scripts/foreign.py", "scripts/__pycache__/foreign.pyc"]
+)
+def test_sealed_execution_rejects_undeclared_files(tmp_path, source_commit, extra):
+    descriptor = core_pkg.build_public_descriptor(ROOT, source_commit=source_commit)
+    root = tmp_path / "pkg"
+    core_pkg.materialize_package_tree(ROOT, root, descriptor)
+    unowned = root / extra
+    unowned.parent.mkdir(parents=True, exist_ok=True)
+    unowned.write_text("raise RuntimeError('unsealed code')")
+    with pytest.raises(core_pkg.CorePackageError, match="closed package files"):
+        core_pkg.run_sealed_entrypoint(root, descriptor, ["validate", "unused"])
+
+
+@pytest.mark.parametrize(
+    "producer_kind", ["python", "selftest-reusable-ci", "maint-62-integration-consumer"]
+)
+def test_packaged_producer_keeps_trusted_workflow_matrix_definitions(
+    tmp_path, monkeypatch, source_commit, producer_kind
+):
+    from tests import test_check_checks_reported as contract
+
+    descriptor = core_pkg.build_public_descriptor(ROOT, source_commit=source_commit)
+    root = tmp_path / "pkg"
+    core_pkg.materialize_package_tree(ROOT, root, descriptor)
+    monkeypatch.setattr(
+        contract.reporter, "__file__", str(root / "scripts/check_checks_reported.py")
+    )
+    if producer_kind == "python":
+        bound = contract.bind_producer(contract.python_producer_fixture())
+    else:
+        fixture = contract.scenario_fixture(path=f".github/workflows/{producer_kind}.yml")
+        bound = contract.bind_scenario_fixture(fixture)
+    assert isinstance(bound["strategy"]["matrix"], dict)
+    assert not core_pkg.verify_installed_tree(root, descriptor)
