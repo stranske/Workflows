@@ -18,7 +18,9 @@ def test_native_conditional_write_has_one_attempt_and_keeps_http_status():
             raise refusal
 
         with pytest.raises(urllib.error.HTTPError) as raised:
-            api_client.request_json_once("PUT", "/repos/o/r/contents/state", "test", {}, opener=opener)
+            api_client.request_json_once(
+                "PUT", "/repos/o/r/contents/state", "test", {}, opener=opener
+            )
         assert raised.value is refusal
         assert len(calls) == 1
         assert calls[0][0].method == "PUT"
