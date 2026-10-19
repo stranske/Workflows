@@ -348,7 +348,11 @@ class MockGitHubBackend:
             if (prior and body.get("sha") != prior["sha"]) or (not prior and body.get("sha")):
                 raise urllib.error.HTTPError(path, 409 if prior else 422, "CAS conflict", {}, None)
             raw = base64.b64decode(body["content"])
-            blob_sha = hashlib.sha1(b"blob " + str(len(raw)).encode() + b"\0" + raw).hexdigest()
+            # Git's Contents API identifies blobs using its SHA-1 object format.
+            # This is an interoperability identifier, never a security signature.
+            blob_sha = hashlib.sha1(
+                b"blob " + str(len(raw)).encode() + b"\0" + raw, usedforsecurity=False
+            ).hexdigest()
             self.files[path] = {
                 "content": body["content"],
                 "sha": blob_sha,
