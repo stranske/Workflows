@@ -306,7 +306,7 @@ def test_latest_report_excludes_historical_verdicts(old, current):
 
 
 def test_latest_pending_report_mentioning_older_run_remains_nonterminal():
-    history = "## PR Verification Report\nVerdict: FAIL\n\n## PR Verification Report\nSchema repair pending; see the older run."
+    history = "## PR Verification Report\nVerdict: FAIL\n\n---\n\n## PR Verification Report\nSchema repair pending; see the older run."
     artifact = artifact_from_verification_text(history)
     assert artifact.get("repair_pending") is True
     assert "verdict" not in artifact
@@ -322,7 +322,7 @@ def test_latest_report_keeps_structured_artifact_with_heading_in_summary():
 @pytest.mark.parametrize("heading", ["## LLM Evaluation Report", "## Provider Comparison Report"])
 def test_latest_report_recognizes_production_headings(heading):
     current = heading + "\nSchema repair pending; see older run"
-    text = "## PR Verification Report\nVerdict: FAIL\n\n" + current
+    text = "## PR Verification Report\nVerdict: FAIL\n\n---\n\n" + current
     assert latest_verifier_report(text) == current
     artifact = artifact_from_verification_text(text)
     assert artifact.get("repair_pending") is True
@@ -356,3 +356,18 @@ def test_provider_comparison_report_heading_aggregates_worst_verdict():
     assert artifact["verdict"] == "FAIL"
     assert artifact["artifact_family"] == "verifier-report"
     assert is_terminal_artifact(artifact)
+
+
+def test_latest_comment_preserves_embedded_report_headings_and_separators():
+    import json
+
+    current = "## LLM Evaluation Report\nVerdict: FAIL\n\nConcern:\n## Provider Comparison Report\nQuoted example, not a new report.\n\n---\n\nMore evidence."
+    raw = json.dumps(
+        {
+            "schema": "verifier-comment-history/v1",
+            "comments": ["## PR Verification Report\nVerdict: PASS", current],
+        }
+    )
+    assert latest_verifier_report(raw) == current
+    assert artifact_from_verification_text(raw)["verdict"] == "FAIL"
+    assert latest_verifier_report(current) == current

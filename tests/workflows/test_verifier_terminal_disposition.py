@@ -442,6 +442,7 @@ def test_post_gate_tracker_helpers_have_no_workflow_caller() -> None:
         ("Evidence still collecting", False, ""),
         ("Schema repair pending; see older run", False, ""),
         ("Verdict: FAIL", True, "FAIL"),
+        ("Verdict: FAIL\n\n---\n\n## LLM Evaluation Report\nExample only", True, "FAIL"),
     ],
 )
 @pytest.mark.parametrize(

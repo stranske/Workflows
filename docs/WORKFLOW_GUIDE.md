@@ -412,10 +412,13 @@ regression success does not establish either production outcome.
 
 ### Current verifier report for follow-ups
 
-Both follow-up paths retain collected comments in `verification_history.txt` and
+Both follow-up paths retain collected comments as a `verifier-comment-history/v1`
+JSON envelope in `verification_history.txt`, preserving actual comment boundaries, and
 use `scripts/langchain/verifier_config.py:latest_verifier_report` to select the
-last report headed `## PR Verification`, `## LLM Evaluation Report`, or
-`## Provider Comparison Report` before terminal gating. Only that selected report
+last posted comment before terminal gating. Headings and horizontal rules
+inside that comment stay content. Legacy joined histories still support reports
+headed `## PR Verification`, `## LLM Evaluation Report`, or
+`## Provider Comparison Report`. Only that selected report
 is written to `verification_data.txt` for verdict policy and issue generation.
 An incomplete latest report cannot inherit a historical verdict; pending repair
 remains non-terminal even when it mentions an older run. Provider verdicts within

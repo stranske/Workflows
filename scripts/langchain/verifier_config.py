@@ -176,16 +176,30 @@ def latest_verifier_report(text: str) -> str:
     """
 
     raw = (text or "").strip()
-    if isinstance(_coerce_artifact(raw), (dict, list)):
+    parsed = _coerce_artifact(raw)
+    if isinstance(parsed, dict) and parsed.get("schema") == "verifier-comment-history/v1":
+        comments = parsed.get("comments")
+        if not isinstance(comments, list) or not all(isinstance(body, str) for body in comments):
+            return ""
+        return comments[-1].strip() if comments else ""
+    if isinstance(parsed, (dict, list)):
         return raw
-    headings = list(
-        re.finditer(
-            r"^##[ \t]+(?:PR Verification(?: Report| Comparison)?|LLM Evaluation Report|Provider Comparison Report)\b",
-            raw,
-            re.I | re.M,
-        )
+    # Legacy concatenated histories use this explicit comment separator. A
+    # heading inside one current report is content, never another report.
+    if "\n\n---\n\n" in raw:
+        candidate = raw.rsplit("\n\n---\n\n", 1)[-1].strip()
+        if re.match(
+            r"##[ \t]+(?:PR Verification|LLM Evaluation Report|Provider Comparison Report)\b",
+            candidate,
+            re.I,
+        ):
+            raw = candidate
+    heading = re.search(
+        r"^##[ \t]+(?:PR Verification(?: Report| Comparison)?|LLM Evaluation Report|Provider Comparison Report)\b",
+        raw,
+        re.I | re.M,
     )
-    return raw[headings[-1].start() :] if headings else raw
+    return raw[heading.start() :] if heading else raw
 
 
 def _coerce_artifact(value: Any) -> Any:
