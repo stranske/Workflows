@@ -3,3 +3,12 @@
 .github/scripts/** @stranske
 # Documentation review is helpful but not blocking.
 docs/** @stranske
+
+# WorkflowsCore portable contract and producers. OrchestratorRuntime is owned
+# and distributed separately by its repository; no runtime is copied here.
+/scripts/closer_runtime.py @stranske
+/scripts/closer_operation_github.py @stranske
+/scripts/check_checks_reported.py @stranske
+/fixtures/closer-operation/** @stranske
+/tests/scripts/test_closer_runtime.py @stranske
+/tests/scripts/test_closer_portable_boundaries.py @stranske

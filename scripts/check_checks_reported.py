@@ -101,6 +101,25 @@ def load_presence_reporter(path: Path) -> Callable[[str], list[Any]]:
     return transport
 
 
+def native_gh_pages(endpoint: str) -> list[Any]:
+    """Read complete REST pages through gh; never infer a page after failure."""
+    if not endpoint.startswith("repos/") or ".." in endpoint or "://" in endpoint:
+        raise UnknownEvidence("invalid native REST endpoint")
+    proc = subprocess.run(
+        ["gh", "api", "--method", "GET", "--paginate", "--slurp", endpoint],
+        capture_output=True,
+        text=True,
+        timeout=60,
+        check=False,
+    )
+    if proc.returncode:
+        raise UnknownEvidence(f"native-gh read failed: {proc.stderr.strip()}")
+    pages = json.loads(proc.stdout)
+    if not isinstance(pages, list) or not pages:
+        raise UnknownEvidence("native-gh returned no pages")
+    return pages
+
+
 class Evidence:
     def __init__(self, transport: Callable[[str], list[Any]]):
         self.transport = transport
@@ -1780,7 +1799,8 @@ def main() -> int:
     parser.add_argument("--head", required=True)
     parser.add_argument("--event", required=True, help="pull_request or pull_request_target")
     parser.add_argument("--action", required=True)
-    parser.add_argument("--presence-reporter", required=True, type=Path)
+    parser.add_argument("--presence-reporter", type=Path)
+    parser.add_argument("--transport", choices=["incumbent", "native-gh"], default="incumbent")
     parser.add_argument("--output", required=True, type=Path)
     args = parser.parse_args()
     receipt = {
@@ -1802,16 +1822,30 @@ def main() -> int:
             )
         # Bind source identity before loading or requesting evidence so even
         # an import/discovery failure retains the incumbent being audited.
-        source_digest = hashlib.sha256(args.presence_reporter.read_bytes()).hexdigest()
-        receipt["presence_reporter"] = {
-            "path": str(args.presence_reporter),
-            "sha256": source_digest,
-        }
-        transport = load_presence_reporter(args.presence_reporter)
+        if args.transport == "native-gh":
+            if args.presence_reporter is not None:
+                raise UnknownEvidence("native-gh cannot also load a presence reporter")
+            source_digest = hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
+            receipt["transport"] = {"kind": "native-gh", "sha256": source_digest}
+            transport = native_gh_pages
+        else:
+            if args.presence_reporter is None:
+                raise UnknownEvidence("incumbent transport requires --presence-reporter")
+            source_digest = hashlib.sha256(args.presence_reporter.read_bytes()).hexdigest()
+            receipt["presence_reporter"] = {
+                "path": str(args.presence_reporter),
+                "sha256": source_digest,
+            }
+            transport = load_presence_reporter(args.presence_reporter)
         evidence = Evidence(transport)
         receipt.update(collect(evidence, args.repo, args.pr, args.head, args.event, args.action))
-        if hashlib.sha256(args.presence_reporter.read_bytes()).hexdigest() != source_digest:
-            raise UnknownEvidence("incumbent reporter changed during evidence collection")
+        source_path = Path(__file__) if args.transport == "native-gh" else args.presence_reporter
+        if hashlib.sha256(source_path.read_bytes()).hexdigest() != source_digest:
+            raise UnknownEvidence(
+                "native reporter changed during evidence collection"
+                if args.transport == "native-gh"
+                else "incumbent reporter changed during evidence collection"
+            )
     except (Exception, SystemExit) as exc:
         receipt.update({"verdict": "UNKNOWN", "unknown": [str(exc)]})
         if evidence is not None:

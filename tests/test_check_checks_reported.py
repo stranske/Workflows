@@ -366,6 +366,17 @@ def fixture_transport(changed_head=False, forged=False):
 
     def transport(endpoint):
         calls.append(endpoint)
+        if endpoint.startswith("repos/") and len(endpoint.split("/")) == 3:
+            repository = endpoint.removeprefix("repos/")
+            return [
+                {
+                    "full_name": (
+                        "stranske/Workflows"
+                        if repository.lower() == "stranske/workflows"
+                        else repository
+                    )
+                }
+            ]
         if endpoint.endswith("/pulls/1"):
             count = calls.count(endpoint)
             return [
