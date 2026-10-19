@@ -53,6 +53,14 @@ def test_progress_review_uses_subscription_without_langchain_install():
     step = next(s for s in job["steps"] if s.get("id") == "review")
     assert step["env"]["WORKFLOWS_ANALYSIS_CLI"] == "codex"
     assert "CODEX_AUTH_JSON" in text
+    checkout = next(s for s in job["steps"] if s.get("name") == "Checkout")
+    assert checkout["with"]["persist-credentials"] is False
+    prepare = next(s for s in job["steps"] if s.get("name") == "Prepare subscription analysis CLI")
+    assert "npm ci --prefix .github/actions/maint78-codex-cli --ignore-scripts" in prepare["run"]
+    assert "npm install" not in prepare["run"]
+    lock = json.loads((ROOT / ".github/actions/maint78-codex-cli/package-lock.json").read_text())
+    assert lock["packages"]["node_modules/@openai/codex"]["version"] == "0.160.0"
+    assert lock["packages"]["node_modules/@openai/codex"]["integrity"]
 
 
 @pytest.fixture

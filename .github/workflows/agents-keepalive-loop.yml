@@ -1274,6 +1274,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Set up Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
@@ -1323,7 +1325,8 @@ jobs:
         run: |
           set -euo pipefail
           if [ -n "$CODEX_AUTH_JSON" ]; then
-            npm install -g @openai/codex@0.160.0
+            npm ci --prefix .github/actions/maint78-codex-cli --ignore-scripts
+            echo "$(pwd)/.github/actions/maint78-codex-cli/node_modules/.bin" >> "$GITHUB_PATH"
             mkdir -p "$HOME/.codex"
             printf '%s' "$CODEX_AUTH_JSON" > "$HOME/.codex/auth.json"
             chmod 600 "$HOME/.codex/auth.json"
