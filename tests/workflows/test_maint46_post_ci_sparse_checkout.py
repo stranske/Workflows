@@ -118,6 +118,8 @@ def test_tracker_serializes_pending_events_without_single_slot_replacement():
     assert job["concurrency"]["cancel-in-progress"] is False
     assert job["permissions"]["issues"] == "write"
     assert "issues" not in workflow["permissions"]
-    checkout = next(step for step in job["steps"] if step.get("uses", "").startswith("actions/checkout@"))
+    checkout = next(
+        step for step in job["steps"] if step.get("uses", "").startswith("actions/checkout@")
+    )
     assert checkout["with"]["ref"] == "${{ github.sha }}"
     assert checkout["with"]["persist-credentials"] is False
