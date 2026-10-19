@@ -253,6 +253,106 @@ def test_inventory_deliberate_break_matches_harness_scope_change() -> None:
     assert block["fix_restored"]["sha256"] == receipt["fix_restored"]["sha256"]
 
 
+# Issue #3968 has both ## Why and ## Scope. issue_scope_parser aliases Why→Scope and
+# headings.find() keeps the first match, so keepalive extractScopePatterns sees defect
+# file paths instead of `docs/reports/`. That falsely marks this report-only PR as a
+# scope-violation and blocks tasks-complete. Authoritative deliverable Scope must list
+# docs/reports/; repaired PR Scope text is pinned below for restore after meta upsert.
+AUTHORITATIVE_ISSUE_SCOPE = (
+    "- Audit Workflows-owned workflows, scripts and managed templates that convert "
+    "verify labels, verification comments, terminal artifacts or request markers into "
+    "completion, follow-up eligibility or reported acceptance.\n"
+    "- Produce the verification-binding audit report under `docs/reports/` with the "
+    "source commit, search inventory and exclusions, and a classification per instance.\n"
+    "- File follow-up issues for unresolved instances beyond the two existing "
+    "per-instance candidates."
+)
+WHY_AS_SCOPE_TEXT = (
+    "Two verified gaps share one defect: a verification-state consumer treats an unbound "
+    "or historical signal as current evidence. `scripts/langchain/verifier_config.py:140` "
+    "promotes an old verdict into follow-up eligibility despite a newer incomplete report, "
+    "and `.github/workflows/agents-auto-pilot.yml:2344` with "
+    "`.github/scripts/auto_pilot_transitions.js:98` promotes an issue-only "
+    "`verify:evaluate` label into completed handoff with no merged PR."
+)
+REPAIRED_PR_SCOPE = (
+    "Audit deliverables for this PR are report/planning artifacts under `docs/reports/` "
+    "(including `docs/reports/verification-binding-audit.md` and "
+    "`docs/reports/verification-binding-audit/`).\n\n"
+    "Problem being audited (not in-diff production fixes): a verification-state consumer "
+    "treats an unbound or historical signal as current evidence. Known sites: "
+    "`scripts/langchain/verifier_config.py` (#3966) and "
+    "`.github/workflows/agents-auto-pilot.yml` / `.github/scripts/auto_pilot_transitions.js` "
+    "(#3967). Produce the verification-binding audit report under `docs/reports/` with the "
+    "source commit, search inventory and exclusions, and a classification per instance. "
+    "File follow-up issues for unresolved instances beyond the two existing per-instance "
+    "candidates.\n\n"
+    "Current source readback retained for provenance: "
+    "`scripts/langchain/verifier_config.py:126` at "
+    "`24bf36fe81333dd3c028cf1bb47b333fecdd2580`."
+)
+AUDIT_DELIVERABLE_FILES = (
+    "docs/reports/verification-binding-audit.md",
+    "docs/reports/verification-binding-audit/deliberate_break_gate.py",
+    "docs/reports/verification-binding-audit/inventory.json",
+    "docs/reports/verification-binding-audit/deliberate-break/receipt.json",
+)
+
+
+def _keepalive_scope_compliance(scope_text: str, files: list[str]) -> dict:
+    """Run keepalive_loop extractScopePatterns + validateScopeCompliance via node."""
+
+    payload = json.dumps({"scope": scope_text, "files": files})
+    script = (
+        "const { extractScopePatterns, validateScopeCompliance } = "
+        "require('./.github/scripts/keepalive_loop.js');"
+        "const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));"
+        "const patterns = extractScopePatterns(input.scope);"
+        "process.stdout.write(JSON.stringify({"
+        "patterns, ...validateScopeCompliance(input.files, patterns)"
+        "}));"
+    )
+    proc = subprocess.run(
+        ["node", "-e", script],
+        cwd=REPO_ROOT,
+        input=payload.encode("utf-8"),
+        capture_output=True,
+        check=False,
+    )
+    if proc.returncode != 0:
+        raise RuntimeError(
+            "keepalive scope probe failed:\n" + proc.stderr.decode("utf-8", errors="replace")
+        )
+    return json.loads(proc.stdout.decode("utf-8"))
+
+
+def test_why_as_scope_falsely_rejects_audit_deliverables() -> None:
+    """Document the Why→Scope alias hazard that blocked keepalive tasks-complete."""
+
+    result = _keepalive_scope_compliance(WHY_AS_SCOPE_TEXT, list(AUDIT_DELIVERABLE_FILES))
+    assert result["compliant"] is False
+    assert result["outOfScope"] == list(AUDIT_DELIVERABLE_FILES)
+    assert not any(p.startswith("docs/reports") for p in result["patterns"])
+
+
+def test_authoritative_issue_scope_accepts_audit_deliverables() -> None:
+    """Issue ## Scope (docs/reports/) must accept every audit PR path."""
+
+    result = _keepalive_scope_compliance(AUTHORITATIVE_ISSUE_SCOPE, list(AUDIT_DELIVERABLE_FILES))
+    assert result["compliant"] is True
+    assert result["outOfScope"] == []
+    assert "docs/reports/" in result["patterns"]
+
+
+def test_repaired_pr_scope_accepts_audit_deliverables() -> None:
+    """PR auto-status Scope must keep docs/reports/ after Why-alias clobber recovery."""
+
+    result = _keepalive_scope_compliance(REPAIRED_PR_SCOPE, list(AUDIT_DELIVERABLE_FILES))
+    assert result["compliant"] is True
+    assert result["outOfScope"] == []
+    assert any(p.startswith("docs/reports") for p in result["patterns"])
+
+
 def main() -> int:
     original_config = CONFIG_PATH.read_bytes()
     original_test = TEST_PATH.read_bytes()

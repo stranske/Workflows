@@ -4256,5 +4256,17 @@
     "test_sha256_after": "59206b6c26c8abaa737b020c62e2ffa47173378b2a81c0fb8dc4e04b7a4d51cf",
     "receipt": "docs/reports/verification-binding-audit/deliberate-break/receipt.json",
     "post_audit_note": "After source e9b9424b, PR #4129 merged separator-aware latest-report binding on main; concatenated headings without \\n\\n---\\n\\n still inherit historical PASS (owned by #3966). This audit PR ships only report/planning artifacts; the harness temporarily applies last-heading selection, proves disconnect failure, then restores byte-for-byte."
+  },
+  "keepalive_scope_compliance": {
+    "problem": "issue_scope_parser aliases Why\u2192Scope; headings.find keeps ## Why first, so keepalive extractScopePatterns sees defect file paths and marks docs/reports/ audit artifacts out-of-scope (scope-violation loop).",
+    "authoritative_issue_scope_heading": "## Scope",
+    "authoritative_issue_scope": "- Audit Workflows-owned workflows, scripts and managed templates that convert verify labels, verification comments, terminal artifacts or request markers into completion, follow-up eligibility or reported acceptance.\n- Produce the verification-binding audit report under `docs/reports/` with the source commit, search inventory and exclusions, and a classification per instance.\n- File follow-up issues for unresolved instances beyond the two existing per-instance candidates.",
+    "repaired_pr_scope": "Audit deliverables for this PR are report/planning artifacts under `docs/reports/` (including `docs/reports/verification-binding-audit.md` and `docs/reports/verification-binding-audit/`).\n\nProblem being audited (not in-diff production fixes): a verification-state consumer treats an unbound or historical signal as current evidence. Known sites: `scripts/langchain/verifier_config.py` (#3966) and `.github/workflows/agents-auto-pilot.yml` / `.github/scripts/auto_pilot_transitions.js` (#3967). Produce the verification-binding audit report under `docs/reports/` with the source commit, search inventory and exclusions, and a classification per instance. File follow-up issues for unresolved instances beyond the two existing per-instance candidates.\n\nCurrent source readback retained for provenance: `scripts/langchain/verifier_config.py:126` at `24bf36fe81333dd3c028cf1bb47b333fecdd2580`.",
+    "follow_up": "Rename issue #3968 ## Why to a non-Scope alias (e.g. ## Problem) so meta upsert keeps authoritative ## Scope; agents cannot edit that issue with the default GITHUB_TOKEN.",
+    "harness_tests": [
+      "docs/reports/verification-binding-audit/deliberate_break_gate.py::test_why_as_scope_falsely_rejects_audit_deliverables",
+      "docs/reports/verification-binding-audit/deliberate_break_gate.py::test_authoritative_issue_scope_accepts_audit_deliverables",
+      "docs/reports/verification-binding-audit/deliberate_break_gate.py::test_repaired_pr_scope_accepts_audit_deliverables"
+    ]
   }
 }
