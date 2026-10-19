@@ -284,7 +284,11 @@ def test_main_prints_per_file_results_and_returns_aggregate_failure(
     valid.write_text(json.dumps(_valid_findings()), encoding="utf-8")
     invalid = tmp_path / "invalid.json"
     invalid.write_text("{}", encoding="utf-8")
-    monkeypatch.setattr(sys, "argv", ["schema", str(valid), str(invalid), "--expected-repo", "x/y"])
+    monkeypatch.setattr(
+        sys, "argv", ["schema", str(valid), str(invalid), "--expected-repo", "stranske/Workflows"]
+    )
     assert schema.main() == 1
     output = capsys.readouterr().out
+    assert f"{valid}: OK" in output
+    assert f"{invalid}: " in output
     assert "error(s)" in output
