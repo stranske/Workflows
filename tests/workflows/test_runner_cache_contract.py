@@ -122,7 +122,9 @@ def test_progress_review_caches_pip_before_dependency_install() -> None:
     )
     assert setup["with"]["cache"] == "pip"
     assert (ROOT / setup["with"]["cache-dependency-path"]).is_file()
-    assert job["steps"].index(setup) < job["steps"].index(_step(job, "Install dependencies"))
+    assert job["steps"].index(setup) < job["steps"].index(
+        _step(job, "Install analysis dependencies")
+    )
 
 
 @pytest.mark.parametrize("agent", ("codex", "claude", "gemini"))

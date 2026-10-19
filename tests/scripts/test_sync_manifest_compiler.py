@@ -612,9 +612,9 @@ def test_real_manifest_compiles_every_declared_copy_entry() -> None:
         ],
     }
     Draft202012Validator(schema).validate(legacy_plan)
-    # Merge count: 261 -> 262 because main (#4037) adds verifier_closure.js.
+    # Merge count: 262 -> 263 because this branch adds tools/subscription_llm.py.
     # Preserve ci-python-versions.env (#4045) and verifier_plan_fingerprint.js.
-    assert len(plan["entries"]) == 262
+    assert len(plan["entries"]) == 263
     assert {
         ".github/scripts/rate_limit_receipt.js",
         ".github/scripts/rate_limit_receipt.json",
