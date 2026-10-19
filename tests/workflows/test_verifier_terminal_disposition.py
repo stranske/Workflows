@@ -492,23 +492,18 @@ def test_terminal_disposition_writers_do_not_fall_back_to_raw_verdicts() -> None
         )
 
 
-def test_post_gate_tracker_helpers_have_no_workflow_caller() -> None:
-    """F45 link: records the confirmed gap; flips (and must be updated) once wired."""
+def test_post_gate_tracker_helpers_are_wired_in_maint46() -> None:
+    """F45 repaired: Maint46 failure-tracker invokes all four helpers."""
     helpers = (
         "updateFailureTracker",
         "resolveFailureIssuesForRecoveredPR",
         "autoHealFailureIssues",
         "snapshotFailureIssues",
     )
-    corpus = "\n".join(
-        p.read_text(encoding="utf-8") for p in (ROOT / ".github/workflows").glob("*.yml")
-    )
-    unwired = [h for h in helpers if h not in corpus]
-    assert unwired == list(helpers), (
-        "F45 appears repaired for: "
-        + ", ".join(set(helpers) - set(unwired))
-        + " - update docs/ops/VERIFIER_GATE_EVIDENCE_PATH_AUDIT.md and this test"
-    )
+    workflow = (ROOT / ".github/workflows/maint-46-post-ci.yml").read_text(encoding="utf-8")
+    assert "failure-tracker:" in workflow
+    missing = [h for h in helpers if h not in workflow]
+    assert missing == [], f"Maint46 must call failure-tracker helpers; missing: {missing}"
 
 
 def _settlement_condition_after_failure(should_run: bool) -> bool:

@@ -327,7 +327,7 @@ and where to watch the result:
    artifacts from the successful run and applies any low-risk cleanup.
   Scheduled maintenance jobs (Maint 46 Post CI, Maint 45, and Health
    40–44) continue to run on their cadence even when no one is watching,
-   keeping the repo healthy. Maint 46 is recovery-only now: it only wakes up
+   keeping the repo healthy. Maint 46 summary rendering is recovery-only: it wakes up
    when Gate fails to emit its own summary so there is a single source of
    truth on green runs.
 4. **Issue and agents automation picks up queued work.** Labelled issues flow
@@ -518,8 +518,8 @@ Keep this table handy when you are triaging automation: it confirms which workfl
   - Coverage reports intentionally exclude CLI-only entry points (for example,
     `if __name__ == "__main__"` blocks marked with `# pragma: no cover`).
 - **Maint 46 Post CI** – `.github/workflows/maint-46-post-ci.yml` is a recovery
-  shim. It inspects the finished Gate run, exits immediately when the Gate
-  `summary` job succeeded, and only downloads artifacts, rebuilds the summary
+  summary shim plus an independent failure-tracker job. Summary recovery skips
+  when the Gate `summary` job succeeded and only downloads artifacts, rebuilds the summary
   (including coverage deltas), and refreshes the commit status when Gate failed
   to publish its own summary.
 - **Maint 47 Disable Legacy Workflows** – `.github/workflows/maint-47-disable-legacy-workflows.yml`
@@ -731,7 +731,7 @@ Keep this table handy when you are triaging automation: it confirms which workfl
 | **Maint 52 Sync Dev Versions** (`maint-52-sync-dev-versions.yml`, maintenance bucket) | post-settled-source-commit `push` (`autofix-versions.env` on `main`), drift catch-up `schedule`, `workflow_dispatch` | Propagate already-validated canonical source pins from `autofix-versions.env` to consumer `pyproject.toml`/lock files; never independently proposes newer PyPI versions. | ⚪ Propagation after settled source | [Sync dev versions runs](https://github.com/stranske/Workflows/actions/workflows/maint-52-sync-dev-versions.yml) |
 | **Maint Auto-Update PyPI Versions** (`maint-auto-update-pypi-versions.yml`, maintenance bucket) | `schedule` (Mondays 03:00 UTC), `workflow_dispatch` | Sole source proposal for routine dev-tool pins; opens or refreshes one weekly PR, with an explicit security override. | ⚪ Scheduled | [Auto-update PyPI versions runs](https://github.com/stranske/Workflows/actions/workflows/maint-auto-update-pypi-versions.yml) |
 | **Maint Coverage Guard** (`maint-coverage-guard.yml`, maintenance bucket) | `schedule` (`45 6 * * *`), `workflow_dispatch` | Audit the latest Gate coverage trend artifact and compare it against the baseline, failing when coverage regresses beyond the guard thresholds. | ⚪ Scheduled | [Maint Coverage Guard runs](https://github.com/stranske/Workflows/actions/workflows/maint-coverage-guard.yml) |
-| **Maint 46 Post CI** (`maint-46-post-ci.yml`, maintenance bucket) | `workflow_run` (Gate, `completed`) | Recovery-only: inspect the Gate run for a missing or failed `summary` job; when recovery is needed, collect the Gate artifacts, render the consolidated CI summary with coverage deltas, publish a markdown preview, and refresh the Gate commit status. Otherwise exit immediately. | ⚪ Automatic follow-up | [Maint 46 runs](https://github.com/stranske/Workflows/actions/workflows/maint-46-post-ci.yml) |
+| **Maint 46 Post CI** (`maint-46-post-ci.yml`, maintenance bucket) | `workflow_run` (Gate, `completed`) | Recovery-only: inspect the Gate run for a missing or failed `summary` job; when recovery is needed, collect the Gate artifacts, render the consolidated CI summary with coverage deltas, publish a markdown preview, and refresh the Gate commit status. Its independent trusted failure-tracker job processes both failed and healthy same-repository PR Gate runs and uploads the exact issue snapshot path. | ⚪ Automatic follow-up | [Maint 46 runs](https://github.com/stranske/Workflows/actions/workflows/maint-46-post-ci.yml) |
 | **Maint 45 Cosmetic Repair** (`maint-45-cosmetic-repair.yml`, maintenance bucket) | `workflow_dispatch` | Run pytest + fixers manually and open a labelled PR when changes are required. | ⚪ Manual | [Maint 45 manual entry](https://github.com/stranske/Workflows/actions/workflows/maint-45-cosmetic-repair.yml) |
 | **Health 40 Repo Selfcheck** (`health-40-repo-selfcheck.yml`, maintenance bucket) | `schedule` (daily) | Capture repository pulse metrics. | ⚪ Scheduled | [Health 40 summary](https://github.com/stranske/Workflows/actions/workflows/health-40-repo-selfcheck.yml) |
 | **Health 41 Repo Health** (`health-41-repo-health.yml`, maintenance bucket) | `schedule` (weekly) | Perform weekly dependency and repo hygiene sweep. | ⚪ Scheduled | [Health 41 dashboard](https://github.com/stranske/Workflows/actions/workflows/health-41-repo-health.yml) |
@@ -1171,3 +1171,12 @@ the Gate control surface, and treats every non-explicit-success outcome as
 blocking. The full threat model, live context audit, staged consumer rollout,
 and rollback contract are in
 [`docs/keepalive/FORK_GATE_STATUS_PUBLICATION.md`](../keepalive/FORK_GATE_STATUS_PUBLICATION.md).
+
+
+### Maint46 issue and snapshot lifecycle
+
+The summary-recovery early exit does not gate the independent `failure-tracker`
+job. That job owns `issues: write`, executes trusted base helpers, validates the
+monitored Gate run/attempt/current PR head and paginated job evidence, then
+tracks failure or recovery and uploads `artifacts/ci_failures_snapshot.json`.
+The [tracker contract](../ci-failure-tracker.md) documents replay and receipt limits.

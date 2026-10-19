@@ -476,3 +476,13 @@ shell, metrics Python and terminal JavaScript for all verifier modes, then
 retains seven JSON event-to-sink traces in `verifier-settlement-failure-trace`.
 These are controlled failure-path evidence; they do not claim a provider or
 post-merge production verification completed.
+
+### Maint46 failure tracking
+
+[Maint46](../../.github/workflows/maint-46-post-ci.yml) keeps summary recovery
+separate from its independent Gate failure issue/snapshot job. Only the latter
+job has `issues: write`; trusted current run/attempt/head validation precedes all
+writes. Both failure and recovery retain the exact snapshot path. The existing
+[Selftest CI](../../.github/workflows/selftest-ci.yml) dispatch-only tracker replay
+job publishes synthetic issue/snapshot receipts without live issue mutations.
+See the [tracker contract](../ci-failure-tracker.md).

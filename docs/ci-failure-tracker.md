@@ -1,107 +1,92 @@
-# CI Failure Tracker (Phase-2 Enhancements)
+# Gate CI Failure Tracker
 
-This document summarises the behaviour and configuration of the enhanced failure tracking workflow.
+`maint-46-post-ci.yml` listens to completed Gate runs. Its independent
+`failure-tracker` job creates or updates `ci-failure` issues and publishes
+`artifacts/ci_failures_snapshot.json`. The separate summary-recovery job can
+skip after a successful summary without suppressing this tracker: a failed
+upstream Python job still reaches failure tracking even if the summary succeeded.
 
-## Overview
-The Gate summary job now owns the failure-tracker logic and listens to completed runs of the Gate workflow. The legacy `maint-47-check-failure-tracker.yml` workflow has been retired after delegation proved stable. Within the consolidated summary job, a dedicated `failure-tracker` step executes on qualifying failures and:
+The tracker checks out trusted `github.sha` with credential persistence disabled.
+Only its job receives `issues: write`. Before writing it verifies the same-repository
+PR identity, Gate workflow path, completed current run attempt, current PR head,
+absence of a newer same-head Gate run, and the complete attempt-bound job list.
+Fork, stale, incomplete and unbound events produce no issue writes. It never
+executes code or scripts from the monitored PR or its artifacts.
 
-1. Enumerates failed jobs and the first failing step.
-2. Optionally extracts a stack token (first exception or error line) per failed job.
-3. Builds a deterministic signature: `workflow|sha256(job::step::stackToken...)[:12]`.
-4. Opens or updates a single GitHub Issue per signature (labels: `ci-failure`, `ci`, `devops`, `priority: medium`).
-5. Maintains metadata header: Occurrences, Last seen, Healing threshold.
-6. Appends a failure comment (rate-limited) with job + stack token tables.
-7. On successful runs, scans for inactive issues and auto-closes those with no reoccurrence for the configured inactivity window.
+## Failure and recovery
 
-## Configuration (Environment Variables)
+The existing signature remains the workflow slug plus failed job names and
+conclusions in the issue title. This wiring does not introduce a different
+signature/hash policy. `failure`, `timed_out`, `action_required` and
+`startup_failure` jobs count as failures; skipped and neutral jobs do not.
+Optional normalized stack tokens are diagnostic body text, not signature inputs.
+
+An open exact-signature issue is updated first. Otherwise a recent issue in the
+configured cooldown scope receives the recurrence instead of a duplicate issue.
+Occurrence count, last seen, exact run/attempt/head and PR tags are updated even
+when a comment is rate-limited. Replaying the last tracked run/attempt does not
+increment occurrences. Cooldown uses paginated issue data, not environment
+variable APIs or an artificial retry delay.
+
+A healthy completed Gate closes its PR-tagged failure issues. An aggregate that
+still tracks another PR stays open, with only the recovered PR tag removed.
+The healthy path also checks the documented inactivity window for untagged issues; any remaining open or unverified tracked PR prevents inactivity-only closure; confirmed closed PR tags are retired. Repository-wide serialization uses `queue: max` to retain up to 100 pending jobs rather than replacing the sole pending event. Queue overflow remains a platform limit. Cancelled or
+unknown outcomes do not establish recovery. Both valid failure and success paths
+write the same snapshot schema, including `monitored_run` identity and current
+open issues; snapshot writing runs in `finally` after a tracker action fails.
+Upload uses the exact produced path and errors if a tracked run has no snapshot.
+The artifact name includes the monitored Gate run and attempt.
+
+## Configuration
+
 | Variable | Purpose | Default |
-|----------|---------|---------|
-| `RATE_LIMIT_MINUTES` | Minimum minutes between new comments for same issue | 15 |
-| `STACK_TOKENS_ENABLED` | Toggle stack token hashing (`true`/`false`) | true |
-| `STACK_TOKEN_MAX_LEN` | Max chars retained from a stack/error line | 160 |
-| `STACK_TOKEN_RAW` | Skip stack token normalisation when `true` | false |
-| `AUTO_HEAL_INACTIVITY_HOURS` | Hours of stability before success path auto-heal closes issue | 24 |
-| `FAILURE_INACTIVITY_HEAL_HOURS` | (Reserved) Close during failure path if inactive for this many hours | 0 (disabled) |
-| `NEW_ISSUE_COOLDOWN_HOURS` | Cooldown window before creating *new* failure issues | 12 |
-| `COOLDOWN_SCOPE` | Which issue to target during cooldown (`global`, `workflow`, `signature`) | global |
-| `COOLDOWN_RETRY_MS` | Delay before retrying the cooldown append logic | 3000 |
-| `DISABLE_FAILURE_ISSUES` | If `true`, skip failure issue create/update (summary only) | false |
-| `OCCURRENCE_ESCALATE_THRESHOLD` | Escalation trigger once occurrences reach this count | 3 |
-| `ESCALATE_LABEL` | Label applied during escalation | `priority: high` |
-| `ESCALATE_COMMENT` | Custom escalation comment body | (empty) |
+| --- | --- | --- |
+| `RATE_LIMIT_MINUTES` | Minimum interval between recurrence comments; counts still update | 15 |
+| `STACK_TOKENS_ENABLED` | Include a diagnostic stack token | true |
+| `STACK_TOKEN_MAX_LEN` | Maximum diagnostic token length | 160 |
+| `STACK_TOKEN_RAW` | Preserve the unnormalized diagnostic token | false |
+| `NEW_ISSUE_COOLDOWN_HOURS` | Append to a recent eligible issue instead of creating one | 12 |
+| `COOLDOWN_SCOPE` | `global`, `workflow` or `signature` | global |
+| `AUTO_HEAL_INACTIVITY_HOURS` | Inactivity required for the healthy-path scan | 24 |
+| `DISABLE_FAILURE_ISSUES` | Skip failure issue create/update; retain snapshot | false |
 
-## Signature Evolution
-- Phase-1: job + first failing step.
-- Phase-2: adds first stack/error line token (or `no-stack` / `stacks-off`).
+The old environment-variable cooldown retry, occurrence-history table and
+escalation descriptions were not implemented by these helpers; they are not
+promised here. The separate signature-guard fixtures retain their own contract.
 
-## Cooldown & Rate Limiting
-A newly-detected signature that would otherwise open a new issue first checks for recent failures within the `NEW_ISSUE_COOLDOWN_HOURS` window. When the cooldown is active, the run appends a comment to the selected issue instead of opening a duplicate. The default twelve-hour window balances duplicate suppression with timely visibility of unrelated failures.
+## Local simulation and controlled hosted receipt
 
-A run comment is additionally suppressed if:
-- The run URL already appears in an existing comment, OR
-- The last comment is younger than `RATE_LIMIT_MINUTES`.
+From the repository root, run:
 
-## Legacy PR Exclusions
-Gate runs that originate from historical pull requests #10 and #12 are explicitly marked by the Gate summary job with `failure_tracker_skip = true`. When that flag is set the failure-tracker path, success auto-heal, and consolidated PR comment jobs all short-circuit. This prevents the legacy threads from accumulating duplicate bot comments while allowing all modern PRs to benefit from the unified tracker flow.
-
-## Auto-Heal (Success Path)
-On any successful monitored workflow run, open `ci-failure` issues are scanned. If `Last seen` is older than `AUTO_HEAL_INACTIVITY_HOURS`, the issue is commented on and closed.
-
-## Escalation Threshold
-Once an issue records its third occurrence (`OCCURRENCE_ESCALATE_THRESHOLD`), the workflow ensures the escalation label (`priority: high` by default) is applied and posts a single escalation comment. Earlier occurrences retain the medium-priority label so responders can distinguish first-time breakages from persistent regressions.
-
-### Label inventory check
-The repository currently exposes the following triage labels that ship with the workflow: `ci-failure`, `ci`, `devops`, and `priority: medium`. The escalation label (`priority: high` by default) is created automatically on demand. If any label gets renamed in the future, update the defaults in the workflow to match the new taxonomy so issues continue to aggregate correctly.
-
-## JSON Snapshot Artifact
-Both the failure and success paths upload the `ci_failures_snapshot.json` artifact so downstream automation has a single canonical payload to consume regardless of Gate outcome. The artifact contains an array of current open failure issues (number, occurrences, last_seen, timestamps). Use this for dashboards or external monitoring.
-
-## Occurrence History
-Each failure issue maintains an internal, capped (10 rows) occurrence history table between HTML comment markers:
-```
-<!-- occurrence-history-start -->
-| Timestamp | Run | Sig Hash | Failed Jobs |
-|---|---|---|---|
-| 2025-09-23T12:34:56Z | run link | a1b2c3d4e5f6 | 2 |
-<!-- occurrence-history-end -->
-```
-New failures prepend a row; table truncated at 10 to keep issues readable.
-
-## Deterministic Signature Self-Test
-Utility script: `tools/test_failure_signature.py`
-
-Example:
 ```bash
-python tools/test_failure_signature.py \
-	--jobs '[{"name":"Tests","step":"pytest","stack":"ValueError: boom"}]' \
-	--expected 0123456789ab
+node --test .github/scripts/__tests__/maint-post-ci.test.js
 ```
-Integrate into local pre-flight checks to ensure signature algorithm adjustments are deliberate.
 
-## Signature Guard Workflow
-Workflow: `health-43-ci-signature-guard.yml` runs on pushes / PRs and validates that a canonical fixture (`.github/signature-fixtures/basic_jobs.json`) hashes to the expected value stored in `basic_hash.txt`. Any intentional algorithm change should update both fixture and expected hash in the same commit.
+The replay executes the actual JavaScript authored in Maint46's tracker step
+against an in-memory GitHub API. It drives a successful summary with a failed
+upstream leg, repeat failures, duplicate delivery, cooldown/comment throttling,
+recovery and snapshots. Refusal cases cover fork/missing identity, current-head
+drift, a newer Gate run, a different workflow and incomplete jobs. Another case
+preserves other PRs in an aggregated issue during recovery.
 
-## Manual Self-Test
-You can manually validate behaviour:
-1. Dispatch `Maint 90 Selftest` (will create a failing issue).
-2. Rerun it but edit the `maint-90-selftest.yml` workflow to succeed (or manually re-run jobs) to test auto-heal logic after adjusting `INACTIVITY_HOURS`.
+Temporarily remove the `updateFailureTracker` call from the authored workflow
+script: the replay must fail its real emitted-issue assertion. Restore the
+workflow byte for byte and rerun successfully. No live issue is created by this
+suite; `npm test` is unavailable in `.github/scripts/package.json`.
 
-## Local Simulation Harness
-For a fast feedback loop without touching GitHub, run `node tools/simulate_failure_tracker.js`. The harness lifts the tracker script from the Gate summary job and replays three sequential failures against an in-memory stub of the GitHub API. It asserts that:
+For a controlled hosted replay, dispatch the existing `Selftest CI` workflow at
+the PR branch. Its `Gate tracker replay receipt` job runs the same authored replay
+with `TRACKER_REPLAY_OUTPUT` and retains `failure.json`, `recovery.json`, raw
+console output and `receipt.json` in the `gate-tracker-replay` artifact. The receipt
+binds the workflow SHA and hosted run URL to the synthetic Gate run/head,
+simulated issue writes and snapshots. This is hosted replay evidence, not a claim
+that an unmerged workflow changed production issues. Actual production behavior
+is observed only after merge and a qualifying Gate event.
 
-- The tuned defaults (12-hour cooldown, three-occurrence escalation) are honoured.
-- Issues aggregate signatures instead of spawning duplicates across the cooldown window.
-- The escalation label and comment appear only after the third occurrence while the base triage labels remain intact.
-
-Use this script whenever adjusting cooldown, label, or escalation logic to confirm the behaviour before pushing workflow changes.
-
-## Future Extensions
-- Persist aggregated metrics (failure frequency) as JSON artifact.
-- Add PR comment summary for new signatures encountered in a PR context.
-- Integrate stack token similarity clustering for noisy crash variants.
-
-
-## Maintenance Checklist
-- If new workflows should be monitored, add their names to the `workflows:` array under the `workflow_run` trigger.
-- Keep labels consistent with project taxonomy.
-- When refining stack heuristics, ensure deterministic fallback values to preserve signature stability.
+The pinned actionlint versions predate GitHub's `concurrency.queue` property.
+The existing actionlint allowlist therefore recognizes only its exact
+unsupported-key diagnostic. An independent workflow-schema test validates every
+root concurrency block: queue values must be `single` or `max`, and `max` cannot
+cancel running jobs. Invalid values/combinations fail that check. All other
+lint diagnostics and required CI remain enabled; no workflow or security check
+is removed. See the [GitHub queue contract](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency).
