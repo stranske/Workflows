@@ -400,7 +400,11 @@ def restore_non_body_fields(
 
     restored = deepcopy(before)
     restored_records, _ = candidate_records(restored)
-    restored_count = 0
+    candidate_keys = {"converged_candidates", "meta_candidate"}
+    restored_count = int(
+        {key: value for key, value in before.items() if key not in candidate_keys}
+        != {key: value for key, value in after.items() if key not in candidate_keys}
+    )
     for old, new, destination in zip(before_records, after_records, restored_records, strict=True):
         if {key: value for key, value in old.items() if key != "body"} != {
             key: value for key, value in new.items() if key != "body"

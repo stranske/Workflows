@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import json
+import sys
+
 import pytest
 from scripts import repo_review_round1_schema as schema
 
@@ -210,3 +213,82 @@ def test_validate_findings_rejects_generic_summaries() -> None:
 
 def test_validate_findings_accepts_valid_minimal_payload() -> None:
     assert schema.validate_findings(_valid_findings()) == []
+
+
+@pytest.mark.parametrize(
+    ("candidate", "message"),
+    [
+        (None, "must be an object"),
+        (_valid_candidate(title=""), "title: must be a non-empty string"),
+        (_valid_candidate(title="x" * 121), "title: must be ≤120 chars"),
+        (_valid_candidate(gap=None), "gap: must be a non-empty string"),
+        (_valid_candidate(design_refs=[]), "design_refs: must be a non-empty list"),
+        (_valid_candidate(acceptance_criteria=["only one"]), "acceptance_criteria: must be a list"),
+        (_valid_candidate(non_goals=[]), "non_goals: must be a non-empty list"),
+        (_valid_candidate(tasks=["only one"]), "tasks: must be a list"),
+        (_valid_candidate(priority="urgent"), "priority: must be one of"),
+        (_valid_candidate(confidence="certain"), "confidence: must be one of"),
+    ],
+)
+def test_validate_candidate_reports_each_required_field(candidate: object, message: str) -> None:
+    _assert_error(schema.validate_candidate(candidate, 0), message)
+
+
+@pytest.mark.parametrize(
+    ("payload", "message"),
+    [
+        (None, "findings: top-level must be an object"),
+        (_valid_findings(agent="unknown"), "agent: must be one of"),
+        (_valid_findings(repo="Workflows"), "repo: must be in 'owner/name' form"),
+        (_valid_findings(design_summary=""), "design_summary: must be a non-empty string"),
+        (_valid_findings(readiness_summary="short"), "readiness_summary: must be ≥"),
+        (
+            _valid_findings(implementation_classification=[]),
+            "implementation_classification: must be",
+        ),
+        (
+            _valid_findings(remote_progress_check="reviewed"),
+            "remote_progress_check: must reference",
+        ),
+        (
+            _valid_findings(archive_dedup_check=""),
+            "archive_dedup_check: must be a non-empty string",
+        ),
+        (_valid_findings(candidates={}), "candidates: must be a list"),
+        (_valid_findings(deeper_review_needed="false"), "deeper_review_needed: must be a boolean"),
+        (
+            _valid_findings(candidates=[], deeper_review_needed=False),
+            "no_new_work_justification: required",
+        ),
+        (
+            _valid_findings(deeper_review_needed=True, deeper_review_reason=""),
+            "deeper_review_reason: required",
+        ),
+    ],
+)
+def test_validate_findings_reports_required_top_level_fields(payload: object, message: str) -> None:
+    _assert_error(schema.validate_findings(payload), message)
+
+
+def test_validate_findings_file_reports_unreadable_and_invalid_json(tmp_path) -> None:
+    assert "cannot read" in schema.validate_findings_file(tmp_path / "missing.json")[0]
+    bad = tmp_path / "bad.json"
+    bad.write_text("{", encoding="utf-8")
+    assert "invalid JSON" in schema.validate_findings_file(bad)[0]
+
+
+def test_main_prints_per_file_results_and_returns_aggregate_failure(
+    tmp_path, monkeypatch, capsys
+) -> None:
+    valid = tmp_path / "valid.json"
+    valid.write_text(json.dumps(_valid_findings()), encoding="utf-8")
+    invalid = tmp_path / "invalid.json"
+    invalid.write_text("{}", encoding="utf-8")
+    monkeypatch.setattr(
+        sys, "argv", ["schema", str(valid), str(invalid), "--expected-repo", "stranske/Workflows"]
+    )
+    assert schema.main() == 1
+    output = capsys.readouterr().out
+    assert f"{valid}: OK" in output
+    assert f"{invalid}: " in output
+    assert "error(s)" in output
