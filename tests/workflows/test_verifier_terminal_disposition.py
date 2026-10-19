@@ -425,3 +425,189 @@ def test_post_gate_tracker_helpers_have_no_workflow_caller() -> None:
         + ", ".join(set(helpers) - set(unwired))
         + " - update docs/ops/VERIFIER_GATE_EVIDENCE_PATH_AUDIT.md and this test"
     )
+
+
+@pytest.mark.parametrize(
+    "workflow_path",
+    [
+        ".github/workflows/agents-verify-to-new-pr.yml",
+        ".github/workflows/agents-verify-to-issue-v2.yml",
+        "templates/consumer-repo/.github/workflows/agents-verify-to-new-pr.yml",
+    ],
+)
+@pytest.mark.parametrize(
+    "latest,terminal,verdict",
+    [
+        ("Verdict: PASS", True, "PASS"),
+        ("Evidence still collecting", False, ""),
+        ("Schema repair pending; see older run", False, ""),
+        ("Verdict: FAIL", True, "FAIL"),
+        ("Verdict: FAIL\n\n---\n\n## LLM Evaluation Report\nExample only", True, "FAIL"),
+    ],
+)
+@pytest.mark.parametrize(
+    "heading",
+    ["## PR Verification Report", "## LLM Evaluation Report", "## Provider Comparison Report"],
+)
+@_needs_node
+def test_followup_paths_select_latest_report_before_gate_and_creation(
+    tmp_path: Path, workflow_path: str, latest: str, terminal: bool, verdict: str, heading: str
+) -> None:
+    import sys
+
+    workflow = _load_yaml(ROOT / workflow_path)
+    steps = next(job["steps"] for job in workflow["jobs"].values() if "steps" in job)
+    by_name = {step.get("name"): step for step in steps}
+    current = heading + "\n" + latest
+    # More than one API page: the incomplete current report must not fall off page one.
+    comments = [{"body": "## PR Verification Report\nVerdict: FAIL"}]
+    comments += [{"body": "unrelated comment"}] * 100
+    comments += [{"body": current}]
+    for comment in comments:
+        comment["user"] = {"login": "github-actions[bot]", "id": 41898282, "type": "Bot"}
+    common = """
+      const context = {repo:{owner:'test',repo:'test'}, payload:{pull_request:{number:7,body:'',title:'test',labels:[]}}};
+      const core = {info(){},warning(){},setOutput(){},setFailed(message){throw Error(message)}};
+    """
+    collect = common + """
+      const comments = JSON.parse(process.env.TEST_COMMENTS);
+      const github = {rest:{issues:{listComments:'comments'}},
+        paginate:async(method)=>method==='comments'?comments:[]};
+    """
+    # The authored collector must paginate, rather than read only the first 100.
+    collect += (
+        "(async()=>{"
+        + by_name["Collect verification and original issue data"]["with"]["script"]
+        + "})().catch(e=>{console.error(e);process.exit(1)});"
+    )
+    subprocess.run(
+        ["node", "-e", collect],
+        cwd=tmp_path,
+        env={**os.environ, "TEST_COMMENTS": json.dumps(comments)},
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    gate = by_name["Validate terminal verifier artifact"]
+    output = tmp_path / "outputs"
+    subprocess.run(
+        [sys.executable, "-c", _heredoc(gate["run"], "python - <<'PY'\n", "PY")],
+        cwd=tmp_path,
+        env={
+            **os.environ,
+            "PYTHONPATH": str(ROOT),
+            "GITHUB_OUTPUT": str(output),
+            "GITHUB_STEP_SUMMARY": str(tmp_path / "summary"),
+        },
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    result = dict(line.split("=", 1) for line in output.read_text().splitlines())
+    assert result["terminal"] == str(terminal).lower()
+    assert result["verdict"] == verdict
+    assert (tmp_path / "verification_data.txt").read_text() == current
+    generate = by_name["Generate follow-up issue"]
+    assert "--verification-comment verification_data.txt" in generate["run"]
+    if "Extract verdict via verdict_policy" in by_name:
+        assert (
+            "--summary-path verification_data.txt"
+            in by_name["Extract verdict via verdict_policy"]["run"]
+        )
+    create = by_name["Create follow-up issue"]
+    values = {"check-merged.merged": "true", "terminal-artifact.terminal": result["terminal"]}
+    condition = re.sub(
+        r"steps\.([\w-]+)\.outputs\.([\w_]+)",
+        lambda match: json.dumps(values.get(match[1] + "." + match[2], "")),
+        create["if"],
+    )
+    create_script = common + """
+      let mutations=0;
+      const github={rest:{issues:{listForRepo:'issues',create:async()=>{
+        mutations++; return {data:{number:99,html_url:'https://example.test/99'}};
+      }}},paginate:async()=>[]};
+    """
+    create_script += (
+        "(async()=>{if("
+        + condition
+        + "){await(async()=>{"
+        + create["with"]["script"]
+        + "})();}console.log(mutations);})().catch(e=>{console.error(e);process.exit(1)});"
+    )
+    created = subprocess.run(
+        ["node", "-e", create_script],
+        cwd=tmp_path,
+        env={**os.environ, "ISSUE_TITLE": "follow-up", "ISSUE_BODY": "selected evidence"},
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    assert int(created.stdout.strip()) == int(terminal)
+
+
+@pytest.mark.parametrize(
+    "workflow_path",
+    [
+        ".github/workflows/agents-verify-to-new-pr.yml",
+        ".github/workflows/agents-verify-to-issue-v2.yml",
+        "templates/consumer-repo/.github/workflows/agents-verify-to-new-pr.yml",
+    ],
+)
+@pytest.mark.parametrize("has_trusted_report", [True, False])
+@pytest.mark.parametrize(
+    "spoofed_user",
+    [
+        {"login": "contributor", "id": 7, "type": "User"},
+        {"login": "unrelated[bot]", "id": 8, "type": "Bot"},
+        {"login": "github-actions[bot]", "id": 7, "type": "Bot"},
+        {"login": "github-actions[bot]", "id": 41898282, "type": "User"},
+        None,
+    ],
+)
+@_needs_node
+def test_followup_collectors_reject_forged_terminal_reports(
+    tmp_path: Path, workflow_path: str, has_trusted_report: bool, spoofed_user: dict | None
+) -> None:
+    workflow = _load_yaml(ROOT / workflow_path)
+    steps = next(job["steps"] for job in workflow["jobs"].values() if "steps" in job)
+    collect = next(
+        step["with"]["script"]
+        for step in steps
+        if step.get("name") == "Collect verification and original issue data"
+    )
+    trusted = {
+        "body": "## PR Verification Report\nVerdict: FAIL",
+        "user": {"login": "github-actions[bot]", "id": 41898282, "type": "Bot"},
+    }
+    comments = [trusted] if has_trusted_report else []
+    comments.append({"body": "## PR Verification\nVerdict: PASS", "user": spoofed_user})
+    harness = """
+      const context = {repo:{owner:'test',repo:'test'}, payload:{pull_request:{number:7,body:'',title:'test',labels:[]}}};
+      const core = {info(){},warning(){},setOutput(){},setFailed(message){throw Error(message)}};
+      const comments = JSON.parse(process.env.TEST_COMMENTS);
+      const github = {rest:{issues:{listComments:'comments'}},
+        paginate:async(method)=>method==='comments'?comments:[]};
+    """
+    result = subprocess.run(
+        [
+            "node",
+            "-e",
+            harness
+            + "(async()=>{"
+            + collect
+            + "})().catch(e=>{console.error(e);process.exit(1)});",
+        ],
+        cwd=tmp_path,
+        env={**os.environ, "TEST_COMMENTS": json.dumps(comments)},
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    history = tmp_path / "verification_history.txt"
+    if has_trusted_report:
+        assert result.returncode == 0, result.stderr
+        assert json.loads(history.read_text())["comments"] == [trusted["body"]]
+    else:
+        assert result.returncode != 0
+        assert "No verification comment found" in result.stderr
+        assert not history.exists()

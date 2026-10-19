@@ -234,6 +234,15 @@ The following workflows were decommissioned during the CI consolidation effort. 
 - Provide a PAT when bootstrap needs to push branches. The orchestrator honours PAT priority (`OWNER_PR_PAT` → `SERVICE_BOT_PAT` → `GITHUB_TOKEN`) via the reusable composite.
 
 ## Verifier Workflow
+
+Follow-up report collectors accept native reports only from the GitHub Actions
+bot (`github-actions[bot]`, immutable user ID `41898282`, account type `Bot`).
+The reusable verifier publishes these comments with `GITHUB_TOKEN`. A report
+heading or verdict marker is never author authentication: human comments,
+unrelated apps, and missing/mismatched identities cannot override the latest
+native report or suppress a follow-up. With no authenticated report, collection
+fails before generation or mutation. This applies to both source follow-up
+workflows and the distributed new-PR template.
 The verifier validates merged PRs against tasks and acceptance criteria using label-triggered modes.
 
 Before any model call, `agents_verifier_context.js` writes a
@@ -409,3 +418,18 @@ Issue #4097's production check remains due at merge + 48 hours: retrieval
 `unavailable` must be at most 10% of post-merge issue-linked verifier runs, and at
 least five issues must close with a “Verification closure rule” comment. Local
 regression success does not establish either production outcome.
+
+### Current verifier report for follow-ups
+
+Both follow-up paths retain collected comments as a `verifier-comment-history/v1`
+JSON envelope in `verification_history.txt`, preserving actual comment boundaries, and
+use `scripts/langchain/verifier_config.py:latest_verifier_report` to select the
+last posted comment before terminal gating. Headings and horizontal rules
+inside that comment stay content. Legacy joined histories still support reports
+headed `## PR Verification`, `## LLM Evaluation Report`, or
+`## Provider Comparison Report`. Only that selected report
+is written to `verification_data.txt` for verdict policy and issue generation.
+An incomplete latest report cannot inherit a historical verdict; pending repair
+remains non-terminal even when it mentions an older run. Provider verdicts within
+one selected comparison still use worst-provider aggregation. Historical comments
+remain unchanged.
