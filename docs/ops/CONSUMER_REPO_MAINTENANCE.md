@@ -75,7 +75,13 @@ originating reviewer.
 
 Canary evidence retains `active_review_thread_count` unchanged, the delivery
 generation, and a `review_disposition` packet with authenticated comment and
-handoff snapshots and full findings. The shared validator recomputes eligibility;
+handoff snapshots and full findings in the executor artifact. Promotion inputs
+carry a compact packet: review body content digests plus comment identity, author
+and update metadata, complete owner records, and only the handoff fields the
+evaluator consumes. Each packet must fit 16,000 UTF-8 bytes; aggregate dispatch
+inputs must fit 60,000 bytes before any API call. Oversized owner records fail
+closed with a concrete size hold rather than a repeated remote dispatch failure.
+The shared validator recomputes eligibility;
 it never trusts a stored `blocked: false` summary or a supplied trusted-actor
 list. Maint 68's phase selector calls this same JavaScript validator for nonzero
 review debt; an unavailable Node runtime or invalid response blocks promotion.

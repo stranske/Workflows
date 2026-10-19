@@ -23,9 +23,9 @@ opened or expanded. This does not clear the pre-existing shared-code findings.
 ## Executed validation
 
 - `node --test .github/scripts/__tests__/sync_pr_merge_contract.test.js .github/scripts/__tests__/maint71_merge_sync_prs.test.js`:
-  218 tests passed, zero failures/skips.
-- `node --test .github/scripts/__tests__/*.test.js`: 2,552 passed, zero failures,
-  one existing skipped test (2,553 total).
+  220 tests passed, zero failures/skips.
+- `node --test .github/scripts/__tests__/*.test.js`: 2,554 passed, zero failures,
+  one existing skipped test (2,555 total).
 - `python -m pytest tests/scripts/test_select_consumer_sync_phase.py -q`:
   18 passed, including the actual Node contract receiver, changed-head/lost-owner
   rejection and missing-Node fail-closed behavior.
@@ -62,3 +62,20 @@ hosted delivery, merge, promotion or original-source acceptance.
 
 Neither mutation is shipped. SHA-256 restoration checks passed for both files.
 The complete focused and Node suites were run on the restored implementation.
+
+## Promotion-payload review repair
+
+The complete live finding and handoff snapshots remain in the executor artifact.
+Promotion transports only evaluator fields: each review body becomes its SHA-256
+content digest with immutable comment identity/author/update metadata; handoff
+issue bodies, long titles and unrelated API metadata are omitted. The same
+fingerprint and binding validation consume the compact packet. Owner protocol
+records remain intact; a packet over 16,000 UTF-8 bytes is explicitly incomplete.
+The complete dispatch input object has a separate 60,000-byte pre-network gate.
+
+A regression uses a large Unicode discussion and large handoff body/title/API
+objects: valid compact evidence remains below 4,000 bytes and still passes the
+shared validator. Replacing the actual promotion-builder compaction with raw
+snapshots makes that regression fail (exit 1); exact restoration passes (exit 0).
+Oversized owner records and aggregate inputs are held before any API call. All
+three deliberate-break proofs were repeated on the final implementation.

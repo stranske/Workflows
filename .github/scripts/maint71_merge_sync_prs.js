@@ -2075,7 +2075,7 @@ function devToolBaseRefreshResult(deliveryContext) {
 // Promotion consumes only the exact-head evidence collected by run(). Keeping the
 // builder and dispatch together makes the workflow's JSON boundary testable.
 function buildCanaryPromotionEvidence(rows = [], expectedCanaries = []) {
-  const { validateCanaryEvidence } = require('./sync_pr_merge_contract.js');
+  const { validateCanaryEvidence, compactSyncFindingEvidence } = require('./sync_pr_merge_contract.js');
   const results = rows.map((row) => ({
     repo: row.repo,
     plan_id: row.plan_id,
@@ -2087,7 +2087,7 @@ function buildCanaryPromotionEvidence(rows = [], expectedCanaries = []) {
     evidence_source: row.evidence_source,
     required_check_state: row.required_check_state,
     active_review_thread_count: row.active_review_thread_count,
-    ...(row.review_disposition ? { review_disposition: row.review_disposition,
+    ...(row.review_disposition ? { review_disposition: compactSyncFindingEvidence(row.review_disposition),
       delivery_generation: row.delivery_generation } : {}),
   }));
   const errors = [];
@@ -2206,6 +2206,11 @@ async function dispatchCanaryPromotion({
     report: normalizedReport, evidence: built.evidence, expectedCanaries,
   });
   const errors = [...built.errors, ...decision.errors];
+  const promotionInputs = { phase: 'promote', delivery_scope: 'auto',
+    canary_evidence_json: JSON.stringify(built.evidence), dry_run: 'false', force: 'false' };
+  if (Buffer.byteLength(JSON.stringify(promotionInputs), 'utf8') > 60000) {
+    errors.push('promotion_inputs_too_large');
+  }
   if (report.inputs?.dry_run || report.inputs?.auto_merge !== true) errors.push('mutation_disabled');
   const record = async (status, detail) => {
     const green = expectedCanaries.filter((repo) => {
@@ -2259,13 +2264,7 @@ async function dispatchCanaryPromotion({
     repo: context.repo.repo,
     workflow_id: 'maint-68-sync-consumer-repos.yml',
     ref: branch,
-    inputs: {
-      phase: 'promote',
-      delivery_scope: 'auto', // Maint 68's evidence-inferred scope value.
-      canary_evidence_json: JSON.stringify(built.evidence),
-      dry_run: 'false',
-      force: 'false',
-    },
+    inputs: promotionInputs,
   }));
   return record('dispatched', `source ${binding.source_commit}; completion awaits a successful Maint 68 run`);
 }

@@ -201,7 +201,9 @@ function syncFindingFingerprint(thread) {
   return require('crypto').createHash('sha256').update(JSON.stringify({
     id: thread.id, path: thread.path,
     comments: (thread.comments?.nodes || []).map((comment) => ({
-      id: comment.id, body: comment.body, updatedAt: comment.updatedAt,
+      id: comment.id, body_sha256: typeof comment.body === 'string'
+        ? require('crypto').createHash('sha256').update(comment.body).digest('hex') : comment.body_sha256,
+      updatedAt: comment.updatedAt,
       author: comment.author?.login,
     })),
   })).digest('hex');
@@ -218,7 +220,7 @@ function parseSyncFindingDisposition(comment) {
 function evaluateSyncFindingDispositions({
   binding = {}, reviewThreads = [], activeReviewThreadCount,
   comments = [], handoffs = [], trustedActors = SYNC_FINDING_DISPOSITION_ACTORS, evidenceComplete = true,
-  now = Date.now(),
+  now = Date.now(), evidenceFormat = 'full',
 } = {}) {
   const count = activeReviewThreadCount;
   const active = Array.isArray(reviewThreads) ? reviewThreads.filter(
@@ -248,7 +250,9 @@ function evaluateSyncFindingDispositions({
       url: thread.comments?.nodes?.[0]?.url || '', disposition: 'unknown', errors: [] };
     if (!thread.id || !thread.path || thread.comments?.pageInfo?.hasNextPage !== false
       || !Array.isArray(thread.comments?.nodes) || thread.comments.nodes.length === 0
-      || thread.comments.nodes.some((comment) => !comment?.id || typeof comment.body !== 'string'
+      || thread.comments.nodes.some((comment) => !comment?.id
+        || (typeof comment.body !== 'string' && !(evidenceFormat === 'compact/v1'
+          && /^[a-f0-9]{64}$/.test(comment.body_sha256 || '')))
         || !comment.author?.login || !comment.url || !Number.isFinite(Date.parse(comment.updatedAt)))) {
       finding.errors.push('finding_conversation_incomplete');
       return finding;
@@ -308,6 +312,41 @@ function evaluateSyncFindingDispositions({
       .map((finding) => ({ thread_id: finding.thread_id, owner: finding.record.remediation_owner,
         url: finding.record.handoff_url })),
   };
+}
+
+// Full finding text remains in the executor's artifact. Dispatch transports
+// content digests and only API fields the same evaluator actually consumes.
+function compactSyncFindingEvidence(packet) {
+  if (!packet) return packet;
+  if (!Array.isArray(packet.reviewThreads) || !Array.isArray(packet.comments)
+    || !Array.isArray(packet.handoffs)
+    || packet.reviewThreads.some((thread) => !Array.isArray(thread?.comments?.nodes))) {
+    return { evidenceComplete: false, evidenceFormat: 'compact/v1', error: 'incomplete_finding_packet' };
+  }
+  const result = { binding: packet.binding, evidenceComplete: packet.evidenceComplete,
+    evidenceFormat: 'compact/v1',
+    reviewThreads: (packet.reviewThreads || []).map((thread) => ({
+      id: thread.id, path: thread.path, isResolved: thread.isResolved, isOutdated: thread.isOutdated,
+      comments: { pageInfo: thread.comments?.pageInfo,
+        nodes: (thread.comments?.nodes || []).map((comment) => ({ id: comment.id,
+          body_sha256: typeof comment.body === 'string'
+            ? require('crypto').createHash('sha256').update(comment.body).digest('hex') : comment.body_sha256,
+          updatedAt: comment.updatedAt, author: comment.author, url: comment.url })),
+      },
+    })),
+    comments: (packet.comments || []).map((comment) => ({ id: comment.id, body: comment.body,
+      user: { login: comment.user?.login }, html_url: comment.html_url, updated_at: comment.updated_at })),
+    handoffs: (packet.handoffs || []).map((issue) => ({ html_url: issue.html_url,
+      title: issue.title ? 'present' : '', state: issue.state,
+      ...(issue.pull_request ? { pull_request: {} } : {}),
+      assignees: issue.assignees?.map((assignee) => ({ login: assignee.login })),
+    })),
+  };
+  if (Buffer.byteLength(JSON.stringify(result), 'utf8') > 16000) {
+    result.evidenceComplete = false;
+    result.error = 'finding_packet_too_large';
+  }
+  return result;
 }
 
 function classifyReviewBlockedDisposition({
@@ -1897,6 +1936,7 @@ module.exports = {
   parseSyncFindingDisposition,
   evaluateSyncFindingDispositions,
   canaryReviewDebtIsBlocking,
+  compactSyncFindingEvidence,
   AUTO_RESOLVE_SYNC_BOT_THREADS_COMMAND,
   REVIEW_POLICY_UNAVAILABLE_COMMAND,
   REPORT_SCHEMA,

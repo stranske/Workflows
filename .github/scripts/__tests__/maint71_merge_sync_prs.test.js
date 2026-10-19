@@ -102,6 +102,59 @@ test('stale-head final sync finding gate rejects an unrelated record after pre-s
   assert.match(gate.packet.error, /finding_delivery_changed/);
 });
 
+test('promotion packet bounds large authenticated discussions and handoff objects', async () => {
+  const packet = findingPacket();
+  packet.reviewThreads[0].comments.nodes[0].body = '長い evidence '.repeat(20000);
+  packet.handoffs[0].body = 'A large existing issue body. '.repeat(20000);
+  packet.handoffs[0].title = 'A long title '.repeat(10000);
+  packet.handoffs[0].user = { login: 'local-owner', bio: 'irrelevant'.repeat(50000) };
+  changeProof(packet, { thread_fingerprint:
+    require('../sync_pr_merge_contract').syncFindingFingerprint(packet.reviewThreads[0]) });
+  const row = { repo: packet.binding.repository, pr: packet.binding.pr,
+    head_sha: packet.binding.head_sha, source_commit: packet.binding.source_commit,
+    plan_id: packet.binding.plan_id, delivery_generation: packet.binding.delivery_generation,
+    evidence_source: 'open-candidate', required_check_state: 'success',
+    active_review_thread_count: 1, review_disposition: packet };
+  const build = require('../maint71_merge_sync_prs').buildCanaryPromotionEvidence;
+  const built = build([row], [row.repo]);
+  assert.equal(built.ok, true, built.errors.join(','));
+  assert.ok(Buffer.byteLength(JSON.stringify(built.evidence), 'utf8') < 4000);
+  assert.equal(packet.reviewThreads[0].comments.nodes[0].body.length > 200000, true,
+    'the source artifact retains complete text');
+  assert.equal(built.evidence.results[0].review_disposition.handoffs[0].body, undefined);
+  assert.equal(validateCanaryEvidence(built.evidence.results, [row.repo]).ok, true);
+  changeProof(packet, { rationale: 'x'.repeat(20000) });
+  const oversized = build([row], [row.repo]);
+  assert.equal(oversized.ok, false, 'oversized owner records must block before dispatch');
+  const notices = [];
+  const held = await dispatchCanaryPromotion({
+    report: { inputs: { auto_merge: true }, results: [] }, evidence: [row], expectedCanaries: [row.repo],
+    withRetry: async () => { throw new Error('oversized packet reached network'); },
+    context: {}, core: { notice: value => notices.push(value),
+      summary: { addRaw: () => ({ write: async () => {} }) } },
+  });
+  assert.equal(held.status, 'held');
+  assert.ok(notices.length);
+});
+
+test('promotion aggregate inputs are bounded before any API call', async () => {
+  const row = { repo: 'stranske/Ready', plan_id: 'p'.repeat(70000),
+    source_commit: 'a'.repeat(40), head_sha: 'b'.repeat(40), plan_scope: 'full',
+    scope_base_sha: '', evidence_source: 'no-change-canary', required_check_state: 'success',
+    active_review_thread_count: 0 };
+  const result = await dispatchCanaryPromotion({
+    report: { inputs: { sync_hash: 'candidate', auto_merge: true, dry_run: false },
+      results: [{ owner: 'stranske', repo: 'Ready', branch: 'sync/workflows-candidate',
+        status: 'evidence_recovered', plan_id: row.plan_id, source_commit: row.source_commit,
+        head_sha: row.head_sha }] },
+    evidence: [row], expectedCanaries: [row.repo],
+    withRetry: async () => { throw new Error('oversized inputs reached API'); }, context: {},
+    core: { notice: () => {}, summary: { addRaw: () => ({ write: async () => {} }) } },
+  });
+  assert.equal(result.status, 'held');
+  assert.ok(result.errors.includes('promotion_inputs_too_large'));
+});
+
 test('repository conversation and required-check rejection remain independent of relevance', () => {
   const clear = { blocked: false, raw_active_count: 1 };
   const policy = syncMergeFailureDisposition(new Error('All conversations must be resolved'), clear);
