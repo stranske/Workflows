@@ -6261,11 +6261,29 @@
   },
   "enables_anything": false,
   "ordered_input_manifest": [
-    "/tmp/judge-screen/codex-rerun.json",
-    "/tmp/judge-screen/rerun-screen.json",
-    "/tmp/judge-screen/muse13-renamed.json",
-    "/tmp/judge-screen/muse13c-screen.json",
-    "/tmp/judge-screen/muse12c-screen.json",
-    "/tmp/judge-screen/wonder-screen.json"
-  ]
+    "docs/evidence/judge-screen-20261017/current-prompt-codex-screen.json",
+    "docs/evidence/judge-screen-20261017/current-prompt-claude-cursor-muse12.json",
+    "docs/evidence/judge-screen-20261017/standard-muse13-observations.json",
+    "docs/evidence/judge-screen-20261017/muse-spark-1-3-contributor-screen.json",
+    "docs/evidence/judge-screen-20261017/muse-spark-1-2-contributor-screen.json",
+    "docs/evidence/judge-screen-20261017/muse-wonder-1-0-screen.json"
+  ],
+  "evidence_reproduction": {
+    "artifact": "docs/evidence/judge-screen-20261017/standard-muse13-observations.json",
+    "command": "python -m tools.reproduce_muse13_screen --check",
+    "source_revision": "e888a4b159a8076882c94c5f309b73aee86a13cd",
+    "offline": true,
+    "checked_sections": [
+      "cases",
+      "enables_anything",
+      "failovers",
+      "judges",
+      "non_pass_cases",
+      "pairs",
+      "recommendation",
+      "schema",
+      "tie_breaks"
+    ],
+    "original_prompt_text_recovered": false
+  }
 }
