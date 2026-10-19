@@ -1,0 +1,3833 @@
+{
+  "source_commit": "e9b9424bbae233f44dca3a0b81faaee985372864",
+  "search_hit_count": 588,
+  "files": [
+    {
+      "path": ".github/scripts/agents-guard-fork-status-publication.js",
+      "classification": "already-correct",
+      "producer_consumer_binding_and_missing_stale_pending": "Trusted run/workflow/head/attempt plus complete guard jobs -> existing status context; rejects ambiguous/missing provenance.",
+      "existing_owner_issue": null,
+      "lines": [
+        205,
+        428,
+        441,
+        442,
+        505,
+        507
+      ],
+      "sha256": "186943d05013c4c2dde635b5644e40038bd4dd758406d49b16cbbb42d77ee28a"
+    },
+    {
+      "path": ".github/scripts/agents_verifier_context.js",
+      "classification": "already-correct",
+      "producer_consumer_binding_and_missing_stale_pending": "Merged PR/source/CI API records -> authoritative verifier input. Wrapper/run attempt, head, workflow path, complete pagination and merge-CI checks are explicit. Missing/partial inputs are diagnostics, never verification success; failing merge CI floors the provider instruction. This is input capture, not completed acceptance.",
+      "existing_owner_issue": null,
+      "lines": [
+        2003,
+        2010,
+        2012
+      ],
+      "sha256": "76af20f7d6d4f287092e5f33d04e7d3d5580b35a751a27a1242b9427c4b2833d"
+    },
+    {
+      "path": ".github/scripts/auto_pilot_transitions.js",
+      "classification": "confirmed-bug",
+      "producer_consumer_binding_and_missing_stale_pending": "Issue labels -> hasVerify -> resolveCurrentState. Closed + verify:evaluate maps to closed-verified/done even with no linked PR; the label is request bookkeeping rather than a verdict or source-bound acceptance.",
+      "existing_owner_issue": "https://github.com/stranske/Workflows/issues/3967",
+      "lines": [
+        43
+      ],
+      "sha256": "673928d97a4376e1352b8989e7ca0cfddf472d75df4d286073fdb0a149287d94"
+    },
+    {
+      "path": ".github/scripts/keepalive_loop.js",
+      "classification": "already-correct",
+      "producer_consumer_binding_and_missing_stale_pending": "Task progress/runner lifecycle, including terminal state; unchecked tasks or a stop marker are not post-merge provider acceptance.",
+      "existing_owner_issue": null,
+      "lines": [
+        3467,
+        6161
+      ],
+      "sha256": "e0ad59828cf7adfe1ba369746cb5031c675660b7a396343aca52f9f1c2f96d72"
+    },
+    {
+      "path": ".github/scripts/maint71_finding_verification.js",
+      "classification": "already-correct",
+      "producer_consumer_binding_and_missing_stale_pending": "Records finding-level sync disposition; retained finding identity and evidence are distinct from original source acceptance.",
+      "existing_owner_issue": null,
+      "lines": [
+        37,
+        207,
+        215
+      ],
+      "sha256": "424cec40b87e1e15433285675e935189871fe004654fd70ce8205dc7ab088b4c"
+    },
+    {
+      "path": ".github/scripts/maint71_merge_sync_prs.js",
+      "classification": "already-correct",
+      "producer_consumer_binding_and_missing_stale_pending": "Sync merger delegates to the sync contract/check/review floor; verifier verdict naming is reporting, not the only merge gate.",
+      "existing_owner_issue": null,
+      "lines": [
+        2194
+      ],
+      "sha256": "eb0bceb4b90855befb15fbcbe0a063dcf0d6fbfa369f4328947f7a789c57270d"
+    },
+    {
+      "path": ".github/scripts/sync_dependency_campaign.js",
+      "classification": "already-correct",
+      "producer_consumer_binding_and_missing_stale_pending": "Campaign evidence bookkeeping for source-owned delivery; no new implementation admission or original product acceptance comes from verdict text alone.",
+      "existing_owner_issue": null,
+      "lines": [
+        621,
+        624,
+        626,
+        629,
+        640,
+        2058
+      ],
+      "sha256": "dead4a0c35aee56437d353128706df4c9e715bbe482c0b71ff00e6b5065efe1a"
+    },
+    {
+      "path": ".github/scripts/sync_pr_merge_contract.js",
+      "classification": "already-correct",
+      "producer_consumer_binding_and_missing_stale_pending": "Classifies controlled sync provenance and policy; unrelated verifier prose is not source-delivery authorization.",
+      "existing_owner_issue": null,
+      "lines": [
+        781,
+        785
+      ],
+      "sha256": "077f59984180452ebaa017c5df7000bcc9e9e323575c63f4a05fd0f30110b488"
+    },
+    {
+      "path": ".github/scripts/terminal_disposition.js",
+      "classification": "needs-investigation",
+      "producer_consumer_binding_and_missing_stale_pending": "Explicit workflow inputs -> terminal/outcome records. Pure classification/serialization recognizes verdicts but cannot prove the supplied run/source identity. The caller must supply and validate binding and settlement; source3969 owns caller-sink negative coverage, not a change to this serializer in this audit.",
+      "existing_owner_issue": "https://github.com/stranske/Workflows/issues/3969",
+      "lines": [
+        102,
+        107,
+        108,
+        228,
+        277
+      ],
+      "sha256": "f633907f60f03bb76382e248ac8c7d674a1f4f534877d3700610b41f1d9b15dc"
+    },
+    {
+      "path": ".github/scripts/verifier_closure.js",
+      "classification": "already-correct",
+      "producer_consumer_binding_and_missing_stale_pending": "Trusted caller verdict + merge SHA + source-body plan -> closureDecision/closeVerifiedSources. Source hash and plan head must match; CI entries must match merge SHA. Non-PASS remains refused except explicitly checked UNVERIFIABLE_INPUT deterministic-gate rule; no blanket PASS synthesis. Evidence: 75 selected JS tests include closure negatives.",
+      "existing_owner_issue": null,
+      "lines": [
+        10,
+        19,
+        24,
+        51,
+        78,
+        85,
+        86,
+        87
+      ],
+      "sha256": "1ebdc2701de14e37a223eb18ddb123c9df95327ccfaa26b98b60f3b0a4aa72fe"
+    },
+    {
+      "path": ".github/scripts/verifier_issue_formatter.js",
+      "classification": "already-correct",
+      "producer_consumer_binding_and_missing_stale_pending": "Converts parsed findings into issue text. Unknown verdicts remain unknown in content; this formatter does not perform source closure.",
+      "existing_owner_issue": null,
+      "lines": [
+        144,
+        148,
+        161,
+        162,
+        185,
+        192,
+        193,
+        194,
+        195,
+        259,
+        260,
+        579,
+        680
+      ],
+      "sha256": "5d852c6fefc24854dd8e7bcd626355c72308b7199aff5b7a3b6aa0355d3f2942"
+    },
+    {
+      "path": ".github/scripts/verifier_verdict_json.py",
+      "classification": "already-correct",
+      "producer_consumer_binding_and_missing_stale_pending": "Structured report serialization used by verifier workflows; does not discover or authorize a source PR.",
+      "existing_owner_issue": null,
+      "lines": [
+        2,
+        13,
+        24,
+        25,
+        26,
+        28,
+        30,
+        32,
+        67,
+        71,
+        74,
+        79,
+        80,
+        86,
+        90,
+        96,
+        99,
+        106,
+        110,
+        113,
+        114,
+        115,
+        116,
+        117
+      ],
+      "sha256": "acb97ae9cb817d6ca5dc87843397062b26aa31669e463040e53f3e01bec1f833"
+    },
+    {
+      "path": ".github/workflows/agents-63-issue-intake.yml",
+      "classification": "already-correct",
+      "producer_consumer_binding_and_missing_stale_pending": "Comment/label intake routing; verification label is a requested next step, not accepted delivery.",
+      "existing_owner_issue": null,
+      "lines": [
+        1163
+      ],
+      "sha256": "2868b5ad3565cf7a708025069de59d5007d989c188b8132ae0a5f89e19f7278b"
+    },
+    {
+      "path": ".github/workflows/agents-auto-pilot.yml",
+      "classification": "confirmed-bug",
+      "producer_consumer_binding_and_missing_stale_pending": "Issue label reader supplies hasVerify; the verify step records verify:evaluate on an issue when no merged source is found. Root/template share the known request-versus-completion error, not an additional independent defect.",
+      "existing_owner_issue": "https://github.com/stranske/Workflows/issues/3967",
+      "lines": [
+        405,
+        2351,
+        2358,
+        2369,
+        2384,
+        2392
+      ],
+      "sha256": "7bc9e2b7556115160a20bd33f57b85aea2a1af988ddd5784534976995b8406e2"
+    },
+    {
+      "path": ".github/workflows/agents-guard.yml",
+      "classification": "already-correct",
+      "producer_consumer_binding_and_missing_stale_pending": "Current PR check/status gate; a verdict string is not a post-merge source-acceptance transition. Fork status publication is separately identity-bound.",
+      "existing_owner_issue": null,
+      "lines": [
+        1034,
+        1162,
+        1166
+      ],
+      "sha256": "2b18d6e0828914777d84d9538e149a96af2ecf736a05b4acfded87391875a5c0"
+    },
+    {
+      "path": ".github/workflows/agents-verifier.yml",
+      "classification": "already-correct",
+      "producer_consumer_binding_and_missing_stale_pending": "Merged-PR/exact-label or authorized dispatch caller -> reusable verifier. Label requests work; it does not certify PASS. API merge checks and trusted helper checkout protect the boundary.",
+      "existing_owner_issue": null,
+      "lines": [
+        6,
+        88,
+        197,
+        257,
+        318,
+        338,
+        347,
+        361
+      ],
+      "sha256": "4fa1ba84db25e9084cd2b2f6dac0da3a6b8b894a288cd829c95f61be8e259094"
+    },
+    {
+      "path": ".github/workflows/agents-verify-to-issue-v2.yml",
+      "classification": "needs-investigation",
+      "producer_consumer_binding_and_missing_stale_pending": "Linked issue/PR extraction and posted report text -> terminal helper -> issue-only follow-up. Same report parser boundary as the new-PR path; missing data blocks, but stale terminal text needs the existing parser repair and a call-path regression.",
+      "existing_owner_issue": "https://github.com/stranske/Workflows/issues/3966",
+      "lines": [
+        160,
+        228,
+        229,
+        238,
+        239,
+        240,
+        244,
+        249,
+        255,
+        256,
+        329,
+        330,
+        331,
+        347
+      ],
+      "sha256": "14e41d5a4c69be16d03e87dd5c047ffb3128bdfa45ddc4031774692e0a71cfff"
+    },
+    {
+      "path": ".github/workflows/agents-verify-to-new-pr.yml",
+      "classification": "needs-investigation",
+      "producer_consumer_binding_and_missing_stale_pending": "PR/comment collection -> verification_data.txt -> terminal helper -> follow-up eligibility. Empty/missing and recognized pending reports block. Text parsers do not by themselves prove latest attempt/source binding; the known historical report defect propagates here. Do not interpret a created follow-up as original acceptance.",
+      "existing_owner_issue": "https://github.com/stranske/Workflows/issues/3966",
+      "lines": [
+        192,
+        306,
+        307,
+        316,
+        317,
+        318,
+        322,
+        327,
+        333,
+        334,
+        360,
+        517,
+        518,
+        527,
+        532,
+        533,
+        538,
+        542,
+        561,
+        562,
+        609,
+        658,
+        662,
+        682,
+        733,
+        734,
+        735,
+        739,
+        744,
+        748,
+        752,
+        756,
+        760,
+        790,
+        831,
+        942,
+        981,
+        1032,
+        1033,
+        1034,
+        1070,
+        1083,
+        1087,
+        1120,
+        1151
+      ],
+      "sha256": "0a97d027e42fa3e3699b877d41f982645682ed1a2095ec767c09f89ee9810c73"
+    },
+    {
+      "path": ".github/workflows/health-muse-auth-check.yml",
+      "classification": "already-correct",
+      "producer_consumer_binding_and_missing_stale_pending": "Credential health verdict is not a product verifier verdict or merged-source acceptance.",
+      "existing_owner_issue": null,
+      "lines": [
+        70
+      ],
+      "sha256": "0510330909e22bdb0d26bad68d064674414e22502b3bf41486397dc9ba7ae2f7"
+    },
+    {
+      "path": ".github/workflows/maint-79-verifier-corpus-harvest.yml",
+      "classification": "already-correct",
+      "producer_consumer_binding_and_missing_stale_pending": "Historical corpus collection for evaluation; no live source-closure transition.",
+      "existing_owner_issue": null,
+      "lines": [
+        86
+      ],
+      "sha256": "be5cdb61049cd946a5d30dfbdbedf5fa41a22c3926ac7e3f34365bc8386c4e80"
+    },
+    {
+      "path": ".github/workflows/pr-00-gate.yml",
+      "classification": "already-correct",
+      "producer_consumer_binding_and_missing_stale_pending": "Current-head CI summary and requested verification context; CI green is a product-check result, not provider/source acceptance.",
+      "existing_owner_issue": null,
+      "lines": [
+        1298,
+        1435,
+        1437,
+        1456,
+        1460,
+        1464
+      ],
+      "sha256": "085de972d685b101937674336888fffbc6c7514d3886682340a1fb112f399a19"
+    },
+    {
+      "path": ".github/workflows/reusable-agents-verifier.yml",
+      "classification": "needs-investigation",
+      "producer_consumer_binding_and_missing_stale_pending": "Context capture + provider output -> settlement -> metrics, terminal artifact, ledger and source closure. Source/merge bindings are captured upstream; skipped/missing settlement and explicit CI failures must not produce PASS at a terminal sink. Existing source3969/PR4124 owns this concrete remaining seam; audit does not assume its open payload is deployed.",
+      "existing_owner_issue": "https://github.com/stranske/Workflows/issues/3969",
+      "lines": [
+        53,
+        54,
+        55,
+        117,
+        891,
+        892,
+        896,
+        898,
+        903,
+        904,
+        907,
+        908,
+        910,
+        912,
+        913,
+        915,
+        916,
+        921,
+        926,
+        927,
+        929,
+        932,
+        933,
+        1082,
+        1099,
+        1106,
+        1110,
+        1115,
+        1140,
+        1184,
+        1199,
+        1200,
+        1201,
+        1202,
+        1215,
+        1359,
+        1379,
+        1381,
+        1389,
+        1390,
+        1395,
+        1396,
+        1458,
+        1474,
+        1475,
+        1476,
+        1477,
+        1579,
+        1580,
+        1585,
+        1586,
+        1587,
+        1588,
+        1591,
+        1593,
+        1595,
+        1599,
+        1600,
+        1603,
+        1605,
+        1608,
+        1609,
+        1612,
+        1613,
+        1614,
+        1650,
+        1661,
+        1775,
+        1778,
+        1779,
+        1802,
+        1816,
+        1819,
+        1820,
+        1880,
+        1921,
+        1922,
+        1968,
+        1970,
+        1989,
+        1990,
+        1992,
+        1996,
+        1997,
+        1998,
+        2003,
+        2033,
+        2072,
+        2141
+      ],
+      "sha256": "6dcb1e90629a35ee75a214af85658c8f532101f664b0f9c7740fbdd19401d6a1"
+    },
+    {
+      "path": "scripts/langchain/followup_issue_generator.py",
+      "classification": "already-correct",
+      "producer_consumer_binding_and_missing_stale_pending": "VerificationData + verdict_policy -> scoped follow-up content/disposition. A generator is not source acceptance; preserves non-PASS and split-policy inputs rather than establishing PR/attempt identity. Caller terminal/source admission remains mandatory. Evidence: verdict-policy and follow-up generation tests; no closure transition in this module.",
+      "existing_owner_issue": null,
+      "lines": [
+        5,
+        36,
+        227,
+        234,
+        235,
+        253,
+        259,
+        341,
+        343,
+        344,
+        345,
+        352,
+        353,
+        356,
+        360,
+        383,
+        520,
+        589,
+        629,
+        655,
+        661,
+        666,
+        668,
+        671,
+        680,
+        681,
+        682,
+        683,
+        684,
+        686,
+        692,
+        693,
+        699,
+        700,
+        701,
+        705,
+        708,
+        711,
+        716,
+        719,
+        721,
+        722,
+        809,
+        860,
+        864,
+        865,
+        866,
+        871,
+        876,
+        881,
+        885,
+        887,
+        888,
+        889,
+        890,
+        891,
+        892,
+        894,
+        1280,
+        1287,
+        1293,
+        1294,
+        1298,
+        1304,
+        1305,
+        1397,
+        1400,
+        1409,
+        1421,
+        1439,
+        1455,
+        1471,
+        1486,
+        1537,
+        1559,
+        1620,
+        1627,
+        1688,
+        1698,
+        1748,
+        1785,
+        1809,
+        1813,
+        1833,
+        1837,
+        1889,
+        1893,
+        1894,
+        1898,
+        2228
+      ],
+      "sha256": "52e0fb4155736caae67a930d400a9559238a8f7b142b8b2af2596c17073b32f3"
+    },
+    {
+      "path": "scripts/langchain/pr_verifier.py",
+      "classification": "already-correct",
+      "producer_consumer_binding_and_missing_stale_pending": "Captured diff/criteria -> structured provider result/report. Parser/repair stages distinguish partial output from terminal reports; provider verdict remains evidence, not permission to close an unrelated source. Input identity is the caller/context boundary; no source-closure mutation from a parsed verdict here.",
+      "existing_owner_issue": null,
+      "lines": [
+        108,
+        158,
+        202,
+        220,
+        271,
+        291,
+        549,
+        551,
+        5933,
+        5941,
+        5948,
+        5950,
+        5967,
+        5975,
+        5977,
+        5998,
+        6026,
+        6031,
+        6033,
+        6035,
+        6040,
+        6067,
+        6079,
+        6088,
+        6123,
+        6152,
+        6160,
+        6163,
+        6164,
+        6165,
+        6166,
+        6175,
+        6186,
+        6205,
+        6210,
+        6213,
+        6215,
+        6652,
+        6835,
+        6887,
+        6888,
+        6988,
+        7065,
+        7083,
+        7201,
+        7213,
+        7273,
+        7334,
+        7601,
+        7621,
+        7637,
+        7652,
+        7653,
+        7678,
+        7704,
+        7710,
+        7733,
+        7746,
+        7754,
+        7756,
+        7759,
+        7764,
+        7889,
+        7913,
+        7924,
+        7947,
+        7948,
+        7949,
+        7950,
+        7976,
+        7977,
+        8064,
+        8106
+      ],
+      "sha256": "96768f8eb8641a690ec4469126520eeeb0ae6d3a3f7cb369e2b47ab19c10f216"
+    },
+    {
+      "path": "scripts/langchain/verdict_extract.py",
+      "classification": "already-correct",
+      "producer_consumer_binding_and_missing_stale_pending": "Parsed report/provider verdicts -> policy CLI outputs, including needs_human. It is a report adapter, not a merged-source or terminal-attempt authorization.",
+      "existing_owner_issue": null,
+      "lines": [
+        1,
+        11,
+        14,
+        18,
+        19,
+        23,
+        27,
+        31,
+        33,
+        36,
+        38,
+        42,
+        48,
+        52,
+        56,
+        66,
+        77,
+        81,
+        87,
+        88,
+        90,
+        91
+      ],
+      "sha256": "ce351e732517775827e105b4f75263f193319ceedd48d45b3824ba79231e07c3"
+    },
+    {
+      "path": "scripts/langchain/verdict_policy.py",
+      "classification": "already-correct",
+      "producer_consumer_binding_and_missing_stale_pending": "Provider verdict records -> deterministic policy result. This value policy cannot establish freshness/source identity and is not used as an identity validator. Missing/unknown/split values have explicit policy handling.",
+      "existing_owner_issue": null,
+      "lines": [
+        1,
+        27,
+        33,
+        34,
+        41,
+        47,
+        48,
+        55,
+        61,
+        62,
+        63,
+        65,
+        67,
+        69,
+        110,
+        111,
+        112,
+        122,
+        124,
+        128,
+        132,
+        136,
+        138,
+        143,
+        145,
+        149,
+        155,
+        156,
+        170,
+        177,
+        178,
+        180,
+        186,
+        187,
+        192,
+        193,
+        197,
+        199,
+        201,
+        203,
+        204,
+        207,
+        212,
+        220,
+        221,
+        228,
+        230,
+        233,
+        234,
+        237,
+        238,
+        245,
+        247,
+        256,
+        257,
+        260,
+        261,
+        262,
+        274,
+        285,
+        289,
+        290,
+        301
+      ],
+      "sha256": "7f9032c74ef46ec3a0b37bb7b04dc8b778920659643d2e2c1116f9ef7c4330c5"
+    },
+    {
+      "path": "scripts/langchain/verifier_config.py",
+      "classification": "confirmed-bug",
+      "producer_consumer_binding_and_missing_stale_pending": "Posted report text -> artifact_from_verification_text -> follow-up terminal gate. Verdict extraction scans all history before the latest report is selected. Old PASS plus newer incomplete text lacking the repair phrases returns terminal=True. Missing text fails closed; recognized pending repair fails closed. No source/attempt identity is validated by this parser.",
+      "existing_owner_issue": "https://github.com/stranske/Workflows/issues/3966",
+      "lines": [
+        36,
+        95,
+        102,
+        109,
+        110,
+        114,
+        120,
+        124,
+        129,
+        143,
+        144,
+        146,
+        163,
+        199,
+        200,
+        202,
+        204,
+        211,
+        214,
+        215,
+        216,
+        245,
+        247
+      ],
+      "sha256": "6504cb08dd0927a8f4160a7968a6eddd8051744b212bbb7e7c210ee3ae6d97f8"
+    },
+    {
+      "path": "templates/consumer-repo/.github/workflows/agents-80-pr-event-hub.yml",
+      "classification": "already-correct",
+      "producer_consumer_binding_and_missing_stale_pending": "Dispatch-only event routing; request success is not a provider verdict.",
+      "existing_owner_issue": null,
+      "lines": [
+        396
+      ],
+      "sha256": "53874c8fcb192ae0112bf5a9335f7da3c109e676af945f4d566f4a02b36afd9e"
+    },
+    {
+      "path": "templates/consumer-repo/.github/workflows/agents-auto-pilot.yml",
+      "classification": "confirmed-bug",
+      "producer_consumer_binding_and_missing_stale_pending": "Issue label reader supplies hasVerify; the verify step records verify:evaluate on an issue when no merged source is found. Root/template share the known request-versus-completion error, not an additional independent defect.",
+      "existing_owner_issue": "https://github.com/stranske/Workflows/issues/3967",
+      "lines": [
+        405,
+        2351,
+        2358,
+        2369,
+        2384,
+        2392
+      ],
+      "sha256": "57d8596053090056f5512563a8e442be677f70673322aff7b1271ce656b72dd8"
+    },
+    {
+      "path": "templates/consumer-repo/.github/workflows/agents-guard.yml",
+      "classification": "already-correct",
+      "producer_consumer_binding_and_missing_stale_pending": "Current PR check/status gate; a verdict string is not a post-merge source-acceptance transition. Fork status publication is separately identity-bound.",
+      "existing_owner_issue": null,
+      "lines": [
+        1043,
+        1171,
+        1175
+      ],
+      "sha256": "cc28c4c4b0c94622b5055a3494c0f117f83e84921f82d711607208cc15dbf231"
+    },
+    {
+      "path": "templates/consumer-repo/.github/workflows/agents-verifier.yml",
+      "classification": "already-correct",
+      "producer_consumer_binding_and_missing_stale_pending": "Merged-PR/exact-label or authorized dispatch caller -> reusable verifier. Label requests work; it does not certify PASS. API merge checks and trusted helper checkout protect the boundary.",
+      "existing_owner_issue": null,
+      "lines": [
+        6,
+        83,
+        221,
+        443,
+        504,
+        524,
+        533,
+        547
+      ],
+      "sha256": "264bbeedabb548519cb6628345964ef9d68608965eb327b16c81d47ad1c3f993"
+    },
+    {
+      "path": "templates/consumer-repo/.github/workflows/agents-verify-to-new-pr.yml",
+      "classification": "needs-investigation",
+      "producer_consumer_binding_and_missing_stale_pending": "PR/comment collection -> verification_data.txt -> terminal helper -> follow-up eligibility. Empty/missing and recognized pending reports block. Text parsers do not by themselves prove latest attempt/source binding; the known historical report defect propagates here. Do not interpret a created follow-up as original acceptance.",
+      "existing_owner_issue": "https://github.com/stranske/Workflows/issues/3966",
+      "lines": [
+        192,
+        306,
+        307,
+        316,
+        317,
+        318,
+        322,
+        327,
+        333,
+        334,
+        360,
+        517,
+        518,
+        527,
+        532,
+        533,
+        538,
+        542,
+        561,
+        562,
+        609,
+        658,
+        662,
+        682,
+        733,
+        734,
+        735,
+        739,
+        744,
+        748,
+        752,
+        756,
+        760,
+        790,
+        831,
+        942,
+        981,
+        1032,
+        1033,
+        1034,
+        1070,
+        1083,
+        1087,
+        1120,
+        1151
+      ],
+      "sha256": "0a97d027e42fa3e3699b877d41f982645682ed1a2095ec767c09f89ee9810c73"
+    },
+    {
+      "path": "templates/consumer-repo/.github/workflows/pr-00-gate.yml",
+      "classification": "already-correct",
+      "producer_consumer_binding_and_missing_stale_pending": "Current-head CI summary and requested verification context; CI green is a product-check result, not provider/source acceptance.",
+      "existing_owner_issue": null,
+      "lines": [
+        1257,
+        1384,
+        1386,
+        1405,
+        1409,
+        1413
+      ],
+      "sha256": "3c9a911c5852f30f61c021bd4bef6487a73436dea0803bb495644556c44558cc"
+    }
+  ],
+  "hits": [
+    {
+      "path": ".github/workflows/agents-verifier.yml",
+      "line": 6,
+      "text": "# - Label 'verify:evaluate' added to merged PR (LLM-based evaluation)"
+    },
+    {
+      "path": ".github/workflows/agents-verifier.yml",
+      "line": 88,
+      "text": "       contains(fromJSON('[\"verify:checkbox\", \"verify:evaluate\", \"verify:compare\"]'), github.event.label.name))"
+    },
+    {
+      "path": ".github/workflows/agents-verifier.yml",
+      "line": 197,
+      "text": "              'verify:evaluate': 'evaluate',"
+    },
+    {
+      "path": ".github/workflows/agents-verifier.yml",
+      "line": 257,
+      "text": "    if: needs.verifier.outputs.should_run == 'true' && needs.verifier.outputs.verdict == 'UNVERIFIABLE_INPUT'"
+    },
+    {
+      "path": ".github/workflows/agents-verifier.yml",
+      "line": 318,
+      "text": "      needs.verifier.outputs.verdict != ''"
+    },
+    {
+      "path": ".github/workflows/agents-verifier.yml",
+      "line": 338,
+      "text": "        if: needs.verifier.outputs.verdict == 'UNVERIFIABLE_INPUT' && needs.acceptance-gates.result == 'success'"
+    },
+    {
+      "path": ".github/workflows/agents-verifier.yml",
+      "line": 347,
+      "text": "          VERDICT: ${{ needs.verifier.outputs.verdict }}"
+    },
+    {
+      "path": ".github/workflows/agents-verifier.yml",
+      "line": 361,
+      "text": "              verdict: process.env.VERDICT, mergeSha: process.env.TARGET_SHA,"
+    },
+    {
+      "path": ".github/workflows/agents-63-issue-intake.yml",
+      "line": 1163,
+      "text": "                        && /^Verification closure rule: \\*\\*(?:verifier-pass|unverifiable-input-merged-head-gates-and-ci|unverifiable-input\\+gate\\+ci)\\*\\*\\. PR #\\d+, merge commit `([a-f0-9]{40})`, verdict \\*\\*(?:PASS|UNVERIFIABLE_INPUT)\\*\\*\\./.test(comment.body || '');"
+    },
+    {
+      "path": ".github/workflows/maint-79-verifier-corpus-harvest.yml",
+      "line": 86,
+      "text": "            Expected verdicts require an exact-head verifier decision and realized"
+    },
+    {
+      "path": "scripts/langchain/pr_verifier.py",
+      "line": 108,
+      "text": "  \"verdict\": \"PASS | CONCERNS | FAIL\","
+    },
+    {
+      "path": "scripts/langchain/pr_verifier.py",
+      "line": 158,
+      "text": "  \"verdict\": \"PASS | CONCERNS | FAIL\","
+    },
+    {
+      "path": "scripts/langchain/pr_verifier.py",
+      "line": 202,
+      "text": "  Test coverage gaps alone should NOT prevent a PASS verdict when the"
+    },
+    {
+      "path": "scripts/langchain/pr_verifier.py",
+      "line": 220,
+      "text": "  Call these out as \"external evidence required\" and keep verdict focused on"
+    },
+    {
+      "path": "scripts/langchain/pr_verifier.py",
+      "line": 271,
+      "text": "    verdict: Literal[\"PASS\", \"CONCERNS\", \"FAIL\", \"UNVERIFIABLE_INPUT\"]"
+    },
+    {
+      "path": "scripts/langchain/pr_verifier.py",
+      "line": 291,
+      "text": "    verdict: Literal[\"PASS\", \"CONCERNS\", \"FAIL\", \"UNVERIFIABLE_INPUT\"]"
+    },
+    {
+      "path": "scripts/langchain/pr_verifier.py",
+      "line": 549,
+      "text": "            lines.append(\"- Coverage verdict: sufficient for a PASS decision.\")"
+    },
+    {
+      "path": "scripts/langchain/pr_verifier.py",
+      "line": 551,
+      "text": "            lines.append(\"- Coverage verdict: INCOMPLETE \u2014 do not return PASS. Reasons:\")"
+    },
+    {
+      "path": "scripts/langchain/pr_verifier.py",
+      "line": 5933,
+      "text": "        or result.verdict != \"PASS\""
+    },
+    {
+      "path": "scripts/langchain/pr_verifier.py",
+      "line": 5941,
+      "text": "    result.verdict = \"CONCERNS\" if coverage.required_evidence_absent else \"UNVERIFIABLE_INPUT\""
+    },
+    {
+      "path": "scripts/langchain/pr_verifier.py",
+      "line": 5948,
+      "text": "    \"\"\"CLI/file text aligned with the structured verdict after post-processing.\"\"\""
+    },
+    {
+      "path": "scripts/langchain/pr_verifier.py",
+      "line": 5950,
+      "text": "    if result.verdict != \"PASS\":"
+    },
+    {
+      "path": "scripts/langchain/pr_verifier.py",
+      "line": 5967,
+      "text": "                    and raw_result.get(\"verdict\") == \"PASS\""
+    },
+    {
+      "path": "scripts/langchain/pr_verifier.py",
+      "line": 5975,
+      "text": "            parts.append(\"Raw model detail (prior to verdict post-processing):\\n\" + raw_detail)"
+    },
+    {
+      "path": "scripts/langchain/pr_verifier.py",
+      "line": 5977,
+      "text": "        return f\"Verdict: {result.verdict}\\n\\n\" + header + body"
+    },
+    {
+      "path": "scripts/langchain/pr_verifier.py",
+      "line": 5998,
+      "text": "    Unknown phrasing deliberately retains the provider verdict."
+    },
+    {
+      "path": "scripts/langchain/pr_verifier.py",
+      "line": 6026,
+      "text": "def comparison_verdict(results: list[EvaluationResult]) -> str:"
+    },
+    {
+      "path": "scripts/langchain/pr_verifier.py",
+      "line": 6031,
+      "text": "        if result.verdict == \"FAIL\" and _retrieval_only_failure(result)"
+    },
+    {
+      "path": "scripts/langchain/pr_verifier.py",
+      "line": 6033,
+      "text": "    if any(result.verdict == \"FAIL\" and id(result) not in retrieval_failures for result in results):"
+    },
+    {
+      "path": "scripts/langchain/pr_verifier.py",
+      "line": 6035,
+      "text": "    if any(result.verdict == \"CONCERNS\" and not result.error for result in results):"
+    },
+    {
+      "path": "scripts/langchain/pr_verifier.py",
+      "line": 6040,
+      "text": "        or any(result.verdict == \"UNVERIFIABLE_INPUT\" or result.error for result in results)"
+    },
+    {
+      "path": "scripts/langchain/pr_verifier.py",
+      "line": 6067,
+      "text": "                        verdict=\"PASS\", used_llm=True, provider_used=provider, model=model"
+    },
+    {
+      "path": "scripts/langchain/pr_verifier.py",
+      "line": 6079,
+      "text": "            verdict=\"UNVERIFIABLE_INPUT\","
+    },
+    {
+      "path": "scripts/langchain/pr_verifier.py",
+      "line": 6088,
+      "text": "            verdict=\"CONCERNS\" if full_coverage.required_evidence_absent else \"UNVERIFIABLE_INPUT\","
+    },
+    {
+      "path": "scripts/langchain/pr_verifier.py",
+      "line": 6123,
+      "text": "                    verdict=("
+    },
+    {
+      "path": "scripts/langchain/pr_verifier.py",
+      "line": 6152,
+      "text": "                verdict=\"UNVERIFIABLE_INPUT\","
+    },
+    {
+      "path": "scripts/langchain/pr_verifier.py",
+      "line": 6160,
+      "text": "        if result.used_llm and not result.error and result.verdict != \"UNVERIFIABLE_INPUT\":"
+    },
+    {
+      "path": "scripts/langchain/pr_verifier.py",
+      "line": 6163,
+      "text": "    verdict = comparison_verdict(results) if results else \"UNVERIFIABLE_INPUT\""
+    },
+    {
+      "path": "scripts/langchain/pr_verifier.py",
+      "line": 6164,
+      "text": "    if not_reviewed and verdict == \"PASS\":"
+    },
+    {
+      "path": "scripts/langchain/pr_verifier.py",
+      "line": 6165,
+      "text": "        verdict = \"UNVERIFIABLE_INPUT\""
+    },
+    {
+      "path": "scripts/langchain/pr_verifier.py",
+      "line": 6166,
+      "text": "    if verdict == \"PASS\":"
+    },
+    {
+      "path": "scripts/langchain/pr_verifier.py",
+      "line": 6175,
+      "text": "            \"the summary. Return JSON with verdict, concerns and summary. Use CONCERNS for a missing \""
+    },
+    {
+      "path": "scripts/langchain/pr_verifier.py",
+      "line": 6186,
+      "text": "                        \"verdict\": result.verdict,"
+    },
+    {
+      "path": "scripts/langchain/pr_verifier.py",
+      "line": 6205,
+      "text": "                verdict=\"UNVERIFIABLE_INPUT\","
+    },
+    {
+      "path": "scripts/langchain/pr_verifier.py",
+      "line": 6210,
+      "text": "        verdict = comparison_verdict(results)"
+    },
+    {
+      "path": "scripts/langchain/pr_verifier.py",
+      "line": 6213,
+      "text": "        verdict = \"UNVERIFIABLE_INPUT\""
+    },
+    {
+      "path": "scripts/langchain/pr_verifier.py",
+      "line": 6215,
+      "text": "        verdict=verdict,"
+    },
+    {
+      "path": "scripts/langchain/pr_verifier.py",
+      "line": 6652,
+      "text": "Return JSON with verdict CONCERNS or FAIL, concerns (all findings/uncertainties),"
+    },
+    {
+      "path": "scripts/langchain/pr_verifier.py",
+      "line": 6835,
+      "text": "        verdict=\"CONCERNS\", provider_used=provider, model=model, concerns=[note], summary=note"
+    },
+    {
+      "path": "scripts/langchain/pr_verifier.py",
+      "line": 6887,
+      "text": "        if part.verdict == \"FAIL\":"
+    },
+    {
+      "path": "scripts/langchain/pr_verifier.py",
+      "line": 6888,
+      "text": "            result.verdict = \"FAIL\""
+    },
+    {
+      "path": "scripts/langchain/pr_verifier.py",
+      "line": 6988,
+      "text": "    lines.append(f\"- Verdict: {result.verdict}\")"
+    },
+    {
+      "path": "scripts/langchain/pr_verifier.py",
+      "line": 7065,
+      "text": "        verdict=\"FAIL\","
+    },
+    {
+      "path": "scripts/langchain/pr_verifier.py",
+      "line": 7083,
+      "text": "        verdict=\"CONCERNS\","
+    },
+    {
+      "path": "scripts/langchain/pr_verifier.py",
+      "line": 7201,
+      "text": "            verdict=\"CONCERNS\","
+    },
+    {
+      "path": "scripts/langchain/pr_verifier.py",
+      "line": 7213,
+      "text": "        verdict=payload.verdict,"
+    },
+    {
+      "path": "scripts/langchain/pr_verifier.py",
+      "line": 7273,
+      "text": "        EvaluationResult with verdict, scores, and concerns."
+    },
+    {
+      "path": "scripts/langchain/pr_verifier.py",
+      "line": 7334,
+      "text": "                            verdict=result.verdict,"
+    },
+    {
+      "path": "scripts/langchain/pr_verifier.py",
+      "line": 7601,
+      "text": "                \"verdict\": payload.verdict,"
+    },
+    {
+      "path": "scripts/langchain/pr_verifier.py",
+      "line": 7621,
+      "text": "                verdict=item[\"verdict\"],"
+    },
+    {
+      "path": "scripts/langchain/pr_verifier.py",
+      "line": 7637,
+      "text": "        admission = {\"verdict\": \"CONCERNS\", \"errors\": [str(exc)], \"findings\": []}"
+    },
+    {
+      "path": "scripts/langchain/pr_verifier.py",
+      "line": 7652,
+      "text": "        if admission[\"verdict\"] == \"PASS\":"
+    },
+    {
+      "path": "scripts/langchain/pr_verifier.py",
+      "line": 7653,
+      "text": "            admission[\"verdict\"] = \"CONCERNS\""
+    },
+    {
+      "path": "scripts/langchain/pr_verifier.py",
+      "line": 7678,
+      "text": "def expanded_comparison_verdict("
+    },
+    {
+      "path": "scripts/langchain/pr_verifier.py",
+      "line": 7704,
+      "text": "        if not isinstance(admission, dict) or admission.get(\"verdict\") not in {"
+    },
+    {
+      "path": "scripts/langchain/pr_verifier.py",
+      "line": 7710,
+      "text": "        return str(admission[\"verdict\"])"
+    },
+    {
+      "path": "scripts/langchain/pr_verifier.py",
+      "line": 7733,
+      "text": "            or not {\"provider_used\", \"model\", \"verdict\", \"used_llm\"} <= arm.keys()"
+    },
+    {
+      "path": "scripts/langchain/pr_verifier.py",
+      "line": 7746,
+      "text": "            result.used_llm is not True and result.verdict != \"UNVERIFIABLE_INPUT\""
+    },
+    {
+      "path": "scripts/langchain/pr_verifier.py",
+      "line": 7754,
+      "text": "        if result.verdict == \"FAIL\":"
+    },
+    {
+      "path": "scripts/langchain/pr_verifier.py",
+      "line": 7756,
+      "text": "        if result.verdict == \"UNVERIFIABLE_INPUT\":"
+    },
+    {
+      "path": "scripts/langchain/pr_verifier.py",
+      "line": 7759,
+      "text": "            result.verdict not in {\"PASS\", \"UNVERIFIABLE_INPUT\"}"
+    },
+    {
+      "path": "scripts/langchain/pr_verifier.py",
+      "line": 7764,
+      "text": "        if identity in observed or result.verdict != \"PASS\" or result.error:"
+    },
+    {
+      "path": "scripts/langchain/pr_verifier.py",
+      "line": 7889,
+      "text": "            reason = result.error or result.summary or result.verdict"
+    },
+    {
+      "path": "scripts/langchain/pr_verifier.py",
+      "line": 7913,
+      "text": "        lines.append(f\"| {labels[index]} | {model_name} | {result.verdict} | {conf} | {summary} |\")"
+    },
+    {
+      "path": "scripts/langchain/pr_verifier.py",
+      "line": 7924,
+      "text": "        lines.append(f\"- **Verdict:** {result.verdict}\")"
+    },
+    {
+      "path": "scripts/langchain/pr_verifier.py",
+      "line": 7947,
+      "text": "    verdicts = {result.verdict for result in results}"
+    },
+    {
+      "path": "scripts/langchain/pr_verifier.py",
+      "line": 7948,
+      "text": "    if len(verdicts) == 1:"
+    },
+    {
+      "path": "scripts/langchain/pr_verifier.py",
+      "line": 7949,
+      "text": "        verdict = verdicts.pop()"
+    },
+    {
+      "path": "scripts/langchain/pr_verifier.py",
+      "line": 7950,
+      "text": "        agreements.append(f\"- Verdict: {verdict} (all providers)\")"
+    },
+    {
+      "path": "scripts/langchain/pr_verifier.py",
+      "line": 7976,
+      "text": "    if len(verdicts) > 1:"
+    },
+    {
+      "path": "scripts/langchain/pr_verifier.py",
+      "line": 7977,
+      "text": "        rows.append((\"Verdict\", [result.verdict for result in results]))"
+    },
+    {
+      "path": "scripts/langchain/pr_verifier.py",
+      "line": 8064,
+      "text": "        help=\"Create a follow-up issue on CONCERNS/FAIL verdicts when running in GitHub Actions.\","
+    },
+    {
+      "path": "scripts/langchain/pr_verifier.py",
+      "line": 8106,
+      "text": "                                \"verdict\": \"CONCERNS\","
+    },
+    {
+      "path": ".github/scripts/maint71_merge_sync_prs.js",
+      "line": 2194,
+      "text": "// Publish an independent check: an overdue health verdict must not turn the"
+    },
+    {
+      "path": "templates/consumer-repo/.github/workflows/agents-verifier.yml",
+      "line": 6,
+      "text": "# - Label 'verify:evaluate' added to merged PR (LLM-based evaluation)"
+    },
+    {
+      "path": "templates/consumer-repo/.github/workflows/agents-verifier.yml",
+      "line": 83,
+      "text": "       contains(fromJSON('[\"verify:checkbox\", \"verify:evaluate\", \"verify:compare\"]'), github.event.label.name))"
+    },
+    {
+      "path": "templates/consumer-repo/.github/workflows/agents-verifier.yml",
+      "line": 221,
+      "text": "              'verify:evaluate': 'evaluate',"
+    },
+    {
+      "path": "templates/consumer-repo/.github/workflows/agents-verifier.yml",
+      "line": 443,
+      "text": "    if: needs.verifier.outputs.should_run == 'true' && needs.verifier.outputs.verdict == 'UNVERIFIABLE_INPUT'"
+    },
+    {
+      "path": "templates/consumer-repo/.github/workflows/agents-verifier.yml",
+      "line": 504,
+      "text": "      needs.verifier.outputs.verdict != ''"
+    },
+    {
+      "path": "templates/consumer-repo/.github/workflows/agents-verifier.yml",
+      "line": 524,
+      "text": "        if: needs.verifier.outputs.verdict == 'UNVERIFIABLE_INPUT' && needs.acceptance-gates.result == 'success'"
+    },
+    {
+      "path": "templates/consumer-repo/.github/workflows/agents-verifier.yml",
+      "line": 533,
+      "text": "          VERDICT: ${{ needs.verifier.outputs.verdict }}"
+    },
+    {
+      "path": "templates/consumer-repo/.github/workflows/agents-verifier.yml",
+      "line": 547,
+      "text": "              verdict: process.env.VERDICT, mergeSha: process.env.TARGET_SHA,"
+    },
+    {
+      "path": "scripts/langchain/verdict_policy.py",
+      "line": 1,
+      "text": "\"\"\"Utility helpers to extract provider verdicts and apply a policy.\"\"\""
+    },
+    {
+      "path": "scripts/langchain/verdict_policy.py",
+      "line": 27,
+      "text": "    verdict: str"
+    },
+    {
+      "path": "scripts/langchain/verdict_policy.py",
+      "line": 33,
+      "text": "    verdict: str"
+    },
+    {
+      "path": "scripts/langchain/verdict_policy.py",
+      "line": 34,
+      "text": "    verdict_kind: str"
+    },
+    {
+      "path": "scripts/langchain/verdict_policy.py",
+      "line": 41,
+      "text": "    split_verdict: bool"
+    },
+    {
+      "path": "scripts/langchain/verdict_policy.py",
+      "line": 47,
+      "text": "            \"verdict\": self.verdict,"
+    },
+    {
+      "path": "scripts/langchain/verdict_policy.py",
+      "line": 48,
+      "text": "            \"verdict_kind\": self.verdict_kind,"
+    },
+    {
+      "path": "scripts/langchain/verdict_policy.py",
+      "line": 55,
+      "text": "            \"split_verdict\": self.split_verdict,"
+    },
+    {
+      "path": "scripts/langchain/verdict_policy.py",
+      "line": 61,
+      "text": "def _classify_verdict(verdict: str) -> str:"
+    },
+    {
+      "path": "scripts/langchain/verdict_policy.py",
+      "line": 62,
+      "text": "    verdict = verdict.strip().lower()"
+    },
+    {
+      "path": "scripts/langchain/verdict_policy.py",
+      "line": 63,
+      "text": "    if not verdict:"
+    },
+    {
+      "path": "scripts/langchain/verdict_policy.py",
+      "line": 65,
+      "text": "    if verdict.startswith(\"pass\"):"
+    },
+    {
+      "path": "scripts/langchain/verdict_policy.py",
+      "line": 67,
+      "text": "    if verdict.startswith(\"concerns\"):"
+    },
+    {
+      "path": "scripts/langchain/verdict_policy.py",
+      "line": 69,
+      "text": "    if verdict.startswith(\"fail\"):"
+    },
+    {
+      "path": "scripts/langchain/verdict_policy.py",
+      "line": 110,
+      "text": "def extract_provider_verdicts(summary: str) -> list[ProviderVerdict]:"
+    },
+    {
+      "path": "scripts/langchain/verdict_policy.py",
+      "line": 111,
+      "text": "    \"\"\"Parse provider verdict rows from a markdown summary table.\"\"\""
+    },
+    {
+      "path": "scripts/langchain/verdict_policy.py",
+      "line": 112,
+      "text": "    verdicts: list[ProviderVerdict] = []"
+    },
+    {
+      "path": "scripts/langchain/verdict_policy.py",
+      "line": 122,
+      "text": "        verdict = cols[2] if len(cols) > 2 else \"\""
+    },
+    {
+      "path": "scripts/langchain/verdict_policy.py",
+      "line": 124,
+      "text": "        verdicts.append("
+    },
+    {
+      "path": "scripts/langchain/verdict_policy.py",
+      "line": 128,
+      "text": "                verdict=verdict,"
+    },
+    {
+      "path": "scripts/langchain/verdict_policy.py",
+      "line": 132,
+      "text": "    return verdicts"
+    },
+    {
+      "path": "scripts/langchain/verdict_policy.py",
+      "line": 136,
+      "text": "    verdicts: list[ProviderVerdict], *, policy: str"
+    },
+    {
+      "path": "scripts/langchain/verdict_policy.py",
+      "line": 138,
+      "text": "    if not verdicts:"
+    },
+    {
+      "path": "scripts/langchain/verdict_policy.py",
+      "line": 143,
+      "text": "            verdicts,"
+    },
+    {
+      "path": "scripts/langchain/verdict_policy.py",
+      "line": 145,
+      "text": "                VERDICT_SEVERITY.get(_classify_verdict(item.verdict), 0),"
+    },
+    {
+      "path": "scripts/langchain/verdict_policy.py",
+      "line": 149,
+      "text": "                (item.verdict or \"\").lower(),"
+    },
+    {
+      "path": "scripts/langchain/verdict_policy.py",
+      "line": 155,
+      "text": "        for item in verdicts:"
+    },
+    {
+      "path": "scripts/langchain/verdict_policy.py",
+      "line": 156,
+      "text": "            buckets.setdefault(_classify_verdict(item.verdict), []).append(item)"
+    },
+    {
+      "path": "scripts/langchain/verdict_policy.py",
+      "line": 170,
+      "text": "                (item.verdict or \"\").lower(),"
+    },
+    {
+      "path": "scripts/langchain/verdict_policy.py",
+      "line": 177,
+      "text": "def _split_pass_concerns(verdicts: list[ProviderVerdict]) -> tuple[bool, float | None]:"
+    },
+    {
+      "path": "scripts/langchain/verdict_policy.py",
+      "line": 178,
+      "text": "    if not verdicts:"
+    },
+    {
+      "path": "scripts/langchain/verdict_policy.py",
+      "line": 180,
+      "text": "    kinds = [_classify_verdict(item.verdict) for item in verdicts]"
+    },
+    {
+      "path": "scripts/langchain/verdict_policy.py",
+      "line": 186,
+      "text": "    for item in verdicts:"
+    },
+    {
+      "path": "scripts/langchain/verdict_policy.py",
+      "line": 187,
+      "text": "        if _classify_verdict(item.verdict) == \"concerns\":"
+    },
+    {
+      "path": "scripts/langchain/verdict_policy.py",
+      "line": 192,
+      "text": "def evaluate_verdict_policy("
+    },
+    {
+      "path": "scripts/langchain/verdict_policy.py",
+      "line": 193,
+      "text": "    verdicts: Iterable[ProviderVerdict],"
+    },
+    {
+      "path": "scripts/langchain/verdict_policy.py",
+      "line": 197,
+      "text": "    # Direct callers may bypass markdown parsing. Preserve the verdict itself,"
+    },
+    {
+      "path": "scripts/langchain/verdict_policy.py",
+      "line": 199,
+      "text": "    verdict_list = ["
+    },
+    {
+      "path": "scripts/langchain/verdict_policy.py",
+      "line": 201,
+      "text": "        for item in verdicts"
+    },
+    {
+      "path": "scripts/langchain/verdict_policy.py",
+      "line": 203,
+      "text": "    selected = _select_deterministic(verdict_list, policy=policy)"
+    },
+    {
+      "path": "scripts/langchain/verdict_policy.py",
+      "line": 204,
+      "text": "    split_verdict, concerns_confidence = _split_pass_concerns(verdict_list)"
+    },
+    {
+      "path": "scripts/langchain/verdict_policy.py",
+      "line": 207,
+      "text": "    if split_verdict:"
+    },
+    {
+      "path": "scripts/langchain/verdict_policy.py",
+      "line": 212,
+      "text": "                \"Provider verdicts split with high-confidence concerns; \""
+    },
+    {
+      "path": "scripts/langchain/verdict_policy.py",
+      "line": 220,
+      "text": "            verdict=\"Unknown\","
+    },
+    {
+      "path": "scripts/langchain/verdict_policy.py",
+      "line": 221,
+      "text": "            verdict_kind=\"unknown\","
+    },
+    {
+      "path": "scripts/langchain/verdict_policy.py",
+      "line": 228,
+      "text": "            split_verdict=split_verdict,"
+    },
+    {
+      "path": "scripts/langchain/verdict_policy.py",
+      "line": 230,
+      "text": "            providers=verdict_list,"
+    },
+    {
+      "path": "scripts/langchain/verdict_policy.py",
+      "line": 233,
+      "text": "    verdict_text = selected.verdict.strip() or \"Unknown\""
+    },
+    {
+      "path": "scripts/langchain/verdict_policy.py",
+      "line": 234,
+      "text": "    verdict_kind = _classify_verdict(verdict_text)"
+    },
+    {
+      "path": "scripts/langchain/verdict_policy.py",
+      "line": 237,
+      "text": "        verdict=verdict_text,"
+    },
+    {
+      "path": "scripts/langchain/verdict_policy.py",
+      "line": 238,
+      "text": "        verdict_kind=verdict_kind,"
+    },
+    {
+      "path": "scripts/langchain/verdict_policy.py",
+      "line": 245,
+      "text": "        split_verdict=split_verdict,"
+    },
+    {
+      "path": "scripts/langchain/verdict_policy.py",
+      "line": 247,
+      "text": "        providers=verdict_list,"
+    },
+    {
+      "path": "scripts/langchain/verdict_policy.py",
+      "line": 256,
+      "text": "    verdicts = extract_provider_verdicts(summary)"
+    },
+    {
+      "path": "scripts/langchain/verdict_policy.py",
+      "line": 257,
+      "text": "    return evaluate_verdict_policy(verdicts, policy=policy)"
+    },
+    {
+      "path": "scripts/langchain/verdict_policy.py",
+      "line": 260,
+      "text": "def select_verdict(verdicts: Iterable[ProviderVerdict], policy: str = \"worst\") -> str:"
+    },
+    {
+      "path": "scripts/langchain/verdict_policy.py",
+      "line": 261,
+      "text": "    \"\"\"Resolve a verdict using either worst-case or majority policy.\"\"\""
+    },
+    {
+      "path": "scripts/langchain/verdict_policy.py",
+      "line": 262,
+      "text": "    return evaluate_verdict_policy(verdicts, policy=policy).verdict"
+    },
+    {
+      "path": "scripts/langchain/verdict_policy.py",
+      "line": 274,
+      "text": "        description=\"Select a deterministic verdict from a markdown summary table.\""
+    },
+    {
+      "path": "scripts/langchain/verdict_policy.py",
+      "line": 285,
+      "text": "        help=\"Policy used to resolve split provider verdicts.\","
+    },
+    {
+      "path": "scripts/langchain/verdict_policy.py",
+      "line": 289,
+      "text": "        choices=[\"verdict\", \"json\"],"
+    },
+    {
+      "path": "scripts/langchain/verdict_policy.py",
+      "line": 290,
+      "text": "        default=\"verdict\","
+    },
+    {
+      "path": "scripts/langchain/verdict_policy.py",
+      "line": 301,
+      "text": "        print(result.verdict)"
+    },
+    {
+      "path": ".github/workflows/health-muse-auth-check.yml",
+      "line": 70,
+      "text": "      - name: Summary and verdict"
+    },
+    {
+      "path": ".github/workflows/agents-verify-to-issue-v2.yml",
+      "line": 160,
+      "text": "                'Add verify:evaluate or verify:compare label first.'"
+    },
+    {
+      "path": ".github/workflows/agents-verify-to-issue-v2.yml",
+      "line": 228,
+      "text": "              artifact_from_verification_text,"
+    },
+    {
+      "path": ".github/workflows/agents-verify-to-issue-v2.yml",
+      "line": 229,
+      "text": "              is_terminal_artifact,"
+    },
+    {
+      "path": ".github/workflows/agents-verify-to-issue-v2.yml",
+      "line": 238,
+      "text": "          artifact = artifact_from_verification_text(raw)"
+    },
+    {
+      "path": ".github/workflows/agents-verify-to-issue-v2.yml",
+      "line": 239,
+      "text": "          terminal = is_terminal_artifact(artifact)"
+    },
+    {
+      "path": ".github/workflows/agents-verify-to-issue-v2.yml",
+      "line": 240,
+      "text": "          verdict = str(artifact.get(\"verdict\") or \"\")"
+    },
+    {
+      "path": ".github/workflows/agents-verify-to-issue-v2.yml",
+      "line": 244,
+      "text": "              else \"verifier output is partial or missing a terminal verdict\""
+    },
+    {
+      "path": ".github/workflows/agents-verify-to-issue-v2.yml",
+      "line": 249,
+      "text": "              handle.write(f\"verdict={verdict}\\n\")"
+    },
+    {
+      "path": ".github/workflows/agents-verify-to-issue-v2.yml",
+      "line": 255,
+      "text": "              if verdict:"
+    },
+    {
+      "path": ".github/workflows/agents-verify-to-issue-v2.yml",
+      "line": 256,
+      "text": "                  handle.write(f\"- Verdict: `{verdict}`\\n\")"
+    },
+    {
+      "path": ".github/workflows/agents-verify-to-issue-v2.yml",
+      "line": 329,
+      "text": "            // Extract verdict"
+    },
+    {
+      "path": ".github/workflows/agents-verify-to-issue-v2.yml",
+      "line": 330,
+      "text": "            const verdictMatch = verificationText.match(/Verdict:\\s*\\*?\\*?(\\w+)\\*?\\*?/i);"
+    },
+    {
+      "path": ".github/workflows/agents-verify-to-issue-v2.yml",
+      "line": 331,
+      "text": "            const verdict = verdictMatch ? verdictMatch[1] : 'Unknown';"
+    },
+    {
+      "path": ".github/workflows/agents-verify-to-issue-v2.yml",
+      "line": 347,
+      "text": "              `PR #${prNumber} was verified with verdict **${verdict}**. ` +"
+    },
+    {
+      "path": ".github/scripts/sync_pr_merge_contract.js",
+      "line": 781,
+      "text": "  const verdict = total === 0"
+    },
+    {
+      "path": ".github/scripts/sync_pr_merge_contract.js",
+      "line": 785,
+      "text": "  return `Consumer-declared delivery checks: ${verdict}${tail}` +"
+    },
+    {
+      "path": ".github/workflows/agents-guard.yml",
+      "line": 1034,
+      "text": "                // Stale or incomplete bindings must not write a corrective verdict."
+    },
+    {
+      "path": ".github/workflows/agents-guard.yml",
+      "line": 1162,
+      "text": "                    core.info('Ineligible PR event: preserving existing exact-head guard verdict.');"
+    },
+    {
+      "path": ".github/workflows/agents-guard.yml",
+      "line": 1166,
+      "text": "                  core.info('Ineligible PR event: leaving absent exact-head guard verdict absent.');"
+    },
+    {
+      "path": ".github/workflows/reusable-agents-verifier.yml",
+      "line": 53,
+      "text": "      verdict:"
+    },
+    {
+      "path": ".github/workflows/reusable-agents-verifier.yml",
+      "line": 54,
+      "text": "        description: 'Trusted verifier verdict for caller-owned source closure'"
+    },
+    {
+      "path": ".github/workflows/reusable-agents-verifier.yml",
+      "line": 55,
+      "text": "        value: ${{ jobs.verifier.outputs.verdict }}"
+    },
+    {
+      "path": ".github/workflows/reusable-agents-verifier.yml",
+      "line": 117,
+      "text": "      verdict: ${{ steps.unified_verdict.outputs.verdict }}"
+    },
+    {
+      "path": ".github/workflows/reusable-agents-verifier.yml",
+      "line": 891,
+      "text": "      - name: Parse verifier verdict (checkbox mode)"
+    },
+    {
+      "path": ".github/workflows/reusable-agents-verifier.yml",
+      "line": 892,
+      "text": "        id: verdict"
+    },
+    {
+      "path": ".github/workflows/reusable-agents-verifier.yml",
+      "line": 896,
+      "text": "          verdict=\"unknown\""
+    },
+    {
+      "path": ".github/workflows/reusable-agents-verifier.yml",
+      "line": 898,
+      "text": "          verdict_json=\"${RUNNER_TEMP}/verdict.json\""
+    },
+    {
+      "path": ".github/workflows/reusable-agents-verifier.yml",
+      "line": 903,
+      "text": "            # Codex crashed - treat as error verdict for follow-up"
+    },
+    {
+      "path": ".github/workflows/reusable-agents-verifier.yml",
+      "line": 904,
+      "text": "            verdict=\"error\""
+    },
+    {
+      "path": ".github/workflows/reusable-agents-verifier.yml",
+      "line": 907,
+      "text": "              '{\"verdict\":\"error\",\"source\":\"codex-step-failure\",\"needs_attention\":true}' \\"
+    },
+    {
+      "path": ".github/workflows/reusable-agents-verifier.yml",
+      "line": 908,
+      "text": "              > \"$verdict_json\""
+    },
+    {
+      "path": ".github/workflows/reusable-agents-verifier.yml",
+      "line": 910,
+      "text": "            python .workflows-lib/.github/scripts/verifier_verdict_json.py \\"
+    },
+    {
+      "path": ".github/workflows/reusable-agents-verifier.yml",
+      "line": 912,
+      "text": "              --json \"$verdict_json\""
+    },
+    {
+      "path": ".github/workflows/reusable-agents-verifier.yml",
+      "line": 913,
+      "text": "            verdict=\"$("
+    },
+    {
+      "path": ".github/workflows/reusable-agents-verifier.yml",
+      "line": 915,
+      "text": "                'import json,sys; print(json.load(open(sys.argv[1])).get(\"verdict\",\"unknown\"))' \\"
+    },
+    {
+      "path": ".github/workflows/reusable-agents-verifier.yml",
+      "line": 916,
+      "text": "                \"$verdict_json\""
+    },
+    {
+      "path": ".github/workflows/reusable-agents-verifier.yml",
+      "line": 921,
+      "text": "                \"$verdict_json\" | tr '[:upper:]' '[:lower:]'"
+    },
+    {
+      "path": ".github/workflows/reusable-agents-verifier.yml",
+      "line": 926,
+      "text": "              '{\"verdict\":\"unknown\",\"source\":\"missing-output\",\"needs_attention\":true}' \\"
+    },
+    {
+      "path": ".github/workflows/reusable-agents-verifier.yml",
+      "line": 927,
+      "text": "              > \"$verdict_json\""
+    },
+    {
+      "path": ".github/workflows/reusable-agents-verifier.yml",
+      "line": 929,
+      "text": "          if [ \"$verdict\" = \"needs-review\" ] || [ \"${needs_attention:-false}\" = \"true\" ]; then"
+    },
+    {
+      "path": ".github/workflows/reusable-agents-verifier.yml",
+      "line": 932,
+      "text": "          echo \"verdict_json=$verdict_json\" >> \"$GITHUB_OUTPUT\""
+    },
+    {
+      "path": ".github/workflows/reusable-agents-verifier.yml",
+      "line": 933,
+      "text": "          echo \"verdict=$verdict\" >> \"$GITHUB_OUTPUT\""
+    },
+    {
+      "path": ".github/workflows/reusable-agents-verifier.yml",
+      "line": 1082,
+      "text": "          args+=(--issue-label verify:evaluate)"
+    },
+    {
+      "path": ".github/workflows/reusable-agents-verifier.yml",
+      "line": 1099,
+      "text": "          print(f\"verdict={data.get('verdict', 'CONCERNS')}\")"
+    },
+    {
+      "path": ".github/workflows/reusable-agents-verifier.yml",
+      "line": 1106,
+      "text": "              verdict=\"$(grep '^verdict=' evaluation-outputs.env | cut -d= -f2- || true)\""
+    },
+    {
+      "path": ".github/workflows/reusable-agents-verifier.yml",
+      "line": 1110,
+      "text": "              verdict=\"CONCERNS\""
+    },
+    {
+      "path": ".github/workflows/reusable-agents-verifier.yml",
+      "line": 1115,
+      "text": "            echo \"::debug::Evaluation verdict: $verdict\""
+    },
+    {
+      "path": ".github/workflows/reusable-agents-verifier.yml",
+      "line": 1140,
+      "text": "              lines.append(f\"**Verdict:** {data.get('verdict', 'UNKNOWN')}\")"
+    },
+    {
+      "path": ".github/workflows/reusable-agents-verifier.yml",
+      "line": 1184,
+      "text": "            echo \"verdict=CONCERNS\" >> \"$GITHUB_OUTPUT\""
+    },
+    {
+      "path": ".github/workflows/reusable-agents-verifier.yml",
+      "line": 1199,
+      "text": "              steps.llm_evaluate.outputs.verdict == 'PASS' ||"
+    },
+    {
+      "path": ".github/workflows/reusable-agents-verifier.yml",
+      "line": 1200,
+      "text": "              steps.llm_evaluate.outputs.verdict == 'PASSED' ||"
+    },
+    {
+      "path": ".github/workflows/reusable-agents-verifier.yml",
+      "line": 1201,
+      "text": "              steps.llm_evaluate.outputs.verdict == 'pass' ||"
+    },
+    {
+      "path": ".github/workflows/reusable-agents-verifier.yml",
+      "line": 1202,
+      "text": "              steps.llm_evaluate.outputs.verdict == 'passed'"
+    },
+    {
+      "path": ".github/workflows/reusable-agents-verifier.yml",
+      "line": 1215,
+      "text": "              'so the posted verifier verdict is floored to **CONCERNS** even though '"
+    },
+    {
+      "path": ".github/workflows/reusable-agents-verifier.yml",
+      "line": 1359,
+      "text": "          python3 - <<'PY' > verdict.txt 2>/dev/null || printf '%s' \"UNVERIFIABLE_INPUT\" > verdict.txt"
+    },
+    {
+      "path": ".github/workflows/reusable-agents-verifier.yml",
+      "line": 1379,
+      "text": "            from scripts.langchain.pr_verifier import expanded_comparison_verdict"
+    },
+    {
+      "path": ".github/workflows/reusable-agents-verifier.yml",
+      "line": 1381,
+      "text": "            print(expanded_comparison_verdict("
+    },
+    {
+      "path": ".github/workflows/reusable-agents-verifier.yml",
+      "line": 1389,
+      "text": "            from scripts.langchain.pr_verifier import EvaluationResult, comparison_verdict"
+    },
+    {
+      "path": ".github/workflows/reusable-agents-verifier.yml",
+      "line": 1390,
+      "text": "            print(comparison_verdict(["
+    },
+    {
+      "path": ".github/workflows/reusable-agents-verifier.yml",
+      "line": 1395,
+      "text": "            verdict=\"$(cat verdict.txt 2>/dev/null || echo UNVERIFIABLE_INPUT)\""
+    },
+    {
+      "path": ".github/workflows/reusable-agents-verifier.yml",
+      "line": 1396,
+      "text": "            echo \"verdict=$verdict\" >> \"$GITHUB_OUTPUT\""
+    },
+    {
+      "path": ".github/workflows/reusable-agents-verifier.yml",
+      "line": 1458,
+      "text": "            echo \"verdict=CONCERNS\" >> \"$GITHUB_OUTPUT\""
+    },
+    {
+      "path": ".github/workflows/reusable-agents-verifier.yml",
+      "line": 1474,
+      "text": "              steps.llm_compare.outputs.verdict == 'PASS' ||"
+    },
+    {
+      "path": ".github/workflows/reusable-agents-verifier.yml",
+      "line": 1475,
+      "text": "              steps.llm_compare.outputs.verdict == 'PASSED' ||"
+    },
+    {
+      "path": ".github/workflows/reusable-agents-verifier.yml",
+      "line": 1476,
+      "text": "              steps.llm_compare.outputs.verdict == 'pass' ||"
+    },
+    {
+      "path": ".github/workflows/reusable-agents-verifier.yml",
+      "line": 1477,
+      "text": "              steps.llm_compare.outputs.verdict == 'passed'"
+    },
+    {
+      "path": ".github/workflows/reusable-agents-verifier.yml",
+      "line": 1579,
+      "text": "      - name: Set unified verdict"
+    },
+    {
+      "path": ".github/workflows/reusable-agents-verifier.yml",
+      "line": 1580,
+      "text": "        id: unified_verdict"
+    },
+    {
+      "path": ".github/workflows/reusable-agents-verifier.yml",
+      "line": 1585,
+      "text": "          # Combine verdicts from all modes"
+    },
+    {
+      "path": ".github/workflows/reusable-agents-verifier.yml",
+      "line": 1586,
+      "text": "          checkbox_verdict=\"${{ steps.verdict.outputs.verdict }}\""
+    },
+    {
+      "path": ".github/workflows/reusable-agents-verifier.yml",
+      "line": 1587,
+      "text": "          llm_verdict=\"${{ steps.llm_evaluate.outputs.verdict }}\""
+    },
+    {
+      "path": ".github/workflows/reusable-agents-verifier.yml",
+      "line": 1588,
+      "text": "          compare_verdict=\"${{ steps.llm_compare.outputs.verdict }}\""
+    },
+    {
+      "path": ".github/workflows/reusable-agents-verifier.yml",
+      "line": 1591,
+      "text": "            final_verdict=\"${llm_verdict:-unknown}\""
+    },
+    {
+      "path": ".github/workflows/reusable-agents-verifier.yml",
+      "line": 1593,
+      "text": "            final_verdict=\"${compare_verdict:-unknown}\""
+    },
+    {
+      "path": ".github/workflows/reusable-agents-verifier.yml",
+      "line": 1595,
+      "text": "            final_verdict=\"${checkbox_verdict:-unknown}\""
+    },
+    {
+      "path": ".github/workflows/reusable-agents-verifier.yml",
+      "line": 1599,
+      "text": "          # `failure` on the merge commit disqualifies a PASS verdict. Floor"
+    },
+    {
+      "path": ".github/workflows/reusable-agents-verifier.yml",
+      "line": 1600,
+      "text": "          # the unified verdict at CONCERNS so a merge that breaks main can"
+    },
+    {
+      "path": ".github/workflows/reusable-agents-verifier.yml",
+      "line": 1603,
+      "text": "          lc_verdict=\"$(printf '%s' \"$final_verdict\" | tr '[:upper:]' '[:lower:]')\""
+    },
+    {
+      "path": ".github/workflows/reusable-agents-verifier.yml",
+      "line": 1605,
+      "text": "            [ \"$lc_verdict\" = \"pass\" ] || [ \"$lc_verdict\" = \"passed\" ];"
+    },
+    {
+      "path": ".github/workflows/reusable-agents-verifier.yml",
+      "line": 1608,
+      "text": "              \"overriding ${final_verdict} verdict to CONCERNS (issue #2271).\""
+    },
+    {
+      "path": ".github/workflows/reusable-agents-verifier.yml",
+      "line": 1609,
+      "text": "            final_verdict=\"concerns\""
+    },
+    {
+      "path": ".github/workflows/reusable-agents-verifier.yml",
+      "line": 1612,
+      "text": "          final_verdict=\"$(printf '%s' \"$final_verdict\" | tr '[:lower:]-' '[:upper:]_')\""
+    },
+    {
+      "path": ".github/workflows/reusable-agents-verifier.yml",
+      "line": 1613,
+      "text": "          echo \"verdict=$final_verdict\" >> \"$GITHUB_OUTPUT\""
+    },
+    {
+      "path": ".github/workflows/reusable-agents-verifier.yml",
+      "line": 1614,
+      "text": "          echo \"Final verdict: $final_verdict\""
+    },
+    {
+      "path": ".github/workflows/reusable-agents-verifier.yml",
+      "line": 1650,
+      "text": "            const verdict = '${{ steps.verdict.outputs.verdict }}';"
+    },
+    {
+      "path": ".github/workflows/reusable-agents-verifier.yml",
+      "line": 1661,
+      "text": "            if (verdict === 'error') {"
+    },
+    {
+      "path": ".github/workflows/reusable-agents-verifier.yml",
+      "line": 1775,
+      "text": "          # Only the settled unified verdict is consumed. Raw per-mode verdicts"
+    },
+    {
+      "path": ".github/workflows/reusable-agents-verifier.yml",
+      "line": 1778,
+      "text": "          VERDICT: ${{ steps.unified_verdict.outputs.verdict }}"
+    },
+    {
+      "path": ".github/workflows/reusable-agents-verifier.yml",
+      "line": 1779,
+      "text": "          UNIFIED_VERDICT_OUTCOME: ${{ steps.unified_verdict.outcome }}"
+    },
+    {
+      "path": ".github/workflows/reusable-agents-verifier.yml",
+      "line": 1802,
+      "text": "          verdict = os.environ.get(\"VERDICT\") or \"unknown\""
+    },
+    {
+      "path": ".github/workflows/reusable-agents-verifier.yml",
+      "line": 1816,
+      "text": "              verdict = \"skipped\""
+    },
+    {
+      "path": ".github/workflows/reusable-agents-verifier.yml",
+      "line": 1819,
+      "text": "              # rather than an unguarded or empty verdict."
+    },
+    {
+      "path": ".github/workflows/reusable-agents-verifier.yml",
+      "line": 1820,
+      "text": "              verdict = \"error\""
+    },
+    {
+      "path": ".github/workflows/reusable-agents-verifier.yml",
+      "line": 1880,
+      "text": "              \"verdict\": verdict,"
+    },
+    {
+      "path": ".github/workflows/reusable-agents-verifier.yml",
+      "line": 1921,
+      "text": "          FINAL_VERDICT: ${{ steps.unified_verdict.outputs.verdict }}"
+    },
+    {
+      "path": ".github/workflows/reusable-agents-verifier.yml",
+      "line": 1922,
+      "text": "          UNIFIED_VERDICT_OUTCOME: ${{ steps.unified_verdict.outcome }}"
+    },
+    {
+      "path": ".github/workflows/reusable-agents-verifier.yml",
+      "line": 1968,
+      "text": "          const verdict = settlementInterrupted"
+    },
+    {
+      "path": ".github/workflows/reusable-agents-verifier.yml",
+      "line": 1970,
+      "text": "            : normalizeVerdict(process.env.FINAL_VERDICT || metrics.verdict);"
+    },
+    {
+      "path": ".github/workflows/reusable-agents-verifier.yml",
+      "line": 1989,
+      "text": "            reason = 'Verifier verdict settlement did not complete; no unguarded verdict was recorded.';"
+    },
+    {
+      "path": ".github/workflows/reusable-agents-verifier.yml",
+      "line": 1990,
+      "text": "          } else if (['pass', 'passed'].includes(verdict)) {"
+    },
+    {
+      "path": ".github/workflows/reusable-agents-verifier.yml",
+      "line": 1992,
+      "text": "            reason = 'Verifier completed and reported a passing verdict.';"
+    },
+    {
+      "path": ".github/workflows/reusable-agents-verifier.yml",
+      "line": 1996,
+      "text": "          } else if (['fail', 'failed', 'concerns', 'error', 'unverifiable_input'].includes(verdict)) {"
+    },
+    {
+      "path": ".github/workflows/reusable-agents-verifier.yml",
+      "line": 1997,
+      "text": "            disposition = verdict === 'error' ? 'verifier-error' : 'needs-human';"
+    },
+    {
+      "path": ".github/workflows/reusable-agents-verifier.yml",
+      "line": 1998,
+      "text": "            reason = 'Verifier reported a non-passing verdict without creating a follow-up issue.';"
+    },
+    {
+      "path": ".github/workflows/reusable-agents-verifier.yml",
+      "line": 2003,
+      "text": "          if (['pass', 'passed'].includes(verdict)) {"
+    },
+    {
+      "path": ".github/workflows/reusable-agents-verifier.yml",
+      "line": 2033,
+      "text": "            verdict: verdict || metrics.verdict || 'unknown',"
+    },
+    {
+      "path": ".github/workflows/reusable-agents-verifier.yml",
+      "line": 2072,
+      "text": "            verdict: verdict || metrics.verdict || 'unknown',"
+    },
+    {
+      "path": ".github/workflows/reusable-agents-verifier.yml",
+      "line": 2141,
+      "text": "            \"verdict\","
+    },
+    {
+      "path": "templates/consumer-repo/.github/workflows/agents-guard.yml",
+      "line": 1043,
+      "text": "                // Stale or incomplete bindings must not write a corrective verdict."
+    },
+    {
+      "path": "templates/consumer-repo/.github/workflows/agents-guard.yml",
+      "line": 1171,
+      "text": "                    core.info('Ineligible PR event: preserving existing exact-head guard verdict.');"
+    },
+    {
+      "path": "templates/consumer-repo/.github/workflows/agents-guard.yml",
+      "line": 1175,
+      "text": "                  core.info('Ineligible PR event: leaving absent exact-head guard verdict absent.');"
+    },
+    {
+      "path": "scripts/langchain/followup_issue_generator.py",
+      "line": 5,
+      "text": "This script takes verification data (from verify:evaluate or verify:compare)"
+    },
+    {
+      "path": "scripts/langchain/followup_issue_generator.py",
+      "line": 36,
+      "text": "from scripts.langchain import verdict_policy"
+    },
+    {
+      "path": "scripts/langchain/followup_issue_generator.py",
+      "line": 227,
+      "text": "        value = verdict_policy._coerce_confidence(percent_match.group(1))"
+    },
+    {
+      "path": "scripts/langchain/followup_issue_generator.py",
+      "line": 234,
+      "text": "    value = verdict_policy._coerce_confidence(match.group(1))"
+    },
+    {
+      "path": "scripts/langchain/followup_issue_generator.py",
+      "line": 235,
+      "text": "    percentage = min(1.0, verdict_policy._normalize_confidence(value)) * 100"
+    },
+    {
+      "path": "scripts/langchain/followup_issue_generator.py",
+      "line": 253,
+      "text": "    \"\"\"Coerce direct verdict-policy confidence inputs without fabricating precision.\"\"\""
+    },
+    {
+      "path": "scripts/langchain/followup_issue_generator.py",
+      "line": 259,
+      "text": "    return max(0.0, verdict_policy._coerce_confidence(text))"
+    },
+    {
+      "path": "scripts/langchain/followup_issue_generator.py",
+      "line": 341,
+      "text": "def _resolve_verdict_policy("
+    },
+    {
+      "path": "scripts/langchain/followup_issue_generator.py",
+      "line": 343,
+      "text": ") -> verdict_policy.VerdictPolicyResult:"
+    },
+    {
+      "path": "scripts/langchain/followup_issue_generator.py",
+      "line": 344,
+      "text": "    verdicts: list[verdict_policy.ProviderVerdict] = []"
+    },
+    {
+      "path": "scripts/langchain/followup_issue_generator.py",
+      "line": 345,
+      "text": "    for provider, payload in verification_data.provider_verdicts.items():"
+    },
+    {
+      "path": "scripts/langchain/followup_issue_generator.py",
+      "line": 352,
+      "text": "        verdicts.append("
+    },
+    {
+      "path": "scripts/langchain/followup_issue_generator.py",
+      "line": 353,
+      "text": "            verdict_policy.ProviderVerdict("
+    },
+    {
+      "path": "scripts/langchain/followup_issue_generator.py",
+      "line": 356,
+      "text": "                verdict=payload.get(\"verdict\", \"\") or \"\","
+    },
+    {
+      "path": "scripts/langchain/followup_issue_generator.py",
+      "line": 360,
+      "text": "    return verdict_policy.evaluate_verdict_policy(verdicts, policy=\"worst\")"
+    },
+    {
+      "path": "scripts/langchain/followup_issue_generator.py",
+      "line": 383,
+      "text": "{provider_verdicts}"
+    },
+    {
+      "path": "scripts/langchain/followup_issue_generator.py",
+      "line": 520,
+      "text": "Verification Verdict: {verdict}"
+    },
+    {
+      "path": "scripts/langchain/followup_issue_generator.py",
+      "line": 589,
+      "text": "    provider_verdicts: dict[str, dict[str, Any]] = field(default_factory=dict)"
+    },
+    {
+      "path": "scripts/langchain/followup_issue_generator.py",
+      "line": 629,
+      "text": "    # Extract provider verdicts (from comparison reports)"
+    },
+    {
+      "path": "scripts/langchain/followup_issue_generator.py",
+      "line": 655,
+      "text": "        verdict = cols[2]"
+    },
+    {
+      "path": "scripts/langchain/followup_issue_generator.py",
+      "line": 661,
+      "text": "            \"verdict\": verdict.strip(),"
+    },
+    {
+      "path": "scripts/langchain/followup_issue_generator.py",
+      "line": 666,
+      "text": "            if verdict.strip().upper() != \"PASS\":"
+    },
+    {
+      "path": "scripts/langchain/followup_issue_generator.py",
+      "line": 668,
+      "text": "        data.provider_verdicts[provider] = entry"
+    },
+    {
+      "path": "scripts/langchain/followup_issue_generator.py",
+      "line": 671,
+      "text": "    # Extract verdicts from provider detail sections as a fallback."
+    },
+    {
+      "path": "scripts/langchain/followup_issue_generator.py",
+      "line": 680,
+      "text": "        verdict_match = re.search(r\"-\\s*\\*\\*Verdict:\\*\\*\\s*([^\\n]+)\", line)"
+    },
+    {
+      "path": "scripts/langchain/followup_issue_generator.py",
+      "line": 681,
+      "text": "        if verdict_match:"
+    },
+    {
+      "path": "scripts/langchain/followup_issue_generator.py",
+      "line": 682,
+      "text": "            verdict = verdict_match.group(1).strip()"
+    },
+    {
+      "path": "scripts/langchain/followup_issue_generator.py",
+      "line": 683,
+      "text": "            entry = data.provider_verdicts.setdefault("
+    },
+    {
+      "path": "scripts/langchain/followup_issue_generator.py",
+      "line": 684,
+      "text": "                current_provider, {\"model\": \"\", \"verdict\": verdict, \"confidence\": 0}"
+    },
+    {
+      "path": "scripts/langchain/followup_issue_generator.py",
+      "line": 686,
+      "text": "            entry[\"verdict\"] = verdict"
+    },
+    {
+      "path": "scripts/langchain/followup_issue_generator.py",
+      "line": 692,
+      "text": "            entry = data.provider_verdicts.setdefault("
+    },
+    {
+      "path": "scripts/langchain/followup_issue_generator.py",
+      "line": 693,
+      "text": "                current_provider, {\"model\": \"\", \"verdict\": \"\", \"confidence\": 0}"
+    },
+    {
+      "path": "scripts/langchain/followup_issue_generator.py",
+      "line": 699,
+      "text": "    single_verdict = re.search(r\"Verdict:\\s*([^\\n]+)\", comment_body, re.IGNORECASE)"
+    },
+    {
+      "path": "scripts/langchain/followup_issue_generator.py",
+      "line": 700,
+      "text": "    if single_verdict and not data.provider_verdicts:"
+    },
+    {
+      "path": "scripts/langchain/followup_issue_generator.py",
+      "line": 701,
+      "text": "        content = single_verdict.group(1).strip()"
+    },
+    {
+      "path": "scripts/langchain/followup_issue_generator.py",
+      "line": 705,
+      "text": "            verdict = bold_match.group(1).strip()"
+    },
+    {
+      "path": "scripts/langchain/followup_issue_generator.py",
+      "line": 708,
+      "text": "            verdict, confidence_text = (part.strip() for part in content.rsplit(\"@\", 1))"
+    },
+    {
+      "path": "scripts/langchain/followup_issue_generator.py",
+      "line": 711,
+      "text": "            # complete trailing numeric/scientific confidence token so verdicts"
+    },
+    {
+      "path": "scripts/langchain/followup_issue_generator.py",
+      "line": 716,
+      "text": "                verdict = no_at_match.group(1).strip()"
+    },
+    {
+      "path": "scripts/langchain/followup_issue_generator.py",
+      "line": 719,
+      "text": "                verdict = content"
+    },
+    {
+      "path": "scripts/langchain/followup_issue_generator.py",
+      "line": 721,
+      "text": "        data.provider_verdicts[\"default\"] = {"
+    },
+    {
+      "path": "scripts/langchain/followup_issue_generator.py",
+      "line": 722,
+      "text": "            \"verdict\": verdict,"
+    },
+    {
+      "path": "scripts/langchain/followup_issue_generator.py",
+      "line": 809,
+      "text": "        comment_body, data.provider_verdicts"
+    },
+    {
+      "path": "scripts/langchain/followup_issue_generator.py",
+      "line": 860,
+      "text": "    \"\"\"Rebuild non-PASS evidence from final provider verdicts.\"\"\""
+    },
+    {
+      "path": "scripts/langchain/followup_issue_generator.py",
+      "line": 864,
+      "text": "    for provider, payload in data.provider_verdicts.items():"
+    },
+    {
+      "path": "scripts/langchain/followup_issue_generator.py",
+      "line": 865,
+      "text": "        verdict = str(payload.get(\"verdict\", \"\") or \"\").strip()"
+    },
+    {
+      "path": "scripts/langchain/followup_issue_generator.py",
+      "line": 866,
+      "text": "        if verdict.upper() == \"PASS\":"
+    },
+    {
+      "path": "scripts/langchain/followup_issue_generator.py",
+      "line": 871,
+      "text": "            f\"Provider={provider}; Model={model}; Verdict={verdict}; Confidence={confidence:g}%\""
+    },
+    {
+      "path": "scripts/langchain/followup_issue_generator.py",
+      "line": 876,
+      "text": "                f\"Provider={provider}; Verdict={verdict}; Difference={summary}\""
+    },
+    {
+      "path": "scripts/langchain/followup_issue_generator.py",
+      "line": 881,
+      "text": "    comment_body: str, provider_verdicts: dict[str, dict[str, Any]]"
+    },
+    {
+      "path": "scripts/langchain/followup_issue_generator.py",
+      "line": 885,
+      "text": "    if not provider_verdicts:"
+    },
+    {
+      "path": "scripts/langchain/followup_issue_generator.py",
+      "line": 887,
+      "text": "    verdicts = []"
+    },
+    {
+      "path": "scripts/langchain/followup_issue_generator.py",
+      "line": 888,
+      "text": "    for payload in provider_verdicts.values():"
+    },
+    {
+      "path": "scripts/langchain/followup_issue_generator.py",
+      "line": 889,
+      "text": "        verdict = (payload.get(\"verdict\") or \"\").strip().lower()"
+    },
+    {
+      "path": "scripts/langchain/followup_issue_generator.py",
+      "line": 890,
+      "text": "        if verdict:"
+    },
+    {
+      "path": "scripts/langchain/followup_issue_generator.py",
+      "line": 891,
+      "text": "            verdicts.append(verdict)"
+    },
+    {
+      "path": "scripts/langchain/followup_issue_generator.py",
+      "line": 892,
+      "text": "    if not verdicts:"
+    },
+    {
+      "path": "scripts/langchain/followup_issue_generator.py",
+      "line": 894,
+      "text": "    return any(verdict in MISSING_CONCERNS_VERDICTS for verdict in verdicts)"
+    },
+    {
+      "path": "scripts/langchain/followup_issue_generator.py",
+      "line": 1280,
+      "text": "    policy_result = _resolve_verdict_policy(verification_data)"
+    },
+    {
+      "path": "scripts/langchain/followup_issue_generator.py",
+      "line": 1287,
+      "text": "    requires_code_change = policy_result.verdict.lower() in {\"fail\", \"error\"} or bool("
+    },
+    {
+      "path": "scripts/langchain/followup_issue_generator.py",
+      "line": 1293,
+      "text": "        policy_result.verdict_kind == \"concerns\""
+    },
+    {
+      "path": "scripts/langchain/followup_issue_generator.py",
+      "line": 1294,
+      "text": "        and policy_result.split_verdict"
+    },
+    {
+      "path": "scripts/langchain/followup_issue_generator.py",
+      "line": 1298,
+      "text": "    if policy_result.verdict.lower() == \"concerns\" and advisory_concerns and not blocking_concerns:"
+    },
+    {
+      "path": "scripts/langchain/followup_issue_generator.py",
+      "line": 1304,
+      "text": "            policy_result.verdict_kind == \"concerns\""
+    },
+    {
+      "path": "scripts/langchain/followup_issue_generator.py",
+      "line": 1305,
+      "text": "            and policy_result.split_verdict"
+    },
+    {
+      "path": "scripts/langchain/followup_issue_generator.py",
+      "line": 1397,
+      "text": "    policy_result = _resolve_verdict_policy(verification_data)"
+    },
+    {
+      "path": "scripts/langchain/followup_issue_generator.py",
+      "line": 1400,
+      "text": "    verdict = policy_result.verdict"
+    },
+    {
+      "path": "scripts/langchain/followup_issue_generator.py",
+      "line": 1409,
+      "text": "            verdict=verdict,"
+    },
+    {
+      "path": "scripts/langchain/followup_issue_generator.py",
+      "line": 1421,
+      "text": "            verdict=verdict,"
+    },
+    {
+      "path": "scripts/langchain/followup_issue_generator.py",
+      "line": 1439,
+      "text": "            verdict=verdict,"
+    },
+    {
+      "path": "scripts/langchain/followup_issue_generator.py",
+      "line": 1455,
+      "text": "            verdict=verdict,"
+    },
+    {
+      "path": "scripts/langchain/followup_issue_generator.py",
+      "line": 1471,
+      "text": "            verdict=verdict,"
+    },
+    {
+      "path": "scripts/langchain/followup_issue_generator.py",
+      "line": 1486,
+      "text": "            verdict=verdict,"
+    },
+    {
+      "path": "scripts/langchain/followup_issue_generator.py",
+      "line": 1537,
+      "text": "    verdict: str,"
+    },
+    {
+      "path": "scripts/langchain/followup_issue_generator.py",
+      "line": 1559,
+      "text": "        provider_verdicts=json.dumps(verification_data.provider_verdicts, indent=2),"
+    },
+    {
+      "path": "scripts/langchain/followup_issue_generator.py",
+      "line": 1620,
+      "text": "        verdict=verdict,"
+    },
+    {
+      "path": "scripts/langchain/followup_issue_generator.py",
+      "line": 1627,
+      "text": "        verdict=verdict,"
+    },
+    {
+      "path": "scripts/langchain/followup_issue_generator.py",
+      "line": 1688,
+      "text": "    verdict: str,"
+    },
+    {
+      "path": "scripts/langchain/followup_issue_generator.py",
+      "line": 1698,
+      "text": "        verdict=verdict,"
+    },
+    {
+      "path": "scripts/langchain/followup_issue_generator.py",
+      "line": 1748,
+      "text": "            \"- [ ] Human review required to reconcile split verdicts before automating another \""
+    },
+    {
+      "path": "scripts/langchain/followup_issue_generator.py",
+      "line": 1785,
+      "text": "            f\"- Resolved verdict: {verdict}\","
+    },
+    {
+      "path": "scripts/langchain/followup_issue_generator.py",
+      "line": 1809,
+      "text": "    for provider, data in verification_data.provider_verdicts.items():"
+    },
+    {
+      "path": "scripts/langchain/followup_issue_generator.py",
+      "line": 1813,
+      "text": "        evidence = f\"- {provider}: {data.get('verdict', 'Unknown')} @ {confidence:g}%\""
+    },
+    {
+      "path": "scripts/langchain/followup_issue_generator.py",
+      "line": 1833,
+      "text": "    for provider, data in verification_data.provider_verdicts.items():"
+    },
+    {
+      "path": "scripts/langchain/followup_issue_generator.py",
+      "line": 1837,
+      "text": "        body_parts.append(f\"- **{provider}**: {data.get('verdict', 'Unknown')} @ {confidence:g}%\")"
+    },
+    {
+      "path": "scripts/langchain/followup_issue_generator.py",
+      "line": 1889,
+      "text": "    verdict: str | None = None,"
+    },
+    {
+      "path": "scripts/langchain/followup_issue_generator.py",
+      "line": 1893,
+      "text": "    if verdict is None:"
+    },
+    {
+      "path": "scripts/langchain/followup_issue_generator.py",
+      "line": 1894,
+      "text": "        verdict = _resolve_verdict_policy(verification_data).verdict"
+    },
+    {
+      "path": "scripts/langchain/followup_issue_generator.py",
+      "line": 1898,
+      "text": "        f\"identified concerns (verdict: **{verdict}**).\","
+    },
+    {
+      "path": "scripts/langchain/followup_issue_generator.py",
+      "line": 2228,
+      "text": "        f\"Extracted {len(verification_data.provider_verdicts)} provider verdicts\", file=sys.stderr"
+    },
+    {
+      "path": "scripts/langchain/verdict_extract.py",
+      "line": 1,
+      "text": "\"\"\"Entrypoint for deterministic verdict extraction with structured outputs.\"\"\""
+    },
+    {
+      "path": "scripts/langchain/verdict_extract.py",
+      "line": 11,
+      "text": "from scripts.langchain import verdict_policy"
+    },
+    {
+      "path": "scripts/langchain/verdict_extract.py",
+      "line": 14,
+      "text": "def build_verdict_result("
+    },
+    {
+      "path": "scripts/langchain/verdict_extract.py",
+      "line": 18,
+      "text": ") -> verdict_policy.VerdictPolicyResult:"
+    },
+    {
+      "path": "scripts/langchain/verdict_extract.py",
+      "line": 19,
+      "text": "    return verdict_policy.evaluate_summary(summary, policy=policy)"
+    },
+    {
+      "path": "scripts/langchain/verdict_extract.py",
+      "line": 23,
+      "text": "    verdict: str"
+    },
+    {
+      "path": "scripts/langchain/verdict_extract.py",
+      "line": 27,
+      "text": "    verdict_kind: str"
+    },
+    {
+      "path": "scripts/langchain/verdict_extract.py",
+      "line": 31,
+      "text": "    split_verdict: str"
+    },
+    {
+      "path": "scripts/langchain/verdict_extract.py",
+      "line": 33,
+      "text": "    verdict_metadata: str"
+    },
+    {
+      "path": "scripts/langchain/verdict_extract.py",
+      "line": 36,
+      "text": "def _build_github_outputs(result: verdict_policy.VerdictPolicyResult) -> VerdictGithubOutputs:"
+    },
+    {
+      "path": "scripts/langchain/verdict_extract.py",
+      "line": 38,
+      "text": "        \"verdict\": result.verdict,"
+    },
+    {
+      "path": "scripts/langchain/verdict_extract.py",
+      "line": 42,
+      "text": "        \"verdict_kind\": result.verdict_kind,"
+    },
+    {
+      "path": "scripts/langchain/verdict_extract.py",
+      "line": 48,
+      "text": "        \"split_verdict\": str(result.split_verdict).lower(),"
+    },
+    {
+      "path": "scripts/langchain/verdict_extract.py",
+      "line": 52,
+      "text": "        \"verdict_metadata\": json.dumps(result.as_dict()),"
+    },
+    {
+      "path": "scripts/langchain/verdict_extract.py",
+      "line": 56,
+      "text": "def _write_github_outputs(result: verdict_policy.VerdictPolicyResult, output_path: str) -> None:"
+    },
+    {
+      "path": "scripts/langchain/verdict_extract.py",
+      "line": 66,
+      "text": "        description=\"Extract a deterministic verdict and emit structured outputs.\""
+    },
+    {
+      "path": "scripts/langchain/verdict_extract.py",
+      "line": 77,
+      "text": "        help=\"Policy used to resolve split provider verdicts.\","
+    },
+    {
+      "path": "scripts/langchain/verdict_extract.py",
+      "line": 81,
+      "text": "        choices=[\"github\", \"json\", \"verdict\"],"
+    },
+    {
+      "path": "scripts/langchain/verdict_extract.py",
+      "line": 87,
+      "text": "    summary = verdict_policy._read_summary(args.summary_path)"
+    },
+    {
+      "path": "scripts/langchain/verdict_extract.py",
+      "line": 88,
+      "text": "    result = build_verdict_result(summary, policy=args.policy)"
+    },
+    {
+      "path": "scripts/langchain/verdict_extract.py",
+      "line": 90,
+      "text": "    if args.emit == \"verdict\":"
+    },
+    {
+      "path": "scripts/langchain/verdict_extract.py",
+      "line": 91,
+      "text": "        print(result.verdict)"
+    },
+    {
+      "path": ".github/scripts/agents_verifier_context.js",
+      "line": 2003,
+      "text": "  // floor the unified verdict at CONCERNS regardless of the LLM review."
+    },
+    {
+      "path": ".github/scripts/agents_verifier_context.js",
+      "line": 2010,
+      "text": "    content.push('**CI gate:** One or more CI workflows concluded `failure` on the merge commit. A failing CI conclusion disqualifies a PASS verdict \u2014 this verification must not return PASS while CI is red. Review the code against the acceptance criteria, but the unified verdict is floored at CONCERNS.');"
+    },
+    {
+      "path": ".github/scripts/agents_verifier_context.js",
+      "line": 2012,
+      "text": "    content.push('**Note:** This verification runs post-merge. The CI results below confirm which test suites ran on the merge commit; a CI workflow concluding `failure` disqualifies a PASS verdict.');"
+    },
+    {
+      "path": ".github/scripts/verifier_verdict_json.py",
+      "line": 2,
+      "text": "\"\"\"Extract an unspoofable verifier verdict from structured agent output.\"\"\""
+    },
+    {
+      "path": ".github/scripts/verifier_verdict_json.py",
+      "line": 13,
+      "text": "    r\"\\b[\\\"']?verdict[\\\"']?\\s*:\\s*[\\\"']?(pass|fail)[\\\"']?\\b\","
+    },
+    {
+      "path": ".github/scripts/verifier_verdict_json.py",
+      "line": 24,
+      "text": "def _normalize_verdict(value: object) -> str:"
+    },
+    {
+      "path": ".github/scripts/verifier_verdict_json.py",
+      "line": 25,
+      "text": "    verdict = str(value or \"\").strip().lower().replace(\"_\", \"-\")"
+    },
+    {
+      "path": ".github/scripts/verifier_verdict_json.py",
+      "line": 26,
+      "text": "    if verdict in {\"passed\", \"success\"}:"
+    },
+    {
+      "path": ".github/scripts/verifier_verdict_json.py",
+      "line": 28,
+      "text": "    if verdict in {\"needs-review\", \"needs review\", \"review\", \"concern\", \"concerns\"}:"
+    },
+    {
+      "path": ".github/scripts/verifier_verdict_json.py",
+      "line": 30,
+      "text": "    if verdict in {\"failed\", \"failure\"}:"
+    },
+    {
+      "path": ".github/scripts/verifier_verdict_json.py",
+      "line": 32,
+      "text": "    return verdict if verdict in VALID_VERDICTS else \"\""
+    },
+    {
+      "path": ".github/scripts/verifier_verdict_json.py",
+      "line": 67,
+      "text": "def build_verdict(output: str) -> dict[str, Any]:"
+    },
+    {
+      "path": ".github/scripts/verifier_verdict_json.py",
+      "line": 71,
+      "text": "                \"verdict\": \"fail\","
+    },
+    {
+      "path": ".github/scripts/verifier_verdict_json.py",
+      "line": 74,
+      "text": "                \"reason\": \"verdict marker appeared inside a diff/patch region\","
+    },
+    {
+      "path": ".github/scripts/verifier_verdict_json.py",
+      "line": 79,
+      "text": "        verdict = _normalize_verdict(candidate.get(\"verdict\"))"
+    },
+    {
+      "path": ".github/scripts/verifier_verdict_json.py",
+      "line": 80,
+      "text": "        if not verdict:"
+    },
+    {
+      "path": ".github/scripts/verifier_verdict_json.py",
+      "line": 86,
+      "text": "            else verdict != \"pass\""
+    },
+    {
+      "path": ".github/scripts/verifier_verdict_json.py",
+      "line": 90,
+      "text": "            \"verdict\": verdict,"
+    },
+    {
+      "path": ".github/scripts/verifier_verdict_json.py",
+      "line": 96,
+      "text": "        \"verdict\": \"error\","
+    },
+    {
+      "path": ".github/scripts/verifier_verdict_json.py",
+      "line": 99,
+      "text": "        \"reason\": \"no structured verifier JSON verdict found outside diff regions\","
+    },
+    {
+      "path": ".github/scripts/verifier_verdict_json.py",
+      "line": 106,
+      "text": "    parser.add_argument(\"--json\", required=True, help=\"Destination verdict JSON path\")"
+    },
+    {
+      "path": ".github/scripts/verifier_verdict_json.py",
+      "line": 110,
+      "text": "    verdict = build_verdict(output)"
+    },
+    {
+      "path": ".github/scripts/verifier_verdict_json.py",
+      "line": 113,
+      "text": "    destination.write_text(json.dumps(verdict, sort_keys=True) + \"\\n\", encoding=\"utf-8\")"
+    },
+    {
+      "path": ".github/scripts/verifier_verdict_json.py",
+      "line": 114,
+      "text": "    print(f\"verdict={verdict['verdict']}\")"
+    },
+    {
+      "path": ".github/scripts/verifier_verdict_json.py",
+      "line": 115,
+      "text": "    print(f\"source={verdict['source']}\")"
+    },
+    {
+      "path": ".github/scripts/verifier_verdict_json.py",
+      "line": 116,
+      "text": "    if verdict.get(\"reason\"):"
+    },
+    {
+      "path": ".github/scripts/verifier_verdict_json.py",
+      "line": 117,
+      "text": "        print(f\"reason={verdict['reason']}\")"
+    },
+    {
+      "path": ".github/workflows/agents-verify-to-new-pr.yml",
+      "line": 192,
+      "text": "                'Add verify:evaluate or verify:compare label first.'"
+    },
+    {
+      "path": ".github/workflows/agents-verify-to-new-pr.yml",
+      "line": 306,
+      "text": "              artifact_from_verification_text,"
+    },
+    {
+      "path": ".github/workflows/agents-verify-to-new-pr.yml",
+      "line": 307,
+      "text": "              is_terminal_artifact,"
+    },
+    {
+      "path": ".github/workflows/agents-verify-to-new-pr.yml",
+      "line": 316,
+      "text": "          artifact = artifact_from_verification_text(raw)"
+    },
+    {
+      "path": ".github/workflows/agents-verify-to-new-pr.yml",
+      "line": 317,
+      "text": "          terminal = is_terminal_artifact(artifact)"
+    },
+    {
+      "path": ".github/workflows/agents-verify-to-new-pr.yml",
+      "line": 318,
+      "text": "          verdict = str(artifact.get(\"verdict\") or \"\")"
+    },
+    {
+      "path": ".github/workflows/agents-verify-to-new-pr.yml",
+      "line": 322,
+      "text": "              else \"verifier output is partial or missing a terminal verdict\""
+    },
+    {
+      "path": ".github/workflows/agents-verify-to-new-pr.yml",
+      "line": 327,
+      "text": "              handle.write(f\"verdict={verdict}\\n\")"
+    },
+    {
+      "path": ".github/workflows/agents-verify-to-new-pr.yml",
+      "line": 333,
+      "text": "              if verdict:"
+    },
+    {
+      "path": ".github/workflows/agents-verify-to-new-pr.yml",
+      "line": 334,
+      "text": "                  handle.write(f\"- Verdict: `{verdict}`\\n\")"
+    },
+    {
+      "path": ".github/workflows/agents-verify-to-new-pr.yml",
+      "line": 360,
+      "text": "              'Verifier output is partial or missing a terminal verdict.';"
+    },
+    {
+      "path": ".github/workflows/agents-verify-to-new-pr.yml",
+      "line": 517,
+      "text": "      - name: Extract verdict via verdict_policy"
+    },
+    {
+      "path": ".github/workflows/agents-verify-to-new-pr.yml",
+      "line": 518,
+      "text": "        id: extract-verdict"
+    },
+    {
+      "path": ".github/workflows/agents-verify-to-new-pr.yml",
+      "line": 527,
+      "text": "          python -m scripts.langchain.verdict_extract \\"
+    },
+    {
+      "path": ".github/workflows/agents-verify-to-new-pr.yml",
+      "line": 532,
+      "text": "      - name: Apply needs-human from verdict policy"
+    },
+    {
+      "path": ".github/workflows/agents-verify-to-new-pr.yml",
+      "line": 533,
+      "text": "        id: verdict-needs-human"
+    },
+    {
+      "path": ".github/workflows/agents-verify-to-new-pr.yml",
+      "line": 538,
+      "text": "          steps.extract-verdict.outputs.needs_human == 'true'"
+    },
+    {
+      "path": ".github/workflows/agents-verify-to-new-pr.yml",
+      "line": 542,
+      "text": "          NEEDS_HUMAN_REASON: ${{ steps.extract-verdict.outputs.needs_human_reason }}"
+    },
+    {
+      "path": ".github/workflows/agents-verify-to-new-pr.yml",
+      "line": 561,
+      "text": "              'The deterministic verdict policy flagged this PR for ' +"
+    },
+    {
+      "path": ".github/workflows/agents-verify-to-new-pr.yml",
+      "line": 562,
+      "text": "                'human review due to a split verdict with low-confidence ' +"
+    },
+    {
+      "path": ".github/workflows/agents-verify-to-new-pr.yml",
+      "line": 609,
+      "text": "          steps.extract-verdict.outputs.needs_human != 'true'"
+    },
+    {
+      "path": ".github/workflows/agents-verify-to-new-pr.yml",
+      "line": 658,
+      "text": "          steps.extract-verdict.outputs.needs_human != 'true'"
+    },
+    {
+      "path": ".github/workflows/agents-verify-to-new-pr.yml",
+      "line": 662,
+      "text": "          EXTRACTED_VERDICT: ${{ steps.extract-verdict.outputs.verdict }}"
+    },
+    {
+      "path": ".github/workflows/agents-verify-to-new-pr.yml",
+      "line": 682,
+      "text": "            // Format 1: ### Concerns heading (verify:evaluate)"
+    },
+    {
+      "path": ".github/workflows/agents-verify-to-new-pr.yml",
+      "line": 733,
+      "text": "            // --- Extract verdict ---"
+    },
+    {
+      "path": ".github/workflows/agents-verify-to-new-pr.yml",
+      "line": 734,
+      "text": "            // Prefer the deterministic extraction from verdict_policy.py"
+    },
+    {
+      "path": ".github/workflows/agents-verify-to-new-pr.yml",
+      "line": 735,
+      "text": "            let verdict = process.env.EXTRACTED_VERDICT || '';"
+    },
+    {
+      "path": ".github/workflows/agents-verify-to-new-pr.yml",
+      "line": 739,
+      "text": "            if (!verdict || verdict === 'Unknown') {"
+    },
+    {
+      "path": ".github/workflows/agents-verify-to-new-pr.yml",
+      "line": 744,
+      "text": "                verdict = tableMatch[1].toUpperCase();"
+    },
+    {
+      "path": ".github/workflows/agents-verify-to-new-pr.yml",
+      "line": 748,
+      "text": "            if (!verdict || verdict === 'Unknown') {"
+    },
+    {
+      "path": ".github/workflows/agents-verify-to-new-pr.yml",
+      "line": 752,
+      "text": "              if (boldMatch) verdict = boldMatch[1];"
+    },
+    {
+      "path": ".github/workflows/agents-verify-to-new-pr.yml",
+      "line": 756,
+      "text": "            if (verdict === 'Unknown') {"
+    },
+    {
+      "path": ".github/workflows/agents-verify-to-new-pr.yml",
+      "line": 760,
+      "text": "              if (plainMatch) verdict = plainMatch[1];"
+    },
+    {
+      "path": ".github/workflows/agents-verify-to-new-pr.yml",
+      "line": 790,
+      "text": "              `PR #${prNumber} was verified with verdict **${verdict}**. ` +"
+    },
+    {
+      "path": ".github/workflows/agents-verify-to-new-pr.yml",
+      "line": 831,
+      "text": "          steps.extract-verdict.outputs.needs_human != 'true'"
+    },
+    {
+      "path": ".github/workflows/agents-verify-to-new-pr.yml",
+      "line": 942,
+      "text": "          steps.extract-verdict.outputs.needs_human != 'true' &&"
+    },
+    {
+      "path": ".github/workflows/agents-verify-to-new-pr.yml",
+      "line": 981,
+      "text": "          steps.extract-verdict.outputs.needs_human != 'true'"
+    },
+    {
+      "path": ".github/workflows/agents-verify-to-new-pr.yml",
+      "line": 1032,
+      "text": "          NEEDS_HUMAN: ${{ steps.extract-verdict.outputs.needs_human }}"
+    },
+    {
+      "path": ".github/workflows/agents-verify-to-new-pr.yml",
+      "line": 1033,
+      "text": "          NEEDS_HUMAN_REASON: ${{ steps.extract-verdict.outputs.needs_human_reason }}"
+    },
+    {
+      "path": ".github/workflows/agents-verify-to-new-pr.yml",
+      "line": 1034,
+      "text": "          VERDICT: ${{ steps.extract-verdict.outputs.verdict }}"
+    },
+    {
+      "path": ".github/workflows/agents-verify-to-new-pr.yml",
+      "line": 1070,
+      "text": "                'Verifier output was partial or missing a terminal verdict.';"
+    },
+    {
+      "path": ".github/workflows/agents-verify-to-new-pr.yml",
+      "line": 1083,
+      "text": "              disposition = 'needs-human-verdict-policy';"
+    },
+    {
+      "path": ".github/workflows/agents-verify-to-new-pr.yml",
+      "line": 1087,
+      "text": "              policyTrigger = 'verdict-policy';"
+    },
+    {
+      "path": ".github/workflows/agents-verify-to-new-pr.yml",
+      "line": 1120,
+      "text": "              verdict: process.env.VERDICT || undefined,"
+    },
+    {
+      "path": ".github/workflows/agents-verify-to-new-pr.yml",
+      "line": 1151,
+      "text": "              verdict: process.env.VERDICT || undefined,"
+    },
+    {
+      "path": ".github/scripts/terminal_disposition.js",
+      "line": 102,
+      "text": "  const verdict = cleanString(input.verdict).toLowerCase();"
+    },
+    {
+      "path": ".github/scripts/terminal_disposition.js",
+      "line": 107,
+      "text": "  if (['pass', 'passed'].includes(verdict)) return 'merge';"
+    },
+    {
+      "path": ".github/scripts/terminal_disposition.js",
+      "line": 108,
+      "text": "  if (['fail', 'failed', 'concerns', 'error'].includes(verdict)) return 'needs-human';"
+    },
+    {
+      "path": ".github/scripts/terminal_disposition.js",
+      "line": 228,
+      "text": "    verdict: input.verdict,"
+    },
+    {
+      "path": ".github/scripts/terminal_disposition.js",
+      "line": 277,
+      "text": "    verdict: cleanString(input.verdict) || 'unknown',"
+    },
+    {
+      "path": ".github/scripts/sync_dependency_campaign.js",
+      "line": 621,
+      "text": "    let verdict = 'planned';"
+    },
+    {
+      "path": ".github/scripts/sync_dependency_campaign.js",
+      "line": 624,
+      "text": "        verdict = `skipped:class=${continuation.class || 'missing'}:${continuation.reason || 'unknown'}`;"
+    },
+    {
+      "path": ".github/scripts/sync_dependency_campaign.js",
+      "line": 626,
+      "text": "        verdict = `skipped:unsupported-lane:${continuation.lane || 'missing'}`;"
+    },
+    {
+      "path": ".github/scripts/sync_dependency_campaign.js",
+      "line": 629,
+      "text": "        verdict = Number.isFinite(dueMs) && dueMs > Date.parse(now)"
+    },
+    {
+      "path": ".github/scripts/sync_dependency_campaign.js",
+      "line": 640,
+      "text": "      verdict,"
+    },
+    {
+      "path": ".github/scripts/sync_dependency_campaign.js",
+      "line": 2058,
+      "text": "          `status=${summaryValue(row.status)}; planner=${summaryValue(row.verdict)}`,"
+    },
+    {
+      "path": "scripts/langchain/verifier_config.py",
+      "line": 36,
+      "text": "    \"needs-human-verdict-policy\","
+    },
+    {
+      "path": "scripts/langchain/verifier_config.py",
+      "line": 95,
+      "text": "def is_terminal_artifact(verifier_run: Any) -> bool:"
+    },
+    {
+      "path": "scripts/langchain/verifier_config.py",
+      "line": 102,
+      "text": "        return bool(data) and all(is_terminal_artifact(item) for item in data)"
+    },
+    {
+      "path": "scripts/langchain/verifier_config.py",
+      "line": 109,
+      "text": "    verdict = _normalize(data.get(\"verdict\"))"
+    },
+    {
+      "path": "scripts/langchain/verifier_config.py",
+      "line": 110,
+      "text": "    if verdict in _TERMINAL_VERDICTS:"
+    },
+    {
+      "path": "scripts/langchain/verifier_config.py",
+      "line": 114,
+      "text": "    if disposition in _TERMINAL_DISPOSITIONS and not _requires_verdict(data):"
+    },
+    {
+      "path": "scripts/langchain/verifier_config.py",
+      "line": 120,
+      "text": "        return bool(usable) and all(is_terminal_artifact(item) for item in usable)"
+    },
+    {
+      "path": "scripts/langchain/verifier_config.py",
+      "line": 124,
+      "text": "        return is_terminal_artifact(payload)"
+    },
+    {
+      "path": "scripts/langchain/verifier_config.py",
+      "line": 129,
+      "text": "def artifact_from_verification_text(text: str) -> dict[str, Any]:"
+    },
+    {
+      "path": "scripts/langchain/verifier_config.py",
+      "line": 143,
+      "text": "    verdicts = _extract_verdicts(raw)"
+    },
+    {
+      "path": "scripts/langchain/verifier_config.py",
+      "line": 144,
+      "text": "    if verdicts:"
+    },
+    {
+      "path": "scripts/langchain/verifier_config.py",
+      "line": 146,
+      "text": "        artifact[\"verdict\"] = max(verdicts, key=lambda verdict: severity.get(verdict, -1))"
+    },
+    {
+      "path": "scripts/langchain/verifier_config.py",
+      "line": 163,
+      "text": "    if \"## pr verification\" in lowered or \"verdict:\" in lowered:"
+    },
+    {
+      "path": "scripts/langchain/verifier_config.py",
+      "line": 199,
+      "text": "def _extract_verdicts(text: str) -> list[str]:"
+    },
+    {
+      "path": "scripts/langchain/verifier_config.py",
+      "line": 200,
+      "text": "    verdicts: list[str] = []"
+    },
+    {
+      "path": "scripts/langchain/verifier_config.py",
+      "line": 202,
+      "text": "        r\"verdict:\\s*\\*?\\*?\\s*(pass|concerns|fail|error|unverifiable_input)\\b\", text, re.I"
+    },
+    {
+      "path": "scripts/langchain/verifier_config.py",
+      "line": 204,
+      "text": "        verdicts.append(match.group(1).upper())"
+    },
+    {
+      "path": "scripts/langchain/verifier_config.py",
+      "line": 211,
+      "text": "        verdicts.append(match.group(1).upper())"
+    },
+    {
+      "path": "scripts/langchain/verifier_config.py",
+      "line": 214,
+      "text": "    for verdict in verdicts:"
+    },
+    {
+      "path": "scripts/langchain/verifier_config.py",
+      "line": 215,
+      "text": "        if verdict not in seen:"
+    },
+    {
+      "path": "scripts/langchain/verifier_config.py",
+      "line": 216,
+      "text": "            seen.append(verdict)"
+    },
+    {
+      "path": "scripts/langchain/verifier_config.py",
+      "line": 245,
+      "text": "def _requires_verdict(data: dict[str, Any]) -> bool:"
+    },
+    {
+      "path": "scripts/langchain/verifier_config.py",
+      "line": 247,
+      "text": "    return disposition in {\"follow-up-created\", \"verifier-non-pass\"} and not data.get(\"verdict\")"
+    },
+    {
+      "path": ".github/scripts/verifier_closure.js",
+      "line": 10,
+      "text": "function closureDecision({ verdict, mergeSha, plan, result, ci, currentBody }) {"
+    },
+    {
+      "path": ".github/scripts/verifier_closure.js",
+      "line": 19,
+      "text": "  if (verdict === 'PASS') {"
+    },
+    {
+      "path": ".github/scripts/verifier_closure.js",
+      "line": 24,
+      "text": "  if (verdict !== 'UNVERIFIABLE_INPUT') return refuse(`verdict-${verdict}`);"
+    },
+    {
+      "path": ".github/scripts/verifier_closure.js",
+      "line": 51,
+      "text": "async function closeVerifiedSources({ github, context, core, verdict, mergeSha, prNumber, plans, results, ci }) {"
+    },
+    {
+      "path": ".github/scripts/verifier_closure.js",
+      "line": 78,
+      "text": "    const { rule, reason, gate_source: gateSource } = closureDecision({ verdict, mergeSha, plan,"
+    },
+    {
+      "path": ".github/scripts/verifier_closure.js",
+      "line": 85,
+      "text": "      body: `Verification closure rule: **${rule}**. PR #${prNumber}, merge commit \\`${mergeSha}\\`, verdict **${verdict}**. `"
+    },
+    {
+      "path": ".github/scripts/verifier_closure.js",
+      "line": 86,
+      "text": "        + (verdict === 'PASS' ? 'The verifier and every configured merge CI workflow passed.'"
+    },
+    {
+      "path": ".github/scripts/verifier_closure.js",
+      "line": 87,
+      "text": "          : `Deterministic gate passed (gate_source=${gateSource}) on this merge commit and every configured CI workflow is green. The provider verdict remains UNVERIFIABLE_INPUT.`) });"
+    },
+    {
+      "path": ".github/scripts/maint71_finding_verification.js",
+      "line": 37,
+      "text": "    || result.verdict !== 'PASS' || result.status !== 'completed'"
+    },
+    {
+      "path": ".github/scripts/maint71_finding_verification.js",
+      "line": 207,
+      "text": "  const verdicts = lines.filter((line) => /^(?:ACCEPT|REJECT)$/.test(line));"
+    },
+    {
+      "path": ".github/scripts/maint71_finding_verification.js",
+      "line": 215,
+      "text": "    || !configured.logins.includes(comment?.user?.login) || !taskAuthor || verdicts.length !== 1"
+    },
+    {
+      "path": ".github/scripts/keepalive_loop.js",
+      "line": 3467,
+      "text": "    // interest that led to false PASS verdicts in PR #228."
+    },
+    {
+      "path": ".github/scripts/keepalive_loop.js",
+      "line": 6161,
+      "text": " * its own work produced false PASS verdicts (PR #228). Resolution order:"
+    },
+    {
+      "path": "templates/consumer-repo/.github/workflows/agents-80-pr-event-hub.yml",
+      "line": 396,
+      "text": "                'Add verify:evaluate or verify:compare label first.'"
+    },
+    {
+      "path": ".github/workflows/agents-auto-pilot.yml",
+      "line": 405,
+      "text": "            const hasVerify = labels.includes('verify:evaluate');"
+    },
+    {
+      "path": ".github/workflows/agents-auto-pilot.yml",
+      "line": 2351,
+      "text": "            Adding \\`verify:evaluate\\` label to issue for tracking.`"
+    },
+    {
+      "path": ".github/workflows/agents-auto-pilot.yml",
+      "line": 2358,
+      "text": "                labels: ['verify:evaluate']"
+    },
+    {
+      "path": ".github/workflows/agents-auto-pilot.yml",
+      "line": 2369,
+      "text": "              'Adding `verify:evaluate` label to PR.'"
+    },
+    {
+      "path": ".github/workflows/agents-auto-pilot.yml",
+      "line": 2384,
+      "text": "              labels: ['verify:evaluate']"
+    },
+    {
+      "path": ".github/workflows/agents-auto-pilot.yml",
+      "line": 2392,
+      "text": "              labels: ['verify:evaluate']"
+    },
+    {
+      "path": ".github/scripts/agents-guard-fork-status-publication.js",
+      "line": 205,
+      "text": "    return { state: 'success', description: evaluated ? 'Trusted Agents Guard completed successfully' : 'Trusted Agents Guard was ineligible; preserving any existing verdict', evaluated };"
+    },
+    {
+      "path": ".github/scripts/agents-guard-fork-status-publication.js",
+      "line": 428,
+      "text": "    core.info('Same-repository reconciliation preserves the current exact-head verdict.');"
+    },
+    {
+      "path": ".github/scripts/agents-guard-fork-status-publication.js",
+      "line": 441,
+      "text": "    core.info('Current direct guard verdict supersedes old fork result.');"
+    },
+    {
+      "path": ".github/scripts/agents-guard-fork-status-publication.js",
+      "line": 442,
+      "text": "    return { state: 'skipped', description: 'Current direct guard verdict preserved' };"
+    },
+    {
+      "path": ".github/scripts/agents-guard-fork-status-publication.js",
+      "line": 505,
+      "text": "        // A fork no-op preserves a current terminal verdict. Current success was"
+    },
+    {
+      "path": ".github/scripts/agents-guard-fork-status-publication.js",
+      "line": 507,
+      "text": "        core.info('Fork no-op preserves existing exact-head guard verdict.');"
+    },
+    {
+      "path": "templates/consumer-repo/.github/workflows/agents-verify-to-new-pr.yml",
+      "line": 192,
+      "text": "                'Add verify:evaluate or verify:compare label first.'"
+    },
+    {
+      "path": "templates/consumer-repo/.github/workflows/agents-verify-to-new-pr.yml",
+      "line": 306,
+      "text": "              artifact_from_verification_text,"
+    },
+    {
+      "path": "templates/consumer-repo/.github/workflows/agents-verify-to-new-pr.yml",
+      "line": 307,
+      "text": "              is_terminal_artifact,"
+    },
+    {
+      "path": "templates/consumer-repo/.github/workflows/agents-verify-to-new-pr.yml",
+      "line": 316,
+      "text": "          artifact = artifact_from_verification_text(raw)"
+    },
+    {
+      "path": "templates/consumer-repo/.github/workflows/agents-verify-to-new-pr.yml",
+      "line": 317,
+      "text": "          terminal = is_terminal_artifact(artifact)"
+    },
+    {
+      "path": "templates/consumer-repo/.github/workflows/agents-verify-to-new-pr.yml",
+      "line": 318,
+      "text": "          verdict = str(artifact.get(\"verdict\") or \"\")"
+    },
+    {
+      "path": "templates/consumer-repo/.github/workflows/agents-verify-to-new-pr.yml",
+      "line": 322,
+      "text": "              else \"verifier output is partial or missing a terminal verdict\""
+    },
+    {
+      "path": "templates/consumer-repo/.github/workflows/agents-verify-to-new-pr.yml",
+      "line": 327,
+      "text": "              handle.write(f\"verdict={verdict}\\n\")"
+    },
+    {
+      "path": "templates/consumer-repo/.github/workflows/agents-verify-to-new-pr.yml",
+      "line": 333,
+      "text": "              if verdict:"
+    },
+    {
+      "path": "templates/consumer-repo/.github/workflows/agents-verify-to-new-pr.yml",
+      "line": 334,
+      "text": "                  handle.write(f\"- Verdict: `{verdict}`\\n\")"
+    },
+    {
+      "path": "templates/consumer-repo/.github/workflows/agents-verify-to-new-pr.yml",
+      "line": 360,
+      "text": "              'Verifier output is partial or missing a terminal verdict.';"
+    },
+    {
+      "path": "templates/consumer-repo/.github/workflows/agents-verify-to-new-pr.yml",
+      "line": 517,
+      "text": "      - name: Extract verdict via verdict_policy"
+    },
+    {
+      "path": "templates/consumer-repo/.github/workflows/agents-verify-to-new-pr.yml",
+      "line": 518,
+      "text": "        id: extract-verdict"
+    },
+    {
+      "path": "templates/consumer-repo/.github/workflows/agents-verify-to-new-pr.yml",
+      "line": 527,
+      "text": "          python -m scripts.langchain.verdict_extract \\"
+    },
+    {
+      "path": "templates/consumer-repo/.github/workflows/agents-verify-to-new-pr.yml",
+      "line": 532,
+      "text": "      - name: Apply needs-human from verdict policy"
+    },
+    {
+      "path": "templates/consumer-repo/.github/workflows/agents-verify-to-new-pr.yml",
+      "line": 533,
+      "text": "        id: verdict-needs-human"
+    },
+    {
+      "path": "templates/consumer-repo/.github/workflows/agents-verify-to-new-pr.yml",
+      "line": 538,
+      "text": "          steps.extract-verdict.outputs.needs_human == 'true'"
+    },
+    {
+      "path": "templates/consumer-repo/.github/workflows/agents-verify-to-new-pr.yml",
+      "line": 542,
+      "text": "          NEEDS_HUMAN_REASON: ${{ steps.extract-verdict.outputs.needs_human_reason }}"
+    },
+    {
+      "path": "templates/consumer-repo/.github/workflows/agents-verify-to-new-pr.yml",
+      "line": 561,
+      "text": "              'The deterministic verdict policy flagged this PR for ' +"
+    },
+    {
+      "path": "templates/consumer-repo/.github/workflows/agents-verify-to-new-pr.yml",
+      "line": 562,
+      "text": "                'human review due to a split verdict with low-confidence ' +"
+    },
+    {
+      "path": "templates/consumer-repo/.github/workflows/agents-verify-to-new-pr.yml",
+      "line": 609,
+      "text": "          steps.extract-verdict.outputs.needs_human != 'true'"
+    },
+    {
+      "path": "templates/consumer-repo/.github/workflows/agents-verify-to-new-pr.yml",
+      "line": 658,
+      "text": "          steps.extract-verdict.outputs.needs_human != 'true'"
+    },
+    {
+      "path": "templates/consumer-repo/.github/workflows/agents-verify-to-new-pr.yml",
+      "line": 662,
+      "text": "          EXTRACTED_VERDICT: ${{ steps.extract-verdict.outputs.verdict }}"
+    },
+    {
+      "path": "templates/consumer-repo/.github/workflows/agents-verify-to-new-pr.yml",
+      "line": 682,
+      "text": "            // Format 1: ### Concerns heading (verify:evaluate)"
+    },
+    {
+      "path": "templates/consumer-repo/.github/workflows/agents-verify-to-new-pr.yml",
+      "line": 733,
+      "text": "            // --- Extract verdict ---"
+    },
+    {
+      "path": "templates/consumer-repo/.github/workflows/agents-verify-to-new-pr.yml",
+      "line": 734,
+      "text": "            // Prefer the deterministic extraction from verdict_policy.py"
+    },
+    {
+      "path": "templates/consumer-repo/.github/workflows/agents-verify-to-new-pr.yml",
+      "line": 735,
+      "text": "            let verdict = process.env.EXTRACTED_VERDICT || '';"
+    },
+    {
+      "path": "templates/consumer-repo/.github/workflows/agents-verify-to-new-pr.yml",
+      "line": 739,
+      "text": "            if (!verdict || verdict === 'Unknown') {"
+    },
+    {
+      "path": "templates/consumer-repo/.github/workflows/agents-verify-to-new-pr.yml",
+      "line": 744,
+      "text": "                verdict = tableMatch[1].toUpperCase();"
+    },
+    {
+      "path": "templates/consumer-repo/.github/workflows/agents-verify-to-new-pr.yml",
+      "line": 748,
+      "text": "            if (!verdict || verdict === 'Unknown') {"
+    },
+    {
+      "path": "templates/consumer-repo/.github/workflows/agents-verify-to-new-pr.yml",
+      "line": 752,
+      "text": "              if (boldMatch) verdict = boldMatch[1];"
+    },
+    {
+      "path": "templates/consumer-repo/.github/workflows/agents-verify-to-new-pr.yml",
+      "line": 756,
+      "text": "            if (verdict === 'Unknown') {"
+    },
+    {
+      "path": "templates/consumer-repo/.github/workflows/agents-verify-to-new-pr.yml",
+      "line": 760,
+      "text": "              if (plainMatch) verdict = plainMatch[1];"
+    },
+    {
+      "path": "templates/consumer-repo/.github/workflows/agents-verify-to-new-pr.yml",
+      "line": 790,
+      "text": "              `PR #${prNumber} was verified with verdict **${verdict}**. ` +"
+    },
+    {
+      "path": "templates/consumer-repo/.github/workflows/agents-verify-to-new-pr.yml",
+      "line": 831,
+      "text": "          steps.extract-verdict.outputs.needs_human != 'true'"
+    },
+    {
+      "path": "templates/consumer-repo/.github/workflows/agents-verify-to-new-pr.yml",
+      "line": 942,
+      "text": "          steps.extract-verdict.outputs.needs_human != 'true' &&"
+    },
+    {
+      "path": "templates/consumer-repo/.github/workflows/agents-verify-to-new-pr.yml",
+      "line": 981,
+      "text": "          steps.extract-verdict.outputs.needs_human != 'true'"
+    },
+    {
+      "path": "templates/consumer-repo/.github/workflows/agents-verify-to-new-pr.yml",
+      "line": 1032,
+      "text": "          NEEDS_HUMAN: ${{ steps.extract-verdict.outputs.needs_human }}"
+    },
+    {
+      "path": "templates/consumer-repo/.github/workflows/agents-verify-to-new-pr.yml",
+      "line": 1033,
+      "text": "          NEEDS_HUMAN_REASON: ${{ steps.extract-verdict.outputs.needs_human_reason }}"
+    },
+    {
+      "path": "templates/consumer-repo/.github/workflows/agents-verify-to-new-pr.yml",
+      "line": 1034,
+      "text": "          VERDICT: ${{ steps.extract-verdict.outputs.verdict }}"
+    },
+    {
+      "path": "templates/consumer-repo/.github/workflows/agents-verify-to-new-pr.yml",
+      "line": 1070,
+      "text": "                'Verifier output was partial or missing a terminal verdict.';"
+    },
+    {
+      "path": "templates/consumer-repo/.github/workflows/agents-verify-to-new-pr.yml",
+      "line": 1083,
+      "text": "              disposition = 'needs-human-verdict-policy';"
+    },
+    {
+      "path": "templates/consumer-repo/.github/workflows/agents-verify-to-new-pr.yml",
+      "line": 1087,
+      "text": "              policyTrigger = 'verdict-policy';"
+    },
+    {
+      "path": "templates/consumer-repo/.github/workflows/agents-verify-to-new-pr.yml",
+      "line": 1120,
+      "text": "              verdict: process.env.VERDICT || undefined,"
+    },
+    {
+      "path": "templates/consumer-repo/.github/workflows/agents-verify-to-new-pr.yml",
+      "line": 1151,
+      "text": "              verdict: process.env.VERDICT || undefined,"
+    },
+    {
+      "path": ".github/workflows/pr-00-gate.yml",
+      "line": 1298,
+      "text": "            // turned a green fork PR green. The verdict still has to reach a human, so"
+    },
+    {
+      "path": ".github/workflows/pr-00-gate.yml",
+      "line": 1435,
+      "text": "              // integration'. Rethrowing failed this job AFTER the verdict was already"
+    },
+    {
+      "path": ".github/workflows/pr-00-gate.yml",
+      "line": 1437,
+      "text": "              // verdict was printed nowhere. Tolerate it only for a fork head; a 403 on"
+    },
+    {
+      "path": ".github/workflows/pr-00-gate.yml",
+      "line": 1456,
+      "text": "                    `written (${error.message}). Gate verdict for ${sha} is ` +"
+    },
+    {
+      "path": ".github/workflows/pr-00-gate.yml",
+      "line": 1460,
+      "text": "                  .addHeading('Gate verdict (fork pull request)', 3)"
+    },
+    {
+      "path": ".github/workflows/pr-00-gate.yml",
+      "line": 1464,
+      "text": "                      `read-only token. Gate verdict: **${state}** \\u2014 ${description}`,"
+    },
+    {
+      "path": ".github/scripts/verifier_issue_formatter.js",
+      "line": 144,
+      "text": " * @param {string} [options.verdict] - Verifier verdict (pass/fail)"
+    },
+    {
+      "path": ".github/scripts/verifier_issue_formatter.js",
+      "line": 148,
+      "text": "function formatSourceSection({ prNumber, prUrl, issueNumbers, verdict, runUrl }) {"
+    },
+    {
+      "path": ".github/scripts/verifier_issue_formatter.js",
+      "line": 161,
+      "text": "  if (verdict) {"
+    },
+    {
+      "path": ".github/scripts/verifier_issue_formatter.js",
+      "line": 162,
+      "text": "    lines.push(`- Verifier verdict: ${verdict.toUpperCase()}`);"
+    },
+    {
+      "path": ".github/scripts/verifier_issue_formatter.js",
+      "line": 185,
+      "text": "    verdict: 'unknown',"
+    },
+    {
+      "path": ".github/scripts/verifier_issue_formatter.js",
+      "line": 192,
+      "text": "  // Extract verdict"
+    },
+    {
+      "path": ".github/scripts/verifier_issue_formatter.js",
+      "line": 193,
+      "text": "  const verdictMatch = output.match(/verdict:\\s*(pass|fail)/i);"
+    },
+    {
+      "path": ".github/scripts/verifier_issue_formatter.js",
+      "line": 194,
+      "text": "  if (verdictMatch) {"
+    },
+    {
+      "path": ".github/scripts/verifier_issue_formatter.js",
+      "line": 195,
+      "text": "    findings.verdict = verdictMatch[1].toLowerCase();"
+    },
+    {
+      "path": ".github/scripts/verifier_issue_formatter.js",
+      "line": 259,
+      "text": "  // Build summary from the first paragraph after verdict"
+    },
+    {
+      "path": ".github/scripts/verifier_issue_formatter.js",
+      "line": 260,
+      "text": "  const afterVerdict = output.split(/verdict:\\s*(pass|fail)/i)[2] || '';"
+    },
+    {
+      "path": ".github/scripts/verifier_issue_formatter.js",
+      "line": 579,
+      "text": "    verdict: findings.verdict,"
+    },
+    {
+      "path": ".github/scripts/verifier_issue_formatter.js",
+      "line": 680,
+      "text": "    verdict: findings.verdict,"
+    },
+    {
+      "path": ".github/scripts/auto_pilot_transitions.js",
+      "line": 43,
+      "text": "    'closed issues require verify:evaluate before done',"
+    },
+    {
+      "path": "templates/consumer-repo/.github/workflows/agents-auto-pilot.yml",
+      "line": 405,
+      "text": "            const hasVerify = labels.includes('verify:evaluate');"
+    },
+    {
+      "path": "templates/consumer-repo/.github/workflows/agents-auto-pilot.yml",
+      "line": 2351,
+      "text": "            Adding \\`verify:evaluate\\` label to issue for tracking.`"
+    },
+    {
+      "path": "templates/consumer-repo/.github/workflows/agents-auto-pilot.yml",
+      "line": 2358,
+      "text": "                labels: ['verify:evaluate']"
+    },
+    {
+      "path": "templates/consumer-repo/.github/workflows/agents-auto-pilot.yml",
+      "line": 2369,
+      "text": "              'Adding `verify:evaluate` label to PR.'"
+    },
+    {
+      "path": "templates/consumer-repo/.github/workflows/agents-auto-pilot.yml",
+      "line": 2384,
+      "text": "              labels: ['verify:evaluate']"
+    },
+    {
+      "path": "templates/consumer-repo/.github/workflows/agents-auto-pilot.yml",
+      "line": 2392,
+      "text": "              labels: ['verify:evaluate']"
+    },
+    {
+      "path": "templates/consumer-repo/.github/workflows/pr-00-gate.yml",
+      "line": 1257,
+      "text": "            // turned a green fork PR green. The verdict still has to reach a human, so"
+    },
+    {
+      "path": "templates/consumer-repo/.github/workflows/pr-00-gate.yml",
+      "line": 1384,
+      "text": "              // integration'. Rethrowing failed this job AFTER the verdict was already"
+    },
+    {
+      "path": "templates/consumer-repo/.github/workflows/pr-00-gate.yml",
+      "line": 1386,
+      "text": "              // verdict was printed nowhere. Tolerate it only for a fork head; a 403 on"
+    },
+    {
+      "path": "templates/consumer-repo/.github/workflows/pr-00-gate.yml",
+      "line": 1405,
+      "text": "                    `written (${error.message}). Gate verdict for ${sha} is ` +"
+    },
+    {
+      "path": "templates/consumer-repo/.github/workflows/pr-00-gate.yml",
+      "line": 1409,
+      "text": "                  .addHeading('Gate verdict (fork pull request)', 3)"
+    },
+    {
+      "path": "templates/consumer-repo/.github/workflows/pr-00-gate.yml",
+      "line": 1413,
+      "text": "                      `read-only token. Gate verdict: **${state}** \\u2014 ${description}`,"
+    }
+  ]
+}
