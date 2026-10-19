@@ -1989,3 +1989,96 @@ def test_synthesize_converged_builds_a_compatible_meta_candidate(tmp_path: Path)
 
     assert payload["meta_candidate"]["title"] == "Audit seam"
     assert payload["meta_candidate"]["design_refs"] == ["docs/design.md"]
+
+
+def test_round2_input_receipts_fail_closed_for_nonobject_and_unreadable_inputs(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Receipt reuse rejects malformed data instead of trusting a stale agent turn.
+
+    Removing the ``isinstance(saved, dict)`` guard makes the first assertion
+    fail with an attribute error rather than the explicit fail-closed result.
+    """
+    output = tmp_path / "turn.json"
+    output.write_text("{}")
+    manifest = runner.round2_input_manifest_path(output)
+    manifest.parent.mkdir(parents=True, exist_ok=True)
+    manifest.write_text("[]")
+    reusable, error = runner.reusable_turn_output(out_path=output, expected_manifest={})
+    assert not reusable
+    assert error == "input manifest must be an object"
+
+    findings = tmp_path / "findings.json"
+    findings.write_text("{}")
+    findings.with_name("findings.provenance.json").write_text(
+        json.dumps(
+            {
+                "schema": "repo-review-round1-provenance/v1",
+                "repo": "owner/repo",
+                "agent": "codex",
+                "source_commit": "abc",
+            }
+        )
+    )
+    monkeypatch.setattr(
+        runner, "_sha256_file", lambda _path: (_ for _ in ()).throw(OSError("gone"))
+    )
+    payload, error = runner.round2_input_manifest(
+        repo="owner/repo", turn=1, agent="codex", round1_paths={"codex": findings}
+    )
+    assert payload is None
+    assert "cannot read codex findings input" in error
+
+
+def test_capacity_deferral_records_fail_closed_evidence_write_errors(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Capacity pauses are auditable; a missing receipt must not sleep or retry."""
+    log = tmp_path / "claude.log"
+    log.write_text("capacity evidence")
+    reset = runner.datetime(2026, 10, 18, 12, tzinfo=runner.UTC)
+    now = runner.datetime(2026, 10, 18, 11, tzinfo=runner.UTC)
+
+    monkeypatch.setattr(
+        runner.shutil, "copy2", lambda *_args: (_ for _ in ()).throw(OSError("copy denied"))
+    )
+    ok, error = runner.defer_for_claude_capacity(log, reset, now=now)
+    assert not ok
+    assert "cannot preserve Claude capacity evidence" in error
+
+    monkeypatch.setattr(runner.shutil, "copy2", runner.shutil.copyfile)
+    wait_file = runner.capacity_wait_path(log)
+    monkeypatch.setattr(runner, "capacity_wait_path", lambda _path: wait_file)
+    monkeypatch.setattr(runner, "provider_capacity_wait_max_seconds", lambda: 7200)
+    monkeypatch.setattr(
+        Path,
+        "write_text",
+        lambda self, *_args, **_kwargs: (_ for _ in ()).throw(OSError("write denied")),
+    )
+    ok, error = runner.defer_for_claude_capacity(log, reset, now=now)
+    assert not ok
+    assert "cannot record Claude capacity deferral" in error
+
+
+def test_meta_helpers_ignore_malformed_records_and_preserve_deadlock_reason() -> None:
+    """Only structured agent proposals participate in a negotiated meta result."""
+    proposals = runner.meta_proposals(
+        [
+            {"agent": "codex", "turn": 1, "meta_candidate_proposal": "bad"},
+            {"agent": "codex", "turn": 2, "meta_candidate_proposal": {"proposed": True}},
+            {"agent": "claude", "turn": 1, "meta_candidate_proposal": {"proposed": False}},
+        ]
+    )
+    assert proposals["codex"]["__turn"] == 2
+    assert runner.supporting_set(
+        {
+            "supporting_candidate_indexes": [
+                {"agent": "codex", "candidate_index": 1},
+                "bad",
+                {"agent": "", "candidate_index": 2},
+            ]
+        }
+    ) == {("codex", 1)}
+    meta, status = runner.converge_meta(proposals, {"codex", "claude"})
+    assert status == "deadlocked"
+    assert meta is not None and meta["__rejected_by"] == ["claude"]
