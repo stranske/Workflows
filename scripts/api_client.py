@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import importlib
+import json
 import time
+import urllib.request
 from collections.abc import Callable, Mapping
 from typing import Any, Protocol, cast
 from urllib.parse import urlencode
@@ -11,6 +13,36 @@ DEFAULT_TIMEOUT = 30
 DEFAULT_RETRY_ATTEMPTS = 3
 DEFAULT_RETRY_BACKOFF = 1.0
 RETRY_STATUS_CODES = {429, 500, 502, 503, 504}
+
+
+def request_json_once(
+    method: str,
+    path: str,
+    token: str,
+    payload: Mapping[str, Any] | None = None,
+    *,
+    opener: Any = None,
+) -> Any:
+    """One native attempt with original HTTP status, for conditional state writes.
+
+    The caller owns its operation allowlist and unknown-outcome reconciliation.
+    Retrying a conditional write here could hide a landed write from that owner.
+    """
+    if not path.startswith("/") or path.startswith("//") or "://" in path:
+        raise ValueError("GitHub request requires a relative API path")
+    request = urllib.request.Request(
+        GITHUB_API + path,
+        data=json.dumps(payload).encode() if payload is not None else None,
+        method=method,
+        headers={
+            "Authorization": f"Bearer {token}",
+            "Accept": "application/vnd.github+json",
+            "Content-Type": "application/json",
+            "X-GitHub-Api-Version": "2022-11-28",
+        },
+    )
+    with (opener or urllib.request.urlopen)(request, timeout=DEFAULT_TIMEOUT) as response:
+        return json.load(response)
 
 
 class _Response(Protocol):

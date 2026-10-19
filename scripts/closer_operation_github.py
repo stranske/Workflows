@@ -18,6 +18,7 @@ import urllib.request
 from collections.abc import Callable, Mapping
 from typing import Any
 
+from scripts import api_client
 from scripts.closer_runtime import (
     CONTRACT,
     KEY_RE,
@@ -108,24 +109,7 @@ class NativeGitHubTransport:
             raise PolicyDenied("unsupported native API operation")
         if not self.token:
             raise PolicyDenied("native transport requires an independently supplied GitHub token")
-        request = urllib.request.Request(
-            "https://api.github.com" + path,
-            data=json.dumps(body).encode() if body is not None else None,
-            method=method,
-            headers={
-                "Authorization": f"Bearer {self.token}",
-                "Accept": "application/vnd.github+json",
-                "Content-Type": "application/json",
-                "X-GitHub-Api-Version": "2022-11-28",
-            },
-        )
-        try:
-            with self.opener(request, timeout=30) as response:
-                result = json.load(response)
-        except urllib.error.HTTPError:
-            # Keep native status for branch/content CAS classification.
-            raise
-        return result
+        return api_client.request_json_once(method, path, self.token, body, opener=self.opener)
 
 
 def contents_api_path(repository: str, store_key: str) -> str:
