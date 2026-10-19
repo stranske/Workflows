@@ -7,10 +7,11 @@ the fix, fail when the fix is disconnected, then restores both files
 byte-for-byte. Permanent audit PR content stays under docs/reports/ only.
 
 Post-#4129 main already binds via ``\\n\\n---\\n\\n`` separators, but concatenated
-report headings without that separator still inherit a historical PASS. The
-Scope change below selects the last verifier report heading so the named
-regression can pass; disconnecting restores first-heading / full-span
-selection and the regression must fail.
+report headings without that separator still inherit a historical PASS. Unit
+tests ``test_current_main_*`` pin that residual against live main without
+mutating production files. The temporary Scope change below selects the last
+verifier report heading so the named regression can pass; disconnecting
+restores first-heading / full-span selection and the regression must fail.
 """
 
 from __future__ import annotations
@@ -181,6 +182,47 @@ def test_scope_fix_blocks_are_present_in_current_verifier_config() -> None:
 
     source = CONFIG_PATH.read_text(encoding="utf-8")
     assert _HEADING_SEARCH in source
+
+
+def test_current_main_inherits_historical_pass_without_separator() -> None:
+    """Residual #3966 gap on current main: concatenated headings still inherit PASS.
+
+    Post-#4129 separator-aware binding is covered by
+    ``test_current_main_separator_blocks_historical_pass``; this case is the
+    deliberate-break disconnect failure mode without applying the Scope change.
+    """
+
+    from scripts.langchain.verifier_config import (
+        artifact_from_verification_text,
+        is_terminal_artifact,
+    )
+
+    text = (
+        "## PR Verification Report\nVerdict: PASS\n\n"
+        "## PR Verification Report\n"
+        "Context extraction failed before any provider returned."
+    )
+    artifact = artifact_from_verification_text(text)
+    assert artifact.get("verdict") == "PASS"
+    assert is_terminal_artifact(artifact) is True
+
+
+def test_current_main_separator_blocks_historical_pass() -> None:
+    """#4129 separator path on current main must not reuse a prior PASS."""
+
+    from scripts.langchain.verifier_config import (
+        artifact_from_verification_text,
+        is_terminal_artifact,
+    )
+
+    text = (
+        "## PR Verification Report\nVerdict: PASS\n\n---\n\n"
+        "## PR Verification Report\n"
+        "Context extraction failed before any provider returned."
+    )
+    artifact = artifact_from_verification_text(text)
+    assert "verdict" not in artifact
+    assert is_terminal_artifact(artifact) is False
 
 
 def _scope_change_description() -> str:
