@@ -6273,6 +6273,16 @@
     "command": "python -m tools.reproduce_muse13_screen --check",
     "source_revision": "e888a4b159a8076882c94c5f309b73aee86a13cd",
     "offline": true,
+    "policy": "docs/evidence/judge-screen-20261017/current-prompt-ensemble-policy.json",
+    "policy_sha256": "0ea8fe30cff376a7fba3cbdbbb30bc5a3d96af8465361b1956d5b759f307e72f",
+    "input_sha256": {
+      "docs/evidence/judge-screen-20261017/current-prompt-codex-screen.json": "868627d572b9f88a1e7f291167ca121152a4e349f3b8dcf67b5fd4e87fa95f4a",
+      "docs/evidence/judge-screen-20261017/current-prompt-claude-cursor-muse12.json": "80a12bdbb5922ebae0d3b7fb1e0b73e383e1c954dc188b66f01a45c5038ee687",
+      "docs/evidence/judge-screen-20261017/standard-muse13-observations.json": "537632da9af83db7569f5d0e513dda7b7cfeb69fd4846ba03272e306428fe05f",
+      "docs/evidence/judge-screen-20261017/muse-spark-1-3-contributor-screen.json": "11bffa5e6507a974b6bcf5052380b87d690a48d6504972f4a5c8de10e8626505",
+      "docs/evidence/judge-screen-20261017/muse-spark-1-2-contributor-screen.json": "b53a01fab744f453b5004877e904ef5eb3db81f3c7c84f3aa9af1c89aba39b84",
+      "docs/evidence/judge-screen-20261017/muse-wonder-1-0-screen.json": "bb2a3d1792036e3985a702d14da42c117ade06b26e814c7c25d8e2c6aa7b6d1b"
+    },
     "checked_sections": [
       "cases",
       "enables_anything",

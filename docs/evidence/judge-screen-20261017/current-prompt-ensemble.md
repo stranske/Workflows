@@ -61,8 +61,10 @@
 
 ## Reproduce the versioned observations
 
-Run `python -m tools.reproduce_muse13_screen --check`. The JSON receipt and
-`standard-muse13-observations.json` replace the temporary input dependency;
-[PROVENANCE.md](PROVENANCE.md) records the source revision and digest-only
-input recovery limitation. The command validates all aggregate and pairwise
-results without requesting a model or publishing original prompt text.
+Run `python -m tools.reproduce_muse13_screen --check`. The JSON receipt,
+`standard-muse13-observations.json`, and pinned
+`current-prompt-ensemble-policy.json` replace the temporary input dependency;
+[PROVENANCE.md](PROVENANCE.md) records the source revision, per-input SHA-256
+pins, and digest-only input recovery limitation. The command validates all
+aggregate and pairwise results without requesting a model or publishing
+original prompt text.
