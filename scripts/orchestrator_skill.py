@@ -355,9 +355,9 @@ def _parse_enabled_override(raw: str) -> bool | None:
 def main(argv: list[str] | None = None) -> int:
     args = _build_parser().parse_args(argv)
     pack_override = args.pack_override.strip() or None
-    enabled_override = _parse_enabled_override(args.enabled_override)
 
     try:
+        enabled_override = _parse_enabled_override(args.enabled_override)
         snapshot = load_orchestrator_skill(
             args.workspace,
             pack_override=pack_override,
