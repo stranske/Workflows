@@ -84,13 +84,13 @@ The root and template auto-pilot rows (workflow + managed `auto_pilot_transition
 
 - `python -m pytest -q tests/scripts/test_verifier_config.py tests/workflows/test_verifier_terminal_disposition.py`: run on the recorded main revision before temporary deliberate-break edits.
 - `node --test .github/scripts/__tests__/auto-pilot-transitions.test.js .github/scripts/__tests__/verifier-closure.test.js`: existing suites pass and do not disprove the two reproduced missing cases above.
-- Deliberate-break gate (scope-specific historical-PASS binding):
+- Deliberate-break gate (scope-specific historical-PASS binding), reproducible via planning harness [`deliberate_break_gate.py`](verification-binding-audit/deliberate_break_gate.py):
   - Temporary Scope change at `scripts/langchain/verifier_config.py`: `artifact_from_verification_text` extracts verdicts only from `_latest_verifier_report(raw)`.
-  - Temporary regression `tests/scripts/test_verifier_config.py::test_artifact_from_verification_text_ignores_historical_pass_when_latest_incomplete`.
-  - With fix: **2 passed** (transcript sha256 `3035c6d15cf72f816329db0a4de97aae01ed865a5f403abbb3b51459170fd6e0`).
-  - Fix disconnected (verdicts again scanned from full history): **1 failed** — assert 'verdict' not in artifact; observed verdict PASS from historical report (transcript sha256 `f46d091ed4d047ae107ad2f4213669c272e802cb09a7d4eccb699082112bb512`).
-  - Fix restored: **2 passed** (transcript sha256 `1b69ecbb245749d5bb66cf7dace2b87f71d7a2b122b0823e25f5dcc67983132f`).
-  - Both production and test files restored byte-for-byte afterward; final PR contains report artifacts only.
+  - Temporary regressions: `tests/scripts/test_verifier_config.py::test_artifact_from_verification_text_ignores_historical_pass_when_latest_incomplete` plus positive control `::test_artifact_from_verification_text_accepts_terminal_verdict_on_latest_report`.
+  - With fix: **2 passed** (transcript sha256 `1e87304962a4917a213996b8bee26326c413450933ddebffb69ee59fad707529`; see [deliberate-break/with_fix.pytest.txt](verification-binding-audit/deliberate-break/with_fix.pytest.txt)).
+  - Fix disconnected (verdicts again scanned from full history; historical-PASS node only): **1 failed** — assert 'verdict' not in artifact; observed verdict PASS from historical report (transcript sha256 `a92142c6f82ddf332b9ffd5327d2fa946c2d9d058ade1e318ffc4f283d6d4284`; see [deliberate-break/fix_disconnected.pytest.txt](verification-binding-audit/deliberate-break/fix_disconnected.pytest.txt)).
+  - Fix restored: **2 passed** (transcript sha256 `c5352c8d2d805969b85d6238d0be4242feb65b135a1e0808954bd79c706624d1`; see [deliberate-break/fix_restored.pytest.txt](verification-binding-audit/deliberate-break/fix_restored.pytest.txt)).
+  - Both production and test files restored byte-for-byte afterward (`config_sha256_after` `6504cb08dd0927a8f4160a7968a6eddd8051744b212bbb7e7c210ee3ae6d97f8`); final PR contains report/planning artifacts only. Receipt: [deliberate-break/receipt.json](verification-binding-audit/deliberate-break/receipt.json).
 - Report/inventory consistency checks enumerate all 43 files and all retained matches, verify source hashes, and require a real existing owner for every confirmed/needs-investigation row.
 - Final PR changes are report/planning artifacts only. No workflow, script, template, provider routing, CI/merge policy or acceptance behavior changes are included.
 

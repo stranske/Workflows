@@ -1,0 +1,22 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_ test_artifact_from_verification_text_ignores_historical_pass_when_latest_incomplete _
+
+    def test_artifact_from_verification_text_ignores_historical_pass_when_latest_incomplete() -> None:
+        """Latest incomplete report must not inherit a historical PASS verdict."""
+    
+        text = (
+            "## PR Verification Report\nVerdict: PASS\n\n"
+            "## PR Verification Report\n"
+            "Context extraction failed before any provider returned."
+        )
+        artifact = artifact_from_verification_text(text)
+>       assert "verdict" not in artifact
+E       AssertionError: assert 'verdict' not in {'raw_present': True, 'verdict': 'PASS', 'artifact_family': 'verifier-report'}
+
+tests/scripts/test_verifier_config.py:303: AssertionError
+=========================== short test summary info ============================
+FAILED tests/scripts/test_verifier_config.py::test_artifact_from_verification_text_ignores_historical_pass_when_latest_incomplete - AssertionError: assert 'verdict' not in {'raw_present': True, 'verdict': 'PASS', 'artifact_family': 'verifier-report'}
+1 failed in 0.13s
+
+--- stderr ---

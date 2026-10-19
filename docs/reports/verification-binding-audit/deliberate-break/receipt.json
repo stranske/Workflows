@@ -1,0 +1,21 @@
+{
+  "config_sha256_after": "6504cb08dd0927a8f4160a7968a6eddd8051744b212bbb7e7c210ee3ae6d97f8",
+  "fix_disconnected": {
+    "assertion": "assert 'verdict' not in artifact; observed verdict PASS from historical report",
+    "result": "1 failed",
+    "sha256": "a92142c6f82ddf332b9ffd5327d2fa946c2d9d058ade1e318ffc4f283d6d4284"
+  },
+  "fix_restored": {
+    "result": "2 passed",
+    "sha256": "c5352c8d2d805969b85d6238d0be4242feb65b135a1e0808954bd79c706624d1"
+  },
+  "positive_control": "tests/scripts/test_verifier_config.py::test_artifact_from_verification_text_accepts_terminal_verdict_on_latest_report",
+  "regression": "tests/scripts/test_verifier_config.py::test_artifact_from_verification_text_ignores_historical_pass_when_latest_incomplete",
+  "scope_change": "scripts/langchain/verifier_config.py artifact_from_verification_text: extract verdicts from _latest_verifier_report(raw) only",
+  "test_sha256_after": "94e4323ef6083aaa1b56e3b569421f1e7b4266fb99983f84cb7d35dde2f13adf",
+  "with_fix": {
+    "result": "2 passed",
+    "sha256": "1e87304962a4917a213996b8bee26326c413450933ddebffb69ee59fad707529"
+  },
+  "working_tree_restored": true
+}
