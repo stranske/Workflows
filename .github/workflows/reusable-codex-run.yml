@@ -152,13 +152,6 @@ on:
         required: false
       WORKFLOWS_APP_PRIVATE_KEY:
         required: false
-      OPENAI_API_KEY:
-        required: false
-        description: >-
-          OpenAI API key for LLM analysis (enables model selection beyond GitHub Models)
-      CLAUDE_API_STRANSKE:
-        required: false
-        description: 'Anthropic API key for LLM analysis (enables Claude slot)'
     outputs:
       final-message:
         description: 'Full Codex output message (base64 encoded)'

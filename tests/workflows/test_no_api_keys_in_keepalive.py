@@ -19,13 +19,18 @@ RUNNERS = ("codex", "claude", "cursor", "gemini", "muse")
 @pytest.mark.parametrize("agent", RUNNERS)
 def test_runner_analysis_has_no_api_key_or_second_invocation(agent):
     file = ROOT / f".github/workflows/reusable-{agent}-run.yml"
-    jobs = yaml.safe_load(file.read_text())["jobs"]
+    doc = yaml.safe_load(file.read_text())
+    jobs = doc["jobs"]
     steps = [step for job in jobs.values() for step in job.get("steps", [])]
     analysis = next(s for s in steps if s.get("id") == "llm_analysis")
     for step in steps:
         for forbidden in ("OPENAI_API_KEY", "CLAUDE_API_STRANSKE"):
             assert forbidden not in json.dumps(step.get("env", {})), str(file)
             assert forbidden not in step.get("run", ""), str(file)
+    # Analysis no longer accepts provider API secrets on the reusable workflow.
+    workflow_secrets = json.dumps(doc.get("on", {}).get("workflow_call", {}).get("secrets", {}))
+    assert "OPENAI_API_KEY" not in workflow_secrets, str(file)
+    assert "CLAUDE_API_STRANSKE" not in workflow_secrets, str(file)
     assert analysis["env"]["WORKFLOWS_ANALYSIS_CLI"] == ("claude" if agent == "claude" else "codex")
     assert analysis["run"].count("python3 .workflows-lib/scripts/analyze_codex_session.py") == 1
     assert 'print(f"provider=' in analysis["run"]
@@ -106,9 +111,23 @@ def test_cli_final_message_only_and_no_api_or_job_secrets(monkeypatch, account):
     command, kw = observed[0]
     assert command[:2] == ["codex", "exec"]
     assert command[command.index("--sandbox") + 1] == "read-only"
+    assert "--ignore-user-config" in command
+    assert "--ephemeral" in command
     assert 'forced_login_method="chatgpt"' in command
+    assert 'web_search="disabled"' in command
+    assert [command[i + 1] for i, part in enumerate(command) if part == "--disable"] == [
+        "shell_tool",
+        "unified_exec",
+        "code_mode_host",
+        "browser_use",
+        "in_app_browser",
+        "apps",
+        "computer_use",
+        "skill_search",
+    ]
     assert "CLAUDE_CODE_OAUTH_TOKEN" not in kw["env"]
     assert kw["timeout"] == 90
+    assert kw["cwd"]  # empty temp workspace, not the job checkout
     assert not any(v == "must-not-be-forwarded" for v in kw["env"].values())
     assert "Task" in kw["input"]
 

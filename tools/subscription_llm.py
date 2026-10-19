@@ -9,6 +9,7 @@ import json
 import os
 import shutil
 import subprocess
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from types import SimpleNamespace
@@ -18,6 +19,19 @@ import yaml
 
 MODE_ENV = "WORKFLOWS_ANALYSIS_CLI"
 REGISTRY = Path(__file__).resolve().parents[1] / ".github/agents/registry.yml"
+
+# Analysis must stay tool-free: read-only sandbox still permits shell reads of
+# CODEX_HOME/auth.json and checkout credentials under prompt injection.
+_CODEX_DISABLED_FEATURES = (
+    "shell_tool",
+    "unified_exec",
+    "code_mode_host",
+    "browser_use",
+    "in_app_browser",
+    "apps",
+    "computer_use",
+    "skill_search",
+)
 
 
 def analysis_model(agent: str) -> str:
@@ -68,6 +82,9 @@ class SubscriptionClient:
             command = [
                 "codex",
                 "exec",
+                "--json",
+                "--ignore-user-config",
+                "--ephemeral",
                 "--sandbox",
                 "read-only",
                 "--skip-git-repo-check",
@@ -79,9 +96,12 @@ class SubscriptionClient:
                 'forced_login_method="chatgpt"',
                 "-c",
                 'model_reasoning_effort="low"',
-                "--json",
-                "-",
+                "-c",
+                'web_search="disabled"',
             ]
+            for feature in _CODEX_DISABLED_FEATURES:
+                command.extend(["--disable", feature])
+            command.append("-")
         elif self.agent == "claude":
             command = [
                 "claude",
@@ -101,9 +121,18 @@ class SubscriptionClient:
             ]
         else:
             raise ValueError("Unsupported subscription analysis agent")
-        result = subprocess.run(
-            command, input=prompt, capture_output=True, text=True, env=env, timeout=90, check=False
-        )
+        # Empty cwd: prompt is stdin-only; deny workspace/credential file reads.
+        with tempfile.TemporaryDirectory(prefix="workflows-analysis-") as scratch:
+            result = subprocess.run(
+                command,
+                input=prompt,
+                capture_output=True,
+                text=True,
+                env=env,
+                cwd=scratch,
+                timeout=90,
+                check=False,
+            )
         if result.returncode:
             raise RuntimeError(f"{self.agent} analysis CLI exited {result.returncode}")
         if self.agent == "claude":

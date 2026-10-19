@@ -194,10 +194,13 @@ post-merge Cursor round past preflight and a separate 48-hour observation.
 Task completion analysis uses `WORKFLOWS_ANALYSIS_CLI=codex` (or `claude` for the
 Claude runner). `tools/subscription_llm.py` resolves the cheap-tier model from
 `.github/agents/registry.yml`, reuses the current analysis prompt/parser, and
-passes only account-auth environment values to the read-only CLI. API-provider,
-GitHub, and tracing keys are excluded from the child environment. Missing CLI,
-account auth, timeout, or invalid CLI output never falls back to an API. Optional
-Cursor/Gemini/Muse analysis skips with `llm-analysis-run=false` without an already
+passes only account-auth environment values to the read-only CLI. Codex analysis
+disables shell/unified_exec and related tools, runs ephemeral with an empty cwd,
+and never relies on sandbox read-only alone to protect `CODEX_HOME/auth.json`.
+Claude analysis uses `--tools ""`. API-provider, GitHub, and tracing keys are
+excluded from the child environment. Missing CLI, account auth, timeout, or
+invalid CLI output never falls back to an API. Optional Cursor/Gemini/Muse
+analysis skips with `llm-analysis-run=false` without an already
 installed/authenticated Codex CLI. Progress review prepares Codex from the existing
 subscription secret and uses the same transport, without LangChain dependencies.
 

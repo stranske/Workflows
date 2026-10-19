@@ -13,3 +13,5 @@ These are local fixture and wiring checks. No provider CLI was invoked by the te
 Post-merge acceptance still requires one hosted keepalive round showing analysis-run=true, codex provider and registry cheap model, plus the 48-hour OpenAI/Anthropic usage-console observation. Keep the source issue open through those boundaries.
 
 The Codex command follows the [official noninteractive contract](https://developers.openai.com/codex/noninteractive) and [saved account authentication](https://developers.openai.com/codex/auth). No API-key fallback is selected in the opt-in analysis path.
+
+Tool-free Codex analysis: `--disable shell_tool` (and related tools), `--ephemeral`, empty temp cwd; Claude keeps `--tools ""`.
