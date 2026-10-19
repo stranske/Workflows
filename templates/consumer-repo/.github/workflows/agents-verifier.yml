@@ -392,6 +392,9 @@ jobs:
       provider: ${{ needs.check.outputs.provider }}
       # Second model for compare mode (empty string uses default)
       model2: ${{ needs.check.outputs.model2 }}
+      # Standard aggregates available result rows; PASS alone does not prove two judges ran.
+      # Expanded recovery needs a real truncation report and complete PASS from both slots.
+      # Inspect both provider results before claiming dual-model acceptance.
       evidence_profile: ${{ inputs.evidence_profile || 'standard' }}
     secrets:
       CODEX_AUTH_JSON: ${{ secrets.CODEX_AUTH_JSON }}
