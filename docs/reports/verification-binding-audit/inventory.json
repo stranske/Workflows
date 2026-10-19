@@ -4232,7 +4232,8 @@
     "harness": "docs/reports/verification-binding-audit/deliberate_break_gate.py",
     "regression": "tests/scripts/test_verifier_config.py::test_artifact_from_verification_text_ignores_historical_pass_when_latest_incomplete",
     "positive_control": "tests/scripts/test_verifier_config.py::test_artifact_from_verification_text_accepts_terminal_verdict_on_latest_report",
-    "scope_change": "scripts/langchain/verifier_config.py artifact_from_verification_text: extract verdicts from _latest_verifier_report(raw) only",
+    "scope_change": "scripts/langchain/verifier_config.py latest_verifier_report: select last verifier report heading (re.finditer) instead of first (re.search)",
+    "residual_gap": "post-#4129 main still inherits historical PASS for concatenated headings without \\n\\n---\\n\\n; owned by #3966",
     "transcript_normalization": "pytest wall-clock durations replaced with <time>",
     "with_fix": {
       "result": "2 passed",
@@ -4242,7 +4243,7 @@
     "fix_disconnected": {
       "result": "1 failed",
       "assertion": "assert 'verdict' not in artifact; observed verdict PASS from historical report",
-      "sha256": "14ec1c995312374c0104608ba50861bb3984498b57cb680c0db73720274f737c",
+      "sha256": "2952da095015c95510daaaade1967103be2109f5969fbdb7b57c89c846192f03",
       "transcript": "docs/reports/verification-binding-audit/deliberate-break/fix_disconnected.pytest.txt"
     },
     "fix_restored": {
@@ -4251,7 +4252,9 @@
       "transcript": "docs/reports/verification-binding-audit/deliberate-break/fix_restored.pytest.txt"
     },
     "working_tree_restored": true,
+    "config_sha256_after": "ace2fe52598e2a4916ee5dce2decd3d419deaee66458a6ddf343a97b296e04b4",
+    "test_sha256_after": "59206b6c26c8abaa737b020c62e2ffa47173378b2a81c0fb8dc4e04b7a4d51cf",
     "receipt": "docs/reports/verification-binding-audit/deliberate-break/receipt.json",
-    "post_audit_note": "After source e9b9424b, PR #4129 merged a permanent latest-report binding on main for #3966; this audit snapshot and temporary deliberate-break harness remain revision-bound and do not ship that fix."
+    "post_audit_note": "After source e9b9424b, PR #4129 merged separator-aware latest-report binding on main; concatenated headings without \\n\\n---\\n\\n still inherit historical PASS (owned by #3966). This audit PR ships only report/planning artifacts; the harness temporarily applies last-heading selection, proves disconnect failure, then restores byte-for-byte."
   }
 }

@@ -25,7 +25,9 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[3]
 CONFIG_PATH = REPO_ROOT / "scripts" / "langchain" / "verifier_config.py"
 TEST_PATH = REPO_ROOT / "tests" / "scripts" / "test_verifier_config.py"
-OUT_DIR = Path(__file__).resolve().parent / "deliberate-break"
+AUDIT_DIR = Path(__file__).resolve().parent
+OUT_DIR = AUDIT_DIR / "deliberate-break"
+INVENTORY_PATH = AUDIT_DIR / "inventory.json"
 REGRESSION_NODE = (
     "tests/scripts/test_verifier_config.py::"
     "test_artifact_from_verification_text_ignores_historical_pass_when_latest_incomplete"
@@ -181,6 +183,34 @@ def test_scope_fix_blocks_are_present_in_current_verifier_config() -> None:
     assert _HEADING_SEARCH in source
 
 
+def _scope_change_description() -> str:
+    return (
+        "scripts/langchain/verifier_config.py latest_verifier_report: "
+        "select last verifier report heading (re.finditer) instead of first (re.search)"
+    )
+
+
+def _residual_gap_description() -> str:
+    return (
+        "post-#4129 main still inherits historical PASS for concatenated headings "
+        "without \\n\\n---\\n\\n; owned by #3966"
+    )
+
+
+def test_inventory_deliberate_break_matches_harness_scope_change() -> None:
+    """Inventory deliberate_break must describe the same Scope change as this harness."""
+
+    inventory = json.loads(INVENTORY_PATH.read_text(encoding="utf-8"))
+    block = inventory["deliberate_break"]
+    assert block["scope_change"] == _scope_change_description()
+    assert block["residual_gap"] == _residual_gap_description()
+    receipt = json.loads((OUT_DIR / "receipt.json").read_text(encoding="utf-8"))
+    assert block["scope_change"] == receipt["scope_change"]
+    assert block["with_fix"]["sha256"] == receipt["with_fix"]["sha256"]
+    assert block["fix_disconnected"]["sha256"] == receipt["fix_disconnected"]["sha256"]
+    assert block["fix_restored"]["sha256"] == receipt["fix_restored"]["sha256"]
+
+
 def main() -> int:
     original_config = CONFIG_PATH.read_bytes()
     original_test = TEST_PATH.read_bytes()
@@ -253,17 +283,16 @@ def main() -> int:
         if again != digest:
             raise RuntimeError(f"transcript normalization not idempotent for {label}")
 
+    scope_change = _scope_change_description()
+    residual_gap = _residual_gap_description()
+    disconnected_assertion = (
+        "assert 'verdict' not in artifact; observed verdict PASS from historical report"
+    )
     receipt = {
         "regression": REGRESSION_NODE,
         "positive_control": POSITIVE_NODE,
-        "scope_change": (
-            "scripts/langchain/verifier_config.py latest_verifier_report: "
-            "select last verifier report heading (re.finditer) instead of first (re.search)"
-        ),
-        "residual_gap": (
-            "post-#4129 main still inherits historical PASS for concatenated headings "
-            "without \\n\\n---\\n\\n; owned by #3966"
-        ),
+        "scope_change": scope_change,
+        "residual_gap": residual_gap,
         "transcript_normalization": "pytest wall-clock durations replaced with <time>",
         "with_fix": {
             "result": _summarize_pytest(with_fix_blob),
@@ -271,9 +300,7 @@ def main() -> int:
         },
         "fix_disconnected": {
             "result": _summarize_pytest(disconnected_blob),
-            "assertion": (
-                "assert 'verdict' not in artifact; observed verdict PASS from historical report"
-            ),
+            "assertion": disconnected_assertion,
             "sha256": disconnected_sha,
         },
         "fix_restored": {
@@ -287,6 +314,53 @@ def main() -> int:
     receipt_path = OUT_DIR / "receipt.json"
     receipt_bytes = (json.dumps(receipt, indent=2, sort_keys=True) + "\n").encode("utf-8")
     receipt_path.write_bytes(receipt_bytes)
+
+    # Keep inventory deliberate_break evidence aligned with the receipt (same Scope change,
+    # transcript digests, and residual-gap note). Prior retarget left inventory stale.
+    inventory = json.loads(INVENTORY_PATH.read_text(encoding="utf-8"))
+    inventory["deliberate_break"] = {
+        "harness": "docs/reports/verification-binding-audit/deliberate_break_gate.py",
+        "regression": REGRESSION_NODE,
+        "positive_control": POSITIVE_NODE,
+        "scope_change": scope_change,
+        "residual_gap": residual_gap,
+        "transcript_normalization": receipt["transcript_normalization"],
+        "with_fix": {
+            "result": receipt["with_fix"]["result"],
+            "sha256": with_fix_sha,
+            "transcript": "docs/reports/verification-binding-audit/deliberate-break/with_fix.pytest.txt",
+        },
+        "fix_disconnected": {
+            "result": receipt["fix_disconnected"]["result"],
+            "assertion": disconnected_assertion,
+            "sha256": disconnected_sha,
+            "transcript": (
+                "docs/reports/verification-binding-audit/deliberate-break/"
+                "fix_disconnected.pytest.txt"
+            ),
+        },
+        "fix_restored": {
+            "result": receipt["fix_restored"]["result"],
+            "sha256": restored_sha,
+            "transcript": "docs/reports/verification-binding-audit/deliberate-break/fix_restored.pytest.txt",
+        },
+        "working_tree_restored": True,
+        "config_sha256_after": receipt["config_sha256_after"],
+        "test_sha256_after": receipt["test_sha256_after"],
+        "receipt": "docs/reports/verification-binding-audit/deliberate-break/receipt.json",
+        "post_audit_note": (
+            "After source e9b9424b, PR #4129 merged separator-aware latest-report binding on "
+            "main; concatenated headings without \\n\\n---\\n\\n still inherit historical PASS "
+            "(owned by #3966). This audit PR ships only report/planning artifacts; the harness "
+            "temporarily applies last-heading selection, proves disconnect failure, then restores "
+            "byte-for-byte."
+        ),
+    }
+    INVENTORY_PATH.write_text(
+        json.dumps(inventory, indent=2, sort_keys=False) + "\n",
+        encoding="utf-8",
+    )
+
     print(json.dumps(receipt, indent=2, sort_keys=True))
     return 0
 
