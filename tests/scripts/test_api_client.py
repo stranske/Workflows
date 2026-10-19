@@ -7,6 +7,34 @@ import pytest
 from scripts import api_client
 
 
+def test_native_conditional_write_has_one_attempt_and_keeps_http_status():
+    import urllib.error
+
+    calls = []
+    with urllib.error.HTTPError("https://example.invalid", 503, "unavailable", {}, None) as refusal:
+
+        def opener(request, **kwargs):
+            calls.append((request, kwargs))
+            raise refusal
+
+        with pytest.raises(urllib.error.HTTPError) as raised:
+            api_client.request_json_once(
+                "PUT", "/repos/o/r/contents/state", "test", {}, opener=opener
+            )
+        assert raised.value is refusal
+        assert len(calls) == 1
+        assert calls[0][0].method == "PUT"
+        assert not refusal.closed  # the propagating API caller owns its response
+
+
+@pytest.mark.parametrize("path", ["https://other.invalid", "//other.invalid/path", "relative"])
+def test_native_conditional_write_rejects_foreign_api_origin(path):
+    with pytest.raises(ValueError, match="relative API path"):
+        api_client.request_json_once(
+            "GET", path, "test", opener=lambda *a, **kw: pytest.fail("network")
+        )
+
+
 class FakeRequestException(Exception):
     pass
 
