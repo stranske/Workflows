@@ -196,7 +196,7 @@ jobs:
       - name: Setup delivery renderer Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
-          python-version: '3.14'
+          python-version: '3.15'
 
       - name: Install delivery renderer dependencies
         run: python -m pip install pyyaml
@@ -362,7 +362,7 @@ jobs:
       - name: Persist pre-merge canary evidence
         id: candidate_artifact
         if: ${{ always() && steps.candidate_mode.outputs.candidate == 'true' }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           retention-days: 30
           name: sync-canary-evidence-premerge
@@ -674,7 +674,7 @@ jobs:
       - name: Upload sync PR merge report
         id: merge_artifact
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           retention-days: 30
           name: sync-pr-merge-and-canary-evidence
@@ -817,7 +817,7 @@ jobs:
 
       - name: Upload final rate limit incidents
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: sync-pr-rate-limit-incidents
           path: artifacts/rate-limit-incidents.ndjson
@@ -897,7 +897,7 @@ jobs:
 
       - name: Upload exact-head reassessment evidence
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: maint71-review-reassessment
           path: artifacts/review-reassessment.json

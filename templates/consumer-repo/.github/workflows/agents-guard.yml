@@ -128,7 +128,7 @@ jobs:
       - name: Mint GitHub App Token
         if: steps.eligibility.outputs.should-run == 'true'
         id: app_token
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3
         continue-on-error: true
         with:
           client-id: ${{ secrets.WORKFLOWS_APP_ID || '0' }}
@@ -197,7 +197,7 @@ jobs:
           github.event_name == 'pull_request_target' &&
           steps.eligibility.outputs.should-run == 'true' &&
           steps.api_client_base.outputs.available != 'true'
-        uses: "stranske/Workflows/.github/actions/setup-api-client@d6c9961a3498e89ca6c1ce6fccc1c0dbb773d8db" # v1.30.4
+        uses: "stranske/Workflows/.github/actions/setup-api-client@53c43913ded05fed2db258afb0f49f219dbe1f08" # v1.38.16
         with:
           # named inputs, not the whole secrets context (see #3185)
           github_token: ${{ github.token }}
@@ -294,7 +294,7 @@ jobs:
           steps.eligibility.outputs.should-run == 'true' &&
           github.event_name == 'pull_request' &&
           steps.api_client_head.outputs.available != 'true'
-        uses: "stranske/Workflows/.github/actions/setup-api-client@d6c9961a3498e89ca6c1ce6fccc1c0dbb773d8db" # v1.30.4
+        uses: "stranske/Workflows/.github/actions/setup-api-client@53c43913ded05fed2db258afb0f49f219dbe1f08" # v1.38.16
         with:
           # named inputs, not the whole secrets context (see #3185)
           github_token: ${{ github.token }}

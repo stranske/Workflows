@@ -40,7 +40,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-python@v7
         with:
-          python-version: "3.14"
+          python-version: "3.15"
       - name: Harvest realized-outcome cases
         env:
           # Cross-repo read; github.token is scoped to Workflows only.

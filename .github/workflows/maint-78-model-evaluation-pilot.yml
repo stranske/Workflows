@@ -60,7 +60,7 @@ jobs:
         if: >-
           github.event_name == 'workflow_dispatch' &&
           inputs.candidates_source_run_id != ''
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: maint-77-pilot-candidates
           run-id: ${{ inputs.candidates_source_run_id }}
@@ -72,7 +72,7 @@ jobs:
           inputs.candidates_source_run_id == ''
         run: python -m tools.refresh_model_eval_candidates --write
       - name: Set up Node for pinned CLI catalog
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: '24'
       - name: Install pinned Codex CLI
@@ -102,7 +102,7 @@ jobs:
             });
       - name: Download completed CLI screen for API confirmation
         if: github.event_name == 'workflow_dispatch' && inputs.mode == 'confirm'
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: maint-78-decision-readiness-${{ inputs.screen_source_run_id }}
           run-id: ${{ inputs.screen_source_run_id }}
@@ -163,7 +163,7 @@ jobs:
             --api-only-candidate "$API_ONLY_CANDIDATE" \
             --output api-confirmation-results.json \
             --summary "$GITHUB_STEP_SUMMARY"
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         if: always()
         with:
           retention-days: 30
