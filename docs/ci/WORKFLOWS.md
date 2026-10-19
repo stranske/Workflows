@@ -467,6 +467,15 @@ Explicit `primary-python-version` takes precedence; an explicit matrix without
 the shared runtime uses its first member. Repository-owned autofix tool pins
 continue to override the shared fallback pins.
 
+### Verifier settlement failure trace
+
+A manual `selftest-ci.yml` dispatch additionally runs the read-only
+`verifier-settlement-smoke` job. Its intentionally missing upload is tolerated
+only by that probe. The harness executes the authored production settlement
+shell, metrics Python and terminal JavaScript for all verifier modes, then
+retains seven JSON event-to-sink traces in `verifier-settlement-failure-trace`.
+These are controlled failure-path evidence; they do not claim a provider or
+post-merge production verification completed.
 
 ### Maint46 failure tracking
 

@@ -1578,7 +1578,7 @@ jobs:
 
       - name: Set unified verdict
         id: unified_verdict
-        if: steps.context.outputs.should_run == 'true'
+        if: always() && steps.context.outputs.should_run == 'true'
         env:
           VERIFIER_MODE: ${{ inputs.mode }}
         run: |
@@ -1777,6 +1777,12 @@ jobs:
           # settlement was skipped or failed (see UNIFIED_VERDICT_OUTCOME).
           VERDICT: ${{ steps.unified_verdict.outputs.verdict }}
           UNIFIED_VERDICT_OUTCOME: ${{ steps.unified_verdict.outcome }}
+          CONTEXT_OUTCOME: ${{ steps.context.outcome }}
+          VERIFIER_OUTCOME: >-
+            ${{ inputs.mode == 'compare' && steps.llm_compare.outcome ||
+                inputs.mode == 'evaluate' && steps.llm_evaluate.outcome ||
+                steps.verdict.outcome }}
+          CI_FAILED: ${{ steps.context.outputs.ci_failed }}
           CONTEXT_PATH: ${{ steps.context.outputs.context_path }}
           ISSUE_NUMBER: ${{ steps.failure_issue.outputs.issue_number }}
           SKIP_REASON: ${{ steps.context.outputs.skip_reason }}
@@ -1810,14 +1816,23 @@ jobs:
           chain_depth = int(os.environ.get("CHAIN_DEPTH") or 0)
 
           unified_outcome = os.environ.get("UNIFIED_VERDICT_OUTCOME") or ""
-          settlement_interrupted = should_run and unified_outcome != "success"
+          context_ok = os.environ.get("CONTEXT_OUTCOME") == "success"
+          explicit_skip = context_ok and os.environ.get("SHOULD_RUN", "").lower() == "false"
+          verifier_ok = os.environ.get("VERIFIER_OUTCOME") == "success"
+          known_verdicts = {"pass", "passed", "fail", "failed", "concerns", "error", "unverifiable_input"}
+          settlement_interrupted = not explicit_skip and (
+              not context_ok or not should_run or unified_outcome != "success"
+              or not verifier_ok or verdict.lower() not in known_verdicts
+          )
 
-          if not should_run:
+          if explicit_skip:
               verdict = "skipped"
           elif settlement_interrupted:
               # Settlement (CI-failure floor) did not complete; record an error
               # rather than an unguarded or empty verdict.
               verdict = "error"
+          elif os.environ.get("CI_FAILED") == "true" and verdict.lower() in {"pass", "passed"}:
+              verdict = "concerns"
 
           issues_created = 1 if issue_number else 0
           issue_numbers = [issue_number] if issue_number else []
@@ -1920,6 +1935,12 @@ jobs:
           CHAIN_DEPTH: ${{ steps.context.outputs.chain_depth || '0' }}
           FINAL_VERDICT: ${{ steps.unified_verdict.outputs.verdict }}
           UNIFIED_VERDICT_OUTCOME: ${{ steps.unified_verdict.outcome }}
+          CONTEXT_OUTCOME: ${{ steps.context.outcome }}
+          VERIFIER_OUTCOME: >-
+            ${{ inputs.mode == 'compare' && steps.llm_compare.outcome ||
+                inputs.mode == 'evaluate' && steps.llm_evaluate.outcome ||
+                steps.verdict.outcome }}
+          CI_FAILED: ${{ steps.context.outputs.ci_failed }}
         run: |
           set -euo pipefail
           mkdir -p agent-metrics
@@ -1928,6 +1949,8 @@ jobs:
           const crypto = require('crypto');
           const helperPath = './.workflows-lib/.github/scripts/terminal_disposition.js';
           const fallback = {
+            // Missing helper is incomplete evidence, never a PASS fallback.
+            settleVerifierOutcome: () => ({ verdict: 'error', skipped: false, interrupted: true }),
             normalizeTerminalDisposition: (value) => value,
             normalizeVerifierFollowupLedger: (value) => value,
             formatTerminalDispositionMarkdown: (records) =>
@@ -1939,6 +1962,7 @@ jobs:
                 .join('\n'),
           };
           const {
+            settleVerifierOutcome,
             normalizeTerminalDisposition,
             normalizeVerifierFollowupLedger,
             formatTerminalDispositionMarkdown,
@@ -1952,10 +1976,6 @@ jobs:
             }
           }
 
-          function normalizeVerdict(value) {
-            return String(value || '').trim().toLowerCase();
-          }
-
           const metrics = parseJson(process.env.METRICS_JSON, {});
           const sourceIssueNumbers = parseJson(process.env.SOURCE_ISSUE_NUMBERS_JSON, [])
             .map((value) => Number.parseInt(String(value), 10))
@@ -1963,11 +1983,17 @@ jobs:
           const shouldRun = String(process.env.SHOULD_RUN || '').toLowerCase() === 'true';
           const prNumber =
             Number.parseInt(process.env.PR_NUMBER || metrics.pr_number || '0', 10) || null;
-          const settled = process.env.UNIFIED_VERDICT_OUTCOME === 'success';
-          const settlementInterrupted = shouldRun && !settled;
-          const verdict = settlementInterrupted
-            ? 'error'
-            : normalizeVerdict(process.env.FINAL_VERDICT || metrics.verdict);
+          const settlementInput = {
+            should_run: process.env.SHOULD_RUN,
+            context_outcome: process.env.CONTEXT_OUTCOME,
+            settlement_outcome: process.env.UNIFIED_VERDICT_OUTCOME,
+            verifier_outcome: process.env.VERIFIER_OUTCOME,
+            ci_failed: process.env.CI_FAILED,
+            verdict: process.env.FINAL_VERDICT,
+          };
+          const settlement = settleVerifierOutcome(settlementInput);
+          const settlementInterrupted = settlement.interrupted;
+          const verdict = settlement.verdict;
           const followupIssueNumber =
             Number.parseInt(process.env.FOLLOWUP_ISSUE_NUMBER || '', 10) || null;
           const skipReason = process.env.SKIP_REASON || metrics.skip_reason || '';
@@ -1981,7 +2007,7 @@ jobs:
 
           let disposition = 'unknown';
           let reason = 'Verifier terminal state captured for coverage monitoring.';
-          if (!shouldRun) {
+          if (settlement.skipped) {
             disposition = 'skipped';
             reason = skipReason || 'Verifier did not have an eligible source to evaluate.';
           } else if (settlementInterrupted) {
@@ -2066,6 +2092,7 @@ jobs:
             ? crypto.createHash('sha256').update(concernInputs.join('\n---\n')).digest('hex')
             : '';
           const ledgerRecord = normalizeVerifierFollowupLedger({
+            ...settlementInput,
             pr_number: prNumber,
             verification_run_id: process.env.GITHUB_RUN_ID || '',
             verification_run_attempt: process.env.GITHUB_RUN_ATTEMPT || '',
