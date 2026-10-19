@@ -1,5 +1,6 @@
 import argparse
 import json
+import sys
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -779,3 +780,97 @@ def test_main_validates_metadata_and_delegates_with_parsed_filter(tmp_path, monk
     assert uploader.main() == 0
     assert captured["repo_filter"] == {"owner/repo"}
     assert captured["authoring_dir"] == tmp_path / "authoring"
+
+
+def test_command_retry_returns_success_after_a_transient_failure(monkeypatch, capsys):
+    """A transient gh failure is retried once rather than dropping a batch."""
+    calls = []
+
+    def fake_run(*args, **kwargs):
+        calls.append(args)
+        return SimpleNamespace(
+            returncode=0 if len(calls) == 2 else 1,
+            stdout="ok",
+            stderr="temporary outage",
+            args=args[0],
+        )
+
+    monkeypatch.setattr(uploader.subprocess, "run", fake_run)
+    assert uploader.run_command_with_retry(["gh", "issue", "list"], label="list").stdout == "ok"
+    assert len(calls) == 2
+    assert "attempt 1/2 failed" in capsys.readouterr().err
+
+
+def test_command_retry_surfaces_the_last_failure(monkeypatch):
+    def fake_run(args, **_kwargs):
+        return SimpleNamespace(returncode=23, stdout="out", stderr="down", args=args)
+
+    monkeypatch.setattr(uploader.subprocess, "run", fake_run)
+    with pytest.raises(Exception) as exc:
+        uploader.run_command_with_retry(["gh", "issue"], attempts=1)
+    assert getattr(exc.value, "returncode", None) == 23
+    assert getattr(exc.value, "stderr", None) == "down"
+
+
+def test_queue_rejects_non_list_and_missing_identity_fields(tmp_path: Path) -> None:
+    queue = tmp_path / "queue.json"
+    queue.write_text(json.dumps({"issues": {}}), encoding="utf-8")
+    with pytest.raises(ValueError, match="issues list"):
+        uploader.load_queue(queue)
+
+    with pytest.raises(ValueError, match="missing repo"):
+        uploader.validate_issue_queue([{"title": "x", "body": VALID_BODY}])
+    with pytest.raises(ValueError, match="missing title"):
+        uploader.validate_issue_queue([{"repo": "owner/repo", "body": VALID_BODY}])
+
+
+def test_semantic_duplicate_requires_an_unambiguous_best_match() -> None:
+    candidate = issue("Add deterministic local smoke", "alpha beta gamma delta")
+    rivals = [
+        {"title": "alpha beta", "body": "gamma delta", "labels": ["repo-review-approved"]},
+        {"title": "alpha beta", "body": "gamma delta", "labels": ["repo-review-approved"]},
+    ]
+    assert uploader.find_semantic_duplicate(candidate, rivals) is None
+
+
+def test_role_body_errors_reports_missing_issue_format_validator(monkeypatch) -> None:
+    monkeypatch.setattr(uploader.importlib.util, "spec_from_file_location", lambda *_args: None)
+    assert "fleet issue-format validator unavailable" in uploader.role_body_errors(VALID_BODY)
+
+
+def test_parse_args_accepts_each_uploader_option(monkeypatch) -> None:
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "upload",
+            "--queue",
+            "queue.json",
+            "--gh-prefix",
+            "detached-net.sh gh",
+            "--repo",
+            "owner/one",
+            "--repo",
+            "owner/two",
+            "--authoring-dir",
+            "authoring",
+            "--apply",
+        ],
+    )
+    args = uploader.parse_args()
+    assert args.queue == Path("queue.json")
+    assert args.repo == ["owner/one", "owner/two"]
+    assert args.apply is True
+
+
+def test_run_command_and_semantic_duplicate_empty_scored_paths(monkeypatch) -> None:
+    captured = {}
+
+    def fake_run(args, **kwargs):
+        captured.update(args=args, **kwargs)
+        return SimpleNamespace(returncode=0)
+
+    monkeypatch.setattr(uploader.subprocess, "run", fake_run)
+    assert uploader.run_command(["gh", "issue"], check=True).returncode == 0
+    assert captured["capture_output"] is True
+    assert uploader.find_semantic_duplicate(issue(), [{"labels": []}]) is None
