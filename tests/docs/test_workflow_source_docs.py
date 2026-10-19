@@ -53,7 +53,7 @@ def test_readme_compare_profile_semantics() -> None:
     assert "a single completed judge can yield PASS" in readme
     assert "standard PASS alone does not prove two judges ran" in readme
     assert (
-        "Reported findings, unavailable/error results, and CI/evidence floors still withhold PASS"
+        "Reported FAIL/CONCERNS verdicts, unavailable/error results, and CI/evidence floors still withhold PASS"
         in readme
     )
     assert (
@@ -62,6 +62,7 @@ def test_readme_compare_profile_semantics() -> None:
     )
     assert "only after a real verifier truncation report" in readme
     assert "inspect both provider results before claiming dual-model acceptance" in readme
+    assert "PASS does not prove the reports contain no advisory concerns" in readme
     assert "unanimous PASS" not in readme
 
 
