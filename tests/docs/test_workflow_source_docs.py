@@ -43,6 +43,7 @@ def test_readme_verify_compare_models_match_langchain_defaults() -> None:
 
 def test_readme_compare_profile_semantics() -> None:
     readme = README.read_text(encoding="utf-8")
+    guide = Path("docs/WORKFLOW_GUIDE.md").read_text(encoding="utf-8")
     workflow = yaml.load(
         (WORKFLOWS_DIR / "reusable-agents-verifier.yml").read_text(encoding="utf-8"),
         Loader=yaml.BaseLoader,
@@ -64,6 +65,11 @@ def test_readme_compare_profile_semantics() -> None:
     assert "inspect both provider results before claiming dual-model acceptance" in readme
     assert "PASS does not prove the reports contain no advisory concerns" in readme
     assert "unanimous PASS" not in readme
+    # WORKFLOW_GUIDE keeps the README contract link and the real truncation-report gate.
+    assert "[README comparison contract](../README.md#verification-pipeline)" in guide
+    assert "If an actual verifier report identifies bounded-input truncation" in guide
+    assert "inspect both provider results before" in guide
+    assert "Standard remains the default" in guide
 
 
 def test_workflows_doc_names_gate_autofix_dispatch_path() -> None:
