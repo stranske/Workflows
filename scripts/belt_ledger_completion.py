@@ -183,7 +183,15 @@ def completion_issues(
     missing = [
         path
         for path in task_artifacts(task)
-        if not commit_has_path(commit, path, repo_root=repo_root)
+        if not any(
+            (
+                changed == path.removeprefix("./")
+                if path.startswith("./") or "/" in path
+                else PurePosixPath(changed).name == path
+            )
+            and commit_has_path(commit, f"./{changed}", repo_root=repo_root)
+            for changed in substantive
+        )
     ]
     if missing:
         issues.append(
@@ -260,14 +268,17 @@ def resolve_completion_commit(
     if not substantive:
         return None, []
 
+    latest_blocked: tuple[str, list[str]] | None = None
     for commit in reversed(substantive):
         blockers = completion_errors(task, commit, repo_root=repo_root)
         if not blockers:
             return commit, []
-        if not all("changes only ledger paths" in item for item in blockers):
-            return commit, blockers
+        if latest_blocked is None and not all(
+            "changes only ledger paths" in item for item in blockers
+        ):
+            latest_blocked = commit, blockers
 
-    return None, []
+    return latest_blocked or (None, [])
 
 
 def duplicate_artifact_errors(

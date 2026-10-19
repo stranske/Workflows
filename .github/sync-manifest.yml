@@ -123,7 +123,7 @@ workflows:
     template_sync: exact
 
   - source: .github/workflows/agents-verify-to-new-pr.yml
-    description: "Verify to new PR - creates follow-up issue and immediately dispatches auto-pilot to prepare a replacement PR (bridge inlined)"
+    description: "Verify to new PR - authenticates native GitHub Actions report authors, binds terminal gating and generated follow-up to the latest report, then dispatches auto-pilot (bridge inlined)"
 
   - source: .github/workflows/agents-auto-label.yml
     description: "Auto-label - suggests/applies labels based on semantic matching (Phase 5A); installs exact-synced canonical LLM requirements independently of consumer optional extras"
@@ -319,7 +319,7 @@ scripts:
     description: "Validates belt task ledgers (.agents/issue-*-ledger.yml); required by the ledger-validation job in pr-00-gate.yml, whose result feeds the required summary check on every belt PR"
 
   - source: scripts/belt_ledger_completion.py
-    description: "Belt ledger completion helpers imported by scripts/ledger_validate.py (duplicate_artifact_errors); delivered with it so the Gate ledger-validation job can import"
+    description: "Changed-artifact belt ledger completion helpers imported by scripts/ledger_validate.py (duplicate_artifact_errors); delivered with it so the Gate ledger-validation job can import"
 
   - source: scripts/check_deliberate_break.py
     template_sync: exact
@@ -479,7 +479,7 @@ scripts:
     description: "Generates keepalive instructions for Codex"
 
   - source: .github/scripts/keepalive_loop.js
-    description: "Core keepalive loop logic with evidence-gated authority reconciliation"
+    description: "Core keepalive loop logic with evidence-gated authority reconciliation and full criterion cache binding"
 
   - source: .github/scripts/keepalive_challenge_due.js
     description: "Selects due automation-owned authority challenges for the hourly keepalive sweep"
@@ -597,7 +597,7 @@ scripts:
     description: "Posts completion comments on PRs"
 
   - source: .github/scripts/verifier_closure.js
-    description: "Closes source issues on verifier PASS or exact-merge deterministic gates and green CI for UNVERIFIABLE_INPUT"
+    description: "Closes source issues only with nonempty exact-merge CI proof on PASS or successful exact-merge CI proof and deterministic gates for UNVERIFIABLE_INPUT"
 
   - source: .github/scripts/verifier_ci_query.js
     description: "Queries CI status for verifier workflow"

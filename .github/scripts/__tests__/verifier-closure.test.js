@@ -152,3 +152,13 @@ test('every linked issue logs its outcome, including when nothing closes', async
   assert.match(messages[0], /closed — unverifiable-input\+gate\+ci; gate_source=required-ci/);
   assert.match(writes[0].body, /gate_source=required-ci/);
 });
+
+for (const [name, ci] of Object.entries({
+  absent: undefined, empty: [], foreign: [{head_sha: 'b'.repeat(40), conclusion: 'success'}],
+  mixed: [{head_sha: mergeSha, conclusion: 'success'}, {head_sha: 'b'.repeat(40), conclusion: 'success'}],
+  queryError: [{head_sha: mergeSha, conclusion: 'success', error_category: 'api_error'}],
+})) {
+  test(`PASS retains source with ${name} CI evidence`, () => {
+    assert.equal(closingRule({...input, verdict: 'PASS', ci}), null);
+  });
+}
