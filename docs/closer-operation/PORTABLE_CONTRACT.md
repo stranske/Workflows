@@ -81,6 +81,13 @@ Neither mode copies the historical frequency/ratchet algorithm.
 
 ## Ownership and reconciliation
 
+`verify_request` records dispatch of a merge-bound `verify:compare` request, not
+verification acceptance or an expected-check topology PASS. Its operation identity
+and readback are distinct from `verify`; both share the original `verify` CAS
+fence so upgrading Runtime cannot bypass an older unresolved operation or denial.
+Request completion requires the native Runtime's exact-head, exact-merge PR/label
+readback; Core's topology producer cannot reconcile a `verify_request`.
+
 Transition functions require executor identity, spec, expected epoch, and
 expected revision. `run_bounded_action` and its `run` CLI require the epoch and
 revision too. Expiry blocks execution; it never evicts a writer or clears an

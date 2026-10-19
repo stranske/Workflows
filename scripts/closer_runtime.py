@@ -86,7 +86,7 @@ class PolicyDenied(CloserRuntimeError):
 class OperationSpec:
     repository: str
     pr_number: int
-    action: Literal["merge", "verify", "reconcile"]
+    action: Literal["merge", "verify", "verify_request", "reconcile"]
     head_sha: str
     base_sha: str | None
     criteria_fingerprint: str
@@ -138,6 +138,10 @@ def _hash_canonical(payload: Mapping[str, Any]) -> str:
 def canonical_target_fence_key(spec: OperationSpec) -> str:
     """Ownership fence: repo + PR + action (not head/criteria)."""
     payload = {**spec.target_payload(), "fence": "target-action-v1"}
+    # Older Runtime pins used verify for request dispatch. Keep one atomic CAS
+    # boundary across that upgrade while operation identities/producers remain distinct.
+    if spec.action == "verify_request":
+        payload["action"] = "verify"
     return _hash_canonical(payload)
 
 
@@ -747,7 +751,7 @@ def _validate_readonly_replacement(
 ) -> None:
     if not authority.acknowledge_replacement:
         raise OwnershipDenied("replacement of a claimed owner must be explicitly acknowledged")
-    if record["action"] == "merge":
+    if record["action"] in {"merge", "verify_request"}:
         raise OwnershipDenied("only read-only claimed work can be replaced without a handoff")
     if current["executor"] == record["executor"]:
         raise OwnershipDenied("replacement must name a different executor")
@@ -1198,7 +1202,7 @@ class ReconciliationEvidence:
             or not KEY_RE.fullmatch(self.target_fence_key)
             or not HEAD_RE.fullmatch(self.head_sha)
             or not KEY_RE.fullmatch(self.observation_digest)
-            or self.action not in {"merge", "verify", "reconcile"}
+            or self.action not in {"merge", "verify", "verify_request", "reconcile"}
             or self.result not in {"desired_result_observed", "not_observed", "unknown"}
         ):
             raise OwnershipDenied("reconciliation evidence not bound to a typed observation")

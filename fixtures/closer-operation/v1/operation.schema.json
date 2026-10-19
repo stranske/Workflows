@@ -57,6 +57,7 @@
       "enum": [
         "merge",
         "verify",
+        "verify_request",
         "reconcile"
       ]
     },
