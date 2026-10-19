@@ -58,3 +58,13 @@
 **Tie-break:** not enabled: 0 of the judges meet the PASS-authority gates (three are needed so that every vote carries authority)
 **Failover:** not enabled: 0 judge(s) meet the PASS-authority gates; a backup must earn the same authority as the judge it replaces
 **Sample:** 4 NON_PASS case(s) observed; 73 are needed with zero false PASS to bound the false-PASS rate at 0.05. Small-sample results cannot enable either option.
+
+## Reproduce the versioned observations
+
+Run `python -m tools.reproduce_muse13_screen --check`. The JSON receipt,
+`standard-muse13-observations.json`, and pinned
+`current-prompt-ensemble-policy.json` replace the temporary input dependency;
+[PROVENANCE.md](PROVENANCE.md) records the source revision, per-input SHA-256
+pins, and digest-only input recovery limitation. The command validates all
+aggregate and pairwise results without requesting a model or publishing
+original prompt text.
