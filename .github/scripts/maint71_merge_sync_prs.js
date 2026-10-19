@@ -20,6 +20,11 @@ const deliveryPayload = require('./consumer_delivery_digest');
 const { SEAL_PRECONDITION_REASONS } = require('./sync_pr_lease_contract');
 const ACTIVE_SYNC_STATES = ['queued', 'in_progress', 'waiting', 'pending', 'requested'];
 
+function canaryHasBlockingReviewDebt(canary) {
+  return require('./sync_pr_merge_contract').canaryReviewDebtIsBlocking({ ...canary,
+    repo: canary.owner ? `${canary.owner}/${canary.repo}` : canary.repo });
+}
+
 function candidateSet(repositories) {
   return [...new Set(repositories.map((repo) => String(repo).trim()).filter(Boolean))].sort();
 }
@@ -313,7 +318,7 @@ function canaryNeedsRefresh(canary, now = Date.now()) {
   if (canary.check_status === 'checks_failed' && !canary.expected_preseal_gate_hold) {
     return 'checks_failed';
   }
-  if (canary.active_review_thread_count > 0) return 'review_blocked';
+  if (canaryHasBlockingReviewDebt(canary)) return 'review_blocked';
   if (canary.expected_preseal_gate_hold) return null;
   // Leave healthy heads on the normal exact-head merge/evidence path. Unknown
   // mergeability still goes through that path's existing fail-closed gates.
@@ -531,7 +536,7 @@ async function refreshStableCanaries({
       continue;
     }
     if (canary.check_status === 'checks_failed' && !canary.expected_preseal_gate_hold) counts.red++;
-    if (canary.expected_preseal_gate_hold && canary.active_review_thread_count === 0) counts.drainable++;
+    if (canary.expected_preseal_gate_hold && !canaryHasBlockingReviewDebt(canary)) counts.drainable++;
     const sealState = canary.seal_state || (canary.check_status === 'checks_failed'
       && !canary.expected_preseal_gate_hold
       ? `blocked(${(canary.failed_check_names || []).join(',') || 'unknown-check'})`
@@ -539,7 +544,7 @@ async function refreshStableCanaries({
     const sealLine = `seal: ${canary.owner}/${canary.repo}#${canary.pr} ${sealState}`;
     console.log(sealLine);
     await core.summary.addRaw(`${sealLine}\n`).write();
-    if (canary.active_review_thread_count > 0) counts.review_blocked++;
+    if (canaryHasBlockingReviewDebt(canary)) counts.review_blocked++;
     const reason = canaryNeedsRefresh(canary, now);
     if (reason && canaryNeedsRefresh({ ...canary, mergeable_state: '', mergeable: false,
       check_status: '', active_review_thread_count: 0 }, now) === 'stale') counts.stale++;
@@ -554,7 +559,7 @@ async function refreshStableCanaries({
   }
   try {
     // Review debt remains source-owned even when the SHA refresh is debounced.
-    for (const canary of enabled ? canaries.filter((row) => row.active_review_thread_count > 0) : []) {
+    for (const canary of enabled ? canaries.filter(canaryHasBlockingReviewDebt) : []) {
       try {
         canary.upstream_comments = await routeCanaryReviewUpstream({
           canary, manifestEntries, withRetry, context,
@@ -643,6 +648,10 @@ async function readConsumerDeclaredContexts({ withRetry, owner, repo, branch }) 
 // reading, so a declared check that changed between gates is reported as the
 // gate that decided saw it, never as an earlier snapshot.
 function adoptFinalCheckEvidence(deliveryContext, gate) {
+  if (gate.findingDisposition) {
+    deliveryContext.review_finding_disposition = gate.findingDisposition;
+    deliveryContext.review_state = gate.findingDisposition.blocked ? 'blocked' : 'clear';
+  }
   const evidence = gate?.finalCheckEvidence;
   if (!evidence) return;
   deliveryContext.consumer_declared_contexts = {
@@ -660,6 +669,102 @@ function hasCompleteReviewThreadEvidence(connection) {
       typeof thread?.isResolved === 'boolean' && typeof thread?.isOutdated === 'boolean'
     )
   );
+}
+
+// The only input transport is authenticated PR conversation plus fresh local
+// issue reads. A JSON field claiming an owner or a verified handoff is not proof.
+async function collectSyncFindingEvidence({ owner, repo, pr, record, threads, read }) {
+  const { parseSyncFindingDisposition, SYNC_FINDING_DISPOSITION_ACTORS } = require('./sync_pr_merge_contract');
+  const binding = { repository: `${owner}/${repo}`, pr: pr.number,
+    head_sha: pr.head.sha, source_commit: record?.source_commit,
+    plan_id: record?.plan_id, delivery_generation: record?.generation };
+  const packet = { binding, reviewThreads: threads, comments: [], handoffs: [],
+    evidenceComplete: true };
+  if (!threads.length) return packet;
+  try {
+    packet.comments = await read((client) => client.paginate(client.rest.issues.listComments,
+      { owner, repo, issue_number: pr.number, per_page: 100 }));
+    if (!Array.isArray(packet.comments)) throw new Error('disposition_comments_incomplete');
+    // Complete pagination establishes absence/conflicts; the artifact retains
+    // only relevant protocol records, not unrelated runner logs and PR prose.
+    const threadIds = new Set(threads.map((thread) => thread.id));
+    packet.comments = packet.comments.filter((comment) => {
+      const proof = parseSyncFindingDisposition(comment);
+      return proof?.head_sha === binding.head_sha && threadIds.has(proof?.thread_id);
+    });
+    const references = new Set();
+    for (const comment of packet.comments) {
+      const proof = parseSyncFindingDisposition(comment);
+      if (!SYNC_FINDING_DISPOSITION_ACTORS.includes(comment.user?.login)
+        || proof?.head_sha !== binding.head_sha || proof?.repository !== binding.repository
+        || proof?.pr !== binding.pr || proof?.disposition !== 'unrelated') continue;
+      const prefix = `https://github.com/${binding.repository}/issues/`;
+      const number = String(proof.handoff_url || '').slice(prefix.length);
+      if (String(proof.handoff_url || '').startsWith(prefix) && /^[1-9]\d*$/.test(number)) {
+        references.add(number);
+      }
+    }
+    for (const number of references) {
+      const { data: issue } = await read((client) => client.rest.issues.get({
+        owner, repo, issue_number: Number(number),
+      }));
+      if (!issue || !issue.html_url || !Array.isArray(issue.assignees)) {
+        throw new Error('handoff_issue_incomplete');
+      }
+      packet.handoffs.push(issue);
+    }
+    // External handoff reads must not leave an exemption attached to a head,
+    // source binding or finding conversation that moved while we read them.
+    const data = await read((client) => client.graphql(`
+      query($owner:String!,$repo:String!,$number:Int!) {
+        repository(owner:$owner,name:$repo) { pullRequest(number:$number) {
+          headRefOid body reviewThreads(first:100) { pageInfo { hasNextPage }
+            nodes { id path isResolved isOutdated
+              comments(first:100) { pageInfo { hasNextPage }
+                nodes { id body url updatedAt author { login } }
+              }
+            }
+          }
+        } }
+      }`, { owner, repo, number: pr.number }));
+    const fresh = data?.repository?.pullRequest;
+    const freshRecord = require('./sync_pr_lease_contract').parseDeliveryRecord(fresh?.body || '');
+    if (fresh?.headRefOid !== binding.head_sha || !hasCompleteReviewThreadEvidence(fresh?.reviewThreads)
+      || freshRecord?.repository !== binding.repository
+      || freshRecord?.source_commit !== binding.source_commit
+      || freshRecord?.plan_id !== binding.plan_id
+      || freshRecord?.generation !== binding.delivery_generation) {
+      throw new Error('finding_delivery_changed_or_incomplete');
+    }
+    packet.reviewThreads = fresh.reviewThreads.nodes.filter(
+      (thread) => !thread.isResolved && !thread.isOutdated,
+    );
+  } catch (error) {
+    packet.evidenceComplete = false;
+    packet.error = String(error.message || error);
+  }
+  return packet;
+}
+
+// Used at the actual final boundary, independently of pre-seal classification.
+async function confirmExactHeadSyncFindingGate(args) {
+  const { evaluateSyncFindingDispositions } = require('./sync_pr_merge_contract');
+  const packet = await collectSyncFindingEvidence(args);
+  const evaluation = evaluateSyncFindingDispositions({ ...packet,
+    activeReviewThreadCount: args.threads.length });
+  return { ok: !evaluation.blocked, packet, evaluation };
+}
+
+function syncMergeFailureDisposition(error, findingDisposition) {
+  const message = String(error?.message || error || 'Merge failed');
+  if (findingDisposition?.blocked === false && findingDisposition.raw_active_count > 0
+    && /conversations? must be resolved|unresolved (?:review )?(?:threads?|conversations?)/i.test(message)) {
+    return { status: 'merge_blocked_repository_policy',
+      delivery_disposition: 'repository-conversation-policy-blocked', blocker_owner: 'consumer',
+      review_state: 'blocked',
+      next_command: 'obtain-repository-policy-thread-disposition', error: message };
+  }
+  return { status: 'merge_failed', error: message };
 }
 
 // Keep the last delivery read bound to the selected record and exact PR head.
@@ -1559,7 +1664,7 @@ function parseReviewResolutionProofs(raw = '') {
 // GitHub rulesets can still require an outdated conversation to be resolved,
 // and the proof validation below binds this mutation to the exact PR head and
 // a merged Workflows source fix. Ordinary merge eligibility remains stricter:
-// it continues to require zero active non-outdated threads.
+// it still enforces the shared causal-disposition contract and repository policy.
 function isResolvableProofThread(thread) {
   return Boolean(
     thread
@@ -1626,7 +1731,9 @@ function parseNoChangeEvidenceDocument(raw = '', {
       || row?.required_check_state !== (
         isNoChangeDelivery ? 'not-applicable' : 'success'
       )
-      || Number(row?.active_review_thread_count) !== 0
+      || (Number(row?.active_review_thread_count) !== 0
+        && (isNoChangeDelivery || !require('./sync_pr_merge_contract')
+          .validateCanaryEvidence([row], [repository]).ok))
       || (
         isNoChangeDelivery
         && row?.delivery_validation_state !== 'exact-tree-no-change'
@@ -1980,6 +2087,8 @@ function buildCanaryPromotionEvidence(rows = [], expectedCanaries = []) {
     evidence_source: row.evidence_source,
     required_check_state: row.required_check_state,
     active_review_thread_count: row.active_review_thread_count,
+    ...(row.review_disposition ? { review_disposition: row.review_disposition,
+      delivery_generation: row.delivery_generation } : {}),
   }));
   const errors = [];
   if (!expectedCanaries.length) errors.push('missing_canary_configuration');
@@ -2101,8 +2210,8 @@ async function dispatchCanaryPromotion({
   const record = async (status, detail) => {
     const green = expectedCanaries.filter((repo) => {
       const rows = built.evidence.results.filter((row) => row.repo === repo);
-      return rows.length === 1 && rows[0].required_check_state === 'success'
-        && rows[0].active_review_thread_count === 0;
+      return rows.length === 1 && require('./sync_pr_merge_contract')
+        .validateCanaryEvidence(rows, [repo]).ok;
     }).length;
     // Heads whose checks are green AND whose prepared report identity matches
     // the evidence can be consumed by promotion. Owned/completed dispatches
@@ -2283,6 +2392,7 @@ async function run({ github, context, core }) {
     buildMarkdownSummary,
     buildMergeReport,
     classifyReviewBlockedDisposition,
+    evaluateSyncFindingDispositions,
     describeConsumerDeclaredContexts,
     hasCampaignCommitAuthorization,
     campaignAuthorizationAllowsMerge,
@@ -2994,8 +3104,12 @@ async function run({ github, context, core }) {
                   path
                   isResolved
                   isOutdated
-                  comments(first: 10) {
+                  comments(first: 100) {
+                    pageInfo { hasNextPage }
                     nodes {
+                      id
+                      body
+                      updatedAt
                       path
                       url
                       author { login }
@@ -3271,8 +3385,13 @@ async function run({ github, context, core }) {
                 path
                 isResolved
                 isOutdated
-                comments(first: 10) {
+                comments(first: 100) {
+                  pageInfo { hasNextPage }
                   nodes {
+                    id
+                    body
+                    updatedAt
+                    url
                     path
                     author { login }
                   }
@@ -3374,10 +3493,15 @@ async function run({ github, context, core }) {
       (thread) => !thread.isResolved && !thread.isOutdated,
     );
     const activeReviewThreads = activeThreadNodes.length;
-    if (activeReviewThreads !== 0) {
+    const freshRecord = parseDeliveryRecord(freshPr.body || '');
+    const findingGate = await confirmExactHeadSyncFindingGate({ owner, repo, pr,
+      record: freshRecord, threads: activeThreadNodes, read: withReviewReadRetry });
+    const { packet: reviewDisposition, evaluation: findingDisposition } = findingGate;
+    if (!findingGate.ok) {
       return {
         ok: false,
         reason: 'review_blocked',
+        findingDisposition, reviewDisposition,
         activeReviewThreads,
         reviewThreads: activeThreadNodes,
         freshHeadSha: freshPr.headRefOid,
@@ -3408,6 +3532,7 @@ async function run({ github, context, core }) {
     return {
       ok: true,
       reason: 'exact_head_review_clear',
+      findingDisposition, reviewDisposition,
       activeReviewThreads,
       freshHeadSha: freshPr.headRefOid,
       freshPr,
@@ -4143,11 +4268,16 @@ async function run({ github, context, core }) {
         pr.number,
       );
       let activeReviewThreads = reviewThreadDetails.count;
+      const findingEvidence = await collectSyncFindingEvidence({ owner, repo, pr,
+        record: deliveryRecord, threads: reviewThreadDetails.threads, read: withReviewReadRetry });
+      const findingDisposition = evaluateSyncFindingDispositions({ ...findingEvidence,
+        activeReviewThreadCount: activeReviewThreads });
       let deliveryState = classifyGeneratedPr({
         pr,
         checkState: classification,
         activeReviewThreadCount: activeReviewThreads,
         reviewThreads: reviewThreadDetails.threads,
+        findingEvidence,
         manifestSources,
         reviewerProfiles,
         reviewPolicyLoaded,
@@ -4178,6 +4308,8 @@ async function run({ github, context, core }) {
         delivery_disposition: deliveryState.disposition,
         blocker_owner: deliveryState.blocker_owner,
         next_command: deliveryState.next_command,
+        review_finding_disposition: findingDisposition,
+        review_state: findingDisposition.blocked ? 'blocked' : 'clear',
         review_resolution_thread_ids: reviewResolution.resolved,
         review_resolution_would_resolve_thread_ids: reviewResolution.wouldResolve,
         review_resolution_errors: reviewResolution.errors,
@@ -4224,6 +4356,8 @@ async function run({ github, context, core }) {
             && deliveryRecord?.delivery_state === 'sealed' && deliveryRecord?.sealed_head_sha === pr.head.sha
             ? 'sealed' : undefined,
           active_review_thread_count: activeReviewThreads,
+          review_disposition: findingEvidence,
+          delivery_generation: deliveryRecord?.generation,
           head_observed_at: deliveryRecord?.head_observed_at,
           updated_at: pr.updated_at, created_at: pr.created_at,
           threads: reviewThreadDetails.threads };
@@ -4841,6 +4975,7 @@ async function run({ github, context, core }) {
           const reviewBlock = classifyReviewBlockedDisposition({
             activeReviewThreadCount: finalGate.activeReviewThreads,
             reviewThreads: finalGate.reviewThreads || [],
+            findingEvidence: finalGate.reviewDisposition,
             manifestSources,
             reviewerProfiles,
             reviewPolicyLoaded,
@@ -4938,6 +5073,8 @@ async function run({ github, context, core }) {
             : 'open-candidate',
           required_check_state: 'success',
           active_review_thread_count: finalGate.activeReviewThreads,
+          review_disposition: finalGate.reviewDisposition,
+          delivery_generation: finalGate.reviewDisposition.binding.delivery_generation,
         });
       }
 
@@ -5094,8 +5231,7 @@ async function run({ github, context, core }) {
         console.log(`✗ Merge failed: ${e.message}`);
         results.push({
           ...deliveryContext,
-          status: 'merge_failed',
-          error: e.message,
+          ...syncMergeFailureDisposition(e, finalGate.findingDisposition),
         });
       }
     } catch (e) {
@@ -5267,6 +5403,9 @@ async function run({ github, context, core }) {
 }
 
 module.exports = {
+  syncMergeFailureDisposition,
+  confirmExactHeadSyncFindingGate,
+  collectSyncFindingEvidence,
   MAX_FORCED_RESTAGES,
   CLAIM_EXPIRY,
   requestForcedSealRestage,

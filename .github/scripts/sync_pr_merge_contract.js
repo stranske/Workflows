@@ -191,12 +191,132 @@ function normalizeActiveReviewThreads(reviewThreads = [], reviewerProfiles = [])
     });
 }
 
+const FINDING_DISPOSITION_SCHEMA = 'sync-finding-disposition/v1';
+const SYNC_FINDING_DISPOSITION_ACTORS = Object.freeze(['stranske', 'stranske-automation-bot']);
+const FINDING_DISPOSITION_MARKER = /^<!-- sync-finding-disposition:v1 (\{[^]*\}) -->$/;
+
+// Hash the actual finding and conversation, not merely its path or reviewer.
+// A new/edited reply invalidates a previously recorded causal classification.
+function syncFindingFingerprint(thread) {
+  return require('crypto').createHash('sha256').update(JSON.stringify({
+    id: thread.id, path: thread.path,
+    comments: (thread.comments?.nodes || []).map((comment) => ({
+      id: comment.id, body: comment.body, updatedAt: comment.updatedAt,
+      author: comment.author?.login,
+    })),
+  })).digest('hex');
+}
+
+function parseSyncFindingDisposition(comment) {
+  const match = String(comment?.body || '').trim().match(FINDING_DISPOSITION_MARKER);
+  if (!match) return null;
+  try { return JSON.parse(match[1]); } catch (_) { return null; }
+}
+
+// comments and handoffs must be authenticated API snapshots, collected by the
+// executor. Never populate them from fields inside a disposition record itself.
+function evaluateSyncFindingDispositions({
+  binding = {}, reviewThreads = [], activeReviewThreadCount,
+  comments = [], handoffs = [], trustedActors = SYNC_FINDING_DISPOSITION_ACTORS, evidenceComplete = true,
+  now = Date.now(),
+} = {}) {
+  const count = activeReviewThreadCount;
+  const active = Array.isArray(reviewThreads) ? reviewThreads.filter(
+    (thread) => thread && thread.isResolved === false && thread.isOutdated === false,
+  ) : [];
+  const errors = [];
+  if (!evidenceComplete || !Number.isInteger(count) || count < 0
+    || !Array.isArray(reviewThreads) || active.length !== count
+    || reviewThreads.some((thread) => typeof thread?.isResolved !== 'boolean'
+      || typeof thread?.isOutdated !== 'boolean')) errors.push('review_evidence_incomplete');
+  if (count > 0 && (!/^[\w.-]+\/[\w.-]+$/.test(binding.repository || '')
+    || !Number.isInteger(binding.pr) || binding.pr <= 0
+    || !/^[a-f0-9]{40}$/.test(binding.head_sha || '')
+    || !/^[a-f0-9]{40}$/.test(binding.source_commit || '')
+    || !binding.plan_id || !binding.delivery_generation)) errors.push('delivery_binding_incomplete');
+  const ids = active.map((thread) => thread.id);
+  if (new Set(ids).size !== ids.length) errors.push('duplicate_finding_identity');
+  if (!Array.isArray(comments) || !Array.isArray(handoffs) || !Array.isArray(trustedActors)) {
+    errors.push('classification_evidence_incomplete');
+  }
+  const sourceComments = Array.isArray(comments) ? comments : [];
+  const sourceHandoffs = Array.isArray(handoffs) ? handoffs : [];
+  const trusted = new Set((Array.isArray(trustedActors) ? trustedActors : []).map(normalizeLogin));
+  const findings = active.map((thread) => {
+    const finding = { thread_id: thread.id, path: thread.path,
+      author: thread.comments?.nodes?.[0]?.author?.login || '',
+      url: thread.comments?.nodes?.[0]?.url || '', disposition: 'unknown', errors: [] };
+    if (!thread.id || !thread.path || thread.comments?.pageInfo?.hasNextPage !== false
+      || !Array.isArray(thread.comments?.nodes) || thread.comments.nodes.length === 0
+      || thread.comments.nodes.some((comment) => !comment?.id || typeof comment.body !== 'string'
+        || !comment.author?.login || !comment.url || !Number.isFinite(Date.parse(comment.updatedAt)))) {
+      finding.errors.push('finding_conversation_incomplete');
+      return finding;
+    }
+    const candidates = sourceComments.map((comment) => ({ comment, record: parseSyncFindingDisposition(comment) }))
+      .filter(({ record }) => record?.thread_id === thread.id && record.head_sha === binding.head_sha);
+    if (candidates.length !== 1) {
+      finding.errors.push(candidates.length ? 'conflicting_dispositions' : 'classification_missing_or_stale');
+      return finding;
+    }
+    const { comment, record } = candidates[0];
+    finding.record = record;
+    finding.authority_url = comment.html_url;
+    const commentUrl = `https://github.com/${binding.repository}/pull/${binding.pr}#issuecomment-${comment.id}`;
+    if (!trusted.has(normalizeLogin(comment.user?.login)) || comment.html_url !== commentUrl
+      || !Number.isFinite(Date.parse(comment.updated_at))
+      || record.schema !== FINDING_DISPOSITION_SCHEMA) finding.errors.push('untrusted_provenance');
+    for (const key of ['repository', 'pr', 'head_sha', 'source_commit', 'plan_id', 'delivery_generation']) {
+      if (record[key] !== binding[key]) finding.errors.push(`binding_mismatch:${key}`);
+    }
+    if (record.thread_fingerprint !== syncFindingFingerprint(thread)) finding.errors.push('finding_changed');
+    if (!Number.isFinite(Date.parse(record.expires_at)) || Date.parse(record.expires_at) <= now) {
+      finding.errors.push('classification_expired');
+    }
+    if (typeof record.rationale !== 'string' || record.rationale.trim().length < 20
+      || typeof record.remediation_owner !== 'string' || !record.remediation_owner.trim()
+      || !Array.isArray(record.evidence_urls) || !record.evidence_urls.length
+      || record.evidence_urls.some((url) => typeof url !== 'string'
+        || !/^https:\/\/github\.com\/[\w.-]+\/[\w.-]+\//.test(url))) {
+      finding.errors.push('causal_evidence_or_owner_missing');
+    }
+    if (!['shared-source', 'sync-caused', 'unrelated', 'unknown'].includes(record.disposition)) {
+      finding.errors.push('invalid_disposition');
+    }
+    if (record.disposition === 'unrelated') {
+      const localIssue = `https://github.com/${binding.repository}/issues/`;
+      const matching = sourceHandoffs.filter((issue) => issue?.html_url === record.handoff_url);
+      const issue = matching[0];
+      if (!String(record.handoff_url || '').startsWith(localIssue)
+        || !/^[1-9]\d*$/.test(String(record.handoff_url || '').slice(localIssue.length))
+        || matching.length !== 1 || !issue || issue.pull_request || issue.state !== 'open'
+        || !issue.title || !Array.isArray(issue.assignees)
+        || !issue.assignees.some((assignee) => normalizeLogin(assignee.login)
+          === normalizeLogin(record.remediation_owner))) finding.errors.push('durable_local_handoff_unverified');
+      else finding.handoff = issue;
+    }
+    if (!finding.errors.length) finding.disposition = record.disposition;
+    return finding;
+  });
+  const unknown = findings.filter((finding) => finding.disposition === 'unknown');
+  const blocking = findings.filter((finding) => finding.disposition !== 'unrelated');
+  return { schema: 'sync-finding-evaluation/v1', binding, raw_active_count: count,
+    blocked: errors.length > 0 || blocking.length > 0, errors, findings,
+    blocking_thread_ids: blocking.map((finding) => finding.thread_id),
+    unknown_thread_ids: unknown.map((finding) => finding.thread_id),
+    unrelated_handoffs: findings.filter((finding) => finding.disposition === 'unrelated')
+      .map((finding) => ({ thread_id: finding.thread_id, owner: finding.record.remediation_owner,
+        url: finding.record.handoff_url })),
+  };
+}
+
 function classifyReviewBlockedDisposition({
   activeReviewThreadCount,
   reviewThreads = [],
   manifestSources = new Set(),
   reviewerProfiles = [],
   reviewPolicyLoaded = true,
+  findingEvidence = null,
 } = {}) {
   if (!reviewPolicyLoaded) {
     return {
@@ -214,9 +334,11 @@ function classifyReviewBlockedDisposition({
       next_command: 'retry-review-thread-query',
     };
   }
-  if (reviewThreadCount === 0) {
-    return null;
-  }
+  const findingDisposition = evaluateSyncFindingDispositions({
+    ...(findingEvidence || {}), reviewThreads: findingEvidence?.reviewThreads || reviewThreads,
+    activeReviewThreadCount: reviewThreadCount,
+  });
+  if (!findingDisposition.blocked) return null;
 
   const activeThreads = normalizeActiveReviewThreads(reviewThreads, reviewerProfiles);
   if (
@@ -233,6 +355,7 @@ function classifyReviewBlockedDisposition({
       // exact generated head must remain blocked until regeneration or the
       // originating reviewer explicitly accepts the fix.
       next_command: 'repair-upstream-and-request-reviewer-disposition',
+      finding_disposition: findingDisposition,
     };
   }
 
@@ -240,6 +363,7 @@ function classifyReviewBlockedDisposition({
     disposition: 'review-blocked',
     blocker_owner: 'closer',
     next_command: 'resolve-active-review-threads',
+    finding_disposition: findingDisposition,
   };
 }
 
@@ -251,6 +375,7 @@ function classifyGeneratedPr({
   manifestSources = null,
   reviewerProfiles = [],
   reviewPolicyLoaded = true,
+  findingEvidence = null,
   now,
 } = {}) {
   const record = parseDeliveryRecord(pr.body || '');
@@ -293,14 +418,16 @@ function classifyGeneratedPr({
       reviewPolicyLoaded,
     });
   }
-  if (reviewThreadCount > 0) {
-    return classifyReviewBlockedDisposition({
+  {
+    const reviewBlock = classifyReviewBlockedDisposition({
       activeReviewThreadCount: reviewThreadCount,
       reviewThreads,
       manifestSources: manifestSources || new Set(),
       reviewerProfiles,
       reviewPolicyLoaded,
+      findingEvidence,
     });
+    if (reviewBlock) return reviewBlock;
   }
   if (checkState.status === 'checks_pending') {
     return { disposition: 'awaiting-checks', blocker_owner: 'ci', next_command: 'await-required-checks' };
@@ -1062,6 +1189,19 @@ function validateExpectedCandidateIdentity({
   return { ok: errors.length === 0, errors };
 }
 
+function canaryReviewDebtIsBlocking(row) {
+  if (row.active_review_thread_count === 0) return false;
+  const packet = row.review_disposition;
+  return evaluateSyncFindingDispositions({ ...(packet || {}),
+    trustedActors: SYNC_FINDING_DISPOSITION_ACTORS, now: Date.now(),
+    binding: { repository: row.repo, pr: row.pr, head_sha: row.head_sha,
+      source_commit: row.source_commit, plan_id: row.plan_id,
+      delivery_generation: row.delivery_generation },
+    activeReviewThreadCount: row.active_review_thread_count,
+    evidenceComplete: packet?.evidenceComplete === true,
+  }).blocked;
+}
+
 function validateCanaryEvidence(evidence = [], expectedRepos = []) {
   const expected = new Set((expectedRepos || []).map((repo) => String(repo || '').trim()).filter(Boolean));
   const rowsByRepo = new Map();
@@ -1087,9 +1227,7 @@ function validateCanaryEvidence(evidence = [], expectedRepos = []) {
     if (row.required_check_state !== 'success') {
       errors.push(`required_checks_not_green:${repo}`);
     }
-    if (row.active_review_thread_count !== 0) {
-      errors.push(`active_review_debt:${repo}`);
-    }
+    if (canaryReviewDebtIsBlocking(row)) errors.push(`active_review_debt:${repo}`);
   }
   const planIds = new Set(
     [...rowsByRepo.values()].map((row) => String(row?.plan_id || '').trim()).filter(Boolean),
@@ -1217,6 +1355,7 @@ function summarizeResults(results) {
     head_changed: 0,
     head_commit_unverified: 0,
     review_blocked: 0,
+    merge_blocked_repository_policy: 0,
     ready: 0,
     dry_run_merge: 0,
     dry_run_review_start: 0,
@@ -1752,6 +1891,12 @@ function buildMarkdownSummary(report) {
 }
 
 module.exports = {
+  FINDING_DISPOSITION_SCHEMA,
+  SYNC_FINDING_DISPOSITION_ACTORS,
+  syncFindingFingerprint,
+  parseSyncFindingDisposition,
+  evaluateSyncFindingDispositions,
+  canaryReviewDebtIsBlocking,
   AUTO_RESOLVE_SYNC_BOT_THREADS_COMMAND,
   REVIEW_POLICY_UNAVAILABLE_COMMAND,
   REPORT_SCHEMA,

@@ -1,17 +1,45 @@
 from __future__ import annotations
 
 import json
+import subprocess
 from pathlib import Path
 
 import pytest
 from scripts.select_consumer_sync_phase import (
     PhaseSelectionError,
+    _review_debt_is_clear,
     select_phase,
     validate_registered_scopes,
 )
 from scripts.sync_manifest_compiler import compile_manifest
 
 ROOT = Path(__file__).parents[2]
+
+
+def test_promotion_consumes_the_shared_finding_contract_and_fails_closed(monkeypatch) -> None:
+    fixture = ROOT / ".github/scripts/__tests__/fixtures/sync_finding_disposition.js"
+    program = (
+        "const p=require(process.argv[1]).findingPacket();"
+        "console.log(JSON.stringify({repo:p.binding.repository,pr:p.binding.pr,"
+        "head_sha:p.binding.head_sha,source_commit:p.binding.source_commit,"
+        "plan_id:p.binding.plan_id,delivery_generation:p.binding.delivery_generation,"
+        "active_review_thread_count:1,required_check_state:'success',review_disposition:p}));"
+    )
+    row = json.loads(
+        subprocess.run(
+            ["node", "-e", program, str(fixture)], capture_output=True, text=True, check=True
+        ).stdout
+    )
+    assert _review_debt_is_clear(row)
+    row["head_sha"] = "f" * 40
+    assert not _review_debt_is_clear(row)
+    row["head_sha"] = "a" * 40
+    row["review_disposition"]["handoffs"] = []
+    assert not _review_debt_is_clear(row)
+    monkeypatch.setenv("PATH", "")
+    assert not _review_debt_is_clear(row)
+
+
 REGISTERED = [
     "stranske/Travel-Plan-Permission",
     "stranske/trip-planner",

@@ -2609,6 +2609,7 @@ test('buildMergeReport provides machine-readable summary counts', () => {
     head_changed: 0,
     head_commit_unverified: 0,
     review_blocked: 0,
+    merge_blocked_repository_policy: 0,
     ready: 0,
     dry_run_merge: 1,
     dry_run_review_start: 0,
@@ -3951,4 +3952,97 @@ test('Markdown report retains the refused Gate forced-restage drain receipt', ()
     gate_request: { blocked: 'rerun-refused', forced_restage: { state: 'requested', run_id: 5000 } },
   }] });
   assert.match(markdown, /seal: stranske\/Ready#12 rerun refused; forced restage requested run=5000/);
+});
+
+const { findingPacket, changeProof } = require('./fixtures/sync_finding_disposition');
+const { evaluateSyncFindingDispositions } = require('../sync_pr_merge_contract');
+
+test('sync finding unknown fails closed and mixed findings retain every blocker', () => {
+  for (const disposition of ['shared-source', 'sync-caused', 'unknown', 'unrelated']) {
+    const packet = findingPacket(disposition);
+    const result = evaluateSyncFindingDispositions(packet);
+    assert.equal(result.blocked, disposition !== 'unrelated', disposition);
+    assert.equal(result.findings[0].disposition, disposition);
+    // An unmanaged consumer path does not waive a sync-caused incompatibility.
+    assert.equal(result.raw_active_count, 1);
+    assert.equal(packet.reviewThreads[0].isResolved, false);
+  }
+  for (const disposition of ['shared-source', 'sync-caused', 'unknown']) {
+    const packet = findingPacket();
+    const other = findingPacket(disposition);
+    other.reviewThreads[0].id = 'PRRT_other';
+    changeProof(other, { thread_id: 'PRRT_other', thread_fingerprint:
+      require('../sync_pr_merge_contract').syncFindingFingerprint(other.reviewThreads[0]) });
+    other.comments[0].id = 42;
+    other.comments[0].html_url = other.comments[0].html_url.replace('-41', '-42');
+    packet.reviewThreads.push(other.reviewThreads[0]);
+    packet.comments.push(other.comments[0]);
+    packet.activeReviewThreadCount = 2;
+    const result = evaluateSyncFindingDispositions(packet);
+    assert.equal(result.blocked, true);
+    assert.deepEqual(result.blocking_thread_ids, ['PRRT_other']);
+    assert.equal(result.unrelated_handoffs.length, 1);
+  }
+});
+
+test('sync finding exemption rejects stale provenance, incomplete conversations and false handoffs', () => {
+  const mutations = [
+    p => { p.comments = []; },
+    p => { p.comments = null; },
+    p => { p.handoffs = null; },
+    p => { p.trustedActors = null; },
+    p => { p.comments[0].user.login = 'attacker'; },
+    p => { p.comments[0].html_url = p.comments[0].html_url.replace('/21#', '/22#'); },
+    p => { p.comments[0].body = '> ' + p.comments[0].body; },
+    p => { p.comments.push(structuredClone(p.comments[0])); },
+    p => { p.reviewThreads[0].comments.nodes[0].body += ' New evidence.'; },
+    p => { p.reviewThreads[0].comments.pageInfo.hasNextPage = true; },
+    p => { delete p.reviewThreads[0].comments.nodes[0].body; },
+    p => { p.activeReviewThreadCount = 2; },
+    p => { p.evidenceComplete = false; },
+    p => { p.handoffs = []; },
+    p => { p.handoffs[0].assignees = []; },
+    p => { p.handoffs[0].state = 'closed'; },
+    p => { p.handoffs[0].pull_request = {}; },
+    p => changeProof(p, { expires_at: '2000-01-01T00:00:00Z' }),
+    p => changeProof(p, { rationale: '' }),
+    p => changeProof(p, { evidence_urls: [] }),
+    p => changeProof(p, { remediation_owner: '' }),
+    ...['repository', 'pr', 'head_sha', 'source_commit', 'plan_id', 'delivery_generation']
+      .map(key => p => changeProof(p, { [key]: 'different' })),
+  ];
+  for (const mutate of mutations) {
+    const packet = findingPacket();
+    mutate(packet);
+    assert.equal(evaluateSyncFindingDispositions(packet).blocked, true, String(mutate));
+  }
+  const mismatch = findingPacket();
+  mismatch.activeReviewThreadCount = 0;
+  assert.equal(classifyReviewBlockedDisposition({ ...mismatch, findingEvidence: mismatch }).disposition,
+    'review-blocked', 'a false zero count must not waive actual findings');
+});
+
+test('canary re-evaluates bound finding snapshots and never trusts a count-only or forged summary', () => {
+  const packet = findingPacket();
+  const row = { repo: packet.binding.repository, pr: packet.binding.pr,
+    head_sha: packet.binding.head_sha, source_commit: packet.binding.source_commit,
+    plan_id: packet.binding.plan_id, delivery_generation: packet.binding.delivery_generation,
+    required_check_state: 'success', active_review_thread_count: 1, review_disposition: packet };
+  assert.equal(validateCanaryEvidence([row], [row.repo]).ok, true);
+  for (const mutate of [
+    r => { delete r.review_disposition; },
+    r => { r.review_disposition = { blocked: false, raw_active_count: 0 }; },
+    r => { r.head_sha = 'd'.repeat(40); },
+    r => { r.pr += 1; },
+    r => { r.source_commit = 'd'.repeat(40); },
+    r => { r.delivery_generation = 'other'; },
+    r => { r.required_check_state = 'failure'; },
+    r => { r.review_disposition.handoffs = []; },
+    r => { r.review_disposition.comments[0].user.login = 'attacker';
+      r.review_disposition.trustedActors = ['attacker']; },
+  ]) {
+    const changed = structuredClone(row);
+    mutate(changed);
+    assert.equal(validateCanaryEvidence([changed], [row.repo]).ok, false, String(mutate));
+  }
 });

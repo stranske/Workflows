@@ -35,6 +35,62 @@ still enforced. An incidental active thread needs an explicit owner disposition;
 it is not silently ignored. Consumers' branch protection is never weakened.
 Legacy review mode remains available when `generated_delivery_review` is absent.
 
+### Finding relevance evidence
+
+`sync_pr_merge_contract.js::evaluateSyncFindingDispositions` is the shared
+pre-seal, final-merge and canary relevance contract. Its four dispositions are
+`shared-source`, `sync-caused`, `unrelated`, and `unknown`. Only `unrelated` is
+nonblocking at this layer. A consumer-owned path can still be a sync-caused
+incompatibility; bot identity and manifest membership never establish causality.
+
+An authorized publisher (`stranske` or `stranske-automation-bot`, the existing
+source-owned resolution authority) records a completed causal assessment as one
+PR conversation comment whose entire body is:
+
+```text
+<!-- sync-finding-disposition:v1 {JSON object} -->
+```
+
+The object uses schema `sync-finding-disposition/v1` and requires:
+
+- `repository`, integer `pr`, full `head_sha` and `source_commit`, `plan_id`,
+  and `delivery_generation`, all matching the current delivery record.
+- `thread_id` and `thread_fingerprint`, computed with
+  `syncFindingFingerprint` over the complete thread identity, path, comment IDs,
+  bodies, authors and update times. New or edited conversation invalidates it.
+- `disposition`, a concrete `rationale`, nonempty `evidence_urls`, an explicit
+  `remediation_owner`, and a future ISO `expires_at`.
+- For `unrelated`, `handoff_url` names an existing open issue in that same
+  consumer repository, assigned to `remediation_owner`. Maint 71 fetches it;
+  deleted, inaccessible, closed, unassigned or PR references fail closed.
+
+The publisher owns the substantive causal judgment. The executor authenticates
+the publisher and comment URL through GitHub, validates the complete binding,
+fetches the handoff, and rereads the head, delivery identity and full finding
+conversation afterward. Arbitrary PR prose, quoted protocol examples, supplied
+`verified` booleans, stale records, conflicting current records, incomplete
+pagination and missing policy cannot grant an exemption. Publishing a record
+does not run a repair, create a local issue, resolve a thread or impersonate the
+originating reviewer.
+
+Canary evidence retains `active_review_thread_count` unchanged, the delivery
+generation, and a `review_disposition` packet with authenticated comment and
+handoff snapshots and full findings. The shared validator recomputes eligibility;
+it never trusts a stored `blocked: false` summary or a supplied trusted-actor
+list. Maint 68's phase selector calls this same JavaScript validator for nonzero
+review debt; an unavailable Node runtime or invalid response blocks promotion.
+These snapshots are evidence under the existing authenticated source/artifact
+provenance boundary, not signatures that make caller-invented JSON authoritative.
+Mixed findings retain every shared-source, sync-caused and unknown blocker.
+
+Required checks, approvals, security, delivery integrity and branch protection
+remain independent gates. GitHub may still require all conversations resolved
+after the relevance contract accepts an unrelated handoff. A refused merge is
+reported as `merge_blocked_repository_policy` when GitHub names that condition;
+there is no admin bypass or automatic resolution. This correction neither clears
+the existing shared-code blockers nor adds a campaign #1836 prerequisite, opens
+a campaign, or authorizes any consumer message or modification.
+
 Maint82 retains its bounded ten-minute continuation sweep: consumer CI completion
 does not yet provide a native event wakeup for every delivery stage. The local
 worker follows active CI in the same run; the sweep is recovery and does not
@@ -1849,7 +1905,8 @@ plan ID mismatch establishes lack of ownership, not supersession: Maint 71 repor
 transient Maint 82 continuation bound to the owning plan, source, scope and head. Stale-PR cleanup is likewise restricted to the selected plan.
 This prevents a delayed prior campaign from closing a newer candidate or delivery.
 
-Active non-outdated review threads remain merge blockers. When a shared source
+Active non-outdated findings remain visible and pass the shared relevance
+contract above; unknown and shared/sync-caused findings block. When a shared source
 repair proves a finding obsolete on the current generated head, an authenticated
 operator may pass `review_resolution_json` to Maint 71.
 Bot authorship and a manifest-synced path alone never authorize Maint 71 to
@@ -1866,8 +1923,8 @@ be on that thread and exact commit and contain
 identity, comment, and contained source fix before resolving. Proof-bound
 resolution may also clear an outdated
 thread that branch protection still treats as unresolved; that path does not
-waive the zero active non-outdated thread requirement for ordinary merge
-eligibility. A source fix without this exact proof, a later candidate plan, or a
+waive the relevance contract or GitHub's conversation policy. A source fix
+without this exact proof, a later candidate plan, or a
 passing Gate never resolves the current PR's review debt.
 
 ### Known issue sources and verifier discovery

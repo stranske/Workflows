@@ -32,6 +32,105 @@ const {
   isExpectedPresealGateFailure, legacyStatusAsCheck, requestSealedGate,
 } = require('../maint71_merge_sync_prs');
 const { classifySyncPrChecks } = require('../sync_pr_merge_contract');
+const { findingPacket, changeProof } = require('./fixtures/sync_finding_disposition');
+const { confirmExactHeadSyncFindingGate } = require('../maint71_merge_sync_prs');
+const { syncMergeFailureDisposition } = require('../maint71_merge_sync_prs');
+const { classifyGeneratedPr, validateCanaryEvidence } = require('../sync_pr_merge_contract');
+
+function findingGateHarness(packet = findingPacket()) {
+  const { binding } = packet;
+  const record = { schema: 'sync-pr-delivery-record/v1', repository: binding.repository,
+    source_commit: binding.source_commit, plan_id: binding.plan_id,
+    generation: binding.delivery_generation, desired_tree_hash: 'tree-21',
+    durable_issue_url: 'https://github.com/stranske/Workflows/issues/1836',
+    predecessor_prs: [], successor_prs: [], lease_expires_at: '2099-01-01T00:00:00Z' };
+  const body = `<!-- sync-pr-delivery-record:v1 ${JSON.stringify(record)} -->`;
+  const pr = { number: binding.pr, body,
+    head: { sha: binding.head_sha, ref: 'sync/workflows-fixture' } };
+  const fresh = { headRefOid: binding.head_sha, body,
+    reviewThreads: { pageInfo: { hasNextPage: false }, nodes: packet.reviewThreads } };
+  const reads = [];
+  const client = { paginate: async (method, params) => {
+    reads.push(['comments', params]);
+    assert.equal(method, client.rest.issues.listComments);
+    return packet.comments;
+  }, rest: { issues: {
+    listComments: () => {}, get: async params => {
+      reads.push(['handoff', params]); return { data: packet.handoffs[0] };
+    },
+  } }, graphql: async (_query, params) => {
+    reads.push(['final-head-and-findings', params]);
+    return { repository: { pullRequest: fresh } };
+  } };
+  return { packet, record, pr, fresh, reads,
+    args: { owner: 'stranske', repo: 'Ready', pr, record,
+      threads: packet.reviewThreads, read: fn => fn(client) } };
+}
+
+test('pre-seal, final sync finding gate and canary agree without resolving the original thread', async () => {
+  for (const kind of ['shared-source', 'sync-caused', 'unrelated', 'unknown']) {
+    const h = findingGateHarness(findingPacket(kind));
+    const gate = await confirmExactHeadSyncFindingGate(h.args);
+    const preSeal = classifyGeneratedPr({ pr: h.pr, activeReviewThreadCount: 1,
+      reviewThreads: h.packet.reviewThreads, findingEvidence: gate.packet,
+      checkState: { status: 'ready' }, now: new Date().toISOString() });
+    assert.equal(gate.ok, kind === 'unrelated');
+    assert.equal(preSeal.disposition, kind === 'unrelated' ? 'current' : 'review-blocked');
+    const row = { repo: h.packet.binding.repository, pr: h.pr.number,
+      head_sha: h.pr.head.sha, source_commit: h.record.source_commit,
+      plan_id: h.record.plan_id, delivery_generation: h.record.generation,
+      required_check_state: 'success', active_review_thread_count: 1,
+      review_disposition: gate.packet };
+    assert.equal(validateCanaryEvidence([row], [row.repo]).ok, gate.ok);
+    assert.equal(h.packet.reviewThreads[0].isResolved, false);
+    assert.equal(gate.evaluation.findings.length, 1);
+    if (kind === 'unrelated') {
+      assert.deepEqual(h.reads.map(item => item[0]), ['comments', 'handoff', 'final-head-and-findings']);
+      assert.equal(classifyGeneratedPr({ pr: h.pr, activeReviewThreadCount: 1,
+        reviewThreads: h.packet.reviewThreads, findingEvidence: gate.packet,
+        checkState: { status: 'checks_failed' } }).disposition, 'repo-local-failure');
+    }
+  }
+});
+
+test('stale-head final sync finding gate rejects an unrelated record after pre-seal', async () => {
+  const h = findingGateHarness();
+  assert.equal((await confirmExactHeadSyncFindingGate(h.args)).ok, true);
+  h.fresh.headRefOid = 'f'.repeat(40);
+  const gate = await confirmExactHeadSyncFindingGate(h.args);
+  assert.equal(gate.ok, false, 'current-head revalidation must precede final acceptance');
+  assert.match(gate.packet.error, /finding_delivery_changed/);
+});
+
+test('repository conversation and required-check rejection remain independent of relevance', () => {
+  const clear = { blocked: false, raw_active_count: 1 };
+  const policy = syncMergeFailureDisposition(new Error('All conversations must be resolved'), clear);
+  assert.equal(policy.status, 'merge_blocked_repository_policy');
+  assert.equal(policy.next_command, 'obtain-repository-policy-thread-disposition');
+  for (const message of ['Required check Gate failed', 'Missing approval', 'Security check failed',
+    'Delivery integrity rejected', 'Branch protection rejected']) {
+    assert.equal(syncMergeFailureDisposition(new Error(message), clear).status, 'merge_failed');
+  }
+});
+
+test('final sync finding evidence rejects edited findings, lost handoffs and partial API reads', async () => {
+  const cases = [
+    h => { h.fresh.reviewThreads.pageInfo.hasNextPage = true; },
+    h => { h.fresh.reviewThreads.nodes = structuredClone(h.packet.reviewThreads);
+      h.fresh.reviewThreads.nodes[0].comments.nodes[0].body += ' New incompatibility.'; },
+    h => { h.packet.handoffs[0].assignees = []; },
+    h => { h.packet.handoffs[0] = undefined; },
+    h => { h.packet.comments = undefined; },
+    h => { changeProof(h.packet, { handoff_url: 'https://github.com/other/repo/issues/1' }); },
+    h => { h.fresh.body = h.fresh.body.replace('generation-3', 'generation-4'); },
+    h => { h.fresh.body = h.fresh.body.replace('b'.repeat(40), 'c'.repeat(40)); },
+  ];
+  for (const mutate of cases) {
+    const h = findingGateHarness();
+    mutate(h);
+    assert.equal((await confirmExactHeadSyncFindingGate(h.args)).ok, false, String(mutate));
+  }
+});
 
 const refreshNow = Date.parse('2026-10-17T12:00:00Z');
 
