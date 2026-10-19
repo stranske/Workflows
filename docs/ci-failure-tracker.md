@@ -82,3 +82,11 @@ binds the workflow SHA and hosted run URL to the synthetic Gate run/head,
 simulated issue writes and snapshots. This is hosted replay evidence, not a claim
 that an unmerged workflow changed production issues. Actual production behavior
 is observed only after merge and a qualifying Gate event.
+
+The pinned actionlint versions predate GitHub's `concurrency.queue` property.
+The existing actionlint allowlist therefore recognizes only its exact
+unsupported-key diagnostic. An independent workflow-schema test validates every
+root concurrency block: queue values must be `single` or `max`, and `max` cannot
+cancel running jobs. Invalid values/combinations fail that check. All other
+lint diagnostics and required CI remain enabled; no workflow or security check
+is removed. See the [GitHub queue contract](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency).

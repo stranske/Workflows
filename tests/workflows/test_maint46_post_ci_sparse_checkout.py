@@ -123,3 +123,33 @@ def test_tracker_serializes_pending_events_without_single_slot_replacement():
     )
     assert checkout["with"]["ref"] == "${{ github.sha }}"
     assert checkout["with"]["persist-credentials"] is False
+
+
+def _validate_concurrency_queue(section):
+    if not isinstance(section, dict) or "queue" not in section:
+        return
+    if not isinstance(section["queue"], str) or section["queue"] not in {"single", "max"}:
+        raise ValueError("concurrency.queue must be single or max")
+    if section["queue"] == "max" and section.get("cancel-in-progress", False) is not False:
+        raise ValueError("max queue cannot cancel in-progress jobs")
+
+
+def test_supported_concurrency_queue_schema_in_all_workflows():
+    for workflow_path in Path(".github/workflows").glob("*.yml"):
+        workflow = yaml.safe_load(workflow_path.read_text())
+        _validate_concurrency_queue(workflow.get("concurrency"))
+        for job in workflow.get("jobs", {}).values():
+            _validate_concurrency_queue(job.get("concurrency"))
+
+
+@pytest.mark.parametrize(
+    "section",
+    [
+        {"queue": "bogus"},
+        {"queue": "max", "cancel-in-progress": True},
+        {"queue": "max", "cancel-in-progress": "${{ inputs.cancel }}"},
+    ],
+)
+def test_queue_compatibility_rejects_invalid_configuration(section):
+    with pytest.raises(ValueError):
+        _validate_concurrency_queue(section)

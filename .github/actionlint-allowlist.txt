@@ -8,10 +8,6 @@ property "(token_rotation_json|service_bot_pat|actions_bot_pat|owner_pr_pat|agen
 # actionlint 1.7.3 doesn't recognize this newer permission scope
 unknown permission scope "models"
 
-# concurrency.queue (queue: max) landed in Actions after actionlint 1.7.x schema;
-# keep the real job setting and suppress the stale syntax-check until actionlint catches up.
-unexpected key "queue" for "concurrency" section
-
 # These are style warnings for consecutive echo redirects. Grouping them would
 # reduce readability in our workflow context.
 SC2129:style:.+: Consider using { cmd1; cmd2; } >> file instead of individual redirects
@@ -21,3 +17,8 @@ SC2129:style:.+: Consider using { cmd1; cmd2; } >> file instead of individual re
 SC2086:info:.github/workflows/.+: Double quote to prevent globbing and word splitting
 
 constant expression "false" in condition
+
+# GitHub supports concurrency.queue (single|max); actionlint 1.7.3/1.7.11 predate it.
+# Only this exact unsupported-key diagnostic is replaced by the independent
+# concurrency schema checks in test_maint46_post_ci_sparse_checkout.py.
+^unexpected key "queue" for "concurrency" section\. expected one of "cancel-in-progress", "group"$
