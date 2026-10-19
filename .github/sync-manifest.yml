@@ -123,7 +123,7 @@ workflows:
     template_sync: exact
 
   - source: .github/workflows/agents-verify-to-new-pr.yml
-    description: "Verify to new PR - creates follow-up issue and immediately dispatches auto-pilot to prepare a replacement PR (bridge inlined)"
+    description: "Verify to new PR - authenticates native GitHub Actions report authors, binds terminal gating and generated follow-up to the latest report, then dispatches auto-pilot (bridge inlined)"
 
   - source: .github/workflows/agents-auto-label.yml
     description: "Auto-label - suggests/applies labels based on semantic matching (Phase 5A); installs exact-synced canonical LLM requirements independently of consumer optional extras"

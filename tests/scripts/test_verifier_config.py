@@ -10,6 +10,7 @@ from scripts.langchain.verifier_config import (
     SchemaRepairPolicy,
     artifact_from_verification_text,
     is_terminal_artifact,
+    latest_verifier_report,
 )
 
 
@@ -197,7 +198,7 @@ def test_artifact_from_verification_text_preserves_newer_pending_repair_after_ol
         "## PR Verification Report\n\nSchema repair pending; validation retry queued."
     )
 
-    assert artifact["verdict"] == "PASS"
+    assert "verdict" not in artifact
     assert artifact["repair_pending"] is True
     assert not is_terminal_artifact(artifact)
 
@@ -289,3 +290,84 @@ def test_artifact_from_plain_text_without_verdict_is_not_a_verifier_report() -> 
 
     assert artifact == {"raw_present": True}
     assert not is_terminal_artifact(artifact)
+
+
+@pytest.mark.parametrize("old", ["PASS", "FAIL"])
+@pytest.mark.parametrize("current", ["PASS", "FAIL", None])
+def test_latest_report_excludes_historical_verdicts(old, current):
+    latest = "## PR Verification Report\n" + (
+        f"Verdict: {current}" if current else "Still collecting evidence"
+    )
+    history = f"## PR Verification Report\nVerdict: {old}\n\n---\n\n{latest}"
+    artifact = artifact_from_verification_text(history)
+    assert latest_verifier_report(history) == latest
+    assert artifact.get("verdict") == current
+    assert is_terminal_artifact(artifact) is (current is not None)
+
+
+def test_latest_pending_report_mentioning_older_run_remains_nonterminal():
+    history = "## PR Verification Report\nVerdict: FAIL\n\n---\n\n## PR Verification Report\nSchema repair pending; see the older run."
+    artifact = artifact_from_verification_text(history)
+    assert artifact.get("repair_pending") is True
+    assert "verdict" not in artifact
+    assert not is_terminal_artifact(artifact)
+
+
+def test_latest_report_keeps_structured_artifact_with_heading_in_summary():
+    raw = '{"verdict":"FAIL","summary":"See ## PR Verification Report"}'
+    assert latest_verifier_report(raw) == raw
+    assert artifact_from_verification_text(raw)["verdict"] == "FAIL"
+
+
+@pytest.mark.parametrize("heading", ["## LLM Evaluation Report", "## Provider Comparison Report"])
+def test_latest_report_recognizes_production_headings(heading):
+    current = heading + "\nSchema repair pending; see older run"
+    text = "## PR Verification Report\nVerdict: FAIL\n\n---\n\n" + current
+    assert latest_verifier_report(text) == current
+    artifact = artifact_from_verification_text(text)
+    assert artifact.get("repair_pending") is True
+    assert artifact.get("artifact_family") == "verifier-report"
+    assert "verdict" not in artifact
+    assert not is_terminal_artifact(artifact)
+
+
+def test_historical_fail_then_latest_pass_resolves_to_pass():
+    history = (
+        "## PR Verification Report\nVerdict: FAIL\n\n---\n\n"
+        "## PR Verification Report\nVerdict: PASS"
+    )
+    artifact = artifact_from_verification_text(history)
+    assert artifact["verdict"] == "PASS"
+    assert is_terminal_artifact(artifact)
+
+
+def test_provider_comparison_report_heading_aggregates_worst_verdict():
+    artifact = artifact_from_verification_text(
+        "\n".join(
+            [
+                "## Provider Comparison Report",
+                "| Provider | Model | Verdict | Confidence | Summary |",
+                "| --- | --- | --- | --- | --- |",
+                "| openai | gpt | PASS | 90% | ok |",
+                "| anthropic | claude | FAIL | 70% | gap |",
+            ]
+        )
+    )
+    assert artifact["verdict"] == "FAIL"
+    assert artifact["artifact_family"] == "verifier-report"
+    assert is_terminal_artifact(artifact)
+
+
+def test_latest_comment_preserves_embedded_report_headings_and_separators():
+    import json
+
+    current = "## LLM Evaluation Report\nVerdict: FAIL\n\nConcern:\n## Provider Comparison Report\nQuoted example, not a new report.\n\n---\n\nMore evidence."
+    raw = json.dumps(
+        {
+            "schema": "verifier-comment-history/v1",
+            "comments": ["## PR Verification Report\nVerdict: PASS", current],
+        }
+    )
+    assert latest_verifier_report(raw) == current
+    assert artifact_from_verification_text(raw)["verdict"] == "FAIL"
+    assert latest_verifier_report(current) == current
