@@ -56,6 +56,13 @@ exact desired-record readback resolves a lost PUT response. A diagnostic cache
 is accessed explicitly through `cached_observation()` and is never consulted
 by shared claims or writes. It cannot grant global ownership.
 
+When Contents omits inline bytes for a large record, Core reads the immutable Git
+blob selected by that metadata SHA through the same fixed GET transport. It checks
+the returned SHA, declared byte size, and Git hash of the decoded bytes before
+validating the complete record; no evidence is compacted or fetched from arbitrary
+URLs. Records above the supported 100 MB bound fail closed. Blob readback failures
+after a PUT remain unknown and never trigger a write retry.
+
 ## Bounded verification
 
 The only production verification adapter is `expected_check_topology`.

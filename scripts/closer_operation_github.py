@@ -33,6 +33,9 @@ from scripts.closer_runtime import (
 
 PORTABLE_BRANCH = "keepalive-authority-state"
 PORTABLE_NAMESPACE = "closer-operation-portable/v1"
+# Contents stops returning inline bytes above 1 MB; Git blobs support up to 100 MB.
+CONTENTS_INLINE_BYTES = 1_000_000
+MAX_GIT_BLOB_BYTES = 100_000_000
 RequestFn = Callable[[str, str, Mapping[str, Any] | None], Mapping[str, Any]]
 
 
@@ -55,6 +58,7 @@ class UnknownOutcome(CloserRuntimeError):
 _REPO = r"/repos/[\w.-]+/[\w.-]+"
 _NATIVE_ALLOWED = (
     ("GET", re.compile(_REPO + r"(?:/git/ref/heads/[\w./-]+)?")),
+    ("GET", re.compile(_REPO + r"/git/blobs/[0-9a-f]{40}")),
     (
         "GET",
         re.compile(
@@ -73,7 +77,7 @@ _NATIVE_ALLOWED = (
 
 
 def _allowed_native_call(method: str, path: str) -> bool:
-    """Authority refs/contents only: this transport can never reach pulls/merge etc."""
+    """Authority refs/contents/immutable blobs only; never pulls/merge etc."""
     if ".." in path or "://" in path:
         return False
     return any(m == method and rx.fullmatch(path) for m, rx in _NATIVE_ALLOWED)
@@ -138,6 +142,45 @@ def decode_record_blob(meta: Mapping[str, Any]) -> dict[str, Any]:
     if not isinstance(data, dict):
         raise CloserRuntimeError("operation record must be object")
     return data
+
+
+def decode_git_record_blob(meta: Mapping[str, Any], blob: Mapping[str, Any]) -> dict[str, Any]:
+    """Accept only the immutable Git object selected by the Contents metadata.
+
+    Neither a moved branch/path nor a server-provided URL selects the bytes. Validate
+    both declared sizes, returned object identity, and Git's hash over the decoded bytes.
+    """
+    sha, size = meta.get("sha"), meta.get("size")
+    if (
+        not isinstance(sha, str)
+        or not re.fullmatch(r"[0-9a-f]{40}", sha)
+        or isinstance(size, bool)
+        or not isinstance(size, int)
+        or not 0 <= size <= MAX_GIT_BLOB_BYTES
+        or blob.get("sha") != sha
+        or blob.get("encoding") != "base64"
+        or isinstance(blob.get("size"), bool)
+        or not isinstance(blob.get("size"), int)
+        or blob.get("size") != size
+    ):
+        raise CloserRuntimeError("invalid immutable blob metadata/identity/size")
+    try:
+        content = blob["content"]
+        if not isinstance(content, str):
+            raise ValueError("blob content must be base64 text")
+        encoded = content.replace("\n", "")
+        if len(encoded) != 4 * ((size + 2) // 3):
+            raise ValueError("encoded blob size differs from Contents metadata")
+        raw = base64.b64decode(encoded, validate=True)
+    except (KeyError, ValueError) as exc:
+        raise CloserRuntimeError("malformed immutable blob content") from exc
+    # Git object identity is protocol interoperability; SHA-256 binds our record evidence.
+    actual_sha = hashlib.sha1(
+        b"blob " + str(len(raw)).encode() + b"\0" + raw, usedforsecurity=False
+    ).hexdigest()
+    if len(raw) != size or actual_sha != sha:
+        raise CloserRuntimeError("immutable blob bytes differ from Contents identity")
+    return decode_record_blob(blob)
 
 
 def _status(exc):
@@ -242,7 +285,30 @@ class GitHubContentsOperationStore(LocalOperationStore):
             raise RemoteUnavailable(
                 "shared read unavailable; cache cannot grant ownership"
             ) from exc
-        record = decode_record_blob(meta)
+        size = meta.get("size")
+        large = meta.get("encoding") == "none" or (
+            isinstance(size, int) and size > CONTENTS_INLINE_BYTES
+        )
+        if large:
+            sha = meta.get("sha")
+            if (
+                not isinstance(sha, str)
+                or not re.fullmatch(r"[0-9a-f]{40}", sha)
+                or isinstance(size, bool)
+                or not isinstance(size, int)
+                or not 0 <= size <= MAX_GIT_BLOB_BYTES
+            ):
+                raise CloserRuntimeError("unsupported large Contents metadata/size")
+            try:
+                blob = self._get(f"/repos/{self.repository}/git/blobs/{sha}")
+            except PolicyDenied:
+                raise
+            except Exception as exc:
+                # A blob 404 is NOT record absence: Contents already selected an object.
+                raise RemoteUnavailable("immutable authority blob unavailable") from exc
+            record = decode_git_record_blob(meta, blob)
+        else:
+            record = decode_record_blob(meta)
         validate_store_record(store_key, record)
         if record["repository"] != self.repository:
             raise CloserRuntimeError("record repository differs from authority repository")
