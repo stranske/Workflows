@@ -5,6 +5,12 @@ Applies a temporary Scope change to scripts/langchain/verifier_config.py and a
 temporary regression in tests/scripts/test_verifier_config.py, records pass with
 the fix, fail when the fix is disconnected, then restores both files
 byte-for-byte. Permanent audit PR content stays under docs/reports/ only.
+
+Post-#4129 main already binds via ``\\n\\n---\\n\\n`` separators, but concatenated
+report headings without that separator still inherit a historical PASS. The
+Scope change below selects the last verifier report heading so the named
+regression can pass; disconnecting restores first-heading / full-span
+selection and the regression must fail.
 """
 
 from __future__ import annotations
@@ -27,6 +33,29 @@ REGRESSION_NODE = (
 POSITIVE_NODE = (
     "tests/scripts/test_verifier_config.py::"
     "test_artifact_from_verification_text_accepts_terminal_verdict_on_latest_report"
+)
+
+# Exact heading-selection block from scripts/langchain/verifier_config.py::latest_verifier_report.
+_HEADING_SEARCH = (
+    "    heading = re.search(\n"
+    '        r"^##[ \\t]+(?:PR Verification(?: Report| Comparison)?|LLM Evaluation Report|'
+    'Provider Comparison Report)\\b",\n'
+    "        raw,\n"
+    "        re.I | re.M,\n"
+    "    )\n"
+    "    return raw[heading.start() :] if heading else raw\n"
+)
+_HEADING_LAST = (
+    "    headings = list(\n"
+    "        re.finditer(\n"
+    '            r"^##[ \\t]+(?:PR Verification(?: Report| Comparison)?|LLM Evaluation Report|'
+    'Provider Comparison Report)\\b",\n'
+    "            raw,\n"
+    "            re.I | re.M,\n"
+    "        )\n"
+    "    )\n"
+    "    heading = headings[-1] if headings else None\n"
+    "    return raw[heading.start() :] if heading else raw\n"
 )
 
 REGRESSION_BLOCK = '''
@@ -114,55 +143,42 @@ def _summarize_pytest(blob: bytes) -> str:
 
 
 def _apply_scope_fix(source: str) -> str:
-    """Extract verdicts from the latest report only (Scope change for #3966)."""
+    """Select the last verifier report heading (Scope change for #3966 residual)."""
 
-    pattern = (
-        r"    verdicts = _extract_verdicts\(raw\)\n"
-        r"    if verdicts:\n"
-        r"        severity = \{[^}]+\}\n"
-        r"        artifact\[\"verdict\"\] = max\(verdicts, key=lambda verdict: severity\.get\(verdict, -1\)\)\n"
-        r"\n"
-        r"    latest_raw = _latest_verifier_report\(raw\)\n"
-    )
-    replacement = (
-        "    latest_raw = _latest_verifier_report(raw)\n"
-        "    verdicts = _extract_verdicts(latest_raw)\n"
-        "    if verdicts:\n"
-        '        severity = {"PASS": 0, "CONCERNS": 1, "FAIL": 2, "ERROR": 3, "UNVERIFIABLE_INPUT": 0.5}\n'
-        '        artifact["verdict"] = max(verdicts, key=lambda verdict: severity.get(verdict, -1))\n'
-        "\n"
-    )
-    updated, count = re.subn(pattern, replacement, source, count=1)
-    if count != 1:
-        raise RuntimeError(
-            "failed to locate artifact_from_verification_text verdict extraction block"
-        )
-    return updated
+    if _HEADING_SEARCH not in source:
+        raise RuntimeError("failed to locate latest_verifier_report first-heading selection block")
+    if source.count(_HEADING_SEARCH) != 1:
+        raise RuntimeError("latest_verifier_report heading selection block is not unique")
+    return source.replace(_HEADING_SEARCH, _HEADING_LAST, 1)
 
 
 def _disconnect_scope_fix(fixed: str) -> str:
-    """Restore full-history verdict scanning while keeping the temporary tests."""
+    """Restore first-heading selection while keeping the temporary tests."""
 
-    pattern = (
-        r"    latest_raw = _latest_verifier_report\(raw\)\n"
-        r"    verdicts = _extract_verdicts\(latest_raw\)\n"
-        r"    if verdicts:\n"
-        r"        severity = \{[^}]+\}\n"
-        r"        artifact\[\"verdict\"\] = max\(verdicts, key=lambda verdict: severity\.get\(verdict, -1\)\)\n"
-        r"\n"
-    )
-    replacement = (
-        "    verdicts = _extract_verdicts(raw)\n"
-        "    if verdicts:\n"
-        '        severity = {"PASS": 0, "CONCERNS": 1, "FAIL": 2, "ERROR": 3, "UNVERIFIABLE_INPUT": 0.5}\n'
-        '        artifact["verdict"] = max(verdicts, key=lambda verdict: severity.get(verdict, -1))\n'
-        "\n"
-        "    latest_raw = _latest_verifier_report(raw)\n"
-    )
-    updated, count = re.subn(pattern, replacement, fixed, count=1)
-    if count != 1:
-        raise RuntimeError("failed to disconnect Scope change for deliberate-break")
-    return updated
+    if _HEADING_LAST not in fixed:
+        raise RuntimeError("failed to locate last-heading Scope change for deliberate-break")
+    if fixed.count(_HEADING_LAST) != 1:
+        raise RuntimeError("last-heading Scope change block is not unique")
+    return fixed.replace(_HEADING_LAST, _HEADING_SEARCH, 1)
+
+
+def test_scope_fix_transforms_round_trip_on_current_verifier_config() -> None:
+    """Planning-harness unit check: apply then disconnect restores the source file."""
+
+    original = CONFIG_PATH.read_text(encoding="utf-8")
+    fixed = _apply_scope_fix(original)
+    assert fixed != original
+    assert "re.finditer(" in fixed
+    assert "headings[-1]" in fixed
+    restored = _disconnect_scope_fix(fixed)
+    assert restored == original
+
+
+def test_scope_fix_blocks_are_present_in_current_verifier_config() -> None:
+    """Fail loudly if main moves the heading-selection anchor this harness patches."""
+
+    source = CONFIG_PATH.read_text(encoding="utf-8")
+    assert _HEADING_SEARCH in source
 
 
 def main() -> int:
@@ -241,8 +257,12 @@ def main() -> int:
         "regression": REGRESSION_NODE,
         "positive_control": POSITIVE_NODE,
         "scope_change": (
-            "scripts/langchain/verifier_config.py artifact_from_verification_text: "
-            "extract verdicts from _latest_verifier_report(raw) only"
+            "scripts/langchain/verifier_config.py latest_verifier_report: "
+            "select last verifier report heading (re.finditer) instead of first (re.search)"
+        ),
+        "residual_gap": (
+            "post-#4129 main still inherits historical PASS for concatenated headings "
+            "without \\n\\n---\\n\\n; owned by #3966"
         ),
         "transcript_normalization": "pytest wall-clock durations replaced with <time>",
         "with_fix": {
