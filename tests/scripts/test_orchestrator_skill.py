@@ -13,6 +13,7 @@ from scripts.orchestrator_skill import (
     main,
     parse_orchestrator_skill_config,
     resolve_orchestrator_skill_plan,
+    write_orchestrator_skill_summary,
 )
 
 
@@ -195,3 +196,36 @@ def test_cli_self_check_and_json_report_config_state(
     assert "disabled" in capsys.readouterr().err
     assert main(["--workspace", str(tmp_path)]) == 0
     assert json.loads(capsys.readouterr().out)["enabled"] is False
+
+
+def test_config_text_rejects_invalid_utf8_and_cli_rejects_bad_override(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    config = tmp_path / ".github" / "orchestrator_skill.json"
+    config.parent.mkdir()
+    config.write_bytes(b"\xff")
+    with pytest.raises(OrchestratorSkillConfigError, match="valid UTF-8"):
+        load_orchestrator_skill(tmp_path)
+
+    assert main(["--workspace", str(tmp_path), "--enabled-override", "sometimes"]) == 2
+    assert "enabled override" in capsys.readouterr().err
+
+
+def test_write_summary_and_cli_reports_enabled_config(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    checkout = tmp_path / "materialized"
+    nested = checkout / "nested"
+    nested.mkdir(parents=True)
+    (nested / "guide.md").write_text("guide\n", encoding="utf-8")
+    target = write_orchestrator_skill_summary(tmp_path, checkout, pack_name="pilot")
+    assert target == tmp_path / ".reference" / "ORCHESTRATOR_SKILL.md"
+    assert "nested/guide.md" in target.read_text(encoding="utf-8")
+
+    config = tmp_path / ".github" / "orchestrator_skill.json"
+    config.parent.mkdir(exist_ok=True)
+    config.write_text(json.dumps({"pack": "pilot"}), encoding="utf-8")
+    assert main(["--workspace", str(tmp_path), "--format", "self-check"]) == 0
+    assert "OK" in capsys.readouterr().err
+    assert main(["--workspace", str(tmp_path)]) == 0
+    assert json.loads(capsys.readouterr().out)["plan"]["pack"] == "pilot"

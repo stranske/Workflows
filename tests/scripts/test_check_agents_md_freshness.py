@@ -1,6 +1,12 @@
 from __future__ import annotations
 
-from scripts.check_agents_md_freshness import check_agents_md, main, managed_section
+from scripts.check_agents_md_freshness import (
+    _clean_ref,
+    _command_parts,
+    check_agents_md,
+    main,
+    managed_section,
+)
 
 
 def _agents_md(*refs: str, prefix: str = "") -> str:
@@ -172,3 +178,8 @@ def test_cli_json_annotations_and_strict_exit_are_consistent(tmp_path, capsys):
     assert result == 1
     assert '"docs/missing.md"' in output
     assert "::warning title=AGENTS.md freshness::" in output
+
+
+def test_reference_cleaning_and_empty_commands_are_safe() -> None:
+    assert _clean_ref("docs/a.md:12-14") == "docs/a.md"
+    assert _command_parts('"unterminated') == ['"unterminated']
