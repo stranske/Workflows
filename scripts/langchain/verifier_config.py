@@ -129,7 +129,7 @@ def is_terminal_artifact(verifier_run: Any) -> bool:
 def artifact_from_verification_text(text: str) -> dict[str, Any]:
     """Build a verifier artifact candidate from a posted verifier report."""
 
-    raw = (text or "").strip()
+    raw = latest_verifier_report(text)
     artifact: dict[str, Any] = {"raw_present": bool(raw)}
     if not raw:
         return artifact
@@ -145,20 +145,16 @@ def artifact_from_verification_text(text: str) -> dict[str, Any]:
         severity = {"PASS": 0, "CONCERNS": 1, "FAIL": 2, "ERROR": 3, "UNVERIFIABLE_INPUT": 0.5}
         artifact["verdict"] = max(verdicts, key=lambda verdict: severity.get(verdict, -1))
 
-    latest_raw = _latest_verifier_report(raw)
-    lowered = latest_raw.lower()
-    repair_pending = (
-        any(
-            phrase in lowered
-            for phrase in (
-                "repair pending",
-                "schema repair pending",
-                "validation retry",
-                "pending repair",
-                "partial verifier output",
-            )
+    lowered = raw.lower()
+    repair_pending = any(
+        phrase in lowered
+        for phrase in (
+            "repair pending",
+            "schema repair pending",
+            "validation retry",
+            "pending repair",
+            "partial verifier output",
         )
-        and "older run" not in lowered
     )
     if "## pr verification" in lowered or "verdict:" in lowered:
         artifact["artifact_family"] = "verifier-report"
@@ -167,7 +163,16 @@ def artifact_from_verification_text(text: str) -> dict[str, Any]:
     return artifact
 
 
-def _latest_verifier_report(raw: str) -> str:
+def latest_verifier_report(text: str) -> str:
+    """Select the last posted verifier report before interpreting any verdict.
+
+    A single structured JSON artifact or marker-less report is returned intact.
+    Historical reports remain available in comments, never as current evidence.
+    """
+
+    raw = (text or "").strip()
+    if isinstance(_coerce_artifact(raw), (dict, list)):
+        return raw
     lowered = raw.lower()
     marker = "## pr verification"
     index = lowered.rfind(marker)
