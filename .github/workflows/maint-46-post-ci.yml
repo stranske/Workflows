@@ -10,7 +10,6 @@ name: Maint 46 Post CI
 permissions:
   actions: read
   contents: read
-  issues: write
   pull-requests: write
   statuses: write
 
@@ -21,6 +20,11 @@ concurrency:
 jobs:
   summary:
     name: post ci summary
+    permissions:
+      actions: read
+      contents: read
+      pull-requests: write
+      statuses: write
     if: ${{ github.event.workflow_run.event == 'pull_request' }}
     runs-on: ubuntu-latest
     env:
@@ -324,3 +328,56 @@ jobs:
           script: |
             const { propagateGateCommitStatus } = require('./.github/scripts/maint-post-ci.js');
             await propagateGateCommitStatus({ github, context, core });
+
+  failure-tracker:
+    name: Gate failure issue and snapshot
+    if: ${{ github.event.workflow_run.event == 'pull_request' }}
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      issues: write
+      pull-requests: read
+    concurrency:
+      group: maint-46-failure-tracker-${{ github.repository }}
+      cancel-in-progress: false
+    steps:
+      - name: Checkout trusted tracker helpers
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+          sparse-checkout: .github/scripts
+      - name: Track completed Gate and snapshot
+        id: tracker
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const {
+              resolveGateTrackingContext, updateFailureTracker,
+              resolveFailureIssuesForRecoveredPR, autoHealFailureIssues, snapshotFailureIssues,
+            } = require('./.github/scripts/maint-post-ci.js');
+            const tracking = await resolveGateTrackingContext({ github, context, core });
+            if (!tracking) return;
+            core.setOutput('tracked', 'true');
+            const trackedContext = { ...context, payload: { ...context.payload, workflow_run: tracking.run } };
+            process.env.PR_NUMBER = String(tracking.prNumber);
+            process.env.RUN_URL = tracking.run.html_url;
+            try {
+              if (tracking.failed) {
+                await updateFailureTracker({ github, context: trackedContext, core, jobs: tracking.jobs });
+              } else if (tracking.healthy) {
+                await resolveFailureIssuesForRecoveredPR({ github, context: trackedContext, core });
+                await autoHealFailureIssues({ github, context: trackedContext, core });
+              }
+            } finally {
+              await snapshotFailureIssues({ github, context: trackedContext, core });
+            }
+      - name: Upload Gate failure snapshot
+        if: ${{ always() && steps.tracker.outputs.tracked == 'true' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: ci-failures-snapshot-${{ github.event.workflow_run.id }}-${{ github.event.workflow_run.run_attempt }}
+          path: artifacts/ci_failures_snapshot.json
+          if-no-files-found: error
+          retention-days: 14

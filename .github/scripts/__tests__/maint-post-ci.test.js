@@ -314,6 +314,7 @@ test('updateFailureTracker opens issue when cooldown passes', async () => {
         downloadJobLogsForWorkflowRun: async () => ({ data: Buffer.from('') }),
       },
       issues: {
+        listForRepo: async () => ({ data: [] }),
         create: async payload => {
           createdIssue = payload;
           return { data: { number: 100 } };
@@ -464,4 +465,239 @@ test('removeCiFailureLabel removes label and ignores missing labels', async () =
   await removeCiFailureLabel({ github, context, core, prNumber: '99' });
   await removeCiFailureLabel({ github, context, core, prNumber: '99' });
   assert.equal(callCount, 2);
+});
+
+
+// Execute the authored workflow script, not a parallel test-only coordinator.
+function trackerWorkflowScript() {
+  const workflow = fs.readFileSync(path.join(__dirname, '../../workflows/maint-46-post-ci.yml'), 'utf8');
+  const step = workflow.split('      - name: Track completed Gate and snapshot\n')[1];
+  assert.ok(step, 'tracker step must remain wired');
+  const block = step.split('          script: |\n')[1].split('      - name:')[0];
+  assert.match(workflow, /path: artifacts\/ci_failures_snapshot.json/);
+  assert.match(workflow, /failure-tracker:[\s\S]*issues: write/);
+  return block.split('\n').filter(line => line.trim()).map(line => {
+    assert.ok(line.startsWith('            '));
+    return line.slice(12);
+  }).join('\n');
+}
+
+function trackerReplayHarness() {
+  const issues = [];
+  const comments = [];
+  const writes = [];
+  const calls = [];
+  const run = {
+    id: 100, run_attempt: 1, workflow_id: 44, name: 'Gate', event: 'pull_request',
+    status: 'completed', conclusion: 'failure', head_sha: 'a'.repeat(40),
+    path: '.github/workflows/pr-00-gate.yml', html_url: 'https://example.test/runs/100',
+    repository: { id: 10 }, head_repository: { id: 10 },
+    pull_requests: [{ number: 5, head: { sha: 'b'.repeat(40) } }],
+  };
+  const pr = { number: 5, head: { sha: 'b'.repeat(40), repo: { id: 10 } } };
+  const state = {
+    jobs: [{ id: 1, name: 'summary', status: 'completed', conclusion: 'success' },
+      { id: 2, name: 'Python CI', status: 'completed', conclusion: 'failure' },
+      { id: 3, name: 'optional', status: 'completed', conclusion: 'skipped' }],
+    newerRuns: [],
+  };
+  const github = { rest: {
+    actions: {
+      getWorkflowRun: async () => ({ data: structuredClone(state.latestRun || run) }),
+      listWorkflowRuns: async () => ({ data: { workflow_runs: [run, ...state.newerRuns] } }),
+      listJobsForWorkflowRunAttempt: async params => {
+        calls.push(params);
+        assert.equal(params.run_id, run.id);
+        assert.equal(params.attempt_number, run.run_attempt);
+        return { data: { jobs: state.jobs } };
+      },
+    },
+    pulls: { get: async () => ({ data: pr }) },
+    search: { issuesAndPullRequests: async ({ q }) => {
+      const tag = q.match(/tracked-pr: (\d+)/);
+      return { data: { items: issues.filter(item => item.state === 'open'
+        && (!tag || item.body.includes(`<!-- tracked-pr: ${tag[1]} -->`))) } };
+    } },
+    issues: {
+      listForRepo: async () => ({ data: issues.filter(item => item.state === 'open') }),
+      get: async ({ issue_number }) => ({ data: issues.find(item => item.number === issue_number) }),
+      create: async input => {
+        writes.push(['create', input]);
+        const issue = { ...input, number: 200 + issues.length, state: 'open',
+          created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+          html_url: `https://example.test/issues/${200 + issues.length}` };
+        issues.push(issue);
+        return { data: issue };
+      },
+      update: async input => {
+        writes.push(['update', input]);
+        Object.assign(issues.find(item => item.number === input.issue_number), input);
+      },
+      createComment: async input => { comments.push(input); writes.push(['comment', input]); },
+    },
+  } };
+  github.paginate = async (method, params) => {
+    const result = await method(params);
+    return result.data.workflow_runs || result.data.jobs || result.data.items || result.data;
+  };
+  const context = { repo: { owner: 'octo', repo: 'demo' },
+    payload: { repository: { id: 10 }, workflow_run: structuredClone(run) } };
+  const core = createCore();
+  const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
+  const execute = new AsyncFunction('require', 'github', 'context', 'core', 'process', trackerWorkflowScript());
+  return { run, pr, state, issues, comments, writes, calls, context, core,
+    async replay() {
+      context.payload.workflow_run = structuredClone(run);
+      await execute(modulePath => {
+        assert.equal(modulePath, './.github/scripts/maint-post-ci.js');
+        return require('../maint-post-ci');
+      }, github, context, core, process);
+    },
+  };
+}
+
+async function inTrackerReplay(fn) {
+  const originalCwd = process.cwd();
+  const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'gate-tracker-replay-'));
+  const names = ['PR_NUMBER', 'RUN_URL', 'STACK_TOKENS_ENABLED', 'NEW_ISSUE_COOLDOWN_HOURS',
+    'COOLDOWN_SCOPE', 'DISABLE_FAILURE_ISSUES', 'AUTO_HEAL_INACTIVITY_HOURS', 'RATE_LIMIT_MINUTES'];
+  const previous = Object.fromEntries(names.map(name => [name, process.env[name]]));
+  process.chdir(temp);
+  Object.assign(process.env, { STACK_TOKENS_ENABLED: 'false', NEW_ISSUE_COOLDOWN_HOURS: '12',
+    COOLDOWN_SCOPE: 'global', DISABLE_FAILURE_ISSUES: 'false', AUTO_HEAL_INACTIVITY_HOURS: '24', RATE_LIMIT_MINUTES: '15' });
+  try { await fn(trackerReplayHarness()); }
+  finally {
+    process.chdir(originalCwd);
+    for (const name of names) {
+      if (previous[name] === undefined) delete process.env[name];
+      else process.env[name] = previous[name];
+    }
+    fs.rmSync(temp, { recursive: true, force: true });
+  }
+}
+
+function readTrackerSnapshot() {
+  return JSON.parse(fs.readFileSync('artifacts/ci_failures_snapshot.json', 'utf8'));
+}
+
+test('authored Gate tracker replays upstream failure, recurrence, duplicate and recovery snapshots', async () => {
+  await inTrackerReplay(async h => {
+    await h.replay(); // Successful summary must not suppress the failed Python leg.
+    assert.equal(h.issues.length, 1);
+    assert.match(h.issues[0].body, /Python CI \(failure\)/);
+    assert.doesNotMatch(h.issues[0].body, /optional \(skipped\)/);
+    const failed = readTrackerSnapshot();
+    assert.deepEqual(failed.monitored_run, { id: 100, attempt: 1, head_sha: h.run.head_sha });
+    assert.equal(failed.issues[0].occurrences, 1);
+    h.issues[0].body += '\nOwner investigation notes must survive recurrence.';
+    h.run.id = 101;
+    h.run.html_url = 'https://example.test/runs/101';
+    await h.replay();
+    assert.equal(h.issues.length, 1);
+    assert.equal(readTrackerSnapshot().issues[0].occurrences, 2);
+    assert.match(h.issues[0].body, /Owner investigation notes must survive/);
+    assert.equal(h.comments.length, 1);
+    await h.replay();
+    assert.equal(readTrackerSnapshot().issues[0].occurrences, 2);
+    h.run.id = 102;
+    h.state.jobs[1].name = 'different failure'; // cooldown appends, does not create a duplicate
+    await h.replay();
+    assert.equal(h.issues.length, 1);
+    assert.equal(readTrackerSnapshot().issues[0].occurrences, 3);
+    assert.equal(h.comments.length, 1); // rate-limited without losing occurrence metadata
+    h.run.id = 103;
+    h.run.conclusion = 'success';
+    h.state.jobs[1].conclusion = 'success';
+    await h.replay();
+    assert.equal(h.issues[0].state, 'closed');
+    const recovered = readTrackerSnapshot();
+    assert.equal(recovered.monitored_run.id, 103);
+    assert.deepEqual(recovered.issues, []);
+    assert.ok(h.comments.some(item => item.body.includes('Resolution:')));
+    if (process.env.TRACKER_REPLAY_OUTPUT) {
+      fs.mkdirSync(process.env.TRACKER_REPLAY_OUTPUT, { recursive: true });
+      fs.writeFileSync(path.join(process.env.TRACKER_REPLAY_OUTPUT, 'failure.json'), JSON.stringify(failed, null, 2));
+      fs.writeFileSync(path.join(process.env.TRACKER_REPLAY_OUTPUT, 'recovery.json'), JSON.stringify(recovered, null, 2));
+      fs.writeFileSync(path.join(process.env.TRACKER_REPLAY_OUTPUT, 'receipt.json'), JSON.stringify({
+        synthetic: true, workflow_head: process.env.GITHUB_SHA || null,
+        hosted_run_url: process.env.GITHUB_RUN_ID ? `https://github.com/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}` : null,
+        writes: h.writes, job_attempt_reads: h.calls,
+      }, null, 2));
+    }
+  });
+});
+
+for (const [name, mutate] of [
+  ['fork identity', h => { h.run.head_repository.id = 11; }],
+  ['missing identity', h => { delete h.context.payload.repository; }],
+  ['superseded attempt', h => { h.state.latestRun = { ...h.run, run_attempt: 2 }; }],
+  ['current head drift', h => { h.pr.head.sha = 'c'.repeat(40); }],
+  ['newer Gate run', h => { h.state.newerRuns.push({ ...h.run, id: 999 }); }],
+  ['new merge SHA on the same PR head', h => { h.state.newerRuns.push({ ...h.run, id: 999, head_sha: 'd'.repeat(40) }); }],
+  ['non-Gate workflow', h => { h.run.path = '.github/workflows/other.yml'; }],
+  ['incomplete implementation job', h => { h.state.jobs[1].status = 'in_progress'; }],
+]) {
+  test(`authored Gate tracker refuses ${name} before writing`, async () => {
+    await inTrackerReplay(async h => {
+      mutate(h);
+      await h.replay();
+      assert.deepEqual(h.writes, []);
+      assert.equal(fs.existsSync('artifacts/ci_failures_snapshot.json'), false);
+    });
+  });
+}
+
+test('authored Gate tracker retains other PRs in a cooldown aggregate on recovery', async () => {
+  await inTrackerReplay(async h => {
+    await h.replay();
+    h.issues[0].body += '\n<!-- tracked-pr: 6 -->';
+    h.run.id = 101;
+    h.run.conclusion = 'success';
+    h.state.jobs[1].conclusion = 'success';
+    await h.replay();
+    assert.equal(h.issues[0].state, 'open');
+    assert.doesNotMatch(h.issues[0].body, /<!-- tracked-pr: 5 -->/);
+    assert.match(h.issues[0].body, /<!-- tracked-pr: 6 -->/);
+  });
+});
+
+
+test('authored Gate tracker scans failed jobs beyond the first page', async () => {
+  await inTrackerReplay(async h => {
+    h.state.jobs = Array.from({ length: 100 }, (_, index) => ({
+      id: index + 1, name: `passing-${index}`, status: 'completed', conclusion: 'success',
+    }));
+    h.state.jobs.push({ id: 101, name: 'page-two-failure', status: 'completed', conclusion: 'failure' });
+    await h.replay();
+    assert.match(h.issues[0].body, /page-two-failure/);
+    assert.equal(h.calls[0].per_page, 100);
+  });
+});
+
+test('authored Gate tracker snapshots an issue-write failure without claiming recovery', async () => {
+  await inTrackerReplay(async h => {
+    await h.replay();
+    h.run.id = 101;
+    // A failed update must not skip the same run-bound snapshot.
+    const original = h.issues[0];
+    Object.defineProperty(original, 'body', { get() { return 'Occurrences: 1'; }, set() { throw new Error('write denied'); } });
+    await assert.rejects(h.replay(), /write denied/);
+    const snapshot = readTrackerSnapshot();
+    assert.equal(snapshot.monitored_run.id, 101);
+    assert.equal(snapshot.issues.length, 1);
+    assert.equal(snapshot.issues[0].occurrences, 1);
+  });
+});
+
+test('authored Gate tracker does not heal cancelled outcomes', async () => {
+  await inTrackerReplay(async h => {
+    await h.replay();
+    h.run.id = 101;
+    h.run.conclusion = 'cancelled';
+    h.state.jobs[1].conclusion = 'cancelled';
+    const before = h.writes.length;
+    await h.replay();
+    assert.equal(h.writes.length, before);
+    assert.equal(readTrackerSnapshot().issues.length, 1);
+  });
 });

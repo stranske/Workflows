@@ -466,3 +466,14 @@ typing and primary artifact runtime when it belongs to the selected matrix.
 Explicit `primary-python-version` takes precedence; an explicit matrix without
 the shared runtime uses its first member. Repository-owned autofix tool pins
 continue to override the shared fallback pins.
+
+
+### Maint46 failure tracking
+
+[Maint46](../../.github/workflows/maint-46-post-ci.yml) keeps summary recovery
+separate from its independent Gate failure issue/snapshot job. Only the latter
+job has `issues: write`; trusted current run/attempt/head validation precedes all
+writes. Both failure and recovery retain the exact snapshot path. The existing
+[Selftest CI](../../.github/workflows/selftest-ci.yml) dispatch-only tracker replay
+job publishes synthetic issue/snapshot receipts without live issue mutations.
+See the [tracker contract](../ci-failure-tracker.md).
