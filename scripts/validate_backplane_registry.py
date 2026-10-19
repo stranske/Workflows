@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import difflib
 import json
 import re
 import sys
@@ -369,6 +370,79 @@ def _reference_rows(registry: dict[str, Any]) -> list[dict[str, Any]]:
     return rows
 
 
+def _format_issue_state(row: dict[str, Any]) -> str:
+    deferred_until = row.get("deferred_until")
+    if deferred_until:
+        date_part = str(deferred_until).split("T", 1)[0]
+        return f"deferred until {date_part}"
+    issue = row.get("issue")
+    if issue:
+        return f"`{issue}`"
+    return "none"
+
+
+def _pension_reference_evidence(registry: dict[str, Any]) -> dict[str, Any] | None:
+    for entry in registry.get("participants", []):
+        if isinstance(entry, dict) and entry.get("repo") == "stranske/Pension-Data":
+            evidence = entry.get("reference_run_evidence")
+            if isinstance(evidence, dict):
+                return evidence
+    return None
+
+
+def render_status_markdown(registry: dict[str, Any]) -> str:
+    """Render the human-readable backplane status report from registry JSON."""
+    parent_issue = registry.get("parent_issue", "unknown")
+    rows = _reference_rows(registry)
+    lines = [
+        "# Backplane Registry Status",
+        "",
+        f"Generated from `config/backplane_participants.json` for {parent_issue}.",
+        "",
+        "Regenerate: `python scripts/validate_backplane_registry.py "
+        "--write-status docs/reports/backplane_registry_status.md`",
+        "",
+        "| Repo | Lifecycle status | Reference state | Issue state |",
+        "| --- | --- | --- | --- |",
+    ]
+    for row in rows:
+        lines.append(
+            "| {repo} | {lifecycle} | {reference} | {issue_state} |".format(
+                repo=row.get("repo"),
+                lifecycle=row.get("lifecycle_status"),
+                reference=row.get("reference_state"),
+                issue_state=_format_issue_state(row),
+            )
+        )
+
+    if not any(row.get("deferred_until") for row in rows):
+        lines.extend(["", "Deferrals: none deferred."])
+
+    evidence = _pension_reference_evidence(registry)
+    if evidence:
+        lines.extend(
+            [
+                "",
+                "Pension-Data reference evidence:",
+                "",
+                f"- Source issue: `{evidence.get('source_issue')}`",
+                f"- Producer PR: `{evidence.get('producer_pr')}`",
+                (
+                    "- Verifier follow-up: "
+                    f"`{evidence.get('verifier_followup_issue')}` / "
+                    f"`{evidence.get('verifier_followup_pr')}`"
+                ),
+                f"- Reference run: `{evidence.get('run_id')}`",
+                f"- Emit-reference-run job: `{evidence.get('emit_reference_run_url')}`",
+                f"- Backplane conformance job: `{evidence.get('conformance_run_url')}`",
+                f"- Run artifact SHA256: `{evidence.get('reference_run_sha256')}`",
+                f"- Manifest artifact SHA256: `{evidence.get('manifest_artifact_sha256')}`",
+            ]
+        )
+
+    return "\n".join(lines) + "\n"
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -394,9 +468,43 @@ def main(argv: list[str] | None = None) -> int:
             "(mirrors the langsmith contract's opt-in enforce_block)."
         ),
     )
+    parser.add_argument(
+        "--write-status",
+        type=Path,
+        metavar="PATH",
+        help="Write the markdown status report rendered from the registry.",
+    )
+    parser.add_argument(
+        "--check-status",
+        type=Path,
+        metavar="PATH",
+        help="Fail when PATH differs from the rendered markdown status report.",
+    )
     args = parser.parse_args(argv)
 
     registry = _load_json(args.registry)
+
+    if args.write_status is not None:
+        args.write_status.write_text(render_status_markdown(registry), encoding="utf-8")
+        return 0
+
+    if args.check_status is not None:
+        expected = render_status_markdown(registry)
+        try:
+            actual = args.check_status.read_text(encoding="utf-8")
+        except OSError as exc:
+            print(f"Unable to read status report {args.check_status}: {exc}", file=sys.stderr)
+            return 1
+        if actual == expected:
+            return 0
+        diff = difflib.unified_diff(
+            actual.splitlines(keepends=True),
+            expected.splitlines(keepends=True),
+            fromfile=str(args.check_status),
+            tofile="rendered",
+        )
+        sys.stdout.writelines(diff)
+        return 1
     findings = validate_registry(registry)
     blocking = blocking_findings(findings)
     stale = [f for f in findings if f.severity == STALE_SEVERITY]
