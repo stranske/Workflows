@@ -650,7 +650,10 @@ async function readConsumerDeclaredContexts({ withRetry, owner, repo, branch }) 
 function adoptFinalCheckEvidence(deliveryContext, gate) {
   if (gate.findingDisposition) {
     deliveryContext.review_finding_disposition = gate.findingDisposition;
-    deliveryContext.review_state = gate.findingDisposition.blocked ? 'blocked' : 'clear';
+    deliveryContext.review_state = gate.findingDisposition.blocked
+      || deliveryContext.delivery_disposition === 'review-blocked'
+      ? 'blocked'
+      : 'clear';
   }
   const evidence = gate?.finalCheckEvidence;
   if (!evidence) return;
@@ -4308,7 +4311,9 @@ async function run({ github, context, core }) {
         blocker_owner: deliveryState.blocker_owner,
         next_command: deliveryState.next_command,
         review_finding_disposition: findingDisposition,
-        review_state: findingDisposition.blocked ? 'blocked' : 'clear',
+        review_state: findingDisposition.blocked || deliveryState.disposition === 'review-blocked'
+          ? 'blocked'
+          : 'clear',
         review_resolution_thread_ids: reviewResolution.resolved,
         review_resolution_would_resolve_thread_ids: reviewResolution.wouldResolve,
         review_resolution_errors: reviewResolution.errors,
