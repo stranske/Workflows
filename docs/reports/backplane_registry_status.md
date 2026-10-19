@@ -1,16 +1,18 @@
 # Backplane Registry Status
 
-Generated from `config/backplane_participants.json` for Workflows #2743.
+Generated from `config/backplane_participants.json` for stranske/Workflows#2743.
+
+Regenerate: `python scripts/validate_backplane_registry.py --write-status docs/reports/backplane_registry_status.md`
 
 | Repo | Lifecycle status | Reference state | Issue state |
 | --- | --- | --- | --- |
 | stranske/Pension-Data | conformant | valid | `stranske/Pension-Data#703` |
-| stranske/Trend_Model_Project | planned | missing | deferred until 2026-09-15 |
-| stranske/Counter_Risk | planned | missing | deferred until 2026-09-15 |
-| stranske/Portable-Alpha-Extension-Model | planned | missing | deferred until 2026-09-15 |
-| stranske/Manager-Database | planned | missing | deferred until 2026-09-15 |
-| stranske/Inv-Man-Intake | planned | missing | deferred until 2026-09-15 |
-| stranske/learning-management-system | candidate | not-applicable | deferred until 2026-09-15 |
+| stranske/Trend_Model_Project | planned | missing | deferred until 2026-10-22 |
+| stranske/Counter_Risk | planned | missing | deferred until 2026-10-22 |
+| stranske/Portable-Alpha-Extension-Model | planned | missing | deferred until 2026-10-22 |
+| stranske/Manager-Database | planned | missing | deferred until 2026-10-22 |
+| stranske/Inv-Man-Intake | emitting | missing | `stranske/Inv-Man-Intake#949` |
+| stranske/learning-management-system | candidate | not-applicable | deferred until 2026-10-22 |
 
 Pension-Data reference evidence:
 

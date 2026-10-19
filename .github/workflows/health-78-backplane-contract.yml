@@ -27,6 +27,7 @@ on:
       - 'tests/fixtures/backplane/**'
       - 'tests/contracts/**'
       - 'tests/test_backplane_registry.py'
+      - 'docs/reports/backplane_registry_status.md'
       - '.github/workflows/health-78-backplane-contract.yml'
   push:
     branches: [main]
@@ -35,6 +36,7 @@ on:
       - 'config/backplane_participants.json'
       - 'scripts/validate_run_contract.py'
       - 'scripts/validate_backplane_registry.py'
+      - 'docs/reports/backplane_registry_status.md'
       - 'tests/fixtures/backplane/**'
   # Weekly warning-only freshness surfacing (mirrors the langsmith contract's
   # scheduled path). Reference-run staleness is a ::warning:: here, not a failure,
@@ -118,6 +120,11 @@ jobs:
           fi
           python scripts/validate_backplane_registry.py --json ${enforce_flag} \
             | tee artifacts/backplane-contract/registry-status.json
+
+      - name: Registry status markdown freshness
+        run: |
+          python scripts/validate_backplane_registry.py \
+            --check-status docs/reports/backplane_registry_status.md
 
       - name: Documented invalid-fixture smoke (must exit 1)
         run: |
