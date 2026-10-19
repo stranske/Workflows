@@ -103,7 +103,12 @@ def load_presence_reporter(path: Path) -> Callable[[str], list[Any]]:
 
 def native_gh_pages(endpoint: str) -> list[Any]:
     """Read complete REST pages through gh; never infer a page after failure."""
-    if not endpoint.startswith("repos/") or ".." in endpoint or "://" in endpoint:
+    publisher_reads = {"apps/github-actions", "users/github-actions[bot]"}
+    if (
+        (not endpoint.startswith("repos/") and endpoint not in publisher_reads)
+        or ".." in endpoint
+        or "://" in endpoint
+    ):
         raise UnknownEvidence("invalid native REST endpoint")
     proc = subprocess.run(
         ["gh", "api", "--method", "GET", "--paginate", "--slurp", endpoint],

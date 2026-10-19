@@ -515,8 +515,8 @@ def test_validate_minimal_fixture() -> None:
         blocking_labels=record.get("blocking_labels", ()),
         required_capabilities=record.get("required_capabilities", ()),
     )
-    record["target_fence_key"] = cr.canonical_target_fence_key(spec)
-    record["operation_key"] = cr.canonical_operation_key(spec)
+    assert record["target_fence_key"] == cr.canonical_target_fence_key(spec)
+    assert record["operation_key"] == cr.canonical_operation_key(spec)
     errors = cr.validate_operation_record(record)
     assert errors == []
 

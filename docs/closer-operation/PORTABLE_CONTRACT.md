@@ -180,3 +180,9 @@ history is bounded at 64 entries; reaching the bound holds rather than dropping
 evidence. Denials and unfinished mutation intents cannot become drained through
 an unavailable outcome. After intent, capacity/service failure retains uncertainty
 until typed reconciliation establishes the result.
+
+The package `verify` CLI requires `--expected-digest` from a trusted source outside
+the package. Its internal descriptor cannot authenticate itself. The sealed runner
+probes dependencies with the same interpreter, environment and working directory
+used for execution. Native expected-check mode permits exactly the GitHub Actions
+app and bot publisher-identity reads needed for a required `Gate / gate` context.

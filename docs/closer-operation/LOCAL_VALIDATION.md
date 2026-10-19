@@ -56,3 +56,11 @@ redirected entrypoint. Package materialization preserves an existing destination
 
 These are local implementation results. They do not establish live shared-store
 integration, desktop qualification, deployed acceptance, or higher throughput.
+
+The subsequent external review added native required-publisher identity coverage,
+matching sealed dependency/entrypoint environments, trusted external CLI digest
+verification, precise HTTP rate classification and unchanged-fixture key checks.
+The combined suite passed 446 tests before the final relative-root regression;
+package relocation also exercises the real sealed entrypoint with an inherited
+decoy import path. Crash-worker leases allow import/validation overhead before
+expiry. Live acceptance remains pending.

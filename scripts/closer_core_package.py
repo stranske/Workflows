@@ -252,11 +252,15 @@ def _dependency_probe_code() -> str:
     return "\n".join(lines)
 
 
-def verify_runtime_dependencies(python: str | Path) -> dict[str, str]:
+def verify_runtime_dependencies(
+    python: str | Path, *, env: Mapping[str, str] | None = None, cwd: Path | None = None
+) -> dict[str, str]:
     proc = subprocess.run(
-        [str(python), "-c", _dependency_probe_code()],
+        [str(python), "-B", "-c", _dependency_probe_code()],
         capture_output=True,
         text=True,
+        env=dict(env) if env is not None else None,
+        cwd=cwd,
         check=False,
     )
     if proc.returncode != 0:
@@ -292,11 +296,11 @@ def run_sealed_entrypoint(
     extra_env: Mapping[str, str] | None = None,
 ) -> subprocess.CompletedProcess[str]:
     """Run a Core entrypoint with PYTHONPATH confined to the package root."""
+    package_root = package_root.resolve()
     problems = verify_installed_tree(package_root, descriptor)
     if problems:
         raise CorePackageError("; ".join(problems))
     python = str(python or sys.executable)
-    verify_runtime_dependencies(python)
     entry = descriptor["entrypoints"]["runtime"]
     script = package_root / entry
     if not script.is_file():
@@ -321,11 +325,13 @@ def run_sealed_entrypoint(
         ):
             raise CorePackageError("extra environment cannot override sealed package bindings")
         env.update(extra_env)
+    verify_runtime_dependencies(python, env=env, cwd=package_root)
     return subprocess.run(
         [python, "-B", str(script), *argv],
         capture_output=True,
         text=True,
         env=env,
+        cwd=package_root,
         check=False,
     )
 
@@ -377,6 +383,7 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     v = sub.add_parser("verify", help="verify an installed package tree")
     v.add_argument("package_root", type=Path)
+    v.add_argument("--expected-digest", required=True)
     v.set_defaults(func=_cmd_verify)
 
     args = parser.parse_args(list(argv) if argv is not None else None)
@@ -394,6 +401,8 @@ def _cmd_verify(args: argparse.Namespace) -> int:
     public = args.package_root / "closer-core-package.json"
     descriptor = json.loads(public.read_text())
     problems = verify_installed_tree(args.package_root, descriptor)
+    if descriptor.get("package_digest") != args.expected_digest:
+        problems.append("package_digest differs from trusted host digest")
     if problems:
         print(json.dumps({"ok": False, "problems": problems}))
         return 2

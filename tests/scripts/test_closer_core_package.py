@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import os
 import shutil
 import subprocess
 import sys
@@ -85,40 +84,25 @@ def test_tampered_tree_refused_before_run(source_commit: str) -> None:
             )
 
 
-def test_decoy_api_client_not_used(source_commit: str) -> None:
+def test_decoy_api_client_not_used(source_commit, monkeypatch, tmp_path):
     descriptor = core_pkg.build_public_descriptor(ROOT, source_commit=source_commit)
-    with tempfile.TemporaryDirectory() as tmp:
-        root = Path(tmp) / "pkg"
-        decoy = Path(tmp) / "decoy" / "scripts"
-        decoy.mkdir(parents=True)
-        (decoy / "api_client.py").write_text("GITHUB_API = 'EVIL'\n")
-        core_pkg.materialize_package_tree(ROOT, root, descriptor)
-        env = os.environ.copy()
-        env["PYTHONPATH"] = f"{decoy}{os.pathsep}{root}"
-        probe = subprocess.run(
-            [
-                sys.executable,
-                "-c",
-                f"import sys; sys.path.insert(0, {str(decoy)!r}); import api_client; print(api_client.GITHUB_API)",
-            ],
-            capture_output=True,
-            text=True,
-            env=env,
-        )
-        assert "EVIL" in probe.stdout
-        proc2 = subprocess.run(
-            [sys.executable, "-c", "import api_client; print(api_client.GITHUB_API)"],
-            capture_output=True,
-            text=True,
-            env={
-                **os.environ,
-                "PYTHONPATH": str(root),
-                "CLOSER_CORE_PACKAGE_ROOT": str(root),
-            },
-            cwd=str(root / "scripts"),
-        )
-        assert "EVIL" not in proc2.stdout
-        assert proc2.returncode == 0
+    root, decoy = tmp_path / "pkg", tmp_path / "decoy"
+    decoy.mkdir()
+    marker = tmp_path / "unsealed-import"
+    (decoy / "api_client.py").write_text("GITHUB_API = 'EVIL'\n")
+    (decoy / "sitecustomize.py").write_text(
+        "from pathlib import Path\nimport api_client\n"
+        + f"Path({str(marker)!r}).write_text(api_client.GITHUB_API)\n"
+    )
+    core_pkg.materialize_package_tree(ROOT, root, descriptor)
+    monkeypatch.setenv("PYTHONPATH", str(decoy))
+    result = core_pkg.run_sealed_entrypoint(
+        root,
+        descriptor,
+        ["validate", str(ROOT / "fixtures/closer-operation/v1/minimal-operation.json")],
+    )
+    assert result.returncode == 0, result.stderr
+    assert not marker.exists(), "inherited path executed an unsealed api_client"
 
 
 def test_draft_portable_snapshot_integration(source_commit: str) -> None:
@@ -199,7 +183,7 @@ def test_cli_verify_checks_declared_dependencies(tmp_path, monkeypatch, source_c
 
     monkeypatch.setattr(core_pkg, "verify_runtime_dependencies", unavailable)
     with pytest.raises(core_pkg.CorePackageError, match="dependency unsupported"):
-        core_pkg.main(["verify", str(root)])
+        core_pkg.main(["verify", str(root), "--expected-digest", descriptor["package_digest"]])
 
 
 @pytest.mark.parametrize(
@@ -237,3 +221,59 @@ def test_packaged_producer_keeps_trusted_workflow_matrix_definitions(
         bound = contract.bind_scenario_fixture(fixture)
     assert isinstance(bound["strategy"]["matrix"], dict)
     assert not core_pkg.verify_installed_tree(root, descriptor)
+
+
+def test_cli_verifier_rejects_recomputed_attacker_descriptor(tmp_path, source_commit):
+    original = core_pkg.build_public_descriptor(ROOT, source_commit=source_commit)
+    root = tmp_path / "pkg"
+    core_pkg.materialize_package_tree(ROOT, root, original)
+    file = root / "scripts/closer_runtime.py"
+    file.write_text(file.read_text() + "\n# modified after trusted publication\n")
+    forged = json.loads(json.dumps(original))
+    forged["files"]["scripts/closer_runtime.py"] = core_pkg.sha256_file(file)
+    forged["package_digest"] = core_pkg.compute_package_digest(
+        source_commit=source_commit, files=forged["files"], dependencies=forged["dependencies"]
+    )
+    (root / "closer-core-package.json").write_text(json.dumps(forged))
+    assert core_pkg.verify_installed_tree(root, forged) == []
+    assert (
+        core_pkg.main(["verify", str(root), "--expected-digest", original["package_digest"]]) == 2
+    )
+
+
+def test_dependency_probe_and_entrypoint_use_same_sealed_environment(
+    tmp_path, source_commit, monkeypatch
+):
+    descriptor = core_pkg.build_public_descriptor(ROOT, source_commit=source_commit)
+    root = tmp_path / "pkg"
+    core_pkg.materialize_package_tree(ROOT, root, descriptor)
+    calls = []
+
+    def run(command, **kwargs):
+        calls.append((command, kwargs))
+        data = (
+            json.dumps({"jsonschema": "4.22.0", "PyYAML": "6.0.3", "requests": "2.34.2"})
+            if "-c" in command
+            else "valid"
+        )
+        return subprocess.CompletedProcess(command, 0, data, "")
+
+    monkeypatch.setattr(core_pkg.subprocess, "run", run)
+    monkeypatch.setenv("PYTHONPATH", "/untrusted/inherited")
+    core_pkg.run_sealed_entrypoint(
+        root, descriptor, ["--help"], extra_env={"PYTHONUSERBASE": str(tmp_path / "userbase")}
+    )
+    assert len(calls) == 2
+    for command, kw in calls:
+        assert "-B" in command
+        assert kw["env"]["PYTHONPATH"] == str(root)
+        assert kw["env"]["PYTHONUSERBASE"] == str(tmp_path / "userbase")
+        assert kw["cwd"] == root
+
+
+def test_sealed_entrypoint_resolves_relative_package_root(tmp_path, source_commit, monkeypatch):
+    descriptor = core_pkg.build_public_descriptor(ROOT, source_commit=source_commit)
+    core_pkg.materialize_package_tree(ROOT, tmp_path / "pkg", descriptor)
+    monkeypatch.chdir(tmp_path)
+    result = core_pkg.run_sealed_entrypoint(Path("pkg"), descriptor, ["--help"])
+    assert result.returncode == 0, result.stderr

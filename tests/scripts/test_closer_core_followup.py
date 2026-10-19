@@ -67,7 +67,7 @@ from scripts import closer_runtime as cr
 from tests.scripts.test_closer_runtime import _spec, _executor
 cr.fetch_live_pr_labels = lambda spec: []
 store = cr.LocalOperationStore(Path(sys.argv[1])); spec = _spec(action="merge"); ex = _executor("worker")
-store.claim(spec, ex, lease_deadline=datetime.now(UTC) + timedelta(seconds=2))
+store.claim(spec, ex, lease_deadline=datetime.now(UTC) + timedelta(seconds=10))
 key = cr.store_key_for_spec(spec)
 cr.record_mutation_intent(store, key, ex, {"op": "merge"}, expected_revision=1, expected_epoch=1, spec=spec)
 cr.mark_submitted(store, key, ex, expected_revision=2, expected_epoch=1, spec=spec)
@@ -101,7 +101,7 @@ def test_crashed_worker_expired_lease_then_independent_observer_drains(tmp_path)
     key = cr.store_key_for_spec(spec)
     before = store.read(key)
     assert before["status"] == "submitted"
-    time.sleep(2.2)
+    time.sleep(10.2)
     # Latch check: every owner-path mutator is closed after expiry (expiry never retries)...
     worker = _executor("worker")
     with pytest.raises(cr.OwnershipDenied, match="expired"):
@@ -635,3 +635,17 @@ def test_merge_reconciliation_unreadable_evidence_is_unknown_not_traceback(monke
     monkeypatch.setattr(producer, "native_gh_pages", broken)
     ev = cr.collect_reconciliation_evidence(spec, {})
     assert ev.result == "unknown" and ev.context == "unreadable"
+
+
+@pytest.mark.parametrize(
+    "status,expected", [(401, False), (404, False), (500, False), (403, True), (429, True)]
+)
+def test_rate_limit_headers_never_reclassify_other_http_statuses(status, expected):
+    error = urllib.error.HTTPError(
+        "https://example.invalid",
+        status,
+        "rate limit",
+        {"Retry-After": "30", "X-RateLimit-Remaining": "0"},
+        None,
+    )
+    assert gh._rate_limited(error) is expected

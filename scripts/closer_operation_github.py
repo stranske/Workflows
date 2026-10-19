@@ -81,8 +81,11 @@ def _allowed_native_call(method: str, path: str) -> bool:
 
 def _rate_limited(exc: BaseException) -> bool:
     """An authoritative 403/429 rate-limit response: capacity, not a permission grant."""
-    if _status(exc) == 429:
+    status = _status(exc)
+    if status == 429:
         return True
+    if status != 403:
+        return False
     headers = getattr(exc, "headers", None) or {}
     try:
         get = headers.get
