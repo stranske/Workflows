@@ -179,7 +179,7 @@ jobs:
 
             // Find verification comment(s) - both evaluate and compare
             const verifyComments = comments.filter(c =>
-              c.body.includes('## PR Verification Report') ||
+              /^##[ \t]+(?:PR Verification(?: Report| Comparison)?|LLM Evaluation Report|Provider Comparison Report)\b/im.test(c.body) ||
               c.body.includes('## PR Verification Comparison') ||
               c.body.includes('### Concerns') ||
               c.body.includes('Verdict:') ||

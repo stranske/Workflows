@@ -414,7 +414,8 @@ regression success does not establish either production outcome.
 
 Both follow-up paths retain collected comments in `verification_history.txt` and
 use `scripts/langchain/verifier_config.py:latest_verifier_report` to select the
-last `## PR Verification` block before terminal gating. Only that selected report
+last report headed `## PR Verification`, `## LLM Evaluation Report`, or
+`## Provider Comparison Report` before terminal gating. Only that selected report
 is written to `verification_data.txt` for verdict policy and issue generation.
 An incomplete latest report cannot inherit a historical verdict; pending repair
 remains non-terminal even when it mentions an older run. Provider verdicts within

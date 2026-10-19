@@ -317,3 +317,11 @@ def test_latest_report_keeps_structured_artifact_with_heading_in_summary():
     raw = '{"verdict":"FAIL","summary":"See ## PR Verification Report"}'
     assert latest_verifier_report(raw) == raw
     assert artifact_from_verification_text(raw)["verdict"] == "FAIL"
+
+
+@pytest.mark.parametrize("heading", ["## LLM Evaluation Report", "## Provider Comparison Report"])
+def test_latest_report_recognizes_production_headings(heading):
+    current = heading + "\nSchema repair pending; see older run"
+    text = "## PR Verification Report\nVerdict: FAIL\n\n" + current
+    assert latest_verifier_report(text) == current
+    assert not is_terminal_artifact(artifact_from_verification_text(text))

@@ -173,12 +173,14 @@ def latest_verifier_report(text: str) -> str:
     raw = (text or "").strip()
     if isinstance(_coerce_artifact(raw), (dict, list)):
         return raw
-    lowered = raw.lower()
-    marker = "## pr verification"
-    index = lowered.rfind(marker)
-    if index == -1:
-        return raw
-    return raw[index:]
+    headings = list(
+        re.finditer(
+            r"^##[ \t]+(?:PR Verification(?: Report| Comparison)?|LLM Evaluation Report|Provider Comparison Report)\b",
+            raw,
+            re.I | re.M,
+        )
+    )
+    return raw[headings[-1].start() :] if headings else raw
 
 
 def _coerce_artifact(value: Any) -> Any:

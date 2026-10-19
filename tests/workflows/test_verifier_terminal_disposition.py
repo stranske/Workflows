@@ -444,16 +444,20 @@ def test_post_gate_tracker_helpers_have_no_workflow_caller() -> None:
         ("Verdict: FAIL", True, "FAIL"),
     ],
 )
+@pytest.mark.parametrize(
+    "heading",
+    ["## PR Verification Report", "## LLM Evaluation Report", "## Provider Comparison Report"],
+)
 @_needs_node
 def test_followup_paths_select_latest_report_before_gate_and_creation(
-    tmp_path: Path, workflow_path: str, latest: str, terminal: bool, verdict: str
+    tmp_path: Path, workflow_path: str, latest: str, terminal: bool, verdict: str, heading: str
 ) -> None:
     import sys
 
     workflow = _load_yaml(ROOT / workflow_path)
     steps = next(job["steps"] for job in workflow["jobs"].values() if "steps" in job)
     by_name = {step.get("name"): step for step in steps}
-    current = "## PR Verification Report\n" + latest
+    current = heading + "\n" + latest
     # More than one API page: the incomplete current report must not fall off page one.
     comments = [{"body": "## PR Verification Report\nVerdict: FAIL"}]
     comments += [{"body": "unrelated comment"}] * 100
