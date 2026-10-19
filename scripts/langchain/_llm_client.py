@@ -72,6 +72,12 @@ def build_client(
     ``(client, label)`` shape — e.g. ``followup_issue_generator`` which logs both
     provider and model and returns the model as its label.
     """
+    import os
+
+    if os.environ.get("WORKFLOWS_ANALYSIS_CLI"):
+        from tools.subscription_llm import build_subscription_client
+
+        return build_subscription_client()
     try:
         from tools.langchain_client import build_chat_client
     except ImportError:

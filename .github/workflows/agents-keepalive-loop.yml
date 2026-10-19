@@ -1203,8 +1203,6 @@ jobs:
       META_API_KEY: ${{ secrets.META_API_KEY }}
       WORKFLOWS_APP_ID: ${{ secrets.WORKFLOWS_APP_ID }}
       WORKFLOWS_APP_PRIVATE_KEY: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
-      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-      CLAUDE_API_STRANSKE: ${{ secrets.CLAUDE_API_STRANSKE }}
     with:
       skip: >-
         ${{ needs.evaluate.outputs.action != 'run' &&
@@ -1311,8 +1309,25 @@ jobs:
           # These requirements define the progress-review dependency family.
           cache-dependency-path: tools/requirements-llm.txt
 
-      - name: Install dependencies
-        run: pip install pydantic langchain-openai langchain-anthropic
+      - name: Install analysis dependencies
+        run: pip install pydantic PyYAML
+
+      - name: Setup Node for subscription analysis
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+
+      - name: Prepare subscription analysis CLI
+        env:
+          CODEX_AUTH_JSON: ${{ secrets.CODEX_AUTH_JSON }}
+        run: |
+          set -euo pipefail
+          if [ -n "$CODEX_AUTH_JSON" ]; then
+            npm install -g @openai/codex@0.160.0
+            mkdir -p "$HOME/.codex"
+            printf '%s' "$CODEX_AUTH_JSON" > "$HOME/.codex/auth.json"
+            chmod 600 "$HOME/.codex/auth.json"
+          fi
 
       - name: Get recent commits
         id: commits
@@ -1403,8 +1418,7 @@ jobs:
       - name: Run progress review
         id: review
         env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          CLAUDE_API_STRANSKE: ${{ secrets.CLAUDE_API_STRANSKE }}
+          WORKFLOWS_ANALYSIS_CLI: codex
           CRITERIA: ${{ steps.criteria.outputs.criteria }}
           COMMITS: ${{ steps.commits.outputs.messages }}
           FILES: ${{ steps.commits.outputs.files }}
@@ -1666,6 +1680,7 @@ jobs:
           if-no-files-found: error
 
       - name: Auto-reconcile task checkboxes
+        id: reconcile
         if: |
           needs.run-codex.outputs.changes-made == 'true' ||
           needs.run-claude.outputs.changes-made == 'true' ||
@@ -1761,6 +1776,7 @@ jobs:
             core.setOutput('llm_confidence', llmConfidence);
             core.setOutput('llm_analysis_run', llmAnalysisRun);
             core.setOutput('llm_tasks_count', llmCompletedTasks.length);
+            core.setOutput('llm_ticked_tasks', result.updated ? (result.llmTasksChecked || 0) : 0);
             core.setOutput('commit_tasks_count', result.sources?.commit || 0);
 
       - name: Mint KEEPALIVE_APP summary token
@@ -2002,6 +2018,7 @@ jobs:
               llm_model: llmModel,
               llm_confidence: llmConfidence,
               llm_analysis_run: llmAnalysisRun,
+              llm_ticked_tasks: Number('${{ steps.reconcile.outputs.llm_ticked_tasks }}') || 0,
               force_retry: process.env.EVALUATE_FORCE_RETRY || '',
               authority_challenge_fingerprint:
                 process.env.AUTHORITY_CHALLENGE_FINGERPRINT || '',

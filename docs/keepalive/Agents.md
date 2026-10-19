@@ -188,3 +188,25 @@ agent label with an available runner. With no replacement it returns
 block, and run-cap controls apply before any recovery label changes or dispatch.
 Source repair does not establish hosted success: issue #4101 requires a live
 post-merge Cursor round past preflight and a separate 48-hour observation.
+
+## Auxiliary analysis uses subscription auth
+
+Task completion analysis uses `WORKFLOWS_ANALYSIS_CLI=codex` (or `claude` for the
+Claude runner). `tools/subscription_llm.py` resolves the cheap-tier model from
+`.github/agents/registry.yml`, reuses the current analysis prompt/parser, and
+passes only account-auth environment values to the read-only CLI. API-provider,
+GitHub, and tracing keys are excluded from the child environment. Missing CLI,
+account auth, timeout, or invalid CLI output never falls back to an API. Optional
+Cursor/Gemini/Muse analysis skips with `llm-analysis-run=false` without an already
+installed/authenticated Codex CLI. Progress review prepares Codex from the existing
+subscription secret and uses the same transport, without LangChain dependencies.
+
+The summary prints `llm-ticked-tasks: N`: checkboxes actually changed by LLM
+analysis, excluding boxes the agent had already checked and commit-only matches.
+The root and consumer followup summaries forward this count independently from
+the number of task suggestions. Existing confidence and acceptance thresholds
+are unchanged.
+
+Source issue #3986 retains two post-merge acceptance boundaries: a real hosted
+round with provider/model/analysis outputs, and the owner-visible 48-hour provider
+usage-console observation. Mocked CLI tests and green CI do not establish either.

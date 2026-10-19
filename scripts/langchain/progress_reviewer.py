@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import sys
 from typing import Literal
@@ -334,7 +335,6 @@ def _build_llm_config(
     pr_number: int | None = None,
 ) -> dict[str, object]:
     """Build LangSmith metadata/tags for LLM call."""
-    import os
 
     try:
         from tools.llm_provider import build_langsmith_metadata
@@ -431,6 +431,8 @@ def review_progress_with_llm(
         build_client = None
 
     resolved = build_client(model=model) if build_client else None
+    if not resolved and os.environ.get("WORKFLOWS_ANALYSIS_CLI"):
+        raise RuntimeError("Subscription progress review unavailable; no API fallback")
     if not resolved:
         score, aligned, unaligned = heuristic_alignment_check(
             acceptance_criteria, recent_commits, files_changed
@@ -464,7 +466,6 @@ def review_progress_with_llm(
         )
 
     try:
-        import os
 
         pr_num = None
         env_pr = os.environ.get("PR_NUMBER", "")

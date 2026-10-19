@@ -990,6 +990,39 @@ class FallbackChainProvider(LLMProvider):
         return "got multiple values for argument" in message
 
 
+class SubscriptionCLIProvider(LLMProvider):
+    """Keep the existing completion prompt/parser with a CLI-only transport."""
+
+    def __init__(self) -> None:
+        from tools.subscription_llm import build_subscription_client
+
+        self.resolved = build_subscription_client()
+
+    @property
+    def name(self) -> str:
+        return self.resolved.provider if self.resolved else "subscription-unavailable"
+
+    def is_available(self) -> bool:
+        return self.resolved is not None
+
+    def analyze_completion(
+        self,
+        session_output: str,
+        tasks: list[str],
+        context: str | None = None,
+        quality_context: SessionQualityContext | None = None,
+    ) -> CompletionAnalysis:
+        from dataclasses import replace
+
+        if self.resolved is None:
+            raise RuntimeError("Subscription analysis CLI unavailable")
+        existing = GitHubModelsProvider()
+        prompt = existing._build_analysis_prompt(session_output, tasks, context)
+        response = self.resolved.client.invoke(prompt)
+        result = existing._parse_response(response.content, tasks, quality_context=quality_context)
+        return replace(result, provider_used=self.resolved.provider, model_name=self.resolved.model)
+
+
 def get_llm_provider(force_provider: str | None = None) -> LLMProvider:
     """
     Get the best available LLM provider with fallback chain.
@@ -1004,6 +1037,12 @@ def get_llm_provider(force_provider: str | None = None) -> LLMProvider:
     3. GitHub Models configured slot model (if GITHUB_TOKEN set)
     4. Regex fallback (always available) - 30% confidence baseline
     """
+    if os.environ.get("WORKFLOWS_ANALYSIS_CLI"):
+        provider = SubscriptionCLIProvider()
+        if not provider.is_available():
+            raise RuntimeError("Subscription analysis CLI/auth unavailable; no API fallback")
+        return provider
+
     # Force a specific provider for testing
     if force_provider:
         provider_map: dict[str, type[LLMProvider]] = {
