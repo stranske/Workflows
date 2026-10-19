@@ -1277,8 +1277,10 @@ function validateExpectedCandidateIdentity({
 }
 
 function canaryReviewDebtIsBlocking(row) {
-  if (row.active_review_thread_count === 0) return false;
   const packet = row.review_disposition;
+  // Legacy zero-debt rows need no exemption. An attached snapshot must still
+  // agree with the raw count and be complete, including when that count is zero.
+  if (row.active_review_thread_count === 0 && packet === undefined) return false;
   return evaluateSyncFindingDispositions({ ...(packet || {}),
     trustedActors: SYNC_FINDING_DISPOSITION_ACTORS, now: Date.now(),
     binding: { repository: row.repo, pr: row.pr, head_sha: row.head_sha,

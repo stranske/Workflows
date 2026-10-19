@@ -81,3 +81,43 @@ shared validator. Replacing the actual promotion-builder compaction with raw
 snapshots makes that regression fail (exit 1); exact restoration passes (exit 0).
 Oversized owner records and aggregate inputs are held before any API call. All
 three deliberate-break proofs were repeated on the final implementation.
+
+## Zero-count evidence consistency follow-up
+
+Canary validation previously skipped its attached finding packet when the raw
+count was zero. Maint 68's receiver had the same shortcut, and the promotion
+builder dropped explicit null packets. All three boundaries now preserve and
+validate attached evidence even at zero. Active findings, null/malformed packets
+and incomplete snapshots block; complete empty snapshots and legacy zero-debt
+rows without a packet pass. The original finding remains unresolved.
+
+The two named Node regressions failed before the fix and pass after it:
+
+- `canary zero count cannot mask active or incomplete disposition evidence`
+- `promotion rejects a zero count that contradicts its active finding packet`
+
+The receiver regression
+`test_promotion_rejects_zero_count_with_attached_invalid_finding_evidence`
+failed for all four fixtures before its fix. The complete receiver suite now
+passes: `python -m pytest tests/scripts/test_select_consumer_sync_phase.py -q
+-m 'not slow' -o addopts=` (22 passed). Ruff and mypy pass for the changed surface.
+The required repository-wide `black --check --line-length 100 --exclude
+'(\.workflows-lib|node_modules)' .` passes (820 files), using a writable
+`BLACK_CACHE_DIR` under `/tmp` and `BLACK_NUM_WORKERS=1` for this sandbox.
+
+Both required mutation proofs above were repeated with
+`--test-isolation=none`: each named test failed by assertion with exit 1 under
+its mutation and passed with exit 0 after byte-for-byte restoration. Neither
+mutation is included. The 12 focused relevance/disposition tests also pass.
+
+The full two-file Node suite with `--test-isolation=none` executed 223 tests:
+222 passed; the existing `Maint 68 verified unchanged-tree run resets producer
+observation without changing lifecycle` test fails because this sandbox returns
+`spawnSync bash EPERM`. The exact requested `node --test` command also fails in
+this environment and reports only file-level results. Thus this run does not
+claim that acceptance gate passed; it needs a rerun where child-process capture
+works. No tests were skipped or disabled. GitHub access is also unavailable here,
+so the implementation PR body could not be updated from this run.
+
+This consistency repair does not clear shared-code blockers or add a campaign
+#1836 prerequisite. The disposition-to-gate table above continues to apply.

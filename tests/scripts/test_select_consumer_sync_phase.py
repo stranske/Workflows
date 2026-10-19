@@ -184,6 +184,33 @@ def test_promotion_requires_green_review_clear_evidence_for_each_canary() -> Non
         )
 
 
+@pytest.mark.parametrize(
+    "packet",
+    [
+        None,
+        {},
+        {"evidenceComplete": False, "reviewThreads": []},
+        {
+            "evidenceComplete": True,
+            "reviewThreads": [{"isResolved": False, "isOutdated": False}],
+        },
+    ],
+)
+def test_promotion_rejects_zero_count_with_attached_invalid_finding_evidence(packet) -> None:
+    compiled = plan()
+    evidence = green_evidence(compiled["plan_id"])
+    evidence[0]["review_disposition"] = packet
+
+    with pytest.raises(PhaseSelectionError, match="active_review_debt"):
+        select_phase(
+            compiled,
+            phase="promote",
+            registered_repos=REGISTERED,
+            canaries=CANARIES,
+            evidence=evidence,
+        )
+
+
 def test_promotion_rejects_missing_or_duplicate_canary_evidence() -> None:
     compiled = plan()
     evidence = green_evidence(compiled["plan_id"])

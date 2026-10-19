@@ -142,7 +142,9 @@ def _promotion_rejections(
             reasons.append(f"stale_or_mixed_plan:{repo}")
         if item.get("required_check_state") != "success":
             reasons.append(f"required_checks_not_green:{repo}")
-        if item.get("active_review_thread_count") != 0 and not _review_debt_is_clear(item):
+        if (
+            item.get("active_review_thread_count") != 0 or "review_disposition" in item
+        ) and not _review_debt_is_clear(item):
             reasons.append(f"active_review_debt:{repo}")
     return reasons
 

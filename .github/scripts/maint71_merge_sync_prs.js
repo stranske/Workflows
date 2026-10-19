@@ -2090,7 +2090,7 @@ function buildCanaryPromotionEvidence(rows = [], expectedCanaries = []) {
     evidence_source: row.evidence_source,
     required_check_state: row.required_check_state,
     active_review_thread_count: row.active_review_thread_count,
-    ...(row.review_disposition ? { review_disposition: compactSyncFindingEvidence(row.review_disposition),
+    ...(Object.hasOwn(row, 'review_disposition') ? { review_disposition: compactSyncFindingEvidence(row.review_disposition),
       delivery_generation: row.delivery_generation } : {}),
   }));
   const errors = [];

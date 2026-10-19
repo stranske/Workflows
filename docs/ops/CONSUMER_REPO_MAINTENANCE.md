@@ -88,6 +88,9 @@ review debt; an unavailable Node runtime or invalid response blocks promotion.
 These snapshots are evidence under the existing authenticated source/artifact
 provenance boundary, not signatures that make caller-invented JSON authoritative.
 Mixed findings retain every shared-source, sync-caused and unknown blocker.
+An attached disposition packet is validated even when the reported active count
+is zero: active findings or incomplete snapshots contradicting that count block
+promotion. Legacy zero-debt rows without a disposition packet remain valid.
 
 Required checks, approvals, security, delivery integrity and branch protection
 remain independent gates. GitHub may still require all conversations resolved

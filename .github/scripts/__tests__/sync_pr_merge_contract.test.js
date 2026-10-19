@@ -4094,3 +4094,30 @@ test('canary re-evaluates bound finding snapshots and never trusts a count-only 
     assert.equal(validateCanaryEvidence([changed], [row.repo]).ok, false, String(mutate));
   }
 });
+
+test('canary zero count cannot mask active or incomplete disposition evidence', () => {
+  const { compactSyncFindingEvidence } = require('../sync_pr_merge_contract');
+  for (const disposition of ['shared-source', 'sync-caused', 'unknown', 'unrelated']) {
+    const packet = findingPacket(disposition);
+    const row = { repo: packet.binding.repository, pr: packet.binding.pr,
+      head_sha: packet.binding.head_sha, source_commit: packet.binding.source_commit,
+      plan_id: packet.binding.plan_id, delivery_generation: packet.binding.delivery_generation,
+      required_check_state: 'success', active_review_thread_count: 0 };
+    for (const evidence of [packet, compactSyncFindingEvidence(packet),
+      null, {}, { evidenceComplete: false, reviewThreads: [] }]) {
+      const result = validateCanaryEvidence([{ ...row, review_disposition: evidence }], [row.repo]);
+      assert.equal(result.ok, false, `${disposition}: contradictory or incomplete packet`);
+      assert.ok(result.errors.includes(`active_review_debt:${row.repo}`));
+    }
+
+    const clear = { ...packet, activeReviewThreadCount: 0,
+      reviewThreads: [], comments: [], handoffs: [] };
+    for (const evidence of [clear, compactSyncFindingEvidence(clear)]) {
+      assert.equal(validateCanaryEvidence([{ ...row, review_disposition: evidence }], [row.repo]).ok,
+        true, 'complete empty snapshots agree with a zero count');
+    }
+    assert.equal(validateCanaryEvidence([row], [row.repo]).ok, true,
+      'legacy zero-debt evidence needs no relevance exemption');
+    assert.equal(packet.reviewThreads[0].isResolved, false);
+  }
+});
