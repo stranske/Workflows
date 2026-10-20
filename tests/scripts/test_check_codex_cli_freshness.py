@@ -106,3 +106,24 @@ def test_main_writes_machine_readable_outputs(tmp_path: Path) -> None:
     assert "Codex CLI Freshness" in output_md.read_text(encoding="utf-8")
     ndjson_report = json.loads(output_ndjson.read_text(encoding="utf-8"))
     assert ndjson_report["schema"] == "workflows-codex-cli-freshness/v1"
+
+
+def test_invalid_versions_and_failed_npm_query_are_reported_without_crashing(monkeypatch) -> None:
+    invalid = check_codex_cli_freshness.build_contract(
+        pinned_version="not-a-version", latest_version="1.2.3", generated_at="now"
+    )
+    unavailable = check_codex_cli_freshness.build_contract(
+        pinned_version="1.2.3", latest_version="", query_error="offline", generated_at="now"
+    )
+    monkeypatch.setattr(
+        check_codex_cli_freshness.subprocess,
+        "run",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(OSError("npm unavailable")),
+    )
+
+    latest, error = check_codex_cli_freshness.query_latest_npm_version()
+
+    assert invalid["status"] == "invalid-pinned-version"
+    assert unavailable["status"] == "latest-unavailable"
+    assert latest == ""
+    assert error.startswith("npm-query-failed:")

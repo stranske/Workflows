@@ -260,6 +260,148 @@ def test_findings_path_preserves_existing_path_content(tmp_path: Path) -> None:
     assert result == output_dir / "round1" / "codex" / "stranske__Example" / "findings.json"
 
 
+def test_validate_findings_provenance_rejects_missing_and_non_object_files(tmp_path: Path) -> None:
+    findings = tmp_path / "findings.json"
+    missing = runner.validate_findings_provenance(
+        findings, repo="org/repo", agent="codex", source_commit="abc"
+    )
+    runner.findings_provenance_path(findings).write_text("[]", encoding="utf-8")
+    non_object = runner.validate_findings_provenance(
+        findings, repo="org/repo", agent="codex", source_commit="abc"
+    )
+
+    assert missing[0].startswith("cannot validate findings provenance:")
+    assert non_object == ["findings provenance must be an object"]
+
+
+def test_run_marks_successful_fanout_complete(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    workspace = tmp_path / "workspace"
+    repo_path = workspace / "repo"
+    repo_path.mkdir(parents=True)
+    output_dir = tmp_path / "output"
+    review_inputs = runner.review_inputs_path(output_dir, "org/repo")
+    review_inputs.parent.mkdir(parents=True)
+    review_inputs.write_text("inputs", encoding="utf-8")
+    registry = tmp_path / "config" / "registry.json"
+    registry.parent.mkdir()
+    registry.write_text("{}", encoding="utf-8")
+    config = SimpleNamespace(repo="org/repo", local_path="repo")
+    monkeypatch.setattr(runner, "load_registry", lambda _path: (workspace, [], [config], []))
+    monkeypatch.setattr(
+        runner.subprocess,
+        "run",
+        lambda *_args, **_kwargs: subprocess.CompletedProcess([], 0, stdout="abc123\n", stderr=""),
+    )
+
+    def successful_agent(*, agent: str, **_kwargs) -> runner.AgentResult:
+        findings = runner.round1_findings_path(output_dir, agent, "org/repo")
+        return runner.AgentResult(agent, findings, tmp_path / f"{agent}.log", True, spawned=True)
+
+    monkeypatch.setattr(runner, "invoke_round1_agent", successful_agent)
+    args = SimpleNamespace(
+        output_dir=str(output_dir),
+        registry=str(registry),
+        repo="org/repo",
+        skip_local_sync=True,
+        skip_map_refresh=True,
+        gitnexus_bin="gitnexus",
+        map_refresh_timeout=1,
+        agents=["codex", "claude"],
+        turn_timeout=1,
+        retries=0,
+    )
+
+    assert runner.run(args) == 0
+    state = runner.load_state(output_dir, "org/repo")
+    assert state.status == "round1-complete"
+    assert set(state.round1_findings) == {"codex", "claude"}
+
+
+def test_run_marks_fanout_failure_and_records_the_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    workspace = tmp_path / "workspace"
+    (workspace / "repo").mkdir(parents=True)
+    output_dir = tmp_path / "output"
+    review_inputs = runner.review_inputs_path(output_dir, "org/repo")
+    review_inputs.parent.mkdir(parents=True)
+    review_inputs.write_text("inputs", encoding="utf-8")
+    registry = tmp_path / "registry.json"
+    registry.write_text("{}", encoding="utf-8")
+    config = SimpleNamespace(repo="org/repo", local_path="repo")
+    monkeypatch.setattr(runner, "load_registry", lambda _path: (workspace, [], [config], []))
+    monkeypatch.setattr(
+        runner.subprocess,
+        "run",
+        lambda *_args, **_kwargs: subprocess.CompletedProcess([], 0, stdout="abc123\n", stderr=""),
+    )
+
+    def failed_agent(*, agent: str, **_kwargs) -> runner.AgentResult:
+        return runner.AgentResult(
+            agent, tmp_path / "none", tmp_path / "log", False, error="timed out"
+        )
+
+    monkeypatch.setattr(runner, "invoke_round1_agent", failed_agent)
+    args = SimpleNamespace(
+        output_dir=str(output_dir),
+        registry=str(registry),
+        repo="org/repo",
+        skip_local_sync=True,
+        skip_map_refresh=True,
+        gitnexus_bin="gitnexus",
+        map_refresh_timeout=1,
+        agents=["codex"],
+        turn_timeout=1,
+        retries=0,
+    )
+
+    assert runner.run(args) == 1
+    state = runner.load_state(output_dir, "org/repo")
+    assert state.status == "round1-failed"
+    assert "codex=timed out" in state.notes
+
+
+@pytest.mark.parametrize("setup", ["missing-registry-entry", "missing-repo-path", "missing-inputs"])
+def test_run_reports_preflight_failures(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, setup: str
+) -> None:
+    output_dir = tmp_path / "output"
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    registry = tmp_path / "registry.json"
+    registry.write_text("{}", encoding="utf-8")
+    configs = (
+        []
+        if setup == "missing-registry-entry"
+        else [SimpleNamespace(repo="org/repo", local_path="repo")]
+    )
+    if setup != "missing-repo-path":
+        (workspace / "repo").mkdir()
+    if setup == "missing-inputs":
+        pass
+    else:
+        inputs = runner.review_inputs_path(output_dir, "org/repo")
+        inputs.parent.mkdir(parents=True)
+        inputs.write_text("inputs", encoding="utf-8")
+    monkeypatch.setattr(runner, "load_registry", lambda _path: (workspace, [], configs, []))
+    args = SimpleNamespace(
+        output_dir=str(output_dir),
+        registry=str(registry),
+        repo="org/repo",
+        skip_local_sync=True,
+        skip_map_refresh=True,
+        gitnexus_bin="gitnexus",
+        map_refresh_timeout=1,
+        agents=["codex"],
+        turn_timeout=1,
+        retries=0,
+    )
+
+    assert runner.run(args) == 2
+
+
 @pytest.mark.parametrize("failure", ["nonzero", "timeout"])
 def test_run_fails_closed_when_source_commit_cannot_be_resolved(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, failure: str
