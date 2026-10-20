@@ -113,6 +113,24 @@ def test_consumer_tracked_variable_resolves_embedded_evidence_offline(
         assert any("method" in v.message for v in report.violations)
 
 
+@pytest.mark.parametrize("path", ["", "..", "/absolute.json", "folder\\evidence.json"])
+def test_manifest_evidence_paths_reject_nonportable_or_escaping_locations(
+    tmp_path: Path, path: str
+) -> None:
+    report = vrc.Report(repo="test")
+
+    resolved = vrc._safe_evidence_path(tmp_path, {"path": path}, report, 2)
+
+    assert resolved is None
+    assert report.violations[0].path == "manifest.artifacts[2].path"
+    expected = (
+        "evidence artifact path must be a non-empty relative POSIX path"
+        if path in {"", "folder\\evidence.json"}
+        else "evidence artifact path must not be absolute or traverse parents"
+    )
+    assert report.violations[0].message == expected
+
+
 @pytest.mark.parametrize(
     "status",
     [None, "none", "candidate"],

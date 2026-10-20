@@ -29,6 +29,32 @@ def test_validate_ledger_reports_schema_errors(tmp_path: Path, monkeypatch) -> N
     assert errors == [f"{ledger_path}: top-level document must be a mapping"]
 
 
+def test_allow_missing_commit_respects_explicit_and_ci_guards(tmp_path: Path, monkeypatch) -> None:
+    ledger_validate = _load_module(monkeypatch, tmp_path)
+    monkeypatch.setenv("LEDGER_VALIDATE_STRICT", "1")
+    monkeypatch.setenv("LEDGER_VALIDATE_ALLOW_SHALLOW", "1")
+    assert ledger_validate._allow_missing_commit() is False
+
+    monkeypatch.delenv("LEDGER_VALIDATE_STRICT")
+    assert ledger_validate._allow_missing_commit() is True
+
+    monkeypatch.delenv("LEDGER_VALIDATE_ALLOW_SHALLOW")
+    monkeypatch.delenv("GITHUB_ACTIONS", raising=False)
+    assert ledger_validate._allow_missing_commit() is False
+
+    monkeypatch.setenv("GITHUB_ACTIONS", "true")
+    monkeypatch.setenv("GITHUB_EVENT_NAME", "pull_request")
+    monkeypatch.setattr(ledger_validate, "_is_shallow_repo", lambda: False)
+    assert ledger_validate._allow_missing_commit() is True
+
+
+def test_pull_request_head_url_rejects_unreadable_event_file(tmp_path: Path, monkeypatch) -> None:
+    ledger_validate = _load_module(monkeypatch, tmp_path)
+    monkeypatch.setenv("GITHUB_EVENT_PATH", str(tmp_path / "missing-event.json"))
+
+    assert ledger_validate._pull_request_head_repo_url() is None
+
+
 def test_validate_ledger_flags_invalid_headers(tmp_path: Path, monkeypatch) -> None:
     ledger_validate = _load_module(monkeypatch, tmp_path)
     ledger_path = tmp_path / "ledger.yml"

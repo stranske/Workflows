@@ -4,6 +4,7 @@ from collections.abc import Iterable
 from pathlib import Path
 
 import pytest
+from scripts import check_docs_drift as docs_drift
 from scripts.check_docs_drift import (
     _is_repo_path_token,
     _is_root_workflow_path,
@@ -60,6 +61,25 @@ def test_cli_rejects_missing_explicit_document(tmp_path: Path, capsys) -> None:
 
     assert exit_code == 2
     assert "requested docs not found: docs/missing.md" in capsys.readouterr().err
+
+
+def test_detect_repo_root_falls_back_when_git_is_unavailable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def no_git(*_args, **_kwargs):
+        raise OSError("git unavailable")
+
+    monkeypatch.setattr(docs_drift.subprocess, "run", no_git)
+
+    assert docs_drift.detect_repo_root() == Path(docs_drift.__file__).resolve().parent.parent
+
+
+def test_cli_rejects_non_directory_repo_root(tmp_path: Path, capsys) -> None:
+    file_root = tmp_path / "not-a-directory"
+    file_root.write_text("x", encoding="utf-8")
+
+    assert main(["--repo-root", str(file_root)]) == 2
+    assert "repo root not found" in capsys.readouterr().err
 
 
 def test_mentioned_workflow_filenames_counts_bare_backtick_references() -> None:
