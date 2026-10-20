@@ -218,6 +218,7 @@ def _exec_post_ci_summary_with_tools_stub() -> types.ModuleType:
         for name, module in sys.modules.items()
         if name == "tools" or name.startswith("tools.")
     }
+    saved_path = list(sys.path)
     try:
         for name in list(sys.modules):
             if name == "tools" or name.startswith("tools."):
@@ -234,6 +235,7 @@ def _exec_post_ci_summary_with_tools_stub() -> types.ModuleType:
         spec.loader.exec_module(module)
         return module
     finally:
+        sys.path[:] = saved_path
         sys.modules.pop(probe_name, None)
         for name in list(sys.modules):
             if name == "tools" or name.startswith("tools."):
@@ -756,16 +758,24 @@ def test_append_helpers_respect_limits_and_blank_lines() -> None:
     assert more == ["a", "b"]
 
 
-def test_junit_collection_skips_unreadable_files_and_honors_limit(tmp_path: Path) -> None:
+def test_junit_collection_skips_unreadable_files_and_honors_limit(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     downloads = tmp_path / "downloads"
     downloads.mkdir()
     unreadable = downloads / "pytest-junit.xml"
-    unreadable.write_text("<testcase></testcase>", encoding="utf-8")
-    unreadable.chmod(0)
-    try:
-        assert post_ci_summary._collect_junit_failures(tmp_path, 5) == []
-    finally:
-        unreadable.chmod(0o644)
+    unreadable.write_text(
+        '<testcase file="z.py"><failure message="leak">x</failure></testcase>', encoding="utf-8"
+    )
+    original_read_text = Path.read_text
+
+    def read_text(path: Path, *args, **kwargs) -> str:
+        if path == unreadable:
+            raise OSError("permission denied")
+        return original_read_text(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", read_text)
+    assert post_ci_summary._collect_junit_failures(tmp_path, 5) == []
 
     readable = downloads / "nested"
     readable.mkdir()
@@ -1007,10 +1017,9 @@ def test_badge_unknown_state_renders_pending_hourglass() -> None:
 
 def test_derive_and_category_skip_non_sequence_jobs() -> None:
     runs = [{"jobs": {"name": "Gate"}}, {"present": True, "jobs": {"name": "Gate"}}]
-    assert all(
-        group["label"] in {"core tests (3.12)", "core tests (3.13)", "docker smoke", "gate"}
-        for group in post_ci_summary._derive_required_groups_from_runs(runs)
-    )
+    assert [
+        group["label"] for group in post_ci_summary._derive_required_groups_from_runs(runs)
+    ] == ["core tests (3.12)", "core tests (3.13)", "docker smoke", "gate"]
     assert post_ci_summary._collect_category_states(runs) == {}
 
 

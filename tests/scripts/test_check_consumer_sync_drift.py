@@ -1981,7 +1981,7 @@ def test_main_reports_missing_unexpected_binary_and_directory_drift(
 
     assert check_consumer_sync_drift.main() == 1
     report = json.loads(report_path.read_text(encoding="utf-8"))
-    assert "owner/repo: .github/managed/missing.txt" not in report["missing"]
+    assert report["missing"] == []
     assert any("unexpected remote tree entry" in item for item in report["errors"])
     assert "owner/repo: .github/managed/blob.bin" in report["drift"]
     assert "owner/repo: .github/obsolete.yml" in report["obsolete"]
@@ -2178,7 +2178,7 @@ def test_write_summary_markdown_renders_targeted_follow_up_only(tmp_path: Path) 
 def test_build_remediation_states_ignores_prs_for_unknown_repos() -> None:
     states = check_consumer_sync_drift.build_remediation_states(
         repos=["owner/tracked"],
-        drift=set(),
+        drift={"owner/tracked: README.md"},
         missing=set(),
         errors=set(),
         obsolete=set(),
@@ -2196,8 +2196,9 @@ def test_build_remediation_states_ignores_prs_for_unknown_repos() -> None:
         now=datetime(2026, 4, 26, 2, 0, tzinfo=UTC),
     )
 
-    assert states["owner/tracked"]["state"] == "converged"
-    assert states["owner/tracked"].get("open_prs", []) == []
+    assert set(states) == {"owner/tracked"}
+    assert states["owner/tracked"]["state"] == "untracked_drift"
+    assert "pr" not in states["owner/tracked"]
 
 
 def test_main_directory_compare_skips_subdir_entries_and_absent_removals(

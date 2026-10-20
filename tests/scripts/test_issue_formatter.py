@@ -1391,7 +1391,8 @@ def test_parse_sections_handles_inline_details_and_colon_labels() -> None:
     )
     assert "Because it matters." in "\n".join(sections.get("why", []))
     assert "Limited." in "\n".join(sections.get("scope", []))
-    assert any("inline" in line or "meta" in line for line in preamble) or preamble
+    assert any("meta" in line for line in preamble)
+    assert "kept under why" in "\n".join(sections.get("why", []))
 
 
 def test_validate_and_refine_tasks_returns_when_tasks_header_missing(
@@ -1548,8 +1549,8 @@ def test_format_issue_body_falls_back_when_prompt_import_fails(
 
     monkeypatch.setattr(builtins, "__import__", selective_import)
     # Ensure a prior fake langchain_core.prompts install cannot short-circuit the import.
-    sys.modules.pop("langchain_core.prompts", None)
-    sys.modules.pop("langchain_core", None)
+    monkeypatch.delitem(sys.modules, "langchain_core.prompts", raising=False)
+    monkeypatch.delitem(sys.modules, "langchain_core", raising=False)
 
     result = issue_formatter.format_issue_body(
         "Why: cover prompt import fallback\n\n## Tasks\n- [ ] one", use_llm=True
@@ -1632,7 +1633,6 @@ def test_strip_original_issue_skips_details_tags_inside_open_fence() -> None:
             "",
             "```text",
             "nested <details>",
-            "nested </details>",
             "```",
             "</details>",
             "after",
