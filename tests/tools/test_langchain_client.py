@@ -1269,20 +1269,38 @@ def test_gpt6_github_clients_omit_unsupported_temperature(relative, model):
 
 
 def test_client_info_label_and_public_registry_wrappers(monkeypatch):
+    from unittest.mock import Mock
+
     info = langchain_client.ClientInfo(client=object(), provider="github", model="gpt-test")
     assert info.provider_label == "github/gpt-test"
 
     monkeypatch.setattr(langchain_client, "normalize_provider", lambda value: f"normalized:{value}")
     monkeypatch.setattr(langchain_client, "load_model_registry", lambda: ["registry"])
-    monkeypatch.setattr(langchain_client, "registry_entry_for", lambda *args, **kwargs: "entry")
-    monkeypatch.setattr(langchain_client, "is_model_blocked", lambda *args, **kwargs: True)
-    monkeypatch.setattr(langchain_client, "select_model_for_tier", lambda **kwargs: "selected")
+    entry_for = Mock(return_value="entry")
+    is_blocked = Mock(return_value=True)
+    select_model = Mock(return_value="selected")
+    monkeypatch.setattr(langchain_client, "registry_entry_for", entry_for)
+    monkeypatch.setattr(langchain_client, "is_model_blocked", is_blocked)
+    monkeypatch.setattr(langchain_client, "select_model_for_tier", select_model)
+    registry = [object()]
 
     assert langchain_client._normalize_provider("openai") == "normalized:openai"
     assert langchain_client._load_model_registry() == ["registry"]
-    assert langchain_client._registry_entry_for("github", "gpt") == "entry"
-    assert langchain_client._is_model_blocked("github", "gpt")
-    assert langchain_client._select_model_for_tier(provider="github", tier="fast") == "selected"
+    for supplied_registry in (None, registry):
+        assert (
+            langchain_client._registry_entry_for("github", "gpt", registry=supplied_registry)
+            == "entry"
+        )
+        entry_for.assert_called_with("github", "gpt", registry=supplied_registry)
+        assert langchain_client._is_model_blocked("github", "gpt", registry=supplied_registry)
+        is_blocked.assert_called_with("github", "gpt", registry=supplied_registry)
+        assert (
+            langchain_client._select_model_for_tier(
+                provider="github", tier="fast", registry=supplied_registry
+            )
+            == "selected"
+        )
+        select_model.assert_called_with(provider="github", tier="fast", registry=supplied_registry)
 
 
 def test_builders_return_empty_without_credentials(monkeypatch):
