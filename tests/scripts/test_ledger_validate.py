@@ -4,6 +4,7 @@ import subprocess
 import sys
 import types
 from pathlib import Path
+from unittest.mock import Mock
 
 import pytest
 import yaml
@@ -17,6 +18,110 @@ def _load_module(monkeypatch, tmp_path: Path):
     monkeypatch.setitem(sys.modules, "utils.paths", paths_mod)
     sys.modules.pop("scripts.ledger_validate", None)
     return importlib.import_module("scripts.ledger_validate")
+
+
+@pytest.mark.parametrize("result", ["true\n", "false\n", subprocess.CalledProcessError(1, "git")])
+def test_shallow_repository_probe_caches_positive_negative_and_failed_results(
+    tmp_path: Path, monkeypatch, result
+) -> None:
+    ledger_validate = _load_module(monkeypatch, tmp_path)
+    probe = Mock(side_effect=result) if isinstance(result, Exception) else Mock(return_value=result)
+    monkeypatch.setattr(ledger_validate.subprocess, "check_output", probe)
+
+    expected = result == "true\n"
+    assert ledger_validate._is_shallow_repo() is expected
+    assert ledger_validate._is_shallow_repo() is expected
+    probe.assert_called_once_with(["git", "rev-parse", "--is-shallow-repository"], text=True)
+
+
+def test_failed_fetch_is_negatively_cached(tmp_path: Path, monkeypatch) -> None:
+    ledger_validate = _load_module(monkeypatch, tmp_path)
+    monkeypatch.delenv("GITHUB_REPOSITORY", raising=False)
+    monkeypatch.setattr(ledger_validate, "_pull_request_head_repo_url", lambda: None)
+    local_probe = Mock(return_value=False)
+    fetch = Mock(side_effect=subprocess.CalledProcessError(1, "git"))
+    monkeypatch.setattr(ledger_validate, "_commit_exists_locally", local_probe)
+    monkeypatch.setattr(ledger_validate.subprocess, "check_call", fetch)
+
+    assert ledger_validate._fetch_commit("abc1234") is False
+    assert fetch.call_count == 5
+    assert ledger_validate._fetch_commit("abc1234") is False
+    assert fetch.call_count == 5
+    local_probe.assert_called_once_with("abc1234")
+
+
+@pytest.mark.parametrize(
+    "output,expected",
+    [
+        (None, {"abc1234": False, "def5678": False}),
+        (["malformed"], {"abc1234": False, "def5678": False}),
+    ],
+)
+def test_bulk_commit_check_preserves_missing_or_malformed_results(
+    tmp_path: Path, monkeypatch, output, expected
+) -> None:
+    ledger_validate = _load_module(monkeypatch, tmp_path)
+    batch = Mock(return_value=output)
+    monkeypatch.setattr(ledger_validate, "_git_cat_file_batch_check", batch)
+
+    assert ledger_validate._bulk_check_commits(["def5678", "abc1234", "abc1234"]) == expected
+    batch.assert_called_once_with(["abc1234", "def5678"])
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {},
+        {"pull_request": {}},
+        {"pull_request": {"head": {}}},
+        {"pull_request": {"head": {"repo": {}}}},
+    ],
+)
+def test_pull_request_head_url_rejects_incomplete_event_shapes(
+    tmp_path: Path, monkeypatch, payload
+) -> None:
+    ledger_validate = _load_module(monkeypatch, tmp_path)
+    event = tmp_path / "event.json"
+    event.write_text(json.dumps(payload), encoding="utf-8")
+    monkeypatch.setenv("GITHUB_EVENT_PATH", str(event))
+
+    assert ledger_validate._pull_request_head_repo_url() is None
+
+
+def test_prefetch_ignores_invalid_ledgers_and_fetches_only_unique_missing_commits(
+    tmp_path: Path, monkeypatch
+) -> None:
+    ledger_validate = _load_module(monkeypatch, tmp_path)
+    documents = [
+        "[",
+        "[]",
+        "tasks: {}",
+        yaml.safe_dump(
+            {
+                "tasks": [
+                    None,
+                    {"commit": 42},
+                    {"commit": "abc1234"},
+                    {"commit": "abc1234"},
+                    {"commit": "def5678"},
+                ]
+            }
+        ),
+    ]
+    paths = []
+    for index, document in enumerate(documents):
+        path = tmp_path / f"ledger-{index}.yml"
+        path.write_text(document, encoding="utf-8")
+        paths.append(path)
+    batch = Mock(return_value={"abc1234": False, "def5678": True})
+    fetch = Mock(return_value=True)
+    monkeypatch.setattr(ledger_validate, "_bulk_check_commits", batch)
+    monkeypatch.setattr(ledger_validate, "_fetch_commit", fetch)
+
+    ledger_validate._prefetch_commits(paths)
+
+    batch.assert_called_once_with({"abc1234", "def5678"})
+    fetch.assert_called_once_with("abc1234")
 
 
 def test_validate_ledger_reports_schema_errors(tmp_path: Path, monkeypatch) -> None:

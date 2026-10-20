@@ -1,0 +1,435 @@
+{
+  "baseline_head": "1828632fbf1593dffbabd717fd22c4d2f595bb22",
+  "scope": "Nine selected existing test modules; not whole-CI coverage",
+  "supplied_ci_blended_percent": 87.08,
+  "before_test_count": 469,
+  "after_test_count": 502,
+  "files": {
+    "scripts/api_client.py": {
+      "before_missing_lines": 1,
+      "after_missing_lines": 1,
+      "before_missing_branches": 1,
+      "after_missing_branches": 1,
+      "before_percent": 98.91891891891892,
+      "after_percent": 98.91891891891892
+    },
+    "scripts/check_docs_drift.py": {
+      "before_missing_lines": 22,
+      "after_missing_lines": 5,
+      "before_missing_branches": 16,
+      "after_missing_branches": 5,
+      "before_percent": 90.07832898172323,
+      "after_percent": 97.38903394255874
+    },
+    "scripts/langchain/task_validator.py": {
+      "before_missing_lines": 3,
+      "after_missing_lines": 3,
+      "before_missing_branches": 3,
+      "after_missing_branches": 3,
+      "before_percent": 98.11320754716981,
+      "after_percent": 98.11320754716981
+    },
+    "scripts/ledger_validate.py": {
+      "before_missing_lines": 30,
+      "after_missing_lines": 13,
+      "before_missing_branches": 26,
+      "after_missing_branches": 12,
+      "before_percent": 90.08849557522124,
+      "after_percent": 95.57522123893806
+    },
+    "scripts/validate_run_contract.py": {
+      "before_missing_lines": 41,
+      "after_missing_lines": 20,
+      "before_missing_branches": 27,
+      "after_missing_branches": 19,
+      "before_percent": 89.6969696969697,
+      "after_percent": 94.0909090909091
+    },
+    "tools/langchain_client.py": {
+      "before_missing_lines": 17,
+      "after_missing_lines": 17,
+      "before_missing_branches": 7,
+      "after_missing_branches": 7,
+      "before_percent": 93.717277486911,
+      "after_percent": 93.717277486911
+    }
+  },
+  "break_revert_pairs": [
+    {
+      "source": "scripts/check_docs_drift.py",
+      "test": "tests/scripts/test_check_docs_drift.py::test_missing_reference_still_reported_when_git_ignore_check_fails",
+      "before": "except (OSError, subprocess.TimeoutExpired):\n        return False",
+      "after": "except (OSError, subprocess.TimeoutExpired):\n        raise",
+      "red_exit": 1,
+      "green_exit": 0,
+      "red_failed_cases": [
+        "test_missing_reference_still_reported_when_git_ignore_check_fails[error0]",
+        "test_missing_reference_still_reported_when_git_ignore_check_fails[error1]"
+      ],
+      "green_passed_cases": [
+        "test_missing_reference_still_reported_when_git_ignore_check_fails[error0]",
+        "test_missing_reference_still_reported_when_git_ignore_check_fails[error1]"
+      ]
+    },
+    {
+      "source": "scripts/check_docs_drift.py",
+      "test": "tests/scripts/test_check_docs_drift.py::test_upstream_qualification_stops_at_list_blank_and_section_boundaries",
+      "before": "return \"stranske/Workflows\" in text[block_start:block_end]",
+      "after": "return False",
+      "red_exit": 1,
+      "green_exit": 0,
+      "red_failed_cases": [
+        "test_upstream_qualification_stops_at_list_blank_and_section_boundaries[## Source Of Truth\\n1. stranske/Workflows\\n   See upstream guidance\\n   `docs/upstream.md`\\n2. `docs/local.md`]",
+        "test_upstream_qualification_stops_at_list_blank_and_section_boundaries[# Guidance\\n\\n## Source Of Truth\\n1. stranske/Workflows\\n   `docs/upstream.md`\\n\\n`docs/local.md`]",
+        "test_upstream_qualification_stops_at_list_blank_and_section_boundaries[## Source Of Truth\\n1. stranske/Workflows\\n   `docs/upstream.md`\\n## Local Notes\\n`docs/local.md`]"
+      ],
+      "green_passed_cases": [
+        "test_upstream_qualification_stops_at_list_blank_and_section_boundaries[## Source Of Truth\\n1. stranske/Workflows\\n   See upstream guidance\\n   `docs/upstream.md`\\n2. `docs/local.md`]",
+        "test_upstream_qualification_stops_at_list_blank_and_section_boundaries[# Guidance\\n\\n## Source Of Truth\\n1. stranske/Workflows\\n   `docs/upstream.md`\\n\\n`docs/local.md`]",
+        "test_upstream_qualification_stops_at_list_blank_and_section_boundaries[## Source Of Truth\\n1. stranske/Workflows\\n   `docs/upstream.md`\\n## Local Notes\\n`docs/local.md`]"
+      ]
+    },
+    {
+      "source": "scripts/check_docs_drift.py",
+      "test": "tests/scripts/test_check_docs_drift.py::test_cli_detects_git_root_and_prints_human_report",
+      "before": "return Path(result.stdout.strip())",
+      "after": "return Path(result.stdout.strip()) / \"missing-root\"",
+      "red_exit": 1,
+      "green_exit": 0,
+      "red_failed_cases": [
+        "test_cli_detects_git_root_and_prints_human_report"
+      ],
+      "green_passed_cases": [
+        "test_cli_detects_git_root_and_prints_human_report"
+      ]
+    },
+    {
+      "source": "scripts/check_docs_drift.py",
+      "test": "tests/scripts/test_check_docs_drift.py::test_cli_reports_invalid_document_encoding",
+      "before": "except ValueError as exc:\n        print(f\"error: {exc}\", file=sys.stderr)\n        return 2",
+      "after": "except ValueError as exc:\n        print(f\"error: {exc}\", file=sys.stderr)\n        return 3",
+      "red_exit": 1,
+      "green_exit": 0,
+      "red_failed_cases": [
+        "test_cli_reports_invalid_document_encoding"
+      ],
+      "green_passed_cases": [
+        "test_cli_reports_invalid_document_encoding"
+      ]
+    },
+    {
+      "source": "scripts/ledger_validate.py",
+      "test": "tests/scripts/test_ledger_validate.py::test_shallow_repository_probe_caches_positive_negative_and_failed_results",
+      "before": "if _SHALLOW_CACHE is not None:\n        return _SHALLOW_CACHE",
+      "after": "if _SHALLOW_CACHE is not None:\n        return not _SHALLOW_CACHE",
+      "red_exit": 1,
+      "green_exit": 0,
+      "red_failed_cases": [
+        "test_shallow_repository_probe_caches_positive_negative_and_failed_results[true\\n]",
+        "test_shallow_repository_probe_caches_positive_negative_and_failed_results[false\\n]",
+        "test_shallow_repository_probe_caches_positive_negative_and_failed_results[result2]"
+      ],
+      "green_passed_cases": [
+        "test_shallow_repository_probe_caches_positive_negative_and_failed_results[true\\n]",
+        "test_shallow_repository_probe_caches_positive_negative_and_failed_results[false\\n]",
+        "test_shallow_repository_probe_caches_positive_negative_and_failed_results[result2]"
+      ]
+    },
+    {
+      "source": "scripts/ledger_validate.py",
+      "test": "tests/scripts/test_ledger_validate.py::test_failed_fetch_is_negatively_cached",
+      "before": "if commit in _COMMIT_FETCH_CACHE:",
+      "after": "if _COMMIT_FETCH_CACHE.get(commit):",
+      "red_exit": 1,
+      "green_exit": 0,
+      "red_failed_cases": [
+        "test_failed_fetch_is_negatively_cached"
+      ],
+      "green_passed_cases": [
+        "test_failed_fetch_is_negatively_cached"
+      ]
+    },
+    {
+      "source": "scripts/ledger_validate.py",
+      "test": "tests/scripts/test_ledger_validate.py::test_bulk_commit_check_preserves_missing_or_malformed_results",
+      "before": "return dict.fromkeys(unique, False)",
+      "after": "return dict.fromkeys(unique, True)",
+      "red_exit": 1,
+      "green_exit": 0,
+      "red_failed_cases": [
+        "test_bulk_commit_check_preserves_missing_or_malformed_results[None-expected0]"
+      ],
+      "green_passed_cases": [
+        "test_bulk_commit_check_preserves_missing_or_malformed_results[None-expected0]",
+        "test_bulk_commit_check_preserves_missing_or_malformed_results[output1-expected1]"
+      ]
+    },
+    {
+      "source": "scripts/ledger_validate.py",
+      "test": "tests/scripts/test_ledger_validate.py::test_bulk_commit_check_preserves_missing_or_malformed_results",
+      "before": "results[original_sha] = False",
+      "after": "results[original_sha] = True",
+      "red_exit": 1,
+      "green_exit": 0,
+      "red_failed_cases": [
+        "test_bulk_commit_check_preserves_missing_or_malformed_results[output1-expected1]"
+      ],
+      "green_passed_cases": [
+        "test_bulk_commit_check_preserves_missing_or_malformed_results[None-expected0]",
+        "test_bulk_commit_check_preserves_missing_or_malformed_results[output1-expected1]"
+      ]
+    },
+    {
+      "source": "scripts/ledger_validate.py",
+      "test": "tests/scripts/test_ledger_validate.py::test_pull_request_head_url_rejects_incomplete_event_shapes",
+      "before": "if not isinstance(pull_request, dict):\n        return None",
+      "after": "if not isinstance(pull_request, dict):\n        return \"\"",
+      "red_exit": 1,
+      "green_exit": 0,
+      "red_failed_cases": [
+        "test_pull_request_head_url_rejects_incomplete_event_shapes[payload0]"
+      ],
+      "green_passed_cases": [
+        "test_pull_request_head_url_rejects_incomplete_event_shapes[payload0]",
+        "test_pull_request_head_url_rejects_incomplete_event_shapes[payload1]",
+        "test_pull_request_head_url_rejects_incomplete_event_shapes[payload2]",
+        "test_pull_request_head_url_rejects_incomplete_event_shapes[payload3]"
+      ]
+    },
+    {
+      "source": "scripts/ledger_validate.py",
+      "test": "tests/scripts/test_ledger_validate.py::test_pull_request_head_url_rejects_incomplete_event_shapes",
+      "before": "if not isinstance(head, dict):\n        return None",
+      "after": "if not isinstance(head, dict):\n        return \"\"",
+      "red_exit": 1,
+      "green_exit": 0,
+      "red_failed_cases": [
+        "test_pull_request_head_url_rejects_incomplete_event_shapes[payload1]"
+      ],
+      "green_passed_cases": [
+        "test_pull_request_head_url_rejects_incomplete_event_shapes[payload0]",
+        "test_pull_request_head_url_rejects_incomplete_event_shapes[payload1]",
+        "test_pull_request_head_url_rejects_incomplete_event_shapes[payload2]",
+        "test_pull_request_head_url_rejects_incomplete_event_shapes[payload3]"
+      ]
+    },
+    {
+      "source": "scripts/ledger_validate.py",
+      "test": "tests/scripts/test_ledger_validate.py::test_pull_request_head_url_rejects_incomplete_event_shapes",
+      "before": "if not isinstance(repo, dict):\n        return None",
+      "after": "if not isinstance(repo, dict):\n        return \"\"",
+      "red_exit": 1,
+      "green_exit": 0,
+      "red_failed_cases": [
+        "test_pull_request_head_url_rejects_incomplete_event_shapes[payload2]"
+      ],
+      "green_passed_cases": [
+        "test_pull_request_head_url_rejects_incomplete_event_shapes[payload0]",
+        "test_pull_request_head_url_rejects_incomplete_event_shapes[payload1]",
+        "test_pull_request_head_url_rejects_incomplete_event_shapes[payload2]",
+        "test_pull_request_head_url_rejects_incomplete_event_shapes[payload3]"
+      ]
+    },
+    {
+      "source": "scripts/ledger_validate.py",
+      "test": "tests/scripts/test_ledger_validate.py::test_pull_request_head_url_rejects_incomplete_event_shapes",
+      "before": "else:\n            return None\n    token =",
+      "after": "else:\n            return \"\"\n    token =",
+      "red_exit": 1,
+      "green_exit": 0,
+      "red_failed_cases": [
+        "test_pull_request_head_url_rejects_incomplete_event_shapes[payload3]"
+      ],
+      "green_passed_cases": [
+        "test_pull_request_head_url_rejects_incomplete_event_shapes[payload0]",
+        "test_pull_request_head_url_rejects_incomplete_event_shapes[payload1]",
+        "test_pull_request_head_url_rejects_incomplete_event_shapes[payload2]",
+        "test_pull_request_head_url_rejects_incomplete_event_shapes[payload3]"
+      ]
+    },
+    {
+      "source": "scripts/ledger_validate.py",
+      "test": "tests/scripts/test_ledger_validate.py::test_prefetch_ignores_invalid_ledgers_and_fetches_only_unique_missing_commits",
+      "before": "        _fetch_commit(sha)",
+      "after": "        _fetch_commit(\"0000000\")",
+      "red_exit": 1,
+      "green_exit": 0,
+      "red_failed_cases": [
+        "test_prefetch_ignores_invalid_ledgers_and_fetches_only_unique_missing_commits"
+      ],
+      "green_passed_cases": [
+        "test_prefetch_ignores_invalid_ledgers_and_fetches_only_unique_missing_commits"
+      ]
+    },
+    {
+      "source": "scripts/validate_run_contract.py",
+      "test": "tests/scripts/test_validate_run_contract.py::test_evidence_closure_requires_complete_artifact_context",
+      "before": "\"emitted_evidence_policy requires an artifact manifest object\"",
+      "after": "\"broken diagnostic: emitted_evidence_policy requires an artifact manifest object\"",
+      "red_exit": 1,
+      "green_exit": 0,
+      "red_failed_cases": [
+        "test_evidence_closure_requires_complete_artifact_context[no-manifest-manifest-emitted_evidence_policy requires an artifact manifest object]"
+      ],
+      "green_passed_cases": [
+        "test_evidence_closure_requires_complete_artifact_context[no-manifest-manifest-emitted_evidence_policy requires an artifact manifest object]",
+        "test_evidence_closure_requires_complete_artifact_context[no-run-run_json-emitted_evidence_policy requires run_json artifact context]",
+        "test_evidence_closure_requires_complete_artifact_context[missing-parent-run_json-run_json parent is not an existing artifact directory]",
+        "test_evidence_closure_requires_complete_artifact_context[bad-artifacts-manifest.artifacts-manifest artifacts must be a list for evidence closure]"
+      ]
+    },
+    {
+      "source": "scripts/validate_run_contract.py",
+      "test": "tests/scripts/test_validate_run_contract.py::test_evidence_closure_requires_complete_artifact_context",
+      "before": "\"emitted_evidence_policy requires run_json artifact context\"",
+      "after": "\"broken diagnostic: emitted_evidence_policy requires run_json artifact context\"",
+      "red_exit": 1,
+      "green_exit": 0,
+      "red_failed_cases": [
+        "test_evidence_closure_requires_complete_artifact_context[no-run-run_json-emitted_evidence_policy requires run_json artifact context]"
+      ],
+      "green_passed_cases": [
+        "test_evidence_closure_requires_complete_artifact_context[no-manifest-manifest-emitted_evidence_policy requires an artifact manifest object]",
+        "test_evidence_closure_requires_complete_artifact_context[no-run-run_json-emitted_evidence_policy requires run_json artifact context]",
+        "test_evidence_closure_requires_complete_artifact_context[missing-parent-run_json-run_json parent is not an existing artifact directory]",
+        "test_evidence_closure_requires_complete_artifact_context[bad-artifacts-manifest.artifacts-manifest artifacts must be a list for evidence closure]"
+      ]
+    },
+    {
+      "source": "scripts/validate_run_contract.py",
+      "test": "tests/scripts/test_validate_run_contract.py::test_evidence_closure_requires_complete_artifact_context",
+      "before": "\"run_json parent is not an existing artifact directory\"",
+      "after": "\"broken diagnostic: run_json parent is not an existing artifact directory\"",
+      "red_exit": 1,
+      "green_exit": 0,
+      "red_failed_cases": [
+        "test_evidence_closure_requires_complete_artifact_context[missing-parent-run_json-run_json parent is not an existing artifact directory]"
+      ],
+      "green_passed_cases": [
+        "test_evidence_closure_requires_complete_artifact_context[no-manifest-manifest-emitted_evidence_policy requires an artifact manifest object]",
+        "test_evidence_closure_requires_complete_artifact_context[no-run-run_json-emitted_evidence_policy requires run_json artifact context]",
+        "test_evidence_closure_requires_complete_artifact_context[missing-parent-run_json-run_json parent is not an existing artifact directory]",
+        "test_evidence_closure_requires_complete_artifact_context[bad-artifacts-manifest.artifacts-manifest artifacts must be a list for evidence closure]"
+      ]
+    },
+    {
+      "source": "scripts/validate_run_contract.py",
+      "test": "tests/scripts/test_validate_run_contract.py::test_evidence_closure_requires_complete_artifact_context",
+      "before": "\"manifest artifacts must be a list for evidence closure\"",
+      "after": "\"broken diagnostic: manifest artifacts must be a list for evidence closure\"",
+      "red_exit": 1,
+      "green_exit": 0,
+      "red_failed_cases": [
+        "test_evidence_closure_requires_complete_artifact_context[bad-artifacts-manifest.artifacts-manifest artifacts must be a list for evidence closure]"
+      ],
+      "green_passed_cases": [
+        "test_evidence_closure_requires_complete_artifact_context[no-manifest-manifest-emitted_evidence_policy requires an artifact manifest object]",
+        "test_evidence_closure_requires_complete_artifact_context[no-run-run_json-emitted_evidence_policy requires run_json artifact context]",
+        "test_evidence_closure_requires_complete_artifact_context[missing-parent-run_json-run_json parent is not an existing artifact directory]",
+        "test_evidence_closure_requires_complete_artifact_context[bad-artifacts-manifest.artifacts-manifest artifacts must be a list for evidence closure]"
+      ]
+    },
+    {
+      "source": "scripts/validate_run_contract.py",
+      "test": "tests/scripts/test_validate_run_contract.py::test_evidence_paths_reject_symlink_components_and_directories",
+      "before": "\"evidence artifact path must not traverse a symlink\"",
+      "after": "\"broken diagnostic: evidence artifact path must not traverse a symlink\"",
+      "red_exit": 1,
+      "green_exit": 0,
+      "red_failed_cases": [
+        "test_evidence_paths_reject_symlink_components_and_directories[file-link]",
+        "test_evidence_paths_reject_symlink_components_and_directories[directory-link]"
+      ],
+      "green_passed_cases": [
+        "test_evidence_paths_reject_symlink_components_and_directories[file-link]",
+        "test_evidence_paths_reject_symlink_components_and_directories[directory-link]",
+        "test_evidence_paths_reject_symlink_components_and_directories[directory]"
+      ]
+    },
+    {
+      "source": "scripts/validate_run_contract.py",
+      "test": "tests/scripts/test_validate_run_contract.py::test_evidence_paths_reject_symlink_components_and_directories",
+      "before": "\"evidence artifact must be an existing regular file\"",
+      "after": "\"broken diagnostic: evidence artifact must be an existing regular file\"",
+      "red_exit": 1,
+      "green_exit": 0,
+      "red_failed_cases": [
+        "test_evidence_paths_reject_symlink_components_and_directories[directory]"
+      ],
+      "green_passed_cases": [
+        "test_evidence_paths_reject_symlink_components_and_directories[file-link]",
+        "test_evidence_paths_reject_symlink_components_and_directories[directory-link]",
+        "test_evidence_paths_reject_symlink_components_and_directories[directory]"
+      ]
+    },
+    {
+      "source": "scripts/validate_run_contract.py",
+      "test": "tests/scripts/test_validate_run_contract.py::test_evidence_closure_reports_unreadable_artifact_bytes",
+      "before": "cannot hash evidence artifact:",
+      "after": "broken diagnostic: cannot hash evidence artifact:",
+      "red_exit": 1,
+      "green_exit": 0,
+      "red_failed_cases": [
+        "test_evidence_closure_reports_unreadable_artifact_bytes[hash]"
+      ],
+      "green_passed_cases": [
+        "test_evidence_closure_reports_unreadable_artifact_bytes[hash]",
+        "test_evidence_closure_reports_unreadable_artifact_bytes[json]",
+        "test_evidence_closure_reports_unreadable_artifact_bytes[utf8]"
+      ]
+    },
+    {
+      "source": "scripts/validate_run_contract.py",
+      "test": "tests/scripts/test_validate_run_contract.py::test_evidence_closure_reports_unreadable_artifact_bytes",
+      "before": "cannot load evidence artifact:",
+      "after": "broken diagnostic: cannot load evidence artifact:",
+      "red_exit": 1,
+      "green_exit": 0,
+      "red_failed_cases": [
+        "test_evidence_closure_reports_unreadable_artifact_bytes[json]",
+        "test_evidence_closure_reports_unreadable_artifact_bytes[utf8]"
+      ],
+      "green_passed_cases": [
+        "test_evidence_closure_reports_unreadable_artifact_bytes[hash]",
+        "test_evidence_closure_reports_unreadable_artifact_bytes[json]",
+        "test_evidence_closure_reports_unreadable_artifact_bytes[utf8]"
+      ]
+    },
+    {
+      "source": "scripts/validate_run_contract.py",
+      "test": "tests/scripts/test_validate_run_contract.py::test_evidence_closure_rejects_malformed_reference_lists",
+      "before": "evidence_refs must be a list of strings for evidence closure",
+      "after": "broken evidence_refs diagnostic",
+      "red_exit": 1,
+      "green_exit": 0,
+      "red_failed_cases": [
+        "test_evidence_closure_rejects_malformed_reference_lists[None]",
+        "test_evidence_closure_rejects_malformed_reference_lists[evidence:a]",
+        "test_evidence_closure_rejects_malformed_reference_lists[refs2]"
+      ],
+      "green_passed_cases": [
+        "test_evidence_closure_rejects_malformed_reference_lists[None]",
+        "test_evidence_closure_rejects_malformed_reference_lists[evidence:a]",
+        "test_evidence_closure_rejects_malformed_reference_lists[refs2]"
+      ]
+    },
+    {
+      "source": "scripts/validate_run_contract.py",
+      "test": "tests/scripts/test_validate_run_contract.py::test_evidence_cli_writes_report_and_appends_actual_conformance_in_warn_only_mode",
+      "before": "return 0 if (report.conformant or args.warn_only) else 1",
+      "after": "return 1 if (report.conformant or args.warn_only) else 0",
+      "red_exit": 1,
+      "green_exit": 0,
+      "red_failed_cases": [
+        "test_evidence_cli_writes_report_and_appends_actual_conformance_in_warn_only_mode[True]",
+        "test_evidence_cli_writes_report_and_appends_actual_conformance_in_warn_only_mode[False]"
+      ],
+      "green_passed_cases": [
+        "test_evidence_cli_writes_report_and_appends_actual_conformance_in_warn_only_mode[True]",
+        "test_evidence_cli_writes_report_and_appends_actual_conformance_in_warn_only_mode[False]"
+      ]
+    }
+  ],
+  "additional_covered_units": 88,
+  "distinct_mutation_verified_cases": 33
+}
