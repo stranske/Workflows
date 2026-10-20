@@ -1,5 +1,9 @@
 """Tests for scripts/prune_agent_stubs.py — select_prunable is pure/unit-testable."""
 
+import json
+import subprocess
+
+from scripts import prune_agent_stubs
 from scripts.prune_agent_stubs import select_prunable
 
 # ---------------------------------------------------------------------------
@@ -75,3 +79,30 @@ def test_select_prunable_multiple_agents() -> None:
     assert "auto-pilot-10.md" in result
     assert "codex-10.md" in result
     assert "auto-pilot-20.md" not in result
+
+
+def test_fetch_closed_issues_and_main_modes(tmp_path, monkeypatch, capsys) -> None:
+    agents = tmp_path / "agents"
+    agents.mkdir()
+    (agents / "codex-12.md").write_text("stub", encoding="utf-8")
+    (agents / "codex-13.md").write_text("stub", encoding="utf-8")
+    monkeypatch.setattr(prune_agent_stubs, "AGENTS_DIR", agents)
+    monkeypatch.setattr(
+        prune_agent_stubs.subprocess,
+        "run",
+        lambda *_args, **_kwargs: subprocess.CompletedProcess(
+            [], 0, json.dumps([{"number": 12}]), ""
+        ),
+    )
+    assert prune_agent_stubs.main(["--dry-run"]) == 0
+    assert "would delete" in capsys.readouterr().out
+    assert (agents / "codex-12.md").exists()
+    assert prune_agent_stubs.main([]) == 0
+    assert not (agents / "codex-12.md").exists()
+    assert (agents / "codex-13.md").exists()
+
+
+def test_main_rejects_missing_agents_directory(tmp_path, monkeypatch, capsys) -> None:
+    monkeypatch.setattr(prune_agent_stubs, "AGENTS_DIR", tmp_path / "missing")
+    assert prune_agent_stubs.main([]) == 1
+    assert "directory not found" in capsys.readouterr().err

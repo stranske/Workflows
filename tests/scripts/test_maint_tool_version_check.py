@@ -105,3 +105,35 @@ def test_compare_command_writes_github_outputs(monkeypatch, tmp_path: Path) -> N
     assert "updates<<UPDATES_EOF" in output
     assert "has_updates=true" in output
     assert (tmp_path / "tool-version-issue-body.md").exists()
+
+
+def test_latest_command_and_main_dispatch(monkeypatch, tmp_path: Path, capsys) -> None:
+    output = tmp_path / "github-output.txt"
+    monkeypatch.setenv("GITHUB_OUTPUT", str(output))
+    monkeypatch.setattr(
+        check, "latest_pypi_version", lambda package: "9.9.9" if package == "black" else None
+    )
+
+    assert check.main(["latest"]) == 0
+
+    lines = output.read_text(encoding="utf-8")
+    assert "black_latest=9.9.9" in lines
+    assert "ruff_latest=unknown" in lines
+    assert "black: 9.9.9" in capsys.readouterr().out
+
+
+def test_latest_pypi_failure_and_compare_without_updates(monkeypatch, tmp_path: Path) -> None:
+    output = tmp_path / "github-output.txt"
+    monkeypatch.setenv("GITHUB_OUTPUT", str(output))
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(
+        check.urllib.request,
+        "urlopen",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(OSError("offline")),
+    )
+    assert check.latest_pypi_version("black") is None
+    for spec in check.TOOLS:
+        monkeypatch.setenv(spec.current_env, "1.0.0")
+        monkeypatch.setenv(spec.latest_env, "1.0.0")
+    assert check.main(["compare"]) == 0
+    assert "updates=\n" in output.read_text(encoding="utf-8")

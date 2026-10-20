@@ -218,6 +218,63 @@ def test_main_execute_workflow_permissions_command() -> None:
     assert "default_workflow_permissions=write" in first_cmd
 
 
+@pytest.mark.parametrize(
+    "argv",
+    [
+        ["bcs"],
+        ["bcs", "--repo", "x/y", "--check", "--verify"],
+        ["bcs", "--repo", "x/y", "--labels-only", "--verify"],
+    ],
+)
+def test_main_rejects_invalid_mode_combinations(argv: list[str]) -> None:
+    with patch("sys.argv", argv), pytest.raises(SystemExit):
+        bcs.main()
+
+
+def test_main_check_verify_and_health_check(monkeypatch, tmp_path, capsys) -> None:
+    result = MagicMock(stdout='{"default_workflow_permissions": "write"}')
+    with (
+        patch("sys.argv", ["bcs", "--repo", "x/y", "--check"]),
+        patch("subprocess.run", return_value=result),
+    ):
+        assert bcs.main() == 0
+    with (
+        patch("sys.argv", ["bcs", "--repo", "x/y", "--verify"]),
+        patch(
+            "scripts.bootstrap_consumer_settings.verify_bootstrap_settings",
+            return_value={"a": True, "b": False},
+        ),
+    ):
+        assert bcs.main() == 1
+    manifest = tmp_path / "manifest.yml"
+    manifest.write_text("x", encoding="utf-8")
+    with (
+        patch("sys.argv", ["bcs", "--health-check", "--manifest", str(manifest)]),
+        patch("scripts.bootstrap_consumer_settings.extract_repos", return_value=["x/y"]),
+        patch(
+            "scripts.bootstrap_consumer_settings.check_consumer_health",
+            return_value=(
+                [
+                    {
+                        "repository": "x/y",
+                        "status": "OK",
+                        "missing": [],
+                        "metadata_mismatch": [],
+                        "implementation_count": 0,
+                        "priority_labelled_count": 0,
+                        "unprioritized_count": 0,
+                        "excluded": {},
+                        "error": None,
+                    }
+                ],
+                0,
+            ),
+        ),
+    ):
+        assert bcs.main() == 0
+    assert "[FAIL] b" in capsys.readouterr().out
+
+
 def test_main_execute_sets_use_consolidated_workflows() -> None:
     """--execute second call sets USE_CONSOLIDATED_WORKFLOWS=true."""
     with (

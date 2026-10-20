@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import os
+import subprocess
 import sys
 from types import SimpleNamespace
 
@@ -141,3 +143,17 @@ def test_main_rejects_missing_input_and_writes_topics(tmp_path, monkeypatch, cap
     topic_splitter.main()
     assert output_path.read_text(encoding="utf-8") == '[\n  {\n    "title": "One"\n  }\n]'
     assert "Split into 1 topic(s). First: One" in capsys.readouterr().out
+
+
+def test_direct_script_execution_uses_local_import_fallback(tmp_path) -> None:
+    environment = {key: value for key, value in os.environ.items() if key != "PYTHONPATH"}
+    result = subprocess.run(
+        [sys.executable, str(topic_splitter.__file__), "--help"],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        check=False,
+        env=environment,
+    )
+    assert result.returncode == 0
+    assert "Split raw text into topics using LLM" in result.stdout

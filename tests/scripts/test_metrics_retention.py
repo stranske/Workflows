@@ -435,3 +435,44 @@ def test_apply_retention_to_file_preserves_jsonl_payloads(tmp_path: Path) -> Non
 
     assert weekly_archive.read_text(encoding="utf-8") == weekly_line
     assert monthly_archive.read_text(encoding="utf-8") == monthly_line
+
+
+def test_helpers_cover_numeric_dates_policy_and_restore_dry_run(tmp_path: Path) -> None:
+    assert metrics_retention._parse_timestamp_value(True) is None
+    assert metrics_retention._parse_timestamp_value(0) == datetime(1970, 1, 1, tzinfo=UTC)
+    assert metrics_retention._extract_timestamp({"created_at": "2025-01-01T00:00:00Z"}) is not None
+    assert metrics_retention.FileRetentionStats(tmp_path / "none").reduction_percent() == 0.0
+    config = tmp_path / "retention.json"
+    config.write_text('{"retention": {}, "archive": {"enabled": false}}', encoding="utf-8")
+    policy = metrics_retention.load_policy(config, archive_override=str(tmp_path / "override"))
+    assert (
+        policy.keep_days == 14
+        and not policy.archive_enabled
+        and policy.archive_dir == tmp_path / "override"
+    )
+    archive = tmp_path / "archive.ndjson"
+    archive.write_text('{"value": 1}\n', encoding="utf-8")
+    result = metrics_retention.restore_archive(
+        archive, tmp_path / "out.ndjson", dedupe=False, dry_run=True
+    )
+    assert result["records_restored"] == 1
+    with pytest.raises(FileNotFoundError):
+        metrics_retention.restore_archive(
+            tmp_path / "nope", tmp_path / "out", dedupe=False, dry_run=False
+        )
+
+
+def test_retention_helpers_cover_no_change_and_archive_disabled(tmp_path: Path) -> None:
+    metrics = tmp_path / "metrics.ndjson"
+    metrics.write_text('{"timestamp":"2025-01-01T00:00:00Z"}\n', encoding="utf-8")
+    policy = metrics_retention.RetentionPolicy(1, 1, 1, False, tmp_path / "archive")
+    stats = metrics_retention.apply_retention_to_file(
+        metrics, policy, now=datetime(2025, 2, 1, tzinfo=UTC), dry_run=False
+    )
+    assert stats.records_kept == 1 and not (tmp_path / "metrics.ndjson.tmp").exists()
+    assert (
+        metrics_retention._iter_metrics_paths(
+            [str(metrics), str(metrics)], [str(tmp_path / "nope")], metrics, include_defaults=False
+        )
+        == []
+    )
