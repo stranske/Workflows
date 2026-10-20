@@ -47,6 +47,29 @@ def _minimal_run_envelope(**overrides: object) -> dict:
     return envelope
 
 
+def test_document_page_checks_reject_conflicts_and_noncanonical_dates() -> None:
+    report = vrc.Report(repo="owner/repo")
+    vrc._check_document_page(
+        {
+            "document_ref": {
+                "sha256": "abc",
+                "supersedes": "abc",
+                "page": 1,
+                "doc_key": "document/2026-2-03",
+            },
+            "locator": {"page": 2},
+        },
+        report,
+    )
+
+    assert not report.conformant
+    assert [violation.path for violation in report.violations] == [
+        "document_ref/supersedes",
+        "document_ref/page",
+        "document_ref/doc_key",
+    ]
+
+
 def _participant(
     repo: str,
     *,

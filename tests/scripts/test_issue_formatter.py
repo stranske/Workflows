@@ -1336,3 +1336,19 @@ def test_formatter_helpers_handle_missing_prompt_tasks_and_cli_input(
     assert issue_formatter._load_input(
         argparse.Namespace(input_file=None, input_text="inline body")
     ) == ("inline body")
+
+
+def test_checklist_normalization_ignores_metadata_and_preserves_actionable_items() -> None:
+    assert issue_formatter._normalize_checklist_lines(
+        [
+            "---",
+            "<details>",
+            "- [X] Keep completed work",
+            "- Write a focused test",
+            "plain acceptance text",
+            "```text",
+            "- do not turn fenced examples into tasks",
+            "```",
+            "</details>",
+        ]
+    ) == ["- [x] Keep completed work", "- [ ] Write a focused test", "- [ ] plain acceptance text"]

@@ -220,6 +220,118 @@ def test_token_candidates_deduplicates_without_exposing_values() -> None:
     ]
 
 
+class _Response:
+    def __init__(self, status_code=200, payload=None, headers=None, json_error=None):
+        self.status_code = status_code
+        self._payload = payload
+        self.headers = headers or {}
+        self._json_error = json_error
+
+    def json(self):
+        if self._json_error:
+            raise self._json_error
+        return self._payload
+
+
+class _Session:
+    def __init__(self, responses):
+        self.responses = iter(responses)
+
+    def get(self, _url):
+        return next(self.responses)
+
+
+def test_remote_blob_and_response_helpers_cover_api_error_and_decode_paths() -> None:
+    encoded = base64.b64encode(b"hello\n").decode()
+    assert (
+        check_consumer_sync_drift.remote_blob_text(
+            _Session([_Response(payload={"encoding": "base64", "content": encoded})]),
+            "owner/repo",
+            "sha",
+        )
+        == "hello\n"
+    )
+    assert (
+        check_consumer_sync_drift.remote_blob_text(
+            _Session([_Response(payload={"encoding": "utf-8", "content": "hello"})]),
+            "owner/repo",
+            "sha",
+        )
+        is None
+    )
+    assert (
+        check_consumer_sync_drift.remote_blob_text(
+            _Session([_Response(status_code=500)]), "owner/repo", "sha"
+        )
+        is None
+    )
+    assert (
+        check_consumer_sync_drift.response_failure_reason(
+            _Response(status_code=403, headers={"x-ratelimit-remaining": "0"})
+        )
+        == "rate_limited"
+    )
+    assert (
+        check_consumer_sync_drift.response_failure_reason(
+            _Response(status_code=422, payload={"message": "bad request"})
+        )
+        == "HTTP 422: bad request"
+    )
+    assert check_consumer_sync_drift.response_message(_Response(json_error=ValueError())) == ""
+
+
+def test_probe_targets_and_sync_pr_filtering_cover_manifest_and_api_shapes(tmp_path: Path) -> None:
+    directory = tmp_path / "templates"
+    directory.mkdir()
+    (directory / "child.yml").write_text("name: child\n", encoding="utf-8")
+    entries = {
+        "workflows": (
+            _make_entry(source=str(tmp_path / "missing")),
+            _make_entry(source=str(directory), sync_mode="create_only"),
+            _make_entry(source=str(directory), target=".github/workflows", is_directory=True),
+        )
+    }
+    compiled = SimpleNamespace(section=lambda section: entries.get(section, ()))
+    assert check_consumer_sync_drift.probe_targets(compiled, ["workflows"]) == [
+        ".github/workflows/child.yml"
+    ]
+
+    session = _Session(
+        [
+            _Response(
+                payload=[
+                    {"head": {"ref": "feature"}},
+                    {
+                        "number": 7,
+                        "title": "sync",
+                        "html_url": "https://example/pr/7",
+                        "head": {
+                            "ref": "sync/workflows-delivery",
+                            "repo": {"full_name": "owner/repo"},
+                        },
+                    },
+                    "not-an-object",
+                ]
+            )
+        ]
+    )
+    prs, error = check_consumer_sync_drift.fetch_open_sync_prs(session, "owner/repo")
+    assert error is None
+    assert prs == [
+        {
+            "repo": "owner/repo",
+            "number": 7,
+            "title": "sync",
+            "url": "https://example/pr/7",
+            "branch": "sync/workflows-delivery",
+            "head_sha": "",
+            "head_repo": "owner/repo",
+            "created_at": "",
+            "updated_at": "",
+        }
+    ]
+
+
 def _make_entry(
     source: str = "AGENTS.md",
     target: str | None = None,

@@ -374,6 +374,47 @@ def test_loading_helpers_tolerate_missing_malformed_and_alternate_shapes(tmp_pat
     assert post_ci_summary._load_json_from_env('{"current": 80}') == {"current": 80}
 
 
+def test_summary_helpers_reject_invalid_configuration_and_render_unusual_run_shapes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    runs = [
+        {"present": True, "display_name": "Odd", "jobs": [None, {"name": "", "status": "queued"}]},
+        {"key": 4, "present": True, "jobs": "not-a-job-list"},
+        {"key": "plain", "present": True, "jobs": [{"name": "Build", "status": "queued"}]},
+    ]
+    assert post_ci_summary._build_job_rows(runs) == [
+        post_ci_summary.JobRecord("plain / Build", "queued", None, False)
+    ]
+    assert post_ci_summary._collect_required_segments(
+        runs,
+        [
+            {"label": "bad", "patterns": ["["]},
+            {"label": "build", "patterns": ["Build", 4]},  # type: ignore[list-item]
+        ],
+    ) == ["Build: ⏳ queued"]
+    fallback = post_ci_summary._load_required_groups("[]", [])
+    assert [group["label"] for group in fallback] == [
+        "core tests (3.12)",
+        "core tests (3.13)",
+        "docker smoke",
+        "gate",
+    ]
+    assert (
+        post_ci_summary._load_required_groups('[null, {"label": "", "patterns": []}]', [])
+        == fallback
+    )
+
+    contexts = tmp_path / "contexts.json"
+    _write_json(contexts, [" one ", 2, ""])
+    assert post_ci_summary._load_required_contexts(contexts) == ["one"]
+    monkeypatch.setenv("GITHUB_REPOSITORY", "stranske/Workflows")
+    assert post_ci_summary._playbook_link("docs/Guide.md#one", "a" * 40) == (
+        "[docs/Guide.md#one](https://github.com/stranske/Workflows/blob/"
+        + "a" * 40
+        + "/docs/Guide.md#one)"
+    )
+
+
 def test_artifact_failure_collection_handles_invalid_files_and_all_failure_outcomes(
     tmp_path: Path,
 ) -> None:
