@@ -62,7 +62,7 @@ function findingGateHarness(packet = findingPacket()) {
     reads.push(['final-head-and-findings', params]);
     return { repository: { pullRequest: fresh } };
   } };
-  return { packet, record, pr, fresh, reads,
+  return { packet, record, pr, fresh, reads, client,
     args: { owner: 'stranske', repo: 'Ready', pr, record,
       threads: packet.reviewThreads, read: fn => fn(client) } };
 }
@@ -140,6 +140,58 @@ test('stale-head final sync finding gate rejects an unrelated record after pre-s
   assert.equal(gate.ok, false, 'current-head revalidation must precede final acceptance');
   assert.match(gate.packet.error, /finding_delivery_changed/);
 });
+
+for (const [field, replacement] of [
+  ['repository', 'stranske/Other'],
+  ['source_commit', 'c'.repeat(40)],
+  ['plan_id', 'replacement-plan'],
+  ['generation', 'replacement-generation'],
+  ['delivery record', null],
+]) {
+  test(`final sync finding gate rejects ${field} changed during handoff verification`, async t => {
+    const h = findingGateHarness();
+    const initial = await confirmExactHeadSyncFindingGate(h.args);
+    assert.equal(initial.ok, true, 'the original unrelated evidence is valid');
+    assert.equal(classifyGeneratedPr({ pr: h.pr, activeReviewThreadCount: 1,
+      reviewThreads: h.packet.reviewThreads, findingEvidence: initial.packet,
+      checkState: { status: 'ready' } }).disposition, 'current');
+
+    const getIssue = h.client.rest.issues.get;
+    const changedDuringRead = t.mock.method(h.client.rest.issues, 'get', async params => {
+      const response = await getIssue(params);
+      h.fresh.body = replacement === null ? ''
+        : require('../sync_pr_lease_contract').formatDeliveryRecord({
+          ...h.record, [field]: replacement,
+        });
+      return response;
+    });
+    const final = await confirmExactHeadSyncFindingGate(h.args);
+    assert.equal(h.fresh.headRefOid, h.pr.head.sha, 'the head SHA alone is unchanged');
+    assert.equal(final.ok, false, 'a verified handoff cannot authorize another delivery');
+    assert.equal(final.packet.evidenceComplete, false);
+    assert.equal(final.packet.error, 'finding_delivery_changed_or_incomplete');
+    assert.ok(final.evaluation.errors.includes('review_evidence_incomplete'));
+    assert.equal(final.evaluation.raw_active_count, 1);
+    assert.deepEqual(final.evaluation.findings.map(finding => finding.thread_id), ['PRRT_finding']);
+    assert.equal(final.packet.reviewThreads[0].isResolved, false);
+
+    const row = { repo: h.packet.binding.repository, pr: h.pr.number,
+      head_sha: h.pr.head.sha, source_commit: h.record.source_commit,
+      plan_id: h.record.plan_id, delivery_generation: h.record.generation,
+      required_check_state: 'success', active_review_thread_count: 1,
+      review_disposition: final.packet, evidence_source: 'open-candidate' };
+    const promotion = require('../maint71_merge_sync_prs').buildCanaryPromotionEvidence([row], [row.repo]);
+    assert.equal(promotion.ok, false, 'an incomplete final snapshot also blocks promotion');
+    assert.deepEqual(promotion.errors, [`active_review_debt:${row.repo}`]);
+    assert.equal(promotion.evidence.results[0].active_review_thread_count, 1);
+    assert.equal(validateCanaryEvidence(promotion.evidence.results, [row.repo]).ok, false);
+
+    changedDuringRead.mock.restore();
+    h.fresh.body = h.pr.body;
+    assert.equal((await confirmExactHeadSyncFindingGate(h.args)).ok, true,
+      'a later complete read of the original delivery restores relevance acceptance');
+  });
+}
 
 for (const kind of ['shared-source', 'sync-caused', 'unknown']) {
   test(`mixed unrelated and ${kind} findings block every review boundary`, async () => {

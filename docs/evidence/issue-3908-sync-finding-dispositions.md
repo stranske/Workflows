@@ -1,5 +1,42 @@
 # Issue 3908: sync finding relevance contract
 
+## Delivery changes during handoff verification
+
+Five new `final sync finding gate rejects ... changed during handoff verification`
+tests change the repository, source commit, plan, generation, or remove the delivery
+record while the authenticated local issue read is completing. Each starts with
+valid unrelated acceptance at pre-seal, retains the same head SHA, then verifies
+that the final gate rejects the changed delivery. The resulting incomplete
+snapshot also blocks compact canary promotion and `validateCanaryEvidence`,
+retaining the raw active count and original unresolved finding. A fresh complete
+read of the restored original delivery passes again. All API calls use local fakes.
+
+Validation for this follow-up:
+
+- The required two-file `node --test` command exits 0. In this environment it
+  reports only two file-level results; adding `--test-isolation=none` executes
+  **249 named tests, all passing with zero skips**. The five new cases also pass
+  together with `--test-name-pattern='changed during handoff verification'`.
+- `sync finding unknown fails closed and mixed findings retain every blocker`
+  fails with `ERR_ASSERTION` (exit 1) when unknown findings are made nonblocking,
+  then passes (exit 0) after exact-byte restoration.
+- `stale-head final sync finding gate rejects an unrelated record after pre-seal`
+  fails with `ERR_ASSERTION` (exit 1) when final acceptance unconditionally trusts
+  unrelated records without their current-head validation, then passes (exit 0)
+  after exact-byte restoration. Neither mutation is shipped.
+- `node --check` on the changed test file and `git diff --check` pass.
+
+The disposition-to-gate table below remains applicable. This additional provenance
+coverage does not clear current shared-code blockers or add a campaign #1836
+prerequisite. No Python, workflow or production script changes were needed.
+
+PR #4144 was verified open with `draft=false`. The commit attempt failed because
+Git cannot create `.git/index.lock` on the read-only filesystem. Updating the PR
+body with these results and the disposition table was rejected with
+`MCP tool call requires approval, but approval policy is never`. The changes
+remain uncommitted; the prepared replacement body is retained locally at
+`/tmp/pr4144-reconciled-body.md`.
+
 ## Same-head review evidence regression follow-up
 
 Recent commits and live PR #4144 were reconciled: all 16 task/acceptance
