@@ -3993,6 +3993,37 @@ test('pre-seal rejects an internally valid unrelated packet replayed onto anothe
   }
 });
 
+test('pre-seal rejects malformed review counts without coercing them into clear evidence', () => {
+  const { formatDeliveryRecord } = require('../sync_pr_lease_contract');
+  for (const count of [null, false, true, '', '0', '1', [], [0], [1], {}, -1, 0.5, NaN, Infinity]) {
+    const packet = findingPacket();
+    const pr = { number: packet.binding.pr,
+      head: { ref: 'sync/workflows-candidate', sha: packet.binding.head_sha },
+      body: formatDeliveryRecord({ repository: packet.binding.repository,
+        source_commit: packet.binding.source_commit, plan_id: packet.binding.plan_id,
+        generation: packet.binding.delivery_generation, desired_tree_hash: 'tree-21',
+        lease_expires_at: '2099-01-01T00:00:00Z',
+        durable_issue_url: 'https://github.com/stranske/Workflows/issues/1836' }) };
+    // Exercise both an empty read and otherwise valid unrelated evidence: even
+    // a true/"1" count must not borrow the latter's exemption through coercion.
+    for (const reviewThreads of [[], packet.reviewThreads]) {
+      const args = { activeReviewThreadCount: count, reviewThreads,
+        findingEvidence: { ...packet, reviewThreads } };
+      const direct = classifyReviewBlockedDisposition(args);
+      assert.equal(direct?.disposition, 'review-blocked', `direct count=${String(count)}`);
+      assert.equal(direct.next_command, 'retry-review-thread-query');
+      const generated = classifyGeneratedPr({ ...args, pr, checkState: { status: 'ready' } });
+      assert.equal(generated.disposition, 'review-blocked', `generated count=${String(count)}`);
+      assert.equal(generated.next_command, 'retry-review-thread-query');
+    }
+    assert.equal(packet.reviewThreads[0].isResolved, false);
+  }
+  assert.equal(classifyReviewBlockedDisposition({ activeReviewThreadCount: 0 }), null);
+  const packet = findingPacket();
+  assert.equal(classifyReviewBlockedDisposition({ activeReviewThreadCount: 1,
+    reviewThreads: packet.reviewThreads, findingEvidence: packet }), null);
+});
+
 test('classifyReviewBlockedDisposition surfaces four dispositions and aggregate outcomes', () => {
   for (const disposition of ['shared-source', 'sync-caused', 'unknown', 'unrelated']) {
     const packet = findingPacket(disposition);

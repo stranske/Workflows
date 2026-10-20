@@ -1,5 +1,43 @@
 # Issue 3908: sync finding relevance contract
 
+## Malformed review-count follow-up
+
+Reconciliation of the six recent commits and live PR #4144 found all 16 task
+and acceptance checkboxes already checked. The PR is open and ready for review.
+The baseline executed 232 named tests. A remaining boundary inconsistency let
+pre-seal classification coerce null/false/empty values into zero, or true/"1"
+into an unrelated finding's count, while canary validation rejected those inputs.
+Both pre-seal classifiers now require a nonnegative integer without coercion.
+
+`pre-seal rejects malformed review counts without coercing them into clear evidence`
+failed before the repair with `ERR_ASSERTION` on `direct count=null` and passes
+afterward. It covers empty snapshots and valid unrelated snapshots, malformed
+counts, and valid integer controls without resolving the original finding.
+
+Validation on the restored working tree:
+
+- The exact required two-file `node --test` command passes (two file-level
+  passes in this sandbox). Adding `--test-isolation=none --test-reporter=tap`
+  executes **233 named tests, zero failures or skips**.
+- `python -m pytest tests/scripts/test_select_consumer_sync_phase.py -q
+  -m 'not slow' -o addopts=`: **22 passed**.
+- `sync finding unknown fails closed and mixed findings retain every blocker`:
+  unknown-as-nonblocking mutation **exit 1, ERR_ASSERTION**; restored **exit 0,
+  one named test passed**.
+- `stale-head final sync finding gate rejects an unrelated record after pre-seal`:
+  unconditional unrelated acceptance mutation **exit 1, ERR_ASSERTION**;
+  restored **exit 0, one named test passed**.
+- Both mutated files were restored byte for byte with SHA-256 verification;
+  neither mutation is shipped. `git diff --check` passes.
+
+The disposition-to-gate table below still applies. This correction does not
+clear shared-code blockers or add a campaign #1836 prerequisite. Staging failed
+because `.git/index.lock` cannot be created on the read-only filesystem; these
+source/test/doc changes remain uncommitted. Updating the PR body was rejected:
+`MCP tool call requires approval, but approval policy is never`. The current
+body with named failing/restored proofs and the disposition table is prepared
+at `/tmp/sync-pr-4144-body.md`; the remote body remains unchanged.
+
 ## Explicit completeness follow-up
 
 An active-debt packet without `evidenceComplete` previously passed pre-seal

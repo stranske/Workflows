@@ -409,8 +409,10 @@ function classifyReviewBlockedDisposition({
     };
   }
 
-  const reviewThreadCount = Number(activeReviewThreadCount);
-  if (!Number.isFinite(reviewThreadCount) || reviewThreadCount < 0) {
+  // An absent or malformed count is unknown evidence, never a coerced zero
+  // or an unrelated exemption borrowed through boolean/string conversion.
+  const reviewThreadCount = activeReviewThreadCount;
+  if (!Number.isInteger(reviewThreadCount) || reviewThreadCount < 0) {
     return {
       disposition: 'review-blocked',
       blocker_owner: 'closer',
@@ -493,7 +495,7 @@ function classifyGeneratedPr({
   if (!eligibility.eligible) {
     return { disposition: 'superseded', blocker_owner: 'maint-71', next_command: 'close-or-refresh-delivery' };
   }
-  const reviewThreadCount = Number(activeReviewThreadCount);
+  const reviewThreadCount = activeReviewThreadCount;
   if (!reviewPolicyLoaded) {
     return classifyReviewBlockedDisposition({
       activeReviewThreadCount: reviewThreadCount,
@@ -503,7 +505,7 @@ function classifyGeneratedPr({
       reviewPolicyLoaded,
     });
   }
-  if (!Number.isFinite(reviewThreadCount) || reviewThreadCount < 0) {
+  if (!Number.isInteger(reviewThreadCount) || reviewThreadCount < 0) {
     return classifyReviewBlockedDisposition({
       activeReviewThreadCount: reviewThreadCount,
       reviewThreads,
