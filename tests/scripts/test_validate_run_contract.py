@@ -871,3 +871,173 @@ def test_manifest_evidence_closure_is_disabled_without_exact_policy(tmp_path: Pa
         run_json=run_json,
     )
     assert report.conformant
+
+
+def test_required_format_checker_fails_closed_for_missing_and_ineffective_formats(
+    monkeypatch,
+) -> None:
+    monkeypatch.delitem(vrc.FormatChecker.checkers, "uri", raising=False)
+    with pytest.raises(RuntimeError, match="unavailable: uri"):
+        vrc._required_format_checker("uri")
+
+    monkeypatch.setattr(vrc.FormatChecker, "conforms", lambda *_args: True)
+    with pytest.raises(RuntimeError, match="ineffective: date-time"):
+        vrc._required_format_checker("date-time")
+
+
+def test_standalone_validators_enforce_document_page_consistency(tmp_path: Path) -> None:
+    evidence = _evidence("ev-page")
+    evidence["document_ref"] = {"sha256": "same", "supersedes": "same", "doc_key": "a/2026-1-01"}
+    evidence["locator"] = {"page": 2}
+    evidence["document_ref"]["page"] = 1
+    path = tmp_path / "evidence.json"
+    path.write_text(json.dumps(evidence), encoding="utf-8")
+
+    report = vrc.validate_evidence_objects(paths=[path], schema_dir=SCHEMA_DIR)
+
+    assert not report.conformant
+    assert {violation.path for violation in report.violations} >= {
+        f"{path}:/document_ref/supersedes",
+        f"{path}:/document_ref/page",
+        f"{path}:/document_ref/doc_key",
+    }
+
+
+@pytest.mark.parametrize(
+    ("mode", "fixture", "expected_repo"),
+    [
+        ("--tracked-variables", "valid_tracked_variable.json", "tracked-variable/v1"),
+        ("--mirror-manifest", "valid_document_mirror.json", "document-mirror/v1"),
+    ],
+)
+def test_standalone_cli_modes_write_success_reports(
+    tmp_path: Path, mode: str, fixture: str, expected_repo: str
+) -> None:
+    report_path = tmp_path / "report.json"
+    output_path = tmp_path / "github-output"
+
+    assert (
+        vrc.main(
+            [
+                mode,
+                str(FIXTURES / fixture),
+                "--schema-dir",
+                str(SCHEMA_DIR),
+                "--report-json",
+                str(report_path),
+                "--github-output",
+                str(output_path),
+            ]
+        )
+        == 0
+    )
+    assert json.loads(report_path.read_text())["repo"] == expected_repo
+    assert output_path.read_text() == "conformant=true\n"
+
+
+def test_consumer_convention_only_and_unknown_ingests_are_distinguished() -> None:
+    repo = "stranske/Convention-Only"
+    convention = _validate(
+        {"anything": "allowed"},
+        repo=repo,
+        registry=_registry(
+            _participant(repo, role="consumer", ingests=["identity-map-conventions"])
+        ),
+    )
+    assert convention.conformant
+
+    unknown = _validate(
+        {"anything": "allowed"},
+        repo=repo,
+        registry=_registry(_participant(repo, role="consumer", ingests=["unknown/v1"])),
+    )
+    assert not unknown.conformant
+    assert "unknown ingest schema token 'unknown/v1'" in unknown.violations[0].message
+
+
+def test_missing_active_envelope_is_a_failure_and_cli_persists_result(tmp_path: Path) -> None:
+    repo = "stranske/Active"
+    registry_path = tmp_path / "registry.json"
+    registry_path.write_text(json.dumps(_registry(_participant(repo))), encoding="utf-8")
+    report_path = tmp_path / "report.json"
+    output_path = tmp_path / "github-output"
+
+    assert (
+        vrc.main(
+            [
+                str(tmp_path / "missing.json"),
+                "--registry",
+                str(registry_path),
+                "--repo",
+                repo,
+                "--schema-dir",
+                str(SCHEMA_DIR),
+                "--report-json",
+                str(report_path),
+                "--github-output",
+                str(output_path),
+            ]
+        )
+        == 1
+    )
+    assert json.loads(report_path.read_text())["conformant"] is False
+    assert output_path.read_text() == "conformant=false\n"
+
+
+def test_unknown_evidence_policy_and_noncanonical_schema_version_fail() -> None:
+    repo = "stranske/Bad-Policy"
+    registry = _registry(_participant(repo))
+    registry["participants"][0]["emitted_evidence_policy"] = "unknown/v1"
+    report = _validate(
+        _minimal_run_envelope(repo=repo, schema_version="wrong/v1"),
+        repo=repo,
+        registry=registry,
+    )
+
+    assert not report.conformant
+    assert {violation.path for violation in report.violations} >= {
+        "schema_version",
+        "emitted_evidence_policy",
+    }
+
+
+def test_standalone_validators_report_unreadable_and_invalid_documents(tmp_path: Path) -> None:
+    missing = tmp_path / "missing.json"
+    tracked = vrc.validate_tracked_variables(paths=[missing], schema_dir=SCHEMA_DIR)
+    mirror = vrc.validate_mirror_manifests(paths=[missing], schema_dir=SCHEMA_DIR)
+
+    assert tracked.violations[0].path == str(missing)
+    assert mirror.violations[0].path == str(missing)
+
+    invalid_tracked = FIXTURES / "invalid_tracked_variable_missing_evidence.json"
+    invalid_mirror = FIXTURES / "invalid_document_mirror_bad_urls.json"
+    assert not vrc.validate_tracked_variables(
+        paths=[invalid_tracked], schema_dir=SCHEMA_DIR
+    ).conformant
+    assert not vrc.validate_mirror_manifests(
+        paths=[invalid_mirror], schema_dir=SCHEMA_DIR
+    ).conformant
+
+
+def test_self_smoke_exercises_bundled_schemas_and_fixtures(capsys) -> None:
+    assert vrc._self_smoke(SCHEMA_DIR, ROOT / "config" / "backplane_participants.json") == 0
+    output = capsys.readouterr().out
+    assert "PASS schema loads + valid Draft202012: run-contract-v1.schema.json" in output
+    assert "PASS fixture valid_run.json: expected conform" in output
+
+
+def test_main_rejects_ambiguous_or_missing_envelope_arguments() -> None:
+    with pytest.raises(SystemExit, match="2"):
+        vrc.main(["--evidence-objects", "one.json", "--tracked-variables", "two.json"])
+    with pytest.raises(SystemExit, match="2"):
+        vrc.main([])
+
+
+def test_main_reports_missing_positional_envelope_after_registry_load(
+    tmp_path: Path, capsys
+) -> None:
+    registry_path = tmp_path / "registry.json"
+    registry_path.write_text(json.dumps(_registry()), encoding="utf-8")
+
+    assert vrc.main(["--registry", str(registry_path), "--repo", "stranske/None"]) == 2
+    assert "run_json path is required" in capsys.readouterr().err

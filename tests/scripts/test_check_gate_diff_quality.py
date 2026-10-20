@@ -76,3 +76,25 @@ def test_secret_failure_message_reports_count_without_values(monkeypatch) -> Non
     ]
     assert github_token not in failures[0]
     assert openai_token not in failures[0]
+
+
+def test_git_adapters_and_quality_failure_paths(tmp_path, monkeypatch) -> None:
+    test_file = tmp_path / "test_empty.py"
+    test_file.write_text("def test_empty():\n    assert True\n", encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(check_gate_diff_quality, "_changed_files", lambda *_: [test_file.name])
+    monkeypatch.setattr(check_gate_diff_quality, "_full_diff", lambda *_: "+safe = 'value'\n")
+
+    assert check_gate_diff_quality.check_diff_quality("base", "head") == [
+        f"test-quality: added/modified test files without literal expected assertions: {test_file.name}"
+    ]
+
+
+def test_main_returns_nonzero_for_failures_and_zero_for_clean(monkeypatch, capsys) -> None:
+    monkeypatch.setattr(check_gate_diff_quality, "check_diff_quality", lambda *_: ["failure"])
+    assert check_gate_diff_quality.main(["--base", "base", "--head", "head"]) == 1
+    assert capsys.readouterr().err == "failure\n"
+
+    monkeypatch.setattr(check_gate_diff_quality, "check_diff_quality", lambda *_: [])
+    assert check_gate_diff_quality.main([]) == 0
+    assert capsys.readouterr().out == "Gate diff quality checks passed.\n"
