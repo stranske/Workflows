@@ -2067,3 +2067,63 @@ def test_build_remediation_states_ignores_prs_for_unknown_repos() -> None:
 
     assert states["owner/tracked"]["state"] == "converged"
     assert states["owner/tracked"].get("open_prs", []) == []
+
+
+def test_main_directory_compare_skips_subdir_entries_and_absent_removals(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """Directory rglob yields subdirs (not files); removals absent remotely are ignored."""
+    source_dir = tmp_path / "managed"
+    nested = source_dir / "nested"
+    nested.mkdir(parents=True)
+    leaf = nested / "keep.txt"
+    leaf.write_text("hello\n", encoding="utf-8")
+    report_path = tmp_path / "report.json"
+    entry = _make_entry(source=str(source_dir), target=".github/managed", is_directory=True)
+    present_removal = SimpleNamespace(target=".github/obsolete.yml")
+    absent_removal = SimpleNamespace(target=".github/already-gone.yml")
+    compiled = SimpleNamespace(
+        to_plan=lambda: {"plan_id": "sha256:" + "d" * 64},
+        section=lambda section: ((entry,) if section == "workflows" else ()),
+        removals=(present_removal, absent_removal),
+    )
+    args = SimpleNamespace(
+        repos="owner/repo",
+        manifest=str(tmp_path / "manifest.yml"),
+        canaries=str(tmp_path / "canaries.json"),
+        report_json=str(report_path),
+        summary="",
+    )
+    Path(args.manifest).write_text("version: 1\n", encoding="utf-8")
+    monkeypatch.setattr(check_consumer_sync_drift, "COPY_SYNCED_SECTIONS", ("workflows",))
+    monkeypatch.setattr(check_consumer_sync_drift, "parse_args", lambda: args)
+    monkeypatch.setattr(check_consumer_sync_drift, "token_candidates", lambda: [{"token": "token"}])
+    monkeypatch.setattr(check_consumer_sync_drift, "compile_manifest", lambda _path: compiled)
+    monkeypatch.setattr(check_consumer_sync_drift, "resolve_candidate_repos", lambda *_args: set())
+    monkeypatch.setattr(
+        check_consumer_sync_drift, "select_read_token", lambda **_kwargs: (object(), {})
+    )
+    remote_tree = {
+        ".github/managed/nested/keep.txt": {
+            "type": "blob",
+            "sha": check_consumer_sync_drift.git_blob_hash(leaf.read_bytes()),
+        },
+        ".github/obsolete.yml": {"type": "blob", "sha": "abc"},
+    }
+    monkeypatch.setattr(
+        check_consumer_sync_drift,
+        "fetch_remote_tree",
+        lambda _session, _repo: (remote_tree, None),
+    )
+    monkeypatch.setattr(check_consumer_sync_drift, "fetch_open_sync_prs", lambda *_args: ([], None))
+    monkeypatch.setattr(
+        check_consumer_sync_drift,
+        "remote_blob_text",
+        lambda *_args: "hello\n",
+    )
+
+    assert check_consumer_sync_drift.main() == 1
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    assert "owner/repo: .github/obsolete.yml" in report["obsolete"]
+    assert "owner/repo: .github/already-gone.yml" not in report["obsolete"]
+    assert report["counts"]["drift"] == 0

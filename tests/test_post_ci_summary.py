@@ -1092,3 +1092,64 @@ def test_build_summary_skips_non_string_coverage_table_and_empty_required(
     assert "**Required:**" not in summary
     # Non-string coverage_table_markdown must not become a coverage block.
     assert "### Coverage Overview" not in summary
+
+
+def test_load_gate_summary_skips_non_object_json(tmp_path: Path) -> None:
+    downloads = tmp_path / "downloads"
+    downloads.mkdir()
+    (downloads / "summary.json").write_text('["not", "an", "object"]', encoding="utf-8")
+    (downloads / "ok" / "summary.json").parent.mkdir()
+    (downloads / "ok" / "summary.json").write_text('{"checks": {}}', encoding="utf-8")
+
+    assert post_ci_summary._load_gate_summary_records(tmp_path) == [{"checks": {}}]
+
+
+def test_junit_failure_skips_empty_body_when_message_present(tmp_path: Path) -> None:
+    downloads = tmp_path / "downloads"
+    downloads.mkdir()
+    (downloads / "pytest-junit.xml").write_text(
+        '<testcase name="t"><failure message="boom"></failure></testcase>',
+        encoding="utf-8",
+    )
+    assert post_ci_summary._collect_junit_failures(tmp_path, 5) == ["boom"]
+
+
+def test_format_triage_omits_playbook_when_absent(monkeypatch) -> None:
+    finding = type(
+        "Finding",
+        (),
+        {
+            "error_type": "import",
+            "root_cause": "missing module",
+            "suggested_fix": "install dep",
+            "relevant_files": [],
+            "playbook_url": None,
+        },
+    )()
+    report = type("Report", (), {"findings": [finding], "summary": "one finding"})()
+    monkeypatch.setattr(post_ci_summary, "triage_ci_failure", lambda _text: report)
+    lines = post_ci_summary._format_triage_block("= FAILURES =")
+    joined = "\n".join(lines)
+    assert "error_type: import" in joined
+    assert "playbook_url:" not in joined
+
+
+def test_required_segments_skip_non_sequence_jobs_and_unmatched_groups() -> None:
+    runs = [
+        {"present": True, "jobs": {"not": "a-sequence"}},
+        {
+            "present": True,
+            "jobs": [{"name": "Unit", "conclusion": "success"}],
+        },
+    ]
+    segments = post_ci_summary._collect_required_segments(
+        runs,
+        [
+            {"label": "unit-group", "patterns": ["Unit"]},
+            {"label": "missing-group", "patterns": ["Lint"]},
+        ],
+    )
+    assert segments == [
+        "Unit: ✅ success",
+        "missing-group: ⏳ pending",
+    ]

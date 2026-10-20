@@ -1283,3 +1283,98 @@ def test_main_self_smoke_returns_via_cli(capsys) -> None:
     )
     assert rc == 0
     assert "PASS schema loads + valid Draft202012" in capsys.readouterr().out
+
+
+def test_validate_tracked_variables_skips_non_object_documents(tmp_path: Path) -> None:
+    array_doc = tmp_path / "array.json"
+    array_doc.write_text("[]", encoding="utf-8")
+    report = vrc.validate_tracked_variables(paths=[array_doc], schema_dir=SCHEMA_DIR)
+    # Schema errors may fire, but the non-dict branch must not call _check_document_page.
+    assert all(v.path != "evidence/" for v in report.violations)
+
+
+def test_manifest_evidence_closure_skips_non_string_evidence_id(tmp_path: Path) -> None:
+    evidence = _evidence()
+    evidence["evidence_id"] = 99
+    envelope, manifest, run_json = _write_evidence_closure_run(
+        tmp_path,
+        evidence=[("evidence-1", evidence)],
+        refs=[],
+    )
+    report = _validate(
+        envelope,
+        repo=envelope["repo"],
+        registry=_closure_registry(envelope["repo"]),
+        manifest=manifest,
+        run_json=run_json,
+    )
+    # Non-string evidence_id is not collected for closure; schema may still fail.
+    assert not any("duplicate evidence_id" in v.message for v in report.violations)
+
+
+def test_self_smoke_partial_fixtures_skip_missing_files(
+    tmp_path: Path, capsys, monkeypatch
+) -> None:
+    """Fixture dir exists but omits valid_run.json and invalid case files."""
+    schema_dir = tmp_path / "schemas"
+    schema_dir.mkdir()
+    for name in set(vrc.INGEST_SCHEMA_FILES.values()) | {
+        "run-contract-v1.schema.json",
+        "artifact-manifest-v1.schema.json",
+    }:
+        (schema_dir / name).write_text(
+            json.dumps(
+                {
+                    "$schema": "https://json-schema.org/draft/2020-12/schema",
+                    "type": "object",
+                }
+            ),
+            encoding="utf-8",
+        )
+    # _self_smoke resolves fixtures via Path(__file__).parent.parent / tests/...
+    scripts_dir = tmp_path / "scripts"
+    scripts_dir.mkdir()
+    fx = tmp_path / "tests" / "fixtures" / "backplane"
+    fx.mkdir(parents=True)
+    (fx / "README.md").write_text("placeholder\n", encoding="utf-8")
+    registry_path = tmp_path / "registry.json"
+    registry_path.write_text(json.dumps(_registry()), encoding="utf-8")
+    monkeypatch.setattr(vrc, "__file__", str(scripts_dir / "validate_run_contract.py"))
+    assert vrc._self_smoke(schema_dir, registry_path) == 0
+    out = capsys.readouterr().out
+    assert "PASS schema loads + valid Draft202012" in out
+    assert "valid_run.json" not in out
+
+
+def test_self_smoke_runs_only_present_invalid_fixtures(tmp_path: Path, capsys, monkeypatch) -> None:
+    """When valid_run.json is absent, only on-disk invalid fixtures are exercised."""
+    schema_dir = tmp_path / "schemas"
+    schema_dir.mkdir()
+    for name in set(vrc.INGEST_SCHEMA_FILES.values()) | {
+        "run-contract-v1.schema.json",
+        "artifact-manifest-v1.schema.json",
+    }:
+        (schema_dir / name).write_text(
+            json.dumps(
+                {
+                    "$schema": "https://json-schema.org/draft/2020-12/schema",
+                    "type": "object",
+                }
+            ),
+            encoding="utf-8",
+        )
+    scripts_dir = tmp_path / "scripts"
+    scripts_dir.mkdir()
+    fx = tmp_path / "tests" / "fixtures" / "backplane"
+    fx.mkdir(parents=True)
+    # Only one invalid fixture exists; others and valid_run.json are missing.
+    (fx / "missing_cost.json").write_text("{}", encoding="utf-8")
+    registry_path = tmp_path / "registry.json"
+    registry_path.write_text(json.dumps(_registry()), encoding="utf-8")
+    monkeypatch.setattr(vrc, "__file__", str(scripts_dir / "validate_run_contract.py"))
+    # Schema-only envelopes will not conform; exit may be non-zero.
+    rc = vrc._self_smoke(schema_dir, registry_path)
+    out = capsys.readouterr().out
+    assert "missing_cost.json" in out
+    assert "unsafe_rows_inline.json" not in out
+    assert rc in {0, 1}

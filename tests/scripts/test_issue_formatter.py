@@ -1556,3 +1556,114 @@ def test_format_issue_body_falls_back_when_prompt_import_fails(
     )
     assert result["used_llm"] is False
     assert result["formatted_body"]
+
+
+def test_load_prompt_ignores_whitespace_only_feedback(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    prompt = tmp_path / "prompt.md"
+    feedback = tmp_path / "feedback.md"
+    prompt.write_text("BASE ONLY", encoding="utf-8")
+    feedback.write_text("   \n\t\n", encoding="utf-8")
+    monkeypatch.setattr(issue_formatter, "PROMPT_PATH", prompt)
+    monkeypatch.setattr(issue_formatter, "FEEDBACK_PROMPT_PATH", feedback)
+    assert issue_formatter._load_prompt() == "BASE ONLY"
+
+
+def test_normalize_checklist_drops_non_checkbox_placeholders() -> None:
+    assert issue_formatter._normalize_checklist_lines(
+        [
+            "- Not provided.",
+            "- _Not provided._",
+            "Not provided.",
+            "_Filed from the 2026-05-29 design-vs-implementation review._",
+            "- Keep this bullet",
+            "plain keep",
+        ]
+    ) == ["- [ ] Keep this bullet", "- [ ] plain keep"]
+
+
+def test_parse_sections_ignores_unresolved_bold_and_colon_labels() -> None:
+    sections, preamble = issue_formatter._parse_sections(
+        "\n".join(
+            [
+                "**Mystery Heading**:",
+                "stays in preamble",
+                "Mystery Label:",
+                "also preamble",
+                "## Why",
+                "real why",
+            ]
+        )
+    )
+    joined_preamble = "\n".join(preamble)
+    assert "stays in preamble" in joined_preamble
+    assert "also preamble" in joined_preamble
+    assert "\n".join(sections.get("why", [])).strip() == "real why"
+
+
+def test_format_issue_fallback_promotes_non_pytest_verify_hint() -> None:
+    raw = """## Tasks
+- [ ] Cover go packages `(verify: go test ./...)`.
+
+## Acceptance Criteria
+- [ ] _Not provided._
+"""
+    formatted = issue_formatter.format_issue_body(raw, use_llm=False)["formatted_body"]
+    acceptance = _extract_section(formatted, "Acceptance Criteria")
+    assert "go test ./..." in acceptance
+    assert "python3 -m pytest" not in acceptance
+
+
+def test_extract_tasks_keeps_plain_list_items_without_checkboxes() -> None:
+    tasks = issue_formatter._extract_tasks_from_formatted(
+        "## Tasks\n\n- plain task without checkbox\n- [x] checked task\n\n## Scope\n\nDone"
+    )
+    assert tasks == ["plain task without checkbox", "checked task"]
+
+
+def test_strip_original_issue_skips_details_tags_inside_open_fence() -> None:
+    """Structural depth must ignore <details> that appear while a fence is open."""
+    payload = "\n".join(
+        [
+            "before",
+            "<details>",
+            "<summary>Original Issue</summary>",
+            "",
+            "```text",
+            "nested <details>",
+            "nested </details>",
+            "```",
+            "</details>",
+            "after",
+        ]
+    )
+    stripped = issue_formatter._strip_original_issue_blocks(payload)
+    assert "before" in stripped
+    assert "after" in stripped
+    assert "Original Issue" not in stripped
+    assert "nested <details>" not in stripped
+
+
+def test_strip_original_issue_handles_nested_details_outside_fences() -> None:
+    """When nested <details> keep depth > 0, the loop continues until the outer close."""
+    payload = "\n".join(
+        [
+            "keep-before",
+            "<details>",
+            "<summary>Original Issue</summary>",
+            "<details>",
+            "<summary>inner</summary>",
+            "nested body",
+            "</details>",
+            "still original",
+            "</details>",
+            "keep-after",
+        ]
+    )
+    stripped = issue_formatter._strip_original_issue_blocks(payload)
+    assert "keep-before" in stripped
+    assert "keep-after" in stripped
+    assert "Original Issue" not in stripped
+    assert "nested body" not in stripped
+    assert "still original" not in stripped
