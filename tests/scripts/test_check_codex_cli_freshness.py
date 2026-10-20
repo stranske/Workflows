@@ -115,6 +115,9 @@ def test_invalid_versions_and_failed_npm_query_are_reported_without_crashing(mon
     unavailable = check_codex_cli_freshness.build_contract(
         pinned_version="1.2.3", latest_version="", query_error="offline", generated_at="now"
     )
+    missing_latest = check_codex_cli_freshness.build_contract(
+        pinned_version="1.2.3", latest_version="", generated_at="now"
+    )
     monkeypatch.setattr(
         check_codex_cli_freshness.subprocess,
         "run",
@@ -125,5 +128,22 @@ def test_invalid_versions_and_failed_npm_query_are_reported_without_crashing(mon
 
     assert invalid["status"] == "invalid-pinned-version"
     assert unavailable["status"] == "latest-unavailable"
+    assert missing_latest["status"] == "latest-unavailable"
+    assert missing_latest["query_error"] == ""
+    assert latest == ""
+    assert error.startswith("npm-query-failed:")
+
+
+def test_query_latest_npm_version_reports_nonzero_exit(monkeypatch) -> None:
+    monkeypatch.setattr(
+        check_codex_cli_freshness.subprocess,
+        "run",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            subprocess.CalledProcessError(1, ["npm", "view"])
+        ),
+    )
+
+    latest, error = check_codex_cli_freshness.query_latest_npm_version()
+
     assert latest == ""
     assert error.startswith("npm-query-failed:")

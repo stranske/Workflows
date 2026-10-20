@@ -317,6 +317,10 @@ def test_run_marks_successful_fanout_complete(
     state = runner.load_state(output_dir, "org/repo")
     assert state.status == "round1-complete"
     assert set(state.round1_findings) == {"codex", "claude"}
+    assert state.round1_findings == {
+        agent: str(runner.round1_findings_path(output_dir, agent, "org/repo").resolve())
+        for agent in ("codex", "claude")
+    }
 
 
 def test_run_marks_fanout_failure_and_records_the_error(
@@ -338,12 +342,17 @@ def test_run_marks_fanout_failure_and_records_the_error(
         lambda *_args, **_kwargs: subprocess.CompletedProcess([], 0, stdout="abc123\n", stderr=""),
     )
 
-    def failed_agent(*, agent: str, **_kwargs) -> runner.AgentResult:
+    def fanout_agent(*, agent: str, **_kwargs) -> runner.AgentResult:
+        if agent == "codex":
+            findings = runner.round1_findings_path(output_dir, agent, "org/repo")
+            return runner.AgentResult(
+                agent, findings, tmp_path / f"{agent}.log", True, spawned=True
+            )
         return runner.AgentResult(
             agent, tmp_path / "none", tmp_path / "log", False, error="timed out"
         )
 
-    monkeypatch.setattr(runner, "invoke_round1_agent", failed_agent)
+    monkeypatch.setattr(runner, "invoke_round1_agent", fanout_agent)
     args = SimpleNamespace(
         output_dir=str(output_dir),
         registry=str(registry),
@@ -352,7 +361,7 @@ def test_run_marks_fanout_failure_and_records_the_error(
         skip_map_refresh=True,
         gitnexus_bin="gitnexus",
         map_refresh_timeout=1,
-        agents=["codex"],
+        agents=["codex", "claude"],
         turn_timeout=1,
         retries=0,
     )
@@ -360,7 +369,10 @@ def test_run_marks_fanout_failure_and_records_the_error(
     assert runner.run(args) == 1
     state = runner.load_state(output_dir, "org/repo")
     assert state.status == "round1-failed"
-    assert "codex=timed out" in state.notes
+    assert "claude=timed out" in state.notes
+    assert state.round1_findings == {
+        "codex": str(runner.round1_findings_path(output_dir, "codex", "org/repo").resolve())
+    }
 
 
 @pytest.mark.parametrize("setup", ["missing-registry-entry", "missing-repo-path", "missing-inputs"])
