@@ -90,6 +90,176 @@ def _validate(
     )
 
 
+@pytest.mark.parametrize(
+    "context,expected_path,expected_message",
+    [
+        ("no-manifest", "manifest", "emitted_evidence_policy requires an artifact manifest object"),
+        ("no-run", "run_json", "emitted_evidence_policy requires run_json artifact context"),
+        ("missing-parent", "run_json", "run_json parent is not an existing artifact directory"),
+        (
+            "bad-artifacts",
+            "manifest.artifacts",
+            "manifest artifacts must be a list for evidence closure",
+        ),
+    ],
+)
+def test_evidence_closure_requires_complete_artifact_context(
+    tmp_path: Path, context: str, expected_path: str, expected_message: str
+) -> None:
+    manifest = (
+        None
+        if context == "no-manifest"
+        else {"artifacts": {"bad": True} if context == "bad-artifacts" else []}
+    )
+    run_json = None if context == "no-run" else tmp_path / "run.json"
+    if context == "missing-parent":
+        run_json = tmp_path / "absent" / "run.json"
+    report = vrc.Report(repo="closure")
+
+    vrc._validate_manifest_evidence_closure(
+        envelope={}, manifest=manifest, run_json=run_json, schema_dir=SCHEMA_DIR, report=report
+    )
+
+    assert not report.conformant
+    assert [(v.path, v.message) for v in report.violations] == [(expected_path, expected_message)]
+
+
+@pytest.mark.parametrize("kind", ["file-link", "directory-link", "directory"])
+def test_evidence_paths_reject_symlink_components_and_directories(
+    tmp_path: Path, kind: str
+) -> None:
+    folder = tmp_path / "artifacts"
+    folder.mkdir()
+    (folder / "evidence.json").write_text("{}", encoding="utf-8")
+    if kind == "file-link":
+        (tmp_path / "link.json").symlink_to(folder / "evidence.json")
+        path = "link.json"
+    elif kind == "directory-link":
+        (tmp_path / "link").symlink_to(folder, target_is_directory=True)
+        path = "link/evidence.json"
+    else:
+        path = "artifacts"
+    report = vrc.Report(repo="closure")
+
+    assert vrc._safe_evidence_path(tmp_path, {"path": path}, report, 3) is None
+    assert not report.conformant
+    assert report.violations == [
+        vrc.Violation(
+            path="manifest.artifacts[3].path",
+            message=(
+                "evidence artifact must be an existing regular file"
+                if kind == "directory"
+                else "evidence artifact path must not traverse a symlink"
+            ),
+        )
+    ]
+
+
+@pytest.mark.parametrize("failure", ["hash", "json", "utf8"])
+def test_evidence_closure_reports_unreadable_artifact_bytes(
+    tmp_path: Path, monkeypatch, failure: str
+) -> None:
+    path = tmp_path / "evidence-test.json"
+    path.write_bytes(b"\xff" if failure == "utf8" else b"{")
+    manifest = {
+        "artifacts": [
+            {
+                "name": path.name,
+                "path": path.name,
+                "kind": "evidence",
+                "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+            }
+        ]
+    }
+    if failure == "hash":
+
+        def cannot_hash(_path):
+            raise OSError("artifact removed during hashing")
+
+        monkeypatch.setattr(vrc, "_sha256_file", cannot_hash)
+    report = vrc.Report(repo="closure")
+
+    vrc._validate_manifest_evidence_closure(
+        envelope={"evidence_refs": []},
+        manifest=manifest,
+        run_json=tmp_path / "run.json",
+        schema_dir=SCHEMA_DIR,
+        report=report,
+    )
+
+    assert not report.conformant
+    assert len(report.violations) == 1
+    assert report.violations[0].path == str(path)
+    assert report.violations[0].message.startswith(
+        "cannot hash evidence artifact:" if failure == "hash" else "cannot load evidence artifact:"
+    )
+
+
+@pytest.mark.parametrize("refs", [None, "evidence:a", [7]])
+def test_evidence_closure_rejects_malformed_reference_lists(tmp_path: Path, refs) -> None:
+    report = vrc.Report(repo="closure")
+
+    vrc._validate_manifest_evidence_closure(
+        envelope={"evidence_refs": refs},
+        manifest={"artifacts": []},
+        run_json=tmp_path / "run.json",
+        schema_dir=SCHEMA_DIR,
+        report=report,
+    )
+
+    assert not report.conformant
+    assert report.violations == [
+        vrc.Violation(
+            path="evidence_refs",
+            message="evidence_refs must be a list of strings for evidence closure",
+        )
+    ]
+
+
+@pytest.mark.parametrize("valid", [True, False])
+def test_evidence_cli_writes_report_and_appends_actual_conformance_in_warn_only_mode(
+    tmp_path: Path, capsys, valid: bool
+) -> None:
+    evidence = tmp_path / "evidence.json"
+    evidence.write_bytes(
+        (FIXTURES / "valid_native_document_evidence.json").read_bytes() if valid else b"{"
+    )
+    report_path = tmp_path / "report.json"
+    output = tmp_path / "github-output"
+    output.write_text("existing=value\n", encoding="utf-8")
+
+    assert (
+        vrc.main(
+            [
+                "--evidence-objects",
+                str(evidence),
+                "--schema-dir",
+                str(SCHEMA_DIR),
+                "--report-json",
+                str(report_path),
+                "--github-output",
+                str(output),
+                "--warn-only",
+            ]
+        )
+        == 0
+    )
+
+    report = json.loads(report_path.read_text())
+    assert report["repo"] == "evidence-object/v1"
+    assert report["conformant"] is valid
+    assert report["skipped"] is False
+    assert bool(report["violations"]) is not valid
+    assert output.read_text() == f"existing=value\nconformant={str(valid).lower()}\n"
+    captured = capsys.readouterr()
+    if valid:
+        assert captured.out == "evidence-object/v1: 1 file(s) conform to schema\n"
+        assert captured.err == ""
+    else:
+        assert captured.out == ""
+        assert "cannot load evidence object" in captured.err
+
+
 @pytest.mark.parametrize("invalid_evidence", [False, True])
 def test_consumer_tracked_variable_resolves_embedded_evidence_offline(
     invalid_evidence: bool, monkeypatch
@@ -111,6 +281,24 @@ def test_consumer_tracked_variable_resolves_embedded_evidence_offline(
     assert not report.skipped
     if invalid_evidence:
         assert any("method" in v.message for v in report.violations)
+
+
+@pytest.mark.parametrize("path", ["", "..", "/absolute.json", "folder\\evidence.json"])
+def test_manifest_evidence_paths_reject_nonportable_or_escaping_locations(
+    tmp_path: Path, path: str
+) -> None:
+    report = vrc.Report(repo="test")
+
+    resolved = vrc._safe_evidence_path(tmp_path, {"path": path}, report, 2)
+
+    assert resolved is None
+    assert report.violations[0].path == "manifest.artifacts[2].path"
+    expected = (
+        "evidence artifact path must be a non-empty relative POSIX path"
+        if path in {"", "folder\\evidence.json"}
+        else "evidence artifact path must not be absolute or traverse parents"
+    )
+    assert report.violations[0].message == expected
 
 
 @pytest.mark.parametrize(

@@ -638,3 +638,12 @@ def test_refinement_loads_prompt_from_file_or_builtin(
         {"flagged_items": "1. Fix", "context": "None"},
         operation="task_validator",
     )
+
+
+def test_main_prints_fate_reason_when_text_output_is_requested(monkeypatch, capsys) -> None:
+    """The human CLI report must retain the explanation for a flagged task."""
+    monkeypatch.setattr(sys, "argv", ["task_validator.py", "--tasks", "Fix", "--no-llm"])
+
+    task_validator_module.main()
+
+    assert "Reason: LLM disabled; keeping original" in capsys.readouterr().out

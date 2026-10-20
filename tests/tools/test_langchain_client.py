@@ -60,6 +60,37 @@ def _clear_client_environment(monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.delenv(env_name, raising=False)
 
 
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [(None, 7), ("", 7), ("12", 12), ("not-a-number", 7)],
+)
+def test_env_int_uses_default_for_missing_or_invalid_values(
+    monkeypatch: pytest.MonkeyPatch, value: str | None, expected: int
+) -> None:
+    if value is None:
+        monkeypatch.delenv("TEST_LANGCHAIN_INT", raising=False)
+    else:
+        monkeypatch.setenv("TEST_LANGCHAIN_INT", value)
+
+    assert langchain_client._env_int("TEST_LANGCHAIN_INT", 7) == expected
+
+
+def test_provider_and_model_resolution_honor_explicit_and_environment_values(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(langchain_client.ENV_PROVIDER, "anthropic")
+    monkeypatch.setenv(langchain_client.ENV_MODEL, "environment-model")
+
+    assert langchain_client._resolve_provider(None, force_openai=False) == ("anthropic", False)
+    assert langchain_client._resolve_provider("github", force_openai=False) == (
+        "github-models",
+        True,
+    )
+    assert langchain_client._resolve_provider(None, force_openai=True) == ("openai", True)
+    assert langchain_client._resolve_model(None) == "environment-model"
+    assert langchain_client._resolve_model("explicit-model") == "explicit-model"
+
+
 def test_build_chat_client_prefers_openai_slot(monkeypatch: pytest.MonkeyPatch) -> None:
     """Slot 1 (OpenAI) should be preferred when both tokens are set."""
     FakeChatOpenAI = _install_fake_langchain_openai(monkeypatch)

@@ -27,6 +27,24 @@ def test_native_conditional_write_has_one_attempt_and_keeps_http_status():
         assert not refusal.closed  # the propagating API caller owns its response
 
 
+def test_native_conditional_write_decodes_successful_json_response():
+    class Response:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def read(self, *_args):
+            return b'{"ok": true}'
+
+    result = api_client.request_json_once(
+        "GET", "/repos/o/r", "test", opener=lambda *_args, **_kwargs: Response()
+    )
+
+    assert result == {"ok": True}
+
+
 @pytest.mark.parametrize("path", ["https://other.invalid", "//other.invalid/path", "relative"])
 def test_native_conditional_write_rejects_foreign_api_origin(path):
     with pytest.raises(ValueError, match="relative API path"):
