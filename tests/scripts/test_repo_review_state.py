@@ -367,3 +367,7 @@ def test_main_applies_requested_mutations_and_prints_state(
     printed = json.loads(capsys.readouterr().out)
     assert printed["status"] == "round1-running"
     assert printed["pinned_problems"][0]["notes"] == "watch it"
+
+    persisted = repo_review_state.load_state(tmp_path, "org/repo")
+    assert persisted.status == "round1-running"
+    assert persisted.pinned_problems[0].notes == "watch it"

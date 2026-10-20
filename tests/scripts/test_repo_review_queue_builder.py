@@ -322,7 +322,7 @@ def test_build_queue_skips_invalid_scorecard_issue_and_records_pending_and_dropp
     feedback_path = tmp_path / "feedback.json"
     feedback_path.write_text('{"decisions": {}}', encoding="utf-8")
     scorecard = {
-        "issues": [{"repo": "org/Bad", "body_valid": False, "body_quality_errors": ["bad"]}],
+        "issues": [{"repo": "org/Bad", "body_valid": True, "body_quality_errors": ["bad"]}],
         "pending": [{"repo": "org/Pending", "finding_id": "p", "reason": "awaiting proof"}],
         "dropped": [{"repo": "org/Dropped", "finding_id": "d"}],
     }
