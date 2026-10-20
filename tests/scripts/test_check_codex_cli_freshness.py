@@ -147,3 +147,24 @@ def test_query_latest_npm_version_reports_nonzero_exit(monkeypatch) -> None:
 
     assert latest == ""
     assert error.startswith("npm-query-failed:")
+
+
+def test_main_writes_outputs_when_workflow_pin_cannot_be_read(tmp_path: Path) -> None:
+    result = check_codex_cli_freshness.main(
+        [
+            "--workflow-path",
+            str(tmp_path / "missing.yml"),
+            "--latest-version",
+            "1.2.3",
+            "--output-json",
+            str(tmp_path / "out" / "report.json"),
+            "--output-md",
+            str(tmp_path / "out" / "report.md"),
+            "--output-ndjson",
+            str(tmp_path / "out" / "report.ndjson"),
+        ]
+    )
+    report = json.loads((tmp_path / "out" / "report.json").read_text())
+    assert result == 0
+    assert report["status"] == "invalid-pinned-version"
+    assert report["query_error"].startswith("pin-read-failed:")

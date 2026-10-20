@@ -343,6 +343,48 @@ def test_parse_args_defaults_docs_config(monkeypatch: pytest.MonkeyPatch):
     assert args.docs_config == Path("config/source_of_truth_docs.yml")
 
 
+def test_claude_helpers_and_seeded_fallback(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    binary, token = tmp_path / "claude", tmp_path / "token"
+    binary.write_text("", encoding="utf-8")
+    token.write_text("secret\n", encoding="utf-8")
+    monkeypatch.setenv("CLAUDE_CODE_EXECPATH", str(binary))
+    monkeypatch.setattr(drift_scan, "CLAUDE_OAUTH_TOKEN_FILE", token)
+    assert drift_scan._resolve_claude_binary() == str(binary)
+    assert drift_scan._read_claude_oauth_token() == "secret"
+    assert drift_scan._build_claude_env()["CLAUDE_CODE_OAUTH_TOKEN"] == "secret"
+    assert "README.md" in drift_scan.load_seeded_fixture_payloads()
+
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    (repo_root / "README.md").write_text("doc", encoding="utf-8")
+    result = scan_doc(
+        repo="stranske/Workflows",
+        doc_path="README.md",
+        doc_focus="x",
+        repo_root=repo_root,
+        log_dir=tmp_path / "logs",
+        timeout=1,
+        invoker=lambda **_kwargs: (False, "claude CLI not found"),
+    )
+    assert result.error is None
+
+
+def test_scan_records_bad_config_and_missing_repo_root(tmp_path: Path):
+    result = scan(
+        docs_config={
+            "org/A": {"docs": [{"path": "README.md"}]},
+            "org/B": {"local_path": "missing", "docs": ["bad", {"path": "README.md"}]},
+        },
+        active_repos={"org/A", "org/B"},
+        workspace_root=tmp_path,
+        repo_subset=None,
+        log_dir=tmp_path / "logs",
+        timeout=1,
+        invoker=lambda **_kwargs: (True, '{"instances": []}'),
+    )
+    assert result["total_errors"] == 3
+
+
 # ---------------------------------------------------------------------------
 # Aggregate: one bundled remediation block per repo, NOT per doc
 # ---------------------------------------------------------------------------
