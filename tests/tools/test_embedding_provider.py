@@ -358,3 +358,15 @@ def test_registry_rejects_capability_model_and_runtime_mismatches():
     assert selection is not None
     assert selection.provider.provider_id == "eligible"
     assert selection.model == "requested-model"
+
+
+def test_abstract_embed_raises_not_implemented():
+    class BrokenProvider(embedding_provider.EmbeddingProvider):
+        def embed(self, texts, *, model=None):
+            return embedding_provider.EmbeddingProvider.embed(self, texts, model=model)
+
+    try:
+        BrokenProvider().embed(["x"])
+        raise AssertionError("expected NotImplementedError")
+    except NotImplementedError:
+        pass

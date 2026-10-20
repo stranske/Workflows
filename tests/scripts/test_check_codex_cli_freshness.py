@@ -168,3 +168,80 @@ def test_main_writes_outputs_when_workflow_pin_cannot_be_read(tmp_path: Path) ->
     assert result == 0
     assert report["status"] == "invalid-pinned-version"
     assert report["query_error"].startswith("pin-read-failed:")
+
+
+def test_extract_pinned_cli_version_raises_when_missing(tmp_path: Path) -> None:
+    workflow = tmp_path / "workflow.yml"
+    workflow.write_text("run: echo hi\n", encoding="utf-8")
+    try:
+        check_codex_cli_freshness.extract_pinned_cli_version(workflow)
+        raise AssertionError("expected ValueError")
+    except ValueError as exc:
+        assert "Could not find" in str(exc)
+
+
+def test_query_latest_npm_version_reports_empty_stdout(monkeypatch) -> None:
+    monkeypatch.setattr(
+        check_codex_cli_freshness.subprocess,
+        "run",
+        lambda *_args, **_kwargs: subprocess.CompletedProcess(["npm"], 0, stdout="\n", stderr=""),
+    )
+    latest, error = check_codex_cli_freshness.query_latest_npm_version()
+    assert latest == ""
+    assert error == "npm-query-empty"
+
+
+def test_format_markdown_omits_target_pin_without_latest() -> None:
+    report = check_codex_cli_freshness.build_contract(
+        pinned_version="0.1.0",
+        latest_version="",
+        query_error="offline",
+        generated_at="now",
+    )
+    markdown = check_codex_cli_freshness.format_markdown(report)
+    assert "Target install pin" not in markdown
+
+
+def test_main_queries_npm_when_latest_not_provided(tmp_path: Path, monkeypatch) -> None:
+    workflow = tmp_path / "workflow.yml"
+    workflow.write_text('run: npm install -g "@openai/codex@0.125.0"\n', encoding="utf-8")
+    monkeypatch.setattr(
+        check_codex_cli_freshness,
+        "query_latest_npm_version",
+        lambda *_a, **_k: ("0.126.0", ""),
+    )
+    result = check_codex_cli_freshness.main(
+        [
+            "--workflow-path",
+            str(workflow),
+            "--output-json",
+            str(tmp_path / "out.json"),
+            "--output-md",
+            str(tmp_path / "out.md"),
+            "--output-ndjson",
+            str(tmp_path / "out.ndjson"),
+        ]
+    )
+    assert result == 0
+    assert json.loads((tmp_path / "out.json").read_text())["latest_version"] == "0.126.0"
+
+
+def test_main_fail_when_outdated_returns_one(tmp_path: Path) -> None:
+    workflow = tmp_path / "workflow.yml"
+    workflow.write_text('run: npm install -g "@openai/codex@0.125.0"\n', encoding="utf-8")
+    result = check_codex_cli_freshness.main(
+        [
+            "--workflow-path",
+            str(workflow),
+            "--latest-version",
+            "0.200.0",
+            "--fail-when-outdated",
+            "--output-json",
+            str(tmp_path / "out.json"),
+            "--output-md",
+            str(tmp_path / "out.md"),
+            "--output-ndjson",
+            str(tmp_path / "out.ndjson"),
+        ]
+    )
+    assert result == 1
