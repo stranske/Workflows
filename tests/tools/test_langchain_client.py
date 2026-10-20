@@ -1266,3 +1266,28 @@ def test_gpt6_github_clients_omit_unsupported_temperature(relative, model):
 
     build(client, model=model, token="test", timeout=30, max_retries=0)
     assert "temperature" not in received
+
+
+def test_client_info_label_and_public_registry_wrappers(monkeypatch):
+    info = langchain_client.ClientInfo(client=object(), provider="github", model="gpt-test")
+    assert info.provider_label == "github/gpt-test"
+
+    monkeypatch.setattr(langchain_client, "normalize_provider", lambda value: f"normalized:{value}")
+    monkeypatch.setattr(langchain_client, "load_model_registry", lambda: ["registry"])
+    monkeypatch.setattr(langchain_client, "registry_entry_for", lambda *args, **kwargs: "entry")
+    monkeypatch.setattr(langchain_client, "is_model_blocked", lambda *args, **kwargs: True)
+    monkeypatch.setattr(langchain_client, "select_model_for_tier", lambda **kwargs: "selected")
+
+    assert langchain_client._normalize_provider("openai") == "normalized:openai"
+    assert langchain_client._load_model_registry() == ["registry"]
+    assert langchain_client._registry_entry_for("github", "gpt") == "entry"
+    assert langchain_client._is_model_blocked("github", "gpt")
+    assert langchain_client._select_model_for_tier(provider="github", tier="fast") == "selected"
+
+
+def test_builders_return_empty_without_credentials(monkeypatch):
+    for name in ("GITHUB_TOKEN", "OPENAI_API_KEY", langchain_client.ENV_ANTHROPIC_KEY):
+        monkeypatch.delenv(name, raising=False)
+
+    assert langchain_client.build_chat_client() is None
+    assert langchain_client.build_chat_clients() == []
