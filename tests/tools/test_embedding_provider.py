@@ -109,6 +109,16 @@ def test_base_provider_supports_model_accepts_keyword_argument():
     assert provider.supports_model(model="custom-embedding-model") is True
 
 
+def test_base_provider_default_model_is_empty_for_minimal_concrete_provider():
+    class MinimalProvider(embedding_provider.EmbeddingProvider):
+        def embed(self, texts, *, model=None):
+            return embedding_provider.EmbeddingResponse(
+                [], embedding_provider.EmbeddingMetadata("x", "", None, False)
+            )
+
+    assert MinimalProvider().default_model == ""
+
+
 def test_openai_provider_passes_api_key(monkeypatch):
     _install_stub_openai_embeddings(monkeypatch)
     monkeypatch.setenv("OPENAI_API_KEY", "token")
@@ -348,3 +358,15 @@ def test_registry_rejects_capability_model_and_runtime_mismatches():
     assert selection is not None
     assert selection.provider.provider_id == "eligible"
     assert selection.model == "requested-model"
+
+
+def test_abstract_embed_raises_not_implemented():
+    class BrokenProvider(embedding_provider.EmbeddingProvider):
+        def embed(self, texts, *, model=None):
+            return embedding_provider.EmbeddingProvider.embed(self, texts, model=model)
+
+    try:
+        BrokenProvider().embed(["x"])
+        raise AssertionError("expected NotImplementedError")
+    except NotImplementedError:
+        pass

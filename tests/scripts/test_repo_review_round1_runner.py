@@ -1403,3 +1403,653 @@ def test_refresh_map_quarantines_conflicted_wal_created_during_rebuild(
     assert not list(cache_dir.glob("**/*conflicted copy*"))
     quarantined = list((tmp_path / "repairs").glob("repo/*/conflicted-artifacts/*conflicted copy*"))
     assert len(quarantined) == 1
+
+
+# ---------------------------------------------------------------------------
+# Round-12 lane C: remaining ranked gaps (sync/status, invoke edges, run/main)
+# ---------------------------------------------------------------------------
+
+
+def test_sync_fails_when_workloop_stash_errors(tmp_path: Path) -> None:
+    repo_path = tmp_path / "repo"
+    repo_path.mkdir()
+    (repo_path / "workloop-state.md").write_text("state", encoding="utf-8")
+
+    def fake_run(args: list[str], **_kwargs) -> subprocess.CompletedProcess[str]:
+        if "fetch" in args:
+            return subprocess.CompletedProcess(args, 0, "", "")
+        if "symbolic-ref" in args:
+            return subprocess.CompletedProcess(args, 0, "origin/main\n", "")
+        if "--verify" in args:
+            return subprocess.CompletedProcess(args, 0, "abc123", "")
+        if "--abbrev-ref" in args:
+            return subprocess.CompletedProcess(args, 0, "main", "")
+        if args[-2:] == ["rev-parse", "HEAD"]:
+            return subprocess.CompletedProcess(args, 0, "abc123", "")
+        if "stash" in args and "workloop-state.md" in args:
+            return subprocess.CompletedProcess(args, 1, "", "stash refused")
+        return subprocess.CompletedProcess(args, 0, "", "")
+
+    with patch("subprocess.run", fake_run):
+        ok, message = runner.sync_repo_to_origin(repo_path)
+
+    assert ok is False
+    assert "git stash failed preserving workloop state" in message
+    assert "stash refused" in message
+
+
+def test_sync_fails_when_status_errors(tmp_path: Path) -> None:
+    repo_path = tmp_path / "repo"
+    repo_path.mkdir()
+
+    def fake_run(args: list[str], **_kwargs) -> subprocess.CompletedProcess[str]:
+        if "fetch" in args:
+            return subprocess.CompletedProcess(args, 0, "", "")
+        if "symbolic-ref" in args:
+            return subprocess.CompletedProcess(args, 0, "origin/main\n", "")
+        if "--verify" in args:
+            return subprocess.CompletedProcess(args, 0, "abc123", "")
+        if "--abbrev-ref" in args:
+            return subprocess.CompletedProcess(args, 0, "main", "")
+        if args[-2:] == ["rev-parse", "HEAD"]:
+            return subprocess.CompletedProcess(args, 0, "abc123", "")
+        if "status" in args:
+            return subprocess.CompletedProcess(args, 1, "", "status broken")
+        return subprocess.CompletedProcess(args, 0, "", "")
+
+    with patch("subprocess.run", fake_run):
+        ok, message = runner.sync_repo_to_origin(repo_path)
+
+    assert ok is False
+    assert "git status failed while checking dirty tree" in message
+    assert "status broken" in message
+
+
+def test_refresh_map_skips_quarantine_when_cache_missing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo_path = tmp_path / "repo"
+    repo_path.mkdir()
+
+    def fake_analyze(*_args, **_kwargs):
+        cache = repo_path / ".gitnexus"
+        cache.mkdir(parents=True, exist_ok=True)
+        (cache / "meta.json").write_text(
+            json.dumps({"lastCommit": "deadbeef", "stats": {"embeddings": 1}}),
+            encoding="utf-8",
+        )
+        return True, "ok"
+
+    monkeypatch.setattr(runner, "run_gitnexus_analyze", fake_analyze)
+    monkeypatch.setattr(
+        subprocess,
+        "run",
+        lambda *_a, **_k: subprocess.CompletedProcess([], 0, stdout="deadbeef\n", stderr=""),
+    )
+
+    ok, message = runner.refresh_map_blocking(
+        repo_path, gitnexus_bin="gitnexus", repair_root=tmp_path / "repairs"
+    )
+    assert ok is True
+    assert "quarantined" not in message
+    assert not (tmp_path / "repairs").exists()
+
+
+def test_refresh_map_reports_analyzer_failure_and_head_mismatch(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo_path = tmp_path / "repo"
+    (repo_path / ".gitnexus").mkdir(parents=True)
+
+    monkeypatch.setattr(
+        runner, "run_gitnexus_analyze", lambda *_a, **_k: (False, "analyzer failed hard")
+    )
+    ok, message = runner.refresh_map_blocking(
+        repo_path, gitnexus_bin="gitnexus", repair_root=tmp_path / "repairs"
+    )
+    assert ok is False
+    assert "analyzer failed hard" in message
+
+    def fake_analyze(*_args, **_kwargs):
+        cache = repo_path / ".gitnexus"
+        cache.mkdir(parents=True, exist_ok=True)
+        (cache / "meta.json").write_text(
+            json.dumps({"lastCommit": "indexed", "stats": {"embeddings": 3}}),
+            encoding="utf-8",
+        )
+        return True, "rebuilt"
+
+    monkeypatch.setattr(runner, "run_gitnexus_analyze", fake_analyze)
+    monkeypatch.setattr(
+        subprocess,
+        "run",
+        lambda *_a, **_k: subprocess.CompletedProcess([], 0, stdout="different\n", stderr=""),
+    )
+    ok, message = runner.refresh_map_blocking(
+        repo_path, gitnexus_bin="gitnexus", repair_root=tmp_path / "repairs"
+    )
+    assert ok is False
+    assert "did not index the current HEAD" in message
+
+
+def test_refresh_map_quarantine_oserror_after_corruption(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo_path = tmp_path / "repo"
+    cache = repo_path / ".gitnexus"
+    cache.mkdir(parents=True)
+    (cache / "meta.json").write_text("{}", encoding="utf-8")
+
+    calls = {"n": 0}
+
+    def fake_analyze(*_args, **_kwargs):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            return False, "corruption detected in database"
+        return True, "rebuilt"
+
+    monkeypatch.setattr(runner, "run_gitnexus_analyze", fake_analyze)
+
+    def boom_move(src, dst):
+        raise OSError("locked")
+
+    monkeypatch.setattr(runner.shutil, "move", boom_move)
+    ok, message = runner.refresh_map_blocking(
+        repo_path, gitnexus_bin="gitnexus", repair_root=tmp_path / "repairs"
+    )
+    assert ok is False
+    assert "GitNexus cache quarantine failed" in message
+
+
+def test_refresh_map_artifact_quarantine_oserror_during_rebuild(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo_path = tmp_path / "repo"
+    cache = repo_path / ".gitnexus"
+    cache.mkdir(parents=True)
+
+    def fake_analyze(*_args, **_kwargs):
+        (cache / "meta.json").write_text(
+            json.dumps({"lastCommit": "abc", "stats": {"embeddings": 1}}),
+            encoding="utf-8",
+        )
+        (cache / "lbug (Tim's conflicted copy 2026-09-03).wal").write_text("", encoding="utf-8")
+        return True, "ok"
+
+    monkeypatch.setattr(runner, "run_gitnexus_analyze", fake_analyze)
+    monkeypatch.setattr(
+        subprocess,
+        "run",
+        lambda *_a, **_k: subprocess.CompletedProcess([], 0, stdout="abc\n", stderr=""),
+    )
+
+    def boom_move(src, dst):
+        raise OSError("artifact lock")
+
+    monkeypatch.setattr(runner.shutil, "move", boom_move)
+    ok, message = runner.refresh_map_blocking(
+        repo_path, gitnexus_bin="gitnexus", repair_root=tmp_path / "repairs"
+    )
+    assert ok is False
+    assert "GitNexus artifact quarantine failed" in message
+
+
+def test_build_agent_prompt_uses_template_file(tmp_path: Path) -> None:
+    template = tmp_path / "prompt.md"
+    template.write_text("CANONICAL PROCEDURE\n", encoding="utf-8")
+    prompt = runner.build_agent_prompt(
+        agent="codex",
+        repo="org/repo",
+        repo_path=tmp_path / "repo",
+        review_inputs=tmp_path / "inputs.md",
+        findings_out=tmp_path / "findings.json",
+        template_path=template,
+        workflows_steward_root=tmp_path,
+    )
+    assert "CANONICAL PROCEDURE" in prompt
+    assert "org/repo" in prompt
+
+
+def test_validate_findings_file_reports_unreadable_json(tmp_path: Path) -> None:
+    path = tmp_path / "findings.json"
+    path.write_text("{not-json", encoding="utf-8")
+    errors = runner._validate_findings_file(path, expected_repo="org/repo")
+    assert errors and "cannot parse JSON" in errors[0]
+
+
+def test_invoke_round1_handles_preserve_and_attest_oserrors(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    findings = runner.round1_findings_path(tmp_path / "out", "codex", "org/repo")
+    findings.parent.mkdir(parents=True)
+    findings.write_text('{"bad": true}\n', encoding="utf-8")
+
+    monkeypatch.setattr(runner, "_validate_findings_file", lambda *_a, **_k: ["stale"])
+    monkeypatch.setattr(runner, "validate_findings_provenance", lambda *_a, **_k: [])
+
+    def boom_preserve(_path):
+        raise OSError("cannot preserve")
+
+    monkeypatch.setattr(runner, "preserve_stale_findings", boom_preserve)
+    result = runner.invoke_round1_agent(
+        agent="codex",
+        repo="org/repo",
+        repo_path=tmp_path / "repo",
+        output_dir=tmp_path / "out",
+        workspace_root=tmp_path,
+        template_path=tmp_path / "missing.md",
+        log_dir=tmp_path / "logs",
+        timeout=1,
+        retries=0,
+        workflows_steward_root=tmp_path,
+        source_commit="abc",
+    )
+    assert result.succeeded is False
+    assert "cannot preserve stale findings" in (result.error or "")
+
+    findings.unlink()
+    monkeypatch.setattr(runner, "_validate_findings_file", lambda *_a, **_k: [])
+
+    def fail_write(*_a, **_k):
+        findings.parent.mkdir(parents=True, exist_ok=True)
+        findings.write_text('{"ok": true}\n', encoding="utf-8")
+        return False, "agent failed"
+
+    def boom_attest(*_a, **_k):
+        raise OSError("attest denied")
+
+    monkeypatch.setattr(runner, "invoke_agent", fail_write)
+    monkeypatch.setattr(runner, "write_findings_provenance", boom_attest)
+    result = runner.invoke_round1_agent(
+        agent="codex",
+        repo="org/repo",
+        repo_path=tmp_path / "repo",
+        output_dir=tmp_path / "out",
+        workspace_root=tmp_path,
+        template_path=tmp_path / "missing.md",
+        log_dir=tmp_path / "logs",
+        timeout=1,
+        retries=0,
+        workflows_steward_root=tmp_path,
+        source_commit="abc",
+    )
+    assert result.succeeded is False
+    assert "cannot attest defensive findings" in (result.error or "")
+
+
+def test_invoke_round1_clean_exit_without_findings_and_invalid_preserve_break(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    findings = runner.round1_findings_path(tmp_path / "out", "codex", "org/repo")
+    monkeypatch.setattr(runner, "invoke_agent", lambda *_a, **_k: (True, "ok"))
+    result = runner.invoke_round1_agent(
+        agent="codex",
+        repo="org/repo",
+        repo_path=tmp_path / "repo",
+        output_dir=tmp_path / "out",
+        workspace_root=tmp_path,
+        template_path=tmp_path / "missing.md",
+        log_dir=tmp_path / "logs",
+        timeout=1,
+        retries=0,
+        workflows_steward_root=tmp_path,
+        source_commit="abc",
+    )
+    assert result.succeeded is False
+    assert "did not write findings.json" in (result.error or "")
+
+    def write_invalid(*_a, **_k):
+        findings.parent.mkdir(parents=True, exist_ok=True)
+        findings.write_text('{"bad": true}\n', encoding="utf-8")
+        return True, "ok"
+
+    attempts = {"n": 0}
+
+    def write_invalid_counted(*a, **k):
+        attempts["n"] += 1
+        return write_invalid(*a, **k)
+
+    monkeypatch.setattr(runner, "invoke_agent", write_invalid_counted)
+    monkeypatch.setattr(runner, "_validate_findings_file", lambda *_a, **_k: ["schema boom"])
+
+    def boom_preserve(_path):
+        raise OSError("preserve denied")
+
+    monkeypatch.setattr(runner, "preserve_stale_findings", boom_preserve)
+    result = runner.invoke_round1_agent(
+        agent="codex",
+        repo="org/repo",
+        repo_path=tmp_path / "repo",
+        output_dir=tmp_path / "out",
+        workspace_root=tmp_path,
+        template_path=tmp_path / "missing.md",
+        log_dir=tmp_path / "logs",
+        timeout=1,
+        retries=1,
+        workflows_steward_root=tmp_path,
+        source_commit="abc",
+    )
+    assert result.succeeded is False
+    assert "cannot preserve invalid findings" in (result.error or "")
+    assert attempts["n"] == 1  # break, not continue
+
+
+def test_invoke_round1_provenance_write_failure_retries_then_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    findings = runner.round1_findings_path(tmp_path / "out", "codex", "org/repo")
+    monkeypatch.setattr(runner, "_validate_findings_file", lambda *_a, **_k: [])
+
+    def write_ok(*_a, **_k):
+        findings.parent.mkdir(parents=True, exist_ok=True)
+        findings.write_text("{}\n", encoding="utf-8")
+        return True, "ok"
+
+    attempts = {"n": 0}
+
+    def write_ok_counted(*a, **k):
+        attempts["n"] += 1
+        return write_ok(*a, **k)
+
+    def boom_provenance(*_a, **_k):
+        raise OSError("disk full")
+
+    monkeypatch.setattr(runner, "invoke_agent", write_ok_counted)
+    monkeypatch.setattr(runner, "write_findings_provenance", boom_provenance)
+    result = runner.invoke_round1_agent(
+        agent="codex",
+        repo="org/repo",
+        repo_path=tmp_path / "repo",
+        output_dir=tmp_path / "out",
+        workspace_root=tmp_path,
+        template_path=tmp_path / "missing.md",
+        log_dir=tmp_path / "logs",
+        timeout=1,
+        retries=1,
+        workflows_steward_root=tmp_path,
+        source_commit="abc",
+    )
+    assert result.succeeded is False
+    assert (result.error or "").startswith("attempt 2:")
+    assert "cannot write findings provenance" in (result.error or "")
+    assert attempts["n"] == 2
+
+
+def test_invoke_round1_agent_failure_without_findings_continues(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(runner, "invoke_agent", lambda *_a, **_k: (False, "spawn failed"))
+    result = runner.invoke_round1_agent(
+        agent="codex",
+        repo="org/repo",
+        repo_path=tmp_path / "repo",
+        output_dir=tmp_path / "out",
+        workspace_root=tmp_path,
+        template_path=tmp_path / "missing.md",
+        log_dir=tmp_path / "logs",
+        timeout=1,
+        retries=0,
+        workflows_steward_root=tmp_path,
+        source_commit="abc",
+    )
+    assert result.succeeded is False
+    assert "spawn failed" in (result.error or "")
+
+
+def _round1_run_args(tmp_path: Path, *, skip_sync: bool = True, skip_map: bool = True):
+    workspace = tmp_path / "workspace"
+    repo_path = workspace / "repo"
+    repo_path.mkdir(parents=True)
+    output_dir = tmp_path / "output"
+    review_inputs = runner.review_inputs_path(output_dir, "org/repo")
+    review_inputs.parent.mkdir(parents=True)
+    review_inputs.write_text("inputs", encoding="utf-8")
+    registry = tmp_path / "registry.json"
+    registry.write_text("{}", encoding="utf-8")
+    return (
+        workspace,
+        repo_path,
+        output_dir,
+        registry,
+        SimpleNamespace(
+            output_dir=str(output_dir),
+            registry=str(registry),
+            repo="org/repo",
+            skip_local_sync=skip_sync,
+            skip_map_refresh=skip_map,
+            gitnexus_bin="gitnexus",
+            map_refresh_timeout=1,
+            agents=["codex"],
+            turn_timeout=1,
+            retries=0,
+        ),
+    )
+
+
+def test_run_records_local_sync_failure(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    workspace, _repo_path, output_dir, registry, args = _round1_run_args(
+        tmp_path, skip_sync=False, skip_map=True
+    )
+    config = SimpleNamespace(repo="org/repo", local_path="repo")
+    monkeypatch.setattr(runner, "load_registry", lambda _path: (workspace, [], [config], []))
+    monkeypatch.setattr(runner, "sync_repo_to_origin", lambda *_a, **_k: (False, "fetch exploded"))
+    assert runner.run(args) == 1
+    state = runner.load_state(output_dir, "org/repo")
+    assert state.status == "round1-failed"
+    assert "local sync failed" in state.notes
+
+
+def test_run_records_map_refresh_failure(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    workspace, _repo_path, output_dir, registry, args = _round1_run_args(
+        tmp_path, skip_sync=True, skip_map=False
+    )
+    config = SimpleNamespace(repo="org/repo", local_path="repo")
+    monkeypatch.setattr(runner, "load_registry", lambda _path: (workspace, [], [config], []))
+    monkeypatch.setattr(runner, "refresh_map_blocking", lambda *_a, **_k: (False, "map boom"))
+    assert runner.run(args) == 1
+    state = runner.load_state(output_dir, "org/repo")
+    assert state.status == "round1-failed"
+    assert "map refresh failed" in state.notes
+
+
+def test_run_warns_when_prompt_template_missing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys
+) -> None:
+    workspace, _repo_path, output_dir, registry, args = _round1_run_args(tmp_path)
+    config = SimpleNamespace(repo="org/repo", local_path="repo")
+    monkeypatch.setattr(runner, "load_registry", lambda _path: (workspace, [], [config], []))
+    monkeypatch.setattr(
+        runner.subprocess,
+        "run",
+        lambda *_a, **_k: subprocess.CompletedProcess([], 0, stdout="abc123\n", stderr=""),
+    )
+    monkeypatch.setattr(
+        runner, "round1_prompt_template_path", lambda: tmp_path / "missing-template.md"
+    )
+
+    def successful_agent(*, agent: str, **_kwargs) -> runner.AgentResult:
+        findings = runner.round1_findings_path(output_dir, agent, "org/repo")
+        return runner.AgentResult(agent, findings, tmp_path / f"{agent}.log", True, spawned=True)
+
+    monkeypatch.setattr(runner, "invoke_round1_agent", successful_agent)
+    assert runner.run(args) == 0
+    assert "prompt template missing" in capsys.readouterr().err
+
+
+def test_run_succeeds_after_sync_and_map_refresh(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    workspace, _repo_path, output_dir, registry, args = _round1_run_args(
+        tmp_path, skip_sync=False, skip_map=False
+    )
+    config = SimpleNamespace(repo="org/repo", local_path="repo")
+    monkeypatch.setattr(runner, "load_registry", lambda _path: (workspace, [], [config], []))
+    monkeypatch.setattr(runner, "sync_repo_to_origin", lambda *_a, **_k: (True, "synced"))
+    monkeypatch.setattr(runner, "refresh_map_blocking", lambda *_a, **_k: (True, "mapped"))
+    monkeypatch.setattr(
+        runner,
+        "collect_gitnexus_map",
+        lambda *_a, **_k: {"stats": {"embeddings": 2}, "indexed_commit": "abc123"},
+    )
+    monkeypatch.setattr(
+        runner.subprocess,
+        "run",
+        lambda *_a, **_k: subprocess.CompletedProcess([], 0, stdout="abc123\n", stderr=""),
+    )
+
+    def successful_agent(*, agent: str, **_kwargs) -> runner.AgentResult:
+        findings = runner.round1_findings_path(output_dir, agent, "org/repo")
+        return runner.AgentResult(agent, findings, tmp_path / f"{agent}.log", True, spawned=True)
+
+    monkeypatch.setattr(runner, "invoke_round1_agent", successful_agent)
+    assert runner.run(args) == 0
+    assert runner.load_state(output_dir, "org/repo").status == "round1-complete"
+
+
+def test_main_parses_args_and_delegates_to_run(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    captured: dict[str, object] = {}
+
+    def fake_run(args):
+        captured["args"] = args
+        return 7
+
+    monkeypatch.setattr(runner, "run", fake_run)
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "round1",
+            "--repo",
+            "org/repo",
+            "--output-dir",
+            str(tmp_path / "out"),
+            "--registry",
+            str(tmp_path / "reg.json"),
+            "--agents",
+            "codex",
+            "--skip-local-sync",
+            "--skip-map-refresh",
+            "--map-refresh-timeout",
+            "12",
+            "--turn-timeout",
+            "34",
+            "--retries",
+            "2",
+            "--gitnexus-bin",
+            "gn",
+        ],
+    )
+    assert runner.main() == 7
+    args = captured["args"]
+    assert args.repo == "org/repo"
+    assert args.skip_local_sync is True
+    assert args.skip_map_refresh is True
+    assert args.map_refresh_timeout == 12
+    assert args.turn_timeout == 34
+    assert args.retries == 2
+    assert args.agents == ["codex"]
+    assert args.gitnexus_bin == "gn"
+
+
+def test_refresh_map_corruption_with_missing_cache_continues(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo_path = tmp_path / "repo"
+    repo_path.mkdir()
+    calls = {"n": 0}
+
+    def fake_analyze(*_args, **_kwargs):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            return False, "corruption detected in sqlite"
+        cache = repo_path / ".gitnexus"
+        cache.mkdir(parents=True, exist_ok=True)
+        (cache / "meta.json").write_text(
+            json.dumps({"lastCommit": "abc", "stats": {"embeddings": 1}}),
+            encoding="utf-8",
+        )
+        return True, "rebuilt"
+
+    monkeypatch.setattr(runner, "run_gitnexus_analyze", fake_analyze)
+    monkeypatch.setattr(
+        subprocess,
+        "run",
+        lambda *_a, **_k: subprocess.CompletedProcess([], 0, stdout="abc\n", stderr=""),
+    )
+    ok, message = runner.refresh_map_blocking(
+        repo_path, gitnexus_bin="gitnexus", repair_root=tmp_path / "repairs"
+    )
+    assert ok is True
+    assert calls["n"] == 2
+
+
+def test_validate_findings_file_delegates_to_schema_validator(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = tmp_path / "findings.json"
+    path.write_text('{"repo": "org/repo", "findings": []}\n', encoding="utf-8")
+    monkeypatch.setattr(
+        runner, "validate_findings", lambda data, *, expected_repo: [f"checked:{expected_repo}"]
+    )
+    assert runner._validate_findings_file(path, expected_repo="org/repo") == ["checked:org/repo"]
+
+
+def test_invoke_round1_failed_agent_without_findings_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Ensure the continue path when agent fails and no findings file exists.
+    monkeypatch.setattr(runner, "invoke_agent", lambda *_a, **_k: (False, "hard fail"))
+    result = runner.invoke_round1_agent(
+        agent="codex",
+        repo="org/unique-no-findings",
+        repo_path=tmp_path / "repo",
+        output_dir=tmp_path / "out-unique",
+        workspace_root=tmp_path,
+        template_path=tmp_path / "missing.md",
+        log_dir=tmp_path / "logs",
+        timeout=1,
+        retries=1,
+        workflows_steward_root=tmp_path,
+        source_commit="abc",
+    )
+    assert result.succeeded is False
+    assert "hard fail" in (result.error or "")
+
+
+def test_invoke_round1_failed_agent_with_invalid_findings_continues(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    findings = runner.round1_findings_path(tmp_path / "out", "codex", "org/repo")
+
+    def fail_after_invalid_write(*_a, **_k):
+        findings.parent.mkdir(parents=True, exist_ok=True)
+        findings.write_text('{"bad": true}\n', encoding="utf-8")
+        return False, "agent blew up"
+
+    attempts = {"n": 0}
+
+    def fail_after_invalid_write_counted(*a, **k):
+        attempts["n"] += 1
+        return fail_after_invalid_write(*a, **k)
+
+    monkeypatch.setattr(runner, "invoke_agent", fail_after_invalid_write_counted)
+    monkeypatch.setattr(runner, "_validate_findings_file", lambda *_a, **_k: ["still invalid"])
+
+    result = runner.invoke_round1_agent(
+        agent="codex",
+        repo="org/repo",
+        repo_path=tmp_path / "repo",
+        output_dir=tmp_path / "out",
+        workspace_root=tmp_path,
+        template_path=tmp_path / "missing.md",
+        log_dir=tmp_path / "logs",
+        timeout=1,
+        retries=1,
+        workflows_steward_root=tmp_path,
+        source_commit="abc",
+    )
+    assert result.succeeded is False
+    assert (result.error or "").startswith("attempt 2:")
+    assert "agent blew up" in (result.error or "")
+    assert attempts["n"] == 2
