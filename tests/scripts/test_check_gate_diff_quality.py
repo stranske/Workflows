@@ -54,6 +54,30 @@ def test_weak_added_tests_keeps_filesystem_adapter(tmp_path, monkeypatch) -> Non
     assert check_gate_diff_quality._weak_added_tests([str(Path("tests/test_real.py"))]) == []
 
 
+def test_weak_added_tests_skips_non_test_paths(tmp_path, monkeypatch) -> None:
+    source = tmp_path / "scripts" / "helper.py"
+    source.parent.mkdir()
+    source.write_text("value = 1\n", encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+
+    reads: list[str] = []
+    original_read_text = Path.read_text
+
+    def tracked_read_text(self, *args, **kwargs):
+        reads.append(str(self))
+        return original_read_text(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", tracked_read_text)
+
+    assert (
+        check_gate_diff_quality._weak_added_tests(
+            [str(Path("scripts/helper.py")), str(Path("README.md"))]
+        )
+        == []
+    )
+    assert reads == []
+
+
 def test_secret_failure_message_reports_count_without_values(monkeypatch) -> None:
     github_token = "ghp_" + "A" * 24
     openai_token = "sk-" + "B" * 24
