@@ -1087,6 +1087,28 @@ def test_load_seeded_fixture_payloads_handles_bad_json_and_non_dict_values(
     payloads = drift_scan.load_seeded_fixture_payloads()
     assert "README.md" in payloads
     assert "skip" not in payloads
+    assert json.loads(payloads["README.md"]) == {"instances": []}
+
+
+def test_load_seeded_fixture_payloads_skips_non_string_keys(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    """JSON object keys are always str; pin the explicit isinstance(key, str) guard."""
+    seeded = tmp_path / "seeded.json"
+    seeded.write_text('{"README.md": {"instances": []}}', encoding="utf-8")
+    monkeypatch.setattr(drift_scan, "SEEDED_FIXTURE_PATH", seeded)
+
+    real_loads = drift_scan.json.loads
+
+    def loads_with_non_string_key(text: str, *args, **kwargs):
+        data = real_loads(text, *args, **kwargs)
+        data[1] = {"instances": [{"classification": "stale"}]}
+        return data
+
+    monkeypatch.setattr(drift_scan.json, "loads", loads_with_non_string_key)
+    payloads = drift_scan.load_seeded_fixture_payloads()
+    assert list(payloads) == ["README.md"]
+    assert 1 not in payloads and "1" not in payloads
 
 
 def test_scan_doc_seeded_parse_error_and_live_parse_error(
