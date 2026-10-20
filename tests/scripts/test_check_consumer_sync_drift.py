@@ -560,6 +560,74 @@ def test_main_reports_create_only_gate_fyi_without_authorizing_sync(
     assert report["counts"]["unmeasured_create_only"] == int(not overwrite)
 
 
+@pytest.mark.parametrize("unreadable_first", [True, False])
+def test_main_keeps_unreadable_blob_cache_scoped_to_each_repo(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, unreadable_first: bool
+) -> None:
+    """A failed read must be cached without poisoning another consumer's read."""
+    unreadable_repo = "owner/unreadable"
+    readable_repo = "owner/readable"
+    repos = [unreadable_repo, readable_repo]
+    if not unreadable_first:
+        repos.reverse()
+    source = tmp_path / "gate.yml"
+    source.write_text("on:\n  pull_request:\n    types: [opened]\n", encoding="utf-8")
+    remote_text = "# Consumer header\n" + source.read_text(encoding="utf-8")
+    remote_sha = check_consumer_sync_drift.git_blob_hash(remote_text.encode("utf-8"))
+    entry = _make_entry(
+        source=str(source),
+        target=".github/workflows/pr-00-gate.yml",
+        sync_mode="create_only",
+        overwrite_repos=tuple(repos),
+    )
+    compiled = SimpleNamespace(
+        to_plan=lambda: {"plan_id": "sha256:" + "a" * 64},
+        section=lambda section: (entry,) if section == "workflows" else (),
+        removals=(),
+    )
+    args = SimpleNamespace(
+        repos=",".join(repos),
+        manifest=str(tmp_path / "manifest.yml"),
+        canaries="unused.json",
+        report_json=str(tmp_path / "report.json"),
+        summary="",
+    )
+    Path(args.manifest).write_text("version: 1\n", encoding="utf-8")
+    session = object()
+    monkeypatch.setattr(check_consumer_sync_drift, "COPY_SYNCED_SECTIONS", ("workflows",))
+    monkeypatch.setattr(check_consumer_sync_drift, "parse_args", lambda: args)
+    monkeypatch.setattr(check_consumer_sync_drift, "token_candidates", lambda: [object()])
+    monkeypatch.setattr(check_consumer_sync_drift, "compile_manifest", lambda _path: compiled)
+    monkeypatch.setattr(check_consumer_sync_drift, "resolve_candidate_repos", lambda *_args: set())
+    monkeypatch.setattr(
+        check_consumer_sync_drift, "select_read_token", lambda **_kwargs: (session, {})
+    )
+    monkeypatch.setattr(
+        check_consumer_sync_drift,
+        "fetch_remote_tree",
+        lambda *_args: ({entry.target: {"type": "blob", "sha": remote_sha}}, None),
+    )
+    monkeypatch.setattr(check_consumer_sync_drift, "fetch_open_sync_prs", lambda *_args: ([], None))
+    calls = []
+
+    def read_blob(actual_session, repo, sha):
+        assert actual_session is session
+        calls.append((repo, sha))
+        return None if repo == unreadable_repo else remote_text
+
+    monkeypatch.setattr(check_consumer_sync_drift, "remote_blob_text", read_blob)
+
+    assert check_consumer_sync_drift.main() == 1
+    assert calls == [(repo, remote_sha) for repo in repos]
+    report = json.loads(Path(args.report_json).read_text(encoding="utf-8"))
+    assert report["drift"] == [f"{unreadable_repo}: {entry.target}"]
+    assert report["counts"]["drift"] == 1
+    assert report["counts"]["unmeasured_create_only"] == 0
+    assert report["gate_triggers"] == [
+        f"gate triggers: {unreadable_repo} unknown (Gate unreadable)"
+    ]
+
+
 def test_manifest_skip_reason_honors_include_repos() -> None:
     entry = _make_entry(source="schema.json", include_repos=("owner/selected",))
 
