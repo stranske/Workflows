@@ -1,4 +1,5 @@
 from pathlib import Path
+from types import SimpleNamespace
 
 from scripts import check_gate_diff_quality
 
@@ -98,3 +99,18 @@ def test_main_returns_nonzero_for_failures_and_zero_for_clean(monkeypatch, capsy
     monkeypatch.setattr(check_gate_diff_quality, "check_diff_quality", lambda *_: [])
     assert check_gate_diff_quality.main([]) == 0
     assert capsys.readouterr().out == "Gate diff quality checks passed.\n"
+
+
+def test_git_adapters_and_missing_test_files(monkeypatch, tmp_path) -> None:
+    calls = []
+
+    def fake_run(args, **kwargs):
+        calls.append((args, kwargs))
+        return SimpleNamespace(stdout="one.py\n\ntwo.py\n")
+
+    monkeypatch.setattr(check_gate_diff_quality.subprocess, "run", fake_run)
+
+    assert check_gate_diff_quality._changed_files("base", "head") == ["one.py", "two.py"]
+    assert check_gate_diff_quality._full_diff("base", "head") == "one.py\n\ntwo.py\n"
+    assert check_gate_diff_quality._weak_added_tests([str(tmp_path / "test_missing.py")]) == []
+    assert calls[0][0] == ["git", "diff", "--name-only", "--diff-filter=AM", "base...head"]

@@ -5,6 +5,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
 from scripts import check_issue_consistency
 
 
@@ -506,3 +507,218 @@ def test_main_autofix_skips_mismatched_headers(monkeypatch, capsys, tmp_path: Pa
         "Skipping issue consistency check: autofix context with mismatched file headers."
         in captured.out
     )
+
+
+def test_parsers_and_event_payloads_cover_empty_and_invalid_inputs(tmp_path: Path) -> None:
+    invalid = tmp_path / "event.json"
+    invalid.write_text("{", encoding="utf-8")
+
+    assert check_issue_consistency._is_pr_marker_before_hash("") is False
+    assert check_issue_consistency._is_ignored_commit_message("") is False
+    assert check_issue_consistency.extract_title_issue_number("PR #12; issue-34") == 34
+    assert check_issue_consistency.resolve_head_ref_issue_number("feature/no-issue") == (
+        None,
+        False,
+    )
+    assert check_issue_consistency.resolve_head_ref_issue_number("issue-1-issue-2") == (None, True)
+    assert check_issue_consistency._load_event_payload(str(invalid)) == {}
+    assert check_issue_consistency._extract_pull_request({"pull_requests": ["bad"]}) == {}
+
+
+def test_event_context_handles_list_pull_requests_and_precedence(tmp_path: Path) -> None:
+    event = tmp_path / "event.json"
+    event.write_text(
+        json.dumps(
+            {
+                "pull_requests": [
+                    {"title": "Issue 21", "head": {"ref": "issue-21"}, "labels": ["auto fix"]}
+                ],
+                "workflow_run": {"head_branch": "ignored"},
+            }
+        ),
+        encoding="utf-8",
+    )
+    assert check_issue_consistency._has_autofix_label(str(event)) is True
+    assert check_issue_consistency.resolve_pr_context("existing", "", str(event)) == (
+        "existing",
+        "issue-21",
+    )
+
+
+def test_git_helpers_cover_failures_and_remote_fallback(monkeypatch) -> None:
+    monkeypatch.setattr(
+        check_issue_consistency, "_run_git", lambda _args: (_ for _ in ()).throw(RuntimeError("no"))
+    )
+    assert check_issue_consistency._remote_exists("") is False
+    assert check_issue_consistency._remote_exists("origin") is False
+    assert check_issue_consistency._resolve_base_remote("missing") == "missing"
+    assert check_issue_consistency._resolve_base_sha_for_head(None) is None
+    assert check_issue_consistency._resolve_base_sha_for_head("deadbeef") == "deadbeef"
+    with __import__("pytest").raises(RuntimeError, match="no"):
+        check_issue_consistency._run_git_with_fallback(["one"], None)
+
+
+def test_collect_helpers_choose_each_non_sha_range(monkeypatch) -> None:
+    calls = []
+    monkeypatch.setattr(check_issue_consistency, "_resolve_base_sha_for_head", lambda value: value)
+    monkeypatch.setattr(check_issue_consistency, "_find_remote_with_ref", lambda *_: None)
+    monkeypatch.setattr(
+        check_issue_consistency, "_run_git", lambda args: calls.append(args) or " fix: issue 9 \n\n"
+    )
+
+    assert check_issue_consistency.collect_commit_messages("main", None, "origin") == (
+        ["fix: issue 9"],
+        True,
+    )
+    assert check_issue_consistency.collect_changed_files(None, None, "origin") == (
+        [Path("fix: issue 9")],
+        True,
+    )
+    assert calls == [
+        ["log", "--format=%s", "--first-parent", "-n", "20"],
+        ["log", "--format=", "--name-only", "--first-parent", "-n", "20"],
+    ]
+
+
+def test_header_scan_handles_docstrings_and_unreadable_path(tmp_path: Path) -> None:
+    source = tmp_path / "sample.py"
+    source.write_text('"""Issue #41\\nbody\\n"""\\nvalue = 1\\n', encoding="utf-8")
+    assert check_issue_consistency.collect_header_issue_numbers(source, 4) == {41}
+    assert check_issue_consistency.collect_header_issue_numbers(tmp_path / "missing.py", 4) == set()
+
+
+def test_fallback_helpers_try_all_candidates(monkeypatch) -> None:
+    calls = []
+
+    def fake_run(args):
+        calls.append(args)
+        if args != ["third"]:
+            raise RuntimeError("bad revision")
+        return "ok"
+
+    monkeypatch.setattr(check_issue_consistency, "_run_git", fake_run)
+    assert check_issue_consistency._run_git_with_fallbacks_and_flag(
+        ["first"], [["second"], ["third"]]
+    ) == ("ok", True)
+    assert calls == [["first"], ["second"], ["third"]]
+    with pytest.raises(RuntimeError, match="bad revision"):
+        check_issue_consistency._run_git_with_fallbacks_and_flag(["first"], [])
+
+
+def test_collect_helpers_cover_sha_and_remote_ranges(monkeypatch) -> None:
+    monkeypatch.setattr(check_issue_consistency, "_resolve_base_sha_for_head", lambda _: "base")
+    monkeypatch.setattr(check_issue_consistency, "_find_remote_with_ref", lambda *_: "origin")
+    monkeypatch.setattr(
+        check_issue_consistency,
+        "_run_git_with_fallback_and_flag",
+        lambda primary, fallback: ("issue #7\n", primary == ["unexpected"]),
+    )
+    monkeypatch.setattr(
+        check_issue_consistency,
+        "_run_git_with_fallbacks_and_flag",
+        lambda primary, fallbacks: ("a.py\nb.py\n", False),
+    )
+    assert check_issue_consistency.collect_commit_messages("main", "base", "origin") == (
+        ["issue #7"],
+        False,
+    )
+    assert check_issue_consistency.collect_changed_files("main", "base", "origin") == (
+        [Path("a.py"), Path("b.py")],
+        False,
+    )
+
+
+def test_main_reports_non_autofix_commit_and_header_mismatches(
+    monkeypatch, capsys, tmp_path: Path
+) -> None:
+    monkeypatch.delenv("GITHUB_EVENT_PATH", raising=False)
+    monkeypatch.setenv("PR_TITLE", "Issue #10")
+    monkeypatch.setenv("HEAD_REF", "issue-10")
+    monkeypatch.setenv("BASE_REMOTE", "origin")
+    monkeypatch.setattr(sys, "argv", ["check_issue_consistency.py"])
+    monkeypatch.setattr(
+        check_issue_consistency, "collect_commit_messages", lambda *_: (["issue #11"], False)
+    )
+    monkeypatch.setattr(check_issue_consistency, "collect_changed_files", lambda *_: ([], False))
+    assert check_issue_consistency.main() == 1
+    assert "do not match PR title" in capsys.readouterr().err
+
+    header = tmp_path / "header.py"
+    header.write_text("# Issue: 11\\n", encoding="utf-8")
+    monkeypatch.setattr(check_issue_consistency, "collect_commit_messages", lambda *_: ([], False))
+    monkeypatch.setattr(
+        check_issue_consistency, "collect_changed_files", lambda *_: ([header], False)
+    )
+    assert check_issue_consistency.main() == 1
+    assert "File headers reference issue numbers" in capsys.readouterr().err
+
+
+def test_main_skips_unreliable_fallback_and_ambiguous_inference(monkeypatch, capsys) -> None:
+    monkeypatch.delenv("GITHUB_EVENT_PATH", raising=False)
+    monkeypatch.setenv("PR_TITLE", "")
+    monkeypatch.setenv("HEAD_REF", "feature/no-issue")
+    monkeypatch.setenv("BASE_REMOTE", "origin")
+    monkeypatch.setattr(sys, "argv", ["check_issue_consistency.py"])
+    monkeypatch.setattr(
+        check_issue_consistency, "collect_commit_messages", lambda *_: (["issue #10"], True)
+    )
+    monkeypatch.setattr(check_issue_consistency, "collect_changed_files", lambda *_: ([], True))
+    assert check_issue_consistency.main() == 0
+    assert "base reference unavailable" in capsys.readouterr().out
+
+    monkeypatch.setattr(
+        check_issue_consistency,
+        "collect_commit_messages",
+        lambda *_: (["issue #10", "issue #11"], False),
+    )
+    monkeypatch.setattr(check_issue_consistency, "collect_changed_files", lambda *_: ([], False))
+    assert check_issue_consistency.main() == 1
+    assert "Unable to determine issue number" in capsys.readouterr().err
+
+
+def test_git_subprocess_adapters_and_remote_helpers(monkeypatch) -> None:
+    class Result:
+        def __init__(self, returncode, stdout="", stderr=""):
+            self.returncode = returncode
+            self.stdout = stdout
+            self.stderr = stderr
+
+    monkeypatch.setattr(
+        check_issue_consistency.subprocess, "run", lambda *_a, **_k: Result(0, "ok")
+    )
+    assert check_issue_consistency._run_git(["status"]) == "ok"
+    assert check_issue_consistency._is_ancestor("one") is True
+    assert check_issue_consistency._remote_ref_exists("origin", "main") is True
+    assert check_issue_consistency._find_remote_with_ref("missing", "main") == "missing"
+
+    monkeypatch.setattr(
+        check_issue_consistency.subprocess, "run", lambda *_a, **_k: Result(1, stderr="bad")
+    )
+    with pytest.raises(RuntimeError, match="bad"):
+        check_issue_consistency._run_git(["status"])
+    assert check_issue_consistency._is_ancestor("", "HEAD") is False
+    assert check_issue_consistency._remote_ref_exists("", "main") is False
+
+
+def test_header_scan_recognizes_comment_styles_and_exclusions(tmp_path: Path) -> None:
+    source = tmp_path / "headers.txt"
+    source.write_text("// issue-8\\n/* Issue: 9 */\\nvalue\\n", encoding="utf-8")
+    assert check_issue_consistency.collect_header_issue_numbers(source, 3) == {8, 9}
+    assert check_issue_consistency.should_scan_header_file(None) is False
+
+
+def test_main_skips_autofix_without_issue_and_reliable_fallback(monkeypatch, capsys) -> None:
+    monkeypatch.delenv("GITHUB_EVENT_PATH", raising=False)
+    monkeypatch.setenv("PR_TITLE", "autofix")
+    monkeypatch.setenv("HEAD_REF", "autofix/run")
+    monkeypatch.setenv("BASE_REMOTE", "origin")
+    monkeypatch.setattr(sys, "argv", ["check_issue_consistency.py"])
+    assert check_issue_consistency.main() == 0
+    assert "autofix context with no issue number" in capsys.readouterr().out
+
+    monkeypatch.setenv("PR_TITLE", "Issue #10")
+    monkeypatch.setenv("HEAD_REF", "issue-10")
+    monkeypatch.setattr(check_issue_consistency, "collect_commit_messages", lambda *_: ([], True))
+    monkeypatch.setattr(check_issue_consistency, "collect_changed_files", lambda *_: ([], False))
+    assert check_issue_consistency.main() == 0
+    assert "base reference unavailable" in capsys.readouterr().out
