@@ -1,6 +1,6 @@
 import base64
 import json
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -811,6 +811,46 @@ def test_build_report_rejects_stale_or_untrusted_coverage() -> None:
 
 def test_parse_github_timestamp_rejects_naive_values() -> None:
     assert check_consumer_sync_drift.parse_github_timestamp("2026-04-26T01:00:00") is None
+
+
+@pytest.mark.parametrize(
+    ("offset_microseconds", "expected_state", "expected_status"),
+    [
+        pytest.param(-1, "covered", "covered", id="before-expiry"),
+        pytest.param(0, "covered", "covered", id="at-expiry"),
+        pytest.param(1, "stale", "drift", id="after-expiry"),
+    ],
+)
+def test_build_report_sync_pr_coverage_lease_boundary(
+    offset_microseconds: int, expected_state: str, expected_status: str
+) -> None:
+    sync_pr = {
+        "repo": "owner/repo",
+        "number": 12,
+        "branch": "sync/workflows-delivery",
+        "head_repo": "owner/repo",
+        "updated_at": "2026-04-25T00:00:00Z",
+    }
+    # Pin the public 36-hour lease independently of the implementation constant.
+    now = datetime(2026, 4, 26, 12, tzinfo=UTC) + timedelta(microseconds=offset_microseconds)
+
+    report = check_consumer_sync_drift.build_report(
+        repos=["owner/repo"],
+        drift={"owner/repo: README.md"},
+        missing=set(),
+        errors=set(),
+        obsolete=set(),
+        open_sync_prs=[sync_pr],
+        current_plan_id="sha256:" + "a" * 64,
+        now=now,
+    )
+
+    state = report["sync_remediation"]["repo_states"]["owner/repo"]
+    assert state["state"] == expected_state
+    assert state["pr"] == sync_pr
+    assert state["categories"] == ["drift"]
+    assert report["status"] == expected_status
+    assert report["drift"] == ["owner/repo: README.md"]
 
 
 def test_fetch_open_sync_prs_filters_to_workflows_sync_branches() -> None:
