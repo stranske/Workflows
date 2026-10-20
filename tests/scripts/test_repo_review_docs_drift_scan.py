@@ -352,7 +352,8 @@ def test_claude_helpers_and_seeded_fallback(tmp_path: Path, monkeypatch: pytest.
     assert drift_scan._resolve_claude_binary() == str(binary)
     assert drift_scan._read_claude_oauth_token() == "secret"
     assert drift_scan._build_claude_env()["CLAUDE_CODE_OAUTH_TOKEN"] == "secret"
-    assert "README.md" in drift_scan.load_seeded_fixture_payloads()
+    payloads = drift_scan.load_seeded_fixture_payloads()
+    assert payloads["README.md"] == SEEDED_FIXTURE_RESPONSES["README.md"]
 
     repo_root = tmp_path / "repo"
     repo_root.mkdir()
@@ -367,9 +368,24 @@ def test_claude_helpers_and_seeded_fallback(tmp_path: Path, monkeypatch: pytest.
         invoker=lambda **_kwargs: (False, "claude CLI not found"),
     )
     assert result.error is None
+    assert result.instances == [
+        DriftInstance(
+            doc_path="README.md",
+            claim="README cites claude-3-5-sonnet-20241022 as the default model",
+            authoritative_source="tools/langchain_client.py:96-98 _default_slots()",
+            classification="stale",
+        ),
+        DriftInstance(
+            doc_path="README.md",
+            claim="Pipeline orchestration overview accurately summarizes phase ordering",
+            authoritative_source="scripts/repo_review_coordinator.py:1-30 module docstring",
+            classification="accurate-no-drift",
+        ),
+    ]
 
 
 def test_scan_records_bad_config_and_missing_repo_root(tmp_path: Path):
+    missing_root = (tmp_path / "missing").resolve()
     result = scan(
         docs_config={
             "org/A": {"docs": [{"path": "README.md"}]},
@@ -383,6 +399,14 @@ def test_scan_records_bad_config_and_missing_repo_root(tmp_path: Path):
         invoker=lambda **_kwargs: (True, '{"instances": []}'),
     )
     assert result["total_errors"] == 3
+    errors_by_repo = {bucket["repo"]: bucket["errors"] for bucket in result["by_repo"]}
+    assert errors_by_repo == {
+        "org/A": [{"doc_path": "<config>", "error": "docs config for org/A missing 'local_path'"}],
+        "org/B": [
+            {"doc_path": "<config.docs[0]>", "error": f"repo root not found at {missing_root}"},
+            {"doc_path": "README.md", "error": f"repo root not found at {missing_root}"},
+        ],
+    }
 
 
 # ---------------------------------------------------------------------------
