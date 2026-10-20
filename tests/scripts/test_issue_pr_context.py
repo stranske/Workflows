@@ -79,6 +79,23 @@ def test_pr_context_caps_metadata_only_payload_without_looping() -> None:
     assert context["estimated_tokens"] <= 3
 
 
+def test_pr_context_uses_formatted_body_when_no_reusable_marker_exists() -> None:
+    context = build_pr_context(
+        {"formatted_body": "Formatted", "body": "Raw", "patch": "diff --git a/x b/x"},
+        ContextOptions(include_diff=True),
+    )
+
+    assert context["formatted_body"] == "Formatted"
+    assert "Diff: included" in context["metadata_block"]
+    assert "## Pull Request Diff" in context["context"]
+
+
+def test_pr_context_falls_back_to_body_without_formatted_body() -> None:
+    context = build_pr_context({"body": "Raw body"})
+
+    assert context["formatted_body"] == "Raw body"
+
+
 def test_context_payload_omits_sections_that_do_not_fit_after_metadata() -> None:
     context = issue_pr_context._build_payload(
         kind="issue",
@@ -114,6 +131,8 @@ def test_context_helpers_cover_marker_and_metadata_edge_values() -> None:
     assert (
         issue_pr_context._branch_name({"label": "owner:branch", "ref": "branch"}) == "owner:branch"
     )
+    assert issue_pr_context._workflow_matches({"workflow": "other"}, None) is True
+    assert issue_pr_context._embedded_body({"formatted_body": "embedded"}) == "embedded"
 
 
 def test_context_helpers_reject_invalid_markers_and_cover_optional_metadata() -> None:
@@ -126,6 +145,7 @@ def test_context_helpers_reject_invalid_markers_and_cover_optional_metadata() ->
         is None
     )
     assert issue_pr_context._top_level_headings("```\n## Hidden\n````\n## Visible") == ["visible"]
+    assert issue_pr_context._top_level_headings("```\n## Hidden\n```\n## Visible") == ["visible"]
     assert (
         issue_pr_context._issue_metadata(
             {"labels": "not-a-list"},
@@ -149,6 +169,15 @@ def test_diff_and_workflow_helpers_cover_direct_and_invalid_values() -> None:
     assert issue_pr_context._diff_text({"files": "not-a-list"}) == ""
     assert issue_pr_context._labels("not-a-list") == []
     assert issue_pr_context._labels([{}]) == []
+
+
+def test_main_prints_plain_context(tmp_path, capsys) -> None:
+    source = tmp_path / "body.md"
+    source.write_text("A small issue body", encoding="utf-8")
+
+    assert main(["--input-file", str(source)]) == 0
+
+    assert "## Issue Body" in capsys.readouterr().out
 
 
 def test_reuse_formatted_body_returns_embedded_marker_body() -> None:

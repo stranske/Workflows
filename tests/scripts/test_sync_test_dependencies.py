@@ -1085,3 +1085,11 @@ def test_get_project_modules_includes_local_modules(
     result = std.get_project_modules()
 
     assert "custom_module" in result
+
+
+def test_extract_requirement_name_handles_empty_and_extra_markers() -> None:
+    assert std._extract_requirement_name(" ; python_version < '3.12'") is None
+    assert (
+        std._extract_requirement_name("requests[socks]>=2.0 ; python_version >= '3.12'")
+        == "requests"
+    )
