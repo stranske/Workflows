@@ -625,13 +625,6 @@ def test_registry_surfaces_latest_timestamp_and_cli_error_paths(
     tmp_path: Path, monkeypatch, capsys
 ) -> None:
     assert langsmith_fleet.registry_surfaces({"repos": [None, {"repo": "x", "surface": ""}]}) == {}
-    assert langsmith_fleet._latest_recorded_at(
-        [
-            {"recorded_at": "bad"},
-            {"recorded_at": "2026-01-01T00:00:00"},
-            {"recorded_at": "2026-01-02T00:00:00Z"},
-        ]
-    ) == datetime(2026, 1, 2, tzinfo=UTC)
 
     records = tmp_path / "invalid.ndjson"
     records.write_text("{bad}\n", encoding="utf-8")
@@ -666,6 +659,31 @@ def test_registry_surfaces_latest_timestamp_and_cli_error_paths(
         and "stranske/Workflows#2150" in markdown
         and "| 2 | 2026-05-31T02:00:00+00:00 |" in markdown
     )
+
+
+@pytest.mark.parametrize(
+    ("timestamps", "expected"),
+    [
+        (["bad", None, ""], None),
+        (["2026-01-01T00:00:00"], datetime(2026, 1, 1, tzinfo=UTC)),
+        (
+            ["2026-01-02T00:00:00Z", "2026-01-01T00:00:00Z"],
+            datetime(2026, 1, 2, tzinfo=UTC),
+        ),
+        (
+            ["2026-01-01T23:00:00-02:00", "2026-01-02T00:00:00Z"],
+            datetime(2026, 1, 2, 1, tzinfo=UTC),
+        ),
+    ],
+    ids=["invalid", "naive-utc", "newest-first", "offset-order"],
+)
+def test_latest_recorded_at_ignores_invalid_and_compares_instants(
+    timestamps: list[str | None], expected: datetime | None
+) -> None:
+    # Keep normalization and ordering observable independently: a later valid
+    # timestamp must not hide dropped naive timestamps or reversed comparisons.
+    records = [{"recorded_at": timestamp} for timestamp in timestamps]
+    assert langsmith_fleet._latest_recorded_at(records) == expected
 
 
 @pytest.mark.parametrize(
