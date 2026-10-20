@@ -392,6 +392,75 @@ test('final sync finding evidence rejects edited findings, lost handoffs and par
   }
 });
 
+for (const [scenario, expectedError, mutate] of [
+  ['missing classification', 'classification_missing_or_stale', h => {
+    h.packet.comments = [];
+  }],
+  ['conflicting classification', 'conflicting_dispositions', h => {
+    const conflicting = findingPacket('shared-source').comments[0];
+    conflicting.id = 42;
+    conflicting.html_url = conflicting.html_url.replace('-41', '-42');
+    h.packet.comments.push(conflicting);
+  }],
+  ['paginated conversation', 'finding_conversation_incomplete', h => {
+    h.fresh.reviewThreads.nodes = structuredClone(h.packet.reviewThreads);
+    h.fresh.reviewThreads.nodes[0].comments.pageInfo.hasNextPage = true;
+  }],
+  ['edited conversation', 'finding_changed', h => {
+    h.fresh.reviewThreads.nodes = structuredClone(h.packet.reviewThreads);
+    h.fresh.reviewThreads.nodes[0].comments.nodes[0].body += ' A shared caller is affected.';
+  }],
+]) {
+  test(`${scenario} at the same head blocks every review boundary after unrelated acceptance`, async () => {
+    const h = findingGateHarness();
+    assert.equal((await confirmExactHeadSyncFindingGate(h.args)).ok, true);
+    mutate(h);
+
+    const final = await confirmExactHeadSyncFindingGate(h.args);
+    assert.equal(final.packet.binding.head_sha, h.pr.head.sha, 'the delivery head did not change');
+    assert.equal(final.ok, false, 'prior unrelated acceptance cannot replace fresh review evidence');
+    assert.equal(final.evaluation.raw_active_count, 1);
+    assert.deepEqual(final.evaluation.blocking_thread_ids, ['PRRT_finding']);
+    assert.deepEqual(final.evaluation.unknown_thread_ids, ['PRRT_finding']);
+    assert.deepEqual(final.evaluation.nonblocking_thread_ids, []);
+    assert.deepEqual(final.evaluation.unrelated_handoffs, []);
+    assert.deepEqual(final.evaluation.findings[0].errors, [expectedError]);
+
+    const preSeal = classifyGeneratedPr({ pr: h.pr, activeReviewThreadCount: 1,
+      reviewThreads: final.packet.reviewThreads, findingEvidence: final.packet,
+      checkState: { status: 'ready' } });
+    assert.equal(preSeal.disposition, 'review-blocked');
+    assert.deepEqual(preSeal.finding_disposition, final.evaluation);
+
+    const row = { repo: h.packet.binding.repository, pr: h.pr.number,
+      head_sha: h.pr.head.sha, source_commit: h.record.source_commit,
+      plan_id: h.record.plan_id, delivery_generation: h.record.generation,
+      evidence_source: 'open-candidate', required_check_state: 'success',
+      active_review_thread_count: 1, review_disposition: final.packet };
+    assert.deepEqual(validateCanaryEvidence([row], [row.repo]).errors,
+      [`active_review_debt:${row.repo}`]);
+    const built = require('../maint71_merge_sync_prs').buildCanaryPromotionEvidence([row], [row.repo]);
+    assert.equal(built.ok, false);
+    assert.deepEqual(built.errors, [`active_review_debt:${row.repo}`]);
+    const retained = built.evidence.results[0];
+    assert.equal(retained.active_review_thread_count, 1);
+    assert.equal(retained.review_disposition.reviewThreads[0].isResolved, false);
+    assert.equal(retained.review_disposition.comments.length, final.packet.comments.length,
+      'compaction must retain conflicting or absent classification evidence');
+    const compact = evaluateSyncFindingDispositions({ ...retained.review_disposition,
+      activeReviewThreadCount: retained.active_review_thread_count });
+    for (const key of ['blocked', 'errors', 'raw_active_count', 'aggregates',
+      'disposition_thread_ids', 'blocking_thread_ids', 'unknown_thread_ids', 'unrelated_handoffs']) {
+      assert.deepEqual(compact[key], final.evaluation[key], key);
+    }
+    assert.deepEqual(compact.findings[0].errors, [expectedError]);
+    assert.equal(compact.findings[0].thread_id, 'PRRT_finding');
+    assert.deepEqual(validateCanaryEvidence([retained], [row.repo]).errors,
+      [`active_review_debt:${row.repo}`]);
+    assert.equal(h.packet.reviewThreads[0].isResolved, false);
+  });
+}
+
 for (const [status, reason] of [[404, 'deleted'], [403, 'inaccessible'], [503, 'unavailable']]) {
   test(`${reason} local handoff blocks pre-seal, final merge and canary without hiding the finding`, async () => {
     const h = findingGateHarness();

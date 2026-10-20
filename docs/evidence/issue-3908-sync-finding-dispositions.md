@@ -1,5 +1,47 @@
 # Issue 3908: sync finding relevance contract
 
+## Same-head review evidence regression follow-up
+
+Recent commits and live PR #4144 were reconciled: all 16 task/acceptance
+checkboxes were already checked; the PR is open with `draft=false`.
+Four named orchestration tests now cover missing classification, conflicting
+classification, paginated conversation and edited conversation after an initial
+unrelated acceptance, with an unchanged delivery head. Each verifies that
+pre-seal, final merge, full canary evidence and compact promotion evidence block,
+retain the raw active count and unknown/blocking identity, and leave the original
+finding unresolved. Conflicting protocol records remain in compact evidence.
+
+Validation:
+
+- The exact required two-file `node --test` command passes. Adding
+  `--test-isolation=none --test-reporter=tap` executes **244 named tests, all
+  passing with zero skips**; the four new cases also pass in isolation.
+- `sync finding unknown fails closed and mixed findings retain every blocker`:
+  unknown-as-nonblocking mutation **exit 1, ERR_ASSERTION**; restored **exit 0**.
+- `stale-head final sync finding gate rejects an unrelated record after pre-seal`:
+  unconditional unrelated acceptance mutation **exit 1, ERR_ASSERTION**;
+  restored **exit 0**.
+- The new `conflicting classification at the same head blocks every review boundary after unrelated acceptance`
+  test also fails with **exit 1, ERR_ASSERTION** under that final-gate mutation
+  and passes after restoration. Both production files were restored byte for
+  byte with `cmp`; neither mutation is shipped.
+
+| Disposition/evidence | Pre-seal | Final relevance gate | Canary |
+| --- | --- | --- | --- |
+| Shared-source | Block | Block | Block |
+| Sync-caused, including unmanaged consumer paths | Block | Block | Block |
+| Verified unrelated with local owner/handoff | Allow relevance | Allow relevance | Allow |
+| Unknown, missing, conflicting, incomplete or stale | Block | Block | Block |
+
+Required checks and repository policy remain independent. This test addition
+does not clear current shared-code blockers or add a campaign #1836 prerequisite.
+The PR-body reconciliation update was rejected with `MCP tool call requires
+approval, but approval policy is never`; the remote checked tasks are unchanged.
+The prepared PR body is `/tmp/pr4144-reconciled-body.md`. The commit attempt
+failed because `.git/index.lock` cannot be created on the read-only filesystem;
+the test and evidence changes remain uncommitted. `node --check` and
+`git diff --check` pass. No Python or workflow file changed.
+
 ## Pre-seal validation authority and clock follow-up
 
 Recent commits and live PR #4144 were reconciled: all 16 task/acceptance
