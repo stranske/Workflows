@@ -95,6 +95,9 @@ Mixed findings retain every shared-source, sync-caused and unknown blocker.
 An attached disposition packet is validated even when the reported active count
 is zero: active findings or incomplete snapshots contradicting that count block
 promotion. Legacy zero-debt rows without a disposition packet remain valid.
+An attached packet must retain a complete binding matching its canary row's
+repository, PR, head, source, plan and generation even when its finding snapshot
+is empty. Substituting the row's identity cannot renew another delivery's evidence.
 
 Required checks, approvals, security, delivery integrity and branch protection
 remain independent gates. GitHub may still require all conversations resolved

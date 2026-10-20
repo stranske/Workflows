@@ -276,6 +276,34 @@ test('promotion rejects a zero count that contradicts its active finding packet'
   }
 });
 
+test('promotion rejects a finding snapshot replayed across deliveries with zero review debt', () => {
+  const { buildCanaryPromotionEvidence } = require('../maint71_merge_sync_prs');
+  const packet = findingPacket();
+  packet.activeReviewThreadCount = 0;
+  packet.reviewThreads = [];
+  packet.comments = [];
+  packet.handoffs = [];
+  const row = { repo: packet.binding.repository, pr: packet.binding.pr,
+    head_sha: packet.binding.head_sha, source_commit: packet.binding.source_commit,
+    plan_id: packet.binding.plan_id, delivery_generation: packet.binding.delivery_generation,
+    evidence_source: 'open-candidate', required_check_state: 'success',
+    active_review_thread_count: 0, review_disposition: packet };
+  assert.equal(buildCanaryPromotionEvidence([row], [row.repo]).ok, true);
+  for (const [key, value] of Object.entries({ repo: 'stranske/Template', pr: row.pr + 1,
+    head_sha: 'd'.repeat(40), source_commit: 'e'.repeat(40), plan_id: 'other-plan',
+    delivery_generation: 'other-generation' })) {
+    const replayed = { ...row, [key]: value };
+    const built = buildCanaryPromotionEvidence([replayed], [replayed.repo]);
+    assert.equal(built.ok, false, `${key}: a complete empty packet still belongs to its delivery`);
+    assert.ok(built.errors.includes(`active_review_debt:${replayed.repo}`));
+    assert.deepEqual(built.evidence.results[0].review_disposition.binding, packet.binding);
+    assert.equal(built.evidence.results[0].active_review_thread_count, 0);
+    const { review_disposition, ...legacy } = replayed;
+    assert.equal(buildCanaryPromotionEvidence([legacy], [legacy.repo]).ok, true,
+      'legacy zero-debt rows have no attached snapshot to replay');
+  }
+});
+
 test('repository conversation and required-check rejection remain independent of relevance', () => {
   const clear = { blocked: false, raw_active_count: 1 };
   const policy = syncMergeFailureDisposition(new Error('All conversations must be resolved'), clear);

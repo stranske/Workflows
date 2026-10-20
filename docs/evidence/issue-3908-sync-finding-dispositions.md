@@ -229,3 +229,38 @@ seal_drained preserves real check blockers` test while both processes shared
 tests; these suites must not run concurrently in the same working directory.
 The local commit attempt failed because `.git/index.lock` cannot be created on
 the read-only filesystem. The changes remain uncommitted in the working tree.
+## Canary snapshot provenance follow-up
+
+The previous canary validator replaced an attached packet's binding with the
+row's identity before evaluating it. A complete empty snapshot from another
+delivery could therefore pass at zero review debt. The validator now requires
+a complete row binding and an exact packet match for repository, PR, head SHA,
+source commit, plan and generation before evaluating any attached snapshot.
+Legacy zero-debt rows without a packet retain their existing behavior.
+
+Two new regressions failed with `ERR_ASSERTION` before the repair and pass after it:
+
+- `canary packet provenance must match its row even with zero review debt`
+  covers full and compact packets, zero and nonzero debt, all six binding fields,
+  missing bindings, and matching but malformed identities.
+- `promotion rejects a finding snapshot replayed across deliveries with zero review debt`
+  covers the actual promotion builder and preservation of the original packet
+  binding and raw count, with legacy zero-debt controls.
+
+Validation: the exact required two-file `node --test` command exits 0 (two
+file-level passes in this sandbox). Adding `--test-isolation=none
+--test-reporter=tap` executes **230 named tests, all passing with no skips**.
+`python -m pytest tests/scripts/test_select_consumer_sync_phase.py -q
+-m 'not slow' -o addopts=` passes **22 tests**.
+
+Both required deliberate-break gates were repeated. The named
+`sync finding unknown fails closed and mixed findings retain every blocker`
+and `stale-head final sync finding gate rejects an unrelated record after pre-seal`
+tests each exit 1 with `ERR_ASSERTION` under the specified mutation and exit 0
+after SHA-256-verified byte restoration. Neither mutation is shipped.
+
+PR #4144 was verified open and ready, with all 16 existing checkboxes checked.
+The reconciliation update was rejected because the GitHub tool requires approval
+and this run's approval policy is `never`; its remote body remains unchanged.
+The disposition table above still applies. This fix does not clear shared-code
+blockers or add a campaign #1836 prerequisite.

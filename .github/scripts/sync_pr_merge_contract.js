@@ -215,6 +215,14 @@ function parseSyncFindingDisposition(comment) {
   try { return JSON.parse(match[1]); } catch (_) { return null; }
 }
 
+function hasCompleteSyncFindingBinding(binding) {
+  return Boolean(binding && /^[\w.-]+\/[\w.-]+$/.test(binding.repository || '')
+    && Number.isInteger(binding.pr) && binding.pr > 0
+    && /^[a-f0-9]{40}$/.test(binding.head_sha || '')
+    && /^[a-f0-9]{40}$/.test(binding.source_commit || '')
+    && binding.plan_id && binding.delivery_generation);
+}
+
 // comments and handoffs must be authenticated API snapshots, collected by the
 // executor. Never populate them from fields inside a disposition record itself.
 function evaluateSyncFindingDispositions({
@@ -231,11 +239,7 @@ function evaluateSyncFindingDispositions({
     || !Array.isArray(reviewThreads) || active.length !== count
     || reviewThreads.some((thread) => typeof thread?.isResolved !== 'boolean'
       || typeof thread?.isOutdated !== 'boolean')) errors.push('review_evidence_incomplete');
-  if (count > 0 && (!/^[\w.-]+\/[\w.-]+$/.test(binding.repository || '')
-    || !Number.isInteger(binding.pr) || binding.pr <= 0
-    || !/^[a-f0-9]{40}$/.test(binding.head_sha || '')
-    || !/^[a-f0-9]{40}$/.test(binding.source_commit || '')
-    || !binding.plan_id || !binding.delivery_generation)) errors.push('delivery_binding_incomplete');
+  if (count > 0 && !hasCompleteSyncFindingBinding(binding)) errors.push('delivery_binding_incomplete');
   const ids = active.map((thread) => thread.id);
   if (new Set(ids).size !== ids.length) errors.push('duplicate_finding_identity');
   if (!Array.isArray(comments) || !Array.isArray(handoffs) || !Array.isArray(trustedActors)) {
@@ -1292,11 +1296,16 @@ function canaryReviewDebtIsBlocking(row) {
   // Legacy zero-debt rows need no exemption. An attached snapshot must still
   // agree with the raw count and be complete, including when that count is zero.
   if (row.active_review_thread_count === 0 && packet === undefined) return false;
+  const binding = { repository: row.repo, pr: row.pr, head_sha: row.head_sha,
+    source_commit: row.source_commit, plan_id: row.plan_id,
+    delivery_generation: row.delivery_generation };
+  // Empty snapshots carry provenance too. Replacing their binding before
+  // checking it would let evidence from another delivery appear current.
+  if (!hasCompleteSyncFindingBinding(binding) || !packet?.binding
+    || Object.keys(binding).some((key) => packet.binding[key] !== binding[key])) return true;
   return evaluateSyncFindingDispositions({ ...(packet || {}),
     trustedActors: SYNC_FINDING_DISPOSITION_ACTORS, now: Date.now(),
-    binding: { repository: row.repo, pr: row.pr, head_sha: row.head_sha,
-      source_commit: row.source_commit, plan_id: row.plan_id,
-      delivery_generation: row.delivery_generation },
+    binding,
     activeReviewThreadCount: row.active_review_thread_count,
     evidenceComplete: packet?.evidenceComplete === true,
   }).blocked;

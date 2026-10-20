@@ -4157,3 +4157,47 @@ test('canary zero count cannot mask active or incomplete disposition evidence', 
     assert.equal(packet.reviewThreads[0].isResolved, false);
   }
 });
+
+test('canary packet provenance must match its row even with zero review debt', () => {
+  const { compactSyncFindingEvidence } = require('../sync_pr_merge_contract');
+  for (const count of [0, 1]) {
+    const packet = findingPacket();
+    if (count === 0) {
+      packet.activeReviewThreadCount = 0;
+      packet.reviewThreads = [];
+      packet.comments = [];
+      packet.handoffs = [];
+    }
+    const row = { repo: packet.binding.repository, pr: packet.binding.pr,
+      head_sha: packet.binding.head_sha, source_commit: packet.binding.source_commit,
+      plan_id: packet.binding.plan_id, delivery_generation: packet.binding.delivery_generation,
+      required_check_state: 'success', active_review_thread_count: count };
+    for (const evidence of [packet, compactSyncFindingEvidence(packet)]) {
+      const original = { ...row, review_disposition: evidence };
+      assert.equal(validateCanaryEvidence([original], [row.repo]).ok, true);
+      for (const key of Object.keys(packet.binding)) {
+        for (const change of ['replace', 'delete']) {
+          const replayed = structuredClone(original);
+          if (change === 'delete') delete replayed.review_disposition.binding[key];
+          else replayed.review_disposition.binding[key] = key === 'pr' ? row.pr + 1 : 'other';
+          const result = validateCanaryEvidence([replayed], [row.repo]);
+          assert.equal(result.ok, false, `${count} active: ${change} packet ${key}`);
+          assert.ok(result.errors.includes(`active_review_debt:${row.repo}`));
+        }
+      }
+      for (const binding of [undefined, null, {}]) {
+        assert.equal(validateCanaryEvidence([{ ...original,
+          review_disposition: { ...evidence, binding } }], [row.repo]).ok, false,
+        `${count} active: missing packet identity`);
+      }
+      for (const [key, value] of Object.entries({ repository: 'invalid', pr: -1,
+        head_sha: 'short', source_commit: '', plan_id: '', delivery_generation: '' })) {
+        const invalid = { ...original, [key === 'repository' ? 'repo' : key]: value,
+          review_disposition: { ...evidence, binding: { ...evidence.binding, [key]: value } } };
+        assert.equal(validateCanaryEvidence([invalid], [invalid.repo]).ok, false,
+          `${count} active: matching but incomplete ${key}`);
+      }
+    }
+    assert.equal(packet.reviewThreads.length, count);
+  }
+});
