@@ -227,7 +227,8 @@ function hasCompleteSyncFindingBinding(binding) {
 // executor. Never populate them from fields inside a disposition record itself.
 function evaluateSyncFindingDispositions({
   binding = {}, reviewThreads = [], activeReviewThreadCount,
-  comments = [], handoffs = [], trustedActors = SYNC_FINDING_DISPOSITION_ACTORS, evidenceComplete = true,
+  comments = [], handoffs = [], trustedActors = SYNC_FINDING_DISPOSITION_ACTORS,
+  evidenceComplete = activeReviewThreadCount === 0,
   now = Date.now(), evidenceFormat = 'full',
 } = {}) {
   const count = activeReviewThreadCount;
@@ -235,7 +236,9 @@ function evaluateSyncFindingDispositions({
     (thread) => thread && thread.isResolved === false && thread.isOutdated === false,
   ) : [];
   const errors = [];
-  if (!evidenceComplete || !Number.isInteger(count) || count < 0
+  // Active-debt exemptions need an explicit complete-read receipt. Retain the
+  // legacy empty-read path, which has no classification exemption to validate.
+  if (evidenceComplete !== true || !Number.isInteger(count) || count < 0
     || !Array.isArray(reviewThreads) || active.length !== count
     || reviewThreads.some((thread) => typeof thread?.isResolved !== 'boolean'
       || typeof thread?.isOutdated !== 'boolean')) errors.push('review_evidence_incomplete');

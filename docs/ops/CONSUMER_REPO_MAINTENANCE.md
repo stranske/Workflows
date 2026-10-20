@@ -92,6 +92,8 @@ review debt; an unavailable Node runtime or invalid response blocks promotion.
 These snapshots are evidence under the existing authenticated source/artifact
 provenance boundary, not signatures that make caller-invented JSON authoritative.
 Mixed findings retain every shared-source, sync-caused and unknown blocker.
+An active-debt exemption requires `evidenceComplete: true`; a missing flag or
+any nonboolean value blocks at both pre-seal and canary validation.
 An attached disposition packet is validated even when the reported active count
 is zero: active findings or incomplete snapshots contradicting that count block
 promotion. Legacy zero-debt rows without a disposition packet remain valid.

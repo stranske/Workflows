@@ -4106,6 +4106,34 @@ test('sync finding exemption rejects stale provenance, incomplete conversations 
     'review-blocked', 'a false zero count must not waive actual findings');
 });
 
+test('active finding exemptions require explicit complete evidence at pre-seal and canary', () => {
+  for (const completeness of [undefined, null, false, 0, 1, '', 'true', 'false']) {
+    const packet = findingPacket();
+    if (completeness === undefined) delete packet.evidenceComplete;
+    else packet.evidenceComplete = completeness;
+    const label = `evidenceComplete=${String(completeness)}`;
+    const evaluated = evaluateSyncFindingDispositions(packet);
+    assert.equal(evaluated.blocked, true, label);
+    assert.ok(evaluated.errors.includes('review_evidence_incomplete'), label);
+    assert.equal(evaluated.raw_active_count, 1);
+    assert.equal(classifyReviewBlockedDisposition({
+      activeReviewThreadCount: 1, reviewThreads: packet.reviewThreads,
+      findingEvidence: packet,
+    }).disposition, 'review-blocked', label);
+    const row = { repo: packet.binding.repository, pr: packet.binding.pr,
+      head_sha: packet.binding.head_sha, source_commit: packet.binding.source_commit,
+      plan_id: packet.binding.plan_id, delivery_generation: packet.binding.delivery_generation,
+      required_check_state: 'success', active_review_thread_count: 1,
+      review_disposition: packet };
+    assert.equal(validateCanaryEvidence([row], [row.repo]).ok, false, label);
+    assert.equal(packet.reviewThreads[0].isResolved, false);
+  }
+  assert.equal(evaluateSyncFindingDispositions(findingPacket()).blocked, false);
+  assert.equal(classifyReviewBlockedDisposition({
+    activeReviewThreadCount: 0, reviewThreads: [],
+  }), null, 'a legacy zero-debt read needs no finding exemption');
+});
+
 test('canary re-evaluates bound finding snapshots and never trusts a count-only or forged summary', () => {
   const packet = findingPacket();
   const row = { repo: packet.binding.repository, pr: packet.binding.pr,

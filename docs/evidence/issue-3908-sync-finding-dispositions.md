@@ -1,5 +1,37 @@
 # Issue 3908: sync finding relevance contract
 
+## Explicit completeness follow-up
+
+An active-debt packet without `evidenceComplete` previously passed pre-seal
+while canary validation rejected it. Active-debt evaluation now requires the
+boolean `true`; missing, false, null, numeric and string values block. Legacy
+zero-debt reads still require no exemption. Counts and unresolved findings remain
+visible, and the disposition-to-gate table below continues to apply.
+
+`active finding exemptions require explicit complete evidence at pre-seal and canary`
+failed before the fix with `ERR_ASSERTION` for the missing flag. It now passes,
+along with `promotion holds active finding snapshots without explicit completeness`.
+The exact required two-file Node command exits 0; adding
+`--test-isolation=none --test-reporter=tap` executes **232 named tests, all passing
+with zero failures or skips**.
+
+Both required deliberate-break proofs were repeated on this implementation:
+`sync finding unknown fails closed and mixed findings retain every blocker`
+and `stale-head final sync finding gate rejects an unrelated record after pre-seal`
+each failed by assertion with exit 1 under its specified mutation. Each passed
+with exit 0 after SHA-256-verified exact-byte restoration. Neither mutation is
+shipped. This correction neither clears current shared-code blockers nor adds
+a campaign #1836 prerequisite.
+
+The promotion receiver also passes: `python -m pytest
+tests/scripts/test_select_consumer_sync_phase.py -q -m 'not slow' -o addopts=`
+(22 passed). `git diff --check` passes. PR #4144 is open and ready for review.
+Staging the source/test changes failed because `.git/index.lock` cannot be
+created on the read-only filesystem, so this follow-up remains uncommitted.
+Updating the PR body with the named proofs and disposition table was rejected:
+`MCP tool call requires approval, but approval policy is never`. The prepared
+body is retained at `/tmp/sync-pr-4144-body.md`; the remote body is unchanged.
+
 Implemented one source-owned evaluator and consumed it at Maint 71 pre-seal,
 final merge, canary validation/recovery, and Maint 68's promotion receiver. An
 authenticated owner classification is a causal assessment, not originating

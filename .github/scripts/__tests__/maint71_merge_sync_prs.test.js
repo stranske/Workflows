@@ -276,6 +276,25 @@ test('promotion rejects a zero count that contradicts its active finding packet'
   }
 });
 
+test('promotion holds active finding snapshots without explicit completeness', () => {
+  const { buildCanaryPromotionEvidence } = require('../maint71_merge_sync_prs');
+  for (const completeness of [undefined, null, false, 0, 1, '', 'true', 'false']) {
+    const packet = findingPacket();
+    if (completeness === undefined) delete packet.evidenceComplete;
+    else packet.evidenceComplete = completeness;
+    const row = { repo: packet.binding.repository, pr: packet.binding.pr,
+      head_sha: packet.binding.head_sha, source_commit: packet.binding.source_commit,
+      plan_id: packet.binding.plan_id, delivery_generation: packet.binding.delivery_generation,
+      evidence_source: 'open-candidate', required_check_state: 'success',
+      active_review_thread_count: 1, review_disposition: packet };
+    const built = buildCanaryPromotionEvidence([row], [row.repo]);
+    assert.equal(built.ok, false, `evidenceComplete=${String(completeness)}`);
+    assert.ok(built.errors.includes(`active_review_debt:${row.repo}`));
+    assert.equal(built.evidence.results[0].active_review_thread_count, 1);
+    assert.equal(packet.reviewThreads[0].isResolved, false);
+  }
+});
+
 test('promotion rejects a finding snapshot replayed across deliveries with zero review debt', () => {
   const { buildCanaryPromotionEvidence } = require('../maint71_merge_sync_prs');
   const packet = findingPacket();
