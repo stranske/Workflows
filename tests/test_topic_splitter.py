@@ -119,3 +119,25 @@ def test_main_rejects_empty_input_and_splitter_errors(
         topic_splitter.main()
 
     assert excinfo.value.code == expected_code
+
+
+def test_main_rejects_missing_input_and_writes_topics(tmp_path, monkeypatch, capsys) -> None:
+    missing = tmp_path / "missing.txt"
+    monkeypatch.setattr(sys, "argv", ["topic_splitter.py", "--input-file", str(missing)])
+    with pytest.raises(SystemExit) as excinfo:
+        topic_splitter.main()
+    assert excinfo.value.code == 1
+    assert "Input file not found" in capsys.readouterr().err
+
+    input_path = tmp_path / "input.txt"
+    output_path = tmp_path / "topics.json"
+    input_path.write_text("one", encoding="utf-8")
+    monkeypatch.setattr(topic_splitter, "split_topics_with_llm", lambda _: [{"title": "One"}])
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["topic_splitter.py", "--input-file", str(input_path), "--output-file", str(output_path)],
+    )
+    topic_splitter.main()
+    assert output_path.read_text(encoding="utf-8") == '[\n  {\n    "title": "One"\n  }\n]'
+    assert "Split into 1 topic(s). First: One" in capsys.readouterr().out
