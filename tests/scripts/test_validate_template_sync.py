@@ -590,14 +590,20 @@ def test_print_sources_rejects_unsafe_compiled_sources(
     assert "line-control character" in captured.err
 
 
+@pytest.mark.parametrize("directory_matches", [True, False])
 def test_main_detects_missing_source_and_compares_synced_directories(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    directory_matches: bool,
 ) -> None:
     source, template = create_test_structure(tmp_path)
     (source / "bundle").mkdir()
     (template / "bundle").mkdir()
     (source / "bundle" / "item.js").write_text("same", encoding="utf-8")
-    (template / "bundle" / "item.js").write_text("same", encoding="utf-8")
+    (template / "bundle" / "item.js").write_text(
+        "same" if directory_matches else "different", encoding="utf-8"
+    )
     monkeypatch.setattr(vts, "__file__", str(tmp_path / "scripts" / "validate_template_sync.py"))
     monkeypatch.setattr(
         vts,
@@ -608,4 +614,4 @@ def test_main_detects_missing_source_and_compares_synced_directories(
     assert vts.main() == 1
     output = capsys.readouterr().out
     assert "• .github/scripts/missing.js (MISSING - needs to be created)" in output
-    assert "• .github/scripts/bundle" not in output
+    assert ("• .github/scripts/bundle (out of sync)" in output) is (not directory_matches)
