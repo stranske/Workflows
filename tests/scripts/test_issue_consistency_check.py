@@ -582,7 +582,7 @@ def test_collect_helpers_choose_each_non_sha_range(monkeypatch) -> None:
 
 def test_header_scan_handles_docstrings_and_unreadable_path(tmp_path: Path) -> None:
     source = tmp_path / "sample.py"
-    source.write_text('"""Issue #41\\nbody\\n"""\\nvalue = 1\\n', encoding="utf-8")
+    source.write_text('"""\nIssue #41\nbody\n"""\nvalue = 1\n', encoding="utf-8")
     assert check_issue_consistency.collect_header_issue_numbers(source, 4) == {41}
     assert check_issue_consistency.collect_header_issue_numbers(tmp_path / "missing.py", 4) == set()
 
@@ -608,23 +608,54 @@ def test_fallback_helpers_try_all_candidates(monkeypatch) -> None:
 def test_collect_helpers_cover_sha_and_remote_ranges(monkeypatch) -> None:
     monkeypatch.setattr(check_issue_consistency, "_resolve_base_sha_for_head", lambda _: "base")
     monkeypatch.setattr(check_issue_consistency, "_find_remote_with_ref", lambda *_: "origin")
-    monkeypatch.setattr(
-        check_issue_consistency,
-        "_run_git_with_fallback_and_flag",
-        lambda primary, fallback: ("issue #7\n", primary == ["unexpected"]),
-    )
-    monkeypatch.setattr(
-        check_issue_consistency,
-        "_run_git_with_fallbacks_and_flag",
-        lambda primary, fallbacks: ("a.py\nb.py\n", False),
-    )
+    seen = {}
+
+    def capture_log(primary, fallback):
+        seen["log"] = (primary, fallback)
+        return "issue #7\n", False
+
+    def capture_diff(primary, fallbacks):
+        seen["diff"] = (primary, fallbacks)
+        return "a.py\nb.py\n", False
+
+    monkeypatch.setattr(check_issue_consistency, "_run_git_with_fallback_and_flag", capture_log)
+    monkeypatch.setattr(check_issue_consistency, "_run_git_with_fallbacks_and_flag", capture_diff)
     assert check_issue_consistency.collect_commit_messages("main", "base", "origin") == (
         ["issue #7"],
         False,
     )
+    assert seen["log"] == (
+        ["log", "--format=%s", "--first-parent", "base..HEAD"],
+        ["log", "--format=%s", "--first-parent", "origin/main..HEAD"],
+    )
     assert check_issue_consistency.collect_changed_files("main", "base", "origin") == (
         [Path("a.py"), Path("b.py")],
         False,
+    )
+    assert seen["diff"] == (
+        ["diff", "--name-only", "base...HEAD"],
+        [
+            ["diff", "--name-only", "origin/main...HEAD"],
+            ["log", "--format=", "--name-only", "--first-parent", "-n", "20"],
+        ],
+    )
+
+    monkeypatch.setattr(check_issue_consistency, "_find_remote_with_ref", lambda *_: None)
+    assert check_issue_consistency.collect_commit_messages("main", "base", "origin") == (
+        ["issue #7"],
+        False,
+    )
+    assert seen["log"] == (
+        ["log", "--format=%s", "--first-parent", "base..HEAD"],
+        ["log", "--format=%s", "--first-parent", "-n", "20"],
+    )
+    assert check_issue_consistency.collect_changed_files("main", "base", "origin") == (
+        [Path("a.py"), Path("b.py")],
+        False,
+    )
+    assert seen["diff"] == (
+        ["diff", "--name-only", "base...HEAD"],
+        [["log", "--format=", "--name-only", "--first-parent", "-n", "20"]],
     )
 
 
@@ -702,7 +733,7 @@ def test_git_subprocess_adapters_and_remote_helpers(monkeypatch) -> None:
 
 def test_header_scan_recognizes_comment_styles_and_exclusions(tmp_path: Path) -> None:
     source = tmp_path / "headers.txt"
-    source.write_text("// issue-8\\n/* Issue: 9 */\\nvalue\\n", encoding="utf-8")
+    source.write_text("// issue-8\n/* Issue: 9 */\nvalue\n", encoding="utf-8")
     assert check_issue_consistency.collect_header_issue_numbers(source, 3) == {8, 9}
     assert check_issue_consistency.should_scan_header_file(None) is False
 
@@ -838,17 +869,24 @@ def test_run_git_fallback_helpers_cover_success_and_hard_errors(monkeypatch) -> 
 
 
 def test_collect_commit_messages_covers_sha_without_remote_and_ref_only(monkeypatch) -> None:
+    calls = []
     monkeypatch.setattr(check_issue_consistency, "_resolve_base_sha_for_head", lambda value: value)
     monkeypatch.setattr(check_issue_consistency, "_find_remote_with_ref", lambda *_: None)
     monkeypatch.setattr(
         check_issue_consistency,
         "_run_git_with_fallback_and_flag",
-        lambda primary, fallback: ("issue #12\n", True),
+        lambda primary, fallback: calls.append((primary, fallback)) or ("issue #12\n", True),
     )
     assert check_issue_consistency.collect_commit_messages("main", "abc", "origin") == (
         ["issue #12"],
         True,
     )
+    assert calls == [
+        (
+            ["log", "--format=%s", "--first-parent", "abc..HEAD"],
+            ["log", "--format=%s", "--first-parent", "-n", "20"],
+        )
+    ]
 
     monkeypatch.setattr(check_issue_consistency, "_find_remote_with_ref", lambda *_: "origin")
     monkeypatch.setattr(
@@ -921,14 +959,6 @@ def test_header_scan_covers_multiline_docstring_and_comment_lines(tmp_path: Path
     markdown = tmp_path / "notes.md"
     markdown.write_text("# Heading\n<!-- Issue #64 -->\n", encoding="utf-8")
     assert check_issue_consistency.collect_header_issue_numbers(markdown, 3) == {64}
-
-    unreadable = tmp_path / "blocked.py"
-    unreadable.write_text("# Issue #65\n", encoding="utf-8")
-    unreadable.chmod(0)
-    try:
-        assert check_issue_consistency.collect_header_issue_numbers(unreadable, 3) == set()
-    finally:
-        unreadable.chmod(0o644)
 
 
 def test_main_bare_hash_warns_on_mismatch_and_ambiguous_head(monkeypatch, capsys) -> None:

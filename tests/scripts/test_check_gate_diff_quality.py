@@ -138,3 +138,4 @@ def test_git_adapters_and_missing_test_files(monkeypatch, tmp_path) -> None:
     assert check_gate_diff_quality._full_diff("base", "head") == "one.py\n\ntwo.py\n"
     assert check_gate_diff_quality._weak_added_tests([str(tmp_path / "test_missing.py")]) == []
     assert calls[0][0] == ["git", "diff", "--name-only", "--diff-filter=AM", "base...head"]
+    assert calls[1][0] == ["git", "diff", "--no-ext-diff", "--unified=0", "base...head"]
