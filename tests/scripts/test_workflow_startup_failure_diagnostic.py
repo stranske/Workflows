@@ -99,6 +99,25 @@ def test_gh_api_rejects_non_object_response(monkeypatch) -> None:
         diag._gh_api("repos/owner/repo/actions/runs/123", token="test-token")
 
 
+def test_token_pacing_and_list_api_paths(monkeypatch) -> None:
+    monkeypatch.setenv("GITHUB_TOKEN", "environment-token")
+    assert diag._github_token() == "environment-token"
+    sleeps: list[float] = []
+    monkeypatch.setattr(diag.time, "sleep", sleeps.append)
+    monkeypatch.setattr(diag, "_PACE_SECONDS", 0.25)
+    diag._pace()
+    assert sleeps == [0.25]
+    calls: list[tuple[str, str, str]] = []
+
+    def request(method, url, token, **kwargs):
+        calls.append((method, url, token))
+        return {"ok": True}
+
+    monkeypatch.setattr(diag.api_client, "_request_json", request)
+    assert diag._get_json("/repos/o/r", "provided") == {"ok": True}
+    assert calls == [("GET", f"{diag.api_client.GITHUB_API}/repos/o/r", "provided")]
+
+
 def test_diagnose_startup_failure_collects_output_fields(monkeypatch) -> None:
     responses = [
         {
@@ -585,6 +604,34 @@ def test_fmt_days_never_prints_a_bare_none() -> None:
     assert diag._fmt_days({"days_held": None}) == "age unknown"
     assert diag._fmt_days({"days_held": 22, "onset_truncated": False}) == "22d"
     assert diag._fmt_days({"days_held": 9, "onset_truncated": True}) == ">=9d"
+
+
+def test_sweep_helpers_dedupe_repositories_and_write_action_summary(
+    tmp_path: Path, monkeypatch
+) -> None:
+    args = diag._build_parser().parse_args(
+        ["--sweep", "--repo", "owner/a", "--repos", "owner/a,owner/b"]
+    )
+    assert diag._sweep_repos(args) == ["owner/a", "owner/b"]
+    summary_path = tmp_path / "summary.md"
+    monkeypatch.setenv("GITHUB_STEP_SUMMARY", str(summary_path))
+    report = {
+        "held": [
+            {
+                "repo": "owner/a",
+                "workflow": ".github/workflows/a.yml",
+                "consecutive_held": 2,
+                "days_held": 3,
+                "onset_truncated": False,
+                "review": {"verdict": "benign", "reason": "safe"},
+                "approval_url": "https://example.test/approve",
+            }
+        ]
+    }
+    diag._write_step_summary("one held", report)
+    rendered = summary_path.read_text(encoding="utf-8")
+    assert "Workflow liveness sweep" in rendered
+    assert "[approve](https://example.test/approve)" in rendered
 
 
 # --- auto-review ------------------------------------------------------------

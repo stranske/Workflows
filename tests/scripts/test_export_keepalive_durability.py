@@ -172,3 +172,85 @@ def test_muse_durability_attribution_uses_the_producing_route(labels, branch):
         grace_days=7,
     )
     assert record["domain"]["agent"] == "muse"
+
+
+def test_helpers_handle_invalid_metadata_and_reverts_before_the_merge() -> None:
+    assert exporter._parse_time("not-a-date") is None
+    assert exporter._parse_time(3) is None
+    assert exporter._label_names({"labels": ["  keep  ", {"name": " agent:codex "}, None]}) == [
+        "keep",
+        "agent:codex",
+    ]
+    assert exporter.infer_agent({"head_ref": "muse-fix"}) == "muse"
+    pr = _pr(7, merged_at="2026-06-10T00:00:00Z")
+    assert (
+        exporter._matching_revert(
+            pr, [{"number": 8, "title": "Revert #7", "mergedAt": "2026-06-09T00:00:00Z"}]
+        )
+        is None
+    )
+    assert exporter.classify_durability(
+        {"number": 0}, revert_prs=[], now=datetime(2026, 6, 24, tzinfo=UTC), grace_days=7
+    ) == {"durability": "skipped", "reason": "missing_merged_pr_metadata"}
+
+
+def test_build_records_skips_invalid_rows_and_can_include_pending() -> None:
+    records, summary = exporter.build_records(
+        [
+            {"repo": "", "prs": []},
+            {"repo": "o/r", "prs": [None, _pr(1, merged_at="2026-06-23T00:00:00Z")]},
+        ],
+        now=datetime(2026, 6, 24, tzinfo=UTC),
+        grace_days=7,
+        include_pending=True,
+    )
+    assert len(records) == 1
+    assert records[0]["status"] == "skipped"
+    assert summary["skipped"] == {"invalid_pr": 1, "missing_repo": 1}
+
+
+def test_registry_fetch_and_ndjson_helpers_cover_error_and_success_paths(
+    tmp_path: Path, monkeypatch
+) -> None:
+    registry = tmp_path / "registry.json"
+    registry.write_text(
+        '{"repos":[{"repo":"o/a"},{"repo":"o/a"},{"repo":" o/b "}]}', encoding="utf-8"
+    )
+    assert exporter.registry_repos(registry) == ["o/a", "o/b"]
+
+    class Result:
+        returncode = 1
+        stderr = "bad request"
+        stdout = ""
+
+    monkeypatch.setattr(exporter.subprocess, "run", lambda *args, **kwargs: Result())
+    with pytest.raises(RuntimeError, match="bad request"):
+        exporter._gh_json(["pr", "list"])
+
+    exporter.write_ndjson([{"z": 1, "a": 2}], tmp_path / "nested" / "out.ndjson")
+    assert (tmp_path / "nested" / "out.ndjson").read_text(encoding="utf-8") == '{"a":2,"z":1}\n'
+
+
+def test_fetch_repo_payload_requests_the_merged_and_revert_views(monkeypatch) -> None:
+    calls: list[list[str]] = []
+
+    def fake_gh_json(args: list[str]) -> list[dict[str, object]]:
+        calls.append(args)
+        return [{"number": len(calls)}]
+
+    monkeypatch.setattr(exporter, "_gh_json", fake_gh_json)
+    payload = exporter.fetch_repo_payload("owner/repo", since="2026-01-01", limit=12)
+
+    assert payload == {"repo": "owner/repo", "prs": [{"number": 1}], "revert_prs": [{"number": 2}]}
+    assert calls[0][:5] == ["pr", "list", "-R", "owner/repo", "--state"]
+    assert "agents:keepalive" in calls[0]
+    assert "Revert in:title merged:>=2026-01-01" in calls[1]
+
+
+@pytest.mark.parametrize(
+    ("argument", "value"), [("--days", "0"), ("--grace-days", "-1"), ("--limit", "0")]
+)
+def test_cli_rejects_invalid_numeric_limits(argument: str, value: str) -> None:
+    with pytest.raises(SystemExit) as excinfo:
+        exporter.main([argument, value])
+    assert excinfo.value.code == 2

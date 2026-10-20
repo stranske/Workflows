@@ -341,6 +341,52 @@ def test_detect_repo_slug_returns_none_for_unknown_origin(tmp_path: Path, monkey
     assert fix_agent.detect_repo_slug(tmp_path) is None
 
 
+def test_repo_detection_falls_back_when_git_is_unavailable(tmp_path: Path, monkeypatch) -> None:
+    def unavailable(*args, **kwargs):
+        raise OSError("no git")
+
+    monkeypatch.setattr(fix_agent.subprocess, "run", unavailable)
+    assert fix_agent.detect_repo_root(tmp_path) == tmp_path.resolve()
+    assert fix_agent.detect_repo_slug(tmp_path) is None
+
+
+def test_config_and_scan_helpers_reject_bad_shapes_and_use_defaults(tmp_path: Path) -> None:
+    root = tmp_path / "repo"
+    root.mkdir()
+    _write(root / "README.md", "ok\n")
+    assert fix_agent.default_docs_from_config(root) == []
+    _write(root / fix_agent.DEFAULT_DOCS_CONFIG, "repos: []\n")
+    assert fix_agent.detect_configured_repo(root) is None
+    with pytest.raises(ValueError, match="repos.*mapping"):
+        fix_agent.default_docs_from_config(root)
+    bad = root / "bad.json"
+    bad.write_text("[]", encoding="utf-8")
+    with pytest.raises(ValueError, match="top-level mapping"):
+        fix_agent.load_scan_json(bad)
+    assert fix_agent.load_scan_json(None) == {"by_repo": []}
+
+
+def test_plan_output_writer_and_batch_limit_are_executable(tmp_path: Path) -> None:
+    finding = fix_agent.Finding(
+        "deterministic", "dangling_reference", "README.md", "missing", "detail"
+    )
+    with pytest.raises(ValueError, match="positive"):
+        fix_agent.batch_findings([finding], max_per_batch=0)
+    plan = {
+        "batches": [
+            {
+                "batch_id": "docs-drift-01",
+                "repair_prompt": "prompt",
+                "issue_body": "issue",
+                "pr_plan": "pr",
+            }
+        ]
+    }
+    fix_agent.write_plan_outputs(plan, tmp_path / "plans")
+    assert (tmp_path / "plans" / "plan.json").is_file()
+    assert (tmp_path / "plans" / "docs-drift-01-pr-plan.md").read_text(encoding="utf-8") == "pr"
+
+
 def test_detect_configured_repo_uses_checkout_name_when_origin_is_unavailable(
     tmp_path: Path,
 ) -> None:
