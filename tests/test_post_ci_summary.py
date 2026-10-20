@@ -1,7 +1,9 @@
+import importlib.util
 import json
 import os
 import subprocess
 import sys
+import types
 from pathlib import Path
 
 import pytest
@@ -198,6 +200,97 @@ def test_main_runs_by_file_path_when_tools_package_is_shadowed(tmp_path: Path) -
 
     assert result.returncode == 0, result.stderr
     assert "Automated Status Summary" in output_path.read_text(encoding="utf-8")
+
+
+def _exec_post_ci_summary_with_tools_stub() -> types.ModuleType:
+    """Load post_ci_summary.py while ``tools`` is an incomplete package stub.
+
+    Forces the ModuleNotFoundError import-fallback (lines 22–30). The subprocess
+    shadowed-tools test exercises the same path behaviorally, but in-process
+    reload is required for pytest-cov to attribute those lines.
+    """
+    repo_root = Path(__file__).resolve().parents[1]
+    module_path = repo_root / "tools" / "post_ci_summary.py"
+    probe_name = "tools.post_ci_summary_import_fallback_probe"
+
+    saved = {
+        name: module
+        for name, module in sys.modules.items()
+        if name == "tools" or name.startswith("tools.")
+    }
+    try:
+        for name in list(sys.modules):
+            if name == "tools" or name.startswith("tools."):
+                del sys.modules[name]
+
+        stub_tools = types.ModuleType("tools")
+        stub_tools.__path__ = []
+        sys.modules["tools"] = stub_tools
+
+        spec = importlib.util.spec_from_file_location(probe_name, module_path)
+        assert spec is not None and spec.loader is not None
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[probe_name] = module
+        spec.loader.exec_module(module)
+        return module
+    finally:
+        sys.modules.pop(probe_name, None)
+        for name in list(sys.modules):
+            if name == "tools" or name.startswith("tools."):
+                del sys.modules[name]
+        sys.modules.update(saved)
+
+
+def test_import_fallback_recovers_when_tools_package_is_incomplete() -> None:
+    module = _exec_post_ci_summary_with_tools_stub()
+
+    assert hasattr(module, "JobRecord")
+    assert callable(module.triage_ci_failure)
+    # Canonical import used by the rest of this module must still resolve.
+    assert post_ci_summary.triage_ci_failure is not None
+
+
+def test_import_fallback_reraises_unrelated_module_not_found(tmp_path: Path) -> None:
+    """Unrelated ModuleNotFoundError names must propagate (line 25 raise)."""
+    shadow_root = tmp_path / "shadow"
+    shadow_tools = shadow_root / "tools"
+    shadow_tools.mkdir(parents=True)
+    (shadow_tools / "__init__.py").write_text("# shadow tools\n", encoding="utf-8")
+    (shadow_tools / "ci_failure_triage.py").write_text(
+        "import totally_missing_unrelated_dep  # noqa: F401\n",
+        encoding="utf-8",
+    )
+
+    repo_root = Path(__file__).resolve().parents[1]
+    module_path = repo_root / "tools" / "post_ci_summary.py"
+    probe_name = "tools.post_ci_summary_import_fallback_reraise_probe"
+
+    saved = {
+        name: module
+        for name, module in sys.modules.items()
+        if name == "tools" or name.startswith("tools.")
+    }
+    saved_path = list(sys.path)
+    try:
+        for name in list(sys.modules):
+            if name == "tools" or name.startswith("tools."):
+                del sys.modules[name]
+        sys.path.insert(0, str(shadow_root))
+
+        spec = importlib.util.spec_from_file_location(probe_name, module_path)
+        assert spec is not None and spec.loader is not None
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[probe_name] = module
+        with pytest.raises(ModuleNotFoundError, match="totally_missing_unrelated_dep") as excinfo:
+            spec.loader.exec_module(module)
+        assert excinfo.value.name == "totally_missing_unrelated_dep"
+    finally:
+        sys.path[:] = saved_path
+        sys.modules.pop(probe_name, None)
+        for name in list(sys.modules):
+            if name == "tools" or name.startswith("tools."):
+                del sys.modules[name]
+        sys.modules.update(saved)
 
 
 def test_collect_triage_block_from_artifacts(tmp_path: Path, monkeypatch) -> None:
@@ -765,6 +858,29 @@ def test_collect_triage_dedupes_and_stops_at_limit(tmp_path: Path, monkeypatch) 
     assert post_ci_summary._collect_triage_block(tmp_path) == ["lines=8"]
 
 
+def test_collect_triage_breaks_when_dedupe_hits_hard_limit(tmp_path: Path, monkeypatch) -> None:
+    """Hit the dedupe ``break`` when unique failure lines reach the hard limit."""
+    downloads = tmp_path / "downloads"
+    downloads.mkdir()
+    _write_json(downloads / "summary.json", {"checks": {}})
+    unique_lines = [f"unique-failure-{index}" for index in range(250)]
+    monkeypatch.setattr(
+        post_ci_summary,
+        "_collect_check_failure_lines",
+        lambda _records: list(unique_lines),
+    )
+    monkeypatch.setattr(post_ci_summary, "_collect_junit_failures", lambda _root, _limit: [])
+    captured: dict[str, str] = {}
+
+    def _capture(text: str, head_sha=None) -> list[str]:
+        captured["text"] = text
+        return ["triaged"]
+
+    monkeypatch.setattr(post_ci_summary, "_format_triage_block", _capture)
+    assert post_ci_summary._collect_triage_block(tmp_path) == ["triaged"]
+    assert len(captured["text"].splitlines()) == 200
+
+
 def test_dedupe_runs_handles_non_string_keys_and_state_replacement() -> None:
     runs = [
         "skip",
@@ -783,6 +899,8 @@ def test_dedupe_runs_handles_non_string_keys_and_state_replacement() -> None:
 
 def test_required_segments_skip_blank_labels_and_duplicate_names() -> None:
     runs = [
+        "not-a-mapping",
+        {"present": False, "jobs": [{"name": "Lint", "conclusion": "failure"}]},
         {
             "present": True,
             "jobs": [
@@ -801,6 +919,23 @@ def test_required_segments_skip_blank_labels_and_duplicate_names() -> None:
         ],
     )
     assert segments == ["Lint: ❌ failure"]
+
+
+def test_build_summary_coverage_section_alone_adds_overview_header(monkeypatch) -> None:
+    """Coverage section with no stats/delta/table must still open the Overview block."""
+    monkeypatch.setattr(post_ci_summary, "_is_docs_only_fast_pass", lambda _states: False)
+    monkeypatch.setattr(post_ci_summary, "_load_required_contexts", lambda _path=None: [])
+    summary = post_ci_summary.build_summary_comment(
+        runs=[],
+        head_sha=None,
+        coverage_stats=None,
+        coverage_section="section-only notes",
+        coverage_delta=None,
+        required_groups_env="[]",
+    )
+    assert "### Coverage Overview" in summary
+    assert "section-only notes" in summary
+    assert "Docs-only" not in summary
 
 
 def test_build_summary_docs_only_and_coverage_section_only(tmp_path: Path, monkeypatch) -> None:

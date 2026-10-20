@@ -1083,6 +1083,30 @@ def test_safe_evidence_path_rejects_parent_traversal(tmp_path: Path) -> None:
     assert any("must not be absolute or traverse parents" in v.message for v in report.violations)
 
 
+def test_safe_evidence_path_escape_check_after_resolve(tmp_path: Path, monkeypatch) -> None:
+    """Cover the post-resolve escape fail (377–378).
+
+    Explicit ``..`` / symlink rejects run first, so a normal relative path cannot
+    reach this branch. Force ``is_relative_to`` false after resolve succeeds.
+    """
+    run_dir = tmp_path / "run"
+    run_dir.mkdir()
+    evidence = run_dir / "evidence.json"
+    evidence.write_text("{}", encoding="utf-8")
+
+    real_is_relative_to = Path.is_relative_to
+
+    def _force_escape(self: Path, other: Path) -> bool:
+        if self.resolve() == evidence.resolve():
+            return False
+        return real_is_relative_to(self, other)
+
+    monkeypatch.setattr(Path, "is_relative_to", _force_escape)
+    report = vrc.Report(repo="owner/repo")
+    assert vrc._safe_evidence_path(run_dir, {"path": "evidence.json"}, report, 0) is None
+    assert any("escapes the run directory" in v.message for v in report.violations)
+
+
 def test_manifest_evidence_requires_string_sha256(tmp_path: Path) -> None:
     run_dir = tmp_path / "run"
     run_dir.mkdir()
