@@ -2609,6 +2609,7 @@ test('buildMergeReport provides machine-readable summary counts', () => {
     head_changed: 0,
     head_commit_unverified: 0,
     review_blocked: 0,
+    merge_blocked_repository_policy: 0,
     ready: 0,
     dry_run_merge: 1,
     dry_run_review_start: 0,
@@ -3951,4 +3952,348 @@ test('Markdown report retains the refused Gate forced-restage drain receipt', ()
     gate_request: { blocked: 'rerun-refused', forced_restage: { state: 'requested', run_id: 5000 } },
   }] });
   assert.match(markdown, /seal: stranske\/Ready#12 rerun refused; forced restage requested run=5000/);
+});
+
+const { findingPacket, changeProof } = require('./fixtures/sync_finding_disposition');
+const { evaluateSyncFindingDispositions } = require('../sync_pr_merge_contract');
+
+test('pre-seal rejects an internally valid unrelated packet replayed onto another delivery', () => {
+  const { formatDeliveryRecord } = require('../sync_pr_lease_contract');
+  for (const field of ['head_sha', 'pr', 'repository', 'source_commit', 'plan_id', 'delivery_generation']) {
+    const packet = findingPacket();
+    const binding = { ...packet.binding };
+    const record = {
+      repository: binding.repository, source_commit: binding.source_commit,
+      plan_id: binding.plan_id, generation: binding.delivery_generation,
+      desired_tree_hash: 'tree-21', lease_expires_at: '2099-01-01T00:00:00Z',
+      durable_issue_url: 'https://github.com/stranske/Workflows/issues/1836',
+    };
+    const pr = { number: binding.pr, body: formatDeliveryRecord(record),
+      head: { ref: 'sync/workflows-candidate', sha: binding.head_sha } };
+    const classify = () => classifyGeneratedPr({ pr, activeReviewThreadCount: 1,
+      reviewThreads: packet.reviewThreads, findingEvidence: packet,
+      checkState: { status: 'ready' } });
+    assert.equal(classify().disposition, 'current', `${field}: unchanged delivery control`);
+
+    if (field === 'head_sha') pr.head.sha = 'd'.repeat(40);
+    else if (field === 'pr') pr.number += 1;
+    else {
+      const key = field === 'delivery_generation' ? 'generation' : field;
+      record[key] = field === 'repository' ? 'stranske/Template'
+        : field === 'source_commit' ? 'd'.repeat(40) : 'another-delivery';
+      pr.body = formatDeliveryRecord(record);
+    }
+    assert.equal(evaluateSyncFindingDispositions(packet).blocked, false,
+      `${field}: the old packet is internally valid but belongs to the old delivery`);
+    const result = classify();
+    assert.equal(result.disposition, 'review-blocked', `${field}: reject replay before sealing`);
+    assert.equal(result.raw_active_count, 1);
+    assert.deepEqual(result.finding_disposition.unknown_thread_ids, ['PRRT_finding']);
+    assert.equal(packet.reviewThreads[0].isResolved, false);
+  }
+});
+
+test('pre-seal rejects malformed review counts without coercing them into clear evidence', () => {
+  const { formatDeliveryRecord } = require('../sync_pr_lease_contract');
+  for (const count of [null, false, true, '', '0', '1', [], [0], [1], {}, -1, 0.5, NaN, Infinity]) {
+    const packet = findingPacket();
+    const pr = { number: packet.binding.pr,
+      head: { ref: 'sync/workflows-candidate', sha: packet.binding.head_sha },
+      body: formatDeliveryRecord({ repository: packet.binding.repository,
+        source_commit: packet.binding.source_commit, plan_id: packet.binding.plan_id,
+        generation: packet.binding.delivery_generation, desired_tree_hash: 'tree-21',
+        lease_expires_at: '2099-01-01T00:00:00Z',
+        durable_issue_url: 'https://github.com/stranske/Workflows/issues/1836' }) };
+    // Exercise both an empty read and otherwise valid unrelated evidence: even
+    // a true/"1" count must not borrow the latter's exemption through coercion.
+    for (const reviewThreads of [[], packet.reviewThreads]) {
+      const args = { activeReviewThreadCount: count, reviewThreads,
+        findingEvidence: { ...packet, reviewThreads } };
+      const direct = classifyReviewBlockedDisposition(args);
+      assert.equal(direct?.disposition, 'review-blocked', `direct count=${String(count)}`);
+      assert.equal(direct.next_command, 'retry-review-thread-query');
+      const generated = classifyGeneratedPr({ ...args, pr, checkState: { status: 'ready' } });
+      assert.equal(generated.disposition, 'review-blocked', `generated count=${String(count)}`);
+      assert.equal(generated.next_command, 'retry-review-thread-query');
+    }
+    assert.equal(packet.reviewThreads[0].isResolved, false);
+  }
+  assert.equal(classifyReviewBlockedDisposition({ activeReviewThreadCount: 0 }), null);
+  const packet = findingPacket();
+  assert.equal(classifyReviewBlockedDisposition({ activeReviewThreadCount: 1,
+    reviewThreads: packet.reviewThreads, findingEvidence: packet }), null);
+});
+
+test('classifyReviewBlockedDisposition surfaces four dispositions and aggregate outcomes', () => {
+  for (const disposition of ['shared-source', 'sync-caused', 'unknown', 'unrelated']) {
+    const packet = findingPacket(disposition);
+    const routed = classifyReviewBlockedDisposition({
+      activeReviewThreadCount: 1,
+      reviewThreads: packet.reviewThreads,
+      findingEvidence: packet,
+    });
+    const evaluation = evaluateSyncFindingDispositions(packet);
+    assert.equal(evaluation.raw_active_count, 1);
+    assert.equal(evaluation.aggregates.by_disposition[disposition], 1);
+    assert.equal(evaluation.disposition_thread_ids[disposition].length, 1);
+    if (disposition === 'unrelated') {
+      assert.equal(routed, null, 'verified unrelated debt is nonblocking at the review gate');
+      assert.equal(evaluation.blocked, false);
+      assert.equal(evaluation.aggregates.nonblocking, 1);
+      assert.equal(evaluation.aggregates.blocking, 0);
+      assert.equal(evaluation.aggregates.unknown, 0);
+      assert.equal(packet.reviewThreads[0].isResolved, false);
+    } else {
+      assert.equal(routed.disposition, 'review-blocked');
+      assert.equal(routed.raw_active_count, 1);
+      assert.equal(routed.aggregates.blocking, 1);
+      assert.equal(routed.aggregates.nonblocking, 0);
+      assert.equal(
+        routed.aggregates.unknown,
+        disposition === 'unknown' ? 1 : 0,
+      );
+      assert.equal(routed.finding_disposition.findings[0].disposition, disposition);
+      assert.deepEqual(routed.disposition_thread_ids[disposition], ['PRRT_finding']);
+    }
+  }
+});
+
+test('sync finding unknown fails closed and mixed findings retain every blocker', () => {
+  for (const disposition of ['shared-source', 'sync-caused', 'unknown', 'unrelated']) {
+    const packet = findingPacket(disposition);
+    const result = evaluateSyncFindingDispositions(packet);
+    assert.equal(result.blocked, disposition !== 'unrelated', disposition);
+    assert.equal(result.findings[0].disposition, disposition);
+    // An unmanaged consumer path does not waive a sync-caused incompatibility.
+    assert.equal(result.raw_active_count, 1);
+    assert.equal(result.aggregates.by_disposition[disposition], 1);
+    assert.equal(packet.reviewThreads[0].isResolved, false);
+  }
+  for (const disposition of ['shared-source', 'sync-caused', 'unknown']) {
+    const packet = findingPacket();
+    const other = findingPacket(disposition);
+    other.reviewThreads[0].id = 'PRRT_other';
+    changeProof(other, { thread_id: 'PRRT_other', thread_fingerprint:
+      require('../sync_pr_merge_contract').syncFindingFingerprint(other.reviewThreads[0]) });
+    other.comments[0].id = 42;
+    other.comments[0].html_url = other.comments[0].html_url.replace('-41', '-42');
+    packet.reviewThreads.push(other.reviewThreads[0]);
+    packet.comments.push(other.comments[0]);
+    packet.activeReviewThreadCount = 2;
+    const result = evaluateSyncFindingDispositions(packet);
+    assert.equal(result.blocked, true);
+    assert.deepEqual(result.blocking_thread_ids, ['PRRT_other']);
+    assert.deepEqual(result.nonblocking_thread_ids, ['PRRT_finding']);
+    assert.equal(result.aggregates.blocking, 1);
+    assert.equal(result.aggregates.nonblocking, 1);
+    assert.equal(result.aggregates.unknown, disposition === 'unknown' ? 1 : 0);
+    assert.equal(result.unrelated_handoffs.length, 1);
+    const routed = classifyReviewBlockedDisposition({
+      activeReviewThreadCount: 2,
+      reviewThreads: packet.reviewThreads,
+      findingEvidence: packet,
+    });
+    assert.equal(routed.disposition, 'review-blocked');
+    assert.equal(routed.raw_active_count, 2);
+    assert.equal(routed.aggregates.blocking, 1);
+    assert.equal(routed.aggregates.nonblocking, 1);
+  }
+});
+
+test('sync finding exemption rejects stale provenance, incomplete conversations and false handoffs', () => {
+  const mutations = [
+    p => { p.comments = []; },
+    p => { p.comments = null; },
+    p => { p.handoffs = null; },
+    p => { p.trustedActors = null; },
+    p => { p.comments[0].user.login = 'attacker'; },
+    p => { p.comments[0].html_url = p.comments[0].html_url.replace('/21#', '/22#'); },
+    p => { p.comments[0].body = '> ' + p.comments[0].body; },
+    p => { p.comments.push(structuredClone(p.comments[0])); },
+    p => { p.reviewThreads[0].comments.nodes[0].body += ' New evidence.'; },
+    p => { p.reviewThreads[0].comments.pageInfo.hasNextPage = true; },
+    p => { delete p.reviewThreads[0].comments.nodes[0].body; },
+    p => { p.activeReviewThreadCount = 2; },
+    p => { p.evidenceComplete = false; },
+    p => { p.handoffs = []; },
+    p => { p.handoffs[0].assignees = []; },
+    p => { p.handoffs[0].state = 'closed'; },
+    p => { p.handoffs[0].pull_request = {}; },
+    p => changeProof(p, { expires_at: '2000-01-01T00:00:00Z' }),
+    p => changeProof(p, { rationale: '' }),
+    p => changeProof(p, { evidence_urls: [] }),
+    p => changeProof(p, { remediation_owner: '' }),
+    ...['repository', 'pr', 'head_sha', 'source_commit', 'plan_id', 'delivery_generation']
+      .map(key => p => changeProof(p, { [key]: 'different' })),
+  ];
+  for (const mutate of mutations) {
+    const packet = findingPacket();
+    mutate(packet);
+    assert.equal(evaluateSyncFindingDispositions(packet).blocked, true, String(mutate));
+  }
+  const mismatch = findingPacket();
+  mismatch.activeReviewThreadCount = 0;
+  assert.equal(classifyReviewBlockedDisposition({ ...mismatch, findingEvidence: mismatch }).disposition,
+    'review-blocked', 'a false zero count must not waive actual findings');
+});
+
+for (const scenario of ['untrusted author', 'expired classification']) {
+  test(`pre-seal rejects packet-supplied validation controls for ${scenario}`, () => {
+    const { formatDeliveryRecord } = require('../sync_pr_lease_contract');
+    const packet = findingPacket();
+    const binding = packet.binding;
+    const pr = { number: binding.pr,
+      head: { ref: 'sync/workflows-candidate', sha: binding.head_sha },
+      body: formatDeliveryRecord({ repository: binding.repository,
+        source_commit: binding.source_commit, plan_id: binding.plan_id,
+        generation: binding.delivery_generation, desired_tree_hash: 'tree-21',
+        lease_expires_at: '2099-01-01T00:00:00Z',
+        durable_issue_url: 'https://github.com/stranske/Workflows/issues/1836' }) };
+    const classify = () => classifyGeneratedPr({ pr, activeReviewThreadCount: 1,
+      reviewThreads: packet.reviewThreads, findingEvidence: packet,
+      checkState: { status: 'ready' } });
+    assert.equal(classify().disposition, 'current', 'valid unrelated control');
+
+    if (scenario === 'untrusted author') {
+      packet.comments[0].user.login = 'attacker';
+      packet.trustedActors = ['attacker'];
+    } else {
+      changeProof(packet, { expires_at: '2000-01-01T00:00:00Z' });
+      packet.now = 0;
+    }
+    const direct = classifyReviewBlockedDisposition({ activeReviewThreadCount: 1,
+      reviewThreads: packet.reviewThreads, findingEvidence: packet });
+    assert.equal(direct?.disposition, 'review-blocked', 'packet cannot choose validation policy');
+    const result = classify();
+    assert.equal(result.disposition, 'review-blocked');
+    assert.equal(result.raw_active_count, 1);
+    assert.deepEqual(result.finding_disposition.unknown_thread_ids, ['PRRT_finding']);
+    assert.ok(result.finding_disposition.findings[0].errors.includes(
+      scenario === 'untrusted author' ? 'untrusted_provenance' : 'classification_expired'));
+    assert.equal(packet.reviewThreads[0].isResolved, false);
+  });
+}
+
+test('active finding exemptions require explicit complete evidence at pre-seal and canary', () => {
+  for (const completeness of [undefined, null, false, 0, 1, '', 'true', 'false']) {
+    const packet = findingPacket();
+    if (completeness === undefined) delete packet.evidenceComplete;
+    else packet.evidenceComplete = completeness;
+    const label = `evidenceComplete=${String(completeness)}`;
+    const evaluated = evaluateSyncFindingDispositions(packet);
+    assert.equal(evaluated.blocked, true, label);
+    assert.ok(evaluated.errors.includes('review_evidence_incomplete'), label);
+    assert.equal(evaluated.raw_active_count, 1);
+    assert.equal(classifyReviewBlockedDisposition({
+      activeReviewThreadCount: 1, reviewThreads: packet.reviewThreads,
+      findingEvidence: packet,
+    }).disposition, 'review-blocked', label);
+    const row = { repo: packet.binding.repository, pr: packet.binding.pr,
+      head_sha: packet.binding.head_sha, source_commit: packet.binding.source_commit,
+      plan_id: packet.binding.plan_id, delivery_generation: packet.binding.delivery_generation,
+      required_check_state: 'success', active_review_thread_count: 1,
+      review_disposition: packet };
+    assert.equal(validateCanaryEvidence([row], [row.repo]).ok, false, label);
+    assert.equal(packet.reviewThreads[0].isResolved, false);
+  }
+  assert.equal(evaluateSyncFindingDispositions(findingPacket()).blocked, false);
+  assert.equal(classifyReviewBlockedDisposition({
+    activeReviewThreadCount: 0, reviewThreads: [],
+  }), null, 'a legacy zero-debt read needs no finding exemption');
+});
+
+test('canary re-evaluates bound finding snapshots and never trusts a count-only or forged summary', () => {
+  const packet = findingPacket();
+  const row = { repo: packet.binding.repository, pr: packet.binding.pr,
+    head_sha: packet.binding.head_sha, source_commit: packet.binding.source_commit,
+    plan_id: packet.binding.plan_id, delivery_generation: packet.binding.delivery_generation,
+    required_check_state: 'success', active_review_thread_count: 1, review_disposition: packet };
+  assert.equal(validateCanaryEvidence([row], [row.repo]).ok, true);
+  for (const mutate of [
+    r => { delete r.review_disposition; },
+    r => { r.review_disposition = { blocked: false, raw_active_count: 0 }; },
+    r => { r.head_sha = 'd'.repeat(40); },
+    r => { r.pr += 1; },
+    r => { r.source_commit = 'd'.repeat(40); },
+    r => { r.delivery_generation = 'other'; },
+    r => { r.required_check_state = 'failure'; },
+    r => { r.review_disposition.handoffs = []; },
+    r => { r.review_disposition.comments[0].user.login = 'attacker';
+      r.review_disposition.trustedActors = ['attacker']; },
+  ]) {
+    const changed = structuredClone(row);
+    mutate(changed);
+    assert.equal(validateCanaryEvidence([changed], [row.repo]).ok, false, String(mutate));
+  }
+});
+
+test('canary zero count cannot mask active or incomplete disposition evidence', () => {
+  const { compactSyncFindingEvidence } = require('../sync_pr_merge_contract');
+  for (const disposition of ['shared-source', 'sync-caused', 'unknown', 'unrelated']) {
+    const packet = findingPacket(disposition);
+    const row = { repo: packet.binding.repository, pr: packet.binding.pr,
+      head_sha: packet.binding.head_sha, source_commit: packet.binding.source_commit,
+      plan_id: packet.binding.plan_id, delivery_generation: packet.binding.delivery_generation,
+      required_check_state: 'success', active_review_thread_count: 0 };
+    for (const evidence of [packet, compactSyncFindingEvidence(packet),
+      null, {}, { evidenceComplete: false, reviewThreads: [] }]) {
+      const result = validateCanaryEvidence([{ ...row, review_disposition: evidence }], [row.repo]);
+      assert.equal(result.ok, false, `${disposition}: contradictory or incomplete packet`);
+      assert.ok(result.errors.includes(`active_review_debt:${row.repo}`));
+    }
+
+    const clear = { ...packet, activeReviewThreadCount: 0,
+      reviewThreads: [], comments: [], handoffs: [] };
+    for (const evidence of [clear, compactSyncFindingEvidence(clear)]) {
+      assert.equal(validateCanaryEvidence([{ ...row, review_disposition: evidence }], [row.repo]).ok,
+        true, 'complete empty snapshots agree with a zero count');
+    }
+    assert.equal(validateCanaryEvidence([row], [row.repo]).ok, true,
+      'legacy zero-debt evidence needs no relevance exemption');
+    assert.equal(packet.reviewThreads[0].isResolved, false);
+  }
+});
+
+test('canary packet provenance must match its row even with zero review debt', () => {
+  const { compactSyncFindingEvidence } = require('../sync_pr_merge_contract');
+  for (const count of [0, 1]) {
+    const packet = findingPacket();
+    if (count === 0) {
+      packet.activeReviewThreadCount = 0;
+      packet.reviewThreads = [];
+      packet.comments = [];
+      packet.handoffs = [];
+    }
+    const row = { repo: packet.binding.repository, pr: packet.binding.pr,
+      head_sha: packet.binding.head_sha, source_commit: packet.binding.source_commit,
+      plan_id: packet.binding.plan_id, delivery_generation: packet.binding.delivery_generation,
+      required_check_state: 'success', active_review_thread_count: count };
+    for (const evidence of [packet, compactSyncFindingEvidence(packet)]) {
+      const original = { ...row, review_disposition: evidence };
+      assert.equal(validateCanaryEvidence([original], [row.repo]).ok, true);
+      for (const key of Object.keys(packet.binding)) {
+        for (const change of ['replace', 'delete']) {
+          const replayed = structuredClone(original);
+          if (change === 'delete') delete replayed.review_disposition.binding[key];
+          else replayed.review_disposition.binding[key] = key === 'pr' ? row.pr + 1 : 'other';
+          const result = validateCanaryEvidence([replayed], [row.repo]);
+          assert.equal(result.ok, false, `${count} active: ${change} packet ${key}`);
+          assert.ok(result.errors.includes(`active_review_debt:${row.repo}`));
+        }
+      }
+      for (const binding of [undefined, null, {}]) {
+        assert.equal(validateCanaryEvidence([{ ...original,
+          review_disposition: { ...evidence, binding } }], [row.repo]).ok, false,
+        `${count} active: missing packet identity`);
+      }
+      for (const [key, value] of Object.entries({ repository: 'invalid', pr: -1,
+        head_sha: 'short', source_commit: '', plan_id: '', delivery_generation: '' })) {
+        const invalid = { ...original, [key === 'repository' ? 'repo' : key]: value,
+          review_disposition: { ...evidence, binding: { ...evidence.binding, [key]: value } } };
+        assert.equal(validateCanaryEvidence([invalid], [invalid.repo]).ok, false,
+          `${count} active: matching but incomplete ${key}`);
+      }
+    }
+    assert.equal(packet.reviewThreads.length, count);
+  }
 });

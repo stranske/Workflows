@@ -1,17 +1,45 @@
 from __future__ import annotations
 
 import json
+import subprocess
 from pathlib import Path
 
 import pytest
 from scripts.select_consumer_sync_phase import (
     PhaseSelectionError,
+    _review_debt_is_clear,
     select_phase,
     validate_registered_scopes,
 )
 from scripts.sync_manifest_compiler import compile_manifest
 
 ROOT = Path(__file__).parents[2]
+
+
+def test_promotion_consumes_the_shared_finding_contract_and_fails_closed(monkeypatch) -> None:
+    fixture = ROOT / ".github/scripts/__tests__/fixtures/sync_finding_disposition.js"
+    program = (
+        "const p=require(process.argv[1]).findingPacket();"
+        "console.log(JSON.stringify({repo:p.binding.repository,pr:p.binding.pr,"
+        "head_sha:p.binding.head_sha,source_commit:p.binding.source_commit,"
+        "plan_id:p.binding.plan_id,delivery_generation:p.binding.delivery_generation,"
+        "active_review_thread_count:1,required_check_state:'success',review_disposition:p}));"
+    )
+    row = json.loads(
+        subprocess.run(
+            ["node", "-e", program, str(fixture)], capture_output=True, text=True, check=True
+        ).stdout
+    )
+    assert _review_debt_is_clear(row)
+    row["head_sha"] = "f" * 40
+    assert not _review_debt_is_clear(row)
+    row["head_sha"] = "a" * 40
+    row["review_disposition"]["handoffs"] = []
+    assert not _review_debt_is_clear(row)
+    monkeypatch.setenv("PATH", "")
+    assert not _review_debt_is_clear(row)
+
+
 REGISTERED = [
     "stranske/Travel-Plan-Permission",
     "stranske/trip-planner",
@@ -147,6 +175,33 @@ def test_promotion_requires_green_review_clear_evidence_for_each_canary() -> Non
     evidence[1]["active_review_thread_count"] = 1
 
     with pytest.raises(PhaseSelectionError, match="required_checks_not_green"):
+        select_phase(
+            compiled,
+            phase="promote",
+            registered_repos=REGISTERED,
+            canaries=CANARIES,
+            evidence=evidence,
+        )
+
+
+@pytest.mark.parametrize(
+    "packet",
+    [
+        None,
+        {},
+        {"evidenceComplete": False, "reviewThreads": []},
+        {
+            "evidenceComplete": True,
+            "reviewThreads": [{"isResolved": False, "isOutdated": False}],
+        },
+    ],
+)
+def test_promotion_rejects_zero_count_with_attached_invalid_finding_evidence(packet) -> None:
+    compiled = plan()
+    evidence = green_evidence(compiled["plan_id"])
+    evidence[0]["review_disposition"] = packet
+
+    with pytest.raises(PhaseSelectionError, match="active_review_debt"):
         select_phase(
             compiled,
             phase="promote",
