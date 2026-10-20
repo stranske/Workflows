@@ -510,7 +510,12 @@ def fetch_scorecard_api(
         with urllib.request.urlopen(request, timeout=timeout) as response:
             payload = json.loads(response.read().decode("utf-8"))
     except urllib.error.HTTPError as exc:
-        return False, None, f"HTTP {exc.code} for {url}"
+        # HTTPError owns a response body; close it so TemporaryFileCloser does not
+        # emit ResourceWarning on GC (Python 3.14+).
+        try:
+            return False, None, f"HTTP {exc.code} for {url}"
+        finally:
+            exc.close()
     except urllib.error.URLError as exc:
         return False, None, f"network error for {url}: {exc.reason}"
     except (TimeoutError, json.JSONDecodeError, OSError) as exc:

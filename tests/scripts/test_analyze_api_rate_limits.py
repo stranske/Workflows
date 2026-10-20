@@ -811,3 +811,50 @@ def test_main_human_output_critical_and_no_limits(monkeypatch, capsys) -> None:
     monkeypatch.setattr(analyze_api_rate_limits, "analyze_rate_limits", lambda _tokens: [])
     assert analyze_api_rate_limits.main() == 1
     assert "Could not retrieve" in capsys.readouterr().err
+
+
+def test_rate_limit_edge_helpers_cover_remaining_branches(monkeypatch, capsys) -> None:
+    # Extreme timestamps raise OSError/ValueError from fromtimestamp on some platforms.
+    weird = analyze_api_rate_limits.RateLimitInfo(
+        limit=1, remaining=0, used=1, reset_timestamp=10**20
+    )
+    assert weird.reset_time == "unknown"
+
+    now = analyze_api_rate_limits._normalize_now(None)
+    assert now.tzinfo is not None
+    assert analyze_api_rate_limits._split_repo_entries("   ") == []
+    assert analyze_api_rate_limits.summarize_workflow_activity([]) == []
+    # Host-strip path rewrites git@www.github.com:* to www.github.com:* before the
+    # later git@www.github.com branches (dead after that rewrite). Cover the live path.
+    assert analyze_api_rate_limits._clean_repo("www.github.com:22/owner/repo.git") == "owner/repo"
+    assert analyze_api_rate_limits._clean_repo("github.com:owner/repo") == "owner/repo"
+    assert analyze_api_rate_limits._clean_repo("") == ""
+    # Multi-token input prefers a simple owner/repo token over other noise.
+    assert analyze_api_rate_limits._clean_repo("note owner/repo leftover") == "owner/repo"
+    # Scheme-bearing last-resort tokens still normalize when possible.
+    assert analyze_api_rate_limits._clean_repo("x ftp://host/owner/repo y") == "ftp:/host"
+
+    low = _token_limits("low")
+    high = _token_limits("high")
+    high.core = _limit(10)
+    low.core = _limit(90)
+    analyze_api_rate_limits.print_load_balance_analysis([low, high])
+    assert "unevenly distributed" in capsys.readouterr().out
+
+    monkeypatch.setenv("GITHUB_TOKEN", "token")
+    monkeypatch.setattr(analyze_api_rate_limits.sys, "argv", ["script", "--json"])
+    monkeypatch.setattr(
+        analyze_api_rate_limits,
+        "analyze_rate_limits",
+        lambda _tokens: [
+            _token_limits("GITHUB_TOKEN", code_search=True, actions_runner=True),
+            _token_limits("PLAIN"),
+        ],
+    )
+    assert analyze_api_rate_limits.main() == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert "workflow_activity" not in payload
+    assert "code_search" in payload["tokens"]["GITHUB_TOKEN"]
+    assert "actions_runner_registration" in payload["tokens"]["GITHUB_TOKEN"]
+    assert "code_search" not in payload["tokens"]["PLAIN"]
+    assert "actions_runner_registration" not in payload["tokens"]["PLAIN"]

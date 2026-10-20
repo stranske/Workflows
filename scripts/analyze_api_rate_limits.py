@@ -40,7 +40,7 @@ class RateLimitInfo:
         try:
             dt = datetime.fromtimestamp(self.reset_timestamp, tz=UTC)
             return dt.strftime("%Y-%m-%d %H:%M:%S UTC")
-        except (OSError, ValueError):
+        except (OSError, OverflowError, ValueError):
             return "unknown"
 
 
