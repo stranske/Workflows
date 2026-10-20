@@ -665,6 +665,10 @@ def test_registry_surfaces_latest_timestamp_and_cli_error_paths(
     ("timestamps", "expected"),
     [
         (["bad", None, ""], None),
+        (
+            ["bad", "2026-01-01T00:00:00Z"],
+            datetime(2026, 1, 1, tzinfo=UTC),
+        ),
         (["2026-01-01T00:00:00"], datetime(2026, 1, 1, tzinfo=UTC)),
         (
             ["2026-01-02T00:00:00Z", "2026-01-01T00:00:00Z"],
@@ -675,7 +679,7 @@ def test_registry_surfaces_latest_timestamp_and_cli_error_paths(
             datetime(2026, 1, 2, 1, tzinfo=UTC),
         ),
     ],
-    ids=["invalid", "naive-utc", "newest-first", "offset-order"],
+    ids=["invalid", "invalid-then-valid", "naive-utc", "newest-first", "offset-order"],
 )
 def test_latest_recorded_at_ignores_invalid_and_compares_instants(
     timestamps: list[str | None], expected: datetime | None
