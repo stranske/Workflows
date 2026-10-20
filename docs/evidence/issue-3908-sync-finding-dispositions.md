@@ -1,5 +1,40 @@
 # Issue 3908: sync finding relevance contract
 
+## Failed handoff-read regression follow-up
+
+Three named orchestration regressions now cover a previously verified local
+handoff becoming deleted (HTTP 404), inaccessible (403), or unavailable (503).
+Each test uses an in-memory API fixture, verifies that all three review
+boundaries block, and preserves the raw active count, unknown/blocking finding
+identity and unresolved original thread. Canary promotion retains incomplete
+evidence and cannot reuse the earlier valid handoff.
+
+Validation on the restored implementation:
+
+- The exact required two-file `node --test` command exits 0 (two file-level
+  passes in this sandbox). With `--test-isolation=none --test-reporter=tap`,
+  **236 named tests pass, zero failures or skips**.
+- `python -m pytest tests/scripts/test_select_consumer_sync_phase.py -q
+  -m 'not slow' -o addopts=`: **22 passed**.
+- `sync finding unknown fails closed and mixed findings retain every blocker`:
+  unknown-as-nonblocking mutation **exit 1, ERR_ASSERTION**; restored **exit 0**.
+- `stale-head final sync finding gate rejects an unrelated record after pre-seal`:
+  unconditional unrelated acceptance mutation **exit 1, ERR_ASSERTION**;
+  restored **exit 0**. Both restored runs execute one named test. SHA-256
+  checks confirm exact-byte restoration; neither mutation is shipped.
+- `git diff --check`: pass.
+
+The disposition-to-gate table below remains applicable. This test addition
+neither clears the current shared-code blockers nor creates an additional
+campaign #1836 prerequisite.
+
+The commit attempt failed because `.git/index.lock` cannot be created on the
+read-only filesystem. PR #4144 was verified open with `draft=false`. The PR body
+update was rejected with `MCP tool call requires approval, but approval policy
+is never`; the prepared update, including the named failing/restored tests and
+disposition table, is retained at `/tmp/sync-pr-4144-body.md`. The test and
+evidence additions remain uncommitted and the remote PR body is unchanged.
+
 ## Malformed review-count follow-up
 
 Reconciliation of the six recent commits and live PR #4144 found all 16 task

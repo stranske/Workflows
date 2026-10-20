@@ -353,6 +353,54 @@ test('final sync finding evidence rejects edited findings, lost handoffs and par
   }
 });
 
+for (const [status, reason] of [[404, 'deleted'], [403, 'inaccessible'], [503, 'unavailable']]) {
+  test(`${reason} local handoff blocks pre-seal, final merge and canary without hiding the finding`, async () => {
+    const h = findingGateHarness();
+    const valid = await confirmExactHeadSyncFindingGate(h.args);
+    assert.equal(valid.ok, true, 'the assigned local issue initially permits unrelated debt');
+    const read = h.args.read;
+    h.args.read = fn => read(client => fn({ ...client, rest: { ...client.rest,
+      issues: { ...client.rest.issues, get: async params => {
+        assert.deepEqual(params, { owner: 'stranske', repo: 'Ready', issue_number: 31 });
+        throw Object.assign(new Error(`handoff ${reason}`), { status });
+      } },
+    } }));
+
+    const final = await confirmExactHeadSyncFindingGate(h.args);
+    assert.equal(final.ok, false, 'a previously valid handoff cannot survive a failed fresh read');
+    assert.equal(final.packet.evidenceComplete, false);
+    assert.equal(final.packet.error, `handoff ${reason}`);
+    assert.deepEqual(final.evaluation.errors, ['review_evidence_incomplete']);
+    assert.equal(final.evaluation.raw_active_count, 1);
+    assert.deepEqual(final.evaluation.blocking_thread_ids, ['PRRT_finding']);
+    assert.deepEqual(final.evaluation.unknown_thread_ids, ['PRRT_finding']);
+    assert.deepEqual(final.evaluation.nonblocking_thread_ids, []);
+    assert.deepEqual(final.evaluation.unrelated_handoffs, []);
+    assert.deepEqual(final.evaluation.findings[0].errors, ['durable_local_handoff_unverified']);
+
+    const preSeal = classifyGeneratedPr({ pr: h.pr, activeReviewThreadCount: 1,
+      reviewThreads: h.packet.reviewThreads, findingEvidence: final.packet,
+      checkState: { status: 'ready' } });
+    assert.equal(preSeal.disposition, 'review-blocked');
+    assert.deepEqual(preSeal.finding_disposition, final.evaluation);
+    const row = { repo: h.packet.binding.repository, pr: h.pr.number,
+      head_sha: h.pr.head.sha, source_commit: h.record.source_commit,
+      plan_id: h.record.plan_id, delivery_generation: h.record.generation,
+      evidence_source: 'open-candidate', required_check_state: 'success',
+      active_review_thread_count: 1, review_disposition: final.packet };
+    const built = require('../maint71_merge_sync_prs').buildCanaryPromotionEvidence([row], [row.repo]);
+    assert.equal(built.ok, false);
+    assert.deepEqual(built.errors, [`active_review_debt:${row.repo}`]);
+    const retained = built.evidence.results[0];
+    assert.equal(retained.active_review_thread_count, 1);
+    assert.equal(retained.review_disposition.evidenceComplete, false);
+    assert.deepEqual(retained.review_disposition.reviewThreads.map(thread => thread.id), ['PRRT_finding']);
+    assert.deepEqual(retained.review_disposition.handoffs, []);
+    assert.equal(validateCanaryEvidence([retained], [row.repo]).ok, false);
+    assert.equal(h.packet.reviewThreads[0].isResolved, false);
+  });
+}
+
 const refreshNow = Date.parse('2026-10-17T12:00:00Z');
 
 function sealedGateHarness(t) {
