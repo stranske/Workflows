@@ -1,9 +1,29 @@
 from __future__ import annotations
 
 import json
+import subprocess
 from datetime import UTC, datetime
 
 from scripts import analyze_api_rate_limits
+
+
+def _limit(used: int, *, limit: int = 100) -> analyze_api_rate_limits.RateLimitInfo:
+    return analyze_api_rate_limits.RateLimitInfo(
+        limit=limit, remaining=limit - used, used=used, reset_timestamp=0
+    )
+
+
+def _token_limits(
+    source: str = "token", *, code_search: bool = False, actions_runner: bool = False
+) -> analyze_api_rate_limits.TokenRateLimits:
+    return analyze_api_rate_limits.TokenRateLimits(
+        source=source,
+        core=_limit(90),
+        graphql=_limit(60),
+        search=_limit(10),
+        code_search=_limit(5) if code_search else None,
+        actions_runner=_limit(5) if actions_runner else None,
+    )
 
 
 def test_parse_github_timestamp() -> None:
@@ -712,3 +732,82 @@ def test_print_utilization_table_skips_optional_section_without_resources(capsys
     output = capsys.readouterr().out
 
     assert "OPTIONAL RESOURCE UTILIZATION" not in output
+
+
+def test_rate_limit_models_and_api_helpers_cover_success_and_failure(monkeypatch, capsys) -> None:
+    payload = {
+        "resources": {
+            "core": {"limit": 100, "remaining": 10, "used": 90, "reset": 0},
+            "graphql": {"limit": 100, "remaining": 40, "used": 60, "reset": 0},
+            "search": {"limit": 30, "remaining": 27, "used": 3, "reset": 0},
+            "code_search": {"limit": 10, "remaining": 5, "used": 5, "reset": 0},
+            "actions_runner_registration": {"limit": 10, "remaining": 2, "used": 8, "reset": 0},
+        }
+    }
+
+    def successful_run(*_args, **kwargs):
+        assert kwargs["env"]["GH_TOKEN"] == "secret"
+        return subprocess.CompletedProcess([], 0, json.dumps(payload), "")
+
+    monkeypatch.setattr(analyze_api_rate_limits.subprocess, "run", successful_run)
+    assert analyze_api_rate_limits.get_rate_limits("secret") == payload
+    assert analyze_api_rate_limits.get_workflow_runs("owner/repo", "secret") == payload
+    limits = analyze_api_rate_limits.TokenRateLimits.from_api_response("token", payload)
+    assert limits.code_search is not None
+    assert limits.actions_runner is not None
+    assert limits.core.utilization_pct == 90
+    assert _limit(0, limit=0).utilization_pct == 0
+    assert _limit(1).reset_time == "1970-01-01 00:00:00 UTC"
+
+    def failed_run(*_args, **_kwargs):
+        raise subprocess.CalledProcessError(1, "gh")
+
+    monkeypatch.setattr(analyze_api_rate_limits.subprocess, "run", failed_run)
+    assert analyze_api_rate_limits.get_rate_limits() is None
+    assert analyze_api_rate_limits.get_workflow_runs("owner/repo") == {
+        "workflow_runs": [],
+        "total_count": 0,
+    }
+    assert "Failed to get" in capsys.readouterr().err
+
+
+def test_analyze_and_print_helpers_cover_all_output_branches(monkeypatch, capsys) -> None:
+    responses = iter(
+        [
+            {"resources": {"core": {"limit": 1, "used": 1, "remaining": 0, "reset": 0}}},
+            None,
+        ]
+    )
+    monkeypatch.setattr(analyze_api_rate_limits, "get_rate_limits", lambda _token: next(responses))
+    limits = analyze_api_rate_limits.analyze_rate_limits({"one": "a", "two": "b"})
+    assert [item.source for item in limits] == ["one"]
+    analyze_api_rate_limits.print_warnings([])
+    analyze_api_rate_limits.print_load_balance_analysis([_token_limits()])
+    analyze_api_rate_limits.print_load_balance_analysis(
+        [_token_limits("one"), _token_limits("two")]
+    )
+    analyze_api_rate_limits.print_workflow_activity([])
+    analyze_api_rate_limits.print_workflow_activity(
+        [{"repo": "owner/repo", "window_hours": 1, "recent_runs": 2, "total_runs": 3}]
+    )
+    analyze_api_rate_limits.print_recommendations()
+    output = capsys.readouterr().out
+    assert "All tokens within normal ranges" in output
+    assert "Only 1 token" in output
+    assert "Load is reasonably balanced" in output
+    assert "owner/repo: 2 run(s)" in output
+
+
+def test_main_human_output_critical_and_no_limits(monkeypatch, capsys) -> None:
+    monkeypatch.setenv("GITHUB_TOKEN", "token")
+    monkeypatch.setenv("CUSTOM_PAT", "pat")
+    monkeypatch.setattr(analyze_api_rate_limits.sys, "argv", ["script", "--pat-env", "CUSTOM_PAT"])
+    monkeypatch.setattr(
+        analyze_api_rate_limits, "analyze_rate_limits", lambda _tokens: [_token_limits()]
+    )
+    assert analyze_api_rate_limits.main() == 1
+    assert "CRITICAL" in capsys.readouterr().out
+
+    monkeypatch.setattr(analyze_api_rate_limits, "analyze_rate_limits", lambda _tokens: [])
+    assert analyze_api_rate_limits.main() == 1
+    assert "Could not retrieve" in capsys.readouterr().err
