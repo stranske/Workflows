@@ -423,6 +423,9 @@ function classifyReviewBlockedDisposition({
   }
   const findingDisposition = evaluateSyncFindingDispositions({
     ...(findingEvidence || {}), reviewThreads: findingEvidence?.reviewThreads || reviewThreads,
+    // Evidence carries observations, not permission to replace the source's
+    // authority list or replay an earlier classification clock.
+    trustedActors: SYNC_FINDING_DISPOSITION_ACTORS, now: Date.now(),
     activeReviewThreadCount: reviewThreadCount,
   });
   // Nonblocking relevance (all verified unrelated, or zero active debt) stays

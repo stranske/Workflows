@@ -71,6 +71,8 @@ conversation afterward. Before sealing, the classifier derives the expected
 binding from the selected PR and delivery record; an internally valid packet
 from a different head, PR, repository, source, plan or generation cannot exempt
 that delivery. A head change requires a renewed owner classification.
+Pre-seal validation uses the source-owned authority list and current clock;
+packet-supplied validation controls cannot authorize an author or renew an expired record.
 Arbitrary PR prose, quoted protocol examples, supplied
 `verified` booleans, stale records, conflicting current records, incomplete
 pagination and missing policy cannot grant an exemption. Publishing a record

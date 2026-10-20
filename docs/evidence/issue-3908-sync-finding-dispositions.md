@@ -1,5 +1,43 @@
 # Issue 3908: sync finding relevance contract
 
+## Pre-seal validation authority and clock follow-up
+
+Recent commits and live PR #4144 were reconciled: all 16 task/acceptance
+checkboxes are already checked; the PR is open and ready for review. A remaining
+pre-seal inconsistency accepted `trustedActors` and `now` from finding evidence.
+Pre-seal now pins the source-owned authority list and current clock, matching
+canary validation. The original findings remain unresolved and auditable.
+
+The two `pre-seal rejects packet-supplied validation controls for ...` tests
+(`untrusted author` and `expired classification`) fail with `ERR_ASSERTION`
+before the repair and pass afterward. Two matching `review boundaries reject
+packet-supplied validation controls for ...` orchestration tests verify agreement
+across pre-seal, final merge and canary, retaining raw counts and unknown identities.
+
+Validation:
+
+- The exact required two-file `node --test` command passes; adding
+  `--test-isolation=none --test-reporter=tap` executes **240 named tests, all
+  passing with zero skips**.
+- `python -m pytest tests/scripts/test_select_consumer_sync_phase.py -q
+  -m 'not slow' -o addopts=`: **22 passed**.
+- `sync finding unknown fails closed and mixed findings retain every blocker`:
+  unknown-as-nonblocking mutation **exit 1, ERR_ASSERTION**; restored **exit 0**.
+- `stale-head final sync finding gate rejects an unrelated record after pre-seal`:
+  unconditional unrelated acceptance mutation **exit 1, ERR_ASSERTION**;
+  restored **exit 0**. Both restorations pass one named test and are SHA-256
+  verified byte for byte. Neither mutation is shipped.
+- `git diff --check`: pass. No Python source or workflow file changed.
+
+The disposition-to-gate table below remains applicable. This repair does not
+clear the shared-code blockers or add a campaign #1836 prerequisite.
+
+The required commit attempt failed: `.git/index.lock` cannot be created on the
+read-only filesystem. Changes remain uncommitted. The PR-body update was rejected
+with `MCP tool call requires approval, but approval policy is never`; the prepared
+body with named mutation proofs and the disposition table is retained at
+`/tmp/sync-pr-4144-body.md`. The live PR's 16 checked tasks remain unchanged.
+
 ## Failed handoff-read regression follow-up
 
 Three named orchestration regressions now cover a previously verified local

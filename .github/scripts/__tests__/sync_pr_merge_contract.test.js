@@ -4137,6 +4137,43 @@ test('sync finding exemption rejects stale provenance, incomplete conversations 
     'review-blocked', 'a false zero count must not waive actual findings');
 });
 
+for (const scenario of ['untrusted author', 'expired classification']) {
+  test(`pre-seal rejects packet-supplied validation controls for ${scenario}`, () => {
+    const { formatDeliveryRecord } = require('../sync_pr_lease_contract');
+    const packet = findingPacket();
+    const binding = packet.binding;
+    const pr = { number: binding.pr,
+      head: { ref: 'sync/workflows-candidate', sha: binding.head_sha },
+      body: formatDeliveryRecord({ repository: binding.repository,
+        source_commit: binding.source_commit, plan_id: binding.plan_id,
+        generation: binding.delivery_generation, desired_tree_hash: 'tree-21',
+        lease_expires_at: '2099-01-01T00:00:00Z',
+        durable_issue_url: 'https://github.com/stranske/Workflows/issues/1836' }) };
+    const classify = () => classifyGeneratedPr({ pr, activeReviewThreadCount: 1,
+      reviewThreads: packet.reviewThreads, findingEvidence: packet,
+      checkState: { status: 'ready' } });
+    assert.equal(classify().disposition, 'current', 'valid unrelated control');
+
+    if (scenario === 'untrusted author') {
+      packet.comments[0].user.login = 'attacker';
+      packet.trustedActors = ['attacker'];
+    } else {
+      changeProof(packet, { expires_at: '2000-01-01T00:00:00Z' });
+      packet.now = 0;
+    }
+    const direct = classifyReviewBlockedDisposition({ activeReviewThreadCount: 1,
+      reviewThreads: packet.reviewThreads, findingEvidence: packet });
+    assert.equal(direct?.disposition, 'review-blocked', 'packet cannot choose validation policy');
+    const result = classify();
+    assert.equal(result.disposition, 'review-blocked');
+    assert.equal(result.raw_active_count, 1);
+    assert.deepEqual(result.finding_disposition.unknown_thread_ids, ['PRRT_finding']);
+    assert.ok(result.finding_disposition.findings[0].errors.includes(
+      scenario === 'untrusted author' ? 'untrusted_provenance' : 'classification_expired'));
+    assert.equal(packet.reviewThreads[0].isResolved, false);
+  });
+}
+
 test('active finding exemptions require explicit complete evidence at pre-seal and canary', () => {
   for (const completeness of [undefined, null, false, 0, 1, '', 'true', 'false']) {
     const packet = findingPacket();

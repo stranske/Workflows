@@ -93,6 +93,45 @@ test('pre-seal, final sync finding gate and canary agree without resolving the o
   }
 });
 
+for (const scenario of ['untrusted author', 'expired classification']) {
+  test(`review boundaries reject packet-supplied validation controls for ${scenario}`, async () => {
+    const h = findingGateHarness();
+    assert.equal((await confirmExactHeadSyncFindingGate(h.args)).ok, true);
+    if (scenario === 'untrusted author') {
+      h.packet.comments[0].user.login = 'attacker';
+      h.packet.trustedActors = ['attacker'];
+    } else {
+      changeProof(h.packet, { expires_at: '2000-01-01T00:00:00Z' });
+      h.packet.now = 0;
+    }
+    const preSeal = classifyGeneratedPr({ pr: h.pr, activeReviewThreadCount: 1,
+      reviewThreads: h.packet.reviewThreads, findingEvidence: h.packet,
+      checkState: { status: 'ready' } });
+    const final = await confirmExactHeadSyncFindingGate(h.args);
+    assert.equal(preSeal.disposition, 'review-blocked');
+    assert.equal(final.ok, false);
+    for (const key of ['blocked', 'raw_active_count', 'aggregates', 'unknown_thread_ids',
+      'blocking_thread_ids', 'unrelated_handoffs']) {
+      assert.deepEqual(preSeal.finding_disposition[key], final.evaluation[key], key);
+    }
+    const expectedError = scenario === 'untrusted author'
+      ? 'untrusted_provenance' : 'classification_expired';
+    assert.ok(preSeal.finding_disposition.findings[0].errors.includes(expectedError));
+    assert.ok(final.evaluation.findings[0].errors.includes(expectedError));
+    // Replay the same contaminated packet through canary validation too.
+    const row = { repo: h.packet.binding.repository, pr: h.pr.number,
+      head_sha: h.pr.head.sha, source_commit: h.record.source_commit,
+      plan_id: h.record.plan_id, delivery_generation: h.record.generation,
+      required_check_state: 'success', active_review_thread_count: 1,
+      review_disposition: h.packet };
+    assert.ok(validateCanaryEvidence([row], [row.repo]).errors
+      .includes(`active_review_debt:${row.repo}`));
+    assert.equal(final.evaluation.raw_active_count, 1);
+    assert.deepEqual(final.evaluation.unknown_thread_ids, ['PRRT_finding']);
+    assert.equal(h.packet.reviewThreads[0].isResolved, false);
+  });
+}
+
 test('stale-head final sync finding gate rejects an unrelated record after pre-seal', async () => {
   const h = findingGateHarness();
   assert.equal((await confirmExactHeadSyncFindingGate(h.args)).ok, true);
