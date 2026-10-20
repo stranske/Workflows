@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import builtins
 import json
 import sys
 import types
@@ -79,9 +80,7 @@ def test_fallback_helpers_cover_fences_dedup_and_environment(monkeypatch, tmp_pa
     ) == ["one"]
 
 
-def test_extract_context_uses_llm_response_and_falls_back_after_missing_dependency(
-    monkeypatch,
-) -> None:
+def test_extract_context_uses_llm_response(monkeypatch) -> None:
     class Response:
         content = "LLM context"
 
@@ -106,6 +105,32 @@ def test_extract_context_uses_llm_response_and_falls_back_after_missing_dependen
     )
     monkeypatch.setitem(sys.modules, "langchain_core.prompts", prompts)
     assert context_extractor.extract_context("body")["context_section"] == "LLM context"
+
+
+def test_extract_context_falls_back_after_missing_dependency(monkeypatch) -> None:
+    real_import = builtins.__import__
+    imports = []
+
+    def import_without_prompts(name, *args, **kwargs):
+        if name == "langchain_core.prompts":
+            imports.append(name)
+            raise ImportError("test: langchain_core.prompts unavailable")
+        return real_import(name, *args, **kwargs)
+
+    def unexpected_invoke(*args, **kwargs):
+        raise AssertionError("missing dependency must not invoke the LLM")
+
+    monkeypatch.setattr(context_extractor, "_capped_issue_body", lambda text, _: text)
+    monkeypatch.setattr(context_extractor, "_get_llm_client", lambda: (object(), "openai"))
+    monkeypatch.setattr(context_extractor, "invoke_with_trace", unexpected_invoke)
+    monkeypatch.setattr(builtins, "__import__", import_without_prompts)
+    body = "Constraint: preserve CLI output"
+    assert context_extractor.extract_context(body) == {
+        "context_section": context_extractor._fallback_extract(body, []),
+        "provider_used": None,
+        "used_llm": False,
+    }
+    assert imports == ["langchain_core.prompts"]
 
 
 def test_context_cli_cap_and_github_models_auth_fallback(monkeypatch, tmp_path, capsys) -> None:
@@ -142,7 +167,13 @@ def test_context_cli_cap_and_github_models_auth_fallback(monkeypatch, tmp_path, 
     )
     monkeypatch.setitem(sys.modules, "langchain_core.prompts", prompts)
     clients = [(object(), "github-models"), (object(), "openai")]
-    monkeypatch.setattr(context_extractor, "_get_llm_client", lambda **_: clients.pop(0))
+    client_calls = []
+
+    def get_client(**kwargs):
+        client_calls.append(kwargs)
+        return clients.pop(0)
+
+    monkeypatch.setattr(context_extractor, "_get_llm_client", get_client)
     monkeypatch.setattr(context_extractor, "_load_prompt", lambda: "prompt")
     monkeypatch.setattr(context_extractor, "TraceInfo", Trace)
     calls = {"count": 0}
@@ -155,6 +186,7 @@ def test_context_cli_cap_and_github_models_auth_fallback(monkeypatch, tmp_path, 
 
     monkeypatch.setattr(context_extractor, "invoke_with_trace", invoke)
     assert context_extractor.extract_context("body")["provider_used"] == "openai"
+    assert client_calls == [{}, {"force_openai": True}]
 
     input_file = tmp_path / "issue.md"
     input_file.write_text("Constraint: preserve CLI output", encoding="utf-8")
