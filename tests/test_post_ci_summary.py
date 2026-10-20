@@ -605,3 +605,304 @@ def test_post_ci_helpers_preserve_safe_empty_and_fallback_rendering(tmp_path: Pa
     assert "### Coverage Overview" in summary
     assert "| only | table |" in summary
     assert "triage" in summary
+
+
+def test_default_required_groups_used_when_derivation_is_empty(monkeypatch) -> None:
+    monkeypatch.setattr(post_ci_summary, "_derive_required_groups_from_runs", lambda _runs: [])
+    assert post_ci_summary._load_required_groups(None, []) == post_ci_summary._copy_required_groups(
+        post_ci_summary.DEFAULT_REQUIRED_JOB_GROUPS
+    )
+    assert post_ci_summary._load_required_groups("{", []) == post_ci_summary._copy_required_groups(
+        post_ci_summary.DEFAULT_REQUIRED_JOB_GROUPS
+    )
+    assert post_ci_summary._load_required_groups("{}", []) == post_ci_summary._copy_required_groups(
+        post_ci_summary.DEFAULT_REQUIRED_JOB_GROUPS
+    )
+    assert post_ci_summary._load_required_groups("[]", []) == post_ci_summary._copy_required_groups(
+        post_ci_summary.DEFAULT_REQUIRED_JOB_GROUPS
+    )
+
+
+def test_derive_required_groups_skips_duplicate_casefold_matches() -> None:
+    runs = [
+        {
+            "jobs": [
+                {"name": "Core Tests (3.12)"},
+                {"name": "core tests (3.12)"},
+                {"name": "Unrelated Job"},
+            ]
+        }
+    ]
+    groups = post_ci_summary._derive_required_groups_from_runs(runs)
+    assert groups[0]["patterns"] == [r"^Core\ Tests\ \(3\.12\)$"]
+
+
+def test_load_required_groups_skips_empty_pattern_lists() -> None:
+    raw = json.dumps(
+        [
+            {"label": "empty", "patterns": ["", None]},
+            {"label": "ok", "patterns": ["Unit"]},
+            {"name": "alias", "patterns": ["Lint"]},
+        ]
+    )
+    groups = post_ci_summary._load_required_groups(raw, [])
+    assert groups == [
+        {"label": "ok", "patterns": ["Unit"]},
+        {"label": "alias", "patterns": ["Lint"]},
+    ]
+
+
+def test_append_helpers_respect_limits_and_blank_lines() -> None:
+    lines: list[str] = []
+    post_ci_summary._append_line(lines, "  keep  ", 1)
+    post_ci_summary._append_line(lines, "ignored", 1)
+    post_ci_summary._append_line(lines, "   ", 5)
+    assert lines == ["keep"]
+    more: list[str] = []
+    post_ci_summary._append_text(more, "a\n\nb\nc", 2)
+    assert more == ["a", "b"]
+
+
+def test_junit_collection_skips_unreadable_files_and_honors_limit(tmp_path: Path) -> None:
+    downloads = tmp_path / "downloads"
+    downloads.mkdir()
+    unreadable = downloads / "pytest-junit.xml"
+    unreadable.write_text("<testcase></testcase>", encoding="utf-8")
+    unreadable.chmod(0)
+    try:
+        assert post_ci_summary._collect_junit_failures(tmp_path, 5) == []
+    finally:
+        unreadable.chmod(0o644)
+
+    readable = downloads / "nested"
+    readable.mkdir()
+    (readable / "pytest-junit.xml").write_text(
+        '<testcase file="a.py" line="1"><failure message="one">body</failure>'
+        '<error message="two">more</error></testcase>'
+        '<testcase file="b.py"><failure message="three">x</failure></testcase>',
+        encoding="utf-8",
+    )
+    assert post_ci_summary._collect_junit_failures(tmp_path, 3) == [
+        'File "a.py", line 1',
+        "one",
+        "body",
+    ]
+
+
+def test_check_failure_lines_and_gate_summary_edge_cases(tmp_path: Path) -> None:
+    assert post_ci_summary._load_gate_summary_records(tmp_path) == []
+    assert post_ci_summary._collect_check_failure_lines(
+        [
+            {"checks": "bad"},
+            {
+                "checks": {
+                    "type_check": {"outcome": "success"},
+                    "tests": "bad",
+                    "coverage_minimum": {"outcome": "cancelled"},
+                }
+            },
+        ]
+    ) == ["coverage failure: coverage minimum check failed"]
+
+
+def test_playbook_link_rejects_control_chars_and_unsafe_server(monkeypatch) -> None:
+    monkeypatch.setenv("GITHUB_REPOSITORY", "stranske/Workflows")
+    assert (
+        post_ci_summary._playbook_link("https://example.com/a b", None)
+        == "unavailable playbook URL"
+    )
+    monkeypatch.setenv("GITHUB_SERVER_URL", "ftp://github.com")
+    assert (
+        post_ci_summary._playbook_link("docs/CI_FAILURE_PLAYBOOK.md", "a" * 40)
+        == "unavailable playbook URL"
+    )
+    monkeypatch.setenv("GITHUB_SERVER_URL", "https://user:pass@github.com")
+    assert (
+        post_ci_summary._playbook_link("docs/CI_FAILURE_PLAYBOOK.md", "a" * 40)
+        == "unavailable playbook URL"
+    )
+
+
+def test_format_triage_includes_files_and_playbook(monkeypatch) -> None:
+    monkeypatch.setenv("GITHUB_REPOSITORY", "stranske/Workflows")
+    finding = type(
+        "Finding",
+        (),
+        {
+            "error_type": "pytest",
+            "root_cause": "assert failed",
+            "suggested_fix": "fix test",
+            "relevant_files": ["tests/a.py"],
+            "playbook_url": "docs/CI_FAILURE_PLAYBOOK.md#test-failures",
+        },
+    )()
+    report = type("Report", (), {"findings": [finding], "summary": "one finding"})()
+    monkeypatch.setattr(post_ci_summary, "triage_ci_failure", lambda _text: report)
+    lines = post_ci_summary._format_triage_block("= FAILURES =", head_sha="b" * 40)
+    assert "relevant_files: tests/a.py" in "\n".join(lines)
+    assert "playbook_url:" in "\n".join(lines)
+
+
+def test_collect_triage_dedupes_and_stops_at_limit(tmp_path: Path, monkeypatch) -> None:
+    downloads = tmp_path / "downloads"
+    downloads.mkdir()
+    _write_json(
+        downloads / "summary.json",
+        {"checks": {"tests": {"outcome": "failure"}, "type_check": {"outcome": "failure"}}},
+    )
+    (downloads / "pytest-junit.xml").write_text(
+        "".join(
+            f'<testcase name="t{i}"><failure message="fail-{i}">x</failure></testcase>'
+            for i in range(5)
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        post_ci_summary,
+        "_format_triage_block",
+        lambda text, head_sha=None: [f"lines={len(text.splitlines())}"],
+    )
+    assert post_ci_summary._collect_triage_block(tmp_path) == ["lines=8"]
+
+
+def test_dedupe_runs_handles_non_string_keys_and_state_replacement() -> None:
+    runs = [
+        "skip",
+        {"key": 7, "present": True, "status": "success"},
+        {"key": 7, "present": True, "status": "failure"},
+        {"key": None, "present": True, "status": "queued"},
+        {"key": "  ", "present": True, "status": "success"},
+        {"key": "gate", "present": True, "conclusion": None, "status": None},
+        {"key": "gate", "present": True, "status": "queued"},
+    ]
+    deduped = post_ci_summary._dedupe_runs(runs)
+    assert any(run.get("key") == 7 and run.get("status") == "failure" for run in deduped)
+    assert any(run.get("key") == "gate" and run.get("status") == "queued" for run in deduped)
+    assert sum(1 for run in deduped if run.get("key") in {None, "  "}) == 2
+
+
+def test_required_segments_skip_blank_labels_and_duplicate_names() -> None:
+    runs = [
+        {
+            "present": True,
+            "jobs": [
+                {"name": "Lint", "conclusion": "success"},
+                {"name": "lint", "conclusion": "failure"},
+                {"name": "", "conclusion": "success"},
+            ],
+        },
+        {"present": True, "jobs": "bad"},
+    ]
+    segments = post_ci_summary._collect_required_segments(
+        runs,
+        [
+            {"label": "  ", "patterns": ["Lint"]},
+            {"label": "lint-group", "patterns": [1, "Lint"]},
+        ],
+    )
+    assert segments == ["Lint: ❌ failure"]
+
+
+def test_build_summary_docs_only_and_coverage_section_only(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setattr(
+        post_ci_summary,
+        "_is_docs_only_fast_pass",
+        lambda _states: True,
+    )
+    monkeypatch.setattr(post_ci_summary, "_load_required_contexts", lambda _path=None: [])
+    summary = post_ci_summary.build_summary_comment(
+        runs=_sample_runs(
+            {
+                "Core Tests (3.12)": "skipped",
+                "Core Tests (3.13)": "skipped",
+                "Docker Smoke": "skipped",
+            }
+        ),
+        head_sha=None,
+        coverage_stats=None,
+        coverage_section="section only",
+        coverage_delta={"status": "no-baseline", "current": 10},
+        required_groups_env=None,
+    )
+    assert "Docs-only change detected; heavy checks skipped." in summary
+    assert "Docs-only fast-pass: coverage artifacts were not refreshed for this run." in summary
+    assert "base — (no baseline)" in summary
+    assert "section only" in summary
+
+    monkeypatch.setattr(post_ci_summary, "_is_docs_only_fast_pass", lambda _states: False)
+    summary_note_only = post_ci_summary.build_summary_comment(
+        runs=[],
+        head_sha=None,
+        coverage_stats=None,
+        coverage_section="",
+        coverage_delta=None,
+        required_groups_env="[]",
+    )
+    assert "### Coverage Overview" not in summary_note_only
+    assert "Docs-only change detected" not in summary_note_only
+
+
+def test_category_states_prefer_higher_priority_and_docs_only_requires_skipped() -> None:
+    runs = [
+        {
+            "present": True,
+            "displayName": "CI",
+            "jobs": [
+                {"name": "Core Tests (3.12)", "conclusion": "success"},
+                {"name": "Core Tests (3.12)", "conclusion": "failure"},
+                {"name": "Core Tests (3.13)", "conclusion": "skipped"},
+                {"name": "Docker Smoke", "conclusion": "success"},
+            ],
+        }
+    ]
+    states = post_ci_summary._collect_category_states(runs)
+    assert states["core312"][1] == "failure"
+    assert post_ci_summary._is_docs_only_fast_pass(states) is False
+    skipped_only = {
+        "core312": ("a", "skipped"),
+        "core313": ("b", "skipped"),
+        "docker": ("c", None),
+    }
+    assert post_ci_summary._is_docs_only_fast_pass(skipped_only) is False
+
+
+def test_badge_unknown_state_renders_pending_hourglass() -> None:
+    assert post_ci_summary._badge("mystery") == "⏳"
+
+
+def test_derive_and_category_skip_non_sequence_jobs() -> None:
+    runs = [{"jobs": {"name": "Gate"}}, {"present": True, "jobs": {"name": "Gate"}}]
+    assert all(
+        group["label"] in {"core tests (3.12)", "core tests (3.13)", "docker smoke", "gate"}
+        for group in post_ci_summary._derive_required_groups_from_runs(runs)
+    )
+    assert post_ci_summary._collect_category_states(runs) == {}
+
+
+def test_required_contexts_ignores_non_iterable_payload(tmp_path: Path) -> None:
+    config = tmp_path / "contexts.json"
+    _write_json(config, {"required_contexts": 5})
+    assert post_ci_summary._load_required_contexts(config) == []
+
+
+def test_collect_triage_returns_empty_when_no_failure_lines(tmp_path: Path) -> None:
+    downloads = tmp_path / "downloads"
+    downloads.mkdir()
+    _write_json(downloads / "summary.json", {"checks": {"tests": {"outcome": "success"}}})
+    assert post_ci_summary._collect_triage_block(tmp_path) == []
+
+
+def test_build_summary_coverage_section_without_other_coverage(monkeypatch) -> None:
+    monkeypatch.setattr(post_ci_summary, "_is_docs_only_fast_pass", lambda _states: True)
+    monkeypatch.setattr(post_ci_summary, "_load_required_contexts", lambda _path=None: ["ctx"])
+    summary = post_ci_summary.build_summary_comment(
+        runs=[],
+        head_sha=None,
+        coverage_stats=None,
+        coverage_section="",
+        coverage_delta=None,
+        required_groups_env="[]",
+    )
+    assert "### Coverage Overview" in summary
+    assert "Docs-only fast-pass" in summary
+    assert "**Required contexts:** ctx" in summary

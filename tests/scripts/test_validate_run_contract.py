@@ -1064,3 +1064,171 @@ def test_main_reports_missing_positional_envelope_after_registry_load(
 
     assert vrc.main(["--registry", str(registry_path), "--repo", "stranske/None"]) == 2
     assert "run_json path is required" in capsys.readouterr().err
+
+
+def test_document_page_accepts_unknown_and_skips_non_string_doc_key() -> None:
+    report = vrc.Report(repo="owner/repo")
+    vrc._check_document_page(
+        {"document_ref": {"sha256": "a" * 64, "doc_key": "document/unknown"}}, report
+    )
+    vrc._check_document_page({"document_ref": {"sha256": "a" * 64, "doc_key": 3}}, report)
+    assert report.conformant
+
+
+def test_safe_evidence_path_rejects_parent_traversal(tmp_path: Path) -> None:
+    run_dir = tmp_path / "run"
+    run_dir.mkdir()
+    report = vrc.Report(repo="owner/repo")
+    assert vrc._safe_evidence_path(run_dir, {"path": "../outside.json"}, report, 0) is None
+    assert any("must not be absolute or traverse parents" in v.message for v in report.violations)
+
+
+def test_manifest_evidence_requires_string_sha256(tmp_path: Path) -> None:
+    run_dir = tmp_path / "run"
+    run_dir.mkdir()
+    evidence = run_dir / "evidence-1.json"
+    evidence.write_text(
+        json.dumps(
+            {
+                "schema_version": "evidence-object/v1",
+                "evidence_id": "ev-1",
+                "kind": "citation",
+                "document_ref": {"sha256": "a" * 64, "doc_key": "document/unknown"},
+                "locator": {"page": 1},
+                "excerpt": "ok",
+            }
+        ),
+        encoding="utf-8",
+    )
+    repo = "stranske/Evidence-Sha"
+    registry = _registry(
+        {
+            **_participant(repo),
+            "emitted_evidence_policy": vrc.EMITTED_EVIDENCE_POLICY,
+            "status": "emitting",
+        }
+    )
+    envelope = _minimal_run_envelope(repo=repo)
+    manifest = {
+        "schema_version": "artifact-manifest/v1",
+        "run_id": envelope["run_id"],
+        "artifacts": [
+            {
+                "artifact_id": "evidence-1",
+                "kind": "evidence",
+                "name": "evidence-1.json",
+                "path": "evidence-1.json",
+                "sha256": 12,
+            }
+        ],
+    }
+    report = _validate(
+        envelope,
+        repo=repo,
+        registry=registry,
+        manifest=manifest,
+        run_json=run_dir / "run.json",
+    )
+    (run_dir / "run.json").write_text("{}", encoding="utf-8")
+    report = _validate(
+        envelope,
+        repo=repo,
+        registry=registry,
+        manifest=manifest,
+        run_json=run_dir / "run.json",
+    )
+    assert any("sha256 must be a string" in v.message for v in report.violations)
+
+
+def test_unknown_required_section_and_non_list_manifest_artifacts() -> None:
+    repo = "stranske/Unknown-Section"
+    registry = _registry(_participant(repo, required_sections=["not_a_real_section", "cost"]))
+    report = _validate(
+        _minimal_run_envelope(repo=repo, cost={"usd": 1}),
+        repo=repo,
+        registry=registry,
+        manifest={"schema_version": "artifact-manifest/v1", "artifacts": "bad"},
+    )
+    assert any("unknown required section" in v.message for v in report.violations)
+
+
+def test_identity_ref_without_colon_fails() -> None:
+    repo = "stranske/Bad-Identity"
+    report = _validate(
+        _minimal_run_envelope(repo=repo, identity_refs=["not-canonical"]),
+        repo=repo,
+        registry=_registry(_participant(repo)),
+    )
+    assert any("canonical <type>:<id>" in v.message for v in report.violations)
+
+
+def test_main_reports_unreadable_run_envelope(tmp_path: Path, capsys) -> None:
+    registry_path = tmp_path / "registry.json"
+    registry_path.write_text(json.dumps(_registry()), encoding="utf-8")
+    bad = tmp_path / "run.json"
+    bad.write_text("{not-json", encoding="utf-8")
+    assert (
+        vrc.main(
+            [
+                str(bad),
+                "--registry",
+                str(registry_path),
+                "--repo",
+                "stranske/None",
+                "--schema-dir",
+                str(SCHEMA_DIR),
+            ]
+        )
+        == 2
+    )
+    assert "cannot load run envelope" in capsys.readouterr().err
+
+
+def test_self_smoke_notes_missing_fixture_directory(tmp_path: Path, capsys, monkeypatch) -> None:
+    schema_dir = tmp_path / "schemas"
+    schema_dir.mkdir()
+    for name in vrc.INGEST_SCHEMA_FILES.values():
+        (schema_dir / name).write_text(
+            json.dumps(
+                {
+                    "$schema": "https://json-schema.org/draft/2020-12/schema",
+                    "type": "object",
+                }
+            ),
+            encoding="utf-8",
+        )
+    # Also need run-contract schema files that _self_smoke loads by glob
+    for name in ("run-contract-v1.schema.json", "artifact-manifest-v1.schema.json"):
+        (schema_dir / name).write_text(
+            json.dumps(
+                {
+                    "$schema": "https://json-schema.org/draft/2020-12/schema",
+                    "type": "object",
+                }
+            ),
+            encoding="utf-8",
+        )
+    registry_path = tmp_path / "registry.json"
+    registry_path.write_text(json.dumps(_registry()), encoding="utf-8")
+    monkeypatch.setattr(vrc, "__file__", str(tmp_path / "validate_run_contract.py"))
+    assert vrc._self_smoke(schema_dir, registry_path) == 0
+    assert "no fixtures found; schema-only self-smoke" in capsys.readouterr().out
+
+
+def test_standalone_mode_writes_github_output_on_failure(tmp_path: Path) -> None:
+    output = tmp_path / "out.txt"
+    missing = tmp_path / "missing.json"
+    assert (
+        vrc.main(
+            [
+                "--evidence-objects",
+                str(missing),
+                "--schema-dir",
+                str(SCHEMA_DIR),
+                "--github-output",
+                str(output),
+            ]
+        )
+        == 1
+    )
+    assert "conformant=false" in output.read_text(encoding="utf-8")

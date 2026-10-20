@@ -1622,3 +1622,294 @@ def test_fetch_remote_tree_ignores_malformed_items_but_keeps_valid_entries() -> 
 
     assert error is None
     assert tree == {"good.yml": {"path": "good.yml", "sha": "abc"}}
+
+
+def test_comparable_lines_all_header_comments_yield_empty() -> None:
+    assert check_consumer_sync_drift.comparable_lines("# only\n\n# comments\n") == []
+
+
+def test_remote_blob_text_returns_none_on_decode_errors() -> None:
+    class BoomSession:
+        def get(self, _url):
+            raise check_consumer_sync_drift.requests.RequestException("network")
+
+    assert check_consumer_sync_drift.remote_blob_text(BoomSession(), "owner/repo", "sha") is None
+
+    class BadDecode:
+        status_code = 200
+
+        def json(self):
+            return {"encoding": "base64", "content": base64.b64encode(b"\xff\xfe").decode()}
+
+    class Session:
+        def get(self, _url):
+            return BadDecode()
+
+    assert check_consumer_sync_drift.remote_blob_text(Session(), "owner/repo", "sha") is None
+
+
+def test_gate_trigger_skips_include_repos_exclusions(tmp_path: Path) -> None:
+    source = tmp_path / "gate.yml"
+    source.write_text(
+        "on:\n  pull_request:\n    types: [opened, synchronize]\n",
+        encoding="utf-8",
+    )
+    entry = _make_entry(
+        source=str(source),
+        target=".github/workflows/pr-00-gate.yml",
+        include_repos=["owner/keep"],
+    )
+    lines = check_consumer_sync_drift.gate_trigger_lines(
+        ["owner/keep", "owner/skip"],
+        entry,
+        {
+            "owner/keep": {
+                ".github/workflows/pr-00-gate.yml": {
+                    "type": "blob",
+                    "sha": check_consumer_sync_drift.git_blob_hash(source.read_bytes()),
+                }
+            }
+        },
+        lambda *_args: source.read_text(encoding="utf-8"),
+    )
+    assert lines == ["gate triggers: all match"]
+
+
+def test_probe_targets_stops_at_token_probe_path_limit(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setattr(check_consumer_sync_drift, "TOKEN_PROBE_PATH_LIMIT", 1)
+    files = []
+    for index in range(2):
+        path = tmp_path / f"file-{index}.yml"
+        path.write_text(f"name: {index}\n", encoding="utf-8")
+        files.append(path)
+    entries = [
+        _make_entry(source=str(path), target=f".github/workflows/{path.name}") for path in files
+    ]
+    compiled = SimpleNamespace(
+        section=lambda section: (entries[0],) if section == "a" else (entries[1],)
+    )
+    assert check_consumer_sync_drift.probe_targets(compiled, ["a", "b"]) == [
+        ".github/workflows/file-0.yml"
+    ]
+
+
+def test_select_read_token_accepts_empty_probe_path() -> None:
+    class Response:
+        status_code = 200
+
+    class Session:
+        def __init__(self):
+            self.headers = {}
+
+        def get(self, _url):
+            return Response()
+
+    session, diagnostics = check_consumer_sync_drift.select_read_token(
+        candidates=[{"source": "TOKEN", "token": "secret"}],
+        repos=["owner/repo"],
+        paths=[],
+        session_factory=Session,
+    )
+    assert session is not None
+    assert diagnostics["selected_source"] == "TOKEN"
+
+
+def test_path_prefix_handles_unknown_and_nested_roots() -> None:
+    assert check_consumer_sync_drift.path_prefix("   ") == "unknown"
+    assert check_consumer_sync_drift.path_prefix(".github/workflows/a.yml") == ".github/workflows"
+    assert check_consumer_sync_drift.path_prefix("scripts/helpers/a.py") == "scripts/helpers"
+    assert check_consumer_sync_drift.path_prefix("README.md") == "README.md"
+
+
+def test_fetch_open_sync_prs_reports_http_failures() -> None:
+    class Response:
+        status_code = 403
+        headers = {"x-ratelimit-remaining": "0"}
+
+        def json(self):
+            return {"message": "rate limited"}
+
+    class Session:
+        def get(self, _url):
+            return Response()
+
+    prs, error = check_consumer_sync_drift.fetch_open_sync_prs(Session(), "owner/repo")
+    assert prs == []
+    assert error is not None
+    assert "sync PR lookup failed" in error
+
+
+def test_write_summary_markdown_partial_follow_up_and_zero_repo_totals(tmp_path: Path) -> None:
+    report_path = tmp_path / "summary.md"
+    report = {
+        "counts": {
+            "drift": 1,
+            "missing": 0,
+            "errors": 0,
+            "obsolete": 0,
+            "unmeasured_create_only": 0,
+        },
+        "repos": ["owner/a", "owner/b"],
+        "repo_summaries": {
+            "owner/a": {"drift": 0, "missing": 0, "errors": 0, "obsolete": 0},
+            "owner/b": {"drift": 1, "missing": 0, "errors": 0, "obsolete": 0},
+        },
+        "top_repo_gaps": [],
+        "path_prefix_counts": {"drift": {}},
+        "follow_up": {"all_repos_command": "all-only", "targeted_repos_command": ""},
+        "sync_remediation": {"open_prs": ["bad", {"repo": "owner/b", "number": 1, "branch": "b"}]},
+        "drift": ["owner/b: README.md"],
+        "missing": [],
+        "errors": [],
+        "obsolete": [],
+        "skipped": [],
+        "unmeasured_create_only": [],
+    }
+    check_consumer_sync_drift.write_summary_markdown(str(report_path), report)
+    rendered = report_path.read_text(encoding="utf-8")
+    assert "owner/a:" not in rendered.split("### Repo summary", 1)[-1].split("###", 1)[0]
+    assert "- All repos: `all-only`" in rendered
+    assert "Top repos:" not in rendered
+    assert "owner/b#1" in rendered
+
+
+def test_main_reports_missing_unexpected_binary_and_directory_drift(
+    tmp_path: Path, monkeypatch
+) -> None:
+    source_dir = tmp_path / "managed"
+    source_dir.mkdir()
+    text_file = source_dir / "keep.txt"
+    text_file.write_text("hello\n", encoding="utf-8")
+    binary_file = source_dir / "blob.bin"
+    binary_file.write_bytes(b"\xff\xfe\x00")
+    report_path = tmp_path / "report.json"
+    summary_path = tmp_path / "summary.md"
+    entry = _make_entry(source=str(source_dir), target=".github/managed", is_directory=True)
+    create_only = _make_entry(
+        source=str(text_file),
+        target=".github/create-only.txt",
+        sync_mode="create_only",
+        skip_repos=(SkipRepo(repo="owner/repo", reason="custom"),),
+    )
+    overwrite_create_only = _make_entry(
+        source=str(text_file),
+        target=".github/overwrite.txt",
+        sync_mode="create_only",
+        overwrite_repos=("owner/repo",),
+    )
+    removal = SimpleNamespace(target=".github/obsolete.yml")
+    compiled = SimpleNamespace(
+        to_plan=lambda: {"plan_id": "sha256:" + "b" * 64},
+        section=lambda section: (
+            (entry, create_only, overwrite_create_only) if section == "workflows" else ()
+        ),
+        removals=(removal,),
+    )
+    args = SimpleNamespace(
+        repos="owner/repo",
+        manifest=str(tmp_path / "manifest.yml"),
+        canaries=str(tmp_path / "canaries.json"),
+        report_json=str(report_path),
+        summary=str(summary_path),
+    )
+    Path(args.manifest).write_text("version: 1\n", encoding="utf-8")
+    monkeypatch.setattr(check_consumer_sync_drift, "COPY_SYNCED_SECTIONS", ("workflows",))
+    monkeypatch.setattr(check_consumer_sync_drift, "parse_args", lambda: args)
+    monkeypatch.setattr(check_consumer_sync_drift, "token_candidates", lambda: [{"token": "token"}])
+    monkeypatch.setattr(check_consumer_sync_drift, "compile_manifest", lambda _path: compiled)
+    monkeypatch.setattr(check_consumer_sync_drift, "resolve_candidate_repos", lambda *_args: set())
+    monkeypatch.setattr(
+        check_consumer_sync_drift, "select_read_token", lambda **_kwargs: (object(), {})
+    )
+
+    remote_tree = {
+        ".github/managed/keep.txt": {"type": "tree", "sha": ""},
+        ".github/managed/blob.bin": {"type": "blob", "sha": "remote-bin"},
+        ".github/overwrite.txt": {
+            "type": "blob",
+            "sha": check_consumer_sync_drift.git_blob_hash(text_file.read_bytes()),
+        },
+        ".github/obsolete.yml": {"type": "blob", "sha": "abc"},
+    }
+
+    monkeypatch.setattr(
+        check_consumer_sync_drift,
+        "fetch_remote_tree",
+        lambda _session, _repo: (remote_tree, None),
+    )
+    monkeypatch.setattr(
+        check_consumer_sync_drift,
+        "fetch_open_sync_prs",
+        lambda *_args: ([], "owner/repo: sync PR lookup failed"),
+    )
+    monkeypatch.setattr(
+        check_consumer_sync_drift,
+        "remote_blob_text",
+        lambda *_args: None,
+    )
+
+    assert check_consumer_sync_drift.main() == 1
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    assert "owner/repo: .github/managed/missing.txt" not in report["missing"]
+    assert any("unexpected remote tree entry" in item for item in report["errors"])
+    assert "owner/repo: .github/managed/blob.bin" in report["drift"]
+    assert "owner/repo: .github/obsolete.yml" in report["obsolete"]
+    assert any("custom" in item for item in report["skipped"])
+    assert report["sync_remediation"]["lookup_errors"]
+
+
+def test_main_marks_missing_remote_file_and_header_insensitive_match(
+    tmp_path: Path, monkeypatch
+) -> None:
+    source = tmp_path / "source.yml"
+    source.write_text("# local\nname: Example\n", encoding="utf-8")
+    also_present = tmp_path / "other.yml"
+    also_present.write_text("name: Other\n", encoding="utf-8")
+    missing_source = tmp_path / "missing-local.yml"
+    report_path = tmp_path / "report.json"
+    present = _make_entry(source=str(source), target=".github/workflows/example.yml")
+    missing_remote = _make_entry(source=str(also_present), target=".github/workflows/other.yml")
+    absent_local = _make_entry(source=str(missing_source), target=".github/workflows/gone.yml")
+    compiled = SimpleNamespace(
+        to_plan=lambda: {"plan_id": "sha256:" + "c" * 64},
+        section=lambda section: (
+            (present, missing_remote, absent_local) if section == "workflows" else ()
+        ),
+        removals=(),
+    )
+    args = SimpleNamespace(
+        repos="owner/repo",
+        manifest=str(tmp_path / "manifest.yml"),
+        canaries=str(tmp_path / "canaries.json"),
+        report_json=str(report_path),
+        summary="",
+    )
+    Path(args.manifest).write_text("version: 1\n", encoding="utf-8")
+    monkeypatch.setattr(check_consumer_sync_drift, "COPY_SYNCED_SECTIONS", ("workflows",))
+    monkeypatch.setattr(check_consumer_sync_drift, "parse_args", lambda: args)
+    monkeypatch.setattr(check_consumer_sync_drift, "token_candidates", lambda: [{"token": "token"}])
+    monkeypatch.setattr(check_consumer_sync_drift, "compile_manifest", lambda _path: compiled)
+    monkeypatch.setattr(check_consumer_sync_drift, "resolve_candidate_repos", lambda *_args: set())
+    monkeypatch.setattr(
+        check_consumer_sync_drift, "select_read_token", lambda **_kwargs: (object(), {})
+    )
+    monkeypatch.setattr(
+        check_consumer_sync_drift,
+        "fetch_remote_tree",
+        lambda _session, _repo: (
+            {".github/workflows/example.yml": {"type": "blob", "sha": "remote-sha"}},
+            None,
+        ),
+    )
+    monkeypatch.setattr(check_consumer_sync_drift, "fetch_open_sync_prs", lambda *_args: ([], None))
+    monkeypatch.setattr(
+        check_consumer_sync_drift,
+        "remote_blob_text",
+        lambda *_args: "# remote\nname: Example\n",
+    )
+
+    assert check_consumer_sync_drift.main() == 1
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    assert any("missing local file" in item for item in report["errors"])
+    assert "owner/repo: .github/workflows/example.yml" not in report["drift"]
+    assert "owner/repo: .github/workflows/other.yml" in report["missing"]

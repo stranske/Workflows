@@ -1352,3 +1352,158 @@ def test_checklist_normalization_ignores_metadata_and_preserves_actionable_items
             "</details>",
         ]
     ) == ["- [x] Keep completed work", "- [ ] Write a focused test", "- [ ] plain acceptance text"]
+
+
+def test_load_prompt_appends_nonempty_feedback(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    prompt = tmp_path / "prompt.md"
+    feedback = tmp_path / "feedback.md"
+    prompt.write_text("BASE PROMPT", encoding="utf-8")
+    feedback.write_text("FEEDBACK NOTES", encoding="utf-8")
+    monkeypatch.setattr(issue_formatter, "PROMPT_PATH", prompt)
+    monkeypatch.setattr(issue_formatter, "FEEDBACK_PROMPT_PATH", feedback)
+    loaded = issue_formatter._load_prompt()
+    assert loaded.startswith("BASE PROMPT")
+    assert "FEEDBACK NOTES" in loaded
+
+
+def test_resolve_section_returns_none_for_unknown_heading() -> None:
+    assert issue_formatter._resolve_section("Totally Unknown Heading") is None
+
+
+def test_parse_sections_handles_inline_details_and_colon_labels() -> None:
+    sections, preamble = issue_formatter._parse_sections(
+        "\n".join(
+            [
+                "<details><summary>meta</summary>body</details>",
+                "Why:",
+                "Because it matters.",
+                "## Totally Unknown",
+                "kept under why",
+                "**Scope**:",
+                "Limited.",
+                "<details>",
+                "hidden",
+                "</details>",
+            ]
+        )
+    )
+    assert "Because it matters." in "\n".join(sections.get("why", []))
+    assert "Limited." in "\n".join(sections.get("scope", []))
+    assert any("inline" in line or "meta" in line for line in preamble) or preamble
+
+
+def test_validate_and_refine_tasks_returns_when_tasks_header_missing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from scripts.langchain import task_validator
+
+    monkeypatch.setattr(
+        issue_formatter,
+        "_extract_tasks_from_formatted",
+        lambda _text: ["old task"],
+    )
+    monkeypatch.setattr(
+        task_validator,
+        "validate_tasks",
+        lambda *_args, **_kwargs: types.SimpleNamespace(
+            tasks=["new task"],
+            audit_summary="changed",
+        ),
+    )
+    formatted = "## Why\n\nNo tasks heading here."
+    updated, audit = issue_formatter._validate_and_refine_tasks(formatted, use_llm=False)
+    assert updated == formatted
+    assert audit == "changed"
+
+
+def test_format_issue_body_falls_back_on_llm_import_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+    monkeypatch.setattr(
+        issue_formatter,
+        "check_prompt_injection",
+        lambda _text: {"blocked": False, "reason": None},
+    )
+    monkeypatch.setattr(issue_formatter, "_reuse_already_formatted", lambda *_a, **_k: None)
+
+    def boom(_name):
+        raise ImportError("no llm stack")
+
+    monkeypatch.setattr(issue_formatter, "__import__", boom, raising=False)
+    # Force the LLM branch by stubbing the internal import site via empty providers.
+    monkeypatch.setattr(
+        "scripts.langchain.issue_formatter.os.getenv",
+        lambda key, default=None: "sk-test" if key == "OPENAI_API_KEY" else default,
+    )
+
+    # Patch the try-import path by making create_chat_openai unavailable through a fake module path.
+    import builtins
+
+    real_import = builtins.__import__
+
+    def selective_import(name, *args, **kwargs):
+        if name in {"langchain_openai", "langchain_core.messages"} or name.startswith(
+            "scripts.langchain.llm"
+        ):
+            raise ImportError(name)
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", selective_import)
+    result = issue_formatter.format_issue_body(
+        "Why: cover import fallback\n\n## Tasks\n- [ ] one", use_llm=True
+    )
+    assert result["used_llm"] is False
+    assert result["formatted_body"]
+
+
+def test_main_json_includes_error_guard_and_trace(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys
+) -> None:
+    output = tmp_path / "out.md"
+    monkeypatch.setattr(
+        issue_formatter,
+        "_load_input",
+        lambda _args: "raw",
+    )
+    monkeypatch.setattr(
+        issue_formatter,
+        "format_issue_body",
+        lambda _raw, use_llm=True: {
+            "formatted_body": "formatted",
+            "provider_used": None,
+            "used_llm": False,
+            "error": "too large",
+            "guard_blocked": True,
+            "guard_reason": "injection",
+            "langsmith_trace_id": "tid",
+            "langsmith_trace_url": "https://trace",
+            "needs_refinement": True,
+            "validation_audit": None,
+        },
+    )
+    monkeypatch.setattr(
+        "sys.argv",
+        ["issue_formatter.py", "--json", "--output-file", str(output), "--no-llm"],
+    )
+    issue_formatter.main()
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["error"] == "too large"
+    assert payload["guard_blocked"] is True
+    assert payload["langsmith_trace_id"] == "tid"
+    assert output.read_text(encoding="utf-8") == "formatted"
+
+
+def test_parse_sections_preserves_inline_details_under_current_section() -> None:
+    sections, _preamble = issue_formatter._parse_sections(
+        "## Why\n\nBody\n\n<details><summary>x</summary>y</details>\n\nMore\n"
+    )
+    joined = "\n".join(sections.get("why", []))
+    assert "<details>" in joined
+    assert "More" in joined
+
+
+def test_format_issue_body_empty_input_still_formats() -> None:
+    result = issue_formatter.format_issue_body("", use_llm=False)
+    assert result["formatted_body"]
+    assert result["used_llm"] is False
