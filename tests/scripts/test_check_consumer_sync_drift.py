@@ -480,9 +480,33 @@ def test_gate_trigger_fyi_respects_exclusions_and_unknowns(tmp_path) -> None:
     ) == ["gate triggers: unknown (template unreadable or invalid)"]
 
 
-@pytest.mark.parametrize("overwrite", [False, True])
+@pytest.mark.parametrize(
+    ("overwrite", "remote_text", "expected_gate_line"),
+    [
+        (
+            overwrite,
+            "on:\n  pull_request:\n    types: [opened, labeled]\n",
+            "gate triggers: owner/repo extra=['labeled']",
+        )
+        for overwrite in (False, True)
+    ]
+    + [
+        pytest.param(
+            True,
+            None,
+            "gate triggers: owner/repo unknown (Gate unreadable)",
+            id="cached-unreadable-blob",
+        ),
+        pytest.param(
+            True,
+            "",
+            "gate triggers: owner/repo unknown (invalid pull_request.types)",
+            id="cached-empty-blob",
+        ),
+    ],
+)
 def test_main_reports_create_only_gate_fyi_without_authorizing_sync(
-    tmp_path, monkeypatch, capsys, overwrite
+    tmp_path, monkeypatch, capsys, overwrite, remote_text, expected_gate_line
 ) -> None:
     source = tmp_path / "gate.yml"
     source.write_text("on:\n  pull_request:\n    types: [opened]\n")
@@ -523,16 +547,15 @@ def test_main_reports_create_only_gate_fyi_without_authorizing_sync(
 
     def read_blob(*args):
         calls.append(args)
-        return "on:\n  pull_request:\n    types: [opened, labeled]\n"
+        return remote_text
 
     monkeypatch.setattr(check_consumer_sync_drift, "remote_blob_text", read_blob)
     assert check_consumer_sync_drift.main() == int(overwrite)
     assert len(calls) == 1, "FYI and regular comparison must share the cached blob"
     report = json.loads(Path(args.report_json).read_text())
-    line = "gate triggers: owner/repo extra=['labeled']"
-    assert report["gate_triggers"] == [line]
-    assert line in capsys.readouterr().out
-    assert line in Path(args.summary).read_text()
+    assert report["gate_triggers"] == [expected_gate_line]
+    assert expected_gate_line in capsys.readouterr().out
+    assert expected_gate_line in Path(args.summary).read_text()
     assert report["counts"]["drift"] == int(overwrite)
     assert report["counts"]["unmeasured_create_only"] == int(not overwrite)
 
