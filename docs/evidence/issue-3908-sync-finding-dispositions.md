@@ -110,7 +110,8 @@ Both required mutation proofs above were repeated with
 its mutation and passed with exit 0 after byte-for-byte restoration. Neither
 mutation is included. The 12 focused relevance/disposition tests also pass.
 
-The full two-file Node suite with `--test-isolation=none` executed 223 tests:
+Before the subprocess repair below, the full two-file Node suite with
+`--test-isolation=none` executed 223 tests:
 222 passed; the existing `Maint 68 verified unchanged-tree run resets producer
 observation without changing lifecycle` test fails because this sandbox returns
 `spawnSync bash EPERM`. The exact requested `node --test` command also fails in
@@ -121,3 +122,31 @@ so the implementation PR body could not be updated from this run.
 
 This consistency repair does not clear shared-code blockers or add a campaign
 #1836 prerequisite. The disposition-to-gate table above continues to apply.
+
+## Subprocess capture repair and acceptance reconciliation
+
+The existing unchanged-tree lifecycle test now awaits asynchronous `execFile`
+instead of using `execFileSync`. It still executes the extracted Maint 68 Bash
+fragment for both `FORCE=false` and `FORCE=true`, propagates subprocess failures,
+and asserts the same producer observation, lifecycle and signed-regeneration
+behavior. No workflow or production gate changed.
+
+Validation on the repaired test:
+
+- The exact required two-file `node --test` command exits **0**. This sandbox's
+  default reporter counts two passing file-level tests.
+- Adding `--experimental-test-isolation=none --test-reporter=tap` to that command
+  exposes the individual assertions: **223 tests passed, zero failed or skipped**.
+- `sync finding unknown fails closed and mixed findings retain every blocker`:
+  unknown-as-nonblocking mutation exits **1** with `ERR_ASSERTION`; exact-byte
+  restoration exits **0** (one executed test).
+- `stale-head final sync finding gate rejects an unrelated record after pre-seal`:
+  unconditional unrelated acceptance at the final boundary exits **1** with
+  `ERR_ASSERTION`; exact-byte restoration exits **0** (one executed test).
+
+Neither mutation is shipped. All seven implementation tasks remain verified;
+the previously failing command acceptance gate now passes locally. Updating
+PR #4144's body was attempted during reconciliation, but the GitHub connector
+requires approval while this run's approval policy is `never`. Its existing
+checked tasks therefore remain unchanged remotely. Hosted CI/review and
+post-merge acceptance are still separate from these local proofs.

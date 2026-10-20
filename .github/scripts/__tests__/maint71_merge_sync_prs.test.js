@@ -1086,7 +1086,8 @@ test('an untrusted marker cannot suppress upstream routing', async () => {
   assert.equal(api.comments.length, 1);
 });
 
-test('Maint 68 verified unchanged-tree run resets producer observation without changing lifecycle', () => {
+test('Maint 68 verified unchanged-tree run resets producer observation without changing lifecycle', async () => {
+  const execFile = require('node:util').promisify(require('node:child_process').execFile);
   const workflow = fs.readFileSync(path.join(__dirname, '../../workflows/maint-68-sync-consumer-repos.yml'), 'utf8');
   const start = workflow.indexOf('          desired_tree_hash=$(git write-tree)');
   const end = workflow.indexOf('          elif [ -n "$existing_pr" ]', start);
@@ -1102,9 +1103,11 @@ test('Maint 68 verified unchanged-tree run resets producer observation without c
     fi
     echo "RESULT:$head_observed_sha:$head_observed_at:$delivery_state:$sealed_at:$matching_existing"
   `;
-  const output = require('node:child_process').execFileSync('bash', ['-c', script], { encoding: 'utf8', env: { ...process.env, FORCE: 'false' } });
+  const { stdout: output } = await execFile('bash', ['-c', script], {
+    encoding: 'utf8', env: { ...process.env, FORCE: 'false' },
+  });
   assert.match(output, /RESULT:unchanged:2026-10-17T12:00:00Z:sealed:prior:true/);
-  const forcedOutput = require('node:child_process').execFileSync('bash', ['-c', script], {
+  const { stdout: forcedOutput } = await execFile('bash', ['-c', script], {
     encoding: 'utf8', env: { ...process.env, FORCE: 'true' },
   });
   assert.match(forcedOutput, /RESULT:unchanged:2026-10-17T05:00:00Z:sealed:prior:false/,
