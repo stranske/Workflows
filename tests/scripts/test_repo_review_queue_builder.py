@@ -283,6 +283,61 @@ def test_is_uploadable_body_missing_tasks() -> None:
     assert why == "missing required sections"
 
 
+def test_build_queue_records_missing_and_invalid_converged_inputs(tmp_path: Path) -> None:
+    """Approved decisions do not turn absent or malformed input into issues."""
+    round2_dir = tmp_path / "round2"
+    round2_dir.mkdir()
+    feedback_path = tmp_path / "feedback.json"
+    feedback_path.write_text(
+        json.dumps(
+            {
+                "decisions": {
+                    "org/Missing": {"decision": "approve"},
+                    "org/NoFile": {"decision": "approve"},
+                    "org/Broken": {"decision": "approve"},
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    (round2_dir / "org__NoFile").mkdir()
+    broken = round2_dir / "org__Broken"
+    broken.mkdir()
+    (broken / "converged.json").write_text("{not json", encoding="utf-8")
+
+    result = build_queue(round2_dir, feedback_path, {"issues": [], "pending": [], "dropped": []})
+
+    assert result["issues"] == []
+    reasons = {item["repo"]: item["reason"] for item in result["skipped"]}
+    assert reasons["org/Missing"] == "no converged.json directory"
+    assert reasons["org/NoFile"] == "converged.json missing"
+    assert reasons["org/Broken"].startswith("converged.json parse error:")
+
+
+def test_build_queue_skips_invalid_scorecard_issue_and_records_pending_and_dropped(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    round2_dir = tmp_path / "round2"
+    round2_dir.mkdir()
+    feedback_path = tmp_path / "feedback.json"
+    feedback_path.write_text('{"decisions": {}}', encoding="utf-8")
+    scorecard = {
+        "issues": [{"repo": "org/Bad", "body_valid": True, "body_quality_errors": ["bad"]}],
+        "pending": [{"repo": "org/Pending", "finding_id": "p", "reason": "awaiting proof"}],
+        "dropped": [{"repo": "org/Dropped", "finding_id": "d"}],
+    }
+    monkeypatch.setattr(queue_builder, "approved_scorecard_issue_items", lambda *_args: scorecard)
+
+    result = build_queue(round2_dir, feedback_path, scorecard)
+
+    assert result["issues"] == []
+    assert {entry["repo"]: entry["reason"] for entry in result["skipped"]} == {
+        "org/Bad": "scorecard issue body failed quality gate",
+        "org/Pending": "awaiting proof",
+        "org/Dropped": "scorecard finding dropped",
+    }
+
+
 # =============================================================================
 # Decision routing tests for build_queue
 # =============================================================================
