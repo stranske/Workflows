@@ -758,3 +758,176 @@ def test_paused_registry_timestamps_are_governed(
 
     with pytest.raises(ValueError, match=message):
         langsmith_fleet.validate_registry(registry)
+
+
+def test_module_bootstraps_repo_root_onto_sys_path(monkeypatch) -> None:
+    """Import-time bootstrap inserts the repo root when it is absent from sys.path."""
+    import importlib
+    import sys
+
+    root = str(langsmith_fleet.ROOT)
+    monkeypatch.setattr(sys, "path", [entry for entry in sys.path if entry != root])
+    reloaded = importlib.reload(langsmith_fleet)
+    assert root in sys.path
+    # Keep the canonical module object in place for later tests in this process.
+    importlib.reload(reloaded)
+
+
+def test_load_helpers_reject_non_object_json_roots(tmp_path: Path) -> None:
+    """Schema/allowlist/registry loaders fail closed on non-object JSON roots."""
+    schema_path = tmp_path / "schema.json"
+    schema_path.write_text("[]", encoding="utf-8")
+    with pytest.raises(ValueError, match="record schema must be a JSON object"):
+        langsmith_fleet.load_record_schema(schema_path)
+
+    allowlist_path = tmp_path / "allowlist.json"
+    allowlist_path.write_text("[]", encoding="utf-8")
+    with pytest.raises(ValueError, match="allowlist must be a JSON object"):
+        langsmith_fleet.load_allowlist(allowlist_path)
+
+    registry_path = tmp_path / "registry.json"
+    registry_path.write_text("[]", encoding="utf-8")
+    with pytest.raises(ValueError, match="registry must be a JSON object"):
+        langsmith_fleet.load_registry(registry_path, allowlist_path=None)
+
+
+def test_load_registry_skips_missing_allowlist_and_uses_embedded(
+    tmp_path: Path,
+) -> None:
+    """Allowlist loading is optional; embedded _allowlist still validates."""
+    registry = copy.deepcopy(langsmith_fleet.load_registry(REGISTRY))
+    assert isinstance(registry.get("_allowlist"), dict)
+    path = tmp_path / "registry.json"
+    # Persist without rewriting allowlist; missing allowlist path must not reload it.
+    path.write_text(json.dumps(registry), encoding="utf-8")
+
+    loaded = langsmith_fleet.load_registry(path, allowlist_path=tmp_path / "missing-allowlist.json")
+    assert loaded["_allowlist"]["schema_version"] == langsmith_fleet.ALLOWLIST_SCHEMA_VERSION
+
+    # Embedded allowlist is honored when validate_registry receives allowlist=None.
+    langsmith_fleet.validate_registry(loaded, allowlist=None)
+
+    # Non-dict embedded allowlist is ignored (false branch of isinstance check).
+    broken_embedded = copy.deepcopy(loaded)
+    broken_embedded["_allowlist"] = "not-a-mapping"
+    with pytest.raises(ValueError, match="managed consumer repos missing"):
+        langsmith_fleet.validate_registry(broken_embedded, allowlist=None)
+
+
+def test_allowlist_rejects_duplicate_repo() -> None:
+    payload = {
+        "schema_version": langsmith_fleet.ALLOWLIST_SCHEMA_VERSION,
+        "repos": [
+            {
+                "repo": "stranske/example",
+                "status": "not-applicable",
+                "reason": "not deployed",
+                "registry_activation_condition": "deployment",
+            },
+            {
+                "repo": "stranske/example",
+                "status": "not-applicable",
+                "reason": "also not deployed",
+                "registry_activation_condition": "still deployment",
+            },
+        ],
+    }
+    with pytest.raises(ValueError, match="duplicate repo stranske/example"):
+        langsmith_fleet.validate_allowlist(payload)
+
+
+def test_registry_rejects_duplicate_surface_and_conflicting_issue_numbers() -> None:
+    registry = copy.deepcopy(langsmith_fleet.load_registry(REGISTRY))
+    first = copy.deepcopy(registry["repos"][0])
+    duplicate_surface = copy.deepcopy(first)
+    with pytest.raises(ValueError, match="duplicate repo/surface mapping"):
+        langsmith_fleet.validate_registry({**registry, "repos": [first, duplicate_surface]})
+
+    conflict = copy.deepcopy(first)
+    # Same repo, different surface, conflicting issue_number.
+    conflict["surface"] = f"{first['surface']}-alt"
+    conflict["issue_number"] = int(first["issue_number"]) + 1
+    conflict["issue"] = f"{first['repo']}#{conflict['issue_number']}"
+    with pytest.raises(ValueError, match="conflicting issue_number values"):
+        langsmith_fleet.validate_registry({**registry, "repos": [first, conflict]})
+
+
+@pytest.mark.parametrize(
+    ("agents", "message"),
+    [
+        ({}, "agents must be a non-empty mapping"),
+        ({"": {"capacity": {"window": "daily", "limit": 1}}}, "keys must be non-empty strings"),
+        ({"codex": "not-an-object"}, "codex must be an object"),
+    ],
+)
+def test_agent_registry_capacity_rejects_root_shapes(
+    agents: dict[str, object], message: str
+) -> None:
+    with pytest.raises(ValueError, match=message):
+        langsmith_fleet.validate_agent_registry_capacity({"agents": agents})
+
+
+def test_validate_record_reports_missing_required_field_and_bad_operation() -> None:
+    registry = langsmith_fleet.load_registry(REGISTRY)
+    entry = next(
+        item
+        for item in registry["repos"]
+        if item["repo"] == "stranske/Pension-Data" and item["surface"] == "nl-to-sql"
+    )
+    record = {
+        "schema_version": langsmith_fleet.SCHEMA_VERSION,
+        "repo": entry["repo"],
+        "surface": entry["surface"],
+        "operation": "not-a-registered-operation",
+        "run_id": "run-1",
+        "status": "success",
+        "github_issue": entry["issue"],
+        "domain": {"query_category": "benefit"},
+    }
+    # Drop a required shared field entirely (distinct from empty-string checks).
+    del record["run_id"]
+
+    messages = {
+        error.message for error in langsmith_fleet.validate_record(record, registry=registry)
+    }
+    assert "missing required field: run_id" in messages
+    assert any("operation must be one of registry operations" in message for message in messages)
+
+    # Registered entry with a non-dict domain skips operation/domain-field checks.
+    non_dict_domain = {
+        "schema_version": langsmith_fleet.SCHEMA_VERSION,
+        "repo": entry["repo"],
+        "surface": entry["surface"],
+        "operation": "validation",
+        "run_id": "run-2",
+        "status": "success",
+        "github_issue": entry["issue"],
+        "domain": "not-an-object",
+    }
+    domain_messages = {
+        error.message
+        for error in langsmith_fleet.validate_record(non_dict_domain, registry=registry)
+    }
+    assert "domain must be a non-empty object" in domain_messages
+    assert not any(
+        "operation must be one of registry operations" in message for message in domain_messages
+    )
+
+
+def test_cli_success_prints_validated_count(tmp_path: Path, monkeypatch, capsys) -> None:
+    """Non-summary success path reports how many records validated."""
+    monkeypatch.setattr(
+        langsmith_fleet.sys,
+        "argv",
+        [
+            "langsmith_fleet.py",
+            str(FIXTURES / "valid.ndjson"),
+            "--registry",
+            str(REGISTRY),
+        ],
+    )
+    langsmith_fleet.main()
+    out = capsys.readouterr().out
+    assert out.startswith("Validated ")
+    assert langsmith_fleet.SCHEMA_VERSION in out
+    assert "record(s)" in out
