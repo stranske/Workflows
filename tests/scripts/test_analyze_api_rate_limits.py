@@ -824,8 +824,10 @@ def test_rate_limit_edge_helpers_cover_remaining_branches(monkeypatch, capsys) -
     assert now.tzinfo is not None
     assert analyze_api_rate_limits._split_repo_entries("   ") == []
     assert analyze_api_rate_limits.summarize_workflow_activity([]) == []
-    # Host-strip path rewrites git@www.github.com:* to www.github.com:* before the
-    # later git@www.github.com branches (dead after that rewrite). Cover the live path.
+    # git@ forms are normalized via the `@host` rewrite then the live `host:` path.
+    assert analyze_api_rate_limits._clean_repo("git@github.com:owner/repo.git") == "owner/repo"
+    assert analyze_api_rate_limits._clean_repo("git@www.github.com:22/owner/repo") == "owner/repo"
+    assert analyze_api_rate_limits._clean_repo("git@github.com/owner/repo") == "owner/repo"
     assert analyze_api_rate_limits._clean_repo("www.github.com:22/owner/repo.git") == "owner/repo"
     assert analyze_api_rate_limits._clean_repo("github.com:owner/repo") == "owner/repo"
     assert analyze_api_rate_limits._clean_repo("") == ""
