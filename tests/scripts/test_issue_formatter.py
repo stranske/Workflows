@@ -1507,3 +1507,52 @@ def test_format_issue_body_empty_input_still_formats() -> None:
     result = issue_formatter.format_issue_body("", use_llm=False)
     assert result["formatted_body"]
     assert result["used_llm"] is False
+
+
+def test_parse_sections_keeps_multiline_details_in_preamble() -> None:
+    sections, preamble = issue_formatter._parse_sections(
+        "<details>\n<summary>meta</summary>\nbody\n</details>\n\n## Why\n\nReason\n"
+    )
+    joined_preamble = "\n".join(preamble)
+    assert "<details>" in joined_preamble
+    assert "body" in joined_preamble
+    assert "\n".join(sections.get("why", [])).strip() == "Reason"
+
+
+def test_format_issue_body_falls_back_when_prompt_import_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """ImportError after a client is obtained must fall through to the heuristic formatter."""
+    monkeypatch.setattr(
+        issue_formatter,
+        "check_prompt_injection",
+        lambda _text: {"blocked": False, "reason": None},
+    )
+    monkeypatch.setattr(issue_formatter, "_reuse_already_formatted", lambda *_a, **_k: None)
+    monkeypatch.setattr(
+        issue_formatter,
+        "_get_llm_client",
+        lambda **_kwargs: (object(), "openai"),
+    )
+
+    import builtins
+
+    real_import = builtins.__import__
+
+    def selective_import(name, *args, **kwargs):
+        if name == "langchain_core.prompts" or (
+            name == "langchain_core" and "prompts" in (kwargs.get("fromlist") or ())
+        ):
+            raise ImportError(name)
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", selective_import)
+    # Ensure a prior fake langchain_core.prompts install cannot short-circuit the import.
+    sys.modules.pop("langchain_core.prompts", None)
+    sys.modules.pop("langchain_core", None)
+
+    result = issue_formatter.format_issue_body(
+        "Why: cover prompt import fallback\n\n## Tasks\n- [ ] one", use_llm=True
+    )
+    assert result["used_llm"] is False
+    assert result["formatted_body"]

@@ -1256,3 +1256,30 @@ def test_standalone_mode_writes_github_output_on_failure(tmp_path: Path) -> None
         == 1
     )
     assert "conformant=false" in output.read_text(encoding="utf-8")
+
+
+def test_document_page_rejects_compact_iso_date_that_normalizes() -> None:
+    """fromisoformat accepts YYYYMMDD, but doc_key must keep the canonical dashed form."""
+    report = vrc.Report(repo="owner/repo")
+    vrc._check_document_page(
+        {"document_ref": {"sha256": "a" * 64, "doc_key": "document/20260203"}},
+        report,
+    )
+    assert not report.conformant
+    assert [violation.path for violation in report.violations] == ["document_ref/doc_key"]
+
+
+def test_main_self_smoke_returns_via_cli(capsys) -> None:
+    rc = vrc.main(
+        [
+            "--self-smoke",
+            "--registry",
+            str(ROOT / "config" / "backplane_participants.json"),
+            "--repo",
+            "stranske/Pension-Data",
+            "--schema-dir",
+            str(SCHEMA_DIR),
+        ]
+    )
+    assert rc == 0
+    assert "PASS schema loads + valid Draft202012" in capsys.readouterr().out

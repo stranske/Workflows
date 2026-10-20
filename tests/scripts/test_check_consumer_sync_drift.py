@@ -1913,3 +1913,157 @@ def test_main_marks_missing_remote_file_and_header_insensitive_match(
     assert any("missing local file" in item for item in report["errors"])
     assert "owner/repo: .github/workflows/example.yml" not in report["drift"]
     assert "owner/repo: .github/workflows/other.yml" in report["missing"]
+
+
+def test_response_message_ignores_non_string_message_field() -> None:
+    class Response:
+        def json(self) -> dict[str, object]:
+            return {"message": 429}
+
+    assert check_consumer_sync_drift.response_message(Response()) == ""
+
+
+def test_fetch_remote_tree_reports_tree_http_failure() -> None:
+    class Response:
+        def __init__(self, status_code: int, payload: dict[str, object] | None = None) -> None:
+            self.status_code = status_code
+            self.headers = {}
+            self._payload = payload or {}
+
+        def json(self) -> dict[str, object]:
+            return self._payload
+
+    class Session:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def get(self, url: str) -> Response:
+            self.calls += 1
+            if "git/trees" in url:
+                return Response(502, {"message": "bad gateway"})
+            return Response(200, {"default_branch": "main"})
+
+    tree, error = check_consumer_sync_drift.fetch_remote_tree(Session(), "owner/repo")
+
+    assert tree is None
+    assert error == "owner/repo: repository tree fetch failed (HTTP 502: bad gateway)"
+
+
+def test_probe_targets_skips_empty_managed_directories(tmp_path: Path) -> None:
+    empty_dir = tmp_path / "empty"
+    empty_dir.mkdir()
+    nested_empty = tmp_path / "nested-empty"
+    (nested_empty / "subdir").mkdir(parents=True)
+    filled = tmp_path / "filled"
+    filled.mkdir()
+    (filled / "child.yml").write_text("name: child\n", encoding="utf-8")
+    compiled = SimpleNamespace(
+        section=lambda section: (
+            (
+                _make_entry(source=str(empty_dir), target=".github/empty", is_directory=True),
+                _make_entry(
+                    source=str(nested_empty), target=".github/nested-empty", is_directory=True
+                ),
+                _make_entry(source=str(filled), target=".github/filled", is_directory=True),
+            )
+            if section == "workflows"
+            else ()
+        )
+    )
+
+    assert check_consumer_sync_drift.probe_targets(compiled, ["workflows"]) == [
+        ".github/filled/child.yml"
+    ]
+
+
+def test_write_summary_markdown_skips_malformed_optional_sections(tmp_path: Path) -> None:
+    report_path = tmp_path / "summary.md"
+    report = {
+        "counts": {
+            "drift": 1,
+            "missing": 0,
+            "errors": 0,
+            "obsolete": 0,
+            "unmeasured_create_only": 0,
+        },
+        "repos": ["owner/a"],
+        "repo_summaries": {},
+        "top_repo_gaps": [],
+        "path_prefix_counts": "not-a-dict",
+        "follow_up": "not-a-dict",
+        "sync_remediation": "not-a-dict",
+        "drift": ["owner/a: README.md"],
+        "missing": [],
+        "errors": [],
+        "obsolete": [],
+        "skipped": [],
+        "unmeasured_create_only": [],
+    }
+    check_consumer_sync_drift.write_summary_markdown(str(report_path), report)
+    rendered = report_path.read_text(encoding="utf-8")
+    assert "### Path prefixes" not in rendered
+    assert "### Follow-up commands" not in rendered
+    assert "### Open sync PRs" not in rendered
+
+
+def test_write_summary_markdown_renders_targeted_follow_up_only(tmp_path: Path) -> None:
+    report_path = tmp_path / "summary.md"
+    report = {
+        "counts": {
+            "drift": 0,
+            "missing": 0,
+            "errors": 0,
+            "obsolete": 0,
+            "unmeasured_create_only": 0,
+        },
+        "repos": ["owner/a"],
+        "repo_summaries": {},
+        "top_repo_gaps": [],
+        "path_prefix_counts": {},
+        "follow_up": {"all_repos_command": "  ", "targeted_repos_command": "only-top"},
+        "sync_remediation": {"open_prs": []},
+        "drift": [],
+        "missing": [],
+        "errors": [],
+        "obsolete": [],
+        "skipped": [],
+        "unmeasured_create_only": [],
+    }
+    check_consumer_sync_drift.write_summary_markdown(str(report_path), report)
+    rendered = report_path.read_text(encoding="utf-8")
+    assert "### Follow-up commands" in rendered
+    assert "All repos:" not in rendered
+    assert "- Top repos: `only-top`" in rendered
+
+    blank_follow_up = {
+        **report,
+        "follow_up": {"all_repos_command": "", "targeted_repos_command": "   "},
+    }
+    blank_path = tmp_path / "blank.md"
+    check_consumer_sync_drift.write_summary_markdown(str(blank_path), blank_follow_up)
+    assert "### Follow-up commands" not in blank_path.read_text(encoding="utf-8")
+
+
+def test_build_remediation_states_ignores_prs_for_unknown_repos() -> None:
+    states = check_consumer_sync_drift.build_remediation_states(
+        repos=["owner/tracked"],
+        drift=set(),
+        missing=set(),
+        errors=set(),
+        obsolete=set(),
+        open_sync_prs=[
+            {
+                "repo": "owner/other",
+                "number": 9,
+                "branch": "sync/workflows-delivery",
+                "head_repo": "owner/other",
+                "updated_at": "2026-04-26T01:00:00Z",
+            }
+        ],
+        sync_pr_lookup_errors=[],
+        expected_branch="sync/workflows-delivery",
+        now=datetime(2026, 4, 26, 2, 0, tzinfo=UTC),
+    )
+
+    assert states["owner/tracked"]["state"] == "converged"
+    assert states["owner/tracked"].get("open_prs", []) == []

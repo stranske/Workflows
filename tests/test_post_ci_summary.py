@@ -1041,3 +1041,54 @@ def test_build_summary_coverage_section_without_other_coverage(monkeypatch) -> N
     assert "### Coverage Overview" in summary
     assert "Docs-only fast-pass" in summary
     assert "**Required contexts:** ctx" in summary
+
+
+def test_category_states_keep_worse_state_when_later_job_is_weaker() -> None:
+    runs = [
+        {
+            "present": True,
+            "displayName": "CI",
+            "jobs": [
+                {"name": "Core Tests (3.12)", "conclusion": "failure"},
+                {"name": "Core Tests (3.12)", "conclusion": "success"},
+                {"name": "Core Tests (3.13)", "conclusion": "skipped"},
+                {"name": "Docker Smoke", "conclusion": "skipped"},
+            ],
+        }
+    ]
+    states = post_ci_summary._collect_category_states(runs)
+    assert states["core312"][1] == "failure"
+
+
+def test_dedupe_runs_keeps_present_over_absent_and_equal_priority() -> None:
+    runs = [
+        {"key": "gate", "present": True, "status": "failure"},
+        {"key": "gate", "present": False, "status": "success"},
+        {"key": "ci", "present": True, "status": "failure"},
+        {"key": "ci", "present": True, "status": "success"},
+    ]
+    deduped = post_ci_summary._dedupe_runs(runs)
+    by_key = {run["key"]: run for run in deduped}
+    assert by_key["gate"]["present"] is True
+    assert by_key["gate"]["status"] == "failure"
+    assert by_key["ci"]["status"] == "failure"
+
+
+def test_build_summary_skips_non_string_coverage_table_and_empty_required(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(post_ci_summary, "_is_docs_only_fast_pass", lambda _states: False)
+    monkeypatch.setattr(post_ci_summary, "_load_required_contexts", lambda _path=None: [])
+    monkeypatch.setattr(post_ci_summary, "_load_required_groups", lambda *_a, **_k: [])
+    summary = post_ci_summary.build_summary_comment(
+        runs=[],
+        head_sha="abc",
+        coverage_stats={"coverage_table_markdown": 12},
+        coverage_section="",
+        coverage_delta=None,
+        required_groups_env="[]",
+    )
+    assert "**Head SHA:** abc" in summary
+    assert "**Required:**" not in summary
+    # Non-string coverage_table_markdown must not become a coverage block.
+    assert "### Coverage Overview" not in summary
