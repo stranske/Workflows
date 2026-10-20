@@ -525,3 +525,88 @@ def test_main_reports_invalid_manifest(
     captured = capsys.readouterr()
     assert rc == 1
     assert "Manifest is invalid" in captured.out
+
+
+@pytest.mark.parametrize(
+    ("mode", "expected_rc", "expected_text"),
+    [
+        ("success", 0, "All template files in sync"),
+        ("mismatch", 1, "out of sync"),
+        ("missing-source", 1, "MISSING - needs to be created"),
+    ],
+)
+def test_main_compares_compiled_manifest_entries_in_process(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    mode: str,
+    expected_rc: int,
+    expected_text: str,
+) -> None:
+    """Direct calls cover the same decisions that the CLI makes in CI."""
+    source, template = create_test_structure(tmp_path)
+    (source / "example.js").write_text("source", encoding="utf-8")
+    if mode != "missing-source":
+        (template / "example.js").write_text(
+            "source" if mode == "success" else "template", encoding="utf-8"
+        )
+    write_manifest(tmp_path, ["example.js"])
+    monkeypatch.setattr(vts, "__file__", str(tmp_path / "scripts" / "validate_template_sync.py"))
+
+    assert vts.main() == expected_rc
+    assert expected_text in capsys.readouterr().out
+
+
+def test_main_print_sources_and_missing_template_directory(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    source, template = create_test_structure(tmp_path)
+    (source / "example.js").write_text("source", encoding="utf-8")
+    (template / "example.js").write_text("source", encoding="utf-8")
+    write_manifest(tmp_path, ["example.js"])
+    monkeypatch.setattr(vts, "__file__", str(tmp_path / "scripts" / "validate_template_sync.py"))
+
+    assert vts.main(print_sources=True) == 0
+    assert capsys.readouterr().out == ".github/scripts/example.js\n"
+
+    shutil.rmtree(tmp_path / "templates")
+    assert vts.main() == 1
+    assert "Template directory not found" in capsys.readouterr().out
+
+
+def test_print_sources_rejects_unreadable_or_unsafe_compiled_sources(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Print mode must fail closed before emitting unsafe source names."""
+    source, _template = create_test_structure(tmp_path)
+    (source / "example.js").write_text("source", encoding="utf-8")
+    write_manifest(tmp_path, ["example.js"])
+    monkeypatch.setattr(vts, "__file__", str(tmp_path / "scripts" / "validate_template_sync.py"))
+    monkeypatch.setattr(vts, "_manifest_template_sync_sources", lambda _compiled: ["bad\npath"])
+
+    assert vts.main(print_sources=True) == 1
+    assert "line-control character" in capsys.readouterr().err
+
+
+def test_main_detects_missing_source_and_compares_synced_directories(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    source, template = create_test_structure(tmp_path)
+    (source / "bundle").mkdir()
+    (template / "bundle").mkdir()
+    (source / "bundle" / "item.js").write_text("same", encoding="utf-8")
+    (template / "bundle" / "item.js").write_text("same", encoding="utf-8")
+    (source / "example.js").write_text("same", encoding="utf-8")
+    (template / "example.js").write_text("same", encoding="utf-8")
+    write_manifest(tmp_path, ["example.js"])
+    monkeypatch.setattr(vts, "__file__", str(tmp_path / "scripts" / "validate_template_sync.py"))
+    monkeypatch.setattr(
+        vts,
+        "_compiled_template_sync_sources",
+        lambda _repo_root: [".github/scripts/bundle", ".github/scripts/missing.js"],
+    )
+
+    assert vts.main() == 1
+    output = capsys.readouterr().out
+    assert "missing.js (MISSING - needs to be created)" in output
+    assert "bundle" not in output
