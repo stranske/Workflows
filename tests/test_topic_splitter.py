@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import importlib.util
 import os
 import subprocess
 import sys
+import types
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -157,3 +160,52 @@ def test_direct_script_execution_uses_local_import_fallback(tmp_path) -> None:
     )
     assert result.returncode == 0
     assert "Split raw text into topics using LLM" in result.stdout
+
+
+def _exec_topic_splitter_with_scripts_stub() -> types.ModuleType:
+    """Load topic_splitter.py while ``scripts`` is an incomplete package stub.
+
+    Forces the ModuleNotFoundError import-fallback (lines 26–28). Subprocess
+    execution exercises the same path behaviorally, but in-process reload is
+    required for pytest-cov to attribute those lines.
+    """
+    repo_root = Path(__file__).resolve().parents[1]
+    module_path = repo_root / "scripts" / "langchain" / "topic_splitter.py"
+    probe_name = "scripts.langchain.topic_splitter_import_fallback_probe"
+    langchain_dir = str(module_path.parent)
+
+    saved = {
+        name: module
+        for name, module in sys.modules.items()
+        if name == "scripts" or name.startswith("scripts.")
+    }
+    saved_path = list(sys.path)
+    try:
+        for name in list(sys.modules):
+            if name == "scripts" or name.startswith("scripts."):
+                del sys.modules[name]
+
+        stub_scripts = types.ModuleType("scripts")
+        stub_scripts.__path__ = []
+        sys.modules["scripts"] = stub_scripts
+        sys.path.insert(0, langchain_dir)
+
+        spec = importlib.util.spec_from_file_location(probe_name, module_path)
+        assert spec is not None and spec.loader is not None
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[probe_name] = module
+        spec.loader.exec_module(module)
+        return module
+    finally:
+        sys.path[:] = saved_path
+        sys.modules.pop(probe_name, None)
+        for name in list(sys.modules):
+            if name == "scripts" or name.startswith("scripts."):
+                del sys.modules[name]
+        sys.modules.update(saved)
+
+
+def test_import_fallback_recovers_when_scripts_package_is_incomplete() -> None:
+    module = _exec_topic_splitter_with_scripts_stub()
+    assert callable(module.split_topics_with_llm)
+    assert topic_splitter.split_topics_with_llm is not None

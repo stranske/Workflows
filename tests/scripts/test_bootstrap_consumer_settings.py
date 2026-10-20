@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import json
 import subprocess
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -651,3 +653,178 @@ def test_main_verify_passes_bot_and_keepalive_overrides() -> None:
         bot="custom-bot",
         keepalive_logins="alice",
     )
+
+
+@pytest.mark.parametrize(
+    ("raw", "match"),
+    [
+        ("'unclosed", "invalid quoted label value"),
+        ('"unterminated', "invalid quoted label value"),
+        ("true", "label value must be text"),
+        ("''", "label value is empty"),
+    ],
+)
+def test_decode_simple_yaml_scalar_rejects_invalid_forms(
+    tmp_path: Path, raw: str, match: str
+) -> None:
+    with pytest.raises(ValueError, match=match):
+        bcs._decode_simple_yaml_scalar(raw, path=tmp_path / "labels.yml", line_number=1)
+
+
+def test_decode_simple_yaml_scalar_rejects_non_text_json(tmp_path: Path) -> None:
+    with (
+        patch("scripts.bootstrap_consumer_settings.json.loads", return_value=123),
+        pytest.raises(ValueError, match="label value must be text"),
+    ):
+        bcs._decode_simple_yaml_scalar('"ignored"', path=tmp_path / "labels.yml", line_number=1)
+
+
+def test_load_core_label_entries_rejects_unsupported_syntax(tmp_path: Path) -> None:
+    labels = tmp_path / "labels-core.yml"
+    labels.write_text("- name: priority:high\n  nested:\n    bad: 1\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="unsupported label YAML syntax"):
+        bcs._load_core_label_entries(labels)
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        '{"not":"a-list"}',
+        '[{"number": 1}, "mixed"]',
+        '[[{"number": 1}], {"number": 2}]',
+        "[[1, 2]]",
+    ],
+)
+def test_read_paginated_collection_rejects_malformed_payloads(payload: str) -> None:
+    result = MagicMock(stdout=payload)
+    with patch("subprocess.run", return_value=result), pytest.raises(ValueError):
+        bcs._read_paginated_collection("/repos/x/y/labels")
+
+
+def test_read_paginated_collection_accepts_empty_and_flat_pages() -> None:
+    empty = MagicMock(stdout="[]")
+    flat = MagicMock(stdout=json.dumps([{"name": "priority:high"}]))
+    with patch("subprocess.run", side_effect=[empty, flat]):
+        assert bcs._read_paginated_collection("/repos/x/y/labels") == []
+        assert bcs._read_paginated_collection("/repos/x/y/labels") == [{"name": "priority:high"}]
+
+
+def test_priority_label_inventory_rejects_malformed_names() -> None:
+    with (
+        patch(
+            "scripts.bootstrap_consumer_settings._read_paginated_collection",
+            return_value=[{"name": ""}, {"name": "ok"}],
+        ),
+        pytest.raises(ValueError, match="Malformed label payload"),
+    ):
+        bcs._priority_label_inventory("x/y")
+
+
+@pytest.mark.parametrize(
+    ("issue", "match"),
+    [
+        ({"labels": "not-a-list"}, "Issue labels must be a list"),
+        ({"labels": [None]}, "Issue label entry is malformed"),
+        ({"labels": [{}]}, "Issue label entry is malformed"),
+    ],
+)
+def test_issue_labels_rejects_malformed_entries(issue: dict, match: str) -> None:
+    with pytest.raises(ValueError, match=match):
+        bcs._issue_labels(issue)
+
+
+def test_non_implementation_reason_covers_remaining_holders() -> None:
+    with pytest.raises(ValueError, match="Issue title is missing"):
+        bcs._non_implementation_reason({"labels": []})
+    assert (
+        bcs._non_implementation_reason(
+            {
+                "title": "Weekly agent metrics rollup",
+                "labels": [{"name": "agent-metrics"}],
+                "user": {"login": "bot"},
+            }
+        )
+        == "agent_metrics_holder"
+    )
+    assert (
+        bcs._non_implementation_reason(
+            {
+                "title": "Sync bookkeeping",
+                "labels": [{"name": "sync-generated"}],
+                "user": {"login": "bot"},
+            }
+        )
+        == "sync_bookkeeping"
+    )
+    assert bcs._issue_labels({"labels": ["Priority:High", {"name": "bug"}]}) == {
+        "priority:high",
+        "bug",
+    }
+
+
+def test_check_consumer_health_empty_repos_and_issue_systemic_failure() -> None:
+    with pytest.raises(SystemExit, match="Registered consumer list is empty"):
+        bcs.check_consumer_health([])
+    issue_error = subprocess.CalledProcessError(
+        1, ["gh", "api"], stderr="API rate limit exceeded for installation"
+    )
+    with (
+        patch(
+            "scripts.bootstrap_consumer_settings._priority_label_inventory",
+            return_value={
+                name: {"color": defn["color"], "description": defn["description"]}
+                for name, defn in bcs.PRIORITY_LABELS.items()
+            },
+        ),
+        patch(
+            "scripts.bootstrap_consumer_settings._read_paginated_collection",
+            side_effect=issue_error,
+        ),
+    ):
+        rows, code = bcs.check_consumer_health(["stranske/One", "stranske/Two"])
+    assert code == 2
+    assert [row["status"] for row in rows] == ["ERROR", "ERROR"]
+    assert "issue read failed" in (rows[0]["error"] or "")
+
+
+def test_check_consumer_health_all_ok_and_render_details() -> None:
+    inventory = {
+        name: {"color": definition["color"], "description": definition["description"]}
+        for name, definition in bcs.PRIORITY_LABELS.items()
+    }
+    with (
+        patch(
+            "scripts.bootstrap_consumer_settings._priority_label_inventory",
+            return_value=inventory,
+        ),
+        patch(
+            "scripts.bootstrap_consumer_settings._read_paginated_collection",
+            return_value=[],
+        ),
+    ):
+        rows, code = bcs.check_consumer_health(["stranske/Ok"])
+    assert code == 0 and rows[0]["status"] == "OK"
+    rendered = bcs._render_health_row(
+        {
+            **rows[0],
+            "excluded": {"pull_request": 2},
+            "error": "partial failure",
+            "status": "ERROR",
+        }
+    )
+    assert "excluded=pull_request:2" in rendered
+    assert "error=partial failure" in rendered
+
+
+def test_main_health_check_rejects_repo_and_missing_manifest(tmp_path: Path) -> None:
+    with (
+        patch("sys.argv", ["bcs", "--health-check", "--repo", "x/y"]),
+        pytest.raises(SystemExit, match="do not pass --repo"),
+    ):
+        bcs.main()
+    missing = tmp_path / "missing-manifest.yml"
+    with (
+        patch("sys.argv", ["bcs", "--health-check", "--manifest", str(missing)]),
+        pytest.raises(SystemExit, match="Manifest not found"),
+    ):
+        bcs.main()

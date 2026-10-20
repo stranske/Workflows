@@ -106,3 +106,18 @@ def test_main_rejects_missing_agents_directory(tmp_path, monkeypatch, capsys) ->
     monkeypatch.setattr(prune_agent_stubs, "AGENTS_DIR", tmp_path / "missing")
     assert prune_agent_stubs.main([]) == 1
     assert "directory not found" in capsys.readouterr().err
+
+
+def test_main_reports_nothing_to_prune(tmp_path, monkeypatch, capsys) -> None:
+    agents = tmp_path / "agents"
+    agents.mkdir()
+    (agents / "codex-99.md").write_text("stub", encoding="utf-8")
+    monkeypatch.setattr(prune_agent_stubs, "AGENTS_DIR", agents)
+    monkeypatch.setattr(
+        prune_agent_stubs.subprocess,
+        "run",
+        lambda *_args, **_kwargs: subprocess.CompletedProcess([], 0, json.dumps([]), ""),
+    )
+    assert prune_agent_stubs.main([]) == 0
+    assert "Nothing to prune." in capsys.readouterr().out
+    assert (agents / "codex-99.md").exists()

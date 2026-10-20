@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
+from unittest.mock import MagicMock
 
 from scripts import maint_tool_version_check as check
 
@@ -137,3 +139,26 @@ def test_latest_pypi_failure_and_compare_without_updates(monkeypatch, tmp_path: 
         monkeypatch.setenv(spec.latest_env, "1.0.0")
     assert check.main(["compare"]) == 0
     assert "updates=\n" in output.read_text(encoding="utf-8")
+
+
+def test_parse_tool_version_rejects_unknown_and_empty() -> None:
+    assert check.parse_tool_version_output("black", "") is None
+    assert check.parse_tool_version_output("black", "unknown") is None
+    assert check.parse_tool_version_output("black", "no version here") is None
+
+
+def test_latest_pypi_version_success_and_missing_info(monkeypatch) -> None:
+    payload = json.dumps({"info": {"version": "9.9.9"}}).encode("utf-8")
+    response = MagicMock()
+    response.read.return_value = payload
+    response.__enter__.return_value = response
+    response.__exit__.return_value = False
+    monkeypatch.setattr(check.urllib.request, "urlopen", lambda *_a, **_k: response)
+    assert check.latest_pypi_version("black") == "9.9.9"
+
+    empty = MagicMock()
+    empty.read.return_value = json.dumps({"info": {}}).encode("utf-8")
+    empty.__enter__.return_value = empty
+    empty.__exit__.return_value = False
+    monkeypatch.setattr(check.urllib.request, "urlopen", lambda *_a, **_k: empty)
+    assert check.latest_pypi_version("black") is None
