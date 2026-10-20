@@ -35,7 +35,7 @@ const { classifySyncPrChecks } = require('../sync_pr_merge_contract');
 const { findingPacket, changeProof } = require('./fixtures/sync_finding_disposition');
 const { confirmExactHeadSyncFindingGate } = require('../maint71_merge_sync_prs');
 const { syncMergeFailureDisposition } = require('../maint71_merge_sync_prs');
-const { classifyGeneratedPr, validateCanaryEvidence } = require('../sync_pr_merge_contract');
+const { classifyGeneratedPr, evaluateSyncFindingDispositions, validateCanaryEvidence } = require('../sync_pr_merge_contract');
 
 function findingGateHarness(packet = findingPacket()) {
   const { binding } = packet;
@@ -101,6 +101,70 @@ test('stale-head final sync finding gate rejects an unrelated record after pre-s
   assert.equal(gate.ok, false, 'current-head revalidation must precede final acceptance');
   assert.match(gate.packet.error, /finding_delivery_changed/);
 });
+
+for (const kind of ['shared-source', 'sync-caused', 'unknown']) {
+  test(`mixed unrelated and ${kind} findings block every review boundary`, async () => {
+    const packet = findingPacket();
+    const other = findingPacket(kind);
+    const thread = other.reviewThreads[0];
+    thread.id = `PRRT_${kind}`;
+    // The incompatibility remains blocking even in an unmanaged consumer path.
+    thread.path = kind === 'shared-source' ? 'scripts/shared.js' : 'app/local.py';
+    thread.comments.nodes[0].id = `PRRC_${kind}`;
+    thread.comments.nodes[0].url = thread.comments.nodes[0].url.replace('_r1', '_r2');
+    changeProof(other, { thread_id: thread.id, thread_fingerprint:
+      require('../sync_pr_merge_contract').syncFindingFingerprint(thread) });
+    other.comments[0].id = 42;
+    other.comments[0].html_url = other.comments[0].html_url.replace('-41', '-42');
+    packet.reviewThreads.push(thread);
+    packet.comments.push(other.comments[0]);
+    packet.activeReviewThreadCount = 2;
+    const h = findingGateHarness(packet);
+
+    const final = await confirmExactHeadSyncFindingGate(h.args);
+    assert.equal(final.ok, false, 'one local handoff cannot exempt another finding');
+    const preSeal = classifyGeneratedPr({ pr: h.pr, activeReviewThreadCount: 2,
+      reviewThreads: packet.reviewThreads, findingEvidence: final.packet,
+      checkState: { status: 'ready' } });
+    assert.equal(preSeal.disposition, 'review-blocked');
+    assert.deepEqual(preSeal.finding_disposition, final.evaluation);
+    assert.equal(final.evaluation.raw_active_count, 2);
+    assert.deepEqual(final.evaluation.blocking_thread_ids, [thread.id]);
+    assert.deepEqual(final.evaluation.nonblocking_thread_ids, ['PRRT_finding']);
+    assert.deepEqual(final.evaluation.unknown_thread_ids, kind === 'unknown' ? [thread.id] : []);
+    assert.deepEqual(final.evaluation.unrelated_handoffs, [{
+      thread_id: 'PRRT_finding', owner: 'local-owner',
+      url: 'https://github.com/stranske/Ready/issues/31',
+    }]);
+
+    const row = { repo: packet.binding.repository, pr: h.pr.number,
+      head_sha: h.pr.head.sha, source_commit: h.record.source_commit,
+      plan_id: h.record.plan_id, delivery_generation: h.record.generation,
+      evidence_source: 'open-candidate',
+      required_check_state: 'success', active_review_thread_count: 2,
+      review_disposition: final.packet };
+    const build = require('../maint71_merge_sync_prs').buildCanaryPromotionEvidence;
+    const canary = build([row], [row.repo]);
+    assert.equal(canary.ok, false, 'promotion must preserve the mixed-finding hold');
+    assert.deepEqual(canary.errors, [`active_review_debt:${row.repo}`]);
+    const retained = canary.evidence.results[0];
+    assert.equal(retained.active_review_thread_count, 2);
+    assert.deepEqual(retained.review_disposition.reviewThreads.map(item => item.id),
+      ['PRRT_finding', thread.id]);
+    assert.deepEqual(retained.review_disposition.handoffs[0].assignees,
+      [{ login: 'local-owner' }]);
+    const compactEvaluation = evaluateSyncFindingDispositions({
+      ...retained.review_disposition, activeReviewThreadCount: 2,
+    });
+    assert.deepEqual(compactEvaluation.errors, []);
+    for (const key of ['blocking_thread_ids', 'unknown_thread_ids', 'unrelated_handoffs', 'aggregates']) {
+      assert.deepEqual(compactEvaluation[key], final.evaluation[key], key);
+    }
+    assert.ok(validateCanaryEvidence([retained], [row.repo]).errors
+      .includes(`active_review_debt:${row.repo}`));
+    assert.ok(packet.reviewThreads.every(item => item.isResolved === false));
+  });
+}
 
 test('a changed delivery head requires renewed unrelated evidence at every review boundary', async () => {
   const h = findingGateHarness();

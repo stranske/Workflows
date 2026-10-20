@@ -189,3 +189,43 @@ but approval policy is never`. The remote body remains unchanged; this section
 records the current local evidence. The disposition-to-gate table above still
 applies. This correction does not clear shared-code blockers or add a campaign
 #1836 prerequisite.
+
+## Mixed-finding orchestration follow-up
+
+Reconciliation found all 16 live PR checkboxes already checked. The existing
+mixed-finding tests exercised the shared evaluator, while the orchestration
+agreement test exercised each disposition separately. Three new named tests in
+`maint71_merge_sync_prs.test.js` now exercise an unrelated finding together with
+each blocking disposition through pre-seal, final merge and compact canary
+promotion evidence:
+
+- `mixed unrelated and shared-source findings block every review boundary`
+- `mixed unrelated and sync-caused findings block every review boundary`
+- `mixed unrelated and unknown findings block every review boundary`
+
+Each retains two unresolved findings, the raw count, the exact blocking/unknown
+identities and the validated local handoff. The sync-caused case uses an unmanaged
+consumer path. Promotion fails specifically for active review debt; the complete
+fixture has no missing required metadata. Compact evidence preserves the same
+aggregates and handoff references as the final evaluation.
+
+The exact required two-file `node --test` command passes. With
+`--test-isolation=none --test-reporter=tap`, **228 named tests pass, zero failures
+or skips**. Both required deliberate-break proofs were repeated: the named
+unknown-fail-closed and stale-head final-merge tests each fail with
+`ERR_ASSERTION` (exit 1) under the specified mutation and pass (exit 0) after
+byte-for-byte restoration. Neither mutation is included. `git diff --check`
+passes. Only JavaScript tests and this evidence record changed.
+
+PR #4144 remains open and ready for review. Updating its body with the current
+test count and disposition-to-gate table was rejected because the GitHub tool
+requires approval while this run's approval policy is `never`. The existing
+checked tasks remain unchanged remotely. This coverage does not clear current
+shared-code blockers or create an additional campaign #1836 prerequisite.
+
+One overlapping two-file suite invocation failed the existing `seal recovery
+seal_drained preserves real check blockers` test while both processes shared
+`artifacts/sync-canary-evidence.json`. A sequential rerun passes all 228 named
+tests; these suites must not run concurrently in the same working directory.
+The local commit attempt failed because `.git/index.lock` cannot be created on
+the read-only filesystem. The changes remain uncommitted in the working tree.
