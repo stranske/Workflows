@@ -1266,7 +1266,24 @@ def test_legacy_markers_and_apply_issue_failure_paths(monkeypatch, tmp_path: Pat
 
     plan["max_per_batch"] = -1
     markers_zero = fix_agent._legacy_markers_by_finding(plan)
-    assert len(markers_zero) == 1
+    assert markers_zero == markers
+    default_plan = {**plan}
+    default_plan.pop("max_per_batch")
+    assert fix_agent._legacy_markers_by_finding(default_plan) == markers
+
+    # Multiple batches make the fallback size observable in marker digests.
+    batch_findings = [
+        {**finding, "target": f".github/workflows/missing-{index}.yml"}
+        for index in range(fix_agent.DEFAULT_MAX_PER_BATCH + 1)
+    ]
+    default_plan["findings"] = batch_findings
+    expected = fix_agent._legacy_markers_by_finding(default_plan)
+    assert len(set(expected.values())) == 2
+    for invalid in ("bad", -1):
+        assert (
+            fix_agent._legacy_markers_by_finding({**default_plan, "max_per_batch": invalid})
+            == expected
+        )
 
     class FailList:
         returncode = 1
@@ -1347,6 +1364,7 @@ def test_legacy_markers_and_apply_issue_failure_paths(monkeypatch, tmp_path: Pat
 def test_main_validation_and_json_output(tmp_path: Path, monkeypatch, capsys) -> None:
     missing = tmp_path / "missing-root"
     assert fix_agent.main(["--repo-root", str(missing), "--repo", "stranske/Workflows"]) == 2
+    assert f"error: repo root not found: {missing}" in capsys.readouterr().err
 
     root = tmp_path / "repo"
     root.mkdir()
@@ -1366,6 +1384,8 @@ def test_main_validation_and_json_output(tmp_path: Path, monkeypatch, capsys) ->
         )
         == 2
     )
+
+    assert f"error: scan json not found: {missing_scan}" in capsys.readouterr().err
 
     _write(root / "README.md", "# ok\n")
     monkeypatch.setattr(

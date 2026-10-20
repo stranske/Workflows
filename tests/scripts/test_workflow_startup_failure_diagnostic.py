@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import subprocess
 import sys
@@ -1060,7 +1061,9 @@ def test_sweep_repository_skips_inactive_non_workflow_sparse_and_threshold(
     )
 
 
-def test_sweep_summary_step_summary_and_main_error_paths(tmp_path: Path, monkeypatch) -> None:
+def test_sweep_summary_step_summary_and_main_error_paths(
+    tmp_path: Path, monkeypatch, capsys
+) -> None:
     summary = diag.format_sweep_summary(
         {
             "held_count": 1,
@@ -1153,8 +1156,10 @@ def test_sweep_summary_step_summary_and_main_error_paths(tmp_path: Path, monkeyp
     )
     assert diag.main(["--sweep", "--repo", "owner/repo"]) == 1
 
-    with pytest.raises(SystemExit):
+    with pytest.raises(SystemExit) as excinfo:
         diag.main([])
+    assert excinfo.value.code == 2
+    assert "--repo and --run-id are required" in capsys.readouterr().err
 
     monkeypatch.setattr(
         diag,
@@ -1165,7 +1170,10 @@ def test_sweep_summary_step_summary_and_main_error_paths(tmp_path: Path, monkeyp
             "startup_failures": [{"id": 1}],
         },
     )
+    capsys.readouterr()
     assert diag.main(["--repo", "owner/repo", "--run-id", "9"]) == 0
+    no_jobs = json.loads(capsys.readouterr().out)
+    assert no_jobs == {"approval_hold": None, "jobs_count": 0, "startup_failures": [{"id": 1}]}
 
     monkeypatch.setattr(
         diag,
@@ -1177,3 +1185,5 @@ def test_sweep_summary_step_summary_and_main_error_paths(tmp_path: Path, monkeyp
         },
     )
     assert diag.main(["--repo", "owner/repo", "--run-id", "9"]) == 0
+    with_jobs = json.loads(capsys.readouterr().out)
+    assert with_jobs == {"approval_hold": None, "jobs_count": 2, "startup_failures": [{"id": 1}]}

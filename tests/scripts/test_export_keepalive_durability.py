@@ -243,6 +243,7 @@ def test_fetch_repo_payload_requests_the_merged_and_revert_views(monkeypatch) ->
 
     assert payload == {"repo": "owner/repo", "prs": [{"number": 1}], "revert_prs": [{"number": 2}]}
     assert calls[0][:5] == ["pr", "list", "-R", "owner/repo", "--state"]
+    assert calls[0][calls[0].index("--state") + 1] == "merged"
     assert "agents:keepalive" in calls[0]
     assert "Revert in:title merged:>=2026-01-01" in calls[1]
 
@@ -259,7 +260,11 @@ def test_cli_rejects_invalid_numeric_limits(argument: str, value: str) -> None:
 def test_helpers_cover_timezone_agent_and_closing_edge_cases() -> None:
     naive = exporter._parse_time("2026-06-10T00:00:00")
     assert naive is not None
-    assert naive.tzinfo is not None
+    assert naive == datetime(2026, 6, 10, tzinfo=UTC)
+    assert naive.tzinfo is UTC
+    offset = exporter._parse_time("2026-06-10T02:00:00+02:00")
+    assert offset == naive
+    assert offset.tzinfo is UTC
     assert (
         exporter.infer_agent(
             {"labels": [{"name": "runner:auto"}, {"name": "agent:muse"}], "headRefName": "x"}
@@ -379,7 +384,8 @@ def test_cli_human_summary_and_partial_fetch_paths(tmp_path: Path, monkeypatch, 
     err = capsys.readouterr().err
     assert "fetch_errors" in err
     assert "owner/fail" in err
-    assert partial_out.exists()
+    partial_records = [json.loads(line) for line in partial_out.read_text().splitlines()]
+    assert [record["github_pr"] for record in partial_records] == ["owner/ok#21"]
 
     ok_out = tmp_path / "ok.ndjson"
     assert exporter.main(["--repo", "owner/ok", "--output", str(ok_out), "--days", "30"]) == 0
