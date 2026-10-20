@@ -1082,11 +1082,6 @@ def test_load_seeded_fixture_payloads_handles_bad_json_and_non_dict_values(
     assert drift_scan.load_seeded_fixture_payloads() == {}
 
     mixed = tmp_path / "mixed.json"
-    mixed.write_text(
-        json.dumps({"README.md": {"instances": []}, "skip": "string", 1: {"x": 1}}),
-        encoding="utf-8",
-    )
-    # json dumps coerces int keys to strings; craft via text instead
     mixed.write_text('{"README.md": {"instances": []}, "skip": "string"}', encoding="utf-8")
     monkeypatch.setattr(drift_scan, "SEEDED_FIXTURE_PATH", mixed)
     payloads = drift_scan.load_seeded_fixture_payloads()
@@ -1110,7 +1105,8 @@ def test_scan_doc_seeded_parse_error_and_live_parse_error(
         timeout=1,
         invoker=lambda **_k: (False, "claude CLI not found"),
     )
-    assert result.error is not None
+    assert result.error is not None and result.error.startswith("JSON decode failed")
+    assert result.instances == []
 
     result = scan_doc(
         repo="org/other",
@@ -1121,7 +1117,8 @@ def test_scan_doc_seeded_parse_error_and_live_parse_error(
         timeout=1,
         invoker=lambda **_k: (True, "not-json-at-all"),
     )
-    assert result.error is not None
+    assert result.error == "no JSON object found in response"
+    assert result.instances == []
 
 
 def test_dry_run_invoker_writes_log(tmp_path: Path):
@@ -1212,7 +1209,8 @@ def test_main_reports_config_registry_and_workspace_errors(
     )
     assert drift_scan.main() == 2
     err = capsys.readouterr().err
-    assert "cannot load registry" in err or "cannot resolve workspace root" in err
+    assert "cannot load registry" in err
+    assert "cannot resolve workspace root" not in err
 
 
 def test_read_claude_oauth_token_missing_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):

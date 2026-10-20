@@ -1491,7 +1491,8 @@ def test_refresh_map_skips_quarantine_when_cache_missing(
         repo_path, gitnexus_bin="gitnexus", repair_root=tmp_path / "repairs"
     )
     assert ok is True
-    assert "verified" in message.casefold() or "ok" in message.casefold()
+    assert "quarantined" not in message
+    assert not (tmp_path / "repairs").exists()
 
 
 def test_refresh_map_reports_analyzer_failure_and_head_mismatch(
@@ -1702,7 +1703,13 @@ def test_invoke_round1_clean_exit_without_findings_and_invalid_preserve_break(
         findings.write_text('{"bad": true}\n', encoding="utf-8")
         return True, "ok"
 
-    monkeypatch.setattr(runner, "invoke_agent", write_invalid)
+    attempts = {"n": 0}
+
+    def write_invalid_counted(*a, **k):
+        attempts["n"] += 1
+        return write_invalid(*a, **k)
+
+    monkeypatch.setattr(runner, "invoke_agent", write_invalid_counted)
     monkeypatch.setattr(runner, "_validate_findings_file", lambda *_a, **_k: ["schema boom"])
 
     def boom_preserve(_path):
@@ -1718,12 +1725,13 @@ def test_invoke_round1_clean_exit_without_findings_and_invalid_preserve_break(
         template_path=tmp_path / "missing.md",
         log_dir=tmp_path / "logs",
         timeout=1,
-        retries=0,
+        retries=1,
         workflows_steward_root=tmp_path,
         source_commit="abc",
     )
     assert result.succeeded is False
     assert "cannot preserve invalid findings" in (result.error or "")
+    assert attempts["n"] == 1  # break, not continue
 
 
 def test_invoke_round1_provenance_write_failure_retries_then_fails(
@@ -1737,10 +1745,16 @@ def test_invoke_round1_provenance_write_failure_retries_then_fails(
         findings.write_text("{}\n", encoding="utf-8")
         return True, "ok"
 
+    attempts = {"n": 0}
+
+    def write_ok_counted(*a, **k):
+        attempts["n"] += 1
+        return write_ok(*a, **k)
+
     def boom_provenance(*_a, **_k):
         raise OSError("disk full")
 
-    monkeypatch.setattr(runner, "invoke_agent", write_ok)
+    monkeypatch.setattr(runner, "invoke_agent", write_ok_counted)
     monkeypatch.setattr(runner, "write_findings_provenance", boom_provenance)
     result = runner.invoke_round1_agent(
         agent="codex",
@@ -1751,12 +1765,14 @@ def test_invoke_round1_provenance_write_failure_retries_then_fails(
         template_path=tmp_path / "missing.md",
         log_dir=tmp_path / "logs",
         timeout=1,
-        retries=0,
+        retries=1,
         workflows_steward_root=tmp_path,
         source_commit="abc",
     )
     assert result.succeeded is False
+    assert (result.error or "").startswith("attempt 2:")
     assert "cannot write findings provenance" in (result.error or "")
+    assert attempts["n"] == 2
 
 
 def test_invoke_round1_agent_failure_without_findings_continues(
@@ -2011,7 +2027,13 @@ def test_invoke_round1_failed_agent_with_invalid_findings_continues(
         findings.write_text('{"bad": true}\n', encoding="utf-8")
         return False, "agent blew up"
 
-    monkeypatch.setattr(runner, "invoke_agent", fail_after_invalid_write)
+    attempts = {"n": 0}
+
+    def fail_after_invalid_write_counted(*a, **k):
+        attempts["n"] += 1
+        return fail_after_invalid_write(*a, **k)
+
+    monkeypatch.setattr(runner, "invoke_agent", fail_after_invalid_write_counted)
     monkeypatch.setattr(runner, "_validate_findings_file", lambda *_a, **_k: ["still invalid"])
 
     result = runner.invoke_round1_agent(
@@ -2023,9 +2045,11 @@ def test_invoke_round1_failed_agent_with_invalid_findings_continues(
         template_path=tmp_path / "missing.md",
         log_dir=tmp_path / "logs",
         timeout=1,
-        retries=0,
+        retries=1,
         workflows_steward_root=tmp_path,
         source_commit="abc",
     )
     assert result.succeeded is False
+    assert (result.error or "").startswith("attempt 2:")
     assert "agent blew up" in (result.error or "")
+    assert attempts["n"] == 2

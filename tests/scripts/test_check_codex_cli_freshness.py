@@ -229,6 +229,9 @@ def test_main_queries_npm_when_latest_not_provided(tmp_path: Path, monkeypatch) 
 def test_main_fail_when_outdated_returns_one(tmp_path: Path) -> None:
     workflow = tmp_path / "workflow.yml"
     workflow.write_text('run: npm install -g "@openai/codex@0.125.0"\n', encoding="utf-8")
+    out_json = tmp_path / "out.json"
+    out_md = tmp_path / "out.md"
+    out_ndjson = tmp_path / "out.ndjson"
     result = check_codex_cli_freshness.main(
         [
             "--workflow-path",
@@ -237,11 +240,15 @@ def test_main_fail_when_outdated_returns_one(tmp_path: Path) -> None:
             "0.200.0",
             "--fail-when-outdated",
             "--output-json",
-            str(tmp_path / "out.json"),
+            str(out_json),
             "--output-md",
-            str(tmp_path / "out.md"),
+            str(out_md),
             "--output-ndjson",
-            str(tmp_path / "out.ndjson"),
+            str(out_ndjson),
         ]
     )
     assert result == 1
+    assert out_json.is_file()
+    assert out_md.is_file()
+    assert out_ndjson.is_file()
+    assert json.loads(out_json.read_text(encoding="utf-8"))["status"] == "outdated"

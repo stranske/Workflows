@@ -438,7 +438,9 @@ def test_main_show_only_and_status_only_and_default_print(
         ["repo_review_state.py", "--output-dir", str(tmp_path), "--repo", "org/repo"],
     )
     assert repo_review_state.main() == 0
-    assert "status" in json.loads(capsys.readouterr().out)
+    default_printed = json.loads(capsys.readouterr().out)
+    assert default_printed["status"] == "round1-running"
+    assert default_printed["pinned_problems"][0]["title"] == "only-pin"
 
 
 def test_main_mutated_without_show_still_prints(tmp_path: Path, monkeypatch, capsys) -> None:
