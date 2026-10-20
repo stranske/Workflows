@@ -1190,3 +1190,19 @@ def test_required_segments_skips_jobs_that_stop_being_sequences() -> None:
         [{"label": "unit-group", "patterns": ["Unit"]}],
     )
     assert segments == ["unit-group: ⏳ pending"]
+
+
+def test_required_segments_deduplicates_case_insensitive_job_names() -> None:
+    runs = [
+        {
+            "present": True,
+            "jobs": [
+                {"name": "Build", "conclusion": "success"},
+                {"name": "BUILD", "status": "queued"},
+            ],
+        }
+    ]
+
+    assert post_ci_summary._collect_required_segments(
+        runs, [{"label": "Build", "patterns": ["build"]}]
+    ) == ["Build: ⏳ queued"]
