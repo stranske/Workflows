@@ -1153,3 +1153,31 @@ def test_required_segments_skip_non_sequence_jobs_and_unmatched_groups() -> None
         "Unit: ✅ success",
         "missing-group: ⏳ pending",
     ]
+
+
+def test_required_segments_skips_jobs_that_stop_being_sequences() -> None:
+    """Cover the inner jobs Sequence re-check when a run mutates between passes.
+
+    ``job_sources`` retains runs whose ``jobs`` were a Sequence at filter time.
+    The later loop re-reads ``jobs``; if that value is no longer a Sequence the
+    defensive ``continue`` must skip it (otherwise ``for job in <int>`` TypeErrors).
+    """
+
+    class FlipJobs(dict):
+        def __init__(self) -> None:
+            super().__init__(present=True)
+            self._jobs_reads = 0
+
+        def get(self, key, default=None):  # noqa: ANN001
+            if key == "jobs":
+                self._jobs_reads += 1
+                if self._jobs_reads == 1:
+                    return [{"name": "Unit", "conclusion": "success"}]
+                return 123
+            return super().get(key, default)
+
+    segments = post_ci_summary._collect_required_segments(
+        [FlipJobs()],
+        [{"label": "unit-group", "patterns": ["Unit"]}],
+    )
+    assert segments == ["unit-group: ⏳ pending"]
