@@ -574,7 +574,7 @@ def test_main_print_sources_and_missing_template_directory(
     assert "Template directory not found" in capsys.readouterr().out
 
 
-def test_print_sources_rejects_unreadable_or_unsafe_compiled_sources(
+def test_print_sources_rejects_unsafe_compiled_sources(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     """Print mode must fail closed before emitting unsafe source names."""
@@ -598,9 +598,6 @@ def test_main_detects_missing_source_and_compares_synced_directories(
     (template / "bundle").mkdir()
     (source / "bundle" / "item.js").write_text("same", encoding="utf-8")
     (template / "bundle" / "item.js").write_text("same", encoding="utf-8")
-    (source / "example.js").write_text("same", encoding="utf-8")
-    (template / "example.js").write_text("same", encoding="utf-8")
-    write_manifest(tmp_path, ["example.js"])
     monkeypatch.setattr(vts, "__file__", str(tmp_path / "scripts" / "validate_template_sync.py"))
     monkeypatch.setattr(
         vts,
@@ -610,5 +607,5 @@ def test_main_detects_missing_source_and_compares_synced_directories(
 
     assert vts.main() == 1
     output = capsys.readouterr().out
-    assert "missing.js (MISSING - needs to be created)" in output
-    assert "bundle" not in output
+    assert "• .github/scripts/missing.js (MISSING - needs to be created)" in output
+    assert "• .github/scripts/bundle" not in output

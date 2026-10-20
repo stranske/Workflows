@@ -615,6 +615,9 @@ def test_validate_record_reports_optional_field_and_registry_contract_errors() -
     assert "cost_usd must be non-negative" in messages
     assert "recorded_at must be an ISO timestamp" in messages
     assert "trace_url must be a string when present" in messages
+    assert "trace_id must be a string when present" in messages
+    assert "input_hash must be a hash or artifact reference" in messages
+    assert "output_hash must be a hash or artifact reference" in messages
     assert "/ is not in registry" in messages
 
 
@@ -898,7 +901,7 @@ def test_validate_record_reports_missing_required_field_and_bad_operation() -> N
         "schema_version": langsmith_fleet.SCHEMA_VERSION,
         "repo": entry["repo"],
         "surface": entry["surface"],
-        "operation": "validation",
+        "operation": "not-a-registered-operation",
         "run_id": "run-2",
         "status": "success",
         "github_issue": entry["issue"],
@@ -928,6 +931,7 @@ def test_cli_success_prints_validated_count(tmp_path: Path, monkeypatch, capsys)
     )
     langsmith_fleet.main()
     out = capsys.readouterr().out
-    assert out.startswith("Validated ")
-    assert langsmith_fleet.SCHEMA_VERSION in out
-    assert "record(s)" in out
+    # Count fixture lines independently so a loader that drops records cannot
+    # supply both the implementation and this test with the same wrong count.
+    expected_count = len((FIXTURES / "valid.ndjson").read_text().splitlines())
+    assert out == f"Validated {expected_count} {langsmith_fleet.SCHEMA_VERSION} record(s)\n"
