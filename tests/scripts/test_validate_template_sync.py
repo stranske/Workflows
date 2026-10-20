@@ -585,7 +585,9 @@ def test_print_sources_rejects_unreadable_or_unsafe_compiled_sources(
     monkeypatch.setattr(vts, "_manifest_template_sync_sources", lambda _compiled: ["bad\npath"])
 
     assert vts.main(print_sources=True) == 1
-    assert "line-control character" in capsys.readouterr().err
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert "line-control character" in captured.err
 
 
 def test_main_detects_missing_source_and_compares_synced_directories(

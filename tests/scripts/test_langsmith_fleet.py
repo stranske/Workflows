@@ -637,8 +637,9 @@ def test_registry_surfaces_latest_timestamp_and_cli_error_paths(
         "argv",
         ["langsmith_fleet.py", str(records), "--registry", str(REGISTRY)],
     )
-    with pytest.raises(SystemExit, match="1"):
+    with pytest.raises(SystemExit) as exc:
         langsmith_fleet.main()
+    assert exc.value.code == 1
     assert "invalid JSON" in capsys.readouterr().err
 
     monkeypatch.setattr(
@@ -646,7 +647,7 @@ def test_registry_surfaces_latest_timestamp_and_cli_error_paths(
         "argv",
         [
             "langsmith_fleet.py",
-            str(records),
+            str(FIXTURES / "valid.ndjson"),
             "--registry",
             str(REGISTRY),
             "--summary",
@@ -655,7 +656,13 @@ def test_registry_surfaces_latest_timestamp_and_cli_error_paths(
         ],
     )
     langsmith_fleet.main()
-    assert "# LangSmith Fleet Artifact Status" in capsys.readouterr().out
+    markdown = capsys.readouterr().out
+    assert "# LangSmith Fleet Artifact Status" in markdown
+    assert (
+        "| stranske/Workflows | agent-automation |" in markdown
+        and "stranske/Workflows#2150" in markdown
+        and "| 2 | 2026-05-31T02:00:00+00:00 |" in markdown
+    )
 
 
 @pytest.mark.parametrize(
