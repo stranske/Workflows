@@ -512,7 +512,18 @@ function classifyGeneratedPr({
       manifestSources: manifestSources || new Set(),
       reviewerProfiles,
       reviewPolicyLoaded,
-      findingEvidence,
+      // A packet can be internally valid while belonging to an older head or
+      // delivery. Bind pre-seal evaluation to the selected PR, as the final
+      // merge collector and canary row validation do at their boundaries.
+      findingEvidence: findingEvidence ? {
+        ...findingEvidence,
+        binding: {
+          repository: record.repository, pr: pr.number,
+          head_sha: pr.head?.sha || pr.headRefOid,
+          source_commit: record.source_commit, plan_id: record.plan_id,
+          delivery_generation: record.generation,
+        },
+      } : null,
     });
     if (reviewBlock) return reviewBlock;
   }

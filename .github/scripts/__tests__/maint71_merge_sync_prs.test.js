@@ -102,6 +102,42 @@ test('stale-head final sync finding gate rejects an unrelated record after pre-s
   assert.match(gate.packet.error, /finding_delivery_changed/);
 });
 
+test('a changed delivery head requires renewed unrelated evidence at every review boundary', async () => {
+  const h = findingGateHarness();
+  const initial = await confirmExactHeadSyncFindingGate(h.args);
+  assert.equal(initial.ok, true);
+  const preSeal = packet => classifyGeneratedPr({ pr: h.pr, activeReviewThreadCount: 1,
+    reviewThreads: h.packet.reviewThreads, findingEvidence: packet,
+    checkState: { status: 'ready' } });
+  const canary = packet => validateCanaryEvidence([{
+    repo: h.packet.binding.repository, pr: h.pr.number, head_sha: h.pr.head.sha,
+    source_commit: h.record.source_commit, plan_id: h.record.plan_id,
+    delivery_generation: h.record.generation, required_check_state: 'success',
+    active_review_thread_count: 1, review_disposition: packet,
+  }], [h.packet.binding.repository]);
+  assert.equal(preSeal(initial.packet).disposition, 'current');
+  assert.equal(canary(initial.packet).ok, true);
+
+  h.pr.head.sha = h.fresh.headRefOid = 'f'.repeat(40);
+  assert.equal(preSeal(initial.packet).disposition, 'review-blocked');
+  assert.equal(canary(initial.packet).ok, false);
+  const stale = await confirmExactHeadSyncFindingGate(h.args);
+  assert.equal(stale.ok, false, 'a fresh head read cannot renew the old owner classification');
+  assert.deepEqual(stale.evaluation.unknown_thread_ids, ['PRRT_finding']);
+  assert.equal(stale.evaluation.raw_active_count, 1);
+
+  changeProof(h.packet, { head_sha: h.pr.head.sha });
+  const renewed = await confirmExactHeadSyncFindingGate(h.args);
+  assert.equal(renewed.ok, true, 'the trusted owner must publish evidence for the new head');
+  assert.equal(preSeal(renewed.packet).disposition, 'current');
+  assert.equal(canary(renewed.packet).ok, true);
+  assert.deepEqual(renewed.evaluation.unrelated_handoffs, [{
+    thread_id: 'PRRT_finding', owner: 'local-owner',
+    url: 'https://github.com/stranske/Ready/issues/31',
+  }]);
+  assert.equal(h.packet.reviewThreads[0].isResolved, false);
+});
+
 test('promotion packet bounds large authenticated discussions and handoff objects', async () => {
   const packet = findingPacket();
   packet.reviewThreads[0].comments.nodes[0].body = '長い evidence '.repeat(20000);

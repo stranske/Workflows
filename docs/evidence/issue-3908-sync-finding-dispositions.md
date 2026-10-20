@@ -150,3 +150,42 @@ PR #4144's body was attempted during reconciliation, but the GitHub connector
 requires approval while this run's approval policy is `never`. Its existing
 checked tasks therefore remain unchanged remotely. Hosted CI/review and
 post-merge acceptance are still separate from these local proofs.
+
+## Pre-seal replay rejection follow-up
+
+Reconciliation of the recent commits confirmed all task checkboxes were already
+checked, but a new regression exposed an incomplete provenance boundary:
+`classifyGeneratedPr` evaluated a packet against its own binding. An internally
+valid old-head unrelated packet could therefore classify a changed delivery as
+`current` before sealing. It now derives the expected binding from the selected
+PR and delivery record, matching the final collector and canary validator.
+
+`pre-seal rejects an internally valid unrelated packet replayed onto another delivery`
+failed before the repair with `head_sha: reject replay before sealing`
+(`current` instead of `review-blocked`). It now passes for changed head, PR,
+repository, source, plan and generation, while the unchanged controls pass.
+`a changed delivery head requires renewed unrelated evidence at every review boundary`
+also verifies that all three boundaries block old-head evidence and accept a
+renewed trusted classification without resolving the original finding.
+
+Validation after restoration of both required deliberate mutations:
+
+- The exact required two-file `node --test` command exits **0** (two file-level
+  passes in this sandbox). With `--test-isolation=none --test-reporter=tap`,
+  **225 named tests pass, zero failures or skips**.
+- `python -m pytest tests/scripts/test_select_consumer_sync_phase.py -q
+  -m 'not slow' -o addopts=`: **22 passed**.
+- The named `sync finding unknown fails closed and mixed findings retain every blocker`
+  regression exits **1**, `ERR_ASSERTION`, under the unknown-as-nonblocking
+  mutation, and **0** after exact-byte restoration.
+- The named `stale-head final sync finding gate rejects an unrelated record after pre-seal`
+  regression exits **1**, `ERR_ASSERTION`, under unconditional unrelated
+  acceptance at the final finding gate, and **0** after exact-byte restoration.
+- `git diff --check`: pass. Neither deliberate mutation is shipped.
+
+PR #4144 was verified open and ready for review. Its body reconciliation was
+attempted, but the GitHub write tool returned: `MCP tool call requires approval,
+but approval policy is never`. The remote body remains unchanged; this section
+records the current local evidence. The disposition-to-gate table above still
+applies. This correction does not clear shared-code blockers or add a campaign
+#1836 prerequisite.

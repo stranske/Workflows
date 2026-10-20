@@ -67,7 +67,11 @@ The object uses schema `sync-finding-disposition/v1` and requires:
 The publisher owns the substantive causal judgment. The executor authenticates
 the publisher and comment URL through GitHub, validates the complete binding,
 fetches the handoff, and rereads the head, delivery identity and full finding
-conversation afterward. Arbitrary PR prose, quoted protocol examples, supplied
+conversation afterward. Before sealing, the classifier derives the expected
+binding from the selected PR and delivery record; an internally valid packet
+from a different head, PR, repository, source, plan or generation cannot exempt
+that delivery. A head change requires a renewed owner classification.
+Arbitrary PR prose, quoted protocol examples, supplied
 `verified` booleans, stale records, conflicting current records, incomplete
 pagination and missing policy cannot grant an exemption. Publishing a record
 does not run a repair, create a local issue, resolve a thread or impersonate the

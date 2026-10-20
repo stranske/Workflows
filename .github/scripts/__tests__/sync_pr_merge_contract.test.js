@@ -3957,6 +3957,42 @@ test('Markdown report retains the refused Gate forced-restage drain receipt', ()
 const { findingPacket, changeProof } = require('./fixtures/sync_finding_disposition');
 const { evaluateSyncFindingDispositions } = require('../sync_pr_merge_contract');
 
+test('pre-seal rejects an internally valid unrelated packet replayed onto another delivery', () => {
+  const { formatDeliveryRecord } = require('../sync_pr_lease_contract');
+  for (const field of ['head_sha', 'pr', 'repository', 'source_commit', 'plan_id', 'delivery_generation']) {
+    const packet = findingPacket();
+    const binding = { ...packet.binding };
+    const record = {
+      repository: binding.repository, source_commit: binding.source_commit,
+      plan_id: binding.plan_id, generation: binding.delivery_generation,
+      desired_tree_hash: 'tree-21', lease_expires_at: '2099-01-01T00:00:00Z',
+      durable_issue_url: 'https://github.com/stranske/Workflows/issues/1836',
+    };
+    const pr = { number: binding.pr, body: formatDeliveryRecord(record),
+      head: { ref: 'sync/workflows-candidate', sha: binding.head_sha } };
+    const classify = () => classifyGeneratedPr({ pr, activeReviewThreadCount: 1,
+      reviewThreads: packet.reviewThreads, findingEvidence: packet,
+      checkState: { status: 'ready' } });
+    assert.equal(classify().disposition, 'current', `${field}: unchanged delivery control`);
+
+    if (field === 'head_sha') pr.head.sha = 'd'.repeat(40);
+    else if (field === 'pr') pr.number += 1;
+    else {
+      const key = field === 'delivery_generation' ? 'generation' : field;
+      record[key] = field === 'repository' ? 'stranske/Template'
+        : field === 'source_commit' ? 'd'.repeat(40) : 'another-delivery';
+      pr.body = formatDeliveryRecord(record);
+    }
+    assert.equal(evaluateSyncFindingDispositions(packet).blocked, false,
+      `${field}: the old packet is internally valid but belongs to the old delivery`);
+    const result = classify();
+    assert.equal(result.disposition, 'review-blocked', `${field}: reject replay before sealing`);
+    assert.equal(result.raw_active_count, 1);
+    assert.deepEqual(result.finding_disposition.unknown_thread_ids, ['PRRT_finding']);
+    assert.equal(packet.reviewThreads[0].isResolved, false);
+  }
+});
+
 test('classifyReviewBlockedDisposition surfaces four dispositions and aggregate outcomes', () => {
   for (const disposition of ['shared-source', 'sync-caused', 'unknown', 'unrelated']) {
     const packet = findingPacket(disposition);
