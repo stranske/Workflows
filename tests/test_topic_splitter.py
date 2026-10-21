@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import builtins
 import importlib.util
 import os
 import subprocess
@@ -9,6 +10,7 @@ import sys
 import types
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import patch
 
 import pytest
 from scripts.langchain import topic_splitter
@@ -186,12 +188,16 @@ def _exec_topic_splitter_with_scripts_stub() -> types.ModuleType:
     probe_name = "scripts.langchain.topic_splitter_import_fallback_probe"
     langchain_dir = str(module_path.parent)
 
-    saved = {
-        name: module
-        for name, module in sys.modules.items()
-        if name == "scripts" or name.startswith("scripts.")
-    }
+    saved = dict(sys.modules)
     saved_path = list(sys.path)
+    real_import = builtins.__import__
+
+    def import_without_scripts_package(name, *args, **kwargs):
+        # Editable-install finders can ignore the stub's empty package path.
+        if name == "scripts.langchain._llm_client":
+            raise ModuleNotFoundError(name=name)
+        return real_import(name, *args, **kwargs)
+
     try:
         for name in list(sys.modules):
             if name == "scripts" or name.startswith("scripts."):
@@ -206,18 +212,26 @@ def _exec_topic_splitter_with_scripts_stub() -> types.ModuleType:
         assert spec is not None and spec.loader is not None
         module = importlib.util.module_from_spec(spec)
         sys.modules[probe_name] = module
-        spec.loader.exec_module(module)
+        # Read the source directly so a cached bytecode file cannot hide the
+        # source mutation used to verify this fallback regression.
+        with patch("builtins.__import__", side_effect=import_without_scripts_package):
+            exec(compile(module_path.read_bytes(), str(module_path), "exec"), module.__dict__)
         return module
     finally:
         sys.path[:] = saved_path
         sys.modules.pop(probe_name, None)
         for name in list(sys.modules):
-            if name == "scripts" or name.startswith("scripts."):
+            if name not in saved:
                 del sys.modules[name]
         sys.modules.update(saved)
 
 
-def test_import_fallback_recovers_when_scripts_package_is_incomplete() -> None:
+def test_import_fallback_recovers_when_scripts_package_is_incomplete(monkeypatch) -> None:
+    monkeypatch.delitem(sys.modules, "_llm_client", raising=False)
+    monkeypatch.delitem(sys.modules, "trace_utils", raising=False)
+    saved_modules = dict(sys.modules)
     module = _exec_topic_splitter_with_scripts_stub()
     assert callable(module.split_topics_with_llm)
-    assert topic_splitter.split_topics_with_llm is not None
+    assert callable(module.invoke_with_trace)
+    assert module.invoke_with_trace.__module__ == "trace_utils"
+    assert sys.modules == saved_modules

@@ -253,7 +253,7 @@ def test_main_check_verify_and_health_check(monkeypatch, tmp_path, capsys) -> No
     manifest.write_text("x", encoding="utf-8")
     with (
         patch("sys.argv", ["bcs", "--health-check", "--manifest", str(manifest)]),
-        patch("scripts.bootstrap_consumer_settings.extract_repos", return_value=["x/y"]),
+        patch("scripts.bootstrap_consumer_settings.extract_repos", return_value=["x/y"]) as extract,
         patch(
             "scripts.bootstrap_consumer_settings.check_consumer_health",
             return_value=(
@@ -275,6 +275,7 @@ def test_main_check_verify_and_health_check(monkeypatch, tmp_path, capsys) -> No
         ) as health_check,
     ):
         assert bcs.main() == 0
+        extract.assert_called_once_with(manifest)
         health_check.assert_called_once_with(["x/y"])
     health_output = capsys.readouterr().out
     assert "x/y" in health_output and "OK" in health_output
@@ -779,16 +780,23 @@ def test_check_consumer_health_empty_repos_and_issue_systemic_failure() -> None:
                 name: {"color": defn["color"], "description": defn["description"]}
                 for name, defn in bcs.PRIORITY_LABELS.items()
             },
-        ),
+        ) as priority_inventory,
         patch(
             "scripts.bootstrap_consumer_settings._read_paginated_collection",
             side_effect=issue_error,
-        ),
+        ) as read_collection,
     ):
         rows, code = bcs.check_consumer_health(["stranske/One", "stranske/Two"])
+    # A systemic failure suppresses every subsequent API read, including labels.
+    assert [entry.args for entry in priority_inventory.call_args_list] == [("stranske/One",)]
+    assert [entry.args for entry in read_collection.call_args_list] == [
+        ("/repos/stranske/One/issues?state=open&per_page=100",),
+    ]
     assert code == 2
     assert [row["status"] for row in rows] == ["ERROR", "ERROR"]
     assert "issue read failed" in (rows[0]["error"] or "")
+
+    assert rows[1]["error"] == rows[0]["error"]
 
 
 def test_check_consumer_health_all_ok_and_render_details() -> None:
