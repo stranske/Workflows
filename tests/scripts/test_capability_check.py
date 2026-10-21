@@ -64,6 +64,26 @@ class TestCapabilityCheckResult:
         assert data["provider_used"] is None
 
 
+def test_build_llm_config_falls_back_when_provider_module_is_unavailable(monkeypatch) -> None:
+    real_import = __import__
+
+    def without_provider(name, *args, **kwargs):
+        if name == "tools.llm_provider":
+            raise ImportError("provider unavailable")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr("builtins.__import__", without_provider)
+    monkeypatch.setenv("GITHUB_REPOSITORY", "acme/repo")
+    monkeypatch.setenv("RUN_ID", "run-1")
+    assert capability_check._build_llm_config(operation="check", issue_number=42)["metadata"] == {
+        "repo": "acme/repo",
+        "run_id": "run-1",
+        "issue_or_pr_number": "42",
+        "operation": "check",
+        "issue_number": "42",
+    }
+
+
 class TestPreparePromptValues:
     """Tests for _prepare_prompt_values."""
 

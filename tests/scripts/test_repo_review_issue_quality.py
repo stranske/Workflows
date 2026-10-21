@@ -1,6 +1,9 @@
 from scripts.repo_review_issue_quality import (
+    checklist_items,
     issue_body_is_agent_ready,
     issue_body_quality_errors,
+    list_value,
+    markdown_section,
     review_evidence_trace_errors,
 )
 
@@ -106,3 +109,33 @@ def test_review_evidence_trace_requires_design_implementation_and_readiness_refs
     assert "review evidence trace is missing implementation_refs" in errors
     assert "review evidence trace is missing test_refs/readiness_refs" in errors
     assert "review evidence trace is not tied to candidate indexes or title patterns" in errors
+
+
+def test_quality_helpers_and_all_error_paths_are_discriminating() -> None:
+    assert list_value(None) == []
+    assert list_value("one") == ["one"]
+    assert checklist_items("- [x] done\n- [ ] next") == ["done", "next"]
+    assert markdown_section("## Tasks\n\ntext\n## Scope\n\nother", "## Tasks") == "text"
+    errors = issue_body_quality_errors("## Tasks\n- [ ] too short\n")
+    assert "missing required section ## Why" in errors
+    assert "fewer than 4 task checkboxes" in errors
+    assert "fewer than 3 acceptance-criteria checkboxes" in errors
+    assert any("too terse" in error for error in errors)
+
+
+def test_review_trace_rejects_backticks_and_broad_refs() -> None:
+    errors = review_evidence_trace_errors(
+        {
+            "gap": "g",
+            "current_state": "s",
+            "required_change": "c",
+            "design_refs": ["`README.md`"],
+            "implementation_refs": [
+                "This is an excessively broad description with no path and many unnecessary words indeed"
+            ],
+            "readiness_refs": ["tests/a.py"],
+            "candidate_indexes": [1],
+        }
+    )
+    assert any("without backticks" in error for error in errors)
+    assert any("too broad" in error for error in errors)

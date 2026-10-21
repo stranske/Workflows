@@ -970,3 +970,22 @@ def test_main_apply(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(sys, "argv", ["sync_status_file_ignores.py", "--apply", str(gitignore)])
     assert sync_status_file_ignores.main() == 0
     assert sync_status_file_ignores.PATTERN_BLOCK_BEGIN in gitignore.read_text(encoding="utf-8")
+
+
+def test_decode_repo_file_rejects_empty_invalid_and_non_utf8(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    assert sync_status_file_ignores.decode_repo_file("", "acme/repo", "a") is None
+    assert sync_status_file_ignores.decode_repo_file("not-base64!", "acme/repo", "a") is None
+    assert sync_status_file_ignores.decode_repo_file("/w==", "acme/repo", "a") is None
+    assert "Error" in capsys.readouterr().err
+
+
+def test_main_print_modes_and_missing_local_gitignore(tmp_path: Path, monkeypatch, capsys) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(sys, "argv", ["tool", "--print-patterns"])
+    assert sync_status_file_ignores.main() == 0
+    assert sync_status_file_ignores.CANONICAL_PATTERNS[0] in capsys.readouterr().out
+    monkeypatch.setattr(sys, "argv", ["tool", "--check"])
+    assert sync_status_file_ignores.main() == 1
+    assert "No .gitignore" in capsys.readouterr().err

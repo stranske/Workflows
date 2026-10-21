@@ -7,6 +7,7 @@ import textwrap
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+from scripts import generate_suppression_guard_comment
 from scripts.generate_suppression_guard_comment import _extract_step_hints, build_comment
 
 
@@ -262,3 +263,33 @@ def test_build_comment_include_label_no_findings(tmp_path: Path) -> None:
 
     assert "Label: needs-human" in comment
     assert "No unguarded PR comment/review posting steps detected" in comment
+
+
+def test_helpers_cover_non_mapping_steps_and_action_hints() -> None:
+    assert generate_suppression_guard_comment._step_script({"with": {"script": "x"}}) == "x"
+    assert generate_suppression_guard_comment._step_script({"run": 1}) == ""
+    assert generate_suppression_guard_comment._step_action_hint({"uses": 1}) is None
+    assert generate_suppression_guard_comment._extract_step_hints(
+        {"uses": "peter-evans/create-or-update-comment@v4"}
+    )
+    findings = generate_suppression_guard_comment._iter_posting_steps(
+        {
+            "jobs": {
+                "x": {
+                    "steps": [
+                        "not-a-step",
+                        {"id": "post", "run": "github.rest.issues.createComment"},
+                    ]
+                }
+            }
+        }
+    )
+    assert findings[0][1] == "post"
+
+
+def test_main_uses_requested_workflow_and_label(tmp_path: Path, monkeypatch, capsys) -> None:
+    path = tmp_path / "workflow.yml"
+    _write_yaml(path, "jobs: {}")
+    monkeypatch.setattr(sys, "argv", ["tool", "--workflow", str(path), "--include-label"])
+    generate_suppression_guard_comment.main()
+    assert "Label: needs-human" in capsys.readouterr().out

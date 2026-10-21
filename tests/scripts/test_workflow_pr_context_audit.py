@@ -1,5 +1,7 @@
+import sys
 from pathlib import Path
 
+from scripts import workflow_pr_context_audit
 from scripts.workflow_pr_context_audit import (
     TriggerSummary,
     WorkflowAudit,
@@ -576,3 +578,22 @@ jobs:
     dispatch_group = by_triggers[("workflow_dispatch",)]
     assert dispatch_group.workflows == (str(workflows_dir / "gamma.yml"),)
     assert dispatch_group.pr_context_markers == ("context.payload.issue.number",)
+
+
+def test_main_renders_json_summary_and_filters_results(tmp_path: Path, monkeypatch, capsys) -> None:
+    workflows = tmp_path / "workflows"
+    workflows.mkdir()
+    _write(workflows / "pr.yml", "on: pull_request\njobs: {}\n# github.event.pull_request\n")
+    _write(workflows / "plain.yml", "on: push\njobs: {}\n")
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["tool", "--workflows-dir", str(workflows), "--only-pr-context", "--format", "json"],
+    )
+    assert workflow_pr_context_audit.main() == 0
+    assert len(__import__("json").loads(capsys.readouterr().out)) == 1
+    monkeypatch.setattr(
+        sys, "argv", ["tool", "--workflows-dir", str(workflows), "--format", "summary"]
+    )
+    assert workflow_pr_context_audit.main() == 0
+    assert "workflows" in capsys.readouterr().out

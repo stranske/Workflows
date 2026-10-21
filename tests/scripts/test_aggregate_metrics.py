@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+from scripts import aggregate_metrics
 from scripts.aggregate_metrics import aggregate_traces, format_report, load_metrics
 
 
@@ -248,3 +249,34 @@ def test_end_to_end(tmp_path: Path) -> None:
     assert summary["total_with_traces"] == 2
     assert summary["trace_coverage_pct"] == 66.7
     assert "Coverage: 66.7%" in report
+
+
+def test_main_writes_json_markdown_and_rejects_missing_path(
+    tmp_path: Path, monkeypatch, capsys
+) -> None:
+    metrics = tmp_path / "metrics.ndjson"
+    write_ndjson(metrics, [{"metric_type": "api", "langsmith_trace_id": "trace"}])
+    output = tmp_path / "report.md"
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "tool",
+            "--metrics-file",
+            str(metrics),
+            "--format",
+            "markdown",
+            "--output-file",
+            str(output),
+        ],
+    )
+    aggregate_metrics.main()
+    assert "Coverage: 100.0%" in output.read_text()
+    assert "Report written" in capsys.readouterr().err
+
+
+def test_main_supports_legacy_positional_json_output(tmp_path: Path, monkeypatch, capsys) -> None:
+    metrics = tmp_path / "metrics.ndjson"
+    write_ndjson(metrics, [])
+    monkeypatch.setattr("sys.argv", ["tool", str(metrics)])
+    aggregate_metrics.main()
+    assert json.loads(capsys.readouterr().out)["total_metrics"] == 0

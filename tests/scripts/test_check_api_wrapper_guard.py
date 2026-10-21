@@ -647,3 +647,19 @@ def test_collect_changed_files_head_minus_one_diff_returns_empty(
     result = guard._collect_changed_files("main", "origin")
 
     assert result == []
+
+
+def test_run_git_returns_output_and_raises_on_disallowed_exit(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class Result:
+        def __init__(self, returncode: int, stdout: str, stderr: str = "") -> None:
+            self.returncode = returncode
+            self.stdout = stdout
+            self.stderr = stderr
+
+    monkeypatch.setattr(guard.subprocess, "run", lambda *args, **kwargs: Result(0, "ok"))
+    assert guard._run_git(["status"]) == "ok"
+    monkeypatch.setattr(guard.subprocess, "run", lambda *args, **kwargs: Result(2, "", "bad"))
+    with pytest.raises(RuntimeError, match="bad"):
+        guard._run_git(["status"])
