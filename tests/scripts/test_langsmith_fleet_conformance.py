@@ -152,6 +152,23 @@ def test_conformance_handles_empty_unknown_and_malformed_summary_rows(
     assert rows["acme/unknown"]["first_error"] == "summary row returned unknown status"
 
 
+def test_row_from_summary_skips_non_list_and_non_dict_rows() -> None:
+    assert (
+        langsmith_fleet_conformance.row_from_summary(
+            {"rows": "not-a-list"}, repo="acme/r", surface="s"
+        )
+        is None
+    )
+    assert (
+        langsmith_fleet_conformance.row_from_summary(
+            {"rows": ["skip-me", {"repo": "acme/r", "surface": "s", "status": "ok"}]},
+            repo="acme/r",
+            surface="s",
+        )["status"]
+        == "ok"
+    )
+
+
 def test_conformance_format_and_main_json_and_markdown(tmp_path: Path, monkeypatch, capsys) -> None:
     report = {
         "total_registry_entries": 1,
@@ -175,3 +192,21 @@ def test_conformance_format_and_main_json_and_markdown(tmp_path: Path, monkeypat
     )
     langsmith_fleet_conformance.main()
     assert "LangSmith Fleet Conformance" in capsys.readouterr().out
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "tool",
+            "--registry",
+            str(REGISTRY),
+            "--records-root",
+            str(tmp_path),
+            "--format",
+            "json",
+        ],
+    )
+    langsmith_fleet_conformance.main()
+    payload = json.loads(capsys.readouterr().out)
+    assert "rows" in payload
+    assert "status_counts" in payload

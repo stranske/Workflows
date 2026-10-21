@@ -74,6 +74,8 @@ def test_build_llm_config_falls_back_when_provider_module_is_unavailable(monkeyp
 
     monkeypatch.setattr("builtins.__import__", without_provider)
     monkeypatch.setenv("GITHUB_REPOSITORY", "acme/repo")
+    # Prefer RUN_ID fallback: clear GITHUB_RUN_ID so CI's ambient value cannot win.
+    monkeypatch.delenv("GITHUB_RUN_ID", raising=False)
     monkeypatch.setenv("RUN_ID", "run-1")
     assert capability_check._build_llm_config(operation="check", issue_number=42)["metadata"] == {
         "repo": "acme/repo",
