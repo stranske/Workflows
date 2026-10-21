@@ -19,6 +19,7 @@ from scripts.langchain.capability_check import (
     _coerce_dict_list,
     _coerce_list,
     _extract_json_payload,
+    _fallback_classify,
     _normalize_result,
     _normalize_tasks_input,
     _parse_tasks_from_text,
@@ -62,6 +63,28 @@ class TestCapabilityCheckResult:
         )
         data = result.to_dict()
         assert data["provider_used"] is None
+
+
+def test_build_llm_config_falls_back_when_provider_module_is_unavailable(monkeypatch) -> None:
+    real_import = __import__
+
+    def without_provider(name, *args, **kwargs):
+        if name == "tools.llm_provider":
+            raise ImportError("provider unavailable")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr("builtins.__import__", without_provider)
+    monkeypatch.setenv("GITHUB_REPOSITORY", "acme/repo")
+    # Prefer RUN_ID fallback: clear GITHUB_RUN_ID so CI's ambient value cannot win.
+    monkeypatch.delenv("GITHUB_RUN_ID", raising=False)
+    monkeypatch.setenv("RUN_ID", "run-1")
+    assert capability_check._build_llm_config(operation="check", issue_number=42)["metadata"] == {
+        "repo": "acme/repo",
+        "run_id": "run-1",
+        "issue_or_pr_number": "42",
+        "operation": "check",
+        "issue_number": "42",
+    }
 
 
 class TestPreparePromptValues:
@@ -266,6 +289,21 @@ class TestNormalizeTasksInput:
         tasks = "- task1\n- task2"
         assert _normalize_tasks_input(tasks) == ["task1", "task2"]
 
+    def test_returns_empty_for_unsupported_types(self) -> None:
+        assert _normalize_tasks_input(123) == []  # type: ignore[arg-type]
+        assert _normalize_tasks_input({"a": 1}) == []  # type: ignore[arg-type]
+
+    def test_plain_string_without_bullets_becomes_single_task(self) -> None:
+        assert _normalize_tasks_input("   single task only   ") == ["single task only"]
+        assert _normalize_tasks_input("   ") == []
+
+
+def test_fallback_classify_omits_empty_reason_from_human_actions() -> None:
+    result = _fallback_classify(["Add focused unit tests for helper"], "", None)
+    assert result.recommendation == "PROCEED"
+    assert result.actionable_tasks == ["Add focused unit tests for helper"]
+    assert result.human_actions_needed == []
+
 
 class TestClassifyCapabilities:
     """Tests for classify_capabilities."""
@@ -369,6 +407,76 @@ class TestClassifyCapabilities:
         assert result.recommendation == "PROCEED"
         assert result.human_actions_needed == ["review"]
         assert result.provider_used == "github-models"
+
+    def test_invokes_without_config_when_typeerror(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        mock_client = mock.MagicMock()
+        mock_chain = mock.MagicMock()
+        mock_response = mock.MagicMock()
+        mock_response.content = json.dumps(
+            {
+                "actionable_tasks": ["task1"],
+                "partial_tasks": [],
+                "blocked_tasks": [],
+                "recommendation": "proceed",
+                "human_actions_needed": [],
+            }
+        )
+
+        def invoke_side_effect(*args: object, **kwargs: object) -> object:
+            if "config" in kwargs:
+                raise TypeError("config not supported")
+            return mock_response
+
+        mock_chain.invoke.side_effect = invoke_side_effect
+        self._install_fake_langchain(monkeypatch, mock_chain)
+        monkeypatch.setenv("ISSUE_NUMBER", "4176")
+
+        with mock.patch(
+            "scripts.langchain.capability_check._get_llm_client",
+            return_value=(mock_client, "github-models"),
+        ):
+            result = classify_capabilities(["task1"], "criteria")
+
+        assert mock_chain.invoke.call_count == 2
+        assert result.recommendation == "PROCEED"
+        assert result.provider_used == "github-models"
+
+    def test_trace_import_failure_is_tolerated(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        mock_client = mock.MagicMock()
+        mock_chain = mock.MagicMock()
+        mock_response = mock.MagicMock()
+        mock_response.content = json.dumps(
+            {
+                "actionable_tasks": ["task1"],
+                "partial_tasks": [],
+                "blocked_tasks": [],
+                "recommendation": "proceed",
+                "human_actions_needed": [],
+            }
+        )
+        mock_chain.invoke.return_value = mock_response
+        self._install_fake_langchain(monkeypatch, mock_chain)
+
+        import builtins
+
+        real_import = builtins.__import__
+
+        def fake_import(name: str, *args: object, **kwargs: object) -> object:
+            if name == "tools.llm_provider" or name.startswith("tools.llm_provider."):
+                raise ImportError("trace helpers unavailable")
+            return real_import(name, *args, **kwargs)
+
+        monkeypatch.setattr(builtins, "__import__", fake_import)
+
+        with mock.patch(
+            "scripts.langchain.capability_check._get_llm_client",
+            return_value=(mock_client, "github-models"),
+        ):
+            result = classify_capabilities(["task1"], "criteria")
+
+        assert result.recommendation == "PROCEED"
+        assert result.langsmith_trace_id is None
+        assert result.langsmith_trace_url is None
 
     def test_returns_fallback_when_response_missing_json(
         self, monkeypatch: pytest.MonkeyPatch
@@ -781,6 +889,13 @@ class TestIsMultiActionTask:
         assert _is_multi_action_task("First + Second")
         assert _is_multi_action_task("Step 1; Step 2")
         assert _is_multi_action_task("Do X then Y")
+
+    def test_long_single_clause_tasks_are_multi_action(self) -> None:
+        from scripts.langchain.capability_check import _is_multi_action_task
+
+        long_task = " ".join(f"word{i}" for i in range(14))
+        assert _is_multi_action_task(long_task)
+        assert not _is_multi_action_task(" ".join(f"word{i}" for i in range(13)))
 
     def test_langsmith_trace_capture(self) -> None:
         """Test that LangSmith trace ID and URL are captured when available."""
