@@ -87,17 +87,32 @@ def test_fetch_closed_issues_and_main_modes(tmp_path, monkeypatch, capsys) -> No
     (agents / "codex-12.md").write_text("stub", encoding="utf-8")
     (agents / "codex-13.md").write_text("stub", encoding="utf-8")
     monkeypatch.setattr(prune_agent_stubs, "AGENTS_DIR", agents)
-    monkeypatch.setattr(
-        prune_agent_stubs.subprocess,
-        "run",
-        lambda *_args, **_kwargs: subprocess.CompletedProcess(
-            [], 0, json.dumps([{"number": 12}]), ""
-        ),
-    )
-    assert prune_agent_stubs.main(["--dry-run"]) == 0
+    calls = []
+
+    def fake_run(command, **kwargs):
+        calls.append(command)
+        assert command == [
+            "gh",
+            "issue",
+            "list",
+            "--repo",
+            "example/project",
+            "--state",
+            "closed",
+            "--limit",
+            "10000",
+            "--json",
+            "number",
+        ]
+        assert kwargs == {"check": True, "capture_output": True, "text": True}
+        return subprocess.CompletedProcess(command, 0, json.dumps([{"number": 12}]), "")
+
+    monkeypatch.setattr(prune_agent_stubs.subprocess, "run", fake_run)
+    assert prune_agent_stubs.main(["--repo", "example/project", "--dry-run"]) == 0
     assert "would delete" in capsys.readouterr().out
     assert (agents / "codex-12.md").exists()
-    assert prune_agent_stubs.main([]) == 0
+    assert prune_agent_stubs.main(["--repo", "example/project"]) == 0
+    assert len(calls) == 2
     assert not (agents / "codex-12.md").exists()
     assert (agents / "codex-13.md").exists()
 
