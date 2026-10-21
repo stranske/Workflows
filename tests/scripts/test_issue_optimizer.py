@@ -1600,6 +1600,7 @@ def test_analyze_and_apply_cover_import_error_and_non_token_failures(
     monkeypatch.setenv("ISSUE_NUMBER", "99")
     result = issue_optimizer.analyze_issue("## Tasks\n- [ ] Add tests", use_llm=True)
     assert result.provider_used is None
+    primary_chain.invoke.assert_called()
     assert "LLM analysis failed" in capsys.readouterr().err
 
     apply_result = issue_optimizer.apply_suggestions(
@@ -1618,6 +1619,8 @@ def test_openai_retry_surfaces_validation_error_and_duplicated_sections(
     primary_chain.invoke.side_effect = RuntimeError("token limit")
     openai_chain = mock.MagicMock()
     openai_chain.invoke.return_value = _response_with("{not-valid-json")
+    openai_client = mock.MagicMock()
+    openai_client.invoke.return_value = _response_with("{still-not-valid-json")
     mock_template = mock.MagicMock()
     mock_template.__or__ = mock.MagicMock(side_effect=[primary_chain, openai_chain])
 
@@ -1635,7 +1638,7 @@ def test_openai_retry_surfaces_validation_error_and_duplicated_sections(
         mock.MagicMock(
             side_effect=[
                 (mock.MagicMock(), "github-models"),
-                (mock.MagicMock(), "openai"),
+                (openai_client, "openai"),
             ]
         ),
     )
@@ -1643,9 +1646,9 @@ def test_openai_retry_surfaces_validation_error_and_duplicated_sections(
     result = issue_optimizer.analyze_issue("Issue body", use_llm=True)
     assert result.provider_used is None
     err = capsys.readouterr().err
-    assert "LLM output failed validation" in err or "Fallback analysis used" in (
-        result.overall_notes or ""
-    )
+    openai_chain.invoke.assert_called()
+    openai_client.invoke.assert_called()
+    assert "LLM output failed validation" in err or "LLM repair failed validation" in err
 
     primary_chain = mock.MagicMock()
     primary_chain.invoke.side_effect = RuntimeError("token limit")

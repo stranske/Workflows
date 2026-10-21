@@ -2368,10 +2368,14 @@ def test_head_drift_repair_evidence_write_failure_is_controlled(
         ),
     )
     real_write = Path.write_text
+    repair_write_count = 0
 
     def flaky_write(self, data, *args, **kwargs):
+        nonlocal repair_write_count
         if self.name == "repair.json":
-            raise OSError("disk full")
+            repair_write_count += 1
+            if repair_write_count == 2:
+                raise OSError("disk full")
         return real_write(self, data, *args, **kwargs)
 
     monkeypatch.setattr(Path, "write_text", flaky_write)
@@ -2388,9 +2392,9 @@ def test_head_drift_repair_evidence_write_failure_is_controlled(
         skip_gate_enabled=False,
         repair_attempts=1,
     )
-    # prepare_head_drift_restart also writes repair.json; either preparation or
-    # evidence-update failure is a controlled abort.
-    assert "failed" in report.get("head_drift_restart_error", "").lower()
+    # Preparation must succeed before the evidence-update write fails.
+    assert repair_write_count == 2
+    assert report.get("head_drift_restart_error") == "repair evidence update failed: disk full"
 
 
 def test_run_returns_one_when_preflight_fails(
