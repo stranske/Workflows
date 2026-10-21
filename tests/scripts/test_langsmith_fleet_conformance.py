@@ -208,5 +208,9 @@ def test_conformance_format_and_main_json_and_markdown(tmp_path: Path, monkeypat
     )
     langsmith_fleet_conformance.main()
     payload = json.loads(capsys.readouterr().out)
-    assert "rows" in payload
-    assert "status_counts" in payload
+    assert payload["status_counts"]["missing"] == 8
+    assert payload["status_counts"]["direct"] == 3
+    assert any(
+        row["repo"] == "stranske/Travel-Plan-Permission" and row["status"] == "direct"
+        for row in payload["rows"]
+    )

@@ -1,3 +1,4 @@
+import json
 import sys
 from pathlib import Path
 
@@ -628,9 +629,28 @@ def test_main_renders_json_summary_and_filters_results(tmp_path: Path, monkeypat
         ["tool", "--workflows-dir", str(workflows), "--only-pr-context", "--format", "json"],
     )
     assert workflow_pr_context_audit.main() == 0
-    assert len(__import__("json").loads(capsys.readouterr().out)) == 1
+    assert json.loads(capsys.readouterr().out) == [
+        {
+            "path": str(workflows / "pr.yml"),
+            "triggers": ["pull_request"],
+            "pr_context_markers": ["github.event.pull_request"],
+            "valid": True,
+            "error": None,
+        }
+    ]
     monkeypatch.setattr(
         sys, "argv", ["tool", "--workflows-dir", str(workflows), "--format", "summary"]
     )
     assert workflow_pr_context_audit.main() == 0
-    assert "workflows" in capsys.readouterr().out
+    assert json.loads(capsys.readouterr().out) == [
+        {
+            "triggers": ["pull_request"],
+            "workflows": [str(workflows / "pr.yml")],
+            "pr_context_markers": ["github.event.pull_request"],
+        },
+        {
+            "triggers": ["push"],
+            "workflows": [str(workflows / "plain.yml")],
+            "pr_context_markers": [],
+        },
+    ]

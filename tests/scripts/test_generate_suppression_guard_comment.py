@@ -277,7 +277,7 @@ def test_helpers_cover_non_mapping_steps_and_action_hints() -> None:
     )
     assert generate_suppression_guard_comment._extract_step_hints(
         {"uses": "peter-evans/create-or-update-comment@v4"}
-    )
+    ) == ["create-or-update-comment action"]
     findings = generate_suppression_guard_comment._iter_posting_steps(
         {
             "jobs": {
@@ -290,7 +290,7 @@ def test_helpers_cover_non_mapping_steps_and_action_hints() -> None:
             }
         }
     )
-    assert findings[0][1] == "post"
+    assert findings == [("x", "post", ["issues.createComment"])]
 
 
 def test_load_workflow_rejects_non_mapping_root(tmp_path: Path) -> None:
@@ -302,7 +302,19 @@ def test_load_workflow_rejects_non_mapping_root(tmp_path: Path) -> None:
 
 def test_main_uses_requested_workflow_and_label(tmp_path: Path, monkeypatch, capsys) -> None:
     path = tmp_path / "workflow.yml"
-    _write_yaml(path, "jobs: {}")
+    _write_yaml(
+        path,
+        """
+        jobs:
+          post:
+            steps:
+              - name: Post comment
+                run: github.rest.issues.createComment
+        """,
+    )
     monkeypatch.setattr(sys, "argv", ["tool", "--workflow", str(path), "--include-label"])
     generate_suppression_guard_comment.main()
-    assert "Label: needs-human" in capsys.readouterr().out
+    out = capsys.readouterr().out
+    assert "Label: needs-human" in out
+    assert f"Workflow: {path}" in out
+    assert "post / Post comment (issues.createComment)" in out

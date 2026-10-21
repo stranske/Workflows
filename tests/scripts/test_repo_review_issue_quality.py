@@ -116,11 +116,14 @@ def test_quality_helpers_and_all_error_paths_are_discriminating() -> None:
     assert list_value("one") == ["one"]
     assert checklist_items("- [x] done\n- [ ] next") == ["done", "next"]
     assert markdown_section("## Tasks\n\ntext\n## Scope\n\nother", "## Tasks") == "text"
-    errors = issue_body_quality_errors("## Tasks\n- [ ] too short\n")
+    errors = issue_body_quality_errors(
+        "## Tasks\n- [ ] too short\n## Acceptance Criteria\n- [ ] too short\n"
+    )
     assert "missing required section ## Why" in errors
     assert "fewer than 4 task checkboxes" in errors
     assert "fewer than 3 acceptance-criteria checkboxes" in errors
-    assert any("too terse" in error for error in errors)
+    assert "task checkbox is too terse: too short" in errors
+    assert "acceptance checkbox is too terse: too short" in errors
 
 
 def test_review_trace_rejects_backticks_and_broad_refs() -> None:
@@ -137,8 +140,11 @@ def test_review_trace_rejects_backticks_and_broad_refs() -> None:
             "candidate_indexes": [1],
         }
     )
-    assert any("without backticks" in error for error in errors)
-    assert any("too broad" in error for error in errors)
+    assert errors == [
+        "design_refs entry should be a raw path or note without backticks: `README.md`",
+        "implementation_refs entry is too broad to be traceable: "
+        "This is an excessively broad description with no path and many unnecessary words indeed",
+    ]
 
 
 def test_fragment_named_tasks_and_terse_acceptance_are_rejected() -> None:

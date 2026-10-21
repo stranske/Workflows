@@ -972,13 +972,26 @@ def test_main_apply(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     assert sync_status_file_ignores.PATTERN_BLOCK_BEGIN in gitignore.read_text(encoding="utf-8")
 
 
+@pytest.mark.parametrize(
+    ("encoded", "error", "detail"),
+    [
+        ("", "Error fetching", "empty response"),
+        ("not-base64!", "Error decoding", "Only base64 data is allowed"),
+        ("/w==", "Error decoding", "'utf-8' codec can't decode byte 0xff"),
+    ],
+    ids=["empty", "invalid-base64", "non-utf8"],
+)
 def test_decode_repo_file_rejects_empty_invalid_and_non_utf8(
+    encoded: str,
+    error: str,
+    detail: str,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    assert sync_status_file_ignores.decode_repo_file("", "acme/repo", "a") is None
-    assert sync_status_file_ignores.decode_repo_file("not-base64!", "acme/repo", "a") is None
-    assert sync_status_file_ignores.decode_repo_file("/w==", "acme/repo", "a") is None
-    assert "Error" in capsys.readouterr().err
+    assert sync_status_file_ignores.decode_repo_file(encoded, "acme/repo", "a") is None
+    captured = capsys.readouterr()
+    assert f"{error} a from acme/repo: " in captured.err
+    assert detail in captured.err
+    assert captured.out == ""
 
 
 def test_main_print_modes_and_missing_local_gitignore(tmp_path: Path, monkeypatch, capsys) -> None:
