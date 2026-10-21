@@ -1457,3 +1457,30 @@ def test_parser_and_invoker_handle_code_blocks_and_legacy_chain_signature(
     assert trace_id is None
     assert trace_url is None
     assert chain.invoke.call_count == 2
+
+
+def test_optimizer_helpers_reject_empty_or_unactionable_optional_values(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    assert issue_optimizer._extract_json_payload("{}") == "{}"
+    assert issue_optimizer._extract_suggestions_json("") is None
+    assert issue_optimizer._coerce_split_suggestions({"split_suggestions": "not-a-list"}) == []
+    assert issue_optimizer._coerce_split_suggestions({"split_suggestions": ["", "too short"]}) == []
+    assert issue_optimizer._is_large_task(
+        "one two three four five six seven eight nine ten eleven twelve thirteen fourteen"
+    )
+    assert issue_optimizer._is_large_task("Add tests and update docs")
+    assert (
+        issue_optimizer._ensure_task_decomposition(["invalid", {"task": ""}], use_llm=False) == []
+    )
+
+    chain = mock.MagicMock()
+    chain.invoke.return_value = object()
+    monkeypatch.setattr(issue_optimizer, "_build_llm_config", lambda **_kwargs: {})
+    monkeypatch.setitem(sys.modules, "tools.llm_provider", None)
+    response, trace_id, trace_url = issue_optimizer._invoke_llm_with_trace(
+        chain, {"body": "x"}, operation="test"
+    )
+    assert response is chain.invoke.return_value
+    assert trace_id is None
+    assert trace_url is None
