@@ -989,3 +989,260 @@ def test_main_print_modes_and_missing_local_gitignore(tmp_path: Path, monkeypatc
     monkeypatch.setattr(sys, "argv", ["tool", "--check"])
     assert sync_status_file_ignores.main() == 1
     assert "No .gitignore" in capsys.readouterr().err
+
+
+def test_load_template_gitignore_reads_consumer_template() -> None:
+    content = sync_status_file_ignores.load_template_gitignore()
+
+    assert sync_status_file_ignores.PATTERN_BLOCK_BEGIN in content
+    assert sync_status_file_ignores.PATTERN_BLOCK_END in content
+    assert "Workflows Consumer Repo - Shared Status Files" in content
+
+
+def test_load_template_patterns_returns_empty_when_template_missing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(sync_status_file_ignores, "_read_template_lines", lambda: None)
+
+    assert sync_status_file_ignores._load_template_patterns() == []
+
+
+def test_package_payload_rejects_non_mapping_payloads() -> None:
+    assert sync_status_file_ignores._package_payload_declares_vendored_node_modules([]) is False
+    assert sync_status_file_ignores._package_payload_declares_vendored_node_modules("x") is False
+    assert sync_status_file_ignores._package_payload_declares_vendored_node_modules(None) is False
+
+
+def test_load_template_block_falls_back_when_shared_header_missing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    template_path = Path(sync_status_file_ignores.__file__).resolve().parents[1]
+    template_path = template_path / "templates/consumer-repo/.gitignore"
+    original_read_text = Path.read_text
+    custom_text = "\n".join(
+        [
+            sync_status_file_ignores.SEPARATOR_LINE,
+            "# Unrelated Section",
+            sync_status_file_ignores.SEPARATOR_LINE,
+            "# Template-Version: 1",
+            sync_status_file_ignores.PATTERN_BLOCK_BEGIN,
+            "codex-prompt.md",
+            sync_status_file_ignores.PATTERN_BLOCK_END,
+            sync_status_file_ignores.SEPARATOR_LINE,
+        ]
+    )
+
+    def fake_read_text(self: Path, encoding: str = "utf-8") -> str:
+        if self == template_path:
+            return custom_text
+        return original_read_text(self, encoding=encoding)
+
+    monkeypatch.setattr(Path, "read_text", fake_read_text)
+
+    assert (
+        sync_status_file_ignores.load_template_block()
+        == sync_status_file_ignores.generate_minimal_block()
+    )
+
+
+def test_main_print_block_reports_missing_template_markers(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    def boom(*, preserve_vendored_node_modules: bool = True) -> str:
+        raise sync_status_file_ignores.MissingTemplateMarkerError("missing begin marker")
+
+    monkeypatch.setattr(sync_status_file_ignores, "load_template_block", boom)
+    monkeypatch.setattr(sys, "argv", ["script", "--print-block"])
+
+    exit_code = sync_status_file_ignores.main()
+
+    captured = capsys.readouterr()
+    assert exit_code == 1
+    assert "missing begin marker" in captured.err
+
+
+def test_main_repo_package_decode_failure_returns_error(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    encoded = base64.b64encode(_full_gitignore_content().encode("utf-8")).decode("utf-8")
+
+    class DummyResult:
+        def __init__(self, returncode: int, stdout: str, stderr: str = "") -> None:
+            self.returncode = returncode
+            self.stdout = stdout
+            self.stderr = stderr
+
+    def fake_run(args: list[str], **kwargs: object) -> DummyResult:
+        if str(args[2]).endswith(".github/scripts/package.json"):
+            return DummyResult(0, "not-base64")
+        return DummyResult(0, encoded)
+
+    monkeypatch.setattr(sync_status_file_ignores.subprocess, "run", fake_run)
+    monkeypatch.setattr(sys, "argv", ["script", "--repo", "owner/repo"])
+
+    exit_code = sync_status_file_ignores.main()
+
+    captured = capsys.readouterr()
+    assert exit_code == 1
+    assert "Error decoding" in captured.err
+
+
+def test_main_repo_package_invalid_json_returns_error(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    encoded = base64.b64encode(_full_gitignore_content().encode("utf-8")).decode("utf-8")
+    package = base64.b64encode(b"{not-json").decode("utf-8")
+
+    class DummyResult:
+        def __init__(self, stdout: str) -> None:
+            self.returncode = 0
+            self.stdout = stdout
+            self.stderr = ""
+
+    def fake_run(args: list[str], **kwargs: object) -> DummyResult:
+        if str(args[2]).endswith(".github/scripts/package.json"):
+            return DummyResult(package)
+        return DummyResult(encoded)
+
+    monkeypatch.setattr(sync_status_file_ignores.subprocess, "run", fake_run)
+    monkeypatch.setattr(sys, "argv", ["script", "--repo", "owner/repo"])
+
+    exit_code = sync_status_file_ignores.main()
+
+    captured = capsys.readouterr()
+    assert exit_code == 1
+    assert "Error parsing" in captured.err
+
+
+def test_main_repo_package_fetch_non_404_returns_error(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    encoded = base64.b64encode(_full_gitignore_content().encode("utf-8")).decode("utf-8")
+
+    class DummyResult:
+        def __init__(self, returncode: int, stdout: str, stderr: str = "") -> None:
+            self.returncode = returncode
+            self.stdout = stdout
+            self.stderr = stderr
+
+    def fake_run(args: list[str], **kwargs: object) -> DummyResult:
+        if str(args[2]).endswith(".github/scripts/package.json"):
+            return DummyResult(1, "", "API rate limit exceeded")
+        return DummyResult(0, encoded)
+
+    monkeypatch.setattr(sync_status_file_ignores.subprocess, "run", fake_run)
+    monkeypatch.setattr(sys, "argv", ["script", "--repo", "owner/repo"])
+
+    exit_code = sync_status_file_ignores.main()
+
+    captured = capsys.readouterr()
+    assert exit_code == 1
+    assert "Error fetching .github/scripts/package.json" in captured.err
+    assert "API rate limit exceeded" in captured.err
+
+
+def test_managed_block_span_uses_begin_when_header_has_no_separator() -> None:
+    lines = [
+        "# Workflows Consumer Repo - Shared Status Files",
+        "# Template-Version: 1",
+        sync_status_file_ignores.PATTERN_BLOCK_BEGIN,
+        "codex-prompt.md",
+        sync_status_file_ignores.PATTERN_BLOCK_END,
+    ]
+
+    span = sync_status_file_ignores._managed_block_span(lines)
+
+    assert span == (2, 4)
+
+
+def test_managed_block_span_without_header_starts_at_begin() -> None:
+    lines = [
+        "# Template-Version: 1",
+        sync_status_file_ignores.PATTERN_BLOCK_BEGIN,
+        "codex-prompt.md",
+        sync_status_file_ignores.PATTERN_BLOCK_END,
+    ]
+
+    span = sync_status_file_ignores._managed_block_span(lines)
+
+    assert span == (1, 3)
+
+
+def test_apply_block_honors_explicit_preserve_flag(tmp_path: Path) -> None:
+    gitignore = tmp_path / ".gitignore"
+    gitignore.write_text("# local\n*.tmp\n", encoding="utf-8")
+    _write_consumer_package(tmp_path, "^10.0.1")
+
+    result = sync_status_file_ignores.apply_block_to_file(
+        gitignore, preserve_vendored_node_modules=True
+    )
+
+    content = gitignore.read_text(encoding="utf-8")
+    assert result["action"] == "appended"
+    assert "!/.github/scripts/node_modules/" in content
+
+
+def test_load_template_block_falls_back_when_end_marker_missing_after_header(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    template_path = Path(sync_status_file_ignores.__file__).resolve().parents[1]
+    template_path = template_path / "templates/consumer-repo/.gitignore"
+    original_read_text = Path.read_text
+    # Validation markers exist before the shared header; the header section itself
+    # has no END marker, which is the path load_template_block must reject.
+    custom_text = "\n".join(
+        [
+            "# Template-Version: 1",
+            sync_status_file_ignores.PATTERN_BLOCK_BEGIN,
+            "codex-prompt.md",
+            sync_status_file_ignores.PATTERN_BLOCK_END,
+            sync_status_file_ignores.SEPARATOR_LINE,
+            "# Workflows Consumer Repo - Shared Status Files",
+            sync_status_file_ignores.SEPARATOR_LINE,
+            "# Template-Version: 1",
+            sync_status_file_ignores.PATTERN_BLOCK_BEGIN,
+            "codex-output.md",
+            sync_status_file_ignores.SEPARATOR_LINE,
+        ]
+    )
+
+    def fake_read_text(self: Path, encoding: str = "utf-8") -> str:
+        if self == template_path:
+            return custom_text
+        return original_read_text(self, encoding=encoding)
+
+    monkeypatch.setattr(Path, "read_text", fake_read_text)
+
+    assert (
+        sync_status_file_ignores.load_template_block()
+        == sync_status_file_ignores.generate_minimal_block()
+    )
+
+
+def test_main_repo_package_404_preserves_default_false(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    registry_patterns = sync_status_file_ignores.canonical_patterns(
+        preserve_vendored_node_modules=False
+    )
+    encoded = base64.b64encode(("\n".join(registry_patterns) + "\n").encode()).decode()
+
+    class DummyResult:
+        def __init__(self, returncode: int, stdout: str, stderr: str = "") -> None:
+            self.returncode = returncode
+            self.stdout = stdout
+            self.stderr = stderr
+
+    def fake_run(args: list[str], **kwargs: object) -> DummyResult:
+        if str(args[2]).endswith(".github/scripts/package.json"):
+            return DummyResult(1, "", "HTTP 404: Not Found")
+        return DummyResult(0, encoded)
+
+    monkeypatch.setattr(sync_status_file_ignores.subprocess, "run", fake_run)
+    monkeypatch.setattr(sys, "argv", ["script", "--repo", "owner/no-package"])
+
+    exit_code = sync_status_file_ignores.main()
+
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert "All canonical patterns present" in captured.out

@@ -234,6 +234,43 @@ def test_load_workflow_returns_none_for_non_mapping_yaml(tmp_path: Path) -> None
     assert load_workflow(workflow) is None
 
 
+def test_load_workflow_returns_none_on_oserror(tmp_path: Path, monkeypatch) -> None:
+    workflow = tmp_path / "blocked.yml"
+    workflow.write_text("name: Blocked\non: push\n", encoding="utf-8")
+
+    def boom(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+        raise OSError("permission denied")
+
+    monkeypatch.setattr(Path, "read_text", boom)
+    assert load_workflow(workflow) is None
+
+
+def test_main_default_format_renders_table(tmp_path: Path, monkeypatch, capsys) -> None:
+    workflows_dir = tmp_path / "workflows"
+    workflows_dir.mkdir()
+    _write(
+        workflows_dir / "simple.yml",
+        """
+name: Simple
+on: push
+jobs:
+  noop:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo hi
+""",
+    )
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["tool", "--workflows-dir", str(workflows_dir)],
+    )
+    assert workflow_pr_context_audit.main() == 0
+    out = capsys.readouterr().out
+    assert "simple.yml" in out
+    assert "push" in out
+
+
 def test_audit_workflows_reads_legacy_true_on_field(tmp_path: Path) -> None:
     workflows_dir = tmp_path / "workflows"
     workflows_dir.mkdir()

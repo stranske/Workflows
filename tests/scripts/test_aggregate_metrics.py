@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+import pytest
 from scripts import aggregate_metrics
 from scripts.aggregate_metrics import aggregate_traces, format_report, load_metrics
 
@@ -280,3 +281,27 @@ def test_main_supports_legacy_positional_json_output(tmp_path: Path, monkeypatch
     monkeypatch.setattr("sys.argv", ["tool", str(metrics)])
     aggregate_metrics.main()
     assert json.loads(capsys.readouterr().out)["total_metrics"] == 0
+
+
+def test_load_metrics_skips_blank_lines(tmp_path: Path, capsys) -> None:
+    metrics = tmp_path / "metrics.ndjson"
+    metrics.write_text(
+        '\n{"metric_type": "api", "langsmith_trace_id": "t1"}\n\n',
+        encoding="utf-8",
+    )
+
+    loaded = aggregate_metrics.load_metrics(metrics)
+
+    err = capsys.readouterr().err
+    assert len(loaded) == 1
+    assert loaded[0]["langsmith_trace_id"] == "t1"
+    assert "Warning" not in err
+
+
+def test_main_requires_metrics_path(monkeypatch, capsys) -> None:
+    monkeypatch.setattr("sys.argv", ["tool"])
+    with pytest.raises(SystemExit) as excinfo:
+        aggregate_metrics.main()
+    err = capsys.readouterr().err
+    assert excinfo.value.code == 2
+    assert "metrics-file" in err or "required" in err

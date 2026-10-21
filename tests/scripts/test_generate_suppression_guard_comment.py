@@ -6,6 +6,8 @@ import sys
 import textwrap
 from pathlib import Path
 
+import pytest
+
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from scripts import generate_suppression_guard_comment
 from scripts.generate_suppression_guard_comment import _extract_step_hints, build_comment
@@ -269,6 +271,10 @@ def test_helpers_cover_non_mapping_steps_and_action_hints() -> None:
     assert generate_suppression_guard_comment._step_script({"with": {"script": "x"}}) == "x"
     assert generate_suppression_guard_comment._step_script({"run": 1}) == ""
     assert generate_suppression_guard_comment._step_action_hint({"uses": 1}) is None
+    assert (
+        generate_suppression_guard_comment._step_action_hint({"uses": "actions/checkout@v4"})
+        is None
+    )
     assert generate_suppression_guard_comment._extract_step_hints(
         {"uses": "peter-evans/create-or-update-comment@v4"}
     )
@@ -285,6 +291,13 @@ def test_helpers_cover_non_mapping_steps_and_action_hints() -> None:
         }
     )
     assert findings[0][1] == "post"
+
+
+def test_load_workflow_rejects_non_mapping_root(tmp_path: Path) -> None:
+    path = tmp_path / "list.yml"
+    path.write_text("- not: a mapping\n", encoding="utf-8")
+    with pytest.raises(SystemExit, match="mapping structure"):
+        generate_suppression_guard_comment._load_workflow(path)
 
 
 def test_main_uses_requested_workflow_and_label(tmp_path: Path, monkeypatch, capsys) -> None:

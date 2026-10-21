@@ -139,3 +139,59 @@ def test_review_trace_rejects_backticks_and_broad_refs() -> None:
     )
     assert any("without backticks" in error for error in errors)
     assert any("too broad" in error for error in errors)
+
+
+def test_fragment_named_tasks_and_terse_acceptance_are_rejected() -> None:
+    body = (
+        VALID_BODY.replace(
+            "Implement the smoke in `tests/test_local_smoke.py` using existing public APIs.",
+            "strip leading/trailing whitespace",
+        )
+        .replace(
+            "`python -m pytest tests/test_local_smoke.py --no-cov` exits zero with local fixtures.",
+            "passes:",
+        )
+        .replace(
+            "The smoke fails with a clear assertion if the primary output object is not created.",
+            "ok now",
+        )
+    )
+
+    errors = issue_body_quality_errors(body)
+
+    assert any("task checkbox is a fragment:" in error for error in errors)
+    assert any("acceptance checkbox is a fragment ending with colon" in error for error in errors)
+    assert any("acceptance checkbox is too terse" in error for error in errors)
+
+
+def test_implementation_notes_require_backticked_paths() -> None:
+    body = VALID_BODY.replace(
+        "Relevant files: `tests/test_local_smoke.py`, `tests/fixtures/local_smoke/`, `docs/local-testing.md`.",
+        "Touch the smoke test module and its fixtures under the tests tree.",
+    )
+
+    errors = issue_body_quality_errors(body)
+
+    assert any("concrete path/code references" in error for error in errors)
+
+
+def test_review_evidence_trace_requires_core_fields() -> None:
+    assert review_evidence_trace_errors(None) == [
+        "review evidence trace is missing or not an object"
+    ]
+    assert review_evidence_trace_errors("not-a-dict") == [
+        "review evidence trace is missing or not an object"
+    ]
+
+    errors = review_evidence_trace_errors(
+        {
+            "design_refs": ["README.md"],
+            "implementation_refs": ["src/a.py"],
+            "test_refs": ["tests/a.py"],
+            "candidate_indexes": [0],
+        }
+    )
+
+    assert "review evidence trace is missing a verified gap" in errors
+    assert "review evidence trace is missing current_state" in errors
+    assert "review evidence trace is missing required_change" in errors
