@@ -31,21 +31,33 @@ def test_splitter_refuses_to_run_without_a_configured_client(monkeypatch) -> Non
         topic_splitter.split_topics_with_llm("one issue")
 
 
-def test_splitter_turns_fenced_response_into_stable_topic_records(monkeypatch, capsys) -> None:
-    monkeypatch.setattr(topic_splitter, "_get_llm_client", lambda: (object(), "fixture-provider"))
-    monkeypatch.setattr(
-        topic_splitter,
-        "invoke_with_trace",
-        lambda *_args, **_kwargs: _response(
+@pytest.mark.parametrize("string_response", [False, True])
+def test_splitter_turns_fenced_response_into_stable_topic_records(
+    monkeypatch, capsys, string_response: bool
+) -> None:
+    client = object()
+    input_text = "## Issue {one}\nKeep **all** details and `scripts/example.py`."
+    monkeypatch.setattr(topic_splitter, "_get_llm_client", lambda: (client, "fixture-provider"))
+    calls = []
+
+    def invoke(llm, prompt, *, operation):
+        calls.append((llm, prompt, operation))
+        response, trace = _response(
             "```json\n"
             '{"issues": [{"title": "  First issue ", "body": "Keep **all** details."}, '
             '{"title": "", "body": "Second body"}]}\n'
             "```"
-        ),
-    )
+        )
+        return (response.content if string_response else response), trace
 
-    topics = topic_splitter.split_topics_with_llm("raw multi-issue text")
+    monkeypatch.setattr(topic_splitter, "invoke_with_trace", invoke)
 
+    topics = topic_splitter.split_topics_with_llm(input_text)
+
+    assert len(calls) == 1
+    assert calls[0][0] is client
+    assert calls[0][1].endswith(input_text)
+    assert calls[0][2] == "topic_splitter"
     assert [topic["title"] for topic in topics] == ["First issue", "Untitled Issue 2"]
     assert [topic["extras"] for topic in topics] == ["Keep **all** details.", "Second body"]
     assert [topic["enumerator"] for topic in topics] == ["1", "2"]

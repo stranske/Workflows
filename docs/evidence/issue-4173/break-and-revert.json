@@ -1,0 +1,381 @@
+{
+  "base_sha": "a17e78df1c72ab61c14cfb5163d7157361db81b5",
+  "local_parent_sha": "d47ae4835f2a4c96b07ddafdc1b45caa11df7bd6",
+  "date": "2026-10-21",
+  "method": "For each mutation, replace the listed source text, run the selected pytest nodes in a fresh process with -B -m pytest -m 'not slow' -q --tb=short --junitxml=<report>, require pytest exit 1 and a failure for every selected case, and restore original source bytes in finally. After all reversions, run the full targeted suite.",
+  "new_test_functions": 30,
+  "new_test_functions_with_red_evidence": 30,
+  "distinct_red_cases": 42,
+  "mutations": [
+    {
+      "mutation": "bootstrap-exception-contracts",
+      "source": "scripts/bootstrap_consumer_settings.py",
+      "replacements": [
+        [
+          "raise ValueError(",
+          "raise RuntimeError("
+        ],
+        [
+          "raise SystemExit(",
+          "raise RuntimeError("
+        ]
+      ],
+      "exit": 1,
+      "failed_tests": [
+        "tests.scripts.test_bootstrap_consumer_settings::test_main_rejects_invalid_mode_combinations[argv0]",
+        "tests.scripts.test_bootstrap_consumer_settings::test_main_rejects_invalid_mode_combinations[argv1]",
+        "tests.scripts.test_bootstrap_consumer_settings::test_main_rejects_invalid_mode_combinations[argv2]",
+        "tests.scripts.test_bootstrap_consumer_settings::test_decode_simple_yaml_scalar_rejects_invalid_forms['unclosed-invalid quoted label value]",
+        "tests.scripts.test_bootstrap_consumer_settings::test_decode_simple_yaml_scalar_rejects_invalid_forms[\"unterminated-invalid quoted label value]",
+        "tests.scripts.test_bootstrap_consumer_settings::test_decode_simple_yaml_scalar_rejects_invalid_forms[true-label value must be text]",
+        "tests.scripts.test_bootstrap_consumer_settings::test_decode_simple_yaml_scalar_rejects_invalid_forms[''-label value is empty]",
+        "tests.scripts.test_bootstrap_consumer_settings::test_decode_simple_yaml_scalar_rejects_non_text_json",
+        "tests.scripts.test_bootstrap_consumer_settings::test_load_core_label_entries_rejects_unsupported_syntax",
+        "tests.scripts.test_bootstrap_consumer_settings::test_read_paginated_collection_rejects_malformed_payloads[{\"not\":\"a-list\"}]",
+        "tests.scripts.test_bootstrap_consumer_settings::test_read_paginated_collection_rejects_malformed_payloads[[{\"number\": 1}, \"mixed\"]]",
+        "tests.scripts.test_bootstrap_consumer_settings::test_read_paginated_collection_rejects_malformed_payloads[[[{\"number\": 1}], {\"number\": 2}]]",
+        "tests.scripts.test_bootstrap_consumer_settings::test_read_paginated_collection_rejects_malformed_payloads[[[1, 2]]]",
+        "tests.scripts.test_bootstrap_consumer_settings::test_priority_label_inventory_rejects_malformed_names",
+        "tests.scripts.test_bootstrap_consumer_settings::test_issue_labels_rejects_malformed_entries[issue0-Issue labels must be a list]",
+        "tests.scripts.test_bootstrap_consumer_settings::test_issue_labels_rejects_malformed_entries[issue1-Issue label entry is malformed]",
+        "tests.scripts.test_bootstrap_consumer_settings::test_issue_labels_rejects_malformed_entries[issue2-Issue label entry is malformed]",
+        "tests.scripts.test_bootstrap_consumer_settings::test_non_implementation_reason_covers_remaining_holders",
+        "tests.scripts.test_bootstrap_consumer_settings::test_check_consumer_health_empty_repos_and_issue_systemic_failure",
+        "tests.scripts.test_bootstrap_consumer_settings::test_main_health_check_rejects_repo_and_missing_manifest"
+      ]
+    },
+    {
+      "mutation": "bootstrap-verify-status",
+      "source": "scripts/bootstrap_consumer_settings.py",
+      "replacements": [
+        [
+          "mark = \"OK\" if ok else \"FAIL\"",
+          "mark = \"OK\""
+        ]
+      ],
+      "exit": 1,
+      "failed_tests": [
+        "tests.scripts.test_bootstrap_consumer_settings::test_main_check_verify_and_health_check"
+      ]
+    },
+    {
+      "mutation": "bootstrap-page-preservation",
+      "source": "scripts/bootstrap_consumer_settings.py",
+      "replacements": [
+        [
+          "    return items\n",
+          "    return []\n"
+        ]
+      ],
+      "exit": 1,
+      "failed_tests": [
+        "tests.scripts.test_bootstrap_consumer_settings::test_read_paginated_collection_accepts_empty_and_flat_pages"
+      ]
+    },
+    {
+      "mutation": "bootstrap-healthy-status",
+      "source": "scripts/bootstrap_consumer_settings.py",
+      "replacements": [
+        [
+          "row[\"status\"] = \"OK\"",
+          "row[\"status\"] = \"FAIL\""
+        ]
+      ],
+      "exit": 1,
+      "failed_tests": [
+        "tests.scripts.test_bootstrap_consumer_settings::test_check_consumer_health_all_ok_and_render_details"
+      ]
+    },
+    {
+      "mutation": "tool-latest-output",
+      "source": "scripts/maint_tool_version_check.py",
+      "replacements": [
+        [
+          "value = version or \"unknown\"",
+          "value = \"unknown\""
+        ]
+      ],
+      "exit": 1,
+      "failed_tests": [
+        "tests.scripts.test_maint_tool_version_check::test_latest_command_and_main_dispatch"
+      ]
+    },
+    {
+      "mutation": "tool-offline-fallback",
+      "source": "scripts/maint_tool_version_check.py",
+      "replacements": [
+        [
+          "        return None\n    version =",
+          "        return \"broken\"\n    version ="
+        ]
+      ],
+      "exit": 1,
+      "failed_tests": [
+        "tests.scripts.test_maint_tool_version_check::test_latest_pypi_failure_and_compare_without_updates"
+      ]
+    },
+    {
+      "mutation": "tool-empty-version",
+      "source": "scripts/maint_tool_version_check.py",
+      "replacements": [
+        [
+          "if not text or text.lower() == \"unknown\":\n        return None",
+          "if not text or text.lower() == \"unknown\":\n        return \"broken\""
+        ]
+      ],
+      "exit": 1,
+      "failed_tests": [
+        "tests.scripts.test_maint_tool_version_check::test_parse_tool_version_rejects_unknown_and_empty"
+      ]
+    },
+    {
+      "mutation": "tool-pypi-version",
+      "source": "scripts/maint_tool_version_check.py",
+      "replacements": [
+        [
+          "return str(version) if version else None",
+          "return None"
+        ]
+      ],
+      "exit": 1,
+      "failed_tests": [
+        "tests.scripts.test_maint_tool_version_check::test_latest_pypi_version_success_and_missing_info"
+      ]
+    },
+    {
+      "mutation": "metrics-bool-date",
+      "source": "scripts/metrics_retention.py",
+      "replacements": [
+        [
+          "and not isinstance(value, bool)",
+          "and True"
+        ]
+      ],
+      "exit": 1,
+      "failed_tests": [
+        "tests.scripts.test_metrics_retention::test_helpers_cover_numeric_dates_policy_and_restore_dry_run"
+      ]
+    },
+    {
+      "mutation": "metrics-archive-disabled",
+      "source": "scripts/metrics_retention.py",
+      "replacements": [
+        [
+          "if not policy.archive_enabled:",
+          "if False:"
+        ]
+      ],
+      "exit": 1,
+      "failed_tests": [
+        "tests.scripts.test_metrics_retention::test_retention_helpers_cover_no_change_and_archive_disabled"
+      ]
+    },
+    {
+      "mutation": "metrics-overflow",
+      "source": "scripts/metrics_retention.py",
+      "replacements": [
+        [
+          "except (OverflowError, OSError, ValueError):",
+          "except (OSError, ValueError):"
+        ]
+      ],
+      "exit": 1,
+      "failed_tests": [
+        "tests.scripts.test_metrics_retention::test_parse_timestamp_overflow_and_write_line_without_newline"
+      ]
+    },
+    {
+      "mutation": "metrics-config-error",
+      "source": "scripts/metrics_retention.py",
+      "replacements": [
+        [
+          "raise FileNotFoundError(f\"Retention config not found:",
+          "raise RuntimeError(f\"Retention config not found:"
+        ]
+      ],
+      "exit": 1,
+      "failed_tests": [
+        "tests.scripts.test_metrics_retention::test_iter_paths_skips_empty_entries_and_load_policy_missing"
+      ]
+    },
+    {
+      "mutation": "metrics-weekly-count",
+      "source": "scripts/metrics_retention.py",
+      "replacements": [
+        [
+          "stats.records_archived_weekly += 1",
+          "stats.records_archived_weekly += 2"
+        ]
+      ],
+      "exit": 1,
+      "failed_tests": [
+        "tests.scripts.test_metrics_retention::test_apply_retention_missing_file_blank_lines_and_dry_run_archive"
+      ]
+    },
+    {
+      "mutation": "metrics-restore-arguments",
+      "source": "scripts/metrics_retention.py",
+      "replacements": [
+        [
+          "parser.error(\"--restore requires --archive-path and --output-path\")",
+          "raise RuntimeError(\"--restore requires --archive-path and --output-path\")"
+        ]
+      ],
+      "exit": 1,
+      "failed_tests": [
+        "tests.scripts.test_metrics_retention::test_main_restore_requires_archive_and_output"
+      ]
+    },
+    {
+      "mutation": "metrics-restore-dedupe",
+      "source": "scripts/metrics_retention.py",
+      "replacements": [
+        [
+          "if dedupe and stripped in existing_lines:",
+          "if False:"
+        ]
+      ],
+      "exit": 1,
+      "failed_tests": [
+        "tests.scripts.test_metrics_retention::test_restore_archive_from_directory_with_dedupe_write"
+      ]
+    },
+    {
+      "mutation": "metrics-restore-log",
+      "source": "scripts/metrics_retention.py",
+      "replacements": [
+        [
+          "\"record_type\": \"restore\",",
+          "\"record_type\": \"wrong\","
+        ]
+      ],
+      "exit": 1,
+      "failed_tests": [
+        "tests.scripts.test_metrics_retention::test_main_restore_mode_writes_log"
+      ]
+    },
+    {
+      "mutation": "prune-closed-filter",
+      "source": "scripts/prune_agent_stubs.py",
+      "replacements": [
+        [
+          "            \"closed\",",
+          "            \"open\","
+        ]
+      ],
+      "exit": 1,
+      "failed_tests": [
+        "tests.scripts.test_prune_agent_stubs::test_fetch_closed_issues_and_main_modes"
+      ]
+    },
+    {
+      "mutation": "prune-missing-directory",
+      "source": "scripts/prune_agent_stubs.py",
+      "replacements": [
+        [
+          "        return 1\n",
+          "        return 0\n"
+        ]
+      ],
+      "exit": 1,
+      "failed_tests": [
+        "tests.scripts.test_prune_agent_stubs::test_main_rejects_missing_agents_directory"
+      ]
+    },
+    {
+      "mutation": "prune-noop-message",
+      "source": "scripts/prune_agent_stubs.py",
+      "replacements": [
+        [
+          "print(\"Nothing to prune.\")",
+          "print(\"Deleted everything.\")"
+        ]
+      ],
+      "exit": 1,
+      "failed_tests": [
+        "tests.scripts.test_prune_agent_stubs::test_main_reports_nothing_to_prune"
+      ]
+    },
+    {
+      "mutation": "topic-import-fallback",
+      "source": "scripts/langchain/topic_splitter.py",
+      "replacements": [
+        [
+          "    from _llm_client import",
+          "    raise RuntimeError(\"broken fallback\")\n    from _llm_client import"
+        ]
+      ],
+      "exit": 1,
+      "failed_tests": [
+        "tests.test_topic_splitter::test_direct_script_execution_uses_local_import_fallback",
+        "tests.test_topic_splitter::test_import_fallback_recovers_when_scripts_package_is_incomplete"
+      ]
+    },
+    {
+      "mutation": "topic-trace-operation",
+      "source": "scripts/langchain/topic_splitter.py",
+      "replacements": [
+        [
+          "operation=\"topic_splitter\")",
+          "operation=\"wrong_operation\")"
+        ]
+      ],
+      "exit": 1,
+      "failed_tests": [
+        "tests.test_topic_splitter::test_splitter_turns_fenced_response_into_stable_topic_records[False]",
+        "tests.test_topic_splitter::test_splitter_turns_fenced_response_into_stable_topic_records[True]"
+      ]
+    },
+    {
+      "mutation": "topic-string-response",
+      "source": "scripts/langchain/topic_splitter.py",
+      "replacements": [
+        [
+          "else str(response)",
+          "else \"\""
+        ]
+      ],
+      "exit": 1,
+      "failed_tests": [
+        "tests.test_topic_splitter::test_splitter_turns_fenced_response_into_stable_topic_records[True]"
+      ]
+    },
+    {
+      "mutation": "topic-input-preservation",
+      "source": "scripts/langchain/topic_splitter.py",
+      "replacements": [
+        [
+          "format(input_text=input_text)",
+          "format(input_text=\"truncated\")"
+        ]
+      ],
+      "exit": 1,
+      "failed_tests": [
+        "tests.test_topic_splitter::test_splitter_turns_fenced_response_into_stable_topic_records[False]",
+        "tests.test_topic_splitter::test_splitter_turns_fenced_response_into_stable_topic_records[True]"
+      ]
+    },
+    {
+      "mutation": "topic-selected-client",
+      "source": "scripts/langchain/topic_splitter.py",
+      "replacements": [
+        [
+          "invoke_with_trace(llm, prompt,",
+          "invoke_with_trace(object(), prompt,"
+        ]
+      ],
+      "exit": 1,
+      "failed_tests": [
+        "tests.test_topic_splitter::test_splitter_turns_fenced_response_into_stable_topic_records[False]",
+        "tests.test_topic_splitter::test_splitter_turns_fenced_response_into_stable_topic_records[True]"
+      ]
+    }
+  ],
+  "green": {
+    "passed": 155,
+    "coverage_percent": 98.83,
+    "command": "python -m pytest tests/test_topic_splitter.py tests/scripts/test_bootstrap_consumer_settings.py tests/scripts/test_bootstrap_consumer_labels.py tests/scripts/test_maint_tool_version_check.py tests/scripts/test_metrics_retention.py tests/scripts/test_prune_agent_stubs.py --cov=scripts.langchain.topic_splitter --cov=scripts.bootstrap_consumer_settings --cov=scripts.maint_tool_version_check --cov=scripts.metrics_retention --cov=scripts.prune_agent_stubs --cov-branch --cov-report=term-missing -m 'not slow' -q"
+  },
+  "production_changes": false,
+  "ci_verified_for_local_changes": false
+}
