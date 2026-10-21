@@ -2082,7 +2082,11 @@ def test_validate_fleet_provenance_reports_state_and_artifact_failures(
 ) -> None:
     repo = "stranske/Example"
     config = SimpleNamespace(repo=repo, local_path="Example")
-    monkeypatch.setattr(coordinator, "current_repo_head", lambda _path: ("head", None))
+    monkeypatch.setattr(
+        coordinator,
+        "current_repo_head",
+        lambda _path: (None, "cannot resolve current HEAD: git missing"),
+    )
     monkeypatch.setattr(
         coordinator,
         "load_state",
@@ -2099,6 +2103,7 @@ def test_validate_fleet_provenance_reports_state_and_artifact_failures(
     assert any("cannot load terminal review state" in error for error in errors)
     assert any("cannot read converged.json" in error for error in errors)
     assert any("cannot read codex findings.json" in error for error in errors)
+    assert any("cannot resolve current HEAD" in error for error in errors)
 
 
 def test_run_returns_two_when_requested_repos_are_not_active(
@@ -2142,7 +2147,9 @@ def test_docs_drift_helpers_reject_invalid_config_and_payload_shapes(tmp_path: P
         ),
     ]:
         scan.write_text(json.dumps(payload), encoding="utf-8")
-        assert expected in coordinator.validate_docs_drift_output(scan, expected_doc_count=1)[1]
+        ok, message = coordinator.validate_docs_drift_output(scan, expected_doc_count=1)
+        assert ok is False
+        assert expected in message
 
 
 def test_prepare_phase_retry_quarantines_round_two_and_preserves_round_one_logs(
@@ -2170,11 +2177,13 @@ def test_prepare_phase_retry_quarantines_round_two_and_preserves_round_one_logs(
         phase="round-1", repo=repo, output_dir=tmp_path, failed_log=round1_log, repair_number=2
     )
     assert repair["preserved"]
+    assert round1_log.is_file()
 
 
 def test_coordinate_repo_returns_early_for_failed_rounds(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    calls: list[str] = []
     results = iter(
         [
             (coordinator.StepResult("round-1", False, 0.1), [], []),
@@ -2182,9 +2191,12 @@ def test_coordinate_repo_returns_early_for_failed_rounds(
             (coordinator.StepResult("round-2", False, 0.1), [], []),
         ]
     )
-    monkeypatch.setattr(
-        coordinator, "run_subprocess_with_repairs", lambda *_args, **_kwargs: next(results)
-    )
+
+    def fake_run(*args, **kwargs):
+        calls.append(kwargs["name"])
+        return next(results)
+
+    monkeypatch.setattr(coordinator, "run_subprocess_with_repairs", fake_run)
     common = {
         "repo": "stranske/Example",
         "output_dir": tmp_path,
@@ -2197,5 +2209,12 @@ def test_coordinate_repo_returns_early_for_failed_rounds(
         "max_turns": 1,
         "skip_gate_enabled": False,
     }
-    assert coordinator.coordinate_repo(**common)["round2"] is None
-    assert coordinator.coordinate_repo(**common)["round2"]["succeeded"] is False
+    first = coordinator.coordinate_repo(**common)
+    assert first["round2"] is None
+    assert first["round1"]["succeeded"] is False
+    assert calls == ["round-1"]
+
+    second = coordinator.coordinate_repo(**common)
+    assert second["round2"]["succeeded"] is False
+    assert calls == ["round-1", "round-1", "round-2"]
+    assert next(results, None) is None
