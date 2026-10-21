@@ -121,7 +121,9 @@ def test_latest_command_and_main_dispatch(monkeypatch, tmp_path: Path, capsys) -
     lines = output.read_text(encoding="utf-8")
     assert "black_latest=9.9.9" in lines
     assert "ruff_latest=unknown" in lines
-    assert "black: 9.9.9" in capsys.readouterr().out
+    console = capsys.readouterr().out
+    assert "black: 9.9.9" in console
+    assert "ruff: unknown" in console
 
 
 def test_latest_pypi_failure_and_compare_without_updates(monkeypatch, tmp_path: Path) -> None:
@@ -138,7 +140,9 @@ def test_latest_pypi_failure_and_compare_without_updates(monkeypatch, tmp_path: 
         monkeypatch.setenv(spec.current_env, "1.0.0")
         monkeypatch.setenv(spec.latest_env, "1.0.0")
     assert check.main(["compare"]) == 0
-    assert "updates=\n" in output.read_text(encoding="utf-8")
+    emitted = output.read_text(encoding="utf-8")
+    assert "updates=\n" in emitted
+    assert "has_updates=false\n" in emitted
 
 
 def test_parse_tool_version_rejects_unknown_and_empty() -> None:

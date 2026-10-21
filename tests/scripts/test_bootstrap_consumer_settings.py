@@ -248,6 +248,7 @@ def test_main_check_verify_and_health_check(monkeypatch, tmp_path, capsys) -> No
         ),
     ):
         assert bcs.main() == 1
+    assert "[FAIL] b" in capsys.readouterr().out
     manifest = tmp_path / "manifest.yml"
     manifest.write_text("x", encoding="utf-8")
     with (
@@ -271,10 +272,13 @@ def test_main_check_verify_and_health_check(monkeypatch, tmp_path, capsys) -> No
                 ],
                 0,
             ),
-        ),
+        ) as health_check,
     ):
         assert bcs.main() == 0
-    assert "[FAIL] b" in capsys.readouterr().out
+        health_check.assert_called_once_with(["x/y"])
+    health_output = capsys.readouterr().out
+    assert "x/y" in health_output and "OK" in health_output
+    assert "[FAIL] b" not in health_output
 
 
 def test_main_execute_sets_use_consolidated_workflows() -> None:

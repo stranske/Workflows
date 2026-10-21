@@ -452,10 +452,13 @@ def test_helpers_cover_numeric_dates_policy_and_restore_dry_run(tmp_path: Path) 
     )
     archive = tmp_path / "archive.ndjson"
     archive.write_text('{"value": 1}\n', encoding="utf-8")
-    result = metrics_retention.restore_archive(
-        archive, tmp_path / "out.ndjson", dedupe=False, dry_run=True
-    )
+    output = tmp_path / "out.ndjson"
+    result = metrics_retention.restore_archive(archive, output, dedupe=False, dry_run=True)
     assert result["records_restored"] == 1
+    assert not output.exists()
+    output.write_text("existing\n", encoding="utf-8")
+    metrics_retention.restore_archive(archive, output, dedupe=False, dry_run=True)
+    assert output.read_text(encoding="utf-8") == "existing\n"
     with pytest.raises(FileNotFoundError):
         metrics_retention.restore_archive(
             tmp_path / "nope", tmp_path / "out", dedupe=False, dry_run=False
@@ -476,6 +479,12 @@ def test_retention_helpers_cover_no_change_and_archive_disabled(tmp_path: Path) 
         )
         == []
     )
+    assert metrics_retention._iter_metrics_paths(
+        [str(metrics), str(metrics)],
+        [str(tmp_path)],
+        tmp_path / "other.log",
+        include_defaults=False,
+    ) == [metrics]
 
 
 def test_parse_timestamp_overflow_and_write_line_without_newline(tmp_path: Path) -> None:
