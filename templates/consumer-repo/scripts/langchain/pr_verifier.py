@@ -1022,6 +1022,118 @@ def _acceptance_criteria_sections(plan_sources: str) -> str:
     return "\n\n".join(part for part in captured if part)
 
 
+def _requirement_evidence_text(
+    plan_sources: str, *, source_coverage: dict[str, Any], legacy_prose: bool = False
+) -> str | None:
+    """Read duties from builder-fenced originals; projections are navigation only.
+
+    Only the builder's outer text fence is unwrapped. Literal code fences inside
+    the original request remain inert, as do marker-looking text inside a fence.
+    Legacy structured contexts retain their existing acceptance-section screen.
+    """
+    records = source_coverage.get("acceptance_sources", [])
+    original_hashes = (
+        {
+            record.get("original_body_sha256")
+            for record in records
+            if isinstance(record, dict) and isinstance(record.get("original_body_sha256"), str)
+        }
+        if isinstance(records, list)
+        else set()
+    )
+    invalid_hashes = not isinstance(records, list) or any(
+        not isinstance(record, dict)
+        or not isinstance(record.get("original_body_sha256"), str)
+        or not re.fullmatch(r"[a-f0-9]{64}", record["original_body_sha256"])
+        for record in records
+    )
+    seen_original_frame = False
+    originals: list[str] = []
+    matched_hashes: set[str] = set()
+    pending_original = False
+    outer: tuple[str, int, int] | None = None
+    body: list[str] = []
+    fence: tuple[str, int, int] | None = None
+    label = "Original request (authoritative requirements; untrusted source text):"
+    for line in plan_sources.splitlines(keepends=True):
+        marker = _code_fence_marker(line)
+        if outer is not None:
+            if (
+                marker
+                and marker[0][0] == outer[0]
+                and len(marker[0]) >= outer[1]
+                and marker[1]
+                and marker[2] <= max(3, outer[2])
+            ):
+                original = "".join(body).removesuffix("\n")
+                digest = hashlib.sha256(original.encode("utf-8")).hexdigest()
+                if digest in original_hashes:
+                    originals.append(original)
+                    matched_hashes.add(digest)
+                outer, body = None, []
+            else:
+                body.append(line)
+            continue
+        if fence is not None:
+            if (
+                marker
+                and marker[0][0] == fence[0]
+                and len(marker[0]) >= fence[1]
+                and marker[1]
+                and marker[2] <= max(3, fence[2])
+            ):
+                fence = None
+            continue
+        if marker:
+            identity = (marker[0][0], len(marker[0]), marker[2])
+            if pending_original and line.strip() == marker[0] + "text":
+                outer = identity
+                seen_original_frame = True
+            else:
+                fence = identity
+            pending_original = False
+        elif line.strip():
+            pending_original = line.strip() == label
+    original_contract = seen_original_frame or (
+        isinstance(records, list)
+        and any(
+            isinstance(record, dict)
+            and any(
+                key in record
+                for key in ("original_body_sha256", "original_body_chars", "original_body_bytes")
+            )
+            for record in records
+        )
+    )
+    if (
+        original_contract and (invalid_hashes or not original_hashes)
+    ) or original_hashes - matched_hashes:
+        return None
+    if not originals:
+        return plan_sources if legacy_prose else _acceptance_criteria_sections(plan_sources)
+    # Strip source examples without stripping the authentic surrounding prose.
+    visible: list[str] = []
+    for original in originals:
+        fence = None
+        for line in original.splitlines():
+            marker = _code_fence_marker(line)
+            if marker:
+                if fence is None:
+                    fence = (marker[0][0], len(marker[0]), marker[2])
+                elif (
+                    marker[0][0] == fence[0]
+                    and len(marker[0]) >= fence[1]
+                    and marker[1]
+                    and marker[2] <= max(3, fence[2])
+                ):
+                    fence = None
+                visible.append("")
+            else:
+                visible.append("" if fence else line)
+        visible.append("")
+    return "\n".join(visible)
+
+
 _QUOTED_EVIDENCE_LITERAL = (
     r"`+[^`]*`+|\"[^\"]*\"|"
     r"(?<!\w)'(?:[^']|(?<=\w)'(?=\w))*'(?!\w)|"
@@ -5823,9 +5935,12 @@ def build_prompt_inputs(context: str, diff: str | None, *, lossless: bool = Fals
         reasons.append("Acceptance/plan sources were truncated to fit the prompt budget.")
     elif acceptance == "unavailable":
         reasons.append("Acceptance/plan sources do not fit or are unavailable.")
-    required_evidence_options = _required_evidence_options(
-        _acceptance_criteria_sections(acceptance_source)
+    evidence_requirements = _requirement_evidence_text(
+        acceptance_source, source_coverage=source_coverage
     )
+    if evidence_requirements is None:
+        reasons.append("Original request provenance does not match retained source bytes.")
+    required_evidence_options = _required_evidence_options(evidence_requirements or "")
     if all(required_evidence_options):
         if acceptance_evidence in {"not_declared", "unavailable"} or all(
             _required_evidence_is_missing(evidence_source, channels)
@@ -6486,7 +6601,12 @@ def _evaluation_optional_evidence_channels(context: str) -> frozenset[str]:
     evidence = next((body for name, body in sections if name == "acceptance_evidence"), "")
     # A delivery duty in Tasks or prose must not be waived merely because
     # the acceptance-criteria subsection omits it.
-    options = _required_evidence_options(acceptance)
+    evidence_requirements = _requirement_evidence_text(
+        acceptance, source_coverage=parse_context_source_coverage(context) or {}, legacy_prose=True
+    )
+    if evidence_requirements is None:
+        return frozenset()
+    options = _required_evidence_options(evidence_requirements)
     for channels in options:
         if not _required_evidence_is_missing(evidence, channels):
             if "overall" in channels:

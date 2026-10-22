@@ -5370,3 +5370,16 @@ test('explicit evaluation retains malformed linked request as required discovery
     assert.equal(result.sourceCoverage.acceptance_source_discovery.status, 'unavailable');
   } finally { removeVerifierDiffArtifacts(result); }
 });
+
+test('explicit evaluation captures freeform evidence obligations for native preflight', async () => {
+  const body = process.env.VERIFIER_TEST_ORIGINAL_REQUEST || 'Evidence must be posted in a PR comment.';
+  const closingIssues = process.env.VERIFIER_TEST_LINKED_REQUEST ? [{number: 42, body: process.env.VERIFIER_TEST_LINKED_REQUEST, title: 'Linked request', state: 'CLOSED'}] : [];
+  const { result } = await buildEvidenceContext({prBody: body, closingIssues}, {mode: 'evaluate'});
+  try {
+    assert.equal(result.shouldRun, true);
+    if (process.env.VERIFIER_TEST_CAPTURE_DIR) {
+      fs.copyFileSync(result.contextPath, path.join(process.env.VERIFIER_TEST_CAPTURE_DIR, 'context.md'));
+      fs.copyFileSync(result.diffPath, path.join(process.env.VERIFIER_TEST_CAPTURE_DIR, 'diff.patch'));
+    }
+  } finally { removeVerifierDiffArtifacts(result); }
+});
