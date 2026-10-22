@@ -89,6 +89,13 @@ python scripts/repo_review_coordinator.py \
     --repos stranske/Manager-Database stranske/trip-planner
 ```
 
+On POSIX hosts, the GitNexus launcher and its respawned analyzer run in an
+owned process group. An analyzer timeout signals that whole group, allows a
+five-second shutdown grace period, and kills remaining group members even if
+the launcher has already exited or its children closed their output pipes.
+Captured analyzer output is retained in the timeout failure. This prevents a
+phase retry from leaving the previous analyzer writing the same database.
+
 Every repo phase runs through a bounded repair loop (two repair attempts by
 default, configurable with `--repair-attempts`). Before a retry, the
 coordinator preserves the failed log and a machine-readable `repair.json`

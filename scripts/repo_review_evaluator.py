@@ -10,10 +10,12 @@ single human decision packet. It does not create GitHub issues.
 from __future__ import annotations
 
 import argparse
+import contextlib
 import json
 import os
 import re
 import shutil
+import signal
 import subprocess
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
@@ -1309,6 +1311,47 @@ def collect_gitnexus_map(workspace_root: Path, repo_path: Path, repo: RepoConfig
     }
 
 
+GITNEXUS_SHUTDOWN_GRACE_SECONDS = 5
+
+
+def _run_gitnexus_command(cmd: list[str], *, timeout: int) -> subprocess.CompletedProcess[str]:
+    """Contain the CLI's respawned analyzer, including after its launcher exits."""
+    with subprocess.Popen(
+        cmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        start_new_session=os.name == "posix",
+    ) as proc:
+
+        def stop_processes(*, force: bool) -> None:
+            with contextlib.suppress(ProcessLookupError):
+                if os.name == "posix":
+                    # start_new_session makes this PID the owned process group.
+                    # getpgid(proc.pid) no longer works once the launcher exits.
+                    os.killpg(proc.pid, signal.SIGKILL if force else signal.SIGTERM)
+                elif force:
+                    proc.kill()
+                else:
+                    proc.terminate()
+
+        try:
+            stdout, stderr = proc.communicate(timeout=timeout)
+        except subprocess.TimeoutExpired as exc:
+            stop_processes(force=False)
+            try:
+                stdout, stderr = proc.communicate(timeout=GITNEXUS_SHUTDOWN_GRACE_SECONDS)
+            except subprocess.TimeoutExpired:
+                stop_processes(force=True)
+                stdout, stderr = proc.communicate()
+            else:
+                # A child can ignore SIGTERM and close its inherited pipes.
+                # Reaping the launcher alone does not establish child shutdown.
+                stop_processes(force=True)
+            raise subprocess.TimeoutExpired(cmd, timeout, output=stdout, stderr=stderr) from exc
+        return subprocess.CompletedProcess(cmd, proc.returncode, stdout, stderr)
+
+
 def run_gitnexus_analyze(
     repo_path: Path,
     gitnexus_bin: str,
@@ -1334,15 +1377,19 @@ def run_gitnexus_analyze(
     if force:
         cmd.append("--force")
     try:
-        result = subprocess.run(
-            cmd,
-            check=False,
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-        )
-    except (FileNotFoundError, subprocess.TimeoutExpired) as exc:
+        result = _run_gitnexus_command(cmd, timeout=timeout)
+    except FileNotFoundError as exc:
         return False, str(exc)
+    except subprocess.TimeoutExpired as exc:
+        captured = [str(exc)]
+        for output in (exc.output, exc.stderr):
+            if output:
+                captured.append(
+                    output.decode("utf-8", errors="replace")
+                    if isinstance(output, bytes)
+                    else output
+                )
+        return False, "\n".join(captured)
     output = "\n".join(part for part in [result.stdout, result.stderr] if part).strip()
     normalized_output = output.casefold()
     corruption_markers = (

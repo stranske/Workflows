@@ -1,9 +1,79 @@
+import contextlib
 import json
+import os
+import signal
 import subprocess
+import time
 from pathlib import Path
 
 import pytest
 from scripts import repo_review_evaluator as evaluator
+
+
+@pytest.mark.skipif(os.name != "posix", reason="GitNexus worker process groups are POSIX")
+@pytest.mark.parametrize("detached_output", [False, True])
+def test_gitnexus_timeout_stops_descendant_file_writer(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, detached_output: bool
+) -> None:
+    analyzer = tmp_path / "gitnexus"
+    redirect = ">/dev/null 2>&1" if detached_output else ""
+    analyzer.write_text(
+        "#!/bin/sh\n"
+        'repo="$2"\n'
+        "write_forever() {\n"
+        "  trap '' TERM\n"
+        '  while :; do printf x >> "$repo/writer.activity"; sleep 0.05; done\n'
+        "}\n"
+        f"write_forever {redirect} &\n"
+        'printf "%s" "$!" > "$repo/writer.pid"\n'
+        "echo wrapper-ready\n"
+        "while :; do sleep 0.05; done\n",
+        encoding="utf-8",
+    )
+    analyzer.chmod(0o755)
+    monkeypatch.setattr(evaluator, "GITNEXUS_SHUTDOWN_GRACE_SECONDS", 0.1, raising=False)
+
+    try:
+        ok, message = evaluator.run_gitnexus_analyze(tmp_path, str(analyzer), timeout=1)
+        assert not ok
+        assert "timed out" in message
+        activity = tmp_path / "writer.activity"
+        assert activity.exists(), "fixture must establish a live writer"
+        time.sleep(0.1)
+        size = activity.stat().st_size
+        time.sleep(0.2)
+        assert activity.stat().st_size == size, "descendant kept writing after timeout"
+        assert "wrapper-ready" in message
+    finally:
+        pid_path = tmp_path / "writer.pid"
+        if pid_path.exists():
+            with contextlib.suppress(ProcessLookupError):
+                os.kill(int(pid_path.read_text()), signal.SIGKILL)
+
+
+@pytest.mark.skipif(os.name != "posix", reason="fixture uses a POSIX executable")
+@pytest.mark.parametrize("exit_code", [0, 7])
+def test_gitnexus_analyzer_preserves_completed_process_output(
+    tmp_path: Path, exit_code: int
+) -> None:
+    analyzer = tmp_path / "gitnexus"
+    analyzer.write_text(
+        f"#!/bin/sh\necho analyzer-stdout\necho analyzer-stderr >&2\nexit {exit_code}\n"
+    )
+    analyzer.chmod(0o755)
+
+    ok, message = evaluator.run_gitnexus_analyze(tmp_path, str(analyzer))
+
+    assert ok is (exit_code == 0)
+    assert message == "analyzer-stdout\n\nanalyzer-stderr"
+
+
+def test_gitnexus_analyzer_reports_missing_executable(tmp_path: Path) -> None:
+    analyzer = tmp_path / "missing-gitnexus"
+    ok, message = evaluator.run_gitnexus_analyze(tmp_path, str(analyzer))
+    assert not ok
+    assert str(analyzer) in message
+
 
 VALID_ISSUE_BODY = """## Why
 
@@ -66,8 +136,8 @@ def test_gitnexus_analyze_rejects_zero_exit_corruption_markers(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, marker: str
 ) -> None:
     monkeypatch.setattr(
-        subprocess,
-        "run",
+        evaluator,
+        "_run_gitnexus_command",
         lambda *_args, **_kwargs: subprocess.CompletedProcess(
             args=["gitnexus"], returncode=0, stdout=f"analysis complete: {marker}", stderr=""
         ),
@@ -83,8 +153,8 @@ def test_gitnexus_analyze_accepts_clean_zero_exit_output(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr(
-        subprocess,
-        "run",
+        evaluator,
+        "_run_gitnexus_command",
         lambda *_args, **_kwargs: subprocess.CompletedProcess(
             args=["gitnexus"], returncode=0, stdout="GitNexus Analyzer complete", stderr=""
         ),
