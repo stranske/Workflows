@@ -52,6 +52,8 @@ def test_main_rejects_invalid_repository_or_token_configuration(
     message: str,
 ) -> None:
     monkeypatch.delenv("GITHUB_TOKEN", raising=False)
+    monkeypatch.delenv("ISSUE_DEDUP_SMOKE_ALLOWLIST", raising=False)
+    monkeypatch.delenv("ISSUE_DEDUP_SMOKE_CONFIG", raising=False)
 
     assert main(argv) == 1
     assert message in capsys.readouterr().err
