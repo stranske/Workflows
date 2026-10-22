@@ -1676,6 +1676,30 @@ def test_build_approved_issue_queue_surfaces_unapproved_scorecard_for_deeper_rev
     assert any("Scorecard finding" in item["notes"] for item in queue["deeper_review"])
 
 
+def test_excluded_historical_report_paths_are_filtered_before_limit(tmp_path):
+    repo_dir = tmp_path / "demo"
+    reports = repo_dir / "docs" / "reports"
+    for index in range(12):
+        report = reports / "archive" / "owner__held-repo" / f"{index:02}.md"
+        report.parent.mkdir(parents=True, exist_ok=True)
+        report.write_text("must not be read")
+    for name in ("held-repo.md", "held-repo/brief.md", "owner__held-repository/brief.md"):
+        report = reports / name
+        report.parent.mkdir(parents=True, exist_ok=True)
+        report.write_text("report")
+    config = evaluator.RepoConfig(
+        repo="owner/demo",
+        local_path="demo",
+        status="active",
+        cadence="weekly",
+        decision_anchor="demo",
+    )
+    state = evaluator.collect_repo_state(
+        tmp_path, config, remote_progress={}, excluded_repo_names=["owner", "owner/held-repo"]
+    )
+    assert state["report_files"] == ["docs/reports/owner__held-repository/brief.md"]
+
+
 def test_excluded_parent_references_are_removed_before_remote_counts(tmp_path):
     repo_dir = tmp_path / "demo"
     repo_dir.mkdir()

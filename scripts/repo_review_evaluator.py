@@ -1918,6 +1918,17 @@ def collect_repo_state(
         for name in (excluded_repo_names or [])
         if name.lower() != repo.repo.split("/", 1)[0].lower()
     ]
+    # Historical report directories encode repository identities as owner__repo.
+    # Filter paths before limiting the report list; never open excluded reports.
+    excluded_path_names = {name.rsplit("/", 1)[-1].casefold() for name in excluded_names}
+    report_files = [
+        path
+        for path in report_files
+        if not any(
+            part.removesuffix(".md").split("__")[-1].casefold() in excluded_path_names
+            for part in path.relative_to(repo_path).parts
+        )
+    ]
     remote_progress = dict(remote_progress)
     for key in ("open_issues", "recent_merged_prs", "warnings"):
         remote_progress[key] = [
