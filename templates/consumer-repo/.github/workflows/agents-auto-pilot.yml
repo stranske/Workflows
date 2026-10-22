@@ -403,6 +403,7 @@ jobs:
             const hasAutofix = labels.includes('autofix');
             const hasAutomerge = labels.includes('automerge');
             const hasVerify = labels.includes('verify:evaluate');
+            const verifyHandoffBound = labels.includes('verify:pr-handoff');
 
             // Check for actual optimizer output (not just label)
             // Since we run optimizer inline now, this should always exist after optimize step
@@ -488,6 +489,7 @@ jobs:
             core.setOutput('has_autofix', hasAutofix.toString());
             core.setOutput('has_automerge', hasAutomerge.toString());
             core.setOutput('has_verify', hasVerify.toString());
+            core.setOutput('verify_handoff_bound', verifyHandoffBound.toString());
             core.setOutput('linked_pr', linkedPR || '');
 
             console.log(`Issue #${issueNumber} state:`);
@@ -623,6 +625,7 @@ jobs:
           HAS_AGENT="${{ steps.context.outputs.has_agent }}"
           LINKED_PR="${{ steps.context.outputs.linked_pr }}"
           HAS_VERIFY="${{ steps.context.outputs.has_verify }}"
+          VERIFY_HANDOFF_BOUND="${{ steps.context.outputs.verify_handoff_bound }}"
 
           # Force step if specified (not 'auto')
           if [[ -n "$FORCE_STEP" && "$FORCE_STEP" != "auto" ]]; then
@@ -687,6 +690,7 @@ jobs:
             HAS_AGENT="$HAS_AGENT" \
             LINKED_PR="$LINKED_PR" \
             HAS_VERIFY="$HAS_VERIFY" \
+            VERIFY_HANDOFF_BOUND="$VERIFY_HANDOFF_BOUND" \
             PR_STATE_FILE="$PR_STATE_FILE" \
             PR_STATE_FETCH_FAILED="$PR_STATE_FETCH_FAILED" \
             node - <<'NODE'
@@ -706,6 +710,7 @@ jobs:
             hasAgent: process.env.HAS_AGENT,
             linkedPr: process.env.LINKED_PR,
             hasVerify: process.env.HAS_VERIFY,
+            verifyHandoffBound: process.env.VERIFY_HANDOFF_BOUND,
             keepaliveState,
             prStateFetchFailed: process.env.PR_STATE_FETCH_FAILED === 'true',
           });
@@ -2302,7 +2307,7 @@ jobs:
         with:
           script: |
             const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
-            const { withRetry } = await createTokenAwareRetry({
+            const { withRetry, paginateWithRetry } = await createTokenAwareRetry({
               github,
               core,
               env: process.env,
@@ -2311,16 +2316,19 @@ jobs:
             });
             const issueNumber = Number(process.env.ISSUE_NUMBER);
 
-            // Find the merged PR for this issue
-            // Look for PRs with the meta marker or explicit closing reference
-            const { data: prs } = await withRetry((client) => client.rest.pulls.list({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              state: 'closed',
-              sort: 'updated',
-              direction: 'desc',
-              per_page: 100
-            }));
+            // Find the merged PR for this issue (paginated; first 100 is insufficient).
+            const prs = await paginateWithRetry(
+              github.rest.pulls.list,
+              {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                state: 'closed',
+                sort: 'updated',
+                direction: 'desc',
+                per_page: 100,
+              },
+              { maxPages: 10 },
+            );
 
             // Helper to detect explicit closing/fixing references to this issue
             function matchesIssueReference(text, num) {
@@ -2342,24 +2350,24 @@ jobs:
             );
 
             if (!linkedPr) {
+              core.setOutput('verify_handoff', 'absent');
               await withRetry((client) => client.rest.issues.createComment({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: issueNumber,
-                body: `🤖 **Auto-pilot**: Issue closed but couldn't find linked merged PR.
+                body: `🤖 **Auto-pilot**: Issue #${issueNumber} is closed but no merged source PR was found.
 
-            Adding \`verify:evaluate\` label to issue for tracking.`
-              }));
+            Verification handoff is **pending**. This step did not add \`verify:evaluate\` because there is no PR-bound verifier target.
 
-              await withRetry((client) => client.rest.issues.addLabels({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: issueNumber,
-                labels: ['verify:evaluate']
+            **Owner / retry:** confirm a merged PR closes this issue (or restore \`meta:issue:${issueNumber}\` on the PR body), then re-run auto-pilot with \`force_step=verify\`.`
               }));
+              core.setFailed(
+                `No merged source PR found for issue #${issueNumber}; verification handoff absent`,
+              );
               return;
             }
 
+            core.setOutput('verify_handoff', 'found');
             core.info(`Found merged PR #${linkedPr.number} for issue #${issueNumber}`);
 
             const verifyMsg = [
@@ -2384,12 +2392,12 @@ jobs:
               labels: ['verify:evaluate']
             }));
 
-            // Also add to issue for tracking
+            // Also add to issue for tracking and mark PR-bound handoff completion.
             await withRetry((client) => client.rest.issues.addLabels({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: issueNumber,
-              labels: ['verify:evaluate']
+              labels: ['verify:evaluate', 'verify:pr-handoff']
             }));
 
       - name: Metrics - End verify timer
@@ -3277,10 +3285,10 @@ jobs:
                 ? `✅ Added labels: \`agent:${agentKey}\`, \`agents:keepalive\`, \`autofix\``
                 : '⚠️ Could not add labels (add manually)';
 
-              // Dispatch the consolidated consumer hub to build Automated Status Summary
+              // Dispatch PR meta workflow to build Automated Status Summary
               // (GITHUB_TOKEN actions do not trigger workflow runs automatically)
               await dispatchFirstAvailableWorkflow({
-                workflowIds: ['agents-80-pr-event-hub.yml'],
+                workflowIds: ['agents-80-pr-event-hub.yml', 'agents-pr-meta-v4.yml'],
                 prNumber: pr.number,
                 description: 'PR meta update',
                 inputs: {
@@ -3294,9 +3302,9 @@ jobs:
                 }
               });
 
-              // Dispatch the consolidated consumer Gate follow-up since token labels do not trigger it
+              // Dispatch keepalive workflow since GITHUB_TOKEN labels don't trigger it
               await dispatchFirstAvailableWorkflow({
-                workflowIds: ['agents-81-gate-followups.yml'],
+                workflowIds: ['agents-81-gate-followups.yml', 'agents-keepalive-loop.yml'],
                 prNumber: pr.number,
                 description: 'keepalive follow-up',
                 inputs: {
@@ -3524,7 +3532,10 @@ jobs:
                   }));
                   let dispatchedWorkflow = '';
                   const dispatchFailures = [];
-                  for (const workflowId of ['agents-81-gate-followups.yml']) {
+                  for (const workflowId of [
+                    'agents-81-gate-followups.yml',
+                    'agents-keepalive-loop.yml',
+                  ]) {
                     try {
                       await withRetry((client) => client.rest.actions.createWorkflowDispatch({
                         owner: context.repo.owner,
@@ -3988,6 +3999,12 @@ jobs:
               }
             }
 
+            const handoffBound = '${{ steps.context.outputs.verify_handoff_bound }}' === 'true';
+            const verifyTriggered = handoffBound || '${{ steps.verify_step.outputs.verify_handoff }}' === 'found';
+            const verifyLine = verifyTriggered
+              ? '- ✅ Verification handoff recorded on a merged source PR'
+              : '- ⏳ Verification handoff pending (no merged source PR was bound this cycle)';
+
             await withRetry((client) => client.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -3998,7 +4015,7 @@ jobs:
             - ✅ Issue formatted and optimized
             - ✅ Agent assigned and PR created
             - ✅ PR merged
-            - ✅ Verification triggered
+            ${verifyLine}
 
             Thank you for using auto-pilot! 🚀`
             }));

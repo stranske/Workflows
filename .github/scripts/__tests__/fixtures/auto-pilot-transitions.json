@@ -1,13 +1,24 @@
 {
   "validTransitions": [
     {
-      "name": "closed issue with verify label is done",
+      "name": "closed issue with PR-bound verify handoff is done",
       "state": "closed-verified",
       "event": {
         "issueState": "closed",
-        "hasVerify": true
+        "hasVerify": true,
+        "verifyHandoffBound": true
       },
       "nextStep": "done"
+    },
+    {
+      "name": "closed issue with issue-only verify label stays pending verify",
+      "state": "closed-needs-verify",
+      "event": {
+        "issueState": "closed",
+        "hasVerify": true,
+        "verifyHandoffBound": false
+      },
+      "nextStep": "verify"
     },
     {
       "name": "closed issue without verify label triggers verify",
@@ -167,11 +178,23 @@
   ],
   "incidentEdges": [
     {
-      "name": "issue 1437 shape: closed formatted apply verify is done",
+      "name": "issue 1437 shape: legacy verify label without PR handoff retries verify",
       "event": {
         "issueState": "closed",
         "labels": ["agents:formatted", "agents:apply-suggestions", "verify:evaluate", "agents:auto-pilot"],
-        "hasVerify": true
+        "hasVerify": true,
+        "verifyHandoffBound": false
+      },
+      "state": "closed-needs-verify",
+      "nextStep": "verify"
+    },
+    {
+      "name": "issue 1437 shape: closed with PR-bound handoff is done",
+      "event": {
+        "issueState": "closed",
+        "labels": ["agents:formatted", "agents:apply-suggestions", "verify:evaluate", "verify:pr-handoff", "agents:auto-pilot"],
+        "hasVerify": true,
+        "verifyHandoffBound": true
       },
       "state": "closed-verified",
       "nextStep": "done"
