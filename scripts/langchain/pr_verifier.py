@@ -42,7 +42,7 @@ from scripts.langchain.verifier_config import (
     VERIFIER_DIFF_BUDGET_TOKENS,
     SchemaRepairPolicy,
 )
-from tools.llm_registry import NativeCapacityFacts, native_capacity_facts_for
+from tools.llm_registry import NativeCapacityFacts, native_capacity_facts_for, normalize_provider
 from tools.verifier_capture_obligation_manifest import (
     build_capture_byte_inventory,
     build_capture_obligation_manifest,
@@ -6473,8 +6473,35 @@ def _native_capacity_contract(client: object) -> dict[str, object]:
     }
 
 
+def _evaluation_optional_evidence_channels(context: str) -> frozenset[str]:
+    """Reuse the prompt screen's OR-of-AND requirements, not a new evaluator.
+
+    Availability permits reasoning; it does not certify the evidence's claims.
+    No viable complete alternative leaves the lossless admission floor intact.
+    """
+    sections = _split_verifier_context(context.strip())
+    if sections is None:
+        return frozenset()
+    acceptance = next((body for name, body in sections if name == "acceptance"), "")
+    evidence = next((body for name, body in sections if name == "acceptance_evidence"), "")
+    # A delivery duty in Tasks or prose must not be waived merely because
+    # the acceptance-criteria subsection omits it.
+    options = _required_evidence_options(acceptance)
+    for channels in options:
+        if not _required_evidence_is_missing(evidence, channels):
+            if "overall" in channels:
+                return frozenset()
+            return frozenset({"comments", "artifacts"} - channels)
+    return frozenset()
+
+
 def _preflight_input_capacity(
-    client: object, prompt: str, *, context: str | None = None, diff: str | None = None
+    client: object,
+    prompt: str,
+    *,
+    context: str | None = None,
+    diff: str | None = None,
+    operation: str | None = None,
 ) -> dict[str, object]:
     """Count the complete native request; never substitute four-character estimates.
 
@@ -6487,7 +6514,13 @@ def _preflight_input_capacity(
     try:
         if context is not None:
             manifest = build_capture_obligation_manifest(
-                context, full_diff_bytes=diff.encode("utf-8") if diff is not None else None
+                context,
+                full_diff_bytes=diff.encode("utf-8") if diff is not None else None,
+                optional_evidence_channels=(
+                    _evaluation_optional_evidence_channels(context)
+                    if operation == "evaluate_pr"
+                    else frozenset()
+                ),
             )
             receipt["capture_obligations"] = manifest
             coverage = prompt_coverage(context, diff)
@@ -6930,7 +6963,7 @@ def _invoke_llm(
     # its existing adapter behavior without claiming native capacity proof.
     if os.environ.get("VERIFIER_EVIDENCE_PROFILE") == "expanded":
         client = _prepare_capacity_client(client)
-        _preflight_input_capacity(client, prompt, context=context, diff=diff)
+        _preflight_input_capacity(client, prompt, context=context, diff=diff, operation=operation)
     config = _build_llm_config(
         operation=operation,
         context=context,
@@ -7266,7 +7299,7 @@ def evaluate_pr(
         diff: Optional PR diff or summary
         model: Optional model name (e.g., 'gpt-4o', 'gpt-5.2', 'o1-mini').
             Uses default if not specified.
-        provider: Optional provider ('openai' or 'github-models').
+        provider: Optional provider ('openai', 'github-models', or 'anthropic').
             Auto-selects if not specified.
 
     Returns:
@@ -8037,6 +8070,13 @@ def _load_text(path: str | None) -> str:
     return sys.stdin.read()
 
 
+def _provider_argument(value: str | None) -> str:
+    provider = normalize_provider(value)
+    if provider is None:
+        raise argparse.ArgumentTypeError("unsupported LLM provider")
+    return provider
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Evaluate PRs against acceptance criteria.")
     parser.add_argument("--context-file", help="Path to verifier context markdown.")
@@ -8048,10 +8088,10 @@ def main() -> None:
     )
     parser.add_argument(
         "--provider",
-        choices=["openai", "github-models"],
+        type=_provider_argument,
         help=(
             "LLM provider: 'openai' (requires OPENAI_API_KEY) or "
-            "'github-models' (uses GITHUB_TOKEN)."
+            "'github-models' (uses GITHUB_TOKEN), or 'anthropic' (uses CLAUDE_API_STRANSKE)."
         ),
     )
     parser.add_argument(

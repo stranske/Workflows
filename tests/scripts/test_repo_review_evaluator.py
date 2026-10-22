@@ -1722,7 +1722,14 @@ def test_excluded_historical_report_paths_are_filtered_before_limit(tmp_path):
         report = reports / "archive" / "owner__held-repo" / f"{index:02}.md"
         report.parent.mkdir(parents=True, exist_ok=True)
         report.write_text("must not be read")
-    for name in ("held-repo.md", "held-repo/brief.md", "owner__held-repository/brief.md"):
+    for name in (
+        "held-repo.md",
+        "held-repo/brief.md",
+        "owner__held-repo-doc-drift.md",
+        "owner__HELD-REPO-summary.md",
+        "owner__held-repository/brief.md",
+        "owner__held-repository-doc-drift.md",
+    ):
         report = reports / name
         report.parent.mkdir(parents=True, exist_ok=True)
         report.write_text("report")
@@ -1736,7 +1743,10 @@ def test_excluded_historical_report_paths_are_filtered_before_limit(tmp_path):
     state = evaluator.collect_repo_state(
         tmp_path, config, remote_progress={}, excluded_repo_names=["owner", "owner/held-repo"]
     )
-    assert state["report_files"] == ["docs/reports/owner__held-repository/brief.md"]
+    assert set(state["report_files"]) == {
+        "docs/reports/owner__held-repository/brief.md",
+        "docs/reports/owner__held-repository-doc-drift.md",
+    }
 
 
 def test_excluded_parent_references_are_removed_before_remote_counts(tmp_path):

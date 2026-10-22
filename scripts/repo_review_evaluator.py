@@ -1875,6 +1875,21 @@ def references_excluded_repo(value: Any, excluded_names: list[str]) -> bool:
     )
 
 
+def excluded_report_path(path: Path, excluded_names: set[str]) -> bool:
+    """Match repo directories and owner__repo-<report-kind>.md filenames."""
+    for part in path.parts:
+        identity = part.removesuffix(".md").split("__")[-1].casefold()
+        if identity in excluded_names:
+            return True
+        if (
+            part.endswith(".md")
+            and "__" in part
+            and any(identity.startswith(name + "-") for name in excluded_names)
+        ):
+            return True
+    return False
+
+
 def collect_repo_state(
     workspace_root: Path,
     repo: RepoConfig,
@@ -1941,10 +1956,7 @@ def collect_repo_state(
     report_files = [
         path
         for path in report_files
-        if not any(
-            part.removesuffix(".md").split("__")[-1].casefold() in excluded_path_names
-            for part in path.relative_to(repo_path).parts
-        )
+        if not excluded_report_path(path.relative_to(repo_path), excluded_path_names)
     ]
     remote_progress = dict(remote_progress)
     for key in ("open_issues", "recent_merged_prs", "warnings"):

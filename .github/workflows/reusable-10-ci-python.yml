@@ -2123,6 +2123,7 @@ jobs:
           PYTHONPATH: ${{ github.workspace }}/${{ inputs['working-directory'] || '.' }}
         run: |
           set -euo pipefail
+          : "${PYTEST_WORKERS:?step env must supply PYTEST_WORKERS}"
           args=("--junitxml=pytest-junit.xml")
           if [ "${COVERAGE_ENABLED}" = "true" ]; then
             args+=("--cov")
