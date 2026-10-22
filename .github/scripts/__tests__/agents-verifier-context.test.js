@@ -1582,6 +1582,7 @@ test('buildVerifierContext fails closed when referenced run provenance is unavai
   });
   assert.equal(core.outputs.evidence_status, 'unavailable');
   assert.match(result.markdown, /workflow run provenance failed for referenced run 456/);
+  assert.ok(result.sourceCoverage.acceptance_evidence_sources.find(source => source.source === 'artifacts').failure_kinds.includes('provenance'));
   assert.doesNotMatch(result.markdown, /Run 456/);
   removeVerifierDiffArtifacts(result);
 });

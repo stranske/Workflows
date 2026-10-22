@@ -592,6 +592,14 @@ function safeArtifactEntries(listing) {
   return { entries, filteredPayloadEntries, occurrences };
 }
 
+// Only typed HTTP/network failures establish transport unavailability. Generic
+// exceptions may be malformed inventories or corrupt archives and stay strict.
+function evidenceFailureKind(error) {
+  return [401, 403, 404, 408, 410, 429, 500, 502, 503, 504].includes(error?.status)
+    || ['ETIMEDOUT', 'ECONNRESET', 'ECONNREFUSED', 'ENOTFOUND', 'EAI_AGAIN'].includes(error?.code)
+    ? 'transport' : 'retrieval';
+}
+
 // Page and record bounds are independent: bodyless/duplicate records still cost reads.
 async function boundedEvidencePages({ method, params, key, recordLimit, pageLimit, kind, diagnostics }) {
   const items = [];
@@ -628,7 +636,7 @@ async function boundedEvidencePages({ method, params, key, recordLimit, pageLimi
       if (!records.length) throw new Error('empty nonterminal page');
       if (items.length >= recordLimit) return { items, failure: 'record' };
     } catch (error) {
-      return { items, failure: 'retrieval', detail: error.message };
+      return { items, failure: evidenceFailureKind(error), detail: error.message };
     }
   }
   return { items, failure: 'page' };
@@ -701,7 +709,7 @@ function extractArtifactArchiveText({ archiveBuffer, maxEntries, maxChars, maxBy
         const rawValue = Buffer.from(execFile('unzip', ['-p', archivePath, entry], {
           maxBuffer: captureDirectory ? remainingBytes : Math.min(contentBudget * 4 + 1, remainingBytes),
         }));
-        if (rawValue.length > remainingBytes) throw new Error('decompressed byte bound exceeded');
+        if (rawValue.length > remainingBytes) throw Object.assign(new Error('decompressed byte bound exceeded'), {code: 'VERIFIER_EXTRACTION_BOUND'});
         remainingBytes -= rawValue.length;
         Object.assign(member, { status: 'included', raw_bytes: rawValue.length,
           raw_sha256: createHash('sha256').update(rawValue).digest('hex'), encoding: 'utf-8' });
@@ -735,10 +743,11 @@ function extractArtifactArchiveText({ archiveBuffer, maxEntries, maxChars, maxBy
         }
         parts.push(fragment);
         remaining -= fragment.length + separator.length;
-      } catch {
+      } catch (error) {
         member.status = 'unavailable';
-        member.reason = 'extraction_byte_or_read';
-        failures.push("extraction_byte_or_read");
+        member.reason = ['ENOBUFS', 'VERIFIER_EXTRACTION_BOUND'].includes(error?.code)
+          ? 'extraction_byte' : 'extraction_byte_or_read';
+        failures.push(member.reason);
         // An interrupted extraction cannot establish how many bytes were read.
         remainingBytes = 0;
         truncated = true;
@@ -933,7 +942,7 @@ async function fetchVerifierEvidence({
         );
       }
     } catch (error) {
-      fail("comments", "retrieval", `${source.name}: ${error.message}`);
+      fail("comments", evidenceFailureKind(error), `${source.name}: ${error.message}`);
       commentFailures.push(`${source.name} retrieval failed: ${error.message}`);
       core?.warning?.(`Verifier ${source.name} evidence unavailable: ${error.message}`);
     }
@@ -1131,7 +1140,7 @@ async function fetchVerifierEvidence({
         if (result.failure) {
           listing.failure = result.failure;
           listing.detail = `${workflowId || 'repository'}: ${result.detail || result.failure}`;
-          fail('artifacts', 'workflow_listing', listing.detail);
+          fail('artifacts', `run_${result.failure}`, listing.detail);
         }
       }
       const workflowRuns = listing.items;
@@ -1177,7 +1186,7 @@ async function fetchVerifierEvidence({
       associatedRunDiscoveryComplete = false;
       artifactIncomplete = true;
       artifacts.reason = `workflow run discovery failed for commit ${commitSha}: ${error.message}`;
-      fail('artifacts', 'retrieval', artifacts.reason);
+      fail('artifacts', evidenceFailureKind(error), artifacts.reason);
       core?.warning?.(`Verifier workflow-run discovery unavailable: ${error.message}`);
     }
   }
@@ -1324,7 +1333,7 @@ async function fetchVerifierEvidence({
     } catch (error) {
       artifactIncomplete = true;
       artifacts.reason = `artifact retrieval failed for run ${runId}: ${error.message}`;
-      fail('artifacts', 'retrieval', artifacts.reason);
+      fail('artifacts', evidenceFailureKind(error), artifacts.reason);
       core?.warning?.(`Verifier workflow-artifact evidence unavailable: ${error.message}`);
     }
     if (manualBinding && !diagnostics.manual_target_bindings.some(item=>item.run_id===runId)) {
@@ -1469,7 +1478,9 @@ function buildContextSourceCoverage({ planSources, diffText, diffMaxChars, evide
     // Retained records never make a partial retrieval complete. Name the channel
     // when the identities of omitted/unavailable records could not be retrieved.
     if (!retrieval.complete) {
-      acceptanceEvidenceSources.push({ channel, source: channel, status: 'unavailable', reason: retrieval.reason });
+      acceptanceEvidenceSources.push({ channel, source: channel, status: 'unavailable', reason: retrieval.reason,
+        failure_kinds: [...new Set((evidence.diagnostics?.failures || []).filter(failure => failure.channel === channel).map(failure => failure.kind))],
+      });
     }
   }
   return {

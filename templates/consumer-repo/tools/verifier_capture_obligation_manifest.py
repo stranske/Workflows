@@ -109,6 +109,12 @@ def _record_gaps(kind: str, record: dict[str, Any]) -> list[str]:
         "unavailable",
     }:
         gaps.append(f"{kind}:{source}:status_missing_or_unknown")
+    if (
+        kind == "acceptance_evidence"
+        and "failure_kinds" in record
+        and not _evidence_availability_only(record)
+    ):
+        gaps.append(f"{kind}:{source}:integrity_failure_or_unknown_kind")
     included, total = record.get("included_chars"), record.get("total_chars")
     # Unavailable aggregate retrievals have no known counts. Preserve that gap;
     # do not manufacture a total for records whose original size is unknown.
@@ -454,6 +460,50 @@ def _verified_full_diff_changed_code(
     return not gaps, gaps
 
 
+# Collector-owned failure kinds that describe retrieval/bounds only. Unknown
+# kinds, provenance, decoding and archive-integrity failures remain blocking.
+_AVAILABILITY_FAILURE_KINDS = frozenset(
+    {
+        "record",
+        "character",
+        "page",
+        "transport",
+        "clause_length",
+        "reference_record",
+        "reference_source",
+        "workflow_listing",
+        "run_record",
+        "run_page",
+        "run_transport",
+        "artifact_page",
+        "artifact_transport",
+        "artifact_record",
+        "expired",
+        "archive_byte",
+        "global_archive_byte",
+        "global_extraction_byte",
+        "global_character",
+        "entry",
+        "extraction_byte",
+        "extraction_incomplete",
+    }
+)
+
+
+def _evidence_availability_only(record: dict[str, Any]) -> bool:
+    """Accept only typed availability failures, never inferred reason prose."""
+    kinds = record.get("failure_kinds")
+    if "failure_kinds" not in record:
+        # Individual bounded records have no retrieval failure. Unavailable
+        # aggregate inventories require explicit collector classification.
+        return record.get("status") in {"truncated", "omitted"} and not record.get("reason")
+    return (
+        isinstance(kinds, list)
+        and bool(kinds)
+        and all(isinstance(kind, str) and kind in _AVAILABILITY_FAILURE_KINDS for kind in kinds)
+    )
+
+
 def build_capture_obligation_manifest(
     context_text: str,
     *,
@@ -554,7 +604,9 @@ def build_capture_obligation_manifest(
                     # remain hard gaps, even for useful enrichment.
                     if (
                         kind == "acceptance_evidence"
+                        and isinstance(record.get("channel"), str)
                         and record.get("channel") in optional_evidence_channels
+                        and _evidence_availability_only(record)
                     ):
                         optional_gaps.append(gap)
                         optional_sources.append(
