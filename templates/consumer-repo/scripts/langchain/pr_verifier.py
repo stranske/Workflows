@@ -7266,7 +7266,7 @@ def evaluate_pr(
         diff: Optional PR diff or summary
         model: Optional model name (e.g., 'gpt-4o', 'gpt-5.2', 'o1-mini').
             Uses default if not specified.
-        provider: Optional provider ('openai' or 'github-models').
+        provider: Optional provider ('openai', 'github-models', or 'anthropic').
             Auto-selects if not specified.
 
     Returns:
@@ -8048,10 +8048,10 @@ def main() -> None:
     )
     parser.add_argument(
         "--provider",
-        choices=["openai", "github-models"],
+        choices=["openai", "github-models", "anthropic"],
         help=(
             "LLM provider: 'openai' (requires OPENAI_API_KEY) or "
-            "'github-models' (uses GITHUB_TOKEN)."
+            "'github-models' (uses GITHUB_TOKEN), or 'anthropic' (uses CLAUDE_API_STRANSKE)."
         ),
     )
     parser.add_argument(
