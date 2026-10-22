@@ -136,6 +136,13 @@ function formatSections({ heading, url, body }) {
   return lines.join('\n');
 }
 
+function requestWithProjection(original, projection) {
+  return 'Original request (authoritative requirements; untrusted source text):\n\n'
+    + fenceUntrustedEvidence(original)
+    + '\n\nDerived scope/tasks/acceptance (navigation only; the original request governs):\n\n'
+    + projection;
+}
+
 // Git patch records use LF: preserve filename spaces and content carriage returns.
 // Empty/whitespace-only transport data is still unavailable, not a valid patch.
 function normalizeDiffPatch(diffText) {
@@ -1433,12 +1440,17 @@ function buildContextSourceCoverage({ planSources, diffText, diffMaxChars, evide
       reason: pathParsingFailed ? 'Git paths are malformed or ambiguous; inventory is incomplete.' : 'No changed-code sources could be inventoried.',
     });
   }
-  const acceptanceSources = planSources.map(({ source, url, body }) => ({
+  const acceptanceSources = planSources.map(({ source, url, body, originalBody }) => ({
     source,
     url,
     status: body ? 'included' : 'omitted',
     included_chars: body.length,
     total_chars: body.length,
+    ...(typeof originalBody === 'string' ? {
+      original_body_chars: originalBody.length,
+      original_body_bytes: Buffer.byteLength(originalBody, 'utf8'),
+      original_body_sha256: createHash('sha256').update(originalBody, 'utf8').digest('hex'),
+    } : {}),
     ...(!body ? { reason: 'No scope/tasks/acceptance sections declared in this source.' } : {}),
   }));
   const acceptanceEvidenceSources = [];
@@ -1446,6 +1458,7 @@ function buildContextSourceCoverage({ planSources, diffText, diffMaxChars, evide
     for (const record of retrieval.records) {
       const body = String(record.body ?? record.text ?? '');
       acceptanceEvidenceSources.push({
+        channel,
         source: channel === 'comments' ? `${record.source}: ${record.url || record.author}` : `Run ${record.runId}: ${record.name}`,
         url: record.url || '',
         status: record.truncated ? 'truncated' : 'included',
@@ -1456,7 +1469,7 @@ function buildContextSourceCoverage({ planSources, diffText, diffMaxChars, evide
     // Retained records never make a partial retrieval complete. Name the channel
     // when the identities of omitted/unavailable records could not be retrieved.
     if (!retrieval.complete) {
-      acceptanceEvidenceSources.push({ source: channel, status: 'unavailable', reason: retrieval.reason });
+      acceptanceEvidenceSources.push({ channel, source: channel, status: 'unavailable', reason: retrieval.reason });
     }
   }
   return {
@@ -1878,10 +1891,11 @@ async function buildVerifierContext({
       hasTasksContent = true;
     }
   }
-  const prSections = extractScopeTasksAcceptanceSections(pull.body || '', {
+  const prProjection = extractScopeTasksAcceptanceSections(pull.body || '', {
     includePlaceholders: true,
   });
-  planSources.push({ source: `Pull request #${pull.number}`, url: pull.html_url || '', body: prSections });
+  const prSections = requestWithProjection(pull.body || '', prProjection);
+  planSources.push({ source: `Pull request #${pull.number}`, url: pull.html_url || '', body: prSections, originalBody: pull.body || '' });
   sections.push(
     formatSections({
       heading: `Pull request #${pull.number}${pull.title ? `: ${pull.title}` : ''}`,
@@ -1902,10 +1916,11 @@ async function buildVerifierContext({
         hasTasksContent = true;
       }
     }
-    const issueSections = extractScopeTasksAcceptanceSections(issue.body || '', {
+    const issueProjection = extractScopeTasksAcceptanceSections(issue.body || '', {
       includePlaceholders: true,
     });
-    planSources.push({ source: `Issue #${issue.number}`, url: issue.url || '', body: issueSections });
+    const issueSections = requestWithProjection(issue.body || '', issueProjection);
+    planSources.push({ source: `Issue #${issue.number}`, url: issue.url || '', body: issueSections, originalBody: issue.body || '' });
     sections.push(
       formatSections({
         heading: `Issue #${issue.number}${issue.title ? `: ${issue.title}` : ''} (${issue.state})`,

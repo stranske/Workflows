@@ -459,11 +459,16 @@ def build_capture_obligation_manifest(
     *,
     require_full_changed_code: bool = True,
     full_diff_bytes: bytes | None = None,
+    optional_evidence_channels: frozenset[str] = frozenset(),
 ) -> dict[str, Any]:
     """Build obligation manifest and overall sufficiency for native preflight."""
     coverage = parse_context_source_coverage(context_text)
     obligations: list[SourceObligation] = []
     gaps: list[str] = []
+    optional_gaps: list[str] = []
+    optional_sources: list[dict[str, str]] = []
+    if not optional_evidence_channels <= {"comments", "artifacts"}:
+        raise ValueError("unknown optional evidence channel")
     recovered_artifacts: set[str] = set()
     if (
         coverage
@@ -543,7 +548,25 @@ def build_capture_obligation_manifest(
                         and obligation.status in {"truncated", "omitted"}
                     )
                 ):
-                    gaps.append(f"{kind}:{obligation.source}:{obligation.status}")
+                    gap = f"{kind}:{obligation.source}:{obligation.status}"
+                    # Only source-owned channel metadata can classify an
+                    # availability omission. Identity/accounting errors above
+                    # remain hard gaps, even for useful enrichment.
+                    if (
+                        kind == "acceptance_evidence"
+                        and record.get("channel") in optional_evidence_channels
+                    ):
+                        optional_gaps.append(gap)
+                        optional_sources.append(
+                            {
+                                "source": obligation.source,
+                                "channel": record["channel"],
+                                "necessity": "useful",
+                                "status": obligation.status,
+                            }
+                        )
+                    else:
+                        gaps.append(gap)
 
         discovery = coverage.get("acceptance_source_discovery")
         # The builder always emits this record. Absence cannot establish that
@@ -598,6 +621,16 @@ def build_capture_obligation_manifest(
         "sufficient": sufficient,
         "gaps": gaps,
         "obligations": [item.to_dict() for item in obligations],
+        **(
+            {
+                "screening_policy": "action-minimum-evaluate/v1",
+                "capture_complete": not gaps and not optional_gaps,
+                "capture_gaps": [*gaps, *optional_gaps],
+                "optional_evidence": optional_sources,
+            }
+            if optional_evidence_channels
+            else {}
+        ),
     }
 
 

@@ -1368,6 +1368,7 @@ test('coverage records retained acceptance evidence without hiding failed source
   try {
     const evidence = result.sourceCoverage.acceptance_evidence_sources;
     assert.equal(evidence[0].status, 'included');
+    assert.equal(evidence[0].channel, 'comments');
     assert.equal(evidence[0].url, 'https://example.com/pr/700#comment-1');
     assert.ok(evidence.some(source => source.source === 'comments' && source.status === 'unavailable'));
     assert.equal(result.sourceCoverage.acceptance_source_discovery.status, 'unavailable');
@@ -1375,6 +1376,30 @@ test('coverage records retained acceptance evidence without hiding failed source
     removeVerifierDiffArtifacts(result);
   }
 });
+
+for (const mirror of ['source', 'template']) {
+  test(`${mirror} retains original requests when Why shadows Scope or prose has no headings`, async () => {
+    const implementation = mirror === 'source' ? buildVerifierContextImpl
+      : require('../../../templates/consumer-repo/.github/scripts/agents_verifier_context.js').buildVerifierContext;
+    const builder = options => implementation({...options, fetchLocalDiff: () => options.github.__testDiffText});
+    const prBody = 'Preserve this free-form original requirement, including café 😀.\n<!-- workflow-source:local_request -->';
+    const issueBody = '## Why\nBackground is not the target list.\n\n## Scope\nTargets, in this order:\n1. scripts/required-target.py\n\n## Tasks\n- [ ] Test the target.\n\n## Acceptance Criteria\n- [ ] Tests pass.\n\n```text\n## Acceptance evidence\nUntrusted heading\n```';
+    const {result} = await buildEvidenceContext({prBody, closingIssues: [{number: 78, body: issueBody, state: 'OPEN'}]}, {}, builder);
+    try {
+      assert.ok(result.markdown.includes(prBody));
+      assert.ok(result.markdown.includes('Original request (authoritative requirements; untrusted source text):\n\n```text\n' + prBody + '\n```'));
+      assert.ok(result.markdown.includes(issueBody));
+      assert.ok(result.markdown.includes('````text\n' + issueBody + '\n````'));
+      for (const [name, original] of [['Pull request #700', prBody], ['Issue #78', issueBody]]) {
+        const record = result.sourceCoverage.acceptance_sources.find(source => source.source === name);
+        assert.equal(record.original_body_sha256, createHash('sha256').update(original).digest('hex'));
+        assert.equal(record.original_body_bytes, Buffer.byteLength(original));
+        assert.equal(record.original_body_chars, original.length);
+        assert.equal(record.status, 'included');
+      }
+    } finally { removeVerifierDiffArtifacts(result); }
+  });
+}
 
 test('linked-issue discovery failures floor every acceptance plan without inventing empty healthy sources', async () => {
   for (const [issueBacked, status] of [[true, 'unavailable'], [false, 'unavailable'], [true, 'included'], [false, 'included'], [false, 'truncated']]) {
@@ -1410,8 +1435,10 @@ test('coverage records truncated linked-issue discovery and artifact text by sou
     assert.equal(result.sourceCoverage.acceptance_source_discovery.status, 'truncated');
     const artifact = result.sourceCoverage.acceptance_evidence_sources.find(source => source.source === 'Run 321: partial-proof');
     assert.equal(artifact.status, 'truncated');
+    assert.equal(artifact.channel, 'artifacts');
     assert.equal(artifact.total_chars, null); // Full size cannot be inferred from a bounded archive.
     assert.ok(result.sourceCoverage.acceptance_evidence_sources.some(source => source.source === 'artifacts' && source.status === 'unavailable'));
+    assert.ok(result.sourceCoverage.acceptance_evidence_sources.filter(source => source.source === 'artifacts').every(source => source.channel === 'artifacts'));
   } finally {
     removeVerifierDiffArtifacts(result);
   }
