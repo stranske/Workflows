@@ -145,13 +145,13 @@ def test_current_plan_allows_fast_screen_without_statistical_approval():
     # only inputs the production prompt calls sufficient can score a judge fairly
     assert 0 < plan["evaluable_non_pass_cases"] <= plan["expected_non_pass_cases"]
     assert plan["evaluable_pass_cases"] >= plan["zero_error_false_fail_denominator"]  # 16 at 0.20
-    # the corpus now supplies every floor, so no corpus-size blocker remains; the one left is the
-    # missing paired production benchmark
-    assert not any("evaluable" in reason for reason in plan["approval_blockers"])
-    assert (
-        len(plan["approval_blockers"]) == 1
-        and "paired production API benchmark" in plan["approval_blockers"][0]
-    )
+    # failed-CI mutants are diagnostic-only, so 19 evaluable NON_PASS cases (16 dropped-file mutants
+    # and 3 real) stand against the 35-case floor of the 0.10 bound until the approval standard is
+    # re-decided (docs/ops/VERIFIER_STANDARDS_ANALYSIS.md)
+    assert plan["diagnostic_only_cases"] == 22
+    assert plan["evaluable_non_pass_cases"] == 19
+    assert any("NON_PASS cases are evaluable" in reason for reason in plan["approval_blockers"])
+    assert any("paired production API benchmark" in reason for reason in plan["approval_blockers"])
     assert plan["zero_error_false_pass_denominator"] == 35  # 0.10 bound at 95% confidence
     assert plan["additional_non_pass_cases_for_best_case_gate"] == max(
         0, 35 - plan["expected_non_pass_cases"]

@@ -231,6 +231,14 @@ records. Do not hand-enter aggregate rates or recommendation rankings.
   selection with rollback on any false PASS and live monitoring. The false-PASS bound stays tighter
   because a false PASS costs safety and a false FAIL costs rework. Tighten both as evaluable cases
   accumulate (`bounds_note` in the policy).
+
+  **Diagnostic-only mutants (2026-10-18).** The 22 failed-CI mutants carry `diagnostic_only: true` and
+  count toward no floor: `reusable-agents-verifier.yml` already floors the verdict at CONCERNS whenever a
+  CI workflow concluded `failure`, so a model that misses a red row costs nothing in production, and the
+  mutation omits the "CI gate" paragraph the real input adds. They stay in the corpus for reporting
+  (`--include-diagnostic` runs them). That leaves 19 evaluable NON_PASS cases (16 dropped-file mutants
+  and 3 real) against a 35-case floor at the 0.10 bound; the approval standard is being re-decided in
+  `docs/ops/VERIFIER_STANDARDS_ANALYSIS.md`.
 - Report Wilson 95% confidence intervals for task success, false PASS, false
   FAIL, and schema errors.
 - Require the configured bounds and a paired success result no more than two
