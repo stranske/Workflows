@@ -464,8 +464,16 @@ and incomplete required channels still block. Only typed transport or size-limit
 omissions can be optional; provenance failures and ambiguous archive/read errors
 stay blocking. A validated incidental run from another revision is disclosed as
 excluded, never downloaded or credited; explicitly designated evidence retains
-the exact-revision provenance guard. Compare and chunked lossless
-admission are unchanged. Passing this screen does not establish acceptance.
+the exact-revision provenance guard. In evaluate mode, a generic evidence duty
+requires enough available material to reason: one complete present body, comments,
+or artifacts channel can satisfy that availability screen. It does not require every
+historical artifact to be retrievable. Explicit comment/artifact duties and
+requirement alternatives retain their existing channel constraints; the model
+still judges whether the named material and implementation actually satisfy the
+original request. The same screen applies before native counting, per-file review,
+and final coverage floors. Aggregate retrieval statuses and omitted-source
+metadata remain unchanged. Compare and default lossless admission stay strict.
+Passing this screen does not establish acceptance.
 
 The context retains each complete original PR/issue request as fenced untrusted
 source text, with its UTF-8 hash and byte count. Parsed scope/tasks/acceptance
