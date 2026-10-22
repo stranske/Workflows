@@ -221,6 +221,16 @@ records. Do not hand-enter aggregate rates or recommendation rankings.
   (`evaluable_pass_cases`, `evaluable_non_pass_cases`), and the approval blockers say how many are
   missing. Measured then: 27 of 128 captured sources (21%) were sufficient; 38 evaluable mutants,
   41 evaluable NON_PASS and 16 evaluable PASS against floors of 73 and 35.
+
+  **Practical bounds (owner direction 2026-10-18).** Meeting 73 and 35 would have needed about
+  110 more captured PRs and a month of waiting for joined PASS cases, and the instruction was to make approval
+  achievable. At 95% confidence a zero-error run needs 73 cases for a 0.05 bound, 35 for 0.10, 22
+  for 0.15 and 16 for 0.20, so the approval gates are now false PASS <= 0.10 and false FAIL <= 0.20,
+  which the corpus meets today (41 evaluable NON_PASS against 35, 16 evaluable PASS against 16). A bound
+  states what the sample cannot rule out; approval stays a reversible, human-approved provisional
+  selection with rollback on any false PASS and live monitoring. The false-PASS bound stays tighter
+  because a false PASS costs safety and a false FAIL costs rework. Tighten both as evaluable cases
+  accumulate (`bounds_note` in the policy).
 - Report Wilson 95% confidence intervals for task success, false PASS, false
   FAIL, and schema errors.
 - Require the configured bounds and a paired success result no more than two

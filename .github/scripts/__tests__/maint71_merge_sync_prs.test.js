@@ -32,6 +32,534 @@ const {
   isExpectedPresealGateFailure, legacyStatusAsCheck, requestSealedGate,
 } = require('../maint71_merge_sync_prs');
 const { classifySyncPrChecks } = require('../sync_pr_merge_contract');
+const { findingPacket, changeProof } = require('./fixtures/sync_finding_disposition');
+const { confirmExactHeadSyncFindingGate } = require('../maint71_merge_sync_prs');
+const { syncMergeFailureDisposition } = require('../maint71_merge_sync_prs');
+const { classifyGeneratedPr, evaluateSyncFindingDispositions, validateCanaryEvidence } = require('../sync_pr_merge_contract');
+
+function findingGateHarness(packet = findingPacket()) {
+  const { binding } = packet;
+  const record = { schema: 'sync-pr-delivery-record/v1', repository: binding.repository,
+    source_commit: binding.source_commit, plan_id: binding.plan_id,
+    generation: binding.delivery_generation, desired_tree_hash: 'tree-21',
+    durable_issue_url: 'https://github.com/stranske/Workflows/issues/1836',
+    predecessor_prs: [], successor_prs: [], lease_expires_at: '2099-01-01T00:00:00Z' };
+  const body = `<!-- sync-pr-delivery-record:v1 ${JSON.stringify(record)} -->`;
+  const pr = { number: binding.pr, body,
+    head: { sha: binding.head_sha, ref: 'sync/workflows-fixture' } };
+  const fresh = { headRefOid: binding.head_sha, body,
+    reviewThreads: { pageInfo: { hasNextPage: false }, nodes: packet.reviewThreads } };
+  const reads = [];
+  const client = { paginate: async (method, params) => {
+    reads.push(['comments', params]);
+    assert.equal(method, client.rest.issues.listComments);
+    return packet.comments;
+  }, rest: { issues: {
+    listComments: () => {}, get: async params => {
+      reads.push(['handoff', params]); return { data: packet.handoffs[0] };
+    },
+  } }, graphql: async (_query, params) => {
+    reads.push(['final-head-and-findings', params]);
+    return { repository: { pullRequest: fresh } };
+  } };
+  return { packet, record, pr, fresh, reads, client,
+    args: { owner: 'stranske', repo: 'Ready', pr, record,
+      threads: packet.reviewThreads, read: fn => fn(client) } };
+}
+
+test('pre-seal, final sync finding gate and canary agree without resolving the original thread', async () => {
+  for (const kind of ['shared-source', 'sync-caused', 'unrelated', 'unknown']) {
+    const h = findingGateHarness(findingPacket(kind));
+    const gate = await confirmExactHeadSyncFindingGate(h.args);
+    const preSeal = classifyGeneratedPr({ pr: h.pr, activeReviewThreadCount: 1,
+      reviewThreads: h.packet.reviewThreads, findingEvidence: gate.packet,
+      checkState: { status: 'ready' }, now: new Date().toISOString() });
+    assert.equal(gate.ok, kind === 'unrelated');
+    assert.equal(preSeal.disposition, kind === 'unrelated' ? 'current' : 'review-blocked');
+    const row = { repo: h.packet.binding.repository, pr: h.pr.number,
+      head_sha: h.pr.head.sha, source_commit: h.record.source_commit,
+      plan_id: h.record.plan_id, delivery_generation: h.record.generation,
+      required_check_state: 'success', active_review_thread_count: 1,
+      review_disposition: gate.packet };
+    assert.equal(validateCanaryEvidence([row], [row.repo]).ok, gate.ok);
+    assert.equal(h.packet.reviewThreads[0].isResolved, false);
+    assert.equal(gate.evaluation.findings.length, 1);
+    if (kind === 'unrelated') {
+      assert.deepEqual(h.reads.map(item => item[0]), ['comments', 'handoff', 'final-head-and-findings']);
+      assert.equal(classifyGeneratedPr({ pr: h.pr, activeReviewThreadCount: 1,
+        reviewThreads: h.packet.reviewThreads, findingEvidence: gate.packet,
+        checkState: { status: 'checks_failed' } }).disposition, 'repo-local-failure');
+    }
+  }
+});
+
+for (const scenario of ['untrusted author', 'expired classification']) {
+  test(`review boundaries reject packet-supplied validation controls for ${scenario}`, async () => {
+    const h = findingGateHarness();
+    assert.equal((await confirmExactHeadSyncFindingGate(h.args)).ok, true);
+    if (scenario === 'untrusted author') {
+      h.packet.comments[0].user.login = 'attacker';
+      h.packet.trustedActors = ['attacker'];
+    } else {
+      changeProof(h.packet, { expires_at: '2000-01-01T00:00:00Z' });
+      h.packet.now = 0;
+    }
+    const preSeal = classifyGeneratedPr({ pr: h.pr, activeReviewThreadCount: 1,
+      reviewThreads: h.packet.reviewThreads, findingEvidence: h.packet,
+      checkState: { status: 'ready' } });
+    const final = await confirmExactHeadSyncFindingGate(h.args);
+    assert.equal(preSeal.disposition, 'review-blocked');
+    assert.equal(final.ok, false);
+    for (const key of ['blocked', 'raw_active_count', 'aggregates', 'unknown_thread_ids',
+      'blocking_thread_ids', 'unrelated_handoffs']) {
+      assert.deepEqual(preSeal.finding_disposition[key], final.evaluation[key], key);
+    }
+    const expectedError = scenario === 'untrusted author'
+      ? 'untrusted_provenance' : 'classification_expired';
+    assert.ok(preSeal.finding_disposition.findings[0].errors.includes(expectedError));
+    assert.ok(final.evaluation.findings[0].errors.includes(expectedError));
+    // Replay the same contaminated packet through canary validation too.
+    const row = { repo: h.packet.binding.repository, pr: h.pr.number,
+      head_sha: h.pr.head.sha, source_commit: h.record.source_commit,
+      plan_id: h.record.plan_id, delivery_generation: h.record.generation,
+      required_check_state: 'success', active_review_thread_count: 1,
+      review_disposition: h.packet };
+    assert.ok(validateCanaryEvidence([row], [row.repo]).errors
+      .includes(`active_review_debt:${row.repo}`));
+    assert.equal(final.evaluation.raw_active_count, 1);
+    assert.deepEqual(final.evaluation.unknown_thread_ids, ['PRRT_finding']);
+    assert.equal(h.packet.reviewThreads[0].isResolved, false);
+  });
+}
+
+test('stale-head final sync finding gate rejects an unrelated record after pre-seal', async () => {
+  const h = findingGateHarness();
+  assert.equal((await confirmExactHeadSyncFindingGate(h.args)).ok, true);
+  h.fresh.headRefOid = 'f'.repeat(40);
+  const gate = await confirmExactHeadSyncFindingGate(h.args);
+  assert.equal(gate.ok, false, 'current-head revalidation must precede final acceptance');
+  assert.match(gate.packet.error, /finding_delivery_changed/);
+});
+
+for (const [field, replacement] of [
+  ['repository', 'stranske/Other'],
+  ['source_commit', 'c'.repeat(40)],
+  ['plan_id', 'replacement-plan'],
+  ['generation', 'replacement-generation'],
+  ['delivery record', null],
+]) {
+  test(`final sync finding gate rejects ${field} changed during handoff verification`, async t => {
+    const h = findingGateHarness();
+    const initial = await confirmExactHeadSyncFindingGate(h.args);
+    assert.equal(initial.ok, true, 'the original unrelated evidence is valid');
+    assert.equal(classifyGeneratedPr({ pr: h.pr, activeReviewThreadCount: 1,
+      reviewThreads: h.packet.reviewThreads, findingEvidence: initial.packet,
+      checkState: { status: 'ready' } }).disposition, 'current');
+
+    const getIssue = h.client.rest.issues.get;
+    const changedDuringRead = t.mock.method(h.client.rest.issues, 'get', async params => {
+      const response = await getIssue(params);
+      h.fresh.body = replacement === null ? ''
+        : require('../sync_pr_lease_contract').formatDeliveryRecord({
+          ...h.record, [field]: replacement,
+        });
+      return response;
+    });
+    const final = await confirmExactHeadSyncFindingGate(h.args);
+    assert.equal(h.fresh.headRefOid, h.pr.head.sha, 'the head SHA alone is unchanged');
+    assert.equal(final.ok, false, 'a verified handoff cannot authorize another delivery');
+    assert.equal(final.packet.evidenceComplete, false);
+    assert.equal(final.packet.error, 'finding_delivery_changed_or_incomplete');
+    assert.ok(final.evaluation.errors.includes('review_evidence_incomplete'));
+    assert.equal(final.evaluation.raw_active_count, 1);
+    assert.deepEqual(final.evaluation.findings.map(finding => finding.thread_id), ['PRRT_finding']);
+    assert.equal(final.packet.reviewThreads[0].isResolved, false);
+
+    const row = { repo: h.packet.binding.repository, pr: h.pr.number,
+      head_sha: h.pr.head.sha, source_commit: h.record.source_commit,
+      plan_id: h.record.plan_id, delivery_generation: h.record.generation,
+      required_check_state: 'success', active_review_thread_count: 1,
+      review_disposition: final.packet, evidence_source: 'open-candidate' };
+    const promotion = require('../maint71_merge_sync_prs').buildCanaryPromotionEvidence([row], [row.repo]);
+    assert.equal(promotion.ok, false, 'an incomplete final snapshot also blocks promotion');
+    assert.deepEqual(promotion.errors, [`active_review_debt:${row.repo}`]);
+    assert.equal(promotion.evidence.results[0].active_review_thread_count, 1);
+    assert.equal(validateCanaryEvidence(promotion.evidence.results, [row.repo]).ok, false);
+
+    changedDuringRead.mock.restore();
+    h.fresh.body = h.pr.body;
+    assert.equal((await confirmExactHeadSyncFindingGate(h.args)).ok, true,
+      'a later complete read of the original delivery restores relevance acceptance');
+  });
+}
+
+for (const kind of ['shared-source', 'sync-caused', 'unknown']) {
+  test(`mixed unrelated and ${kind} findings block every review boundary`, async () => {
+    const packet = findingPacket();
+    const other = findingPacket(kind);
+    const thread = other.reviewThreads[0];
+    thread.id = `PRRT_${kind}`;
+    // The incompatibility remains blocking even in an unmanaged consumer path.
+    thread.path = kind === 'shared-source' ? 'scripts/shared.js' : 'app/local.py';
+    thread.comments.nodes[0].id = `PRRC_${kind}`;
+    thread.comments.nodes[0].url = thread.comments.nodes[0].url.replace('_r1', '_r2');
+    changeProof(other, { thread_id: thread.id, thread_fingerprint:
+      require('../sync_pr_merge_contract').syncFindingFingerprint(thread) });
+    other.comments[0].id = 42;
+    other.comments[0].html_url = other.comments[0].html_url.replace('-41', '-42');
+    packet.reviewThreads.push(thread);
+    packet.comments.push(other.comments[0]);
+    packet.activeReviewThreadCount = 2;
+    const h = findingGateHarness(packet);
+
+    const final = await confirmExactHeadSyncFindingGate(h.args);
+    assert.equal(final.ok, false, 'one local handoff cannot exempt another finding');
+    const preSeal = classifyGeneratedPr({ pr: h.pr, activeReviewThreadCount: 2,
+      reviewThreads: packet.reviewThreads, findingEvidence: final.packet,
+      checkState: { status: 'ready' } });
+    assert.equal(preSeal.disposition, 'review-blocked');
+    assert.deepEqual(preSeal.finding_disposition, final.evaluation);
+    assert.equal(final.evaluation.raw_active_count, 2);
+    assert.deepEqual(final.evaluation.blocking_thread_ids, [thread.id]);
+    assert.deepEqual(final.evaluation.nonblocking_thread_ids, ['PRRT_finding']);
+    assert.deepEqual(final.evaluation.unknown_thread_ids, kind === 'unknown' ? [thread.id] : []);
+    assert.deepEqual(final.evaluation.unrelated_handoffs, [{
+      thread_id: 'PRRT_finding', owner: 'local-owner',
+      url: 'https://github.com/stranske/Ready/issues/31',
+    }]);
+
+    const row = { repo: packet.binding.repository, pr: h.pr.number,
+      head_sha: h.pr.head.sha, source_commit: h.record.source_commit,
+      plan_id: h.record.plan_id, delivery_generation: h.record.generation,
+      evidence_source: 'open-candidate',
+      required_check_state: 'success', active_review_thread_count: 2,
+      review_disposition: final.packet };
+    const build = require('../maint71_merge_sync_prs').buildCanaryPromotionEvidence;
+    const canary = build([row], [row.repo]);
+    assert.equal(canary.ok, false, 'promotion must preserve the mixed-finding hold');
+    assert.deepEqual(canary.errors, [`active_review_debt:${row.repo}`]);
+    const retained = canary.evidence.results[0];
+    assert.equal(retained.active_review_thread_count, 2);
+    assert.deepEqual(retained.review_disposition.reviewThreads.map(item => item.id),
+      ['PRRT_finding', thread.id]);
+    assert.deepEqual(retained.review_disposition.handoffs[0].assignees,
+      [{ login: 'local-owner' }]);
+    const compactEvaluation = evaluateSyncFindingDispositions({
+      ...retained.review_disposition, activeReviewThreadCount: 2,
+    });
+    assert.deepEqual(compactEvaluation.errors, []);
+    for (const key of ['blocking_thread_ids', 'unknown_thread_ids', 'unrelated_handoffs', 'aggregates']) {
+      assert.deepEqual(compactEvaluation[key], final.evaluation[key], key);
+    }
+    assert.ok(validateCanaryEvidence([retained], [row.repo]).errors
+      .includes(`active_review_debt:${row.repo}`));
+    assert.ok(packet.reviewThreads.every(item => item.isResolved === false));
+  });
+}
+
+test('a changed delivery head requires renewed unrelated evidence at every review boundary', async () => {
+  const h = findingGateHarness();
+  const initial = await confirmExactHeadSyncFindingGate(h.args);
+  assert.equal(initial.ok, true);
+  const preSeal = packet => classifyGeneratedPr({ pr: h.pr, activeReviewThreadCount: 1,
+    reviewThreads: h.packet.reviewThreads, findingEvidence: packet,
+    checkState: { status: 'ready' } });
+  const canary = packet => validateCanaryEvidence([{
+    repo: h.packet.binding.repository, pr: h.pr.number, head_sha: h.pr.head.sha,
+    source_commit: h.record.source_commit, plan_id: h.record.plan_id,
+    delivery_generation: h.record.generation, required_check_state: 'success',
+    active_review_thread_count: 1, review_disposition: packet,
+  }], [h.packet.binding.repository]);
+  assert.equal(preSeal(initial.packet).disposition, 'current');
+  assert.equal(canary(initial.packet).ok, true);
+
+  h.pr.head.sha = h.fresh.headRefOid = 'f'.repeat(40);
+  assert.equal(preSeal(initial.packet).disposition, 'review-blocked');
+  assert.equal(canary(initial.packet).ok, false);
+  const stale = await confirmExactHeadSyncFindingGate(h.args);
+  assert.equal(stale.ok, false, 'a fresh head read cannot renew the old owner classification');
+  assert.deepEqual(stale.evaluation.unknown_thread_ids, ['PRRT_finding']);
+  assert.equal(stale.evaluation.raw_active_count, 1);
+
+  changeProof(h.packet, { head_sha: h.pr.head.sha });
+  const renewed = await confirmExactHeadSyncFindingGate(h.args);
+  assert.equal(renewed.ok, true, 'the trusted owner must publish evidence for the new head');
+  assert.equal(preSeal(renewed.packet).disposition, 'current');
+  assert.equal(canary(renewed.packet).ok, true);
+  assert.deepEqual(renewed.evaluation.unrelated_handoffs, [{
+    thread_id: 'PRRT_finding', owner: 'local-owner',
+    url: 'https://github.com/stranske/Ready/issues/31',
+  }]);
+  assert.equal(h.packet.reviewThreads[0].isResolved, false);
+});
+
+test('promotion packet bounds large authenticated discussions and handoff objects', async () => {
+  const packet = findingPacket();
+  packet.reviewThreads[0].comments.nodes[0].body = '長い evidence '.repeat(20000);
+  packet.handoffs[0].body = 'A large existing issue body. '.repeat(20000);
+  packet.handoffs[0].title = 'A long title '.repeat(10000);
+  packet.handoffs[0].user = { login: 'local-owner', bio: 'irrelevant'.repeat(50000) };
+  changeProof(packet, { thread_fingerprint:
+    require('../sync_pr_merge_contract').syncFindingFingerprint(packet.reviewThreads[0]) });
+  const row = { repo: packet.binding.repository, pr: packet.binding.pr,
+    head_sha: packet.binding.head_sha, source_commit: packet.binding.source_commit,
+    plan_id: packet.binding.plan_id, delivery_generation: packet.binding.delivery_generation,
+    evidence_source: 'open-candidate', required_check_state: 'success',
+    active_review_thread_count: 1, review_disposition: packet };
+  const build = require('../maint71_merge_sync_prs').buildCanaryPromotionEvidence;
+  const built = build([row], [row.repo]);
+  assert.equal(built.ok, true, built.errors.join(','));
+  assert.ok(Buffer.byteLength(JSON.stringify(built.evidence), 'utf8') < 4000);
+  assert.equal(packet.reviewThreads[0].comments.nodes[0].body.length > 200000, true,
+    'the source artifact retains complete text');
+  assert.equal(built.evidence.results[0].review_disposition.handoffs[0].body, undefined);
+  assert.equal(validateCanaryEvidence(built.evidence.results, [row.repo]).ok, true);
+  changeProof(packet, { rationale: 'x'.repeat(20000) });
+  const oversized = build([row], [row.repo]);
+  assert.equal(oversized.ok, false, 'oversized owner records must block before dispatch');
+  const notices = [];
+  const held = await dispatchCanaryPromotion({
+    report: { inputs: { auto_merge: true }, results: [] }, evidence: [row], expectedCanaries: [row.repo],
+    withRetry: async () => { throw new Error('oversized packet reached network'); },
+    context: {}, core: { notice: value => notices.push(value),
+      summary: { addRaw: () => ({ write: async () => {} }) } },
+  });
+  assert.equal(held.status, 'held');
+  assert.ok(notices.length);
+});
+
+test('promotion aggregate inputs are bounded before any API call', async () => {
+  const row = { repo: 'stranske/Ready', plan_id: 'p'.repeat(70000),
+    source_commit: 'a'.repeat(40), head_sha: 'b'.repeat(40), plan_scope: 'full',
+    scope_base_sha: '', evidence_source: 'no-change-canary', required_check_state: 'success',
+    active_review_thread_count: 0 };
+  const result = await dispatchCanaryPromotion({
+    report: { inputs: { sync_hash: 'candidate', auto_merge: true, dry_run: false },
+      results: [{ owner: 'stranske', repo: 'Ready', branch: 'sync/workflows-candidate',
+        status: 'evidence_recovered', plan_id: row.plan_id, source_commit: row.source_commit,
+        head_sha: row.head_sha }] },
+    evidence: [row], expectedCanaries: [row.repo],
+    withRetry: async () => { throw new Error('oversized inputs reached API'); }, context: {},
+    core: { notice: () => {}, summary: { addRaw: () => ({ write: async () => {} }) } },
+  });
+  assert.equal(result.status, 'held');
+  assert.ok(result.errors.includes('promotion_inputs_too_large'));
+});
+
+test('promotion rejects a zero count that contradicts its active finding packet', () => {
+  const { buildCanaryPromotionEvidence } = require('../maint71_merge_sync_prs');
+  const packet = findingPacket();
+  const row = { repo: packet.binding.repository, pr: packet.binding.pr,
+    head_sha: packet.binding.head_sha, source_commit: packet.binding.source_commit,
+    plan_id: packet.binding.plan_id, delivery_generation: packet.binding.delivery_generation,
+    evidence_source: 'open-candidate', required_check_state: 'success',
+    active_review_thread_count: 0, review_disposition: packet };
+  const built = buildCanaryPromotionEvidence([row], [row.repo]);
+  assert.equal(built.ok, false);
+  assert.ok(built.errors.includes(`active_review_debt:${row.repo}`));
+  assert.equal(built.evidence.results[0].active_review_thread_count, 0);
+  assert.equal(built.evidence.results[0].review_disposition.reviewThreads[0].id, 'PRRT_finding');
+  assert.equal(packet.reviewThreads[0].isResolved, false);
+  for (const evidence of [null, {}, { evidenceComplete: false, reviewThreads: [] }]) {
+    const incomplete = buildCanaryPromotionEvidence([{ ...row, review_disposition: evidence }], [row.repo]);
+    assert.equal(incomplete.ok, false, 'compaction must preserve invalid evidence for validation');
+    assert.ok(incomplete.errors.includes(`active_review_debt:${row.repo}`));
+  }
+});
+
+test('promotion holds active finding snapshots without explicit completeness', () => {
+  const { buildCanaryPromotionEvidence } = require('../maint71_merge_sync_prs');
+  for (const completeness of [undefined, null, false, 0, 1, '', 'true', 'false']) {
+    const packet = findingPacket();
+    if (completeness === undefined) delete packet.evidenceComplete;
+    else packet.evidenceComplete = completeness;
+    const row = { repo: packet.binding.repository, pr: packet.binding.pr,
+      head_sha: packet.binding.head_sha, source_commit: packet.binding.source_commit,
+      plan_id: packet.binding.plan_id, delivery_generation: packet.binding.delivery_generation,
+      evidence_source: 'open-candidate', required_check_state: 'success',
+      active_review_thread_count: 1, review_disposition: packet };
+    const built = buildCanaryPromotionEvidence([row], [row.repo]);
+    assert.equal(built.ok, false, `evidenceComplete=${String(completeness)}`);
+    assert.ok(built.errors.includes(`active_review_debt:${row.repo}`));
+    assert.equal(built.evidence.results[0].active_review_thread_count, 1);
+    assert.equal(packet.reviewThreads[0].isResolved, false);
+  }
+});
+
+test('promotion rejects a finding snapshot replayed across deliveries with zero review debt', () => {
+  const { buildCanaryPromotionEvidence } = require('../maint71_merge_sync_prs');
+  const packet = findingPacket();
+  packet.activeReviewThreadCount = 0;
+  packet.reviewThreads = [];
+  packet.comments = [];
+  packet.handoffs = [];
+  const row = { repo: packet.binding.repository, pr: packet.binding.pr,
+    head_sha: packet.binding.head_sha, source_commit: packet.binding.source_commit,
+    plan_id: packet.binding.plan_id, delivery_generation: packet.binding.delivery_generation,
+    evidence_source: 'open-candidate', required_check_state: 'success',
+    active_review_thread_count: 0, review_disposition: packet };
+  assert.equal(buildCanaryPromotionEvidence([row], [row.repo]).ok, true);
+  for (const [key, value] of Object.entries({ repo: 'stranske/Template', pr: row.pr + 1,
+    head_sha: 'd'.repeat(40), source_commit: 'e'.repeat(40), plan_id: 'other-plan',
+    delivery_generation: 'other-generation' })) {
+    const replayed = { ...row, [key]: value };
+    const built = buildCanaryPromotionEvidence([replayed], [replayed.repo]);
+    assert.equal(built.ok, false, `${key}: a complete empty packet still belongs to its delivery`);
+    assert.ok(built.errors.includes(`active_review_debt:${replayed.repo}`));
+    assert.deepEqual(built.evidence.results[0].review_disposition.binding, packet.binding);
+    assert.equal(built.evidence.results[0].active_review_thread_count, 0);
+    const { review_disposition, ...legacy } = replayed;
+    assert.equal(buildCanaryPromotionEvidence([legacy], [legacy.repo]).ok, true,
+      'legacy zero-debt rows have no attached snapshot to replay');
+  }
+});
+
+test('repository conversation and required-check rejection remain independent of relevance', () => {
+  const clear = { blocked: false, raw_active_count: 1 };
+  const policy = syncMergeFailureDisposition(new Error('All conversations must be resolved'), clear);
+  assert.equal(policy.status, 'merge_blocked_repository_policy');
+  assert.equal(policy.next_command, 'obtain-repository-policy-thread-disposition');
+  for (const message of ['Required check Gate failed', 'Missing approval', 'Security check failed',
+    'Delivery integrity rejected', 'Branch protection rejected']) {
+    assert.equal(syncMergeFailureDisposition(new Error(message), clear).status, 'merge_failed');
+  }
+});
+
+test('final sync finding evidence rejects edited findings, lost handoffs and partial API reads', async () => {
+  const cases = [
+    h => { h.fresh.reviewThreads.pageInfo.hasNextPage = true; },
+    h => { h.fresh.reviewThreads.nodes = structuredClone(h.packet.reviewThreads);
+      h.fresh.reviewThreads.nodes[0].comments.nodes[0].body += ' New incompatibility.'; },
+    h => { h.packet.handoffs[0].assignees = []; },
+    h => { h.packet.handoffs[0] = undefined; },
+    h => { h.packet.comments = undefined; },
+    h => { changeProof(h.packet, { handoff_url: 'https://github.com/other/repo/issues/1' }); },
+    h => { h.fresh.body = h.fresh.body.replace('generation-3', 'generation-4'); },
+    h => { h.fresh.body = h.fresh.body.replace('b'.repeat(40), 'c'.repeat(40)); },
+  ];
+  for (const mutate of cases) {
+    const h = findingGateHarness();
+    mutate(h);
+    assert.equal((await confirmExactHeadSyncFindingGate(h.args)).ok, false, String(mutate));
+  }
+});
+
+for (const [scenario, expectedError, mutate] of [
+  ['missing classification', 'classification_missing_or_stale', h => {
+    h.packet.comments = [];
+  }],
+  ['conflicting classification', 'conflicting_dispositions', h => {
+    const conflicting = findingPacket('shared-source').comments[0];
+    conflicting.id = 42;
+    conflicting.html_url = conflicting.html_url.replace('-41', '-42');
+    h.packet.comments.push(conflicting);
+  }],
+  ['paginated conversation', 'finding_conversation_incomplete', h => {
+    h.fresh.reviewThreads.nodes = structuredClone(h.packet.reviewThreads);
+    h.fresh.reviewThreads.nodes[0].comments.pageInfo.hasNextPage = true;
+  }],
+  ['edited conversation', 'finding_changed', h => {
+    h.fresh.reviewThreads.nodes = structuredClone(h.packet.reviewThreads);
+    h.fresh.reviewThreads.nodes[0].comments.nodes[0].body += ' A shared caller is affected.';
+  }],
+]) {
+  test(`${scenario} at the same head blocks every review boundary after unrelated acceptance`, async () => {
+    const h = findingGateHarness();
+    assert.equal((await confirmExactHeadSyncFindingGate(h.args)).ok, true);
+    mutate(h);
+
+    const final = await confirmExactHeadSyncFindingGate(h.args);
+    assert.equal(final.packet.binding.head_sha, h.pr.head.sha, 'the delivery head did not change');
+    assert.equal(final.ok, false, 'prior unrelated acceptance cannot replace fresh review evidence');
+    assert.equal(final.evaluation.raw_active_count, 1);
+    assert.deepEqual(final.evaluation.blocking_thread_ids, ['PRRT_finding']);
+    assert.deepEqual(final.evaluation.unknown_thread_ids, ['PRRT_finding']);
+    assert.deepEqual(final.evaluation.nonblocking_thread_ids, []);
+    assert.deepEqual(final.evaluation.unrelated_handoffs, []);
+    assert.deepEqual(final.evaluation.findings[0].errors, [expectedError]);
+
+    const preSeal = classifyGeneratedPr({ pr: h.pr, activeReviewThreadCount: 1,
+      reviewThreads: final.packet.reviewThreads, findingEvidence: final.packet,
+      checkState: { status: 'ready' } });
+    assert.equal(preSeal.disposition, 'review-blocked');
+    assert.deepEqual(preSeal.finding_disposition, final.evaluation);
+
+    const row = { repo: h.packet.binding.repository, pr: h.pr.number,
+      head_sha: h.pr.head.sha, source_commit: h.record.source_commit,
+      plan_id: h.record.plan_id, delivery_generation: h.record.generation,
+      evidence_source: 'open-candidate', required_check_state: 'success',
+      active_review_thread_count: 1, review_disposition: final.packet };
+    assert.deepEqual(validateCanaryEvidence([row], [row.repo]).errors,
+      [`active_review_debt:${row.repo}`]);
+    const built = require('../maint71_merge_sync_prs').buildCanaryPromotionEvidence([row], [row.repo]);
+    assert.equal(built.ok, false);
+    assert.deepEqual(built.errors, [`active_review_debt:${row.repo}`]);
+    const retained = built.evidence.results[0];
+    assert.equal(retained.active_review_thread_count, 1);
+    assert.equal(retained.review_disposition.reviewThreads[0].isResolved, false);
+    assert.equal(retained.review_disposition.comments.length, final.packet.comments.length,
+      'compaction must retain conflicting or absent classification evidence');
+    const compact = evaluateSyncFindingDispositions({ ...retained.review_disposition,
+      activeReviewThreadCount: retained.active_review_thread_count });
+    for (const key of ['blocked', 'errors', 'raw_active_count', 'aggregates',
+      'disposition_thread_ids', 'blocking_thread_ids', 'unknown_thread_ids', 'unrelated_handoffs']) {
+      assert.deepEqual(compact[key], final.evaluation[key], key);
+    }
+    assert.deepEqual(compact.findings[0].errors, [expectedError]);
+    assert.equal(compact.findings[0].thread_id, 'PRRT_finding');
+    assert.deepEqual(validateCanaryEvidence([retained], [row.repo]).errors,
+      [`active_review_debt:${row.repo}`]);
+    assert.equal(h.packet.reviewThreads[0].isResolved, false);
+  });
+}
+
+for (const [status, reason] of [[404, 'deleted'], [403, 'inaccessible'], [503, 'unavailable']]) {
+  test(`${reason} local handoff blocks pre-seal, final merge and canary without hiding the finding`, async () => {
+    const h = findingGateHarness();
+    const valid = await confirmExactHeadSyncFindingGate(h.args);
+    assert.equal(valid.ok, true, 'the assigned local issue initially permits unrelated debt');
+    const read = h.args.read;
+    h.args.read = fn => read(client => fn({ ...client, rest: { ...client.rest,
+      issues: { ...client.rest.issues, get: async params => {
+        assert.deepEqual(params, { owner: 'stranske', repo: 'Ready', issue_number: 31 });
+        throw Object.assign(new Error(`handoff ${reason}`), { status });
+      } },
+    } }));
+
+    const final = await confirmExactHeadSyncFindingGate(h.args);
+    assert.equal(final.ok, false, 'a previously valid handoff cannot survive a failed fresh read');
+    assert.equal(final.packet.evidenceComplete, false);
+    assert.equal(final.packet.error, `handoff ${reason}`);
+    assert.deepEqual(final.evaluation.errors, ['review_evidence_incomplete']);
+    assert.equal(final.evaluation.raw_active_count, 1);
+    assert.deepEqual(final.evaluation.blocking_thread_ids, ['PRRT_finding']);
+    assert.deepEqual(final.evaluation.unknown_thread_ids, ['PRRT_finding']);
+    assert.deepEqual(final.evaluation.nonblocking_thread_ids, []);
+    assert.deepEqual(final.evaluation.unrelated_handoffs, []);
+    assert.deepEqual(final.evaluation.findings[0].errors, ['durable_local_handoff_unverified']);
+
+    const preSeal = classifyGeneratedPr({ pr: h.pr, activeReviewThreadCount: 1,
+      reviewThreads: h.packet.reviewThreads, findingEvidence: final.packet,
+      checkState: { status: 'ready' } });
+    assert.equal(preSeal.disposition, 'review-blocked');
+    assert.deepEqual(preSeal.finding_disposition, final.evaluation);
+    const row = { repo: h.packet.binding.repository, pr: h.pr.number,
+      head_sha: h.pr.head.sha, source_commit: h.record.source_commit,
+      plan_id: h.record.plan_id, delivery_generation: h.record.generation,
+      evidence_source: 'open-candidate', required_check_state: 'success',
+      active_review_thread_count: 1, review_disposition: final.packet };
+    const built = require('../maint71_merge_sync_prs').buildCanaryPromotionEvidence([row], [row.repo]);
+    assert.equal(built.ok, false);
+    assert.deepEqual(built.errors, [`active_review_debt:${row.repo}`]);
+    const retained = built.evidence.results[0];
+    assert.equal(retained.active_review_thread_count, 1);
+    assert.equal(retained.review_disposition.evidenceComplete, false);
+    assert.deepEqual(retained.review_disposition.reviewThreads.map(thread => thread.id), ['PRRT_finding']);
+    assert.deepEqual(retained.review_disposition.handoffs, []);
+    assert.equal(validateCanaryEvidence([retained], [row.repo]).ok, false);
+    assert.equal(h.packet.reviewThreads[0].isResolved, false);
+  });
+}
 
 const refreshNow = Date.parse('2026-10-17T12:00:00Z');
 
@@ -913,7 +1441,8 @@ test('an untrusted marker cannot suppress upstream routing', async () => {
   assert.equal(api.comments.length, 1);
 });
 
-test('Maint 68 verified unchanged-tree run resets producer observation without changing lifecycle', () => {
+test('Maint 68 verified unchanged-tree run resets producer observation without changing lifecycle', async () => {
+  const execFile = require('node:util').promisify(require('node:child_process').execFile);
   const workflow = fs.readFileSync(path.join(__dirname, '../../workflows/maint-68-sync-consumer-repos.yml'), 'utf8');
   const start = workflow.indexOf('          desired_tree_hash=$(git write-tree)');
   const end = workflow.indexOf('          elif [ -n "$existing_pr" ]', start);
@@ -929,9 +1458,11 @@ test('Maint 68 verified unchanged-tree run resets producer observation without c
     fi
     echo "RESULT:$head_observed_sha:$head_observed_at:$delivery_state:$sealed_at:$matching_existing"
   `;
-  const output = require('node:child_process').execFileSync('bash', ['-c', script], { encoding: 'utf8', env: { ...process.env, FORCE: 'false' } });
+  const { stdout: output } = await execFile('bash', ['-c', script], {
+    encoding: 'utf8', env: { ...process.env, FORCE: 'false' },
+  });
   assert.match(output, /RESULT:unchanged:2026-10-17T12:00:00Z:sealed:prior:true/);
-  const forcedOutput = require('node:child_process').execFileSync('bash', ['-c', script], {
+  const { stdout: forcedOutput } = await execFile('bash', ['-c', script], {
     encoding: 'utf8', env: { ...process.env, FORCE: 'true' },
   });
   assert.match(forcedOutput, /RESULT:unchanged:2026-10-17T05:00:00Z:sealed:prior:false/,

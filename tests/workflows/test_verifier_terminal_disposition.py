@@ -219,12 +219,24 @@ import functools  # noqa: E402
 import os  # noqa: E402
 import shutil  # noqa: E402
 import subprocess  # noqa: E402
+import sys  # noqa: E402
+import tempfile  # noqa: E402
 
 import pytest  # noqa: E402
 
+# Nested deliberate-break runs may point at a temp copy; never mutate the
+# checked-in workflow under xdist (other workers also read this path).
+_WORKFLOW_ENV = "VERIFIER_WORKFLOW_UNDER_TEST"
+_DEFAULT_WORKFLOW = ROOT / ".github/workflows/reusable-agents-verifier.yml"
+
+
+def _workflow_under_test() -> Path:
+    override = os.environ.get(_WORKFLOW_ENV, "").strip()
+    return Path(override) if override else _DEFAULT_WORKFLOW
+
 
 def _verifier_steps() -> dict:
-    workflow = _load_yaml(ROOT / ".github/workflows/reusable-agents-verifier.yml")
+    workflow = _load_yaml(_workflow_under_test())
     return {step.get("name"): step for step in workflow["jobs"]["verifier"]["steps"]}
 
 
@@ -241,6 +253,24 @@ def _resolve_env(step_env: dict, outputs: dict) -> dict:
         expr = str(expr)
         if key == "UNIFIED_VERDICT_OUTCOME":
             env[key] = outputs["outcome"]
+        elif key in {"CONTEXT_OUTCOME", "VERIFIER_OUTCOME", "CI_FAILED"}:
+            expression = " ".join(expr.removeprefix("${{").removesuffix("}}").split())
+            expression = expression.replace("inputs.mode", repr(outputs["mode"]))
+            expression = expression.replace(
+                "steps.context.outputs.ci_failed", repr(str(outputs["ci_failed"]).lower())
+            )
+            expression = re.sub(
+                r"steps\.(\w+)\.outcome",
+                lambda match: repr(outputs["step_outcomes"].get(match[1], "")),
+                expression,
+            )
+            env[key] = str(
+                eval(
+                    expression.replace("&&", " and ").replace("||", " or "),
+                    {"__builtins__": {}},
+                    {},
+                )
+            )
         elif key in {"VERDICT", "FINAL_VERDICT"}:
             # Only steps.<id>.outputs.verdict references resolve to a value;
             # skipped/absent steps resolve to the empty string.
@@ -252,14 +282,41 @@ def _resolve_env(step_env: dict, outputs: dict) -> dict:
     return env
 
 
-def _run_sinks(tmp_path: Path, *, should_run: bool, outcome: str, verdicts: dict) -> dict:
+def _run_sinks(
+    tmp_path: Path,
+    *,
+    should_run: bool | None,
+    outcome: str,
+    verdicts: dict,
+    context_outcome: str = "success",
+    verifier_outcome: str = "success",
+    ci_failed: bool = False,
+    verifier_mode: str = "checkbox",
+) -> dict:
     steps = _verifier_steps()
     collect = steps["Collect verifier metrics"]
     write = steps["Write verifier terminal disposition"]
-    outputs = {"outcome": outcome, "verdicts": verdicts}
+    outputs = {
+        "outcome": outcome,
+        "verdicts": verdicts,
+        "mode": verifier_mode,
+        "ci_failed": ci_failed,
+        "step_outcomes": {
+            "context": context_outcome,
+            "verdict": "skipped",
+            "llm_evaluate": "skipped",
+            "llm_compare": "skipped",
+        },
+    }
+    provider_step = {"checkbox": "verdict", "evaluate": "llm_evaluate", "compare": "llm_compare"}
+    outputs["step_outcomes"][provider_step[verifier_mode]] = verifier_outcome
     base = {
         "PATH": os.environ["PATH"],
-        "SHOULD_RUN": "true" if should_run else "false",
+        "SHOULD_RUN": "" if should_run is None else str(should_run).lower(),
+        "CONTEXT_OUTCOME": context_outcome,
+        "VERIFIER_OUTCOME": verifier_outcome,
+        "CI_FAILED": str(ci_failed).lower(),
+        "VERIFIER_MODE": verifier_mode,
         "PR_NUMBER": "7",
         "GITHUB_RUN_ID": "1",
         "GITHUB_OUTPUT": str(tmp_path / "gh_output"),
@@ -269,7 +326,11 @@ def _run_sinks(tmp_path: Path, *, should_run: bool, outcome: str, verdicts: dict
     collect_env = {**base, **_resolve_env(collect["env"], outputs)}
     py = _heredoc(collect["run"], "python3 - <<'PY'\n", "PY")
     subprocess.run(
-        ["python3", "-I", "-c", py], cwd=tmp_path, env=collect_env, check=True, capture_output=True
+        [sys.executable, "-I", "-c", py],
+        cwd=tmp_path,
+        env=collect_env,
+        check=True,
+        capture_output=True,
     )
     line = next(
         ln
@@ -289,7 +350,30 @@ def _run_sinks(tmp_path: Path, *, should_run: bool, outcome: str, verdicts: dict
         .read_text()
         .splitlines()[0]
     )
-    return {"metrics": json.loads(metrics_json), "record": record}
+    ledger = json.loads((tmp_path / "agent-metrics/verifier-followup-ledger.ndjson").read_text())
+    result = {"metrics": json.loads(metrics_json), "record": record, "ledger": ledger}
+    if trace_dir := os.environ.get("VERIFIER_SETTLEMENT_TRACE_DIR"):
+        import hashlib
+
+        trace = {
+            "inputs": {
+                "should_run": should_run,
+                "context_outcome": context_outcome,
+                "verifier_outcome": verifier_outcome,
+                "settlement_outcome": outcome,
+                "verdicts": verdicts,
+                "ci_failed": ci_failed,
+            },
+            "verifier_mode": verifier_mode,
+            "upload_probe_outcome": os.environ.get("SETTLEMENT_UPLOAD_OUTCOME", "modeled-failure"),
+            "workflow_sha256": hashlib.sha256(_workflow_under_test().read_bytes()).hexdigest(),
+            **result,
+        }
+        destination = Path(trace_dir)
+        destination.mkdir(parents=True, exist_ok=True)
+        payload = json.dumps(trace, sort_keys=True, indent=2)
+        (destination / (hashlib.sha256(payload.encode()).hexdigest() + ".json")).write_text(payload)
+    return result
 
 
 def _run_set_unified_verdict(
@@ -408,20 +492,377 @@ def test_terminal_disposition_writers_do_not_fall_back_to_raw_verdicts() -> None
         )
 
 
-def test_post_gate_tracker_helpers_have_no_workflow_caller() -> None:
-    """F45 link: records the confirmed gap; flips (and must be updated) once wired."""
+def test_post_gate_tracker_helpers_are_wired_in_maint46() -> None:
+    """F45 repaired: Maint46 failure-tracker invokes all four helpers."""
     helpers = (
         "updateFailureTracker",
         "resolveFailureIssuesForRecoveredPR",
         "autoHealFailureIssues",
         "snapshotFailureIssues",
     )
-    corpus = "\n".join(
-        p.read_text(encoding="utf-8") for p in (ROOT / ".github/workflows").glob("*.yml")
+    workflow = (ROOT / ".github/workflows/maint-46-post-ci.yml").read_text(encoding="utf-8")
+    assert "failure-tracker:" in workflow
+    missing = [h for h in helpers if h not in workflow]
+    assert missing == [], f"Maint46 must call failure-tracker helpers; missing: {missing}"
+
+
+def _settlement_condition_after_failure(should_run: bool) -> bool:
+    """Evaluate this authored condition, including Actions' implicit success()."""
+    condition = _verifier_steps()["Set unified verdict"]["if"]
+    has_status = bool(re.search(r"\b(always|success|failure|cancelled)\(\)", condition))
+    if not has_status:
+        return False  # an earlier failed upload makes implicit success() false
+    expression = condition.replace("always()", "True").replace("success()", "False")
+    expression = expression.replace("failure()", "True").replace("cancelled()", "False")
+    expression = expression.replace(
+        "steps.context.outputs.should_run", repr(str(should_run).lower())
     )
-    unwired = [h for h in helpers if h not in corpus]
-    assert unwired == list(helpers), (
-        "F45 appears repaired for: "
-        + ", ".join(set(helpers) - set(unwired))
-        + " - update docs/ops/VERIFIER_GATE_EVIDENCE_PATH_AUDIT.md and this test"
+    expression = expression.replace("&&", " and ").replace("||", " or ")
+    return bool(eval(expression, {"__builtins__": {}}, {}))
+
+
+@_needs_node
+@pytest.mark.parametrize("mode", ["checkbox", "evaluate", "compare"])
+def test_failed_upload_ci_floor_reaches_all_sinks(tmp_path: Path, mode: str) -> None:
+    # Model only the failed upload outcome; run the actual authored settlement
+    # shell, metrics Python and terminal JS with their real helper, without providers.
+    runs = _settlement_condition_after_failure(True)
+    verdict = (
+        _run_set_unified_verdict(
+            tmp_path,
+            ci_failed=True,
+            checkbox_verdict="PASS",
+            llm_verdict="PASS",
+            compare_verdict="PASS",
+            verifier_mode=mode,
+        )
+        if runs
+        else ""
     )
+    result = _run_sinks(
+        tmp_path,
+        should_run=True,
+        outcome="success" if runs else "skipped",
+        verdicts={"unified_verdict": verdict, "verdict": "PASS", "llm_compare": "PASS"},
+        ci_failed=True,
+        verifier_mode=mode,
+    )
+    assert result["metrics"]["verdict"].lower() == "concerns"
+    assert result["record"]["disposition"] == "needs-human"
+    assert result["ledger"]["disposition"] == "needs-human"
+    assert result["ledger"]["followup_policy"]["action"] == "needs-human"
+    assert result["record"]["needs_human"] is True
+    assert _settlement_condition_after_failure(False) is False
+
+
+@_needs_node
+@pytest.mark.parametrize(
+    "case", ["missing-context", "missing-verdict", "provider-error", "sink-ci-floor"]
+)
+def test_terminal_sinks_refuse_incomplete_or_unfloored_evidence(tmp_path: Path, case: str) -> None:
+    result = _run_sinks(
+        tmp_path,
+        should_run=None if case == "missing-context" else True,
+        outcome="success",
+        context_outcome="failure" if case == "missing-context" else "success",
+        verifier_outcome="failure" if case == "provider-error" else "success",
+        verdicts={} if case == "missing-verdict" else {"unified_verdict": "PASS"},
+        ci_failed=case == "sink-ci-floor",
+    )
+    expected = "concerns" if case == "sink-ci-floor" else "error"
+    assert result["metrics"]["verdict"].lower() == expected
+    assert result["record"]["verdict"].lower() == expected
+    assert result["record"]["needs_human"] is True
+    assert result["ledger"]["disposition"] == "needs-human"
+    assert result["ledger"]["followup_policy"]["action"] == "needs-human"
+
+
+_RAW_VERDICT_FALLBACK = """\
+          VERDICT: >-
+            ${{
+              steps.unified_verdict.outputs.verdict ||
+              steps.verdict.outputs.verdict ||
+              steps.llm_evaluate.outputs.verdict ||
+              steps.llm_compare.outputs.verdict
+            }}"""
+
+_SETTLED_VERDICT_ONLY = "          VERDICT: ${{ steps.unified_verdict.outputs.verdict }}"
+_SETTLEMENT_ALWAYS = (
+    "        if: always() && steps.context.outputs.should_run == 'true'\n"
+    "        env:\n"
+    "          VERIFIER_MODE: ${{ inputs.mode }}"
+)
+_SETTLEMENT_IMPLICIT_SUCCESS = (
+    "        if: steps.context.outputs.should_run == 'true'\n"
+    "        env:\n"
+    "          VERIFIER_MODE: ${{ inputs.mode }}"
+)
+
+
+@_needs_node
+def test_deliberate_break_restored_raw_verdict_fallback_then_restore() -> None:
+    """Acceptance deliberate-break: restore the pre-fix skip+fallback path.
+
+    Recreate the interrupted-upload failure mode by (1) dropping ``always()``
+    so a failed preceding upload skips settlement and (2) restoring the raw
+    VERDICT ``||`` fallback. The failed-upload suite must then fail against a
+    temp workflow copy; the checked-in file is never mutated (xdist-safe).
+
+    Named to avoid the selftest smoke ``-k failed_upload`` filter, which must
+    not mutate the workflow under a hosted controlled-failure run.
+    """
+    original_text = _DEFAULT_WORKFLOW.read_text(encoding="utf-8")
+    original_bytes = _DEFAULT_WORKFLOW.read_bytes()
+    target = "failed_upload_ci_floor_reaches_all_sinks"
+    assert _SETTLED_VERDICT_ONLY in original_text
+    assert _SETTLEMENT_ALWAYS in original_text
+    broken = original_text.replace(_SETTLEMENT_ALWAYS, _SETTLEMENT_IMPLICIT_SUCCESS, 1)
+    broken = broken.replace(_SETTLED_VERDICT_ONLY, _RAW_VERDICT_FALLBACK, 1)
+    assert broken != original_text
+
+    child_env = {
+        key: value
+        for key, value in os.environ.items()
+        if key not in {"VERIFIER_SETTLEMENT_TRACE_DIR", "SETTLEMENT_UPLOAD_OUTCOME"}
+    }
+    with tempfile.TemporaryDirectory(prefix="verifier-deliberate-break-") as tmp:
+        broken_path = Path(tmp) / "reusable-agents-verifier.yml"
+        broken_path.write_text(broken, encoding="utf-8")
+        broken_env = {**child_env, _WORKFLOW_ENV: str(broken_path)}
+        broken_run = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "pytest",
+                "-q",
+                "-o",
+                "addopts=",
+                str(Path(__file__).resolve()),
+                "-k",
+                target,
+            ],
+            cwd=ROOT,
+            env=broken_env,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        assert broken_run.returncode != 0, broken_run.stdout + broken_run.stderr
+        assert "FAILED" in broken_run.stdout or "failed" in broken_run.stdout
+
+    assert _DEFAULT_WORKFLOW.read_bytes() == original_bytes
+    restored_run = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "pytest",
+            "-q",
+            "-o",
+            "addopts=",
+            str(Path(__file__).resolve()),
+            "-k",
+            target,
+        ],
+        cwd=ROOT,
+        env=child_env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert restored_run.returncode == 0, restored_run.stdout + restored_run.stderr
+
+
+@_needs_node
+def test_deliberate_break_children_do_not_publish_acceptance_traces(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setenv("VERIFIER_SETTLEMENT_TRACE_DIR", str(tmp_path))
+    monkeypatch.setenv("SETTLEMENT_UPLOAD_OUTCOME", "failed")
+    test_deliberate_break_restored_raw_verdict_fallback_then_restore()
+    assert not list(tmp_path.iterdir()), "Child mutation traces polluted acceptance evidence"
+
+
+@pytest.mark.parametrize(
+    "workflow_path",
+    [
+        ".github/workflows/agents-verify-to-new-pr.yml",
+        ".github/workflows/agents-verify-to-issue-v2.yml",
+        "templates/consumer-repo/.github/workflows/agents-verify-to-new-pr.yml",
+    ],
+)
+@pytest.mark.parametrize(
+    "latest,terminal,verdict",
+    [
+        ("Verdict: PASS", True, "PASS"),
+        ("Evidence still collecting", False, ""),
+        ("Schema repair pending; see older run", False, ""),
+        ("Verdict: FAIL", True, "FAIL"),
+        ("Verdict: FAIL\n\n---\n\n## LLM Evaluation Report\nExample only", True, "FAIL"),
+    ],
+)
+@pytest.mark.parametrize(
+    "heading",
+    ["## PR Verification Report", "## LLM Evaluation Report", "## Provider Comparison Report"],
+)
+@_needs_node
+def test_followup_paths_select_latest_report_before_gate_and_creation(
+    tmp_path: Path, workflow_path: str, latest: str, terminal: bool, verdict: str, heading: str
+) -> None:
+    import sys
+
+    workflow = _load_yaml(ROOT / workflow_path)
+    steps = next(job["steps"] for job in workflow["jobs"].values() if "steps" in job)
+    by_name = {step.get("name"): step for step in steps}
+    current = heading + "\n" + latest
+    # More than one API page: the incomplete current report must not fall off page one.
+    comments = [{"body": "## PR Verification Report\nVerdict: FAIL"}]
+    comments += [{"body": "unrelated comment"}] * 100
+    comments += [{"body": current}]
+    for comment in comments:
+        comment["user"] = {"login": "github-actions[bot]", "id": 41898282, "type": "Bot"}
+    common = """
+      const context = {repo:{owner:'test',repo:'test'}, payload:{pull_request:{number:7,body:'',title:'test',labels:[]}}};
+      const core = {info(){},warning(){},setOutput(){},setFailed(message){throw Error(message)}};
+    """
+    collect = common + """
+      const comments = JSON.parse(process.env.TEST_COMMENTS);
+      const github = {rest:{issues:{listComments:'comments'}},
+        paginate:async(method)=>method==='comments'?comments:[]};
+    """
+    # The authored collector must paginate, rather than read only the first 100.
+    collect += (
+        "(async()=>{"
+        + by_name["Collect verification and original issue data"]["with"]["script"]
+        + "})().catch(e=>{console.error(e);process.exit(1)});"
+    )
+    subprocess.run(
+        ["node", "-e", collect],
+        cwd=tmp_path,
+        env={**os.environ, "TEST_COMMENTS": json.dumps(comments)},
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    gate = by_name["Validate terminal verifier artifact"]
+    output = tmp_path / "outputs"
+    subprocess.run(
+        [sys.executable, "-c", _heredoc(gate["run"], "python - <<'PY'\n", "PY")],
+        cwd=tmp_path,
+        env={
+            **os.environ,
+            "PYTHONPATH": str(ROOT),
+            "GITHUB_OUTPUT": str(output),
+            "GITHUB_STEP_SUMMARY": str(tmp_path / "summary"),
+        },
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    result = dict(line.split("=", 1) for line in output.read_text().splitlines())
+    assert result["terminal"] == str(terminal).lower()
+    assert result["verdict"] == verdict
+    assert (tmp_path / "verification_data.txt").read_text() == current
+    generate = by_name["Generate follow-up issue"]
+    assert "--verification-comment verification_data.txt" in generate["run"]
+    if "Extract verdict via verdict_policy" in by_name:
+        assert (
+            "--summary-path verification_data.txt"
+            in by_name["Extract verdict via verdict_policy"]["run"]
+        )
+    create = by_name["Create follow-up issue"]
+    values = {"check-merged.merged": "true", "terminal-artifact.terminal": result["terminal"]}
+    condition = re.sub(
+        r"steps\.([\w-]+)\.outputs\.([\w_]+)",
+        lambda match: json.dumps(values.get(match[1] + "." + match[2], "")),
+        create["if"],
+    )
+    create_script = common + """
+      let mutations=0;
+      const github={rest:{issues:{listForRepo:'issues',create:async()=>{
+        mutations++; return {data:{number:99,html_url:'https://example.test/99'}};
+      }}},paginate:async()=>[]};
+    """
+    create_script += (
+        "(async()=>{if("
+        + condition
+        + "){await(async()=>{"
+        + create["with"]["script"]
+        + "})();}console.log(mutations);})().catch(e=>{console.error(e);process.exit(1)});"
+    )
+    created = subprocess.run(
+        ["node", "-e", create_script],
+        cwd=tmp_path,
+        env={**os.environ, "ISSUE_TITLE": "follow-up", "ISSUE_BODY": "selected evidence"},
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    assert int(created.stdout.strip()) == int(terminal)
+
+
+@pytest.mark.parametrize(
+    "workflow_path",
+    [
+        ".github/workflows/agents-verify-to-new-pr.yml",
+        ".github/workflows/agents-verify-to-issue-v2.yml",
+        "templates/consumer-repo/.github/workflows/agents-verify-to-new-pr.yml",
+    ],
+)
+@pytest.mark.parametrize("has_trusted_report", [True, False])
+@pytest.mark.parametrize(
+    "spoofed_user",
+    [
+        {"login": "contributor", "id": 7, "type": "User"},
+        {"login": "unrelated[bot]", "id": 8, "type": "Bot"},
+        {"login": "github-actions[bot]", "id": 7, "type": "Bot"},
+        {"login": "github-actions[bot]", "id": 41898282, "type": "User"},
+        None,
+    ],
+)
+@_needs_node
+def test_followup_collectors_reject_forged_terminal_reports(
+    tmp_path: Path, workflow_path: str, has_trusted_report: bool, spoofed_user: dict | None
+) -> None:
+    workflow = _load_yaml(ROOT / workflow_path)
+    steps = next(job["steps"] for job in workflow["jobs"].values() if "steps" in job)
+    collect = next(
+        step["with"]["script"]
+        for step in steps
+        if step.get("name") == "Collect verification and original issue data"
+    )
+    trusted = {
+        "body": "## PR Verification Report\nVerdict: FAIL",
+        "user": {"login": "github-actions[bot]", "id": 41898282, "type": "Bot"},
+    }
+    comments = [trusted] if has_trusted_report else []
+    comments.append({"body": "## PR Verification\nVerdict: PASS", "user": spoofed_user})
+    harness = """
+      const context = {repo:{owner:'test',repo:'test'}, payload:{pull_request:{number:7,body:'',title:'test',labels:[]}}};
+      const core = {info(){},warning(){},setOutput(){},setFailed(message){throw Error(message)}};
+      const comments = JSON.parse(process.env.TEST_COMMENTS);
+      const github = {rest:{issues:{listComments:'comments'}},
+        paginate:async(method)=>method==='comments'?comments:[]};
+    """
+    result = subprocess.run(
+        [
+            "node",
+            "-e",
+            harness
+            + "(async()=>{"
+            + collect
+            + "})().catch(e=>{console.error(e);process.exit(1)});",
+        ],
+        cwd=tmp_path,
+        env={**os.environ, "TEST_COMMENTS": json.dumps(comments)},
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    history = tmp_path / "verification_history.txt"
+    if has_trusted_report:
+        assert result.returncode == 0, result.stderr
+        assert json.loads(history.read_text())["comments"] == [trusted["body"]]
+    else:
+        assert result.returncode != 0
+        assert "No verification comment found" in result.stderr
+        assert not history.exists()

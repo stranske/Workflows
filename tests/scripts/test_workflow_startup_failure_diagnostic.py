@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import subprocess
 import sys
@@ -8,6 +9,9 @@ from typing import Any
 
 import pytest
 from scripts import workflow_startup_failure_diagnostic as diag
+
+# Captured before the autouse fixture replaces the helper each test.
+_REAL_GH_API_LIST = diag._gh_api_list
 
 
 @pytest.fixture(autouse=True)
@@ -97,6 +101,57 @@ def test_gh_api_rejects_non_object_response(monkeypatch) -> None:
 
     with pytest.raises(ValueError, match="Expected JSON object"):
         diag._gh_api("repos/owner/repo/actions/runs/123", token="test-token")
+
+
+def test_token_pacing_and_list_api_paths(monkeypatch) -> None:
+    # GH_TOKEN wins over GITHUB_TOKEN; clear both so CI runners with an
+    # installation token in either variable do not leak into this unit path.
+    monkeypatch.delenv("GH_TOKEN", raising=False)
+    monkeypatch.setenv("GITHUB_TOKEN", "environment-token")
+    assert diag._github_token() == "environment-token"
+
+    monkeypatch.delenv("GITHUB_TOKEN", raising=False)
+    monkeypatch.setattr(
+        diag.subprocess,
+        "run",
+        lambda *args, **kwargs: type(
+            "Result", (), {"stdout": "gh-auth-token\n", "returncode": 0}
+        )(),
+    )
+    assert diag._github_token() == "gh-auth-token"
+
+    sleeps: list[float] = []
+    monkeypatch.setattr(diag.time, "sleep", sleeps.append)
+    monkeypatch.setattr(diag, "_PACE_SECONDS", 0.25)
+    diag._pace()
+    assert sleeps == [0.25]
+    sleeps.clear()
+    monkeypatch.setattr(diag, "_PACE_SECONDS", 0.0)
+    diag._pace()
+    assert sleeps == []
+
+    calls: list[tuple[str, str, str]] = []
+
+    def request(method, url, token, **kwargs):
+        calls.append((method, url, token))
+        return {"ok": True}
+
+    monkeypatch.setattr(diag.api_client, "_request_json", request)
+    assert diag._get_json("/repos/o/r", "provided") == {"ok": True}
+    assert calls == [("GET", f"{diag.api_client.GITHUB_API}/repos/o/r", "provided")]
+    assert diag._gh_api("repos/o/r", "provided") == {"ok": True}
+
+    responses: list[Any] = [[{"sha": "abc"}], {"message": "not a list"}]
+
+    def list_request(method, url, token, **kwargs):
+        return responses.pop(0)
+
+    monkeypatch.setattr(diag.api_client, "_request_json", list_request)
+    monkeypatch.setattr(diag, "_pace", lambda: None)
+    # Restore the real module helper so the array-vs-object branch is measured.
+    monkeypatch.setattr(diag, "_gh_api_list", _REAL_GH_API_LIST)
+    assert diag._gh_api_list("repos/o/r/commits", "t") == [{"sha": "abc"}]
+    assert diag._gh_api_list("repos/o/r/commits", "t") == []
 
 
 def test_diagnose_startup_failure_collects_output_fields(monkeypatch) -> None:
@@ -587,6 +642,34 @@ def test_fmt_days_never_prints_a_bare_none() -> None:
     assert diag._fmt_days({"days_held": 9, "onset_truncated": True}) == ">=9d"
 
 
+def test_sweep_helpers_dedupe_repositories_and_write_action_summary(
+    tmp_path: Path, monkeypatch
+) -> None:
+    args = diag._build_parser().parse_args(
+        ["--sweep", "--repo", "owner/a", "--repos", "owner/a,owner/b"]
+    )
+    assert diag._sweep_repos(args) == ["owner/a", "owner/b"]
+    summary_path = tmp_path / "summary.md"
+    monkeypatch.setenv("GITHUB_STEP_SUMMARY", str(summary_path))
+    report = {
+        "held": [
+            {
+                "repo": "owner/a",
+                "workflow": ".github/workflows/a.yml",
+                "consecutive_held": 2,
+                "days_held": 3,
+                "onset_truncated": False,
+                "review": {"verdict": "benign", "reason": "safe"},
+                "approval_url": "https://example.test/approve",
+            }
+        ]
+    }
+    diag._write_step_summary("one held", report)
+    rendered = summary_path.read_text(encoding="utf-8")
+    assert "Workflow liveness sweep" in rendered
+    assert "[approve](https://example.test/approve)" in rendered
+
+
 # --- auto-review ------------------------------------------------------------
 #
 # Clearing a hold costs a human ~5 seconds of clicking and ~2 minutes of working
@@ -807,3 +890,300 @@ def test_script_runs_when_invoked_by_path_without_pythonpath() -> None:
     assert "ModuleNotFoundError" not in result.stderr, result.stderr
     assert result.returncode == 0, result.stderr
     assert "--sweep" in result.stdout
+
+
+def test_fork_inference_and_startup_classification_fallbacks() -> None:
+    assert (
+        diag._head_repository_is_fork("owner/repo", {"head_repository": {"full_name": "fork/r"}})
+        is True
+    )
+    assert (
+        diag._head_repository_is_fork("owner/repo", {"head_repository": {"full_name": ""}}) is None
+    )
+    assert diag._classify_startup_failure("nope", "nope", "nope") == ("unknown", "unknown")
+    assert diag._classify_startup_failure("Line 9", "The workflow is not valid", "") == (
+        "workflow_parse_or_graph",
+        "workflow_parse_or_job_graph_construction",
+    )
+
+
+def test_iter_paginated_and_hold_onset_edge_paths(monkeypatch) -> None:
+    assert diag._days_between("not-a-date", "2026-08-01T00:00:00Z") is None
+
+    pages = {
+        1: [{"id": i} for i in range(100)],
+        2: [{"id": 100}, "skip", {"id": 101}],
+        3: [],
+    }
+
+    def fake_workflows(path: str, token: str | None = None) -> dict[str, Any]:
+        page = int(path.rsplit("page=", 1)[-1])
+        return {"workflows": pages.get(page, [])}
+
+    monkeypatch.setattr(diag, "_gh_api", fake_workflows)
+    assert [
+        row["id"] for row in diag._iter_paginated("repos/o/r/actions/workflows", "workflows", "t")
+    ] == [
+        *range(100),
+        100,
+        101,
+    ]
+
+    monkeypatch.setattr(diag, "_gh_api", lambda path, token=None: {"workflows": "bad"})
+    assert diag._iter_paginated("repos/o/r/actions/workflows", "workflows", "t") == []
+
+    def empty_runs(path: str, token: str | None = None) -> dict[str, Any]:
+        return {"workflow_runs": "bad"}
+
+    monkeypatch.setattr(diag, "_gh_api", empty_runs)
+    assert diag._find_hold_onset("o/r", 7, "t") == (0, None, False, None)
+
+    held_then_healthy = [
+        _held_run(1, ""),
+        {
+            "id": 2,
+            "conclusion": "success",
+            "status": "completed",
+            "event": "issues",
+            "created_at": "2026-08-01T00:00:00Z",
+        },
+    ]
+
+    def one_page(path: str, token: str | None = None) -> dict[str, Any]:
+        return {"workflow_runs": held_then_healthy}
+
+    monkeypatch.setattr(diag, "_gh_api", one_page)
+    assert diag._find_hold_onset("o/r", 7, "t") == (
+        1,
+        None,
+        False,
+        "2026-08-01T00:00:00Z",
+    )
+
+    full_page = [_held_run(i, f"2026-08-01T00:00:{i:02d}Z") for i in range(100)]
+
+    def truncated(path: str, token: str | None = None) -> dict[str, Any]:
+        return {"workflow_runs": full_page}
+
+    monkeypatch.setattr(diag, "_gh_api", truncated)
+    streak, onset, was_truncated, healthy = diag._find_hold_onset("o/r", 7, "t", max_pages=1)
+    assert (streak, onset, was_truncated, healthy) == (100, "2026-08-01T00:00:99Z", True, None)
+
+
+def test_sweep_repository_skips_inactive_non_workflow_sparse_and_threshold(
+    monkeypatch,
+) -> None:
+    workflows = [
+        {"id": None, "state": "active", "path": ".github/workflows/a.yml"},
+        {"id": 1, "state": "disabled_manually", "path": ".github/workflows/b.yml"},
+        {"id": 2, "state": "active", "path": "docs/not-a-workflow.yml"},
+        {"id": 3, "state": "active", "name": "Sparse", "path": ".github/workflows/sparse.yml"},
+        {"id": 4, "state": "active", "name": "Healthy", "path": ".github/workflows/healthy.yml"},
+        {"id": 5, "state": "active", "name": "Quiet", "path": ".github/workflows/quiet.yml"},
+    ]
+    runs_by_id = {
+        3: [_held_run(30, "2026-08-20T00:00:00Z")],
+        4: [
+            {
+                "id": 40,
+                "conclusion": "success",
+                "status": "completed",
+                "event": "issues",
+                "created_at": "2026-08-20T00:00:00Z",
+            }
+        ],
+        5: [
+            _held_run(50, "2026-08-20T00:00:00Z"),
+            *[
+                {
+                    "id": 51 + i,
+                    "conclusion": "success",
+                    "status": "completed",
+                    "event": "issues",
+                    "created_at": "2026-08-19T00:00:00Z",
+                }
+                for i in range(19)
+            ],
+        ],
+    }
+
+    def fake_gh_api(path: str, token: str | None = None) -> Any:
+        if "/actions/workflows?" in path:
+            return {"workflows": workflows}
+        if "/jobs" in path:
+            return {"jobs": []}
+        if "/commits?" in path:
+            return []
+        for workflow_id, runs in runs_by_id.items():
+            if f"/workflows/{workflow_id}/runs" in path:
+                return {"workflow_runs": runs}
+        raise AssertionError(f"unexpected path {path}")
+
+    monkeypatch.setattr(diag, "_gh_api", fake_gh_api)
+    report = diag.sweep_repository(
+        "owner/repo",
+        token="t",
+        sample=20,
+        threshold=0.9,
+        min_runs=5,
+        now="2026-08-23T00:00:00Z",
+        review=False,
+    )
+    assert report["workflows_scanned"] == 3
+    assert report["held"] == []
+
+    # Dedicated success-only workflow so the "no held runs" continue is hit.
+    monkeypatch.setattr(
+        diag,
+        "_gh_api",
+        _sweep_stub(
+            runs=[
+                {
+                    "id": 60,
+                    "conclusion": "success",
+                    "status": "completed",
+                    "event": "issues",
+                    "created_at": "2026-08-20T00:00:00Z",
+                }
+            ]
+        ),
+    )
+    assert (
+        diag.sweep_repository(
+            "owner/repo",
+            token="t",
+            sample=20,
+            min_runs=1,
+            now="2026-08-23T00:00:00Z",
+            review=False,
+        )["held"]
+        == []
+    )
+
+
+def test_sweep_summary_step_summary_and_main_error_paths(
+    tmp_path: Path, monkeypatch, capsys
+) -> None:
+    summary = diag.format_sweep_summary(
+        {
+            "held_count": 1,
+            "drainable_count": 0,
+            "workflows_scanned": 3,
+            "oldest_hold": None,
+            "needs_eyes_count": 0,
+            "benign_count": 0,
+            "held_runs_discarded": 2,
+            "held": [],
+        }
+    )
+    assert "oldest" not in summary
+
+    truncated = diag.format_sweep_summary(
+        {
+            "held_count": 1,
+            "drainable_count": 0,
+            "workflows_scanned": 3,
+            "oldest_hold": {
+                "days_held": 9,
+                "onset_truncated": True,
+                "workflow": ".github/workflows/held.yml",
+            },
+            "needs_eyes_count": 0,
+            "benign_count": 0,
+            "held_runs_discarded": 2,
+            "held": [],
+        }
+    )
+    assert ">=9d" in truncated
+
+    held_rows = [
+        {
+            "repo": "owner/a",
+            "workflow": ".github/workflows/newer.yml",
+            "days_held": 1,
+            "drainable_by_api": False,
+            "consecutive_held": 1,
+            "review": {"verdict": "skipped", "reason": "review disabled"},
+            "approval_url": "https://example/a",
+        },
+        {
+            "repo": "owner/b",
+            "workflow": ".github/workflows/older.yml",
+            "days_held": 4,
+            "drainable_by_api": False,
+            "consecutive_held": 4,
+            "review": {"verdict": "skipped", "reason": "review disabled"},
+            "approval_url": "https://example/b",
+        },
+        {
+            "repo": "owner/b",
+            "workflow": ".github/workflows/unknown-age.yml",
+            "days_held": None,
+            "drainable_by_api": False,
+            "consecutive_held": 1,
+            "review": {"verdict": "skipped", "reason": "review disabled"},
+            "approval_url": "https://example/c",
+        },
+    ]
+    monkeypatch.setattr(
+        diag,
+        "sweep_repository",
+        lambda repo, token, **kwargs: {
+            "repo": repo,
+            "workflows_scanned": 1,
+            "held": [entry for entry in held_rows if entry["repo"] == repo],
+        },
+    )
+    aggregated = diag.sweep(["owner/a", "owner/b"], token="t", review=False)
+    assert aggregated["oldest_hold"]["workflow"] == ".github/workflows/older.yml"
+
+    monkeypatch.delenv("GITHUB_STEP_SUMMARY", raising=False)
+    diag._write_step_summary("clean", {"held": []})
+
+    summary_path = tmp_path / "summary.md"
+    monkeypatch.setenv("GITHUB_STEP_SUMMARY", str(summary_path))
+    diag._write_step_summary("clean", {"held": []})
+    assert "Workflow liveness sweep" in summary_path.read_text(encoding="utf-8")
+    assert "|" not in summary_path.read_text(encoding="utf-8").split("sweep\n", 1)[-1]
+
+    monkeypatch.setenv("GITHUB_STEP_SUMMARY", str(tmp_path / "missing-dir" / "summary.md"))
+    diag._write_step_summary("ignored", {"held": []})  # OSError swallowed
+
+    monkeypatch.setattr(
+        diag,
+        "_run_sweep",
+        lambda args: (_ for _ in ()).throw(ValueError("boom")),
+    )
+    assert diag.main(["--sweep", "--repo", "owner/repo"]) == 1
+
+    with pytest.raises(SystemExit) as excinfo:
+        diag.main([])
+    assert excinfo.value.code == 2
+    assert "--repo and --run-id are required" in capsys.readouterr().err
+
+    monkeypatch.setattr(
+        diag,
+        "diagnose_startup_failure",
+        lambda repo, run_id: {
+            "approval_hold": None,
+            "jobs_count": 0,
+            "startup_failures": [{"id": 1}],
+        },
+    )
+    capsys.readouterr()
+    assert diag.main(["--repo", "owner/repo", "--run-id", "9"]) == 0
+    no_jobs = json.loads(capsys.readouterr().out)
+    assert no_jobs == {"approval_hold": None, "jobs_count": 0, "startup_failures": [{"id": 1}]}
+
+    monkeypatch.setattr(
+        diag,
+        "diagnose_startup_failure",
+        lambda repo, run_id: {
+            "approval_hold": None,
+            "jobs_count": 2,
+            "startup_failures": [{"id": 1}],
+        },
+    )
+    assert diag.main(["--repo", "owner/repo", "--run-id", "9"]) == 0
+    with_jobs = json.loads(capsys.readouterr().out)
+    assert with_jobs == {"approval_hold": None, "jobs_count": 2, "startup_failures": [{"id": 1}]}

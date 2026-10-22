@@ -113,7 +113,7 @@ without cancelling an in-flight Gate; a later synchronize can still supersede th
 Existing consumers need the updated Gate dispatch input before this wakeup works:
 the Gate template is create-only, so normal sync does not overwrite custom Gates.
 
-* [`Gate`](../../.github/workflows/pr-00-gate.yml) orchestrates the fast-path vs full CI decision, evaluates coverage artifacts, and reports commit status back to the PR.
+* [`Gate`](../../.github/workflows/pr-00-gate.yml) orchestrates the fast-path vs full CI decision, evaluates coverage artifacts, and reports commit status back to the PR. Gate listens on `pull_request` types `opened`, `synchronize`, `reopened`, and `ready_for_review` only; label-only events do not start or cancel an in-flight Gate run. Agent routing, verify, autofix, and keepalive labels therefore cannot churn the per-PR Gate concurrency group. Use `workflow_dispatch` with `pr_number` when a label-only wakeup must re-run Gate at the current head. `tests/workflows/test_gate_trigger_contract.py` locks the root and consumer-template trigger contract.
 * [`Minimal invariant CI`](../../.github/workflows/pr-11-ci-smoke.yml) supplies the lightweight Issue #3651 sweep: install once on Python 3.12 with pip caching, sanity-check imports, and run `pytest tests/test_invariants.py -q` on pushes and PRs targeting `main`.
 * [`Reusable CI (Python)`](../../.github/workflows/reusable-10-ci-python.yml) drives the primary test matrix (lint, type-check, tests, coverage) for PR builds.
     * Workflows Gate and the new-consumer Gate template select **3.13 and 3.14 in parallel**, with identical full-suite selection, identical markers, the same dependency lock, branch coverage on 3.14 only, and four pytest workers using `loadgroup`. Neither runtime selects a reduced suite. Python >=3.12 package/runtime support and explicit consumer overrides remain supported.
@@ -466,3 +466,23 @@ typing and primary artifact runtime when it belongs to the selected matrix.
 Explicit `primary-python-version` takes precedence; an explicit matrix without
 the shared runtime uses its first member. Repository-owned autofix tool pins
 continue to override the shared fallback pins.
+
+### Verifier settlement failure trace
+
+A manual `selftest-ci.yml` dispatch additionally runs the read-only
+`verifier-settlement-smoke` job. Its intentionally missing upload is tolerated
+only by that probe. The harness executes the authored production settlement
+shell, metrics Python and terminal JavaScript for all verifier modes, then
+retains seven JSON event-to-sink traces in `verifier-settlement-failure-trace`.
+These are controlled failure-path evidence; they do not claim a provider or
+post-merge production verification completed.
+
+### Maint46 failure tracking
+
+[Maint46](../../.github/workflows/maint-46-post-ci.yml) keeps summary recovery
+separate from its independent Gate failure issue/snapshot job. Only the latter
+job has `issues: write`; trusted current run/attempt/head validation precedes all
+writes. Both failure and recovery retain the exact snapshot path. The existing
+[Selftest CI](../../.github/workflows/selftest-ci.yml) dispatch-only tracker replay
+job publishes synthetic issue/snapshot receipts without live issue mutations.
+See the [tracker contract](../ci-failure-tracker.md).

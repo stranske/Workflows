@@ -435,3 +435,152 @@ def test_apply_retention_to_file_preserves_jsonl_payloads(tmp_path: Path) -> Non
 
     assert weekly_archive.read_text(encoding="utf-8") == weekly_line
     assert monthly_archive.read_text(encoding="utf-8") == monthly_line
+
+
+def test_helpers_cover_numeric_dates_policy_and_restore_dry_run(tmp_path: Path) -> None:
+    assert metrics_retention._parse_timestamp_value(True) is None
+    assert metrics_retention._parse_timestamp_value(0) == datetime(1970, 1, 1, tzinfo=UTC)
+    assert metrics_retention._extract_timestamp({"created_at": "2025-01-01T00:00:00Z"}) is not None
+    assert metrics_retention.FileRetentionStats(tmp_path / "none").reduction_percent() == 0.0
+    config = tmp_path / "retention.json"
+    config.write_text('{"retention": {}, "archive": {"enabled": false}}', encoding="utf-8")
+    policy = metrics_retention.load_policy(config, archive_override=str(tmp_path / "override"))
+    assert (
+        policy.keep_days == 14
+        and not policy.archive_enabled
+        and policy.archive_dir == tmp_path / "override"
+    )
+    archive = tmp_path / "archive.ndjson"
+    archive.write_text('{"value": 1}\n', encoding="utf-8")
+    output = tmp_path / "out.ndjson"
+    result = metrics_retention.restore_archive(archive, output, dedupe=False, dry_run=True)
+    assert result["records_restored"] == 1
+    assert not output.exists()
+    output.write_text("existing\n", encoding="utf-8")
+    metrics_retention.restore_archive(archive, output, dedupe=False, dry_run=True)
+    assert output.read_text(encoding="utf-8") == "existing\n"
+    with pytest.raises(FileNotFoundError):
+        metrics_retention.restore_archive(
+            tmp_path / "nope", tmp_path / "out", dedupe=False, dry_run=False
+        )
+
+
+def test_retention_helpers_cover_no_change_and_archive_disabled(tmp_path: Path) -> None:
+    metrics = tmp_path / "metrics.ndjson"
+    metrics.write_text('{"timestamp":"2025-01-01T00:00:00Z"}\n', encoding="utf-8")
+    policy = metrics_retention.RetentionPolicy(1, 1, 1, False, tmp_path / "archive")
+    stats = metrics_retention.apply_retention_to_file(
+        metrics, policy, now=datetime(2025, 2, 1, tzinfo=UTC), dry_run=False
+    )
+    assert stats.records_kept == 1 and not (tmp_path / "metrics.ndjson.tmp").exists()
+    assert (
+        metrics_retention._iter_metrics_paths(
+            [str(metrics), str(metrics)], [str(tmp_path / "nope")], metrics, include_defaults=False
+        )
+        == []
+    )
+    assert metrics_retention._iter_metrics_paths(
+        [str(metrics), str(metrics)],
+        [str(tmp_path)],
+        tmp_path / "other.log",
+        include_defaults=False,
+    ) == [metrics]
+
+
+def test_parse_timestamp_overflow_and_write_line_without_newline(tmp_path: Path) -> None:
+    assert metrics_retention._parse_timestamp_value(10**100) is None
+    sink = tmp_path / "line.txt"
+    with sink.open("w", encoding="utf-8") as handle:
+        metrics_retention._write_line(handle, "no-newline")
+    assert sink.read_text(encoding="utf-8") == "no-newline\n"
+
+
+def test_iter_paths_skips_empty_entries_and_load_policy_missing(tmp_path: Path) -> None:
+    metrics = tmp_path / "metrics.ndjson"
+    metrics.write_text("{}\n", encoding="utf-8")
+    assert metrics_retention._iter_metrics_paths(
+        ["", str(metrics)],
+        [str(tmp_path)],
+        tmp_path / "retention.log",
+        include_defaults=False,
+    ) == [metrics]
+    with pytest.raises(FileNotFoundError, match="Retention config not found"):
+        metrics_retention.load_policy(tmp_path / "missing.json")
+
+
+def test_apply_retention_missing_file_blank_lines_and_dry_run_archive(tmp_path: Path) -> None:
+    missing = tmp_path / "absent.ndjson"
+    policy = metrics_retention.RetentionPolicy(7, 4, 6, True, tmp_path / "archive")
+    now = datetime(2025, 6, 15, tzinfo=UTC)
+    assert (
+        metrics_retention.apply_retention_to_file(
+            missing, policy, now=now, dry_run=False
+        ).records_total
+        == 0
+    )
+
+    metrics = tmp_path / "metrics.ndjson"
+    weekly = (now - timedelta(days=10)).isoformat().replace("+00:00", "Z")
+    monthly = (now - timedelta(days=40)).isoformat().replace("+00:00", "Z")
+    metrics.write_text(
+        f'\n{{"timestamp":"{weekly}","value":1}}\n\n{{"timestamp":"{monthly}","value":2}}\n',
+        encoding="utf-8",
+    )
+    stats = metrics_retention.apply_retention_to_file(metrics, policy, now=now, dry_run=True)
+    assert stats.records_archived_weekly == 1
+    assert stats.records_archived_monthly == 1
+    assert stats.bytes_archived > 0
+    assert metrics.read_text(encoding="utf-8").count('"value"') == 2
+    assert not (tmp_path / "metrics.ndjson.tmp").exists()
+
+
+def test_main_restore_requires_archive_and_output(capsys) -> None:
+    with pytest.raises(SystemExit):
+        metrics_retention.main(["--restore"])
+    err = capsys.readouterr().err
+    assert "archive-path" in err and "output-path" in err
+
+
+def test_restore_archive_from_directory_with_dedupe_write(tmp_path: Path) -> None:
+    archive_root = tmp_path / "archives"
+    weekly = archive_root / "metrics" / "weekly"
+    weekly.mkdir(parents=True)
+    (weekly / "2025-W01.ndjson").write_text(
+        '{"value":1}\n\n{"value":2}\n{"value":1}\n',
+        encoding="utf-8",
+    )
+    output = tmp_path / "out.ndjson"
+    output.write_text('{"value":1}\n', encoding="utf-8")
+    result = metrics_retention.restore_archive(archive_root, output, dedupe=True, dry_run=False)
+    assert result["records_restored"] == 1
+    assert result["records_skipped"] == 2
+    assert '{"value":2}' in output.read_text(encoding="utf-8")
+
+
+def test_main_restore_mode_writes_log(tmp_path: Path, capsys, monkeypatch) -> None:
+    archive = tmp_path / "archive.ndjson"
+    archive.write_text('{"value":9}\n', encoding="utf-8")
+    output = tmp_path / "restored.ndjson"
+    log_path = tmp_path / "retention.log"
+    monkeypatch.setattr(
+        metrics_retention,
+        "_now_utc",
+        lambda: datetime(2025, 6, 15, 12, 0, 0, tzinfo=UTC),
+    )
+    assert (
+        metrics_retention.main(
+            [
+                "--restore",
+                "--archive-path",
+                str(archive),
+                "--output-path",
+                str(output),
+                "--log-path",
+                str(log_path),
+            ]
+        )
+        == 0
+    )
+    assert output.read_text(encoding="utf-8") == '{"value":9}\n'
+    assert "restored 1 records" in capsys.readouterr().out
+    assert '"record_type": "restore"' in log_path.read_text(encoding="utf-8")

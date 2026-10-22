@@ -7,6 +7,52 @@ import pytest
 from scripts import api_client
 
 
+def test_native_conditional_write_has_one_attempt_and_keeps_http_status():
+    import urllib.error
+
+    calls = []
+    with urllib.error.HTTPError("https://example.invalid", 503, "unavailable", {}, None) as refusal:
+
+        def opener(request, **kwargs):
+            calls.append((request, kwargs))
+            raise refusal
+
+        with pytest.raises(urllib.error.HTTPError) as raised:
+            api_client.request_json_once(
+                "PUT", "/repos/o/r/contents/state", "test", {}, opener=opener
+            )
+        assert raised.value is refusal
+        assert len(calls) == 1
+        assert calls[0][0].method == "PUT"
+        assert not refusal.closed  # the propagating API caller owns its response
+
+
+def test_native_conditional_write_decodes_successful_json_response():
+    class Response:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def read(self, *_args):
+            return b'{"ok": true}'
+
+    result = api_client.request_json_once(
+        "GET", "/repos/o/r", "test", opener=lambda *_args, **_kwargs: Response()
+    )
+
+    assert result == {"ok": True}
+
+
+@pytest.mark.parametrize("path", ["https://other.invalid", "//other.invalid/path", "relative"])
+def test_native_conditional_write_rejects_foreign_api_origin(path):
+    with pytest.raises(ValueError, match="relative API path"):
+        api_client.request_json_once(
+            "GET", path, "test", opener=lambda *a, **kw: pytest.fail("network")
+        )
+
+
 class FakeRequestException(Exception):
     pass
 

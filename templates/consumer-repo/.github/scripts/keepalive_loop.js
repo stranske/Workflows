@@ -35,7 +35,11 @@ async function acceptanceGatePlan({ github, context, pr, state }) {
     ? (await github.rest.issues.get({ ...context.repo, issue_number: issueNumber })).data.body || ''
     : pr.body || '';
   const commands = await extractAcceptanceCommands(markdown);
-  const sourceHash = crypto.createHash('sha256').update(JSON.stringify(commands)).digest('hex');
+  const authored = markdown.replace(/(?:\n)?^Deterministic gates: \d+\/\d+ passed[^\S\n]*\n?(?:Criterion \d+:.*\n?)*/gm, '');
+  const sections = parseScopeTasksAcceptanceSections(authored);
+  const sourceHash = crypto.createHash('sha256').update(JSON.stringify({
+    tasks: (sections.tasks || '').trim(), acceptance: (sections.acceptance || '').trim(), commands,
+  })).digest('hex');
   const previous = state?.deterministic_gates;
   const current = previous?.head_sha === pr.head.sha && previous?.source_hash === sourceHash;
   const results = current && Array.isArray(previous.results) ? previous.results : [];

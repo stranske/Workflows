@@ -721,7 +721,7 @@ test('deterministic evidence requires current head and live source commands', as
     body: 'Closes #42\n## Tasks\n- [x] Implement gate\n## Acceptance Criteria\n- [x] Old cached criterion',
   };
   const github = buildGithubStub({ pr });
-  let source = '## Acceptance Criteria\n- [ ] `pytest tests/test_fresh.py` passes';
+  let source = '## Tasks\n- [ ] Implement gate\n## Acceptance Criteria\n- [ ] `pytest tests/test_fresh.py` passes';
   github.rest.issues.get = async ({ issue_number }) => {
     assert.equal(issue_number, 42);
     return { data: { body: source } };
@@ -733,6 +733,13 @@ test('deterministic evidence requires current head and live source commands', as
   const state = { deterministic_gates: { ...plan, results: [
     { ...plan.commands[0], exit_code: 0, output: '1 passed' },
   ] } };
+  assert.equal((await acceptanceGatePlan({ github, context, pr, state })).complete, true);
+  source = source.replace('passes', 'passes with every permission enforced');
+  assert.equal((await acceptanceGatePlan({ github, context, pr, state })).complete, false);
+  source = source.replace('passes with every permission enforced', 'passes');
+  source = source.replace('Implement gate', 'Implement gate with audit evidence');
+  assert.equal((await acceptanceGatePlan({ github, context, pr, state })).complete, false);
+  source = source.replace('Implement gate with audit evidence', 'Implement gate');
   assert.equal((await acceptanceGatePlan({ github, context, pr, state })).complete, true);
   pr.head.sha = 'new-head';
   assert.equal((await acceptanceGatePlan({ github, context, pr, state })).complete, false);

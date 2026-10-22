@@ -17,3 +17,8 @@ SC2129:style:.+: Consider using { cmd1; cmd2; } >> file instead of individual re
 SC2086:info:.github/workflows/.+: Double quote to prevent globbing and word splitting
 
 constant expression "false" in condition
+
+# GitHub supports concurrency.queue (single|max); actionlint 1.7.3/1.7.11 predate it.
+# Only this exact unsupported-key diagnostic is replaced by the independent
+# concurrency schema checks in test_maint46_post_ci_sparse_checkout.py.
+^unexpected key "queue" for "concurrency" section\. expected one of "cancel-in-progress", "group"$

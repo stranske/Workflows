@@ -1259,3 +1259,826 @@ def test_invoke_agent_routes_pilot_labels_and_rejects_unknown_agent(
     )
     assert not ok and "unknown agent label" in message
     assert calls == ["codex", "claude"]
+
+
+@pytest.mark.parametrize(
+    ("provenance", "expected"),
+    [
+        ({}, "schema=None"),
+        (
+            {
+                "schema": "repo-review-round1-provenance/v1",
+                "repo": "stranske/Elsewhere",
+                "agent": "codex",
+                "source_commit": "a" * 40,
+            },
+            "repo='stranske/Elsewhere'",
+        ),
+        (
+            {
+                "schema": "repo-review-round1-provenance/v1",
+                "repo": "stranske/Example",
+                "agent": "codex",
+            },
+            "source_commit is missing",
+        ),
+    ],
+)
+def test_round2_input_manifest_rejects_invalid_round1_provenance(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    provenance: dict[str, str],
+    expected: str,
+) -> None:
+    repo, _output_dir, agents = _round2_cache_inputs(tmp_path, monkeypatch)
+    agents["codex"].with_name("findings.provenance.json").write_text(
+        json.dumps(provenance), encoding="utf-8"
+    )
+
+    manifest, error = runner.round2_input_manifest(
+        repo=repo, turn=1, agent="codex", round1_paths=agents
+    )
+
+    assert manifest is None
+    assert expected in error
+
+
+def test_round2_input_manifest_rejects_mismatched_source_commits(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo, _output_dir, agents = _round2_cache_inputs(tmp_path, monkeypatch)
+    _write_round1_provenance(agents["claude"], agent="claude", repo=repo, source_commit="b" * 40)
+
+    manifest, error = runner.round2_input_manifest(
+        repo=repo, turn=1, agent="codex", round1_paths=agents
+    )
+
+    assert manifest is None
+    assert error == "round-1 findings provenance source commits do not match"
+
+
+@pytest.mark.parametrize(
+    ("agent_proposals", "expected_status", "expect_proposal"),
+    [
+        ({}, "absent", False),
+        # single-side has two shapes: the other agent's entry is missing (nothing is returned),
+        # or present without a proposal (the lone proposal is returned).
+        ({"codex": {"proposed": True}}, "single-side", False),
+        ({"codex": {"proposed": True}, "claude": {}}, "single-side", True),
+        (
+            {"codex": {"proposed": True}, "claude": {"proposed": False}},
+            "deadlocked",
+            True,
+        ),
+        (
+            {
+                "codex": {
+                    "proposed": True,
+                    "supporting_candidate_indexes": [{"agent": "codex", "candidate_index": 1}],
+                },
+                "claude": {
+                    "proposed": True,
+                    "supporting_candidate_indexes": [{"agent": "claude", "candidate_index": 2}],
+                },
+            },
+            "deadlocked",
+            False,
+        ),
+    ],
+)
+def test_converge_meta_handles_absence_single_side_and_disagreement(
+    agent_proposals: dict[str, dict[str, object]], expected_status: str, expect_proposal: bool
+) -> None:
+    proposal, status = runner.converge_meta(agent_proposals, {"codex", "claude"})
+
+    assert status == expected_status
+    assert (proposal is not None) is expect_proposal
+
+
+def test_validate_reviewed_source_commit_rejects_bad_head_and_provenance(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo, _output_dir, agents = _round2_cache_inputs(tmp_path, monkeypatch)
+    monkeypatch.setattr(
+        runner.subprocess,
+        "run",
+        lambda *_args, **_kwargs: SimpleNamespace(returncode=1, stdout="", stderr="nope"),
+    )
+    assert (
+        runner.validate_reviewed_source_commit(tmp_path, agents)
+        == "cannot resolve reviewed repo HEAD"
+    )
+
+    monkeypatch.setattr(
+        runner.subprocess,
+        "run",
+        lambda *_args, **_kwargs: SimpleNamespace(returncode=0, stdout="b" * 40 + "\n", stderr=""),
+    )
+    assert "does not match reviewed repo HEAD" in runner.validate_reviewed_source_commit(
+        tmp_path, agents
+    )
+
+
+def test_run_returns_failure_for_missing_registry_repo_or_reviewed_path(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    args = _run_args("stranske/Example", tmp_path / "out", tmp_path / "registry.json")
+    monkeypatch.setattr(runner, "load_registry", lambda _path: (tmp_path, [], [], []))
+    assert runner.run(args) == 2
+
+    monkeypatch.setattr(
+        runner,
+        "load_registry",
+        lambda _path: (tmp_path, [], [SimpleNamespace(repo=args.repo, local_path="missing")], []),
+    )
+    assert runner.run(args) == 2
+
+
+def test_run_returns_failure_for_source_error_and_failed_turn(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo, output_dir, agents = _round2_cache_inputs(tmp_path, monkeypatch)
+    (tmp_path / "reviewed").mkdir()
+    monkeypatch.setattr(
+        runner,
+        "load_registry",
+        lambda _path: (tmp_path, [], [SimpleNamespace(repo=repo, local_path="reviewed")], []),
+    )
+    monkeypatch.setattr(runner, "resolve_negotiation_agents", lambda *_args: agents)
+    monkeypatch.setattr(runner, "validate_reviewed_source_commit", lambda *_args: "stale source")
+    assert runner.run(_run_args(repo, output_dir, tmp_path / "registry.json")) == 2
+
+    monkeypatch.setattr(runner, "validate_reviewed_source_commit", lambda *_args: "")
+    monkeypatch.setattr(
+        runner,
+        "run_one_turn",
+        lambda **_kwargs: {
+            label: runner.AgentTurnResult(label, 1, Path(label), False, False, "no output")
+            for label in agents
+        },
+    )
+    assert runner.run(_run_args(repo, output_dir, tmp_path / "registry.json")) == 2
+
+
+@pytest.mark.parametrize(
+    ("result", "expected"),
+    [
+        (
+            SimpleNamespace(succeeded=False, stuck=True, timed_out=False, returncode=1, note="x"),
+            "stuck",
+        ),
+        (
+            SimpleNamespace(succeeded=False, stuck=False, timed_out=True, returncode=1, note="x"),
+            "timed out",
+        ),
+        (
+            SimpleNamespace(
+                succeeded=False, stuck=False, timed_out=False, returncode=7, note="bad"
+            ),
+            "exited 7",
+        ),
+    ],
+)
+def test_invoke_codex_reports_heartbeat_failures(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, result: SimpleNamespace, expected: str
+) -> None:
+    monkeypatch.setattr(runner.shutil, "which", lambda _name: "/usr/local/bin/codex")
+    monkeypatch.setattr(
+        runner.subprocess,
+        "run",
+        lambda cmd, **_kwargs: SimpleNamespace(
+            returncode=0,
+            stdout="codex-cli 0.153.4" if cmd[-1] == "--version" else "--approve-for-me",
+            stderr="",
+        ),
+    )
+    monkeypatch.setattr(runner, "run_with_heartbeat", lambda *_args, **_kwargs: result)
+
+    ok, message = runner.invoke_codex("prompt", cwd=tmp_path, log_file=tmp_path / "log", timeout=30)
+
+    assert not ok
+    assert expected in message
+
+
+@pytest.mark.parametrize(
+    ("result", "expected"),
+    [
+        (
+            SimpleNamespace(succeeded=True, stuck=False, timed_out=False, returncode=0, note="ok"),
+            None,
+        ),
+        (
+            SimpleNamespace(succeeded=False, stuck=True, timed_out=False, returncode=1, note="x"),
+            "stuck",
+        ),
+        (
+            SimpleNamespace(succeeded=False, stuck=False, timed_out=True, returncode=1, note="x"),
+            "timed out",
+        ),
+        (
+            SimpleNamespace(
+                succeeded=False, stuck=False, timed_out=False, returncode=7, note="bad"
+            ),
+            "exited 7",
+        ),
+    ],
+)
+def test_invoke_claude_handles_heartbeat_outcomes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, result: SimpleNamespace, expected: str | None
+) -> None:
+    monkeypatch.setattr(runner, "_resolve_claude_binary", lambda: "/usr/local/bin/claude")
+    monkeypatch.setattr(runner, "_build_claude_env", lambda: {"PATH": "/usr/bin"})
+    monkeypatch.setattr(runner, "run_with_heartbeat", lambda *_args, **_kwargs: result)
+    monkeypatch.setattr(runner, "claude_capacity_reset_at", lambda _path: None)
+
+    ok, message = runner.invoke_claude(
+        "prompt", cwd=tmp_path, additional_dirs=[tmp_path], log_file=tmp_path / "log", timeout=30
+    )
+
+    assert ok is (expected is None)
+    if expected is None:
+        assert message == str(tmp_path / "log")
+    else:
+        assert expected in message
+
+
+def test_invoke_claude_rejects_missing_binary_and_builds_a_clean_token_env(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(runner, "_resolve_claude_binary", lambda: None)
+    ok, message = runner.invoke_claude(
+        "prompt", cwd=tmp_path, additional_dirs=[], log_file=tmp_path / "log", timeout=30
+    )
+    assert not ok
+    assert "not found" in message
+
+    monkeypatch.setenv("CLAUDECODE", "host-managed")
+    monkeypatch.setenv("USER", "must-not-leak")
+    monkeypatch.setenv("PATH", "/usr/bin")
+    monkeypatch.setattr(runner, "_read_claude_oauth_token", lambda: "token")
+    env = runner._build_claude_env()
+    assert env["PATH"] == "/usr/bin"
+    assert env["CLAUDE_CODE_OAUTH_TOKEN"] == "token"
+    assert "CLAUDECODE" not in env
+    assert "USER" not in env
+
+
+def test_synthesize_converged_collapses_duplicate_merges_and_surfaces_human_work(
+    tmp_path: Path,
+) -> None:
+    repo = "stranske/Example"
+    output_dir = tmp_path / "review"
+    codex_path = runner.round1_findings_path(output_dir, "codex", repo)
+    claude_path = runner.round1_findings_path(output_dir, "claude", repo)
+    _write_round1_findings(
+        codex_path,
+        agent="codex",
+        repo=repo,
+        candidates=[_candidate("First"), _candidate("Second"), _candidate("Dropped")],
+    )
+    _write_round1_findings(claude_path, agent="claude", repo=repo, candidates=[])
+    proposal = {"title": "Merged seam", "required_change": "One joined change."}
+    resolutions = {
+        runner.CandidateKey("codex", 1): runner.CandidateResolution(
+            key=runner.CandidateKey("codex", 1),
+            status="converged-merge",
+            merge_proposal=proposal,
+        ),
+        runner.CandidateKey("codex", 2): runner.CandidateResolution(
+            key=runner.CandidateKey("codex", 2),
+            status="converged-merge",
+            merge_proposal=proposal,
+        ),
+        runner.CandidateKey("codex", 3): runner.CandidateResolution(
+            key=runner.CandidateKey("codex", 3),
+            status="converged-drop",
+            drop_reason="Already done.",
+        ),
+    }
+    meta = {
+        "title": "Audit recurring seam",
+        "pattern": "Shared implementation gap",
+        "rationale": "Several candidates point at it.",
+        "supporting_candidate_indexes": [{"agent": "codex", "candidate_index": 1}],
+        "priority": "low",
+        "confidence": "low",
+        "__rejected_by": ["claude"],
+    }
+    payload = runner.synthesize_converged(
+        repo=repo,
+        output_dir=output_dir,
+        round1_paths={"codex": codex_path, "claude": claude_path},
+        turn_outputs=[
+            {"agent": "codex", "turn": 1, "meta_candidate_proposal": {"proposed": True}},
+            {
+                "agent": "claude",
+                "turn": 1,
+                "meta_candidate_proposal": {"proposed": False, "rationale": "Not systemic."},
+            },
+        ],
+        turns_completed=1,
+        final_resolutions=resolutions,
+        meta_proposal=meta,
+        meta_status="deadlocked",
+        deadlocked_reason_max_turns_exhausted=False,
+    )
+
+    assert [candidate["title"] for candidate in payload["converged_candidates"]] == ["Merged seam"]
+    assert payload["converged_candidates"][0]["origin"]["merged_from"] == [
+        {"agent": "codex", "round1_index": 1},
+        {"agent": "codex", "round1_index": 2},
+    ]
+    assert payload["dropped_candidates"] == [
+        {
+            "title": "Dropped",
+            "source_agent": "codex",
+            "round1_index": 3,
+            "drop_reason": "Already done.",
+        }
+    ]
+    assert payload["deadlocked_meta"]["rejection_reasons"] == {"claude": "Not systemic."}
+
+
+def test_meta_convergence_merges_compatible_proposals_and_inherits_unique_refs() -> None:
+    codex = _candidate("Codex candidate")
+    codex["design_refs"] = ["docs/shared.md", "docs/codex.md"]
+    claude = _candidate("Claude candidate")
+    claude["design_refs"] = ["docs/shared.md", "docs/claude.md"]
+    index = {
+        runner.CandidateKey("codex", 1): codex,
+        runner.CandidateKey("claude", 1): claude,
+    }
+    codex_meta = {
+        "proposed": True,
+        "title": "Audit shared seam",
+        "pattern": "The shared seam needs an audit.",
+        "tasks": ["enumerate", "classify", "file"],
+        "acceptance_criteria": ["report", "issues", "gate"],
+        "supporting_candidate_indexes": [
+            {"agent": "codex", "candidate_index": 1},
+            "ignore this malformed reference",
+        ],
+    }
+    claude_meta = {
+        "proposed": True,
+        "title": "Alternative title",
+        "pattern": "Short",
+        "tasks": ["enumerate"],
+        "acceptance_criteria": [],
+        "supporting_candidate_indexes": [{"agent": "claude", "candidate_index": 1}],
+    }
+
+    merged, status = runner.converge_meta(
+        {"codex": codex_meta, "claude": claude_meta}, {"codex", "claude"}
+    )
+
+    assert status == "deadlocked"
+    assert merged is None
+
+    claude_meta["supporting_candidate_indexes"].append({"agent": "codex", "candidate_index": 1})
+    merged, status = runner.converge_meta(
+        {"codex": codex_meta, "claude": claude_meta}, {"codex", "claude"}
+    )
+
+    assert status == "converged"
+    assert merged is not None
+    assert merged["primary_source_agent"] == "codex"
+    candidate = runner.meta_to_candidate(merged, "codex", index)
+    assert candidate["design_refs"] == ["docs/shared.md", "docs/claude.md", "docs/codex.md"]
+    assert candidate["scope"] == "audit"
+
+
+def test_round2_manifest_and_discovery_fail_closed_on_malformed_inputs(tmp_path: Path) -> None:
+    repo = "stranske/Example"
+    findings = tmp_path / "round1" / "codex" / "stranske__Example" / "findings.json"
+    findings.parent.mkdir(parents=True)
+    findings.write_text("{}", encoding="utf-8")
+    provenance = findings.with_name("findings.provenance.json")
+    provenance.write_text("not json", encoding="utf-8")
+
+    manifest, error = runner.round2_input_manifest(
+        repo=repo, turn=1, agent="codex", round1_paths={"codex": findings}
+    )
+
+    assert manifest is None
+    assert "cannot read codex findings provenance" in error
+    assert runner.discover_round1_agents(tmp_path, repo) == {"codex": findings}
+    (tmp_path / "round1" / "not-an-agent").write_text("file", encoding="utf-8")
+    assert runner.discover_round1_agents(tmp_path, repo) == {"codex": findings}
+
+
+@pytest.mark.parametrize(
+    ("purpose", "expected"),
+    [("unexpected", "unknown repo-review Codex purpose"), ("review", "could not verify Codex CLI")],
+)
+def test_invoke_codex_rejects_invalid_purpose_and_unverifiable_astra(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, purpose: str, expected: str
+) -> None:
+    monkeypatch.setenv("REPO_REVIEW_CODEX_MODEL", "gpt-6-astra")
+    monkeypatch.setattr(
+        runner,
+        "run_with_heartbeat",
+        lambda *_args, **_kwargs: pytest.fail("invalid invocation must not start Codex"),
+    )
+    monkeypatch.setattr(runner.shutil, "which", lambda _name: "/usr/local/bin/codex")
+    monkeypatch.setattr(
+        runner.subprocess,
+        "run",
+        lambda cmd, **_kwargs: SimpleNamespace(
+            returncode=0,
+            stdout="--approve-for-me" if cmd[-1] == "--help" else "not a version",
+            stderr="",
+        ),
+    )
+
+    ok, message = runner.invoke_codex(
+        "prompt", cwd=tmp_path, log_file=tmp_path / "codex.log", timeout=30, purpose=purpose
+    )
+
+    assert not ok
+    assert expected in message
+
+
+def test_claude_capacity_parser_and_deferral_fail_closed_on_bad_inputs(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    log = tmp_path / "claude.log"
+    log.write_text("You've hit your session limit · resets 8pm (Bad/Timezone)\n", encoding="utf-8")
+    assert runner.claude_capacity_reset_at(log) is None
+
+    log.write_text("You've hit your session limit · resets 8pm (UTC)\n", encoding="utf-8")
+    monkeypatch.setattr(
+        runner.shutil, "copy2", lambda *_args: (_ for _ in ()).throw(OSError("disk"))
+    )
+    ok, message = runner.defer_for_claude_capacity(
+        log,
+        datetime(2026, 9, 4, 20, 1, tzinfo=UTC),
+        now=datetime(2026, 9, 4, 20, 0, tzinfo=UTC),
+    )
+    assert not ok
+    assert "cannot preserve Claude capacity evidence" in message
+
+
+@pytest.mark.parametrize(
+    ("marks", "expected_status"),
+    [
+        (
+            [
+                {
+                    "from_agent": "codex",
+                    "turn": 1,
+                    "mark": "agree-merge",
+                    "merge_proposal": {"title": "Merge"},
+                },
+                {
+                    "from_agent": "claude",
+                    "turn": 1,
+                    "mark": "agree-merge",
+                    "merge_proposal": {"title": "Merge"},
+                },
+            ],
+            "converged-merge",
+        ),
+        (
+            [
+                {"from_agent": "codex", "turn": 1, "mark": "agree-keep"},
+                {
+                    "from_agent": "claude",
+                    "turn": 1,
+                    "mark": "agree-merge",
+                    "merge_proposal": {"title": "Merge"},
+                },
+            ],
+            "converged-merge",
+        ),
+        (
+            [
+                {"from_agent": "codex", "turn": 1, "mark": "disagree-drop", "reason": "Duplicate"},
+                {
+                    "from_agent": "claude",
+                    "turn": 1,
+                    "mark": "disagree-drop",
+                    "reason": "Already covered",
+                },
+            ],
+            "converged-drop",
+        ),
+    ],
+)
+def test_compute_convergence_handles_merge_and_drop_outcomes(
+    marks: list[dict[str, object]], expected_status: str
+) -> None:
+    key = runner.CandidateKey("codex", 1)
+
+    resolution = runner.compute_convergence([key], {key: marks}, {"codex", "claude"})[key]
+
+    assert resolution.status == expected_status
+    if expected_status == "converged-drop":
+        assert resolution.drop_reason == "Duplicate; Already covered"
+    else:
+        assert resolution.merge_proposal == {"title": "Merge"}
+
+
+def test_compute_convergence_waits_for_a_missing_non_source_agent() -> None:
+    key = runner.CandidateKey("codex", 1)
+
+    resolution = runner.compute_convergence([key], {key: []}, {"codex", "claude"})[key]
+
+    assert resolution.status == "pending"
+
+
+def test_parse_args_and_main_preserve_the_cli_contract(monkeypatch: pytest.MonkeyPatch) -> None:
+    args = runner.parse_args(
+        [
+            "--repo",
+            "stranske/Example",
+            "--output-dir",
+            "out",
+            "--registry",
+            "registry.json",
+            "--agents",
+            "pilot-codex,pilot-claude",
+            "--max-turns",
+            "4",
+            "--turn-timeout",
+            "60",
+            "--retries",
+            "1",
+            "--dry-run",
+        ]
+    )
+    assert (args.repo, args.max_turns, args.dry_run) == ("stranske/Example", 4, True)
+
+    monkeypatch.setattr(
+        runner, "run", lambda received: 7 if received.repo == "stranske/Example" else 1
+    )
+    assert runner.main(["--repo", "stranske/Example", "--output-dir", "out"]) == 7
+
+
+@pytest.mark.parametrize(
+    ("configured", "expected"),
+    [
+        (None, runner.DEFAULT_PROVIDER_CAPACITY_WAIT_MAX_SECONDS),
+        ("bad", runner.DEFAULT_PROVIDER_CAPACITY_WAIT_MAX_SECONDS),
+        ("-5", 0),
+        ("42", 42),
+    ],
+)
+def test_provider_capacity_wait_budget_handles_environment_values(
+    monkeypatch: pytest.MonkeyPatch, configured: str | None, expected: int
+) -> None:
+    if configured is None:
+        monkeypatch.delenv("REPO_REVIEW_CAPACITY_WAIT_MAX_SECONDS", raising=False)
+    else:
+        monkeypatch.setenv("REPO_REVIEW_CAPACITY_WAIT_MAX_SECONDS", configured)
+    assert runner.provider_capacity_wait_max_seconds() == expected
+
+
+def test_claude_capacity_parser_handles_tomorrow_and_malformed_dates(tmp_path: Path) -> None:
+    log = tmp_path / "claude.log"
+    now = datetime(2026, 9, 4, 22, 42, tzinfo=UTC)
+    log.write_text(
+        "You've hit your session limit · resets tomorrow at 8pm (UTC)\n", encoding="utf-8"
+    )
+    assert runner.claude_capacity_reset_at(log, now=now) == datetime(2026, 9, 5, 20, 0, tzinfo=UTC)
+
+    log.write_text("You've hit your session limit · resets Feb 30 8pm (UTC)\n", encoding="utf-8")
+    assert runner.claude_capacity_reset_at(log, now=now) is None
+
+
+def test_prompt_and_local_helpers_cover_empty_and_error_paths(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    prompt = runner.build_prompt(
+        repo="stranske/Example",
+        turn=2,
+        my_agent="codex",
+        other_agent="claude",
+        my_findings=tmp_path / "mine.json",
+        other_findings=tmp_path / "other.json",
+        repo_path=tmp_path,
+        turn_output_path=tmp_path / "out.json",
+        prior_turn_paths=[tmp_path / "turn-1" / "codex.json"],
+    )
+    assert "Prior-turn outputs" in prompt
+
+    invalid = tmp_path / "invalid.json"
+    invalid.write_text("{}", encoding="utf-8")
+    with pytest.raises(SystemExit, match="failed schema validation"):
+        runner.validate_or_die({}, invalid, "stranske/Example")
+    assert runner.load_turn(invalid) == {}
+
+    missing = runner.CandidateResolution(runner.CandidateKey("codex", 1), "converged-keep")
+    with pytest.raises(SystemExit, match="missing from index"):
+        runner.candidate_for_resolution(missing, {})
+
+    monkeypatch.setattr(
+        runner.subprocess,
+        "run",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(OSError("git unavailable")),
+    )
+    assert "cannot resolve reviewed repo HEAD" in runner.validate_reviewed_source_commit(
+        tmp_path, {}
+    )
+
+
+def test_preserve_stale_output_moves_the_receipt(tmp_path: Path) -> None:
+    out = runner.round2_turn_path(tmp_path, "stranske/Example", 1, "codex")
+    out.parent.mkdir(parents=True)
+    out.write_text("{}", encoding="utf-8")
+    receipt = runner.round2_input_manifest_path(out)
+    receipt.parent.mkdir(parents=True)
+    receipt.write_text("{}", encoding="utf-8")
+
+    assert (
+        runner.preserve_stale_turn_output(
+            output_dir=tmp_path, repo="stranske/Example", out_path=out
+        )
+        == ""
+    )
+    assert not out.exists()
+    assert not receipt.exists()
+    assert list((tmp_path / "repairs" / "round2-stale").rglob("codex.json"))
+
+
+@pytest.mark.parametrize(
+    ("dry_run", "manifest", "invocation", "expected"),
+    [
+        (False, None, None, "bad manifest"),
+        (True, {"schema": "v1"}, None, "turn output absent"),
+        (False, {"schema": "v1"}, (False, "runner failed"), "runner failed"),
+    ],
+)
+def test_run_one_turn_reports_unspawnable_or_missing_agent_outputs(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    dry_run: bool,
+    manifest: dict[str, str] | None,
+    invocation: tuple[bool, str] | None,
+    expected: str,
+) -> None:
+    agents = {"codex": tmp_path / "codex.json", "claude": tmp_path / "claude.json"}
+    monkeypatch.setattr(
+        runner,
+        "round2_input_manifest",
+        lambda **_kwargs: (manifest, "bad manifest" if manifest is None else ""),
+    )
+    monkeypatch.setattr(runner.time, "sleep", lambda _seconds: None)
+    if invocation is not None:
+        monkeypatch.setattr(runner, "invoke_agent", lambda *_args, **_kwargs: invocation)
+
+    results = runner.run_one_turn(
+        repo="stranske/Example",
+        turn=1,
+        output_dir=tmp_path / "out",
+        repo_path=tmp_path,
+        workspace_root=tmp_path,
+        agents=agents,
+        additional_dirs=[],
+        timeout=1,
+        retries=0,
+        dry_run=dry_run,
+        log_dir=tmp_path / "logs",
+    )
+
+    assert all(not result.succeeded for result in results.values())
+    assert all(expected in result.error for result in results.values())
+
+
+def test_run_rejects_invalid_agent_count_before_loading_findings(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    reviewed = tmp_path / "reviewed"
+    reviewed.mkdir()
+    args = _run_args("stranske/Example", tmp_path / "out", tmp_path / "registry.json")
+    args.agents = "codex"
+    monkeypatch.setattr(
+        runner,
+        "load_registry",
+        lambda _path: (tmp_path, [], [SimpleNamespace(repo=args.repo, local_path="reviewed")], []),
+    )
+
+    with pytest.raises(SystemExit, match="exactly two labels"):
+        runner.run(args)
+
+
+def test_synthesize_converged_builds_a_compatible_meta_candidate(tmp_path: Path) -> None:
+    repo = "stranske/Example"
+    output_dir = tmp_path / "review"
+    codex_path = runner.round1_findings_path(output_dir, "codex", repo)
+    _write_round1_findings(codex_path, agent="codex", repo=repo)
+    meta = {
+        "title": "Audit seam",
+        "pattern": "One recurring seam",
+        "rationale": "Evidence supports an audit.",
+        "supporting_candidate_indexes": [{"agent": "codex", "candidate_index": 1}],
+        "tasks": ["enumerate"],
+        "acceptance_criteria": ["report"],
+    }
+    payload = runner.synthesize_converged(
+        repo=repo,
+        output_dir=output_dir,
+        round1_paths={"codex": codex_path},
+        turn_outputs=[{"agent": "codex", "turn": 1, "meta_candidate_proposal": {"proposed": True}}],
+        turns_completed=1,
+        final_resolutions={},
+        meta_proposal=meta,
+        meta_status="converged",
+        deadlocked_reason_max_turns_exhausted=False,
+    )
+
+    assert payload["meta_candidate"]["title"] == "Audit seam"
+    assert payload["meta_candidate"]["design_refs"] == ["docs/design.md"]
+
+
+def test_round2_input_receipts_fail_closed_for_nonobject_and_unreadable_inputs(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Receipt reuse rejects malformed data instead of trusting a stale agent turn.
+
+    Removing the ``isinstance(saved, dict)`` guard makes the first assertion
+    fail with an attribute error rather than the explicit fail-closed result.
+    """
+    output = tmp_path / "turn.json"
+    output.write_text("{}")
+    manifest = runner.round2_input_manifest_path(output)
+    manifest.parent.mkdir(parents=True, exist_ok=True)
+    manifest.write_text("[]")
+    reusable, error = runner.reusable_turn_output(out_path=output, expected_manifest={})
+    assert not reusable
+    assert error == "input manifest must be an object"
+
+    findings = tmp_path / "findings.json"
+    findings.write_text("{}")
+    findings.with_name("findings.provenance.json").write_text(
+        json.dumps(
+            {
+                "schema": "repo-review-round1-provenance/v1",
+                "repo": "owner/repo",
+                "agent": "codex",
+                "source_commit": "abc",
+            }
+        )
+    )
+    monkeypatch.setattr(
+        runner, "_sha256_file", lambda _path: (_ for _ in ()).throw(OSError("gone"))
+    )
+    payload, error = runner.round2_input_manifest(
+        repo="owner/repo", turn=1, agent="codex", round1_paths={"codex": findings}
+    )
+    assert payload is None
+    assert "cannot read codex findings input" in error
+
+
+def test_capacity_deferral_records_fail_closed_evidence_write_errors(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Capacity pauses are auditable; a missing receipt must not sleep or retry."""
+    log = tmp_path / "claude.log"
+    log.write_text("capacity evidence")
+    reset = runner.datetime(2026, 10, 18, 12, tzinfo=runner.UTC)
+    now = runner.datetime(2026, 10, 18, 11, tzinfo=runner.UTC)
+
+    monkeypatch.setattr(
+        runner.shutil, "copy2", lambda *_args: (_ for _ in ()).throw(OSError("copy denied"))
+    )
+    ok, error = runner.defer_for_claude_capacity(log, reset, now=now)
+    assert not ok
+    assert "cannot preserve Claude capacity evidence" in error
+
+    monkeypatch.setattr(runner.shutil, "copy2", runner.shutil.copyfile)
+    wait_file = runner.capacity_wait_path(log)
+    monkeypatch.setattr(runner, "capacity_wait_path", lambda _path: wait_file)
+    monkeypatch.setattr(runner, "provider_capacity_wait_max_seconds", lambda: 7200)
+    monkeypatch.setattr(
+        Path,
+        "write_text",
+        lambda self, *_args, **_kwargs: (_ for _ in ()).throw(OSError("write denied")),
+    )
+    ok, error = runner.defer_for_claude_capacity(log, reset, now=now)
+    assert not ok
+    assert "cannot record Claude capacity deferral" in error
+
+
+def test_meta_helpers_ignore_malformed_records_and_preserve_deadlock_reason() -> None:
+    """Only structured agent proposals participate in a negotiated meta result."""
+    proposals = runner.meta_proposals(
+        [
+            {"agent": "codex", "turn": 1, "meta_candidate_proposal": "bad"},
+            {"agent": "codex", "turn": 2, "meta_candidate_proposal": {"proposed": True}},
+            {"agent": "claude", "turn": 1, "meta_candidate_proposal": {"proposed": False}},
+        ]
+    )
+    assert proposals["codex"]["__turn"] == 2
+    assert runner.supporting_set(
+        {
+            "supporting_candidate_indexes": [
+                {"agent": "codex", "candidate_index": 1},
+                "bad",
+                {"agent": "", "candidate_index": 2},
+            ]
+        }
+    ) == {("codex", 1)}
+    meta, status = runner.converge_meta(proposals, {"codex", "claude"})
+    assert status == "deadlocked"
+    assert meta is not None and meta["__rejected_by"] == ["claude"]

@@ -320,3 +320,144 @@ def test_record_finding_and_converged_paths_round_trip(tmp_path: Path, monkeypat
 
     assert loaded.round1_findings == {"codex": str(findings_path.resolve())}
     assert loaded.round2_converged_path == str(converged_path.resolve())
+
+
+def test_mutation_helpers_leave_existing_notes_when_note_is_omitted(monkeypatch) -> None:
+    monkeypatch.setattr(repo_review_state, "now_iso", lambda: "2026-06-27T12:00:00+00:00")
+    state = repo_review_state.RepoReviewState(
+        schema_version=repo_review_state.STATE_SCHEMA_VERSION,
+        repo="org/repo",
+        status="fresh",
+        cycle_started_at="start",
+        cycle_updated_at="start",
+        notes="retain me",
+    )
+    attempt = repo_review_state.begin_attempt(state, phase="round-1", agent="codex")
+    repo_review_state.finish_attempt(state, attempt, succeeded=False)
+    repo_review_state.transition(state, status="round1-failed")
+    repo_review_state.add_pinned_problem(state, title="recurs")
+
+    assert attempt.notes == ""
+    assert state.notes == "retain me"
+    assert state.pinned_problems[0].to_dict()["occurrences"] == 1
+
+
+def test_main_applies_requested_mutations_and_prints_state(
+    tmp_path: Path, monkeypatch, capsys
+) -> None:
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "repo_review_state.py",
+            "--output-dir",
+            str(tmp_path),
+            "--repo",
+            "org/repo",
+            "--status",
+            "round1-running",
+            "--add-pinned",
+            "recurring failure",
+            "--note",
+            "watch it",
+        ],
+    )
+
+    assert repo_review_state.main() == 0
+
+    printed = json.loads(capsys.readouterr().out)
+    assert printed["status"] == "round1-running"
+    assert printed["pinned_problems"][0]["notes"] == "watch it"
+
+    persisted = repo_review_state.load_state(tmp_path, "org/repo")
+    assert persisted.status == "round1-running"
+    assert persisted.pinned_problems[0].notes == "watch it"
+
+
+def test_add_pinned_problem_bump_without_notes_preserves_existing(monkeypatch) -> None:
+    monkeypatch.setattr(
+        repo_review_state,
+        "now_iso",
+        _freeze_time("2026-06-27T12:00:00+00:00", "2026-06-27T12:05:00+00:00"),
+    )
+    state = repo_review_state.RepoReviewState(
+        schema_version=repo_review_state.STATE_SCHEMA_VERSION,
+        repo="org/repo",
+        status="fresh",
+        cycle_started_at="start",
+        cycle_updated_at="start",
+    )
+    repo_review_state.add_pinned_problem(state, title="recurs", notes="keep me")
+    repo_review_state.add_pinned_problem(state, title="recurs", notes="")
+    assert state.pinned_problems[0].notes == "keep me"
+    assert state.pinned_problems[0].occurrences == 2
+
+
+def test_main_show_only_and_status_only_and_default_print(
+    tmp_path: Path, monkeypatch, capsys
+) -> None:
+    monkeypatch.setattr(
+        "sys.argv",
+        ["repo_review_state.py", "--output-dir", str(tmp_path), "--repo", "org/repo", "--show"],
+    )
+    assert repo_review_state.main() == 0
+    assert json.loads(capsys.readouterr().out)["status"] == "fresh"
+
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "repo_review_state.py",
+            "--output-dir",
+            str(tmp_path),
+            "--repo",
+            "org/repo",
+            "--status",
+            "round1-running",
+        ],
+    )
+    assert repo_review_state.main() == 0
+    assert json.loads(capsys.readouterr().out)["status"] == "round1-running"
+
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "repo_review_state.py",
+            "--output-dir",
+            str(tmp_path),
+            "--repo",
+            "org/repo",
+            "--add-pinned",
+            "only-pin",
+        ],
+    )
+    assert repo_review_state.main() == 0
+    printed = json.loads(capsys.readouterr().out)
+    assert printed["pinned_problems"][0]["title"] == "only-pin"
+
+    monkeypatch.setattr(
+        "sys.argv",
+        ["repo_review_state.py", "--output-dir", str(tmp_path), "--repo", "org/repo"],
+    )
+    assert repo_review_state.main() == 0
+    default_printed = json.loads(capsys.readouterr().out)
+    assert default_printed["status"] == "round1-running"
+    assert default_printed["pinned_problems"][0]["title"] == "only-pin"
+
+
+def test_main_mutated_without_show_still_prints(tmp_path: Path, monkeypatch, capsys) -> None:
+    # Cover the mutated-or-show-or-default print branch when only add-pinned mutates.
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "repo_review_state.py",
+            "--output-dir",
+            str(tmp_path),
+            "--repo",
+            "org/repo",
+            "--add-pinned",
+            "x",
+            "--note",
+            "n",
+        ],
+    )
+    assert repo_review_state.main() == 0
+    assert json.loads(capsys.readouterr().out)["pinned_problems"][0]["title"] == "x"

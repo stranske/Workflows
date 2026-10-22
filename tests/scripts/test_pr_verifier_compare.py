@@ -44,6 +44,39 @@ class FakeClient:
         return FakeResponse(_valid_response())
 
 
+def test_comparison_treats_only_artifact_retrieval_failure_as_unverifiable() -> None:
+    retrieval_only = pr_verifier.EvaluationResult(
+        verdict="FAIL",
+        concerns=["Required artifacts could not be retrieved due to network errors."],
+    )
+    mixed_finding = pr_verifier.EvaluationResult(
+        verdict="FAIL",
+        concerns=["Required artifacts could not be retrieved. The validation is broken."],
+    )
+
+    assert pr_verifier._retrieval_only_failure(retrieval_only) is True
+    assert pr_verifier.comparison_verdict([retrieval_only]) == "UNVERIFIABLE_INPUT"
+    assert pr_verifier._retrieval_only_failure(mixed_finding) is False
+    assert pr_verifier.comparison_verdict([mixed_finding]) == "FAIL"
+
+
+def test_prompt_rubric_preserves_complete_prompt_and_augments_incomplete_one() -> None:
+    complete = "correctness completeness quality testing risks"
+
+    assert pr_verifier._ensure_prompt_rubric(complete) == complete
+    assert "- correctness" in pr_verifier._ensure_prompt_rubric("Review this pull request")
+
+
+def test_semantic_comparison_results_retains_required_envelope() -> None:
+    result = pr_verifier.EvaluationResult(verdict="PASS", used_llm=True)
+    envelope = {"schema": pr_verifier.SEMANTIC_ENVELOPE_SCHEMA}
+
+    output = pr_verifier.SemanticComparisonResults([result], envelope)
+
+    assert list(output) == [result]
+    assert output.semantic_acceptance == envelope
+
+
 def test_evaluate_pr_multiple_runs_sequentially(monkeypatch) -> None:
     calls: list[str] = []
     clients = [

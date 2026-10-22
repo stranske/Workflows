@@ -47,12 +47,13 @@ def read_ndjson_file(path: Path) -> tuple[list[dict[str, Any]], list[str]]:
     raw_lines_for_fallback: list[str] = []
     raw_fallback_bytes = 0
     raw_fallback_truncated = False
+    raw_fallback_complete = True
     with handle:
         for line_number, line in enumerate(handle, start=1):
             raw = line.strip()
             if not raw:
                 continue
-            if not entries and not raw_fallback_truncated:
+            if raw_fallback_complete and not raw_fallback_truncated:
                 raw_bytes = len(raw.encode("utf-8")) + 1
                 fallback_within_limit = (
                     len(raw_lines_for_fallback) < _MAX_LEGACY_JSON_FALLBACK_LINES
@@ -71,11 +72,18 @@ def read_ndjson_file(path: Path) -> tuple[list[dict[str, Any]], list[str]]:
                 continue
             if isinstance(parsed, dict):
                 entries.append(parsed)
-                raw_lines_for_fallback = []
+                if not errors:
+                    # A complete object before any error establishes NDJSON;
+                    # dropping that prefix can never form a whole legacy file.
+                    raw_fallback_complete = False
+                    raw_lines_for_fallback = []
             else:
                 errors.append(f"{path}:{line_number}: expected object, got {type(parsed).__name__}")
 
-    if entries or not errors:
+    if not errors:
+        return entries, errors
+
+    if not raw_fallback_complete:
         return entries, errors
 
     raw_text = "\n".join(raw_lines_for_fallback)

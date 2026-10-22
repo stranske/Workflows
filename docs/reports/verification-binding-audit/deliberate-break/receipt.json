@@ -1,0 +1,23 @@
+{
+  "config_sha256_after": "ace2fe52598e2a4916ee5dce2decd3d419deaee66458a6ddf343a97b296e04b4",
+  "fix_disconnected": {
+    "assertion": "assert 'verdict' not in artifact; observed verdict PASS from historical report",
+    "result": "1 failed",
+    "sha256": "2952da095015c95510daaaade1967103be2109f5969fbdb7b57c89c846192f03"
+  },
+  "fix_restored": {
+    "result": "2 passed",
+    "sha256": "51cb121fc47dda71dd0fa6a6dc18ca04229c79dc3a7fe2cc5d86ad1a1457e8a5"
+  },
+  "positive_control": "tests/scripts/test_verifier_config.py::test_artifact_from_verification_text_accepts_terminal_verdict_on_latest_report",
+  "regression": "tests/scripts/test_verifier_config.py::test_artifact_from_verification_text_ignores_historical_pass_when_latest_incomplete",
+  "residual_gap": "post-#4129 main still inherits historical PASS for concatenated headings without \\n\\n---\\n\\n; owned by #3966",
+  "scope_change": "scripts/langchain/verifier_config.py latest_verifier_report: select last verifier report heading (re.finditer) instead of first (re.search)",
+  "test_sha256_after": "59206b6c26c8abaa737b020c62e2ffa47173378b2a81c0fb8dc4e04b7a4d51cf",
+  "transcript_normalization": "pytest wall-clock durations replaced with <time>",
+  "with_fix": {
+    "result": "2 passed",
+    "sha256": "51cb121fc47dda71dd0fa6a6dc18ca04229c79dc3a7fe2cc5d86ad1a1457e8a5"
+  },
+  "working_tree_restored": true
+}

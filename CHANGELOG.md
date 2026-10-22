@@ -6,6 +6,29 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.44.6](https://github.com/stranske/Workflows/compare/v1.44.5...v1.44.6) (2026-10-19)
+
+
+### Bug Fixes
+
+* **verifier:** authenticate report authors and bind follow-ups to the latest report ([#4129](https://github.com/stranske/Workflows/pull/4129)) ([288c41a](https://github.com/stranske/Workflows/commit/288c41a24f290314dacba6d37d0915ea1d06c31f))
+* connect Gate failures and recovery to issue snapshots ([#4132](https://github.com/stranske/Workflows/issues/4132)) ([0611267](https://github.com/stranske/Workflows/commit/0611267790db5a705186cd091d274a9cab16c719))
+
+## [1.44.5](https://github.com/stranske/Workflows/compare/v1.44.4...v1.44.5) (2026-10-18)
+
+
+### Bug Fixes
+
+* **verifier:** bind completion to current CI, criteria and artifact changes ([72e1ee3](https://github.com/stranske/Workflows/commit/72e1ee3195b630c3b18ceba4ad21a83e9ac222f0))
+* **verifier:** finish evidence review and reconcile main ([b9fa545](https://github.com/stranske/Workflows/commit/b9fa54501230b1381256e05818b0146e95ce86f7))
+
+## [1.44.4](https://github.com/stranske/Workflows/compare/v1.44.3...v1.44.4) (2026-10-18)
+
+
+### Bug Fixes
+
+* **sync:** share seal preconditions and recover refused Gate reruns ([#4118](https://github.com/stranske/Workflows/issues/4118)) ([a32266f](https://github.com/stranske/Workflows/commit/a32266fc59548fbeeae2387ea40ea5f91dd74723))
+
 ## [1.44.3](https://github.com/stranske/Workflows/compare/v1.44.2...v1.44.3) (2026-10-18)
 
 

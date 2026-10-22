@@ -41,6 +41,37 @@ def test_readme_verify_compare_models_match_langchain_defaults() -> None:
     assert "gpt-5.2 + claude-sonnet-4-5" not in readme
 
 
+def test_readme_compare_profile_semantics() -> None:
+    readme = README.read_text(encoding="utf-8")
+    guide = Path("docs/WORKFLOW_GUIDE.md").read_text(encoding="utf-8")
+    workflow = yaml.load(
+        (WORKFLOWS_DIR / "reusable-agents-verifier.yml").read_text(encoding="utf-8"),
+        Loader=yaml.BaseLoader,
+    )
+    assert workflow["on"]["workflow_call"]["inputs"]["evidence_profile"]["default"] == "standard"
+    assert "`evidence_profile=standard` aggregates the available result rows" in readme
+    assert "without requiring both configured provider slots to be present" in readme
+    assert "a single completed judge can yield PASS" in readme
+    assert "standard PASS alone does not prove two judges ran" in readme
+    assert (
+        "Reported FAIL/CONCERNS verdicts, unavailable/error results, and CI/evidence floors still withhold PASS"
+        in readme
+    )
+    assert (
+        "`evidence_profile=expanded` requires a complete, error-free boolean `used_llm=true` PASS from both provider slots"
+        in readme
+    )
+    assert "only after a real verifier truncation report" in readme
+    assert "inspect both provider results before claiming dual-model acceptance" in readme
+    assert "PASS does not prove the reports contain no advisory concerns" in readme
+    assert "unanimous PASS" not in readme
+    # WORKFLOW_GUIDE keeps the README contract link and the real truncation-report gate.
+    assert "[README comparison contract](../README.md#verification-pipeline)" in guide
+    assert "If an actual verifier report identifies bounded-input truncation" in guide
+    assert "inspect both provider results before" in guide
+    assert "Standard remains the default" in guide
+
+
 def test_workflows_doc_names_gate_autofix_dispatch_path() -> None:
     doc = WORKFLOWS_DOC.read_text(encoding="utf-8")
     gate = (WORKFLOWS_DIR / "pr-00-gate.yml").read_text(encoding="utf-8")

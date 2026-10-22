@@ -42,7 +42,7 @@ from scripts.langchain.verifier_config import (
     VERIFIER_DIFF_BUDGET_TOKENS,
     SchemaRepairPolicy,
 )
-from tools.llm_registry import NativeCapacityFacts, native_capacity_facts_for
+from tools.llm_registry import NativeCapacityFacts, native_capacity_facts_for, normalize_provider
 from tools.verifier_capture_obligation_manifest import (
     build_capture_byte_inventory,
     build_capture_obligation_manifest,
@@ -7266,7 +7266,7 @@ def evaluate_pr(
         diff: Optional PR diff or summary
         model: Optional model name (e.g., 'gpt-4o', 'gpt-5.2', 'o1-mini').
             Uses default if not specified.
-        provider: Optional provider ('openai' or 'github-models').
+        provider: Optional provider ('openai', 'github-models', or 'anthropic').
             Auto-selects if not specified.
 
     Returns:
@@ -8037,6 +8037,13 @@ def _load_text(path: str | None) -> str:
     return sys.stdin.read()
 
 
+def _provider_argument(value: str | None) -> str:
+    provider = normalize_provider(value)
+    if provider is None:
+        raise argparse.ArgumentTypeError("unsupported LLM provider")
+    return provider
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Evaluate PRs against acceptance criteria.")
     parser.add_argument("--context-file", help="Path to verifier context markdown.")
@@ -8048,10 +8055,10 @@ def main() -> None:
     )
     parser.add_argument(
         "--provider",
-        choices=["openai", "github-models"],
+        type=_provider_argument,
         help=(
             "LLM provider: 'openai' (requires OPENAI_API_KEY) or "
-            "'github-models' (uses GITHUB_TOKEN)."
+            "'github-models' (uses GITHUB_TOKEN), or 'anthropic' (uses CLAUDE_API_STRANSKE)."
         ),
     )
     parser.add_argument(

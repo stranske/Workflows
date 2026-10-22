@@ -178,12 +178,18 @@ jobs:
             );
 
             // Find verification comment(s) - both evaluate and compare
+            // Native reports are published with GITHUB_TOKEN by the immutable
+            // GitHub Actions bot identity. Body markers alone are forgeable.
             const verifyComments = comments.filter(c =>
-              c.body.includes('## PR Verification Report') ||
+              c.user?.id === 41898282 &&
+              c.user?.login === 'github-actions[bot]' &&
+              c.user?.type === 'Bot' && (
+              /^##[ \t]+(?:PR Verification(?: Report| Comparison)?|LLM Evaluation Report|Provider Comparison Report)\b/im.test(c.body) ||
               c.body.includes('## PR Verification Comparison') ||
               c.body.includes('### Concerns') ||
               c.body.includes('Verdict:') ||
               c.body.includes('### ⚠️ Issues Detected')
+              )
             );
 
             if (verifyComments.length === 0) {
@@ -194,9 +200,12 @@ jobs:
               return;
             }
 
-            // Combine all verification comments
-            const verificationText = verifyComments.map(c => c.body).join('\n\n---\n\n');
-            fs.writeFileSync('verification_data.txt', verificationText);
+            // Retain history for the shared current-report selector in the terminal gate.
+            const verificationText = JSON.stringify({
+              schema: 'verifier-comment-history/v1',
+              comments: verifyComments.map(c => c.body),
+            });
+            fs.writeFileSync('verification_history.txt', verificationText);
             core.info(`Found ${verifyComments.length} verification comment(s)`);
 
             // Extract linked issue from PR body
@@ -305,14 +314,17 @@ jobs:
           from scripts.langchain.verifier_config import (
               artifact_from_verification_text,
               is_terminal_artifact,
+              latest_verifier_report,
           )
 
-          verification_path = Path("verification_data.txt")
+          verification_path = Path("verification_history.txt")
           raw = (
               verification_path.read_text(encoding="utf-8")
               if verification_path.exists()
               else ""
           )
+          selected = latest_verifier_report(raw)
+          Path("verification_data.txt").write_text(selected, encoding="utf-8")
           artifact = artifact_from_verification_text(raw)
           terminal = is_terminal_artifact(artifact)
           verdict = str(artifact.get("verdict") or "")

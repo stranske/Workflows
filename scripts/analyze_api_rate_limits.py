@@ -40,7 +40,7 @@ class RateLimitInfo:
         try:
             dt = datetime.fromtimestamp(self.reset_timestamp, tz=UTC)
             return dt.strftime("%Y-%m-%d %H:%M:%S UTC")
-        except (OSError, ValueError):
+        except (OSError, OverflowError, ValueError):
             return "unknown"
 
 
@@ -270,13 +270,9 @@ def _clean_repo(repo: str) -> str:
         if repo.startswith(prefix):
             repo = repo[len(prefix) :]
             break
-    if repo.startswith("git@github.com:") or repo.startswith("git@www.github.com:"):
-        repo = repo.split(":", 1)[1]
-        if repo.split("/", 1)[0].isdigit():
-            repo = repo.split("/", 1)[1] if "/" in repo else repo
-    elif repo.startswith("git@github.com/") or repo.startswith("git@www.github.com/"):
-        repo = repo.split("/", 1)[1]
-    elif repo.startswith("github.com:") or repo.startswith("www.github.com:"):
+    # git@host:{port/}owner/repo is rewritten above via `@host` → `host:...`, so only
+    # the post-strip `host:` forms remain reachable here.
+    if repo.startswith("github.com:") or repo.startswith("www.github.com:"):
         repo = repo.split(":", 1)[1]
         if repo.split("/", 1)[0].isdigit():
             repo = repo.split("/", 1)[1] if "/" in repo else repo

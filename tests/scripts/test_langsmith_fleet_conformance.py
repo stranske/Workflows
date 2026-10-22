@@ -1,4 +1,5 @@
 import json
+import sys
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -112,3 +113,104 @@ def test_conformance_reports_direct_and_not_applicable_without_artifacts(tmp_pat
         ).read_text(encoding="utf-8")
     )
     assert report["status_counts"]["not-applicable"] == len(_allow["repos"])
+
+
+def test_conformance_handles_empty_unknown_and_malformed_summary_rows(
+    tmp_path: Path, monkeypatch
+) -> None:
+    registry = {
+        "repos": [
+            {"repo": "acme/empty", "surface": "s", "issue": 1, "artifact_name": "a.ndjson"},
+            {"repo": "acme/unknown", "surface": "s", "issue": 2, "artifact_name": "b.ndjson"},
+        ]
+    }
+    empty, unknown = tmp_path / "empty.ndjson", tmp_path / "unknown.ndjson"
+    empty.write_text("")
+    unknown.write_text('{"schema_version":"x"}\n')
+    monkeypatch.setattr(langsmith_fleet, "load_record_schema", lambda: {})
+    monkeypatch.setattr(langsmith_fleet, "validate_records", lambda *args, **kwargs: [])
+    monkeypatch.setattr(
+        langsmith_fleet,
+        "summarize_fleet_records",
+        lambda records, **kwargs: {
+            "rows": [
+                {
+                    "repo": "acme/unknown",
+                    "surface": "s",
+                    "status": "surprise",
+                    "latest_recorded_at": "not-a-date",
+                }
+            ]
+        },
+    )
+    report = langsmith_fleet_conformance.build_conformance_report(
+        {"acme/empty": empty, "acme/unknown": unknown}, registry=registry
+    )
+    rows = {row["repo"]: row for row in report["rows"]}
+    assert rows["acme/empty"]["status"] == "invalid"
+    assert rows["acme/unknown"]["status"] == "invalid"
+    assert rows["acme/unknown"]["first_error"] == "summary row returned unknown status"
+
+
+def test_row_from_summary_skips_non_list_and_non_dict_rows() -> None:
+    assert (
+        langsmith_fleet_conformance.row_from_summary(
+            {"rows": "not-a-list"}, repo="acme/r", surface="s"
+        )
+        is None
+    )
+    assert (
+        langsmith_fleet_conformance.row_from_summary(
+            {"rows": ["skip-me", {"repo": "acme/r", "surface": "s", "status": "ok"}]},
+            repo="acme/r",
+            surface="s",
+        )["status"]
+        == "ok"
+    )
+
+
+def test_conformance_format_and_main_json_and_markdown(tmp_path: Path, monkeypatch, capsys) -> None:
+    report = {
+        "total_registry_entries": 1,
+        "total_allowlisted_repos": 0,
+        "status_counts": {},
+        "rows": [],
+    }
+    assert "Registry entries: 1" in langsmith_fleet_conformance.format_conformance_markdown(report)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "tool",
+            "--registry",
+            str(REGISTRY),
+            "--records-root",
+            str(tmp_path),
+            "--format",
+            "markdown",
+        ],
+    )
+    langsmith_fleet_conformance.main()
+    assert "LangSmith Fleet Conformance" in capsys.readouterr().out
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "tool",
+            "--registry",
+            str(REGISTRY),
+            "--records-root",
+            str(tmp_path),
+            "--format",
+            "json",
+        ],
+    )
+    langsmith_fleet_conformance.main()
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["status_counts"]["missing"] == 8
+    assert payload["status_counts"]["direct"] == 3
+    assert any(
+        row["repo"] == "stranske/Travel-Plan-Permission" and row["status"] == "direct"
+        for row in payload["rows"]
+    )

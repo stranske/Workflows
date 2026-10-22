@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import subprocess
 from pathlib import Path
 from typing import Any
 
@@ -141,9 +142,33 @@ def _promotion_rejections(
             reasons.append(f"stale_or_mixed_plan:{repo}")
         if item.get("required_check_state") != "success":
             reasons.append(f"required_checks_not_green:{repo}")
-        if item.get("active_review_thread_count") != 0:
+        if (
+            item.get("active_review_thread_count") != 0 or "review_disposition" in item
+        ) and not _review_debt_is_clear(item):
             reasons.append(f"active_review_debt:{repo}")
     return reasons
+
+
+def _review_debt_is_clear(item: dict[str, Any]) -> bool:
+    """Consume the same source-owned contract as Maint 71; unavailable stays blocked."""
+    contract = Path(__file__).resolve().parents[1] / ".github/scripts/sync_pr_merge_contract.js"
+    program = (
+        "const row=JSON.parse(require('fs').readFileSync(0,'utf8'));"
+        "const result=require(process.argv[1]).validateCanaryEvidence([row],[row.repo]);"
+        "process.stdout.write(JSON.stringify({ok:result.ok}));"
+    )
+    try:
+        result = subprocess.run(
+            ["node", "-e", program, str(contract)],
+            input=json.dumps(item),
+            text=True,
+            capture_output=True,
+            timeout=15,
+            check=False,
+        )
+        return result.returncode == 0 and json.loads(result.stdout).get("ok") is True
+    except (OSError, subprocess.TimeoutExpired, ValueError, AttributeError):
+        return False
 
 
 def select_phase(

@@ -719,3 +719,11 @@ include independent Node processes sharing only simulated durable server state,
 1,001 bootstrap reads then exactly one read per new legacy attempt, batched
 additions, replacements/removals, same-membership mapping conflicts, stale CAS
 writers, lost writes, interrupted-bootstrap-plus-churn recovery and positive/negative concurrency fences.
+
+Deterministic gate cache receipts bind the full Tasks and Acceptance Criteria
+sections as well as extracted commands. Criterion wording changes invalidate
+prior results even when commands remain identical. PASS source closure requires
+a nonempty configured CI inventory entirely bound to the evaluated merge SHA,
+with no query errors and only successful or explicitly optional skipped results.
+Belt task completion requires named artifacts among substantive changed paths
+of the cited commit; existing unchanged artifacts cannot establish completion.

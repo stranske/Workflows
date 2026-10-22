@@ -1,6 +1,9 @@
 from scripts.repo_review_issue_quality import (
+    checklist_items,
     issue_body_is_agent_ready,
     issue_body_quality_errors,
+    list_value,
+    markdown_section,
     review_evidence_trace_errors,
 )
 
@@ -106,3 +109,95 @@ def test_review_evidence_trace_requires_design_implementation_and_readiness_refs
     assert "review evidence trace is missing implementation_refs" in errors
     assert "review evidence trace is missing test_refs/readiness_refs" in errors
     assert "review evidence trace is not tied to candidate indexes or title patterns" in errors
+
+
+def test_quality_helpers_and_all_error_paths_are_discriminating() -> None:
+    assert list_value(None) == []
+    assert list_value("one") == ["one"]
+    assert checklist_items("- [x] done\n- [ ] next") == ["done", "next"]
+    assert markdown_section("## Tasks\n\ntext\n## Scope\n\nother", "## Tasks") == "text"
+    errors = issue_body_quality_errors(
+        "## Tasks\n- [ ] too short\n## Acceptance Criteria\n- [ ] too short\n"
+    )
+    assert "missing required section ## Why" in errors
+    assert "fewer than 4 task checkboxes" in errors
+    assert "fewer than 3 acceptance-criteria checkboxes" in errors
+    assert "task checkbox is too terse: too short" in errors
+    assert "acceptance checkbox is too terse: too short" in errors
+
+
+def test_review_trace_rejects_backticks_and_broad_refs() -> None:
+    errors = review_evidence_trace_errors(
+        {
+            "gap": "g",
+            "current_state": "s",
+            "required_change": "c",
+            "design_refs": ["`README.md`"],
+            "implementation_refs": [
+                "This is an excessively broad description with no path and many unnecessary words indeed"
+            ],
+            "readiness_refs": ["tests/a.py"],
+            "candidate_indexes": [1],
+        }
+    )
+    assert errors == [
+        "design_refs entry should be a raw path or note without backticks: `README.md`",
+        "implementation_refs entry is too broad to be traceable: "
+        "This is an excessively broad description with no path and many unnecessary words indeed",
+    ]
+
+
+def test_fragment_named_tasks_and_terse_acceptance_are_rejected() -> None:
+    body = (
+        VALID_BODY.replace(
+            "Implement the smoke in `tests/test_local_smoke.py` using existing public APIs.",
+            "strip leading/trailing whitespace",
+        )
+        .replace(
+            "`python -m pytest tests/test_local_smoke.py --no-cov` exits zero with local fixtures.",
+            "passes:",
+        )
+        .replace(
+            "The smoke fails with a clear assertion if the primary output object is not created.",
+            "ok now",
+        )
+    )
+
+    errors = issue_body_quality_errors(body)
+
+    assert any("task checkbox is a fragment:" in error for error in errors)
+    assert any("acceptance checkbox is a fragment ending with colon" in error for error in errors)
+    assert any("acceptance checkbox is too terse" in error for error in errors)
+
+
+def test_implementation_notes_require_backticked_paths() -> None:
+    body = VALID_BODY.replace(
+        "Relevant files: `tests/test_local_smoke.py`, `tests/fixtures/local_smoke/`, `docs/local-testing.md`.",
+        "Touch the smoke test module and its fixtures under the tests tree.",
+    )
+
+    errors = issue_body_quality_errors(body)
+
+    assert any("concrete path/code references" in error for error in errors)
+
+
+def test_review_evidence_trace_requires_core_fields() -> None:
+    assert review_evidence_trace_errors(None) == [
+        "review evidence trace is missing or not an object"
+    ]
+    assert review_evidence_trace_errors("not-a-dict") == [
+        "review evidence trace is missing or not an object"
+    ]
+
+    errors = review_evidence_trace_errors(
+        {
+            "design_refs": ["README.md"],
+            "implementation_refs": ["src/a.py"],
+            "test_refs": ["tests/a.py"],
+            "candidate_indexes": [0],
+        }
+    )
+
+    assert "review evidence trace is missing a verified gap" in errors
+    assert "review evidence trace is missing current_state" in errors
+    assert "review evidence trace is missing required_change" in errors

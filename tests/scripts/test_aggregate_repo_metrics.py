@@ -61,6 +61,33 @@ def test_read_repo_metrics_files_accumulates_errors(tmp_path: Path) -> None:
     assert entries == [{"duration_ms": 10, "repo": "alpha/one"}]
 
 
+def test_parse_repo_specs_combines_sources_and_ignores_invalid_entries(tmp_path: Path) -> None:
+    repos_file = tmp_path / "repos.txt"
+    repos_file.write_text("# comment\nowner/file\nowner/one # duplicate\n", encoding="utf-8")
+    specs = aggregator._parse_repo_specs(
+        ["", "  ", "owner/one=custom.ndjson", "=ignored", "owner/two"],
+        "owner/three, owner/two,",
+        repos_file,
+        tmp_path,
+    )
+    assert specs == [
+        ("owner/one", Path("custom.ndjson")),
+        ("owner/two", tmp_path / "owner__two.ndjson"),
+        ("owner/three", tmp_path / "owner__three.ndjson"),
+        ("owner/file", tmp_path / "owner__file.ndjson"),
+    ]
+
+
+def test_parse_repo_specs_tolerates_unreadable_file_and_groups_unknown_entries(
+    tmp_path: Path,
+) -> None:
+    assert aggregator._parse_repo_specs([], None, tmp_path / "nope", tmp_path) == []
+    assert aggregator._group_by_repo([{"value": 1}], repo_names=["known"]) == {
+        "known": [],
+        "unknown": [{"value": 1}],
+    }
+
+
 def test_infer_numeric_fields_ignores_repo_and_non_numeric() -> None:
     entries = [
         {"repo": "alpha", "duration_ms": "10", "note": "ok", "flag": True},

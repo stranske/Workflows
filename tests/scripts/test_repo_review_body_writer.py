@@ -23,6 +23,7 @@ import argparse
 import json
 import shlex
 import subprocess
+import sys
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -625,7 +626,7 @@ def test_restore_non_body_fields_keeps_only_agent_body_changes() -> None:
     restored, errors, restored_count = body_writer.restore_non_body_fields(before, after)
 
     assert errors == []
-    assert restored_count == 1
+    assert restored_count == 2
     assert restored["repo"] == "stranske/Example"
     assert restored["converged_candidates"][0]["title"] == "Original"
     assert restored["converged_candidates"][0]["design_refs"] == ["docs/design.md"]
@@ -898,6 +899,211 @@ def test_verify_clean_sync_fails_when_head_diverges(fake_repo: Path) -> None:
     ok, message = body_writer.verify_clean_sync(fake_repo)
     assert ok is False
     assert "does not match" in message
+
+
+def test_run_restores_mutated_non_body_fields_after_success(tmp_path: Path, monkeypatch) -> None:
+    """The agent may write bodies, but it cannot silently rewrite candidate metadata."""
+    output_dir = tmp_path / "out"
+    repo = "stranske/Example"
+    _write_empty_converged(output_dir)
+    registry = tmp_path / "Workflows-steward" / "config" / "repo_review_registry.json"
+    registry.parent.mkdir(parents=True)
+    registry.write_text("{}", encoding="utf-8")
+    monkeypatch.setattr(
+        body_writer,
+        "load_registry",
+        lambda _path: (
+            tmp_path,
+            [],
+            [SimpleNamespace(repo=repo, local_path="Workflows-steward")],
+            [],
+        ),
+    )
+    path = body_writer.converged_path(output_dir, repo)
+    path.write_text(
+        json.dumps({"repo": repo, "converged_candidates": [], "meta_candidate": None}),
+        encoding="utf-8",
+    )
+
+    def fake_writer(**_kwargs):
+        path.write_text(
+            json.dumps(
+                {"repo": "stranske/Wrong", "converged_candidates": [], "meta_candidate": None}
+            ),
+            encoding="utf-8",
+        )
+        return True, "wrote body"
+
+    monkeypatch.setattr(body_writer, "run_body_writer", fake_writer)
+    monkeypatch.setattr(body_writer, "validate_body_data", lambda *_args, **_kwargs: ([], [], 0, 0))
+    assert body_writer.run(_run_args(output_dir, registry)) == 0
+    assert json.loads(path.read_text(encoding="utf-8"))["repo"] == repo
+
+
+def test_run_records_agent_failure_without_reading_post_run_file(
+    tmp_path: Path, monkeypatch
+) -> None:
+    output_dir = tmp_path / "out"
+    registry = tmp_path / "Workflows-steward" / "config" / "repo_review_registry.json"
+    registry.parent.mkdir(parents=True)
+    registry.write_text("{}", encoding="utf-8")
+    _write_empty_converged(output_dir)
+    monkeypatch.setattr(
+        body_writer,
+        "load_registry",
+        lambda _path: (
+            tmp_path,
+            [],
+            [SimpleNamespace(repo="stranske/Example", local_path="Workflows-steward")],
+            [],
+        ),
+    )
+    monkeypatch.setattr(body_writer, "run_body_writer", lambda **_kwargs: (False, "agent stopped"))
+    assert body_writer.run(_run_args(output_dir, registry)) == 1
+    state = json.loads(
+        (output_dir / "round2" / "stranske__Example" / "state.json").read_text(encoding="utf-8")
+    )
+    assert state["attempts"][-1]["succeeded"] is False
+
+
+def test_validate_body_data_counts_valid_and_insufficient_candidates(
+    monkeypatch, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(body_writer, "validate_converged_set", lambda *_args, **_kwargs: [])
+    monkeypatch.setattr(body_writer, "body_quality_errors", lambda *_args, **_kwargs: [])
+    data = {
+        "converged_candidates": [
+            {"title": "written", "body": "a valid body"},
+            {"title": "held", "body": "INSUFFICIENT_EVIDENCE: stale source"},
+        ],
+        "meta_candidate": None,
+    }
+    assert body_writer.validate_body_data(
+        data, expected_repo="stranske/Example", repo_path=tmp_path
+    ) == ([], [], 1, 1)
+
+
+def test_restore_non_body_fields_rejects_count_and_shape_changes() -> None:
+    before = {"converged_candidates": [], "meta_candidate": None}
+    restored, errors, count = body_writer.restore_non_body_fields(
+        before, {"converged_candidates": [{}], "meta_candidate": None}
+    )
+    assert restored == before
+    assert errors == ["candidate count changed during body writing"]
+    assert count == 0
+
+
+def test_run_reports_unknown_repo_and_missing_converged_file(tmp_path: Path, monkeypatch) -> None:
+    registry = tmp_path / "config" / "repo_review_registry.json"
+    registry.parent.mkdir()
+    registry.write_text("{}", encoding="utf-8")
+    monkeypatch.setattr(body_writer, "load_registry", lambda _path: (tmp_path, [], [], []))
+    assert body_writer.run(_run_args(tmp_path / "out", registry)) == 2
+
+    monkeypatch.setattr(
+        body_writer,
+        "load_registry",
+        lambda _path: (
+            tmp_path,
+            [],
+            [SimpleNamespace(repo="stranske/Example", local_path="Workflows-steward")],
+            [],
+        ),
+    )
+    assert body_writer.run(_run_args(tmp_path / "out", registry)) == 2
+
+
+def test_run_fails_if_agent_leaves_invalid_json(tmp_path: Path, monkeypatch) -> None:
+    output_dir = tmp_path / "out"
+    registry = tmp_path / "Workflows-steward" / "config" / "repo_review_registry.json"
+    registry.parent.mkdir(parents=True)
+    registry.write_text("{}", encoding="utf-8")
+    _write_empty_converged(output_dir)
+    monkeypatch.setattr(
+        body_writer,
+        "load_registry",
+        lambda _path: (
+            tmp_path,
+            [],
+            [SimpleNamespace(repo="stranske/Example", local_path="Workflows-steward")],
+            [],
+        ),
+    )
+    path = body_writer.converged_path(output_dir, "stranske/Example")
+    monkeypatch.setattr(
+        body_writer,
+        "run_body_writer",
+        lambda **_kwargs: (path.write_text("{", encoding="utf-8") or True, "ok"),
+    )
+    assert body_writer.run(_run_args(output_dir, registry)) == 1
+
+
+def test_path_and_acceptance_helpers_cover_globs_and_missing_sections(tmp_path: Path) -> None:
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "app.py").write_text("", encoding="utf-8")
+    assert body_writer._path_resolves(tmp_path, "src/*.py")
+    assert not body_writer._path_resolves(tmp_path, "src/*.js")
+    assert body_writer.acceptance_has_verification_gate("## Tasks\n\n- [ ] work")
+    assert not body_writer.acceptance_has_verification_gate("## Acceptance\n\n- [ ] Document it")
+
+
+def test_main_parses_arguments_and_delegates(monkeypatch, tmp_path: Path) -> None:
+    captured = {}
+    monkeypatch.setattr(body_writer, "run", lambda args: captured.update(vars(args)) or 17)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "body-writer",
+            "--repo",
+            "stranske/Example",
+            "--output-dir",
+            str(tmp_path),
+            "--registry",
+            "custom.json",
+            "--agent",
+            "claude",
+            "--timeout",
+            "3",
+            "--skip-sync-check",
+            "--validate-only",
+        ],
+    )
+    assert body_writer.main() == 17
+    assert captured["agent"] == "claude"
+    assert captured["validate_only"] is True
+
+
+def test_candidate_records_handles_root_and_meta_shape_failures() -> None:
+    assert body_writer.candidate_records([])[1] == ["converged.json root must be an object"]
+    assert body_writer.candidate_records({"converged_candidates": [], "meta_candidate": []})[1] == [
+        "meta_candidate must be an object or null"
+    ]
+    records, errors = body_writer.candidate_records(
+        {"converged_candidates": [], "meta_candidate": {"title": "meta"}}
+    )
+    assert errors == []
+    assert records == [{"title": "meta"}]
+
+
+def test_build_prompt_reports_shape_and_candidate_body_errors(tmp_path: Path, monkeypatch) -> None:
+    prompt_file = tmp_path / "prompt.md"
+    prompt_file.write_text("template", encoding="utf-8")
+    monkeypatch.setattr(body_writer, "canonical_body_writer_prompt", lambda: prompt_file)
+    output = tmp_path / "out"
+    path = body_writer.converged_path(output, "stranske/Example")
+    path.parent.mkdir(parents=True)
+    path.write_text(json.dumps({"converged_candidates": "bad"}), encoding="utf-8")
+    prompt = body_writer.build_prompt(
+        repo="stranske/Example", output_dir=output, repo_path=tmp_path
+    )
+    assert "converged.json structure" in prompt
+
+    path.write_text(json.dumps({"converged_candidates": [{"title": "bad", "body": ""}]}))
+    prompt = body_writer.build_prompt(
+        repo="stranske/Example", output_dir=output, repo_path=tmp_path
+    )
+    assert "candidate #1 'bad'" in prompt
 
 
 def test_sync_check_not_required_for_executing_steward(tmp_path: Path) -> None:

@@ -492,3 +492,74 @@ def test_conformant_rejects_invalid_lifecycle_evidence() -> None:
         and finding.message == "must be issue ref or GitHub run job URL"
         for finding in findings
     )
+
+
+def test_status_report_matches_registry() -> None:
+    registry = _registry()
+    report_path = ROOT / "docs/reports/backplane_registry_status.md"
+    expected = vbr.render_status_markdown(registry)
+    assert report_path.read_text(encoding="utf-8") == expected
+    assert vbr.main(["--check-status", str(report_path)]) == 0
+
+
+def test_write_status_writes_rendered_markdown(tmp_path: Path) -> None:
+    registry = _registry()
+    registry_path = tmp_path / "registry.json"
+    registry_path.write_text(json.dumps(registry), encoding="utf-8")
+    out_path = tmp_path / "status.md"
+
+    assert vbr.main(["--write-status", str(out_path), str(registry_path)]) == 0
+    assert out_path.read_text(encoding="utf-8") == vbr.render_status_markdown(registry)
+
+
+def test_status_report_flags_drift(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    registry = copy.deepcopy(_registry())
+    registry_path = tmp_path / "registry.json"
+    registry_path.write_text(json.dumps(registry), encoding="utf-8")
+    report_path = tmp_path / "backplane_registry_status.md"
+    report_path.write_text(vbr.render_status_markdown(registry), encoding="utf-8")
+
+    # Drift via stale committed report.
+    report_path.write_text("stale report\n", encoding="utf-8")
+    assert vbr.main(["--check-status", str(report_path), str(registry_path)]) == 1
+    output = capsys.readouterr().out
+    assert f"--- {report_path}" in output
+    assert "+++ rendered" in output
+    assert "-stale report" in output
+
+    # Drift via registry status change without regenerating the report.
+    report_path.write_text(vbr.render_status_markdown(registry), encoding="utf-8")
+    for entry in registry["participants"]:
+        if entry["repo"] == "stranske/Inv-Man-Intake":
+            entry["status"] = "planned"
+            break
+    registry_path.write_text(json.dumps(registry), encoding="utf-8")
+    assert vbr.main(["--check-status", str(report_path), str(registry_path)]) == 1
+
+
+def test_status_report_none_deferred_line_when_no_deferrals() -> None:
+    registry = copy.deepcopy(_registry())
+    for entry in registry["participants"]:
+        entry.pop("issue_deferred", None)
+
+    rendered = vbr.render_status_markdown(registry)
+    assert "Deferrals: none deferred." in rendered
+
+
+def test_status_report_prefers_assigned_issue_over_retained_deferral() -> None:
+    registry = copy.deepcopy(_registry())
+    entry = next(row for row in registry["participants"] if row.get("issue_deferred"))
+    entry["issue"] = "stranske/Workflows#3972"
+    rendered = vbr.render_status_markdown(registry)
+    row = next(line for line in rendered.splitlines() if line.startswith(f"| {entry['repo']} |"))
+    assert "`stranske/Workflows#3972`" in row
+    assert "deferred until" not in row
+
+
+def test_status_report_rejects_conflicting_modes_without_writing(tmp_path: Path) -> None:
+    report = tmp_path / "status.md"
+    report.write_text("stale report\n", encoding="utf-8")
+    with pytest.raises(SystemExit) as exc:
+        vbr.main(["--write-status", str(report), "--check-status", str(report)])
+    assert exc.value.code == 2
+    assert report.read_text(encoding="utf-8") == "stale report\n"

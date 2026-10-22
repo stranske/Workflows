@@ -647,3 +647,66 @@ def test_collect_changed_files_head_minus_one_diff_returns_empty(
     result = guard._collect_changed_files("main", "origin")
 
     assert result == []
+
+
+def test_run_git_returns_output_and_raises_on_disallowed_exit(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class Result:
+        def __init__(self, returncode: int, stdout: str, stderr: str = "") -> None:
+            self.returncode = returncode
+            self.stdout = stdout
+            self.stderr = stderr
+
+    monkeypatch.setattr(guard.subprocess, "run", lambda *args, **kwargs: Result(0, "ok"))
+    assert guard._run_git(["status"]) == "ok"
+    monkeypatch.setattr(guard.subprocess, "run", lambda *args, **kwargs: Result(2, "", "bad"))
+    with pytest.raises(RuntimeError, match="bad"):
+        guard._run_git(["status"])
+
+
+def test_rev_exists_true_and_false(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(guard, "_run_git", lambda args: "abc123\n")
+    assert guard._rev_exists("HEAD") is True
+
+    def boom(args: list[str]) -> str:
+        raise RuntimeError("missing")
+
+    monkeypatch.setattr(guard, "_run_git", boom)
+    assert guard._rev_exists("does-not-exist") is False
+
+
+def test_collect_all_files_skips_missing_target_dirs(
+    guard_root: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    missing = guard_root / "does-not-exist"
+    present = guard_root / "scripts"
+    file_path = present / "kept.js"
+    file_path.write_text("// ok\n", encoding="utf-8")
+    monkeypatch.setattr(guard, "TARGET_DIRS", (missing, present))
+
+    collected = guard._collect_all_files()
+
+    assert file_path in collected
+
+
+def test_is_target_file_skips_agent_ledger_files(guard_root: Path) -> None:
+    path = guard_root / "scripts" / ".agents" / "task-ledger.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("{}\n", encoding="utf-8")
+
+    assert guard._is_target_file(path) is False
+
+
+def test_scan_file_reports_unreadable_paths(
+    guard_root: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = guard_root / "scripts" / "locked.js"
+    path.write_text("gh api /repos\n", encoding="utf-8")
+
+    def boom(self: Path, *args: object, **kwargs: object) -> str:
+        raise OSError("permission denied")
+
+    monkeypatch.setattr(Path, "read_text", boom)
+
+    assert guard._scan_file(path) == [f"{path}: unable to read file"]
