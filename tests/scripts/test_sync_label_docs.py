@@ -95,7 +95,7 @@ def test_helpers_hash_redact_and_parse_repositories(tmp_path: Path) -> None:
     assert sync_label_docs.file_sha256(tmp_path / "missing") is None
     assert sync_label_docs.file_sha256(document) == hashlib.sha256(b"labels").hexdigest()
     assert (
-        sync_label_docs.redact_command(["git", "push", "secret-token"], ["secret-token"])
+        sync_label_docs.redact_command(["git", "push", "secret-token"], ["", "secret-token"])
         == "git push ***"
     )
 
@@ -112,6 +112,50 @@ def test_run_command_reports_redacted_failure(monkeypatch: pytest.MonkeyPatch) -
         sync_label_docs.run_command(["git", "push", "secret-token"], redactions=["secret-token"])
 
     assert str(excinfo.value) == "git push *** failed with exit 1: bad credential"
+
+
+def test_run_command_handles_success_and_failure_without_output(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class Successful:
+        returncode = 0
+        stderr = ""
+        stdout = ""
+
+    monkeypatch.setattr(sync_label_docs.subprocess, "run", lambda *args, **kwargs: Successful())
+    assert sync_label_docs.run_command(["git", "status"]) is None
+
+    class FailedWithoutOutput:
+        returncode = 1
+        stderr = ""
+        stdout = ""
+
+    monkeypatch.setattr(
+        sync_label_docs.subprocess, "run", lambda *args, **kwargs: FailedWithoutOutput()
+    )
+    with pytest.raises(sync_label_docs.SyncLabelDocsError, match="git status failed with exit 1$"):
+        sync_label_docs.run_command(["git", "status"])
+
+
+def test_sync_checkout_rejects_missing_source_and_reports_dry_run(tmp_path: Path) -> None:
+    checkout = tmp_path / "checkout"
+    (checkout / "docs").mkdir(parents=True)
+
+    with pytest.raises(sync_label_docs.SyncLabelDocsError, match="Source file not found"):
+        sync_label_docs.sync_checkout(
+            repo="owner/repo", source_file=tmp_path / "missing.md", checkout_dir=checkout
+        )
+
+    source = tmp_path / "source.md"
+    source.write_text("new", encoding="utf-8")
+    result = sync_label_docs.sync_checkout(
+        repo="owner/repo", source_file=source, checkout_dir=checkout, dry_run=True
+    )
+    assert result == sync_label_docs.SyncResult(
+        repo="owner/repo",
+        status="changed",
+        message="DRY RUN: Would update docs/LABELS.md in owner/repo",
+    )
 
 
 def test_failed_clone_keeps_the_token_out_of_the_error_and_its_chain(
@@ -201,3 +245,30 @@ def test_main_validates_repositories_and_token(monkeypatch: pytest.MonkeyPatch) 
     monkeypatch.delenv("SYNC_TOKEN", raising=False)
     with pytest.raises(SystemExit, match=r"Missing sync token in \$SYNC_TOKEN"):
         sync_label_docs.main()
+
+
+def test_sync_repos_prefixes_unscoped_failure_and_main_exits_with_it(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    def fail_sync_repo(**kwargs: object) -> sync_label_docs.SyncResult:
+        raise sync_label_docs.SyncLabelDocsError("network unavailable")
+
+    monkeypatch.setattr(sync_label_docs, "sync_repo", fail_sync_repo)
+    with pytest.raises(sync_label_docs.SyncLabelDocsError, match="owner/repo: network unavailable"):
+        sync_label_docs.sync_repos(repos=["owner/repo"], token="token")
+
+    def fail_sync_repos(**kwargs: object) -> list[sync_label_docs.SyncResult]:
+        raise sync_label_docs.SyncLabelDocsError("sync unavailable")
+
+    monkeypatch.setattr(sync_label_docs, "sync_repos", fail_sync_repos)
+    monkeypatch.setenv("SYNC_TOKEN", "token")
+    monkeypatch.setattr("sys.argv", ["sync_label_docs.py", "--repos", "owner/repo"])
+    with pytest.raises(SystemExit, match="sync unavailable"):
+        sync_label_docs.main()
+
+
+def test_sync_repos_returns_all_successful_results(monkeypatch: pytest.MonkeyPatch) -> None:
+    expected = sync_label_docs.SyncResult("owner/repo", "skipped", "already current")
+    monkeypatch.setattr(sync_label_docs, "sync_repo", lambda **kwargs: expected)
+
+    assert sync_label_docs.sync_repos(repos=["owner/repo"], token="token") == [expected]
