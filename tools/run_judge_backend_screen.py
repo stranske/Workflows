@@ -741,6 +741,7 @@ def corpus_cases_with_snapshots(
     *,
     limit_per_group: int | None = None,
     evaluable_only: bool = False,
+    include_diagnostic: bool = False,
 ) -> list[dict[str, Any]]:
     """Every corpus case a prompt can be built for: the screen cases plus cases with a snapshot
     reference or mutation recipe (loaded through ``generate_mutation_cases.load_case``).
@@ -759,6 +760,8 @@ def corpus_cases_with_snapshots(
         if case["case_id"] in seen or not (case.get("snapshot_ref") or case.get("mutation_recipe")):
             continue
         cases.append(load_case(case, root))
+    if not include_diagnostic:
+        cases = [c for c in cases if not c.get("diagnostic_only")]
     if evaluable_only:
         # the production prompt's own sufficiency check: an insufficient input measures the capture
         from tools.generate_mutation_cases import coverage_sufficient
@@ -945,6 +948,11 @@ def main(argv: list[str] | None = None) -> int:
         "evaluable: those whose production prompt is sufficient (the approval set)",
     )
     parser.add_argument(
+        "--include-diagnostic",
+        action="store_true",
+        help="with --cases all/evaluable: also run diagnostic-only cases (the failed-CI mutants)",
+    )
+    parser.add_argument(
         "--limit-per-group",
         type=int,
         help="with --cases all: keep the first N per verdict, group and category",
@@ -975,6 +983,7 @@ def main(argv: list[str] | None = None) -> int:
             ROOT,
             limit_per_group=args.limit_per_group,
             evaluable_only=args.cases == "evaluable",
+            include_diagnostic=args.include_diagnostic,
         )
         if args.cases in ("all", "evaluable")
         else None

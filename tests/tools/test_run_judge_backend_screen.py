@@ -594,7 +594,7 @@ def test_every_corpus_case_with_a_snapshot_builds_a_production_prompt():
     from tools.model_eval_snapshots import verifier_prompt
 
     corpus = json.loads((screen.ROOT / "config/model_eval_pilot.json").read_text())
-    cases = screen.corpus_cases_with_snapshots(corpus, screen.ROOT)
+    cases = screen.corpus_cases_with_snapshots(corpus, screen.ROOT, include_diagnostic=True)
     assert len({c["case_id"] for c in cases}) == len(cases)
     groups = Counter((c["expected_verdict"], screen.case_group(c)) for c in cases)
     assert (
@@ -610,8 +610,12 @@ def test_limit_per_group_is_deterministic_and_spans_every_kind_of_case():
     from tools import run_judge_backend_screen as screen
 
     corpus = json.loads((screen.ROOT / "config/model_eval_pilot.json").read_text())
-    first = screen.corpus_cases_with_snapshots(corpus, screen.ROOT, limit_per_group=2)
-    second = screen.corpus_cases_with_snapshots(corpus, screen.ROOT, limit_per_group=2)
+    first = screen.corpus_cases_with_snapshots(
+        corpus, screen.ROOT, limit_per_group=2, include_diagnostic=True
+    )
+    second = screen.corpus_cases_with_snapshots(
+        corpus, screen.ROOT, limit_per_group=2, include_diagnostic=True
+    )
     assert [c["case_id"] for c in first] == [c["case_id"] for c in second]
     kinds = {(c["expected_verdict"], screen.case_group(c)) for c in first}
     assert kinds == {
@@ -654,8 +658,27 @@ def test_evaluable_mode_keeps_only_inputs_the_production_prompt_calls_sufficient
 
     corpus = json.loads((screen.ROOT / "config/model_eval_pilot.json").read_text())
     everything = screen.corpus_cases_with_snapshots(corpus, Path(screen.ROOT))
-    evaluable = screen.corpus_cases_with_snapshots(corpus, Path(screen.ROOT), evaluable_only=True)
+    evaluable = screen.corpus_cases_with_snapshots(
+        corpus, Path(screen.ROOT), evaluable_only=True, include_diagnostic=True
+    )
     assert 0 < len(evaluable) <= len(everything)
     assert all(coverage_sufficient(c["production_snapshot"]) for c in evaluable)
     kinds = {(c["expected_verdict"], screen.case_group(c)) for c in evaluable}
     assert {("PASS", "real"), ("NON_PASS", "fail-ci-row"), ("NON_PASS", "drop-named-file")} <= kinds
+
+
+def test_diagnostic_only_cases_are_left_out_unless_asked_for():
+    from pathlib import Path
+
+    import json
+
+    from tools import run_judge_backend_screen as screen
+
+    corpus = json.loads((screen.ROOT / "config/model_eval_pilot.json").read_text())
+    default = screen.corpus_cases_with_snapshots(corpus, Path(screen.ROOT), evaluable_only=True)
+    everything = screen.corpus_cases_with_snapshots(
+        corpus, Path(screen.ROOT), evaluable_only=True, include_diagnostic=True
+    )
+    assert not any(screen.case_group(c) == "fail-ci-row" for c in default)
+    assert sum(screen.case_group(c) == "fail-ci-row" for c in everything) > 0
+    assert len(everything) > len(default)
