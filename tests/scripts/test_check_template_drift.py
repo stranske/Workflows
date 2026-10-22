@@ -444,7 +444,7 @@ def test_check_pairs_reports_in_sync_status(tmp_path: Path) -> None:
     assert results[0].reason == ""
 
 
-def test_read_allowlist_and_render_summary_cover_review_metadata(tmp_path: Path) -> None:
+def test_read_allowlist_reads_review_metadata_fields(tmp_path: Path) -> None:
     allowlist_path = tmp_path / "allowlist.ini"
     allowlist_path.write_text(
         """
@@ -455,23 +455,36 @@ main_sha256 = main
 template_sha256 = template
 divergence = intentional
 divergence_reviewed = 2026-10-10
-fingerprint_refreshed = 2026-10-10
+fingerprint_refreshed = 2026-10-12
 """,
         encoding="utf-8",
     )
 
-    allowlist = read_allowlist(allowlist_path)
-    assert allowlist.entries[0].reason == "intentional"
-    assert (
-        check_template_drift._days_since(
-            "2026-10-10", today=check_template_drift.date(2026, 10, 17)
-        )
-        == 7
-    )
-    assert check_template_drift._days_since("not-a-date") is None
+    entry = read_allowlist(allowlist_path).entries[0]
 
-    reviewed_age = check_template_drift._days_since("2026-10-10")
-    assert reviewed_age is not None
+    assert entry.reason == "intentional"
+    assert entry.divergence_reviewed == "2026-10-10"
+    assert entry.fingerprint_refreshed == "2026-10-12"
+
+
+def test_days_since_counts_whole_days_and_reads_unparseable_dates_as_unknown() -> None:
+    today = check_template_drift.date(2026, 10, 17)
+
+    assert check_template_drift._days_since("2026-10-10", today=today) == 7
+    assert check_template_drift._days_since("2026-10-17", today=today) == 0
+    assert check_template_drift._days_since("not-a-date", today=today) is None
+
+
+def test_render_summary_reports_review_age_from_the_checkers_clock(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FrozenDate(check_template_drift.date):
+        @classmethod
+        def today(cls):
+            return cls(2026, 10, 17)
+
+    monkeypatch.setattr(check_template_drift, "date", FrozenDate)
+
     summary = render_summary(
         [
             check_template_drift.PairResult("main.yml", "template.yml", "in_sync", "a", "b"),
@@ -490,22 +503,55 @@ fingerprint_refreshed = 2026-10-10
             ),
         ]
     )
+
     assert "unallowlisted drift: 1" in summary
     assert "pairs where divergence_reviewed == fingerprint_refreshed: 1 of 1" in summary
-    assert f"{reviewed_age}d ago" in summary
+    assert "(7d ago)" in summary
+    assert "(same date as fingerprint_refreshed)" in summary
 
 
-def test_main_writes_summary_and_prints_allowlist_template(
+def test_main_reports_drift_on_stderr_and_prints_an_allowlist_template(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     _write_pair(tmp_path, "agents-demo.yml", "one\n", "two\n")
     summary_path = tmp_path / "summary.md"
 
     assert main(["--repo-root", str(tmp_path), "--summary", str(summary_path)]) == 1
+    captured = capsys.readouterr()
     assert "Unallowlisted Drift" in summary_path.read_text(encoding="utf-8")
+    assert "Unallowlisted Drift" in captured.out
+    assert "::error::Unallowlisted template drift detected." in captured.err
 
     assert main(["--repo-root", str(tmp_path), "--print-allowlist-template"]) == 0
-    assert "[pair.1]" in capsys.readouterr().out
+    template = capsys.readouterr().out
+    assert "[pair.1]" in template
+    assert "main = .github/workflows/agents-demo.yml" in template
+    assert "template = templates/consumer-repo/.github/workflows/agents-demo.yml" in template
+    assert f"main_sha256 = {normalized_sha256('one' + chr(10))}" in template
+    assert f"template_sha256 = {normalized_sha256('two' + chr(10))}" in template
+
+
+def test_print_allowlist_template_is_empty_when_the_drift_is_already_allowlisted(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    _write_pair(tmp_path, "agents-demo.yml", "one\n", "two\n")
+    allowlist_path = tmp_path / "allowlist.ini"
+    allowlist_path.write_text(
+        f"""
+[pair.demo]
+main = .github/workflows/agents-demo.yml
+template = templates/consumer-repo/.github/workflows/agents-demo.yml
+main_sha256 = {normalized_sha256("one" + chr(10))}
+template_sha256 = {normalized_sha256("two" + chr(10))}
+divergence = intentional
+""",
+        encoding="utf-8",
+    )
+
+    args = ["--repo-root", str(tmp_path), "--allowlist", str(allowlist_path)]
+    assert main([*args, "--print-allowlist-template"]) == 0
+    assert capsys.readouterr().out == ""
+    assert main(args) == 0
 
 
 def _write_pair(tmp_path: Path, filename: str, main: str, template: str) -> None:

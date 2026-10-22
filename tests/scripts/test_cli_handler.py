@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ast
 import json
 
 # Add parent directory to path for imports
@@ -32,18 +33,28 @@ def _with_token(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("GITHUB_TOKEN", "token")
 
 
-def test_main_rejects_empty_allowlist_wrong_repository_and_missing_token(
-    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+@pytest.mark.parametrize(
+    ("argv", "message"),
+    [
+        pytest.param(["--repo", "owner/repo"], "allowlist is empty", id="empty-allowlist"),
+        pytest.param(
+            ["--repo", "owner/repo", "--allowlist", "someone/else"],
+            "is not in the allowlist",
+            id="repository-not-allowlisted",
+        ),
+        pytest.param(_main_args("--title", "demo"), "Missing GitHub token", id="missing-token"),
+    ],
+)
+def test_main_rejects_invalid_repository_or_token_configuration(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    argv: list[str],
+    message: str,
 ) -> None:
-    assert main(["--repo", "owner/repo"]) == 1
-    assert "allowlist is empty" in capsys.readouterr().err
-
-    assert main(["--repo", "owner/repo", "--allowlist", "someone/else"]) == 1
-    assert "is not in the allowlist" in capsys.readouterr().err
-
     monkeypatch.delenv("GITHUB_TOKEN", raising=False)
-    assert main(_main_args("--title", "demo")) == 1
-    assert "Missing GitHub token" in capsys.readouterr().err
+
+    assert main(argv) == 1
+    assert message in capsys.readouterr().err
 
 
 def test_main_validates_option_combinations_before_network_calls(
@@ -76,24 +87,107 @@ def test_main_supports_duplicate_unique_list_and_dry_run_modes(
     assert "#9 Matching (unknown)" in capsys.readouterr().out
 
     assert main(_main_args("--title", "Demo", "--body", "Body", "--dry-run")) == 0
-    assert "'title': 'Demo'" in capsys.readouterr().out
+    assert ast.literal_eval(capsys.readouterr().out.strip()) == {"title": "Demo", "body": "Body"}
 
 
-def test_main_creates_issue_after_confirmation(
+def test_main_creates_issue_after_confirmation_with_the_requested_arguments(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     _with_token(monkeypatch)
     monkeypatch.setattr(cli_handler, "_confirm_issue_creation", lambda *args, **kwargs: True)
-    monkeypatch.setattr(
-        cli_handler,
-        "api_client",
-        MagicMock(
-            create_issue=lambda *args, **kwargs: {"html_url": "https://example.test/issues/1"}
-        ),
+    create_issue = MagicMock(return_value={"html_url": "https://example.test/issues/1"})
+    monkeypatch.setattr(cli_handler.api_client, "create_issue", create_issue)
+
+    argv = _main_args(
+        "--title",
+        "Demo",
+        "--body",
+        "Body text",
+        "--labels",
+        "bug, docs",
+        "--retry-attempts",
+        "4",
+        "--retry-backoff",
+        "0.5",
+        "--yes",
+    )
+    assert main(argv) == 0
+
+    assert "Issue created: https://example.test/issues/1" in capsys.readouterr().out
+    create_issue.assert_called_once_with(
+        "owner/repo",
+        "token",
+        "Demo",
+        "Body text",
+        ["bug", "docs"],
+        retry_attempts=4,
+        retry_backoff=0.5,
     )
 
-    assert main(_main_args("--title", "Demo", "--yes")) == 0
-    assert "Issue created: https://example.test/issues/1" in capsys.readouterr().out
+
+def test_main_does_not_create_an_issue_when_confirmation_is_declined(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    _with_token(monkeypatch)
+    create_issue = MagicMock()
+    monkeypatch.setattr(cli_handler, "_confirm_issue_creation", lambda *args, **kwargs: False)
+    monkeypatch.setattr(cli_handler.api_client, "create_issue", create_issue)
+
+    assert main(_main_args("--title", "Demo")) == 1
+
+    assert "Issue creation cancelled." in capsys.readouterr().err
+    create_issue.assert_not_called()
+
+
+def test_main_requires_a_title_or_a_source_issue(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    _with_token(monkeypatch)
+
+    assert main(_main_args()) == 1
+
+    assert "Either --source-issue/--find-issue or --title is required." in capsys.readouterr().err
+
+
+def test_main_check_issue_requires_the_expected_duplicate_link(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    _with_token(monkeypatch)
+    comment = {
+        "body": "Possible duplicates:\n- #5 - Other issue (https://github.com/owner/repo/issues/5)",
+        "html_url": "https://example.test/comments/1",
+    }
+    monkeypatch.setattr(cli_handler, "check_issue_for_duplicate", lambda *args, **kwargs: comment)
+
+    assert main(_main_args("--check-issue", "7", "--expected-issue-number", "9")) == 1
+    assert "Expected duplicate link not found." in capsys.readouterr().err
+
+    assert main(_main_args("--check-issue", "7", "--expected-issue-number", "5")) == 0
+    assert "Duplicate detection comment found: https://example.test/comments/1" in (
+        capsys.readouterr().out
+    )
+
+
+def test_main_check_unique_fails_when_a_duplicate_comment_exists(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    _with_token(monkeypatch)
+    monkeypatch.setattr(cli_handler, "check_issue_for_no_duplicate", lambda *args, **kwargs: False)
+
+    assert main(_main_args("--check-unique", "7")) == 1
+
+    assert "unique check failed" in capsys.readouterr().out
+
+
+def test_main_list_issues_fails_when_nothing_matches(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    _with_token(monkeypatch)
+    monkeypatch.setattr(cli_handler, "collect_matching_issues", lambda *args, **kwargs: [])
+
+    assert main(_main_args("--list-issues", "--find-issue", "nothing")) == 1
+
+    assert "No matching source issue found." in capsys.readouterr().err
 
 
 # =============================================================================

@@ -1,4 +1,7 @@
+import hashlib
+import traceback
 from pathlib import Path
+from urllib.parse import quote
 
 import pytest
 from scripts import sync_label_docs
@@ -90,7 +93,7 @@ def test_helpers_hash_redact_and_parse_repositories(tmp_path: Path) -> None:
 
     assert sync_label_docs.parse_repos(" one/repo, ,two/repo ") == ["one/repo", "two/repo"]
     assert sync_label_docs.file_sha256(tmp_path / "missing") is None
-    assert sync_label_docs.file_sha256(document) == sync_label_docs.file_sha256(document)
+    assert sync_label_docs.file_sha256(document) == hashlib.sha256(b"labels").hexdigest()
     assert (
         sync_label_docs.redact_command(["git", "push", "secret-token"], ["secret-token"])
         == "git push ***"
@@ -109,6 +112,33 @@ def test_run_command_reports_redacted_failure(monkeypatch: pytest.MonkeyPatch) -
         sync_label_docs.run_command(["git", "push", "secret-token"], redactions=["secret-token"])
 
     assert str(excinfo.value) == "git push *** failed with exit 1: bad credential"
+
+
+def test_failed_clone_keeps_the_token_out_of_the_error_and_its_chain(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    token = "tok/secret"
+    clone_url = sync_label_docs.build_clone_url("owner/repo", token)
+
+    class Completed:
+        returncode = 128
+        stdout = ""
+        stderr = f"fatal: unable to access '{clone_url}': Could not resolve host"
+
+    monkeypatch.setattr(sync_label_docs.subprocess, "run", lambda *args, **kwargs: Completed())
+    source = tmp_path / "source.md"
+    source.write_text("new", encoding="utf-8")
+
+    with pytest.raises(sync_label_docs.SyncLabelDocsError) as excinfo:
+        sync_label_docs.sync_repo(repo="owner/repo", token=token, source_file=source)
+
+    error = excinfo.value
+    rendered = "".join(traceback.format_exception(error))
+    assert str(error).startswith("owner/repo: clone failed")
+    for secret in (token, quote(token, safe="")):
+        assert secret not in rendered
+        assert secret not in repr(error.__cause__)
+        assert secret not in repr(error.__context__)
 
 
 def test_sync_repo_and_repos_handle_clone_and_member_failures(tmp_path: Path) -> None:
