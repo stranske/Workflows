@@ -262,7 +262,9 @@ That content is already published, so contributor-tier training adds no confiden
 | Anything unpublished or local (audits, personal notes, local projects, the Brain), private or internal repositories, secrets or credential values, personal data | **Refused** |
 
 The guard is mechanical: `--allow-contributor-tier` is refused unless GitHub confirms every case
-repository is public, and an unknown answer counts as not public (`require_public_sources`; tests pin it).
+repository is public and every prompt input matches the shipped immutable corpus or a published
+verifier-input manifest for the named run (`require_contributor_tier_inputs`; tests pin it). An
+unknown repository visibility or unverifiable prompt input counts as refusal.
 Residual risks: CI logs in a public repository can still carry text a masking rule missed; a
 repository that later turns private would need the flag withdrawn; and the policy cannot see what Meta
 retains. These are reasons to keep the cheap tier behind the quality gates, not to refuse it.
