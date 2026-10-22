@@ -109,8 +109,10 @@ def run_shadow(
     if config.get("enabled"):
         # never shadow a model that is already a production judge on this run
         todo = [
-            c for c in config.get("candidates", []) if (c["provider"], c["model"]) not in produced
-        ]
+            c
+            for c in config.get("candidates", [])
+            if (c["provider"], c["model"]) not in produced and c.get("runner") != "external"
+        ]  # external candidates are judged later by tools/verifier_shadow_external.py
         # all candidates judge at once, so the step costs one candidate's latency, not their sum
         if todo:
             with concurrent.futures.ThreadPoolExecutor(max_workers=min(len(todo), 12)) as pool:

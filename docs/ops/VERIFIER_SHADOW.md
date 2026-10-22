@@ -83,3 +83,20 @@ timing-out candidate records its own error and never disturbs the others.
 Multiple-comparisons caution: with seven candidates, the chance that at least one meets the criteria by
 luck is much higher than for one. Promotion picks, among candidates that MEET, the cheapest; a lone
 MEETS among many is not proof of superiority, and the day-21 cap applies to each independently.
+
+## Candidate choice and external candidates
+
+Only the newest model of each line is shadowed (gpt-6.1-sol, not gpt-6-sol or gpt-5.6; claude-opus-5-5,
+not opus-5; no Anthropic model older than the production claude-sonnet-5-5; gpt-6-luna stays because no
+6.1 luna exists).
+
+Muse (`muse-api`, muse-spark-1.3, own pay-as-you-go key, non-contributor tier) and Cursor (`cursor-cli`,
+read-only ask mode) are `runner: external` candidates. Consumer workflows hold no credential for them,
+so they cannot judge inside a verification run. Instead the daily report job
+(`tools/verifier_shadow_external.py`) replays each fresh run's saved context and diff (the
+`comparison-results-*` artifact, 7-day retention) through the same production prompt and appends the
+verdict to that run's ledger record. They are scored by the same criteria; their baseline is the
+production OpenAI judge. Bounds: public repositories only, at most 25 new pull requests judged per daily
+run, one request per candidate per run (never repeated). Limits: the replay uses chain depth 0 and the
+Cursor/Muse harness differs from the LangChain one, so a MEETS here is a screen-grade result for a
+different harness, not proof the model would behave identically inside the production verifier.
