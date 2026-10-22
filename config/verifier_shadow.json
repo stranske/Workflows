@@ -1,0 +1,31 @@
+{
+  "schema": "workflows-verifier-shadow/v1",
+  "purpose": "Pre-registered shadow evaluation of candidate verifier judges (owner decision 2026-10-22). Each candidate judges every compare-mode verification in addition to the production judges; its verdict is recorded, never posted, never counted. The criteria below were committed before any shadow data existed.",
+  "enabled": true,
+  "candidates": [
+    {
+      "provider": "openai",
+      "model": "gpt-6-luna",
+      "replaces_provider": "openai",
+      "why": "Cheapest OpenAI judge; 0 of 19 bad cases missed against the incumbent's 2 on the 35-case benchmark (not statistically distinguishable, p = 0.49)."
+    }
+  ],
+  "window": {
+    "min_days": 7,
+    "min_runs": 10,
+    "max_days": 21,
+    "note": "The window closes after min_days AND min_runs paired runs; at max_days it closes as INSUFFICIENT, never as a pass. About 13 verified PRs are expected a week fleet-wide."
+  },
+  "criteria": {
+    "coverage_min": 0.9,
+    "candidate_miss_max_absolute": 1,
+    "candidate_miss_max_share_of_incumbent_flags": 0.2,
+    "extra_flag_max_absolute": 1,
+    "extra_flag_max_share_of_incumbent_passes": 0.25,
+    "class_agreement_min": 0.6,
+    "cost_per_run_max_ratio_to_incumbent": 1.0,
+    "note": "candidate miss = candidate PASS where the incumbent slot did not PASS. Extra flag = candidate not PASS where the incumbent slot PASSed. Class agreement = PASS versus not-PASS agreement. Cost compares registry list prices on observed tokens when both are reported, otherwise it is informational."
+  },
+  "on_rollback": "A candidate miss on a PR that later reverts or draws a verifier follow-up is listed in the report as a defect the incumbent caught and the candidate missed; one such case ends the evaluation as DOES NOT MEET.",
+  "owner_time": "One read of the day-7 report (about 2 minutes) before any promotion; nothing blocks while the shadow runs."
+}

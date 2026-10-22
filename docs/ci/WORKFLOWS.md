@@ -409,6 +409,7 @@ decisions cannot create PASS benchmark cases. Staging-only PRs do not change
 approval metrics. See `docs/MODEL_SELECTION_POLICY.md` for the evidence contract.
 
 * [`maint-88-verifier-runtime-comparison.yml`](../../.github/workflows/maint-88-verifier-runtime-comparison.yml) is a manual, finite #3904 experiment. It compares immutable baseline/candidate commits with one common dependency lock and four coverage-instrumented workers. It does not replace Gate or run on a schedule. Review and merge the harness before dispatch; see [the measurement protocol](verifier-grammar-matrices.md#controlled-hosted-comparison).
+* [`maint-89-verifier-shadow-report.yml`](../../.github/workflows/maint-89-verifier-shadow-report.yml) runs daily and on demand. It collects the shadow records candidate verifier judges write next to the production comparison (`config/verifier_shadow.json`, pre-registered criteria), merges them into a 90-day ledger artifact, applies the criteria and updates one FYI issue titled "Verifier shadow report". It never blocks anything and never promotes a model. See `docs/ops/VERIFIER_SHADOW.md`.
 
 ### Python runtime and suite ownership
 
