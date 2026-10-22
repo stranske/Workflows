@@ -28,6 +28,8 @@ def _writer_analyzer(
         '  while :; do printf x >> "$repo/writer.activity"; sleep 0.05; done\n'
         "}\n"
         f"write_forever {redirect} &\n"
+        # Let the child become active before the launcher publishes its PID.
+        "sleep 0.1\n"
         'printf "%s" "$!" > "$repo/writer.pid"\n'
         "echo wrapper-ready\n"
         "echo wrapper-stderr >&2\n"
@@ -41,6 +43,19 @@ def _writer_analyzer(
     )
     analyzer.chmod(0o755)
     return analyzer
+
+
+def _wait_for_writer_ready(tmp_path: Path) -> None:
+    """Wait for child activity and the launcher's complete PID record."""
+    deadline = time.monotonic() + 5
+    pid_path = tmp_path / "writer.pid"
+    while not (
+        (tmp_path / "writer.activity").exists()
+        and pid_path.exists()
+        and pid_path.read_text().strip().isdigit()
+    ):
+        assert time.monotonic() < deadline, "fixture writer did not become ready"
+        time.sleep(0.01)
 
 
 def _assert_writer_stopped(tmp_path: Path) -> None:
@@ -111,10 +126,7 @@ def test_gitnexus_communication_exception_stops_writer_and_is_reraised(
             if self.args[0] == str(analyzer) and not getattr(self, "injected", False):
                 launched.append(self)
                 self.injected = True
-                deadline = time.monotonic() + 5
-                while not (tmp_path / "writer.activity").exists():
-                    assert time.monotonic() < deadline, "fixture writer did not start"
-                    time.sleep(0.01)
+                _wait_for_writer_ready(tmp_path)
                 raise error
             return super().communicate(*args, **kwargs)
 
@@ -152,10 +164,7 @@ def test_gitnexus_cleanup_interrupt_propagates_after_stopping_writer(
             self.read_count = getattr(self, "read_count", 0) + 1
             if self.read_count == 1:
                 launched.append(self)
-                deadline = time.monotonic() + 5
-                while not (tmp_path / "writer.activity").exists():
-                    assert time.monotonic() < deadline, "fixture writer did not start"
-                    time.sleep(0.01)
+                _wait_for_writer_ready(tmp_path)
                 raise OSError("initial pipe failure")
             if self.read_count == cleanup_read:
                 raise interrupt
