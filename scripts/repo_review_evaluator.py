@@ -1348,15 +1348,15 @@ def _run_gitnexus_command(cmd: list[str], *, timeout: int) -> subprocess.Complet
             stderr = getattr(exc, "stderr", None) or b""
             try:
                 stop_processes(force=False)
-                # Cleanup read failures must not replace the original exception
-                # or bypass the unconditional group kill below.
-                with contextlib.suppress(BaseException):
+                # Ordinary cleanup read failures must not replace the original
+                # exception. A new operator interrupt propagates after group kill.
+                with contextlib.suppress(Exception):
                     stdout, stderr = proc.communicate(timeout=GITNEXUS_SHUTDOWN_GRACE_SECONDS)
             finally:
                 # Reaping the launcher or reaching pipe EOF does not establish
                 # child shutdown. This also runs on an interrupted cleanup read.
                 stop_processes(force=True)
-                with contextlib.suppress(BaseException):
+                with contextlib.suppress(Exception):
                     stdout, stderr = proc.communicate()
             if isinstance(exc, subprocess.TimeoutExpired):
                 raise subprocess.TimeoutExpired(cmd, timeout, output=stdout, stderr=stderr) from exc

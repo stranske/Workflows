@@ -133,6 +133,47 @@ def test_gitnexus_communication_exception_stops_writer_and_is_reraised(
             proc.wait(timeout=2)
 
 
+@pytest.mark.skipif(os.name != "posix", reason="GitNexus worker process groups are POSIX")
+@pytest.mark.parametrize("cleanup_read", [2, 3])
+@pytest.mark.parametrize("interrupt_kind", ["interrupt", "exit"])
+def test_gitnexus_cleanup_interrupt_propagates_after_stopping_writer(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, cleanup_read: int, interrupt_kind: str
+) -> None:
+    """A new operator interrupt during either cleanup read remains observable."""
+    analyzer = _writer_analyzer(tmp_path, detached_output=True)
+    interrupt = KeyboardInterrupt() if interrupt_kind == "interrupt" else SystemExit(23)
+    launched = []
+
+    class InterruptedCleanupProcess(subprocess.Popen[bytes]):
+        def communicate(self, *args, **kwargs):
+            """Fail the first read, then interrupt the selected cleanup read."""
+            if self.args[0] != str(analyzer):
+                return super().communicate(*args, **kwargs)
+            self.read_count = getattr(self, "read_count", 0) + 1
+            if self.read_count == 1:
+                launched.append(self)
+                deadline = time.monotonic() + 5
+                while not (tmp_path / "writer.activity").exists():
+                    assert time.monotonic() < deadline, "fixture writer did not start"
+                    time.sleep(0.01)
+                raise OSError("initial pipe failure")
+            if self.read_count == cleanup_read:
+                raise interrupt
+            return super().communicate(*args, **kwargs)
+
+    monkeypatch.setattr(evaluator.subprocess, "Popen", InterruptedCleanupProcess)
+    monkeypatch.setattr(evaluator, "GITNEXUS_SHUTDOWN_GRACE_SECONDS", 0.1)
+    try:
+        with pytest.raises(type(interrupt)) as caught:
+            evaluator.run_gitnexus_analyze(tmp_path, str(analyzer))
+        assert caught.value is interrupt
+        _assert_writer_stopped(tmp_path)
+    finally:
+        _cleanup_writer(tmp_path)
+        for proc in launched:
+            proc.wait(timeout=2)
+
+
 @pytest.mark.skipif(os.name != "posix", reason="fixture uses a POSIX executable")
 @pytest.mark.parametrize("exit_code", [0, 7])
 def test_gitnexus_analyzer_preserves_completed_process_output(

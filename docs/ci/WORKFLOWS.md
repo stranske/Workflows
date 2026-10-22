@@ -430,7 +430,7 @@ On main pushes and Selftest manual dispatches, Selftest calls the canonical reus
 suite as well, because Gate has no push trigger. JavaScript tests, package tests,
 lint, validation, and security gates keep their existing ownership.
 
-Coverage uses the same automatic-core policy on both versions. Coverage 7.16.2
+Coverage uses the same automatic-core policy on both versions. Coverage 7.17.0
 selects CTracer on 3.13 and SysMonitor on 3.14; the execution-context log records
 the selected branch-capable core, version, CPU count/affinity, and worker request.
 Hosted pytest startup must also confirm four actual workers and overlapping matrix
