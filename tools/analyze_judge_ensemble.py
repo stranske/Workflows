@@ -209,6 +209,16 @@ def load_groups(paths: list[Path]) -> dict[str, str]:
     return groups
 
 
+def load_diagnostic_cases(paths: list[Path]) -> set[str]:
+    """Retain explicit flags and recognize historical failed-CI diagnostic rows."""
+    return {
+        str(row["case_id"])
+        for path in paths
+        for row in json.loads(path.read_text()).get("rows", [])
+        if row.get("diagnostic_only") or row.get("group") == "fail-ci-row"
+    }
+
+
 def group_breakdown(
     decisions: dict[str, dict[str, str | None]], truth: dict[str, str], groups: dict[str, str]
 ) -> dict[str, dict[str, dict[str, int]]]:
@@ -237,7 +247,19 @@ def analyze(
     baseline_model: str | None = None,
     policy: dict[str, Any] | None = None,
     groups: dict[str, str] | None = None,
+    diagnostic_cases: set[str] | None = None,
 ) -> dict[str, Any]:
+    breakdown = group_breakdown(decisions, truth, groups) if groups else None
+    diagnostic = set(diagnostic_cases or ()) | {
+        case for case, group in (groups or {}).items() if group == "fail-ci-row"
+    }
+    excluded = diagnostic & truth.keys()
+    if excluded:
+        truth = {case: expected for case, expected in truth.items() if case not in excluded}
+        decisions = {
+            name: {case: value for case, value in rows.items() if case not in excluded}
+            for name, rows in decisions.items()
+        }
     cases = sorted(truth)
     names = sorted(decisions)
     authority = [
@@ -325,7 +347,8 @@ def analyze(
                 f"bound the false-PASS rate at {bound}. Small-sample results cannot enable either option."
             ),
         },
-        "by_group": group_breakdown(decisions, truth, groups) if groups else None,
+        **({"by_group": breakdown} if groups else {}),
+        **({"diagnostic_only_cases": len(excluded)} if excluded else {}),
         "enables_anything": False,
     }
 
@@ -445,6 +468,7 @@ def main(argv: list[str] | None = None) -> int:
         categories=categories,
         baseline_model=next(iter(baselines), None),
         groups=load_groups(args.inputs),
+        diagnostic_cases=load_diagnostic_cases(args.inputs),
     )
     result["ordered_input_manifest"] = [str(path) for path in args.inputs]
     args.output.write_text(json.dumps(result, indent=2) + "\n")

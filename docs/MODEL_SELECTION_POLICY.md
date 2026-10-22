@@ -170,6 +170,10 @@ records. Do not hand-enter aggregate rates or recommendation rankings.
 
 - Use a frozen, versioned corpus with owner-adjudicated expected outcomes.
 - Run every candidate and baseline on the same cases and prompt version.
+  The backend screen rejects a baseline before any model call unless its unique case IDs,
+  expected verdicts and per-case prompt hashes exactly match the selected case set. Rerun
+  an eight-case baseline when selecting `--cases all` or `--cases evaluable`; results from
+  a smaller set cannot establish an accuracy improvement on a larger set.
 - Use at least 30 cases to retain a candidate and at least 75 cases, with 10 per
   required failure category, to approve it. Categories that cannot be labelled
   from realized downstream outcomes — `stale-verifier-claim`,

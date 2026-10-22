@@ -310,6 +310,79 @@ def test_screen_runs_the_frozen_corpus_end_to_end_with_fake_judges():
     assert result["schema"] == screen.SCHEMA and len(result["rows"]) == 2 * len(order)
 
 
+@pytest.mark.parametrize("mismatch", ["subset", "duplicate", "truth", "prompt", "missing_hashes"])
+def test_baseline_must_match_cases_and_prompts_before_any_judge_call(mismatch):
+    import hashlib
+
+    corpus, registry, policy = _frozen()
+    cases, _ = screen.screen_cases(
+        corpus, policy["profiles"]["verifier-balanced"]["provisional_stage"]
+    )
+    hashes = {
+        c["case_id"]: hashlib.sha256(
+            screen.verifier_prompt(c["production_snapshot"]).encode()
+        ).hexdigest()
+        for c in cases
+    }
+    rows = [
+        {**_row(c["expected_verdict"], c["expected_verdict"]), "case_id": c["case_id"]}
+        for c in cases
+    ]
+    if mismatch == "subset":
+        rows.pop()
+    elif mismatch == "duplicate":
+        rows[-1] = rows[0]
+    elif mismatch == "truth":
+        rows[0]["expected_verdict"] = (
+            "NON_PASS" if rows[0]["expected_verdict"] == "PASS" else "PASS"
+        )
+    elif mismatch == "prompt":
+        hashes[cases[0]["case_id"]] = "0" * 64
+    else:
+        hashes = None
+    judge = _FakeJudge("candidate", {}).bind([])  # Any invocation would fail.
+    with pytest.raises(ValueError, match="baseline"):
+        screen.run_screen(
+            [judge],
+            corpus=corpus,
+            registry=registry,
+            policy=policy,
+            baseline=("incumbent", rows),
+            baseline_prompt_sha256_by_case=hashes,
+        )
+
+
+def test_matched_baseline_is_accepted_and_diagnostic_metadata_survives():
+    import hashlib
+
+    corpus, registry, policy = _frozen()
+    cases, _ = screen.screen_cases(
+        corpus, policy["profiles"]["verifier-balanced"]["provisional_stage"]
+    )
+    cases = [{**c, "diagnostic_only": i == 0} for i, c in enumerate(cases)]
+    hashes = {
+        c["case_id"]: hashlib.sha256(
+            screen.verifier_prompt(c["production_snapshot"]).encode()
+        ).hexdigest()
+        for c in cases
+    }
+    truth = {c["case_id"]: c["expected_verdict"] for c in cases}
+    rows = [{**_row(v, v), "case_id": k} for k, v in truth.items()]
+    result = screen.run_screen(
+        [_FakeJudge("candidate", truth).bind(list(truth))],
+        corpus=corpus,
+        registry=registry,
+        policy=policy,
+        cases_override=cases,
+        baseline=("incumbent", rows),
+        baseline_prompt_sha256_by_case=hashes,
+    )
+    assert result["baseline"]["accepted"] == len(cases) - 1
+    assert result["baseline"]["rows"] == len(cases) - 1
+    assert result["rows"][0]["diagnostic_only"] is True
+    assert result["rows"][len(cases)]["diagnostic_only"] is True
+
+
 def test_claude_cli_reads_result_usage_and_serving_model_with_tools_disabled(tmp_path, monkeypatch):
     monkeypatch.setenv("GITHUB_TOKEN", "must-not-reach-the-child")
     args_dump = tmp_path / "args.txt"
@@ -668,9 +741,8 @@ def test_evaluable_mode_keeps_only_inputs_the_production_prompt_calls_sufficient
 
 
 def test_diagnostic_only_cases_are_left_out_unless_asked_for():
-    from pathlib import Path
-
     import json
+    from pathlib import Path
 
     from tools import run_judge_backend_screen as screen
 

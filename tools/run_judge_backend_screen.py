@@ -786,6 +786,7 @@ def run_screen(
     registry: dict[str, Any],
     policy: dict[str, Any],
     baseline: tuple[str, list[dict[str, Any]]] | None = None,
+    baseline_prompt_sha256_by_case: dict[str, str] | None = None,
     prices: dict[str, tuple[float, float]] | None = None,
     cases_override: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
@@ -799,8 +800,27 @@ def run_screen(
     if cases_override is not None:
         cases = cases_override
     prompts = {c["case_id"]: verifier_prompt(c["production_snapshot"]) for c in cases}
-    expected_pass = sum(c["expected_verdict"] == "PASS" for c in cases)
-    expected_non_pass = len(cases) - expected_pass
+    prompt_hashes = {
+        case_id: hashlib.sha256(prompt.encode("utf-8")).hexdigest()
+        for case_id, prompt in prompts.items()
+    }
+    if baseline is not None:
+        expected = {case["case_id"]: case["expected_verdict"] for case in cases}
+        base_rows = baseline[1]
+        if (
+            len(base_rows) != len(expected)
+            or {row.get("case_id") for row in base_rows} != expected.keys()
+            or any(
+                row.get("expected_verdict") != expected.get(row.get("case_id")) for row in base_rows
+            )
+            or baseline_prompt_sha256_by_case != prompt_hashes
+        ):
+            raise ValueError("baseline case IDs, truth or prompt hashes differ; rerun the baseline")
+    scoring_ids = {c["case_id"] for c in cases if not c.get("diagnostic_only")}
+    expected_pass = sum(
+        c["expected_verdict"] == "PASS" for c in cases if c["case_id"] in scoring_ids
+    )
+    expected_non_pass = len(scoring_ids) - expected_pass
     rows: list[dict[str, Any]] = []
     stopped: dict[str, str] = {}
     for judge in judges:
@@ -818,6 +838,7 @@ def run_screen(
                     "case_id": case["case_id"],
                     "category": case["category"],
                     "group": case_group(case),
+                    "diagnostic_only": bool(case.get("diagnostic_only")),
                     "expected_verdict": case["expected_verdict"],
                     "actual_verdict": (
                         "PASS"
@@ -838,8 +859,23 @@ def run_screen(
                 stopped[judge.name] = outcome.error or "stopped"
                 break
     base_metrics = None
+    retained_baseline = []
     if baseline is not None:
-        base_rows = [{**r, "schema_valid": r.get("schema_valid", True)} for r in baseline[1]]
+        case_metadata = {c["case_id"]: c for c in cases}
+        retained_baseline = [
+            {
+                **r,
+                "judge": baseline[0],
+                "group": case_group(case_metadata[r["case_id"]]),
+                "diagnostic_only": bool(case_metadata[r["case_id"]].get("diagnostic_only")),
+            }
+            for r in baseline[1]
+        ]
+        base_rows = [
+            {**r, "schema_valid": r.get("schema_valid", True)}
+            for r in retained_baseline
+            if r["case_id"] in scoring_ids
+        ]
         base_metrics = judge_metrics(
             base_rows,
             expected_pass=expected_pass,
@@ -849,7 +885,8 @@ def run_screen(
         base_metrics["judge"] = baseline[0]
     metrics = []
     for judge in judges:
-        subset = [r for r in rows if r["judge"] == judge.name]
+        all_rows = [r for r in rows if r["judge"] == judge.name]
+        subset = [r for r in all_rows if r["case_id"] in scoring_ids]
         entry = judge_metrics(
             subset,
             expected_pass=expected_pass,
@@ -858,11 +895,26 @@ def run_screen(
             baseline=base_metrics,
             prices=(prices or {}).get(judge.name),
         )
+        execution = judge_metrics(
+            all_rows,
+            expected_pass=sum(c["expected_verdict"] == "PASS" for c in cases),
+            expected_non_pass=sum(c["expected_verdict"] != "PASS" for c in cases),
+            thresholds=stage,
+            prices=(prices or {}).get(judge.name),
+        )
+        for key in (
+            "latency_p50_ms",
+            "latency_p95_ms",
+            "input_tokens",
+            "output_tokens",
+            "modeled_cost_usd",
+        ):
+            entry[key] = execution[key]
         entry.update(
             {
                 "judge": judge.name,
                 "evidence_class": judge.evidence_class,
-                "api_key_calls": len(subset) if judge.api_key_calls else 0,
+                "api_key_calls": len(all_rows) if judge.api_key_calls else 0,
                 "stopped": stopped.get(judge.name),
             }
         )
@@ -876,16 +928,13 @@ def run_screen(
             "never a promotion"
         ),
         "case_ids": [c["case_id"] for c in cases],
-        "prompt_sha256_by_case": {
-            case_id: hashlib.sha256(prompt.encode("utf-8")).hexdigest()
-            for case_id, prompt in prompts.items()
-        },
+        "prompt_sha256_by_case": prompt_hashes,
         "provisional_thresholds": {
             k: v for k, v in stage.items() if k.startswith(("maximum_", "minimum_"))
         },
         "baseline": base_metrics,
         "judges": metrics,
-        "rows": rows + [{**r, "judge": baseline[0]} for r in (baseline[1] if baseline else [])],
+        "rows": rows + retained_baseline,
         "approval_ready": False,
     }
 
@@ -972,6 +1021,11 @@ def main(argv: list[str] | None = None) -> int:
             args.muse_api_price_out,
         )
     baseline = load_baseline_rows(args.baseline, args.baseline_model) if args.baseline else None
+    baseline_hashes = (
+        json.loads(args.baseline.read_text()).get("prompt_sha256_by_case")
+        if args.baseline
+        else None
+    )
     corpus = json.loads(args.corpus.read_text())
     if args.allow_contributor_tier:
         require_public_sources(
@@ -995,6 +1049,7 @@ def main(argv: list[str] | None = None) -> int:
         registry=json.loads(args.registry.read_text()),
         policy=json.loads(args.policy.read_text()),
         baseline=baseline,
+        baseline_prompt_sha256_by_case=baseline_hashes,
         prices=prices,
     )
     args.output.write_text(json.dumps(payload, indent=2) + "\n")
