@@ -237,8 +237,9 @@ records. Do not hand-enter aggregate rates or recommendation rankings.
   CI workflow concluded `failure`, so a model that misses a red row costs nothing in production, and the
   mutation omits the "CI gate" paragraph the real input adds. They stay in the corpus for reporting
   (`--include-diagnostic` runs them). That leaves 19 evaluable NON_PASS cases (16 dropped-file mutants
-  and 3 real) against a 35-case floor at the 0.10 bound; the approval standard is being re-decided in
-  `docs/ops/VERIFIER_STANDARDS_ANALYSIS.md`.
+  and 3 real) against a 35-case floor at the 0.10 bound; the benchmark remains a screening aid under the shadow promotion decision below.
+
+  **Shadow promotion (owner decision 2026-10-22).** The benchmark route above is superseded for verifier judges by a 7-day production shadow with criteria fixed in advance: `docs/ops/VERIFIER_SHADOW.md`, `config/verifier_shadow.json`. The benchmark and its bounds remain a screening aid.
 - Report Wilson 95% confidence intervals for task success, false PASS, false
   FAIL, and schema errors.
 - Require the configured bounds and a paired success result no more than two

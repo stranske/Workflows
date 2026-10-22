@@ -52,4 +52,6 @@ def test_selftest_job_installs_the_consumer_lint_prerequisite():
         step["run"] for step in job["steps"] if step.get("name") == "Install dependencies"
     )
     assert "--requirement requirements.lock" in install
-    assert "ruff==0.17.1" in (ROOT / "requirements.lock").read_text()
+    pin_lines = (ROOT / ".github/workflows/autofix-versions.env").read_text().splitlines()
+    version = next(line.split("=", 1)[1] for line in pin_lines if line.startswith("RUFF_VERSION="))
+    assert f"ruff=={version}" in (ROOT / "requirements.lock").read_text()
