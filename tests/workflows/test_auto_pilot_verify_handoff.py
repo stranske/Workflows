@@ -181,9 +181,11 @@ def _matching_pr(number: int) -> dict[str, Any]:
 
 
 def test_handoff_missing_pr_keeps_auto_pilot_and_skips_verify_label() -> None:
+    """Zero matching PRs: no verify:evaluate, keep agents:auto-pilot, name source issue."""
     result = _run_verify([])
 
     assert result["outputs"].get("verify_handoff") == "absent"
+    assert result["outputs"].get("verify_handoff_issue") == str(ISSUE_NUMBER)
     assert result["labelsAdded"] == []
     assert all(entry["name"] != "agents:auto-pilot" for entry in result["labelsRemoved"])
     assert any(f"#{ISSUE_NUMBER}" in failure for failure in result["failures"])
@@ -201,6 +203,7 @@ def test_handoff_pr_beyond_first_page_is_found_not_absent_verified() -> None:
     result = _run_verify(_filler_prs(100) + [_matching_pr(777)])
 
     assert result["outputs"].get("verify_handoff") == "found"
+    assert result["outputs"].get("verify_handoff_issue") == str(ISSUE_NUMBER)
     assert {call["page"] for call in result["pageCalls"]} >= {1, 2}
     assert any(
         entry["issue_number"] == 777 and "verify:evaluate" in entry["labels"]
@@ -219,6 +222,7 @@ def test_handoff_truncated_lookup_reports_incomplete_not_verified() -> None:
     result = _run_verify(_filler_prs(1000))
 
     assert result["outputs"].get("verify_handoff") == "incomplete"
+    assert result["outputs"].get("verify_handoff_issue") == str(ISSUE_NUMBER)
     assert result["labelsAdded"] == []
     assert any("incomplete" in failure for failure in result["failures"])
     assert any(f"#{ISSUE_NUMBER}" in failure for failure in result["failures"])
@@ -229,6 +233,7 @@ def test_handoff_successful_pr_bound_labels_merged_pr_and_issue() -> None:
     result = _run_verify([_matching_pr(555)])
 
     assert result["outputs"].get("verify_handoff") == "found"
+    assert result["outputs"].get("verify_handoff_issue") == str(ISSUE_NUMBER)
     assert result["failures"] == []
     assert set(result["labelsCreated"]) >= {"verify:evaluate", "verify:pr-handoff"}
     assert any(

@@ -2364,6 +2364,8 @@ jobs:
             if (!linkedPr) {
               const handoffState = truncated ? 'incomplete' : 'absent';
               core.setOutput('verify_handoff', handoffState);
+              // Machine-readable source issue for owner/retry disposition (never verified).
+              core.setOutput('verify_handoff_issue', String(issueNumber));
               const reason = truncated
                 ? `merged-PR lookup hit the ${maxPages}-page bound without a match`
                 : 'no merged source PR was found';
@@ -2384,6 +2386,7 @@ jobs:
             }
 
             core.setOutput('verify_handoff', 'found');
+            core.setOutput('verify_handoff_issue', String(issueNumber));
             core.info(`Found merged PR #${linkedPr.number} for issue #${issueNumber}`);
 
             async function ensureLabel(name, color, description) {

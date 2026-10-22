@@ -15,6 +15,7 @@ const workflowPath = path.join(
 test('verify step documents absent/incomplete handoff without issue-only verify label', () => {
   const workflow = fs.readFileSync(workflowPath, 'utf8');
   assert.match(workflow, /verify_handoff['"],\s*handoffState/);
+  assert.match(workflow, /verify_handoff_issue['"],\s*String\(issueNumber\)/);
   assert.match(workflow, /truncated \? 'incomplete' : 'absent'/);
   assert.doesNotMatch(
     workflow,
