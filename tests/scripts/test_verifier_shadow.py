@@ -158,14 +158,14 @@ def test_one_failing_candidate_does_not_disturb_the_others():
     assert ok["verdict"] == "PASS" and bad["verdict"] is None and "quota" in bad["error"]
 
 
-def test_the_shipped_config_shadows_several_candidates_of_both_providers():
+def test_the_shipped_config_shadows_several_candidates_across_all_four_providers():
     from pathlib import Path
 
     config = json.loads(
         (Path(__file__).resolve().parents[2] / "config/verifier_shadow.json").read_text()
     )
     providers = {c["provider"] for c in config["candidates"]}
-    assert len(config["candidates"]) >= 6 and providers == {"openai", "anthropic"}
+    assert len(config["candidates"]) >= 6 and providers == {"openai", "anthropic", "muse-api", "cursor-cli"}
     assert len({(c["provider"], c["model"]) for c in config["candidates"]}) == len(
         config["candidates"]
     )
