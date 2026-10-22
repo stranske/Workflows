@@ -775,6 +775,7 @@ scripts:
   # Product actor normalization and channel suppression share one grammar.
   # Proof pronouns retain artifact destinations; bounded pure grammar caching returns fresh containers.
   - source: scripts/langchain/pr_verifier.py
+    # Evaluate CLI accepts the existing OpenAI, GitHub Models and Anthropic routes.
     # Bare/qualified review-comment discovery and ORs share literal-safe normalization;
     # copy delivery and destination-first checklists retain shared polarity floors.
     # Repeated governors, object polarity, passive capabilities and channel-symmetric

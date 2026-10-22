@@ -282,7 +282,16 @@ def test_source_capacity_failure_reaches_unified_nonpass(
         ).model_dump()
         assert not payload["used_llm"]
     outputs = run_workflow(tmp_path, payload, mode=mode)
-    assert outputs["verdict"] == outputs["unified"] == "CONCERNS"
+    expected = "UNVERIFIABLE_INPUT" if mode == "evaluate" else "CONCERNS"
+    assert outputs["verdict"] == outputs["unified"] == expected
+    if mode == "evaluate":
+        receipt = json.loads((tmp_path / "evaluation-execution.json").read_text())
+        assert receipt["mode"] == "evaluate" and receipt["status"] == "result_unavailable"
+        assert receipt["exit_code"] == 0 and receipt["decision_available"] is False
+        assert receipt["acceptance_authority"] is False and receipt["retry_authority"] is False
+        assert receipt["model_execution"] == receipt["remote_effects"] == "unconfirmed"
+        retained = json.loads((tmp_path / "evaluation.json").read_text())
+        assert retained == payload and retained["used_llm"] is False
 
 
 @pytest.mark.parametrize("models", [("first-override", "second-override"), ("both-override", "")])

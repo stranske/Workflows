@@ -277,6 +277,7 @@ EXPECTED_NAMES = {
     "maint-48-docs-drift-audit.yml": "Maint 48 Docs Drift Audit",
     "maint-87-docs-drift-fix-agent.yml": "Maint 87 Docs Drift Fix Agent",
     "maint-88-verifier-runtime-comparison.yml": "Maint 88 Verifier Runtime Comparison",
+    "maint-89-verifier-shadow-report.yml": "Maint 89 Verifier Shadow Report",
     "maint-50-tool-version-check.yml": "Maint 50 Tool Version Check",
     "maint-sync-action-versions.yml": "Maint Sync Action Versions",
     "maint-sync-env-from-pyproject.yml": "Maint - Sync pyproject from versions.env",

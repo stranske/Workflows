@@ -45,6 +45,7 @@ def test_consumer_template_passes_the_consumer_ruff_selection() -> None:
 
 def test_selftest_job_installs_the_consumer_lint_prerequisite():
     import yaml
+    from scripts.sync_tool_versions import parse_env_file
 
     workflow = yaml.safe_load((ROOT / ".github/workflows/selftest-ci.yml").read_text())
     job = workflow["jobs"]["autofix-compatibility"]
@@ -52,4 +53,5 @@ def test_selftest_job_installs_the_consumer_lint_prerequisite():
         step["run"] for step in job["steps"] if step.get("name") == "Install dependencies"
     )
     assert "--requirement requirements.lock" in install
-    assert "ruff==0.17.1" in (ROOT / "requirements.lock").read_text()
+    pins = parse_env_file(ROOT / ".github/workflows/autofix-versions.env")
+    assert f"ruff=={pins['RUFF_VERSION']}" in (ROOT / "requirements.lock").read_text()

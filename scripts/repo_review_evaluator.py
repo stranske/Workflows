@@ -10,11 +10,14 @@ single human decision packet. It does not create GitHub issues.
 from __future__ import annotations
 
 import argparse
+import contextlib
 import json
 import os
 import re
 import shutil
+import signal
 import subprocess
+import time
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
@@ -1309,6 +1312,77 @@ def collect_gitnexus_map(workspace_root: Path, repo_path: Path, repo: RepoConfig
     }
 
 
+GITNEXUS_SHUTDOWN_GRACE_SECONDS = 5
+
+
+def _decode_gitnexus_output(output: bytes | str) -> str:
+    """Decode diagnostics after shutdown, preserving text-mode newline handling."""
+    text = output.decode("utf-8", errors="replace") if isinstance(output, bytes) else output
+    return text.replace("\r\n", "\n").replace("\r", "\n")
+
+
+def _run_gitnexus_command(cmd: list[str], *, timeout: int) -> subprocess.CompletedProcess[str]:
+    """Contain the CLI's respawned analyzer, including after its launcher exits."""
+    with subprocess.Popen(
+        cmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        start_new_session=os.name == "posix",
+    ) as proc:
+
+        def stop_processes(*, force: bool) -> None:
+            """Signal only this launcher's owned process group."""
+            with contextlib.suppress(ProcessLookupError):
+                if os.name == "posix":
+                    # start_new_session makes this PID the owned process group.
+                    # getpgid(proc.pid) no longer works once the launcher exits.
+                    os.killpg(proc.pid, signal.SIGKILL if force else signal.SIGTERM)
+                elif force:
+                    proc.kill()
+                else:
+                    proc.terminate()
+
+        def processes_running() -> bool:
+            if os.name != "posix":
+                return proc.poll() is None
+            try:
+                os.killpg(proc.pid, 0)
+            except ProcessLookupError:
+                return False
+            return True
+
+        try:
+            stdout, stderr = proc.communicate(timeout=timeout)
+        except BaseException as exc:
+            stdout = getattr(exc, "output", None) or b""
+            stderr = getattr(exc, "stderr", None) or b""
+            try:
+                stop_processes(force=False)
+                grace_deadline = time.monotonic() + GITNEXUS_SHUTDOWN_GRACE_SECONDS
+                # Ordinary cleanup read failures must not replace the original
+                # exception. A new operator interrupt propagates after group kill.
+                with contextlib.suppress(Exception):
+                    stdout, stderr = proc.communicate(timeout=GITNEXUS_SHUTDOWN_GRACE_SECONDS)
+                # Pipe EOF or launcher exit can precede a quiet analyzer's
+                # database flush. Honor the deadline while its group survives.
+                while (remaining := grace_deadline - time.monotonic()) > 0:
+                    if not processes_running():
+                        break
+                    time.sleep(min(0.05, remaining))
+            finally:
+                # Reaping the launcher or reaching pipe EOF does not establish
+                # child shutdown. This also runs on an interrupted cleanup read.
+                stop_processes(force=True)
+                with contextlib.suppress(Exception):
+                    stdout, stderr = proc.communicate()
+            if isinstance(exc, subprocess.TimeoutExpired):
+                raise subprocess.TimeoutExpired(cmd, timeout, output=stdout, stderr=stderr) from exc
+            raise
+        return subprocess.CompletedProcess(
+            cmd, proc.returncode, _decode_gitnexus_output(stdout), _decode_gitnexus_output(stderr)
+        )
+
+
 def run_gitnexus_analyze(
     repo_path: Path,
     gitnexus_bin: str,
@@ -1334,15 +1408,15 @@ def run_gitnexus_analyze(
     if force:
         cmd.append("--force")
     try:
-        result = subprocess.run(
-            cmd,
-            check=False,
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-        )
-    except (FileNotFoundError, subprocess.TimeoutExpired) as exc:
+        result = _run_gitnexus_command(cmd, timeout=timeout)
+    except FileNotFoundError as exc:
         return False, str(exc)
+    except subprocess.TimeoutExpired as exc:
+        captured = [str(exc)]
+        for output in (exc.output, exc.stderr):
+            if output:
+                captured.append(_decode_gitnexus_output(output))
+        return False, "\n".join(captured)
     output = "\n".join(part for part in [result.stdout, result.stderr] if part).strip()
     normalized_output = output.casefold()
     corruption_markers = (
@@ -1801,6 +1875,21 @@ def references_excluded_repo(value: Any, excluded_names: list[str]) -> bool:
     )
 
 
+def excluded_report_path(path: Path, excluded_names: set[str]) -> bool:
+    """Match repo directories and owner__repo-<report-kind>.md filenames."""
+    for part in path.parts:
+        identity = part.removesuffix(".md").split("__")[-1].casefold()
+        if identity in excluded_names:
+            return True
+        if (
+            part.endswith(".md")
+            and "__" in part
+            and any(identity.startswith(name + "-") for name in excluded_names)
+        ):
+            return True
+    return False
+
+
 def collect_repo_state(
     workspace_root: Path,
     repo: RepoConfig,
@@ -1860,6 +1949,14 @@ def collect_repo_state(
         name
         for name in (excluded_repo_names or [])
         if name.lower() != repo.repo.split("/", 1)[0].lower()
+    ]
+    # Historical report directories encode repository identities as owner__repo.
+    # Filter paths before limiting the report list; never open excluded reports.
+    excluded_path_names = {name.rsplit("/", 1)[-1].casefold() for name in excluded_names}
+    report_files = [
+        path
+        for path in report_files
+        if not excluded_report_path(path.relative_to(repo_path), excluded_path_names)
     ]
     remote_progress = dict(remote_progress)
     for key in ("open_issues", "recent_merged_prs", "warnings"):

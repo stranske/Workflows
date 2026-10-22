@@ -437,3 +437,42 @@ An incomplete latest report cannot inherit a historical verdict; pending repair
 remains non-terminal even when it mentions an older run. Provider verdicts within
 one selected comparison still use worst-provider aggregation. Historical comments
 remain unchanged.
+
+## Single-provider evaluation evidence
+
+The verifier's `evaluate` mode accepts the existing `openai`, `github-models`, and
+`anthropic` client routes. A launch failure, invalid JSON, or unavailable model
+result is `UNVERIFIABLE_INPUT`; it is not an acceptance verdict or proof that a
+provider ran. The `evaluation-results-<run id>` artifact retains the execution
+receipt, redacted stdout/stderr, and existing merge-bound input manifest and files
+for seven days. The receipt preserves the process exit and output hashes even
+when evaluator imports or argument parsing fail.
+
+Diagnostic retention streams original hashes and byte counts, keeping at most
+8 MiB of stdout and 1 MiB of stderr (prefix and tail). Truncated stdout cannot
+provide a decision. Failure receipts leave provider execution and remote effects
+unconfirmed and do not authorize a retry. This supplemental single-provider
+result does not complete native verification or a multi-provider comparison.
+
+Expanded single-provider evaluation screens for enough input to reason about the
+request, using the same requirement alternatives as prompt coverage. A complete
+available alternative keeps its required evidence channels mandatory; unrelated
+comment/artifact omissions may remain useful enrichment. Their original statuses
+and capture gaps stay in the receipt (`capture_complete: false`), and omitted raw
+bytes are never claimed as reviewed. Malformed inventories, missing core sources,
+and incomplete required channels still block. Only typed transport or size-limit
+omissions can be optional; provenance failures and ambiguous archive/read errors
+stay blocking. A validated incidental run from another revision is disclosed as
+excluded, never downloaded or credited; explicitly designated evidence retains
+the exact-revision provenance guard. Compare and chunked lossless
+admission are unchanged. Passing this screen does not establish acceptance.
+
+The context retains each complete original PR/issue request as fenced untrusted
+source text, with its UTF-8 hash and byte count. Parsed scope/tasks/acceptance
+sections remain navigation, so a parser alias or free-form body cannot silently
+remove requirements. Prompt limits still report missing required input explicitly.
+
+Acceptance commands run on the immutable merge commit in a fresh Python 3.14
+virtual environment. Existing dependency preparation installs the project's
+declared test dependencies there; normal pytest plugin loading remains enabled.
+Ambient host/user packages cannot supply or break this environment.
