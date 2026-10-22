@@ -231,6 +231,8 @@ records. Do not hand-enter aggregate rates or recommendation rankings.
   selection with rollback on any false PASS and live monitoring. The false-PASS bound stays tighter
   because a false PASS costs safety and a false FAIL costs rework. Tighten both as evaluable cases
   accumulate (`bounds_note` in the policy).
+
+  **Shadow promotion (owner decision 2026-10-22).** The benchmark route above is superseded for verifier judges by a 7-day production shadow with criteria fixed in advance: `docs/ops/VERIFIER_SHADOW.md`, `config/verifier_shadow.json`. The benchmark and its bounds remain a screening aid.
 - Report Wilson 95% confidence intervals for task success, false PASS, false
   FAIL, and schema errors.
 - Require the configured bounds and a paired success result no more than two
