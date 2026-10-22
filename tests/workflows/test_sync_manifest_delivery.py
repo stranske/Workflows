@@ -99,8 +99,13 @@ def test_auto_pilot_sync_uses_consumer_specific_source() -> None:
             "target": ".github/workflows/agents-auto-pilot.yml",
             "description": (
                 "Auto-pilot - end-to-end automation orchestrator "
-                "(format → optimize → agent → verify)"
+                "(format → optimize → agent → verify); PR-bound verify handoff "
+                "requires transition helper + retry wrapper"
             ),
+            "requires": [
+                ".github/scripts/auto_pilot_transitions.js",
+                ".github/scripts/github-api-with-retry.js",
+            ],
         }
     ]
 

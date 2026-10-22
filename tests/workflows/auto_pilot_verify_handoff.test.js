@@ -12,15 +12,18 @@ const workflowPath = path.join(
   '../../.github/workflows/agents-auto-pilot.yml',
 );
 
-test('verify step documents absent handoff without issue-only verify label', () => {
+test('verify step documents absent/incomplete handoff without issue-only verify label', () => {
   const workflow = fs.readFileSync(workflowPath, 'utf8');
-  assert.match(workflow, /verify_handoff['"],\s*'absent'/);
+  assert.match(workflow, /verify_handoff['"],\s*handoffState/);
+  assert.match(workflow, /truncated \? 'incomplete' : 'absent'/);
   assert.doesNotMatch(
     workflow,
     /couldn't find linked merged PR[\s\S]*labels: \['verify:evaluate'\]/,
   );
   assert.match(workflow, /verify:pr-handoff/);
-  assert.match(workflow, /paginateWithRetry\(\s*\n\s*github\.rest\.pulls\.list/);
+  assert.match(workflow, /for \(let page = 1; page <= maxPages; page \+= 1\)/);
+  assert.match(workflow, /client\.rest\.pulls\.list\(\{/);
+  assert.match(workflow, /verification triggered on a merged source PR/);
 });
 
 test('closed issue with verify:evaluate only remains on verify step', () => {

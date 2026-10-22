@@ -2307,7 +2307,7 @@ jobs:
         with:
           script: |
             const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
-            const { withRetry, paginateWithRetry } = await createTokenAwareRetry({
+            const { withRetry } = await createTokenAwareRetry({
               github,
               core,
               env: process.env,
@@ -2316,19 +2316,31 @@ jobs:
             });
             const issueNumber = Number(process.env.ISSUE_NUMBER);
 
-            // Find the merged PR for this issue (paginated; first 100 is insufficient).
-            const prs = await paginateWithRetry(
-              github.rest.pulls.list,
-              {
+            // Find the merged PR for this issue (paginated + bounded; first 100 is insufficient).
+            // Returns found / absent / incomplete — never treat truncation as verified.
+            const maxPages = 10;
+            const perPage = 100;
+            const prs = [];
+            let truncated = false;
+            for (let page = 1; page <= maxPages; page += 1) {
+              const { data: pageItems } = await withRetry((client) => client.rest.pulls.list({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 state: 'closed',
                 sort: 'updated',
                 direction: 'desc',
-                per_page: 100,
-              },
-              { maxPages: 10 },
-            );
+                per_page: perPage,
+                page,
+              }));
+              const batch = Array.isArray(pageItems) ? pageItems : [];
+              prs.push(...batch);
+              if (batch.length < perPage) {
+                break;
+              }
+              if (page === maxPages) {
+                truncated = true;
+              }
+            }
 
             // Helper to detect explicit closing/fixing references to this issue
             function matchesIssueReference(text, num) {
@@ -2350,19 +2362,23 @@ jobs:
             );
 
             if (!linkedPr) {
-              core.setOutput('verify_handoff', 'absent');
+              const handoffState = truncated ? 'incomplete' : 'absent';
+              core.setOutput('verify_handoff', handoffState);
+              const reason = truncated
+                ? `merged-PR lookup hit the ${maxPages}-page bound without a match`
+                : 'no merged source PR was found';
               await withRetry((client) => client.rest.issues.createComment({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: issueNumber,
-                body: `🤖 **Auto-pilot**: Issue #${issueNumber} is closed but no merged source PR was found.
+                body: `🤖 **Auto-pilot**: Issue #${issueNumber} is closed but ${reason}.
 
-            Verification handoff is **pending**. This step did not add \`verify:evaluate\` because there is no PR-bound verifier target.
+            Verification handoff is **${handoffState}**. This step did not add \`verify:evaluate\` because there is no PR-bound verifier target.
 
             **Owner / retry:** confirm a merged PR closes this issue (or restore \`meta:issue:${issueNumber}\` on the PR body), then re-run auto-pilot with \`force_step=verify\`.`
               }));
               core.setFailed(
-                `No merged source PR found for issue #${issueNumber}; verification handoff absent`,
+                `No merged source PR for issue #${issueNumber}; verification handoff ${handoffState}`,
               );
               return;
             }
@@ -3982,7 +3998,26 @@ jobs:
             });
             const issueNumber = parseInt(process.env.ISSUE_NUMBER);
 
-            // Remove auto-pilot label since we're done
+            const handoffBound = '${{ steps.context.outputs.verify_handoff_bound }}' === 'true';
+            const verifyTriggered = handoffBound || '${{ steps.verify_step.outputs.verify_handoff }}' === 'found';
+            if (!verifyTriggered) {
+              await withRetry((client) => client.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+                body: `🤖 **Auto-pilot**: Issue #${issueNumber} reached Report - Done without a recorded PR-bound verification handoff.
+
+            Verification was **not** triggered. \`agents:auto-pilot\` remains for retry.
+
+            **Owner / retry:** ensure a merged source PR closes #${issueNumber}, then re-run with \`force_step=verify\`.`
+              }));
+              core.setFailed(
+                `Issue #${issueNumber}: verification handoff missing; refusing done disposition`,
+              );
+              return;
+            }
+
+            // Remove auto-pilot label only after a recorded PR-bound handoff.
             try {
               await withRetry((client) => client.rest.issues.removeLabel({
                 owner: context.repo.owner,
@@ -3999,11 +4034,7 @@ jobs:
               }
             }
 
-            const handoffBound = '${{ steps.context.outputs.verify_handoff_bound }}' === 'true';
-            const verifyTriggered = handoffBound || '${{ steps.verify_step.outputs.verify_handoff }}' === 'found';
-            const verifyLine = verifyTriggered
-              ? '- ✅ Verification handoff recorded on a merged source PR'
-              : '- ⏳ Verification handoff pending (no merged source PR was bound this cycle)';
+            const verifyLine = '- ✅ verification triggered on a merged source PR (PR-bound handoff recorded)';
 
             await withRetry((client) => client.rest.issues.createComment({
               owner: context.repo.owner,
