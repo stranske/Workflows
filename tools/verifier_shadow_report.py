@@ -14,6 +14,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import subprocess
 import zipfile
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
@@ -242,6 +243,27 @@ def collect(
     return found
 
 
+def gh_list_artifacts(repo: str) -> list[dict[str, Any]]:
+    out = subprocess.run(
+        ["gh", "api", f"repos/{repo}/actions/artifacts?per_page=100", "--jq", ".artifacts"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    try:
+        return json.loads(out.stdout or "[]")
+    except ValueError:
+        return []
+
+
+def gh_download(repo: str, artifact_id: int) -> bytes:
+    return subprocess.run(
+        ["gh", "api", f"repos/{repo}/actions/artifacts/{artifact_id}/zip"],
+        capture_output=True,
+        check=False,
+    ).stdout
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--ledger", type=Path, required=True)
@@ -257,30 +279,10 @@ def main(argv: list[str] | None = None) -> int:
     ledger = json.loads(args.ledger.read_text()) if args.ledger.exists() else []
     repos = [r.strip() for r in args.repos.split(",") if r.strip()]
     if repos:
-        import subprocess
-
-        def list_artifacts(repo: str) -> list[dict[str, Any]]:
-            out = subprocess.run(
-                ["gh", "api", f"repos/{repo}/actions/artifacts?per_page=100", "--jq", ".artifacts"],
-                capture_output=True,
-                text=True,
-                check=False,
-            )
-            try:
-                return json.loads(out.stdout or "[]")
-            except ValueError:
-                return []
-
-        def download(repo: str, artifact_id: int) -> bytes:
-            return subprocess.run(
-                ["gh", "api", f"repos/{repo}/actions/artifacts/{artifact_id}/zip"],
-                capture_output=True,
-                check=False,
-            ).stdout
-
         since = datetime.now(UTC) - timedelta(days=args.days)
         ledger = merge_ledger(
-            ledger, collect(repos, since=since, list_artifacts=list_artifacts, download=download)
+            ledger,
+            collect(repos, since=since, list_artifacts=gh_list_artifacts, download=gh_download),
         )
     args.ledger.write_text(json.dumps(ledger, indent=1) + "\n")
     result = evaluate(ledger, config)

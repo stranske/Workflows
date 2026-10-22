@@ -52,6 +52,32 @@ jobs:
           python -m tools.verifier_shadow_report --ledger ledger.json --repos "$repos" \
             --markdown report.md --json report.json
           cat report.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Install the Cursor CLI
+        env:
+          CURSOR_CLI_VERSION: 2026.10.16-e3cb207
+        run: |
+          set -euo pipefail
+          case "$(uname -m)" in
+            x86_64|amd64) arch=x64 ;;
+            aarch64|arm64) arch=arm64 ;;
+            *) echo "::error::Unsupported Cursor architecture"; exit 1 ;;
+          esac
+          cli_dir="$RUNNER_TEMP/cursor"
+          mkdir -p "$cli_dir"
+          curl -fsSL "https://downloads.cursor.com/lab/${CURSOR_CLI_VERSION}/linux/${arch}/agent-cli-package.tar.gz" \
+            | tar --strip-components=1 -xzf - -C "$cli_dir"
+          echo "$cli_dir" >> "$GITHUB_PATH"
+      - name: Judge the external candidates (Muse API, Cursor CLI) from the saved verifier inputs
+        env:
+          GH_TOKEN: ${{ secrets.OWNER_PR_PAT }}
+          MUSE_API_KEY: ${{ secrets.MUSE_API_KEY }}
+          CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
+        run: |
+          set -euo pipefail
+          repos="stranske/Workflows,$(python scripts/list_registered_consumer_repos.py --separator ',')"
+          python -m tools.verifier_shadow_external --ledger ledger.json --repos "$repos"
+          python -m tools.verifier_shadow_report --ledger ledger.json --markdown report.md --json report.json
+          cat report.md >> "$GITHUB_STEP_SUMMARY"
       - name: Update the single report issue
         env:
           GH_TOKEN: ${{ github.token }}

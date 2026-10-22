@@ -11,27 +11,9 @@
     },
     {
       "provider": "openai",
-      "model": "gpt-5.6-luna",
-      "replaces_provider": "openai",
-      "why": "Previous-generation cheap tier ($0.2/$1.2): does a newer cheap model matter?"
-    },
-    {
-      "provider": "openai",
-      "model": "gpt-6-sol",
-      "replaces_provider": "openai",
-      "why": "Same-price balanced peer of the incumbent ($2/$10) on the newer generation."
-    },
-    {
-      "provider": "openai",
       "model": "gpt-6.1-sol",
       "replaces_provider": "openai",
       "why": "Newest balanced OpenAI model ($2/$10)."
-    },
-    {
-      "provider": "anthropic",
-      "model": "claude-sonnet-5",
-      "replaces_provider": "anthropic",
-      "why": "Previous-generation peer of the production Anthropic judge ($2/$10)."
     },
     {
       "provider": "anthropic",
@@ -44,6 +26,20 @@
       "model": "claude-opus-5-5",
       "replaces_provider": "anthropic",
       "why": "Higher-capability Anthropic tier ($4/$20): does more capability pay?"
+    },
+    {
+      "provider": "muse-api",
+      "model": "muse-spark-1.3",
+      "runner": "external",
+      "replaces_provider": "openai",
+      "why": "Meta's Muse API on its own pay-as-you-go key (non-contributor tier, public repositories only). Judges in the daily report job from the saved verifier inputs, because consumer workflows hold no Muse credential. Baseline: the production OpenAI judge."
+    },
+    {
+      "provider": "cursor-cli",
+      "model": "default",
+      "runner": "external",
+      "replaces_provider": "openai",
+      "why": "Cursor CLI in read-only ask mode on the Workflows CURSOR_API_KEY. Judges in the daily report job from the saved verifier inputs. Baseline: the production OpenAI judge."
     }
   ],
   "window": {
@@ -64,5 +60,6 @@
   },
   "on_rollback": "A candidate miss on a PR that later reverts or draws a verifier follow-up is listed in the report as a defect the incumbent caught and the candidate missed; one such case ends the evaluation as DOES NOT MEET.",
   "owner_time": "One read of the day-7 report (about 2 minutes) before any promotion; nothing blocks while the shadow runs.",
-  "note_on_many_candidates": "Every candidate is evaluated against the same criteria, each against the production slot of its own provider (openai against gpt-5.6-terra, anthropic against claude-sonnet-5-5). Judging several candidates raises the chance that one meets the criteria by luck, so promotion picks among those that MEET by cost and does not treat a single MEETS as proof of superiority."
+  "note_on_many_candidates": "Every candidate is evaluated against the same criteria, each against the production slot of its own provider (openai against gpt-5.6-terra, anthropic against claude-sonnet-5-5). Judging several candidates raises the chance that one meets the criteria by luck, so promotion picks among those that MEET by cost and does not treat a single MEETS as proof of superiority.",
+  "note_on_candidate_choice": "Only the newest model of each line is shadowed: gpt-6.1-sol rather than gpt-6-sol or gpt-5.6, claude-opus-5-5 rather than opus-5, and no Anthropic model older than the production claude-sonnet-5-5. gpt-6-luna stays because no 6.1 luna exists. External candidates (runner: external) are judged by tools/verifier_shadow_external.py in the daily report job."
 }
