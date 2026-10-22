@@ -1317,6 +1317,21 @@ def test_round2_input_manifest_rejects_mismatched_source_commits(
     assert error == "round-1 findings provenance source commits do not match"
 
 
+def test_round2_input_manifest_rejects_missing_canonical_protocol(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A missing protocol document cannot be replaced by a reusable receipt."""
+    repo, _output_dir, agents = _round2_cache_inputs(tmp_path, monkeypatch)
+    runner.PROTOCOL_FILE.unlink()
+
+    manifest, error = runner.round2_input_manifest(
+        repo=repo, turn=1, agent="codex", round1_paths=agents
+    )
+
+    assert manifest is None
+    assert "cannot read canonical round-2 input" in error
+
+
 @pytest.mark.parametrize(
     ("agent_proposals", "expected_status", "expect_proposal"),
     [
