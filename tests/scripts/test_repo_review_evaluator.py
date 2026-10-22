@@ -157,6 +157,17 @@ def test_gitnexus_analyzer_reports_missing_executable(tmp_path: Path) -> None:
     assert str(analyzer) in message
 
 
+@pytest.mark.skipif(os.name != "posix", reason="fixture uses a POSIX executable")
+def test_gitnexus_binary_diagnostics_decode_bytes_and_normalize_newlines(tmp_path: Path) -> None:
+    """Decoding after shutdown retains text-mode line endings and malformed output."""
+    analyzer = tmp_path / "gitnexus"
+    analyzer.write_text("#!/bin/sh\n" + r"printf 'first\r\nsecond\rthird\n\377'" + "\n")
+    analyzer.chmod(0o755)
+    ok, message = evaluator.run_gitnexus_analyze(tmp_path, str(analyzer))
+    assert ok
+    assert message == "first\nsecond\nthird\n\ufffd"
+
+
 VALID_ISSUE_BODY = """## Why
 
 Travel-Plan-Permission needs CI to execute the LangGraph path so orchestration coverage cannot pass by skipping the graph.

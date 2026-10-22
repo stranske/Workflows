@@ -94,7 +94,8 @@ owned process group. A timeout or interrupted communication signals that whole
 group, allows a five-second shutdown grace period, and kills remaining group
 members even if the launcher has already exited or its children closed their
 output pipes.
-Malformed output bytes are replaced for diagnostics; they cannot bypass cleanup.
+Pipes remain binary during cleanup. Malformed bytes are replaced only when
+decoding diagnostics afterward, so decoding cannot bypass cleanup.
 Captured analyzer output is retained in the timeout failure, and other exceptions
 are re-raised after cleanup. This prevents a phase retry from leaving the
 previous analyzer writing the same database.

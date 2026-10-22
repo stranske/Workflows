@@ -1314,15 +1314,18 @@ def collect_gitnexus_map(workspace_root: Path, repo_path: Path, repo: RepoConfig
 GITNEXUS_SHUTDOWN_GRACE_SECONDS = 5
 
 
+def _decode_gitnexus_output(output: bytes | str) -> str:
+    """Decode diagnostics after shutdown, preserving text-mode newline handling."""
+    text = output.decode("utf-8", errors="replace") if isinstance(output, bytes) else output
+    return text.replace("\r\n", "\n").replace("\r", "\n")
+
+
 def _run_gitnexus_command(cmd: list[str], *, timeout: int) -> subprocess.CompletedProcess[str]:
     """Contain the CLI's respawned analyzer, including after its launcher exits."""
     with subprocess.Popen(
         cmd,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
         start_new_session=os.name == "posix",
     ) as proc:
 
@@ -1341,8 +1344,8 @@ def _run_gitnexus_command(cmd: list[str], *, timeout: int) -> subprocess.Complet
         try:
             stdout, stderr = proc.communicate(timeout=timeout)
         except BaseException as exc:
-            stdout = getattr(exc, "output", None) or ""
-            stderr = getattr(exc, "stderr", None) or ""
+            stdout = getattr(exc, "output", None) or b""
+            stderr = getattr(exc, "stderr", None) or b""
             try:
                 stop_processes(force=False)
                 # Cleanup read failures must not replace the original exception
@@ -1358,7 +1361,9 @@ def _run_gitnexus_command(cmd: list[str], *, timeout: int) -> subprocess.Complet
             if isinstance(exc, subprocess.TimeoutExpired):
                 raise subprocess.TimeoutExpired(cmd, timeout, output=stdout, stderr=stderr) from exc
             raise
-        return subprocess.CompletedProcess(cmd, proc.returncode, stdout, stderr)
+        return subprocess.CompletedProcess(
+            cmd, proc.returncode, _decode_gitnexus_output(stdout), _decode_gitnexus_output(stderr)
+        )
 
 
 def run_gitnexus_analyze(
@@ -1393,11 +1398,7 @@ def run_gitnexus_analyze(
         captured = [str(exc)]
         for output in (exc.output, exc.stderr):
             if output:
-                captured.append(
-                    output.decode("utf-8", errors="replace")
-                    if isinstance(output, bytes)
-                    else output
-                )
+                captured.append(_decode_gitnexus_output(output))
         return False, "\n".join(captured)
     output = "\n".join(part for part in [result.stdout, result.stderr] if part).strip()
     normalized_output = output.casefold()
