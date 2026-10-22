@@ -1457,3 +1457,265 @@ def test_parser_and_invoker_handle_code_blocks_and_legacy_chain_signature(
     assert trace_id is None
     assert trace_url is None
     assert chain.invoke.call_count == 2
+
+
+def test_optimizer_helpers_reject_empty_or_unactionable_optional_values(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    assert issue_optimizer._extract_json_payload("{}") == "{}"
+    assert issue_optimizer._extract_suggestions_json("") is None
+    assert issue_optimizer._coerce_split_suggestions({"split_suggestions": "not-a-list"}) == []
+    assert issue_optimizer._coerce_split_suggestions({"split_suggestions": ["", "too short"]}) == []
+    assert issue_optimizer._is_large_task(
+        "one two three four five six seven eight nine ten eleven twelve thirteen fourteen"
+    )
+    assert issue_optimizer._is_large_task("Add tests and update docs")
+    assert (
+        issue_optimizer._ensure_task_decomposition(["invalid", {"task": ""}], use_llm=False) == []
+    )
+
+    chain = mock.MagicMock()
+    chain.invoke.return_value = object()
+    monkeypatch.setattr(issue_optimizer, "_build_llm_config", lambda **_kwargs: {})
+    monkeypatch.setitem(sys.modules, "tools.llm_provider", None)
+    response, trace_id, trace_url = issue_optimizer._invoke_llm_with_trace(
+        chain, {"body": "x"}, operation="test"
+    )
+    assert response is chain.invoke.return_value
+    assert trace_id is None
+    assert trace_url is None
+
+
+def test_optimizer_edge_paths_cover_json_elision_oversized_and_caps(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from scripts.langchain import task_decomposer
+
+    assert (
+        issue_optimizer._extract_suggestions_json("<!-- suggestions-json: {not-json} -->") is None
+    )
+    assert issue_optimizer._extract_suggestions_json("<!-- suggestions-json: [] -->") is None
+    sentinel = task_decomposer.elision_sentinel(1, kind="tasks")
+    deduped = issue_optimizer._deduplicate_task_lines(
+        "\n".join(
+            [
+                "## Tasks",
+                "- [ ] Keep",
+                f"- [ ] {sentinel}",
+                "- [ ]   ",
+                "## Acceptance Criteria",
+                "- [ ] Done",
+            ]
+        )
+    )
+    assert sentinel in deduped
+
+    # Oversized bodies with no embedded original return None (no silent truncate).
+    monkeypatch.setattr(
+        "scripts.langchain.issue_formatter._innermost_original_issue",
+        lambda _body: "",
+    )
+    from scripts.langchain.issue_formatter import MAX_ISSUE_BODY_SIZE
+
+    oversized = "x" * (MAX_ISSUE_BODY_SIZE + 1)
+    assert issue_optimizer._reset_oversized_body(oversized, "issue_optimizer") is None
+
+    kept, elided = issue_optimizer._cap_checkbox_lines(
+        [
+            "- [ ] one",
+            "- [ ] two",
+            "  - [ ] nested under two",
+            "heading",
+            "- [ ] three",
+        ],
+        max_items=1,
+        kind="tasks",
+    )
+    assert elided == 2
+    assert "nested under two" not in "\n".join(kept)
+    assert "heading" in "\n".join(kept)
+
+    monkeypatch.setattr(
+        "scripts.langchain.task_decomposer.decompose_task",
+        lambda _task, use_llm=False: {"sub_tasks": []},
+    )
+    splits = issue_optimizer._detect_task_splitting(
+        ["Add tests and update documentation thoroughly"], use_llm=False
+    )
+    assert splits and splits[0]["split_suggestions"] == ["Split into smaller, single-action tasks"]
+
+    result = issue_optimizer.analyze_issue("", use_llm=False)
+    assert result.provider_used is None
+
+    body_without_tasks = "## Scope\nDo work\n\n## Acceptance Criteria\n- [ ] Done"
+    assert (
+        issue_optimizer._apply_task_decomposition(
+            body_without_tasks,
+            {
+                "task_splitting": [
+                    {
+                        "task": "Do work",
+                        "split_suggestions": ["Write tests for the parser path"],
+                    }
+                ]
+            },
+        )
+        == body_without_tasks
+    )
+
+
+def test_analyze_and_apply_cover_import_error_and_non_token_failures(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setattr(
+        issue_optimizer,
+        "_get_llm_client",
+        mock.MagicMock(return_value=(mock.MagicMock(), "openai")),
+    )
+    monkeypatch.setitem(sys.modules, "langchain_core", None)
+    monkeypatch.setitem(sys.modules, "langchain_core.prompts", None)
+    # ImportError path clears client_info and falls back.
+    result = issue_optimizer.analyze_issue("## Tasks\n- [ ] Add tests", use_llm=True)
+    assert result.provider_used is None
+
+    primary_chain = mock.MagicMock()
+    primary_chain.invoke.side_effect = RuntimeError("rate limited")
+    mock_template = mock.MagicMock()
+    mock_template.__or__ = mock.MagicMock(return_value=primary_chain)
+
+    class FakeChatPromptTemplate:
+        @staticmethod
+        def from_template(_: str):
+            return mock_template
+
+    fake_prompts = types.SimpleNamespace(ChatPromptTemplate=FakeChatPromptTemplate)
+    monkeypatch.setitem(sys.modules, "langchain_core", types.SimpleNamespace(prompts=fake_prompts))
+    monkeypatch.setitem(sys.modules, "langchain_core.prompts", fake_prompts)
+    monkeypatch.setattr(
+        issue_optimizer,
+        "_get_llm_client",
+        mock.MagicMock(return_value=(mock.MagicMock(), "openai")),
+    )
+    monkeypatch.setattr("tools.llm_provider._is_token_limit_error", lambda _error: False)
+    monkeypatch.setenv("ISSUE_NUMBER", "99")
+    result = issue_optimizer.analyze_issue("## Tasks\n- [ ] Add tests", use_llm=True)
+    assert result.provider_used is None
+    primary_chain.invoke.assert_called()
+    assert "LLM analysis failed" in capsys.readouterr().err
+
+    apply_result = issue_optimizer.apply_suggestions(
+        "## Tasks\n- [ ] Keep\n\n## Acceptance Criteria\n- [ ] pytest",
+        {},
+        use_llm=True,
+    )
+    assert apply_result["used_llm"] is False
+    assert "LLM apply failed" in capsys.readouterr().err
+
+
+def test_openai_retry_surfaces_validation_error_and_duplicated_sections(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    primary_chain = mock.MagicMock()
+    primary_chain.invoke.side_effect = RuntimeError("token limit")
+    openai_chain = mock.MagicMock()
+    openai_chain.invoke.return_value = _response_with("{not-valid-json")
+    openai_client = mock.MagicMock()
+    openai_client.invoke.return_value = _response_with("{still-not-valid-json")
+    mock_template = mock.MagicMock()
+    mock_template.__or__ = mock.MagicMock(side_effect=[primary_chain, openai_chain])
+
+    class FakeChatPromptTemplate:
+        @staticmethod
+        def from_template(_: str):
+            return mock_template
+
+    fake_prompts = types.SimpleNamespace(ChatPromptTemplate=FakeChatPromptTemplate)
+    monkeypatch.setitem(sys.modules, "langchain_core", types.SimpleNamespace(prompts=fake_prompts))
+    monkeypatch.setitem(sys.modules, "langchain_core.prompts", fake_prompts)
+    monkeypatch.setattr(
+        issue_optimizer,
+        "_get_llm_client",
+        mock.MagicMock(
+            side_effect=[
+                (mock.MagicMock(), "github-models"),
+                (openai_client, "openai"),
+            ]
+        ),
+    )
+    monkeypatch.setattr("tools.llm_provider._is_token_limit_error", lambda _error: True)
+    result = issue_optimizer.analyze_issue("Issue body", use_llm=True)
+    assert result.provider_used is None
+    err = capsys.readouterr().err
+    openai_chain.invoke.assert_called()
+    openai_client.invoke.assert_called()
+    assert "LLM output failed validation" in err or "LLM repair failed validation" in err
+
+    primary_chain = mock.MagicMock()
+    primary_chain.invoke.side_effect = RuntimeError("token limit")
+    openai_chain = mock.MagicMock()
+    openai_chain.invoke.return_value = _response_with(
+        "## Tasks\n- [ ] A\n## Tasks\n- [ ] B\n## Acceptance Criteria\n- [ ] ok"
+    )
+    mock_template = mock.MagicMock()
+    mock_template.__or__ = mock.MagicMock(side_effect=[primary_chain, openai_chain])
+    monkeypatch.setattr(
+        issue_optimizer,
+        "_get_llm_client",
+        mock.MagicMock(
+            side_effect=[
+                (mock.MagicMock(), "github-models"),
+                (mock.MagicMock(), "openai"),
+            ]
+        ),
+    )
+    applied = issue_optimizer.apply_suggestions("Issue body", {}, use_llm=True)
+    assert applied["used_llm"] is False
+    assert "duplicated sections" in capsys.readouterr().err
+
+
+def test_cli_json_apply_includes_guard_and_trace_fields(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setattr(
+        issue_optimizer,
+        "apply_suggestions",
+        lambda *_a, **_k: {
+            "formatted_body": "## Tasks\n- [ ] x\n\n## Acceptance Criteria\n- [ ] y",
+            "provider_used": "openai",
+            "used_llm": True,
+            "guard_blocked": True,
+            "guard_reason": "injection",
+            "langsmith_trace_id": "tid",
+            "langsmith_trace_url": "https://example.test/t",
+        },
+    )
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "issue_optimizer.py",
+            "--input-text",
+            "body",
+            "--apply-suggestions",
+            "--suggestions-json",
+            "{}",
+            "--json",
+        ],
+    )
+    issue_optimizer.main()
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["guard_blocked"] is True
+    assert payload["langsmith_trace_id"] == "tid"
+    assert payload["langsmith_trace_url"] == "https://example.test/t"
+
+    assert (
+        issue_optimizer._load_suggestions(
+            argparse.Namespace(
+                suggestions_json="{bad",
+                suggestions_file=None,
+                suggestions_comment_file=None,
+                suggestions_comment_text=None,
+            )
+        )
+        is None
+    )
