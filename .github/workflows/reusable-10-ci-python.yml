@@ -2154,6 +2154,8 @@ jobs:
               args+=("${extra_args[@]}")
             fi
           fi
+          # PYTEST_WORKERS is supplied by this step's env, alongside PYTEST_MARKERS.
+          # shellcheck disable=SC2153
           if python -c "import xdist" 2>/dev/null; then
             args+=("-n" "${PYTEST_WORKERS}" "--dist=loadgroup")
             echo "Running tests in parallel with pytest-xdist (loadgroup scheduler)..."
