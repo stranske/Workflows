@@ -13,12 +13,22 @@ import pytest
 import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
-WORKFLOW = ROOT / ".github/workflows/agents-auto-pilot.yml"
+WORKFLOWS = (
+    ROOT / ".github/workflows/agents-auto-pilot.yml",
+    ROOT / "templates/consumer-repo/.github/workflows/agents-auto-pilot.yml",
+)
+
+
+@pytest.fixture(params=WORKFLOWS, ids=("root", "consumer"))
+def workflow(request: pytest.FixtureRequest) -> Path:
+    return request.param
+
+
 ISSUE_NUMBER = 42
 
 
-def _extract_verify_script() -> str:
-    document = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
+def _extract_verify_script(workflow: Path) -> str:
+    document = yaml.safe_load(workflow.read_text(encoding="utf-8"))
     for job in document["jobs"].values():
         for step in job.get("steps") or []:
             if step.get("id") == "verify_step":
@@ -26,7 +36,7 @@ def _extract_verify_script() -> str:
     raise AssertionError("agents-auto-pilot.yml no longer defines verify_step")
 
 
-def _run_verify(prs: list[dict[str, Any]]) -> dict[str, Any]:
+def _run_verify(prs: list[dict[str, Any]], workflow: Path) -> dict[str, Any]:
     """Execute the workflow verify_step script against a mocked pulls.list result set."""
     node = shutil.which("node")
     if node is None:  # pragma: no cover - host dependent
@@ -35,7 +45,7 @@ def _run_verify(prs: list[dict[str, Any]]) -> dict[str, Any]:
             pytest.fail(message)
         pytest.skip(message)
 
-    script = _extract_verify_script()
+    script = _extract_verify_script(workflow)
     harness = r"""
 const fixture = JSON.parse(process.env.FIXTURE);
 const outputs = {};
@@ -180,9 +190,9 @@ def _matching_pr(number: int) -> dict[str, Any]:
     }
 
 
-def test_handoff_missing_pr_keeps_auto_pilot_and_skips_verify_label() -> None:
+def test_handoff_missing_pr_keeps_auto_pilot_and_skips_verify_label(workflow: Path) -> None:
     """Zero matching PRs: no verify:evaluate, keep agents:auto-pilot, name source issue."""
-    result = _run_verify([])
+    result = _run_verify([], workflow)
 
     assert result["outputs"].get("verify_handoff") == "absent"
     assert result["outputs"].get("verify_handoff_issue") == str(ISSUE_NUMBER)
@@ -198,9 +208,9 @@ def test_handoff_missing_pr_keeps_auto_pilot_and_skips_verify_label() -> None:
     )
 
 
-def test_handoff_pr_beyond_first_page_is_found_not_absent_verified() -> None:
+def test_handoff_pr_beyond_first_page_is_found_not_absent_verified(workflow: Path) -> None:
     """Matching PR past the first 100 results must be found, never absent-as-verified."""
-    result = _run_verify(_filler_prs(100) + [_matching_pr(777)])
+    result = _run_verify(_filler_prs(100) + [_matching_pr(777)], workflow)
 
     assert result["outputs"].get("verify_handoff") == "found"
     assert result["outputs"].get("verify_handoff_issue") == str(ISSUE_NUMBER)
@@ -217,9 +227,9 @@ def test_handoff_pr_beyond_first_page_is_found_not_absent_verified() -> None:
     )
 
 
-def test_handoff_truncated_lookup_reports_incomplete_not_verified() -> None:
+def test_handoff_truncated_lookup_reports_incomplete_not_verified(workflow: Path) -> None:
     """Full maxPages of non-matching PRs is incomplete, never a verified handoff."""
-    result = _run_verify(_filler_prs(1000))
+    result = _run_verify(_filler_prs(1000), workflow)
 
     assert result["outputs"].get("verify_handoff") == "incomplete"
     assert result["outputs"].get("verify_handoff_issue") == str(ISSUE_NUMBER)
@@ -229,8 +239,8 @@ def test_handoff_truncated_lookup_reports_incomplete_not_verified() -> None:
     assert max(call["page"] for call in result["pageCalls"]) == 10
 
 
-def test_handoff_successful_pr_bound_labels_merged_pr_and_issue() -> None:
-    result = _run_verify([_matching_pr(555)])
+def test_handoff_successful_pr_bound_labels_merged_pr_and_issue(workflow: Path) -> None:
+    result = _run_verify([_matching_pr(555)], workflow)
 
     assert result["outputs"].get("verify_handoff") == "found"
     assert result["outputs"].get("verify_handoff_issue") == str(ISSUE_NUMBER)
