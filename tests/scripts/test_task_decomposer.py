@@ -994,6 +994,9 @@ def test_fallback_and_provider_resolution_cover_remaining_decision_paths(monkeyp
 
 
 def test_decompose_task_retries_github_models_401_with_openai(monkeypatch) -> None:
+    monkeypatch.delenv("LANGCHAIN_PROVIDER", raising=False)
+    monkeypatch.delenv("GITHUB_TOKEN", raising=False)
+
     class Client:
         pass
 
@@ -1010,6 +1013,7 @@ def test_decompose_task_retries_github_models_401_with_openai(monkeypatch) -> No
     monkeypatch.setitem(sys.modules, "langchain_core.prompts", prompts)
     github_client, openai_client = Client(), Client()
     calls = []
+    invoked = []
 
     def get_client(*, provider):
         calls.append(provider)
@@ -1018,6 +1022,7 @@ def test_decompose_task_retries_github_models_401_with_openai(monkeypatch) -> No
         )
 
     def invoke(chain, _values, **_kwargs):
+        invoked.append(chain.client)
         if chain.client is github_client:
             raise RuntimeError("GitHub Models returned 401")
         return types.SimpleNamespace(content="- Add tests"), types.SimpleNamespace(
@@ -1031,6 +1036,7 @@ def test_decompose_task_retries_github_models_401_with_openai(monkeypatch) -> No
     )
     result = task_decomposer.decompose_task("full migration", use_llm=True)
     assert calls == [None, "openai"]
+    assert invoked == [github_client, openai_client]
     assert result["provider_used"] == "openai"
     assert result["trace"] == "ok"
 

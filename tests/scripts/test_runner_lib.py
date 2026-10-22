@@ -4019,9 +4019,19 @@ def test_runner_core_small_validation_and_fallback_paths(monkeypatch) -> None:
 
 
 def test_fallback_storage_returns_primary_record_without_reading_legacy() -> None:
+    class RecordingFallback(MemoryRunnerStorage):
+        def __init__(self) -> None:
+            super().__init__()
+            self.reads: list[tuple[int, str]] = []
+
+        def read_record(self, pr_number: int, provider: str) -> dict[str, Any] | None:
+            self.reads.append((pr_number, provider))
+            return super().read_record(pr_number, provider)
+
     primary = MemoryRunnerStorage()
-    fallback = MemoryRunnerStorage()
+    fallback = RecordingFallback()
     primary.records[(42, "codex")] = {"status": "pending"}
     assert runner_core.FallbackRunnerStorage(primary, fallback).read_record(42, "codex") == {
         "status": "pending"
     }
+    assert fallback.reads == []
