@@ -146,6 +146,45 @@ def test_gitnexus_communication_exception_stops_writer_and_is_reraised(
 
 
 @pytest.mark.skipif(os.name != "posix", reason="GitNexus worker process groups are POSIX")
+def test_gitnexus_quiet_analyzer_gets_grace_after_launcher_exits(tmp_path, monkeypatch):
+    analyzer = tmp_path / "gitnexus"
+    analyzer.write_text(
+        "#!/bin/sh\n"
+        'repo="$2"\n'
+        "trap 'exit 0' TERM\n"
+        "flush_on_exit() {\n"
+        "  trap 'sleep 0.2; printf flushed > \"$repo/writer.flushed\"; exit 0' TERM\n"
+        '  printf x > "$repo/writer.activity"\n'
+        "  while :; do sleep 0.05; done\n"
+        "}\n"
+        "flush_on_exit >/dev/null 2>&1 &\n"
+        "sleep 0.1\n"
+        'printf "%s" "$!" > "$repo/writer.pid"\n'
+        "while :; do sleep 0.05; done\n"
+    )
+    analyzer.chmod(0o755)
+
+    class TimeoutAfterReady(subprocess.Popen[bytes]):
+        def communicate(self, *args, **kwargs):
+            if self.args[0] == str(analyzer) and not getattr(self, "injected", False):
+                self.injected = True
+                _wait_for_writer_ready(tmp_path)
+                raise subprocess.TimeoutExpired(self.args, 1)
+            return super().communicate(*args, **kwargs)
+
+    monkeypatch.setattr(evaluator.subprocess, "Popen", TimeoutAfterReady)
+    monkeypatch.setattr(evaluator, "GITNEXUS_SHUTDOWN_GRACE_SECONDS", 1)
+    try:
+        ok, message = evaluator.run_gitnexus_analyze(tmp_path, str(analyzer), timeout=1)
+        assert not ok
+        assert "timed out" in message
+        _assert_writer_stopped(tmp_path)
+        assert (tmp_path / "writer.flushed").read_text() == "flushed"
+    finally:
+        _cleanup_writer(tmp_path)
+
+
+@pytest.mark.skipif(os.name != "posix", reason="GitNexus worker process groups are POSIX")
 @pytest.mark.parametrize("cleanup_read", [2, 3])
 @pytest.mark.parametrize("interrupt_kind", ["interrupt", "exit"])
 def test_gitnexus_cleanup_interrupt_propagates_after_stopping_writer(

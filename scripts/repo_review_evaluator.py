@@ -17,6 +17,7 @@ import re
 import shutil
 import signal
 import subprocess
+import time
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
@@ -1341,6 +1342,15 @@ def _run_gitnexus_command(cmd: list[str], *, timeout: int) -> subprocess.Complet
                 else:
                     proc.terminate()
 
+        def processes_running() -> bool:
+            if os.name != "posix":
+                return proc.poll() is None
+            try:
+                os.killpg(proc.pid, 0)
+            except ProcessLookupError:
+                return False
+            return True
+
         try:
             stdout, stderr = proc.communicate(timeout=timeout)
         except BaseException as exc:
@@ -1348,10 +1358,17 @@ def _run_gitnexus_command(cmd: list[str], *, timeout: int) -> subprocess.Complet
             stderr = getattr(exc, "stderr", None) or b""
             try:
                 stop_processes(force=False)
+                grace_deadline = time.monotonic() + GITNEXUS_SHUTDOWN_GRACE_SECONDS
                 # Ordinary cleanup read failures must not replace the original
                 # exception. A new operator interrupt propagates after group kill.
                 with contextlib.suppress(Exception):
                     stdout, stderr = proc.communicate(timeout=GITNEXUS_SHUTDOWN_GRACE_SECONDS)
+                # Pipe EOF or launcher exit can precede a quiet analyzer's
+                # database flush. Honor the deadline while its group survives.
+                while (remaining := grace_deadline - time.monotonic()) > 0:
+                    if not processes_running():
+                        break
+                    time.sleep(min(0.05, remaining))
             finally:
                 # Reaping the launcher or reaching pipe EOF does not establish
                 # child shutdown. This also runs on an interrupted cleanup read.
