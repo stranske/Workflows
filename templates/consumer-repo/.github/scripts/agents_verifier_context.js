@@ -1076,6 +1076,13 @@ async function fetchVerifierEvidence({
         const binding=historicalManualVerifierBinding(workflowRun,{owner,repo,pullNumber,associatedCommitShas});
         if (binding) {
           pendingManualBindings.set(runId,binding);
+        } else if (!explicitEvidenceRunIds.has(runId)) {
+          // Incidental status/history links are discovery hints, not claims of
+          // evidence for this revision. Never download or credit unrelated runs.
+          (diagnostics.references.excluded_incidental_runs ||= []).push({
+            run_id: runId, head_sha: runHeadSha, reason: 'different_revision',
+          });
+          continue;
         } else {
           artifactIncomplete = true;
           artifacts.reason = `referenced workflow run ${runId} does not match the exact PR head or merge commit`;

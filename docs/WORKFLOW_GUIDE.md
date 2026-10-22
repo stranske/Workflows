@@ -460,7 +460,11 @@ available alternative keeps its required evidence channels mandatory; unrelated
 comment/artifact omissions may remain useful enrichment. Their original statuses
 and capture gaps stay in the receipt (`capture_complete: false`), and omitted raw
 bytes are never claimed as reviewed. Malformed inventories, missing core sources,
-and incomplete required channels still block. Compare and chunked lossless
+and incomplete required channels still block. Only typed transport or size-limit
+omissions can be optional; provenance failures and ambiguous archive/read errors
+stay blocking. A validated incidental run from another revision is disclosed as
+excluded, never downloaded or credited; explicitly designated evidence retains
+the exact-revision provenance guard. Compare and chunked lossless
 admission are unchanged. Passing this screen does not establish acceptance.
 
 The context retains each complete original PR/issue request as fenced untrusted
