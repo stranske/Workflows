@@ -1,5 +1,6 @@
 """Advertised native providers reach existing client selection before any paid call."""
 
+import argparse
 import json
 import os
 import subprocess
@@ -10,9 +11,22 @@ import pytest
 from scripts.langchain import pr_verifier
 
 
-@pytest.mark.parametrize("provider", ["openai", "github-models", "anthropic"])
+@pytest.mark.parametrize(
+    "provider,canonical",
+    [
+        ("openai", "openai"),
+        ("github-models", "github-models"),
+        ("anthropic", "anthropic"),
+        ("claude", "anthropic"),
+        ("github", "github-models"),
+        ("github_models", "github-models"),
+        (" OPENAI ", "openai"),
+        (" CLAUDE ", "anthropic"),
+        (" GitHub_Models ", "github-models"),
+    ],
+)
 def test_evaluate_cli_passes_supported_provider_to_existing_client_selection(
-    monkeypatch, capsys, provider
+    monkeypatch, capsys, provider, canonical
 ):
     calls = []
 
@@ -31,22 +45,23 @@ def test_evaluate_cli_passes_supported_provider_to_existing_client_selection(
     )
     pr_verifier.main()
     result = json.loads(capsys.readouterr().out)
-    assert calls == [("claude-sonnet-5-5", provider)]
+    assert calls == [("claude-sonnet-5-5", canonical)]
     assert result["used_llm"] is False and result["verdict"] != "PASS"
 
 
-def test_evaluate_cli_rejects_unknown_provider_before_client_selection(monkeypatch, capsys):
+@pytest.mark.parametrize("provider", ["invented-provider", "", "   ", "auto"])
+def test_evaluate_cli_rejects_unknown_provider_before_client_selection(
+    monkeypatch, capsys, provider
+):
     monkeypatch.setattr(
         pr_verifier, "_get_llm_client", lambda **_kw: pytest.fail("invalid provider reached client")
     )
-    monkeypatch.setattr(
-        sys, "argv", ["pr_verifier.py", "--provider", "invented-provider", "--json"]
-    )
+    monkeypatch.setattr(sys, "argv", ["pr_verifier.py", "--provider", provider, "--json"])
     with pytest.raises(SystemExit) as error:
         pr_verifier.main()
     assert error.value.code == 2
     captured = capsys.readouterr()
-    assert not captured.out and "invalid choice" in captured.err
+    assert not captured.out and "unsupported LLM provider" in captured.err
 
 
 def test_authored_evaluate_cli_arguments_reach_native_evaluation_without_paid_calls(
@@ -95,7 +110,13 @@ def test_authored_evaluate_cli_arguments_reach_native_evaluation_without_paid_ca
     assert issue_attempts == [(False, context.read_text(), ["verify:evaluate"])]
 
 
-def test_authored_command_subprocess_imports_and_routes_anthropic_offline(tmp_path):
+@pytest.mark.parametrize(
+    "provider,canonical",
+    [("anthropic", "anthropic"), ("claude", "anthropic"), (" GitHub_Models ", "github-models")],
+)
+def test_authored_command_subprocess_imports_and_routes_provider_offline(
+    tmp_path, provider, canonical
+):
     root = Path(__file__).resolve().parents[2]
     (tmp_path / ".workflows-lib").symlink_to(root, target_is_directory=True)
     (tmp_path / "verifier-context.md").write_text("## PR #4175\nOriginal request.\n")
@@ -141,7 +162,7 @@ finally:
             "--model",
             "claude-sonnet-5-5",
             "--provider",
-            "anthropic",
+            provider,
             "--create-issue",
             "--issue-label",
             "verify:evaluate",
@@ -156,7 +177,13 @@ finally:
     payload = json.loads(result.stdout)
     assert payload["used_llm"] is False and payload["verdict"] != "PASS"
     assert json.loads((tmp_path / "offline-boundary.json").read_text()) == {
-        "client_selection": [["claude-sonnet-5-5", "anthropic"]],
+        "client_selection": [["claude-sonnet-5-5", canonical]],
         "network": [],
         "issue": [],
     }
+
+
+@pytest.mark.parametrize("provider", [None, "", "   ", "invented-provider", "auto"])
+def test_provider_argument_never_converts_invalid_explicit_input_into_autofallback(provider):
+    with pytest.raises(argparse.ArgumentTypeError, match="unsupported LLM provider"):
+        pr_verifier._provider_argument(provider)
