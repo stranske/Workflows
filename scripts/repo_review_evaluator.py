@@ -1321,10 +1321,13 @@ def _run_gitnexus_command(cmd: list[str], *, timeout: int) -> subprocess.Complet
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
+        encoding="utf-8",
+        errors="replace",
         start_new_session=os.name == "posix",
     ) as proc:
 
         def stop_processes(*, force: bool) -> None:
+            """Signal only this launcher's owned process group."""
             with contextlib.suppress(ProcessLookupError):
                 if os.name == "posix":
                     # start_new_session makes this PID the owned process group.
@@ -1337,18 +1340,24 @@ def _run_gitnexus_command(cmd: list[str], *, timeout: int) -> subprocess.Complet
 
         try:
             stdout, stderr = proc.communicate(timeout=timeout)
-        except subprocess.TimeoutExpired as exc:
-            stop_processes(force=False)
+        except BaseException as exc:
+            stdout = getattr(exc, "output", None) or ""
+            stderr = getattr(exc, "stderr", None) or ""
             try:
-                stdout, stderr = proc.communicate(timeout=GITNEXUS_SHUTDOWN_GRACE_SECONDS)
-            except subprocess.TimeoutExpired:
+                stop_processes(force=False)
+                # Cleanup read failures must not replace the original exception
+                # or bypass the unconditional group kill below.
+                with contextlib.suppress(BaseException):
+                    stdout, stderr = proc.communicate(timeout=GITNEXUS_SHUTDOWN_GRACE_SECONDS)
+            finally:
+                # Reaping the launcher or reaching pipe EOF does not establish
+                # child shutdown. This also runs on an interrupted cleanup read.
                 stop_processes(force=True)
-                stdout, stderr = proc.communicate()
-            else:
-                # A child can ignore SIGTERM and close its inherited pipes.
-                # Reaping the launcher alone does not establish child shutdown.
-                stop_processes(force=True)
-            raise subprocess.TimeoutExpired(cmd, timeout, output=stdout, stderr=stderr) from exc
+                with contextlib.suppress(BaseException):
+                    stdout, stderr = proc.communicate()
+            if isinstance(exc, subprocess.TimeoutExpired):
+                raise subprocess.TimeoutExpired(cmd, timeout, output=stdout, stderr=stderr) from exc
+            raise
         return subprocess.CompletedProcess(cmd, proc.returncode, stdout, stderr)
 
 
