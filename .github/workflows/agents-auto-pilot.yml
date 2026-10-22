@@ -616,6 +616,7 @@ jobs:
         id: next
         env:
           FORCE_STEP: ${{ inputs.force_step }}
+          VERIFY_HANDOFF_BOUND: ${{ steps.context.outputs.verify_handoff_bound }}
         run: |
           SCRIPTS_PATH="${WORKFLOWS_SCRIPTS_PATH:-$GITHUB_WORKSPACE}"
           ISSUE_STATE="${{ steps.context.outputs.issue_state }}"
@@ -625,7 +626,6 @@ jobs:
           HAS_AGENT="${{ steps.context.outputs.has_agent }}"
           LINKED_PR="${{ steps.context.outputs.linked_pr }}"
           HAS_VERIFY="${{ steps.context.outputs.has_verify }}"
-          VERIFY_HANDOFF_BOUND="${{ steps.context.outputs.verify_handoff_bound }}"
 
           # Force step if specified (not 'auto')
           if [[ -n "$FORCE_STEP" && "$FORCE_STEP" != "auto" ]]; then
@@ -2386,6 +2386,37 @@ jobs:
             core.setOutput('verify_handoff', 'found');
             core.info(`Found merged PR #${linkedPr.number} for issue #${issueNumber}`);
 
+            async function ensureLabel(name, color, description) {
+              try {
+                await withRetry((client) => client.rest.issues.getLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  name,
+                }));
+              } catch (err) {
+                if (err?.status !== 404) throw err;
+                await withRetry((client) => client.rest.issues.createLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  name,
+                  color,
+                  description,
+                }));
+              }
+            }
+
+            // Provision labels before writing them (404 on unknown names aborts handoff).
+            await ensureLabel(
+              'verify:evaluate',
+              '5319e7',
+              'Runs verifier evaluation mode after merge',
+            );
+            await ensureLabel(
+              'verify:pr-handoff',
+              '0e8a16',
+              'Auto-pilot recorded a PR-bound verification handoff',
+            );
+
             const verifyMsg = [
               `🤖 **Auto-pilot**: Issue closed.`,
               `Triggering verification on PR #${linkedPr.number}...`,
@@ -3986,6 +4017,8 @@ jobs:
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         env:
           ISSUE_NUMBER: ${{ steps.context.outputs.issue_number }}
+          VERIFY_HANDOFF_BOUND: ${{ steps.context.outputs.verify_handoff_bound }}
+          VERIFY_HANDOFF: ${{ steps.verify_step.outputs.verify_handoff }}
         with:
           script: |
             const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
@@ -3998,8 +4031,8 @@ jobs:
             });
             const issueNumber = parseInt(process.env.ISSUE_NUMBER);
 
-            const handoffBound = '${{ steps.context.outputs.verify_handoff_bound }}' === 'true';
-            const verifyTriggered = handoffBound || '${{ steps.verify_step.outputs.verify_handoff }}' === 'found';
+            const handoffBound = process.env.VERIFY_HANDOFF_BOUND === 'true';
+            const verifyTriggered = handoffBound || process.env.VERIFY_HANDOFF === 'found';
             if (!verifyTriggered) {
               await withRetry((client) => client.rest.issues.createComment({
                 owner: context.repo.owner,

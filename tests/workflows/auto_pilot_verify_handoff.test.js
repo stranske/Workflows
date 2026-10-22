@@ -21,9 +21,11 @@ test('verify step documents absent/incomplete handoff without issue-only verify 
     /couldn't find linked merged PR[\s\S]*labels: \['verify:evaluate'\]/,
   );
   assert.match(workflow, /verify:pr-handoff/);
+  assert.match(workflow, /async function ensureLabel\(name, color, description\)/);
   assert.match(workflow, /for \(let page = 1; page <= maxPages; page \+= 1\)/);
   assert.match(workflow, /client\.rest\.pulls\.list\(\{/);
   assert.match(workflow, /verification triggered on a merged source PR/);
+  assert.match(workflow, /process\.env\.VERIFY_HANDOFF_BOUND === 'true'/);
 });
 
 test('closed issue with verify:evaluate only remains on verify step', () => {

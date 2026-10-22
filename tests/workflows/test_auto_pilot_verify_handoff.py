@@ -41,9 +41,11 @@ const fixture = JSON.parse(process.env.FIXTURE);
 const outputs = {};
 const failures = [];
 const labelsAdded = [];
+const labelsCreated = [];
 const labelsRemoved = [];
 const comments = [];
 const pageCalls = [];
+const knownLabels = new Set(fixture.knownLabels || []);
 
 const core = {
   setOutput(name, value) { outputs[name] = String(value); },
@@ -72,7 +74,27 @@ const github = {
         comments.push({ issue_number: params.issue_number, body: params.body });
         return { data: {} };
       },
+      getLabel: async (params) => {
+        if (knownLabels.has(params.name)) {
+          return { data: { name: params.name } };
+        }
+        const err = new Error(`Label not found: ${params.name}`);
+        err.status = 404;
+        throw err;
+      },
+      createLabel: async (params) => {
+        labelsCreated.push(params.name);
+        knownLabels.add(params.name);
+        return { data: { name: params.name } };
+      },
       addLabels: async (params) => {
+        for (const name of params.labels) {
+          if (!knownLabels.has(name)) {
+            const err = new Error(`Label not found: ${name}`);
+            err.status = 404;
+            throw err;
+          }
+        }
         labelsAdded.push({
           issue_number: params.issue_number,
           labels: [...params.labels],
@@ -114,6 +136,7 @@ process.stdout.write(JSON.stringify({
   outputs,
   failures,
   labelsAdded,
+  labelsCreated,
   labelsRemoved,
   comments,
   pageCalls,
@@ -126,7 +149,7 @@ process.stdout.write(JSON.stringify({
             **os.environ,
             "SCRIPT": script,
             "ISSUE_NUMBER": str(ISSUE_NUMBER),
-            "FIXTURE": json.dumps({"prs": prs}),
+            "FIXTURE": json.dumps({"prs": prs, "knownLabels": []}),
         },
         text=True,
         capture_output=True,
@@ -207,6 +230,7 @@ def test_handoff_successful_pr_bound_labels_merged_pr_and_issue() -> None:
 
     assert result["outputs"].get("verify_handoff") == "found"
     assert result["failures"] == []
+    assert set(result["labelsCreated"]) >= {"verify:evaluate", "verify:pr-handoff"}
     assert any(
         entry["issue_number"] == 555 and entry["labels"] == ["verify:evaluate"]
         for entry in result["labelsAdded"]
