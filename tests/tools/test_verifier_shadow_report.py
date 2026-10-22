@@ -10,7 +10,7 @@ from tools import verifier_shadow_report as rep
 
 ROOT = Path(__file__).resolve().parents[2]
 CONFIG = json.loads((ROOT / "config/verifier_shadow.json").read_text())
-CAND = CONFIG["candidates"][0]
+CAND = CONFIG["candidates"][0]  # the first candidate; others are exercised below
 START = datetime(2026, 10, 22, tzinfo=UTC)
 
 
@@ -142,3 +142,46 @@ def test_a_met_window_prints_zero_still_needed_not_silence():
     )
     assert "**MEETS**" in text and "still needed: 0 paired run(s), 0.0 day(s)" in text
     assert "failed criteria: none" in text
+
+
+def test_each_candidate_is_judged_on_its_own_window_and_own_baseline():
+    other = CONFIG["candidates"][-1]  # an anthropic candidate, baseline = the anthropic slot
+    records = []
+    for i in range(12):
+        record = _record(i, day=i * 0.5)
+        record["candidates"].append(
+            {
+                "provider": other["provider"],
+                "model": other["model"],
+                "verdict": "PASS",
+                "used_llm": True,
+            }
+        )
+        records.append(record)
+    result = rep.evaluate(records, CONFIG, now=START + timedelta(days=8))
+    by_name = {c["candidate"]: c for c in result["candidates"]}
+    first = by_name[f"{CAND['provider']}:{CAND['model']}"]
+    second = by_name[f"{other['provider']}:{other['model']}"]
+    assert first["status"] == "MEETS" and second["status"] == "MEETS"
+    untouched = [c for c in result["candidates"] if c["paired_runs"] == 0]
+    assert untouched and all(
+        c["status"] == "INSUFFICIENT" for c in untouched
+    )  # no data, no verdict
+
+
+def test_a_late_candidate_starts_its_own_clock():
+    late = CONFIG["candidates"][-1]
+    records = [_record(i, day=i * 0.5) for i in range(12)]
+    records[-1]["candidates"].append(
+        {"provider": late["provider"], "model": late["model"], "verdict": "PASS", "used_llm": True}
+    )
+    result = rep.evaluate(records, CONFIG, now=START + timedelta(days=8))
+    late_result = next(c for c in result["candidates"] if c["candidate"].endswith(late["model"]))
+    assert late_result["days_observed"] < 3  # started at the last record, not at day 0
+
+
+def test_markdown_opens_with_one_row_per_candidate():
+    text = rep.markdown(rep.evaluate([_record(1)], CONFIG, now=START + timedelta(days=1)))
+    assert "| Candidate | Status |" in text
+    for candidate in CONFIG["candidates"]:
+        assert f"| {candidate['provider']}:{candidate['model']} |" in text

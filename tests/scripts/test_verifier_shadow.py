@@ -120,3 +120,52 @@ def test_a_missing_context_calls_no_candidate(tmp_path, monkeypatch):
     out = tmp_path / "shadow.json"
     shadow.main(["--context-file", str(tmp_path / "missing.md"), "--output", str(out)])
     assert called == [] and "context" in json.loads(out.read_text())["error"]
+
+
+def test_all_candidates_judge_in_parallel_and_keep_config_order():
+    config = {
+        "enabled": True,
+        "candidates": [{"provider": "openai", "model": f"m{i}"} for i in range(4)],
+    }
+
+    def slow(context, diff=None, model=None, provider=None):
+        time.sleep(0.4)
+        return _result("PASS" if model in ("m0", "m2") else "CONCERNS")
+
+    started = time.perf_counter()
+    record = _run(slow, config)
+    elapsed = time.perf_counter() - started
+    assert elapsed < 1.2, f"candidates ran one after another ({elapsed:.1f}s)"
+    assert [c["model"] for c in record["candidates"]] == ["m0", "m1", "m2", "m3"]
+    assert [c["verdict"] for c in record["candidates"]] == ["PASS", "CONCERNS", "PASS", "CONCERNS"]
+
+
+def test_one_failing_candidate_does_not_disturb_the_others():
+    config = {
+        "enabled": True,
+        "candidates": [
+            {"provider": "openai", "model": "ok"},
+            {"provider": "openai", "model": "bad"},
+        ],
+    }
+
+    def evaluator(context, diff=None, model=None, provider=None):
+        if model == "bad":
+            raise RuntimeError("quota")
+        return _result("PASS")
+
+    ok, bad = _run(evaluator, config)["candidates"]
+    assert ok["verdict"] == "PASS" and bad["verdict"] is None and "quota" in bad["error"]
+
+
+def test_the_shipped_config_shadows_several_candidates_of_both_providers():
+    from pathlib import Path
+
+    config = json.loads(
+        (Path(__file__).resolve().parents[2] / "config/verifier_shadow.json").read_text()
+    )
+    providers = {c["provider"] for c in config["candidates"]}
+    assert len(config["candidates"]) >= 6 and providers == {"openai", "anthropic"}
+    assert len({(c["provider"], c["model"]) for c in config["candidates"]}) == len(
+        config["candidates"]
+    )

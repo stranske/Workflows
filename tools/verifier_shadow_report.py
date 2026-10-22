@@ -136,13 +136,19 @@ def _ref(pair: dict[str, Any]) -> str:
 
 def evaluate(records: list[dict[str, Any]], config: dict[str, Any], *, now: datetime | None = None):
     now = now or datetime.now(UTC)
-    stamps = [r["recorded_at"] for r in records if r.get("recorded_at")]
-    started = min(datetime.fromisoformat(s) for s in stamps) if stamps else None
+
+    def started_for(candidate: dict[str, Any]) -> datetime | None:
+        """A candidate's window starts at the first record that includes it (not the first record)."""
+        stamps = [
+            r["recorded_at"] for r in records if r.get("recorded_at") and attempted([r], candidate)
+        ]
+        return min(datetime.fromisoformat(s) for s in stamps) if stamps else None
+
     return {
         "generated_at": now.isoformat(),
         "records": len(records),
         "candidates": [
-            evaluate_candidate(records, c, config, now=now, started_at=started)
+            evaluate_candidate(records, c, config, now=now, started_at=started_for(c))
             for c in config.get("candidates", [])
         ],
     }
@@ -156,6 +162,17 @@ def markdown(result: dict[str, Any]) -> str:
         "Pre-registered criteria: `config/verifier_shadow.json`. Nothing here promotes a model.",
         "",
     ]
+    lines += [
+        "| Candidate | Status | Paired runs | Still needed (runs / days) | Misses | Extra flags | Agreement |",
+        "|---|---|---:|---|---:|---:|---:|",
+    ]
+    for c in result["candidates"]:
+        lines.append(
+            f"| {c['candidate']} | **{c['status']}** | {c['paired_runs']} | "
+            f"{c['runs_still_needed']} / {c['days_still_needed']} | {len(c['candidate_misses'])} | "
+            f"{len(c['extra_flags'])} | {c['class_agreement']} |"
+        )
+    lines.append("")
     for c in result["candidates"]:
         lines += [
             f"### {c['candidate']}: **{c['status']}**",

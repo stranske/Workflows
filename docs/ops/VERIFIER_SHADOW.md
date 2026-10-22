@@ -69,5 +69,17 @@ model for 14 days as the rollback check.
 
 ## Adding or replacing a candidate
 
-Edit `candidates` in `config/verifier_shadow.json`; the evaluation window restarts from the first record
-of the new candidate set, and criteria changes need their own pull request so they are fixed before data.
+Edit `candidates` in `config/verifier_shadow.json`; each candidate's evaluation window starts at the first
+record that includes it, so adding one never restarts the others, and criteria changes need their own pull request so they are fixed before data.
+
+## Several candidates at once
+
+All candidates in the config judge every verified PR **in parallel** (one thread each, so the step costs
+the slowest candidate's latency, not the sum). Each is scored on its own window against the production
+slot of its own provider (openai candidates against gpt-5.6-terra, anthropic against claude-sonnet-5-5),
+and the daily report opens with one table row per candidate. Seven are listed today. One failing or
+timing-out candidate records its own error and never disturbs the others.
+
+Multiple-comparisons caution: with seven candidates, the chance that at least one meets the criteria by
+luck is much higher than for one. Promotion picks, among candidates that MEET, the cheapest; a lone
+MEETS among many is not proof of superiority, and the day-21 cap applies to each independently.

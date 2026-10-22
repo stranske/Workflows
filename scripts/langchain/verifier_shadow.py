@@ -107,10 +107,17 @@ def run_shadow(
     produced = {(s["provider"], s["model"]) for s in slots}
     candidates = []
     if config.get("enabled"):
-        for candidate in config.get("candidates", []):
-            if (candidate["provider"], candidate["model"]) in produced:
-                continue  # never shadow a model that is already a production judge on this run
-            candidates.append(run_candidate(candidate, context, diff, evaluator))
+        # never shadow a model that is already a production judge on this run
+        todo = [
+            c for c in config.get("candidates", []) if (c["provider"], c["model"]) not in produced
+        ]
+        # all candidates judge at once, so the step costs one candidate's latency, not their sum
+        if todo:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=min(len(todo), 12)) as pool:
+                futures = [pool.submit(run_candidate, c, context, diff, evaluator) for c in todo]
+                candidates = [
+                    f.result() for f in futures
+                ]  # config order; run_candidate never raises
     return {
         "schema": SCHEMA,
         "recorded_at": (now or datetime.now(UTC)).isoformat(),

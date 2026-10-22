@@ -1,13 +1,49 @@
 {
   "schema": "workflows-verifier-shadow/v1",
-  "purpose": "Pre-registered shadow evaluation of candidate verifier judges (owner decision 2026-10-22). Each candidate judges every compare-mode verification in addition to the production judges; its verdict is recorded, never posted, never counted. The criteria below were committed before any shadow data existed.",
+  "purpose": "Pre-registered shadow evaluation of candidate verifier judges (owner decision 2026-10-22). All candidates judge, in parallel, every compare-mode verification in addition to the production judges; its verdict is recorded, never posted, never counted. The criteria below were committed before any shadow data existed.",
   "enabled": true,
   "candidates": [
     {
       "provider": "openai",
       "model": "gpt-6-luna",
       "replaces_provider": "openai",
-      "why": "Cheapest OpenAI judge; 0 of 19 bad cases missed against the incumbent's 2 on the 35-case benchmark (not statistically distinguishable, p = 0.49)."
+      "why": "Cheapest OpenAI judge ($0.1/$0.5 per M tokens); 0 of 19 bad benchmark cases missed against the incumbent's 2 (not statistically distinguishable, p = 0.49)."
+    },
+    {
+      "provider": "openai",
+      "model": "gpt-5.6-luna",
+      "replaces_provider": "openai",
+      "why": "Previous-generation cheap tier ($0.2/$1.2): does a newer cheap model matter?"
+    },
+    {
+      "provider": "openai",
+      "model": "gpt-6-sol",
+      "replaces_provider": "openai",
+      "why": "Same-price balanced peer of the incumbent ($2/$10) on the newer generation."
+    },
+    {
+      "provider": "openai",
+      "model": "gpt-6.1-sol",
+      "replaces_provider": "openai",
+      "why": "Newest balanced OpenAI model ($2/$10)."
+    },
+    {
+      "provider": "anthropic",
+      "model": "claude-sonnet-5",
+      "replaces_provider": "anthropic",
+      "why": "Previous-generation peer of the production Anthropic judge ($2/$10)."
+    },
+    {
+      "provider": "anthropic",
+      "model": "claude-haiku-4-5-20251001",
+      "replaces_provider": "anthropic",
+      "why": "Cheap Anthropic tier ($1/$5)."
+    },
+    {
+      "provider": "anthropic",
+      "model": "claude-opus-5-5",
+      "replaces_provider": "anthropic",
+      "why": "Higher-capability Anthropic tier ($4/$20): does more capability pay?"
     }
   ],
   "window": {
@@ -27,5 +63,6 @@
     "note": "candidate miss = candidate PASS where the incumbent slot did not PASS. Extra flag = candidate not PASS where the incumbent slot PASSed. Class agreement = PASS versus not-PASS agreement. Cost compares registry list prices on observed tokens when both are reported, otherwise it is informational."
   },
   "on_rollback": "A candidate miss on a PR that later reverts or draws a verifier follow-up is listed in the report as a defect the incumbent caught and the candidate missed; one such case ends the evaluation as DOES NOT MEET.",
-  "owner_time": "One read of the day-7 report (about 2 minutes) before any promotion; nothing blocks while the shadow runs."
+  "owner_time": "One read of the day-7 report (about 2 minutes) before any promotion; nothing blocks while the shadow runs.",
+  "note_on_many_candidates": "Every candidate is evaluated against the same criteria, each against the production slot of its own provider (openai against gpt-5.6-terra, anthropic against claude-sonnet-5-5). Judging several candidates raises the chance that one meets the criteria by luck, so promotion picks among those that MEET by cost and does not treat a single MEETS as proof of superiority."
 }
