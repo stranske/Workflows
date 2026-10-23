@@ -360,6 +360,20 @@ PASS is possible; a missing cross-file implementation remains CONCERNS.
 Both per-call token limits and the total chunk-call cap live in
 `scripts/langchain/verifier_config.py`.
 
+Single-judge and comparison verification use the same minimum-evidence admission
+policy. Optional artifacts do not displace a complete required alternative.
+Every retained original requirement reaches the judge unchanged, outside the
+optional navigation budget. Native token counting checks the actual request,
+including synthesis and schema repair, before generation; an unavailable or
+exceeded capacity contract remains an explicit input failure. Expanded mode
+keeps its additional complete raw-capture admission requirements.
+
+An investigative checkbox mentioning artifacts is not itself an evidence-upload
+duty. Explicit uploads, comments, mandatory requirements and gates remain duties.
+Complete text patches can receive a partial review when only binary descriptors
+are unavailable. Those binary paths remain explicitly unreviewed, synthesis is
+skipped, and the partial result cannot become acceptance PASS.
+
 `reusable-agents-verifier.yml` exports its verdict and immutable target to the
 `agents-verifier.yml` caller. The caller applies two source-issue closing rules
 and comments the chosen rule and immutable merge SHA before closing:
@@ -755,3 +769,22 @@ a nonempty configured CI inventory entirely bound to the evaluated merge SHA,
 with no query errors and only successful or explicitly optional skipped results.
 Belt task completion requires named artifacts among substantive changed paths
 of the cited commit; existing unchanged artifacts cannot establish completion.
+
+GitHub Models retains its existing registry-selected standard chat route; it is
+not reinterpreted as the direct OpenAI Responses transport and does not claim a
+native-count receipt. Expanded recovery still refuses that route without its
+required native capacity facts. This compatibility exception neither changes
+provider selection nor clips original requirements.
+
+The same separation applies to explicitly required proof: retain one complete
+valid alternative outside the optional evidence budget, choosing the smallest
+complete alternative by character count. Native-capable routes count the full
+requirements, selected proof and code request before generation; capacity refusal
+never clips required evidence or turns a missing input into an acceptance PASS.
+Malformed recognized builder headings cannot certify a required-channel projection.
+
+Registered standard OpenAI/Anthropic comparison candidates with no optional
+native-capacity record also retain their original transport. A typed absence is
+distinct from a malformed declared contract: malformed registries, malformed
+facts, unknown identities and unexpected transports remain errors. Expanded
+recovery always requires its native contract; no legacy path asserts counting.

@@ -433,14 +433,18 @@ closed. Legacy synthetic unit fixtures without a context fact alone retain the
 old conservative input + output <= input-bound fallback.
 
 The existing managed `config/model_registry.json` v2 model rows now carry optional
-`native_capacity` facts for exactly these two provider/model pairs. The strict
-expanded-only `tools/llm_registry.py::native_capacity_facts_for` lookup uses
+`native_capacity` facts for exactly these two provider/model pairs. The exact
+`tools/llm_registry.py::native_capacity_facts_for` lookup is used by standard and
+expanded native-capable routes and uses
 `LANGCHAIN_MODEL_REGISTRY_CONFIG` (the existing empty-value default-path convention
 is retained). Missing/unreadable/malformed configuration, duplicate JSON keys or
-exact identities, blocked/unregistered selected entries, absent facts and invalid
-limits/provenance fail closed. Optional facts do not alter model selection, routing,
-shared builders or catalog promotion. Catalog entries without facts remain unsupported
-for expanded counting; future models require separately reviewed exact official facts
+exact identities, blocked/unregistered selected entries and invalid limits/provenance
+raise `ValueError` and fail closed. A registered model omitting the optional
+`native_capacity` record raises `NativeCapacityUnavailable`; null, malformed or
+incomplete facts remain `ValueError`. Optional facts do not select or promote a model.
+Registered standard routes without facts retain their original transport without
+claiming native-count assurance; expanded execution fails closed there. Future
+native-capable models require separately reviewed exact official facts
 and a compatible implemented native protocol, never a name/prefix guess.
 
 The closed facts object requires `transport`, `api_root`, `count_endpoint`,
@@ -470,9 +474,11 @@ generation-request SHA256, and a changed request after counting
 blocks generation. Native metadata/count failures and expanded generation failures
 cannot trigger alternate-provider resolution. SDK retries keep their existing bound.
 
-Standard remains the default and preserves the original shared builders, request
-shape, invocation and schema repair without native capacity claims. No caller client
-is mutated. Unknown future models do not inherit these capabilities by prefix.
+Standard remains the default. Where exact native facts are declared, standard,
+comparison, chunk/synthesis and schema-repair requests all require native capacity
+admission. Registered standard routes without those optional facts preserve their
+original invocation and schema-repair transport without native capacity claims.
+No caller client is mutated. Unknown future models do not inherit capabilities by prefix.
 Retrieval completeness, required evidence and changed-code coverage floors apply
 unconditionally in both profiles. Local simulated transport tests establish source
 behavior only. Inspect actual new retrieval, authenticated capacity receipts and

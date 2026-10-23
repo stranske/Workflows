@@ -42,7 +42,12 @@ from scripts.langchain.verifier_config import (
     VERIFIER_DIFF_BUDGET_TOKENS,
     SchemaRepairPolicy,
 )
-from tools.llm_registry import NativeCapacityFacts, native_capacity_facts_for, normalize_provider
+from tools.llm_registry import (
+    NativeCapacityFacts,
+    NativeCapacityUnavailable,
+    native_capacity_facts_for,
+    normalize_provider,
+)
 from tools.verifier_capture_obligation_manifest import (
     build_capture_byte_inventory,
     build_capture_obligation_manifest,
@@ -1058,9 +1063,9 @@ def _requirement_evidence_text(
 
     Only the builder's outer text fence is unwrapped. Literal code fences inside
     the original request remain inert, as do marker-looking text inside a fence.
-    Evaluate reads all legacy plan prose so Tasks-only duties reach both prompt
-    fitting and native admission; default/compare retain their acceptance-section
-    screen. Framed originals use their authenticated source text in either mode.
+    Minimum admission reads all legacy plan prose so Tasks-only duties reach
+    prompt fitting and native admission for both single and comparison judges.
+    Framed originals use their authenticated source text in either mode.
     """
     records = source_coverage.get("acceptance_sources", [])
     original_hashes = (
@@ -2542,9 +2547,56 @@ def _normalize_review_content_qualifiers(acceptance: str) -> str:
     )
 
 
+def _requirement_sections(text: str) -> list[str]:
+    """Separate Markdown headings before grammar can bind across their edges.
+
+    Keep duties authored in a heading as their own criterion. Quoted examples
+    are masked without moving offsets, and remain inert in the classifiers.
+    """
+    masked = re.sub(_QUOTED_EVIDENCE_LITERAL, lambda m: " " * len(m[0]), text)
+    headings = list(
+        re.finditer(r"^ {0,3}(?P<level>#{1,6})[ \t]+(?P<title>[^\n]+)", masked, flags=re.M)
+    )
+    if not headings:
+        return [text]
+    sections: list[str] = [text[: headings[0].start()]]
+    optional_level: int | None = None
+    for index, heading in enumerate(headings):
+        level = len(heading["level"])
+        if optional_level is not None and level <= optional_level:
+            optional_level = None
+        title = text[heading.start("title") : heading.end("title")]
+        end = headings[index + 1].start() if index + 1 < len(headings) else len(text)
+        # A section explicitly marked optional must not become mandatory merely
+        # because its imperative body is parsed separately from its heading.
+        # This only classifies delivery duties; the full source stays in prompt.
+        optional_evidence_heading = re.fullmatch(
+            r"(?:optional|nice[- ]to[- ]have|possibly useful)\s+"
+            r"(?:evidence|proof|artifacts?|logs?|transcripts?)|"
+            r"(?:evidence|proof|artifacts?|logs?|transcripts?)\s*"
+            r"(?:\((?:optional|if available|where available)\)|not required)|"
+            r"no\s+(?:evidence|proof|artifacts?|logs?|transcripts?)\s+required",
+            title.strip().rstrip("# ").rstrip(":"),
+            flags=re.I,
+        )
+        if optional_evidence_heading:
+            optional_level = level if optional_level is None else min(optional_level, level)
+        if optional_level is None:
+            sections.extend((title, text[heading.end() : end]))
+    return [section.strip() for section in sections if section.strip()]
+
+
 def _classify_evidence_channels(acceptance: str, *, _bind_attached: bool = True) -> set[str]:
     """Identify explicit evidence deliverables without treating negations as requirements."""
 
+    sections = _requirement_sections(acceptance)
+    if sections != [acceptance]:
+        return set().union(
+            *(
+                _classify_evidence_channels(section, _bind_attached=_bind_attached)
+                for section in sections
+            )
+        )
     acceptance = _normalize_capability_deliveries(acceptance)
     acceptance = _normalize_leading_review_destination_quantifier(acceptance)
     acceptance = _normalize_review_comment_destinations(acceptance)
@@ -4896,6 +4948,16 @@ def _classify_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                 # Explicit positive predicates and body records still gate below.
                 and (gate or not evidence_prohibition.search(working_line))
                 and evidence_term.search(requirement_text)
+                # A checkbox around an investigative/software activity is not
+                # itself a nominal evidence deliverable. Explicit delivery and
+                # mandatory predicates below still apply to the same full text.
+                and not re.match(
+                    r"^\s*[-*]\s*\[[ xX]\]\s*(?:investigate|review|inspect|"
+                    r"analy[sz]e|assess|audit|explore|compare|consider|evaluate|research|"
+                    r"implement|support|test|validate)\b",
+                    requirement_text,
+                    re.I,
+                )
                 and not re.match(r"^\s*[-*]\s*\[[ xX]\]\s*no\s", requirement_text, re.I)
             )
             if not (
@@ -5679,6 +5741,18 @@ def _classify_evidence_options(acceptance: str) -> list[set[str]]:
     Ambiguous mixed conjunctions or excessive expansion retain the strict legacy
     requirement rather than dropping an obligation.
     """
+    sections = _requirement_sections(acceptance)
+    if sections != [acceptance]:
+        # Each section's alternatives are independent duties (AND of DNF).
+        # Deduplication bounds the result by the finite channel power set.
+        options: set[frozenset[str]] = {frozenset()}
+        for section in sections:
+            options = {
+                left | frozenset(right)
+                for left in options
+                for right in _classify_evidence_options(section)
+            }
+        return [set(option) for option in sorted(options, key=lambda value: sorted(value))]
     acceptance = _normalize_capability_deliveries(acceptance)
     acceptance = _normalize_leading_review_destination_quantifier(acceptance)
     acceptance = _normalize_review_comment_destinations(acceptance)
@@ -5945,6 +6019,13 @@ def _fit_required_evidence_prompt(
                 fence = None
         elif marker:
             fence = (marker[0][0], len(marker[0]), marker[2])
+        elif (
+            any(line.startswith(header) for header in headings)
+            and line.rstrip("\r\n") not in headings
+        ):
+            # A malformed builder heading can merge an optional artifact into
+            # the preceding required channel; do not certify that projection.
+            return None
         elif line.rstrip("\r\n") in headings:
             pieces.append((name, "".join(lines).strip()))
             name, lines = headings[line.rstrip("\r\n")], []
@@ -5955,6 +6036,7 @@ def _fit_required_evidence_prompt(
     present = {name for name, _ in pieces}
     if not present.intersection({"body", "comments", "artifacts"}):
         return None
+    candidates = []
     for channels in options:
         if (
             "overall" in channels
@@ -5964,8 +6046,12 @@ def _fit_required_evidence_prompt(
             continue
         required = [body for name, body in pieces if name == "preamble" or name in channels]
         rendered = "\n\n".join(required)
-        if len(rendered) > budget:
-            continue
+        candidates.append((len(rendered), tuple(sorted(channels)), rendered))
+    # This budget bounds optional enrichment, never complete required proof.
+    # Choose the smallest valid complete alternative, then let native admission
+    # count the actual request rather than clipping it or inventing absence.
+    for _, selected_channels, rendered in sorted(candidates):
+        channels = set(selected_channels)
         omitted: list[str] = []
         for name, body in pieces:
             if name == "preamble" or name in channels:
@@ -6011,7 +6097,7 @@ def _acceptance_discovery_coverage(
 
 
 def build_prompt_inputs(
-    context: str, diff: str | None, *, lossless: bool = False, evaluate_minimum: bool = False
+    context: str, diff: str | None, *, lossless: bool = False, evaluate_minimum: bool = True
 ) -> PromptInputs:
     """Bound the context and diff blocks and report what reaches the model."""
     context_budget = (
@@ -6110,8 +6196,17 @@ def build_prompt_inputs(
         acceptance: CoverageStatus = "truncated" if context_truncated else "not_declared"
         acceptance_evidence: CoverageStatus = "not_declared"
     else:
-        fitted, section_status = _fit_context_sections(sections, context_budget)
-        context_block = "\n\n".join(fitted)
+        # The context budget bounds navigation and enrichment, not the original
+        # requirements. Keep every retained requirement byte; the existing
+        # native request counter admits or refuses the resulting whole prompt.
+        # Clipping requirements here made complete captures unevaluable before
+        # either judge could inspect them.
+        requirements = [body for name, body in sections if name == "acceptance"]
+        fitted, section_status = _fit_context_sections(
+            [(name, body) for name, body in sections if name != "acceptance"], context_budget
+        )
+        section_status["acceptance"] = "complete" if requirements else "unavailable"
+        context_block = "\n\n".join([*requirements, *fitted])
         context_truncated = any(value != "complete" for value in section_status.values())
         acceptance = section_status.get("acceptance", "unavailable")  # type: ignore[assignment]
         if evidence_source:
@@ -6235,7 +6330,7 @@ def build_prompt_inputs(
 
 
 def prompt_coverage(
-    context: str, diff: str | None, *, evaluate_minimum: bool = False
+    context: str, diff: str | None, *, evaluate_minimum: bool = True
 ) -> PromptCoverage:
     return build_prompt_inputs(context, diff, evaluate_minimum=evaluate_minimum).coverage
 
@@ -6382,7 +6477,7 @@ def _evaluate_chunked(
     provider: str,
     model: str | None,
     *,
-    evaluate_minimum: bool = False,
+    evaluate_minimum: bool = True,
 ) -> EvaluationResult | None:
     """Review complete file patches in bounded calls, never fair-share excerpts.
 
@@ -6396,7 +6491,20 @@ def _evaluate_chunked(
     source = diff or next(
         (_strip_diff_fence(body) for name, body in sections or [] if name == "full_diff"), ""
     )
-    if len(source) <= budget:
+    files = _split_diff_files(source)
+    binary_paths = {path for path, patch in files if _diff_file_is_binary_descriptor(patch)}
+    destinations = [path for path, _ in files]
+    if len(destinations) != len(set(destinations)):
+        return EvaluationResult(
+            verdict="UNVERIFIABLE_INPUT",
+            provider_used=provider,
+            model=model,
+            summary="Changed-file inventory has duplicate destination paths; source identity is ambiguous.",
+            files_not_reviewed=list(
+                dict.fromkeys(path or "(unknown changed file)" for path in destinations)
+            ),
+        )
+    if len(source) <= budget and not binary_paths:
         if source or sections is not None:
             coverage = prompt_coverage(context, diff, evaluate_minimum=evaluate_minimum)
             if not coverage.sufficient:
@@ -6411,7 +6519,6 @@ def _evaluate_chunked(
                 result.input_coverage = {**coverage.to_dict(), "files_complete": 0}
                 return result
         return None
-    files = _split_diff_files(source)
     if not files or any(path is None for path, _ in files):
         return EvaluationResult(
             verdict="UNVERIFIABLE_INPUT",
@@ -6423,7 +6530,23 @@ def _evaluate_chunked(
     full_coverage = build_prompt_inputs(
         context, diff, lossless=True, evaluate_minimum=evaluate_minimum
     ).coverage
-    if not full_coverage.sufficient:
+    # Missing binary bytes cannot certify acceptance, but must not prevent the
+    # same judges inspecting complete text code. Permit only this precisely
+    # identified omission; every source/provenance/evidence failure still gates.
+    omitted = {item.path for item in full_coverage.files if item.status == "omitted"}
+    binary_only_reasons = {
+        f"{len(omitted)} changed file(s) are omitted from the prompt entirely.",
+        f"Only {full_coverage.code_included_chars}/{full_coverage.code_total_chars} "
+        f"changed-code characters fit the prompt (minimum {MIN_CODE_COVERAGE_RATIO:.0%}).",
+    }
+    partial_binary_review = bool(
+        binary_paths
+        and omitted == binary_paths
+        and any(item.status == "complete" for item in full_coverage.files)
+        and all(item.status in {"complete", "omitted"} for item in full_coverage.files)
+        and set(full_coverage.reasons) <= binary_only_reasons
+    )
+    if not full_coverage.sufficient and not partial_binary_review:
         return EvaluationResult(
             verdict="CONCERNS" if full_coverage.required_evidence_absent else "UNVERIFIABLE_INPUT",
             provider_used=provider,
@@ -6464,6 +6587,11 @@ def _evaluate_chunked(
         "across all chunks. Report real findings as CONCERNS or FAIL. If input is "
         "incomplete, use UNVERIFIABLE_INPUT."
     )
+    if partial_binary_review:
+        guidance += (
+            "\nBinary inputs remain unreviewed; no global acceptance PASS is available: "
+            + ", ".join(sorted(binary_paths))
+        )
     for paths, patch in chunks:
         # Guidance is trusted prompt framing, not an optional artifact's tail.
         chunk_context = (
@@ -6509,7 +6637,7 @@ def _evaluate_chunked(
         results.append(result)
         if result.used_llm and not result.error and result.verdict != "UNVERIFIABLE_INPUT":
             reviewed.update(path for path in paths if path not in result.files_not_reviewed)
-    not_reviewed = [path for path, _ in files if path not in reviewed]
+    not_reviewed = [path for path, _ in files if path not in reviewed or path in binary_paths]
     verdict = comparison_verdict(results) if results else "UNVERIFIABLE_INPUT"
     if not_reviewed and verdict == "PASS":
         verdict = "UNVERIFIABLE_INPUT"
@@ -6553,10 +6681,9 @@ def _evaluate_chunked(
             )
         )
         try:
-            if len(synthesis_prompt) > budget:
-                raise InputCapacityError("Cross-file acceptance summaries exceed review budget")
             # This derived-evidence reconciliation has no raw diff obligations of its own;
-            # expanded mode still natively counts the exact synthesis request.
+            # native counting admits the full requirements and summaries. The
+            # per-file diff budget is not a limit on original requirements.
             response, _, _ = _invoke_llm(
                 client, synthesis_prompt, operation="evaluate_pr_chunk_synthesis"
             )
@@ -6615,7 +6742,7 @@ def _evaluate_chunked(
     )
 
 
-def _prepare_prompt(context: str, diff: str | None, *, evaluate_minimum: bool = False) -> str:
+def _prepare_prompt(context: str, diff: str | None, *, evaluate_minimum: bool = True) -> str:
     inputs = build_prompt_inputs(context, diff, evaluate_minimum=evaluate_minimum)
     diff_block = inputs.diff_block
     context_block = inputs.context_block
@@ -6761,17 +6888,89 @@ def _capacity_facts_for(provider: str, model: str) -> NativeCapacityFacts:
         raise InputCapacityError(str(exc)) from exc
 
 
+def _legacy_github_chat(client: object) -> bool:
+    """Preserve the existing standard GitHub route without asserting native count.
+
+    GitHub Models exposes a chat endpoint, not either direct provider's count
+    transport. Expanded recovery still requires native facts and refuses it.
+    Endpoint binding prevents an arbitrary OpenAI-compatible host receiving this
+    compatibility treatment; client selection remains registry-owned.
+    """
+    try:
+        from langchain_openai import ChatOpenAI
+        from openai import OpenAI
+        from tools.llm_provider import GITHUB_MODELS_BASE_URL
+    except ImportError:
+        return False
+    return (
+        type(client) is ChatOpenAI
+        and type(client.root_client) is OpenAI
+        and str(client.root_client.base_url).rstrip("/") == GITHUB_MODELS_BASE_URL.rstrip("/")
+        and str(client.openai_api_base).rstrip("/") == GITHUB_MODELS_BASE_URL.rstrip("/")
+        and not client.use_responses_api
+        and os.environ.get("VERIFIER_EVIDENCE_PROFILE") != "expanded"
+    )
+
+
+def _legacy_capacity_route(client: object) -> bool:
+    """Preserve registered standard routes without optional native facts.
+
+    Missing facts are not malformed facts. A declared contract, bad registry,
+    unknown model or unexpected transport still fails closed; expanded recovery
+    never takes this legacy path.
+    """
+    if _legacy_github_chat(client):
+        return True
+    if os.environ.get("VERIFIER_EVIDENCE_PROFILE") == "expanded":
+        return False
+    try:
+        from langchain_openai import ChatOpenAI
+    except ImportError:
+        ChatOpenAI = None  # noqa: N806
+    try:
+        from langchain_anthropic import ChatAnthropic
+    except ImportError:
+        ChatAnthropic = None  # noqa: N806
+    if type(client) is ChatOpenAI:
+        from openai import OpenAI
+
+        if (
+            type(client.root_client) is not OpenAI
+            or str(client.root_client.base_url).rstrip("/") != "https://api.openai.com/v1"
+        ):
+            return False
+        provider, model = "openai", client.model_name
+    elif type(client) is ChatAnthropic:
+        from anthropic import Anthropic
+
+        if (
+            type(client._client) is not Anthropic
+            or str(client._client.base_url).rstrip("/") != "https://api.anthropic.com"
+        ):
+            return False
+        provider, model = "anthropic", client.model
+    else:
+        return False
+    try:
+        native_capacity_facts_for(provider, model)
+    except NativeCapacityUnavailable:
+        return True
+    except ValueError as exc:
+        raise InputCapacityError(str(exc)) from exc
+    return False
+
+
 def _prepare_capacity_client(client: object) -> object:
     """Prepare a registry-authorized Responses copy without mutating its owner.
 
-    Standard never calls this helper. Registry facts cannot choose adapter/SDK
-    types or endpoints; the native contract independently checks those bindings.
+    Registry facts cannot choose adapter/SDK types or endpoints; the native
+    contract independently checks those bindings for every profile.
     """
     try:
         from langchain_openai import ChatOpenAI
     except ImportError:
         return client
-    if type(client) is ChatOpenAI:
+    if type(client) is ChatOpenAI and not _legacy_capacity_route(client):
         facts = _capacity_facts_for("openai", client.model_name)
         updates = {"use_responses_api": True}
         if client.max_tokens is None:
@@ -6894,6 +7093,7 @@ def _preflight_input_capacity(
     context: str | None = None,
     diff: str | None = None,
     operation: str | None = None,
+    validate_capture: bool = True,
 ) -> dict[str, object]:
     """Count the complete native request; never substitute four-character estimates.
 
@@ -6904,8 +7104,13 @@ def _preflight_input_capacity(
     """
     receipt: dict[str, object] = {"status": "unavailable", "prompt_chars": len(prompt)}
     try:
-        evaluate_minimum = operation in {"evaluate_pr", "evaluate_pr_chunk"}
-        if context is not None:
+        evaluate_minimum = operation in {
+            "evaluate_pr",
+            "evaluate_pr_chunk",
+            "evaluate_pr_compare",
+            "evaluate_pr_compare_chunk",
+        }
+        if context is not None and validate_capture:
             manifest = build_capture_obligation_manifest(
                 context,
                 full_diff_bytes=diff.encode("utf-8") if diff is not None else None,
@@ -7328,11 +7533,10 @@ class _CapacityCheckedRepairClient:
         self.client = client
 
     def invoke(self, prompt: str, **kwargs: Any) -> Any:
-        client = self.client
-        if os.environ.get("VERIFIER_EVIDENCE_PROFILE") == "expanded":
-            client = _prepare_capacity_client(client)
-            if set(kwargs) - {"config"}:
-                raise InputCapacityError("uncounted schema repair generation kwargs")
+        client = _prepare_capacity_client(self.client)
+        if set(kwargs) - {"config"}:
+            raise InputCapacityError("uncounted schema repair generation kwargs")
+        if not _legacy_capacity_route(client):
             _preflight_input_capacity(client, prompt)
         return client.invoke(prompt, **kwargs)
 
@@ -7352,11 +7556,22 @@ def _invoke_llm(
     Returns:
         Tuple of (response, trace_id, trace_url)
     """
-    # Native counting is an explicit expanded-recovery contract. Standard keeps
-    # its existing adapter behavior without claiming native capacity proof.
-    if os.environ.get("VERIFIER_EVIDENCE_PROFILE") == "expanded":
-        client = _prepare_capacity_client(client)
-        _preflight_input_capacity(client, prompt, context=context, diff=diff, operation=operation)
+    # Required sources are retained in every mode. Native-capable routes count
+    # each complete request, including synthesis. Registered standard routes
+    # without optional native facts do not claim a native-count receipt.
+    client = _prepare_capacity_client(client)
+    if not _legacy_capacity_route(client):
+        _preflight_input_capacity(
+            client,
+            prompt,
+            context=context,
+            diff=diff,
+            operation=operation,
+            # Expanded recovery retains its complete raw-capture admission contract.
+            # Standard already screens the assembled prompt; adding native counting
+            # must not impose expanded's separate all-capture contract on that path.
+            validate_capture=os.environ.get("VERIFIER_EVIDENCE_PROFILE") == "expanded",
+        )
     config = _build_llm_config(
         operation=operation,
         context=context,

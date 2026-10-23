@@ -37,7 +37,9 @@ def test_inventory_accounts_for_every_named_regression_and_case():
     assert len({entry["function"] for entry in entries}) == len(entries)
     assert set(functions) == {entry["function"] for entry in entries}
     assert sum(entry["original_count"] for entry in entries) == 90550
-    assert sum(entry["retained_count"] for entry in entries) == 35064
+    assert (
+        sum(entry["retained_count"] for entry in entries) == 35064 + 49
+    )  # Original retained corpus plus new section-boundary cases.
     matrices = json.loads(MATRICES.read_text(encoding="utf-8"))
     bounded = {row["function"]: row for row in matrices}
     assert len(bounded) == len(matrices) == 18
