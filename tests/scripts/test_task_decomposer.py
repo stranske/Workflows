@@ -1056,6 +1056,15 @@ def test_metadata_helpers_reject_empty_object_values() -> None:
     assert task_decomposer._coerce_milestone_value(Empty()) is None
 
 
+def test_metadata_helpers_preserve_object_milestone_number_and_elision_deduplication() -> None:
+    class Milestone:
+        number = 17
+
+    sentinel = task_decomposer.elision_sentinel(3)
+    assert task_decomposer._coerce_milestone_value(Milestone()) == 17
+    assert task_decomposer._collect_cleaned_parts([sentinel, sentinel]) == [sentinel]
+
+
 def test_decompose_task_reraises_github_models_error_without_openai_fallback(monkeypatch) -> None:
     class Client:
         pass
