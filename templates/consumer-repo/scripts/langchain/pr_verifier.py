@@ -481,6 +481,8 @@ class PromptCoverage:
     reasons: tuple[str, ...]
     acceptance_source_discovery: CoverageStatus = "not_declared"
     required_evidence_absent: bool = False
+    included_required_evidence_channels: tuple[str, ...] = ()
+    omitted_optional_evidence_sections: tuple[str, ...] = ()
 
     @property
     def sufficient(self) -> bool:
@@ -514,6 +516,18 @@ class PromptCoverage:
             "code_ratio": round(self.code_ratio, 4),
             "context_truncated": self.context_truncated,
             "reasons": list(self.reasons),
+            **(
+                {
+                    "included_required_evidence_channels": list(
+                        self.included_required_evidence_channels
+                    ),
+                    "omitted_optional_evidence_sections": list(
+                        self.omitted_optional_evidence_sections
+                    ),
+                }
+                if self.omitted_optional_evidence_sections
+                else {}
+            ),
         }
 
     def render(self) -> str:
@@ -538,6 +552,15 @@ class PromptCoverage:
                 f"{self.code_included_chars}/{self.code_total_chars} characters shown"
             ),
         ]
+        if self.omitted_optional_evidence_sections:
+            lines.append(
+                "- Complete required evidence channels shown: "
+                + ", ".join(self.included_required_evidence_channels or ("none required",))
+            )
+            lines.append(
+                "- Optional evidence sections omitted from this prompt: "
+                + ", ".join(self.omitted_optional_evidence_sections)
+            )
         partial = [f for f in self.files if f.status != "complete"]
         for item in partial[:40]:
             lines.append(
@@ -5805,8 +5828,13 @@ def _required_evidence_is_missing(
 
 
 def _resolve_evidence_policy(
-    requirements: str, evidence: str, source_coverage: dict[str, Any], *, evaluate_minimum: bool
-) -> tuple[list[set[str]], frozenset[str]]:
+    requirements: str,
+    evidence: str,
+    source_coverage: dict[str, Any],
+    *,
+    evaluate_minimum: bool,
+    evidence_budget: int | None = None,
+) -> tuple[list[set[str]], frozenset[str], tuple[str, tuple[str, ...], tuple[str, ...]] | None]:
     """Resolve existing channel DNF, changing only evaluate's generic availability.
 
     A complete present source permits reasoning, not acceptance. Concrete channel
@@ -5814,6 +5842,8 @@ def _resolve_evidence_policy(
     admission failure through the existing capture manifest.
     """
     options = _required_evidence_options(requirements)
+    selection_options = options
+    fitted_evidence = None
     if evaluate_minimum:
         available: set[str] = set()
         for channel in ("body", "comments", "artifacts"):
@@ -5853,15 +5883,91 @@ def _resolve_evidence_policy(
                 else [original]
             )
         ]
-    for channels in options:
+        # Selection must be the same for prompt fitting and native obligations.
+        # A present projection cannot make a typed truncated channel complete.
+        selection_options = [option for option in options if option <= available]
+        if evidence_budget is not None and len(evidence) > evidence_budget:
+            fitted_evidence = _fit_required_evidence_prompt(
+                evidence, selection_options, evidence_budget
+            )
+            selection_options = (
+                [set(fitted_evidence[1])]
+                if fitted_evidence is not None
+                else [option for option in selection_options if not option]
+            )
+    for channels in selection_options:
         if not _required_evidence_is_missing(evidence, channels):
             optional = (
                 frozenset()
                 if "overall" in channels
                 else frozenset({"comments", "artifacts"} - channels)
             )
-            return options, optional
-    return options, frozenset()
+            return options, optional, fitted_evidence
+    return options, frozenset(), None
+
+
+def _fit_required_evidence_prompt(
+    evidence: str, options: list[set[str]], budget: int
+) -> tuple[str, tuple[str, ...], tuple[str, ...]] | None:
+    """Fit one complete requirement alternative before optional builder sections.
+
+    Channel headings inside untrusted fences are inert. Retain complete selected
+    sections, never snippets of required proof; raw capture/statuses are untouched.
+    """
+    headings = {
+        "### Retrieval diagnostics": "diagnostics",
+        "### Bounded PR body": "body",
+        "### Bounded PR comments": "comments",
+        "### Bounded referenced workflow artifacts": "artifacts",
+    }
+    pieces: list[tuple[str, str]] = []
+    name = "preamble"
+    lines: list[str] = []
+    fence: tuple[str, int, int] | None = None
+    for line in evidence.splitlines(keepends=True):
+        marker = _code_fence_marker(line)
+        if fence is not None:
+            if (
+                marker
+                and marker[0][0] == fence[0]
+                and len(marker[0]) >= fence[1]
+                and marker[1]
+                and marker[2] <= max(3, fence[2])
+            ):
+                fence = None
+        elif marker:
+            fence = (marker[0][0], len(marker[0]), marker[2])
+        elif line.rstrip("\r\n") in headings:
+            pieces.append((name, "".join(lines).strip()))
+            name, lines = headings[line.rstrip("\r\n")], []
+        lines.append(line)
+    if fence is not None:
+        return None
+    pieces.append((name, "".join(lines).strip()))
+    present = {name for name, _ in pieces}
+    if not present.intersection({"body", "comments", "artifacts"}):
+        return None
+    for channels in options:
+        if (
+            "overall" in channels
+            or _required_evidence_is_missing(evidence, channels)
+            or not channels <= present
+        ):
+            continue
+        required = [body for name, body in pieces if name == "preamble" or name in channels]
+        rendered = "\n\n".join(required)
+        if len(rendered) > budget:
+            continue
+        omitted: list[str] = []
+        for name, body in pieces:
+            if name == "preamble" or name in channels:
+                continue
+            if len(rendered) + len(body) + 2 <= budget:
+                rendered += "\n\n" + body
+            else:
+                omitted.append(name)
+        return rendered, tuple(sorted(channels)), tuple(omitted)
+    return None
 
 
 def _acceptance_discovery_coverage(
@@ -5975,6 +6081,19 @@ def build_prompt_inputs(
     if not code_source:
         code_source = diff_text
 
+    evidence_requirements = _requirement_evidence_text(
+        acceptance_source, source_coverage=source_coverage
+    )
+    required_evidence_options, optional_channels, fitted_evidence = _resolve_evidence_policy(
+        evidence_requirements or "",
+        evidence_source,
+        source_coverage,
+        evaluate_minimum=evaluate_minimum,
+        evidence_budget=evidence_budget,
+    )
+    included_required_evidence_channels: tuple[str, ...] = ()
+    omitted_optional_evidence_sections: tuple[str, ...] = ()
+    required_evidence_fitted = False
     if sections is None:
         context_block = _cap_prompt_text(
             context_text or "(context unavailable)", context_budget // TOKEN_CHARS
@@ -5990,6 +6109,17 @@ def build_prompt_inputs(
         if evidence_source:
             evidence_block = _cap_prompt_text(evidence_source, evidence_budget // TOKEN_CHARS)
             acceptance_evidence = "complete" if evidence_block == evidence_source else "truncated"
+            if (
+                evaluate_minimum
+                and acceptance_evidence == "truncated"
+                and fitted_evidence is not None
+            ):
+                (
+                    evidence_block,
+                    included_required_evidence_channels,
+                    omitted_optional_evidence_sections,
+                ) = fitted_evidence
+                required_evidence_fitted = True
             context_block = "\n\n".join(part for part in (context_block, evidence_block) if part)
         else:
             acceptance_evidence = "not_declared"
@@ -5997,24 +6127,17 @@ def build_prompt_inputs(
         reasons.append("Acceptance/plan sources were truncated to fit the prompt budget.")
     elif acceptance == "unavailable":
         reasons.append("Acceptance/plan sources do not fit or are unavailable.")
-    evidence_requirements = _requirement_evidence_text(
-        acceptance_source, source_coverage=source_coverage
-    )
     if evidence_requirements is None:
         reasons.append("Original request provenance does not match retained source bytes.")
-    required_evidence_options, optional_channels = _resolve_evidence_policy(
-        evidence_requirements or "",
-        evidence_source,
-        source_coverage,
-        evaluate_minimum=evaluate_minimum,
-    )
-    if (
-        evaluate_minimum
-        and any(
-            "overall" in option
-            for option in _required_evidence_options(evidence_requirements or "")
+    if evaluate_minimum and (
+        required_evidence_fitted
+        or (
+            any(
+                "overall" in option
+                for option in _required_evidence_options(evidence_requirements or "")
+            )
+            and all("overall" not in option for option in required_evidence_options)
         )
-        and all("overall" not in option for option in required_evidence_options)
     ):
         manifest = build_capture_obligation_manifest(
             context_text,
@@ -6031,7 +6154,7 @@ def build_prompt_inputs(
             reasons.append(
                 "Required acceptance evidence is unavailable; completeness cannot be judged."
             )
-        elif acceptance_evidence == "truncated":
+        elif acceptance_evidence == "truncated" and not required_evidence_fitted:
             reasons.append("Required acceptance evidence was truncated to fit the prompt budget.")
 
     if code_source:
@@ -6091,6 +6214,8 @@ def build_prompt_inputs(
         context_truncated=context_truncated,
         reasons=tuple(reasons),
         acceptance_source_discovery=acceptance_source_discovery,
+        included_required_evidence_channels=included_required_evidence_channels,
+        omitted_optional_evidence_sections=omitted_optional_evidence_sections,
         required_evidence_absent=bool(all(required_evidence_options))
         and all(
             _required_evidence_is_missing(evidence_source, channels, absent_only=True)
@@ -6322,8 +6447,22 @@ def _evaluate_chunked(
             continue
     results = []
     reviewed: set[str] = set()
+    prompt_coverages: list[PromptCoverage] = []
+    guidance = (
+        "\nThis is a per-file review within a multi-file PR. Judge the supplied files "
+        "against all acceptance criteria; do not infer missing implementation in sibling "
+        "files. In your summary, identify each criterion supported by these files and "
+        "describe its implementation evidence. A final review will reconcile criteria "
+        "across all chunks. Report real findings as CONCERNS or FAIL. If input is "
+        "incomplete, use UNVERIFIABLE_INPUT."
+    )
     for paths, patch in chunks:
-        coverage = prompt_coverage(local_context, patch, evaluate_minimum=evaluate_minimum)
+        # Guidance is trusted prompt framing, not an optional artifact's tail.
+        chunk_context = (
+            guidance + "\n\n" + local_context if evaluate_minimum else local_context + guidance
+        )
+        coverage = prompt_coverage(chunk_context, patch, evaluate_minimum=evaluate_minimum)
+        prompt_coverages.append(coverage)
         if not coverage.sufficient:
             results.append(
                 EvaluationResult(
@@ -6336,14 +6475,6 @@ def _evaluate_chunked(
                 )
             )
             continue
-        chunk_context = local_context + (
-            "\nThis is a per-file review within a multi-file PR. Judge the supplied files "
-            "against all acceptance criteria; do not infer missing implementation in sibling "
-            "files. In your summary, identify each criterion supported by these files and "
-            "describe its implementation evidence. A final review will reconcile criteria "
-            "across all chunks. Report real findings as CONCERNS or FAIL. If input is "
-            "incomplete, use UNVERIFIABLE_INPUT."
-        )
         prompt = _prepare_prompt(chunk_context, patch, evaluate_minimum=evaluate_minimum)
         try:
             response, trace_id, trace_url = _invoke_llm(
@@ -6357,9 +6488,7 @@ def _evaluate_chunked(
                 getattr(response, "content", None) or str(response), provider, client=client
             )
             result.langsmith_trace_id, result.langsmith_trace_url = trace_id, trace_url
-            result = _apply_coverage_floor(
-                result, prompt_coverage(local_context, patch, evaluate_minimum=evaluate_minimum)
-            )
+            result = _apply_coverage_floor(result, coverage)
         except Exception as exc:
             result = EvaluationResult(
                 verdict="UNVERIFIABLE_INPUT",
@@ -6379,6 +6508,19 @@ def _evaluate_chunked(
     if verdict == "PASS":
         # Per-file PASS cannot establish that every global criterion is implemented.
         # Reconcile the complete acceptance sources against every chunk's evidence.
+        synthesis_context = local_context
+        if evaluate_minimum:
+            fitted_inputs = build_prompt_inputs(local_context, source, evaluate_minimum=True)
+            synthesis_context = fitted_inputs.context_block.removeprefix(
+                fitted_inputs.coverage.render() + "\n\n"
+            )
+            if fitted_inputs.coverage.omitted_optional_evidence_sections:
+                synthesis_context = (
+                    "Optional evidence sections omitted from this prompt, not reviewed: "
+                    + ", ".join(fitted_inputs.coverage.omitted_optional_evidence_sections)
+                    + "\n\n"
+                    + synthesis_context
+                )
         synthesis_prompt = (
             "Reconcile acceptance completeness across the whole PR using the untrusted "
             "acceptance context and per-chunk review summaries below. Identify any criterion "
@@ -6388,7 +6530,7 @@ def _evaluate_chunked(
             "the summary. Return JSON with verdict, concerns and summary. Use CONCERNS for a missing "
             "implementation, UNVERIFIABLE_INPUT if summaries cannot establish completeness."
             "\n<acceptance_context>\n"
-            + local_context
+            + synthesis_context
             + "\n</acceptance_context>\n"
             + json.dumps(
                 [
@@ -6424,6 +6566,26 @@ def _evaluate_chunked(
     # No calls were possible due solely to input limits.
     if not results:
         verdict = "UNVERIFIABLE_INPUT"
+    aggregate_coverage = full_coverage.to_dict()
+    omitted_sections = sorted(
+        {
+            name
+            for coverage in prompt_coverages
+            for name in coverage.omitted_optional_evidence_sections
+        }
+    )
+    if omitted_sections:
+        aggregate_coverage.update(
+            acceptance_evidence="truncated",
+            included_required_evidence_channels=sorted(
+                {
+                    name
+                    for coverage in prompt_coverages
+                    for name in coverage.included_required_evidence_channels
+                }
+            ),
+            omitted_optional_evidence_sections=omitted_sections,
+        )
     return EvaluationResult(
         verdict=verdict,
         provider_used=provider,
@@ -6435,7 +6597,7 @@ def _evaluate_chunked(
         or "Changed files exceed the bounded review capacity.",
         files_not_reviewed=not_reviewed,
         input_coverage={
-            **full_coverage.to_dict(),
+            **aggregate_coverage,
             "sufficient": not not_reviewed,
             "files_total": len(files),
             "files_complete": len(reviewed),
@@ -6704,11 +6866,15 @@ def _evaluation_optional_evidence_channels(context: str) -> frozenset[str]:
     )
     if evidence_requirements is None:
         return frozenset()
-    _, optional = _resolve_evidence_policy(
+    _, optional, _ = _resolve_evidence_policy(
         evidence_requirements,
         evidence,
         parse_context_source_coverage(context) or {},
         evaluate_minimum=True,
+        evidence_budget=_budget_from_env(
+            "VERIFIER_ACCEPTANCE_EVIDENCE_BUDGET_TOKENS", VERIFIER_CONTEXT_BUDGET_TOKENS
+        )
+        * TOKEN_CHARS,
     )
     return optional
 

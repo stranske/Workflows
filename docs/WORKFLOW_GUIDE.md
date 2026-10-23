@@ -471,9 +471,15 @@ historical artifact to be retrievable. Explicit comment/artifact duties and
 requirement alternatives retain their existing channel constraints; the model
 still judges whether the named material and implementation actually satisfy the
 original request. The same screen applies before native counting, per-file review,
-and final coverage floors. Aggregate retrieval statuses and omitted-source
-metadata remain unchanged. Compare and default lossless admission stay strict.
-Passing this screen does not establish acceptance.
+and final coverage floors. Prompt assembly retains a complete selected channel
+alternative before filling optional evidence; optional artifact tails cannot spend
+the required comment/body budget. Per-file prompts and derived synthesis use the
+same fitted evidence. Prompt coverage discloses selected complete channels and
+omitted optional sections while retaining the aggregate `truncated` prompt status.
+Required channels that do not fit still block, as do malformed/integrity failures.
+Aggregate retrieval statuses and raw capture completeness remain unchanged.
+Compare and default lossless admission stay strict. Passing this screen does not
+establish acceptance.
 
 The context retains each complete original PR/issue request as fenced untrusted
 source text, with its UTF-8 hash and byte count. Parsed scope/tasks/acceptance
