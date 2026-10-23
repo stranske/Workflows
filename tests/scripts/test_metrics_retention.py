@@ -73,6 +73,20 @@ def test_apply_retention_archives_and_purges(tmp_path: Path) -> None:
     assert stats.parse_errors == 1
 
 
+def test_dry_run_removes_a_preexisting_temporary_file(tmp_path: Path) -> None:
+    now = metrics_retention._now_utc()
+    metrics_path = tmp_path / "metrics.ndjson"
+    _write_lines(metrics_path, ['{"timestamp":"2025-01-02T00:00:00Z"}\n'])
+    temporary_path = metrics_path.with_suffix(".ndjson.tmp")
+    temporary_path.write_text("stale temporary data\n", encoding="utf-8")
+    policy = metrics_retention.RetentionPolicy(7, 4, 6, True, tmp_path / "archives")
+
+    stats = metrics_retention.apply_retention_to_file(metrics_path, policy, now=now, dry_run=True)
+
+    assert stats.bytes_after == stats.bytes_before
+    assert not temporary_path.exists()
+
+
 def test_restore_archive_dedupes(tmp_path: Path) -> None:
     archive_path = tmp_path / "archives" / "metrics" / "weekly"
     archive_path.mkdir(parents=True, exist_ok=True)

@@ -420,6 +420,12 @@ class TestLoadFailureLogs:
         # Should skip invalid line and load valid ones
         assert len(logs) == 2
 
+    def test_load_ignores_blank_lines(self, tmp_path: Any) -> None:
+        log_file = tmp_path / "failures.ndjson"
+        log_file.write_text('\n  \n{"error": "timeout"}\n', encoding="utf-8")
+
+        assert load_failure_logs(str(log_file)) == [{"error": "timeout"}]
+
 
 class TestGetRecentFailures:
     """Tests for get_recent_failures function - preserved behavior."""
