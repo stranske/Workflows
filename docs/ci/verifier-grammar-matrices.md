@@ -25,7 +25,8 @@ this small local case construction; it is not a new test runner or framework.
 [`verifier-grammar-inventory.json`](verifier-grammar-inventory.json) inventories
 every original named regression, including generated fixtures: original parameter
 groups and their sizes, original counts, and retained counts. An original count
-of zero identifies the added real-floor integration test. The 338 unchanged
+of zero identifies post-baseline additions, including the real-floor integration
+test and the section-boundary regressions described below. The 338 unchanged
 functions retain every original combination, so no independence assumption or
 semantic/lexical decomposition is applied to them. For the 18 bounded functions,
 join on `function` with `verifier-grammar-matrices.json` for the explicit semantic
@@ -329,3 +330,8 @@ cache-action outputs: uv/pytest `cache-hit`, artifact-cache `cache-hit` and
 `artifact-found`. Unavailable outputs stay null, not guessed misses or hits.
 There is no environment dump, hostname, PID, token, cache key or filesystem-path
 payload. No additional hosted benchmark or workflow run is introduced.
+
+The retained-input repair adds seven section-boundary regression functions (49 cases).
+These are recorded with `original_count: 0` because they postdate the pinned original
+corpus. The original 356 functions and 90,550-case baseline remain unchanged; the
+current retained inventory contains 35,113 cases.
