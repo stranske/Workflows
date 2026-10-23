@@ -417,7 +417,11 @@ def generate_from_snapshots(
             )
         for mutant in mutate_fail_ci(case["production_snapshot"]):
             if coverage_sufficient(mutant):
-                out.append(_mutation_case(case, f"{case_id}-mut-ci", CATEGORY_CI, mutant))
+                ci = _mutation_case(case, f"{case_id}-mut-ci", CATEGORY_CI, mutant)
+                ci["diagnostic_only"] = (
+                    True  # the workflow floors a red CI itself; see plan_model_eval
+                )
+                out.append(ci)
     return out
 
 

@@ -354,6 +354,32 @@ def _contains_tool_event(value: Any) -> bool:
     return False
 
 
+class CodexCliJudge:
+    """The incumbent family: the Codex CLI exactly as the MAINT-78 screen drives it (tools off,
+    read-only, ephemeral, strict config). Usage is the CLI's own count."""
+
+    evidence_class = "exploratory-cli"
+    api_key_calls = False
+
+    def __init__(self, *, model: str = "gpt-5.6-terra", codex: str = "codex") -> None:
+        self.model, self.codex = model, codex
+        self.name = model
+
+    def invoke(self, prompt: str) -> JudgeOutcome:
+        from tools.run_model_eval_cli_screen import invoke_cli
+
+        result = invoke_cli(self.codex, self.model, prompt)
+        return JudgeOutcome(
+            result.payload,
+            result.latency_ms,
+            result.input_tokens or None,
+            result.output_tokens or None,
+            self.model,
+            result.error,
+            stop=result.stop_screen,
+        )
+
+
 class AgyCliJudge:
     """Antigravity CLI (``agy``): local use only. Guards against its documented silent-success modes.
 
@@ -701,6 +727,58 @@ def load_baseline_rows(path: Path, model_id: str | None) -> tuple[str, list[dict
     return str(judge), [r for r in rows if r.get("model_id") == judge]
 
 
+def case_group(case: dict[str, Any]) -> str:
+    """real, or the mutation type of a controlled-mutation case, for per-group reporting."""
+    snapshot = case.get("production_snapshot") or {}
+    if case.get("provenance") == "controlled-mutation":
+        return str(snapshot.get("mutation") or "controlled-mutation")
+    return "real"
+
+
+def corpus_cases_with_snapshots(
+    corpus: dict[str, Any],
+    root: Path,
+    *,
+    limit_per_group: int | None = None,
+    evaluable_only: bool = False,
+    include_diagnostic: bool = False,
+) -> list[dict[str, Any]]:
+    """Every corpus case a prompt can be built for: the screen cases plus cases with a snapshot
+    reference or mutation recipe (loaded through ``generate_mutation_cases.load_case``).
+
+    ``limit_per_group`` keeps the first N per (expected verdict, group, category) in corpus order,
+    so a bounded pilot is deterministic and still spans every kind of case.
+    """
+    from tools.generate_mutation_cases import load_case
+
+    seen: set[str] = set()
+    cases: list[dict[str, Any]] = []
+    for case in corpus.get("screen_cases", []):
+        seen.add(case["case_id"])
+        cases.append(case)
+    for case in corpus.get("cases", []):
+        if case["case_id"] in seen or not (case.get("snapshot_ref") or case.get("mutation_recipe")):
+            continue
+        cases.append(load_case(case, root))
+    if not include_diagnostic:
+        cases = [c for c in cases if not c.get("diagnostic_only")]
+    if evaluable_only:
+        # the production prompt's own sufficiency check: an insufficient input measures the capture
+        from tools.generate_mutation_cases import coverage_sufficient
+
+        cases = [c for c in cases if coverage_sufficient(c["production_snapshot"])]
+    if limit_per_group is None:
+        return cases
+    kept: dict[tuple[str, str, str], int] = {}
+    out = []
+    for case in cases:
+        key = (case["expected_verdict"], case_group(case), case["category"])
+        if kept.get(key, 0) < limit_per_group:
+            kept[key] = kept.get(key, 0) + 1
+            out.append(case)
+    return out
+
+
 def run_screen(
     judges: list[Judge],
     *,
@@ -708,7 +786,9 @@ def run_screen(
     registry: dict[str, Any],
     policy: dict[str, Any],
     baseline: tuple[str, list[dict[str, Any]]] | None = None,
+    baseline_prompt_sha256_by_case: dict[str, str] | None = None,
     prices: dict[str, tuple[float, float]] | None = None,
+    cases_override: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     plan = build_plan(corpus, registry, policy)
     if not plan["screen_ready"]:
@@ -717,9 +797,30 @@ def run_screen(
     cases, blockers = screen_cases(corpus, stage)
     if blockers:
         raise ValueError(f"production-context inputs are invalid: {blockers}")
+    if cases_override is not None:
+        cases = cases_override
     prompts = {c["case_id"]: verifier_prompt(c["production_snapshot"]) for c in cases}
-    expected_pass = sum(c["expected_verdict"] == "PASS" for c in cases)
-    expected_non_pass = len(cases) - expected_pass
+    prompt_hashes = {
+        case_id: hashlib.sha256(prompt.encode("utf-8")).hexdigest()
+        for case_id, prompt in prompts.items()
+    }
+    if baseline is not None:
+        expected = {case["case_id"]: case["expected_verdict"] for case in cases}
+        base_rows = baseline[1]
+        if (
+            len(base_rows) != len(expected)
+            or {row.get("case_id") for row in base_rows} != expected.keys()
+            or any(
+                row.get("expected_verdict") != expected.get(row.get("case_id")) for row in base_rows
+            )
+            or baseline_prompt_sha256_by_case != prompt_hashes
+        ):
+            raise ValueError("baseline case IDs, truth or prompt hashes differ; rerun the baseline")
+    scoring_ids = {c["case_id"] for c in cases if not c.get("diagnostic_only")}
+    expected_pass = sum(
+        c["expected_verdict"] == "PASS" for c in cases if c["case_id"] in scoring_ids
+    )
+    expected_non_pass = len(scoring_ids) - expected_pass
     rows: list[dict[str, Any]] = []
     stopped: dict[str, str] = {}
     for judge in judges:
@@ -736,6 +837,8 @@ def run_screen(
                     "evidence_class": judge.evidence_class,
                     "case_id": case["case_id"],
                     "category": case["category"],
+                    "group": case_group(case),
+                    "diagnostic_only": bool(case.get("diagnostic_only")),
                     "expected_verdict": case["expected_verdict"],
                     "actual_verdict": (
                         "PASS"
@@ -756,8 +859,23 @@ def run_screen(
                 stopped[judge.name] = outcome.error or "stopped"
                 break
     base_metrics = None
+    retained_baseline = []
     if baseline is not None:
-        base_rows = [{**r, "schema_valid": r.get("schema_valid", True)} for r in baseline[1]]
+        case_metadata = {c["case_id"]: c for c in cases}
+        retained_baseline = [
+            {
+                **r,
+                "judge": baseline[0],
+                "group": case_group(case_metadata[r["case_id"]]),
+                "diagnostic_only": bool(case_metadata[r["case_id"]].get("diagnostic_only")),
+            }
+            for r in baseline[1]
+        ]
+        base_rows = [
+            {**r, "schema_valid": r.get("schema_valid", True)}
+            for r in retained_baseline
+            if r["case_id"] in scoring_ids
+        ]
         base_metrics = judge_metrics(
             base_rows,
             expected_pass=expected_pass,
@@ -767,7 +885,8 @@ def run_screen(
         base_metrics["judge"] = baseline[0]
     metrics = []
     for judge in judges:
-        subset = [r for r in rows if r["judge"] == judge.name]
+        all_rows = [r for r in rows if r["judge"] == judge.name]
+        subset = [r for r in all_rows if r["case_id"] in scoring_ids]
         entry = judge_metrics(
             subset,
             expected_pass=expected_pass,
@@ -776,11 +895,26 @@ def run_screen(
             baseline=base_metrics,
             prices=(prices or {}).get(judge.name),
         )
+        execution = judge_metrics(
+            all_rows,
+            expected_pass=sum(c["expected_verdict"] == "PASS" for c in cases),
+            expected_non_pass=sum(c["expected_verdict"] != "PASS" for c in cases),
+            thresholds=stage,
+            prices=(prices or {}).get(judge.name),
+        )
+        for key in (
+            "latency_p50_ms",
+            "latency_p95_ms",
+            "input_tokens",
+            "output_tokens",
+            "modeled_cost_usd",
+        ):
+            entry[key] = execution[key]
         entry.update(
             {
                 "judge": judge.name,
                 "evidence_class": judge.evidence_class,
-                "api_key_calls": len(subset) if judge.api_key_calls else 0,
+                "api_key_calls": len(all_rows) if judge.api_key_calls else 0,
                 "stopped": stopped.get(judge.name),
             }
         )
@@ -794,16 +928,13 @@ def run_screen(
             "never a promotion"
         ),
         "case_ids": [c["case_id"] for c in cases],
-        "prompt_sha256_by_case": {
-            case_id: hashlib.sha256(prompt.encode("utf-8")).hexdigest()
-            for case_id, prompt in prompts.items()
-        },
+        "prompt_sha256_by_case": prompt_hashes,
         "provisional_thresholds": {
             k: v for k, v in stage.items() if k.startswith(("maximum_", "minimum_"))
         },
         "baseline": base_metrics,
         "judges": metrics,
-        "rows": rows + [{**r, "judge": baseline[0]} for r in (baseline[1] if baseline else [])],
+        "rows": rows + retained_baseline,
         "approval_ready": False,
     }
 
@@ -817,6 +948,8 @@ def build_judges(args: argparse.Namespace) -> list[Judge]:
             judges.append(CursorCliJudge(model=args.cursor_model))
         elif name == "agy-cli":
             judges.append(AgyCliJudge(model=args.agy_model))
+        elif name == "codex-cli":
+            judges.append(CodexCliJudge(model=args.codex_model))
         elif name == "claude-cli":
             judges.append(ClaudeCliJudge(model=args.claude_model))
         elif name == "muse-api":
@@ -842,6 +975,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--muse-effort", default="medium")
     parser.add_argument("--cursor-model")
     parser.add_argument("--claude-model")
+    parser.add_argument("--codex-model", default="gpt-5.6-terra")
     parser.add_argument("--agy-model", default="gemini-4-argon-medium")
     parser.add_argument("--muse-api-model", default=MUSE_API_DEFAULT_MODEL)
     parser.add_argument("--muse-api-base-url", default=MUSE_API_DEFAULT_BASE_URL)
@@ -855,6 +989,23 @@ def main(argv: list[str] | None = None) -> int:
         "--baseline", type=Path, help="prior Codex CLI screen or this tool's output"
     )
     parser.add_argument("--baseline-model")
+    parser.add_argument(
+        "--cases",
+        choices=("screen", "all", "evaluable"),
+        default="screen",
+        help="screen: the 8 captured screen cases; all: every case with a snapshot or recipe; "
+        "evaluable: those whose production prompt is sufficient (the approval set)",
+    )
+    parser.add_argument(
+        "--include-diagnostic",
+        action="store_true",
+        help="with --cases all/evaluable: also run diagnostic-only cases (the failed-CI mutants)",
+    )
+    parser.add_argument(
+        "--limit-per-group",
+        type=int,
+        help="with --cases all: keep the first N per verdict, group and category",
+    )
     parser.add_argument(
         "--allow-contributor-tier",
         action="store_true",
@@ -870,15 +1021,35 @@ def main(argv: list[str] | None = None) -> int:
             args.muse_api_price_out,
         )
     baseline = load_baseline_rows(args.baseline, args.baseline_model) if args.baseline else None
+    baseline_hashes = (
+        json.loads(args.baseline.read_text()).get("prompt_sha256_by_case")
+        if args.baseline
+        else None
+    )
     corpus = json.loads(args.corpus.read_text())
     if args.allow_contributor_tier:
-        require_public_sources({str(c["repo"]) for c in corpus.get("screen_cases", [])})
+        require_public_sources(
+            {str(c["repo"]) for c in corpus.get("screen_cases", []) + corpus.get("cases", [])}
+        )
+    override = (
+        corpus_cases_with_snapshots(
+            corpus,
+            ROOT,
+            limit_per_group=args.limit_per_group,
+            evaluable_only=args.cases == "evaluable",
+            include_diagnostic=args.include_diagnostic,
+        )
+        if args.cases in ("all", "evaluable")
+        else None
+    )
     payload = run_screen(
         build_judges(args),
+        cases_override=override,
         corpus=corpus,
         registry=json.loads(args.registry.read_text()),
         policy=json.loads(args.policy.read_text()),
         baseline=baseline,
+        baseline_prompt_sha256_by_case=baseline_hashes,
         prices=prices,
     )
     args.output.write_text(json.dumps(payload, indent=2) + "\n")
