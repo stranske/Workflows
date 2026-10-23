@@ -213,9 +213,13 @@ errors, submitted/uncertain operations, labels and legacy unbound requests do
 not qualify. A crash before the rejection CAS remains unknown.
 
 `verification_request_not_accepted(record)` validates that retained proof for
-read-only recovery. The current executor or a later executor acknowledging the drained operation
-may claim a clean retry of the same request; a new queue operation identity may change its native-binding digest.
-The entire old record is archived, and recording the successor intent verifies
-that only `queue_operation_id` changed. Unacknowledged replacement, changed request bases and changed subject/criteria
-cannot reuse this proof. Only the live current owner can create the rejection receipt. Older Core packages
+read-only recovery. Only the live current owner can create the rejection receipt.
+Once proven not accepted, the operation is drained: its executor can retry, or a
+later qualified executor can use the existing acknowledged replacement path.
+The entire old record remains archived. A genuinely new operation may bind new
+material, criteria, review revision or head; it must pass its own current guards.
+Each native verification intent must match its current spec's native-binding
+digest, action and head. Changed request material under the old spec is refused;
+old rejected material does not constrain a properly bound new spec. Submitted,
+uncertain and unproved unavailable operations remain fenced. Older Core packages
 without these feature APIs remain unsupported; callers must retain the hold.

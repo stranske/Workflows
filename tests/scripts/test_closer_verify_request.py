@@ -78,12 +78,6 @@ def test_typed_422_rejection_retains_intent_and_allows_same_owner_same_operation
             _executor("foreign"),
             lease_deadline=datetime.now(UTC) + timedelta(hours=1),
         )
-    with pytest.raises(cr.OwnershipDenied):
-        store.claim(
-            dataclasses.replace(spec, head_sha="e" * 40),
-            _executor(),
-            lease_deadline=datetime.now(UTC) + timedelta(hours=1),
-        )
     retry, created = store.claim(
         spec, _executor(), lease_deadline=datetime.now(UTC) + timedelta(hours=1)
     )
@@ -275,7 +269,62 @@ def test_acknowledged_later_owner_can_retry_authentic_terminal_rejection(tmp_pat
     assert submitted["status"] == "intent_recorded"
 
 
-def test_rejected_retry_cannot_change_the_request_behind_new_native_digest(tmp_path):
+@pytest.mark.parametrize("change", ["material", "head", "criteria", "review_revision"])
+def test_authentic_rejection_does_not_block_new_authorized_operation(tmp_path, change):
+    store, old_spec, record = _dispatch_intent(tmp_path)
+    rejected = cr.reject_not_accepted(
+        store,
+        record["target_fence_key"],
+        _executor(),
+        cr.VerificationRequestRejected("workflow_dispatch", "d" * 64, 422),
+        expected_revision=2,
+        expected_epoch=1,
+        spec=old_spec,
+    )
+    binding = {
+        "queue_operation_id": "fresh-operation",
+        "verification_mutation": {"mutation_kind": "workflow_dispatch", "request_basis": "e" * 64},
+    }
+    changes = {
+        "guard_versions": {
+            **old_spec.guard_versions,
+            "native_binding": hashlib.sha256(
+                json.dumps(binding, sort_keys=True).encode()
+            ).hexdigest(),
+        }
+    }
+    if change == "head":
+        changes["head_sha"] = "e" * 40
+    elif change == "criteria":
+        changes["criteria_fingerprint"] = "e" * 64
+    elif change == "review_revision":
+        changes["review_revision"] = "fresh-review"
+    spec = dataclasses.replace(old_spec, **changes)
+    later = _executor("fresh-qualified-owner")
+    with pytest.raises(cr.OwnershipDenied):
+        store.claim(spec, later, lease_deadline=datetime.now(UTC) + timedelta(hours=1))
+    retry, created = store.claim(
+        spec,
+        later,
+        lease_deadline=datetime.now(UTC) + timedelta(hours=1),
+        acknowledge_replacement=True,
+    )
+    assert created and retry["operation_key"] != rejected["operation_key"]
+    assert retry["prior_operations"][-1]["record"] == rejected
+    fresh = cr.record_mutation_intent(
+        store,
+        retry["target_fence_key"],
+        later,
+        {"action": "verify_request", "head_sha": spec.head_sha, "native_binding": binding},
+        expected_revision=4,
+        expected_epoch=2,
+        spec=spec,
+    )
+    assert fresh["status"] == "intent_recorded"
+    assert fresh["prior_operations"][-1]["record"] == rejected
+
+
+def test_changed_basis_under_old_spec_is_refused_after_known_rejection(tmp_path):
     store, spec, record = _dispatch_intent(tmp_path)
     cr.reject_not_accepted(
         store,
@@ -286,20 +335,11 @@ def test_rejected_retry_cannot_change_the_request_behind_new_native_digest(tmp_p
         expected_epoch=1,
         spec=spec,
     )
+    retry, _ = store.claim(spec, _executor(), lease_deadline=datetime.now(UTC) + timedelta(hours=1))
     binding = {
         "verification_mutation": {"mutation_kind": "workflow_dispatch", "request_basis": "e" * 64}
     }
-    spec = dataclasses.replace(
-        spec,
-        guard_versions={
-            **spec.guard_versions,
-            "native_binding": hashlib.sha256(
-                json.dumps(binding, sort_keys=True).encode()
-            ).hexdigest(),
-        },
-    )
-    retry, _ = store.claim(spec, _executor(), lease_deadline=datetime.now(UTC) + timedelta(hours=1))
-    with pytest.raises(cr.OwnershipDenied, match="only queue operation identity"):
+    with pytest.raises(cr.OwnershipDenied, match="exact current native binding"):
         cr.record_mutation_intent(
             store,
             retry["target_fence_key"],

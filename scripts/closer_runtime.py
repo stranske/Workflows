@@ -606,18 +606,6 @@ def verification_request_not_accepted(record: Mapping[str, Any]) -> bool:
     )
 
 
-def _rejected_retry_spec(record: Mapping[str, Any], spec: OperationSpec) -> bool:
-    if not verification_request_not_accepted(record):
-        return False
-    old = spec_from_record(record).canonical_payload()
-    new = spec.canonical_payload()
-    old["guard_versions"] = dict(old["guard_versions"])
-    new["guard_versions"] = dict(new["guard_versions"])
-    old["guard_versions"].pop("native_binding", None)
-    new["guard_versions"].pop("native_binding", None)
-    return old == new
-
-
 def validate_cas_transition(
     current: Mapping[str, Any] | None,
     record: Mapping[str, Any],
@@ -891,7 +879,7 @@ def assert_fence_allows_claim(existing: Mapping[str, Any], spec: OperationSpec) 
     if (
         existing.get("status") == "unavailable"
         and existing.get("mutation_intent") is not None
-        and not _rejected_retry_spec(existing, spec)
+        and not verification_request_not_accepted(existing)
     ):
         raise OwnershipDenied("unavailable operation retains unresolved mutation intent")
     op_key = canonical_operation_key(spec)
@@ -1177,18 +1165,21 @@ def record_mutation_intent(
     if record.get("status") not in ("claimed", "intent_recorded"):
         raise CloserRuntimeError(f"cannot record intent from status {record.get('status')}")
     history = record.get("prior_operations") or []
-    if history and verification_request_not_accepted(history[-1]["record"]):
-        old_binding = dict(history[-1]["record"]["mutation_intent"]["native_binding"])
+    if spec.action == "verify_request" and (
+        "native_binding" in spec.guard_versions
+        or history
+        and verification_request_not_accepted(history[-1]["record"])
+    ):
         new_binding = intent.get("native_binding")
-        if not isinstance(new_binding, Mapping) or _native_binding_digest(
-            new_binding
-        ) != spec.guard_versions.get("native_binding"):
-            raise OwnershipDenied("retry intent requires exact new native binding digest")
-        new_binding = dict(new_binding)
-        old_binding.pop("queue_operation_id", None)
-        new_binding.pop("queue_operation_id", None)
-        if old_binding != new_binding:
-            raise OwnershipDenied("rejected request retry may change only queue operation identity")
+        if (
+            not isinstance(new_binding, Mapping)
+            or _native_binding_digest(new_binding) != spec.guard_versions.get("native_binding")
+            or intent.get("action") != spec.action
+            or intent.get("head_sha") != spec.head_sha
+        ):
+            raise OwnershipDenied(
+                "verification request intent requires exact current native binding"
+            )
     updated = dict(record)
     updated["mutation_intent"] = dict(intent)
     updated["status"] = "intent_recorded"
