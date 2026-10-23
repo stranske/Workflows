@@ -71,7 +71,9 @@ def context(requirement, *, comments="present", artifact_status="unavailable", c
 def check(native, text, operation="evaluate_pr"):
     client, _, _, _, _ = native
     prepared = pr_verifier._prepare_capacity_client(client)
-    prompt = pr_verifier._prepare_prompt(text, None)
+    prompt = pr_verifier._prepare_prompt(
+        text, None, evaluate_minimum=operation in {"evaluate_pr", "evaluate_pr_chunk"}
+    )
     return pr_verifier._preflight_input_capacity(
         prepared, prompt, context=text, operation=operation
     )
@@ -212,9 +214,18 @@ def test_explicit_task_evidence_is_not_waived_by_generic_acceptance(native):
     native[3].assert_not_called()
 
 
-def test_actual_evaluate_generation_receives_the_counted_disclosed_prompt(native, monkeypatch):
+@pytest.mark.parametrize("budget_pressure", [False, True])
+def test_actual_evaluate_generation_receives_the_counted_disclosed_prompt(
+    native, monkeypatch, budget_pressure
+):
     client, provider, _, counter, _ = native
-    text = context("- Record the test results in the PR body.")
+    if budget_pressure:
+        from tests.scripts.test_verifier_evaluate_evidence_minimum import large_optional_capture
+
+        monkeypatch.setenv("VERIFIER_ACCEPTANCE_EVIDENCE_BUDGET_TOKENS", "4000")
+        text, _ = large_optional_capture("Evidence must be posted in a PR comment.")
+    else:
+        text = context("- Record the test results in the PR body.")
     monkeypatch.setattr(pr_verifier, "_get_llm_client", lambda **kwargs: (client, provider))
     seen = []
     prepared_clients = []
@@ -229,8 +240,13 @@ def test_actual_evaluate_generation_receives_the_counted_disclosed_prompt(native
     with mock.patch.object(type(client), "invoke", autospec=True, side_effect=invoke):
         result = pr_verifier.evaluate_pr(text, provider=provider)
     assert result.used_llm and result.verdict == "CONCERNS"
-    assert seen == [pr_verifier._prepare_prompt(text, None)]
-    assert '"status": "truncated"' in seen[0]
+    assert seen == [pr_verifier._prepare_prompt(text, None, evaluate_minimum=True)]
+    if budget_pressure:
+        assert "COMMENT_PROOF_COMPLETE" in seen[0]
+        assert "OPTIONAL_ARTIFACT_PAYLOAD_" not in seen[0]
+        assert result.input_coverage["included_required_evidence_channels"] == ["comments"]
+    else:
+        assert '"status": "truncated"' in seen[0]
     counter.assert_called_once()
     key = "input" if provider == "openai" else "messages"
     assert counter.call_args.kwargs[key] == prepared_clients[0]._get_request_payload(seen[0])[key]
@@ -319,3 +335,20 @@ const github = {rest: {
             assert collected["references"]["excluded_incidental_runs"] == [
                 {"run_id": 7, "head_sha": "b" * 40, "reason": "different_revision"}
             ]
+
+
+@pytest.mark.parametrize("operation", ["evaluate_pr", "evaluate_pr_chunk"])
+def test_evaluate_helper_counts_the_actual_fitted_prompt(native, monkeypatch, operation):
+    from tests.scripts.test_verifier_evaluate_evidence_minimum import large_optional_capture
+
+    monkeypatch.setenv("VERIFIER_ACCEPTANCE_EVIDENCE_BUDGET_TOKENS", "4000")
+    text, _ = large_optional_capture("Evidence must be posted in a PR comment.")
+    receipt = check(native, text, operation=operation)
+    assert receipt["status"] == "PASS"
+    assert receipt["prompt_coverage"]["included_required_evidence_channels"] == ["comments"]
+    key = "input" if native[1] == "openai" else "messages"
+    prompt = pr_verifier._prepare_prompt(text, None, evaluate_minimum=True)
+    assert (
+        native[3].call_args.kwargs[key]
+        == pr_verifier._prepare_capacity_client(native[0])._get_request_payload(prompt)[key]
+    )

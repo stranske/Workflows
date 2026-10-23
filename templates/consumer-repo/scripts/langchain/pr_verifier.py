@@ -1052,7 +1052,9 @@ def _requirement_evidence_text(
 
     Only the builder's outer text fence is unwrapped. Literal code fences inside
     the original request remain inert, as do marker-looking text inside a fence.
-    Legacy structured contexts retain their existing acceptance-section screen.
+    Evaluate reads all legacy plan prose so Tasks-only duties reach both prompt
+    fitting and native admission; default/compare retain their acceptance-section
+    screen. Framed originals use their authenticated source text in either mode.
     """
     records = source_coverage.get("acceptance_sources", [])
     original_hashes = (
@@ -6082,7 +6084,7 @@ def build_prompt_inputs(
         code_source = diff_text
 
     evidence_requirements = _requirement_evidence_text(
-        acceptance_source, source_coverage=source_coverage
+        acceptance_source, source_coverage=source_coverage, legacy_prose=evaluate_minimum
     )
     required_evidence_options, optional_channels, fitted_evidence = _resolve_evidence_policy(
         evidence_requirements or "",

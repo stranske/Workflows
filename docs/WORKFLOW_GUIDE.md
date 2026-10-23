@@ -474,7 +474,9 @@ original request. The same screen applies before native counting, per-file revie
 and final coverage floors. Prompt assembly retains a complete selected channel
 alternative before filling optional evidence; optional artifact tails cannot spend
 the required comment/body budget. Per-file prompts and derived synthesis use the
-same fitted evidence. Prompt coverage discloses selected complete channels and
+same fitted evidence. For legacy unframed evaluation inputs, Tasks and prose duties
+are read consistently by prompt fitting and native admission; framed original
+requests retain their authenticated source boundaries. Prompt coverage discloses selected complete channels and
 omitted optional sections while retaining the aggregate `truncated` prompt status.
 Required channels that do not fit still block, as do malformed/integrity failures.
 Aggregate retrieval statuses and raw capture completeness remain unchanged.

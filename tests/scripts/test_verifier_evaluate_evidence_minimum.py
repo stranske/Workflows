@@ -490,3 +490,19 @@ def test_complete_fitting_alternative_keeps_only_truncated_unused_channel_option
     assert result.input_coverage["included_required_evidence_channels"] == ["artifacts"]
     assert "ARTIFACT_PROOF_COMPLETE" in client.invoke.call_args.args[0]
     assert "OPTIONAL_ARTIFACT_PAYLOAD_" not in client.invoke.call_args.args[0]
+
+
+def test_legacy_tasks_only_comment_duty_cannot_be_omitted_under_budget_pressure(monkeypatch):
+    monkeypatch.setenv("VERIFIER_ACCEPTANCE_EVIDENCE_BUDGET_TOKENS", "4000")
+    context, diff = large_optional_capture("Implement the code change.", oversized_required=True)
+    context = context.replace(
+        "#### Acceptance criteria",
+        "#### Tasks\n- Evidence must be posted in a PR comment.\n\n#### Acceptance criteria",
+    )
+    coverage = verifier.prompt_coverage(context, diff, evaluate_minimum=True)
+    assert not coverage.sufficient
+    assert verifier._evaluation_optional_evidence_channels(context) == frozenset()
+    result, client = run_evaluate(monkeypatch, context, diff)
+    assert result.verdict == "UNVERIFIABLE_INPUT"
+    client.invoke.assert_not_called()
+    client.root_client.responses.input_tokens.count.assert_not_called()
