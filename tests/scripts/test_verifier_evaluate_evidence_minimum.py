@@ -51,7 +51,8 @@ def test_generic_overall_allows_evaluate_reasoning_without_claiming_complete_cap
     assert result.used_llm is True
     assert result.verdict == "FAIL"
     assert client.invoke.call_count == 1
-    assert verifier.prompt_coverage(context, diff).sufficient is False
+    assert verifier.prompt_coverage(context, diff).sufficient is True
+    assert verifier.prompt_coverage(context, diff, evaluate_minimum=False).sufficient is False
     receipt = verifier._preflight_input_capacity(
         client, client.invoke.call_args.args[0], context=context, diff=diff, operation="evaluate_pr"
     )
@@ -195,24 +196,59 @@ def test_exact_evaluate_prompt_is_counted_and_sent_without_dropping_omission(mon
         )
 
 
-def test_compare_and_default_remain_strict(monkeypatch):
+def test_compare_uses_the_same_minimum_admission_as_evaluate(monkeypatch):
     context, diff = capture()
     client = with_capacity(mock.MagicMock())
-    monkeypatch.setenv("VERIFIER_EVIDENCE_PROFILE", "expanded")
-    assert verifier.prompt_coverage(context, diff).sufficient is False
-    result = verifier.ComparisonRunner(context, diff, "unused", []).run_single(
-        client, "openai", "unit-test-model"
+    client.invoke.return_value.content = json.dumps(
+        {"verdict": "FAIL", "summary": "Required implementation absent", "concerns": []}
     )
-    assert result.verdict == "UNVERIFIABLE_INPUT"
+    monkeypatch.setenv("VERIFIER_EVIDENCE_PROFILE", "expanded")
+    assert verifier.prompt_coverage(context, diff).sufficient is True
+    result = verifier.ComparisonRunner(
+        context, diff, verifier._prepare_prompt(context, diff), []
+    ).run_single(client, "openai", "unit-test-model")
+    assert result.verdict == "FAIL" and result.used_llm is True
+    assert client.invoke.call_count == 1
+    receipt = verifier._preflight_input_capacity(
+        client,
+        verifier._prepare_prompt(context, diff),
+        context=context,
+        diff=diff,
+        operation="evaluate_pr_compare",
+    )
+    assert receipt["capture_obligations"]["sufficient"] is True
+    assert receipt["capture_obligations"]["capture_complete"] is False
+
+
+@pytest.mark.parametrize(
+    "task,expected",
+    [
+        ("- [ ] Investigate workflow artifact retention", [set()]),
+        ("- [ ] Audit workflow artifact retention", [set()]),
+        ("- [ ] Explore workflow artifact retention", [set()]),
+        ("- [x] Review artifact upload options", [set()]),
+        ("- [ ] Workflow artifact with regression evidence", [{"artifacts"}]),
+        ("- [ ] Investigate retention and upload evidence as a workflow artifact", [{"artifacts"}]),
+        ("- [ ] Review the change and post evidence in a PR comment", [{"comments"}]),
+    ],
+)
+def test_checklist_activities_are_not_implicit_evidence_deliverables(task, expected):
+    assert verifier._required_evidence_options(task) == expected
+
+
+def test_standard_compare_counts_full_request_before_any_model_invocation(monkeypatch):
+    from types import SimpleNamespace
+
+    context, diff = capture("Implement the code change.")
+    client = with_capacity(mock.MagicMock())
+    counter = client.root_client.responses.input_tokens.count
+    counter.return_value = SimpleNamespace(input_tokens=10_000_001)
+    monkeypatch.setenv("VERIFIER_EVIDENCE_PROFILE", "standard")
+    runner = verifier.ComparisonRunner(context, diff, verifier._prepare_prompt(context, diff), [])
+    result = runner.run_single(client, "openai", "unit-test-model")
+    assert result.verdict != "PASS"
+    assert counter.called
     client.invoke.assert_not_called()
-    with pytest.raises(verifier.InputCapacityError, match="capture obligation"):
-        verifier._preflight_input_capacity(
-            client,
-            verifier._prepare_prompt(context, diff),
-            context=context,
-            diff=diff,
-            operation="evaluate_pr_compare",
-        )
 
 
 def test_chunked_evaluation_preserves_minimum_policy_and_final_synthesis(monkeypatch):
@@ -305,7 +341,8 @@ def test_optional_evidence_cannot_spend_selected_channel_prompt_budget(
     assert proof in prompt
     assert "OPTIONAL_ARTIFACT_PAYLOAD_" not in prompt
     assert result.input_coverage["acceptance_evidence"] == "truncated"
-    assert verifier.prompt_coverage(context, diff).sufficient is False
+    assert verifier.prompt_coverage(context, diff).sufficient is True
+    assert verifier.prompt_coverage(context, diff, evaluate_minimum=False).sufficient is False
 
 
 @pytest.mark.parametrize(

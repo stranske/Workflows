@@ -221,16 +221,21 @@ def test_registry_values_bind_actual_contract(configured_native, tmp_path, monke
     counter.assert_not_called()
 
 
-def test_standard_does_not_read_capacity_registry(configured_native, tmp_path, monkeypatch):
+def test_standard_refuses_generation_without_native_capacity_facts(
+    configured_native, tmp_path, monkeypatch
+):
     client, _, _, counter, metadata = configured_native
     monkeypatch.setenv("VERIFIER_EVIDENCE_PROFILE", "standard")
     monkeypatch.setenv(llm_registry.ENV_MODEL_REGISTRY_CONFIG, str(tmp_path / "absent.json"))
     before = json.dumps(client._get_request_payload("full request"), sort_keys=True)
-    with mock.patch.object(
-        type(client), "invoke", return_value=SimpleNamespace(content="PASS")
-    ) as gen:
+    with (
+        mock.patch.object(
+            type(client), "invoke", return_value=SimpleNamespace(content="PASS")
+        ) as gen,
+        pytest.raises(pr_verifier.InputCapacityError),
+    ):
         pr_verifier._invoke_llm(client, "full request", operation="registry-test")
-    assert gen.call_count == 1
+    gen.assert_not_called()
     assert json.dumps(client._get_request_payload("full request"), sort_keys=True) == before
     counter.assert_not_called()
     metadata.assert_not_called()

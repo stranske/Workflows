@@ -1058,9 +1058,9 @@ def _requirement_evidence_text(
 
     Only the builder's outer text fence is unwrapped. Literal code fences inside
     the original request remain inert, as do marker-looking text inside a fence.
-    Evaluate reads all legacy plan prose so Tasks-only duties reach both prompt
-    fitting and native admission; default/compare retain their acceptance-section
-    screen. Framed originals use their authenticated source text in either mode.
+    Minimum admission reads all legacy plan prose so Tasks-only duties reach
+    prompt fitting and native admission for both single and comparison judges.
+    Framed originals use their authenticated source text in either mode.
     """
     records = source_coverage.get("acceptance_sources", [])
     original_hashes = (
@@ -4896,6 +4896,16 @@ def _classify_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                 # Explicit positive predicates and body records still gate below.
                 and (gate or not evidence_prohibition.search(working_line))
                 and evidence_term.search(requirement_text)
+                # A checkbox around an investigative/software activity is not
+                # itself a nominal evidence deliverable. Explicit delivery and
+                # mandatory predicates below still apply to the same full text.
+                and not re.match(
+                    r"^\s*[-*]\s*\[[ xX]\]\s*(?:investigate|review|inspect|"
+                    r"analy[sz]e|assess|audit|explore|compare|consider|evaluate|research|"
+                    r"implement|support|test|validate)\b",
+                    requirement_text,
+                    re.I,
+                )
                 and not re.match(r"^\s*[-*]\s*\[[ xX]\]\s*no\s", requirement_text, re.I)
             )
             if not (
@@ -6011,7 +6021,7 @@ def _acceptance_discovery_coverage(
 
 
 def build_prompt_inputs(
-    context: str, diff: str | None, *, lossless: bool = False, evaluate_minimum: bool = False
+    context: str, diff: str | None, *, lossless: bool = False, evaluate_minimum: bool = True
 ) -> PromptInputs:
     """Bound the context and diff blocks and report what reaches the model."""
     context_budget = (
@@ -6110,8 +6120,17 @@ def build_prompt_inputs(
         acceptance: CoverageStatus = "truncated" if context_truncated else "not_declared"
         acceptance_evidence: CoverageStatus = "not_declared"
     else:
-        fitted, section_status = _fit_context_sections(sections, context_budget)
-        context_block = "\n\n".join(fitted)
+        # The context budget bounds navigation and enrichment, not the original
+        # requirements. Keep every retained requirement byte; the existing
+        # native request counter admits or refuses the resulting whole prompt.
+        # Clipping requirements here made complete captures unevaluable before
+        # either judge could inspect them.
+        requirements = [body for name, body in sections if name == "acceptance"]
+        fitted, section_status = _fit_context_sections(
+            [(name, body) for name, body in sections if name != "acceptance"], context_budget
+        )
+        section_status["acceptance"] = "complete" if requirements else "unavailable"
+        context_block = "\n\n".join([*requirements, *fitted])
         context_truncated = any(value != "complete" for value in section_status.values())
         acceptance = section_status.get("acceptance", "unavailable")  # type: ignore[assignment]
         if evidence_source:
@@ -6235,7 +6254,7 @@ def build_prompt_inputs(
 
 
 def prompt_coverage(
-    context: str, diff: str | None, *, evaluate_minimum: bool = False
+    context: str, diff: str | None, *, evaluate_minimum: bool = True
 ) -> PromptCoverage:
     return build_prompt_inputs(context, diff, evaluate_minimum=evaluate_minimum).coverage
 
@@ -6382,7 +6401,7 @@ def _evaluate_chunked(
     provider: str,
     model: str | None,
     *,
-    evaluate_minimum: bool = False,
+    evaluate_minimum: bool = True,
 ) -> EvaluationResult | None:
     """Review complete file patches in bounded calls, never fair-share excerpts.
 
@@ -6396,7 +6415,20 @@ def _evaluate_chunked(
     source = diff or next(
         (_strip_diff_fence(body) for name, body in sections or [] if name == "full_diff"), ""
     )
-    if len(source) <= budget:
+    files = _split_diff_files(source)
+    binary_paths = {path for path, patch in files if _diff_file_is_binary_descriptor(patch)}
+    destinations = [path for path, _ in files]
+    if len(destinations) != len(set(destinations)):
+        return EvaluationResult(
+            verdict="UNVERIFIABLE_INPUT",
+            provider_used=provider,
+            model=model,
+            summary="Changed-file inventory has duplicate destination paths; source identity is ambiguous.",
+            files_not_reviewed=list(
+                dict.fromkeys(path or "(unknown changed file)" for path in destinations)
+            ),
+        )
+    if len(source) <= budget and not binary_paths:
         if source or sections is not None:
             coverage = prompt_coverage(context, diff, evaluate_minimum=evaluate_minimum)
             if not coverage.sufficient:
@@ -6411,7 +6443,6 @@ def _evaluate_chunked(
                 result.input_coverage = {**coverage.to_dict(), "files_complete": 0}
                 return result
         return None
-    files = _split_diff_files(source)
     if not files or any(path is None for path, _ in files):
         return EvaluationResult(
             verdict="UNVERIFIABLE_INPUT",
@@ -6423,7 +6454,23 @@ def _evaluate_chunked(
     full_coverage = build_prompt_inputs(
         context, diff, lossless=True, evaluate_minimum=evaluate_minimum
     ).coverage
-    if not full_coverage.sufficient:
+    # Missing binary bytes cannot certify acceptance, but must not prevent the
+    # same judges inspecting complete text code. Permit only this precisely
+    # identified omission; every source/provenance/evidence failure still gates.
+    omitted = {item.path for item in full_coverage.files if item.status == "omitted"}
+    binary_only_reasons = {
+        f"{len(omitted)} changed file(s) are omitted from the prompt entirely.",
+        f"Only {full_coverage.code_included_chars}/{full_coverage.code_total_chars} "
+        f"changed-code characters fit the prompt (minimum {MIN_CODE_COVERAGE_RATIO:.0%}).",
+    }
+    partial_binary_review = bool(
+        binary_paths
+        and omitted == binary_paths
+        and any(item.status == "complete" for item in full_coverage.files)
+        and all(item.status in {"complete", "omitted"} for item in full_coverage.files)
+        and set(full_coverage.reasons) <= binary_only_reasons
+    )
+    if not full_coverage.sufficient and not partial_binary_review:
         return EvaluationResult(
             verdict="CONCERNS" if full_coverage.required_evidence_absent else "UNVERIFIABLE_INPUT",
             provider_used=provider,
@@ -6464,6 +6511,11 @@ def _evaluate_chunked(
         "across all chunks. Report real findings as CONCERNS or FAIL. If input is "
         "incomplete, use UNVERIFIABLE_INPUT."
     )
+    if partial_binary_review:
+        guidance += (
+            "\nBinary inputs remain unreviewed; no global acceptance PASS is available: "
+            + ", ".join(sorted(binary_paths))
+        )
     for paths, patch in chunks:
         # Guidance is trusted prompt framing, not an optional artifact's tail.
         chunk_context = (
@@ -6509,7 +6561,7 @@ def _evaluate_chunked(
         results.append(result)
         if result.used_llm and not result.error and result.verdict != "UNVERIFIABLE_INPUT":
             reviewed.update(path for path in paths if path not in result.files_not_reviewed)
-    not_reviewed = [path for path, _ in files if path not in reviewed]
+    not_reviewed = [path for path, _ in files if path not in reviewed or path in binary_paths]
     verdict = comparison_verdict(results) if results else "UNVERIFIABLE_INPUT"
     if not_reviewed and verdict == "PASS":
         verdict = "UNVERIFIABLE_INPUT"
@@ -6553,10 +6605,9 @@ def _evaluate_chunked(
             )
         )
         try:
-            if len(synthesis_prompt) > budget:
-                raise InputCapacityError("Cross-file acceptance summaries exceed review budget")
             # This derived-evidence reconciliation has no raw diff obligations of its own;
-            # expanded mode still natively counts the exact synthesis request.
+            # native counting admits the full requirements and summaries. The
+            # per-file diff budget is not a limit on original requirements.
             response, _, _ = _invoke_llm(
                 client, synthesis_prompt, operation="evaluate_pr_chunk_synthesis"
             )
@@ -6615,7 +6666,7 @@ def _evaluate_chunked(
     )
 
 
-def _prepare_prompt(context: str, diff: str | None, *, evaluate_minimum: bool = False) -> str:
+def _prepare_prompt(context: str, diff: str | None, *, evaluate_minimum: bool = True) -> str:
     inputs = build_prompt_inputs(context, diff, evaluate_minimum=evaluate_minimum)
     diff_block = inputs.diff_block
     context_block = inputs.context_block
@@ -6764,8 +6815,8 @@ def _capacity_facts_for(provider: str, model: str) -> NativeCapacityFacts:
 def _prepare_capacity_client(client: object) -> object:
     """Prepare a registry-authorized Responses copy without mutating its owner.
 
-    Standard never calls this helper. Registry facts cannot choose adapter/SDK
-    types or endpoints; the native contract independently checks those bindings.
+    Registry facts cannot choose adapter/SDK types or endpoints; the native
+    contract independently checks those bindings for every profile.
     """
     try:
         from langchain_openai import ChatOpenAI
@@ -6894,6 +6945,7 @@ def _preflight_input_capacity(
     context: str | None = None,
     diff: str | None = None,
     operation: str | None = None,
+    validate_capture: bool = True,
 ) -> dict[str, object]:
     """Count the complete native request; never substitute four-character estimates.
 
@@ -6904,8 +6956,13 @@ def _preflight_input_capacity(
     """
     receipt: dict[str, object] = {"status": "unavailable", "prompt_chars": len(prompt)}
     try:
-        evaluate_minimum = operation in {"evaluate_pr", "evaluate_pr_chunk"}
-        if context is not None:
+        evaluate_minimum = operation in {
+            "evaluate_pr",
+            "evaluate_pr_chunk",
+            "evaluate_pr_compare",
+            "evaluate_pr_compare_chunk",
+        }
+        if context is not None and validate_capture:
             manifest = build_capture_obligation_manifest(
                 context,
                 full_diff_bytes=diff.encode("utf-8") if diff is not None else None,
@@ -7328,12 +7385,10 @@ class _CapacityCheckedRepairClient:
         self.client = client
 
     def invoke(self, prompt: str, **kwargs: Any) -> Any:
-        client = self.client
-        if os.environ.get("VERIFIER_EVIDENCE_PROFILE") == "expanded":
-            client = _prepare_capacity_client(client)
-            if set(kwargs) - {"config"}:
-                raise InputCapacityError("uncounted schema repair generation kwargs")
-            _preflight_input_capacity(client, prompt)
+        client = _prepare_capacity_client(self.client)
+        if set(kwargs) - {"config"}:
+            raise InputCapacityError("uncounted schema repair generation kwargs")
+        _preflight_input_capacity(client, prompt)
         return client.invoke(prompt, **kwargs)
 
 
@@ -7352,11 +7407,20 @@ def _invoke_llm(
     Returns:
         Tuple of (response, trace_id, trace_url)
     """
-    # Native counting is an explicit expanded-recovery contract. Standard keeps
-    # its existing adapter behavior without claiming native capacity proof.
-    if os.environ.get("VERIFIER_EVIDENCE_PROFILE") == "expanded":
-        client = _prepare_capacity_client(client)
-        _preflight_input_capacity(client, prompt, context=context, diff=diff, operation=operation)
+    # Required sources are retained in every mode. Count the exact complete
+    # native request before invoking either judge, including chunk synthesis.
+    client = _prepare_capacity_client(client)
+    _preflight_input_capacity(
+        client,
+        prompt,
+        context=context,
+        diff=diff,
+        operation=operation,
+        # Expanded recovery retains its complete raw-capture admission contract.
+        # Standard already screens the assembled prompt; adding native counting
+        # must not impose expanded's separate all-capture contract on that path.
+        validate_capture=os.environ.get("VERIFIER_EVIDENCE_PROFILE") == "expanded",
+    )
     config = _build_llm_config(
         operation=operation,
         context=context,

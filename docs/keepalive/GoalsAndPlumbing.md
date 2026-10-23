@@ -360,6 +360,20 @@ PASS is possible; a missing cross-file implementation remains CONCERNS.
 Both per-call token limits and the total chunk-call cap live in
 `scripts/langchain/verifier_config.py`.
 
+Single-judge and comparison verification use the same minimum-evidence admission
+policy. Optional artifacts do not displace a complete required alternative.
+Every retained original requirement reaches the judge unchanged, outside the
+optional navigation budget. Native token counting checks the actual request,
+including synthesis and schema repair, before generation; an unavailable or
+exceeded capacity contract remains an explicit input failure. Expanded mode
+keeps its additional complete raw-capture admission requirements.
+
+An investigative checkbox mentioning artifacts is not itself an evidence-upload
+duty. Explicit uploads, comments, mandatory requirements and gates remain duties.
+Complete text patches can receive a partial review when only binary descriptors
+are unavailable. Those binary paths remain explicitly unreviewed, synthesis is
+skipped, and the partial result cannot become acceptance PASS.
+
 `reusable-agents-verifier.yml` exports its verdict and immutable target to the
 `agents-verifier.yml` caller. The caller applies two source-issue closing rules
 and comments the chosen rule and immutable merge SHA before closing:
