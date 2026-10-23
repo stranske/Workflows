@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.44.9](https://github.com/stranske/Workflows/compare/v1.44.8...v1.44.9) (2026-10-23)
+
+
+### Bug Fixes
+
+* **verifier:** screen evaluate evidence by minimum availability ([#4203](https://github.com/stranske/Workflows/issues/4203)) ([f0fc47e](https://github.com/stranske/Workflows/commit/f0fc47eb5af6710a5fd7a69940cf6f763236053c))
+
 ## [1.44.8](https://github.com/stranske/Workflows/compare/v1.44.7...v1.44.8) (2026-10-23)
 
 
