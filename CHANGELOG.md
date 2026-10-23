@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.44.10](https://github.com/stranske/Workflows/compare/v1.44.9...v1.44.10) (2026-10-23)
+
+
+### Bug Fixes
+
+* authenticate historical CI baselines without claiming current proof ([#4215](https://github.com/stranske/Workflows/issues/4215)) ([c412a4a](https://github.com/stranske/Workflows/commit/c412a4a418b3356c8e191642e0519595e1290dae))
+* carry repeat verification through material events and retained outcomes ([#4216](https://github.com/stranske/Workflows/issues/4216)) ([d036a65](https://github.com/stranske/Workflows/commit/d036a6523bee0fe82d6e32220851b4952a3fa5ff))
+
 ## [1.44.9](https://github.com/stranske/Workflows/compare/v1.44.8...v1.44.9) (2026-10-23)
 
 
