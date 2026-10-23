@@ -21,6 +21,8 @@ would defeat the purpose. Each test runs in well under 5s.
 from __future__ import annotations
 
 import json
+import signal
+import subprocess
 import time
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -338,6 +340,60 @@ def test_spawn_uses_new_session_and_killpg(tmp_path: Path) -> None:
     assert (
         first_killpg_call.args[0] == fake_pgid
     ), f"os.killpg first arg must be the pgid ({fake_pgid}), got {first_killpg_call.args[0]}"
+
+
+def test_timeout_is_reported_when_child_exits_before_killpg(tmp_path: Path) -> None:
+    """A just-exited child can make killpg race; that must not mask timeout."""
+    mock_proc = MagicMock()
+    mock_proc.pid = 12345
+    mock_proc.poll.return_value = None
+
+    with (
+        patch("subprocess.Popen", return_value=mock_proc),
+        patch("os.getpgid", return_value=12345),
+        patch("os.killpg", side_effect=ProcessLookupError),
+    ):
+        result = heartbeat.run_with_heartbeat(
+            ["fake-agent"],
+            prompt=None,
+            cwd=tmp_path,
+            env=None,
+            log_file=tmp_path / "race.log",
+            timeout=0,
+            heartbeat_interval=1,
+            stall_threshold=1,
+        )
+
+    assert result.succeeded is False
+    assert result.timed_out is True
+    assert result.stuck is False
+
+
+def test_timeout_escalates_to_sigkill_when_sigterm_does_not_exit(tmp_path: Path) -> None:
+    mock_proc = MagicMock()
+    mock_proc.pid = 12345
+    mock_proc.poll.return_value = None
+    mock_proc.wait.side_effect = [subprocess.TimeoutExpired("fake-agent", 15), 0]
+
+    with (
+        patch("subprocess.Popen", return_value=mock_proc),
+        patch("os.getpgid", return_value=12345),
+        patch("os.killpg") as killpg,
+    ):
+        result = heartbeat.run_with_heartbeat(
+            ["fake-agent"],
+            prompt=None,
+            cwd=tmp_path,
+            env=None,
+            log_file=tmp_path / "sigkill.log",
+            timeout=0,
+            heartbeat_interval=1,
+            stall_threshold=1,
+        )
+
+    assert result.timed_out is True
+    assert killpg.call_args_list[1].args == (12345, signal.SIGKILL)
+    assert mock_proc.wait.call_args_list[1].kwargs == {"timeout": 5}
 
 
 def test_prompt_broken_pipe_does_not_mask_clean_process_exit(tmp_path: Path) -> None:

@@ -14,6 +14,7 @@ from scripts.check_template_drift import (
     discover_workflow_pairs,
     drift_between,
     main,
+    normalize_text,
     normalized_sha256,
     read_allowlist,
     read_manifest_workflow_names,
@@ -26,6 +27,10 @@ def test_drift_between_false_for_identical_normalized_content() -> None:
     template = "name: Demo\njobs:\n  check: value\n"
 
     assert drift_between(main, template) is False
+
+
+def test_normalize_text_returns_empty_string_for_only_line_endings_and_whitespace() -> None:
+    assert normalize_text("  \r\n\t\r") == ""
 
 
 def test_drift_between_detects_genuine_content_change() -> None:
