@@ -105,8 +105,17 @@ workflow, verifier job, pending step and evaluator step. A later collection can
 reconcile an abandoned pending request through the exact terminal run/attempt
 and complete attempt-specific jobs inventory. The unique verifier job must show
 the pending step succeeded and the expected evaluator step explicitly skipped;
-every other present known evaluator step must also be skipped. The run is reread
-to reject a concurrent rerun. The original pending marker stays immutable, and
+every other present known evaluator step must also be skipped. The exact attempt
+endpoint authenticates the original pending attempt even after a rerun exists.
+Every newer terminal attempt is inspected separately and must affirmatively show
+the expected evaluator skipped; missing or started steps remain unresolved.
+At most ten contiguous attempts and ten total jobs pages are inspected. Both
+exact attempt metadata and latest-run metadata are reread to reject concurrent
+changes. Only the authenticated hosted collector may exempt its own current
+attempt while it is still collecting before pending/evaluator execution. That
+exception requires its actual platform repository, workflow reference, run and
+attempt; competing or started attempts cannot use it. Native callers have no
+self-collection exception. The original pending marker stays immutable, and
 the new input manifest retains the authenticated `verifier-no-evaluation-proof/v1`.
 The same event and existing evaluator path can then retry without fabricating
 fresh evidence. Active runs, missing/started steps, foreign identities, incomplete

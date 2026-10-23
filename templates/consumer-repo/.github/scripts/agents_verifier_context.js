@@ -965,6 +965,13 @@ async function fetchVerifierEvidence({
       const perPage = conversation ? 100 : Math.min(commentLimit, 100);
       const maxPages = commentPageLimit;
       let truncated = false;
+      const reportedLimits = new Set();
+      const reportLimit = kind => {
+        if (!reportedLimits.has(kind)) {
+          reportedLimits.add(kind);
+          fail('comments', kind, source.name);
+        }
+      };
       const seenCommentIds = new Set();
       let lastCommentId;
       let commentOrder;
@@ -1034,7 +1041,7 @@ async function fetchVerifierEvidence({
               && !/evidence|proof|test|review|verif|concern|fail|actions\/runs\//i.test(comment.body)) continue;
           if (comments.records.length >= commentLimit) {
             truncated = true;
-            fail("comments", "record", source.name);
+            reportLimit('record');
             if (conversation) continue;
             break;
           }
@@ -1046,7 +1053,7 @@ async function fetchVerifierEvidence({
           }, commentChars, usedCommentChars);
           usedCommentChars = result.usedChars;
           truncated = truncated || result.truncated;
-          if (truncated) { fail("comments", "character", source.name); if (!conversation) break; }
+          if (result.truncated) { reportLimit('character'); if (!conversation) break; }
         }
         if ((!conversation && truncated) || !hasNext) break;
         if (page === maxPages) {
@@ -2424,7 +2431,9 @@ async function buildVerifierContext({
     } catch (error) {
       if (error.code !== 'VERIFIER_PENDING_EXECUTION') throw error;
       const recovery = await reconcilePendingExecution({github,event:verificationManifest.verification_event,
-        assessment:verificationManifest.assessment_identity,state:error.pendingState});
+        assessment:verificationManifest.assessment_identity,state:error.pendingState,
+        currentExecution:{run_id:String(context.runId),run_attempt:String(process.env.GITHUB_RUN_ATTEMPT || ''),
+          repo:`${context.repo.owner}/${context.repo.repo}`,workflow_ref:process.env.GITHUB_WORKFLOW_REF || ''}});
       if (recovery.retry_kind !== 'known_no_evaluation') {
         verificationManifest.pending_execution_recovery = recovery;
         fs.writeFileSync('verification-event-manifest.json', JSON.stringify(verificationManifest,null,2) + '\n');

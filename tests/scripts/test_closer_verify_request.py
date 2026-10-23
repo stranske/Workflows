@@ -350,3 +350,38 @@ def test_changed_basis_under_old_spec_is_refused_after_known_rejection(tmp_path)
             spec=spec,
         )
     assert store.read(retry["target_fence_key"])["status"] == "claimed"
+
+
+@pytest.mark.parametrize(
+    "defect",
+    ["extra", "missing", "operation_hex", "request_hex", "head_hex", "status_500", "status_bool"],
+)
+def test_rejection_receipt_schema_rejects_malformed_fields_independently(tmp_path, defect):
+    store, spec, record = _dispatch_intent(tmp_path)
+    rejected = cr.reject_not_accepted(
+        store,
+        record["target_fence_key"],
+        _executor(),
+        cr.VerificationRequestRejected("workflow_dispatch", "d" * 64, 422),
+        expected_revision=2,
+        expected_epoch=1,
+        spec=spec,
+    )
+    invalid = json.loads(json.dumps(rejected))
+    receipt = invalid["receipts"][-1]
+    if defect == "extra":
+        receipt["unexpected"] = "not allowed"
+    elif defect == "missing":
+        del receipt["request_basis"]
+    elif defect == "operation_hex":
+        receipt["operation_key"] = "z" * 64
+    elif defect == "request_hex":
+        receipt["request_basis"] = "D" * 64
+    elif defect == "head_hex":
+        receipt["head_sha"] = "a" * 39
+    elif defect == "status_500":
+        receipt["http_status"] = 500
+    else:
+        receipt["http_status"] = True
+    assert cr.validate_operation_record(invalid)
+    assert not cr.verification_request_not_accepted(invalid)
