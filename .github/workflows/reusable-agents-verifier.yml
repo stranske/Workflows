@@ -480,6 +480,7 @@ jobs:
               head_sha: event.head_sha, evaluated_sha: event.evaluated_sha,
               run_id: String(context.runId), run_attempt: String(process.env.GITHUB_RUN_ATTEMPT),
               status: 'pending', verification_event: event, assessment_identity: manifest.assessment_identity,
+              execution_binding: manifest.execution_binding,
               ...(manifest.predecessor_event_id ? { predecessor_event_id: manifest.predecessor_event_id } : {}) };
             await github.rest.issues.createComment({ ...context.repo, issue_number: Number(event.pr),
               body: `<!-- verifier-event-state/v1 ${JSON.stringify(state)} -->` });

@@ -14,7 +14,8 @@ const {
 } = require('./issue_scope_parser.js');
 const { queryVerifierCiResults } = require('./verifier_ci_query.js');
 const { resolvePrSourceContext } = require('./source_context.js');
-const { buildVerificationEvent, completedEvent, completedLegacyEvent, guardExistingEvent } = require('./verification_event.js');
+const { buildVerificationEvent, completedEvent, completedLegacyEvent, guardExistingEvent, assessmentIdentity } = require('./verification_event.js');
+const { executionBinding, reconcilePendingExecution } = require('./verifier_pending_execution.js');
 
 const DEFAULT_BRANCH = process.env.DEFAULT_BRANCH || 'main';
 const DEFAULT_DIFF_SUMMARY_PATH = 'verifier-diff-summary.md';
@@ -2305,11 +2306,30 @@ async function buildVerifierContext({
       issues: closingIssues, fullDiffBytes, evidence: verifierEvidence, ciResults,
       selectors: process.env.VERIFICATION_MATERIAL, expected: process.env.VERIFICATION_EVENT,
       predecessorEventId: process.env.VERIFICATION_PREDECESSOR });
-    verificationManifest.assessment_identity = { mode, provider: process.env.VERIFIER_PROVIDER === 'auto'
-      ? '' : process.env.VERIFIER_PROVIDER || '',
-      model: process.env.VERIFIER_MODEL || '', model2: process.env.VERIFIER_MODEL2 || '', canonical: true };
-    const retryKnownNoEvaluation = guardExistingEvent(verificationManifest.verification_event,
-      verifierEvidence.event_history.records, verificationManifest.assessment_identity) === 'retry';
+    verificationManifest.assessment_identity = assessmentIdentity({mode,
+      provider:process.env.VERIFIER_PROVIDER || '',model:process.env.VERIFIER_MODEL || '',
+      model2:process.env.VERIFIER_MODEL2 || '',canonical:true});
+    verificationManifest.execution_binding = executionBinding(mode);
+    let retryKnownNoEvaluation;
+    try {
+      retryKnownNoEvaluation = guardExistingEvent(verificationManifest.verification_event,
+        verifierEvidence.event_history.records, verificationManifest.assessment_identity) === 'retry';
+    } catch (error) {
+      if (error.code !== 'VERIFIER_PENDING_EXECUTION') throw error;
+      const recovery = await reconcilePendingExecution({github,event:verificationManifest.verification_event,
+        assessment:verificationManifest.assessment_identity,state:error.pendingState});
+      if (recovery.retry_kind !== 'known_no_evaluation') {
+        verificationManifest.pending_execution_recovery = recovery;
+        fs.writeFileSync('verification-event-manifest.json', JSON.stringify(verificationManifest,null,2) + '\n');
+        core?.setOutput?.('should_run','false');
+        core?.setOutput?.('skip_reason','Existing verification execution requires targeted recovery');
+        core?.setOutput?.('retrieval_pending','verification_existing_execution');
+        return {shouldRun:false,reason:'verification-existing-execution-retrieval-pending',
+          verificationManifest,retrievalPending:{requirement:'verification_existing_execution',...recovery}};
+      }
+      verificationManifest.pending_no_evaluation = recovery.proof;
+      retryKnownNoEvaluation = true;
+    }
     fs.writeFileSync('verification-event-manifest.json', JSON.stringify(verificationManifest, null, 2) + '\n');
     core?.setOutput?.('verification_event', JSON.stringify(verificationManifest.verification_event));
     core?.setOutput?.('verification_predecessor', verificationManifest.predecessor_event_id || '');

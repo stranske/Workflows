@@ -62,6 +62,13 @@ new AsyncFunction('require','github','context','core',input.script)(require,gith
 def manifest(tmp_path):
     data = json.loads(FIXTURE.read_text())
     data["assessment_identity"] = ASSESSMENT
+    data["execution_binding"] = {
+        "schema": "verifier-execution-binding/v1",
+        "workflow_path": ".github/workflows/agents-verifier.yml",
+        "job_name": "Run post-merge verifier",
+        "pending_step": "Record verification event pending",
+        "evaluator_step": "Run LLM evaluation",
+    }
     (tmp_path / "verification-event-manifest.json").write_text(json.dumps(data))
     return data
 
@@ -102,6 +109,7 @@ def test_actual_pending_annotation_and_terminal_steps_share_exact_event(tmp_path
     pending = run_state_step(tmp_path, "Record verification event pending")
     assert '"status":"pending"' in pending["comments"][0]["body"]
     assert data["verification_event"]["event_id"] in pending["comments"][0]["body"]
+    assert "execution_binding" in pending["comments"][0]["body"]
     result = annotate(tmp_path, used_llm=True, verdict=verdict)
     assert result.returncode == 0, result.stderr
     text = (tmp_path / "evaluation-comment.md").read_text()
@@ -289,3 +297,67 @@ def test_root_and_consumer_share_event_semantics_despite_reviewed_ci_fingerprint
     assert json.loads(consumer_with["ci_workflows"]) == ["ci.yml"]
     assert "persist-fingerprint" not in source["jobs"]
     assert "persist-fingerprint" in consumer["jobs"]
+
+
+@pytest.mark.parametrize("ignored_provider", ["openai", "anthropic", "auto", "github-models"])
+def test_authored_compare_command_and_assessment_ignore_unused_provider(tmp_path, ignored_provider):
+    (tmp_path / ".workflows-lib").symlink_to(ROOT, target_is_directory=True)
+    fake_python = tmp_path / "python"
+    fake_python.write_text(
+        f"#!{sys.executable}\n"
+        + """import json,sys
+from pathlib import Path
+Path('invocation.json').write_text(json.dumps(sys.argv[1:]))
+print(json.dumps({'results':[{'used_llm':False,'verdict':'UNVERIFIABLE_INPUT'}],'report':'Offline contract proof; no provider invoked.'}))
+"""
+    )
+    fake_python.chmod(0o755)
+    context = tmp_path / "context.md"
+    context.write_text("Authentic collected input.")
+    result = subprocess.run(
+        ["bash", "-c", authored("Run multi-provider comparison")["run"]],
+        cwd=tmp_path,
+        text=True,
+        capture_output=True,
+        env={
+            **os.environ,
+            "PATH": str(tmp_path) + os.pathsep + os.environ["PATH"],
+            "VERIFIER_CONTEXT_PATH": str(context),
+            "VERIFIER_DIFF_PATH": "",
+            "VERIFIER_MODEL": "selected-primary",
+            "VERIFIER_MODEL2": "",
+            "VERIFIER_PROVIDER": ignored_provider,
+            "VERIFIER_SEMANTIC_MODE": "0",
+            "VERIFIER_EVIDENCE_PROFILE": "standard",
+            "GITHUB_OUTPUT": str(tmp_path / "outputs"),
+        },
+    )
+    assert result.returncode == 0, result.stderr
+    invocation = json.loads((tmp_path / "invocation.json").read_text())
+    assert invocation[-2:] == ["--model", "selected-primary"]
+    assert "--provider" not in invocation
+    assert ignored_provider not in invocation
+    code = "const {assessmentIdentity}=require('./.github/scripts/verification_event.js');process.stdout.write(JSON.stringify(assessmentIdentity(JSON.parse(process.argv[1]))));"
+    normalized = subprocess.run(
+        [
+            "node",
+            "-e",
+            code,
+            json.dumps(
+                {
+                    "mode": "compare",
+                    "provider": ignored_provider,
+                    "model": "selected-primary",
+                    "model2": "",
+                    "canonical": True,
+                }
+            ),
+        ],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=True,
+    )
+    identity = json.loads(normalized.stdout)
+    assert identity["provider"] == ""
+    assert identity["model2"] == "selected-primary"

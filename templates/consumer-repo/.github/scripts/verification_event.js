@@ -18,6 +18,19 @@ function parse(value, fallback) {
   if (typeof value === 'string') return value.trim() ? JSON.parse(value) : fallback;
   return value ?? fallback;
 }
+function assessmentIdentity({mode,provider = '',model = '',model2 = '',canonical: production = true}) {
+  if (!['evaluate','compare'].includes(mode) || production !== true
+      || [provider,model,model2].some(value => typeof value !== 'string')) throw new Error('Invalid production assessment identity');
+  // Mirror the authored CLI, not ignored workflow inputs. No provider routing
+  // decision is made here; equivalent consumed arguments share dedup identity.
+  return {mode,provider:mode === 'compare' || ['', 'auto','github-models'].includes(provider) ? '' : provider,
+    model,model2:mode === 'evaluate' ? '' : model2 || model,canonical:true};
+}
+function sameAssessment(left, right) {
+  if (left?.canonical !== true || right?.canonical !== true) return false;
+  try { return canonical(assessmentIdentity(left)) === canonical(assessmentIdentity(right)); }
+  catch { return false; }
+}
 function validateEvent(value) {
   const event = parse(value, null);
   if (!event || event.schema !== 'verification-event/v1'
@@ -81,7 +94,7 @@ function completedEvent(event, comments, assessmentIdentity) {
         const decision = JSON.parse(match[1]);
         const actual = validateEvent(decision.verification_event);
         const providers = decision.provider_verdicts;
-        if (actual.event_id === event.event_id && canonical(decision.assessment_identity) === canonical(assessmentIdentity)
+        if (actual.event_id === event.event_id && sameAssessment(decision.assessment_identity, assessmentIdentity)
             && decision.schema === 'verifier-corpus-decision/v1'
             && String(decision.repo).toLowerCase() === event.repo && String(decision.pr) === event.pr
             && decision.head_sha === event.head_sha && decision.evaluated_sha === event.evaluated_sha
@@ -184,7 +197,7 @@ function guardExistingEvent(event, comments, assessmentIdentity) {
             || ['repo','pr','head_sha','evaluated_sha'].some(key => actual[key] !== event[key])
             || String(state.repo).toLowerCase() !== event.repo || String(state.pr) !== event.pr
             || state.head_sha !== event.head_sha || state.evaluated_sha !== event.evaluated_sha
-            || canonical(state.assessment_identity) !== canonical(assessmentIdentity)
+            || !sameAssessment(state.assessment_identity, assessmentIdentity)
             || !/^[1-9]\d{0,19}$/.test(String(state.run_id)) || !/^[1-9]\d{0,9}$/.test(String(state.run_attempt))) continue;
         if (match[1] === 'verifier-corpus-decision/v1') {
           if (!completedEvent(event, [{...comment,body:`<!-- ${match[1]} ${match[2]} -->`}], assessmentIdentity)) continue;
@@ -208,7 +221,10 @@ function guardExistingEvent(event, comments, assessmentIdentity) {
     throw new Error('Current verification event is incomplete; recover retained execution before another evaluation');
   }
   if (!terminal && current.some(row => row.kind === 'pending')) {
-    throw new Error('Current verification event is pending; recover existing execution before another evaluation');
+    const error = new Error('Current verification event is pending; recover existing execution before another evaluation');
+    error.code = 'VERIFIER_PENDING_EXECUTION';
+    error.pendingState = current.find(row => row.kind === 'pending').state;
+    throw error;
   }
 }
 
@@ -246,4 +262,4 @@ function buildVerificationEvent({ repository, pull, issues, fullDiffBytes, evide
     request, material };
 }
 
-module.exports = { canonical, digest, validateEvent, requiredEvidence, buildVerificationEvent, completedEvent, authenticatePredecessor, completedLegacyEvent, ciHardGate, guardExistingEvent };
+module.exports = { canonical, digest, validateEvent, requiredEvidence, buildVerificationEvent, completedEvent, authenticatePredecessor, completedLegacyEvent, ciHardGate, guardExistingEvent, assessmentIdentity, sameAssessment };

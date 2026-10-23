@@ -64,6 +64,13 @@ another opinion. A genuinely missing requested reviewer remains distinct through
 These are existing production evaluate/compare routes. Shadow and optional
 advisory calls do not become new acceptance requirements.
 
+Assessment identity mirrors arguments actually consumed by the authored command:
+compare ignores the provider input and defaults its second model override to the
+first; evaluate ignores the second-model input and omits `auto`/`github-models`
+provider arguments. Those ignored inputs cannot purchase another identical
+review. Historical and current metadata use the same normalization; actual
+different effective reviewer requests remain distinct.
+
 The collector retains `verification-event-manifest.json`. Trusted production
 comments carry `verifier-event-state/v1` pending/incomplete records and the existing
 `verifier-corpus-decision/v1` terminal record with the same event and assessment.
@@ -92,6 +99,21 @@ and preserve older results as history, including out-of-order arrivals.
 Same-PR reusable jobs queue instead of cancelling an active evaluation. This
 does not replace the caller's existing active/uncertain-effect exclusion or give
 an incomplete request authority to replay an uncertain consequential action.
+
+Pending records include `verifier-execution-binding/v1` naming the actual caller
+workflow, verifier job, pending step and evaluator step. A later collection can
+reconcile an abandoned pending request through the exact terminal run/attempt
+and complete attempt-specific jobs inventory. The unique verifier job must show
+the pending step succeeded and the expected evaluator step explicitly skipped;
+every other present known evaluator step must also be skipped. The run is reread
+to reject a concurrent rerun. The original pending marker stays immutable, and
+the new input manifest retains the authenticated `verifier-no-evaluation-proof/v1`.
+The same event and existing evaluator path can then retry without fabricating
+fresh evidence. Active runs, missing/started steps, foreign identities, incomplete
+API reads and legacy markers without the execution binding remain targeted
+recovery work. Lost-runner age and generic job success never clear a pending
+request. Existing output references are retained for collection when evaluation
+may have started.
 
 Focused checks:
 

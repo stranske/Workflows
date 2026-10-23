@@ -5440,7 +5440,9 @@ test('optional giant comment cannot hide a necessary pending protocol marker',as
   assert.equal(evidence.comments.complete,false);
   assert.equal(evidence.event_history.complete,true);
   assert.equal(evidence.event_history.records.length,1);
-  await assert.rejects(()=>buildEvidenceContext({comments},{mode:'evaluate'}),/pending/);
+  const blocked = await buildEvidenceContext({comments},{mode:'evaluate'});
+  assert.equal(blocked.result.shouldRun,false);
+  assert.equal(blocked.core.outputs.retrieval_pending,'verification_existing_execution');
  });
  fs.rmSync('verification-event-manifest.json',{force:true});
 });
@@ -5463,4 +5465,29 @@ test('genuinely incomplete conversation protocol pagination yields scoped retrie
   assert.equal(result.reason,'verification-event-history-retrieval-pending');
   assert.equal(core.outputs.retrieval_pending,'verification_event_history');
  });
+});
+
+test('same collector reenters cancelled pending event only on authoritative skipped evaluator step',async()=> {
+ const first=await buildEvidenceContext({}, {mode:'evaluate'});
+ const manifest=first.result.verificationManifest;
+ removeVerifierDiffArtifacts(first.result);
+ const state={schema:'verifier-event-state/v1',repo:'octo/workflows',pr:'700',head_sha:'b'.repeat(40),evaluated_sha:'c'.repeat(40),run_id:'100',run_attempt:'1',status:'pending',verification_event:manifest.verification_event,assessment_identity:manifest.assessment_identity,execution_binding:manifest.execution_binding};
+ const comments=[{id:98,user:{login:'github-actions[bot]'},html_url:'https://github.com/octo/workflows/pull/700#issuecomment-98',body:`<!-- verifier-event-state/v1 ${JSON.stringify(state)} -->`}];
+ for(const skipped of [true,false]) {
+  const builder=async options=> {
+   options.github.rest.actions.getWorkflowRun=async()=>({data:{id:100,run_attempt:1,status:'completed',conclusion:'cancelled',path:'.github/workflows/agents-verifier.yml',event:'workflow_dispatch',head_sha:'d'.repeat(40),repository:{full_name:'octo/workflows'},head_repository:{full_name:'octo/workflows'}}});
+   options.github.rest.actions.listJobsForWorkflowRunAttempt=async()=>({data:{total_count:1,jobs:[{id:123,run_id:100,run_attempt:1,head_sha:'d'.repeat(40),name:'verifier / Run post-merge verifier',status:'completed',conclusion:'cancelled',steps:[{name:'Record verification event pending',number:5,status:'completed',conclusion:'success'},{name:'Run LLM evaluation',number:15,status:'completed',conclusion:skipped?'skipped':'cancelled'}]}]},headers:{}});
+   return buildVerifierContext(options);
+  };
+  const {result}=await buildEvidenceContext({comments},{mode:'evaluate'},builder);
+  if(skipped) {
+   try {assert.equal(result.shouldRun,true);assert.equal(result.verificationManifest.pending_no_evaluation.job_id,123);}
+   finally {removeVerifierDiffArtifacts(result);}
+  } else {
+   assert.equal(result.shouldRun,false);
+   assert.equal(result.reason,'verification-existing-execution-retrieval-pending');
+   assert.equal(result.verificationManifest.pending_execution_recovery.retryable,false);
+  }
+ }
+ fs.rmSync('verification-event-manifest.json',{force:true});
 });
