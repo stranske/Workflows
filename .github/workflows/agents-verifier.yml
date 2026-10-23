@@ -54,6 +54,21 @@ on:
         required: false
         type: string
         default: ''
+      verification_event:
+        description: 'Expected verification-event/v1 JSON; collector must reproduce it'
+        required: false
+        type: string
+        default: ''
+      verification_material:
+        description: 'JSON selectors for necessary retained comments/artifact members'
+        required: false
+        type: string
+        default: ''
+      verification_predecessor:
+        description: 'Authenticated prior verification event identity (causal context)'
+        required: false
+        type: string
+        default: ''
       evidence_profile:
         description: 'Bounded input limits; expanded retries documented input truncation only'
         required: false
@@ -246,6 +261,9 @@ jobs:
       # Expanded recovery needs a real truncation report and complete PASS from both slots.
       # Inspect both provider results before claiming dual-model acceptance.
       evidence_profile: ${{ inputs.evidence_profile || 'standard' }}
+      verification_event: ${{ inputs.verification_event || '' }}
+      verification_material: ${{ inputs.verification_material || '' }}
+      verification_predecessor: ${{ inputs.verification_predecessor || '' }}
     secrets:
       CODEX_AUTH_JSON: ${{ secrets.CODEX_AUTH_JSON }}
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}

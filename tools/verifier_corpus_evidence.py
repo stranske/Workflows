@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -12,12 +13,51 @@ from typing import Any
 MARKER = "verifier-corpus-decision/v1"
 
 
+def event_metadata(path: Path) -> dict[str, Any]:
+    """Read only the collector's exact event, never a caller-provided digest."""
+    manifest = json.loads(path.read_text(encoding="utf-8"))
+    event = manifest["verification_event"]
+    fields = (
+        "schema",
+        "repo",
+        "pr",
+        "head_sha",
+        "evaluated_sha",
+        "request_sha256",
+        "material_sha256",
+    )
+    core = {key: event[key] for key in fields}
+    actual = hashlib.sha256(
+        json.dumps(core, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
+    if (
+        event.get("schema") != "verification-event/v1"
+        or actual != event.get("event_id")
+        or not re.fullmatch(r"[0-9a-f]{40}", str(event.get("head_sha")))
+        or not re.fullmatch(r"[0-9a-f]{40}", str(event.get("evaluated_sha")))
+        or any(
+            not re.fullmatch(r"[0-9a-f]{64}", str(event.get(key)))
+            for key in ("request_sha256", "material_sha256")
+        )
+    ):
+        raise ValueError("Invalid collector verification event")
+    metadata = {"verification_event": event, "assessment_identity": manifest["assessment_identity"]}
+    predecessor = manifest.get("predecessor_event_id")
+    if predecessor:
+        if not re.fullmatch(r"[0-9a-f]{64}", str(predecessor)):
+            raise ValueError("Invalid verification predecessor")
+        metadata["predecessor_event_id"] = predecessor
+    return metadata
+
+
 def decision_from_results(
     results: list[dict[str, Any]], identity: dict[str, str], *, ci_failed: str | None = None
 ) -> dict[str, Any] | None:
     """Retain usable decisions with the workflow's trusted merge-CI hard gate."""
     verdicts = [str(result.get("verdict", "")).upper() for result in results]
-    if not results or not all(result.get("used_llm") for result in results):
+    if not results or not all(
+        result.get("used_llm") is True and not result.get("error") for result in results
+    ):
         return None
     if any(verdict not in {"PASS", "CONCERNS", "FAIL", "NON_PASS"} for verdict in verdicts):
         return None
@@ -98,7 +138,9 @@ def decision_from_comments(
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--comparison", type=Path, required=True)
+    inputs = parser.add_mutually_exclusive_group(required=True)
+    inputs.add_argument("--comparison", type=Path)
+    inputs.add_argument("--evaluation", type=Path)
     parser.add_argument("--comment", type=Path, required=True)
     args = parser.parse_args(argv)
     identity = {
@@ -112,9 +154,20 @@ def main(argv: list[str] | None = None) -> int:
             "run_attempt": "GITHUB_RUN_ATTEMPT",
         }.items()
     }
-    results = json.loads(args.comparison.read_text(encoding="utf-8")).get("results", [])
+    payload = json.loads((args.comparison or args.evaluation).read_text(encoding="utf-8"))
+    results = payload.get("results", []) if args.comparison else [payload]
     decision = decision_from_results(results, identity, ci_failed=os.environ.get("CI_FAILED"))
     if decision:
+        manifest = Path("verification-event-manifest.json")
+        if manifest.exists():
+            metadata = event_metadata(manifest)
+            event = metadata["verification_event"]
+            if any(
+                str(event[key]).lower() != str(identity[key]).lower()
+                for key in ("repo", "pr", "head_sha", "evaluated_sha")
+            ):
+                raise ValueError("Collector event differs from terminal result identity")
+            decision.update(metadata)
         with args.comment.open("a", encoding="utf-8") as handle:
             handle.write(f"\n<!-- {MARKER} {json.dumps(decision, sort_keys=True)} -->\n")
     return 0

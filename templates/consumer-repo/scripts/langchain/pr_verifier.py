@@ -211,9 +211,15 @@ Apply the following adjustments:
 - At chain depth {depth}, focus strictly on whether THIS iteration resolves
   its targeted concerns.  Avoid raising new concerns that were not part of
   the original feedback.
-- Treat the original source issue/PR scope as baseline context that may
-  already be satisfied by earlier merged work. Do NOT re-grade the full
-  original issue checklist unless this iteration explicitly reopens it.
+- Preserve the authentic original requirements and prior regression evidence
+  when evaluating this repair. Earlier merged work is context, not automatic
+  proof that an unmet original criterion has become satisfied. Check the
+  targeted concerns and the original criteria they affect against this
+  iteration's actual merged code and retained evidence; do not invent a
+  closing link or transfer a different PR's PASS to this repair.
+- Do not expand the repair into unrelated original criteria already supported
+  by applicable evidence. Identify genuinely missing necessary proof separately
+  from a demonstrated implementation failure.
 - If acceptance criteria require out-of-band GitHub metadata actions
   (for example: comments/labels/body updates on already merged PRs/issues),
   do not treat missing evidence in THIS diff as a hard completeness failure.

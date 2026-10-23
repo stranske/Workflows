@@ -1,0 +1,249 @@
+'use strict';
+
+// Shared with Orchestrator's verification_event.py. Hash semantic, retained
+// inputs, never transport archives, clocks, model output, or optional logs.
+const { createHash } = require('crypto');
+const SHA = /^[0-9a-f]{64}$/;
+const COMMIT = /^[0-9a-f]{40}$/;
+const CORE = ['schema', 'repo', 'pr', 'head_sha', 'evaluated_sha', 'request_sha256', 'material_sha256'];
+
+function canonical(value) {
+  if (Array.isArray(value)) return `[${value.map(canonical).join(',')}]`;
+  if (value && typeof value === 'object') return `{${Object.keys(value).sort().map(key => `${JSON.stringify(key)}:${canonical(value[key])}`).join(',')}}`;
+  return JSON.stringify(value);
+}
+function digest(value) { return createHash('sha256').update(canonical(value), 'utf8').digest('hex'); }
+function sorted(rows) { return rows.sort((a, b) => canonical(a) < canonical(b) ? -1 : canonical(a) > canonical(b) ? 1 : 0); }
+function parse(value, fallback) {
+  if (typeof value === 'string') return value.trim() ? JSON.parse(value) : fallback;
+  return value ?? fallback;
+}
+function validateEvent(value) {
+  const event = parse(value, null);
+  if (!event || event.schema !== 'verification-event/v1'
+      || !/^[^/\s]+\/[^/\s]+$/.test(event.repo) || event.repo !== event.repo.toLowerCase()
+      || !/^[1-9]\d*$/.test(event.pr) || typeof event.pr !== 'string'
+      || !COMMIT.test(event.head_sha) || !COMMIT.test(event.evaluated_sha)
+      || !SHA.test(event.request_sha256) || !SHA.test(event.material_sha256)
+      || !SHA.test(event.event_id)
+      || digest(Object.fromEntries(CORE.map(key => [key, event[key]]))) !== event.event_id) {
+    throw new Error('Invalid verification event identity or content digest');
+  }
+  return event;
+}
+
+function requiredEvidence(selectors, evidence) {
+  const selected = parse(selectors, []);
+  if (!Array.isArray(selected) || selected.length > 20) throw new Error('Invalid required verification evidence selectors');
+  const rows = selected.map(selector => {
+    if (!selector || typeof selector !== 'object') throw new Error('Invalid required evidence selector');
+    if (selector.kind === 'comment') {
+      if (typeof selector.url !== 'string'
+          || !/^https:\/\/github\.com\/[^\s]+#(?:issuecomment-|discussion_r|pullrequestreview-)[1-9]\d*$/.test(selector.url)) {
+        throw new Error('Invalid required verification comment selector');
+      }
+      const matches = (evidence.comments?.records || []).filter(record => record.url === selector.url);
+      if (matches.length !== 1 || matches[0].truncated || typeof matches[0].body !== 'string') {
+        throw new Error('Required verification comment is absent, ambiguous or incomplete');
+      }
+      // The existing collector supplies authenticated API records. URLs are
+      // exact selectors, not instructions to fetch an arbitrary destination.
+      return { kind: 'comment', url: selector.url,
+        body_sha256: createHash('sha256').update(matches[0].body, 'utf8').digest('hex') };
+    }
+    if (selector.kind === 'artifact_member') {
+      if (![selector.run_id, selector.artifact_id].every(id => Number.isSafeInteger(id) && id > 0)
+          || typeof selector.path !== 'string' || !selector.path) throw new Error('Invalid artifact member selector');
+      const archives = (evidence.diagnostics?.archive_inventory || []).filter(record =>
+        record.run_id === selector.run_id && record.artifact_id === selector.artifact_id);
+      const members = archives.length === 1 ? (archives[0].members || []).filter(member =>
+        member.path === selector.path || member.name === selector.path) : [];
+      if (archives.length !== 1 || !archives[0].member_inventory_complete || members.length !== 1
+          || !['included', 'captured'].includes(members[0].status) || !SHA.test(members[0].raw_sha256)) {
+        throw new Error('Required verification artifact member is absent, ambiguous or incomplete');
+      }
+      return { kind: 'artifact_member', run_id: selector.run_id, artifact_id: selector.artifact_id,
+        path: selector.path, raw_sha256: members[0].raw_sha256 };
+    }
+    throw new Error('Unsupported required verification evidence selector');
+  });
+  if (new Set(rows.map(canonical)).size !== rows.length) throw new Error('Duplicate required evidence selector');
+  return sorted(rows);
+}
+
+function completedEvent(event, comments, assessmentIdentity) {
+  const prefix = `https://github.com/${event.repo}/pull/${event.pr}#issuecomment-`;
+  return comments.some(comment => {
+    if (!['github-actions', 'github-actions[bot]'].includes(comment.author)
+        || !String(comment.url).toLowerCase().startsWith(prefix) || comment.truncated) return false;
+    for (const match of String(comment.body).matchAll(/<!-- verifier-corpus-decision\/v1 (\{[^\n]+\}) -->/g)) {
+      try {
+        const decision = JSON.parse(match[1]);
+        const actual = validateEvent(decision.verification_event);
+        const providers = decision.provider_verdicts;
+        if (actual.event_id === event.event_id && canonical(decision.assessment_identity) === canonical(assessmentIdentity)
+            && decision.schema === 'verifier-corpus-decision/v1'
+            && String(decision.repo).toLowerCase() === event.repo && String(decision.pr) === event.pr
+            && decision.head_sha === event.head_sha && decision.evaluated_sha === event.evaluated_sha
+            && /^[1-9]\d*$/.test(String(decision.run_id)) && /^[1-9]\d*$/.test(String(decision.run_attempt))
+            && typeof decision.ci_failed === 'boolean' && Array.isArray(providers) && providers.length
+            && providers.every(value => ['PASS', 'CONCERNS', 'FAIL', 'NON_PASS'].includes(value))
+            && decision.verdict === (!decision.ci_failed && providers.every(value => value === 'PASS') ? 'PASS' : 'NON_PASS')) return true;
+      } catch { /* Unauthenticated/malformed history is never completion. */ }
+    }
+    return false;
+  });
+}
+
+function authenticatePredecessor(event, predecessor, evidence) {
+  const history = evidence.event_history;
+  if (!SHA.test(predecessor) || !history?.complete) {
+    throw new Error('Verification predecessor requires complete authenticated comment evidence');
+  }
+  const prefix = `https://github.com/${event.repo}/pull/${event.pr}#issuecomment-`;
+  for (const comment of history.records || []) {
+    if (!['github-actions', 'github-actions[bot]'].includes(comment.author)
+        || !String(comment.url).toLowerCase().startsWith(prefix) || comment.truncated) continue;
+    for (const match of String(comment.body).matchAll(/<!-- verifier-corpus-decision\/v1 (\{[^\n]+\}) -->/g)) {
+      try {
+        const d = JSON.parse(match[1]);
+        if (d.schema !== 'verifier-corpus-decision/v1' || String(d.repo).toLowerCase() !== event.repo
+            || String(d.pr) !== event.pr || d.head_sha !== event.head_sha || d.evaluated_sha !== event.evaluated_sha
+            || !/^[1-9]\d*$/.test(String(d.run_id)) || !/^[1-9]\d*$/.test(String(d.run_attempt))
+            || typeof d.ci_failed !== 'boolean' || !Array.isArray(d.provider_verdicts) || !d.provider_verdicts.length
+            || d.provider_verdicts.some(value => !['PASS','CONCERNS','FAIL','NON_PASS'].includes(value))
+            || d.verdict !== (!d.ci_failed && d.provider_verdicts.every(value => value === 'PASS') ? 'PASS' : 'NON_PASS')) continue;
+        let identity;
+        if (d.verification_event) {
+          const previous = validateEvent(d.verification_event);
+          if (['repo','pr','head_sha','evaluated_sha'].some(key => previous[key] !== event[key])) continue;
+          identity = previous.event_id;
+        } else {
+          identity = digest({ schema:'verification-legacy-event/v1',repo:event.repo,pr:event.pr,
+            head_sha:event.head_sha,evaluated_sha:event.evaluated_sha,
+            run_id:String(d.run_id),run_attempt:String(d.run_attempt) });
+        }
+        if (identity === predecessor) return;
+      } catch { /* Malformed history cannot supply causal authority. */ }
+    }
+  }
+  throw new Error('Verification predecessor is not an authenticated exact-subject terminal event');
+}
+
+function completedLegacyEvent(event, evidence) {
+  const history = evidence.event_history;
+  if (!history?.complete) return false;
+  for (const comment of history.records || []) {
+    for (const match of String(comment.body).matchAll(/<!-- verifier-corpus-decision\/v1 (\{[^\n]+\}) -->/g)) {
+      try {
+        const d = JSON.parse(match[1]);
+        if (d.verification_event) continue;
+        const predecessor = digest({schema:'verification-legacy-event/v1',repo:event.repo,pr:event.pr,
+          head_sha:event.head_sha,evaluated_sha:event.evaluated_sha,
+          run_id:String(d.run_id),run_attempt:String(d.run_attempt)});
+        authenticatePredecessor(event, predecessor, evidence);
+        return true;
+      } catch { /* Preserve valid legacy completion, not job-success fingerprints. */ }
+    }
+  }
+  return false;
+}
+
+function ciHardGate(pull, results = []) {
+  if (!Array.isArray(results) || results.length > 100) throw new Error('Invalid configured CI hard-gate inventory');
+  const rows = results.map(result => {
+    if (!result || typeof result.workflow_id !== 'string' || !result.workflow_id
+        || typeof result.conclusion !== 'string' || result.conclusion.length > 80) {
+      throw new Error('Missing configured CI hard-gate binding identity');
+    }
+    const bound = result.binding_status === 'bound'
+      && [pull.head?.sha, pull.merge_commit_sha].includes(result.head_sha)
+      && Number.isSafeInteger(result.run_id) && result.run_id > 0
+      && Number.isSafeInteger(result.run_attempt) && result.run_attempt > 0;
+    return { workflow_id: result.workflow_id, binding_status: bound ? 'bound'
+      : result.binding_status === 'absent' ? 'absent' : 'unavailable',
+    head_sha: bound ? result.head_sha : '', run_id: bound ? result.run_id : null,
+    run_attempt: bound ? result.run_attempt : null, conclusion: result.conclusion };
+  });
+  if (new Set(rows.map(row => row.workflow_id)).size !== rows.length) throw new Error('Duplicate configured CI workflow identity');
+  return { schema:'verification-ci-hard-gate/v1',head_sha:pull.head?.sha,
+    evaluated_sha:pull.merge_commit_sha,results:sorted(rows) };
+}
+
+function guardExistingEvent(event, comments, assessmentIdentity) {
+  const prefix = `https://github.com/${event.repo}/pull/${event.pr}#issuecomment-`;
+  const records = [];
+  for (const comment of comments) {
+    if (!['github-actions', 'github-actions[bot]'].includes(comment.author)
+        || !String(comment.url).toLowerCase().startsWith(prefix) || comment.truncated) continue;
+    for (const match of String(comment.body).matchAll(/<!-- (verifier-event-state\/v1|verifier-corpus-decision\/v1) (\{[^\n]+\}) -->/g)) {
+      try {
+        const state = JSON.parse(match[2]);
+        const actual = validateEvent(state.verification_event);
+        if (actual.event_id !== event.event_id
+            || ['repo','pr','head_sha','evaluated_sha'].some(key => actual[key] !== event[key])
+            || String(state.repo).toLowerCase() !== event.repo || String(state.pr) !== event.pr
+            || state.head_sha !== event.head_sha || state.evaluated_sha !== event.evaluated_sha
+            || canonical(state.assessment_identity) !== canonical(assessmentIdentity)
+            || !/^[1-9]\d{0,19}$/.test(String(state.run_id)) || !/^[1-9]\d{0,9}$/.test(String(state.run_attempt))) continue;
+        if (match[1] === 'verifier-corpus-decision/v1') {
+          if (!completedEvent(event, [{...comment,body:`<!-- ${match[1]} ${match[2]} -->`}], assessmentIdentity)) continue;
+          records.push({run:BigInt(state.run_id),attempt:BigInt(state.run_attempt),kind:'terminal'});
+        } else if (state.schema === 'verifier-event-state/v1' && ['pending','incomplete'].includes(state.status)) {
+          records.push({run:BigInt(state.run_id),attempt:BigInt(state.run_attempt),kind:state.status,state});
+        }
+      } catch { /* A malformed/untrusted state never grants retry authority. */ }
+    }
+  }
+  if (!records.length) return;
+  const latest = records.reduce((a,b) => b.run > a.run || (b.run === a.run && b.attempt > a.attempt) ? b : a);
+  const current = records.filter(row => row.run === latest.run && row.attempt === latest.attempt);
+  const incomplete = current.filter(row => row.kind === 'incomplete');
+  const terminal = current.some(row => row.kind === 'terminal');
+  if (incomplete.length) {
+    // An incomplete marker contradicting a terminal never authorizes another
+    // provider call. Preserve the original cause rather than rewriting history.
+    if (!terminal && incomplete.every(row => row.state.retry_kind === 'known_no_evaluation'
+        && row.state.retryable === true)) return 'retry';
+    throw new Error('Current verification event is incomplete; recover retained execution before another evaluation');
+  }
+  if (!terminal && current.some(row => row.kind === 'pending')) {
+    throw new Error('Current verification event is pending; recover existing execution before another evaluation');
+  }
+}
+
+function buildVerificationEvent({ repository, pull, issues, fullDiffBytes, evidence,
+  selectors, expected, predecessorEventId, ciResults }) {
+  const repo = repository.toLowerCase();
+  const source = (kind, number, body, repository = repo) => {
+    if (!/^[^/\s]+\/[^/\s]+$/.test(repository) || !Number.isSafeInteger(number) || number < 1) {
+      throw new Error('Invalid original request source identity');
+    }
+    return { repository: repository.toLowerCase(), kind, number: String(number),
+      body_sha256: createHash('sha256').update(body, 'utf8').digest('hex') };
+  };
+  if (typeof pull.body !== 'string' || issues.some(issue => typeof issue.body !== 'string')
+      || !Buffer.isBuffer(fullDiffBytes) || !fullDiffBytes.length) throw new Error('Verification event requires complete original requests and code');
+  const request = { schema: 'verification-request/v1', sources: sorted([
+    source('pull_request', pull.number, pull.body),
+    ...issues.map(issue => source('issue', issue.number, issue.body, issue.repository || repo)),
+  ]) };
+  const material = { schema: 'verification-material/v1', code: {
+    head_sha: pull.head?.sha, evaluated_sha: pull.merge_commit_sha,
+    diff_sha256: createHash('sha256').update(fullDiffBytes).digest('hex'),
+  }, ci_hard_gate: ciHardGate(pull, ciResults), required_evidence: requiredEvidence(selectors, evidence) };
+  const event = { schema: 'verification-event/v1', repo, pr: String(pull.number),
+    head_sha: pull.head?.sha, evaluated_sha: pull.merge_commit_sha,
+    request_sha256: digest(request), material_sha256: digest(material) };
+  event.event_id = digest(event);
+  validateEvent(event);
+  const expectation = parse(expected, null);
+  if (expectation && validateEvent(expectation).event_id !== event.event_id) {
+    throw new Error('Verification event expectation differs from authoritative collected inputs');
+  }
+  if (predecessorEventId) authenticatePredecessor(event, predecessorEventId, evidence);
+  return { verification_event: event, ...(predecessorEventId ? { predecessor_event_id: predecessorEventId } : {}),
+    request, material };
+}
+
+module.exports = { canonical, digest, validateEvent, requiredEvidence, buildVerificationEvent, completedEvent, authenticatePredecessor, completedLegacyEvent, ciHardGate, guardExistingEvent };
