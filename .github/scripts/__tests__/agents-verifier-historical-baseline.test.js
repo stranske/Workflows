@@ -59,6 +59,49 @@ for (const [index, mod] of modules.entries()) {
     assert.equal(coverage.acceptance_evidence_sources[0].evidence_role, 'historical-baseline');
     assert.equal(coverage.artifact_capture_inventory[0].historical_binding.pull_number, 854);
   });
+  test(`historical-only requested proof does not require unrelated current artifacts (${index})`, async () => {
+    const {github, calls} = setup();
+    let discoveryCalls = 0;
+    github.rest.actions.listWorkflowRunsForRepo = async () => {
+      discoveryCalls += 1;
+      throw new Error('optional current-run enrichment is unavailable');
+    };
+    const result = await mod.fetchVerifierEvidence({github, owner: 'stranske', repo: 'Orchestrator', pullNumber: 872,
+      pullRequestBody: citation, referenceTexts: ['https://github.com/stranske/Orchestrator/pull/854'],
+      associatedCommitShas: [head], extractArtifactText: () => ({text: 'historical measurement', truncated: false})});
+    assert.equal(discoveryCalls, 0);
+    assert.deepEqual(calls, ['download']);
+    assert.equal(result.artifacts.complete, true, result.artifacts.reason);
+    assert.equal(result.artifacts.records.length, 1);
+    assert.equal(result.artifacts.records[0].evidence_role, 'historical-baseline');
+    assert.equal(result.artifacts.records[0].historical_binding.run_head_sha, baseline);
+    assert.equal(result.artifacts.records[0].historical_binding.pull_number, 854);
+    assert.equal(result.diagnostics.archive_inventory[0].run_id, 39545834989);
+    assert.equal(result.diagnostics.archive_inventory[0].evidence_role, 'historical-baseline');
+    assert.match(mod.formatVerifierEvidence(result), /Historical baseline.*not current-revision proof/);
+  });
+  test(`historical baseline excludes the current PR through native identity (${index})`, async () => {
+    const {github, calls} = setup();
+    let ownerFetches = 0;
+    const originalRunLookup = github.rest.actions.getWorkflowRun;
+    github.rest.actions.getWorkflowRun = async () => ({data: {
+      ...(await originalRunLookup()).data, pull_requests: [{number: 872}],
+    }});
+    github.rest.repos.listPullRequestsAssociatedWithCommit = async () => ({data: [
+      {number: 872, base: {repo: {full_name: 'stranske/Orchestrator'}}},
+    ]});
+    github.rest.pulls.get = async () => {
+      ownerFetches += 1;
+      return {data: {number: 872, merged: true, head: {sha: baseline}, merge_commit_sha: merge,
+        base: {repo: {full_name: 'stranske/Orchestrator'}}}};
+    };
+    const result = await mod.fetchVerifierEvidence({github, owner: 'stranske', repo: 'Orchestrator', pullNumber: 872,
+      pullRequestBody: citation, referenceTexts: ['https://github.com/stranske/Orchestrator/pull/872'],
+      associatedCommitShas: [head], extractArtifactText: () => ({text: 'measurement', truncated: false})});
+    assert.equal(ownerFetches, 0, 'same-PR ownership excluded before fetching owner details');
+    assert.ok(result.diagnostics.failures.some(row => row.kind === 'provenance'));
+    assert.deepEqual(calls, []);
+  });
   test(`explicit native run owner resolves several commit associations (${index})`, async () => {
     const {result} = await collect('explicit-run-owner');
     assert.equal(result.artifacts.complete, true, result.artifacts.reason);
