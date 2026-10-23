@@ -6812,6 +6812,30 @@ def _capacity_facts_for(provider: str, model: str) -> NativeCapacityFacts:
         raise InputCapacityError(str(exc)) from exc
 
 
+def _legacy_github_chat(client: object) -> bool:
+    """Preserve the existing standard GitHub route without asserting native count.
+
+    GitHub Models exposes a chat endpoint, not either direct provider's count
+    transport. Expanded recovery still requires native facts and refuses it.
+    Endpoint binding prevents an arbitrary OpenAI-compatible host receiving this
+    compatibility treatment; client selection remains registry-owned.
+    """
+    try:
+        from langchain_openai import ChatOpenAI
+        from openai import OpenAI
+        from tools.llm_provider import GITHUB_MODELS_BASE_URL
+    except ImportError:
+        return False
+    return (
+        type(client) is ChatOpenAI
+        and type(client.root_client) is OpenAI
+        and str(client.root_client.base_url).rstrip("/") == GITHUB_MODELS_BASE_URL.rstrip("/")
+        and str(client.openai_api_base).rstrip("/") == GITHUB_MODELS_BASE_URL.rstrip("/")
+        and not client.use_responses_api
+        and os.environ.get("VERIFIER_EVIDENCE_PROFILE") != "expanded"
+    )
+
+
 def _prepare_capacity_client(client: object) -> object:
     """Prepare a registry-authorized Responses copy without mutating its owner.
 
@@ -6822,7 +6846,7 @@ def _prepare_capacity_client(client: object) -> object:
         from langchain_openai import ChatOpenAI
     except ImportError:
         return client
-    if type(client) is ChatOpenAI:
+    if type(client) is ChatOpenAI and not _legacy_github_chat(client):
         facts = _capacity_facts_for("openai", client.model_name)
         updates = {"use_responses_api": True}
         if client.max_tokens is None:
@@ -7388,7 +7412,8 @@ class _CapacityCheckedRepairClient:
         client = _prepare_capacity_client(self.client)
         if set(kwargs) - {"config"}:
             raise InputCapacityError("uncounted schema repair generation kwargs")
-        _preflight_input_capacity(client, prompt)
+        if not _legacy_github_chat(client):
+            _preflight_input_capacity(client, prompt)
         return client.invoke(prompt, **kwargs)
 
 
@@ -7407,20 +7432,22 @@ def _invoke_llm(
     Returns:
         Tuple of (response, trace_id, trace_url)
     """
-    # Required sources are retained in every mode. Count the exact complete
-    # native request before invoking either judge, including chunk synthesis.
+    # Required sources are retained in every mode. Native-capable routes count
+    # each complete request, including synthesis. Standard GitHub chat retains
+    # its existing route without claiming a native-count receipt.
     client = _prepare_capacity_client(client)
-    _preflight_input_capacity(
-        client,
-        prompt,
-        context=context,
-        diff=diff,
-        operation=operation,
-        # Expanded recovery retains its complete raw-capture admission contract.
-        # Standard already screens the assembled prompt; adding native counting
-        # must not impose expanded's separate all-capture contract on that path.
-        validate_capture=os.environ.get("VERIFIER_EVIDENCE_PROFILE") == "expanded",
-    )
+    if not _legacy_github_chat(client):
+        _preflight_input_capacity(
+            client,
+            prompt,
+            context=context,
+            diff=diff,
+            operation=operation,
+            # Expanded recovery retains its complete raw-capture admission contract.
+            # Standard already screens the assembled prompt; adding native counting
+            # must not impose expanded's separate all-capture contract on that path.
+            validate_capture=os.environ.get("VERIFIER_EVIDENCE_PROFILE") == "expanded",
+        )
     config = _build_llm_config(
         operation=operation,
         context=context,

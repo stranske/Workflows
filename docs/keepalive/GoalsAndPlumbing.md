@@ -769,3 +769,9 @@ a nonempty configured CI inventory entirely bound to the evaluated merge SHA,
 with no query errors and only successful or explicitly optional skipped results.
 Belt task completion requires named artifacts among substantive changed paths
 of the cited commit; existing unchanged artifacts cannot establish completion.
+
+GitHub Models retains its existing registry-selected standard chat route; it is
+not reinterpreted as the direct OpenAI Responses transport and does not claim a
+native-count receipt. Expanded recovery still refuses that route without its
+required native capacity facts. This compatibility exception neither changes
+provider selection nor clips original requirements.

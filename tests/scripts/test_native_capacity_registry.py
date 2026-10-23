@@ -319,3 +319,55 @@ def test_noncanonical_provider_row_cannot_hide_ambiguous_identity(tmp_path, monk
     monkeypatch.setenv(llm_registry.ENV_MODEL_REGISTRY_CONFIG, str(path))
     with pytest.raises(ValueError, match="noncanonical"):
         llm_registry.native_capacity_facts_for("openai", "gpt-5.6-terra")
+
+
+@pytest.mark.parametrize("operation", ["invoke", "repair"])
+@pytest.mark.parametrize("profile", ["standard", "expanded"])
+def test_github_chat_route_is_preserved_without_claiming_native_capacity(
+    monkeypatch, operation, profile
+):
+    cls = pytest.importorskip("langchain_openai").ChatOpenAI
+    client = langchain_client._build_github_client(
+        cls, model="openai/gpt-5", token="offline-placeholder", timeout=17, max_retries=0
+    )
+    monkeypatch.setenv("VERIFIER_EVIDENCE_PROFILE", profile)
+    before = json.dumps(client._get_request_payload("full unchanged requirements"), sort_keys=True)
+    with mock.patch.object(
+        cls, "invoke", return_value=SimpleNamespace(content="PASS")
+    ) as generation:
+
+        def invoke():
+            if operation == "repair":
+                return pr_verifier._CapacityCheckedRepairClient(client).invoke(
+                    "full unchanged requirements"
+                )
+            return pr_verifier._invoke_llm(
+                client, "full unchanged requirements", operation="evaluate_pr_compare"
+            )
+
+        if profile == "expanded":
+            with pytest.raises(pr_verifier.InputCapacityError):
+                invoke()
+            generation.assert_not_called()
+        else:
+            invoke()
+            generation.assert_called_once()
+    assert (
+        json.dumps(client._get_request_payload("full unchanged requirements"), sort_keys=True)
+        == before
+    )
+    assert not client.use_responses_api
+
+
+def test_unknown_compatible_host_does_not_receive_github_compatibility(monkeypatch):
+    cls = pytest.importorskip("langchain_openai").ChatOpenAI
+    client = cls(
+        model="gpt-5.6-terra", api_key="offline-placeholder", base_url="https://example.invalid"
+    )
+    monkeypatch.setenv("VERIFIER_EVIDENCE_PROFILE", "standard")
+    with (
+        mock.patch.object(cls, "invoke") as generation,
+        pytest.raises(pr_verifier.InputCapacityError),
+    ):
+        pr_verifier._invoke_llm(client, "request", operation="evaluate_pr_compare")
+    generation.assert_not_called()
