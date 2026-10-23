@@ -27,7 +27,7 @@ function setup(defect) {
       headers: defect === 'incomplete-association' ? {link: '<https://api.github.com/page2>; rel="next"'} : {},
     })},
     actions: {
-      getWorkflowRun: async () => ({data: {id: 39545834989, head_sha: baseline, event: 'pull_request', status: 'completed', run_attempt: 1,
+      getWorkflowRun: async () => ({data: {id: 39545834989, head_sha: defect === 'current-head' ? head : baseline, event: 'pull_request', status: 'completed', run_attempt: 1,
         pull_requests: defect === 'explicit-run-owner' ? [{number: 854}] : defect === 'run-owner-mismatch' ? [{number: 855}] : defect === 'malformed-run-owners' ? {} : defect === 'multiple-run-owners' ? [{number: 854}, {number: 855}] : [],
         repository: defect === 'run-repository' ? {full_name: 'stranske/Other'} : repository}}),
       listWorkflowRunsForRepo: async () => ({data: {total_count: 0, workflow_runs: []}}),
@@ -72,6 +72,69 @@ for (const [index, mod] of modules.entries()) {
       assert.deepEqual(calls, []);
     });
   }
+  const runLink = '[run](https://github.com/stranske/Orchestrator/actions/runs/39545834989)';
+  for (const body of [
+    `Validation evidence: ${runLink} is not a historical baseline`,
+    `Historical baseline evidence: ${runLink} is not a historical baseline`,
+    `Not historical baseline evidence: ${runLink}`,
+    `Historical baseline evidence: ${runLink} isn't a historical baseline`,
+    `Historical baseline evidence: ${runLink} is never a historical baseline`,
+    `Historical baseline evidence: ${runLink} should not be used as a baseline`,
+    `Validation evidence: ${runLink} may be a historical baseline`,
+    `Possible historical baseline evidence: ${runLink}`,
+    `Historical baseline evidence: ${runLink} may be a historical baseline`,
+    `Historical baseline evidence: ${runLink} is possibly a baseline`,
+    `Historical baseline evidence: ${runLink} is \`not\` a baseline`,
+    `Historical baseline evidence: ${runLink} is "not" a baseline`,
+    `Historical baseline evidence: ${runLink} is 'not' a baseline`,
+    `Historical baseline evidence: ${runLink} is “not” a baseline`,
+    `Historical baseline evidence: ${runLink} is ‘not’ a baseline`,
+    `Historical baseline evidence: ${runLink} is *not* a baseline`,
+    `Historical baseline evidence: ${runLink} is **not** a baseline`,
+    `Historical baseline evidence: ${runLink} is _not_ a baseline`,
+    `Historical baseline evidence: ${runLink} is __not__ a baseline`,
+    `Historical baseline evidence: ${runLink} is \`possibly\` a baseline`,
+    `Historical baseline evidence: ${runLink} is "possibly" a baseline`,
+    `Validation evidence: For example, ${runLink} is a historical baseline`,
+    `Historical baseline evidence: ${runLink} is probably a baseline`,
+    `Historical baseline evidence: ${runLink} is allegedly a historical baseline`,
+    `Historical baseline evidence: ${runLink} could certainly be a baseline`,
+    `Historical baseline evidence: Example: ${runLink} is a historical baseline`,
+    `Example validation evidence: ${runLink} is a historical baseline`,
+    `Historical baseline evidence: ${runLink} is a potential baseline`,
+    `Historical baseline evidence: ${runLink} might serve as a baseline`,
+    `Validation evidence: if ${runLink} is a historical baseline`,
+    `Validation evidence: ${runLink} is "a historical baseline"`,
+    `Validation evidence: ${runLink} is 'a historical baseline'`,
+    `Historical baseline evidence: ${runLink} is "not a historical baseline"`,
+    `> Historical baseline evidence: ${runLink}`,
+    `\`\`\`text\nHistorical baseline evidence: ${runLink}\n\`\`\``,
+    `    Historical baseline evidence: ${runLink}`,
+    `"Historical baseline evidence: ${runLink}"`,
+  ]) {
+    test(`historical role is not granted by negated, uncertain or quoted prose: ${body} (${index})`, async () => {
+      const {result, calls} = await collect(undefined, body);
+      assert.equal(result.artifacts.records.length, 0);
+      assert.deepEqual(calls, []);
+    });
+  }
+  for (const body of [
+    `Historical baseline evidence: ${runLink}`,
+    `Validation evidence: ${runLink} is a historical baseline`,
+    `Validation evidence: ${runLink} serves as a historical baseline`,
+    `Historical baseline evidence: ${runLink} is a historical baseline`,
+  ]) {
+    test(`affirmative historical role remains supported: ${body} (${index})`, async () => {
+      const {result} = await collect(undefined, body);
+      assert.equal(result.artifacts.complete, true, result.artifacts.reason);
+      assert.equal(result.artifacts.records[0].evidence_role, 'historical-baseline');
+    });
+  }
+  test(`negative historical role does not reject exact current-head proof (${index})`, async () => {
+    const {result} = await collect('current-head', `Validation evidence: ${runLink} is not a historical baseline`);
+    assert.equal(result.artifacts.complete, true, result.artifacts.reason);
+    assert.equal(result.artifacts.records[0].evidence_role, undefined);
+  });
   test(`current-head mismatch is not promoted by a historical PR elsewhere (${index})`, async () => {
     const {result, calls} = await collect(undefined, citation.replace('#853 provenance:', 'Validation:'));
     assert.ok(result.diagnostics.failures.some(row => row.kind === 'provenance'));

@@ -326,7 +326,13 @@ independent native-capacity and acceptance rules.
 
 An expressly cited historical CI baseline is not current-revision evidence.
 The collector may retain it only when the citation identifies a same-repository
-run as historical, baseline, or provenance material, the retained sources cite a
+run as historical, baseline, or provenance material through an affirmative role
+declaration followed by a direct run citation (optionally its immutable success
+measurement), or a direct `run is/was/remains/serves as a historical baseline`
+assertion under an evidence/validation or historical heading. The existing
+`coverage evidence remains CI run` measurement citation is also supported.
+Unknown qualifications, negated, uncertain and quoted/example role mentions do
+not establish that role; a positive heading never overrides qualified prose. The retained sources must cite a
 distinct owning PR, and GitHub's commit-to-PR association plus the merged PR's
 exact head/merge authenticate that ownership. A run's explicit PR association
 must agree; when absent, the native commit association must identify a unique

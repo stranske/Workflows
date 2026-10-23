@@ -61,14 +61,53 @@ function historicalManualVerifierBinding(run, {owner,repo,pullNumber,associatedC
   return binding;
 }
 
+// A historical role must be affirmatively declared, not merely mentioned in
+// evidence prose or quoted examples. Accept only bounded, direct role clauses;
+// unknown qualifications remain prose, not an authenticated role request.
+function affirmativeHistoricalEvidenceLines(text) {
+  let fence = null;
+  const authored = [];
+  for (const line of String(text || '').split('\n')) {
+    const marker = line.match(/^\s{0,3}(`{3,}|~{3,})/);
+    if (marker) {
+      if (!fence) fence = marker[1];
+      else if (marker[1][0] === fence[0] && marker[1].length >= fence.length) fence = null;
+      continue;
+    }
+    if (fence || line.length > EVIDENCE_CLAUSE_MAX_LEN || /^\s*>|^(?: {4}|\t)/.test(line)) continue;
+    // Never delete quoted words: that could turn `not`/`possibly` into an
+    // affirmative skeleton. Only the defined immutable SHA annotation unwraps.
+    authored.push(line.replace(/`+[^`\n]*`+|"[^"\n]*"|“[^”\n]*”|(^|[\s(:])'[^'\n]*'/g,
+      (quoted, prefix) => /^`+[0-9a-f]{7,40}`+$/i.test(quoted)
+        ? quoted.replace(/`/g, '') : `${prefix || ''}OPAQUE_QUOTED`));
+  }
+  const role = '(?:historical(?:\\s+(?:CI|coverage))?\\s+(?:baseline|evidence|provenance)|baseline|provenance)';
+  const label = new RegExp(`^(?:#{1,6}\\s+)?(?:#\\d+\\s+)?${role}(?:\\s+(?:evidence|validation))?$`, 'i');
+  const assertion = new RegExp(`^RUN\\s+(?:is|was|remains|serves as)\\s+(?:an?\\s+|the\\s+)?${role}[.!]?$`, 'i');
+  // A direct citation can carry its immutable measurement annotation. The
+  // measurement form also preserves the authored #853 provenance declaration.
+  const citation = /^(?:(?:(?:full\s+)?(?:combined\s+)?coverage\s+)?evidence\s+(?:is|remains)\s+(?:CI\s+)?run\s+)?RUN(?:\s+\(success on [0-9a-f]{7,40}\))?[.!]?$/i;
+  return positiveEvidenceLines(authored.join('\n')).filter(line => {
+    const plain = line.replace(/^[\s*+-]+/, '')
+      .replace(/\[[^\]\n]*\]\(https:\/\/github\.com\/[^/]+\/[^/]+\/actions\/runs\/\d+\)/gi, 'RUN')
+      .replace(/https:\/\/github\.com\/[^/]+\/[^/]+\/actions\/runs\/\d+/gi, 'RUN');
+    const separator = plain.indexOf(':');
+    if (separator < 0) return false;
+    const heading = plain.slice(0, separator).trim();
+    const clause = plain.slice(separator + 1).trim();
+    const evidenceLabel = /^(?:validation(?:\s+evidence)?|evidence)$/i.test(heading);
+    return (label.test(heading) && (citation.test(clause) || assertion.test(clause)))
+      || (evidenceLabel && assertion.test(clause));
+  });
+}
+
 // Historical source citations are discovery hints only. Authenticate their
 // distinct owning delivery through GitHub before collecting any old payload.
 async function historicalCiBaselineBinding(github, run, {owner, repo, pullNumber, texts}) {
   const repository = `${owner}/${repo}`;
   const runId = Number(run.id);
-  const historicalCitation = texts.some(text => positiveEvidenceLines(text).some(line =>
-    /\b(?:historical|baseline|provenance)\b/i.test(line)
-      && [...line.matchAll(/https:\/\/github\.com\/([^/]+\/[^/]+)\/actions\/runs\/(\d+)(?!\d)/g)]
+  const historicalCitation = texts.some(text => affirmativeHistoricalEvidenceLines(text).some(line =>
+    [...line.matchAll(/https:\/\/github\.com\/([^/]+\/[^/]+)\/actions\/runs\/(\d+)(?!\d)/g)]
         .some(match => match[1].toLowerCase() === repository.toLowerCase() && Number(match[2]) === runId)));
   if (!Number.isSafeInteger(pullNumber) || pullNumber < 1 || !/^[0-9a-f]{40}$/i.test(run.head_sha)
       || !historicalCitation || run.repository?.full_name?.toLowerCase() !== repository.toLowerCase()
