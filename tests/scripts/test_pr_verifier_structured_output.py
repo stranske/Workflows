@@ -14,6 +14,12 @@ from tests.scripts.verifier_capacity_fakes import with_capacity
 SAMPLE_DIFF = "diff --git a/example.py b/example.py\n--- a/example.py\n+++ b/example.py\n@@ -1 +1 @@\n-old\n+new\n"
 
 
+def _evaluation_prompt(context, diff, *, evaluate_minimum=False):
+    """Match the private helper and require evaluate's policy at its call site."""
+    assert evaluate_minimum is True
+    return "prompt"
+
+
 def _response_with(content: str) -> mock.MagicMock:
     response = mock.MagicMock()
     response.content = content
@@ -56,7 +62,7 @@ def test_evaluate_pr_repairs_malformed_output(monkeypatch: pytest.MonkeyPatch, b
     mock_client = with_capacity(mock.MagicMock())
     mock_client.invoke.side_effect = [_response_with(bad), _response_with(good)]
 
-    monkeypatch.setattr(pr_verifier, "_prepare_prompt", lambda ctx, diff: "prompt")
+    monkeypatch.setattr(pr_verifier, "_prepare_prompt", _evaluation_prompt)
     monkeypatch.setattr(
         pr_verifier,
         "_get_llm_client",
@@ -363,7 +369,7 @@ def test_evaluate_pr_valid_output_no_repair(monkeypatch: pytest.MonkeyPatch) -> 
     mock_client = with_capacity(mock.MagicMock())
     mock_client.invoke.side_effect = [_response_with(good)]
 
-    monkeypatch.setattr(pr_verifier, "_prepare_prompt", lambda ctx, diff: "prompt")
+    monkeypatch.setattr(pr_verifier, "_prepare_prompt", _evaluation_prompt)
     monkeypatch.setattr(
         pr_verifier,
         "_get_llm_client",
@@ -384,7 +390,7 @@ def test_evaluate_pr_repair_prompt_includes_schema(monkeypatch: pytest.MonkeyPat
     mock_client = with_capacity(mock.MagicMock())
     mock_client.invoke.side_effect = [_response_with(bad), _response_with(good)]
 
-    monkeypatch.setattr(pr_verifier, "_prepare_prompt", lambda ctx, diff: "prompt")
+    monkeypatch.setattr(pr_verifier, "_prepare_prompt", _evaluation_prompt)
     monkeypatch.setattr(
         pr_verifier,
         "_get_llm_client",
@@ -411,7 +417,7 @@ def test_evaluate_pr_repairs_once_then_returns_error(monkeypatch: pytest.MonkeyP
     mock_client = with_capacity(mock.MagicMock())
     mock_client.invoke.side_effect = [_response_with(bad), _response_with(bad)]
 
-    monkeypatch.setattr(pr_verifier, "_prepare_prompt", lambda ctx, diff: "prompt")
+    monkeypatch.setattr(pr_verifier, "_prepare_prompt", _evaluation_prompt)
     monkeypatch.setattr(
         pr_verifier,
         "_get_llm_client",
@@ -528,7 +534,7 @@ def test_pr_verifier_call_site_config_propagation(
     context = "Pull request: [#456](https://github.com/sentinel/repo/pull/456)"
 
     if call_site == "evaluate_pr":
-        monkeypatch.setattr(pr_verifier, "_prepare_prompt", lambda ctx, diff: "prompt")
+        monkeypatch.setattr(pr_verifier, "_prepare_prompt", _evaluation_prompt)
         monkeypatch.setattr(
             pr_verifier, "_get_llm_client", lambda model=None, provider=None: (client, "openai")
         )
@@ -572,7 +578,7 @@ def test_pr_verifier_call_site_metadata_propagation(
     context = "Pull request: [#456](https://github.com/sentinel/repo/pull/456)"
 
     if call_site == "evaluate_pr":
-        monkeypatch.setattr(pr_verifier, "_prepare_prompt", lambda ctx, diff: "prompt")
+        monkeypatch.setattr(pr_verifier, "_prepare_prompt", _evaluation_prompt)
         monkeypatch.setattr(
             pr_verifier, "_get_llm_client", lambda model=None, provider=None: (client, "openai")
         )
@@ -605,7 +611,7 @@ def test_evaluate_pr_passes_config_metadata(
     client = with_capacity(DummyClient())
     context = "Pull request: [#456](https://github.com/sentinel/repo/pull/456)"
 
-    monkeypatch.setattr(pr_verifier, "_prepare_prompt", lambda ctx, diff: "prompt")
+    monkeypatch.setattr(pr_verifier, "_prepare_prompt", _evaluation_prompt)
     monkeypatch.setattr(
         pr_verifier, "_get_llm_client", lambda model=None, provider=None: (client, "openai")
     )

@@ -307,6 +307,13 @@ the next evaluation requires fresh evidence before completion.
 
 ### Post-merge verification and source closure
 
+Post-merge acceptance-command jobs allocate plan and result control files in a
+unique temporary directory under `RUNNER_TEMP`. Each invocation reads its own
+results before retiring those control files; the combined `closure-results.json`
+remains available for the normal artifact upload. Parallel jobs and tests never
+share fixed `/tmp/closure-*` paths. This isolation does not change command
+failure handling, receipt identity, or the credential allowlist.
+
 The verifier preserves the authoritative full patch instead of clipping the
 context at 300,000 characters. Standard evaluate and compare review whole file
 patches in successive requests using the named `VERIFIER_DIFF_BUDGET_TOKENS`
@@ -316,6 +323,27 @@ requests plus one global acceptance reconciliation are planned per provider. A f
 file inventory, or exhausted capacity remains explicitly unreviewed; no partial
 file is silently counted as reviewed. Expanded semantic verification retains its
 independent native-capacity and acceptance rules.
+
+An expressly cited historical CI baseline is not current-revision evidence.
+The collector may retain it only when the citation identifies a same-repository
+run as historical, baseline, or provenance material through an affirmative role
+declaration followed by a direct run citation (optionally its immutable success
+measurement), or a direct `run is/was/remains/serves as a historical baseline`
+assertion under an evidence/validation or historical heading. The existing
+`coverage evidence remains CI run` measurement citation is also supported.
+Unknown qualifications, negated, uncertain and quoted/example role mentions do
+not establish that role; a positive heading never overrides qualified prose. The retained sources must cite a
+distinct owning PR, and GitHub's commit-to-PR association plus the merged PR's
+exact head/merge authenticate that ownership. A run's explicit PR association
+must agree; when absent, the native commit association must identify a unique
+owner before considering the authored citation. The run must be a completed
+`pull_request` attempt in that repository. Ambiguous, incomplete, wrong-owner or
+unavailable provenance still fails closed. Retained artifact records, capture
+inventory, source coverage and the prompt identify `historical-baseline` and its
+immutable owning PR/run binding. This role grants neither current-code proof nor
+acceptance PASS; artifact expiry, extraction limits and retrieval failures keep
+their existing honest statuses and required/optional evidence policy. An ordinary
+current-revision citation with a mismatched head is not promoted to a baseline.
 
 Every evaluation/comparison report prints **files reviewed N of M** and incomplete
 results carry `files_not_reviewed`. `UNVERIFIABLE_INPUT` means supplied input could

@@ -343,6 +343,72 @@ def test_parse_args_defaults_docs_config(monkeypatch: pytest.MonkeyPatch):
     assert args.docs_config == Path("config/source_of_truth_docs.yml")
 
 
+def test_claude_helpers_and_seeded_fallback(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    binary, token = tmp_path / "claude", tmp_path / "token"
+    binary.write_text("", encoding="utf-8")
+    token.write_text("secret\n", encoding="utf-8")
+    monkeypatch.setenv("CLAUDE_CODE_EXECPATH", str(binary))
+    monkeypatch.setattr(drift_scan, "CLAUDE_OAUTH_TOKEN_FILE", token)
+    assert drift_scan._resolve_claude_binary() == str(binary)
+    assert drift_scan._read_claude_oauth_token() == "secret"
+    assert drift_scan._build_claude_env()["CLAUDE_CODE_OAUTH_TOKEN"] == "secret"
+    payloads = drift_scan.load_seeded_fixture_payloads()
+    assert payloads["README.md"] == SEEDED_FIXTURE_RESPONSES["README.md"]
+
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    (repo_root / "README.md").write_text("doc", encoding="utf-8")
+    result = scan_doc(
+        repo="stranske/Workflows",
+        doc_path="README.md",
+        doc_focus="x",
+        repo_root=repo_root,
+        log_dir=tmp_path / "logs",
+        timeout=1,
+        invoker=lambda **_kwargs: (False, "claude CLI not found"),
+    )
+    assert result.error is None
+    assert result.instances == [
+        DriftInstance(
+            doc_path="README.md",
+            claim="README cites claude-3-5-sonnet-20241022 as the default model",
+            authoritative_source="tools/langchain_client.py:96-98 _default_slots()",
+            classification="stale",
+        ),
+        DriftInstance(
+            doc_path="README.md",
+            claim="Pipeline orchestration overview accurately summarizes phase ordering",
+            authoritative_source="scripts/repo_review_coordinator.py:1-30 module docstring",
+            classification="accurate-no-drift",
+        ),
+    ]
+
+
+def test_scan_records_bad_config_and_missing_repo_root(tmp_path: Path):
+    missing_root = (tmp_path / "missing").resolve()
+    result = scan(
+        docs_config={
+            "org/A": {"docs": [{"path": "README.md"}]},
+            "org/B": {"local_path": "missing", "docs": ["bad", {"path": "README.md"}]},
+        },
+        active_repos={"org/A", "org/B"},
+        workspace_root=tmp_path,
+        repo_subset=None,
+        log_dir=tmp_path / "logs",
+        timeout=1,
+        invoker=lambda **_kwargs: (True, '{"instances": []}'),
+    )
+    assert result["total_errors"] == 3
+    errors_by_repo = {bucket["repo"]: bucket["errors"] for bucket in result["by_repo"]}
+    assert errors_by_repo == {
+        "org/A": [{"doc_path": "<config>", "error": "docs config for org/A missing 'local_path'"}],
+        "org/B": [
+            {"doc_path": "<config.docs[0]>", "error": f"repo root not found at {missing_root}"},
+            {"doc_path": "README.md", "error": f"repo root not found at {missing_root}"},
+        ],
+    }
+
+
 # ---------------------------------------------------------------------------
 # Aggregate: one bundled remediation block per repo, NOT per doc
 # ---------------------------------------------------------------------------
@@ -854,3 +920,406 @@ def test_notify_falls_back_when_desktop_unwritable(tmp_path: Path, monkeypatch: 
 
     assert path == out_dir / repo_review_notify.DESKTOP_FILENAME
     assert path.exists()
+
+
+# ---------------------------------------------------------------------------
+# Round-12 lane C: remaining ranked gaps (parse edges, claude, main errors)
+# ---------------------------------------------------------------------------
+
+
+def test_parse_drift_response_rejects_non_list_instances_and_skips_non_dicts():
+    instances, err = parse_drift_response('{"instances": {"not": "a list"}}', doc_path="x.md")
+    assert instances == []
+    assert err == "'instances' is not a list"
+
+    instances, err = parse_drift_response(
+        json.dumps(
+            {
+                "instances": [
+                    "skip-me",
+                    {
+                        "claim": "ok",
+                        "authoritative_source": "src",
+                        "classification": "stale",
+                    },
+                ]
+            }
+        ),
+        doc_path="x.md",
+    )
+    assert err is None
+    assert len(instances) == 1
+    assert instances[0].claim == "ok"
+
+
+def test_load_docs_config_rejects_non_mapping_repos(tmp_path: Path):
+    cfg = tmp_path / "docs.yml"
+    cfg.write_text("repos: [1, 2]\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="must be a mapping"):
+        load_docs_config(cfg)
+
+
+def test_resolve_workspace_root_keeps_absolute_paths(tmp_path: Path):
+    registry = tmp_path / "registry.json"
+    absolute = tmp_path / "ws"
+    absolute.mkdir()
+    registry.write_text(json.dumps({"workspace_root": str(absolute)}), encoding="utf-8")
+    assert resolve_workspace_root(registry) == absolute.resolve()
+
+
+def test_resolve_claude_binary_prefers_bundled_macos_path(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    monkeypatch.delenv("CLAUDE_CODE_EXECPATH", raising=False)
+    home = tmp_path / "home"
+    bundled = home / "Library/Application Support/Claude/claude-code"
+    good = bundled / "2.1.0" / "claude.app" / "Contents" / "MacOS"
+    good.mkdir(parents=True)
+    binary = good / "claude"
+    binary.write_text("", encoding="utf-8")
+    (bundled / "not-a-version").mkdir()
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setattr(
+        drift_scan.os.path, "expanduser", lambda p: str(home) + p[1:] if p.startswith("~") else p
+    )
+    monkeypatch.setattr(drift_scan.shutil, "which", lambda _name: None)
+    assert drift_scan._resolve_claude_binary() == str(binary)
+
+
+def test_resolve_claude_binary_falls_back_to_which(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.delenv("CLAUDE_CODE_EXECPATH", raising=False)
+    monkeypatch.setattr(drift_scan.os.path, "expanduser", lambda p: str(tmp_path / "missing"))
+    monkeypatch.setattr(drift_scan.shutil, "which", lambda name: f"/usr/bin/{name}")
+    assert drift_scan._resolve_claude_binary() == "/usr/bin/claude"
+
+
+def test_read_claude_oauth_token_handles_empty_and_oserror(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    token = tmp_path / "token"
+    token.write_text("   \n", encoding="utf-8")
+    monkeypatch.setattr(drift_scan, "CLAUDE_OAUTH_TOKEN_FILE", token)
+    assert drift_scan._read_claude_oauth_token() is None
+
+    class BoomPath:
+        def is_file(self):
+            raise OSError("denied")
+
+    monkeypatch.setattr(drift_scan, "CLAUDE_OAUTH_TOKEN_FILE", BoomPath())
+    assert drift_scan._read_claude_oauth_token() is None
+
+
+def test_build_claude_env_omits_token_when_absent(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(drift_scan, "_read_claude_oauth_token", lambda: None)
+    monkeypatch.setenv("PATH", "/bin")
+    env = drift_scan._build_claude_env()
+    assert "CLAUDE_CODE_OAUTH_TOKEN" not in env
+    assert env["PATH"] == "/bin"
+
+
+def test_invoke_claude_for_doc_success_timeout_and_nonzero(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    binary = tmp_path / "claude"
+    binary.write_text("", encoding="utf-8")
+    monkeypatch.setattr(drift_scan, "_resolve_claude_binary", lambda: str(binary))
+    monkeypatch.setattr(drift_scan, "_build_claude_env", lambda: {"PATH": "/bin"})
+    log_file = tmp_path / "logs" / "out.log"
+
+    monkeypatch.setattr(
+        drift_scan.subprocess,
+        "run",
+        lambda *_a, **_k: __import__("subprocess").CompletedProcess(
+            [], 0, stdout='{"instances": []}', stderr=""
+        ),
+    )
+    ok, output = drift_scan.invoke_claude_for_doc(
+        prompt="p", cwd=tmp_path, timeout=1, log_file=log_file
+    )
+    assert ok is True
+    assert "instances" in output
+    assert log_file.is_file()
+
+    def boom_timeout(*_a, **_k):
+        raise drift_scan.subprocess.TimeoutExpired(cmd=["claude"], timeout=1)
+
+    monkeypatch.setattr(drift_scan.subprocess, "run", boom_timeout)
+    ok, output = drift_scan.invoke_claude_for_doc(
+        prompt="p", cwd=tmp_path, timeout=1, log_file=tmp_path / "logs" / "t.log"
+    )
+    assert ok is False
+    assert "timed out" in output
+
+    monkeypatch.setattr(
+        drift_scan.subprocess,
+        "run",
+        lambda *_a, **_k: __import__("subprocess").CompletedProcess(
+            [], 2, stdout="", stderr="nope"
+        ),
+    )
+    ok, output = drift_scan.invoke_claude_for_doc(
+        prompt="p", cwd=tmp_path, timeout=1, log_file=tmp_path / "logs" / "e.log"
+    )
+    assert ok is False
+    assert "rc=2" in output
+
+
+def test_invoke_claude_for_doc_reports_missing_binary(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(drift_scan, "_resolve_claude_binary", lambda: None)
+    ok, output = drift_scan.invoke_claude_for_doc(
+        prompt="p", cwd=Path("."), timeout=1, log_file=Path("/tmp/unused-claude.log")
+    )
+    assert ok is False
+    assert output == "claude CLI not found"
+
+
+def test_load_seeded_fixture_payloads_handles_bad_json_and_non_dict_values(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    bad = tmp_path / "bad.json"
+    bad.write_text("{not-json", encoding="utf-8")
+    monkeypatch.setattr(drift_scan, "SEEDED_FIXTURE_PATH", bad)
+    assert drift_scan.load_seeded_fixture_payloads() == {}
+
+    mixed = tmp_path / "mixed.json"
+    mixed.write_text('{"README.md": {"instances": []}, "skip": "string"}', encoding="utf-8")
+    monkeypatch.setattr(drift_scan, "SEEDED_FIXTURE_PATH", mixed)
+    payloads = drift_scan.load_seeded_fixture_payloads()
+    assert "README.md" in payloads
+    assert "skip" not in payloads
+    assert json.loads(payloads["README.md"]) == {"instances": []}
+
+
+def test_load_seeded_fixture_payloads_skips_non_string_keys(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    """JSON object keys are always str; pin the explicit isinstance(key, str) guard."""
+    seeded = tmp_path / "seeded.json"
+    seeded.write_text('{"README.md": {"instances": []}}', encoding="utf-8")
+    monkeypatch.setattr(drift_scan, "SEEDED_FIXTURE_PATH", seeded)
+
+    real_loads = drift_scan.json.loads
+
+    def loads_with_non_string_key(text: str, *args, **kwargs):
+        data = real_loads(text, *args, **kwargs)
+        data[1] = {"instances": [{"classification": "stale"}]}
+        return data
+
+    monkeypatch.setattr(drift_scan.json, "loads", loads_with_non_string_key)
+    payloads = drift_scan.load_seeded_fixture_payloads()
+    assert list(payloads) == ["README.md"]
+    assert 1 not in payloads and "1" not in payloads
+
+
+def test_scan_doc_seeded_parse_error_and_live_parse_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    (repo_root / "README.md").write_text("doc", encoding="utf-8")
+    monkeypatch.setattr(drift_scan, "load_seeded_fixture_payloads", lambda: {"README.md": "{"})
+    result = scan_doc(
+        repo="stranske/Workflows",
+        doc_path="README.md",
+        doc_focus="x",
+        repo_root=repo_root,
+        log_dir=tmp_path / "logs",
+        timeout=1,
+        invoker=lambda **_k: (False, "claude CLI not found"),
+    )
+    assert result.error is not None and result.error.startswith("JSON decode failed")
+    assert result.instances == []
+
+    result = scan_doc(
+        repo="org/other",
+        doc_path="README.md",
+        doc_focus="x",
+        repo_root=repo_root,
+        log_dir=tmp_path / "logs",
+        timeout=1,
+        invoker=lambda **_k: (True, "not-json-at-all"),
+    )
+    assert result.error == "no JSON object found in response"
+    assert result.instances == []
+
+
+def test_dry_run_invoker_writes_log(tmp_path: Path):
+    log_file = tmp_path / "nested" / "dry.log"
+    ok, output = drift_scan.dry_run_invoker(prompt="p", cwd=tmp_path, timeout=1, log_file=log_file)
+    assert ok is True
+    assert "instances" in output
+    assert "dry-run" in log_file.read_text(encoding="utf-8")
+
+
+def test_scan_honors_repo_subset_and_missing_doc_path(tmp_path: Path):
+    repo_root = tmp_path / "A"
+    repo_root.mkdir()
+    (repo_root / "README.md").write_text("x", encoding="utf-8")
+    result = scan(
+        docs_config={
+            "org/A": {
+                "local_path": "A",
+                "docs": [{"path": "README.md"}, {"focus": "no path"}],
+            },
+            "org/B": {"local_path": "B", "docs": [{"path": "README.md"}]},
+        },
+        active_repos={"org/A", "org/B"},
+        workspace_root=tmp_path,
+        repo_subset={"org/A"},
+        log_dir=tmp_path / "logs",
+        timeout=1,
+        invoker=lambda **_k: (True, '{"instances": []}'),
+    )
+    assert result["total_docs_scanned"] == 2
+    assert result["total_errors"] == 1
+    assert len(result["by_repo"]) == 1
+    assert result["by_repo"][0]["repo"] == "org/A"
+    assert any("missing 'path'" in e["error"] for e in result["by_repo"][0]["errors"])
+
+
+def test_main_reports_config_registry_and_workspace_errors(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys
+):
+    monkeypatch.setattr(
+        drift_scan,
+        "parse_args",
+        lambda: SimpleNamespace(
+            registry=tmp_path / "missing-reg.json",
+            docs_config=tmp_path / "missing-docs.yml",
+            out=tmp_path / "out.json",
+            workspace_root=None,
+            repos=[],
+            timeout=1,
+            dry_run=True,
+        ),
+    )
+    assert drift_scan.main() == 2
+    assert "cannot load docs config" in capsys.readouterr().err
+
+    docs = tmp_path / "docs.yml"
+    docs.write_text("repos: {}\n", encoding="utf-8")
+    monkeypatch.setattr(
+        drift_scan,
+        "parse_args",
+        lambda: SimpleNamespace(
+            registry=tmp_path / "missing-reg.json",
+            docs_config=docs,
+            out=tmp_path / "out.json",
+            workspace_root=None,
+            repos=[],
+            timeout=1,
+            dry_run=True,
+        ),
+    )
+    assert drift_scan.main() == 2
+    assert "cannot load registry" in capsys.readouterr().err
+
+    registry = tmp_path / "registry.json"
+    registry.write_text("{not-json", encoding="utf-8")
+    monkeypatch.setattr(
+        drift_scan,
+        "parse_args",
+        lambda: SimpleNamespace(
+            registry=registry,
+            docs_config=docs,
+            out=tmp_path / "out.json",
+            workspace_root=None,
+            repos=[],
+            timeout=1,
+            dry_run=True,
+        ),
+    )
+    assert drift_scan.main() == 2
+    err = capsys.readouterr().err
+    assert "cannot load registry" in err
+    assert "cannot resolve workspace root" not in err
+
+
+def test_read_claude_oauth_token_missing_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(drift_scan, "CLAUDE_OAUTH_TOKEN_FILE", tmp_path / "absent-token")
+    assert drift_scan._read_claude_oauth_token() is None
+
+
+def test_resolve_claude_binary_skips_version_dirs_without_binary(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    monkeypatch.delenv("CLAUDE_CODE_EXECPATH", raising=False)
+    home = tmp_path / "home"
+    bundled = home / "Library/Application Support/Claude/claude-code"
+    (bundled / "1.0.0").mkdir(parents=True)
+    (bundled / "0.9.0" / "claude.app" / "Contents" / "MacOS").mkdir(parents=True)
+    # 0.9.0 has dirs but no binary file
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setattr(
+        drift_scan.os.path,
+        "expanduser",
+        lambda p: str(home) + p[1:] if p.startswith("~") else p,
+    )
+    monkeypatch.setattr(drift_scan.shutil, "which", lambda _name: "/fallback/claude")
+    assert drift_scan._resolve_claude_binary() == "/fallback/claude"
+
+
+def test_scan_doc_seeded_missing_payload_sets_invoker_error(tmp_path: Path, monkeypatch):
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    (repo_root / "OTHER.md").write_text("doc", encoding="utf-8")
+    monkeypatch.setattr(drift_scan, "load_seeded_fixture_payloads", lambda: {})
+    result = scan_doc(
+        repo="stranske/Workflows",
+        doc_path="OTHER.md",
+        doc_focus="x",
+        repo_root=repo_root,
+        log_dir=tmp_path / "logs",
+        timeout=1,
+        invoker=lambda **_k: (False, "claude CLI not found"),
+    )
+    assert result.error == "claude CLI not found"
+
+
+def test_main_workspace_root_resolution_failure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys
+):
+    docs = tmp_path / "docs.yml"
+    docs.write_text("repos: {}\n", encoding="utf-8")
+    registry = tmp_path / "registry.json"
+    registry.write_text(json.dumps({"repos": []}), encoding="utf-8")
+    monkeypatch.setattr(
+        drift_scan,
+        "parse_args",
+        lambda: SimpleNamespace(
+            registry=registry,
+            docs_config=docs,
+            out=tmp_path / "out.json",
+            workspace_root=None,
+            repos=[],
+            timeout=1,
+            dry_run=True,
+        ),
+    )
+
+    def boom(_path):
+        raise json.JSONDecodeError("bad", "doc", 0)
+
+    monkeypatch.setattr(drift_scan, "resolve_workspace_root", boom)
+    assert drift_scan.main() == 2
+    assert "cannot resolve workspace root" in capsys.readouterr().err
+
+
+def test_scan_doc_skips_gitnexus_print_when_fresh(tmp_path: Path, capsys):
+    repo_root = tmp_path / "repo"
+    cache = repo_root / ".gitnexus"
+    cache.mkdir(parents=True)
+    (cache / "meta.json").write_text(json.dumps({"stale": False}), encoding="utf-8")
+    (repo_root / "README.md").write_text("doc", encoding="utf-8")
+    result = scan_doc(
+        repo="org/repo",
+        doc_path="README.md",
+        doc_focus="x",
+        repo_root=repo_root,
+        log_dir=tmp_path / "logs",
+        timeout=1,
+        invoker=lambda **_k: (True, '{"instances": []}'),
+    )
+    assert result.gitnexus_status == "fresh"
+    assert result.error is None
+    assert "GitNexus map" not in capsys.readouterr().out

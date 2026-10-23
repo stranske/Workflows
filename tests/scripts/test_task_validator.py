@@ -267,6 +267,10 @@ class TestAuditAndMerge:
         assert len(final) == 1
         assert "Dropped: 1" in audit
 
+    def test_merge_with_audit_rejects_incomplete_fate_accounting(self) -> None:
+        with pytest.raises(ValueError, match="Audit mismatch"):
+            merge_with_audit(["Task A"], [], [], original_count=2)
+
 
 class TestValidateTasks:
     """Test the main validate_tasks function."""
@@ -378,6 +382,25 @@ class TestValidateTasks:
         ]
         assert result.fates[0].original_index == 3
         assert "3 input" in result.audit_summary
+
+
+def test_main_emits_json_without_llm(monkeypatch, capsys) -> None:
+    monkeypatch.setattr(sys, "argv", ["task_validator.py", "--tasks", "Fix", "--no-llm", "--json"])
+
+    task_validator_module.main()
+
+    payload = __import__("json").loads(capsys.readouterr().out)
+    assert payload["tasks"] == ["Fix"]
+
+
+def test_main_emits_human_readable_fates(monkeypatch, capsys) -> None:
+    monkeypatch.setattr(sys, "argv", ["task_validator.py", "--tasks", "Fix", "--no-llm"])
+
+    task_validator_module.main()
+
+    output = capsys.readouterr().out
+    assert "Final tasks:" in output
+    assert "[unprocessed] Fix..." in output
 
 
 class TestTaskFateSerialization:
@@ -615,3 +638,12 @@ def test_refinement_loads_prompt_from_file_or_builtin(
         {"flagged_items": "1. Fix", "context": "None"},
         operation="task_validator",
     )
+
+
+def test_main_prints_fate_reason_when_text_output_is_requested(monkeypatch, capsys) -> None:
+    """The human CLI report must retain the explanation for a flagged task."""
+    monkeypatch.setattr(sys, "argv", ["task_validator.py", "--tasks", "Fix", "--no-llm"])
+
+    task_validator_module.main()
+
+    assert "Reason: LLM disabled; keeping original" in capsys.readouterr().out

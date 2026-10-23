@@ -1,0 +1,40 @@
+{
+  "contract": "closer-operation/v1",
+  "target_fence_key": "ae7218608ee9a6aa936e3002708501351d34c70a5c838675c39db0376e633b7a",
+  "operation_key": "78edd4b4ab6c26a807b338b262b46b11907a6dc44608ee7ea68f1960806cc884",
+  "repository": "stranske/workflows",
+  "target": {
+    "kind": "pull_request",
+    "number": 1
+  },
+  "action": "merge",
+  "head_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "base_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "criteria_fingerprint": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "review_revision": "review-rev-1",
+  "guard_versions": {
+    "authority": 2,
+    "expected_check_receipt": "v1",
+    "runtime_ac_guard": "v1"
+  },
+  "required_capabilities": [
+    "bounded_merge"
+  ],
+  "blocking_labels": [],
+  "executor": {
+    "kind": "portable_local",
+    "identity": "portable:example"
+  },
+  "lease": {
+    "epoch": 1,
+    "revision": 1,
+    "deadline": "2026-10-19T20:00:00.000Z",
+    "owner_ack": true
+  },
+  "status": "claimed",
+  "mutation_intent": null,
+  "receipts": [],
+  "denial": null,
+  "last_verification_fingerprint": null,
+  "ownership_scope": "execute"
+}

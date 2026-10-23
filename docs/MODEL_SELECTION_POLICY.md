@@ -170,6 +170,11 @@ records. Do not hand-enter aggregate rates or recommendation rankings.
 
 - Use a frozen, versioned corpus with owner-adjudicated expected outcomes.
 - Run every candidate and baseline on the same cases and prompt version.
+  The backend screen rejects a baseline before any model call unless its unique case IDs,
+  expected verdicts and per-case prompt hashes exactly match the selected case set. Rerun
+  the baseline on the same selected cases when using `--cases all` or `--cases evaluable`.
+  Do not reuse an eight-case baseline; results from a smaller set cannot establish an
+  accuracy improvement on a larger set.
 - Use at least 30 cases to retain a candidate and at least 75 cases, with 10 per
   required failure category, to approve it. Categories that cannot be labelled
   from realized downstream outcomes — `stale-verifier-claim`,
@@ -231,6 +236,15 @@ records. Do not hand-enter aggregate rates or recommendation rankings.
   selection with rollback on any false PASS and live monitoring. The false-PASS bound stays tighter
   because a false PASS costs safety and a false FAIL costs rework. Tighten both as evaluable cases
   accumulate (`bounds_note` in the policy).
+
+  **Diagnostic-only mutants (2026-10-18).** The 22 failed-CI mutants carry `diagnostic_only: true` and
+  count toward no floor: `reusable-agents-verifier.yml` already floors the verdict at CONCERNS whenever a
+  CI workflow concluded `failure`, so a model that misses a red row costs nothing in production, and the
+  mutation omits the "CI gate" paragraph the real input adds. They stay in the corpus for reporting
+  (`--include-diagnostic` runs them). That leaves 19 evaluable NON_PASS cases (16 dropped-file mutants
+  and 3 real) against a 35-case floor at the 0.10 bound; the benchmark remains a screening aid under the shadow promotion decision below.
+
+  **Shadow promotion (owner decision 2026-10-22).** The benchmark route above is superseded for verifier judges by a 7-day production shadow with criteria fixed in advance: `docs/ops/VERIFIER_SHADOW.md`, `config/verifier_shadow.json`. The benchmark and its bounds remain a screening aid.
 - Report Wilson 95% confidence intervals for task success, false PASS, false
   FAIL, and schema errors.
 - Require the configured bounds and a paired success result no more than two

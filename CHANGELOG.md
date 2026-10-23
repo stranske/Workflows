@@ -6,6 +6,33 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.44.9](https://github.com/stranske/Workflows/compare/v1.44.8...v1.44.9) (2026-10-23)
+
+
+### Bug Fixes
+
+* **verifier:** screen evaluate evidence by minimum availability ([#4203](https://github.com/stranske/Workflows/issues/4203)) ([f0fc47e](https://github.com/stranske/Workflows/commit/f0fc47eb5af6710a5fd7a69940cf6f763236053c))
+
+## [1.44.8](https://github.com/stranske/Workflows/compare/v1.44.7...v1.44.8) (2026-10-23)
+
+
+### Features
+
+* **verifier:** enable a seven-day production shadow evaluation of seven configured candidate judges in parallel on compare-mode runs, with a daily report. These additional model calls add API cost and runtime for consumers using the reusable workflow at `@main`; shadow verdicts do not change production acceptance or promote models. Disable centrally with `enabled: false` in `config/verifier_shadow.json` or per repository with `VERIFIER_SHADOW=off` ([#4195](https://github.com/stranske/Workflows/pull/4195)).
+
+### Bug Fixes
+
+* harden weekly review cleanup and report exclusions ([#4187](https://github.com/stranske/Workflows/issues/4187)) ([d6fbd99](https://github.com/stranske/Workflows/commit/d6fbd9928c729f16f55987b0b1612ddcf6efeeb4))
+* **verifier:** admit original requests for explicit evaluation ([#4199](https://github.com/stranske/Workflows/issues/4199)) ([6924f1d](https://github.com/stranske/Workflows/commit/6924f1d263cd79832404315a451448920b4421d9))
+
+## [1.44.7](https://github.com/stranske/Workflows/compare/v1.44.6...v1.44.7) (2026-10-22)
+
+
+### Bug Fixes
+
+* **verifier:** accept Anthropic and retain evaluation failures ([#4188](https://github.com/stranske/Workflows/issues/4188)) ([b7ca998](https://github.com/stranske/Workflows/commit/b7ca99883dacdd0466055ab0cb3082dd0ee9a545))
+* **verifier:** preserve inputs and isolate acceptance execution ([#4191](https://github.com/stranske/Workflows/issues/4191)) ([f3668b3](https://github.com/stranske/Workflows/commit/f3668b30212693d523dc3f1323f5341f73bfef80))
+
 ## [1.44.6](https://github.com/stranske/Workflows/compare/v1.44.5...v1.44.6) (2026-10-19)
 
 

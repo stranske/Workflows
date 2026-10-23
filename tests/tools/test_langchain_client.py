@@ -60,6 +60,37 @@ def _clear_client_environment(monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.delenv(env_name, raising=False)
 
 
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [(None, 7), ("", 7), ("12", 12), ("not-a-number", 7)],
+)
+def test_env_int_uses_default_for_missing_or_invalid_values(
+    monkeypatch: pytest.MonkeyPatch, value: str | None, expected: int
+) -> None:
+    if value is None:
+        monkeypatch.delenv("TEST_LANGCHAIN_INT", raising=False)
+    else:
+        monkeypatch.setenv("TEST_LANGCHAIN_INT", value)
+
+    assert langchain_client._env_int("TEST_LANGCHAIN_INT", 7) == expected
+
+
+def test_provider_and_model_resolution_honor_explicit_and_environment_values(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(langchain_client.ENV_PROVIDER, "anthropic")
+    monkeypatch.setenv(langchain_client.ENV_MODEL, "environment-model")
+
+    assert langchain_client._resolve_provider(None, force_openai=False) == ("anthropic", False)
+    assert langchain_client._resolve_provider("github", force_openai=False) == (
+        "github-models",
+        True,
+    )
+    assert langchain_client._resolve_provider(None, force_openai=True) == ("openai", True)
+    assert langchain_client._resolve_model(None) == "environment-model"
+    assert langchain_client._resolve_model("explicit-model") == "explicit-model"
+
+
 def test_build_chat_client_prefers_openai_slot(monkeypatch: pytest.MonkeyPatch) -> None:
     """Slot 1 (OpenAI) should be preferred when both tokens are set."""
     FakeChatOpenAI = _install_fake_langchain_openai(monkeypatch)
@@ -1235,3 +1266,46 @@ def test_gpt6_github_clients_omit_unsupported_temperature(relative, model):
 
     build(client, model=model, token="test", timeout=30, max_retries=0)
     assert "temperature" not in received
+
+
+def test_client_info_label_and_public_registry_wrappers(monkeypatch):
+    from unittest.mock import Mock
+
+    info = langchain_client.ClientInfo(client=object(), provider="github", model="gpt-test")
+    assert info.provider_label == "github/gpt-test"
+
+    monkeypatch.setattr(langchain_client, "normalize_provider", lambda value: f"normalized:{value}")
+    monkeypatch.setattr(langchain_client, "load_model_registry", lambda: ["registry"])
+    entry_for = Mock(return_value="entry")
+    is_blocked = Mock(return_value=True)
+    select_model = Mock(return_value="selected")
+    monkeypatch.setattr(langchain_client, "registry_entry_for", entry_for)
+    monkeypatch.setattr(langchain_client, "is_model_blocked", is_blocked)
+    monkeypatch.setattr(langchain_client, "select_model_for_tier", select_model)
+    registry = [object()]
+
+    assert langchain_client._normalize_provider("openai") == "normalized:openai"
+    assert langchain_client._load_model_registry() == ["registry"]
+    for supplied_registry in (None, registry):
+        assert (
+            langchain_client._registry_entry_for("github", "gpt", registry=supplied_registry)
+            == "entry"
+        )
+        entry_for.assert_called_with("github", "gpt", registry=supplied_registry)
+        assert langchain_client._is_model_blocked("github", "gpt", registry=supplied_registry)
+        is_blocked.assert_called_with("github", "gpt", registry=supplied_registry)
+        assert (
+            langchain_client._select_model_for_tier(
+                provider="github", tier="fast", registry=supplied_registry
+            )
+            == "selected"
+        )
+        select_model.assert_called_with(provider="github", tier="fast", registry=supplied_registry)
+
+
+def test_builders_return_empty_without_credentials(monkeypatch):
+    for name in ("GITHUB_TOKEN", "OPENAI_API_KEY", langchain_client.ENV_ANTHROPIC_KEY):
+        monkeypatch.delenv(name, raising=False)
+
+    assert langchain_client.build_chat_client() is None
+    assert langchain_client.build_chat_clients() == []

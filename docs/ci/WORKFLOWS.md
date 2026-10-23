@@ -113,7 +113,7 @@ without cancelling an in-flight Gate; a later synchronize can still supersede th
 Existing consumers need the updated Gate dispatch input before this wakeup works:
 the Gate template is create-only, so normal sync does not overwrite custom Gates.
 
-* [`Gate`](../../.github/workflows/pr-00-gate.yml) orchestrates the fast-path vs full CI decision, evaluates coverage artifacts, and reports commit status back to the PR.
+* [`Gate`](../../.github/workflows/pr-00-gate.yml) orchestrates the fast-path vs full CI decision, evaluates coverage artifacts, and reports commit status back to the PR. Gate listens on `pull_request` types `opened`, `synchronize`, `reopened`, and `ready_for_review` only; label-only events do not start or cancel an in-flight Gate run. Agent routing, verify, autofix, and keepalive labels therefore cannot churn the per-PR Gate concurrency group. Use `workflow_dispatch` with `pr_number` when a label-only wakeup must re-run Gate at the current head. `tests/workflows/test_gate_trigger_contract.py` locks the root and consumer-template trigger contract.
 * [`Minimal invariant CI`](../../.github/workflows/pr-11-ci-smoke.yml) supplies the lightweight Issue #3651 sweep: install once on Python 3.12 with pip caching, sanity-check imports, and run `pytest tests/test_invariants.py -q` on pushes and PRs targeting `main`.
 * [`Reusable CI (Python)`](../../.github/workflows/reusable-10-ci-python.yml) drives the primary test matrix (lint, type-check, tests, coverage) for PR builds.
     * Workflows Gate and the new-consumer Gate template select **3.13 and 3.14 in parallel**, with identical full-suite selection, identical markers, the same dependency lock, branch coverage on 3.14 only, and four pytest workers using `loadgroup`. Neither runtime selects a reduced suite. Python >=3.12 package/runtime support and explicit consumer overrides remain supported.
@@ -409,6 +409,7 @@ decisions cannot create PASS benchmark cases. Staging-only PRs do not change
 approval metrics. See `docs/MODEL_SELECTION_POLICY.md` for the evidence contract.
 
 * [`maint-88-verifier-runtime-comparison.yml`](../../.github/workflows/maint-88-verifier-runtime-comparison.yml) is a manual, finite #3904 experiment. It compares immutable baseline/candidate commits with one common dependency lock and four coverage-instrumented workers. It does not replace Gate or run on a schedule. Review and merge the harness before dispatch; see [the measurement protocol](verifier-grammar-matrices.md#controlled-hosted-comparison).
+* [`maint-89-verifier-shadow-report.yml`](../../.github/workflows/maint-89-verifier-shadow-report.yml) runs daily and on demand. It collects the shadow records candidate verifier judges write next to the production comparison (`config/verifier_shadow.json`, pre-registered criteria), merges them into a 90-day ledger artifact, applies the criteria and updates one FYI issue titled "Verifier shadow report". It never blocks anything and never promotes a model. See `docs/ops/VERIFIER_SHADOW.md`.
 
 ### Python runtime and suite ownership
 
@@ -430,7 +431,7 @@ On main pushes and Selftest manual dispatches, Selftest calls the canonical reus
 suite as well, because Gate has no push trigger. JavaScript tests, package tests,
 lint, validation, and security gates keep their existing ownership.
 
-Coverage uses the same automatic-core policy on both versions. Coverage 7.16.2
+Coverage uses the same automatic-core policy on both versions. Coverage 7.17.0
 selects CTracer on 3.13 and SysMonitor on 3.14; the execution-context log records
 the selected branch-capable core, version, CPU count/affinity, and worker request.
 Hosted pytest startup must also confirm four actual workers and overlapping matrix

@@ -1,5 +1,8 @@
+import json
+import sys
 from pathlib import Path
 
+from scripts import workflow_pr_context_audit
 from scripts.workflow_pr_context_audit import (
     TriggerSummary,
     WorkflowAudit,
@@ -230,6 +233,43 @@ def test_load_workflow_returns_none_for_non_mapping_yaml(tmp_path: Path) -> None
     workflow.write_text("- name: Not a workflow mapping\n", encoding="utf-8")
 
     assert load_workflow(workflow) is None
+
+
+def test_load_workflow_returns_none_on_oserror(tmp_path: Path, monkeypatch) -> None:
+    workflow = tmp_path / "blocked.yml"
+    workflow.write_text("name: Blocked\non: push\n", encoding="utf-8")
+
+    def boom(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+        raise OSError("permission denied")
+
+    monkeypatch.setattr(Path, "read_text", boom)
+    assert load_workflow(workflow) is None
+
+
+def test_main_default_format_renders_table(tmp_path: Path, monkeypatch, capsys) -> None:
+    workflows_dir = tmp_path / "workflows"
+    workflows_dir.mkdir()
+    _write(
+        workflows_dir / "simple.yml",
+        """
+name: Simple
+on: push
+jobs:
+  noop:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo hi
+""",
+    )
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["tool", "--workflows-dir", str(workflows_dir)],
+    )
+    assert workflow_pr_context_audit.main() == 0
+    out = capsys.readouterr().out
+    assert "simple.yml" in out
+    assert "push" in out
 
 
 def test_audit_workflows_reads_legacy_true_on_field(tmp_path: Path) -> None:
@@ -576,3 +616,41 @@ jobs:
     dispatch_group = by_triggers[("workflow_dispatch",)]
     assert dispatch_group.workflows == (str(workflows_dir / "gamma.yml"),)
     assert dispatch_group.pr_context_markers == ("context.payload.issue.number",)
+
+
+def test_main_renders_json_summary_and_filters_results(tmp_path: Path, monkeypatch, capsys) -> None:
+    workflows = tmp_path / "workflows"
+    workflows.mkdir()
+    _write(workflows / "pr.yml", "on: pull_request\njobs: {}\n# github.event.pull_request\n")
+    _write(workflows / "plain.yml", "on: push\njobs: {}\n")
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["tool", "--workflows-dir", str(workflows), "--only-pr-context", "--format", "json"],
+    )
+    assert workflow_pr_context_audit.main() == 0
+    assert json.loads(capsys.readouterr().out) == [
+        {
+            "path": str(workflows / "pr.yml"),
+            "triggers": ["pull_request"],
+            "pr_context_markers": ["github.event.pull_request"],
+            "valid": True,
+            "error": None,
+        }
+    ]
+    monkeypatch.setattr(
+        sys, "argv", ["tool", "--workflows-dir", str(workflows), "--format", "summary"]
+    )
+    assert workflow_pr_context_audit.main() == 0
+    assert json.loads(capsys.readouterr().out) == [
+        {
+            "triggers": ["pull_request"],
+            "workflows": [str(workflows / "pr.yml")],
+            "pr_context_markers": ["github.event.pull_request"],
+        },
+        {
+            "triggers": ["push"],
+            "workflows": [str(workflows / "plain.yml")],
+            "pr_context_markers": [],
+        },
+    ]

@@ -366,6 +366,17 @@ def fixture_transport(changed_head=False, forged=False):
 
     def transport(endpoint):
         calls.append(endpoint)
+        if endpoint.startswith("repos/") and len(endpoint.split("/")) == 3:
+            repository = endpoint.removeprefix("repos/")
+            return [
+                {
+                    "full_name": (
+                        "stranske/Workflows"
+                        if repository.lower() == "stranske/workflows"
+                        else repository
+                    )
+                }
+            ]
         if endpoint.endswith("/pulls/1"):
             count = calls.count(endpoint)
             return [
@@ -2596,3 +2607,29 @@ def test_fork_publisher_hashes_match_immutable_audited_source():
         hashlib.sha256((root / reporter.FORK_HELPER_PATH).read_bytes()).hexdigest()
         == reporter.FORK_HELPER_SHA256
     )
+
+
+def test_native_mode_binds_required_gate_publisher_identity(monkeypatch):
+    from types import SimpleNamespace
+
+    packet = actions_status_packet()
+    transport = status_collection_transport(packet)
+    calls = []
+
+    def native(command, **kwargs):
+        assert command[:6] == ["gh", "api", "--method", "GET", "--paginate", "--slurp"]
+        calls.append(command[-1])
+        return SimpleNamespace(returncode=0, stdout=json.dumps(transport(command[-1])), stderr="")
+
+    monkeypatch.setattr(reporter.subprocess, "run", native)
+    result = reporter.collect(
+        reporter.Evidence(reporter.native_gh_pages),
+        packet["repo"],
+        1,
+        HEAD,
+        "pull_request_target",
+        "synchronize",
+    )
+    assert result["verdict"] == "PASS", result["unknown"]
+    assert result["expected_names"] == ["Gate / gate"]
+    assert {"apps/github-actions", "users/github-actions[bot]"}.issubset(calls)

@@ -341,6 +341,52 @@ def test_detect_repo_slug_returns_none_for_unknown_origin(tmp_path: Path, monkey
     assert fix_agent.detect_repo_slug(tmp_path) is None
 
 
+def test_repo_detection_falls_back_when_git_is_unavailable(tmp_path: Path, monkeypatch) -> None:
+    def unavailable(*args, **kwargs):
+        raise OSError("no git")
+
+    monkeypatch.setattr(fix_agent.subprocess, "run", unavailable)
+    assert fix_agent.detect_repo_root(tmp_path) == tmp_path.resolve()
+    assert fix_agent.detect_repo_slug(tmp_path) is None
+
+
+def test_config_and_scan_helpers_reject_bad_shapes_and_use_defaults(tmp_path: Path) -> None:
+    root = tmp_path / "repo"
+    root.mkdir()
+    _write(root / "README.md", "ok\n")
+    assert fix_agent.default_docs_from_config(root) == []
+    _write(root / fix_agent.DEFAULT_DOCS_CONFIG, "repos: []\n")
+    assert fix_agent.detect_configured_repo(root) is None
+    with pytest.raises(ValueError, match="repos.*mapping"):
+        fix_agent.default_docs_from_config(root)
+    bad = root / "bad.json"
+    bad.write_text("[]", encoding="utf-8")
+    with pytest.raises(ValueError, match="top-level mapping"):
+        fix_agent.load_scan_json(bad)
+    assert fix_agent.load_scan_json(None) == {"by_repo": []}
+
+
+def test_plan_output_writer_and_batch_limit_are_executable(tmp_path: Path) -> None:
+    finding = fix_agent.Finding(
+        "deterministic", "dangling_reference", "README.md", "missing", "detail"
+    )
+    with pytest.raises(ValueError, match="positive"):
+        fix_agent.batch_findings([finding], max_per_batch=0)
+    plan = {
+        "batches": [
+            {
+                "batch_id": "docs-drift-01",
+                "repair_prompt": "prompt",
+                "issue_body": "issue",
+                "pr_plan": "pr",
+            }
+        ]
+    }
+    fix_agent.write_plan_outputs(plan, tmp_path / "plans")
+    assert (tmp_path / "plans" / "plan.json").is_file()
+    assert (tmp_path / "plans" / "docs-drift-01-pr-plan.md").read_text(encoding="utf-8") == "pr"
+
+
 def test_detect_configured_repo_uses_checkout_name_when_origin_is_unavailable(
     tmp_path: Path,
 ) -> None:
@@ -1115,3 +1161,257 @@ def test_default_docs_from_config_rejects_invalid_mapping_shapes(
 
     with pytest.raises(ValueError, match=message):
         fix_agent.default_docs_from_config(root)
+
+
+def test_default_docs_from_config_accepts_null_maps_and_skips_bad_items(tmp_path: Path) -> None:
+    root = tmp_path / "repo"
+    _write(root / "AGENTS.md", "# agents\n")
+    _write(
+        root / fix_agent.DEFAULT_DOCS_CONFIG,
+        """
+repos: null
+consumer:
+  docs:
+    - not-a-mapping
+    - path: AGENTS.md
+      case_insensitive: true
+""",
+    )
+    assert fix_agent.default_docs_from_config(root, repo="stranske/missing") == ["AGENTS.md"]
+
+    _write(
+        root / fix_agent.DEFAULT_DOCS_CONFIG,
+        """
+repos:
+  stranske/Workflows: null
+consumer: null
+""",
+    )
+    # No configured docs and no default docs present in this temp root.
+    assert fix_agent.default_docs_from_config(root) == []
+
+    _write(
+        root / fix_agent.DEFAULT_DOCS_CONFIG,
+        "repos: {}\nconsumer: []\n",
+    )
+    with pytest.raises(ValueError, match="'consumer' must be a mapping"):
+        fix_agent.default_docs_from_config(root)
+
+
+def test_findings_helpers_and_scan_json_load_cover_skip_paths(tmp_path: Path) -> None:
+    assert fix_agent._doc_from_detail("no marker here") == "docs/ci/WORKFLOWS.md"
+    assert fix_agent.findings_from_deterministic_report(
+        {"drift": [None, {"type": "x", "path": "p", "detail": ""}]}
+    ) == [
+        fix_agent.Finding(
+            source="deterministic",
+            kind="x",
+            doc_path="docs/ci/WORKFLOWS.md",
+            target="p",
+            detail="",
+            classification="x",
+            authoritative_source="p",
+        )
+    ]
+    assert (
+        fix_agent.findings_from_scan_json(
+            {
+                "by_repo": [
+                    {"repo": "other/repo", "drift_instances": [{"classification": "stale"}]},
+                    {
+                        "repo": "stranske/Workflows",
+                        "drift_instances": [None, {"classification": "accurate-no-drift"}],
+                    },
+                ]
+            },
+            repo="stranske/Workflows",
+        )
+        == []
+    )
+    finding = fix_agent.Finding(
+        source="deterministic",
+        kind="k",
+        doc_path="README.md",
+        target="t",
+        detail="d",
+        classification="k",
+        authoritative_source="t",
+    )
+    assert fix_agent.dedupe_findings([finding, finding]) == [finding]
+
+    scan = tmp_path / "scan.json"
+    scan.write_text('{"by_repo":[]}', encoding="utf-8")
+    assert fix_agent.load_scan_json(scan) == {"by_repo": []}
+
+
+def test_legacy_markers_and_apply_issue_failure_paths(monkeypatch, tmp_path: Path) -> None:
+    finding = {
+        "source": "deterministic",
+        "kind": "dangling_reference",
+        "doc_path": "docs/ci/WORKFLOWS.md",
+        "target": ".github/workflows/missing.yml",
+        "detail": "Referenced in docs/ci/WORKFLOWS.md",
+        "classification": "dangling_reference",
+        "authoritative_source": ".github/workflows/missing.yml",
+    }
+    plan = {
+        "repo": "stranske/Workflows",
+        "max_per_batch": "bad",
+        "docs": ["docs/ci/WORKFLOWS.md"],
+        "findings": [finding],
+        "batches": [{"batch_id": "docs-drift-01", "findings": [finding]}],
+    }
+    markers = fix_agent._legacy_markers_by_finding(plan)
+    assert len(markers) == 1
+
+    plan["max_per_batch"] = -1
+    markers_zero = fix_agent._legacy_markers_by_finding(plan)
+    assert markers_zero == markers
+    default_plan = {**plan}
+    default_plan.pop("max_per_batch")
+    assert fix_agent._legacy_markers_by_finding(default_plan) == markers
+
+    # Multiple batches make the fallback size observable in marker digests.
+    batch_findings = [
+        {**finding, "target": f".github/workflows/missing-{index}.yml"}
+        for index in range(fix_agent.DEFAULT_MAX_PER_BATCH + 1)
+    ]
+    default_plan["findings"] = batch_findings
+    expected = fix_agent._legacy_markers_by_finding(default_plan)
+    assert len(set(expected.values())) == 2
+    for invalid in ("bad", -1):
+        assert (
+            fix_agent._legacy_markers_by_finding({**default_plan, "max_per_batch": invalid})
+            == expected
+        )
+
+    class FailList:
+        returncode = 1
+        stdout = ""
+        stderr = "list failed"
+
+    monkeypatch.setattr(fix_agent.subprocess, "run", lambda *args, **kwargs: FailList())
+    with pytest.raises(RuntimeError, match="gh issue list failed"):
+        fix_agent.apply_issues(
+            {
+                "repo": "stranske/Workflows",
+                "batches": [
+                    {
+                        "batch_id": "docs-drift-01",
+                        "issue_title": "[Docs Drift] Repair docs-drift-01",
+                        "issue_body": "body\n",
+                        "findings": [finding],
+                    }
+                ],
+            }
+        )
+
+    class BadPayload:
+        returncode = 0
+        stdout = "{}"
+        stderr = ""
+
+    monkeypatch.setattr(fix_agent.subprocess, "run", lambda *args, **kwargs: BadPayload())
+    with pytest.raises(ValueError, match="non-list"):
+        fix_agent.apply_issues(
+            {
+                "repo": "stranske/Workflows",
+                "batches": [
+                    {
+                        "batch_id": "docs-drift-01",
+                        "issue_title": "[Docs Drift] Repair docs-drift-01",
+                        "issue_body": "body\n",
+                        "findings": [finding],
+                    }
+                ],
+            }
+        )
+
+    create_calls: list[list[str]] = []
+
+    class CreateFail:
+        returncode = 1
+        stdout = ""
+        stderr = "create failed"
+
+        def __init__(self, args):  # noqa: ANN001
+            self.args = args
+
+    def fake_run(args, **kwargs):  # noqa: ANN001
+        create_calls.append(list(args))
+        if args[1] == "issue" and args[2] == "list":
+            return type("Ok", (), {"returncode": 0, "stdout": "[]", "stderr": ""})()
+        return type("Fail", (), {"returncode": 1, "stdout": "", "stderr": "create failed"})()
+
+    monkeypatch.setattr(fix_agent.subprocess, "run", fake_run)
+    with pytest.raises(RuntimeError, match="gh issue create failed"):
+        fix_agent.apply_issues(
+            {
+                "repo": "stranske/Workflows",
+                "batches": [
+                    {
+                        "batch_id": "docs-drift-01",
+                        "issue_title": "[Docs Drift] Repair docs-drift-01",
+                        "issue_body": "legacy body\n",
+                        "findings": [],
+                    }
+                ],
+            }
+        )
+    assert any(call[2] == "create" for call in create_calls)
+
+
+def test_main_validation_and_json_output(tmp_path: Path, monkeypatch, capsys) -> None:
+    missing = tmp_path / "missing-root"
+    assert fix_agent.main(["--repo-root", str(missing), "--repo", "stranske/Workflows"]) == 2
+    assert f"error: repo root not found: {missing}" in capsys.readouterr().err
+
+    root = tmp_path / "repo"
+    root.mkdir()
+    missing_scan = tmp_path / "no-scan.json"
+    assert (
+        fix_agent.main(
+            [
+                "--repo-root",
+                str(root),
+                "--repo",
+                "stranske/Workflows",
+                "--scan-json",
+                str(missing_scan),
+                "--docs",
+                "README.md",
+            ]
+        )
+        == 2
+    )
+
+    assert f"error: scan json not found: {missing_scan}" in capsys.readouterr().err
+
+    _write(root / "README.md", "# ok\n")
+    monkeypatch.setattr(
+        fix_agent,
+        "build_plan",
+        lambda **kwargs: {
+            "repo": "stranske/Workflows",
+            "finding_count": 0,
+            "batch_count": 0,
+            "findings": [],
+            "batches": [],
+            "docs": ["README.md"],
+        },
+    )
+    assert (
+        fix_agent.main(
+            [
+                "--repo-root",
+                str(root),
+                "--repo",
+                "stranske/Workflows",
+                "--docs",
+                "README.md",
+                "--json",
+            ]
+        )
+        == 0
+    )
+    assert '"finding_count": 0' in capsys.readouterr().out

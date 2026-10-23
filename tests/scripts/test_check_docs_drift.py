@@ -2,8 +2,10 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from pathlib import Path
+from subprocess import CompletedProcess, TimeoutExpired
 
 import pytest
+from scripts import check_docs_drift as docs_drift
 from scripts.check_docs_drift import (
     _is_repo_path_token,
     _is_root_workflow_path,
@@ -14,6 +16,81 @@ from scripts.check_docs_drift import (
     format_human_report,
     main,
 )
+
+
+@pytest.mark.parametrize("error", [OSError("git unavailable"), TimeoutExpired("git", 5)])
+def test_missing_reference_still_reported_when_git_ignore_check_fails(
+    tmp_path: Path, monkeypatch, error: Exception
+) -> None:
+    _write(tmp_path / "docs/guide.md", "Read `scripts/missing.py`.\n")
+    calls = []
+
+    def unavailable(command, **kwargs):
+        calls.append((command, kwargs))
+        raise error
+
+    monkeypatch.setattr(docs_drift.subprocess, "run", unavailable)
+
+    assert check_dangling_references(tmp_path, [tmp_path / "docs/guide.md"]) == [
+        {
+            "type": "dangling_reference",
+            "path": "scripts/missing.py",
+            "detail": "Referenced in docs/guide.md",
+        }
+    ]
+    assert calls[0][0] == [
+        "git",
+        "-C",
+        str(tmp_path),
+        "check-ignore",
+        "--quiet",
+        "--",
+        "scripts/missing.py",
+    ]
+    assert calls[0][1]["timeout"] == 5
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "## Source Of Truth\n1. stranske/Workflows\n   See upstream guidance\n   `docs/upstream.md`\n2. `docs/local.md`",
+        "# Guidance\n\n## Source Of Truth\n1. stranske/Workflows\n   `docs/upstream.md`\n\n`docs/local.md`",
+        "## Source Of Truth\n1. stranske/Workflows\n   `docs/upstream.md`\n## Local Notes\n`docs/local.md`",
+    ],
+)
+def test_upstream_qualification_stops_at_list_blank_and_section_boundaries(
+    tmp_path: Path, text: str
+) -> None:
+    _write(tmp_path / "AGENTS.md", text)
+
+    assert [record["path"] for record in check_dangling_references(tmp_path, ["AGENTS.md"])] == [
+        "docs/local.md"
+    ]
+
+
+def test_cli_detects_git_root_and_prints_human_report(tmp_path: Path, monkeypatch, capsys) -> None:
+    _write(tmp_path / "docs/guide.md", "No dangling paths.\n")
+    calls = []
+
+    def git_root(command, **kwargs):
+        calls.append(command)
+        return CompletedProcess(command, 0, f" {tmp_path}\n")
+
+    monkeypatch.setattr(docs_drift.subprocess, "run", git_root)
+
+    assert main(["--docs", "docs/guide.md"]) == 0
+    assert capsys.readouterr().out == "Docs drift: 0\n"
+    assert calls == [["git", "rev-parse", "--show-toplevel"]]
+
+
+def test_cli_reports_invalid_document_encoding(tmp_path: Path, capsys) -> None:
+    (tmp_path / "guide.md").write_bytes(b"\xff")
+
+    assert main(["--repo-root", str(tmp_path), "--docs", "guide.md"]) == 2
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert "error:" in captured.err
+    assert "decode" in captured.err
 
 
 def _write(path: Path, content: str = "") -> None:
@@ -60,6 +137,25 @@ def test_cli_rejects_missing_explicit_document(tmp_path: Path, capsys) -> None:
 
     assert exit_code == 2
     assert "requested docs not found: docs/missing.md" in capsys.readouterr().err
+
+
+def test_detect_repo_root_falls_back_when_git_is_unavailable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def no_git(*_args, **_kwargs):
+        raise OSError("git unavailable")
+
+    monkeypatch.setattr(docs_drift.subprocess, "run", no_git)
+
+    assert docs_drift.detect_repo_root() == Path(docs_drift.__file__).resolve().parent.parent
+
+
+def test_cli_rejects_non_directory_repo_root(tmp_path: Path, capsys) -> None:
+    file_root = tmp_path / "not-a-directory"
+    file_root.write_text("x", encoding="utf-8")
+
+    assert main(["--repo-root", str(file_root)]) == 2
+    assert "repo root not found" in capsys.readouterr().err
 
 
 def test_mentioned_workflow_filenames_counts_bare_backtick_references() -> None:

@@ -1,7 +1,8 @@
 # Expected-check receipts for delivery lanes
 
 `scripts/check_checks_reported.py` is the Workflows-owned, read-only adapter for
-the existing Orchestrator `scripts/check_checks_reported.py`. The adapter loads
+event-specific expected-check topology. In incumbent mode it extends the existing
+Orchestrator `scripts/check_checks_reported.py`. That mode loads
 that tracked reporter's `_gh_json` transport, which enumerates every GitHub REST
 page. It records the incumbent file's SHA-256 before importing it or collecting
 evidence, so import/API failures retain that source identity in UNKNOWN receipts.
@@ -23,10 +24,14 @@ bindings remain mandatory. A failed, stale or incomplete publisher stays UNKNOWN
 The [Orchestrator reporter](https://github.com/stranske/Orchestrator/blob/main/scripts/check_checks_reported.py)
 owns historical frequency/ratchet reporting and the paginated `_gh_json` transport.
 The Workflows adapter owns event-specific topology, exact-head evidence and receipt
-adjudication for an explicitly named repository. It calls only that transport;
-it does not invoke the incumbent CLI, its Orchestrator-only `REPO` default, or its
-ratchet updates. Pass the trusted tracked reporter from an Orchestrator checkout
-with `--presence-reporter`; do not create another transport or historical algorithm.
+adjudication for an explicitly named repository. Incumbent mode calls its
+paginated transport without invoking the incumbent CLI, Orchestrator-only `REPO`
+default, or ratchet updates. Pass the trusted tracked reporter with
+`--presence-reporter`. Alternatively, `--transport native-gh` uses the
+Workflows-owned read-only `gh api --paginate --slurp` transport, without any
+Orchestrator import. It retains the same collect/adjudication and request-evidence
+contract, records its own source digest, and never copies the historical algorithm.
+Do not combine native mode with `--presence-reporter`.
 
 The [opener's source lookup](https://github.com/stranske/Workflows/issues/3757#issuecomment-5989178591)
 establishes this incumbent and routes implementation to Reviewed Repo Backlog
@@ -83,6 +88,11 @@ Use the same command with `--repo stranske/Workflows --pr 3756` and its current
 head to refresh the issue's other named consumer. Changed heads
 must not reuse older receipts. The historically observed heads in issue #3757
 are evidence pointers, not current-head assertions.
+
+For an independent Core invocation, replace `--presence-reporter ...` with
+`--transport native-gh`. Both modes bind the same explicit event/action and
+full-head context. Native transport failures also produce UNKNOWN receipts;
+there is no automatic fallback between permission channels.
 
 ## Receipt and verdict
 

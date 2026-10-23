@@ -78,6 +78,14 @@ def test_read_ndjson_file_rejects_legacy_scalar_and_bounded_fallback(tmp_path: P
     assert errors[-1].endswith("legacy-json-fallback-buffer-limit")
 
 
+def test_read_ndjson_file_ignores_blank_lines_and_keeps_invalid_legacy_text(tmp_path: Path) -> None:
+    path = tmp_path / "not-legacy.ndjson"
+    path.write_text("\n  \nnot-json\n", encoding="utf-8")
+    entries, errors = ndjson_parser.read_ndjson_file(path)
+    assert entries == []
+    assert len(errors) == 1
+
+
 @pytest.mark.parametrize("prefix_count", [1, 3])
 @pytest.mark.parametrize("invalid", ["not-json", "[]", "42"])
 def test_read_ndjson_keeps_valid_prefix_before_malformed_line(

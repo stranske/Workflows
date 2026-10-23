@@ -39,6 +39,21 @@ on:
         required: false
         type: string
         default: ''
+      verification_event:
+        description: 'Expected verification-event/v1 JSON; collector must reproduce it'
+        required: false
+        type: string
+        default: ''
+      verification_material:
+        description: 'JSON selectors for necessary retained comments/artifact members'
+        required: false
+        type: string
+        default: ''
+      verification_predecessor:
+        description: 'Authenticated prior verification event identity (causal context)'
+        required: false
+        type: string
+        default: ''
       evidence_profile:
         description: 'Input coverage profile: standard or bounded expanded recovery'
         required: false
@@ -59,6 +74,9 @@ on:
       pr_number:
         description: 'Trusted verifier pr_number for caller-owned source closure'
         value: ${{ jobs.verifier.outputs.pr_number }}
+      event_complete:
+        description: 'An authenticated production event terminal was posted'
+        value: ${{ jobs.verifier.outputs.event_complete }}
       should_run:
         description: 'Trusted verifier should_run for caller-owned source closure'
         value: ${{ jobs.verifier.outputs.should_run }}
@@ -97,7 +115,7 @@ concurrency:
         inputs.pr_number || github.event.pull_request.number || github.ref
       )
     }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   verifier:
@@ -112,9 +130,16 @@ jobs:
     env:
       VERIFIER_CAPACITY_REPORT_PATH: verifier-capacity-checks.jsonl
       VERIFIER_EVIDENCE_PROFILE: ${{ inputs.evidence_profile }}
+      VERIFIER_PROVIDER: ${{ inputs.provider }}
+      VERIFIER_MODEL: ${{ inputs.model }}
+      VERIFIER_MODEL2: ${{ inputs.model2 }}
+      VERIFICATION_EVENT: ${{ inputs.verification_event }}
+      VERIFICATION_MATERIAL: ${{ inputs.verification_material }}
+      VERIFICATION_PREDECESSOR: ${{ inputs.verification_predecessor }}
       VERIFIER_SEMANTIC_MODE: ${{ inputs.evidence_profile == 'expanded' && inputs.mode == 'compare' && '1' || '0' }}
     outputs:
       verdict: ${{ steps.unified_verdict.outputs.verdict }}
+      event_complete: ${{ steps.event_terminal.outputs.complete }}
       target_sha: ${{ steps.context.outputs.target_sha }}
       pr_number: ${{ steps.context.outputs.pr_number }}
       should_run: ${{ steps.context.outputs.should_run }}
@@ -422,6 +447,7 @@ jobs:
         env:
           CI_WORKFLOWS: ${{ inputs.ci_workflows }}
           VERIFIER_PR_NUMBER: ${{ inputs.pr_number }}
+          VERIFIER_MODE: ${{ inputs.mode }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -430,7 +456,7 @@ jobs:
             const { buildVerifierContext } = require(verifierContextPath);
             const ciWorkflows = process.env.CI_WORKFLOWS || '[]';
             try {
-              await buildVerifierContext({ github, context, core, ciWorkflows });
+              await buildVerifierContext({ github, context, core, ciWorkflows, mode: process.env.VERIFIER_MODE });
             } catch (err) {
               if (err.message && err.message.includes('rate limit')) {
                 core.warning(`Rate limited while building context: ${err.message}`);
@@ -440,6 +466,26 @@ jobs:
                 throw err;
               }
             }
+
+      - name: Record verification event pending
+        id: event_pending
+        if: steps.context.outputs.should_run == 'true' && steps.context.outputs.verification_event != ''
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const fs = require('fs');
+            const { createTokenAwareRetry } = require('./.workflows-lib/.github/scripts/github-api-with-retry.js');
+            const { withRetry } = await createTokenAwareRetry({ github, core, env: {}, task: 'verifier-event-state' });
+            const manifest = JSON.parse(fs.readFileSync('verification-event-manifest.json', 'utf8'));
+            const event = manifest.verification_event;
+            const state = { schema: 'verifier-event-state/v1', repo: event.repo, pr: event.pr,
+              head_sha: event.head_sha, evaluated_sha: event.evaluated_sha,
+              run_id: String(context.runId), run_attempt: String(process.env.GITHUB_RUN_ATTEMPT),
+              status: 'pending', verification_event: event, assessment_identity: manifest.assessment_identity,
+              execution_binding: manifest.execution_binding,
+              ...(manifest.predecessor_event_id ? { predecessor_event_id: manifest.predecessor_event_id } : {}) };
+            await withRetry(() => github.rest.issues.createComment({ ...context.repo, issue_number: Number(event.pr),
+              body: `<!-- verifier-event-state/v1 ${JSON.stringify(state)} -->` }));
 
       - name: Prepare source closure plans
         if: steps.context.outputs.should_run == 'true'
@@ -504,13 +550,15 @@ jobs:
           retention-days: 14
 
       - name: Record verifier input identity for model evaluation
-        if: steps.context.outputs.should_run == 'true' && inputs.mode == 'compare'
+        if: steps.context.outputs.should_run == 'true' && (inputs.mode == 'compare' || inputs.mode == 'evaluate')
         env:
           VERIFIER_TARGET_SHA: ${{ steps.context.outputs.target_sha }}
           VERIFIER_CHAIN_DEPTH: ${{ steps.context.outputs.chain_depth }}
           VERIFIER_PR_NUMBER: ${{ steps.context.outputs.pr_number }}
           VERIFIER_CI_WORKFLOWS: ${{ inputs.ci_workflows }}
           VERIFIER_EVIDENCE_PROFILE: ${{ inputs.evidence_profile }}
+          VERIFIER_MODE: ${{ inputs.mode }}
+          VERIFIER_PROVIDER: ${{ inputs.provider }}
         run: |
           python3 - <<'PY'
           import hashlib
@@ -531,6 +579,8 @@ jobs:
           manifest = {
               'schema': 'workflows-verifier-input-snapshot/v1',
               'capture_kind': 'production',
+              'mode': os.environ['VERIFIER_MODE'],
+              'provider_requested': os.environ['VERIFIER_PROVIDER'],
               'repository': os.environ['GITHUB_REPOSITORY'],
               'pr': int(os.environ['VERIFIER_PR_NUMBER']),
               'merge_sha': os.environ['VERIFIER_TARGET_SHA'],
@@ -629,7 +679,7 @@ jobs:
             core.setOutput('from_label', `from:${normalized}`);
 
       - name: Stop when verifier is skipped
-        if: steps.context.outputs.should_run != 'true'
+        if: steps.context.outputs.should_run != 'true' && steps.context.outputs.verification_event_duplicate != 'true'
         env:
           SKIP_REASON: ${{ steps.context.outputs.skip_reason || 'no reason provided' }}
           PR_NUMBER: ${{ steps.context.outputs.pr_number }}
@@ -1082,9 +1132,132 @@ jobs:
           args+=(--issue-label verify:evaluate)
 
           # Run evaluator (stderr to separate file to avoid corrupting JSON)
+          evaluation_exit=0
           python .workflows-lib/scripts/langchain/pr_verifier.py "${args[@]}" \
-            > evaluation.json 2> evaluation-stderr.log || true
+            > evaluation-raw.json 2> evaluation-raw-stderr.log || evaluation_exit=$?
+          export EVALUATION_EXIT_CODE="$evaluation_exit"
 
+          # Keep launch/transport failures distinct from an actual model decision.
+          # This stdlib receipt still runs if evaluator imports or argument parsing fail.
+          python3 - <<'PYRECEIPT' > evaluation-transport-outputs.env
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          secret_names = ('GITHUB_TOKEN', 'GH_TOKEN', 'OPENAI_API_KEY',
+                          'CLAUDE_API_STRANSKE', 'ANTHROPIC_API_KEY', 'LANGSMITH_API_KEY',
+                          'LANGCHAIN_API_KEY', 'WORKFLOWS_APP_PRIVATE_KEY')
+          secrets = sorted({spelling.encode() for name in secret_names
+                            if len(os.environ.get(name, '')) >= 8
+                            for spelling in (os.environ[name], json.dumps(os.environ[name])[1:-1])},
+                           key=len, reverse=True)
+          overlap = max((len(secret) for secret in secrets), default=0)
+          refs = {}
+          for name, source, limit, keep_tail in (
+              ('evaluation.json', 'evaluation-raw.json', 8 * 1024 * 1024, False),
+              ('evaluation-stderr.log', 'evaluation-raw-stderr.log', 1024 * 1024, True),
+          ):
+              path = Path(name)
+              prefix, tail, count = b'', b'', 0
+              digest = hashlib.sha256()
+              error = None
+              try:
+                  with Path(source).open('rb') as handle:
+                      while chunk := handle.read(64 * 1024):
+                          digest.update(chunk)
+                          count += len(chunk)
+                          if len(prefix) < limit + overlap:
+                              prefix += chunk[:limit + overlap - len(prefix)]
+                          if keep_tail:
+                              tail = (tail + chunk)[-(limit // 2 + overlap):]
+              except OSError as exc:
+                  error = type(exc).__name__
+              truncated = count > limit
+              def redact(raw):
+                  for secret in secrets:
+                      # Preserve overlap positions until prefix/tail slicing is complete.
+                      raw = raw.replace(secret, b'*' * len(secret))
+                  return raw
+              sanitized = redact(prefix)
+              if truncated and keep_tail:
+                  marker = b'\n[diagnostic truncated]\n'
+                  prefix_limit = (limit - len(marker)) // 2
+                  tail_limit = limit - len(marker) - prefix_limit
+                  sanitized = sanitized[:prefix_limit] + marker + redact(tail)[-tail_limit:]
+              else:
+                  sanitized = sanitized[:limit]
+              text = sanitized.decode('utf-8', errors='replace')
+              raw = text.encode()
+              try:
+                  path.write_bytes(raw)
+              except OSError as exc:
+                  error = type(exc).__name__
+              refs[name] = {'sha256': hashlib.sha256(raw).hexdigest(), 'bytes': len(raw),
+                            'original_bytes': count, 'original_sha256': digest.hexdigest(),
+                            'original_complete': error is None, 'truncated': truncated,
+                            'redacted': any(secret in prefix or secret in tail for secret in secrets),
+                            'retention_error_type': error}
+              # Raw streams are never uploaded or printed, including on retention failure.
+              try:
+                  Path(source).unlink(missing_ok=True)
+              except OSError:
+                  pass
+          code = int(os.environ['EVALUATION_EXIT_CODE'])
+          data = None
+          validation_error_type = None
+          status = 'process_failed' if code else 'invalid_output'
+          if any(ref['retention_error_type'] for ref in refs.values()):
+              status = 'retention_failed'
+          elif refs['evaluation.json']['truncated']:
+              status = 'output_truncated'
+          elif code == 0:
+              try:
+                  from scripts.langchain.pr_verifier import EvaluationResult
+                  data = EvaluationResult.model_validate(
+                      json.loads(Path('evaluation.json').read_text(encoding='utf-8')), strict=True
+                  ).model_dump()
+                  status = ('completed' if data['used_llm'] and not data.get('error')
+                            and data['verdict'] in ('PASS', 'CONCERNS', 'FAIL')
+                            else 'result_unavailable')
+              except Exception as exc:
+                  validation_error_type = type(exc).__name__
+          identity_path = Path('verifier-input-manifest.json')
+          identity_ref = None
+          if identity_path.is_file():
+              raw = identity_path.read_bytes()
+              identity_ref = {'path': str(identity_path), 'sha256': hashlib.sha256(raw).hexdigest()}
+          receipt = {'schema': 'workflows-verifier-evaluation-execution/v1',
+                     'mode': 'evaluate', 'acceptance_authority': False,
+                     'status': status, 'exit_code': code, 'decision_available': status == 'completed',
+                     'validation_error_type': validation_error_type,
+                     'recoverable': status != 'completed', 'model_execution': 'unconfirmed',
+                     'remote_effects': 'unconfirmed', 'retry_authority': False,
+                     'repository': os.environ.get('GITHUB_REPOSITORY'),
+                     'source_run_id': os.environ.get('GITHUB_RUN_ID'),
+                     'source_run_attempt': os.environ.get('GITHUB_RUN_ATTEMPT'),
+                     'provider_requested': os.environ.get('VERIFIER_PROVIDER'),
+                     'model_requested': os.environ.get('VERIFIER_MODEL'),
+                     'input_manifest': identity_ref, 'outputs': refs}
+          Path('evaluation-execution.json').write_text(json.dumps(receipt, indent=2) + '\n')
+          print('execution_status=' + status)
+          print('verdict=' + (data['verdict'] if status == 'completed' else 'UNVERIFIABLE_INPUT'))
+          PYRECEIPT
+          cat evaluation-transport-outputs.env >> "$GITHUB_OUTPUT"
+          evaluation_status="$(grep '^execution_status=' evaluation-transport-outputs.env | cut -d= -f2-)"
+          if [ -s evaluation-stderr.log ]; then
+            echo '::group::Evaluation stderr (secret values redacted)'
+            cat evaluation-stderr.log
+            echo '::endgroup::'
+          fi
+          if [ "$evaluation_status" != 'completed' ]; then
+            printf '%s\n' '## LLM Evaluation Report' '' '**Verdict:** UNVERIFIABLE_INPUT' '' \
+              "Evaluator execution status: $evaluation_status (exit $evaluation_exit)." \
+              'No usable evaluation decision was returned. Provider execution is not established by this receipt.' \
+              'Retained evaluation-execution.json and redacted stdout/stderr identify the recoverable failure.' \
+              > evaluation-comment.md
+            cat evaluation-comment.md
+          else
           # Parse result
           if [ -f evaluation.json ]; then
           python3 - <<'PY' > evaluation-outputs.env 2>/dev/null || true
@@ -1189,6 +1362,8 @@ jobs:
               > evaluation-comment.md
           fi
 
+          fi
+
       - name: Apply CI failure hard gate to LLM evaluation comment
         if: >-
           ${{
@@ -1234,6 +1409,7 @@ jobs:
           PY
 
       - name: Post LLM evaluation comment
+        id: post_evaluation
         if: >-
           ${{
             steps.context.outputs.should_run == 'true' &&
@@ -1242,12 +1418,19 @@ jobs:
           }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ steps.context.outputs.pr_number }}
+          PR_HEAD_SHA: ${{ steps.context.outputs.pr_head_sha }}
+          EVALUATED_SHA: ${{ steps.context.outputs.target_sha }}
+          CI_FAILED: ${{ steps.context.outputs.ci_failed }}
         run: |
           set -euo pipefail
           pr_number="${{ steps.context.outputs.pr_number }}"
           if [ -n "$pr_number" ] && [ -f "evaluation-comment.md" ]; then
-            gh pr comment "$pr_number" --body-file evaluation-comment.md || \
-              echo "Warning: Could not post comment"
+            if [ -s evaluation.json ]; then
+              python .workflows-lib/tools/verifier_corpus_evidence.py \
+                --evaluation evaluation.json --comment evaluation-comment.md
+            fi
+            gh pr comment "$pr_number" --body-file evaluation-comment.md
           fi
 
 
@@ -1503,6 +1686,7 @@ jobs:
           PY
 
       - name: Post comparison report comment
+        id: post_comparison
         if: >-
           ${{
             steps.context.outputs.should_run == 'true' &&
@@ -1531,6 +1715,93 @@ jobs:
             gh pr comment "$verifier_pr" --body-file comparison-comment.md
           fi
 
+      - name: Record verification event terminal
+        id: event_terminal
+        if: always() && steps.event_pending.outcome == 'success'
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          PRODUCTION_REPORT_POSTED: ${{ steps.post_evaluation.outcome == 'success' || steps.post_comparison.outcome == 'success' }}
+          EVALUATOR_STEP_OUTCOME: ${{ inputs.mode == 'evaluate' && steps.llm_evaluate.outcome || steps.llm_compare.outcome }}
+        with:
+          script: |
+            const fs = require('fs');
+            const { createTokenAwareRetry } = require('./.workflows-lib/.github/scripts/github-api-with-retry.js');
+            const { withRetry } = await createTokenAwareRetry({ github, core, env: {}, task: 'verifier-event-state' });
+            const manifest = JSON.parse(fs.readFileSync('verification-event-manifest.json', 'utf8'));
+            const event = manifest.verification_event;
+            const reports = ['evaluation-comment.md', 'comparison-comment.md'].filter(p => fs.existsSync(p));
+            const complete = process.env.PRODUCTION_REPORT_POSTED === 'true' && reports.some(p => {
+              return [...fs.readFileSync(p, 'utf8').matchAll(/<!-- verifier-corpus-decision\/v1 (\{[^\n]+\}) -->/g)].some(match => {
+                try { const d = JSON.parse(match[1]); return d.verification_event?.event_id === event.event_id; }
+                catch { return false; }
+              });
+            });
+            core.setOutput('complete', complete ? 'true' : 'false');
+            if (!complete) {
+              // Recover an already-run evaluation instead of calling it again.
+              // Absent output/job success cannot prove that a provider was not invoked.
+              let recovery = { retry_kind: 'uncertain_execution', retryable: false,
+                failure_cause: 'execution_classification_unavailable' };
+              try {
+                const { execFileSync } = require('child_process');
+                const parsed = JSON.parse(execFileSync('python3', [
+                  '.workflows-lib/tools/verifier_event_recovery.py', '--manifest',
+                  'verification-event-manifest.json', '--step-outcome', process.env.EVALUATOR_STEP_OUTCOME || '',
+                ], { encoding: 'utf8', timeout: 10000 }));
+                if (['known_no_evaluation', 'recover_existing_evaluation', 'uncertain_execution'].includes(parsed.retry_kind)
+                    && parsed.retryable === (parsed.retry_kind === 'known_no_evaluation')
+                    && typeof parsed.failure_cause === 'string') recovery = parsed;
+              } catch (error) {
+                core.warning(`Verification execution classification unavailable: ${error.message}`);
+                // Retain uncertainty; a diagnostic failure never proves no effect.
+              }
+              const state = { schema: 'verifier-event-state/v1', repo: event.repo, pr: event.pr,
+                head_sha: event.head_sha, evaluated_sha: event.evaluated_sha,
+                run_id: String(context.runId), run_attempt: String(process.env.GITHUB_RUN_ATTEMPT),
+                status: 'incomplete', ...recovery,
+                verification_event: event, assessment_identity: manifest.assessment_identity,
+                ...(manifest.predecessor_event_id ? { predecessor_event_id: manifest.predecessor_event_id } : {}) };
+              try {
+                await withRetry(() => github.rest.issues.createComment({ ...context.repo, issue_number: Number(event.pr),
+                  body: `<!-- verifier-event-state/v1 ${JSON.stringify(state)} -->` }));
+              } catch (error) {
+                core.setFailed(`Verification event terminal publication failed: ${error.message}`);
+                throw error;
+              }
+            }
+
+      - name: Shadow candidate verifier judges (recorded only; never posted, never counted)
+        # config/verifier_shadow.json (central, in this repository) names the candidates and the
+        # pre-registered criteria; set the repository variable VERIFIER_SHADOW to `off` to skip.
+        # Any failure here is data in verifier-shadow.json, never a failed run.
+        if: >-
+          ${{
+            always() &&
+            steps.context.outputs.should_run == 'true' &&
+            inputs.mode == 'compare' &&
+            steps.llm_compare.outputs.has_results == 'true' &&
+            vars.VERIFIER_SHADOW != 'off'
+          }}
+        continue-on-error: true
+        timeout-minutes: 10
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          CLAUDE_API_STRANSKE: ${{ secrets.CLAUDE_API_STRANSKE }}
+          PYTHONPATH: .workflows-lib
+          PRODUCTION_VERDICT: ${{ steps.llm_compare.outputs.verdict }}
+          CI_FAILED: ${{ steps.context.outputs.ci_failed }}
+          PR_NUMBER: ${{ steps.context.outputs.pr_number }}
+          PR_HEAD_SHA: ${{ steps.context.outputs.pr_head_sha }}
+          VERIFIER_CONTEXT_PATH: ${{ steps.context.outputs.context_path }}
+          VERIFIER_DIFF_PATH: ${{ steps.context.outputs.diff_path }}
+        run: |
+          python .workflows-lib/scripts/langchain/verifier_shadow.py \
+            --context-file "$VERIFIER_CONTEXT_PATH" \
+            ${VERIFIER_DIFF_PATH:+--diff-file "$VERIFIER_DIFF_PATH"} \
+            --comparison comparison.json \
+            --config .workflows-lib/config/verifier_shadow.json \
+            --output verifier-shadow.json || true
+
       - name: Upload comparison artifacts
         if: >-
           ${{
@@ -1545,7 +1816,9 @@ jobs:
             comparison.json
             comparison-stderr.log
             comparison-comment.md
+            verifier-shadow.json
             verifier-context.md
+            verification-event-manifest.json
             verifier-diff-summary.md
             verifier-pr-diff.patch
             verifier-input-manifest.json
@@ -1559,6 +1832,24 @@ jobs:
         with:
           name: verifier-input-capture-${{ github.run_id }}
           path: verifier-evidence/
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Retain evaluation execution evidence
+        if: always() && steps.context.outputs.should_run == 'true' && inputs.mode == 'evaluate'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: evaluation-results-${{ github.run_id }}
+          path: |
+            evaluation.json
+            evaluation-stderr.log
+            evaluation-execution.json
+            evaluation-comment.md
+            verifier-input-manifest.json
+            verifier-context.md
+            verification-event-manifest.json
+            verifier-diff-summary.md
+            verifier-pr-diff.patch
           if-no-files-found: ignore
           retention-days: 7
 

@@ -612,14 +612,16 @@ def test_real_manifest_compiles_every_declared_copy_entry() -> None:
         ],
     }
     Draft202012Validator(schema).validate(legacy_plan)
-    # Merge count: 262 -> 263 because this branch adds tools/subscription_llm.py.
+    # Two repeat-verification protocol helpers plus tools/subscription_llm.py extend the prior 262 managed entries.
     # Preserve ci-python-versions.env (#4045) and verifier_plan_fingerprint.js.
-    assert len(plan["entries"]) == 263
+    assert len(plan["entries"]) == 265
     assert {
         "tools/subscription_llm.py",
         ".github/scripts/rate_limit_receipt.js",
         ".github/scripts/rate_limit_receipt.json",
         ".github/scripts/verifier_plan_fingerprint.js",
+        ".github/scripts/verification_event.js",
+        ".github/scripts/verifier_pending_execution.js",
         "docs/CI_FAILURE_PLAYBOOK.md",
         "docs/contracts/document-identity-conventions.md",
         "docs/contracts/document-mirror-v1.md",

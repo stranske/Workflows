@@ -26,6 +26,10 @@ python3 scripts/check_checks_reported.py --repo stranske/Orchestrator --pr 461 \
   --output /path/to/evidence/Orchestrator-461-checks.json
 ```
 
+For a Workflows-only invocation, replace `--presence-reporter ...` with
+`--transport native-gh`. This uses a bounded read-only paginated `gh` transport
+and the same topology producer, without importing Orchestrator.
+
 Replace `FULL_HEAD_SHA` with the PR's current 40-character commit SHA before running.
 Delivery lanes invoke this adapter command; the incumbent's standalone `--pr N`
 command reports historical presence only. The receiving lanes are identified in

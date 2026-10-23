@@ -1,0 +1,342 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/stranske/Workflows/fixtures/closer-operation/v1/operation.schema.json",
+  "title": "closer-operation/v1",
+  "type": "object",
+  "required": [
+    "contract",
+    "target_fence_key",
+    "operation_key",
+    "repository",
+    "target",
+    "action",
+    "head_sha",
+    "criteria_fingerprint",
+    "review_revision",
+    "guard_versions",
+    "executor",
+    "lease",
+    "status"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "contract": {
+      "const": "closer-operation/v1"
+    },
+    "target_fence_key": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "operation_key": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "repository": {
+      "type": "string",
+      "pattern": "^[a-z0-9_.-]+/[a-z0-9_.-]+$"
+    },
+    "target": {
+      "type": "object",
+      "required": [
+        "kind",
+        "number"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "pull_request"
+        },
+        "number": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "action": {
+      "type": "string",
+      "enum": [
+        "merge",
+        "verify",
+        "verify_request",
+        "reconcile"
+      ]
+    },
+    "head_sha": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "base_sha": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "criteria_fingerprint": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "review_revision": {
+      "type": "string",
+      "minLength": 1
+    },
+    "guard_versions": {
+      "type": "object",
+      "required": [
+        "authority"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "authority": {
+          "type": "integer",
+          "minimum": 2
+        },
+        "expected_check_receipt": {
+          "type": "string"
+        },
+        "runtime_ac_guard": {
+          "type": "string"
+        }
+      }
+    },
+    "required_capabilities": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "blocking_labels": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "executor": {
+      "type": "object",
+      "required": [
+        "kind",
+        "identity"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "github_actions_run",
+            "portable_local",
+            "orchestrator_local"
+          ]
+        },
+        "identity": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "lease": {
+      "type": "object",
+      "required": [
+        "epoch",
+        "revision",
+        "deadline",
+        "owner_ack"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "epoch": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "deadline": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "owner_ack": {
+          "type": "boolean"
+        },
+        "prior_deadlines": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      }
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "claimed",
+        "intent_recorded",
+        "submitted",
+        "succeeded",
+        "denied",
+        "unavailable",
+        "uncertain"
+      ]
+    },
+    "mutation_intent": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "receipts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "kind": {
+                  "const": "verification_request_not_accepted"
+                }
+              },
+              "required": [
+                "kind"
+              ]
+            },
+            "then": {
+              "required": [
+                "kind",
+                "operation_key",
+                "target_fence_key",
+                "action",
+                "head_sha",
+                "mutation_kind",
+                "request_basis",
+                "http_status"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "kind": {
+                  "const": "verification_request_not_accepted"
+                },
+                "operation_key": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                },
+                "target_fence_key": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                },
+                "action": {
+                  "const": "verify_request"
+                },
+                "head_sha": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{40}$"
+                },
+                "mutation_kind": {
+                  "const": "workflow_dispatch"
+                },
+                "request_basis": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                },
+                "http_status": {
+                  "type": "integer",
+                  "const": 422
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    "denial": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "last_verification_fingerprint": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "ownership_scope": {
+      "enum": [
+        "execute",
+        "reconcile_only"
+      ]
+    },
+    "verification_context": {
+      "type": "object",
+      "required": [
+        "event",
+        "action"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "event": {
+          "type": "string"
+        },
+        "action": {
+          "type": "string"
+        }
+      }
+    },
+    "prior_operations": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {
+        "type": "object",
+        "required": [
+          "sha256",
+          "record"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "record": {
+            "type": "object"
+          }
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "denied"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "denial"
+        ],
+        "properties": {
+          "denial": {
+            "type": "object",
+            "required": [
+              "reason",
+              "no_fallback"
+            ],
+            "properties": {
+              "reason": {
+                "type": "string",
+                "minLength": 1
+              },
+              "no_fallback": {
+                "const": true
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

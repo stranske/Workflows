@@ -7,6 +7,7 @@ import sys
 import types
 from unittest.mock import patch
 
+import pytest
 from scripts.langchain import task_decomposer
 
 
@@ -905,3 +906,184 @@ def test_build_child_issues_excludes_sentinel() -> None:
     for child in children:
         assert not task_decomposer.is_elision_sentinel(child["title"])
         assert "elided; split this issue" not in child["body"]
+
+
+def test_metadata_helpers_accept_mixed_github_shapes() -> None:
+    class Named:
+        name = " object-label "
+
+    class Login:
+        login = " object-login "
+
+    class Milestone:
+        title = " Release "
+
+    assert task_decomposer._coerce_label_names([" text ", {"name": " dict "}, Named(), {}, 0]) == [
+        "text",
+        "dict",
+        "object-label",
+    ]
+    assert task_decomposer._coerce_assignee_logins(
+        [" text ", {"login": " dict "}, Login(), {}, 0]
+    ) == ["text", "dict", "object-login"]
+    assert task_decomposer._coerce_milestone_value({"number": 4}) == 4
+    assert task_decomposer._coerce_milestone_value({"title": "Release"}) == "Release"
+    assert task_decomposer._coerce_milestone_value({}) is None
+    assert task_decomposer._coerce_milestone_value(Milestone()) == " Release "
+
+
+def test_parent_and_child_reference_helpers_cover_fallback_forms() -> None:
+    assert (
+        task_decomposer._format_parent_reference(
+            parent_title="Parent", parent_number=3, parent_url=None
+        )
+        == "#3"
+    )
+    assert (
+        task_decomposer._format_parent_reference(
+            parent_title="Parent", parent_number=None, parent_url="https://example.test/parent"
+        )
+        == "https://example.test/parent"
+    )
+    assert (
+        task_decomposer._format_parent_reference(
+            parent_title="", parent_number=None, parent_url=None
+        )
+        == "parent issue"
+    )
+    assert task_decomposer._format_child_reference({}) is None
+    assert task_decomposer._format_child_reference({"url": "https://example.test/child"}) == (
+        "https://example.test/child"
+    )
+    assert (
+        task_decomposer._format_child_reference(
+            {"issue_number": 7, "url": "https://example.test/child", "title": "Child"}
+        )
+        == "[#7](https://example.test/child) - Child"
+    )
+
+
+def test_build_parent_issue_update_replaces_existing_section_and_skips_invalid_children() -> None:
+    body = "Intro\n\n## Child Issues\n\n- stale\n\n## Next\nKeep this"
+    updated = task_decomposer.build_parent_issue_update(
+        body,
+        [
+            {"number": 1, "url": "https://example.test/1", "title": "One"},
+            {"number": 1, "url": "https://example.test/1", "title": "One"},
+            "not-a-child",
+            {},
+        ],
+    )
+    assert "- [#1](https://example.test/1) - One" in updated
+    assert "stale" not in updated
+    assert updated.endswith("## Next\nKeep this")
+    assert task_decomposer.build_parent_issue_update("Body", []) == "Body"
+
+
+def test_fallback_and_provider_resolution_cover_remaining_decision_paths(monkeypatch) -> None:
+    monkeypatch.setenv("LANGCHAIN_PROVIDER", "custom-provider")
+    assert task_decomposer._resolve_decomposer_provider() == "custom-provider"
+    assert task_decomposer._resolve_decomposer_provider(force_openai=True) == "openai"
+    assert task_decomposer._fallback_decompose("") == []
+    assert task_decomposer._fallback_decompose("update docs; add tests") == [
+        "update docs (verify: docs updated)",
+        "add tests (verify: tests pass)",
+    ]
+    assert task_decomposer._is_github_models_auth_error(Exception("401 models unavailable"))
+    assert not task_decomposer._is_github_models_auth_error(Exception("401 unrelated"))
+
+
+def test_decompose_task_retries_github_models_401_with_openai(monkeypatch) -> None:
+    monkeypatch.delenv("LANGCHAIN_PROVIDER", raising=False)
+    monkeypatch.delenv("GITHUB_TOKEN", raising=False)
+
+    class Client:
+        pass
+
+    class Chain:
+        def __init__(self, client):
+            self.client = client
+
+    class Template:
+        def __or__(self, client):
+            return Chain(client)
+
+    prompts = types.ModuleType("langchain_core.prompts")
+    prompts.ChatPromptTemplate = types.SimpleNamespace(from_template=lambda _prompt: Template())
+    monkeypatch.setitem(sys.modules, "langchain_core.prompts", prompts)
+    github_client, openai_client = Client(), Client()
+    calls = []
+    invoked = []
+
+    def get_client(*, provider):
+        calls.append(provider)
+        return (
+            (github_client, "github-models") if provider != "openai" else (openai_client, "openai")
+        )
+
+    def invoke(chain, _values, **_kwargs):
+        invoked.append(chain.client)
+        if chain.client is github_client:
+            raise RuntimeError("GitHub Models returned 401")
+        return types.SimpleNamespace(content="- Add tests"), types.SimpleNamespace(
+            as_dict=lambda: {"trace": "ok"}
+        )
+
+    monkeypatch.setattr(task_decomposer, "get_llm_client", get_client)
+    monkeypatch.setattr(task_decomposer, "invoke_with_trace", invoke)
+    monkeypatch.setattr(
+        task_decomposer, "TraceInfo", lambda: types.SimpleNamespace(as_dict=lambda: {})
+    )
+    result = task_decomposer.decompose_task("full migration", use_llm=True)
+    assert calls == [None, "openai"]
+    assert invoked == [github_client, openai_client]
+    assert result["provider_used"] == "openai"
+    assert result["trace"] == "ok"
+
+
+def test_normalization_preserves_expanded_and_deduplicates_inputs() -> None:
+    expanded = "Implement focused slice for: migration"
+    assert task_decomposer._expand_large_task(expanded) == [expanded]
+    normalized = task_decomposer._normalize_subtasks(["update docs", " Update docs "])
+    assert normalized == ["update docs (verify: docs updated)"]
+
+
+def test_metadata_helpers_reject_empty_object_values() -> None:
+    class Empty:
+        number = "not-a-number"
+        title = ""
+
+    assert task_decomposer._coerce_milestone_value(Empty()) is None
+
+
+def test_metadata_helpers_preserve_object_milestone_number_and_elision_deduplication() -> None:
+    class Milestone:
+        number = 17
+
+    sentinel = task_decomposer.elision_sentinel(3)
+    assert task_decomposer._coerce_milestone_value(Milestone()) == 17
+    assert task_decomposer._collect_cleaned_parts([sentinel, sentinel]) == [sentinel]
+
+
+def test_decompose_task_reraises_github_models_error_without_openai_fallback(monkeypatch) -> None:
+    class Client:
+        pass
+
+    class Template:
+        def __or__(self, _client):
+            return object()
+
+    prompts = types.ModuleType("langchain_core.prompts")
+    prompts.ChatPromptTemplate = types.SimpleNamespace(from_template=lambda _prompt: Template())
+    monkeypatch.setitem(sys.modules, "langchain_core.prompts", prompts)
+    monkeypatch.setattr(
+        task_decomposer, "get_llm_client", lambda **_kwargs: (Client(), "github-models")
+    )
+    monkeypatch.setattr(
+        task_decomposer,
+        "invoke_with_trace",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(RuntimeError("models 401")),
+    )
+
+    with pytest.raises(RuntimeError, match="models 401"):
+        task_decomposer.decompose_task("full migration", use_llm=True)

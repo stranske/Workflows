@@ -1,0 +1,38 @@
+{
+  "request": {
+    "schema": "verification-request/v1",
+    "sources": [
+      {
+        "repository": "stranske/example",
+        "kind": "pull_request",
+        "number": "7",
+        "body_sha256": "d582986dc49e1588abfd7d35c2d0ecf41702246443b50f378eed42fd10132976"
+      }
+    ]
+  },
+  "material": {
+    "schema": "verification-material/v1",
+    "code": {
+      "head_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "evaluated_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "diff_sha256": "21b06808beb23aa2c61dff621b5c08a2aa015d72ee9c8fccb4258120320f98ce"
+    },
+    "required_evidence": [],
+    "ci_hard_gate": {
+      "schema": "verification-ci-hard-gate/v1",
+      "head_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "evaluated_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "results": []
+    }
+  },
+  "verification_event": {
+    "schema": "verification-event/v1",
+    "repo": "stranske/example",
+    "pr": "7",
+    "head_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "evaluated_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "request_sha256": "10249b5312bd7c839ab6283260b004f4ab79c3f1694ae859de53ada2b5283386",
+    "material_sha256": "0bd95865a12b37ee4341205b71b60bbfa0ac9f5475fec52809ea822aa9811e64",
+    "event_id": "85e29871498bb7949747490dd3e2262d5ca0b350b1c3ef05c0d43b4268030f00"
+  }
+}

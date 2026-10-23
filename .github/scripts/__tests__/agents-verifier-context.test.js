@@ -359,7 +359,8 @@ test('buildVerifierContext skips when pull request is not merged', async () => {
     core,
   });
   assert.equal(result.shouldRun, false);
-  assert.deepEqual(result.ciResults, []);
+  assert.ok(result.ciResults.every(row => row.binding_status === 'unavailable' && row.run_id === null && row.run_attempt === null));
+  assert.deepEqual(result.ciResults.map(({head_sha,workflow_id,run_id,run_attempt,binding_status,...legacy}) => legacy), []);
   assert.equal(core.outputs.should_run, 'false');
   assert.ok(core.outputs.skip_reason.includes('not merged'));
 });
@@ -1368,6 +1369,7 @@ test('coverage records retained acceptance evidence without hiding failed source
   try {
     const evidence = result.sourceCoverage.acceptance_evidence_sources;
     assert.equal(evidence[0].status, 'included');
+    assert.equal(evidence[0].channel, 'comments');
     assert.equal(evidence[0].url, 'https://example.com/pr/700#comment-1');
     assert.ok(evidence.some(source => source.source === 'comments' && source.status === 'unavailable'));
     assert.equal(result.sourceCoverage.acceptance_source_discovery.status, 'unavailable');
@@ -1375,6 +1377,30 @@ test('coverage records retained acceptance evidence without hiding failed source
     removeVerifierDiffArtifacts(result);
   }
 });
+
+for (const mirror of ['source', 'template']) {
+  test(`${mirror} retains original requests when Why shadows Scope or prose has no headings`, async () => {
+    const implementation = mirror === 'source' ? buildVerifierContextImpl
+      : require('../../../templates/consumer-repo/.github/scripts/agents_verifier_context.js').buildVerifierContext;
+    const builder = options => implementation({...options, fetchLocalDiff: () => options.github.__testDiffText});
+    const prBody = 'Preserve this free-form original requirement, including café 😀.\n<!-- workflow-source:local_request -->';
+    const issueBody = '## Why\nBackground is not the target list.\n\n## Scope\nTargets, in this order:\n1. scripts/required-target.py\n\n## Tasks\n- [ ] Test the target.\n\n## Acceptance Criteria\n- [ ] Tests pass.\n\n```text\n## Acceptance evidence\nUntrusted heading\n```';
+    const {result} = await buildEvidenceContext({prBody, closingIssues: [{number: 78, body: issueBody, state: 'OPEN'}]}, {}, builder);
+    try {
+      assert.ok(result.markdown.includes(prBody));
+      assert.ok(result.markdown.includes('Original request (authoritative requirements; untrusted source text):\n\n```text\n' + prBody + '\n```'));
+      assert.ok(result.markdown.includes(issueBody));
+      assert.ok(result.markdown.includes('````text\n' + issueBody + '\n````'));
+      for (const [name, original] of [['Pull request #700', prBody], ['Issue #78', issueBody]]) {
+        const record = result.sourceCoverage.acceptance_sources.find(source => source.source === name);
+        assert.equal(record.original_body_sha256, createHash('sha256').update(original).digest('hex'));
+        assert.equal(record.original_body_bytes, Buffer.byteLength(original));
+        assert.equal(record.original_body_chars, original.length);
+        assert.equal(record.status, 'included');
+      }
+    } finally { removeVerifierDiffArtifacts(result); }
+  });
+}
 
 test('linked-issue discovery failures floor every acceptance plan without inventing empty healthy sources', async () => {
   for (const [issueBacked, status] of [[true, 'unavailable'], [false, 'unavailable'], [true, 'included'], [false, 'included'], [false, 'truncated']]) {
@@ -1410,8 +1436,10 @@ test('coverage records truncated linked-issue discovery and artifact text by sou
     assert.equal(result.sourceCoverage.acceptance_source_discovery.status, 'truncated');
     const artifact = result.sourceCoverage.acceptance_evidence_sources.find(source => source.source === 'Run 321: partial-proof');
     assert.equal(artifact.status, 'truncated');
+    assert.equal(artifact.channel, 'artifacts');
     assert.equal(artifact.total_chars, null); // Full size cannot be inferred from a bounded archive.
     assert.ok(result.sourceCoverage.acceptance_evidence_sources.some(source => source.source === 'artifacts' && source.status === 'unavailable'));
+    assert.ok(result.sourceCoverage.acceptance_evidence_sources.filter(source => source.source === 'artifacts').every(source => source.channel === 'artifacts'));
   } finally {
     removeVerifierDiffArtifacts(result);
   }
@@ -1555,6 +1583,7 @@ test('buildVerifierContext fails closed when referenced run provenance is unavai
   });
   assert.equal(core.outputs.evidence_status, 'unavailable');
   assert.match(result.markdown, /workflow run provenance failed for referenced run 456/);
+  assert.ok(result.sourceCoverage.acceptance_evidence_sources.find(source => source.source === 'artifacts').failure_kinds.includes('provenance'));
   assert.doesNotMatch(result.markdown, /Run 456/);
   removeVerifierDiffArtifacts(result);
 });
@@ -2617,7 +2646,8 @@ test('buildVerifierContext selects CI results for the merge commit SHA', async (
   assert.equal(result.shouldRun, true);
   assert.ok(headShas.length > 0);
   assert.ok(headShas.every((sha) => sha === 'merge-sha-333'));
-  assert.deepEqual(result.ciResults, [
+  assert.ok(result.ciResults.every(row => row.binding_status === 'unavailable' && row.run_id === null && row.run_attempt === null));
+  assert.deepEqual(result.ciResults.map(({head_sha,workflow_id,run_id,run_attempt,binding_status,...legacy}) => legacy), [
     withEmptyJobs({
       workflow_name: 'Gate',
       conclusion: 'success',
@@ -2745,7 +2775,8 @@ test('buildVerifierContext falls back to head SHA when merge runs are missing', 
   const result = await buildVerifierContext({ github, context, core });
 
   assert.equal(result.shouldRun, true);
-  assert.deepEqual(result.ciResults, [
+  assert.ok(result.ciResults.every(row => row.binding_status === 'unavailable' && row.run_id === null && row.run_attempt === null));
+  assert.deepEqual(result.ciResults.map(({head_sha,workflow_id,run_id,run_attempt,binding_status,...legacy}) => legacy), [
     withEmptyJobs({
       workflow_name: 'Gate',
       conclusion: 'success',
@@ -2832,7 +2863,8 @@ test('buildVerifierContext uses merge commit SHA for push events', async () => {
   assert.equal(result.shouldRun, true);
   assert.ok(headShas.length > 0);
   assert.ok(headShas.every((sha) => sha === 'merge-sha-444'));
-  assert.deepEqual(result.ciResults, [
+  assert.ok(result.ciResults.every(row => row.binding_status === 'unavailable' && row.run_id === null && row.run_attempt === null));
+  assert.deepEqual(result.ciResults.map(({head_sha,workflow_id,run_id,run_attempt,binding_status,...legacy}) => legacy), [
     withEmptyJobs({
       workflow_name: 'Gate',
       conclusion: 'success',
@@ -5265,4 +5297,225 @@ test('context uses API diff fallback and records a non-PASS coverage gap in both
         item.source === 'GitHub PR files API fallback' && item.status === 'unavailable'));
     } finally { removeVerifierDiffArtifacts(result); }
   }
+});
+
+const originalRequest866 = require('./fixtures/orchestrator-pr866-original-request.json');
+for (const mode of ['evaluate', 'compare']) {
+  test(`explicit ${mode} admits authentic freeform request without invented checklist`, async () => {
+    const { result } = await buildEvidenceContext({ prBody: originalRequest866.body, diffText: coveragePatch('src/example.js') }, { mode });
+    try {
+      assert.equal(result.shouldRun, true);
+      const content = fs.readFileSync(result.contextPath, 'utf8');
+      assert.ok(content.includes(originalRequest866.body.trim()));
+      assert.ok(content.includes(createHash('sha256').update(originalRequest866.body).digest('hex')));
+      assert.ok(!content.includes('No tasks defined'));
+      assert.ok(!content.includes('No acceptance criteria defined'));
+      assert.equal(fs.readFileSync(result.diffPath, 'utf8').trim(), coveragePatch('src/example.js').trim());
+      if (mode === 'evaluate' && process.env.VERIFIER_TEST_CAPTURE_DIR) {
+        fs.copyFileSync(result.contextPath, path.join(process.env.VERIFIER_TEST_CAPTURE_DIR, 'context.md'));
+        fs.copyFileSync(result.diffPath, path.join(process.env.VERIFIER_TEST_CAPTURE_DIR, 'diff.patch'));
+      }
+    } finally {
+      if (result.contextPath) removeVerifierDiffArtifacts(result);
+    }
+  });
+}
+for (const body of ['', '  ', '<!-- no requirements -->', { invalid: 'body' }]) {
+  test(`explicit evaluation refuses unavailable original request ${JSON.stringify(body)}`, async () => {
+    const { result } = await buildEvidenceContext({ prBody: body }, { mode: 'evaluate' });
+    assert.equal(result.shouldRun, false);
+    assert.match(result.reason, /original_request_missing_or_invalid/);
+  });
+}
+test('freeform request does not opt checkbox or unknown modes into model evaluation', async () => {
+  for (const mode of [undefined, 'checkbox', 'other']) {
+    const { result } = await buildEvidenceContext({ prBody: originalRequest866.body }, { mode });
+    assert.equal(result.shouldRun, false);
+    assert.match(result.reason, /No tasks and acceptance criteria/);
+  }
+});
+
+for (const mode of ['evaluate', 'compare']) {
+  test(`explicit ${mode} preserves missing linked-source discovery as a required gap`, async () => {
+    const { result } = await buildEvidenceContext({ prBody: originalRequest866.body, graphqlError: new Error('offline source unavailable') }, { mode });
+    try {
+      assert.equal(result.shouldRun, true);
+      assert.equal(result.sourceCoverage.acceptance_source_discovery.required, true);
+      assert.equal(result.sourceCoverage.acceptance_source_discovery.status, 'unavailable');
+    } finally { removeVerifierDiffArtifacts(result); }
+  });
+}
+test('explicit model mode uses authentic linked issue request and template parity', async () => {
+  const templateImpl = require('../../../templates/consumer-repo/.github/scripts/agents_verifier_context.js').buildVerifierContext;
+  const templateBuilder = options => templateImpl({ ...options, fetchLocalDiff: () => options.github.__testDiffText });
+  for (const builder of [buildVerifierContext, templateBuilder]) {
+    const { result } = await buildEvidenceContext({ prBody: 'Implement the linked original request.', closingIssues: [{number: 42, title: 'Original request', body: 'Retain each source revision and recover absent core inputs without fabricating data.', state: 'CLOSED'}] }, {mode: 'evaluate'}, builder);
+    try {
+      assert.equal(result.shouldRun, true);
+      const text = fs.readFileSync(result.contextPath, 'utf8');
+      assert.ok(text.includes('Retain each source revision'));
+      assert.deepEqual(result.issueNumbers, [42]);
+    } finally { removeVerifierDiffArtifacts(result); }
+  }
+});
+
+test('explicit evaluation cannot turn an empty linked original request into captured requirements', async () => {
+  const { result } = await buildEvidenceContext({prBody: originalRequest866.body, closingIssues: [{number: 42, body: '', title: 'Empty original', state: 'CLOSED'}]}, {mode: 'evaluate'});
+  try {
+    assert.equal(result.shouldRun, true);
+    assert.equal(result.sourceCoverage.acceptance_sources.find(source => source.source === 'Issue #42').status, 'omitted');
+  } finally { removeVerifierDiffArtifacts(result); }
+});
+test('explicit evaluation retains malformed linked request as required discovery failure', async () => {
+  const { result } = await buildEvidenceContext({prBody: originalRequest866.body, closingIssues: [{number: 42, body: {invalid: true}}]}, {mode: 'evaluate'});
+  try {
+    assert.equal(result.shouldRun, true);
+    assert.equal(result.sourceCoverage.acceptance_source_discovery.required, true);
+    assert.equal(result.sourceCoverage.acceptance_source_discovery.status, 'unavailable');
+  } finally { removeVerifierDiffArtifacts(result); }
+});
+
+test('explicit evaluation captures freeform evidence obligations for native preflight', async () => {
+  const body = process.env.VERIFIER_TEST_ORIGINAL_REQUEST || 'Evidence must be posted in a PR comment.';
+  const closingIssues = process.env.VERIFIER_TEST_LINKED_REQUEST ? [{number: 42, body: process.env.VERIFIER_TEST_LINKED_REQUEST, title: 'Linked request', state: 'CLOSED'}] : [];
+  const { result } = await buildEvidenceContext({prBody: body, closingIssues}, {mode: 'evaluate'});
+  try {
+    assert.equal(result.shouldRun, true);
+    if (process.env.VERIFIER_TEST_CAPTURE_DIR) {
+      fs.copyFileSync(result.contextPath, path.join(process.env.VERIFIER_TEST_CAPTURE_DIR, 'context.md'));
+      fs.copyFileSync(result.diffPath, path.join(process.env.VERIFIER_TEST_CAPTURE_DIR, 'diff.patch'));
+    }
+  } finally { removeVerifierDiffArtifacts(result); }
+});
+
+test('repeat verification collects authoritative material before exact-event deduplication', async () => {
+  const selected = 'https://github.com/octo/workflows/pull/700#issuecomment-42';
+  const proof = { id: 42, html_url: selected, user: { login: 'owner' }, body: 'retained required proof' };
+  await withEnv('VERIFICATION_MATERIAL', JSON.stringify([{kind:'comment',url:selected}]), async () => {
+    const first = await buildEvidenceContext({comments:[proof]}, {mode:'evaluate'});
+    const manifest = first.result.verificationManifest;
+    assert.ok(manifest?.verification_event.event_id);
+    const terminal = {schema:'verifier-corpus-decision/v1',repo:'octo/workflows',pr:'700',
+      head_sha:'b'.repeat(40),evaluated_sha:'c'.repeat(40),run_id:'100',run_attempt:'1',
+      verdict:'NON_PASS',ci_failed:false,provider_verdicts:['CONCERNS'],
+      verification_event:manifest.verification_event,assessment_identity:manifest.assessment_identity};
+    removeVerifierDiffArtifacts(first.result);
+    const report = {id:43,html_url:'https://github.com/octo/workflows/pull/700#issuecomment-43',
+      user:{login:'github-actions[bot]'},body:`<!-- verifier-corpus-decision/v1 ${JSON.stringify(terminal)} -->`};
+    const repeat = await buildEvidenceContext({comments:[proof,report]}, {mode:'evaluate'});
+    assert.equal(repeat.result.shouldRun,false);
+    assert.equal(repeat.result.reason,'duplicate-verification-event');
+    const recovered = await buildEvidenceContext({comments:[{...proof,body:'new necessary proof'},report]}, {mode:'evaluate'});
+    try {
+      assert.equal(recovered.result.shouldRun,true);
+      assert.notEqual(recovered.result.verificationManifest.verification_event.event_id,manifest.verification_event.event_id);
+    } finally {removeVerifierDiffArtifacts(recovered.result);fs.rmSync('verification-event-manifest.json',{force:true});}
+  });
+});
+
+test('successful historical workflow without usable model decision does not suppress initial collection', async () => {
+  const {result}=await buildEvidenceContext({comments:[{id:51,user:{login:'github-actions[bot]'},
+    html_url:'https://github.com/octo/workflows/pull/700#issuecomment-51',
+    body:'Workflow succeeded; UNVERIFIABLE_INPUT, zero files reviewed.'}]},{mode:'evaluate'});
+  try { assert.equal(result.shouldRun,true);assert.ok(result.verificationManifest?.verification_event.event_id); }
+  finally {removeVerifierDiffArtifacts(result);fs.rmSync('verification-event-manifest.json',{force:true});}
+});
+
+test('repeat event refuses invented predecessor before evaluator admission', async () => {
+  await withEnv('VERIFICATION_PREDECESSOR','d'.repeat(64),async()=> {
+    await assert.rejects(()=>buildEvidenceContext({}, {mode:'evaluate'}),/not an authenticated/);
+  });
+});
+
+test('optional giant comment cannot hide a necessary pending protocol marker',async()=> {
+ const first=await buildEvidenceContext({}, {mode:'evaluate'});
+ const event=first.result.verificationManifest.verification_event;
+ const assessment=first.result.verificationManifest.assessment_identity;
+ removeVerifierDiffArtifacts(first.result);
+ const state={schema:'verifier-event-state/v1',repo:'octo/workflows',pr:'700',head_sha:'b'.repeat(40),evaluated_sha:'c'.repeat(40),run_id:'77',run_attempt:'1',status:'pending',verification_event:event,assessment_identity:assessment};
+ const comments=[{id:80,body:'optional log '.repeat(1000),user:{login:'owner'}},
+  {id:79,body:`<!-- verifier-event-state/v1 ${JSON.stringify(state)} -->`,user:{login:'github-actions[bot]'},html_url:'https://github.com/octo/workflows/pull/700#issuecomment-79'}];
+ await withEnv('VERIFIER_EVIDENCE_COMMENT_CHARS','64',async()=> {
+  const evidence=await fetchVerifierEvidence({github:buildGithubStub({comments}),owner:'octo',repo:'workflows',pullNumber:700,pullRequestBody:''});
+  assert.equal(evidence.comments.complete,false);
+  assert.equal(evidence.event_history.complete,true);
+  assert.equal(evidence.event_history.records.length,1);
+  const blocked = await buildEvidenceContext({comments},{mode:'evaluate'});
+  assert.equal(blocked.result.shouldRun,false);
+  assert.equal(blocked.core.outputs.retrieval_pending,'verification_existing_execution');
+ });
+ fs.rmSync('verification-event-manifest.json',{force:true});
+});
+
+test('optional proof truncation remains nonblocking when protocol inventory is complete',async()=> {
+ await withEnv('VERIFIER_EVIDENCE_COMMENT_CHARS','64',async()=> {
+  const {result}=await buildEvidenceContext({comments:[{id:80,body:'optional log '.repeat(1000),user:{login:'owner'}}]},{mode:'evaluate'});
+  try {
+   assert.equal(result.shouldRun,true);
+   assert.equal(result.verifierEvidence.comments.complete,false);
+   assert.equal(result.verifierEvidence.event_history.complete,true);
+  } finally {removeVerifierDiffArtifacts(result);fs.rmSync('verification-event-manifest.json',{force:true});}
+ });
+});
+
+test('genuinely incomplete conversation protocol pagination yields scoped retrieval pending',async()=> {
+ await withEnv('VERIFIER_EVIDENCE_COMMENT_PAGES','1',async()=> {
+  const {core,result}=await buildEvidenceContext({comments:[{id:80,body:'optional current comment',user:{login:'owner'}}],commentLink:'<next>; rel="next"'},{mode:'evaluate'});
+  assert.equal(result.shouldRun,false);
+  assert.equal(result.reason,'verification-event-history-retrieval-pending');
+  assert.equal(core.outputs.retrieval_pending,'verification_event_history');
+ });
+});
+
+test('same collector reenters cancelled pending event only on authoritative skipped evaluator step',async()=> {
+ const previousCwd=process.cwd();
+ const directory=fs.mkdtempSync(path.join(os.tmpdir(),'verifier-pending-recovery-'));
+ process.chdir(directory);
+ try {
+ const first=await buildEvidenceContext({}, {mode:'evaluate'});
+ const manifest=first.result.verificationManifest;
+ removeVerifierDiffArtifacts(first.result);
+ const state={schema:'verifier-event-state/v1',repo:'octo/workflows',pr:'700',head_sha:'b'.repeat(40),evaluated_sha:'c'.repeat(40),run_id:'100',run_attempt:'1',status:'pending',verification_event:manifest.verification_event,assessment_identity:manifest.assessment_identity,execution_binding:manifest.execution_binding};
+ const comments=[{id:98,user:{login:'github-actions[bot]'},html_url:'https://github.com/octo/workflows/pull/700#issuecomment-98',body:`<!-- verifier-event-state/v1 ${JSON.stringify(state)} -->`}];
+ for(const skipped of [true,false]) {
+  const builder=async options=> {
+   options.github.rest.actions.getWorkflowRun=async()=>({data:{id:100,run_attempt:1,status:'completed',conclusion:'cancelled',path:'.github/workflows/agents-verifier.yml',event:'workflow_dispatch',head_sha:'d'.repeat(40),repository:{full_name:'octo/workflows'},head_repository:{full_name:'octo/workflows'}}});
+   options.github.rest.actions.getWorkflowRunAttempt=async params=>{assert.equal(params.attempt_number,1);return options.github.rest.actions.getWorkflowRun();};
+   options.github.rest.actions.listJobsForWorkflowRunAttempt=async()=>({data:{total_count:1,jobs:[{id:123,run_id:100,run_attempt:1,head_sha:'d'.repeat(40),name:'verifier / Run post-merge verifier',status:'completed',conclusion:'cancelled',steps:[{name:'Record verification event pending',number:5,status:'completed',conclusion:'success'},{name:'Run LLM evaluation',number:15,status:'completed',conclusion:skipped?'skipped':'cancelled'}]}]},headers:{}});
+   return buildVerifierContext(options);
+  };
+  const {result}=await buildEvidenceContext({comments},{mode:'evaluate'},builder);
+  if(skipped) {
+   try {assert.equal(result.shouldRun,true);assert.equal(result.verificationManifest.pending_no_evaluation.job_id,123);}
+   finally {removeVerifierDiffArtifacts(result);}
+  } else {
+   assert.equal(result.shouldRun,false);
+   assert.equal(result.reason,'verification-existing-execution-retrieval-pending');
+   assert.equal(result.verificationManifest.pending_execution_recovery.retryable,false);
+  }
+ }
+ fs.rmSync('verification-event-manifest.json',{force:true});
+ } finally {process.chdir(previousCwd);fs.rmSync(directory,{recursive:true,force:true});}
+});
+
+test('optional comment overflow reports each limit once while continuing protocol inventory',async()=> {
+ const protocol={schema:'verifier-event-state/v1'};
+ const comments=Array.from({length:80},(_,index)=>({id:200-index,body:'optional log '.repeat(30),user:{login:'owner'}}));
+ comments.push({id:100,body:`<!-- verifier-event-state/v1 ${JSON.stringify(protocol)} -->`,user:{login:'github-actions[bot]'},html_url:'https://github.com/octo/workflows/pull/700#issuecomment-100'});
+ await withEnv('VERIFIER_EVIDENCE_COMMENT_CHARS','64',async()=> {
+  const result=await fetchVerifierEvidence({github:buildGithubStub({comments}),owner:'octo',repo:'workflows',pullNumber:700,pullRequestBody:''});
+  assert.equal(result.event_history.complete,true);
+  assert.equal(result.event_history.records.length,1);
+  const limits=result.diagnostics.failures.filter(row=>row.channel==='comments'&&row.detail==='conversation comments');
+  assert.equal(limits.filter(row=>row.kind==='character').length,1);
+  assert.ok(limits.length<=2);
+ });
+ await withEnv('VERIFIER_EVIDENCE_COMMENT_LIMIT','1',async()=> {
+  const result=await fetchVerifierEvidence({github:buildGithubStub({comments}),owner:'octo',repo:'workflows',pullNumber:700,pullRequestBody:''});
+  assert.equal(result.event_history.complete,true);
+  assert.equal(result.event_history.records.length,1);
+  const limits=result.diagnostics.failures.filter(row=>row.channel==='comments'&&row.detail==='conversation comments');
+  assert.equal(limits.filter(row=>row.kind==='record').length,1);
+  assert.equal(limits.filter(row=>row.kind==='character').length,0);
+ });
 });

@@ -237,3 +237,11 @@ def test_main_reports_missing_repos(capsys: pytest.CaptureFixture[str]) -> None:
     assert result == 2
     captured = capsys.readouterr()
     assert "At least one of --repo, --repos, or --repos-file is required." in captured.err
+
+
+def test_main_rejects_empty_repo_options_and_builds_parser(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    assert aggregator._build_parser().prog
+    assert aggregator.main(["--repo", " "]) == 1
+    assert "no repos specified" in capsys.readouterr().err

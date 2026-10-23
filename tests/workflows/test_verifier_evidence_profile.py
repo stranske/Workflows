@@ -339,12 +339,13 @@ def test_selected_profile_reaches_python_process(tmp_path, step_id, profile):
     binary.write_text('#!/bin/sh\nprintf "%s" "${VERIFIER_EVIDENCE_PROFILE:-missing}"\n')
     binary.chmod(0o755)
     env["PATH"] = str(tmp_path) + os.pathsep + env["PATH"]
-    script = re.sub(r"\$\{\{.*?\}\}", "", invoke["run"].split("# Parse result", 1)[0])
+    marker = "# Keep launch/transport failures" if step_id == "llm_evaluate" else "# Parse result"
+    script = re.sub(r"\$\{\{.*?\}\}", "", invoke["run"].split(marker, 1)[0])
     run = subprocess.run(
         ["bash", "-c", script], cwd=tmp_path, env=step_env(invoke), capture_output=True, text=True
     )
     assert run.returncode == 0, run.stderr
-    result = tmp_path / ("evaluation.json" if step_id == "llm_evaluate" else "comparison.json")
+    result = tmp_path / ("evaluation-raw.json" if step_id == "llm_evaluate" else "comparison.json")
     assert result.read_text() == profile
 
 
@@ -508,6 +509,8 @@ def test_input_manifest_inherits_js_run_defaults_unless_overridden(tmp_path, ove
     env.update(
         GITHUB_REPOSITORY="stranske/Workflows",
         GITHUB_RUN_ID="123",
+        VERIFIER_MODE="compare",
+        VERIFIER_PROVIDER="auto",
         VERIFIER_PR_NUMBER="4099",
         VERIFIER_TARGET_SHA="head",
         VERIFIER_CHAIN_DEPTH="0",

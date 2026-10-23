@@ -191,33 +191,254 @@ function normalizeActiveReviewThreads(reviewThreads = [], reviewerProfiles = [])
     });
 }
 
+const FINDING_DISPOSITION_SCHEMA = 'sync-finding-disposition/v1';
+const SYNC_FINDING_DISPOSITION_ACTORS = Object.freeze(['stranske', 'stranske-automation-bot']);
+const FINDING_DISPOSITION_MARKER = /^<!-- sync-finding-disposition:v1 (\{[^]*\}) -->$/;
+
+// Hash the actual finding and conversation, not merely its path or reviewer.
+// A new/edited reply invalidates a previously recorded causal classification.
+function syncFindingFingerprint(thread) {
+  return require('crypto').createHash('sha256').update(JSON.stringify({
+    id: thread.id, path: thread.path,
+    comments: (thread.comments?.nodes || []).map((comment) => ({
+      id: comment.id, body_sha256: typeof comment.body === 'string'
+        ? require('crypto').createHash('sha256').update(comment.body).digest('hex') : comment.body_sha256,
+      updatedAt: comment.updatedAt,
+      author: comment.author?.login,
+    })),
+  })).digest('hex');
+}
+
+function parseSyncFindingDisposition(comment) {
+  const match = String(comment?.body || '').trim().match(FINDING_DISPOSITION_MARKER);
+  if (!match) return null;
+  try { return JSON.parse(match[1]); } catch (_) { return null; }
+}
+
+function hasCompleteSyncFindingBinding(binding) {
+  return Boolean(binding && /^[\w.-]+\/[\w.-]+$/.test(binding.repository || '')
+    && Number.isInteger(binding.pr) && binding.pr > 0
+    && /^[a-f0-9]{40}$/.test(binding.head_sha || '')
+    && /^[a-f0-9]{40}$/.test(binding.source_commit || '')
+    && binding.plan_id && binding.delivery_generation);
+}
+
+// comments and handoffs must be authenticated API snapshots, collected by the
+// executor. Never populate them from fields inside a disposition record itself.
+function evaluateSyncFindingDispositions({
+  binding = {}, reviewThreads = [], activeReviewThreadCount,
+  comments = [], handoffs = [], trustedActors = SYNC_FINDING_DISPOSITION_ACTORS,
+  evidenceComplete = activeReviewThreadCount === 0,
+  now = Date.now(), evidenceFormat = 'full',
+} = {}) {
+  const count = activeReviewThreadCount;
+  const active = Array.isArray(reviewThreads) ? reviewThreads.filter(
+    (thread) => thread && thread.isResolved === false && thread.isOutdated === false,
+  ) : [];
+  const errors = [];
+  // Active-debt exemptions need an explicit complete-read receipt. Retain the
+  // legacy empty-read path, which has no classification exemption to validate.
+  if (evidenceComplete !== true || !Number.isInteger(count) || count < 0
+    || !Array.isArray(reviewThreads) || active.length !== count
+    || reviewThreads.some((thread) => typeof thread?.isResolved !== 'boolean'
+      || typeof thread?.isOutdated !== 'boolean')) errors.push('review_evidence_incomplete');
+  if (count > 0 && !hasCompleteSyncFindingBinding(binding)) errors.push('delivery_binding_incomplete');
+  const ids = active.map((thread) => thread.id);
+  if (new Set(ids).size !== ids.length) errors.push('duplicate_finding_identity');
+  if (!Array.isArray(comments) || !Array.isArray(handoffs) || !Array.isArray(trustedActors)) {
+    errors.push('classification_evidence_incomplete');
+  }
+  const sourceComments = Array.isArray(comments) ? comments : [];
+  const sourceHandoffs = Array.isArray(handoffs) ? handoffs : [];
+  const trusted = new Set((Array.isArray(trustedActors) ? trustedActors : []).map(normalizeLogin));
+  const findings = active.map((thread) => {
+    const finding = { thread_id: thread.id, path: thread.path,
+      author: thread.comments?.nodes?.[0]?.author?.login || '',
+      url: thread.comments?.nodes?.[0]?.url || '', disposition: 'unknown', errors: [] };
+    if (!thread.id || !thread.path || thread.comments?.pageInfo?.hasNextPage !== false
+      || !Array.isArray(thread.comments?.nodes) || thread.comments.nodes.length === 0
+      || thread.comments.nodes.some((comment) => !comment?.id
+        || (typeof comment.body !== 'string' && !(evidenceFormat === 'compact/v1'
+          && /^[a-f0-9]{64}$/.test(comment.body_sha256 || '')))
+        || !comment.author?.login || !comment.url || !Number.isFinite(Date.parse(comment.updatedAt)))) {
+      finding.errors.push('finding_conversation_incomplete');
+      return finding;
+    }
+    const candidates = sourceComments.map((comment) => ({ comment, record: parseSyncFindingDisposition(comment) }))
+      .filter(({ record }) => record?.thread_id === thread.id && record.head_sha === binding.head_sha);
+    if (candidates.length !== 1) {
+      finding.errors.push(candidates.length ? 'conflicting_dispositions' : 'classification_missing_or_stale');
+      return finding;
+    }
+    const { comment, record } = candidates[0];
+    finding.record = record;
+    finding.authority_url = comment.html_url;
+    const commentUrl = `https://github.com/${binding.repository}/pull/${binding.pr}#issuecomment-${comment.id}`;
+    if (!trusted.has(normalizeLogin(comment.user?.login)) || comment.html_url !== commentUrl
+      || !Number.isFinite(Date.parse(comment.updated_at))
+      || record.schema !== FINDING_DISPOSITION_SCHEMA) finding.errors.push('untrusted_provenance');
+    for (const key of ['repository', 'pr', 'head_sha', 'source_commit', 'plan_id', 'delivery_generation']) {
+      if (record[key] !== binding[key]) finding.errors.push(`binding_mismatch:${key}`);
+    }
+    if (record.thread_fingerprint !== syncFindingFingerprint(thread)) finding.errors.push('finding_changed');
+    if (!Number.isFinite(Date.parse(record.expires_at)) || Date.parse(record.expires_at) <= now) {
+      finding.errors.push('classification_expired');
+    }
+    if (typeof record.rationale !== 'string' || record.rationale.trim().length < 20
+      || typeof record.remediation_owner !== 'string' || !record.remediation_owner.trim()
+      || !Array.isArray(record.evidence_urls) || !record.evidence_urls.length
+      || record.evidence_urls.some((url) => typeof url !== 'string'
+        || !/^https:\/\/github\.com\/[\w.-]+\/[\w.-]+\//.test(url))) {
+      finding.errors.push('causal_evidence_or_owner_missing');
+    }
+    if (!['shared-source', 'sync-caused', 'unrelated', 'unknown'].includes(record.disposition)) {
+      finding.errors.push('invalid_disposition');
+    }
+    if (record.disposition === 'unrelated') {
+      const localIssue = `https://github.com/${binding.repository}/issues/`;
+      const matching = sourceHandoffs.filter((issue) => issue?.html_url === record.handoff_url);
+      const issue = matching[0];
+      if (!String(record.handoff_url || '').startsWith(localIssue)
+        || !/^[1-9]\d*$/.test(String(record.handoff_url || '').slice(localIssue.length))
+        || matching.length !== 1 || !issue || issue.pull_request || issue.state !== 'open'
+        || !issue.title || !Array.isArray(issue.assignees)
+        || !issue.assignees.some((assignee) => normalizeLogin(assignee.login)
+          === normalizeLogin(record.remediation_owner))) finding.errors.push('durable_local_handoff_unverified');
+      else finding.handoff = issue;
+    }
+    if (!finding.errors.length) finding.disposition = record.disposition;
+    return finding;
+  });
+  const unknown = findings.filter((finding) => finding.disposition === 'unknown');
+  const blocking = findings.filter((finding) => finding.disposition !== 'unrelated');
+  const nonblocking = findings.filter((finding) => finding.disposition === 'unrelated');
+  const dispositionThreadIds = {
+    'shared-source': findings.filter((finding) => finding.disposition === 'shared-source')
+      .map((finding) => finding.thread_id),
+    'sync-caused': findings.filter((finding) => finding.disposition === 'sync-caused')
+      .map((finding) => finding.thread_id),
+    unrelated: nonblocking.map((finding) => finding.thread_id),
+    unknown: unknown.map((finding) => finding.thread_id),
+  };
+  const aggregates = {
+    blocking: blocking.length,
+    nonblocking: nonblocking.length,
+    unknown: unknown.length,
+    by_disposition: {
+      'shared-source': dispositionThreadIds['shared-source'].length,
+      'sync-caused': dispositionThreadIds['sync-caused'].length,
+      unrelated: dispositionThreadIds.unrelated.length,
+      unknown: dispositionThreadIds.unknown.length,
+    },
+  };
+  return { schema: 'sync-finding-evaluation/v1', binding, raw_active_count: count,
+    blocked: errors.length > 0 || blocking.length > 0, errors, findings, aggregates,
+    disposition_thread_ids: dispositionThreadIds,
+    blocking_thread_ids: blocking.map((finding) => finding.thread_id),
+    nonblocking_thread_ids: nonblocking.map((finding) => finding.thread_id),
+    unknown_thread_ids: unknown.map((finding) => finding.thread_id),
+    unrelated_handoffs: nonblocking
+      .map((finding) => ({ thread_id: finding.thread_id, owner: finding.record.remediation_owner,
+        url: finding.record.handoff_url })),
+  };
+}
+
+// Full finding text remains in the executor's artifact. Dispatch transports
+// content digests and only API fields the same evaluator actually consumes.
+function compactSyncFindingEvidence(packet) {
+  if (!packet) return packet;
+  if (!Array.isArray(packet.reviewThreads) || !Array.isArray(packet.comments)
+    || !Array.isArray(packet.handoffs)
+    || packet.reviewThreads.some((thread) => !Array.isArray(thread?.comments?.nodes))) {
+    return { evidenceComplete: false, evidenceFormat: 'compact/v1', error: 'incomplete_finding_packet' };
+  }
+  const result = { binding: packet.binding, evidenceComplete: packet.evidenceComplete,
+    evidenceFormat: 'compact/v1',
+    reviewThreads: (packet.reviewThreads || []).map((thread) => ({
+      id: thread.id, path: thread.path, isResolved: thread.isResolved, isOutdated: thread.isOutdated,
+      comments: { pageInfo: thread.comments?.pageInfo,
+        nodes: (thread.comments?.nodes || []).map((comment) => ({ id: comment.id,
+          body_sha256: typeof comment.body === 'string'
+            ? require('crypto').createHash('sha256').update(comment.body).digest('hex') : comment.body_sha256,
+          updatedAt: comment.updatedAt, author: comment.author, url: comment.url })),
+      },
+    })),
+    comments: (packet.comments || []).map((comment) => ({ id: comment.id, body: comment.body,
+      user: { login: comment.user?.login }, html_url: comment.html_url, updated_at: comment.updated_at })),
+    handoffs: (packet.handoffs || []).map((issue) => ({ html_url: issue.html_url,
+      title: issue.title ? 'present' : '', state: issue.state,
+      ...(issue.pull_request ? { pull_request: {} } : {}),
+      assignees: issue.assignees?.map((assignee) => ({ login: assignee.login })),
+    })),
+  };
+  if (Buffer.byteLength(JSON.stringify(result), 'utf8') > 16000) {
+    result.evidenceComplete = false;
+    result.error = 'finding_packet_too_large';
+  }
+  return result;
+}
+
 function classifyReviewBlockedDisposition({
   activeReviewThreadCount,
   reviewThreads = [],
   manifestSources = new Set(),
   reviewerProfiles = [],
   reviewPolicyLoaded = true,
+  findingEvidence = null,
 } = {}) {
+  const emptyAggregates = {
+    blocking: 0,
+    nonblocking: 0,
+    unknown: 0,
+    by_disposition: {
+      'shared-source': 0,
+      'sync-caused': 0,
+      unrelated: 0,
+      unknown: 0,
+    },
+  };
   if (!reviewPolicyLoaded) {
     return {
       disposition: 'review-blocked',
       blocker_owner: 'closer',
       next_command: REVIEW_POLICY_UNAVAILABLE_COMMAND,
+      raw_active_count: Number.isFinite(Number(activeReviewThreadCount))
+        ? Number(activeReviewThreadCount)
+        : -1,
+      aggregates: emptyAggregates,
     };
   }
 
-  const reviewThreadCount = Number(activeReviewThreadCount);
-  if (!Number.isFinite(reviewThreadCount) || reviewThreadCount < 0) {
+  // An absent or malformed count is unknown evidence, never a coerced zero
+  // or an unrelated exemption borrowed through boolean/string conversion.
+  const reviewThreadCount = activeReviewThreadCount;
+  if (!Number.isInteger(reviewThreadCount) || reviewThreadCount < 0) {
     return {
       disposition: 'review-blocked',
       blocker_owner: 'closer',
       next_command: 'retry-review-thread-query',
+      raw_active_count: Number.isFinite(reviewThreadCount) ? reviewThreadCount : -1,
+      aggregates: emptyAggregates,
     };
   }
-  if (reviewThreadCount === 0) {
-    return null;
-  }
+  const findingDisposition = evaluateSyncFindingDispositions({
+    ...(findingEvidence || {}), reviewThreads: findingEvidence?.reviewThreads || reviewThreads,
+    // Evidence carries observations, not permission to replace the source's
+    // authority list or replay an earlier classification clock.
+    trustedActors: SYNC_FINDING_DISPOSITION_ACTORS, now: Date.now(),
+    activeReviewThreadCount: reviewThreadCount,
+  });
+  // Nonblocking relevance (all verified unrelated, or zero active debt) stays
+  // falsy for callers that treat a return as a delivery review block. Raw
+  // counts and aggregates remain on findingDisposition for audit consumers.
+  if (!findingDisposition.blocked) return null;
 
+  const audit = {
+    raw_active_count: findingDisposition.raw_active_count,
+    aggregates: findingDisposition.aggregates,
+    disposition_thread_ids: findingDisposition.disposition_thread_ids,
+    finding_disposition: findingDisposition,
+  };
   const activeThreads = normalizeActiveReviewThreads(reviewThreads, reviewerProfiles);
   if (
     activeThreads.length > 0
@@ -233,6 +454,7 @@ function classifyReviewBlockedDisposition({
       // exact generated head must remain blocked until regeneration or the
       // originating reviewer explicitly accepts the fix.
       next_command: 'repair-upstream-and-request-reviewer-disposition',
+      ...audit,
     };
   }
 
@@ -240,6 +462,7 @@ function classifyReviewBlockedDisposition({
     disposition: 'review-blocked',
     blocker_owner: 'closer',
     next_command: 'resolve-active-review-threads',
+    ...audit,
   };
 }
 
@@ -251,6 +474,7 @@ function classifyGeneratedPr({
   manifestSources = null,
   reviewerProfiles = [],
   reviewPolicyLoaded = true,
+  findingEvidence = null,
   now,
 } = {}) {
   const record = parseDeliveryRecord(pr.body || '');
@@ -274,7 +498,7 @@ function classifyGeneratedPr({
   if (!eligibility.eligible) {
     return { disposition: 'superseded', blocker_owner: 'maint-71', next_command: 'close-or-refresh-delivery' };
   }
-  const reviewThreadCount = Number(activeReviewThreadCount);
+  const reviewThreadCount = activeReviewThreadCount;
   if (!reviewPolicyLoaded) {
     return classifyReviewBlockedDisposition({
       activeReviewThreadCount: reviewThreadCount,
@@ -284,7 +508,7 @@ function classifyGeneratedPr({
       reviewPolicyLoaded,
     });
   }
-  if (!Number.isFinite(reviewThreadCount) || reviewThreadCount < 0) {
+  if (!Number.isInteger(reviewThreadCount) || reviewThreadCount < 0) {
     return classifyReviewBlockedDisposition({
       activeReviewThreadCount: reviewThreadCount,
       reviewThreads,
@@ -293,14 +517,27 @@ function classifyGeneratedPr({
       reviewPolicyLoaded,
     });
   }
-  if (reviewThreadCount > 0) {
-    return classifyReviewBlockedDisposition({
+  {
+    const reviewBlock = classifyReviewBlockedDisposition({
       activeReviewThreadCount: reviewThreadCount,
       reviewThreads,
       manifestSources: manifestSources || new Set(),
       reviewerProfiles,
       reviewPolicyLoaded,
+      // A packet can be internally valid while belonging to an older head or
+      // delivery. Bind pre-seal evaluation to the selected PR, as the final
+      // merge collector and canary row validation do at their boundaries.
+      findingEvidence: findingEvidence ? {
+        ...findingEvidence,
+        binding: {
+          repository: record.repository, pr: pr.number,
+          head_sha: pr.head?.sha || pr.headRefOid,
+          source_commit: record.source_commit, plan_id: record.plan_id,
+          delivery_generation: record.generation,
+        },
+      } : null,
     });
+    if (reviewBlock) return reviewBlock;
   }
   if (checkState.status === 'checks_pending') {
     return { disposition: 'awaiting-checks', blocker_owner: 'ci', next_command: 'await-required-checks' };
@@ -1062,6 +1299,26 @@ function validateExpectedCandidateIdentity({
   return { ok: errors.length === 0, errors };
 }
 
+function canaryReviewDebtIsBlocking(row) {
+  const packet = row.review_disposition;
+  // Legacy zero-debt rows need no exemption. An attached snapshot must still
+  // agree with the raw count and be complete, including when that count is zero.
+  if (row.active_review_thread_count === 0 && packet === undefined) return false;
+  const binding = { repository: row.repo, pr: row.pr, head_sha: row.head_sha,
+    source_commit: row.source_commit, plan_id: row.plan_id,
+    delivery_generation: row.delivery_generation };
+  // Empty snapshots carry provenance too. Replacing their binding before
+  // checking it would let evidence from another delivery appear current.
+  if (!hasCompleteSyncFindingBinding(binding) || !packet?.binding
+    || Object.keys(binding).some((key) => packet.binding[key] !== binding[key])) return true;
+  return evaluateSyncFindingDispositions({ ...(packet || {}),
+    trustedActors: SYNC_FINDING_DISPOSITION_ACTORS, now: Date.now(),
+    binding,
+    activeReviewThreadCount: row.active_review_thread_count,
+    evidenceComplete: packet?.evidenceComplete === true,
+  }).blocked;
+}
+
 function validateCanaryEvidence(evidence = [], expectedRepos = []) {
   const expected = new Set((expectedRepos || []).map((repo) => String(repo || '').trim()).filter(Boolean));
   const rowsByRepo = new Map();
@@ -1087,9 +1344,7 @@ function validateCanaryEvidence(evidence = [], expectedRepos = []) {
     if (row.required_check_state !== 'success') {
       errors.push(`required_checks_not_green:${repo}`);
     }
-    if (row.active_review_thread_count !== 0) {
-      errors.push(`active_review_debt:${repo}`);
-    }
+    if (canaryReviewDebtIsBlocking(row)) errors.push(`active_review_debt:${repo}`);
   }
   const planIds = new Set(
     [...rowsByRepo.values()].map((row) => String(row?.plan_id || '').trim()).filter(Boolean),
@@ -1217,6 +1472,7 @@ function summarizeResults(results) {
     head_changed: 0,
     head_commit_unverified: 0,
     review_blocked: 0,
+    merge_blocked_repository_policy: 0,
     ready: 0,
     dry_run_merge: 0,
     dry_run_review_start: 0,
@@ -1752,6 +2008,13 @@ function buildMarkdownSummary(report) {
 }
 
 module.exports = {
+  FINDING_DISPOSITION_SCHEMA,
+  SYNC_FINDING_DISPOSITION_ACTORS,
+  syncFindingFingerprint,
+  parseSyncFindingDisposition,
+  evaluateSyncFindingDispositions,
+  canaryReviewDebtIsBlocking,
+  compactSyncFindingEvidence,
   AUTO_RESOLVE_SYNC_BOT_THREADS_COMMAND,
   REVIEW_POLICY_UNAVAILABLE_COMMAND,
   REPORT_SCHEMA,

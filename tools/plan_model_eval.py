@@ -98,7 +98,11 @@ def build_plan(
     profile = policy["profiles"]["verifier-balanced"]
     candidate_stage = profile["candidate_stage"]
     approval = profile["approval_stage"]
-    cases = corpus["cases"]
+    # Diagnostic-only cases (the failed-CI mutants: the verifier workflow already floors a red CI at
+    # CONCERNS deterministically, so a model miss there costs nothing) are kept for reporting but
+    # never count toward any floor.
+    diagnostic_cases = sum(bool(case.get("diagnostic_only")) for case in corpus["cases"])
+    cases = [case for case in corpus["cases"] if not case.get("diagnostic_only")]
     counts = Counter(str(case["category"]) for case in cases)
     minimum = int(approval["minimum_adjudicated_cases"])
     stable_policy = approval.get("stable_merge_pass") or {}
@@ -131,7 +135,9 @@ def build_plan(
         float(approval["confidence_level"]),
     )
     additional_non_pass = max(0, false_pass_floor - negative_cases)
-    evaluable = _evaluable_counts(corpus, count_stable=bool(stable_policy.get("enabled")))
+    evaluable = _evaluable_counts(
+        {**corpus, "cases": cases}, count_stable=bool(stable_policy.get("enabled"))
+    )
     minimum_real_non_pass = int(mutation_policy.get("minimum_real_non_pass_cases", 0))
     additional_pass = max(0, false_fail_floor - positive_cases)
     best_case_total = len(cases) + additional_non_pass + additional_pass
@@ -338,6 +344,7 @@ def build_plan(
         "corpus_cases": len(cases),
         "expected_pass_cases": positive_cases,
         "expected_non_pass_cases": negative_cases,
+        "diagnostic_only_cases": diagnostic_cases,
         "stable_merge_pass_cases": stable_cases if stable_policy.get("enabled") else 0,
         "evaluable_pass_cases": evaluable["pass"],
         "evaluable_non_pass_cases": evaluable["non_pass"],
