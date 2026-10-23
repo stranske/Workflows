@@ -450,7 +450,18 @@ when evaluator imports or argument parsing fail.
 
 Diagnostic retention streams original hashes and byte counts, keeping at most
 8 MiB of stdout and 1 MiB of stderr (prefix and tail). Truncated stdout cannot
-provide a decision. Failure receipts leave provider execution and remote effects
+provide a decision. Masking is detected across the complete original stream,
+including discarded middle bytes and chunk boundaries. Diagnostic UTF-8 cuts
+preserve the final encoded byte bound without invalidating an otherwise usable
+model decision. Receipts distinguish
+`original_redacted` from `retained_redacted`; the existing `redacted` field reports
+masking observed in the original stream. Discarded raw values are never retained.
+Receipt generation and status extraction are explicitly checked before outputs
+are published. A generator or receipt-validation failure emits a bounded,
+schema-valid `UNVERIFIABLE_INPUT` fallback with unknown original capture metadata,
+without copying raw generator diagnostics. Failure to write or publish that
+fallback, upload its evidence, or post the evaluation comment remains a workflow
+failure. Failure receipts leave provider execution and remote effects
 unconfirmed and do not authorize a retry. This supplemental single-provider
 result does not complete native verification or a multi-provider comparison.
 

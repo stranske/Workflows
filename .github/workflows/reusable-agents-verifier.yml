@@ -1042,7 +1042,6 @@ jobs:
             inputs.mode == 'evaluate' &&
             steps.openai_key.outputs.available == 'true'
           }}
-        continue-on-error: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
@@ -1094,7 +1093,9 @@ jobs:
 
           # Keep launch/transport failures distinct from an actual model decision.
           # This stdlib receipt still runs if evaluator imports or argument parsing fail.
-          python3 - <<'PYRECEIPT' > evaluation-transport-outputs.env
+          receipt_exit=0
+          python3 - > evaluation-transport-outputs.env \
+            2> evaluation-receipt-raw-stderr.log <<'PYRECEIPT' || receipt_exit=$?
           import hashlib
           import json
           import os
@@ -1115,6 +1116,7 @@ jobs:
           ):
               path = Path(name)
               prefix, tail, count = b'', b'', 0
+              scan_tail, original_redacted = b'', False
               digest = hashlib.sha256()
               error = None
               try:
@@ -1122,6 +1124,9 @@ jobs:
                       while chunk := handle.read(64 * 1024):
                           digest.update(chunk)
                           count += len(chunk)
+                          window = scan_tail + chunk
+                          original_redacted |= any(secret in window for secret in secrets)
+                          scan_tail = window[-overlap:] if overlap else b''
                           if len(prefix) < limit + overlap:
                               prefix += chunk[:limit + overlap - len(prefix)]
                           if keep_tail:
@@ -1129,19 +1134,38 @@ jobs:
               except OSError as exc:
                   error = type(exc).__name__
               truncated = count > limit
-              def redact(raw):
+              def redact(raw, start=0, end=None):
+                  end = len(raw) if end is None else end
+                  retained_redacted = False
                   for secret in secrets:
+                      offset = raw.find(secret)
+                      while offset >= 0:
+                          retained_redacted |= offset < end and offset + len(secret) > start
+                          offset = raw.find(secret, offset + len(secret))
                       # Preserve overlap positions until prefix/tail slicing is complete.
                       raw = raw.replace(secret, b'*' * len(secret))
-                  return raw
-              sanitized = redact(prefix)
+                  return raw, retained_redacted
+              def bounded_diagnostic(raw, budget, from_tail=False):
+                  # Decode first, then cut encoded bytes only at UTF-8 boundaries.
+                  encoded = raw.decode('utf-8', errors='replace').encode()
+                  clipped = encoded[-budget:] if from_tail else encoded[:budget]
+                  return clipped.decode('utf-8', errors='ignore').encode()
               if truncated and keep_tail:
                   marker = b'\n[diagnostic truncated]\n'
                   prefix_limit = (limit - len(marker)) // 2
                   tail_limit = limit - len(marker) - prefix_limit
-                  sanitized = sanitized[:prefix_limit] + marker + redact(tail)[-tail_limit:]
+                  sanitized, prefix_redacted = redact(prefix, end=prefix_limit)
+                  sanitized_tail, tail_redacted = redact(tail, start=max(0, len(tail) - tail_limit))
+                  sanitized = (bounded_diagnostic(sanitized[:prefix_limit], prefix_limit)
+                               + marker
+                               + bounded_diagnostic(sanitized_tail[-tail_limit:], tail_limit, True))
+                  retained_redacted = prefix_redacted or tail_redacted
               else:
+                  sanitized, retained_redacted = redact(prefix, end=limit)
                   sanitized = sanitized[:limit]
+                  if keep_tail:
+                      truncated |= len(sanitized.decode('utf-8', errors='replace').encode()) > limit
+                      sanitized = bounded_diagnostic(sanitized, limit)
               text = sanitized.decode('utf-8', errors='replace')
               raw = text.encode()
               try:
@@ -1151,7 +1175,9 @@ jobs:
               refs[name] = {'sha256': hashlib.sha256(raw).hexdigest(), 'bytes': len(raw),
                             'original_bytes': count, 'original_sha256': digest.hexdigest(),
                             'original_complete': error is None, 'truncated': truncated,
-                            'redacted': any(secret in prefix or secret in tail for secret in secrets),
+                            'redacted': original_redacted,
+                            'original_redacted': original_redacted,
+                            'retained_redacted': retained_redacted,
                             'retention_error_type': error}
               # Raw streams are never uploaded or printed, including on retention failure.
               try:
@@ -1198,8 +1224,133 @@ jobs:
           print('execution_status=' + status)
           print('verdict=' + (data['verdict'] if status == 'completed' else 'UNVERIFIABLE_INPUT'))
           PYRECEIPT
+          # Validate both receipt and extracted outputs before publishing any verdict.
+          receipt_check_exit=0
+          receipt_failure=''
+          if [ "$receipt_exit" -ne 0 ]; then
+            receipt_failure='receipt_generation_failed'
+          else
+            evaluation_status="$(python3 - <<'PYCHECK' 2> evaluation-receipt-check-raw-stderr.log
+          import hashlib
+          import json
+          from pathlib import Path
+
+          def bounded(path, limit):
+              with Path(path).open('rb') as stream:
+                  raw = stream.read(limit + 1)
+              if len(raw) > limit:
+                  raise ValueError('receipt input exceeds bound')
+              return raw
+
+          receipt = json.loads(bounded('evaluation-execution.json', 64 * 1024))
+          status = receipt['status']
+          allowed = {'completed', 'process_failed', 'invalid_output', 'retention_failed',
+                     'output_truncated', 'result_unavailable'}
+          if (receipt['schema'] != 'workflows-verifier-evaluation-execution/v1'
+              or receipt['mode'] != 'evaluate' or status not in allowed
+              or receipt['acceptance_authority'] is not False
+              or receipt['retry_authority'] is not False
+              or receipt['model_execution'] != 'unconfirmed'
+              or receipt['remote_effects'] != 'unconfirmed'
+              or receipt['decision_available'] is not (status == 'completed')
+              or receipt['recoverable'] is not (status != 'completed')
+              or type(receipt['exit_code']) is not int):
+              raise ValueError('invalid execution receipt')
+          refs = receipt['outputs']
+          if set(refs) != {'evaluation.json', 'evaluation-stderr.log'}:
+              raise ValueError('invalid retained outputs')
+          for name, limit in (('evaluation.json', 8 * 1024 * 1024),
+                              ('evaluation-stderr.log', 1024 * 1024)):
+              raw = bounded(name, limit)
+              if (type(refs[name]['bytes']) is not int or refs[name]['bytes'] != len(raw)
+                  or refs[name]['sha256'] != hashlib.sha256(raw).hexdigest()):
+                  raise ValueError('retained output hash mismatch')
+          verdict = 'UNVERIFIABLE_INPUT'
+          if status == 'completed':
+              data = json.loads(bounded('evaluation.json', 8 * 1024 * 1024))
+              verdict = data['verdict']
+              if verdict not in {'PASS', 'CONCERNS', 'FAIL'} or data['used_llm'] is not True:
+                  raise ValueError('missing substantive decision')
+          expected = f'execution_status={status}\nverdict={verdict}\n'
+          if bounded('evaluation-transport-outputs.env', 512).decode() != expected:
+              raise ValueError('invalid status extraction')
+          print(status)
+          PYCHECK
+            )" || receipt_check_exit=$?
+            if [ "$receipt_check_exit" -ne 0 ]; then
+              receipt_failure='receipt_validation_failed'
+            fi
+          fi
+          if [ -n "$receipt_failure" ]; then
+            export RECEIPT_FAILURE_STATUS="$receipt_failure"
+            export RECEIPT_GENERATION_EXIT_CODE="$receipt_exit"
+            export RECEIPT_VALIDATION_EXIT_CODE="$receipt_check_exit"
+            # A fixed, bounded fallback never copies an untrusted generator traceback.
+            # If it cannot be written/published, fail the step rather than imply success.
+            python3 - > evaluation-transport-outputs.env \
+              2> evaluation-fallback-raw-stderr.log <<'PYFALLBACK'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          fallback_reason = os.environ['RECEIPT_FAILURE_STATUS']
+          if fallback_reason not in {'receipt_generation_failed', 'receipt_validation_failed'}:
+              raise ValueError('invalid fallback reason')
+          data = {'verdict': 'UNVERIFIABLE_INPUT', 'used_llm': False,
+                  'error': 'Execution receipt unavailable; no usable model decision established.'}
+          diagnostic = fallback_reason + '; raw generator diagnostics withheld.\n'
+          Path('evaluation.json').write_text(json.dumps(data) + '\n')
+          Path('evaluation-stderr.log').write_text(diagnostic)
+          refs = {}
+          for name in ('evaluation.json', 'evaluation-stderr.log'):
+              raw = Path(name).read_bytes()
+              refs[name] = {'sha256': hashlib.sha256(raw).hexdigest(), 'bytes': len(raw),
+                            'original_bytes': None, 'original_sha256': None,
+                            'original_complete': False, 'truncated': None,
+                            'redacted': None, 'original_redacted': None,
+                            'retained_redacted': False, 'retention_error_type': fallback_reason}
+          identity_ref = None
+          identity_path = Path('verifier-input-manifest.json')
+          try:
+              with identity_path.open('rb') as stream:
+                  raw = stream.read(64 * 1024 + 1)
+              if len(raw) <= 64 * 1024:
+                  identity_ref = {'path': str(identity_path),
+                                  'sha256': hashlib.sha256(raw).hexdigest()}
+          except OSError:
+              pass
+          receipt = {'schema': 'workflows-verifier-evaluation-execution/v1',
+                     'mode': 'evaluate', 'acceptance_authority': False,
+                     'status': fallback_reason,
+                     'exit_code': int(os.environ['EVALUATION_EXIT_CODE']),
+                     'decision_available': False, 'recoverable': True,
+                     'model_execution': 'unconfirmed', 'remote_effects': 'unconfirmed',
+                     'retry_authority': False, 'validation_error_type': None,
+                     'receipt_generation_exit_code':
+                         int(os.environ['RECEIPT_GENERATION_EXIT_CODE']),
+                     'receipt_validation_exit_code':
+                         int(os.environ['RECEIPT_VALIDATION_EXIT_CODE']),
+                     'repository': os.environ.get('GITHUB_REPOSITORY'),
+                     'source_run_id': os.environ.get('GITHUB_RUN_ID'),
+                     'source_run_attempt': os.environ.get('GITHUB_RUN_ATTEMPT'),
+                     'provider_requested': os.environ.get('VERIFIER_PROVIDER'),
+                     'model_requested': os.environ.get('VERIFIER_MODEL'),
+                     'input_manifest': identity_ref, 'outputs': refs}
+          Path('evaluation-execution.json').write_text(json.dumps(receipt, indent=2) + '\n')
+          for name in ('evaluation-raw.json', 'evaluation-raw-stderr.log',
+                       'evaluation-receipt-raw-stderr.log',
+                       'evaluation-receipt-check-raw-stderr.log'):
+              try:
+                  Path(name).unlink(missing_ok=True)
+              except OSError:
+                  pass
+          print('execution_status=' + fallback_reason)
+          print('verdict=UNVERIFIABLE_INPUT')
+          PYFALLBACK
+            evaluation_status="$receipt_failure"
+          fi
           cat evaluation-transport-outputs.env >> "$GITHUB_OUTPUT"
-          evaluation_status="$(grep '^execution_status=' evaluation-transport-outputs.env | cut -d= -f2-)"
           if [ -s evaluation-stderr.log ]; then
             echo '::group::Evaluation stderr (secret values redacted)'
             cat evaluation-stderr.log
@@ -1375,9 +1526,13 @@ jobs:
         run: |
           set -euo pipefail
           pr_number="${{ steps.context.outputs.pr_number }}"
-          if [ -n "$pr_number" ] && [ -f "evaluation-comment.md" ]; then
-            gh pr comment "$pr_number" --body-file evaluation-comment.md || \
-              echo "Warning: Could not post comment"
+          if [ -z "$pr_number" ] || [ ! -s "evaluation-comment.md" ]; then
+            echo '::error::Evaluation comment target or payload unavailable'
+            exit 1
+          fi
+          if ! gh pr comment "$pr_number" --body-file evaluation-comment.md; then
+            echo '::error::Could not publish evaluation evidence comment'
+            exit 1
           fi
 
 
@@ -1739,7 +1894,7 @@ jobs:
             verifier-context.md
             verifier-diff-summary.md
             verifier-pr-diff.patch
-          if-no-files-found: ignore
+          if-no-files-found: error
           retention-days: 7
 
       - name: Upload evaluation capacity receipts
