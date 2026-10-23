@@ -27,6 +27,34 @@ test('cancelled prior run retries only with exact authoritative skipped evaluato
  assert.equal(result.proof.event_id,event.event_id);
 });
 
+test('authoritative reads use bounded retries and retain uncertainty on unavailable transport',async()=> {
+ const github=api();
+ const getRun=github.rest.actions.getWorkflowRun;
+ const getJobs=github.rest.actions.listJobsForWorkflowRunAttempt;
+ let runCalls=0,jobsCalls=0;
+ const transient=()=>Object.assign(new Error('temporary read failure'),{status:503,request:{method:'GET'}});
+ github.rest.actions.getWorkflowRun=async params=>{
+  assert.equal(params.request.timeout,15000);
+  if(++runCalls===1) throw transient();
+  return getRun(params);
+ };
+ github.rest.actions.listJobsForWorkflowRunAttempt=async params=>{
+  assert.equal(params.request.timeout,15000);
+  if(++jobsCalls===1) throw transient();
+  return getJobs(params);
+ };
+ const result=await reconcilePendingExecution({github,event,assessment,state});
+ assert.equal(result.retry_kind,'known_no_evaluation');
+ assert.equal(runCalls,3);assert.equal(jobsCalls,2);
+ let refusedCalls=0;
+ github.rest.actions.getWorkflowRun=async()=>{refusedCalls++;throw transient();};
+ const unavailable=await reconcilePendingExecution({github,event,assessment,state});
+ assert.equal(refusedCalls,3);
+ assert.equal(unavailable.retryable,false);
+ assert.equal(unavailable.failure_cause,'prior_execution_reconciliation_unavailable');
+ assert.equal(unavailable.proof,undefined);
+});
+
 test('active, changed, foreign, missing and started prior executions never authorize retries',async()=> {
  const cases=[{runChange:r=>{r.status='in_progress';}}, {runChange:r=>{r.run_attempt=2;}},
  {runChange:r=>{r.repository.full_name='foreign/repo';}}, {runChange:r=>{r.path='.github/workflows/other.yml';}},

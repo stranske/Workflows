@@ -303,14 +303,11 @@ def test_root_and_consumer_share_event_semantics_despite_reviewed_ci_fingerprint
 def test_authored_compare_command_and_assessment_ignore_unused_provider(tmp_path, ignored_provider):
     (tmp_path / ".workflows-lib").symlink_to(ROOT, target_is_directory=True)
     fake_python = tmp_path / "python"
-    fake_python.write_text(
-        f"#!{sys.executable}\n"
-        + """import json,sys
+    fake_python.write_text(f"#!{sys.executable}\n" + """import json,sys
 from pathlib import Path
 Path('invocation.json').write_text(json.dumps(sys.argv[1:]))
 print(json.dumps({'results':[{'used_llm':False,'verdict':'UNVERIFIABLE_INPUT'}],'report':'Offline contract proof; no provider invoked.'}))
-"""
-    )
+""")
     fake_python.chmod(0o755)
     context = tmp_path / "context.md"
     context.write_text("Authentic collected input.")

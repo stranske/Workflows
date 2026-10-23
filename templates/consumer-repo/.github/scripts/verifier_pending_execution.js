@@ -1,6 +1,7 @@
 'use strict';
 
 const { digest, validateEvent, sameAssessment } = require('./verification_event.js');
+const { createTokenAwareRetry } = require('./github-api-with-retry.js');
 
 function executionBinding(mode) {
   if (!['evaluate','compare'].includes(mode)) throw new Error('Unsupported verifier execution mode');
@@ -23,7 +24,11 @@ async function reconcilePendingExecution({github,event,assessment,state,maxPages
     if (![runId,attempt].every(value => Number.isSafeInteger(value) && value > 0)
         || String(runId) !== String(state.run_id) || String(attempt) !== String(state.run_attempt)) return unknown('pending_run_identity_invalid');
     const [owner,repo] = event.repo.split('/');
-    const readRun = async () => (await github.rest.actions.getWorkflowRun({owner,repo,run_id:runId})).data;
+    const { withRetry } = await createTokenAwareRetry({github,
+      task:'verifier',capabilities:['read-repo'],minRemaining:50});
+    const retryOptions = {maxRetries:2,initialDelay:250,maxDelay:1000};
+    const readRun = async () => (await withRetry(client => client.rest.actions.getWorkflowRun({
+      owner,repo,run_id:runId,request:{timeout:15000}}),retryOptions)).data;
     const matches = run => run?.id === runId && run.run_attempt === attempt && run.status === 'completed'
       && run.path === binding.workflow_path && /^[0-9a-f]{40}$/.test(run.head_sha || '')
       && ['workflow_dispatch','pull_request_target'].includes(run.event)
@@ -34,8 +39,8 @@ async function reconcilePendingExecution({github,event,assessment,state,maxPages
     const jobs = [], ids = new Set();
     let total, complete = false;
     for (let page=1;page<=Math.min(maxPages,10);page+=1) {
-      const response = await github.rest.actions.listJobsForWorkflowRunAttempt({owner,repo,
-        run_id:runId,attempt_number:attempt,per_page:100,page});
+      const response = await withRetry(client => client.rest.actions.listJobsForWorkflowRunAttempt({owner,repo,
+        run_id:runId,attempt_number:attempt,per_page:100,page,request:{timeout:15000}}),retryOptions);
       if (!Array.isArray(response?.data?.jobs) || !Number.isSafeInteger(response.data.total_count)
           || response.data.total_count < 0 || (total !== undefined && total !== response.data.total_count)) return unknown('prior_attempt_jobs_incomplete');
       total = response.data.total_count;
