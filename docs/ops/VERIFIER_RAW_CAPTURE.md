@@ -91,3 +91,13 @@ This narrow compatibility binding is not a general manual-run admission rule.
 A future general receipt contract must independently establish immutable
 producer and target identity; a workflow name, main branch or self-asserted
 manifest alone is insufficient.
+
+### Original requests without checklist headings
+
+Explicit `evaluate` and `compare` requests retain the complete original PR and
+linked issue bodies as authoritative requirements, including source hashes. They
+can proceed without parsed Tasks and Acceptance criteria headings; the derived
+projection is navigation only and does not invent checklist entries. Checkbox
+mode retains its structured-section admission rule. Empty or malformed original
+requests are named missing inputs, and failed linked-source retrieval remains a
+required input gap at native preflight. Admission is not an acceptance verdict.

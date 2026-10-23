@@ -1750,6 +1750,9 @@ async function fetchClosingIssues({ github, core, owner, repo, prNumber }) {
     const connection = data?.repository?.pullRequest?.closingIssuesReferences;
     if (!Array.isArray(connection?.nodes)) throw new Error('Linked issue response is unavailable.');
     const nodes = connection.nodes.filter(Boolean);
+    if (nodes.some(issue => issue.body != null && typeof issue.body !== 'string')) {
+      throw new Error('Linked issue request body is invalid.');
+    }
     const issues = nodes.map((issue) => ({
       number: issue.number,
       title: issue.title || '',
@@ -1804,6 +1807,7 @@ async function buildVerifierContext({
   context,
   core,
   ciWorkflows,
+  mode = 'checkbox',
   fetchLocalDiff = fetchLocalGitDiff,
   extractArtifactText = extractArtifactArchiveText,
 }) {
@@ -1856,6 +1860,9 @@ async function buildVerifierContext({
     return { shouldRun: false, reason: skipReason, ciResults: [], ciFailed: false };
   }
 
+  const invalidOriginalBody = pull.body != null && typeof pull.body !== 'string';
+  if (typeof pull.body !== 'string') pull.body = '';
+  const modelEvaluation = mode === 'evaluate' || mode === 'compare';
   const sourceContext = resolvePrSourceContext(pull);
   if (sourceContext.isRecurringDataJob) {
     const skipReason = 'Recurring verifier corpus data-job PR; issue acceptance verification does not apply.';
@@ -1910,7 +1917,7 @@ async function buildVerifierContext({
     }
   }
   const prProjection = extractScopeTasksAcceptanceSections(pull.body || '', {
-    includePlaceholders: true,
+    includePlaceholders: !modelEvaluation,
   });
   const prSections = requestWithProjection(pull.body || '', prProjection);
   planSources.push({ source: `Pull request #${pull.number}`, url: pull.html_url || '', body: prSections, originalBody: pull.body || '' });
@@ -1935,9 +1942,10 @@ async function buildVerifierContext({
       }
     }
     const issueProjection = extractScopeTasksAcceptanceSections(issue.body || '', {
-      includePlaceholders: true,
+      includePlaceholders: !modelEvaluation,
     });
-    const issueSections = requestWithProjection(issue.body || '', issueProjection);
+    const issueSections = modelEvaluation && !issue.body.trim()
+      ? '' : requestWithProjection(issue.body || '', issueProjection);
     planSources.push({ source: `Issue #${issue.number}`, url: issue.url || '', body: issueSections, originalBody: issue.body || '' });
     sections.push(
       formatSections({
@@ -2081,15 +2089,18 @@ async function buildVerifierContext({
   content.push('');
   content.push(formatVerifierEvidence(verifierEvidence));
 
-  // Skip verifier early if there are no acceptance criteria to verify
-  // Check for any acceptance content (not just checkboxes) to handle plain-text criteria
-  // Also require tasks content - PRs without both are likely bug fixes or simple changes
-  // that weren't intended for structured agent verification
-  if (!hasAcceptanceContent || !hasTasksContent) {
+  // Explicit model evaluation uses the authentic request, not a fabricated checklist.
+  // Checkbox mode retains its structured tasks/acceptance admission contract.
+  const hasOriginalRequest = planSources.some(({ originalBody }) =>
+    typeof originalBody === 'string' && originalBody.replace(/<!--[\s\S]*?-->/g, '').trim()
+  );
+  if (modelEvaluation ? invalidOriginalBody || !hasOriginalRequest : !hasAcceptanceContent || !hasTasksContent) {
     const missingParts = [];
     if (!hasTasksContent) missingParts.push('tasks');
     if (!hasAcceptanceContent) missingParts.push('acceptance criteria');
-    const skipReason = `No ${missingParts.join(' and ')} found in PR or linked issues; skipping verifier.`;
+    const skipReason = modelEvaluation
+      ? 'original_request_missing_or_invalid: authentic PR or linked issue requirements are unavailable; recover the original request before evaluation.'
+      : `No ${missingParts.join(' and ')} found in PR or linked issues; skipping verifier.`;
     core?.warning?.(skipReason);
     core?.setOutput?.('should_run', 'false');
     core?.setOutput?.('skip_reason', skipReason);
@@ -2279,6 +2290,7 @@ module.exports = {
     context,
     core,
     ciWorkflows,
+    mode,
     fetchLocalDiff,
     extractArtifactText,
   }) {
@@ -2288,6 +2300,7 @@ module.exports = {
       context,
       core,
       ciWorkflows,
+      mode,
       fetchLocalDiff,
       extractArtifactText,
     });

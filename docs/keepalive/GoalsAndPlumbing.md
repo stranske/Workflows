@@ -307,6 +307,13 @@ the next evaluation requires fresh evidence before completion.
 
 ### Post-merge verification and source closure
 
+Post-merge acceptance-command jobs allocate plan and result control files in a
+unique temporary directory under `RUNNER_TEMP`. Each invocation reads its own
+results before retiring those control files; the combined `closure-results.json`
+remains available for the normal artifact upload. Parallel jobs and tests never
+share fixed `/tmp/closure-*` paths. This isolation does not change command
+failure handling, receipt identity, or the credential allowlist.
+
 The verifier preserves the authoritative full patch instead of clipping the
 context at 300,000 characters. Standard evaluate and compare review whole file
 patches in successive requests using the named `VERIFIER_DIFF_BUDGET_TOKENS`
