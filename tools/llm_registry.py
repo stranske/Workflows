@@ -80,8 +80,10 @@ class NativeCapacityUnavailable(ValueError):
 
 
 def native_capacity_facts_for(provider: str, model: str) -> NativeCapacityFacts:
-    """Strict expanded-only lookup, separate from legacy selection/filtering.
+    """Exact native-capacity lookup, separate from legacy selection/filtering.
 
+    A registered model without optional facts raises NativeCapacityUnavailable.
+    Malformed or incomplete facts raise ValueError in every profile.
     No aliases, inferred model families, SDK imports or arbitrary endpoints come
     from configuration. Optional facts do not select or promote a model. Invalid
     JSON, duplicate keys/identities or incomplete selected facts deny execution.

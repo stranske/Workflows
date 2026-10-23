@@ -876,7 +876,7 @@ scripts:
     description: "LangChain client builder - multi-provider client with slot-based fallback and configuration"
 
   - source: tools/llm_registry.py
-    description: "LLM model registry helper - shared selection/blocked-model enforcement plus strict expanded-only exact native capacity facts"
+    description: "LLM model registry helper - shared selection/blocked-model enforcement plus exact optional native capacity facts; missing records raise NativeCapacityUnavailable, malformed facts raise ValueError"
     template_sync: exact
 
   # Raw UTF-8 and CRLF identities must match loaded semantic inputs without newline normalization.
