@@ -36,7 +36,7 @@ const fs = require('fs'); const input=JSON.parse(fs.readFileSync(0,'utf8'));
 const comments=[],outputs={};
 const github={rest:{issues:{createComment:async row=>comments.push(row)}}};
 const context={repo:{owner:'stranske',repo:'example'},runId:20};
-const core={setOutput:(key,value)=>{outputs[key]=value;}};
+const core={setOutput:(key,value)=>{outputs[key]=value;},warning:()=>{}};
 const AsyncFunction=Object.getPrototypeOf(async function(){}).constructor;
 new AsyncFunction('require','github','context','core',input.script)(require,github,context,core)
  .then(()=>process.stdout.write(JSON.stringify({comments,outputs})))

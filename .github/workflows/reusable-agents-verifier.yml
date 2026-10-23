@@ -474,6 +474,8 @@ jobs:
         with:
           script: |
             const fs = require('fs');
+            const { createTokenAwareRetry } = require('./.workflows-lib/.github/scripts/github-api-with-retry.js');
+            const { withRetry } = await createTokenAwareRetry({ github, core, env: {}, task: 'verifier-event-state' });
             const manifest = JSON.parse(fs.readFileSync('verification-event-manifest.json', 'utf8'));
             const event = manifest.verification_event;
             const state = { schema: 'verifier-event-state/v1', repo: event.repo, pr: event.pr,
@@ -482,8 +484,8 @@ jobs:
               status: 'pending', verification_event: event, assessment_identity: manifest.assessment_identity,
               execution_binding: manifest.execution_binding,
               ...(manifest.predecessor_event_id ? { predecessor_event_id: manifest.predecessor_event_id } : {}) };
-            await github.rest.issues.createComment({ ...context.repo, issue_number: Number(event.pr),
-              body: `<!-- verifier-event-state/v1 ${JSON.stringify(state)} -->` });
+            await withRetry(() => github.rest.issues.createComment({ ...context.repo, issue_number: Number(event.pr),
+              body: `<!-- verifier-event-state/v1 ${JSON.stringify(state)} -->` }));
 
       - name: Prepare source closure plans
         if: steps.context.outputs.should_run == 'true'
@@ -1723,6 +1725,8 @@ jobs:
         with:
           script: |
             const fs = require('fs');
+            const { createTokenAwareRetry } = require('./.workflows-lib/.github/scripts/github-api-with-retry.js');
+            const { withRetry } = await createTokenAwareRetry({ github, core, env: {}, task: 'verifier-event-state' });
             const manifest = JSON.parse(fs.readFileSync('verification-event-manifest.json', 'utf8'));
             const event = manifest.verification_event;
             const reports = ['evaluation-comment.md', 'comparison-comment.md'].filter(p => fs.existsSync(p));
@@ -1747,15 +1751,18 @@ jobs:
                 if (['known_no_evaluation', 'recover_existing_evaluation', 'uncertain_execution'].includes(parsed.retry_kind)
                     && parsed.retryable === (parsed.retry_kind === 'known_no_evaluation')
                     && typeof parsed.failure_cause === 'string') recovery = parsed;
-              } catch { /* Retain uncertainty; do not infer no effect from a diagnostic failure. */ }
+              } catch (error) {
+                core.warning(`Verification execution classification unavailable: ${error.message}`);
+                // Retain uncertainty; a diagnostic failure never proves no effect.
+              }
               const state = { schema: 'verifier-event-state/v1', repo: event.repo, pr: event.pr,
                 head_sha: event.head_sha, evaluated_sha: event.evaluated_sha,
                 run_id: String(context.runId), run_attempt: String(process.env.GITHUB_RUN_ATTEMPT),
                 status: 'incomplete', ...recovery,
                 verification_event: event, assessment_identity: manifest.assessment_identity,
                 ...(manifest.predecessor_event_id ? { predecessor_event_id: manifest.predecessor_event_id } : {}) };
-              await github.rest.issues.createComment({ ...context.repo, issue_number: Number(event.pr),
-                body: `<!-- verifier-event-state/v1 ${JSON.stringify(state)} -->` });
+              await withRetry(() => github.rest.issues.createComment({ ...context.repo, issue_number: Number(event.pr),
+                body: `<!-- verifier-event-state/v1 ${JSON.stringify(state)} -->` }));
             }
 
       - name: Shadow candidate verifier judges (recorded only; never posted, never counted)
