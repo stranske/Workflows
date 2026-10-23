@@ -40,7 +40,22 @@ def context(requirement, *, comments="present", artifact_status="unavailable", c
     }
     if change:
         change(record, coverage)
-    coverage["acceptance_evidence_sources"] = [record]
+    # Match the collector's typed complete alternatives; a status preamble alone
+    # cannot establish a retained body or comment channel.
+    coverage["acceptance_sources"][0].update(
+        source="Pull request #1", included_chars=len(requirement), total_chars=len(requirement)
+    )
+    comment = "Existing reported proof."
+    coverage["acceptance_evidence_sources"] = [
+        {
+            "source": "PR comment #1",
+            "channel": "comments",
+            "status": "included" if comments == "present" else "unavailable",
+            "included_chars": len(comment) if comments == "present" else 0,
+            "total_chars": len(comment) if comments == "present" else None,
+        },
+        record,
+    ]
     text = re.sub(r"(?<=```json\n).*?(?=\n```)", json.dumps(coverage), text, count=1, flags=re.S)
     evidence = (
         "## Acceptance evidence\n\n- Overall retrieval status: **unavailable**\n"
@@ -81,6 +96,12 @@ def test_available_alternative_allows_reasoning_without_claiming_complete_captur
     assert manifest["gaps"] == []
     assert "acceptance_evidence:Run 7: coverage:truncated" in manifest["capture_gaps"]
     assert manifest["optional_evidence"][0]["necessity"] == "useful"
+    assert manifest["optional_evidence"][0]["source"] == "Run 7: coverage"
+    assert pr_verifier._evaluation_optional_evidence_channels(text) == (
+        frozenset({"artifacts"})
+        if "comment or" in requirement
+        else frozenset({"comments", "artifacts"})
+    )
     assert manifest["obligations"][-2]["status"] == "truncated"
 
 
