@@ -42,7 +42,12 @@ from scripts.langchain.verifier_config import (
     VERIFIER_DIFF_BUDGET_TOKENS,
     SchemaRepairPolicy,
 )
-from tools.llm_registry import NativeCapacityFacts, native_capacity_facts_for, normalize_provider
+from tools.llm_registry import (
+    NativeCapacityFacts,
+    NativeCapacityUnavailable,
+    native_capacity_facts_for,
+    normalize_provider,
+)
 from tools.verifier_capture_obligation_manifest import (
     build_capture_byte_inventory,
     build_capture_obligation_manifest,
@@ -6848,6 +6853,54 @@ def _legacy_github_chat(client: object) -> bool:
     )
 
 
+def _legacy_capacity_route(client: object) -> bool:
+    """Preserve registered standard routes without optional native facts.
+
+    Missing facts are not malformed facts. A declared contract, bad registry,
+    unknown model or unexpected transport still fails closed; expanded recovery
+    never takes this legacy path.
+    """
+    if _legacy_github_chat(client):
+        return True
+    if os.environ.get("VERIFIER_EVIDENCE_PROFILE") == "expanded":
+        return False
+    try:
+        from langchain_openai import ChatOpenAI
+    except ImportError:
+        ChatOpenAI = None  # noqa: N806
+    try:
+        from langchain_anthropic import ChatAnthropic
+    except ImportError:
+        ChatAnthropic = None  # noqa: N806
+    if type(client) is ChatOpenAI:
+        from openai import OpenAI
+
+        if (
+            type(client.root_client) is not OpenAI
+            or str(client.root_client.base_url).rstrip("/") != "https://api.openai.com/v1"
+        ):
+            return False
+        provider, model = "openai", client.model_name
+    elif type(client) is ChatAnthropic:
+        from anthropic import Anthropic
+
+        if (
+            type(client._client) is not Anthropic
+            or str(client._client.base_url).rstrip("/") != "https://api.anthropic.com"
+        ):
+            return False
+        provider, model = "anthropic", client.model
+    else:
+        return False
+    try:
+        native_capacity_facts_for(provider, model)
+    except NativeCapacityUnavailable:
+        return True
+    except ValueError as exc:
+        raise InputCapacityError(str(exc)) from exc
+    return False
+
+
 def _prepare_capacity_client(client: object) -> object:
     """Prepare a registry-authorized Responses copy without mutating its owner.
 
@@ -6858,7 +6911,7 @@ def _prepare_capacity_client(client: object) -> object:
         from langchain_openai import ChatOpenAI
     except ImportError:
         return client
-    if type(client) is ChatOpenAI and not _legacy_github_chat(client):
+    if type(client) is ChatOpenAI and not _legacy_capacity_route(client):
         facts = _capacity_facts_for("openai", client.model_name)
         updates = {"use_responses_api": True}
         if client.max_tokens is None:
@@ -7424,7 +7477,7 @@ class _CapacityCheckedRepairClient:
         client = _prepare_capacity_client(self.client)
         if set(kwargs) - {"config"}:
             raise InputCapacityError("uncounted schema repair generation kwargs")
-        if not _legacy_github_chat(client):
+        if not _legacy_capacity_route(client):
             _preflight_input_capacity(client, prompt)
         return client.invoke(prompt, **kwargs)
 
@@ -7445,10 +7498,10 @@ def _invoke_llm(
         Tuple of (response, trace_id, trace_url)
     """
     # Required sources are retained in every mode. Native-capable routes count
-    # each complete request, including synthesis. Standard GitHub chat retains
-    # its existing route without claiming a native-count receipt.
+    # each complete request, including synthesis. Registered standard routes
+    # without optional native facts do not claim a native-count receipt.
     client = _prepare_capacity_client(client)
-    if not _legacy_github_chat(client):
+    if not _legacy_capacity_route(client):
         _preflight_input_capacity(
             client,
             prompt,

@@ -371,3 +371,75 @@ def test_unknown_compatible_host_does_not_receive_github_compatibility(monkeypat
     ):
         pr_verifier._invoke_llm(client, "request", operation="evaluate_pr_compare")
     generation.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "provider,model", [("openai", "gpt-6.1-sol"), ("anthropic", "claude-opus-5-5")]
+)
+@pytest.mark.parametrize("operation", ["invoke", "repair"])
+@pytest.mark.parametrize("profile", ["standard", "expanded"])
+def test_registered_legacy_candidate_keeps_standard_route_without_weakening_expanded(
+    monkeypatch, provider, model, operation, profile
+):
+    cls = (
+        pytest.importorskip("langchain_openai").ChatOpenAI
+        if provider == "openai"
+        else pytest.importorskip("langchain_anthropic").ChatAnthropic
+    )
+    builder = (
+        langchain_client._build_openai_client
+        if provider == "openai"
+        else langchain_client._build_anthropic_client
+    )
+    client = builder(cls, model=model, token="offline-placeholder", timeout=17, max_retries=0)
+    monkeypatch.setenv("VERIFIER_EVIDENCE_PROFILE", profile)
+    before = json.dumps(client._get_request_payload("full request"), sort_keys=True)
+    with mock.patch.object(
+        cls, "invoke", return_value=SimpleNamespace(content="PASS")
+    ) as generation:
+
+        def invoke():
+            if operation == "repair":
+                return pr_verifier._CapacityCheckedRepairClient(client).invoke("full request")
+            return pr_verifier._invoke_llm(client, "full request", operation="evaluate_pr_compare")
+
+        if profile == "expanded":
+            with pytest.raises(pr_verifier.InputCapacityError):
+                invoke()
+            generation.assert_not_called()
+        else:
+            invoke()
+            generation.assert_called_once()
+    assert json.dumps(client._get_request_payload("full request"), sort_keys=True) == before
+
+
+@pytest.mark.parametrize(
+    "provider,model,missing",
+    [
+        ("openai", "gpt-6.1-sol", "langchain_anthropic"),
+        ("anthropic", "claude-opus-5-5", "langchain_openai"),
+    ],
+)
+def test_standard_legacy_route_does_not_require_another_providers_sdk(
+    monkeypatch, provider, model, missing
+):
+    import sys
+
+    cls = (
+        pytest.importorskip("langchain_openai").ChatOpenAI
+        if provider == "openai"
+        else pytest.importorskip("langchain_anthropic").ChatAnthropic
+    )
+    builder = (
+        langchain_client._build_openai_client
+        if provider == "openai"
+        else langchain_client._build_anthropic_client
+    )
+    client = builder(cls, model=model, token="offline-placeholder", timeout=17, max_retries=0)
+    monkeypatch.setenv("VERIFIER_EVIDENCE_PROFILE", "standard")
+    monkeypatch.setitem(sys.modules, missing, None)
+    with mock.patch.object(
+        cls, "invoke", return_value=SimpleNamespace(content="PASS")
+    ) as generation:
+        pr_verifier._invoke_llm(client, "request", operation="evaluate_pr_compare")
+    generation.assert_called_once()

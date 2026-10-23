@@ -75,6 +75,10 @@ class NativeCapacityFacts:
     provenance: str
 
 
+class NativeCapacityUnavailable(ValueError):
+    """A registered model deliberately has no optional native-capacity contract."""
+
+
 def native_capacity_facts_for(provider: str, model: str) -> NativeCapacityFacts:
     """Strict expanded-only lookup, separate from legacy selection/filtering.
 
@@ -129,6 +133,8 @@ def native_capacity_facts_for(provider: str, model: str) -> NativeCapacityFacts:
             selected = row
     if selected is None or selected.get("blocked", False) is not False:
         raise ValueError("unregistered or blocked exact native capacity model")
+    if "native_capacity" not in selected:
+        raise NativeCapacityUnavailable("exact-model native capacity facts unavailable")
     facts = selected.get("native_capacity")
     if not isinstance(facts, dict):
         raise ValueError("exact-model native capacity facts unavailable")

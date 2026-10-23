@@ -782,3 +782,9 @@ complete alternative by character count. Native-capable routes count the full
 requirements, selected proof and code request before generation; capacity refusal
 never clips required evidence or turns a missing input into an acceptance PASS.
 Malformed recognized builder headings cannot certify a required-channel projection.
+
+Registered standard OpenAI/Anthropic comparison candidates with no optional
+native-capacity record also retain their original transport. A typed absence is
+distinct from a malformed declared contract: malformed registries, malformed
+facts, unknown identities and unexpected transports remain errors. Expanded
+recovery always requires its native contract; no legacy path asserts counting.
