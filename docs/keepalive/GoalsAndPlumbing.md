@@ -775,3 +775,10 @@ not reinterpreted as the direct OpenAI Responses transport and does not claim a
 native-count receipt. Expanded recovery still refuses that route without its
 required native capacity facts. This compatibility exception neither changes
 provider selection nor clips original requirements.
+
+The same separation applies to explicitly required proof: retain one complete
+valid alternative outside the optional evidence budget, choosing the smallest
+complete alternative by character count. Native-capable routes count the full
+requirements, selected proof and code request before generation; capacity refusal
+never clips required evidence or turns a missing input into an acceptance PASS.
+Malformed recognized builder headings cannot certify a required-channel projection.

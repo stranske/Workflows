@@ -5955,6 +5955,13 @@ def _fit_required_evidence_prompt(
                 fence = None
         elif marker:
             fence = (marker[0][0], len(marker[0]), marker[2])
+        elif (
+            any(line.startswith(header) for header in headings)
+            and line.rstrip("\r\n") not in headings
+        ):
+            # A malformed builder heading can merge an optional artifact into
+            # the preceding required channel; do not certify that projection.
+            return None
         elif line.rstrip("\r\n") in headings:
             pieces.append((name, "".join(lines).strip()))
             name, lines = headings[line.rstrip("\r\n")], []
@@ -5965,6 +5972,7 @@ def _fit_required_evidence_prompt(
     present = {name for name, _ in pieces}
     if not present.intersection({"body", "comments", "artifacts"}):
         return None
+    candidates = []
     for channels in options:
         if (
             "overall" in channels
@@ -5974,8 +5982,12 @@ def _fit_required_evidence_prompt(
             continue
         required = [body for name, body in pieces if name == "preamble" or name in channels]
         rendered = "\n\n".join(required)
-        if len(rendered) > budget:
-            continue
+        candidates.append((len(rendered), tuple(sorted(channels)), rendered))
+    # This budget bounds optional enrichment, never complete required proof.
+    # Choose the smallest valid complete alternative, then let native admission
+    # count the actual request rather than clipping it or inventing absence.
+    for _, selected_channels, rendered in sorted(candidates):
+        channels = set(selected_channels)
         omitted: list[str] = []
         for name, body in pieces:
             if name == "preamble" or name in channels:

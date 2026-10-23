@@ -352,13 +352,13 @@ def test_optional_evidence_cannot_spend_selected_channel_prompt_budget(
         "Evidence must be posted in a PR comment and uploaded as a workflow artifact.",
     ],
 )
-def test_truly_required_prompt_truncation_still_blocks(monkeypatch, requirement):
+def test_complete_required_proof_survives_optional_budget(monkeypatch, requirement):
     monkeypatch.setenv("VERIFIER_ACCEPTANCE_EVIDENCE_BUDGET_TOKENS", "4000")
     context, diff = large_optional_capture(requirement, oversized_required=True)
     result, client = run_evaluate(monkeypatch, context, diff)
-    assert result.verdict == "UNVERIFIABLE_INPUT"
-    assert result.used_llm is False
-    client.invoke.assert_not_called()
+    assert result.verdict == "PASS" and result.used_llm is True
+    assert "REQUIRED_COMMENT_PAYLOAD_" * 1600 in client.invoke.call_args.args[0]
+    assert client.root_client.responses.input_tokens.count.called
 
 
 def test_selected_channel_pass_is_counted_exactly_and_omission_is_disclosed(monkeypatch):
@@ -383,14 +383,16 @@ def test_selected_channel_pass_is_counted_exactly_and_omission_is_disclosed(monk
     assert receipt["prompt_coverage"]["included_required_evidence_channels"] == ["comments"]
 
 
-def test_both_required_channels_still_need_to_fit_the_prompt(monkeypatch):
+def test_both_required_channels_are_retained_for_native_admission(monkeypatch):
     monkeypatch.setenv("VERIFIER_ACCEPTANCE_EVIDENCE_BUDGET_TOKENS", "4000")
     context, diff = large_optional_capture(
         "Evidence must be posted in a PR comment and uploaded as a workflow artifact."
     )
     result, client = run_evaluate(monkeypatch, context, diff)
-    assert result.verdict == "UNVERIFIABLE_INPUT"
-    client.invoke.assert_not_called()
+    assert result.verdict == "PASS"
+    assert result.input_coverage["included_required_evidence_channels"] == ["artifacts", "comments"]
+    assert "COMMENT_PROOF_COMPLETE" in client.invoke.call_args.args[0]
+    assert "OPTIONAL_ARTIFACT_PAYLOAD_" in client.invoke.call_args.args[0]
 
 
 def test_complete_alternative_that_fits_is_selected_instead_of_oversized_one(monkeypatch):
@@ -491,7 +493,9 @@ def test_optional_tail_does_not_return_in_chunk_synthesis(monkeypatch, final_ver
     assert result.input_coverage["omitted_optional_evidence_sections"] == ["artifacts"]
 
 
-def test_later_fitting_option_cannot_reclassify_its_truncated_artifact_as_optional(monkeypatch):
+def test_large_complete_alternative_preserves_proof_without_needing_truncated_unused_channel(
+    monkeypatch,
+):
     monkeypatch.setenv("VERIFIER_ACCEPTANCE_EVIDENCE_BUDGET_TOKENS", "4000")
     context, diff = large_optional_capture(
         "Provide evidence in a PR comment or workflow artifact.", required="artifacts"
@@ -502,12 +506,11 @@ def test_later_fitting_option_cannot_reclassify_its_truncated_artifact_as_option
             status="truncated", total_chars=None
         ),
     )
-    assert verifier._evaluation_optional_evidence_channels(context) == frozenset()
+    assert verifier._evaluation_optional_evidence_channels(context) == frozenset({"artifacts"})
     result, client = run_evaluate(monkeypatch, context, diff)
-    assert result.verdict == "UNVERIFIABLE_INPUT"
-    assert result.used_llm is False
-    client.invoke.assert_not_called()
-    client.root_client.responses.input_tokens.count.assert_not_called()
+    assert result.verdict == "PASS" and result.used_llm is True
+    assert result.input_coverage["included_required_evidence_channels"] == ["comments"]
+    assert client.root_client.responses.input_tokens.count.called
 
 
 def test_complete_fitting_alternative_keeps_only_truncated_unused_channel_optional(monkeypatch):
@@ -537,9 +540,77 @@ def test_legacy_tasks_only_comment_duty_cannot_be_omitted_under_budget_pressure(
         "#### Tasks\n- Evidence must be posted in a PR comment.\n\n#### Acceptance criteria",
     )
     coverage = verifier.prompt_coverage(context, diff, evaluate_minimum=True)
-    assert not coverage.sufficient
-    assert verifier._evaluation_optional_evidence_channels(context) == frozenset()
+    assert coverage.sufficient
+    assert verifier._evaluation_optional_evidence_channels(context) == frozenset({"artifacts"})
     result, client = run_evaluate(monkeypatch, context, diff)
-    assert result.verdict == "UNVERIFIABLE_INPUT"
+    assert result.verdict == "PASS"
+    assert "REQUIRED_COMMENT_PAYLOAD_" * 1600 in client.invoke.call_args.args[0]
+    assert client.root_client.responses.input_tokens.count.called
+
+
+def test_large_required_proof_is_not_generated_when_native_capacity_is_insufficient(monkeypatch):
+    context, diff = large_optional_capture(
+        "Evidence must be posted in a PR comment.", oversized_required=True
+    )
+    client = with_capacity(mock.MagicMock())
+    client.root_client.responses.input_tokens.count.return_value.input_tokens = 2_000_000
+    monkeypatch.setenv("VERIFIER_EVIDENCE_PROFILE", "expanded")
+    monkeypatch.setattr(verifier, "_get_llm_client", lambda **kwargs: (client, "openai"))
+    result = verifier.evaluate_pr(context, diff)
+    assert result.verdict != "PASS" and result.used_llm is False
     client.invoke.assert_not_called()
-    client.root_client.responses.input_tokens.count.assert_not_called()
+    assert client.root_client.responses.input_tokens.count.called
+
+
+@pytest.mark.parametrize("proof_chars", [22000, 47000])
+@pytest.mark.parametrize("mode", ["evaluate", "compare"])
+def test_complete_body_proof_outgrows_optional_budget_without_requiring_old_archives(
+    monkeypatch, proof_chars, mode
+):
+    context, diff = large_optional_capture("Evidence must be provided.")
+    proof = "RETAINED_BODY_PROOF_" + "x" * proof_chars
+    context = context.replace("BODY_PROOF_COMPLETE", proof)
+
+    def captured(inv):
+        inv["acceptance_sources"][0].update(included_chars=len(proof), total_chars=len(proof))
+        inv["acceptance_evidence_sources"][1].update(
+            status="unavailable", failure_kinds=["transport"]
+        )
+
+    context = (
+        replace_inventory(context, captured)
+        .replace(
+            "- Referenced workflow artifacts: **present**",
+            "- Referenced workflow artifacts: **unavailable**",
+        )
+        .replace("- PR comments: **present**", "- PR comments: **unavailable**")
+    )
+    context = replace_inventory(
+        context,
+        lambda inv: inv["acceptance_evidence_sources"][0].update(
+            status="unavailable", failure_kinds=["transport"]
+        ),
+    )
+    client = with_capacity(mock.MagicMock())
+    client.invoke.return_value.content = json.dumps({"verdict": "PASS", "summary": "test response"})
+    monkeypatch.setenv("VERIFIER_EVIDENCE_PROFILE", "expanded")
+    monkeypatch.setattr(verifier, "_get_llm_client", lambda **kwargs: (client, "openai"))
+    result = (
+        verifier.evaluate_pr(context, diff, provider="openai")
+        if mode == "evaluate"
+        else verifier.ComparisonRunner(
+            context,
+            diff,
+            verifier._prepare_prompt(context, diff),
+            [],
+            coverage=verifier.prompt_coverage(context, diff),
+        ).run_single(client, "openai", "unit-test-model")
+    )
+    assert result.verdict == "PASS" and result.used_llm is True
+    assert result.input_coverage["included_required_evidence_channels"] == ["body"]
+    prompt = client.invoke.call_args.args[0]
+    assert proof in prompt
+    assert "OPTIONAL_ARTIFACT_PAYLOAD_" not in prompt
+    assert client.root_client.responses.input_tokens.count.call_args.kwargs["input"] == [
+        {"role": "user", "content": prompt}
+    ]
