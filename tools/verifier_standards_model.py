@@ -11,7 +11,7 @@ Measured inputs (see the analysis for sources and evidence class):
 * ``t_verify_h``: added merge-cycle time of a PR with one verification round (median, within repo).
 * ``prs_per_week`` and ``verified_share``: 161 merged keepalive PRs in 33 days, 39% verified.
 * operating points: judges and combinations scored on 35 comparable cases (16 good, 19 bad).
-* ``persistent_ff``: share of flagged good PRs that every judge flags (2 of 3 here).
+* ``Standard.persistent_ff``: persistent share of each operating point's false flags.
 
 Assumptions (ranges are swept): rework and escape costs, bad-PR base rate, how much of the
 benchmark's detection survives in production (``realism``), human minutes per escalated stall.
@@ -34,7 +34,6 @@ PARAMS = {
     "stall_wait_h": 12.0,  # assumed: delay until a human clears a persistent hard block
     "stall_minutes": 15.0,  # assumed: human minutes per escalated persistent block
     "human_budget_min_week": 30.0,  # owner's standing budget per system
-    "persistent_ff": 2 / 3,  # measured: 2 of the 3 flagged good cases were flagged by every judge
     "advisory_action": 0.5,  # assumed: share of advisory flags someone acts on
 }
 BAD_RATES = (0.02, 0.05, 0.10)  # Brain: 1.8% overall, 10-13% among verifier-judged runs (selection)
@@ -48,6 +47,7 @@ class Standard:
     fp: float  # share of bad PRs that still pass
     ff: float  # share of good PRs flagged
     mode: str  # "none" | "advisory" | "timebox" | "hard"
+    persistent_ff: float  # share of this standard's false flags that persist
 
 
 def standard_cost(
@@ -67,7 +67,7 @@ def standard_cost(
     if s.mode == "advisory":
         catch *= p["advisory_action"]
     ff = s.ff
-    persistent = p["persistent_ff"]  # a flag every judge repeats cannot be fixed by another round
+    persistent = s.persistent_ff  # use this operating point's measured flag overlap
     hours = p["t_verify_h"]
     hours += bad * ((1 - catch) * c_esc + catch * p["c_fix_h"])
     stalls = 0.0
@@ -98,7 +98,7 @@ def weekly_hours(cost: dict[str, float], p: dict | None = None) -> float:
 def breakeven_bad_rate(s: Standard, *, ratio: float, realism: float = 1.0) -> float | None:
     """Bad-PR base rate above which this standard beats no verification (None: never)."""
     lo, hi = 0.0, 1.0
-    none = Standard("none", 1.0, 0.0, "none")
+    none = Standard("none", 1.0, 0.0, "none", 0.0)
     gain = lambda b: (  # noqa: E731
         standard_cost(none, bad=b, ratio=ratio)["hours_per_pr"]
         - standard_cost(s, bad=b, ratio=ratio, realism=realism)["hours_per_pr"]
@@ -136,12 +136,19 @@ def markdown(standards: list[Standard]) -> str:
     return "\n".join(out)
 
 
+def load_standards(path: Path) -> list[Standard]:
+    """Load explicit rates, mode and persistence without guessing from a display name."""
+    points = json.loads(path.read_text())
+    return [Standard(name=name, **point) for name, point in points.items()]
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--operating-points", required=True, help="JSON: name -> [fp, ff]")
+    parser.add_argument(
+        "--operating-points", required=True, help="JSON: name -> {fp, ff, mode, persistent_ff}"
+    )
     args = parser.parse_args(argv)
-    points = json.loads(Path(args.operating_points).read_text())
-    standards = [Standard(n, fp, ff, "hard") for n, (fp, ff) in points.items()]
+    standards = load_standards(Path(args.operating_points))
     print(markdown(standards))
     return 0
 

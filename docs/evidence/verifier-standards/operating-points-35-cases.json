@@ -1,1 +1,80 @@
-{"terra": [0.10526315789473684, 0.1875], "luna": [0.0, 0.1875], "claude": [0.10526315789473684, 0.125], "cursor": [0.3157894736842105, 0.125], "muse12c": [0.3684210526315789, 0.125], "all-PASS (no verification)": [1.0, 0.0], "AND terra+claude": [0.05263157894736842, 0.1875], "AND luna+claude": [0.0, 0.1875], "AND luna+terra": [0.0, 0.1875], "majority luna,terra,claude": [0.05263157894736842, 0.1875], "OR luna|claude (either passes)": [0.10526315789473684, 0.125], "AND luna+terra+claude": [0.0, 0.1875], "reject-all (never merge)": [0.0, 1.0]}
+{
+  "terra": {
+    "fp": 0.10526315789473684,
+    "ff": 0.1875,
+    "mode": "hard",
+    "persistent_ff": 0.6666666666666666
+  },
+  "luna": {
+    "fp": 0.0,
+    "ff": 0.1875,
+    "mode": "hard",
+    "persistent_ff": 0.6666666666666666
+  },
+  "claude": {
+    "fp": 0.10526315789473684,
+    "ff": 0.125,
+    "mode": "hard",
+    "persistent_ff": 1.0
+  },
+  "cursor": {
+    "fp": 0.3157894736842105,
+    "ff": 0.125,
+    "mode": "hard",
+    "persistent_ff": 1.0
+  },
+  "muse12c": {
+    "fp": 0.3684210526315789,
+    "ff": 0.125,
+    "mode": "hard",
+    "persistent_ff": 1.0
+  },
+  "all-PASS (no verification)": {
+    "fp": 1.0,
+    "ff": 0.0,
+    "mode": "none",
+    "persistent_ff": 0.0
+  },
+  "AND terra+claude": {
+    "fp": 0.05263157894736842,
+    "ff": 0.1875,
+    "mode": "hard",
+    "persistent_ff": 0.6666666666666666
+  },
+  "AND luna+claude": {
+    "fp": 0.0,
+    "ff": 0.1875,
+    "mode": "hard",
+    "persistent_ff": 0.6666666666666666
+  },
+  "AND luna+terra": {
+    "fp": 0.0,
+    "ff": 0.1875,
+    "mode": "hard",
+    "persistent_ff": 0.6666666666666666
+  },
+  "majority luna,terra,claude": {
+    "fp": 0.05263157894736842,
+    "ff": 0.1875,
+    "mode": "hard",
+    "persistent_ff": 0.6666666666666666
+  },
+  "OR luna|claude (either passes)": {
+    "fp": 0.10526315789473684,
+    "ff": 0.125,
+    "mode": "hard",
+    "persistent_ff": 1.0
+  },
+  "AND luna+terra+claude": {
+    "fp": 0.0,
+    "ff": 0.1875,
+    "mode": "hard",
+    "persistent_ff": 0.6666666666666666
+  },
+  "reject-all (never merge)": {
+    "fp": 0.0,
+    "ff": 1.0,
+    "mode": "hard",
+    "persistent_ff": 1.0
+  }
+}

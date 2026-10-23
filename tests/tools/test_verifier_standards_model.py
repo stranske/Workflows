@@ -1,12 +1,15 @@
 from __future__ import annotations
 
+from pathlib import Path
+
+import pytest
 from tools import verifier_standards_model as m
 
-NONE = m.Standard("none", 1.0, 0.0, "none")
+NONE = m.Standard("none", 1.0, 0.0, "none", 0.0)
 
 
 def _std(fp, ff, mode="hard"):
-    return m.Standard("s", fp, ff, mode)
+    return m.Standard("s", fp, ff, mode, 2 / 3)
 
 
 def test_no_verification_costs_exactly_the_escape_of_every_bad_pr():
@@ -52,12 +55,48 @@ def test_less_surviving_detection_makes_verification_worth_less():
 def test_breakeven_base_rate_exists_for_a_good_verifier_and_not_for_a_useless_one():
     box = _std(0.1, 0.1, "timebox")
     low, high = m.breakeven_bad_rate(box, ratio=30), m.breakeven_bad_rate(box, ratio=3)
-    assert 0 < low < 1 and (high is None or high > low)  # costlier escapes lower the break-even rate
+    assert 0 < low < 1 and (
+        high is None or high > low
+    )  # costlier escapes lower the break-even rate
     assert (
         m.breakeven_bad_rate(_std(1.0, 0.0), ratio=10) is None
     )  # catches nothing, still costs a round
 
 
 def test_markdown_lists_every_standard_and_every_ratio():
-    text = m.markdown([_std(0.1, 0.1), m.Standard("other", 0.2, 0.2, "hard")])
+    text = m.markdown([_std(0.1, 0.1), m.Standard("other", 0.2, 0.2, "hard", 1.0)])
     assert "| other |" in text and text.count("Delay-hours per verified PR") == len(m.ESCAPE_RATIOS)
+
+
+POINTS = (
+    Path(__file__).resolve().parents[2]
+    / "docs/evidence/verifier-standards/operating-points-35-cases.json"
+)
+
+
+def test_committed_operating_points_price_each_judges_persistent_flags():
+    points = {s.name: s for s in m.load_standards(POINTS)}
+    assert points["luna"].persistent_ff == pytest.approx(2 / 3)
+    assert points["claude"].persistent_ff == 1
+    assert points["cursor"].persistent_ff == 1
+    assert points["muse12c"].persistent_ff == 1
+    for name in ["claude", "cursor", "muse12c"]:
+        cost = m.standard_cost(points[name], bad=0.05, ratio=10)
+        assert cost["stalls_per_week"] == pytest.approx(34 * 0.39 * 0.95 * 2 / 16)
+    assert m.standard_cost(points["claude"], bad=0.05, ratio=10)["hours_per_pr"] == pytest.approx(
+        1.8223684210526316
+    )
+
+
+def test_cli_keeps_no_verification_baseline_free_of_verification_cost(capsys):
+    assert m.main(["--operating-points", str(POINTS)]) == 0
+    text = capsys.readouterr().out
+    assert "| all-PASS (no verification) | none |" in text
+    assert "| all-PASS (no verification) | 0.20 | 0.50 | 1.00 | 0 |" in text
+
+
+def test_reject_all_has_no_transient_flags():
+    points = {s.name: s for s in m.load_standards(POINTS)}
+    cost = m.standard_cost(points["reject-all (never merge)"], bad=0.05, ratio=10)
+    assert cost["hours_per_pr"] == pytest.approx(0.3 + 0.05 + 0.95 * 12)
+    assert cost["human_min_week"] == pytest.approx(34 * 0.39 * 0.95 * 15)

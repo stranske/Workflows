@@ -1,12 +1,14 @@
 # Verification standards: what they cost, what they buy, and what an approval standard should be
 
 Date: 2026-10-18 (Workflows, evidence under `docs/evidence/judge-screen-20261017/`).
-Reproduce the numbers with `python -m tools.verifier_standards_model` and the data scripts named below.
+Reproduce the numbers with `python -m tools.verifier_standards_model --operating-points docs/evidence/verifier-standards/operating-points-35-cases.json` and the data scripts named below.
+
+Policy status as of 2026-10-23: this report compares exploratory alternatives. The adopted production experiment is the seven-day shadow in docs/ops/VERIFIER_SHADOW.md and config/verifier_shadow.json. The fourteen-day alternative below is not adopted; this analysis changes no CI, review, merge or model-promotion gate.
 
 ## 1. Bottom line
 
 1. **A verifier is only worth running where defects are common or expensive.** At the measured costs of verifying (about 0.3 hours added per verified PR) and the assumed cost of repairing an escaped defect (10 rework rounds), a verifier with the best measured operating point adds delay unless more than about 6.6% of the PRs it sees are truly bad. At 30 rework rounds per escape the break-even falls to about 2%. The two numbers that decide it, the base rate of bad PRs and the repair cost, are the two we measure worst.
-2. **Strictness is the expensive part, not verification.** A verifier that blocks hard on every non-PASS adds about 1.8 delay-hours per verified PR against 0.65 for the same verifier with a two-hour time box, because the flags on good PRs are persistent: the same two good PRs were flagged by all five judges. Hard blocking uses about 24 of the owner's 30 weekly minutes on persistent flags alone. A verifier that rejects everything adds 8.3 hours per PR and needs 126 human minutes a week: nothing moves.
+2. **Strictness is the expensive part, not verification.** A verifier that blocks hard on every non-PASS adds about 1.8 delay-hours per verified PR against 0.65 for the same verifier with a two-hour time box, because the flags on good PRs are persistent: the same two good PRs were flagged by all five judges. Hard blocking uses about 24 of the owner's 30 weekly minutes on persistent flags alone. A verifier that rejects everything adds 11.75 hours per PR and needs 189 human minutes a week: nothing moves.
 3. **The judges are not statistically distinguishable at the data we can get.** gpt-6-luna missed 0 of 19 bad cases, the incumbent gpt-5.6-terra 2 of 19 (Fisher p = 0.49). Only luna is measurably better than Cursor (p = 0.02) and the Muse contributor tier (p = 0.008); terra and Claude cannot be told apart from luna, or from Cursor and Muse (terra against Cursor p = 0.23, against Muse p = 0.12).
 4. **Zero-error approval standards approve nothing real.** A candidate whose true false-PASS rate is 5%, half the incumbent's 10%, passes the 73-case zero-error standard 2.4% of the time and the 35-case standard 17% of the time. The incumbent itself would pass them 0.05% and 2.5% of the time. Only a perfect model passes, so promotion was unreachable by construction.
 5. **What is at stake in a judge swap is small**, about 0.6 delay-hours a week and a few cents. An approval process should cost less than that, be reversible, and be monitored; it should not need hundreds of cases.
@@ -54,7 +56,7 @@ Requiring a second judge changed nothing measurable here: the flagged good PRs a
 All costs are wall-clock delay to finishing the work, in hours per verified PR, so the cost of a repair and of waiting are on one scale.
 
 * A verification round adds 0.3 hours (measured).
-* A false flag on a good PR costs one fix round, 1.0 hour (assumed). If the flag is **persistent** (every judge repeats it, 2 of 3 flagged cases here), a fix round cannot clear it: under a hard block it waits for a human, 12 hours (assumed), and costs 15 human minutes (assumed); under a time box it waits the box, 2 hours, then merges.
+* A false flag on a good PR costs one fix round, 1.0 hour (assumed). If the flag is **persistent** (every judge repeats it: 2/3 of the flags for luna and terra, 2/2 for Claude, Cursor and Muse; combinations use their own flagged-case denominator. Reject-all flags persist by definition), a fix round cannot clear it: under a hard block it waits for a human, 12 hours (assumed), and costs 15 human minutes (assumed); under a time box it waits the box, 2 hours, then merges.
 * A bad PR that is caught costs one fix round, 1.0 hour. One that escapes costs `ratio` fix rounds to repair later (assumed 3, 10 or 30).
 * The base rate of bad PRs is swept at 2%, 5% and 10% (measured: 1.8% overall, 10 to 13% among verifier-judged runs).
 * Prices are for the 13.3 verified PRs a week (34 a week, 39% verified).
@@ -67,10 +69,10 @@ Delay-hours per verified PR; no verification costs 0.50.
 | --- | ---: | ---: | ---: | ---: |
 | gpt-6-luna | 0.59 | 0.65 | 1.83 | 24 |
 | gpt-5.6-terra (incumbent) | 0.62 | 0.69 | 1.88 | 24 |
-| Claude CLI | 0.61 | 0.60 | 1.39 | 16 |
-| Cursor CLI | 0.66 | 0.69 | 1.48 | 16 |
+| Claude CLI | 0.61 | 0.63 | 1.82 | 24 |
+| Cursor CLI | 0.66 | 0.73 | 1.92 | 24 |
 | Two of three judges | 0.60 | 0.67 | 1.86 | 24 |
-| Reject everything | n/a | n/a | 8.3 | 126 |
+| Reject everything | n/a | n/a | 11.75 | 189 |
 
 At these assumptions every standard costs more delay than no verification, a hard block costs far more, and the owner's weekly budget is 80% consumed by the hard block's persistent flags alone.
 
