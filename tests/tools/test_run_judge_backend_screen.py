@@ -730,11 +730,14 @@ def test_evaluable_mode_keeps_only_inputs_the_production_prompt_calls_sufficient
     from tools.generate_mutation_cases import coverage_sufficient
 
     corpus = json.loads((screen.ROOT / "config/model_eval_pilot.json").read_text())
-    everything = screen.corpus_cases_with_snapshots(corpus, Path(screen.ROOT))
+    everything = screen.corpus_cases_with_snapshots(
+        corpus, Path(screen.ROOT), include_diagnostic=True
+    )
     evaluable = screen.corpus_cases_with_snapshots(
         corpus, Path(screen.ROOT), evaluable_only=True, include_diagnostic=True
     )
     assert 0 < len(evaluable) <= len(everything)
+    assert {c["case_id"] for c in evaluable} <= {c["case_id"] for c in everything}
     assert all(coverage_sufficient(c["production_snapshot"]) for c in evaluable)
     kinds = {(c["expected_verdict"], screen.case_group(c)) for c in evaluable}
     assert {("PASS", "real"), ("NON_PASS", "fail-ci-row"), ("NON_PASS", "drop-named-file")} <= kinds

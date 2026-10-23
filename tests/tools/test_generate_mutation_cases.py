@@ -244,6 +244,17 @@ def test_captured_artifacts_become_pass_snapshots_and_mutants_edit_the_separate_
     assert len(ci) == 1 and ci[0]["production_snapshot"]["diff"] == snapshot["diff"]
 
 
+def test_only_generated_ci_mutants_are_diagnostic_only(tmp_path):
+    corpus = json.loads(_corpus(tmp_path).read_text())
+    sources = g.snapshots_from_artifacts(corpus, [_artifact(tmp_path)])
+    mutants = g.generate_from_snapshots(sources)
+    ci = [case for case in mutants if case["category"] == g.CATEGORY_CI]
+    drops = [case for case in mutants if case["category"] == g.CATEGORY_DROP]
+    assert ci and drops
+    assert all(case["diagnostic_only"] is True for case in ci)
+    assert all("diagnostic_only" not in case for case in drops)
+
+
 def test_a_captured_pr_that_is_not_a_pass_corpus_case_is_skipped(tmp_path):
     corpus = json.loads(_corpus(tmp_path).read_text())  # PR 99 is the NON_PASS case
     assert g.snapshots_from_artifacts(corpus, [_artifact(tmp_path, pr=99)]) == {}
