@@ -120,6 +120,15 @@ license dormant actionable work. Closed campaigns stay closed.
 
 ## Post-merge verifier security boundary
 
+The root verifier caller intentionally uses its repository-specific post-merge CI
+and has no coarse state fingerprint. The consumer caller retains checkbox
+fingerprinting; model modes use the shared reusable collector's authoritative
+verification-event/assessment deduplication after collection. Both callers expose
+and forward the same repeat-event inputs and preserve identical immutable
+acceptance-command gates. These reviewed differences are fingerprinted in
+`config/template-drift-allowlist.txt` pair 14; they are not permission to diverge
+shared lifecycle semantics.
+
 The source and consumer `agents-verifier.yml` callers intentionally retain
 `pull_request_target: labeled`: verification of an already merged fork PR needs
 base-repository secrets. A job-level gate rejects unmerged PRs and every label

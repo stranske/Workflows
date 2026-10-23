@@ -612,13 +612,15 @@ def test_real_manifest_compiles_every_declared_copy_entry() -> None:
         ],
     }
     Draft202012Validator(schema).validate(legacy_plan)
-    # Merge count: 261 -> 262 because main (#4037) adds verifier_closure.js.
+    # Two repeat-verification protocol helpers extend the prior 262 managed entries.
     # Preserve ci-python-versions.env (#4045) and verifier_plan_fingerprint.js.
-    assert len(plan["entries"]) == 262
+    assert len(plan["entries"]) == 264
     assert {
         ".github/scripts/rate_limit_receipt.js",
         ".github/scripts/rate_limit_receipt.json",
         ".github/scripts/verifier_plan_fingerprint.js",
+        ".github/scripts/verification_event.js",
+        ".github/scripts/verifier_pending_execution.js",
         "docs/CI_FAILURE_PLAYBOOK.md",
         "docs/contracts/document-identity-conventions.md",
         "docs/contracts/document-mirror-v1.md",

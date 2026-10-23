@@ -612,6 +612,14 @@ scripts:
     description: "Hashes canonical parsed Tasks/Acceptance Criteria and linked source lineage for consumer verifier deduplication"
     delivery: copy
 
+  - source: .github/scripts/verification_event.js
+    description: "Binds repeat verification to authoritative code, original requests and explicitly required retained evidence"
+    delivery: copy
+
+  - source: .github/scripts/verifier_pending_execution.js
+    description: "Reconciles exact pending verifier run/attempts only with authoritative skipped evaluator-step evidence"
+    delivery: copy
+
   - source: .github/scripts/agents_orchestrator_resolve.js
     description: "Resolves agent orchestrator state"
 

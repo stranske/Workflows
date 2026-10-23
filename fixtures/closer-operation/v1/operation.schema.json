@@ -188,7 +188,65 @@
     "receipts": {
       "type": "array",
       "items": {
-        "type": "object"
+        "type": "object",
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "kind": {
+                  "const": "verification_request_not_accepted"
+                }
+              },
+              "required": [
+                "kind"
+              ]
+            },
+            "then": {
+              "required": [
+                "kind",
+                "operation_key",
+                "target_fence_key",
+                "action",
+                "head_sha",
+                "mutation_kind",
+                "request_basis",
+                "http_status"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "kind": {
+                  "const": "verification_request_not_accepted"
+                },
+                "operation_key": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                },
+                "target_fence_key": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                },
+                "action": {
+                  "const": "verify_request"
+                },
+                "head_sha": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{40}$"
+                },
+                "mutation_kind": {
+                  "const": "workflow_dispatch"
+                },
+                "request_basis": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                },
+                "http_status": {
+                  "type": "integer",
+                  "const": 422
+                }
+              }
+            }
+          }
+        ]
       }
     },
     "denial": {

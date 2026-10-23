@@ -53,6 +53,21 @@ on:
         required: false
         type: string
         default: ''
+      verification_event:
+        description: 'Expected verification-event/v1 JSON; collector must reproduce it'
+        required: false
+        type: string
+        default: ''
+      verification_material:
+        description: 'JSON selectors for necessary retained comments/artifact members'
+        required: false
+        type: string
+        default: ''
+      verification_predecessor:
+        description: 'Authenticated prior verification event identity (causal context)'
+        required: false
+        type: string
+        default: ''
       evidence_profile:
         description: 'Bounded input limits; expanded retries documented input truncation only'
         required: false
@@ -93,7 +108,7 @@ jobs:
       model2: ${{ steps.check.outputs.model2 }}
       provider: ${{ steps.check.outputs.provider }}
       pr_number: ${{ steps.check.outputs.pr_number }}
-      fingerprint_should_run: ${{ steps.fingerprint.outputs.should_run || 'true' }}
+      fingerprint_should_run: ${{ steps.check.outputs.mode != 'checkbox' && 'true' || steps.fingerprint.outputs.should_run || 'true' }}
       fingerprint_reason: ${{ steps.fingerprint.outputs.reason }}
       fingerprint_current_hash: ${{ steps.fingerprint.outputs.current_hash }}
       plan_source_sha256: ${{ steps.check.outputs.plan_source_sha256 }}
@@ -265,7 +280,7 @@ jobs:
 
       - name: Compute state fingerprint
         id: fingerprint
-        if: steps.check.outputs.should_run == 'true'
+        if: steps.check.outputs.should_run == 'true' && steps.check.outputs.mode == 'checkbox'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -396,6 +411,9 @@ jobs:
       # Expanded recovery needs a real truncation report and complete PASS from both slots.
       # Inspect both provider results before claiming dual-model acceptance.
       evidence_profile: ${{ inputs.evidence_profile || 'standard' }}
+      verification_event: ${{ inputs.verification_event || '' }}
+      verification_material: ${{ inputs.verification_material || '' }}
+      verification_predecessor: ${{ inputs.verification_predecessor || '' }}
     secrets:
       CODEX_AUTH_JSON: ${{ secrets.CODEX_AUTH_JSON }}
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
@@ -417,7 +435,8 @@ jobs:
       needs.check.outputs.should_run == 'true' &&
       needs.check.outputs.fingerprint_should_run == 'true' &&
       needs.check.outputs.fingerprint_current_hash != '' &&
-      needs.verifier.result == 'success'
+      needs.verifier.result == 'success' &&
+      (needs.check.outputs.mode == 'checkbox' || needs.verifier.outputs.event_complete == 'true')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout state fingerprint helper

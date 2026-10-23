@@ -14,6 +14,8 @@ const {
 } = require('./issue_scope_parser.js');
 const { queryVerifierCiResults } = require('./verifier_ci_query.js');
 const { resolvePrSourceContext } = require('./source_context.js');
+const { buildVerificationEvent, completedEvent, completedLegacyEvent, guardExistingEvent, assessmentIdentity } = require('./verification_event.js');
+const { executionBinding, reconcilePendingExecution } = require('./verifier_pending_execution.js');
 
 const DEFAULT_BRANCH = process.env.DEFAULT_BRANCH || 'main';
 const DEFAULT_DIFF_SUMMARY_PATH = 'verifier-diff-summary.md';
@@ -934,6 +936,9 @@ async function fetchVerifierEvidence({
   const artifactChars = positiveLimit('VERIFIER_EVIDENCE_ARTIFACT_CHARS', DEFAULT_EVIDENCE_ARTIFACT_CHARS);
 
   const comments = { status: 'absent', complete: true, records: [], reason: '' };
+  // Protocol inventory is necessary control evidence, independent of optional
+  // proof rendering. Scan conversation pages even after text budgets fill.
+  const eventHistory = { schema: 'verifier-event-history/v1', complete: true, records: [], reason: '' };
   let usedCommentChars = 0;
   const commentFailures = [];
   const commentSources = [
@@ -956,9 +961,17 @@ async function fetchVerifierEvidence({
   for (const source of commentSources) {
     try {
       if (!source.method) throw new Error(`${source.name} API is unavailable`);
-      const perPage = Math.min(commentLimit, 100);
+      const conversation = source.name === 'conversation comments';
+      const perPage = conversation ? 100 : Math.min(commentLimit, 100);
       const maxPages = commentPageLimit;
       let truncated = false;
+      const reportedLimits = new Set();
+      const reportLimit = kind => {
+        if (!reportedLimits.has(kind)) {
+          reportedLimits.add(kind);
+          fail('comments', kind, source.name);
+        }
+      };
       const seenCommentIds = new Set();
       let lastCommentId;
       let commentOrder;
@@ -993,6 +1006,34 @@ async function fetchVerifierEvidence({
           }
           if (comment?.body != null && typeof comment.body !== 'string') throw new Error('invalid comment body');
           if (typeof comment?.body !== 'string' || !comment.body.trim()) continue;
+          if (conversation && ['github-actions', 'github-actions[bot]'].includes(comment?.user?.login || comment?.author?.login)
+              && String(comment?.html_url || comment?.url || '').toLowerCase().startsWith(
+                `https://github.com/${owner}/${repo}/pull/${pullNumber}#issuecomment-`.toLowerCase())) {
+            const markers = comment.body.match(/<!-- (?:verifier-event-state\/v1|verifier-corpus-decision\/v1) [^\n]*? -->/g) || [];
+            if (/<!-- (?:verifier-event-state\/v1|verifier-corpus-decision\/v1) /.test(comment.body) && !markers.length) {
+              eventHistory.complete = false;
+              eventHistory.reason = 'verifier protocol marker is malformed';
+            }
+            if (markers.length && (!positiveId || !String(comment.html_url || comment.url || '').endsWith(`#issuecomment-${id}`))) {
+              eventHistory.complete = false;
+              eventHistory.reason = 'verifier protocol comment identity is unavailable';
+            }
+            for (const marker of markers) {
+              try {
+                const parsed = marker.match(/^<!-- (verifier-event-state\/v1|verifier-corpus-decision\/v1) (.*) -->$/);
+                const payload = JSON.parse(parsed[2]);
+                if (!payload || typeof payload !== 'object' || Array.isArray(payload) || payload.schema !== parsed[1]) throw new Error('invalid protocol schema');
+              } catch {
+                eventHistory.complete = false;
+                eventHistory.reason = 'verifier protocol marker is malformed';
+              }
+            }
+            if (markers.length) eventHistory.records.push({
+              author: comment?.user?.login || comment?.author?.login,
+              url: comment?.html_url || comment?.url,
+              body: markers.join('\n'), source: source.name,
+            });
+          }
           // Exclude bot chatter before budgeting, but retain bot-authored proof,
           // review findings and run links. Reviews themselves are never filtered.
           const bot = comment?.user?.type === 'Bot' || /\[bot\]$/.test(comment?.user?.login || '');
@@ -1000,7 +1041,8 @@ async function fetchVerifierEvidence({
               && !/evidence|proof|test|review|verif|concern|fail|actions\/runs\//i.test(comment.body)) continue;
           if (comments.records.length >= commentLimit) {
             truncated = true;
-            fail("comments", "record", source.name);
+            reportLimit('record');
+            if (conversation) continue;
             break;
           }
           const result = appendBoundedText(comments.records, {
@@ -1010,16 +1052,23 @@ async function fetchVerifierEvidence({
             source: source.name,
           }, commentChars, usedCommentChars);
           usedCommentChars = result.usedChars;
-          truncated = result.truncated;
-          if (truncated) { fail("comments", "character", source.name); break; }
+          truncated = truncated || result.truncated;
+          if (result.truncated) { reportLimit('character'); if (!conversation) break; }
         }
-        if (truncated || !hasNext) break;
-        if (page === maxPages) { truncated = true; fail("comments", "page", source.name); }
+        if ((!conversation && truncated) || !hasNext) break;
+        if (page === maxPages) {
+          truncated = true;
+          fail("comments", "page", source.name);
+          if (conversation) {
+            eventHistory.complete = false;
+            eventHistory.reason = 'verifier conversation API pagination is incomplete';
+          }
+        }
       }
       // Page-number deletion shifts need not repeat an ID. Re-read every
       // collected page, including the terminal boundary, before trusting the
       // reference union. This is one bounded stability pass, never a retry loop.
-      if (!truncated && pageSnapshots.length > 1) {
+      if ((!truncated || (conversation && eventHistory.complete)) && pageSnapshots.length > 1) {
         for (const snapshot of pageSnapshots) {
           diagnostics.counters.comment_pages += 1;
           const current = await source.method({ ...source.params, per_page: perPage, page: snapshot.page });
@@ -1034,6 +1083,10 @@ async function fetchVerifierEvidence({
         );
       }
     } catch (error) {
+      if (source.name === 'conversation comments') {
+        eventHistory.complete = false;
+        eventHistory.reason = `verifier protocol inventory retrieval failed: ${error.message}`;
+      }
       fail("comments", evidenceFailureKind(error), `${source.name}: ${error.message}`);
       commentFailures.push(`${source.name} retrieval failed: ${error.message}`);
       core?.warning?.(`Verifier ${source.name} evidence unavailable: ${error.message}`);
@@ -1475,7 +1528,7 @@ async function fetchVerifierEvidence({
     : statuses.includes('present')
       ? 'present'
       : 'absent';
-  return { status, body, comments, artifacts, referencedRunIds: runIds, diagnostics };
+  return { status, body, comments, artifacts, referencedRunIds: runIds, diagnostics, event_history: eventHistory };
 }
 
 function fenceUntrustedEvidence(value) {
@@ -1840,6 +1893,7 @@ async function fetchClosingIssues({ github, core, owner, repo, prNumber }) {
               body
               state
               url
+              repository { nameWithOwner }
               labels(first: 100) {
                 nodes {
                   name
@@ -1866,6 +1920,7 @@ async function fetchClosingIssues({ github, core, owner, repo, prNumber }) {
       body: issue.body || '',
       state: issue.state || 'UNKNOWN',
       url: issue.url || '',
+      repository: issue.repository?.nameWithOwner || `${owner}/${repo}`,
       labels: issue.labels?.nodes || [],
     }));
     const truncated = connection.pageInfo?.hasNextPage === true || connection.totalCount > nodes.length;
@@ -1896,6 +1951,7 @@ async function fetchAcceptanceIssues({ github, core, owner, repo, prNumber, sour
       issues: [...discovery.issues, {
         number: issue.number, title: issue.title, body: issue.body || '',
         state: issue.state || 'UNKNOWN', url: issue.html_url || '',
+        repository: `${owner}/${repo}`,
         labels: Array.isArray(issue.labels) ? issue.labels : [],
       }],
     };
@@ -2127,7 +2183,9 @@ async function buildVerifierContext({
       }
     }
   }
-  const ciTargetShas = [pull.merge_commit_sha, pull.head?.sha, context.sha].filter(Boolean);
+  // A reusable workflow's own context.sha can be a later wrapper revision.
+  // Current CI proof belongs only to this actual immutable delivery.
+  const ciTargetShas = [pull.merge_commit_sha, pull.head?.sha].filter(Boolean);
   const targetSha = ciTargetShas[0] || '';
   if (targetSha) {
     content.push(`- Target commit: \`${targetSha}\``);
@@ -2144,6 +2202,7 @@ async function buildVerifierContext({
     core,
     targetShas: ciTargetShas,
     workflows,
+    includeBinding: true,
   });
   // A CI workflow concluding `failure` on the merge commit is a hard,
   // pre-LLM disqualifier: a merge that breaks main must never verify PASS
@@ -2340,6 +2399,75 @@ async function buildVerifierContext({
     required: sourceContext.requiresIssue || closingIssues.length > 0
       || ['truncated', 'unavailable'].includes(closingIssueDiscovery.status),
   };
+  // Bind repeats to authoritative source/code bytes collected by this same
+  // path. A caller's digest is only an expectation, never evidence authority.
+  let verificationManifest = null;
+  const eventRequested = Boolean(process.env.VERIFICATION_EVENT || process.env.VERIFICATION_MATERIAL
+    || process.env.VERIFICATION_PREDECESSOR);
+  if (modelEvaluation && !invalidOriginalBody && closingIssueDiscovery.status === 'included'
+      && !sourceContext.hasAmbiguousIssueSource && !missingIssueSource
+      && !apiDiffFallback && fullDiffBytes.length && isValidSha(pull.head?.sha)
+      && isValidSha(pull.merge_commit_sha)) {
+    if (!verifierEvidence.event_history?.complete) {
+      const reason = 'Verification event protocol inventory retrieval pending';
+      core?.setOutput?.('should_run', 'false');
+      core?.setOutput?.('skip_reason', reason);
+      core?.setOutput?.('retrieval_pending', 'verification_event_history');
+      return { shouldRun: false, reason: 'verification-event-history-retrieval-pending',
+        retrievalPending: { requirement: 'verification_event_history', reason: verifierEvidence.event_history?.reason || reason } };
+    }
+    verificationManifest = buildVerificationEvent({ repository: `${owner}/${repo}`, pull,
+      issues: closingIssues, fullDiffBytes, evidence: verifierEvidence, ciResults,
+      selectors: process.env.VERIFICATION_MATERIAL, expected: process.env.VERIFICATION_EVENT,
+      predecessorEventId: process.env.VERIFICATION_PREDECESSOR });
+    verificationManifest.assessment_identity = assessmentIdentity({mode,
+      provider:process.env.VERIFIER_PROVIDER || '',model:process.env.VERIFIER_MODEL || '',
+      model2:process.env.VERIFIER_MODEL2 || '',canonical:true});
+    verificationManifest.execution_binding = executionBinding(mode);
+    let retryKnownNoEvaluation;
+    try {
+      retryKnownNoEvaluation = guardExistingEvent(verificationManifest.verification_event,
+        verifierEvidence.event_history.records, verificationManifest.assessment_identity) === 'retry';
+    } catch (error) {
+      if (error.code !== 'VERIFIER_PENDING_EXECUTION') throw error;
+      const recovery = await reconcilePendingExecution({github,event:verificationManifest.verification_event,
+        assessment:verificationManifest.assessment_identity,state:error.pendingState,
+        currentExecution:{run_id:String(context.runId),run_attempt:String(process.env.GITHUB_RUN_ATTEMPT || ''),
+          repo:`${context.repo.owner}/${context.repo.repo}`,workflow_ref:process.env.GITHUB_WORKFLOW_REF || ''}});
+      if (recovery.retry_kind !== 'known_no_evaluation') {
+        verificationManifest.pending_execution_recovery = recovery;
+        fs.writeFileSync('verification-event-manifest.json', JSON.stringify(verificationManifest,null,2) + '\n');
+        core?.setOutput?.('should_run','false');
+        core?.setOutput?.('skip_reason','Existing verification execution requires targeted recovery');
+        core?.setOutput?.('retrieval_pending','verification_existing_execution');
+        return {shouldRun:false,reason:'verification-existing-execution-retrieval-pending',
+          verificationManifest,retrievalPending:{requirement:'verification_existing_execution',...recovery}};
+      }
+      verificationManifest.pending_no_evaluation = recovery.proof;
+      retryKnownNoEvaluation = true;
+    }
+    fs.writeFileSync('verification-event-manifest.json', JSON.stringify(verificationManifest, null, 2) + '\n');
+    core?.setOutput?.('verification_event', JSON.stringify(verificationManifest.verification_event));
+    core?.setOutput?.('verification_predecessor', verificationManifest.predecessor_event_id || '');
+    core?.setOutput?.('verification_assessment', JSON.stringify(verificationManifest.assessment_identity));
+    // A historical job-success fingerprint is not a verifier decision. Model
+    // invocations collect first, then suppress only actual terminal evidence.
+    if (!retryKnownNoEvaluation && verifierEvidence.event_history.complete
+        && (completedEvent(verificationManifest.verification_event, verifierEvidence.event_history.records,
+          verificationManifest.assessment_identity)
+          || (!eventRequested && ['', 'auto'].includes(verificationManifest.assessment_identity.provider)
+            && !verificationManifest.assessment_identity.model && !verificationManifest.assessment_identity.model2
+            && completedLegacyEvent(verificationManifest.verification_event, verifierEvidence)))) {
+      core?.setOutput?.('should_run', 'false');
+      core?.setOutput?.('verification_event_duplicate', 'true');
+      core?.setOutput?.('skip_reason', 'Exact verification event already has an authenticated terminal result.');
+      core?.setOutput?.('pr_number', String(pull.number));
+      core?.setOutput?.('target_sha', targetSha);
+      return { shouldRun: false, reason: 'duplicate-verification-event', verificationManifest };
+    }
+  } else if (eventRequested) {
+    throw new Error('Verification event requires complete authoritative request and changed-code inputs');
+  }
   // Put the inventory before large CI/plan/evidence blocks, so a late omitted
   // source is named even when its payload is beyond the former 8k prefix.
   content.splice(content.indexOf('## CI Information'), 0, formatContextSourceCoverage(sourceCoverage), '');
@@ -2388,6 +2516,7 @@ async function buildVerifierContext({
     chainDepth,
     verifierEvidence,
     sourceCoverage,
+    verificationManifest,
   };
 }
 

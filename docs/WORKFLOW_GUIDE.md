@@ -235,6 +235,11 @@ The following workflows were decommissioned during the CI consolidation effort. 
 
 ## Verifier Workflow
 
+Repeat evaluations use the same collector and evaluator as initial verification.
+See the [verification-event identity and evidence contract](keepalive/VERIFICATION_EVENTS.md)
+for repaired delivery binding, necessary-evidence selectors, deduplication and
+pending/terminal result handling.
+
 Follow-up report collectors accept native reports only from the GitHub Actions
 bot (`github-actions[bot]`, immutable user ID `41898282`, account type `Bot`).
 The reusable verifier publishes these comments with `GITHUB_TOKEN`. A report
