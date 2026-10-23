@@ -422,6 +422,7 @@ jobs:
         env:
           CI_WORKFLOWS: ${{ inputs.ci_workflows }}
           VERIFIER_PR_NUMBER: ${{ inputs.pr_number }}
+          VERIFIER_MODE: ${{ inputs.mode }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -430,7 +431,7 @@ jobs:
             const { buildVerifierContext } = require(verifierContextPath);
             const ciWorkflows = process.env.CI_WORKFLOWS || '[]';
             try {
-              await buildVerifierContext({ github, context, core, ciWorkflows });
+              await buildVerifierContext({ github, context, core, ciWorkflows, mode: process.env.VERIFIER_MODE });
             } catch (err) {
               if (err.message && err.message.includes('rate limit')) {
                 core.warning(`Rate limited while building context: ${err.message}`);

@@ -1,9 +1,13 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from scripts.check_agents_md_freshness import (
     _clean_ref,
+    _command_exists,
     _command_parts,
     check_agents_md,
+    cited_refs,
     main,
     managed_section,
 )
@@ -182,4 +186,24 @@ def test_cli_json_annotations_and_strict_exit_are_consistent(tmp_path, capsys):
 
 def test_reference_cleaning_and_empty_commands_are_safe() -> None:
     assert _clean_ref("docs/a.md:12-14") == "docs/a.md"
+    assert _clean_ref('"docs/a.md"') == "docs/a.md"
     assert _command_parts('"unterminated') == ['"unterminated']
+    assert _command_exists(Path.cwd(), "") is True
+
+
+def test_local_command_and_http_reference_are_handled_without_findings(tmp_path) -> None:
+    tools = tmp_path / "tools"
+    tools.mkdir()
+    command = tools / "run.py"
+    command.write_text("print('ok')\n", encoding="utf-8")
+
+    assert _command_exists(tmp_path, "./tools/run.py --check") is True
+    assert cited_refs("`https://example.test/guide` `docs/guide.md`") == ["docs/guide.md"]
+
+
+def test_missing_agents_file_is_ignored_and_plain_cli_lists_findings(tmp_path, capsys) -> None:
+    assert check_agents_md(tmp_path) == []
+
+    (tmp_path / "AGENTS.md").write_text(_agents_md("docs/missing.md"), encoding="utf-8")
+    assert main(["--repo-root", str(tmp_path)]) == 0
+    assert capsys.readouterr().out == "referenced path not found: docs/missing.md\n"

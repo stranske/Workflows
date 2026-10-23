@@ -139,6 +139,8 @@ module = importlib.util.module_from_spec(spec)
 sys.modules[spec.name] = module
 spec.loader.exec_module(module)
 real_run = module.run
+control_paths = {{flag: sys.argv[sys.argv.index(flag) + 1] for flag in ['--plan', '--output']}}
+pathlib.Path({str(tmp_path / 'control-paths.json')!r}).write_text(json.dumps(control_paths))
 log = pathlib.Path({str(tmp_path / 'install-observations.json')!r})
 def offline_install(commands, cwd):
     argv = shlex.split(commands[0].command)
@@ -186,6 +188,10 @@ module.main()
     assert any(row["argv"][-2:] == ["-e", ".[test]"] for row in installs)
     assert any(row["argv"][-2:] == ["-r", "requirements.txt"] for row in installs)
     assert all("platformdirs.pytest_plugin" not in row["output"] for row in receipt["results"])
+    control_paths = json.loads((tmp_path / "control-paths.json").read_text())
+    assert set(control_paths) == {"--plan", "--output"}
+    assert all(Path(path).is_relative_to(runner_temp) for path in control_paths.values())
+    assert len(set(control_paths.values())) == 2
 
 
 @pytest.mark.parametrize("relative", CALLERS)

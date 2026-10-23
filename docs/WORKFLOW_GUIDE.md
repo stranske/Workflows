@@ -464,8 +464,24 @@ and incomplete required channels still block. Only typed transport or size-limit
 omissions can be optional; provenance failures and ambiguous archive/read errors
 stay blocking. A validated incidental run from another revision is disclosed as
 excluded, never downloaded or credited; explicitly designated evidence retains
-the exact-revision provenance guard. Compare and chunked lossless
-admission are unchanged. Passing this screen does not establish acceptance.
+the exact-revision provenance guard. In evaluate mode, a generic evidence duty
+requires enough available material to reason: one complete present body, comments,
+or artifacts channel can satisfy that availability screen. It does not require every
+historical artifact to be retrievable. Explicit comment/artifact duties and
+requirement alternatives retain their existing channel constraints; the model
+still judges whether the named material and implementation actually satisfy the
+original request. The same screen applies before native counting, per-file review,
+and final coverage floors. Prompt assembly retains a complete selected channel
+alternative before filling optional evidence; optional artifact tails cannot spend
+the required comment/body budget. Per-file prompts and derived synthesis use the
+same fitted evidence. For legacy unframed evaluation inputs, Tasks and prose duties
+are read consistently by prompt fitting and native admission; framed original
+requests retain their authenticated source boundaries. Prompt coverage discloses selected complete channels and
+omitted optional sections while retaining the aggregate `truncated` prompt status.
+Required channels that do not fit still block, as do malformed/integrity failures.
+Aggregate retrieval statuses and raw capture completeness remain unchanged.
+Compare and default lossless admission stay strict. Passing this screen does not
+establish acceptance.
 
 The context retains each complete original PR/issue request as fenced untrusted
 source text, with its UTF-8 hash and byte count. Parsed scope/tasks/acceptance

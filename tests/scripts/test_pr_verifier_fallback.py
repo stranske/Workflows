@@ -29,6 +29,12 @@ class FakeClient:
         )
 
 
+def _evaluation_prompt(context, diff, *, evaluate_minimum=False):
+    """Match the private helper and require evaluate's policy at its call site."""
+    assert evaluate_minimum is True
+    return "test prompt"
+
+
 def test_is_auth_error_detects_401() -> None:
     exc = Exception("401 Unauthorized: models permission required")
     assert pr_verifier._is_auth_error(exc) is True
@@ -66,7 +72,7 @@ def test_evaluate_pr_falls_back_on_auth_error(monkeypatch) -> None:
             return (fallback_client, "openai/gpt-4o")
 
     monkeypatch.setattr(pr_verifier, "_get_llm_client", mock_get_client)
-    monkeypatch.setattr(pr_verifier, "_prepare_prompt", lambda ctx, diff: "test prompt")
+    monkeypatch.setattr(pr_verifier, "_prepare_prompt", _evaluation_prompt)
 
     result = pr_verifier.evaluate_pr("test context", diff=SAMPLE_DIFF)
 
@@ -85,7 +91,7 @@ def test_evaluate_pr_no_fallback_when_provider_explicit(monkeypatch) -> None:
         return (primary_client, "github-models/gpt-4o")
 
     monkeypatch.setattr(pr_verifier, "_get_llm_client", mock_get_client)
-    monkeypatch.setattr(pr_verifier, "_prepare_prompt", lambda ctx, diff: "test prompt")
+    monkeypatch.setattr(pr_verifier, "_prepare_prompt", _evaluation_prompt)
 
     # Explicitly request github-models - should NOT fallback
     result = pr_verifier.evaluate_pr("test context", provider="github-models")
@@ -106,7 +112,7 @@ def test_evaluate_pr_no_fallback_on_non_auth_error(monkeypatch) -> None:
         return (with_capacity(RateLimitClient()), "github-models/gpt-4o")
 
     monkeypatch.setattr(pr_verifier, "_get_llm_client", mock_get_client)
-    monkeypatch.setattr(pr_verifier, "_prepare_prompt", lambda ctx, diff: "test prompt")
+    monkeypatch.setattr(pr_verifier, "_prepare_prompt", _evaluation_prompt)
 
     result = pr_verifier.evaluate_pr("test context")
 

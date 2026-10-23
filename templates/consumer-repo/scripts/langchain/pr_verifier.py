@@ -481,6 +481,8 @@ class PromptCoverage:
     reasons: tuple[str, ...]
     acceptance_source_discovery: CoverageStatus = "not_declared"
     required_evidence_absent: bool = False
+    included_required_evidence_channels: tuple[str, ...] = ()
+    omitted_optional_evidence_sections: tuple[str, ...] = ()
 
     @property
     def sufficient(self) -> bool:
@@ -514,6 +516,18 @@ class PromptCoverage:
             "code_ratio": round(self.code_ratio, 4),
             "context_truncated": self.context_truncated,
             "reasons": list(self.reasons),
+            **(
+                {
+                    "included_required_evidence_channels": list(
+                        self.included_required_evidence_channels
+                    ),
+                    "omitted_optional_evidence_sections": list(
+                        self.omitted_optional_evidence_sections
+                    ),
+                }
+                if self.omitted_optional_evidence_sections
+                else {}
+            ),
         }
 
     def render(self) -> str:
@@ -538,6 +552,15 @@ class PromptCoverage:
                 f"{self.code_included_chars}/{self.code_total_chars} characters shown"
             ),
         ]
+        if self.omitted_optional_evidence_sections:
+            lines.append(
+                "- Complete required evidence channels shown: "
+                + ", ".join(self.included_required_evidence_channels or ("none required",))
+            )
+            lines.append(
+                "- Optional evidence sections omitted from this prompt: "
+                + ", ".join(self.omitted_optional_evidence_sections)
+            )
         partial = [f for f in self.files if f.status != "complete"]
         for item in partial[:40]:
             lines.append(
@@ -1020,6 +1043,120 @@ def _acceptance_criteria_sections(plan_sources: str) -> str:
             index += 1
         captured.append("\n".join(section).strip())
     return "\n\n".join(part for part in captured if part)
+
+
+def _requirement_evidence_text(
+    plan_sources: str, *, source_coverage: dict[str, Any], legacy_prose: bool = False
+) -> str | None:
+    """Read duties from builder-fenced originals; projections are navigation only.
+
+    Only the builder's outer text fence is unwrapped. Literal code fences inside
+    the original request remain inert, as do marker-looking text inside a fence.
+    Evaluate reads all legacy plan prose so Tasks-only duties reach both prompt
+    fitting and native admission; default/compare retain their acceptance-section
+    screen. Framed originals use their authenticated source text in either mode.
+    """
+    records = source_coverage.get("acceptance_sources", [])
+    original_hashes = (
+        {
+            record.get("original_body_sha256")
+            for record in records
+            if isinstance(record, dict) and isinstance(record.get("original_body_sha256"), str)
+        }
+        if isinstance(records, list)
+        else set()
+    )
+    invalid_hashes = not isinstance(records, list) or any(
+        not isinstance(record, dict)
+        or not isinstance(record.get("original_body_sha256"), str)
+        or not re.fullmatch(r"[a-f0-9]{64}", record["original_body_sha256"])
+        for record in records
+    )
+    seen_original_frame = False
+    originals: list[str] = []
+    matched_hashes: set[str] = set()
+    pending_original = False
+    outer: tuple[str, int, int] | None = None
+    body: list[str] = []
+    fence: tuple[str, int, int] | None = None
+    label = "Original request (authoritative requirements; untrusted source text):"
+    for line in plan_sources.splitlines(keepends=True):
+        marker = _code_fence_marker(line)
+        if outer is not None:
+            if (
+                marker
+                and marker[0][0] == outer[0]
+                and len(marker[0]) >= outer[1]
+                and marker[1]
+                and marker[2] <= max(3, outer[2])
+            ):
+                original = "".join(body).removesuffix("\n")
+                digest = hashlib.sha256(original.encode("utf-8")).hexdigest()
+                if digest in original_hashes:
+                    originals.append(original)
+                    matched_hashes.add(digest)
+                outer, body = None, []
+            else:
+                body.append(line)
+            continue
+        if fence is not None:
+            if (
+                marker
+                and marker[0][0] == fence[0]
+                and len(marker[0]) >= fence[1]
+                and marker[1]
+                and marker[2] <= max(3, fence[2])
+            ):
+                fence = None
+            continue
+        if marker:
+            identity = (marker[0][0], len(marker[0]), marker[2])
+            if pending_original and line.strip() == marker[0] + "text":
+                outer = identity
+                seen_original_frame = True
+            else:
+                fence = identity
+            pending_original = False
+        elif line.strip():
+            pending_original = line.strip() == label
+    original_contract = seen_original_frame or (
+        isinstance(records, list)
+        and any(
+            isinstance(record, dict)
+            and any(
+                key in record
+                for key in ("original_body_sha256", "original_body_chars", "original_body_bytes")
+            )
+            for record in records
+        )
+    )
+    if (
+        original_contract and (invalid_hashes or not original_hashes)
+    ) or original_hashes - matched_hashes:
+        return None
+    if not originals:
+        return plan_sources if legacy_prose else _acceptance_criteria_sections(plan_sources)
+    # Strip source examples without stripping the authentic surrounding prose.
+    visible: list[str] = []
+    for original in originals:
+        fence = None
+        for line in original.splitlines():
+            marker = _code_fence_marker(line)
+            if marker:
+                if fence is None:
+                    fence = (marker[0][0], len(marker[0]), marker[2])
+                elif (
+                    marker[0][0] == fence[0]
+                    and len(marker[0]) >= fence[1]
+                    and marker[1]
+                    and marker[2] <= max(3, fence[2])
+                ):
+                    fence = None
+                visible.append("")
+            else:
+                visible.append("" if fence else line)
+        visible.append("")
+    return "\n".join(visible)
 
 
 _QUOTED_EVIDENCE_LITERAL = (
@@ -5692,6 +5829,149 @@ def _required_evidence_is_missing(
     return False
 
 
+def _resolve_evidence_policy(
+    requirements: str,
+    evidence: str,
+    source_coverage: dict[str, Any],
+    *,
+    evaluate_minimum: bool,
+    evidence_budget: int | None = None,
+) -> tuple[list[set[str]], frozenset[str], tuple[str, tuple[str, ...], tuple[str, ...]] | None]:
+    """Resolve existing channel DNF, changing only evaluate's generic availability.
+
+    A complete present source permits reasoning, not acceptance. Concrete channel
+    obligations stay in every option; malformed capture remains a separate hard
+    admission failure through the existing capture manifest.
+    """
+    options = _required_evidence_options(requirements)
+    selection_options = options
+    fitted_evidence = None
+    if evaluate_minimum:
+        available: set[str] = set()
+        for channel in ("body", "comments", "artifacts"):
+            if _required_evidence_is_missing(evidence, {channel}):
+                continue
+            records = source_coverage.get(
+                "acceptance_sources" if channel == "body" else "acceptance_evidence_sources"
+            )
+            if not isinstance(records, list):
+                continue
+            selected = [
+                record
+                for record in records
+                if isinstance(record, dict)
+                and (
+                    str(record.get("source", "")).startswith("Pull request #")
+                    if channel == "body"
+                    else record.get("channel") == channel
+                )
+            ]
+            if selected and all(
+                record.get("status") == "included"
+                and type(record.get("included_chars")) is int
+                and type(record.get("total_chars")) is int
+                and record["included_chars"] == record["total_chars"]
+                and record["included_chars"] > 0
+                for record in selected
+            ):
+                available.add(channel)
+        # Options with no generic duty must remain exactly as authored.
+        options = [
+            option
+            for original in options
+            for option in (
+                [original - {"overall"} | {channel} for channel in sorted(available)]
+                if "overall" in original and available
+                else [original]
+            )
+        ]
+        # Selection must be the same for prompt fitting and native obligations.
+        # A present projection cannot make a typed truncated channel complete.
+        selection_options = [option for option in options if option <= available]
+        if evidence_budget is not None and len(evidence) > evidence_budget:
+            fitted_evidence = _fit_required_evidence_prompt(
+                evidence, selection_options, evidence_budget
+            )
+            selection_options = (
+                [set(fitted_evidence[1])]
+                if fitted_evidence is not None
+                else [option for option in selection_options if not option]
+            )
+    for channels in selection_options:
+        if not _required_evidence_is_missing(evidence, channels):
+            optional = (
+                frozenset()
+                if "overall" in channels
+                else frozenset({"comments", "artifacts"} - channels)
+            )
+            return options, optional, fitted_evidence
+    return options, frozenset(), None
+
+
+def _fit_required_evidence_prompt(
+    evidence: str, options: list[set[str]], budget: int
+) -> tuple[str, tuple[str, ...], tuple[str, ...]] | None:
+    """Fit one complete requirement alternative before optional builder sections.
+
+    Channel headings inside untrusted fences are inert. Retain complete selected
+    sections, never snippets of required proof; raw capture/statuses are untouched.
+    """
+    headings = {
+        "### Retrieval diagnostics": "diagnostics",
+        "### Bounded PR body": "body",
+        "### Bounded PR comments": "comments",
+        "### Bounded referenced workflow artifacts": "artifacts",
+    }
+    pieces: list[tuple[str, str]] = []
+    name = "preamble"
+    lines: list[str] = []
+    fence: tuple[str, int, int] | None = None
+    for line in evidence.splitlines(keepends=True):
+        marker = _code_fence_marker(line)
+        if fence is not None:
+            if (
+                marker
+                and marker[0][0] == fence[0]
+                and len(marker[0]) >= fence[1]
+                and marker[1]
+                and marker[2] <= max(3, fence[2])
+            ):
+                fence = None
+        elif marker:
+            fence = (marker[0][0], len(marker[0]), marker[2])
+        elif line.rstrip("\r\n") in headings:
+            pieces.append((name, "".join(lines).strip()))
+            name, lines = headings[line.rstrip("\r\n")], []
+        lines.append(line)
+    if fence is not None:
+        return None
+    pieces.append((name, "".join(lines).strip()))
+    present = {name for name, _ in pieces}
+    if not present.intersection({"body", "comments", "artifacts"}):
+        return None
+    for channels in options:
+        if (
+            "overall" in channels
+            or _required_evidence_is_missing(evidence, channels)
+            or not channels <= present
+        ):
+            continue
+        required = [body for name, body in pieces if name == "preamble" or name in channels]
+        rendered = "\n\n".join(required)
+        if len(rendered) > budget:
+            continue
+        omitted: list[str] = []
+        for name, body in pieces:
+            if name == "preamble" or name in channels:
+                continue
+            if len(rendered) + len(body) + 2 <= budget:
+                rendered += "\n\n" + body
+            else:
+                omitted.append(name)
+        return rendered, tuple(sorted(channels)), tuple(omitted)
+    return None
+
+
 def _acceptance_discovery_coverage(
     sections: list[tuple[str, str]] | None,
 ) -> CoverageStatus:
@@ -5724,7 +6004,9 @@ def _acceptance_discovery_coverage(
         return "unavailable"
 
 
-def build_prompt_inputs(context: str, diff: str | None, *, lossless: bool = False) -> PromptInputs:
+def build_prompt_inputs(
+    context: str, diff: str | None, *, lossless: bool = False, evaluate_minimum: bool = False
+) -> PromptInputs:
     """Bound the context and diff blocks and report what reaches the model."""
     context_budget = (
         _budget_from_env("VERIFIER_CONTEXT_BUDGET_TOKENS", VERIFIER_CONTEXT_BUDGET_TOKENS)
@@ -5801,6 +6083,19 @@ def build_prompt_inputs(context: str, diff: str | None, *, lossless: bool = Fals
     if not code_source:
         code_source = diff_text
 
+    evidence_requirements = _requirement_evidence_text(
+        acceptance_source, source_coverage=source_coverage, legacy_prose=evaluate_minimum
+    )
+    required_evidence_options, optional_channels, fitted_evidence = _resolve_evidence_policy(
+        evidence_requirements or "",
+        evidence_source,
+        source_coverage,
+        evaluate_minimum=evaluate_minimum,
+        evidence_budget=evidence_budget,
+    )
+    included_required_evidence_channels: tuple[str, ...] = ()
+    omitted_optional_evidence_sections: tuple[str, ...] = ()
+    required_evidence_fitted = False
     if sections is None:
         context_block = _cap_prompt_text(
             context_text or "(context unavailable)", context_budget // TOKEN_CHARS
@@ -5816,6 +6111,17 @@ def build_prompt_inputs(context: str, diff: str | None, *, lossless: bool = Fals
         if evidence_source:
             evidence_block = _cap_prompt_text(evidence_source, evidence_budget // TOKEN_CHARS)
             acceptance_evidence = "complete" if evidence_block == evidence_source else "truncated"
+            if (
+                evaluate_minimum
+                and acceptance_evidence == "truncated"
+                and fitted_evidence is not None
+            ):
+                (
+                    evidence_block,
+                    included_required_evidence_channels,
+                    omitted_optional_evidence_sections,
+                ) = fitted_evidence
+                required_evidence_fitted = True
             context_block = "\n\n".join(part for part in (context_block, evidence_block) if part)
         else:
             acceptance_evidence = "not_declared"
@@ -5823,9 +6129,25 @@ def build_prompt_inputs(context: str, diff: str | None, *, lossless: bool = Fals
         reasons.append("Acceptance/plan sources were truncated to fit the prompt budget.")
     elif acceptance == "unavailable":
         reasons.append("Acceptance/plan sources do not fit or are unavailable.")
-    required_evidence_options = _required_evidence_options(
-        _acceptance_criteria_sections(acceptance_source)
-    )
+    if evidence_requirements is None:
+        reasons.append("Original request provenance does not match retained source bytes.")
+    if evaluate_minimum and (
+        required_evidence_fitted
+        or (
+            any(
+                "overall" in option
+                for option in _required_evidence_options(evidence_requirements or "")
+            )
+            and all("overall" not in option for option in required_evidence_options)
+        )
+    ):
+        manifest = build_capture_obligation_manifest(
+            context_text,
+            full_diff_bytes=diff.encode("utf-8") if diff is not None else None,
+            optional_evidence_channels=optional_channels,
+        )
+        if not manifest["sufficient"]:
+            reasons.append("Required capture integrity unavailable: " + "; ".join(manifest["gaps"]))
     if all(required_evidence_options):
         if acceptance_evidence in {"not_declared", "unavailable"} or all(
             _required_evidence_is_missing(evidence_source, channels)
@@ -5834,7 +6156,7 @@ def build_prompt_inputs(context: str, diff: str | None, *, lossless: bool = Fals
             reasons.append(
                 "Required acceptance evidence is unavailable; completeness cannot be judged."
             )
-        elif acceptance_evidence == "truncated":
+        elif acceptance_evidence == "truncated" and not required_evidence_fitted:
             reasons.append("Required acceptance evidence was truncated to fit the prompt budget.")
 
     if code_source:
@@ -5894,6 +6216,8 @@ def build_prompt_inputs(context: str, diff: str | None, *, lossless: bool = Fals
         context_truncated=context_truncated,
         reasons=tuple(reasons),
         acceptance_source_discovery=acceptance_source_discovery,
+        included_required_evidence_channels=included_required_evidence_channels,
+        omitted_optional_evidence_sections=omitted_optional_evidence_sections,
         required_evidence_absent=bool(all(required_evidence_options))
         and all(
             _required_evidence_is_missing(evidence_source, channels, absent_only=True)
@@ -5904,8 +6228,10 @@ def build_prompt_inputs(context: str, diff: str | None, *, lossless: bool = Fals
     return PromptInputs(context_block=context_block, diff_block=diff_block, coverage=coverage)
 
 
-def prompt_coverage(context: str, diff: str | None) -> PromptCoverage:
-    return build_prompt_inputs(context, diff).coverage
+def prompt_coverage(
+    context: str, diff: str | None, *, evaluate_minimum: bool = False
+) -> PromptCoverage:
+    return build_prompt_inputs(context, diff, evaluate_minimum=evaluate_minimum).coverage
 
 
 def _apply_coverage_floor(
@@ -6044,7 +6370,13 @@ def comparison_verdict(results: list[EvaluationResult]) -> str:
 
 
 def _evaluate_chunked(
-    client: object, context: str, diff: str | None, provider: str, model: str | None
+    client: object,
+    context: str,
+    diff: str | None,
+    provider: str,
+    model: str | None,
+    *,
+    evaluate_minimum: bool = False,
 ) -> EvaluationResult | None:
     """Review complete file patches in bounded calls, never fair-share excerpts.
 
@@ -6060,7 +6392,7 @@ def _evaluate_chunked(
     )
     if len(source) <= budget:
         if source or sections is not None:
-            coverage = prompt_coverage(context, diff)
+            coverage = prompt_coverage(context, diff, evaluate_minimum=evaluate_minimum)
             if not coverage.sufficient:
                 result = _apply_coverage_floor(
                     EvaluationResult(
@@ -6082,7 +6414,9 @@ def _evaluate_chunked(
             summary="Changed-file inventory is unavailable; no complete review is possible.",
             files_not_reviewed=["(unknown changed files)"],
         )
-    full_coverage = build_prompt_inputs(context, diff, lossless=True).coverage
+    full_coverage = build_prompt_inputs(
+        context, diff, lossless=True, evaluate_minimum=evaluate_minimum
+    ).coverage
     if not full_coverage.sufficient:
         return EvaluationResult(
             verdict="CONCERNS" if full_coverage.required_evidence_absent else "UNVERIFIABLE_INPUT",
@@ -6115,8 +6449,22 @@ def _evaluate_chunked(
             continue
     results = []
     reviewed: set[str] = set()
+    prompt_coverages: list[PromptCoverage] = []
+    guidance = (
+        "\nThis is a per-file review within a multi-file PR. Judge the supplied files "
+        "against all acceptance criteria; do not infer missing implementation in sibling "
+        "files. In your summary, identify each criterion supported by these files and "
+        "describe its implementation evidence. A final review will reconcile criteria "
+        "across all chunks. Report real findings as CONCERNS or FAIL. If input is "
+        "incomplete, use UNVERIFIABLE_INPUT."
+    )
     for paths, patch in chunks:
-        coverage = prompt_coverage(local_context, patch)
+        # Guidance is trusted prompt framing, not an optional artifact's tail.
+        chunk_context = (
+            guidance + "\n\n" + local_context if evaluate_minimum else local_context + guidance
+        )
+        coverage = prompt_coverage(chunk_context, patch, evaluate_minimum=evaluate_minimum)
+        prompt_coverages.append(coverage)
         if not coverage.sufficient:
             results.append(
                 EvaluationResult(
@@ -6129,24 +6477,20 @@ def _evaluate_chunked(
                 )
             )
             continue
-        chunk_context = local_context + (
-            "\nThis is a per-file review within a multi-file PR. Judge the supplied files "
-            "against all acceptance criteria; do not infer missing implementation in sibling "
-            "files. In your summary, identify each criterion supported by these files and "
-            "describe its implementation evidence. A final review will reconcile criteria "
-            "across all chunks. Report real findings as CONCERNS or FAIL. If input is "
-            "incomplete, use UNVERIFIABLE_INPUT."
-        )
-        prompt = _prepare_prompt(chunk_context, patch)
+        prompt = _prepare_prompt(chunk_context, patch, evaluate_minimum=evaluate_minimum)
         try:
             response, trace_id, trace_url = _invoke_llm(
-                client, prompt, operation="evaluate_pr_chunk", context=chunk_context, diff=patch
+                client,
+                prompt,
+                operation="evaluate_pr_chunk" if evaluate_minimum else "evaluate_pr_compare_chunk",
+                context=chunk_context,
+                diff=patch,
             )
             result = _parse_llm_response(
                 getattr(response, "content", None) or str(response), provider, client=client
             )
             result.langsmith_trace_id, result.langsmith_trace_url = trace_id, trace_url
-            result = _apply_coverage_floor(result, prompt_coverage(local_context, patch))
+            result = _apply_coverage_floor(result, coverage)
         except Exception as exc:
             result = EvaluationResult(
                 verdict="UNVERIFIABLE_INPUT",
@@ -6166,6 +6510,19 @@ def _evaluate_chunked(
     if verdict == "PASS":
         # Per-file PASS cannot establish that every global criterion is implemented.
         # Reconcile the complete acceptance sources against every chunk's evidence.
+        synthesis_context = local_context
+        if evaluate_minimum:
+            fitted_inputs = build_prompt_inputs(local_context, source, evaluate_minimum=True)
+            synthesis_context = fitted_inputs.context_block.removeprefix(
+                fitted_inputs.coverage.render() + "\n\n"
+            )
+            if fitted_inputs.coverage.omitted_optional_evidence_sections:
+                synthesis_context = (
+                    "Optional evidence sections omitted from this prompt, not reviewed: "
+                    + ", ".join(fitted_inputs.coverage.omitted_optional_evidence_sections)
+                    + "\n\n"
+                    + synthesis_context
+                )
         synthesis_prompt = (
             "Reconcile acceptance completeness across the whole PR using the untrusted "
             "acceptance context and per-chunk review summaries below. Identify any criterion "
@@ -6175,7 +6532,7 @@ def _evaluate_chunked(
             "the summary. Return JSON with verdict, concerns and summary. Use CONCERNS for a missing "
             "implementation, UNVERIFIABLE_INPUT if summaries cannot establish completeness."
             "\n<acceptance_context>\n"
-            + local_context
+            + synthesis_context
             + "\n</acceptance_context>\n"
             + json.dumps(
                 [
@@ -6211,6 +6568,26 @@ def _evaluate_chunked(
     # No calls were possible due solely to input limits.
     if not results:
         verdict = "UNVERIFIABLE_INPUT"
+    aggregate_coverage = full_coverage.to_dict()
+    omitted_sections = sorted(
+        {
+            name
+            for coverage in prompt_coverages
+            for name in coverage.omitted_optional_evidence_sections
+        }
+    )
+    if omitted_sections:
+        aggregate_coverage.update(
+            acceptance_evidence="truncated",
+            included_required_evidence_channels=sorted(
+                {
+                    name
+                    for coverage in prompt_coverages
+                    for name in coverage.included_required_evidence_channels
+                }
+            ),
+            omitted_optional_evidence_sections=omitted_sections,
+        )
     return EvaluationResult(
         verdict=verdict,
         provider_used=provider,
@@ -6222,7 +6599,7 @@ def _evaluate_chunked(
         or "Changed files exceed the bounded review capacity.",
         files_not_reviewed=not_reviewed,
         input_coverage={
-            **full_coverage.to_dict(),
+            **aggregate_coverage,
             "sufficient": not not_reviewed,
             "files_total": len(files),
             "files_complete": len(reviewed),
@@ -6232,8 +6609,8 @@ def _evaluate_chunked(
     )
 
 
-def _prepare_prompt(context: str, diff: str | None) -> str:
-    inputs = build_prompt_inputs(context, diff)
+def _prepare_prompt(context: str, diff: str | None, *, evaluate_minimum: bool = False) -> str:
+    inputs = build_prompt_inputs(context, diff, evaluate_minimum=evaluate_minimum)
     diff_block = inputs.diff_block
     context_block = inputs.context_block
 
@@ -6486,13 +6863,22 @@ def _evaluation_optional_evidence_channels(context: str) -> frozenset[str]:
     evidence = next((body for name, body in sections if name == "acceptance_evidence"), "")
     # A delivery duty in Tasks or prose must not be waived merely because
     # the acceptance-criteria subsection omits it.
-    options = _required_evidence_options(acceptance)
-    for channels in options:
-        if not _required_evidence_is_missing(evidence, channels):
-            if "overall" in channels:
-                return frozenset()
-            return frozenset({"comments", "artifacts"} - channels)
-    return frozenset()
+    evidence_requirements = _requirement_evidence_text(
+        acceptance, source_coverage=parse_context_source_coverage(context) or {}, legacy_prose=True
+    )
+    if evidence_requirements is None:
+        return frozenset()
+    _, optional, _ = _resolve_evidence_policy(
+        evidence_requirements,
+        evidence,
+        parse_context_source_coverage(context) or {},
+        evaluate_minimum=True,
+        evidence_budget=_budget_from_env(
+            "VERIFIER_ACCEPTANCE_EVIDENCE_BUDGET_TOKENS", VERIFIER_CONTEXT_BUDGET_TOKENS
+        )
+        * TOKEN_CHARS,
+    )
+    return optional
 
 
 def _preflight_input_capacity(
@@ -6512,24 +6898,25 @@ def _preflight_input_capacity(
     """
     receipt: dict[str, object] = {"status": "unavailable", "prompt_chars": len(prompt)}
     try:
+        evaluate_minimum = operation in {"evaluate_pr", "evaluate_pr_chunk"}
         if context is not None:
             manifest = build_capture_obligation_manifest(
                 context,
                 full_diff_bytes=diff.encode("utf-8") if diff is not None else None,
                 optional_evidence_channels=(
                     _evaluation_optional_evidence_channels(context)
-                    if operation == "evaluate_pr"
+                    if evaluate_minimum
                     else frozenset()
                 ),
             )
             receipt["capture_obligations"] = manifest
-            coverage = prompt_coverage(context, diff)
+            coverage = prompt_coverage(context, diff, evaluate_minimum=evaluate_minimum)
             receipt["prompt_coverage"] = coverage.to_dict()
             if not manifest["sufficient"]:
                 raise InputCapacityError("capture obligation gaps: " + json.dumps(manifest["gaps"]))
             if not coverage.sufficient:
                 raise InputCapacityError("prompt obligation gaps: " + json.dumps(coverage.reasons))
-            if prompt != _prepare_prompt(context, diff):
+            if prompt != _prepare_prompt(context, diff, evaluate_minimum=evaluate_minimum):
                 raise InputCapacityError("prompt does not match the complete captured obligations")
         contract = _native_capacity_contract(client)
         profile = contract["profile"]
@@ -7306,7 +7693,7 @@ def evaluate_pr(
         EvaluationResult with verdict, scores, and concerns.
     """
     resolved = _get_llm_client(model=model, provider=provider)
-    coverage = prompt_coverage(context, diff)
+    coverage = prompt_coverage(context, diff, evaluate_minimum=True)
     if resolved is None:
         return _apply_coverage_floor(
             _fallback_evaluation("LLM client unavailable (missing credentials or dependency)."),
@@ -7314,10 +7701,10 @@ def evaluate_pr(
         )
 
     client, provider_name = resolved
-    chunked = _evaluate_chunked(client, context, diff, provider_name, model)
+    chunked = _evaluate_chunked(client, context, diff, provider_name, model, evaluate_minimum=True)
     if chunked is not None:
         return chunked
-    prompt = _prepare_prompt(context, diff)
+    prompt = _prepare_prompt(context, diff, evaluate_minimum=True)
     change_type = _classify_change_type(_bounded_diff_for_classification(diff))
     pr_number, _ = _extract_pr_metadata(context)
     trace_id, trace_url = None, None

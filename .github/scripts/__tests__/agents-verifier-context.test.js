@@ -5294,3 +5294,92 @@ test('context uses API diff fallback and records a non-PASS coverage gap in both
     } finally { removeVerifierDiffArtifacts(result); }
   }
 });
+
+const originalRequest866 = require('./fixtures/orchestrator-pr866-original-request.json');
+for (const mode of ['evaluate', 'compare']) {
+  test(`explicit ${mode} admits authentic freeform request without invented checklist`, async () => {
+    const { result } = await buildEvidenceContext({ prBody: originalRequest866.body, diffText: coveragePatch('src/example.js') }, { mode });
+    try {
+      assert.equal(result.shouldRun, true);
+      const content = fs.readFileSync(result.contextPath, 'utf8');
+      assert.ok(content.includes(originalRequest866.body.trim()));
+      assert.ok(content.includes(createHash('sha256').update(originalRequest866.body).digest('hex')));
+      assert.ok(!content.includes('No tasks defined'));
+      assert.ok(!content.includes('No acceptance criteria defined'));
+      assert.equal(fs.readFileSync(result.diffPath, 'utf8').trim(), coveragePatch('src/example.js').trim());
+      if (mode === 'evaluate' && process.env.VERIFIER_TEST_CAPTURE_DIR) {
+        fs.copyFileSync(result.contextPath, path.join(process.env.VERIFIER_TEST_CAPTURE_DIR, 'context.md'));
+        fs.copyFileSync(result.diffPath, path.join(process.env.VERIFIER_TEST_CAPTURE_DIR, 'diff.patch'));
+      }
+    } finally {
+      if (result.contextPath) removeVerifierDiffArtifacts(result);
+    }
+  });
+}
+for (const body of ['', '  ', '<!-- no requirements -->', { invalid: 'body' }]) {
+  test(`explicit evaluation refuses unavailable original request ${JSON.stringify(body)}`, async () => {
+    const { result } = await buildEvidenceContext({ prBody: body }, { mode: 'evaluate' });
+    assert.equal(result.shouldRun, false);
+    assert.match(result.reason, /original_request_missing_or_invalid/);
+  });
+}
+test('freeform request does not opt checkbox or unknown modes into model evaluation', async () => {
+  for (const mode of [undefined, 'checkbox', 'other']) {
+    const { result } = await buildEvidenceContext({ prBody: originalRequest866.body }, { mode });
+    assert.equal(result.shouldRun, false);
+    assert.match(result.reason, /No tasks and acceptance criteria/);
+  }
+});
+
+for (const mode of ['evaluate', 'compare']) {
+  test(`explicit ${mode} preserves missing linked-source discovery as a required gap`, async () => {
+    const { result } = await buildEvidenceContext({ prBody: originalRequest866.body, graphqlError: new Error('offline source unavailable') }, { mode });
+    try {
+      assert.equal(result.shouldRun, true);
+      assert.equal(result.sourceCoverage.acceptance_source_discovery.required, true);
+      assert.equal(result.sourceCoverage.acceptance_source_discovery.status, 'unavailable');
+    } finally { removeVerifierDiffArtifacts(result); }
+  });
+}
+test('explicit model mode uses authentic linked issue request and template parity', async () => {
+  const templateImpl = require('../../../templates/consumer-repo/.github/scripts/agents_verifier_context.js').buildVerifierContext;
+  const templateBuilder = options => templateImpl({ ...options, fetchLocalDiff: () => options.github.__testDiffText });
+  for (const builder of [buildVerifierContext, templateBuilder]) {
+    const { result } = await buildEvidenceContext({ prBody: 'Implement the linked original request.', closingIssues: [{number: 42, title: 'Original request', body: 'Retain each source revision and recover absent core inputs without fabricating data.', state: 'CLOSED'}] }, {mode: 'evaluate'}, builder);
+    try {
+      assert.equal(result.shouldRun, true);
+      const text = fs.readFileSync(result.contextPath, 'utf8');
+      assert.ok(text.includes('Retain each source revision'));
+      assert.deepEqual(result.issueNumbers, [42]);
+    } finally { removeVerifierDiffArtifacts(result); }
+  }
+});
+
+test('explicit evaluation cannot turn an empty linked original request into captured requirements', async () => {
+  const { result } = await buildEvidenceContext({prBody: originalRequest866.body, closingIssues: [{number: 42, body: '', title: 'Empty original', state: 'CLOSED'}]}, {mode: 'evaluate'});
+  try {
+    assert.equal(result.shouldRun, true);
+    assert.equal(result.sourceCoverage.acceptance_sources.find(source => source.source === 'Issue #42').status, 'omitted');
+  } finally { removeVerifierDiffArtifacts(result); }
+});
+test('explicit evaluation retains malformed linked request as required discovery failure', async () => {
+  const { result } = await buildEvidenceContext({prBody: originalRequest866.body, closingIssues: [{number: 42, body: {invalid: true}}]}, {mode: 'evaluate'});
+  try {
+    assert.equal(result.shouldRun, true);
+    assert.equal(result.sourceCoverage.acceptance_source_discovery.required, true);
+    assert.equal(result.sourceCoverage.acceptance_source_discovery.status, 'unavailable');
+  } finally { removeVerifierDiffArtifacts(result); }
+});
+
+test('explicit evaluation captures freeform evidence obligations for native preflight', async () => {
+  const body = process.env.VERIFIER_TEST_ORIGINAL_REQUEST || 'Evidence must be posted in a PR comment.';
+  const closingIssues = process.env.VERIFIER_TEST_LINKED_REQUEST ? [{number: 42, body: process.env.VERIFIER_TEST_LINKED_REQUEST, title: 'Linked request', state: 'CLOSED'}] : [];
+  const { result } = await buildEvidenceContext({prBody: body, closingIssues}, {mode: 'evaluate'});
+  try {
+    assert.equal(result.shouldRun, true);
+    if (process.env.VERIFIER_TEST_CAPTURE_DIR) {
+      fs.copyFileSync(result.contextPath, path.join(process.env.VERIFIER_TEST_CAPTURE_DIR, 'context.md'));
+      fs.copyFileSync(result.diffPath, path.join(process.env.VERIFIER_TEST_CAPTURE_DIR, 'diff.patch'));
+    }
+  } finally { removeVerifierDiffArtifacts(result); }
+});
