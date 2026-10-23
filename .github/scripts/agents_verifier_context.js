@@ -136,6 +136,13 @@ function formatSections({ heading, url, body }) {
   return lines.join('\n');
 }
 
+function requestWithProjection(original, projection) {
+  return 'Original request (authoritative requirements; untrusted source text):\n\n'
+    + fenceUntrustedEvidence(original)
+    + '\n\nDerived scope/tasks/acceptance (navigation only; the original request governs):\n\n'
+    + projection;
+}
+
 // Git patch records use LF: preserve filename spaces and content carriage returns.
 // Empty/whitespace-only transport data is still unavailable, not a valid patch.
 function normalizeDiffPatch(diffText) {
@@ -585,6 +592,14 @@ function safeArtifactEntries(listing) {
   return { entries, filteredPayloadEntries, occurrences };
 }
 
+// Only typed HTTP/network failures establish transport unavailability. Generic
+// exceptions may be malformed inventories or corrupt archives and stay strict.
+function evidenceFailureKind(error) {
+  return [401, 403, 404, 408, 410, 429, 500, 502, 503, 504].includes(error?.status)
+    || ['ETIMEDOUT', 'ECONNRESET', 'ECONNREFUSED', 'ENOTFOUND', 'EAI_AGAIN'].includes(error?.code)
+    ? 'transport' : 'retrieval';
+}
+
 // Page and record bounds are independent: bodyless/duplicate records still cost reads.
 async function boundedEvidencePages({ method, params, key, recordLimit, pageLimit, kind, diagnostics }) {
   const items = [];
@@ -621,7 +636,7 @@ async function boundedEvidencePages({ method, params, key, recordLimit, pageLimi
       if (!records.length) throw new Error('empty nonterminal page');
       if (items.length >= recordLimit) return { items, failure: 'record' };
     } catch (error) {
-      return { items, failure: 'retrieval', detail: error.message };
+      return { items, failure: evidenceFailureKind(error), detail: error.message };
     }
   }
   return { items, failure: 'page' };
@@ -694,7 +709,7 @@ function extractArtifactArchiveText({ archiveBuffer, maxEntries, maxChars, maxBy
         const rawValue = Buffer.from(execFile('unzip', ['-p', archivePath, entry], {
           maxBuffer: captureDirectory ? remainingBytes : Math.min(contentBudget * 4 + 1, remainingBytes),
         }));
-        if (rawValue.length > remainingBytes) throw new Error('decompressed byte bound exceeded');
+        if (rawValue.length > remainingBytes) throw Object.assign(new Error('decompressed byte bound exceeded'), {code: 'VERIFIER_EXTRACTION_BOUND'});
         remainingBytes -= rawValue.length;
         Object.assign(member, { status: 'included', raw_bytes: rawValue.length,
           raw_sha256: createHash('sha256').update(rawValue).digest('hex'), encoding: 'utf-8' });
@@ -728,10 +743,11 @@ function extractArtifactArchiveText({ archiveBuffer, maxEntries, maxChars, maxBy
         }
         parts.push(fragment);
         remaining -= fragment.length + separator.length;
-      } catch {
+      } catch (error) {
         member.status = 'unavailable';
-        member.reason = 'extraction_byte_or_read';
-        failures.push("extraction_byte_or_read");
+        member.reason = ['ENOBUFS', 'VERIFIER_EXTRACTION_BOUND'].includes(error?.code)
+          ? 'extraction_byte' : 'extraction_byte_or_read';
+        failures.push(member.reason);
         // An interrupted extraction cannot establish how many bytes were read.
         remainingBytes = 0;
         truncated = true;
@@ -926,7 +942,7 @@ async function fetchVerifierEvidence({
         );
       }
     } catch (error) {
-      fail("comments", "retrieval", `${source.name}: ${error.message}`);
+      fail("comments", evidenceFailureKind(error), `${source.name}: ${error.message}`);
       commentFailures.push(`${source.name} retrieval failed: ${error.message}`);
       core?.warning?.(`Verifier ${source.name} evidence unavailable: ${error.message}`);
     }
@@ -1060,6 +1076,13 @@ async function fetchVerifierEvidence({
         const binding=historicalManualVerifierBinding(workflowRun,{owner,repo,pullNumber,associatedCommitShas});
         if (binding) {
           pendingManualBindings.set(runId,binding);
+        } else if (!explicitEvidenceRunIds.has(runId)) {
+          // Incidental status/history links are discovery hints, not claims of
+          // evidence for this revision. Never download or credit unrelated runs.
+          (diagnostics.references.excluded_incidental_runs ||= []).push({
+            run_id: runId, head_sha: runHeadSha, reason: 'different_revision',
+          });
+          continue;
         } else {
           artifactIncomplete = true;
           artifacts.reason = `referenced workflow run ${runId} does not match the exact PR head or merge commit`;
@@ -1124,7 +1147,7 @@ async function fetchVerifierEvidence({
         if (result.failure) {
           listing.failure = result.failure;
           listing.detail = `${workflowId || 'repository'}: ${result.detail || result.failure}`;
-          fail('artifacts', 'workflow_listing', listing.detail);
+          fail('artifacts', `run_${result.failure}`, listing.detail);
         }
       }
       const workflowRuns = listing.items;
@@ -1170,7 +1193,7 @@ async function fetchVerifierEvidence({
       associatedRunDiscoveryComplete = false;
       artifactIncomplete = true;
       artifacts.reason = `workflow run discovery failed for commit ${commitSha}: ${error.message}`;
-      fail('artifacts', 'retrieval', artifacts.reason);
+      fail('artifacts', evidenceFailureKind(error), artifacts.reason);
       core?.warning?.(`Verifier workflow-run discovery unavailable: ${error.message}`);
     }
   }
@@ -1317,7 +1340,7 @@ async function fetchVerifierEvidence({
     } catch (error) {
       artifactIncomplete = true;
       artifacts.reason = `artifact retrieval failed for run ${runId}: ${error.message}`;
-      fail('artifacts', 'retrieval', artifacts.reason);
+      fail('artifacts', evidenceFailureKind(error), artifacts.reason);
       core?.warning?.(`Verifier workflow-artifact evidence unavailable: ${error.message}`);
     }
     if (manualBinding && !diagnostics.manual_target_bindings.some(item=>item.run_id===runId)) {
@@ -1433,12 +1456,17 @@ function buildContextSourceCoverage({ planSources, diffText, diffMaxChars, evide
       reason: pathParsingFailed ? 'Git paths are malformed or ambiguous; inventory is incomplete.' : 'No changed-code sources could be inventoried.',
     });
   }
-  const acceptanceSources = planSources.map(({ source, url, body }) => ({
+  const acceptanceSources = planSources.map(({ source, url, body, originalBody }) => ({
     source,
     url,
     status: body ? 'included' : 'omitted',
     included_chars: body.length,
     total_chars: body.length,
+    ...(typeof originalBody === 'string' ? {
+      original_body_chars: originalBody.length,
+      original_body_bytes: Buffer.byteLength(originalBody, 'utf8'),
+      original_body_sha256: createHash('sha256').update(originalBody, 'utf8').digest('hex'),
+    } : {}),
     ...(!body ? { reason: 'No scope/tasks/acceptance sections declared in this source.' } : {}),
   }));
   const acceptanceEvidenceSources = [];
@@ -1446,6 +1474,7 @@ function buildContextSourceCoverage({ planSources, diffText, diffMaxChars, evide
     for (const record of retrieval.records) {
       const body = String(record.body ?? record.text ?? '');
       acceptanceEvidenceSources.push({
+        channel,
         source: channel === 'comments' ? `${record.source}: ${record.url || record.author}` : `Run ${record.runId}: ${record.name}`,
         url: record.url || '',
         status: record.truncated ? 'truncated' : 'included',
@@ -1456,7 +1485,9 @@ function buildContextSourceCoverage({ planSources, diffText, diffMaxChars, evide
     // Retained records never make a partial retrieval complete. Name the channel
     // when the identities of omitted/unavailable records could not be retrieved.
     if (!retrieval.complete) {
-      acceptanceEvidenceSources.push({ source: channel, status: 'unavailable', reason: retrieval.reason });
+      acceptanceEvidenceSources.push({ channel, source: channel, status: 'unavailable', reason: retrieval.reason,
+        failure_kinds: [...new Set((evidence.diagnostics?.failures || []).filter(failure => failure.channel === channel).map(failure => failure.kind))],
+      });
     }
   }
   return {
@@ -1719,6 +1750,9 @@ async function fetchClosingIssues({ github, core, owner, repo, prNumber }) {
     const connection = data?.repository?.pullRequest?.closingIssuesReferences;
     if (!Array.isArray(connection?.nodes)) throw new Error('Linked issue response is unavailable.');
     const nodes = connection.nodes.filter(Boolean);
+    if (nodes.some(issue => issue.body != null && typeof issue.body !== 'string')) {
+      throw new Error('Linked issue request body is invalid.');
+    }
     const issues = nodes.map((issue) => ({
       number: issue.number,
       title: issue.title || '',
@@ -1773,6 +1807,7 @@ async function buildVerifierContext({
   context,
   core,
   ciWorkflows,
+  mode = 'checkbox',
   fetchLocalDiff = fetchLocalGitDiff,
   extractArtifactText = extractArtifactArchiveText,
 }) {
@@ -1825,6 +1860,9 @@ async function buildVerifierContext({
     return { shouldRun: false, reason: skipReason, ciResults: [], ciFailed: false };
   }
 
+  const invalidOriginalBody = pull.body != null && typeof pull.body !== 'string';
+  if (typeof pull.body !== 'string') pull.body = '';
+  const modelEvaluation = mode === 'evaluate' || mode === 'compare';
   const sourceContext = resolvePrSourceContext(pull);
   if (sourceContext.isRecurringDataJob) {
     const skipReason = 'Recurring verifier corpus data-job PR; issue acceptance verification does not apply.';
@@ -1878,10 +1916,11 @@ async function buildVerifierContext({
       hasTasksContent = true;
     }
   }
-  const prSections = extractScopeTasksAcceptanceSections(pull.body || '', {
-    includePlaceholders: true,
+  const prProjection = extractScopeTasksAcceptanceSections(pull.body || '', {
+    includePlaceholders: !modelEvaluation,
   });
-  planSources.push({ source: `Pull request #${pull.number}`, url: pull.html_url || '', body: prSections });
+  const prSections = requestWithProjection(pull.body || '', prProjection);
+  planSources.push({ source: `Pull request #${pull.number}`, url: pull.html_url || '', body: prSections, originalBody: pull.body || '' });
   sections.push(
     formatSections({
       heading: `Pull request #${pull.number}${pull.title ? `: ${pull.title}` : ''}`,
@@ -1902,10 +1941,12 @@ async function buildVerifierContext({
         hasTasksContent = true;
       }
     }
-    const issueSections = extractScopeTasksAcceptanceSections(issue.body || '', {
-      includePlaceholders: true,
+    const issueProjection = extractScopeTasksAcceptanceSections(issue.body || '', {
+      includePlaceholders: !modelEvaluation,
     });
-    planSources.push({ source: `Issue #${issue.number}`, url: issue.url || '', body: issueSections });
+    const issueSections = modelEvaluation && !issue.body.trim()
+      ? '' : requestWithProjection(issue.body || '', issueProjection);
+    planSources.push({ source: `Issue #${issue.number}`, url: issue.url || '', body: issueSections, originalBody: issue.body || '' });
     sections.push(
       formatSections({
         heading: `Issue #${issue.number}${issue.title ? `: ${issue.title}` : ''} (${issue.state})`,
@@ -2048,15 +2089,18 @@ async function buildVerifierContext({
   content.push('');
   content.push(formatVerifierEvidence(verifierEvidence));
 
-  // Skip verifier early if there are no acceptance criteria to verify
-  // Check for any acceptance content (not just checkboxes) to handle plain-text criteria
-  // Also require tasks content - PRs without both are likely bug fixes or simple changes
-  // that weren't intended for structured agent verification
-  if (!hasAcceptanceContent || !hasTasksContent) {
+  // Explicit model evaluation uses the authentic request, not a fabricated checklist.
+  // Checkbox mode retains its structured tasks/acceptance admission contract.
+  const hasOriginalRequest = planSources.some(({ originalBody }) =>
+    typeof originalBody === 'string' && originalBody.replace(/<!--[\s\S]*?-->/g, '').trim()
+  );
+  if (modelEvaluation ? invalidOriginalBody || !hasOriginalRequest : !hasAcceptanceContent || !hasTasksContent) {
     const missingParts = [];
     if (!hasTasksContent) missingParts.push('tasks');
     if (!hasAcceptanceContent) missingParts.push('acceptance criteria');
-    const skipReason = `No ${missingParts.join(' and ')} found in PR or linked issues; skipping verifier.`;
+    const skipReason = modelEvaluation
+      ? 'original_request_missing_or_invalid: authentic PR or linked issue requirements are unavailable; recover the original request before evaluation.'
+      : `No ${missingParts.join(' and ')} found in PR or linked issues; skipping verifier.`;
     core?.warning?.(skipReason);
     core?.setOutput?.('should_run', 'false');
     core?.setOutput?.('skip_reason', skipReason);
@@ -2246,6 +2290,7 @@ module.exports = {
     context,
     core,
     ciWorkflows,
+    mode,
     fetchLocalDiff,
     extractArtifactText,
   }) {
@@ -2255,6 +2300,7 @@ module.exports = {
       context,
       core,
       ciWorkflows,
+      mode,
       fetchLocalDiff,
       extractArtifactText,
     });

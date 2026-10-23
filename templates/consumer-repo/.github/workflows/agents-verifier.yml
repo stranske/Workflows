@@ -467,28 +467,42 @@ jobs:
           ref: ${{ needs.verifier.outputs.target_sha }}
           path: acceptance-head
           persist-credentials: false
+      - name: Set up acceptance Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.14'
       - name: Run acceptance commands without workflow secrets
         timeout-minutes: 30
         run: |
+          # Keep project installs and named executables in one clean runtime;
+          # ambient runner/user pytest entry points are not project dependencies.
+          VIRTUAL_ENV="$(mktemp -d "$RUNNER_TEMP/acceptance-gate-venv.XXXXXX")"
+          export VIRTUAL_ENV
+          python3 -m venv "$VIRTUAL_ENV"
+          export PATH="$VIRTUAL_ENV/bin:$PATH"
           python3 - <<'PY'
           import json
+          import os
           import subprocess
           import sys
+          import tempfile
           from pathlib import Path
           results = []
-          for index, plan in enumerate(json.loads(Path('closure-plans/plans.json').read_text())):
-              if plan.get('plan_error'):
-                  continue
-              if plan.get('gate_source') == 'required-ci' and not plan['commands']:
-                  results.append({**plan, 'results': []})
-                  continue
-              source = Path(f'/tmp/closure-plan-{index}.json')
-              output = Path(f'/tmp/closure-result-{index}.json')
-              source.write_text(json.dumps(plan))
-              subprocess.run([sys.executable, 'gate-runner/scripts/runner_lib/acceptance_gate.py',
-                  '--prepare', '--plan', str(source), '--cwd', 'acceptance-head',
-                  '--output', str(output)], check=True)
-              results.append(json.loads(output.read_text()))
+          # Control files belong to this invocation, including parallel jobs/tests.
+          with tempfile.TemporaryDirectory(prefix='acceptance-plans-', dir=os.environ['RUNNER_TEMP']) as temp:
+              for index, plan in enumerate(json.loads(Path('closure-plans/plans.json').read_text())):
+                  if plan.get('plan_error'):
+                      continue
+                  if plan.get('gate_source') == 'required-ci' and not plan['commands']:
+                      results.append({**plan, 'results': []})
+                      continue
+                  source = Path(temp) / f'plan-{index}.json'
+                  output = Path(temp) / f'result-{index}.json'
+                  source.write_text(json.dumps(plan))
+                  subprocess.run([sys.executable, 'gate-runner/scripts/runner_lib/acceptance_gate.py',
+                      '--prepare', '--plan', str(source), '--cwd', 'acceptance-head',
+                      '--output', str(output)], check=True)
+                  results.append(json.loads(output.read_text()))
           Path('closure-results.json').write_text(json.dumps(results))
           PY
       - name: Upload merge gate results

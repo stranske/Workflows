@@ -422,6 +422,7 @@ jobs:
         env:
           CI_WORKFLOWS: ${{ inputs.ci_workflows }}
           VERIFIER_PR_NUMBER: ${{ inputs.pr_number }}
+          VERIFIER_MODE: ${{ inputs.mode }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -430,7 +431,7 @@ jobs:
             const { buildVerifierContext } = require(verifierContextPath);
             const ciWorkflows = process.env.CI_WORKFLOWS || '[]';
             try {
-              await buildVerifierContext({ github, context, core, ciWorkflows });
+              await buildVerifierContext({ github, context, core, ciWorkflows, mode: process.env.VERIFIER_MODE });
             } catch (err) {
               if (err.message && err.message.includes('rate limit')) {
                 core.warning(`Rate limited while building context: ${err.message}`);
@@ -1660,6 +1661,38 @@ jobs:
             gh pr comment "$verifier_pr" --body-file comparison-comment.md
           fi
 
+      - name: Shadow candidate verifier judges (recorded only; never posted, never counted)
+        # config/verifier_shadow.json (central, in this repository) names the candidates and the
+        # pre-registered criteria; set the repository variable VERIFIER_SHADOW to `off` to skip.
+        # Any failure here is data in verifier-shadow.json, never a failed run.
+        if: >-
+          ${{
+            always() &&
+            steps.context.outputs.should_run == 'true' &&
+            inputs.mode == 'compare' &&
+            steps.llm_compare.outputs.has_results == 'true' &&
+            vars.VERIFIER_SHADOW != 'off'
+          }}
+        continue-on-error: true
+        timeout-minutes: 10
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          CLAUDE_API_STRANSKE: ${{ secrets.CLAUDE_API_STRANSKE }}
+          PYTHONPATH: .workflows-lib
+          PRODUCTION_VERDICT: ${{ steps.llm_compare.outputs.verdict }}
+          CI_FAILED: ${{ steps.context.outputs.ci_failed }}
+          PR_NUMBER: ${{ steps.context.outputs.pr_number }}
+          PR_HEAD_SHA: ${{ steps.context.outputs.pr_head_sha }}
+          VERIFIER_CONTEXT_PATH: ${{ steps.context.outputs.context_path }}
+          VERIFIER_DIFF_PATH: ${{ steps.context.outputs.diff_path }}
+        run: |
+          python .workflows-lib/scripts/langchain/verifier_shadow.py \
+            --context-file "$VERIFIER_CONTEXT_PATH" \
+            ${VERIFIER_DIFF_PATH:+--diff-file "$VERIFIER_DIFF_PATH"} \
+            --comparison comparison.json \
+            --config .workflows-lib/config/verifier_shadow.json \
+            --output verifier-shadow.json || true
+
       - name: Upload comparison artifacts
         if: >-
           ${{
@@ -1674,6 +1707,7 @@ jobs:
             comparison.json
             comparison-stderr.log
             comparison-comment.md
+            verifier-shadow.json
             verifier-context.md
             verifier-diff-summary.md
             verifier-pr-diff.patch

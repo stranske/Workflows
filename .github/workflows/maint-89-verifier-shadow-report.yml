@@ -1,0 +1,76 @@
+name: Maint 89 Verifier Shadow Report
+
+# Daily FYI report on the candidate verifier judges that shadow the production comparison
+# (config/verifier_shadow.json, pre-registered criteria). It collects the shadow records from the
+# fleet's comparison-results artifacts (they expire after 7 days, so a 90-day ledger artifact keeps
+# them), applies the criteria, and updates ONE issue. Nothing blocks and nothing is promoted: the
+# owner reads the report once when it says MEETS or DOES NOT MEET.
+
+on:
+  schedule:
+    - cron: "20 6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+  actions: read
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+      - name: Fetch the previous ledger
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          rid="$(gh run list --workflow maint-89-verifier-shadow-report.yml --status success --limit 1 \
+            --json databaseId --jq '.[0].databaseId // empty' || true)"
+          if [ -n "$rid" ]; then
+            gh run download "$rid" -n verifier-shadow-ledger -D prior || true
+          fi
+          if [ -f prior/ledger.json ]; then cp prior/ledger.json ledger.json; else echo '[]' > ledger.json; fi
+      - name: Collect shadow records and evaluate the criteria
+        env:
+          # Cross-repo artifact read; github.token is scoped to this repository only.
+          GH_TOKEN: ${{ secrets.OWNER_PR_PAT }}
+        run: |
+          set -euo pipefail
+          repos="stranske/Workflows,$(python scripts/list_registered_consumer_repos.py --separator ',')"
+          python -m tools.verifier_shadow_report --ledger ledger.json --repos "$repos" \
+            --markdown report.md --json report.json
+          cat report.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Update the single report issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          title="Verifier shadow report"
+          num="$(gh issue list --state open --search "\"$title\" in:title" --json number,title \
+            --jq "[.[] | select(.title == \"$title\")][0].number // empty")"
+          body="$(printf '<!-- workflow-source:automation_run -->\n<!-- workflow-lifecycle:recurring_data_job -->\n%s\n\nRun: %s/%s/actions/runs/%s\n' \
+            "$(cat report.md)" "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID")"
+          if [ -n "$num" ]; then
+            gh issue edit "$num" --body "$body"
+          else
+            gh issue create --title "$title" --body "$body"
+          fi
+      - uses: actions/upload-artifact@v7
+        with:
+          name: verifier-shadow-ledger
+          path: |
+            ledger.json
+            report.json
+          retention-days: 90
