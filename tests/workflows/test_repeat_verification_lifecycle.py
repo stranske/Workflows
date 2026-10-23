@@ -264,3 +264,28 @@ def test_comparison_no_evaluation_requires_all_configured_slots(tmp_path):
     state = incomplete_state(run_state_step(tmp_path, "Record verification event terminal"))
     assert state["retry_kind"] == "known_no_evaluation"
     assert state["retryable"] is True
+
+
+def test_root_and_consumer_share_event_semantics_despite_reviewed_ci_fingerprint_roles():
+    source = yaml.load(
+        (ROOT / ".github/workflows/agents-verifier.yml").read_text(), Loader=yaml.BaseLoader
+    )
+    consumer = yaml.load(
+        (ROOT / "templates/consumer-repo/.github/workflows/agents-verifier.yml").read_text(),
+        Loader=yaml.BaseLoader,
+    )
+    for key in ("verification_event", "verification_material", "verification_predecessor"):
+        assert (
+            source["on"]["workflow_dispatch"]["inputs"][key]
+            == consumer["on"]["workflow_dispatch"]["inputs"][key]
+        )
+    source_with = source["jobs"]["verifier"]["with"]
+    consumer_with = consumer["jobs"]["verifier"]["with"]
+    assert {key: value for key, value in source_with.items() if key != "ci_workflows"} == {
+        key: value for key, value in consumer_with.items() if key != "ci_workflows"
+    }
+    assert source["jobs"]["acceptance-gates"] == consumer["jobs"]["acceptance-gates"]
+    assert json.loads(source_with["ci_workflows"]) == ["pr-11-ci-smoke.yml", "selftest-ci.yml"]
+    assert json.loads(consumer_with["ci_workflows"]) == ["ci.yml"]
+    assert "persist-fingerprint" not in source["jobs"]
+    assert "persist-fingerprint" in consumer["jobs"]
