@@ -63,6 +63,98 @@ function historicalManualVerifierBinding(run, {owner,repo,pullNumber,associatedC
   return binding;
 }
 
+// A historical role must be affirmatively declared, not merely mentioned in
+// evidence prose or quoted examples. Accept only bounded, direct role clauses;
+// unknown qualifications remain prose, not an authenticated role request.
+function affirmativeHistoricalEvidenceLines(text) {
+  let fence = null;
+  const authored = [];
+  for (const line of String(text || '').split('\n')) {
+    const marker = line.match(/^\s{0,3}(`{3,}|~{3,})/);
+    if (marker) {
+      if (!fence) fence = marker[1];
+      else if (marker[1][0] === fence[0] && marker[1].length >= fence.length) fence = null;
+      continue;
+    }
+    if (fence || line.length > EVIDENCE_CLAUSE_MAX_LEN || /^\s*>|^(?: {4}|\t)/.test(line)) continue;
+    // Never delete quoted words: that could turn `not`/`possibly` into an
+    // affirmative skeleton. Only the defined immutable SHA annotation unwraps.
+    authored.push(line.replace(/`+[^`\n]*`+|"[^"\n]*"|“[^”\n]*”|(^|[\s(:])'[^'\n]*'/g,
+      (quoted, prefix) => /^`+[0-9a-f]{7,40}`+$/i.test(quoted)
+        ? quoted.replace(/`/g, '') : `${prefix || ''}OPAQUE_QUOTED`));
+  }
+  const role = '(?:historical(?:\\s+(?:CI|coverage))?\\s+(?:baseline|evidence|provenance)|baseline|provenance)';
+  const label = new RegExp(`^(?:#{1,6}\\s+)?(?:#\\d+\\s+)?${role}(?:\\s+(?:evidence|validation))?$`, 'i');
+  const assertion = new RegExp(`^RUN\\s+(?:is|was|remains|serves as)\\s+(?:an?\\s+|the\\s+)?${role}[.!]?$`, 'i');
+  // A direct citation can carry its immutable measurement annotation. The
+  // measurement form also preserves the authored #853 provenance declaration.
+  const citation = /^(?:(?:(?:full\s+)?(?:combined\s+)?coverage\s+)?evidence\s+(?:is|remains)\s+(?:CI\s+)?run\s+)?RUN(?:\s+\(success on [0-9a-f]{7,40}\))?[.!]?$/i;
+  return positiveEvidenceLines(authored.join('\n')).filter(line => {
+    const plain = line.replace(/^[\s*+-]+/, '')
+      .replace(/\[[^\]\n]*\]\(https:\/\/github\.com\/[^/]+\/[^/]+\/actions\/runs\/\d+\)/gi, 'RUN')
+      .replace(/https:\/\/github\.com\/[^/]+\/[^/]+\/actions\/runs\/\d+/gi, 'RUN');
+    const separator = plain.indexOf(':');
+    if (separator < 0) return false;
+    const heading = plain.slice(0, separator).trim();
+    const clause = plain.slice(separator + 1).trim();
+    const evidenceLabel = /^(?:validation(?:\s+evidence)?|evidence)$/i.test(heading);
+    return (label.test(heading) && (citation.test(clause) || assertion.test(clause)))
+      || (evidenceLabel && assertion.test(clause));
+  });
+}
+
+// Historical source citations are discovery hints only. Authenticate their
+// distinct owning delivery through GitHub before collecting any old payload.
+async function historicalCiBaselineBinding(github, run, {owner, repo, pullNumber, texts}) {
+  const repository = `${owner}/${repo}`;
+  const runId = Number(run.id);
+  const historicalCitation = texts.some(text => affirmativeHistoricalEvidenceLines(text).some(line =>
+    [...line.matchAll(/https:\/\/github\.com\/([^/]+\/[^/]+)\/actions\/runs\/(\d+)(?!\d)/g)]
+        .some(match => match[1].toLowerCase() === repository.toLowerCase() && Number(match[2]) === runId)));
+  if (!Number.isSafeInteger(pullNumber) || pullNumber < 1 || !/^[0-9a-f]{40}$/i.test(run.head_sha)
+      || !historicalCitation || run.repository?.full_name?.toLowerCase() !== repository.toLowerCase()
+      || run.event !== 'pull_request' || run.status !== 'completed'
+      || !Number.isSafeInteger(run.run_attempt) || run.run_attempt < 1) return null;
+  const citedPulls = new Set(texts.flatMap(text => [...String(text || '').matchAll(
+    /https:\/\/github\.com\/([^/]+\/[^/]+)\/pull\/(\d+)(?!\d)/g)]
+    .filter(match => match[1].toLowerCase() === repository.toLowerCase())
+    .map(match => Number(match[2]))));
+  if (!citedPulls.size || !github?.rest?.repos?.listPullRequestsAssociatedWithCommit
+      || !github?.rest?.pulls?.get) return null;
+  const associated = await github.rest.repos.listPullRequestsAssociatedWithCommit({
+    owner, repo, commit_sha: run.head_sha, per_page: 100,
+  });
+  // An incomplete/ambiguous ownership lookup cannot establish a baseline.
+  if (!Array.isArray(associated?.data) || associated.data.length >= 100
+      || /rel="next"/.test(associated.headers?.link || '')) return null;
+  let owners = associated.data.filter(pull => Number.isSafeInteger(pull.number) && pull.number > 0
+    && pull.base?.repo?.full_name?.toLowerCase() === repository.toLowerCase());
+  if (owners.length !== associated.data.length
+      || (run.pull_requests !== undefined && !Array.isArray(run.pull_requests))) return null;
+  const runPulls = run.pull_requests || [];
+  if (runPulls.length > 1) return null;
+  if (runPulls.length) {
+    if (!Number.isSafeInteger(runPulls[0]?.number) || runPulls[0].number < 1) return null;
+    owners = owners.filter(pull => pull.number === runPulls[0].number);
+  }
+  // Authored citations cannot disambiguate multiple native owners. A run's
+  // explicit PR binding can, but must also agree with the commit association.
+  if (owners.length !== 1) return null;
+  const candidates = owners.filter(pull => citedPulls.has(pull.number) && pull.number !== pullNumber);
+  if (candidates.length !== 1) return null;
+  const response = await github.rest.pulls.get({owner, repo, pull_number: candidates[0].number});
+  const pull = response?.data;
+  const runHead = String(run.head_sha).toLowerCase();
+  if (pull?.number !== candidates[0].number || pull.merged !== true
+      || pull.base?.repo?.full_name?.toLowerCase() !== repository.toLowerCase()
+      || !/^[0-9a-f]{40}$/i.test(pull.head?.sha || '')
+      || !/^[0-9a-f]{40}$/i.test(pull.merge_commit_sha || '')
+      || ![pull.head.sha, pull.merge_commit_sha].some(sha => sha.toLowerCase() === runHead)) return null;
+  return {repository, pull_number: pull.number, head_sha: pull.head.sha,
+    merge_sha: pull.merge_commit_sha, run_id: runId, run_attempt: run.run_attempt, run_head_sha: runHead,
+    ownership_basis: runPulls.length ? 'run-pr-and-commit-association' : 'unique-commit-association'};
+}
+
 function validateHistoricalManualArtifact(binding,artifact,archiveSha256) {
   const run=artifact?.workflow_run;
   return artifact?.id===binding.artifact_id && artifact.name===`comparison-results-${binding.run_id}`
@@ -1077,6 +1169,7 @@ async function fetchVerifierEvidence({
   const runHeads = new Map();
   const runPaths = new Map();
   const pendingManualBindings = new Map();
+  const historicalBaselineBindings = new Map();
   const seenRunIds = new Set();
   let artifactIncomplete = allRunIds.length > referencedRunIds.length;
   if (artifactIncomplete) fail("artifacts", "reference_record", "explicit reference union exceeds run limit");
@@ -1120,8 +1213,14 @@ async function fetchVerifierEvidence({
       }
       if (!exactCommitShas.has(runHeadSha)) {
         const binding=historicalManualVerifierBinding(workflowRun,{owner,repo,pullNumber,associatedCommitShas});
+        const baseline = !binding && explicitEvidenceRunIds.has(runId)
+          ? await historicalCiBaselineBinding(github, workflowRun,
+            {owner, repo, pullNumber, texts: proseReferenceTexts}) : null;
         if (binding) {
           pendingManualBindings.set(runId,binding);
+        } else if (baseline) {
+          historicalBaselineBindings.set(runId, baseline);
+          // Retain an authenticated historical role, never current-head proof.
         } else if (!explicitEvidenceRunIds.has(runId)) {
           // Incidental status/history links are discovery hints, not claims of
           // evidence for this revision. Never download or credit unrelated runs.
@@ -1283,7 +1382,10 @@ async function fetchVerifierEvidence({
         // capture ledger, never semantic proof or a completeness upgrade.
         const capture = { repository: `${owner}/${repo}`, run_id: runId,
           head_sha: runHeads.get(runId), artifact_id: artifact.id,
-          name: artifact.name || '', status: 'unavailable', members: null };
+          name: artifact.name || '', status: 'unavailable', members: null,
+          ...(historicalBaselineBindings.has(runId) ? {
+            evidence_role: 'historical-baseline', historical_binding: historicalBaselineBindings.get(runId),
+          } : {}) };
         diagnostics.archive_inventory.push(capture);
         // The verifier's retained input bundle is transport, not another
         // acceptance output. Do not recursively re-ingest its own ZIP sidecars.
@@ -1377,6 +1479,9 @@ async function fetchVerifierEvidence({
             url: artifact.archive_download_url || '',
             text: extracted.text,
             truncated: Boolean(extracted.truncated),
+            ...(historicalBaselineBindings.has(runId) ? {
+              evidence_role: 'historical-baseline', historical_binding: historicalBaselineBindings.get(runId),
+            } : {}),
           });
         }
       }
@@ -1451,6 +1556,7 @@ function formatVerifierEvidence(evidence) {
   if (evidence.artifacts.records.length) {
     lines.push('### Bounded referenced workflow artifacts', '');
     for (const artifact of evidence.artifacts.records) {
+      if (artifact.evidence_role === 'historical-baseline') lines.push('Historical baseline — not current-revision proof; acceptance relevance remains to be evaluated.', '');
       lines.push(`#### Run ${artifact.runId}: ${artifact.name}${artifact.url ? ` — ${artifact.url}` : ''}`, '', 'Untrusted workflow artifact:', fenceUntrustedEvidence(artifact.text), '');
     }
   }
@@ -1526,6 +1632,7 @@ function buildContextSourceCoverage({ planSources, diffText, diffMaxChars, evide
         status: record.truncated ? 'truncated' : 'included',
         included_chars: body.length,
         total_chars: record.truncated ? null : body.length,
+        ...(record.evidence_role ? {evidence_role: record.evidence_role, historical_binding: record.historical_binding} : {}),
       });
     }
     // Retained records never make a partial retrieval complete. Name the channel
