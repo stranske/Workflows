@@ -3,6 +3,7 @@ import json
 import os
 import signal
 import subprocess
+import sys
 import time
 from pathlib import Path
 
@@ -1992,3 +1993,308 @@ def test_queue_writer_renders_conflict_resolution_approval_metadata(tmp_path, mo
     rendered = (tmp_path / "approved-issue-queue.md").read_text()
     assert "explicit scope resolution" in rendered
     assert "original scope only" not in rendered
+
+
+def test_remote_progress_normalizes_gh_payloads_and_keeps_partial_failures_visible(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    responses = iter(
+        [
+            subprocess.CompletedProcess(
+                [],
+                0,
+                json.dumps(
+                    [
+                        {
+                            "number": 7,
+                            "title": "Open gap",
+                            "labels": [{"name": "bug"}, "not-a-label"],
+                            "createdAt": "2026-10-20T00:00:00Z",
+                        }
+                    ]
+                ),
+                "",
+            ),
+            subprocess.CompletedProcess([], 0, "not-json", ""),
+        ]
+    )
+    monkeypatch.setattr(evaluator.shutil, "which", lambda _name: "/usr/bin/gh")
+    monkeypatch.setattr(evaluator.subprocess, "run", lambda *args, **kwargs: next(responses))
+
+    progress = evaluator.collect_remote_progress("owner/repo", open_issue_limit=3)
+
+    assert progress["available"] is True
+    assert progress["open_issues"] == [
+        {
+            "number": 7,
+            "title": "Open gap",
+            "labels": ["bug"],
+            "created_at": "2026-10-20T00:00:00Z",
+        }
+    ]
+    assert progress["recent_merged_prs"] == []
+    assert progress["warnings"] == ["gh pr list (merged) failed or returned non-list"]
+
+
+def test_remote_issue_count_fails_closed_when_gh_is_missing_or_returns_invalid_json(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(evaluator.shutil, "which", lambda _name: None)
+    assert evaluator.remote_open_issue_count("owner/repo") is None
+
+    monkeypatch.setattr(evaluator.shutil, "which", lambda _name: "/usr/bin/gh")
+    monkeypatch.setattr(
+        evaluator.subprocess,
+        "run",
+        lambda *args, **kwargs: subprocess.CompletedProcess([], 0, "{}", ""),
+    )
+    assert evaluator.remote_open_issue_count("owner/repo") is None
+
+
+def test_issue_set_recommendation_distinguishes_round_two_completion_states() -> None:
+    base = {"review_execution": {"gap_count": 0}}
+    thin = evaluator.issue_set_recommendation(
+        {**base, "round2_converged": {"converged_candidates": [], "no_new_work_justifications": []}}
+    )
+    complete = evaluator.issue_set_recommendation(
+        {
+            **base,
+            "round2_converged": {
+                "converged_candidates": [],
+                "no_new_work_justifications": [{"agent": "codex"}, {"agent": "claude"}],
+            },
+        }
+    )
+    candidates = evaluator.issue_set_recommendation(
+        {
+            **base,
+            "round2_converged": {
+                "converged_candidates": [{"title": "A"}],
+                "meta_candidate": {"title": "Audit"},
+                "deadlocked_candidates": [{"title": "Conflict"}],
+            },
+        }
+    )
+
+    assert "missing or thin" in thin
+    assert "Both agents (codex, claude)" in complete
+    assert "plus 1 meta-candidate" in candidates
+    assert "1 deadlocked candidate" in candidates
+
+
+def test_write_repo_artifacts_preserves_drafts_and_archive_entries(tmp_path: Path) -> None:
+    state = _tiering_state(tmp_path)
+    state["archive_candidates"] = [
+        {
+            "title": "Prior review",
+            "thread_name": "weekly-review",
+            "timestamp": "2026-10-01",
+            "source_file": "archive.jsonl",
+            "excerpt": "Validate the old result against current code.",
+        }
+    ]
+    state["archive_candidate_count"] = 2
+    state["drafts"] = [
+        {
+            "number": 4,
+            "title": "Existing draft",
+            "open_tasks": 2,
+            "done_tasks": 1,
+            "body": "- [ ] verify behavior",
+        }
+    ]
+    state["issue_draft_count"] = 2
+
+    evaluator.write_repo_artifacts(tmp_path / "out", state, max_drafts=1)
+
+    artifacts = tmp_path / "out" / "repos" / "stranske__Trend_Model_Project"
+    assert "Archive Review Precedent" in (artifacts / "design-review.md").read_text()
+    drafts = (artifacts / "issue-drafts.md").read_text()
+    assert "Existing draft" in drafts
+    assert "Only the first 1 archive candidates" in drafts
+    assert "Only the first 1 drafts" in drafts
+
+
+def test_round_result_loaders_select_valid_latest_files_and_reject_invalid_data(
+    tmp_path: Path,
+) -> None:
+    output_dir = tmp_path / "reports"
+    repo = "owner/repo"
+    old = output_dir / "round1" / "first" / "owner__repo" / "findings.json"
+    new = output_dir / "round1" / "second" / "owner__repo" / "findings.json"
+    old.parent.mkdir(parents=True)
+    new.parent.mkdir(parents=True)
+    old.write_text(json.dumps({"agent": "first"}), encoding="utf-8")
+    new.write_text(json.dumps({"agent": "second"}), encoding="utf-8")
+
+    latest = evaluator.load_round1_findings(output_dir, repo)
+
+    assert latest is not None
+    assert latest["agent"] == "second"
+    assert latest["__source_path"] == str(new)
+    converged = output_dir / "round2" / "owner__repo" / "converged.json"
+    converged.parent.mkdir(parents=True)
+    converged.write_text(json.dumps({"converged_candidates": []}), encoding="utf-8")
+    assert evaluator.load_round2_converged(output_dir, repo)["__source_path"] == str(converged)
+    converged.write_text("[]", encoding="utf-8")
+    assert evaluator.load_round2_converged(output_dir, repo) is None
+
+
+def test_collect_gitnexus_map_reports_current_metadata_and_degraded_embeddings(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo_path = tmp_path / "repo"
+    meta = repo_path / ".gitnexus" / "meta.json"
+    meta.parent.mkdir(parents=True)
+    meta.write_text(
+        json.dumps(
+            {"lastCommit": "abc123", "repoPath": str(repo_path), "stats": {"embeddings": 0}}
+        ),
+        encoding="utf-8",
+    )
+    repo = evaluator.RepoConfig("owner/repo", "repo", "active", "weekly", "anchor")
+    monkeypatch.setattr(evaluator, "run_git", lambda *_args, **_kwargs: "abc123")
+
+    record = evaluator.collect_gitnexus_map(tmp_path, repo_path, repo)
+
+    assert record["status"] == "current"
+    assert record["needs_embeddings"] is True
+    meta.unlink()
+    assert evaluator.collect_gitnexus_map(tmp_path, repo_path, repo)["status"] == "missing"
+
+
+def test_main_filters_statuses_and_reports_generated_queue_counts(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    active = evaluator.RepoConfig("owner/active", "active", "active", "weekly", "anchor")
+    paused = evaluator.RepoConfig("owner/paused", "paused", "paused", "weekly", "anchor")
+    calls: list[str] = []
+    monkeypatch.setattr(
+        sys, "argv", ["repo_review_evaluator", "--status", "active", "--date", "2026-10-22"]
+    )
+    monkeypatch.setattr(
+        evaluator, "load_registry", lambda _path: (tmp_path, [], [active, paused], [])
+    )
+    monkeypatch.setattr(
+        evaluator,
+        "load_json_config",
+        lambda _path: {"decisions": {"owner/active": {"decision": "approve"}}},
+    )
+    monkeypatch.setattr(evaluator, "collect_archive_candidates", lambda *_args: {})
+    monkeypatch.setattr(
+        evaluator,
+        "collect_repo_state",
+        lambda _root, repo, *_args, **_kwargs: {
+            "repo": repo.repo,
+            "status": repo.status,
+            "review_status": evaluator.PENDING_REVIEW_STATUS,
+            "review_execution": {"status": "executed", "gap_count": 1},
+            "issue_queue_status": "round 1 candidates present",
+        },
+    )
+    monkeypatch.setattr(
+        evaluator, "write_repo_artifacts", lambda *_args, **_kwargs: calls.append("artifacts")
+    )
+    monkeypatch.setattr(evaluator, "write_packet", lambda *_args, **_kwargs: calls.append("packet"))
+    monkeypatch.setattr(
+        evaluator,
+        "write_approved_issue_queue",
+        lambda *_args, **_kwargs: {"issues": [object()], "deeper_review": [object(), object()]},
+    )
+
+    evaluator.main()
+
+    report = json.loads(capsys.readouterr().out)
+    assert calls == ["artifacts", "packet"]
+    assert report["repo_count"] == 1
+    assert report["active_count"] == 1
+    assert report["approved_issue_count"] == 1
+    assert report["deeper_review_count"] == 2
+
+
+def test_packet_sections_render_deadlocks_meta_candidates_and_dual_no_new_work_evidence() -> None:
+    state = {
+        "round2_converged": {
+            "converged_candidates": [],
+            "deadlocked_candidates": [
+                {
+                    "title": "Resolve transport ownership",
+                    "source_agent": "codex",
+                    "round1_index": 2,
+                    "marks_history": [
+                        {
+                            "from_agent": "claude",
+                            "mark": "reject",
+                            "turn": 3,
+                            "reason": "Needs a narrower integration boundary.",
+                        }
+                    ],
+                }
+            ],
+            "deadlocked_meta": {
+                "title": "Audit flaky retry patterns",
+                "pattern": "retries without receipt binding",
+                "proposed_by": "codex",
+                "rejected_by": ["claude"],
+                "priority": "high",
+                "confidence": "medium",
+                "rejection_reasons": {"claude": "Evidence is not yet sufficient."},
+            },
+            "no_new_work_justifications": [
+                {"agent": "codex", "candidate_count": 0, "justification": "a" * 200},
+                {"agent": "claude", "candidate_count": 0, "justification": "b" * 200},
+            ],
+        }
+    }
+
+    deadlocks = "\n".join(evaluator.deadlocked_candidates_section(state))
+    meta = "\n".join(evaluator.deadlocked_meta_section(state))
+    no_new_work = "\n".join(evaluator.no_new_work_justifications_section(state))
+
+    assert "Resolve transport ownership" in deadlocks
+    assert "Needs a narrower integration boundary" in deadlocks
+    assert "Audit flaky retry patterns" in meta
+    assert "Evidence is not yet sufficient" in meta
+    assert "Both agents independently reached the same conclusion" in no_new_work
+    state["round2_converged"]["converged_candidates"] = [{"title": "New work"}]
+    assert evaluator.no_new_work_justifications_section(state) == []
+
+
+def test_scorecard_queue_paths_hold_invalid_issues_and_surface_unapproved_findings(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        evaluator,
+        "approved_scorecard_issue_items",
+        lambda *_args: {
+            "issues": [
+                {
+                    "repo": "owner/scorecard",
+                    "priority": "high",
+                    "scorecard_finding_id": "invalid-body",
+                    "body_valid": False,
+                    "body_quality_errors": ["missing acceptance criteria"],
+                }
+            ],
+            "pending": [
+                {
+                    "repo": "owner/scorecard",
+                    "finding_id": "not-approved",
+                    "check": "Branch-Protection",
+                    "score": 0,
+                    "reason": "explicit approval is required",
+                }
+            ],
+            "dropped": [{"repo": "owner/scorecard", "candidate_index": 1, "title": "old"}],
+            "warnings": ["scorecard data was incomplete"],
+        },
+    )
+
+    queue = evaluator.build_approved_issue_queue([], {}, "2026-10-22", scorecard_scan={})
+
+    assert queue["issues"] == []
+    assert [item["decision"] for item in queue["deeper_review"]] == ["revise", "deeper-review"]
+    assert "invalid-body" in queue["deeper_review"][0]["notes"]
+    assert "not-approved" in queue["deeper_review"][1]["notes"]
+    assert queue["dropped_candidates"][0]["title"] == "old"
+    assert queue["warnings"] == ["scorecard data was incomplete"]
