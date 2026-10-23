@@ -18,7 +18,7 @@ ROOT = Path(__file__).resolve().parents[2]
 WORKFLOW = ROOT / ".github/workflows/reusable-agents-verifier.yml"
 
 
-def _run(tmp_path, *, raw="", exit_code=0, stderr="", secret=""):
+def _run(tmp_path, *, raw="", exit_code=0, stderr="", secret="", fault="", expect_success=True):
     workflow = yaml.load(WORKFLOW.read_text(), Loader=yaml.BaseLoader)
     steps = workflow["jobs"]["verifier"]["steps"]
     step = next(s for s in steps if s.get("id") == "llm_evaluate")
@@ -60,7 +60,34 @@ def _run(tmp_path, *, raw="", exit_code=0, stderr="", secret=""):
     )
     python.chmod(0o755)
     python3 = bin_path / "python3"
-    python3.write_text(f'#!/bin/sh\nexec {shlex.quote(sys.executable)} "$@"\n')
+    python3.write_text(
+        f"#!{sys.executable}\n"
+        "import contextlib, io, os, sys\n"
+        f"fault = {fault!r}\n"
+        "if sys.argv[1:] != ['-']:\n"
+        "    os.execv(sys.executable, [sys.executable, *sys.argv[1:]])\n"
+        "code = sys.stdin.read()\n"
+        "generator = 'secret_names = (' in code\n"
+        "checker = \"status = receipt['status']\" in code\n"
+        "fallback = 'fallback_reason = ' in code\n"
+        "if (generator and fault in {'generator', 'fallback'}) or (checker and fault == 'extractor') or (fallback and fault == 'fallback'):\n"
+        "    sys.stderr.write(os.environ.get('OPENAI_API_KEY', '') + '\\n')\n"
+        "    sys.exit(23)\n"
+        "if generator and fault == 'missing_status':\n"
+        "    with contextlib.redirect_stdout(io.StringIO()): exec(compile(code, '<stdin>', 'exec'), {'__name__': '__main__'})\n"
+        "else:\n"
+        "    exec(compile(code, '<stdin>', 'exec'), {'__name__': '__main__'})\n"
+        "if generator and fault == 'bad_authority':\n"
+        "    import json\n"
+        "    from pathlib import Path\n"
+        "    target = Path('evaluation-execution.json')\n"
+        "    receipt = json.loads(target.read_text())\n"
+        "    receipt['acceptance_authority'] = True\n"
+        "    target.write_text(json.dumps(receipt))\n"
+        "if generator and fault == 'malformed':\n"
+        "    from pathlib import Path\n"
+        "    Path('evaluation-execution.json').write_text('{invalid')\n"
+    )
     python3.chmod(0o755)
     # No real credentials or tracing configuration reaches the subprocess.
     env = {
@@ -82,6 +109,10 @@ def _run(tmp_path, *, raw="", exit_code=0, stderr="", secret=""):
         capture_output=True,
     )
     assert identity_result.returncode == 0, identity_result.stderr
+    if fault == "publish":
+        output_directory = tmp_path / "not-an-output-file"
+        output_directory.mkdir()
+        env["GITHUB_OUTPUT"] = str(output_directory)
     result = subprocess.run(
         ["bash", "-c", render(step["run"])],
         cwd=tmp_path,
@@ -102,9 +133,12 @@ def _run(tmp_path, *, raw="", exit_code=0, stderr="", secret=""):
         text=True,
         capture_output=True,
     )
-    assert result.returncode == 0, result.stderr
-    outputs = dict(
-        line.split("=", 1) for line in Path(env["GITHUB_OUTPUT"]).read_text().splitlines()
+    if expect_success:
+        assert result.returncode == 0, result.stderr
+    outputs = (
+        dict(line.split("=", 1) for line in Path(env["GITHUB_OUTPUT"]).read_text().splitlines())
+        if Path(env["GITHUB_OUTPUT"]).is_file()
+        else {}
     )
     return result, outputs, steps
 
@@ -282,3 +316,137 @@ def test_tail_redaction_does_not_expose_partial_credential_after_later_replaceme
     assert secret[25:70] not in retained
     assert secret[25:70] not in result.stdout + result.stderr
     assert len(retained.encode()) <= limit and retained.endswith("last")
+
+
+def test_redaction_metadata_observes_secret_only_in_discarded_middle(tmp_path):
+    secret = "synthetic-middle-only-secret"
+    limit = 1024 * 1024
+    result, _, _ = _run(
+        tmp_path, raw=_payload(), stderr="x" * limit + secret + "y" * limit, secret=secret
+    )
+    receipt = json.loads((tmp_path / "evaluation-execution.json").read_text())
+    ref = receipt["outputs"]["evaluation-stderr.log"]
+    assert ref["redacted"] is True
+    assert ref["original_redacted"] is True
+    assert ref["retained_redacted"] is False
+    assert secret not in (tmp_path / "evaluation-stderr.log").read_text()
+    assert secret not in result.stdout + result.stderr
+
+
+@pytest.mark.parametrize(
+    "fault", ["generator", "malformed", "bad_authority", "extractor", "missing_status"]
+)
+def test_receipt_or_extraction_failure_emits_truthful_typed_fallback(tmp_path, fault):
+    secret = "synthetic-receipt-error-secret"
+    result, outputs, _ = _run(tmp_path, raw=_payload(), secret=secret, fault=fault)
+    receipt = json.loads((tmp_path / "evaluation-execution.json").read_text())
+    assert receipt["schema"] == "workflows-verifier-evaluation-execution/v1"
+    assert receipt["status"] in {"receipt_generation_failed", "receipt_validation_failed"}
+    assert (
+        receipt["acceptance_authority"]
+        is receipt["retry_authority"]
+        is receipt["decision_available"]
+        is False
+    )
+    assert receipt["model_execution"] == receipt["remote_effects"] == "unconfirmed"
+    assert outputs["verdict"] == "UNVERIFIABLE_INPUT"
+    assert outputs["execution_status"] == receipt["status"]
+    manifest = (tmp_path / "verifier-input-manifest.json").read_bytes()
+    assert receipt["input_manifest"]["sha256"] == hashlib.sha256(manifest).hexdigest()
+    assert receipt["repository"] == "owner/repo" and receipt["source_run_id"] == "1234"
+    for name, ref in receipt["outputs"].items():
+        assert ref["original_complete"] is False
+        assert ref["original_sha256"] is ref["original_bytes"] is None
+        assert ref["bytes"] == len((tmp_path / name).read_bytes())
+        assert ref["sha256"] == hashlib.sha256((tmp_path / name).read_bytes()).hexdigest()
+    assert len((tmp_path / "evaluation-execution.json").read_bytes()) < 16 * 1024
+    from scripts.langchain.pr_verifier import EvaluationResult
+
+    fallback = EvaluationResult.model_validate_json(
+        (tmp_path / "evaluation.json").read_text(), strict=True
+    )
+    assert fallback.verdict == "UNVERIFIABLE_INPUT" and fallback.used_llm is False
+    for name in (
+        "evaluation.json",
+        "evaluation-stderr.log",
+        "evaluation-execution.json",
+        "evaluation-comment.md",
+    ):
+        assert secret not in (tmp_path / name).read_text()
+    assert secret not in result.stdout + result.stderr
+
+
+@pytest.mark.parametrize("fault", ["fallback", "publish"])
+def test_failed_fallback_or_output_publication_is_workflow_failure(tmp_path, fault):
+    result, _, steps = _run(tmp_path, raw=_payload(), fault=fault, expect_success=False)
+    assert result.returncode != 0
+    job = yaml.load(WORKFLOW.read_text(), Loader=yaml.BaseLoader)["jobs"]["verifier"]
+    evaluate = next(s for s in steps if s.get("id") == "llm_evaluate")
+    # Actions computes a failed conclusion from this real nonzero command; neither
+    # step nor job may convert it to success. Retention must still run afterward.
+    assert evaluate.get("continue-on-error", "false") == "false"
+    assert job.get("continue-on-error", "false") == "false"
+    retain = next(s for s in steps if s.get("name") == "Retain evaluation execution evidence")
+    assert "always()" in retain["if"]
+    assert steps.index(retain) > steps.index(evaluate)
+
+
+@pytest.mark.parametrize("failure", ["api_failure", "missing_payload", "missing_target"])
+def test_failed_evaluation_comment_publication_is_not_a_success(tmp_path, failure):
+    steps = yaml.load(WORKFLOW.read_text(), Loader=yaml.BaseLoader)["jobs"]["verifier"]["steps"]
+    step = next(s for s in steps if s.get("name") == "Post LLM evaluation comment")
+    if failure != "missing_payload":
+        (tmp_path / "evaluation-comment.md").write_text("**Verdict:** UNVERIFIABLE_INPUT")
+    binary = tmp_path / "bin"
+    binary.mkdir()
+    (binary / "gh").write_text("#!/bin/sh\nexit 42\n")
+    (binary / "gh").chmod(0o755)
+    result = subprocess.run(
+        [
+            "bash",
+            "-c",
+            step["run"].replace(
+                "${{ steps.context.outputs.pr_number }}",
+                "" if failure == "missing_target" else "4175",
+            ),
+        ],
+        cwd=tmp_path,
+        env={"PATH": str(binary) + os.pathsep + os.defpath},
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode != 0
+    upload = next(s for s in steps if s.get("name") == "Retain evaluation execution evidence")
+    assert upload.get("continue-on-error", "false") == "false"
+    assert upload["with"]["if-no-files-found"] == "error"
+
+
+@pytest.mark.parametrize("location", ["none", "retained_tail", "chunk_boundary"])
+def test_original_and_retained_redaction_metadata_stay_distinct(tmp_path, location):
+    secret = "synthetic-metadata-only-secret"
+    diagnostic = {
+        "none": "Plain non-sensitive diagnostic.",
+        "retained_tail": "x" * (1024 * 1024) + secret + "last",
+        "chunk_boundary": "x" * (64 * 1024 - 10) + secret + "last",
+    }[location]
+    result, _, _ = _run(tmp_path, raw=_payload(), stderr=diagnostic, secret=secret)
+    ref = json.loads((tmp_path / "evaluation-execution.json").read_text())["outputs"][
+        "evaluation-stderr.log"
+    ]
+    assert ref["original_redacted"] is (location != "none")
+    assert ref["retained_redacted"] is (location != "none")
+    assert ref["redacted"] == ref["original_redacted"]
+    assert secret not in result.stdout + result.stderr
+    assert len((tmp_path / "evaluation-stderr.log").read_bytes()) <= 1024 * 1024
+
+
+def test_multibyte_optional_diagnostic_cannot_discard_a_valid_decision(tmp_path):
+    result, outputs, _ = _run(tmp_path, raw=_payload(), stderr="€" * 400000)
+    receipt = json.loads((tmp_path / "evaluation-execution.json").read_text())
+    assert receipt["status"] == "completed" and receipt["decision_available"] is True
+    assert outputs["verdict"] == "PASS"
+    retained = (tmp_path / "evaluation-stderr.log").read_bytes()
+    assert len(retained) <= 1024 * 1024
+    assert retained.decode("utf-8").endswith("€")
+    assert "**Verdict:** PASS" in result.stdout
+    assert receipt["outputs"]["evaluation-stderr.log"]["bytes"] == len(retained)
