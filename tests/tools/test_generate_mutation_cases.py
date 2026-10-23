@@ -432,7 +432,18 @@ def test_mutants_from_an_insufficient_input_never_enter_the_corpus(monkeypatch):
 def test_coverage_check_is_the_verifiers_own_and_real_captures_are_mostly_insufficient():
     corpus = json.loads((ROOT / "config/model_eval_pilot.json").read_text())
     by_id = {c["case_id"]: c for c in corpus["screen_cases"]}
-    assert g.coverage_sufficient(by_id["wf-3676-evidence-pass"]["production_snapshot"]) is True
+    # Preserve the historical PASS adjudication and immutable capture. Its full
+    # Tasks mandate capture/attachment, but the retrospective input has no typed
+    # acceptance-evidence inventory, so it cannot score current judge admission.
+    case = by_id["wf-3676-evidence-pass"]
+    assert case["expected_verdict"] == "PASS"
+    from tools.model_eval_snapshots import verifier_prompt_coverage
+
+    coverage = verifier_prompt_coverage(case["production_snapshot"])
+    assert coverage["acceptance_evidence"] == "not_declared"
+    assert "Required acceptance evidence is unavailable" in "; ".join(coverage["reasons"])
+    assert g.coverage_sufficient(case["production_snapshot"]) is False
+    assert g.generate({"screen_cases": [case]}) == []
     assert g.coverage_sufficient(by_id["wf-3668-evidence-pass"]["production_snapshot"]) is False
     assert g.coverage_sufficient({"context": "no chain depth"}) is False  # malformed never counts
 

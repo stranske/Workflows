@@ -2547,9 +2547,56 @@ def _normalize_review_content_qualifiers(acceptance: str) -> str:
     )
 
 
+def _requirement_sections(text: str) -> list[str]:
+    """Separate Markdown headings before grammar can bind across their edges.
+
+    Keep duties authored in a heading as their own criterion. Quoted examples
+    are masked without moving offsets, and remain inert in the classifiers.
+    """
+    masked = re.sub(_QUOTED_EVIDENCE_LITERAL, lambda m: " " * len(m[0]), text)
+    headings = list(
+        re.finditer(r"^ {0,3}(?P<level>#{1,6})[ \t]+(?P<title>[^\n]+)", masked, flags=re.M)
+    )
+    if not headings:
+        return [text]
+    sections: list[str] = [text[: headings[0].start()]]
+    optional_level: int | None = None
+    for index, heading in enumerate(headings):
+        level = len(heading["level"])
+        if optional_level is not None and level <= optional_level:
+            optional_level = None
+        title = text[heading.start("title") : heading.end("title")]
+        end = headings[index + 1].start() if index + 1 < len(headings) else len(text)
+        # A section explicitly marked optional must not become mandatory merely
+        # because its imperative body is parsed separately from its heading.
+        # This only classifies delivery duties; the full source stays in prompt.
+        optional_evidence_heading = re.fullmatch(
+            r"(?:optional|nice[- ]to[- ]have|possibly useful)\s+"
+            r"(?:evidence|proof|artifacts?|logs?|transcripts?)|"
+            r"(?:evidence|proof|artifacts?|logs?|transcripts?)\s*"
+            r"(?:\((?:optional|if available|where available)\)|not required)|"
+            r"no\s+(?:evidence|proof|artifacts?|logs?|transcripts?)\s+required",
+            title.strip().rstrip("# ").rstrip(":"),
+            flags=re.I,
+        )
+        if optional_evidence_heading:
+            optional_level = level if optional_level is None else min(optional_level, level)
+        if optional_level is None:
+            sections.extend((title, text[heading.end() : end]))
+    return [section.strip() for section in sections if section.strip()]
+
+
 def _classify_evidence_channels(acceptance: str, *, _bind_attached: bool = True) -> set[str]:
     """Identify explicit evidence deliverables without treating negations as requirements."""
 
+    sections = _requirement_sections(acceptance)
+    if sections != [acceptance]:
+        return set().union(
+            *(
+                _classify_evidence_channels(section, _bind_attached=_bind_attached)
+                for section in sections
+            )
+        )
     acceptance = _normalize_capability_deliveries(acceptance)
     acceptance = _normalize_leading_review_destination_quantifier(acceptance)
     acceptance = _normalize_review_comment_destinations(acceptance)
@@ -5694,6 +5741,18 @@ def _classify_evidence_options(acceptance: str) -> list[set[str]]:
     Ambiguous mixed conjunctions or excessive expansion retain the strict legacy
     requirement rather than dropping an obligation.
     """
+    sections = _requirement_sections(acceptance)
+    if sections != [acceptance]:
+        # Each section's alternatives are independent duties (AND of DNF).
+        # Deduplication bounds the result by the finite channel power set.
+        options: set[frozenset[str]] = {frozenset()}
+        for section in sections:
+            options = {
+                left | frozenset(right)
+                for left in options
+                for right in _classify_evidence_options(section)
+            }
+        return [set(option) for option in sorted(options, key=lambda value: sorted(value))]
     acceptance = _normalize_capability_deliveries(acceptance)
     acceptance = _normalize_leading_review_destination_quantifier(acceptance)
     acceptance = _normalize_review_comment_destinations(acceptance)

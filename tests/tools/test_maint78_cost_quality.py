@@ -144,12 +144,16 @@ def test_current_plan_allows_fast_screen_without_statistical_approval():
     assert plan["expected_non_pass_cases"] == 4 + mutants
     # only inputs the production prompt calls sufficient can score a judge fairly
     assert 0 < plan["evaluable_non_pass_cases"] <= plan["expected_non_pass_cases"]
-    assert plan["evaluable_pass_cases"] >= plan["zero_error_false_fail_denominator"]  # 16 at 0.20
-    # failed-CI mutants are diagnostic-only, so 19 evaluable NON_PASS cases (16 dropped-file mutants
-    # and 3 real) stand against the 35-case floor of the 0.10 bound until the approval standard is
+    # Full Tasks expose missing evidence metadata in historical captures. Keep
+    # the statistical floor unchanged and surface the actual corpus shortfall.
+    assert plan["evaluable_pass_cases"] == 14
+    assert plan["zero_error_false_fail_denominator"] == 16
+    assert any("false-fail gate needs 16" in reason for reason in plan["approval_blockers"])
+    # Failed-CI mutants are diagnostic-only; 18 evaluable NON_PASS cases now
+    # stand against the unchanged 35-case floor of the 0.10 bound until the approval standard is
     # re-decided (docs/ops/VERIFIER_STANDARDS_ANALYSIS.md)
     assert plan["diagnostic_only_cases"] == 22
-    assert plan["evaluable_non_pass_cases"] == 19
+    assert plan["evaluable_non_pass_cases"] == 18
     assert any("NON_PASS cases are evaluable" in reason for reason in plan["approval_blockers"])
     assert any("paired production API benchmark" in reason for reason in plan["approval_blockers"])
     assert plan["zero_error_false_pass_denominator"] == 35  # 0.10 bound at 95% confidence
