@@ -9,6 +9,10 @@ Breaking changes are called out with a **BREAKING** marker and scheduled accordi
 ## [1.44.8](https://github.com/stranske/Workflows/compare/v1.44.7...v1.44.8) (2026-10-23)
 
 
+### Features
+
+* **verifier:** enable a seven-day production shadow evaluation of seven configured candidate judges in parallel on compare-mode runs, with a daily report. These additional model calls add API cost and runtime for consumers using the reusable workflow at `@main`; shadow verdicts do not change production acceptance or promote models. Disable centrally with `enabled: false` in `config/verifier_shadow.json` or per repository with `VERIFIER_SHADOW=off` ([#4195](https://github.com/stranske/Workflows/pull/4195)).
+
 ### Bug Fixes
 
 * harden weekly review cleanup and report exclusions ([#4187](https://github.com/stranske/Workflows/issues/4187)) ([d6fbd99](https://github.com/stranske/Workflows/commit/d6fbd9928c729f16f55987b0b1612ddcf6efeeb4))
