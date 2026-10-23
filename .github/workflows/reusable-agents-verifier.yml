@@ -1761,8 +1761,13 @@ jobs:
                 status: 'incomplete', ...recovery,
                 verification_event: event, assessment_identity: manifest.assessment_identity,
                 ...(manifest.predecessor_event_id ? { predecessor_event_id: manifest.predecessor_event_id } : {}) };
-              await withRetry(() => github.rest.issues.createComment({ ...context.repo, issue_number: Number(event.pr),
-                body: `<!-- verifier-event-state/v1 ${JSON.stringify(state)} -->` }));
+              try {
+                await withRetry(() => github.rest.issues.createComment({ ...context.repo, issue_number: Number(event.pr),
+                  body: `<!-- verifier-event-state/v1 ${JSON.stringify(state)} -->` }));
+              } catch (error) {
+                core.setFailed(`Verification event terminal publication failed: ${error.message}`);
+                throw error;
+              }
             }
 
       - name: Shadow candidate verifier judges (recorded only; never posted, never counted)

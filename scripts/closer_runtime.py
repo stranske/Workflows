@@ -560,6 +560,12 @@ class VerificationRequestRejected:
     http_status: Literal[422]
 
 
+def _native_binding_digest(binding: Mapping[str, Any]) -> str:
+    # Existing native-binding protocol uses sorted JSON with default separators;
+    # it is deliberately distinct from Core's compact canonical operation key.
+    return hashlib.sha256(json.dumps(binding, sort_keys=True).encode()).hexdigest()
+
+
 def _request_rejection_ok(record: Mapping[str, Any], receipt: Mapping[str, Any]) -> bool:
     intent = record.get("mutation_intent") or {}
     binding = intent.get("native_binding")
@@ -570,10 +576,11 @@ def _request_rejection_ok(record: Mapping[str, Any], receipt: Mapping[str, Any])
         record["action"] == "verify_request"
         and intent.get("action") == "verify_request"
         and intent.get("head_sha") == record["head_sha"]
-        and _hash_canonical(binding) == record["guard_versions"].get("native_binding")
+        and _native_binding_digest(binding) == record["guard_versions"].get("native_binding")
         and isinstance(mutation, Mapping)
         and mutation.get("mutation_kind") == "workflow_dispatch"
-        and bool(KEY_RE.fullmatch(str(mutation.get("request_basis", ""))))
+        and isinstance(mutation.get("request_basis"), str)
+        and bool(KEY_RE.fullmatch(mutation["request_basis"]))
         and receipt
         == {
             "kind": "verification_request_not_accepted",
@@ -645,15 +652,12 @@ def validate_cas_transition(
         not changed_spec
         and authority.purpose == "claim"
         and verification_request_not_accepted(current)
-        and current["executor"] == record["executor"]
     )
     if changed_spec or retry_rejected:
         # A new spec replaces only a legally drained record, as a clean claimed record.
         if authority.purpose != "claim" or not writer_is_record_owner:
             raise OwnershipDenied("new spec requires a claim by its own executor")
         assert_fence_allows_claim(current, spec_from_record(record))
-        if verification_request_not_accepted(current) and current["executor"] != record["executor"]:
-            raise OwnershipDenied("typed rejected request retry requires the same owner")
         if current["executor"] != record["executor"] and not authority.acknowledge_replacement:
             raise OwnershipDenied("successor must acknowledge the drained operation")
         archived = {k: v for k, v in current.items() if k != "prior_operations"}
@@ -884,9 +888,12 @@ def enforce_owner_lease(
 
 
 def assert_fence_allows_claim(existing: Mapping[str, Any], spec: OperationSpec) -> None:
-    if existing.get("status") == "unavailable" and existing.get("mutation_intent") is not None:
-        if not (_rejected_retry_spec(existing, spec)):
-            raise OwnershipDenied("unavailable operation retains unresolved mutation intent")
+    if (
+        existing.get("status") == "unavailable"
+        and existing.get("mutation_intent") is not None
+        and not _rejected_retry_spec(existing, spec)
+    ):
+        raise OwnershipDenied("unavailable operation retains unresolved mutation intent")
     op_key = canonical_operation_key(spec)
     if existing.get("denial") or existing.get("status") == "denied":
         raise OwnershipDenied("denied/no_fallback fence requires independent authorization")
@@ -1029,8 +1036,9 @@ class LocalOperationStore:
             assert_fence_allows_claim(existing, spec)
             changed_spec = existing.get("operation_key") != op_key
             drained = existing.get("status") in ("succeeded", "unavailable")
+            retry_rejected = verification_request_not_accepted(existing)
             if not executor.matches_record(existing) and not (
-                changed_spec and drained and acknowledge_replacement
+                (changed_spec or retry_rejected) and drained and acknowledge_replacement
             ):
                 raise OwnershipDenied(
                     f"operation owned by {existing['executor']['kind']}:{existing['executor']['identity']!r}"
@@ -1172,7 +1180,7 @@ def record_mutation_intent(
     if history and verification_request_not_accepted(history[-1]["record"]):
         old_binding = dict(history[-1]["record"]["mutation_intent"]["native_binding"])
         new_binding = intent.get("native_binding")
-        if not isinstance(new_binding, Mapping) or _hash_canonical(
+        if not isinstance(new_binding, Mapping) or _native_binding_digest(
             new_binding
         ) != spec.guard_versions.get("native_binding"):
             raise OwnershipDenied("retry intent requires exact new native binding digest")

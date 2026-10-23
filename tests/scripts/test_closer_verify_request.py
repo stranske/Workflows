@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import dataclasses
+import hashlib
+import json
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -33,7 +35,12 @@ def _dispatch_intent(tmp_path):
     }
     spec = dataclasses.replace(
         _spec(action="verify_request"),
-        guard_versions={"authority": 2, "native_binding": cr._hash_canonical(binding)},
+        guard_versions={
+            "authority": 2,
+            "native_binding": hashlib.sha256(
+                json.dumps(binding, sort_keys=True).encode()
+            ).hexdigest(),
+        },
     )
     store = cr.LocalOperationStore(tmp_path)
     record, _ = store.claim(
@@ -70,7 +77,6 @@ def test_typed_422_rejection_retains_intent_and_allows_same_owner_same_operation
             spec,
             _executor("foreign"),
             lease_deadline=datetime.now(UTC) + timedelta(hours=1),
-            acknowledge_replacement=True,
         )
     with pytest.raises(cr.OwnershipDenied):
         store.claim(
@@ -164,7 +170,13 @@ def test_rejected_retry_new_queue_id_preserves_exact_request_basis(tmp_path):
         "queue_operation_id": "new-queue-operation",
     }
     successor = dataclasses.replace(
-        spec, guard_versions={**spec.guard_versions, "native_binding": cr._hash_canonical(binding)}
+        spec,
+        guard_versions={
+            **spec.guard_versions,
+            "native_binding": hashlib.sha256(
+                json.dumps(binding, sort_keys=True).encode()
+            ).hexdigest(),
+        },
     )
     retry, created = store.claim(
         successor, _executor(), lease_deadline=datetime.now(UTC) + timedelta(hours=1)
@@ -183,3 +195,118 @@ def test_rejected_retry_new_queue_id_preserves_exact_request_basis(tmp_path):
     assert claimed["status"] == "intent_recorded"
     assert cr.verification_request_not_accepted(rejected)
     assert not cr.verification_request_not_accepted(claimed)
+
+
+@pytest.mark.parametrize("failure", ["foreign", "epoch", "revision", "expired", "guard_digest"])
+def test_rejection_requires_current_owned_live_intent_and_native_protocol_digest(tmp_path, failure):
+    store, spec, record = _dispatch_intent(tmp_path)
+    executor = _executor("foreign") if failure == "foreign" else _executor()
+    epoch = 2 if failure == "epoch" else 1
+    revision = 1 if failure == "revision" else 2
+    if failure in {"expired", "guard_digest"}:
+        raw = dict(record)
+        if failure == "expired":
+            raw["lease"] = {**raw["lease"], "deadline": "2000-01-01T00:00:00Z"}
+        else:
+            binding = raw["mutation_intent"]["native_binding"]
+            assert cr._native_binding_digest(binding) != cr._hash_canonical(binding)
+            raw["mutation_intent"] = {
+                **raw["mutation_intent"],
+                "native_binding": {**binding, "queue_operation_id": "tampered"},
+            }
+        # Simulate a pre-existing malformed/expired authority record, never a supported write.
+        store.read = lambda key: raw
+    with pytest.raises((cr.OwnershipDenied, cr.CasConflict)):
+        cr.reject_not_accepted(
+            store,
+            record["target_fence_key"],
+            executor,
+            cr.VerificationRequestRejected("workflow_dispatch", "d" * 64, 422),
+            expected_revision=revision,
+            expected_epoch=epoch,
+            spec=spec,
+        )
+
+
+@pytest.mark.parametrize("new_queue_id", [False, True])
+def test_acknowledged_later_owner_can_retry_authentic_terminal_rejection(tmp_path, new_queue_id):
+    store, spec, record = _dispatch_intent(tmp_path)
+    rejected = cr.reject_not_accepted(
+        store,
+        record["target_fence_key"],
+        _executor(),
+        cr.VerificationRequestRejected("workflow_dispatch", "d" * 64, 422),
+        expected_revision=2,
+        expected_epoch=1,
+        spec=spec,
+    )
+    binding = dict(record["mutation_intent"]["native_binding"])
+    if new_queue_id:
+        binding["queue_operation_id"] = "successor-owned-queue-operation"
+        spec = dataclasses.replace(
+            spec,
+            guard_versions={
+                **spec.guard_versions,
+                "native_binding": hashlib.sha256(
+                    json.dumps(binding, sort_keys=True).encode()
+                ).hexdigest(),
+            },
+        )
+    later = _executor("later-qualified-owner")
+    retry, created = store.claim(
+        spec,
+        later,
+        lease_deadline=datetime.now(UTC) + timedelta(hours=1),
+        acknowledge_replacement=True,
+    )
+    assert created and retry["lease"]["epoch"] == 2
+    assert retry["prior_operations"][-1]["record"] == rejected
+    assert store.read(record["target_fence_key"])["prior_operations"][-1]["record"] == rejected
+    intent = {**record["mutation_intent"], "native_binding": binding}
+    submitted = cr.record_mutation_intent(
+        store,
+        retry["target_fence_key"],
+        later,
+        intent,
+        expected_revision=4,
+        expected_epoch=2,
+        spec=spec,
+    )
+    assert submitted["status"] == "intent_recorded"
+
+
+def test_rejected_retry_cannot_change_the_request_behind_new_native_digest(tmp_path):
+    store, spec, record = _dispatch_intent(tmp_path)
+    cr.reject_not_accepted(
+        store,
+        record["target_fence_key"],
+        _executor(),
+        cr.VerificationRequestRejected("workflow_dispatch", "d" * 64, 422),
+        expected_revision=2,
+        expected_epoch=1,
+        spec=spec,
+    )
+    binding = {
+        "verification_mutation": {"mutation_kind": "workflow_dispatch", "request_basis": "e" * 64}
+    }
+    spec = dataclasses.replace(
+        spec,
+        guard_versions={
+            **spec.guard_versions,
+            "native_binding": hashlib.sha256(
+                json.dumps(binding, sort_keys=True).encode()
+            ).hexdigest(),
+        },
+    )
+    retry, _ = store.claim(spec, _executor(), lease_deadline=datetime.now(UTC) + timedelta(hours=1))
+    with pytest.raises(cr.OwnershipDenied, match="only queue operation identity"):
+        cr.record_mutation_intent(
+            store,
+            retry["target_fence_key"],
+            _executor(),
+            {**record["mutation_intent"], "native_binding": binding},
+            expected_revision=4,
+            expected_epoch=2,
+            spec=spec,
+        )
+    assert store.read(retry["target_fence_key"])["status"] == "claimed"

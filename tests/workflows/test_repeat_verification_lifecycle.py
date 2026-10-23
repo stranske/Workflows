@@ -27,16 +27,19 @@ def authored(name):
     return next(step for step in workflow["jobs"]["verifier"]["steps"] if step.get("name") == name)
 
 
-def run_state_step(tmp_path, name, *, posted=False, outcome="success"):
+def run_state_step(tmp_path, name, *, posted=False, outcome="success", reject_comments=False):
     if not (tmp_path / ".workflows-lib").exists():
         (tmp_path / ".workflows-lib").symlink_to(ROOT, target_is_directory=True)
     script = authored(name)["with"]["script"]
     runner = """
 const fs = require('fs'); const input=JSON.parse(fs.readFileSync(0,'utf8'));
 const comments=[],outputs={};
-const github={rest:{issues:{createComment:async row=>comments.push(row)}}};
+const github={rest:{issues:{createComment:async row=>{
+ if(input.reject_comments) throw Object.assign(new Error('comment publication refused'),{status:403,request:{method:'POST'}});
+ comments.push(row);
+}}}};
 const context={repo:{owner:'stranske',repo:'example'},runId:20};
-const core={setOutput:(key,value)=>{outputs[key]=value;},warning:()=>{}};
+const core={setOutput:(key,value)=>{outputs[key]=value;},warning:()=>{},setFailed:()=>{}};
 const AsyncFunction=Object.getPrototypeOf(async function(){}).constructor;
 new AsyncFunction('require','github','context','core',input.script)(require,github,context,core)
  .then(()=>process.stdout.write(JSON.stringify({comments,outputs})))
@@ -44,7 +47,7 @@ new AsyncFunction('require','github','context','core',input.script)(require,gith
 """
     result = subprocess.run(
         ["node", "-e", runner],
-        input=json.dumps({"script": script}),
+        input=json.dumps({"script": script, "reject_comments": reject_comments}),
         text=True,
         capture_output=True,
         cwd=tmp_path,
@@ -358,3 +361,14 @@ print(json.dumps({'results':[{'used_llm':False,'verdict':'UNVERIFIABLE_INPUT'}],
     identity = json.loads(normalized.stdout)
     assert identity["provider"] == ""
     assert identity["model2"] == "selected-primary"
+
+
+@pytest.mark.parametrize(
+    "step", ["Record verification event pending", "Record verification event terminal"]
+)
+def test_state_publication_failure_is_not_reported_as_success(tmp_path, step):
+    manifest(tmp_path)
+    with pytest.raises(subprocess.CalledProcessError) as caught:
+        run_state_step(tmp_path, step, reject_comments=True)
+    assert "comment publication refused" in caught.value.stderr
+    assert "verification-event-manifest.json" in {p.name for p in tmp_path.iterdir()}
