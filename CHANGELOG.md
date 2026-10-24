@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.44.14](https://github.com/stranske/Workflows/compare/v1.44.13...v1.44.14) (2026-10-24)
+
+
+### Bug Fixes
+
+* capture compressed verification evidence as typed assets ([#4226](https://github.com/stranske/Workflows/issues/4226)) ([1c8d5e1](https://github.com/stranske/Workflows/commit/1c8d5e10b2f782821f3809b04cfab29283759625))
+
 ## [1.44.13](https://github.com/stranske/Workflows/compare/v1.44.12...v1.44.13) (2026-10-24)
 
 
