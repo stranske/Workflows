@@ -1203,8 +1203,6 @@ jobs:
       META_API_KEY: ${{ secrets.META_API_KEY }}
       WORKFLOWS_APP_ID: ${{ secrets.WORKFLOWS_APP_ID }}
       WORKFLOWS_APP_PRIVATE_KEY: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
-      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-      CLAUDE_API_STRANSKE: ${{ secrets.CLAUDE_API_STRANSKE }}
     with:
       skip: >-
         ${{ needs.evaluate.outputs.action != 'run' &&
@@ -1276,6 +1274,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Set up Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
@@ -1304,15 +1304,32 @@ jobs:
 
 
       - name: Setup Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
         with:
           python-version: '3.14'
           cache: pip
           # These requirements define the progress-review dependency family.
-          cache-dependency-path: tools/requirements-llm.txt
+          cache-dependency-path: tools/requirements-subscription-analysis.txt
 
-      - name: Install dependencies
-        run: pip install pydantic langchain-openai langchain-anthropic
+      - name: Install analysis dependencies
+        run: pip install -r tools/requirements-subscription-analysis.txt
+
+      - name: Setup Node for subscription analysis
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24'
+
+      - name: Prepare subscription analysis CLI
+        env:
+          CODEX_AUTH_JSON: ${{ secrets.CODEX_AUTH_JSON }}
+        run: |
+          set -euo pipefail
+          if [ -n "$CODEX_AUTH_JSON" ]; then
+            npm ci --prefix .github/actions/maint78-codex-cli --ignore-scripts
+            mkdir -p "$HOME/.codex"
+            printf '%s' "$CODEX_AUTH_JSON" > "$HOME/.codex/auth.json"
+            chmod 600 "$HOME/.codex/auth.json"
+          fi
 
       - name: Get recent commits
         id: commits
@@ -1403,13 +1420,13 @@ jobs:
       - name: Run progress review
         id: review
         env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          CLAUDE_API_STRANSKE: ${{ secrets.CLAUDE_API_STRANSKE }}
+          WORKFLOWS_ANALYSIS_CLI: codex
           CRITERIA: ${{ steps.criteria.outputs.criteria }}
           COMMITS: ${{ steps.commits.outputs.messages }}
           FILES: ${{ steps.commits.outputs.files }}
           ROUNDS: ${{ needs.evaluate.outputs.rounds_without_task_completion }}
         run: |
+          export PATH="$PWD/.github/actions/maint78-codex-cli/node_modules/.bin:$PATH"
           mapfile -t criteria_array < <(printf '%s\n' "$CRITERIA" | jq -r '.[]')
           mapfile -t commits_array < <(printf '%s\n' "$COMMITS" | jq -r '.[]')
           mapfile -t files_array < <(printf '%s\n' "$FILES" | jq -r '.[]')
@@ -1666,6 +1683,7 @@ jobs:
           if-no-files-found: error
 
       - name: Auto-reconcile task checkboxes
+        id: reconcile
         if: |
           needs.run-codex.outputs.changes-made == 'true' ||
           needs.run-claude.outputs.changes-made == 'true' ||
@@ -1761,6 +1779,7 @@ jobs:
             core.setOutput('llm_confidence', llmConfidence);
             core.setOutput('llm_analysis_run', llmAnalysisRun);
             core.setOutput('llm_tasks_count', llmCompletedTasks.length);
+            core.setOutput('llm_ticked_tasks', result.updated ? (result.llmTasksChecked || 0) : 0);
             core.setOutput('commit_tasks_count', result.sources?.commit || 0);
 
       - name: Mint KEEPALIVE_APP summary token
@@ -1868,6 +1887,7 @@ jobs:
               github.event.inputs.authority_challenge_claim || '' }}
           AUTHORITY_CHALLENGE_SIGNING_KEY: >-
             ${{ secrets.KEEPALIVE_AUTHORITY_SIGNING_KEY || '' }}
+          LLM_TICKED_TASKS: ${{ steps.reconcile.outputs.llm_ticked_tasks }}
           KEEPALIVE_SUMMARY_WRITER: >-
             ${{
               steps.summary_keepalive_app_token.outputs.token != '' &&
@@ -2002,6 +2022,7 @@ jobs:
               llm_model: llmModel,
               llm_confidence: llmConfidence,
               llm_analysis_run: llmAnalysisRun,
+              llm_ticked_tasks: Number(process.env.LLM_TICKED_TASKS) || 0,
               force_retry: process.env.EVALUATE_FORCE_RETRY || '',
               authority_challenge_fingerprint:
                 process.env.AUTHORITY_CHALLENGE_FINGERPRINT || '',

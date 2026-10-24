@@ -1,0 +1,34 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_______ test_runner_analysis_has_no_api_key_or_second_invocation[codex] ________
+
+agent = 'codex'
+
+    @pytest.mark.parametrize("agent", RUNNERS)
+    def test_runner_analysis_has_no_api_key_or_second_invocation(agent):
+        file = ROOT / f".github/workflows/reusable-{agent}-run.yml"
+        doc = yaml.safe_load(file.read_text())
+        jobs = doc["jobs"]
+        steps = [step for job in jobs.values() for step in job.get("steps", [])]
+        analysis = next(s for s in steps if s.get("id") == "llm_analysis")
+        for step in steps:
+            for forbidden in ("OPENAI_API_KEY", "CLAUDE_API_STRANSKE"):
+>               assert forbidden not in json.dumps(step.get("env", {})), str(file)
+E               AssertionError: <repo>/.github/workflows/reusable-codex-run.yml
+E               assert 'OPENAI_API_KEY' not in '{"OPENAI_AP...B_TOKEN }}"}'
+E                 
+E                 'OPENAI_API_KEY' is contained here:
+E                 ?   ----------------              ^^^^^
+E                   {"OPENAI_API_KEY": "${{ secrets.OPENAI_API_KEY }}", "WORKFLOWS_ANALYSIS_CLI": "codex", "CODEX_HOME": "${{ runner.temp }}/.codex", "PYTHONPATH": "${{ github.workspace }}/.workflows-lib:${{ github.workspace }}", "PR_NUM": "${{ inputs.pr_number }}", "GITHUB_TOKEN": "${{ secrets.GITHUB_TOKEN }}", "GH_TOKEN": "${{ secrets.GITHUB_TOKEN }}"}
+E                 ?                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/workflows/test_no_api_keys_in_keepalive.py:28: AssertionError
+=========================== short test summary info ============================
+FAILED tests/workflows/test_no_api_keys_in_keepalive.py::test_runner_analysis_has_no_api_key_or_second_invocation[codex] - AssertionError: <repo>/.github/workflows/reusable-codex-run.yml
+assert 'OPENAI_API_KEY' not in '{"OPENAI_AP...B_TOKEN }}"}'
+  
+  'OPENAI_API_KEY' is contained here:
+  ?   ----------------              ^^^^^
+    {"OPENAI_API_KEY": "${{ secrets.OPENAI_API_KEY }}", "WORKFLOWS_ANALYSIS_CLI": "codex", "CODEX_HOME": "${{ runner.temp }}/.codex", "PYTHONPATH": "${{ github.workspace }}/.workflows-lib:${{ github.workspace }}", "PR_NUM": "${{ inputs.pr_number }}", "GITHUB_TOKEN": "${{ secrets.GITHUB_TOKEN }}", "GH_TOKEN": "${{ secrets.GITHUB_TOKEN }}"}
+  ?                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+1 failed, 4 deselected in 0.25s
