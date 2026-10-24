@@ -18,7 +18,9 @@ ROOT = Path(__file__).resolve().parents[2]
 WORKFLOW = ROOT / ".github/workflows/reusable-agents-verifier.yml"
 
 
-def _run(tmp_path, *, raw="", exit_code=0, stderr="", secret=""):
+def _run(
+    tmp_path, *, raw="", exit_code=0, stderr="", secret="", caller_shadow=False, authoritative=True
+):
     workflow = yaml.load(WORKFLOW.read_text(), Loader=yaml.BaseLoader)
     steps = workflow["jobs"]["verifier"]["steps"]
     step = next(s for s in steps if s.get("id") == "llm_evaluate")
@@ -44,7 +46,23 @@ def _run(tmp_path, *, raw="", exit_code=0, stderr="", secret=""):
     def render(text):
         return re.sub(r"\$\{\{\s*(.*?)\s*\}\}", lambda m: values[m[1]], text)
 
-    (tmp_path / ".workflows-lib").symlink_to(ROOT, target_is_directory=True)
+    if authoritative:
+        (tmp_path / ".workflows-lib").symlink_to(ROOT, target_is_directory=True)
+    else:
+        tools = tmp_path / ".workflows-lib/tools"
+        tools.mkdir(parents=True)
+        (tools / "__init__.py").write_text("")
+        (tools / "verifier_corpus_evidence.py").write_text(
+            (ROOT / "tools/verifier_corpus_evidence.py").read_text()
+        )
+    if caller_shadow:
+        package = tmp_path / "scripts/langchain"
+        package.mkdir(parents=True)
+        (package.parent / "__init__.py").write_text("")
+        (package / "__init__.py").write_text("")
+        (package / "pr_verifier.py").write_text(
+            "raise ImportError('caller validator must not execute')\n"
+        )
     (tmp_path / "verifier-context.md").write_text("# PR 4175\nOriginal request.")
     (tmp_path / "verifier-pr-diff.patch").write_text("+exact changed code\n")
     (tmp_path / "verifier-diff-summary.md").write_text("source.py | 1 +\n")

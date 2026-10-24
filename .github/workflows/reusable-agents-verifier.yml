@@ -1213,10 +1213,17 @@ jobs:
               status = 'output_truncated'
           elif code == 0:
               try:
-                  from scripts.langchain.pr_verifier import EvaluationResult
-                  data = EvaluationResult.model_validate(
-                      json.loads(Path('evaluation.json').read_text(encoding='utf-8')), strict=True
-                  ).model_dump()
+                  import sys
+                  source_root = Path('.workflows-lib').resolve()
+                  if not (source_root / 'tools/verifier_corpus_evidence.py').is_file():
+                      raise ImportError('Authoritative Workflows result admission unavailable')
+                  sys.path.insert(0, str(source_root))
+                  from tools.verifier_corpus_evidence import validated_payload
+                  rows, _, _ = validated_payload(
+                      json.loads(Path('evaluation.json').read_text(encoding='utf-8')),
+                      mode='evaluate',
+                  )
+                  data = rows[0]
                   status = ('completed' if data['used_llm'] and not data.get('error')
                             and data['verdict'] in ('PASS', 'CONCERNS', 'FAIL')
                             else 'result_unavailable')
@@ -1230,6 +1237,7 @@ jobs:
           receipt = {'schema': 'workflows-verifier-evaluation-execution/v1',
                      'mode': 'evaluate', 'acceptance_authority': False,
                      'status': status, 'exit_code': code, 'decision_available': status == 'completed',
+                     'verdict': data['verdict'] if status == 'completed' else 'UNVERIFIABLE_INPUT',
                      'validation_error_type': validation_error_type,
                      'recoverable': status != 'completed', 'model_execution': 'unconfirmed',
                      'remote_effects': 'unconfirmed', 'retry_authority': False,
@@ -1417,6 +1425,8 @@ jobs:
             steps.llm_evaluate.outcome == 'success'
           }}
         env:
+          VERIFIER_MODEL: ${{ inputs.model }}
+          VERIFIER_MODEL2: ${{ inputs.model2 }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ steps.context.outputs.pr_number }}
           PR_HEAD_SHA: ${{ steps.context.outputs.pr_head_sha }}
@@ -1427,8 +1437,9 @@ jobs:
           pr_number="${{ steps.context.outputs.pr_number }}"
           if [ -n "$pr_number" ] && [ -f "evaluation-comment.md" ]; then
             if [ -s evaluation.json ]; then
-              python .workflows-lib/tools/verifier_corpus_evidence.py \
-                --evaluation evaluation.json --comment evaluation-comment.md
+              python3 .workflows-lib/tools/verifier_corpus_evidence.py \
+                --evaluation evaluation.json --execution-receipt evaluation-execution.json \
+                --comment evaluation-comment.md
             fi
             gh pr comment "$pr_number" --body-file evaluation-comment.md
           fi
@@ -1527,8 +1538,10 @@ jobs:
           fi
 
           # Run comparison (stderr to separate file to avoid corrupting JSON)
+          comparison_exit=0
           python .workflows-lib/scripts/langchain/pr_verifier.py "${args[@]}" \
-            > comparison.json 2> comparison-stderr.log || true
+            > comparison.json 2> comparison-stderr.log || comparison_exit=$?
+          export COMPARISON_EXIT_CODE="$comparison_exit"
 
           # Display stderr if present (for debugging)
           if [ -f comparison-stderr.log ] && [ -s comparison-stderr.log ]; then
@@ -1538,41 +1551,48 @@ jobs:
           fi
 
           # Parse result
-          if [ -f comparison.json ] && [ -s comparison.json ]; then
+          if [ -f comparison.json ]; then
           python3 - <<'PY' > verdict.txt 2>/dev/null || printf '%s' "UNVERIFIABLE_INPUT" > verdict.txt
+          import hashlib
           import json
-
-          try:
-            with open('comparison.json', encoding='utf-8') as handle:
-              data = json.load(handle)
-          except Exception:
-            data = {}
-
           import os
+          import sys
+          from pathlib import Path
 
-          if os.environ.get('VERIFIER_EVIDENCE_PROFILE') == 'expanded':
-            import sys
-
-            # stdin puts caller cwd before PYTHONPATH. Require and prioritize
-            # the authoritative checkout, including before consumer sync lands.
-            source_root = os.path.abspath('.workflows-lib')
-            if not os.path.isfile(os.path.join(source_root, 'scripts/langchain/pr_verifier.py')):
-              raise ImportError('Authoritative Workflows verifier checkout unavailable')
-            sys.path.insert(0, source_root)
-            from scripts.langchain.pr_verifier import expanded_comparison_verdict
-
-            print(expanded_comparison_verdict(
-              data,
-              model1=os.environ.get('VERIFIER_MODEL') or None,
-              model2=os.environ.get('VERIFIER_MODEL2') or None,
-            ))
-          else:
-            import sys
-            sys.path.insert(0, os.path.abspath('.workflows-lib'))
-            from scripts.langchain.pr_verifier import EvaluationResult, comparison_verdict
-            print(comparison_verdict([
-              EvaluationResult.model_validate(result) for result in data.get('results', [])
-            ]))
+          data = None
+          validation_error_type = None
+          verdict = 'UNVERIFIABLE_INPUT'
+          available = False
+          code = int(os.environ['COMPARISON_EXIT_CODE'])
+          status = 'process_failed' if code else 'invalid_output'
+          raw = Path('comparison.json').read_bytes()
+          if code == 0:
+              try:
+                  source_root = Path('.workflows-lib').resolve()
+                  if not (source_root / 'tools/verifier_corpus_evidence.py').is_file():
+                      raise ImportError('Authoritative Workflows result admission unavailable')
+                  sys.path.insert(0, str(source_root))
+                  from tools.verifier_corpus_evidence import validated_payload
+                  data = json.loads(raw)
+                  _, verdict, available = validated_payload(data, mode='compare')
+                  status = ('completed'
+                            if available and verdict in ('PASS', 'CONCERNS', 'FAIL')
+                            else 'result_unavailable')
+              except Exception as exc:
+                  validation_error_type = type(exc).__name__
+          receipt = {'schema': 'workflows-verifier-comparison-execution/v1',
+                     'mode': 'compare', 'acceptance_authority': False,
+                     'status': status, 'exit_code': code,
+                     'decision_available': status == 'completed',
+                     'verdict': verdict, 'validation_error_type': validation_error_type,
+                     'recoverable': status != 'completed', 'retry_authority': False,
+                     'repository': os.environ.get('GITHUB_REPOSITORY'),
+                     'source_run_id': os.environ.get('GITHUB_RUN_ID'),
+                     'source_run_attempt': os.environ.get('GITHUB_RUN_ATTEMPT'),
+                     'outputs': {'comparison.json': {'sha256': hashlib.sha256(raw).hexdigest(),
+                                                    'bytes': len(raw)}}}
+          Path('comparison-execution.json').write_text(json.dumps(receipt, indent=2) + '\n')
+          print(verdict)
           PY
 
             verdict="$(cat verdict.txt 2>/dev/null || echo UNVERIFIABLE_INPUT)"
@@ -1612,7 +1632,16 @@ jobs:
             has_results="$(cat has_results.txt 2>/dev/null || echo false)"
             echo "has_results=$has_results" >> "$GITHUB_OUTPUT"
 
-            if [ ! -f comparison-comment.md ]; then
+            comparison_status="$(python3 -c \
+              'import json; print(json.load(open("comparison-execution.json"))["status"])')"
+            if [ "$comparison_status" = 'invalid_output' ] || \
+               [ "$comparison_status" = 'process_failed' ]; then
+              printf '%s\n' '## Provider Comparison Report' '' \
+                '**Verdict:** UNVERIFIABLE_INPUT' '' \
+                "Comparison execution status: $comparison_status." \
+                'Retained output requires recovery; no provider retry is authorized.' \
+                > comparison-comment.md
+            elif [ ! -f comparison-comment.md ]; then
               python3 - <<'PY' > comparison-comment.md 2>/dev/null || \
               printf '%s\n' \
                 "## Comparison Report" \
@@ -1638,12 +1667,15 @@ jobs:
             if [ -f comparison-stderr.log ] && [ -s comparison-stderr.log ]; then
               echo "::error::Comparison script failed. Check stderr output above."
             fi
-            echo "verdict=CONCERNS" >> "$GITHUB_OUTPUT"
+            echo "verdict=UNVERIFIABLE_INPUT" >> "$GITHUB_OUTPUT"
             echo "has_results=false" >> "$GITHUB_OUTPUT"
             printf "%s\n" \
               "## Multi-Provider Comparison" \
               "" \
-              "Comparison could not run (missing output)." \
+              "**Verdict:** UNVERIFIABLE_INPUT" \
+              "" \
+              "Comparison output is missing; execution remains uncertain." \
+              "No provider retry is authorized." \
               > comparison-comment.md
           fi
 
@@ -1694,6 +1726,8 @@ jobs:
             inputs.mode == 'compare'
           }}
         env:
+          VERIFIER_MODEL: ${{ inputs.model }}
+          VERIFIER_MODEL2: ${{ inputs.model2 }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ steps.context.outputs.pr_number }}
           PR_HEAD_SHA: ${{ steps.context.outputs.pr_head_sha }}
@@ -1708,9 +1742,16 @@ jobs:
                 > comparison-comment.md
             fi
             if [ -s comparison.json ]; then
-              python .workflows-lib/tools/verifier_corpus_evidence.py \
-                --comparison comparison.json --comment comparison-comment.md || \
-                echo '::warning::Corpus annotation failed; posting the verifier report without it'
+              python3 .workflows-lib/tools/verifier_corpus_evidence.py \
+                --comparison comparison.json --execution-receipt comparison-execution.json \
+                --comment comparison-comment.md || {
+                  echo '::warning::Result admission failed; posting an unavailable-input report'
+                  printf '%s\n' '## Provider Comparison Report' '' \
+                    '**Verdict:** UNVERIFIABLE_INPUT' '' \
+                    'Result admission could not settle the report.' \
+                    'Retained output requires recovery; no provider retry is authorized.' \
+                    > comparison-comment.md
+                }
             fi
             gh pr comment "$verifier_pr" --body-file comparison-comment.md
           fi
@@ -1720,6 +1761,13 @@ jobs:
         if: always() && steps.event_pending.outcome == 'success'
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
+          PR_NUMBER: ${{ steps.context.outputs.pr_number }}
+          PR_HEAD_SHA: ${{ steps.context.outputs.pr_head_sha }}
+          EVALUATED_SHA: ${{ steps.context.outputs.target_sha }}
+          CI_FAILED: ${{ steps.context.outputs.ci_failed }}
+          VERIFIER_MODE: ${{ inputs.mode }}
+          VERIFIER_MODEL: ${{ inputs.model }}
+          VERIFIER_MODEL2: ${{ inputs.model2 }}
           PRODUCTION_REPORT_POSTED: ${{ steps.post_evaluation.outcome == 'success' || steps.post_comparison.outcome == 'success' }}
           EVALUATOR_STEP_OUTCOME: ${{ inputs.mode == 'evaluate' && steps.llm_evaluate.outcome || steps.llm_compare.outcome }}
         with:
@@ -1729,10 +1777,25 @@ jobs:
             const { withRetry } = await createTokenAwareRetry({ github, core, env: {}, task: 'verifier-event-state' });
             const manifest = JSON.parse(fs.readFileSync('verification-event-manifest.json', 'utf8'));
             const event = manifest.verification_event;
-            const reports = ['evaluation-comment.md', 'comparison-comment.md'].filter(p => fs.existsSync(p));
+            const mode = process.env.VERIFIER_MODE;
+            let admitted = null;
+            try {
+              const { execFileSync } = require('child_process');
+              const stem = mode === 'evaluate' ? 'evaluation' : 'comparison';
+              admitted = JSON.parse(execFileSync('python3', [
+                '.workflows-lib/tools/verifier_corpus_evidence.py', `--${stem}`,
+                `${stem}.json`, '--execution-receipt', `${stem}-execution.json`, '--print-decision',
+              ], { encoding: 'utf8', timeout: 10000 }));
+            } catch (error) {
+              core.warning(`Verification result admission unavailable: ${error.message}`);
+            }
+            const report = mode === 'evaluate' ? 'evaluation-comment.md' : 'comparison-comment.md';
+            const reports = [report].filter(p => fs.existsSync(p));
             const complete = process.env.PRODUCTION_REPORT_POSTED === 'true' && reports.some(p => {
               return [...fs.readFileSync(p, 'utf8').matchAll(/<!-- verifier-corpus-decision\/v1 (\{[^\n]+\}) -->/g)].some(match => {
-                try { const d = JSON.parse(match[1]); return d.verification_event?.event_id === event.event_id; }
+                try { const d = JSON.parse(match[1]); return admitted !== null
+                    && d.verification_event?.event_id === event.event_id
+                    && JSON.stringify(d) === JSON.stringify(admitted); }
                 catch { return false; }
               });
             });
@@ -1814,6 +1877,7 @@ jobs:
           name: comparison-results-${{ github.run_id }}
           path: |
             comparison.json
+            comparison-execution.json
             comparison-stderr.log
             comparison-comment.md
             verifier-shadow.json
@@ -1872,6 +1936,12 @@ jobs:
         if: always() && steps.context.outputs.should_run == 'true'
         env:
           VERIFIER_MODE: ${{ inputs.mode }}
+          PR_NUMBER: ${{ steps.context.outputs.pr_number }}
+          PR_HEAD_SHA: ${{ steps.context.outputs.pr_head_sha }}
+          EVALUATED_SHA: ${{ steps.context.outputs.target_sha }}
+          CI_FAILED: ${{ steps.context.outputs.ci_failed }}
+          VERIFIER_MODEL: ${{ inputs.model }}
+          VERIFIER_MODEL2: ${{ inputs.model2 }}
         run: |
           # Combine verdicts from all modes
           checkbox_verdict="${{ steps.verdict.outputs.verdict }}"
@@ -1898,6 +1968,17 @@ jobs:
             echo "::warning::CI concluded failure on the merge commit; " \
               "overriding ${final_verdict} verdict to CONCERNS (issue #2271)."
             final_verdict="concerns"
+          fi
+
+          # A raw step PASS is provisional until the exact retained result and
+          # execution receipt still join. Reuse publication's admission contract.
+          if { [ "$VERIFIER_MODE" = "evaluate" ] || [ "$VERIFIER_MODE" = "compare" ]; } && \
+             [ "$(printf '%s' "$final_verdict" | tr '[:lower:]' '[:upper:]')" = 'PASS' ]; then
+            stem='evaluation'
+            if [ "$VERIFIER_MODE" = 'compare' ]; then stem='comparison'; fi
+            final_verdict="$(python3 .workflows-lib/tools/verifier_corpus_evidence.py \
+              --"$stem" "$stem.json" --execution-receipt "$stem-execution.json" \
+              --print-verdict 2>/dev/null)" || final_verdict='UNVERIFIABLE_INPUT'
           fi
 
           final_verdict="$(printf '%s' "$final_verdict" | tr '[:lower:]-' '[:upper:]_')"

@@ -45,6 +45,8 @@ def run_workflow(
     model2="",
     raw=None,
     slot_config=None,
+    caller_shadow=False,
+    authoritative=True,
 ):
     """Stub only provider CLI output; execute full production parser + unified shell."""
     workflow = yaml.load(WORKFLOW.read_text(), Loader=yaml.BaseLoader)
@@ -66,12 +68,16 @@ def run_workflow(
         "inputs.model": model,
         "inputs.model2": model2,
         "inputs.provider": "auto",
+        "steps.context.outputs.pr_number": "7",
+        "steps.context.outputs.pr_head_sha": "a" * 40,
+        "steps.context.outputs.target_sha": "b" * 40,
     }
     env.update({k: _render(v, values) for k, v in job.get("env", {}).items()})
     if slot_config is not None:
         config = tmp_path / "slots.json"
         config.write_text(json.dumps({"slots": slot_config}))
         env["LANGCHAIN_SLOT_CONFIG"] = str(config)
+    env.update(GITHUB_REPOSITORY="stranske/example", GITHUB_RUN_ID="20", GITHUB_RUN_ATTEMPT="1")
     env["GITHUB_ENV"] = str(tmp_path / "env")
     result = subprocess.run(
         ["bash", "-c", selected["run"]],
@@ -82,7 +88,23 @@ def run_workflow(
     assert result.returncode == 0, result.stderr
     if Path(env["GITHUB_ENV"]).exists():
         env.update(line.split("=", 1) for line in Path(env["GITHUB_ENV"]).read_text().splitlines())
-    (tmp_path / ".workflows-lib").symlink_to(ROOT, target_is_directory=True)
+    if authoritative:
+        (tmp_path / ".workflows-lib").symlink_to(ROOT, target_is_directory=True)
+    else:
+        tools = tmp_path / ".workflows-lib/tools"
+        tools.mkdir(parents=True)
+        (tools / "__init__.py").write_text("")
+        (tools / "verifier_corpus_evidence.py").write_text(
+            (ROOT / "tools/verifier_corpus_evidence.py").read_text()
+        )
+    if caller_shadow:
+        package = tmp_path / "scripts/langchain"
+        package.mkdir(parents=True)
+        (package.parent / "__init__.py").write_text("")
+        (package / "__init__.py").write_text("")
+        (package / "pr_verifier.py").write_text(
+            "raise ImportError('caller validator must not execute')\n"
+        )
     fixture = tmp_path / "provider-output.json"
     fixture.write_text(json.dumps(payload) if raw is None else raw)
     binary = tmp_path / "python"
@@ -207,7 +229,8 @@ def test_expanded_rejects_incomplete_or_malformed_comparison(tmp_path, case):
 @pytest.mark.parametrize("raw", ["", "{broken json"])
 def test_expanded_empty_or_invalid_json_stays_nonpass(tmp_path, raw):
     outputs = run_workflow(tmp_path, None, raw=raw)
-    assert outputs["verdict"] == outputs["unified"] == "CONCERNS"
+    expected = "UNVERIFIABLE_INPUT"
+    assert outputs["verdict"] == outputs["unified"] == expected
     assert outputs["has_results"] == "false"
 
 
