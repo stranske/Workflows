@@ -62,6 +62,11 @@ The contract limits each keepalive chain to four non-`run-*` jobs and four
 review, is also four. The root currently has four chain jobs and the consumer
 has three. The consumer hub does not currently define an isolated acceptance job.
 
+The consumer Codex caller forwards `evaluateKeepaliveLoop`'s authenticated PR
+`baseRef` through the evaluation step and job outputs to the reusable runner's
+`base_ref` input. This preserves non-default PR bases on `workflow_dispatch`,
+where the event has no pull-request base-ref fallback.
+
 `finish` shares one checkout, Node setup and API-client setup. It reconciles tasks
 and updates the Automated Status Summary before measuring productivity and
 recording the dispatch completion. Its `always()` job condition preserves review,
