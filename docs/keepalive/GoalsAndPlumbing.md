@@ -788,3 +788,19 @@ native-capacity record also retain their original transport. A typed absence is
 distinct from a malformed declared contract: malformed registries, malformed
 facts, unknown identities and unexpected transports remain errors. Expanded
 recovery always requires its native contract; no legacy path asserts counting.
+
+Chunk review accounts for exact assigned destination paths. A sibling's absence
+from one request is contextual, not evidence that its changed file was omitted
+from the PR. Provider-declared omissions of assigned files, unknown paths, failed
+requests, binaries and review limits remain non-PASS boundaries. An explicitly
+unverifiable response earns code-review credit only for its named `files_reviewed`;
+a missing operational acceptance observation never becomes an implementation PASS.
+
+Complete successful chunk sets reconcile global criteria even when local findings
+are non-PASS. Raw responses, assigned paths and patch/prompt hashes remain in
+`chunk_reviews`. Optional `deferred_concerns` attribution and a matching
+`resolved_chunk_concerns` explanation can discharge only a CONCERNS-level sibling
+limitation backed by complete reviews of the named sibling files. Untyped findings,
+FAIL, unknown input and missing global proof remain conservative floors. The final
+summary reflects whole-PR reconciliation without concatenating stale local scope
+limitations; an unsuccessful reconciliation cannot erase the original findings.

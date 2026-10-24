@@ -278,6 +278,20 @@ class EvaluationScores(BaseModel):
     risks: float = Field(ge=0, le=10)
 
 
+class DeferredChunkConcern(BaseModel):
+    """Optional attribution of a concern needing another changed-file chunk."""
+
+    concern_index: int = Field(ge=0, strict=True)
+    sibling_files: list[str] = Field(min_length=1)
+
+
+class ResolvedChunkConcern(BaseModel):
+    chunk_index: int = Field(ge=0, strict=True)
+    concern_index: int = Field(ge=0, strict=True)
+    supporting_files: list[str] = Field(min_length=1)
+    explanation: str = Field(min_length=1)
+
+
 class EvaluationResult(BaseModel):
     verdict: Literal["PASS", "CONCERNS", "FAIL", "UNVERIFIABLE_INPUT"]
     scores: EvaluationScores | None = None
@@ -295,6 +309,10 @@ class EvaluationResult(BaseModel):
     input_coverage: dict[str, object] | None = None
     partition_recovery: dict[str, Any] | None = None
     files_not_reviewed: list[str] = Field(default_factory=list)
+    files_reviewed: list[str] | None = None
+    deferred_concerns: list[DeferredChunkConcern] = Field(default_factory=list)
+    resolved_chunk_concerns: list[ResolvedChunkConcern] = Field(default_factory=list)
+    chunk_reviews: list[dict[str, Any]] = Field(default_factory=list)
 
 
 class EvaluationPayload(BaseModel):
@@ -305,6 +323,9 @@ class EvaluationPayload(BaseModel):
     concerns: list[str] = Field(default_factory=list)
     summary: str | None = None
     files_not_reviewed: list[str] = Field(default_factory=list)
+    files_reviewed: list[str] | None = None
+    deferred_concerns: list[DeferredChunkConcern] = Field(default_factory=list)
+    resolved_chunk_concerns: list[ResolvedChunkConcern] = Field(default_factory=list)
 
 
 SEMANTIC_ENVELOPE_SCHEMA = "workflows-verifier-semantic-acceptance-envelope/v1"
@@ -2323,8 +2344,7 @@ def _normalize_bare_artifact_destinations(acceptance: str) -> str:
             match[0]
             if match["literal"]
             else (
-                f"{match['head']}{match['mid']} {match['prep']} "
-                f"{match['article']}workflow artifact"
+                f"{match['head']}{match['mid']} {match['prep']} {match['article']}workflow artifact"
             )
         ),
         acceptance,
@@ -2478,8 +2498,9 @@ def _normalize_review_content_qualifiers(acceptance: str) -> str:
         + artifact_content_destination
         + r")"
         + shared_relative_content,
-        lambda match: match["literal"]
-        or match["prefix"] + match["destination"] + " with" + match["content"],
+        lambda match: (
+            match["literal"] or match["prefix"] + match["destination"] + " with" + match["content"]
+        ),
         acceptance,
         flags=re.I,
     )
@@ -2493,8 +2514,9 @@ def _normalize_review_content_qualifiers(acceptance: str) -> str:
         + r"(?P<suffix>"
         + shared_list_suffix
         + r")",
-        lambda match: match["literal"]
-        or match["destination"] + match["suffix"] + " with" + match["content"],
+        lambda match: (
+            match["literal"] or match["destination"] + match["suffix"] + " with" + match["content"]
+        ),
         acceptance,
         flags=re.I,
     )
@@ -4455,16 +4477,18 @@ def _classify_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         # protected above. Keep the destination in the enclosing clause too.
         criterion = _normalize_relative_review_presence(criterion)
         criterion = shared_passive_product_review_destination.sub(
-            lambda match: match["predicate"]
-            + (match["preposition"] or "in ")
-            + match["destination"],
+            lambda match: (
+                match["predicate"] + (match["preposition"] or "in ") + match["destination"]
+            ),
             criterion,
         )
         # Shared destinations retain their predicate after actor inheritance.
         criterion = shared_storage_review_destination.sub(
-            lambda match: shared_storage_delivery_predicate(match)
-            + (match["preposition"] or "in ")
-            + match["destination"],
+            lambda match: (
+                shared_storage_delivery_predicate(match)
+                + (match["preposition"] or "in ")
+                + match["destination"]
+            ),
             criterion,
         )
         # Split independent mandatory clauses after optional evidence, including
@@ -5864,7 +5888,8 @@ def _classify_evidence_options(acceptance: str) -> list[set[str]]:
 
 @lru_cache(maxsize=512)
 def _cached_evidence_options(
-    acceptance: str, classifier: Callable[..., set[str]]  # noqa: ARG001 - cache key identity
+    acceptance: str,
+    classifier: Callable[..., set[str]],  # noqa: ARG001 - cache key identity
 ) -> tuple[frozenset[str], ...]:
     # The classifier identity invalidates results if a caller substitutes it.
     return tuple(frozenset(option) for option in _classify_evidence_options(acceptance))
@@ -6578,6 +6603,8 @@ def _evaluate_chunked(
             continue
     results = []
     reviewed: set[str] = set()
+    unknown_review_paths: set[str] = set()
+    chunk_reviews: list[dict[str, Any]] = []
     prompt_coverages: list[PromptCoverage] = []
     guidance = (
         "\nThis is a per-file review within a multi-file PR. Judge the supplied files "
@@ -6585,7 +6612,14 @@ def _evaluate_chunked(
         "files. In your summary, identify each criterion supported by these files and "
         "describe its implementation evidence. A final review will reconcile criteria "
         "across all chunks. Report real findings as CONCERNS or FAIL. If input is "
-        "incomplete, use UNVERIFIABLE_INPUT."
+        "incomplete, use UNVERIFIABLE_INPUT. files_not_reviewed must name only supplied "
+        "assigned files you could not inspect, not files assigned to sibling chunks. "
+        "If the verdict is UNVERIFIABLE_INPUT only because global proof is missing, "
+        "list files_reviewed with the exact assigned paths actually inspected. "
+        "For an objection solely requiring a sibling file, optionally add deferred_concerns: "
+        "[{concern_index: <zero-based concerns index>, sibling_files: [<exact changed path>]}]. "
+        "The concern must name those exact sibling paths and contain no assigned-file objection. "
+        "Never defer a concrete defect or missing operational proof."
     )
     if partial_binary_review:
         guidance += (
@@ -6594,11 +6628,26 @@ def _evaluate_chunked(
         )
     for paths, patch in chunks:
         # Guidance is trusted prompt framing, not an optional artifact's tail.
+        chunk_guidance = (
+            guidance
+            + "\nAssigned changed files: "
+            + json.dumps(paths)
+            + "\nSibling changed files (not supplied in this request): "
+            + json.dumps([p for p in destinations if p not in paths])
+        )
         chunk_context = (
-            guidance + "\n\n" + local_context if evaluate_minimum else local_context + guidance
+            chunk_guidance + "\n\n" + local_context
+            if evaluate_minimum
+            else local_context + chunk_guidance
         )
         coverage = prompt_coverage(chunk_context, patch, evaluate_minimum=evaluate_minimum)
         prompt_coverages.append(coverage)
+        record: dict[str, Any] = {
+            "assigned_files": paths,
+            "patch_sha256": hashlib.sha256(patch.encode("utf-8")).hexdigest(),
+            "prompt_coverage": coverage.to_dict(),
+        }
+        chunk_reviews.append(record)
         if not coverage.sufficient:
             results.append(
                 EvaluationResult(
@@ -6612,6 +6661,7 @@ def _evaluate_chunked(
             )
             continue
         prompt = _prepare_prompt(chunk_context, patch, evaluate_minimum=evaluate_minimum)
+        record["prompt_sha256"] = hashlib.sha256(prompt.encode("utf-8")).hexdigest()
         try:
             response, trace_id, trace_url = _invoke_llm(
                 client,
@@ -6624,6 +6674,15 @@ def _evaluate_chunked(
                 getattr(response, "content", None) or str(response), provider, client=client
             )
             result.langsmith_trace_id, result.langsmith_trace_url = trace_id, trace_url
+            # The provider's original response remains evidence even when its
+            # omission list describes sibling context rather than assigned code.
+            record["provider_result"] = result.model_dump(mode="json")
+            sibling_paths = set(result.files_not_reviewed) & (set(destinations) - set(paths))
+            unknown = set(result.files_not_reviewed) - set(destinations)
+            record["sibling_files_not_supplied"] = sorted(sibling_paths)
+            record["unknown_review_paths"] = sorted(unknown)
+            unknown_review_paths.update(unknown)
+            result.files_not_reviewed = [p for p in result.files_not_reviewed if p in paths]
             result = _apply_coverage_floor(result, coverage)
         except Exception as exc:
             result = EvaluationResult(
@@ -6635,13 +6694,26 @@ def _evaluate_chunked(
                 files_not_reviewed=paths,
             )
         results.append(result)
-        if result.used_llm and not result.error and result.verdict != "UNVERIFIABLE_INPUT":
-            reviewed.update(path for path in paths if path not in result.files_not_reviewed)
+        record["result"] = result.model_dump(mode="json")
+        # A completed inspection can find acceptance unverifiable (for example,
+        # a missing 24-hour observation) without leaving its code unreviewed.
+        # Failed requests and explicit assigned-file omissions never earn credit.
+        if result.used_llm and not result.error:
+            attested = (
+                set(result.files_reviewed or [])
+                if record.get("provider_result", {}).get("verdict") == "UNVERIFIABLE_INPUT"
+                else set(paths)
+            )
+            reviewed.update(
+                path for path in paths if path in attested and path not in result.files_not_reviewed
+            )
     not_reviewed = [path for path, _ in files if path not in reviewed or path in binary_paths]
+    not_reviewed.extend(sorted(unknown_review_paths))
     verdict = comparison_verdict(results) if results else "UNVERIFIABLE_INPUT"
     if not_reviewed and verdict == "PASS":
         verdict = "UNVERIFIABLE_INPUT"
-    if verdict == "PASS":
+    synthesis: EvaluationResult | None = None
+    if not not_reviewed and results and all(r.used_llm and not r.error for r in results):
         # Per-file PASS cannot establish that every global criterion is implemented.
         # Reconcile the complete acceptance sources against every chunk's evidence.
         synthesis_context = local_context
@@ -6663,7 +6735,14 @@ def _evaluate_chunked(
             "that no chunk implements, including cross-file obligations. Local PASS alone "
             "is insufficient: require concrete implementation evidence for every criterion. "
             "For every criterion, name its supporting chunks/files and implementation in "
-            "the summary. Return JSON with verdict, concerns and summary. Use CONCERNS for a missing "
+            "the summary. Preserve concrete defects and unmet operational proof; a sibling's "
+            "absence from one chunk is not absence from the PR. Return JSON with verdict, concerns "
+            "and a current whole-PR summary, not a concatenation of local limitations. "
+            "To resolve a deferred sibling-only concern, optionally return resolved_chunk_concerns: "
+            "[{chunk_index: <zero-based chunk>, concern_index: <original concerns index>, "
+            "supporting_files: [<actually reviewed sibling paths>], explanation: <concrete evidence>}]. "
+            "Only explicitly deferred concerns may be resolved; do not waive other findings. "
+            "Use CONCERNS for a missing "
             "implementation, UNVERIFIABLE_INPUT if summaries cannot establish completeness."
             "\n<acceptance_context>\n"
             + synthesis_context
@@ -6671,12 +6750,14 @@ def _evaluate_chunked(
             + json.dumps(
                 [
                     {
+                        "chunk_index": index,
                         "files": paths,
                         "summary": result.summary,
                         "concerns": result.concerns,
                         "verdict": result.verdict,
+                        "deferred_concerns": [c.model_dump() for c in result.deferred_concerns],
                     }
-                    for (paths, _), result in zip(chunks, results, strict=True)
+                    for index, ((paths, _), result) in enumerate(zip(chunks, results, strict=True))
                 ]
             )
         )
@@ -6690,12 +6771,66 @@ def _evaluate_chunked(
             synthesis = _parse_llm_response(
                 getattr(response, "content", None) or str(response), provider, client=client
             )
+            synthesis = _apply_coverage_floor(synthesis, full_coverage)
+            for path in synthesis.files_not_reviewed:
+                if path not in not_reviewed:
+                    not_reviewed.append(path)
+                reviewed.discard(path)
         except Exception as exc:
             synthesis = EvaluationResult(
                 verdict="UNVERIFIABLE_INPUT",
                 error=str(exc),
                 summary=f"Cross-file acceptance reconciliation unavailable: {exc}",
             )
+        # Reconciliation may discharge only a provider-attributed sibling gap
+        # backed by complete reviews of those sibling files. Untyped concerns,
+        # failures and unverifiable outcomes remain conservative verdict floors.
+        resolved: set[tuple[int, int]] = set()
+        accepted_resolutions: list[ResolvedChunkConcern] = []
+        if synthesis.used_llm and not synthesis.error and synthesis.verdict != "UNVERIFIABLE_INPUT":
+            for resolution in synthesis.resolved_chunk_concerns:
+                index, concern = resolution.chunk_index, resolution.concern_index
+                if index >= len(results):
+                    continue
+                local = results[index]
+                support = set(resolution.supporting_files)
+                siblings = {
+                    path
+                    for deferred in local.deferred_concerns
+                    if deferred.concern_index == concern
+                    for path in deferred.sibling_files
+                }
+                if (
+                    local.verdict == "CONCERNS"
+                    and concern < len(local.concerns)
+                    and resolution.explanation.strip()
+                    and siblings
+                    and siblings <= support <= (reviewed - set(chunks[index][0]))
+                    and all(
+                        re.search(
+                            r"(?<![\w./-])" + re.escape(path) + r"(?![\w./-])",
+                            local.concerns[concern],
+                        )
+                        for path in siblings
+                    )
+                    and not any(
+                        re.search(
+                            r"(?<![\w./-])" + re.escape(name) + r"(?![\w./-])",
+                            local.concerns[concern],
+                        )
+                        for path in chunks[index][0]
+                        for name in (path, path.rsplit("/", 1)[-1])
+                    )
+                ):
+                    resolved.add((index, concern))
+                    accepted_resolutions.append(resolution)
+        for index, local in enumerate(results):
+            original_concerns = local.concerns
+            local.concerns = [
+                c for number, c in enumerate(original_concerns) if (index, number) not in resolved
+            ]
+            if local.verdict == "CONCERNS" and original_concerns and not local.concerns:
+                local.verdict = "PASS"
         results.append(synthesis)
         verdict = comparison_verdict(results)
     # No calls were possible due solely to input limits.
@@ -6721,6 +6856,14 @@ def _evaluate_chunked(
             ),
             omitted_optional_evidence_sections=omitted_sections,
         )
+    final_summary = None
+    if synthesis and synthesis.used_llm and not synthesis.error:
+        final_summary = synthesis.summary
+        if synthesis.verdict != verdict:
+            final_summary = (
+                "Reconciliation did not discharge the retained local findings or review uncertainty. "
+                "The original concerns and chunk review records remain authoritative."
+            )
     return EvaluationResult(
         verdict=verdict,
         provider_used=provider,
@@ -6728,9 +6871,13 @@ def _evaluate_chunked(
         used_llm=any(result.used_llm for result in results),
         error="; ".join(result.error for result in results if result.error) or None,
         concerns=[item for result in results for item in result.concerns],
-        summary="\n\n".join(result.summary or "" for result in results)
+        summary=final_summary
+        or "\n\n".join(result.summary or "" for result in results)
         or "Changed files exceed the bounded review capacity.",
         files_not_reviewed=not_reviewed,
+        chunk_reviews=chunk_reviews,
+        resolved_chunk_concerns=accepted_resolutions if synthesis else [],
+        raw_content=synthesis.raw_content if synthesis else None,
         input_coverage={
             **aggregate_coverage,
             "sufficient": not not_reviewed,
@@ -7853,6 +8000,9 @@ def _parse_llm_response(
     return EvaluationResult(
         verdict=payload.verdict,
         files_not_reviewed=payload.files_not_reviewed,
+        files_reviewed=payload.files_reviewed,
+        deferred_concerns=payload.deferred_concerns,
+        resolved_chunk_concerns=payload.resolved_chunk_concerns,
         scores=payload.scores,
         confidence=payload.confidence,
         concerns=payload.concerns,
