@@ -41,7 +41,7 @@ test('transition contract documents every state and next step', () => {
       NEXT_STEPS.VERIFY,
     ].sort(),
   );
-  assert.match(TRANSITION_CONTRACT.guards.join('\n'), /verify:evaluate/);
+  assert.match(TRANSITION_CONTRACT.guards.join('\n'), /PR-bound verify handoff/);
   assert.match(TRANSITION_CONTRACT.guards.join('\n'), /optimizer suggestions comment/);
   assert.match(TRANSITION_CONTRACT.guards.join('\n'), /keepalive state/);
 });

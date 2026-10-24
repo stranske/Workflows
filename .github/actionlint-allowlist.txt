@@ -16,6 +16,10 @@ SC2129:style:.+: Consider using { cmd1; cmd2; } >> file instead of individual re
 # This intentionally hides SC2086 info-level warnings in workflow files; other shell scripts remain checked.
 SC2086:info:.github/workflows/.+: Double quote to prevent globbing and word splitting
 
+# GitHub Actions env: injects PYTEST_WORKERS; shellcheck still flags it as a possible
+# misspelling of nearby PYTEST_* names inside the embedded pytest step script.
+SC2153:info:.+: Possible misspelling: PYTEST_WORKERS may not be assigned
+
 constant expression "false" in condition
 
 # GitHub supports concurrency.queue (single|max); actionlint 1.7.3/1.7.11 predate it.
