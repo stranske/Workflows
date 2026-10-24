@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.44.13](https://github.com/stranske/Workflows/compare/v1.44.12...v1.44.13) (2026-10-24)
+
+
+### Bug Fixes
+
+* recover authenticated retained verifier output without model replay ([#4224](https://github.com/stranske/Workflows/issues/4224)) ([fe6a3d9](https://github.com/stranske/Workflows/commit/fe6a3d9f364c0cd8f0eed6261c320ccfcc9f494c))
+
 ## [1.44.12](https://github.com/stranske/Workflows/compare/v1.44.11...v1.44.12) (2026-10-24)
 
 
