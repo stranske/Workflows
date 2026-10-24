@@ -91,6 +91,21 @@ its original cause remains recorded. Pending or uncertain same-event assessment
 state refuses evaluator re-invocation. Unrelated events and reviewer slots are
 not dependencies of this guard.
 
+Evaluate and compare validate results against the authoritative `.workflows-lib`
+checkout, even when the caller contains an older `scripts` package. Each normal
+publication joins the exact retained payload hash/byte count to its mode-specific
+execution receipt, repository and run/attempt. The outgoing report verdict, corpus
+marker, terminal event and provisional PASS settlement use this same admission.
+An invalid receipt cannot publish a raw PASS marker; an already present marker in
+model report text is removed before the current job's annotation is rebuilt.
+Original payloads, receipts and previously published history remain unchanged.
+Semantic comparison joins report rows to the authenticated judge/package cell
+matrix; it does not require one row per provider. Legacy direct comparisons retain
+their existing configured-slot completeness checks.
+A retained usable model response with a failed wrapper is recovery input, never
+permission to invoke the provider again. Revalidation alone is not publication
+authority or a replacement execution receipt.
+
 Incomplete input or execution cannot produce a terminal PASS or consume the
 consumer fingerprint. CI success alone cannot create acceptance. Model reports
 retain their original verdicts; consumers must select applicable causal events
@@ -130,3 +145,34 @@ Focused checks:
 node --test tests/scripts/test_verification_event.js .github/scripts/__tests__/agents-verifier-context.test.js
 PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python3 -m pytest tests/workflows/test_repeat_verification_lifecycle.py -q -o addopts=''
 ```
+
+### Provider-free retained-output recovery
+
+`verification_recovery` is an optional JSON string containing exactly positive
+integer `run_id`, `run_attempt`, and `artifact_id` selectors. It accepts no
+caller-supplied digests or verdict. Its presence disables all provider, native
+capacity, provider-secret and shadow execution, even if recovery fails.
+
+The existing collector authenticates the completed source attempt and artifact
+through GitHub Actions, including repository/workflow/job/checkout origin and
+archive digest. Recovery requires complete original result, receipt, input
+manifest, context, diff and event bytes, plus the same freshly collected request,
+required material, revision and assessment. Missing or changed evidence stops
+recovery; it never falls through to a new model call.
+
+Original files and invalid receipts remain unchanged in the retained source
+archive. A new typed revalidation receipt records the original run/artifact and
+hashes, the current validator, and `provider_generation_performed: false`.
+The normal admitted report, event, unified verdict and source-closure gates
+consume that receipt. A later applicable assessment prevents stale publication;
+exact duplicate recovery and uncertain comment writes are reconciled by
+identity before another publication. Recovery does not rewrite an event's
+predecessor or turn old advisory output into current acceptance authority.
+
+Recovery lifecycle states carry the stable recovery key. A failed read or validation
+can retry only when the publisher was skipped or positively remained before its POST.
+A lost terminal state uses the existing Actions execution reconciler to prove that
+publication never started; different attempts of the same run remain distinct.
+An uncertain POST stays fenced unless an admitted matching public report is observed.
+If that report's lifecycle was interrupted, fresh provider-free revalidation can
+complete it while retaining the original records; an already-completed key is deduplicated.

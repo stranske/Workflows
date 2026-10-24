@@ -54,6 +54,11 @@ on:
         required: false
         type: string
         default: ''
+      verification_recovery:
+        description: 'Recover retained output: JSON run_id/run_attempt/artifact_id selectors; never invokes a provider'
+        required: false
+        type: string
+        default: ''
       verification_event:
         description: 'Expected verification-event/v1 JSON; collector must reproduce it'
         required: false
@@ -261,6 +266,7 @@ jobs:
       # Expanded recovery needs a real truncation report and complete PASS from both slots.
       # Inspect both provider results before claiming dual-model acceptance.
       evidence_profile: ${{ inputs.evidence_profile || 'standard' }}
+      verification_recovery: ${{ inputs.verification_recovery || '' }}
       verification_event: ${{ inputs.verification_event || '' }}
       verification_material: ${{ inputs.verification_material || '' }}
       verification_predecessor: ${{ inputs.verification_predecessor || '' }}

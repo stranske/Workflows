@@ -451,7 +451,13 @@ result is `UNVERIFIABLE_INPUT`; it is not an acceptance verdict or proof that a
 provider ran. The `evaluation-results-<run id>` artifact retains the execution
 receipt, redacted stdout/stderr, and existing merge-bound input manifest and files
 for seven days. The receipt preserves the process exit and output hashes even
-when evaluator imports or argument parsing fail.
+when evaluator imports or argument parsing fail. Validation and publication import the validator from the
+authoritative Workflows checkout, not the caller's possibly stale scripts. Compare
+also retains `comparison-execution.json`. Reports, structured decision markers,
+event completion and PASS settlement join the exact retained output to its
+execution receipt and run identity. Invalid receipts keep the result recoverable
+and cannot publish a raw PASS; provider responses and original receipts stay
+retained without authorizing another model call.
 
 Diagnostic retention streams original hashes and byte counts, keeping at most
 8 MiB of stdout and 1 MiB of stderr (prefix and tail). Truncated stdout cannot

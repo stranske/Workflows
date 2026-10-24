@@ -90,8 +90,10 @@ def test_configured_native_expanded_reaches_count_and_generation(native, operati
 
 @pytest.mark.parametrize("profile", [None, "standard"])
 @pytest.mark.parametrize("operation", ["invoke", "repair"])
-def test_standard_keeps_client_and_request_bytes(native, profile, operation, monkeypatch):
-    client, _, _, counter, metadata = native
+def test_standard_counts_native_request_without_mutating_owner(
+    native, profile, operation, monkeypatch
+):
+    client, provider, _, counter, metadata = native
     if profile is None:
         monkeypatch.delenv("VERIFIER_EVIDENCE_PROFILE")
     else:
@@ -101,16 +103,24 @@ def test_standard_keeps_client_and_request_bytes(native, profile, operation, mon
 
     def invoke(actual, prompt, **kwargs):
         seen.append(actual)
-        assert json.dumps(actual._get_request_payload(prompt), sort_keys=True) == before
+        payload = actual._get_request_payload(prompt)
+        key = "input" if provider == "openai" else "messages"
+        assert counter.call_args.kwargs[key] == payload[key]
 
     with mock.patch.object(type(client), "invoke", autospec=True, side_effect=invoke):
         if operation == "repair":
             pr_verifier._CapacityCheckedRepairClient(client).invoke("full request")
         else:
             pr_verifier._invoke_llm(client, "full request", operation="test")
-    assert seen == [client]
-    counter.assert_not_called()
-    metadata.assert_not_called()
+    assert len(seen) == 1
+    assert json.dumps(client._get_request_payload("full request"), sort_keys=True) == before
+    counter.assert_called_once()
+    if provider == "openai":
+        assert seen[0] is not client and seen[0].root_client is client.root_client
+        metadata.assert_not_called()
+    else:
+        assert seen[0]._client is client._client
+        metadata.assert_called_once()
 
 
 @pytest.mark.parametrize("operation", ["invoke", "repair"])

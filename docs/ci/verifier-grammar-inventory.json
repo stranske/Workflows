@@ -358,6 +358,13 @@
     {"function": "test_issue3883_standalone_exist_in_artifact_requires_artifact_floor", "original_count": 1, "retained_count": 1, "original_dimensions": []},
     {"function": "test_issue3883_artifact_registry_product_noun_stays_nongating", "original_count": 1, "retained_count": 1, "original_dimensions": []},
     {"function": "test_save_persist_log_product_storage_does_not_require_review_evidence", "original_count": 3, "retained_count": 3, "original_dimensions": [{"names": ["criterion"], "size": 3}]},
-    {"function": "test_bounded_storage_shared_review_destination_preserves_floor", "original_count": 36, "retained_count": 36, "original_dimensions": [{"names": ["payload"], "size": 4}, {"names": ["destination", "channel"], "size": 3}, {"names": ["operation"], "size": 3}]}
+    {"function": "test_bounded_storage_shared_review_destination_preserves_floor", "original_count": 36, "retained_count": 36, "original_dimensions": [{"names": ["payload"], "size": 4}, {"names": ["destination", "channel"], "size": 3}, {"names": ["operation"], "size": 3}]},
+    {"function": "test_requirement_sections_preserve_independent_actor_boundaries", "original_count": 0, "retained_count": 24, "original_dimensions": []},
+    {"function": "test_requirement_heading_duty_is_retained", "original_count": 0, "retained_count": 1, "original_dimensions": []},
+    {"function": "test_separate_sections_conjoin_their_independent_delivery_alternatives", "original_count": 0, "retained_count": 1, "original_dimensions": []},
+    {"function": "test_quoted_markdown_heading_is_not_an_independent_delivery", "original_count": 0, "retained_count": 1, "original_dimensions": []},
+    {"function": "test_optional_evidence_heading_scopes_only_its_own_section", "original_count": 0, "retained_count": 20, "original_dimensions": []},
+    {"function": "test_not_optional_heading_does_not_waive_explicit_delivery", "original_count": 0, "retained_count": 1, "original_dimensions": []},
+    {"function": "test_optional_parent_scopes_nested_evidence_until_next_peer", "original_count": 0, "retained_count": 1, "original_dimensions": []}
   ]
 }

@@ -39,6 +39,11 @@ on:
         required: false
         type: string
         default: ''
+      verification_recovery:
+        description: 'Recover retained output: JSON run_id/run_attempt/artifact_id selectors; never invokes a provider'
+        required: false
+        type: string
+        default: ''
       verification_event:
         description: 'Expected verification-event/v1 JSON; collector must reproduce it'
         required: false
@@ -133,6 +138,7 @@ jobs:
       VERIFIER_PROVIDER: ${{ inputs.provider }}
       VERIFIER_MODEL: ${{ inputs.model }}
       VERIFIER_MODEL2: ${{ inputs.model2 }}
+      VERIFICATION_RECOVERY: ${{ inputs.verification_recovery }}
       VERIFICATION_EVENT: ${{ inputs.verification_event }}
       VERIFICATION_MATERIAL: ${{ inputs.verification_material }}
       VERIFICATION_PREDECESSOR: ${{ inputs.verification_predecessor }}
@@ -483,6 +489,7 @@ jobs:
               run_id: String(context.runId), run_attempt: String(process.env.GITHUB_RUN_ATTEMPT),
               status: 'pending', verification_event: event, assessment_identity: manifest.assessment_identity,
               execution_binding: manifest.execution_binding,
+              ...(manifest.retained_revalidation ? {retained_revalidation:manifest.retained_revalidation} : {}),
               ...(manifest.predecessor_event_id ? { predecessor_event_id: manifest.predecessor_event_id } : {}) };
             await withRetry(() => github.rest.issues.createComment({ ...context.repo, issue_number: Number(event.pr),
               body: `<!-- verifier-event-state/v1 ${JSON.stringify(state)} -->` }));
@@ -623,7 +630,10 @@ jobs:
 
       - name: Resolve agent key from PR labels
         id: agent
-        if: steps.context.outputs.should_run == 'true'
+        if: >-
+          ${{ inputs.verification_recovery == '' && (
+            steps.context.outputs.should_run == 'true'
+          ) }}
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -694,7 +704,10 @@ jobs:
           fi
 
       - name: Prepare verifier prompt
-        if: steps.context.outputs.should_run == 'true'
+        if: >-
+          ${{ inputs.verification_recovery == '' && (
+            steps.context.outputs.should_run == 'true'
+          ) }}
         id: prepare
         run: |
           set -euo pipefail
@@ -720,7 +733,10 @@ jobs:
           echo "prompt_file=$combined" >> "$GITHUB_OUTPUT"
 
       - name: Validate Codex auth for checkbox/compare modes
-        if: steps.context.outputs.should_run == 'true' && inputs.mode != 'evaluate' && inputs.evidence_profile != 'expanded'
+        if: >-
+          ${{ inputs.verification_recovery == '' && (
+            steps.context.outputs.should_run == 'true' && inputs.mode != 'evaluate' && inputs.evidence_profile != 'expanded'
+          ) }}
         env:
           CODEX_AUTH_JSON: ${{ secrets.CODEX_AUTH_JSON }}
           VERIFIER_MODE: ${{ inputs.mode }}
@@ -732,7 +748,10 @@ jobs:
           fi
 
       - name: Setup Codex auth
-        if: steps.context.outputs.should_run == 'true' && inputs.mode != 'evaluate' && inputs.evidence_profile != 'expanded'
+        if: >-
+          ${{ inputs.verification_recovery == '' && (
+            steps.context.outputs.should_run == 'true' && inputs.mode != 'evaluate' && inputs.evidence_profile != 'expanded'
+          ) }}
         env:
           CODEX_AUTH_JSON: ${{ secrets.CODEX_AUTH_JSON }}
           CODEX_HOME: ${{ runner.temp }}/.codex-verifier
@@ -747,7 +766,10 @@ jobs:
 
       - name: Install Codex CLI
         id: codex_cli
-        if: steps.context.outputs.should_run == 'true' && inputs.mode != 'evaluate' && inputs.evidence_profile != 'expanded'
+        if: >-
+          ${{ inputs.verification_recovery == '' && (
+            steps.context.outputs.should_run == 'true' && inputs.mode != 'evaluate' && inputs.evidence_profile != 'expanded'
+          ) }}
         env:
           CODEX_CLI_PACKAGE: "@openai/codex@0.153.2"
         run: |
@@ -791,7 +813,10 @@ jobs:
 
       - name: Resolve Codex verifier model
         id: codex_model
-        if: steps.context.outputs.should_run == 'true' && inputs.mode != 'evaluate' && inputs.evidence_profile != 'expanded'
+        if: >-
+          ${{ inputs.verification_recovery == '' && (
+            steps.context.outputs.should_run == 'true' && inputs.mode != 'evaluate' && inputs.evidence_profile != 'expanded'
+          ) }}
         env:
           DEFAULT_CODEX_MODEL: gpt-6-astra
           FALLBACK_CODEX_MODELS: gpt-5.5
@@ -846,7 +871,10 @@ jobs:
 
       - name: Run verifier (checkbox mode)
         id: codex
-        if: steps.context.outputs.should_run == 'true' && inputs.mode != 'evaluate' && inputs.evidence_profile != 'expanded'
+        if: >-
+          ${{ inputs.verification_recovery == '' && (
+            steps.context.outputs.should_run == 'true' && inputs.mode != 'evaluate' && inputs.evidence_profile != 'expanded'
+          ) }}
         continue-on-error: true
         env:
           CODEX_HOME: ${{ runner.temp }}/.codex-verifier
@@ -940,7 +968,10 @@ jobs:
 
       - name: Parse verifier verdict (checkbox mode)
         id: verdict
-        if: steps.context.outputs.should_run == 'true' && inputs.mode != 'evaluate' && inputs.evidence_profile != 'expanded'
+        if: >-
+          ${{ inputs.verification_recovery == '' && (
+            steps.context.outputs.should_run == 'true' && inputs.mode != 'evaluate' && inputs.evidence_profile != 'expanded'
+          ) }}
         run: |
           set -euo pipefail
           verdict="unknown"
@@ -1030,10 +1061,10 @@ jobs:
       - name: Check provider secrets
         id: openai_key
         if: >-
-          ${{
+          ${{ inputs.verification_recovery == '' && (
             steps.context.outputs.should_run == 'true' &&
-            (inputs.mode == 'evaluate' || inputs.mode == 'compare')
-          }}
+              (inputs.mode == 'evaluate' || inputs.mode == 'compare')
+          ) }}
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           CLAUDE_API_STRANSKE: ${{ secrets.CLAUDE_API_STRANSKE }}
@@ -1082,11 +1113,11 @@ jobs:
       - name: Run LLM evaluation
         id: llm_evaluate
         if: >-
-          ${{
+          ${{ inputs.verification_recovery == '' && (
             steps.context.outputs.should_run == 'true' &&
-            inputs.mode == 'evaluate' &&
-            steps.openai_key.outputs.available == 'true'
-          }}
+              inputs.mode == 'evaluate' &&
+              steps.openai_key.outputs.available == 'true'
+          ) }}
         continue-on-error: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -1213,10 +1244,17 @@ jobs:
               status = 'output_truncated'
           elif code == 0:
               try:
-                  from scripts.langchain.pr_verifier import EvaluationResult
-                  data = EvaluationResult.model_validate(
-                      json.loads(Path('evaluation.json').read_text(encoding='utf-8')), strict=True
-                  ).model_dump()
+                  import sys
+                  source_root = Path('.workflows-lib').resolve()
+                  if not (source_root / 'tools/verifier_corpus_evidence.py').is_file():
+                      raise ImportError('Authoritative Workflows result admission unavailable')
+                  sys.path.insert(0, str(source_root))
+                  from tools.verifier_corpus_evidence import validated_payload
+                  rows, _, _ = validated_payload(
+                      json.loads(Path('evaluation.json').read_text(encoding='utf-8')),
+                      mode='evaluate',
+                  )
+                  data = rows[0]
                   status = ('completed' if data['used_llm'] and not data.get('error')
                             and data['verdict'] in ('PASS', 'CONCERNS', 'FAIL')
                             else 'result_unavailable')
@@ -1230,6 +1268,7 @@ jobs:
           receipt = {'schema': 'workflows-verifier-evaluation-execution/v1',
                      'mode': 'evaluate', 'acceptance_authority': False,
                      'status': status, 'exit_code': code, 'decision_available': status == 'completed',
+                     'verdict': data['verdict'] if status == 'completed' else 'UNVERIFIABLE_INPUT',
                      'validation_error_type': validation_error_type,
                      'recoverable': status != 'completed', 'model_execution': 'unconfirmed',
                      'remote_effects': 'unconfirmed', 'retry_authority': False,
@@ -1414,9 +1453,11 @@ jobs:
           ${{
             steps.context.outputs.should_run == 'true' &&
             inputs.mode == 'evaluate' &&
-            steps.llm_evaluate.outcome == 'success'
+            steps.llm_evaluate.outcome == 'success' && inputs.verification_recovery == ''
           }}
         env:
+          VERIFIER_MODEL: ${{ inputs.model }}
+          VERIFIER_MODEL2: ${{ inputs.model2 }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ steps.context.outputs.pr_number }}
           PR_HEAD_SHA: ${{ steps.context.outputs.pr_head_sha }}
@@ -1427,8 +1468,16 @@ jobs:
           pr_number="${{ steps.context.outputs.pr_number }}"
           if [ -n "$pr_number" ] && [ -f "evaluation-comment.md" ]; then
             if [ -s evaluation.json ]; then
-              python .workflows-lib/tools/verifier_corpus_evidence.py \
-                --evaluation evaluation.json --comment evaluation-comment.md
+              python3 .workflows-lib/tools/verifier_corpus_evidence.py \
+                --evaluation evaluation.json --execution-receipt evaluation-execution.json \
+                --comment evaluation-comment.md || {
+                  echo '::warning::Result admission failed; posting an unavailable-input report'
+                  printf '%s\n' '## LLM Evaluation Report' '' \
+                    '**Verdict:** UNVERIFIABLE_INPUT' '' \
+                    'Result admission could not settle the report.' \
+                    'Retained output requires recovery; no provider retry is authorized.' \
+                    > evaluation-comment.md
+                }
             fi
             gh pr comment "$pr_number" --body-file evaluation-comment.md
           fi
@@ -1482,10 +1531,10 @@ jobs:
       - name: Run multi-provider comparison
         id: llm_compare
         if: >-
-          ${{
+          ${{ inputs.verification_recovery == '' && (
             steps.context.outputs.should_run == 'true' &&
-            inputs.mode == 'compare'
-          }}
+              inputs.mode == 'compare'
+          ) }}
         continue-on-error: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -1527,8 +1576,10 @@ jobs:
           fi
 
           # Run comparison (stderr to separate file to avoid corrupting JSON)
+          comparison_exit=0
           python .workflows-lib/scripts/langchain/pr_verifier.py "${args[@]}" \
-            > comparison.json 2> comparison-stderr.log || true
+            > comparison.json 2> comparison-stderr.log || comparison_exit=$?
+          export COMPARISON_EXIT_CODE="$comparison_exit"
 
           # Display stderr if present (for debugging)
           if [ -f comparison-stderr.log ] && [ -s comparison-stderr.log ]; then
@@ -1538,41 +1589,48 @@ jobs:
           fi
 
           # Parse result
-          if [ -f comparison.json ] && [ -s comparison.json ]; then
+          if [ -f comparison.json ]; then
           python3 - <<'PY' > verdict.txt 2>/dev/null || printf '%s' "UNVERIFIABLE_INPUT" > verdict.txt
+          import hashlib
           import json
-
-          try:
-            with open('comparison.json', encoding='utf-8') as handle:
-              data = json.load(handle)
-          except Exception:
-            data = {}
-
           import os
+          import sys
+          from pathlib import Path
 
-          if os.environ.get('VERIFIER_EVIDENCE_PROFILE') == 'expanded':
-            import sys
-
-            # stdin puts caller cwd before PYTHONPATH. Require and prioritize
-            # the authoritative checkout, including before consumer sync lands.
-            source_root = os.path.abspath('.workflows-lib')
-            if not os.path.isfile(os.path.join(source_root, 'scripts/langchain/pr_verifier.py')):
-              raise ImportError('Authoritative Workflows verifier checkout unavailable')
-            sys.path.insert(0, source_root)
-            from scripts.langchain.pr_verifier import expanded_comparison_verdict
-
-            print(expanded_comparison_verdict(
-              data,
-              model1=os.environ.get('VERIFIER_MODEL') or None,
-              model2=os.environ.get('VERIFIER_MODEL2') or None,
-            ))
-          else:
-            import sys
-            sys.path.insert(0, os.path.abspath('.workflows-lib'))
-            from scripts.langchain.pr_verifier import EvaluationResult, comparison_verdict
-            print(comparison_verdict([
-              EvaluationResult.model_validate(result) for result in data.get('results', [])
-            ]))
+          data = None
+          validation_error_type = None
+          verdict = 'UNVERIFIABLE_INPUT'
+          available = False
+          code = int(os.environ['COMPARISON_EXIT_CODE'])
+          status = 'process_failed' if code else 'invalid_output'
+          raw = Path('comparison.json').read_bytes()
+          if code == 0:
+              try:
+                  source_root = Path('.workflows-lib').resolve()
+                  if not (source_root / 'tools/verifier_corpus_evidence.py').is_file():
+                      raise ImportError('Authoritative Workflows result admission unavailable')
+                  sys.path.insert(0, str(source_root))
+                  from tools.verifier_corpus_evidence import validated_payload
+                  data = json.loads(raw)
+                  _, verdict, available = validated_payload(data, mode='compare')
+                  status = ('completed'
+                            if available and verdict in ('PASS', 'CONCERNS', 'FAIL')
+                            else 'result_unavailable')
+              except Exception as exc:
+                  validation_error_type = type(exc).__name__
+          receipt = {'schema': 'workflows-verifier-comparison-execution/v1',
+                     'mode': 'compare', 'acceptance_authority': False,
+                     'status': status, 'exit_code': code,
+                     'decision_available': status == 'completed',
+                     'verdict': verdict, 'validation_error_type': validation_error_type,
+                     'recoverable': status != 'completed', 'retry_authority': False,
+                     'repository': os.environ.get('GITHUB_REPOSITORY'),
+                     'source_run_id': os.environ.get('GITHUB_RUN_ID'),
+                     'source_run_attempt': os.environ.get('GITHUB_RUN_ATTEMPT'),
+                     'outputs': {'comparison.json': {'sha256': hashlib.sha256(raw).hexdigest(),
+                                                    'bytes': len(raw)}}}
+          Path('comparison-execution.json').write_text(json.dumps(receipt, indent=2) + '\n')
+          print(verdict)
           PY
 
             verdict="$(cat verdict.txt 2>/dev/null || echo UNVERIFIABLE_INPUT)"
@@ -1612,7 +1670,16 @@ jobs:
             has_results="$(cat has_results.txt 2>/dev/null || echo false)"
             echo "has_results=$has_results" >> "$GITHUB_OUTPUT"
 
-            if [ ! -f comparison-comment.md ]; then
+            comparison_status="$(python3 -c \
+              'import json; print(json.load(open("comparison-execution.json"))["status"])')"
+            if [ "$comparison_status" = 'invalid_output' ] || \
+               [ "$comparison_status" = 'process_failed' ]; then
+              printf '%s\n' '## Provider Comparison Report' '' \
+                '**Verdict:** UNVERIFIABLE_INPUT' '' \
+                "Comparison execution status: $comparison_status." \
+                'Retained output requires recovery; no provider retry is authorized.' \
+                > comparison-comment.md
+            elif [ ! -f comparison-comment.md ]; then
               python3 - <<'PY' > comparison-comment.md 2>/dev/null || \
               printf '%s\n' \
                 "## Comparison Report" \
@@ -1638,12 +1705,15 @@ jobs:
             if [ -f comparison-stderr.log ] && [ -s comparison-stderr.log ]; then
               echo "::error::Comparison script failed. Check stderr output above."
             fi
-            echo "verdict=CONCERNS" >> "$GITHUB_OUTPUT"
+            echo "verdict=UNVERIFIABLE_INPUT" >> "$GITHUB_OUTPUT"
             echo "has_results=false" >> "$GITHUB_OUTPUT"
             printf "%s\n" \
               "## Multi-Provider Comparison" \
               "" \
-              "Comparison could not run (missing output)." \
+              "**Verdict:** UNVERIFIABLE_INPUT" \
+              "" \
+              "Comparison output is missing; execution remains uncertain." \
+              "No provider retry is authorized." \
               > comparison-comment.md
           fi
 
@@ -1689,11 +1759,13 @@ jobs:
         id: post_comparison
         if: >-
           ${{
-            steps.context.outputs.should_run == 'true' &&
+            inputs.verification_recovery == '' && steps.context.outputs.should_run == 'true' &&
             always() &&
             inputs.mode == 'compare'
           }}
         env:
+          VERIFIER_MODEL: ${{ inputs.model }}
+          VERIFIER_MODEL2: ${{ inputs.model2 }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ steps.context.outputs.pr_number }}
           PR_HEAD_SHA: ${{ steps.context.outputs.pr_head_sha }}
@@ -1708,20 +1780,80 @@ jobs:
                 > comparison-comment.md
             fi
             if [ -s comparison.json ]; then
-              python .workflows-lib/tools/verifier_corpus_evidence.py \
-                --comparison comparison.json --comment comparison-comment.md || \
-                echo '::warning::Corpus annotation failed; posting the verifier report without it'
+              python3 .workflows-lib/tools/verifier_corpus_evidence.py \
+                --comparison comparison.json --execution-receipt comparison-execution.json \
+                --comment comparison-comment.md || {
+                  echo '::warning::Result admission failed; posting an unavailable-input report'
+                  printf '%s\n' '## Provider Comparison Report' '' \
+                    '**Verdict:** UNVERIFIABLE_INPUT' '' \
+                    'Result admission could not settle the report.' \
+                    'Retained output requires recovery; no provider retry is authorized.' \
+                    > comparison-comment.md
+                }
             fi
             gh pr comment "$verifier_pr" --body-file comparison-comment.md
           fi
+
+      - name: Revalidate authenticated retained output
+        id: retained_recovery
+        if: inputs.verification_recovery != '' && steps.context.outputs.should_run == 'true'
+        env:
+          VERIFIER_MODEL: ${{ inputs.model }}
+          VERIFIER_MODEL2: ${{ inputs.model2 }}
+          VERIFIER_EVIDENCE_PROFILE: ${{ inputs.evidence_profile }}
+          PR_NUMBER: ${{ steps.context.outputs.pr_number }}
+          PR_HEAD_SHA: ${{ steps.context.outputs.pr_head_sha }}
+          EVALUATED_SHA: ${{ steps.context.outputs.target_sha }}
+          CI_FAILED: ${{ steps.context.outputs.ci_failed }}
+        run: |
+          set -euo pipefail
+          python3 .workflows-lib/tools/verifier_event_recovery.py --revalidate-retained
+
+      - name: Publish retained revalidation through verifier lifecycle
+        id: post_recovery
+        if: inputs.verification_recovery != '' && steps.retained_recovery.outcome == 'success'
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          PR_NUMBER: ${{ steps.context.outputs.pr_number }}
+          PR_HEAD_SHA: ${{ steps.context.outputs.pr_head_sha }}
+          EVALUATED_SHA: ${{ steps.context.outputs.target_sha }}
+          CI_FAILED: ${{ steps.context.outputs.ci_failed }}
+        with:
+          script: |
+            core.setOutput('publication_effect','none');
+            const fs = require('fs');
+            const {execFileSync} = require('child_process');
+            const {publishRetainedReport} = require('./.workflows-lib/.github/scripts/verifier_pending_execution.js');
+            const manifest=JSON.parse(fs.readFileSync('verification-event-manifest.json','utf8'));
+            const origin=JSON.parse(fs.readFileSync('verification-recovery-origin.json','utf8'));
+            const stem=manifest.assessment_identity.mode === 'evaluate' ? 'evaluation' : 'comparison';
+            execFileSync('python3',['.workflows-lib/tools/verifier_corpus_evidence.py',`--${stem}`,
+              `${stem}.json`,'--execution-receipt',`${stem}-execution.json`,'--comment',`${stem}-comment.md`],
+              {stdio:'inherit',timeout:15000});
+            const result=await publishRetainedReport({github,manifest,origin,
+              body:fs.readFileSync(`${stem}-comment.md`,'utf8'),currentRun:Number(context.runId),
+              currentAttempt:Number(process.env.GITHUB_RUN_ATTEMPT || 1),
+              onPostAttempt:()=>core.setOutput('publication_effect','uncertain')});
+            core.setOutput('publication_effect','published');
+            core.setOutput('published',String(result.published));
+            core.setOutput('duplicate',String(result.duplicate));
 
       - name: Record verification event terminal
         id: event_terminal
         if: always() && steps.event_pending.outcome == 'success'
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
-          PRODUCTION_REPORT_POSTED: ${{ steps.post_evaluation.outcome == 'success' || steps.post_comparison.outcome == 'success' }}
-          EVALUATOR_STEP_OUTCOME: ${{ inputs.mode == 'evaluate' && steps.llm_evaluate.outcome || steps.llm_compare.outcome }}
+          PR_NUMBER: ${{ steps.context.outputs.pr_number }}
+          PR_HEAD_SHA: ${{ steps.context.outputs.pr_head_sha }}
+          EVALUATED_SHA: ${{ steps.context.outputs.target_sha }}
+          CI_FAILED: ${{ steps.context.outputs.ci_failed }}
+          VERIFIER_MODE: ${{ inputs.mode }}
+          VERIFIER_MODEL: ${{ inputs.model }}
+          VERIFIER_MODEL2: ${{ inputs.model2 }}
+          PRODUCTION_REPORT_POSTED: ${{ steps.post_evaluation.outcome == 'success' || steps.post_comparison.outcome == 'success' || steps.post_recovery.outputs.published == 'true' }}
+          RECOVERY_PUBLICATION_OUTCOME: ${{ steps.post_recovery.outcome }}
+          RECOVERY_PUBLICATION_EFFECT: ${{ steps.post_recovery.outputs.publication_effect }}
+          EVALUATOR_STEP_OUTCOME: ${{ inputs.verification_recovery != '' && steps.retained_recovery.outcome || inputs.mode == 'evaluate' && steps.llm_evaluate.outcome || steps.llm_compare.outcome }}
         with:
           script: |
             const fs = require('fs');
@@ -1729,10 +1861,25 @@ jobs:
             const { withRetry } = await createTokenAwareRetry({ github, core, env: {}, task: 'verifier-event-state' });
             const manifest = JSON.parse(fs.readFileSync('verification-event-manifest.json', 'utf8'));
             const event = manifest.verification_event;
-            const reports = ['evaluation-comment.md', 'comparison-comment.md'].filter(p => fs.existsSync(p));
+            const mode = process.env.VERIFIER_MODE;
+            let admitted = null;
+            try {
+              const { execFileSync } = require('child_process');
+              const stem = mode === 'evaluate' ? 'evaluation' : 'comparison';
+              admitted = JSON.parse(execFileSync('python3', [
+                '.workflows-lib/tools/verifier_corpus_evidence.py', `--${stem}`,
+                `${stem}.json`, '--execution-receipt', `${stem}-execution.json`, '--print-decision',
+              ], { encoding: 'utf8', timeout: 10000 }));
+            } catch (error) {
+              core.warning(`Verification result admission unavailable: ${error.message}`);
+            }
+            const report = mode === 'evaluate' ? 'evaluation-comment.md' : 'comparison-comment.md';
+            const reports = [report].filter(p => fs.existsSync(p));
             const complete = process.env.PRODUCTION_REPORT_POSTED === 'true' && reports.some(p => {
               return [...fs.readFileSync(p, 'utf8').matchAll(/<!-- verifier-corpus-decision\/v1 (\{[^\n]+\}) -->/g)].some(match => {
-                try { const d = JSON.parse(match[1]); return d.verification_event?.event_id === event.event_id; }
+                try { const d = JSON.parse(match[1]); return admitted !== null
+                    && d.verification_event?.event_id === event.event_id
+                    && JSON.stringify(d) === JSON.stringify(admitted); }
                 catch { return false; }
               });
             });
@@ -1747,6 +1894,8 @@ jobs:
                 const parsed = JSON.parse(execFileSync('python3', [
                   '.workflows-lib/tools/verifier_event_recovery.py', '--manifest',
                   'verification-event-manifest.json', '--step-outcome', process.env.EVALUATOR_STEP_OUTCOME || '',
+                  '--publication-outcome', process.env.RECOVERY_PUBLICATION_OUTCOME || '',
+                  '--publication-effect', process.env.RECOVERY_PUBLICATION_EFFECT || '',
                 ], { encoding: 'utf8', timeout: 10000 }));
                 if (['known_no_evaluation', 'recover_existing_evaluation', 'uncertain_execution'].includes(parsed.retry_kind)
                     && parsed.retryable === (parsed.retry_kind === 'known_no_evaluation')
@@ -1775,13 +1924,13 @@ jobs:
         # pre-registered criteria; set the repository variable VERIFIER_SHADOW to `off` to skip.
         # Any failure here is data in verifier-shadow.json, never a failed run.
         if: >-
-          ${{
+          ${{ inputs.verification_recovery == '' && (
             always() &&
-            steps.context.outputs.should_run == 'true' &&
-            inputs.mode == 'compare' &&
-            steps.llm_compare.outputs.has_results == 'true' &&
-            vars.VERIFIER_SHADOW != 'off'
-          }}
+              steps.context.outputs.should_run == 'true' &&
+              inputs.mode == 'compare' &&
+              steps.llm_compare.outputs.has_results == 'true' &&
+              vars.VERIFIER_SHADOW != 'off'
+          ) }}
         continue-on-error: true
         timeout-minutes: 10
         env:
@@ -1813,7 +1962,12 @@ jobs:
         with:
           name: comparison-results-${{ github.run_id }}
           path: |
+            verification-recovery-source.zip
+            verification-recovery-origin.json
+            verification-revalidation-receipt.json
+            retained-source/
             comparison.json
+            comparison-execution.json
             comparison-stderr.log
             comparison-comment.md
             verifier-shadow.json
@@ -1827,7 +1981,9 @@ jobs:
           retention-days: 7
 
       - name: Retain complete verifier input transport
-        if: always() && inputs.evidence_profile == 'expanded' && inputs.mode == 'compare'
+        if: >-
+          always() && ((inputs.evidence_profile == 'expanded' && inputs.mode == 'compare') ||
+          ((inputs.mode == 'evaluate' || inputs.mode == 'compare') && hashFiles('verifier-evidence/*.gz') != ''))
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: verifier-input-capture-${{ github.run_id }}
@@ -1841,6 +1997,10 @@ jobs:
         with:
           name: evaluation-results-${{ github.run_id }}
           path: |
+            verification-recovery-source.zip
+            verification-recovery-origin.json
+            verification-revalidation-receipt.json
+            retained-source/
             evaluation.json
             evaluation-stderr.log
             evaluation-execution.json
@@ -1872,6 +2032,14 @@ jobs:
         if: always() && steps.context.outputs.should_run == 'true'
         env:
           VERIFIER_MODE: ${{ inputs.mode }}
+          PR_NUMBER: ${{ steps.context.outputs.pr_number }}
+          PR_HEAD_SHA: ${{ steps.context.outputs.pr_head_sha }}
+          EVALUATED_SHA: ${{ steps.context.outputs.target_sha }}
+          CI_FAILED: ${{ steps.context.outputs.ci_failed }}
+          VERIFIER_MODEL: ${{ inputs.model }}
+          VERIFIER_MODEL2: ${{ inputs.model2 }}
+          RETAINED_RECOVERY_VERDICT: ${{ steps.retained_recovery.outputs.verdict }}
+          RETAINED_RECOVERY_PUBLISHED: ${{ steps.post_recovery.outputs.published }}
         run: |
           # Combine verdicts from all modes
           checkbox_verdict="${{ steps.verdict.outputs.verdict }}"
@@ -1886,6 +2054,13 @@ jobs:
             final_verdict="${checkbox_verdict:-unknown}"
           fi
 
+          if [ -n "${VERIFICATION_RECOVERY:-}" ]; then
+            final_verdict='UNVERIFIABLE_INPUT'
+            if [ "${RETAINED_RECOVERY_PUBLISHED:-false}" = 'true' ]; then
+              final_verdict="${RETAINED_RECOVERY_VERDICT:-UNVERIFIABLE_INPUT}"
+            fi
+          fi
+
           # CI-failure hard gate (issue #2271): a CI workflow concluding
           # `failure` on the merge commit disqualifies a PASS verdict. Floor
           # the unified verdict at CONCERNS so a merge that breaks main can
@@ -1898,6 +2073,17 @@ jobs:
             echo "::warning::CI concluded failure on the merge commit; " \
               "overriding ${final_verdict} verdict to CONCERNS (issue #2271)."
             final_verdict="concerns"
+          fi
+
+          # A raw step PASS is provisional until the exact retained result and
+          # execution receipt still join. Reuse publication's admission contract.
+          if { [ "$VERIFIER_MODE" = "evaluate" ] || [ "$VERIFIER_MODE" = "compare" ]; } && \
+             [ "$(printf '%s' "$final_verdict" | tr '[:lower:]' '[:upper:]')" = 'PASS' ]; then
+            stem='evaluation'
+            if [ "$VERIFIER_MODE" = 'compare' ]; then stem='comparison'; fi
+            final_verdict="$(python3 .workflows-lib/tools/verifier_corpus_evidence.py \
+              --"$stem" "$stem.json" --execution-receipt "$stem-execution.json" \
+              --print-verdict 2>/dev/null)" || final_verdict='UNVERIFIABLE_INPUT'
           fi
 
           final_verdict="$(printf '%s' "$final_verdict" | tr '[:lower:]-' '[:upper:]_')"
@@ -2070,7 +2256,8 @@ jobs:
           UNIFIED_VERDICT_OUTCOME: ${{ steps.unified_verdict.outcome }}
           CONTEXT_OUTCOME: ${{ steps.context.outcome }}
           VERIFIER_OUTCOME: >-
-            ${{ inputs.mode == 'compare' && steps.llm_compare.outcome ||
+            ${{ inputs.verification_recovery != '' && steps.retained_recovery.outcome ||
+                inputs.mode == 'compare' && steps.llm_compare.outcome ||
                 inputs.mode == 'evaluate' && steps.llm_evaluate.outcome ||
                 steps.verdict.outcome }}
           CI_FAILED: ${{ steps.context.outputs.ci_failed }}
@@ -2228,7 +2415,8 @@ jobs:
           UNIFIED_VERDICT_OUTCOME: ${{ steps.unified_verdict.outcome }}
           CONTEXT_OUTCOME: ${{ steps.context.outcome }}
           VERIFIER_OUTCOME: >-
-            ${{ inputs.mode == 'compare' && steps.llm_compare.outcome ||
+            ${{ inputs.verification_recovery != '' && steps.retained_recovery.outcome ||
+                inputs.mode == 'compare' && steps.llm_compare.outcome ||
                 inputs.mode == 'evaluate' && steps.llm_evaluate.outcome ||
                 steps.verdict.outcome }}
           CI_FAILED: ${{ steps.context.outputs.ci_failed }}

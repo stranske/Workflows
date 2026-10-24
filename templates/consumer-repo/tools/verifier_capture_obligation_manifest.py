@@ -427,8 +427,6 @@ def _verified_full_diff_changed_code(
     expected_records = _full_patch_file_records(full_diff_bytes)
     if expected_records is None:
         return False, ["full_diff_artifact:file_inventory_malformed"]
-    if any(record["binary"] for record in expected_records):
-        return False, []
     if len(changed_records) != len(expected_records):
         return False, ["changed_code:full_patch_record_count_mismatch"]
     expected_by_span = {(item["start"], item["end"]): item for item in expected_records}
@@ -532,6 +530,14 @@ def build_capture_obligation_manifest(
         except (OSError, ValueError) as exc:
             gaps.append(f"artifact_raw_capture:{exc}")
 
+    asset_views = {}
+    if coverage and coverage.get("gzip_asset_sources") and full_diff_bytes is not None:
+        try:
+            from tools.verifier_gzip_assets import review_assets
+
+            asset_views = review_assets(coverage, full_diff_bytes, context=context_text)
+        except (OSError, ValueError, TypeError) as exc:
+            gaps.append(f"gzip_asset_capture:{exc}")
     if not coverage:
         gaps.append("context_source_coverage_missing_or_malformed")
     else:
@@ -541,13 +547,20 @@ def build_capture_obligation_manifest(
             gaps.append("context_source_coverage_stage_unknown")
         changed_records = coverage.get("changed_code_sources")
         full_patch_covers_changed_code = False
+        binary_sources: set[str] = set()
         artifact_for_binary = coverage.get("full_diff_artifact")
         if (
             isinstance(artifact_for_binary, dict)
             and full_diff_bytes is not None
             and _raw_patch_has_binary_section(full_diff_bytes)
         ):
-            gaps.append("changed_code:full_patch_binary_unavailable")
+            binary_records = _full_patch_file_records(full_diff_bytes)
+            if binary_records is not None:
+                binary_sources = {row["source"] for row in binary_records if row["binary"]}
+            if binary_records is None or any(
+                row["binary"] and row["source"] not in asset_views for row in binary_records
+            ):
+                gaps.append("changed_code:full_patch_binary_unavailable")
         if isinstance(changed_records, list) and any(
             isinstance(record, dict)
             and isinstance(record.get("status"), str)
@@ -590,11 +603,14 @@ def build_capture_obligation_manifest(
                     and obligation.status in {"truncated", "omitted"}
                 ):
                     continue
+                if kind == "changed_code" and obligation.source in asset_views:
+                    continue
                 if obligation.status != "included" and (
                     kind != "changed_code"
                     or require_full_changed_code
                     and not (
                         full_patch_covers_changed_code
+                        and obligation.source not in binary_sources
                         and obligation.status in {"truncated", "omitted"}
                     )
                 ):
@@ -673,6 +689,7 @@ def build_capture_obligation_manifest(
         "sufficient": sufficient,
         "gaps": gaps,
         "obligations": [item.to_dict() for item in obligations],
+        **({"binary_evidence_representations": sorted(asset_views)} if asset_views else {}),
         **(
             {
                 "screening_policy": "action-minimum-evaluate/v1",
@@ -810,6 +827,21 @@ def record_capture_obligations(
             manifest["sufficient"] = False
         else:
             raw_inputs.update(artifact_inputs)
+    if diff_bytes is not None:
+        try:
+            from tools.verifier_gzip_assets import captured_inputs
+
+            raw_inputs.update(
+                captured_inputs(
+                    parse_context_source_coverage(captured_text) or {},
+                    Path(capture_dir or "verifier-evidence"),
+                    diff_bytes,
+                    context=captured_text,
+                )
+            )
+        except (OSError, ValueError, TypeError) as exc:
+            manifest["gaps"].append(f"gzip_asset_capture:{exc}")
+            manifest["sufficient"] = False
     byte_inventory = build_capture_byte_inventory(raw_inputs)
     reassembly_contract = build_capture_reassembly_contract(manifest, byte_inventory)
     snapshot_path = context_path.with_name("verifier-input-manifest.json")

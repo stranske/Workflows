@@ -1,5 +1,7 @@
 'use strict';
 
+const { collectGzipAssets } = require('./verifier_gzip_assets');
+
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -14,8 +16,8 @@ const {
 } = require('./issue_scope_parser.js');
 const { queryVerifierCiResults } = require('./verifier_ci_query.js');
 const { resolvePrSourceContext } = require('./source_context.js');
-const { buildVerificationEvent, completedEvent, completedLegacyEvent, guardExistingEvent, assessmentIdentity } = require('./verification_event.js');
-const { executionBinding, reconcilePendingExecution } = require('./verifier_pending_execution.js');
+const { buildVerificationEvent, completedEvent, completedLegacyEvent, guardExistingEvent, assessmentIdentity, parseRecoverySelector, digest } = require('./verification_event.js');
+const { executionBinding, reconcilePendingExecution, acquireRetainedExecution, guardRetainedRecoveryHistory } = require('./verifier_pending_execution.js');
 
 const DEFAULT_BRANCH = process.env.DEFAULT_BRANCH || 'main';
 const DEFAULT_DIFF_SUMMARY_PATH = 'verifier-diff-summary.md';
@@ -737,7 +739,7 @@ async function boundedEvidencePages({ method, params, key, recordLimit, pageLimi
 }
 
 function retainCaptureBytes(directory, digest, suffix, value) {
-  if (!/^[a-f0-9]{64}$/.test(digest) || !['zip', 'txt'].includes(suffix)) {
+  if (!/^[a-f0-9]{64}$/.test(digest) || !['zip', 'txt', 'gz'].includes(suffix)) {
     throw new Error('Invalid digest-addressed capture filename');
   }
   if (createHash('sha256').update(value).digest('hex') !== digest) throw new Error('Capture content hash differs');
@@ -2370,6 +2372,17 @@ async function buildVerifierContext({
     diffMaxChars: diffText.length,
     evidence: verifierEvidence,
   });
+  sourceCoverage.gzip_asset_binding = {repository:`${owner}/${repo}`.toLowerCase(), evaluated_sha:pull.merge_commit_sha};
+  sourceCoverage.gzip_asset_sources = modelEvaluation ? await collectGzipAssets({github,owner,repo,
+    evaluatedSha:pull.merge_commit_sha,diffText,
+    files:parseDiffFiles(diffText,Number.MAX_SAFE_INTEGER).fileSummaries,
+    core,directory:process.env.VERIFIER_EVIDENCE_CAPTURE_DIR || 'verifier-evidence',retain:retainCaptureBytes,
+    material:process.env.VERIFICATION_MATERIAL}) : [];
+  verifierEvidence.gzip_assets = sourceCoverage.gzip_asset_sources;
+  if (!sourceCoverage.gzip_asset_sources.length) {
+    delete sourceCoverage.gzip_asset_sources;
+    delete sourceCoverage.gzip_asset_binding;
+  }
   if (apiDiffFallback) {
     // GitHub may silently truncate individual patches. Even a complete file
     // inventory cannot prove a lossless patch, so withhold PASS on this path.
@@ -2401,8 +2414,10 @@ async function buildVerifierContext({
   };
   // Bind repeats to authoritative source/code bytes collected by this same
   // path. A caller's digest is only an expectation, never evidence authority.
+  const recoverySelector = parseRecoverySelector(process.env.VERIFICATION_RECOVERY);
+  if (recoverySelector && !modelEvaluation) throw new Error('Retained recovery supports evaluate/compare only');
   let verificationManifest = null;
-  const eventRequested = Boolean(process.env.VERIFICATION_EVENT || process.env.VERIFICATION_MATERIAL
+  const eventRequested = Boolean(recoverySelector || process.env.VERIFICATION_EVENT || process.env.VERIFICATION_MATERIAL
     || process.env.VERIFICATION_PREDECESSOR);
   if (modelEvaluation && !invalidOriginalBody && closingIssueDiscovery.status === 'included'
       && !sourceContext.hasAmbiguousIssueSource && !missingIssueSource
@@ -2424,9 +2439,36 @@ async function buildVerifierContext({
       provider:process.env.VERIFIER_PROVIDER || '',model:process.env.VERIFIER_MODEL || '',
       model2:process.env.VERIFIER_MODEL2 || '',canonical:true});
     verificationManifest.execution_binding = executionBinding(mode);
+    let recoveryOrigin;
+    if (recoverySelector) {
+      const recoveryKey = digest({schema:'retained-revalidation-key/v1',
+        event_id:verificationManifest.verification_event.event_id,
+        assessment:verificationManifest.assessment_identity,selector:recoverySelector});
+      const recoveryObservations=[];
+      const state = await guardRetainedRecoveryHistory({github,observations:recoveryObservations,event:verificationManifest.verification_event,
+        assessment:verificationManifest.assessment_identity,comments:verifierEvidence.event_history.records,
+        sourceRun:recoverySelector.run_id,sourceAttempt:recoverySelector.run_attempt,currentRun:Number(context.runId),
+        currentAttempt:Number(process.env.GITHUB_RUN_ATTEMPT || 1),recoveryKey,
+        currentExecution:{run_id:String(context.runId),run_attempt:String(process.env.GITHUB_RUN_ATTEMPT || 1),
+          repo:`${context.repo.owner}/${context.repo.repo}`,workflow_ref:process.env.GITHUB_WORKFLOW_REF || ''}});
+      verificationManifest.recovery_execution_reconciliation=recoveryObservations;
+      if (state === 'duplicate') {
+        core?.setOutput?.('should_run','false');
+        core?.setOutput?.('verification_event_duplicate','true');
+        return {shouldRun:false,reason:'duplicate-retained-revalidation'};
+      }
+      recoveryOrigin = await acquireRetainedExecution({github,event:verificationManifest.verification_event,
+        assessment:verificationManifest.assessment_identity,selector:recoverySelector,currentRun:Number(context.runId)});
+      recoveryOrigin.recovery_key = recoveryKey;
+      fs.writeFileSync('verification-recovery-origin.json',JSON.stringify(recoveryOrigin,null,2)+'\n');
+      verificationManifest.execution_binding = {...verificationManifest.execution_binding,retained_revalidation:true};
+      verificationManifest.retained_revalidation = {schema:'retained-revalidation/v1',
+        recovery_key:recoveryKey,source_run_id:String(recoverySelector.run_id),
+        source_run_attempt:String(recoverySelector.run_attempt),artifact_id:recoverySelector.artifact_id};
+    }
     let retryKnownNoEvaluation;
     try {
-      retryKnownNoEvaluation = guardExistingEvent(verificationManifest.verification_event,
+      retryKnownNoEvaluation = recoverySelector ? true : guardExistingEvent(verificationManifest.verification_event,
         verifierEvidence.event_history.records, verificationManifest.assessment_identity) === 'retry';
     } catch (error) {
       if (error.code !== 'VERIFIER_PENDING_EXECUTION') throw error;
@@ -2550,6 +2592,7 @@ module.exports = {
   formatVerifierEvidence,
   buildContextSourceCoverage,
   summarizeDiff,
+  parseDiffFiles,
   formatDiffForContext,
   fullDiffArtifactBytes,
   fetchLocalGitDiff,

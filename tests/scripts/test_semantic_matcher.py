@@ -117,6 +117,18 @@ def test_embedding_adapter_is_callable_for_faiss_compatibility():
     assert adapter("alpha") == adapter.embed_query("alpha")
 
 
+def test_embedding_adapter_exposes_provider_and_model_properties() -> None:
+    provider = LocalFallbackEmbeddingProvider()
+    adapter = semantic_matcher.EmbeddingAdapter(provider, "local-hash-bow")
+
+    assert adapter.provider is provider
+    assert adapter.model == "local-hash-bow"
+
+
+def test_parse_bool_rejects_unrecognized_values() -> None:
+    assert semantic_matcher._parse_bool("occasionally") is False
+
+
 def test_generate_embeddings_empty_texts():
     """generate_embeddings returns empty result for empty input."""
     result = semantic_matcher.generate_embeddings([])

@@ -6,6 +6,36 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.44.13](https://github.com/stranske/Workflows/compare/v1.44.12...v1.44.13) (2026-10-24)
+
+
+### Bug Fixes
+
+* bind verifier publication to authoritative execution receipts ([#4222](https://github.com/stranske/Workflows/pull/4222)) ([4326fbe](https://github.com/stranske/Workflows/commit/4326fbe7df4cf856cf85e62d023fa17be04ab0b6))
+* recover authenticated retained verifier output without model replay ([#4224](https://github.com/stranske/Workflows/issues/4224)) ([fe6a3d9](https://github.com/stranske/Workflows/commit/fe6a3d9f364c0cd8f0eed6261c320ccfcc9f494c))
+
+## [1.44.12](https://github.com/stranske/Workflows/compare/v1.44.11...v1.44.12) (2026-10-24)
+
+
+### Bug Fixes
+
+* **verifier:** reconcile chunk coverage without losing review findings ([#4220](https://github.com/stranske/Workflows/issues/4220)) ([98583f6](https://github.com/stranske/Workflows/commit/98583f6fc77ac58e1952dc6ecfd68c8e10d2cc8f))
+
+## [1.44.11](https://github.com/stranske/Workflows/compare/v1.44.10...v1.44.11) (2026-10-23)
+
+
+### Bug Fixes
+
+* **verifier:** retain required inputs through comparison and native admission ([#4218](https://github.com/stranske/Workflows/issues/4218)) ([8aec50e](https://github.com/stranske/Workflows/commit/8aec50e35fc47fd13e3706666aad3e642405704a))
+
+## [1.44.10](https://github.com/stranske/Workflows/compare/v1.44.9...v1.44.10) (2026-10-23)
+
+
+### Bug Fixes
+
+* authenticate historical CI baselines without claiming current proof ([#4215](https://github.com/stranske/Workflows/issues/4215)) ([c412a4a](https://github.com/stranske/Workflows/commit/c412a4a418b3356c8e191642e0519595e1290dae))
+* carry repeat verification through material events and retained outcomes ([#4216](https://github.com/stranske/Workflows/issues/4216)) ([d036a65](https://github.com/stranske/Workflows/commit/d036a6523bee0fe82d6e32220851b4952a3fa5ff))
+
 ## [1.44.9](https://github.com/stranske/Workflows/compare/v1.44.8...v1.44.9) (2026-10-23)
 
 

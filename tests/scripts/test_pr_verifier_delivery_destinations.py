@@ -7809,3 +7809,75 @@ def test_bounded_storage_shared_review_destination_preserves_floor(
             comments=missing if channel == "comments" else "present",
             artifacts=missing if channel == "artifacts" else "present",
         ) == ("UNVERIFIABLE_INPUT" if missing == "unavailable" else "CONCERNS")
+
+
+@pytest.mark.parametrize("heading", ["## Acceptance criteria", "### Requirements"])
+@pytest.mark.parametrize("indent", ["", " ", "  ", "   "])
+@pytest.mark.parametrize(
+    "criterion,expected",
+    [
+        ("The PR comment UI must display evidence", set()),
+        ("The reviewer must post evidence in a PR comment", {"comments"}),
+        ("- [ ] Investigate workflow artifact retention", set()),
+    ],
+)
+def test_requirement_sections_preserve_independent_actor_boundaries(
+    heading, indent, criterion, expected
+):
+    requirements = "## Tasks\n- [ ] scoped task detail\n\n" + indent + heading + "\n" + criterion
+    assert verifier._required_evidence_options(requirements) == [expected]
+
+
+def test_requirement_heading_duty_is_retained():
+    assert verifier._required_evidence_options(
+        "### The reviewer must post evidence in a PR comment\n\nDescribe the change."
+    ) == [{"comments"}]
+
+
+def test_separate_sections_conjoin_their_independent_delivery_alternatives():
+    assert {
+        frozenset(option)
+        for option in verifier._required_evidence_options(
+            "## Tasks\nThe reviewer must post evidence in a PR comment or the PR body.\n"
+            "## Acceptance Criteria\nThe reviewer must attach evidence as an artifact."
+        )
+    } == {frozenset({"comments", "artifacts"}), frozenset({"body", "artifacts"})}
+
+
+def test_quoted_markdown_heading_is_not_an_independent_delivery():
+    assert verifier._required_evidence_options(
+        'The parser recognizes "### The reviewer must attach evidence as an artifact\n'
+        'Example only".\n## Requirements\nThe UI must display evidence.'
+    ) == [set()]
+
+
+@pytest.mark.parametrize(
+    "heading",
+    [
+        "Optional evidence",
+        "Evidence (if available)",
+        "Nice-to-have artifacts",
+        "Possibly useful logs",
+        "No evidence required",
+    ],
+)
+@pytest.mark.parametrize("indent", ["", " ", "  ", "   "])
+def test_optional_evidence_heading_scopes_only_its_own_section(heading, indent):
+    section = indent + "## " + heading + "\nUpload a validation artifact."
+    assert verifier._required_evidence_options(section) == [set()]
+    assert verifier._required_evidence_options(
+        section + "\n## Required delivery\nThe reviewer must post evidence in a PR comment."
+    ) == [{"comments"}]
+
+
+def test_not_optional_heading_does_not_waive_explicit_delivery():
+    assert verifier._required_evidence_options(
+        "## Not optional evidence\nThe reviewer must attach evidence as an artifact."
+    ) == [{"artifacts"}]
+
+
+def test_optional_parent_scopes_nested_evidence_until_next_peer():
+    assert verifier._required_evidence_options(
+        "## Optional evidence\n### Logs\nUpload a validation artifact.\n"
+        "## Required delivery\nThe reviewer must post evidence in a PR comment."
+    ) == [{"comments"}]
