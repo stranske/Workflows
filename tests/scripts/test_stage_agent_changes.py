@@ -1,6 +1,9 @@
 """Real index/commit regression for normal and pre-timeout agent staging."""
 
+import os
 import runpy
+import shlex
+import shutil
 import subprocess
 import sys
 import textwrap
@@ -233,6 +236,22 @@ def test_custom_binary_diff_driver_cannot_hide_short_conflict_markers(repo):
     assert index_bytes(repo) == before
 
 
+def test_diff3_base_marker_refuses_without_changing_index(repo):
+    git(repo, "config", "merge.conflictStyle", "diff3")
+    make_conflicts(repo, ["source.py"])
+    path = repo / "source.py"
+    lines = path.read_text().splitlines(keepends=True)
+    path.write_text(
+        "".join(s for s in lines if not s.startswith(("<<<<<<<", "=======", ">>>>>>>")))
+    )
+    assert "|||||||" in path.read_text()
+    before = index_bytes(repo)
+    result = subprocess.run([sys.executable, str(HELPER)], cwd=repo, capture_output=True)
+    assert result.returncode != 0
+    assert b"Unresolved conflict markers" in result.stderr
+    assert index_bytes(repo) == before
+
+
 def test_unmerged_postcondition_refuses_a_silent_staging_noop(repo, monkeypatch):
     make_conflicts(repo, ["source.py"])
     write(repo, "source.py", "resolved\n")
@@ -309,8 +328,96 @@ def test_deletion_and_rename_are_staged(repo):
     assert git(repo, "ls-tree", "--name-only", "HEAD") == b"coverage.xml\nrenamed source.py\n"
 
 
+def run_host_commit_stage(repo, tmp_path_factory, agent):
+    workflow = yaml.safe_load((ROOT / f".github/workflows/reusable-{agent}-run.yml").read_text())
+    script = next(
+        s["run"]
+        for job in workflow["jobs"].values()
+        for s in job.get("steps", [])
+        if s.get("name") == "Commit and push changes"
+    )
+    # Run the real host code through commit, excluding its later push path.
+    end = script.index(
+        "\n", script.index('git commit -m "', script.index("stage_agent_changes.py"))
+    )
+    block = script[:end].replace(".workflows-lib/scripts/stage_agent_changes.py", str(HELPER))
+    block = block.replace("${{ github.repository }}", "owner/repo")
+    tools = tmp_path_factory.mktemp("host-commit-tools")
+    real_git = shutil.which("git")
+    assert real_git
+    wrapper = tools / "git"
+    wrapper.write_text(
+        '#!/bin/sh\ncase "$1" in fetch|push|pull|rebase) exit 99;; esac\n'
+        f'exec {shlex.quote(real_git)} "$@"\n'
+    )
+    wrapper.chmod(0o755)
+    env = {
+        **os.environ,
+        "PATH": str(tools) + os.pathsep + os.environ["PATH"],
+        "GITHUB_OUTPUT": str(tools / "output"),
+        "GITHUB_REPOSITORY": "owner/repo",
+        "MODE": "keepalive",
+        "PR_NUMBER": "1",
+        "PR_REF": git(repo, "branch", "--show-current").decode().strip(),
+        "PUSH_ALLOWED": "true",
+        "PUSH_TOKEN": "not-a-real-token",
+    }
+    return subprocess.run(["bash", "-c", block], cwd=repo, env=env, capture_output=True)
+
+
+@pytest.mark.parametrize("agent", ["codex", "claude", "cursor", "gemini", "muse"])
+@pytest.mark.parametrize("pre_staged", [False, True])
+@pytest.mark.parametrize("name", ["source.py", "agents/test.md"])
+def test_host_commit_stage_records_an_empty_tree_merge(
+    repo, tmp_path_factory, agent, pre_staged, name
+):
+    make_conflicts(repo, [name])
+    tree = git(repo, "rev-parse", "HEAD^{tree}")
+    write(repo, name, "ours\n")
+    if pre_staged:
+        stage(repo)
+        assert git(repo, "status", "--porcelain") == b""
+    result = run_host_commit_stage(repo, tmp_path_factory, agent)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert len(git(repo, "rev-list", "--parents", "-n1", "HEAD").split()) == 3
+    assert git(repo, "rev-parse", "HEAD^{tree}") == tree
+    assert not (repo / ".git/MERGE_HEAD").exists()
+
+
+def test_muse_bootstrap_only_skip_remains_outside_merges(repo, tmp_path_factory):
+    write(repo, "agents/test.md", "baseline\n")
+    git(repo, "add", "agents/test.md")
+    git(repo, "commit", "-qm", "bootstrap baseline")
+    before = git(repo, "rev-parse", "HEAD")
+    write(repo, "agents/test.md", "ordinary bootstrap noise\n")
+    result = run_host_commit_stage(repo, tmp_path_factory, "muse")
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert b"skipping commit to reduce noise" in result.stdout
+    assert git(repo, "rev-parse", "HEAD") == before
+
+
+@pytest.mark.parametrize("pre_staged", [False, True])
+def test_codex_checkpoint_records_an_empty_tree_merge(repo, pre_staged):
+    make_conflicts(repo, ["source.py"])
+    tree = git(repo, "rev-parse", "HEAD^{tree}")
+    write(repo, "source.py", "ours\n")
+    if pre_staged:
+        stage(repo)
+    text = (ROOT / ".github/workflows/reusable-codex-run.yml").read_text()
+    start = text.index('              if [ "$CHANGED" -gt 0 ] || [ "$UNPUSHED" -gt 0 ]')
+    end = text.index("                # Rebase onto remote before pushing", start)
+    block = textwrap.dedent(text[start:end]) + "\nfi\n"
+    block = block.replace(".workflows-lib/scripts/stage_agent_changes.py", str(HELPER))
+    env = {**os.environ, "CHANGED": "0" if pre_staged else "1", "UNPUSHED": "0"}
+    result = subprocess.run(["bash", "-c", block], cwd=repo, env=env, capture_output=True)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert len(git(repo, "rev-list", "--parents", "-n1", "HEAD").split()) == 3
+    assert git(repo, "rev-parse", "HEAD^{tree}") == tree
+    assert not (repo / ".git/MERGE_HEAD").exists()
+
+
 def test_every_runner_calls_shared_contract_and_checkout_includes_scripts():
-    for agent in ("codex", "claude", "cursor", "gemini"):
+    for agent in ("codex", "claude", "cursor", "gemini", "muse"):
         p = ROOT / f".github/workflows/reusable-{agent}-run.yml"
         text = p.read_text()
         yaml.safe_load(text)
@@ -323,4 +430,5 @@ def test_every_runner_calls_shared_contract_and_checkout_includes_scripts():
     action = (ROOT / ".github/actions/agent-run-base/action.yml").read_text()
     assert "          scripts\n" in action
     codex = (ROOT / ".github/workflows/reusable-codex-run.yml").read_text()
-    assert "! git diff --cached --quiet; then\n                    git commit" in codex
+    assert "{ ! git diff --cached --quiet ||" in codex
+    assert "git rev-parse -q --verify MERGE_HEAD >/dev/null; }; then" in codex

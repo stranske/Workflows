@@ -213,6 +213,10 @@ consumer-local helper or separately synced exclusion list is unnecessary.
   working file, which is insufficient evidence of a resolution.
   Marker scanning honors `conflict-marker-size` independently of Git's diff
   output; named binary diff drivers are refused as well.
+- Host commit stages and the Codex checkpoint treat an active `MERGE_HEAD` as
+  committable work even when the resolved tree matches HEAD. Empty-diff,
+  zero-change and bootstrap-only exits apply only outside a merge; ordinary
+  artifact-only rounds still create no commit.
 - Treat helper failure as a staging failure. Do not fall back to unrestricted
   staging. New runtime outputs should normally be written under `RUNNER_TEMP`
   and uploaded from there instead of extending the exclusion contract.
