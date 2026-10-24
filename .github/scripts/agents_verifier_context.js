@@ -777,14 +777,23 @@ function extractArtifactArchiveText({ archiveBuffer, maxEntries, maxChars, maxBy
     const members = occurrences.slice(0, 4096).map(({ name, occurrence, safe }) => {
       const withinBound = safe && eligibleIndex++ < maxEntries;
       return { name, occurrence,
-        status: !safe ? 'unsupported' : counts.get(name) > 1 ? 'duplicate'
+        status: counts.get(name) > 1 ? 'duplicate' : !safe ? 'unsupported'
           : !withinBound ? 'entry_bound' : 'pending' };
     });
     let remaining = maxChars;
     let remainingBytes = maxBytes;
     const failures = [];
     if (entries.length > selected.length) failures.push("entry");
-    if (filteredPayloadEntries.length) failures.push("unsupported_payload");
+    // Distinguish unavailable image rendering from unsafe/unknown archive members.
+    // Required media still forms a gap; only action-optional channels may omit it.
+    const unrenderableMedia = occurrences.filter(({ name, safe }) => !safe
+      && name === name.trim() && !name.startsWith('-') && !name.startsWith('/')
+      && !/^[A-Za-z]:/.test(name) && !name.includes('^')
+      && !/[\u0000-\u001f\u007f*?\[\]\\]/.test(name)
+      && !name.split('/').some(part => part === '..' || part === '.')
+      && /\.(?:png|jpe?g|gif|webp)$/i.test(name));
+    if (unrenderableMedia.length) failures.push('unrenderable_media');
+    if (filteredPayloadEntries.length > unrenderableMedia.length) failures.push('unsupported_payload');
     if (members.length < occurrences.length) failures.push('member_inventory');
     if (members.some(member => member.status === 'duplicate')) failures.push('duplicate_member');
     const parts = [];

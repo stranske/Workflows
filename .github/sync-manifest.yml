@@ -893,7 +893,7 @@ scripts:
     template_sync: exact
 
   - source: tools/verifier_capture_obligation_manifest.py
-    description: "Capture obligation inventory and context-bound verifier input snapshot emission"
+    description: "Capture obligations and context-bound snapshots; optional typed unrenderable media is availability, required media and integrity failures remain blocking"
     template_sync: exact
 
   - source: tools/verifier_semantic_acceptance.py

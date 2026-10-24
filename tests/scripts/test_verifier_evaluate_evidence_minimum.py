@@ -614,3 +614,49 @@ def test_complete_body_proof_outgrows_optional_budget_without_requiring_old_arch
     assert client.root_client.responses.input_tokens.count.call_args.kwargs["input"] == [
         {"role": "user", "content": prompt}
     ]
+
+
+def test_optional_unsupported_screenshots_do_not_block_complete_required_proof(monkeypatch):
+    context, diff = capture(
+        "Evidence must be posted in a PR comment.", failure="unrenderable_media"
+    )
+    result, client = run_evaluate(monkeypatch, context, diff, "CONCERNS")
+    assert result.used_llm is True
+    assert result.verdict == "CONCERNS"
+    assert client.invoke.call_count == 1
+    receipt = verifier._preflight_input_capacity(
+        client, client.invoke.call_args.args[0], context=context, diff=diff, operation="evaluate_pr"
+    )
+    assert receipt["capture_obligations"]["sufficient"] is True
+    assert receipt["capture_obligations"]["capture_complete"] is False
+    strict = verifier.build_capture_obligation_manifest(context, full_diff_bytes=diff.encode())
+    assert strict["sufficient"] is False
+    assert strict["gaps"]
+
+
+def test_required_unsupported_screenshots_remain_missing_evidence(monkeypatch):
+    context, diff = capture(
+        "Screenshot evidence must be uploaded as a workflow artifact.",
+        failure="unrenderable_media",
+    )
+    result, client = run_evaluate(monkeypatch, context, diff)
+    assert result.used_llm is False
+    assert result.verdict == "UNVERIFIABLE_INPUT"
+    client.invoke.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "integrity",
+    ["archive_integrity", "wrong_revision", "unknown", "unsupported_payload", "duplicate_member"],
+)
+def test_optional_binary_failure_does_not_mask_integrity_failure(monkeypatch, integrity):
+    context, diff = capture(failure="unrenderable_media")
+    context = replace_inventory(
+        context,
+        lambda inv: inv["acceptance_evidence_sources"][1].update(
+            failure_kinds=["unrenderable_media", integrity]
+        ),
+    )
+    result, client = run_evaluate(monkeypatch, context, diff)
+    assert result.verdict == "UNVERIFIABLE_INPUT"
+    client.invoke.assert_not_called()
