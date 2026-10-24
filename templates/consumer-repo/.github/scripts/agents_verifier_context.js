@@ -930,9 +930,14 @@ async function fetchRequiredConversationComments({ github, owner, repo, pullNumb
       if (!github?.rest?.issues?.getComment) throw new Error('required_comment_API_unavailable');
       const response = await github.rest.issues.getComment({ owner: match[1], repo: match[2], comment_id: commentId });
       const comment = response?.data;
-      const issueUrl = `https://api.github.com/repos/${match[1]}/${match[2]}/issues/${match[4]}`;
+      // Validate REST provenance against the already-bound public thread. This
+      // constructs no request URL; all retrieval uses the wrapped client above.
+      const issueUrl = new URL(comment?.issue_url || 'invalid:');
+      const expectedApiHost = `api.${new URL(url).hostname}`;
       if (!comment || comment.id !== commentId || String(comment.html_url || '').toLowerCase() !== url.toLowerCase()
-          || String(comment.issue_url || '').toLowerCase() !== issueUrl.toLowerCase()
+          || issueUrl.protocol !== 'https:' || issueUrl.hostname !== expectedApiHost
+          || issueUrl.pathname.toLowerCase() !== `/repos/${match[1]}/${match[2]}/issues/${match[4]}`.toLowerCase()
+          || issueUrl.port || issueUrl.username || issueUrl.password || issueUrl.search || issueUrl.hash
           || typeof comment.body !== 'string' || typeof comment.user?.login !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9-]*(?:\[bot\])?$/.test(comment.user.login)
           || !Number.isSafeInteger(comment.user.id) || comment.user.id < 1
           || typeof comment.created_at !== 'string' || typeof comment.updated_at !== 'string'
