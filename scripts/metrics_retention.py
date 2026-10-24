@@ -280,8 +280,7 @@ def apply_retention_to_file(
 
     if dry_run:
         stats.bytes_after = stats.bytes_before
-        if temp_path.exists():
-            temp_path.unlink()
+        # A dry run writes nothing, so it must not delete a leftover temporary file either.
         return stats
 
     if changed:
