@@ -2,6 +2,7 @@
   "stranske/Counter_Risk": {
     "distance": 0,
     "drainable_in": 6,
+    "issue_numbers": [],
     "longest_job": {
       "minutes": 20.766666666666666,
       "name": "Python CI / python 3.12",
@@ -21,6 +22,7 @@
   "stranske/Deliverable-Render": {
     "distance": 0,
     "drainable_in": 6,
+    "issue_numbers": [],
     "longest_job": {
       "minutes": 0.75,
       "name": "python ci / python 3.12",
@@ -40,6 +42,7 @@
   "stranske/Doc-Lineage": {
     "distance": 0,
     "drainable_in": 6,
+    "issue_numbers": [],
     "longest_job": {
       "minutes": 1.5833333333333333,
       "name": "python ci / python 3.12",
@@ -59,6 +62,7 @@
   "stranske/Fine-Art-Archive": {
     "distance": 0,
     "drainable_in": 6,
+    "issue_numbers": [],
     "longest_job": {
       "minutes": 4.433333333333334,
       "name": "Python CI / python 3.12",
@@ -78,6 +82,7 @@
   "stranske/Inv-Man-Intake": {
     "distance": 0,
     "drainable_in": 6,
+    "issue_numbers": [],
     "longest_job": {
       "minutes": 1.9333333333333333,
       "name": "Python CI / python 3.13",
@@ -97,6 +102,7 @@
   "stranske/Manager-Database": {
     "distance": 0,
     "drainable_in": 6,
+    "issue_numbers": [],
     "longest_job": {
       "minutes": 5.116666666666666,
       "name": "Python CI / python 3.12",
@@ -116,6 +122,7 @@
   "stranske/Manager-Mosaic": {
     "distance": 0,
     "drainable_in": 6,
+    "issue_numbers": [],
     "longest_job": {
       "minutes": 0.7833333333333333,
       "name": "summary",
@@ -135,6 +142,7 @@
   "stranske/Orchestrator": {
     "distance": 0,
     "drainable_in": 6,
+    "issue_numbers": [],
     "longest_job": {
       "minutes": 23.35,
       "name": "python ci / python 3.12",
@@ -154,6 +162,7 @@
   "stranske/Pension-Data": {
     "distance": 0,
     "drainable_in": 6,
+    "issue_numbers": [],
     "longest_job": {
       "minutes": 2.0,
       "name": "Python CI / python 3.12",
@@ -173,6 +182,7 @@
   "stranske/Portable-Alpha-Extension-Model": {
     "distance": 0,
     "drainable_in": 6,
+    "issue_numbers": [],
     "longest_job": {
       "minutes": 4.783333333333333,
       "name": "Python CI / python 3.12",
@@ -192,6 +202,7 @@
   "stranske/Ready": {
     "distance": 0,
     "drainable_in": 6,
+    "issue_numbers": [],
     "longest_job": {
       "minutes": 7.466666666666667,
       "name": "Python CI / python 3.12",
@@ -211,6 +222,7 @@
   "stranske/Template": {
     "distance": 0,
     "drainable_in": 6,
+    "issue_numbers": [],
     "longest_job": {
       "minutes": 0.7666666666666667,
       "name": "python ci / python 3.13",
@@ -230,6 +242,7 @@
   "stranske/Travel-Plan-Permission": {
     "distance": 0,
     "drainable_in": 6,
+    "issue_numbers": [],
     "longest_job": {
       "minutes": 4.25,
       "name": "Python CI / python 3.12",
@@ -249,7 +262,14 @@
   "stranske/Trend_Model_Project": {
     "distance": 0.040000000000000036,
     "drainable_in": 7,
+    "filed_under_24h": true,
+    "filing_latency_hours": 0.8502777777777778,
     "first_over_target_at": "2026-10-24T11:41:18+00:00",
+    "issue_filed_at": "2026-10-24T12:32:19Z",
+    "issue_numbers": [
+      6124
+    ],
+    "issue_updated_on": "2026-10-24",
     "longest_job": {
       "minutes": 11.416666666666666,
       "name": "Python CI / python 3.13",
@@ -269,6 +289,7 @@
   "stranske/Workflows": {
     "distance": 0,
     "drainable_in": 6,
+    "issue_numbers": [],
     "longest_job": {
       "minutes": 60.13333333333333,
       "name": "python ci / python 3.12",
@@ -288,6 +309,7 @@
   "stranske/learning-management-system": {
     "distance": 0,
     "drainable_in": 6,
+    "issue_numbers": [],
     "longest_job": {
       "minutes": 7.433333333333334,
       "name": "Python CI / python 3.12",
@@ -307,6 +329,7 @@
   "stranske/trip-planner": {
     "distance": 0,
     "drainable_in": 6,
+    "issue_numbers": [],
     "longest_job": {
       "minutes": 5.183333333333334,
       "name": "Python CI / python 3.12",
