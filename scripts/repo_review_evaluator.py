@@ -2301,6 +2301,25 @@ def readiness_summary(state: dict[str, Any]) -> str:
     )
 
 
+NO_NEW_WORK_MIN_CHARS = 200
+
+
+def substantive_no_new_work(entries: Any) -> list[dict[str, Any]]:
+    """Round-2 no-new-work justifications that count: a dict that reports no candidates and
+    carries at least NO_NEW_WORK_MIN_CHARS characters of justification.
+
+    Every place that says two agents reached "no new work" (the recommendation, the packet
+    section, the packet's count and the brief's evidence check) uses this one rule.
+    """
+    return [
+        entry
+        for entry in (entries if isinstance(entries, list) else [])
+        if isinstance(entry, dict)
+        and entry.get("candidate_count") == 0
+        and len(str(entry.get("justification") or "").strip()) >= NO_NEW_WORK_MIN_CHARS
+    ]
+
+
 def issue_set_recommendation(state: dict[str, Any]) -> str:
     execution = state["review_execution"]
     if execution["gap_count"] > 0:
@@ -2313,13 +2332,13 @@ def issue_set_recommendation(state: dict[str, Any]) -> str:
         per_instance = converged.get("converged_candidates") or []
         meta = converged.get("meta_candidate")
         deadlocks = converged.get("deadlocked_candidates") or []
-        no_new_work = converged.get("no_new_work_justifications") or []
+        no_new_work = substantive_no_new_work(converged.get("no_new_work_justifications"))
         if not per_instance and not meta:
             # Both agents independently produced 0 candidates with substantive
             # no-new-work justifications. Review is complete; conclusion is
             # "no new gaps." Surface both agents' justifications for human
             # spot-check before accepting no-new-issues.
-            if isinstance(no_new_work, list) and len(no_new_work) >= 2:
+            if len(no_new_work) >= 2:
                 return (
                     f"Round-2 negotiation produced 0 converged candidates. Both agents "
                     f"({', '.join(str(j.get('agent', '?')) for j in no_new_work)}) wrote "
@@ -2413,12 +2432,7 @@ def review_summary_quality_errors(brief: dict[str, Any]) -> list[str]:
     has_dual_no_new_work = (
         isinstance(no_new_work, list)
         and len(no_new_work) >= 2
-        and all(
-            isinstance(entry, dict)
-            and entry.get("candidate_count") == 0
-            and len(str(entry.get("justification") or "").strip()) >= 200
-            for entry in no_new_work
-        )
+        and len(substantive_no_new_work(no_new_work)) == len(no_new_work)
     )
     if not traces and not has_dual_no_new_work:
         errors.append("missing review evidence traces")
@@ -2608,13 +2622,7 @@ def no_new_work_justifications_section(state: dict[str, Any]) -> list[str]:
     converged = state.get("round2_converged") or {}
     if (converged.get("converged_candidates") or []) or converged.get("meta_candidate"):
         return []
-    justifications = [
-        j
-        for j in (converged.get("no_new_work_justifications") or [])
-        if isinstance(j, dict)
-        and j.get("candidate_count") == 0
-        and len(str(j.get("justification") or "").strip()) >= 200
-    ]
+    justifications = substantive_no_new_work(converged.get("no_new_work_justifications"))
     if len(justifications) < 2:
         return []
     lines: list[str] = [
@@ -4173,7 +4181,7 @@ def write_packet(
                     if (state.get("round2_converged") or {}).get("deadlocked_meta")
                     else ""
                 ),
-                f"- Round 2 dual no-new-work justifications: `{sum(1 for j in ((state.get('round2_converged') or {}).get('no_new_work_justifications') or []) if isinstance(j, dict) and j.get('candidate_count') == 0 and str(j.get('justification') or '').strip())}`",
+                f"- Round 2 dual no-new-work justifications: `{len(substantive_no_new_work((state.get('round2_converged') or {}).get('no_new_work_justifications')))}`",
                 f"- Archive progress entries (dedup-only): `{state.get('archive_progress_count', 0)}`",
                 f"- Remote open GitHub issues: `{state['remote_open_issue_count'] if state['remote_open_issue_count'] is not None else 'unknown'}`",
                 f"- Recent merged PRs (last {state.get('remote_progress', {}).get('lookback_days', 30)}d): `{len((state.get('remote_progress') or {}).get('recent_merged_prs') or [])}`",
