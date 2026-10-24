@@ -95,7 +95,7 @@ def _sha(raw: bytes) -> str:
 
 
 def _canonical(value: Any) -> bytes:
-    return json.dumps(value, sort_keys=True, separators=(",", ":")).encode()
+    return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
 
 
 def revalidate_retained(*, directory: Path) -> dict[str, Any]:
@@ -297,7 +297,20 @@ def revalidate_retained(*, directory: Path) -> dict[str, Any]:
     # marker or model-authored top-level claim as current authority.
     report = f"## Retained {stem} revalidation\n\n**Verdict:** {verdict}\n\n"
     report += "Authenticated retained output revalidated; no provider was invoked again.\n\n"
-    report += "\n\n".join(html.escape(str(row.get("summary") or "")) for row in rows)
+    for row in rows:
+        if len(rows) > 1:
+            report += f"### {html.escape(str(row.get('provider_used') or 'Reviewer'))}\n\n"
+        verifier = authoritative_verifier()
+        reviewed = verifier.EvaluationResult.model_validate(row, strict=True)
+        report += html.escape(verifier._review_count(reviewed)) + "\n\n"
+        if row.get("summary"):
+            report += html.escape(str(row["summary"])) + "\n\n"
+        if row.get("concerns"):
+            report += "### Concerns\n\n"
+            report += "\n".join(
+                f"- {html.escape(str(concern))}" for concern in row["concerns"] if concern
+            )
+            report += "\n\n"
     (directory / f"{stem}-comment.md").write_text(report + "\n")
     (directory / "verification-revalidation-receipt.json").write_text(
         json.dumps(receipt, indent=2) + "\n"

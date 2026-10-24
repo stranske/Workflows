@@ -15,7 +15,7 @@ from tools.verifier_event_recovery import revalidate_retained, verify_revalidati
 
 
 def encoded(value):
-    return json.dumps(value, sort_keys=True, separators=(",", ":")).encode()
+    return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
 
 
 def sha(raw):
@@ -426,3 +426,65 @@ def test_actual_comparison_receipt_shape_joins_complete_authenticated_archive(
     assert result["verdict"] == "PASS"
     retained = tmp_path / "retained-source" / origin["archive_sha256"]
     assert (retained / f"{stem}-execution.json").read_bytes() == blobs[f"{stem}-execution.json"]
+
+
+def test_unicode_required_material_uses_the_actual_collector_canonical_digest(
+    tmp_path, monkeypatch
+):
+    import subprocess
+
+    origin, blobs, _ = setup_case(tmp_path, monkeypatch)
+    manifest = json.loads(blobs["verification-event-manifest.json"])
+    material = manifest["material"]
+    material["required_evidence"] = [
+        {
+            "kind": "artifact_member",
+            "run_id": 5,
+            "artifact_id": 6,
+            "path": "résumé-評価.txt",
+            "raw_sha256": "a" * 64,
+        }
+    ]
+    root = Path(__file__).resolve().parents[2]
+    js = "const fs=require('fs'); const {digest}=require('./.github/scripts/verification_event.js'); process.stdout.write(digest(JSON.parse(fs.readFileSync(0,'utf8'))));"
+    material_sha = subprocess.check_output(
+        ["node", "-e", js], input=json.dumps(material), cwd=root, text=True
+    )
+    event = manifest["verification_event"]
+    event["material_sha256"] = material_sha
+    event.pop("event_id")
+    event["event_id"] = sha(encoded(event))
+    origin["verification_event"] = event
+    blobs["verification-event-manifest.json"] = encoded(manifest)
+    (tmp_path / "verification-event-manifest.json").write_bytes(encoded(manifest))
+    write_archive(tmp_path, origin, blobs)
+    result = revalidate_retained(directory=tmp_path)
+    assert result["verdict"] == "PASS"
+
+
+@pytest.mark.parametrize("verdict", ["CONCERNS", "FAIL"])
+def test_recovered_report_keeps_actionable_findings_without_summary(tmp_path, monkeypatch, verdict):
+    origin, blobs, stem = setup_case(tmp_path, monkeypatch)
+    payload = json.loads(blobs[f"{stem}.json"])
+    payload.update(
+        verdict=verdict,
+        summary=None,
+        concerns=["Repair the login timeout", "Retain proof <without forging markers>"],
+        input_coverage={"files_total": 13, "files_complete": 13},
+    )
+    raw = encoded(payload)
+    blobs[f"{stem}.json"] = raw
+    receipt = json.loads(blobs[f"{stem}-execution.json"])
+    receipt["outputs"][f"{stem}.json"].update(sha256=sha(raw), bytes=len(raw))
+    blobs[f"{stem}-execution.json"] = encoded(receipt)
+    write_archive(tmp_path, origin, blobs)
+    result = revalidate_retained(directory=tmp_path)
+    assert result["verdict"] == verdict
+    report = (tmp_path / f"{stem}-comment.md").read_text()
+    assert f"**Verdict:** {verdict}" in report
+    assert "files reviewed 13 of 13" in report
+    assert "- Repair the login timeout" in report
+    assert "- Retain proof &lt;without forging markers&gt;" in report
+    assert (
+        tmp_path / "retained-source" / origin["archive_sha256"] / f"{stem}.json"
+    ).read_bytes() == raw
