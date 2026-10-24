@@ -168,3 +168,11 @@ consume that receipt. A later applicable assessment prevents stale publication;
 exact duplicate recovery and uncertain comment writes are reconciled by
 identity before another publication. Recovery does not rewrite an event's
 predecessor or turn old advisory output into current acceptance authority.
+
+Recovery lifecycle states carry the stable recovery key. A failed read or validation
+can retry only when the publisher was skipped or positively remained before its POST.
+A lost terminal state uses the existing Actions execution reconciler to prove that
+publication never started; different attempts of the same run remain distinct.
+An uncertain POST stays fenced unless an admitted matching public report is observed.
+If that report's lifecycle was interrupted, fresh provider-free revalidation can
+complete it while retaining the original records; an already-completed key is deduplicated.

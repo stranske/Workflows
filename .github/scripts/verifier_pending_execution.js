@@ -15,7 +15,9 @@ async function reconcilePendingExecution({github,event,assessment,state,maxPages
     existing_execution:{repo:event.repo,run_id:String(state?.run_id || ''),run_attempt:String(state?.run_attempt || '')}});
   try {
     const actual = validateEvent(state.verification_event);
-    const binding = executionBinding(assessment.mode);
+    const retained = state.execution_binding?.retained_revalidation === true;
+    const binding = {...executionBinding(assessment.mode), ...(retained ? {retained_revalidation:true} : {})};
+    if(retained && (!state.retained_revalidation?.recovery_key || state.retained_revalidation.schema!=='retained-revalidation/v1')) return unknown('recovery_identity_unavailable');
     if (state.schema !== 'verifier-event-state/v1' || state.status !== 'pending'
         || actual.event_id !== event.event_id || !sameAssessment(state.assessment_identity,assessment)
         || ['repo','pr','head_sha','evaluated_sha'].some(key => state[key] !== event[key])
@@ -94,7 +96,7 @@ async function reconcilePendingExecution({github,event,assessment,state,maxPages
         return unknown('prior_evaluator_step_evidence_unavailable');
       }
       const allEvaluatorSteps = jobs.flatMap(item => Array.isArray(item.steps) ? item.steps : [])
-        .filter(step => ['Run LLM evaluation','Run multi-provider comparison'].includes(step.name));
+        .filter(step => (retained ? ['Run LLM evaluation','Run multi-provider comparison','Run verifier (checkbox mode)','Shadow candidate verifier judges (recorded only; never posted, never counted)'] : ['Run LLM evaluation','Run multi-provider comparison']).includes(step.name));
       const notStarted = step => step.status === 'completed' && step.conclusion === 'skipped'
         || current && ['queued','pending'].includes(step.status) && step.conclusion == null
           && step.started_at == null && step.completed_at == null;
@@ -106,7 +108,17 @@ async function reconcilePendingExecution({github,event,assessment,state,maxPages
           ? ['evaluation.json','evaluation-execution.json'] : ['comparison.json'];
         return result;
       }
-      observations.push({run,jobs,job,pending,evaluator,current});
+      let publication;
+      if(retained) {
+        const publishers=job.steps.filter(step=>step.name==='Publish retained revalidation through verifier lifecycle');
+        const ownPrePost=current && currentExecution?.phase==='pre_publication'
+          && publishers[0]?.status==='in_progress' && publishers[0].conclusion==null;
+        if(publishers.length!==1 || !Number.isSafeInteger(publishers[0].number)
+            || !evaluator[0] || publishers[0].number<=evaluator[0].number
+            || !(notStarted(publishers[0]) || ownPrePost)) return unknown('prior_recovery_publication_may_have_started');
+        publication=publishers[0];
+      }
+      observations.push({run,jobs,job,pending,evaluator,current,publication});
     }
     for (const item of observations) {
       const refreshed = await readAttempt(item.run.run_attempt);
@@ -129,6 +141,7 @@ async function reconcilePendingExecution({github,event,assessment,state,maxPages
         run_head_sha:item.run.head_sha,workflow_path:binding.workflow_path,job_id:item.job.id,
         ...(item.current ? {current_execution:true} : {evaluator_step_number:item.evaluator[0].number,
           evaluator_step:binding.evaluator_step,conclusion:'skipped'}),jobs_sha256:digest(item.jobs)}))};
+    if(retained) Object.assign(proof,{recovery_key:state.retained_revalidation.recovery_key,publication_step:'Publish retained revalidation through verifier lifecycle',publication_conclusion:'skipped',publication_step_number:observations[0].publication.number});
     return {retry_kind:'known_no_evaluation',retryable:true,failure_cause:'authoritative_evaluator_step_skipped',proof};
   } catch { return unknown('prior_execution_reconciliation_unavailable'); }
 }
@@ -239,10 +252,10 @@ async function acquireRetainedExecution({github,event,assessment,selector,curren
 }
 
 
-function guardRecoveryHistory({event,assessment,comments,sourceRun,sourceAttempt=1,currentRun,recoveryKey}) {
+function guardRecoveryHistory({event,assessment,comments,sourceRun,sourceAttempt=1,currentRun,currentAttempt=1,recoveryKey,reconciled=[]}) {
   validateEvent(event);
   const prefix=`https://github.com/${event.repo}/pull/${event.pr}#issuecomment-`;
-  const newer=[];
+  const candidates=[];
   for(const comment of comments) {
     if(!['github-actions','github-actions[bot]'].includes(comment.author)
         || !String(comment.url).toLowerCase().startsWith(prefix)) continue;
@@ -264,21 +277,80 @@ function guardRecoveryHistory({event,assessment,comments,sourceRun,sourceAttempt
             || !sameAssessment(row.assessment_identity,row.assessment_identity)
             || ['repo','pr','head_sha','evaluated_sha'].some(key=>actual[key]!==event[key])) throw new Error('Malformed target assessment');
       } catch {throw new Error('Recovery target has malformed authenticated assessment history');}
-      if(run===currentRun) continue;
-      if(actual.event_id===event.event_id && sameAssessment(row.assessment_identity,assessment)
-          && row.retained_revalidation?.recovery_key===recoveryKey && row.schema==='verifier-corpus-decision/v1'
-          && completedEvent(event,[comment],assessment)) return 'duplicate';
-      // A later assessment (including pending/incomplete) can change current
-      // applicability. Never use a newer publication run to outvote that work.
-      newer.push(row);
+      if(run===currentRun && attempt===currentAttempt) continue;
+      candidates.push({row,actual,comment});
     }
   }
-  if(newer.length) throw new Error('Retained recovery is superseded by a newer authenticated assessment');
+  const identity=row=>`${row.run_id}:${row.run_attempt}`;
+  const sameRecovery=row=>row.verification_event.event_id===event.event_id && sameAssessment(row.assessment_identity,assessment)
+    && row.retained_revalidation?.recovery_key===recoveryKey;
+  const noPost=row=>sameRecovery(row) && row.schema==='verifier-event-state/v1' && row.status==='incomplete'
+    && row.retry_kind==='known_no_evaluation' && row.retryable===true
+    && row.failure_cause==='retained_revalidation_before_publication'
+    && row.retained_revalidation.provider_generation_performed===false
+    && row.retained_revalidation.publication_effect==='none';
+  const completeRecovery=entry=>sameRecovery(entry.row) && entry.row.schema==='verifier-corpus-decision/v1'
+    && completedEvent(event,[entry.comment],assessment);
+  const admitted=entry=>entry.row.result_admission?.schema==='verifier-result-admission/v1'
+    && entry.row.result_admission.mode===assessment.mode
+    && ['payload_sha256','execution_receipt_sha256'].every(key=>/^[0-9a-f]{64}$/.test(entry.row.result_admission[key] || ''))
+    && entry.row.retained_revalidation.provider_generation_performed===false;
+  // A positively observed admitted report settles a lost publication response.
+  // If its lifecycle was left incomplete, a fresh revalidation may complete it;
+  // unknown writes without such a report remain fenced below.
+  const settled=new Set(candidates.filter(entry=>completeRecovery(entry) && admitted(entry)
+    && candidates.some(({row})=>identity(row)===identity(entry.row) && row.status==='incomplete')
+    && candidates.filter(({row})=>identity(row)===identity(entry.row) && row.status==='incomplete').every(({row})=>
+      sameRecovery(row) && row.retry_kind==='uncertain_execution' && row.retryable===false
+      && row.failure_cause==='retained_revalidation_publication_uncertain'
+      && row.retained_revalidation.provider_generation_performed===false
+      && row.retained_revalidation.publication_effect==='uncertain')).map(({row})=>identity(row)));
+  const safe=new Set(candidates.filter(({row})=>noPost(row) && !candidates.some(({row:other})=>identity(other)===identity(row)
+    && (other.verdict!==undefined || (other.status==='incomplete' && !noPost(other))))).map(({row})=>identity(row)));
+  for(const proof of reconciled) {
+    if(proof.schema==='verifier-no-evaluation-proof/v1' && proof.repo===event.repo && proof.event_id===event.event_id
+        && sameAssessment(proof.assessment_identity,assessment) && proof.recovery_key===recoveryKey
+        && proof.publication_conclusion==='skipped' && Number.isSafeInteger(proof.publication_step_number)
+        && proof.publication_step_number>proof.evaluator_step_number) safe.add(identity(proof));
+  }
+  const newer=[];
+  for(const {row,actual,comment} of candidates) {
+      if(sameRecovery(row) && settled.has(identity(row))) continue;
+      if(completeRecovery({row,actual,comment})
+          && !candidates.some(entry=>identity(entry.row)===identity(row) && entry.row.status==='incomplete')) return 'duplicate';
+      // A later assessment (including pending/incomplete) can change current
+      // applicability. Never use a newer publication run to outvote that work.
+      if(sameRecovery(row) && ['pending','incomplete'].includes(row.status) && safe.has(identity(row))) continue;
+      newer.push(row);
+  }
+  if(newer.length) {
+    const error=new Error('Retained recovery is superseded by a newer authenticated assessment');
+    if(newer.every(row=>sameRecovery(row) && row.status==='pending')) {
+      error.code='VERIFIER_RECOVERY_PENDING';
+      error.pendingStates=[...new Map(newer.map(row=>[identity(row),row])).values()];
+    }
+    throw error;
+  }
   return 'ready';
 }
 
 
-async function publishRetainedReport({github,manifest,origin,body,currentRun}) {
+async function guardRetainedRecoveryHistory(options) {
+  try {return guardRecoveryHistory(options);} catch(error) {
+    if(error.code!=='VERIFIER_RECOVERY_PENDING') throw error;
+    const reconciled=[];
+    for(const state of error.pendingStates) {
+      const result=await reconcilePendingExecution({...options,state});
+      if(result.retry_kind!=='known_no_evaluation' || result.proof?.publication_conclusion!=='skipped') throw new Error('Prior recovery publication is active or uncertain; collect its existing result');
+      reconciled.push(result.proof);
+    }
+    if(Array.isArray(options.observations)) options.observations.push(...reconciled);
+    return guardRecoveryHistory({...options,reconciled});
+  }
+}
+
+
+async function publishRetainedReport({github,manifest,origin,body,currentRun,currentAttempt=1,onPostAttempt=()=>{}}) {
   const {createHash}=require('crypto');
   const event=validateEvent(manifest.verification_event);
   if(origin.verification_event.event_id!==event.event_id || !sameAssessment(origin.assessment_identity,manifest.assessment_identity)) throw new Error('Recovery publication identity changed');
@@ -317,11 +389,12 @@ async function publishRetainedReport({github,manifest,origin,body,currentRun}) {
     if(!complete) throw new Error('Recovery publication history incomplete');
     return rows;
   };
-  const check=rows=>guardRecoveryHistory({event,assessment:manifest.assessment_identity,comments:rows,
-    sourceRun:Number(origin.source_run_id),sourceAttempt:Number(origin.source_run_attempt),currentRun,recoveryKey:origin.recovery_key});
+  const check=rows=>guardRetainedRecoveryHistory({github,event,assessment:manifest.assessment_identity,comments:rows,
+    sourceRun:Number(origin.source_run_id),sourceAttempt:Number(origin.source_run_attempt),currentRun,currentAttempt,recoveryKey:origin.recovery_key,
+    currentExecution:{run_id:String(currentRun),run_attempt:String(currentAttempt),repo:event.repo,workflow_ref:process.env.GITHUB_WORKFLOW_REF || '',phase:'pre_publication'}});
   const alreadyPublished=rows=>rows.some(row=>['github-actions','github-actions[bot]'].includes(row.author) && row.body===body);
   const before=await comments();
-  if(alreadyPublished(before) || check(before)==='duplicate') return {published:true,duplicate:true};
+  if(alreadyPublished(before) || await check(before)==='duplicate') return {published:true,duplicate:true};
   const markers=[...body.matchAll(/<!-- verifier-corpus-decision\/v1 (\{[^\n]+\}) -->/g)];
   if(markers.length!==1) throw new Error('Recovery report lacks one admitted terminal decision');
   const decision=JSON.parse(markers[0][1]);
@@ -329,14 +402,15 @@ async function publishRetainedReport({github,manifest,origin,body,currentRun}) {
       || String(decision.run_id)!==String(currentRun)) throw new Error('Recovery report admission identity mismatch');
   try {
     // Consequential POST is once-only. Retry only reads, never an uncertain write.
+    onPostAttempt();
     const response=await github.rest.issues.createComment({owner,repo,issue_number:Number(event.pr),body,request:{timeout:15000}});
     return {published:true,duplicate:false,comment_id:response.data.id};
   } catch(error) {
     const after=await comments();
-    if(alreadyPublished(after) || check(after)==='duplicate') return {published:true,duplicate:true,reconciled_after_uncertain_post:true};
+    if(alreadyPublished(after) || await check(after)==='duplicate') return {published:true,duplicate:true,reconciled_after_uncertain_post:true};
     const uncertain=new Error('Recovery publication outcome uncertain; reconcile authenticated comment identity before retry');
     uncertain.code='VERIFIER_RECOVERY_PUBLICATION_UNCERTAIN';throw uncertain;
   }
 }
 
-module.exports = {executionBinding,reconcilePendingExecution,acquireRetainedExecution,guardRecoveryHistory,publishRetainedReport};
+module.exports = {executionBinding,reconcilePendingExecution,acquireRetainedExecution,guardRecoveryHistory,guardRetainedRecoveryHistory,publishRetainedReport};

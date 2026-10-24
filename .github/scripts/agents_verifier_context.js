@@ -15,7 +15,7 @@ const {
 const { queryVerifierCiResults } = require('./verifier_ci_query.js');
 const { resolvePrSourceContext } = require('./source_context.js');
 const { buildVerificationEvent, completedEvent, completedLegacyEvent, guardExistingEvent, assessmentIdentity, parseRecoverySelector, digest } = require('./verification_event.js');
-const { executionBinding, reconcilePendingExecution, acquireRetainedExecution, guardRecoveryHistory } = require('./verifier_pending_execution.js');
+const { executionBinding, reconcilePendingExecution, acquireRetainedExecution, guardRetainedRecoveryHistory } = require('./verifier_pending_execution.js');
 
 const DEFAULT_BRANCH = process.env.DEFAULT_BRANCH || 'main';
 const DEFAULT_DIFF_SUMMARY_PATH = 'verifier-diff-summary.md';
@@ -2431,9 +2431,14 @@ async function buildVerifierContext({
       const recoveryKey = digest({schema:'retained-revalidation-key/v1',
         event_id:verificationManifest.verification_event.event_id,
         assessment:verificationManifest.assessment_identity,selector:recoverySelector});
-      const state = guardRecoveryHistory({event:verificationManifest.verification_event,
+      const recoveryObservations=[];
+      const state = await guardRetainedRecoveryHistory({github,observations:recoveryObservations,event:verificationManifest.verification_event,
         assessment:verificationManifest.assessment_identity,comments:verifierEvidence.event_history.records,
-        sourceRun:recoverySelector.run_id,sourceAttempt:recoverySelector.run_attempt,currentRun:Number(context.runId),recoveryKey});
+        sourceRun:recoverySelector.run_id,sourceAttempt:recoverySelector.run_attempt,currentRun:Number(context.runId),
+        currentAttempt:Number(process.env.GITHUB_RUN_ATTEMPT || 1),recoveryKey,
+        currentExecution:{run_id:String(context.runId),run_attempt:String(process.env.GITHUB_RUN_ATTEMPT || 1),
+          repo:`${context.repo.owner}/${context.repo.repo}`,workflow_ref:process.env.GITHUB_WORKFLOW_REF || ''}});
+      verificationManifest.recovery_execution_reconciliation=recoveryObservations;
       if (state === 'duplicate') {
         core?.setOutput?.('should_run','false');
         core?.setOutput?.('verification_event_duplicate','true');

@@ -488,3 +488,72 @@ def test_recovered_report_keeps_actionable_findings_without_summary(tmp_path, mo
     assert (
         tmp_path / "retained-source" / origin["archive_sha256"] / f"{stem}.json"
     ).read_bytes() == raw
+
+
+@pytest.mark.parametrize(
+    ("publication_outcome", "publication_effect", "retryable"),
+    [
+        ("skipped", "", True),
+        ("failure", "none", True),
+        ("failure", "uncertain", False),
+        ("success", "none", False),
+    ],
+)
+def test_authored_failed_recovery_can_retry_only_before_publication(
+    tmp_path, monkeypatch, publication_outcome, publication_effect, retryable
+):
+    import os
+    import re
+    import subprocess
+
+    from tests.workflows.test_repeat_verification_lifecycle import run_state_step
+
+    origin, _, _ = setup_case(tmp_path, monkeypatch)
+    manifest_path = tmp_path / "verification-event-manifest.json"
+    manifest = json.loads(manifest_path.read_text())
+    key = "c" * 64
+    manifest["retained_revalidation"] = {"schema": "retained-revalidation/v1", "recovery_key": key}
+    manifest_path.write_text(json.dumps(manifest))
+    env = {
+        "GITHUB_REPOSITORY": "owner/repo",
+        "RECOVERY_PUBLICATION_OUTCOME": publication_outcome,
+        "RECOVERY_PUBLICATION_EFFECT": publication_effect,
+    }
+    pending = run_state_step(tmp_path, "Record verification event pending", extra_env=env)
+    terminal = run_state_step(
+        tmp_path, "Record verification event terminal", outcome="failure", extra_env=env
+    )
+    state = json.loads(re.search(r"(\{.*\}) -->", terminal["comments"][0]["body"])[1])
+    assert state["retryable"] is retryable
+    assert state["retained_revalidation"]["recovery_key"] == key
+    comments = [
+        {
+            "author": "github-actions[bot]",
+            "url": f"https://github.com/owner/repo/pull/7#issuecomment-{index}",
+            "body": item["body"],
+        }
+        for index, item in enumerate([*pending["comments"], *terminal["comments"]], 1)
+    ]
+    root = Path(__file__).resolve().parents[2]
+    script = """
+const fs=require('fs'); const data=JSON.parse(fs.readFileSync(0,'utf8'));
+const {guardRecoveryHistory}=require('./.github/scripts/verifier_pending_execution.js');
+try {process.stdout.write(guardRecoveryHistory(data));} catch {process.stdout.write('blocked');}
+"""
+    result = subprocess.check_output(
+        ["node", "-e", script],
+        input=json.dumps(
+            {
+                "event": origin["verification_event"],
+                "assessment": manifest["assessment_identity"],
+                "comments": comments,
+                "sourceRun": 10,
+                "currentRun": 21,
+                "recoveryKey": key,
+            }
+        ),
+        text=True,
+        cwd=root,
+        env=os.environ,
+    )
+    assert result == ("ready" if retryable else "blocked")

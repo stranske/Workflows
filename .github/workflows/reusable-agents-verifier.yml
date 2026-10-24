@@ -489,6 +489,7 @@ jobs:
               run_id: String(context.runId), run_attempt: String(process.env.GITHUB_RUN_ATTEMPT),
               status: 'pending', verification_event: event, assessment_identity: manifest.assessment_identity,
               execution_binding: manifest.execution_binding,
+              ...(manifest.retained_revalidation ? {retained_revalidation:manifest.retained_revalidation} : {}),
               ...(manifest.predecessor_event_id ? { predecessor_event_id: manifest.predecessor_event_id } : {}) };
             await withRetry(() => github.rest.issues.createComment({ ...context.repo, issue_number: Number(event.pr),
               body: `<!-- verifier-event-state/v1 ${JSON.stringify(state)} -->` }));
@@ -1819,6 +1820,7 @@ jobs:
           CI_FAILED: ${{ steps.context.outputs.ci_failed }}
         with:
           script: |
+            core.setOutput('publication_effect','none');
             const fs = require('fs');
             const {execFileSync} = require('child_process');
             const {publishRetainedReport} = require('./.workflows-lib/.github/scripts/verifier_pending_execution.js');
@@ -1829,7 +1831,10 @@ jobs:
               `${stem}.json`,'--execution-receipt',`${stem}-execution.json`,'--comment',`${stem}-comment.md`],
               {stdio:'inherit',timeout:15000});
             const result=await publishRetainedReport({github,manifest,origin,
-              body:fs.readFileSync(`${stem}-comment.md`,'utf8'),currentRun:Number(context.runId)});
+              body:fs.readFileSync(`${stem}-comment.md`,'utf8'),currentRun:Number(context.runId),
+              currentAttempt:Number(process.env.GITHUB_RUN_ATTEMPT || 1),
+              onPostAttempt:()=>core.setOutput('publication_effect','uncertain')});
+            core.setOutput('publication_effect','published');
             core.setOutput('published',String(result.published));
             core.setOutput('duplicate',String(result.duplicate));
 
@@ -1846,6 +1851,8 @@ jobs:
           VERIFIER_MODEL: ${{ inputs.model }}
           VERIFIER_MODEL2: ${{ inputs.model2 }}
           PRODUCTION_REPORT_POSTED: ${{ steps.post_evaluation.outcome == 'success' || steps.post_comparison.outcome == 'success' || steps.post_recovery.outputs.published == 'true' }}
+          RECOVERY_PUBLICATION_OUTCOME: ${{ steps.post_recovery.outcome }}
+          RECOVERY_PUBLICATION_EFFECT: ${{ steps.post_recovery.outputs.publication_effect }}
           EVALUATOR_STEP_OUTCOME: ${{ inputs.verification_recovery != '' && steps.retained_recovery.outcome || inputs.mode == 'evaluate' && steps.llm_evaluate.outcome || steps.llm_compare.outcome }}
         with:
           script: |
@@ -1887,6 +1894,8 @@ jobs:
                 const parsed = JSON.parse(execFileSync('python3', [
                   '.workflows-lib/tools/verifier_event_recovery.py', '--manifest',
                   'verification-event-manifest.json', '--step-outcome', process.env.EVALUATOR_STEP_OUTCOME || '',
+                  '--publication-outcome', process.env.RECOVERY_PUBLICATION_OUTCOME || '',
+                  '--publication-effect', process.env.RECOVERY_PUBLICATION_EFFECT || '',
                 ], { encoding: 'utf8', timeout: 10000 }));
                 if (['known_no_evaluation', 'recover_existing_evaluation', 'uncertain_execution'].includes(parsed.retry_kind)
                     && parsed.retryable === (parsed.retry_kind === 'known_no_evaluation')

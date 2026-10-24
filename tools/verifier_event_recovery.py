@@ -8,19 +8,53 @@ import html
 import io
 import json
 import os
+import re
 import zipfile
 from pathlib import Path
 from typing import Any
 
 
 def incomplete_cause(
-    manifest: dict[str, Any], *, directory: Path, step_outcome: str
+    manifest: dict[str, Any],
+    *,
+    directory: Path,
+    step_outcome: str,
+    publication_outcome: str = "",
+    publication_effect: str = "",
 ) -> dict[str, Any]:
     """Permit retry only on positive no-evaluation evidence, never absent output.
 
     The evaluator's exception path can return used_llm=False after attempting a
     provider call. Such errored payloads are therefore deliberately uncertain.
     """
+    retained = manifest.get("retained_revalidation")
+    if isinstance(retained, dict):
+        if retained.get("schema") != "retained-revalidation/v1" or not re.fullmatch(
+            r"[0-9a-f]{64}", str(retained.get("recovery_key", ""))
+        ):
+            return _cause("uncertain_execution", "retained_revalidation_identity_unavailable")
+        # No provider step runs for this mode. That does NOT prove a report POST
+        # had no effect: only a skipped publisher or its pre-POST flag does so.
+        no_publication = (
+            publication_outcome in {"failure", "cancelled", "skipped"}
+            and publication_effect == "none"
+        ) or (publication_outcome == "skipped" and publication_effect == "")
+        effect = "none" if no_publication else "uncertain"
+        return {
+            **_cause(
+                "known_no_evaluation" if no_publication else "uncertain_execution",
+                (
+                    "retained_revalidation_before_publication"
+                    if no_publication
+                    else "retained_revalidation_publication_uncertain"
+                ),
+            ),
+            "retained_revalidation": {
+                **retained,
+                "provider_generation_performed": False,
+                "publication_effect": effect,
+            },
+        }
     assessment = manifest.get("assessment_identity") or {}
     mode = assessment.get("mode")
     if mode not in {"evaluate", "compare"}:
@@ -381,6 +415,8 @@ def main() -> int:
     parser.add_argument("--manifest", type=Path)
     parser.add_argument("--revalidate-retained", action="store_true")
     parser.add_argument("--step-outcome", default="")
+    parser.add_argument("--publication-outcome", default="")
+    parser.add_argument("--publication-effect", default="")
     args = parser.parse_args()
     if args.revalidate_retained:
         result = revalidate_retained(directory=Path.cwd())
@@ -393,7 +429,13 @@ def main() -> int:
         parser.error("--manifest or --revalidate-retained is required")
     try:
         manifest = json.loads(args.manifest.read_text(encoding="utf-8"))
-        result = incomplete_cause(manifest, directory=Path.cwd(), step_outcome=args.step_outcome)
+        result = incomplete_cause(
+            manifest,
+            directory=Path.cwd(),
+            step_outcome=args.step_outcome,
+            publication_outcome=args.publication_outcome,
+            publication_effect=args.publication_effect,
+        )
     except (OSError, ValueError, TypeError):
         result = _cause("uncertain_execution", "execution_manifest_invalid_or_unavailable")
     print(json.dumps(result, sort_keys=True))

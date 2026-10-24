@@ -94,3 +94,77 @@ test('canonical merged wrapper bytes remain eligible through a release-branch al
  const proof=await acquireRetainedExecution({github,event,assessment,selector,currentRun:20});
  assert.equal(proof.source_run_head_sha,'c'.repeat(40));
 }));
+
+test('lost recovery terminal is reconciled only from authoritative skipped publication',async()=>{
+ const {executionBinding,guardRetainedRecoveryHistory}=require('../../.github/scripts/verifier_pending_execution.js');
+ for(const published of [false,true]) {
+  const {github}=fixture(d=>{
+   d.job.steps.find(step=>step.name==='Run LLM evaluation').conclusion='skipped';
+   d.job.steps.push({...step('Publish retained revalidation through verifier lifecycle',43,'10','11'),conclusion:published?'success':'skipped'});
+  });
+  const input=comment(10,{execution_binding:{...executionBinding('evaluate'),retained_revalidation:true},retained_revalidation:{schema:'retained-revalidation/v1',recovery_key:'key'}});
+  const args={github,event,assessment,comments:[input],sourceRun:1,currentRun:20,recoveryKey:'key',observations:[]};
+  if(published) await assert.rejects(guardRetainedRecoveryHistory(args),/active or uncertain/);
+  else {assert.equal(await guardRetainedRecoveryHistory(args),'ready');assert.equal(args.observations[0].publication_conclusion,'skipped');}
+ }
+});
+
+test('same-run older attempt cannot be mistaken for current pending state',()=>{
+ const args={event,assessment,sourceRun:1,currentRun:10,currentAttempt:2,recoveryKey:'key'};
+ const pending=comment(10,{retained_revalidation:{schema:'retained-revalidation/v1',recovery_key:'key'}});
+ assert.throws(()=>guardRecoveryHistory({...args,comments:[pending]}),error=>error.code==='VERIFIER_RECOVERY_PENDING');
+ const row=JSON.parse(pending.body.match(/ (\{.*\}) -->/)[1]);
+ Object.assign(row,{schema:'verifier-corpus-decision/v1',verdict:'PASS',provider_verdicts:['PASS'],ci_failed:false});
+ delete row.status;
+ const complete={...pending,body:`<!-- verifier-corpus-decision/v1 ${JSON.stringify(row)} -->`};
+ assert.equal(guardRecoveryHistory({...args,comments:[complete]}),'duplicate');
+});
+
+test('publication marks possible effect before POST, never for failed preflight',async()=>{
+ const origin={verification_event:event,assessment_identity:assessment,source_run_id:'10',source_run_attempt:'1',recovery_key:'key'};
+ const manifest={verification_event:event,assessment_identity:assessment,request:{sources:[]}};
+ const decision={schema:'verifier-corpus-decision/v1',repo:event.repo,pr:event.pr,head_sha:event.head_sha,evaluated_sha:event.evaluated_sha,verification_event:event,assessment_identity:assessment,run_id:'20',run_attempt:'1',verdict:'PASS',provider_verdicts:['PASS'],ci_failed:false,retained_revalidation:{recovery_key:'key'}};
+ const body=`<!-- verifier-corpus-decision/v1 ${JSON.stringify(decision)} -->`;
+ for(const changed of [false,true]) {
+  let marked=false,posts=0;
+  const github={rest:{pulls:{get:async()=>({data:{merged:true,head:{sha:changed?'f'.repeat(40):event.head_sha},merge_commit_sha:event.evaluated_sha}})},issues:{listComments:async()=>({data:[],headers:{}}),createComment:async()=>{assert.equal(marked,true);posts++;return {data:{id:5}};}}}};
+  const action=()=>publishRetainedReport({github,manifest,origin,body,currentRun:20,onPostAttempt:()=>{marked=true;}});
+  if(changed) {await assert.rejects(action(),/revision changed/);assert.equal(marked,false);assert.equal(posts,0);}
+  else {await action();assert.equal(posts,1);}
+ }
+});
+
+test('same-run recovery retry can reconcile older skipped POST while current publisher is pre-POST',async()=>{
+ const {executionBinding,guardRetainedRecoveryHistory}=require('../../.github/scripts/verifier_pending_execution.js');
+ const {github,data}=fixture(d=>{
+  d.job.steps.find(step=>step.name==='Run LLM evaluation').conclusion='skipped';
+  d.job.steps.push({...step('Publish retained revalidation through verifier lifecycle',43,'10','11'),conclusion:'skipped'});
+ });
+ const prior=structuredClone(data.run);
+ const latest={...prior,run_attempt:2,status:'in_progress',conclusion:null};
+ const oldJob=structuredClone(data.job);
+ const currentJob={...structuredClone(oldJob),id:13,run_attempt:2,status:'in_progress'};
+ Object.assign(currentJob.steps.at(-1),{status:'in_progress',conclusion:null,completed_at:null});
+ github.rest.actions.getWorkflowRun=async()=>({data:latest});
+ github.rest.actions.getWorkflowRunAttempt=async p=>({data:p.attempt_number===1?prior:latest});
+ github.rest.actions.listJobsForWorkflowRunAttempt=async p=>({data:{total_count:1,jobs:[p.attempt_number===1?oldJob:currentJob]},headers:{}});
+ const old=comment(10,{execution_binding:{...executionBinding('evaluate'),retained_revalidation:true},retained_revalidation:{schema:'retained-revalidation/v1',recovery_key:'key'}});
+ const result=await guardRetainedRecoveryHistory({github,event,assessment,comments:[old],sourceRun:1,currentRun:10,currentAttempt:2,recoveryKey:'key',currentExecution:{run_id:'10',run_attempt:'2',repo:event.repo,workflow_ref:`${event.repo}/.github/workflows/agents-verifier.yml@main`,phase:'pre_publication'}});
+ assert.equal(result,'ready');
+});
+
+test('confirmed admitted POST with incomplete lifecycle can finish without model replay',()=>{
+ const args={event,assessment,sourceRun:1,currentRun:20,recoveryKey:'key'};
+ const retained={schema:'retained-revalidation/v1',recovery_key:'key',provider_generation_performed:false};
+ const pending=comment(10,{retained_revalidation:retained});
+ const row=JSON.parse(pending.body.match(/ (\{.*\}) -->/)[1]);
+ Object.assign(row,{schema:'verifier-corpus-decision/v1',verdict:'PASS',provider_verdicts:['PASS'],ci_failed:false,result_admission:{schema:'verifier-result-admission/v1',mode:'evaluate',payload_sha256:'a'.repeat(64),execution_receipt_sha256:'b'.repeat(64)}});delete row.status;
+ const complete={...pending,body:`<!-- verifier-corpus-decision/v1 ${JSON.stringify(row)} -->`};
+ const incomplete=comment(10,{status:'incomplete',retry_kind:'uncertain_execution',retryable:false,failure_cause:'retained_revalidation_publication_uncertain',retained_revalidation:{...retained,publication_effect:'uncertain'}});
+ const history=[pending,complete,incomplete],before=JSON.stringify(history);
+ assert.equal(guardRecoveryHistory({...args,comments:history}),'ready');
+ assert.throws(()=>guardRecoveryHistory({...args,comments:[pending,incomplete]}),/superseded/);
+ const fresh={...complete,body:complete.body.replace('"run_id":"10"','"run_id":"21"')};
+ assert.equal(guardRecoveryHistory({...args,currentRun:22,comments:[...history,fresh]}),'duplicate');
+ assert.equal(JSON.stringify(history),before);
+});
