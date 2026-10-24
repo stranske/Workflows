@@ -2061,7 +2061,10 @@ def test_issue_set_recommendation_distinguishes_round_two_completion_states() ->
             **base,
             "round2_converged": {
                 "converged_candidates": [],
-                "no_new_work_justifications": [{"agent": "codex"}, {"agent": "claude"}],
+                "no_new_work_justifications": [
+                    _no_new_work_entry("codex"),
+                    _no_new_work_entry("claude"),
+                ],
             },
         }
     )
@@ -2120,12 +2123,16 @@ def test_round_result_loaders_select_valid_latest_files_and_reject_invalid_data(
 ) -> None:
     output_dir = tmp_path / "reports"
     repo = "owner/repo"
-    old = output_dir / "round1" / "first" / "owner__repo" / "findings.json"
-    new = output_dir / "round1" / "second" / "owner__repo" / "findings.json"
+    # The older file sits in the directory that sorts last, so only the modification time can
+    # make the loader pick the newer one.
+    old = output_dir / "round1" / "zulu" / "owner__repo" / "findings.json"
+    new = output_dir / "round1" / "alpha" / "owner__repo" / "findings.json"
     old.parent.mkdir(parents=True)
     new.parent.mkdir(parents=True)
     old.write_text(json.dumps({"agent": "first"}), encoding="utf-8")
     new.write_text(json.dumps({"agent": "second"}), encoding="utf-8")
+    os.utime(old, (1_000, 1_000))
+    os.utime(new, (2_000, 2_000))
 
     latest = evaluator.load_round1_findings(output_dir, repo)
 
@@ -2170,7 +2177,21 @@ def test_main_filters_statuses_and_reports_generated_queue_counts(
     paused = evaluator.RepoConfig("owner/paused", "paused", "paused", "weekly", "anchor")
     calls: list[str] = []
     monkeypatch.setattr(
-        sys, "argv", ["repo_review_evaluator", "--status", "active", "--date", "2026-10-22"]
+        sys,
+        "argv",
+        [
+            "repo_review_evaluator",
+            "--status",
+            "active",
+            "--date",
+            "2026-10-22",
+            "--skip-gitnexus-preflight",
+        ],
+    )
+    monkeypatch.setattr(
+        evaluator,
+        "gitnexus_preflight",
+        lambda *_args, **_kwargs: pytest.fail("the GitNexus preflight must be skipped here"),
     )
     monkeypatch.setattr(
         evaluator, "load_registry", lambda _path: (tmp_path, [], [active, paused], [])
@@ -2298,3 +2319,69 @@ def test_scorecard_queue_paths_hold_invalid_issues_and_surface_unapproved_findin
     assert "not-approved" in queue["deeper_review"][1]["notes"]
     assert queue["dropped_candidates"][0]["title"] == "old"
     assert queue["warnings"] == ["scorecard data was incomplete"]
+
+
+def _no_new_work_entry(agent: str, *, candidates: int = 0, chars: int = 200) -> dict[str, object]:
+    return {"agent": agent, "candidate_count": candidates, "justification": "x" * chars}
+
+
+@pytest.mark.parametrize(
+    ("entries", "substantive"),
+    [
+        pytest.param([{"agent": "codex"}, {"agent": "claude"}], 0, id="agent names only"),
+        pytest.param(
+            [_no_new_work_entry("codex", candidates=2), _no_new_work_entry("claude")],
+            1,
+            id="one agent proposed candidates",
+        ),
+        pytest.param(
+            [_no_new_work_entry("codex", chars=199), _no_new_work_entry("claude")],
+            1,
+            id="one justification is 199 characters",
+        ),
+        pytest.param(
+            [_no_new_work_entry("codex", chars=0), _no_new_work_entry("claude")],
+            1,
+            id="one justification is empty",
+        ),
+        pytest.param(
+            [_no_new_work_entry("codex"), _no_new_work_entry("claude")],
+            2,
+            id="both justifications are 200 characters",
+        ),
+    ],
+)
+def test_no_new_work_surfaces_agree_on_what_is_substantive(
+    tmp_path: Path, entries: list[dict[str, object]], substantive: int
+) -> None:
+    """The recommendation, the packet section, the packet count and the brief's evidence check
+    must call the same justifications substantive: one agent that proposed candidates or wrote
+    a thin justification is not a completed no-new-work review."""
+    (tmp_path / "demo").mkdir()
+    (tmp_path / "demo" / "README.md").write_text("# Demo\n", encoding="utf-8")
+    config = evaluator.RepoConfig("owner/demo", "demo", "active", "weekly", "demo anchor")
+    converged = {
+        "schema_version": "v1",
+        "repo": "owner/demo",
+        "converged_candidates": [],
+        "deadlocked_candidates": [],
+        "no_new_work_justifications": entries,
+    }
+    state = evaluator.collect_repo_state(
+        tmp_path, config, round2_converged=converged, remote_progress={}
+    )
+
+    recommendation = evaluator.issue_set_recommendation(
+        {"review_execution": {"gap_count": 0}, "round2_converged": converged}
+    )
+    section = evaluator.no_new_work_justifications_section(state)
+    errors = evaluator.review_summary_quality_errors(state["decision_brief"])
+    evaluator.write_packet(tmp_path / "out", [state], generated_on="2026-10-22")
+    packet = (tmp_path / "out" / "human-decision-packet.md").read_text(encoding="utf-8")
+
+    complete = substantive >= 2
+    assert ("Both agents (codex, claude)" in recommendation) is complete
+    assert ("missing or thin" in recommendation) is not complete
+    assert bool(section) is complete
+    assert ("missing review evidence traces" in errors) is not complete
+    assert f"Round 2 dual no-new-work justifications: `{substantive}`" in packet

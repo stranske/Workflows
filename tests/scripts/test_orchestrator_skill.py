@@ -271,7 +271,7 @@ def test_config_parser_rejects_non_object_and_wraps_invalid_inline_configuration
         load_orchestrator_skill(tmp_path)
 
 
-def test_cli_parses_false_override_and_pack_override_after_disabled_config(
+def test_enabled_override_wins_over_the_config_in_both_directions(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     config = tmp_path / ".github" / "orchestrator_skill.json"
@@ -282,5 +282,7 @@ def test_cli_parses_false_override_and_pack_override_after_disabled_config(
 
     assert plan is not None
     assert plan.pack == "pilot"
+    # The config is enabled for the CLI call, so only `--enabled-override no` can make this False.
+    config.write_text(json.dumps({"enabled": True, "pack": "orchestrator"}), encoding="utf-8")
     assert main(["--workspace", str(tmp_path), "--enabled-override", "no"]) == 0
     assert json.loads(capsys.readouterr().out)["enabled"] is False
