@@ -487,3 +487,38 @@ writes. Both failure and recovery retain the exact snapshot path. The existing
 [Selftest CI](../../.github/workflows/selftest-ci.yml) dispatch-only tracker replay
 job publishes synthetic issue/snapshot receipts without live issue mutations.
 See the [tracker contract](../ci-failure-tracker.md).
+
+### Typed gzip verification evidence
+
+The existing verifier collector can retain added regular Git evidence assets
+under `docs/verification/` ending in `.log.gz`, `.txt.gz` or `.xml.gz`. It resolves
+the path from the target repository's immutable merged tree, validates the Git
+blob identity, and retains compressed originals and decoded UTF-8 sidecars in
+`verifier-evidence/`. The real Git patch is unchanged. A labelled derived view
+is included in the same prompt coverage, chunking and native capacity admission
+as other evidence; capture does not establish acceptance PASS.
+
+Each asset binds repository, merged revision, exact Unicode path, Git blob SHA,
+compressed and decoded SHA256, byte counts, codec and original binary patch
+span. The single-member gzip decoder validates CRC and EOF and rejects trailing
+or concatenated members, invalid UTF-8, NUL and symlinks. Per asset limits are
+4 MiB compressed and 4 MiB decoded; aggregate limits are 32 MiB and 64 MiB, with
+at most 80 captured assets. If the inventory exceeds that bound, every asset
+remains explicitly unavailable with a count-limit cause; the collector does not
+abort the surrounding context or silently discard paths. These are transport
+bounds, not inferred proof requirements.
+Failures remain explicit per asset. Other binary code remains unavailable;
+modified, renamed and deleted assets are unsupported until both required Git
+sides can be bound. Identical content at different paths retains distinct path
+identities.
+
+The existing `verification_material` input additionally accepts
+`{"kind":"git_blob","path":"docs/verification/example.log.gz"}` to name required
+proof. It accepts no caller repository, revision or hash override.
+Only explicitly selected required content participates in verification-event
+material identity; optional retrieval progress does not create a new event.
+Otherwise necessity is unknown: a recognized filename alone does not establish that proof
+is optional or mandatory. The original requirements remain in every review.
+Verbose logs do not create new acceptance criteria. Raw and decoded assets are
+retained for evaluate and compare executions without changing the result or
+publication lifecycle.

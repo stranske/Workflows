@@ -96,3 +96,17 @@ test('same-attempt incomplete dominates pending and terminal regardless arrival 
  assert.doesNotThrow(()=>guardExistingEvent(event,[terminal,state('pending')],assessment));
  assert.doesNotThrow(()=>guardExistingEvent(event,[state('incomplete','uncertain_execution')],{...assessment,provider:'other'}));
 });
+
+
+test('unselected gzip transport progress preserves event while required content changes it',()=>{
+ const a=args(),original=buildVerificationEvent(a);
+ const row={source:'docs/verification/proof.log.gz',status:'unavailable',necessity:'unknown'};
+ a.evidence.gzip_assets=[row];assert.deepEqual(buildVerificationEvent(a),original);
+ Object.assign(row,{status:'captured',git_blob_sha:'c'.repeat(40),raw_sha256:'d'.repeat(64),text_sha256:'e'.repeat(64)});
+ assert.deepEqual(buildVerificationEvent(a),original);
+ row.necessity='required';a.selectors=[{kind:'git_blob',path:row.source}];
+ const selected=buildVerificationEvent(a);
+ row.text_sha256='f'.repeat(64);
+ assert.notEqual(buildVerificationEvent(a).verification_event.event_id,selected.verification_event.event_id);
+ row.status='unavailable';assert.throws(()=>buildVerificationEvent(a),/unavailable/);
+});

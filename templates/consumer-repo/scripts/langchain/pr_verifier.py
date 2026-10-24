@@ -939,9 +939,13 @@ def _diff_file_is_binary_descriptor(text: str) -> bool:
     return has_binary_marker and not has_hunk
 
 
-def _excerpt_file(path: str, text: str, share: int) -> tuple[str, FileCoverage]:
+def _excerpt_file(
+    path: str, text: str, share: int, *, asset_view: str = ""
+) -> tuple[str, FileCoverage]:
+    binary = _diff_file_is_binary_descriptor(text)
+    text = text + asset_view
     total = len(text)
-    if _diff_file_is_binary_descriptor(text):
+    if binary and not asset_view:
         return "", FileCoverage(path, "omitted", 0, total)
     if share >= total:
         return text, FileCoverage(path, "complete", total, total)
@@ -964,7 +968,7 @@ def _excerpt_file(path: str, text: str, share: int) -> tuple[str, FileCoverage]:
 
 
 def _build_code_block(
-    diff: str, budget_chars: int
+    diff: str, budget_chars: int, *, asset_views: dict[str, str] | None = None
 ) -> tuple[str, CoverageStatus, tuple[FileCoverage, ...], int, int]:
     files = _split_diff_files(diff)
     if not files:
@@ -979,7 +983,15 @@ def _build_code_block(
     # omitted paths after fair-share allocation exceeded the diff budget.
     # Fit text first, then use spare budget for a count-only diagnostic.
     # Omitted paths remain in FileCoverage metadata and still prevent PASS.
-    sizes = [0 if _diff_file_is_binary_descriptor(text) else len(text) for _, text in files]
+    asset_views = asset_views or {}
+    sizes = [
+        (
+            len(text) + len(asset_views.get(path, ""))
+            if path in asset_views or not _diff_file_is_binary_descriptor(text)
+            else 0
+        )
+        for path, text in files
+    ]
     omission_note = "[{count} changed file(s) omitted entirely — not shown to the reviewer]\n"
     shares = _fair_shares(sizes, max(0, budget_chars))
     parts: list[str] = []
@@ -987,7 +999,7 @@ def _build_code_block(
     omitted = 0
     for (path, text), share in zip(files, shares, strict=True):
         assert path is not None  # Parse failures were rejected above.
-        excerpt, item = _excerpt_file(path, text, share)
+        excerpt, item = _excerpt_file(path, text, share, asset_view=asset_views.get(path, ""))
         coverage.append(item)
         if excerpt:
             parts.append(excerpt)
@@ -6286,7 +6298,22 @@ def build_prompt_inputs(
             reasons.append("Required acceptance evidence was truncated to fit the prompt budget.")
 
     if code_source:
-        diff_block, code, files, included, total = _build_code_block(code_source, diff_budget)
+        asset_views = {}
+        try:
+            from tools.verifier_gzip_assets import review_assets
+
+            asset_views = review_assets(
+                source_coverage,
+                (diff if diff and "diff --git " in diff else code_source + "\n").encode("utf-8"),
+                context=context_text,
+            )
+            if lossless:
+                diff_budget += sum(map(len, asset_views.values()))
+        except (OSError, ValueError, TypeError) as exc:
+            reasons.append(f"Gzip evidence capture invalid: {exc}")
+        diff_block, code, files, included, total = _build_code_block(
+            code_source, diff_budget, asset_views=asset_views
+        )
     else:
         diff_block, code, files, included, total = "(diff unavailable)", "unavailable", (), 0, 0
     if upstream_truncated:
@@ -6517,7 +6544,19 @@ def _evaluate_chunked(
         (_strip_diff_fence(body) for name, body in sections or [] if name == "full_diff"), ""
     )
     files = _split_diff_files(source)
-    binary_paths = {path for path, patch in files if _diff_file_is_binary_descriptor(patch)}
+    try:
+        from tools.verifier_gzip_assets import review_assets
+
+        asset_views = review_assets(
+            parse_context_source_coverage(context) or {}, source.encode("utf-8"), context=context
+        )
+    except (OSError, ValueError, TypeError):
+        asset_views = {}  # The shared prompt admission reports the precise integrity gap.
+    binary_paths = {
+        path
+        for path, patch in files
+        if _diff_file_is_binary_descriptor(patch) and path not in asset_views
+    }
     destinations = [path for path, _ in files]
     if len(destinations) != len(set(destinations)):
         return EvaluationResult(
@@ -6529,7 +6568,7 @@ def _evaluate_chunked(
                 dict.fromkeys(path or "(unknown changed file)" for path in destinations)
             ),
         )
-    if len(source) <= budget and not binary_paths:
+    if len(source) + sum(map(len, asset_views.values())) <= budget and not binary_paths:
         if source or sections is not None:
             coverage = prompt_coverage(context, diff, evaluate_minimum=evaluate_minimum)
             if not coverage.sufficient:
@@ -6592,9 +6631,16 @@ def _evaluate_chunked(
     chunks: list[tuple[list[str], str]] = []
     for path, patch in files:
         assert path is not None
-        if len(patch) > budget or _diff_file_is_binary_descriptor(patch):
+        review_size = len(patch) + len(asset_views.get(path, ""))
+        if review_size > budget or path in binary_paths:
             continue
-        elif chunks and len(chunks[-1][1]) + len(patch) <= budget:
+        elif (
+            chunks
+            and sum(len(asset_views.get(p, "")) for p in chunks[-1][0])
+            + len(chunks[-1][1])
+            + review_size
+            <= budget
+        ):
             paths, text = chunks[-1]
             chunks[-1] = ([*paths, path], text + patch)
         elif len(chunks) < MAX_REVIEW_CHUNKS:
@@ -6640,6 +6686,34 @@ def _evaluate_chunked(
             if evaluate_minimum
             else local_context + chunk_guidance
         )
+        if asset_views:
+            # Existing whole-file chunks receive only their assigned changed-file
+            # obligations. Original requirements and the frozen full capture stay
+            # unchanged; this is a prompt projection, not a new Git patch/event.
+            inventory = parse_context_source_coverage(chunk_context)
+            if inventory is not None:
+                inventory = {
+                    **inventory,
+                    "changed_code_sources": [
+                        row
+                        for row in inventory.get("changed_code_sources", [])
+                        if row.get("source") in paths
+                    ],
+                    "gzip_asset_sources": [
+                        row
+                        for row in inventory.get("gzip_asset_sources", [])
+                        if row.get("source") in paths
+                    ],
+                }
+                chunk_context = re.sub(
+                    r"(^## Context source coverage[ \t]*\n(?:(?!^## |^```)[^\n]*\n)*^```json[ \t]*\n).*?(\n```)",
+                    lambda match, inventory=inventory: match[1]
+                    + json.dumps(inventory, ensure_ascii=False)
+                    + match[2],
+                    chunk_context,
+                    count=1,
+                    flags=re.M | re.S,
+                )
         coverage = prompt_coverage(chunk_context, patch, evaluate_minimum=evaluate_minimum)
         prompt_coverages.append(coverage)
         record: dict[str, Any] = {
@@ -8184,6 +8258,17 @@ def _semantic_raw_inputs(context: str, diff: str | None) -> dict[str, bytes]:
             parse_context_source_coverage(context) or {}, Path(directory)
         )
         raw.update(artifacts)
+    if diff is not None:
+        from tools.verifier_gzip_assets import captured_inputs
+
+        raw.update(
+            captured_inputs(
+                parse_context_source_coverage(context) or {},
+                Path(directory or "verifier-evidence"),
+                diff.encode("utf-8"),
+                context=context,
+            )
+        )
     return raw
 
 
