@@ -201,6 +201,22 @@ consumer-local helper or separately synced exclusion list is unnecessary.
   files. Already staged source blobs retain their original content, including
   partially staged changes. Other eligible modifications, deletions, and
   untracked files are staged with literal, null-delimited Git paths.
+- Unmerged index entries are not already staged source blobs. The existing host
+  commit stage stages eligible, marker-free UTF-8 text resolutions (including
+  deletions), then requires an empty unmerged index before it can commit. It
+  refuses artifact, worker-protected, symlink, non-text and non-file resolutions;
+  marker and path checks run before any index mutation. Normal partial staging
+  remains intact. This does not grant the worker Git metadata access or approval
+  to publish comments/labels, and does not certify the resolution's semantics.
+  Original conflicted blobs and merge attributes must also describe ordinary
+  text merging: a binary/custom merge can leave an untouched, marker-free
+  working file, which is insufficient evidence of a resolution.
+  Marker scanning honors `conflict-marker-size` independently of Git's diff
+  output; named binary diff drivers are refused as well.
+- Host commit stages and the Codex checkpoint treat an active `MERGE_HEAD` as
+  committable work even when the resolved tree matches HEAD. Empty-diff,
+  zero-change and bootstrap-only exits apply only outside a merge; ordinary
+  artifact-only rounds still create no commit.
 - Treat helper failure as a staging failure. Do not fall back to unrestricted
   staging. New runtime outputs should normally be written under `RUNNER_TEMP`
   and uploaded from there instead of extending the exclusion contract.
