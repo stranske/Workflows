@@ -1439,7 +1439,14 @@ jobs:
             if [ -s evaluation.json ]; then
               python3 .workflows-lib/tools/verifier_corpus_evidence.py \
                 --evaluation evaluation.json --execution-receipt evaluation-execution.json \
-                --comment evaluation-comment.md
+                --comment evaluation-comment.md || {
+                  echo '::warning::Result admission failed; posting an unavailable-input report'
+                  printf '%s\n' '## LLM Evaluation Report' '' \
+                    '**Verdict:** UNVERIFIABLE_INPUT' '' \
+                    'Result admission could not settle the report.' \
+                    'Retained output requires recovery; no provider retry is authorized.' \
+                    > evaluation-comment.md
+                }
             fi
             gh pr comment "$pr_number" --body-file evaluation-comment.md
           fi

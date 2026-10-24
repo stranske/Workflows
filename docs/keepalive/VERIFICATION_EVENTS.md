@@ -99,6 +99,9 @@ marker, terminal event and provisional PASS settlement use this same admission.
 An invalid receipt cannot publish a raw PASS marker; an already present marker in
 model report text is removed before the current job's annotation is rebuilt.
 Original payloads, receipts and previously published history remain unchanged.
+Semantic comparison joins report rows to the authenticated judge/package cell
+matrix; it does not require one row per provider. Legacy direct comparisons retain
+their existing configured-slot completeness checks.
 A retained usable model response with a failed wrapper is recovery input, never
 permission to invoke the provider again. Revalidation alone is not publication
 authority or a replacement execution receipt.

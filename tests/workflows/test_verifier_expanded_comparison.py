@@ -47,6 +47,7 @@ def run_workflow(
     slot_config=None,
     caller_shadow=False,
     authoritative=True,
+    semantic=False,
 ):
     """Stub only provider CLI output; execute full production parser + unified shell."""
     workflow = yaml.load(WORKFLOW.read_text(), Loader=yaml.BaseLoader)
@@ -116,6 +117,21 @@ def run_workflow(
     python3.chmod(0o755)
     env["PATH"] = str(tmp_path) + os.pathsep + env["PATH"]
     env.update({k: _render(v, values) for k, v in step["env"].items()})
+    if semantic:
+        env["VERIFIER_SEMANTIC_MODE"] = "1"
+        signer = tmp_path / "sign-fixture.py"
+        signer.write_text(
+            "import json,sys; from pathlib import Path\n"
+            "sys.path.insert(0, str(Path('.workflows-lib').resolve()))\n"
+            "from scripts.langchain.pr_verifier import _semantic_envelope_signature\n"
+            "data=json.loads(Path(sys.argv[1]).read_text())\n"
+            "envelope=data['semantic_acceptance']\n"
+            "envelope['signature']=_semantic_envelope_signature({k:v for k,v in envelope.items() if k!='signature'})\n"
+            "print(json.dumps(data))\n"
+        )
+        binary.write_text(
+            f"#!/bin/sh\nexec {shlex.quote(sys.executable)} {shlex.quote(str(signer))} {shlex.quote(str(fixture))}\n"
+        )
     env["GITHUB_OUTPUT"] = str(tmp_path / "output")
     result = subprocess.run(
         ["bash", "-c", _render(step["run"], values)],

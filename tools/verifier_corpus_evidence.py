@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import hmac
 import json
 import os
 import re
@@ -91,6 +92,61 @@ def authoritative_verifier():
     return pr_verifier
 
 
+def _semantic_rows_complete(payload, results, configured, verifier) -> bool:
+    """Join flat report rows to the authenticated source-owned cell matrix."""
+    from tools.verifier_semantic_acceptance import freeze_judge_slots, plan_request_matrix
+
+    try:
+        if len(configured) != 2 or len(set(configured)) != 2:
+            return False
+        envelope = payload["semantic_acceptance"]
+        unsigned = {key: value for key, value in envelope.items() if key != "signature"}
+        if envelope.get("schema") != verifier.SEMANTIC_ENVELOPE_SCHEMA or not hmac.compare_digest(
+            envelope.get("signature", ""), verifier._semantic_envelope_signature(unsigned)
+        ):
+            return False
+        execution = envelope["execution"]
+        slots = freeze_judge_slots(execution["slots"])
+        if sorted((slot["provider"], slot["model"]) for slot in slots) != sorted(configured):
+            return False
+        expected = plan_request_matrix(execution["plan"], list(slots))
+        admitted = envelope["admission"]
+        cells = admitted["results"]
+        identities = [(cell["slot_id"], cell["package_id"]) for cell in cells]
+        if (
+            not expected
+            or len(results) != len(cells)
+            or len(cells) != len(expected)
+            or len(set(identities)) != len(identities)
+            or set(identities) != expected
+            or admitted.get("expected_cells") != [list(cell) for cell in sorted(expected)]
+            or admitted.get("missing_cells") != []
+            or admitted.get("errors") != []
+        ):
+            return False
+        by_slot = {slot["slot_id"]: slot for slot in slots}
+        for row, cell in zip(results, cells, strict=True):
+            slot = by_slot[cell["slot_id"]]
+            evaluation = cell.get("evaluation") or {}
+            projected = verifier.EvaluationResult(
+                verdict=cell["verdict"],
+                concerns=list(cell.get("findings", [])),
+                scores=evaluation.get("scores"),
+                confidence=evaluation.get("confidence"),
+                summary=evaluation.get("summary"),
+                raw_content=cell.get("raw_content"),
+                provider_used=slot["provider"],
+                model=slot["model"],
+                used_llm=cell.get("execution_error") is None,
+                error=cell.get("execution_error"),
+            )
+            if row.model_dump() != projected.model_dump():
+                return False
+        return True
+    except (OSError, ValueError, TypeError, KeyError, AttributeError):
+        return False
+
+
 def validated_payload(payload: Any, *, mode: str) -> tuple[list[dict[str, Any]], str, bool]:
     """Use the checked-out Workflows validator, never caller-local Python code.
 
@@ -137,16 +193,22 @@ def validated_payload(payload: Any, *, mode: str) -> tuple[list[dict[str, Any]],
             (slot.provider, override or slot.model)
             for slot, override in zip(slots, [model1, model2], strict=False)
         ]
-        actual = [(row.provider_used, row.model) for row in results]
-        available = (
-            available
-            and len(expected) == len(actual) == 2
-            and len(set(expected)) == 2
-            and all(
-                isinstance(provider, str) and isinstance(model, str) for provider, model in actual
+        if pr_verifier._semantic_mode():
+            available = available and _semantic_rows_complete(
+                payload, results, expected, pr_verifier
             )
-            and sorted(actual) == sorted(expected)
-        )
+        else:
+            actual = [(row.provider_used, row.model) for row in results]
+            available = (
+                available
+                and len(expected) == len(actual) == 2
+                and len(set(expected)) == 2
+                and all(
+                    isinstance(provider, str) and isinstance(model, str)
+                    for provider, model in actual
+                )
+                and sorted(actual) == sorted(expected)
+            )
     return [row.model_dump() for row in results], verdict, available
 
 
@@ -284,6 +346,15 @@ def decision_from_comments(
     return None
 
 
+def settled_verdict(decision: dict[str, Any] | None) -> str:
+    """Use the same admitted verdict for human reports and workflow outputs."""
+    if decision is None:
+        return "UNVERIFIABLE_INPUT"
+    if decision["verdict"] == "PASS":
+        return "PASS"
+    return "FAIL" if "FAIL" in decision["provider_verdicts"] else "CONCERNS"
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     inputs = parser.add_mutually_exclusive_group(required=True)
@@ -337,15 +408,7 @@ def main(argv: list[str] | None = None) -> int:
         # manifest contents, local paths or exception text in the public report.
         refusal = f"result_or_event_admission_failed/{type(exc).__name__}"
     if args.comment:
-        settled = (
-            "UNVERIFIABLE_INPUT"
-            if decision is None
-            else (
-                "PASS"
-                if decision["verdict"] == "PASS"
-                else "FAIL" if "FAIL" in decision["provider_verdicts"] else "CONCERNS"
-            )
-        )
+        settled = settled_verdict(decision)
         # Provider detail remains in the report and exact retained JSON. The
         # top-level publication verdict must reflect admission and the CI floor.
         text, count = re.subn(
@@ -361,11 +424,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.print_decision:
         print(json.dumps(decision, sort_keys=True))
     if args.print_verdict:
-        print(
-            "UNVERIFIABLE_INPUT"
-            if decision is None
-            else "PASS" if decision["verdict"] == "PASS" else "CONCERNS"
-        )
+        print(settled_verdict(decision))
     return 0
 
 

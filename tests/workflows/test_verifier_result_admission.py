@@ -380,3 +380,63 @@ def test_authored_comparison_publication_settles_manifest_failure_without_raw_pa
     if case != "malformed":
         assert terminal["outputs"]["complete"] == "false"
     assert all((tmp_path / name).read_bytes() == raw for name, raw in original.items())
+
+
+@pytest.mark.parametrize("verdict", ["PASS", "CONCERNS", "FAIL", "UNVERIFIABLE_INPUT"])
+def test_comment_and_print_verdict_share_the_same_settlement(tmp_path, verdict):
+    _, _, _ = _run(
+        tmp_path, raw=_payload(verdict=verdict, used_llm=verdict != "UNVERIFIABLE_INPUT")
+    )
+    _event(tmp_path)
+    env = {
+        **os.environ,
+        "GITHUB_REPOSITORY": IDENTITY["repo"],
+        "PR_NUMBER": IDENTITY["pr"],
+        "PR_HEAD_SHA": IDENTITY["head_sha"],
+        "EVALUATED_SHA": IDENTITY["evaluated_sha"],
+        "GITHUB_RUN_ID": IDENTITY["run_id"],
+        "GITHUB_RUN_ATTEMPT": IDENTITY["run_attempt"],
+        "CI_FAILED": "false",
+    }
+    result = subprocess.run(
+        [
+            sys.executable,
+            admission.__file__,
+            "--evaluation",
+            "evaluation.json",
+            "--execution-receipt",
+            "evaluation-execution.json",
+            "--comment",
+            "evaluation-comment.md",
+            "--print-verdict",
+        ],
+        cwd=tmp_path,
+        env=env,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == verdict
+    assert f"**Verdict:** {verdict}" in (tmp_path / "evaluation-comment.md").read_text()
+
+
+def test_authored_evaluation_publication_has_safe_annotator_failure_report(tmp_path):
+    _, outputs, _ = _run(tmp_path, raw=_payload())
+    _event(tmp_path)
+    before = {
+        name: (tmp_path / name).read_bytes()
+        for name in ["evaluation.json", "evaluation-execution.json"]
+    }
+    python3 = tmp_path / "bin/python3"
+    python3.write_text(
+        f'#!/bin/sh\ncase "$1" in *verifier_corpus_evidence.py) exit 17;; esac\nexec {sys.executable} "$@"\n'
+    )
+    python3.chmod(0o755)
+    terminal, verdict, report = _publish_and_settle(tmp_path, outputs)
+    assert verdict == "UNVERIFIABLE_INPUT" and terminal["outputs"]["complete"] == "false"
+    assert (
+        "**Verdict:** UNVERIFIABLE_INPUT" in report
+        and "Result admission could not settle" in report
+    )
+    assert "<!-- verifier-corpus-decision/v1" not in report
+    assert all((tmp_path / name).read_bytes() == raw for name, raw in before.items())
