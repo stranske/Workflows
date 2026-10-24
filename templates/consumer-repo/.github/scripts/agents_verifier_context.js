@@ -1,5 +1,7 @@
 'use strict';
 
+const { collectGzipAssets } = require('./verifier_gzip_assets');
+
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -737,7 +739,7 @@ async function boundedEvidencePages({ method, params, key, recordLimit, pageLimi
 }
 
 function retainCaptureBytes(directory, digest, suffix, value) {
-  if (!/^[a-f0-9]{64}$/.test(digest) || !['zip', 'txt'].includes(suffix)) {
+  if (!/^[a-f0-9]{64}$/.test(digest) || !['zip', 'txt', 'gz'].includes(suffix)) {
     throw new Error('Invalid digest-addressed capture filename');
   }
   if (createHash('sha256').update(value).digest('hex') !== digest) throw new Error('Capture content hash differs');
@@ -2370,6 +2372,17 @@ async function buildVerifierContext({
     diffMaxChars: diffText.length,
     evidence: verifierEvidence,
   });
+  sourceCoverage.gzip_asset_binding = {repository:`${owner}/${repo}`.toLowerCase(), evaluated_sha:pull.merge_commit_sha};
+  sourceCoverage.gzip_asset_sources = modelEvaluation ? await collectGzipAssets({github,owner,repo,
+    evaluatedSha:pull.merge_commit_sha,diffText,
+    files:parseDiffFiles(diffText,Number.MAX_SAFE_INTEGER).fileSummaries,
+    core,directory:process.env.VERIFIER_EVIDENCE_CAPTURE_DIR || 'verifier-evidence',retain:retainCaptureBytes,
+    material:process.env.VERIFICATION_MATERIAL}) : [];
+  verifierEvidence.gzip_assets = sourceCoverage.gzip_asset_sources;
+  if (!sourceCoverage.gzip_asset_sources.length) {
+    delete sourceCoverage.gzip_asset_sources;
+    delete sourceCoverage.gzip_asset_binding;
+  }
   if (apiDiffFallback) {
     // GitHub may silently truncate individual patches. Even a complete file
     // inventory cannot prove a lossless patch, so withhold PASS on this path.
@@ -2579,6 +2592,7 @@ module.exports = {
   formatVerifierEvidence,
   buildContextSourceCoverage,
   summarizeDiff,
+  parseDiffFiles,
   formatDiffForContext,
   fullDiffArtifactBytes,
   fetchLocalGitDiff,
