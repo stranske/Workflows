@@ -110,7 +110,7 @@ workflows:
 
   # Post-merge trusted-base execution, job-scoped permissions and declared secrets.
   - source: .github/workflows/agents-verifier.yml
-    description: "Verifier - bounded chunked acceptance review and expanded evidence recovery; guarded PASS/UNVERIFIABLE_INPUT source closure; consumer dedup binds canonical PR and linked-source Tasks/Acceptance Criteria"
+    description: "Verifier - bounded chunked acceptance review, expanded evidence recovery and typed provider-free retained-output recovery; guarded PASS/UNVERIFIABLE_INPUT source closure; consumer dedup binds canonical PR and linked-source Tasks/Acceptance Criteria"
 
   - source: .github/workflows/list-llm-models.yml
     description: "List LLM Models - helper to show available models for verifier"
@@ -613,11 +613,11 @@ scripts:
     delivery: copy
 
   - source: .github/scripts/verification_event.js
-    description: "Binds repeat verification to authoritative code, original requests and explicitly required retained evidence"
+    description: "Binds repeat verification and strict recovery selectors to authoritative code, original requests and explicitly required retained evidence"
     delivery: copy
 
   - source: .github/scripts/verifier_pending_execution.js
-    description: "Reconciles exact pending verifier run/attempts only with authoritative skipped evaluator-step evidence"
+    description: "Reconciles pending verifier attempts and authenticates provider-free retained-output origin, applicability and once-only publication"
     delivery: copy
 
   - source: .github/scripts/agents_orchestrator_resolve.js
