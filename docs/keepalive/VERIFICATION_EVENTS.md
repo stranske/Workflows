@@ -145,3 +145,26 @@ Focused checks:
 node --test tests/scripts/test_verification_event.js .github/scripts/__tests__/agents-verifier-context.test.js
 PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python3 -m pytest tests/workflows/test_repeat_verification_lifecycle.py -q -o addopts=''
 ```
+
+### Provider-free retained-output recovery
+
+`verification_recovery` is an optional JSON string containing exactly positive
+integer `run_id`, `run_attempt`, and `artifact_id` selectors. It accepts no
+caller-supplied digests or verdict. Its presence disables all provider, native
+capacity, provider-secret and shadow execution, even if recovery fails.
+
+The existing collector authenticates the completed source attempt and artifact
+through GitHub Actions, including repository/workflow/job/checkout origin and
+archive digest. Recovery requires complete original result, receipt, input
+manifest, context, diff and event bytes, plus the same freshly collected request,
+required material, revision and assessment. Missing or changed evidence stops
+recovery; it never falls through to a new model call.
+
+Original files and invalid receipts remain unchanged in the retained source
+archive. A new typed revalidation receipt records the original run/artifact and
+hashes, the current validator, and `provider_generation_performed: false`.
+The normal admitted report, event, unified verdict and source-closure gates
+consume that receipt. A later applicable assessment prevents stale publication;
+exact duplicate recovery and uncertain comment writes are reconciled by
+identity before another publication. Recovery does not rewrite an event's
+predecessor or turn old advisory output into current acceptance authority.

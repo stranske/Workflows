@@ -39,6 +39,11 @@ on:
         required: false
         type: string
         default: ''
+      verification_recovery:
+        description: 'Recover retained output: JSON run_id/run_attempt/artifact_id selectors; never invokes a provider'
+        required: false
+        type: string
+        default: ''
       verification_event:
         description: 'Expected verification-event/v1 JSON; collector must reproduce it'
         required: false
@@ -133,6 +138,7 @@ jobs:
       VERIFIER_PROVIDER: ${{ inputs.provider }}
       VERIFIER_MODEL: ${{ inputs.model }}
       VERIFIER_MODEL2: ${{ inputs.model2 }}
+      VERIFICATION_RECOVERY: ${{ inputs.verification_recovery }}
       VERIFICATION_EVENT: ${{ inputs.verification_event }}
       VERIFICATION_MATERIAL: ${{ inputs.verification_material }}
       VERIFICATION_PREDECESSOR: ${{ inputs.verification_predecessor }}
@@ -623,7 +629,10 @@ jobs:
 
       - name: Resolve agent key from PR labels
         id: agent
-        if: steps.context.outputs.should_run == 'true'
+        if: >-
+          ${{ inputs.verification_recovery == '' && (
+            steps.context.outputs.should_run == 'true'
+          ) }}
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -694,7 +703,10 @@ jobs:
           fi
 
       - name: Prepare verifier prompt
-        if: steps.context.outputs.should_run == 'true'
+        if: >-
+          ${{ inputs.verification_recovery == '' && (
+            steps.context.outputs.should_run == 'true'
+          ) }}
         id: prepare
         run: |
           set -euo pipefail
@@ -720,7 +732,10 @@ jobs:
           echo "prompt_file=$combined" >> "$GITHUB_OUTPUT"
 
       - name: Validate Codex auth for checkbox/compare modes
-        if: steps.context.outputs.should_run == 'true' && inputs.mode != 'evaluate' && inputs.evidence_profile != 'expanded'
+        if: >-
+          ${{ inputs.verification_recovery == '' && (
+            steps.context.outputs.should_run == 'true' && inputs.mode != 'evaluate' && inputs.evidence_profile != 'expanded'
+          ) }}
         env:
           CODEX_AUTH_JSON: ${{ secrets.CODEX_AUTH_JSON }}
           VERIFIER_MODE: ${{ inputs.mode }}
@@ -732,7 +747,10 @@ jobs:
           fi
 
       - name: Setup Codex auth
-        if: steps.context.outputs.should_run == 'true' && inputs.mode != 'evaluate' && inputs.evidence_profile != 'expanded'
+        if: >-
+          ${{ inputs.verification_recovery == '' && (
+            steps.context.outputs.should_run == 'true' && inputs.mode != 'evaluate' && inputs.evidence_profile != 'expanded'
+          ) }}
         env:
           CODEX_AUTH_JSON: ${{ secrets.CODEX_AUTH_JSON }}
           CODEX_HOME: ${{ runner.temp }}/.codex-verifier
@@ -747,7 +765,10 @@ jobs:
 
       - name: Install Codex CLI
         id: codex_cli
-        if: steps.context.outputs.should_run == 'true' && inputs.mode != 'evaluate' && inputs.evidence_profile != 'expanded'
+        if: >-
+          ${{ inputs.verification_recovery == '' && (
+            steps.context.outputs.should_run == 'true' && inputs.mode != 'evaluate' && inputs.evidence_profile != 'expanded'
+          ) }}
         env:
           CODEX_CLI_PACKAGE: "@openai/codex@0.153.2"
         run: |
@@ -791,7 +812,10 @@ jobs:
 
       - name: Resolve Codex verifier model
         id: codex_model
-        if: steps.context.outputs.should_run == 'true' && inputs.mode != 'evaluate' && inputs.evidence_profile != 'expanded'
+        if: >-
+          ${{ inputs.verification_recovery == '' && (
+            steps.context.outputs.should_run == 'true' && inputs.mode != 'evaluate' && inputs.evidence_profile != 'expanded'
+          ) }}
         env:
           DEFAULT_CODEX_MODEL: gpt-6-astra
           FALLBACK_CODEX_MODELS: gpt-5.5
@@ -846,7 +870,10 @@ jobs:
 
       - name: Run verifier (checkbox mode)
         id: codex
-        if: steps.context.outputs.should_run == 'true' && inputs.mode != 'evaluate' && inputs.evidence_profile != 'expanded'
+        if: >-
+          ${{ inputs.verification_recovery == '' && (
+            steps.context.outputs.should_run == 'true' && inputs.mode != 'evaluate' && inputs.evidence_profile != 'expanded'
+          ) }}
         continue-on-error: true
         env:
           CODEX_HOME: ${{ runner.temp }}/.codex-verifier
@@ -940,7 +967,10 @@ jobs:
 
       - name: Parse verifier verdict (checkbox mode)
         id: verdict
-        if: steps.context.outputs.should_run == 'true' && inputs.mode != 'evaluate' && inputs.evidence_profile != 'expanded'
+        if: >-
+          ${{ inputs.verification_recovery == '' && (
+            steps.context.outputs.should_run == 'true' && inputs.mode != 'evaluate' && inputs.evidence_profile != 'expanded'
+          ) }}
         run: |
           set -euo pipefail
           verdict="unknown"
@@ -1030,10 +1060,10 @@ jobs:
       - name: Check provider secrets
         id: openai_key
         if: >-
-          ${{
+          ${{ inputs.verification_recovery == '' && (
             steps.context.outputs.should_run == 'true' &&
-            (inputs.mode == 'evaluate' || inputs.mode == 'compare')
-          }}
+              (inputs.mode == 'evaluate' || inputs.mode == 'compare')
+          ) }}
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           CLAUDE_API_STRANSKE: ${{ secrets.CLAUDE_API_STRANSKE }}
@@ -1082,11 +1112,11 @@ jobs:
       - name: Run LLM evaluation
         id: llm_evaluate
         if: >-
-          ${{
+          ${{ inputs.verification_recovery == '' && (
             steps.context.outputs.should_run == 'true' &&
-            inputs.mode == 'evaluate' &&
-            steps.openai_key.outputs.available == 'true'
-          }}
+              inputs.mode == 'evaluate' &&
+              steps.openai_key.outputs.available == 'true'
+          ) }}
         continue-on-error: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -1422,7 +1452,7 @@ jobs:
           ${{
             steps.context.outputs.should_run == 'true' &&
             inputs.mode == 'evaluate' &&
-            steps.llm_evaluate.outcome == 'success'
+            steps.llm_evaluate.outcome == 'success' && inputs.verification_recovery == ''
           }}
         env:
           VERIFIER_MODEL: ${{ inputs.model }}
@@ -1500,10 +1530,10 @@ jobs:
       - name: Run multi-provider comparison
         id: llm_compare
         if: >-
-          ${{
+          ${{ inputs.verification_recovery == '' && (
             steps.context.outputs.should_run == 'true' &&
-            inputs.mode == 'compare'
-          }}
+              inputs.mode == 'compare'
+          ) }}
         continue-on-error: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -1728,7 +1758,7 @@ jobs:
         id: post_comparison
         if: >-
           ${{
-            steps.context.outputs.should_run == 'true' &&
+            inputs.verification_recovery == '' && steps.context.outputs.should_run == 'true' &&
             always() &&
             inputs.mode == 'compare'
           }}
@@ -1763,6 +1793,46 @@ jobs:
             gh pr comment "$verifier_pr" --body-file comparison-comment.md
           fi
 
+      - name: Revalidate authenticated retained output
+        id: retained_recovery
+        if: inputs.verification_recovery != '' && steps.context.outputs.should_run == 'true'
+        env:
+          VERIFIER_MODEL: ${{ inputs.model }}
+          VERIFIER_MODEL2: ${{ inputs.model2 }}
+          VERIFIER_EVIDENCE_PROFILE: ${{ inputs.evidence_profile }}
+          PR_NUMBER: ${{ steps.context.outputs.pr_number }}
+          PR_HEAD_SHA: ${{ steps.context.outputs.pr_head_sha }}
+          EVALUATED_SHA: ${{ steps.context.outputs.target_sha }}
+          CI_FAILED: ${{ steps.context.outputs.ci_failed }}
+        run: |
+          set -euo pipefail
+          python3 .workflows-lib/tools/verifier_event_recovery.py --revalidate-retained
+
+      - name: Publish retained revalidation through verifier lifecycle
+        id: post_recovery
+        if: inputs.verification_recovery != '' && steps.retained_recovery.outcome == 'success'
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          PR_NUMBER: ${{ steps.context.outputs.pr_number }}
+          PR_HEAD_SHA: ${{ steps.context.outputs.pr_head_sha }}
+          EVALUATED_SHA: ${{ steps.context.outputs.target_sha }}
+          CI_FAILED: ${{ steps.context.outputs.ci_failed }}
+        with:
+          script: |
+            const fs = require('fs');
+            const {execFileSync} = require('child_process');
+            const {publishRetainedReport} = require('./.workflows-lib/.github/scripts/verifier_pending_execution.js');
+            const manifest=JSON.parse(fs.readFileSync('verification-event-manifest.json','utf8'));
+            const origin=JSON.parse(fs.readFileSync('verification-recovery-origin.json','utf8'));
+            const stem=manifest.assessment_identity.mode === 'evaluate' ? 'evaluation' : 'comparison';
+            execFileSync('python3',['.workflows-lib/tools/verifier_corpus_evidence.py',`--${stem}`,
+              `${stem}.json`,'--execution-receipt',`${stem}-execution.json`,'--comment',`${stem}-comment.md`],
+              {stdio:'inherit',timeout:15000});
+            const result=await publishRetainedReport({github,manifest,origin,
+              body:fs.readFileSync(`${stem}-comment.md`,'utf8'),currentRun:Number(context.runId)});
+            core.setOutput('published',String(result.published));
+            core.setOutput('duplicate',String(result.duplicate));
+
       - name: Record verification event terminal
         id: event_terminal
         if: always() && steps.event_pending.outcome == 'success'
@@ -1775,8 +1845,8 @@ jobs:
           VERIFIER_MODE: ${{ inputs.mode }}
           VERIFIER_MODEL: ${{ inputs.model }}
           VERIFIER_MODEL2: ${{ inputs.model2 }}
-          PRODUCTION_REPORT_POSTED: ${{ steps.post_evaluation.outcome == 'success' || steps.post_comparison.outcome == 'success' }}
-          EVALUATOR_STEP_OUTCOME: ${{ inputs.mode == 'evaluate' && steps.llm_evaluate.outcome || steps.llm_compare.outcome }}
+          PRODUCTION_REPORT_POSTED: ${{ steps.post_evaluation.outcome == 'success' || steps.post_comparison.outcome == 'success' || steps.post_recovery.outputs.published == 'true' }}
+          EVALUATOR_STEP_OUTCOME: ${{ inputs.verification_recovery != '' && steps.retained_recovery.outcome || inputs.mode == 'evaluate' && steps.llm_evaluate.outcome || steps.llm_compare.outcome }}
         with:
           script: |
             const fs = require('fs');
@@ -1845,13 +1915,13 @@ jobs:
         # pre-registered criteria; set the repository variable VERIFIER_SHADOW to `off` to skip.
         # Any failure here is data in verifier-shadow.json, never a failed run.
         if: >-
-          ${{
+          ${{ inputs.verification_recovery == '' && (
             always() &&
-            steps.context.outputs.should_run == 'true' &&
-            inputs.mode == 'compare' &&
-            steps.llm_compare.outputs.has_results == 'true' &&
-            vars.VERIFIER_SHADOW != 'off'
-          }}
+              steps.context.outputs.should_run == 'true' &&
+              inputs.mode == 'compare' &&
+              steps.llm_compare.outputs.has_results == 'true' &&
+              vars.VERIFIER_SHADOW != 'off'
+          ) }}
         continue-on-error: true
         timeout-minutes: 10
         env:
@@ -1883,6 +1953,10 @@ jobs:
         with:
           name: comparison-results-${{ github.run_id }}
           path: |
+            verification-recovery-source.zip
+            verification-recovery-origin.json
+            verification-revalidation-receipt.json
+            retained-source/
             comparison.json
             comparison-execution.json
             comparison-stderr.log
@@ -1912,6 +1986,10 @@ jobs:
         with:
           name: evaluation-results-${{ github.run_id }}
           path: |
+            verification-recovery-source.zip
+            verification-recovery-origin.json
+            verification-revalidation-receipt.json
+            retained-source/
             evaluation.json
             evaluation-stderr.log
             evaluation-execution.json
@@ -1949,6 +2027,8 @@ jobs:
           CI_FAILED: ${{ steps.context.outputs.ci_failed }}
           VERIFIER_MODEL: ${{ inputs.model }}
           VERIFIER_MODEL2: ${{ inputs.model2 }}
+          RETAINED_RECOVERY_VERDICT: ${{ steps.retained_recovery.outputs.verdict }}
+          RETAINED_RECOVERY_PUBLISHED: ${{ steps.post_recovery.outputs.published }}
         run: |
           # Combine verdicts from all modes
           checkbox_verdict="${{ steps.verdict.outputs.verdict }}"
@@ -1961,6 +2041,13 @@ jobs:
             final_verdict="${compare_verdict:-unknown}"
           else
             final_verdict="${checkbox_verdict:-unknown}"
+          fi
+
+          if [ -n "${VERIFICATION_RECOVERY:-}" ]; then
+            final_verdict='UNVERIFIABLE_INPUT'
+            if [ "${RETAINED_RECOVERY_PUBLISHED:-false}" = 'true' ]; then
+              final_verdict="${RETAINED_RECOVERY_VERDICT:-UNVERIFIABLE_INPUT}"
+            fi
           fi
 
           # CI-failure hard gate (issue #2271): a CI workflow concluding
@@ -2158,7 +2245,8 @@ jobs:
           UNIFIED_VERDICT_OUTCOME: ${{ steps.unified_verdict.outcome }}
           CONTEXT_OUTCOME: ${{ steps.context.outcome }}
           VERIFIER_OUTCOME: >-
-            ${{ inputs.mode == 'compare' && steps.llm_compare.outcome ||
+            ${{ inputs.verification_recovery != '' && steps.retained_recovery.outcome ||
+                inputs.mode == 'compare' && steps.llm_compare.outcome ||
                 inputs.mode == 'evaluate' && steps.llm_evaluate.outcome ||
                 steps.verdict.outcome }}
           CI_FAILED: ${{ steps.context.outputs.ci_failed }}
@@ -2316,7 +2404,8 @@ jobs:
           UNIFIED_VERDICT_OUTCOME: ${{ steps.unified_verdict.outcome }}
           CONTEXT_OUTCOME: ${{ steps.context.outcome }}
           VERIFIER_OUTCOME: >-
-            ${{ inputs.mode == 'compare' && steps.llm_compare.outcome ||
+            ${{ inputs.verification_recovery != '' && steps.retained_recovery.outcome ||
+                inputs.mode == 'compare' && steps.llm_compare.outcome ||
                 inputs.mode == 'evaluate' && steps.llm_evaluate.outcome ||
                 steps.verdict.outcome }}
           CI_FAILED: ${{ steps.context.outputs.ci_failed }}

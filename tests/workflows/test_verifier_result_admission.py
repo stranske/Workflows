@@ -69,6 +69,7 @@ def _publish_and_settle(
         "steps.llm_evaluate.outputs.verdict": outputs["verdict"] if mode == "evaluate" else "",
         "steps.llm_compare.outputs.verdict": outputs["verdict"] if mode == "compare" else "",
         "steps.verdict.outputs.verdict": "",
+        "steps.retained_recovery.outputs.verdict": "",
     }
 
     def render(text):

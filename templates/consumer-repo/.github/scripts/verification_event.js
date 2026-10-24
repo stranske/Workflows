@@ -18,6 +18,20 @@ function parse(value, fallback) {
   if (typeof value === 'string') return value.trim() ? JSON.parse(value) : fallback;
   return value ?? fallback;
 }
+function parseRecoverySelector(value) {
+  if (value == null || value === '') return null;
+  if (typeof value !== 'string' || Buffer.byteLength(value, 'utf8') > 512) {
+    throw new Error('Invalid retained verification recovery selector');
+  }
+  const selected = JSON.parse(value);
+  if (!selected || typeof selected !== 'object' || Array.isArray(selected)
+      || Object.keys(selected).sort().join(',') !== 'artifact_id,run_attempt,run_id'
+      || !Object.values(selected).every(id => Number.isSafeInteger(id) && id > 0)) {
+    throw new Error('Recovery accepts exact run_id/run_attempt/artifact_id selectors only');
+  }
+  return Object.freeze({...selected});
+}
+
 function assessmentIdentity({mode,provider = '',model = '',model2 = '',canonical: production = true}) {
   if (!['evaluate','compare'].includes(mode) || production !== true
       || [provider,model,model2].some(value => typeof value !== 'string')) throw new Error('Invalid production assessment identity');
@@ -262,4 +276,4 @@ function buildVerificationEvent({ repository, pull, issues, fullDiffBytes, evide
     request, material };
 }
 
-module.exports = { canonical, digest, validateEvent, requiredEvidence, buildVerificationEvent, completedEvent, authenticatePredecessor, completedLegacyEvent, ciHardGate, guardExistingEvent, assessmentIdentity, sameAssessment };
+module.exports = { parseRecoverySelector, canonical, digest, validateEvent, requiredEvidence, buildVerificationEvent, completedEvent, authenticatePredecessor, completedLegacyEvent, ciHardGate, guardExistingEvent, assessmentIdentity, sameAssessment };

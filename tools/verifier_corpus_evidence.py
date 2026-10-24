@@ -249,11 +249,21 @@ def admitted_decision(
         or ref.get("retention_error_type")
     ):
         return None
+    validator = authoritative_verifier()
+    revalidation = receipt.get("retained_revalidation")
+    if receipt.get("execution_kind") == "authenticated_retained_revalidation":
+        # Authority comes from this job's authenticated Actions collector, not
+        # an input digest or a user-supplied replacement execution receipt.
+        from tools.verifier_event_recovery import verify_revalidation_admission
+
+        if not verify_revalidation_admission(receipt, directory=payload_path.parent):
+            return None
+    elif revalidation is not None:
+        return None
     payload = json.loads(raw)
     raw_rows = [payload] if mode == "evaluate" else payload["results"]
     if not isinstance(raw_rows, list) or not raw_rows:
         return None
-    validator = authoritative_verifier()
     rows = [
         validator.EvaluationResult.model_validate(row, strict=True).model_dump() for row in raw_rows
     ]
@@ -277,6 +287,8 @@ def admitted_decision(
             # provider verdicts and the CI floor. Do not invent a provider
             # NON_PASS or publish an aggregate floor they cannot represent.
             return None
+        if revalidation:
+            decision["retained_revalidation"] = revalidation
         decision["result_admission"] = {
             "schema": "verifier-result-admission/v1",
             "mode": mode,

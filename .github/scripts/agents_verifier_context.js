@@ -14,8 +14,8 @@ const {
 } = require('./issue_scope_parser.js');
 const { queryVerifierCiResults } = require('./verifier_ci_query.js');
 const { resolvePrSourceContext } = require('./source_context.js');
-const { buildVerificationEvent, completedEvent, completedLegacyEvent, guardExistingEvent, assessmentIdentity } = require('./verification_event.js');
-const { executionBinding, reconcilePendingExecution } = require('./verifier_pending_execution.js');
+const { buildVerificationEvent, completedEvent, completedLegacyEvent, guardExistingEvent, assessmentIdentity, parseRecoverySelector, digest } = require('./verification_event.js');
+const { executionBinding, reconcilePendingExecution, acquireRetainedExecution, guardRecoveryHistory } = require('./verifier_pending_execution.js');
 
 const DEFAULT_BRANCH = process.env.DEFAULT_BRANCH || 'main';
 const DEFAULT_DIFF_SUMMARY_PATH = 'verifier-diff-summary.md';
@@ -2401,8 +2401,10 @@ async function buildVerifierContext({
   };
   // Bind repeats to authoritative source/code bytes collected by this same
   // path. A caller's digest is only an expectation, never evidence authority.
+  const recoverySelector = parseRecoverySelector(process.env.VERIFICATION_RECOVERY);
+  if (recoverySelector && !modelEvaluation) throw new Error('Retained recovery supports evaluate/compare only');
   let verificationManifest = null;
-  const eventRequested = Boolean(process.env.VERIFICATION_EVENT || process.env.VERIFICATION_MATERIAL
+  const eventRequested = Boolean(recoverySelector || process.env.VERIFICATION_EVENT || process.env.VERIFICATION_MATERIAL
     || process.env.VERIFICATION_PREDECESSOR);
   if (modelEvaluation && !invalidOriginalBody && closingIssueDiscovery.status === 'included'
       && !sourceContext.hasAmbiguousIssueSource && !missingIssueSource
@@ -2424,9 +2426,31 @@ async function buildVerifierContext({
       provider:process.env.VERIFIER_PROVIDER || '',model:process.env.VERIFIER_MODEL || '',
       model2:process.env.VERIFIER_MODEL2 || '',canonical:true});
     verificationManifest.execution_binding = executionBinding(mode);
+    let recoveryOrigin;
+    if (recoverySelector) {
+      const recoveryKey = digest({schema:'retained-revalidation-key/v1',
+        event_id:verificationManifest.verification_event.event_id,
+        assessment:verificationManifest.assessment_identity,selector:recoverySelector});
+      const state = guardRecoveryHistory({event:verificationManifest.verification_event,
+        assessment:verificationManifest.assessment_identity,comments:verifierEvidence.event_history.records,
+        sourceRun:recoverySelector.run_id,sourceAttempt:recoverySelector.run_attempt,currentRun:Number(context.runId),recoveryKey});
+      if (state === 'duplicate') {
+        core?.setOutput?.('should_run','false');
+        core?.setOutput?.('verification_event_duplicate','true');
+        return {shouldRun:false,reason:'duplicate-retained-revalidation'};
+      }
+      recoveryOrigin = await acquireRetainedExecution({github,event:verificationManifest.verification_event,
+        assessment:verificationManifest.assessment_identity,selector:recoverySelector,currentRun:Number(context.runId)});
+      recoveryOrigin.recovery_key = recoveryKey;
+      fs.writeFileSync('verification-recovery-origin.json',JSON.stringify(recoveryOrigin,null,2)+'\n');
+      verificationManifest.execution_binding = {...verificationManifest.execution_binding,retained_revalidation:true};
+      verificationManifest.retained_revalidation = {schema:'retained-revalidation/v1',
+        recovery_key:recoveryKey,source_run_id:String(recoverySelector.run_id),
+        source_run_attempt:String(recoverySelector.run_attempt),artifact_id:recoverySelector.artifact_id};
+    }
     let retryKnownNoEvaluation;
     try {
-      retryKnownNoEvaluation = guardExistingEvent(verificationManifest.verification_event,
+      retryKnownNoEvaluation = recoverySelector ? true : guardExistingEvent(verificationManifest.verification_event,
         verifierEvidence.event_history.records, verificationManifest.assessment_identity) === 'retry';
     } catch (error) {
       if (error.code !== 'VERIFIER_PENDING_EXECUTION') throw error;
