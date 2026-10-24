@@ -484,6 +484,10 @@ _AVAILABILITY_FAILURE_KINDS = frozenset(
         "entry",
         "extraction_byte",
         "extraction_incomplete",
+        # A supported archive can contain unrenderable media (for example PNG).
+        # This is unavailable evidence, not corruption; only optional channels
+        # can be omitted, and required media remains a capture gap.
+        "unrenderable_media",
     }
 )
 

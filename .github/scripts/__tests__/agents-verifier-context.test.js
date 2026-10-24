@@ -3803,7 +3803,7 @@ test('archive extractor independently records unsupported, entry, character and 
     const result = extractArtifactArchiveText({archiveBuffer: Buffer.from('mock archive'), maxEntries: 1,
       maxChars: defect === 'character' ? 1 : 100, maxBytes: 50,
       execFile: (_cmd, args) => {
-        if (args[0] === '-Z1') return defect === 'unsupported_payload' ? 'proof.txt\nimage.png\n' : defect === 'entry' ? 'proof.txt\nother.txt\n' : 'proof.txt\n';
+        if (args[0] === '-Z1') return defect === 'unsupported_payload' ? 'proof.txt\nunknown.bin\n' : defect === 'entry' ? 'proof.txt\nother.txt\n' : 'proof.txt\n';
         if (defect === 'extraction_byte_or_read') throw new Error('maxBuffer exceeded');
         return 'complete sibling text';
       }});
@@ -3844,7 +3844,7 @@ test('artifact extractor retains patch proof and unsafe sibling gaps', () => {
     for (const unsafe of ['-injected.patch', 'wild*.diff', 'binary.png']) {
       const partial = run(`${name}\n${unsafe}\n`);
       assert.equal(partial.truncated, true);
-      assert.ok(partial.failures.includes('unsupported_payload'));
+      assert.ok(partial.failures.includes(unsafe === 'binary.png' ? 'unrenderable_media' : 'unsupported_payload'));
       assert.match(partial.text, /diff --git/);
     }
   }
@@ -5553,4 +5553,46 @@ test('optional comment overflow reports each limit once while continuing protoco
   assert.equal(limits.filter(row=>row.kind==='record').length,1);
   assert.equal(limits.filter(row=>row.kind==='character').length,0);
  });
+});
+
+
+test('only safe image names receive typed unrenderable-media availability', () => {
+  for (const extractor of [extractArtifactArchiveText, require('../../../templates/consumer-repo/.github/scripts/agents_verifier_context.js').extractArtifactArchiveText]) {
+    for (const name of ['daily-report.png', 'dir/dashboard.JPG', 'search.gif', 'upload.webp']) {
+      const result = extractor({archiveBuffer: Buffer.from('zip'), maxEntries:10, maxChars:500,
+        execFile: (_cmd, args) => args[0] === '-Z1' ? `proof.txt\n${name}\n` : 'required proof'});
+      assert.equal(result.truncated, true);
+      assert.deepEqual(result.failures, ['unrenderable_media'], name);
+      assert.match(result.text, /required proof/);
+    }
+    for (const name of ['-image.png', '../image.png', '/image.png', 'dir/./image.png', 'wild*.png', ' image.png', 'unknown.bin', 'C:/image.png', 'one.png^Jtwo.png', 'image^M.png']) {
+      const result = extractor({archiveBuffer: Buffer.from('zip'), maxEntries:10, maxChars:500,
+        execFile: (_cmd, args) => args[0] === '-Z1' ? `proof.txt\n${name}\n` : 'required proof'});
+      assert.ok(result.failures.includes('unsupported_payload'), name);
+      assert.ok(!result.failures.includes('unrenderable_media'), name);
+    }
+  }
+});
+
+
+test('duplicate media retains duplicate-member integrity refusal', () => {
+  for (const extractor of [extractArtifactArchiveText, require('../../../templates/consumer-repo/.github/scripts/agents_verifier_context.js').extractArtifactArchiveText]) {
+    const result = extractor({archiveBuffer:Buffer.from('zip'),maxEntries:10,maxChars:500,
+      execFile:(_cmd,args)=>args[0]==='-Z1'?'proof.txt\nimage.png\nimage.png\n':'required proof'});
+    assert.ok(result.failures.includes('unrenderable_media'));
+    assert.ok(result.failures.includes('duplicate_member'));
+    assert.equal(result.truncated,true);
+    assert.equal(result.members.filter(member=>member.status==='duplicate').length,2);
+  }
+});
+
+
+test('actual ZIP control-bearing image name cannot become optional media', () => {
+  const archive = Buffer.from('UEsDBBQAAAAAAMyNWF1id6ZkDAAAAAwAAAAPAAAAb25lLnBuZwp0d28ucG5nbm90IHJlbmRlcmVkUEsBAhQDFAAAAAAAzI1YXWJ3pmQMAAAADAAAAA8AAAAAAAAAAAAAAIABAAAAAG9uZS5wbmcKdHdvLnBuZ1BLBQYAAAAAAQABAD0AAAA5AAAAAAA=', 'base64');
+  for (const extractor of [extractArtifactArchiveText, require('../../../templates/consumer-repo/.github/scripts/agents_verifier_context.js').extractArtifactArchiveText]) {
+    const result = extractor({archiveBuffer:archive,maxEntries:10,maxChars:500});
+    assert.equal(result.truncated,true);
+    assert.ok(result.failures.includes('unsupported_payload'));
+    assert.ok(!result.failures.includes('unrenderable_media'));
+  }
 });
