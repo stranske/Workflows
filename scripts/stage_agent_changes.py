@@ -48,7 +48,6 @@ PROTECTED_RESOLUTIONS = {
     ".github/renovate.json",
     "SECURITY.md",
 }
-CONFLICT_MARKER = re.compile(rb"(?:<{7,}|={7,}|>{7,}|\|{7,})(?:[ \t].*)?")
 
 
 def is_artifact(path: str) -> bool:
@@ -92,6 +91,15 @@ def unmerged_paths() -> set[str]:
     }
 
 
+def require_text(content: bytes, name: str) -> None:
+    try:
+        content.decode("utf-8")
+    except UnicodeDecodeError:
+        raise SystemExit(f"Refusing non-text conflict resolution: {name!r}") from None
+    if b"\0" in content:
+        raise SystemExit(f"Refusing non-text conflict resolution: {name!r}")
+
+
 def validate_resolutions(names: set[str]) -> None:
     for name in sorted(names):
         if (
@@ -104,19 +112,40 @@ def validate_resolutions(names: set[str]) -> None:
         path = Path(name)
         if any(part.is_symlink() for part in (path, *path.parents)):
             raise SystemExit(f"Refusing symlink conflict resolution: {name!r}")
+        attributes = git(
+            "check-attr", "-z", "diff", "merge", "conflict-marker-size", "--", name
+        ).split(b"\0")
+        if attributes[2] == b"unset" or attributes[5] not in (b"unspecified", b"set", b"text"):
+            raise SystemExit(f"Refusing non-text conflict resolution: {name!r}")
+        if attributes[2] not in (b"unspecified", b"set"):
+            key = f"diff.{os.fsdecode(attributes[2])}.binary"
+            if git("config", "--type=bool", "--default", "false", "--get", key).strip() == b"true":
+                raise SystemExit(f"Refusing non-text conflict resolution: {name!r}")
+        if attributes[5] == b"unspecified":
+            driver = git("config", "--default", "text", "--get", "merge.default").strip()
+            if driver != b"text":
+                raise SystemExit(f"Refusing non-text conflict resolution: {name!r}")
+        # Git can leave an untouched text 'ours' file for a binary conflict in
+        # the base or incoming blob. Validate all original stages, not just the
+        # marker-free working file, before allowing automatic host staging.
+        for record in git("ls-files", "--unmerged", "-z", "--", name).split(b"\0"):
+            if record:
+                mode, oid, _ = record.split(b"\t", 1)[0].split()
+                if mode not in (b"100644", b"100755"):
+                    raise SystemExit(f"Refusing non-file conflict resolution: {name!r}")
+                require_text(git("cat-file", "blob", oid.decode("ascii")), name)
         if path.exists():
             if not path.is_file():
                 raise SystemExit(f"Refusing non-file conflict resolution: {name!r}")
-            if git("check-attr", "-z", "diff", "--", name).split(b"\0")[2] == b"unset":
-                raise SystemExit(f"Refusing non-text conflict resolution: {name!r}")
             content = path.read_bytes()
+            require_text(content, name)
             try:
-                content.decode("utf-8")
-            except UnicodeDecodeError:
-                raise SystemExit(f"Refusing non-text conflict resolution: {name!r}") from None
-            if b"\0" in content:
-                raise SystemExit(f"Refusing non-text conflict resolution: {name!r}")
-            if any(CONFLICT_MARKER.fullmatch(line) for line in content.splitlines()):
+                marker_size = int(attributes[8])
+            except ValueError:
+                marker_size = 7
+            minimum = min(7, marker_size) if marker_size > 0 else 7
+            marker = re.compile(rb"(?:<{%d,}|={%d,}|>{%d,}|\|{%d,})(?:[ \t].*)?" % ((minimum,) * 4))
+            if any(marker.fullmatch(line) for line in content.splitlines()):
                 raise SystemExit(f"Unresolved conflict markers: {name!r}")
         # Missing working files are explicit deletion resolutions, staged by add -A.
     if names:

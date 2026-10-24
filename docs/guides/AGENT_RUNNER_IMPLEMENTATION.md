@@ -208,6 +208,11 @@ consumer-local helper or separately synced exclusion list is unnecessary.
   marker and path checks run before any index mutation. Normal partial staging
   remains intact. This does not grant the worker Git metadata access or approval
   to publish comments/labels, and does not certify the resolution's semantics.
+  Original conflicted blobs and merge attributes must also describe ordinary
+  text merging: a binary/custom merge can leave an untouched, marker-free
+  working file, which is insufficient evidence of a resolution.
+  Marker scanning honors `conflict-marker-size` independently of Git's diff
+  output; named binary diff drivers are refused as well.
 - Treat helper failure as a staging failure. Do not fall back to unrestricted
   staging. New runtime outputs should normally be written under `RUNNER_TEMP`
   and uploaded from there instead of extending the exclusion contract.

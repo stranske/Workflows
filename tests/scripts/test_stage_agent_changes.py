@@ -32,27 +32,30 @@ def repo(tmp_path):
 def write(repo, name, text="generated\n"):
     p = repo / name
     p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text(text)
+    if isinstance(text, bytes):
+        p.write_bytes(text)
+    else:
+        p.write_text(text)
 
 
 def stage(repo):
     subprocess.run([sys.executable, str(HELPER)], cwd=repo, check=True)
 
 
-def make_conflicts(repo, names):
+def make_conflicts(repo, names, *, base="base\n", incoming="incoming\n", ours="ours\n"):
     """Leave real multi-stage index entries from a failed merge."""
     for name in names:
-        write(repo, name, "base\n")
+        write(repo, name, base)
     git(repo, "add", "-A")
     git(repo, "commit", "-qm", "conflict baseline")
     branch = git(repo, "branch", "--show-current").decode().strip()
     git(repo, "checkout", "-qb", "incoming")
     for name in names:
-        write(repo, name, "incoming\n")
+        write(repo, name, incoming)
     git(repo, "commit", "-qam", "incoming change")
     git(repo, "checkout", "-q", branch)
     for name in names:
-        write(repo, name, "ours\n")
+        write(repo, name, ours)
     git(repo, "commit", "-qam", "our change")
     result = subprocess.run(["git", "merge", "incoming"], cwd=repo, capture_output=True)
     assert result.returncode == 1, result.stderr
@@ -98,7 +101,7 @@ def test_unresolved_markers_refuse_without_changing_index(repo, marker_size, crl
     before = index_bytes(repo)
     result = subprocess.run([sys.executable, str(HELPER)], cwd=repo, capture_output=True)
     assert result.returncode != 0
-    assert b"conflict" in result.stdout.lower() + result.stderr.lower()
+    assert b"Unresolved conflict markers" in result.stderr
     assert index_bytes(repo) == before
     assert git(repo, "ls-files", "--unmerged", "-z")
 
@@ -172,6 +175,57 @@ def test_git_declared_binary_conflict_is_not_implicitly_resolved_as_ours(repo):
     write(repo, ".gitattributes", "source.py binary\n")
     make_conflicts(repo, ["source.py"])
     assert (repo / "source.py").read_text() == "ours\n"
+    before = index_bytes(repo)
+    result = subprocess.run([sys.executable, str(HELPER)], cwd=repo, capture_output=True)
+    assert result.returncode != 0
+    assert b"Refusing non-text conflict resolution" in result.stderr
+    assert index_bytes(repo) == before
+
+
+@pytest.mark.parametrize("binary_stage", ["base", "incoming", "ours"])
+def test_binary_index_blob_refuses_even_with_text_working_resolution(repo, binary_stage):
+    make_conflicts(repo, ["source.py"], **{binary_stage: b"binary\0content\n"})
+    # Git leaves text 'ours' untouched when only base/incoming is binary.
+    if binary_stage != "ours":
+        assert (repo / "source.py").read_text() == "ours\n"
+    write(repo, "source.py", "marker-free text\n")
+    before = index_bytes(repo)
+    result = subprocess.run([sys.executable, str(HELPER)], cwd=repo, capture_output=True)
+    assert result.returncode != 0
+    assert b"Refusing non-text conflict resolution" in result.stderr
+    assert index_bytes(repo) == before
+
+
+@pytest.mark.parametrize("attribute", ["-merge", "merge=binary"])
+def test_binary_merge_attribute_refuses_untouched_text_ours(repo, attribute):
+    write(repo, ".gitattributes", f"source.py {attribute}\n")
+    make_conflicts(repo, ["source.py"])
+    assert (repo / "source.py").read_text() == "ours\n"
+    before = index_bytes(repo)
+    result = subprocess.run([sys.executable, str(HELPER)], cwd=repo, capture_output=True)
+    assert result.returncode != 0
+    assert b"Refusing non-text conflict resolution" in result.stderr
+    assert index_bytes(repo) == before
+
+
+def test_binary_default_merge_driver_refuses_untouched_text_ours(repo):
+    git(repo, "config", "merge.default", "binary")
+    make_conflicts(repo, ["source.py"])
+    assert (repo / "source.py").read_text() == "ours\n"
+    before = index_bytes(repo)
+    result = subprocess.run([sys.executable, str(HELPER)], cwd=repo, capture_output=True)
+    assert result.returncode != 0
+    assert b"Refusing non-text conflict resolution" in result.stderr
+    assert index_bytes(repo) == before
+
+
+def test_custom_binary_diff_driver_cannot_hide_short_conflict_markers(repo):
+    write(repo, ".gitattributes", "source.py diff=foo conflict-marker-size=5\n")
+    git(repo, "config", "diff.foo.binary", "true")
+    make_conflicts(repo, ["source.py"])
+    assert "<<<<< HEAD\n" in (repo / "source.py").read_text()
+    # This is the real dependency blind spot; the helper must not rely on it.
+    assert git(repo, "diff", "--check") == b""
     before = index_bytes(repo)
     result = subprocess.run([sys.executable, str(HELPER)], cwd=repo, capture_output=True)
     assert result.returncode != 0
