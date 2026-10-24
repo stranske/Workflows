@@ -11,6 +11,7 @@ Breaking changes are called out with a **BREAKING** marker and scheduled accordi
 
 ### Bug Fixes
 
+* bind verifier publication to authoritative execution receipts ([#4222](https://github.com/stranske/Workflows/pull/4222)) ([4326fbe](https://github.com/stranske/Workflows/commit/4326fbe7df4cf856cf85e62d023fa17be04ab0b6))
 * recover authenticated retained verifier output without model replay ([#4224](https://github.com/stranske/Workflows/issues/4224)) ([fe6a3d9](https://github.com/stranske/Workflows/commit/fe6a3d9f364c0cd8f0eed6261c320ccfcc9f494c))
 
 ## [1.44.12](https://github.com/stranske/Workflows/compare/v1.44.11...v1.44.12) (2026-10-24)
