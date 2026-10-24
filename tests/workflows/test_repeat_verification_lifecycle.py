@@ -27,7 +27,9 @@ def authored(name):
     return next(step for step in workflow["jobs"]["verifier"]["steps"] if step.get("name") == name)
 
 
-def run_state_step(tmp_path, name, *, posted=False, outcome="success", reject_comments=False):
+def run_state_step(
+    tmp_path, name, *, posted=False, outcome="success", reject_comments=False, extra_env=None
+):
     if not (tmp_path / ".workflows-lib").exists():
         (tmp_path / ".workflows-lib").symlink_to(ROOT, target_is_directory=True)
     script = authored(name)["with"]["script"]
@@ -38,7 +40,8 @@ const github={rest:{issues:{createComment:async row=>{
  if(input.reject_comments) throw Object.assign(new Error('comment publication refused'),{status:403,request:{method:'POST'}});
  comments.push(row);
 }}}};
-const context={repo:{owner:'stranske',repo:'example'},runId:20};
+const [owner,repo]=(process.env.GITHUB_REPOSITORY || 'stranske/example').split('/');
+const context={repo:{owner,repo},runId:Number(process.env.GITHUB_RUN_ID || 20)};
 const core={setOutput:(key,value)=>{outputs[key]=value;},warning:()=>{},setFailed:()=>{}};
 const AsyncFunction=Object.getPrototypeOf(async function(){}).constructor;
 new AsyncFunction('require','github','context','core',input.script)(require,github,context,core)
@@ -55,8 +58,16 @@ new AsyncFunction('require','github','context','core',input.script)(require,gith
         env={
             **os.environ,
             "GITHUB_RUN_ATTEMPT": "1",
+            "GITHUB_REPOSITORY": "stranske/example",
+            "GITHUB_RUN_ID": "20",
+            "PR_NUMBER": "7",
+            "PR_HEAD_SHA": "a" * 40,
+            "EVALUATED_SHA": "b" * 40,
+            "CI_FAILED": "false",
+            "VERIFIER_MODE": "evaluate",
             "PRODUCTION_REPORT_POSTED": str(posted).lower(),
             "EVALUATOR_STEP_OUTCOME": outcome,
+            **(extra_env or {}),
         },
     )
     return json.loads(result.stdout)
@@ -76,17 +87,45 @@ def manifest(tmp_path):
     return data
 
 
+def execution_receipt(tmp_path, *, available, verdict="PASS"):
+    raw = (tmp_path / "evaluation.json").read_bytes()
+    (tmp_path / "evaluation-execution.json").write_text(
+        json.dumps(
+            {
+                "schema": "workflows-verifier-evaluation-execution/v1",
+                "mode": "evaluate",
+                "status": "completed" if available else "result_unavailable",
+                "exit_code": 0,
+                "decision_available": available,
+                "verdict": verdict,
+                "repository": "stranske/example",
+                "source_run_id": "20",
+                "source_run_attempt": "1",
+                "outputs": {
+                    "evaluation.json": {
+                        "sha256": hashlib.sha256(raw).hexdigest(),
+                        "bytes": len(raw),
+                    }
+                },
+            }
+        )
+    )
+
+
 def annotate(tmp_path, *, used_llm, verdict="PASS"):
     (tmp_path / "evaluation.json").write_text(
         json.dumps({"used_llm": used_llm, "verdict": verdict})
     )
     (tmp_path / "evaluation-comment.md").write_text("Retained actual model result.\n")
+    execution_receipt(tmp_path, available=used_llm, verdict=verdict)
     return subprocess.run(
         [
             sys.executable,
             str(ROOT / "tools/verifier_corpus_evidence.py"),
             "--evaluation",
             "evaluation.json",
+            "--execution-receipt",
+            "evaluation-execution.json",
             "--comment",
             "evaluation-comment.md",
         ],
@@ -143,7 +182,9 @@ def test_manifest_identity_mismatch_never_publishes_a_legacy_pass(tmp_path):
         json.dumps(core, sort_keys=True, separators=(",", ":")).encode()
     ).hexdigest()
     (tmp_path / "verification-event-manifest.json").write_text(json.dumps(data))
-    assert annotate(tmp_path, used_llm=True).returncode != 0
+    assert annotate(tmp_path, used_llm=True).returncode == 0
+    assert "**Verdict:** UNVERIFIABLE_INPUT" in (tmp_path / "evaluation-comment.md").read_text()
+    assert "Result admission refused" in (tmp_path / "evaluation-comment.md").read_text()
     assert "verifier-corpus-decision/v1" not in (tmp_path / "evaluation-comment.md").read_text()
 
 
@@ -153,6 +194,7 @@ def test_errored_true_result_is_retained_for_recovery_without_terminal_pass(tmp_
         json.dumps({"used_llm": True, "verdict": "PASS", "error": "response incomplete"})
     )
     (tmp_path / "evaluation-comment.md").write_text("Original retained response.\n")
+    execution_receipt(tmp_path, available=False)
     env = {
         **os.environ,
         "GITHUB_REPOSITORY": "stranske/example",
@@ -169,6 +211,8 @@ def test_errored_true_result_is_retained_for_recovery_without_terminal_pass(tmp_
             str(ROOT / "tools/verifier_corpus_evidence.py"),
             "--evaluation",
             "evaluation.json",
+            "--execution-receipt",
+            "evaluation-execution.json",
             "--comment",
             "evaluation-comment.md",
         ],

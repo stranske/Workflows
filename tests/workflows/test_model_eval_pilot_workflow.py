@@ -102,7 +102,7 @@ def test_corpus_decision_publisher_uses_evaluated_context_identity():
     assert publish["env"]["PR_HEAD_SHA"] == "${{ steps.context.outputs.pr_head_sha }}"
     assert publish["env"]["EVALUATED_SHA"] == "${{ steps.context.outputs.target_sha }}"
     assert publish["env"]["CI_FAILED"] == "${{ steps.context.outputs.ci_failed }}"
-    assert "python .workflows-lib/tools/verifier_corpus_evidence.py" in publish["run"]
+    assert "python3 .workflows-lib/tools/verifier_corpus_evidence.py" in publish["run"]
     assert publish["run"].index("tools/verifier_corpus_evidence.py") < publish["run"].index(
         "gh pr comment"
     )

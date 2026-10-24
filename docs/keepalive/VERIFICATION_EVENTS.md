@@ -91,6 +91,21 @@ its original cause remains recorded. Pending or uncertain same-event assessment
 state refuses evaluator re-invocation. Unrelated events and reviewer slots are
 not dependencies of this guard.
 
+Evaluate and compare validate results against the authoritative `.workflows-lib`
+checkout, even when the caller contains an older `scripts` package. Each normal
+publication joins the exact retained payload hash/byte count to its mode-specific
+execution receipt, repository and run/attempt. The outgoing report verdict, corpus
+marker, terminal event and provisional PASS settlement use this same admission.
+An invalid receipt cannot publish a raw PASS marker; an already present marker in
+model report text is removed before the current job's annotation is rebuilt.
+Original payloads, receipts and previously published history remain unchanged.
+Semantic comparison joins report rows to the authenticated judge/package cell
+matrix; it does not require one row per provider. Legacy direct comparisons retain
+their existing configured-slot completeness checks.
+A retained usable model response with a failed wrapper is recovery input, never
+permission to invoke the provider again. Revalidation alone is not publication
+authority or a replacement execution receipt.
+
 Incomplete input or execution cannot produce a terminal PASS or consume the
 consumer fingerprint. CI success alone cannot create acceptance. Model reports
 retain their original verdicts; consumers must select applicable causal events
