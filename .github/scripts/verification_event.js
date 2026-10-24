@@ -271,10 +271,8 @@ function buildVerificationEvent({ repository, pull, issues, fullDiffBytes, evide
     head_sha: pull.head?.sha, evaluated_sha: pull.merge_commit_sha,
     diff_sha256: createHash('sha256').update(fullDiffBytes).digest('hex'),
   }, ci_hard_gate: ciHardGate(pull, ciResults), required_evidence: requiredEvidence(selectors, evidence) };
-  if (evidence.gzip_assets?.length) material.derived_evidence = sorted(evidence.gzip_assets.map(row => ({
-    source:row.source,status:row.status,codec:row.codec,git_blob_sha:row.git_blob_sha || null,
-    raw_sha256:row.raw_sha256 || null,text_sha256:row.text_sha256 || null,necessity:row.necessity,
-  })));
+  // Explicit git_blob selectors bind required content above; transport-only
+  // views must not mint a new event when optional capture availability changes.
   const event = { schema: 'verification-event/v1', repo, pr: String(pull.number),
     head_sha: pull.head?.sha, evaluated_sha: pull.merge_commit_sha,
     request_sha256: digest(request), material_sha256: digest(material) };

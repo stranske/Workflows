@@ -503,7 +503,10 @@ compressed and decoded SHA256, byte counts, codec and original binary patch
 span. The single-member gzip decoder validates CRC and EOF and rejects trailing
 or concatenated members, invalid UTF-8, NUL and symlinks. Per asset limits are
 4 MiB compressed and 4 MiB decoded; aggregate limits are 32 MiB and 64 MiB, with
-at most 80 assets. These are transport bounds, not inferred proof requirements.
+at most 80 captured assets. If the inventory exceeds that bound, every asset
+remains explicitly unavailable with a count-limit cause; the collector does not
+abort the surrounding context or silently discard paths. These are transport
+bounds, not inferred proof requirements.
 Failures remain explicit per asset. Other binary code remains unavailable;
 modified, renamed and deleted assets are unsupported until both required Git
 sides can be bound. Identical content at different paths retains distinct path
@@ -511,8 +514,10 @@ identities.
 
 The existing `verification_material` input additionally accepts
 `{"kind":"git_blob","path":"docs/verification/example.log.gz"}` to name required
-proof. It accepts no caller repository, revision or hash override. Otherwise
-necessity is unknown: a recognized filename alone does not establish that proof
+proof. It accepts no caller repository, revision or hash override.
+Only explicitly selected required content participates in verification-event
+material identity; optional retrieval progress does not create a new event.
+Otherwise necessity is unknown: a recognized filename alone does not establish that proof
 is optional or mandatory. The original requirements remain in every review.
 Verbose logs do not create new acceptance criteria. Raw and decoded assets are
 retained for evaluate and compare executions without changing the result or

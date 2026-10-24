@@ -427,8 +427,6 @@ def _verified_full_diff_changed_code(
     expected_records = _full_patch_file_records(full_diff_bytes)
     if expected_records is None:
         return False, ["full_diff_artifact:file_inventory_malformed"]
-    if any(record["binary"] for record in expected_records):
-        return False, []
     if len(changed_records) != len(expected_records):
         return False, ["changed_code:full_patch_record_count_mismatch"]
     expected_by_span = {(item["start"], item["end"]): item for item in expected_records}
@@ -549,6 +547,7 @@ def build_capture_obligation_manifest(
             gaps.append("context_source_coverage_stage_unknown")
         changed_records = coverage.get("changed_code_sources")
         full_patch_covers_changed_code = False
+        binary_sources: set[str] = set()
         artifact_for_binary = coverage.get("full_diff_artifact")
         if (
             isinstance(artifact_for_binary, dict)
@@ -556,6 +555,8 @@ def build_capture_obligation_manifest(
             and _raw_patch_has_binary_section(full_diff_bytes)
         ):
             binary_records = _full_patch_file_records(full_diff_bytes)
+            if binary_records is not None:
+                binary_sources = {row["source"] for row in binary_records if row["binary"]}
             if binary_records is None or any(
                 row["binary"] and row["source"] not in asset_views for row in binary_records
             ):
@@ -609,6 +610,7 @@ def build_capture_obligation_manifest(
                     or require_full_changed_code
                     and not (
                         full_patch_covers_changed_code
+                        and obligation.source not in binary_sources
                         and obligation.status in {"truncated", "omitted"}
                     )
                 ):

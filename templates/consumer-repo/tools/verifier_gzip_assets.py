@@ -67,7 +67,10 @@ def verified_assets(coverage: dict[str, Any], directory: Path, full_diff: bytes)
     from tools.verifier_capture_obligation_manifest import _full_patch_file_records
 
     records = coverage.get("gzip_asset_sources", [])
-    if not isinstance(records, list) or len(records) > 80:
+    if (
+        not isinstance(records, list)
+        or sum(isinstance(row, dict) and row.get("status") == "captured" for row in records) > 80
+    ):
         raise ValueError("gzip_asset_inventory_invalid")
     if not records:
         return {}

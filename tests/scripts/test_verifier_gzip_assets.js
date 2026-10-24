@@ -145,3 +145,14 @@ test('shared immutable commit/tree failures are observed once per collection, wi
   assert.equal(calls,endpoint==='getCommit'?2:4,endpoint);
  }
 });
+
+
+test('asset count bound yields an explicit unavailable record for every path without reads',async t=>{
+ const paths=Array.from({length:81},(_,i)=>`docs/verification/${i}.log.gz`);
+ const f=fixture(temp(t),{paths});delete f.args.github;
+ const rows=await collectGzipAssets(f.args);
+ assert.equal(rows.length,81);assert.deepEqual(rows.map(row=>row.source),paths);
+ assert.ok(rows.every(row=>row.status==='unavailable'&&row.reason==='gzip_asset_inventory_count_bound'));
+ assert.equal(f.calls(),0);
+ await assert.rejects(collectGzipAssets({...f.args,files:[...f.args.files,f.args.files[0]]}),/ambiguous/);
+});

@@ -381,3 +381,79 @@ def test_row_and_binding_cannot_override_outer_target(tmp_path, monkeypatch, fie
         .status
         == "omitted"
     )
+
+
+@pytest.mark.parametrize("unknown_binary", [False, True])
+def test_mixed_patch_recovers_exact_text_spans_without_waiving_binary(
+    tmp_path, monkeypatch, unknown_binary
+):
+    monkeypatch.setenv("VERIFIER_EVIDENCE_CAPTURE_DIR", str(tmp_path))
+    binary, coverage, _ = asset(tmp_path)
+    coverage["acceptance_source_discovery"] = {"required": False, "status": "included"}
+    text = (
+        b"diff --git a/code.py b/code.py\n--- a/code.py\n+++ b/code.py\n@@ -1 +1 @@\n-old\n+new\n"
+    )
+    patch = text + binary
+    if unknown_binary:
+        patch += b"diff --git a/code.bin b/code.bin\nnew file mode 100644\nindex 0000000..1234567\nBinary files /dev/null and b/code.bin differ\n"
+    records = _full_patch_file_records(patch)
+    coverage["changed_code_sources"] = [
+        {
+            **record,
+            "status": "truncated",
+            "included_chars": 0,
+            "total_chars": record["end"] - record["start"],
+        }
+        for record in records
+    ]
+    canonical = patch.decode().removesuffix("\n")
+    coverage["full_diff_artifact"] = {
+        "source": "verifier-pr-diff.patch",
+        "status": "included",
+        "encoding": "utf-8",
+        "chars": len(canonical),
+        "bytes": len(patch),
+        "sha256": hashlib.sha256(patch).hexdigest(),
+    }
+    context = (
+        IDENTITY
+        + "## Context source coverage\n\n```json\n"
+        + json.dumps(coverage)
+        + "\n```\n\n## CI Information\n"
+    )
+    manifest = build_capture_obligation_manifest(context, full_diff_bytes=patch)
+    assert "changed_code:code.py:truncated" not in manifest["gaps"], manifest["gaps"]
+    assert "changed_code:docs/verification/é.log.gz:truncated" not in manifest["gaps"]
+    assert ("changed_code:full_patch_binary_unavailable" in manifest["gaps"]) is unknown_binary
+    if unknown_binary:
+        assert "changed_code:code.bin:truncated" in manifest["gaps"]
+    else:
+        assert manifest["sufficient"], manifest["gaps"]
+    coverage["changed_code_sources"][0]["sha256"] = "0" * 64
+    broken = (
+        context[: context.index("## Context source coverage")]
+        + "## Context source coverage\n\n```json\n"
+        + json.dumps(coverage)
+        + "\n```\n\n## CI Information\n"
+    )
+    rejected = build_capture_obligation_manifest(broken, full_diff_bytes=patch)
+    assert "changed_code:code.py:full_patch_span_identity_mismatch" in rejected["gaps"]
+
+
+def test_count_limited_inventory_retains_typed_unavailable_records(tmp_path):
+    patch, coverage, row = asset(tmp_path)
+    coverage["gzip_asset_sources"] = [
+        {
+            **row,
+            "source": f"docs/verification/{n}.log.gz",
+            "status": "unavailable",
+            "reason": "gzip_asset_inventory_count_bound",
+        }
+        for n in range(81)
+    ]
+    result = verified_assets(coverage, tmp_path, patch)
+    assert len(result) == 81 and all(not record["verified"] for record in result.values())
+    for record in coverage["gzip_asset_sources"]:
+        record["status"] = "captured"
+    with pytest.raises(ValueError, match="inventory_invalid"):
+        verified_assets(coverage, tmp_path, patch)

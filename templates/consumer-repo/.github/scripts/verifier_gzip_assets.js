@@ -32,8 +32,8 @@ async function collectGzipAssets({github, owner, repo, evaluatedSha, diffText, f
   for (const source of required) if (!candidates.some(file => file.toPath === source)) throw new Error('Required git_blob is not a supported changed evidence asset');
   if (!candidates.length) return [];
   if (!/^[a-f0-9]{40}$/.test(evaluatedSha || '')) throw new Error('Gzip asset immutable merge identity unavailable');
-  if (candidates.length > 80 || new Set(candidates.map(f => f.toPath)).size !== candidates.length) throw new Error('Gzip asset inventory ambiguous');
-  github = await ensureRateLimitWrapped({github,core,env:process.env});
+  if (new Set(candidates.map(f => f.toPath)).size !== candidates.length) throw new Error('Gzip asset inventory ambiguous');
+  if (candidates.length <= 80) github = await ensureRateLimitWrapped({github,core,env:process.env});
   const trees = new Map();
   let rootPromise;
   // One collection pass shares immutable metadata reads, including rejection.
@@ -63,6 +63,7 @@ async function collectGzipAssets({github, owner, repo, evaluatedSha, diffText, f
       evaluated_sha:evaluatedSha, change_kind:file.status, necessity:required.has(file.toPath) ? 'required' : 'unknown',
       patch_sha256:hash(Buffer.from(diffText.slice(file.start,file.end).replace(/\n$/,''),'utf8')), status:'unavailable'};
     try {
+      if (candidates.length > 80) throw new Error('gzip_asset_inventory_count_bound');
       // V1 must not claim a new-side-only view covers modified/deleted/renamed assets.
       if (file.status !== 'added') throw new Error('gzip_asset_change_sides_unsupported');
       let sha = await rootTree();
