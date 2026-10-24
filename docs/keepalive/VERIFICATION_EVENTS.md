@@ -34,6 +34,13 @@ The optional workflow inputs are:
   `{"kind":"artifact_member","run_id":123,"artifact_id":456,"path":"proof.txt"}`.
   Selectors resolve only against the existing collector's authenticated retained
   records. Missing, ambiguous, incomplete or duplicate selections are errors.
+  Explicit comment selectors may also name a source issue already bound by the
+  acceptance-source collector. The collector fetches that exact comment by ID,
+  checks its repository/thread, actor ID and timestamps, and retains its full
+  bounded body before optional PR chatter. Missing or oversized necessary text
+  remains an explicit retrieval failure. Its body participates in event identity.
+  Historical request revisions remain evidence of historical scope, not current
+  operating instructions; later authenticated user directions still take precedence.
 - `verification_predecessor`: prior authenticated exact-subject event ID. Legacy
   terminal reports have a deterministic `verification-legacy-event/v1` identity
   containing repository, PR, head, merge, run ID and attempt. A caller-supplied
