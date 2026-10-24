@@ -145,6 +145,8 @@ def test_complete_sibling_evidence_can_discharge_only_scoped_concern(monkeypatch
         monkeypatch, [scoped_concern(), reply(), reply(resolved_chunk_concerns=[resolution()])]
     )
     assert result.verdict == "PASS" and result.concerns == []
+    assert len(result.resolved_chunk_concerns) == 1
+    assert result.resolved_chunk_concerns[0].supporting_files == ["b/module.py"]
 
 
 @pytest.mark.parametrize(
@@ -336,6 +338,7 @@ def test_blank_resolution_explanation_cannot_discharge_original_concern(monkeypa
     [
         "Real local correctness defect: invalid zero division.",
         "a/module.py divides by zero; b/module.py is not supplied.",
+        "Division by zero in module.py; b/module.py is not supplied.",
         "other-b/module.py is missing.",
     ],
 )

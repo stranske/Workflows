@@ -6815,10 +6815,11 @@ def _evaluate_chunked(
                     )
                     and not any(
                         re.search(
-                            r"(?<![\w./-])" + re.escape(path) + r"(?![\w./-])",
+                            r"(?<![\w./-])" + re.escape(name) + r"(?![\w./-])",
                             local.concerns[concern],
                         )
                         for path in chunks[index][0]
+                        for name in (path, path.rsplit("/", 1)[-1])
                     )
                 ):
                     resolved.add((index, concern))
