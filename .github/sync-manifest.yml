@@ -612,6 +612,10 @@ scripts:
     description: "Hashes canonical parsed Tasks/Acceptance Criteria and linked source lineage for consumer verifier deduplication"
     delivery: copy
 
+  - source: .github/scripts/verifier_gzip_assets.js
+    description: "Capture bounded gzip UTF-8 evidence assets from the immutable target Git tree without changing patches"
+    delivery: copy
+
   - source: .github/scripts/verification_event.js
     description: "Binds repeat verification and strict recovery selectors to authoritative code, original requests and explicitly required retained evidence"
     delivery: copy
@@ -880,6 +884,10 @@ scripts:
     template_sync: exact
 
   # Raw UTF-8 and CRLF identities must match loaded semantic inputs without newline normalization.
+  - source: tools/verifier_gzip_assets.py
+    description: "Validate exact Git gzip evidence identities, bounded single-member UTF-8 views and complete review coverage"
+    template_sync: exact
+
   - source: tools/verifier_artifact_capture.py
     description: "Verify immutable raw artifact sidecars independently from bounded rendering"
     template_sync: exact

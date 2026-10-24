@@ -60,8 +60,8 @@ function validateEvent(value) {
 }
 
 function requiredEvidence(selectors, evidence) {
-  const selected = parse(selectors, []);
-  if (!Array.isArray(selected) || selected.length > 20) throw new Error('Invalid required verification evidence selectors');
+  const {validatedSelectors} = require('./verifier_gzip_assets');
+  const selected = validatedSelectors(selectors);
   const rows = selected.map(selector => {
     if (!selector || typeof selector !== 'object') throw new Error('Invalid required evidence selector');
     if (selector.kind === 'comment') {
@@ -77,6 +77,15 @@ function requiredEvidence(selectors, evidence) {
       // exact selectors, not instructions to fetch an arbitrary destination.
       return { kind: 'comment', url: selector.url,
         body_sha256: createHash('sha256').update(matches[0].body, 'utf8').digest('hex') };
+    }
+    if (selector.kind === 'git_blob') {
+      const {evidencePath} = require('./verifier_gzip_assets');
+      if (Object.keys(selector).sort().join(',') !== 'kind,path' || !evidencePath(selector.path)) throw new Error('Invalid git_blob selector');
+      const matches = (evidence.gzip_assets || []).filter(row => row.source === selector.path);
+      if (matches.length !== 1 || matches[0].status !== 'captured') throw new Error('Required git_blob evidence unavailable');
+      const row=matches[0];
+      return {kind:'git_blob',path:row.source,git_blob_sha:row.git_blob_sha,raw_sha256:row.raw_sha256,
+        text_sha256:row.text_sha256,codec:row.codec};
     }
     if (selector.kind === 'artifact_member') {
       if (![selector.run_id, selector.artifact_id].every(id => Number.isSafeInteger(id) && id > 0)
@@ -262,6 +271,10 @@ function buildVerificationEvent({ repository, pull, issues, fullDiffBytes, evide
     head_sha: pull.head?.sha, evaluated_sha: pull.merge_commit_sha,
     diff_sha256: createHash('sha256').update(fullDiffBytes).digest('hex'),
   }, ci_hard_gate: ciHardGate(pull, ciResults), required_evidence: requiredEvidence(selectors, evidence) };
+  if (evidence.gzip_assets?.length) material.derived_evidence = sorted(evidence.gzip_assets.map(row => ({
+    source:row.source,status:row.status,codec:row.codec,git_blob_sha:row.git_blob_sha || null,
+    raw_sha256:row.raw_sha256 || null,text_sha256:row.text_sha256 || null,necessity:row.necessity,
+  })));
   const event = { schema: 'verification-event/v1', repo, pr: String(pull.number),
     head_sha: pull.head?.sha, evaluated_sha: pull.merge_commit_sha,
     request_sha256: digest(request), material_sha256: digest(material) };
