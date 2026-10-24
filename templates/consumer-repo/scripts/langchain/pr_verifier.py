@@ -814,9 +814,7 @@ def _split_diff_files(diff: str) -> list[tuple[str | None, str]]:
         source = (
             decode_quoted_path(payload)
             if payload.startswith('"')
-            else (payload[:separator], payload[separator:])
-            if separator > 0
-            else None
+            else (payload[:separator], payload[separator:]) if separator > 0 else None
         )
         if source is None or not source[1].startswith(" "):
             return None
@@ -2289,9 +2287,7 @@ def _normalize_relative_review_presence(acceptance: str) -> str:
         parent_condition = (
             conditional.match(acceptance, tail.end())
             if tail[0]
-            else condition
-            if not match["predicate"]
-            else None
+            else condition if not match["predicate"] else None
         )
         destination = match["destination"] or match["availability_destination"]
         parent = destination + tail[0] + (parent_condition[0] if parent_condition else "")
@@ -2470,9 +2466,7 @@ def _normalize_review_content_qualifiers(acceptance: str) -> str:
         + content
         # A condition attached to discarded negative content belongs to that
         # content, not to the parent's mandatory destination or its siblings.
-        + r"(?:[ \t]*,?[ \t]*"
-        + _EVIDENCE_CONDITIONAL
-        + r")?)"
+        + r"(?:[ \t]*,?[ \t]*" + _EVIDENCE_CONDITIONAL + r")?)"
     )
     # A positive relative predicate can be payload content when it modifies one
     # member of a shared destination list. Keep that content, but make it a
@@ -3856,11 +3850,7 @@ def _classify_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
             disposition = (
                 "prohibited"
                 if prohibited
-                else "product"
-                if product
-                else "optional"
-                if optional
-                else "required"
+                else "product" if product else "optional" if optional else "required"
             )
             destinations = set()
             product_surface = False
