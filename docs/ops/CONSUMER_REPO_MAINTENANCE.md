@@ -50,6 +50,14 @@ Active runs are not duplicated, fresh post-seal test failures remain blocking,
 and workflow security approval holds require their own authorized review.
 Previously accepted unchanged-payload canary qualification is retained.
 
+Gate summaries that read `GITHUB_EVENT_PATH` must refresh that file from the
+identity-checked `resolve-pr` snapshot in the **same `run` action** that invokes
+`gate_summary.py`. The runner restores the original event between actions, so a
+separate `github-script` hydration is insufficient. Customized summary jobs need
+the direct resolver dependency and `GATE_PR_JSON` environment binding; preserve
+all existing required tests, coverage policy and exact-head seal checks.
+
+
 ### Finding relevance evidence
 
 `sync_pr_merge_contract.js::evaluateSyncFindingDispositions` is the shared

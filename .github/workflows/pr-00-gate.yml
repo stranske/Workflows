@@ -963,7 +963,30 @@ jobs:
           DELIVERY_SEAL_RESULT: ${{ needs.generated-delivery-seal.result || 'success' }}
           DOCKER_CHANGED: ${{ needs.detect.outputs.docker_changed || 'false' }}
           COVERAGE_ENABLED: ${{ needs.detect.outputs.coverage || 'true' }}
-        run: python .github/scripts/gate_summary.py
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          raw = os.environ.get("GATE_PR_JSON", "")
+          if raw and raw != "null":
+              path = Path(os.environ["GITHUB_EVENT_PATH"])
+              event = json.loads(path.read_text(encoding="utf-8"))
+              resolved = json.loads(raw)
+              original = event.get("pull_request")
+              if original and (
+                  original.get("number") != resolved.get("number")
+                  or original.get("head", {}).get("sha") != resolved.get("head", {}).get("sha")
+                  or original.get("head", {}).get("repo", {}).get("full_name")
+                  != resolved.get("head", {}).get("repo", {}).get("full_name")
+              ):
+                  raise RuntimeError("Resolved Gate PR identity differs from the original event")
+              event["pull_request"] = resolved
+              event["number"] = resolved["number"]
+              path.write_text(json.dumps(event), encoding="utf-8")
+          PY
+          python .github/scripts/gate_summary.py
 
       - name: Auto-apply autofix label for cosmetic failures
         id: autofix_label
