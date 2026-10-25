@@ -571,16 +571,20 @@ function sealedGateHarness(t) {
     run_attempt: 1, created_at: sealedAt, run_started_at: sealedAt };
   const reads = [], reruns = [], dispatches = [], logs = [];
   const state = { runs: [run] };
+  const jobs = run => [{ id: 1, name: 'resolve Gate PR context', head_sha: run.head_sha,
+    run_attempt: run.run_attempt || 1, status: 'completed', conclusion: 'success',
+    started_at: run.run_started_at || run.created_at, completed_at: run.run_started_at || run.created_at }];
   t.mock.timers.enable({ apis: ['Date'], now: refreshNow });
   t.mock.method(console, 'log', (...args) => logs.push(args.join(' ')));
-  const withRetry = async callback => callback({ rest: { actions: {
+  const withRetry = async callback => callback({ paginate: async () => state.jobs || jobs(state.runs.find(r => r.head_sha === pr.head.sha)), rest: { actions: {
     listWorkflowRuns: async params => {
       reads.push(params);
       if (state.lookupError) throw Object.assign(new Error('history denied'), { status: 403 });
       return { data: { workflow_runs: params.event === 'pull_request' ? state.runs
         : dispatches.length ? [{ ...run, event: 'workflow_dispatch', status: 'queued', created_at: new Date().toISOString() }] : [] } };
     },
-    reRunWorkflowFailedJobs: async params => {
+    listJobsForWorkflowRun() {},
+    reRunWorkflow: async params => {
       reruns.push(params);
       if (state.rerunError) throw Object.assign(new Error(state.rerunReason || 'rerun denied'), { status: state.rerunError });
       return { status: 201 };
@@ -605,7 +609,7 @@ for (const branch of ['sync/workflows-candidate', 'sync/workflows-delivery']) {
     assert.deepEqual(api.reruns, [{ owner: 'stranske', repo: 'Ready', run_id: 4105 }]);
     assert.ok(api.logs.includes('seal: stranske/Ready#4104 gate rerun run=4105'));
     for (const status of ['queued', 'in_progress', 'completed']) {
-      api.state.runs = [{ ...api.run, run_attempt: 2, status,
+      api.state.runs = [{ ...api.run, run_attempt: 2, status, run_started_at: '2026-10-17T11:00:01Z',
         conclusion: status === 'completed' ? 'success' : null }];
       assert.deepEqual(await requestSealedGate(api.args), { mode: 'existing', run_id: 4105 });
     }
@@ -888,9 +892,20 @@ test('only complete exact-head staging Gate evidence suppresses the base-refresh
     withRetry: makeRetry({ run: { created_at: '2026-10-17T13:00:00Z' } }) }), false);
   assert.equal(await isExpectedPresealGateFailure({ ...sealedArgs,
     withRetry: makeRetry({ run: { created_at: '2026-10-17T11:00:00Z',
-      run_started_at: '2026-10-17T13:00:00Z' } }) }), false, 'a later rerun cannot reuse old creation time');
+      run_started_at: '2026-10-17T13:00:00Z' } }) }), true, 'a queued first event cannot become fresh merely by starting after the seal');
   assert.equal(await isExpectedPresealGateFailure({ ...sealedArgs,
     withRetry: makeRetry() }), false, 'unknown run time must not wake an already sealed head');
+  const cachedResolver = { id: 9, name: 'resolve Gate PR context', head_sha: head,
+    run_attempt: 2, status: 'completed', conclusion: 'success',
+    started_at: '2026-10-17T11:00:00Z', completed_at: '2026-10-17T11:00:02Z' };
+  const repeatedRun = { run_attempt: 2, run_started_at: '2026-10-17T13:00:00Z' };
+  assert.equal(await isExpectedPresealGateFailure({ ...sealedArgs,
+    withRetry: makeRetry({ run: repeatedRun, jobRows: [...jobs, cachedResolver] }) }), true,
+  'the actual cached resolver, not the new run clock, proves the seal-only old snapshot');
+  assert.equal(await isExpectedPresealGateFailure({ ...sealedArgs,
+    withRetry: makeRetry({ run: repeatedRun, jobRows: [...jobs, { ...cachedResolver,
+      started_at: '2026-10-17T13:00:00Z', completed_at: '2026-10-17T13:00:02Z' }] }) }), false,
+  'fresh resolver failure remains a genuine failed sealed evaluation');
   assert.equal(canaryNeedsRefresh(refreshCanary({ check_status: 'checks_failed',
     expected_preseal_gate_hold: true }), refreshNow), null);
   assert.equal(canaryNeedsRefresh(refreshCanary({ check_status: 'checks_failed' }), refreshNow),
@@ -1154,7 +1169,7 @@ async function assertExecutorCanaryRefresh(t, state) {
         ...producerRun(), head_sha: source, display_title: `Maint 68 canary full source=${source} candidates=* dry=false`,
       }] : [] } };
       },
-      reRunWorkflowFailedJobs: async params => {
+      reRunWorkflow: async params => {
         reruns.push(params);
         if (rerunError) throw Object.assign(new Error(rerunRefused ? 'This workflow run cannot be retried' : 'consumer Gate unavailable'), { status: rerunError });
         return { status: 201 };
@@ -1188,6 +1203,12 @@ async function assertExecutorCanaryRefresh(t, state) {
         conclusion: ['checks_failed', 'producer_success_red'].includes(state) ? 'failure' : 'success' },
     ];
     if (method === github.rest.actions.listJobsForWorkflowRun) return [
+      { id: 9, name: 'resolve Gate PR context', head_sha: head, run_attempt: 1,
+        status: 'completed', conclusion: 'success',
+        started_at: ['seal_drained', 'producer_success_red', 'aged_green'].includes(state)
+          ? new Date(refreshNow).toISOString() : new Date(Date.parse(observed) - 60000).toISOString(),
+        completed_at: ['seal_drained', 'producer_success_red', 'aged_green'].includes(state)
+          ? new Date(refreshNow).toISOString() : new Date(Date.parse(observed) - 60000).toISOString() },
       { id: 1, name: 'classify changed paths', status: 'completed', conclusion: 'failure' },
       { id: 2, name: 'gate-summary', status: 'completed', conclusion: 'failure' },
       { id: 3, name: 'generated delivery seal', status: 'completed', conclusion: 'failure' },
@@ -2611,7 +2632,10 @@ function sealedRefreshFixture(t) {
     } },
   }));
   const files = [{ filename: 'reviewed.js' }];
-  const withRetry = async fn => fn({ rest: {
+  const withRetry = async fn => fn({ paginate: async () => [{
+    id: 1, name: 'resolve Gate PR context', head_sha: gate.head_sha, run_attempt: gate.run_attempt,
+    status: 'completed', conclusion: 'success', started_at: gate.created_at, completed_at: gate.created_at,
+  }], rest: {
     pulls: { list: async () => ({ data: pr.state === 'open' ? [pr] : [] }),
       get: async () => ({ data: pr }), listFiles: async () => ({ data: files }) },
     actions: { listWorkflowRuns: async () => ({ data: { workflow_runs: [gate] } }),
@@ -3144,3 +3168,46 @@ for (const headOnly of [false, true]) {
     assert.equal((await api.request()).state, 'exhausted');
   });
 }
+
+
+test('cached pre-seal resolver on a failed-jobs rerun requires one full Gate rerun', async t => {
+  const api = sealedGateHarness(t);
+  api.state.runs = [{ ...api.run, run_attempt: 2, run_started_at: '2026-10-17T11:01:00Z' }];
+  api.state.jobs = [{ id: 7, name: 'resolve Gate PR context', head_sha: api.run.head_sha,
+    run_attempt: 2, status: 'completed', conclusion: 'success',
+    started_at: '2026-10-17T10:59:00Z', completed_at: '2026-10-17T10:59:02Z' }];
+  assert.deepEqual(await requestSealedGate(api.args), { mode: 'rerun', status: 201, run_id: 4105 });
+  assert.equal(api.reruns.length, 1);
+  api.state.runs[0].status = 'queued';
+  assert.equal((await requestSealedGate(api.args)).mode, 'existing');
+  assert.equal(api.reruns.length, 1, 'an active full rerun must not be duplicated');
+  api.state.runs[0] = { ...api.state.runs[0], status: 'completed', run_attempt: 3 };
+  api.state.jobs[0] = { ...api.state.jobs[0], run_attempt: 3,
+    started_at: '2026-10-17T11:02:00Z', completed_at: '2026-10-17T11:02:02Z' };
+  assert.equal((await requestSealedGate(api.args)).mode, 'existing');
+  assert.equal(api.reruns.length, 1, 'fresh product CI failure remains a blocker, not another rerun');
+});
+
+for (const invalid of ['missing', 'duplicate', 'wrong-head', 'wrong-attempt', 'failed', 'bad-time']) {
+  test(`resolver ${invalid} evidence never authorizes a Gate request`, async t => {
+    const api = sealedGateHarness(t);
+    api.state.runs = [{ ...api.run, run_attempt: 2, run_started_at: '2026-10-17T11:01:00Z' }];
+    const row = { id: 1, name: 'resolve Gate PR context', head_sha: api.run.head_sha, run_attempt: 2,
+      status: 'completed', conclusion: 'success', started_at: '2026-10-17T10:59:00Z',
+      completed_at: '2026-10-17T10:59:02Z' };
+    api.state.jobs = invalid === 'missing' ? [] : invalid === 'duplicate' ? [row, row] : [row];
+    if (invalid === 'wrong-head') row.head_sha = 'e'.repeat(40);
+    if (invalid === 'wrong-attempt') row.run_attempt = 1;
+    if (invalid === 'failed') row.conclusion = 'failure';
+    if (invalid === 'bad-time') row.started_at = 'unknown';
+    assert.equal((await requestSealedGate(api.args)).mode, 'failed');
+    assert.equal(api.reruns.length + api.dispatches.length, 0);
+  });
+}
+
+test('workflow security approval is never retried as seal recovery', async t => {
+  const api = sealedGateHarness(t);
+  api.state.runs[0].conclusion = 'action_required';
+  assert.equal((await requestSealedGate(api.args)).status, 'action_required');
+  assert.equal(api.reruns.length + api.dispatches.length, 0);
+});
