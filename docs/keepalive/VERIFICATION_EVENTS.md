@@ -332,3 +332,8 @@ both the correlation and the exact referenced result under their existing
 provenance, event, assessment, and current-result rules. Newer pending/incomplete
 or conflicting terminal evidence cannot be bypassed by this marker; legacy
 results without the exact semantic event receive no inferred correlation.
+
+All correlation/result run and attempt fields are decimal strings, as is `pr`.
+Decision digests use UTF-8 canonical JSON with recursively sorted keys, compact
+separators and Unicode preserved (`ensure_ascii=False` in Python). The synthetic
+cross-language fixture is `tests/fixtures/verification_event/request_correlation.json`.

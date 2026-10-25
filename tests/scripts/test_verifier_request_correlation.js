@@ -31,3 +31,13 @@ test('actual duplicate publication refuses mismatched basis, event or publicatio
   const value=manifest();corrupt(value);await assert.rejects(()=>execute(value),/Invalid collector/);
  }
 });
+
+test('shared fixture binds exact canonical UTF-8 decision and string execution IDs',()=>{
+ const {canonical,digest}=require('../../.github/scripts/verification_event.js');
+ const fixture=require('../fixtures/verification_event/request_correlation.json');
+ assert.equal(canonical(fixture.decision),fixture.canonical_decision);
+ assert.equal(digest(fixture.decision),fixture.correlation.result_decision_sha256);
+ for(const field of ['result_run_id','result_run_attempt','correlation_run_id','correlation_run_attempt']) assert.equal(typeof fixture.correlation[field],'string');
+ assert.equal(canonical(fixture.unicode_canonical_example.value),fixture.unicode_canonical_example.canonical);
+ assert.equal(digest(fixture.unicode_canonical_example.value),fixture.unicode_canonical_example.sha256);
+});

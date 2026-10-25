@@ -69,3 +69,30 @@ def test_workflow_and_template_forward_basis_to_authenticated_manifest_and_marke
         assert (ROOT / ".github/scripts" / name).read_bytes() == (
             ROOT / "templates/consumer-repo/.github/scripts" / name
         ).read_bytes()
+
+
+def test_shared_fixture_preserves_unicode_canonical_bytes_and_execution_strings():
+    import hashlib
+
+    fixture = json.loads(
+        (ROOT / "tests/fixtures/verification_event/request_correlation.json").read_text()
+    )
+    canonical = json.dumps(
+        fixture["decision"], sort_keys=True, ensure_ascii=False, separators=(",", ":")
+    )
+    assert canonical == fixture["canonical_decision"]
+    assert (
+        hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+        == fixture["correlation"]["result_decision_sha256"]
+    )
+    example = fixture["unicode_canonical_example"]
+    text = json.dumps(example["value"], sort_keys=True, ensure_ascii=False, separators=(",", ":"))
+    assert text == example["canonical"]
+    assert hashlib.sha256(text.encode("utf-8")).hexdigest() == example["sha256"]
+    for field in [
+        "result_run_id",
+        "result_run_attempt",
+        "correlation_run_id",
+        "correlation_run_attempt",
+    ]:
+        assert isinstance(fixture["correlation"][field], str)
