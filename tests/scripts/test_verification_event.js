@@ -139,3 +139,12 @@ test('correlation cannot bypass newer uncertainty, ambiguity or changed assessme
  const contradictory=comment(event,{ci_failed:true});assert.throws(()=>make([terminal,contradictory]),/Ambiguous/);
  assert.equal(terminalCorrelation({event,comments:[terminal],assessment:{...assessment,provider:'other'},basis,runId:'20',runAttempt:'1'}),null);
 });
+
+
+test('correlation applies the existing lifecycle ID bounds to referenced terminal records',()=>{
+ const {terminalCorrelation}=require('../../.github/scripts/verification_event.js');
+ const event=expected.verification_event;
+ for(const invalid of [{run_id:'1'.repeat(21)},{run_attempt:'1'.repeat(11)},{run_id:'010'}]) {
+  assert.equal(terminalCorrelation({event,comments:[comment(event,invalid)],assessment,basis:'e'.repeat(64),runId:'20',runAttempt:'1'}),null);
+ }
+});

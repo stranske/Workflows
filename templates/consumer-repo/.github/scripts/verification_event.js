@@ -506,6 +506,8 @@ function terminalCorrelation({ event, comments, assessment, basis, runId, runAtt
       const isolated = {...comment, body:`<!-- verifier-corpus-decision/v1 ${match[1]} -->`};
       if (!completedEvent(event, [isolated], assessment)) continue;
       const decision = JSON.parse(match[1]);
+      if (!/^[1-9]\d{0,19}$/.test(String(decision.run_id))
+          || !/^[1-9]\d{0,9}$/.test(String(decision.run_attempt))) continue;
       rows.push({decision, url:comment.url, run:BigInt(decision.run_id), attempt:BigInt(decision.run_attempt)});
     }
   }
