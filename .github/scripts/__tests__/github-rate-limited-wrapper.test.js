@@ -60,7 +60,7 @@ async function runGateStep(source, stepName, { status, message, response, fork =
     rest: { repos: { async createCommitStatus() { throw error; } } },
   };
   const sandbox = {
-    process: { env: { STATE: 'success', DESCRIPTION: 'all checks passed', TARGET_URL: 'https://example.invalid/run' } },
+    process: { env: { RESOLVER_RESULT: 'success', STATE: 'success', DESCRIPTION: 'all checks passed', TARGET_URL: 'https://example.invalid/run' } },
     console: { log() {} },
     github,
     core: { warning(value) { warnings.push(String(value)); }, summary: summaryStub },
