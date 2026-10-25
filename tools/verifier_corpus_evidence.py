@@ -44,6 +44,11 @@ def event_metadata(path: Path) -> dict[str, Any]:
     ):
         raise ValueError("Invalid collector verification event")
     metadata = {"verification_event": event, "assessment_identity": manifest["assessment_identity"]}
+    basis = manifest.get("verification_request_basis")
+    if "verification_request_basis" in manifest:
+        if not isinstance(basis, str) or not re.fullmatch(r"[0-9a-f]{64}", basis):
+            raise ValueError("Invalid verification request basis")
+        metadata["verification_request_basis"] = basis
     predecessor = manifest.get("predecessor_event_id")
     if predecessor:
         if not re.fullmatch(r"[0-9a-f]{64}", str(predecessor)):

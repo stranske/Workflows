@@ -5860,3 +5860,24 @@ test('optional bot filter cannot hide a selected PR proof changed after GET', as
     assert.equal(evidence.event_history.complete,true);
   });
 });
+
+test('launch basis reaches actual collector manifest and exact-event duplicate correlation', async () => {
+  const builder = options => buildVerifierContext({...options, context:{...options.context,runId:800}});
+  await withEnv('GITHUB_RUN_ATTEMPT','1',async()=>withEnv('VERIFICATION_REQUEST_BASIS','e'.repeat(64),async()=>{
+    const first=await buildEvidenceContext({}, {mode:'evaluate'},builder);
+    const manifest=first.result.verificationManifest;
+    assert.equal(manifest.verification_request_basis,'e'.repeat(64));
+    const terminal={schema:'verifier-corpus-decision/v1',repo:'octo/workflows',pr:'700',head_sha:'b'.repeat(40),evaluated_sha:'c'.repeat(40),run_id:'100',run_attempt:'2',verdict:'NON_PASS',ci_failed:false,provider_verdicts:['CONCERNS'],verification_event:manifest.verification_event,assessment_identity:manifest.assessment_identity};
+    removeVerifierDiffArtifacts(first.result);
+    const report={id:43,html_url:'https://github.com/octo/workflows/pull/700#issuecomment-43',user:{login:'github-actions[bot]'},body:`<!-- verifier-corpus-decision/v1 ${JSON.stringify(terminal)} -->`};
+    await withEnv('VERIFICATION_REQUEST_BASIS','d'.repeat(64),async()=>{
+      const repeated=await buildEvidenceContext({comments:[report]}, {mode:'evaluate'},builder);
+      assert.equal(repeated.result.shouldRun,false);assert.equal(repeated.result.reason,'duplicate-verification-event');
+      const alias=repeated.result.verificationManifest.request_correlation;
+      assert.equal(alias.verification_request_basis,'d'.repeat(64));assert.equal(alias.result_run_id,'100');assert.equal(alias.result_run_attempt,'2');assert.equal(alias.correlation_run_id,'800');
+      assert.deepEqual(alias.verification_event,manifest.verification_event);assert.equal('verdict' in alias,false);
+      assert.deepEqual(JSON.parse(fs.readFileSync('verification-event-manifest.json','utf8')).request_correlation,alias);
+    });
+    fs.rmSync('verification-event-manifest.json',{force:true});
+  }));
+});
