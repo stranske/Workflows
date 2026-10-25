@@ -105,6 +105,39 @@ function affirmativeHistoricalEvidenceLines(text) {
   });
 }
 
+// A selected comparison baseline is never current CI proof. Authenticate only
+// its explicitly named unchanged source files; ancestry alone proves no equivalence.
+async function comparisonBaselineBinding(github, run, {owner, repo, evaluatedSha, selectors}) {
+  const selected = selectors.filter(row => row.run_id === run.id && row.evidence_role === 'comparison-baseline');
+  if (!selected.length) return null;
+  if (run.repository?.full_name?.toLowerCase() !== `${owner}/${repo}`.toLowerCase()
+      || run.status !== 'completed' || !Number.isSafeInteger(run.run_attempt) || run.run_attempt < 1
+      || !isValidSha(run.head_sha) || !isValidSha(evaluatedSha) || run.head_sha === evaluatedSha) throw new Error('comparison_baseline_run_identity');
+  const comparison = (await github.rest.repos.compareCommitsWithBasehead({owner,repo,basehead:`${run.head_sha}...${evaluatedSha}`})).data;
+  if (comparison?.status !== 'ahead' || comparison.base_commit?.sha !== run.head_sha
+      || comparison.merge_base_commit?.sha !== run.head_sha) throw new Error('comparison_baseline_not_ancestor');
+  const compared = [];
+  for (const source of [...new Set(selected.flatMap(row => row.compared_paths))].sort()) {
+    const contents = [];
+    for (const ref of [run.head_sha,evaluatedSha]) {
+      const value = (await github.rest.repos.getContent({owner,repo,path:source,ref})).data;
+      if (!value || Array.isArray(value) || value.type !== 'file' || value.path !== source
+          || value.encoding !== 'base64' || !isValidSha(value.sha) || typeof value.content !== 'string'
+          || !Number.isSafeInteger(value.size) || value.size < 0 || value.size > 1024*1024) throw new Error('comparison_baseline_source_unavailable');
+      const encoded = value.content.replace(/\n/g,'');
+      if (encoded.length > Math.ceil(1024*1024/3)*4) throw new Error('comparison_baseline_source_bound');
+      const bytes = Buffer.from(encoded,'base64');
+      if (bytes.length !== value.size || bytes.toString('base64') !== encoded
+          || createHash('sha1').update(Buffer.concat([Buffer.from(`blob ${bytes.length}\0`),bytes])).digest('hex') !== value.sha) throw new Error('comparison_baseline_source_identity');
+      contents.push({sha:value.sha,bytes});
+    }
+    if (!contents[0].bytes.equals(contents[1].bytes)) throw new Error('comparison_baseline_source_changed');
+    compared.push({path:source,git_blob_sha:contents[0].sha,sha256:createHash('sha256').update(contents[0].bytes).digest('hex')});
+  }
+  return {schema:'verifier-comparison-baseline/v1',repository:`${owner}/${repo}`.toLowerCase(),
+    run_id:run.id,run_attempt:run.run_attempt,run_head_sha:run.head_sha,evaluated_sha:evaluatedSha,compared_sources:compared};
+}
+
 // Historical source citations are discovery hints only. Authenticate their
 // distinct owning delivery through GitHub before collecting any old payload.
 async function historicalCiBaselineBinding(github, run, {owner, repo, pullNumber, texts}) {
@@ -757,7 +790,7 @@ function retainCaptureBytes(directory, digest, suffix, value) {
   }
 }
 
-function extractArtifactArchiveText({ archiveBuffer, maxEntries, maxChars, maxBytes = maxChars * 4, captureDirectory, execFile = execFileSync }) {
+function extractArtifactArchiveText({ archiveBuffer, maxEntries, maxChars, maxBytes = maxChars * 4, captureDirectory, selectedMembers, execFile = execFileSync }) {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'verifier-evidence-'));
   const archivePath = path.join(tempDir, 'artifact.zip');
   try {
@@ -770,20 +803,24 @@ function extractArtifactArchiveText({ archiveBuffer, maxEntries, maxChars, maxBy
     const { entries, filteredPayloadEntries, occurrences } = safeArtifactEntries(listing);
     const counts = new Map();
     for (const { name } of occurrences) counts.set(name, (counts.get(name) || 0) + 1);
-    const selected = entries.slice(0, maxEntries);
+    const eligibleEntries = selectedMembers ? entries.filter(name => selectedMembers.includes(name)) : entries;
+    const selected = eligibleEntries.slice(0, maxEntries);
     let eligibleIndex = 0;
     // The listing is already byte-bounded. Bound its expanded JSON ledger too;
     // an omitted suffix remains an explicit global gap, never an empty archive.
     const members = occurrences.slice(0, 4096).map(({ name, occurrence, safe }) => {
-      const withinBound = safe && eligibleIndex++ < maxEntries;
+      const withinBound = safe && (!selectedMembers || selectedMembers.includes(name)) && eligibleIndex++ < maxEntries;
       return { name, occurrence,
         status: counts.get(name) > 1 ? 'duplicate' : !safe ? 'unsupported'
+          : selectedMembers && !selectedMembers.includes(name) ? 'unselected'
           : !withinBound ? 'entry_bound' : 'pending' };
     });
     let remaining = maxChars;
     let remainingBytes = maxBytes;
     const failures = [];
-    if (entries.length > selected.length) failures.push("entry");
+    if (selectedMembers && members.some(member => member.status === 'unselected')) failures.push('unselected_member');
+    if (selectedMembers && selectedMembers.some(name => !members.some(member => member.name === name))) failures.push('required_member_missing');
+    if (eligibleEntries.length > selected.length) failures.push("entry");
     // Distinguish unavailable image rendering from unsafe/unknown archive members.
     // Required media still forms a gap; only action-optional channels may omit it.
     const unrenderableMedia = occurrences.filter(({ name, safe }) => !safe
@@ -866,6 +903,9 @@ function extractArtifactArchiveText({ archiveBuffer, maxEntries, maxChars, maxBy
       member.reason = stopReason;
     }
     return {
+      selectedCaptureComplete: Boolean(selectedMembers?.length) && selectedMembers.every(name =>
+        members.some(member => member.name === name && member.status === 'included'))
+        && failures.every(reason => ['unselected_member','unrenderable_media'].includes(reason)),
       rawCaptureComplete: Boolean(captureDirectory) && members.length > 0 && members.length === occurrences.length
         && members.every(member => ['included', 'captured'].includes(member.status)),
       archiveSha256: createHash('sha256').update(archiveBuffer).digest('hex'),
@@ -978,6 +1018,7 @@ async function fetchVerifierEvidence({
   sourceIssues = [],
   pullRequestBody,
   associatedCommitShas = [],
+  evaluatedSha,
   workflows = [],
   extractArtifactText = extractArtifactArchiveText,
 }) {
@@ -1258,13 +1299,23 @@ async function fetchVerifierEvidence({
       ...labelledEvidenceLines,
     ])
   );
-  const allRunIds = explicitEvidenceRunIds.size
+  const materialSelectors = require('./verifier_gzip_assets').validatedSelectors(process.env.VERIFICATION_MATERIAL);
+  const artifactSelectors = materialSelectors.filter(row => row.kind === 'artifact_member');
+  for (const row of artifactSelectors) explicitEvidenceRunIds.add(row.run_id);
+  const selectedRunIds = new Set(artifactSelectors.map(row => row.run_id));
+  const allRunIds = (explicitEvidenceRunIds.size
     ? Array.from(explicitEvidenceRunIds)
-    : allReferencedRunIds;
-  const referencedRunIds = allRunIds.slice(0, runLimit);
+    : allReferencedRunIds).sort((left,right) =>
+      Number(selectedRunIds.has(right))-Number(selectedRunIds.has(left)));
+  // Named material has its own validated finite (20-selector) bound. Optional
+  // discovery limits must not silently discard one of those required runs.
+  const referencedRunIds = artifactSelectors.length
+    ? [...selectedRunIds, ...allRunIds.filter(id => !selectedRunIds.has(id)).slice(0,runLimit)]
+    : allRunIds.slice(0, runLimit);
   const runIds = [];
   const runHeads = new Map();
   const runPaths = new Map();
+  const runMetadata = new Map();
   const pendingManualBindings = new Map();
   const historicalBaselineBindings = new Map();
   const seenRunIds = new Set();
@@ -1310,9 +1361,10 @@ async function fetchVerifierEvidence({
       }
       if (!exactCommitShas.has(runHeadSha)) {
         const binding=historicalManualVerifierBinding(workflowRun,{owner,repo,pullNumber,associatedCommitShas});
-        const baseline = !binding && explicitEvidenceRunIds.has(runId)
+        const comparisonBaseline = await comparisonBaselineBinding(github, workflowRun, {owner,repo,evaluatedSha,selectors:artifactSelectors});
+        const baseline = comparisonBaseline || (!binding && explicitEvidenceRunIds.has(runId)
           ? await historicalCiBaselineBinding(github, workflowRun,
-            {owner, repo, pullNumber, texts: proseReferenceTexts}) : null;
+            {owner, repo, pullNumber, texts: proseReferenceTexts}) : null);
         if (binding) {
           pendingManualBindings.set(runId,binding);
         } else if (baseline) {
@@ -1337,6 +1389,7 @@ async function fetchVerifierEvidence({
       runIds.push(runId);
       runHeads.set(runId, runHeadSha);
       runPaths.set(runId, workflowRun.path);
+      runMetadata.set(runId, workflowRun);
     } catch (error) {
       artifactIncomplete = true;
       artifacts.reason = `workflow run provenance failed for referenced run ${runId}: ${error.message}`;
@@ -1418,7 +1471,7 @@ async function fetchVerifierEvidence({
           continue;
         }
         if (!seenRunIds.has(runId)) {
-          if (runIds.length >= runLimit) {
+          if ((artifactSelectors.length ? runIds.filter(id => !selectedRunIds.has(id)).length : runIds.length) >= runLimit) {
             artifactIncomplete = true;
             artifacts.reason = 'workflow run count limit prevented complete artifact inspection';
             associatedRunDiscoveryComplete = false;
@@ -1429,6 +1482,7 @@ async function fetchVerifierEvidence({
           runIds.push(runId);
           runHeads.set(runId, commitSha.toLowerCase());
           runPaths.set(runId, workflowRun.path);
+          runMetadata.set(runId, workflowRun);
         }
       }
     } catch (error) {
@@ -1449,32 +1503,64 @@ async function fetchVerifierEvidence({
   for (const runId of runIds) {
     const manualBinding=pendingManualBindings.get(runId);
     let manualBindingValidated=false;
-    if (inspectedArtifacts >= artifactLimit) {
+    if (inspectedArtifacts >= artifactLimit && !selectedRunIds.has(runId)) {
       artifactIncomplete = true;
       fail("artifacts", "artifact_record", "global artifact record bound");
       break;
     }
     try {
-      if (!github?.rest?.actions?.listWorkflowRunArtifacts || !github?.rest?.actions?.downloadArtifact) {
+      if ((!github?.rest?.actions?.listWorkflowRunArtifacts && !selectedRunIds.has(runId)) || !github?.rest?.actions?.downloadArtifact) {
         throw new Error('workflow artifact API is unavailable');
       }
-      const listing = await boundedEvidencePages({
-        method: github.rest.actions.listWorkflowRunArtifacts,
-        params: { owner, repo, run_id: runId }, key: 'artifacts', recordLimit: artifactLimit - inspectedArtifacts,
-        pageLimit: positiveLimit('VERIFIER_EVIDENCE_ARTIFACT_PAGES', Math.ceil(artifactLimit / 100)), kind: 'artifact', diagnostics,
-      });
-      const listedArtifacts = listing.items;
+      const listing = inspectedArtifacts < artifactLimit && github?.rest?.actions?.listWorkflowRunArtifacts
+        ? await boundedEvidencePages({
+          method: github.rest.actions.listWorkflowRunArtifacts,
+          params: { owner, repo, run_id: runId }, key: 'artifacts', recordLimit: artifactLimit - inspectedArtifacts,
+          pageLimit: positiveLimit('VERIFIER_EVIDENCE_ARTIFACT_PAGES', Math.ceil(artifactLimit / 100)), kind: 'artifact', diagnostics,
+        }) : {items:[],failure:inspectedArtifacts >= artifactLimit ? 'record' : 'transport',detail:'optional artifact listing bound or API unavailable'};
+      const selectedArtifactIds = new Set(artifactSelectors.filter(row => row.run_id === runId).map(row => row.artifact_id));
+      const directArtifacts = [];
+      for (const artifactId of selectedArtifactIds) {
+        if (listing.items.some(item => item.id === artifactId)) continue;
+        try {
+          if (!github?.rest?.actions?.getArtifact) throw new Error('Selected artifact metadata API unavailable');
+          const artifact = (await github.rest.actions.getArtifact({owner,repo,artifact_id:artifactId,request:{timeout:15000}})).data;
+          const origin = runMetadata.get(runId);
+          const binding = artifact?.workflow_run;
+          if (artifact?.id !== artifactId || !binding || binding.id !== runId || binding.head_sha !== runHeads.get(runId)
+              || !Number.isSafeInteger(origin?.repository?.id) || origin.repository.id < 1
+              || String(origin.repository.full_name).toLowerCase() !== `${owner}/${repo}`.toLowerCase()
+              || origin.head_repository?.id !== origin.repository.id
+              || String(origin.head_repository?.full_name).toLowerCase() !== `${owner}/${repo}`.toLowerCase()
+              || binding.repository_id !== origin.repository.id || binding.head_repository_id !== origin.head_repository.id
+              || typeof artifact.expired !== 'boolean' || !/^sha256:[a-f0-9]{64}$/.test(artifact.digest || '')) {
+            throw Object.assign(new Error('Selected artifact run/repository/head/digest identity mismatch'),{code:'SELECTED_ARTIFACT_PROVENANCE'});
+          }
+          directArtifacts.push(artifact);
+        } catch (error) {
+          artifactIncomplete=true;
+          diagnostics.archive_inventory.push({repository:`${owner}/${repo}`,run_id:runId,head_sha:runHeads.get(runId),
+            artifact_id:artifactId,status:'unavailable',members:null,reason:'selected_metadata_lookup_failed'});
+          fail('artifacts',error.code==='SELECTED_ARTIFACT_PROVENANCE'?'provenance':'artifact_transport',`selected artifact ${artifactId}: ${error.message}`);
+          if(error.code==='SELECTED_ARTIFACT_PROVENANCE') diagnostics.counters.provenance_failures+=1;
+        }
+      }
+      const listedArtifacts = artifactSelectors.length
+        ? [...listing.items,...directArtifacts].sort((left,right) => Number(selectedArtifactIds.has(right.id))-Number(selectedArtifactIds.has(left.id)))
+        : listing.items;
       if (listing.failure) {
         artifactIncomplete = true;
         artifacts.reason = `artifact discovery for run ${runId} exceeded the bounded result limit${listing.detail ? `: ${listing.detail}` : ""}`;
         fail('artifacts', `artifact_${listing.failure}`, artifacts.reason);
       }
       for (const artifact of listedArtifacts) {
-        if (inspectedArtifacts >= artifactLimit) {
+        const isSelected=selectedArtifactIds.has(artifact.id);
+        if ((!artifactSelectors.length || !isSelected) && inspectedArtifacts >= artifactLimit) {
           artifactIncomplete = true;
-          break;
+          if (!artifactSelectors.length) break;
+          continue;
         }
-        inspectedArtifacts += 1;
+        if (!artifactSelectors.length || !isSelected) inspectedArtifacts += 1;
         // Preserve identities even when no payload can be admitted. This is a
         // capture ledger, never semantic proof or a completeness upgrade.
         const capture = { repository: `${owner}/${repo}`, run_id: runId,
@@ -1484,6 +1570,14 @@ async function fetchVerifierEvidence({
             evidence_role: 'historical-baseline', historical_binding: historicalBaselineBindings.get(runId),
           } : {}) };
         diagnostics.archive_inventory.push(capture);
+        const selectedForRun = artifactSelectors.filter(row => row.run_id === runId);
+        const selectedForArtifact = selectedForRun.filter(row => row.artifact_id === artifact.id);
+        if (artifactSelectors.length && !selectedForArtifact.length) {
+          capture.status = 'unselected';
+          artifactIncomplete = true;
+          fail('artifacts','unselected_member',`artifact ${artifact.id} outside selected material scope`);
+          continue;
+        }
         // The verifier's retained input bundle is transport, not another
         // acceptance output. Do not recursively re-ingest its own ZIP sidecars.
         // An explicit artifact reference still requests that payload and keeps
@@ -1535,6 +1629,11 @@ async function fetchVerifierEvidence({
         capture.archive_sha256 = createHash('sha256').update(archiveBuffer).digest('hex');
         capture.archive_bytes = archiveBuffer.length;
         diagnostics.counters.archive_bytes += archiveBuffer.length;
+        if (isSelected && artifact.digest !== undefined && artifact.digest !== `sha256:${capture.archive_sha256}`) {
+          artifactIncomplete=true;capture.reason='archive_digest_mismatch';
+          fail('artifacts','archive_integrity',`selected artifact ${artifact.id} digest mismatch`);
+          continue;
+        }
         if (manualBinding && artifact.id===manualBinding.artifact_id) {
           manualBindingValidated=validateHistoricalManualArtifact(manualBinding,artifact,capture.archive_sha256);
           if (!manualBindingValidated) {
@@ -1552,7 +1651,8 @@ async function fetchVerifierEvidence({
         const maxChars = Math.max(0, Math.min(artifactChars, totalArtifactChars - usedArtifactChars));
         const maxBytes = captureDirectory ? totalExtractBytes - diagnostics.counters.extracted_bytes
           : Math.min(maxChars * 4, totalExtractBytes - diagnostics.counters.extracted_bytes);
-        const extracted = await extractArtifactText({ archiveBuffer, maxEntries: entryLimit, maxChars, maxBytes, captureDirectory });
+        const extracted = await extractArtifactText({ archiveBuffer, maxEntries: entryLimit, maxChars, maxBytes, captureDirectory,
+          selectedMembers: selectedForArtifact.length ? selectedForArtifact.map(row => row.path) : undefined });
         capture.members = extracted?.members || null;
         capture.member_count = extracted?.memberCount ?? null;
         capture.member_inventory_complete = extracted?.memberInventoryComplete === true;
@@ -1575,7 +1675,8 @@ async function fetchVerifierEvidence({
             name: artifact.name || `artifact-${artifact.id}`,
             url: artifact.archive_download_url || '',
             text: extracted.text,
-            truncated: Boolean(extracted.truncated),
+            truncated: Boolean(extracted.truncated) && !extracted.selectedCaptureComplete,
+            ...(selectedForArtifact.length ? {required_material:true} : {}),
             ...(historicalBaselineBindings.has(runId) ? {
               evidence_role: 'historical-baseline', historical_binding: historicalBaselineBindings.get(runId),
             } : {}),
@@ -1654,9 +1755,11 @@ function formatVerifierEvidence(evidence) {
       lines.push(comment.required_material ? 'Untrusted explicitly selected source-issue comment:' : 'Untrusted PR comment:', fenceUntrustedEvidence(comment.body), '');
     }
   }
-  if (evidence.artifacts.records.length) {
-    lines.push('### Bounded referenced workflow artifacts', '');
-    for (const artifact of evidence.artifacts.records) {
+  for (const required of [true,false]) {
+    const records=evidence.artifacts.records.filter(record => Boolean(record.required_material) === required);
+    if (!records.length) continue;
+    lines.push(required ? '### Selected required artifact proof' : '### Bounded referenced workflow artifacts', '');
+    for (const artifact of records) {
       if (artifact.evidence_role === 'historical-baseline') lines.push('Historical baseline — not current-revision proof; acceptance relevance remains to be evaluated.', '');
       lines.push(`#### Run ${artifact.runId}: ${artifact.name}${artifact.url ? ` — ${artifact.url}` : ''}`, '', 'Untrusted workflow artifact:', fenceUntrustedEvidence(artifact.text), '');
     }
@@ -1733,6 +1836,7 @@ function buildContextSourceCoverage({ planSources, diffText, diffMaxChars, evide
         status: record.truncated ? 'truncated' : 'included',
         included_chars: body.length,
         total_chars: record.truncated ? null : body.length,
+        ...(record.required_material ? {required_material:true} : {}),
         ...(record.evidence_role ? {evidence_role: record.evidence_role, historical_binding: record.historical_binding} : {}),
       });
     }
@@ -2247,6 +2351,7 @@ async function buildVerifierContext({
     sourceIssues: closingIssues,
     referenceSourcesComplete: closingIssueDiscovery.status === 'included',
     associatedCommitShas: [pull.head?.sha, pull.merge_commit_sha],
+    evaluatedSha: pull.merge_commit_sha,
     workflows: workflows || [],
     extractArtifactText,
   });
@@ -2679,6 +2784,7 @@ module.exports = {
   fetchVerifierEvidence,
   fetchRequiredConversationComments,
   fetchPullRequestFilesDiff,
+  comparisonBaselineBinding,
   historicalManualVerifierBinding,
   validateHistoricalManualArtifact,
   retainCaptureBytes,
