@@ -381,8 +381,29 @@ def test_native_preflight_admits_only_verified_full_patch_for_truncated_code(mon
 
 
 def test_semantic_capture_uses_lossless_coverage_but_preserves_missing_proof(monkeypatch):
+    from tests.scripts.test_verifier_evaluate_evidence_minimum import replace_inventory
+
     context = _context()
-    diff = "diff --git a/a.py b/a.py\n--- a/a.py\n+++ b/a.py\n@@ -1 +1 @@\n-old\n+new\n"
+    first = "diff --git a/a.py b/a.py\n--- a/a.py\n+++ b/a.py\n@@ -1 +1 @@\n-old\n+new\n"
+    second = first.replace("a.py", "b.py")
+    diff = first + second
+    # One indivisible file now survives rough packing. Two files still exercise
+    # the distinction between ordinary grouping and lossless semantic capture.
+    context = context.replace(first, diff).replace("- Files changed: 1", "- Files changed: 2")
+    context = context.replace("- a.py (+1/-1)", "- a.py (+1/-1)\n- b.py (+1/-1)")
+
+    def update(inventory):
+        inventory["changed_code_sources"].append(
+            {
+                "source": "b.py",
+                "status": "included",
+                "included_chars": len(second),
+                "total_chars": len(second),
+            }
+        )
+        inventory["full_diff_artifact"]["chars"] = len(diff)
+
+    context = replace_inventory(context, update)
     monkeypatch.setenv("PR_HEAD_SHA", "a" * 40)
     for name in (
         "VERIFIER_CONTEXT_BUDGET_TOKENS",
