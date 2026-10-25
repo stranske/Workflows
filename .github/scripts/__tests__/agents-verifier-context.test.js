@@ -5596,3 +5596,188 @@ test('actual ZIP control-bearing image name cannot become optional media', () =>
     assert.ok(!result.failures.includes('unrenderable_media'));
   }
 });
+
+test('same-event collector retry retains the authenticated incomplete parent in root and template',async()=>{
+ const {executionBinding}=require('../verifier_pending_execution');
+ const templateImpl=require('../../../templates/consumer-repo/.github/scripts/agents_verifier_context.js').buildVerifierContext;
+ const templateBuilder=options=>templateImpl({...options,fetchLocalDiff:()=>options.github.__testDiffText});
+ const directory=fs.mkdtempSync(path.join(os.tmpdir(),'verifier-same-event-parent-'));
+ const originalCwd=process.cwd();process.chdir(directory);
+ try {
+  for(const builder of [buildVerifierContext,templateBuilder]) {
+   const initial=await buildEvidenceContext({prBody:'Original request before required proof recovery.'},{mode:'evaluate'},builder);
+   const parent=initial.result.verificationManifest.verification_event;
+   const assessment=initial.result.verificationManifest.assessment_identity;
+   removeVerifierDiffArtifacts(initial.result);
+   const body='Current authentic request with recovered required proof.';
+   const fresh=await buildEvidenceContext({prBody:body},{mode:'evaluate'},builder);
+   const event=fresh.result.verificationManifest.verification_event;
+   removeVerifierDiffArtifacts(fresh.result);
+   const row=(actual,run,status,predecessor)=>({schema:'verifier-event-state/v1',repo:actual.repo,pr:actual.pr,
+     head_sha:actual.head_sha,evaluated_sha:actual.evaluated_sha,run_id:String(run),run_attempt:'1',
+     verification_event:actual,assessment_identity:assessment,status,
+     ...(predecessor?{predecessor_event_id:predecessor}:{}),
+     ...(status==='pending'?{execution_binding:executionBinding('evaluate')}:
+       {failure_cause:'validated_no_evaluation',retry_kind:'known_no_evaluation',retryable:true})});
+   const comment=(id,value)=>({id,user:{login:'github-actions[bot]'},
+     html_url:`https://github.com/octo/workflows/pull/700#issuecomment-${id}`,
+     body:`<!-- ${value.schema} ${JSON.stringify(value)} -->`});
+   for(const status of ['retry','duplicate','complete-then-retry','failure-complete-then-retry','complete-then-pending','complete-then-uncertain','old-pending-skipped','two-old-pending-skipped',
+      'old-pending-started','old-pending-active','old-pending-missing-api','old-pending-binding',
+      'old-pending-refetch-changed','old-pending-mixed-parent','old-pending-uncertain','pending','uncertain']) {
+    const comments=[comment(81,row(parent,100,'pending')),comment(82,row(parent,100,'incomplete')),
+      comment(83,row(event,101,'pending',parent.event_id))];
+    if(status==='retry'||status==='uncertain') {
+     const state=row(event,101,'incomplete',parent.event_id);
+     if(status==='uncertain')Object.assign(state,{retry_kind:'uncertain_execution',retryable:false});
+     comments.push(comment(84,state));
+    }
+    if(status==='duplicate')comments.push(comment(84,{...row(event,101,undefined,parent.event_id),
+      schema:'verifier-corpus-decision/v1',ci_failed:false,provider_verdicts:['PASS'],verdict:'PASS'}));
+    if(status.endsWith('complete-then-retry')) {
+      comments.push(comment(84,{...row(event,101,undefined,parent.event_id),
+        schema:'verifier-corpus-decision/v1',ci_failed:false,provider_verdicts:[status.startsWith('failure')?'FAIL':'PASS'],
+        verdict:status.startsWith('failure')?'NON_PASS':'PASS'}));
+      comments.push(comment(85,row(event,102,'pending',parent.event_id)),comment(86,row(event,102,'incomplete',parent.event_id)));
+    }
+    if(['complete-then-pending','complete-then-uncertain'].includes(status)) {
+      comments.push(comment(84,{...row(event,101,undefined,parent.event_id),
+        schema:'verifier-corpus-decision/v1',ci_failed:false,provider_verdicts:['PASS'],verdict:'PASS'}));
+      comments.push(comment(85,row(event,102,'pending',parent.event_id)));
+      if(status==='complete-then-uncertain')comments.push(comment(86,{
+        ...row(event,102,'incomplete',parent.event_id),retry_kind:'uncertain_execution',retryable:false}));
+    }
+    if(status.includes('old-pending')) {
+      if(status==='old-pending-binding') {
+        const value=JSON.parse(comments[2].body.match(/(\{.*\})/)[1]);
+        value.execution_binding.evaluator_step='Foreign step';comments[2]=comment(83,value);
+      }
+      if(status==='old-pending-mixed-parent')comments[2]=comment(83,row(event,101,'pending','d'.repeat(64)));
+      if(status==='old-pending-uncertain')comments.push(comment(84,{...row(event,101,'incomplete',parent.event_id),retry_kind:'uncertain_execution',retryable:false}));
+      if(status==='two-old-pending-skipped')comments.push(comment(87,row(event,102,'pending',parent.event_id)));
+      comments.push(comment(85,row(event,103,'pending',parent.event_id)),comment(86,row(event,103,'incomplete',parent.event_id)));
+    }
+    comments.sort((left,right)=>left.id-right.id);
+    const reads=[];
+    const reconcilerBuilder=options=>{
+      const counts=new Map();
+      const run=id=>({id,run_attempt:1,status:status==='old-pending-active'?'in_progress':'completed',conclusion:'cancelled',
+        path:'.github/workflows/agents-verifier.yml',event:'workflow_dispatch',head_sha:'a'.repeat(40),
+        repository:{full_name:event.repo},head_repository:{full_name:event.repo}});
+      const get=async ({run_id})=>{reads.push(run_id);const value=run(run_id);
+        counts.set(run_id,(counts.get(run_id)||0)+1);
+        if(status==='old-pending-refetch-changed' && counts.get(run_id)>2)value.head_sha='f'.repeat(40);
+        return {data:value};};
+      if(status.includes('old-pending') && status!=='old-pending-missing-api') Object.assign(options.github.rest.actions,{
+        getWorkflowRun:get,getWorkflowRunAttempt:get,
+        listJobsForWorkflowRunAttempt:async({run_id})=>({data:{total_count:1,jobs:[{id:run_id+1000,run_id,run_attempt:1,
+          head_sha:'a'.repeat(40),name:'Run post-merge verifier',status:'completed',steps:[
+            {name:'Record verification event pending',number:5,status:'completed',conclusion:'success'},
+            {name:'Run LLM evaluation',number:15,status:'completed',conclusion:status==='old-pending-started'?'success':'skipped'}]}]},headers:{}})});
+      return builder(options);
+    };
+    const before=structuredClone(comments);
+    await withEnv('VERIFICATION_EVENT',JSON.stringify(event),()=>withEnv('VERIFICATION_PREDECESSOR',parent.event_id,async()=>{
+     if(['uncertain','complete-then-uncertain','old-pending-mixed-parent','old-pending-uncertain'].includes(status)) {
+      await assert.rejects(()=>buildEvidenceContext({prBody:body,comments},{mode:'evaluate'},builder),/recover retained execution|requires existing execution recovery|conflicting parent metadata/);
+      return;
+     }
+     const {result,core}=await buildEvidenceContext({prBody:body,comments},{mode:'evaluate'},reconcilerBuilder);
+     assert.ok(result.verificationManifest,JSON.stringify({status,result}));
+     assert.equal(result.verificationManifest.predecessor_event_id,parent.event_id);
+     assert.deepEqual(result.verificationManifest.verification_event,event);
+     if(['retry','old-pending-skipped','two-old-pending-skipped'].includes(status)) {
+      assert.equal(result.shouldRun,true);
+      assert.equal(core.outputs.verification_predecessor,parent.event_id);
+      if(status.includes('old-pending')) {
+        const proofs=result.verificationManifest.predecessor_execution_reconciliation;
+        assert.deepEqual(proofs.map(p=>p.run_id),status==='two-old-pending-skipped'?['101','102']:['101']);
+        assert.ok(reads.length>=4);
+      }
+      assert.ok(fs.readFileSync(result.contextPath,'utf8').includes(body));
+      assert.equal(JSON.parse(fs.readFileSync('verification-event-manifest.json','utf8')).predecessor_event_id,parent.event_id);
+      removeVerifierDiffArtifacts(result);
+     } else {
+      assert.equal(result.shouldRun,false,status);
+      assert.equal(result.reason,(status==='duplicate'||status.endsWith('complete-then-retry'))?'duplicate-verification-event':'verification-existing-execution-retrieval-pending');
+      if(result.reason==='verification-existing-execution-retrieval-pending') {
+        assert.equal(core.outputs.should_run,'false');
+        for(const name of ['verification_event','verification_assessment','verification_predecessor'])assert.equal(core.outputs[name],undefined);
+      }
+     }
+    }));
+    assert.deepEqual(comments,before);
+   }
+  }
+ } finally {process.chdir(originalCwd);fs.rmSync(directory,{recursive:true,force:true});}
+});
+
+
+test('retained collector revalidates prior exact NON_PASS only through authenticated provider-free recovery',async()=>{
+ const {retainedExecutionFixture}=require('../../../tests/scripts/fixtures/retained_execution');
+ const {digest}=require('../verification_event');
+ const templateImpl=require('../../../templates/consumer-repo/.github/scripts/agents_verifier_context.js').buildVerifierContext;
+ const templateBuilder=options=>templateImpl({...options,fetchLocalDiff:()=>options.github.__testDiffText});
+ const originalCwd=process.cwd(),directory=fs.mkdtempSync(path.join(os.tmpdir(),'verifier-retained-completed-'));
+ process.chdir(directory);
+ try {
+  for(const builder of [buildVerifierContext,templateBuilder]) {
+   const initial=await buildEvidenceContext({},{mode:'evaluate'},builder);
+   const {verification_event:event,assessment_identity:assessment}=initial.result.verificationManifest;
+   removeVerifierDiffArtifacts(initial.result);
+   const selector={run_id:10,run_attempt:1,artifact_id:30};
+   const recoveryKey=digest({schema:'retained-revalidation-key/v1',event_id:event.event_id,assessment,selector});
+   const decision=run=>({schema:'verifier-corpus-decision/v1',repo:event.repo,pr:event.pr,
+     head_sha:event.head_sha,evaluated_sha:event.evaluated_sha,verification_event:event,
+     assessment_identity:assessment,run_id:String(run),run_attempt:'1',ci_failed:false,
+     provider_verdicts:['FAIL'],verdict:'NON_PASS'});
+   const comment=(id,value)=>({id,user:{login:'github-actions[bot]'},
+     html_url:`https://github.com/${event.repo}/pull/${event.pr}#issuecomment-${id}`,
+     body:`<!-- ${value.schema} ${JSON.stringify(value)} -->`});
+   for(const kind of ['ordinary','retained','duplicate-key','superseded','expired']) {
+    for(const name of ['verification-recovery-origin.json','verification-recovery-source.zip'])fs.rmSync(name,{force:true});
+    const comments=[comment(80,decision(10))];
+    if(kind==='duplicate-key')comments.push(comment(81,{...decision(11),retained_revalidation:{
+      schema:'retained-revalidation/v1',recovery_key:recoveryKey,provider_generation_performed:false}}));
+    if(kind==='superseded')comments.push(comment(81,decision(11)));
+    const before=structuredClone(comments);let artifactReads=0;
+    const authenticatedBuilder=options=>{
+      options.context.runId=20;
+      const retained=retainedExecutionFixture(event,kind==='expired'?data=>{data.artifact.expired=true;}:undefined);
+      const getArtifact=retained.github.rest.actions.getArtifact;
+      retained.github.rest.actions.getArtifact=async args=>{artifactReads++;return getArtifact(args);};
+      Object.assign(options.github.rest.actions,retained.github.rest.actions);
+      Object.assign(options.github.rest.repos,retained.github.rest.repos);
+      return builder(options);
+    };
+    await withEnv('VERIFICATION_RECOVERY',kind==='ordinary'?'':JSON.stringify(selector),async()=>{
+      if(['superseded','expired'].includes(kind)) {
+        await assert.rejects(()=>buildEvidenceContext({comments},{mode:'evaluate'},authenticatedBuilder),
+          kind==='superseded'?/superseded/:/artifact attempt\/origin\/size unproven/);
+        assert.equal(fs.existsSync('verification-recovery-origin.json'),false);
+        return;
+      }
+      const {result,core}=await buildEvidenceContext({comments},{mode:'evaluate'},authenticatedBuilder);
+      if(kind==='retained') {
+        assert.equal(result.shouldRun,true);
+        assert.equal(core.outputs.should_run,'true');
+        assert.equal(result.verificationManifest.execution_binding.retained_revalidation,true);
+        assert.equal(result.verificationManifest.retained_revalidation.recovery_key,recoveryKey);
+        const origin=JSON.parse(fs.readFileSync('verification-recovery-origin.json','utf8'));
+        assert.equal(origin.recovery_key,recoveryKey);
+        assert.equal(origin.source_run_id,'10');
+        assert.equal(origin.archive_sha256,createHash('sha256').update('authenticated archive').digest('hex'));
+        assert.equal(artifactReads,1);
+        removeVerifierDiffArtifacts(result);
+      } else {
+        assert.equal(result.shouldRun,false);
+        assert.equal(result.reason,kind==='ordinary'?'duplicate-verification-event':'duplicate-retained-revalidation');
+        assert.equal(artifactReads,0);
+        assert.equal(fs.existsSync('verification-recovery-origin.json'),false);
+      }
+    });
+    assert.deepEqual(comments,before);
+   }
+  }
+ } finally {process.chdir(originalCwd);fs.rmSync(directory,{recursive:true,force:true});}
+});

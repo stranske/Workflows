@@ -142,7 +142,7 @@ function completedEvent(event, comments, assessmentIdentity) {
   });
 }
 
-function authenticatePredecessor(event, predecessor, evidence) {
+function authenticatePredecessor(event, predecessor, evidence, reconciledPending = new Set()) {
   const history = evidence.event_history;
   if (!SHA.test(predecessor) || !history?.complete) {
     throw new Error('Verification predecessor requires complete authenticated comment evidence');
@@ -191,11 +191,11 @@ function authenticatePredecessor(event, predecessor, evidence) {
       } catch { /* Malformed history cannot supply causal authority. */ }
     }
   }
-  if (predecessor !== event.event_id && authenticateIncompletePredecessor(event,predecessor,history.records || [])) return;
+  if (predecessor !== event.event_id && authenticateIncompletePredecessor(event,predecessor,history.records || [],reconciledPending)) return;
   throw new Error('Verification predecessor is not an authenticated exact-subject terminal event');
 }
 
-function authenticateIncompletePredecessor(event,predecessor,comments) {
+function authenticateIncompletePredecessor(event,predecessor,comments,reconciledPending) {
   const prefix=`https://github.com/${event.repo}/pull/${event.pr}#issuecomment-`;
   const rows=[];
   for (const comment of comments) {
@@ -245,16 +245,59 @@ function authenticateIncompletePredecessor(event,predecessor,comments) {
         }
         continue; // Valid advisory reads neither supply nor veto canonical authority.
       }
-      rows.push({row,actual,run:BigInt(row.run_id),attempt:BigInt(row.run_attempt)});
+      rows.push({row,actual,comment,run:BigInt(row.run_id),attempt:BigInt(row.run_attempt)});
     }
   }
   const candidates=rows.filter(entry=>entry.actual.event_id===predecessor);
   if (!candidates.length) return false;
   const newer=(left,right)=>left.run>right.run || (left.run===right.run && left.attempt>right.attempt);
   const latest=candidates.reduce((left,right)=>newer(right,left)?right:left);
-  // A new material event must not fork a later in-flight or completed event.
-  if (rows.some(entry=>newer(entry,latest))) throw new Error('Predecessor has newer authenticated work');
+  // A changed event cannot fork newer work. Repeating the exact already-created
+  // child keeps its original edge; it does not mint a new branch or retry grant.
+  const children=rows.filter(entry=>entry.actual.event_id===event.event_id);
+  if (rows.some(entry=>newer(entry,latest) && entry.actual.event_id!==event.event_id)) {
+    throw new Error('Predecessor has newer authenticated work');
+  }
+  if (children.some(entry=>!newer(entry,latest) || entry.row.predecessor_event_id!==predecessor)) {
+    throw new Error('Repeated verification event has conflicting parent metadata');
+  }
+  if (children.length) {
+    const childLatest=children.reduce((left,right)=>newer(right,left)?right:left);
+    const attempts=new Map();
+    for (const entry of children) {
+      const key=`${entry.run}:${entry.attempt}`;
+      attempts.set(key,[...(attempts.get(key) || []),entry]);
+    }
+    for (const current of attempts.values()) {
+      // Scope the existing guard to this authenticated attempt without changing
+      // retained records. An older unresolved provider attempt cannot disappear
+      // behind a later no-evaluation marker for the same event.
+      const attemptComments=current.map(({row,comment})=>({...comment,
+        body:`<!-- ${row.schema} ${JSON.stringify(row)} -->`}));
+      if (knownNoEvaluationAttempt(current,attemptComments)) continue;
+      if (!current.some(({row})=>row.status==='incomplete')
+          && completedEvent(event,attemptComments,current[0].row.assessment_identity)) continue;
+      if (current.every(({row})=>row.schema==='verifier-event-state/v1' && row.status==='pending')) {
+        if (current[0].run===childLatest.run && current[0].attempt===childLatest.attempt) continue;
+        const states=[...new Map(current.map(({row})=>[digest(row),row])).values()];
+        if (states.length===1) {
+          if (reconciledPending.has(digest(states[0]))) continue;
+          const error=new Error('Repeated verification event requires older pending execution recovery');
+          error.code='VERIFIER_PREDECESSOR_PENDING_EXECUTION';
+          error.pendingState=states[0];
+          error.verificationEvent=event;
+          throw error;
+        }
+      }
+      throw new Error('Repeated verification event requires existing execution recovery');
+    }
+  }
   const current=candidates.filter(entry=>entry.run===latest.run && entry.attempt===latest.attempt);
+  return knownNoEvaluationAttempt(current,comments);
+}
+
+function knownNoEvaluationAttempt(current,comments) {
+  const latest=current[0];
   const incomplete=current.filter(({row})=>row.status==='incomplete');
   if (!incomplete.length || current.some(({row})=>row.verdict!==undefined)
       || incomplete.some(({row})=>row.schema!=='verifier-event-state/v1'
@@ -358,7 +401,7 @@ function guardExistingEvent(event, comments, assessmentIdentity) {
 }
 
 function buildVerificationEvent({ repository, pull, issues, fullDiffBytes, evidence,
-  selectors, expected, predecessorEventId, ciResults }) {
+  selectors, expected, predecessorEventId, ciResults, reconciledPending }) {
   const repo = repository.toLowerCase();
   const source = (kind, number, body, repository = repo) => {
     if (!/^[^/\s]+\/[^/\s]+$/.test(repository) || !Number.isSafeInteger(number) || number < 1) {
@@ -388,7 +431,7 @@ function buildVerificationEvent({ repository, pull, issues, fullDiffBytes, evide
   if (expectation && validateEvent(expectation).event_id !== event.event_id) {
     throw new Error('Verification event expectation differs from authoritative collected inputs');
   }
-  if (predecessorEventId) authenticatePredecessor(event, predecessorEventId, evidence);
+  if (predecessorEventId) authenticatePredecessor(event, predecessorEventId, evidence, reconciledPending);
   return { verification_event: event, ...(predecessorEventId ? { predecessor_event_id: predecessorEventId } : {}),
     request, material };
 }

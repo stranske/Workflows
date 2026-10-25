@@ -85,6 +85,16 @@ The optional workflow inputs are:
   newer work cannot grant this authority. The old incomplete event and its parent
   remain unchanged; this adds a real successor instead of forking its earlier
   semantic ancestor. A false-only payload or job success is not this proof.
+  Repeating that already-created event retains its same authenticated predecessor;
+  its newer records are not a competing material branch. Every retained child
+  record must agree on that edge. Earlier unresolved executions still require
+  recovery through the existing Actions reconciler for each authenticated older
+  pending attempt. Only fresh skipped-evaluator proof discharges that attempt
+  within the current collection; retained comments and history stay unchanged.
+  Latest pending work uses the normal execution reconciliation, and
+  completed exact-event work remains deduplicated even after a later no-evaluation
+  attempt. Neither a new nonce nor
+  omitting the original predecessor grants permission for another model call.
 
 An empty selector list covers code and original requests; it is not a claim that
 previously required extra evidence was obtained. The existing collection plan
@@ -205,7 +215,10 @@ through GitHub Actions, including repository/workflow/job/checkout origin and
 archive digest. Recovery requires complete original result, receipt, input
 manifest, context, diff and event bytes, plus the same freshly collected request,
 required material, revision and assessment. Missing or changed evidence stops
-recovery; it never falls through to a new model call.
+recovery; it never falls through to a new model call. A prior exact terminal
+result, including NON_PASS under an older validator, does not suppress this
+explicit provider-free revalidation. Its authenticated source and recovery-key
+history guard still apply; ordinary model requests remain completion-deduplicated.
 
 Original files and invalid receipts remain unchanged in the retained source
 archive. A new typed revalidation receipt records the original run/artifact and
