@@ -43,19 +43,31 @@ jobs:
         with:
           script: |
             let pr = context.payload.pull_request || null;
-            if (context.eventName === 'workflow_dispatch' && process.env.PR_NUMBER) {
-              const number = Number(process.env.PR_NUMBER);
-              if (!Number.isSafeInteger(number) || number <= 0 || String(number) !== process.env.PR_NUMBER) {
+            const dispatchedPr = context.eventName === 'workflow_dispatch' && process.env.PR_NUMBER;
+            if (pr || dispatchedPr) {
+              const number = dispatchedPr ? Number(process.env.PR_NUMBER) : pr.number;
+              if (!Number.isSafeInteger(number) || number <= 0
+                  || (dispatchedPr && String(number) !== process.env.PR_NUMBER)) {
                 throw new Error('pr_number must be a positive integer');
               }
               const { data } = await github.rest.pulls.get({
                 ...context.repo, pull_number: number,
               });
-              if (data.state !== 'open' || data.head.repo.full_name !== process.env.GITHUB_REPOSITORY
-                  || data.head.sha !== context.sha) {
-                throw new Error('Dispatch must target the current open same-repository PR head');
+              if (dispatchedPr) {
+                if (data.state !== 'open' || data.head.repo.full_name !== process.env.GITHUB_REPOSITORY
+                    || data.head.sha !== context.sha) {
+                  throw new Error('Dispatch must target the current open same-repository PR head');
+                }
+              } else if (data.state !== 'open' || data.number !== pr.number
+                  || data.head?.sha !== pr.head?.sha
+                  || data.head?.repo?.full_name !== pr.head?.repo?.full_name
+                  || data.head?.ref !== pr.head?.ref || data.base?.ref !== pr.base?.ref) {
+                throw new Error('PR identity changed before Gate metadata refresh');
               }
-              pr = data;
+              // A rerun keeps the original event body. Refresh mutable metadata
+              // only after preserving the immutable PR/head/repository binding.
+              pr = dispatchedPr ? data : { ...pr, body: data.body, labels: data.labels,
+                state: data.state };
             }
             core.setOutput('pull_request', JSON.stringify(pr));
 
@@ -108,7 +120,7 @@ jobs:
       GATE_PR_JSON: ${{ needs.resolve-pr.outputs.pull_request }}
     steps:
       - name: Restore resolved PR event for Gate helpers
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.pr_number != '' }}
+        if: ${{ needs.resolve-pr.outputs.pull_request != 'null' }}
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         with:
           script: |
@@ -212,7 +224,7 @@ jobs:
         }}
     steps:
       - name: Restore resolved PR event for Gate helpers
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.pr_number != '' }}
+        if: ${{ needs.resolve-pr.outputs.pull_request != 'null' }}
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         with:
           script: |
@@ -236,7 +248,7 @@ jobs:
       GATE_PR_JSON: ${{ needs.resolve-pr.outputs.pull_request }}
     steps:
       - name: Restore resolved PR event for Gate helpers
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.pr_number != '' }}
+        if: ${{ needs.resolve-pr.outputs.pull_request != 'null' }}
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         with:
           script: |
@@ -296,7 +308,7 @@ jobs:
       GATE_PR_JSON: ${{ needs.resolve-pr.outputs.pull_request }}
     steps:
       - name: Restore resolved PR event for Gate helpers
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.pr_number != '' }}
+        if: ${{ needs.resolve-pr.outputs.pull_request != 'null' }}
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         with:
           script: |
@@ -348,7 +360,7 @@ jobs:
       GATE_PR_JSON: ${{ needs.resolve-pr.outputs.pull_request }}
     steps:
       - name: Restore resolved PR event for Gate helpers
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.pr_number != '' }}
+        if: ${{ needs.resolve-pr.outputs.pull_request != 'null' }}
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         with:
           script: |
@@ -402,7 +414,7 @@ jobs:
       GATE_PR_JSON: ${{ needs.resolve-pr.outputs.pull_request }}
     steps:
       - name: Restore resolved PR event for Gate helpers
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.pr_number != '' }}
+        if: ${{ needs.resolve-pr.outputs.pull_request != 'null' }}
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         with:
           script: |
@@ -461,7 +473,7 @@ jobs:
       GATE_PR_JSON: ${{ needs.resolve-pr.outputs.pull_request }}
     steps:
       - name: Restore resolved PR event for Gate helpers
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.pr_number != '' }}
+        if: ${{ needs.resolve-pr.outputs.pull_request != 'null' }}
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         with:
           script: |
@@ -610,7 +622,7 @@ jobs:
       GATE_PR_JSON: ${{ needs.resolve-pr.outputs.pull_request }}
     steps:
       - name: Restore resolved PR event for Gate helpers
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.pr_number != '' }}
+        if: ${{ needs.resolve-pr.outputs.pull_request != 'null' }}
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         with:
           script: |
@@ -688,7 +700,7 @@ jobs:
       autofix_label_skipped: ${{ steps.autofix_label.outputs.skipped_reason || '' }}
     steps:
       - name: Restore resolved PR event for Gate helpers
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.pr_number != '' }}
+        if: ${{ needs.resolve-pr.outputs.pull_request != 'null' }}
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         with:
           script: |

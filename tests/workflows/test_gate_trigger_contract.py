@@ -233,3 +233,140 @@ def test_base_metadata_is_shell_data(workflow_path: str, tmp_path: Path) -> None
             assert not marker.exists(), f"{workflow_path}: API metadata executed as shell code"
     assert "Fetch base ref" in seen
     assert "Check deliberate-break acceptance criterion" in seen
+
+
+@pytest.mark.parametrize("workflow_path", GATE_FILES)
+def test_pr_rerun_refreshes_same_head_metadata(workflow_path: str) -> None:
+    """Execute the authored resolver: reruns retain the old event body."""
+    import json
+    import subprocess
+
+    workflow = yaml.safe_load((ROOT / workflow_path).read_text())
+    script = workflow["jobs"]["resolve-pr"]["steps"][0]["with"]["script"]
+    harness = r"""
+const assert = require('node:assert/strict');
+const execute = new (Object.getPrototypeOf(async function(){}).constructor)(
+  'github', 'context', 'core', SCRIPT);
+(async () => {
+  process.env.PR_NUMBER = '';
+  process.env.GITHUB_REPOSITORY = 'owner/repo';
+  const original = {number:42,state:'open',body:'staging',
+    head:{sha:'same-head',repo:{full_name:'owner/repo'}}};
+  const fresh = structuredClone(original); fresh.body='sealed';
+  const context = {eventName:'pull_request',sha:'synthetic-merge',
+    repo:{owner:'owner',repo:'repo'},payload:{pull_request:original}};
+  let reads=0; let output;
+  const github={rest:{pulls:{get:async args=>{
+    reads++; assert.deepEqual(args,{owner:'owner',repo:'repo',pull_number:42});
+    return {data:structuredClone(fresh)};
+  }}}};
+  const core={setOutput:(_name,value)=>{output=JSON.parse(value);}};
+  await execute(github,context,core);
+  assert.equal(reads,1); assert.equal(output.body,'sealed');
+  assert.equal(original.body,'staging');
+  for (const mutate of [
+    p=>{p.head.sha='changed-head';},
+    p=>{p.head.repo.full_name='foreign/repo';},
+    p=>{p.state='closed';},
+  ]) {
+    const saved=structuredClone(fresh); mutate(fresh); output=undefined;
+    await assert.rejects(execute(github,context,core));
+    assert.equal(output,undefined); Object.assign(fresh,saved);
+  }
+  // Ordinary fork PRs retain their read-only identity; dispatch is stricter.
+  original.head.repo.full_name='fork/repo'; fresh.head.repo.full_name='fork/repo';
+  await execute(github,context,core); assert.equal(output.body,'sealed');
+  github.rest.pulls.get=async()=>{throw Error('metadata unavailable');};
+  output=undefined; await assert.rejects(execute(github,context,core),/metadata unavailable/);
+  assert.equal(output,undefined);
+})().catch(error=>{console.error(error);process.exitCode=1;});
+"""
+    result = subprocess.run(
+        ["node", "-e", "const SCRIPT = " + json.dumps(script) + ";\n" + harness],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
+@pytest.mark.parametrize("workflow_path", GATE_FILES)
+def test_resolved_snapshot_drives_both_delivery_guards(workflow_path: str, tmp_path: Path) -> None:
+    """Authored resolver/restore plus actual classifier/seal validate one snapshot."""
+    import json
+    import subprocess
+
+    workflow = yaml.safe_load((ROOT / workflow_path).read_text())
+    jobs = workflow["jobs"]
+    scripts = {
+        "resolve": jobs["resolve-pr"]["steps"][0]["with"]["script"],
+        "restore": [
+            jobs[name]["steps"][0]["with"]["script"]
+            for name in ("detect", "generated-delivery-seal")
+        ],
+    }
+    for name in ("detect", "generated-delivery-seal"):
+        assert "needs.resolve-pr.outputs.pull_request" in jobs[name]["steps"][0]["if"]
+        assert "workflow_dispatch" not in jobs[name]["steps"][0]["if"]
+    harness = r"""
+const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
+const classifier=require(path.join(ROOT,'.github/actions/path-classifier/classify.js'));
+const seal=require(path.join(ROOT,'.github/actions/generated-delivery-seal/check.js'));
+const contract=require(path.join(ROOT,'.github/scripts/sync_pr_lease_contract.js'));
+const execute=new(Object.getPrototypeOf(async function(){}).constructor)(
+ 'github','context','core',SCRIPTS.resolve);
+(async()=>{
+ const now='2026-10-25T14:40:00Z',repo='owner/repo',sha='a'.repeat(40);
+ const record={durable_issue_url:'https://github.com/owner/Workflows/issues/1',
+  plan_id:'sha256:'+'b'.repeat(64),generation:'bbbbbbbbbbbb',repository:repo,
+  desired_tree_hash:'c'.repeat(40),source_commit:'d'.repeat(40),
+  head_observed_sha:sha,head_observed_at:'2026-10-25T14:30:00Z',
+  lease_expires_at:'2026-10-28T14:30:00Z',delivery_state:'staging'};
+ const pr={number:42,state:'open',head:{ref:'sync/workflows-candidate',sha,
+  repo:{full_name:repo}},base:{repo:{full_name:repo}},body:contract.formatDeliveryRecord(record)};
+ const original=structuredClone(pr),fresh=structuredClone(pr);
+ fresh.body=contract.formatDeliveryRecord({...record,delivery_state:'sealed',
+  review_started_at:'2026-10-25T14:31:00Z',sealed_at:'2026-10-25T14:31:00Z',sealed_head_sha:sha});
+ const ctx={event_name:'pull_request',repository:repo,event:{pull_request:original}};
+ assert.equal(seal.evaluateDeliverySeal(ctx.event,repo,now).valid,false);
+ assert.equal(classifier.stableDeliverySealStatus(ctx,{contract,now}).valid,false);
+ process.env.GITHUB_REPOSITORY=repo;process.env.PR_NUMBER='';
+ const github={rest:{pulls:{get:async()=>({data:fresh})}}};
+ let output;const core={setOutput:(_n,v)=>{output=v;}};
+ await execute(github,{eventName:'pull_request',payload:ctx.event,
+  repo:{owner:'owner',repo:'repo'},sha:'merge-sha'},core);
+ process.env.GATE_PR_JSON=output;process.env.GITHUB_CONTEXT_JSON=JSON.stringify(ctx);
+ for (let i=0;i<SCRIPTS.restore.length;i++) {
+  process.env.GITHUB_EVENT_PATH=path.join(TEMP,'event-'+i+'.json');
+  fs.writeFileSync(process.env.GITHUB_EVENT_PATH,JSON.stringify(ctx.event));
+  new Function('require',SCRIPTS.restore[i])(require);
+  const restored=JSON.parse(fs.readFileSync(process.env.GITHUB_EVENT_PATH,'utf8'));
+  const parsed=classifier.parseGithubContext();
+  assert.deepEqual(restored.pull_request,parsed.event.pull_request);
+  assert.equal(seal.evaluateDeliverySeal(restored,repo,now).valid,true);
+  assert.equal(classifier.stableDeliverySealStatus(parsed,{contract,now}).valid,true);
+ }
+ for (const mutate of [
+  p=>{p.number=43;},p=>{p.head.sha='changed';},
+  p=>{p.head.repo.full_name='foreign/repo';},p=>{p.state='closed';},
+ ]) {
+  const wrong=structuredClone(fresh);mutate(wrong);process.env.GATE_PR_JSON=JSON.stringify(wrong);
+  assert.throws(()=>classifier.parseGithubContext());
+ }
+ process.env.GATE_PR_JSON='{broken';assert.throws(()=>classifier.parseGithubContext());
+ // No resolved snapshot retains normal pre-seal refusal; it does not waive it.
+ delete process.env.GATE_PR_JSON;
+ assert.equal(classifier.stableDeliverySealStatus(classifier.parseGithubContext(),{contract,now}).valid,false);
+})().catch(e=>{console.error(e);process.exitCode=1;});
+"""
+    prefix = (
+        "const ROOT="
+        + json.dumps(str(ROOT))
+        + ";const TEMP="
+        + json.dumps(str(tmp_path))
+        + ";const SCRIPTS="
+        + json.dumps(scripts)
+        + ";\n"
+    )
+    result = subprocess.run(["node", "-e", prefix + harness], capture_output=True, text=True)
+    assert result.returncode == 0, result.stdout + result.stderr
