@@ -11,6 +11,8 @@ Breaking changes are called out with a **BREAKING** marker and scheduled accordi
 
 ### Bug Fixes
 
+* **verifier:** admit necessary whole inputs before optional packing ([9d125b8](https://github.com/stranske/Workflows/commit/9d125b85a395d8ba6853e51f50b90b718adcc782))
+* **verifier:** preserve abbreviated duties and count necessary proof ([87d6d5c](https://github.com/stranske/Workflows/commit/87d6d5c5713af00a9962df9716ef8cd4356f04fb))
 * **verifier:** preserve authenticated retained revalidation ([9a44c5e](https://github.com/stranske/Workflows/commit/9a44c5e644bc8d11b3d2f5d64d87f30948ef4c42))
 * **verifier:** preserve parent on authenticated same-event retries ([aa9bbf9](https://github.com/stranske/Workflows/commit/aa9bbf93190901225755b7c160ea98d5f0fa5d2d))
 * **verifier:** reconcile older pending retries and retain exact dedup ([c4c670a](https://github.com/stranske/Workflows/commit/c4c670a9d71990ac7fc4426edb2e7e9e658b9aa3))
