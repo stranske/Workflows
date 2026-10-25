@@ -174,7 +174,7 @@ def test_workflow_only_uses_valid_on_triggers(workflow_path: Path) -> None:
     )
 
     invalid = [event for event in events if event not in VALID_WORKFLOW_TRIGGERS]
-    assert not invalid, (
+    assert invalid == [], (
         f"{workflow_path.relative_to(ROOT)}: uses unknown `on:` event(s) "
         f"{invalid}. Allowed events are documented at "
         "https://docs.github.com/en/actions/using-workflows/events-that-trigger-workflows. "
