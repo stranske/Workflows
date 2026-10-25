@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.44.21](https://github.com/stranske/Workflows/compare/v1.44.20...v1.44.21) (2026-10-25)
+
+
+### Bug Fixes
+
+* **gate:** refresh sealed PR metadata without changing head bindings ([#4245](https://github.com/stranske/Workflows/issues/4245)) ([b9310cc](https://github.com/stranske/Workflows/commit/b9310ccb83f073b38c5f1150bdf3145f05620b4c))
+
 ## [1.44.20](https://github.com/stranske/Workflows/compare/v1.44.19...v1.44.20) (2026-10-25)
 
 
