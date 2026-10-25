@@ -1001,3 +1001,77 @@ def test_qualified_common_proof_governor_actual_floor(
         if missing
         else "PASS"
     )
+
+
+@pytest.mark.parametrize("budget", [600, 1800])
+@pytest.mark.parametrize("required_chars", [500, 3000])
+def test_selected_comment_actual_producer_survives_optional_history_fitting(budget, required_chars):
+    """An explicit material selector is mandatory even without a comments duty."""
+    required = "REQUIRED_PROOF_BEGIN" + "x" * required_chars + "REQUIRED_PROOF_END"
+    optional = "OPTIONAL_HISTORY" + "z" * 10000
+    script = r"""
+const {formatVerifierEvidence}=require('./.github/scripts/agents_verifier_context.js');
+const input=JSON.parse(require('fs').readFileSync(0,'utf8'));
+process.stdout.write(formatVerifierEvidence({status:'present',body:{status:'present',text:'body proof'},
+ comments:{status:'present',records:[
+  {author:'owner',author_id:7,comment_id:42,url:'https://github.com/octo/workflows/pull/700#issuecomment-42',
+   created_at:'2026-10-25T10:00:00Z',updated_at:'2026-10-25T10:00:00Z',body:input.required,required_material:true},
+  {author:'bot',body:input.optional}]},artifacts:{status:'absent',records:[]}}));
+"""
+    evidence = subprocess.check_output(
+        [NODE, "-e", script],
+        cwd=ROOT,
+        input=json.dumps({"required": required, "optional": optional}),
+        text=True,
+    )
+    fitted = pr_verifier._fit_required_evidence_prompt(evidence, [{"body"}], budget)
+    assert fitted is not None
+    rendered, channels, omitted, required_count = fitted
+    assert required in rendered
+    assert optional not in rendered
+    assert "comments" in omitted
+    assert channels == ("body",)
+    assert required_count >= len(required)
+    # Required bytes can exceed the optional budget; the unchanged native
+    # whole-request counter, rather than truncation, admits or refuses them.
+    if required_chars > budget:
+        assert len(rendered) > budget
+
+
+def test_legacy_selected_comment_is_not_silently_fit_as_optional():
+    evidence = (
+        "## Acceptance evidence\n- PR body: **present**\n- PR comments: **present**\n"
+        "### Bounded PR body\nbody proof\n### Bounded PR comments\n"
+        "Selected source-comment provenance: actor ID7; comment ID42.\n"
+        "```text\nREQUIRED_COMMENT_PROOF\n```\n" + "optional history" * 1000
+    )
+    assert pr_verifier._fit_required_evidence_prompt(evidence, [{"body"}], 200) is None
+
+
+@pytest.mark.parametrize("proof_chars", [500, 5000])
+def test_selected_comment_real_collector_to_prompt(tmp_path, monkeypatch, proof_chars):
+    proof = "REQUIRED_PROOF_BEGIN" + "x" * proof_chars + "REQUIRED_PROOF_END"
+    env = {key: os.environ[key] for key in ("PATH", "HOME", "TMPDIR", "LANG") if key in os.environ}
+    env.update(VERIFIER_TEST_REQUIRED_COMMENT=proof, VERIFIER_TEST_CAPTURE_DIR=str(tmp_path))
+    child = subprocess.run(
+        [
+            NODE,
+            "--test",
+            "--test-name-pattern",
+            "^selected required comment actual producer capture$",
+            ".github/scripts/__tests__/agents-verifier-context.test.js",
+        ],
+        cwd=ROOT,
+        env=env,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert child.returncode == 0, child.stdout + child.stderr
+    monkeypatch.setenv("VERIFIER_ACCEPTANCE_EVIDENCE_BUDGET_TOKENS", "250")
+    context = (tmp_path / "context.md").read_text()
+    diff = (tmp_path / "diff.patch").read_text()
+    prompt = pr_verifier.build_prompt_inputs(context, diff, evaluate_minimum=True)
+    assert proof in prompt.context_block
+    assert "OPTIONAL_HISTORY_" not in prompt.context_block
+    assert prompt.coverage.sufficient, prompt.coverage.reasons
