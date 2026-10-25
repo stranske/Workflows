@@ -35,6 +35,21 @@ still enforced. An incidental active thread needs an explicit owner disposition;
 it is not silently ignored. Consumers' branch protection is never weakened.
 Legacy review mode remains available when `generated_delivery_review` is absent.
 
+### Sealed Gate recovery
+
+Maint71 requests a full PR-event Gate rerun when authenticated seal-only failure
+proof shows that the metadata snapshot predates the current exact-head seal.
+A failed-jobs rerun can reuse the successful pre-seal resolver; the workflow-level
+start time alone does not prove that the current seal was read. For resolver-based
+Gates, use the latest attempt's unique successful exact-head resolver timestamps.
+Missing, conflicting or unreadable resolver evidence never proves freshness. A
+legacy first event created before sealing proves only an old snapshot; a later
+start time cannot make it fresh. Repeated legacy attempts require migration,
+rather than another automatic request.
+Active runs are not duplicated, fresh post-seal test failures remain blocking,
+and workflow security approval holds require their own authorized review.
+Previously accepted unchanged-payload canary qualification is retained.
+
 ### Finding relevance evidence
 
 `sync_pr_merge_contract.js::evaluateSyncFindingDispositions` is the shared

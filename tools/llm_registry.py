@@ -75,7 +75,7 @@ class NativeCapacityFacts:
     provenance: str
 
 
-class NativeCapacityUnavailable(ValueError):
+class NativeCapacityUnavailable(ValueError):  # noqa: N818 - public compatibility exception
     """A registered model deliberately has no optional native-capacity contract."""
 
 
