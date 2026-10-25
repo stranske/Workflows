@@ -20,11 +20,16 @@ import yaml
 MODE_ENV = "WORKFLOWS_ANALYSIS_CLI"
 REGISTRY = Path(__file__).resolve().parents[1] / ".github/agents/registry.yml"
 
-# Analysis must stay tool-free: read-only sandbox still permits shell reads of
-# CODEX_HOME/auth.json and checkout credentials under prompt injection.
+# Disable analysis capabilities explicitly: read-only sandbox alone permits
+# credential reads. Deployment still needs effective-tool and canary evidence.
+# unified_exec opt-outs are ignored; shell_tool controls command execution.
 _CODEX_DISABLED_FEATURES = (
     "shell_tool",
-    "unified_exec",
+    "view_image",
+    "multi_agent",
+    "multi_agent_v2",
+    "plugins",
+    "hooks",
     "code_mode_host",
     "browser_use",
     "in_app_browser",
@@ -121,7 +126,8 @@ class SubscriptionClient:
             ]
         else:
             raise ValueError("Unsupported subscription analysis agent")
-        # Empty cwd: prompt is stdin-only; deny workspace/credential file reads.
+        # Empty cwd limits workspace discovery; it does not deny absolute-path reads.
+        # Prompt input is stdin-only. Capability controls above require runtime proof.
         with tempfile.TemporaryDirectory(prefix="workflows-analysis-") as scratch:
             result = subprocess.run(
                 command,
