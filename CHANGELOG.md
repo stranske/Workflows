@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.44.24](https://github.com/stranske/Workflows/compare/v1.44.23...v1.44.24) (2026-10-25)
+
+
+### Bug Fixes
+
+* **verifier:** bind launch correlation to authenticated result lifecycle ([#4252](https://github.com/stranske/Workflows/issues/4252)) ([89b37e3](https://github.com/stranske/Workflows/commit/89b37e3e0bce9f4dacf995228434de9f889bf95d))
+
 ## [1.44.23](https://github.com/stranske/Workflows/compare/v1.44.22...v1.44.23) (2026-10-25)
 
 
