@@ -1130,8 +1130,8 @@ async function fetchVerifierEvidence({
           if (conversation && ['github-actions', 'github-actions[bot]'].includes(comment?.user?.login || comment?.author?.login)
               && String(comment?.html_url || comment?.url || '').toLowerCase().startsWith(
                 `https://github.com/${owner}/${repo}/pull/${pullNumber}#issuecomment-`.toLowerCase())) {
-            const markers = comment.body.match(/<!-- (?:verifier-event-state\/v1|verifier-corpus-decision\/v1) [^\n]*? -->/g) || [];
-            if (/<!-- (?:verifier-event-state\/v1|verifier-corpus-decision\/v1) /.test(comment.body) && !markers.length) {
+            const markers = comment.body.match(/<!-- (?:verifier-event-state\/v1|verifier-corpus-decision\/v1|verifier-input-repair\/v1) [^\n]*? -->/g) || [];
+            if (/<!-- (?:verifier-event-state\/v1|verifier-corpus-decision\/v1|verifier-input-repair\/v1) /.test(comment.body) && !markers.length) {
               eventHistory.complete = false;
               eventHistory.reason = 'verifier protocol marker is malformed';
             }
@@ -1141,7 +1141,7 @@ async function fetchVerifierEvidence({
             }
             for (const marker of markers) {
               try {
-                const parsed = marker.match(/^<!-- (verifier-event-state\/v1|verifier-corpus-decision\/v1) (.*) -->$/);
+                const parsed = marker.match(/^<!-- (verifier-event-state\/v1|verifier-corpus-decision\/v1|verifier-input-repair\/v1) (.*) -->$/);
                 const payload = JSON.parse(parsed[2]);
                 if (!payload || typeof payload !== 'object' || Array.isArray(payload) || payload.schema !== parsed[1]) throw new Error('invalid protocol schema');
               } catch {
@@ -2632,12 +2632,16 @@ async function buildVerifierContext({
     // Only this collection's authoritative Actions reads can discharge an older
     // pending attempt. Never serialize the admission set or rewrite history.
     const reconciledPending = new Set(), predecessorReconciliations = [];
+    const eventAssessment = assessmentIdentity({mode,
+      provider:process.env.VERIFIER_PROVIDER || '',model:process.env.VERIFIER_MODEL || '',
+      model2:process.env.VERIFIER_MODEL2 || '',canonical:true});
     for (;;) {
       try {
         verificationManifest = buildVerificationEvent({ repository: `${owner}/${repo}`, pull,
           issues: closingIssues, fullDiffBytes, evidence: verifierEvidence, ciResults,
           selectors: process.env.VERIFICATION_MATERIAL, expected: process.env.VERIFICATION_EVENT,
-          predecessorEventId: process.env.VERIFICATION_PREDECESSOR, reconciledPending });
+          predecessorEventId: process.env.VERIFICATION_PREDECESSOR, reconciledPending,
+          assessmentIdentity: eventAssessment });
         break;
       } catch (error) {
         if (error.code !== 'VERIFIER_PREDECESSOR_PENDING_EXECUTION') throw error;
@@ -2661,9 +2665,7 @@ async function buildVerifierContext({
       }
     }
     if (predecessorReconciliations.length) verificationManifest.predecessor_execution_reconciliation=predecessorReconciliations;
-    verificationManifest.assessment_identity = assessmentIdentity({mode,
-      provider:process.env.VERIFIER_PROVIDER || '',model:process.env.VERIFIER_MODEL || '',
-      model2:process.env.VERIFIER_MODEL2 || '',canonical:true});
+    verificationManifest.assessment_identity = eventAssessment;
     verificationManifest.execution_binding = executionBinding(mode);
     let recoveryOrigin;
     if (recoverySelector) {
