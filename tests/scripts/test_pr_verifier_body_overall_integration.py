@@ -1045,14 +1045,28 @@ def test_legacy_selected_comment_is_not_silently_fit_as_optional():
         "Selected source-comment provenance: actor ID7; comment ID42.\n"
         "```text\nREQUIRED_COMMENT_PROOF\n```\n" + "optional history" * 1000
     )
-    assert pr_verifier._fit_required_evidence_prompt(evidence, [{"body"}], 200) is None
+    for channels in [{"body"}, set()]:
+        fitted = pr_verifier._fit_required_evidence_prompt(evidence, [channels], 200)
+        assert fitted is not None
+        assert "REQUIRED_COMMENT_PROOF" in fitted[0]
+        assert "optional history" * 1000 in fitted[0]
+        assert fitted[3] > 200
 
 
 @pytest.mark.parametrize("proof_chars", [500, 5000])
-def test_selected_comment_real_collector_to_prompt(tmp_path, monkeypatch, proof_chars):
+@pytest.mark.parametrize("legacy", [False, True])
+@pytest.mark.parametrize("no_evidence_duty", [False, True])
+@pytest.mark.parametrize("withdrawn", [False, True])
+def test_selected_comment_real_collector_to_prompt(
+    tmp_path, monkeypatch, proof_chars, legacy, no_evidence_duty, withdrawn
+):
     proof = "REQUIRED_PROOF_BEGIN" + "x" * proof_chars + "REQUIRED_PROOF_END"
     env = {key: os.environ[key] for key in ("PATH", "HOME", "TMPDIR", "LANG") if key in os.environ}
     env.update(VERIFIER_TEST_REQUIRED_COMMENT=proof, VERIFIER_TEST_CAPTURE_DIR=str(tmp_path))
+    if no_evidence_duty:
+        env["VERIFIER_TEST_NO_EVIDENCE_DUTY"] = "true"
+    if withdrawn:
+        env["VERIFIER_TEST_WITHDRAWN_COMMENT"] = "true"
     child = subprocess.run(
         [
             NODE,
@@ -1068,8 +1082,16 @@ def test_selected_comment_real_collector_to_prompt(tmp_path, monkeypatch, proof_
         text=True,
     )
     assert child.returncode == 0, child.stdout + child.stderr
+    if withdrawn:
+        refusal = json.loads((tmp_path / "refusal.json").read_text())
+        assert refusal["status"] == "REFUSED_BEFORE_PROMPT"
+        assert refusal["provider_generation"] is False
+        assert not (tmp_path / "context.md").exists()
+        return
     monkeypatch.setenv("VERIFIER_ACCEPTANCE_EVIDENCE_BUDGET_TOKENS", "250")
     context = (tmp_path / "context.md").read_text()
+    if legacy:
+        context = context.replace("### Selected required comment proof", "### Bounded PR comments")
     diff = (tmp_path / "diff.patch").read_text()
     prompt = pr_verifier.build_prompt_inputs(context, diff, evaluate_minimum=True)
     assert proof in prompt.context_block

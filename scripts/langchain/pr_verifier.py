@@ -6095,10 +6095,7 @@ def _fit_required_evidence_prompt(
         elif name == "comments" and line.startswith("Selected source-comment provenance:"):
             legacy_selected_comments = True
         lines.append(line)
-    if fence is not None or legacy_selected_comments:
-        # Old mixed comment sections cannot safely be reduced by channel.
-        # Leave lossless admission/coverage active until the normal producer
-        # assembles the selected proof separately; never silently drop it.
+    if fence is not None:
         return None
     pieces.append((name, "".join(lines).strip()))
     present = {name for name, _ in pieces}
@@ -6108,6 +6105,12 @@ def _fit_required_evidence_prompt(
         present.add("comments")
     if not present.intersection({"body", "comments", "artifacts"}):
         return None
+    mandatory_pieces = {"preamble", "selected_material", "selected_comments"}
+    if legacy_selected_comments:
+        # A legacy mixed section must remain whole even when the authored
+        # request declares no channel duty. Only refreshed producer packets
+        # can separate its required proof from optional history safely.
+        mandatory_pieces.add("comments")
     candidates = []
     for channels in options:
         if (
@@ -6116,11 +6119,7 @@ def _fit_required_evidence_prompt(
             or not channels <= present
         ):
             continue
-        required = [
-            body
-            for name, body in pieces
-            if name in {"preamble", "selected_material", "selected_comments"} or name in channels
-        ]
+        required = [body for name, body in pieces if name in mandatory_pieces or name in channels]
         rendered = "\n\n".join(required)
         candidates.append((len(rendered), tuple(sorted(channels)), rendered))
     # This budget bounds optional enrichment, never complete required proof.
@@ -6130,7 +6129,7 @@ def _fit_required_evidence_prompt(
         channels = set(selected_channels)
         omitted: list[str] = []
         for name, body in pieces:
-            if name in {"preamble", "selected_material", "selected_comments"} or name in channels:
+            if name in mandatory_pieces or name in channels:
                 continue
             if len(rendered) + len(body) + 2 <= budget:
                 rendered += "\n\n" + body

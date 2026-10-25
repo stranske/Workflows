@@ -302,7 +302,9 @@ Prompt fitting preserves the entire selected section even when it exceeds the
 optional-enrichment budget; the existing native whole-request counter admits or
 refuses the resulting request. Place it before legacy optional section headings
 so older channel fitters also retain the mandatory prefix. A legacy mixed section
-that identifies selected required comments cannot be certified by optional
-channel fitting; use the normal refreshed producer packet or lossless admission.
+that identifies selected required comments stays whole during fitting, including
+when the original request names no evidence channel. Refresh through the normal
+producer to separate that old section's required proof from optional history;
+until then the unchanged native counter must admit its complete retained bytes.
 These are input guarantees, not evidence of acceptance or permission to replay
 an existing evaluation.

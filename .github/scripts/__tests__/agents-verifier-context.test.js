@@ -5805,16 +5805,29 @@ test('selected required comments are separate from optional history and retain p
 test('selected required comment actual producer capture', async () => {
   const url = 'https://github.com/octo/workflows/pull/700#issuecomment-42';
   const proof = process.env.VERIFIER_TEST_REQUIRED_COMMENT || 'REQUIRED_SELECTED_PROOF';
-  const body = '## Tasks\n- Implement the behavior.\n## Acceptance Criteria\n- Evidence in the PR body must establish the behavior.';
+  const criterion = process.env.VERIFIER_TEST_NO_EVIDENCE_DUTY ? 'Every changed module is wired.' : 'Evidence in the PR body must establish the behavior.';
+  const body = '## Tasks\n- Implement the behavior.\n## Acceptance Criteria\n- ' + criterion;
   await withEnv('VERIFICATION_MATERIAL', JSON.stringify([{kind:'comment',url}]), async () => {
     const requiredComment = {id:42,html_url:url,user:{login:'owner',id:7},body:proof,
       issue_url:'https://api.github.com/repos/octo/workflows/issues/700',
       created_at:'2026-10-25T10:00:00Z',updated_at:'2026-10-25T10:00:00Z'};
-    const {result} = await buildEvidenceContext({prBody:body,requiredCommentsById:{42:requiredComment},comments:[
-      requiredComment,
+    const capture = () => buildEvidenceContext({prBody:body,requiredCommentsById:{42:requiredComment},comments:[
+      process.env.VERIFIER_TEST_WITHDRAWN_COMMENT ? {...requiredComment,body:'withdrawn'} : requiredComment,
       {id:43,html_url:'https://github.com/octo/workflows/pull/700#issuecomment-43',
         user:{login:'bot',id:8},body:'OPTIONAL_HISTORY_'+ 'z'.repeat(50000)},
     ]},{mode:'evaluate'});
+    if (process.env.VERIFIER_TEST_WITHDRAWN_COMMENT) {
+      await assert.rejects(capture(), error => {
+        assert.match(error.message,/Required verification comment is absent, ambiguous or incomplete/);
+        if (process.env.VERIFIER_TEST_CAPTURE_DIR) fs.writeFileSync(
+          path.join(process.env.VERIFIER_TEST_CAPTURE_DIR,'refusal.json'),JSON.stringify({
+            status:'REFUSED_BEFORE_PROMPT',reason:error.message,provider_generation:false}));
+        return true;
+      });
+      fs.rmSync('verification-event-manifest.json',{force:true});
+      return;
+    }
+    const {result} = await capture();
     try {
       assert.equal(result.shouldRun,true);
       assert.ok(result.markdown.includes(proof));
