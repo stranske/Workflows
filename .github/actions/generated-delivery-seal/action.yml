@@ -1,9 +1,17 @@
 name: Generated Delivery Seal
 description: Enforce the stable sync-delivery seal from Workflows-owned code.
 
+inputs:
+  pull-request-json:
+    description: 'Authenticated current metadata bound to the original PR head; empty preserves event-only checks'
+    required: false
+    default: ''
+
 runs:
   using: composite
   steps:
     - name: Require an exact-head delivery seal
       shell: bash
+      env:
+        GATE_PR_JSON: ${{ inputs.pull-request-json }}
       run: node "$GITHUB_ACTION_PATH/check.js"
