@@ -5622,7 +5622,9 @@ test('same-event collector retry retains the authenticated incomplete parent in 
    const comment=(id,value)=>({id,user:{login:'github-actions[bot]'},
      html_url:`https://github.com/octo/workflows/pull/700#issuecomment-${id}`,
      body:`<!-- ${value.schema} ${JSON.stringify(value)} -->`});
-   for(const status of ['retry','duplicate','pending','uncertain']) {
+   for(const status of ['retry','duplicate','complete-then-retry','failure-complete-then-retry','complete-then-pending','complete-then-uncertain','old-pending-skipped','two-old-pending-skipped',
+      'old-pending-started','old-pending-active','old-pending-missing-api','old-pending-binding',
+      'old-pending-refetch-changed','old-pending-mixed-parent','old-pending-uncertain','pending','uncertain']) {
     const comments=[comment(81,row(parent,100,'pending')),comment(82,row(parent,100,'incomplete')),
       comment(83,row(event,101,'pending',parent.event_id))];
     if(status==='retry'||status==='uncertain') {
@@ -5632,24 +5634,72 @@ test('same-event collector retry retains the authenticated incomplete parent in 
     }
     if(status==='duplicate')comments.push(comment(84,{...row(event,101,undefined,parent.event_id),
       schema:'verifier-corpus-decision/v1',ci_failed:false,provider_verdicts:['PASS'],verdict:'PASS'}));
+    if(status.endsWith('complete-then-retry')) {
+      comments.push(comment(84,{...row(event,101,undefined,parent.event_id),
+        schema:'verifier-corpus-decision/v1',ci_failed:false,provider_verdicts:[status.startsWith('failure')?'FAIL':'PASS'],
+        verdict:status.startsWith('failure')?'NON_PASS':'PASS'}));
+      comments.push(comment(85,row(event,102,'pending',parent.event_id)),comment(86,row(event,102,'incomplete',parent.event_id)));
+    }
+    if(['complete-then-pending','complete-then-uncertain'].includes(status)) {
+      comments.push(comment(84,{...row(event,101,undefined,parent.event_id),
+        schema:'verifier-corpus-decision/v1',ci_failed:false,provider_verdicts:['PASS'],verdict:'PASS'}));
+      comments.push(comment(85,row(event,102,'pending',parent.event_id)));
+      if(status==='complete-then-uncertain')comments.push(comment(86,{
+        ...row(event,102,'incomplete',parent.event_id),retry_kind:'uncertain_execution',retryable:false}));
+    }
+    if(status.includes('old-pending')) {
+      if(status==='old-pending-binding') {
+        const value=JSON.parse(comments[2].body.match(/(\{.*\})/)[1]);
+        value.execution_binding.evaluator_step='Foreign step';comments[2]=comment(83,value);
+      }
+      if(status==='old-pending-mixed-parent')comments[2]=comment(83,row(event,101,'pending','d'.repeat(64)));
+      if(status==='old-pending-uncertain')comments.push(comment(84,{...row(event,101,'incomplete',parent.event_id),retry_kind:'uncertain_execution',retryable:false}));
+      if(status==='two-old-pending-skipped')comments.push(comment(87,row(event,102,'pending',parent.event_id)));
+      comments.push(comment(85,row(event,103,'pending',parent.event_id)),comment(86,row(event,103,'incomplete',parent.event_id)));
+    }
+    comments.sort((left,right)=>left.id-right.id);
+    const reads=[];
+    const reconcilerBuilder=options=>{
+      const counts=new Map();
+      const run=id=>({id,run_attempt:1,status:status==='old-pending-active'?'in_progress':'completed',conclusion:'cancelled',
+        path:'.github/workflows/agents-verifier.yml',event:'workflow_dispatch',head_sha:'a'.repeat(40),
+        repository:{full_name:event.repo},head_repository:{full_name:event.repo}});
+      const get=async ({run_id})=>{reads.push(run_id);const value=run(run_id);
+        counts.set(run_id,(counts.get(run_id)||0)+1);
+        if(status==='old-pending-refetch-changed' && counts.get(run_id)>2)value.head_sha='f'.repeat(40);
+        return {data:value};};
+      if(status.includes('old-pending') && status!=='old-pending-missing-api') Object.assign(options.github.rest.actions,{
+        getWorkflowRun:get,getWorkflowRunAttempt:get,
+        listJobsForWorkflowRunAttempt:async({run_id})=>({data:{total_count:1,jobs:[{id:run_id+1000,run_id,run_attempt:1,
+          head_sha:'a'.repeat(40),name:'Run post-merge verifier',status:'completed',steps:[
+            {name:'Record verification event pending',number:5,status:'completed',conclusion:'success'},
+            {name:'Run LLM evaluation',number:15,status:'completed',conclusion:status==='old-pending-started'?'success':'skipped'}]}]},headers:{}})});
+      return builder(options);
+    };
     const before=structuredClone(comments);
     await withEnv('VERIFICATION_EVENT',JSON.stringify(event),()=>withEnv('VERIFICATION_PREDECESSOR',parent.event_id,async()=>{
-     if(status==='uncertain') {
-      await assert.rejects(()=>buildEvidenceContext({prBody:body,comments},{mode:'evaluate'},builder),/recover retained execution|requires existing execution recovery/);
+     if(['uncertain','complete-then-uncertain','old-pending-mixed-parent','old-pending-uncertain'].includes(status)) {
+      await assert.rejects(()=>buildEvidenceContext({prBody:body,comments},{mode:'evaluate'},builder),/recover retained execution|requires existing execution recovery|conflicting parent metadata/);
       return;
      }
-     const {result,core}=await buildEvidenceContext({prBody:body,comments},{mode:'evaluate'},builder);
+     const {result,core}=await buildEvidenceContext({prBody:body,comments},{mode:'evaluate'},reconcilerBuilder);
+     assert.ok(result.verificationManifest,JSON.stringify({status,result}));
      assert.equal(result.verificationManifest.predecessor_event_id,parent.event_id);
      assert.deepEqual(result.verificationManifest.verification_event,event);
-     if(status==='retry') {
+     if(['retry','old-pending-skipped','two-old-pending-skipped'].includes(status)) {
       assert.equal(result.shouldRun,true);
       assert.equal(core.outputs.verification_predecessor,parent.event_id);
+      if(status.includes('old-pending')) {
+        const proofs=result.verificationManifest.predecessor_execution_reconciliation;
+        assert.deepEqual(proofs.map(p=>p.run_id),status==='two-old-pending-skipped'?['101','102']:['101']);
+        assert.ok(reads.length>=4);
+      }
       assert.ok(fs.readFileSync(result.contextPath,'utf8').includes(body));
       assert.equal(JSON.parse(fs.readFileSync('verification-event-manifest.json','utf8')).predecessor_event_id,parent.event_id);
       removeVerifierDiffArtifacts(result);
      } else {
-      assert.equal(result.shouldRun,false);
-      assert.equal(result.reason,status==='duplicate'?'duplicate-verification-event':'verification-existing-execution-retrieval-pending');
+      assert.equal(result.shouldRun,false,status);
+      assert.equal(result.reason,(status==='duplicate'||status.endsWith('complete-then-retry'))?'duplicate-verification-event':'verification-existing-execution-retrieval-pending');
      }
     }));
     assert.deepEqual(comments,before);

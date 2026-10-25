@@ -2629,10 +2629,38 @@ async function buildVerifierContext({
       return { shouldRun: false, reason: 'verification-event-history-retrieval-pending',
         retrievalPending: { requirement: 'verification_event_history', reason: verifierEvidence.event_history?.reason || reason } };
     }
-    verificationManifest = buildVerificationEvent({ repository: `${owner}/${repo}`, pull,
-      issues: closingIssues, fullDiffBytes, evidence: verifierEvidence, ciResults,
-      selectors: process.env.VERIFICATION_MATERIAL, expected: process.env.VERIFICATION_EVENT,
-      predecessorEventId: process.env.VERIFICATION_PREDECESSOR });
+    // Only this collection's authoritative Actions reads can discharge an older
+    // pending attempt. Never serialize the admission set or rewrite history.
+    const reconciledPending = new Set(), predecessorReconciliations = [];
+    for (;;) {
+      try {
+        verificationManifest = buildVerificationEvent({ repository: `${owner}/${repo}`, pull,
+          issues: closingIssues, fullDiffBytes, evidence: verifierEvidence, ciResults,
+          selectors: process.env.VERIFICATION_MATERIAL, expected: process.env.VERIFICATION_EVENT,
+          predecessorEventId: process.env.VERIFICATION_PREDECESSOR, reconciledPending });
+        break;
+      } catch (error) {
+        if (error.code !== 'VERIFIER_PREDECESSOR_PENDING_EXECUTION') throw error;
+        const recovery = await reconcilePendingExecution({github,event:error.verificationEvent,
+          assessment:error.pendingState.assessment_identity,state:error.pendingState,
+          currentExecution:{run_id:String(context.runId),run_attempt:String(process.env.GITHUB_RUN_ATTEMPT || ''),
+            repo:`${context.repo.owner}/${context.repo.repo}`,workflow_ref:process.env.GITHUB_WORKFLOW_REF || ''}});
+        if (recovery.retry_kind !== 'known_no_evaluation') {
+          const pendingManifest={verification_event:error.verificationEvent,
+            predecessor_event_id:process.env.VERIFICATION_PREDECESSOR,
+            predecessor_execution_reconciliation:predecessorReconciliations,pending_execution_recovery:recovery};
+          fs.writeFileSync('verification-event-manifest.json',JSON.stringify(pendingManifest,null,2)+'\n');
+          core?.setOutput?.('should_run','false');
+          core?.setOutput?.('skip_reason','Existing verification execution requires targeted recovery');
+          core?.setOutput?.('retrieval_pending','verification_existing_execution');
+          return {shouldRun:false,reason:'verification-existing-execution-retrieval-pending',
+            verificationManifest:pendingManifest,retrievalPending:{requirement:'verification_existing_execution',...recovery}};
+        }
+        reconciledPending.add(digest(error.pendingState));
+        predecessorReconciliations.push(recovery.proof);
+      }
+    }
+    if (predecessorReconciliations.length) verificationManifest.predecessor_execution_reconciliation=predecessorReconciliations;
     verificationManifest.assessment_identity = assessmentIdentity({mode,
       provider:process.env.VERIFIER_PROVIDER || '',model:process.env.VERIFIER_MODEL || '',
       model2:process.env.VERIFIER_MODEL2 || '',canonical:true});
@@ -2692,10 +2720,10 @@ async function buildVerifierContext({
     core?.setOutput?.('verification_assessment', JSON.stringify(verificationManifest.assessment_identity));
     // A historical job-success fingerprint is not a verifier decision. Model
     // invocations collect first, then suppress only actual terminal evidence.
-    if (!retryKnownNoEvaluation && verifierEvidence.event_history.complete
+    if (verifierEvidence.event_history.complete
         && (completedEvent(verificationManifest.verification_event, verifierEvidence.event_history.records,
           verificationManifest.assessment_identity)
-          || (!eventRequested && ['', 'auto'].includes(verificationManifest.assessment_identity.provider)
+          || (!retryKnownNoEvaluation && !eventRequested && ['', 'auto'].includes(verificationManifest.assessment_identity.provider)
             && !verificationManifest.assessment_identity.model && !verificationManifest.assessment_identity.model2
             && completedLegacyEvent(verificationManifest.verification_event, verifierEvidence)))) {
       core?.setOutput?.('should_run', 'false');

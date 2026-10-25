@@ -142,7 +142,7 @@ function completedEvent(event, comments, assessmentIdentity) {
   });
 }
 
-function authenticatePredecessor(event, predecessor, evidence) {
+function authenticatePredecessor(event, predecessor, evidence, reconciledPending = new Set()) {
   const history = evidence.event_history;
   if (!SHA.test(predecessor) || !history?.complete) {
     throw new Error('Verification predecessor requires complete authenticated comment evidence');
@@ -191,11 +191,11 @@ function authenticatePredecessor(event, predecessor, evidence) {
       } catch { /* Malformed history cannot supply causal authority. */ }
     }
   }
-  if (predecessor !== event.event_id && authenticateIncompletePredecessor(event,predecessor,history.records || [])) return;
+  if (predecessor !== event.event_id && authenticateIncompletePredecessor(event,predecessor,history.records || [],reconciledPending)) return;
   throw new Error('Verification predecessor is not an authenticated exact-subject terminal event');
 }
 
-function authenticateIncompletePredecessor(event,predecessor,comments) {
+function authenticateIncompletePredecessor(event,predecessor,comments,reconciledPending) {
   const prefix=`https://github.com/${event.repo}/pull/${event.pr}#issuecomment-`;
   const rows=[];
   for (const comment of comments) {
@@ -277,8 +277,18 @@ function authenticateIncompletePredecessor(event,predecessor,comments) {
       if (knownNoEvaluationAttempt(current,attemptComments)) continue;
       if (!current.some(({row})=>row.status==='incomplete')
           && completedEvent(event,attemptComments,current[0].row.assessment_identity)) continue;
-      if (current.every(({row})=>row.schema==='verifier-event-state/v1' && row.status==='pending')
-          && current[0].run===childLatest.run && current[0].attempt===childLatest.attempt) continue;
+      if (current.every(({row})=>row.schema==='verifier-event-state/v1' && row.status==='pending')) {
+        if (current[0].run===childLatest.run && current[0].attempt===childLatest.attempt) continue;
+        const states=[...new Map(current.map(({row})=>[digest(row),row])).values()];
+        if (states.length===1) {
+          if (reconciledPending.has(digest(states[0]))) continue;
+          const error=new Error('Repeated verification event requires older pending execution recovery');
+          error.code='VERIFIER_PREDECESSOR_PENDING_EXECUTION';
+          error.pendingState=states[0];
+          error.verificationEvent=event;
+          throw error;
+        }
+      }
       throw new Error('Repeated verification event requires existing execution recovery');
     }
   }
@@ -391,7 +401,7 @@ function guardExistingEvent(event, comments, assessmentIdentity) {
 }
 
 function buildVerificationEvent({ repository, pull, issues, fullDiffBytes, evidence,
-  selectors, expected, predecessorEventId, ciResults }) {
+  selectors, expected, predecessorEventId, ciResults, reconciledPending }) {
   const repo = repository.toLowerCase();
   const source = (kind, number, body, repository = repo) => {
     if (!/^[^/\s]+\/[^/\s]+$/.test(repository) || !Number.isSafeInteger(number) || number < 1) {
@@ -421,7 +431,7 @@ function buildVerificationEvent({ repository, pull, issues, fullDiffBytes, evide
   if (expectation && validateEvent(expectation).event_id !== event.event_id) {
     throw new Error('Verification event expectation differs from authoritative collected inputs');
   }
-  if (predecessorEventId) authenticatePredecessor(event, predecessorEventId, evidence);
+  if (predecessorEventId) authenticatePredecessor(event, predecessorEventId, evidence, reconciledPending);
   return { verification_event: event, ...(predecessorEventId ? { predecessor_event_id: predecessorEventId } : {}),
     request, material };
 }

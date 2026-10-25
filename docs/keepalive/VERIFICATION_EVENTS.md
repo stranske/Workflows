@@ -88,8 +88,12 @@ The optional workflow inputs are:
   Repeating that already-created event retains its same authenticated predecessor;
   its newer records are not a competing material branch. Every retained child
   record must agree on that edge. Earlier unresolved executions still require
-  recovery, latest pending work uses the normal execution reconciliation, and
-  completed exact-event work remains deduplicated. Neither a new nonce nor
+  recovery through the existing Actions reconciler for each authenticated older
+  pending attempt. Only fresh skipped-evaluator proof discharges that attempt
+  within the current collection; retained comments and history stay unchanged.
+  Latest pending work uses the normal execution reconciliation, and
+  completed exact-event work remains deduplicated even after a later no-evaluation
+  attempt. Neither a new nonce nor
   omitting the original predecessor grants permission for another model call.
 
 An empty selector list covers code and original requests; it is not a claim that
