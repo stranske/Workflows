@@ -215,7 +215,10 @@ through GitHub Actions, including repository/workflow/job/checkout origin and
 archive digest. Recovery requires complete original result, receipt, input
 manifest, context, diff and event bytes, plus the same freshly collected request,
 required material, revision and assessment. Missing or changed evidence stops
-recovery; it never falls through to a new model call.
+recovery; it never falls through to a new model call. A prior exact terminal
+result, including NON_PASS under an older validator, does not suppress this
+explicit provider-free revalidation. Its authenticated source and recovery-key
+history guard still apply; ordinary model requests remain completion-deduplicated.
 
 Original files and invalid receipts remain unchanged in the retained source
 archive. A new typed revalidation receipt records the original run/artifact and

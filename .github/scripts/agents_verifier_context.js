@@ -2720,7 +2720,9 @@ async function buildVerifierContext({
     core?.setOutput?.('verification_assessment', JSON.stringify(verificationManifest.assessment_identity));
     // A historical job-success fingerprint is not a verifier decision. Model
     // invocations collect first, then suppress only actual terminal evidence.
-    if (verifierEvidence.event_history.complete
+    // Authenticated retained recovery has its own key guard above and never
+    // invokes providers; historical completion must not suppress revalidation.
+    if (!recoverySelector && verifierEvidence.event_history.complete
         && (completedEvent(verificationManifest.verification_event, verifierEvidence.event_history.records,
           verificationManifest.assessment_identity)
           || (!retryKnownNoEvaluation && !eventRequested && ['', 'auto'].includes(verificationManifest.assessment_identity.provider)

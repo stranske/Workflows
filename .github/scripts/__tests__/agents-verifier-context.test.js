@@ -5700,8 +5700,82 @@ test('same-event collector retry retains the authenticated incomplete parent in 
      } else {
       assert.equal(result.shouldRun,false,status);
       assert.equal(result.reason,(status==='duplicate'||status.endsWith('complete-then-retry'))?'duplicate-verification-event':'verification-existing-execution-retrieval-pending');
+      if(result.reason==='verification-existing-execution-retrieval-pending') {
+        assert.equal(core.outputs.should_run,'false');
+        for(const name of ['verification_event','verification_assessment','verification_predecessor'])assert.equal(core.outputs[name],undefined);
+      }
      }
     }));
+    assert.deepEqual(comments,before);
+   }
+  }
+ } finally {process.chdir(originalCwd);fs.rmSync(directory,{recursive:true,force:true});}
+});
+
+
+test('retained collector revalidates prior exact NON_PASS only through authenticated provider-free recovery',async()=>{
+ const {retainedExecutionFixture}=require('../../../tests/scripts/fixtures/retained_execution');
+ const {digest}=require('../verification_event');
+ const templateImpl=require('../../../templates/consumer-repo/.github/scripts/agents_verifier_context.js').buildVerifierContext;
+ const templateBuilder=options=>templateImpl({...options,fetchLocalDiff:()=>options.github.__testDiffText});
+ const originalCwd=process.cwd(),directory=fs.mkdtempSync(path.join(os.tmpdir(),'verifier-retained-completed-'));
+ process.chdir(directory);
+ try {
+  for(const builder of [buildVerifierContext,templateBuilder]) {
+   const initial=await buildEvidenceContext({},{mode:'evaluate'},builder);
+   const {verification_event:event,assessment_identity:assessment}=initial.result.verificationManifest;
+   removeVerifierDiffArtifacts(initial.result);
+   const selector={run_id:10,run_attempt:1,artifact_id:30};
+   const recoveryKey=digest({schema:'retained-revalidation-key/v1',event_id:event.event_id,assessment,selector});
+   const decision=run=>({schema:'verifier-corpus-decision/v1',repo:event.repo,pr:event.pr,
+     head_sha:event.head_sha,evaluated_sha:event.evaluated_sha,verification_event:event,
+     assessment_identity:assessment,run_id:String(run),run_attempt:'1',ci_failed:false,
+     provider_verdicts:['FAIL'],verdict:'NON_PASS'});
+   const comment=(id,value)=>({id,user:{login:'github-actions[bot]'},
+     html_url:`https://github.com/${event.repo}/pull/${event.pr}#issuecomment-${id}`,
+     body:`<!-- ${value.schema} ${JSON.stringify(value)} -->`});
+   for(const kind of ['ordinary','retained','duplicate-key','superseded','expired']) {
+    for(const name of ['verification-recovery-origin.json','verification-recovery-source.zip'])fs.rmSync(name,{force:true});
+    const comments=[comment(80,decision(10))];
+    if(kind==='duplicate-key')comments.push(comment(81,{...decision(11),retained_revalidation:{
+      schema:'retained-revalidation/v1',recovery_key:recoveryKey,provider_generation_performed:false}}));
+    if(kind==='superseded')comments.push(comment(81,decision(11)));
+    const before=structuredClone(comments);let artifactReads=0;
+    const authenticatedBuilder=options=>{
+      options.context.runId=20;
+      const retained=retainedExecutionFixture(event,kind==='expired'?data=>{data.artifact.expired=true;}:undefined);
+      const getArtifact=retained.github.rest.actions.getArtifact;
+      retained.github.rest.actions.getArtifact=async args=>{artifactReads++;return getArtifact(args);};
+      Object.assign(options.github.rest.actions,retained.github.rest.actions);
+      Object.assign(options.github.rest.repos,retained.github.rest.repos);
+      return builder(options);
+    };
+    await withEnv('VERIFICATION_RECOVERY',kind==='ordinary'?'':JSON.stringify(selector),async()=>{
+      if(['superseded','expired'].includes(kind)) {
+        await assert.rejects(()=>buildEvidenceContext({comments},{mode:'evaluate'},authenticatedBuilder),
+          kind==='superseded'?/superseded/:/artifact attempt\/origin\/size unproven/);
+        assert.equal(fs.existsSync('verification-recovery-origin.json'),false);
+        return;
+      }
+      const {result,core}=await buildEvidenceContext({comments},{mode:'evaluate'},authenticatedBuilder);
+      if(kind==='retained') {
+        assert.equal(result.shouldRun,true);
+        assert.equal(core.outputs.should_run,'true');
+        assert.equal(result.verificationManifest.execution_binding.retained_revalidation,true);
+        assert.equal(result.verificationManifest.retained_revalidation.recovery_key,recoveryKey);
+        const origin=JSON.parse(fs.readFileSync('verification-recovery-origin.json','utf8'));
+        assert.equal(origin.recovery_key,recoveryKey);
+        assert.equal(origin.source_run_id,'10');
+        assert.equal(origin.archive_sha256,createHash('sha256').update('authenticated archive').digest('hex'));
+        assert.equal(artifactReads,1);
+        removeVerifierDiffArtifacts(result);
+      } else {
+        assert.equal(result.shouldRun,false);
+        assert.equal(result.reason,kind==='ordinary'?'duplicate-verification-event':'duplicate-retained-revalidation');
+        assert.equal(artifactReads,0);
+        assert.equal(fs.existsSync('verification-recovery-origin.json'),false);
+      }
+    });
     assert.deepEqual(comments,before);
    }
   }
