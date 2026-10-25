@@ -5943,7 +5943,7 @@ def _required_evidence_is_missing(
     # Comment and artifact bodies are untrusted. Their status-looking lines
     # cannot overwrite the builder's own preamble.
     preamble = re.split(
-        r"\n### Bounded (?:PR body|PR comments|referenced workflow artifacts)\n",
+        r"\n### (?:Bounded (?:PR body|PR comments|referenced workflow artifacts)|Selected required (?:comment|artifact) proof)\n",
         evidence,
         maxsplit=1,
     )[0]
@@ -6062,11 +6062,13 @@ def _fit_required_evidence_prompt(
         "### Bounded PR comments": "comments",
         "### Bounded referenced workflow artifacts": "artifacts",
         "### Selected required artifact proof": "selected_material",
+        "### Selected required comment proof": "selected_comments",
     }
     pieces: list[tuple[str, str]] = []
     name = "preamble"
     lines: list[str] = []
     fence: tuple[str, int, int] | None = None
+    legacy_selected_comments = False
     for line in evidence.splitlines(keepends=True):
         marker = _code_fence_marker(line)
         if fence is not None:
@@ -6090,6 +6092,8 @@ def _fit_required_evidence_prompt(
         elif line.rstrip("\r\n") in headings:
             pieces.append((name, "".join(lines).strip()))
             name, lines = headings[line.rstrip("\r\n")], []
+        elif name == "comments" and line.startswith("Selected source-comment provenance:"):
+            legacy_selected_comments = True
         lines.append(line)
     if fence is not None:
         return None
@@ -6097,8 +6101,16 @@ def _fit_required_evidence_prompt(
     present = {name for name, _ in pieces}
     if "selected_material" in present:
         present.add("artifacts")
+    if "selected_comments" in present:
+        present.add("comments")
     if not present.intersection({"body", "comments", "artifacts"}):
         return None
+    mandatory_pieces = {"preamble", "selected_material", "selected_comments"}
+    if legacy_selected_comments:
+        # A legacy mixed section must remain whole even when the authored
+        # request declares no channel duty. Only refreshed producer packets
+        # can separate its required proof from optional history safely.
+        mandatory_pieces.add("comments")
     candidates = []
     for channels in options:
         if (
@@ -6107,11 +6119,7 @@ def _fit_required_evidence_prompt(
             or not channels <= present
         ):
             continue
-        required = [
-            body
-            for name, body in pieces
-            if name in {"preamble", "selected_material"} or name in channels
-        ]
+        required = [body for name, body in pieces if name in mandatory_pieces or name in channels]
         rendered = "\n\n".join(required)
         candidates.append((len(rendered), tuple(sorted(channels)), rendered))
     # This budget bounds optional enrichment, never complete required proof.
@@ -6121,7 +6129,7 @@ def _fit_required_evidence_prompt(
         channels = set(selected_channels)
         omitted: list[str] = []
         for name, body in pieces:
-            if name in {"preamble", "selected_material"} or name in channels:
+            if name in mandatory_pieces or name in channels:
                 continue
             if len(rendered) + len(body) + 2 <= budget:
                 rendered += "\n\n" + body

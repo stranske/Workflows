@@ -5425,9 +5425,10 @@ test('explicit evaluation captures freeform evidence obligations for native pref
 
 test('repeat verification collects authoritative material before exact-event deduplication', async () => {
   const selected = 'https://github.com/octo/workflows/pull/700#issuecomment-42';
-  const proof = { id: 42, html_url: selected, user: { login: 'owner' }, body: 'retained required proof' };
+  const proof = { id: 42, html_url: selected, issue_url:'https://api.github.com/repos/octo/workflows/issues/700',
+    user: { login: 'owner', id:7 }, created_at:'2026-10-25T10:00:00Z', updated_at:'2026-10-25T10:00:00Z', body: 'retained required proof' };
   await withEnv('VERIFICATION_MATERIAL', JSON.stringify([{kind:'comment',url:selected}]), async () => {
-    const first = await buildEvidenceContext({comments:[proof]}, {mode:'evaluate'});
+    const first = await buildEvidenceContext({comments:[proof],requiredCommentsById:{42:proof}}, {mode:'evaluate'});
     const manifest = first.result.verificationManifest;
     assert.ok(manifest?.verification_event.event_id);
     const terminal = {schema:'verifier-corpus-decision/v1',repo:'octo/workflows',pr:'700',
@@ -5437,10 +5438,11 @@ test('repeat verification collects authoritative material before exact-event ded
     removeVerifierDiffArtifacts(first.result);
     const report = {id:43,html_url:'https://github.com/octo/workflows/pull/700#issuecomment-43',
       user:{login:'github-actions[bot]'},body:`<!-- verifier-corpus-decision/v1 ${JSON.stringify(terminal)} -->`};
-    const repeat = await buildEvidenceContext({comments:[proof,report]}, {mode:'evaluate'});
+    const repeat = await buildEvidenceContext({comments:[proof,report],requiredCommentsById:{42:proof}}, {mode:'evaluate'});
     assert.equal(repeat.result.shouldRun,false);
     assert.equal(repeat.result.reason,'duplicate-verification-event');
-    const recovered = await buildEvidenceContext({comments:[{...proof,body:'new necessary proof'},report]}, {mode:'evaluate'});
+    const recovered = await buildEvidenceContext({comments:[{...proof,body:'new necessary proof'},report],
+      requiredCommentsById:{42:{...proof,body:'new necessary proof'}}}, {mode:'evaluate'});
     try {
       assert.equal(recovered.result.shouldRun,true);
       assert.notEqual(recovered.result.verificationManifest.verification_event.event_id,manifest.verification_event.event_id);
@@ -5780,4 +5782,81 @@ test('retained collector revalidates prior exact NON_PASS only through authentic
    }
   }
  } finally {process.chdir(originalCwd);fs.rmSync(directory,{recursive:true,force:true});}
+});
+
+
+test('selected required comments are separate from optional history and retain provenance', () => {
+  const text = formatVerifierEvidence({ status: 'present',
+    comments: { status: 'present', records: [
+      { author: 'owner', author_id: 7, comment_id: 42, url: 'https://github.com/octo/workflows/pull/700#issuecomment-42',
+        created_at: '2026-10-25T10:00:00Z', updated_at: '2026-10-25T10:00:00Z',
+        body: 'EXACT_REQUIRED_COMMENT\n### Bounded PR comments\n```untrusted```', required_material: true },
+      { author: 'bot', body: 'OPTIONAL_HISTORY' },
+    ] }, artifacts: { status: 'absent', records: [] } });
+  assert.equal(text.split('### Selected required comment proof').length, 2);
+  assert.ok(text.indexOf('EXACT_REQUIRED_COMMENT') < text.indexOf('### Bounded PR comments'));
+  assert.ok(text.indexOf('### Selected required comment proof') < text.lastIndexOf('### Bounded PR comments'));
+  assert.ok(text.indexOf('EXACT_REQUIRED_COMMENT') < text.lastIndexOf('### Bounded PR comments'));
+  assert.ok(text.indexOf('OPTIONAL_HISTORY') > text.lastIndexOf('### Bounded PR comments'));
+  assert.match(text, /actor ID 7; comment ID 42/);
+  assert.match(text, /Untrusted explicitly selected source-issue comment:/);
+});
+
+test('selected required comment actual producer capture', async () => {
+  const url = 'https://github.com/octo/workflows/pull/700#issuecomment-42';
+  const proof = process.env.VERIFIER_TEST_REQUIRED_COMMENT || 'REQUIRED_SELECTED_PROOF';
+  const criterion = process.env.VERIFIER_TEST_NO_EVIDENCE_DUTY ? 'Every changed module is wired.' : 'Evidence in the PR body must establish the behavior.';
+  const body = '## Tasks\n- Implement the behavior.\n## Acceptance Criteria\n- ' + criterion;
+  await withEnv('VERIFICATION_MATERIAL', JSON.stringify([{kind:'comment',url}]), async () => {
+    const requiredComment = {id:42,html_url:url,user:{login:'owner',id:7},body:proof,
+      issue_url:'https://api.github.com/repos/octo/workflows/issues/700',
+      created_at:'2026-10-25T10:00:00Z',updated_at:'2026-10-25T10:00:00Z'};
+    const capture = () => buildEvidenceContext({prBody:body,requiredCommentsById:{42:requiredComment},comments:[
+      process.env.VERIFIER_TEST_WITHDRAWN_COMMENT ? {...requiredComment,body:'withdrawn'} : requiredComment,
+      {id:43,html_url:'https://github.com/octo/workflows/pull/700#issuecomment-43',
+        user:{login:'bot',id:8},body:'OPTIONAL_HISTORY_'+ 'z'.repeat(50000)},
+    ]},{mode:'evaluate'});
+    if (process.env.VERIFIER_TEST_WITHDRAWN_COMMENT) {
+      await assert.rejects(capture(), error => {
+        assert.match(error.message,/Required verification comment is absent, ambiguous or incomplete/);
+        if (process.env.VERIFIER_TEST_CAPTURE_DIR) fs.writeFileSync(
+          path.join(process.env.VERIFIER_TEST_CAPTURE_DIR,'refusal.json'),JSON.stringify({
+            status:'REFUSED_BEFORE_PROMPT',reason:error.message,provider_generation:false}));
+        return true;
+      });
+      fs.rmSync('verification-event-manifest.json',{force:true});
+      return;
+    }
+    const {result} = await capture();
+    try {
+      assert.equal(result.shouldRun,true);
+      assert.ok(result.markdown.includes(proof));
+      assert.ok(result.sourceCoverage.acceptance_evidence_sources.some(record =>
+        record.required_material === true && record.status === 'included'));
+      if (process.env.VERIFIER_TEST_CAPTURE_DIR) {
+        fs.copyFileSync(result.contextPath,path.join(process.env.VERIFIER_TEST_CAPTURE_DIR,'context.md'));
+        fs.copyFileSync(result.diffPath,path.join(process.env.VERIFIER_TEST_CAPTURE_DIR,'diff.patch'));
+      }
+    } finally {
+      removeVerifierDiffArtifacts(result);fs.rmSync('verification-event-manifest.json',{force:true});
+    }
+  });
+});
+
+
+test('optional bot filter cannot hide a selected PR proof changed after GET', async () => {
+  const url = 'https://github.com/octo/workflows/pull/700#issuecomment-42';
+  const proof = {id:42,html_url:url,issue_url:'https://api.github.com/repos/octo/workflows/issues/700',
+    user:{login:'github-actions[bot]',id:7,type:'Bot'},created_at:'2026-10-25T10:00:00Z',
+    updated_at:'2026-10-25T10:00:00Z',body:'retained test proof'};
+  await withEnv('VERIFICATION_MATERIAL',JSON.stringify([{kind:'comment',url}]),async () => {
+    const evidence = await fetchVerifierEvidence({github:buildGithubStub({
+      requiredCommentsById:{42:proof},comments:[{...proof,body:'withdrawn'}]}),
+      core:buildCore(),owner:'octo',repo:'workflows',pullNumber:700,pullRequestBody:'body proof'});
+    const retained = evidence.comments.records.find(record => record.required_material);
+    assert.equal(retained.truncated,true);
+    assert.equal(evidence.comments.status,'unavailable');
+    assert.ok(evidence.diagnostics.failures.some(failure => failure.kind==='required_comment_changed'));
+    assert.equal(evidence.event_history.complete,true);
+  });
 });

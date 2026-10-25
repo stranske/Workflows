@@ -285,3 +285,26 @@ publication never started; different attempts of the same run remain distinct.
 An uncertain POST stays fenced unless an admitted matching public report is observed.
 If that report's lifecycle was interrupted, fresh provider-free revalidation can
 complete it while retaining the original records; an already-completed key is deduplicated.
+
+
+### Explicit required comment proof
+
+A `verification_material` comment selector is required evidence, whether it names
+the target PR or an already authenticated linked issue. Fetch that exact comment
+before optional history fills its budget, validate its repository/thread/ID,
+author and timestamps, and retain its complete body with provenance. The normal
+conversation/event inventory still runs; a selected record that changes during
+that scan is an input-integrity gap, including bot-authored records whose new
+body would otherwise be filtered as chatter.
+
+The producer separates selected comment proof from optional comment history.
+Prompt fitting preserves the entire selected section even when it exceeds the
+optional-enrichment budget; the existing native whole-request counter admits or
+refuses the resulting request. Place it before legacy optional section headings
+so older channel fitters also retain the mandatory prefix. A legacy mixed section
+that identifies selected required comments stays whole during fitting, including
+when the original request names no evidence channel. Refresh through the normal
+producer to separate that old section's required proof from optional history;
+until then the unchanged native counter must admit its complete retained bytes.
+These are input guarantees, not evidence of acceptance or permission to replay
+an existing evaluation.
