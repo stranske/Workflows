@@ -364,3 +364,58 @@ test('workflow wiring keeps provenance off the verifier execution path and out o
     assert.equal(description(text), description(workflow));
   }
 });
+
+
+for (const [name, base] of [
+  ['non-default base', { ref: 'release', repo: { full_name: 'stranske/Workflows' } }],
+  ['foreign base repository', { ref: 'main', repo: { full_name: 'other/Workflows' } }],
+]) {
+  test(`pull_request_target origin rejects ${name}`, async () => {
+    const w = world({ pull: { base } });
+    await assert.rejects(publish(w), /post-merge verification/);
+    assert.equal(w.posts.length, 0);
+  });
+}
+
+function afterArchive(w, effect) {
+  const originalDownload = w.github.rest.actions.downloadArtifact;
+  w.github.rest.actions.downloadArtifact = async (...args) => {
+    const response = await originalDownload(...args);
+    effect();
+    return response;
+  };
+}
+
+test('newer canonical work arriving during archive authentication blocks publication', async () => {
+  const w = world();
+  const newer = { ...stateRow(REAL_STATES[0]), run_id: String(RUN + 1) };
+  afterArchive(w, () => w.comments.push({ id: 900001, user: { login: 'github-actions[bot]' },
+    html_url: 'https://github.com/stranske/Workflows/pull/4238#issuecomment-900001',
+    body: `<!-- verifier-event-state/v1 ${JSON.stringify(newer)} -->` }));
+  await assert.rejects(publish(w), /superseded/);
+  assert.equal(w.posts.length, 0);
+});
+
+test('subject changing during archive authentication blocks publication', async () => {
+  const w = world();
+  let changed = false;
+  afterArchive(w, () => { changed = true; });
+  const originalPull = w.github.rest.pulls.get;
+  w.github.rest.pulls.get = async (...args) => {
+    const response = await originalPull(...args);
+    return changed ? { ...response, data: { ...response.data, head: { sha: 'f'.repeat(40) } } } : response;
+  };
+  await assert.rejects(publish(w), /target changed during authentication/);
+  assert.equal(w.posts.length, 0);
+});
+
+test('an exact provenance publication arriving during authentication is an idempotent no-post', async () => {
+  const previous = world();
+  await publish(previous);
+  const w = world();
+  afterArchive(w, () => w.comments.push({ id: 900002, user: { login: 'github-actions[bot]' },
+    html_url: 'https://github.com/stranske/Workflows/pull/4238#issuecomment-900002', body: previous.posts[0].body }));
+  const result = await publish(w);
+  assert.equal(result.duplicate, true);
+  assert.equal(w.posts.length, 0);
+});

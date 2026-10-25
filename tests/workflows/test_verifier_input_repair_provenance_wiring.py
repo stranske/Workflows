@@ -25,7 +25,14 @@ def test_provenance_runs_in_its_own_provider_free_job_and_suppresses_the_verifie
     assert "models" not in job["permissions"]
     assert job["permissions"]["pull-requests"] == "write"
     text = json.dumps(job)
-    for forbidden in ("secrets.", "OPENAI", "CLAUDE", "CODEX", "verifier-event-state", "createComment"):
+    for forbidden in (
+        "secrets.",
+        "OPENAI",
+        "CLAUDE",
+        "CODEX",
+        "verifier-event-state",
+        "createComment",
+    ):
         assert forbidden not in text
 
 

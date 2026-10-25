@@ -187,11 +187,15 @@ async function acquireRetainedExecution({github,event,assessment,selector,curren
       || run.repository.id !== run.head_repository.id || !/^[0-9a-f]{40}$/.test(run.head_sha || '')) throw new Error('Retained source run is not an exact trusted completed attempt');
   let callerOrigin;
   if(pullRequestTargetOrigin && run.event==='pull_request_target') {
-    // The API reports the PR head, not the executed base commit, and a squash-merged head is never
-    // on the default branch. The caller ran from the default branch exactly when the event's merge
-    // commit is canonical there and this run is that PR's post-merge head, so bind it through the PR.
+    // This event executes trusted base-branch workflow code, but the API reports the PR head.
+    // Restrict this opt-in witness to the same-repo default base and exact post-merge subject.
+    // The canonical evaluated merge is an origin witness, not a claim about the executed caller SHA.
+    // https://docs.github.com/en/actions/reference/security/securely-using-pull_request_target
     const pull=await read(client=>client.rest.pulls.get({owner,repo,pull_number:Number(event.pr),request:{timeout:15000}}));
+    const metadata=await read(client=>client.rest.repos.get({owner,repo,request:{timeout:15000}}));
     if(pull.merged!==true || pull.head?.sha!==run.head_sha || event.head_sha!==run.head_sha || pull.merge_commit_sha!==event.evaluated_sha
+        || String(metadata.full_name).toLowerCase()!==event.repo || typeof metadata.default_branch!=='string'
+        || String(pull.base?.repo?.full_name).toLowerCase()!==event.repo || pull.base?.ref!==metadata.default_branch
         || !(Date.parse(run.created_at)>=Date.parse(pull.merged_at))) throw new Error('Retained pull_request_target run is not this merged pull request post-merge verification');
     callerOrigin=await canonicalCommit(event.repo,pull.merge_commit_sha);
   } else callerOrigin=await canonicalCommit(event.repo,run.head_sha);
@@ -574,7 +578,16 @@ async function publishInputRepairProvenance({github,owner,repo,prNumber,assessme
     if(found.some(row=>digest(row)!==digest(marker))) throw new Error('Conflicting input-repair provenance already exists');
     return found.length>0;
   };
-  if(existing(before)) return {published:true,duplicate:true,marker};
+  existing(before); // Contradictory publication is never made harmless by a later read.
+  // Authentication can involve many API reads. Rebind the subject and complete history
+  // immediately before either claiming a duplicate or starting the consequential POST.
+  const refreshedPull=await read(client=>client.rest.pulls.get({owner,repo,pull_number:Number(prNumber),request:{timeout:15000}}));
+  if(refreshedPull.merged!==true || refreshedPull.head?.sha!==subject.head_sha
+      || refreshedPull.merge_commit_sha!==subject.evaluated_sha) throw new Error('Provenance target changed during authentication');
+  const refreshedComments=await comments();
+  guardRecoveryHistory({event,assessment,comments:refreshedComments,sourceRun:selected.run_id,sourceAttempt:selected.run_attempt,
+    currentRun,currentAttempt,recoveryKey:'input-repair-provenance'});
+  if(existing(refreshedComments)) return {published:true,duplicate:true,marker};
   const lineage={schema:'verifier-input-repair-publication/v1',input_repair_id:marker.input_repair_id,
     source_run_id:String(selected.run_id),source_run_attempt:String(selected.run_attempt),artifact_id:selected.artifact_id,
     archive_sha256:proof.archive_sha256,publisher_run_id:String(currentRun),publisher_run_attempt:String(currentAttempt),

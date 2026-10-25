@@ -187,9 +187,10 @@ async function acquireRetainedExecution({github,event,assessment,selector,curren
       || run.repository.id !== run.head_repository.id || !/^[0-9a-f]{40}$/.test(run.head_sha || '')) throw new Error('Retained source run is not an exact trusted completed attempt');
   let callerOrigin;
   if(pullRequestTargetOrigin && run.event==='pull_request_target') {
-    // The API reports the PR head, not the executed base commit, and a squash-merged head is never
-    // on the default branch. The caller ran from the default branch exactly when the event's merge
-    // commit is canonical there and this run is that PR's post-merge head, so bind it through the PR.
+    // This event executes trusted base-branch workflow code, but the API reports the PR head.
+    // Restrict this opt-in witness to the same-repo default base and exact post-merge subject.
+    // The canonical evaluated merge is an origin witness, not a claim about the executed caller SHA.
+    // https://docs.github.com/en/actions/reference/security/securely-using-pull_request_target
     const pull=await read(client=>client.rest.pulls.get({owner,repo,pull_number:Number(event.pr),request:{timeout:15000}}));
     const metadata=await read(client=>client.rest.repos.get({owner,repo,request:{timeout:15000}}));
     if(pull.merged!==true || pull.head?.sha!==run.head_sha || event.head_sha!==run.head_sha || pull.merge_commit_sha!==event.evaluated_sha
