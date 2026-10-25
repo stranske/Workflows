@@ -59,6 +59,11 @@ on:
         required: false
         type: string
         default: ''
+      verification_provenance:
+        description: 'Publish input-repair provenance only for a retained mixed result: JSON run_id/run_attempt/artifact_id selectors; never invokes a provider or records verifier execution state'
+        required: false
+        type: string
+        default: ''
       evidence_profile:
         description: 'Input coverage profile: standard or bounded expanded recovery'
         required: false
@@ -125,6 +130,9 @@ concurrency:
 jobs:
   verifier:
     name: Run post-merge verifier
+    # Provenance-only dispatches must not create a newer verifier execution that
+    # would eclipse the original attempt they describe.
+    if: inputs.verification_provenance == ''
     permissions:
       contents: read
       pull-requests: write
@@ -2686,3 +2694,93 @@ jobs:
           name: agents-verifier-metrics
           path: verifier-metrics.ndjson
           retention-days: 30
+
+  input-repair-provenance:
+    name: Publish input-repair provenance
+    if: inputs.verification_provenance != ''
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: read
+      actions: read
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout caller repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          token: ${{ github.token }}
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Setup API client
+        uses: ./.github/actions/setup-api-client
+        with:
+          github_token: ${{ github.token }}
+
+      - name: Resolve Workflows ref
+        id: workflows_ref
+        uses: ./.github/actions/resolve-default-branch
+
+      - name: Checkout Workflows scripts
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          token: ${{ github.token }}
+          persist-credentials: false
+          repository: stranske/Workflows
+          ref: ${{ steps.workflows_ref.outputs.ref }}
+          sparse-checkout: |
+            .github/scripts
+          sparse-checkout-cone-mode: false
+          path: .workflows-lib
+          fetch-depth: 1
+
+      - name: Link node_modules for Workflows scripts
+        run: |
+          SRC="${GITHUB_WORKSPACE}/.github/scripts/node_modules"
+          DST="${GITHUB_WORKSPACE}/.workflows-lib/.github/scripts/node_modules"
+          if [ -d "$SRC" ] && [ ! -d "$DST" ]; then
+            ln -sfn "$SRC" "$DST"
+          fi
+
+      # No provider, no verifier pending/incomplete/terminal state: one provenance-only
+      # comment from the Actions token after the immutable original attempt is authenticated.
+      - name: Publish original-execution input-repair provenance
+        id: provenance
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          PR_NUMBER: ${{ inputs.pr_number }}
+          VERIFIER_MODE: ${{ inputs.mode }}
+          VERIFIER_PROVIDER: ${{ inputs.provider }}
+          VERIFIER_MODEL: ${{ inputs.model }}
+          VERIFIER_MODEL2: ${{ inputs.model2 }}
+          VERIFIER_EVIDENCE_PROFILE: ${{ inputs.evidence_profile }}
+          VERIFICATION_PROVENANCE: ${{ inputs.verification_provenance }}
+          VERIFICATION_RECOVERY: ${{ inputs.verification_recovery }}
+          VERIFICATION_EVENT: ${{ inputs.verification_event }}
+          VERIFICATION_MATERIAL: ${{ inputs.verification_material }}
+          VERIFICATION_PREDECESSOR: ${{ inputs.verification_predecessor }}
+        with:
+          script: |
+            const fs = require('fs'), os = require('os'), path = require('path');
+            const { publishInputRepairProvenance } = require('./.workflows-lib/.github/scripts/verifier_pending_execution.js');
+            const { assessmentIdentity } = require('./.workflows-lib/.github/scripts/verification_event.js');
+            for (const name of ['VERIFICATION_RECOVERY', 'VERIFICATION_EVENT', 'VERIFICATION_MATERIAL', 'VERIFICATION_PREDECESSOR']) {
+              if (process.env[name]) throw new Error(`Provenance-only dispatch rejects ${name}`);
+            }
+            if ((process.env.VERIFIER_EVIDENCE_PROFILE || 'standard') !== 'standard') throw new Error('Provenance-only dispatch rejects expanded evidence');
+            const assessment = assessmentIdentity({ mode: process.env.VERIFIER_MODE, provider: process.env.VERIFIER_PROVIDER || '',
+              model: process.env.VERIFIER_MODEL || '', model2: process.env.VERIFIER_MODEL2 || '', canonical: true });
+            const directory = fs.mkdtempSync(path.join(process.env.RUNNER_TEMP || os.tmpdir(), 'input-repair-provenance-'));
+            core.setOutput('publication_effect', 'none');
+            try {
+              const result = await publishInputRepairProvenance({ github, owner: context.repo.owner, repo: context.repo.repo,
+                prNumber: process.env.PR_NUMBER, assessment, selector: process.env.VERIFICATION_PROVENANCE,
+                currentRun: Number(context.runId), currentAttempt: Number(process.env.GITHUB_RUN_ATTEMPT || 1), directory,
+                onPostAttempt: () => core.setOutput('publication_effect', 'uncertain') });
+              core.setOutput('publication_effect', result.duplicate && !result.reconciled_after_uncertain_post ? 'none' : 'published');
+              core.setOutput('duplicate', String(result.duplicate));
+              core.setOutput('input_repair_id', result.marker.input_repair_id);
+              await core.summary.addRaw(`Input-repair provenance ${result.duplicate ? 'already present' : 'published'} for run ${result.marker.run_id} attempt ${result.marker.run_attempt} (${result.marker.input_repair_id}). No provider ran; no verdict, acceptance or retry authority was granted.\n`).write();
+            } finally {
+              fs.rmSync(directory, { recursive: true, force: true });
+            }

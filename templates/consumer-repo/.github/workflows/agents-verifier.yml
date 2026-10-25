@@ -73,6 +73,11 @@ on:
         required: false
         type: string
         default: ''
+      verification_provenance:
+        description: 'Publish input-repair provenance only for a retained mixed result: JSON run_id/run_attempt/artifact_id selectors; never invokes a provider or records verifier execution state'
+        required: false
+        type: string
+        default: ''
       evidence_profile:
         description: 'Bounded input limits; expanded retries documented input truncation only'
         required: false
@@ -420,6 +425,7 @@ jobs:
       verification_event: ${{ inputs.verification_event || '' }}
       verification_material: ${{ inputs.verification_material || '' }}
       verification_predecessor: ${{ inputs.verification_predecessor || '' }}
+      verification_provenance: ${{ inputs.verification_provenance || '' }}
     secrets:
       CODEX_AUTH_JSON: ${{ secrets.CODEX_AUTH_JSON }}
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}

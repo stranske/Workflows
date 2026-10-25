@@ -621,7 +621,7 @@ scripts:
     delivery: copy
 
   - source: .github/scripts/verifier_pending_execution.js
-    description: "Reconciles pending verifier attempts and authenticates provider-free retained-output origin, applicability and once-only publication"
+    description: "Reconciles pending verifier attempts and authenticates provider-free retained-output origin, applicability and once-only publication; publishes provenance-only input-repair markers for already-retained mixed results"
     delivery: copy
 
   - source: .github/scripts/agents_orchestrator_resolve.js

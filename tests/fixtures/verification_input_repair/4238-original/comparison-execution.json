@@ -1,0 +1,21 @@
+{
+  "schema": "workflows-verifier-comparison-execution/v1",
+  "mode": "compare",
+  "acceptance_authority": false,
+  "status": "result_unavailable",
+  "exit_code": 0,
+  "decision_available": false,
+  "verdict": "UNVERIFIABLE_INPUT",
+  "validation_error_type": null,
+  "recoverable": true,
+  "retry_authority": false,
+  "repository": "stranske/Workflows",
+  "source_run_id": "40170272788",
+  "source_run_attempt": "1",
+  "outputs": {
+    "comparison.json": {
+      "sha256": "aedba47ba2a5e12a74718e9781e59b057fe62dc0f01a6ab0c93ce195d45df5b5",
+      "bytes": 12712
+    }
+  }
+}
