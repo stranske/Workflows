@@ -714,7 +714,7 @@ jobs:
       - name: Reject unresolved PR metadata
         if: ${{ needs.resolve-pr.result != 'success' }}
         run: |
-          echo 'Gate PR metadata resolution failed; no summary mutation is permitted.' >&2
+          echo 'Gate PR metadata resolution failed; no helper execution or positive Gate verdict is permitted.' >&2
           exit 1
       # Mint GitHub App token early to use for API calls (avoids rate limits)
       - name: Mint GitHub App Token
@@ -1320,9 +1320,10 @@ jobs:
             }
 
       - name: Report Gate commit status
-        if: ${{ always() && needs.resolve-pr.result == 'success' }}
+        if: ${{ always() }}
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         env:
+          RESOLVER_RESULT: ${{ needs.resolve-pr.result }}
           STATE: >-
             ${{ steps.summarize.outputs.state || steps.docs_only.outputs.state || 'pending' }}
           DESCRIPTION: >-
@@ -1334,7 +1335,23 @@ jobs:
           TARGET_URL: >-
             ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         with:
+          retries: 3
+          retry-exempt-status-codes: 400,401,403,404,422
           script: |
+            // Never leave an earlier same-head SUCCESS after this attempt lost
+            // authoritative PR metadata. Only a refusal status is permitted;
+            // no checkout/helper, mutable PR write or positive verdict follows.
+            if (process.env.RESOLVER_RESULT !== 'success') {
+              await github.rest.repos.createCommitStatus({
+                ...context.repo,
+                sha: context.payload.pull_request?.head?.sha ?? context.sha,
+                state: 'failure',
+                context: 'Gate / gate',
+                description: 'Gate PR metadata resolution did not succeed',
+                target_url: process.env.TARGET_URL,
+              });
+              throw new Error('Gate PR metadata resolution did not succeed');
+            }
             // # best-effort: this ancillary API failure is logged; reconciliation or the primary workflow result remains authoritative.
             const retryScript = './.github/scripts/github-api-with-retry.js';
             const { createTokenAwareRetry } = require(retryScript);

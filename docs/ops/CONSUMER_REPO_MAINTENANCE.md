@@ -986,7 +986,12 @@ runs retain their existing same-repository/head restrictions.
 and additional jobs. Older consumer Gates need a reviewed wiring alignment of
 the resolver and the classifier/seal snapshot transport before they can recover
 these stale-event holds. Preserve their existing jobs, policy and required-check
-identities. Repeatedly rerunning the old event, an unbound branch dispatch,
+identities. Consumers that lack the named seal job must expose the existing seal
+precondition through the canonical seal action so Maint 71 can authenticate a
+seal-only hold. A reviewed immutable Workflows classifier-action pin can carry
+the corrected classifier while managed copies finish normal delivery; it must
+retain the consumer checkout/configuration and exact resolved PR identity.
+Repeatedly rerunning the old event, an unbound branch dispatch,
 changing the seal/head to manufacture freshness, or a replacement green status
 cannot establish integration acceptance.
 

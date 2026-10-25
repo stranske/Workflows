@@ -396,7 +396,42 @@ def test_summary_fails_closed_when_resolver_fails(workflow_path: str) -> None:
     assert "'failure'" in summary["outputs"]["state"]
     for step in summary["steps"]:
         condition = step.get("if", "")
-        if "always()" in condition or step["name"] == "Restore resolved PR event for Gate helpers":
+        if step["name"] != "Report Gate commit status" and (
+            "always()" in condition or step["name"] == "Restore resolved PR event for Gate helpers"
+        ):
             assert "needs.resolve-pr.result == 'success'" in condition
         for expression in [str(step.get("env", {})), str(step.get("with", {})), condition]:
             assert "fromJSON(needs.resolve-pr.outputs.pull_request)" not in expression
+
+
+@pytest.mark.parametrize("workflow_path", GATE_FILES)
+@pytest.mark.parametrize("resolver_result", ["failure", "cancelled", "skipped", ""])
+def test_unresolved_metadata_publishes_only_failure_without_helpers(workflow_path, resolver_result):
+    import json
+    import subprocess
+
+    workflow = yaml.safe_load((ROOT / workflow_path).read_text())
+    step = next(
+        s for s in workflow["jobs"]["summary"]["steps"] if s["name"] == "Report Gate commit status"
+    )
+    assert step["if"] == "${{ always() }}"
+    assert step["with"]["retries"] == 3
+    harness = r"""
+const assert = require('node:assert/strict');
+const execute = new (Object.getPrototypeOf(async function(){}).constructor)(
+ 'github','context','core','require',SCRIPT);
+(async()=>{
+ process.env.RESOLVER_RESULT=__RESOLVER_VALUE__; process.env.STATE='success';
+ const writes=[];
+ const github={rest:{repos:{createCommitStatus:async p=>{writes.push(p);}}}};
+ const context={repo:{owner:'owner',repo:'repo'},sha:'merge-sha',
+  payload:{pull_request:{head:{sha:'original-head'}}}};
+ await assert.rejects(execute(github,context,{},()=>{throw Error('helper must not load');}),
+  /Gate PR metadata resolution did not succeed/);
+ assert.equal(writes.length,1);assert.equal(writes[0].state,'failure');
+ assert.equal(writes[0].sha,'original-head');assert.equal(writes[0].context,'Gate / gate');
+})().catch(e=>{console.error(e);process.exit(1);});
+""".replace("SCRIPT", json.dumps(step["with"]["script"])).replace(
+        "__RESOLVER_VALUE__", json.dumps(resolver_result)
+    )
+    subprocess.run(["node", "-e", harness], check=True, capture_output=True, text=True)
