@@ -228,3 +228,86 @@ def test_gzip_view_size_not_binary_descriptor_controls_native_minimum(tmp_path, 
     else:
         assert not result.used_llm and result.files_not_reviewed
         client.invoke.assert_not_called()
+
+
+@pytest.mark.parametrize("example", ["e.g.", "i.e.", "U.S.", "the U.S.", "E.U.", "Dr.", "A."])
+def test_abbreviation_period_is_not_an_evidence_governor_boundary(example):
+    assert verifier._required_evidence_options(
+        f"The reviewer must upload {example} CI artifacts."
+    ) == [{"artifacts"}]
+
+
+@pytest.mark.parametrize("example", ["e.g.", "U.S."])
+def test_abbreviation_preserves_negative_and_product_scope(example):
+    assert verifier._required_evidence_options(
+        f"The reviewer must not upload {example} CI artifacts."
+    ) == [set()]
+    assert verifier._required_evidence_options(f"The UI must display {example} CI artifacts.") == [
+        set()
+    ]
+
+
+@pytest.mark.parametrize("member", ["`pkg.Type.member`", "https://example.test/file.json"])
+def test_member_literal_and_url_periods_preserve_real_delivery(member):
+    assert verifier._required_evidence_options(
+        f"The reviewer must upload {member} CI artifacts."
+    ) == [{"artifacts"}]
+
+
+def selected_tables_capture():
+    data = json.loads(
+        subprocess.check_output(
+            [
+                "node",
+                str(Path(__file__).parent / "fixtures/selected_baseline_collector.js"),
+                "--large-selected",
+            ],
+            text=True,
+        )
+    )
+    context = complete_capture_context().replace("Implement the code change.", data["body"])
+    context = replace_inventory(context, lambda inv: inv.update(data["coverage"]))
+    return context.replace("## PR Diff Summary", data["evidence"] + "\n\n## PR Diff Summary"), data
+
+
+def test_large_selected_required_proof_cannot_use_uncounted_legacy_route(monkeypatch):
+    context, data = selected_tables_capture()
+    monkeypatch.setenv("VERIFIER_ACCEPTANCE_EVIDENCE_BUDGET_TOKENS", "4000")
+    monkeypatch.setattr(verifier, "_prepare_capacity_client", lambda client: client)
+    monkeypatch.setattr(verifier, "_legacy_capacity_route", lambda client: True)
+    client = SimpleNamespace(invoke=mock.Mock())
+    inputs = verifier.build_prompt_inputs(context, data["diff"])
+    assert inputs.coverage.code_included_chars < 64000
+    prompt = verifier._prepare_prompt(context, data["diff"])
+    with pytest.raises(verifier.InputCapacityError):
+        verifier._invoke_llm(
+            client, prompt, operation="evaluate_pr", context=context, diff=data["diff"]
+        )
+    client.invoke.assert_not_called()
+    assert inputs.required_evidence_chars > 40000
+
+
+def test_omitted_optional_history_does_not_require_native_for_ordinary_legacy(monkeypatch):
+    from tests.scripts.test_verifier_evaluate_evidence_minimum import large_optional_capture
+
+    monkeypatch.setenv("VERIFIER_ACCEPTANCE_EVIDENCE_BUDGET_TOKENS", "4000")
+    context, diff = large_optional_capture("Evidence must be posted in a PR comment.")
+    assert len(context) > 40000
+    monkeypatch.setattr(verifier, "_prepare_capacity_client", lambda client: client)
+    monkeypatch.setattr(verifier, "_legacy_capacity_route", lambda client: True)
+    monkeypatch.setattr(
+        verifier,
+        "_preflight_input_capacity",
+        lambda *args, **kwargs: pytest.fail(
+            "Optional omitted chatter is not a native admission prerequisite"
+        ),
+    )
+    client = SimpleNamespace(
+        invoke=mock.Mock(return_value=SimpleNamespace(content="ordinary response"))
+    )
+    inputs = verifier.build_prompt_inputs(context, diff)
+    assert inputs.required_evidence_chars < 16000
+    prompt = verifier._prepare_prompt(context, diff)
+    assert "COMMENT_PROOF_COMPLETE" in prompt and "OPTIONAL_ARTIFACT_PAYLOAD_" not in prompt
+    verifier._invoke_llm(client, prompt, operation="evaluate_pr", context=context, diff=diff)
+    client.invoke.assert_called_once()

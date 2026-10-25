@@ -67,7 +67,11 @@ The optional workflow inputs are:
   budget; the shared native counter must admit the actual full request before any
   generation. Native overflow or missing mandatory proof cannot earn review credit.
   Descriptive evidence sentences do not inherit an unrelated later sentence's
-  mandate. Original upload/comment duties are not waived by selection. The existing mandatory-duty policy is channel-wide: a
+  mandate; abbreviation/initialism periods retain their governing delivery clause.
+  The existing fitter measures necessary evidence before optional enrichment.
+  Necessary selected proof above its soft bound requires native admission too,
+  even with a small diff; omitted optional history alone does not change ordinary
+  bounded legacy transport. Original upload/comment duties are not waived by selection. The existing mandatory-duty policy is channel-wide: a
   specific selected upload does not automatically settle other unselected artifact
   obligations; that conservative limitation remains explicit.
 - `verification_predecessor`: prior authenticated exact-subject event ID. Legacy
