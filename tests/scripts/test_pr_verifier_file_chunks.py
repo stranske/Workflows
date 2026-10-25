@@ -67,8 +67,13 @@ def test_nine_file_diff_reviewed_fully_without_truncated_input(setup, monkeypatc
     assert "truncated" not in verifier.format_comparison_report([result])
 
 
-def test_oversized_file_is_explicitly_unreviewed(setup, monkeypatch):
+def test_native_oversized_file_is_explicitly_unreviewed(setup, monkeypatch):
     client = Client()
+    # Rough grouping estimates no longer exclude whole files. An actual native
+    # count refusal keeps this file unreviewed without invoking its judge.
+    client.root_client.responses.input_tokens.count.side_effect = lambda **kwargs: SimpleNamespace(
+        input_tokens=2_000_000 if "diff --git a/huge.py" in str(kwargs) else 1000
+    )
     result = evaluate(monkeypatch, client, patch("small.py") + patch("huge.py", 65000))
     assert result.verdict == "UNVERIFIABLE_INPUT"
     assert result.files_not_reviewed == ["huge.py"]

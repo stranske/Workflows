@@ -61,8 +61,13 @@ The optional workflow inputs are:
   be optional. Required selected truncation, unsafe members, duplicate identities
   and integrity failures remain blocking. Selected proof remains a complete
   required builder section through ordinary prompt fitting and native count
-  admission, even when optional enrichment is omitted. Original upload/comment
-  duties are not waived by selection. The existing mandatory-duty policy is channel-wide: a
+  admission, even when optional enrichment is omitted. These character budgets
+  bound optional packing, not necessary proof or model capacity. A complete single
+  changed-file patch likewise gets its own chunk when it exceeds the rough group
+  budget; the shared native counter must admit the actual full request before any
+  generation. Native overflow or missing mandatory proof cannot earn review credit.
+  Descriptive evidence sentences do not inherit an unrelated later sentence's
+  mandate. Original upload/comment duties are not waived by selection. The existing mandatory-duty policy is channel-wide: a
   specific selected upload does not automatically settle other unselected artifact
   obligations; that conservative limitation remains explicit.
 - `verification_predecessor`: prior authenticated exact-subject event ID. Legacy

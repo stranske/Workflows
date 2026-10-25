@@ -992,6 +992,12 @@ def _build_code_block(
         )
         for path, text in files
     ]
+    # A complete single-file unit is the minimum meaningful code input. The
+    # rough grouping budget bounds optional packing, not model capacity. Its
+    # actual fully assembled request must still pass the shared native counter.
+    # Unknown binary descriptors keep their existing zero-byte omission.
+    if len(files) == 1 and sizes[0]:
+        budget_chars = max(budget_chars, sizes[0])
     omission_note = "[{count} changed file(s) omitted entirely — not shown to the reviewer]\n"
     shares = _fair_shares(sizes, max(0, budget_chars))
     parts: list[str] = []
@@ -4539,6 +4545,10 @@ def _classify_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
             + bound_review_destinations
         )
         clause_boundary = (
+            # A mandate in a later sentence cannot govern a descriptive evidence
+            # noun in the preceding one. Retain pronoun delivery inheritance via
+            # the existing antecedent binding below; quoted literals are inert.
+            r"[.!?]\s+(?=(?-i:[A-Z]))|"
             r"\s*;\s*|,?\s+(?:but|whereas)\s+|"
             r"(?:,?\s+(?:and|or)\s+)(?=(?:" + elided_review_delivery_predicate + r"))|"
             r"(?:,?\s+(?:and|while)\s+)(?="
@@ -6639,8 +6649,14 @@ def _evaluate_chunked(
     for path, patch in files:
         assert path is not None
         review_size = len(patch) + len(asset_views.get(path, ""))
-        if review_size > budget or path in binary_paths:
+        if path in binary_paths:
             continue
+        elif review_size > budget:
+            # Preserve one whole file in its own request. Every ordinary prompt
+            # validator and native admission sees those same bytes; no rough
+            # four-character estimate may silently exclude required code.
+            if len(chunks) < MAX_REVIEW_CHUNKS:
+                chunks.append(([path], patch))
         elif (
             chunks
             and sum(len(asset_views.get(p, "")) for p in chunks[-1][0])
@@ -7788,7 +7804,18 @@ def _invoke_llm(
     # each complete request, including synthesis. Registered standard routes
     # without optional native facts do not claim a native-count receipt.
     client = _prepare_capacity_client(client)
-    if not _legacy_capacity_route(client):
+    legacy_route = _legacy_capacity_route(client)
+    # Only the newly retained indivisible code/asset unit overrides the legacy
+    # optional-capacity policy. Use the same assembled coverage accounting, not
+    # raw descriptor size (typed gzip views may be much larger than the patch).
+    required_code_above_group_budget = bool(
+        legacy_route
+        and context is not None
+        and diff is not None
+        and build_prompt_inputs(context, diff).coverage.code_included_chars
+        > _budget_from_env("VERIFIER_DIFF_BUDGET_TOKENS", VERIFIER_DIFF_BUDGET_TOKENS) * TOKEN_CHARS
+    )
+    if not legacy_route or required_code_above_group_budget:
         _preflight_input_capacity(
             client,
             prompt,
