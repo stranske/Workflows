@@ -96,14 +96,16 @@ def test_expanded_manifest_gaps_block_before_count_and_generation(monkeypatch, d
     client.invoke.assert_not_called()
 
 
-def test_expanded_prompt_clipping_blocks_complete_capture(monkeypatch):
+def test_expanded_native_capacity_blocks_complete_whole_capture(monkeypatch):
     monkeypatch.setenv("VERIFIER_EVIDENCE_PROFILE", "expanded")
     monkeypatch.setenv("VERIFIER_DIFF_BUDGET_TOKENS", "1")
     client = with_capacity(mock.Mock())
+    client.root_client.responses.input_tokens.count.return_value.input_tokens = 2_000_000
     monkeypatch.setattr(pr_verifier, "_get_llm_client", lambda **kwargs: (client, "unit"))
     result = pr_verifier.evaluate_pr(complete_capture_context())
     assert result.verdict == "UNVERIFIABLE_INPUT"
-    assert "Chunk review failed" in result.summary or "bounded" in result.summary
+    assert "overflow" in result.summary
+    client.root_client.responses.input_tokens.count.assert_called_once()
     client.invoke.assert_not_called()
 
 
