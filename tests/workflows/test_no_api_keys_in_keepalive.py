@@ -132,7 +132,11 @@ def test_cli_final_message_only_and_no_api_or_job_secrets(monkeypatch, account):
     assert 'web_search="disabled"' in command
     assert [command[i + 1] for i, part in enumerate(command) if part == "--disable"] == [
         "shell_tool",
-        "unified_exec",
+        "view_image",
+        "multi_agent",
+        "multi_agent_v2",
+        "plugins",
+        "hooks",
         "code_mode_host",
         "browser_use",
         "in_app_browser",
