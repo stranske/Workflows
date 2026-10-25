@@ -16,7 +16,7 @@ const {
 } = require('./issue_scope_parser.js');
 const { queryVerifierCiResults } = require('./verifier_ci_query.js');
 const { resolvePrSourceContext } = require('./source_context.js');
-const { buildVerificationEvent, completedEvent, completedLegacyEvent, guardExistingEvent, assessmentIdentity, parseRecoverySelector, digest } = require('./verification_event.js');
+const { requestBasis, terminalCorrelation, buildVerificationEvent, completedEvent, completedLegacyEvent, guardExistingEvent, assessmentIdentity, parseRecoverySelector, digest } = require('./verification_event.js');
 const { executionBinding, reconcilePendingExecution, acquireRetainedExecution, guardRetainedRecoveryHistory } = require('./verifier_pending_execution.js');
 
 const DEFAULT_BRANCH = process.env.DEFAULT_BRANCH || 'main';
@@ -2178,6 +2178,7 @@ async function buildVerifierContext({
   fetchLocalDiff = fetchLocalGitDiff,
   extractArtifactText = extractArtifactArchiveText,
 }) {
+  const launchBasis = requestBasis(process.env.VERIFICATION_REQUEST_BASIS);
   const { owner, repo } = context.repo;
   const { pr, reason: resolveReason } = await resolvePullRequest({ github, context, core });
   if (!pr) {
@@ -2722,6 +2723,7 @@ async function buildVerifierContext({
       verificationManifest.pending_no_evaluation = recovery.proof;
       retryKnownNoEvaluation = true;
     }
+    if (launchBasis) verificationManifest.verification_request_basis = launchBasis;
     fs.writeFileSync('verification-event-manifest.json', JSON.stringify(verificationManifest, null, 2) + '\n');
     core?.setOutput?.('verification_event', JSON.stringify(verificationManifest.verification_event));
     core?.setOutput?.('verification_predecessor', verificationManifest.predecessor_event_id || '');
@@ -2736,6 +2738,16 @@ async function buildVerifierContext({
           || (!retryKnownNoEvaluation && !eventRequested && ['', 'auto'].includes(verificationManifest.assessment_identity.provider)
             && !verificationManifest.assessment_identity.model && !verificationManifest.assessment_identity.model2
             && completedLegacyEvent(verificationManifest.verification_event, verifierEvidence)))) {
+      if (launchBasis) {
+        const correlation = terminalCorrelation({event:verificationManifest.verification_event,
+          comments:verifierEvidence.event_history.records, assessment:verificationManifest.assessment_identity,
+          basis:launchBasis, runId:context.runId, runAttempt:process.env.GITHUB_RUN_ATTEMPT});
+        if (correlation) {
+          verificationManifest.request_correlation = correlation;
+          fs.writeFileSync('verification-event-manifest.json', JSON.stringify(verificationManifest,null,2) + '\n');
+          core?.setOutput?.('verification_request_correlation', JSON.stringify(correlation));
+        }
+      }
       core?.setOutput?.('should_run', 'false');
       core?.setOutput?.('verification_event_duplicate', 'true');
       core?.setOutput?.('skip_reason', 'Exact verification event already has an authenticated terminal result.');

@@ -483,6 +483,48 @@ function guardExistingEvent(event, comments, assessmentIdentity) {
   }
 }
 
+function requestBasis(value) {
+  if (value === undefined || value === '') return null;
+  if (typeof value !== 'string' || !/^[a-f0-9]{64}$/.test(value)) {
+    throw new Error('Invalid verification request basis');
+  }
+  return value;
+}
+
+// Correlation is a reference to existing authenticated evidence, not a new
+// decision, event, evaluation or grant to retry. Never synthesize a verdict.
+function terminalCorrelation({ event, comments, assessment, basis, runId, runAttempt }) {
+  const value = requestBasis(basis);
+  if (!value) return null;
+  if (!/^[1-9]\d{0,19}$/.test(String(runId)) || !/^[1-9]\d{0,9}$/.test(String(runAttempt))) {
+    throw new Error('Invalid correlation publication execution');
+  }
+  if (guardExistingEvent(event, comments, assessment) === 'retry') return null;
+  const rows = [];
+  for (const comment of comments) {
+    for (const match of String(comment.body).matchAll(/<!-- verifier-corpus-decision\/v1 (\{[^\n]+\}) -->/g)) {
+      const isolated = {...comment, body:`<!-- verifier-corpus-decision/v1 ${match[1]} -->`};
+      if (!completedEvent(event, [isolated], assessment)) continue;
+      const decision = JSON.parse(match[1]);
+      if (!/^[1-9]\d{0,19}$/.test(String(decision.run_id))
+          || !/^[1-9]\d{0,9}$/.test(String(decision.run_attempt))) continue;
+      rows.push({decision, url:comment.url, run:BigInt(decision.run_id), attempt:BigInt(decision.run_attempt)});
+    }
+  }
+  if (!rows.length) return null;
+  const latest = rows.reduce((a,b) => b.run > a.run || (b.run === a.run && b.attempt > a.attempt) ? b : a);
+  const current = rows.filter(row => row.run === latest.run && row.attempt === latest.attempt);
+  if (new Set(current.map(row => digest(row.decision))).size !== 1) {
+    throw new Error('Ambiguous existing terminal correlation');
+  }
+  return {schema:'verifier-request-correlation/v1', repo:event.repo, pr:event.pr,
+    head_sha:event.head_sha, evaluated_sha:event.evaluated_sha,
+    verification_request_basis:value, verification_event:event, assessment_identity:assessment,
+    result_run_id:String(latest.run), result_run_attempt:String(latest.attempt),
+    result_comment_url:latest.url, result_decision_sha256:digest(latest.decision),
+    correlation_run_id:String(runId), correlation_run_attempt:String(runAttempt)};
+}
+
 function buildVerificationEvent({ repository, pull, issues, fullDiffBytes, evidence,
   selectors, expected, predecessorEventId, ciResults, reconciledPending, assessmentIdentity: eventAssessment }) {
   const repo = repository.toLowerCase();
@@ -519,4 +561,4 @@ function buildVerificationEvent({ repository, pull, issues, fullDiffBytes, evide
     request, material };
 }
 
-module.exports = { parseRecoverySelector, canonical, digest, validateEvent, requiredEvidence, buildVerificationEvent, completedEvent, authenticatePredecessor, completedLegacyEvent, ciHardGate, guardExistingEvent, inputRepairMarker, assessmentIdentity, sameAssessment };
+module.exports = { requestBasis, terminalCorrelation, parseRecoverySelector, canonical, digest, validateEvent, requiredEvidence, buildVerificationEvent, completedEvent, authenticatePredecessor, completedLegacyEvent, ciHardGate, guardExistingEvent, inputRepairMarker, assessmentIdentity, sameAssessment };

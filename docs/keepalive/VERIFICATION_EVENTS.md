@@ -308,3 +308,32 @@ producer to separate that old section's required proof from optional history;
 until then the unchanged native counter must admit its complete retained bytes.
 These are input guarantees, not evidence of acceptance or permission to replay
 an existing evaluation.
+
+### Opaque launch correlation
+
+The optional `verification_request_basis` dispatch input is a lowercase
+64-character SHA-256 digest from the initiating operation. The collector retains
+it unchanged as a top-level manifest field and in trusted pending, incomplete,
+and terminal result markers. It is opaque correlation only: it does not enter
+semantic event/material hashes, select evidence, authorize a retry, or certify
+acceptance. Missing legacy correlation grants no inference; accepted or unknown
+old requests are never replayed to manufacture it.
+
+When an identical semantic event and assessment already has an authenticated
+terminal result, evaluation remains deduplicated. A separate
+`verifier-request-correlation/v1` marker references that selected existing result
+using `repo`, `pr`, `head_sha`, `evaluated_sha`, `verification_request_basis`,
+`verification_event`, `assessment_identity`, `result_run_id`,
+`result_run_attempt`, `result_comment_url`, and `result_decision_sha256` (SHA-256
+of canonical JSON of the original decision). `correlation_run_id` and
+`correlation_run_attempt` identify the workflow publishing the reference. This
+marker has no verdict and does not rewrite the result. Consumers must authenticate
+both the correlation and the exact referenced result under their existing
+provenance, event, assessment, and current-result rules. Newer pending/incomplete
+or conflicting terminal evidence cannot be bypassed by this marker; legacy
+results without the exact semantic event receive no inferred correlation.
+
+All correlation/result run and attempt fields are decimal strings, as is `pr`.
+Decision digests use UTF-8 canonical JSON with recursively sorted keys, compact
+separators and Unicode preserved (`ensure_ascii=False` in Python). The synthetic
+cross-language fixture is `tests/fixtures/verification_event/request_correlation.json`.

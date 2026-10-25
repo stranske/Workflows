@@ -44,6 +44,11 @@ on:
         required: false
         type: string
         default: ''
+      verification_request_basis:
+        description: 'Optional opaque lowercase SHA-256 launch correlation; never event, verdict or retry authority'
+        required: false
+        type: string
+        default: ''
       verification_event:
         description: 'Expected verification-event/v1 JSON; collector must reproduce it'
         required: false
@@ -147,6 +152,7 @@ jobs:
       VERIFIER_MODEL: ${{ inputs.model }}
       VERIFIER_MODEL2: ${{ inputs.model2 }}
       VERIFICATION_RECOVERY: ${{ inputs.verification_recovery }}
+      VERIFICATION_REQUEST_BASIS: ${{ inputs.verification_request_basis }}
       VERIFICATION_EVENT: ${{ inputs.verification_event }}
       VERIFICATION_MATERIAL: ${{ inputs.verification_material }}
       VERIFICATION_PREDECESSOR: ${{ inputs.verification_predecessor }}
@@ -481,6 +487,26 @@ jobs:
               }
             }
 
+      - name: Correlate an already completed verification event
+        if: steps.context.outputs.verification_request_correlation != ''
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const fs = require('fs');
+            const manifest = JSON.parse(fs.readFileSync('verification-event-manifest.json', 'utf8'));
+            const marker = manifest.request_correlation;
+            if (!marker || marker.schema !== 'verifier-request-correlation/v1'
+                || marker.verification_request_basis !== manifest.verification_request_basis
+                || marker.verification_event.event_id !== manifest.verification_event.event_id
+                || marker.correlation_run_id !== String(context.runId)
+                || marker.correlation_run_attempt !== String(process.env.GITHUB_RUN_ATTEMPT)) {
+              throw new Error('Invalid collector request correlation');
+            }
+            const { createTokenAwareRetry } = require('./.workflows-lib/.github/scripts/github-api-with-retry.js');
+            const { withRetry } = await createTokenAwareRetry({ github, core, env: {}, task: 'verifier-request-correlation' });
+            await withRetry(() => github.rest.issues.createComment({ ...context.repo, issue_number: Number(marker.pr),
+              body: `<!-- verifier-request-correlation/v1 ${JSON.stringify(marker)} -->` }));
+
       - name: Record verification event pending
         id: event_pending
         if: steps.context.outputs.should_run == 'true' && steps.context.outputs.verification_event != ''
@@ -497,6 +523,7 @@ jobs:
               run_id: String(context.runId), run_attempt: String(process.env.GITHUB_RUN_ATTEMPT),
               status: 'pending', verification_event: event, assessment_identity: manifest.assessment_identity,
               execution_binding: manifest.execution_binding,
+              ...(manifest.verification_request_basis ? {verification_request_basis:manifest.verification_request_basis} : {}),
               ...(manifest.retained_revalidation ? {retained_revalidation:manifest.retained_revalidation} : {}),
               ...(manifest.predecessor_event_id ? { predecessor_event_id: manifest.predecessor_event_id } : {}) };
             await withRetry(() => github.rest.issues.createComment({ ...context.repo, issue_number: Number(event.pr),
@@ -1919,6 +1946,7 @@ jobs:
                 run_id: String(context.runId), run_attempt: String(process.env.GITHUB_RUN_ATTEMPT),
                 status: 'incomplete', ...recoveryState,
                 verification_event: event, assessment_identity: manifest.assessment_identity,
+                ...(manifest.verification_request_basis ? {verification_request_basis:manifest.verification_request_basis} : {}),
                 ...(manifest.predecessor_event_id ? { predecessor_event_id: manifest.predecessor_event_id } : {}) };
               try {
                 await withRetry(() => github.rest.issues.createComment({ ...context.repo, issue_number: Number(event.pr),
