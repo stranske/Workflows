@@ -968,6 +968,33 @@ normal Maint 68 candidate/promotion and Maint 71 reconciliation flow. Never
 patch the generated Inv-Man sync PR directly. The policy is valid only for an
 `emitting` or `conformant` producer/bridge, so it cannot silently skip closure.
 
+
+### Gate reruns and current PR metadata
+
+A rerun retains its original pull-request event body. Its later start time does
+not prove that it evaluated a seal subsequently written by Maint 71. Gate's
+resolver reads current metadata while preserving the original PR number, head
+SHA and head repository. The classifier consumes that snapshot from the job environment and the seal
+action receives it through its explicit `pull-request-json` input. The runner
+rewrites `event.json` before every action, so file restoration alone cannot
+carry the snapshot across that boundary. Both guards validate the same snapshot;
+a changed head, repository, closed PR or unavailable read refuses the evaluation.
+An ordinary fork PR keeps its original read-only identity. PR-bound manual
+runs retain their existing same-repository/head restrictions.
+
+`pr-00-gate.yml` is create-only because consumers own their runtime, coverage
+and additional jobs. Older consumer Gates need a reviewed wiring alignment of
+the resolver and the classifier/seal snapshot transport before they can recover
+these stale-event holds. Preserve their existing jobs, policy and required-check
+identities. Consumers that lack the named seal job must expose the existing seal
+precondition through the canonical seal action so Maint 71 can authenticate a
+seal-only hold. A reviewed immutable Workflows classifier-action pin can carry
+the corrected classifier while managed copies finish normal delivery; it must
+retain the consumer checkout/configuration and exact resolved PR identity.
+Repeatedly rerunning the old event, an unbound branch dispatch,
+changing the seal/head to manufacture freshness, or a replacement green status
+cannot establish integration acceptance.
+
 ## Registered Consumer Repos
 
 Consumer repositories are synced by the workflow
