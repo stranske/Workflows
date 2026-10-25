@@ -6038,6 +6038,7 @@ def _fit_required_evidence_prompt(
         "### Bounded PR body": "body",
         "### Bounded PR comments": "comments",
         "### Bounded referenced workflow artifacts": "artifacts",
+        "### Selected required artifact proof": "selected_material",
     }
     pieces: list[tuple[str, str]] = []
     name = "preamble"
@@ -6071,6 +6072,8 @@ def _fit_required_evidence_prompt(
         return None
     pieces.append((name, "".join(lines).strip()))
     present = {name for name, _ in pieces}
+    if "selected_material" in present:
+        present.add("artifacts")
     if not present.intersection({"body", "comments", "artifacts"}):
         return None
     candidates = []
@@ -6081,7 +6084,11 @@ def _fit_required_evidence_prompt(
             or not channels <= present
         ):
             continue
-        required = [body for name, body in pieces if name == "preamble" or name in channels]
+        required = [
+            body
+            for name, body in pieces
+            if name in {"preamble", "selected_material"} or name in channels
+        ]
         rendered = "\n\n".join(required)
         candidates.append((len(rendered), tuple(sorted(channels)), rendered))
     # This budget bounds optional enrichment, never complete required proof.
@@ -6091,7 +6098,7 @@ def _fit_required_evidence_prompt(
         channels = set(selected_channels)
         omitted: list[str] = []
         for name, body in pieces:
-            if name == "preamble" or name in channels:
+            if name in {"preamble", "selected_material"} or name in channels:
                 continue
             if len(rendered) + len(body) + 2 <= budget:
                 rendered += "\n\n" + body

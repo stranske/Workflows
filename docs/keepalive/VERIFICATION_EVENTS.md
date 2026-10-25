@@ -41,10 +41,35 @@ The optional workflow inputs are:
   remains an explicit retrieval failure. Its body participates in event identity.
   Historical request revisions remain evidence of historical scope, not current
   operating instructions; later authenticated user directions still take precedence.
+  A comparison baseline adds `"evidence_role":"comparison-baseline"` and
+  `"compared_paths":["src/target.py"]` to an artifact-member selector. The collector
+  authenticates the same-repository completed run, its true ancestor relationship
+  to the evaluated merge, and identical bounded file bytes at both commits for
+  every named path (at most eight distinct paths per collection). It retains Git
+  blob IDs and SHA-256 identities in the material binding. This proves only those paths are unchanged; it neither makes the old
+  run current CI nor establishes equivalent requirements or acceptance.
+  Selected artifacts and members are retrieved within the existing bounds without
+  reading oversized unselected siblings. The full bounded inventory retains those
+  siblings as `unselected`, never complete or reviewed. Their availability gaps
+  can be omitted only when the existing evidence policy permits that channel to
+  be optional. Required selected truncation, unsafe members, duplicate identities
+  and integrity failures remain blocking. Selected proof remains a complete
+  required builder section through ordinary prompt fitting and native count
+  admission, even when optional enrichment is omitted. Original upload/comment
+  duties are not waived by selection. The existing mandatory-duty policy is channel-wide: a
+  specific selected upload does not automatically settle other unselected artifact
+  obligations; that conservative limitation remains explicit.
 - `verification_predecessor`: prior authenticated exact-subject event ID. Legacy
   terminal reports have a deterministic `verification-legacy-event/v1` identity
   containing repository, PR, head, merge, run ID and attempt. A caller-supplied
   hash without matching trusted history cannot establish causal currency.
+  A changed-material event can also follow a latest authenticated incomplete
+  event classified `known_no_evaluation` by the existing execution classifier.
+  The exact subject, run/attempt, canonical assessment and matching pending-step
+  execution binding must agree. Pending, uncertain, malformed, conflicting or
+  newer work cannot grant this authority. The old incomplete event and its parent
+  remain unchanged; this adds a real successor instead of forking its earlier
+  semantic ancestor. A false-only payload or job success is not this proof.
 
 An empty selector list covers code and original requests; it is not a claim that
 previously required extra evidence was obtained. The existing collection plan

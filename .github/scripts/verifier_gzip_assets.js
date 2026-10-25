@@ -21,6 +21,21 @@ function validatedSelectors(value) {
   if (selected.length > 80 || rows.length - selected.length > 20) throw new Error('Verification material selector count bound');
   if (selected.some(row => Object.keys(row).sort().join(',') !== 'kind,path' || !evidencePath(row.path))
       || new Set(selected.map(row => row.path)).size !== selected.length) throw new Error('Invalid git_blob path selector');
+  const artifacts = rows.filter(row => row.kind === 'artifact_member');
+  const safe = value => typeof value === 'string' && value.length > 0 && value.length <= 1024
+    && !/[\\\x00-\x1f\x7f*?\[\]^]/.test(value) && !value.startsWith('/') && !value.startsWith('-')
+    && !/^[A-Za-z]:/.test(value) && value.split('/').every(part => part && part !== '.' && part !== '..');
+  for (const row of artifacts) {
+    if (![row.run_id,row.artifact_id].every(id => Number.isSafeInteger(id) && id > 0) || !safe(row.path)
+        || (row.evidence_role !== undefined && row.evidence_role !== 'comparison-baseline')) throw new Error('Invalid artifact member selector');
+    if (row.evidence_role === 'comparison-baseline') {
+      if (Object.keys(row).sort().join(',') !== 'artifact_id,compared_paths,evidence_role,kind,path,run_id'
+          || !Array.isArray(row.compared_paths) || !row.compared_paths.length || row.compared_paths.length > 8
+          || !row.compared_paths.every(safe) || new Set(row.compared_paths).size !== row.compared_paths.length) throw new Error('Invalid comparison baseline paths');
+    } else if (row.compared_paths !== undefined) throw new Error('Compared paths require comparison baseline role');
+  }
+  if (new Set(artifacts.filter(row => row.evidence_role === 'comparison-baseline')
+      .flatMap(row => row.compared_paths)).size > 8) throw new Error('Comparison baseline source count bound');
   return rows;
 }
 function selectors(value) {
