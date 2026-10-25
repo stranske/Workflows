@@ -5596,3 +5596,64 @@ test('actual ZIP control-bearing image name cannot become optional media', () =>
     assert.ok(!result.failures.includes('unrenderable_media'));
   }
 });
+
+test('same-event collector retry retains the authenticated incomplete parent in root and template',async()=>{
+ const {executionBinding}=require('../verifier_pending_execution');
+ const templateImpl=require('../../../templates/consumer-repo/.github/scripts/agents_verifier_context.js').buildVerifierContext;
+ const templateBuilder=options=>templateImpl({...options,fetchLocalDiff:()=>options.github.__testDiffText});
+ const directory=fs.mkdtempSync(path.join(os.tmpdir(),'verifier-same-event-parent-'));
+ const originalCwd=process.cwd();process.chdir(directory);
+ try {
+  for(const builder of [buildVerifierContext,templateBuilder]) {
+   const initial=await buildEvidenceContext({prBody:'Original request before required proof recovery.'},{mode:'evaluate'},builder);
+   const parent=initial.result.verificationManifest.verification_event;
+   const assessment=initial.result.verificationManifest.assessment_identity;
+   removeVerifierDiffArtifacts(initial.result);
+   const body='Current authentic request with recovered required proof.';
+   const fresh=await buildEvidenceContext({prBody:body},{mode:'evaluate'},builder);
+   const event=fresh.result.verificationManifest.verification_event;
+   removeVerifierDiffArtifacts(fresh.result);
+   const row=(actual,run,status,predecessor)=>({schema:'verifier-event-state/v1',repo:actual.repo,pr:actual.pr,
+     head_sha:actual.head_sha,evaluated_sha:actual.evaluated_sha,run_id:String(run),run_attempt:'1',
+     verification_event:actual,assessment_identity:assessment,status,
+     ...(predecessor?{predecessor_event_id:predecessor}:{}),
+     ...(status==='pending'?{execution_binding:executionBinding('evaluate')}:
+       {failure_cause:'validated_no_evaluation',retry_kind:'known_no_evaluation',retryable:true})});
+   const comment=(id,value)=>({id,user:{login:'github-actions[bot]'},
+     html_url:`https://github.com/octo/workflows/pull/700#issuecomment-${id}`,
+     body:`<!-- ${value.schema} ${JSON.stringify(value)} -->`});
+   for(const status of ['retry','duplicate','pending','uncertain']) {
+    const comments=[comment(81,row(parent,100,'pending')),comment(82,row(parent,100,'incomplete')),
+      comment(83,row(event,101,'pending',parent.event_id))];
+    if(status==='retry'||status==='uncertain') {
+     const state=row(event,101,'incomplete',parent.event_id);
+     if(status==='uncertain')Object.assign(state,{retry_kind:'uncertain_execution',retryable:false});
+     comments.push(comment(84,state));
+    }
+    if(status==='duplicate')comments.push(comment(84,{...row(event,101,undefined,parent.event_id),
+      schema:'verifier-corpus-decision/v1',ci_failed:false,provider_verdicts:['PASS'],verdict:'PASS'}));
+    const before=structuredClone(comments);
+    await withEnv('VERIFICATION_EVENT',JSON.stringify(event),()=>withEnv('VERIFICATION_PREDECESSOR',parent.event_id,async()=>{
+     if(status==='uncertain') {
+      await assert.rejects(()=>buildEvidenceContext({prBody:body,comments},{mode:'evaluate'},builder),/recover retained execution|requires existing execution recovery/);
+      return;
+     }
+     const {result,core}=await buildEvidenceContext({prBody:body,comments},{mode:'evaluate'},builder);
+     assert.equal(result.verificationManifest.predecessor_event_id,parent.event_id);
+     assert.deepEqual(result.verificationManifest.verification_event,event);
+     if(status==='retry') {
+      assert.equal(result.shouldRun,true);
+      assert.equal(core.outputs.verification_predecessor,parent.event_id);
+      assert.ok(fs.readFileSync(result.contextPath,'utf8').includes(body));
+      assert.equal(JSON.parse(fs.readFileSync('verification-event-manifest.json','utf8')).predecessor_event_id,parent.event_id);
+      removeVerifierDiffArtifacts(result);
+     } else {
+      assert.equal(result.shouldRun,false);
+      assert.equal(result.reason,status==='duplicate'?'duplicate-verification-event':'verification-existing-execution-retrieval-pending');
+     }
+    }));
+    assert.deepEqual(comments,before);
+   }
+  }
+ } finally {process.chdir(originalCwd);fs.rmSync(directory,{recursive:true,force:true});}
+});

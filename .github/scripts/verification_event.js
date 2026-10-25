@@ -245,16 +245,49 @@ function authenticateIncompletePredecessor(event,predecessor,comments) {
         }
         continue; // Valid advisory reads neither supply nor veto canonical authority.
       }
-      rows.push({row,actual,run:BigInt(row.run_id),attempt:BigInt(row.run_attempt)});
+      rows.push({row,actual,comment,run:BigInt(row.run_id),attempt:BigInt(row.run_attempt)});
     }
   }
   const candidates=rows.filter(entry=>entry.actual.event_id===predecessor);
   if (!candidates.length) return false;
   const newer=(left,right)=>left.run>right.run || (left.run===right.run && left.attempt>right.attempt);
   const latest=candidates.reduce((left,right)=>newer(right,left)?right:left);
-  // A new material event must not fork a later in-flight or completed event.
-  if (rows.some(entry=>newer(entry,latest))) throw new Error('Predecessor has newer authenticated work');
+  // A changed event cannot fork newer work. Repeating the exact already-created
+  // child keeps its original edge; it does not mint a new branch or retry grant.
+  const children=rows.filter(entry=>entry.actual.event_id===event.event_id);
+  if (rows.some(entry=>newer(entry,latest) && entry.actual.event_id!==event.event_id)) {
+    throw new Error('Predecessor has newer authenticated work');
+  }
+  if (children.some(entry=>!newer(entry,latest) || entry.row.predecessor_event_id!==predecessor)) {
+    throw new Error('Repeated verification event has conflicting parent metadata');
+  }
+  if (children.length) {
+    const childLatest=children.reduce((left,right)=>newer(right,left)?right:left);
+    const attempts=new Map();
+    for (const entry of children) {
+      const key=`${entry.run}:${entry.attempt}`;
+      attempts.set(key,[...(attempts.get(key) || []),entry]);
+    }
+    for (const current of attempts.values()) {
+      // Scope the existing guard to this authenticated attempt without changing
+      // retained records. An older unresolved provider attempt cannot disappear
+      // behind a later no-evaluation marker for the same event.
+      const attemptComments=current.map(({row,comment})=>({...comment,
+        body:`<!-- ${row.schema} ${JSON.stringify(row)} -->`}));
+      if (knownNoEvaluationAttempt(current,attemptComments)) continue;
+      if (!current.some(({row})=>row.status==='incomplete')
+          && completedEvent(event,attemptComments,current[0].row.assessment_identity)) continue;
+      if (current.every(({row})=>row.schema==='verifier-event-state/v1' && row.status==='pending')
+          && current[0].run===childLatest.run && current[0].attempt===childLatest.attempt) continue;
+      throw new Error('Repeated verification event requires existing execution recovery');
+    }
+  }
   const current=candidates.filter(entry=>entry.run===latest.run && entry.attempt===latest.attempt);
+  return knownNoEvaluationAttempt(current,comments);
+}
+
+function knownNoEvaluationAttempt(current,comments) {
+  const latest=current[0];
   const incomplete=current.filter(({row})=>row.status==='incomplete');
   if (!incomplete.length || current.some(({row})=>row.verdict!==undefined)
       || incomplete.some(({row})=>row.schema!=='verifier-event-state/v1'

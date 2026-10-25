@@ -617,7 +617,7 @@ scripts:
     delivery: copy
 
   - source: .github/scripts/verification_event.js
-    description: "Binds repeat verification and strict recovery selectors to authoritative code, original requests, typed comparison-baseline material and explicitly required retained evidence; authenticates known-no-evaluation causal predecessors without reparenting history"
+    description: "Binds repeat verification and strict recovery selectors to authoritative code, original requests, typed comparison-baseline material and explicitly required retained evidence; authenticates known-no-evaluation causal predecessors, preserves the original edge on exact-event retries and retains existing pending/uncertain/duplicate execution guards without reparenting history"
     delivery: copy
 
   - source: .github/scripts/verifier_pending_execution.js

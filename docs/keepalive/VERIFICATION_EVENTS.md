@@ -85,6 +85,12 @@ The optional workflow inputs are:
   newer work cannot grant this authority. The old incomplete event and its parent
   remain unchanged; this adds a real successor instead of forking its earlier
   semantic ancestor. A false-only payload or job success is not this proof.
+  Repeating that already-created event retains its same authenticated predecessor;
+  its newer records are not a competing material branch. Every retained child
+  record must agree on that edge. Earlier unresolved executions still require
+  recovery, latest pending work uses the normal execution reconciliation, and
+  completed exact-event work remains deduplicated. Neither a new nonce nor
+  omitting the original predecessor grants permission for another model call.
 
 An empty selector list covers code and original requests; it is not a claim that
 previously required extra evidence was obtained. The existing collection plan
