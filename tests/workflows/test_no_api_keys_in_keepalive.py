@@ -24,7 +24,7 @@ def test_runner_analysis_has_no_api_key_or_second_invocation(agent):
     steps = [step for job in jobs.values() for step in job.get("steps", [])]
     analysis = next(s for s in steps if s.get("id") == "llm_analysis")
     for step in steps:
-        for forbidden in ("OPENAI_API_KEY", "CLAUDE_API_STRANSKE"):
+        for forbidden in ("OPENAI_API_KEY", "CLAUDE_API_STRANSKE", "langchain"):
             assert forbidden not in json.dumps(step.get("env", {})), str(file)
             assert forbidden not in step.get("run", ""), str(file)
     # Analysis no longer accepts provider API secrets on the reusable workflow.
@@ -43,13 +43,10 @@ def test_progress_review_uses_subscription_without_langchain_install():
     file = ROOT / ".github/workflows/agents-keepalive-loop.yml"
     job = yaml.safe_load(file.read_text())["jobs"]["progress-review"]
     text = json.dumps(job)
-    for forbidden in (
-        "OPENAI_API_KEY",
-        "CLAUDE_API_STRANSKE",
-        "langchain-openai",
-        "langchain-anthropic",
-    ):
-        assert forbidden not in text, str(file)
+    # The existing entrypoint's directory name is not a LangChain dependency.
+    dependency_text = text.replace("scripts/langchain/progress_reviewer.py", "")
+    for forbidden in ("OPENAI_API_KEY", "CLAUDE_API_STRANSKE", "langchain"):
+        assert forbidden not in dependency_text, str(file)
     step = next(s for s in job["steps"] if s.get("id") == "review")
     assert step["env"]["WORKFLOWS_ANALYSIS_CLI"] == "codex"
     assert "CODEX_AUTH_JSON" in text
@@ -66,6 +63,38 @@ def test_progress_review_uses_subscription_without_langchain_install():
     lock = json.loads((ROOT / ".github/actions/maint78-codex-cli/package-lock.json").read_text())
     assert lock["packages"]["node_modules/@openai/codex"]["version"] == "0.160.0"
     assert lock["packages"]["node_modules/@openai/codex"]["integrity"]
+
+
+@pytest.mark.parametrize("agent", (*RUNNERS, "progress-review"))
+@pytest.mark.parametrize("surface", ("env", "run"))
+@pytest.mark.parametrize("forbidden", ("OPENAI_API_KEY", "CLAUDE_API_STRANSKE", "langchain"))
+def test_workflow_gate_rejects_reintroduced_api_dependencies(
+    monkeypatch, agent, surface, forbidden
+):
+    """Exercise the real gate against mutations without editing protected workflows."""
+    filename = (
+        "agents-keepalive-loop.yml" if agent == "progress-review" else f"reusable-{agent}-run.yml"
+    )
+    doc = yaml.safe_load((ROOT / ".github/workflows" / filename).read_text())
+    if agent == "progress-review":
+        steps = doc["jobs"]["progress-review"]["steps"]
+        step_id = "review"
+    else:
+        steps = [step for job in doc["jobs"].values() for step in job.get("steps", [])]
+        step_id = "llm_analysis"
+    step = next(step for step in steps if step.get("id") == step_id)
+    if surface == "env":
+        step.setdefault("env", {})[forbidden] = "fixture-only"
+    else:
+        step["run"] += f"\n{forbidden}=fixture-only\n"
+    monkeypatch.setattr(yaml, "safe_load", lambda _: doc)
+
+    with pytest.raises(AssertionError) as failure:
+        if agent == "progress-review":
+            test_progress_review_uses_subscription_without_langchain_install()
+        else:
+            test_runner_analysis_has_no_api_key_or_second_invocation(agent)
+    assert filename in str(failure.value)
 
 
 @pytest.fixture
