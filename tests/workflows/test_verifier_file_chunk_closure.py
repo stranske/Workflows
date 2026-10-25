@@ -10,7 +10,11 @@ ROOT = Path(__file__).resolve().parents[2]
 def test_incomplete_input_closure_is_wired_through_isolated_merge_gates():
     reusable = yaml.safe_load((ROOT / ".github/workflows/reusable-agents-verifier.yml").read_text())
     verifier = reusable["jobs"]["verifier"]
-    assert set(reusable["jobs"]) == {"verifier"}  # Old read-only callers remain compatible.
+    assert set(reusable["jobs"]) == {"verifier", "input-repair-provenance"}
+    assert verifier["if"] == "inputs.verification_provenance == ''"
+    assert (
+        reusable["jobs"]["input-repair-provenance"]["if"] == "inputs.verification_provenance != ''"
+    )
     assert verifier["outputs"]["verdict"] == "${{ steps.unified_verdict.outputs.verdict }}"
     assert (
         reusable[True]["workflow_call"]["outputs"]["verdict"]["value"]

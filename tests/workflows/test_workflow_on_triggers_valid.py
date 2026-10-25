@@ -38,6 +38,7 @@ make it through review by hiding behind an allowlist tweak.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Iterable
 from pathlib import Path
 
@@ -181,4 +182,44 @@ def test_workflow_only_uses_valid_on_triggers(workflow_path: Path) -> None:
         "subscription, you cannot do so directly — webhook events are NOT "
         "valid workflow triggers. Consider `workflow_run` (for workflow "
         "completion) or `check_run`/`check_suite` (for CI lifecycle) instead."
+    )
+
+
+@pytest.mark.parametrize(
+    "workflow_path", list(_iter_workflow_files()), ids=lambda p: str(p.relative_to(ROOT))
+)
+def test_workflow_dispatch_has_at_most_25_inputs(workflow_path: Path) -> None:
+    data = _load_workflow(workflow_path)
+    on_field = data.get("on", data.get(True))
+    if not isinstance(on_field, dict):
+        return
+    dispatch = on_field.get("workflow_dispatch")
+    if not isinstance(dispatch, dict):
+        return
+    inputs = dispatch.get("inputs", {})
+    assert isinstance(inputs, dict), f"{workflow_path.relative_to(ROOT)}: inputs must be a mapping"
+    assert (
+        len(inputs) <= 25
+    ), f"{workflow_path.relative_to(ROOT)}: workflow_dispatch has {len(inputs)} inputs; maximum is 25"
+
+
+@pytest.mark.parametrize(
+    ("count", "allowed"), [(10, False), (11, True), (25, True), (26, False), (100, False)]
+)
+def test_actionlint_input_limit_exception_only_matches_supported_counts(
+    count: int, allowed: bool
+) -> None:
+    patterns = (ROOT / ".github/actionlint-allowlist.txt").read_text().splitlines()
+    diagnostic = (
+        f'maximum number of inputs for "workflow_dispatch" event is 10 but {count} inputs are provided. '
+        "see https://docs.github.com/en/actions/using-workflows/events-that-trigger-workflows"
+        "#providing-inputs"
+    )
+    assert (
+        any(
+            re.search(pattern, diagnostic)
+            for pattern in patterns
+            if pattern.strip() and not pattern.startswith("#")
+        )
+        is allowed
     )
