@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.44.17](https://github.com/stranske/Workflows/compare/v1.44.16...v1.44.17) (2026-10-25)
+
+
+### Bug Fixes
+
+* **verifier:** resolve selected artifact IDs beyond discovery bounds ([8fa4129](https://github.com/stranske/Workflows/commit/8fa41299a394fe2af46e910acbb0f733dc415b23))
+* **verifier:** retain selected baseline proof through repeat events ([7bd37e7](https://github.com/stranske/Workflows/commit/7bd37e731a7906565ed6d2231724ca3bf5fefa83))
+* **verifier:** retain selected comparison proof through recovery ([c503640](https://github.com/stranske/Workflows/commit/c5036409d5ce5b83f4fa288b583d909e10892a1f))
+
 ## [1.44.16](https://github.com/stranske/Workflows/compare/v1.44.15...v1.44.16) (2026-10-24)
 
 
