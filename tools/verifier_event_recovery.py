@@ -142,6 +142,8 @@ def _input_repair(
         receipt_raw = receipt_path.read_bytes()
         receipt = json.loads(receipt_raw)
         output = receipt.get("outputs", {}).get(payload_path.name, {})
+        if not isinstance(output, dict):
+            return None
     except (OSError, ValueError, AttributeError):
         return None
     if (

@@ -88,3 +88,94 @@ def test_missing_receipt_gives_no_provenance(tmp_path):
     cause = _classify(tmp_path)
     assert cause["retry_kind"] == "recover_existing_evaluation"
     assert "input_repair" not in cause
+
+
+COMPARE = {"assessment_identity": {"mode": "compare", "provider": "", "model": ""}}
+
+
+def _write_compare(tmp_path: Path, rows: list[dict], *, outputs: object = None) -> bytes:
+    raw = json.dumps({"results": rows}).encode()
+    (tmp_path / "comparison.json").write_bytes(raw)
+    receipt = {
+        "mode": "compare",
+        "status": "completed",
+        "exit_code": 0,
+        "outputs": (
+            {"comparison.json": {"sha256": hashlib.sha256(raw).hexdigest(), "bytes": len(raw)}}
+            if outputs is None
+            else outputs
+        ),
+    }
+    (tmp_path / "comparison-execution.json").write_text(json.dumps(receipt))
+    return raw
+
+
+def test_compare_mode_two_slots_bind_sorted_verdicts_to_comparison_receipt(tmp_path):
+    # Slots are deliberately written out of provider order; one passes, one is input-unverifiable.
+    raw = _write_compare(
+        tmp_path,
+        [
+            _row("UNVERIFIABLE_INPUT", provider_used="openai/gpt", model="gpt"),
+            _row("PASS", provider_used="anthropic/claude", model="claude"),
+        ],
+    )
+    cause = incomplete_cause(COMPARE, directory=tmp_path, step_outcome="success")
+    assert cause["retry_kind"] == "recover_existing_evaluation"
+    assert cause["retryable"] is False
+    repair = cause["input_repair"]
+    assert repair["result"] == {
+        "path": "comparison.json",
+        "raw_sha256": hashlib.sha256(raw).hexdigest(),
+        "bytes": len(raw),
+    }
+    assert repair["receipt"] == {
+        "path": "comparison-execution.json",
+        "raw_sha256": hashlib.sha256(
+            (tmp_path / "comparison-execution.json").read_bytes()
+        ).hexdigest(),
+    }
+    assert repair["provider_verdicts"] == [
+        {"provider": "anthropic/claude", "model": "claude", "verdict": "PASS"},
+        {"provider": "openai/gpt", "model": "gpt", "verdict": "UNVERIFIABLE_INPUT"},
+    ]
+
+
+@pytest.mark.parametrize("output", [None, [], ["sha256"], "sha256", 7, True])
+@pytest.mark.parametrize("mode", ["evaluate", "compare"])
+def test_malformed_receipt_output_fails_closed_without_losing_recovery_cause(
+    tmp_path, mode, output
+):
+    # The receipt's per-file entry is not an object: provenance is withheld, never raised.
+    if mode == "evaluate":
+        _write(tmp_path, _row("UNVERIFIABLE_INPUT"))
+        receipt_path = tmp_path / "evaluation-execution.json"
+        name, manifest = "evaluation.json", ASSESSMENT
+    else:
+        _write_compare(
+            tmp_path,
+            [
+                _row("PASS", provider_used="anthropic/claude", model="claude"),
+                _row("UNVERIFIABLE_INPUT", provider_used="openai/gpt", model="gpt"),
+            ],
+        )
+        receipt_path = tmp_path / "comparison-execution.json"
+        name, manifest = "comparison.json", COMPARE
+    receipt = json.loads(receipt_path.read_text())
+    receipt["outputs"][name] = output
+    receipt_path.write_text(json.dumps(receipt))
+    cause = incomplete_cause(manifest, directory=tmp_path, step_outcome="success")
+    assert cause["retry_kind"] == "recover_existing_evaluation"
+    assert cause["retryable"] is False
+    assert "input_repair" not in cause
+
+
+@pytest.mark.parametrize("outputs", [None, [], "outputs", 7])
+def test_malformed_receipt_outputs_container_fails_closed(tmp_path, outputs):
+    _write(tmp_path, _row("UNVERIFIABLE_INPUT"))
+    receipt_path = tmp_path / "evaluation-execution.json"
+    receipt = json.loads(receipt_path.read_text())
+    receipt["outputs"] = outputs
+    receipt_path.write_text(json.dumps(receipt))
+    cause = _classify(tmp_path)
+    assert cause["retry_kind"] == "recover_existing_evaluation"
+    assert "input_repair" not in cause

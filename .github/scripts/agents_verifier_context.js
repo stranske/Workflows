@@ -1130,8 +1130,8 @@ async function fetchVerifierEvidence({
           if (conversation && ['github-actions', 'github-actions[bot]'].includes(comment?.user?.login || comment?.author?.login)
               && String(comment?.html_url || comment?.url || '').toLowerCase().startsWith(
                 `https://github.com/${owner}/${repo}/pull/${pullNumber}#issuecomment-`.toLowerCase())) {
-            const markers = comment.body.match(/<!-- (?:verifier-event-state\/v1|verifier-corpus-decision\/v1) [^\n]*? -->/g) || [];
-            if (/<!-- (?:verifier-event-state\/v1|verifier-corpus-decision\/v1) /.test(comment.body) && !markers.length) {
+            const markers = comment.body.match(/<!-- (?:verifier-event-state\/v1|verifier-corpus-decision\/v1|verifier-input-repair\/v1) [^\n]*? -->/g) || [];
+            if (/<!-- (?:verifier-event-state\/v1|verifier-corpus-decision\/v1|verifier-input-repair\/v1) /.test(comment.body) && !markers.length) {
               eventHistory.complete = false;
               eventHistory.reason = 'verifier protocol marker is malformed';
             }
@@ -1141,7 +1141,7 @@ async function fetchVerifierEvidence({
             }
             for (const marker of markers) {
               try {
-                const parsed = marker.match(/^<!-- (verifier-event-state\/v1|verifier-corpus-decision\/v1) (.*) -->$/);
+                const parsed = marker.match(/^<!-- (verifier-event-state\/v1|verifier-corpus-decision\/v1|verifier-input-repair\/v1) (.*) -->$/);
                 const payload = JSON.parse(parsed[2]);
                 if (!payload || typeof payload !== 'object' || Array.isArray(payload) || payload.schema !== parsed[1]) throw new Error('invalid protocol schema');
               } catch {

@@ -5,6 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const { buildVerificationEvent, guardExistingEvent, completedEvent, inputRepairMarker, digest }
   = require('../../.github/scripts/verification_event.js');
+const { fetchVerifierEvidence } = require('../../.github/scripts/agents_verifier_context.js');
 
 // Retained #4231/#4235 shapes (head, merge, run, cause, identity) are real; the original
 // request/material are rebuilt because the retained PR bodies are not stored here.
@@ -195,4 +196,58 @@ test('UNVERIFIABLE_INPUT is never accepted as completion', () => {
   const e = s.original.verification_event;
   assert.equal(completedEvent(e, [...s.stateComments, s.markerComment()], s.assessment), false);
   assert.throws(() => guardExistingEvent(e, [...s.stateComments, s.markerComment()], s.assessment), /incomplete/);
+});
+
+// Production path: the verifier collector (not a hand-built event_history) must retain the
+// repair provenance, or the predecessor check can never see it. Only the artifact archive
+// inventory is injected; comments, authors, URLs and event_history come from the collector.
+async function collected(s, comments) {
+  const rows = comments.map(c => ({ id: Number(c.url.split('issuecomment-')[1]), html_url: c.url, user: { login: c.author, type: 'Bot' }, body: c.body }));
+  const github = { rest: { issues: { listComments: async () => ({ data: rows }) },
+    pulls: { listReviewComments: async () => ({ data: [] }), listReviews: async () => ({ data: [] }) } } };
+  const evidence = await fetchVerifierEvidence({ github, owner: 'stranske', repo: 'workflows', pullNumber: s.n, pullRequestBody: `Release ${s.n} original request.` });
+  const input = s.changed();
+  input.evidence = { ...input.evidence, event_history: evidence.event_history };
+  return { evidence, input };
+}
+
+for (const n of [4231, 4235]) {
+  test(`#${n}: collector-retained input-repair provenance admits the changed event end to end`, async () => {
+    const s = scenario(n);
+    const { evidence, input } = await collected(s, [...s.stateComments, s.markerComment()]);
+    assert.equal(evidence.event_history.complete, true);
+    assert.equal(evidence.event_history.records.filter(r => r.body.includes('verifier-input-repair/v1')).length, 1);
+    const built = buildVerificationEvent(input);
+    assert.equal(built.predecessor_event_id, s.original.verification_event.event_id);
+    assert.notEqual(built.verification_event.event_id, s.original.verification_event.event_id);
+    // Without the marker in collected history there is no changed-input authority.
+    const absent = await collected(s, s.stateComments);
+    assert.throws(() => buildVerificationEvent(absent.input), NOT_AUTH);
+  });
+}
+
+test('collector-retained provenance keeps untrusted, malformed, digest, subject, execution and newer-work failures', async () => {
+  const s = scenario(4231);
+  const comment = s.markerComment();
+  const row = (over, id) => bot(4231, id, `<!-- verifier-event-state/v1 ${JSON.stringify({ ...s.state, ...over })} -->`);
+  const cases = {
+    untrustedAuthor: [{ ...comment, author: 'stranske' }],
+    otherPullUrl: [{ ...comment, url: comment.url.replace('/4231#', '/4235#') }],
+    digest: [s.markerComment({ ...s.marker(), input_repair_id: sha('0') })],
+    subject: [s.markerComment(s.marker({ pr: '4235' }))],
+    execution: [s.markerComment(s.marker({ run_attempt: '2' }))],
+    newerWork: [comment, row({ status: 'pending', verification_event: { ...buildVerificationEvent(s.changed()).verification_event, event_id: sha('7') }, run_id: String(Number(s.state.run_id) + 5) }, 301)],
+  };
+  for (const [name, extra] of Object.entries(cases)) {
+    const { input } = await collected(s, [...s.stateComments, ...extra]);
+    assert.throws(() => buildVerificationEvent(input), NOT_AUTH, name);
+  }
+  // Malformed marker JSON: the collector marks history incomplete, so nothing is admitted.
+  const malformed = bot(4231, 201, '<!-- verifier-input-repair/v1 {not json} -->');
+  const { evidence } = await collected(s, [...s.stateComments, comment, malformed]);
+  assert.equal(evidence.event_history.complete, false);
+  assert.match(evidence.event_history.reason, /malformed/);
+  // Schema mismatch inside an otherwise well-formed repair marker is also malformed history.
+  const wrong = bot(4231, 202, `<!-- verifier-input-repair/v1 ${JSON.stringify({ ...JSON.parse(JSON.stringify(s.marker())), schema: 'verifier-event-state/v1' })} -->`);
+  assert.equal((await collected(s, [...s.stateComments, comment, wrong])).evidence.event_history.complete, false);
 });
