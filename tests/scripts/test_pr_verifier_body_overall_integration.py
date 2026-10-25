@@ -1073,9 +1073,10 @@ def test_selected_comment_real_collector_to_prompt(
             "--test",
             "--test-name-pattern",
             "^selected required comment actual producer capture$",
-            ".github/scripts/__tests__/agents-verifier-context.test.js",
+            str(ROOT / ".github/scripts/__tests__/agents-verifier-context.test.js"),
         ],
-        cwd=ROOT,
+        # Each child owns its generated packet files, including under xdist.
+        cwd=tmp_path,
         env=env,
         check=False,
         capture_output=True,
