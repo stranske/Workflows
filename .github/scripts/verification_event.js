@@ -142,7 +142,7 @@ function completedEvent(event, comments, assessmentIdentity) {
   });
 }
 
-function authenticatePredecessor(event, predecessor, evidence, reconciledPending = new Set()) {
+function authenticatePredecessor(event, predecessor, evidence, reconciledPending = new Set(), repairContext = null) {
   const history = evidence.event_history;
   if (!SHA.test(predecessor) || !history?.complete) {
     throw new Error('Verification predecessor requires complete authenticated comment evidence');
@@ -191,17 +191,19 @@ function authenticatePredecessor(event, predecessor, evidence, reconciledPending
       } catch { /* Malformed history cannot supply causal authority. */ }
     }
   }
-  if (predecessor !== event.event_id && authenticateIncompletePredecessor(event,predecessor,history.records || [],reconciledPending)) return;
+  if (predecessor !== event.event_id && authenticateIncompletePredecessor(event,predecessor,history.records || [],reconciledPending,evidence,repairContext)) return;
   throw new Error('Verification predecessor is not an authenticated exact-subject terminal event');
 }
 
-function authenticateIncompletePredecessor(event,predecessor,comments,reconciledPending) {
+function authenticateIncompletePredecessor(event,predecessor,comments,reconciledPending,evidence = {},repairContext = null) {
   const prefix=`https://github.com/${event.repo}/pull/${event.pr}#issuecomment-`;
   const rows=[];
   for (const comment of comments) {
     if (!['github-actions','github-actions[bot]'].includes(comment.author)
         || !String(comment.url).toLowerCase().startsWith(prefix)) continue;
     const matches=[...String(comment.body).matchAll(/<!-- (verifier-event-state\/v1|verifier-corpus-decision\/v1) (\{[^\n]+\}) -->/g)];
+    // Input-repair provenance is evaluated by its own artifact-bound check, never as history rows.
+    if (!comment.truncated && !matches.length && INPUT_REPAIR.test(String(comment.body))) continue;
     if ((comment.truncated || !matches.length) && String(comment.body).includes(predecessor)) throw new Error('Incomplete predecessor history');
     for (const match of matches) {
       let row;
@@ -293,7 +295,88 @@ function authenticateIncompletePredecessor(event,predecessor,comments,reconciled
     }
   }
   const current=candidates.filter(entry=>entry.run===latest.run && entry.attempt===latest.attempt);
-  return knownNoEvaluationAttempt(current,comments);
+  return knownNoEvaluationAttempt(current,comments)
+    || authenticateInputRepair(event,predecessor,latest,current,comments,evidence,repairContext);
+}
+
+const INPUT_REPAIR = /<!-- verifier-input-repair\/v1 \{[^\n]+\} -->/;
+const INPUT_REPAIR_ALL = /<!-- verifier-input-repair\/v1 (\{[^\n]+\}) -->/g;
+const REPAIR_VERDICTS = ['PASS','CONCERNS','FAIL','UNVERIFIABLE_INPUT'];
+
+// Appended beside (never over) the original incomplete state. Carries the
+// original material so the consumer can prove what changed, plus the retained
+// result/receipt digests so the retained artifact can be re-checked by collector.
+function inputRepairMarker({state, material, repair}) {
+  const marker = {schema:'verifier-input-repair/v1',repo:state.repo,pr:state.pr,head_sha:state.head_sha,
+    evaluated_sha:state.evaluated_sha,run_id:String(state.run_id),run_attempt:String(state.run_attempt),
+    verification_event:validateEvent(state.verification_event),assessment_identity:state.assessment_identity,
+    original_material:material,result:repair.result,receipt:repair.receipt,provider_verdicts:repair.provider_verdicts};
+  return {...marker,input_repair_id:digest(marker)};
+}
+
+function authenticateInputRepair(event,predecessor,latest,current,comments,evidence,context) {
+  const {material,assessmentIdentity:assessment}=context || {};
+  if (!material || !assessment || predecessor===event.event_id) return false;
+  // Same-attempt state must be exactly the nonretryable, verdict-free retained provider outcome.
+  if (current.some(({row})=>row.schema!=='verifier-event-state/v1' || row.verdict!==undefined
+      || !['pending','incomplete'].includes(row.status))) return false;
+  const incomplete=[...new Map(current.filter(({row})=>row.status==='incomplete').map(({row})=>[digest(row),row])).values()];
+  if (incomplete.length!==1) return false;
+  const state=incomplete[0];
+  if (state.failure_cause!=='retained_provider_evaluation' || state.retry_kind!=='recover_existing_evaluation'
+      || state.retryable!==false || state.input_repair!==undefined
+      || !sameAssessment(state.assessment_identity,assessment)) return false;
+  const prefix=`https://github.com/${event.repo}/pull/${event.pr}#issuecomment-`;
+  const markers=new Map();
+  for (const comment of comments) {
+    if (!['github-actions','github-actions[bot]'].includes(comment.author)
+        || !String(comment.url).toLowerCase().startsWith(prefix) || comment.truncated) continue;
+    for (const match of String(comment.body).matchAll(INPUT_REPAIR_ALL)) {
+      try {
+        const row=JSON.parse(match[1]);
+        if (row.verification_event?.event_id===predecessor && String(row.run_id)===String(latest.run)
+            && String(row.run_attempt)===String(latest.attempt)) markers.set(digest(row),row);
+      } catch { /* Unparseable provenance supplies no authority. */ }
+    }
+  }
+  if (markers.size!==1) return false; // absent, or contradictory duplicates
+  const marker=[...markers.values()][0];
+  try {
+    const {input_repair_id,...body}=marker;
+    const original=validateEvent(marker.verification_event);
+    const stem=assessment.mode==='evaluate' ? 'evaluation' : 'comparison';
+    const members=[['result',`${stem}.json`],['receipt',`${stem}-execution.json`]];
+    const verdicts=marker.provider_verdicts;
+    if (marker.schema!=='verifier-input-repair/v1' || input_repair_id!==digest(body)
+        || ['repo','pr','head_sha','evaluated_sha'].some(key=>String(marker[key]).toLowerCase()!==String(event[key]).toLowerCase()
+          || original[key]!==event[key])
+        || original.request_sha256!==event.request_sha256 || original.material_sha256===event.material_sha256
+        || !sameAssessment(marker.assessment_identity,state.assessment_identity)
+        || canonical(marker.assessment_identity)!==canonical(state.assessment_identity)
+        || !Array.isArray(verdicts) || !verdicts.length
+        || verdicts.some(row=>!row || typeof row.provider!=='string' || typeof row.model!=='string' || !REPAIR_VERDICTS.includes(row.verdict))
+        || !verdicts.some(row=>row.verdict==='UNVERIFIABLE_INPUT')) return false;
+    // The original material is proven by its digest; only necessary material may differ.
+    const before=marker.original_material;
+    if (before?.schema!=='verification-material/v1' || digest(before)!==original.material_sha256
+        || digest(material)!==event.material_sha256
+        || canonical(before.code)!==canonical(material.code)
+        || !Array.isArray(material.required_evidence) || !material.required_evidence.length
+        || canonical(before.required_evidence)===canonical(material.required_evidence)) return false;
+    // Artifact binding: the retained result and receipt bytes must be the collector's
+    // complete inventory of exactly one archive of the original run.
+    const archives=(evidence.diagnostics?.archive_inventory || []).filter(record=>String(record.run_id)===String(marker.run_id)
+      && (record.members || []).some(member=>members.some(([,path])=>member.path===path || member.name===path)));
+    if (archives.length!==1 || !archives[0].member_inventory_complete) return false;
+    for (const [key,path] of members) {
+      const claim=marker[key];
+      const found=archives[0].members.filter(member=>member.path===path || member.name===path);
+      if (claim?.path!==path || !SHA.test(claim.raw_sha256) || found.length!==1
+          || !['included','captured'].includes(found[0].status)
+          || found[0].raw_sha256!==claim.raw_sha256) return false;
+    }
+    return true;
+  } catch { return false; }
 }
 
 function knownNoEvaluationAttempt(current,comments) {
@@ -401,7 +484,7 @@ function guardExistingEvent(event, comments, assessmentIdentity) {
 }
 
 function buildVerificationEvent({ repository, pull, issues, fullDiffBytes, evidence,
-  selectors, expected, predecessorEventId, ciResults, reconciledPending }) {
+  selectors, expected, predecessorEventId, ciResults, reconciledPending, assessmentIdentity: eventAssessment }) {
   const repo = repository.toLowerCase();
   const source = (kind, number, body, repository = repo) => {
     if (!/^[^/\s]+\/[^/\s]+$/.test(repository) || !Number.isSafeInteger(number) || number < 1) {
@@ -431,9 +514,9 @@ function buildVerificationEvent({ repository, pull, issues, fullDiffBytes, evide
   if (expectation && validateEvent(expectation).event_id !== event.event_id) {
     throw new Error('Verification event expectation differs from authoritative collected inputs');
   }
-  if (predecessorEventId) authenticatePredecessor(event, predecessorEventId, evidence, reconciledPending);
+  if (predecessorEventId) authenticatePredecessor(event, predecessorEventId, evidence, reconciledPending, {material, assessmentIdentity: eventAssessment});
   return { verification_event: event, ...(predecessorEventId ? { predecessor_event_id: predecessorEventId } : {}),
     request, material };
 }
 
-module.exports = { parseRecoverySelector, canonical, digest, validateEvent, requiredEvidence, buildVerificationEvent, completedEvent, authenticatePredecessor, completedLegacyEvent, ciHardGate, guardExistingEvent, assessmentIdentity, sameAssessment };
+module.exports = { parseRecoverySelector, canonical, digest, validateEvent, requiredEvidence, buildVerificationEvent, completedEvent, authenticatePredecessor, completedLegacyEvent, ciHardGate, guardExistingEvent, inputRepairMarker, assessmentIdentity, sameAssessment };

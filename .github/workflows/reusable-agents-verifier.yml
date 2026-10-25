@@ -1904,10 +1904,12 @@ jobs:
                 core.warning(`Verification execution classification unavailable: ${error.message}`);
                 // Retain uncertainty; a diagnostic failure never proves no effect.
               }
+              // Provenance is a distinct appended marker; the state marker keeps its shape.
+              const { input_repair: inputRepair, ...recoveryState } = recovery;
               const state = { schema: 'verifier-event-state/v1', repo: event.repo, pr: event.pr,
                 head_sha: event.head_sha, evaluated_sha: event.evaluated_sha,
                 run_id: String(context.runId), run_attempt: String(process.env.GITHUB_RUN_ATTEMPT),
-                status: 'incomplete', ...recovery,
+                status: 'incomplete', ...recoveryState,
                 verification_event: event, assessment_identity: manifest.assessment_identity,
                 ...(manifest.predecessor_event_id ? { predecessor_event_id: manifest.predecessor_event_id } : {}) };
               try {
@@ -1916,6 +1918,17 @@ jobs:
               } catch (error) {
                 core.setFailed(`Verification event terminal publication failed: ${error.message}`);
                 throw error;
+              }
+              if (inputRepair && recoveryState.retry_kind === 'recover_existing_evaluation') {
+                try {
+                  const { inputRepairMarker } = require('./.workflows-lib/.github/scripts/verification_event.js');
+                  const marker = inputRepairMarker({ state, material: manifest.material, repair: inputRepair });
+                  await withRetry(() => github.rest.issues.createComment({ ...context.repo, issue_number: Number(event.pr),
+                    body: `<!-- verifier-input-repair/v1 ${JSON.stringify(marker)} -->` }));
+                } catch (error) {
+                  // Absent provenance only means no changed-input route; it never grants retry.
+                  core.warning(`Verification input-repair provenance unavailable: ${error.message}`);
+                }
               }
             }
 

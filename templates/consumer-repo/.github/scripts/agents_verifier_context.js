@@ -2632,12 +2632,16 @@ async function buildVerifierContext({
     // Only this collection's authoritative Actions reads can discharge an older
     // pending attempt. Never serialize the admission set or rewrite history.
     const reconciledPending = new Set(), predecessorReconciliations = [];
+    const eventAssessment = assessmentIdentity({mode,
+      provider:process.env.VERIFIER_PROVIDER || '',model:process.env.VERIFIER_MODEL || '',
+      model2:process.env.VERIFIER_MODEL2 || '',canonical:true});
     for (;;) {
       try {
         verificationManifest = buildVerificationEvent({ repository: `${owner}/${repo}`, pull,
           issues: closingIssues, fullDiffBytes, evidence: verifierEvidence, ciResults,
           selectors: process.env.VERIFICATION_MATERIAL, expected: process.env.VERIFICATION_EVENT,
-          predecessorEventId: process.env.VERIFICATION_PREDECESSOR, reconciledPending });
+          predecessorEventId: process.env.VERIFICATION_PREDECESSOR, reconciledPending,
+          assessmentIdentity: eventAssessment });
         break;
       } catch (error) {
         if (error.code !== 'VERIFIER_PREDECESSOR_PENDING_EXECUTION') throw error;
@@ -2661,9 +2665,7 @@ async function buildVerifierContext({
       }
     }
     if (predecessorReconciliations.length) verificationManifest.predecessor_execution_reconciliation=predecessorReconciliations;
-    verificationManifest.assessment_identity = assessmentIdentity({mode,
-      provider:process.env.VERIFIER_PROVIDER || '',model:process.env.VERIFIER_MODEL || '',
-      model2:process.env.VERIFIER_MODEL2 || '',canonical:true});
+    verificationManifest.assessment_identity = eventAssessment;
     verificationManifest.execution_binding = executionBinding(mode);
     let recoveryOrigin;
     if (recoverySelector) {
