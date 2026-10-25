@@ -58,7 +58,7 @@ jobs:
               }
               // A rerun keeps the original event body. Refresh mutable metadata
               // only after preserving the immutable PR/head/repository binding.
-              pr = dispatchedPr ? data : { ...pr, body: data.body, labels: data.labels,
+              pr = dispatchedPr ? data : { ...pr, title: data.title, body: data.body, labels: data.labels,
                 state: data.state };
             }
             core.setOutput('pull_request', JSON.stringify(pr));
@@ -112,7 +112,7 @@ jobs:
       GATE_PR_JSON: ${{ needs.resolve-pr.outputs.pull_request }}
     steps:
       - name: Restore resolved PR event for Gate helpers
-        if: ${{ needs.resolve-pr.outputs.pull_request != 'null' }}
+        if: ${{ needs.resolve-pr.result == 'success' && needs.resolve-pr.outputs.pull_request != 'null' }}
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         with:
           script: |
@@ -215,7 +215,7 @@ jobs:
         }}
     steps:
       - name: Restore resolved PR event for Gate helpers
-        if: ${{ needs.resolve-pr.outputs.pull_request != 'null' }}
+        if: ${{ needs.resolve-pr.result == 'success' && needs.resolve-pr.outputs.pull_request != 'null' }}
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         with:
           script: |
@@ -239,7 +239,7 @@ jobs:
       GATE_PR_JSON: ${{ needs.resolve-pr.outputs.pull_request }}
     steps:
       - name: Restore resolved PR event for Gate helpers
-        if: ${{ needs.resolve-pr.outputs.pull_request != 'null' }}
+        if: ${{ needs.resolve-pr.result == 'success' && needs.resolve-pr.outputs.pull_request != 'null' }}
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         with:
           script: |
@@ -249,7 +249,9 @@ jobs:
             event.number = event.pull_request.number;
             fs.writeFileSync(process.env.GITHUB_EVENT_PATH, JSON.stringify(event));
       - name: Require an exact-head delivery seal
-        uses: stranske/Workflows/.github/actions/generated-delivery-seal@632eb20586f8403219d101e8a982b62efeb94104
+        uses: stranske/Workflows/.github/actions/generated-delivery-seal@fe1efdada4ece0e9668db83ae3867e74c29c7744
+        with:
+          pull-request-json: ${{ needs.resolve-pr.outputs.pull_request }}
 
   python-ci:
     name: python ci
@@ -301,7 +303,7 @@ jobs:
       GATE_PR_JSON: ${{ needs.resolve-pr.outputs.pull_request }}
     steps:
       - name: Restore resolved PR event for Gate helpers
-        if: ${{ needs.resolve-pr.outputs.pull_request != 'null' }}
+        if: ${{ needs.resolve-pr.result == 'success' && needs.resolve-pr.outputs.pull_request != 'null' }}
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         with:
           script: |
@@ -352,7 +354,7 @@ jobs:
       GATE_PR_JSON: ${{ needs.resolve-pr.outputs.pull_request }}
     steps:
       - name: Restore resolved PR event for Gate helpers
-        if: ${{ needs.resolve-pr.outputs.pull_request != 'null' }}
+        if: ${{ needs.resolve-pr.result == 'success' && needs.resolve-pr.outputs.pull_request != 'null' }}
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         with:
           script: |
@@ -411,7 +413,7 @@ jobs:
       GATE_PR_JSON: ${{ needs.resolve-pr.outputs.pull_request }}
     steps:
       - name: Restore resolved PR event for Gate helpers
-        if: ${{ needs.resolve-pr.outputs.pull_request != 'null' }}
+        if: ${{ needs.resolve-pr.result == 'success' && needs.resolve-pr.outputs.pull_request != 'null' }}
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         with:
           script: |
@@ -448,7 +450,7 @@ jobs:
       GATE_PR_JSON: ${{ needs.resolve-pr.outputs.pull_request }}
     steps:
       - name: Restore resolved PR event for Gate helpers
-        if: ${{ needs.resolve-pr.outputs.pull_request != 'null' }}
+        if: ${{ needs.resolve-pr.result == 'success' && needs.resolve-pr.outputs.pull_request != 'null' }}
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         with:
           script: |
@@ -507,7 +509,7 @@ jobs:
       GATE_PR_JSON: ${{ needs.resolve-pr.outputs.pull_request }}
     steps:
       - name: Restore resolved PR event for Gate helpers
-        if: ${{ needs.resolve-pr.outputs.pull_request != 'null' }}
+        if: ${{ needs.resolve-pr.result == 'success' && needs.resolve-pr.outputs.pull_request != 'null' }}
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         with:
           script: |
@@ -663,7 +665,7 @@ jobs:
       LEDGER_VALIDATE_ALLOW_SHALLOW: "1"
     steps:
       - name: Restore resolved PR event for Gate helpers
-        if: ${{ needs.resolve-pr.outputs.pull_request != 'null' }}
+        if: ${{ needs.resolve-pr.result == 'success' && needs.resolve-pr.outputs.pull_request != 'null' }}
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         with:
           script: |
@@ -731,7 +733,7 @@ jobs:
       GATE_PR_JSON: ${{ needs.resolve-pr.outputs.pull_request }}
       REQUIRED_JOB_GROUPS_JSON: ${{ vars.REQUIRED_JOB_GROUPS_JSON || '' }}
     outputs:
-      state: ${{ steps.summarize.outputs.state || steps.docs_only.outputs.state || 'success' }}
+      state: ${{ needs.resolve-pr.result != 'success' && 'failure' || steps.summarize.outputs.state || steps.docs_only.outputs.state || 'success' }}
       description: >-
         ${{ steps.summarize.outputs.description || steps.docs_only.outputs.description || '' }}
       cosmetic_failure: ${{ steps.summarize.outputs.cosmetic_failure || 'false' }}
@@ -741,7 +743,7 @@ jobs:
       autofix_label_skipped: ${{ steps.autofix_label.outputs.skipped_reason || '' }}
     steps:
       - name: Restore resolved PR event for Gate helpers
-        if: ${{ needs.resolve-pr.outputs.pull_request != 'null' }}
+        if: ${{ needs.resolve-pr.result == 'success' && needs.resolve-pr.outputs.pull_request != 'null' }}
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         with:
           script: |
@@ -750,6 +752,11 @@ jobs:
             event.pull_request = JSON.parse(process.env.GATE_PR_JSON);
             event.number = event.pull_request.number;
             fs.writeFileSync(process.env.GITHUB_EVENT_PATH, JSON.stringify(event));
+      - name: Reject unresolved PR metadata
+        if: ${{ needs.resolve-pr.result != 'success' }}
+        run: |
+          echo 'Gate PR metadata resolution failed; no summary mutation is permitted.' >&2
+          exit 1
       # Mint GitHub App token early to use for API calls (avoids rate limits)
       - name: Mint GitHub App Token
         id: app_token
@@ -765,8 +772,8 @@ jobs:
         with:
 
           token: ${{ steps.app_token.outputs.token || github.token }}
-          repository: ${{ fromJSON(needs.resolve-pr.outputs.pull_request).head.repo.full_name || github.repository }}
-          ref: ${{ fromJSON(needs.resolve-pr.outputs.pull_request).head.sha || github.sha }}
+          repository: ${{ fromJSON(needs.resolve-pr.outputs.pull_request || 'null').head.repo.full_name || github.repository }}
+          ref: ${{ fromJSON(needs.resolve-pr.outputs.pull_request || 'null').head.sha || github.sha }}
           sparse-checkout: |
             .github/actions/setup-api-client
             .github/scripts
@@ -941,7 +948,7 @@ jobs:
             }
 
       - name: Summarize results
-        if: ${{ always() }}
+        if: ${{ always() && needs.resolve-pr.result == 'success' }}
         id: summarize
         env:
           DOC_ONLY: ${{ needs.detect.outputs.doc_only || 'false' }}
@@ -961,11 +968,11 @@ jobs:
       - name: Auto-apply autofix label for cosmetic failures
         id: autofix_label
         if: |
-          fromJSON(needs.resolve-pr.outputs.pull_request).number != null &&
+          fromJSON(needs.resolve-pr.outputs.pull_request || 'null').number != null &&
           needs.detect.outputs.doc_only != 'true' &&
           steps.summarize.outputs.state == 'failure' &&
           steps.summarize.outputs.cosmetic_failure == 'true' &&
-          !contains(fromJSON(needs.resolve-pr.outputs.pull_request).labels.*.name, 'autofix:clean')
+          !contains(fromJSON(needs.resolve-pr.outputs.pull_request || 'null').labels.*.name, 'autofix:clean')
         uses: actions/github-script@v9
         env:
           ALLOWED_EXTENSIONS: 'py,pyi'
@@ -1070,7 +1077,7 @@ jobs:
           PYTHONPATH: ${{ github.workspace }}
           RUNS_JSON: ${{ steps.gather.outputs.runs || '[]' }}
           HEAD_SHA: >-
-            ${{ steps.gather.outputs.head_sha || fromJSON(needs.resolve-pr.outputs.pull_request).head.sha || github.sha }}
+            ${{ steps.gather.outputs.head_sha || fromJSON(needs.resolve-pr.outputs.pull_request || 'null').head.sha || github.sha }}
           COVERAGE_SECTION: ${{ steps.coverage_summary.outputs.body || '' }}
           COVERAGE_STATS: ${{ steps.coverage_stats.outputs.stats_json || '' }}
           COVERAGE_DELTA: ${{ steps.coverage_stats.outputs.delta_json || '' }}
@@ -1079,7 +1086,7 @@ jobs:
           GATE_ARTIFACTS_ROOT: ${{ github.workspace }}/gate_artifacts
 
       - name: Compose PR summary comment
-        if: always()
+        if: ${{ always() && needs.resolve-pr.result == 'success' }}
         id: compose_comment
         run: |
           python <<'PY'
@@ -1113,14 +1120,14 @@ jobs:
           PY
         env:
           SUMMARY_BODY: ${{ steps.summary_body.outputs.body }}
-          PR_NUMBER: ${{ fromJSON(needs.resolve-pr.outputs.pull_request).number }}
+          PR_NUMBER: ${{ fromJSON(needs.resolve-pr.outputs.pull_request || 'null').number }}
           HEAD_SHA: >-
-            ${{ steps.gather.outputs.head_sha || fromJSON(needs.resolve-pr.outputs.pull_request).head.sha || github.sha }}
+            ${{ steps.gather.outputs.head_sha || fromJSON(needs.resolve-pr.outputs.pull_request || 'null').head.sha || github.sha }}
 
       - name: Append keepalive checklists
         uses: actions/github-script@v9
         env:
-          PR_NUMBER: ${{ fromJSON(needs.resolve-pr.outputs.pull_request).number }}
+          PR_NUMBER: ${{ fromJSON(needs.resolve-pr.outputs.pull_request || 'null').number }}
           LABEL_APPLIED: ${{ steps.autofix_label.outputs.applied || 'false' }}
         with:
           github-token: >-
@@ -1247,7 +1254,7 @@ jobs:
             } >> gate-summary.md
 
       - name: Upload Gate summary artifact
-        if: always()
+        if: ${{ always() && needs.resolve-pr.result == 'success' }}
         uses: actions/upload-artifact@v7
         with:
           name: gate-summary.md
@@ -1257,7 +1264,7 @@ jobs:
           overwrite: true
 
       - name: Upload coverage stats artifact
-        if: ${{ always() && steps.coverage_stats.outputs.stats_json != '' }}
+        if: ${{ always() && needs.resolve-pr.result == 'success' && steps.coverage_stats.outputs.stats_json != '' }}
         uses: actions/upload-artifact@v7
         with:
           name: gate-coverage.json
@@ -1267,7 +1274,7 @@ jobs:
           overwrite: true
 
       - name: Upload coverage delta artifact
-        if: ${{ always() && steps.coverage_stats.outputs.delta_json != '' }}
+        if: ${{ always() && needs.resolve-pr.result == 'success' && steps.coverage_stats.outputs.delta_json != '' }}
         uses: actions/upload-artifact@v7
         with:
           name: gate-coverage-delta.json
@@ -1277,7 +1284,7 @@ jobs:
           overwrite: true
 
       - name: Upload coverage summary artifact copy
-        if: ${{ always() && steps.coverage_summary.outputs.body != '' }}
+        if: ${{ always() && needs.resolve-pr.result == 'success' && steps.coverage_summary.outputs.body != '' }}
         uses: actions/upload-artifact@v7
         with:
           name: gate-coverage-summary.md
@@ -1287,7 +1294,7 @@ jobs:
           overwrite: true
 
       - name: Ensure consolidated summary comment
-        if: always()
+        if: ${{ always() && needs.resolve-pr.result == 'success' }}
         uses: actions/github-script@v9
         with:
           github-token: ${{ github.token }}
@@ -1354,7 +1361,7 @@ jobs:
             }
 
       - name: Report Gate commit status
-        if: ${{ always() }}
+        if: ${{ always() && needs.resolve-pr.result == 'success' }}
         uses: actions/github-script@v9
         env:
           STATE: >-

@@ -974,7 +974,10 @@ patch the generated Inv-Man sync PR directly. The policy is valid only for an
 A rerun retains its original pull-request event body. Its later start time does
 not prove that it evaluated a seal subsequently written by Maint 71. Gate's
 resolver reads current metadata while preserving the original PR number, head
-SHA and head repository. Classifier and seal consume that same resolved snapshot;
+SHA and head repository. The classifier consumes that snapshot from the job environment and the seal
+action receives it through its explicit `pull-request-json` input. The runner
+rewrites `event.json` before every action, so file restoration alone cannot
+carry the snapshot across that boundary. Both guards validate the same snapshot;
 a changed head, repository, closed PR or unavailable read refuses the evaluation.
 An ordinary fork PR keeps its original read-only identity. PR-bound manual
 runs retain their existing same-repository/head restrictions.

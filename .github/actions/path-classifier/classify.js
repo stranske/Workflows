@@ -207,7 +207,10 @@ function parseGithubContext() {
   }
   const resolvedJson = process.env.GATE_PR_JSON;
   if (!resolvedJson || resolvedJson === 'null') return context;
-  const resolved = JSON.parse(resolvedJson);
+  let resolved;
+  try { resolved = JSON.parse(resolvedJson); } catch {
+    throw new Error('Resolved Gate PR metadata is malformed');
+  }
   const original = context.event?.pull_request;
   if (!resolved || resolved.state !== 'open' || !Number.isSafeInteger(resolved.number) || resolved.number <= 0
       || !resolved.head?.sha || !resolved.head?.repo?.full_name) {

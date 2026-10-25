@@ -250,9 +250,9 @@ const execute = new (Object.getPrototypeOf(async function(){}).constructor)(
 (async () => {
   process.env.PR_NUMBER = '';
   process.env.GITHUB_REPOSITORY = 'owner/repo';
-  const original = {number:42,state:'open',body:'staging',
-    head:{sha:'same-head',repo:{full_name:'owner/repo'}}};
-  const fresh = structuredClone(original); fresh.body='sealed';
+  const original = {number:42,state:'open',title:'old title',body:'staging',
+    base:{ref:'main'},head:{ref:'sync/workflows-candidate',sha:'same-head',repo:{full_name:'owner/repo'}}};
+  const fresh = structuredClone(original); fresh.body='sealed'; fresh.title='current title';
   const context = {eventName:'pull_request',sha:'synthetic-merge',
     repo:{owner:'owner',repo:'repo'},payload:{pull_request:original}};
   let reads=0; let output;
@@ -263,8 +263,10 @@ const execute = new (Object.getPrototypeOf(async function(){}).constructor)(
   const core={setOutput:(_name,value)=>{output=JSON.parse(value);}};
   await execute(github,context,core);
   assert.equal(reads,1); assert.equal(output.body,'sealed');
+  assert.equal(output.title,'current title');
   assert.equal(original.body,'staging');
   for (const mutate of [
+    p=>{p.number=43;},p=>{p.head.ref='changed-branch';},p=>{p.base.ref='changed-base';},
     p=>{p.head.sha='changed-head';},
     p=>{p.head.repo.full_name='foreign/repo';},
     p=>{p.state='closed';},
@@ -305,6 +307,10 @@ def test_resolved_snapshot_drives_both_delivery_guards(workflow_path: str, tmp_p
             for name in ("detect", "generated-delivery-seal")
         ],
     }
+    seal_action = jobs["generated-delivery-seal"]["steps"][1]
+    assert seal_action["with"]["pull-request-json"] == (
+        "${{ needs.resolve-pr.outputs.pull_request }}"
+    )
     for name in ("detect", "generated-delivery-seal"):
         assert "needs.resolve-pr.outputs.pull_request" in jobs[name]["steps"][0]["if"]
         assert "workflow_dispatch" not in jobs[name]["steps"][0]["if"]
@@ -343,7 +349,14 @@ const execute=new(Object.getPrototypeOf(async function(){}).constructor)(
   const restored=JSON.parse(fs.readFileSync(process.env.GITHUB_EVENT_PATH,'utf8'));
   const parsed=classifier.parseGithubContext();
   assert.deepEqual(restored.pull_request,parsed.event.pull_request);
-  assert.equal(seal.evaluateDeliverySeal(restored,repo,now).valid,true);
+  // GitHub rewrites event.json before the NEXT action. The seal must read
+  // its explicit input, not rely on the previous restoration surviving.
+  fs.writeFileSync(process.env.GITHUB_EVENT_PATH,JSON.stringify(ctx.event));
+  const reset=JSON.parse(fs.readFileSync(process.env.GITHUB_EVENT_PATH,'utf8'));
+  assert.equal(seal.evaluateDeliverySeal(reset,repo,now).valid,false);
+  const delivered=seal.resolvedSealEvent(reset,process.env.GATE_PR_JSON,
+    {repository:repo,eventName:'pull_request',sha:'synthetic-merge'});
+  assert.equal(seal.evaluateDeliverySeal(delivered,repo,now).valid,true);
   assert.equal(classifier.stableDeliverySealStatus(parsed,{contract,now}).valid,true);
  }
  for (const mutate of [
@@ -370,3 +383,20 @@ const execute=new(Object.getPrototypeOf(async function(){}).constructor)(
     )
     result = subprocess.run(["node", "-e", prefix + harness], capture_output=True, text=True)
     assert result.returncode == 0, result.stdout + result.stderr
+
+
+@pytest.mark.parametrize("workflow_path", GATE_FILES)
+def test_summary_fails_closed_when_resolver_fails(workflow_path: str) -> None:
+    workflow = yaml.safe_load((ROOT / workflow_path).read_text())
+    summary = workflow["jobs"]["summary"]
+    assert summary["if"] == "${{ always() }}"
+    rejection = next(s for s in summary["steps"] if s["name"] == "Reject unresolved PR metadata")
+    assert "needs.resolve-pr.result != 'success'" in rejection["if"]
+    assert "exit 1" in rejection["run"]
+    assert "'failure'" in summary["outputs"]["state"]
+    for step in summary["steps"]:
+        condition = step.get("if", "")
+        if "always()" in condition or step["name"] == "Restore resolved PR event for Gate helpers":
+            assert "needs.resolve-pr.result == 'success'" in condition
+        for expression in [str(step.get("env", {})), str(step.get("with", {})), condition]:
+            assert "fromJSON(needs.resolve-pr.outputs.pull_request)" not in expression
