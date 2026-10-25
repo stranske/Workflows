@@ -1307,10 +1307,15 @@ async function fetchVerifierEvidence({
     ? Array.from(explicitEvidenceRunIds)
     : allReferencedRunIds).sort((left,right) =>
       Number(selectedRunIds.has(right))-Number(selectedRunIds.has(left)));
-  const referencedRunIds = allRunIds.slice(0, runLimit);
+  // Named material has its own validated finite (20-selector) bound. Optional
+  // discovery limits must not silently discard one of those required runs.
+  const referencedRunIds = artifactSelectors.length
+    ? [...selectedRunIds, ...allRunIds.filter(id => !selectedRunIds.has(id)).slice(0,runLimit)]
+    : allRunIds.slice(0, runLimit);
   const runIds = [];
   const runHeads = new Map();
   const runPaths = new Map();
+  const runMetadata = new Map();
   const pendingManualBindings = new Map();
   const historicalBaselineBindings = new Map();
   const seenRunIds = new Set();
@@ -1384,6 +1389,7 @@ async function fetchVerifierEvidence({
       runIds.push(runId);
       runHeads.set(runId, runHeadSha);
       runPaths.set(runId, workflowRun.path);
+      runMetadata.set(runId, workflowRun);
     } catch (error) {
       artifactIncomplete = true;
       artifacts.reason = `workflow run provenance failed for referenced run ${runId}: ${error.message}`;
@@ -1465,7 +1471,7 @@ async function fetchVerifierEvidence({
           continue;
         }
         if (!seenRunIds.has(runId)) {
-          if (runIds.length >= runLimit) {
+          if ((artifactSelectors.length ? runIds.filter(id => !selectedRunIds.has(id)).length : runIds.length) >= runLimit) {
             artifactIncomplete = true;
             artifacts.reason = 'workflow run count limit prevented complete artifact inspection';
             associatedRunDiscoveryComplete = false;
@@ -1476,6 +1482,7 @@ async function fetchVerifierEvidence({
           runIds.push(runId);
           runHeads.set(runId, commitSha.toLowerCase());
           runPaths.set(runId, workflowRun.path);
+          runMetadata.set(runId, workflowRun);
         }
       }
     } catch (error) {
@@ -1496,23 +1503,50 @@ async function fetchVerifierEvidence({
   for (const runId of runIds) {
     const manualBinding=pendingManualBindings.get(runId);
     let manualBindingValidated=false;
-    if (inspectedArtifacts >= artifactLimit) {
+    if (inspectedArtifacts >= artifactLimit && !selectedRunIds.has(runId)) {
       artifactIncomplete = true;
       fail("artifacts", "artifact_record", "global artifact record bound");
       break;
     }
     try {
-      if (!github?.rest?.actions?.listWorkflowRunArtifacts || !github?.rest?.actions?.downloadArtifact) {
+      if ((!github?.rest?.actions?.listWorkflowRunArtifacts && !selectedRunIds.has(runId)) || !github?.rest?.actions?.downloadArtifact) {
         throw new Error('workflow artifact API is unavailable');
       }
-      const listing = await boundedEvidencePages({
-        method: github.rest.actions.listWorkflowRunArtifacts,
-        params: { owner, repo, run_id: runId }, key: 'artifacts', recordLimit: artifactLimit - inspectedArtifacts,
-        pageLimit: positiveLimit('VERIFIER_EVIDENCE_ARTIFACT_PAGES', Math.ceil(artifactLimit / 100)), kind: 'artifact', diagnostics,
-      });
+      const listing = inspectedArtifacts < artifactLimit && github?.rest?.actions?.listWorkflowRunArtifacts
+        ? await boundedEvidencePages({
+          method: github.rest.actions.listWorkflowRunArtifacts,
+          params: { owner, repo, run_id: runId }, key: 'artifacts', recordLimit: artifactLimit - inspectedArtifacts,
+          pageLimit: positiveLimit('VERIFIER_EVIDENCE_ARTIFACT_PAGES', Math.ceil(artifactLimit / 100)), kind: 'artifact', diagnostics,
+        }) : {items:[],failure:inspectedArtifacts >= artifactLimit ? 'record' : 'transport',detail:'optional artifact listing bound or API unavailable'};
       const selectedArtifactIds = new Set(artifactSelectors.filter(row => row.run_id === runId).map(row => row.artifact_id));
+      const directArtifacts = [];
+      for (const artifactId of selectedArtifactIds) {
+        if (listing.items.some(item => item.id === artifactId)) continue;
+        try {
+          if (!github?.rest?.actions?.getArtifact) throw new Error('Selected artifact metadata API unavailable');
+          const artifact = (await github.rest.actions.getArtifact({owner,repo,artifact_id:artifactId,request:{timeout:15000}})).data;
+          const origin = runMetadata.get(runId);
+          const binding = artifact?.workflow_run;
+          if (artifact?.id !== artifactId || !binding || binding.id !== runId || binding.head_sha !== runHeads.get(runId)
+              || !Number.isSafeInteger(origin?.repository?.id) || origin.repository.id < 1
+              || String(origin.repository.full_name).toLowerCase() !== `${owner}/${repo}`.toLowerCase()
+              || origin.head_repository?.id !== origin.repository.id
+              || String(origin.head_repository?.full_name).toLowerCase() !== `${owner}/${repo}`.toLowerCase()
+              || binding.repository_id !== origin.repository.id || binding.head_repository_id !== origin.head_repository.id
+              || typeof artifact.expired !== 'boolean' || !/^sha256:[a-f0-9]{64}$/.test(artifact.digest || '')) {
+            throw Object.assign(new Error('Selected artifact run/repository/head/digest identity mismatch'),{code:'SELECTED_ARTIFACT_PROVENANCE'});
+          }
+          directArtifacts.push(artifact);
+        } catch (error) {
+          artifactIncomplete=true;
+          diagnostics.archive_inventory.push({repository:`${owner}/${repo}`,run_id:runId,head_sha:runHeads.get(runId),
+            artifact_id:artifactId,status:'unavailable',members:null,reason:'selected_metadata_lookup_failed'});
+          fail('artifacts',error.code==='SELECTED_ARTIFACT_PROVENANCE'?'provenance':'artifact_transport',`selected artifact ${artifactId}: ${error.message}`);
+          if(error.code==='SELECTED_ARTIFACT_PROVENANCE') diagnostics.counters.provenance_failures+=1;
+        }
+      }
       const listedArtifacts = artifactSelectors.length
-        ? [...listing.items].sort((left,right) => Number(selectedArtifactIds.has(right.id))-Number(selectedArtifactIds.has(left.id)))
+        ? [...listing.items,...directArtifacts].sort((left,right) => Number(selectedArtifactIds.has(right.id))-Number(selectedArtifactIds.has(left.id)))
         : listing.items;
       if (listing.failure) {
         artifactIncomplete = true;
@@ -1520,11 +1554,13 @@ async function fetchVerifierEvidence({
         fail('artifacts', `artifact_${listing.failure}`, artifacts.reason);
       }
       for (const artifact of listedArtifacts) {
-        if (inspectedArtifacts >= artifactLimit) {
+        const isSelected=selectedArtifactIds.has(artifact.id);
+        if ((!artifactSelectors.length || !isSelected) && inspectedArtifacts >= artifactLimit) {
           artifactIncomplete = true;
-          break;
+          if (!artifactSelectors.length) break;
+          continue;
         }
-        inspectedArtifacts += 1;
+        if (!artifactSelectors.length || !isSelected) inspectedArtifacts += 1;
         // Preserve identities even when no payload can be admitted. This is a
         // capture ledger, never semantic proof or a completeness upgrade.
         const capture = { repository: `${owner}/${repo}`, run_id: runId,
@@ -1593,6 +1629,11 @@ async function fetchVerifierEvidence({
         capture.archive_sha256 = createHash('sha256').update(archiveBuffer).digest('hex');
         capture.archive_bytes = archiveBuffer.length;
         diagnostics.counters.archive_bytes += archiveBuffer.length;
+        if (isSelected && artifact.digest !== undefined && artifact.digest !== `sha256:${capture.archive_sha256}`) {
+          artifactIncomplete=true;capture.reason='archive_digest_mismatch';
+          fail('artifacts','archive_integrity',`selected artifact ${artifact.id} digest mismatch`);
+          continue;
+        }
         if (manualBinding && artifact.id===manualBinding.artifact_id) {
           manualBindingValidated=validateHistoricalManualArtifact(manualBinding,artifact,capture.archive_sha256);
           if (!manualBindingValidated) {

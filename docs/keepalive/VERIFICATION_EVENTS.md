@@ -48,8 +48,14 @@ The optional workflow inputs are:
   every named path (at most eight distinct paths per collection). It retains Git
   blob IDs and SHA-256 identities in the material binding. This proves only those paths are unchanged; it neither makes the old
   run current CI nor establishes equivalent requirements or acceptance.
-  Selected artifacts and members are retrieved within the existing bounds without
-  reading oversized unselected siblings. The full bounded inventory retains those
+  Explicit selected run and artifact IDs use the existing finite material-selector
+  bound independently of optional discovery counts. If a selected ID is beyond a
+  bounded artifact listing, the collector reads its metadata directly and checks
+  its exact run, repository, head and SHA-256 archive digest before extraction.
+  An incomplete optional listing stays incomplete; resolving one selected ID does
+  not certify undiscovered siblings. Archive, extraction and transport byte limits
+  are unchanged. Selected artifacts and members are retrieved without reading
+  oversized unselected siblings. The full bounded inventory retains those
   siblings as `unselected`, never complete or reviewed. Their availability gaps
   can be omitted only when the existing evidence policy permits that channel to
   be optional. Required selected truncation, unsafe members, duplicate identities
