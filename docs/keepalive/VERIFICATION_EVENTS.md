@@ -203,12 +203,16 @@ node --test tests/scripts/test_verification_event.js .github/scripts/__tests__/a
 PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python3 -m pytest tests/workflows/test_repeat_verification_lifecycle.py -q -o addopts=''
 ```
 
-### Input-repair provenance for results retained before the marker existed
+## Input-repair provenance for results retained before the marker existed
 
 Changed-input recovery of a retained provider outcome that included
 `UNVERIFIABLE_INPUT` needs one authenticated `verifier-input-repair/v1` marker.
 Runs that finished before the producer emitted it (#4231, #4235, #4238) have none.
-`verification_provenance` publishes that marker for such a run and nothing else:
+`verification_provenance` publishes that marker for such a run and nothing else.
+The source owner must dispatch it before the original `comparison-results-<run>`
+or `evaluation-results-<run>` artifact expires. Retention is at most seven days
+after the original run. After expiry, the dispatch is rejected and the marker
+cannot be published:
 
 ```sh
 gh workflow run agents-verifier.yml -f pr_number=<PR> -f mode=<original mode> -f provider=<original provider> \
@@ -248,7 +252,7 @@ No `verifier-event-state` or terminal record is written, so the original attempt
 latest canonical work. The marker grants no verdict, acceptance or same-event retry; a later
 changed-input admission still has to collect sufficient, demonstrably changed material.
 
-### Provider-free retained-output recovery
+## Provider-free retained-output recovery
 
 `verification_recovery` is an optional JSON string containing exactly positive
 integer `run_id`, `run_attempt`, and `artifact_id` selectors. It accepts no

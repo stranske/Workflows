@@ -419,3 +419,11 @@ test('an exact provenance publication arriving during authentication is an idemp
   assert.equal(result.duplicate, true);
   assert.equal(w.posts.length, 0);
 });
+
+
+test('provenance setup actions cannot resolve against caller-controlled workspace bytes', () => {
+  for (const action of ['setup-api-client', 'resolve-default-branch']) {
+    assert.match(jobText, new RegExp(`uses: stranske/Workflows/\\.github/actions/${action}@[a-f0-9]{40}(?: |\\n)`));
+  }
+  assert.doesNotMatch(jobText, /uses: \.\//);
+});

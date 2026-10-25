@@ -23,4 +23,8 @@ constant expression "false" in condition
 # concurrency schema checks in test_maint46_post_ci_sparse_checkout.py.
 ^unexpected key "queue" for "concurrency" section\. expected one of "cancel-in-progress", "group"$
 
+# GitHub now permits 25 dispatch inputs; pinned actionlint 1.7.3 still caps at 10.
+# https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#onworkflow_dispatchinputs
+# The independent workflow schema/count guard rejects 26+, and the exact regex
+# below ignores only the obsolete 11..25 count diagnostic (no other validation).
 ^maximum number of inputs for "workflow_dispatch" event is 10 but (1[1-9]|2[0-5]) inputs are provided\. see https://docs\.github\.com/en/actions/using-workflows/events-that-trigger-workflows#providing-inputs$
