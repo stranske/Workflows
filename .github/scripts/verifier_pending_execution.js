@@ -1,6 +1,6 @@
 'use strict';
 
-const { digest, validateEvent, sameAssessment, parseRecoverySelector, completedEvent } = require('./verification_event.js');
+const { canonical, digest, validateEvent, sameAssessment, parseRecoverySelector, completedEvent, inputRepairMarker } = require('./verification_event.js');
 const { createTokenAwareRetry } = require('./github-api-with-retry.js');
 
 function executionBinding(mode) {
@@ -149,9 +149,10 @@ async function reconcilePendingExecution({github,event,assessment,state,maxPages
 
 // Recovery accepts selectors only. Every authority-bearing field below comes
 // from authenticated Actions APIs, not the caller or the retained JSON itself.
-async function acquireRetainedExecution({github,event,assessment,selector,currentRun,maxBytes=8388608}) {
+async function acquireRetainedExecution({github,event,assessment,selector,currentRun,maxBytes=8388608,directory='.',pullRequestTargetOrigin=false}) {
   const {createHash} = require('crypto');
   const fs = require('fs');
+  const path = require('path');
   const selected = parseRecoverySelector(typeof selector === 'string' ? selector : JSON.stringify(selector));
   if (!selected || !Number.isSafeInteger(currentRun) || currentRun <= selected.run_id) throw new Error('Recovery source must precede current execution');
   validateEvent(event);
@@ -184,7 +185,20 @@ async function acquireRetainedExecution({github,event,assessment,selector,curren
       || !['workflow_dispatch','pull_request_target'].includes(run.event)
       || !boundRepo(run.repository) || !boundRepo(run.head_repository)
       || run.repository.id !== run.head_repository.id || !/^[0-9a-f]{40}$/.test(run.head_sha || '')) throw new Error('Retained source run is not an exact trusted completed attempt');
-  const callerOrigin=await canonicalCommit(event.repo,run.head_sha);
+  let callerOrigin;
+  if(pullRequestTargetOrigin && run.event==='pull_request_target') {
+    // This event executes trusted base-branch workflow code, but the API reports the PR head.
+    // Restrict this opt-in witness to the same-repo default base and exact post-merge subject.
+    // The canonical evaluated merge is an origin witness, not a claim about the executed caller SHA.
+    // https://docs.github.com/en/actions/reference/security/securely-using-pull_request_target
+    const pull=await read(client=>client.rest.pulls.get({owner,repo,pull_number:Number(event.pr),request:{timeout:15000}}));
+    const metadata=await read(client=>client.rest.repos.get({owner,repo,request:{timeout:15000}}));
+    if(pull.merged!==true || pull.head?.sha!==run.head_sha || event.head_sha!==run.head_sha || pull.merge_commit_sha!==event.evaluated_sha
+        || String(metadata.full_name).toLowerCase()!==event.repo || typeof metadata.default_branch!=='string'
+        || String(pull.base?.repo?.full_name).toLowerCase()!==event.repo || pull.base?.ref!==metadata.default_branch
+        || !(Date.parse(run.created_at)>=Date.parse(pull.merged_at))) throw new Error('Retained pull_request_target run is not this merged pull request post-merge verification');
+    callerOrigin=await canonicalCommit(event.repo,pull.merge_commit_sha);
+  } else callerOrigin=await canonicalCommit(event.repo,run.head_sha);
   const references = (run.referenced_workflows || []).filter(row => row.path?.startsWith('stranske/Workflows/.github/workflows/reusable-agents-verifier.yml@'));
   if (references.length !== 1 || !/^[0-9a-f]{40}$/.test(references[0].sha || '')) throw new Error('Retained reusable workflow origin unavailable');
   const jobs = [], ids = new Set();
@@ -246,8 +260,8 @@ async function acquireRetainedExecution({github,event,assessment,selector,curren
     job_id:job.id,job_inventory_sha256:digest(jobs),checkout_log_sha256:createHash('sha256').update(lines).digest('hex'),
     artifact_id:artifact.id,artifact_name:artifact.name,archive_sha256:archiveHash,archive_bytes:archive.length,
     verification_event:event,assessment_identity:assessment};
-  fs.writeFileSync('verification-recovery-source.zip',archive,{flag:'wx'});
-  fs.writeFileSync('verification-recovery-origin.json',JSON.stringify(proof,null,2)+'\n',{flag:'wx'});
+  fs.writeFileSync(path.join(directory,'verification-recovery-source.zip'),archive,{flag:'wx'});
+  fs.writeFileSync(path.join(directory,'verification-recovery-origin.json'),JSON.stringify(proof,null,2)+'\n',{flag:'wx'});
   return proof;
 }
 
@@ -413,4 +427,183 @@ async function publishRetainedReport({github,manifest,origin,body,currentRun,cur
   }
 }
 
-module.exports = {executionBinding,reconcilePendingExecution,acquireRetainedExecution,guardRecoveryHistory,guardRetainedRecoveryHistory,publishRetainedReport};
+const CRC_TABLE=(()=>{const table=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xedb88320^(c>>>1):c>>>1;table[n]=c>>>0;}return table;})();
+function crc32(bytes) {let c=0xffffffff;for(const byte of bytes)c=CRC_TABLE[(c^byte)&0xff]^(c>>>8);return (c^0xffffffff)>>>0;}
+
+// Bounded, no-subprocess reader for the already digest-authenticated retained archive.
+// Anything unusual (zip64, encryption, links, duplicate or nested names) is refused, not skipped.
+function readRetainedArchive(archive,{maxEntries=80,maxBytes=33554432}={}) {
+  const zlib=require('zlib');
+  const fail=reason=>{throw new Error(`Retained archive inventory unsafe or incomplete: ${reason}`);};
+  try {
+    let eocd=-1;
+    for(let at=archive.length-22;at>=Math.max(0,archive.length-65557);at--) if(archive.readUInt32LE(at)===0x06054b50){eocd=at;break;}
+    if(eocd<0 || eocd+22+archive.readUInt16LE(eocd+20)!==archive.length) fail('end record');
+    const total=archive.readUInt16LE(eocd+10),cdSize=archive.readUInt32LE(eocd+12),cdOffset=archive.readUInt32LE(eocd+16);
+    if(archive.readUInt16LE(eocd+4)||archive.readUInt16LE(eocd+6)||archive.readUInt16LE(eocd+8)!==total
+        || !total||total>maxEntries||total===0xffff||cdSize===0xffffffff||cdOffset===0xffffffff||cdOffset+cdSize!==eocd) fail('directory');
+    const files=new Map();
+    let at=cdOffset,expanded=0;
+    for(let index=0;index<total;index++) {
+      if(at+46>eocd || archive.readUInt32LE(at)!==0x02014b50) fail('entry header');
+      const flags=archive.readUInt16LE(at+8),method=archive.readUInt16LE(at+10),crc=archive.readUInt32LE(at+16),
+        packed=archive.readUInt32LE(at+20),size=archive.readUInt32LE(at+24),nameLength=archive.readUInt16LE(at+28),
+        extraLength=archive.readUInt16LE(at+30),commentLength=archive.readUInt16LE(at+32),
+        attributes=archive.readUInt32LE(at+38),offset=archive.readUInt32LE(at+42);
+      const end=at+46+nameLength+extraLength+commentLength;
+      if(end>eocd) fail('entry bounds');
+      const name=archive.subarray(at+46,at+46+nameLength).toString('utf8');
+      at=end;
+      if((flags&1) || ![0,8].includes(method) || packed===0xffffffff || size===0xffffffff || !name || name.endsWith('/')
+          || /[\\/\u0000]/.test(name) || name==='.' || name==='..'
+          || ((attributes>>>16)&0o170000)===0o120000 || files.has(name)) fail(`member ${index}`);
+      expanded+=size;
+      if(expanded>maxBytes) fail('expanded size');
+      if(offset+30>cdOffset || archive.readUInt32LE(offset)!==0x04034b50) fail('local header');
+      const localLength=archive.readUInt16LE(offset+26),start=offset+30+localLength+archive.readUInt16LE(offset+28);
+      if(archive.subarray(offset+30,offset+30+localLength).toString('utf8')!==name || start+packed>cdOffset) fail('local member');
+      const data=archive.subarray(start,start+packed);
+      let bytes;
+      try {bytes=method===0?Buffer.from(data):zlib.inflateRawSync(data,{maxOutputLength:size+1});} catch {fail('compressed data');}
+      if(bytes.length!==size || crc32(bytes)!==crc) fail('member integrity');
+      files.set(name,bytes);
+    }
+    if(at!==eocd) fail('trailing directory');
+    return files;
+  } catch(error) {
+    if(String(error.message).startsWith('Retained archive inventory')) throw error;
+    return fail('malformed archive');
+  }
+}
+
+const REPAIR_MARKER=/<!-- verifier-input-repair\/v1 (\{[^\n]+\}) -->/g;
+const TRUSTED_AUTHORS=['github-actions','github-actions[bot]'];
+const BAD_RECEIPT_STATUS=['process_failed','retention_failed','output_truncated','invalid_output'];
+
+// Provenance only. Authenticates one already-retained, nonretryable mixed result and appends
+// the same marker the producer now emits; it creates no pending/incomplete/terminal state, so
+// the original run stays the latest canonical attempt. It grants no verdict, acceptance or retry.
+async function publishInputRepairProvenance({github,owner,repo,prNumber,assessment,selector,currentRun,currentAttempt=1,directory,onPostAttempt=()=>{}}) {
+  const {createHash}=require('crypto');
+  const fs=require('fs');
+  const path=require('path');
+  const sha=bytes=>createHash('sha256').update(bytes).digest('hex');
+  const selected=parseRecoverySelector(typeof selector==='string'?selector:JSON.stringify(selector));
+  if(!selected || !Number.isSafeInteger(currentRun) || currentRun<=selected.run_id || !/^[1-9]\d*$/.test(String(prNumber))) throw new Error('Input-repair provenance requires an exact earlier retained run and pull request');
+  if(!['evaluate','compare'].includes(assessment?.mode) || assessment.canonical!==true) throw new Error('Input-repair provenance requires a canonical evaluate or compare assessment');
+  const slug=`${owner}/${repo}`.toLowerCase();
+  const {withRetry}=await createTokenAwareRetry({github,task:'verifier',capabilities:['read-repo'],minRemaining:50});
+  const opts={maxRetries:2,initialDelay:250,maxDelay:1000};
+  const read=async fn=>(await withRetry(fn,opts)).data;
+  const pull=await read(client=>client.rest.pulls.get({owner,repo,pull_number:Number(prNumber),request:{timeout:15000}}));
+  if(pull.merged!==true || !/^[0-9a-f]{40}$/.test(pull.head?.sha||'') || !/^[0-9a-f]{40}$/.test(pull.merge_commit_sha||'')) throw new Error('Provenance target is not a merged pull request');
+  const comments=async()=>{
+    const rows=[],ids=new Set();let complete=false;
+    for(let page=1;page<=10;page++) {
+      const response=await withRetry(client=>client.rest.issues.listComments({owner,repo,issue_number:Number(prNumber),per_page:100,page,request:{timeout:15000}}),opts);
+      if(!Array.isArray(response.data)) throw new Error('Provenance history incomplete');
+      for(const row of response.data) {
+        if(ids.has(row.id) || typeof row.body!=='string') throw new Error('Provenance history ambiguous');
+        ids.add(row.id);rows.push({author:row.user?.login,url:row.html_url,body:row.body,truncated:false});
+      }
+      if(!response.headers?.link?.includes('rel="next"')) {complete=true;break;}
+    }
+    if(!complete) throw new Error('Provenance history incomplete');
+    return rows;
+  };
+  const prefix=`https://github.com/${slug}/pull/${Number(prNumber)}#issuecomment-`;
+  const trusted=rows=>rows.filter(row=>TRUSTED_AUTHORS.includes(row.author) && String(row.url).toLowerCase().startsWith(prefix));
+  const subject={repo:slug,pr:String(Number(prNumber)),head_sha:pull.head.sha,evaluated_sha:pull.merge_commit_sha};
+  const sameAttempt=row=>String(row.run_id)===String(selected.run_id) && String(row.run_attempt)===String(selected.run_attempt);
+  const before=await comments();
+  // Only authenticated Actions rows of this exact attempt can name the original execution.
+  const attempt=[];
+  for(const comment of trusted(before)) for(const match of comment.body.matchAll(/<!-- (verifier-event-state\/v1|verifier-corpus-decision\/v1) (\{[^\n]+\}) -->/g)) {
+    let row;try {row=JSON.parse(match[2]);} catch {continue;}
+    if(!sameAttempt(row) || !Object.entries(subject).every(([key,value])=>String(row[key]).toLowerCase()===value)) continue;
+    attempt.push({schema:match[1],row});
+  }
+  const states=attempt.filter(entry=>entry.schema==='verifier-event-state/v1'&&['pending','incomplete'].includes(entry.row.status)&&entry.row.verdict===undefined);
+  if(!attempt.length || states.length!==attempt.length || states.some(({row})=>!sameAssessment(row.assessment_identity,assessment)
+      || canonical(row.assessment_identity)!==canonical(assessment))) throw new Error('Original attempt is not exactly one nonterminal canonical assessment');
+  const incomplete=[...new Map(states.filter(({row})=>row.status==='incomplete').map(({row})=>[digest(row),row])).values()];
+  if(incomplete.length!==1) throw new Error('Original attempt lacks exactly one incomplete state');
+  const state=incomplete[0];
+  const event=validateEvent(state.verification_event);
+  if(states.some(({row})=>validateEvent(row.verification_event).event_id!==event.event_id)
+      || Object.entries(subject).some(([key,value])=>event[key]!==value)
+      || state.failure_cause!=='retained_provider_evaluation' || state.retry_kind!=='recover_existing_evaluation'
+      || state.retryable!==false || state.input_repair!==undefined) throw new Error('Original attempt is not a nonretryable retained provider evaluation');
+  // Same ordering guard as retained recovery: any newer canonical or malformed target work blocks.
+  guardRecoveryHistory({event,assessment,comments:before,sourceRun:selected.run_id,sourceAttempt:selected.run_attempt,
+    currentRun,currentAttempt,recoveryKey:'input-repair-provenance'});
+  const proof=await acquireRetainedExecution({github,event,assessment,selector:selected,currentRun,directory,pullRequestTargetOrigin:true});
+  const archive=fs.readFileSync(path.join(directory,'verification-recovery-source.zip'));
+  if(sha(archive)!==proof.archive_sha256 || archive.length!==proof.archive_bytes) throw new Error('Retained archive changed after authentication');
+  const files=readRetainedArchive(archive);
+  const stem=assessment.mode==='evaluate'?'evaluation':'comparison';
+  const [manifestBytes,resultBytes,receiptBytes]=[files.get('verification-event-manifest.json'),files.get(`${stem}.json`),files.get(`${stem}-execution.json`)];
+  if(!manifestBytes || !resultBytes || !receiptBytes) throw new Error('Mandatory retained provenance members missing');
+  const original=JSON.parse(manifestBytes),receipt=JSON.parse(receiptBytes),payload=JSON.parse(resultBytes);
+  if(canonical(validateEvent(original.verification_event))!==canonical(event) || canonical(original.assessment_identity)!==canonical(state.assessment_identity)
+      || original.predecessor_event_id!==state.predecessor_event_id
+      || digest(original.request)!==event.request_sha256 || digest(original.material)!==event.material_sha256
+      || original.material?.schema!=='verification-material/v1') throw new Error('Retained archive is not the original authenticated event');
+  const output=receipt.outputs?.[`${stem}.json`];
+  if(receipt.schema!==`workflows-verifier-${stem}-execution/v1` || receipt.mode!==assessment.mode || receipt.exit_code!==0
+      || String(receipt.repository).toLowerCase()!==slug
+      || String(receipt.source_run_id)!==String(selected.run_id) || String(receipt.source_run_attempt)!==String(selected.run_attempt)
+      || BAD_RECEIPT_STATUS.includes(receipt.status) || !output || typeof output!=='object'
+      || output.sha256!==sha(resultBytes) || output.bytes!==resultBytes.length || (output.truncated??false)!==false) throw new Error('Retained receipt does not join the retained result');
+  const rows=assessment.mode==='evaluate'?[payload]:payload?.results;
+  // Every slot must have actually run; provider verdicts are copied, never interpreted.
+  if(!Array.isArray(rows) || !rows.length || rows.some(row=>!row || typeof row!=='object' || row.used_llm!==true || row.error
+      || !['PASS','CONCERNS','FAIL','UNVERIFIABLE_INPUT'].includes(row.verdict))
+      || !rows.some(row=>row.verdict==='UNVERIFIABLE_INPUT')) throw new Error('Retained result is not a completed mixed provider outcome');
+  const key=row=>`{"model": ${JSON.stringify(row.model)}, "provider": ${JSON.stringify(row.provider)}, "verdict": ${JSON.stringify(row.verdict)}}`;
+  const marker=inputRepairMarker({state,material:original.material,repair:{
+    result:{path:`${stem}.json`,raw_sha256:sha(resultBytes),bytes:resultBytes.length},
+    receipt:{path:`${stem}-execution.json`,raw_sha256:sha(receiptBytes)},
+    provider_verdicts:rows.map(row=>({provider:row.provider_used||'',model:row.model||'',verdict:row.verdict})).sort((a,b)=>key(a)<key(b)?-1:key(a)>key(b)?1:0)}});
+  // Exact bytes are idempotent; any other marker for this attempt would make the consumer refuse both.
+  const existing=rows2=>{
+    const found=[];
+    for(const comment of trusted(rows2)) {
+      if(comment.body.includes('verifier-input-repair/v1') && !comment.body.match(REPAIR_MARKER)) throw new Error('Existing input-repair provenance is malformed');
+      for(const match of comment.body.matchAll(REPAIR_MARKER)) {
+        let row;try {row=JSON.parse(match[1]);} catch {throw new Error('Existing input-repair provenance is malformed');}
+        if(row.verification_event?.event_id===event.event_id && sameAttempt(row)) found.push(row);
+      }
+    }
+    if(found.some(row=>digest(row)!==digest(marker))) throw new Error('Conflicting input-repair provenance already exists');
+    return found.length>0;
+  };
+  existing(before); // Contradictory publication is never made harmless by a later read.
+  // Authentication can involve many API reads. Rebind the subject and complete history
+  // immediately before either claiming a duplicate or starting the consequential POST.
+  const refreshedPull=await read(client=>client.rest.pulls.get({owner,repo,pull_number:Number(prNumber),request:{timeout:15000}}));
+  if(refreshedPull.merged!==true || refreshedPull.head?.sha!==subject.head_sha
+      || refreshedPull.merge_commit_sha!==subject.evaluated_sha) throw new Error('Provenance target changed during authentication');
+  const refreshedComments=await comments();
+  guardRecoveryHistory({event,assessment,comments:refreshedComments,sourceRun:selected.run_id,sourceAttempt:selected.run_attempt,
+    currentRun,currentAttempt,recoveryKey:'input-repair-provenance'});
+  if(existing(refreshedComments)) return {published:true,duplicate:true,marker};
+  const lineage={schema:'verifier-input-repair-publication/v1',input_repair_id:marker.input_repair_id,
+    source_run_id:String(selected.run_id),source_run_attempt:String(selected.run_attempt),artifact_id:selected.artifact_id,
+    archive_sha256:proof.archive_sha256,publisher_run_id:String(currentRun),publisher_run_attempt:String(currentAttempt),
+    provider_generation_performed:false,verdict_authority:false,acceptance_authority:false,retry_authority:false};
+  const body=`<!-- verifier-input-repair/v1 ${JSON.stringify(marker)} -->\n<!-- verifier-input-repair-publication/v1 ${JSON.stringify(lineage)} -->\n`
+    +`Input-repair provenance for run ${selected.run_id} attempt ${selected.run_attempt}. Provenance only: no verdict, acceptance or retry authority.\n`;
+  try {
+    // Consequential POST is once-only. Retry only reads, never an uncertain write.
+    onPostAttempt();
+    const response=await github.rest.issues.createComment({owner,repo,issue_number:Number(prNumber),body,request:{timeout:15000}});
+    return {published:true,duplicate:false,comment_id:response.data.id,marker};
+  } catch(error) {
+    if(existing(await comments())) return {published:true,duplicate:true,reconciled_after_uncertain_post:true,marker};
+    const uncertain=new Error('Input-repair provenance outcome uncertain; reconcile authenticated comment identity before retry');
+    uncertain.code='VERIFIER_INPUT_REPAIR_PUBLICATION_UNCERTAIN';throw uncertain;
+  }
+}
+
+module.exports = {executionBinding,reconcilePendingExecution,acquireRetainedExecution,guardRecoveryHistory,guardRetainedRecoveryHistory,publishRetainedReport,readRetainedArchive,publishInputRepairProvenance};

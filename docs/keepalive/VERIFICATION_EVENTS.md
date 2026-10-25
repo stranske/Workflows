@@ -203,7 +203,56 @@ node --test tests/scripts/test_verification_event.js .github/scripts/__tests__/a
 PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python3 -m pytest tests/workflows/test_repeat_verification_lifecycle.py -q -o addopts=''
 ```
 
-### Provider-free retained-output recovery
+## Input-repair provenance for results retained before the marker existed
+
+Changed-input recovery of a retained provider outcome that included
+`UNVERIFIABLE_INPUT` needs one authenticated `verifier-input-repair/v1` marker.
+Runs that finished before the producer emitted it (#4231, #4235, #4238) have none.
+`verification_provenance` publishes that marker for such a run and nothing else.
+The source owner must dispatch it before the original `comparison-results-<run>`
+or `evaluation-results-<run>` artifact expires. Retention is at most seven days
+after the original run. After expiry, the dispatch is rejected and the marker
+cannot be published:
+
+```sh
+gh workflow run agents-verifier.yml -f pr_number=<PR> -f mode=<original mode> -f provider=<original provider> \
+  -f verification_provenance='{"run_id":<id>,"run_attempt":<n>,"artifact_id":<id>}'
+```
+
+The input takes the same exact selector as `verification_recovery`, is rejected when
+combined with `verification_recovery`, `verification_event`, `verification_material`,
+`verification_predecessor` or `evidence_profile: expanded`, and must restate the
+original assessment (`mode`/`provider`/`model`/`model2`). It runs in its own
+`input-repair-provenance` job: the `verifier` job, providers, provider secrets,
+native capacity and shadow judges are all skipped.
+
+The job reads the full PR comment history through the Actions API and requires, for
+that exact run and attempt, one authenticated `github-actions` incomplete state with
+`failure_cause: retained_provider_evaluation`, `retryable: false` and the same
+canonical assessment, and no terminal decision. Newer or malformed canonical
+work blocks it (the retained-recovery ordering guard). It then reuses
+`acquireRetainedExecution` (run, attempt, job steps, artifact digest, helper checkout,
+canonical origin) and strictly reads the archive: the original event manifest must
+rebind the event, request and material digests, and the execution receipt must join the
+result bytes and run/attempt. Every provider slot must have run, none may have errored,
+and at least one must report `UNVERIFIABLE_INPUT`.
+
+Label-triggered (`pull_request_target`) originals report the PR head as the run head,
+which a squash merge leaves off the default branch. This operation therefore binds such
+a run through its merged pull request (head, canonical merge commit, post-merge start);
+the existing retained-revalidation path keeps its stricter check.
+
+The only write is one comment from the Actions token carrying the marker
+(`verification_event`, assessment, original material, result/receipt digests and copied
+provider verdicts) plus a separate non-authoritative `verifier-input-repair-publication/v1`
+line with the publishing run. Publisher lineage stays outside the marker so a repeat is
+byte-identical: an exact repeat posts nothing, any different marker for the same attempt
+fails closed, and a lost POST response is reconciled by reading, never by a second write.
+No `verifier-event-state` or terminal record is written, so the original attempt remains the
+latest canonical work. The marker grants no verdict, acceptance or same-event retry; a later
+changed-input admission still has to collect sufficient, demonstrably changed material.
+
+## Provider-free retained-output recovery
 
 `verification_recovery` is an optional JSON string containing exactly positive
 integer `run_id`, `run_attempt`, and `artifact_id` selectors. It accepts no
