@@ -836,7 +836,7 @@ test('only complete exact-head staging Gate evidence suppresses the base-refresh
     { annotation_level: 'warning', message: 'The staging label remains active.' },
   ];
   const makeRetry = ({ run = {}, jobRows = jobs, rows = annotations, count = rows.length,
-    apiError = false, check = {}, log } = {}) => async (callback) => callback({
+    apiError = false, jobError = null, check = {}, log } = {}) => async (callback) => callback({
     rest: {
       actions: {
         getWorkflowRun: async () => {
@@ -855,12 +855,22 @@ test('only complete exact-head staging Gate evidence suppresses the base-refresh
         listAnnotations: async () => ({ data: rows }),
       },
     },
-    paginate: async (method) => method.name === 'listJobsForWorkflowRun' ? jobRows : rows,
+    paginate: async (method) => {
+      if (method.name === 'listJobsForWorkflowRun' && jobError) throw jobError;
+      return method.name === 'listJobsForWorkflowRun' ? jobRows : rows;
+    },
   });
   const args = { owner: 'stranske', repo: 'Ready', headSha: head, deliveryState: 'staging',
     deliveryRecord: { delivery_state: 'staging', head_observed_sha: head },
     classification, allChecks };
   assert.equal(await isExpectedPresealGateFailure({ ...args, withRetry: makeRetry() }), true);
+  for (const primary of [false, true]) {
+    const error = Object.assign(new Error(primary ? 'API rate limit exceeded' : 'jobs unavailable'),
+      { status: primary ? 403 : 502 });
+    const pending = isExpectedPresealGateFailure({ ...args, withRetry: makeRetry({ jobError: error }) });
+    if (primary) await assert.rejects(pending, candidate => candidate === error);
+    else assert.equal(await pending, false, 'unreadable jobs remain a PR-specific blocked classification');
+  }
   // Independent expected literals catch omissions from the shared vocabulary.
   for (const reason of ['delivery_not_sealed:staging', 'delivery_not_sealed:reviewing',
     'delivery_not_sealed:legacy', 'sealed_head_mismatch']) {
@@ -3211,3 +3221,47 @@ test('workflow security approval is never retried as seal recovery', async t => 
   assert.equal((await requestSealedGate(api.args)).status, 'action_required');
   assert.equal(api.reruns.length + api.dispatches.length, 0);
 });
+
+
+for (const [attempt, created, expected] of [
+  [1, '2026-10-17T10:59:00Z', 'rerun'],
+  [1, '2026-10-17T11:00:00Z', 'rerun'],
+  [1, '2026-10-17T11:01:00Z', 'failed'],
+  [2, '2026-10-17T10:59:00Z', 'failed'],
+]) {
+  test(`non-empty legacy inventory: attempt ${attempt} event ${created} stays ${expected}`, async t => {
+    const api = sealedGateHarness(t);
+    api.state.runs = [{ ...api.run, run_attempt: attempt, created_at: created,
+      run_started_at: '2026-10-17T11:02:00Z' }];
+    api.state.jobs = [{ id: 4, name: 'legacy job', status: 'completed', conclusion: 'success' }];
+    assert.equal((await requestSealedGate(api.args)).mode, expected);
+    assert.equal(api.reruns.length, Number(expected === 'rerun'));
+    assert.equal(api.dispatches.length, 0);
+  });
+}
+
+for (const freshness of ['fresh', 'unknown']) {
+  test(`security approval hold is explicit with ${freshness} resolver evidence`, async t => {
+    const api = sealedGateHarness(t);
+    api.state.runs = [{ ...api.run, conclusion: 'action_required',
+      run_started_at: '2026-10-17T11:02:00Z' }];
+    if (freshness === 'unknown') api.state.jobs = [];
+    assert.equal((await requestSealedGate(api.args)).status, 'action_required');
+    assert.equal(api.reruns.length + api.dispatches.length, 0);
+  });
+}
+
+for (const primary of [false, true]) {
+  test(`resolver read error ${primary ? 'propagates exhausted primary limit' : 'leaves unknown proof'}`, async t => {
+    const api = sealedGateHarness(t);
+    const error = Object.assign(new Error(primary ? 'API rate limit exceeded' : 'private diagnostic'),
+      { status: primary ? 403 : 502 });
+    api.args.withRetry = async callback => callback({ paginate: async () => { throw error; },
+      rest: { actions: { listWorkflowRuns: async () => ({ data: { workflow_runs: api.state.runs } }),
+        listJobsForWorkflowRun() {} } } });
+    if (primary) await assert.rejects(requestSealedGate(api.args), candidate => candidate === error);
+    else assert.equal((await requestSealedGate(api.args)).mode, 'failed');
+    assert.equal(api.reruns.length + api.dispatches.length, 0);
+    assert.ok(api.logs.every(line => !line.includes('private diagnostic')));
+  });
+}
