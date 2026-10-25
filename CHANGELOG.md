@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.44.18](https://github.com/stranske/Workflows/compare/v1.44.17...v1.44.18) (2026-10-25)
+
+
+### Bug Fixes
+
+* **verifier:** preserve authenticated retained revalidation ([9a44c5e](https://github.com/stranske/Workflows/commit/9a44c5e644bc8d11b3d2f5d64d87f30948ef4c42))
+* **verifier:** preserve parent on authenticated same-event retries ([aa9bbf9](https://github.com/stranske/Workflows/commit/aa9bbf93190901225755b7c160ea98d5f0fa5d2d))
+* **verifier:** reconcile older pending retries and retain exact dedup ([c4c670a](https://github.com/stranske/Workflows/commit/c4c670a9d71990ac7fc4426edb2e7e9e658b9aa3))
+
 ## [1.44.17](https://github.com/stranske/Workflows/compare/v1.44.16...v1.44.17) (2026-10-25)
 
 
