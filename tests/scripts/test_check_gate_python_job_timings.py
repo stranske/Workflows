@@ -6,7 +6,6 @@ import json
 from pathlib import Path
 
 import pytest
-
 from scripts import check_gate_python_job_timings as timings
 
 
@@ -245,3 +244,71 @@ def test_main_fails_when_job_over_policy(monkeypatch: pytest.MonkeyPatch) -> Non
     monkeypatch.setattr(timings, "_github_token", lambda: "tok")
     monkeypatch.setattr(timings, "_gh_api", fake_get)
     assert timings.main(["--limit", "1", "--max-seconds", "600"]) == 1
+
+
+def test_collect_run_ids_sample_and_main_run_id(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """--run-id evaluates an explicit Gate run regardless of overall conclusion."""
+    jobs = {
+        "jobs": [
+            {
+                "name": "python ci / python 3.13",
+                "started_at": "2026-10-26T10:37:58Z",
+                "completed_at": "2026-10-26T10:49:11Z",
+            },
+            {
+                "name": "python ci / python 3.14",
+                "started_at": "2026-10-26T10:37:58Z",
+                "completed_at": "2026-10-26T10:47:18Z",
+            },
+        ]
+    }
+
+    def fake_get(path: str, token: str) -> dict:
+        assert "/runs/40308833794/jobs" in path
+        assert "/runs?" not in path
+        return jobs
+
+    monkeypatch.setattr(timings, "_github_token", lambda: "tok")
+    monkeypatch.setattr(timings, "_gh_api", fake_get)
+
+    sample = timings.collect_run_ids_sample(
+        repo="stranske/Workflows",
+        run_ids=[40308833794],
+        token="tok",
+        get_json=fake_get,
+    )
+    assert sample == [
+        (
+            40308833794,
+            {
+                "python ci / python 3.13": 673.0,
+                "python ci / python 3.14": 560.0,
+            },
+        )
+    ]
+
+    report_path = tmp_path / "pr-head.json"
+    assert (
+        timings.main(
+            [
+                "--run-id",
+                "40308833794",
+                "--max-seconds",
+                "600",
+                "--json-out",
+                str(report_path),
+            ]
+        )
+        == 1
+    )
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    assert report["passed"] is False
+    assert report["policy"]["sample_mode"] == "explicit_run_ids"
+    assert report["failures"] == ["run 40308833794: python ci / python 3.13 took 673s (limit 600s)"]
+
+
+def test_collect_run_ids_sample_requires_ids() -> None:
+    with pytest.raises(ValueError, match="non-empty"):
+        timings.collect_run_ids_sample(repo="stranske/Workflows", run_ids=[], token="tok")

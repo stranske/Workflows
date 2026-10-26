@@ -16,9 +16,10 @@ import json
 import os
 import subprocess
 import sys
+from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
@@ -208,6 +209,7 @@ def build_report(
     max_seconds: float,
     passed: bool,
     failures: list[str],
+    sample_mode: str = "successful_pr_window",
 ) -> dict[str, Any]:
     """Machine-readable report for evidence / Nov 15 acceptance reads."""
     return {
@@ -215,6 +217,7 @@ def build_report(
             "max_seconds": max_seconds,
             "required_jobs": list(TARGET_JOB_NAMES),
             "run_count": len(sample),
+            "sample_mode": sample_mode,
         },
         "passed": passed,
         "failures": failures,
@@ -231,6 +234,27 @@ def build_report(
     }
 
 
+def collect_run_ids_sample(
+    *,
+    repo: str,
+    run_ids: list[int | str],
+    token: str | None = None,
+    get_json: JsonGetter | None = None,
+) -> list[tuple[int | str, dict[str, float]]]:
+    """Build (run_id, durations) pairs for explicit Gate run ids (any conclusion)."""
+    if not run_ids:
+        raise ValueError("run_ids must be non-empty")
+    auth = token or _github_token()
+    fetch = get_json or _gh_api
+    sample: list[tuple[int | str, dict[str, float]]] = []
+    for run_id in run_ids:
+        durations = collect_run_python_durations(
+            repo=repo, run_id=run_id, token=auth, get_json=fetch
+        )
+        sample.append((run_id, durations))
+    return sample
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description=(
@@ -243,6 +267,17 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--limit", type=int, default=DEFAULT_RUN_LIMIT)
     parser.add_argument("--max-seconds", type=float, default=DEFAULT_MAX_SECONDS)
     parser.add_argument(
+        "--run-id",
+        action="append",
+        dest="run_ids",
+        default=None,
+        help=(
+            "Evaluate specific Gate run id(s) instead of the latest successful "
+            "PR window (repeatable). Useful for pre-merge PR-head reads when the "
+            "overall Gate conclusion failed for unrelated reasons."
+        ),
+    )
+    parser.add_argument(
         "--json-out",
         type=Path,
         default=None,
@@ -250,16 +285,28 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    sample = collect_policy_sample(repo=args.repo, workflow=args.workflow, limit=args.limit)
-    if len(sample) < args.limit:
-        print(
-            f"Only found {len(sample)} successful {DEFAULT_EVENT} runs " f"(needed {args.limit})",
-            file=sys.stderr,
-        )
-        return 1
+    if args.run_ids:
+        sample = collect_run_ids_sample(repo=args.repo, run_ids=list(args.run_ids))
+        sample_mode = "explicit_run_ids"
+    else:
+        sample = collect_policy_sample(repo=args.repo, workflow=args.workflow, limit=args.limit)
+        sample_mode = "successful_pr_window"
+        if len(sample) < args.limit:
+            print(
+                f"Only found {len(sample)} successful {DEFAULT_EVENT} runs "
+                f"(needed {args.limit})",
+                file=sys.stderr,
+            )
+            return 1
 
     passed, failures = evaluate_policy(sample, max_seconds=args.max_seconds)
-    report = build_report(sample, max_seconds=args.max_seconds, passed=passed, failures=failures)
+    report = build_report(
+        sample,
+        max_seconds=args.max_seconds,
+        passed=passed,
+        failures=failures,
+        sample_mode=sample_mode,
+    )
     if args.json_out is not None:
         args.json_out.parent.mkdir(parents=True, exist_ok=True)
         args.json_out.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
@@ -268,9 +315,13 @@ def main(argv: list[str] | None = None) -> int:
         parts = [f"{name}={seconds:.0f}s" for name, seconds in sorted(durations.items())]
         print(f"run {run_id}: " + (", ".join(parts) if parts else "no target jobs"))
     if passed:
+        label = (
+            f"{len(sample)} explicit Gate run(s)"
+            if sample_mode == "explicit_run_ids"
+            else f"{len(sample)} successful Gate PR runs"
+        )
         print(
-            f"PASS: {len(sample)} successful Gate PR runs have "
-            f"{', '.join(TARGET_JOB_NAMES)} each <= {args.max_seconds:.0f}s"
+            f"PASS: {label} have " f"{', '.join(TARGET_JOB_NAMES)} each <= {args.max_seconds:.0f}s"
         )
         return 0
 
