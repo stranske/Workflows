@@ -46,11 +46,7 @@ def test_gate_matrix_and_workload(path: Path) -> None:
     assert inputs.get("changed-files-json", "[]") == "[]", f"{path}: keep full-suite selection"
     assert inputs["pytest-workers"] == "4", f"{path}: use the same four-way split"
     assert inputs["pytest_markers"] == "${{ needs.detect.outputs.pytest_markers }}", str(path)
-    expected_args = (
-        ["-n", "auto", "--dist", "load", "--durations=40", "--durations-min=5"]
-        if path == GATES[0]
-        else []
-    )
+    expected_args = ["-n", "auto", "--dist", "load"] if path == GATES[0] else []
     assert (
         shlex.split(inputs.get("pytest_args", "")) == expected_args
     ), f"{path}: only scheduling/timing flags may supplement full-suite discovery"

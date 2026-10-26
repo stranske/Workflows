@@ -141,11 +141,7 @@ def test_issue2_selftest_ci_runs_all_workflow_tests() -> None:
         assert job["with"]["python-versions"] == '["3.13", "3.14"]'
         assert job["with"]["pytest-workers"] == "4"
         assert job["with"]["coverage-min"] == "70"
-        expected_args = (
-            ["-n", "auto", "--dist", "load", "--durations=40", "--durations-min=5"]
-            if job is gate["jobs"]["python-ci"]
-            else []
-        )
+        expected_args = ["-n", "auto", "--dist", "load"] if job is gate["jobs"]["python-ci"] else []
         assert (
             shlex.split(job["with"].get("pytest_args", "")) == expected_args
         ), "Canonical CI must discover the full suite; only scheduling/timing flags are allowed"
