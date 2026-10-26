@@ -278,9 +278,9 @@ def test_stable_generated_delivery_requires_an_exact_head_seal(tmp_path: Path) -
     )
 
     record.update(delivery_state="sealed", sealed_head_sha="head-abc")
-    event["pull_request"]["body"] = (
-        f"<!-- sync-pr-delivery-record:v1 {json.dumps(record, separators=(',', ':'))} -->"
-    )
+    event["pull_request"][
+        "body"
+    ] = f"<!-- sync-pr-delivery-record:v1 {json.dumps(record, separators=(',', ':'))} -->"
     event_path.write_text(json.dumps(event), encoding="utf-8")
     assert gate_summary._delivery_seal_from_event(event_path) == (
         True,

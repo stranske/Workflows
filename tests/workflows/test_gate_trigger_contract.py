@@ -41,9 +41,9 @@ def test_gate_trigger_contract(workflow_path: str) -> None:
     assert "ready_for_review" in types, f"{workflow_path}: PRs ready for review must start Gate"
     # Catch extras (e.g. edited) after required-type checks so regressions keep
     # their specific diagnostics.
-    assert list(types) == list(ALLOWED_PULL_REQUEST_TYPES), (
-        f"{workflow_path}: unexpected pull_request types {types!r}"
-    )
+    assert list(types) == list(
+        ALLOWED_PULL_REQUEST_TYPES
+    ), f"{workflow_path}: unexpected pull_request types {types!r}"
     assert workflow["concurrency"]["cancel-in-progress"] == (
         "${{ github.event_name != 'workflow_dispatch' }}"
     ), f"{workflow_path}: new commits must still supersede in-flight runs"
@@ -102,9 +102,8 @@ def test_dispatch_retains_pr_context_and_queues(workflow_path: str) -> None:
         "${{ github.event_name != 'workflow_dispatch' }}"
     )
     for name in ("issue-consistency", "test-quality"):
-        assert (
-            "fromJSON(needs.resolve-pr.outputs.pull_request).number"
-            in (workflow["jobs"][name]["if"])
+        assert "fromJSON(needs.resolve-pr.outputs.pull_request).number" in (
+            workflow["jobs"][name]["if"]
         ), f"{workflow_path}: {name} must run for PR dispatches too"
     for name, job in workflow["jobs"].items():
         if name == "resolve-pr":
