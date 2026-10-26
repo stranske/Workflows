@@ -44,6 +44,11 @@ on:
         required: false
         type: string
         default: ''
+      verification_request_basis:
+        description: 'Optional opaque lowercase SHA-256 launch correlation; never event, verdict or retry authority'
+        required: false
+        type: string
+        default: ''
       verification_event:
         description: 'Expected verification-event/v1 JSON; collector must reproduce it'
         required: false
@@ -56,6 +61,11 @@ on:
         default: ''
       verification_predecessor:
         description: 'Authenticated prior verification event identity (causal context)'
+        required: false
+        type: string
+        default: ''
+      verification_provenance:
+        description: 'Publish input-repair provenance only for a retained mixed result: JSON run_id/run_attempt/artifact_id selectors; never invokes a provider or records verifier execution state'
         required: false
         type: string
         default: ''
@@ -125,6 +135,9 @@ concurrency:
 jobs:
   verifier:
     name: Run post-merge verifier
+    # Provenance-only dispatches must not create a newer verifier execution that
+    # would eclipse the original attempt they describe.
+    if: inputs.verification_provenance == ''
     permissions:
       contents: read
       pull-requests: write
@@ -139,6 +152,7 @@ jobs:
       VERIFIER_MODEL: ${{ inputs.model }}
       VERIFIER_MODEL2: ${{ inputs.model2 }}
       VERIFICATION_RECOVERY: ${{ inputs.verification_recovery }}
+      VERIFICATION_REQUEST_BASIS: ${{ inputs.verification_request_basis }}
       VERIFICATION_EVENT: ${{ inputs.verification_event }}
       VERIFICATION_MATERIAL: ${{ inputs.verification_material }}
       VERIFICATION_PREDECESSOR: ${{ inputs.verification_predecessor }}
@@ -473,6 +487,26 @@ jobs:
               }
             }
 
+      - name: Correlate an already completed verification event
+        if: steps.context.outputs.verification_request_correlation != ''
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const fs = require('fs');
+            const manifest = JSON.parse(fs.readFileSync('verification-event-manifest.json', 'utf8'));
+            const marker = manifest.request_correlation;
+            if (!marker || marker.schema !== 'verifier-request-correlation/v1'
+                || marker.verification_request_basis !== manifest.verification_request_basis
+                || marker.verification_event.event_id !== manifest.verification_event.event_id
+                || marker.correlation_run_id !== String(context.runId)
+                || marker.correlation_run_attempt !== String(process.env.GITHUB_RUN_ATTEMPT)) {
+              throw new Error('Invalid collector request correlation');
+            }
+            const { createTokenAwareRetry } = require('./.workflows-lib/.github/scripts/github-api-with-retry.js');
+            const { withRetry } = await createTokenAwareRetry({ github, core, env: {}, task: 'verifier-request-correlation' });
+            await withRetry(() => github.rest.issues.createComment({ ...context.repo, issue_number: Number(marker.pr),
+              body: `<!-- verifier-request-correlation/v1 ${JSON.stringify(marker)} -->` }));
+
       - name: Record verification event pending
         id: event_pending
         if: steps.context.outputs.should_run == 'true' && steps.context.outputs.verification_event != ''
@@ -489,6 +523,7 @@ jobs:
               run_id: String(context.runId), run_attempt: String(process.env.GITHUB_RUN_ATTEMPT),
               status: 'pending', verification_event: event, assessment_identity: manifest.assessment_identity,
               execution_binding: manifest.execution_binding,
+              ...(manifest.verification_request_basis ? {verification_request_basis:manifest.verification_request_basis} : {}),
               ...(manifest.retained_revalidation ? {retained_revalidation:manifest.retained_revalidation} : {}),
               ...(manifest.predecessor_event_id ? { predecessor_event_id: manifest.predecessor_event_id } : {}) };
             await withRetry(() => github.rest.issues.createComment({ ...context.repo, issue_number: Number(event.pr),
@@ -1904,11 +1939,14 @@ jobs:
                 core.warning(`Verification execution classification unavailable: ${error.message}`);
                 // Retain uncertainty; a diagnostic failure never proves no effect.
               }
+              // Provenance is a distinct appended marker; the state marker keeps its shape.
+              const { input_repair: inputRepair, ...recoveryState } = recovery;
               const state = { schema: 'verifier-event-state/v1', repo: event.repo, pr: event.pr,
                 head_sha: event.head_sha, evaluated_sha: event.evaluated_sha,
                 run_id: String(context.runId), run_attempt: String(process.env.GITHUB_RUN_ATTEMPT),
-                status: 'incomplete', ...recovery,
+                status: 'incomplete', ...recoveryState,
                 verification_event: event, assessment_identity: manifest.assessment_identity,
+                ...(manifest.verification_request_basis ? {verification_request_basis:manifest.verification_request_basis} : {}),
                 ...(manifest.predecessor_event_id ? { predecessor_event_id: manifest.predecessor_event_id } : {}) };
               try {
                 await withRetry(() => github.rest.issues.createComment({ ...context.repo, issue_number: Number(event.pr),
@@ -1917,6 +1955,56 @@ jobs:
                 core.setFailed(`Verification event terminal publication failed: ${error.message}`);
                 throw error;
               }
+              if (inputRepair && recoveryState.retry_kind === 'recover_existing_evaluation') {
+                try {
+                  const { inputRepairMarker } = require('./.workflows-lib/.github/scripts/verification_event.js');
+                  const marker = inputRepairMarker({ state, material: manifest.material, repair: inputRepair });
+                  await withRetry(() => github.rest.issues.createComment({ ...context.repo, issue_number: Number(event.pr),
+                    body: `<!-- verifier-input-repair/v1 ${JSON.stringify(marker)} -->` }));
+                } catch (error) {
+                  // Absent provenance only means no changed-input route; it never grants retry.
+                  core.warning(`Verification input-repair provenance unavailable: ${error.message}`);
+                }
+              }
+            }
+
+      - name: Retain original correction finding seeds
+        if: >-
+          always() && steps.event_terminal.outputs.complete == 'true' &&
+          inputs.verification_recovery == '' &&
+          (inputs.mode == 'evaluate' || inputs.mode == 'compare')
+        continue-on-error: true
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          VERIFIER_MODE: ${{ inputs.mode }}
+          PR_NUMBER: ${{ steps.context.outputs.pr_number }}
+          PR_HEAD_SHA: ${{ steps.context.outputs.pr_head_sha }}
+          EVALUATED_SHA: ${{ steps.context.outputs.target_sha }}
+          CI_FAILED: ${{ steps.context.outputs.ci_failed }}
+        with:
+          script: |
+            const fs = require('fs');
+            const { execFileSync } = require('child_process');
+            const manifest = JSON.parse(fs.readFileSync('verification-event-manifest.json','utf8'));
+            const mode = process.env.VERIFIER_MODE;
+            const stem = mode === 'evaluate' ? 'evaluation' : 'comparison';
+            try {
+              // This reuses result admission; it never evaluates a provider.
+              const decision = JSON.parse(execFileSync('python3',[
+                '.workflows-lib/tools/verifier_corpus_evidence.py',`--${stem}`,`${stem}.json`,
+                '--execution-receipt',`${stem}-execution.json`,'--print-decision',
+              ],{encoding:'utf8',timeout:10000}));
+              if (decision.verdict !== 'NON_PASS') return;
+              const { retainSeeds } = require('./.workflows-lib/.github/scripts/verifier_correction_seed.js');
+              await retainSeeds({github,manifest,decision,mode,runId:context.runId,
+                runAttempt:Number(process.env.GITHUB_RUN_ATTEMPT),directory:'.'});
+            } catch (error) {
+              fs.writeFileSync('closer-correction-seed-refusal.json',JSON.stringify({
+                schema:'closer-correction-seed-refusal/v1',verification_event:manifest.verification_event,
+                source_run_id:String(context.runId),source_run_attempt:process.env.GITHUB_RUN_ATTEMPT,
+                reason:String(error.message),act_authorized:false,source_closure_authorized:false,
+              })+'\n');
+              core.warning(`Correction seed collection remains unavailable: ${error.message}`);
             }
 
       - name: Shadow candidate verifier judges (recorded only; never posted, never counted)
@@ -1973,6 +2061,8 @@ jobs:
             verifier-shadow.json
             verifier-context.md
             verification-event-manifest.json
+            closer-correction-seeds.json
+            closer-correction-seed-refusal.json
             verifier-diff-summary.md
             verifier-pr-diff.patch
             verifier-input-manifest.json
@@ -2008,6 +2098,8 @@ jobs:
             verifier-input-manifest.json
             verifier-context.md
             verification-event-manifest.json
+            closer-correction-seeds.json
+            closer-correction-seed-refusal.json
             verifier-diff-summary.md
             verifier-pr-diff.patch
           if-no-files-found: ignore
@@ -2673,3 +2765,93 @@ jobs:
           name: agents-verifier-metrics
           path: verifier-metrics.ndjson
           retention-days: 30
+
+  input-repair-provenance:
+    name: Publish input-repair provenance
+    if: inputs.verification_provenance != ''
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: read
+      actions: read
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout caller repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          token: ${{ github.token }}
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Setup API client
+        uses: stranske/Workflows/.github/actions/setup-api-client@22df72fc305f1c8b85c9b7fa79c6221b96800c6a
+        with:
+          github_token: ${{ github.token }}
+
+      - name: Resolve Workflows ref
+        id: workflows_ref
+        uses: stranske/Workflows/.github/actions/resolve-default-branch@22df72fc305f1c8b85c9b7fa79c6221b96800c6a
+
+      - name: Checkout Workflows scripts
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          token: ${{ github.token }}
+          persist-credentials: false
+          repository: stranske/Workflows
+          ref: ${{ steps.workflows_ref.outputs.ref }}
+          sparse-checkout: |
+            .github/scripts
+          sparse-checkout-cone-mode: false
+          path: .workflows-lib
+          fetch-depth: 1
+
+      - name: Link node_modules for Workflows scripts
+        run: |
+          SRC="${GITHUB_WORKSPACE}/.github/scripts/node_modules"
+          DST="${GITHUB_WORKSPACE}/.workflows-lib/.github/scripts/node_modules"
+          if [ -d "$SRC" ] && [ ! -d "$DST" ]; then
+            ln -sfn "$SRC" "$DST"
+          fi
+
+      # No provider, no verifier pending/incomplete/terminal state: one provenance-only
+      # comment from the Actions token after the immutable original attempt is authenticated.
+      - name: Publish original-execution input-repair provenance
+        id: provenance
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          PR_NUMBER: ${{ inputs.pr_number }}
+          VERIFIER_MODE: ${{ inputs.mode }}
+          VERIFIER_PROVIDER: ${{ inputs.provider }}
+          VERIFIER_MODEL: ${{ inputs.model }}
+          VERIFIER_MODEL2: ${{ inputs.model2 }}
+          VERIFIER_EVIDENCE_PROFILE: ${{ inputs.evidence_profile }}
+          VERIFICATION_PROVENANCE: ${{ inputs.verification_provenance }}
+          VERIFICATION_RECOVERY: ${{ inputs.verification_recovery }}
+          VERIFICATION_EVENT: ${{ inputs.verification_event }}
+          VERIFICATION_MATERIAL: ${{ inputs.verification_material }}
+          VERIFICATION_PREDECESSOR: ${{ inputs.verification_predecessor }}
+        with:
+          script: |
+            const fs = require('fs'), os = require('os'), path = require('path');
+            const { publishInputRepairProvenance } = require('./.workflows-lib/.github/scripts/verifier_pending_execution.js');
+            const { assessmentIdentity } = require('./.workflows-lib/.github/scripts/verification_event.js');
+            for (const name of ['VERIFICATION_RECOVERY', 'VERIFICATION_EVENT', 'VERIFICATION_MATERIAL', 'VERIFICATION_PREDECESSOR']) {
+              if (process.env[name]) throw new Error(`Provenance-only dispatch rejects ${name}`);
+            }
+            if ((process.env.VERIFIER_EVIDENCE_PROFILE || 'standard') !== 'standard') throw new Error('Provenance-only dispatch rejects expanded evidence');
+            const assessment = assessmentIdentity({ mode: process.env.VERIFIER_MODE, provider: process.env.VERIFIER_PROVIDER || '',
+              model: process.env.VERIFIER_MODEL || '', model2: process.env.VERIFIER_MODEL2 || '', canonical: true });
+            const directory = fs.mkdtempSync(path.join(process.env.RUNNER_TEMP || os.tmpdir(), 'input-repair-provenance-'));
+            core.setOutput('publication_effect', 'none');
+            try {
+              const result = await publishInputRepairProvenance({ github, owner: context.repo.owner, repo: context.repo.repo,
+                prNumber: process.env.PR_NUMBER, assessment, selector: process.env.VERIFICATION_PROVENANCE,
+                currentRun: Number(context.runId), currentAttempt: Number(process.env.GITHUB_RUN_ATTEMPT || 1), directory,
+                onPostAttempt: () => core.setOutput('publication_effect', 'uncertain') });
+              core.setOutput('publication_effect', result.duplicate && !result.reconciled_after_uncertain_post ? 'none' : 'published');
+              core.setOutput('duplicate', String(result.duplicate));
+              core.setOutput('input_repair_id', result.marker.input_repair_id);
+              await core.summary.addRaw(`Input-repair provenance ${result.duplicate ? 'already present' : 'published'} for run ${result.marker.run_id} attempt ${result.marker.run_attempt} (${result.marker.input_repair_id}). No provider ran; no verdict, acceptance or retry authority was granted.\n`).write();
+            } finally {
+              fs.rmSync(directory, { recursive: true, force: true });
+            }

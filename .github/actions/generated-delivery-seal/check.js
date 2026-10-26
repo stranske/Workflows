@@ -51,6 +51,35 @@ function evaluateDeliverySeal(event = {}, repository = '', now = new Date().toIS
   };
 }
 
+// The runner rewrites event.json before each action. Consume the resolved
+// snapshot through the action input, while retaining the original identity.
+function resolvedSealEvent(event, resolvedJson, { repository = '', eventName = '', sha = '' } = {}) {
+  if (!resolvedJson || resolvedJson === 'null') return event;
+  let resolved;
+  try { resolved = JSON.parse(resolvedJson); } catch {
+    throw new Error('Resolved Gate PR metadata is malformed');
+  }
+  if (!resolved || resolved.state !== 'open' || !Number.isSafeInteger(resolved.number)
+      || resolved.number <= 0 || !resolved.head?.sha || !resolved.head?.repo?.full_name) {
+    throw new Error('Resolved Gate PR metadata is incomplete');
+  }
+  const original = event.pull_request;
+  if (original) {
+    if (resolved.number !== original.number || resolved.head.sha !== original.head?.sha
+        || resolved.head.repo.full_name !== original.head?.repo?.full_name
+        || resolved.head.ref !== original.head?.ref
+        || resolved.base?.ref !== original.base?.ref) {
+      throw new Error('Resolved Gate PR identity differs from the event');
+    }
+  } else if (eventName !== 'workflow_dispatch' || resolved.head.sha !== sha
+      || resolved.head.repo.full_name !== repository) {
+    throw new Error('Resolved Gate PR identity differs from the dispatched head');
+  }
+  const pr = original ? { ...original, body: resolved.body, labels: resolved.labels,
+    state: resolved.state } : resolved;
+  return { ...event, pull_request: pr, number: pr.number };
+}
+
 function workflowCommandValue(value) {
   return String(value || '')
     .replaceAll('%', '%25')
@@ -62,7 +91,11 @@ function main() {
   const eventPath = clean(process.env.GITHUB_EVENT_PATH);
   if (!eventPath) throw new Error('GITHUB_EVENT_PATH is required');
   const event = JSON.parse(fs.readFileSync(eventPath, 'utf8'));
-  const result = evaluateDeliverySeal(event, process.env.GITHUB_REPOSITORY);
+  const resolvedEvent = resolvedSealEvent(event, process.env.GATE_PR_JSON, {
+    repository: process.env.GITHUB_REPOSITORY, eventName: process.env.GITHUB_EVENT_NAME,
+    sha: process.env.GITHUB_SHA,
+  });
+  const result = evaluateDeliverySeal(resolvedEvent, process.env.GITHUB_REPOSITORY);
   if (!result.required) {
     console.log('Generated delivery seal is not required for this ref.');
     return;
@@ -84,5 +117,6 @@ module.exports = {
   STABLE_DELIVERY_BRANCHES,
   evaluateDeliverySeal,
   main,
+  resolvedSealEvent,
   workflowCommandValue,
 };

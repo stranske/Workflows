@@ -679,7 +679,7 @@ def test_gate_and_shared_mergers_hold_mutable_stable_deliveries() -> None:
     assert "generated-delivery-seal" in gate
     action_ref = (
         "stranske/Workflows/.github/actions/generated-delivery-seal"
-        "@632eb20586f8403219d101e8a982b62efeb94104"
+        "@fe1efdada4ece0e9668db83ae3867e74c29c7744"
     )
     assert action_ref in gate
     assert action_ref in template_gate

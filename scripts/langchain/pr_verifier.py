@@ -613,6 +613,8 @@ class PromptInputs:
     context_block: str
     diff_block: str
     coverage: PromptCoverage
+    # Exact required projection, measured before optional fitter enrichment.
+    required_evidence_chars: int = 0
 
 
 def _budget_from_env(name: str, default: int) -> int:
@@ -992,6 +994,12 @@ def _build_code_block(
         )
         for path, text in files
     ]
+    # A complete single-file unit is the minimum meaningful code input. The
+    # rough grouping budget bounds optional packing, not model capacity. Its
+    # actual fully assembled request must still pass the shared native counter.
+    # Unknown binary descriptors keep their existing zero-byte omission.
+    if len(files) == 1 and sizes[0]:
+        budget_chars = max(budget_chars, sizes[0])
     omission_note = "[{count} changed file(s) omitted entirely — not shown to the reviewer]\n"
     shares = _fair_shares(sizes, max(0, budget_chars))
     parts: list[str] = []
@@ -4539,6 +4547,10 @@ def _classify_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
             + bound_review_destinations
         )
         clause_boundary = (
+            # A mandate in a later sentence cannot govern a descriptive evidence
+            # noun in the preceding one. Retain pronoun delivery inheritance via
+            # the existing antecedent binding below; quoted literals are inert.
+            r"[.!?]\s+(?=(?-i:[A-Z]))|"
             r"\s*;\s*|,?\s+(?:but|whereas)\s+|"
             r"(?:,?\s+(?:and|or)\s+)(?=(?:" + elided_review_delivery_predicate + r"))|"
             r"(?:,?\s+(?:and|while)\s+)(?="
@@ -4589,6 +4601,15 @@ def _classify_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
             match.span() for match in re.finditer(bound_review_destinations, criterion, re.I)
         ]
         for boundary_match in re.finditer(clause_boundary, criterion, re.I):
+            # A period in an abbreviation/initialism is not a new sentence.
+            # Literal/member/URL interiors were protected above or contain no
+            # intervening whitespace. Keep the original governing operation.
+            if boundary_match[0].startswith(".") and re.search(
+                r"\b(?:(?:[a-z]\.){2,}|(?-i:[A-Z])\.|(?:etc|vs|dr|mr|mrs|prof|no|fig)\.)$",
+                criterion[: boundary_match.start() + 1],
+                re.I,
+            ):
+                continue
             if re.fullmatch(r",\s+", boundary_match[0]) and re.match(
                 r"(?:that|which)\b", criterion[boundary_match.end() :], re.I
             ):
@@ -5922,7 +5943,7 @@ def _required_evidence_is_missing(
     # Comment and artifact bodies are untrusted. Their status-looking lines
     # cannot overwrite the builder's own preamble.
     preamble = re.split(
-        r"\n### Bounded (?:PR body|PR comments|referenced workflow artifacts)\n",
+        r"\n### (?:Bounded (?:PR body|PR comments|referenced workflow artifacts)|Selected required (?:comment|artifact) proof)\n",
         evidence,
         maxsplit=1,
     )[0]
@@ -5953,7 +5974,9 @@ def _resolve_evidence_policy(
     *,
     evaluate_minimum: bool,
     evidence_budget: int | None = None,
-) -> tuple[list[set[str]], frozenset[str], tuple[str, tuple[str, ...], tuple[str, ...]] | None]:
+) -> tuple[
+    list[set[str]], frozenset[str], tuple[str, tuple[str, ...], tuple[str, ...], int] | None
+]:
     """Resolve existing channel DNF, changing only evaluate's generic availability.
 
     A complete present source permits reasoning, not acceptance. Concrete channel
@@ -6027,7 +6050,7 @@ def _resolve_evidence_policy(
 
 def _fit_required_evidence_prompt(
     evidence: str, options: list[set[str]], budget: int
-) -> tuple[str, tuple[str, ...], tuple[str, ...]] | None:
+) -> tuple[str, tuple[str, ...], tuple[str, ...], int] | None:
     """Fit one complete requirement alternative before optional builder sections.
 
     Channel headings inside untrusted fences are inert. Retain complete selected
@@ -6038,11 +6061,14 @@ def _fit_required_evidence_prompt(
         "### Bounded PR body": "body",
         "### Bounded PR comments": "comments",
         "### Bounded referenced workflow artifacts": "artifacts",
+        "### Selected required artifact proof": "selected_material",
+        "### Selected required comment proof": "selected_comments",
     }
     pieces: list[tuple[str, str]] = []
     name = "preamble"
     lines: list[str] = []
     fence: tuple[str, int, int] | None = None
+    legacy_selected_comments = False
     for line in evidence.splitlines(keepends=True):
         marker = _code_fence_marker(line)
         if fence is not None:
@@ -6066,13 +6092,25 @@ def _fit_required_evidence_prompt(
         elif line.rstrip("\r\n") in headings:
             pieces.append((name, "".join(lines).strip()))
             name, lines = headings[line.rstrip("\r\n")], []
+        elif name == "comments" and line.startswith("Selected source-comment provenance:"):
+            legacy_selected_comments = True
         lines.append(line)
     if fence is not None:
         return None
     pieces.append((name, "".join(lines).strip()))
     present = {name for name, _ in pieces}
+    if "selected_material" in present:
+        present.add("artifacts")
+    if "selected_comments" in present:
+        present.add("comments")
     if not present.intersection({"body", "comments", "artifacts"}):
         return None
+    mandatory_pieces = {"preamble", "selected_material", "selected_comments"}
+    if legacy_selected_comments:
+        # A legacy mixed section must remain whole even when the authored
+        # request declares no channel duty. Only refreshed producer packets
+        # can separate its required proof from optional history safely.
+        mandatory_pieces.add("comments")
     candidates = []
     for channels in options:
         if (
@@ -6081,23 +6119,23 @@ def _fit_required_evidence_prompt(
             or not channels <= present
         ):
             continue
-        required = [body for name, body in pieces if name == "preamble" or name in channels]
+        required = [body for name, body in pieces if name in mandatory_pieces or name in channels]
         rendered = "\n\n".join(required)
         candidates.append((len(rendered), tuple(sorted(channels)), rendered))
     # This budget bounds optional enrichment, never complete required proof.
     # Choose the smallest valid complete alternative, then let native admission
     # count the actual request rather than clipping it or inventing absence.
-    for _, selected_channels, rendered in sorted(candidates):
+    for required_chars, selected_channels, rendered in sorted(candidates):
         channels = set(selected_channels)
         omitted: list[str] = []
         for name, body in pieces:
-            if name == "preamble" or name in channels:
+            if name in mandatory_pieces or name in channels:
                 continue
             if len(rendered) + len(body) + 2 <= budget:
                 rendered += "\n\n" + body
             else:
                 omitted.append(name)
-        return rendered, tuple(sorted(channels)), tuple(omitted)
+        return rendered, tuple(sorted(channels)), tuple(omitted), required_chars
     return None
 
 
@@ -6225,6 +6263,7 @@ def build_prompt_inputs(
     included_required_evidence_channels: tuple[str, ...] = ()
     omitted_optional_evidence_sections: tuple[str, ...] = ()
     required_evidence_fitted = False
+    required_evidence_chars = 0
     if sections is None:
         context_block = _cap_prompt_text(
             context_text or "(context unavailable)", context_budget // TOKEN_CHARS
@@ -6258,6 +6297,7 @@ def build_prompt_inputs(
                     evidence_block,
                     included_required_evidence_channels,
                     omitted_optional_evidence_sections,
+                    required_evidence_chars,
                 ) = fitted_evidence
                 required_evidence_fitted = True
             context_block = "\n\n".join(part for part in (context_block, evidence_block) if part)
@@ -6378,7 +6418,12 @@ def build_prompt_inputs(
         ),
     )
     context_block = coverage.render() + "\n\n" + (context_block or "(context unavailable)")
-    return PromptInputs(context_block=context_block, diff_block=diff_block, coverage=coverage)
+    return PromptInputs(
+        context_block=context_block,
+        diff_block=diff_block,
+        coverage=coverage,
+        required_evidence_chars=required_evidence_chars,
+    )
 
 
 def prompt_coverage(
@@ -6632,8 +6677,14 @@ def _evaluate_chunked(
     for path, patch in files:
         assert path is not None
         review_size = len(patch) + len(asset_views.get(path, ""))
-        if review_size > budget or path in binary_paths:
+        if path in binary_paths:
             continue
+        elif review_size > budget:
+            # Preserve one whole file in its own request. Every ordinary prompt
+            # validator and native admission sees those same bytes; no rough
+            # four-character estimate may silently exclude required code.
+            if len(chunks) < MAX_REVIEW_CHUNKS:
+                chunks.append(([path], patch))
         elif (
             chunks
             and sum(len(asset_views.get(p, "")) for p in chunks[-1][0])
@@ -7781,7 +7832,28 @@ def _invoke_llm(
     # each complete request, including synthesis. Registered standard routes
     # without optional native facts do not claim a native-count receipt.
     client = _prepare_capacity_client(client)
-    if not _legacy_capacity_route(client):
+    legacy_route = _legacy_capacity_route(client)
+    # Only necessary projections above their own existing soft bounds override
+    # legacy optional capacity. Measure the shared fitter's required evidence
+    # before optional enrichment, and the assembled code/asset view, never raw
+    # optional history or the entire source context.
+    legacy_inputs = (
+        build_prompt_inputs(context, diff) if legacy_route and context is not None else None
+    )
+    required_input_above_soft_budget = bool(
+        legacy_inputs is not None
+        and (
+            legacy_inputs.coverage.code_included_chars
+            > _budget_from_env("VERIFIER_DIFF_BUDGET_TOKENS", VERIFIER_DIFF_BUDGET_TOKENS)
+            * TOKEN_CHARS
+            or legacy_inputs.required_evidence_chars
+            > _budget_from_env(
+                "VERIFIER_ACCEPTANCE_EVIDENCE_BUDGET_TOKENS", VERIFIER_CONTEXT_BUDGET_TOKENS
+            )
+            * TOKEN_CHARS
+        )
+    )
+    if not legacy_route or required_input_above_soft_budget:
         _preflight_input_capacity(
             client,
             prompt,

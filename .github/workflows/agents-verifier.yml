@@ -59,6 +59,11 @@ on:
         required: false
         type: string
         default: ''
+      verification_request_basis:
+        description: 'Optional opaque lowercase SHA-256 launch correlation; never event, verdict or retry authority'
+        required: false
+        type: string
+        default: ''
       verification_event:
         description: 'Expected verification-event/v1 JSON; collector must reproduce it'
         required: false
@@ -71,6 +76,11 @@ on:
         default: ''
       verification_predecessor:
         description: 'Authenticated prior verification event identity (causal context)'
+        required: false
+        type: string
+        default: ''
+      verification_provenance:
+        description: 'Publish input-repair provenance only for a retained mixed result: JSON run_id/run_attempt/artifact_id selectors; never invokes a provider or records verifier execution state'
         required: false
         type: string
         default: ''
@@ -267,9 +277,11 @@ jobs:
       # Inspect both provider results before claiming dual-model acceptance.
       evidence_profile: ${{ inputs.evidence_profile || 'standard' }}
       verification_recovery: ${{ inputs.verification_recovery || '' }}
+      verification_request_basis: ${{ inputs.verification_request_basis || '' }}
       verification_event: ${{ inputs.verification_event || '' }}
       verification_material: ${{ inputs.verification_material || '' }}
       verification_predecessor: ${{ inputs.verification_predecessor || '' }}
+      verification_provenance: ${{ inputs.verification_provenance || '' }}
     secrets:
       CODEX_AUTH_JSON: ${{ secrets.CODEX_AUTH_JSON }}
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}

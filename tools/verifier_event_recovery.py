@@ -81,7 +81,10 @@ def incomplete_cause(
         if step_outcome == "skipped" and any(result.used_llm for result in results):
             return _cause("uncertain_execution", "contradictory_execution_evidence")
         if any(result.used_llm for result in results):
-            return _cause("recover_existing_evaluation", "retained_provider_evaluation")
+            cause = _cause("recover_existing_evaluation", "retained_provider_evaluation")
+            repair = _input_repair(mode, directory, payload_path, results, step_outcome)
+            # Provenance only: retryable stays false and no verdict is rewritten.
+            return {**cause, "input_repair": repair} if repair else cause
         if any(result.error or result.verdict != "UNVERIFIABLE_INPUT" for result in results):
             return _cause("uncertain_execution", "errored_or_contradictory_no_evaluation_payload")
         if mode == "compare":
@@ -114,6 +117,60 @@ def incomplete_cause(
         return _cause("known_no_evaluation", "validated_no_evaluation")
     except (ImportError, OSError, ValueError, KeyError, TypeError):
         return _cause("uncertain_execution", "execution_payload_invalid_or_unavailable")
+
+
+def _input_repair(
+    mode: str, directory: Path, payload_path: Path, results: list[Any], step_outcome: str
+) -> dict[str, Any] | None:
+    """Bind a completed-but-input-unverifiable result to its retained bytes.
+
+    Returns None unless every provider slot actually ran, at least one reported
+    UNVERIFIABLE_INPUT, and the retained receipt joins the result bytes exactly.
+    The verdicts are copied, never interpreted; UNVERIFIABLE_INPUT is not accepted.
+    """
+    stem = payload_path.stem
+    receipt_path = directory / f"{stem}-execution.json"
+    if (
+        step_outcome == "skipped"
+        or not receipt_path.exists()
+        or any(not result.used_llm or result.error for result in results)
+        or not any(result.verdict == "UNVERIFIABLE_INPUT" for result in results)
+    ):
+        return None
+    try:
+        raw = payload_path.read_bytes()
+        receipt_raw = receipt_path.read_bytes()
+        receipt = json.loads(receipt_raw)
+        output = receipt.get("outputs", {}).get(payload_path.name, {})
+        if not isinstance(output, dict):
+            return None
+    except (OSError, ValueError, AttributeError):
+        return None
+    if (
+        receipt.get("exit_code") != 0
+        or receipt.get("mode") != mode
+        or receipt.get("status")
+        in {"process_failed", "retention_failed", "output_truncated", "invalid_output"}
+        or output.get("sha256") != _sha(raw)
+        or output.get("bytes") != len(raw)
+        or output.get("truncated", False) is not False
+    ):
+        return None
+    return {
+        "result": {"path": payload_path.name, "raw_sha256": _sha(raw), "bytes": len(raw)},
+        "receipt": {"path": receipt_path.name, "raw_sha256": _sha(receipt_raw)},
+        "provider_verdicts": sorted(
+            (
+                {
+                    "provider": result.provider_used or "",
+                    "model": result.model or "",
+                    "verdict": result.verdict,
+                }
+                for result in results
+            ),
+            key=lambda row: json.dumps(row, sort_keys=True),
+        ),
+    }
 
 
 def _cause(cause: str, reason: str) -> dict[str, Any]:

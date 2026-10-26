@@ -1,0 +1,14 @@
+[
+ {
+  "url": "https://github.com/stranske/Workflows/pull/4238#issuecomment-6394577228",
+  "author": "github-actions[bot]",
+  "body": "<!-- verifier-event-state/v1 {\"schema\":\"verifier-event-state/v1\",\"repo\":\"stranske/workflows\",\"pr\":\"4238\",\"head_sha\":\"5961404e44a3f8c0e6e9d0c56ab4ba275b42f8b0\",\"evaluated_sha\":\"29578c8d30a36a0196d8facc95115e6ed4eb1773\",\"run_id\":\"40170272788\",\"run_attempt\":\"1\",\"status\":\"pending\",\"verification_event\":{\"schema\":\"verification-event/v1\",\"repo\":\"stranske/workflows\",\"pr\":\"4238\",\"head_sha\":\"5961404e44a3f8c0e6e9d0c56ab4ba275b42f8b0\",\"evaluated_sha\":\"29578c8d30a36a0196d8facc95115e6ed4eb1773\",\"request_sha256\":\"65681637971da5eefd4f6435b62bc69c565b2704c75d62adc1023ca00db4a1a7\",\"material_sha256\":\"6974463ba8debf4c5b2ed23c38b0884dee1fbbca915b4bcfabc843f14cfe6632\",\"event_id\":\"1a7f8a950a7e88598e54e4a99bae8754f9be80f192f9a87c3d2083b98e9a60ca\"},\"assessment_identity\":{\"mode\":\"compare\",\"provider\":\"\",\"model\":\"\",\"model2\":\"\",\"canonical\":true},\"execution_binding\":{\"schema\":\"verifier-execution-binding/v1\",\"workflow_path\":\".github/workflows/agents-verifier.yml\",\"job_name\":\"Run post-merge verifier\",\"pending_step\":\"Record verification event pending\",\"evaluator_step\":\"Run multi-provider comparison\"}} -->",
+  "truncated": false
+ },
+ {
+  "url": "https://github.com/stranske/Workflows/pull/4238#issuecomment-6394590304",
+  "author": "github-actions[bot]",
+  "body": "<!-- verifier-event-state/v1 {\"schema\":\"verifier-event-state/v1\",\"repo\":\"stranske/workflows\",\"pr\":\"4238\",\"head_sha\":\"5961404e44a3f8c0e6e9d0c56ab4ba275b42f8b0\",\"evaluated_sha\":\"29578c8d30a36a0196d8facc95115e6ed4eb1773\",\"run_id\":\"40170272788\",\"run_attempt\":\"1\",\"status\":\"incomplete\",\"failure_cause\":\"retained_provider_evaluation\",\"retry_kind\":\"recover_existing_evaluation\",\"retryable\":false,\"verification_event\":{\"schema\":\"verification-event/v1\",\"repo\":\"stranske/workflows\",\"pr\":\"4238\",\"head_sha\":\"5961404e44a3f8c0e6e9d0c56ab4ba275b42f8b0\",\"evaluated_sha\":\"29578c8d30a36a0196d8facc95115e6ed4eb1773\",\"request_sha256\":\"65681637971da5eefd4f6435b62bc69c565b2704c75d62adc1023ca00db4a1a7\",\"material_sha256\":\"6974463ba8debf4c5b2ed23c38b0884dee1fbbca915b4bcfabc843f14cfe6632\",\"event_id\":\"1a7f8a950a7e88598e54e4a99bae8754f9be80f192f9a87c3d2083b98e9a60ca\"},\"assessment_identity\":{\"mode\":\"compare\",\"provider\":\"\",\"model\":\"\",\"model2\":\"\",\"canonical\":true}} -->",
+  "truncated": false
+ }
+]

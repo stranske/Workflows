@@ -538,3 +538,8 @@ For large changes, consider:
 
 ### Documentation
 - [llm-task-analysis.md](../llm-task-analysis.md) - Keepalive LLM documentation (similar pattern)
+
+
+### Optional media and capture integrity
+
+A verified archive may contain media the text extractor cannot render, such as PNG screenshots. The collector records a safe image filename as `unrenderable_media`: evidence is unavailable, rather than corrupt. The existing minimum-evidence screen may omit that channel only when the original requirements are satisfied by another complete channel. Required screenshot or artifact duties remain missing evidence; archive integrity, decoding, revision/provenance failures unsafe/unknown archive members, and unknown failure kinds still block. The receipt retains the incomplete capture and omitted material, and the evaluator still makes the acceptance judgment.

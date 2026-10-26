@@ -1062,7 +1062,8 @@ jobs:
           CHANGED_FILES=$(git status --porcelain | wc -l | tr -d ' ')
           echo "files-changed=${CHANGED_FILES}" >> "$GITHUB_OUTPUT"
 
-          if [ "$CHANGED_FILES" -eq 0 ]; then
+          if [ "$CHANGED_FILES" -eq 0 ] &&
+            ! git rev-parse -q --verify MERGE_HEAD >/dev/null; then
             echo "No uncommitted changes."
             # Cursor in headless mode (--force) can
             # create its own git commits via the Bash tool.  Check for unpushed
@@ -1166,7 +1167,8 @@ jobs:
             git status --porcelain |
               grep -cvE '^\S+\s+agents/.*\.md$' || echo "0"
           )
-          if [ "$STATUS_ONLY_CHANGES" -eq 0 ] && [ "$CHANGED_FILES" -gt 0 ]; then
+          if [ "$STATUS_ONLY_CHANGES" -eq 0 ] && [ "$CHANGED_FILES" -gt 0 ] &&
+            ! git rev-parse -q --verify MERGE_HEAD >/dev/null; then
             echo "Only agent bootstrap files changed - skipping commit to reduce noise."
             echo "changes-made=false" >> "$GITHUB_OUTPUT"
             echo "commit-sha=" >> "$GITHUB_OUTPUT"
@@ -1179,7 +1181,8 @@ jobs:
 
           # Bail if all changes were artifacts — but still check for unpushed
           # commits from Cursor (it may have committed via Bash tool).
-          if git diff --cached --quiet; then
+          if git diff --cached --quiet &&
+            ! git rev-parse -q --verify MERGE_HEAD >/dev/null; then
             echo "::notice::No non-artifact changes to commit after filtering."
             # Fetch remote so FETCH_HEAD is current (mirrors Codex runner pattern).
             git fetch "$REMOTE_URL" "$target_branch" 2>/dev/null || true

@@ -43,19 +43,31 @@ jobs:
         with:
           script: |
             let pr = context.payload.pull_request || null;
-            if (context.eventName === 'workflow_dispatch' && process.env.PR_NUMBER) {
-              const number = Number(process.env.PR_NUMBER);
-              if (!Number.isSafeInteger(number) || number <= 0 || String(number) !== process.env.PR_NUMBER) {
+            const dispatchedPr = context.eventName === 'workflow_dispatch' && process.env.PR_NUMBER;
+            if (pr || dispatchedPr) {
+              const number = dispatchedPr ? Number(process.env.PR_NUMBER) : pr.number;
+              if (!Number.isSafeInteger(number) || number <= 0
+                  || (dispatchedPr && String(number) !== process.env.PR_NUMBER)) {
                 throw new Error('pr_number must be a positive integer');
               }
               const { data } = await github.rest.pulls.get({
                 ...context.repo, pull_number: number,
               });
-              if (data.state !== 'open' || data.head.repo.full_name !== process.env.GITHUB_REPOSITORY
-                  || data.head.sha !== context.sha) {
-                throw new Error('Dispatch must target the current open same-repository PR head');
+              if (dispatchedPr) {
+                if (data.state !== 'open' || data.head.repo.full_name !== process.env.GITHUB_REPOSITORY
+                    || data.head.sha !== context.sha) {
+                  throw new Error('Dispatch must target the current open same-repository PR head');
+                }
+              } else if (data.state !== 'open' || data.number !== pr.number
+                  || data.head?.sha !== pr.head?.sha
+                  || data.head?.repo?.full_name !== pr.head?.repo?.full_name
+                  || data.head?.ref !== pr.head?.ref || data.base?.ref !== pr.base?.ref) {
+                throw new Error('PR identity changed before Gate metadata refresh');
               }
-              pr = data;
+              // A rerun keeps the original event body. Refresh mutable metadata
+              // only after preserving the immutable PR/head/repository binding.
+              pr = dispatchedPr ? data : { ...pr, title: data.title, body: data.body, labels: data.labels,
+                state: data.state };
             }
             core.setOutput('pull_request', JSON.stringify(pr));
 
@@ -108,7 +120,7 @@ jobs:
       GATE_PR_JSON: ${{ needs.resolve-pr.outputs.pull_request }}
     steps:
       - name: Restore resolved PR event for Gate helpers
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.pr_number != '' }}
+        if: ${{ needs.resolve-pr.result == 'success' && needs.resolve-pr.outputs.pull_request != 'null' }}
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         with:
           script: |
@@ -212,7 +224,7 @@ jobs:
         }}
     steps:
       - name: Restore resolved PR event for Gate helpers
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.pr_number != '' }}
+        if: ${{ needs.resolve-pr.result == 'success' && needs.resolve-pr.outputs.pull_request != 'null' }}
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         with:
           script: |
@@ -236,7 +248,7 @@ jobs:
       GATE_PR_JSON: ${{ needs.resolve-pr.outputs.pull_request }}
     steps:
       - name: Restore resolved PR event for Gate helpers
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.pr_number != '' }}
+        if: ${{ needs.resolve-pr.result == 'success' && needs.resolve-pr.outputs.pull_request != 'null' }}
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         with:
           script: |
@@ -246,7 +258,9 @@ jobs:
             event.number = event.pull_request.number;
             fs.writeFileSync(process.env.GITHUB_EVENT_PATH, JSON.stringify(event));
       - name: Require an exact-head delivery seal
-        uses: stranske/Workflows/.github/actions/generated-delivery-seal@632eb20586f8403219d101e8a982b62efeb94104
+        uses: stranske/Workflows/.github/actions/generated-delivery-seal@fe1efdada4ece0e9668db83ae3867e74c29c7744
+        with:
+          pull-request-json: ${{ needs.resolve-pr.outputs.pull_request }}
 
   python-ci:
     name: python ci
@@ -296,7 +310,7 @@ jobs:
       GATE_PR_JSON: ${{ needs.resolve-pr.outputs.pull_request }}
     steps:
       - name: Restore resolved PR event for Gate helpers
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.pr_number != '' }}
+        if: ${{ needs.resolve-pr.result == 'success' && needs.resolve-pr.outputs.pull_request != 'null' }}
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         with:
           script: |
@@ -348,7 +362,7 @@ jobs:
       GATE_PR_JSON: ${{ needs.resolve-pr.outputs.pull_request }}
     steps:
       - name: Restore resolved PR event for Gate helpers
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.pr_number != '' }}
+        if: ${{ needs.resolve-pr.result == 'success' && needs.resolve-pr.outputs.pull_request != 'null' }}
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         with:
           script: |
@@ -402,7 +416,7 @@ jobs:
       GATE_PR_JSON: ${{ needs.resolve-pr.outputs.pull_request }}
     steps:
       - name: Restore resolved PR event for Gate helpers
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.pr_number != '' }}
+        if: ${{ needs.resolve-pr.result == 'success' && needs.resolve-pr.outputs.pull_request != 'null' }}
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         with:
           script: |
@@ -461,7 +475,7 @@ jobs:
       GATE_PR_JSON: ${{ needs.resolve-pr.outputs.pull_request }}
     steps:
       - name: Restore resolved PR event for Gate helpers
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.pr_number != '' }}
+        if: ${{ needs.resolve-pr.result == 'success' && needs.resolve-pr.outputs.pull_request != 'null' }}
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         with:
           script: |
@@ -610,7 +624,7 @@ jobs:
       GATE_PR_JSON: ${{ needs.resolve-pr.outputs.pull_request }}
     steps:
       - name: Restore resolved PR event for Gate helpers
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.pr_number != '' }}
+        if: ${{ needs.resolve-pr.result == 'success' && needs.resolve-pr.outputs.pull_request != 'null' }}
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         with:
           script: |
@@ -678,7 +692,7 @@ jobs:
       GATE_PR_JSON: ${{ needs.resolve-pr.outputs.pull_request }}
       REQUIRED_JOB_GROUPS_JSON: ${{ vars.REQUIRED_JOB_GROUPS_JSON || '' }}
     outputs:
-      state: ${{ steps.summarize.outputs.state || steps.docs_only.outputs.state || 'success' }}
+      state: ${{ needs.resolve-pr.result != 'success' && 'failure' || steps.summarize.outputs.state || steps.docs_only.outputs.state || 'success' }}
       description: >-
         ${{ steps.summarize.outputs.description || steps.docs_only.outputs.description || '' }}
       cosmetic_failure: ${{ steps.summarize.outputs.cosmetic_failure || 'false' }}
@@ -688,7 +702,7 @@ jobs:
       autofix_label_skipped: ${{ steps.autofix_label.outputs.skipped_reason || '' }}
     steps:
       - name: Restore resolved PR event for Gate helpers
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.pr_number != '' }}
+        if: ${{ needs.resolve-pr.result == 'success' && needs.resolve-pr.outputs.pull_request != 'null' }}
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         with:
           script: |
@@ -697,6 +711,11 @@ jobs:
             event.pull_request = JSON.parse(process.env.GATE_PR_JSON);
             event.number = event.pull_request.number;
             fs.writeFileSync(process.env.GITHUB_EVENT_PATH, JSON.stringify(event));
+      - name: Reject unresolved PR metadata
+        if: ${{ needs.resolve-pr.result != 'success' }}
+        run: |
+          echo 'Gate PR metadata resolution failed; no helper execution or positive Gate verdict is permitted.' >&2
+          exit 1
       # Mint GitHub App token early to use for API calls (avoids rate limits)
       - name: Mint GitHub App Token
         id: app_token
@@ -713,8 +732,8 @@ jobs:
 
           token: ${{ steps.app_token.outputs.token || github.token }}
           persist-credentials: false
-          repository: ${{ fromJSON(needs.resolve-pr.outputs.pull_request).head.repo.full_name || github.repository }}
-          ref: ${{ fromJSON(needs.resolve-pr.outputs.pull_request).head.sha || github.sha }}
+          repository: ${{ fromJSON(needs.resolve-pr.outputs.pull_request || 'null').head.repo.full_name || github.repository }}
+          ref: ${{ fromJSON(needs.resolve-pr.outputs.pull_request || 'null').head.sha || github.sha }}
           sparse-checkout: |
             .github/actions/setup-api-client
             .github/scripts
@@ -889,7 +908,7 @@ jobs:
             }
 
       - name: Summarize results
-        if: ${{ always() }}
+        if: ${{ always() && needs.resolve-pr.result == 'success' }}
         id: summarize
         env:
           DOC_ONLY: ${{ needs.detect.outputs.doc_only || 'false' }}
@@ -903,16 +922,39 @@ jobs:
           DELIVERY_SEAL_RESULT: ${{ needs.generated-delivery-seal.result || 'success' }}
           DOCKER_CHANGED: ${{ needs.detect.outputs.docker_changed || 'false' }}
           COVERAGE_ENABLED: ${{ needs.detect.outputs.coverage || 'true' }}
-        run: python .github/scripts/gate_summary.py
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          raw = os.environ.get("GATE_PR_JSON", "")
+          if raw and raw != "null":
+              path = Path(os.environ["GITHUB_EVENT_PATH"])
+              event = json.loads(path.read_text(encoding="utf-8"))
+              resolved = json.loads(raw)
+              original = event.get("pull_request")
+              if original and (
+                  original.get("number") != resolved.get("number")
+                  or original.get("head", {}).get("sha") != resolved.get("head", {}).get("sha")
+                  or (original.get("head", {}).get("repo") or {}).get("full_name")
+                  != (resolved.get("head", {}).get("repo") or {}).get("full_name")
+              ):
+                  raise RuntimeError("Resolved Gate PR identity differs from the original event")
+              event["pull_request"] = resolved
+              event["number"] = resolved["number"]
+              path.write_text(json.dumps(event), encoding="utf-8")
+          PY
+          python .github/scripts/gate_summary.py
 
       - name: Auto-apply autofix label for cosmetic failures
         id: autofix_label
         if: |
-          fromJSON(needs.resolve-pr.outputs.pull_request).number != null &&
+          fromJSON(needs.resolve-pr.outputs.pull_request || 'null').number != null &&
           needs.detect.outputs.doc_only != 'true' &&
           steps.summarize.outputs.state == 'failure' &&
           steps.summarize.outputs.cosmetic_failure == 'true' &&
-          !contains(fromJSON(needs.resolve-pr.outputs.pull_request).labels.*.name, 'autofix:clean')
+          !contains(fromJSON(needs.resolve-pr.outputs.pull_request || 'null').labels.*.name, 'autofix:clean')
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         env:
           ALLOWED_EXTENSIONS: 'py,pyi'
@@ -1017,7 +1059,7 @@ jobs:
           PYTHONPATH: ${{ github.workspace }}
           RUNS_JSON: ${{ steps.gather.outputs.runs || '[]' }}
           HEAD_SHA: >-
-            ${{ steps.gather.outputs.head_sha || fromJSON(needs.resolve-pr.outputs.pull_request).head.sha || github.sha }}
+            ${{ steps.gather.outputs.head_sha || fromJSON(needs.resolve-pr.outputs.pull_request || 'null').head.sha || github.sha }}
           COVERAGE_SECTION: ${{ steps.coverage_summary.outputs.body || '' }}
           COVERAGE_STATS: ${{ steps.coverage_stats.outputs.stats_json || '' }}
           COVERAGE_DELTA: ${{ steps.coverage_stats.outputs.delta_json || '' }}
@@ -1026,7 +1068,7 @@ jobs:
           GATE_ARTIFACTS_ROOT: ${{ github.workspace }}/gate_artifacts
 
       - name: Compose PR summary comment
-        if: always()
+        if: ${{ always() && needs.resolve-pr.result == 'success' }}
         id: compose_comment
         run: |
           python <<'PY'
@@ -1060,14 +1102,14 @@ jobs:
           PY
         env:
           SUMMARY_BODY: ${{ steps.summary_body.outputs.body }}
-          PR_NUMBER: ${{ fromJSON(needs.resolve-pr.outputs.pull_request).number }}
+          PR_NUMBER: ${{ fromJSON(needs.resolve-pr.outputs.pull_request || 'null').number }}
           HEAD_SHA: >-
-            ${{ steps.gather.outputs.head_sha || fromJSON(needs.resolve-pr.outputs.pull_request).head.sha || github.sha }}
+            ${{ steps.gather.outputs.head_sha || fromJSON(needs.resolve-pr.outputs.pull_request || 'null').head.sha || github.sha }}
 
       - name: Append keepalive checklists
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         env:
-          PR_NUMBER: ${{ fromJSON(needs.resolve-pr.outputs.pull_request).number }}
+          PR_NUMBER: ${{ fromJSON(needs.resolve-pr.outputs.pull_request || 'null').number }}
           LABEL_APPLIED: ${{ steps.autofix_label.outputs.applied || 'false' }}
         with:
           github-token: >-
@@ -1194,7 +1236,7 @@ jobs:
             } >> gate-summary.md
 
       - name: Upload Gate summary artifact
-        if: always()
+        if: ${{ always() && needs.resolve-pr.result == 'success' }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: gate-summary.md
@@ -1204,7 +1246,7 @@ jobs:
           overwrite: true
 
       - name: Upload coverage stats artifact
-        if: ${{ always() && steps.coverage_stats.outputs.stats_json != '' }}
+        if: ${{ always() && needs.resolve-pr.result == 'success' && steps.coverage_stats.outputs.stats_json != '' }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: gate-coverage.json
@@ -1214,7 +1256,7 @@ jobs:
           overwrite: true
 
       - name: Upload coverage delta artifact
-        if: ${{ always() && steps.coverage_stats.outputs.delta_json != '' }}
+        if: ${{ always() && needs.resolve-pr.result == 'success' && steps.coverage_stats.outputs.delta_json != '' }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: gate-coverage-delta.json
@@ -1224,7 +1266,7 @@ jobs:
           overwrite: true
 
       - name: Upload coverage summary artifact copy
-        if: ${{ always() && steps.coverage_summary.outputs.body != '' }}
+        if: ${{ always() && needs.resolve-pr.result == 'success' && steps.coverage_summary.outputs.body != '' }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: gate-coverage-summary.md
@@ -1234,7 +1276,7 @@ jobs:
           overwrite: true
 
       - name: Ensure consolidated summary comment
-        if: always()
+        if: ${{ always() && needs.resolve-pr.result == 'success' }}
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         with:
           github-token: ${{ github.token }}
@@ -1304,6 +1346,7 @@ jobs:
         if: ${{ always() }}
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         env:
+          RESOLVER_RESULT: ${{ needs.resolve-pr.result }}
           STATE: >-
             ${{ steps.summarize.outputs.state || steps.docs_only.outputs.state || 'pending' }}
           DESCRIPTION: >-
@@ -1315,7 +1358,23 @@ jobs:
           TARGET_URL: >-
             ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         with:
+          retries: 3
+          retry-exempt-status-codes: 400,401,403,404,422
           script: |
+            // Never leave an earlier same-head SUCCESS after this attempt lost
+            // authoritative PR metadata. Only a refusal status is permitted;
+            // no checkout/helper, mutable PR write or positive verdict follows.
+            if (process.env.RESOLVER_RESULT !== 'success') {
+              await github.rest.repos.createCommitStatus({
+                ...context.repo,
+                sha: context.payload.pull_request?.head?.sha ?? context.sha,
+                state: 'failure',
+                context: 'Gate / gate',
+                description: 'Gate PR metadata resolution did not succeed',
+                target_url: process.env.TARGET_URL,
+              });
+              throw new Error('Gate PR metadata resolution did not succeed');
+            }
             // # best-effort: this ancillary API failure is logged; reconciliation or the primary workflow result remains authoritative.
             const retryScript = './.github/scripts/github-api-with-retry.js';
             const { createTokenAwareRetry } = require(retryScript);
@@ -1453,7 +1512,8 @@ jobs:
 
       - name: Enforce explicit Gate success
         if: ${{ (steps.summarize.outputs.state || steps.docs_only.outputs.state) != 'success' }}
+        env:
+          GATE_SUMMARY_DESCRIPTION: ${{ steps.summarize.outputs.description || steps.docs_only.outputs.description }}
         run: |
-          echo "Gate did not report explicit success: " \
-            "${{ steps.summarize.outputs.description || steps.docs_only.outputs.description }}" >&2
+          printf '%s\n' "Gate did not report explicit success: ${GATE_SUMMARY_DESCRIPTION}" >&2
           exit 1

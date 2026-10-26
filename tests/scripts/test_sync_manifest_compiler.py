@@ -612,9 +612,9 @@ def test_real_manifest_compiles_every_declared_copy_entry() -> None:
         ],
     }
     Draft202012Validator(schema).validate(legacy_plan)
-    # Two typed gzip capture/validation helpers plus tools/subscription_llm.py extend the prior 264 managed entries.
+    # Correction-interface helpers plus tools/subscription_llm.py extend the prior managed entries.
     # Preserve ci-python-versions.env (#4045) and verifier_plan_fingerprint.js.
-    assert len(plan["entries"]) == 267
+    assert len(plan["entries"]) == 279
     assert {
         "tools/subscription_llm.py",
         ".github/scripts/rate_limit_receipt.js",
@@ -622,6 +622,13 @@ def test_real_manifest_compiles_every_declared_copy_entry() -> None:
         ".github/scripts/verifier_plan_fingerprint.js",
         ".github/scripts/verification_event.js",
         ".github/scripts/verifier_pending_execution.js",
+        ".github/scripts/verifier_correction_consumer.js",
+        ".github/scripts/verifier_correction_effects.js",
+        ".github/scripts/verifier_correction_seed.js",
+        ".github/scripts/verifier_correction_artifacts.js",
+        ".github/scripts/verifier_correction_collector.js",
+        ".github/scripts/verifier_correction_profile.py",
+        ".github/scripts/verifier_correction_decision.js",
         "docs/CI_FAILURE_PLAYBOOK.md",
         "docs/contracts/document-identity-conventions.md",
         "docs/contracts/document-mirror-v1.md",

@@ -40,7 +40,7 @@ version: 1
 workflows:
   # Core CI/CD
   - source: .github/workflows/pr-00-gate.yml
-    description: "Gate workflow - runs tests, lint, type checking before merge. It remains create-only and not yet fresh-consumer deployable under the documented workaround (resolved: #2158) because consumers own their coverage and runtime policy."
+    description: "Gate workflow - binds current PR metadata to the exact head for classifier/seal checks and consumes it in the summary Python action, then runs tests, lint and type checking before merge. It remains create-only and not yet fresh-consumer deployable under the documented workaround (resolved: #2158) because consumers own their coverage and runtime policy."
     # New-template defaults: Python 3.13/3.14; existing explicit runtime policies migrate separately.
     sync_mode: create_only  # Do not overwrite consumer-specific Gate coverage, runtime, or policy.
     overwrite_repos:
@@ -81,7 +81,7 @@ workflows:
     description: "PR event hub - consolidates PR meta, bot comments, and verify-to-issue handlers"
 
   - source: .github/workflows/agents-81-gate-followups.yml
-    description: "Gate followups hub - keepalive and autofix; budgets count Gate failures with failed jobs"
+    description: "Gate followups hub - keepalive and autofix; forwards evaluated PR base to Codex; budgets count Gate failures with failed jobs"
 
   - source: .github/workflows/agents-keepalive-sweep.yml
     description: "Keepalive sweep - periodic level-based resync; dispatches the loop for open agent PRs so silent zero-commit stalls resurface"
@@ -110,7 +110,7 @@ workflows:
 
   # Post-merge trusted-base execution, job-scoped permissions and declared secrets.
   - source: .github/workflows/agents-verifier.yml
-    description: "Verifier - bounded chunked acceptance review, expanded evidence recovery and typed provider-free retained-output recovery; guarded PASS/UNVERIFIABLE_INPUT source closure; consumer dedup binds canonical PR and linked-source Tasks/Acceptance Criteria"
+    description: "Verifier - optional inert launch-basis correlation and bounded chunked acceptance review, expanded evidence recovery and typed provider-free retained-output recovery; guarded PASS/UNVERIFIABLE_INPUT source closure; consumer dedup binds canonical PR and linked-source Tasks/Acceptance Criteria"
 
   - source: .github/workflows/list-llm-models.yml
     description: "List LLM Models - helper to show available models for verifier"
@@ -163,7 +163,7 @@ workflows:
 
   # Maintenance workflows
   - source: .github/workflows/maint-coverage-guard.yml
-    description: "Coverage guard - daily baseline monitoring with automatic issue creation. Intentional full-workflow sync exception: ships the complete guard implementation to consumers instead of a thin reusable caller because the workflow embeds repo-specific artifact discovery and download logic tied to tools/coverage_guard.py."
+    description: "Coverage guard - daily baseline monitoring with automatic issue creation and repository-scoped recovery history. Intentional full-workflow sync exception: ships the complete guard implementation to consumers instead of a thin reusable caller because the workflow embeds repo-specific artifact discovery and download logic tied to tools/coverage_guard.py."
 
   - source: .github/workflows/maint-76-claude-code-review.yml
     description: "Claude Code review (opt-in) - Workflows owns the pinned action digest; runs only on labeled PRs or manual dispatch"
@@ -355,7 +355,7 @@ scripts:
     description: "Selects changed-input reusable CI scenarios including flat-layout/root Python modules and requirements lock files - required by reusable CI workflows"
 
   - source: scripts/sync_test_dependencies.py
-    description: "Syncs test dependency pins - required by reusable CI workflow"
+    description: "Audits project dependency declarations or canonical non-package requirements.lock pins - required by reusable CI workflow"
 
   - source: scripts/check_test_dependencies.sh
     description: "Checks test dependencies match - required by reusable CI workflow"
@@ -585,7 +585,7 @@ scripts:
     description: "Emits autofix report - required by reusable-18-autofix.yml"
 
   - source: .github/scripts/gate_summary.py
-    description: "Gate summary renderer - generates PR gate check summary"
+    description: "Gate summary renderer - shared and consumer copies isolate untrusted diagnostics"
 
   - source: .github/scripts/should-post-review.js
     description: "Evaluates whether a progress review comment should be posted"
@@ -617,11 +617,59 @@ scripts:
     delivery: copy
 
   - source: .github/scripts/verification_event.js
-    description: "Binds repeat verification and strict recovery selectors to authoritative code, original requests and explicitly required retained evidence"
+    description: "Carries inert optional launch-basis correlation and authenticated exact-terminal dedup references; binds repeat verification and strict recovery selectors to authoritative code, original requests, typed comparison-baseline material and explicitly required retained evidence; authenticates known-no-evaluation causal predecessors, preserves the original edge on exact-event retries and reconciles older pending attempts through authoritative Actions reads and retains full-history completion deduplication without reparenting history"
+    delivery: copy
+
+  - source: .github/scripts/verifier_correction_autopilot.js
+    description: "Authenticates existing auto-pilot continuation admission, prepared redispatches and actual native started/PR/pause receipts; no provider-start or closure authority"
+    delivery: copy
+
+  - source: .github/scripts/verifier_correction_host.js
+    description: "Collects fresh native corrective ownership/assignment/inventory facts and reconciles exact immutable issue and continuation identities"
+    delivery: copy
+
+  - source: .github/scripts/verifier_correction_runtime.js
+    description: "Wires native correction consumer/reconciliation and mandatory coding scope into existing lanes; missing classifier provenance, current qualification or explicit coding budget stays held"
+    delivery: copy
+
+  - source: .github/scripts/verifier_correction_artifact_sdk/package.json
+    description: "Pinned package manifest for the existing official Actions artifact SDK used only by admitted correction checkpoints"
+    delivery: copy
+
+  - source: .github/scripts/verifier_correction_artifact_sdk/package-lock.json
+    description: "Frozen integrity-checked transitive dependency lock for correction artifact checkpoint transport; installed with scripts disabled"
+    delivery: copy
+
+  - source: .github/scripts/verifier_correction_artifacts.js
+    description: "Authenticates canonical correction run/attempt artifacts and exact checkpoint readback; uses the existing immutable follow-up NDJSON transport under authenticated PR concurrency"
+    delivery: copy
+
+  - source: .github/scripts/verifier_correction_profile.py
+    description: "Literal-only bounded view of the existing reviewed Orchestrator role registry; never executes fetched code and preserves empty/unsupported source as UNKNOWN"
+    delivery: copy
+
+  - source: .github/scripts/verifier_correction_collector.js
+    description: "Collects original raw seeds plus bounded post-terminal requests and physical test hashes; absent genuine Core classification qualification stays owned UNKNOWN"
+    delivery: copy
+
+  - source: .github/scripts/verifier_correction_decision.js
+    description: "Checks complete source-bound risk/test decisions against independently loaded production profile qualification; security/authority/unknown never fall through ordinary autopilot"
+    delivery: copy
+
+  - source: .github/scripts/verifier_correction_seed.js
+    description: "Retains exact original NON_PASS raw finding/source/event seeds after native terminal publication; no future hold/test/owner authority is invented"
+    delivery: copy
+
+  - source: .github/scripts/verifier_correction_effects.js
+    description: "Local-tested correction effects adapter for the existing follow-up issue/autopilot lane; requires authenticated seed/request, fresh gates, durable existing-ledger intent and actual continuation reconciliation; source-wired with inert causal tests; authenticated classifier-origin deployment gap remains held"
+    delivery: copy
+
+  - source: .github/scripts/verifier_correction_consumer.js
+    description: "Collection-only exact correction admission using authenticated original verifier artifacts; no issue or auto-pilot effects until producer and continuation bindings exist"
     delivery: copy
 
   - source: .github/scripts/verifier_pending_execution.js
-    description: "Reconciles pending verifier attempts and authenticates provider-free retained-output origin, applicability and once-only publication"
+    description: "Reconciles pending verifier attempts and authenticates provider-free retained-output origin, applicability and once-only publication; publishes provenance-only input-repair markers for already-retained mixed results"
     delivery: copy
 
   - source: .github/scripts/agents_orchestrator_resolve.js
@@ -637,7 +685,7 @@ scripts:
     description: "Updates PR body while preserving authored descriptions; stable completed dependency-provenance results, observer exclusion, and exact-head Gate visibility"
 
   - source: .github/scripts/agents_verifier_context.js
-    description: "Verifier context with mandatory unavailable linked-issue discovery, known non-closing source-issue retrieval, independent body/comment/artifact evidence, independently bounded run/artifact pages with stable count presence, positive safe IDs and full-page continuation, positive channel-local paginated comment identities and stable ordering with bounded full-page signature revalidation against deletion shifts, safe NDJSON proof alongside JSONL, raw extraction byte accounting before UTF-8 decoding, bounded archive/member occurrence hash inventories with duplicate-name rejection and retained unavailable suffixes, complete exact-head typed/positive-clause-labelled including trailing negative URL predicates and Markdown section/reference scope explicit-union artifact scope selected before budgeting, shared bounded descriptor-aware URL-token and negative-subject classification with fail-closed oversized prose scope and descriptive affirmative declarations for positive evidence and diagnostic-local incidental fallback, coordinated comma-and/or URL subjects and independent non-URL/contrast clauses, and associated discovery, fail-closed aggregate availability, literal destination metadata, single-normalization filename-whitespace-preserving text/binary patch offsets and complete post-merge diffs"
+    description: "Verifier context with authenticated explicitly selected ancestor comparison baselines scoped to byte-identical named sources, bounded selected artifact members with exact-ID metadata fallback independently of optional discovery counts and truthful unselected sibling inventories, plus authenticated provider-free retained revalidation under its recovery-key guard independently of ordinary exact-event completion deduplication, explicitly selected PR and linked-source comments retaining authenticated actor/time/body before optional chatter and lossless selected-proof prompt fitting, mandatory unavailable linked-issue discovery, known non-closing source-issue retrieval, independent body/comment/artifact evidence, independently bounded run/artifact pages with stable count presence, positive safe IDs and full-page continuation, positive channel-local paginated comment identities and stable ordering with bounded full-page signature revalidation against deletion shifts, safe NDJSON proof alongside JSONL, raw extraction byte accounting before UTF-8 decoding, bounded archive/member occurrence hash inventories with duplicate-name rejection and retained unavailable suffixes, complete exact-head typed/positive-clause-labelled including trailing negative URL predicates and Markdown section/reference scope explicit-union artifact scope selected before budgeting, shared bounded descriptor-aware URL-token and negative-subject classification with fail-closed oversized prose scope and descriptive affirmative declarations for positive evidence and diagnostic-local incidental fallback, coordinated comma-and/or URL subjects and independent non-URL/contrast clauses, and associated discovery, fail-closed aggregate availability, literal destination metadata, single-normalization filename-whitespace-preserving text/binary patch offsets and complete post-merge diffs"
 
   - source: .github/scripts/agents_dispatch_summary.js
     description: "Summarizes agent dispatch operations"
@@ -816,11 +864,15 @@ scripts:
     # Exact facts come from managed registry/helper validation; expanded v7 retains
     # up to 524288 evidence characters before unchanged native capacity preflight.
     # Reusable expanded aggregation imports the fresh Workflows checkout, not stale caller code.
-    # Standard review uses whole-file chunks with explicit UNVERIFIABLE_INPUT. Existing copy scope.
+    # Standard review packs whole-file chunks; a required single file reaches native
+    # counting without rough-budget clipping. Descriptive evidence sentences do not
+    # inherit unrelated later mandates; abbreviation periods keep real duties.
+    # Fitted necessary proof above its soft bound also requires native admission;
+    # omitted optional history leaves bounded legacy compatibility unchanged.
     # Opt-in expanded diagnostic partitions preserve all loaded input ranges and
     # findings within native-count bounds; global dependencies always withhold PASS.
     # Every diagnostic request repeats the complete governing plan without clipping.
-    description: "PR verifier - scopes chunk omissions to assigned paths, retains raw chunk evidence and reconciles explicitly attributed sibling concerns without waiving real findings; retains active as-artifact proof delivery, literal-safe PR/inline review-comment destinations and common-proof checklist nouns through shared polarity/product/OR grammar; normalizes actor-bound common test-result/log/screenshot/recording proof objects with early canonical contracted governors, offset-preserving literal-free proof contexts, bounded active/passive object qualifiers and literal-safe explicit pronoun antecedents across finite actor clause separators and shared negative-governor actor boundaries and structurally bounded PR-contained comment nouns through shared polarity/modality/product/literal grammar and validates independent acceptance-list items and destination-specific evidence with clause-bound mandatory evidence/artifact comment-presence predicates with shared negative requirement governors for bare be-in destinations, subject-level no polarity and canonical comment destinations, product permit capability and shared share/put/place/submit/deliver/supply aliases with shared finite compound-role subjects and possession-safe verbal guards with bounded adverb-and-polarity-aware optional-inspection noun spans and prove operations, contracted and bare prohibition polarity with additive not-only/not-merely/not-just and negative embedded-auxiliary guards with complete passive/active-perfect negative requirement actions, shared adverb-aware active-perfect/passive contrast-aware elided actor/governors and prohibition-safe checklist fallback, shared bounded multiword component and comma-availability grammar with order-symmetric single/coordinated destination OR options and actual floors and leading either alternatives, complete product-response vocabulary, bounded product-capability spans, qualified recipients and evidence-object modifiers, bound product storage/client aspects, optional-modal polarity, named and elided actor governor and finite-past sentence boundaries, attached reviewer predicates through shared destinations, complete body predicates, non-PASS concerns and rename-safe diff coverage; native-capable routes count complete standard/comparison/chunk/synthesis and schema-repair requests; registered standard routes without optional capacity facts preserve their original transport, while explicit expanded invocation always requires native capacity; evidence floors and isolated receipt I/O warnings remain"
+    description: "PR verifier - retains complete single-file requests for native capacity admission and scopes evidence mandates to their governing sentences, scopes chunk omissions to assigned paths, retains raw chunk evidence and reconciles explicitly attributed sibling concerns without waiving real findings; retains active as-artifact proof delivery, literal-safe PR/inline review-comment destinations and common-proof checklist nouns through shared polarity/product/OR grammar; normalizes actor-bound common test-result/log/screenshot/recording proof objects with early canonical contracted governors, offset-preserving literal-free proof contexts, bounded active/passive object qualifiers and literal-safe explicit pronoun antecedents across finite actor clause separators and shared negative-governor actor boundaries and structurally bounded PR-contained comment nouns through shared polarity/modality/product/literal grammar and validates independent acceptance-list items and destination-specific evidence with clause-bound mandatory evidence/artifact comment-presence predicates with shared negative requirement governors for bare be-in destinations, subject-level no polarity and canonical comment destinations, product permit capability and shared share/put/place/submit/deliver/supply aliases with shared finite compound-role subjects and possession-safe verbal guards with bounded adverb-and-polarity-aware optional-inspection noun spans and prove operations, contracted and bare prohibition polarity with additive not-only/not-merely/not-just and negative embedded-auxiliary guards with complete passive/active-perfect negative requirement actions, shared adverb-aware active-perfect/passive contrast-aware elided actor/governors and prohibition-safe checklist fallback, shared bounded multiword component and comma-availability grammar with order-symmetric single/coordinated destination OR options and actual floors and leading either alternatives, complete product-response vocabulary, bounded product-capability spans, qualified recipients and evidence-object modifiers, bound product storage/client aspects, optional-modal polarity, named and elided actor governor and finite-past sentence boundaries, attached reviewer predicates through shared destinations, complete body predicates, non-PASS concerns and rename-safe diff coverage; native-capable routes count complete standard/comparison/chunk/synthesis and schema-repair requests; registered standard routes without optional capacity facts preserve their original transport, while explicit expanded invocation always requires native capacity; evidence floors and isolated receipt I/O warnings remain"
     delivery: copy
 
   # NOTE (resolved: issue #2347): scripts/langchain/followup_issue_generator.py was MOVED
@@ -884,7 +936,7 @@ scripts:
     description: "LangChain client builder - multi-provider client with slot-based fallback and configuration"
 
   - source: tools/llm_registry.py
-    description: "LLM model registry helper - shared selection/blocked-model enforcement plus exact optional native capacity facts; missing records raise NativeCapacityUnavailable, malformed facts raise ValueError"
+    description: "LLM model registry helper - shared selection/blocked-model enforcement plus exact optional native capacity facts; missing records raise the stable public NativeCapacityUnavailable exception (including naming-rule compatibility), malformed facts raise ValueError"
     template_sync: exact
 
   # Raw UTF-8 and CRLF identities must match loaded semantic inputs without newline normalization.
@@ -897,7 +949,7 @@ scripts:
     template_sync: exact
 
   - source: tools/verifier_capture_obligation_manifest.py
-    description: "Capture obligation inventory and context-bound verifier input snapshot emission"
+    description: "Capture obligations and context-bound snapshots; optional typed unrenderable media is availability, required media and integrity failures remain blocking"
     template_sync: exact
 
   - source: tools/verifier_semantic_acceptance.py
@@ -995,7 +1047,7 @@ actions:
 
   - source: .github/actions/path-classifier/
     is_directory: true
-    description: "Classifies changed PR paths for path-aware expensive job gating"
+    description: "Classifies changed PR paths using identity-bound resolved Gate metadata, including freshly sealed generated deliveries"
     requires:
       - .github/scripts/sync_pr_lease_contract.js
 

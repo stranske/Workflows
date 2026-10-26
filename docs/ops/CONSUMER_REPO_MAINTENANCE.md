@@ -2,6 +2,23 @@
 
 This document outlines the process for maintaining workflow system consistency across consumer repositories and debugging issues that may affect multiple repos.
 
+## Non-package test dependency declarations
+
+The managed `scripts/sync_test_dependencies.py` audits `[project]` dependencies
+and extras when that table exists. A repository without `[project]` may instead
+use its canonical `requirements.lock` in the same configuration root. This
+fallback accepts blank/comment lines and unconditional `name==version` pins
+only. Includes, editable installs, URLs, pip options, extras, ranges, wildcard
+versions and environment markers fail the audit; the script does not follow or
+execute them. An import absent from the selected declarations still fails
+`--verify`.
+
+For non-package repositories, `--fix` succeeds without changes when imports are
+already declared. Otherwise it refuses to rewrite the lock or create a package
+project table: maintain the pins through the repository's existing dependency
+process, then rerun the audit. Project repositories keep their existing dev-extra
+fix behavior; a lock file cannot mask an undeclared project dependency.
+
 ## Delivery scope and production checks
 
 Sync and dev-tool/dependency maintenance distribute a fixed source revision and
@@ -34,6 +51,29 @@ required CI, active findings, head/source/plan bindings and final merge checks a
 still enforced. An incidental active thread needs an explicit owner disposition;
 it is not silently ignored. Consumers' branch protection is never weakened.
 Legacy review mode remains available when `generated_delivery_review` is absent.
+
+### Sealed Gate recovery
+
+Maint71 requests a full PR-event Gate rerun when authenticated seal-only failure
+proof shows that the metadata snapshot predates the current exact-head seal.
+A failed-jobs rerun can reuse the successful pre-seal resolver; the workflow-level
+start time alone does not prove that the current seal was read. For resolver-based
+Gates, use the latest attempt's unique successful exact-head resolver timestamps.
+Missing, conflicting or unreadable resolver evidence never proves freshness. A
+legacy first event created before sealing proves only an old snapshot; a later
+start time cannot make it fresh. Repeated legacy attempts require migration,
+rather than another automatic request.
+Active runs are not duplicated, fresh post-seal test failures remain blocking,
+and workflow security approval holds require their own authorized review.
+Previously accepted unchanged-payload canary qualification is retained.
+
+Gate summaries that read `GITHUB_EVENT_PATH` must refresh that file from the
+identity-checked `resolve-pr` snapshot in the **same `run` action** that invokes
+`gate_summary.py`. The runner restores the original event between actions, so a
+separate `github-script` hydration is insufficient. Customized summary jobs need
+the direct resolver dependency and `GATE_PR_JSON` environment binding; preserve
+all existing required tests, coverage policy and exact-head seal checks.
+
 
 ### Finding relevance evidence
 
@@ -967,6 +1007,33 @@ shared behavior here first and distribute the managed validator through the
 normal Maint 68 candidate/promotion and Maint 71 reconciliation flow. Never
 patch the generated Inv-Man sync PR directly. The policy is valid only for an
 `emitting` or `conformant` producer/bridge, so it cannot silently skip closure.
+
+
+### Gate reruns and current PR metadata
+
+A rerun retains its original pull-request event body. Its later start time does
+not prove that it evaluated a seal subsequently written by Maint 71. Gate's
+resolver reads current metadata while preserving the original PR number, head
+SHA and head repository. The classifier consumes that snapshot from the job environment and the seal
+action receives it through its explicit `pull-request-json` input. The runner
+rewrites `event.json` before every action, so file restoration alone cannot
+carry the snapshot across that boundary. Both guards validate the same snapshot;
+a changed head, repository, closed PR or unavailable read refuses the evaluation.
+An ordinary fork PR keeps its original read-only identity. PR-bound manual
+runs retain their existing same-repository/head restrictions.
+
+`pr-00-gate.yml` is create-only because consumers own their runtime, coverage
+and additional jobs. Older consumer Gates need a reviewed wiring alignment of
+the resolver and the classifier/seal snapshot transport before they can recover
+these stale-event holds. Preserve their existing jobs, policy and required-check
+identities. Consumers that lack the named seal job must expose the existing seal
+precondition through the canonical seal action so Maint 71 can authenticate a
+seal-only hold. A reviewed immutable Workflows classifier-action pin can carry
+the corrected classifier while managed copies finish normal delivery; it must
+retain the consumer checkout/configuration and exact resolved PR identity.
+Repeatedly rerunning the old event, an unbound branch dispatch,
+changing the seal/head to manufacture freshness, or a replacement green status
+cannot establish integration acceptance.
 
 ## Registered Consumer Repos
 

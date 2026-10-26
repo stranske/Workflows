@@ -299,7 +299,7 @@ const buildGithubStub = ({
     rest: {
       pulls: {
         async get() {
-          return { data: { ...pr, head: pr?.head || { sha: 'fixture-head' } } };
+          return { data: { id: 100000 + (pr?.number || 0), node_id: `PR_fixture_${pr?.number || 0}`, ...pr, head: pr?.head || { sha: 'fixture-head' } } };
         },
         async update({ body }) {
           pr.body = body;
@@ -308,7 +308,12 @@ const buildGithubStub = ({
         },
       },
       actions: {
-        async listWorkflowRuns() {
+        async listWorkflowRuns(args = {}) {
+          // Ordinary legacy fixtures have a complete empty native correction
+          // inventory; their unrelated Gate workflowRuns are not correction runs.
+          if (args.workflow_id === 'agents-verify-to-new-pr.yml' && args.event === 'workflow_dispatch') {
+            return { data: { total_count: 0, workflow_runs: [] } };
+          }
           return { data: { workflow_runs: workflowRuns } };
         },
         async getWorkflowRun() {

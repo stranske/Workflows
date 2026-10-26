@@ -196,11 +196,40 @@ function loadConfig(configPath) {
 }
 
 function parseGithubContext() {
+  let context;
   try {
-    return JSON.parse(process.env.GITHUB_CONTEXT_JSON || '{}');
+    context = JSON.parse(process.env.GITHUB_CONTEXT_JSON || '{}');
   } catch {
+    if (process.env.GATE_PR_JSON && process.env.GATE_PR_JSON !== 'null') {
+      throw new Error('Original Gate context is unavailable');
+    }
     return {};
   }
+  const resolvedJson = process.env.GATE_PR_JSON;
+  if (!resolvedJson || resolvedJson === 'null') return context;
+  let resolved;
+  try { resolved = JSON.parse(resolvedJson); } catch {
+    throw new Error('Resolved Gate PR metadata is malformed');
+  }
+  const original = context.event?.pull_request;
+  if (!resolved || resolved.state !== 'open' || !Number.isSafeInteger(resolved.number) || resolved.number <= 0
+      || !resolved.head?.sha || !resolved.head?.repo?.full_name) {
+    throw new Error('Resolved Gate PR metadata is incomplete');
+  }
+  if (original) {
+    if (resolved.number !== original.number || resolved.head.sha !== original.head?.sha
+        || resolved.head.repo.full_name !== original.head?.repo?.full_name) {
+      throw new Error('Resolved Gate PR identity differs from the event');
+    }
+  } else if (context.event_name !== 'workflow_dispatch'
+      || resolved.head.sha !== context.sha
+      || resolved.head.repo.full_name !== context.repository) {
+    throw new Error('Resolved Gate PR identity differs from the dispatched head');
+  }
+  // toJSON(github) remains the original event even after GITHUB_EVENT_PATH is
+  // restored. Both classifier and seal must use the same resolved snapshot.
+  return { ...context, event: { ...context.event,
+    pull_request: resolved, number: resolved.number } };
 }
 
 function stableDeliverySealStatus(githubContext, { contract, now } = {}) {
@@ -248,18 +277,6 @@ function readContractAtRef(ref, contractPath) {
   // Keep the object bytes intact: the bootstrap allowlist digest is calculated
   // from the canonical tracked file, including its trailing newline.
   return readGit(['show', `${ref}:${contractPath}`]);
-}
-
-function readGit(args) {
-  return execFileSync('git', args, {
-    cwd: process.env.GITHUB_WORKSPACE || process.cwd(),
-    encoding: 'utf8',
-    stdio: ['ignore', 'pipe', 'pipe'],
-  });
-}
-
-function runGit(args) {
-  return readGit(args).trim();
 }
 
 function isAddOnlyContractDiff(diffText, contractPath) {
@@ -335,6 +352,18 @@ function loadDeliveryContract(
     return null;
   }
   return require(contractPath);
+}
+
+function readGit(args) {
+  return execFileSync('git', args, {
+    cwd: process.env.GITHUB_WORKSPACE || process.cwd(),
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+}
+
+function runGit(args) {
+  return readGit(args).trim();
 }
 
 function tryGit(args) {
@@ -538,5 +567,6 @@ module.exports = {
   matchesAny,
   normalizePath,
   parseClassificationConfig,
+  parseGithubContext,
   stableDeliverySealStatus,
 };

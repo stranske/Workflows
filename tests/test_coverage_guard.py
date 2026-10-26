@@ -8,6 +8,12 @@ import pytest
 from tools import coverage_guard
 
 
+@pytest.fixture(autouse=True)
+def isolate_guard_history(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Default-path CLI calls must not share persisted samples between tests."""
+    monkeypatch.chdir(tmp_path)
+
+
 def _write_json(path: Path, payload: dict) -> None:
     path.write_text(json.dumps(payload), encoding="utf-8")
 
@@ -776,6 +782,113 @@ def test_recovery_window_counts_same_coverage_from_distinct_runs() -> None:
         recovery_window=2,
         history_records=history_records,
     )
+
+
+@pytest.mark.parametrize(
+    "restored_run_ids",
+    [("1", "2"), ("3", "1", "2"), ("1", "3", "2"), ("1", "2", "3"), ("1", "1", "2")],
+    ids=["two-runs", "retry-oldest", "retry-middle", "retry-latest", "duplicate-restored-run"],
+)
+def test_recovery_window_counts_records_accumulated_across_runs(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, restored_run_ids: tuple[str, ...]
+) -> None:
+    """Restored runs accumulate while retries replace stale samples without inflating the window."""
+    trend_path = tmp_path / "trend.json"
+    baseline_path = tmp_path / "baseline.json"
+    history_path = tmp_path / "history.ndjson"
+    _write_json(trend_path, {"current": 90.0, "run_id": "3"})
+    _write_json(baseline_path, {"line": 85.0, "recovery_days": 3})
+    history_path.write_text(
+        "\n".join(
+            json.dumps({"current": 80.0 if run_id == "3" else 90.0, "run_id": run_id})
+            for run_id in restored_run_ids
+        ),
+        encoding="utf-8",
+    )
+    closed = []
+    monkeypatch.setattr(coverage_guard, "_close_existing_issue", lambda *a, **kw: closed.append(a))
+    args = [
+        "--repo",
+        "octo/repo",
+        "--trend-path",
+        str(trend_path),
+        "--baseline-path",
+        str(baseline_path),
+        "--history-path",
+        str(history_path),
+    ]
+    assert coverage_guard.main(args) == 0
+    assert len(closed) == 1
+    assert [r["run_id"] for r in coverage_guard._load_ndjson(history_path)] == ["1", "2", "3"]
+    assert coverage_guard._load_ndjson(history_path)[-1]["current"] == 90.0
+    # Retrying the same Gate run cannot supply another recovery sample.
+    assert coverage_guard.main(args) == 0
+    assert len(coverage_guard._load_ndjson(history_path)) == 3
+    history_path.unlink()
+    closed.clear()
+    assert coverage_guard.main(args) == 0
+    assert not closed
+    assert len(coverage_guard._load_ndjson(history_path)) == 1
+    assert coverage_guard.main(args) == 0
+    assert not closed
+    assert len(coverage_guard._load_ndjson(history_path)) == 1
+
+
+@pytest.mark.parametrize(
+    ("restored_coverage", "recovered_records"),
+    [((90.0,), 2), ((80.0,), 1), ((90.0, 90.0, 80.0), 2), ((), 1)],
+    ids=["two-recovered", "one-below-baseline", "latest-window-only", "current-alone"],
+)
+def test_recovery_message_names_records_held_and_needed(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    restored_coverage: tuple[float, ...],
+    recovered_records: int,
+) -> None:
+    """Progress names the qualifying records within the latest window and the required size."""
+    trend_path = tmp_path / "trend.json"
+    baseline_path = tmp_path / "baseline.json"
+    history_path = tmp_path / "history.ndjson"
+    _write_json(trend_path, {"current": 90.0, "run_id": str(len(restored_coverage) + 1)})
+    _write_json(baseline_path, {"line": 85.0, "recovery_days": 3})
+    history_path.write_text(
+        "\n".join(
+            json.dumps({"current": current, "run_id": str(n)})
+            for n, current in enumerate(restored_coverage, start=1)
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        coverage_guard, "_close_existing_issue", lambda *a, **kw: pytest.fail("premature closure")
+    )
+    assert (
+        coverage_guard.main(
+            [
+                "--repo",
+                "octo/repo",
+                "--trend-path",
+                str(trend_path),
+                "--baseline-path",
+                str(baseline_path),
+                "--history-path",
+                str(history_path),
+            ]
+        )
+        == 0
+    )
+    assert f"{recovered_records} of 3 records at or above the baseline" in capsys.readouterr().out
+
+
+def test_recovery_history_retains_latest_thirty_unique_runs() -> None:
+    history = [{"current": 90.0, "run_id": str(n)} for n in range(35)]
+    history.insert(0, {"current": 80.0, "run_id": "34"})
+    records = coverage_guard._accumulate_recovery_history(
+        {"current": 91.0, "run_id": "34"}, history, ""
+    )
+    assert len(records) == 30
+    assert [r["run_id"] for r in records] == [str(n) for n in range(5, 35)]
+    assert records[-1]["current"] == 91.0
 
 
 def test_recovery_window_accepts_aggregate_history_records() -> None:

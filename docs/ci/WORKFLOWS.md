@@ -25,6 +25,11 @@ Diagram labels that start with `.` are shorthand for files under `.github/workfl
 - **Agents control plane:** Successful Gate runs dispatch the [Agents 70 Orchestrator](../../.github/workflows/agents-70-orchestrator.yml), which coordinates the [Codex belt](../../.github/workflows/agents-71-codex-belt-dispatcher.yml) hand-off (dispatcher → worker → conveyor) and runs the built-in keepalive sweep unless the repository-level `keepalive:paused` label or `keepalive_enabled` flag disables it. The orchestrator summary exposes whether the pause label was detected and records the exact label name through the `keepalive_pause_label` output so downstream jobs can echo the control state.
 - **Health checks:** The [Health 4x suite](../../.github/workflows/health-40-repo-selfcheck.yml), [Health 40 Sweep](../../.github/workflows/health-40-sweep.yml), [Health 41](../../.github/workflows/health-41-repo-health.yml), [Health 42](../../.github/workflows/health-42-actionlint.yml), [Health 43](../../.github/workflows/health-43-ci-signature-guard.yml), [Health 44](../../.github/workflows/health-44-gate-branch-protection.yml), [Health 46 Codex Auth Check](../../.github/workflows/health-codex-auth-check.yml), [Health 50 Security Scan](../../.github/workflows/health-50-security-scan.yml), [Health 51 Actions SAST](../../.github/workflows/health-51-zizmor.yml), [Health 52 Semgrep Scan](../../.github/workflows/health-52-semgrep.yml), [Health 67 Integration Sync Check](../../.github/workflows/health-67-integration-sync-check.yml), [Health 68 Consumer Sync Drift Check](../../.github/workflows/health-68-consumer-sync-drift.yml), [Health 69 Consumer Sync Shadow Evidence](../../.github/workflows/health-69-consumer-sync-shadow-evidence.yml), and [Health 70 Validate Sync Manifest](../../.github/workflows/health-70-validate-sync-manifest.yml) workflows provide scheduled drift detection, read-only shadow evidence, enforcement snapshots, auth token monitoring, security scanning, and sync drift detection.
 
+Gate treats PR-body delivery metadata and failure descriptions as untrusted data.
+Invalid delivery states produce fixed diagnostics, multiline descriptions use
+delimited runner outputs, and the final enforcement shell receives descriptions
+through its environment. These boundaries do not relax exact-head seals or checks.
+
 The shared Python reusable's `logs_summary` job runs after ordinary success or
 failure, but uses `always() && !cancelled()` to skip optional log diagnostics when
 the workflow is cancelled. This avoids retaining an obsolete queued/running tail
@@ -452,6 +457,15 @@ common lock and a fixture-specific 70% guard. It no longer repeats the full repo
 suite six times. See [the profile contract](SELFTESTS.md) for ownership and overrides.
 
 ### Python runtime and coverage policy
+
+Workflows' own Gate passes `-n auto --dist load` through `pytest_args`.
+The reusable appends `-n 4 --dist=loadgroup`, which remain effective; these
+caller flags do not establish an auto/load speedup. The temporary #4258 timing
+flags were removed after hosted measurement. Test-design changes retain the
+70% coverage minimum and real prompt/floor assertions; see
+[the matrix branch analysis](verifier-grammar-matrices.md#issue-4258-alias-products).
+Consumer create-only Gate policy and action pins remain unchanged. Acceptance
+still requires five successful PR Gate runs with the 3.14 job at most ten minutes.
 
 Gate runs the same selected tests with four xdist workers on Python 3.13 and
 3.14. `coverage-python-version: '3.14'` instruments only 3.14; 3.13 runs plain

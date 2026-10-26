@@ -484,6 +484,11 @@ _AVAILABILITY_FAILURE_KINDS = frozenset(
         "entry",
         "extraction_byte",
         "extraction_incomplete",
+        "unselected_member",
+        # A supported archive can contain unrenderable media (for example PNG).
+        # This is unavailable evidence, not corruption; only optional channels
+        # can be omitted, and required media remains a capture gap.
+        "unrenderable_media",
     }
 )
 
@@ -622,6 +627,7 @@ def build_capture_obligation_manifest(
                         kind == "acceptance_evidence"
                         and isinstance(record.get("channel"), str)
                         and record.get("channel") in optional_evidence_channels
+                        and record.get("required_material") is not True
                         and _evidence_availability_only(record)
                     ):
                         optional_gaps.append(gap)

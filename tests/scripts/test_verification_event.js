@@ -110,3 +110,41 @@ test('unselected gzip transport progress preserves event while required content 
  assert.notEqual(buildVerificationEvent(a).verification_event.event_id,selected.verification_event.event_id);
  row.status='unavailable';assert.throws(()=>buildVerificationEvent(a),/unavailable/);
 });
+
+test('launch basis is inert, optional and strictly typed',()=>{
+ const {requestBasis}=require('../../.github/scripts/verification_event.js');
+ assert.equal(requestBasis(undefined),null);assert.equal(requestBasis(''),null);
+ assert.equal(requestBasis('a'.repeat(64)),'a'.repeat(64));
+ for(const bad of [null,42,'A'.repeat(64),'a'.repeat(63),' a'.repeat(32)]) assert.throws(()=>requestBasis(bad),/Invalid/);
+});
+test('duplicate correlation references latest exact authenticated terminal without a new verdict',()=>{
+ const {terminalCorrelation}=require('../../.github/scripts/verification_event.js');
+ const event=expected.verification_event,basis='e'.repeat(64),old=comment(event),latest=comment(event,{run_id:'12',run_attempt:'2'});
+ const receipt=terminalCorrelation({event,comments:[latest,old],assessment,basis,runId:'20',runAttempt:'1'});
+ assert.equal(receipt.schema,'verifier-request-correlation/v1');
+ assert.equal(receipt.verification_request_basis,basis);assert.equal(receipt.result_run_id,'12');assert.equal(receipt.result_run_attempt,'2');
+ assert.equal(receipt.correlation_run_id,'20');assert.equal(receipt.correlation_run_attempt,'1');
+ assert.deepEqual(receipt.verification_event,event);assert.equal('verdict' in receipt,false);
+ assert.equal(terminalCorrelation({event,comments:[old],assessment,basis:'',runId:'20',runAttempt:'1'}),null);
+ for(const untrusted of [{...old,author:'human'},{...old,truncated:true},{...old,url:'https://github.com/stranske/example/pull/8#issuecomment-1'}]) {
+  assert.equal(terminalCorrelation({event,comments:[untrusted],assessment,basis,runId:'20',runAttempt:'1'}),null);
+ }
+});
+test('correlation cannot bypass newer uncertainty, ambiguity or changed assessment',()=>{
+ const {terminalCorrelation}=require('../../.github/scripts/verification_event.js');
+ const event=expected.verification_event,basis='e'.repeat(64),terminal=comment(event);
+ const state=(kind)=>({...terminal,body:`<!-- verifier-event-state/v1 ${JSON.stringify({schema:'verifier-event-state/v1',repo:event.repo,pr:event.pr,head_sha:event.head_sha,evaluated_sha:event.evaluated_sha,run_id:'11',run_attempt:'1',verification_event:event,assessment_identity:assessment,status:kind,retry_kind:'uncertain_execution',retryable:false})} -->`});
+ const make=comments=>terminalCorrelation({event,comments,assessment,basis,runId:'20',runAttempt:'1'});
+ assert.throws(()=>make([terminal,state('pending')]),/pending/);assert.throws(()=>make([terminal,state('incomplete')]),/incomplete/);
+ const contradictory=comment(event,{ci_failed:true});assert.throws(()=>make([terminal,contradictory]),/Ambiguous/);
+ assert.equal(terminalCorrelation({event,comments:[terminal],assessment:{...assessment,provider:'other'},basis,runId:'20',runAttempt:'1'}),null);
+});
+
+
+test('correlation applies the existing lifecycle ID bounds to referenced terminal records',()=>{
+ const {terminalCorrelation}=require('../../.github/scripts/verification_event.js');
+ const event=expected.verification_event;
+ for(const invalid of [{run_id:'1'.repeat(21)},{run_attempt:'1'.repeat(11)},{run_id:'010'}]) {
+  assert.equal(terminalCorrelation({event,comments:[comment(event,invalid)],assessment,basis:'e'.repeat(64),runId:'20',runAttempt:'1'}),null);
+ }
+});

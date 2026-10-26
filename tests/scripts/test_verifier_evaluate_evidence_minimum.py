@@ -614,3 +614,129 @@ def test_complete_body_proof_outgrows_optional_budget_without_requiring_old_arch
     assert client.root_client.responses.input_tokens.count.call_args.kwargs["input"] == [
         {"role": "user", "content": prompt}
     ]
+
+
+def test_optional_unsupported_screenshots_do_not_block_complete_required_proof(monkeypatch):
+    context, diff = capture(
+        "Evidence must be posted in a PR comment.", failure="unrenderable_media"
+    )
+    result, client = run_evaluate(monkeypatch, context, diff, "CONCERNS")
+    assert result.used_llm is True
+    assert result.verdict == "CONCERNS"
+    assert client.invoke.call_count == 1
+    receipt = verifier._preflight_input_capacity(
+        client, client.invoke.call_args.args[0], context=context, diff=diff, operation="evaluate_pr"
+    )
+    assert receipt["capture_obligations"]["sufficient"] is True
+    assert receipt["capture_obligations"]["capture_complete"] is False
+    strict = verifier.build_capture_obligation_manifest(context, full_diff_bytes=diff.encode())
+    assert strict["sufficient"] is False
+    assert strict["gaps"]
+
+
+def test_required_unsupported_screenshots_remain_missing_evidence(monkeypatch):
+    context, diff = capture(
+        "Screenshot evidence must be uploaded as a workflow artifact.",
+        failure="unrenderable_media",
+    )
+    result, client = run_evaluate(monkeypatch, context, diff)
+    assert result.used_llm is False
+    assert result.verdict == "UNVERIFIABLE_INPUT"
+    client.invoke.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "integrity",
+    ["archive_integrity", "wrong_revision", "unknown", "unsupported_payload", "duplicate_member"],
+)
+def test_optional_binary_failure_does_not_mask_integrity_failure(monkeypatch, integrity):
+    context, diff = capture(failure="unrenderable_media")
+    context = replace_inventory(
+        context,
+        lambda inv: inv["acceptance_evidence_sources"][1].update(
+            failure_kinds=["unrenderable_media", integrity]
+        ),
+    )
+    result, client = run_evaluate(monkeypatch, context, diff)
+    assert result.verdict == "UNVERIFIABLE_INPUT"
+    client.invoke.assert_not_called()
+
+
+@pytest.mark.parametrize("mandatory", [False, True])
+def test_selected_proof_does_not_hide_unselected_artifact_duties(monkeypatch, mandatory):
+    # The selected table may be complete, but this existing channel-wide policy
+    # must not infer that a separate required upload was supplied as well.
+    duty = (
+        "Named screenshot evidence must be uploaded as a workflow artifact."
+        if mandatory
+        else "Evidence must be posted in a PR comment."
+    )
+    context, diff = capture(duty, failure="unselected_member")
+    context = replace_inventory(
+        context,
+        lambda inventory: inventory["acceptance_evidence_sources"].append(
+            {
+                "source": "Run 42: selected coverage table",
+                "channel": "artifacts",
+                "status": "included",
+                "included_chars": 17,
+                "total_chars": 17,
+            }
+        ),
+    )
+    result, client = run_evaluate(monkeypatch, context, diff, "CONCERNS")
+    if mandatory:
+        assert result.used_llm is False
+        assert result.verdict == "UNVERIFIABLE_INPUT"
+        client.invoke.assert_not_called()
+    else:
+        assert result.used_llm is True
+        assert result.verdict == "CONCERNS"
+        assert client.invoke.call_count == 1
+
+
+@pytest.mark.parametrize("mandatory_complete", [False, True])
+def test_real_selected_baseline_collector_manifest_reaches_evaluate_prompt(
+    monkeypatch, mandatory_complete
+):
+    import subprocess
+    from pathlib import Path
+
+    # Offline API fixture only: actual JS collector/ZIP extraction/manifest and
+    # Python fitting/native count admission run together; no provider is called.
+    raw = subprocess.check_output(
+        [
+            "node",
+            str(Path(__file__).parent / "fixtures/selected_baseline_collector.js"),
+            *(["--complete"] if mandatory_complete else []),
+        ],
+        text=True,
+    )
+    data = json.loads(raw)
+    assert data["downloads"] == 1
+    assert data["manifest"]["material"]["required_evidence"][0]["evidence_role"] == (
+        "comparison-baseline"
+    )
+    context = complete_capture_context().replace("Implement the code change.", data["body"])
+    context = replace_inventory(context, lambda inventory: inventory.update(data["coverage"]))
+    context = context.replace("## PR Diff Summary", data["evidence"] + "\n\n## PR Diff Summary")
+    monkeypatch.setenv("VERIFIER_ACCEPTANCE_EVIDENCE_BUDGET_TOKENS", "1000")
+    result, client = run_evaluate(monkeypatch, context, data["diff"], "CONCERNS")
+    assert result.used_llm is True
+    assert result.verdict == "CONCERNS"
+    prompt = client.invoke.call_args.args[0]
+    assert "EXACT_SELECTED_COVERAGE_TABLE: audit 1127/51 periodic 1075/99" in prompt
+    assert data["body"] in prompt
+    assert "OPTIONAL_COMMENT_PAYLOAD_" not in prompt
+    assert "x" * 300000 not in prompt
+    assert client.root_client.responses.input_tokens.count.called
+    # The selected binding cannot be used to hide truncated required content.
+    changed = replace_inventory(
+        context,
+        lambda inventory: next(
+            row for row in inventory["acceptance_evidence_sources"] if row.get("required_material")
+        ).update(status="truncated", total_chars=None),
+    )
+    refused, untouched = run_evaluate(monkeypatch, changed, data["diff"])
+    assert refused.verdict == "UNVERIFIABLE_INPUT"
+    untouched.invoke.assert_not_called()
