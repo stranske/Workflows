@@ -610,9 +610,13 @@ def _coverage_record_key(record: dict[str, Any]) -> tuple[str, str | float | Non
 
 
 def _accumulate_recovery_history(
-    trend_data: dict[str, Any], history_records: list[dict[str, Any]] | None, run_url: str
+    trend_data: dict[str, Any],
+    history_records: list[dict[str, Any]] | None,
+    run_url: str,
+    *,
+    recovery_window: int = 1,
 ) -> list[dict[str, Any]]:
-    """Retain up to 30 samples, replacing repeated producer-run identities."""
+    """Retain the configured window (at least 30), replacing repeated run identities."""
     previous = history_records if history_records is not None else trend_data.get("history", [])
     sample = {key: value for key, value in trend_data.items() if key != "history"}
     if run_url:
@@ -627,7 +631,7 @@ def _accumulate_recovery_history(
         elif record is sample and records and _coverage_record_key(records[-1]) == key:
             records.pop()
         records.append(record)
-    return records[-30:]
+    return records[-max(30, recovery_window) :]
 
 
 def main(args: list[str] | None = None) -> int:
@@ -753,7 +757,9 @@ def main(args: list[str] | None = None) -> int:
         print(body)
         return 0
 
-    history_records = _accumulate_recovery_history(trend_data, history_records, parsed.run_url)
+    history_records = _accumulate_recovery_history(
+        trend_data, history_records, parsed.run_url, recovery_window=configured_recovery_window
+    )
     parsed.history_path.parent.mkdir(parents=True, exist_ok=True)
     parsed.history_path.write_text(
         "".join(json.dumps(record) + "\n" for record in history_records), encoding="utf-8"

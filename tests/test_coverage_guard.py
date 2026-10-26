@@ -1746,3 +1746,62 @@ def test_build_update_comment_above_baseline() -> None:
     )
 
     assert "Status: At or above baseline" in comment
+
+
+@pytest.mark.parametrize("via_cli", [False, True], ids=["baseline", "cli-override"])
+def test_long_recovery_window_keeps_required_samples(tmp_path, monkeypatch, via_cli):
+    trend = tmp_path / "trend.json"
+    baseline = tmp_path / "baseline.json"
+    history = tmp_path / "history.ndjson"
+    _write_json(trend, {"current": 95.0, "run_id": "31"})
+    _write_json(baseline, {"line": 90.0, "recovery_window": 3 if via_cli else 31})
+    history.write_text(
+        "".join(json.dumps({"current": 95.0, "run_id": str(i)}) + "\n" for i in range(1, 31))
+    )
+    closed = []
+    monkeypatch.setattr(coverage_guard, "_close_existing_issue", lambda *a, **kw: closed.append(a))
+    args = [
+        "--repo",
+        "octo/repo",
+        "--trend-path",
+        str(trend),
+        "--baseline-path",
+        str(baseline),
+        "--history-path",
+        str(history),
+    ]
+    if via_cli:
+        args += ["--recovery-window", "31"]
+    assert coverage_guard.main(args) == 0
+    assert len(closed) == 1
+    assert len(coverage_guard._load_ndjson(history)) == 31
+
+
+def test_long_recovery_window_does_not_count_duplicate_producer(tmp_path, monkeypatch):
+    trend = tmp_path / "trend.json"
+    baseline = tmp_path / "baseline.json"
+    history = tmp_path / "history.ndjson"
+    _write_json(trend, {"current": 95.0, "run_id": "30"})
+    _write_json(baseline, {"line": 90.0, "recovery_window": 31})
+    history.write_text(
+        "".join(json.dumps({"current": 95.0, "run_id": str(i)}) + "\n" for i in range(1, 31))
+    )
+    closed = []
+    monkeypatch.setattr(coverage_guard, "_close_existing_issue", lambda *a, **kw: closed.append(a))
+    assert (
+        coverage_guard.main(
+            [
+                "--repo",
+                "octo/repo",
+                "--trend-path",
+                str(trend),
+                "--baseline-path",
+                str(baseline),
+                "--history-path",
+                str(history),
+            ]
+        )
+        == 0
+    )
+    assert not closed
+    assert len(coverage_guard._load_ndjson(history)) == 30

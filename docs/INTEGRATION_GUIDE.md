@@ -637,7 +637,8 @@ configured `recovery_days` consecutive samples (default `3`). The warning allowa
 changes the recovery threshold, not the default confirmation window.
 
 The guard restores repository-scoped recovery history, appends the current producer
-run (replacing a repeated run identity), and retains at most 30 records. It saves a
+run (replacing a repeated run identity), and retains the configured recovery window
+(at least 30 records). It saves a
 new immutable cache after each guard run; a repository restore prefix carries the
 records across different Gate producers. An incomplete recovery reports how many
 of the required records meet the threshold. Dry runs do not persist history.
