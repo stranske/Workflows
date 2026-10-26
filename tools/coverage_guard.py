@@ -609,6 +609,27 @@ def _coverage_record_key(record: dict[str, Any]) -> tuple[str, str | float | Non
     return ("coverage", _coverage_value_for_recovery(record))
 
 
+def _accumulate_recovery_history(
+    trend_data: dict[str, Any], history_records: list[dict[str, Any]] | None, run_url: str
+) -> list[dict[str, Any]]:
+    """Retain up to 30 samples, replacing repeated producer-run identities."""
+    previous = history_records if history_records is not None else trend_data.get("history", [])
+    sample = {key: value for key, value in trend_data.items() if key != "history"}
+    if run_url:
+        sample.setdefault("run_url", run_url)
+    records: list[dict[str, Any]] = []
+    for record in [*(previous if isinstance(previous, list) else []), sample]:
+        if not isinstance(record, dict):
+            continue
+        key = _coverage_record_key(record)
+        if key[0] != "coverage":
+            records = [item for item in records if _coverage_record_key(item) != key]
+        elif record is sample and records and _coverage_record_key(records[-1]) == key:
+            records.pop()
+        records.append(record)
+    return records[-30:]
+
+
 def main(args: list[str] | None = None) -> int:
     """Main entry point for coverage guard."""
     parser = argparse.ArgumentParser(description="Coverage guard - maintain baseline breach issues")
@@ -732,6 +753,12 @@ def main(args: list[str] | None = None) -> int:
         print(body)
         return 0
 
+    history_records = _accumulate_recovery_history(trend_data, history_records, parsed.run_url)
+    parsed.history_path.parent.mkdir(parents=True, exist_ok=True)
+    parsed.history_path.write_text(
+        "".join(json.dumps(record) + "\n" for record in history_records), encoding="utf-8"
+    )
+
     # Create or update issue
     if is_coverage_breach(current, baseline, warn_drop):
         try:
@@ -754,13 +781,21 @@ def main(args: list[str] | None = None) -> int:
             print(f"Coverage {current:.2f}% meets baseline {baseline:.2f}% - no open issue needed")
         recovery_check_threshold = baseline if current >= baseline else recovery_threshold
         if not _recovery_window_satisfied(
-            trend_data,
+            history_records[-1],
             recovery_check_threshold,
             configured_recovery_window,
             history_records,
         ):
+            recovered_records = sum(
+                (value := _coverage_value_for_recovery(record)) is not None
+                and value >= recovery_check_threshold
+                for record in history_records[-configured_recovery_window:]
+            )
+            threshold_name = "baseline" if current >= baseline else "warning threshold"
             print(
-                "Coverage recovered, but configured recovery window is not satisfied; "
+                f"Coverage recovered, {recovered_records} of {configured_recovery_window} "
+                f"records at or above the {threshold_name}; "
+                "configured recovery window is not satisfied; "
                 "leaving any breach issue open"
             )
             return 0
