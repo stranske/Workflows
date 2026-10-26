@@ -570,6 +570,8 @@ def test_resolve_path_handles_missing(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_main_writes_summary_and_output(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    # This unit test owns its inputs; do not inherit the real hosting PR event.
+    monkeypatch.delenv("GITHUB_EVENT_PATH", raising=False)
     summary_path = tmp_path / "summary" / "summary.md"
     output_path = tmp_path / "output" / "output.txt"
 
