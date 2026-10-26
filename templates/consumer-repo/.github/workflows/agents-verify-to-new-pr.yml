@@ -1253,6 +1253,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: stranske/Workflows
+          persist-credentials: false
           sparse-checkout: |
             .github/actions/setup-api-client
             .github/scripts
@@ -1260,6 +1261,7 @@ jobs:
             config
           sparse-checkout-cone-mode: false
       - name: Setup read-only API client
+        # Resolve from the explicit Workflows checkout, which may not be the consumer repository.
         uses: ./.github/actions/setup-api-client
         with:
           github_token: ${{ github.token }}
@@ -1305,7 +1307,7 @@ jobs:
               .addRaw('No issue creation, continuation dispatch, ACT or source closure is enabled.').write();
       - name: Upload correction collection receipt
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: verifier-terminal-disposition-${{ github.run_id }}
           path: agent-metrics/*.ndjson

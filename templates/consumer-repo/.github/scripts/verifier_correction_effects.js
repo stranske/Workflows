@@ -5,6 +5,7 @@
 // ledger transport and actual started-receipt transport are integration gaps.
 const {createHash} = require('crypto');
 const {canonical,digest} = require('./verification_event');
+const {createTokenAwareRetry} = require('./github-api-with-retry');
 const {validateRequest,receipt} = require('./verifier_correction_consumer');
 const SHA = /^[a-f0-9]{64}$/;
 const isSha = value => typeof value === 'string' && SHA.test(value);
@@ -186,6 +187,13 @@ function createCorrectionEffectConsumer({authenticate,collectFreshFacts,ledger,r
     requireThat(same(admission.seed,seed),'Request differs from authenticated original finding seed');
     requireThat(same(admission.required_tests,request.required_tests), 'Request differs from authenticated source-bound required-test decision');
     const key=effectKey(seed),[owner,repo]=request.target.repository.split('/');
+    let apiRetry;
+    const singleAttempt=async fn=>{
+      // Use the incumbent scoped client. No token rotation or retry may turn an
+      // uncertain consequential write into a second issue or continuation.
+      apiRetry=apiRetry || await createTokenAwareRetry({github,env:{},tokenRegistry:{isInitialized:()=>false},task:'correction-effect-single-attempt'});
+      return apiRetry.withRetry(fn,{maxRetries:0,allowNonIdempotentRetries:false});
+    };
     let ownership=null;
     const finish=(state,reason,issue=null,continuation=null)=>receipt(request,{state,reason,issue,continuation,consumer,ownership});
     const read=async()=>validateLedger(await ledger.read(key),key);
@@ -234,7 +242,7 @@ function createCorrectionEffectConsumer({authenticate,collectFreshFacts,ledger,r
       await attemptEffect({ledger,snapshot,key,request,consumer,phase:'issue_creation',ownership,invoke:async()=>{
         requireThat(clock().getTime()<Date.parse(request.original_operation.deadline),'Requester deadline expired after durable intent');
         const intent={effect_key:key,consumer};
-        return github.rest.issues.create({owner,repo,...createPayload(request,facts,intent)});
+        return singleAttempt(client=>client.rest.issues.create({owner,repo,...createPayload(request,facts,intent),request:{timeout:15000,retries:0}}));
       }});
       try {snapshot=await read();observed=await observe();}catch {return finish('outcome_unknown','issue_creation_requires_exact_reconciliation');}
       const intent=snapshot.records.find(row=>row.kind==='intent' && row.phase==='issue_creation');
@@ -260,8 +268,8 @@ function createCorrectionEffectConsumer({authenticate,collectFreshFacts,ledger,r
     }
     const outcome=await attemptEffect({ledger,snapshot,key,request,consumer,phase:'autopilot_dispatch',ownership,invoke:()=>{
       requireThat(clock().getTime()<Date.parse(request.original_operation.deadline),'Requester deadline expired after durable intent');
-      return github.rest.actions.createWorkflowDispatch({owner,repo,workflow_id:'agents-auto-pilot.yml',ref:defaultBranch,
-        inputs:{issue_number:issue.number,force_step:'optimize',correction_request_sha256:request.request_sha256,correction_effect_key:key}});
+      return singleAttempt(client=>client.rest.actions.createWorkflowDispatch({owner,repo,workflow_id:'agents-auto-pilot.yml',ref:defaultBranch,request:{timeout:15000,retries:0},
+        inputs:{issue_number:issue.number,force_step:'optimize',correction_request_sha256:request.request_sha256,correction_effect_key:key}}));
     }});
     try {
       snapshot=await read();observed=await observe();

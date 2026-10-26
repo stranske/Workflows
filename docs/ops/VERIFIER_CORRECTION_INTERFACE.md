@@ -102,7 +102,10 @@ label-triggered issue/autopilot implementation is unchanged.
 Every stage refuses to invoke an effect without a confirmed durable intent.
 Conditional revision checks and a per-stage existing-intent check prevent duplicate
 calls, including concurrent consumers advancing between issue retention and
-dispatch. Lost intent acknowledgment invokes no endpoint. Unknown stage outcomes
+dispatch. Shared token-aware API wrapping preserves the supplied scoped client;
+consequential calls set both wrapper `maxRetries: 0` and SDK `request.retries: 0`
+with a bounded timeout. This also disables the SDK retry layer documented by
+[Octokit](https://github.com/octokit/plugin-retry.js/blob/main/src/error-request.ts). Lost intent acknowledgment invokes no endpoint. Unknown stage outcomes
 never automatically repeat. An exact positively recovered issue permits the
 first dispatch, not a replacement issue. Uncertain dispatch requires the actual
 started receipt; HTTP204, issue creation, a run title or missing logs do not prove
@@ -177,8 +180,8 @@ flowchart LR
 
 ## Local validation checkpoint
 
-The two correction suites contain 43 passing tests: 11 contract/admission tests
-and 32 effect tests. All external effects are synthetic in-memory clients. Cases
+The two correction suites contain 45 passing tests: 12 contract/admission tests
+and 33 effect tests. All external effects are synthetic in-memory clients. Cases
 include accepted existing and no-incumbent requests, deterministic refusal,
 HTTP204 versus actual run identity, uncertain create/dispatch, exact issue recovery,
 restart, lost checkpoint acknowledgments, changed caller IDs, complete fresh
@@ -195,3 +198,12 @@ Final source mutants detect removal of the fixed-stage fence,
 durable intent and current-assignee check; the unmodified source remains green.
 No production issue, label, workflow dispatch, provider call or source closure
 is exercised by these tests.
+
+Hosted scanner review tightened the new checkout with `persist-credentials: false`
+and corrected the artifact action pin/version. The local composite `./` reference
+is intentional: it resolves from the explicit Workflows checkout in consumers,
+whereas self-repository syntax would select the consumer repository/version. The
+path-join audit annotation is a false positive: `directory` is the host workspace
+literal `'.'`, never selector input; the filename is fixed and the authenticated
+helper just created it using `wx`. These boundaries were independently reviewed;
+no broad suppression, hosted alert dismissal or security-policy change is made.

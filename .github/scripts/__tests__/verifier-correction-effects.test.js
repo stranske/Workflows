@@ -297,3 +297,11 @@ test('oversized ownership evidence refuses before effects instead of failing rec
   const f=noIncumbentFixture();f.state.facts.ownership.evidence_refs=['x'.repeat(4097)];
   const result=await f.consume();assert.equal(result.effect_state,'outcome_unknown');assert.equal(creates(f).length,0);assert.equal(dispatches(f).length,0);
 });
+
+test('shared API wrapper makes one consequential attempt on transient server failures',async()=>{
+  const create=noIncumbentFixture();create.state.creationObservable=false;
+  create.deps.github.rest.issues.create=async args=>{assert.equal(args.request.retries,0);create.calls.push(['create']);const error=new Error('lost 503 create response');error.status=503;error.request={method:'POST'};throw error;};
+  assert.equal((await create.consume()).effect_state,'outcome_unknown');assert.equal(creates(create).length,1);await create.consume();assert.equal(creates(create).length,1);
+  const dispatch=fixture();dispatch.deps.github.rest.actions.createWorkflowDispatch=async args=>{assert.equal(args.request.retries,0);dispatch.calls.push(['dispatch']);const error=new Error('lost 503 dispatch response');error.status=503;error.request={method:'POST'};throw error;};
+  assert.equal((await dispatch.consume()).effect_state,'outcome_unknown');assert.equal(dispatches(dispatch).length,1);await dispatch.consume();assert.equal(dispatches(dispatch).length,1);
+});

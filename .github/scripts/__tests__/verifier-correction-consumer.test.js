@@ -67,8 +67,8 @@ async function collect({changeRequest=()=>{},changeFiles=()=>{},changeApi=()=>{}
   const wrapped=Object.fromEntries(Object.entries(api).map(([group,methods])=>[group,Object.fromEntries(Object.entries(methods).map(([name,fn])=>[name,async args=>{reads++;return {data:await fn(args)};}]))]));
   const module={exports:{}};
   const fakeRequire=name=>name==='fs'?{readFileSync:()=>archive}:name==='./verifier_pending_execution'?{
-    acquireRetainedExecution:async()=>{acquisitions++;if(proofFailure)throw Error('untrusted origin');return {archive_sha256:sha(archive),archive_bytes:archive.length};},readRetainedArchive:()=>files}:name==='./verification_event'?eventTools:require(name);
-  vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../verifier_correction_consumer.js'),'utf8'),{require:fakeRequire,module,Buffer});
+    acquireRetainedExecution:async()=>{acquisitions++;if(proofFailure)throw Error('untrusted origin');return {archive_sha256:sha(archive),archive_bytes:archive.length};},readRetainedArchive:()=>files}:name==='./verification_event'?eventTools:name==='./github-api-with-retry'?require('../github-api-with-retry'):require(name);
+  vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../verifier_correction_consumer.js'),'utf8'),{require:fakeRequire,module,Buffer,URL});
   const selector={schema:'closer-correction-selector/v1',run_id:100,run_attempt:2,artifact_id:50,request_sha256:sealed.request_sha256,verification_event:fixture.decision.verification_event,assessment_identity:fixture.decision.assessment_identity};
   const result=await module.exports.collectCorrection({github:{rest:wrapped},selector,currentRun:900,currentAttempt:1,directory:'/inert'});
   return {result,acquisitions,reads};
@@ -154,4 +154,10 @@ test('frozen digest/commit fields require scalar strings instead of regex-coerci
   }
   const value=request();value.required_tests=[{kind:'existing_selector',id:'existing',finding_id:value.finding.id,source_ref:'git:head',path:'tests/test_input.py',selector:'test_rejected_input',file_sha256:['a'.repeat(64)]}];
   assert.throws(()=>validateRequest(seal(value)),/required-test selector/);
+});
+
+test('native API comment metadata preserves canonical repository casing without losing exact subject binding',async()=>{
+  const {result}=await collect({changeApi:api=>{api.issues.getComment=async()=>({user:{id:41898282,login:'github-actions[bot]',type:'Bot'},issue_url:'https://api.github.com/repos/stranske/Example/issues/7',html_url:'https://github.com/stranske/Example/pull/7#issuecomment-43',body:fixture.source_comment.body});}});
+  assert.equal(result.effect_state,'confirmed_not_started');assert.match(result.reason,/collection_only/);
+  await assert.rejects(collect({changeApi:api=>{api.issues.getComment=async()=>({user:{id:41898282,login:'github-actions[bot]',type:'Bot'},issue_url:'https://api.github.com/repos/stranske/Example/issues/8',html_url:'https://github.com/stranske/Example/pull/7#issuecomment-43',body:fixture.source_comment.body});}}),/comment unauthenticated/);
 });

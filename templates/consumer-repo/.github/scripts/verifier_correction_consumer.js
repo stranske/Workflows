@@ -5,6 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const {createHash} = require('crypto');
 const {canonical, digest, validateEvent, completedEvent} = require('./verification_event');
+const {createTokenAwareRetry} = require('./github-api-with-retry');
 const {acquireRetainedExecution, readRetainedArchive} = require('./verifier_pending_execution');
 const SHA = /^[a-f0-9]{64}$/;
 const COMMIT = /^[a-f0-9]{40}$/;
@@ -107,6 +108,8 @@ async function collectCorrection({github, selector, currentRun, currentAttempt, 
   const proof = await acquireRetainedExecution({github,event,assessment:selector.assessment_identity,
     selector:{run_id:selector.run_id,run_attempt:selector.run_attempt,artifact_id:selector.artifact_id},
     currentRun,directory,pullRequestTargetOrigin:true});
+  // directory is a trusted host workspace (literal '.' in the workflow), never
+  // selector data. The authenticated helper just wrote this fixed file with wx.
   const archive = fs.readFileSync(path.join(directory,'verification-recovery-source.zip'));
   requireThat(sha(archive) === proof.archive_sha256 && archive.length === proof.archive_bytes, 'Authenticated archive changed');
   const files = readRetainedArchive(archive);
@@ -121,22 +124,32 @@ async function collectCorrection({github, selector, currentRun, currentAttempt, 
     && digest(manifest.request) === event.request_sha256 && digest(manifest.material) === event.material_sha256,
   'Original verifier material mismatch');
   const [owner,repo] = event.repo.split('/');
-  const read = async (method, args) => (await method({owner,repo,...args,request:{timeout:15000}})).data;
-  const pull = await read(github.rest.pulls.get,{pull_number:Number(event.pr)});
+  // Preserve the supplied scoped client; never expand credentials during proof collection.
+  const {withRetry} = await createTokenAwareRetry({github,env:{},tokenRegistry:{isInitialized:()=>false},task:'correction-admission-read'});
+  const read = async (resource, method, args) => (await withRetry(client=>client.rest[resource][method](
+    {owner,repo,...args,request:{timeout:15000,retries:0}}),{maxRetries:2,initialDelay:250,maxDelay:1000})).data;
+  const pull = await read('pulls','get',{pull_number:Number(event.pr)});
   const target = request.target;
   requireThat(pull.merged === true && pull.head?.sha === target.head_sha && pull.base?.sha === target.base_sha
     && pull.merge_commit_sha === target.merge_sha && String(pull.base?.repo?.full_name).toLowerCase() === target.repository,
   'Current merged PR differs from correction target');
   requireThat(request.incumbent.kind !== 'no_incumbent', 'No-incumbent requires the two-stage trusted collector; collection only');
-  const source = await read(github.rest.issues.get,{issue_number:Number(request.source_issue.number)});
-  const incumbent = await read(github.rest.issues.get,{issue_number:Number(request.incumbent.issue.number)});
+  const source = await read('issues','get',{issue_number:Number(request.source_issue.number)});
+  const incumbent = await read('issues','get',{issue_number:Number(request.incumbent.issue.number)});
   const boundIssue = (actual, expected) => !actual.pull_request && String(actual.number) === expected.number
     && actual.node_id === expected.node_id && sha(actual.body || '') === expected.body_sha256;
   requireThat(boundIssue(source,request.source_issue) && boundIssue(incumbent,request.incumbent.issue)
     && incumbent.state === 'open' && incumbent.assignees?.some(person => person.login === request.incumbent.owner), 'Incumbent/source issue binding mismatch');
-  const comment = await read(github.rest.issues.getComment,{comment_id:Number(request.original_verifier.comment_id)});
+  const comment = await read('issues','getComment',{comment_id:Number(request.original_verifier.comment_id)});
+  let exactResource=false;
+  try {
+    const issueUrl=new URL(comment.issue_url),webUrl=new URL(comment.html_url);
+    exactResource=issueUrl.protocol==='https:' && webUrl.protocol==='https:'
+      && issueUrl.hostname===`api.${webUrl.hostname}`
+      && issueUrl.pathname.toLowerCase()===`/repos/${event.repo}/issues/${event.pr}`;
+  } catch { /* Invalid API metadata cannot establish the comment's subject. */ }
   requireThat(comment.user?.id === 41898282 && comment.user?.login === 'github-actions[bot]' && comment.user?.type === 'Bot'
-    && comment.issue_url === `https://api.github.com/repos/${event.repo}/issues/${event.pr}`
+    && exactResource
     && sha(comment.body || '') === request.original_verifier.comment_sha256, 'Original verifier comment unauthenticated');
   const decisions = [...comment.body.matchAll(/<!-- verifier-corpus-decision\/v1 (\{[^\n]+\}) -->/g)].map(match => JSON.parse(match[1]));
   requireThat(decisions.length === 1 && decisions[0].verdict === 'NON_PASS'
