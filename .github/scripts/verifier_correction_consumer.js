@@ -56,8 +56,9 @@ function validateRequest(request) {
   }
   requireThat(new Set(request.required_tests.map(test => test.id)).size === request.required_tests.length, 'Duplicate required-test identity');
   const i = request.incumbent;
-  requireThat(exact(i, 'issue owner assignment_ref lineage_ref') && identity(i.issue)
-    && text(i.owner) && text(i.assignment_ref) && text(i.lineage_ref), 'Invalid incumbent binding');
+  requireThat((exact(i, 'kind') && i.kind === 'no_incumbent')
+    || (exact(i, 'issue owner assignment_ref lineage_ref') && identity(i.issue)
+      && text(i.owner) && text(i.assignment_ref) && text(i.lineage_ref)), 'Invalid incumbent binding');
   const op = request.original_operation;
   requireThat(exact(op, 'hold_id run_id operation_id idempotency_key deadline attempt_budget escalation_owner')
     && [op.hold_id,op.run_id,op.operation_id,op.idempotency_key,op.escalation_owner].every(text)
@@ -67,12 +68,17 @@ function validateRequest(request) {
   return request;
 }
 
-function receipt(request, {state = 'confirmed_not_started', reason, issue = null, continuation = null, consumer}) {
+function receipt(request, {state = 'confirmed_not_started', reason, issue = null, continuation = null, consumer, ownership = null}) {
   validateRequest(request);
   requireThat(['confirmed_not_started','accepted_with_exact_issue_and_actual_autopilot_run_attempt','outcome_unknown'].includes(state), 'Invalid effect state');
   requireThat(text(reason) && exact(consumer, 'run_id run_attempt')
     && Object.values(consumer).every(value => typeof value === 'string' && ID.test(value)), 'Invalid consumer execution');
-  if (issue !== null) requireThat(identity(issue) && canonical(issue) === canonical(request.incumbent.issue), 'Receipt incumbent mismatch');
+  if (ownership !== null) requireThat(ownership?.schema === 'closer-correction-ownership/v1'
+    && ['existing','no_incumbent','unknown'].includes(ownership.kind) && SHA.test(ownership.seed_effect_key)
+    && SHA.test(ownership.source_scope_digest) && Number.isFinite(Date.parse(ownership.observed_at))
+    && Array.isArray(ownership.evidence_refs) && ownership.evidence_refs.length > 0, 'Receipt ownership binding malformed');
+  if (issue !== null) requireThat(identity(issue) && (ownership?.kind === 'no_incumbent'
+    || canonical(issue) === canonical(request.incumbent.issue)), 'Receipt incumbent mismatch');
   if (state === 'accepted_with_exact_issue_and_actual_autopilot_run_attempt') {
     // This constructor validates shape only. The eventual effect producer must
     // authenticate the run's exact issue/request binding before choosing it.
@@ -84,6 +90,7 @@ function receipt(request, {state = 'confirmed_not_started', reason, issue = null
   } else requireThat(continuation === null, 'Nonaccepted receipt cannot claim continuation');
   const result = {schema:'closer-correction-receipt/v1', request_sha256:request.request_sha256,
     request, consumer, effect_state:state, reason, issue, continuation,
+    ...(ownership === null ? {} : {ownership}),
     retry_authorized:false, act_authorized:false, source_closure_authorized:false};
   return {...result, receipt_sha256:digest(result)};
 }
@@ -115,6 +122,7 @@ async function collectCorrection({github, selector, currentRun, currentAttempt, 
   requireThat(pull.merged === true && pull.head?.sha === target.head_sha && pull.base?.sha === target.base_sha
     && pull.merge_commit_sha === target.merge_sha && String(pull.base?.repo?.full_name).toLowerCase() === target.repository,
   'Current merged PR differs from correction target');
+  requireThat(request.incumbent.kind !== 'no_incumbent', 'No-incumbent requires the two-stage trusted collector; collection only');
   const source = await read(github.rest.issues.get,{issue_number:Number(request.source_issue.number)});
   const incumbent = await read(github.rest.issues.get,{issue_number:Number(request.incumbent.issue.number)});
   const boundIssue = (actual, expected) => !actual.pull_request && String(actual.number) === expected.number
@@ -156,12 +164,12 @@ function reconcileCorrection(request, authenticatedHistory, consumer) {
   }
   const accepted = matches.filter(row => row.effect_state === 'accepted_with_exact_issue_and_actual_autopilot_run_attempt');
   for (const row of accepted) receipt(request,{state:row.effect_state,reason:row.reason,issue:row.issue,
-    continuation:row.continuation,consumer:row.consumer});
+    continuation:row.continuation,consumer:row.consumer,ownership:row.ownership || null});
   if (accepted.length) {
     requireThat(new Set(accepted.map(row => canonical(row.continuation))).size === 1,
       'Conflicting actual auto-pilot continuations');
     return receipt(request,{state:accepted[0].effect_state,reason:'exact_authenticated_request_already_accepted',
-      issue:accepted[0].issue,continuation:accepted[0].continuation,consumer});
+      issue:accepted[0].issue,continuation:accepted[0].continuation,consumer,ownership:accepted[0].ownership || null});
   }
   // Missing receipts can mean an effect ran before its receipt was retained.
   // Even a prior collection-only refusal cannot reconcile a different effect.

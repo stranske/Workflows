@@ -135,3 +135,11 @@ test('exact authenticated accepted receipts deduplicate; unknown/missing history
   const conflict=receipt(value,{state:accepted.effect_state,reason:'other run',issue:value.incumbent.issue,continuation:{...continuation,run_id:'902'},consumer});
   assert.throws(()=>reconcileCorrection(value,[accepted,conflict],consumer),/Conflicting/);
 });
+
+test('declared no-incumbent variant fabricates no issue/owner and cannot grant receipt ownership',()=>{
+  const value=require('../../../tests/fixtures/verifier_correction/no-incumbent-request.json');
+  assert.deepEqual(validateRequest(value).incumbent,{kind:'no_incumbent'});
+  assert.throws(()=>receipt(value,{consumer,reason:'caller declaration only',issue:issue(9)}),/incumbent/);
+  const corrupt=seal({...value,incumbent:{kind:'no_incumbent',owner:'invented'}});
+  assert.throws(()=>validateRequest(corrupt),/incumbent/);
+});

@@ -620,6 +620,10 @@ scripts:
     description: "Carries inert optional launch-basis correlation and authenticated exact-terminal dedup references; binds repeat verification and strict recovery selectors to authoritative code, original requests, typed comparison-baseline material and explicitly required retained evidence; authenticates known-no-evaluation causal predecessors, preserves the original edge on exact-event retries and reconciles older pending attempts through authoritative Actions reads and retains full-history completion deduplication without reparenting history"
     delivery: copy
 
+  - source: .github/scripts/verifier_correction_effects.js
+    description: "Local-tested correction effects adapter for the existing follow-up issue/autopilot lane; requires authenticated seed/request, fresh gates, durable existing-ledger intent and actual continuation reconciliation; not wired to production"
+    delivery: copy
+
   - source: .github/scripts/verifier_correction_consumer.js
     description: "Collection-only exact correction admission using authenticated original verifier artifacts; no issue or auto-pilot effects until producer and continuation bindings exist"
     delivery: copy
