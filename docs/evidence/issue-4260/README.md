@@ -32,6 +32,10 @@ python scripts/check_gate_python_job_timings.py --run-id <GATE_RUN_ID> \
 Reports include both job wall-clock (`seconds`) and the Pytest step wall-clock
 (`pytest_step_seconds`) when GitHub job steps are present, so Hosted confirmation
 can separate suite time from setup overhead.
+If fewer than the requested number of qualifying runs exist, the checker still
+writes the JSON report with `passed: false`, the observed `run_count`, and the
+`required_run_count`. This replaces any older report at the output path and keeps
+an empty or incomplete dated window from being mistaken for passing evidence.
 
 ## Baseline (2026-10-26, pre-merge)
 

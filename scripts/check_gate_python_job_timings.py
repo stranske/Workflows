@@ -178,9 +178,14 @@ def evaluate_policy(
     *,
     max_seconds: float = DEFAULT_MAX_SECONDS,
     required_jobs: tuple[str, ...] = TARGET_JOB_NAMES,
+    required_run_count: int = 1,
 ) -> tuple[bool, list[str]]:
-    """True when every run's required python jobs are within ``max_seconds``."""
+    """Require enough runs and every required python job within ``max_seconds``."""
+    if required_run_count < 1:
+        raise ValueError("required_run_count must be >= 1")
     failures: list[str] = []
+    if len(run_durations) < required_run_count:
+        failures.append(f"Only found {len(run_durations)} runs (needed {required_run_count})")
     for run_id, durations in run_durations:
         failures.extend(
             evaluate_run_timings(
@@ -304,6 +309,7 @@ def build_report(
     max_seconds: float,
     passed: bool,
     failures: list[str],
+    required_run_count: int,
     sample_mode: str = "successful_pr_window",
     created_after: str | None = None,
 ) -> dict[str, Any]:
@@ -312,6 +318,7 @@ def build_report(
         "max_seconds": max_seconds,
         "required_jobs": list(TARGET_JOB_NAMES),
         "run_count": len(sample),
+        "required_run_count": required_run_count,
         "sample_mode": sample_mode,
     }
     if created_after is not None:
@@ -410,6 +417,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.run_ids:
         sample = collect_run_ids_sample(repo=args.repo, run_ids=list(args.run_ids))
         sample_mode = "explicit_run_ids"
+        required_run_count = len(args.run_ids)
     else:
         sample = collect_policy_sample(
             repo=args.repo,
@@ -418,22 +426,20 @@ def main(argv: list[str] | None = None) -> int:
             created_after=created_after,
         )
         sample_mode = "successful_pr_window"
-        if len(sample) < args.limit:
-            bound = f" created at/after {args.created_after}" if args.created_after else ""
-            print(
-                f"Only found {len(sample)} successful {DEFAULT_EVENT} runs{bound} "
-                f"(needed {args.limit})",
-                file=sys.stderr,
-            )
-            return 1
+        required_run_count = args.limit
 
     duration_sample = [(run_id, durations_from_timings(timings)) for run_id, timings in sample]
-    passed, failures = evaluate_policy(duration_sample, max_seconds=args.max_seconds)
+    passed, failures = evaluate_policy(
+        duration_sample,
+        max_seconds=args.max_seconds,
+        required_run_count=required_run_count,
+    )
     report = build_report(
         sample,
         max_seconds=args.max_seconds,
         passed=passed,
         failures=failures,
+        required_run_count=required_run_count,
         sample_mode=sample_mode,
         created_after=args.created_after,
     )

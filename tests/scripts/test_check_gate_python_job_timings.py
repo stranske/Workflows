@@ -365,3 +365,46 @@ def test_collect_run_ids_sample_and_main_run_id(
 def test_collect_run_ids_sample_requires_ids() -> None:
     with pytest.raises(ValueError, match="non-empty"):
         timings.collect_run_ids_sample(repo="stranske/Workflows", run_ids=[], token="tok")
+
+
+def test_evaluate_policy_rejects_empty_sample() -> None:
+    passed, failures = timings.evaluate_policy([])
+    assert passed is False
+    assert failures == ["Only found 0 runs (needed 1)"]
+
+
+@pytest.mark.parametrize("required_run_count", [0, -1])
+def test_evaluate_policy_rejects_invalid_required_run_count(required_run_count: int) -> None:
+    with pytest.raises(ValueError, match="required_run_count must be >= 1"):
+        timings.evaluate_policy([], required_run_count=required_run_count)
+
+
+@pytest.mark.parametrize("run_count", [0, 1, 4, 5])
+def test_main_records_incomplete_successful_pr_window(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, run_count: int
+) -> None:
+    """An incomplete dated window must replace stale passing JSON with failure evidence."""
+    sample = [
+        (run_id, {name: timings.JobTiming(480.0) for name in timings.TARGET_JOB_NAMES})
+        for run_id in range(run_count)
+    ]
+
+    def collect_sample(**kwargs):
+        assert kwargs["limit"] == 5
+        assert kwargs["created_after"] == datetime(2026, 11, 15, tzinfo=UTC)
+        return sample
+
+    monkeypatch.setattr(timings, "collect_policy_sample", collect_sample)
+    report_path = tmp_path / "dated-window.json"
+    report_path.write_text('{"passed": true}\n', encoding="utf-8")
+    result = timings.main(["--created-after", "2026-11-15", "--json-out", str(report_path)])
+
+    complete = run_count == 5
+    assert result == (0 if complete else 1)
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    assert report["passed"] is complete
+    assert report["policy"]["required_run_count"] == 5
+    assert report["policy"]["run_count"] == run_count
+    assert report["policy"]["created_after"] == "2026-11-15"
+    assert len(report["runs"]) == run_count
+    assert report["failures"] == ([] if complete else [f"Only found {run_count} runs (needed 5)"])
