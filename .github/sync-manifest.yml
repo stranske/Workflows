@@ -40,7 +40,7 @@ version: 1
 workflows:
   # Core CI/CD
   - source: .github/workflows/pr-00-gate.yml
-    description: "Gate workflow - binds current PR metadata to the exact head for classifier/seal checks, then runs tests, lint and type checking before merge. It remains create-only and not yet fresh-consumer deployable under the documented workaround (resolved: #2158) because consumers own their coverage and runtime policy."
+    description: "Gate workflow - binds current PR metadata to the exact head for classifier/seal checks and consumes it in the summary Python action, then runs tests, lint and type checking before merge. It remains create-only and not yet fresh-consumer deployable under the documented workaround (resolved: #2158) because consumers own their coverage and runtime policy."
     # New-template defaults: Python 3.13/3.14; existing explicit runtime policies migrate separately.
     sync_mode: create_only  # Do not overwrite consumer-specific Gate coverage, runtime, or policy.
     overwrite_repos:
