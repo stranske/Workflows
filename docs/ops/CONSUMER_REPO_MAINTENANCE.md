@@ -2,6 +2,23 @@
 
 This document outlines the process for maintaining workflow system consistency across consumer repositories and debugging issues that may affect multiple repos.
 
+## Non-package test dependency declarations
+
+The managed `scripts/sync_test_dependencies.py` audits `[project]` dependencies
+and extras when that table exists. A repository without `[project]` may instead
+use its canonical `requirements.lock` in the same configuration root. This
+fallback accepts blank/comment lines and unconditional `name==version` pins
+only. Includes, editable installs, URLs, pip options, extras, ranges, wildcard
+versions and environment markers fail the audit; the script does not follow or
+execute them. An import absent from the selected declarations still fails
+`--verify`.
+
+For non-package repositories, `--fix` succeeds without changes when imports are
+already declared. Otherwise it refuses to rewrite the lock or create a package
+project table: maintain the pins through the repository's existing dependency
+process, then rerun the audit. Project repositories keep their existing dev-extra
+fix behavior; a lock file cannot mask an undeclared project dependency.
+
 ## Delivery scope and production checks
 
 Sync and dev-tool/dependency maintenance distribute a fixed source revision and

@@ -355,7 +355,7 @@ scripts:
     description: "Selects changed-input reusable CI scenarios including flat-layout/root Python modules and requirements lock files - required by reusable CI workflows"
 
   - source: scripts/sync_test_dependencies.py
-    description: "Syncs test dependency pins - required by reusable CI workflow"
+    description: "Audits project dependency declarations or canonical non-package requirements.lock pins - required by reusable CI workflow"
 
   - source: scripts/check_test_dependencies.sh
     description: "Checks test dependencies match - required by reusable CI workflow"
