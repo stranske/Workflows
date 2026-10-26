@@ -620,6 +620,10 @@ scripts:
     description: "Carries inert optional launch-basis correlation and authenticated exact-terminal dedup references; binds repeat verification and strict recovery selectors to authoritative code, original requests, typed comparison-baseline material and explicitly required retained evidence; authenticates known-no-evaluation causal predecessors, preserves the original edge on exact-event retries and reconciles older pending attempts through authoritative Actions reads and retains full-history completion deduplication without reparenting history"
     delivery: copy
 
+  - source: .github/scripts/verifier_correction_consumer.js
+    description: "Collection-only exact correction admission using authenticated original verifier artifacts; no issue or auto-pilot effects until producer and continuation bindings exist"
+    delivery: copy
+
   - source: .github/scripts/verifier_pending_execution.js
     description: "Reconciles pending verifier attempts and authenticates provider-free retained-output origin, applicability and once-only publication; publishes provenance-only input-repair markers for already-retained mixed results"
     delivery: copy
