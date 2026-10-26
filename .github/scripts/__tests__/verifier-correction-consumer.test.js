@@ -143,3 +143,15 @@ test('declared no-incumbent variant fabricates no issue/owner and cannot grant r
   const corrupt=seal({...value,incumbent:{kind:'no_incumbent',owner:'invented'}});
   assert.throws(()=>validateRequest(corrupt),/incumbent/);
 });
+
+test('frozen digest/commit fields require scalar strings instead of regex-coercible arrays',()=>{
+  for(const corrupt of [value=>{value.source_issue.body_sha256=[value.source_issue.body_sha256];},
+    value=>{value.original_verifier.comment_sha256=[value.original_verifier.comment_sha256];},
+    value=>{value.original_verifier.decision_sha256=[value.original_verifier.decision_sha256];},
+    value=>{value.incumbent.issue.body_sha256=[value.incumbent.issue.body_sha256];},
+    value=>{value.target.head_sha=[value.target.head_sha];}]) {
+    const value=request();corrupt(value);assert.throws(()=>validateRequest(seal(value)));
+  }
+  const value=request();value.required_tests=[{kind:'existing_selector',id:'existing',finding_id:value.finding.id,source_ref:'git:head',path:'tests/test_input.py',selector:'test_rejected_input',file_sha256:['a'.repeat(64)]}];
+  assert.throws(()=>validateRequest(seal(value)),/required-test selector/);
+});

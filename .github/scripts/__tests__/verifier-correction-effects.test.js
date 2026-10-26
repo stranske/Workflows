@@ -267,3 +267,33 @@ test('unread no-incumbent facts are unknown and cannot create an issue',async()=
   const f=noIncumbentFixture();f.deps.collectFreshFacts=async()=>{throw Error('incomplete GitHub page');};
   const result=await f.consume();assert.equal(result.effect_state,'outcome_unknown');assert.equal(creates(f).length,0);assert.equal(dispatches(f).length,0);
 });
+
+test('copied exact marker cannot replace a durably retained created issue on resume or acceptance',async()=>{
+  const f=noIncumbentFixture(),append=f.ledger.append;let stop=true;
+  f.ledger.append=async args=>{const result=await append(args);if(args.record.kind==='issue_confirmed' && stop){stop=false;throw Error('stop after durable I_9 retention');}return result;};
+  assert.equal((await f.consume()).effect_state,'outcome_unknown');assert.equal(f.rows[1].issue.node_id,'I_9');assert.equal(dispatches(f).length,0);
+  // Same original marker/body, different issue number/node: cannot substitute.
+  f.state.created={...f.state.created,number:10,node_id:'I_10'};
+  const resumed=await f.consume();assert.equal(resumed.effect_state,'outcome_unknown');assert.equal(resumed.issue.node_id,'I_9');assert.equal(dispatches(f).length,0);assert.equal(creates(f).length,1);
+  f.deps.reconcile=async()=>({request:f.state.request,issues:[f.state.created],issue:{number:'10',node_id:'I_10',body_sha256:sha(f.state.created.body)},continuation:{workflow:'agents-auto-pilot.yml',run_id:'999',run_attempt:'1',request_sha256:f.state.request.request_sha256,issue_node_id:'I_10'}});
+  assert.equal((await f.consume()).effect_state,'outcome_unknown');assert.equal(dispatches(f).length,0);
+});
+test('conflicting durable issue confirmations remain unknown without dispatch',async()=>{
+  const f=noIncumbentFixture(),append=f.ledger.append;let stop=true;
+  f.ledger.append=async args=>{const stored=await append(args);if(args.record.kind==='issue_confirmed' && stop){stop=false;throw Error('stop after retention');}return stored;};
+  await f.consume();const payload={...f.rows[1],revision:3,issue:{...f.rows[1].issue,node_id:'I_10',number:'10'}};delete payload.record_sha256;
+  f.rows.push({...payload,record_sha256:digest(payload)});
+  assert.equal((await f.consume()).effect_state,'outcome_unknown');assert.equal(dispatches(f).length,0);
+});
+
+test('registry digest arrays and non-string ownership timestamps cannot authorize no-incumbent effects',async()=>{
+  const f=noIncumbentFixture();f.state.facts.agent.registry_sha256=['c'.repeat(64)];
+  assert.equal((await f.consume()).effect_state,'confirmed_not_started');assert.equal(creates(f).length,0);
+  const timestamp=noIncumbentFixture();timestamp.state.facts.ownership.observed_at=['2026-10-26T00:00:00Z'];
+  assert.equal((await timestamp.consume()).effect_state,'outcome_unknown');assert.equal(creates(timestamp).length,0);
+});
+
+test('oversized ownership evidence refuses before effects instead of failing receipt construction afterward',async()=>{
+  const f=noIncumbentFixture();f.state.facts.ownership.evidence_refs=['x'.repeat(4097)];
+  const result=await f.consume();assert.equal(result.effect_state,'outcome_unknown');assert.equal(creates(f).length,0);assert.equal(dispatches(f).length,0);
+});

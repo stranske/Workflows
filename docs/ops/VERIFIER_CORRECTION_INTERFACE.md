@@ -5,7 +5,8 @@ This bounded interface extends the existing merged-PR follow-up issue and
 producer/collector, durable existing-ledger transport and actual auto-pilot started
 receipt integration are pending. The collection-only workflow never invokes the
 effect adapter. No new scheduler, provider, store or authority service is added.
-Publication is explicitly on hold; all validation here uses inert fixtures/mocks.
+All validation here uses inert fixtures/mocks; PR publication does not authorize
+production effects or merging.
 
 ## Frozen local contract and fixtures
 
@@ -176,8 +177,8 @@ flowchart LR
 
 ## Local validation checkpoint
 
-The two correction suites contain 38 passing tests: 10 contract/admission tests
-and 28 effect tests. All external effects are synthetic in-memory clients. Cases
+The two correction suites contain 43 passing tests: 11 contract/admission tests
+and 32 effect tests. All external effects are synthetic in-memory clients. Cases
 include accepted existing and no-incumbent requests, deterministic refusal,
 HTTP204 versus actual run identity, uncertain create/dispatch, exact issue recovery,
 restart, lost checkpoint acknowledgments, changed caller IDs, complete fresh
@@ -187,8 +188,10 @@ Ten concurrent consumers produce one issue and one dispatch in the inert fixture
 Local adversarial review found and fixed incomplete work-inventory admission,
 invalid consumer identity before invocation, post-intent deadline expiry, malformed
 prior-started proof handling, and a possible second-stage race after concurrent
-issue retention. Final source mutants detect removal of the fixed-stage fence,
+issue retention. Independent read-only review additionally found a copied-marker
+issue substitution and regex coercion of digest arrays; both were fixed and
+regression-tested, including accepted-continuation binding and strict scalar types.
+Final source mutants detect removal of the fixed-stage fence,
 durable intent and current-assignee check; the unmodified source remains green.
-No separate external/provider reviewer is claimed. No production issue, label,
-workflow dispatch, provider call or source closure is exercised, and no publication
-is performed.
+No production issue, label, workflow dispatch, provider call or source closure
+is exercised by these tests.

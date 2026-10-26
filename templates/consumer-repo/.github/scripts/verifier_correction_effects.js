@@ -7,6 +7,7 @@ const {createHash} = require('crypto');
 const {canonical,digest} = require('./verification_event');
 const {validateRequest,receipt} = require('./verifier_correction_consumer');
 const SHA = /^[a-f0-9]{64}$/;
+const isSha = value => typeof value === 'string' && SHA.test(value);
 const sha = value => createHash('sha256').update(value).digest('hex');
 const requireThat = (value,message) => {if (!value) throw new Error(message);};
 const requireInventory = (value,message) => {if (!value) {const error=new Error(message);error.code='CORRECTION_INVENTORY_UNKNOWN';throw error;}};
@@ -41,9 +42,9 @@ function validateOwnership(value,seed) {
   requireThat(value?.schema === 'closer-correction-ownership/v1'
     && ['existing','no_incumbent','unknown'].includes(value.kind)
     && value.seed_effect_key === effectKey(seed) && value.source_scope_digest === sourceScopeDigest(seed)
-    && Number.isFinite(Date.parse(value.observed_at))
+    && typeof value.observed_at === 'string' && Number.isFinite(Date.parse(value.observed_at))
     && Array.isArray(value.evidence_refs) && value.evidence_refs.length > 0
-    && value.evidence_refs.every(ref => typeof ref === 'string' && ref.length > 0), 'Trusted fresh ownership binding unavailable');
+    && value.evidence_refs.every(ref => typeof ref === 'string' && ref.length > 0 && ref.length <= 4096), 'Trusted fresh ownership binding unavailable');
   if (value.kind === 'existing') requireThat(value.incumbent && typeof value.incumbent === 'object', 'Existing incumbent evidence unavailable');
   else requireThat(!Object.hasOwn(value,'incumbent'), 'No-incumbent/unknown evidence cannot assert an incumbent');
   return value;
@@ -89,8 +90,18 @@ function checkFreshFacts(request,facts,{ownership = null,createdIssue = null} = 
       'No-incumbent evidence includes unknown/starting/denied or assigned work');
     const agent=facts.agent;
     requireThat(agent?.enabled === true && /^[a-z0-9][a-z0-9-]*$/.test(agent.key || '')
-      && SHA.test(agent.registry_sha256), 'Enabled registry-derived correction agent unavailable');
+      && isSha(agent.registry_sha256), 'Enabled registry-derived correction agent unavailable');
   }
+}
+function confirmedIssue(snapshot) {
+  const confirmed=snapshot.records.filter(row=>row.kind==='issue_confirmed');
+  if (!confirmed.length) return null;
+  requireThat(new Set(confirmed.map(row=>canonical(row.issue))).size===1, 'Conflicting durable created-issue identities');
+  return confirmed[0].issue;
+}
+function requireBoundContinuationIssue(snapshot,observed,request,ownership) {
+  const expected=ownership?.kind==='no_incumbent'?confirmedIssue(snapshot):request.incumbent.issue;
+  requireThat(expected && same(observed.issue,expected), 'Continuation differs from retained exact issue');
 }
 function validateLedger(snapshot,key) {
   requireThat(snapshot && Number.isSafeInteger(snapshot.revision) && snapshot.revision >= 0
@@ -101,8 +112,17 @@ function validateLedger(snapshot,key) {
       && record.revision === index+1 && digest(payload) === record_sha256
       && ['intent','issue_confirmed'].includes(record.kind)
       && ['issue_creation','autopilot_dispatch'].includes(record.phase)
-      && SHA.test(record.request_sha256), 'Existing follow-up ledger binding corrupt');
+      && isSha(record.request_sha256), 'Existing follow-up ledger binding corrupt');
+    if (record.kind==='issue_confirmed') {
+      const issue=record.issue;
+      requireThat(record.phase==='issue_creation' && issue && same(Object.keys(issue).sort(),['body_sha256','node_id','number'])
+        && typeof issue.number==='string' && /^[1-9]\d{0,15}$/.test(issue.number)
+        && typeof issue.node_id==='string' && issue.node_id.length>0 && isSha(issue.body_sha256)
+        && snapshot.records.slice(0,index).some(row=>row.kind==='intent' && row.phase==='issue_creation'
+          && row.request_sha256===record.request_sha256), 'Durable created issue lacks exact original intent');
+    }
   }
+  confirmedIssue(snapshot);
   return snapshot;
 }
 async function appendRecord({ledger,snapshot,key,request,consumer,kind,phase,ownership=null,issue=null}) {
@@ -180,7 +200,7 @@ function createCorrectionEffectConsumer({authenticate,collectFreshFacts,ledger,r
         try {ownership=validateOwnership(origin.ownership,seed);}catch {return finish('outcome_unknown','prior_ownership_binding_unavailable');}
       }
       if (observed?.continuation) {
-        try {requireThat(same(observed.request,request),'Reconciled request differs');return finish(ACCEPTED,'authenticated_actual_autopilot_continuation',observed.issue,observed.continuation);}
+        try {requireThat(same(observed.request,request),'Reconciled request differs');requireBoundContinuationIssue(snapshot,observed,request,ownership);return finish(ACCEPTED,'authenticated_actual_autopilot_continuation',observed.issue,observed.continuation);}
         catch {return finish('outcome_unknown','prior_continuation_binding_unproven_no_repeat');}
       }
       if (snapshot.records.some(row=>row.phase==='autopilot_dispatch')) return finish('outcome_unknown','prior_effect_requires_exact_reconciliation_no_repeat');
@@ -190,6 +210,8 @@ function createCorrectionEffectConsumer({authenticate,collectFreshFacts,ledger,r
       }
       const resolved=await reconcileIssueCreation({request,intent:creation,observe:async()=>observed?.issues});
       if (!resolved.issue) return finish('outcome_unknown',resolved.reason);
+      const retained=confirmedIssue(snapshot);
+      if (retained && !same(retained,resolved.issue)) return finish('outcome_unknown','observed_issue_differs_from_durable_identity',retained);
       issue=resolved.issue;
     }
     if (clock().getTime() >= Date.parse(request.original_operation.deadline)) {
@@ -219,6 +241,8 @@ function createCorrectionEffectConsumer({authenticate,collectFreshFacts,ledger,r
       if (!intent || intent.request_sha256 !== request.request_sha256) return finish('outcome_unknown','issue_creation_intent_unavailable_or_different_request_no_repeat');
       const resolved=await reconcileIssueCreation({request,intent,observe:async()=>observed?.issues});
       if (!resolved.issue) return finish('outcome_unknown',resolved.reason);
+      const retained=confirmedIssue(snapshot);
+      if (retained && !same(retained,resolved.issue)) return finish('outcome_unknown','observed_issue_differs_from_durable_identity',retained);
       issue=resolved.issue;
       // Freshly read the created issue and competing-work inventory before the
       // next stage. An issue acknowledgment alone is never ownership acceptance.
@@ -231,6 +255,9 @@ function createCorrectionEffectConsumer({authenticate,collectFreshFacts,ledger,r
       try {await appendRecord({ledger,snapshot,key,request,consumer,kind:'issue_confirmed',phase:'issue_creation',ownership,issue});snapshot=await read();}
       catch {return finish('outcome_unknown','created_issue_retention_uncertain_no_dispatch',issue);}
     }
+    if (ownership.kind==='no_incumbent' && !same(confirmedIssue(snapshot),issue)) {
+      return finish('outcome_unknown','dispatch_issue_differs_from_durable_identity',confirmedIssue(snapshot));
+    }
     const outcome=await attemptEffect({ledger,snapshot,key,request,consumer,phase:'autopilot_dispatch',ownership,invoke:()=>{
       requireThat(clock().getTime()<Date.parse(request.original_operation.deadline),'Requester deadline expired after durable intent');
       return github.rest.actions.createWorkflowDispatch({owner,repo,workflow_id:'agents-auto-pilot.yml',ref:defaultBranch,
@@ -238,7 +265,10 @@ function createCorrectionEffectConsumer({authenticate,collectFreshFacts,ledger,r
     }});
     try {
       snapshot=await read();observed=await observe();
-      if (observed?.continuation && same(observed.request,request)) return finish(ACCEPTED,'authenticated_actual_autopilot_continuation',observed.issue,observed.continuation);
+      if (observed?.continuation && same(observed.request,request)) {
+        requireBoundContinuationIssue(snapshot,observed,request,ownership);
+        return finish(ACCEPTED,'authenticated_actual_autopilot_continuation',observed.issue,observed.continuation);
+      }
     } catch { /* Retain original uncertain effect, never repeat. */ }
     return finish(outcome.state,outcome.reason,issue);
   };

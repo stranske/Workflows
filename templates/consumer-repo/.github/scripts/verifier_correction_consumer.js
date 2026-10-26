@@ -8,6 +8,8 @@ const {canonical, digest, validateEvent, completedEvent} = require('./verificati
 const {acquireRetainedExecution, readRetainedArchive} = require('./verifier_pending_execution');
 const SHA = /^[a-f0-9]{64}$/;
 const COMMIT = /^[a-f0-9]{40}$/;
+const isSha = value => typeof value === 'string' && SHA.test(value);
+const isCommit = value => typeof value === 'string' && COMMIT.test(value);
 const ID = /^[1-9]\d{0,15}$/;
 const MEMBER = 'closer-correction-request.json';
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');
@@ -16,24 +18,27 @@ const exact = (row, keys) => row && typeof row === 'object' && !Array.isArray(ro
   && Object.keys(row).sort().join(',') === keys.split(' ').sort().join(',');
 const text = value => typeof value === 'string' && value.length > 0 && value.length <= 4096;
 const identity = row => exact(row, 'number node_id body_sha256') && ID.test(row.number)
-  && typeof row.number === 'string' && text(row.node_id) && SHA.test(row.body_sha256);
-const evidence = row => exact(row, 'ref sha256') && text(row.ref) && SHA.test(row.sha256);
+  && typeof row.number === 'string' && text(row.node_id) && isSha(row.body_sha256);
+const evidence = row => exact(row, 'ref sha256') && text(row.ref) && isSha(row.sha256);
 
 function validateRequest(request) {
   requireThat(exact(request, 'schema request_sha256 target source_issue original_verifier finding required_tests incumbent original_operation scope'), 'Invalid correction request fields');
   requireThat(request.schema === 'closer-correction-request/v1', 'Unsupported correction request');
   const {request_sha256, ...payload} = request;
-  requireThat(SHA.test(request_sha256) && digest(payload) === request_sha256, 'Correction request digest mismatch');
+  requireThat(isSha(request_sha256) && digest(payload) === request_sha256, 'Correction request digest mismatch');
   const t = request.target;
   requireThat(exact(t, 'repository pr head_sha base_sha merge_sha') && /^[^/\s]+\/[^/\s]+$/.test(t.repository)
     && t.repository === t.repository.toLowerCase() && typeof t.pr === 'string' && ID.test(t.pr)
-    && [t.head_sha,t.base_sha,t.merge_sha].every(value => COMMIT.test(value)), 'Invalid correction target');
+    && [t.head_sha,t.base_sha,t.merge_sha].every(value => isCommit(value)), 'Invalid correction target');
   requireThat(identity(request.source_issue), 'Invalid source issue binding');
   const v = request.original_verifier;
   requireThat(exact(v, 'verification_event run_id run_attempt comment_id comment_sha256 decision_sha256')
     && [v.run_id,v.run_attempt,v.comment_id].every(value => typeof value === 'string' && ID.test(value))
-    && SHA.test(v.comment_sha256) && SHA.test(v.decision_sha256), 'Invalid original verifier binding');
+    && isSha(v.comment_sha256) && isSha(v.decision_sha256), 'Invalid original verifier binding');
+  requireThat(v.verification_event && typeof v.verification_event === 'object' && !Array.isArray(v.verification_event), 'Original verifier event must be an object');
   const event = validateEvent(v.verification_event);
+  requireThat([event.head_sha,event.evaluated_sha].every(isCommit)
+    && [event.request_sha256,event.material_sha256,event.event_id].every(isSha), 'Original verifier event digest fields must be strings');
   requireThat(event.repo === t.repository && event.pr === t.pr && event.head_sha === t.head_sha
     && event.evaluated_sha === t.merge_sha, 'Original verifier target mismatch');
   requireThat(exact(request.finding, 'id evidence') && text(request.finding.id)
@@ -45,7 +50,7 @@ function validateRequest(request) {
     if (test.kind === 'existing_selector') {
       requireThat(common && exact(test, 'kind id finding_id source_ref path selector file_sha256')
         && text(test.source_ref) && text(test.path) && !test.path.startsWith('/')
-        && !test.path.split('/').includes('..') && text(test.selector) && SHA.test(test.file_sha256), 'Invalid existing required-test selector');
+        && !test.path.split('/').includes('..') && text(test.selector) && isSha(test.file_sha256), 'Invalid existing required-test selector');
     } else {
       requireThat(common && test?.kind === 'required_test_spec'
         && exact(test, 'kind id finding_id specification source_evidence')
@@ -74,9 +79,9 @@ function receipt(request, {state = 'confirmed_not_started', reason, issue = null
   requireThat(text(reason) && exact(consumer, 'run_id run_attempt')
     && Object.values(consumer).every(value => typeof value === 'string' && ID.test(value)), 'Invalid consumer execution');
   if (ownership !== null) requireThat(ownership?.schema === 'closer-correction-ownership/v1'
-    && ['existing','no_incumbent','unknown'].includes(ownership.kind) && SHA.test(ownership.seed_effect_key)
-    && SHA.test(ownership.source_scope_digest) && Number.isFinite(Date.parse(ownership.observed_at))
-    && Array.isArray(ownership.evidence_refs) && ownership.evidence_refs.length > 0, 'Receipt ownership binding malformed');
+    && ['existing','no_incumbent','unknown'].includes(ownership.kind) && isSha(ownership.seed_effect_key)
+    && isSha(ownership.source_scope_digest) && typeof ownership.observed_at === 'string' && Number.isFinite(Date.parse(ownership.observed_at))
+    && Array.isArray(ownership.evidence_refs) && ownership.evidence_refs.length > 0 && ownership.evidence_refs.every(text), 'Receipt ownership binding malformed');
   if (issue !== null) requireThat(identity(issue) && (ownership?.kind === 'no_incumbent'
     || canonical(issue) === canonical(request.incumbent.issue)), 'Receipt incumbent mismatch');
   if (state === 'accepted_with_exact_issue_and_actual_autopilot_run_attempt') {
@@ -97,7 +102,7 @@ function receipt(request, {state = 'confirmed_not_started', reason, issue = null
 
 async function collectCorrection({github, selector, currentRun, currentAttempt, directory}) {
   requireThat(exact(selector, 'schema run_id run_attempt artifact_id request_sha256 verification_event assessment_identity')
-    && selector.schema === 'closer-correction-selector/v1' && SHA.test(selector.request_sha256), 'Invalid correction selector');
+    && selector.schema === 'closer-correction-selector/v1' && isSha(selector.request_sha256), 'Invalid correction selector');
   const event = validateEvent(selector.verification_event);
   const proof = await acquireRetainedExecution({github,event,assessment:selector.assessment_identity,
     selector:{run_id:selector.run_id,run_attempt:selector.run_attempt,artifact_id:selector.artifact_id},
