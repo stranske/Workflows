@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import re
 from pathlib import Path
 
 import pytest
@@ -16,10 +15,17 @@ GATE_PATHS = (
 
 
 def _coverage_reference_runtime(gate_text: str) -> str:
-    match = re.search(r"COVERAGE_REFERENCE_RUNTIME:\s*['\"]([0-9.]+)['\"]", gate_text)
-    if not match:
-        raise AssertionError("COVERAGE_REFERENCE_RUNTIME not found in gate workflow")
-    return match.group(1)
+    data = yaml.safe_load(gate_text)
+    steps = data["jobs"]["summary"]["steps"]
+    coverage_stats = next((step for step in steps if step.get("id") == "coverage_stats"), None)
+    if coverage_stats is None:
+        raise AssertionError("coverage_stats step not found in gate workflow")
+    try:
+        return str(coverage_stats["env"]["COVERAGE_REFERENCE_RUNTIME"])
+    except KeyError as exc:
+        raise AssertionError(
+            "COVERAGE_REFERENCE_RUNTIME not found in coverage_stats environment"
+        ) from exc
 
 
 def _python_ci_runtime_inputs(gate_path: Path) -> tuple[str, str]:
@@ -52,5 +58,18 @@ def test_mismatched_coverage_reference_runtime_fails_alignment() -> None:
         "COVERAGE_REFERENCE_RUNTIME: '3.14'",
         "COVERAGE_REFERENCE_RUNTIME: '3.13'",
     )
+    with pytest.raises(AssertionError, match="reference=3.13"):
+        assert_coverage_runtime_aligned(gate_path, text)
+
+
+@pytest.mark.parametrize("gate_path", GATE_PATHS, ids=lambda p: p.relative_to(ROOT).as_posix())
+def test_reference_runtime_reads_the_effective_coverage_step(gate_path: Path) -> None:
+    data = yaml.safe_load(gate_path.read_text(encoding="utf-8"))
+    coverage_stats = next(
+        step for step in data["jobs"]["summary"]["steps"] if step.get("id") == "coverage_stats"
+    )
+    coverage_stats["env"]["COVERAGE_REFERENCE_RUNTIME"] = "3.13"
+    # An unrelated earlier declaration must not mask a drifted effective value.
+    text = yaml.safe_dump({"env": {"COVERAGE_REFERENCE_RUNTIME": "3.14"}, **data}, sort_keys=False)
     with pytest.raises(AssertionError, match="reference=3.13"):
         assert_coverage_runtime_aligned(gate_path, text)
