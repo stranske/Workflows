@@ -227,7 +227,9 @@ flowchart LR
     I --> A[Existing auto-pilot gated continuation]
     A --> R[Actual workflow-admission run/attempt receipt]
     A --> B[Native Belt intake and mandatory scope]
-    B --> F[Trusted final prompt assembly]
+    B --> K[Independent keepalive: native scope and supported runner]
+    K --> F[Trusted final prompt assembly]
+    J[Authenticated original/current policy minimum] --> F
     F --> H[Hold if missing budget/transport/gates or overflow]
     L --> U[Unknown: reconcile without repetition]
 ```
@@ -419,12 +421,14 @@ Typed corrections currently require the registry-selected existing runner to be
 `reusable-codex-run.yml`, the runner with authenticated mandatory intake and final
 coding-policy enforcement implemented here. Other selected owners remain owned
 UNKNOWN before new issue/continuation effects and before continuation admission;
-routing never substitutes a Codex writer for their incumbent. This guards the
-correction effect and Auto continuation admission, not every independent runner
-entry. A separate existing keepalive dispatch can select the coding PR labels;
-its native typed-scope/supported-runner gate is still an integration dependency
-owned in coordination with the rollout owner. Until that gate exists, no claim of
-all-provider final intake coverage is made. Ordinary untyped
+routing never substitutes a Codex writer for their incumbent. Independent keepalive
+performs native retained-scope lookup before owner delegation and rechecks after
+final runner/verifier selection. Positive typed scope requires the current coding
+PR's exact native identity/head and supported routing; missing or changed identity
+cannot erase the historical scope match. Typed requests never enter automatic
+owner delegation. Current coding PR pause/human/run-cap/failure controls hold both
+at keepalive admission and final Codex intake. These checks do not add correction
+intake to other runners. Ordinary untyped
 routing remains unchanged. Adding another runner requires its actual final prompt,
 budget and authenticated intake path, not merely activation metadata or an agent
 label. The unassigned Claude classifier producer arm is a separate dependency.

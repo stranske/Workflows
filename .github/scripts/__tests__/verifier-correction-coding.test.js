@@ -83,7 +83,7 @@ test('final activation missing budget and overflow hold synchronously before any
 function crossref(pull) {return {event:'cross-referenced',actor:{id:123},created_at:'2026-10-26T00:01:00Z',
  source:{type:'issue',issue:{id:pull.id,node_id:pull.node_id,number:pull.number,repository:{full_name:'stranske/example'},pull_request:{url:'inert:native-pull'}}}};}
 function pullFixture(f) {
- const pull={id:100,number:10,node_id:'PR_10',body:'Closes #9 copied marker grants nothing',head:{repo:{full_name:f.transport.repository}}},read=f.transport.read;
+ const pull={id:100,number:10,node_id:'PR_10',state:'open',draft:false,labels:[{name:'agent:codex'}],body:'Closes #9 copied marker grants nothing',head:{repo:{full_name:f.transport.repository}}},read=f.transport.read;
  const rows=[crossref(pull)];
  f.transport.read=async(resource,method,args)=>resource==='pulls'?pull:method==='listEventsForTimeline'?rows:read(resource,method,args);
  return {pull,rows};

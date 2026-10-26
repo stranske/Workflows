@@ -237,6 +237,16 @@ async function nativeIssueLinksPull({transport,identity,pull}) {
  }
  throw Error('Correction intake native link history exceeds bound; UNKNOWN');
 }
+function requireOpenCorrectionCodingPull(pull) {
+ need(pull.state==='open' && pull.draft===false && Array.isArray(pull.labels),
+ 'Owned UNKNOWN: native correction coding PR closed, draft or labels unavailable');
+ const labels=pull.labels.map(label=>typeof label==='string'?label:label?.name);
+ need(labels.every(label=>typeof label==='string'),'Owned UNKNOWN: native correction coding PR labels incomplete');
+ const blocked=new Set(['needs-human','agents:paused','agents:pause','agents:max-runs:0',
+  'agents:auto-pilot-pause','agents:auto-pilot-failed']);
+ need(!labels.some(label=>blocked.has(label.toLowerCase())),
+ 'Owned UNKNOWN: native correction coding PR has a current operator hold');
+}
 async function resolvePullCodingScope({transport,pullNumber}) {
  const pull=await transport.read('pulls','get',{pull_number:pullNumber});
  need(pull.number===pullNumber && Number.isSafeInteger(pull.id) && typeof pull.node_id==='string'
@@ -244,7 +254,9 @@ async function resolvePullCodingScope({transport,pullNumber}) {
  // Complete retained issue/request/seed inventories plus historical native
  // cross-reference identity discover scope even after Closes/body edits. Native
  // linkage only joins the coding PR; it grants no effect or security authority.
- return resolveCodingScope({transport,linkedPull:pull});
+ const scope=await resolveCodingScope({transport,linkedPull:pull});
+ if(scope!==null)requireOpenCorrectionCodingPull(pull);
+ return scope;
 }
 module.exports.resolvePullCodingScope=resolvePullCodingScope;
 
@@ -358,3 +370,31 @@ function codingPolicyObservation({scope,currentBudget,configuration,current}) {
  return {...payload,content_sha256:digest(payload)};
 }
 module.exports.codingPolicyObservation=codingPolicyObservation;
+
+
+// Read-only native lookup at the independent keepalive dispatch boundary. A
+// missing/ambiguous history is not absence; neither labels nor queue JSON can
+// claim that a PR has no retained mandatory correction scope.
+async function guardCorrectionKeepalive({github,context,pr,agentKey,transport=null,registryPath}) {
+ const repository=`${context.repo.owner}/${context.repo.repo}`.toLowerCase();
+ if(!transport) {
+  const {createArtifactTransport}=require('./verifier_correction_artifacts');
+  transport=await createArtifactTransport({github,repository,current:{run_id:context.runId,
+   run_attempt:Number(context.runAttempt || process.env.GITHUB_RUN_ATTEMPT)}});
+ }
+ const fresh=await transport.read('pulls','get',{pull_number:pr.number});
+ need(fresh.number===pr.number && Number.isSafeInteger(fresh.id) && fresh.id>0
+  && typeof fresh.node_id==='string' && fresh.node_id.length>0 && fresh.id===pr.id && fresh.node_id===pr.node_id
+  && typeof fresh.head?.sha==='string' && fresh.head.sha.length>0 && fresh.head.sha===pr.head?.sha,
+ 'Owned UNKNOWN: native correction keepalive PR identity/head changed or unavailable');
+ const scope=await resolveCodingScope({transport,linkedPull:fresh});
+ if(scope===null)return null;
+ need(/^[a-f0-9]{40}$/.test(fresh.head.sha) && fresh.head.repo?.full_name?.toLowerCase()===repository,
+ 'Owned UNKNOWN: native correction keepalive source repository/head unavailable');
+ requireOpenCorrectionCodingPull(fresh);
+ const registry=loadAgentRegistry({registryPath});
+ requireCorrectionCodingIntake({agent:{key:agentKey,enabled:registry.agents[agentKey]?.enabled===true},
+  incumbentIssue:{labels:fresh.labels}},{registryPath});
+ return scope;
+}
+module.exports.guardCorrectionKeepalive=guardCorrectionKeepalive;
