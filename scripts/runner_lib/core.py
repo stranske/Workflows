@@ -726,7 +726,7 @@ def assemble_prompt(
                 "correction_budget_unconfigured: final coding lane requires an explicit selected ISSUE_PR_CONTEXT_TOKEN_BUDGET"
             )
         original = correction.get("original_issue_body")
-        if not isinstance(original, str) or not original.strip():
+        if not isinstance(original, str):
             raise ValueError(
                 "correction_original_scope_missing: native incumbent body is mandatory"
             )

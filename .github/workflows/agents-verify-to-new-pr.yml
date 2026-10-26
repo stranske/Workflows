@@ -1365,7 +1365,7 @@ jobs:
               result.receipt_sha256 = digest(result);
             }
             const terminal = normalizeTerminalDisposition({source_type:'correction-request',
-              source_id:result.request_sha256 || result.selector_sha256,
+              source_id:result.request?.request_sha256 || result.request_sha256 || result.selector_sha256,
               disposition:'collection-only',reason:result.reason,run_id:context.runId,
               run_attempt:process.env.GITHUB_RUN_ATTEMPT,
               artifact_family:'verifier-terminal-disposition',
@@ -1475,11 +1475,8 @@ jobs:
                 result.receipt_sha256 = digest(result);
               }
             }
-            // Never turn a failed upload or unknown dispatch into permission to
-            // repeat. Stage intents were already retained and read back first.
-            await transport.publish('receipt',Buffer.from(JSON.stringify(result)+'\n'));
             const terminal = normalizeTerminalDisposition({source_type:'correction-request',
-              source_id:result.request_sha256 || result.selector_sha256,disposition:result.effect_state,
+              source_id:result.request?.request_sha256 || result.request_sha256 || result.selector_sha256,disposition:result.effect_state,
               reason:result.reason,run_id:current.run_id,run_attempt:current.run_attempt,
               artifact_family:'verifier-terminal-disposition',
               artifact_name:`verifier-terminal-disposition-${current.run_id}-correction-effect-${current.run_attempt}`});
@@ -1487,6 +1484,9 @@ jobs:
             fs.mkdirSync('agent-metrics',{recursive:true});
             fs.writeFileSync('agent-metrics/verifier-terminal-disposition.ndjson',JSON.stringify(terminal)+'\n');
             fs.writeFileSync('agent-metrics/verifier-followup-ledger.ndjson',JSON.stringify(result)+'\n');
+            // Local terminal evidence survives even when immutable upload or
+            // readback fails. It grants no retry of the original stage intents.
+            await transport.publish('receipt',Buffer.from(JSON.stringify(result)+'\n'));
             core.summary.addHeading('Scoped correction effect receipt').addRaw(result.effect_state).write();
       - name: Upload correction effect disposition
         if: always()

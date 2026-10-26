@@ -6,7 +6,7 @@ const {createHash}=require('crypto');
 const path=require('path');
 const {execFileSync}=require('child_process');
 const {canonical,digest}=require('./verification_event');
-const {validateRequest}=require('./verifier_correction_consumer');
+const {validateRequest,nativeBody}=require('./verifier_correction_consumer');
 const {seedForRequest,effectKey,createCorrectionEffectConsumer}=require('./verifier_correction_effects');
 const {artifactName,correctionHistory,createArtifactLedger}=require('./verifier_correction_artifacts');
 const {loadAgentRegistry}=require('./agent_registry');
@@ -158,7 +158,7 @@ async function resolveCodingScope({transport,issueNumber=null,linkedPull=null}) 
  const {SPECS}=require('./verifier_correction_artifacts');
  const {issueIdentity}=require('./verifier_correction_effects');
  const issue=issueNumber===null?null:await transport.read('issues','get',{issue_number:issueNumber});
- if(issueNumber!==null)need(issue?.number===issueNumber && !issue.pull_request && typeof issue.body==='string'
+ if(issueNumber!==null)need(issue?.number===issueNumber && !issue.pull_request && (typeof issue.body==='string' || issue.body===null)
   && typeof issue.node_id==='string','Correction intake native issue identity unavailable');
  const matches=[];
  // Only workflow_dispatch executions of the existing correction workflow are
@@ -209,7 +209,7 @@ async function resolveCodingScope({transport,issueNumber=null,linkedPull=null}) 
     && row.context.request.request_sha256===request.request_sha256).map(row=>row.context.coding_budget),request);
  need(Date.now()<Date.parse(request.original_operation.deadline),'Correction intake original deadline exhausted');
  return {schema:'closer-correction-coding-context/v1',request_sha256:request.request_sha256,
-  seed_effect_key:first.context.effect_key,admitted_selector:first.proof,coding_budget:codingBudget,issue:first.identity,original_issue_body:first.issue.body,
+  seed_effect_key:first.context.effect_key,admitted_selector:first.proof,coding_budget:codingBudget,issue:first.identity,original_issue_body:nativeBody(first.issue.body),
   finding_text:first.context.finding_text,required_tests:request.required_tests};
 }
 module.exports.resolveCodingScope=resolveCodingScope;
@@ -299,9 +299,9 @@ async function recheckCodingAdmission({github,transport,scope,pythonRoot,clock=(
  need(String(pull.number)===request.target.pr && pull.merged===true && pull.head?.sha===request.target.head_sha && pull.base?.sha===request.target.base_sha
   && pull.merge_commit_sha===request.target.merge_sha && !blocked(pull),'Original corrective source PR changed or held');
  need(String(source.number)===request.source_issue.number && source.node_id===request.source_issue.node_id
-  && typeof source.body==='string' && sha(source.body)===request.source_issue.body_sha256 && !blocked(source),
+  && sha(nativeBody(source.body))===request.source_issue.body_sha256 && !blocked(source),
   'Original corrective source issue changed or held');
- need(same(issueIdentity(issue),scope.issue) && issue.body===scope.original_issue_body && issue.state==='open' && !blocked(issue),
+ need(same(issueIdentity(issue),scope.issue) && nativeBody(issue.body)===scope.original_issue_body && issue.state==='open' && !blocked(issue),
   'Incumbent correction issue changed, closed or held');
  need(await existingVerdictPolicy({transport,request,pythonRoot})==='follow-up','Existing corrective policy no longer admits coding');
  need(Array.isArray(issue.assignees) && issue.assignees.every(row=>typeof row.login==='string'),'Current corrective assignment unavailable');

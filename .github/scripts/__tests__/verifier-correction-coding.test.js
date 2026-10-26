@@ -7,9 +7,9 @@ const {resolveCodingScope,resolvePullCodingScope,fitCodingText}=require('../veri
 const {codingBudgetFromVariable,validateCodingBudget,minimumCodingBudget}=require('../verifier_correction_consumer');
 const clone=value=>structuredClone(value),sha=value=>createHash('sha256').update(value).digest('hex');
 const pythonRoot=path.resolve(__dirname,'../../..');
-function fixture(existing=false,{number=9,run=700,pr='7',sourceDigest=null,commentBody=null}={}) {
+function fixture(existing=false,{number=9,run=700,pr='7',sourceDigest=null,commentBody=null,issueBody=`Complete ORIGINAL_ISSUE_${number}: retain every original requirement.`}={}) {
  const request=clone(require('../../../tests/fixtures/verifier_correction/integration-request.json'));
- const issue={number,node_id:`I_${number}`,body:`Complete ORIGINAL_ISSUE_${number}: retain every original requirement.`,title:'inert native issue',state:'open'};
+ const issue={number,node_id:`I_${number}`,body:issueBody,title:'inert native issue',state:'open'};
  request.target.pr=pr;if(commentBody)request.original_verifier.comment_sha256=sha(commentBody);if(sourceDigest)request.source_issue.body_sha256=sourceDigest;
  request.required_tests.push({kind:'existing_selector',id:'selector-2',finding_id:request.finding.id,source_ref:'git:'+request.target.head_sha,path:'tests/test_exact.py',selector:'tests/test_exact.py::test_required',file_sha256:'c'.repeat(64)});
  if(existing)request.incumbent={issue:issueIdentity(issue),owner:'inert-owner',assignment_ref:`github:stranske/example/issues/${number}/events/1001`,lineage_ref:`github:stranske/example/issues/${number}/timeline/1002`};
@@ -132,9 +132,9 @@ function activationScript(surface=beltSurfaces[0]) {
   'steps.ledger_start.outputs.task_id':'task-1','steps.ledger_start.outputs.task_title':'Exact single task','steps.ctx.outputs.agent_key':'codex'};
  return body.join('\n').replace(/\$\{\{\s*(.*?)\s*\}\}/g,(_,key)=>{assert.ok(key in values,`known inert scalar ${key}`);return values[key];});
 }
-async function executeActivation({scope=null,budget='100000',update=false,calls=[],surface=beltSurfaces[0]}) {
+async function executeActivation({scope=null,budget='100000',update=false,calls=[],surface=beltSurfaces[0],failWrite=false}) {
  const comments=update?[{id:87,body:'<!-- agent-activation-marker --> old'}]:[];
- const issues=Object.fromEntries(['listComments','createComment','updateComment','deleteComment'].map(method=>[method,async args=>{calls.push([method,args]);return {data:{}};}]));
+ const issues=Object.fromEntries(['listComments','createComment','updateComment','deleteComment'].map(method=>[method,async args=>{calls.push([method,args]);if(failWrite && ['createComment','updateComment'].includes(method))throw Object.assign(Error('native upsert failed'),{status:422});return {data:{}};}]));
  const github={rest:{issues}},core={warning:message=>calls.push(['warning',message])};
  const retry={createTokenAwareRetry:async()=>({github,withRetry:fn=>fn(github),paginateWithRetry:async(fn,args)=>{calls.push(['listComments',args]);return comments;}})};
  const env=scope?{CORRECTION_CONTEXT_FILE:'/inert/correction.json',ISSUE_PR_CONTEXT_TOKEN_BUDGET:budget}:{};
@@ -152,13 +152,13 @@ const legacyActivation='<!-- agent-activation-marker -->\nAgent worker (codex) a
 for(const surface of beltSurfaces)for(const existing of [false,true])test(`${surface}: actual Belt activation caller preserves ${existing?'incumbent':'new-issue'} scope in native ${existing?'update':'create'}Comment`,async()=>{
  const f=fixture(existing),scope=await resolveCodingScope({transport:f.transport,issueNumber:9});
  const calls=await executeActivation({scope,update:existing,surface}),writes=calls.filter(row=>['createComment','updateComment'].includes(row[0]));
- assert.equal(writes.length,1);const body=writes[0][1].body;
+ assert.equal(writes.length,1);assert.deepEqual(writes[0][1].request,{timeout:15000,retries:0});const body=writes[0][1].body;
  assert.equal(body,fitCodingText({base:legacyActivation,scope,budget:'100000',pythonRoot}));
  assert.ok(body.includes(scope.original_issue_body));const data=JSON.parse(body.slice(body.indexOf('{')));
  assert.equal(data.finding_text,scope.finding_text);assert.deepEqual(data.required_tests,scope.required_tests);
 });
 for(const surface of beltSurfaces)test(`${surface}: actual Belt absent-overlay activation remains byte-identical legacy single-task prompt`,async()=>{
- const calls=await executeActivation({surface});assert.equal(calls.find(row=>row[0]==='createComment')[1].body,legacyActivation);
+ const calls=await executeActivation({surface});assert.equal(calls.find(row=>row[0]==='createComment')[1].body,legacyActivation);assert.equal(calls.find(row=>row[0]==='createComment')[1].request,undefined);
 });
 for(const surface of beltSurfaces)test(`${surface}: actual Belt activation over-budget or unconfigured scope aborts before comment inventory or trigger`,async()=>{
  const f=fixture(),scope=await resolveCodingScope({transport:f.transport,issueNumber:9});
@@ -310,4 +310,30 @@ test('actual authored pre-provider script freshly authenticates original scope a
 test('actual authored pre-provider script holds unknown CLI overrides and substituted admission before any output/provider',async()=>{
  const f=await freshFixture(),files={};await assert.rejects(runProviderPreflight(f,{extra:'--model unbound-model',files}),/unbound extra arguments/);assert.deepEqual(files,{});
  f.scope.admitted_selector.artifact_id=999999;await assert.rejects(runProviderPreflight(f,{files}));assert.deepEqual(files,{});
+});
+
+
+test('authenticated existing issue with native null body carries empty original scope through actual final fitting',async()=>{
+ const f=fixture(true,{issueBody:null}),scope=await resolveCodingScope({transport:f.transport,issueNumber:9});
+ assert.equal(scope.original_issue_body,'');assert.equal(scope.issue.body_sha256,sha(''));
+ const final=fitCodingText({base:'Original coding instructions',scope,budget:'100000',pythonRoot});
+ assert.ok(final.includes('## Complete original issue scope'));
+ const rendered=JSON.parse(final.slice(final.indexOf('{')));assert.equal(rendered.finding_text,scope.finding_text);assert.deepEqual(rendered.required_tests,scope.required_tests);
+ for(const test of scope.required_tests)assert.ok(final.includes(test.specification || test.selector));
+ for(const value of [undefined,false,{},0]) {
+  const bad=fixture(true,{issueBody:''});bad.issue.body=value;
+  await assert.rejects(resolveCodingScope({transport:bad.transport,issueNumber:9}));
+ }
+});
+
+for(const surface of beltSurfaces)test(`${surface}: typed activation cannot silently lose a complete over-limit scope or failed native upsert`,async()=>{
+ const f=fixture();f.issue.body='x'.repeat(34000);const identity=issueIdentity(f.issue);
+ f.records[1].issue=identity;f.records[1].creation_response.issue=identity;
+ for(const row of f.records){const {record_sha256,...value}=row;row.record_sha256=digest(value);}f.rebuild();
+ const scope=await resolveCodingScope({transport:f.transport,issueNumber:9}),calls=[];
+ await assert.rejects(executeActivation({scope,surface,calls}),/exceeds GitHub comment limit/);assert.deepEqual(calls,[]);
+ const ordinary=fixture(),small=await resolveCodingScope({transport:ordinary.transport,issueNumber:9});
+ for(const update of [false,true]) {const attempts=[];await assert.rejects(executeActivation({scope:small,surface,update,failWrite:true,calls:attempts}),/native upsert failed/);
+  assert.equal(attempts.filter(row=>['createComment','updateComment'].includes(row[0])).length,1);}
+ const legacy=await executeActivation({surface,failWrite:true});assert.ok(legacy.some(row=>row[0]==='warning'));
 });

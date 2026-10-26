@@ -270,17 +270,21 @@ def runner_fixture(tmp_path):
 
 
 @pytest.mark.parametrize("kind", ["existing", "no_incumbent"])
-def test_final_runner_prompt_and_written_provider_payload_retain_every_scope(tmp_path, kind):
+@pytest.mark.parametrize("original", [BODY, "", " \n"])
+def test_final_runner_prompt_and_written_provider_payload_retain_every_scope(
+    tmp_path, kind, original
+):
     import json
 
     core, settings, scope, scope_file, ordinary = runner_fixture(tmp_path)
     scope["incumbent"] = context(kind)["incumbent"]
+    scope["original_issue_body"] = original
     scope_file.write_text(json.dumps(scope), encoding="utf-8")
     prompt = core.assemble_prompt(None, settings, "codex")
     expected = (
         ordinary
         + "\n## Complete original issue scope\n"
-        + BODY
+        + original
         + render_correction_context(scope)
         + "\n"
     )
@@ -310,7 +314,7 @@ def test_final_runner_absent_overlay_output_is_byte_compatible(tmp_path):
         "nondigit",
         "overflow",
         "missing_original",
-        "empty_original",
+        "null_original",
         "invalid_schema",
     ],
 )
@@ -332,8 +336,8 @@ def test_final_runner_holds_leave_existing_prompt_file_untouched(tmp_path, failu
     else:
         if failure == "missing_original":
             del scope["original_issue_body"]
-        elif failure == "empty_original":
-            scope["original_issue_body"] = " \n"
+        elif failure == "null_original":
+            scope["original_issue_body"] = None
         else:
             scope["schema"] = "untrusted-shape"
         scope_file.write_text(json.dumps(scope), encoding="utf-8")
@@ -346,8 +350,13 @@ def test_final_runner_holds_leave_existing_prompt_file_untouched(tmp_path, failu
     assert not output.exists()
 
 
-def test_runner_assemble_cli_reads_exact_selected_context_and_budget(tmp_path, monkeypatch, capsys):
+@pytest.mark.parametrize("original", [BODY, ""])
+def test_runner_assemble_cli_reads_exact_selected_context_and_budget(
+    tmp_path, monkeypatch, capsys, original
+):
     core, settings, scope, scope_file, ordinary = runner_fixture(tmp_path)
+    scope["original_issue_body"] = original
+    scope_file.write_text(json.dumps(scope), encoding="utf-8")
     monkeypatch.setenv("CORRECTION_CONTEXT_FILE", str(scope_file))
     monkeypatch.setenv("ISSUE_PR_CONTEXT_TOKEN_BUDGET", "100000")
     monkeypatch.delenv("GITHUB_OUTPUT", raising=False)
@@ -372,7 +381,7 @@ def test_runner_assemble_cli_reads_exact_selected_context_and_budget(tmp_path, m
         written
         == ordinary
         + "\n## Complete original issue scope\n"
-        + BODY
+        + original
         + render_correction_context(scope)
         + "\n"
     )

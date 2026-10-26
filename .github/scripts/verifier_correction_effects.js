@@ -6,7 +6,7 @@
 const {createHash} = require('crypto');
 const {canonical,digest} = require('./verification_event');
 const {createTokenAwareRetry} = require('./github-api-with-retry');
-const {validateRequest,receipt} = require('./verifier_correction_consumer');
+const {validateRequest,receipt,nativeBody} = require('./verifier_correction_consumer');
 const SHA = /^[a-f0-9]{64}$/;
 const isSha = value => typeof value === 'string' && SHA.test(value);
 const sha = value => createHash('sha256').update(value).digest('hex');
@@ -33,9 +33,9 @@ function effectKey(seed) {
 }
 function issueIdentity(issue) {
   requireThat(issue && Number.isSafeInteger(issue.number) && issue.number > 0
-    && typeof issue.node_id === 'string' && issue.node_id.length > 0 && typeof issue.body === 'string'
+    && typeof issue.node_id === 'string' && issue.node_id.length > 0
     && !issue.pull_request, 'Exact issue identity unavailable');
-  return {number:String(issue.number),node_id:issue.node_id,body_sha256:sha(issue.body)};
+  return {number:String(issue.number),node_id:issue.node_id,body_sha256:sha(nativeBody(issue.body))};
 }
 function validateIssueResponse(proof,request,key,consumer) {
   requireThat(proof?.schema==='closer-correction-issue-response/v1' && proof.http_status===201

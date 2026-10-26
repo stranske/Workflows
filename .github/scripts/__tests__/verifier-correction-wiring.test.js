@@ -99,6 +99,7 @@ testSource('authored collection cannot turn caller classification truth into adm
  assert.equal(context.classification.reason,'authenticated_retained_classification_output_unavailable');
  assert.equal(core.outputs.admitted,'false');assert.equal(context.classification.act_authorized,false);assert.equal(context.classification.source_closure_authorized,false);
  assert.equal(core.outputs.pr_number,f.request.target.pr);assert.equal(f.effects.length,0);
+ assert.equal(JSON.parse(file.files['agent-metrics/verifier-terminal-disposition.ndjson']).source_id,f.request.request_sha256);
  assert.ok(f.calls.every(([resource,method])=>!['create','createWorkflowDispatch','update','addLabels'].includes(method)));
 });
 
@@ -262,7 +263,7 @@ function runBody(row) {
  return result.join('\n');
 }
 const sdkSteps=[...followupSurfaces.map(surface=>[surface,'Install existing Actions artifact SDK']),
- ...autopilotSurfaces.flatMap(surface=>[[surface,'Install correction artifact SDK'],[surface,'Install formatter correlation artifact SDK']])];
+ ...autopilotSurfaces.map(surface=>[surface,'Install correction artifact SDK'])];
 for(const [surface,name] of sdkSteps)test(`${surface}: ${name} executes locked npm ci using both exact retained files`,t=>{
  const {execFileSync}=require('child_process'),os=require('os'),root=fs.mkdtempSync(path.join(os.tmpdir(),'inert-correction-sdk-test-'));
  t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
@@ -313,4 +314,68 @@ for(const surface of followupSurfaces)test(`${surface}: collector budget is supp
  assert.doesNotMatch(script(row),/codingBudgetVariable:(?:request|decision|selector|JSON\.parse)/);
  const source=read(surface),applyHeader=source.split('\n  apply-correction:\n')[1].split('    steps:\n')[0];
  assert.match(applyHeader,/outputs\.admitted == 'true'/);
+});
+
+const beltSurfaces=['.github/workflows/agents-72-codex-belt-worker.yml','templates/consumer-repo/.github/workflows/agents-72-codex-belt-worker.yml'];
+for(const surface of beltSurfaces)test(`${surface}: correction scope lookup honors existing keepalive skip and dry-run gates`,async()=>{
+ const row=step(read(surface),'Resolve mandatory correction coding scope'),expression=condition(row);let calls=0;
+ const values={'steps.parallel.outputs.allowed':'true','inputs.keepalive':true,'steps.keepalive_gate.outputs.action':'skip','steps.mode.outputs.dry_run':'false'};
+ if(permits(expression,values))await run(row,()=>{calls++;throw Error('skipped scope lookup must not execute');});
+ assert.equal(calls,0);assert.equal(permits(expression,values),false);
+ assert.equal(permits(expression,{...values,'inputs.keepalive':false}),true);
+ assert.equal(permits(expression,{...values,'steps.keepalive_gate.outputs.action':'run'}),true);
+ assert.equal(permits(expression,{...values,'inputs.keepalive':false,'steps.mode.outputs.dry_run':'true'}),false);
+});
+for(const surface of autopilotSurfaces)test(`${surface}: ordinary correction-scope rate limits defer and all other lookup errors stay errors`,async()=>{
+ for(const limited of [true,false]) {
+  const core=coreFixture();core.setFailed=()=>{throw Error('unexpected setFailed');};
+  const error=Object.assign(Error(limited?'API rate limit exceeded':'unreadable correction history'),{status:limited?429:500});
+  const github={rest:{issues:{get:async()=>({data:{number:9,title:'native issue',state:'open',body:'scope',labels:[]}})}}};
+  const inertRequire=name=>name==='path'?path:name.endsWith('/github-api-with-retry.js')?{createTokenAwareRetry:async()=>({withRetry:fn=>fn(github)})}:
+   name.endsWith('/verifier_correction_artifacts')?{createArtifactTransport:async()=>({})}:name.endsWith('/verifier_correction_runtime')?{resolveCodingScope:async()=>{throw error;}}:(()=>{throw Error(`Unexpected ${name}`);})();
+  const evaluate=()=>run(step(read(surface),'Determine context'),inertRequire,{github,core,env:{WORKFLOWS_SCRIPTS_PATH:'/inert/source',GITHUB_RUN_ATTEMPT:'1'},
+   context:{runId:900,repo:{owner:'stranske',repo:'example'},eventName:'workflow_dispatch',payload:{inputs:{issue_number:'9'}}}});
+  if(limited){await evaluate();assert.equal(core.outputs.should_continue,'false');assert.equal(core.outputs.reason,'rate-limited');assert.equal(core.outputs.issue_number,9);}
+  else await assert.rejects(evaluate(),/unreadable correction history/);
+ }
+});
+for(const surface of followupSurfaces)test(`${surface}: local terminal evidence survives receipt publish/readback failure`,async()=>{
+ const file=fileFixture(),request=require('../../../tests/fixtures/verifier_correction/integration-request.json');
+ const result=require('../verifier_correction_consumer').receipt(request,{state:'outcome_unknown',reason:'dispatch outcome not proven',consumer:{run_id:'900',run_attempt:'1'}});
+ const transport={publish:async()=>{assert.equal(JSON.parse(file.files['agent-metrics/verifier-followup-ledger.ndjson']).receipt_sha256,result.receipt_sha256);
+  assert.ok(file.files['agent-metrics/verifier-terminal-disposition.ndjson']);throw Error('receipt readback failed');}};
+ const inertRequire=name=>name==='fs'?file.fs:name==='path'?path:name.endsWith('/verification_event')?eventTools:
+  name.endsWith('/verifier_correction_consumer')?require('../verifier_correction_consumer'):
+  name.endsWith('/verifier_correction_artifacts')?{runtimeArtifactClient:async()=>({}),createArtifactTransport:async()=>transport}:
+  name.endsWith('/verifier_correction_runtime')?{createRuntime:async()=>({request,consume:async()=>result})}:
+  name.endsWith('/terminal_disposition')?{normalizeTerminalDisposition:input=>input}:(()=>{throw Error(`Unexpected ${name}`);})();
+ await assert.rejects(run(step(read(surface),'Consume admitted correction'),inertRequire,{env:{GITHUB_RUN_ATTEMPT:'1',RUNNER_TEMP:'/inert/temp',ADMITTED_ARTIFACT_ID:'50'}}),/receipt readback failed/);
+ const terminal=JSON.parse(file.files['agent-metrics/verifier-terminal-disposition.ndjson']);assert.equal(terminal.source_id,request.request_sha256);assert.equal(terminal.correction_receipt.effect_state,'outcome_unknown');
+});
+for(const surface of autopilotSurfaces)test(`${surface}: blocked typed format has no dead write branch; ordinary format wakeup stays functional`,async()=>{
+ const source=read(surface),format=step(source,'Execute step - Format (inline)'),wakeup=step(source,'Clear pause and redispatch format step');
+ assert.equal(permits(condition(format),{'inputs.correction_selector':'typed','steps.next.outputs.next_step':'format','steps.correction_start.outputs.admitted':'true'}),false);assert.equal(permits(condition(format),{'inputs.correction_selector':'','steps.next.outputs.next_step':'format'}),true);
+ assert.doesNotMatch(format.body,/retainFormatPause|CORRECTION_STARTED|CORRECTION_SELECTOR/);
+ assert.doesNotMatch(source.slice(source.indexOf('  format-pause-wakeup:')),/CORRECTION_SELECTOR|correction_pause|formatredispatch|Install formatter correlation artifact SDK|Checkout correction formatter/);
+ assert.match(script(step(source,'Record admitted correction start')),/CORRECTION_SELECTED_STEP\s*===\s*'format'\)\s*throw/);
+ const calls=[],github={rest:{issues:{get:async()=>({data:{labels:[{name:'agents:auto-pilot-pause'}]}}),removeLabel:async args=>{calls.push(['remove',args]);return {data:{}};},createComment:async args=>{calls.push(['comment',args]);return {data:{}};}},
+  repos:{get:async()=>({data:{default_branch:'main'}})},actions:{createWorkflowDispatch:async args=>{calls.push(['dispatch',args]);return {data:{}};}}}};
+ await run(wakeup,name=>{assert.equal(name,'./.github/scripts/github-api-with-retry.js');return {createTokenAwareRetry:async()=>({withRetry:fn=>fn(github)})};},
+  {github,env:{ISSUE_NUMBER:'9'}});
+ const dispatch=calls.filter(row=>row[0]==='dispatch');assert.equal(dispatch.length,1);assert.deepEqual(dispatch[0][1].inputs,{issue_number:'9',force_step:'format'});
+ assert.equal(calls.filter(row=>row[0]==='remove').length,1);
+});
+for(const surface of autopilotSurfaces)test(`${surface}: actual native create/retention catch fails typed unknown or 422 and preserves ordinary 422`,async()=>{
+ const authored=script(step(read(surface),'Execute step - Create PR')),start=authored.indexOf('try {\n  const nativeCreateResponse');assert.ok(start>=0);
+ const branch=authored.slice(start);new AsyncFunction('require','github','core','context','process','withRetry','prTitle','branchName','baseBranch','prBody','issueNumber','agentKey','stepCount',branch);
+ for(const mode of ['native-unknown','already-exists','retention-failed','ordinary-exists']) {
+  const calls=[],core=coreFixture(),typed=mode!=='ordinary-exists',github={rest:{pulls:{create:async args=>{calls.push('create');if(typed)assert.deepEqual(args.request,{timeout:15000,retries:0});else assert.equal(args.request,undefined);if(mode!=='retention-failed')throw Object.assign(Error(mode.includes('exists')?'already exists':'unknown native create'),{status:mode.includes('exists')?422:503});return {status:201,data:{number:10}};}},issues:{createComment:async()=>{calls.push('fallback-comment');return {data:{}};}}}};
+  const inertRequire=name=>name==='path'?path:name.endsWith('/verifier_correction_artifacts')?{runtimeArtifactClient:async()=>({}),createArtifactTransport:async()=>({})}:
+   name.endsWith('/verifier_correction_autopilot')?{retainCreatedPull:async()=>{calls.push('retain');throw Error('native create retained outcome unknown');}}:(()=>{throw Error(`Unexpected ${name}`);})();
+  const evaluate=()=>new AsyncFunction('require','github','core','context','process','withRetry','prTitle','branchName','baseBranch','prBody','issueNumber','agentKey','stepCount',branch)
+   (inertRequire,github,core,{runId:900,repo:{owner:'stranske',repo:'example'}},{env:{CORRECTION_SELECTOR:typed?'{}':'',CORRECTION_STARTED:'{}',WORKFLOWS_SCRIPTS_PATH:'/inert/source',RUNNER_TEMP:'/inert/temp',GITHUB_RUN_ATTEMPT:'1'}},
+    (fn,options)=>{if(typed)assert.equal(options.maxRetries,0);return fn(github);},'title','branch','main','body',9,'codex',1);
+  if(typed)await assert.rejects(evaluate());else await evaluate();assert.equal(calls.filter(row=>row==='create').length,1);assert.equal(calls.includes('fallback-comment'),false);
+  assert.equal(core.outputs.correction_pr,undefined);
+ }
 });

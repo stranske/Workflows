@@ -15,6 +15,11 @@ const ID = /^[1-9]\d{0,15}$/;
 const MEMBER = 'closer-correction-request.json';
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');
 const requireThat = (ok, reason) => { if (!ok) throw new Error(reason); };
+function nativeBody(value) {
+  if (value === null) return '';
+  requireThat(typeof value === 'string', 'Native issue/PR body unavailable');
+  return value;
+}
 const exact = (row, keys) => row && typeof row === 'object' && !Array.isArray(row)
   && Object.keys(row).sort().join(',') === keys.split(' ').sort().join(',');
 const text = value => typeof value === 'string' && value.length > 0 && value.length <= 4096;
@@ -137,7 +142,7 @@ async function collectCorrection({github, selector, currentRun, currentAttempt, 
   const source = await read('issues','get',{issue_number:Number(request.source_issue.number)});
   const incumbent = await read('issues','get',{issue_number:Number(request.incumbent.issue.number)});
   const boundIssue = (actual, expected) => !actual.pull_request && String(actual.number) === expected.number
-    && actual.node_id === expected.node_id && sha(actual.body || '') === expected.body_sha256;
+    && actual.node_id === expected.node_id && sha(nativeBody(actual.body)) === expected.body_sha256;
   requireThat(boundIssue(source,request.source_issue) && boundIssue(incumbent,request.incumbent.issue)
     && incumbent.state === 'open' && incumbent.assignees?.some(person => person.login === request.incumbent.owner), 'Incumbent/source issue binding mismatch');
   const comment = await read('issues','getComment',{comment_id:Number(request.original_verifier.comment_id)});
@@ -225,3 +230,5 @@ function minimumCodingBudget(values,request) {
 module.exports.codingBudgetFromVariable=codingBudgetFromVariable;
 module.exports.validateCodingBudget=validateCodingBudget;
 module.exports.minimumCodingBudget=minimumCodingBudget;
+
+module.exports.nativeBody=nativeBody;

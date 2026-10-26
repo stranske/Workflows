@@ -1092,7 +1092,7 @@ jobs:
             }
 
       - name: Resolve mandatory correction coding scope
-        if: steps.parallel.outputs.allowed == 'true' && steps.mode.outputs.dry_run != 'true'
+        if: steps.parallel.outputs.allowed == 'true' && (inputs.keepalive != true || steps.keepalive_gate.outputs.action != 'skip') && steps.mode.outputs.dry_run != 'true'
         env:
           CORRECTION_ISSUE: "${{ steps.ctx.outputs.issue }}"
           CORRECTION_PR: ""
@@ -1312,6 +1312,9 @@ jobs:
               const {fitCodingText}=require(path.resolve('workflows-lib/.github/scripts/verifier_correction_runtime'));
               body=fitCodingText({base:body,scope:JSON.parse(fs.readFileSync(process.env.CORRECTION_CONTEXT_FILE,'utf8')),
                 budget:process.env.ISSUE_PR_CONTEXT_TOKEN_BUDGET,pythonRoot:path.resolve('workflows-lib')});
+              // Preserve the complete typed scope. A conservative UTF-16 bound
+              // also fits GitHub's 65,536-character issue-comment limit.
+              if(body.length>65536)throw new Error('Complete correction activation exceeds GitHub comment limit; scope cannot be truncated');
             }
 
             try {
@@ -1329,7 +1332,9 @@ jobs:
 
               if (primary) {
                 await withRetry((client) =>
-                  client.rest.issues.updateComment({ owner, repo, comment_id: primary.id, body })
+                  client.rest.issues.updateComment({ owner, repo, comment_id: primary.id, body,
+                    ...(process.env.CORRECTION_CONTEXT_FILE ? {request:{timeout:15000,retries:0}} : {}) }),
+                  process.env.CORRECTION_CONTEXT_FILE ? {maxRetries:0,allowNonIdempotentRetries:false} : undefined
                 );
                 for (const duplicate of duplicates) {
                   try {
@@ -1342,10 +1347,13 @@ jobs:
                 }
               } else {
                 await withRetry((client) =>
-                  client.rest.issues.createComment({ owner, repo, issue_number: prNumber, body })
+                  client.rest.issues.createComment({ owner, repo, issue_number: prNumber, body,
+                    ...(process.env.CORRECTION_CONTEXT_FILE ? {request:{timeout:15000,retries:0}} : {}) }),
+                  process.env.CORRECTION_CONTEXT_FILE ? {maxRetries:0,allowNonIdempotentRetries:false} : undefined
                 );
               }
             } catch (error) {
+              if(process.env.CORRECTION_CONTEXT_FILE)throw error;
               core.warning(`Failed to upsert activation comment on PR #${prNumber}: ${error.message}`);
             }
 

@@ -106,9 +106,6 @@ jobs:
     outputs:
       format_pause_wakeup: ${{ steps.format_pause_wakeup_flag.outputs.wakeup }}
       issue_number: ${{ steps.context.outputs.issue_number }}
-      correction_selector: ${{ inputs.correction_selector }}
-      correction_started: ${{ steps.correction_start.outputs.proof }}
-      correction_pause: ${{ steps.format_step.outputs.correction_pause }}
     runs-on: ubuntu-latest
     timeout-minutes: 240  # 4 hours = MAX_WALL_TIME_HOURS
     concurrency:
@@ -414,16 +411,21 @@ jobs:
               return;
             }
             if(!context.payload.inputs?.correction_selector) {
-              const path=require('path');
-              const root=path.resolve(process.env.WORKFLOWS_SCRIPTS_PATH || 'workflows-lib');
-              const {createArtifactTransport}=require(path.join(root,'.github/scripts/verifier_correction_artifacts'));
-              const {resolveCodingScope}=require(path.join(root,'.github/scripts/verifier_correction_runtime'));
-              const transport=await createArtifactTransport({github,repository:`${context.repo.owner}/${context.repo.repo}`.toLowerCase(),
-                current:{run_id:context.runId,run_attempt:Number(process.env.GITHUB_RUN_ATTEMPT)}});
-              if(await resolveCodingScope({transport,issueNumber})) {
-                core.setOutput('should_continue','false');
-                core.setOutput('reason','scoped-correction-requires-original-intent');
-                return;
+              try {
+                const path=require('path');
+                const root=path.resolve(process.env.WORKFLOWS_SCRIPTS_PATH || 'workflows-lib');
+                const {createArtifactTransport}=require(path.join(root,'.github/scripts/verifier_correction_artifacts'));
+                const {resolveCodingScope}=require(path.join(root,'.github/scripts/verifier_correction_runtime'));
+                const transport=await createArtifactTransport({github,repository:`${context.repo.owner}/${context.repo.repo}`.toLowerCase(),
+                  current:{run_id:context.runId,run_attempt:Number(process.env.GITHUB_RUN_ATTEMPT)}});
+                if(await resolveCodingScope({transport,issueNumber})) {
+                  core.setOutput('should_continue','false');
+                  core.setOutput('reason','scoped-correction-requires-original-intent');
+                  return;
+                }
+              } catch(error) {
+                if(deferForRateLimit('correction-scope lookup',error))return;
+                throw error;
               }
             }
             const labels = issue.labels.map(l => l.name);
@@ -840,13 +842,10 @@ jobs:
 
       - name: Execute step - Format (inline)
         if: >-
-          (inputs.correction_selector == '' || steps.correction_start.outputs.admitted == 'true') &&
           steps.next.outputs.next_step == 'format' && inputs.correction_selector == ''
         id: format_step
         env:
           ISSUE_NUMBER: ${{ steps.context.outputs.issue_number }}
-          CORRECTION_SELECTOR: ${{ inputs.correction_selector }}
-          CORRECTION_STARTED: ${{ steps.correction_start.outputs.proof }}
           STEP_COUNT: ${{ steps.cycles.outputs.count }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
@@ -1059,30 +1058,14 @@ jobs:
               const core = { info: () => {}, warning: console.warn, debug: () => {} };
               const github = new Octokit({ auth: process.env.GITHUB_TOKEN });
               const { withRetry } = await createTokenAwareRetry({
-                github, core, env: process.env.CORRECTION_SELECTOR ? {} : process.env,
-                tokenRegistry: process.env.CORRECTION_SELECTOR ? {isInitialized:() => false} : undefined,
+                github, core, env: process.env,
                 task: 'auto-pilot', capabilities: ['issues:write'],
               });
               const [owner, repo] = process.env.GITHUB_REPOSITORY.split('/');
               const issue_number = Number(process.env.ISSUE_NUMBER);
-              const pauseResponse = await withRetry((client) => client.rest.issues.addLabels({
+              await withRetry((client) => client.rest.issues.addLabels({
                 owner, repo, issue_number, labels: ['agents:auto-pilot-pause'],
               }));
-              if (process.env.CORRECTION_SELECTOR) {
-                const path = require('path');
-                const fs = require('fs');
-                const root = process.env.WORKFLOWS_SCRIPTS_PATH;
-                const { createArtifactTransport, runtimeArtifactClient } = require(`${root}/.github/scripts/verifier_correction_artifacts`);
-                const { retainFormatPause } = require(`${root}/.github/scripts/verifier_correction_autopilot`);
-                const selector = JSON.parse(process.env.CORRECTION_SELECTOR);
-                const current = {run_id:Number(process.env.GITHUB_RUN_ID),run_attempt:Number(process.env.GITHUB_RUN_ATTEMPT)};
-                const transport = await createArtifactTransport({github,repository:process.env.GITHUB_REPOSITORY.toLowerCase(),current,
-                  artifactClient:await runtimeArtifactClient(path.join(process.env.RUNNER_TEMP,'correction-sdk')),
-                  outputDirectory:path.join(process.env.RUNNER_TEMP,'correction-format-pause')});
-                const proof = await retainFormatPause({transport,selector,startedProof:JSON.parse(process.env.CORRECTION_STARTED),response:pauseResponse});
-                fs.appendFileSync(process.env.GITHUB_OUTPUT,`correction_pause=${JSON.stringify(proof)}\n`);
-              }
-
               const { data: liveIssue } = await withRetry((client) =>
                 client.rest.issues.get({ owner, repo, issue_number })
               );
@@ -3422,8 +3405,9 @@ jobs:
                 title: prTitle,
                 head: branchName,
                 base: baseBranch,
-                body: prBody
-              }));
+                body: prBody,
+                ...(process.env.CORRECTION_SELECTOR ? {request:{timeout:15000,retries:0}} : {})
+              }),process.env.CORRECTION_SELECTOR ? {maxRetries:0,allowNonIdempotentRetries:false} : undefined);
 
               const pr = nativeCreateResponse.data;
               if (process.env.CORRECTION_SELECTOR) {
@@ -3513,6 +3497,10 @@ jobs:
               }));
 
             } catch (e) {
+              // Native creation or retention may already have taken effect.
+              // Typed requests require the exact retained response; a generic
+              // 422 or warning is not an admitted continuation receipt.
+              if(process.env.CORRECTION_SELECTOR)throw e;
               if (e.status === 422 && e.message?.includes('already exists')) {
                 core.info('PR already exists - this is fine');
               } else {
@@ -4242,10 +4230,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     concurrency:
-      group: >-
-        ${{ needs.auto-pilot.outputs.correction_selector != '' &&
-        format('agents-auto-pilot-{0}-{1}',github.repository,needs.auto-pilot.outputs.issue_number) ||
-        format('agents-auto-pilot-format-wakeup-{0}',github.run_id) }}
+      group: agents-auto-pilot-format-wakeup-${{ github.run_id }}
       cancel-in-progress: false
     permissions:
       actions: write
@@ -4261,38 +4246,10 @@ jobs:
           echo "Waiting 30 minutes before automation-owned format retry..."
           sleep 1800
 
-      - name: Checkout correction formatter correlation helper
-        if: needs.auto-pilot.outputs.correction_selector != ''
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          repository: stranske/Workflows
-          ref: main
-          path: workflows-lib
-          persist-credentials: false
-          sparse-checkout: |
-            .github/scripts
-            scripts/langchain
-          sparse-checkout-cone-mode: false
-      - name: Set up formatter correlation Node
-        if: needs.auto-pilot.outputs.correction_selector != ''
-        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
-        with:
-          node-version: '24'
-      - name: Install formatter correlation artifact SDK
-        if: needs.auto-pilot.outputs.correction_selector != ''
-        run: |
-          mkdir -p "$RUNNER_TEMP/correction-sdk"
-          cp workflows-lib/.github/scripts/verifier_correction_artifact_sdk/package.json \
-            workflows-lib/.github/scripts/verifier_correction_artifact_sdk/package-lock.json "$RUNNER_TEMP/correction-sdk/"
-          npm ci --prefix "$RUNNER_TEMP/correction-sdk" --ignore-scripts --no-audit --no-fund
-
       - name: Clear pause and redispatch format step
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         env:
           ISSUE_NUMBER: ${{ needs.auto-pilot.outputs.issue_number }}
-          CORRECTION_SELECTOR: ${{ needs.auto-pilot.outputs.correction_selector }}
-          CORRECTION_STARTED: ${{ needs.auto-pilot.outputs.correction_started }}
-          CORRECTION_PAUSE: ${{ needs.auto-pilot.outputs.correction_pause }}
         with:
           script: |
             const issueNumber = parseInt(process.env.ISSUE_NUMBER, 10);
@@ -4304,8 +4261,7 @@ jobs:
             const { withRetry } = await createTokenAwareRetry({
               github,
               core,
-              env: process.env.CORRECTION_SELECTOR ? {} : process.env,
-              tokenRegistry: process.env.CORRECTION_SELECTOR ? {isInitialized:() => false} : undefined,
+              env: process.env,
               task: 'auto-pilot-format-pause-wakeup',
               capabilities: ['issues:write', 'actions:write', 'contents:read'],
             });
@@ -4319,41 +4275,6 @@ jobs:
               .filter(Boolean);
             if (!labels.includes('agents:auto-pilot-pause')) {
               core.info('Pause label already cleared; skipping wakeup dispatch.');
-              return;
-            }
-            if (process.env.CORRECTION_SELECTOR) {
-              const path = require('path');
-              const root = path.resolve('workflows-lib');
-              const { createArtifactTransport, runtimeArtifactClient } = require(`${root}/.github/scripts/verifier_correction_artifacts`);
-              const { createAutopilotRuntime } = require(`${root}/.github/scripts/verifier_correction_runtime`);
-              const { retainRedispatch } = require(`${root}/.github/scripts/verifier_correction_autopilot`);
-              const selector = JSON.parse(process.env.CORRECTION_SELECTOR);
-              const current = {run_id:context.runId,run_attempt:Number(process.env.GITHUB_RUN_ATTEMPT),job:process.env.GITHUB_JOB};
-              const transport = await createArtifactTransport({github,repository:`${context.repo.owner}/${context.repo.repo}`.toLowerCase(),
-                current,artifactClient:await runtimeArtifactClient(path.join(process.env.RUNNER_TEMP,'correction-sdk')),
-                outputDirectory:path.join(process.env.RUNNER_TEMP,'correction-format-redispatch')});
-              const child = await retainRedispatch({transport,selector,startedProof:JSON.parse(process.env.CORRECTION_STARTED),
-                nextStep:'format',kind:'formatredispatch',pauseProof:JSON.parse(process.env.CORRECTION_PAUSE),observeIssue:() => transport.read('issues','get',{issue_number:issueNumber})});
-              const runtime = await createAutopilotRuntime({github,transport,selector:child,current,
-                registryPath:path.resolve('.github/agents/registry.yml'),pythonRoot:root});
-              // The only pause exception is this actual native formatter-wakeup
-              // job, its retained parent format start, and its prepared intent.
-              // Human/security/source holds remain effective before any write.
-              await runtime.authenticate({issueNumber,selectedStep:'format',forceStep:'format'});
-              if (Date.now() >= Date.parse(runtime.request.original_operation.deadline)) throw new Error('Original correction deadline exhausted');
-              await withRetry(client => client.rest.issues.removeLabel({...context.repo,issue_number:issueNumber,
-                name:'agents:auto-pilot-pause',request:{timeout:15000,retries:0}}),{maxRetries:0,allowNonIdempotentRetries:false});
-              await runtime.authenticate({issueNumber,selectedStep:'format',forceStep:'format'});
-              const cleared = await transport.read('issues','get',{issue_number:issueNumber});
-              if (!Array.isArray(cleared.labels) || cleared.labels.some(label => (typeof label === 'string' ? label : label.name) === 'agents:auto-pilot-pause')) {
-                throw new Error('Original formatter pause clear outcome is unknown; no redispatch');
-              }
-              const {data:repoInfo} = await withRetry(client => client.rest.repos.get(context.repo));
-              if (!repoInfo.default_branch) throw new Error('Actual default branch unavailable');
-              if (Date.now() >= Date.parse(runtime.request.original_operation.deadline)) throw new Error('Original correction deadline exhausted');
-              await withRetry(client => client.rest.actions.createWorkflowDispatch({...context.repo,workflow_id:'agents-auto-pilot.yml',ref:repoInfo.default_branch,
-                inputs:{issue_number:String(issueNumber),force_step:'format',correction_selector:JSON.stringify(child)},
-                request:{timeout:15000,retries:0}}),{maxRetries:0,allowNonIdempotentRetries:false});
               return;
             }
             await withRetry((client) => client.rest.issues.removeLabel({

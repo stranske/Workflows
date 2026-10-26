@@ -187,3 +187,22 @@ test('native no-incumbent consumer passes its just-retained create and dispatch 
  assert.deepEqual(records.map(row=>[row.kind,row.phase]),[['intent','issue_creation'],['issue_confirmed','issue_creation'],['intent','autopilot_dispatch']]);
  const next=await consume(f.request,consumer);assert.equal(next.effect_state,'outcome_unknown');assert.deepEqual(effects,{issues:1,dispatches:1});
 });
+
+
+test('nullable native source/PR and incumbent bodies preserve exact empty digest and chain-depth checks',async()=>{
+ const {nativeBody}=require('../verifier_correction_consumer'),{createHash}=require('crypto');
+ const empty=createHash('sha256').update('').digest('hex');
+ assert.equal(nativeBody(null),'');assert.equal(nativeBody(''),'');
+ for(const value of [undefined,false,0,{}])assert.throws(()=>nativeBody(value),/body unavailable/);
+ for(const existing of [false,true]) {
+  const f=await fixture(existing,(state,request)=>{
+   state.pull.body=null;state.source.body=null;request.source_issue.body_sha256=empty;
+   if(existing){state.incumbent.body=null;request.incumbent.issue.body_sha256=empty;}
+   const {request_sha256,...payload}=request;request.request_sha256=digest(payload);
+  });
+  const facts=await f.collect(f.request);assert.equal(facts.chainDepth,0);
+  assert.equal(facts.ownership.kind,existing?'existing':'no_incumbent');
+  checkFreshFacts(f.request,facts,{ownership:facts.ownership});
+  assert.equal(issueIdentity(facts.sourceIssue).body_sha256,empty);
+ }
+});

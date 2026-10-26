@@ -7,6 +7,7 @@ const {createHash}=require('crypto');
 const {canonical,digest}=require('./verification_event');
 const {createTokenAwareRetry}=require('./github-api-with-retry');
 const {seedForRequest,effectKey,sourceScopeDigest,issueIdentity}=require('./verifier_correction_effects');
+const {nativeBody}=require('./verifier_correction_consumer');
 const {loadAgentRegistry,resolveAgentFromLabels}=require('./agent_registry');
 const need=(value,reason)=>{if(!value)throw new Error(reason);};
 const same=(a,b)=>canonical(a)===canonical(b);
@@ -57,8 +58,8 @@ function validateSubjectRow(row) {
 function chainDepth(...rows) {
  let depth=0;
  for(const row of rows) {
-  need(typeof row.body==='string','Fresh source body unavailable');
-  const values=[...row.body.matchAll(/<!--\s*follow-up-depth:\s*(\d+)\s*-->/g)].map(match=>Number(match[1]));
+  const body=nativeBody(row.body);
+  const values=[...body.matchAll(/<!--\s*follow-up-depth:\s*(\d+)\s*-->/g)].map(match=>Number(match[1]));
   need(values.every(Number.isSafeInteger),'Follow-up chain depth invalid');
   depth=Math.max(depth,...values);
   if(labels(row).includes('follow-up'))depth=Math.max(depth,1);

@@ -205,11 +205,12 @@ by a fresh recheck. Every provider branch and redispatch requires this retained
 admission. Started means workflow admission; it does not attest provider start.
 Prepared redispatches preserve the original request/issue/node/intent and retain
 post-step observed body separately. Native PR creation HTTP201 is retained before
-owned-PR monitoring; another PR is not silently adopted. Formatter pause ownership
-uses its actual native label event and prepared wakeup receipt; human relabeling,
-body changes or unrelated holds remain UNKNOWN. The correction formatter currently
+owned-PR monitoring; another PR is not silently adopted. The correction formatter
 holds before model dispatch because its existing implementation replaces the issue
-body; it is not counted as delivered correction work.
+body; it is not counted as delivered correction work. Unreachable typed formatter
+pause/wakeup workflow branches are removed; ordinary formatting and its existing
+wakeup path remain intact. Pure formatter proof helpers grant no active producer
+or dispatch capability.
 
 Core retains Orchestrator #944 integration ownership. Gate and caller hardening
 remain outside this slice.
@@ -453,3 +454,31 @@ an uncertain correction start. Missing, unsupported, changed, expired or ambiguo
 source/step/artifact evidence remains UNKNOWN; a missing receipt alone proves
 nothing. These are existing-lane reconciliation checks, with no public schema,
 provider, credential or qualification changes.
+
+
+## Retained-history availability boundary
+
+The bounded native inventory is not an unrestricted-availability promise. It
+covers at most 1,000 runs and ten attempts per run; expired/missing artifacts,
+unsupported or noncanonical sources, unreadable APIs and ambiguous histories can
+hold the lane. The code excludes other subjects only after authenticated context
+or exact native no-effect proof establishes that exclusion. A title, label,
+filename or caller assertion cannot establish that missing evidence belongs to
+another subject. No trusted earlier per-run subject channel currently exists.
+Reordering authentication to ignore those records would weaken the required
+UNKNOWN fence; a new scope publisher is outside this interface and is not added.
+The ordinary-Auto exclusion above relies on positive native steps plus actual
+source bytes, not absence alone. These constraints may stop unrelated-looking
+work when its scope cannot be authenticated. They remain explicit activation and
+retention constraints.
+
+Native GitHub issue/PR body `null` is normalized to empty text consistently for
+hashing and preserved-scope rendering. Missing fields and malformed non-string
+values remain UNKNOWN. Original retained manifest bytes are unchanged; an empty
+source must already have an authenticated empty-text digest. Actual final prompt
+assembly accepts that explicit empty original scope while still requiring every
+finding/test and rejecting a missing/null sidecar body. Mandatory Belt activation
+comments also fit the native endpoint's character limit without truncation;
+unknown activation writes and correction PR-creation/retention outcomes fail.
+Local terminal NDJSON is written before immutable receipt upload so an uncertain
+upload cannot erase the original effect disposition or grant a retry.

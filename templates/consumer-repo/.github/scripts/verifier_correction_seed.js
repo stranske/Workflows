@@ -5,6 +5,7 @@
 const fs=require('fs');
 const {createHash}=require('crypto');
 const {canonical,digest,validateEvent,completedEvent}=require('./verification_event');
+const {nativeBody}=require('./verifier_correction_consumer');
 const {createTokenAwareRetry}=require('./github-api-with-retry');
 const sha=bytes=>createHash('sha256').update(bytes).digest('hex');
 const requireThat=(value,message)=>{if(!value)throw new Error(message);};
@@ -34,7 +35,7 @@ function produceSeeds({manifest,decision,resultBytes,execution,comments,pull,sou
     'Correction seed needs one unambiguous retained source issue');
   requireThat(sourceIssue && !sourceIssue.pull_request && String(sourceIssue.number)===sources[0].number
     && typeof sourceIssue.node_id==='string' && sourceIssue.node_id.length>0
-    && typeof sourceIssue.body==='string' && sha(sourceIssue.body)===sources[0].body_sha256,
+    && sha(nativeBody(sourceIssue.body))===sources[0].body_sha256,
   'Current source issue differs from original retained source');
   requireThat(pull?.merged===true && String(pull.number)===event.pr
     && pull.head?.sha===event.head_sha && pull.merge_commit_sha===event.evaluated_sha
