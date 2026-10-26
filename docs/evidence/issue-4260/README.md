@@ -13,7 +13,8 @@ python scripts/check_gate_python_job_timings.py --limit 5 --max-seconds 600 \
   --json-out docs/evidence/issue-4260/gate-python-job-timings.json
 ```
 
-Dated acceptance window (only runs created at/after the calendar day):
+Separate post-date sample (only runs created at/after the calendar day; this
+is not the latest-five acceptance read):
 
 ```bash
 python scripts/check_gate_python_job_timings.py --limit 5 --max-seconds 600 \
@@ -69,7 +70,8 @@ Four of these five runs exceed policy. The latest run is
 the PR is still open, so this is pre-merge evidence. The refreshed report uses
 raw GitHub run-job payloads and the checker's successful-job filter. Pytest alone
 often exceeds 600 s on the slower Hosted samples (~50k tests).
-Keep the Nov 15 AC unchecked until `--created-after 2026-11-15 --limit 5` passes.
+Keep the Nov 15 AC unchecked until the latest-five command above (without
+`--created-after`) passes as of November 15.
 
 ## PR-head sample (2026-10-26, run 40308833794)
 
@@ -99,5 +101,5 @@ successful Gate run 40317065551 on the same PR (coverage still limited to 3.14):
 Pytest step time alone is already over the 600 s job budget on both legs for
 this sample (Hosted log summary lines were 710.66 s / 626.31 s). Hosted
 confirmation remains **FAIL** until suite wall-clock drops; re-check after
-merge, then again on 2026-11-15 with `--created-after 2026-11-15` and the
-five-run window.
+merge, then again on 2026-11-15 using the latest-five command above without
+`--created-after`.

@@ -462,3 +462,76 @@ def test_main_records_incomplete_successful_pr_window(
     assert report["policy"]["created_after"] == "2026-11-15"
     assert len(report["runs"]) == run_count
     assert report["failures"] == ([] if complete else [f"Only found {run_count} runs (needed 5)"])
+
+
+@pytest.mark.parametrize("value", ["nan", "inf", "-inf", "0", "-1"])
+def test_main_rejects_invalid_max_seconds(value, monkeypatch, capsys) -> None:
+    def unexpected_collection(**kwargs):
+        pytest.fail("Invalid timing limits must be rejected before collecting runs")
+
+    monkeypatch.setattr(timings, "collect_policy_sample", unexpected_collection)
+    with pytest.raises(SystemExit) as exc:
+        timings.main([f"--max-seconds={value}"])
+    assert exc.value.code == 2
+    assert "--max-seconds must be finite and positive" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize(
+    "argv,message",
+    [
+        (["--created-after", ""], "created-after must be a non-empty date or timestamp"),
+        (
+            ["--run-id", "101", "--created-after", "2026-11-15"],
+            "--run-id cannot be combined with --created-after",
+        ),
+    ],
+)
+def test_main_rejects_invalid_date_options(argv, message, monkeypatch, capsys) -> None:
+    def unexpected_collection(**kwargs):
+        pytest.fail("Invalid date options must be rejected before collecting runs")
+
+    monkeypatch.setattr(timings, "collect_policy_sample", unexpected_collection)
+    monkeypatch.setattr(timings, "collect_run_ids_sample", unexpected_collection)
+    with pytest.raises(SystemExit) as exc:
+        timings.main(argv)
+    assert exc.value.code == 2
+    assert message in capsys.readouterr().err
+
+
+def test_main_repeated_run_ids_reports_second_run_violation(tmp_path, monkeypatch) -> None:
+    requested_paths = []
+
+    def fake_get(path: str, token: str) -> dict:
+        assert token == "tok"
+        assert "/runs?" not in path
+        requested_paths.append(path)
+        assert "/runs/101/jobs" in path or "/runs/102/jobs" in path
+        return {
+            "jobs": [
+                {
+                    "name": name,
+                    "status": "completed",
+                    "conclusion": "success",
+                    "started_at": "2026-10-26T10:00:00Z",
+                    "completed_at": (
+                        "2026-10-26T10:10:01Z"
+                        if "/runs/102/jobs" in path and name == "python ci / python 3.14"
+                        else "2026-10-26T10:05:00Z"
+                    ),
+                }
+                for name in timings.TARGET_JOB_NAMES
+            ]
+        }
+
+    monkeypatch.setattr(timings, "_github_token", lambda: "tok")
+    monkeypatch.setattr(timings, "_gh_api", fake_get)
+    report_path = tmp_path / "two-runs.json"
+    assert timings.main(["--run-id", "101", "--run-id", "102", "--json-out", str(report_path)]) == 1
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    assert len(requested_paths) == 2
+    assert [run["run_id"] for run in report["runs"]] == ["101", "102"]
+    assert report["policy"]["run_count"] == 2
+    assert report["policy"]["required_run_count"] == 2
+    assert report["policy"]["sample_mode"] == "explicit_run_ids"
+    assert report["passed"] is False
+    assert report["failures"] == ["run 102: python ci / python 3.14 took 601s (limit 600s)"]

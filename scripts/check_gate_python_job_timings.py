@@ -7,8 +7,8 @@ in at most ``max-seconds`` (default 600 = 10 minutes).
 
 Reports also include the Pytest step wall-clock when GitHub job steps are present,
 so Hosted confirmation can separate suite time from setup overhead. Optional
-``--created-after`` bounds the successful-PR window for dated acceptance reads
-(e.g. 2026-11-15).
+``--created-after`` bounds a separate post-date successful-PR sample; acceptance
+reads use the latest successful PR window without a date filter.
 
 Pure evaluation helpers are unit-tested; live GitHub reads go through the shared
 api_client wrapper (via workflow_startup_failure_diagnostic._gh_api).
@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import subprocess
 import sys
@@ -396,8 +397,8 @@ def main(argv: list[str] | None = None) -> int:
         default=None,
         help=(
             "Only include successful PR runs created at/after this UTC date "
-            "(YYYY-MM-DD) or ISO-8601 timestamp. Use for dated acceptance reads "
-            "such as 2026-11-15."
+            "(YYYY-MM-DD) or ISO-8601 timestamp. Use for separate post-date samples, "
+            "not the latest-five acceptance read."
         ),
     )
     parser.add_argument(
@@ -419,7 +420,16 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    created_after = parse_created_after(args.created_after) if args.created_after else None
+    if not math.isfinite(args.max_seconds) or args.max_seconds <= 0:
+        parser.error("--max-seconds must be finite and positive")
+    if args.run_ids and args.created_after is not None:
+        parser.error("--run-id cannot be combined with --created-after")
+    try:
+        created_after = (
+            parse_created_after(args.created_after) if args.created_after is not None else None
+        )
+    except ValueError as exc:
+        parser.error(str(exc))
 
     if args.run_ids:
         sample = collect_run_ids_sample(repo=args.repo, run_ids=list(args.run_ids))
