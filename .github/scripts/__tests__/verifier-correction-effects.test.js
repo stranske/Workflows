@@ -13,7 +13,10 @@ function fixture() {
   const calls=[],rows=[];
   const ledger={async read(selected){calls.push(['read',selected]);return {revision:rows.length,records:structuredClone(rows)};},
     async append({effect_key,expected_revision,record}) {calls.push(['intent',effect_key,expected_revision]);
-      if (rows.length !== expected_revision) throw Error('conflict');rows.push(structuredClone(record));return structuredClone(record);}};
+      if (rows.length !== expected_revision) throw Error('conflict');rows.push(structuredClone(record));return structuredClone(record);},
+    async continuationSelector({issue}) {return {schema:'closer-correction-continuation-selector/v1',repository:state.request.target.repository,
+      collector:{run_id:900,run_attempt:1,artifact_id:10},intent:{run_id:900,run_attempt:1,artifact_id:11},
+      request_sha256:state.request.request_sha256,effect_key:key,issue,parent_dispatch:null};}};
   const sourceIssue={number:1,node_id:'I_1',body:'issue 1',labels:[]};
   const incumbentIssue={number:8,node_id:'I_8',body:'issue 8',state:'open',assignees:[{login:'owner'}],labels:[]};
   const facts={pull:{merged:true,head:{sha:request.target.head_sha},base:{sha:request.target.base_sha,repo:{full_name:request.target.repository}},merge_commit_sha:request.target.merge_sha,labels:[]},
@@ -40,7 +43,7 @@ test('valid authenticated request dispatches existing issue to optimize once, HT
   const f=fixture(),result=await f.consume();checkReceipt(result);
   assert.equal(result.effect_state,'outcome_unknown');assert.equal(dispatches(f).length,1);
   const args=dispatches(f)[0][1];assert.equal(args.workflow_id,'agents-auto-pilot.yml');assert.equal(args.inputs.issue_number,'8');assert.equal(args.inputs.force_step,'optimize');
-  assert.equal(args.inputs.correction_request_sha256,f.request.request_sha256);assert.equal(args.inputs.correction_effect_key,f.key);
+  assert.equal(JSON.parse(args.inputs.correction_selector).request_sha256,f.request.request_sha256);assert.equal(JSON.parse(args.inputs.correction_selector).effect_key,f.key);
   assert.ok(f.calls.findIndex(row=>row[0]==='intent') < f.calls.findIndex(row=>row[0]==='dispatch'));
   const again=await f.consume();assert.equal(again.effect_state,'outcome_unknown');assert.equal(dispatches(f).length,1);
 });
@@ -126,12 +129,22 @@ test('uncertain creation reconciles only one exact original issue; positive issu
   const intent=f.rows[0];
   const marker=`<!-- closer-correction-effect/v1 ${canonical({effect_key:f.key,request_sha256:f.request.request_sha256,consumer})} -->`;
   const actual={number:9,node_id:'I_9',body:`Exact original scoped correction\n${marker}`};
-  const result=await reconcileIssueCreation({request:f.request,intent,observe:async()=>[actual]});
+  const withoutResponse=await reconcileIssueCreation({request:f.request,intent,observe:async()=>[actual]});
+  assert.equal(withoutResponse.issue,null);assert.match(withoutResponse.reason,/marker_alone_is_not_provenance/);
+  const {issueResponseProof}=require('../verifier_correction_effects');
+  const native={...actual,title:'Exact native response',labels:[],html_url:'https://github.com/stranske/example/issues/9',
+    user:{id:41898282,login:'github-actions[bot]',type:'Bot'},created_at:'2026-10-26T00:00:00Z'};
+  const proof=issueResponseProof({response:{status:201,headers:{'x-github-request-id':'inert-native-response'},data:native},
+    payload:{title:native.title,body:native.body,labels:[]},request:f.request,key:f.key,consumer});
+  const payload={schema:'closer-correction-effect-ledger/v1',effect_key:f.key,revision:2,kind:'issue_confirmed',phase:'issue_creation',
+    request_sha256:f.request.request_sha256,consumer,issue:proof.issue,creation_response:proof};
+  const confirmation={...payload,record_sha256:digest(payload)};
+  const result=await reconcileIssueCreation({request:f.request,intent,confirmation,observe:async()=>[actual]});
   assert.equal(result.issue.node_id,'I_9');assert.equal(result.effect_state,'outcome_unknown');assert.equal(result.retry_authorized,false);
   for(const rows of [[],[actual,actual],[{...actual,body:'PR #7 follow-up title/body match only'}],[{...actual,body:actual.body.replace(f.request.request_sha256,'f'.repeat(64))}]]) {
-    const missing=await reconcileIssueCreation({request:f.request,intent,observe:async()=>rows});assert.equal(missing.effect_state,'outcome_unknown');assert.equal(missing.issue,null);assert.equal(missing.retry_authorized,false);
+    const missing=await reconcileIssueCreation({request:f.request,intent,confirmation,observe:async()=>rows});assert.equal(missing.effect_state,'outcome_unknown');assert.equal(missing.issue,null);assert.equal(missing.retry_authorized,false);
   }
-  const unreadable=await reconcileIssueCreation({request:f.request,intent,observe:async()=>{throw Error('unavailable');}});
+  const unreadable=await reconcileIssueCreation({request:f.request,intent,confirmation,observe:async()=>{throw Error('unavailable');}});
   assert.equal(unreadable.issue,null);assert.equal(unreadable.effect_state,'outcome_unknown');
   await assert.rejects(reconcileIssueCreation({request:f.request,intent:{...intent,phase:'autopilot_dispatch'},observe:async()=>[actual]}),/intent binding/);
 });
@@ -174,8 +187,9 @@ function noIncumbentFixture() {
     f.calls.push(['fresh']);f.state.facts.incumbentIssue=createdIssue?f.state.created:null;return f.state.facts;
   };
   f.deps.github.rest.issues={create:async args=>{
-    f.calls.push(['create',args]);f.state.created={number:9,node_id:'I_9',body:args.body,state:'open',labels:args.labels,assignees:[]};
-    if(f.state.createFailure)throw Error('server created issue; response lost');return {data:f.state.created};
+    f.calls.push(['create',args]);f.state.created={number:9,node_id:'I_9',title:args.title,body:args.body,state:'open',labels:args.labels,assignees:[],
+      user:{id:41898282,login:'github-actions[bot]',type:'Bot'},created_at:'2026-10-26T00:00:00Z',html_url:'https://github.com/stranske/example/issues/9'};
+    if(f.state.createFailure)throw Error('server created issue; response lost');return {status:201,headers:{'x-github-request-id':'inert-native-create-response'},data:f.state.created};
   }};
   f.deps.reconcile=async ({effect_key})=>{
     f.calls.push(['reconcile',effect_key]);const result={issues:f.state.creationObservable && f.state.created?[f.state.created]:[]};
@@ -206,17 +220,17 @@ test('unknown ownership and incomplete no-incumbent inventories never create or 
     assert.ok(['confirmed_not_started','outcome_unknown'].includes(result.effect_state));assert.equal(creates(f).length,0);assert.equal(dispatches(f).length,0);
   }
 });
-test('lost create response with positive exact reconciliation never creates a replacement issue',async()=>{
+test('lost create response remains unknown despite matching public marker and never creates a replacement issue',async()=>{
   const f=noIncumbentFixture();f.state.createFailure=true;f.state.started=true;
-  const result=await f.consume();checkReceipt(result);assert.equal(result.effect_state,'accepted_with_exact_issue_and_actual_autopilot_run_attempt');
-  assert.equal(creates(f).length,1);assert.equal(dispatches(f).length,1);await f.consume();assert.equal(creates(f).length,1);
+  const result=await f.consume();checkReceipt(result);assert.equal(result.effect_state,'outcome_unknown');
+  assert.equal(creates(f).length,1);assert.equal(dispatches(f).length,0);await f.consume();assert.equal(creates(f).length,1);
 });
-test('uncertain creation remains unknown across restart, then exact positive issue resumes only first dispatch',async()=>{
+test('uncertain creation cannot adopt a later matching issue across restart without native response provenance',async()=>{
   const f=noIncumbentFixture();f.state.createFailure=true;f.state.creationObservable=false;
   assert.equal((await f.consume()).effect_state,'outcome_unknown');assert.equal(creates(f).length,1);assert.equal(dispatches(f).length,0);
   await f.consume();assert.equal(creates(f).length,1);assert.equal(dispatches(f).length,0);
   f.state.creationObservable=true;f.state.started=true;const result=await f.consume();checkReceipt(result);
-  assert.equal(result.effect_state,'accepted_with_exact_issue_and_actual_autopilot_run_attempt');assert.equal(creates(f).length,1);assert.equal(dispatches(f).length,1);
+  assert.equal(result.effect_state,'outcome_unknown');assert.equal(creates(f).length,1);assert.equal(dispatches(f).length,0);
 });
 test('uncertain dispatch after successful creation never repeats either stage',async()=>{
   const f=noIncumbentFixture();f.state.dispatchFailure=true;
@@ -329,5 +343,21 @@ test('no-incumbent creation and dispatch each require their newest independent o
   const result=await f.consume();assert.equal(result.effect_state,'outcome_unknown');assert.equal(dispatches(f).length,0);
   assert.equal(creates(f).length,failAt===2?0:1);
   const before=creates(f).length;await f.consume();assert.equal(creates(f).length,before);assert.equal(dispatches(f).length,0);
+ }
+});
+
+test('missing exact retained continuation selector after intent prevents endpoint invocation and cannot repeat',async()=>{
+ const f=fixture();f.ledger.continuationSelector=async()=>{throw Error('uncertain retained selector');};
+ const result=await f.consume();assert.equal(result.effect_state,'outcome_unknown');assert.equal(dispatches(f).length,0);assert.equal(f.rows.length,1);
+ await f.consume();assert.equal(dispatches(f).length,0);
+});
+
+test('only original native HTTP201 response metadata can retain a created identity; body markers and spoofed responses cannot',async()=>{
+ for(const change of [r=>{r.status=204;},r=>{r.headers={};},r=>{r.data.user.id=123;},r=>{r.data.body='copied but different native body';},
+ r=>{r.data.html_url='https://github.com/foreign/repo/issues/9';}]) {
+  const f=noIncumbentFixture(),create=f.deps.github.rest.issues.create;
+  f.deps.github.rest.issues.create=async args=>{const response=await create(args);change(response);return response;};
+  const result=await f.consume();assert.equal(result.effect_state,'outcome_unknown');assert.equal(creates(f).length,1);assert.equal(dispatches(f).length,0);
+  assert.equal(f.rows.length,1);await f.consume();assert.equal(creates(f).length,1);assert.equal(dispatches(f).length,0);
  }
 });

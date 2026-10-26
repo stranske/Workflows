@@ -1,12 +1,13 @@
 # Closer correction interface — local inert implementation
 
 This bounded interface extends the existing merged-PR follow-up issue and
-`agents-auto-pilot.yml` lane. **Production handoff remains UNMET**: authenticated
-producer/collector, durable existing-ledger transport and actual auto-pilot started
-receipt integration are pending. The collection-only workflow never invokes the
-effect adapter. No new scheduler, provider, store or authority service is added.
-All validation here uses inert fixtures/mocks; PR publication does not authorize
-production effects or merging.
+`agents-auto-pilot.yml` lane. The verifier seed, two-stage admission, durable
+phase ledger, issue/autopilot consumer, reconciliation and actual started/redispatch
+receipts are source-wired and tested with inert effects. **Production handoff
+remains UNMET**: Core's genuine classifier-output authentication is unavailable,
+its reviewed production role registry is empty, and final coding requires an
+explicit configured prompt budget. No new scheduler, provider, store or authority
+service is added. Publication does not install, qualify, dispatch or merge this code.
 
 ## Frozen local contract and fixtures
 
@@ -51,7 +52,7 @@ changing a request's test prose cannot bypass this check.
 ## Two-stage authentication and ownership
 
 The original verifier cannot authenticate Closer IDs created after its terminal
-result. It should retain a source finding/event seed beside its existing terminal
+result. It retains a source finding/event seed beside its existing terminal
 report/result artifacts. The existing correction workflow's trusted collector
 then validates a bounded post-terminal request against that seed plus fresh
 GitHub actor permissions, source/owner/assignment/review/run/policy facts.
@@ -82,13 +83,17 @@ The effect adapter has mandatory trusted-host dependencies and no live defaults:
 original-seed/request/test-decision authentication, fresh facts, complete
 existing-follow-up-ledger reads, durable conditional ledger append, authenticated
 issue/started-receipt reconciliation, the existing GitHub client and a clock.
-It is not imported by the collection-only Actions job.
+The separate conditional effect job consumes its own retained admitted artifact;
+the collection job performs no issue or dispatch effects.
 
 Both fixed stages share one trusted effect key:
 
 1. `issue_creation`: conditionally retain the exact intent before calling the
    existing issue endpoint once. Recover only one exact original issue/node/body
-   marker through the trusted collector, then durably retain its identity.
+   native HTTP201 response (exact issue/node/body/creator/request ID), then
+   durably retain that response proof and identity before dispatch. A copied body
+   marker, matching bot author or creation time cannot recover a lost native
+   creation response. That case remains UNKNOWN, without another create call.
 2. `autopilot_dispatch`: after fresh created-issue/competing-work checks,
    conditionally retain the separate intent before calling existing
    `agents-auto-pilot.yml` with `issue_number` and `force_step=optimize` once.
@@ -97,7 +102,9 @@ Existing incumbents skip creation. Registry-derived agent/from/runner labels are
 preserved; no generic model qualification creates authority. The typed creation
 branch omits the `agents:auto-pilot` trigger label because explicit dispatch owns
 activation; adding that label would also start a label-event run. The legacy
-label-triggered issue/autopilot implementation is unchanged.
+label-triggered implementation remains in place. A complete retained-history fence
+holds its source PR, and unscoped auto-pilot holds an authenticated incumbent
+issue, when a typed correction may already own the same work.
 
 Every stage refuses to invoke an effect without a confirmed durable intent.
 Conditional revision checks and a per-stage existing-intent check prevent duplicate
@@ -177,31 +184,92 @@ and first-request limits are required. Missing/deleted historical checkpoints
 remain UNKNOWN unless the exact historical effect job was positively skipped;
 expiry, forks, duplicates and upload uncertainty cannot imply absence. These
 artifacts require the authenticated PR concurrency host integration; they are not
-a new store or a cross-workflow lock. The source effect-job wiring, complete fresh
-ownership collector, and actual auto-pilot started/redispatch receipt integration
-remain outstanding. Source collection and inert kernel tests are not a completed
-or deployed handoff. Core retains Orchestrator #944 integration ownership; Gate
-and caller hardening remain outside this slice.
+a new store or a cross-workflow lock. The source effect job shares the original
+repository/PR concurrency group. Its fresh native collector includes all relevant
+nonterminal Actions states; missing assignment/queue evidence remains owned UNKNOWN.
+A native assignee event and versioned strict cross-reference content projection bind
+existing ownership. Cross-referenced events have no numeric event ID; mutable issue
+body/labels never become lineage identity. Connected events are joined using their
+actual native GraphQL source/subject nodes, not invented REST fields.
+
+Auto-pilot accepts an optional `closer-correction-continuation-selector/v1`, bound
+to the admitted collector artifact and exact dispatch-intent revision. Actual
+should-continue/step/cycle/rate gates precede a retained started receipt, followed
+by a fresh recheck. Every provider branch and redispatch requires this retained
+admission. Started means workflow admission; it does not attest provider start.
+Prepared redispatches preserve the original request/issue/node/intent and retain
+post-step observed body separately. Native PR creation HTTP201 is retained before
+owned-PR monitoring; another PR is not silently adopted. Formatter pause ownership
+uses its actual native label event and prepared wakeup receipt; human relabeling,
+body changes or unrelated holds remain UNKNOWN. The correction formatter currently
+holds before model dispatch because its existing implementation replaces the issue
+body; it is not counted as delivered correction work.
+
+Core retains Orchestrator #944 integration ownership. Gate and caller hardening
+remain outside this slice.
 
 ```mermaid
 flowchart LR
-    V[Original verifier event/comment] --> P[Original raw seed producer: source implemented]
-    P --> C[Two-stage collector: source wired]
-    Q[Reviewed Core role source: current empty] --> C
-    D[Authenticated classifier output: Core dependency] --> C
-    C --> N[Owned UNKNOWN until genuine decision proof]
-    C -. admitted context .-> E[Effect adapter: inert causal tests]
-    E --> L[Immutable NDJSON journal: source implemented]
-    L -. effect-job wiring pending .-> I[Existing follow-up issue]
-    I -. started/redispatch integration pending .-> A[Existing auto-pilot]
-    A --> R[Exact accepted run/attempt]
+    V[Original verifier event/comment] --> P[Original raw seed artifact]
+    P --> C[Two-stage trusted collector]
+    Q[Reviewed Core roles: current empty] --> C
+    D[Classifier-origin proof: Core dependency] --> C
+    C --> N[Owned UNKNOWN without genuine proof]
+    C -. admitted artifact .-> E[Existing correction effect job]
+    E --> L[Immutable issue/dispatch phase journal]
+    L --> I[Exact original/native-created issue]
+    I --> A[Existing auto-pilot gated continuation]
+    A --> R[Actual workflow-admission run/attempt receipt]
+    A --> B[Native Belt intake and mandatory scope]
+    B --> F[Trusted final prompt assembly]
+    F --> H[Hold if missing budget/transport/gates or overflow]
     L --> U[Unknown: reconcile without repetition]
 ```
 
+## Mandatory finding/test delivery
+
+The admitted context retains the exact original raw `finding_text` and all typed
+`required_tests`. Optimize/apply receive this as separate data together with the
+complete original body. They bypass the legacy embedded-original reset and
+truncating fitter. The actual rendered template is measured using existing
+`ContextOptions`/`estimate_tokens` and the optimizer's configured budget before any
+client is created. Typed apply never updates the incumbent issue body, including
+with an old identical copy that could overwrite a concurrent human edit.
+
+Belt's actual activation caller and final Codex runner independently discover
+scope using complete retained admission/ledger history and exact native issue
+identity. Historical native cross-references join the coding PR ID/node/repository;
+removing `Closes` or changing PR text cannot erase a known mandatory scope. Neither
+queue JSON nor mutable text supplies authority. Missing/expired/ambiguous history
+holds. Intake rechecks current qualification, source/incumbent holds, exact source
+and owner/assignment/lineage, original actor permission, verdict policy and deadline.
+The final provider step repeats the fresh admission check.
+
+`closer-correction-coding-context/v1` carries the authenticated admitted selector,
+original request/effect/issue identity, complete original issue body, finding text
+and typed test descriptors. The existing Belt activation text and final runner
+prompt append this data without replacing the incumbent appendix. Mandatory data
+never follows the optional keepalive appendix's continue-on-error path.
+
+The final coding lane previously had **no configured token budget**. Correction
+runs require an explicit positive `ISSUE_PR_CONTEXT_TOKEN_BUDGET` repository variable;
+absence is `correction_budget_unconfigured`. The actual assembled prompt, including
+provider instructions, base prompt, appendix, guidance and mandatory scope, is
+checked with the existing estimator. Overflow is `correction_scope_over_budget`,
+before the coding/provider caller; no source, finding or test is silently dropped.
+This is an estimated-token admission bound, not a universal provider context claim.
+Correction assembly is loaded from a separate reviewed `main` Workflows checkout,
+moved outside the target tree, rather than a stale or PR-edited consumer module.
+Absent correction scope preserves the existing prompt bytes and ordinary path.
+
+
 ## Local validation checkpoint
 
-The correction suites contain 71 passing JavaScript tests plus 33 Python
-qualification source-reader tests. All consequential effects are inert; artifact
+The source checkpoint adds native consumer/continuation/ownership and mandatory
+prompt suites to the existing correction tests, including 36 Python final-template
+and final runner-file cases plus the 33 qualification source-reader cases. Exact
+command counts are recorded with the reviewed publication head rather than treated
+as deployment evidence. All consequential effects are inert; artifact
 transport tests use independently generated ZIPs and mock Actions/SDK boundaries. Cases
 include accepted existing and no-incumbent requests, deterministic refusal,
 HTTP204 versus actual run identity, uncertain create/dispatch, exact issue recovery,

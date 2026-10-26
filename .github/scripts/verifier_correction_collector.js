@@ -51,6 +51,13 @@ async function collectSubmission({github,transport,repository,actor,current,sele
     execution:JSON.parse(files.get(`${stem}-execution.json`) || 'null'),comments:[comment],pull,sourceIssue,mode,
     runId:selector.run_id,runAttempt:selector.run_attempt});
   need(same(reproduced,bundle),'Original raw finding seed does not reproduce from authenticated bytes');
+  const originalOutput=JSON.parse(files.get(`${stem}.json`));
+  const rawRows=mode==='evaluate'?[originalOutput]:originalOutput.results;
+  const rawFindings=new Map();
+  rawRows.forEach((row,providerIndex)=>row.concerns.forEach((text,index)=>rawFindings.set(
+    mode==='evaluate'?`evaluation.json#/concerns/${index}`:`comparison.json#/results/${providerIndex}/concerns/${index}`,text)));
+  const findingText=rawFindings.get(seed.finding.evidence.ref);
+  need(typeof findingText==='string' && sha(findingText)===seed.finding.evidence.sha256,'Exact original finding text unavailable');
   // Physical existing selectors are fetched only at the exact declared immutable
   // source commit. Specification text is data, never executed as a test command.
   for(const test of request.required_tests)if(test.kind==='existing_selector') {
@@ -79,7 +86,7 @@ async function collectSubmission({github,transport,repository,actor,current,sele
     ? validateCorrectionDecision({request,seed,bundle,decision,qualification})
     : {status:'owned_unknown',reason:'authenticated_retained_classification_output_unavailable',
       act_authorized:false,source_closure_authorized:false};
-  const context={schema:'closer-correction-admitted/v1',status:classification.status,request,seed,bundle,
+  const context={schema:'closer-correction-admitted/v1',status:classification.status,request,seed,bundle,finding_text:findingText,
     decision:decision || null,decision_proof:decisionProof,classification,qualification,original_proof:origin,dispatch_actor:actor,dispatch_permission:permission.permission,
     collector:{repository,run_id:current.run_id,run_attempt:current.run_attempt},
     effect_key:effectKey(seed),source_scope_digest:sourceScopeDigest(seed)};
@@ -102,7 +109,7 @@ async function loadReviewedQualification({github,profile,clock=()=>new Date()}) 
     const bytes=Buffer.from(file.content,'base64');
     need(bytes.length<=1048576 && createHash('sha1').update(`blob ${bytes.length}\0`).update(bytes).digest('hex')===file.sha,'Qualification Git blob integrity mismatch');
     const {execFileSync}=require('child_process');
-    const result=JSON.parse(execFileSync('python3',[path.join(__dirname,'verifier_correction_profile.py')],{
+    const result=JSON.parse(execFileSync('python3',['-I',path.join(__dirname,'verifier_correction_profile.py')],{
       input:JSON.stringify({source:bytes.toString('utf8'),profile_id:profile.id,now:clock().getTime()/1000}),encoding:'utf8',timeout:10000,maxBuffer:2097152,
     }));
     const source={repository:'stranske/Orchestrator',path:sourcePath,ref:'main',commit:head.sha,git_blob_sha:file.sha,sha256:sha(bytes)};

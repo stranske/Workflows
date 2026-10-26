@@ -37,6 +37,28 @@ function issueIdentity(issue) {
     && !issue.pull_request, 'Exact issue identity unavailable');
   return {number:String(issue.number),node_id:issue.node_id,body_sha256:sha(issue.body)};
 }
+function validateIssueResponse(proof,request,key,consumer) {
+  requireThat(proof?.schema==='closer-correction-issue-response/v1' && proof.http_status===201
+    && proof.request_sha256===request.request_sha256 && proof.effect_key===key && same(proof.consumer,consumer)
+    && typeof proof.github_request_id==='string' && proof.github_request_id.length>0 && proof.github_request_id.length<=4096
+    && proof.creator?.id===41898282 && proof.creator.login==='github-actions[bot]' && proof.creator.type==='Bot'
+    && typeof proof.created_at==='string' && Number.isFinite(Date.parse(proof.created_at))
+    && proof.issue && typeof proof.issue.number==='string' && /^[1-9]\d{0,15}$/.test(proof.issue.number)
+    && typeof proof.issue.node_id==='string' && isSha(proof.issue.body_sha256), 'Original native issue-creation response proof unavailable');
+  return proof;
+}
+function issueResponseProof({response,payload,request,key,consumer}) {
+  const issue=response?.data;
+  requireThat(response?.status===201 && issue?.body===payload.body && issue.title===payload.title
+    && Array.isArray(issue.labels) && payload.labels.every(label=>issue.labels.some(row=>(typeof row==='string'?row:row.name)===label)),
+  'Native create response differs from exact original payload');
+  const identity=issueIdentity(issue),url=new URL(issue.html_url);
+  requireThat(url.origin==='https://github.com' && url.pathname.toLowerCase()===`/${request.target.repository}/issues/${identity.number}`,
+    'Native created issue repository binding unavailable');
+  return validateIssueResponse({schema:'closer-correction-issue-response/v1',http_status:response.status,
+    github_request_id:response.headers?.['x-github-request-id'],request_sha256:request.request_sha256,effect_key:key,consumer,
+    issue:identity,creator:{id:issue.user?.id,login:issue.user?.login,type:issue.user?.type},created_at:issue.created_at},request,key,consumer);
+}
 function validateOwnership(value,seed) {
   const fields=['schema','kind','seed_effect_key','source_scope_digest','observed_at','evidence_refs',...(value?.kind==='existing'?['incumbent']:[])].sort();
   requireThat(value && same(Object.keys(value).sort(),fields), 'Unexpected trusted ownership fields');
@@ -50,7 +72,7 @@ function validateOwnership(value,seed) {
   else requireThat(!Object.hasOwn(value,'incumbent'), 'No-incumbent/unknown evidence cannot assert an incumbent');
   return value;
 }
-function checkFreshFacts(request,facts,{ownership = null,createdIssue = null} = {}) {
+function checkFreshFacts(request,facts,{ownership = null,createdIssue = null,incumbentIssue = null,ownedFormatPauseIssue = null} = {}) {
   const labels = issue => {
     requireInventory(Array.isArray(issue?.labels), 'Fresh label inventory unavailable');
     return issue.labels.map(label => typeof label === 'string' ? label : label.name);
@@ -69,16 +91,23 @@ function checkFreshFacts(request,facts,{ownership = null,createdIssue = null} = 
       issues.push(facts.incumbentIssue);
     } else requireThat(facts.incumbentIssue === null, 'No-incumbent collector conflicts with existing issue');
   } else {
-    requireThat(same(issueIdentity(facts.incumbentIssue),request.incumbent.issue)
+    const expected=incumbentIssue || request.incumbent.issue;
+    requireThat(expected.number===request.incumbent.issue.number && expected.node_id===request.incumbent.issue.node_id,
+      'Current incumbent cannot replace original issue/node');
+    requireThat(same(issueIdentity(facts.incumbentIssue),expected)
       && facts.incumbentIssue.state === 'open'
       && facts.incumbentIssue.assignees?.some(person => person.login === request.incumbent.owner), 'Current incumbent assignment changed');
-    if (ownership) requireThat(same(ownership.incumbent,request.incumbent), 'Declared incumbent differs from trusted current owner');
+    if (ownership) requireThat(same(ownership.incumbent,{...request.incumbent,issue:expected}), 'Declared incumbent differs from trusted current owner');
     requireThat(facts.assignmentRef === request.incumbent.assignment_ref
       && facts.lineageRef === request.incumbent.lineage_ref, 'Fresh corrective-owner evidence unavailable');
     issues.push(facts.incumbentIssue);
   }
+  if(ownedFormatPauseIssue)requireThat(facts.incumbentIssue && same(issueIdentity(facts.incumbentIssue),ownedFormatPauseIssue),
+    'Owned formatter pause proof cannot refer to another issue');
   requireThat(!issues.some(issue => labels(issue).some(label =>
-    ['needs-human','agents:auto-pilot-pause','agents:auto-pilot-failed','agents:paused'].includes(label))), 'Current corrective lane is held');
+    ['needs-human','agents:auto-pilot-failed','agents:paused'].includes(label)
+    || (label==='agents:auto-pilot-pause' && (!ownedFormatPauseIssue || issue.node_id!==ownedFormatPauseIssue.node_id)))),
+  'Current corrective lane is held');
   requireInventory(Number.isSafeInteger(facts.chainDepth) && facts.chainDepth >= 0, 'Follow-up chain inventory unavailable');
   requireThat(facts.chainDepth < 2, 'Follow-up chain limit reached');
   requireThat(facts.verdictPolicy === 'follow-up' && ['admin','maintain','write'].includes(facts.dispatchActorPermission), 'Existing dispatch/policy authority unavailable');
@@ -119,16 +148,21 @@ function validateLedger(snapshot,key) {
       requireThat(record.phase==='issue_creation' && issue && same(Object.keys(issue).sort(),['body_sha256','node_id','number'])
         && typeof issue.number==='string' && /^[1-9]\d{0,15}$/.test(issue.number)
         && typeof issue.node_id==='string' && issue.node_id.length>0 && isSha(issue.body_sha256)
+        && record.creation_response?.schema==='closer-correction-issue-response/v1'
+        && record.creation_response.http_status===201 && same(record.creation_response.issue,issue)
+        && record.creation_response.request_sha256===record.request_sha256 && record.creation_response.effect_key===key
+        && same(record.creation_response.consumer,record.consumer)
         && snapshot.records.slice(0,index).some(row=>row.kind==='intent' && row.phase==='issue_creation'
           && row.request_sha256===record.request_sha256), 'Durable created issue lacks exact original intent');
+      validateIssueResponse(record.creation_response,{request_sha256:record.request_sha256},key,record.consumer);
     }
   }
   confirmedIssue(snapshot);
   return snapshot;
 }
-async function appendRecord({ledger,snapshot,key,request,consumer,kind,phase,ownership=null,issue=null}) {
+async function appendRecord({ledger,snapshot,key,request,consumer,kind,phase,ownership=null,issue=null,creationResponse=null}) {
   const payload={schema:'closer-correction-effect-ledger/v1',effect_key:key,revision:snapshot.revision+1,
-    kind,phase,request_sha256:request.request_sha256,consumer,...(ownership?{ownership}:{}),...(issue?{issue}:{})};
+    kind,phase,request_sha256:request.request_sha256,consumer,...(ownership?{ownership}:{}),...(issue?{issue}:{}),...(creationResponse?{creation_response:creationResponse}:{})};
   const record={...payload,record_sha256:digest(payload)};
   const stored=await ledger.append({effect_key:key,expected_revision:snapshot.revision,record});
   requireThat(same(stored,record),'Durable intent acknowledgment mismatch');
@@ -148,17 +182,28 @@ async function attemptEffect({ledger,snapshot,key,request,consumer,phase,invoke,
 function issueMarker(request,intent) {
   return `<!-- closer-correction-effect/v1 ${canonical({effect_key:intent.effect_key,request_sha256:request.request_sha256,consumer:intent.consumer})} -->`;
 }
-async function reconcileIssueCreation({request,intent,observe}) {
+async function reconcileIssueCreation({request,intent,observe,confirmation=null}) {
   validateRequest(request);
   const key=effectKey(seedForRequest(request)),{record_sha256,...payload}=intent;
   requireThat(digest(payload) === record_sha256 && intent.kind === 'intent' && intent.phase === 'issue_creation'
     && intent.effect_key === key && intent.request_sha256 === request.request_sha256, 'Original create intent binding unavailable');
   const unknown=reason=>({effect_state:'outcome_unknown',reason,issue:null,retry_authorized:false});
+  // A public marker, bot author or matching timestamp cannot prove which POST
+  // created an issue. Recovery requires the native successful response retained
+  // by this exact authenticated consumer before its first dispatch.
+  try {
+    requireThat(confirmation?.kind==='issue_confirmed' && confirmation.phase==='issue_creation', 'No original native response retained');
+    const {record_sha256,...confirmedPayload}=confirmation;
+    requireThat(record_sha256===digest(confirmedPayload) && confirmation.effect_key===key
+      && confirmation.request_sha256===request.request_sha256 && same(confirmation.consumer,intent.consumer), 'Original confirmation binding differs');
+    validateIssueResponse(confirmation.creation_response,request,key,confirmation.consumer);
+    requireThat(same(confirmation.issue,confirmation.creation_response.issue), 'Native response issue binding differs');
+  } catch {return unknown('native_creation_response_not_retained_marker_alone_is_not_provenance');}
   let issues;try {issues=await observe({effect_key:key,original_intent:intent});}
   catch {return unknown('original_issue_creation_observation_unavailable');}
   if (!Array.isArray(issues) || issues.length !== 1) return unknown('original_issue_creation_absent_or_ambiguous_no_repeat');
   try {
-    requireThat(issues[0].body?.split(issueMarker(request,intent)).length === 2, 'Exact original issue marker unavailable');
+    requireThat(same(issueIdentity(issues[0]),confirmation.issue) && issues[0].body?.split(issueMarker(request,intent)).length === 2, 'Exact original issue marker unavailable');
     return {effect_state:'outcome_unknown',reason:'exact_issue_known_actual_autopilot_continuation_not_established',
       issue:issueIdentity(issues[0]),retry_authorized:false};
   } catch {return unknown('original_issue_creation_binding_mismatch');}
@@ -168,7 +213,10 @@ function createPayload(request,facts,intent) {
     ? `- [ ] ${row.specification}` : `- [ ] Verify existing test ${row.source_ref}:${row.path} / ${row.selector} (${row.file_sha256})`);
   return {title:`[Follow-up] PR #${request.target.pr}: ${request.finding.id}`,
     body:[`<!-- follow-up-depth: ${facts.chainDepth+1} -->`,issueMarker(request,intent),'## Why','',
-      `Exact verification finding ${request.finding.id} from PR #${request.target.pr}.`,'','## Scope','',
+      ...(typeof facts.correction_finding_text==='string' && sha(facts.correction_finding_text)===request.finding.evidence.sha256
+        ? ['Exact original verification finding:',facts.correction_finding_text,''] : []),
+      `Exact verification finding ${request.finding.id} from PR #${request.target.pr}.`,
+      `Original report: https://github.com/${request.target.repository}/pull/${request.target.pr}#issuecomment-${request.original_verifier.comment_id}`,'','## Scope','',
       `${request.finding.evidence.ref} (${request.finding.evidence.sha256})`,'','## Tasks','',...tasks,'',
       '## Acceptance Criteria','','- [ ] Address the exact source-bound finding and required tests.'].join('\n'),
     // Single activation via explicit dispatch. Adding agents:auto-pilot here
@@ -179,6 +227,7 @@ function createPayload(request,facts,intent) {
 function createCorrectionEffectConsumer({authenticate,collectFreshFacts,ledger,reconcile,github,defaultBranch,clock}) {
   requireThat([authenticate,collectFreshFacts,reconcile,clock].every(value => typeof value === 'function')
     && typeof ledger?.read === 'function' && typeof ledger?.append === 'function'
+    && typeof ledger?.continuationSelector === 'function'
     && typeof github?.rest?.actions?.createWorkflowDispatch === 'function'
     && typeof defaultBranch === 'string' && defaultBranch.length > 0, 'Trusted effect dependencies unavailable');
   return async function consume(selector,consumer) {
@@ -205,7 +254,7 @@ function createCorrectionEffectConsumer({authenticate,collectFreshFacts,ledger,r
     const read=async()=>validateLedger(await ledger.read(key),key);
     let snapshot;try {snapshot=await read();}catch {return finish('outcome_unknown','existing_followup_ledger_unavailable_no_effect_invoked');}
     const observe=async()=>reconcile({effect_key:key,seed,records:snapshot.records});
-    let issue=null,observed=null;
+    let issue=null,observed=null,creationResponse=null;
     if (snapshot.records.length) {
       // Always reconcile old effects before later expiry or policy changes.
       try {observed=await observe();}catch {return finish('outcome_unknown','prior_effect_reconciliation_unavailable');}
@@ -222,8 +271,8 @@ function createCorrectionEffectConsumer({authenticate,collectFreshFacts,ledger,r
       if (!creation || creation.request_sha256 !== request.request_sha256 || ownership?.kind !== 'no_incumbent') {
         return finish('outcome_unknown','prior_effect_requires_exact_reconciliation_no_repeat');
       }
-      const resolved=await reconcileIssueCreation({request,intent:creation,observe:async()=>observed?.issues});
-      if (!resolved.issue) return finish('outcome_unknown',resolved.reason);
+      const resolved=await reconcileIssueCreation({request,intent:creation,confirmation:snapshot.records.find(row=>row.kind==='issue_confirmed'),observe:async()=>observed?.issues});
+      if (!resolved.issue) return finish('outcome_unknown',resolved.reason,confirmedIssue(snapshot));
       const retained=confirmedIssue(snapshot);
       if (retained && !same(retained,resolved.issue)) return finish('outcome_unknown','observed_issue_differs_from_durable_identity',retained);
       issue=resolved.issue;
@@ -254,13 +303,23 @@ function createCorrectionEffectConsumer({authenticate,collectFreshFacts,ledger,r
         requireThat(!latest.workInventory.continuations.length && !latest.workInventory.openPullRequests.length,'Competing work appeared before issue creation');
         requireThat(clock().getTime()<Date.parse(request.original_operation.deadline),'Requester deadline expired during final gate');
         const intent={effect_key:key,consumer};
-        return singleAttempt(client=>client.rest.issues.create({owner,repo,...createPayload(request,latest,intent),request:{timeout:15000,retries:0}}));
+        const payload=createPayload(request,latest,intent);
+        const response=await singleAttempt(client=>client.rest.issues.create({owner,repo,...payload,request:{timeout:15000,retries:0}}));
+        creationResponse=issueResponseProof({response,payload,request,key,consumer});
       }});
-      try {snapshot=await read();observed=await observe();}catch {return finish('outcome_unknown','issue_creation_requires_exact_reconciliation');}
+      try {
+        snapshot=await read();
+        if(creationResponse) {
+          issue=creationResponse.issue;
+          await appendRecord({ledger,snapshot,key,request,consumer,kind:'issue_confirmed',phase:'issue_creation',ownership,issue,creationResponse});
+          snapshot=await read();
+        }
+        observed=await observe();
+      } catch {return finish('outcome_unknown','native_created_issue_retention_uncertain_no_dispatch',issue);}
       const intent=snapshot.records.find(row=>row.kind==='intent' && row.phase==='issue_creation');
       if (!intent || intent.request_sha256 !== request.request_sha256) return finish('outcome_unknown','issue_creation_intent_unavailable_or_different_request_no_repeat');
-      const resolved=await reconcileIssueCreation({request,intent,observe:async()=>observed?.issues});
-      if (!resolved.issue) return finish('outcome_unknown',resolved.reason);
+      const resolved=await reconcileIssueCreation({request,intent,confirmation:snapshot.records.find(row=>row.kind==='issue_confirmed'),observe:async()=>observed?.issues});
+      if (!resolved.issue) return finish('outcome_unknown',resolved.reason,confirmedIssue(snapshot));
       const retained=confirmedIssue(snapshot);
       if (retained && !same(retained,resolved.issue)) return finish('outcome_unknown','observed_issue_differs_from_durable_identity',retained);
       issue=resolved.issue;
@@ -272,21 +331,23 @@ function createCorrectionEffectConsumer({authenticate,collectFreshFacts,ledger,r
     }
     issue=issue || request.incumbent.issue;
     if (ownership.kind==='no_incumbent' && !snapshot.records.some(row=>row.kind==='issue_confirmed')) {
-      try {await appendRecord({ledger,snapshot,key,request,consumer,kind:'issue_confirmed',phase:'issue_creation',ownership,issue});snapshot=await read();}
-      catch {return finish('outcome_unknown','created_issue_retention_uncertain_no_dispatch',issue);}
+      return finish('outcome_unknown','native_created_issue_response_not_retained_no_dispatch',issue);
     }
     if (ownership.kind==='no_incumbent' && !same(confirmedIssue(snapshot),issue)) {
       return finish('outcome_unknown','dispatch_issue_differs_from_durable_identity',confirmedIssue(snapshot));
     }
     const outcome=await attemptEffect({ledger,snapshot,key,request,consumer,phase:'autopilot_dispatch',ownership,invoke:async()=>{
       requireThat(clock().getTime()<Date.parse(request.original_operation.deadline),'Requester deadline expired after durable intent');
+      const continuation=await ledger.continuationSelector({issue});
+      requireThat(continuation.request_sha256===request.request_sha256 && continuation.effect_key===key
+        && same(continuation.issue,issue),'Durable continuation selector changed request/issue binding');
       const latest=await collectFreshFacts(request,{createdIssue:ownership.kind==='no_incumbent'?issue:null});
       requireCurrentOwnership(latest);
       checkFreshFacts(request,latest,{ownership,createdIssue:ownership.kind==='no_incumbent'?issue:null});
       requireThat(!latest.workInventory.continuations.length && !latest.workInventory.openPullRequests.length,'Competing work appeared before dispatch');
       requireThat(clock().getTime()<Date.parse(request.original_operation.deadline),'Requester deadline expired during final gate');
       return singleAttempt(client=>client.rest.actions.createWorkflowDispatch({owner,repo,workflow_id:'agents-auto-pilot.yml',ref:defaultBranch,request:{timeout:15000,retries:0},
-        inputs:{issue_number:issue.number,force_step:'optimize',correction_request_sha256:request.request_sha256,correction_effect_key:key}}));
+        inputs:{issue_number:issue.number,force_step:'optimize',correction_selector:JSON.stringify(continuation)}}));
     }});
     try {
       snapshot=await read();observed=await observe();
@@ -298,4 +359,4 @@ function createCorrectionEffectConsumer({authenticate,collectFreshFacts,ledger,r
     return finish(outcome.state,outcome.reason,issue);
   };
 }
-module.exports={seedForRequest,sourceScopeDigest,effectKey,issueIdentity,validateOwnership,checkFreshFacts,validateLedger,attemptEffect,reconcileIssueCreation,createCorrectionEffectConsumer};
+module.exports={validateIssueResponse,issueResponseProof,seedForRequest,sourceScopeDigest,effectKey,issueIdentity,validateOwnership,checkFreshFacts,validateLedger,attemptEffect,reconcileIssueCreation,createCorrectionEffectConsumer};

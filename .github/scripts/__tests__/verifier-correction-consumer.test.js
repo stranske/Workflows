@@ -96,8 +96,8 @@ test('frozen cross-language request fixture matches canonical request bytes',()=
 
 test('authored collection job emits refusal receipts without entering legacy issue/dispatch job',async()=>{
   const workflow=fs.readFileSync(path.join(__dirname,'../../workflows/agents-verify-to-new-pr.yml'),'utf8');
-  assert.match(workflow,/collect-correction:\n    if: github.event_name == 'workflow_dispatch'/);
-  const job=workflow.split('  collect-correction:\n')[1];
+  const job=workflow.split('  collect-correction:\n')[1].split('\n  apply-correction:')[0];
+  assert.match(job,/^    if: github.event_name == 'workflow_dispatch'/m);
   assert.match(job,/contents: read\n      actions: read\n      issues: read\n      pull-requests: read/);
   assert.doesNotMatch(job,/createWorkflowDispatch|issues\.create|createComment|withRetry/);
   const block=job.split('          script: |\n')[1].split('      - name: Upload')[0];

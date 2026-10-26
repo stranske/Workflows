@@ -708,6 +708,34 @@ def assemble_prompt(
         )
 
     text = "".join(parts).rstrip() + "\n"
+    correction_file = context.get("correction_context_file")
+    if correction_file:
+        # The workflow's native artifact preflight supplies this required file.
+        # Missing/truncated material cannot inherit optional appendix behavior.
+        from scripts.langchain.issue_pr_context import (
+            ContextOptions,
+            render_correction_context,
+            require_complete_correction_prompt,
+        )
+
+        correction = json.loads(Path(str(correction_file)).read_text(encoding="utf-8"))
+        budget = str(context.get("correction_token_budget") or "")
+        if not budget.isdigit() or int(budget) <= 0:
+            raise ValueError(
+                "correction_budget_unconfigured: final coding lane requires an explicit selected ISSUE_PR_CONTEXT_TOKEN_BUDGET"
+            )
+        original = correction.get("original_issue_body")
+        if not isinstance(original, str) or not original.strip():
+            raise ValueError(
+                "correction_original_scope_missing: native incumbent body is mandatory"
+            )
+        text += (
+            "\n## Complete original issue scope\n"
+            + original
+            + render_correction_context(correction)
+            + "\n"
+        )
+        text = require_complete_correction_prompt(text, ContextOptions(token_budget=int(budget)))
     output_path.write_text(text, encoding="utf-8")
     return RunnerPrompt(
         provider=provider,
@@ -2132,6 +2160,8 @@ def _cmd_assemble(args: argparse.Namespace) -> int:
         "pr_number": args.pr_number,
         "output_file": args.output,
         "task_appendix_file": args.task_appendix_file,
+        "correction_context_file": os.environ.get("CORRECTION_CONTEXT_FILE"),
+        "correction_token_budget": os.environ.get("ISSUE_PR_CONTEXT_TOKEN_BUDGET"),
         "materialize_reference_packs": args.materialize_reference_packs,
         "materialize_orchestrator_skill": args.materialize_orchestrator_skill,
         "orchestrator_skill_pack": args.orchestrator_skill_pack or None,

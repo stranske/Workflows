@@ -15,6 +15,10 @@ const SPECS=Object.freeze({
   admitted:{workflow:'.github/workflows/agents-verify-to-new-pr.yml',job:'collect-correction',step:'Upload admitted correction request',member:'correction-admitted.json'},
   ledger:{workflow:'.github/workflows/agents-verify-to-new-pr.yml',job:'Apply admitted correction',step:'Consume admitted correction',member:'verifier-followup-ledger.ndjson'},
   receipt:{workflow:'.github/workflows/agents-verify-to-new-pr.yml',job:'Apply admitted correction',step:'Consume admitted correction',member:'correction-receipt.json'},
+  formatpause:{workflow:'.github/workflows/agents-auto-pilot.yml',job:'auto-pilot',step:'Execute step - Format (inline)',member:'correction-format-pause.json'},
+  createdpr:{workflow:'.github/workflows/agents-auto-pilot.yml',job:'auto-pilot',step:'Execute step - Create PR',member:'correction-created-pr.json'},
+  redispatch:{workflow:'.github/workflows/agents-auto-pilot.yml',job:'auto-pilot',step:'Re-dispatch for next step',member:'correction-redispatch.json'},
+  formatredispatch:{workflow:'.github/workflows/agents-auto-pilot.yml',job:'format-pause-wakeup',step:'Clear pause and redispatch format step',member:'correction-redispatch.json'},
   started:{workflow:'.github/workflows/agents-auto-pilot.yml',job:'auto-pilot',step:'Record admitted correction start',member:'correction-started.json'},
 });
 function artifactName(kind,run,attempt,suffix='') {
@@ -86,8 +90,10 @@ async function createArtifactTransport({github,repository,current,artifactClient
     const job=jobs.filter(row=>row.name===spec.job);need(job.length===1,'Correction producer job unavailable/ambiguous');
     need(job[0].run_id===run.id && job[0].run_attempt===run.run_attempt && job[0].head_sha===run.head_sha,'Correction job attempt mismatch');
     const steps=(job[0].steps || []).filter(step=>step.name===spec.step);need(steps.length===1,'Correction producer step unavailable/ambiguous');
-    const step=steps[0],active=current.run_id===run.id && current.run_attempt===run.run_attempt && step.status==='in_progress';
-    need((step.status==='completed' && (kind==='ledger' || step.conclusion==='success')) || active,'Correction producer step did not establish evidence');
+    const step=steps[0],active=step.status==='in_progress' && (
+      (current.run_id===run.id && current.run_attempt===run.run_attempt)
+      || ['ledger','redispatch','formatredispatch','createdpr','formatpause'].includes(kind));
+    need((step.status==='completed' && (['ledger','redispatch','formatredispatch','createdpr','formatpause'].includes(kind) || step.conclusion==='success')) || active,'Correction producer step did not establish evidence');
     const at=Date.parse(artifact.created_at),begin=Date.parse(step.started_at),end=active?clock().getTime():Date.parse(step.completed_at);
     need(Number.isFinite(at) && Number.isFinite(begin) && Number.isFinite(end) && at>=begin && at<=end+1000,'Correction artifact is not in the selected attempt/step window');
     const archive=Buffer.from(await read('actions','downloadArtifact',{artifact_id:artifact.id,archive_format:'zip'}));
@@ -119,7 +125,7 @@ async function createArtifactTransport({github,repository,current,artifactClient
     return retained.proof;
   };
   const jobs=(run,attempt)=>pages('actions','listJobsForWorkflowRunAttempt',{run_id:run,attempt_number:attempt},'jobs');
-  return {read,artifacts,runs,jobs,canonicalRun,load,publish,current:{...current}};
+  return {read,artifacts,runs,jobs,canonicalRun,load,publish,current:{...current},repository};
 }
 // The canonical workflow supplies a repository/PR concurrency lock derived from
 // the authenticated seed. Artifact snapshots implement the existing NDJSON ledger
@@ -220,8 +226,41 @@ async function createArtifactLedger({transport,request,since,admittedProof}) {
     const current=await read(key);need(current.records.at(-1)?.phase==='autopilot_dispatch' && lastProof,'No durable dispatch intent selector');
     return {schema:'closer-correction-continuation-selector/v1',repository:request.target.repository,
       collector:admittedProof,intent:{...lastProof,revision:current.revision},request_sha256:request.request_sha256,
-      effect_key:key,issue,parent_started:null};
+      effect_key:key,issue,parent_dispatch:null};
   };
   return {read,append,scan,continuationSelector};
 }
 module.exports={SPECS,artifactName,runtimeArtifactClient,createArtifactTransport,correctionHistory,createArtifactLedger};
+
+async function guardLegacyCorrection({transport,pr,since}) {
+ const {digest}=require('./verification_event');
+ const {validateRequest}=require('./verifier_correction_consumer');
+ for(const run of await transport.runs(SPECS.admitted.workflow,since)) {
+  need(positive(run.run_attempt) && run.run_attempt<=10,'Legacy correction guard history exceeds bound');
+  const inventory=await transport.artifacts(run.id);
+  for(let attempt=1;attempt<=run.run_attempt;attempt++) {
+   const actual=await transport.canonicalRun(run.id,attempt,SPECS.admitted.workflow);
+   const jobs=await transport.jobs(run.id,attempt),effect=jobs.filter(job=>job.name===SPECS.ledger.job);
+   need(effect.length<=1,'Ambiguous correction effect job history');
+   // Older collection-only canonical executions have no effect job. A skipped
+   // job/consumer step positively proves that this attempt did not enter effects.
+   if(!effect.length)continue;
+   const job=effect[0];need(job.run_id===run.id && job.run_attempt===attempt && job.head_sha===actual.head_sha,
+    'Correction guard effect attempt identity unavailable');
+   const consume=(job.steps || []).filter(step=>step.name===SPECS.ledger.step);
+   if(job.status==='completed' && (job.conclusion==='skipped' || (consume.length===1
+    && consume[0].status==='completed' && consume[0].conclusion==='skipped')))continue;
+   const name=artifactName('admitted',run.id,attempt),matches=inventory.filter(row=>row.name===name);
+   need(matches.length===1,'Possible correction effect has missing/ambiguous original context; UNKNOWN');
+   const loaded=await transport.load({repository:transport.repository,run_id:run.id,run_attempt:attempt,artifact_id:matches[0].id},'admitted',name);
+   const context=JSON.parse(loaded.bytes),{context_sha256,...payload}=context;
+   need(context.schema==='closer-correction-admitted/v1' && digest(payload)===context_sha256
+    && context.collector.run_id===run.id && context.collector.run_attempt===attempt
+    && context.collector.repository===transport.repository,'Correction guard context identity unavailable');
+   validateRequest(context.request);
+   if(context.request.target.pr===String(pr))throw Error('Existing scoped correction may have started; reconcile its exact intent instead of repeating the label lane');
+  }
+ }
+ return {effect_state:'confirmed_not_started',reason:'no_prior_typed_effect_in_this_scope',retry_authorized:false,act_authorized:false,source_closure_authorized:false};
+}
+module.exports.guardLegacyCorrection=guardLegacyCorrection;

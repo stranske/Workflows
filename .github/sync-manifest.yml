@@ -620,6 +620,18 @@ scripts:
     description: "Carries inert optional launch-basis correlation and authenticated exact-terminal dedup references; binds repeat verification and strict recovery selectors to authoritative code, original requests, typed comparison-baseline material and explicitly required retained evidence; authenticates known-no-evaluation causal predecessors, preserves the original edge on exact-event retries and reconciles older pending attempts through authoritative Actions reads and retains full-history completion deduplication without reparenting history"
     delivery: copy
 
+  - source: .github/scripts/verifier_correction_autopilot.js
+    description: "Authenticates existing auto-pilot continuation admission, prepared redispatches and actual native started/PR/pause receipts; no provider-start or closure authority"
+    delivery: copy
+
+  - source: .github/scripts/verifier_correction_host.js
+    description: "Collects fresh native corrective ownership/assignment/inventory facts and reconciles exact immutable issue and continuation identities"
+    delivery: copy
+
+  - source: .github/scripts/verifier_correction_runtime.js
+    description: "Wires native correction consumer/reconciliation and mandatory coding scope into existing lanes; missing classifier provenance, current qualification or explicit coding budget stays held"
+    delivery: copy
+
   - source: .github/scripts/verifier_correction_artifacts.js
     description: "Authenticates canonical correction run/attempt artifacts and exact checkpoint readback; uses the existing immutable follow-up NDJSON transport under authenticated PR concurrency"
     delivery: copy
@@ -641,7 +653,7 @@ scripts:
     delivery: copy
 
   - source: .github/scripts/verifier_correction_effects.js
-    description: "Local-tested correction effects adapter for the existing follow-up issue/autopilot lane; requires authenticated seed/request, fresh gates, durable existing-ledger intent and actual continuation reconciliation; not wired to production"
+    description: "Local-tested correction effects adapter for the existing follow-up issue/autopilot lane; requires authenticated seed/request, fresh gates, durable existing-ledger intent and actual continuation reconciliation; source-wired with inert causal tests; authenticated classifier-origin deployment gap remains held"
     delivery: copy
 
   - source: .github/scripts/verifier_correction_consumer.js
