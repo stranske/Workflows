@@ -9,8 +9,16 @@ on:
   workflow_dispatch:
     inputs:
       correction_selector:
-        description: 'Collection only: exact closer-correction-selector/v1 retained verifier selector'
+        description: 'Exact closer-correction-selector/v1 original verifier seed selector'
         required: true
+        type: string
+      correction_request:
+        description: 'Bounded canonical closer-correction-request/v1 post-terminal request'
+        required: false
+        type: string
+      correction_decision:
+        description: 'Source-bound closer-correction-decision/v1 risk and required-test decision'
+        required: false
         type: string
   pull_request_target:
     types: [labeled]
@@ -1266,9 +1274,12 @@ jobs:
         with:
           github_token: ${{ github.token }}
       - name: Collect authenticated correction request without effects
+        id: correction
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         env:
           CORRECTION_SELECTOR: ${{ inputs.correction_selector }}
+          CORRECTION_REQUEST: ${{ inputs.correction_request }}
+          CORRECTION_DECISION: ${{ inputs.correction_decision }}
         with:
           script: |
             const fs = require('fs');
@@ -1281,8 +1292,30 @@ jobs:
                 throw new Error('Correction selector exceeds bound');
               }
               const selector = JSON.parse(process.env.CORRECTION_SELECTOR);
-              result = await collectCorrection({github,selector,currentRun:context.runId,
-                currentAttempt:Number(process.env.GITHUB_RUN_ATTEMPT),directory:'.'});
+              if (process.env.CORRECTION_REQUEST) {
+                if (Buffer.byteLength(process.env.CORRECTION_REQUEST) > 131072 ||
+                    Buffer.byteLength(process.env.CORRECTION_DECISION || '') > 131072) {
+                  throw new Error('Correction request/decision exceeds bound');
+                }
+                const { collectSubmission, loadReviewedQualification } = require('./.github/scripts/verifier_correction_collector');
+                const { createArtifactTransport } = require('./.github/scripts/verifier_correction_artifacts');
+                const repository = `${context.repo.owner}/${context.repo.repo}`.toLowerCase();
+                const current = {run_id:context.runId,run_attempt:Number(process.env.GITHUB_RUN_ATTEMPT)};
+                const transport = await createArtifactTransport({github,repository,current});
+                result = await collectSubmission({github,transport,repository,actor:context.actor,current,selector,
+                  request:JSON.parse(process.env.CORRECTION_REQUEST),
+                  decision:JSON.parse(process.env.CORRECTION_DECISION || 'null'),directory:'.',
+                  loadQualification:profile => loadReviewedQualification({github,profile})});
+                // Retained classifier I/O authentication remains an explicit Core
+                // dependency. Qualification alone cannot admit supplied JSON.
+                fs.writeFileSync('correction-admitted.json',JSON.stringify(result)+'\n',{flag:'wx'});
+                core.setOutput('context_retained','true');
+                core.setOutput('pr_number',result.seed.target.pr);
+                core.setOutput('effect_key',result.effect_key);
+              } else {
+                result = await collectCorrection({github,selector,currentRun:context.runId,
+                  currentAttempt:Number(process.env.GITHUB_RUN_ATTEMPT),directory:'.'});
+              }
             } catch (error) {
               // No write endpoint exists in this job. A refusal proves only this
               // collection performed no effect, never a prior attempt's absence.
@@ -1311,5 +1344,13 @@ jobs:
         with:
           name: verifier-terminal-disposition-${{ github.run_id }}
           path: agent-metrics/*.ndjson
+          retention-days: 30
+          if-no-files-found: error
+      - name: Upload admitted correction request
+        if: always() && steps.correction.outputs.context_retained == 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: verifier-correction-admitted-${{ github.run_id }}-${{ github.run_attempt }}
+          path: correction-admitted.json
           retention-days: 30
           if-no-files-found: error

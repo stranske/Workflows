@@ -133,55 +133,76 @@ NON_PASS, resolves the finding or proves required-test success.
 
 ## Intermediate collection entrypoint and integration gaps
 
-The existing `agents-verify-to-new-pr.yml` has an optional read-only dispatch
-collection job. Its current `closer-correction-selector/v1` contains exact
-run/attempt/artifact selectors, request digest, original event and assessment.
-It reuses `acquireRetainedExecution`, checks archive digest, original manifest,
-current API identities and native original decision comment, then emits only a
-collection receipt. Its earlier single-artifact request expectation is an
-**intermediate**; declared no-incumbent requests explicitly require the later
-two-stage collector. Missing members have no caller-JSON/PR-text/model fallback.
+The existing `agents-verify-to-new-pr.yml` accepts the original
+`closer-correction-selector/v1` plus optional bounded `correction_request` and
+`correction_decision` JSON inputs. The two-stage collector authenticates the
+original artifact through `acquireRetainedExecution`, reproduces every raw seed
+from retained output, original execution receipt, native terminal comment and
+current GitHub subject/source APIs, and verifies physical existing-test hashes at
+an exact subject commit. It retains its own `closer-correction-admitted/v1`
+context in `verifier-correction-admitted-RUN-ATTEMPT`. The earlier selector-only
+single-artifact collection path is retained as an intermediate compatibility path.
 
-The existing terminal artifact carries collection data in
-`verifier-terminal-disposition.ndjson` with additive `correction_receipt`, and
-`verifier-followup-ledger.ndjson` with the versioned correction receipt. Validation
-refusals use `closer-correction-admission-refusal/v1` and hash the untrusted selector.
-A refusal describes only that collection attempt, never prior-effect absence.
-Consumers must distinguish these schemas from legacy follow-up ledger records.
+The original producer now writes `closer-correction-seeds.json` beside the
+existing evaluate/compare artifacts after authentic terminal publication. It
+asserts only original event/run/attempt/comment, raw finding and exact source/PR
+identity. It never asserts future hold, operation, owner or required-test data.
+Ambiguous retained source, unavailable provider slots, absent explicit findings
+or changed source bytes produce a bounded refusal, not invented evidence.
 
-Core owns Orchestrator #944's strict envelope and existing hold/controller
-integration. The Workflows owner also has the original seed-producer hunk beside
-`reusable-agents-verifier.yml` terminal report/artifact generation; its field
-mapping is coordinated with core. The separate auto-pilot hunk belongs in
-`templates/consumer-repo/.github/workflows/agents-auto-pilot.yml` (manifest
-`source_tree: template`), aligned with the operational counterpart: optional
-correlation inputs, trusted admitted-artifact validation, started receipt after
-context/cycle/next-step gates, and explicit redispatch correlation. No auto-pilot
-source or Gate/caller security files are changed by this local slice.
+`verifier_correction_profile.py` reads a literal-only view of the existing
+`stranske/Orchestrator` `src/closer_role_qualification.py` registry. The host fixes
+repository/default reviewed ref, fetches an exact commit and verifies Git blob
+integrity. The parser never imports or executes fetched code. A reviewed-reader
+AST fingerprint excludes only the registry literal; changed semantics, dynamic or
+ambiguous source, revoked/expired records and the current empty registry remain
+UNKNOWN. This is role-record eligibility, not runtime/provider confinement proof.
+Core independently compared the shared 16-case fixture against its actual
+`qualification_problems` reader: 16 matches, zero mismatches. The fixture SHA256 is
+`bad0bbd5dbe2e3c8a621043f4c10b67373a0c57d437b97fc9c6b1d09bbf3ba72`.
 
-The conditional ledger API is a narrow required host transport, not an implemented
-durable store. Existing NDJSON artifact upload alone supplies neither CAS nor a
-pre-effect durable intent. That property and the actual provenance transports
-must be implemented/verified before connecting the effect helper. Current
-collection-only source is not a completed or deployed handoff.
+Qualification does not prove a profile emitted supplied classification JSON.
+The collector therefore separately requires a trusted retained-I/O decision
+verifier, binding decision digest and exact profile identity. That Core supervised
+execution/native collector join is not available yet; nonempty caller evidence
+references cannot substitute. The workflow currently passes no such verifier and
+therefore retains owned UNKNOWN contexts, even if a future registry record exists.
+Security/authority-conflict/uncertain findings never enter generic auto-pilot.
+
+The Actions-artifact transport and NDJSON journal implementation are now source
+code with inert causal tests. Each stage uploads a fixed immutable checkpoint and
+checks actual canonical workflow/run/attempt/job/step/archive/member provenance
+and exact readback before effects. Complete retained history, contiguous revisions
+and first-request limits are required. Missing/deleted historical checkpoints
+remain UNKNOWN unless the exact historical effect job was positively skipped;
+expiry, forks, duplicates and upload uncertainty cannot imply absence. These
+artifacts require the authenticated PR concurrency host integration; they are not
+a new store or a cross-workflow lock. The source effect-job wiring, complete fresh
+ownership collector, and actual auto-pilot started/redispatch receipt integration
+remain outstanding. Source collection and inert kernel tests are not a completed
+or deployed handoff. Core retains Orchestrator #944 integration ownership; Gate
+and caller hardening remain outside this slice.
 
 ```mermaid
 flowchart LR
-    V[Original verifier event/comment] --> P[Trusted source finding seed: integration pending]
-    P --> C[Trusted later request and ownership collector: pending]
-    C --> E[Local effect adapter: inert end-to-end tests pass]
-    E --> L[Existing ledger durable intent transport: pending]
-    L --> I[Existing follow-up issue]
-    I --> A[Existing auto-pilot started receipt integration: pending]
-    A --> R[Accepted exact issue and actual run/attempt]
-    L --> U[Unknown effect: reconcile without repetition]
-    C --> N[Current collection-only entrypoint: no effects]
+    V[Original verifier event/comment] --> P[Original raw seed producer: source implemented]
+    P --> C[Two-stage collector: source wired]
+    Q[Reviewed Core role source: current empty] --> C
+    D[Authenticated classifier output: Core dependency] --> C
+    C --> N[Owned UNKNOWN until genuine decision proof]
+    C -. admitted context .-> E[Effect adapter: inert causal tests]
+    E --> L[Immutable NDJSON journal: source implemented]
+    L -. effect-job wiring pending .-> I[Existing follow-up issue]
+    I -. started/redispatch integration pending .-> A[Existing auto-pilot]
+    A --> R[Exact accepted run/attempt]
+    L --> U[Unknown: reconcile without repetition]
 ```
 
 ## Local validation checkpoint
 
-The two correction suites contain 45 passing tests: 12 contract/admission tests
-and 33 effect tests. All external effects are synthetic in-memory clients. Cases
+The correction suites contain 71 passing JavaScript tests plus 33 Python
+qualification source-reader tests. All consequential effects are inert; artifact
+transport tests use independently generated ZIPs and mock Actions/SDK boundaries. Cases
 include accepted existing and no-incumbent requests, deterministic refusal,
 HTTP204 versus actual run identity, uncertain create/dispatch, exact issue recovery,
 restart, lost checkpoint acknowledgments, changed caller IDs, complete fresh
@@ -207,3 +228,10 @@ path-join audit annotation is a false positive: `directory` is the host workspac
 literal `'.'`, never selector input; the filename is fixed and the authenticated
 helper just created it using `wx`. These boundaries were independently reviewed;
 no broad suppression, hosted alert dismissal or security-policy change is made.
+
+The current integration checkpoint additionally covers original raw-seed
+production, two-stage collection, role-source integrity, deleted/expired/forked
+checkpoint history and post-checkpoint fresh admission gates. Hosted Python checks
+on the previous PR head exposed stale generated Renovate ownership paths and a
+hardcoded managed-entry count; both are corrected locally with focused regression
+checks before publication. Hosted status must be read at the next exact PR head.

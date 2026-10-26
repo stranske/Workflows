@@ -620,6 +620,26 @@ scripts:
     description: "Carries inert optional launch-basis correlation and authenticated exact-terminal dedup references; binds repeat verification and strict recovery selectors to authoritative code, original requests, typed comparison-baseline material and explicitly required retained evidence; authenticates known-no-evaluation causal predecessors, preserves the original edge on exact-event retries and reconciles older pending attempts through authoritative Actions reads and retains full-history completion deduplication without reparenting history"
     delivery: copy
 
+  - source: .github/scripts/verifier_correction_artifacts.js
+    description: "Authenticates canonical correction run/attempt artifacts and exact checkpoint readback; uses the existing immutable follow-up NDJSON transport under authenticated PR concurrency"
+    delivery: copy
+
+  - source: .github/scripts/verifier_correction_profile.py
+    description: "Literal-only bounded view of the existing reviewed Orchestrator role registry; never executes fetched code and preserves empty/unsupported source as UNKNOWN"
+    delivery: copy
+
+  - source: .github/scripts/verifier_correction_collector.js
+    description: "Collects original raw seeds plus bounded post-terminal requests and physical test hashes; absent genuine Core classification qualification stays owned UNKNOWN"
+    delivery: copy
+
+  - source: .github/scripts/verifier_correction_decision.js
+    description: "Checks complete source-bound risk/test decisions against independently loaded production profile qualification; security/authority/unknown never fall through ordinary autopilot"
+    delivery: copy
+
+  - source: .github/scripts/verifier_correction_seed.js
+    description: "Retains exact original NON_PASS raw finding/source/event seeds after native terminal publication; no future hold/test/owner authority is invented"
+    delivery: copy
+
   - source: .github/scripts/verifier_correction_effects.js
     description: "Local-tested correction effects adapter for the existing follow-up issue/autopilot lane; requires authenticated seed/request, fresh gates, durable existing-ledger intent and actual continuation reconciliation; not wired to production"
     delivery: copy

@@ -1968,6 +1968,45 @@ jobs:
               }
             }
 
+      - name: Retain original correction finding seeds
+        if: >-
+          always() && steps.event_terminal.outputs.complete == 'true' &&
+          inputs.verification_recovery == '' &&
+          (inputs.mode == 'evaluate' || inputs.mode == 'compare')
+        continue-on-error: true
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          VERIFIER_MODE: ${{ inputs.mode }}
+          PR_NUMBER: ${{ steps.context.outputs.pr_number }}
+          PR_HEAD_SHA: ${{ steps.context.outputs.pr_head_sha }}
+          EVALUATED_SHA: ${{ steps.context.outputs.target_sha }}
+          CI_FAILED: ${{ steps.context.outputs.ci_failed }}
+        with:
+          script: |
+            const fs = require('fs');
+            const { execFileSync } = require('child_process');
+            const manifest = JSON.parse(fs.readFileSync('verification-event-manifest.json','utf8'));
+            const mode = process.env.VERIFIER_MODE;
+            const stem = mode === 'evaluate' ? 'evaluation' : 'comparison';
+            try {
+              // This reuses result admission; it never evaluates a provider.
+              const decision = JSON.parse(execFileSync('python3',[
+                '.workflows-lib/tools/verifier_corpus_evidence.py',`--${stem}`,`${stem}.json`,
+                '--execution-receipt',`${stem}-execution.json`,'--print-decision',
+              ],{encoding:'utf8',timeout:10000}));
+              if (decision.verdict !== 'NON_PASS') return;
+              const { retainSeeds } = require('./.workflows-lib/.github/scripts/verifier_correction_seed.js');
+              await retainSeeds({github,manifest,decision,mode,runId:context.runId,
+                runAttempt:Number(process.env.GITHUB_RUN_ATTEMPT),directory:'.'});
+            } catch (error) {
+              fs.writeFileSync('closer-correction-seed-refusal.json',JSON.stringify({
+                schema:'closer-correction-seed-refusal/v1',verification_event:manifest.verification_event,
+                source_run_id:String(context.runId),source_run_attempt:process.env.GITHUB_RUN_ATTEMPT,
+                reason:String(error.message),act_authorized:false,source_closure_authorized:false,
+              })+'\n');
+              core.warning(`Correction seed collection remains unavailable: ${error.message}`);
+            }
+
       - name: Shadow candidate verifier judges (recorded only; never posted, never counted)
         # config/verifier_shadow.json (central, in this repository) names the candidates and the
         # pre-registered criteria; set the repository variable VERIFIER_SHADOW to `off` to skip.
@@ -2022,6 +2061,8 @@ jobs:
             verifier-shadow.json
             verifier-context.md
             verification-event-manifest.json
+            closer-correction-seeds.json
+            closer-correction-seed-refusal.json
             verifier-diff-summary.md
             verifier-pr-diff.patch
             verifier-input-manifest.json
@@ -2057,6 +2098,8 @@ jobs:
             verifier-input-manifest.json
             verifier-context.md
             verification-event-manifest.json
+            closer-correction-seeds.json
+            closer-correction-seed-refusal.json
             verifier-diff-summary.md
             verifier-pr-diff.patch
           if-no-files-found: ignore

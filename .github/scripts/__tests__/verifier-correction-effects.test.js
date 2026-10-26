@@ -305,3 +305,29 @@ test('shared API wrapper makes one consequential attempt on transient server fai
   const dispatch=fixture();dispatch.deps.github.rest.actions.createWorkflowDispatch=async args=>{assert.equal(args.request.retries,0);dispatch.calls.push(['dispatch']);const error=new Error('lost 503 dispatch response');error.status=503;error.request={method:'POST'};throw error;};
   assert.equal((await dispatch.consume()).effect_state,'outcome_unknown');assert.equal(dispatches(dispatch).length,1);await dispatch.consume();assert.equal(dispatches(dispatch).length,1);
 });
+
+test('fresh gates are re-read after durable checkpoint and immediately before dispatch',async()=>{
+ const f=fixture(),append=f.ledger.append;
+ f.ledger.append=async args=>{const stored=await append(args);f.state.facts.pull.labels=['needs-human'];return stored;};
+ const result=await f.consume();assert.equal(result.effect_state,'outcome_unknown');assert.equal(dispatches(f).length,0);
+ assert.equal(f.rows.length,1);assert.equal(f.rows[0].phase,'autopilot_dispatch');
+ await f.consume();assert.equal(dispatches(f).length,0);
+});
+
+test('a new UNKNOWN ownership observation after intent never inherits the older admission',async()=>{
+ const f=fixture(),fresh=f.deps.collectFreshFacts;let reads=0;
+ f.deps.collectFreshFacts=async()=>{const facts=structuredClone(await fresh());if(++reads>1)facts.ownership={...facts.ownership,kind:'unknown'};
+ if(facts.ownership.kind==='unknown')delete facts.ownership.incumbent;return facts;};
+ const result=await f.consume();assert.equal(result.effect_state,'outcome_unknown');assert.equal(dispatches(f).length,0);
+ assert.equal(reads,2);assert.equal(f.rows.length,1);
+});
+
+test('no-incumbent creation and dispatch each require their newest independent ownership observation',async()=>{
+ for(const failAt of [2,3,4]) {
+  const f=noIncumbentFixture(),fresh=f.deps.collectFreshFacts;let reads=0;
+  f.deps.collectFreshFacts=async(...args)=>{const facts=structuredClone(await fresh(...args));if(++reads>=failAt)facts.ownership.kind='unknown';return facts;};
+  const result=await f.consume();assert.equal(result.effect_state,'outcome_unknown');assert.equal(dispatches(f).length,0);
+  assert.equal(creates(f).length,failAt===2?0:1);
+  const before=creates(f).length;await f.consume();assert.equal(creates(f).length,before);assert.equal(dispatches(f).length,0);
+ }
+});

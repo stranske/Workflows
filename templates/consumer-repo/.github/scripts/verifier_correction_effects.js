@@ -195,6 +195,12 @@ function createCorrectionEffectConsumer({authenticate,collectFreshFacts,ledger,r
       return apiRetry.withRetry(fn,{maxRetries:0,allowNonIdempotentRetries:false});
     };
     let ownership=null;
+    const requireCurrentOwnership=facts=>{
+      const fresh=validateOwnership(facts.ownership,seed);
+      requireInventory(fresh.kind!=='unknown' && fresh.kind===ownership.kind
+        && (fresh.kind!=='existing' || same(fresh.incumbent,ownership.incumbent)),
+      'Fresh corrective ownership is unknown or changed');
+    };
     const finish=(state,reason,issue=null,continuation=null)=>receipt(request,{state,reason,issue,continuation,consumer,ownership});
     const read=async()=>validateLedger(await ledger.read(key),key);
     let snapshot;try {snapshot=await read();}catch {return finish('outcome_unknown','existing_followup_ledger_unavailable_no_effect_invoked');}
@@ -232,6 +238,7 @@ function createCorrectionEffectConsumer({authenticate,collectFreshFacts,ledger,r
     catch {return finish('outcome_unknown','trusted_ownership_provenance_unavailable',issue);}
     if (ownership.kind==='unknown') return finish('outcome_unknown','trusted_ownership_inventory_unknown');
     try {
+      requireCurrentOwnership(facts);
       requireThat((ownership.kind==='no_incumbent') === (request.incumbent.kind==='no_incumbent'), 'Declared incumbent conflicts with fresh trusted ownership');
       checkFreshFacts(request,facts,{ownership,createdIssue:issue});
     } catch (error) {return finish(snapshot.records.length || error.code==='CORRECTION_INVENTORY_UNKNOWN'?'outcome_unknown':'confirmed_not_started','fresh_source_incumbent_or_policy_gate_refused_before_effect',issue);}
@@ -241,8 +248,13 @@ function createCorrectionEffectConsumer({authenticate,collectFreshFacts,ledger,r
       requireThat(typeof github.rest.issues?.create==='function','Existing issue creation endpoint unavailable');
       await attemptEffect({ledger,snapshot,key,request,consumer,phase:'issue_creation',ownership,invoke:async()=>{
         requireThat(clock().getTime()<Date.parse(request.original_operation.deadline),'Requester deadline expired after durable intent');
+        const latest=await collectFreshFacts(request,{createdIssue:null});
+        requireCurrentOwnership(latest);
+        checkFreshFacts(request,latest,{ownership,createdIssue:null});
+        requireThat(!latest.workInventory.continuations.length && !latest.workInventory.openPullRequests.length,'Competing work appeared before issue creation');
+        requireThat(clock().getTime()<Date.parse(request.original_operation.deadline),'Requester deadline expired during final gate');
         const intent={effect_key:key,consumer};
-        return singleAttempt(client=>client.rest.issues.create({owner,repo,...createPayload(request,facts,intent),request:{timeout:15000,retries:0}}));
+        return singleAttempt(client=>client.rest.issues.create({owner,repo,...createPayload(request,latest,intent),request:{timeout:15000,retries:0}}));
       }});
       try {snapshot=await read();observed=await observe();}catch {return finish('outcome_unknown','issue_creation_requires_exact_reconciliation');}
       const intent=snapshot.records.find(row=>row.kind==='intent' && row.phase==='issue_creation');
@@ -254,7 +266,7 @@ function createCorrectionEffectConsumer({authenticate,collectFreshFacts,ledger,r
       issue=resolved.issue;
       // Freshly read the created issue and competing-work inventory before the
       // next stage. An issue acknowledgment alone is never ownership acceptance.
-      try {facts=await collectFreshFacts(request,{createdIssue:issue});checkFreshFacts(request,facts,{ownership,createdIssue:issue});}
+      try {facts=await collectFreshFacts(request,{createdIssue:issue});requireCurrentOwnership(facts);checkFreshFacts(request,facts,{ownership,createdIssue:issue});}
       catch {return finish('outcome_unknown','created_issue_fresh_gate_unavailable',issue);}
       if (facts.workInventory.continuations.length || facts.workInventory.openPullRequests.length) return finish('outcome_unknown','created_issue_has_existing_work_no_dispatch',issue);
     }
@@ -266,8 +278,13 @@ function createCorrectionEffectConsumer({authenticate,collectFreshFacts,ledger,r
     if (ownership.kind==='no_incumbent' && !same(confirmedIssue(snapshot),issue)) {
       return finish('outcome_unknown','dispatch_issue_differs_from_durable_identity',confirmedIssue(snapshot));
     }
-    const outcome=await attemptEffect({ledger,snapshot,key,request,consumer,phase:'autopilot_dispatch',ownership,invoke:()=>{
+    const outcome=await attemptEffect({ledger,snapshot,key,request,consumer,phase:'autopilot_dispatch',ownership,invoke:async()=>{
       requireThat(clock().getTime()<Date.parse(request.original_operation.deadline),'Requester deadline expired after durable intent');
+      const latest=await collectFreshFacts(request,{createdIssue:ownership.kind==='no_incumbent'?issue:null});
+      requireCurrentOwnership(latest);
+      checkFreshFacts(request,latest,{ownership,createdIssue:ownership.kind==='no_incumbent'?issue:null});
+      requireThat(!latest.workInventory.continuations.length && !latest.workInventory.openPullRequests.length,'Competing work appeared before dispatch');
+      requireThat(clock().getTime()<Date.parse(request.original_operation.deadline),'Requester deadline expired during final gate');
       return singleAttempt(client=>client.rest.actions.createWorkflowDispatch({owner,repo,workflow_id:'agents-auto-pilot.yml',ref:defaultBranch,request:{timeout:15000,retries:0},
         inputs:{issue_number:issue.number,force_step:'optimize',correction_request_sha256:request.request_sha256,correction_effect_key:key}}));
     }});

@@ -1,0 +1,64 @@
+{
+  "schema": "closer-correction-seed-bundle/v1",
+  "verification_event": {
+    "schema": "verification-event/v1",
+    "repo": "stranske/example",
+    "pr": "7",
+    "head_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "evaluated_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "request_sha256": "ab8075822959ae7682a46de1d76b3059ceb6bedc6a36ef0825ce6d4ccb4c8632",
+    "material_sha256": "28b03646dafc58a0b76fad36d56fbe3e002528e6df0c4a60404e33420d1a6d52",
+    "event_id": "25027fccdb23d4dabf2e3c01d73764a6393c4a25a3a8c90f25a4910560fd791d"
+  },
+  "assessment_identity": {
+    "mode": "evaluate",
+    "provider": "anthropic",
+    "model": "",
+    "model2": "",
+    "canonical": true
+  },
+  "result_sha256": "785dd41164caca06a1bb6077b920f96f00bc1e5edad193258af9106d50fd3608",
+  "seeds": [
+    {
+      "schema": "closer-correction-seed/v1",
+      "target": {
+        "repository": "stranske/example",
+        "pr": "7",
+        "head_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "base_sha": "cccccccccccccccccccccccccccccccccccccccc",
+        "merge_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      "source_issue": {
+        "number": "1",
+        "node_id": "I_1",
+        "body_sha256": "e0298894893be5f7d8a0bda03a4bbac49663d1e2ae970a39f4538e6d0621093c"
+      },
+      "original_verifier": {
+        "verification_event": {
+          "schema": "verification-event/v1",
+          "repo": "stranske/example",
+          "pr": "7",
+          "head_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "evaluated_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "request_sha256": "ab8075822959ae7682a46de1d76b3059ceb6bedc6a36ef0825ce6d4ccb4c8632",
+          "material_sha256": "28b03646dafc58a0b76fad36d56fbe3e002528e6df0c4a60404e33420d1a6d52",
+          "event_id": "25027fccdb23d4dabf2e3c01d73764a6393c4a25a3a8c90f25a4910560fd791d"
+        },
+        "run_id": "100",
+        "run_attempt": "2",
+        "comment_id": "43",
+        "comment_sha256": "9fc77762c36e676f0ee660abb8dacb8bf4c7589d98bcdcfb93a8af96d509f379",
+        "decision_sha256": "026aa2789761f014288b065c39bc96b598928b241471ea3708d0cb41edad4b8a"
+      },
+      "finding": {
+        "id": "raw-b061140462bb70ac9c4a8c5a2c9864740dbe6607713d01da45f63e7f6cc4ab7d",
+        "evidence": {
+          "ref": "evaluation.json#/concerns/0",
+          "sha256": "e98f67f881c9cbfceee52fed3c12a8d69759bd058fa47be1142e14800d7bb7bd"
+        }
+      },
+      "scope": "substantive_implementation"
+    }
+  ],
+  "bundle_sha256": "8fe4cbc2ef872f6199323a9cbf14f96f41c016c0aa1778421fe2fe328f76aac7"
+}
