@@ -16,6 +16,28 @@ const {createFreshCollector,createEffectReconciler}=require('./verifier_correcti
 const need=(value,reason)=>{if(!value)throw new Error(reason);};
 const same=(a,b)=>canonical(a)===canonical(b);
 const sha=bytes=>createHash('sha256').update(bytes).digest('hex');
+// Only this existing runner currently carries authenticated mandatory scope
+// through final assemble_prompt and enforces the frozen coding policy ceiling.
+// Registry routing is preserved: an unsupported owner holds, never falls back.
+function requireCorrectionCodingIntake(facts,{registryPath}) {
+ const registry=loadAgentRegistry({registryPath}),agent=registry.agents[facts?.agent?.key];
+ need(facts?.agent?.enabled===true && agent?.enabled===true
+  && agent.runner_workflow==='.github/workflows/reusable-codex-run.yml',
+ 'Owned UNKNOWN: selected coding runner lacks authenticated correction intake and final policy budget enforcement');
+ if(facts.incumbentIssue) {
+  need(Array.isArray(facts.incumbentIssue.labels),'Owned UNKNOWN: incumbent coding routing labels unavailable');
+  const labels=facts.incumbentIssue.labels.map(label=>typeof label==='string'?label:label?.name);
+  need(labels.every(label=>typeof label==='string'),'Owned UNKNOWN: incumbent coding routing labels incomplete');
+  const normalized=labels.map(label=>label.toLowerCase());
+  const agents=normalized.filter(label=>label.startsWith('agent:')
+   && (label==='agent:auto' || Object.hasOwn(registry.agents,label.slice(6))));
+  const runners=normalized.filter(label=>label.startsWith('runner:'));
+  need(agents.length===1 && agents[0]===`agent:${facts.agent.key}`
+   && runners.length<=1 && runners.every(label=>label===`runner:${facts.agent.key}`),
+  'Owned UNKNOWN: fresh incumbent routing differs from authenticated supported correction runner');
+ }
+ return facts;
+}
 async function activeExecutions({transport,current,registryPath,ownedPull=null}) {
  const registry=loadAgentRegistry({registryPath});
  const runners=new Set(Object.values(registry.agents).map(agent=>path.basename(agent.runner_workflow || '')));
@@ -91,7 +113,7 @@ async function createRuntime({github,transport,selector,current,registryPath,pyt
  const collectFreshFacts=async(...args)=>{
   const qualification=await (qualificationLoader?qualificationLoader(context.decision.profile):loadReviewedQualification({github,profile:context.decision.profile,clock}));
   need(validateCorrectionDecision({...context,qualification}).status==='admitted','Current production qualification no longer admits ordinary correction');
-  return {...await native(...args),correction_finding_text:context.finding_text};
+  return {...requireCorrectionCodingIntake(await native(...args),{registryPath}),correction_finding_text:context.finding_text};
  };
  const metadata=await transport.read('repos','get',{});
  need(metadata.full_name?.toLowerCase()===request.target.repository && typeof metadata.default_branch==='string' && metadata.default_branch.length>0,
@@ -103,7 +125,7 @@ async function createRuntime({github,transport,selector,current,registryPath,pyt
   authenticate:async()=>({request,seed:context.seed,required_tests:request.required_tests})});
  return {consume,request,context,proof,ledger,reconcile,since};
 }
-module.exports={activeExecutions,existingVerdictPolicy,loadAdmitted,createRuntime};
+module.exports={activeExecutions,existingVerdictPolicy,loadAdmitted,createRuntime,requireCorrectionCodingIntake};
 
 async function createAutopilotRuntime({github,transport,selector,current,registryPath,pythonRoot,clock=()=>new Date(),qualificationLoader=null}) {
  const {context,proof}=await loadAdmitted({transport,selector:selector.collector}),request=context.request;
@@ -117,7 +139,7 @@ async function createAutopilotRuntime({github,transport,selector,current,registr
   policy:()=>existingVerdictPolicy({transport,request,pythonRoot}),clock,transport,
   activeContinuation:{effect_key:context.effect_key,run_id:current.run_id,run_attempt:current.run_attempt,intent:selector.intent}});
  const qualification=profile=>qualificationLoader?qualificationLoader(profile):loadReviewedQualification({github,profile,clock});
- const facts=async(...args)=>{await ledger.read(context.effect_key);return native(...args);};
+ const facts=async(...args)=>{await ledger.read(context.effect_key);return requireCorrectionCodingIntake(await native(...args),{registryPath});};
  const {authenticateContinuation,observeStartedReceipts}=require('./verifier_correction_autopilot');
  const authenticate=options=>authenticateContinuation({transport,selector,current,issueNumber:selector.issue.number,
   loadQualification:qualification,collectFreshFacts:facts,clock,...options});

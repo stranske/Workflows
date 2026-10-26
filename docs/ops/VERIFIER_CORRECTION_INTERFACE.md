@@ -413,3 +413,18 @@ provider start, native capacity, ACT or closure. Unbound extra CLI arguments hol
 for a typed correction because they could override that selected configuration;
 the ordinary absent-correction path is unchanged. No new model/fallback choice,
 provider call, budget value, repository variable or credential is introduced.
+
+
+Typed corrections currently require the registry-selected existing runner to be
+`reusable-codex-run.yml`, the runner with authenticated mandatory intake and final
+coding-policy enforcement implemented here. Other selected owners remain owned
+UNKNOWN before new issue/continuation effects and before continuation admission;
+routing never substitutes a Codex writer for their incumbent. This guards the
+correction effect and Auto continuation admission, not every independent runner
+entry. A separate existing keepalive dispatch can select the coding PR labels;
+its native typed-scope/supported-runner gate is still an integration dependency
+owned in coordination with the rollout owner. Until that gate exists, no claim of
+all-provider final intake coverage is made. Ordinary untyped
+routing remains unchanged. Adding another runner requires its actual final prompt,
+budget and authenticated intake path, not merely activation metadata or an agent
+label. The unassigned Claude classifier producer arm is a separate dependency.

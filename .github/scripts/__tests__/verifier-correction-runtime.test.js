@@ -35,3 +35,35 @@ test('only a native linked run for the authenticated owned PR/head is an incumbe
   assert.equal((await activeExecutions({transport,current:{run_id:700,run_attempt:1},registryPath,ownedPull})).length,change?1:0);
  }
 });
+
+
+test('typed effect and continuation admission hold unsupported registry runners before any consequential callback',async()=>{
+ const {requireCorrectionCodingIntake}=require('../verifier_correction_runtime');
+ for(const key of ['codex','claude','cursor','muse','gemini','unknown',null]) {
+  let effects=0;
+  const facts={agent:{key,enabled:true}};
+  const attempt=async()=>{requireCorrectionCodingIntake(facts,{registryPath});effects++;};
+  if(key==='codex') {await attempt();assert.equal(effects,1);}
+  else {await assert.rejects(attempt,/Owned UNKNOWN: selected coding runner/);assert.equal(effects,0);}
+ }
+ for(const facts of [{},{agent:{key:'codex',enabled:false}}]) {
+  assert.throws(()=>requireCorrectionCodingIntake(facts,{registryPath}),/Owned UNKNOWN/);
+ }
+ const source=require('fs').readFileSync(path.join(__dirname,'../verifier_correction_runtime.js'),'utf8');
+ assert.match(source,/requireCorrectionCodingIntake\(await native\(\.\.\.args\),\{registryPath\}\),correction_finding_text/);
+ assert.match(source,/ledger\.read\(context\.effect_key\);return requireCorrectionCodingIntake\(await native\(\.\.\.args\),\{registryPath\}\)/);
+});
+
+
+test('fresh existing and newly-created incumbent routing cannot override source Codex selection to an unsupported runner',()=>{
+ const {requireCorrectionCodingIntake}=require('../verifier_correction_runtime');
+ for(const labels of [['agent:claude'],['agent:codex','runner:claude'],['agent:auto'],
+  ['agent:codex','runner:codex','runner:claude'],['agent:codex','agent:claude'],[],null]) {
+  const facts={agent:{key:'codex',enabled:true},incumbentIssue:{labels}};
+  assert.throws(()=>requireCorrectionCodingIntake(facts,{registryPath}),/Owned UNKNOWN/);
+ }
+ for(const labels of [['agent:codex'],[{name:'agent:codex'},{name:'runner:codex'}]]) {
+  const facts={agent:{key:'codex',enabled:true},incumbentIssue:{labels}};
+  assert.equal(requireCorrectionCodingIntake(facts,{registryPath}),facts);
+ }
+});
