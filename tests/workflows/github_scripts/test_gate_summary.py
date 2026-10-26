@@ -259,8 +259,7 @@ def test_stable_generated_delivery_requires_an_exact_head_seal(tmp_path: Path) -
     event = {
         "pull_request": {
             "body": (
-                "<!-- sync-pr-delivery-record:v1 "
-                f"{json.dumps(record, separators=(',', ':'))} -->"
+                f"<!-- sync-pr-delivery-record:v1 {json.dumps(record, separators=(',', ':'))} -->"
             ),
             "head": {
                 "ref": "sync/workflows-delivery",
@@ -280,7 +279,7 @@ def test_stable_generated_delivery_requires_an_exact_head_seal(tmp_path: Path) -
 
     record.update(delivery_state="sealed", sealed_head_sha="head-abc")
     event["pull_request"]["body"] = (
-        "<!-- sync-pr-delivery-record:v1 " f"{json.dumps(record, separators=(',', ':'))} -->"
+        f"<!-- sync-pr-delivery-record:v1 {json.dumps(record, separators=(',', ':'))} -->"
     )
     event_path.write_text(json.dumps(event), encoding="utf-8")
     assert gate_summary._delivery_seal_from_event(event_path) == (
@@ -632,3 +631,65 @@ def test_write_summary_and_outputs(tmp_path: Path) -> None:
     gate_summary._write_outputs(clean_result, output_path)
     updated_text = output_path.read_text(encoding="utf-8")
     assert "failure_checks=" in updated_text
+
+
+@pytest.mark.parametrize(
+    "state", ["reviewing\nstate=success", "$(touch injected)", {"state": "sealed"}]
+)
+def test_untrusted_delivery_state_is_not_echoed(tmp_path: Path, state: object) -> None:
+    event = {
+        "pull_request": {
+            "head": {"ref": "sync/workflows-delivery", "sha": "head", "repo": {"full_name": "a/b"}},
+            "base": {"repo": {"full_name": "a/b"}},
+            "body": "<!-- sync-pr-delivery-record:v1 "
+            + json.dumps(
+                {
+                    "schema": "sync-pr-delivery-record/v1",
+                    "delivery_state": state,
+                }
+            )
+            + " -->",
+        }
+    }
+    path = tmp_path / "event.json"
+    path.write_text(json.dumps(event))
+    assert gate_summary._delivery_seal_from_event(path) == (
+        True,
+        False,
+        "delivery state is missing or invalid",
+    )
+
+
+@pytest.mark.parametrize(
+    "description", ["bad\nstate=success", "bad\rstate=success", "bad\r\nstate=success"]
+)
+def test_multiline_description_cannot_override_output_state(
+    tmp_path: Path, description: str
+) -> None:
+    result = gate_summary.SummaryResult(
+        lines=[],
+        state="failure",
+        description=description,
+        cosmetic_failure=False,
+        failure_checks=(),
+        format_failure=False,
+    )
+    path = tmp_path / "output"
+    gate_summary._write_outputs(result, path)
+    # Parse the runner's single-line and delimiter output forms; embedded state is data.
+    lines = iter(path.read_text().splitlines())
+    values = {}
+    for line in lines:
+        if "<<" in line:
+            key, delimiter = line.split("<<", 1)
+            data = []
+            for part in lines:
+                if part == delimiter:
+                    break
+                data.append(part)
+            values[key] = "\n".join(data)
+        else:
+            key, value = line.split("=", 1)
+            values[key] = value
+    assert values["state"] == "failure"
+    assert "state=success" in values["description"]

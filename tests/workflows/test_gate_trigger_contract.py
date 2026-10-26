@@ -41,9 +41,9 @@ def test_gate_trigger_contract(workflow_path: str) -> None:
     assert "ready_for_review" in types, f"{workflow_path}: PRs ready for review must start Gate"
     # Catch extras (e.g. edited) after required-type checks so regressions keep
     # their specific diagnostics.
-    assert list(types) == list(
-        ALLOWED_PULL_REQUEST_TYPES
-    ), f"{workflow_path}: unexpected pull_request types {types!r}"
+    assert list(types) == list(ALLOWED_PULL_REQUEST_TYPES), (
+        f"{workflow_path}: unexpected pull_request types {types!r}"
+    )
     assert workflow["concurrency"]["cancel-in-progress"] == (
         "${{ github.event_name != 'workflow_dispatch' }}"
     ), f"{workflow_path}: new commits must still supersede in-flight runs"
@@ -102,8 +102,9 @@ def test_dispatch_retains_pr_context_and_queues(workflow_path: str) -> None:
         "${{ github.event_name != 'workflow_dispatch' }}"
     )
     for name in ("issue-consistency", "test-quality"):
-        assert "fromJSON(needs.resolve-pr.outputs.pull_request).number" in (
-            workflow["jobs"][name]["if"]
+        assert (
+            "fromJSON(needs.resolve-pr.outputs.pull_request).number"
+            in (workflow["jobs"][name]["if"])
         ), f"{workflow_path}: {name} must run for PR dispatches too"
     for name, job in workflow["jobs"].items():
         if name == "resolve-pr":
@@ -435,3 +436,29 @@ const execute = new (Object.getPrototypeOf(async function(){}).constructor)(
         "__RESOLVER_VALUE__", json.dumps(resolver_result)
     )
     subprocess.run(["node", "-e", harness], check=True, capture_output=True, text=True)
+
+
+@pytest.mark.parametrize("workflow_path", GATE_FILES)
+def test_gate_enforcement_treats_description_as_data(workflow_path: str, tmp_path: Path) -> None:
+    import os
+    import subprocess
+
+    workflow = yaml.safe_load((ROOT / workflow_path).read_text(encoding="utf-8"))
+    steps = [step for job in workflow["jobs"].values() for step in job.get("steps", [])]
+    step = next(step for step in steps if step.get("name") == "Enforce explicit Gate success")
+    assert step["env"]["GATE_SUMMARY_DESCRIPTION"] == (
+        "${{ steps.summarize.outputs.description || steps.docs_only.outputs.description }}"
+    )
+    assert "${{" not in step["run"]
+    sentinel = tmp_path / "injected"
+    payload = f'$(touch "{sentinel}") `touch "{sentinel}"`\nstate=success'
+    completed = subprocess.run(
+        ["bash", "-e", "-c", step["run"]],
+        text=True,
+        capture_output=True,
+        env={**os.environ, "GATE_SUMMARY_DESCRIPTION": payload},
+        check=False,
+    )
+    assert completed.returncode == 1
+    assert payload in completed.stderr
+    assert not sentinel.exists()
