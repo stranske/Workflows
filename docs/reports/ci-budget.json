@@ -9,7 +9,7 @@
     "issue_numbers": [
       1189
     ],
-    "issue_updated_on": "2026-10-25",
+    "issue_updated_on": "2026-10-26",
     "longest_job": {
       "minutes": 24.633333333333333,
       "name": "Python CI / python 3.14",
@@ -163,8 +163,14 @@
   "stranske/Orchestrator": {
     "distance": 0.5341666666666667,
     "drainable_in": 7,
+    "filed_under_24h": true,
+    "filing_latency_hours": 0.6380555555555556,
     "first_over_target_at": "2026-10-26T11:48:48+00:00",
-    "issue_numbers": [],
+    "issue_filed_at": "2026-10-26T12:27:05Z",
+    "issue_numbers": [
+      969
+    ],
+    "issue_updated_on": "2026-10-26",
     "longest_job": {
       "minutes": 28.4,
       "name": "python ci / python 3.12",
@@ -303,7 +309,7 @@
     "issue_numbers": [
       6124
     ],
-    "issue_updated_on": "2026-10-25",
+    "issue_updated_on": "2026-10-26",
     "longest_job": {
       "minutes": 11.416666666666666,
       "name": "Python CI / python 3.13",
