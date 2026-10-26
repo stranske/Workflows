@@ -146,9 +146,9 @@ async function correctionHistory({transport,request,since}) {
       const name=artifactName('admitted',run.id,attempt),found=inventory.filter(row=>row.name===name);
       need(found.length<=1,'Ambiguous admitted correction artifacts');
       if(!found.length) {
-        await transport.canonicalRun(run.id,attempt,SPECS.admitted.workflow);
+        const selectedAttempt=await transport.canonicalRun(run.id,attempt,SPECS.admitted.workflow);
         const jobs=await transport.jobs(run.id,attempt),effect=jobs.filter(job=>job.name===SPECS.ledger.job);
-        need(run.status==='completed' && effect.length===1 && effect[0].status==='completed' && effect[0].conclusion==='skipped',
+        need(selectedAttempt.status==='completed' && effect.length===1 && effect[0].status==='completed' && effect[0].conclusion==='skipped',
           'Prior correction execution has no complete non-effect evidence; UNKNOWN');
         continue;
       }
@@ -164,8 +164,9 @@ async function correctionHistory({transport,request,since}) {
       const prefix=`verifier-correction-ledger-${run.id}-${attempt}-`;
       const journals=inventory.filter(row=>row.name.startsWith(prefix));
       if(!journals.length && !(transport.current?.run_id===run.id && transport.current?.run_attempt===attempt)) {
+        const selectedAttempt=await transport.canonicalRun(run.id,attempt,SPECS.admitted.workflow);
         const jobs=await transport.jobs(run.id,attempt),effect=jobs.filter(job=>job.name===SPECS.ledger.job);
-        need(run.status==='completed' && effect.length===1 && effect[0].status==='completed' && effect[0].conclusion==='skipped',
+        need(selectedAttempt.status==='completed' && effect.length===1 && effect[0].status==='completed' && effect[0].conclusion==='skipped',
           'Prior admitted effect has missing checkpoints without positive non-effect proof; UNKNOWN');
       }
       for(const artifact of journals) {

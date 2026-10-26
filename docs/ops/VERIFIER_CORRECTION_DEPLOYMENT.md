@@ -71,8 +71,9 @@ source closure or permission to replace the original issue body.
 Required causal order:
 
 1. Authenticate the existing seed/request and fresh lane/owner gates.
-2. Enroll an existing incumbent's native identity and effect key with conditional
-   write and confirmed readback **before** any effect intent.
+2. Enroll the authenticated source PR/linked source issue and any existing
+   incumbent's native identity under the effect key, with conditional write and
+   confirmed readback **before** any effect intent.
 3. For no-incumbent creation, retain an unresolved-creation fence **before** POST.
    A lost creation response has no known issue ID. It must not disappear from the
    index or permit a new create. Retain that conservative fence until native
@@ -90,6 +91,13 @@ invalid or incomplete state, unresolved applicable creation, revision conflicts,
 lost write acknowledgements and missing expected membership remain UNKNOWN.
 A genuine unknown new-issue creation can conservatively hold multiple possible
 new subjects; the index cannot invent an exact issue identity to avoid that cost.
+Fresh native issue identity and a strictly earlier native issue creation time
+can exclude that issue from being the unknown new issue created by this specific
+POST. This proves only that narrow exclusion, not absence of other correction
+obligations. An older PR can later be associated with a newly created issue; its
+creation time alone cannot exclude inherited scope. Caller clocks, labels or body
+text cannot provide an exclusion. Source/incumbent enrollment and other applicable
+unknown stages remain independently binding.
 
 Two problems must be solved before claiming safe activation:
 

@@ -235,7 +235,7 @@ function withBudgetAlias(f,value) {
  const proof={repository:original.repository,run_id:701,run_attempt:1,artifact_id:9001,archive_sha256:sha(bytes),member_sha256:sha(bytes),run_created_at:'2026-10-26T01:00:00Z'};
  return {...original,runs:async(...args)=>[...await original.runs(...args),{id:701,run_attempt:1,status:'completed'}],
   artifacts:async id=>id===701?[{id:9001,name,expired:false}]:original.artifacts(id),
-  canonicalRun:async(id,...args)=>id===701?{head_sha:'a'.repeat(40)}:original.canonicalRun(id,...args),
+  canonicalRun:async(id,...args)=>id===701?{id:701,run_attempt:1,status:'completed',head_sha:'a'.repeat(40)}:original.canonicalRun(id,...args),
   jobs:async id=>id===701?[{name:SPECS.ledger.job,run_id:701,run_attempt:1,head_sha:'a'.repeat(40),status:'completed',conclusion:'skipped'}]:original.jobs(id),
   load:async(selector,...args)=>selector.run_id===701?{bytes,proof}:original.load(selector,...args)};
 }

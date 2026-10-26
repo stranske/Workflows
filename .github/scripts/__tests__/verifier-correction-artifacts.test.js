@@ -149,3 +149,41 @@ test('private active stage is minted only by exact append/readback in this invoc
  f.state.metadata.find(row=>row.name.includes('-ledger-')).expired=true;
  await assert.rejects(ledger.activeStage({record}));
 });
+
+// A run-list row describes the latest attempt. These native API fixtures keep
+// that latest rerun active while independently authenticating attempt 1.
+async function rerunHistoryFixture(t,{retainedPrior=false,priorStatus='completed',priorEffect='skipped'}={}) {
+ const f=await admitted(t);f.state.run.status='in_progress';
+ const collect=structuredClone(f.state.jobs.find(job=>job.name==='collect-correction'));
+ Object.assign(collect,{id:80,run_attempt:1,status:'completed',conclusion:'success'});
+ const effect={id:79,name:'Apply admitted correction',run_id:700,run_attempt:1,head_sha:f.state.run.head_sha,
+  status:'completed',conclusion:priorEffect,steps:[]};
+ f.github.rest.actions.getWorkflowRunAttempt=async args=>({data:{...f.state.run,run_attempt:args.attempt_number,
+  status:args.attempt_number===1?priorStatus:'in_progress',conclusion:args.attempt_number===1?(priorEffect==='failure'?'failure':'success'):null}});
+ const originalJobs=f.github.rest.actions.listJobsForWorkflowRunAttempt;
+ f.github.rest.actions.listJobsForWorkflowRunAttempt=async args=>args.attempt_number===1
+  ?{data:{total_count:2,jobs:[collect,effect]}}:originalJobs(args);
+ if(retainedPrior) {
+  const context=structuredClone(f.context);context.collector.run_attempt=1;
+  const {context_sha256,...payload}=context;context.context_sha256=digest(payload);
+  const archive=zip('correction-admitted.json',Buffer.from(JSON.stringify(context)));
+  f.state.metadata.push({id:99,name:artifactName('admitted',700,1),expired:false,size_in_bytes:archive.length,digest:`sha256:${sha(archive)}`,
+   created_at:'2026-10-26T00:01:00Z',workflow_run:{id:700,head_sha:f.state.run.head_sha,repository_id:1,head_repository_id:1}});
+  f.state.archives.set(99,archive);
+ }
+ return f;
+}
+const historyImplementations=[['operational',correctionHistory],['managed template',require('../../../templates/consumer-repo/.github/scripts/verifier_correction_artifacts').correctionHistory]];
+for(const [surface,history] of historyImplementations)for(const retainedPrior of [false,true]) {
+ test(`${surface}: completed skipped prior attempt ${retainedPrior?'with admitted context and no journal':'without admitted context'} is independent of active latest rerun`,async t=>{
+  const f=await rerunHistoryFixture(t,{retainedPrior}),result=await history({transport:f.io,request:f.request,since:'2026-10-26T00:00:00Z'});
+  assert.equal(f.state.run.status,'in_progress');assert.deepEqual(result.snapshots,[]);
+  assert.deepEqual(result.contexts.map(row=>row.proof.run_attempt),retainedPrior?[1,2]:[2]);
+ });
+ test(`${surface}: incomplete or non-skipped prior attempt ${retainedPrior?'with missing journal':'with missing admission'} remains UNKNOWN`,async t=>{
+  for(const selected of [{priorStatus:'in_progress',priorEffect:'skipped'},{priorStatus:'completed',priorEffect:'failure'},{priorStatus:'completed',priorEffect:'success'}]) {
+   const f=await rerunHistoryFixture(t,{retainedPrior,...selected});
+   await assert.rejects(history({transport:f.io,request:f.request,since:'2026-10-26T00:00:00Z'}),/UNKNOWN/);
+  }
+ });
+}
