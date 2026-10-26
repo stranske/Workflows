@@ -435,3 +435,29 @@ const execute = new (Object.getPrototypeOf(async function(){}).constructor)(
         "__RESOLVER_VALUE__", json.dumps(resolver_result)
     )
     subprocess.run(["node", "-e", harness], check=True, capture_output=True, text=True)
+
+
+@pytest.mark.parametrize("workflow_path", GATE_FILES)
+def test_gate_enforcement_treats_description_as_data(workflow_path: str, tmp_path: Path) -> None:
+    import os
+    import subprocess
+
+    workflow = yaml.safe_load((ROOT / workflow_path).read_text(encoding="utf-8"))
+    steps = [step for job in workflow["jobs"].values() for step in job.get("steps", [])]
+    step = next(step for step in steps if step.get("name") == "Enforce explicit Gate success")
+    assert step["env"]["GATE_SUMMARY_DESCRIPTION"] == (
+        "${{ steps.summarize.outputs.description || steps.docs_only.outputs.description }}"
+    )
+    assert "${{" not in step["run"]
+    sentinel = tmp_path / "injected"
+    payload = f'$(touch "{sentinel}") `touch "{sentinel}"`\nstate=success'
+    completed = subprocess.run(
+        ["bash", "-e", "-c", step["run"]],
+        text=True,
+        capture_output=True,
+        env={**os.environ, "GATE_SUMMARY_DESCRIPTION": payload},
+        check=False,
+    )
+    assert completed.returncode == 1
+    assert payload in completed.stderr
+    assert not sentinel.exists()

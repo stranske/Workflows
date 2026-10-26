@@ -585,7 +585,7 @@ scripts:
     description: "Emits autofix report - required by reusable-18-autofix.yml"
 
   - source: .github/scripts/gate_summary.py
-    description: "Gate summary renderer - generates PR gate check summary"
+    description: "Gate summary renderer - shared and consumer copies isolate untrusted diagnostics"
 
   - source: .github/scripts/should-post-review.js
     description: "Evaluates whether a progress review comment should be posted"

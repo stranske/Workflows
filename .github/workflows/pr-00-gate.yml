@@ -1563,7 +1563,8 @@ jobs:
 
       - name: Enforce explicit Gate success
         if: ${{ (steps.summarize.outputs.state || steps.docs_only.outputs.state) != 'success' }}
+        env:
+          GATE_SUMMARY_DESCRIPTION: ${{ steps.summarize.outputs.description || steps.docs_only.outputs.description }}
         run: |
-          echo "Gate did not report explicit success: " \
-            "${{ steps.summarize.outputs.description || steps.docs_only.outputs.description }}" >&2
+          printf '%s\n' "Gate did not report explicit success: ${GATE_SUMMARY_DESCRIPTION}" >&2
           exit 1

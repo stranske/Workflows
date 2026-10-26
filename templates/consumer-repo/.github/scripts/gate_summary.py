@@ -4,6 +4,7 @@ import json
 import os
 import re
 import sys
+import uuid
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -88,8 +89,15 @@ def _delivery_seal_from_event(event_path: Path | None) -> tuple[bool, bool, str]
         return True, False, "invalid delivery schema"
     if record.get("terminal_disposition"):
         return True, False, "terminal delivery record"
-    if record.get("delivery_state") != "sealed":
-        return True, False, f"delivery state is {record.get('delivery_state') or 'missing'}"
+    delivery_state = record.get("delivery_state")
+    if delivery_state != "sealed":
+        # PR-body data must never become an output-file instruction or shell source.
+        reason = (
+            f"delivery state is {delivery_state}"
+            if isinstance(delivery_state, str) and delivery_state in {"staging", "reviewing"}
+            else "delivery state is missing or invalid"
+        )
+        return True, False, reason
     if not head_sha or record.get("sealed_head_sha") != head_sha:
         return True, False, "sealed head does not match the PR head"
     repository = base_repository
@@ -548,7 +556,14 @@ def _write_outputs(result: SummaryResult, output_path: Path | None) -> None:
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with output_path.open("a", encoding="utf-8") as handle:
         handle.write(f"state={result.state}\n")
-        handle.write(f"description={result.description}\n")
+        description = result.description
+        if "\n" in description or "\r" in description:
+            delimiter = f"gate_description_{uuid.uuid4().hex}"
+            while delimiter in description:
+                delimiter = f"gate_description_{uuid.uuid4().hex}"
+            handle.write(f"description<<{delimiter}\n{description}\n{delimiter}\n")
+        else:
+            handle.write(f"description={description}\n")
         handle.write(f"cosmetic_failure={'true' if result.cosmetic_failure else 'false'}\n")
         if result.failure_checks:
             handle.write("failure_checks=" + ",".join(result.failure_checks) + "\n")
