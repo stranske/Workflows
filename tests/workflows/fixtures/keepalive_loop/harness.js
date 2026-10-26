@@ -27,7 +27,10 @@ function buildMockGithub({ pr, gateConclusion, runId, jobs, logs, rateLimit }) {
         get: async () => ({ data: pr }),
       },
       actions: {
-        listWorkflowRuns: async () => ({
+        listWorkflowRuns: async (args = {}) => args.workflow_id === 'agents-verify-to-new-pr.yml'
+          && args.event === 'workflow_dispatch'
+          ? { data: { total_count: 0, workflow_runs: [] } }
+          : ({
           data: {
             workflow_runs: [
               {
@@ -75,6 +78,8 @@ async function main() {
 
   const prNumber = Number(scenario.pr_number) || 101;
   const pr = {
+    id: 100000 + prNumber,
+    node_id: `PR_rate_limit_fixture_${prNumber}`,
     number: prNumber,
     head: {
       ref: scenario.pr_ref || 'feature/keepalive-rate-limit',
@@ -103,6 +108,8 @@ async function main() {
 
   const github = buildMockGithub({ pr, gateConclusion, runId, jobs, logs, rateLimit });
   const context = {
+    runId: runId + 1000,
+    runAttempt: 1,
     repo: { owner: 'octo-org', repo: 'octo-repo' },
     eventName: 'pull_request',
     payload: { pull_request: { number: prNumber } },
