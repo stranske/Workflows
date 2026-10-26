@@ -219,3 +219,62 @@ testSource('authored effect-host construction uncertainty emits UNKNOWN without 
 });
 
 }
+
+const autopilotSurfaces=['.github/workflows/agents-auto-pilot.yml','templates/consumer-repo/.github/workflows/agents-auto-pilot.yml'];
+for(const surface of autopilotSurfaces)test(`${surface}: Determine context consumes issue_number as payload data, preserving numeric legacy input`,async()=>{
+ const row=step(read(surface),'Determine context'),code=script(row);
+ assert.ok(code.includes('context.payload.inputs?.issue_number'));
+ assert.doesNotMatch(code,/\$\{\{\s*inputs\.issue_number\s*\}\}/);
+ for(const [input,expected] of [['9',9],["9'); throw new Error('CALLER_TEXT_EXECUTED'); //",9],["'); throw new Error('CALLER_TEXT_EXECUTED'); //",null]]) {
+  const calls=[],failures=[],core=coreFixture();core.setFailed=value=>failures.push(value);
+  const github={rest:{issues:{get:async args=>{calls.push(args);return {data:{number:9,title:'Native ordinary issue',state:'open',body:'Original issue body',labels:[{name:'agents:auto-pilot-pause'}]}};}}}};
+  const inertRequire=name=>{
+   if(name.endsWith('/github-api-with-retry.js'))return {createTokenAwareRetry:async()=>({withRetry:fn=>fn(github),paginateWithRetry:async()=>[]})};
+   if(name==='path')return path;
+   if(name.endsWith('/verifier_correction_artifacts'))return {createArtifactTransport:async()=>({})};
+   if(name.endsWith('/verifier_correction_runtime'))return {resolveCodingScope:async({issueNumber})=>{assert.equal(issueNumber,9);return null;}};
+   throw Error(`Unexpected context dependency ${name}`);
+  };
+  await run(row,inertRequire,{github,core,env:{WORKFLOWS_SCRIPTS_PATH:'/inert/trusted',GITHUB_RUN_ATTEMPT:'1'},
+   context:{eventName:'workflow_dispatch',payload:{inputs:{issue_number:input}},runId:900,repo:{owner:'stranske',repo:'example'}}});
+  if(expected===null){assert.equal(calls.length,0);assert.deepEqual(failures,['Could not determine issue number']);}
+  else {assert.equal(calls.length,1);assert.equal(calls[0].issue_number,expected);assert.equal(core.outputs.should_continue,'false');assert.equal(core.outputs.reason,'paused');assert.deepEqual(failures,[]);}
+ }
+});
+
+const sdkDirectory='.github/scripts/verifier_correction_artifact_sdk';
+test('correction SDK package and full portable registry lock bind exact artifact version and immutable integrity',()=>{
+ const pkg=JSON.parse(read(`${sdkDirectory}/package.json`)),lock=JSON.parse(read(`${sdkDirectory}/package-lock.json`));
+ assert.equal(pkg.private,true);assert.deepEqual(pkg.dependencies,{'@actions/artifact':'6.3.1'});assert.equal(pkg.engines.node,'>=24');
+ assert.equal(lock.lockfileVersion,3);assert.deepEqual(lock.packages[''].dependencies,pkg.dependencies);
+ assert.equal(lock.packages['node_modules/@actions/artifact'].version,'6.3.1');
+ const packages=Object.entries(lock.packages).filter(([name])=>name);
+ assert.ok(packages.length>10,'full transitive lock retained');
+ for(const [name,row] of packages) {
+  assert.ok(name.startsWith('node_modules/'));assert.match(row.resolved,/^https:\/\/registry\.npmjs\.org\/[^\s]+\.tgz$/);
+  assert.match(row.integrity,/^sha512-[A-Za-z0-9+/]+={0,2}$/);assert.equal(Buffer.from(row.integrity.slice(7),'base64').length,64);
+  assert.equal(row.link,undefined);assert.doesNotMatch(JSON.stringify(row),/file:\/|localhost|127\.0\.0\.1|Users\/|\/tmp\//);
+ }
+});
+function runBody(row) {
+ const lines=row.body.split('\n'),at=lines.findIndex(line=>line==='        run: |');assert.ok(at>=0,`shell script ${row.name}`);const result=[];
+ for(const line of lines.slice(at+1)){if(line && !line.startsWith('          '))break;result.push(line.slice(10));}
+ return result.join('\n');
+}
+const sdkSteps=[...followupSurfaces.map(surface=>[surface,'Install existing Actions artifact SDK']),
+ ...autopilotSurfaces.flatMap(surface=>[[surface,'Install correction artifact SDK'],[surface,'Install formatter correlation artifact SDK']])];
+for(const [surface,name] of sdkSteps)test(`${surface}: ${name} executes locked npm ci using both exact retained files`,t=>{
+ const {execFileSync}=require('child_process'),os=require('os'),root=fs.mkdtempSync(path.join(os.tmpdir(),'inert-correction-sdk-test-'));
+ t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
+ const body=runBody(step(read(surface),name)),scriptCommands=body.split('\n').filter(line=>/^\s*npm\b/.test(line));
+ assert.deepEqual(scriptCommands,['npm ci --prefix "$RUNNER_TEMP/correction-sdk" --ignore-scripts --no-audit --no-fund']);
+ assert.doesNotMatch(body,/@actions\/artifact(?:@|\s)|npm\s+(?:install|i\b|exec)|npx\b/);
+ const source=path.join(root,surface.includes('auto-pilot')?'workflows-lib':'.',sdkDirectory);fs.mkdirSync(source,{recursive:true});
+ for(const file of ['package.json','package-lock.json'])fs.copyFileSync(path.join(ROOT,sdkDirectory,file),path.join(source,file));
+ const bin=path.join(root,'inert-bin');fs.mkdirSync(bin);const trace=path.join(root,'npm-argv.json');
+ fs.writeFileSync(path.join(bin,'npm'),'#!/bin/sh\nprintf "%s\\n" "$@" > "$INERT_NPM_TRACE"\n',{mode:0o755});
+ const runnerTemp=path.join(root,'runner-temp');
+ execFileSync('/bin/bash',['--noprofile','--norc','-e','-u','-o','pipefail','-c',body],{cwd:root,env:{HOME:root,BASH_ENV:'/dev/null',ENV:'/dev/null',PATH:`${bin}:/usr/bin:/bin`,RUNNER_TEMP:runnerTemp,INERT_NPM_TRACE:trace}});
+ assert.deepEqual(fs.readFileSync(trace,'utf8').trim().split('\n'),['ci','--prefix',path.join(runnerTemp,'correction-sdk'),'--ignore-scripts','--no-audit','--no-fund']);
+ for(const file of ['package.json','package-lock.json'])assert.deepEqual(fs.readFileSync(path.join(runnerTemp,'correction-sdk',file)),fs.readFileSync(path.join(ROOT,sdkDirectory,file)));
+});

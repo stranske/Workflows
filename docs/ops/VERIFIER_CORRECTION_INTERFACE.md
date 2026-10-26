@@ -184,7 +184,13 @@ and first-request limits are required. Missing/deleted historical checkpoints
 remain UNKNOWN unless the exact historical effect job was positively skipped;
 expiry, forks, duplicates and upload uncertainty cannot imply absence. These
 artifacts require the authenticated PR concurrency host integration; they are not
-a new store or a cross-workflow lock. The source effect job shares the original
+a new store or a cross-workflow lock. The existing official Actions artifact SDK
+is installed only on the admitted correction branches using its private checked-in
+package manifest and full integrity lock with install scripts disabled. The exact
+runtime module/export was checked after a cold offline install; no SDK method or
+GitHub effect was invoked. The operational Auto workflow retains its original
+Workflows-only PR-meta/keepalive fallbacks, while the consumer keeps its consolidated
+entry points. Shared correction hunks do not erase that existing routing difference. The source effect job shares the original
 repository/PR concurrency group. Its fresh native collector includes all relevant
 nonterminal Actions states; missing assignment/queue evidence remains owned UNKNOWN.
 A native assignee event and versioned strict cross-reference content projection bind

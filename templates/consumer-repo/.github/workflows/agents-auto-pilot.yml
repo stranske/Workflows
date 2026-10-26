@@ -357,7 +357,7 @@ jobs:
 
             // Get issue number from various sources (in priority order)
             if (context.eventName === 'workflow_dispatch') {
-              issueNumber = parseInt('${{ inputs.issue_number }}');
+              issueNumber = parseInt(context.payload.inputs?.issue_number || '', 10);
             } else if (context.payload.issue) {
               issueNumber = context.payload.issue.number;
               issue = context.payload.issue;
@@ -775,9 +775,11 @@ jobs:
           inputs.correction_selector != '' && steps.context.outputs.should_continue == 'true' &&
           steps.cycles.outputs.exceeded == 'false' && steps.cycles.outputs.rate_limited == 'false' &&
           steps.next.outputs.next_step != '' && steps.next.outputs.next_step != 'done'
-        run: >-
-          npm install --prefix "$RUNNER_TEMP/correction-sdk" --ignore-scripts
-          --no-package-lock --no-audit --no-fund --no-save @actions/artifact@6.3.1
+        run: |
+          mkdir -p "$RUNNER_TEMP/correction-sdk"
+          cp workflows-lib/.github/scripts/verifier_correction_artifact_sdk/package.json \
+            workflows-lib/.github/scripts/verifier_correction_artifact_sdk/package-lock.json "$RUNNER_TEMP/correction-sdk/"
+          npm ci --prefix "$RUNNER_TEMP/correction-sdk" --ignore-scripts --no-audit --no-fund
 
       - name: Record admitted correction start
         id: correction_start
@@ -4268,11 +4270,18 @@ jobs:
             .github/scripts
             scripts/langchain
           sparse-checkout-cone-mode: false
+      - name: Set up formatter correlation Node
+        if: needs.auto-pilot.outputs.correction_selector != ''
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: '24'
       - name: Install formatter correlation artifact SDK
         if: needs.auto-pilot.outputs.correction_selector != ''
-        run: >-
-          npm install --prefix "$RUNNER_TEMP/correction-sdk" --ignore-scripts
-          --no-package-lock --no-audit --no-fund --no-save @actions/artifact@6.3.1
+        run: |
+          mkdir -p "$RUNNER_TEMP/correction-sdk"
+          cp workflows-lib/.github/scripts/verifier_correction_artifact_sdk/package.json \
+            workflows-lib/.github/scripts/verifier_correction_artifact_sdk/package-lock.json "$RUNNER_TEMP/correction-sdk/"
+          npm ci --prefix "$RUNNER_TEMP/correction-sdk" --ignore-scripts --no-audit --no-fund
 
       - name: Clear pause and redispatch format step
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9

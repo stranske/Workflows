@@ -632,6 +632,14 @@ scripts:
     description: "Wires native correction consumer/reconciliation and mandatory coding scope into existing lanes; missing classifier provenance, current qualification or explicit coding budget stays held"
     delivery: copy
 
+  - source: .github/scripts/verifier_correction_artifact_sdk/package.json
+    description: "Pinned package manifest for the existing official Actions artifact SDK used only by admitted correction checkpoints"
+    delivery: copy
+
+  - source: .github/scripts/verifier_correction_artifact_sdk/package-lock.json
+    description: "Frozen integrity-checked transitive dependency lock for correction artifact checkpoint transport; installed with scripts disabled"
+    delivery: copy
+
   - source: .github/scripts/verifier_correction_artifacts.js
     description: "Authenticates canonical correction run/attempt artifacts and exact checkpoint readback; uses the existing immutable follow-up NDJSON transport under authenticated PR concurrency"
     delivery: copy
