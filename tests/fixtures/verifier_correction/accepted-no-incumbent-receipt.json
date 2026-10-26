@@ -1,0 +1,101 @@
+{
+  "schema": "closer-correction-receipt/v1",
+  "request_sha256": "b31d7758a473fbc502048075b98a0661f41f06e97233f652a753ef2ba0a4326b",
+  "request": {
+    "schema": "closer-correction-request/v1",
+    "target": {
+      "repository": "stranske/example",
+      "pr": "7",
+      "head_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "base_sha": "cccccccccccccccccccccccccccccccccccccccc",
+      "merge_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    },
+    "source_issue": {
+      "number": "1",
+      "node_id": "I_1",
+      "body_sha256": "e0298894893be5f7d8a0bda03a4bbac49663d1e2ae970a39f4538e6d0621093c"
+    },
+    "original_verifier": {
+      "verification_event": {
+        "schema": "verification-event/v1",
+        "repo": "stranske/example",
+        "pr": "7",
+        "head_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "evaluated_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "request_sha256": "10249b5312bd7c839ab6283260b004f4ab79c3f1694ae859de53ada2b5283386",
+        "material_sha256": "0bd95865a12b37ee4341205b71b60bbfa0ac9f5475fec52809ea822aa9811e64",
+        "event_id": "85e29871498bb7949747490dd3e2262d5ca0b350b1c3ef05c0d43b4268030f00"
+      },
+      "run_id": "100",
+      "run_attempt": "2",
+      "comment_id": "43",
+      "comment_sha256": "280f386478bddfb0ef197f979ec031934dbd5a5c0403def18babb1f85b5fc663",
+      "decision_sha256": "f01b62dfba1b590d218dbe3a7c8d26d587d9c1807b61d07798afa048c5c0dd6b"
+    },
+    "finding": {
+      "id": "finding-1",
+      "evidence": {
+        "ref": "evaluation.json#/concerns/0",
+        "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+      }
+    },
+    "required_tests": [
+      {
+        "kind": "required_test_spec",
+        "id": "test-1",
+        "finding_id": "finding-1",
+        "specification": "Assert rejected input leaves the existing issue unchanged.",
+        "source_evidence": {
+          "ref": "evaluation.json#/concerns/0",
+          "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+        }
+      }
+    ],
+    "incumbent": {
+      "kind": "no_incumbent"
+    },
+    "original_operation": {
+      "hold_id": "hold",
+      "run_id": "original-run",
+      "operation_id": "operation",
+      "idempotency_key": "exact-once",
+      "deadline": "2030-01-01T00:00:00Z",
+      "attempt_budget": 1,
+      "escalation_owner": "owner"
+    },
+    "scope": "substantive_implementation",
+    "request_sha256": "b31d7758a473fbc502048075b98a0661f41f06e97233f652a753ef2ba0a4326b"
+  },
+  "consumer": {
+    "run_id": "900",
+    "run_attempt": "1"
+  },
+  "effect_state": "accepted_with_exact_issue_and_actual_autopilot_run_attempt",
+  "reason": "inert_fixture_actual_run_receipt",
+  "issue": {
+    "number": "9",
+    "node_id": "I_9",
+    "body_sha256": "15effd21ce3b611b5283262bbc3f1a0a133c5b9ef842e5826524593529c9d338"
+  },
+  "continuation": {
+    "workflow": "agents-auto-pilot.yml",
+    "run_id": "902",
+    "run_attempt": "3",
+    "request_sha256": "b31d7758a473fbc502048075b98a0661f41f06e97233f652a753ef2ba0a4326b",
+    "issue_node_id": "I_9"
+  },
+  "ownership": {
+    "schema": "closer-correction-ownership/v1",
+    "kind": "no_incumbent",
+    "seed_effect_key": "75c32346f326ac0e4dd29e56e2be0ffd0b634f235adde55bfd115a2b319d028e",
+    "source_scope_digest": "a02204f4b3e32f9d5b67a8d6c38f19ff63b56a800f028da72e9dffcd77c570d6",
+    "observed_at": "2026-10-26T00:00:00Z",
+    "evidence_refs": [
+      "inert:complete-github-and-ledger-fixture"
+    ]
+  },
+  "retry_authorized": false,
+  "act_authorized": false,
+  "source_closure_authorized": false,
+  "receipt_sha256": "50dc1de9aa1f373cc7f80f876c6b77f5ddfe58bf2876aba2e8cee3a39abd5745"
+}
