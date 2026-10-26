@@ -1241,7 +1241,12 @@ parallel. An explicit `python-version` remains a single-runtime override, includ
 3.12; a nonempty `python-versions` array still takes precedence. The primary artifact
 runtime defaults to shared `CI_PYTHON_VERSION` when selected, otherwise the first
 selected runtime. Gate requests coverage on 3.14 only through
-`coverage-python-version`; both runtimes retain identical test selection. `pytest-workers` accepts `auto`
+`coverage-python-version`; both runtimes retain identical test selection. Consumers should set
+`coverage-python-version` equal to `primary-python-version`, and `COVERAGE_REFERENCE_RUNTIME` in the Gate
+coverage stats step must match that same runtime. The non-reference leg (for example Python 3.13 when
+3.14 is primary) still runs the full test matrix but without coverage instrumentation. Measured on the
+Workflows repo (748 tests, four workers, 2026-10-25), enabling branch coverage on a second runtime added
+36% wall time on Python 3.13 and 0% on 3.14 versus single-runtime coverage. `pytest-workers` accepts `auto`
 (the backward-compatible reusable default) or a positive integer; the first-party
 Gate and new Gate template request `4`.
 
