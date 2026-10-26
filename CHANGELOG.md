@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.44.26](https://github.com/stranske/Workflows/compare/v1.44.25...v1.44.26) (2026-10-26)
+
+
+### Bug Fixes
+
+* **gate:** isolate summary inputs and handle nullable origins ([#4259](https://github.com/stranske/Workflows/issues/4259)) ([67829b6](https://github.com/stranske/Workflows/commit/67829b6145644352661b56f5251344cf952d0a64))
+* **gate:** isolate untrusted failure diagnostics ([#4263](https://github.com/stranske/Workflows/issues/4263)) ([f0a2ed5](https://github.com/stranske/Workflows/commit/f0a2ed5934557d07d27123b53c98bd96c5bc95c7))
+
 ## [1.44.25](https://github.com/stranske/Workflows/compare/v1.44.24...v1.44.25) (2026-10-26)
 
 
