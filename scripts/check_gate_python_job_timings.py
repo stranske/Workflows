@@ -5,6 +5,11 @@ Issue #4260 acceptance: across the N latest successful Workflows Gate pull_reque
 runs, ``python ci / python 3.13`` and ``python ci / python 3.14`` must each finish
 in at most ``max-seconds`` (default 600 = 10 minutes).
 
+Reports also include the Pytest step wall-clock when GitHub job steps are present,
+so Hosted confirmation can separate suite time from setup overhead. Optional
+``--created-after`` bounds the successful-PR window for dated acceptance reads
+(e.g. 2026-11-15).
+
 Pure evaluation helpers are unit-tested; live GitHub reads go through the shared
 api_client wrapper (via workflow_startup_failure_diagnostic._gh_api).
 """
@@ -16,8 +21,9 @@ import json
 import os
 import subprocess
 import sys
-from collections.abc import Callable
-from datetime import datetime
+from collections.abc import Callable, Mapping
+from dataclasses import dataclass
+from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any
 
@@ -36,8 +42,17 @@ TARGET_JOB_NAMES = (
     "python ci / python 3.13",
     "python ci / python 3.14",
 )
+PYTEST_STEP_PREFIX = "Pytest (unit tests"
 
 JsonGetter = Callable[[str, str], dict[str, Any]]
+
+
+@dataclass(frozen=True)
+class JobTiming:
+    """Wall-clock job duration plus optional Pytest step duration."""
+
+    job_seconds: float
+    pytest_step_seconds: float | None = None
 
 
 def _github_token() -> str:
@@ -60,6 +75,25 @@ def parse_github_timestamp(value: str | None) -> datetime | None:
         return None
 
 
+def parse_created_after(value: str) -> datetime:
+    """Parse ``YYYY-MM-DD`` or an ISO-8601 timestamp into an aware UTC datetime."""
+    text = value.strip()
+    if not text:
+        raise ValueError("created-after must be a non-empty date or timestamp")
+    if len(text) == 10 and text[4] == "-" and text[7] == "-":
+        try:
+            day = date.fromisoformat(text)
+        except ValueError as exc:
+            raise ValueError(f"Invalid created-after date: {value!r}") from exc
+        return datetime(day.year, day.month, day.day, tzinfo=UTC)
+    parsed = parse_github_timestamp(text)
+    if parsed is None:
+        raise ValueError(f"Invalid created-after timestamp: {value!r}")
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=UTC)
+    return parsed.astimezone(UTC)
+
+
 def job_duration_seconds(job: dict[str, Any]) -> float | None:
     """Return wall-clock seconds for a completed job, or None if timestamps missing."""
     started = parse_github_timestamp(job.get("started_at") if isinstance(job, dict) else None)
@@ -72,9 +106,26 @@ def job_duration_seconds(job: dict[str, Any]) -> float | None:
     return seconds
 
 
-def extract_python_job_durations(jobs: list[Any]) -> dict[str, float]:
-    """Map target python job names to durations found in a jobs payload."""
-    durations: dict[str, float] = {}
+def pytest_step_duration_seconds(job: dict[str, Any]) -> float | None:
+    """Return wall-clock seconds for the Gate Pytest step when step timestamps exist."""
+    if not isinstance(job, dict):
+        return None
+    steps = job.get("steps")
+    if not isinstance(steps, list):
+        return None
+    for step in steps:
+        if not isinstance(step, dict):
+            continue
+        name = str(step.get("name") or "")
+        if not name.startswith(PYTEST_STEP_PREFIX):
+            continue
+        return job_duration_seconds(step)
+    return None
+
+
+def extract_python_job_timings(jobs: list[Any]) -> dict[str, JobTiming]:
+    """Map target python job names to job + Pytest step timings."""
+    timings: dict[str, JobTiming] = {}
     for job in jobs:
         if not isinstance(job, dict):
             continue
@@ -82,9 +133,23 @@ def extract_python_job_durations(jobs: list[Any]) -> dict[str, float]:
         if name not in TARGET_JOB_NAMES:
             continue
         duration = job_duration_seconds(job)
-        if duration is not None:
-            durations[name] = duration
-    return durations
+        if duration is None:
+            continue
+        timings[name] = JobTiming(
+            job_seconds=duration,
+            pytest_step_seconds=pytest_step_duration_seconds(job),
+        )
+    return timings
+
+
+def extract_python_job_durations(jobs: list[Any]) -> dict[str, float]:
+    """Map target python job names to durations found in a jobs payload."""
+    return {name: timing.job_seconds for name, timing in extract_python_job_timings(jobs).items()}
+
+
+def durations_from_timings(timings: Mapping[str, JobTiming]) -> dict[str, float]:
+    """Project ``JobTiming`` maps down to job-only seconds for policy evaluation."""
+    return {name: timing.job_seconds for name, timing in timings.items()}
 
 
 def evaluate_run_timings(
@@ -136,6 +201,7 @@ def list_successful_pr_runs(
     token: str,
     get_json: JsonGetter | None = None,
     event: str = DEFAULT_EVENT,
+    created_after: datetime | None = None,
 ) -> list[dict[str, Any]]:
     """Newest successful workflow runs for ``event``, newest first, capped at ``limit``."""
     if limit < 1:
@@ -149,16 +215,44 @@ def list_successful_pr_runs(
     runs = payload.get("workflow_runs")
     if not isinstance(runs, list):
         raise ValueError(f"Unexpected workflow runs payload for {workflow}")
+    floor = None
+    if created_after is not None:
+        floor = (
+            created_after if created_after.tzinfo is not None else created_after.replace(tzinfo=UTC)
+        )
+        floor = floor.astimezone(UTC)
     selected: list[dict[str, Any]] = []
     for run in runs:
         if not isinstance(run, dict):
             continue
         if str(run.get("conclusion") or "") != "success":
             continue
+        if floor is not None:
+            created = parse_github_timestamp(run.get("created_at"))
+            if created is None:
+                continue
+            if created.astimezone(UTC) < floor:
+                continue
         selected.append(run)
         if len(selected) >= limit:
             break
     return selected
+
+
+def collect_run_python_timings(
+    *,
+    repo: str,
+    run_id: int | str,
+    token: str,
+    get_json: JsonGetter | None = None,
+) -> dict[str, JobTiming]:
+    """Fetch jobs for one run and return target python job timings."""
+    fetch = get_json or _gh_api
+    payload = fetch(f"repos/{repo}/actions/runs/{run_id}/jobs?per_page=100", token)
+    jobs = payload.get("jobs")
+    if not isinstance(jobs, list):
+        raise ValueError(f"Unexpected jobs payload for run {run_id}")
+    return extract_python_job_timings(jobs)
 
 
 def collect_run_python_durations(
@@ -169,12 +263,9 @@ def collect_run_python_durations(
     get_json: JsonGetter | None = None,
 ) -> dict[str, float]:
     """Fetch jobs for one run and return target python job durations."""
-    fetch = get_json or _gh_api
-    payload = fetch(f"repos/{repo}/actions/runs/{run_id}/jobs?per_page=100", token)
-    jobs = payload.get("jobs")
-    if not isinstance(jobs, list):
-        raise ValueError(f"Unexpected jobs payload for run {run_id}")
-    return extract_python_job_durations(jobs)
+    return durations_from_timings(
+        collect_run_python_timings(repo=repo, run_id=run_id, token=token, get_json=get_json)
+    )
 
 
 def collect_policy_sample(
@@ -184,52 +275,64 @@ def collect_policy_sample(
     limit: int = DEFAULT_RUN_LIMIT,
     token: str | None = None,
     get_json: JsonGetter | None = None,
-) -> list[tuple[int | str, dict[str, float]]]:
-    """Build (run_id, durations) pairs for the policy sample window."""
+    created_after: datetime | None = None,
+) -> list[tuple[int | str, dict[str, JobTiming]]]:
+    """Build (run_id, timings) pairs for the policy sample window."""
     auth = token or _github_token()
     fetch = get_json or _gh_api
     runs = list_successful_pr_runs(
-        repo=repo, workflow=workflow, limit=limit, token=auth, get_json=fetch
+        repo=repo,
+        workflow=workflow,
+        limit=limit,
+        token=auth,
+        get_json=fetch,
+        created_after=created_after,
     )
-    sample: list[tuple[int | str, dict[str, float]]] = []
+    sample: list[tuple[int | str, dict[str, JobTiming]]] = []
     for run in runs:
         run_id = run.get("id")
         if run_id is None:
             continue
-        durations = collect_run_python_durations(
-            repo=repo, run_id=run_id, token=auth, get_json=fetch
-        )
-        sample.append((run_id, durations))
+        timings = collect_run_python_timings(repo=repo, run_id=run_id, token=auth, get_json=fetch)
+        sample.append((run_id, timings))
     return sample
 
 
 def build_report(
-    sample: list[tuple[int | str, dict[str, float]]],
+    sample: list[tuple[int | str, dict[str, JobTiming]]],
     *,
     max_seconds: float,
     passed: bool,
     failures: list[str],
     sample_mode: str = "successful_pr_window",
+    created_after: str | None = None,
 ) -> dict[str, Any]:
     """Machine-readable report for evidence / Nov 15 acceptance reads."""
+    policy: dict[str, Any] = {
+        "max_seconds": max_seconds,
+        "required_jobs": list(TARGET_JOB_NAMES),
+        "run_count": len(sample),
+        "sample_mode": sample_mode,
+    }
+    if created_after is not None:
+        policy["created_after"] = created_after
     return {
-        "policy": {
-            "max_seconds": max_seconds,
-            "required_jobs": list(TARGET_JOB_NAMES),
-            "run_count": len(sample),
-            "sample_mode": sample_mode,
-        },
+        "policy": policy,
         "passed": passed,
         "failures": failures,
         "runs": [
             {
                 "run_id": run_id,
                 "jobs": {
-                    name: {"seconds": seconds, "within_policy": seconds <= max_seconds}
-                    for name, seconds in sorted(durations.items())
+                    name: {
+                        "seconds": timing.job_seconds,
+                        "pytest_step_seconds": timing.pytest_step_seconds,
+                        "within_policy": timing.job_seconds <= max_seconds,
+                    }
+                    for name, timing in sorted(timings.items())
                 },
             }
-            for run_id, durations in sample
+            for run_id, timings in sample
         ],
     }
 
@@ -240,19 +343,27 @@ def collect_run_ids_sample(
     run_ids: list[int | str],
     token: str | None = None,
     get_json: JsonGetter | None = None,
-) -> list[tuple[int | str, dict[str, float]]]:
-    """Build (run_id, durations) pairs for explicit Gate run ids (any conclusion)."""
+) -> list[tuple[int | str, dict[str, JobTiming]]]:
+    """Build (run_id, timings) pairs for explicit Gate run ids (any conclusion)."""
     if not run_ids:
         raise ValueError("run_ids must be non-empty")
     auth = token or _github_token()
     fetch = get_json or _gh_api
-    sample: list[tuple[int | str, dict[str, float]]] = []
+    sample: list[tuple[int | str, dict[str, JobTiming]]] = []
     for run_id in run_ids:
-        durations = collect_run_python_durations(
-            repo=repo, run_id=run_id, token=auth, get_json=fetch
-        )
-        sample.append((run_id, durations))
+        timings = collect_run_python_timings(repo=repo, run_id=run_id, token=auth, get_json=fetch)
+        sample.append((run_id, timings))
     return sample
+
+
+def _format_run_line(run_id: int | str, timings: Mapping[str, JobTiming]) -> str:
+    parts: list[str] = []
+    for name, timing in sorted(timings.items()):
+        part = f"{name}={timing.job_seconds:.0f}s"
+        if timing.pytest_step_seconds is not None:
+            part += f" (pytest={timing.pytest_step_seconds:.0f}s)"
+        parts.append(part)
+    return f"run {run_id}: " + (", ".join(parts) if parts else "no target jobs")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -266,6 +377,15 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--workflow", default=DEFAULT_WORKFLOW)
     parser.add_argument("--limit", type=int, default=DEFAULT_RUN_LIMIT)
     parser.add_argument("--max-seconds", type=float, default=DEFAULT_MAX_SECONDS)
+    parser.add_argument(
+        "--created-after",
+        default=None,
+        help=(
+            "Only include successful PR runs created at/after this UTC date "
+            "(YYYY-MM-DD) or ISO-8601 timestamp. Use for dated acceptance reads "
+            "such as 2026-11-15."
+        ),
+    )
     parser.add_argument(
         "--run-id",
         action="append",
@@ -285,35 +405,44 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
+    created_after = parse_created_after(args.created_after) if args.created_after else None
+
     if args.run_ids:
         sample = collect_run_ids_sample(repo=args.repo, run_ids=list(args.run_ids))
         sample_mode = "explicit_run_ids"
     else:
-        sample = collect_policy_sample(repo=args.repo, workflow=args.workflow, limit=args.limit)
+        sample = collect_policy_sample(
+            repo=args.repo,
+            workflow=args.workflow,
+            limit=args.limit,
+            created_after=created_after,
+        )
         sample_mode = "successful_pr_window"
         if len(sample) < args.limit:
+            bound = f" created at/after {args.created_after}" if args.created_after else ""
             print(
-                f"Only found {len(sample)} successful {DEFAULT_EVENT} runs "
+                f"Only found {len(sample)} successful {DEFAULT_EVENT} runs{bound} "
                 f"(needed {args.limit})",
                 file=sys.stderr,
             )
             return 1
 
-    passed, failures = evaluate_policy(sample, max_seconds=args.max_seconds)
+    duration_sample = [(run_id, durations_from_timings(timings)) for run_id, timings in sample]
+    passed, failures = evaluate_policy(duration_sample, max_seconds=args.max_seconds)
     report = build_report(
         sample,
         max_seconds=args.max_seconds,
         passed=passed,
         failures=failures,
         sample_mode=sample_mode,
+        created_after=args.created_after,
     )
     if args.json_out is not None:
         args.json_out.parent.mkdir(parents=True, exist_ok=True)
         args.json_out.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
 
-    for run_id, durations in sample:
-        parts = [f"{name}={seconds:.0f}s" for name, seconds in sorted(durations.items())]
-        print(f"run {run_id}: " + (", ".join(parts) if parts else "no target jobs"))
+    for run_id, timings in sample:
+        print(_format_run_line(run_id, timings))
     if passed:
         label = (
             f"{len(sample)} explicit Gate run(s)"

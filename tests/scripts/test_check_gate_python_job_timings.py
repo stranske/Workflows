@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -36,6 +37,13 @@ def test_extract_python_job_durations_keeps_target_jobs_only() -> None:
             "name": "python ci / python 3.13",
             "started_at": "2026-10-26T10:00:00Z",
             "completed_at": "2026-10-26T10:07:00Z",
+            "steps": [
+                {
+                    "name": "Pytest (unit tests with coverage)",
+                    "started_at": "2026-10-26T10:00:30Z",
+                    "completed_at": "2026-10-26T10:06:30Z",
+                }
+            ],
         },
         {
             "name": "python ci / python 3.14",
@@ -52,6 +60,18 @@ def test_extract_python_job_durations_keeps_target_jobs_only() -> None:
         "python ci / python 3.13": 420.0,
         "python ci / python 3.14": 570.0,
     }
+    detailed = timings.extract_python_job_timings(jobs)
+    assert detailed["python ci / python 3.13"] == timings.JobTiming(420.0, 360.0)
+    assert detailed["python ci / python 3.14"] == timings.JobTiming(570.0, None)
+
+
+def test_parse_created_after_accepts_date_and_timestamp() -> None:
+    assert timings.parse_created_after("2026-11-15") == datetime(2026, 11, 15, tzinfo=UTC)
+    assert timings.parse_created_after("2026-11-15T12:30:00Z") == datetime(
+        2026, 11, 15, 12, 30, tzinfo=UTC
+    )
+    with pytest.raises(ValueError, match="created-after"):
+        timings.parse_created_after("not-a-date")
 
 
 def test_evaluate_run_timings_flags_over_limit_and_missing() -> None:
@@ -120,10 +140,10 @@ def test_evaluate_policy_requires_all_runs_within_limit() -> None:
 def test_list_successful_pr_runs_filters_and_caps(monkeypatch: pytest.MonkeyPatch) -> None:
     payload = {
         "workflow_runs": [
-            {"id": 1, "conclusion": "success"},
-            {"id": 2, "conclusion": "failure"},
-            {"id": 3, "conclusion": "success"},
-            {"id": 4, "conclusion": "success"},
+            {"id": 1, "conclusion": "success", "created_at": "2026-11-16T01:00:00Z"},
+            {"id": 2, "conclusion": "failure", "created_at": "2026-11-16T02:00:00Z"},
+            {"id": 3, "conclusion": "success", "created_at": "2026-11-14T01:00:00Z"},
+            {"id": 4, "conclusion": "success", "created_at": "2026-11-15T00:00:00Z"},
         ]
     }
 
@@ -142,14 +162,24 @@ def test_list_successful_pr_runs_filters_and_caps(monkeypatch: pytest.MonkeyPatc
     )
     assert [run["id"] for run in selected] == [1, 3]
 
+    after = timings.list_successful_pr_runs(
+        repo="stranske/Workflows",
+        workflow="pr-00-gate.yml",
+        limit=5,
+        token="tok",
+        get_json=fake_get,
+        created_after=timings.parse_created_after("2026-11-15"),
+    )
+    assert [run["id"] for run in after] == [1, 4]
+
 
 def test_collect_policy_sample_and_main_pass(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     runs = {
         "workflow_runs": [
-            {"id": 11, "conclusion": "success"},
-            {"id": 12, "conclusion": "success"},
+            {"id": 11, "conclusion": "success", "created_at": "2026-11-15T10:00:00Z"},
+            {"id": 12, "conclusion": "success", "created_at": "2026-11-15T11:00:00Z"},
         ]
     }
     jobs_by_run = {
@@ -159,6 +189,13 @@ def test_collect_policy_sample_and_main_pass(
                     "name": "python ci / python 3.13",
                     "started_at": "2026-10-26T10:00:00Z",
                     "completed_at": "2026-10-26T10:05:00Z",
+                    "steps": [
+                        {
+                            "name": "Pytest (unit tests with coverage)",
+                            "started_at": "2026-10-26T10:00:20Z",
+                            "completed_at": "2026-10-26T10:04:40Z",
+                        }
+                    ],
                 },
                 {
                     "name": "python ci / python 3.14",
@@ -196,9 +233,13 @@ def test_collect_policy_sample_and_main_pass(
 
     sample = timings.collect_policy_sample(limit=2, get_json=fake_get, token="tok")
     assert len(sample) == 2
-    passed, failures = timings.evaluate_policy(sample, max_seconds=600)
+    passed, failures = timings.evaluate_policy(
+        [(run_id, timings.durations_from_timings(job_timings)) for run_id, job_timings in sample],
+        max_seconds=600,
+    )
     assert passed is True
     assert failures == []
+    assert sample[0][1]["python ci / python 3.13"].pytest_step_seconds == 260.0
 
     report_path = tmp_path / "report.json"
     assert (
@@ -208,6 +249,8 @@ def test_collect_policy_sample_and_main_pass(
                 "2",
                 "--max-seconds",
                 "600",
+                "--created-after",
+                "2026-11-15",
                 "--json-out",
                 str(report_path),
             ]
@@ -217,6 +260,8 @@ def test_collect_policy_sample_and_main_pass(
     report = json.loads(report_path.read_text(encoding="utf-8"))
     assert report["passed"] is True
     assert report["policy"]["run_count"] == 2
+    assert report["policy"]["created_after"] == "2026-11-15"
+    assert report["runs"][0]["jobs"]["python ci / python 3.13"]["pytest_step_seconds"] == 260.0
 
 
 def test_main_fails_when_job_over_policy(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -256,6 +301,13 @@ def test_collect_run_ids_sample_and_main_run_id(
                 "name": "python ci / python 3.13",
                 "started_at": "2026-10-26T10:37:58Z",
                 "completed_at": "2026-10-26T10:49:11Z",
+                "steps": [
+                    {
+                        "name": "Pytest (unit tests with coverage)",
+                        "started_at": "2026-10-26T10:38:24Z",
+                        "completed_at": "2026-10-26T10:48:54Z",
+                    }
+                ],
             },
             {
                 "name": "python ci / python 3.14",
@@ -283,8 +335,8 @@ def test_collect_run_ids_sample_and_main_run_id(
         (
             40308833794,
             {
-                "python ci / python 3.13": 673.0,
-                "python ci / python 3.14": 560.0,
+                "python ci / python 3.13": timings.JobTiming(673.0, 630.0),
+                "python ci / python 3.14": timings.JobTiming(560.0, None),
             },
         )
     ]
@@ -307,6 +359,7 @@ def test_collect_run_ids_sample_and_main_run_id(
     assert report["passed"] is False
     assert report["policy"]["sample_mode"] == "explicit_run_ids"
     assert report["failures"] == ["run 40308833794: python ci / python 3.13 took 673s (limit 600s)"]
+    assert report["runs"][0]["jobs"]["python ci / python 3.13"]["pytest_step_seconds"] == 630.0
 
 
 def test_collect_run_ids_sample_requires_ids() -> None:

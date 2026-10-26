@@ -1,0 +1,97 @@
+{
+  "policy": {
+    "max_seconds": 600.0,
+    "required_jobs": [
+      "python ci / python 3.13",
+      "python ci / python 3.14"
+    ],
+    "run_count": 5,
+    "sample_mode": "successful_pr_window"
+  },
+  "passed": false,
+  "failures": [
+    "run 40317065551: python ci / python 3.13 took 664s (limit 600s)",
+    "run 40317065551: python ci / python 3.14 took 766s (limit 600s)",
+    "run 40315641339: python ci / python 3.14 took 690s (limit 600s)",
+    "run 40313060315: python ci / python 3.13 took 675s (limit 600s)",
+    "run 40313060315: python ci / python 3.14 took 755s (limit 600s)",
+    "run 40310472895: python ci / python 3.14 took 735s (limit 600s)"
+  ],
+  "runs": [
+    {
+      "run_id": 40317065551,
+      "jobs": {
+        "python ci / python 3.13": {
+          "seconds": 664.0,
+          "pytest_step_seconds": 633.0,
+          "within_policy": false
+        },
+        "python ci / python 3.14": {
+          "seconds": 766.0,
+          "pytest_step_seconds": 718.0,
+          "within_policy": false
+        }
+      }
+    },
+    {
+      "run_id": 40315641339,
+      "jobs": {
+        "python ci / python 3.13": {
+          "seconds": 527.0,
+          "pytest_step_seconds": 487.0,
+          "within_policy": true
+        },
+        "python ci / python 3.14": {
+          "seconds": 690.0,
+          "pytest_step_seconds": 655.0,
+          "within_policy": false
+        }
+      }
+    },
+    {
+      "run_id": 40313060315,
+      "jobs": {
+        "python ci / python 3.13": {
+          "seconds": 675.0,
+          "pytest_step_seconds": 642.0,
+          "within_policy": false
+        },
+        "python ci / python 3.14": {
+          "seconds": 755.0,
+          "pytest_step_seconds": 726.0,
+          "within_policy": false
+        }
+      }
+    },
+    {
+      "run_id": 40310472895,
+      "jobs": {
+        "python ci / python 3.13": {
+          "seconds": 401.0,
+          "pytest_step_seconds": 375.0,
+          "within_policy": true
+        },
+        "python ci / python 3.14": {
+          "seconds": 735.0,
+          "pytest_step_seconds": 690.0,
+          "within_policy": false
+        }
+      }
+    },
+    {
+      "run_id": 40306641092,
+      "jobs": {
+        "python ci / python 3.13": {
+          "seconds": 412.0,
+          "pytest_step_seconds": 383.0,
+          "within_policy": true
+        },
+        "python ci / python 3.14": {
+          "seconds": 590.0,
+          "pytest_step_seconds": 547.0,
+          "within_policy": true
+        }
+      }
+    }
+  ]
+}

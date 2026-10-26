@@ -13,6 +13,14 @@ python scripts/check_gate_python_job_timings.py --limit 5 --max-seconds 600 \
   --json-out docs/evidence/issue-4260/gate-python-job-timings.json
 ```
 
+Dated acceptance window (only runs created at/after the calendar day):
+
+```bash
+python scripts/check_gate_python_job_timings.py --limit 5 --max-seconds 600 \
+  --created-after 2026-11-15 \
+  --json-out docs/evidence/issue-4260/gate-python-job-timings-2026-11-15.json
+```
+
 Single Gate run (pre-merge PR-head, any overall conclusion):
 
 ```bash
@@ -20,6 +28,10 @@ python scripts/check_gate_python_job_timings.py --run-id <GATE_RUN_ID> \
   --max-seconds 600 \
   --json-out docs/evidence/issue-4260/gate-python-job-timings-pr-head.json
 ```
+
+Reports include both job wall-clock (`seconds`) and the Pytest step wall-clock
+(`pytest_step_seconds`) when GitHub job steps are present, so Hosted confirmation
+can separate suite time from setup overhead.
 
 ## Baseline (2026-10-26, pre-merge)
 
@@ -43,5 +55,20 @@ lint-ruff; python jobs themselves succeeded). Observed wall-clock:
 
 Pytest alone was 510.55 s on 3.14 (with coverage) vs 630.30 s on 3.13
 (without coverage). Single-runtime coverage is working; 3.13 Hosted pytest
-duration still exceeds the 10-minute job budget on this sample. Re-check after
-merge, then again on 2026-11-15 with the five-run window.
+duration still exceeds the 10-minute job budget on this sample.
+
+## PR-head sample (2026-10-26, run 40317065551)
+
+`gate-python-job-timings-pr-head-2026-10-26-latest.json` evaluates the later
+successful Gate run 40317065551 on the same PR (coverage still limited to 3.14):
+
+| Job | Job seconds | Pytest step seconds | Within 600s |
+| --- | ---: | ---: | --- |
+| `python ci / python 3.14` (coverage on) | 766 | 718 | no |
+| `python ci / python 3.13` (coverage off) | 664 | 633 | no |
+
+Pytest step time alone is already over the 600 s job budget on both legs for
+this sample (Hosted log summary lines were 710.66 s / 626.31 s). Hosted
+confirmation remains **FAIL** until suite wall-clock drops; re-check after
+merge, then again on 2026-11-15 with `--created-after 2026-11-15` and the
+five-run window.
