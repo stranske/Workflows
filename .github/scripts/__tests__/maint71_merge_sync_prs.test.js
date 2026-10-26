@@ -2704,6 +2704,102 @@ test('identical digest across SHAs preserves the exact-head seal even beyond the
   assert.equal(f.parseDeliveryRecord(f.pr.body).sealed_head_sha, f.pr.head.sha);
 });
 
+function partialCanaryRefreshFixture(t) {
+  const f = sealedRefreshFixture(t);
+  const { formatDeliveryRecord } = require('../sync_pr_lease_contract');
+  const repository = 'stranske/Template', head = 'd'.repeat(40);
+  const current = { ...f.pr, head: { ...f.pr.head, sha: head },
+    body: formatDeliveryRecord({ ...f.record, repository,
+      source_commit: f.state().sha, head_observed_sha: head, sealed_head_sha: head }) };
+  const state = () => ({ ...f.state(), candidates: ['stranske/Ready', repository] });
+  const payload = { ...f.payload, files: { ...f.payload.files,
+    [repository]: { 'new-file.js': { content: 'new' }, 'reviewed.js': { content: 'stable' } } } };
+  t.mock.method(deliveryPayload, 'readDeliveryPayload', async sha => sha === state().sha
+    ? payload : { digest: `sha256:${'b'.repeat(64)}`, files: {
+      ...payload.files, 'stranske/Ready': { 'new-file.js': { content: 'old' },
+        'reviewed.js': { content: 'stable' } },
+    } });
+  const withRetry = async fn => f.withRetry(client => fn({ ...client, rest: {
+    ...client.rest, pulls: { ...client.rest.pulls,
+      list: async params => params.repo === 'Template' ? { data: [current] }
+        : client.rest.pulls.list(params),
+      get: async params => params.repo === 'Template' ? { data: current }
+        : client.rest.pulls.get(params),
+    },
+  } }));
+  return { ...f, current, state, payload, withRetry,
+    decide: async () => deferSealedCanaryRefresh({ state: state(), payload, withRetry, now: refreshNow }) };
+}
+
+test('one current canary does not suppress another required overlapping payload update', async t => {
+  const f = partialCanaryRefreshFixture(t);
+  f.files[0] = { filename: 'new-file.js' };
+  const body = f.current.body;
+  const state = await f.decide();
+  assert.equal(state.eligible, true);
+  assert.notEqual(state.producer_succeeded, true, 'one current head is not a full-set delivery receipt');
+  await dispatchCanaryRefresh({ ...f.api, withRetry: f.withRetry, refreshState: state });
+  assert.equal(f.api.dispatches.length, 1);
+  assert.equal(f.api.dispatches[0].inputs.repos, 'stranske/Ready,stranske/Template');
+  assert.equal(f.api.dispatches[0].inputs.force, 'false');
+  assert.equal(f.current.body, body, 'the unchanged seal is not rewritten by admission');
+});
+
+test('one current canary does not suppress an absent candidate', async t => {
+  const f = partialCanaryRefreshFixture(t);
+  f.pr.state = 'closed';
+  assert.equal((await f.decide()).eligible, true);
+});
+
+test('partial current canaries still preserve another protected sealed cycle', async t => {
+  const f = partialCanaryRefreshFixture(t);
+  const state = await f.decide();
+  assert.equal(state.eligible, false);
+  assert.equal(state.producer_succeeded, false);
+  assert.match(state.queue_reason, /sealed cycle stranske\/Ready/);
+  await dispatchCanaryRefresh({ ...f.api, withRetry: f.withRetry, refreshState: state });
+  assert.equal(f.api.dispatches.length, 0);
+});
+
+test('a complete current canary set remains deduplicated without dispatch', async t => {
+  const f = partialCanaryRefreshFixture(t);
+  t.mock.method(deliveryPayload, 'readDeliveryPayload', async () => f.payload);
+  const state = await f.decide();
+  assert.equal(state.eligible, false);
+  assert.equal(state.producer_succeeded, true);
+  await dispatchCanaryRefresh({ ...f.api, withRetry: f.withRetry, refreshState: state });
+  assert.equal(f.api.dispatches.length, 0);
+});
+
+test('retained three-canary partial delivery does not become a full-set success receipt', async t => {
+  const fixture = require('./fixtures/partial_canary_refresh_20261026.json');
+  const { formatDeliveryRecord } = require('../sync_pr_lease_contract');
+  const candidates = Object.keys(fixture.records).sort();
+  const bodies = Object.fromEntries(candidates.map(repo => [repo,
+    formatDeliveryRecord(fixture.records[repo].record)]));
+  t.mock.method(deliveryPayload, 'readDeliveryPayload', async sha => {
+    assert.ok(fixture.payloads[sha], 'only the retained immutable source identities are read');
+    return fixture.payloads[sha];
+  });
+  const withRetry = async fn => fn({ rest: { pulls: {
+    list: async ({ owner, repo }) => ({ data: [{ number: fixture.records[`${owner}/${repo}`].number,
+      head: { ref: 'sync/workflows-candidate' } }] }),
+    get: async ({ owner, repo }) => {
+      const key = `${owner}/${repo}`, saved = fixture.records[key];
+      return { data: { number: saved.number, state: 'open', body: bodies[key],
+        head: { ref: 'sync/workflows-candidate', sha: saved.head }, mergeable: true } };
+    },
+  } } });
+  const state = { sha: fixture.source_new, candidates, eligible: true,
+    delivery_digest: fixture.payloads[fixture.source_new].digest };
+  const result = await deferSealedCanaryRefresh({ state,
+    payload: fixture.payloads[fixture.source_new], withRetry, now: Date.parse(fixture.observed_at) });
+  assert.equal(result.eligible, true);
+  assert.notEqual(result.producer_succeeded, true);
+  assert.equal(fixture.records['stranske/Travel-Plan-Permission'].record.source_commit, fixture.source_new);
+  assert.equal(fixture.records['stranske/trip-planner'].record.source_commit, fixture.source_old);
+});
+
 test('pre-seal Gate failure does not release a queued refresh; unreadable diff fails closed', async t => {
   const f = sealedRefreshFixture(t);
   f.gate.status = 'completed'; f.gate.conclusion = 'failure';

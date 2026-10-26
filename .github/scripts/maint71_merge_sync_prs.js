@@ -248,7 +248,7 @@ async function deferSealedCanaryRefresh({ state, payload, withRetry, now = Date.
       const prior = await readRefreshPayload(record.source_commit, state.candidates);
       if (!prior) return shaRefreshFallback(state, now);
       if (prior.digest === payload.digest && !state.drift_key) {
-        waiting.push({ reason: 'unchanged', source: record.source_commit });
+        waiting.push({ reason: 'unchanged', repository, source: record.source_commit });
         continue;
       }
       if (record.delivery_state !== 'sealed' || record.sealed_head_sha !== pr.head?.sha
@@ -290,8 +290,13 @@ async function deferSealedCanaryRefresh({ state, payload, withRetry, now = Date.
   }
   // An overlap/expired wait in one repo must not overwrite a still-owned head
   // in another. A single full-set producer waits for every protected canary.
-  if (waiting.length) {
-    const sealed = waiting.filter(row => row.reason === 'sealed');
+  // Payload equality is a full-set receipt only when every canary is current;
+  // one already-current head cannot suppress delivery to the remaining repos.
+  const sealed = waiting.filter(row => row.reason === 'sealed');
+  const unchanged = new Set(waiting.filter(row => row.reason === 'unchanged')
+    .map(row => row.repository));
+  if (sealed.length || (state.candidates.length > 0
+    && state.candidates.every(repository => unchanged.has(repository)))) {
     const clearsAt = Math.max(...sealed.map(row => Date.parse(row.sealed_at) + CANARY_SEALED_REFRESH_WAIT_MS));
     Object.assign(state, { eligible: false, state: sealed.length ? 'sealed-cycle' : 'success',
       producer_succeeded: !sealed.length, unchanged_since: waiting[0].source,

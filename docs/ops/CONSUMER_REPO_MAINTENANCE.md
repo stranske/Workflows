@@ -3468,9 +3468,13 @@ Red, review-blocked and stale canaries remain eligible for one recovery per
 payload and observed head even when the payload is unchanged. Recovery uses a
 `refresh_key`; producer success alone never certifies consumer health.
 
-A healthy canary with a matching payload prints
+A complete set of canaries with matching payloads prints
 `refresh: skipped (delivery digest <d> unchanged since <sha>)` and preserves the
-existing PR head and review lifecycle. Operator `force: true` bypasses this
+existing PR heads and review lifecycles. One already-current canary is not a
+full-set delivery receipt: remaining missing or outdated candidates may still
+receive the pinned payload. This does not release a protected sealed cycle in
+any other canary, grant merge authority, or authorize rewriting an identical
+head. Operator `force: true` bypasses this
 payload guard, authorizes mutation, and prints
 `refresh: forced (digest guard bypassed)`.
 REST history metadata is collected across source SHAs (up to 100 pages, failing
