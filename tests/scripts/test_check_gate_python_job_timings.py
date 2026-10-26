@@ -35,6 +35,8 @@ def test_extract_python_job_durations_keeps_target_jobs_only() -> None:
     jobs = [
         {
             "name": "python ci / python 3.13",
+            "status": "completed",
+            "conclusion": "success",
             "started_at": "2026-10-26T10:00:00Z",
             "completed_at": "2026-10-26T10:07:00Z",
             "steps": [
@@ -47,6 +49,8 @@ def test_extract_python_job_durations_keeps_target_jobs_only() -> None:
         },
         {
             "name": "python ci / python 3.14",
+            "status": "completed",
+            "conclusion": "success",
             "started_at": "2026-10-26T10:00:00Z",
             "completed_at": "2026-10-26T10:09:30Z",
         },
@@ -63,6 +67,40 @@ def test_extract_python_job_durations_keeps_target_jobs_only() -> None:
     detailed = timings.extract_python_job_timings(jobs)
     assert detailed["python ci / python 3.13"] == timings.JobTiming(420.0, 360.0)
     assert detailed["python ci / python 3.14"] == timings.JobTiming(570.0, None)
+
+
+@pytest.mark.parametrize(
+    "status,conclusion",
+    [
+        ("completed", "failure"),
+        ("completed", "cancelled"),
+        ("completed", "skipped"),
+        ("completed", "timed_out"),
+        ("completed", "neutral"),
+        ("completed", None),
+        ("in_progress", "success"),
+        (None, "success"),
+    ],
+)
+def test_unsuccessful_target_job_cannot_pass_timing_policy(status, conclusion) -> None:
+    jobs = [
+        {
+            "name": name,
+            "status": "completed",
+            "conclusion": "success",
+            "started_at": "2026-10-26T10:00:00Z",
+            "completed_at": "2026-10-26T10:05:00Z",
+        }
+        for name in timings.TARGET_JOB_NAMES
+    ]
+    jobs[0].update(status=status, conclusion=conclusion)
+
+    durations = timings.extract_python_job_durations(jobs)
+    passed, failures = timings.evaluate_policy([(101, durations)])
+
+    assert passed is False
+    assert timings.TARGET_JOB_NAMES[0] not in durations
+    assert failures == ["run 101: missing job 'python ci / python 3.13'"]
 
 
 def test_parse_created_after_accepts_date_and_timestamp() -> None:
@@ -187,6 +225,8 @@ def test_collect_policy_sample_and_main_pass(
             "jobs": [
                 {
                     "name": "python ci / python 3.13",
+                    "status": "completed",
+                    "conclusion": "success",
                     "started_at": "2026-10-26T10:00:00Z",
                     "completed_at": "2026-10-26T10:05:00Z",
                     "steps": [
@@ -199,6 +239,8 @@ def test_collect_policy_sample_and_main_pass(
                 },
                 {
                     "name": "python ci / python 3.14",
+                    "status": "completed",
+                    "conclusion": "success",
                     "started_at": "2026-10-26T10:00:00Z",
                     "completed_at": "2026-10-26T10:08:00Z",
                 },
@@ -208,11 +250,15 @@ def test_collect_policy_sample_and_main_pass(
             "jobs": [
                 {
                     "name": "python ci / python 3.13",
+                    "status": "completed",
+                    "conclusion": "success",
                     "started_at": "2026-10-26T11:00:00Z",
                     "completed_at": "2026-10-26T11:06:00Z",
                 },
                 {
                     "name": "python ci / python 3.14",
+                    "status": "completed",
+                    "conclusion": "success",
                     "started_at": "2026-10-26T11:00:00Z",
                     "completed_at": "2026-10-26T11:09:00Z",
                 },
@@ -270,11 +316,15 @@ def test_main_fails_when_job_over_policy(monkeypatch: pytest.MonkeyPatch) -> Non
         "jobs": [
             {
                 "name": "python ci / python 3.13",
+                "status": "completed",
+                "conclusion": "success",
                 "started_at": "2026-10-26T10:00:00Z",
                 "completed_at": "2026-10-26T10:05:00Z",
             },
             {
                 "name": "python ci / python 3.14",
+                "status": "completed",
+                "conclusion": "success",
                 "started_at": "2026-10-26T10:00:00Z",
                 "completed_at": "2026-10-26T10:12:00Z",
             },
@@ -299,6 +349,8 @@ def test_collect_run_ids_sample_and_main_run_id(
         "jobs": [
             {
                 "name": "python ci / python 3.13",
+                "status": "completed",
+                "conclusion": "success",
                 "started_at": "2026-10-26T10:37:58Z",
                 "completed_at": "2026-10-26T10:49:11Z",
                 "steps": [
@@ -311,6 +363,8 @@ def test_collect_run_ids_sample_and_main_run_id(
             },
             {
                 "name": "python ci / python 3.14",
+                "status": "completed",
+                "conclusion": "success",
                 "started_at": "2026-10-26T10:37:58Z",
                 "completed_at": "2026-10-26T10:47:18Z",
             },

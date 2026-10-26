@@ -32,6 +32,10 @@ python scripts/check_gate_python_job_timings.py --run-id <GATE_RUN_ID> \
 Reports include both job wall-clock (`seconds`) and the Pytest step wall-clock
 (`pytest_step_seconds`) when GitHub job steps are present, so Hosted confirmation
 can separate suite time from setup overhead.
+Only completed, successful Python jobs qualify for timing evaluation. Failed,
+cancelled, skipped, or incomplete jobs count as missing required jobs even when
+they have short timestamp intervals. With `--run-id`, the overall Gate may fail
+for another check, but both target Python jobs must still succeed.
 If fewer than the requested number of qualifying runs exist, the checker still
 writes the JSON report with `passed: false`, the observed `run_count`, and the
 `required_run_count`. This replaces any older report at the output path and keeps
@@ -54,13 +58,17 @@ successful Gate PR runs (single-runtime coverage already on `main` via
 
 | Run | 3.13 job (pytest) | 3.14 job (pytest) | Within 600s |
 | --- | ---: | ---: | --- |
+| 40370674405 | 622 s (575) | 645 s (613) | no |
 | 40366154608 | 525 s (492) | 544 s (504) | yes |
 | 40362782097 | 648 s (618) | 715 s (680) | no |
 | 40359530080 | 373 s (342) | 704 s (670) | no (3.14) |
 | 40359091581 | 526 s (492) | 741 s (698) | no (3.14) |
-| 40356027024 | 380 s (353) | 561 s (525) | yes |
 
-Pytest alone often exceeds 600 s on the slower Hosted samples (~50k tests).
+Four of these five runs exceed policy. The latest run is
+[PR #4272's current-head Gate](https://github.com/stranske/Workflows/actions/runs/40370674405);
+the PR is still open, so this is pre-merge evidence. The refreshed report uses
+raw GitHub run-job payloads and the checker's successful-job filter. Pytest alone
+often exceeds 600 s on the slower Hosted samples (~50k tests).
 Keep the Nov 15 AC unchecked until `--created-after 2026-11-15 --limit 5` passes.
 
 ## PR-head sample (2026-10-26, run 40308833794)

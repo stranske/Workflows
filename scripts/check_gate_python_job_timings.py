@@ -124,13 +124,20 @@ def pytest_step_duration_seconds(job: dict[str, Any]) -> float | None:
 
 
 def extract_python_job_timings(jobs: list[Any]) -> dict[str, JobTiming]:
-    """Map target python job names to job + Pytest step timings."""
+    """Map completed, successful target jobs to job + Pytest step timings.
+
+    Failed and skipped jobs can have valid (and short) timestamp intervals.
+    Exclude them so policy evaluation reports a missing required job instead
+    of treating their early exit as evidence that the full suite fits the budget.
+    """
     timings: dict[str, JobTiming] = {}
     for job in jobs:
         if not isinstance(job, dict):
             continue
         name = str(job.get("name") or "")
         if name not in TARGET_JOB_NAMES:
+            continue
+        if job.get("status") != "completed" or job.get("conclusion") != "success":
             continue
         duration = job_duration_seconds(job)
         if duration is None:
