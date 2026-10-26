@@ -109,11 +109,14 @@ async function createRuntime({github,transport,selector,current,registryPath,pyt
  const since=pull.merged_at,history=()=>correctionHistory({transport,request,since});
  const ledger=await createArtifactLedger({transport,request,since,admittedProof:proof});
  const native=await createFreshCollector({github,repository:request.target.repository,actor:context.dispatch_actor,registryPath,
-  history,observeContinuations:({ownedPull})=>activeExecutions({transport,current,registryPath,ownedPull}),policy:()=>existingVerdictPolicy({transport,request,pythonRoot}),clock});
+  history,observeContinuations:({ownedPull})=>activeExecutions({transport,current,registryPath,ownedPull}),policy:()=>existingVerdictPolicy({transport,request,pythonRoot}),clock,transport});
  const collectFreshFacts=async(...args)=>{
   const qualification=await (qualificationLoader?qualificationLoader(context.decision.profile):loadReviewedQualification({github,profile:context.decision.profile,clock}));
   need(validateCorrectionDecision({...context,qualification}).status==='admitted','Current production qualification no longer admits ordinary correction');
-  return {...requireCorrectionCodingIntake(await native(...args),{registryPath}),correction_finding_text:context.finding_text};
+  const [subject,options={}]=args;
+  const {activeIntent,...nativeOptions}=options;
+  const activeEffect=activeIntent?await ledger.activeStage({record:activeIntent}):null;
+  return {...requireCorrectionCodingIntake(await native(subject,{...nativeOptions,activeEffect}),{registryPath}),correction_finding_text:context.finding_text};
  };
  const metadata=await transport.read('repos','get',{});
  need(metadata.full_name?.toLowerCase()===request.target.repository && typeof metadata.default_branch==='string' && metadata.default_branch.length>0,

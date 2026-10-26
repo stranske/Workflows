@@ -133,3 +133,19 @@ test('canonical live precursor intents can be read by the child; started admissi
   else assert.equal((await read()).proof.member_sha256,proof.member_sha256);
  }
 });
+
+
+test('private active stage is minted only by exact append/readback in this invocation, never by restart or retained JSON',async t=>{
+ const f=await admitted(t),args={transport:f.io,request:f.request,since:'2026-10-26T00:00:00Z',admittedProof:f.proof};
+ const ledger=await createArtifactLedger(args),record=intent(f);
+ await assert.rejects(ledger.activeStage({record}),/just-appended/);
+ await ledger.append({effect_key:f.context.effect_key,expected_revision:0,record});
+ const active=await ledger.activeStage({record});
+ assert.equal(active.schema,'closer-correction-active-stage/v1');assert.equal(active.record_sha256,record.record_sha256);
+ assert.equal(active.revision,1);assert.equal(active.proof.run_id,f.io.current.run_id);
+ await assert.rejects(ledger.activeStage({record:{...record,request_sha256:'b'.repeat(64)}}),/just-appended/);
+ const restarted=await createArtifactLedger(args);assert.equal((await restarted.read(f.context.effect_key)).revision,1);
+ await assert.rejects(restarted.activeStage({record}),/just-appended/);
+ f.state.metadata.find(row=>row.name.includes('-ledger-')).expired=true;
+ await assert.rejects(ledger.activeStage({record}));
+});

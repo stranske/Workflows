@@ -187,7 +187,7 @@ async function correctionHistory({transport,request,since}) {
 async function createArtifactLedger({transport,request,since,admittedProof}) {
   const {canonical,digest}=require('./verification_event');
   const {effectKey,seedForRequest,validateLedger}=require('./verifier_correction_effects');
-  const key=effectKey(seedForRequest(request));let queue=Promise.resolve(),lastProof=null,seenRevision=0;
+  const key=effectKey(seedForRequest(request));let queue=Promise.resolve(),lastProof=null,lastAppendedIntent=null,seenRevision=0;
   const scan=()=>correctionHistory({transport,request,since});
   const read=async selected=>{
     need(selected===key,'Ledger request changed trusted seed key');
@@ -219,8 +219,23 @@ async function createArtifactLedger({transport,request,since,admittedProof}) {
       lastProof=await transport.publish('ledger',Buffer.from(next.records.map(row=>JSON.stringify(row)).join('\n')+'\n'),`${key}-r${next.revision}`);
       seenRevision=Math.max(seenRevision,next.revision);
       const confirmed=await read(key);need(canonical(confirmed)===canonical(next),'Durable checkpoint readback did not match append');
+      lastAppendedIntent=args.record.kind==='intent'?args.record:null;
       return args.record;
     });queue=result.catch(()=>{});return result;
+  };
+  const activeStage=async({record})=>{
+    // Only append mints this process-local capability after exact readback. A
+    // restarted consumer cannot reconstruct it from retained JSON or read().
+    need(lastAppendedIntent && lastProof && canonical(record)===canonical(lastAppendedIntent),
+      'No just-appended active stage capability');
+    const current=await read(key),last=current.records.at(-1);
+    need(canonical(last)===canonical(record) && last.kind==='intent' && last.revision===current.revision
+      && last.consumer.run_id===String(transport.current?.run_id)
+      && last.consumer.run_attempt===String(transport.current?.run_attempt)
+      && lastProof.run_id===transport.current.run_id && lastProof.run_attempt===transport.current.run_attempt,
+      'Active stage is not exact current native intent');
+    return {schema:'closer-correction-active-stage/v1',effect_key:key,request_sha256:request.request_sha256,
+      phase:last.phase,record_sha256:last.record_sha256,revision:current.revision,proof:lastProof};
   };
   const continuationSelector=async({issue})=>{
     const current=await read(key);need(current.records.at(-1)?.phase==='autopilot_dispatch' && lastProof,'No durable dispatch intent selector');
@@ -228,7 +243,7 @@ async function createArtifactLedger({transport,request,since,admittedProof}) {
       collector:admittedProof,intent:{...lastProof,revision:current.revision},request_sha256:request.request_sha256,
       effect_key:key,issue,parent_dispatch:null};
   };
-  return {read,append,scan,continuationSelector};
+  return {read,append,scan,continuationSelector,activeStage};
 }
 module.exports={SPECS,artifactName,runtimeArtifactClient,createArtifactTransport,correctionHistory,createArtifactLedger};
 

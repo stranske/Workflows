@@ -166,6 +166,52 @@ async function retainRedispatch({transport,selector,startedProof,nextStep,observ
 module.exports={authenticateContinuation,recordStarted,retainRedispatch,lineageKey,unseal};
 
 // Complete native inventory is required for a negative lineage observation. A
+// A skipped correction step is ordinary-mode evidence only when the exact
+// authenticated workflow source makes it so. In particular, successful context
+// selection plus skipped correction auth proves the selector was absent; step
+// names alone or a caller-selected run title cannot establish that implication.
+async function authenticateOrdinaryAutopilot({transport,run,attempt,actual,job}) {
+ const names=['Authenticate correction continuation','Determine context','Record admitted correction start'];
+ const native=names.map(name=>(job.steps || []).filter(step=>step.name===name));
+ need(native.every(rows=>rows.length===1),'Missing started artifact has no unambiguous ordinary-mode steps');
+ const [auth,context,start]=native.map(rows=>rows[0]);
+ need([auth,context,start].every(step=>step.status==='completed' && Number.isSafeInteger(step.number) && step.number>0)
+  && auth.conclusion==='skipped' && context.conclusion==='success' && start.conclusion==='skipped'
+  && auth.number<context.number && context.number<start.number,
+ 'Missing started artifact cannot establish native ordinary execution mode');
+ need(actual?.id===run.id && actual.run_attempt===attempt && actual.head_sha===run.head_sha && /^[a-f0-9]{40}$/.test(actual.head_sha || ''),
+ 'Ordinary execution source attempt unavailable');
+ const source=await transport.read('repos','getContent',{path:'.github/workflows/agents-auto-pilot.yml',ref:actual.head_sha});
+ need(source?.type==='file' && source.encoding==='base64' && typeof source.content==='string' && source.content.length<=1398104,
+ 'Ordinary execution workflow source unavailable');
+ const bytes=Buffer.from(source.content,'base64'),{createHash}=require('crypto');
+ need(bytes.length<=1048576 && createHash('sha1').update(`blob ${bytes.length}\0`).update(bytes).digest('hex')===source.sha,
+ 'Ordinary execution workflow Git blob differs');
+ const text=bytes.toString('utf8'),jobs=[...text.matchAll(/^  auto-pilot:\s*$/gm)];
+ need(jobs.length===1,'Ordinary execution workflow job source ambiguous');
+ const jobText=text.slice(jobs[0].index).split(/\n  [A-Za-z0-9_-]+:\s*\n/)[0];
+ const steps=[...jobText.matchAll(/^      - name: (.+)$/gm)];
+ const expected=[['correction_auth',"steps.check_enabled.outputs.enabled == 'true' && inputs.correction_selector != ''"],
+  ['context',"steps.check_enabled.outputs.enabled == 'true' && (inputs.correction_selector == '' || steps.correction_auth.outputs.admitted == 'true')"],
+  ['correction_start',"inputs.correction_selector != '' && steps.context.outputs.should_continue == 'true' && steps.cycles.outputs.exceeded == 'false' && steps.cycles.outputs.rate_limited == 'false' && steps.next.outputs.next_step != '' && steps.next.outputs.next_step != 'done'"]];
+ const positions=[];
+ for(let index=0;index<names.length;index++) {
+  const found=steps.map((step,at)=>({step,at})).filter(row=>row.step[1]===names[index]);
+  need(found.length===1,'Ordinary execution source step ambiguous');
+  const {step,at}=found[0],body=jobText.slice(step.index,steps[at+1]?.index || jobText.length);
+  const header=body.split(/^        (?:uses|env|with|run|shell|working-directory|continue-on-error):/m)[0];
+  const ids=[...header.matchAll(/^        id: (\S+)$/gm)],conditions=[...header.matchAll(/^        if: (.+)$/gm)];
+  need(ids.length===1 && ids[0][1]===expected[index][0] && conditions.length===1,'Ordinary execution step guards unavailable');
+  let condition=conditions[0][1].trim();
+  if(condition==='>-' || condition==='|') {
+   const after=header.slice(conditions[0].index+conditions[0][0].length).split('\n').slice(1),lines=[];
+   for(const line of after){if(!line.startsWith('          '))break;lines.push(line.trim());}condition=lines.join(' ');
+  }
+  need(condition===expected[index][1],'Ordinary execution source predicate is unsupported');positions.push(at);
+ }
+ need(positions[0]<positions[1] && positions[1]<positions[2],'Ordinary execution source step order differs');
+}
+
 // missing receipt never means absence when a prior execution could have started.
 async function observeStartedReceipts({transport,request,since}) {
  const key=effectKey(seedForRequest(request)),results=[];
@@ -177,7 +223,7 @@ async function observeStartedReceipts({transport,request,since}) {
   for(let attempt=1;attempt<=run.run_attempt;attempt++) {
    const name=artifactName('started',run.id,attempt),matches=inventory.filter(row=>row.name===name);
    need(matches.length<=1,'Ambiguous actual auto-pilot started artifacts');
-   await transport.canonicalRun(run.id,attempt,'.github/workflows/agents-auto-pilot.yml');
+   const actual=await transport.canonicalRun(run.id,attempt,'.github/workflows/agents-auto-pilot.yml');
    if(!matches.length && run.id===transport.current?.run_id && attempt===transport.current?.run_attempt)continue;
    if(!matches.length) {
     const jobs=await transport.jobs(run.id,attempt),main=jobs.filter(job=>job.name==='auto-pilot');
@@ -185,9 +231,9 @@ async function observeStartedReceipts({transport,request,since}) {
      && main[0].run_id===run.id && main[0].run_attempt===attempt && main[0].head_sha===run.head_sha,'Prior auto-pilot outcome is unknown');
     const start=(main[0].steps || []).filter(step=>step.name==='Record admitted correction start');
     const execution=(main[0].steps || []).filter(step=>step.name.startsWith('Execute step -'));
-    need(main[0].conclusion==='skipped' || (start.length===1 && start[0].status==='completed' && start[0].conclusion==='skipped'
-      && execution.length>0 && execution.every(step=>step.status==='completed' && step.conclusion==='skipped')),
-    'Missing prior started artifact cannot prove no execution');
+    const notStarted=main[0].conclusion==='skipped' || (start.length===1 && start[0].status==='completed' && start[0].conclusion==='skipped'
+      && execution.length>0 && execution.every(step=>step.status==='completed' && step.conclusion==='skipped'));
+    if(!notStarted)await authenticateOrdinaryAutopilot({transport,run,attempt,actual,job:main[0]});
     continue;
    }
    const loaded=await transport.load({repository:request.target.repository,run_id:run.id,run_attempt:attempt,artifact_id:matches[0].id},'started',name);

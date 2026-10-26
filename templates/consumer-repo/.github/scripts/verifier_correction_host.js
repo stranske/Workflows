@@ -113,7 +113,7 @@ async function createFreshCollector({github,repository,actor,registryPath,histor
   return {number:other.number,node_id:other.id,repository:{full_name:other.repository.nameWithOwner},
    ...(other.__typename==='PullRequest'?{pull_request:{}}:{})};
  };
- return async function collect(request,{createdIssue=null,ownedPull=null}={}) {
+ return async function collect(request,{createdIssue=null,ownedPull=null,activeEffect=null}={}) {
   need(request.target.repository===repository,'Fresh collector repository scope changed');
   const seed=seedForRequest(request),key=effectKey(seed);
   const [pull,sourceIssue,permission]=await Promise.all([
@@ -166,6 +166,30 @@ async function createFreshCollector({github,repository,actor,registryPath,histor
   const ownEffects=previous.filter(row=>row.effect_key===key);
   need(!retained.contexts.some(row=>row.context.decision?.findings?.some(f=>['security','authority_conflict'].includes(f.classification))),
    'Retained qualified-owner hold cannot enter ordinary corrective lane');
+  let currentStage=null;
+  if(activeEffect) {
+   need(activeEffect.schema==='closer-correction-active-stage/v1' && activeEffect.effect_key===key
+    && activeEffect.request_sha256===request.request_sha256 && ['issue_creation','autopilot_dispatch'].includes(activeEffect.phase),
+    'Private active stage scope differs');
+   const matches=retained.snapshots.filter(row=>{
+    const proof=row.proof,last=row.snapshot.records.at(-1);
+    return proof && activeEffect.proof && ['run_id','run_attempt','artifact_id','archive_sha256','member_sha256']
+     .every(field=>proof[field]===activeEffect.proof[field])
+     && proof.run_id===transport?.current?.run_id && proof.run_attempt===transport?.current?.run_attempt
+     && row.snapshot.revision===activeEffect.revision && last?.revision===activeEffect.revision
+     && last.kind==='intent' && last.phase===activeEffect.phase && last.record_sha256===activeEffect.record_sha256
+     && last.effect_key===key && last.request_sha256===request.request_sha256
+     && last.consumer?.run_id===String(transport.current.run_id) && last.consumer?.run_attempt===String(transport.current.run_attempt);
+   });
+   need(matches.length===1,'Private active stage native checkpoint unavailable/ambiguous');
+   const snapshot=matches[0].snapshot;
+   const scoped=retained.snapshots.filter(row=>row.snapshot.records.some(record=>record.effect_key===key));
+   need(scoped.length===snapshot.revision && new Set(scoped.map(row=>row.snapshot.revision)).size===snapshot.revision
+    && scoped.every(row=>row.snapshot.revision>=1 && row.snapshot.revision<=snapshot.revision
+     && same(row.snapshot.records,snapshot.records.slice(0,row.snapshot.revision))),
+    'Active stage checkpoint history is missing/forked/stale');
+   currentStage={phase:activeEffect.phase,records:snapshot.records};
+  }
   if(declaredNew) {
    const exactCreated=createdIssue && incumbentIssue && same(issueIdentity(incumbentIssue),createdIssue)
     && ownEffects.some(row=>row.kind==='intent' && row.phase==='issue_creation' && row.request_sha256===request.request_sha256);
@@ -177,7 +201,13 @@ async function createFreshCollector({github,repository,actor,registryPath,histor
       .every(field=>proof[field]===active.intent[field]) && last?.kind==='intent' && last.phase==='autopilot_dispatch'
       && last.effect_key===key && last.request_sha256===request.request_sha256;
     });
-   const safeOwn=(!ownEffects.length || (exactCreated && (ownDispatch || !ownEffects.some(row=>row.phase==='autopilot_dispatch'))))
+   const activeCreation=currentStage?.phase==='issue_creation' && !createdIssue && currentStage.records.length===1;
+   const activeDispatch=currentStage?.phase==='autopilot_dispatch' && exactCreated
+    && currentStage.records.length===3 && currentStage.records[0].kind==='intent'
+    && currentStage.records[0].phase==='issue_creation' && currentStage.records[1].kind==='issue_confirmed'
+    && same(currentStage.records[1].issue,createdIssue);
+   const safeOwn=(!ownEffects.length || activeCreation
+     || (exactCreated && (activeDispatch || ownDispatch || !ownEffects.some(row=>row.phase==='autopilot_dispatch'))))
     && (!incumbentIssue || assigned(incumbentIssue).length===0);
    if(!competing.length && (!createdIssue || candidates.some(row=>row.number===incumbentIssue?.number && row.node_id===incumbentIssue.node_id))
     && candidates.every(row=>exactCreated && row.number===incumbentIssue.number)
@@ -218,7 +248,7 @@ async function createFreshCollector({github,repository,actor,registryPath,histor
   const workInventory={complete:true,continuations,openPullRequests:openPulls.filter(row=>linkedPulls.has(row.number) || linked.test(`${row.title}\n${row.body}`)),
    assignments:candidates.flatMap(row=>assigned(row).map(user=>({issue:row.number,owner:user.login}))),
    retainedEffects:otherEffects.length?otherEffects.map(row=>({effect_key:row.effect_key,state:'unknown'})):
-    (ownEffects.length?[{effect_key:key,state:createdIssue?'issue_confirmed':'unknown',issue:createdIssue}]:[])};
+    (ownEffects.length && !(currentStage?.phase==='issue_creation' && kind==='no_incumbent')?[{effect_key:key,state:createdIssue?'issue_confirmed':'unknown',issue:createdIssue}]:[])};
   if(ownership.kind==='no_incumbent' && (workInventory.openPullRequests.some(row=>!ownedPull || row.id!==ownedPull.pull.id || row.node_id!==ownedPull.pull.node_id
       || row.head?.sha!==ownedPull.observed_head_sha) || workInventory.assignments.length
     || (incumbentIssue && labels(incumbentIssue).some(label=>label.startsWith('agent:') && !['agent:retry','agent:rate-limited','agent:needs-attention'].includes(label) && label!==`agent:${agentKey}`)))) {

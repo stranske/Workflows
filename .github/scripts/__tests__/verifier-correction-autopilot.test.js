@@ -153,7 +153,7 @@ test('missing or running historical starts are unknown unless native skipped job
  run.status='in_progress';await assert.rejects(observeStartedReceipts(options),/outcome is unknown/);
  run.status='completed';f.transport.jobs=async()=>[{name:'auto-pilot',run_id:900,run_attempt:1,head_sha:run.head_sha,status:'completed',conclusion:'failure',steps:[
   {name:'Record admitted correction start',status:'completed',conclusion:'skipped'},{name:'Execute step - Optimize',status:'completed',conclusion:'success'}]}];
- await assert.rejects(observeStartedReceipts(options),/cannot prove no execution/);
+ await assert.rejects(observeStartedReceipts(options),/Missing started artifact|cannot prove no execution/);
 });
 test('effect-side reconciler consumes original intent plus exact actual root start, never HTTP204 or issue-created alone',async()=>{
  const {createEffectReconciler}=require('../verifier_correction_host');
@@ -289,4 +289,56 @@ test('formatter native response failure cannot produce a retained ownership arti
   await assert.rejects(retainFormatPause({transport:f.transport,selector:f.selector,startedProof:f.started.proof,response}));
   assert.equal(f.calls.filter(row=>row[0]==='publish').length,before);
  }
+});
+
+
+function ordinaryExecutionFixture(surface='.github/workflows/agents-auto-pilot.yml') {
+ const fs=require('fs'),path=require('path'),f=fixture(),run=observations(f);
+ f.transport.current={run_id:901,run_attempt:1};run.path='.github/workflows/agents-auto-pilot.yml';run.event='workflow_dispatch';
+ const job={name:'auto-pilot',run_id:900,run_attempt:1,head_sha:run.head_sha,status:'completed',conclusion:'success',steps:[
+  {name:'Authenticate correction continuation',number:8,status:'completed',conclusion:'skipped'},
+  {name:'Determine context',number:9,status:'completed',conclusion:'success'},
+  {name:'Record admitted correction start',number:14,status:'completed',conclusion:'skipped'},
+  {name:'Execute step - Optimize (inline)',number:16,status:'completed',conclusion:'success'}]};
+ const state={source:fs.readFileSync(path.resolve(__dirname,'../../..',surface)),job};
+ f.transport.canonicalRun=async(id,attempt,workflow)=>{assert.equal(id,900);assert.equal(workflow,run.path);return {...run,run_attempt:attempt};};
+ f.transport.jobs=async()=>[state.job];
+ f.transport.read=async(resource,method,args)=>{assert.equal(resource,'repos');assert.equal(method,'getContent');assert.equal(args.path,run.path);assert.equal(args.ref,run.head_sha);
+  const bytes=state.source;return {type:'file',encoding:'base64',content:bytes.toString('base64'),sha:createHash('sha1').update(`blob ${bytes.length}\0`).update(bytes).digest('hex')};};
+ return {...f,state,run,scan:()=>observeStartedReceipts({transport:f.transport,request:f.context.request,since:'2026-10-25T12:00:00Z'})};
+}
+for(const surface of ['.github/workflows/agents-auto-pilot.yml','templates/consumer-repo/.github/workflows/agents-auto-pilot.yml'])
+ test(`native ordinary execution is excluded only with exact authenticated mode predicates: ${surface}`,async()=>{
+  const f=ordinaryExecutionFixture(surface);f.run.display_title='caller selected correction title';
+  assert.deepEqual(await f.scan(),[]);assert.equal(f.calls.filter(row=>row[0]==='publish').length,0);
+ });
+test('typed, partial, ambiguous or older native steps cannot be excluded by run titles or absent receipts',async()=>{
+ for(const mutate of [f=>{f.state.job.steps[0].conclusion='success';},f=>{f.state.job.steps[1].conclusion='skipped';},
+  f=>{f.state.job.steps.splice(0,1);},f=>{f.state.job.steps.push({...f.state.job.steps[0]});},
+  f=>{delete f.state.job.steps[0].number;},f=>{f.state.job.steps[2].number=5;},f=>{f.state.job.run_attempt=2;},
+  f=>{f.run.status='in_progress';},f=>{f.state.job.status='in_progress';}]) {
+  const f=ordinaryExecutionFixture();mutate(f);await assert.rejects(f.scan());
+ }
+});
+test('unavailable, corrupt or changed workflow-source guards leave ordinary-looking execution UNKNOWN',async()=>{
+ for(const mutate of [f=>{f.transport.read=async()=>{throw Error('source unavailable');};},
+  f=>{const read=f.transport.read;f.transport.read=async(...args)=>({...await read(...args),sha:'0'.repeat(40)});},
+  f=>{f.state.source=Buffer.from(f.state.source.toString().replace("steps.check_enabled.outputs.enabled == 'true' && inputs.correction_selector != ''","steps.check_enabled.outputs.enabled == 'true'"));},
+  f=>{f.state.source=Buffer.from(f.state.source.toString().replace("(inputs.correction_selector == '' || steps.correction_auth.outputs.admitted == 'true')","true"));},
+  f=>{f.state.source=Buffer.from(f.state.source.toString().replace('id: correction_start','id: unbound_start'));},
+  f=>{f.state.source=Buffer.from(f.state.source.toString().replace('Authenticate correction continuation','Older unrecognized admission'));},
+  f=>{f.transport.canonicalRun=async()=>undefined;},f=>{f.transport.canonicalRun=async()=>({...f.run,head_sha:'b'.repeat(40)});}]) {
+  const f=ordinaryExecutionFixture();mutate(f);await assert.rejects(f.scan());
+ }
+});
+test('rerun attempts are independently checked and an incomplete older attempt cannot be hidden by an ordinary latest attempt',async()=>{
+ const f=ordinaryExecutionFixture();f.run.run_attempt=2;
+ f.transport.jobs=async(id,attempt)=>[{...f.state.job,run_attempt:attempt,steps:attempt===1?f.state.job.steps.filter(row=>row.name!=='Authenticate correction continuation'):f.state.job.steps}];
+ await assert.rejects(f.scan(),/ordinary-mode steps/);
+});
+test('missing or expired started artifacts never fall through to an ordinary-mode exemption',async()=>{
+ const f=ordinaryExecutionFixture();
+ f.transport.artifacts=async()=>[{id:55,name:'verifier-correction-started-900-1',expired:true}];
+ f.transport.load=async()=>{throw Error('retained receipt expired');};
+ await assert.rejects(f.scan(),/retained receipt expired/);
 });

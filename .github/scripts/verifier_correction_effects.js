@@ -174,9 +174,10 @@ async function attemptEffect({ledger,snapshot,key,request,consumer,phase,invoke,
   if (snapshot.records.some(row=>row.kind==='intent' && row.phase===phase)) {
     return {state:'outcome_unknown',reason:'original_stage_intent_already_exists_no_repeat'};
   }
-  try {await appendRecord({ledger,snapshot,key,request,consumer,kind:'intent',phase,ownership});}
+  let activeIntent;
+  try {activeIntent=await appendRecord({ledger,snapshot,key,request,consumer,kind:'intent',phase,ownership});}
   catch {return {state:'outcome_unknown',reason:'durable_intent_not_confirmed_no_effect_invoked'};}
-  try {await invoke();return {state:'outcome_unknown',reason:`${phase}_invoked_requires_authenticated_reconciliation`};}
+  try {await invoke({activeIntent});return {state:'outcome_unknown',reason:`${phase}_invoked_requires_authenticated_reconciliation`};}
   catch {return {state:'outcome_unknown',reason:`${phase}_response_uncertain_reconcile_original_intent`};}
 }
 function issueMarker(request,intent) {
@@ -295,9 +296,9 @@ function createCorrectionEffectConsumer({authenticate,collectFreshFacts,ledger,r
     if (clock().getTime() >= Date.parse(request.original_operation.deadline)) return finish(snapshot.records.length?'outcome_unknown':'confirmed_not_started','requester_deadline_expired_during_fresh_collection',issue);
     if (ownership.kind==='no_incumbent' && !issue) {
       requireThat(typeof github.rest.issues?.create==='function','Existing issue creation endpoint unavailable');
-      await attemptEffect({ledger,snapshot,key,request,consumer,phase:'issue_creation',ownership,invoke:async()=>{
+      await attemptEffect({ledger,snapshot,key,request,consumer,phase:'issue_creation',ownership,invoke:async({activeIntent})=>{
         requireThat(clock().getTime()<Date.parse(request.original_operation.deadline),'Requester deadline expired after durable intent');
-        const latest=await collectFreshFacts(request,{createdIssue:null});
+        const latest=await collectFreshFacts(request,{createdIssue:null,activeIntent});
         requireCurrentOwnership(latest);
         checkFreshFacts(request,latest,{ownership,createdIssue:null});
         requireThat(!latest.workInventory.continuations.length && !latest.workInventory.openPullRequests.length,'Competing work appeared before issue creation');
@@ -336,12 +337,12 @@ function createCorrectionEffectConsumer({authenticate,collectFreshFacts,ledger,r
     if (ownership.kind==='no_incumbent' && !same(confirmedIssue(snapshot),issue)) {
       return finish('outcome_unknown','dispatch_issue_differs_from_durable_identity',confirmedIssue(snapshot));
     }
-    const outcome=await attemptEffect({ledger,snapshot,key,request,consumer,phase:'autopilot_dispatch',ownership,invoke:async()=>{
+    const outcome=await attemptEffect({ledger,snapshot,key,request,consumer,phase:'autopilot_dispatch',ownership,invoke:async({activeIntent})=>{
       requireThat(clock().getTime()<Date.parse(request.original_operation.deadline),'Requester deadline expired after durable intent');
       const continuation=await ledger.continuationSelector({issue});
       requireThat(continuation.request_sha256===request.request_sha256 && continuation.effect_key===key
         && same(continuation.issue,issue),'Durable continuation selector changed request/issue binding');
-      const latest=await collectFreshFacts(request,{createdIssue:ownership.kind==='no_incumbent'?issue:null});
+      const latest=await collectFreshFacts(request,{createdIssue:ownership.kind==='no_incumbent'?issue:null,activeIntent});
       requireCurrentOwnership(latest);
       checkFreshFacts(request,latest,{ownership,createdIssue:ownership.kind==='no_incumbent'?issue:null});
       requireThat(!latest.workInventory.continuations.length && !latest.workInventory.openPullRequests.length,'Competing work appeared before dispatch');

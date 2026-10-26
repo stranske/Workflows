@@ -432,3 +432,24 @@ intake to other runners. Ordinary untyped
 routing remains unchanged. Adding another runner requires its actual final prompt,
 budget and authenticated intake path, not merely activation metadata or an agent
 label. The unassigned Claude classifier producer arm is a separate dependency.
+
+
+## Active intent and ordinary-run reconciliation
+
+A retained intent alone is not an unknown competing writer when it was just
+appended and read back by the current synchronous effect invocation. The private
+active-stage capability is minted only by that ledger instance after native
+artifact readback. Fresh collection matches its exact request/key, native
+run/attempt/artifact/revision/record hash and contiguous history. Initial creation
+permits only the one current creation intent; dispatch additionally requires the
+exact retained native201 issue record. Restart/read-only inventory cannot recreate
+the capability, and an uncertain prior stage never repeats.
+
+Started-receipt inventory can exclude an ordinary Auto execution only after
+positive native authentication/context/start-step evidence and exact workflow
+source predicates at the authenticated attempt head establish that no correction
+selector was present. A successful ordinary execution step then does not count as
+an uncertain correction start. Missing, unsupported, changed, expired or ambiguous
+source/step/artifact evidence remains UNKNOWN; a missing receipt alone proves
+nothing. These are existing-lane reconciliation checks, with no public schema,
+provider, credential or qualification changes.

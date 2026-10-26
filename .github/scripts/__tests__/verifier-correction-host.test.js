@@ -26,8 +26,8 @@ async function fixture(existing=false,change=()=>{}) {
   calls.push([resource,method,args]);if(state.readError){const error=Error('unavailable native read');error.status=403;throw error;}return {data:fn(args)};
  }]))]))};
  const collect=await createFreshCollector({github,repository:'stranske/example',actor:'authorized-actor',registryPath:path.join(__dirname,'../../agents/registry.yml'),
- history:async args=>{calls.push(['history',args]);return state.retained;},observeContinuations:async()=>state.runs,policy:async()=>state.policy || 'follow-up',clock:()=>new Date('2026-10-26T00:00:00Z')});
- return {state,request,calls,collect};
+ history:async args=>{calls.push(['history',args]);return state.retained;},observeContinuations:async()=>state.runs,policy:async()=>state.policy || 'follow-up',clock:()=>new Date('2026-10-26T00:00:00Z'),transport:{current:{run_id:700,run_attempt:1}}});
+ return {state,request,calls,collect,github};
 }
 test('native complete no-incumbent proof derives from real merged boundary, empty inventories and enabled registry agent',async()=>{
  const f=await fixture(),facts=await f.collect(f.request);assert.equal(facts.ownership.kind,'no_incumbent');assert.equal(facts.agent.key,'codex');assert.equal(facts.agent.enabled,true);
@@ -131,4 +131,59 @@ test('frozen native cross-reference v1 projection excludes mutable text and bind
  const changed=structuredClone(f.event);changed.source.issue.body='rewritten';changed.source.issue.labels=['changed'];
  assert.equal(crossReferenceDigest(changed,f.pull),f.sha256);
  assert.notEqual(crossReferenceDigest(changed,{...f.pull,head:{sha:'b'.repeat(40)}}),f.sha256);
+});
+
+
+function nativeStageHistory(f,records) {
+ const {effectKey,seedForRequest}=require('../verifier_correction_effects');
+ const key=effectKey(seedForRequest(f.request));
+ f.state.retained.snapshots=records.map((_,index)=>({key,snapshot:{revision:index+1,records:structuredClone(records.slice(0,index+1))},
+  proof:{run_id:700,run_attempt:1,artifact_id:100+index,archive_sha256:'a'.repeat(64),member_sha256:String(index).repeat(64)}}));
+ const last=records.at(-1),proof=f.state.retained.snapshots.at(-1)?.proof;
+ return last?{schema:'closer-correction-active-stage/v1',effect_key:key,request_sha256:f.request.request_sha256,
+ phase:last.phase,record_sha256:last.record_sha256,revision:records.length,proof}:null;
+}
+function stageRecord(f,records,kind,phase,extra={}) {
+ const {effectKey,seedForRequest}=require('../verifier_correction_effects');
+ const payload={schema:'closer-correction-effect-ledger/v1',effect_key:effectKey(seedForRequest(f.request)),revision:records.length+1,
+ kind,phase,request_sha256:f.request.request_sha256,consumer:{run_id:'700',run_attempt:'1'},...extra};
+ return {...payload,record_sha256:digest(payload)};
+}
+test('only exact current native stage is exempt from no-incumbent starting work; old, forged and forked stages stay unknown',async()=>{
+ const f=await fixture(),records=[];records.push(stageRecord(f,records,'intent','issue_creation'));
+ const activeEffect=nativeStageHistory(f,records);
+ assert.equal((await f.collect(f.request)).ownership.kind,'unknown');
+ const fresh=await f.collect(f.request,{activeEffect});assert.equal(fresh.ownership.kind,'no_incumbent');
+ assert.deepEqual(fresh.workInventory.retainedEffects,[]);checkFreshFacts(f.request,fresh,{ownership:fresh.ownership});
+ for(const change of [a=>{a.proof.run_id=701;},a=>{a.record_sha256='f'.repeat(64);},a=>{a.revision=2;},a=>{a.phase='autopilot_dispatch';},a=>{delete a.proof;}]) {
+  const wrong=structuredClone(activeEffect);change(wrong);await assert.rejects(f.collect(f.request,{activeEffect:wrong}));
+ }
+ f.state.retained.snapshots.push(structuredClone(f.state.retained.snapshots[0]));
+ await assert.rejects(f.collect(f.request,{activeEffect}),/ambiguous|forked/);
+});
+test('native no-incumbent consumer passes its just-retained create and dispatch gates once, then uncertain dispatch never repeats',async()=>{
+ const {createCorrectionEffectConsumer,seedForRequest}=require('../verifier_correction_effects');
+ const f=await fixture(),records=[],effects={issues:0,dispatches:0},consumer={run_id:'700',run_attempt:'1'};
+ let latestActive=null;
+ const ledger={read:async()=>({revision:records.length,records:structuredClone(records)}),append:async args=>{
+  assert.equal(args.expected_revision,records.length);records.push(args.record);latestActive=nativeStageHistory(f,records);return args.record;
+ },continuationSelector:async({issue})=>({request_sha256:f.request.request_sha256,effect_key:records.at(-1).effect_key,issue})};
+ f.github.rest.issues.create=async payload=>{
+  effects.issues++;f.state.incumbent={id:99,number:9,node_id:'I_9',title:payload.title,body:payload.body,labels:payload.labels,
+   state:'open',html_url:'https://github.com/stranske/example/issues/9',assignees:[],user:{id:41898282,login:'github-actions[bot]',type:'Bot'},created_at:'2026-10-26T00:00:00Z'};
+  f.state.opened=[f.state.incumbent];f.state.changed=[f.state.incumbent];
+  return {status:201,data:f.state.incumbent,headers:{'x-github-request-id':'inert-native-create'}};
+ };
+ f.github.rest.actions={createWorkflowDispatch:async()=>{effects.dispatches++;return {status:204};}};
+ const fresh=async(request,options={})=>{
+  const activeEffect=options.activeIntent?latestActive:null;
+  if(activeEffect)assert.equal(activeEffect.record_sha256,options.activeIntent.record_sha256);
+  return f.collect(request,{...options,activeEffect});
+ };
+ const consume=createCorrectionEffectConsumer({github:f.github,ledger,defaultBranch:'main',clock:()=>new Date('2026-10-26T00:00:00Z'),
+ authenticate:async()=>({request:f.request,seed:seedForRequest(f.request),required_tests:f.request.required_tests}),collectFreshFacts:fresh,
+ reconcile:async()=>({issues:effects.issues?[f.state.incumbent]:[]})});
+ const first=await consume(f.request,consumer);assert.equal(first.effect_state,'outcome_unknown');assert.deepEqual(effects,{issues:1,dispatches:1},JSON.stringify(first));
+ assert.deepEqual(records.map(row=>[row.kind,row.phase]),[['intent','issue_creation'],['issue_confirmed','issue_creation'],['intent','autopilot_dispatch']]);
+ const next=await consume(f.request,consumer);assert.equal(next.effect_state,'outcome_unknown');assert.deepEqual(effects,{issues:1,dispatches:1});
 });
