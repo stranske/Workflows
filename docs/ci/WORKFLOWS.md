@@ -458,6 +458,15 @@ suite six times. See [the profile contract](SELFTESTS.md) for ownership and over
 
 ### Python runtime and coverage policy
 
+Workflows' own Gate passes `-n auto --dist load` through `pytest_args`.
+The reusable appends `-n 4 --dist=loadgroup`, which remain effective; these
+caller flags do not establish an auto/load speedup. The temporary #4258 timing
+flags were removed after hosted measurement. Test-design changes retain the
+70% coverage minimum and real prompt/floor assertions; see
+[the matrix branch analysis](verifier-grammar-matrices.md#issue-4258-alias-products).
+Consumer create-only Gate policy and action pins remain unchanged. Acceptance
+still requires five successful PR Gate runs with the 3.14 job at most ten minutes.
+
 Gate runs the same selected tests with four xdist workers on Python 3.13 and
 3.14. `coverage-python-version: '3.14'` instruments only 3.14; 3.13 runs plain
 pytest. Branch coverage cannot use coverage.py's sysmon core on Python 3.13.

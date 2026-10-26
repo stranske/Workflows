@@ -3,6 +3,10 @@
 Issue #3904 changes test design, not production verifier behavior or delivery gates.
 The source base is `12cea89599a67c3004d1d469d669c2daa33dfd35`.
 
+The historical #3904 counts and experiments below describe that delivery.
+For the current additional reduction, see [#4258](#issue-4258-alias-products);
+the JSON inventory and projection tests reflect the current 31,368 cases.
+
 ## Retained regression map
 
 All 356 original test function names remain. Seventeen changed functions retain
@@ -335,3 +339,80 @@ The retained-input repair adds seven section-boundary regression functions (49 c
 These are recorded with `original_count: 0` because they postdate the pinned original
 corpus. The original 356 functions and 90,550-case baseline remain unchanged; the
 current retained inventory contains 35,113 cases.
+
+## Issue #4258 alias products
+
+The PR's own measurement Gate (40270010180, head `a49c62d`) selected
+35,113 destination cases. Six remaining full products are now semantic cores,
+lexical interaction spines and **all pairs of original dimensions**. The
+inventory/projection tests enumerate witnesses, including grouped dimensions;
+assertion bodies and all explicit named regression cases are unchanged.
+
+| Function suffix (`test_`) | Before | After |
+| --- | ---: | ---: |
+| repeated_product_predicate_shares_aspect_recipient_and_qualified_actor | 864 | 204 |
+| relative_negative_adjective_shares_internal_adverbs | 864 | 295 |
+| temporal_checklist_shorthand_preserves_named_delivery | 840 | 238 |
+| checklist_suffix_cannot_promote_conditional_or_negative_delivery | 840 | 292 |
+| negative_active_perfect_governor_preserves_independent_delivery | 900 | 218 |
+| review_related_actor_aside_preserves_delivery | 810 | 126 |
+
+Together: 5,118 -> 1,373; whole file: 35,113 -> 31,368 (3,745 fewer,
+10.67%). All other matrices retain their prior cases. This is a bounded first
+reduction of the measured aggregate hotspot, not a promise of a ten-minute job.
+
+### Branch analysis
+
+The unchanged production file is `scripts/langchain/pr_verifier.py`.
+`_classify_evidence_channels` normalizes checklist qualification before delivery
+classification; `_classify_evidence_options` shares those normalizations before
+expanding alternatives. `_apply_coverage_floor` consumes channel options and
+retrieval states. The following full cores retain higher-order behavior, rather
+than relying on pairwise sampling for it:
+
+- Repeated product predicate: full form × governor × AND/OR × destination
+  order. Form includes ordinary, perfect, progressive, capability, qualified
+  recipient, permit and let grammar. Each operation/irregular participle triple
+  and each actor spelling is crossed with form × governor. Product actor
+  recognition (`_EVIDENCE_ACTOR_QUALIFIER`) is independent of destination order;
+  operation inflection depends on form, and conjunction/polarity remains joint.
+- Relative negative adjective: full adjective × negation × adverb position ×
+  destination × independent duty. This also retains the assertion's special
+  `required`/`not` real-floor branch. Both relative pronouns and both adverb
+  spellings cross adjective × negation × position. The checklist regex captures
+  the negative governor and internal adverbs before the callback handles it;
+  no channel/independent-duty distinction is collapsed.
+- Temporal shorthand: full suffix × destination × independent duty. Marker and
+  proof noun each cross suffix × destination. Checklist marker recognition is
+  a prefix alternation, proof is a captured noun, and temporal/relative suffixes
+  delimit the destination. Channel identity, coincident artifact duty and the
+  real floor remain joint. Every emitted case still checks all three optional
+  and negative governor strings in the original assertion body.
+- Conditional/negative checklist suffix: full suffix × destination × independent
+  duty × joiner. Marker crosses suffix × joiner. Thus conditional vs negative
+  qualification, semicolon/sentence/conjunction scope and explicit later duty
+  are still tested jointly. Marker spelling cannot select the callback's
+  `conditional`, `negative` or following-clause branches.
+- Negative active perfect: full governor × destination × clause order. Each
+  irregular participle crosses governor × destination; marker crosses governor
+  × order. The shared negative-governor/action regex consumes these before
+  channel extraction; positive-first and negative-first scope is retained for
+  every governor/channel. The independent positive body duty stays asserted.
+- Review actor aside: full qualifier × object × destination; operation and role
+  each cross qualifier × destination. Auxiliary crosses qualifier × object,
+  exactly the inputs used by the separate product-storage assertion. The comma
+  aside is stripped before subject/delivery recognition; object spelling does
+  not govern the delivery channel. Auxiliary is absent from the positive
+  criterion, while role/operation/destination are absent from the negative
+  criterion. Their original Cartesian multiplication repeats identical inputs.
+
+Every value and every pair is additionally retained even outside these spines.
+The machine-readable map specifies the exact axes; the audit checks actual
+emitted rows, not just counts. All absent/unavailable, classifier/options, real
+prompt and floor assertions remain. No production code, coverage threshold,
+markers or suite selection change.
+
+Branch/line comparison of baseline and candidate is an additional check, not a
+proof about arbitrary grammar strings or future implementations. These bounded
+spines must expand if a new branch couples previously independent lexical axes.
+The existing adjacent integration suites and named regressions remain required.
