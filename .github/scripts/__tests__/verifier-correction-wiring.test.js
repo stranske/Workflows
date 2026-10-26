@@ -9,7 +9,7 @@ const {seedForRequest,effectKey}=require('../verifier_correction_effects');
 const {recordStarted}=require('../verifier_correction_autopilot');
 const ROOT=path.resolve(__dirname,'../../..');
 const read=name=>fs.readFileSync(path.join(ROOT,name),'utf8');
-const followup=()=>read('.github/workflows/agents-verify-to-new-pr.yml');
+const followupSurfaces=['.github/workflows/agents-verify-to-new-pr.yml','templates/consumer-repo/.github/workflows/agents-verify-to-new-pr.yml'];
 const autopilot=()=>read('templates/consumer-repo/.github/workflows/agents-auto-pilot.yml');
 const AsyncFunction=Object.getPrototypeOf(async function(){}).constructor;
 const sha=value=>createHash('sha256').update(value).digest('hex');
@@ -77,7 +77,10 @@ function originalCollector() {
  return {request,decision,qualification,selector,github,calls,effects,collectSubmission:module.exports.collectSubmission};
 }
 
-test('authored collection cannot turn caller classification truth into admission even with an eligible offline profile',async()=>{
+for(const surface of followupSurfaces) {
+const followup=()=>read(surface);
+const testSource=(name,fn)=>test(`${surface}: ${name}`,fn);
+testSource('authored collection cannot turn caller classification truth into admission even with an eligible offline profile',async()=>{
  const f=originalCollector(),file=fileFixture(),core=coreFixture();
  f.decision.decision_proof={status:'authenticated',decision_sha256:eventTools.digest(f.decision),profile_identity_sha256:'f'.repeat(64)};
  const requireStub=name=>{
@@ -99,7 +102,7 @@ test('authored collection cannot turn caller classification truth into admission
  assert.ok(f.calls.every(([resource,method])=>!['create','createWorkflowDispatch','update','addLabels'].includes(method)));
 });
 
-test('oversized authored collection input refuses before a collector or effect can run',async()=>{
+testSource('oversized authored collection input refuses before a collector or effect can run',async()=>{
  const file=fileFixture();let collectorCalls=0;
  const requireStub=name=>name==='fs'?file.fs:name.endsWith('/verification_event')?eventTools:
   name.endsWith('/verifier_correction_consumer')?{collectCorrection:async()=>{collectorCalls++;}}:
@@ -111,7 +114,7 @@ test('oversized authored collection input refuses before a collector or effect c
  assert.equal(refusal.retry_authorized,false);assert.equal(refusal.act_authorized,false);assert.equal(refusal.source_closure_authorized,false);
 });
 
-test('effect job depends on real collected artifact output and uses authenticated PR scope rather than caller hold identifiers',()=>{
+testSource('effect job depends on real collected artifact output and uses authenticated PR scope rather than caller hold identifiers',()=>{
  const source=followup(),job=source.split('\n  apply-correction:\n')[1];assert.ok(job);
  const header=job.split('    steps:\n')[0];
  assert.match(header,/needs: \[collect-correction\]/);
@@ -123,7 +126,7 @@ test('effect job depends on real collected artifact output and uses authenticate
  assert.match(source,/artifact_id: \$\{\{ steps\.correction_artifact\.outputs\.artifact-id \}\}/);
 });
 
-test('authored consume path invokes no effect when SDK initialization is unavailable',async()=>{
+testSource('authored consume path invokes no effect when SDK initialization is unavailable',async()=>{
  let runtimeCalls=0;
  const requireStub=name=>name==='fs'?fileFixture().fs:name==='path'?path:name.endsWith('/verification_event')?eventTools:
   name.endsWith('/verifier_correction_consumer')?require('../verifier_correction_consumer'):
@@ -146,7 +149,7 @@ function gateValues(selector,selected,admitted='false') {
   'steps.context.outputs.should_continue':'true','steps.cycles.outputs.exceeded':'false','steps.cycles.outputs.rate_limited':'false',
   'steps.complexity_check.outputs.too_complex':'false','steps.next.outputs.next_step':selected};
 }
-test('all authored provider-capable branches require retained-start admission for typed requests',()=>{
+testSource('all authored provider-capable branches require retained-start admission for typed requests',()=>{
  const source=autopilot();
  for(const [name,selected] of executableSteps) {
   const expression=condition(step(source,name));
@@ -160,7 +163,7 @@ test('all authored provider-capable branches require retained-start admission fo
  assert.equal(permits(expression,gateValues('','optimize')),true);
 });
 
-test('authored admission precedes context and retained start follows actual context/cycle/selection gates',()=>{
+testSource('authored admission precedes context and retained start follows actual context/cycle/selection gates',()=>{
  const source=autopilot();assert.ok(source.indexOf('- name: Authenticate correction continuation')<source.indexOf('- name: Determine context'));
  assert.ok(source.indexOf('- name: Determine next step')<source.indexOf('- name: Record admitted correction start'));
  assert.ok(source.indexOf('- name: Record admitted correction start')<source.indexOf('- name: Execute step - Format (inline)'));
@@ -175,7 +178,7 @@ test('authored admission precedes context and retained start follows actual cont
  }
 });
 
-test('authored retained-start readback error never emits provider admission output',async()=>{
+testSource('authored retained-start readback error never emits provider admission output',async()=>{
  const request=structuredClone(require('../../../tests/fixtures/verifier_correction/request.json')),core=coreFixture();
  const admission={request,selected_step:'optimize',lineage_key:'l'.repeat(64),observed_issue:request.incumbent.issue,
   selector:{effect_key:effectKey(seedForRequest(request)),issue:request.incumbent.issue,parent_dispatch:null},
@@ -191,14 +194,14 @@ test('authored retained-start readback error never emits provider admission outp
  assert.equal(authenticates,1);assert.equal(publishes,1);assert.equal(core.outputs.admitted,undefined);assert.equal(core.outputs.proof,undefined);
 });
 
-test('new authored github-script admission/effect bodies compile as JavaScript without evaluating expression inputs',()=>{
+testSource('new authored github-script admission/effect bodies compile as JavaScript without evaluating expression inputs',()=>{
  for(const [source,names] of [[followup(),['Collect authenticated correction request without effects','Consume admitted correction','Fence retained scoped correction effects']],
   [autopilot(),['Authenticate correction continuation','Record admitted correction start','Clear pause and redispatch format step']]]) {
   for(const name of names)assert.doesNotThrow(()=>new AsyncFunction('require','github','core','context','process','Buffer',script(step(source,name))),name);
  }
 });
 
-test('authored effect-host construction uncertainty emits UNKNOWN without invoking or repeating an effect',async()=>{
+testSource('authored effect-host construction uncertainty emits UNKNOWN without invoking or repeating an effect',async()=>{
  const file=fileFixture(),published=[];let consumes=0;
  const transport={publish:async(kind,bytes)=>{published.push([kind,JSON.parse(bytes)]);return {run_id:900,run_attempt:1};}};
  const requireStub=name=>name==='fs'?file.fs:name==='path'?path:name.endsWith('/verification_event')?eventTools:
@@ -214,3 +217,5 @@ test('authored effect-host construction uncertainty emits UNKNOWN without invoki
  assert.equal(refusal.receipt_sha256,eventTools.digest((({receipt_sha256,...value})=>value)(refusal)));
  assert.deepEqual(JSON.parse(file.files['agent-metrics/verifier-followup-ledger.ndjson']),refusal);
 });
+
+}

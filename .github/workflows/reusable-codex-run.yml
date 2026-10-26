@@ -636,7 +636,7 @@ jobs:
 
       - name: Checkout reviewed correction intake
         if: inputs.pr_number != ''
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: stranske/Workflows
           ref: main
@@ -664,7 +664,7 @@ jobs:
           CORRECTION_PR: "${{ inputs.pr_number }}"
           CORRECTION_READ_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ISSUE_PR_CONTEXT_TOKEN_BUDGET: ${{ vars.ISSUE_PR_CONTEXT_TOKEN_BUDGET }}
-        uses: actions/github-script@v9
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -1004,7 +1004,7 @@ jobs:
 
       - name: Recheck mandatory correction admission before coding
         if: env.CORRECTION_CONTEXT_FILE != ''
-        uses: actions/github-script@v9
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |

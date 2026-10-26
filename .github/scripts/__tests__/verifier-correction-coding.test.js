@@ -121,8 +121,9 @@ test('two actual authenticated scopes historically linked to the same PR remain 
  await assert.rejects(resolvePullCodingScope({transport,pullNumber:10}),/competing authenticated scopes/);
 });
 const fs=require('fs'),{execFileSync}=require('child_process');
-function activationScript() {
- const text=fs.readFileSync(path.join(pythonRoot,'.github/workflows/agents-72-codex-belt-worker.yml'),'utf8');
+const beltSurfaces=['.github/workflows/agents-72-codex-belt-worker.yml','templates/consumer-repo/.github/workflows/agents-72-codex-belt-worker.yml'];
+function activationScript(surface=beltSurfaces[0]) {
+ const text=fs.readFileSync(path.join(pythonRoot,surface),'utf8');
  const block=text.slice(text.indexOf('      - name: Post activation comment'));
  const lines=block.split('\n'),start=lines.findIndex(line=>line.trim()==='script: |')+1,body=[];
  for(const line of lines.slice(start)){if(line && !line.startsWith('            '))break;body.push(line.slice(12));}
@@ -130,7 +131,7 @@ function activationScript() {
   'steps.ledger_start.outputs.task_id':'task-1','steps.ledger_start.outputs.task_title':'Exact single task','steps.ctx.outputs.agent_key':'codex'};
  return body.join('\n').replace(/\$\{\{\s*(.*?)\s*\}\}/g,(_,key)=>{assert.ok(key in values,`known inert scalar ${key}`);return values[key];});
 }
-async function executeActivation({scope=null,budget='100000',update=false,calls=[]}) {
+async function executeActivation({scope=null,budget='100000',update=false,calls=[],surface=beltSurfaces[0]}) {
  const comments=update?[{id:87,body:'<!-- agent-activation-marker --> old'}]:[];
  const issues=Object.fromEntries(['listComments','createComment','updateComment','deleteComment'].map(method=>[method,async args=>{calls.push([method,args]);return {data:{}};}]));
  const github={rest:{issues}},core={warning:message=>calls.push(['warning',message])};
@@ -143,24 +144,24 @@ async function executeActivation({scope=null,budget='100000',update=false,calls=
   assert.equal(name,path.join(pythonRoot,'.github/scripts/verifier_correction_runtime'));return require(name);
  };
  const AsyncFunction=Object.getPrototypeOf(async function(){}).constructor;
- await new AsyncFunction('require','github','core','context','process',activationScript())(inertRequire,github,core,{repo:{owner:'stranske',repo:'example'}},{env});
+ await new AsyncFunction('require','github','core','context','process',activationScript(surface))(inertRequire,github,core,{repo:{owner:'stranske',repo:'example'}},{env});
  return calls;
 }
 const legacyActivation='<!-- agent-activation-marker -->\nAgent worker (codex) activated for branch `codex/issue-9`.\n\n@codex start\n**Focus on this task first:** `task-1` — Exact single task\n\nImplement **only** this task in your first commit.\nEnsure the code compiles and existing tests pass before moving on.\nThe keepalive loop will assign subsequent tasks after this one is complete.';
-for(const existing of [false,true])test(`actual Belt activation caller preserves ${existing?'incumbent':'new-issue'} scope in native ${existing?'update':'create'}Comment`,async()=>{
+for(const surface of beltSurfaces)for(const existing of [false,true])test(`${surface}: actual Belt activation caller preserves ${existing?'incumbent':'new-issue'} scope in native ${existing?'update':'create'}Comment`,async()=>{
  const f=fixture(existing),scope=await resolveCodingScope({transport:f.transport,issueNumber:9});
- const calls=await executeActivation({scope,update:existing}),writes=calls.filter(row=>['createComment','updateComment'].includes(row[0]));
+ const calls=await executeActivation({scope,update:existing,surface}),writes=calls.filter(row=>['createComment','updateComment'].includes(row[0]));
  assert.equal(writes.length,1);const body=writes[0][1].body;
  assert.equal(body,fitCodingText({base:legacyActivation,scope,budget:'100000',pythonRoot}));
  assert.ok(body.includes(scope.original_issue_body));const data=JSON.parse(body.slice(body.indexOf('{')));
  assert.equal(data.finding_text,scope.finding_text);assert.deepEqual(data.required_tests,scope.required_tests);
 });
-test('actual Belt absent-overlay activation remains byte-identical legacy single-task prompt',async()=>{
- const calls=await executeActivation({});assert.equal(calls.find(row=>row[0]==='createComment')[1].body,legacyActivation);
+for(const surface of beltSurfaces)test(`${surface}: actual Belt absent-overlay activation remains byte-identical legacy single-task prompt`,async()=>{
+ const calls=await executeActivation({surface});assert.equal(calls.find(row=>row[0]==='createComment')[1].body,legacyActivation);
 });
-test('actual Belt activation over-budget or unconfigured scope aborts before comment inventory or trigger',async()=>{
+for(const surface of beltSurfaces)test(`${surface}: actual Belt activation over-budget or unconfigured scope aborts before comment inventory or trigger`,async()=>{
  const f=fixture(),scope=await resolveCodingScope({transport:f.transport,issueNumber:9});
- for(const budget of [null,'','1']){const calls=[];await assert.rejects(executeActivation({scope,budget,calls}));assert.deepEqual(calls,[]);}
+ for(const budget of [null,'','1']){const calls=[];await assert.rejects(executeActivation({scope,budget,calls,surface}));assert.deepEqual(calls,[]);}
 });
 const {loadReviewedQualification}=require('../verifier_correction_collector');
 const {recheckCodingAdmission}=require('../verifier_correction_runtime');

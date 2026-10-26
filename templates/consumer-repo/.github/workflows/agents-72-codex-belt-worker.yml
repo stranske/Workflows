@@ -329,6 +329,7 @@ jobs:
           sparse-checkout: |
             .github/actions/setup-api-client
             .github/scripts
+            scripts/langchain
           sparse-checkout-cone-mode: false
           fetch-depth: 1
           path: workflows-lib
@@ -1090,6 +1091,33 @@ jobs:
               }
             }
 
+      - name: Resolve mandatory correction coding scope
+        if: steps.parallel.outputs.allowed == 'true' && steps.mode.outputs.dry_run != 'true'
+        env:
+          CORRECTION_ISSUE: "${{ steps.ctx.outputs.issue }}"
+          CORRECTION_PR: ""
+          CORRECTION_READ_TOKEN: ${{ env.GH_BELT_TOKEN }}
+          ISSUE_PR_CONTEXT_TOKEN_BUDGET: ${{ vars.ISSUE_PR_CONTEXT_TOKEN_BUDGET }}
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        with:
+          github-token: ${{ env.GH_BELT_TOKEN }}
+          script: |
+            const path=require('path'),fs=require('fs');
+            const root=path.resolve('workflows-lib');
+            const {createArtifactTransport}=require(path.join(root,'.github/scripts/verifier_correction_artifacts'));
+            const {resolveCodingScope,fitCodingText,recheckCodingAdmission}=require(path.join(root,'.github/scripts/verifier_correction_runtime'));
+            const repository=`${context.repo.owner}/${context.repo.repo}`.toLowerCase();
+            const transport=await createArtifactTransport({github,repository,current:{run_id:context.runId,run_attempt:Number(process.env.GITHUB_RUN_ATTEMPT)}});
+            const issueNumber=Number(process.env.CORRECTION_ISSUE);
+            const scope=await resolveCodingScope({transport,issueNumber});
+            if(scope===null)return;
+            await recheckCodingAdmission({github,transport,scope,pythonRoot:root});
+            fitCodingText({base:'',scope,budget:process.env.ISSUE_PR_CONTEXT_TOKEN_BUDGET,pythonRoot:root});
+            const file=path.join(process.env.RUNNER_TEMP,'mandatory-correction-context.json');
+            fs.writeFileSync(file,JSON.stringify(scope));
+            core.exportVariable('CORRECTION_CONTEXT_FILE',file);
+            core.exportVariable('ISSUE_PR_CONTEXT_TOKEN_BUDGET',process.env.ISSUE_PR_CONTEXT_TOKEN_BUDGET);
+
       - name: Open or refresh agent PR
         if: ${{ steps.parallel.outputs.allowed == 'true' && (inputs.keepalive != true || steps.keepalive_gate.outputs.action != 'skip') && steps.mode.outputs.dry_run != 'true' }}
         id: pr
@@ -1227,7 +1255,10 @@ jobs:
                 assignees.unshift('chatgpt-codex-connector');
               }
             }
-            for (const target of [prNumber, issue]) {
+            // A scoped correction preserves the original incumbent ownership.
+            // Automation may be assigned to the PR, never silently to its issue.
+            const targets=process.env.CORRECTION_CONTEXT_FILE?[prNumber]:[prNumber,issue];
+            for (const target of targets) {
               try {
                 await withRetry((client) =>
                   client.rest.issues.addAssignees({ owner, repo, issue_number: target, assignees })
@@ -1276,7 +1307,13 @@ jobs:
             }
             // Agent-agnostic activation trigger
             const activationTrigger = `@${agentKey} start`;
-            const body = `${marker}\n${summary}\n\n${activationTrigger}${taskDirective}`;
+            let body = `${marker}\n${summary}\n\n${activationTrigger}${taskDirective}`;
+            if(process.env.CORRECTION_CONTEXT_FILE) {
+              const fs=require('fs'),path=require('path');
+              const {fitCodingText}=require(path.resolve('workflows-lib/.github/scripts/verifier_correction_runtime'));
+              body=fitCodingText({base:body,scope:JSON.parse(fs.readFileSync(process.env.CORRECTION_CONTEXT_FILE,'utf8')),
+                budget:process.env.ISSUE_PR_CONTEXT_TOKEN_BUDGET,pythonRoot:path.resolve('workflows-lib')});
+            }
 
             try {
               const comments = await paginateWithRetry(
