@@ -6,89 +6,88 @@
       "python ci / python 3.14"
     ],
     "run_count": 5,
+    "required_run_count": 5,
     "sample_mode": "successful_pr_window"
   },
   "passed": false,
   "failures": [
-    "run 40317065551: python ci / python 3.13 took 664s (limit 600s)",
-    "run 40317065551: python ci / python 3.14 took 766s (limit 600s)",
-    "run 40315641339: python ci / python 3.14 took 690s (limit 600s)",
-    "run 40313060315: python ci / python 3.13 took 675s (limit 600s)",
-    "run 40313060315: python ci / python 3.14 took 755s (limit 600s)",
-    "run 40310472895: python ci / python 3.14 took 735s (limit 600s)"
+    "run 40362782097: python ci / python 3.13 took 648s (limit 600s)",
+    "run 40362782097: python ci / python 3.14 took 715s (limit 600s)",
+    "run 40359530080: python ci / python 3.14 took 704s (limit 600s)",
+    "run 40359091581: python ci / python 3.14 took 741s (limit 600s)"
   ],
   "runs": [
     {
-      "run_id": 40317065551,
+      "run_id": 40366154608,
       "jobs": {
         "python ci / python 3.13": {
-          "seconds": 664.0,
-          "pytest_step_seconds": 633.0,
-          "within_policy": false
-        },
-        "python ci / python 3.14": {
-          "seconds": 766.0,
-          "pytest_step_seconds": 718.0,
-          "within_policy": false
-        }
-      }
-    },
-    {
-      "run_id": 40315641339,
-      "jobs": {
-        "python ci / python 3.13": {
-          "seconds": 527.0,
-          "pytest_step_seconds": 487.0,
+          "seconds": 525.0,
+          "pytest_step_seconds": 492.0,
           "within_policy": true
         },
         "python ci / python 3.14": {
-          "seconds": 690.0,
-          "pytest_step_seconds": 655.0,
-          "within_policy": false
+          "seconds": 544.0,
+          "pytest_step_seconds": 504.0,
+          "within_policy": true
         }
       }
     },
     {
-      "run_id": 40313060315,
+      "run_id": 40362782097,
       "jobs": {
         "python ci / python 3.13": {
-          "seconds": 675.0,
-          "pytest_step_seconds": 642.0,
+          "seconds": 648.0,
+          "pytest_step_seconds": 618.0,
           "within_policy": false
         },
         "python ci / python 3.14": {
-          "seconds": 755.0,
-          "pytest_step_seconds": 726.0,
+          "seconds": 715.0,
+          "pytest_step_seconds": 680.0,
           "within_policy": false
         }
       }
     },
     {
-      "run_id": 40310472895,
+      "run_id": 40359530080,
       "jobs": {
         "python ci / python 3.13": {
-          "seconds": 401.0,
-          "pytest_step_seconds": 375.0,
+          "seconds": 373.0,
+          "pytest_step_seconds": 342.0,
           "within_policy": true
         },
         "python ci / python 3.14": {
-          "seconds": 735.0,
-          "pytest_step_seconds": 690.0,
+          "seconds": 704.0,
+          "pytest_step_seconds": 670.0,
           "within_policy": false
         }
       }
     },
     {
-      "run_id": 40306641092,
+      "run_id": 40359091581,
       "jobs": {
         "python ci / python 3.13": {
-          "seconds": 412.0,
-          "pytest_step_seconds": 383.0,
+          "seconds": 526.0,
+          "pytest_step_seconds": 492.0,
           "within_policy": true
         },
         "python ci / python 3.14": {
-          "seconds": 590.0,
-          "pytest_step_seconds": 547.0,
+          "seconds": 741.0,
+          "pytest_step_seconds": 698.0,
+          "within_policy": false
+        }
+      }
+    },
+    {
+      "run_id": 40356027024,
+      "jobs": {
+        "python ci / python 3.13": {
+          "seconds": 380.0,
+          "pytest_step_seconds": 353.0,
+          "within_policy": true
+        },
+        "python ci / python 3.14": {
+          "seconds": 561.0,
+          "pytest_step_seconds": 525.0,
           "within_policy": true
         }
       }

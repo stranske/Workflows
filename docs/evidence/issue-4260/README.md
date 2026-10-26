@@ -46,6 +46,23 @@ on this PR's Gate runs; Hosted wall-clock variance still exceeds the policy.
 Do not mark the timing acceptance criterion complete until a fresh checker run
 passes on or after 2026-11-15 (and after merge for the Hosted Gate follow-up).
 
+## Latest successful PR window (2026-10-26, post-#4267)
+
+`gate-python-job-timings.json` still records a **FAIL** on the five latest
+successful Gate PR runs (single-runtime coverage already on `main` via
+`coverage-python-version: '3.14'`; 3.13 correctly runs with coverage off):
+
+| Run | 3.13 job (pytest) | 3.14 job (pytest) | Within 600s |
+| --- | ---: | ---: | --- |
+| 40366154608 | 525 s (492) | 544 s (504) | yes |
+| 40362782097 | 648 s (618) | 715 s (680) | no |
+| 40359530080 | 373 s (342) | 704 s (670) | no (3.14) |
+| 40359091581 | 526 s (492) | 741 s (698) | no (3.14) |
+| 40356027024 | 380 s (353) | 561 s (525) | yes |
+
+Pytest alone often exceeds 600 s on the slower Hosted samples (~50k tests).
+Keep the Nov 15 AC unchecked until `--created-after 2026-11-15 --limit 5` passes.
+
 ## PR-head sample (2026-10-26, run 40308833794)
 
 `gate-python-job-timings-pr-head-2026-10-26.json` evaluates Gate run
