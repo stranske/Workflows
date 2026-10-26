@@ -633,10 +633,26 @@ def test_write_summary_and_outputs(tmp_path: Path) -> None:
     assert "failure_checks=" in updated_text
 
 
+@pytest.fixture(params=["shared", "consumer"])
+def security_gate_summary(request):
+    if request.param == "shared":
+        return gate_summary
+    import importlib.util
+
+    path = SCRIPT_DIR.parents[1] / "templates/consumer-repo/.github/scripts/gate_summary.py"
+    spec = importlib.util.spec_from_file_location("consumer_gate_summary_security", path)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
 @pytest.mark.parametrize(
     "state", ["reviewing\nstate=success", "$(touch injected)", {"state": "sealed"}]
 )
-def test_untrusted_delivery_state_is_not_echoed(tmp_path: Path, state: object) -> None:
+def test_untrusted_delivery_state_is_not_echoed(
+    tmp_path: Path, state: object, security_gate_summary
+) -> None:
     event = {
         "pull_request": {
             "head": {"ref": "sync/workflows-delivery", "sha": "head", "repo": {"full_name": "a/b"}},
@@ -653,7 +669,7 @@ def test_untrusted_delivery_state_is_not_echoed(tmp_path: Path, state: object) -
     }
     path = tmp_path / "event.json"
     path.write_text(json.dumps(event))
-    assert gate_summary._delivery_seal_from_event(path) == (
+    assert security_gate_summary._delivery_seal_from_event(path) == (
         True,
         False,
         "delivery state is missing or invalid",
@@ -664,9 +680,9 @@ def test_untrusted_delivery_state_is_not_echoed(tmp_path: Path, state: object) -
     "description", ["bad\nstate=success", "bad\rstate=success", "bad\r\nstate=success"]
 )
 def test_multiline_description_cannot_override_output_state(
-    tmp_path: Path, description: str
+    tmp_path: Path, description: str, security_gate_summary
 ) -> None:
-    result = gate_summary.SummaryResult(
+    result = security_gate_summary.SummaryResult(
         lines=[],
         state="failure",
         description=description,
@@ -675,7 +691,7 @@ def test_multiline_description_cannot_override_output_state(
         format_failure=False,
     )
     path = tmp_path / "output"
-    gate_summary._write_outputs(result, path)
+    security_gate_summary._write_outputs(result, path)
     # Parse the runner's single-line and delimiter output forms; embedded state is data.
     lines = iter(path.read_text().splitlines())
     values = {}
@@ -693,3 +709,8 @@ def test_multiline_description_cannot_override_output_state(
             values[key] = value
     assert values["state"] == "failure"
     assert "state=success" in values["description"]
+
+
+def test_shared_and_consumer_gate_summary_security_are_in_sync() -> None:
+    consumer = SCRIPT_DIR.parents[1] / "templates/consumer-repo/.github/scripts/gate_summary.py"
+    assert (SCRIPT_DIR / "gate_summary.py").read_bytes() == consumer.read_bytes()
