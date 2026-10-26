@@ -429,15 +429,17 @@ jobs:
           path: coverage_artifacts/trend
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Download coverage trend history artifact
-        if: ${{ steps.discover.outputs.history_artifact_name }}
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
-        continue-on-error: true
+      # Each immutable cache saves the accumulated history after this guard run.
+      # Restore the newest repository history, independently of the producer run.
+      - name: Restore coverage recovery history
+        if: ${{ steps.discover.outputs.run_id }}
+        id: coverage-trend-history-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
-          name: ${{ steps.discover.outputs.history_artifact_name }}
-          run-id: ${{ steps.discover.outputs.run_id }}
           path: coverage_artifacts/history
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          key: coverage-guard-history-v1-${{ github.repository }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            coverage-guard-history-v1-${{ github.repository }}-
 
       - name: Download coverage payload artifact
         if: ${{ steps.discover.outputs.coverage_artifact_name }}
@@ -458,7 +460,7 @@ jobs:
           # Try multiple possible artifact paths (workflow uses different naming)
           TREND_PATH=""
           COVERAGE_PATH=""
-          HISTORY_PATH=""
+          HISTORY_PATH="coverage_artifacts/history/coverage-trend-history.ndjson"
 
           # Check for trend artifact
           for candidate in \
@@ -557,6 +559,14 @@ jobs:
           fi
 
           python tools/coverage_guard.py "${ARGS[@]}"
+
+      - name: Save coverage recovery history
+        if: ${{ always() && steps.discover.outputs.run_id && hashFiles('coverage_artifacts/history/coverage-trend-history.ndjson') != '' }}
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: coverage_artifacts/history
+          key: ${{ steps.coverage-trend-history-cache.outputs.cache-primary-key }}
+
 
   # A SKIPPED GUARD USED TO BE INDISTINGUISHABLE FROM A PASSING ONE. `guard` is gated on the
   # rate-limit job, so when quota is low the job is skipped and the WORKFLOW IS GREEN with nothing

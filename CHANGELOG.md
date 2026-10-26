@@ -6,6 +6,177 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.44.28](https://github.com/stranske/Workflows/compare/v1.44.27...v1.44.28) (2026-10-26)
+
+
+### Bug Fixes
+
+* **coverage:** accumulate guard recovery history across runs ([#4265](https://github.com/stranske/Workflows/issues/4265)) ([8dea3ea](https://github.com/stranske/Workflows/commit/8dea3ea460e7dcb246b6f7b7513b20e6116c4b51))
+
+## [1.44.27](https://github.com/stranske/Workflows/compare/v1.44.26...v1.44.27) (2026-10-26)
+
+
+### Bug Fixes
+
+* **sync:** distribute resolved Gate context to path classifier ([#4266](https://github.com/stranske/Workflows/issues/4266)) ([04057ca](https://github.com/stranske/Workflows/commit/04057cad3a58fa55c292bb405affc0543159014c))
+
+## [1.44.26](https://github.com/stranske/Workflows/compare/v1.44.25...v1.44.26) (2026-10-26)
+
+
+### Bug Fixes
+
+* **gate:** isolate summary inputs and handle nullable origins ([#4259](https://github.com/stranske/Workflows/issues/4259)) ([67829b6](https://github.com/stranske/Workflows/commit/67829b6145644352661b56f5251344cf952d0a64))
+* **gate:** isolate untrusted failure diagnostics ([#4263](https://github.com/stranske/Workflows/issues/4263)) ([f0a2ed5](https://github.com/stranske/Workflows/commit/f0a2ed5934557d07d27123b53c98bd96c5bc95c7))
+
+## [1.44.25](https://github.com/stranske/Workflows/compare/v1.44.24...v1.44.25) (2026-10-26)
+
+
+### Bug Fixes
+
+* **gate:** consume resolved seal in the summary action ([#4255](https://github.com/stranske/Workflows/issues/4255)) ([08e1896](https://github.com/stranske/Workflows/commit/08e1896a4e5847ef5c413badad6b16850375fcb1))
+
+## [1.44.24](https://github.com/stranske/Workflows/compare/v1.44.23...v1.44.24) (2026-10-25)
+
+
+### Bug Fixes
+
+* **verifier:** bind launch correlation to authenticated result lifecycle ([#4252](https://github.com/stranske/Workflows/issues/4252)) ([89b37e3](https://github.com/stranske/Workflows/commit/89b37e3e0bce9f4dacf995228434de9f889bf95d))
+
+## [1.44.23](https://github.com/stranske/Workflows/compare/v1.44.22...v1.44.23) (2026-10-25)
+
+
+### Bug Fixes
+
+* **verifier:** retain explicitly required comment proof end to end ([#4250](https://github.com/stranske/Workflows/issues/4250)) ([a11220f](https://github.com/stranske/Workflows/commit/a11220f413f2dc2ccc8724d37a2153cf83b2d165))
+
+## [1.44.22](https://github.com/stranske/Workflows/compare/v1.44.21...v1.44.22) (2026-10-25)
+
+
+### Bug Fixes
+
+* **sync:** refresh resolver on sealed Gate recovery ([#4247](https://github.com/stranske/Workflows/issues/4247)) ([c7b3ed2](https://github.com/stranske/Workflows/commit/c7b3ed2de9cb3284341c5bb1601a253d290b49ba))
+
+## [1.44.21](https://github.com/stranske/Workflows/compare/v1.44.20...v1.44.21) (2026-10-25)
+
+
+### Bug Fixes
+
+* **gate:** refresh sealed PR metadata without changing head bindings ([#4245](https://github.com/stranske/Workflows/issues/4245)) ([b9310cc](https://github.com/stranske/Workflows/commit/b9310ccb83f073b38c5f1150bdf3145f05620b4c))
+
+## [1.44.20](https://github.com/stranske/Workflows/compare/v1.44.19...v1.44.20) (2026-10-25)
+
+
+### Bug Fixes
+
+* **verifier:** bootstrap provenance for historical retained outcomes ([#4242](https://github.com/stranske/Workflows/issues/4242)) ([99829d1](https://github.com/stranske/Workflows/commit/99829d194588de062d88cad093e53a838b0351b2))
+
+## [1.44.19](https://github.com/stranske/Workflows/compare/v1.44.18...v1.44.19) (2026-10-25)
+
+
+### Bug Fixes
+
+* **verifier:** authenticated changed-input recovery for retained mixed outcomes ([#4239](https://github.com/stranske/Workflows/issues/4239)) ([#4240](https://github.com/stranske/Workflows/issues/4240)) ([ed496b6](https://github.com/stranske/Workflows/commit/ed496b6d7285fbc13df916b4d1cc1af8ae6f44b9))
+
+## [1.44.18](https://github.com/stranske/Workflows/compare/v1.44.17...v1.44.18) (2026-10-25)
+
+
+### Bug Fixes
+
+* **verifier:** admit necessary whole inputs before optional packing ([9d125b8](https://github.com/stranske/Workflows/commit/9d125b85a395d8ba6853e51f50b90b718adcc782))
+* **verifier:** preserve abbreviated duties and count necessary proof ([87d6d5c](https://github.com/stranske/Workflows/commit/87d6d5c5713af00a9962df9716ef8cd4356f04fb))
+* **verifier:** preserve authenticated retained revalidation ([9a44c5e](https://github.com/stranske/Workflows/commit/9a44c5e644bc8d11b3d2f5d64d87f30948ef4c42))
+* **verifier:** preserve parent on authenticated same-event retries ([aa9bbf9](https://github.com/stranske/Workflows/commit/aa9bbf93190901225755b7c160ea98d5f0fa5d2d))
+* **verifier:** reconcile older pending retries and retain exact dedup ([c4c670a](https://github.com/stranske/Workflows/commit/c4c670a9d71990ac7fc4426edb2e7e9e658b9aa3))
+
+## [1.44.17](https://github.com/stranske/Workflows/compare/v1.44.16...v1.44.17) (2026-10-25)
+
+
+### Bug Fixes
+
+* **verifier:** resolve selected artifact IDs beyond discovery bounds ([8fa4129](https://github.com/stranske/Workflows/commit/8fa41299a394fe2af46e910acbb0f733dc415b23))
+* **verifier:** retain selected baseline proof through repeat events ([7bd37e7](https://github.com/stranske/Workflows/commit/7bd37e731a7906565ed6d2231724ca3bf5fefa83))
+* **verifier:** retain selected comparison proof through recovery ([c503640](https://github.com/stranske/Workflows/commit/c5036409d5ce5b83f4fa288b583d909e10892a1f))
+
+## [1.44.16](https://github.com/stranske/Workflows/compare/v1.44.15...v1.44.16) (2026-10-24)
+
+
+### Bug Fixes
+
+* **agents:** stage validated conflict resolutions in host helper ([#4232](https://github.com/stranske/Workflows/issues/4232)) ([8ff547d](https://github.com/stranske/Workflows/commit/8ff547d880df52b9bb9616f222135d05201f5145))
+* **verifier:** capture required linked-source comments with provenance ([#4230](https://github.com/stranske/Workflows/issues/4230)) ([f854802](https://github.com/stranske/Workflows/commit/f85480290ffdf68334babc52907a9d8c5df63276))
+* **verifier:** separate optional media from capture integrity ([#4233](https://github.com/stranske/Workflows/issues/4233)) ([52e0c6e](https://github.com/stranske/Workflows/commit/52e0c6eecabc9d150b2d551e9216d10c10c6c960))
+
+## [1.44.15](https://github.com/stranske/Workflows/compare/v1.44.14...v1.44.15) (2026-10-24)
+
+
+### Bug Fixes
+
+* **keepalive:** forward evaluated PR base in consumer Codex caller ([#4228](https://github.com/stranske/Workflows/issues/4228)) ([8cefdbd](https://github.com/stranske/Workflows/commit/8cefdbdec6bd803ada62e7be46b492660fc2d30c))
+
+## [1.44.14](https://github.com/stranske/Workflows/compare/v1.44.13...v1.44.14) (2026-10-24)
+
+
+### Bug Fixes
+
+* capture compressed verification evidence as typed assets ([#4226](https://github.com/stranske/Workflows/issues/4226)) ([1c8d5e1](https://github.com/stranske/Workflows/commit/1c8d5e10b2f782821f3809b04cfab29283759625))
+
+## [1.44.13](https://github.com/stranske/Workflows/compare/v1.44.12...v1.44.13) (2026-10-24)
+
+
+### Bug Fixes
+
+* bind verifier publication to authoritative execution receipts ([#4222](https://github.com/stranske/Workflows/pull/4222)) ([4326fbe](https://github.com/stranske/Workflows/commit/4326fbe7df4cf856cf85e62d023fa17be04ab0b6))
+* recover authenticated retained verifier output without model replay ([#4224](https://github.com/stranske/Workflows/issues/4224)) ([fe6a3d9](https://github.com/stranske/Workflows/commit/fe6a3d9f364c0cd8f0eed6261c320ccfcc9f494c))
+
+## [1.44.12](https://github.com/stranske/Workflows/compare/v1.44.11...v1.44.12) (2026-10-24)
+
+
+### Bug Fixes
+
+* **verifier:** reconcile chunk coverage without losing review findings ([#4220](https://github.com/stranske/Workflows/issues/4220)) ([98583f6](https://github.com/stranske/Workflows/commit/98583f6fc77ac58e1952dc6ecfd68c8e10d2cc8f))
+
+## [1.44.11](https://github.com/stranske/Workflows/compare/v1.44.10...v1.44.11) (2026-10-23)
+
+
+### Bug Fixes
+
+* **verifier:** retain required inputs through comparison and native admission ([#4218](https://github.com/stranske/Workflows/issues/4218)) ([8aec50e](https://github.com/stranske/Workflows/commit/8aec50e35fc47fd13e3706666aad3e642405704a))
+
+## [1.44.10](https://github.com/stranske/Workflows/compare/v1.44.9...v1.44.10) (2026-10-23)
+
+
+### Bug Fixes
+
+* authenticate historical CI baselines without claiming current proof ([#4215](https://github.com/stranske/Workflows/issues/4215)) ([c412a4a](https://github.com/stranske/Workflows/commit/c412a4a418b3356c8e191642e0519595e1290dae))
+* carry repeat verification through material events and retained outcomes ([#4216](https://github.com/stranske/Workflows/issues/4216)) ([d036a65](https://github.com/stranske/Workflows/commit/d036a6523bee0fe82d6e32220851b4952a3fa5ff))
+
+## [1.44.9](https://github.com/stranske/Workflows/compare/v1.44.8...v1.44.9) (2026-10-23)
+
+
+### Bug Fixes
+
+* **verifier:** screen evaluate evidence by minimum availability ([#4203](https://github.com/stranske/Workflows/issues/4203)) ([f0fc47e](https://github.com/stranske/Workflows/commit/f0fc47eb5af6710a5fd7a69940cf6f763236053c))
+
+## [1.44.8](https://github.com/stranske/Workflows/compare/v1.44.7...v1.44.8) (2026-10-23)
+
+
+### Features
+
+* **verifier:** enable a seven-day production shadow evaluation of seven configured candidate judges in parallel on compare-mode runs, with a daily report. These additional model calls add API cost and runtime for consumers using the reusable workflow at `@main`; shadow verdicts do not change production acceptance or promote models. Disable centrally with `enabled: false` in `config/verifier_shadow.json` or per repository with `VERIFIER_SHADOW=off` ([#4195](https://github.com/stranske/Workflows/pull/4195)).
+
+### Bug Fixes
+
+* harden weekly review cleanup and report exclusions ([#4187](https://github.com/stranske/Workflows/issues/4187)) ([d6fbd99](https://github.com/stranske/Workflows/commit/d6fbd9928c729f16f55987b0b1612ddcf6efeeb4))
+* **verifier:** admit original requests for explicit evaluation ([#4199](https://github.com/stranske/Workflows/issues/4199)) ([6924f1d](https://github.com/stranske/Workflows/commit/6924f1d263cd79832404315a451448920b4421d9))
+
+## [1.44.7](https://github.com/stranske/Workflows/compare/v1.44.6...v1.44.7) (2026-10-22)
+
+
+### Bug Fixes
+
+* **verifier:** accept Anthropic and retain evaluation failures ([#4188](https://github.com/stranske/Workflows/issues/4188)) ([b7ca998](https://github.com/stranske/Workflows/commit/b7ca99883dacdd0466055ab0cb3082dd0ee9a545))
+* **verifier:** preserve inputs and isolate acceptance execution ([#4191](https://github.com/stranske/Workflows/issues/4191)) ([f3668b3](https://github.com/stranske/Workflows/commit/f3668b30212693d523dc3f1323f5341f73bfef80))
+
 ## [1.44.6](https://github.com/stranske/Workflows/compare/v1.44.5...v1.44.6) (2026-10-19)
 
 

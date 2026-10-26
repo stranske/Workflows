@@ -62,6 +62,11 @@ The contract limits each keepalive chain to four non-`run-*` jobs and four
 review, is also four. The root currently has four chain jobs and the consumer
 has three. The consumer hub does not currently define an isolated acceptance job.
 
+The consumer Codex caller forwards `evaluateKeepaliveLoop`'s authenticated PR
+`baseRef` through the evaluation step and job outputs to the reusable runner's
+`base_ref` input. This preserves non-default PR bases on `workflow_dispatch`,
+where the event has no pull-request base-ref fallback.
+
 `finish` shares one checkout, Node setup and API-client setup. It reconciles tasks
 and updates the Automated Status Summary before measuring productivity and
 recording the dispatch completion. Its `always()` job condition preserves review,
@@ -307,6 +312,13 @@ the next evaluation requires fresh evidence before completion.
 
 ### Post-merge verification and source closure
 
+Post-merge acceptance-command jobs allocate plan and result control files in a
+unique temporary directory under `RUNNER_TEMP`. Each invocation reads its own
+results before retiring those control files; the combined `closure-results.json`
+remains available for the normal artifact upload. Parallel jobs and tests never
+share fixed `/tmp/closure-*` paths. This isolation does not change command
+failure handling, receipt identity, or the credential allowlist.
+
 The verifier preserves the authoritative full patch instead of clipping the
 context at 300,000 characters. Standard evaluate and compare review whole file
 patches in successive requests using the named `VERIFIER_DIFF_BUDGET_TOKENS`
@@ -316,6 +328,27 @@ requests plus one global acceptance reconciliation are planned per provider. A f
 file inventory, or exhausted capacity remains explicitly unreviewed; no partial
 file is silently counted as reviewed. Expanded semantic verification retains its
 independent native-capacity and acceptance rules.
+
+An expressly cited historical CI baseline is not current-revision evidence.
+The collector may retain it only when the citation identifies a same-repository
+run as historical, baseline, or provenance material through an affirmative role
+declaration followed by a direct run citation (optionally its immutable success
+measurement), or a direct `run is/was/remains/serves as a historical baseline`
+assertion under an evidence/validation or historical heading. The existing
+`coverage evidence remains CI run` measurement citation is also supported.
+Unknown qualifications, negated, uncertain and quoted/example role mentions do
+not establish that role; a positive heading never overrides qualified prose. The retained sources must cite a
+distinct owning PR, and GitHub's commit-to-PR association plus the merged PR's
+exact head/merge authenticate that ownership. A run's explicit PR association
+must agree; when absent, the native commit association must identify a unique
+owner before considering the authored citation. The run must be a completed
+`pull_request` attempt in that repository. Ambiguous, incomplete, wrong-owner or
+unavailable provenance still fails closed. Retained artifact records, capture
+inventory, source coverage and the prompt identify `historical-baseline` and its
+immutable owning PR/run binding. This role grants neither current-code proof nor
+acceptance PASS; artifact expiry, extraction limits and retrieval failures keep
+their existing honest statuses and required/optional evidence policy. An ordinary
+current-revision citation with a mismatched head is not promoted to a baseline.
 
 Every evaluation/comparison report prints **files reviewed N of M** and incomplete
 results carry `files_not_reviewed`. `UNVERIFIABLE_INPUT` means supplied input could
@@ -331,6 +364,20 @@ A final acceptance reconciliation reviews every chunk summary before a global
 PASS is possible; a missing cross-file implementation remains CONCERNS.
 Both per-call token limits and the total chunk-call cap live in
 `scripts/langchain/verifier_config.py`.
+
+Single-judge and comparison verification use the same minimum-evidence admission
+policy. Optional artifacts do not displace a complete required alternative.
+Every retained original requirement reaches the judge unchanged, outside the
+optional navigation budget. Native token counting checks the actual request,
+including synthesis and schema repair, before generation; an unavailable or
+exceeded capacity contract remains an explicit input failure. Expanded mode
+keeps its additional complete raw-capture admission requirements.
+
+An investigative checkbox mentioning artifacts is not itself an evidence-upload
+duty. Explicit uploads, comments, mandatory requirements and gates remain duties.
+Complete text patches can receive a partial review when only binary descriptors
+are unavailable. Those binary paths remain explicitly unreviewed, synthesis is
+skipped, and the partial result cannot become acceptance PASS.
 
 `reusable-agents-verifier.yml` exports its verdict and immutable target to the
 `agents-verifier.yml` caller. The caller applies two source-issue closing rules
@@ -727,3 +774,38 @@ a nonempty configured CI inventory entirely bound to the evaluated merge SHA,
 with no query errors and only successful or explicitly optional skipped results.
 Belt task completion requires named artifacts among substantive changed paths
 of the cited commit; existing unchanged artifacts cannot establish completion.
+
+GitHub Models retains its existing registry-selected standard chat route; it is
+not reinterpreted as the direct OpenAI Responses transport and does not claim a
+native-count receipt. Expanded recovery still refuses that route without its
+required native capacity facts. This compatibility exception neither changes
+provider selection nor clips original requirements.
+
+The same separation applies to explicitly required proof: retain one complete
+valid alternative outside the optional evidence budget, choosing the smallest
+complete alternative by character count. Native-capable routes count the full
+requirements, selected proof and code request before generation; capacity refusal
+never clips required evidence or turns a missing input into an acceptance PASS.
+Malformed recognized builder headings cannot certify a required-channel projection.
+
+Registered standard OpenAI/Anthropic comparison candidates with no optional
+native-capacity record also retain their original transport. A typed absence is
+distinct from a malformed declared contract: malformed registries, malformed
+facts, unknown identities and unexpected transports remain errors. Expanded
+recovery always requires its native contract; no legacy path asserts counting.
+
+Chunk review accounts for exact assigned destination paths. A sibling's absence
+from one request is contextual, not evidence that its changed file was omitted
+from the PR. Provider-declared omissions of assigned files, unknown paths, failed
+requests, binaries and review limits remain non-PASS boundaries. An explicitly
+unverifiable response earns code-review credit only for its named `files_reviewed`;
+a missing operational acceptance observation never becomes an implementation PASS.
+
+Complete successful chunk sets reconcile global criteria even when local findings
+are non-PASS. Raw responses, assigned paths and patch/prompt hashes remain in
+`chunk_reviews`. Optional `deferred_concerns` attribution and a matching
+`resolved_chunk_concerns` explanation can discharge only a CONCERNS-level sibling
+limitation backed by complete reviews of the named sibling files. Untyped findings,
+FAIL, unknown input and missing global proof remain conservative floors. The final
+summary reflects whole-PR reconciliation without concatenating stale local scope
+limitations; an unsuccessful reconciliation cannot erase the original findings.

@@ -1,7 +1,7 @@
 """Audit the retained grammar cases without running another Cartesian suite."""
 
 import json
-from itertools import product
+from itertools import combinations, product
 from math import prod
 from pathlib import Path
 
@@ -37,10 +37,12 @@ def test_inventory_accounts_for_every_named_regression_and_case():
     assert len({entry["function"] for entry in entries}) == len(entries)
     assert set(functions) == {entry["function"] for entry in entries}
     assert sum(entry["original_count"] for entry in entries) == 90550
-    assert sum(entry["retained_count"] for entry in entries) == 35064
+    assert (
+        sum(entry["retained_count"] for entry in entries) == 31368
+    )  # Retained corpus including the 49 section-boundary cases.
     matrices = json.loads(MATRICES.read_text(encoding="utf-8"))
     bounded = {row["function"]: row for row in matrices}
-    assert len(bounded) == len(matrices) == 18
+    assert len(bounded) == len(matrices) == 24
     for entry in entries:
         name = entry["function"]
         marks = _parametrizations(functions[name])
@@ -81,7 +83,10 @@ def test_emitted_cases_preserve_every_declared_semantic_and_lexical_projection()
 
         # Check witnesses against actual emitted rows. Only the bounded core and
         # declared spines are enumerated; no original Cartesian product is built.
-        for axes in [semantic, *[[alias, *spine] for alias, spine in lexical.items()]]:
+        projections = [semantic, *[[alias, *spine] for alias, spine in lexical.items()]]
+        if matrix.get("pairwise"):
+            projections.extend(combinations(dimensions, 2))
+        for axes in projections:
             assert set(axes) <= set(dimensions), name
             for selected in product(*(dimensions[axis] for axis in axes)):
                 values = {axis: options[0] for axis, options in dimensions.items()}

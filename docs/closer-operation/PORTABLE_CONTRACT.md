@@ -200,3 +200,26 @@ the package. Its internal descriptor cannot authenticate itself. The sealed runn
 probes dependencies with the same interpreter, environment and working directory
 used for execution. Native expected-check mode permits exactly the GitHub Actions
 app and bot publisher-identity reads needed for a required `Gate / gate` context.
+
+### Synchronous verification dispatch rejection
+
+`reject_not_accepted` accepts only typed `VerificationRequestRejected` evidence
+for an actual HTTP 422 response to the exact `workflow_dispatch` request. The
+live owner must still hold an execute-scoped `intent_recorded` operation. Core
+checks the immutable native-binding digest, request basis, target and revision,
+then records `unavailable` and appends a rejection receipt without removing the
+original intent or claiming verification success. Missing responses, provider
+errors, submitted/uncertain operations, labels and legacy unbound requests do
+not qualify. A crash before the rejection CAS remains unknown.
+
+`verification_request_not_accepted(record)` validates that retained proof for
+read-only recovery. Only the live current owner can create the rejection receipt.
+Once proven not accepted, the operation is drained: its executor can retry, or a
+later qualified executor can use the existing acknowledged replacement path.
+The entire old record remains archived. A genuinely new operation may bind new
+material, criteria, review revision or head; it must pass its own current guards.
+Each native verification intent must match its current spec's native-binding
+digest, action and head. Changed request material under the old spec is refused;
+old rejected material does not constrain a properly bound new spec. Submitted,
+uncertain and unproved unavailable operations remain fenced. Older Core packages
+without these feature APIs remain unsupported; callers must retain the hold.

@@ -3977,3 +3977,61 @@ def test_storage_failure_log_discards_plain_compound_credential_markers(
     assert "http_message=" not in error
     assert "https://" not in error
     assert fallback.records == {}
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "message"),
+    [
+        ("evidence_artifact_ref", "bad value with spaces", "bounded durable"),
+        ("capability_evidence_status", "maybe", "unsupported capability"),
+        ("terminal_disposition", "later", "unsupported terminal"),
+    ],
+)
+def test_capability_evidence_rejects_invalid_remaining_enum_and_reference_values(
+    field: str, value: str, message: str
+) -> None:
+    valid = {
+        "capability_id": "capability:publish-report",
+        "effect_fingerprint": "sha256:" + "a" * 64,
+        "evidence_artifact_ref": "actions/run/42",
+        "supervision_mode": "human-reviewed",
+        "capability_evidence_status": "accepted",
+        "terminal_disposition": "success",
+    }
+    with pytest.raises(ValueError, match=message):
+        normalize_capability_effect_evidence(**{**valid, field: value})
+
+
+def test_runner_core_small_validation_and_fallback_paths(monkeypatch) -> None:
+    with pytest.raises(ValueError, match="unsupported provider"):
+        runner_core._validate_provider("unknown")
+    with pytest.raises(ValueError, match="does not support output"):
+        parse_runner_output("autofix", "output")
+    assert runner_core._normalize_task_progress_snapshot({"schema": 1, "total": -1}) is None
+    assert runner_core._extract_record(
+        '{"provider":"codex","status":"completed"}', 42, "codex"
+    ) == {
+        "provider": "codex",
+        "status": "completed",
+    }
+    monkeypatch.setattr(runner_core, "_github_context", lambda: ("owner/repo", "token"))
+    assert PrCommentRunnerStorage.from_environment().api.repo == "owner/repo"
+
+
+def test_fallback_storage_returns_primary_record_without_reading_legacy() -> None:
+    class RecordingFallback(MemoryRunnerStorage):
+        def __init__(self) -> None:
+            super().__init__()
+            self.reads: list[tuple[int, str]] = []
+
+        def read_record(self, pr_number: int, provider: str) -> dict[str, Any] | None:
+            self.reads.append((pr_number, provider))
+            return super().read_record(pr_number, provider)
+
+    primary = MemoryRunnerStorage()
+    fallback = RecordingFallback()
+    primary.records[(42, "codex")] = {"status": "pending"}
+    assert runner_core.FallbackRunnerStorage(primary, fallback).read_record(42, "codex") == {
+        "status": "pending"
+    }
+    assert fallback.reads == []

@@ -310,6 +310,79 @@ def test_screen_runs_the_frozen_corpus_end_to_end_with_fake_judges():
     assert result["schema"] == screen.SCHEMA and len(result["rows"]) == 2 * len(order)
 
 
+@pytest.mark.parametrize("mismatch", ["subset", "duplicate", "truth", "prompt", "missing_hashes"])
+def test_baseline_must_match_cases_and_prompts_before_any_judge_call(mismatch):
+    import hashlib
+
+    corpus, registry, policy = _frozen()
+    cases, _ = screen.screen_cases(
+        corpus, policy["profiles"]["verifier-balanced"]["provisional_stage"]
+    )
+    hashes = {
+        c["case_id"]: hashlib.sha256(
+            screen.verifier_prompt(c["production_snapshot"]).encode()
+        ).hexdigest()
+        for c in cases
+    }
+    rows = [
+        {**_row(c["expected_verdict"], c["expected_verdict"]), "case_id": c["case_id"]}
+        for c in cases
+    ]
+    if mismatch == "subset":
+        rows.pop()
+    elif mismatch == "duplicate":
+        rows[-1] = rows[0]
+    elif mismatch == "truth":
+        rows[0]["expected_verdict"] = (
+            "NON_PASS" if rows[0]["expected_verdict"] == "PASS" else "PASS"
+        )
+    elif mismatch == "prompt":
+        hashes[cases[0]["case_id"]] = "0" * 64
+    else:
+        hashes = None
+    judge = _FakeJudge("candidate", {}).bind([])  # Any invocation would fail.
+    with pytest.raises(ValueError, match="baseline"):
+        screen.run_screen(
+            [judge],
+            corpus=corpus,
+            registry=registry,
+            policy=policy,
+            baseline=("incumbent", rows),
+            baseline_prompt_sha256_by_case=hashes,
+        )
+
+
+def test_matched_baseline_is_accepted_and_diagnostic_metadata_survives():
+    import hashlib
+
+    corpus, registry, policy = _frozen()
+    cases, _ = screen.screen_cases(
+        corpus, policy["profiles"]["verifier-balanced"]["provisional_stage"]
+    )
+    cases = [{**c, "diagnostic_only": i == 0} for i, c in enumerate(cases)]
+    hashes = {
+        c["case_id"]: hashlib.sha256(
+            screen.verifier_prompt(c["production_snapshot"]).encode()
+        ).hexdigest()
+        for c in cases
+    }
+    truth = {c["case_id"]: c["expected_verdict"] for c in cases}
+    rows = [{**_row(v, v), "case_id": k} for k, v in truth.items()]
+    result = screen.run_screen(
+        [_FakeJudge("candidate", truth).bind(list(truth))],
+        corpus=corpus,
+        registry=registry,
+        policy=policy,
+        cases_override=cases,
+        baseline=("incumbent", rows),
+        baseline_prompt_sha256_by_case=hashes,
+    )
+    assert result["baseline"]["accepted"] == len(cases) - 1
+    assert result["baseline"]["rows"] == len(cases) - 1
+    assert result["rows"][0]["diagnostic_only"] is True
+    assert result["rows"][len(cases)]["diagnostic_only"] is True
+
+
 def test_claude_cli_reads_result_usage_and_serving_model_with_tools_disabled(tmp_path, monkeypatch):
     monkeypatch.setenv("GITHUB_TOKEN", "must-not-reach-the-child")
     args_dump = tmp_path / "args.txt"
@@ -571,3 +644,116 @@ def test_each_muse_api_model_gets_its_own_judge_name_and_price_key():
 
     assert screen.MuseApiJudge().name == "muse-api"
     assert screen.MuseApiJudge(model="muse-wonder-1.0").name == "muse-api:muse-wonder-1.0"
+
+
+def test_case_group_names_real_cases_and_mutation_types():
+    from tools import run_judge_backend_screen as screen
+
+    assert screen.case_group({"expected_verdict": "PASS"}) == "real"
+    mutant = {
+        "provenance": "controlled-mutation",
+        "production_snapshot": {"mutation": "fail-ci-row"},
+    }
+    assert screen.case_group(mutant) == "fail-ci-row"
+
+
+def test_every_corpus_case_with_a_snapshot_builds_a_production_prompt():
+    """The approval corpus is only usable if each case, including every mutation recipe, yields the
+    exact prompt production would build."""
+    import json
+    from collections import Counter
+
+    from tools import run_judge_backend_screen as screen
+    from tools.model_eval_snapshots import verifier_prompt
+
+    corpus = json.loads((screen.ROOT / "config/model_eval_pilot.json").read_text())
+    cases = screen.corpus_cases_with_snapshots(corpus, screen.ROOT, include_diagnostic=True)
+    assert len({c["case_id"] for c in cases}) == len(cases)
+    groups = Counter((c["expected_verdict"], screen.case_group(c)) for c in cases)
+    assert (
+        groups[("NON_PASS", "fail-ci-row")] >= 10 and groups[("NON_PASS", "drop-named-file")] >= 10
+    )
+    for case in cases:
+        assert verifier_prompt(case["production_snapshot"])
+
+
+def test_limit_per_group_is_deterministic_and_spans_every_kind_of_case():
+    import json
+
+    from tools import run_judge_backend_screen as screen
+
+    corpus = json.loads((screen.ROOT / "config/model_eval_pilot.json").read_text())
+    first = screen.corpus_cases_with_snapshots(
+        corpus, screen.ROOT, limit_per_group=2, include_diagnostic=True
+    )
+    second = screen.corpus_cases_with_snapshots(
+        corpus, screen.ROOT, limit_per_group=2, include_diagnostic=True
+    )
+    assert [c["case_id"] for c in first] == [c["case_id"] for c in second]
+    kinds = {(c["expected_verdict"], screen.case_group(c)) for c in first}
+    assert kinds == {
+        ("PASS", "real"),
+        ("NON_PASS", "real"),
+        ("NON_PASS", "fail-ci-row"),
+        ("NON_PASS", "drop-named-file"),
+    }
+    assert all(
+        sum(1 for c in first if (c["expected_verdict"], screen.case_group(c), c["category"]) == k)
+        <= 2
+        for k in {(c["expected_verdict"], screen.case_group(c), c["category"]) for c in first}
+    )
+
+
+def test_codex_judge_wraps_the_cli_screen_invocation(monkeypatch):
+    from tools import run_judge_backend_screen as screen
+    from tools import run_model_eval_cli_screen as cli
+
+    seen = {}
+
+    def fake(codex, model, prompt):
+        seen.update(codex=codex, model=model, prompt=prompt)
+        return cli.CliResult({"verdict": "PASS"}, 7, 3, 12.5)
+
+    monkeypatch.setattr(cli, "invoke_cli", fake)
+    judge = screen.CodexCliJudge(model="gpt-6-luna")
+    outcome = judge.invoke("p")
+    assert judge.name == "gpt-6-luna" and seen["model"] == "gpt-6-luna"
+    assert (outcome.input_tokens, outcome.output_tokens, outcome.latency_ms) == (7, 3, 12.5)
+    assert outcome.payload == {"verdict": "PASS"} and outcome.error is None
+
+
+def test_evaluable_mode_keeps_only_inputs_the_production_prompt_calls_sufficient():
+    import json
+    from pathlib import Path
+
+    from tools import run_judge_backend_screen as screen
+    from tools.generate_mutation_cases import coverage_sufficient
+
+    corpus = json.loads((screen.ROOT / "config/model_eval_pilot.json").read_text())
+    everything = screen.corpus_cases_with_snapshots(
+        corpus, Path(screen.ROOT), include_diagnostic=True
+    )
+    evaluable = screen.corpus_cases_with_snapshots(
+        corpus, Path(screen.ROOT), evaluable_only=True, include_diagnostic=True
+    )
+    assert 0 < len(evaluable) <= len(everything)
+    assert {c["case_id"] for c in evaluable} <= {c["case_id"] for c in everything}
+    assert all(coverage_sufficient(c["production_snapshot"]) for c in evaluable)
+    kinds = {(c["expected_verdict"], screen.case_group(c)) for c in evaluable}
+    assert {("PASS", "real"), ("NON_PASS", "fail-ci-row"), ("NON_PASS", "drop-named-file")} <= kinds
+
+
+def test_diagnostic_only_cases_are_left_out_unless_asked_for():
+    import json
+    from pathlib import Path
+
+    from tools import run_judge_backend_screen as screen
+
+    corpus = json.loads((screen.ROOT / "config/model_eval_pilot.json").read_text())
+    default = screen.corpus_cases_with_snapshots(corpus, Path(screen.ROOT), evaluable_only=True)
+    everything = screen.corpus_cases_with_snapshots(
+        corpus, Path(screen.ROOT), evaluable_only=True, include_diagnostic=True
+    )
+    assert not any(screen.case_group(c) == "fail-ci-row" for c in default)
+    assert sum(screen.case_group(c) == "fail-ci-row" for c in everything) > 0
+    assert len(everything) > len(default)

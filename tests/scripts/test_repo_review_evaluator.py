@@ -1,9 +1,262 @@
+import contextlib
 import json
+import os
+import signal
 import subprocess
+import sys
+import time
 from pathlib import Path
 
 import pytest
 from scripts import repo_review_evaluator as evaluator
+
+
+def _writer_analyzer(
+    tmp_path: Path,
+    *,
+    detached_output: bool,
+    invalid_output: bool = False,
+    launcher_lifetime: int | None = None,
+) -> Path:
+    """Create a launcher whose child ignores SIGTERM and keeps writing."""
+    analyzer = tmp_path / "gitnexus"
+    redirect = ">/dev/null 2>&1" if detached_output else ""
+    analyzer.write_text(
+        "#!/bin/sh\n"
+        'repo="$2"\n'
+        "write_forever() {\n"
+        "  trap '' TERM\n"
+        '  while :; do printf x >> "$repo/writer.activity"; sleep 0.05; done\n'
+        "}\n"
+        f"write_forever {redirect} &\n"
+        # Let the child become active before the launcher publishes its PID.
+        "sleep 0.1\n"
+        'printf "%s" "$!" > "$repo/writer.pid"\n'
+        "echo wrapper-ready\n"
+        "echo wrapper-stderr >&2\n"
+        + (r"printf '\377' >&2" + "\n" if invalid_output else "")
+        + (
+            f"sleep {launcher_lifetime}\n"
+            if launcher_lifetime is not None
+            else "while :; do sleep 0.05; done\n"
+        ),
+        encoding="utf-8",
+    )
+    analyzer.chmod(0o755)
+    return analyzer
+
+
+def _wait_for_writer_ready(tmp_path: Path) -> None:
+    """Wait for child activity and the launcher's complete PID record."""
+    deadline = time.monotonic() + 5
+    pid_path = tmp_path / "writer.pid"
+    while not (
+        (tmp_path / "writer.activity").exists()
+        and pid_path.exists()
+        and pid_path.read_text().strip().isdigit()
+    ):
+        assert time.monotonic() < deadline, "fixture writer did not become ready"
+        time.sleep(0.01)
+
+
+def _assert_writer_stopped(tmp_path: Path) -> None:
+    """Establish child exit before test cleanup, treating zombies as terminated."""
+    activity = tmp_path / "writer.activity"
+    assert activity.exists(), "fixture must establish a live writer"
+    pid = int((tmp_path / "writer.pid").read_text())
+    deadline = time.monotonic() + 1
+    while True:
+        state = subprocess.run(
+            ["ps", "-p", str(pid), "-o", "stat="], capture_output=True, text=True, check=False
+        ).stdout.strip()
+        if not state or state.startswith("Z"):
+            break
+        if time.monotonic() >= deadline:
+            pytest.fail("analyzer left a live descendant after exceptional exit")
+        time.sleep(0.01)
+    size = activity.stat().st_size
+    time.sleep(0.2)
+    assert activity.stat().st_size == size, "descendant kept writing after cleanup"
+
+
+def _cleanup_writer(tmp_path: Path) -> None:
+    """Remove a deliberately orphaned writer when testing the broken baseline."""
+    pid_path = tmp_path / "writer.pid"
+    if pid_path.exists():
+        with contextlib.suppress(ProcessLookupError):
+            os.kill(int(pid_path.read_text()), signal.SIGKILL)
+
+
+@pytest.mark.skipif(os.name != "posix", reason="GitNexus worker process groups are POSIX")
+@pytest.mark.parametrize("detached_output", [False, True])
+@pytest.mark.parametrize("invalid_output", [False, True])
+def test_gitnexus_timeout_stops_descendant_file_writer(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, detached_output: bool, invalid_output: bool
+) -> None:
+    """Timeouts stop even quiet descendants and retain both diagnostic streams."""
+    analyzer = _writer_analyzer(
+        tmp_path, detached_output=detached_output, invalid_output=invalid_output
+    )
+    monkeypatch.setattr(evaluator, "GITNEXUS_SHUTDOWN_GRACE_SECONDS", 0.1)
+    try:
+        ok, message = evaluator.run_gitnexus_analyze(tmp_path, str(analyzer), timeout=1)
+        assert not ok
+        assert "timed out" in message
+        _assert_writer_stopped(tmp_path)
+        assert "wrapper-ready" in message
+        assert "wrapper-stderr" in message
+        if invalid_output:
+            assert "\ufffd" in message
+    finally:
+        _cleanup_writer(tmp_path)
+
+
+@pytest.mark.skipif(os.name != "posix", reason="GitNexus worker process groups are POSIX")
+@pytest.mark.parametrize("exception_kind", ["interrupt", "oserror"])
+def test_gitnexus_communication_exception_stops_writer_and_is_reraised(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, exception_kind: str
+) -> None:
+    """An interrupted or broken pipe cannot abandon the isolated analyzer group."""
+    analyzer = _writer_analyzer(tmp_path, detached_output=True, launcher_lifetime=3)
+    error = KeyboardInterrupt() if exception_kind == "interrupt" else OSError("fixture failure")
+    launched = []
+
+    class ExceptionalProcess(subprocess.Popen[str]):
+        def communicate(self, *args, **kwargs):
+            """Inject one read failure only after the descendant is active."""
+            if self.args[0] == str(analyzer) and not getattr(self, "injected", False):
+                launched.append(self)
+                self.injected = True
+                _wait_for_writer_ready(tmp_path)
+                raise error
+            return super().communicate(*args, **kwargs)
+
+    monkeypatch.setattr(evaluator.subprocess, "Popen", ExceptionalProcess)
+    monkeypatch.setattr(evaluator, "GITNEXUS_SHUTDOWN_GRACE_SECONDS", 0.1)
+    try:
+        with pytest.raises(type(error)) as caught:
+            evaluator.run_gitnexus_analyze(tmp_path, str(analyzer))
+        assert caught.value is error
+        _assert_writer_stopped(tmp_path)
+    finally:
+        _cleanup_writer(tmp_path)
+        for proc in launched:
+            with contextlib.suppress(ProcessLookupError):
+                os.killpg(proc.pid, signal.SIGKILL)
+            proc.wait(timeout=2)
+
+
+@pytest.mark.skipif(os.name != "posix", reason="GitNexus worker process groups are POSIX")
+def test_gitnexus_quiet_analyzer_gets_grace_after_launcher_exits(tmp_path, monkeypatch):
+    analyzer = tmp_path / "gitnexus"
+    analyzer.write_text(
+        "#!/bin/sh\n"
+        'repo="$2"\n'
+        "trap 'exit 0' TERM\n"
+        "flush_on_exit() {\n"
+        "  trap 'sleep 0.2; printf flushed > \"$repo/writer.flushed\"; exit 0' TERM\n"
+        '  printf x > "$repo/writer.activity"\n'
+        "  while :; do sleep 0.05; done\n"
+        "}\n"
+        "flush_on_exit >/dev/null 2>&1 &\n"
+        "sleep 0.1\n"
+        'printf "%s" "$!" > "$repo/writer.pid"\n'
+        "while :; do sleep 0.05; done\n"
+    )
+    analyzer.chmod(0o755)
+
+    class TimeoutAfterReady(subprocess.Popen[bytes]):
+        def communicate(self, *args, **kwargs):
+            if self.args[0] == str(analyzer) and not getattr(self, "injected", False):
+                self.injected = True
+                _wait_for_writer_ready(tmp_path)
+                raise subprocess.TimeoutExpired(self.args, 1)
+            return super().communicate(*args, **kwargs)
+
+    monkeypatch.setattr(evaluator.subprocess, "Popen", TimeoutAfterReady)
+    monkeypatch.setattr(evaluator, "GITNEXUS_SHUTDOWN_GRACE_SECONDS", 1)
+    try:
+        ok, message = evaluator.run_gitnexus_analyze(tmp_path, str(analyzer), timeout=1)
+        assert not ok
+        assert "timed out" in message
+        _assert_writer_stopped(tmp_path)
+        assert (tmp_path / "writer.flushed").read_text() == "flushed"
+    finally:
+        _cleanup_writer(tmp_path)
+
+
+@pytest.mark.skipif(os.name != "posix", reason="GitNexus worker process groups are POSIX")
+@pytest.mark.parametrize("cleanup_read", [2, 3])
+@pytest.mark.parametrize("interrupt_kind", ["interrupt", "exit"])
+def test_gitnexus_cleanup_interrupt_propagates_after_stopping_writer(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, cleanup_read: int, interrupt_kind: str
+) -> None:
+    """A new operator interrupt during either cleanup read remains observable."""
+    analyzer = _writer_analyzer(tmp_path, detached_output=True)
+    interrupt = KeyboardInterrupt() if interrupt_kind == "interrupt" else SystemExit(23)
+    launched = []
+
+    class InterruptedCleanupProcess(subprocess.Popen[bytes]):
+        def communicate(self, *args, **kwargs):
+            """Fail the first read, then interrupt the selected cleanup read."""
+            if self.args[0] != str(analyzer):
+                return super().communicate(*args, **kwargs)
+            self.read_count = getattr(self, "read_count", 0) + 1
+            if self.read_count == 1:
+                launched.append(self)
+                _wait_for_writer_ready(tmp_path)
+                raise OSError("initial pipe failure")
+            if self.read_count == cleanup_read:
+                raise interrupt
+            return super().communicate(*args, **kwargs)
+
+    monkeypatch.setattr(evaluator.subprocess, "Popen", InterruptedCleanupProcess)
+    monkeypatch.setattr(evaluator, "GITNEXUS_SHUTDOWN_GRACE_SECONDS", 0.1)
+    try:
+        with pytest.raises(type(interrupt)) as caught:
+            evaluator.run_gitnexus_analyze(tmp_path, str(analyzer))
+        assert caught.value is interrupt
+        _assert_writer_stopped(tmp_path)
+    finally:
+        _cleanup_writer(tmp_path)
+        for proc in launched:
+            proc.wait(timeout=2)
+
+
+@pytest.mark.skipif(os.name != "posix", reason="fixture uses a POSIX executable")
+@pytest.mark.parametrize("exit_code", [0, 7])
+def test_gitnexus_analyzer_preserves_completed_process_output(
+    tmp_path: Path, exit_code: int
+) -> None:
+    """The supervision wrapper preserves ordinary success and failure diagnostics."""
+    analyzer = tmp_path / "gitnexus"
+    analyzer.write_text(
+        f"#!/bin/sh\necho analyzer-stdout\necho analyzer-stderr >&2\nexit {exit_code}\n"
+    )
+    analyzer.chmod(0o755)
+    ok, message = evaluator.run_gitnexus_analyze(tmp_path, str(analyzer))
+    assert ok is (exit_code == 0)
+    assert message == "analyzer-stdout\n\nanalyzer-stderr"
+
+
+def test_gitnexus_analyzer_reports_missing_executable(tmp_path: Path) -> None:
+    """An absent optional CLI reports an actionable failure without spawning work."""
+    analyzer = tmp_path / "missing-gitnexus"
+    ok, message = evaluator.run_gitnexus_analyze(tmp_path, str(analyzer))
+    assert not ok
+    assert str(analyzer) in message
+
+
+@pytest.mark.skipif(os.name != "posix", reason="fixture uses a POSIX executable")
+def test_gitnexus_binary_diagnostics_decode_bytes_and_normalize_newlines(tmp_path: Path) -> None:
+    """Decoding after shutdown retains text-mode line endings and malformed output."""
+    analyzer = tmp_path / "gitnexus"
+    analyzer.write_text("#!/bin/sh\n" + r"printf 'first\r\nsecond\rthird\n\377'" + "\n")
+    analyzer.chmod(0o755)
+    ok, message = evaluator.run_gitnexus_analyze(tmp_path, str(analyzer))
+    assert ok
+    assert message == "first\nsecond\nthird\n\ufffd"
+
 
 VALID_ISSUE_BODY = """## Why
 
@@ -65,9 +318,10 @@ VALID_REVIEW_TRACE = {
 def test_gitnexus_analyze_rejects_zero_exit_corruption_markers(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, marker: str
 ) -> None:
+    """Reject corruption diagnostics even when the CLI reports success."""
     monkeypatch.setattr(
-        subprocess,
-        "run",
+        evaluator,
+        "_run_gitnexus_command",
         lambda *_args, **_kwargs: subprocess.CompletedProcess(
             args=["gitnexus"], returncode=0, stdout=f"analysis complete: {marker}", stderr=""
         ),
@@ -82,9 +336,10 @@ def test_gitnexus_analyze_rejects_zero_exit_corruption_markers(
 def test_gitnexus_analyze_accepts_clean_zero_exit_output(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """Accept clean output independently of subprocess supervision."""
     monkeypatch.setattr(
-        subprocess,
-        "run",
+        evaluator,
+        "_run_gitnexus_command",
         lambda *_args, **_kwargs: subprocess.CompletedProcess(
             args=["gitnexus"], returncode=0, stdout="GitNexus Analyzer complete", stderr=""
         ),
@@ -1461,6 +1716,40 @@ def test_build_approved_issue_queue_surfaces_unapproved_scorecard_for_deeper_rev
     assert any("Scorecard finding" in item["notes"] for item in queue["deeper_review"])
 
 
+def test_excluded_historical_report_paths_are_filtered_before_limit(tmp_path):
+    repo_dir = tmp_path / "demo"
+    reports = repo_dir / "docs" / "reports"
+    for index in range(12):
+        report = reports / "archive" / "owner__held-repo" / f"{index:02}.md"
+        report.parent.mkdir(parents=True, exist_ok=True)
+        report.write_text("must not be read")
+    for name in (
+        "held-repo.md",
+        "held-repo/brief.md",
+        "owner__held-repo-doc-drift.md",
+        "owner__HELD-REPO-summary.md",
+        "owner__held-repository/brief.md",
+        "owner__held-repository-doc-drift.md",
+    ):
+        report = reports / name
+        report.parent.mkdir(parents=True, exist_ok=True)
+        report.write_text("report")
+    config = evaluator.RepoConfig(
+        repo="owner/demo",
+        local_path="demo",
+        status="active",
+        cadence="weekly",
+        decision_anchor="demo",
+    )
+    state = evaluator.collect_repo_state(
+        tmp_path, config, remote_progress={}, excluded_repo_names=["owner", "owner/held-repo"]
+    )
+    assert set(state["report_files"]) == {
+        "docs/reports/owner__held-repository/brief.md",
+        "docs/reports/owner__held-repository-doc-drift.md",
+    }
+
+
 def test_excluded_parent_references_are_removed_before_remote_counts(tmp_path):
     repo_dir = tmp_path / "demo"
     repo_dir.mkdir()
@@ -1704,3 +1993,395 @@ def test_queue_writer_renders_conflict_resolution_approval_metadata(tmp_path, mo
     rendered = (tmp_path / "approved-issue-queue.md").read_text()
     assert "explicit scope resolution" in rendered
     assert "original scope only" not in rendered
+
+
+def test_remote_progress_normalizes_gh_payloads_and_keeps_partial_failures_visible(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    responses = iter(
+        [
+            subprocess.CompletedProcess(
+                [],
+                0,
+                json.dumps(
+                    [
+                        {
+                            "number": 7,
+                            "title": "Open gap",
+                            "labels": [{"name": "bug"}, "not-a-label"],
+                            "createdAt": "2026-10-20T00:00:00Z",
+                        }
+                    ]
+                ),
+                "",
+            ),
+            subprocess.CompletedProcess([], 0, "not-json", ""),
+        ]
+    )
+    monkeypatch.setattr(evaluator.shutil, "which", lambda _name: "/usr/bin/gh")
+    monkeypatch.setattr(evaluator.subprocess, "run", lambda *args, **kwargs: next(responses))
+
+    progress = evaluator.collect_remote_progress("owner/repo", open_issue_limit=3)
+
+    assert progress["available"] is True
+    assert progress["open_issues"] == [
+        {
+            "number": 7,
+            "title": "Open gap",
+            "labels": ["bug"],
+            "created_at": "2026-10-20T00:00:00Z",
+        }
+    ]
+    assert progress["recent_merged_prs"] == []
+    assert progress["warnings"] == ["gh pr list (merged) failed or returned non-list"]
+
+
+def test_remote_issue_count_fails_closed_when_gh_is_missing_or_returns_invalid_json(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(evaluator.shutil, "which", lambda _name: None)
+    assert evaluator.remote_open_issue_count("owner/repo") is None
+
+    monkeypatch.setattr(evaluator.shutil, "which", lambda _name: "/usr/bin/gh")
+    monkeypatch.setattr(
+        evaluator.subprocess,
+        "run",
+        lambda *args, **kwargs: subprocess.CompletedProcess([], 0, "{}", ""),
+    )
+    assert evaluator.remote_open_issue_count("owner/repo") is None
+
+
+def test_issue_set_recommendation_distinguishes_round_two_completion_states() -> None:
+    base = {"review_execution": {"gap_count": 0}}
+    thin = evaluator.issue_set_recommendation(
+        {**base, "round2_converged": {"converged_candidates": [], "no_new_work_justifications": []}}
+    )
+    complete = evaluator.issue_set_recommendation(
+        {
+            **base,
+            "round2_converged": {
+                "converged_candidates": [],
+                "no_new_work_justifications": [
+                    _no_new_work_entry("codex"),
+                    _no_new_work_entry("claude"),
+                ],
+            },
+        }
+    )
+    candidates = evaluator.issue_set_recommendation(
+        {
+            **base,
+            "round2_converged": {
+                "converged_candidates": [{"title": "A"}],
+                "meta_candidate": {"title": "Audit"},
+                "deadlocked_candidates": [{"title": "Conflict"}],
+            },
+        }
+    )
+
+    assert "missing or thin" in thin
+    assert "Both agents (codex, claude)" in complete
+    assert "plus 1 meta-candidate" in candidates
+    assert "1 deadlocked candidate" in candidates
+
+
+def test_write_repo_artifacts_preserves_drafts_and_archive_entries(tmp_path: Path) -> None:
+    state = _tiering_state(tmp_path)
+    state["archive_candidates"] = [
+        {
+            "title": "Prior review",
+            "thread_name": "weekly-review",
+            "timestamp": "2026-10-01",
+            "source_file": "archive.jsonl",
+            "excerpt": "Validate the old result against current code.",
+        }
+    ]
+    state["archive_candidate_count"] = 2
+    state["drafts"] = [
+        {
+            "number": 4,
+            "title": "Existing draft",
+            "open_tasks": 2,
+            "done_tasks": 1,
+            "body": "- [ ] verify behavior",
+        }
+    ]
+    state["issue_draft_count"] = 2
+
+    evaluator.write_repo_artifacts(tmp_path / "out", state, max_drafts=1)
+
+    artifacts = tmp_path / "out" / "repos" / "stranske__Trend_Model_Project"
+    assert "Archive Review Precedent" in (artifacts / "design-review.md").read_text()
+    drafts = (artifacts / "issue-drafts.md").read_text()
+    assert "Existing draft" in drafts
+    assert "Only the first 1 archive candidates" in drafts
+    assert "Only the first 1 drafts" in drafts
+
+
+def test_round_result_loaders_select_valid_latest_files_and_reject_invalid_data(
+    tmp_path: Path,
+) -> None:
+    output_dir = tmp_path / "reports"
+    repo = "owner/repo"
+    # The older file sits in the directory that sorts last, so only the modification time can
+    # make the loader pick the newer one.
+    old = output_dir / "round1" / "zulu" / "owner__repo" / "findings.json"
+    new = output_dir / "round1" / "alpha" / "owner__repo" / "findings.json"
+    old.parent.mkdir(parents=True)
+    new.parent.mkdir(parents=True)
+    old.write_text(json.dumps({"agent": "first"}), encoding="utf-8")
+    new.write_text(json.dumps({"agent": "second"}), encoding="utf-8")
+    os.utime(old, (1_000, 1_000))
+    os.utime(new, (2_000, 2_000))
+
+    latest = evaluator.load_round1_findings(output_dir, repo)
+
+    assert latest is not None
+    assert latest["agent"] == "second"
+    assert latest["__source_path"] == str(new)
+    converged = output_dir / "round2" / "owner__repo" / "converged.json"
+    converged.parent.mkdir(parents=True)
+    converged.write_text(json.dumps({"converged_candidates": []}), encoding="utf-8")
+    assert evaluator.load_round2_converged(output_dir, repo)["__source_path"] == str(converged)
+    converged.write_text("[]", encoding="utf-8")
+    assert evaluator.load_round2_converged(output_dir, repo) is None
+
+
+def test_collect_gitnexus_map_reports_current_metadata_and_degraded_embeddings(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo_path = tmp_path / "repo"
+    meta = repo_path / ".gitnexus" / "meta.json"
+    meta.parent.mkdir(parents=True)
+    meta.write_text(
+        json.dumps(
+            {"lastCommit": "abc123", "repoPath": str(repo_path), "stats": {"embeddings": 0}}
+        ),
+        encoding="utf-8",
+    )
+    repo = evaluator.RepoConfig("owner/repo", "repo", "active", "weekly", "anchor")
+    monkeypatch.setattr(evaluator, "run_git", lambda *_args, **_kwargs: "abc123")
+
+    record = evaluator.collect_gitnexus_map(tmp_path, repo_path, repo)
+
+    assert record["status"] == "current"
+    assert record["needs_embeddings"] is True
+    meta.unlink()
+    assert evaluator.collect_gitnexus_map(tmp_path, repo_path, repo)["status"] == "missing"
+
+
+def test_main_filters_statuses_and_reports_generated_queue_counts(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    active = evaluator.RepoConfig("owner/active", "active", "active", "weekly", "anchor")
+    paused = evaluator.RepoConfig("owner/paused", "paused", "paused", "weekly", "anchor")
+    calls: list[str] = []
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "repo_review_evaluator",
+            "--status",
+            "active",
+            "--date",
+            "2026-10-22",
+            "--skip-gitnexus-preflight",
+        ],
+    )
+    monkeypatch.setattr(
+        evaluator,
+        "gitnexus_preflight",
+        lambda *_args, **_kwargs: pytest.fail("the GitNexus preflight must be skipped here"),
+    )
+    monkeypatch.setattr(
+        evaluator, "load_registry", lambda _path: (tmp_path, [], [active, paused], [])
+    )
+    monkeypatch.setattr(
+        evaluator,
+        "load_json_config",
+        lambda _path: {"decisions": {"owner/active": {"decision": "approve"}}},
+    )
+    monkeypatch.setattr(evaluator, "collect_archive_candidates", lambda *_args: {})
+    monkeypatch.setattr(
+        evaluator,
+        "collect_repo_state",
+        lambda _root, repo, *_args, **_kwargs: {
+            "repo": repo.repo,
+            "status": repo.status,
+            "review_status": evaluator.PENDING_REVIEW_STATUS,
+            "review_execution": {"status": "executed", "gap_count": 1},
+            "issue_queue_status": "round 1 candidates present",
+        },
+    )
+    monkeypatch.setattr(
+        evaluator, "write_repo_artifacts", lambda *_args, **_kwargs: calls.append("artifacts")
+    )
+    monkeypatch.setattr(evaluator, "write_packet", lambda *_args, **_kwargs: calls.append("packet"))
+    monkeypatch.setattr(
+        evaluator,
+        "write_approved_issue_queue",
+        lambda *_args, **_kwargs: {"issues": [object()], "deeper_review": [object(), object()]},
+    )
+
+    evaluator.main()
+
+    report = json.loads(capsys.readouterr().out)
+    assert calls == ["artifacts", "packet"]
+    assert report["repo_count"] == 1
+    assert report["active_count"] == 1
+    assert report["approved_issue_count"] == 1
+    assert report["deeper_review_count"] == 2
+
+
+def test_packet_sections_render_deadlocks_meta_candidates_and_dual_no_new_work_evidence() -> None:
+    state = {
+        "round2_converged": {
+            "converged_candidates": [],
+            "deadlocked_candidates": [
+                {
+                    "title": "Resolve transport ownership",
+                    "source_agent": "codex",
+                    "round1_index": 2,
+                    "marks_history": [
+                        {
+                            "from_agent": "claude",
+                            "mark": "reject",
+                            "turn": 3,
+                            "reason": "Needs a narrower integration boundary.",
+                        }
+                    ],
+                }
+            ],
+            "deadlocked_meta": {
+                "title": "Audit flaky retry patterns",
+                "pattern": "retries without receipt binding",
+                "proposed_by": "codex",
+                "rejected_by": ["claude"],
+                "priority": "high",
+                "confidence": "medium",
+                "rejection_reasons": {"claude": "Evidence is not yet sufficient."},
+            },
+            "no_new_work_justifications": [
+                {"agent": "codex", "candidate_count": 0, "justification": "a" * 200},
+                {"agent": "claude", "candidate_count": 0, "justification": "b" * 200},
+            ],
+        }
+    }
+
+    deadlocks = "\n".join(evaluator.deadlocked_candidates_section(state))
+    meta = "\n".join(evaluator.deadlocked_meta_section(state))
+    no_new_work = "\n".join(evaluator.no_new_work_justifications_section(state))
+
+    assert "Resolve transport ownership" in deadlocks
+    assert "Needs a narrower integration boundary" in deadlocks
+    assert "Audit flaky retry patterns" in meta
+    assert "Evidence is not yet sufficient" in meta
+    assert "Both agents independently reached the same conclusion" in no_new_work
+    state["round2_converged"]["converged_candidates"] = [{"title": "New work"}]
+    assert evaluator.no_new_work_justifications_section(state) == []
+
+
+def test_scorecard_queue_paths_hold_invalid_issues_and_surface_unapproved_findings(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        evaluator,
+        "approved_scorecard_issue_items",
+        lambda *_args: {
+            "issues": [
+                {
+                    "repo": "owner/scorecard",
+                    "priority": "high",
+                    "scorecard_finding_id": "invalid-body",
+                    "body_valid": False,
+                    "body_quality_errors": ["missing acceptance criteria"],
+                }
+            ],
+            "pending": [
+                {
+                    "repo": "owner/scorecard",
+                    "finding_id": "not-approved",
+                    "check": "Branch-Protection",
+                    "score": 0,
+                    "reason": "explicit approval is required",
+                }
+            ],
+            "dropped": [{"repo": "owner/scorecard", "candidate_index": 1, "title": "old"}],
+            "warnings": ["scorecard data was incomplete"],
+        },
+    )
+
+    queue = evaluator.build_approved_issue_queue([], {}, "2026-10-22", scorecard_scan={})
+
+    assert queue["issues"] == []
+    assert [item["decision"] for item in queue["deeper_review"]] == ["revise", "deeper-review"]
+    assert "invalid-body" in queue["deeper_review"][0]["notes"]
+    assert "not-approved" in queue["deeper_review"][1]["notes"]
+    assert queue["dropped_candidates"][0]["title"] == "old"
+    assert queue["warnings"] == ["scorecard data was incomplete"]
+
+
+def _no_new_work_entry(agent: str, *, candidates: int = 0, chars: int = 200) -> dict[str, object]:
+    return {"agent": agent, "candidate_count": candidates, "justification": "x" * chars}
+
+
+@pytest.mark.parametrize(
+    ("entries", "substantive"),
+    [
+        pytest.param([{"agent": "codex"}, {"agent": "claude"}], 0, id="agent names only"),
+        pytest.param(
+            [_no_new_work_entry("codex", candidates=2), _no_new_work_entry("claude")],
+            1,
+            id="one agent proposed candidates",
+        ),
+        pytest.param(
+            [_no_new_work_entry("codex", chars=199), _no_new_work_entry("claude")],
+            1,
+            id="one justification is 199 characters",
+        ),
+        pytest.param(
+            [_no_new_work_entry("codex", chars=0), _no_new_work_entry("claude")],
+            1,
+            id="one justification is empty",
+        ),
+        pytest.param(
+            [_no_new_work_entry("codex"), _no_new_work_entry("claude")],
+            2,
+            id="both justifications are 200 characters",
+        ),
+    ],
+)
+def test_no_new_work_surfaces_agree_on_what_is_substantive(
+    tmp_path: Path, entries: list[dict[str, object]], substantive: int
+) -> None:
+    """The recommendation, the packet section, the packet count and the brief's evidence check
+    must call the same justifications substantive: one agent that proposed candidates or wrote
+    a thin justification is not a completed no-new-work review."""
+    (tmp_path / "demo").mkdir()
+    (tmp_path / "demo" / "README.md").write_text("# Demo\n", encoding="utf-8")
+    config = evaluator.RepoConfig("owner/demo", "demo", "active", "weekly", "demo anchor")
+    converged = {
+        "schema_version": "v1",
+        "repo": "owner/demo",
+        "converged_candidates": [],
+        "deadlocked_candidates": [],
+        "no_new_work_justifications": entries,
+    }
+    state = evaluator.collect_repo_state(
+        tmp_path, config, round2_converged=converged, remote_progress={}
+    )
+
+    recommendation = evaluator.issue_set_recommendation(
+        {"review_execution": {"gap_count": 0}, "round2_converged": converged}
+    )
+    section = evaluator.no_new_work_justifications_section(state)
+    errors = evaluator.review_summary_quality_errors(state["decision_brief"])
+    evaluator.write_packet(tmp_path / "out", [state], generated_on="2026-10-22")
+    packet = (tmp_path / "out" / "human-decision-packet.md").read_text(encoding="utf-8")
+
+    complete = substantive >= 2
+    assert ("Both agents (codex, claude)" in recommendation) is complete
+    assert ("missing or thin" in recommendation) is not complete
+    assert bool(section) is complete
+    assert ("missing review evidence traces" in errors) is not complete
+    assert f"Round 2 dual no-new-work justifications: `{substantive}`" in packet

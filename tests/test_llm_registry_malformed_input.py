@@ -106,6 +106,12 @@ def test_models_that_are_not_a_list_yield_no_entries(registry_at):
     assert llm_registry.load_model_registry() == []
 
 
+def test_non_object_registry_denies_selection_decisions_too(registry_at):
+    """The shared object loader must fail closed for every registry reader."""
+    registry_at([])
+    assert llm_registry.load_selection_decisions() == []
+
+
 def test_a_non_object_model_entry_is_skipped_and_logged(registry_at, caplog):
     registry_at({"models": [{"provider": "anthropic", "model_id": "claude-x"}, "oops"]})
     with caplog.at_level("WARNING"):

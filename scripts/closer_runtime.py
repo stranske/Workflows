@@ -551,6 +551,61 @@ def _reconciliation_receipt_ok(record: Mapping[str, Any], receipt: Mapping[str, 
     )
 
 
+@dataclasses.dataclass(frozen=True)
+class VerificationRequestRejected:
+    """Synchronous dispatch rejection, never inferred from missing run evidence."""
+
+    mutation_kind: Literal["workflow_dispatch"]
+    request_basis: str
+    http_status: Literal[422]
+
+
+def _native_binding_digest(binding: Mapping[str, Any]) -> str:
+    # Existing native-binding protocol uses sorted JSON with default separators;
+    # it is deliberately distinct from Core's compact canonical operation key.
+    return hashlib.sha256(json.dumps(binding, sort_keys=True).encode()).hexdigest()
+
+
+def _request_rejection_ok(record: Mapping[str, Any], receipt: Mapping[str, Any]) -> bool:
+    intent = record.get("mutation_intent") or {}
+    binding = intent.get("native_binding")
+    if not isinstance(binding, Mapping):
+        return False
+    mutation = binding.get("verification_mutation")
+    return (
+        record["action"] == "verify_request"
+        and intent.get("action") == "verify_request"
+        and intent.get("head_sha") == record["head_sha"]
+        and _native_binding_digest(binding) == record["guard_versions"].get("native_binding")
+        and isinstance(mutation, Mapping)
+        and mutation.get("mutation_kind") == "workflow_dispatch"
+        and isinstance(mutation.get("request_basis"), str)
+        and bool(KEY_RE.fullmatch(mutation["request_basis"]))
+        and receipt
+        == {
+            "kind": "verification_request_not_accepted",
+            "operation_key": record["operation_key"],
+            "target_fence_key": record["target_fence_key"],
+            "action": record["action"],
+            "head_sha": record["head_sha"],
+            "mutation_kind": "workflow_dispatch",
+            "request_basis": mutation["request_basis"],
+            "http_status": 422,
+        }
+        and type(receipt.get("http_status")) is int
+    )
+
+
+def verification_request_not_accepted(record: Mapping[str, Any]) -> bool:
+    """Validate the preserved synchronous non-acceptance receipt, without mutation."""
+    receipts = record.get("receipts") or []
+    return (
+        record.get("status") == "unavailable"
+        and bool(receipts)
+        and _request_rejection_ok(record, receipts[-1])
+    )
+
+
 def validate_cas_transition(
     current: Mapping[str, Any] | None,
     record: Mapping[str, Any],
@@ -581,7 +636,12 @@ def validate_cas_transition(
         raise PolicyDenied("denial/no_fallback cannot change status")
     old_lease, new_lease = current["lease"], record["lease"]
     changed_spec = current["operation_key"] != record["operation_key"]
-    if changed_spec:
+    retry_rejected = (
+        not changed_spec
+        and authority.purpose == "claim"
+        and verification_request_not_accepted(current)
+    )
+    if changed_spec or retry_rejected:
         # A new spec replaces only a legally drained record, as a clean claimed record.
         if authority.purpose != "claim" or not writer_is_record_owner:
             raise OwnershipDenied("new spec requires a claim by its own executor")
@@ -654,7 +714,14 @@ def validate_cas_transition(
             or old_scope != new_scope
         ):
             raise OwnershipDenied("owner update cannot change lease deadline/ack/scope")
-        if new_status not in OWNER_STATUS_TRANSITIONS[old_status]:
+        rejected = (
+            old_status == "intent_recorded"
+            and new_status == "unavailable"
+            and old_scope == "execute"
+            and len(new_receipts) == len(old_receipts) + 1
+            and _request_rejection_ok(current, new_receipts[-1])
+        )
+        if new_status not in OWNER_STATUS_TRANSITIONS[old_status] and not rejected:
             raise OwnershipDenied("illegal operation status transition")
         if new_status == "submitted" and (
             old_status != "intent_recorded" or record.get("mutation_intent") is None
@@ -809,7 +876,11 @@ def enforce_owner_lease(
 
 
 def assert_fence_allows_claim(existing: Mapping[str, Any], spec: OperationSpec) -> None:
-    if existing.get("status") == "unavailable" and existing.get("mutation_intent") is not None:
+    if (
+        existing.get("status") == "unavailable"
+        and existing.get("mutation_intent") is not None
+        and not verification_request_not_accepted(existing)
+    ):
         raise OwnershipDenied("unavailable operation retains unresolved mutation intent")
     op_key = canonical_operation_key(spec)
     if existing.get("denial") or existing.get("status") == "denied":
@@ -953,16 +1024,26 @@ class LocalOperationStore:
             assert_fence_allows_claim(existing, spec)
             changed_spec = existing.get("operation_key") != op_key
             drained = existing.get("status") in ("succeeded", "unavailable")
+            retry_rejected = verification_request_not_accepted(existing)
             if not executor.matches_record(existing) and not (
-                changed_spec and drained and acknowledge_replacement
+                (changed_spec or retry_rejected) and drained and acknowledge_replacement
             ):
                 raise OwnershipDenied(
                     f"operation owned by {existing['executor']['kind']}:{existing['executor']['identity']!r}"
                 )
-            if existing.get("operation_key") != op_key and existing.get("status") in (
-                "succeeded",
-                "denied",
-                "unavailable",
+            retry_rejected = (
+                verification_request_not_accepted(existing)
+                and existing.get("operation_key") == op_key
+            )
+            if (
+                retry_rejected
+                or existing.get("operation_key") != op_key
+                and existing.get("status")
+                in (
+                    "succeeded",
+                    "denied",
+                    "unavailable",
+                )
             ):
                 lease = dict(existing["lease"])
                 lease["epoch"] = int(lease.get("epoch", 1)) + 1
@@ -1083,6 +1164,22 @@ def record_mutation_intent(
         raise block
     if record.get("status") not in ("claimed", "intent_recorded"):
         raise CloserRuntimeError(f"cannot record intent from status {record.get('status')}")
+    history = record.get("prior_operations") or []
+    if spec.action == "verify_request" and (
+        "native_binding" in spec.guard_versions
+        or history
+        and verification_request_not_accepted(history[-1]["record"])
+    ):
+        new_binding = intent.get("native_binding")
+        if (
+            not isinstance(new_binding, Mapping)
+            or _native_binding_digest(new_binding) != spec.guard_versions.get("native_binding")
+            or intent.get("action") != spec.action
+            or intent.get("head_sha") != spec.head_sha
+        ):
+            raise OwnershipDenied(
+                "verification request intent requires exact current native binding"
+            )
     updated = dict(record)
     updated["mutation_intent"] = dict(intent)
     updated["status"] = "intent_recorded"
@@ -1126,6 +1223,53 @@ def mark_submitted(
     lease = dict(updated["lease"])
     lease["revision"] = expected_revision + 1
     updated["lease"] = lease
+    return store.write_cas(
+        store_key,
+        updated,
+        expected_revision=expected_revision,
+        authority=WriteAuthority("owner_update", executor, expected_epoch),
+    )
+
+
+def reject_not_accepted(
+    store: LocalOperationStore,
+    store_key: str,
+    executor: ExecutorIdentity,
+    evidence: VerificationRequestRejected,
+    *,
+    expected_revision: int,
+    expected_epoch: int,
+    spec: OperationSpec,
+) -> dict[str, Any]:
+    """Record a synchronous, exact-bound HTTP 422 without claiming desired success.
+
+    Missing this API is an unsupported recovery boundary for older Core packages.
+    A crash before this CAS remains unresolved; it never implies non-acceptance.
+    """
+    if not isinstance(evidence, VerificationRequestRejected):
+        raise OwnershipDenied("typed verification rejection evidence required")
+    record = store.read(store_key)
+    if record is None:
+        raise CloserRuntimeError("missing operation")
+    enforce_owner_lease(record, executor, spec=spec)
+    if record["lease"]["epoch"] != expected_epoch:
+        raise OwnershipDenied("stale epoch")
+    if record["status"] != "intent_recorded" or record.get("ownership_scope") != "execute":
+        raise OwnershipDenied("rejection requires live execute-owned intent before submission")
+    receipt = {
+        "kind": "verification_request_not_accepted",
+        "operation_key": record["operation_key"],
+        "target_fence_key": record["target_fence_key"],
+        "action": record["action"],
+        "head_sha": record["head_sha"],
+        **dataclasses.asdict(evidence),
+    }
+    if not _request_rejection_ok(record, receipt):
+        raise OwnershipDenied("rejection is not exact-bound workflow dispatch HTTP 422")
+    updated = dict(record)
+    updated["status"] = "unavailable"
+    updated["receipts"] = [*record["receipts"], receipt]
+    updated["lease"] = {**record["lease"], "revision": expected_revision + 1}
     return store.write_cas(
         store_key,
         updated,

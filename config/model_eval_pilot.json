@@ -689,7 +689,8 @@
         "source_snapshot_ref": "config/model_eval_snapshots/workflows-2524.json.gz",
         "mutation": "fail-ci-row",
         "path": "pr-00-gate.yml"
-      }
+      },
+      "diagnostic_only": true
     },
     {
       "case_id": "workflows-2527-mut-ci",
@@ -705,7 +706,8 @@
         "source_snapshot_ref": "config/model_eval_snapshots/workflows-2527.json.gz",
         "mutation": "fail-ci-row",
         "path": "pr-00-gate.yml"
-      }
+      },
+      "diagnostic_only": true
     },
     {
       "case_id": "workflows-2528-mut-drop1",
@@ -753,7 +755,8 @@
         "source_snapshot_ref": "config/model_eval_snapshots/workflows-2528.json.gz",
         "mutation": "fail-ci-row",
         "path": "pr-00-gate.yml"
-      }
+      },
+      "diagnostic_only": true
     },
     {
       "case_id": "workflows-2536-mut-ci",
@@ -769,7 +772,8 @@
         "source_snapshot_ref": "config/model_eval_snapshots/workflows-2536.json.gz",
         "mutation": "fail-ci-row",
         "path": "pr-00-gate.yml"
-      }
+      },
+      "diagnostic_only": true
     },
     {
       "case_id": "workflows-2537-mut-ci",
@@ -785,7 +789,8 @@
         "source_snapshot_ref": "config/model_eval_snapshots/workflows-2537.json.gz",
         "mutation": "fail-ci-row",
         "path": "pr-00-gate.yml"
-      }
+      },
+      "diagnostic_only": true
     },
     {
       "case_id": "workflows-2539-mut-ci",
@@ -801,7 +806,8 @@
         "source_snapshot_ref": "config/model_eval_snapshots/workflows-2539.json.gz",
         "mutation": "fail-ci-row",
         "path": "pr-00-gate.yml"
-      }
+      },
+      "diagnostic_only": true
     },
     {
       "case_id": "workflows-2540-mut-ci",
@@ -817,7 +823,8 @@
         "source_snapshot_ref": "config/model_eval_snapshots/workflows-2540.json.gz",
         "mutation": "fail-ci-row",
         "path": "pr-00-gate.yml"
-      }
+      },
+      "diagnostic_only": true
     },
     {
       "case_id": "workflows-2543-mut-ci",
@@ -833,7 +840,8 @@
         "source_snapshot_ref": "config/model_eval_snapshots/workflows-2543.json.gz",
         "mutation": "fail-ci-row",
         "path": "pr-00-gate.yml"
-      }
+      },
+      "diagnostic_only": true
     },
     {
       "case_id": "workflows-2545-mut-ci",
@@ -849,7 +857,8 @@
         "source_snapshot_ref": "config/model_eval_snapshots/workflows-2545.json.gz",
         "mutation": "fail-ci-row",
         "path": "pr-00-gate.yml"
-      }
+      },
+      "diagnostic_only": true
     },
     {
       "case_id": "workflows-2744-mut-drop1",
@@ -897,7 +906,8 @@
         "source_snapshot_ref": "config/model_eval_snapshots/workflows-2744.json.gz",
         "mutation": "fail-ci-row",
         "path": "pr-00-gate.yml"
-      }
+      },
+      "diagnostic_only": true
     },
     {
       "case_id": "workflows-2746-mut-drop1",
@@ -945,7 +955,8 @@
         "source_snapshot_ref": "config/model_eval_snapshots/workflows-2746.json.gz",
         "mutation": "fail-ci-row",
         "path": "pr-00-gate.yml"
-      }
+      },
+      "diagnostic_only": true
     },
     {
       "case_id": "workflows-2765-mut-ci",
@@ -961,7 +972,8 @@
         "source_snapshot_ref": "config/model_eval_snapshots/workflows-2765.json.gz",
         "mutation": "fail-ci-row",
         "path": "pr-00-gate.yml"
-      }
+      },
+      "diagnostic_only": true
     },
     {
       "case_id": "workflows-2790-mut-ci",
@@ -977,7 +989,8 @@
         "source_snapshot_ref": "config/model_eval_snapshots/workflows-2790.json.gz",
         "mutation": "fail-ci-row",
         "path": "pr-00-gate.yml"
-      }
+      },
+      "diagnostic_only": true
     },
     {
       "case_id": "workflows-2791-mut-ci",
@@ -993,7 +1006,8 @@
         "source_snapshot_ref": "config/model_eval_snapshots/workflows-2791.json.gz",
         "mutation": "fail-ci-row",
         "path": "pr-00-gate.yml"
-      }
+      },
+      "diagnostic_only": true
     },
     {
       "case_id": "workflows-2831-mut-drop1",
@@ -1057,7 +1071,8 @@
         "source_snapshot_ref": "config/model_eval_snapshots/workflows-2832.json.gz",
         "mutation": "fail-ci-row",
         "path": "pr-00-gate.yml"
-      }
+      },
+      "diagnostic_only": true
     },
     {
       "case_id": "workflows-2833-mut-ci",
@@ -1073,7 +1088,8 @@
         "source_snapshot_ref": "config/model_eval_snapshots/workflows-2833.json.gz",
         "mutation": "fail-ci-row",
         "path": "pr-00-gate.yml"
-      }
+      },
+      "diagnostic_only": true
     },
     {
       "case_id": "workflows-2885-mut-drop1",
@@ -1121,7 +1137,8 @@
         "source_snapshot_ref": "config/model_eval_snapshots/workflows-2885.json.gz",
         "mutation": "fail-ci-row",
         "path": "pr-00-gate.yml"
-      }
+      },
+      "diagnostic_only": true
     },
     {
       "case_id": "workflows-2887-mut-ci",
@@ -1137,7 +1154,8 @@
         "source_snapshot_ref": "config/model_eval_snapshots/workflows-2887.json.gz",
         "mutation": "fail-ci-row",
         "path": "pr-00-gate.yml"
-      }
+      },
+      "diagnostic_only": true
     },
     {
       "case_id": "workflows-2888-mut-ci",
@@ -1153,7 +1171,8 @@
         "source_snapshot_ref": "config/model_eval_snapshots/workflows-2888.json.gz",
         "mutation": "fail-ci-row",
         "path": "pr-00-gate.yml"
-      }
+      },
+      "diagnostic_only": true
     },
     {
       "case_id": "workflows-2891-mut-drop1",
@@ -1185,7 +1204,8 @@
         "source_snapshot_ref": "config/model_eval_snapshots/workflows-2891.json.gz",
         "mutation": "fail-ci-row",
         "path": "pr-00-gate.yml"
-      }
+      },
+      "diagnostic_only": true
     },
     {
       "case_id": "workflows-2895-mut-drop1",
@@ -1233,7 +1253,8 @@
         "source_snapshot_ref": "config/model_eval_snapshots/workflows-2895.json.gz",
         "mutation": "fail-ci-row",
         "path": "pr-00-gate.yml"
-      }
+      },
+      "diagnostic_only": true
     },
     {
       "case_id": "workflows-2898-mut-drop1",
@@ -1281,7 +1302,8 @@
         "source_snapshot_ref": "config/model_eval_snapshots/workflows-2898.json.gz",
         "mutation": "fail-ci-row",
         "path": "pr-00-gate.yml"
-      }
+      },
+      "diagnostic_only": true
     }
   ],
   "mutation_generation": {

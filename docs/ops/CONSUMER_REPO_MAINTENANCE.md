@@ -2,6 +2,23 @@
 
 This document outlines the process for maintaining workflow system consistency across consumer repositories and debugging issues that may affect multiple repos.
 
+## Non-package test dependency declarations
+
+The managed `scripts/sync_test_dependencies.py` audits `[project]` dependencies
+and extras when that table exists. A repository without `[project]` may instead
+use its canonical `requirements.lock` in the same configuration root. This
+fallback accepts blank/comment lines and unconditional `name==version` pins
+only. Includes, editable installs, URLs, pip options, extras, ranges, wildcard
+versions and environment markers fail the audit; the script does not follow or
+execute them. An import absent from the selected declarations still fails
+`--verify`.
+
+For non-package repositories, `--fix` succeeds without changes when imports are
+already declared. Otherwise it refuses to rewrite the lock or create a package
+project table: maintain the pins through the repository's existing dependency
+process, then rerun the audit. Project repositories keep their existing dev-extra
+fix behavior; a lock file cannot mask an undeclared project dependency.
+
 ## Delivery scope and production checks
 
 Sync and dev-tool/dependency maintenance distribute a fixed source revision and
@@ -34,6 +51,29 @@ required CI, active findings, head/source/plan bindings and final merge checks a
 still enforced. An incidental active thread needs an explicit owner disposition;
 it is not silently ignored. Consumers' branch protection is never weakened.
 Legacy review mode remains available when `generated_delivery_review` is absent.
+
+### Sealed Gate recovery
+
+Maint71 requests a full PR-event Gate rerun when authenticated seal-only failure
+proof shows that the metadata snapshot predates the current exact-head seal.
+A failed-jobs rerun can reuse the successful pre-seal resolver; the workflow-level
+start time alone does not prove that the current seal was read. For resolver-based
+Gates, use the latest attempt's unique successful exact-head resolver timestamps.
+Missing, conflicting or unreadable resolver evidence never proves freshness. A
+legacy first event created before sealing proves only an old snapshot; a later
+start time cannot make it fresh. Repeated legacy attempts require migration,
+rather than another automatic request.
+Active runs are not duplicated, fresh post-seal test failures remain blocking,
+and workflow security approval holds require their own authorized review.
+Previously accepted unchanged-payload canary qualification is retained.
+
+Gate summaries that read `GITHUB_EVENT_PATH` must refresh that file from the
+identity-checked `resolve-pr` snapshot in the **same `run` action** that invokes
+`gate_summary.py`. The runner restores the original event between actions, so a
+separate `github-script` hydration is insufficient. Customized summary jobs need
+the direct resolver dependency and `GATE_PR_JSON` environment binding; preserve
+all existing required tests, coverage policy and exact-head seal checks.
+
 
 ### Finding relevance evidence
 
@@ -119,6 +159,15 @@ worker follows active CI in the same run; the sweep is recovery and does not
 license dormant actionable work. Closed campaigns stay closed.
 
 ## Post-merge verifier security boundary
+
+The root verifier caller intentionally uses its repository-specific post-merge CI
+and has no coarse state fingerprint. The consumer caller retains checkbox
+fingerprinting; model modes use the shared reusable collector's authoritative
+verification-event/assessment deduplication after collection. Both callers expose
+and forward the same repeat-event inputs and preserve identical immutable
+acceptance-command gates. These reviewed differences are fingerprinted in
+`config/template-drift-allowlist.txt` pair 14; they are not permission to diverge
+shared lifecycle semantics.
 
 The source and consumer `agents-verifier.yml` callers intentionally retain
 `pull_request_target: labeled`: verification of an already merged fork PR needs
@@ -424,14 +473,18 @@ closed. Legacy synthetic unit fixtures without a context fact alone retain the
 old conservative input + output <= input-bound fallback.
 
 The existing managed `config/model_registry.json` v2 model rows now carry optional
-`native_capacity` facts for exactly these two provider/model pairs. The strict
-expanded-only `tools/llm_registry.py::native_capacity_facts_for` lookup uses
+`native_capacity` facts for exactly these two provider/model pairs. The exact
+`tools/llm_registry.py::native_capacity_facts_for` lookup is used by standard and
+expanded native-capable routes and uses
 `LANGCHAIN_MODEL_REGISTRY_CONFIG` (the existing empty-value default-path convention
 is retained). Missing/unreadable/malformed configuration, duplicate JSON keys or
-exact identities, blocked/unregistered selected entries, absent facts and invalid
-limits/provenance fail closed. Optional facts do not alter model selection, routing,
-shared builders or catalog promotion. Catalog entries without facts remain unsupported
-for expanded counting; future models require separately reviewed exact official facts
+exact identities, blocked/unregistered selected entries and invalid limits/provenance
+raise `ValueError` and fail closed. A registered model omitting the optional
+`native_capacity` record raises `NativeCapacityUnavailable`; null, malformed or
+incomplete facts remain `ValueError`. Optional facts do not select or promote a model.
+Registered standard routes without facts retain their original transport without
+claiming native-count assurance; expanded execution fails closed there. Future
+native-capable models require separately reviewed exact official facts
 and a compatible implemented native protocol, never a name/prefix guess.
 
 The closed facts object requires `transport`, `api_root`, `count_endpoint`,
@@ -461,9 +514,11 @@ generation-request SHA256, and a changed request after counting
 blocks generation. Native metadata/count failures and expanded generation failures
 cannot trigger alternate-provider resolution. SDK retries keep their existing bound.
 
-Standard remains the default and preserves the original shared builders, request
-shape, invocation and schema repair without native capacity claims. No caller client
-is mutated. Unknown future models do not inherit these capabilities by prefix.
+Standard remains the default. Where exact native facts are declared, standard,
+comparison, chunk/synthesis and schema-repair requests all require native capacity
+admission. Registered standard routes without those optional facts preserve their
+original invocation and schema-repair transport without native capacity claims.
+No caller client is mutated. Unknown future models do not inherit capabilities by prefix.
 Retrieval completeness, required evidence and changed-code coverage floors apply
 unconditionally in both profiles. Local simulated transport tests establish source
 behavior only. Inspect actual new retrieval, authenticated capacity receipts and
@@ -952,6 +1007,33 @@ shared behavior here first and distribute the managed validator through the
 normal Maint 68 candidate/promotion and Maint 71 reconciliation flow. Never
 patch the generated Inv-Man sync PR directly. The policy is valid only for an
 `emitting` or `conformant` producer/bridge, so it cannot silently skip closure.
+
+
+### Gate reruns and current PR metadata
+
+A rerun retains its original pull-request event body. Its later start time does
+not prove that it evaluated a seal subsequently written by Maint 71. Gate's
+resolver reads current metadata while preserving the original PR number, head
+SHA and head repository. The classifier consumes that snapshot from the job environment and the seal
+action receives it through its explicit `pull-request-json` input. The runner
+rewrites `event.json` before every action, so file restoration alone cannot
+carry the snapshot across that boundary. Both guards validate the same snapshot;
+a changed head, repository, closed PR or unavailable read refuses the evaluation.
+An ordinary fork PR keeps its original read-only identity. PR-bound manual
+runs retain their existing same-repository/head restrictions.
+
+`pr-00-gate.yml` is create-only because consumers own their runtime, coverage
+and additional jobs. Older consumer Gates need a reviewed wiring alignment of
+the resolver and the classifier/seal snapshot transport before they can recover
+these stale-event holds. Preserve their existing jobs, policy and required-check
+identities. Consumers that lack the named seal job must expose the existing seal
+precondition through the canonical seal action so Maint 71 can authenticate a
+seal-only hold. A reviewed immutable Workflows classifier-action pin can carry
+the corrected classifier while managed copies finish normal delivery; it must
+retain the consumer checkout/configuration and exact resolved PR identity.
+Repeatedly rerunning the old event, an unbound branch dispatch,
+changing the seal/head to manufacture freshness, or a replacement green status
+cannot establish integration acceptance.
 
 ## Registered Consumer Repos
 

@@ -75,9 +75,15 @@ class NativeCapacityFacts:
     provenance: str
 
 
-def native_capacity_facts_for(provider: str, model: str) -> NativeCapacityFacts:
-    """Strict expanded-only lookup, separate from legacy selection/filtering.
+class NativeCapacityUnavailable(ValueError):  # noqa: N818 - public compatibility exception
+    """A registered model deliberately has no optional native-capacity contract."""
 
+
+def native_capacity_facts_for(provider: str, model: str) -> NativeCapacityFacts:
+    """Exact native-capacity lookup, separate from legacy selection/filtering.
+
+    A registered model without optional facts raises NativeCapacityUnavailable.
+    Malformed or incomplete facts raise ValueError in every profile.
     No aliases, inferred model families, SDK imports or arbitrary endpoints come
     from configuration. Optional facts do not select or promote a model. Invalid
     JSON, duplicate keys/identities or incomplete selected facts deny execution.
@@ -129,6 +135,8 @@ def native_capacity_facts_for(provider: str, model: str) -> NativeCapacityFacts:
             selected = row
     if selected is None or selected.get("blocked", False) is not False:
         raise ValueError("unregistered or blocked exact native capacity model")
+    if "native_capacity" not in selected:
+        raise NativeCapacityUnavailable("exact-model native capacity facts unavailable")
     facts = selected.get("native_capacity")
     if not isinstance(facts, dict):
         raise ValueError("exact-model native capacity facts unavailable")

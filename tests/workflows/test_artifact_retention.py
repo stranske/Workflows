@@ -142,9 +142,25 @@ def test_codex_retention_deletion_reports_file_and_line(tmp_path, monkeypatch):
     source_path = ROOT / relative_path
     original = source_path.read_bytes()
     retention_line = b"          retention-days: 14\n"
-    assert original.count(retention_line) == 1, "Expected one Codex output retention setting"
     lines = original.splitlines()
-    retention_index = lines.index(retention_line.rstrip(b"\n"))
+    output_step = b"      - name: Upload Codex output"
+    assert lines.count(output_step) == 1, "Expected one named Codex output upload"
+    step_index = lines.index(output_step)
+    step_end = next(
+        (
+            index
+            for index in range(step_index + 1, len(lines))
+            if lines[index].startswith(b"      - ")
+        ),
+        len(lines),
+    )
+    retention_indices = [
+        index
+        for index in range(step_index + 1, step_end)
+        if lines[index] == retention_line.rstrip(b"\n")
+    ]
+    assert len(retention_indices) == 1, "Expected one named Codex output retention setting"
+    retention_index = retention_indices[0]
     upload_line = max(
         index + 1
         for index, line in enumerate(lines[:retention_index])
@@ -158,7 +174,9 @@ def test_codex_retention_deletion_reports_file_and_line(tmp_path, monkeypatch):
 
     # The unchanged production copy must pass before exercising the deletion.
     test_every_upload_artifact_step_sets_retention_days()
-    copied_path.write_bytes(original.replace(retention_line, b"", 1))
+    copied_path.write_bytes(
+        b"\n".join(lines[:retention_index] + lines[retention_index + 1 :]) + b"\n"
+    )
     with pytest.raises(AssertionError) as failure:
         test_every_upload_artifact_step_sets_retention_days()
     assert str(failure.value).splitlines()[0] == (

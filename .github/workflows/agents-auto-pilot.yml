@@ -21,6 +21,10 @@ on:
         description: "Issue number to auto-pilot"
         required: true
         type: string
+      correction_selector:
+        description: "Reserved correction selector; typed execution is disabled"
+        required: false
+        type: string
       force_step:
         description: "Force a specific step (optional, leave as 'auto' for normal flow)"
         required: false
@@ -113,6 +117,15 @@ jobs:
       cancel-in-progress: false
 
     steps:
+      # No authenticated producer or durable subject index is installed. This
+      # reserved typed interface must fail before ordinary effects or providers.
+      - name: Reject unsupported correction requests
+        if: inputs.correction_selector != ''
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        with:
+          script: |
+            throw new Error('correction_handoff_disabled: typed execution requires a reviewed producer and durable subject identity');
+
       # Mint GitHub App token early to use for API calls (avoids rate limits)
       - name: Mint GitHub App Token
         id: app_token
@@ -319,7 +332,7 @@ jobs:
 
             // Get issue number from various sources (in priority order)
             if (context.eventName === 'workflow_dispatch') {
-              issueNumber = parseInt('${{ inputs.issue_number }}');
+              issueNumber = parseInt(context.payload.inputs?.issue_number || '', 10);
             } else if (context.payload.issue) {
               issueNumber = context.payload.issue.number;
               issue = context.payload.issue;

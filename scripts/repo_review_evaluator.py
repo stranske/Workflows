@@ -10,11 +10,14 @@ single human decision packet. It does not create GitHub issues.
 from __future__ import annotations
 
 import argparse
+import contextlib
 import json
 import os
 import re
 import shutil
+import signal
 import subprocess
+import time
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
@@ -1309,6 +1312,77 @@ def collect_gitnexus_map(workspace_root: Path, repo_path: Path, repo: RepoConfig
     }
 
 
+GITNEXUS_SHUTDOWN_GRACE_SECONDS = 5
+
+
+def _decode_gitnexus_output(output: bytes | str) -> str:
+    """Decode diagnostics after shutdown, preserving text-mode newline handling."""
+    text = output.decode("utf-8", errors="replace") if isinstance(output, bytes) else output
+    return text.replace("\r\n", "\n").replace("\r", "\n")
+
+
+def _run_gitnexus_command(cmd: list[str], *, timeout: int) -> subprocess.CompletedProcess[str]:
+    """Contain the CLI's respawned analyzer, including after its launcher exits."""
+    with subprocess.Popen(
+        cmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        start_new_session=os.name == "posix",
+    ) as proc:
+
+        def stop_processes(*, force: bool) -> None:
+            """Signal only this launcher's owned process group."""
+            with contextlib.suppress(ProcessLookupError):
+                if os.name == "posix":
+                    # start_new_session makes this PID the owned process group.
+                    # getpgid(proc.pid) no longer works once the launcher exits.
+                    os.killpg(proc.pid, signal.SIGKILL if force else signal.SIGTERM)
+                elif force:
+                    proc.kill()
+                else:
+                    proc.terminate()
+
+        def processes_running() -> bool:
+            if os.name != "posix":
+                return proc.poll() is None
+            try:
+                os.killpg(proc.pid, 0)
+            except ProcessLookupError:
+                return False
+            return True
+
+        try:
+            stdout, stderr = proc.communicate(timeout=timeout)
+        except BaseException as exc:
+            stdout = getattr(exc, "output", None) or b""
+            stderr = getattr(exc, "stderr", None) or b""
+            try:
+                stop_processes(force=False)
+                grace_deadline = time.monotonic() + GITNEXUS_SHUTDOWN_GRACE_SECONDS
+                # Ordinary cleanup read failures must not replace the original
+                # exception. A new operator interrupt propagates after group kill.
+                with contextlib.suppress(Exception):
+                    stdout, stderr = proc.communicate(timeout=GITNEXUS_SHUTDOWN_GRACE_SECONDS)
+                # Pipe EOF or launcher exit can precede a quiet analyzer's
+                # database flush. Honor the deadline while its group survives.
+                while (remaining := grace_deadline - time.monotonic()) > 0:
+                    if not processes_running():
+                        break
+                    time.sleep(min(0.05, remaining))
+            finally:
+                # Reaping the launcher or reaching pipe EOF does not establish
+                # child shutdown. This also runs on an interrupted cleanup read.
+                stop_processes(force=True)
+                with contextlib.suppress(Exception):
+                    stdout, stderr = proc.communicate()
+            if isinstance(exc, subprocess.TimeoutExpired):
+                raise subprocess.TimeoutExpired(cmd, timeout, output=stdout, stderr=stderr) from exc
+            raise
+        return subprocess.CompletedProcess(
+            cmd, proc.returncode, _decode_gitnexus_output(stdout), _decode_gitnexus_output(stderr)
+        )
+
+
 def run_gitnexus_analyze(
     repo_path: Path,
     gitnexus_bin: str,
@@ -1334,15 +1408,15 @@ def run_gitnexus_analyze(
     if force:
         cmd.append("--force")
     try:
-        result = subprocess.run(
-            cmd,
-            check=False,
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-        )
-    except (FileNotFoundError, subprocess.TimeoutExpired) as exc:
+        result = _run_gitnexus_command(cmd, timeout=timeout)
+    except FileNotFoundError as exc:
         return False, str(exc)
+    except subprocess.TimeoutExpired as exc:
+        captured = [str(exc)]
+        for output in (exc.output, exc.stderr):
+            if output:
+                captured.append(_decode_gitnexus_output(output))
+        return False, "\n".join(captured)
     output = "\n".join(part for part in [result.stdout, result.stderr] if part).strip()
     normalized_output = output.casefold()
     corruption_markers = (
@@ -1801,6 +1875,21 @@ def references_excluded_repo(value: Any, excluded_names: list[str]) -> bool:
     )
 
 
+def excluded_report_path(path: Path, excluded_names: set[str]) -> bool:
+    """Match repo directories and owner__repo-<report-kind>.md filenames."""
+    for part in path.parts:
+        identity = part.removesuffix(".md").split("__")[-1].casefold()
+        if identity in excluded_names:
+            return True
+        if (
+            part.endswith(".md")
+            and "__" in part
+            and any(identity.startswith(name + "-") for name in excluded_names)
+        ):
+            return True
+    return False
+
+
 def collect_repo_state(
     workspace_root: Path,
     repo: RepoConfig,
@@ -1860,6 +1949,14 @@ def collect_repo_state(
         name
         for name in (excluded_repo_names or [])
         if name.lower() != repo.repo.split("/", 1)[0].lower()
+    ]
+    # Historical report directories encode repository identities as owner__repo.
+    # Filter paths before limiting the report list; never open excluded reports.
+    excluded_path_names = {name.rsplit("/", 1)[-1].casefold() for name in excluded_names}
+    report_files = [
+        path
+        for path in report_files
+        if not excluded_report_path(path.relative_to(repo_path), excluded_path_names)
     ]
     remote_progress = dict(remote_progress)
     for key in ("open_issues", "recent_merged_prs", "warnings"):
@@ -2204,6 +2301,25 @@ def readiness_summary(state: dict[str, Any]) -> str:
     )
 
 
+NO_NEW_WORK_MIN_CHARS = 200
+
+
+def substantive_no_new_work(entries: Any) -> list[dict[str, Any]]:
+    """Round-2 no-new-work justifications that count: a dict that reports no candidates and
+    carries at least NO_NEW_WORK_MIN_CHARS characters of justification.
+
+    Every place that says two agents reached "no new work" (the recommendation, the packet
+    section, the packet's count and the brief's evidence check) uses this one rule.
+    """
+    return [
+        entry
+        for entry in (entries if isinstance(entries, list) else [])
+        if isinstance(entry, dict)
+        and entry.get("candidate_count") == 0
+        and len(str(entry.get("justification") or "").strip()) >= NO_NEW_WORK_MIN_CHARS
+    ]
+
+
 def issue_set_recommendation(state: dict[str, Any]) -> str:
     execution = state["review_execution"]
     if execution["gap_count"] > 0:
@@ -2216,13 +2332,13 @@ def issue_set_recommendation(state: dict[str, Any]) -> str:
         per_instance = converged.get("converged_candidates") or []
         meta = converged.get("meta_candidate")
         deadlocks = converged.get("deadlocked_candidates") or []
-        no_new_work = converged.get("no_new_work_justifications") or []
+        no_new_work = substantive_no_new_work(converged.get("no_new_work_justifications"))
         if not per_instance and not meta:
             # Both agents independently produced 0 candidates with substantive
             # no-new-work justifications. Review is complete; conclusion is
             # "no new gaps." Surface both agents' justifications for human
             # spot-check before accepting no-new-issues.
-            if isinstance(no_new_work, list) and len(no_new_work) >= 2:
+            if len(no_new_work) >= 2:
                 return (
                     f"Round-2 negotiation produced 0 converged candidates. Both agents "
                     f"({', '.join(str(j.get('agent', '?')) for j in no_new_work)}) wrote "
@@ -2316,12 +2432,7 @@ def review_summary_quality_errors(brief: dict[str, Any]) -> list[str]:
     has_dual_no_new_work = (
         isinstance(no_new_work, list)
         and len(no_new_work) >= 2
-        and all(
-            isinstance(entry, dict)
-            and entry.get("candidate_count") == 0
-            and len(str(entry.get("justification") or "").strip()) >= 200
-            for entry in no_new_work
-        )
+        and len(substantive_no_new_work(no_new_work)) == len(no_new_work)
     )
     if not traces and not has_dual_no_new_work:
         errors.append("missing review evidence traces")
@@ -2511,13 +2622,7 @@ def no_new_work_justifications_section(state: dict[str, Any]) -> list[str]:
     converged = state.get("round2_converged") or {}
     if (converged.get("converged_candidates") or []) or converged.get("meta_candidate"):
         return []
-    justifications = [
-        j
-        for j in (converged.get("no_new_work_justifications") or [])
-        if isinstance(j, dict)
-        and j.get("candidate_count") == 0
-        and len(str(j.get("justification") or "").strip()) >= 200
-    ]
+    justifications = substantive_no_new_work(converged.get("no_new_work_justifications"))
     if len(justifications) < 2:
         return []
     lines: list[str] = [
@@ -4076,7 +4181,7 @@ def write_packet(
                     if (state.get("round2_converged") or {}).get("deadlocked_meta")
                     else ""
                 ),
-                f"- Round 2 dual no-new-work justifications: `{sum(1 for j in ((state.get('round2_converged') or {}).get('no_new_work_justifications') or []) if isinstance(j, dict) and j.get('candidate_count') == 0 and str(j.get('justification') or '').strip())}`",
+                f"- Round 2 dual no-new-work justifications: `{len(substantive_no_new_work((state.get('round2_converged') or {}).get('no_new_work_justifications')))}`",
                 f"- Archive progress entries (dedup-only): `{state.get('archive_progress_count', 0)}`",
                 f"- Remote open GitHub issues: `{state['remote_open_issue_count'] if state['remote_open_issue_count'] is not None else 'unknown'}`",
                 f"- Recent merged PRs (last {state.get('remote_progress', {}).get('lookback_days', 30)}d): `{len((state.get('remote_progress') or {}).get('recent_merged_prs') or [])}`",

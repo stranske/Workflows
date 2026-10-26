@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+import json
+import sys
+from pathlib import Path
+
 import pytest
 from scripts import repo_review_round2_schema as schema
 
@@ -251,3 +255,96 @@ def test_validate_converged_set_rejects_non_object_meta_candidate() -> None:
 
 def test_validate_converged_set_accepts_compact_payload_with_meta_candidate() -> None:
     assert schema.validate_converged_set(_valid_converged_set()) == []
+
+
+def test_validate_mark_reports_all_basic_shape_errors() -> None:
+    errors = schema.validate_mark(None, 3)
+    _assert_error(errors, "marks[3]: must be an object")
+    errors = schema.validate_mark({}, 0)
+    for expected in ("source_agent", "candidate_index", ".mark:", ".reason:"):
+        _assert_error(errors, expected)
+
+
+def test_validate_meta_candidate_reports_nested_and_list_shape_errors() -> None:
+    malformed = _valid_meta_candidate(
+        pattern="",
+        title="",
+        rationale="",
+        supporting_candidate_indexes=["bad", {"agent": "unknown", "candidate_index": "one"}],
+        tasks=["one", "", 3],
+        acceptance_criteria=["one"],
+        non_goals=[],
+        priority="urgent",
+        confidence="certain",
+    )
+    errors = schema.validate_meta_candidate(malformed)
+    for expected in (
+        ".pattern:",
+        ".title:",
+        ".rationale:",
+        "supporting_candidate_indexes[0]: must be an object",
+        "supporting_candidate_indexes[1].agent",
+        "supporting_candidate_indexes[1].candidate_index",
+        ".tasks: must list",
+        ".acceptance_criteria: must list",
+        ".non_goals: must list",
+        ".priority: must be",
+        ".confidence: must be",
+    ):
+        _assert_error(errors, expected)
+
+
+def test_top_level_validators_reject_non_objects_and_bad_container_shapes() -> None:
+    assert schema.validate_turn_output([]) == ["turn output: top-level must be an object"]
+    errors = schema.validate_turn_output(
+        _valid_turn_output(agent="unknown", repo="bad", marks="bad", own_candidates_revisions="bad")
+    )
+    for expected in ("agent:", "repo:", "marks: must be a list", "own_candidates_revisions"):
+        _assert_error(errors, expected)
+    assert schema.validate_converged_set([]) == ["converged set: top-level must be an object"]
+    errors = schema.validate_converged_set(
+        _valid_converged_set(
+            schema_version="v2",
+            repo="bad",
+            turns_completed="two",
+            round1_sources=[],
+            converged_candidates="bad",
+            deadlocked_candidates="bad",
+            dropped_candidates="bad",
+            negotiation_log="bad",
+        )
+    )
+    for expected in (
+        "schema_version",
+        "repo:",
+        "turns_completed",
+        "round1_sources",
+        "converged_candidates",
+        "deadlocked_candidates",
+        "dropped_candidates",
+        "negotiation_log",
+    ):
+        _assert_error(errors, expected)
+
+
+def test_file_validators_and_cli_report_errors_and_success(
+    tmp_path: Path, monkeypatch, capsys
+) -> None:
+    missing = tmp_path / "missing.json"
+    _assert_error(schema.validate_turn_output_file(missing), "cannot read")
+    invalid = tmp_path / "invalid.json"
+    invalid.write_text("{bad", encoding="utf-8")
+    _assert_error(schema.validate_turn_output_file(invalid), "invalid JSON")
+    valid = tmp_path / "turn.json"
+    valid.write_text(json.dumps(_valid_turn_output()), encoding="utf-8")
+    assert schema.validate_turn_output_file(valid, expected_repo="stranske/Workflows") == []
+    converged = tmp_path / "converged.json"
+    converged.write_text(json.dumps(_valid_converged_set()), encoding="utf-8")
+    assert schema.validate_converged_set_file(converged) == []
+
+    monkeypatch.setattr(sys, "argv", ["schema", str(valid), str(invalid)])
+    assert schema.main() == 1
+    assert "error(s)" in capsys.readouterr().out
+    monkeypatch.setattr(sys, "argv", ["schema", "--converged", str(converged)])
+    assert schema.main() == 0
+    assert "OK" in capsys.readouterr().out

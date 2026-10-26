@@ -63,9 +63,10 @@ def test_reusable_verifier_uploads_terminal_disposition_artifact() -> None:
 
     assert resolve_step.get("id") == "codex_model"
     assert install_step.get("id") == "codex_cli"
+    assert "inputs.verification_recovery == ''" in resolve_step["if"]
     assert (
-        resolve_step.get("if")
-        == "steps.context.outputs.should_run == 'true' && inputs.mode != 'evaluate' && inputs.evidence_profile != 'expanded'"
+        "steps.context.outputs.should_run == 'true' && inputs.mode != 'evaluate' && inputs.evidence_profile != 'expanded'"
+        in resolve_step["if"]
     )
     assert install_step["env"]["CODEX_CLI_PACKAGE"] == "@openai/codex@0.153.2"
     assert (
@@ -256,6 +257,9 @@ def _resolve_env(step_env: dict, outputs: dict) -> dict:
         elif key in {"CONTEXT_OUTCOME", "VERIFIER_OUTCOME", "CI_FAILED"}:
             expression = " ".join(expr.removeprefix("${{").removesuffix("}}").split())
             expression = expression.replace("inputs.mode", repr(outputs["mode"]))
+            expression = expression.replace(
+                "inputs.verification_recovery", repr(outputs.get("verification_recovery", ""))
+            )
             expression = expression.replace(
                 "steps.context.outputs.ci_failed", repr(str(outputs["ci_failed"]).lower())
             )

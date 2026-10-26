@@ -1,0 +1,7 @@
+{
+  "status": "qualified",
+  "role": "closer_interpret",
+  "profile_id": "inert-qualified-profile",
+  "qualification_ref": "inert:qualified-production-source",
+  "qualification_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+}

@@ -20,6 +20,11 @@ def test_summarize_values_percentiles() -> None:
     assert summary["p99"] == pytest.approx(9.91)
 
 
+def test_percentile_wrapper_preserves_empty_and_interpolated_results() -> None:
+    assert aggregator._percentile([], 90) is None
+    assert aggregator._percentile([1.0, 2.0, 3.0], 50) == pytest.approx(2.0)
+
+
 def test_aggregate_numeric_fields_filters_non_numeric() -> None:
     entries = [
         {"duration_ms": "10"},
@@ -237,3 +242,11 @@ def test_main_reports_missing_repos(capsys: pytest.CaptureFixture[str]) -> None:
     assert result == 2
     captured = capsys.readouterr()
     assert "At least one of --repo, --repos, or --repos-file is required." in captured.err
+
+
+def test_main_rejects_empty_repo_options_and_builds_parser(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    assert aggregator._build_parser().prog
+    assert aggregator.main(["--repo", " "]) == 1
+    assert "no repos specified" in capsys.readouterr().err

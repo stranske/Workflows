@@ -20,6 +20,19 @@ const deliveryPayload = require('./consumer_delivery_digest');
 const { SEAL_PRECONDITION_REASONS } = require('./sync_pr_lease_contract');
 const ACTIVE_SYNC_STATES = ['queued', 'in_progress', 'waiting', 'pending', 'requested'];
 
+// Share the fleet's existing exhausted-primary-limit policy with Gate readers.
+function isPrimaryRateLimitExhausted(error) {
+  const retryHelpers = require('./github-api-with-retry');
+  return typeof retryHelpers.isRateLimitError === 'function'
+    && typeof retryHelpers.isSecondaryRateLimitError === 'function'
+    && retryHelpers.isRateLimitError(error)
+    && !retryHelpers.isSecondaryRateLimitError(error);
+}
+
+function rethrowPrimaryRateLimit(error) {
+  if (isPrimaryRateLimitExhausted(error)) throw error;
+}
+
 function canaryHasBlockingReviewDebt(canary) {
   return require('./sync_pr_merge_contract').canaryReviewDebtIsBlocking({ ...canary,
     repo: canary.owner ? `${canary.owner}/${canary.repo}` : canary.repo });
@@ -269,8 +282,9 @@ async function deferSealedCanaryRefresh({ state, payload, withRetry, now = Date.
       }
       const latest = history.workflow_runs.filter(run => run.head_sha === pr.head.sha
         && run.event === 'pull_request').sort((a, b) => Number(b.id) - Number(a.id))[0];
-      if (latest?.status === 'completed' && gateEvaluatesSeal(latest, record.sealed_at)
-        && ['failure', 'cancelled', 'timed_out', 'action_required'].includes(latest.conclusion)) continue;
+      if (latest?.status === 'completed' && await gateRunEvaluatesSeal({
+        owner, repo, run: latest, sealedAt: record.sealed_at, withRetry,
+      }) === true && ['failure', 'cancelled', 'timed_out', 'action_required'].includes(latest.conclusion)) continue;
       waiting.push({ reason: 'sealed', repository, head: pr.head.sha, sealed_at: record.sealed_at });
     }
   }
@@ -357,6 +371,45 @@ function gateEvaluatesSeal(run, sealedAt) {
   return started > sealed || (started === sealed && Number(run.run_attempt) > 1);
 }
 
+// A failed-jobs rerun can reuse a successful resolver from before sealing.
+// Its run_started_at advances even though the metadata snapshot does not.
+async function gateRunEvaluatesSeal({ owner, repo, run, sealedAt, withRetry, jobs }) {
+  const sealed = Date.parse(sealedAt);
+  if (!Number.isFinite(sealed)) return null;
+  let rows = jobs;
+  if (!rows) {
+    try {
+      rows = await withRetry(client => client.paginate(
+        client.rest.actions.listJobsForWorkflowRun,
+        { owner, repo, run_id: run.id, filter: 'latest', per_page: 100 },
+      ));
+    } catch (error) {
+      console.log(`seal: ${owner}/${repo} run=${run.id} resolver jobs unreadable: status=${error?.status || error?.response?.status || 'unknown'}`);
+      rethrowPrimaryRateLimit(error);
+      return null;
+    }
+  }
+  if (!Array.isArray(rows) || !rows.length) return null;
+  const resolvers = rows.filter(job => job.name === 'resolve Gate PR context');
+  if (!resolvers.length) {
+    // A legacy first event created before the seal proves an old snapshot,
+    // even if queue delay moves its start after sealing. Without a resolver,
+    // neither a later creation nor a repeated attempt proves a fresh snapshot.
+    const created = Date.parse(run.created_at);
+    return Number(run.run_attempt || 1) === 1 && Number.isFinite(created)
+      && created <= sealed ? false : null;
+  }
+  if (resolvers.length !== 1) return null;
+  const resolver = resolvers[0];
+  if (resolver.status !== 'completed' || resolver.conclusion !== 'success'
+    || resolver.head_sha !== run.head_sha
+    || Number(resolver.run_attempt) !== Number(run.run_attempt || 1)) return null;
+  const started = Date.parse(resolver.started_at);
+  const completed = Date.parse(resolver.completed_at);
+  if (!Number.isFinite(started) || !Number.isFinite(completed) || completed < started) return null;
+  return started > sealed;
+}
+
 // Recognize a seal-only hold, including a Gate that read an older PR-body
 // snapshot. This permits lifecycle progress, never merge authorization.
 async function isExpectedPresealGateFailure({
@@ -403,16 +456,16 @@ async function isExpectedPresealGateFailure({
       || String(run?.name || '').trim() !== 'Gate'
       || String(run?.path || '') !== '.github/workflows/pr-00-gate.yml'
       || run?.status !== 'completed' || run?.conclusion !== 'failure') return false;
-    // A current seal needs a new Gate only when the failed run predates it.
-    // A failure from a fresh sealed evaluation remains a real blocker.
-    if (deliveryState === 'sealed' && deliveryRecord.sealed_head_sha === headSha
-      && gateEvaluatesSeal(run, deliveryRecord.sealed_at) !== false) return false;
-
     const jobs = await withRetry((client) => client.paginate(
       client.rest.actions.listJobsForWorkflowRun,
-      { owner, repo, run_id: runId, per_page: 100 },
+      { owner, repo, run_id: runId, filter: 'latest', per_page: 100 },
     ));
     if (!Array.isArray(jobs) || jobs.length === 0) return false;
+    // Fresh failed evaluations remain blockers. Only an authenticated old
+    // snapshot can wake this sealed head; unknown metadata never permits POST.
+    if (deliveryState === 'sealed' && deliveryRecord.sealed_head_sha === headSha
+      && await gateRunEvaluatesSeal({ owner, repo, run,
+        sealedAt: deliveryRecord.sealed_at, withRetry, jobs }) !== false) return false;
     const failed = jobs.filter((job) => job?.status === 'completed'
       && job?.conclusion === 'failure').map((job) => String(job?.name || '').trim()).sort();
     const expectedJobs = EXPECTED_PRESEAL_GATE_JOB_SETS.find((names) =>
@@ -467,7 +520,9 @@ async function isExpectedPresealGateFailure({
       || errors.some((line) => ![`Error: ${exactReason}`, `##[error]${exactReason}`,
         `##[error]${EXPECTED_PRESEAL_ANNOTATION}`].includes(line))) return false;
     return true;
-  } catch {
+  } catch (error) {
+    rethrowPrimaryRateLimit(error);
+    // Unavailable proof stays a blocked PR, not a generic repository failure.
     return false;
   }
 }
@@ -868,11 +923,19 @@ async function evaluateSealedGate({ owner, repo, pr, withRetry, sealedAt }) {
     if (latest) {
       // A queued/in-progress attempt or a completed post-seal evaluation must
       // settle through the ordinary checks path, not create a rerun loop.
-      if (latest.status !== 'completed' || (sealedAt && gateEvaluatesSeal(latest, sealedAt))) {
-        return { mode: 'existing', run_id: latest.id };
+      if (latest.status !== 'completed') return { mode: 'existing', run_id: latest.id };
+      if (latest.conclusion === 'action_required') return { mode: 'failed',
+        run_id: latest.id, status: 'action_required', reason: 'Gate requires workflow security review; no request sent' };
+      if (sealedAt) {
+        const evaluated = await gateRunEvaluatesSeal({ owner, repo, run: latest, sealedAt, withRetry });
+        if (evaluated === true) return { mode: 'existing', run_id: latest.id };
+        if (evaluated === null) return { mode: 'failed', status: 'unknown',
+          run_id: latest.id, reason: 'Gate resolver freshness unproven; no request sent' };
       }
       try {
-        const response = await withRetry(client => client.rest.actions.reRunWorkflowFailedJobs({
+        // Full reruns must execute the resolver again; failed-jobs reruns cache
+        // its successful pre-seal output and cannot observe the current seal.
+        const response = await withRetry(client => client.rest.actions.reRunWorkflow({
           owner, repo, run_id: latest.id,
         }));
         console.log(`${identity} gate rerun run=${latest.id}`);
@@ -931,6 +994,7 @@ async function evaluateSealedGate({ owner, repo, pr, withRetry, sealedAt }) {
     if (refusal.blocked) console.log(`${identity} gate rerun refused; dispatched run=${run.id}`);
     return receipt({ mode: 'dispatch', status: response.status, run_id: run.id });
   } catch (error) {
+    rethrowPrimaryRateLimit(error);
     const status = error?.status || error?.response?.status || 'unknown';
     const reason = error?.response?.data?.message || error.message || 'Gate request failed';
     console.log(`${identity} gate request failed: ${status} ${reason}`);
@@ -2538,14 +2602,6 @@ async function run({ github, context, core }) {
     : null;
   const withReviewReadRetry = reviewReadClient?.withRetry
     || ((fn) => withRetry(fn));
-  const isPrimaryRateLimitExhausted = (error) =>
-    typeof retryHelpers.isRateLimitError === 'function'
-    && typeof retryHelpers.isSecondaryRateLimitError === 'function'
-    && retryHelpers.isRateLimitError(error)
-    && !retryHelpers.isSecondaryRateLimitError(error);
-  const rethrowPrimaryRateLimit = (error) => {
-    if (isPrimaryRateLimitExhausted(error)) throw error;
-  };
   async function getRequiredContexts({ owner, repo, branch }) {
     try {
       const { data: protection } = await withRetry((client) =>
@@ -5422,6 +5478,7 @@ module.exports = {
   dispatchCanaryRefresh,
   canaryNeedsRefresh,
   isExpectedPresealGateFailure,
+  gateRunEvaluatesSeal,
   refreshStableCanaries,
   routeCanaryReviewUpstream,
   buildCanaryPromotionEvidence,

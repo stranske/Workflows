@@ -1,9 +1,9 @@
-"""Synchronise test imports with the dependency declarations in pyproject.toml.
+"""Audit test imports against project declarations or a non-package lock.
 
-The previous workflow stored test-only dependencies in requirements.txt. With the
-project now using pyproject.toml as the single source of truth we ensure that any
-third-party imports used by the test suite are captured inside the ``dev`` extra
-and regenerate the lock file afterwards.
+Package projects use pyproject.toml dependencies/extras and may update the dev
+extra. Repositories without [project] may declare installed dependencies through
+canonical requirements.lock pins; the auditor never rewrites that lock or turns
+such a repository into a package.
 """
 
 from __future__ import annotations
@@ -465,13 +465,61 @@ def get_all_test_imports() -> set[str]:
     return all_imports
 
 
-def get_declared_dependencies() -> tuple[set[str], dict[str, list[str]]]:
-    """Return declared dependency module names and raw dependency groups."""
-    if not PYPROJECT_FILE.exists():
-        return set(), {}
+class LockDeclarationError(ValueError):
+    """A non-package lock is unreadable or outside the supported pin format."""
 
-    data = tomllib.loads(PYPROJECT_FILE.read_text(encoding="utf-8"))
-    project = data.get("project", {})
+
+def _locked_nonpackage_dependencies() -> tuple[set[str], dict[str, list[str]]]:
+    """Read only canonical unconditional pins, never pip directives/includes."""
+    lock = _config_root() / "requirements.lock"
+    if not lock.exists():
+        return set(), {}
+    # packaging is already a declared dev dependency and pytest dependency.
+    # Import lazily so the ordinary project declaration path stays unchanged.
+    from packaging.requirements import InvalidRequirement, Requirement
+    from packaging.version import InvalidVersion, Version
+
+    try:
+        lines = lock.read_text(encoding="utf-8").splitlines()
+    except (OSError, UnicodeError) as exc:
+        raise LockDeclarationError(f"{lock}: cannot read canonical lock") from exc
+    declared: set[str] = set()
+    pins: list[str] = []
+    for number, line in enumerate(lines, start=1):
+        pin = line.strip()
+        if not pin or pin.startswith("#"):
+            continue
+        try:
+            requirement = Requirement(pin)
+            specs = list(requirement.specifier)
+            if (
+                requirement.url is not None
+                or requirement.marker is not None
+                or requirement.extras
+                or len(specs) != 1
+                or specs[0].operator != "=="
+                or "*" in specs[0].version
+            ):
+                raise ValueError("expected one unconditional exact pin")
+            Version(specs[0].version)
+        except (InvalidRequirement, InvalidVersion, ValueError) as exc:
+            raise LockDeclarationError(
+                f"{lock}:{number}: unsupported declaration; expected name==version "
+                "without includes, URLs, options, extras or markers"
+            ) from exc
+        declared.add(_normalise_package_name(requirement.name))
+        pins.append(pin)
+    return declared, {"requirements.lock": pins}
+
+
+def get_declared_dependencies() -> tuple[set[str], dict[str, list[str]]]:
+    """Use project declarations, or canonical lock pins only for non-packages."""
+    data = (
+        tomllib.loads(PYPROJECT_FILE.read_text(encoding="utf-8")) if PYPROJECT_FILE.exists() else {}
+    )
+    if "project" not in data:
+        return _locked_nonpackage_dependencies()
+    project = data["project"]
 
     declared: set[str] = set()
     groups: dict[str, list[str]] = {}
@@ -517,6 +565,16 @@ def add_dependencies_to_pyproject(missing: set[str], fix: bool = False) -> bool:
     """Add missing dependencies to the dev extra inside pyproject.toml."""
     if not missing or not fix:
         return False
+
+    data = (
+        tomllib.loads(PYPROJECT_FILE.read_text(encoding="utf-8")) if PYPROJECT_FILE.exists() else {}
+    )
+    if "project" not in data:
+        raise SystemExit(
+            "Cannot --fix a non-package repository: declare dependencies through "
+            "its requirements.lock maintenance process; no pyproject project table "
+            "or lock pins were changed."
+        )
 
     if TOMLKIT_ERROR is not None:
         raise SystemExit(
@@ -566,10 +624,14 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    missing = find_missing_dependencies()
+    try:
+        missing = find_missing_dependencies()
+    except LockDeclarationError as exc:
+        print(f"❌ {exc}", file=sys.stderr)
+        return 2
 
     if not missing:
-        print("✅ All test dependencies are declared in pyproject.toml")
+        print("✅ All test dependencies are declared in the configured dependency declarations")
         return 0
 
     print(f"⚠️  Found {len(missing)} undeclared dependencies:")

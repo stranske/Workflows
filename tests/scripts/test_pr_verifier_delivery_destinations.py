@@ -15,11 +15,12 @@ _COVERAGE_FIXTURE = importlib.util.module_from_spec(_COVERAGE_SPEC)
 _COVERAGE_SPEC.loader.exec_module(_COVERAGE_FIXTURE)
 
 
-def _semantic_matrix(*, dimensions, semantic, lexical_spines):
+def _semantic_matrix(*, dimensions, semantic, lexical_spines, pairwise=False):
     """Cross semantic states; sweep aliases on their declared interaction axes.
 
     Every original value survives. The core keeps every semantic combination;
     a lexical sweep keeps each alias crossed with its named grammar boundaries.
+    Optional pairwise witnesses also cross every pair of dimensions.
     Other lexical axes use their first value. See docs/ci/verifier-grammar-matrices.md
     for the intentionally unproven high-order lexical combinations and mapping.
     """
@@ -40,6 +41,11 @@ def _semantic_matrix(*, dimensions, semantic, lexical_spines):
     for alias, spine in lexical_spines.items():
         assert set(spine) <= set(semantic)
         add((alias, *spine), "lexical-" + alias.replace(",", "-"))
+    if pairwise:
+        from itertools import combinations
+
+        for axes in combinations(names, 2):
+            add(axes, "pairwise")
     flattened = [part.strip() for name in names for part in name.split(",")]
     values = []
     for key, label in rows.items():
@@ -601,31 +607,35 @@ def test_relative_normalization_retains_soft_wrap_and_quoted_paragraph_controls(
     assert verifier._normalize_relative_review_presence(quoted) == quoted
 
 
-@pytest.mark.parametrize("actor", ["UI", "service used by users", "UI used by users"])
-@pytest.mark.parametrize(
-    "operation,perfect,progressive",
-    [
-        ("record", "recorded", "recording"),
-        ("supply", "supplied", "supplying"),
-        ("leave", "left", "leaving"),
-    ],
+@_semantic_matrix(
+    dimensions={
+        "actor": ["UI", "service used by users", "UI used by users"],
+        "operation,perfect,progressive": [
+            ("record", "recorded", "recording"),
+            ("supply", "supplied", "supplying"),
+            ("leave", "left", "leaving"),
+        ],
+        "form": [
+            "ordinary",
+            "perfect",
+            "progressive",
+            "capability",
+            "qualified-user",
+            "qualified-reviewer",
+            "permit",
+            "let",
+        ],
+        "governor": ["must", "may", "must not"],
+        "coordination": ["and", "or"],
+        "reverse": [False, True],
+    },
+    semantic=("form", "governor", "coordination", "reverse"),
+    lexical_spines={
+        "actor": ("form", "governor"),
+        "operation,perfect,progressive": ("form", "governor"),
+    },
+    pairwise=True,
 )
-@pytest.mark.parametrize(
-    "form",
-    [
-        "ordinary",
-        "perfect",
-        "progressive",
-        "capability",
-        "qualified-user",
-        "qualified-reviewer",
-        "permit",
-        "let",
-    ],
-)
-@pytest.mark.parametrize("governor", ["must", "may", "must not"])
-@pytest.mark.parametrize("coordination", ["and", "or"])
-@pytest.mark.parametrize("reverse", [False, True])
 def test_repeated_product_predicate_shares_aspect_recipient_and_qualified_actor(
     actor, operation, perfect, progressive, form, governor, coordination, reverse
 ):
@@ -1683,13 +1693,23 @@ def test_relative_additive_adjective_does_not_erase_delivery(
     assert verifier._required_evidence_options(criterion) == [expected]
 
 
-@pytest.mark.parametrize("relative", ["that", "which"])
-@pytest.mark.parametrize("adjective", ["required", "expected", "supposed", "permitted"])
-@pytest.mark.parametrize("negative", ["not", "never", "no longer"])
-@pytest.mark.parametrize("adverb", ["now", "currently"])
-@pytest.mark.parametrize("position", ["before-copula", "after-copula", "after-negative"])
-@pytest.mark.parametrize("destination", ["a PR comment", "the PR body", "the PR description"])
-@pytest.mark.parametrize("independent", [False, True])
+@_semantic_matrix(
+    dimensions={
+        "relative": ["that", "which"],
+        "adjective": ["required", "expected", "supposed", "permitted"],
+        "negative": ["not", "never", "no longer"],
+        "adverb": ["now", "currently"],
+        "position": ["before-copula", "after-copula", "after-negative"],
+        "destination": ["a PR comment", "the PR body", "the PR description"],
+        "independent": [False, True],
+    },
+    semantic=("adjective", "negative", "position", "destination", "independent"),
+    lexical_spines={
+        "relative": ("adjective", "negative", "position"),
+        "adverb": ("adjective", "negative", "position"),
+    },
+    pairwise=True,
+)
 def test_relative_negative_adjective_shares_internal_adverbs(
     relative, adjective, negative, adverb, position, destination, independent
 ):
@@ -2053,30 +2073,34 @@ def test_component_options_and_actual_floor_are_order_symmetric(
     assert result.verdict == ("PASS" if expected_pass else "CONCERNS")
 
 
-@pytest.mark.parametrize("marker", ["-", "*", "+", "1.", "1)"])
-@pytest.mark.parametrize("proof", ["Test evidence", "Command output", "Transcripts"])
-@pytest.mark.parametrize(
-    "suffix",
-    [
-        "before merge",
-        "after approval",
-        "today",
-        "daily",
-        "that reviewers can inspect",
-        "which reviewers can inspect",
-        "where reviewers can inspect",
-    ],
+@_semantic_matrix(
+    dimensions={
+        "marker": ["-", "*", "+", "1.", "1)"],
+        "proof": ["Test evidence", "Command output", "Transcripts"],
+        "suffix": [
+            "before merge",
+            "after approval",
+            "today",
+            "daily",
+            "that reviewers can inspect",
+            "which reviewers can inspect",
+            "where reviewers can inspect",
+        ],
+        "destination,channel": [
+            ("a PR comment", "comments"),
+            ("the PR body", "body"),
+            ("the PR description", "body"),
+            ("a workflow artifact", "artifacts"),
+        ],
+        "independent": [False, True],
+    },
+    semantic=("suffix", "destination,channel", "independent"),
+    lexical_spines={
+        "marker": ("suffix", "destination,channel"),
+        "proof": ("suffix", "destination,channel"),
+    },
+    pairwise=True,
 )
-@pytest.mark.parametrize(
-    "destination,channel",
-    [
-        ("a PR comment", "comments"),
-        ("the PR body", "body"),
-        ("the PR description", "body"),
-        ("a workflow artifact", "artifacts"),
-    ],
-)
-@pytest.mark.parametrize("independent", [False, True])
 def test_temporal_checklist_shorthand_preserves_named_delivery(
     marker, proof, suffix, destination, channel, independent
 ):
@@ -2105,19 +2129,23 @@ def test_temporal_checklist_shorthand_preserves_named_delivery(
         )
 
 
-@pytest.mark.parametrize("marker", ["-", "*", "+", "1.", "1)"])
-@pytest.mark.parametrize(
-    "suffix",
-    [
-        "only if tests fail",
-        "solely if tests fail",
-        "currently not required",
-        "currently not expected",
-    ],
+@_semantic_matrix(
+    dimensions={
+        "marker": ["-", "*", "+", "1.", "1)"],
+        "suffix": [
+            "only if tests fail",
+            "solely if tests fail",
+            "currently not required",
+            "currently not expected",
+        ],
+        "destination": ["a PR comment", "the PR body", "the PR description"],
+        "independent": [False, True],
+        "joiner": [". ", "; ", " and ", ", and ", " or ", ", or ", " but "],
+    },
+    semantic=("suffix", "destination", "independent", "joiner"),
+    lexical_spines={"marker": ("suffix", "joiner")},
+    pairwise=True,
 )
-@pytest.mark.parametrize("destination", ["a PR comment", "the PR body", "the PR description"])
-@pytest.mark.parametrize("independent", [False, True])
-@pytest.mark.parametrize("joiner", [". ", "; ", " and ", ", and ", " or ", ", or ", " but "])
 def test_checklist_suffix_cannot_promote_conditional_or_negative_delivery(
     marker, suffix, destination, independent, joiner
 ):
@@ -3530,25 +3558,32 @@ def test_finite_aspect_additive_contrast_preserves_both_channels(
     ) == {first_channel, second_channel}
 
 
-@pytest.mark.parametrize(
-    "governor",
-    [
-        "is not required to",
-        "is not needed to",
-        "was not required to",
-        "were not needed to",
-        "is never expected to",
-        "is no longer supposed to",
-        "does not need to",
-        "doesn't need to",
-        "never has to",
-        "no longer needs to",
-    ],
+@_semantic_matrix(
+    dimensions={
+        "governor": [
+            "is not required to",
+            "is not needed to",
+            "was not required to",
+            "were not needed to",
+            "is never expected to",
+            "is no longer supposed to",
+            "does not need to",
+            "doesn't need to",
+            "never has to",
+            "no longer needs to",
+        ],
+        "participle": ["recorded", "supplied", "proved"],
+        "destination": ["the PR body", "a PR comment", "workflow artifacts"],
+        "positive_first": [True, False],
+        "marker": ["", "- [ ] ", "- [x] ", "* [ ] ", "- "],
+    },
+    semantic=("governor", "destination", "positive_first"),
+    lexical_spines={
+        "participle": ("governor", "destination"),
+        "marker": ("governor", "positive_first"),
+    },
+    pairwise=True,
 )
-@pytest.mark.parametrize("participle", ["recorded", "supplied", "proved"])
-@pytest.mark.parametrize("destination", ["the PR body", "a PR comment", "workflow artifacts"])
-@pytest.mark.parametrize("positive_first", [True, False])
-@pytest.mark.parametrize("marker", ["", "- [ ] ", "- [x] ", "* [ ] ", "- "])
 def test_negative_active_perfect_governor_preserves_independent_delivery(
     governor, participle, destination, positive_first, marker
 ):
@@ -3771,18 +3806,26 @@ def test_optional_review_predicate_cannot_suppress_elided_mandatory_delivery(
     ) == {expected}
 
 
-@pytest.mark.parametrize("auxiliary", ["do", "does", "did"])
-@pytest.mark.parametrize("role", ["reviewer", "maintainer"])
-@pytest.mark.parametrize(
-    "qualifier", ["after checking the", "before reviewing the", "following inspection of the"]
-)
-@pytest.mark.parametrize(
-    "object_name", ["PR", "pull request", "PR body", "PR comments", "workflow artifacts"]
-)
-@pytest.mark.parametrize("operation", ["placed", "submitted", "delivered"])
-@pytest.mark.parametrize(
-    "destination,channel",
-    [("the PR body", "body"), ("a PR comment", "comments"), ("workflow artifacts", "artifacts")],
+@_semantic_matrix(
+    dimensions={
+        "auxiliary": ["do", "does", "did"],
+        "role": ["reviewer", "maintainer"],
+        "qualifier": ["after checking the", "before reviewing the", "following inspection of the"],
+        "object_name": ["PR", "pull request", "PR body", "PR comments", "workflow artifacts"],
+        "operation": ["placed", "submitted", "delivered"],
+        "destination,channel": [
+            ("the PR body", "body"),
+            ("a PR comment", "comments"),
+            ("workflow artifacts", "artifacts"),
+        ],
+    },
+    semantic=("qualifier", "object_name", "destination,channel"),
+    lexical_spines={
+        "auxiliary": ("qualifier", "object_name"),
+        "role": ("qualifier", "destination,channel"),
+        "operation": ("qualifier", "destination,channel"),
+    },
+    pairwise=True,
 )
 def test_review_related_actor_aside_preserves_delivery(
     auxiliary, role, qualifier, object_name, operation, destination, channel
@@ -7809,3 +7852,75 @@ def test_bounded_storage_shared_review_destination_preserves_floor(
             comments=missing if channel == "comments" else "present",
             artifacts=missing if channel == "artifacts" else "present",
         ) == ("UNVERIFIABLE_INPUT" if missing == "unavailable" else "CONCERNS")
+
+
+@pytest.mark.parametrize("heading", ["## Acceptance criteria", "### Requirements"])
+@pytest.mark.parametrize("indent", ["", " ", "  ", "   "])
+@pytest.mark.parametrize(
+    "criterion,expected",
+    [
+        ("The PR comment UI must display evidence", set()),
+        ("The reviewer must post evidence in a PR comment", {"comments"}),
+        ("- [ ] Investigate workflow artifact retention", set()),
+    ],
+)
+def test_requirement_sections_preserve_independent_actor_boundaries(
+    heading, indent, criterion, expected
+):
+    requirements = "## Tasks\n- [ ] scoped task detail\n\n" + indent + heading + "\n" + criterion
+    assert verifier._required_evidence_options(requirements) == [expected]
+
+
+def test_requirement_heading_duty_is_retained():
+    assert verifier._required_evidence_options(
+        "### The reviewer must post evidence in a PR comment\n\nDescribe the change."
+    ) == [{"comments"}]
+
+
+def test_separate_sections_conjoin_their_independent_delivery_alternatives():
+    assert {
+        frozenset(option)
+        for option in verifier._required_evidence_options(
+            "## Tasks\nThe reviewer must post evidence in a PR comment or the PR body.\n"
+            "## Acceptance Criteria\nThe reviewer must attach evidence as an artifact."
+        )
+    } == {frozenset({"comments", "artifacts"}), frozenset({"body", "artifacts"})}
+
+
+def test_quoted_markdown_heading_is_not_an_independent_delivery():
+    assert verifier._required_evidence_options(
+        'The parser recognizes "### The reviewer must attach evidence as an artifact\n'
+        'Example only".\n## Requirements\nThe UI must display evidence.'
+    ) == [set()]
+
+
+@pytest.mark.parametrize(
+    "heading",
+    [
+        "Optional evidence",
+        "Evidence (if available)",
+        "Nice-to-have artifacts",
+        "Possibly useful logs",
+        "No evidence required",
+    ],
+)
+@pytest.mark.parametrize("indent", ["", " ", "  ", "   "])
+def test_optional_evidence_heading_scopes_only_its_own_section(heading, indent):
+    section = indent + "## " + heading + "\nUpload a validation artifact."
+    assert verifier._required_evidence_options(section) == [set()]
+    assert verifier._required_evidence_options(
+        section + "\n## Required delivery\nThe reviewer must post evidence in a PR comment."
+    ) == [{"comments"}]
+
+
+def test_not_optional_heading_does_not_waive_explicit_delivery():
+    assert verifier._required_evidence_options(
+        "## Not optional evidence\nThe reviewer must attach evidence as an artifact."
+    ) == [{"artifacts"}]
+
+
+def test_optional_parent_scopes_nested_evidence_until_next_peer():
+    assert verifier._required_evidence_options(
+        "## Optional evidence\n### Logs\nUpload a validation artifact.\n"
+        "## Required delivery\nThe reviewer must post evidence in a PR comment."
+    ) == [{"comments"}]

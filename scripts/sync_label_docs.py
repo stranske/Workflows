@@ -134,10 +134,15 @@ def sync_repo(
     with tempfile.TemporaryDirectory(prefix="sync-label-docs-") as tmp:
         checkout_dir = Path(tmp) / "repo"
         clone_url = build_clone_url(repo, token)
+        clone_failure: str | None = None
         try:
             run(["git", "clone", "--depth", "1", clone_url, str(checkout_dir)], None)
         except SyncLabelDocsError as exc:
-            raise SyncLabelDocsError(f"{repo}: clone failed") from exc
+            # The runner's message carries the clone command, token included. Keep the reason with
+            # the token masked, and raise outside this handler so no traceback chains the original.
+            clone_failure = redact_command([str(exc)], [token, quote(token, safe="")])
+        if clone_failure is not None:
+            raise SyncLabelDocsError(f"{repo}: clone failed: {clone_failure}")
 
         return sync_checkout(
             repo=repo,

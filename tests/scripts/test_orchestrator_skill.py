@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 
 import pytest
+from scripts import orchestrator_skill
 from scripts.orchestrator_skill import (
     OrchestratorSkillConfigError,
     build_orchestrator_skill_summary,
@@ -229,3 +230,59 @@ def test_write_summary_and_cli_reports_enabled_config(
     assert "OK" in capsys.readouterr().err
     assert main(["--workspace", str(tmp_path)]) == 0
     assert json.loads(capsys.readouterr().out)["plan"]["pack"] == "pilot"
+
+
+def test_config_helpers_reject_empty_and_local_values(tmp_path: Path) -> None:
+    assert orchestrator_skill.orchestrator_skill_config_exists(tmp_path) is False
+    for payload, message in [
+        ({"enabled": True}, "requires 'pack' or inline"),
+        ({"enabled": True, "pack": " "}, "pack must be a non-empty"),
+        ({"enabled": True, "pack": "/Users/teacher/.codex"}, "local Orchestrator"),
+        ({"enabled": True, "repo": "owner/repo", "ref": " ", "paths": ["a"]}, "ref must"),
+    ]:
+        with pytest.raises(OrchestratorSkillConfigError, match=message):
+            parse_orchestrator_skill_config(payload)
+
+
+def test_config_path_exists_and_enabled_override_preserves_no_config_state(tmp_path: Path) -> None:
+    config = tmp_path / ".github" / "orchestrator_skill.json"
+    config.parent.mkdir()
+    config.write_text('{"enabled": true, "pack": "pilot"}', encoding="utf-8")
+    assert orchestrator_skill.orchestrator_skill_config_exists(tmp_path) is True
+    snapshot = load_orchestrator_skill(tmp_path, enabled_override=False)
+    assert snapshot.exists is True
+    assert snapshot.enabled is False
+    assert snapshot.plan is None
+
+
+def test_config_parser_rejects_non_object_and_wraps_invalid_inline_configuration(
+    tmp_path: Path,
+) -> None:
+    with pytest.raises(OrchestratorSkillConfigError, match="JSON object"):
+        parse_orchestrator_skill_config([])
+
+    config = tmp_path / ".github" / "orchestrator_skill.json"
+    config.parent.mkdir()
+    config.write_text(
+        json.dumps({"repo": "owner/repo/extra", "ref": "main", "paths": ["SKILL.md"]}),
+        encoding="utf-8",
+    )
+    with pytest.raises(OrchestratorSkillConfigError, match="Invalid config"):
+        load_orchestrator_skill(tmp_path)
+
+
+def test_enabled_override_wins_over_the_config_in_both_directions(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    config = tmp_path / ".github" / "orchestrator_skill.json"
+    config.parent.mkdir()
+    config.write_text(json.dumps({"enabled": False}), encoding="utf-8")
+
+    plan = resolve_orchestrator_skill_plan(tmp_path, pack_override="pilot", enabled_override=True)
+
+    assert plan is not None
+    assert plan.pack == "pilot"
+    # The config is enabled for the CLI call, so only `--enabled-override no` can make this False.
+    config.write_text(json.dumps({"enabled": True, "pack": "orchestrator"}), encoding="utf-8")
+    assert main(["--workspace", str(tmp_path), "--enabled-override", "no"]) == 0
+    assert json.loads(capsys.readouterr().out)["enabled"] is False

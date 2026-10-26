@@ -6,6 +6,8 @@ from types import SimpleNamespace
 import pytest
 from scripts.langchain import pr_verifier as verifier
 
+from tests.scripts.verifier_capacity_fakes import with_capacity
+
 
 def patch(name, size=20000):
     return (
@@ -18,6 +20,7 @@ def patch(name, size=20000):
 
 class Client:
     def __init__(self, verdicts=()):
+        with_capacity(self)
         self.prompts = []
         self.verdicts = iter(verdicts)
 
@@ -64,8 +67,13 @@ def test_nine_file_diff_reviewed_fully_without_truncated_input(setup, monkeypatc
     assert "truncated" not in verifier.format_comparison_report([result])
 
 
-def test_oversized_file_is_explicitly_unreviewed(setup, monkeypatch):
+def test_native_oversized_file_is_explicitly_unreviewed(setup, monkeypatch):
     client = Client()
+    # Rough grouping estimates no longer exclude whole files. An actual native
+    # count refusal keeps this file unreviewed without invoking its judge.
+    client.root_client.responses.input_tokens.count.side_effect = lambda **kwargs: SimpleNamespace(
+        input_tokens=2_000_000 if "diff --git a/huge.py" in str(kwargs) else 1000
+    )
     result = evaluate(monkeypatch, client, patch("small.py") + patch("huge.py", 65000))
     assert result.verdict == "UNVERIFIABLE_INPUT"
     assert result.files_not_reviewed == ["huge.py"]
@@ -111,7 +119,7 @@ def test_incomplete_coverage_does_not_relabel_real_finding(setup):
         assert result.verdict == ("UNVERIFIABLE_INPUT" if verdict == "PASS" else verdict)
 
 
-def test_incomplete_context_is_not_sent_as_a_finding_request(setup, monkeypatch):
+def test_tiny_optional_budget_preserves_requirements_and_allows_real_review(setup, monkeypatch):
     from tests.scripts.test_pr_verifier_prompt_coverage import _context
 
     context, _ = _context(1, 1000, 1000)
@@ -119,8 +127,8 @@ def test_incomplete_context_is_not_sent_as_a_finding_request(setup, monkeypatch)
     client = Client(["CONCERNS"])
     monkeypatch.setattr(verifier, "_get_llm_client", lambda **kwargs: (client, "openai"))
     result = verifier.evaluate_pr(context)
-    assert result.verdict == "UNVERIFIABLE_INPUT"
-    assert not client.prompts
+    assert result.verdict == "CONCERNS"
+    assert len(client.prompts) == 1
 
 
 def test_provider_unreviewed_file_list_survives_parsing_and_rendering(setup):

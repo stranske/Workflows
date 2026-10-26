@@ -10,7 +10,11 @@ ROOT = Path(__file__).resolve().parents[2]
 def test_incomplete_input_closure_is_wired_through_isolated_merge_gates():
     reusable = yaml.safe_load((ROOT / ".github/workflows/reusable-agents-verifier.yml").read_text())
     verifier = reusable["jobs"]["verifier"]
-    assert set(reusable["jobs"]) == {"verifier"}  # Old read-only callers remain compatible.
+    assert set(reusable["jobs"]) == {"verifier", "input-repair-provenance"}
+    assert verifier["if"] == "inputs.verification_provenance == ''"
+    assert (
+        reusable["jobs"]["input-repair-provenance"]["if"] == "inputs.verification_provenance != ''"
+    )
     assert verifier["outputs"]["verdict"] == "${{ steps.unified_verdict.outputs.verdict }}"
     assert (
         reusable[True]["workflow_call"]["outputs"]["verdict"]["value"]
@@ -32,7 +36,8 @@ def test_incomplete_input_closure_is_wired_through_isolated_merge_gates():
         )
         assert checkout["with"]["ref"] == "${{ needs.verifier.outputs.target_sha }}"
         assert checkout["with"]["persist-credentials"] is False
-        assert "'--prepare'" in str(gates)
+        gate_script = next(s["run"] for s in gates["steps"] if "run" in s)
+        assert "'--prepare'" in gate_script
         assert closer["needs"] == ["verifier", "acceptance-gates"]
         # Diagnostics run for every verdict, even if the isolated gate job failed.
         assert "needs.acceptance-gates.result" not in closer["if"]
@@ -253,7 +258,11 @@ def test_authored_workflow_closes_both_gate_sources_and_logs_refusals(tmp_path):
     make = binaries / "make"
     make.write_text('#!/bin/sh\n[ "$1" = gate ] || exit 1\ntouch named-gate-ran\n')
     make.chmod(0o755)
-    env = os.environ | {"PATH": f"{binaries}:{os.environ['PATH']}"}
+    env = os.environ | {
+        "PATH": f"{binaries}:{os.environ['PATH']}",
+        "RUNNER_TEMP": str(tmp_path / "runner-temp"),
+    }
+    (tmp_path / "runner-temp").mkdir()
     reusable = yaml.safe_load((ROOT / ".github/workflows/reusable-agents-verifier.yml").read_text())
     extraction = next(
         s["run"]

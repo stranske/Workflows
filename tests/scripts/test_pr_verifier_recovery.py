@@ -108,18 +108,13 @@ def test_configured_native_client_compatibility(
             ).run_single(client, provider, model)
         else:
             result = pr_verifier.evaluate_pr(complete_capture_context(), provider=provider)
-    if profile == "expanded":
-        assert result.verdict == "CONCERNS"
-        invoke.assert_not_called()
-        record = json.loads(report.read_text())
-        assert record["status"] == "unavailable"
-        assert "native transport unavailable" in record["reason"]
-    else:
-        invoke.assert_called_once()
-        assert result.used_llm
-        assert not report.exists()  # Standard does not claim native capacity proof.
-        if operation == "repair":
-            assert result.verdict == "PASS"
+    # Registered native-capable routes require actual admission in every mode.
+    # Populated SDK metadata cannot replace the unavailable counting transport.
+    assert result.verdict == "CONCERNS"
+    invoke.assert_not_called()
+    record = json.loads(report.read_text())
+    assert record["status"] == "unavailable"
+    assert "native transport unavailable" in record["reason"]
 
 
 @pytest.mark.parametrize("profile", ["standard", "expanded"])

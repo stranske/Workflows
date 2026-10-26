@@ -235,6 +235,11 @@ The following workflows were decommissioned during the CI consolidation effort. 
 
 ## Verifier Workflow
 
+Repeat evaluations use the same collector and evaluator as initial verification.
+See the [verification-event identity and evidence contract](keepalive/VERIFICATION_EVENTS.md)
+for repaired delivery binding, necessary-evidence selectors, deduplication and
+pending/terminal result handling.
+
 Follow-up report collectors accept native reports only from the GitHub Actions
 bot (`github-actions[bot]`, immutable user ID `41898282`, account type `Bot`).
 The reusable verifier publishes these comments with `GITHUB_TOKEN`. A report
@@ -437,3 +442,64 @@ An incomplete latest report cannot inherit a historical verdict; pending repair
 remains non-terminal even when it mentions an older run. Provider verdicts within
 one selected comparison still use worst-provider aggregation. Historical comments
 remain unchanged.
+
+## Single-provider evaluation evidence
+
+The verifier's `evaluate` mode accepts the existing `openai`, `github-models`, and
+`anthropic` client routes. A launch failure, invalid JSON, or unavailable model
+result is `UNVERIFIABLE_INPUT`; it is not an acceptance verdict or proof that a
+provider ran. The `evaluation-results-<run id>` artifact retains the execution
+receipt, redacted stdout/stderr, and existing merge-bound input manifest and files
+for seven days. The receipt preserves the process exit and output hashes even
+when evaluator imports or argument parsing fail. Validation and publication import the validator from the
+authoritative Workflows checkout, not the caller's possibly stale scripts. Compare
+also retains `comparison-execution.json`. Reports, structured decision markers,
+event completion and PASS settlement join the exact retained output to its
+execution receipt and run identity. Invalid receipts keep the result recoverable
+and cannot publish a raw PASS; provider responses and original receipts stay
+retained without authorizing another model call.
+
+Diagnostic retention streams original hashes and byte counts, keeping at most
+8 MiB of stdout and 1 MiB of stderr (prefix and tail). Truncated stdout cannot
+provide a decision. Failure receipts leave provider execution and remote effects
+unconfirmed and do not authorize a retry. This supplemental single-provider
+result does not complete native verification or a multi-provider comparison.
+
+Expanded single-provider evaluation screens for enough input to reason about the
+request, using the same requirement alternatives as prompt coverage. A complete
+available alternative keeps its required evidence channels mandatory; unrelated
+comment/artifact omissions may remain useful enrichment. Their original statuses
+and capture gaps stay in the receipt (`capture_complete: false`), and omitted raw
+bytes are never claimed as reviewed. Malformed inventories, missing core sources,
+and incomplete required channels still block. Only typed transport or size-limit
+omissions can be optional; provenance failures and ambiguous archive/read errors
+stay blocking. A validated incidental run from another revision is disclosed as
+excluded, never downloaded or credited; explicitly designated evidence retains
+the exact-revision provenance guard. In evaluate mode, a generic evidence duty
+requires enough available material to reason: one complete present body, comments,
+or artifacts channel can satisfy that availability screen. It does not require every
+historical artifact to be retrievable. Explicit comment/artifact duties and
+requirement alternatives retain their existing channel constraints; the model
+still judges whether the named material and implementation actually satisfy the
+original request. The same screen applies before native counting, per-file review,
+and final coverage floors. Prompt assembly retains a complete selected channel
+alternative before filling optional evidence; optional artifact tails cannot spend
+the required comment/body budget. Per-file prompts and derived synthesis use the
+same fitted evidence. For legacy unframed evaluation inputs, Tasks and prose duties
+are read consistently by prompt fitting and native admission; framed original
+requests retain their authenticated source boundaries. Prompt coverage discloses selected complete channels and
+omitted optional sections while retaining the aggregate `truncated` prompt status.
+Required channels that do not fit still block, as do malformed/integrity failures.
+Aggregate retrieval statuses and raw capture completeness remain unchanged.
+Compare and default lossless admission stay strict. Passing this screen does not
+establish acceptance.
+
+The context retains each complete original PR/issue request as fenced untrusted
+source text, with its UTF-8 hash and byte count. Parsed scope/tasks/acceptance
+sections remain navigation, so a parser alias or free-form body cannot silently
+remove requirements. Prompt limits still report missing required input explicitly.
+
+Acceptance commands run on the immutable merge commit in a fresh Python 3.14
+virtual environment. Existing dependency preparation installs the project's
+declared test dependencies there; normal pytest plugin loading remains enabled.
+Ambient host/user packages cannot supply or break this environment.
