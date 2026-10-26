@@ -1,0 +1,33 @@
+{
+  "policy": {
+    "max_seconds": 600.0,
+    "required_jobs": [
+      "python ci / python 3.13",
+      "python ci / python 3.14"
+    ],
+    "run_count": 1,
+    "sample_mode": "explicit_run_ids"
+  },
+  "passed": false,
+  "failures": [
+    "run 40317065551: python ci / python 3.13 took 664s (limit 600s)",
+    "run 40317065551: python ci / python 3.14 took 766s (limit 600s)"
+  ],
+  "runs": [
+    {
+      "run_id": "40317065551",
+      "jobs": {
+        "python ci / python 3.13": {
+          "seconds": 664.0,
+          "pytest_step_seconds": 633.0,
+          "within_policy": false
+        },
+        "python ci / python 3.14": {
+          "seconds": 766.0,
+          "pytest_step_seconds": 718.0,
+          "within_policy": false
+        }
+      }
+    }
+  ]
+}

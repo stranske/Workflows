@@ -914,7 +914,7 @@ jobs:
         uses: actions/github-script@v9
         env:
           COVERAGE_ROOT: gate_artifacts/downloads
-          COVERAGE_REFERENCE_RUNTIME: '3.13'
+          COVERAGE_REFERENCE_RUNTIME: '3.14'
         with:
           script: |
             const fs = require('fs');
