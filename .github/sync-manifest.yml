@@ -1151,6 +1151,23 @@ docs:
   - source: docs/contracts/tracked-variable-v1.md
     source_tree: root
     target: docs/contracts/tracked-variable-v1.md
+    # Finite release retention: Doc-Lineage keeps its domain extraction profile.
+    include_repos:
+      - stranske/Portable-Alpha-Extension-Model
+      - stranske/trip-planner
+      - stranske/Travel-Plan-Permission
+      - stranske/Pension-Data
+      - stranske/Manager-Database
+      - stranske/Template
+      - stranske/Orchestrator
+      - stranske/Deliverable-Render
+      - stranske/Fine-Art-Archive
+      - stranske/Trend_Model_Project
+      - stranske/Counter_Risk
+      - stranske/Ready
+      - stranske/Inv-Man-Intake
+      - stranske/learning-management-system
+      - stranske/Manager-Mosaic
     description: "Tracked-variable/v1 specification and clause-variable alias for backplane consumers"
 
   - source: docs/contracts/schemas/tracked-variable-v1.schema.json

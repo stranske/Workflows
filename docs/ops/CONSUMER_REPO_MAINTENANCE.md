@@ -3501,3 +3501,12 @@ dispatch these producers.
 Upstream finding markers suppress duplicate comments only when authored by
 the authenticated Maint 71 writer. When drained, the summary is
 `canaries: red=0 review_blocked=0 stale=0 refresh_dispatched=0 held_plan=none drainable=0`.
+
+## Frozen release retention for Doc-Lineage
+
+The owner-authorized remaining-delivery repair retains Doc-Lineage's existing
+tracked-variable extraction coverage contract. This release snapshot limits the
+shared contract entry to the other original consumers, leaving the Doc-Lineage
+file unchanged while delivering its remaining selected managed payload. The
+shared main source already includes the equivalent coverage in Workflows #4257;
+this snapshot avoids importing unrelated main changes into the frozen shipment.
