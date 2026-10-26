@@ -937,8 +937,8 @@ jobs:
               if original and (
                   original.get("number") != resolved.get("number")
                   or original.get("head", {}).get("sha") != resolved.get("head", {}).get("sha")
-                  or original.get("head", {}).get("repo", {}).get("full_name")
-                  != resolved.get("head", {}).get("repo", {}).get("full_name")
+                  or (original.get("head", {}).get("repo") or {}).get("full_name")
+                  != (resolved.get("head", {}).get("repo") or {}).get("full_name")
               ):
                   raise RuntimeError("Resolved Gate PR identity differs from the original event")
               event["pull_request"] = resolved

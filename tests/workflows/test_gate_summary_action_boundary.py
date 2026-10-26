@@ -30,6 +30,9 @@ GATES = [
         ("repo", 1),
         ("number", 1),
         ("malformed", 1),
+        ("null_repo", 9),
+        ("resolved_null_repo", 1),
+        ("null_original_repo", 1),
     ],
 )
 def test_summary_refresh_and_helper_share_actual_runner_action(
@@ -58,6 +61,8 @@ def test_summary_refresh_and_helper_share_actual_runner_action(
         "base": {"repo": {"full_name": "stranske/test"}},
         "body": "<!-- sync-pr-delivery-record:v1 " + json.dumps(record) + " -->",
     }
+    if change in {"null_repo", "null_original_repo"}:
+        pr["head"]["repo"] = None
     # GitHub restores this original payload immediately before the summary action.
     # A previous github-script hydration cannot change this reset boundary.
     event = tmp_path / "event.json"
@@ -70,6 +75,10 @@ def test_summary_refresh_and_helper_share_actual_runner_action(
         pr["head"]["repo"]["full_name"] = "stranske/foreign"
     elif change == "number":
         pr["number"] = 8
+    if change == "resolved_null_repo":
+        pr["head"]["repo"] = None
+    elif change == "null_original_repo":
+        pr["head"]["repo"] = {"full_name": "stranske/test"}
     raw = "null" if change == "missing" else "{" if change == "malformed" else json.dumps(pr)
     helper = ROOT / ".github/scripts/gate_summary.py"
     probe = (
