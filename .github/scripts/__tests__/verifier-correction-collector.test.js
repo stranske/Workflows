@@ -26,7 +26,8 @@ async function collect(change=()=>{}) {
  const selector={schema:'closer-correction-selector/v1',run_id:100,run_attempt:2,artifact_id:50,request_sha256:request.request_sha256,
  verification_event:request.original_verifier.verification_event,assessment_identity:original.manifest.assessment_identity};
  const result=await module.exports.collectSubmission({github,repository:'stranske/example',actor:'authorized-actor',current:{run_id:700,run_attempt:1},
- transport:{canonicalRun:async()=>calls.push(['canonical'])},selector,request,decision,directory:'/inert',loadQualification:async()=>{if(state.qualificationFailure)throw Error('incomplete read');return state.qualification;},
+ // Synthetic trusted host policy ceiling; not a production default.
+ codingBudgetVariable:'100000',transport:{canonicalRun:async()=>calls.push(['canonical'])},selector,request,decision,directory:'/inert',loadQualification:async()=>{if(state.qualificationFailure)throw Error('incomplete read');return state.qualification;},
  authenticateDecision:state.missingDecisionProof?null:async()=>({status:'authenticated',decision_sha256:actual.digest(state.decision),profile_identity_sha256:'f'.repeat(64)})});
  return {result,calls};
 }

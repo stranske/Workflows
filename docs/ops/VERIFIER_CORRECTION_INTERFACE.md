@@ -309,3 +309,107 @@ checkpoint history and post-checkpoint fresh admission gates. Hosted Python chec
 on the previous PR head exposed stale generated Renovate ownership paths and a
 hardcoded managed-entry count; both are corrected locally with focused regression
 checks before publication. Hosted status must be read at the next exact PR head.
+
+## Classifier origin: identified producer and exact missing boundary
+
+Read-only inspection of Core's controlled-origin candidate `7a7ef1f0d51c14e6c04d8b2a691c3eb25db329eb`
+identified the actual local producer, rather than an unspecified attestation:
+
+| Existing component | Evidence it actually supplies | Boundary it does not cross |
+| --- | --- | --- |
+| `src/dispatcher.py::_controlled_data_only_entry`, `offload`, `_retain_provider_result` | Supervised start/finish callbacks, exact launch/config/source/prompt bindings, raw native response, create-only `offload-provider-result/v1` receipt under `HANDOFF/dispatch-logs/<run>.provider-result-<attempt>.json` | A Mac-local file/hash is not an authenticated GitHub producer |
+| `src/closer_dispatcher.py::_controlled_offload`, `_validate_controlled_result`, `_revalidate_controlled_proof` | Joins original expected/observed stage, physical receipt, original pool/run/operation, exact production contract and native final; produces `closer-controlled-response-proof/v1` with `authority: false` | Its own contract explicitly disclaims remote Workflows decision authentication |
+| Existing `reusable-claude-run.yml` | A real Actions runner, existing Claude credential inputs and output-artifact upload | Its current agentic command and write/commit path do not implement the controlled classification contract |
+| Existing `reusable-model-profile-trial.yml` | Native Actions provenance for a fixed read-only identifier canary | Its strict artifact is not a classifier output and its instrumentation contract forbids using it as evaluator authority |
+
+The bridge is **absent**, not merely an existing signed record awaiting a reader.
+No production bounded-classification observation or qualified record exists.
+The controlled producer supports a pinned local Mac Claude binary (`c9b534...`);
+that qualification cannot cover a hosted Linux CLI or a different OAuth account.
+The local records above are source-bound execution evidence, not newly invented
+signatures, HMACs or a remote publisher.
+
+Core owns those local producer and semantic-materialization files. This slice owns
+`collectSubmission`'s strict host consumer and coding-budget carry. A change to
+`reusable-claude-run.yml` needs a single-writer assignment for the proposed optional
+isolated data-only arm; no such hunk is edited here. Reusing its ordinary agentic
+command, importing a Mac receipt, or promoting capability-evidence input strings
+would not close the boundary.
+
+The smallest proposed producer-to-consumer contract is one retained artifact from
+that **actual** bounded invocation in the existing workflow, after its exact
+hosted binary/profile/account/role is supported:
+
+The hosted arm also needs a genuine existing account/capacity-pool reservation
+binding and a durable pre-start operation intent with exact readback before any
+provider invocation. A fresh runner-local empty pool is not proof of shared account
+capacity, and a lost artifact/process outcome must not launch a replacement model
+call. Reusing Core's existing admission/retention mechanisms is required; no new
+budget, account mapping or caller-asserted pool reservation is inferred.
+
+1. The producer receives the authenticated seed and bounded post-terminal request;
+   it retains the complete actual classification prompt (not only a snippet or
+   self-asserted hash), checked for credential exclusion before hashing/retention.
+2. Its existing supervised dispatcher produces the original expectation and
+   start/started/finished observations, complete provider-result receipt and raw
+   native final. All original pool/run/operation/profile/prompt/config/binary/source
+   and cleanup bindings must join. These existing records retain their own schemas.
+3. Core's existing semantic validators and a reviewed deterministic materializer
+   derive the exact `closer-correction-decision/v1` from that native result plus the
+   source-bound request/test requirements. Missing explicit requirements or risk
+   evidence remains collection; the producer must not manufacture tests or security
+   clearance. The materializer's reviewed source identity is retained.
+4. The artifact binds `request_sha256`, `seed_effect_key`, `source_scope_digest`,
+   original verifier event/finding, exact typed tests, decision digest and profile
+   identity digest. Complete prompt/receipt/raw-final bytes may be nested once;
+   independent member hashes must not replace the retained source bytes.
+5. The consumer host retrieves only an allowlisted **assigned actual producer**
+   through native Actions repository/workflow/default-source/run/attempt/job/step/
+   artifact/member provenance and exact digests, then validates those joins and
+   current role qualification. Caller-selected URLs, local paths, JSON booleans,
+   capability refs and canary output never supply that provenance.
+
+No actual producer path/job/step locator is fabricated before assignment and
+implementation. The existing host callback remains
+`authenticateDecision({decision, qualification, request, seed, bundle})`; only a
+successful genuine host join may return `status: authenticated` with the exact
+`decision_sha256` and `profile_identity_sha256`. The workflow currently has no such
+producer reader and therefore stays UNKNOWN. Existing secret declarations are
+only a possible implementation seam, not proof of credential availability or
+account qualification. Any new credential, security setting or expanded access is
+a separate stopped action; no such change is made by this source work.
+
+## Coding policy ceiling: freeze and carry without inventing capacity
+
+The coding registry's default `codex-default` selects `gpt-6.1-sol` and high effort,
+but neither that profile nor its model-catalog entry supplies an input/context
+budget. The catalog expressly separates API facts from coding execution profiles.
+Terra's `openai-responses` capacity and the optimizer's existing 4,000-token context
+default do not establish a Sol CLI budget. Core confirmed there is no configured
+production coding ceiling to import. No numeric value is selected here.
+
+The collector may retain a private `closer-correction-coding-budget/v1` from its
+trusted Actions `vars.ISSUE_PR_CONTEXT_TOKEN_BUDGET` context. It binds the exact
+repository/request and `max_estimated_input_tokens`; `native_capacity_attested` is
+always false. It is inside the authenticated admitted artifact, never a public
+request field or a caller-provided authority flag. Missing policy evidence holds at collection before issue or continuation effects,
+even when the separately retained semantic classification is admitted.
+
+Native intake combines the complete authenticated same-request history using the
+lowest retained ceiling; a higher alias cannot renew the original budget. At each
+coding hop the selected ceiling is `min(original authenticated ceiling, current
+trusted configured ceiling)`. Missing/malformed binding, another repository/request,
+a claimed capacity attestation or overflow holds. Raising a later variable or
+rewriting the local sidecar cannot increase the original policy ceiling. Public
+request/receipt schemas remain unchanged.
+
+Where the existing runner exposes model selection, the pre-provider step records
+its requested model/candidates, effort and sandbox alongside the selected ceiling
+in runner-temp `codex-correction-policy.json`, retained separately through the
+existing Actions artifact transport so it cannot be staged as source or change
+the existing coding-output archive layout. It does
+not invent a profile ID or attest the served model, effective configuration,
+provider start, native capacity, ACT or closure. Unbound extra CLI arguments hold
+for a typed correction because they could override that selected configuration;
+the ordinary absent-correction path is unchanged. No new model/fallback choice,
+provider call, budget value, repository variable or credential is introduced.

@@ -196,3 +196,32 @@ function reconcileCorrection(request, authenticatedHistory, consumer) {
 }
 
 module.exports = {validateRequest, receipt, collectCorrection, reconcileCorrection};
+
+// Private host policy evidence. This is an estimated-input policy ceiling,
+// never a model context capacity, spend grant, qualification or caller input.
+function codingBudgetFromVariable(value,request) {
+  if(value===undefined || value===null || value==='')return null;
+  requireThat(typeof value==='string' && /^[1-9]\d*$/.test(value)
+    && Number.isSafeInteger(Number(value)), 'Invalid explicit coding budget variable');
+  return {schema:'closer-correction-coding-budget/v1',
+    source:'github-actions-vars/ISSUE_PR_CONTEXT_TOKEN_BUDGET',repository:request.target.repository,
+    request_sha256:request.request_sha256,max_estimated_input_tokens:Number(value),native_capacity_attested:false};
+}
+function validateCodingBudget(value,request) {
+  requireThat(exact(value,'schema source repository request_sha256 max_estimated_input_tokens native_capacity_attested')
+    && value.schema==='closer-correction-coding-budget/v1'
+    && value.source==='github-actions-vars/ISSUE_PR_CONTEXT_TOKEN_BUDGET'
+    && typeof value.repository==='string' && /^[a-z0-9_.-]+\/[a-z0-9_.-]+$/.test(value.repository)
+    && isSha(value.request_sha256) && value.repository===request.target.repository && value.request_sha256===request.request_sha256
+    && Number.isSafeInteger(value.max_estimated_input_tokens) && value.max_estimated_input_tokens>0
+    && value.native_capacity_attested===false,'Authenticated original coding policy budget unavailable');
+  return value;
+}
+function minimumCodingBudget(values,request) {
+  if(!values.length || values.some(value=>value===null || value===undefined))return null;
+  const budgets=values.map(value=>validateCodingBudget(value,request));
+  return {...budgets[0],max_estimated_input_tokens:Math.min(...budgets.map(value=>value.max_estimated_input_tokens))};
+}
+module.exports.codingBudgetFromVariable=codingBudgetFromVariable;
+module.exports.validateCodingBudget=validateCodingBudget;
+module.exports.minimumCodingBudget=minimumCodingBudget;

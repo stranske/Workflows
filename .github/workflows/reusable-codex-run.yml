@@ -1005,17 +1005,29 @@ jobs:
       - name: Recheck mandatory correction admission before coding
         if: env.CORRECTION_CONTEXT_FILE != ''
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        env:
+          CORRECTION_REQUESTED_MODEL: ${{ steps.codex_model.outputs.model }}
+          CORRECTION_MODEL_CANDIDATES: ${{ steps.codex_model.outputs.candidates }}
+          CORRECTION_REQUESTED_EFFORT: ${{ inputs.codex_reasoning_effort }}
+          CORRECTION_REQUESTED_SANDBOX: ${{ inputs.sandbox }}
+          CORRECTION_EXTRA_ARGUMENTS: ${{ inputs.codex_args }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const path=require('path'),fs=require('fs');
             const root=path.join(process.env.RUNNER_TEMP,'correction-intake');
             const {createArtifactTransport}=require(path.join(root,'.github/scripts/verifier_correction_artifacts'));
-            const {recheckCodingAdmission}=require(path.join(root,'.github/scripts/verifier_correction_runtime'));
+            const {recheckCodingAdmission,codingPolicyObservation}=require(path.join(root,'.github/scripts/verifier_correction_runtime'));
             const transport=await createArtifactTransport({github,repository:`${context.repo.owner}/${context.repo.repo}`.toLowerCase(),
               current:{run_id:context.runId,run_attempt:Number(process.env.GITHUB_RUN_ATTEMPT)}});
-            await recheckCodingAdmission({github,transport,pythonRoot:root,
-              scope:JSON.parse(fs.readFileSync(process.env.CORRECTION_CONTEXT_FILE,'utf8'))});
+            const scope=JSON.parse(fs.readFileSync(process.env.CORRECTION_CONTEXT_FILE,'utf8'));
+            await recheckCodingAdmission({github,transport,pythonRoot:root,scope});
+            const observation=codingPolicyObservation({scope,currentBudget:process.env.ISSUE_PR_CONTEXT_TOKEN_BUDGET,
+              current:{run_id:context.runId,run_attempt:Number(process.env.GITHUB_RUN_ATTEMPT)},configuration:{
+                model:process.env.CORRECTION_REQUESTED_MODEL,candidates:(process.env.CORRECTION_MODEL_CANDIDATES || '').split(/\s+/).filter(Boolean),
+                reasoning_effort:process.env.CORRECTION_REQUESTED_EFFORT,sandbox:process.env.CORRECTION_REQUESTED_SANDBOX,
+                extra_arguments:process.env.CORRECTION_EXTRA_ARGUMENTS}});
+            fs.writeFileSync(path.join(process.env.RUNNER_TEMP,'codex-correction-policy.json'),JSON.stringify(observation)+'\n');
 
       - name: Run Codex
         id: run_codex
@@ -1930,6 +1942,15 @@ jobs:
           git push "${REMOTE_URL}" "HEAD:${TARGET_BRANCH}"
 
           echo "::notice::Pushed commit ${COMMIT_SHA} with ${CHANGED_FILES} file(s) changed"
+
+      - name: Upload correction coding policy observation
+        if: always() && env.CORRECTION_CONTEXT_FILE != ''
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: codex-correction-policy-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/codex-correction-policy.json
+          retention-days: 14
+          if-no-files-found: ignore
 
       - name: Upload Codex output
         if: always()

@@ -177,16 +177,21 @@ async function resolveCodingScope({transport,issueNumber=null,linkedPull=null}) 
  const first=matches[0];
  need(matches.every(row=>row.context.request.request_sha256===first.context.request.request_sha256),'Correction intake aliases changed original request');
  const request=first.context.request;
+ const budgetLedger=await createArtifactLedger({transport,request,since:'1970-01-01T00:00:00Z',admittedProof:first.proof});
+ const budgetHistory=await budgetLedger.scan();
+ const codingBudget=require('./verifier_correction_consumer').minimumCodingBudget(budgetHistory.contexts
+  .filter(row=>row.context.status==='admitted' && row.context.effect_key===first.context.effect_key
+    && row.context.request.request_sha256===request.request_sha256).map(row=>row.context.coding_budget),request);
  need(Date.now()<Date.parse(request.original_operation.deadline),'Correction intake original deadline exhausted');
  return {schema:'closer-correction-coding-context/v1',request_sha256:request.request_sha256,
-  seed_effect_key:first.context.effect_key,admitted_selector:first.proof,issue:first.identity,original_issue_body:first.issue.body,
+  seed_effect_key:first.context.effect_key,admitted_selector:first.proof,coding_budget:codingBudget,issue:first.identity,original_issue_body:first.issue.body,
   finding_text:first.context.finding_text,required_tests:request.required_tests};
 }
 module.exports.resolveCodingScope=resolveCodingScope;
 function fitCodingText({base,scope,budget,pythonRoot}) {
  if(scope===null)return base;
  need(typeof budget==='string' && /^[1-9]\d*$/.test(budget),'correction_budget_unconfigured: final coding lane requires an explicit selected ISSUE_PR_CONTEXT_TOKEN_BUDGET');
- const script="import json,sys; sys.path.insert(0,sys.argv[1]); from scripts.langchain.issue_pr_context import ContextOptions,render_correction_context,require_complete_correction_prompt; p=json.load(sys.stdin); text=p['base']+'\\n\\n## Complete original issue scope\\n'+p['scope']['original_issue_body']+render_correction_context(p['scope']); print(require_complete_correction_prompt(text,ContextOptions(token_budget=int(p['budget']))),end='')";
+ const script="import json,sys; sys.path.insert(0,sys.argv[1]); from scripts.langchain.issue_pr_context import ContextOptions,render_correction_context,require_complete_correction_prompt,select_correction_budget; p=json.load(sys.stdin); text=p['base']+'\\n\\n## Complete original issue scope\\n'+p['scope']['original_issue_body']+render_correction_context(p['scope']); print(require_complete_correction_prompt(text,ContextOptions(token_budget=select_correction_budget(p['scope'],p['budget']))),end='')";
  return execFileSync('python3',['-I','-c',script,pythonRoot],{cwd:pythonRoot,input:JSON.stringify({base,scope,budget}),encoding:'utf8',timeout:15000,maxBuffer:2097152});
 }
 module.exports.fitCodingText=fitCodingText;
@@ -231,6 +236,11 @@ async function recheckCodingAdmission({github,transport,scope,pythonRoot,clock=(
   'Mandatory coding scope differs from exact retained request/seed');
  const ledger=await createArtifactLedger({transport,request,since:'1970-01-01T00:00:00Z',admittedProof:proof});
  const journal=await ledger.read(context.effect_key);
+ const history=await ledger.scan();
+ const codingBudget=require('./verifier_correction_consumer').minimumCodingBudget(history.contexts
+  .filter(row=>row.context.status==='admitted' && row.context.effect_key===context.effect_key
+    && row.context.request.request_sha256===request.request_sha256).map(row=>row.context.coding_budget),request);
+ need(codingBudget && same(codingBudget,scope.coding_budget),'Original authenticated coding budget changed or unavailable');
  const originalIssue=request.incumbent.kind==='no_incumbent'
   ?journal.records.find(row=>row.kind==='issue_confirmed')?.issue:request.incumbent.issue;
  need(originalIssue && same(originalIssue,scope.issue) && typeof scope.original_issue_body==='string'
@@ -295,3 +305,34 @@ async function recheckCodingAdmission({github,transport,scope,pythonRoot,clock=(
  return {status:'admitted',request_sha256:request.request_sha256};
 }
 module.exports.recheckCodingAdmission=recheckCodingAdmission;
+
+function codingPolicyObservation({scope,currentBudget,configuration,current}) {
+ const {validateCodingBudget,codingBudgetFromVariable}=require('./verifier_correction_consumer');
+ const request={target:{repository:scope.admitted_selector?.repository},request_sha256:scope.request_sha256};
+ const frozen=validateCodingBudget(scope.coding_budget,request);
+ const configured=codingBudgetFromVariable(currentBudget,request);
+ need(configured,'Current coding policy ceiling unavailable');
+ need(configuration && typeof configuration.model==='string' && /^[a-zA-Z0-9._/-]+$/.test(configuration.model)
+  && Array.isArray(configuration.candidates) && configuration.candidates.length>0
+  && configuration.candidates.every(value=>typeof value==='string' && /^[a-zA-Z0-9._/-]+$/.test(value))
+  && configuration.candidates.includes(configuration.model),'Selected coding model configuration unavailable');
+ const extra=String(configuration.extra_arguments || '').trim();
+ need(extra==='' || extra==='[]','Coding configuration has unbound extra arguments; hold before provider');
+ const effort=configuration.reasoning_effort || 'high';
+ need(['low','medium','high','xhigh','max'].includes(effort),'Selected coding effort unavailable');
+ need(['read-only','workspace-write','danger-full-access'].includes(configuration.sandbox || 'workspace-write'),
+  'Selected coding sandbox unavailable');
+ need(Number.isSafeInteger(current?.run_id) && current.run_id>0 && Number.isSafeInteger(current?.run_attempt)
+  && current.run_attempt>0,'Current coding policy observation execution unavailable');
+ const payload={schema:'closer-correction-coding-policy-observation/v1',repository:request.target.repository,
+  request_sha256:request.request_sha256,seed_effect_key:scope.seed_effect_key,run_id:current.run_id,run_attempt:current.run_attempt,
+  original_policy:frozen,current_policy_ceiling:configured.max_estimated_input_tokens,
+  selected_estimated_input_tokens:Math.min(frozen.max_estimated_input_tokens,configured.max_estimated_input_tokens),
+  configuration_source:'existing-reusable-codex-run/model-selection',
+  requested_configuration:{agent:'codex',profile_id:null,model:configuration.model,candidates:configuration.candidates,
+   reasoning_effort:effort,sandbox:configuration.sandbox || 'workspace-write',extra_arguments:'none'},
+  native_capacity_attested:false,effective_configuration_attested:false,provider_execution_attested:false,
+  act_authorized:false,source_closure_authorized:false};
+ return {...payload,content_sha256:digest(payload)};
+}
+module.exports.codingPolicyObservation=codingPolicyObservation;

@@ -14,7 +14,7 @@ const sha=value=>createHash('sha256').update(value).digest('hex');
 const need=(value,reason)=>{if(!value)throw new Error(reason);};
 const same=(a,b)=>canonical(a)===canonical(b);
 
-async function collectSubmission({github,transport,repository,actor,current,selector,request,decision,directory='.',loadQualification=null,authenticateDecision=null}) {
+async function collectSubmission({github,transport,repository,actor,current,selector,request,decision,directory='.',loadQualification=null,authenticateDecision=null,codingBudgetVariable=null}) {
   validateRequest(request);
   const event=validateEvent(selector.verification_event);
   need(selector.schema==='closer-correction-selector/v1' && selector.request_sha256===request.request_sha256
@@ -80,16 +80,20 @@ async function collectSubmission({github,transport,repository,actor,current,sele
     try {decisionProof=await authenticateDecision({decision,qualification,request,seed,bundle});}
     catch(error) {decisionProof={status:'owned_unknown',reason:String(error.message)};}
   }
-  const classification=decisionProof?.status==='authenticated' && decisionProof.decision_sha256===digest(decision)
+  const decisionClassification=decisionProof?.status==='authenticated' && decisionProof.decision_sha256===digest(decision)
     && decisionProof.profile_identity_sha256===qualification?.profile_identity_sha256
     && typeof decisionProof.profile_identity_sha256==='string'
     ? validateCorrectionDecision({request,seed,bundle,decision,qualification})
     : {status:'owned_unknown',reason:'authenticated_retained_classification_output_unavailable',
       act_authorized:false,source_closure_authorized:false};
+  const codingBudget=require('./verifier_correction_consumer').codingBudgetFromVariable(codingBudgetVariable,request);
+  const classification=decisionClassification.status==='admitted' && !codingBudget
+    ? {status:'owned_unknown',reason:'authenticated_coding_policy_budget_unconfigured',act_authorized:false,source_closure_authorized:false}
+    : decisionClassification;
   const context={schema:'closer-correction-admitted/v1',status:classification.status,request,seed,bundle,finding_text:findingText,
-    decision:decision || null,decision_proof:decisionProof,classification,qualification,original_proof:origin,dispatch_actor:actor,dispatch_permission:permission.permission,
+    decision:decision || null,decision_proof:decisionProof,decision_classification:decisionClassification,classification,qualification,original_proof:origin,dispatch_actor:actor,dispatch_permission:permission.permission,
     collector:{repository,run_id:current.run_id,run_attempt:current.run_attempt},
-    effect_key:effectKey(seed),source_scope_digest:sourceScopeDigest(seed)};
+    effect_key:effectKey(seed),source_scope_digest:sourceScopeDigest(seed),coding_budget:codingBudget};
   return {...context,context_sha256:digest(context)};
 }
 async function loadReviewedQualification({github,profile,clock=()=>new Date()}) {

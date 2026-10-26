@@ -36,7 +36,7 @@ def context(kind):
             "kind": "existing_selector",
             "id": "existing-31",
             "finding_id": request["finding"]["id"],
-            "source_ref": "b" * 40,
+            "source_ref": "git:" + request["target"]["head_sha"],
             "path": "tests/test_existing.py",
             "selector": "tests/test_existing.py::test_exact_31",
             "file_sha256": "c" * 64,
@@ -44,7 +44,16 @@ def context(kind):
     )
     return {
         "schema": "closer-correction-coding-context/v1",
-        "request_sha256": "a" * 64,
+        "request_sha256": request["request_sha256"],
+        "admitted_selector": {"repository": request["target"]["repository"]},
+        "coding_budget": {
+            "schema": "closer-correction-coding-budget/v1",
+            "source": "github-actions-vars/ISSUE_PR_CONTEXT_TOKEN_BUDGET",
+            "repository": request["target"]["repository"],
+            "request_sha256": request["request_sha256"],
+            "max_estimated_input_tokens": 100000,
+            "native_capacity_attested": False,
+        },
         "finding_text": "Exact finding: braces {remain data}, Unicode \u03bb and SOURCE_FINDING_45.",
         "incumbent": (
             {"kind": "no_incumbent"}
@@ -432,3 +441,73 @@ def test_isolated_trusted_runner_bootstrap_ignores_poisoned_consumer_python(tmp_
         + render_correction_context(scope)
         + "\n"
     )
+
+
+@pytest.mark.parametrize(
+    "original,current,expected", [(1000, "2000", 1000), (2000, "1000", 1000), (1000, "1000", 1000)]
+)
+def test_budget_selector_never_raises_authenticated_original_ceiling(original, current, expected):
+    from scripts.langchain.issue_pr_context import select_correction_budget
+
+    scope = context("existing")
+    scope["coding_budget"]["max_estimated_input_tokens"] = original
+    assert select_correction_budget(scope, current) == expected
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        None,
+        {"repository": "foreign/repo"},
+        {"request_sha256": "0" * 64},
+        {"native_capacity_attested": True},
+        {"max_estimated_input_tokens": True},
+        {"max_estimated_input_tokens": 1.5},
+        {"max_estimated_input_tokens": 2**53},
+        {"source": "caller"},
+        {"extra": True},
+    ],
+)
+def test_final_runner_invalid_private_budget_binding_holds_without_write(tmp_path, mutation):
+    core, settings, scope, scope_file, _ = runner_fixture(tmp_path)
+    scope["coding_budget"] = None if mutation is None else scope["coding_budget"] | mutation
+    scope_file.write_text(json.dumps(scope), encoding="utf-8")
+    with pytest.raises(ValueError, match="correction_budget_provenance_missing"):
+        core.assemble_prompt(None, settings, "codex")
+    assert not (tmp_path / settings["output_file"]).exists()
+
+
+@pytest.mark.parametrize(
+    "raw", ["0", "01", "-1", "1.0", "1e3", " 100", "1\u0662", "9007199254740992"]
+)
+def test_final_runner_malformed_current_budget_holds_without_write(tmp_path, raw):
+    core, settings, _, _, _ = runner_fixture(tmp_path)
+    settings["correction_token_budget"] = raw
+    with pytest.raises(ValueError, match="correction_budget_unconfigured"):
+        core.assemble_prompt(None, settings, "codex")
+    assert not (tmp_path / settings["output_file"]).exists()
+
+
+@pytest.mark.parametrize("original,current", [(1, "100000"), (100000, "1")])
+def test_actual_final_runner_cannot_fit_by_raising_either_budget(tmp_path, original, current):
+    core, settings, scope, scope_file, _ = runner_fixture(tmp_path)
+    scope["coding_budget"]["max_estimated_input_tokens"] = original
+    scope_file.write_text(json.dumps(scope), encoding="utf-8")
+    settings["correction_token_budget"] = current
+    with pytest.raises(ValueError, match="correction_scope_over_budget"):
+        core.assemble_prompt(None, settings, "codex")
+    assert not (tmp_path / settings["output_file"]).exists()
+
+
+@pytest.mark.parametrize("missing", ["repository", "request_sha256"])
+def test_budget_binding_cannot_be_satisfied_by_matching_missing_values(missing):
+    from scripts.langchain.issue_pr_context import select_correction_budget
+
+    scope = context("no_incumbent")
+    scope["coding_budget"][missing] = None
+    if missing == "repository":
+        scope["admitted_selector"] = {}
+    else:
+        scope.pop("request_sha256")
+    with pytest.raises(ValueError, match="correction_budget_provenance_missing"):
+        select_correction_budget(scope, "100000")

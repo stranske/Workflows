@@ -4,6 +4,7 @@ const {digest}=require('../verification_event');
 const {seedForRequest,effectKey,issueIdentity,sourceScopeDigest}=require('../verifier_correction_effects');
 const {artifactName,SPECS}=require('../verifier_correction_artifacts');
 const {resolveCodingScope,resolvePullCodingScope,fitCodingText}=require('../verifier_correction_runtime');
+const {codingBudgetFromVariable,validateCodingBudget,minimumCodingBudget}=require('../verifier_correction_consumer');
 const clone=value=>structuredClone(value),sha=value=>createHash('sha256').update(value).digest('hex');
 const pythonRoot=path.resolve(__dirname,'../../..');
 function fixture(existing=false,{number=9,run=700,pr='7',sourceDigest=null,commentBody=null}={}) {
@@ -19,7 +20,7 @@ function fixture(existing=false,{number=9,run=700,pr='7',sourceDigest=null,comme
  Object.assign(decision,{request_sha256:request.request_sha256,seed_effect_key:key,source_scope_digest:sourceScopeDigest(seed)});
  const qualification={...clone(require('../../../tests/fixtures/verifier_correction/integration-qualification.json')),profile_identity_sha256:'f'.repeat(64)};
  const finding=JSON.parse(require('../../../tests/fixtures/verifier_correction/integration-original.json').result_text).concerns[0];
- const payload={schema:'closer-correction-admitted/v1',status:'admitted',classification:{status:'admitted'},request,seed,effect_key:key,bundle,decision,qualification,
+ const payload={coding_budget:codingBudgetFromVariable('100000',request),schema:'closer-correction-admitted/v1',status:'admitted',classification:{status:'admitted'},request,seed,effect_key:key,bundle,decision,qualification,
   finding_text:finding,decision_proof:{status:'authenticated',decision_sha256:digest(decision),profile_identity_sha256:'f'.repeat(64)},
   collector:{repository:request.target.repository,run_id:run,run_attempt:1}};
  const context={...payload,context_sha256:digest(payload)},records=[],store=new Map(),metadata=[],calls=[];
@@ -104,7 +105,7 @@ test('incomplete, colliding or substituted historical native link evidence holds
 test('an otherwise coherent authenticated request cannot outlive its original deadline',async()=>{
  const f=fixture();f.request.original_operation.deadline='2020-01-01T00:00:00Z';
  const {request_sha256,...body}=f.request;f.request.request_sha256=digest(body);
- f.context.decision.request_sha256=f.request.request_sha256;f.context.decision_proof.decision_sha256=digest(f.context.decision);
+ f.context.coding_budget=codingBudgetFromVariable('100000',f.request);f.context.decision.request_sha256=f.request.request_sha256;f.context.decision_proof.decision_sha256=digest(f.context.decision);
  for(const row of f.records){row.request_sha256=f.request.request_sha256;if(row.creation_response)row.creation_response.request_sha256=f.request.request_sha256;
   const {record_sha256,...record}=row;row.record_sha256=digest(record);}f.rebuild();
  await assert.rejects(resolveCodingScope({transport:f.transport,issueNumber:9}),/original deadline exhausted/);
@@ -187,7 +188,7 @@ async function freshFixture(existing=false) {
  f.context.qualification=qualification;f.context.decision.profile={...profile,qualification_ref:qualification.qualification_ref,qualification_sha256:qualification.qualification_sha256};
  if(existing)f.request.incumbent.lineage_ref=`github:stranske/example/issues/9/timeline-sha256/${crossReferenceDigest(lineage,pull)}`;
  const {request_sha256,...requestBody}=f.request;f.request.request_sha256=digest(requestBody);f.context.decision.request_sha256=f.request.request_sha256;
- f.context.decision_proof={status:'authenticated',decision_sha256:digest(f.context.decision),profile_identity_sha256:qualification.profile_identity_sha256};f.context.dispatch_actor='inert-dispatcher';
+ f.context.coding_budget=codingBudgetFromVariable('100000',f.request);f.context.decision_proof={status:'authenticated',decision_sha256:digest(f.context.decision),profile_identity_sha256:qualification.profile_identity_sha256};f.context.dispatch_actor='inert-dispatcher';
  for(const row of f.records){row.request_sha256=f.request.request_sha256;if(row.creation_response)row.creation_response.request_sha256=f.request.request_sha256;const {record_sha256,...body}=row;row.record_sha256=digest(body);}f.rebuild();
  const read=f.transport.read;f.transport.read=async(resource,method,args)=>{
   if(resource==='pulls')return state.pull;if(resource==='repos')return args.username==='inert-owner'?state.ownerPermission:state.permission;
@@ -227,4 +228,86 @@ test('recheck binds immutable original issue and body to real retained ledger, n
   f=>{f.scope.issue.number='99';}]) {
   const f=await freshFixture(existing);mutate(f);await assert.rejects(f.recheck(),/exact authenticated original issue/);
  }
+});
+
+test('trusted variable parser freezes exact private request/repository policy without a capacity claim',()=>{
+ const f=fixture(),budget=codingBudgetFromVariable('1000',f.request);
+ assert.deepEqual(validateCodingBudget(budget,f.request),{schema:'closer-correction-coding-budget/v1',source:'github-actions-vars/ISSUE_PR_CONTEXT_TOKEN_BUDGET',
+  repository:f.request.target.repository,request_sha256:f.request.request_sha256,max_estimated_input_tokens:1000,native_capacity_attested:false});
+ for(const raw of [undefined,null,''])assert.equal(codingBudgetFromVariable(raw,f.request),null);
+ for(const raw of ['0','01','-1','1.0','1e3',' 100',true,100,'9007199254740992'])assert.throws(()=>codingBudgetFromVariable(raw,f.request));
+ assert.equal(minimumCodingBudget([],f.request),null);assert.equal(minimumCodingBudget([budget,null],f.request),null);
+ assert.equal(minimumCodingBudget([budget,codingBudgetFromVariable('2000',f.request)],f.request).max_estimated_input_tokens,1000);
+ for(const mutation of [{repository:'foreign/repo'},{request_sha256:'0'.repeat(64)},{native_capacity_attested:true},{source:'caller'},{max_estimated_input_tokens:1.5},{extra:true}])
+  assert.throws(()=>validateCodingBudget({...budget,...mutation},f.request));
+});
+function withBudgetAlias(f,value) {
+ const original=f.transport,alias=clone(f.context);alias.collector.run_id=701;alias.coding_budget=value;
+ const {context_sha256,...body}=alias;alias.context_sha256=digest(body);const bytes=Buffer.from(JSON.stringify(alias)),name=artifactName('admitted',701,1);
+ const proof={repository:original.repository,run_id:701,run_attempt:1,artifact_id:9001,archive_sha256:sha(bytes),member_sha256:sha(bytes),run_created_at:'2026-10-26T01:00:00Z'};
+ return {...original,runs:async(...args)=>[...await original.runs(...args),{id:701,run_attempt:1,status:'completed'}],
+  artifacts:async id=>id===701?[{id:9001,name,expired:false}]:original.artifacts(id),
+  canonicalRun:async(id,...args)=>id===701?{head_sha:'a'.repeat(40)}:original.canonicalRun(id,...args),
+  jobs:async id=>id===701?[{name:SPECS.ledger.job,run_id:701,run_attempt:1,head_sha:'a'.repeat(40),status:'completed',conclusion:'skipped'}]:original.jobs(id),
+  load:async(selector,...args)=>selector.run_id===701?{bytes,proof}:original.load(selector,...args)};
+}
+test('complete authenticated history applies minimum original/alias ceiling and a missing alias never defaults',async()=>{
+ for(const [alias,expected] of [['200000',100000],['100',100],[null,null]]) {
+  const f=fixture(),transport=withBudgetAlias(f,alias===null?null:codingBudgetFromVariable(alias,f.request));
+  const scope=await resolveCodingScope({transport,issueNumber:9});assert.equal(scope.coding_budget?.max_estimated_input_tokens ?? null,expected);
+  if(expected===100000)assert.ok(fitCodingText({base,scope,budget:'200000',pythonRoot}).startsWith(base));
+  else assert.throws(()=>fitCodingText({base,scope,budget:'200000',pythonRoot}));
+ }
+});
+test('fresh final admission independently rejects raised sidecar cap or changed original history cap',async()=>{
+ const f=await freshFixture();f.scope.coding_budget.max_estimated_input_tokens=200000;
+ await assert.rejects(f.recheck(),/coding budget changed or unavailable/);
+ const lower=await freshFixture();lower.context.coding_budget=codingBudgetFromVariable('500',lower.request);lower.rebuild();
+ await assert.rejects(lower.recheck(),/coding budget changed or unavailable/);
+});
+
+const {codingPolicyObservation}=require('../verifier_correction_runtime');
+test('coding policy observation records exact existing configuration and minimum ceiling without execution authority',async()=>{
+ const f=await freshFixture(),configuration={model:'fixture-selected',candidates:['fixture-selected','fixture-fallback'],reasoning_effort:'xhigh',sandbox:'read-only',extra_arguments:'[]'};
+ await f.recheck();const before=clone(configuration),observation=codingPolicyObservation({scope:f.scope,currentBudget:'200000',configuration,current:{run_id:900,run_attempt:2}});
+ assert.deepEqual(configuration,before);assert.equal(observation.selected_estimated_input_tokens,100000);
+ assert.deepEqual(observation.requested_configuration,{agent:'codex',profile_id:null,model:'fixture-selected',candidates:configuration.candidates,reasoning_effort:'xhigh',sandbox:'read-only',extra_arguments:'none'});
+ assert.equal(observation.request_sha256,f.scope.request_sha256);assert.equal(observation.seed_effect_key,f.scope.seed_effect_key);
+ for(const flag of ['native_capacity_attested','effective_configuration_attested','provider_execution_attested','act_authorized','source_closure_authorized'])assert.equal(observation[flag],false);
+ const {content_sha256,...body}=observation;assert.equal(content_sha256,digest(body));
+ assert.equal(codingPolicyObservation({scope:f.scope,currentBudget:'500',configuration,current:{run_id:900,run_attempt:2}}).selected_estimated_input_tokens,500);
+ for(const extra_arguments of ['--model different','["--sandbox", "danger-full-access"]','[ ]'])
+  assert.throws(()=>codingPolicyObservation({scope:f.scope,currentBudget:'200000',configuration:{...configuration,extra_arguments},current:{run_id:900,run_attempt:2}}),/unbound extra arguments/);
+});
+function providerPreflightScript() {
+ const text=fs.readFileSync(path.join(pythonRoot,'.github/workflows/reusable-codex-run.yml'),'utf8'),section=text.slice(text.indexOf('      - name: Recheck mandatory correction admission before coding'));
+ const lines=section.split('\n'),at=lines.findIndex(row=>row.trim()==='script: |'),code=[];
+ for(const row of lines.slice(at+1)){if(row && !row.startsWith('            '))break;code.push(row.slice(12));}
+ return code.join('\n');
+}
+async function runProviderPreflight(f,{extra='',budget='200000',files={}}={}) {
+ const env={RUNNER_TEMP:'/inert/runner',GITHUB_RUN_ATTEMPT:'2',CORRECTION_CONTEXT_FILE:'/inert/coding-scope.json',ISSUE_PR_CONTEXT_TOKEN_BUDGET:budget,
+  CORRECTION_REQUESTED_MODEL:'fixture-selected',CORRECTION_MODEL_CANDIDATES:'fixture-selected fixture-fallback',CORRECTION_REQUESTED_EFFORT:'xhigh',CORRECTION_REQUESTED_SANDBOX:'read-only',CORRECTION_EXTRA_ARGUMENTS:extra};
+ const inertRequire=name=>{
+  if(name==='path')return {...path,join:(...parts)=>parts[0]==='/inert/runner' && parts[1]==='correction-intake'?pythonRoot:path.join(...parts)};
+  if(name==='fs')return {readFileSync:filename=>{assert.equal(filename,env.CORRECTION_CONTEXT_FILE);return JSON.stringify(f.scope);},writeFileSync:(filename,body)=>{files[filename]=body;}};
+  if(name.endsWith('/verifier_correction_artifacts'))return {createArtifactTransport:async()=>f.transport};
+  assert.equal(name,path.join(pythonRoot,'.github/scripts/verifier_correction_runtime'));return require(name);
+ };
+ const AsyncFunction=Object.getPrototypeOf(async function(){}).constructor;
+ await new AsyncFunction('require','github','core','context','process',providerPreflightScript())(inertRequire,f.github,{},
+  {runId:900,repo:{owner:'stranske',repo:'example'}},{env});return files;
+}
+test('actual authored pre-provider script freshly authenticates original scope and captures requested policy without model calls',async()=>{
+ const f=await freshFixture();f.calls.splice(0);const files=await runProviderPreflight(f),policy=JSON.parse(files['/inert/runner/codex-correction-policy.json']);
+ assert.ok(f.calls.some(row=>row[0]==='load' && row[1]==='admitted'));assert.ok(f.calls.some(row=>row[0]==='load' && row[1]==='ledger'));
+ assert.deepEqual(Object.keys(files),['/inert/runner/codex-correction-policy.json']);assert.equal(files[path.join(pythonRoot,'codex-correction-policy.json')],undefined);
+ assert.equal(policy.repository,f.scope.admitted_selector.repository);assert.equal(policy.request_sha256,f.scope.request_sha256);
+ assert.equal(policy.selected_estimated_input_tokens,100000);assert.equal(policy.run_id,900);assert.equal(policy.run_attempt,2);
+ assert.equal(policy.requested_configuration.model,'fixture-selected');assert.equal(policy.requested_configuration.reasoning_effort,'xhigh');assert.equal(policy.requested_configuration.sandbox,'read-only');
+ for(const flag of ['native_capacity_attested','effective_configuration_attested','provider_execution_attested','act_authorized','source_closure_authorized'])assert.equal(policy[flag],false);
+});
+test('actual authored pre-provider script holds unknown CLI overrides and substituted admission before any output/provider',async()=>{
+ const f=await freshFixture(),files={};await assert.rejects(runProviderPreflight(f,{extra:'--model unbound-model',files}),/unbound extra arguments/);assert.deepEqual(files,{});
+ f.scope.admitted_selector.artifact_id=999999;await assert.rejects(runProviderPreflight(f,{files}));assert.deepEqual(files,{});
 });

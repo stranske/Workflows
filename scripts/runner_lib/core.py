@@ -716,6 +716,7 @@ def assemble_prompt(
             ContextOptions,
             render_correction_context,
             require_complete_correction_prompt,
+            select_correction_budget,
         )
 
         correction = json.loads(Path(str(correction_file)).read_text(encoding="utf-8"))
@@ -735,7 +736,9 @@ def assemble_prompt(
             + render_correction_context(correction)
             + "\n"
         )
-        text = require_complete_correction_prompt(text, ContextOptions(token_budget=int(budget)))
+        text = require_complete_correction_prompt(
+            text, ContextOptions(token_budget=select_correction_budget(correction, budget))
+        )
     output_path.write_text(text, encoding="utf-8")
     return RunnerPrompt(
         provider=provider,

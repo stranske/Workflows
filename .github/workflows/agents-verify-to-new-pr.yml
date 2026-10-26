@@ -1315,6 +1315,7 @@ jobs:
           CORRECTION_SELECTOR: ${{ inputs.correction_selector }}
           CORRECTION_REQUEST: ${{ inputs.correction_request }}
           CORRECTION_DECISION: ${{ inputs.correction_decision }}
+          CORRECTION_CODING_BUDGET: ${{ vars.ISSUE_PR_CONTEXT_TOKEN_BUDGET }}
         with:
           script: |
             const fs = require('fs');
@@ -1340,6 +1341,7 @@ jobs:
                 result = await collectSubmission({github,transport,repository,actor:context.actor,current,selector,
                   request:JSON.parse(process.env.CORRECTION_REQUEST),
                   decision:JSON.parse(process.env.CORRECTION_DECISION || 'null'),directory:'.',
+                  codingBudgetVariable:process.env.CORRECTION_CODING_BUDGET,
                   loadQualification:profile => loadReviewedQualification({github,profile})});
                 // Retained classifier I/O authentication remains an explicit Core
                 // dependency. Qualification alone cannot admit supplied JSON.

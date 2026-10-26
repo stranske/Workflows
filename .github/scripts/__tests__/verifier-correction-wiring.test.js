@@ -278,3 +278,39 @@ for(const [surface,name] of sdkSteps)test(`${surface}: ${name} executes locked n
  assert.deepEqual(fs.readFileSync(trace,'utf8').trim().split('\n'),['ci','--prefix',path.join(runnerTemp,'correction-sdk'),'--ignore-scripts','--no-audit','--no-fund']);
  for(const file of ['package.json','package-lock.json'])assert.deepEqual(fs.readFileSync(path.join(runnerTemp,'correction-sdk',file)),fs.readFileSync(path.join(ROOT,sdkDirectory,file)));
 });
+
+test('final provider preflight records actual model-selection/input env before the existing default-success Run Codex step',()=>{
+ const source=read('.github/workflows/reusable-codex-run.yml'),preflight=step(source,'Recheck mandatory correction admission before coding'),provider=step(source,'Run Codex');
+ assert.ok(source.indexOf(preflight.body)<source.indexOf(provider.body));assert.match(condition(preflight),/env\.CORRECTION_CONTEXT_FILE != ''/);
+ assert.doesNotMatch(preflight.body,/continue-on-error/);assert.doesNotMatch(provider.body,/if:\s*(?:always\(|failure\()/);
+ for(const [env,value] of [['CORRECTION_REQUESTED_MODEL','steps.codex_model.outputs.model'],['CORRECTION_MODEL_CANDIDATES','steps.codex_model.outputs.candidates'],
+  ['CORRECTION_REQUESTED_EFFORT','inputs.codex_reasoning_effort'],['CORRECTION_REQUESTED_SANDBOX','inputs.sandbox'],['CORRECTION_EXTRA_ARGUMENTS','inputs.codex_args']])
+  assert.ok(preflight.body.includes(`${env}: \${{ ${value} }}`),`actual existing selection source ${env}`);
+ const code=script(preflight);assert.ok(code.indexOf('await recheckCodingAdmission')<code.indexOf('codingPolicyObservation({'));
+ assert.match(code,/scope=JSON\.parse\(fs\.readFileSync\(process\.env\.CORRECTION_CONTEXT_FILE/);
+ assert.match(code,/fs\.writeFileSync\(path\.join\(process\.env\.RUNNER_TEMP,'codex-correction-policy\.json'\)/);
+ const retained=step(source,'Upload correction coding policy observation').body;assert.match(retained,/uses: actions\/upload-artifact@[a-f0-9]{40}/);assert.ok(retained.includes('path: ${{ runner.temp }}/codex-correction-policy.json'));
+ const oldOutput=step(source,'Upload Codex output').body;assert.doesNotMatch(oldOutput,/codex-correction-policy/);assert.match(oldOutput,/path: \|\n            codex-output\*\.md\n            codex-session\*\.jsonl\n            codex-analysis\*\.json\n/);
+ assert.doesNotThrow(()=>new AsyncFunction('require','github','core','context','process',code));
+});
+
+for(const codingBudgetVariable of [undefined,'100000'])test(`real semantic host admission ${codingBudgetVariable?'with trusted policy budget admits':'without trusted policy budget remains held'}`,async()=>{
+ const f=originalCollector(),before=JSON.stringify(f.request),proofCalls=[];
+ const context=await f.collectSubmission({github:f.github,repository:'stranske/example',actor:'authorized-actor',current:{run_id:900,run_attempt:1},
+  transport:{canonicalRun:async(id,attempt,workflow)=>{assert.equal(id,900);assert.equal(attempt,1);assert.equal(workflow,'.github/workflows/agents-verify-to-new-pr.yml');}},
+  selector:f.selector,request:f.request,decision:f.decision,codingBudgetVariable,loadQualification:async()=>f.qualification,
+  authenticateDecision:async input=>{proofCalls.push(input);return {status:'authenticated',decision_sha256:eventTools.digest(input.decision),profile_identity_sha256:f.qualification.profile_identity_sha256};}});
+ assert.equal(proofCalls.length,1);assert.equal(context.decision_classification.status,'admitted');
+ if(codingBudgetVariable){assert.equal(context.status,'admitted');assert.equal(context.classification.status,'admitted');assert.equal(context.coding_budget.max_estimated_input_tokens,100000);
+  assert.equal(context.coding_budget.request_sha256,f.request.request_sha256);assert.equal(context.coding_budget.repository,f.request.target.repository);assert.equal(context.coding_budget.native_capacity_attested,false);}
+ else {assert.equal(context.status,'owned_unknown');assert.equal(context.classification.reason,'authenticated_coding_policy_budget_unconfigured');assert.equal(context.coding_budget,null);}
+ const {context_sha256,...body}=context;assert.equal(context_sha256,eventTools.digest(body));assert.equal(JSON.stringify(f.request),before);assert.equal(f.effects.length,0);
+});
+for(const surface of followupSurfaces)test(`${surface}: collector budget is supplied only from trusted Actions variable env`,()=>{
+ const row=step(read(surface),'Collect authenticated correction request without effects');
+ assert.ok(row.body.includes('CORRECTION_CODING_BUDGET: ${{ vars.ISSUE_PR_CONTEXT_TOKEN_BUDGET }}'));
+ assert.match(script(row),/codingBudgetVariable:process\.env\.CORRECTION_CODING_BUDGET/);
+ assert.doesNotMatch(script(row),/codingBudgetVariable:(?:request|decision|selector|JSON\.parse)/);
+ const source=read(surface),applyHeader=source.split('\n  apply-correction:\n')[1].split('    steps:\n')[0];
+ assert.match(applyHeader,/outputs\.admitted == 'true'/);
+});
