@@ -35,9 +35,9 @@ def assert_coverage_runtime_aligned(gate_path: Path, gate_text: str | None = Non
     text = gate_text if gate_text is not None else gate_path.read_text(encoding="utf-8")
     primary, coverage = _python_ci_runtime_inputs(gate_path)
     reference = _coverage_reference_runtime(text)
-    assert primary == coverage == reference, (
-        f"{gate_path}: primary={primary}, coverage={coverage}, reference={reference}"
-    )
+    assert (
+        primary == coverage == reference
+    ), f"{gate_path}: primary={primary}, coverage={coverage}, reference={reference}"
 
 
 @pytest.mark.parametrize("gate_path", GATE_PATHS, ids=lambda p: p.relative_to(ROOT).as_posix())
