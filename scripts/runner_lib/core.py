@@ -2155,6 +2155,10 @@ def _parse_optional_bool(raw: str) -> bool | None:
 
 
 def _cmd_assemble(args: argparse.Namespace) -> int:
+    # The effect producer is source-disabled. Preserve pure assembly fixtures,
+    # but refuse an untransported typed sidecar at the actual provider intake.
+    if os.environ.get("CORRECTION_CONTEXT_FILE"):
+        raise ValueError("typed_correction_effects_not_deployed: collection-only source release")
     context = {
         "workspace": args.workspace,
         "base_prompt_file": args.base_prompt,

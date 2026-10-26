@@ -77,172 +77,8 @@ function originalCollector() {
  return {request,decision,qualification,selector,github,calls,effects,collectSubmission:module.exports.collectSubmission};
 }
 
-for(const surface of followupSurfaces) {
-const followup=()=>read(surface);
-const testSource=(name,fn)=>test(`${surface}: ${name}`,fn);
-testSource('authored collection cannot turn caller classification truth into admission even with an eligible offline profile',async()=>{
- const f=originalCollector(),file=fileFixture(),core=coreFixture();
- f.decision.decision_proof={status:'authenticated',decision_sha256:eventTools.digest(f.decision),profile_identity_sha256:'f'.repeat(64)};
- const requireStub=name=>{
-  if(name==='fs')return file.fs;
-  if(name.endsWith('/verification_event'))return eventTools;
-  if(name.endsWith('/verifier_correction_consumer'))return {collectCorrection:async()=>{throw Error('unexpected legacy path');}};
-  if(name.endsWith('/verifier_correction_collector'))return {collectSubmission:f.collectSubmission,loadReviewedQualification:async()=>f.qualification};
-  if(name.endsWith('/verifier_correction_artifacts'))return {createArtifactTransport:async()=>({canonicalRun:async()=>{}})};
-  if(name.endsWith('/terminal_disposition'))return {normalizeTerminalDisposition:input=>({schema:'workflows-terminal-disposition/v1',...input})};
-  throw Error(`Unexpected inert dependency ${name}`);
- };
- await run(step(followup(),'Collect authenticated correction request without effects'),requireStub,{github:f.github,core,
-  env:{CORRECTION_SELECTOR:JSON.stringify(f.selector),CORRECTION_REQUEST:JSON.stringify(f.request),CORRECTION_DECISION:JSON.stringify(f.decision),GITHUB_RUN_ATTEMPT:'1'}});
- const context=JSON.parse(file.files['correction-admitted.json']);
- assert.equal(context.status,'owned_unknown');assert.equal(context.decision_proof,null);
- assert.equal(context.classification.reason,'authenticated_retained_classification_output_unavailable');
- assert.equal(core.outputs.admitted,'false');assert.equal(context.classification.act_authorized,false);assert.equal(context.classification.source_closure_authorized,false);
- assert.equal(core.outputs.pr_number,f.request.target.pr);assert.equal(f.effects.length,0);
- assert.equal(JSON.parse(file.files['agent-metrics/verifier-terminal-disposition.ndjson']).source_id,f.request.request_sha256);
- assert.ok(f.calls.every(([resource,method])=>!['create','createWorkflowDispatch','update','addLabels'].includes(method)));
-});
 
-testSource('oversized authored collection input refuses before a collector or effect can run',async()=>{
- const file=fileFixture();let collectorCalls=0;
- const requireStub=name=>name==='fs'?file.fs:name.endsWith('/verification_event')?eventTools:
-  name.endsWith('/verifier_correction_consumer')?{collectCorrection:async()=>{collectorCalls++;}}:
-  name.endsWith('/terminal_disposition')?{normalizeTerminalDisposition:input=>input}:(()=>{throw Error(`Unexpected dependency ${name}`);})();
- await run(step(followup(),'Collect authenticated correction request without effects'),requireStub,
-  {env:{CORRECTION_SELECTOR:'x'.repeat(16385),GITHUB_RUN_ATTEMPT:'1'}});
- const refusal=JSON.parse(file.files['agent-metrics/verifier-followup-ledger.ndjson']);
- assert.equal(collectorCalls,0);assert.equal(refusal.effect_state,'confirmed_not_started');
- assert.equal(refusal.retry_authorized,false);assert.equal(refusal.act_authorized,false);assert.equal(refusal.source_closure_authorized,false);
-});
-
-testSource('effect job depends on real collected artifact output and uses authenticated PR scope rather than caller hold identifiers',()=>{
- const source=followup(),job=source.split('\n  apply-correction:\n')[1];assert.ok(job);
- const header=job.split('    steps:\n')[0];
- assert.match(header,/needs: \[collect-correction\]/);
- assert.match(header,/needs\.collect-correction\.outputs\.admitted == 'true'/);
- assert.match(header,/needs\.collect-correction\.outputs\.artifact_id != ''/);
- assert.match(header,/group: agents-verify-to-new-pr-\$\{\{ github\.repository \}\}-\$\{\{ needs\.collect-correction\.outputs\.pr_number \}\}/);
- assert.doesNotMatch(header,/inputs\.(?:correction_request|correction_selector)|hold_id|operation_id|idempotency/);
- assert.match(script(step(source,'Consume admitted correction')),/artifact_id:Number\(process\.env\.ADMITTED_ARTIFACT_ID\)/);
- assert.match(source,/artifact_id: \$\{\{ steps\.correction_artifact\.outputs\.artifact-id \}\}/);
-});
-
-testSource('authored consume path invokes no effect when SDK initialization is unavailable',async()=>{
- let runtimeCalls=0;
- const requireStub=name=>name==='fs'?fileFixture().fs:name==='path'?path:name.endsWith('/verification_event')?eventTools:
-  name.endsWith('/verifier_correction_consumer')?require('../verifier_correction_consumer'):
-  name.endsWith('/verifier_correction_artifacts')?{runtimeArtifactClient:async()=>{throw Error('SDK init unavailable');},createArtifactTransport:async()=>{throw Error('must not construct');}}:
-  name.endsWith('/verifier_correction_runtime')?{createRuntime:async()=>{runtimeCalls++;throw Error('must not execute');}}:
-  name.endsWith('/terminal_disposition')?{normalizeTerminalDisposition:input=>input}:(()=>{throw Error(`Unexpected dependency ${name}`);})();
- await assert.rejects(run(step(followup(),'Consume admitted correction'),requireStub,
-  {env:{GITHUB_RUN_ATTEMPT:'1',RUNNER_TEMP:'/inert/temp',ADMITTED_ARTIFACT_ID:'50'}}),/SDK init unavailable/);
- assert.equal(runtimeCalls,0);
-});
-
-const executableSteps=new Map([
- ['Execute step - Format (inline)','format'],['Execute step - Optimize (inline)','optimize'],
- ['Execute step - Apply suggestions (inline)','apply'],['Execute step - Capability check & Agent','capability-check'],
- ['Execute step - Verify','verify'],['Execute step - Create PR','create-pr'],['Report - Monitoring PR','monitor-pr'],
- ['Execute step - Check Completion & Trigger Merge','check-completion'],
-]);
-function gateValues(selector,selected,admitted='false') {
- return {'inputs.correction_selector':selector,'steps.correction_start.outputs.admitted':admitted,
-  'steps.context.outputs.should_continue':'true','steps.cycles.outputs.exceeded':'false','steps.cycles.outputs.rate_limited':'false',
-  'steps.complexity_check.outputs.too_complex':'false','steps.next.outputs.next_step':selected};
-}
-testSource('all authored provider-capable branches require retained-start admission for typed requests',()=>{
- const source=autopilot();
- for(const [name,selected] of executableSteps) {
-  const expression=condition(step(source,name));
-  assert.equal(permits(expression,gateValues('inert-selector',selected)),false,`${name} blocks failed/unretained start`);
-  assert.equal(permits(expression,gateValues('inert-selector',selected,'true')),selected!=='format',`${name} retains admitted branch or explicit body-preservation hold`);
-  assert.equal(permits(expression,gateValues('',selected)),true,`${name} preserves absent-selector branch`);
- }
- const expression=condition(step(source,'Re-dispatch for next step'));
- assert.equal(permits(expression,gateValues('inert-selector','optimize')),false);
- assert.equal(permits(expression,gateValues('inert-selector','optimize','true')),true);
- assert.equal(permits(expression,gateValues('','optimize')),true);
-});
-
-testSource('authored admission precedes context and retained start follows actual context/cycle/selection gates',()=>{
- const source=autopilot();assert.ok(source.indexOf('- name: Authenticate correction continuation')<source.indexOf('- name: Determine context'));
- assert.ok(source.indexOf('- name: Determine next step')<source.indexOf('- name: Record admitted correction start'));
- assert.ok(source.indexOf('- name: Record admitted correction start')<source.indexOf('- name: Execute step - Format (inline)'));
- const values={...gateValues('inert-selector','optimize'),'steps.check_enabled.outputs.enabled':'true'};
- assert.equal(permits(condition(step(source,'Determine context')),values),false);
- values['steps.correction_auth.outputs.admitted']='true';assert.equal(permits(condition(step(source,'Determine context')),values),true);
- values['inputs.correction_selector']='';assert.equal(permits(condition(step(source,'Determine context')),values),true);
- const start=condition(step(source,'Record admitted correction start'));
- for(const [field,value] of [['steps.context.outputs.should_continue','false'],['steps.cycles.outputs.exceeded','true'],
-  ['steps.cycles.outputs.rate_limited','true'],['steps.next.outputs.next_step','done'],['steps.next.outputs.next_step','']]) {
-  assert.equal(permits(start,{...gateValues('inert-selector','optimize'),[field]:value}),false,`${field} refuses start`);
- }
-});
-
-testSource('authored retained-start readback error never emits provider admission output',async()=>{
- const request=structuredClone(require('../../../tests/fixtures/verifier_correction/request.json')),core=coreFixture();
- const admission={request,selected_step:'optimize',lineage_key:'l'.repeat(64),observed_issue:request.incumbent.issue,
-  selector:{effect_key:effectKey(seedForRequest(request)),issue:request.incumbent.issue,parent_dispatch:null},
-  collector:{run_id:700,run_attempt:1,artifact_id:1},intent:{run_id:700,run_attempt:1,artifact_id:2,archive_sha256:'a'.repeat(64),member_sha256:'b'.repeat(64)}};
- let publishes=0,authenticates=0;
- const transport={publish:async()=>{publishes++;throw Error('checkpoint exact readback unavailable');}};
- const requireStub=name=>name==='path'?path:name.endsWith('/verifier_correction_artifacts')?{runtimeArtifactClient:async()=>({}),createArtifactTransport:async()=>transport}:
-  name.endsWith('/verifier_correction_runtime')?{createAutopilotRuntime:async()=>({authenticate:async()=>{authenticates++;return admission;},observeLineage:async()=>[]})}:
-  name.endsWith('/verifier_correction_autopilot')?{recordStarted}:(()=>{throw Error(`Unexpected inert dependency ${name}`);})();
- await assert.rejects(run(step(autopilot(),'Record admitted correction start'),requireStub,{core,
-  env:{WORKFLOWS_SCRIPTS_PATH:'/inert/workflows',RUNNER_TEMP:'/inert/temp',CORRECTION_SELECTOR:'{}',CORRECTION_ISSUE:'8',CORRECTION_FORCE_STEP:'optimize',
-   CORRECTION_SELECTED_STEP:'optimize',CORRECTION_CONTINUE:'true',CORRECTION_EXCEEDED:'false',CORRECTION_RATE_LIMITED:'false',GITHUB_RUN_ATTEMPT:'1'}}),/checkpoint exact readback unavailable/);
- assert.equal(authenticates,1);assert.equal(publishes,1);assert.equal(core.outputs.admitted,undefined);assert.equal(core.outputs.proof,undefined);
-});
-
-testSource('new authored github-script admission/effect bodies compile as JavaScript without evaluating expression inputs',()=>{
- for(const [source,names] of [[followup(),['Collect authenticated correction request without effects','Consume admitted correction','Fence retained scoped correction effects']],
-  [autopilot(),['Authenticate correction continuation','Record admitted correction start','Clear pause and redispatch format step']]]) {
-  for(const name of names)assert.doesNotThrow(()=>new AsyncFunction('require','github','core','context','process','Buffer',script(step(source,name))),name);
- }
-});
-
-testSource('authored effect-host construction uncertainty emits UNKNOWN without invoking or repeating an effect',async()=>{
- const file=fileFixture(),published=[];let consumes=0;
- const transport={publish:async(kind,bytes)=>{published.push([kind,JSON.parse(bytes)]);return {run_id:900,run_attempt:1};}};
- const requireStub=name=>name==='fs'?file.fs:name==='path'?path:name.endsWith('/verification_event')?eventTools:
-  name.endsWith('/verifier_correction_consumer')?require('../verifier_correction_consumer'):
-  name.endsWith('/verifier_correction_artifacts')?{runtimeArtifactClient:async()=>({}),createArtifactTransport:async()=>transport}:
-  name.endsWith('/verifier_correction_runtime')?{createRuntime:async()=>{throw Error('prior ledger outcome unread');},consume:async()=>{consumes++;}}:
-  name.endsWith('/terminal_disposition')?{normalizeTerminalDisposition:input=>input}:(()=>{throw Error(`Unexpected inert dependency ${name}`);})();
- await run(step(followup(),'Consume admitted correction'),requireStub,
-  {env:{GITHUB_RUN_ATTEMPT:'1',RUNNER_TEMP:'/inert/temp',ADMITTED_ARTIFACT_ID:'50'}});
- assert.equal(consumes,0);assert.equal(published.length,1);assert.equal(published[0][0],'receipt');
- const refusal=published[0][1];assert.equal(refusal.schema,'closer-correction-admission-refusal/v1');assert.equal(refusal.effect_state,'outcome_unknown');
- assert.equal(refusal.retry_authorized,false);assert.equal(refusal.act_authorized,false);assert.equal(refusal.source_closure_authorized,false);
- assert.equal(refusal.receipt_sha256,eventTools.digest((({receipt_sha256,...value})=>value)(refusal)));
- assert.deepEqual(JSON.parse(file.files['agent-metrics/verifier-followup-ledger.ndjson']),refusal);
-});
-
-}
-
-const autopilotSurfaces=['.github/workflows/agents-auto-pilot.yml','templates/consumer-repo/.github/workflows/agents-auto-pilot.yml'];
-for(const surface of autopilotSurfaces)test(`${surface}: Determine context consumes issue_number as payload data, preserving numeric legacy input`,async()=>{
- const row=step(read(surface),'Determine context'),code=script(row);
- assert.ok(code.includes('context.payload.inputs?.issue_number'));
- assert.doesNotMatch(code,/\$\{\{\s*inputs\.issue_number\s*\}\}/);
- for(const [input,expected] of [['9',9],["9'); throw new Error('CALLER_TEXT_EXECUTED'); //",9],["'); throw new Error('CALLER_TEXT_EXECUTED'); //",null]]) {
-  const calls=[],failures=[],core=coreFixture();core.setFailed=value=>failures.push(value);
-  const github={rest:{issues:{get:async args=>{calls.push(args);return {data:{number:9,title:'Native ordinary issue',state:'open',body:'Original issue body',labels:[{name:'agents:auto-pilot-pause'}]}};}}}};
-  const inertRequire=name=>{
-   if(name.endsWith('/github-api-with-retry.js'))return {createTokenAwareRetry:async()=>({withRetry:fn=>fn(github),paginateWithRetry:async()=>[]})};
-   if(name==='path')return path;
-   if(name.endsWith('/verifier_correction_artifacts'))return {createArtifactTransport:async()=>({})};
-   if(name.endsWith('/verifier_correction_runtime'))return {resolveCodingScope:async({issueNumber})=>{assert.equal(issueNumber,9);return null;}};
-   throw Error(`Unexpected context dependency ${name}`);
-  };
-  await run(row,inertRequire,{github,core,env:{WORKFLOWS_SCRIPTS_PATH:'/inert/trusted',GITHUB_RUN_ATTEMPT:'1'},
-   context:{eventName:'workflow_dispatch',payload:{inputs:{issue_number:input}},runId:900,repo:{owner:'stranske',repo:'example'}}});
-  if(expected===null){assert.equal(calls.length,0);assert.deepEqual(failures,['Could not determine issue number']);}
-  else {assert.equal(calls.length,1);assert.equal(calls[0].issue_number,expected);assert.equal(core.outputs.should_continue,'false');assert.equal(core.outputs.reason,'paused');assert.deepEqual(failures,[]);}
- }
-});
-
+// Pure unpublished interfaces remain exercised offline.
 const sdkDirectory='.github/scripts/verifier_correction_artifact_sdk';
 test('correction SDK package and full portable registry lock bind exact artifact version and immutable integrity',()=>{
  const pkg=JSON.parse(read(`${sdkDirectory}/package.json`)),lock=JSON.parse(read(`${sdkDirectory}/package-lock.json`));
@@ -257,44 +93,6 @@ test('correction SDK package and full portable registry lock bind exact artifact
   assert.equal(row.link,undefined);assert.doesNotMatch(JSON.stringify(row),/file:\/|localhost|127\.0\.0\.1|Users\/|\/tmp\//);
  }
 });
-function runBody(row) {
- const lines=row.body.split('\n'),at=lines.findIndex(line=>line==='        run: |');assert.ok(at>=0,`shell script ${row.name}`);const result=[];
- for(const line of lines.slice(at+1)){if(line && !line.startsWith('          '))break;result.push(line.slice(10));}
- return result.join('\n');
-}
-const sdkSteps=[...followupSurfaces.map(surface=>[surface,'Install existing Actions artifact SDK']),
- ...autopilotSurfaces.map(surface=>[surface,'Install correction artifact SDK'])];
-for(const [surface,name] of sdkSteps)test(`${surface}: ${name} executes locked npm ci using both exact retained files`,t=>{
- const {execFileSync}=require('child_process'),os=require('os'),root=fs.mkdtempSync(path.join(os.tmpdir(),'inert-correction-sdk-test-'));
- t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
- const body=runBody(step(read(surface),name)),scriptCommands=body.split('\n').filter(line=>/^\s*npm\b/.test(line));
- assert.deepEqual(scriptCommands,['npm ci --prefix "$RUNNER_TEMP/correction-sdk" --ignore-scripts --no-audit --no-fund']);
- assert.doesNotMatch(body,/@actions\/artifact(?:@|\s)|npm\s+(?:install|i\b|exec)|npx\b/);
- const source=path.join(root,surface.includes('auto-pilot')?'workflows-lib':'.',sdkDirectory);fs.mkdirSync(source,{recursive:true});
- for(const file of ['package.json','package-lock.json'])fs.copyFileSync(path.join(ROOT,sdkDirectory,file),path.join(source,file));
- const bin=path.join(root,'inert-bin');fs.mkdirSync(bin);const trace=path.join(root,'npm-argv.json');
- fs.writeFileSync(path.join(bin,'npm'),'#!/bin/sh\nprintf "%s\\n" "$@" > "$INERT_NPM_TRACE"\n',{mode:0o755});
- const runnerTemp=path.join(root,'runner-temp');
- execFileSync('/bin/bash',['--noprofile','--norc','-e','-u','-o','pipefail','-c',body],{cwd:root,env:{HOME:root,BASH_ENV:'/dev/null',ENV:'/dev/null',PATH:`${bin}:/usr/bin:/bin`,RUNNER_TEMP:runnerTemp,INERT_NPM_TRACE:trace}});
- assert.deepEqual(fs.readFileSync(trace,'utf8').trim().split('\n'),['ci','--prefix',path.join(runnerTemp,'correction-sdk'),'--ignore-scripts','--no-audit','--no-fund']);
- for(const file of ['package.json','package-lock.json'])assert.deepEqual(fs.readFileSync(path.join(runnerTemp,'correction-sdk',file)),fs.readFileSync(path.join(ROOT,sdkDirectory,file)));
-});
-
-test('final provider preflight records actual model-selection/input env before the existing default-success Run Codex step',()=>{
- const source=read('.github/workflows/reusable-codex-run.yml'),preflight=step(source,'Recheck mandatory correction admission before coding'),provider=step(source,'Run Codex');
- assert.ok(source.indexOf(preflight.body)<source.indexOf(provider.body));assert.match(condition(preflight),/env\.CORRECTION_CONTEXT_FILE != ''/);
- assert.doesNotMatch(preflight.body,/continue-on-error/);assert.doesNotMatch(provider.body,/if:\s*(?:always\(|failure\()/);
- for(const [env,value] of [['CORRECTION_REQUESTED_MODEL','steps.codex_model.outputs.model'],['CORRECTION_MODEL_CANDIDATES','steps.codex_model.outputs.candidates'],
-  ['CORRECTION_REQUESTED_EFFORT','inputs.codex_reasoning_effort'],['CORRECTION_REQUESTED_SANDBOX','inputs.sandbox'],['CORRECTION_EXTRA_ARGUMENTS','inputs.codex_args']])
-  assert.ok(preflight.body.includes(`${env}: \${{ ${value} }}`),`actual existing selection source ${env}`);
- const code=script(preflight);assert.ok(code.indexOf('await recheckCodingAdmission')<code.indexOf('codingPolicyObservation({'));
- assert.match(code,/scope=JSON\.parse\(fs\.readFileSync\(process\.env\.CORRECTION_CONTEXT_FILE/);
- assert.match(code,/fs\.writeFileSync\(path\.join\(process\.env\.RUNNER_TEMP,'codex-correction-policy\.json'\)/);
- const retained=step(source,'Upload correction coding policy observation').body;assert.match(retained,/uses: actions\/upload-artifact@[a-f0-9]{40}/);assert.ok(retained.includes('path: ${{ runner.temp }}/codex-correction-policy.json'));
- const oldOutput=step(source,'Upload Codex output').body;assert.doesNotMatch(oldOutput,/codex-correction-policy/);assert.match(oldOutput,/path: \|\n            codex-output\*\.md\n            codex-session\*\.jsonl\n            codex-analysis\*\.json\n/);
- assert.doesNotThrow(()=>new AsyncFunction('require','github','core','context','process',code));
-});
-
 for(const codingBudgetVariable of [undefined,'100000'])test(`real semantic host admission ${codingBudgetVariable?'with trusted policy budget admits':'without trusted policy budget remains held'}`,async()=>{
  const f=originalCollector(),before=JSON.stringify(f.request),proofCalls=[];
  const context=await f.collectSubmission({github:f.github,repository:'stranske/example',actor:'authorized-actor',current:{run_id:900,run_attempt:1},
@@ -307,75 +105,76 @@ for(const codingBudgetVariable of [undefined,'100000'])test(`real semantic host 
  else {assert.equal(context.status,'owned_unknown');assert.equal(context.classification.reason,'authenticated_coding_policy_budget_unconfigured');assert.equal(context.coding_budget,null);}
  const {context_sha256,...body}=context;assert.equal(context_sha256,eventTools.digest(body));assert.equal(JSON.stringify(f.request),before);assert.equal(f.effects.length,0);
 });
-for(const surface of followupSurfaces)test(`${surface}: collector budget is supplied only from trusted Actions variable env`,()=>{
- const row=step(read(surface),'Collect authenticated correction request without effects');
- assert.ok(row.body.includes('CORRECTION_CODING_BUDGET: ${{ vars.ISSUE_PR_CONTEXT_TOKEN_BUDGET }}'));
- assert.match(script(row),/codingBudgetVariable:process\.env\.CORRECTION_CODING_BUDGET/);
- assert.doesNotMatch(script(row),/codingBudgetVariable:(?:request|decision|selector|JSON\.parse)/);
- const source=read(surface),applyHeader=source.split('\n  apply-correction:\n')[1].split('    steps:\n')[0];
- assert.match(applyHeader,/outputs\.admitted == 'true'/);
-});
 
+const autopilotSurfaces=['.github/workflows/agents-auto-pilot.yml','templates/consumer-repo/.github/workflows/agents-auto-pilot.yml'];
 const beltSurfaces=['.github/workflows/agents-72-codex-belt-worker.yml','templates/consumer-repo/.github/workflows/agents-72-codex-belt-worker.yml'];
-for(const surface of beltSurfaces)test(`${surface}: correction scope lookup honors existing keepalive skip and dry-run gates`,async()=>{
- const row=step(read(surface),'Resolve mandatory correction coding scope'),expression=condition(row);let calls=0;
- const values={'steps.parallel.outputs.allowed':'true','inputs.keepalive':true,'steps.keepalive_gate.outputs.action':'skip','steps.mode.outputs.dry_run':'false'};
- if(permits(expression,values))await run(row,()=>{calls++;throw Error('skipped scope lookup must not execute');});
- assert.equal(calls,0);assert.equal(permits(expression,values),false);
- assert.equal(permits(expression,{...values,'inputs.keepalive':false}),true);
- assert.equal(permits(expression,{...values,'steps.keepalive_gate.outputs.action':'run'}),true);
- assert.equal(permits(expression,{...values,'inputs.keepalive':false,'steps.mode.outputs.dry_run':'true'}),false);
-});
-for(const surface of autopilotSurfaces)test(`${surface}: ordinary correction-scope rate limits defer and all other lookup errors stay errors`,async()=>{
- for(const limited of [true,false]) {
-  const core=coreFixture();core.setFailed=()=>{throw Error('unexpected setFailed');};
-  const error=Object.assign(Error(limited?'API rate limit exceeded':'unreadable correction history'),{status:limited?429:500});
-  const github={rest:{issues:{get:async()=>({data:{number:9,title:'native issue',state:'open',body:'scope',labels:[]}})}}};
-  const inertRequire=name=>name==='path'?path:name.endsWith('/github-api-with-retry.js')?{createTokenAwareRetry:async()=>({withRetry:fn=>fn(github)})}:
-   name.endsWith('/verifier_correction_artifacts')?{createArtifactTransport:async()=>({})}:name.endsWith('/verifier_correction_runtime')?{resolveCodingScope:async()=>{throw error;}}:(()=>{throw Error(`Unexpected ${name}`);})();
-  const evaluate=()=>run(step(read(surface),'Determine context'),inertRequire,{github,core,env:{WORKFLOWS_SCRIPTS_PATH:'/inert/source',GITHUB_RUN_ATTEMPT:'1'},
-   context:{runId:900,repo:{owner:'stranske',repo:'example'},eventName:'workflow_dispatch',payload:{inputs:{issue_number:'9'}}}});
-  if(limited){await evaluate();assert.equal(core.outputs.should_continue,'false');assert.equal(core.outputs.reason,'rate-limited');assert.equal(core.outputs.issue_number,9);}
-  else await assert.rejects(evaluate(),/unreadable correction history/);
+for(const surface of autopilotSurfaces)test(`${surface}: reserved typed input fails before ordinary effects without loading helpers`,async()=>{
+ const source=read(surface),guard=step(source,'Reject unsupported correction requests');assert.ok(source.indexOf(guard.body)<source.indexOf('- name: Mint GitHub App Token'));
+ assert.doesNotMatch(guard.body,/continue-on-error/);assert.equal(permits(condition(guard),{'inputs.correction_selector':''}),false);
+ for(const value of ['{}',' ','{"repository":"caller/claim"}']) {
+  assert.equal(permits(condition(guard),{'inputs.correction_selector':value}),true);
+  let calls=0;await assert.rejects(run(guard,()=>{calls++;throw Error('no helper may be loaded');},{github:new Proxy({},{get(){calls++;throw Error('no native effects');}})}),/correction_handoff_disabled/);assert.equal(calls,0);
  }
+ assert.equal((source.match(/correction_selector/g) || []).length,2,'reserved input and refusal are the only typed workflow wiring');
 });
-for(const surface of followupSurfaces)test(`${surface}: local terminal evidence survives receipt publish/readback failure`,async()=>{
- const file=fileFixture(),request=require('../../../tests/fixtures/verifier_correction/integration-request.json');
- const result=require('../verifier_correction_consumer').receipt(request,{state:'outcome_unknown',reason:'dispatch outcome not proven',consumer:{run_id:'900',run_attempt:'1'}});
- const transport={publish:async()=>{assert.equal(JSON.parse(file.files['agent-metrics/verifier-followup-ledger.ndjson']).receipt_sha256,result.receipt_sha256);
-  assert.ok(file.files['agent-metrics/verifier-terminal-disposition.ndjson']);throw Error('receipt readback failed');}};
- const inertRequire=name=>name==='fs'?file.fs:name==='path'?path:name.endsWith('/verification_event')?eventTools:
-  name.endsWith('/verifier_correction_consumer')?require('../verifier_correction_consumer'):
-  name.endsWith('/verifier_correction_artifacts')?{runtimeArtifactClient:async()=>({}),createArtifactTransport:async()=>transport}:
-  name.endsWith('/verifier_correction_runtime')?{createRuntime:async()=>({request,consume:async()=>result})}:
-  name.endsWith('/terminal_disposition')?{normalizeTerminalDisposition:input=>input}:(()=>{throw Error(`Unexpected ${name}`);})();
- await assert.rejects(run(step(read(surface),'Consume admitted correction'),inertRequire,{env:{GITHUB_RUN_ATTEMPT:'1',RUNNER_TEMP:'/inert/temp',ADMITTED_ARTIFACT_ID:'50'}}),/receipt readback failed/);
- const terminal=JSON.parse(file.files['agent-metrics/verifier-terminal-disposition.ndjson']);assert.equal(terminal.source_id,request.request_sha256);assert.equal(terminal.correction_receipt.effect_state,'outcome_unknown');
+for(const surface of [...autopilotSurfaces,...beltSurfaces,'.github/workflows/reusable-codex-run.yml','.github/scripts/keepalive_loop.js','templates/consumer-repo/.github/scripts/keepalive_loop.js'])
+ test(`${surface}: ordinary path has no correction discovery, checkout or SDK dependency`,()=>{
+  assert.doesNotMatch(read(surface),/verifier_correction|resolveCodingScope|resolvePullCodingScope|createArtifactTransport|recheckCodingAdmission|guardCorrectionKeepalive|CORRECTION_CONTEXT_FILE|correction-sdk|correction-intake|\.correction-lib|closer-correction-effect\/v1/);
+ });
+for(const surface of autopilotSurfaces)test(`${surface}: actual ordinary context ignores unrelated failed/expired correction history and mutable markers`,async()=>{
+ const row=step(read(surface),'Determine context');assert.doesNotMatch(script(row),/\$\{\{\s*inputs\.issue_number/);
+ const results=[];
+ for(const body of ['## Tasks\n- [ ] Native ordinary task','<!-- closer-correction-effect/v1 {"caller":"untrusted"} -->\n## Tasks\n- [ ] Native ordinary task']) {
+  const calls=[],core=coreFixture();core.setFailed=message=>{throw Error(message);};
+  const issue={number:9,title:'Native ordinary issue',body,state:'open',labels:[{name:'agent:codex'}]};
+  const issues={get:async args=>{calls.push(['get',args]);return {data:issue};},listComments:async()=>({data:[]}),listEventsForTimeline:async()=>({data:[]})};
+  const github={rest:{issues,actions:new Proxy({},{get(){throw Error('unrelated expired/failed history is unavailable');}})}};
+  const inertRequire=name=>{assert.ok(name.endsWith('/github-api-with-retry.js'));return {createTokenAwareRetry:async()=>({withRetry:fn=>fn(github),paginateWithRetry:async(fn,args)=>(await fn(args)).data})};};
+  await run(row,inertRequire,{github,core,env:{WORKFLOWS_SCRIPTS_PATH:'/inert/trusted'},context:{runId:900,repo:{owner:'stranske',repo:'example'},eventName:'workflow_dispatch',payload:{inputs:{issue_number:"9'); throw Error('never execute'); //"}}}});
+  assert.equal(calls.length,1);assert.equal(calls[0][1].issue_number,9);assert.equal(core.outputs.should_continue,'true');results.push(core.outputs);
+ }
+ assert.deepEqual(results[0],results[1]);assert.deepEqual(results[0],{issue_number:9,issue_title:'Native ordinary issue',issue_state:'open',should_continue:'true',has_format:'false',has_optimize:'false',has_optimizer_output:'false',has_apply:'false',has_agent:'true',has_autofix:'false',has_automerge:'false',has_verify:'false',linked_pr:''});
 });
-for(const surface of autopilotSurfaces)test(`${surface}: blocked typed format has no dead write branch; ordinary format wakeup stays functional`,async()=>{
- const source=read(surface),format=step(source,'Execute step - Format (inline)'),wakeup=step(source,'Clear pause and redispatch format step');
- assert.equal(permits(condition(format),{'inputs.correction_selector':'typed','steps.next.outputs.next_step':'format','steps.correction_start.outputs.admitted':'true'}),false);assert.equal(permits(condition(format),{'inputs.correction_selector':'','steps.next.outputs.next_step':'format'}),true);
- assert.doesNotMatch(format.body,/retainFormatPause|CORRECTION_STARTED|CORRECTION_SELECTOR/);
- assert.doesNotMatch(source.slice(source.indexOf('  format-pause-wakeup:')),/CORRECTION_SELECTOR|correction_pause|formatredispatch|Install formatter correlation artifact SDK|Checkout correction formatter/);
- assert.match(script(step(source,'Record admitted correction start')),/CORRECTION_SELECTED_STEP\s*===\s*'format'\)\s*throw/);
+for(const surface of autopilotSurfaces)test(`${surface}: ordinary pause/human guards and format wakeup remain intact`,async()=>{
+ const source=read(surface);assert.match(script(step(source,'Determine context')),/labels\.includes\('needs-human'\)/);assert.match(script(step(source,'Determine context')),/labels\.includes\('agents:auto-pilot-pause'\)/);
+ assert.equal(permits(condition(step(source,'Execute step - Format (inline)')),{'steps.next.outputs.next_step':'format'}),true);
  const calls=[],github={rest:{issues:{get:async()=>({data:{labels:[{name:'agents:auto-pilot-pause'}]}}),removeLabel:async args=>{calls.push(['remove',args]);return {data:{}};},createComment:async args=>{calls.push(['comment',args]);return {data:{}};}},
   repos:{get:async()=>({data:{default_branch:'main'}})},actions:{createWorkflowDispatch:async args=>{calls.push(['dispatch',args]);return {data:{}};}}}};
- await run(wakeup,name=>{assert.equal(name,'./.github/scripts/github-api-with-retry.js');return {createTokenAwareRetry:async()=>({withRetry:fn=>fn(github)})};},
-  {github,env:{ISSUE_NUMBER:'9'}});
- const dispatch=calls.filter(row=>row[0]==='dispatch');assert.equal(dispatch.length,1);assert.deepEqual(dispatch[0][1].inputs,{issue_number:'9',force_step:'format'});
- assert.equal(calls.filter(row=>row[0]==='remove').length,1);
+ await run(step(source,'Clear pause and redispatch format step'),name=>{assert.equal(name,'./.github/scripts/github-api-with-retry.js');return {createTokenAwareRetry:async()=>({withRetry:fn=>fn(github)})};},{github,env:{ISSUE_NUMBER:'9'}});
+ assert.equal(calls.filter(([name])=>name==='remove').length,1);assert.deepEqual(calls.find(([name])=>name==='dispatch')[1].inputs,{issue_number:'9',force_step:'format'});
 });
-for(const surface of autopilotSurfaces)test(`${surface}: actual native create/retention catch fails typed unknown or 422 and preserves ordinary 422`,async()=>{
- const authored=script(step(read(surface),'Execute step - Create PR')),start=authored.indexOf('try {\n  const nativeCreateResponse');assert.ok(start>=0);
- const branch=authored.slice(start);new AsyncFunction('require','github','core','context','process','withRetry','prTitle','branchName','baseBranch','prBody','issueNumber','agentKey','stepCount',branch);
- for(const mode of ['native-unknown','already-exists','retention-failed','ordinary-exists']) {
-  const calls=[],core=coreFixture(),typed=mode!=='ordinary-exists',github={rest:{pulls:{create:async args=>{calls.push('create');if(typed)assert.deepEqual(args.request,{timeout:15000,retries:0});else assert.equal(args.request,undefined);if(mode!=='retention-failed')throw Object.assign(Error(mode.includes('exists')?'already exists':'unknown native create'),{status:mode.includes('exists')?422:503});return {status:201,data:{number:10}};}},issues:{createComment:async()=>{calls.push('fallback-comment');return {data:{}};}}}};
-  const inertRequire=name=>name==='path'?path:name.endsWith('/verifier_correction_artifacts')?{runtimeArtifactClient:async()=>({}),createArtifactTransport:async()=>({})}:
-   name.endsWith('/verifier_correction_autopilot')?{retainCreatedPull:async()=>{calls.push('retain');throw Error('native create retained outcome unknown');}}:(()=>{throw Error(`Unexpected ${name}`);})();
-  const evaluate=()=>new AsyncFunction('require','github','core','context','process','withRetry','prTitle','branchName','baseBranch','prBody','issueNumber','agentKey','stepCount',branch)
-   (inertRequire,github,core,{runId:900,repo:{owner:'stranske',repo:'example'}},{env:{CORRECTION_SELECTOR:typed?'{}':'',CORRECTION_STARTED:'{}',WORKFLOWS_SCRIPTS_PATH:'/inert/source',RUNNER_TEMP:'/inert/temp',GITHUB_RUN_ATTEMPT:'1'}},
-    (fn,options)=>{if(typed)assert.equal(options.maxRetries,0);return fn(github);},'title','branch','main','body',9,'codex',1);
-  if(typed)await assert.rejects(evaluate());else await evaluate();assert.equal(calls.filter(row=>row==='create').length,1);assert.equal(calls.includes('fallback-comment'),false);
-  assert.equal(core.outputs.correction_pr,undefined);
+const legacyActivation='<!-- agent-activation-marker -->\nAgent worker (codex) activated for branch `codex/issue-9`.\n\n@codex start\n**Focus on this task first:** `task-1` — Exact single task\n\nImplement **only** this task in your first commit.\nEnsure the code compiles and existing tests pass before moving on.\nThe keepalive loop will assign subsequent tasks after this one is complete.';
+for(const surface of beltSurfaces)test(`${surface}: actual ordinary Belt create/update payload remains exact without correction APIs`,async()=>{
+ for(const update of [false,true]) {
+  const calls=[],comments=update?[{id:87,body:'<!-- agent-activation-marker --> old'}]:[],issues=Object.fromEntries(['listComments','createComment','updateComment','deleteComment'].map(method=>[method,async args=>{calls.push([method,args]);return {data:{}};}]));
+  const github={rest:{issues,actions:new Proxy({},{get(){throw Error('unrelated correction history unavailable');}})}};
+  const values={'steps.pr.outputs.number':'10','steps.ctx.outputs.branch':'codex/issue-9','steps.mode.outputs.dry_run':'false','steps.ledger_start.outputs.task_id':'task-1','steps.ledger_start.outputs.task_title':'Exact single task','steps.ctx.outputs.agent_key':'codex'};
+  const code=script(step(read(surface),'Post activation comment')).replace(/\$\{\{\s*(.*?)\s*\}\}/g,(_,key)=>{assert.ok(key in values);return values[key];});
+  await new AsyncFunction('require','github','core','context','process',code)(name=>{assert.equal(name,'./.github/scripts/github-api-with-retry.js');return {createTokenAwareRetry:async()=>({github,withRetry:fn=>fn(github),paginateWithRetry:async()=>comments})};},
+   github,coreFixture(),{repo:{owner:'stranske',repo:'example'}},{env:{}});
+  const writes=calls.filter(([name])=>['createComment','updateComment'].includes(name));assert.equal(writes.length,1);assert.equal(writes[0][1].body,legacyActivation);assert.equal(writes[0][1].request,undefined);
+  assert.equal(writes[0][0],update?'updateComment':'createComment');
  }
+});
+function runBody(row) {
+ const lines=row.body.split('\n'),at=lines.findIndex(line=>line==='        run: |');assert.ok(at>=0);const result=[];
+ for(const line of lines.slice(at+1)){if(line && !line.startsWith('          '))break;result.push(line.slice(10));}return result.join('\n');
+}
+test('actual ordinary reusable runner assembly keeps existing argv and complete legacy prompt without correction checkout or history',t=>{
+ const os=require('os'),{execFileSync}=require('child_process'),root=fs.mkdtempSync(path.join(os.tmpdir(),'inert-ordinary-runner-'));t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
+ fs.symlinkSync(ROOT,path.join(root,'.workflows-lib'));fs.mkdirSync(path.join(root,'.github/codex'),{recursive:true});fs.mkdirSync(path.join(root,'bin'));
+ fs.writeFileSync(path.join(root,'.github/codex/AGENT_INSTRUCTIONS.md'),'LEGACY_INSTRUCTIONS\n');fs.writeFileSync(path.join(root,'base.md'),'LEGACY_BASE\n');fs.writeFileSync(path.join(root,'AGENTS.md'),'LEGACY_REPOSITORY\n');
+ const python=execFileSync('python3',['-c','import sys;print(sys.executable)'],{encoding:'utf8'}).trim();
+ fs.writeFileSync(path.join(root,'bin/python'),'#!/bin/sh\nprintf "%s\\n" "$@" > "$ARGV_CAPTURE"\nexec "$REAL_PYTHON" "$@"\n',{mode:0o755});
+ execFileSync('/bin/bash',['--noprofile','--norc','-e','-u','-o','pipefail','-c',runBody(step(read('.github/workflows/reusable-codex-run.yml'),'Assemble prompt'))],{
+  cwd:root,env:{HOME:root,BASH_ENV:'/dev/null',ENV:'/dev/null',PATH:`${path.join(root,'bin')}:/usr/bin:/bin`,REAL_PYTHON:python,ARGV_CAPTURE:path.join(root,'argv'),
+   GITHUB_WORKSPACE:root,GITHUB_OUTPUT:path.join(root,'outputs'),BASE_PROMPT:'base.md',APPENDIX:'LEGACY_APPENDIX',MODE:'fix',PR_NUMBER:'9'}});
+ assert.deepEqual(fs.readFileSync(path.join(root,'argv'),'utf8').trim().split('\n'),['-m','scripts.runner_lib','assemble-prompt','--provider','codex','--base-prompt','base.md','--appendix','LEGACY_APPENDIX','--mode','fix','--pr-number','9','--task-appendix-file','/tmp/keepalive-artifacts/task-appendix.txt']);
+ assert.equal(fs.readFileSync(path.join(root,'codex-prompt-9.md'),'utf8'),'LEGACY_INSTRUCTIONS\n---\n\n## Task Prompt\nLEGACY_BASE\n\n## Run context\nLEGACY_APPENDIX\n\n## Repository Guidance\nLEGACY_REPOSITORY\n');
+});
+test('Workflows-local legacy fallback IDs remain distinct from consolidated consumer dispatch',()=>{
+ const root=read(autopilotSurfaces[0]),consumer=read(autopilotSurfaces[1]);
+ for(const id of ['agents-pr-meta-v4.yml','agents-keepalive-loop.yml'])assert.ok(root.includes(id));
+ for(const id of ['agents-pr-meta-v4.yml','agents-keepalive-loop.yml'])assert.equal(consumer.includes(id),false);
+ assert.ok(consumer.includes('agents-80-pr-event-hub.yml'));assert.ok(consumer.includes('agents-81-gate-followups.yml'));
 });

@@ -69,29 +69,14 @@ test('fresh existing and newly-created incumbent routing cannot override source 
 });
 
 
-test('actual effect runtime factory binds native transport into fresh host before any stage can be admitted',async()=>{
- const fs=require('fs'),vm=require('vm'),actualArtifacts=require('../verifier_correction_artifacts');
- const {digest}=require('../verification_event'),{seedForRequest,effectKey}=require('../verifier_correction_effects');
- const request=structuredClone(require('../../../tests/fixtures/verifier_correction/integration-request.json'));
- const decision=require('../../../tests/fixtures/verifier_correction/integration-decision.json');
- const qualification={...require('../../../tests/fixtures/verifier_correction/integration-qualification.json'),profile_identity_sha256:'f'.repeat(64)};
- const original=require('../../../tests/fixtures/verifier_correction/integration-original.json'),seed=seedForRequest(request);
- const collector={repository:request.target.repository,run_id:700,run_attempt:1},proof={...collector,artifact_id:1};
- const payload={schema:'closer-correction-admitted/v1',status:'admitted',classification:{status:'admitted'},request,seed,effect_key:effectKey(seed),
-  finding_text:JSON.parse(original.result_text).concerns[0],collector,decision,qualification,
-  bundle:require('../../../tests/fixtures/verifier_correction/integration-seed-bundle.json'),
-  decision_proof:{status:'authenticated',decision_sha256:digest(decision),profile_identity_sha256:'f'.repeat(64)}};
- const transport={current:{run_id:700,run_attempt:1},canonicalRun:async()=>{},
-  load:async()=>({bytes:Buffer.from(JSON.stringify({...payload,context_sha256:digest(payload)})),proof}),
-  read:async()=>({...original.pull,merged:true,merged_at:'2026-10-25T12:00:00Z'})};
- const module={exports:{}};let nativeConstruction=0;
- vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../verifier_correction_runtime.js'),'utf8'),{module,Buffer,require:name=>{
-  if(name==='./verifier_correction_artifacts')return {...actualArtifacts,createArtifactLedger:async()=>({})};
-  if(name==='./verifier_correction_host')return {createFreshCollector:async args=>{
-   nativeConstruction++;assert.equal(args.transport,transport);throw Error('native-host-binding-confirmed');
-  }};
-  return name.startsWith('./')?require(path.join(__dirname,'..',name)):require(name);
- }});
- await assert.rejects(module.exports.createRuntime({github:{},transport,selector:proof,current:transport.current,registryPath,pythonRoot:'.'}),/native-host-binding-confirmed/);
- assert.equal(nativeConstruction,1);
+test('production effect and continuation factories are source-disabled before native reads or effects',async()=>{
+ const {createRuntime,createAutopilotRuntime}=require('../verifier_correction_runtime');
+ let reads=0;
+ const transport=new Proxy({}, {get(){reads++;throw Error('disabled host must not touch transport');}});
+ for(const create of [createRuntime,createAutopilotRuntime]) {
+  await assert.rejects(create({github:{},transport,selector:{},current:{},registryPath,pythonRoot:'.',
+   // Caller/environment-like switches cannot change the source deployment policy.
+   enabled:true,effects_enabled:true}),/typed_correction_effects_not_deployed/);
+ }
+ assert.equal(reads,0);
 });

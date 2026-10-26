@@ -100,7 +100,14 @@ async function loadAdmitted({transport,selector}) {
   && validateCorrectionDecision(context).status==='admitted','Original retained classification origin unavailable');
  return {context,proof:loaded.proof};
 }
+// Explicit source deployment policy, independent of role/profile/secret state.
+// Pure kernel fixtures remain usable; production host factories cannot activate
+// typed effects until reviewed durable subject enrollment replaces broad scans.
+function requireDeployedCorrectionEffects() {
+ throw Error('typed_correction_effects_not_deployed: collection-only source release');
+}
 async function createRuntime({github,transport,selector,current,registryPath,pythonRoot,clock=()=>new Date(),qualificationLoader=null}) {
+ requireDeployedCorrectionEffects();
  const {context,proof}=await loadAdmitted({transport,selector}),request=context.request;
  await transport.canonicalRun(current.run_id,current.run_attempt,'.github/workflows/agents-verify-to-new-pr.yml');
  const pull=await transport.read('pulls','get',{pull_number:Number(request.target.pr)});
@@ -131,6 +138,7 @@ async function createRuntime({github,transport,selector,current,registryPath,pyt
 module.exports={activeExecutions,existingVerdictPolicy,loadAdmitted,createRuntime,requireCorrectionCodingIntake};
 
 async function createAutopilotRuntime({github,transport,selector,current,registryPath,pythonRoot,clock=()=>new Date(),qualificationLoader=null}) {
+ requireDeployedCorrectionEffects();
  const {context,proof}=await loadAdmitted({transport,selector:selector.collector}),request=context.request;
  const pull=await transport.read('pulls','get',{pull_number:Number(request.target.pr)});
  need(pull.merged===true && typeof pull.merged_at==='string' && Number.isFinite(Date.parse(pull.merged_at)),

@@ -111,14 +111,13 @@ function evaluatedFixture(f,{onGuard=null,verifier=''}={}) {
   paginate:async(fn,args)=>(await fn(args)).data};
  const module={exports:{}},baseState=require('../keepalive_state');
  const inertRequire=name=>{
-  if(name==='./verifier_correction_runtime')return {guardCorrectionKeepalive:async options=>{calls.guards.push(options.agentKey);onGuard?.(calls.guards.length,f);
-   return guardCorrectionKeepalive({...options,transport:f.transport});}};
+  if(name==='./verifier_correction_runtime'){calls.guards.push('unexpected correction runtime import');throw Error('ordinary keepalive must not depend on correction discovery');}
   if(name==='./github-rate-limited-wrapper')return {ensureRateLimitWrapped:async({github})=>github};
   if(name==='./github-api-cache-client')return {getGithubApiCache:()=>cache};
   if(name==='./keepalive_state')return {...baseState,loadKeepaliveState:async()=>({state,commentId:0})};
   if(name==='./token_load_balancer')return null;
   if(name==='./conflict_detector')return {detectConflicts:async()=>({hasConflict:false,files:[]})};
-  if(name==='./agent_delegation_policy.js')return {...require('../agent_delegation_policy'),recentInstallFailures:()=>new Set(['codex']),
+  if(name==='./agent_delegation_policy.js')return {...require('../agent_delegation_policy'),recentInstallFailures:()=>new Set(),
    decideNextAgent:async args=>{calls.delegation.push(args);throw Error('typed correction must not delegate');}};
   return name.startsWith('./')?require(path.join(__dirname,'..',name)):require(name);
  };
@@ -127,18 +126,14 @@ function evaluatedFixture(f,{onGuard=null,verifier=''}={}) {
  if(verifier){f.pr.body='## Tasks\n- [x] Implementation complete\n## Acceptance Criteria\n- [x] Verify exact correction\n<!-- keepalive-config:start -->\n'+JSON.stringify({keepalive_enabled:true,verifier_agent:verifier})+'\n<!-- keepalive-config:end -->';}
  return {calls,evaluate:()=>module.exports.evaluateKeepaliveLoop({github,context:f.hostContext,core:{info(){},warning(){},debug(){},setOutput(){}}})};
 }
-test('actual keepalive evaluation checks native scope twice and preserves supported run without automatic delegation',async()=>{
- const f=keepaliveFixture(),e=evaluatedFixture(f),result=await e.evaluate();
- assert.equal(result.action,'run');assert.equal(result.agentType,'codex');assert.deepEqual(e.calls.guards,['codex','codex']);
- assert.deepEqual(e.calls.delegation,[]);assert.deepEqual(e.calls.effects,[]);
+test('ordinary keepalive evaluation remains runnable without correction discovery or unknown history coupling',async()=>{
+ const f=keepaliveFixture();f.transport.runs=async()=>{throw Error('unrelated expired history must not be read');};
+ const e=evaluatedFixture(f),result=await e.evaluate();assert.equal(result.action,'run');assert.equal(result.agentType,'codex');
+ assert.deepEqual(e.calls.guards,[]);assert.deepEqual(e.calls.effects,[]);
 });
-test('actual final keepalive guard catches newly relabeled ownership before returned execution',async()=>{
- const f=keepaliveFixture(),e=evaluatedFixture(f,{onGuard:count=>{if(count===2)f.native.fresh.labels=[{name:'agent:claude'}];}});
- await assert.rejects(e.evaluate(),/fresh incumbent routing differs/);assert.deepEqual(e.calls.guards,['codex','codex']);assert.deepEqual(e.calls.delegation,[]);assert.deepEqual(e.calls.effects,[]);
-});
-test('actual independent verifier selection cannot substitute an unsupported correction runner',async()=>{
- const f=keepaliveFixture(),e=evaluatedFixture(f,{verifier:'claude'});
- await assert.rejects(e.evaluate(),/Owned UNKNOWN/);assert.deepEqual(e.calls.guards,['codex','claude']);assert.deepEqual(e.calls.delegation,[]);assert.deepEqual(e.calls.effects,[]);
+test('ordinary independent verifier routing remains intact without correction runtime imports',async()=>{
+ const e=evaluatedFixture(keepaliveFixture(),{verifier:'claude'}),result=await e.evaluate();
+ assert.equal(result.action,'run');assert.equal(result.agentType,'claude');assert.deepEqual(e.calls.guards,[]);assert.deepEqual(e.calls.effects,[]);
 });
 test('native typed coding PR must positively remain open, non-draft and have complete hold labels',async()=>{
  for(const mutate of [f=>{f.native.fresh.state='closed';},f=>{f.native.fresh.draft=true;},f=>{delete f.native.fresh.draft;},
@@ -146,16 +141,12 @@ test('native typed coding PR must positively remain open, non-draft and have com
   const f=keepaliveFixture();mutate(f);await assert.rejects(f.guard(),/Owned UNKNOWN/);
  }
 });
-test('actual final evaluation guard preserves a newly added human hold before returning runnable work',async()=>{
- const f=keepaliveFixture(),e=evaluatedFixture(f,{onGuard:count=>{if(count===2)f.native.fresh.labels.push({name:'needs-human'});}});
- await assert.rejects(e.evaluate(),/current operator hold/);assert.deepEqual(e.calls.guards,['codex','codex']);assert.deepEqual(e.calls.effects,[]);
+test('ordinary keepalive preserves existing human stop controls',async()=>{
+ const f=keepaliveFixture();f.pr.labels.push({name:'needs-human'});const e=evaluatedFixture(f),result=await e.evaluate();
+ assert.equal(result.action,'skip');assert.equal(result.reason,'needs-human');assert.deepEqual(e.calls.guards,[]);assert.deepEqual(e.calls.effects,[]);
 });
-test('authored final evaluation guard covers every existing execution action and review after final routing',()=>{
+test('ordinary keepalive imports no correction runtime and retains automatic routing decision',()=>{
  const source=fs.readFileSync(path.join(pythonRoot,'.github/scripts/keepalive_loop.js'),'utf8');
- const early=source.indexOf('const correctionScope = await guardCorrectionKeepalive'),delegation=source.indexOf("if (!correctionScope && (agentRoutingMode === 'auto' || recoveringInstallFailure))"),
- final=source.indexOf('await guardCorrectionKeepalive({ github, context, pr, agentKey: resolvedAgentType })');
- assert.ok(early>0 && early<delegation);assert.ok(final>source.indexOf('const resolvedAgentType ='));
- assert.match(source,/AGENT_EXECUTION_ACTIONS = new Set\(\['run', 'fix', 'conflict'\]\)/);
- assert.match(source,/if \(AGENT_EXECUTION_ACTIONS\.has\(action\) \|\| action === 'review'\)/);
- assert.ok(final<source.indexOf('    return {\n      prNumber,\n      prRef: pr.head.ref',final));
+ assert.doesNotMatch(source,/verifier_correction|guardCorrectionKeepalive|correctionScope/);
+ assert.match(source,/if \(agentRoutingMode === 'auto' \|\| recoveringInstallFailure\)/);
 });

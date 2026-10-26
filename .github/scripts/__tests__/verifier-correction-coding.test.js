@@ -48,7 +48,7 @@ function fixture(existing=false,{number=9,run=700,pr='7',sourceDigest=null,comme
  return {request,context,issue,records,transport,calls,rebuild,metadata,store,nativeRun,jobs,run};
 }
 const base='<!-- agent-activation-marker -->\nAgent worker activated.\n\n@codex start\n**Focus on this task first:** exact-incumbent-task';
-for(const existing of [false,true])test(`real ${existing?'existing':'no-incumbent'} scope reaches complete final Belt activation with typed required tests`,async()=>{
+for(const existing of [false,true])test(`real ${existing?'existing':'no-incumbent'} offline scope fits complete text with typed required tests`,async()=>{
  const f=fixture(existing),scope=await resolveCodingScope({transport:f.transport,issueNumber:9});
  assert.equal(scope.original_issue_body,f.issue.body);assert.equal(scope.finding_text,f.context.finding_text);assert.deepEqual(scope.required_tests,f.request.required_tests);
  const final=fitCodingText({base,scope,budget:'100000',pythonRoot});
@@ -149,20 +149,8 @@ async function executeActivation({scope=null,budget='100000',update=false,calls=
  return calls;
 }
 const legacyActivation='<!-- agent-activation-marker -->\nAgent worker (codex) activated for branch `codex/issue-9`.\n\n@codex start\n**Focus on this task first:** `task-1` — Exact single task\n\nImplement **only** this task in your first commit.\nEnsure the code compiles and existing tests pass before moving on.\nThe keepalive loop will assign subsequent tasks after this one is complete.';
-for(const surface of beltSurfaces)for(const existing of [false,true])test(`${surface}: actual Belt activation caller preserves ${existing?'incumbent':'new-issue'} scope in native ${existing?'update':'create'}Comment`,async()=>{
- const f=fixture(existing),scope=await resolveCodingScope({transport:f.transport,issueNumber:9});
- const calls=await executeActivation({scope,update:existing,surface}),writes=calls.filter(row=>['createComment','updateComment'].includes(row[0]));
- assert.equal(writes.length,1);assert.deepEqual(writes[0][1].request,{timeout:15000,retries:0});const body=writes[0][1].body;
- assert.equal(body,fitCodingText({base:legacyActivation,scope,budget:'100000',pythonRoot}));
- assert.ok(body.includes(scope.original_issue_body));const data=JSON.parse(body.slice(body.indexOf('{')));
- assert.equal(data.finding_text,scope.finding_text);assert.deepEqual(data.required_tests,scope.required_tests);
-});
 for(const surface of beltSurfaces)test(`${surface}: actual Belt absent-overlay activation remains byte-identical legacy single-task prompt`,async()=>{
  const calls=await executeActivation({surface});assert.equal(calls.find(row=>row[0]==='createComment')[1].body,legacyActivation);assert.equal(calls.find(row=>row[0]==='createComment')[1].request,undefined);
-});
-for(const surface of beltSurfaces)test(`${surface}: actual Belt activation over-budget or unconfigured scope aborts before comment inventory or trigger`,async()=>{
- const f=fixture(),scope=await resolveCodingScope({transport:f.transport,issueNumber:9});
- for(const budget of [null,'','1']){const calls=[];await assert.rejects(executeActivation({scope,budget,calls,surface}));assert.deepEqual(calls,[]);}
 });
 const {loadReviewedQualification}=require('../verifier_correction_collector');
 const {recheckCodingAdmission}=require('../verifier_correction_runtime');
@@ -279,40 +267,6 @@ test('coding policy observation records exact existing configuration and minimum
  for(const extra_arguments of ['--model different','["--sandbox", "danger-full-access"]','[ ]'])
   assert.throws(()=>codingPolicyObservation({scope:f.scope,currentBudget:'200000',configuration:{...configuration,extra_arguments},current:{run_id:900,run_attempt:2}}),/unbound extra arguments/);
 });
-function providerPreflightScript() {
- const text=fs.readFileSync(path.join(pythonRoot,'.github/workflows/reusable-codex-run.yml'),'utf8'),section=text.slice(text.indexOf('      - name: Recheck mandatory correction admission before coding'));
- const lines=section.split('\n'),at=lines.findIndex(row=>row.trim()==='script: |'),code=[];
- for(const row of lines.slice(at+1)){if(row && !row.startsWith('            '))break;code.push(row.slice(12));}
- return code.join('\n');
-}
-async function runProviderPreflight(f,{extra='',budget='200000',files={}}={}) {
- const env={RUNNER_TEMP:'/inert/runner',GITHUB_RUN_ATTEMPT:'2',CORRECTION_CONTEXT_FILE:'/inert/coding-scope.json',ISSUE_PR_CONTEXT_TOKEN_BUDGET:budget,
-  CORRECTION_REQUESTED_MODEL:'fixture-selected',CORRECTION_MODEL_CANDIDATES:'fixture-selected fixture-fallback',CORRECTION_REQUESTED_EFFORT:'xhigh',CORRECTION_REQUESTED_SANDBOX:'read-only',CORRECTION_EXTRA_ARGUMENTS:extra};
- const inertRequire=name=>{
-  if(name==='path')return {...path,join:(...parts)=>parts[0]==='/inert/runner' && parts[1]==='correction-intake'?pythonRoot:path.join(...parts)};
-  if(name==='fs')return {readFileSync:filename=>{assert.equal(filename,env.CORRECTION_CONTEXT_FILE);return JSON.stringify(f.scope);},writeFileSync:(filename,body)=>{files[filename]=body;}};
-  if(name.endsWith('/verifier_correction_artifacts'))return {createArtifactTransport:async()=>f.transport};
-  assert.equal(name,path.join(pythonRoot,'.github/scripts/verifier_correction_runtime'));return require(name);
- };
- const AsyncFunction=Object.getPrototypeOf(async function(){}).constructor;
- await new AsyncFunction('require','github','core','context','process',providerPreflightScript())(inertRequire,f.github,{},
-  {runId:900,repo:{owner:'stranske',repo:'example'}},{env});return files;
-}
-test('actual authored pre-provider script freshly authenticates original scope and captures requested policy without model calls',async()=>{
- const f=await freshFixture();f.calls.splice(0);const files=await runProviderPreflight(f),policy=JSON.parse(files['/inert/runner/codex-correction-policy.json']);
- assert.ok(f.calls.some(row=>row[0]==='load' && row[1]==='admitted'));assert.ok(f.calls.some(row=>row[0]==='load' && row[1]==='ledger'));
- assert.deepEqual(Object.keys(files),['/inert/runner/codex-correction-policy.json']);assert.equal(files[path.join(pythonRoot,'codex-correction-policy.json')],undefined);
- assert.equal(policy.repository,f.scope.admitted_selector.repository);assert.equal(policy.request_sha256,f.scope.request_sha256);
- assert.equal(policy.selected_estimated_input_tokens,100000);assert.equal(policy.run_id,900);assert.equal(policy.run_attempt,2);
- assert.equal(policy.requested_configuration.model,'fixture-selected');assert.equal(policy.requested_configuration.reasoning_effort,'xhigh');assert.equal(policy.requested_configuration.sandbox,'read-only');
- for(const flag of ['native_capacity_attested','effective_configuration_attested','provider_execution_attested','act_authorized','source_closure_authorized'])assert.equal(policy[flag],false);
-});
-test('actual authored pre-provider script holds unknown CLI overrides and substituted admission before any output/provider',async()=>{
- const f=await freshFixture(),files={};await assert.rejects(runProviderPreflight(f,{extra:'--model unbound-model',files}),/unbound extra arguments/);assert.deepEqual(files,{});
- f.scope.admitted_selector.artifact_id=999999;await assert.rejects(runProviderPreflight(f,{files}));assert.deepEqual(files,{});
-});
-
-
 test('authenticated existing issue with native null body carries empty original scope through actual final fitting',async()=>{
  const f=fixture(true,{issueBody:null}),scope=await resolveCodingScope({transport:f.transport,issueNumber:9});
  assert.equal(scope.original_issue_body,'');assert.equal(scope.issue.body_sha256,sha(''));
@@ -324,16 +278,4 @@ test('authenticated existing issue with native null body carries empty original 
   const bad=fixture(true,{issueBody:''});bad.issue.body=value;
   await assert.rejects(resolveCodingScope({transport:bad.transport,issueNumber:9}));
  }
-});
-
-for(const surface of beltSurfaces)test(`${surface}: typed activation cannot silently lose a complete over-limit scope or failed native upsert`,async()=>{
- const f=fixture();f.issue.body='x'.repeat(34000);const identity=issueIdentity(f.issue);
- f.records[1].issue=identity;f.records[1].creation_response.issue=identity;
- for(const row of f.records){const {record_sha256,...value}=row;row.record_sha256=digest(value);}f.rebuild();
- const scope=await resolveCodingScope({transport:f.transport,issueNumber:9}),calls=[];
- await assert.rejects(executeActivation({scope,surface,calls}),/exceeds GitHub comment limit/);assert.deepEqual(calls,[]);
- const ordinary=fixture(),small=await resolveCodingScope({transport:ordinary.transport,issueNumber:9});
- for(const update of [false,true]) {const attempts=[];await assert.rejects(executeActivation({scope:small,surface,update,failWrite:true,calls:attempts}),/native upsert failed/);
-  assert.equal(attempts.filter(row=>['createComment','updateComment'].includes(row[0])).length,1);}
- const legacy=await executeActivation({surface,failWrite:true});assert.ok(legacy.some(row=>row[0]==='warning'));
 });

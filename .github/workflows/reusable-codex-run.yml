@@ -626,63 +626,6 @@ jobs:
           orchestrator_skill_pack: ${{ inputs.orchestrator_skill_pack }}
           orchestrator_skill_enabled: ${{ inputs.orchestrator_skill_enabled }}
 
-      - name: Reserve correction intake checkout path
-        if: inputs.pr_number != ''
-        run: |
-          if [ -e .correction-lib ]; then
-            echo '::error::Correction intake checkout path already exists; hold without overwriting workspace content.'
-            exit 1
-          fi
-
-      - name: Checkout reviewed correction intake
-        if: inputs.pr_number != ''
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          repository: stranske/Workflows
-          ref: main
-          token: ${{ secrets.GITHUB_TOKEN }}
-          persist-credentials: false
-          path: .correction-lib
-          sparse-checkout: |
-            .github/scripts
-            scripts
-            tools
-
-      - name: Move reviewed correction intake outside target tree
-        if: inputs.pr_number != ''
-        run: |
-          if [ -e "$RUNNER_TEMP/correction-intake" ]; then
-            echo '::error::Correction intake runtime path already exists; hold.'
-            exit 1
-          fi
-          mv .correction-lib "$RUNNER_TEMP/correction-intake"
-
-      - name: Resolve mandatory correction coding scope
-        if: inputs.pr_number != ''
-        env:
-          CORRECTION_ISSUE: ""
-          CORRECTION_PR: "${{ inputs.pr_number }}"
-          CORRECTION_READ_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          ISSUE_PR_CONTEXT_TOKEN_BUDGET: ${{ vars.ISSUE_PR_CONTEXT_TOKEN_BUDGET }}
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const path=require('path'),fs=require('fs');
-            const root=path.join(process.env.RUNNER_TEMP,'correction-intake');
-            const {createArtifactTransport}=require(path.join(root,'.github/scripts/verifier_correction_artifacts'));
-            const {resolvePullCodingScope,fitCodingText,recheckCodingAdmission}=require(path.join(root,'.github/scripts/verifier_correction_runtime'));
-            const repository=`${context.repo.owner}/${context.repo.repo}`.toLowerCase();
-            const transport=await createArtifactTransport({github,repository,current:{run_id:context.runId,run_attempt:Number(process.env.GITHUB_RUN_ATTEMPT)}});
-            const scope=await resolvePullCodingScope({transport,github,pullNumber:Number(process.env.CORRECTION_PR)});
-            if(scope===null)return;
-            await recheckCodingAdmission({github,transport,scope,pythonRoot:root});
-            fitCodingText({base:'',scope,budget:process.env.ISSUE_PR_CONTEXT_TOKEN_BUDGET,pythonRoot:root});
-            const file=path.join(process.env.RUNNER_TEMP,'mandatory-correction-context.json');
-            fs.writeFileSync(file,JSON.stringify(scope));
-            core.exportVariable('CORRECTION_CONTEXT_FILE',file);
-            core.exportVariable('ISSUE_PR_CONTEXT_TOKEN_BUDGET',process.env.ISSUE_PR_CONTEXT_TOKEN_BUDGET);
-
       - name: Assemble prompt
         id: prompt
         env:
@@ -700,18 +643,8 @@ jobs:
             --pr-number "$PR_NUMBER"
             --task-appendix-file /tmp/keepalive-artifacts/task-appendix.txt
           )
-          if [ -n "${CORRECTION_CONTEXT_FILE:-}" ]; then
-            # Pin mandatory assembly to the trusted Workflows checkout; cwd
-            # otherwise wins over PYTHONPATH and could load a stale PR copy.
-            (
-              cd "$RUNNER_TEMP/correction-intake"
-              python -I -c 'import runpy,sys; sys.path.insert(0,sys.argv.pop(1)); runpy.run_module("scripts.runner_lib",run_name="__main__")' \
-                "$RUNNER_TEMP/correction-intake" assemble-prompt --workspace "$GITHUB_WORKSPACE" "${assemble_args[@]}"
-            )
-          else
-            PYTHONPATH="${GITHUB_WORKSPACE}/.workflows-lib:${GITHUB_WORKSPACE}" \
-              python -m scripts.runner_lib assemble-prompt "${assemble_args[@]}"
-          fi
+          PYTHONPATH="${GITHUB_WORKSPACE}/.workflows-lib:${GITHUB_WORKSPACE}" \
+            python -m scripts.runner_lib assemble-prompt "${assemble_args[@]}"
 
       - name: Expose cached Codex CLI
         run: echo "${{ runner.temp }}/agent-cli/codex/bin" >> "$GITHUB_PATH"
@@ -1001,33 +934,6 @@ jobs:
             echo "- Selection reason: \`$reason\`"
             echo "- Candidate order: \`$candidates\`"
           } >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Recheck mandatory correction admission before coding
-        if: env.CORRECTION_CONTEXT_FILE != ''
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
-        env:
-          CORRECTION_REQUESTED_MODEL: ${{ steps.codex_model.outputs.model }}
-          CORRECTION_MODEL_CANDIDATES: ${{ steps.codex_model.outputs.candidates }}
-          CORRECTION_REQUESTED_EFFORT: ${{ inputs.codex_reasoning_effort }}
-          CORRECTION_REQUESTED_SANDBOX: ${{ inputs.sandbox }}
-          CORRECTION_EXTRA_ARGUMENTS: ${{ inputs.codex_args }}
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const path=require('path'),fs=require('fs');
-            const root=path.join(process.env.RUNNER_TEMP,'correction-intake');
-            const {createArtifactTransport}=require(path.join(root,'.github/scripts/verifier_correction_artifacts'));
-            const {recheckCodingAdmission,codingPolicyObservation}=require(path.join(root,'.github/scripts/verifier_correction_runtime'));
-            const transport=await createArtifactTransport({github,repository:`${context.repo.owner}/${context.repo.repo}`.toLowerCase(),
-              current:{run_id:context.runId,run_attempt:Number(process.env.GITHUB_RUN_ATTEMPT)}});
-            const scope=JSON.parse(fs.readFileSync(process.env.CORRECTION_CONTEXT_FILE,'utf8'));
-            await recheckCodingAdmission({github,transport,pythonRoot:root,scope});
-            const observation=codingPolicyObservation({scope,currentBudget:process.env.ISSUE_PR_CONTEXT_TOKEN_BUDGET,
-              current:{run_id:context.runId,run_attempt:Number(process.env.GITHUB_RUN_ATTEMPT)},configuration:{
-                model:process.env.CORRECTION_REQUESTED_MODEL,candidates:(process.env.CORRECTION_MODEL_CANDIDATES || '').split(/\s+/).filter(Boolean),
-                reasoning_effort:process.env.CORRECTION_REQUESTED_EFFORT,sandbox:process.env.CORRECTION_REQUESTED_SANDBOX,
-                extra_arguments:process.env.CORRECTION_EXTRA_ARGUMENTS}});
-            fs.writeFileSync(path.join(process.env.RUNNER_TEMP,'codex-correction-policy.json'),JSON.stringify(observation)+'\n');
 
       - name: Run Codex
         id: run_codex
@@ -1942,15 +1848,6 @@ jobs:
           git push "${REMOTE_URL}" "HEAD:${TARGET_BRANCH}"
 
           echo "::notice::Pushed commit ${COMMIT_SHA} with ${CHANGED_FILES} file(s) changed"
-
-      - name: Upload correction coding policy observation
-        if: always() && env.CORRECTION_CONTEXT_FILE != ''
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: codex-correction-policy-${{ github.run_id }}-${{ github.run_attempt }}
-          path: ${{ runner.temp }}/codex-correction-policy.json
-          retention-days: 14
-          if-no-files-found: ignore
 
       - name: Upload Codex output
         if: always()

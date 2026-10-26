@@ -351,7 +351,7 @@ def test_final_runner_holds_leave_existing_prompt_file_untouched(tmp_path, failu
 
 
 @pytest.mark.parametrize("original", [BODY, ""])
-def test_runner_assemble_cli_reads_exact_selected_context_and_budget(
+def test_runner_assemble_cli_refuses_unsupported_typed_context_before_writing(
     tmp_path, monkeypatch, capsys, original
 ):
     core, settings, scope, scope_file, ordinary = runner_fixture(tmp_path)
@@ -375,22 +375,13 @@ def test_runner_assemble_cli_reads_exact_selected_context_and_budget(
         reference_pack_name=None,
         provider="codex",
     )
-    assert core._cmd_assemble(args) == 0
-    written = (tmp_path / settings["output_file"]).read_text(encoding="utf-8")
-    assert (
-        written
-        == ordinary
-        + "\n## Complete original issue scope\n"
-        + original
-        + render_correction_context(scope)
-        + "\n"
-    )
-    assert '"file": "final-prompt.md"' in capsys.readouterr().out
-    (tmp_path / settings["output_file"]).unlink()
-    monkeypatch.delenv("ISSUE_PR_CONTEXT_TOKEN_BUDGET")
-    with pytest.raises(ValueError, match="correction_budget_unconfigured"):
+    with pytest.raises(ValueError, match="typed_correction_effects_not_deployed"):
         core._cmd_assemble(args)
     assert not (tmp_path / settings["output_file"]).exists()
+    assert capsys.readouterr().out == ""
+    monkeypatch.delenv("CORRECTION_CONTEXT_FILE")
+    assert core._cmd_assemble(args) == 0
+    assert (tmp_path / settings["output_file"]).read_text(encoding="utf-8") == ordinary
 
 
 def test_isolated_trusted_runner_bootstrap_ignores_poisoned_consumer_python(tmp_path, monkeypatch):
@@ -441,15 +432,10 @@ def test_isolated_trusted_runner_bootstrap_ignores_poisoned_consumer_python(tmp_
         text=True,
         timeout=20,
     )
-    assert result.returncode == 0, result.stderr
+    assert result.returncode != 0
+    assert "typed_correction_effects_not_deployed" in result.stdout + result.stderr
     assert "POISON_" not in result.stdout + result.stderr
-    assert (tmp_path / "final-prompt.md").read_text() == (
-        ordinary
-        + "\n## Complete original issue scope\n"
-        + BODY
-        + render_correction_context(scope)
-        + "\n"
-    )
+    assert not (tmp_path / "final-prompt.md").exists()
 
 
 @pytest.mark.parametrize(

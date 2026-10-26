@@ -292,6 +292,26 @@ test('formatter native response failure cannot produce a retained ownership arti
 });
 
 
+// This is a synthetic retained pre-split workflow, used only to exercise the
+// unpublished proof parser. Current ordinary workflows intentionally do not
+// install or invoke this classifier/history contract.
+const offlineOrdinaryModeSource=`name: Inert prior-mode fixture
+jobs:
+  auto-pilot:
+    steps:
+      - name: Authenticate correction continuation
+        id: correction_auth
+        if: steps.check_enabled.outputs.enabled == 'true' && inputs.correction_selector != ''
+        uses: actions/github-script@fixture
+      - name: Determine context
+        id: context
+        if: steps.check_enabled.outputs.enabled == 'true' && (inputs.correction_selector == '' || steps.correction_auth.outputs.admitted == 'true')
+        uses: actions/github-script@fixture
+      - name: Record admitted correction start
+        id: correction_start
+        if: inputs.correction_selector != '' && steps.context.outputs.should_continue == 'true' && steps.cycles.outputs.exceeded == 'false' && steps.cycles.outputs.rate_limited == 'false' && steps.next.outputs.next_step != '' && steps.next.outputs.next_step != 'done'
+        uses: actions/github-script@fixture
+`;
 function ordinaryExecutionFixture(surface='.github/workflows/agents-auto-pilot.yml') {
  const fs=require('fs'),path=require('path'),f=fixture(),run=observations(f);
  f.transport.current={run_id:901,run_attempt:1};run.path='.github/workflows/agents-auto-pilot.yml';run.event='workflow_dispatch';
@@ -300,7 +320,7 @@ function ordinaryExecutionFixture(surface='.github/workflows/agents-auto-pilot.y
   {name:'Determine context',number:9,status:'completed',conclusion:'success'},
   {name:'Record admitted correction start',number:14,status:'completed',conclusion:'skipped'},
   {name:'Execute step - Optimize (inline)',number:16,status:'completed',conclusion:'success'}]};
- const state={source:fs.readFileSync(path.resolve(__dirname,'../../..',surface)),job};
+ const state={source:Buffer.from(`# OFFLINE fixture for ${surface}\n`+offlineOrdinaryModeSource),job};
  f.transport.canonicalRun=async(id,attempt,workflow)=>{assert.equal(id,900);assert.equal(workflow,run.path);return {...run,run_attempt:attempt};};
  f.transport.jobs=async()=>[state.job];
  f.transport.read=async(resource,method,args)=>{assert.equal(resource,'repos');assert.equal(method,'getContent');assert.equal(args.path,run.path);assert.equal(args.ref,run.head_sha);
@@ -308,7 +328,7 @@ function ordinaryExecutionFixture(surface='.github/workflows/agents-auto-pilot.y
  return {...f,state,run,scan:()=>observeStartedReceipts({transport:f.transport,request:f.context.request,since:'2026-10-25T12:00:00Z'})};
 }
 for(const surface of ['.github/workflows/agents-auto-pilot.yml','templates/consumer-repo/.github/workflows/agents-auto-pilot.yml'])
- test(`native ordinary execution is excluded only with exact authenticated mode predicates: ${surface}`,async()=>{
+ test(`offline prior-mode proof requires exact native predicates: ${surface}`,async()=>{
   const f=ordinaryExecutionFixture(surface);f.run.display_title='caller selected correction title';
   assert.deepEqual(await f.scan(),[]);assert.equal(f.calls.filter(row=>row[0]==='publish').length,0);
  });
@@ -341,4 +361,10 @@ test('missing or expired started artifacts never fall through to an ordinary-mod
  f.transport.artifacts=async()=>[{id:55,name:'verifier-correction-started-900-1',expired:true}];
  f.transport.load=async()=>{throw Error('retained receipt expired');};
  await assert.rejects(f.scan(),/retained receipt expired/);
+});
+
+test('restored ordinary workflow is not misrepresented as an installed typed-mode proof source',async()=>{
+ const fs=require('fs'),path=require('path'),f=ordinaryExecutionFixture();
+ f.state.source=fs.readFileSync(path.resolve(__dirname,'../../workflows/agents-auto-pilot.yml'));
+ await assert.rejects(f.scan(),/source step ambiguous/);
 });

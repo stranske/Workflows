@@ -1,13 +1,17 @@
 # Closer correction interface — local inert implementation
 
-This bounded interface extends the existing merged-PR follow-up issue and
-`agents-auto-pilot.yml` lane. The verifier seed, two-stage admission, durable
-phase ledger, issue/autopilot consumer, reconciliation and actual started/redispatch
-receipts are source-wired and tested with inert effects. **Production handoff
-remains UNMET**: Core's genuine classifier-output authentication is unavailable,
-its reviewed production role registry is empty, and final coding requires an
-explicit configured prompt budget. No new scheduler, provider, store or authority
-service is added. Publication does not install, qualify, dispatch or merge this code.
+This release deploys only original verifier seeds and read-only collection.
+Typed issue creation, continuation and coding are **source-disabled**; ordinary
+Auto/Belt/Codex/keepalive no longer depend on global correction-history scans.
+The pure consumer, reconciliation, scope/budget and receipt implementations below
+remain an **offline contract reference**, tested with inert effects. They are not
+active production wiring. Public request/receipt v1 schemas remain unchanged.
+
+See [the deployment boundary](VERIFIER_CORRECTION_DEPLOYMENT.md) for exact lineage,
+current diagram and the bounded subject-index design required before activation.
+Production handoff remains UNMET: genuine classifier transport, role qualification,
+selected coding policy, durable discovery and final-consumer admission are separate
+requirements. No new scheduler, provider, store or authority is installed here.
 
 ## Frozen local contract and fixtures
 
@@ -138,7 +142,7 @@ the host must authenticate collector and started-artifact run/attempt/origin.
 All receipts set retry/ACT/source-closure authority to false. No handoff clears
 NON_PASS, resolves the finding or proves required-test success.
 
-## Intermediate collection entrypoint and integration gaps
+## Current read-only collection entrypoint and offline integration gaps
 
 The existing `agents-verify-to-new-pr.yml` accepts the original
 `closer-correction-selector/v1` plus optional bounded `correction_request` and
@@ -184,13 +188,13 @@ and first-request limits are required. Missing/deleted historical checkpoints
 remain UNKNOWN unless the exact historical effect job was positively skipped;
 expiry, forks, duplicates and upload uncertainty cannot imply absence. These
 artifacts require the authenticated PR concurrency host integration; they are not
-a new store or a cross-workflow lock. The existing official Actions artifact SDK
-is installed only on the admitted correction branches using its private checked-in
+a new store or a cross-workflow lock. The retained, disabled effect-job definition installs the official Actions artifact
+SDK only if a future reviewed deployment enables that branch using its private checked-in
 package manifest and full integrity lock with install scripts disabled. The exact
 runtime module/export was checked after a cold offline install; no SDK method or
 GitHub effect was invoked. The operational Auto workflow retains its original
 Workflows-only PR-meta/keepalive fallbacks, while the consumer keeps its consolidated
-entry points. Shared correction hunks do not erase that existing routing difference. The source effect job shares the original
+entry points. The inert split preserves that existing routing difference. The disabled effect-job definition shares the original
 repository/PR concurrency group. Its fresh native collector includes all relevant
 nonterminal Actions states; missing assignment/queue evidence remains owned UNKNOWN.
 A native assignee event and versioned strict cross-reference content projection bind
@@ -198,44 +202,15 @@ existing ownership. Cross-referenced events have no numeric event ID; mutable is
 body/labels never become lineage identity. Connected events are joined using their
 actual native GraphQL source/subject nodes, not invented REST fields.
 
-Auto-pilot accepts an optional `closer-correction-continuation-selector/v1`, bound
-to the admitted collector artifact and exact dispatch-intent revision. Actual
-should-continue/step/cycle/rate gates precede a retained started receipt, followed
-by a fresh recheck. Every provider branch and redispatch requires this retained
-admission. Started means workflow admission; it does not attest provider start.
-Prepared redispatches preserve the original request/issue/node/intent and retain
-post-step observed body separately. Native PR creation HTTP201 is retained before
-owned-PR monitoring; another PR is not silently adopted. The correction formatter
-holds before model dispatch because its existing implementation replaces the issue
-body; it is not counted as delivered correction work. Unreachable typed formatter
-pause/wakeup workflow branches are removed; ordinary formatting and its existing
-wakeup path remain intact. Pure formatter proof helpers grant no active producer
-or dispatch capability.
+The retained offline auto-pilot helpers validate an optional
+`closer-correction-continuation-selector/v1`, exact collector/dispatch intent and
+actual workflow-admission run/attempt. The deployed Auto workflow instead refuses
+nonempty typed selectors before ordinary effects. Production host factories and
+the follow-up effect job are explicitly source-disabled, independently of the
+missing classifier callback. Existing ordinary branches do not invoke this
+protocol. See the deployment document for the current diagram.
 
-Core retains Orchestrator #944 integration ownership. Gate and caller hardening
-remain outside this slice.
-
-```mermaid
-flowchart LR
-    V[Original verifier event/comment] --> P[Original raw seed artifact]
-    P --> C[Two-stage trusted collector]
-    Q[Reviewed Core roles: current empty] --> C
-    D[Classifier-origin proof: Core dependency] --> C
-    C --> N[Owned UNKNOWN without genuine proof]
-    C -. admitted artifact .-> E[Existing correction effect job]
-    E --> L[Immutable issue/dispatch phase journal]
-    L --> I[Exact original/native-created issue]
-    I --> A[Existing auto-pilot gated continuation]
-    A --> R[Actual workflow-admission run/attempt receipt]
-    A --> B[Native Belt intake and mandatory scope]
-    B --> K[Independent keepalive: native scope and supported runner]
-    K --> F[Trusted final prompt assembly]
-    J[Authenticated original/current policy minimum] --> F
-    F --> H[Hold if missing budget/transport/gates or overflow]
-    L --> U[Unknown: reconcile without repetition]
-```
-
-## Mandatory finding/test delivery
+## Offline mandatory finding/test delivery
 
 The admitted context retains the exact original raw `finding_text` and all typed
 `required_tests`. Optimize/apply receive this as separate data together with the
@@ -245,14 +220,15 @@ truncating fitter. The actual rendered template is measured using existing
 client is created. Typed apply never updates the incumbent issue body, including
 with an old identical copy that could overwrite a concurrent human edit.
 
-Belt's actual activation caller and final Codex runner independently discover
-scope using complete retained admission/ledger history and exact native issue
-identity. Historical native cross-references join the coding PR ID/node/repository;
+The retained offline discovery helper uses complete retained admission/ledger
+history and exact native issue identity. Belt, final Codex and keepalive no longer
+call it on ordinary entrypoints. Historical native cross-references join the coding PR ID/node/repository;
 removing `Closes` or changing PR text cannot erase a known mandatory scope. Neither
 queue JSON nor mutable text supplies authority. Missing/expired/ambiguous history
 holds. Intake rechecks current qualification, source/incumbent holds, exact source
 and owner/assignment/lineage, original actor permission, verdict policy and deadline.
-The final provider step repeats the fresh admission check.
+Any future provider integration must repeat that admission check; current typed
+provider integration is disabled.
 
 `closer-correction-coding-context/v1` carries the authenticated admitted selector,
 original request/effect/issue identity, complete original issue body, finding text
@@ -272,9 +248,9 @@ moved outside the target tree, rather than a stale or PR-edited consumer module.
 Absent correction scope preserves the existing prompt bytes and ordinary path.
 
 
-## Local validation checkpoint
+## Historical offline validation checkpoint
 
-The source checkpoint adds native consumer/continuation/ownership and mandatory
+The offline source checkpoint retains native consumer/continuation/ownership and mandatory
 prompt suites to the existing correction tests, including 36 Python final-template
 and final runner-file cases plus the 33 qualification source-reader cases. Exact
 command counts are recorded with the reviewed publication head rather than treated
@@ -418,13 +394,12 @@ the ordinary absent-correction path is unchanged. No new model/fallback choice,
 provider call, budget value, repository variable or credential is introduced.
 
 
-Typed corrections currently require the registry-selected existing runner to be
+Offline typed correction admission requires the registry-selected existing runner to be
 `reusable-codex-run.yml`, the runner with authenticated mandatory intake and final
 coding-policy enforcement implemented here. Other selected owners remain owned
 UNKNOWN before new issue/continuation effects and before continuation admission;
-routing never substitutes a Codex writer for their incumbent. Independent keepalive
-performs native retained-scope lookup before owner delegation and rechecks after
-final runner/verifier selection. Positive typed scope requires the current coding
+routing never substitutes a Codex writer for their incumbent. The removed integration performed native scope lookup at independent keepalive;
+that repository-wide lookup is not part of the current ordinary lane. Positive typed scope requires the current coding
 PR's exact native identity/head and supported routing; missing or changed identity
 cannot erase the historical scope match. Typed requests never enter automatic
 owner delegation. Current coding PR pause/human/run-cap/failure controls hold both
@@ -435,7 +410,7 @@ budget and authenticated intake path, not merely activation metadata or an agent
 label. The unassigned Claude classifier producer arm is a separate dependency.
 
 
-## Active intent and ordinary-run reconciliation
+## Offline active intent and ordinary-run reconciliation
 
 A retained intent alone is not an unknown competing writer when it was just
 appended and read back by the current synchronous effect invocation. The private
@@ -456,9 +431,10 @@ nothing. These are existing-lane reconciliation checks, with no public schema,
 provider, credential or qualification changes.
 
 
-## Retained-history availability boundary
+## Offline retained-history availability boundary
 
-The bounded native inventory is not an unrestricted-availability promise. It
+The retained offline native inventory is not an unrestricted-availability promise.
+It is not invoked by ordinary deployed entrypoints in this release. It
 covers at most 1,000 runs and ten attempts per run; expired/missing artifacts,
 unsupported or noncanonical sources, unreadable APIs and ambiguous histories can
 hold the lane. The code excludes other subjects only after authenticated context
@@ -468,9 +444,9 @@ another subject. No trusted earlier per-run subject channel currently exists.
 Reordering authentication to ignore those records would weaken the required
 UNKNOWN fence; a new scope publisher is outside this interface and is not added.
 The ordinary-Auto exclusion above relies on positive native steps plus actual
-source bytes, not absence alone. These constraints may stop unrelated-looking
-work when its scope cannot be authenticated. They remain explicit activation and
-retention constraints.
+source bytes, not absence alone. If this discovery helper were enabled, those constraints could stop unrelated
+work when its scope cannot be authenticated. The inert split does not invoke it
+on ordinary paths; future activation must replace that coupling.
 
 Native GitHub issue/PR body `null` is normalized to empty text consistently for
 hashing and preserved-scope rendering. Missing fields and malformed non-string

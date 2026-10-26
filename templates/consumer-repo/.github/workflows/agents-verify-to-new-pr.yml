@@ -114,7 +114,6 @@ jobs:
           sparse-checkout: |
             .github/actions/setup-api-client
             .github/agents/registry.yml
-            .github/scripts
             .github/scripts/agent_registry.js
             .github/scripts/error_classifier.js
             .github/scripts/github-api-with-retry.js
@@ -150,26 +149,6 @@ jobs:
           app_2_private_key: ${{ secrets.APP_2_PRIVATE_KEY }}
 
 
-
-      - name: Fence retained scoped correction effects
-        id: correction_guard
-        if: steps.check-merged.outputs.merged == 'true'
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
-        with:
-          script: |
-            const { createArtifactTransport, guardLegacyCorrection } = require('./.github/scripts/verifier_correction_artifacts');
-            const repository = `${context.repo.owner}/${context.repo.repo}`.toLowerCase();
-            const transport = await createArtifactTransport({github,repository,
-              current:{run_id:context.runId,run_attempt:Number(process.env.GITHUB_RUN_ATTEMPT)}});
-            try {
-              const pull = await transport.read('pulls','get',{pull_number:context.payload.pull_request.number});
-              if (!pull.merged || !Number.isFinite(Date.parse(pull.merged_at))) throw new Error('Native merged history boundary unavailable');
-              await guardLegacyCorrection({transport,pr:pull.number,since:pull.merged_at});
-            } catch (error) {
-              core.setOutput('blocked','true');
-              core.setOutput('reason',String(error.message));
-              core.setFailed(`Retained corrective effect remains owned UNKNOWN: ${error.message}`);
-            }
 
       - name: Set up Python
         if: steps.check-merged.outputs.merged == 'true'
@@ -1082,8 +1061,6 @@ jobs:
           FOLLOWUP_ISSUE_NUMBER: ${{ steps.create-issue.outputs.issue_number }}
           FOLLOWUP_ISSUE_URL: ${{ steps.create-issue.outputs.issue_url }}
           DISPATCH_AUTOPILOT_OUTCOME: ${{ steps.dispatch-autopilot.outcome }}
-          CORRECTION_GUARD_BLOCKED: ${{ steps.correction_guard.outputs.blocked }}
-          CORRECTION_GUARD_REASON: ${{ steps.correction_guard.outputs.reason }}
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         with:
           github-token: ${{ steps.select-token.outputs.token }}
@@ -1113,14 +1090,7 @@ jobs:
             let policyTrigger = 'verifier-concerns';
             let policyReason = 'Verifier concerns require another implementation pass.';
 
-            if (process.env.CORRECTION_GUARD_BLOCKED === 'true') {
-              disposition = 'outcome-unknown-correction-effect';
-              reason = process.env.CORRECTION_GUARD_REASON || 'Existing scoped correction requires reconciliation.';
-              needsHuman = true;
-              policyAction = 'needs-human';
-              policyTrigger = 'retained-correction-effect';
-              policyReason = reason;
-            } else if (process.env.TERMINAL_ARTIFACT !== 'true') {
+            if (process.env.TERMINAL_ARTIFACT !== 'true') {
               disposition = 'needs-human-non-terminal-verifier';
               reason = process.env.TERMINAL_REASON ||
                 'Verifier output was partial or missing a terminal verdict.';
@@ -1397,7 +1367,11 @@ jobs:
   apply-correction:
     name: Apply admitted correction
     needs: [collect-correction]
+    # Source-disabled deployment boundary. Enabling typed effects requires a
+    # reviewed durable subject-enrollment/admission design; no input or variable
+    # can turn this collection-only release into an effect producer.
     if: >-
+      false &&
       github.event_name == 'workflow_dispatch' &&
       needs.collect-correction.outputs.admitted == 'true' &&
       needs.collect-correction.outputs.artifact_id != ''

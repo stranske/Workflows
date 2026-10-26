@@ -2883,11 +2883,6 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
     const hasHighPrivilege = labels.includes('agent-high-privilege');
     let keepaliveEnabled = config.keepalive_enabled && hasAgentLabel;
 
-    // Native retained scope is discovered before any automatic owner delegation.
-    // A typed correction may only reach a runner with mandatory final intake.
-    const { guardCorrectionKeepalive } = require('./verifier_correction_runtime');
-    const correctionScope = await guardCorrectionKeepalive({ github, context, pr, agentKey: agentType });
-
     // Operator stop-controls (#2267). The canonical event-driven loop must enforce the
     // documented pause / human-block guardrails itself — previously they lived only on
     // the orchestrator path, so `agents:paused` / `needs-human` did not actually stop
@@ -3006,7 +3001,7 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
     const installFailures = recentInstallFailures(completion);
     let recoveringInstallFailure = installFailures.has(agentType) ||
       (agentRoutingMode === 'auto' && installFailures.has(state.current_agent));
-    if (!correctionScope && (agentRoutingMode === 'auto' || recoveringInstallFailure)) {
+    if (agentRoutingMode === 'auto' || recoveringInstallFailure) {
       try {
         const { decideNextAgent, fetchRouteWeights, resolveRoundKind, DEFAULT_ROUTE_WEIGHTS_URL } =
           require('./agent_delegation_policy.js');
@@ -3488,11 +3483,6 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
       }
     }
     const resolvedAgentType = isVerificationReason ? verifierAgentType : agentType;
-    if (AGENT_EXECUTION_ACTIONS.has(action) || action === 'review') {
-      // Re-read scope and labels after final routing, including independent
-      // verifier selection. Never substitute another owner for a typed request.
-      await guardCorrectionKeepalive({ github, context, pr, agentKey: resolvedAgentType });
-    }
 
     const requestedExecutionProfile = normalise(config.execution_profile)
       || normalise(process.env.INPUT_EXECUTION_PROFILE)
