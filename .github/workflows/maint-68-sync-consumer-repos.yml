@@ -37,6 +37,10 @@ on:
         description: 'Preview changes without creating PRs'
         type: boolean
         default: false
+      cleanup_branches:
+        description: 'Allow obsolete and post-merge sync branch deletion; false is preserved through promotion and recovery'
+        type: boolean
+        default: true
       force:
         description: 'Force sync even if no changes detected'
         type: boolean
@@ -2094,6 +2098,7 @@ jobs:
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         env:
           SYNC_PHASE: ${{ needs.prepare.outputs.phase }}
+          CLEANUP_BRANCHES_INPUT: ${{ inputs.cleanup_branches }}
           PLAN_ID: ${{ needs.prepare.outputs.plan_id }}
           PLAN_SCOPE: ${{ needs.prepare.outputs.plan_scope }}
           SCOPE_BASE_SHA: ${{ needs.prepare.outputs.scope_base_sha }}
@@ -2126,7 +2131,7 @@ jobs:
               active_sync_hash: activeSyncHash,
               auto_merge: 'true',
               dry_run: 'false',
-              cleanup_branches: 'true',
+              cleanup_branches: process.env.CLEANUP_BRANCHES_INPUT || 'true',
               immutable_handoff_json: JSON.stringify({
                 plan_id: process.env.PLAN_ID,
                 plan_scope: process.env.PLAN_SCOPE,

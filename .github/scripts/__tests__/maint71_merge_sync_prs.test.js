@@ -748,6 +748,7 @@ for (const [state, change] of [
       workflow_id: 'maint-68-sync-consumer-repos.yml', ref: 'main',
       inputs: { phase: 'canary', delivery_scope: 'full', scope_head_sha: 'a'.repeat(40),
         repos: 'stranske/Ready,stranske/Template', dry_run: 'false', force: 'false',
+        cleanup_branches: 'true',
         refresh_key: require('crypto').createHash('sha256')
           .update(state === 'behind' ? `stranske/Ready:${canary.default_branch_tip_sha}:${canary.head_sha}`
             : `stranske/Ready:sha256:${'a'.repeat(64)}:${canary.head_sha}`).digest('hex') } });
