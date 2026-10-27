@@ -463,6 +463,9 @@ def test_valid_partial_counters_survive_failed_child_exit(enabled, monkeypatch):
 def _http_guarded_sdks(enabled, monkeypatch, tmp_path, requests):
     import httpx
 
+    pytest.importorskip("langchain_openai")
+    pytest.importorskip("langchain_anthropic")
+
     key = tmp_path / "key"
     key.write_bytes(b"k" * 32)
     env = runner.child_environment("square-pass", runner.PACKET / "square-pass", key)
@@ -555,6 +558,9 @@ def test_real_sdk_http_transport_bounded_and_no_redirect_fallback(
     enabled, monkeypatch, failure, tmp_path
 ):
     import httpx
+
+    pytest.importorskip("langchain_openai")
+    pytest.importorskip("langchain_anthropic")
 
     requests = []
     original = langchain_client.build_chat_clients
