@@ -1,0 +1,115 @@
+{
+  "schema": "current-review-original-acceptance-procedure/v1",
+  "created_utc": "2026-10-27T18:42:26.937157+00:00",
+  "repository": "stranske/Workflows",
+  "pr": 4265,
+  "issue": 4254,
+  "original_pr_head": "40622701645e1c9c13ff28861ba606a3f78d2e4a",
+  "meaning": "Current reviewer execution of existing exact-head acceptance tests and deliberate break/revert; not evidence of what the PR author historically ran.",
+  "source_files": {
+    "tools/coverage_guard.py": {
+      "sha256": "fd4b88605d88267a90ada88803754b4b171ba1a916ab4c5379009a74c304ba1d",
+      "git_blob": "6ce725e48749884d2ef81094a69e3b466b594a32"
+    },
+    "tests/test_coverage_guard.py": {
+      "sha256": "778b90641854081857bfdf9123a6cc28ddf5f5517f5a8da418e5d8f5f3549648",
+      "git_blob": "ff6bfeb12e7bb19bd120d14b2d44b6079b68ffd6"
+    }
+  },
+  "environment": {
+    "PATH": "/usr/bin:/bin",
+    "HOME": "/tmp/real-verify-4265-current-review-verification-20261027-final/empty-home",
+    "TMPDIR": "/tmp/real-verify-4265-current-review-verification-20261027-final/fixtures",
+    "PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1",
+    "PYTHONDONTWRITEBYTECODE": "1",
+    "LANG": "en_US.UTF-8"
+  },
+  "kernel_sandbox_profile": "(version 1)\n(allow default)\n(deny network*)\n(deny file-write*)\n(allow file-write* (subpath \"/private/tmp/real-verify-4265-current-review-verification-20261027-final\"))\n(deny file-read* (subpath \"/Users/teacher\"))\n",
+  "runs": [
+    {
+      "name": "sandbox-and-runtime-probe",
+      "argv": [
+        "/usr/bin/sandbox-exec",
+        "-f",
+        "/tmp/real-verify-4265-current-review-verification-20261027-final/sandbox.sb",
+        "/opt/anaconda3/bin/python3",
+        "-I",
+        "-B",
+        "-c",
+        "import sys,platform,socket,json; print(json.dumps({\"executable\":sys.executable,\"version\":sys.version,\"platform\":platform.platform()}));\ntry: socket.socket().connect((\"127.0.0.1\", 9))\nexcept PermissionError as e: print(\"KERNEL_NETWORK_DENIED\",type(e).__name__)\nelse: raise SystemExit(\"network sandbox unexpectedly permitted loopback connection\")"
+      ],
+      "cwd": "/tmp/real-verify-4265-current-review-verification-20261027-final/snapshot",
+      "started_utc": "2026-10-27T18:42:26.937395+00:00",
+      "exit_code": 0,
+      "stdout_sha256": "6f5a0def7d78406abf2c3bd92dc46cbbf32af268915767b81577e40288e683c4",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "original-two-named-tests",
+      "argv": [
+        "/usr/bin/sandbox-exec",
+        "-f",
+        "/tmp/real-verify-4265-current-review-verification-20261027-final/sandbox.sb",
+        "/opt/anaconda3/bin/python3",
+        "-I",
+        "-B",
+        "-c",
+        "import sys;sys.path.insert(0,'/tmp/real-verify-4265-current-review-verification-20261027-final/snapshot');import pytest;raise SystemExit(pytest.main(['--log-file', '/tmp/real-verify-4265-current-review-verification-20261027-final/original.pytest.log', '--junitxml', '/tmp/real-verify-4265-current-review-verification-20261027-final/original.junit.xml', '-q', '-o', 'addopts=', '-c', '/dev/null', '--rootdir', '/tmp/real-verify-4265-current-review-verification-20261027-final/snapshot', '--confcutdir', '/tmp/real-verify-4265-current-review-verification-20261027-final/snapshot', '--basetemp', '/tmp/real-verify-4265-current-review-verification-20261027-final/fixtures/original', '-p', 'no:cacheprovider', '/tmp/real-verify-4265-current-review-verification-20261027-final/snapshot/tests/test_coverage_guard.py::test_recovery_window_counts_records_accumulated_across_runs', '/tmp/real-verify-4265-current-review-verification-20261027-final/snapshot/tests/test_coverage_guard.py::test_recovery_message_names_records_held_and_needed']))"
+      ],
+      "cwd": "/tmp/real-verify-4265-current-review-verification-20261027-final/snapshot",
+      "started_utc": "2026-10-27T18:42:26.985429+00:00",
+      "exit_code": 0,
+      "stdout_sha256": "38025b23df21b23d371cb04835992ad56739231045e0683deb6a80c6d699b19d",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "removed-current-append",
+      "argv": [
+        "/usr/bin/sandbox-exec",
+        "-f",
+        "/tmp/real-verify-4265-current-review-verification-20261027-final/sandbox.sb",
+        "/opt/anaconda3/bin/python3",
+        "-I",
+        "-B",
+        "-c",
+        "import sys;sys.path.insert(0,'/tmp/real-verify-4265-current-review-verification-20261027-final/snapshot');import pytest;raise SystemExit(pytest.main(['--log-file', '/tmp/real-verify-4265-current-review-verification-20261027-final/broken.pytest.log', '--junitxml', '/tmp/real-verify-4265-current-review-verification-20261027-final/broken.junit.xml', '-q', '-o', 'addopts=', '-c', '/dev/null', '--rootdir', '/tmp/real-verify-4265-current-review-verification-20261027-final/snapshot', '--confcutdir', '/tmp/real-verify-4265-current-review-verification-20261027-final/snapshot', '--basetemp', '/tmp/real-verify-4265-current-review-verification-20261027-final/fixtures/broken', '-p', 'no:cacheprovider', '/tmp/real-verify-4265-current-review-verification-20261027-final/snapshot/tests/test_coverage_guard.py::test_recovery_window_counts_records_accumulated_across_runs']))"
+      ],
+      "cwd": "/tmp/real-verify-4265-current-review-verification-20261027-final/snapshot",
+      "started_utc": "2026-10-27T18:42:27.266911+00:00",
+      "exit_code": 1,
+      "stdout_sha256": "1527f3e7fa617449ba3d04e924d1d273b1cc4b021d85e387a037d8766005fdd7",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "restored-two-named-tests",
+      "argv": [
+        "/usr/bin/sandbox-exec",
+        "-f",
+        "/tmp/real-verify-4265-current-review-verification-20261027-final/sandbox.sb",
+        "/opt/anaconda3/bin/python3",
+        "-I",
+        "-B",
+        "-c",
+        "import sys;sys.path.insert(0,'/tmp/real-verify-4265-current-review-verification-20261027-final/snapshot');import pytest;raise SystemExit(pytest.main(['--log-file', '/tmp/real-verify-4265-current-review-verification-20261027-final/restored.pytest.log', '--junitxml', '/tmp/real-verify-4265-current-review-verification-20261027-final/restored.junit.xml', '-q', '-o', 'addopts=', '-c', '/dev/null', '--rootdir', '/tmp/real-verify-4265-current-review-verification-20261027-final/snapshot', '--confcutdir', '/tmp/real-verify-4265-current-review-verification-20261027-final/snapshot', '--basetemp', '/tmp/real-verify-4265-current-review-verification-20261027-final/fixtures/restored', '-p', 'no:cacheprovider', '/tmp/real-verify-4265-current-review-verification-20261027-final/snapshot/tests/test_coverage_guard.py::test_recovery_window_counts_records_accumulated_across_runs', '/tmp/real-verify-4265-current-review-verification-20261027-final/snapshot/tests/test_coverage_guard.py::test_recovery_message_names_records_held_and_needed']))"
+      ],
+      "cwd": "/tmp/real-verify-4265-current-review-verification-20261027-final/snapshot",
+      "started_utc": "2026-10-27T18:42:27.609898+00:00",
+      "exit_code": 0,
+      "stdout_sha256": "38025b23df21b23d371cb04835992ad56739231045e0683deb6a80c6d699b19d",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "provider_calls": 0,
+  "mutation": {
+    "operation": "Remove only the current sample from existing accumulation iteration; retain all prior-history processing and test source unchanged.",
+    "before_sha256": "fd4b88605d88267a90ada88803754b4b171ba1a916ab4c5379009a74c304ba1d",
+    "broken_sha256": "28eda2170b1e03dcb11bcae8f6511b2cc09a7c0ea1c765427f7ddfda8c6a6a02",
+    "patch_sha256": "9b2e105bf5cc72819537980bea8c86364896bff444d9a43fb43eded649e5d886"
+  },
+  "restored_sha256": "fd4b88605d88267a90ada88803754b4b171ba1a916ab4c5379009a74c304ba1d",
+  "final_source_files": {
+    "tools/coverage_guard.py": "fd4b88605d88267a90ada88803754b4b171ba1a916ab4c5379009a74c304ba1d",
+    "tests/test_coverage_guard.py": "778b90641854081857bfdf9123a6cc28ddf5f5517f5a8da418e5d8f5f3549648"
+  },
+  "interpreter_file_sha256": "d01b09973b5bd3ff617e7849ce9c0bdb8991256f495ce190720ccc976cdaaee7"
+}

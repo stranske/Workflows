@@ -15,17 +15,108 @@ import shutil
 import subprocess
 import sys
 import time
+import zipfile
+from contextlib import contextmanager
 from importlib import metadata
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 PACKET = ROOT / "config/verify_paired"
-PROPOSAL_SHA256 = "3423da3d0c0f243f10d83f57e2243d5ce04b30511b5dbd589919b5ca4e3620b9"
-CASES = ("square-pass", "square-nonpass")
+DESCRIPTOR_PATH = PACKET / "descriptor.json"
 
 
 def digest(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
+
+
+def _source_path(base: Path, name: str, *, allow_root: bool = False) -> Path:
+    if not isinstance(name, str) or not name or "\\" in name:
+        raise ValueError("invalid source-owned packet path")
+    parts = name.split("/")
+    if name == "." and allow_root:
+        parts = []
+    elif any(part in {"", ".", ".."} for part in parts) or Path(name).is_absolute():
+        raise ValueError("source-owned packet path must stay within its namespace")
+    target = base
+    ancestors = [base]
+    if base.is_relative_to(ROOT):
+        ancestors.extend(parent for parent in base.parents if parent.is_relative_to(ROOT))
+    if any(path.is_symlink() for path in ancestors):
+        raise ValueError("source-owned packet namespace cannot be a symlink")
+    for part in parts:
+        target /= part
+        if target.is_symlink():
+            raise ValueError("source-owned packet paths cannot be symlinks")
+    if not target.resolve().is_relative_to(base.resolve()):
+        raise ValueError("source-owned packet escaped its namespace")
+    return target
+
+
+def _source_json(raw: bytes) -> dict:
+    def unique(pairs):
+        result = {}
+        for key, value in pairs:
+            if key in result:
+                raise ValueError("duplicate source descriptor member")
+            result[key] = value
+        return result
+
+    value = json.loads(raw, object_pairs_hook=unique)
+    if not isinstance(value, dict):
+        raise ValueError("source descriptor must be an object")
+    return value
+
+
+def _source_bytes(base: Path, name: str) -> bytes:
+    path = _source_path(base, name)
+    if not path.is_file():
+        raise ValueError("source packet member must be a regular file")
+    return path.read_bytes()
+
+
+def source_descriptor() -> dict:
+    relative = DESCRIPTOR_PATH.relative_to(PACKET).as_posix()
+    raw = _source_bytes(PACKET, relative)
+    descriptor = _source_json(raw)
+    if (
+        set(descriptor)
+        != {
+            "schema",
+            "packet_root",
+            "proposal_sha256",
+            "review_sha256",
+            "policy_file",
+            "policy_sha256",
+            "slots_file",
+            "slots_sha256",
+            "cases",
+        }
+        or descriptor.get("schema") != "verify-paired-source-descriptor/v1"
+    ):
+        raise ValueError("unknown source-owned packet descriptor")
+    cases = descriptor["cases"]
+    if (
+        not isinstance(cases, list)
+        or not 1 <= len(cases) <= 2
+        or any(
+            type(case) is not str or not re.fullmatch(r"[a-z0-9][a-z0-9_-]{0,63}", case)
+            for case in cases
+        )
+        or len(set(cases)) != len(cases)
+    ):
+        raise ValueError("source descriptor requires one or two distinct fixed cases")
+    for field in ("proposal_sha256", "review_sha256", "policy_sha256", "slots_sha256"):
+        if type(descriptor[field]) is not str or not re.fullmatch(
+            r"[a-f0-9]{64}", descriptor[field]
+        ):
+            raise ValueError("source descriptor digest malformed")
+    return {
+        **descriptor,
+        "sha256": digest(raw),
+        "root": _source_path(PACKET, descriptor["packet_root"], allow_root=True),
+        "policy_path": _source_path(PACKET, descriptor["policy_file"]),
+        "slots_path": _source_path(PACKET, descriptor["slots_file"]),
+    }
 
 
 def runtime_dependencies() -> dict:
@@ -54,20 +145,120 @@ def runtime_dependencies() -> dict:
 
 
 def load_packet() -> tuple[dict, dict]:
-    proposal_bytes = (PACKET / "PROPOSAL.json").read_bytes()
-    if digest(proposal_bytes) != PROPOSAL_SHA256:
+    descriptor = source_descriptor()
+    packet = descriptor["root"]
+    proposal_bytes = _source_bytes(packet, "PROPOSAL.json")
+    if digest(proposal_bytes) != descriptor["proposal_sha256"]:
         raise ValueError("reviewed proposal digest mismatch")
-    proposal = json.loads(proposal_bytes)
+    proposal = _source_json(proposal_bytes)
+    if proposal.get("schema") not in {
+        "verify-public-api-paired-proposal/v1",
+        "verify-paired-packet/v1",
+    }:
+        raise ValueError("unsupported fixed packet schema")
+    if (
+        not isinstance(proposal.get("cases"), list)
+        or any(not isinstance(row, dict) for row in proposal["cases"])
+        or not isinstance(proposal.get("frozen_files"), dict)
+        or not isinstance(proposal.get("independent_review"), dict)
+    ):
+        raise ValueError("fixed packet inventory or cases malformed")
+    if [row.get("case") for row in proposal["cases"]] != descriptor["cases"]:
+        raise ValueError("packet cases differ from reviewed source descriptor")
     for name, expected in proposal["frozen_files"].items():
         # The original preparer's build program is retained as provenance in
         # its original packet; this runner never copies or executes it.
-        if name == "build.py":
+        if name == "build.py" and proposal["schema"] == "verify-public-api-paired-proposal/v1":
             continue
-        if digest((PACKET / name).read_bytes()) != expected:
+        if (
+            type(expected) is not str
+            or not re.fullmatch(r"[a-f0-9]{64}", expected)
+            or digest(_source_bytes(packet, name)) != expected
+        ):
             raise ValueError(f"reviewed packet digest mismatch: {name}")
-    if digest((PACKET / "REVIEW.json").read_bytes()) != proposal["independent_review"]["sha256"]:
+    for case in descriptor["cases"]:
+        directory = _source_path(packet, case)
+        actual = set()
+        for path in directory.rglob("*"):
+            if path.is_symlink():
+                raise ValueError("reviewed case inventory cannot contain symlinks")
+            if path.is_file():
+                actual.add(path.relative_to(packet).as_posix())
+            elif not path.is_dir():
+                raise ValueError("reviewed case inventory contains a non-regular member")
+        expected = {name for name in proposal["frozen_files"] if name.startswith(case + "/")}
+        mandatory = {
+            case + "/" + name
+            for name in ("capture.json", "context.md", "diff.patch", "prompt.txt", "oracle.json")
+        }
+        if actual != expected or not mandatory <= actual:
+            raise ValueError("reviewed case inventory is incomplete or has unexpected members")
+        row = next(row for row in proposal["cases"] if row["case"] == case)
+        if (
+            any(
+                type(row.get(field)) is not str or not re.fullmatch(r"[a-f0-9]{64}", row[field])
+                for field in ("prompt_sha256", "capture_id", "gold_sha256")
+            )
+            or digest((directory / "prompt.txt").read_bytes()) != row["prompt_sha256"]
+            or digest((directory / "oracle.json").read_bytes()) != row["gold_sha256"]
+            or _source_json((directory / "capture.json").read_bytes()).get("id")
+            != row["capture_id"]
+        ):
+            raise ValueError("fixed case capture, prompt or gold identity differs from proposal")
+    if (
+        (
+            proposal["schema"] == "verify-paired-packet/v1"
+            and proposal["independent_review"].get("path") != "REVIEW.json"
+        )
+        or digest(_source_bytes(packet, "REVIEW.json")) != descriptor["review_sha256"]
+        or descriptor["review_sha256"] != proposal["independent_review"].get("sha256")
+    ):
         raise ValueError("independent packet review digest mismatch")
-    policy = json.loads((PACKET / "trial-policy.json").read_text())
+    policy_bytes = _source_bytes(PACKET, descriptor["policy_file"])
+    if (
+        digest(policy_bytes) != descriptor["policy_sha256"]
+        or digest(_source_bytes(PACKET, descriptor["slots_file"])) != descriptor["slots_sha256"]
+    ):
+        raise ValueError("source-owned policy or slots digest mismatch")
+    policy = _source_json(policy_bytes)
+    required = {
+        "schema",
+        "review_status",
+        "execution_enabled",
+        "max_generations",
+        "max_native_counts",
+        "per_request_timeout_seconds",
+        "total_wall_seconds",
+        "max_output_tokens",
+        "retries",
+        "fallback",
+        "repair_calls",
+        "models",
+        "native_capacity_claim",
+        "role_qualification_claim",
+        "max_native_metadata_requests",
+        "max_physical_http_attempts",
+        "max_redirects",
+    }
+    if (
+        set(policy) not in (required, required | {"preserve_native_output_policy"})
+        or type(policy.get("execution_enabled")) is not bool
+        or policy.get("review_status") not in {"proposed_source_only", "reviewed"}
+        or policy.get("native_capacity_claim") is not False
+        or policy.get("role_qualification_claim") is not False
+    ):
+        raise ValueError("unknown or malformed source-owned trial policy")
+    if any(
+        type(policy[field]) is not int or policy[field] != value
+        for field, value in {
+            "max_generations": 4,
+            "max_native_counts": 8,
+            "max_native_metadata_requests": 6,
+            "retries": 0,
+            "repair_calls": 0,
+        }.items()
+    ):
+        raise ValueError("logical trial budget differs from reviewed finite limits")
     if (
         policy["schema"] != "verify-paired-trial-policy/v1"
         or policy["max_generations"] != 4
@@ -81,23 +272,99 @@ def load_packet() -> tuple[dict, dict]:
         or policy["fallback"] is not False
         or policy["repair_calls"] != 0
         or policy["models"]
-        != [
-            {"provider": "openai", "model": "gpt-5.6-terra"},
-            {"provider": "anthropic", "model": "claude-sonnet-5-5"},
-        ]
+        not in (
+            [
+                {"provider": "openai", "model": "gpt-5.6-terra"},
+                {"provider": "anthropic", "model": "claude-sonnet-5-5"},
+            ],
+            [
+                {"provider": "openai", "model": "gpt-5.6-terra"},
+                {"provider": "anthropic", "model": "claude-opus-5-5"},
+            ],
+        )
     ):
         raise ValueError("unsupported paired trial policy")
     for field, ceiling in (
-        ("per_request_timeout_seconds", 30),
-        ("total_wall_seconds", 300),
-        ("max_output_tokens", 4096),
+        ("per_request_timeout_seconds", 60),
+        ("total_wall_seconds", 600),
+        ("max_output_tokens", 128000),
     ):
         if type(policy[field]) is not int or not 0 < policy[field] <= ceiling:
             raise ValueError(f"invalid reviewed policy cap: {field}")
+    if type(policy.get("preserve_native_output_policy", False)) is not bool:
+        raise ValueError("invalid native output policy")
+    if policy.get("preserve_native_output_policy") is True and (
+        policy["max_output_tokens"] != 128000
+        or policy["models"][1]["model"] != "claude-opus-5-5"
+        or policy["per_request_timeout_seconds"] != 60
+        or policy["total_wall_seconds"] != 600
+    ):
+        raise ValueError(
+            "representative packet must preserve exact production native output policy"
+        )
     return proposal, policy
 
 
-def child_environment(case: str, directory: Path, key: Path) -> dict[str, str]:
+@contextmanager
+def _capture_environment(directory: Path, head: str):
+    updates = {
+        "PR_HEAD_SHA": head,
+        "VERIFIER_EVIDENCE_CAPTURE_DIR": str(directory),
+        "CHAIN_DEPTH": "0",
+    }
+    previous = {name: os.environ.get(name) for name in updates}
+    try:
+        os.environ.update(updates)
+        yield
+    finally:
+        for name, value in previous.items():
+            if value is None:
+                os.environ.pop(name, None)
+            else:
+                os.environ[name] = value
+
+
+def preflight_inputs(descriptor: dict, proposal: dict) -> dict:
+    """Check every fixed input before constructing any provider client."""
+    from scripts.langchain import pr_verifier as verifier
+
+    receipts = {}
+    for case in descriptor["cases"]:
+        directory = descriptor["root"] / case
+        original = _source_json((directory / "capture.json").read_bytes())
+        row = next(row for row in proposal["cases"] if row["case"] == case)
+        with _capture_environment(directory, original["implementation_head"]):
+            context = (directory / "context.md").read_text()
+            diff = (directory / "diff.patch").read_text()
+            capture = verifier._semantic_capture(context, diff)
+            if capture != original or capture["gaps"] or not capture["resource_admitted"]:
+                raise ValueError("fixed packet capture is incomplete or changed")
+            raw = verifier._semantic_raw_inputs(context, diff)
+            prepared = verifier.prepare_reviewed_execution(capture, raw)
+            if prepared is None:
+                prepared = verifier.prepare_residual_all_input(capture, raw)
+            packages = prepared["plan"]["packages"]
+            if len(packages) != 1:
+                raise ValueError("fixed packet must have one complete semantic package")
+            prompt = verifier._semantic_package_prompt(prepared, packages[0], prepared["contract"])
+            if (
+                digest(prompt.encode()) != row["prompt_sha256"]
+                or prompt.encode() != (directory / "prompt.txt").read_bytes()
+            ):
+                raise ValueError(
+                    "current complete native prompt differs from frozen production prompt"
+                )
+            receipts[case] = {
+                "capture_id": capture["id"],
+                "prompt_sha256": row["prompt_sha256"],
+                "prompt_bytes": len(prompt.encode()),
+            }
+    return receipts
+
+
+def child_environment(
+    case: str, directory: Path, key: Path, *, deadline: float | None = None
+) -> dict[str, str]:
     # No PR/GitHub token, subscription auth, custom endpoint or slot/model
     # override is inherited. Values are passed to existing clients, never logged.
     allowed = (
@@ -110,7 +377,8 @@ def child_environment(case: str, directory: Path, key: Path) -> dict[str, str]:
         "CLAUDE_API_STRANSKE",
     )
     env = {name: os.environ[name] for name in allowed if name in os.environ}
-    capture = json.loads((PACKET / case / "capture.json").read_text())
+    descriptor = source_descriptor()
+    capture = json.loads((descriptor["root"] / case / "capture.json").read_text())
     env.update(
         PYTHONPATH=str(ROOT),
         VERIFIER_SEMANTIC_MODE="1",
@@ -118,9 +386,13 @@ def child_environment(case: str, directory: Path, key: Path) -> dict[str, str]:
         VERIFIER_PAIRED_QUALIFICATION=case,
         PR_HEAD_SHA=capture["implementation_head"],
         VERIFIER_EVIDENCE_CAPTURE_DIR=str(directory),
-        LANGCHAIN_SLOT_CONFIG=str(PACKET / "slots.json"),
+        LANGCHAIN_SLOT_CONFIG=str(descriptor["slots_path"]),
         LANGCHAIN_MODEL_REGISTRY_CONFIG=str(ROOT / "config/model_registry.json"),
+        VERIFIER_PAIRED_DESCRIPTOR_SHA256=descriptor["sha256"],
     )
+    if deadline is None:
+        deadline = time.monotonic() + load_packet()[1]["total_wall_seconds"]
+    env["VERIFIER_PAIRED_PACKAGE_DEADLINE_MONOTONIC"] = repr(deadline)
     return env
 
 
@@ -163,15 +435,67 @@ def publish_case_outputs(
     return published
 
 
+def retain_public_packet(output: Path, descriptor: dict, proposal: dict) -> dict:
+    """Retain hash-checked public hidden members without uploading private files."""
+    members = {
+        "packet/" + name: _source_path(descriptor["root"], name)
+        for name in {"PROPOSAL.json", "REVIEW.json"} | set(proposal["frozen_files"])
+        if not (name == "build.py" and proposal["schema"] == "verify-public-api-paired-proposal/v1")
+    }
+    members.update(
+        {
+            "descriptor.json": DESCRIPTOR_PATH,
+            "trial-policy.json": descriptor["policy_path"],
+            "slots.json": descriptor["slots_path"],
+        }
+    )
+    expected = {"packet/" + name: sha for name, sha in proposal["frozen_files"].items()}
+    expected.update(
+        {
+            "packet/PROPOSAL.json": descriptor["proposal_sha256"],
+            "packet/REVIEW.json": descriptor["review_sha256"],
+            "descriptor.json": descriptor["sha256"],
+            "trial-policy.json": descriptor["policy_sha256"],
+            "slots.json": descriptor["slots_sha256"],
+        }
+    )
+    inventory = {}
+    with zipfile.ZipFile(
+        output / "frozen-public-packet.zip", "w", compression=zipfile.ZIP_DEFLATED
+    ) as archive:
+        for name, path in sorted(members.items()):
+            info = zipfile.ZipInfo(name, date_time=(1980, 1, 1, 0, 0, 0))
+            info.compress_type = zipfile.ZIP_DEFLATED
+            info.external_attr = 0o100644 << 16
+            data = _source_bytes(path.parent, path.name)
+            actual = digest(data)
+            if actual != expected[name]:
+                raise ValueError("public packet changed before archive retention")
+            archive.writestr(info, data)
+            inventory[name] = actual
+    return {
+        "sha256": digest((output / "frozen-public-packet.zip").read_bytes()),
+        "entry_count": len(inventory),
+        "entries_sha256": inventory,
+        "assertion": "local_source_bytes_not_origin_authentication",
+    }
+
+
 def run(*, execute: bool) -> dict:
+    started = time.monotonic()
+    descriptor = source_descriptor()
+    packet = descriptor["root"]
+    cases = descriptor["cases"]
     proposal, policy = load_packet()
+    deadline = started + policy["total_wall_seconds"]
     output = Path(os.environ["RUNNER_TEMP"]) / "verify-paired"
     private = Path(os.environ["RUNNER_TEMP"]) / "verify-paired-private"
     output.mkdir(mode=0o700, parents=True, exist_ok=False)
     receipt = {
         "schema": "verify-paired-invocation/v1",
         "status": "prepared",
-        "proposal_sha256": PROPOSAL_SHA256,
+        "proposal_sha256": descriptor["proposal_sha256"],
+        "descriptor_sha256": descriptor["sha256"],
         "packet_source_head": proposal["source_head"],
         "policy": policy,
         "cases": proposal["cases"],
@@ -191,8 +515,8 @@ def run(*, execute: bool) -> dict:
                     "config/model_registry.json",
                     "requirements.lock",
                     "pyproject.toml",
-                    "config/verify_paired/slots.json",
-                    "config/verify_paired/trial-policy.json",
+                    descriptor["slots_path"].relative_to(ROOT).as_posix(),
+                    descriptor["policy_path"].relative_to(ROOT).as_posix(),
                 )
             },
             "dependencies": runtime_dependencies(),
@@ -204,16 +528,16 @@ def run(*, execute: bool) -> dict:
     credentials = ()
     private_owned = False
     try:
-        for name in (
-            "PROPOSAL.json",
-            "REVIEW.json",
-            "build-receipt.json",
-            "trial-policy.json",
-            "slots.json",
-        ):
-            shutil.copyfile(PACKET / name, output / name)
-        for case in CASES:
-            shutil.copytree(PACKET / case, output / case)
+        for name in {"PROPOSAL.json", "REVIEW.json"} | {
+            name for name in proposal["frozen_files"] if "/" not in name and name != "build.py"
+        }:
+            shutil.copyfile(packet / name, output / name)
+        shutil.copyfile(descriptor["policy_path"], output / "trial-policy.json")
+        shutil.copyfile(descriptor["slots_path"], output / "slots.json")
+        shutil.copyfile(DESCRIPTOR_PATH, output / "descriptor.json")
+        for case in cases:
+            shutil.copytree(packet / case, output / case)
+        receipt["public_packet_archive"] = retain_public_packet(output, descriptor, proposal)
         if not execute:
             return receipt
         if policy.get("execution_enabled") is not True or policy.get("review_status") != "reviewed":
@@ -225,6 +549,7 @@ def run(*, execute: bool) -> dict:
                 reason="installed SDK runtime differs from existing frozen requirements",
             )
             return receipt
+        receipt["input_preflight"] = preflight_inputs(descriptor, proposal)
         private.mkdir(mode=0o700, parents=True, exist_ok=False)
         private_owned = True
         credentials = tuple(
@@ -232,10 +557,9 @@ def run(*, execute: bool) -> dict:
         )
         key.write_bytes(os.urandom(32))
         key.chmod(0o600)
-        deadline = time.monotonic() + policy["total_wall_seconds"]
-        for case in CASES:
+        for case in cases:
             directory = private / case
-            shutil.copytree(PACKET / case, directory)
+            shutil.copytree(packet / case, directory)
             argv = [
                 sys.executable,
                 str(ROOT / "scripts/langchain/pr_verifier.py"),
@@ -266,7 +590,7 @@ def run(*, execute: bool) -> dict:
                     argv,
                     shell=False,
                     cwd=ROOT,
-                    env=child_environment(case, directory, key),
+                    env=child_environment(case, directory, key, deadline=deadline),
                     stdout=stdout,
                     stderr=stderr,
                     timeout=remaining,
@@ -346,7 +670,7 @@ def run(*, execute: bool) -> dict:
     finally:
         if private_owned:
             key.unlink(missing_ok=True)
-            for case in CASES:
+            for case in cases:
                 if (private / case).exists():
                     publication = publish_case_outputs(private, output, case, credentials)
                     receipt["output_publication"][case] = publication

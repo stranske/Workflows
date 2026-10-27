@@ -1,4 +1,10 @@
-# Fixed public paired Verify API screen
+# Historical public paired Verify API screen
+
+The square packet below is preserved as a historical plumbing control. The
+active source-owned descriptor now selects the independently frozen real packets
+described in [the representative proposal](VERIFY_REPRESENTATIVE_API_PROPOSAL.md).
+Its source policy remains disabled; this historical document does not enable
+either policy or describe the representative 600-second bounds.
 
 MAINT-78 has a separate `verify-paired` mode for the independently reviewed
 public `square-pass` / `square-nonpass` packet. The old `assess` job is excluded
