@@ -5881,3 +5881,133 @@ test('launch basis reaches actual collector manifest and exact-event duplicate c
     fs.rmSync('verification-event-manifest.json',{force:true});
   }));
 });
+
+function nativeCoverageSqliteBytes() {
+  return execFileSync('python3',['-c',
+    "import sqlite3,tempfile,pathlib,sys\nwith tempfile.TemporaryDirectory() as d:\n p=pathlib.Path(d)/'coverage.db'\n c=sqlite3.connect(p)\n c.execute('create table coverage_meta (version integer)')\n c.execute('insert into coverage_meta values (7)')\n c.commit();c.close()\n sys.stdout.buffer.write(p.read_bytes())"]);
+}
+
+test('safe native coverage SQLite is bounded unavailable enrichment, not unknown binary',()=> {
+ const data=nativeCoverageSqliteBytes();
+ for(const extract of [extractArtifactArchiveText,require('../../../templates/consumer-repo/.github/scripts/agents_verifier_context.js').extractArtifactArchiveText]) {
+  for(const name of ['.coverage','.coverage.shard-5.pytest','.coverage.shard-5.runner.pid123.random','safe-dir/.coverage']) {
+   const calls=[];
+   const result=extract({archiveBuffer:Buffer.from('zip'),maxEntries:4,maxChars:500,maxBytes:data.length+100,
+    execFile:(cmd,args,options)=>{if(cmd==='python3')return execFileSync(cmd,args,options);calls.push({args,options});return args[0]==='-Z1'?`${name}\nproof.txt\n`:args.at(-1)===name?data:Buffer.from('retained proof');}});
+   assert.deepEqual(result.failures,['unrenderable_coverage_sqlite'],name);
+   assert.match(result.text,/retained proof/);
+   assert.equal(result.members.find(member=>member.name===name).reason,'unrenderable_coverage_sqlite');
+   assert.equal(result.extractedBytes,data.length+14);
+   assert.equal(result.entryCount,2);
+   assert.equal(calls.filter(call=>call.args[0]==='-p').length,2);
+  }
+ }
+});
+
+test('coverage magic, names, bounds, duplicate and CRC failures retain integrity refusal',()=> {
+ const native=nativeCoverageSqliteBytes();
+ for(const extract of [extractArtifactArchiveText,require('../../../templates/consumer-repo/.github/scripts/agents_verifier_context.js').extractArtifactArchiveText]) {
+  for(const name of ['other.sqlite','unknown.bin','../.coverage','/tmp/.coverage','x/../.coverage','.coverage^Jx',' .coverage','-x/.coverage','.coverage.bad*']) {
+   const result=extract({archiveBuffer:Buffer.from('zip'),maxEntries:4,maxChars:500,maxBytes:native.length+100,
+    execFile:(cmd,args,options)=>cmd==='python3'?execFileSync(cmd,args,options):args[0]==='-Z1'?`${name}\nproof.txt\n`:args.at(-1)===name?native:Buffer.from('proof')});
+   assert.ok(result.failures.includes('unsupported_payload'),name);
+   assert.ok(!result.failures.includes('unrenderable_coverage_sqlite'),name);
+  }
+  for(const value of [Buffer.from('SQLite format 3\0'),Buffer.alloc(native.length),Buffer.from(native).fill(0,16,24)]) {
+   const result=extract({archiveBuffer:Buffer.from('zip'),maxEntries:4,maxChars:500,maxBytes:native.length+100,
+    execFile:(cmd,args,options)=>cmd==='python3'?execFileSync(cmd,args,options):args[0]==='-Z1'?'.coverage\n':value});
+   assert.ok(result.failures.includes('unsupported_payload'));
+   assert.ok(!result.failures.includes('unrenderable_coverage_sqlite'));
+  }
+  for(const defect of ['CRC','bytes','duplicate','entries']) {
+   let reads=0;
+   const result=extract({archiveBuffer:Buffer.from('zip'),maxEntries:defect==='entries'?1:4,maxChars:500,maxBytes:native.length+100,
+    execFile:(cmd,args,options)=>{
+     if(cmd==='python3')return execFileSync(cmd,args,options);
+     if(args[0]==='-Z1')return defect==='duplicate'?'.coverage\n.coverage\n':defect==='entries'?'proof.txt\n.coverage\n':'.coverage\n';
+     reads++;
+     if(defect==='CRC')throw new Error('bad CRC');
+     if(defect==='bytes')throw Object.assign(new Error('maxBuffer'),{code:'ENOBUFS'});
+     return args.at(-1)==='.coverage'?native:Buffer.from('proof');
+    }});
+   assert.ok(result.failures.includes('unsupported_payload'),defect);
+   assert.ok(!result.failures.includes('unrenderable_coverage_sqlite'),defect);
+   if(defect==='duplicate')assert.ok(result.failures.includes('duplicate_member'));
+   assert.ok(reads<=(defect==='entries'?1:4));
+  }
+ }
+});
+
+test('selected unrenderable coverage remains hard-required even with zero retained text',()=> {
+ const native=nativeCoverageSqliteBytes();
+ for(const extract of [extractArtifactArchiveText,require('../../../templates/consumer-repo/.github/scripts/agents_verifier_context.js').extractArtifactArchiveText]) {
+  const result=extract({archiveBuffer:Buffer.from('zip'),selectedMembers:['.coverage'],maxEntries:4,maxChars:500,maxBytes:native.length+100,
+   execFile:(cmd,args,options)=>cmd==='python3'?execFileSync(cmd,args,options):args[0]==='-Z1'?'.coverage\n':native});
+  assert.equal(result.text,'');
+  assert.ok(result.failures.includes('unrenderable_coverage_sqlite'));
+  assert.ok(result.failures.includes('required_member_unrenderable'));
+  assert.equal(result.selectedCaptureComplete,false);
+  const order=[];
+  const text=extract({archiveBuffer:Buffer.from('zip'),selectedMembers:['proof.txt'],maxEntries:4,maxChars:500,maxBytes:native.length+100,
+   execFile:(cmd,args,options)=>{if(cmd==='python3')return execFileSync(cmd,args,options);if(args[0]==='-Z1')return '.coverage\nproof.txt\n';order.push(args.at(-1));return args.at(-1)==='.coverage'?native:Buffer.from('selected proof');}});
+  assert.equal(order[0],'proof.txt');
+  assert.equal(text.selectedCaptureComplete,true);
+ }
+});
+
+test('actual coverage SQLite ZIP verifies native bytes and rejects CRC corruption',()=> {
+ const data=nativeCoverageSqliteBytes();
+ const archive=execFileSync('python3',['-c',"import io,zipfile,sys\nb=io.BytesIO()\nwith zipfile.ZipFile(b,'w',compression=zipfile.ZIP_STORED) as z:z.writestr('.coverage',sys.stdin.buffer.read())\nsys.stdout.buffer.write(b.getvalue())"],{input:data});
+ const corrupted=Buffer.from(archive);
+ const location=corrupted.indexOf(Buffer.from('SQLite format 3\0'));
+ assert.ok(location>=0);
+ corrupted[location+data.length-1]^=1;
+ for(const extract of [extractArtifactArchiveText,require('../../../templates/consumer-repo/.github/scripts/agents_verifier_context.js').extractArtifactArchiveText]) {
+  const valid=extract({archiveBuffer:archive,maxEntries:4,maxChars:100,maxBytes:data.length+4096});
+  assert.deepEqual(valid.failures,['unrenderable_coverage_sqlite']);
+  const bad=extract({archiveBuffer:corrupted,maxEntries:4,maxChars:100,maxBytes:data.length+4096});
+  assert.ok(bad.failures.includes('unsupported_payload'));
+  assert.ok(bad.failures.includes('extraction_byte_or_read'));
+  assert.ok(!bad.failures.includes('unrenderable_coverage_sqlite'));
+ }
+});
+
+test('valid SQLite header and ZIP CRC cannot conceal a structurally malformed database',()=> {
+ const directory=path.resolve(__dirname,'../../../tests/fixtures/verifier_incidental_coverage');
+ const source=JSON.parse(fs.readFileSync(path.join(directory,'SOURCE.json'),'utf8'));
+ const archive=fs.readFileSync(path.join(directory,'malformed-coverage.zip'));
+ assert.equal(createHash('sha256').update(archive).digest('hex'),source.negative_controls['malformed-coverage.zip'].sha256);
+ const zipCheck=execFileSync('python3',['-I','-c',"import zipfile,sys\nwith zipfile.ZipFile(sys.argv[1]) as z:\n assert z.testzip() is None\n raw=z.read('.coverage')\n assert raw[:16]==b'SQLite format 3\\x00'",path.join(directory,'malformed-coverage.zip')]);
+ assert.equal(zipCheck.length,0);
+ for(const extract of [extractArtifactArchiveText,require('../../../templates/consumer-repo/.github/scripts/agents_verifier_context.js').extractArtifactArchiveText]) {
+  const result=extract({archiveBuffer:archive,maxEntries:20,maxChars:60000,maxBytes:240000});
+  assert.ok(result.failures.includes('unsupported_payload'));
+  assert.ok(!result.failures.includes('unrenderable_coverage_sqlite'));
+ }
+});
+
+test('SQLite probe is isolated bounded read-only and unavailable probes never relax unknown bytes',()=> {
+ const native=nativeCoverageSqliteBytes();
+ for(const extract of [extractArtifactArchiveText,require('../../../templates/consumer-repo/.github/scripts/agents_verifier_context.js').extractArtifactArchiveText]) {
+  for(const unavailable of [true,false]) {
+   let probes=0;
+   const result=extract({archiveBuffer:Buffer.from('zip'),maxEntries:4,maxChars:500,maxBytes:native.length+100,
+    execFile:(cmd,args,options)=>{
+     if(cmd==='unzip')return args[0]==='-Z1'?'.coverage\n':native;
+     assert.equal(cmd,'python3');assert.equal(args[0],'-I');
+     assert.equal(options.timeout,15000);assert.equal(options.killSignal,'SIGKILL');
+     assert.equal(options.maxBuffer,128);
+     assert.ok(Object.keys(options.env).every(key=>['PATH','SYSTEMROOT','TMPDIR'].includes(key)));
+     assert.match(args[2],/mode=ro&immutable=1/);assert.match(args[2],/quick_check\(1\)/);
+     assert.match(args[2],/set_progress_handler/);assert.match(args[2],/time\.monotonic\(\)\+15/);
+     assert.equal(fs.statSync(args[3]).mode & 0o777,0o600);
+     probes++;
+     if(unavailable)throw Object.assign(new Error('runtime unavailable'),{code:'ENOENT'});
+     return 'not-ok';
+    }});
+   assert.equal(probes,1);
+   assert.ok(result.failures.includes('unsupported_payload'));
+   assert.ok(!result.failures.includes('unrenderable_coverage_sqlite'));
+  }
+ }
+});

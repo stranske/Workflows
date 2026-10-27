@@ -790,6 +790,59 @@ function retainCaptureBytes(directory, digest, suffix, value) {
   }
 }
 
+// Recognize only coverage.py's safe SQLite sidecar namespace. This is a
+// bounded native-format classification, never evidence of database correctness.
+function safeCoverageSqliteName(name) {
+  return typeof name === 'string'
+    && /^(?:[A-Za-z0-9_][A-Za-z0-9_-]*\/)*\.coverage(?:\.[A-Za-z0-9_-]+)*$/.test(name);
+}
+function coverageSqliteFormat(value) {
+  if (!Buffer.isBuffer(value) || value.length < 512
+      || !value.subarray(0,16).equals(Buffer.from('SQLite format 3\0'))) return false;
+  const stored = value.readUInt16BE(16);
+  const pageSize = stored === 1 ? 65536 : stored;
+  return pageSize >= 512 && pageSize <= 65536 && (pageSize & (pageSize-1)) === 0
+    && value.length % pageSize === 0 && value.length >= pageSize
+    && [1,2].includes(value[18]) && [1,2].includes(value[19])
+    && value[20] < pageSize-480 && value[21] === 64 && value[22] === 32 && value[23] === 32
+    && value.readUInt32BE(28) === value.length/pageSize
+    && [1,2,3,4].includes(value.readUInt32BE(44))
+    && [1,2,3].includes(value.readUInt32BE(56)) && [5,13].includes(value[100]);
+}
+
+// Probe the existing baseline python3; later setup-python steps do not supply
+// a runtime here. Absence of interpreter/sqlite or any probe failure keeps this
+// optional classification unavailable; it never adds an install requirement.
+const COVERAGE_SQLITE_CHECK = `import pathlib,sqlite3,sys,time
+try:
+ p=pathlib.Path(sys.argv[1])
+ deadline=time.monotonic()+15
+ c=sqlite3.connect(p.resolve().as_uri()+"?mode=ro&immutable=1",uri=True,timeout=0)
+ c.setlimit(sqlite3.SQLITE_LIMIT_LENGTH,p.stat().st_size)
+ c.setlimit(sqlite3.SQLITE_LIMIT_SQL_LENGTH,p.stat().st_size)
+ c.set_progress_handler(lambda: 1 if time.monotonic()>=deadline else 0,1000)
+ c.execute("PRAGMA trusted_schema=OFF")
+ c.execute("PRAGMA query_only=ON")
+ rows=c.execute("PRAGMA quick_check(1)").fetchall()
+ c.close()
+ if rows!=[("ok",)]: raise ValueError("coverage SQLite integrity unavailable")
+ sys.stdout.write("ok")
+except Exception:
+ sys.exit(1)
+`;
+function checkCoverageSqlite(value, tempDir, ordinal, execFile) {
+  const target=path.join(tempDir,`coverage-${ordinal}.sqlite`);
+  fs.writeFileSync(target,value,{flag:'wx',mode:0o600});
+  // Reuse the collector's existing 15s native-operation bound. No repo Python
+  // imports, network, extensions, model calls or credential-bearing child env.
+  const env=Object.fromEntries(['PATH','SYSTEMROOT','TMPDIR'].filter(key=>process.env[key]!==undefined)
+    .map(key=>[key,process.env[key]]));
+  const result=execFile('python3',['-I','-c',COVERAGE_SQLITE_CHECK,target],{
+    timeout:15000,killSignal:'SIGKILL',maxBuffer:128,encoding:'utf8',env,
+  });
+  return String(result)==='ok';
+}
+
 function extractArtifactArchiveText({ archiveBuffer, maxEntries, maxChars, maxBytes = maxChars * 4, captureDirectory, selectedMembers, execFile = execFileSync }) {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'verifier-evidence-'));
   const archivePath = path.join(tempDir, 'artifact.zip');
@@ -830,11 +883,37 @@ function extractArtifactArchiveText({ archiveBuffer, maxEntries, maxChars, maxBy
       && !name.split('/').some(part => part === '..' || part === '.')
       && /\.(?:png|jpe?g|gif|webp)$/i.test(name));
     if (unrenderableMedia.length) failures.push('unrenderable_media');
-    if (filteredPayloadEntries.length > unrenderableMedia.length) failures.push('unsupported_payload');
+    const coverageCandidates = occurrences.filter(({name,safe}) => !safe
+      && safeCoverageSqliteName(name) && counts.get(name) === 1);
+    const validatedCoverage = new Set();
+    let coverageReads = 0;
+    const classifyCoverage = () => {
+      for (const {name} of coverageCandidates) {
+        // Text selections keep their entry reservation and byte priority.
+        if (coverageReads >= Math.max(0,maxEntries-selected.length) || remainingBytes <= 0) break;
+        coverageReads += 1;
+        try {
+          const value = Buffer.from(execFile('unzip',['-p',archivePath,name],{maxBuffer:remainingBytes}));
+          if (value.length > remainingBytes) throw Object.assign(new Error('coverage extraction byte bound'),{code:'VERIFIER_EXTRACTION_BOUND'});
+          remainingBytes -= value.length;
+          if (coverageSqliteFormat(value) && checkCoverageSqlite(value,tempDir,coverageReads,execFile)) {
+            validatedCoverage.add(name);
+            const member = members.find(item => item.name === name);
+            if (member) Object.assign(member,{reason:'unrenderable_coverage_sqlite',raw_bytes:value.length,
+              raw_sha256:createHash('sha256').update(value).digest('hex')});
+          }
+        } catch (error) {
+          remainingBytes = 0;
+          failures.push(['ENOBUFS','VERIFIER_EXTRACTION_BOUND'].includes(error?.code)
+            ? 'extraction_byte' : 'extraction_byte_or_read');
+        }
+      }
+    };
     if (members.length < occurrences.length) failures.push('member_inventory');
     if (members.some(member => member.status === 'duplicate')) failures.push('duplicate_member');
     const parts = [];
     let truncated = failures.length > 0;
+    if (!selectedMembers) classifyCoverage();
     for (const member of members.filter(item => item.status === 'pending')) {
       const entry = member.name;
       const prefix = `### ${entry}\n\n`;
@@ -895,6 +974,14 @@ function extractArtifactArchiveText({ archiveBuffer, maxEntries, maxChars, maxBy
         truncated = true;
       }
     }
+    if (selectedMembers) classifyCoverage();
+    if (validatedCoverage.size) failures.push('unrenderable_coverage_sqlite');
+    if (filteredPayloadEntries.length > unrenderableMedia.length + validatedCoverage.size) failures.push('unsupported_payload');
+    // Explicit selection never becomes optional merely because no text row was retained.
+    if (selectedMembers?.some(name => !members.some(member => member.name === name && ['included','captured'].includes(member.status)))) {
+      failures.push('required_member_unrenderable');
+    }
+    truncated ||= failures.length > 0;
     // A bounded stop classifies every inventoried eligible suffix member;
     // provisional planning state must never escape as complete capture data.
     const stopReason = failures.at(-1);
@@ -905,7 +992,7 @@ function extractArtifactArchiveText({ archiveBuffer, maxEntries, maxChars, maxBy
     return {
       selectedCaptureComplete: Boolean(selectedMembers?.length) && selectedMembers.every(name =>
         members.some(member => member.name === name && member.status === 'included'))
-        && failures.every(reason => ['unselected_member','unrenderable_media'].includes(reason)),
+        && failures.every(reason => ['unselected_member','unrenderable_media','unrenderable_coverage_sqlite'].includes(reason)),
       rawCaptureComplete: Boolean(captureDirectory) && members.length > 0 && members.length === occurrences.length
         && members.every(member => ['included', 'captured'].includes(member.status)),
       archiveSha256: createHash('sha256').update(archiveBuffer).digest('hex'),
@@ -917,7 +1004,7 @@ function extractArtifactArchiveText({ archiveBuffer, maxEntries, maxChars, maxBy
       failures,
       unsupportedCount: filteredPayloadEntries.length,
       text: parts.filter(Boolean).join('\n\n'),
-      entryCount: entries.length,
+      entryCount: entries.length + coverageReads,
       truncated,
     };
   } finally {
