@@ -585,7 +585,8 @@ jobs:
           EXPECTED_SOURCE_COMMIT_INPUT: ${{ steps.handoff.outputs.expected_source_commit }}
           CAMPAIGN_NO_CHANGE_EVIDENCE_JSON: ${{ inputs.campaign_no_change_evidence_json || github.event.client_payload.campaign_no_change_evidence_json || '' }}
           CAMPAIGN_COMMIT_AUTHORIZATION_JSON: ${{ steps.campaign_authorization.outputs.authorization_json }}
-          CLEANUP_BRANCHES_INPUT: "false"
+          CLEANUP_BRANCHES_INPUT: ${{ inputs.cleanup_branches }}
+          SKIP_OBSOLETE_BRANCH_CLEANUP_INPUT: "true"
           CONSUMER_SYNC_CANARIES_PATH: config/consumer_sync_canaries.json
           CONSUMER_SYNC_REVIEW_POLICY_PATH: config/consumer_sync_review_policy.json
           TRUSTED_SYNC_ACTORS: stranske,stranske-automation-bot,github-actions[bot]

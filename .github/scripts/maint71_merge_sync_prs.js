@@ -2552,6 +2552,9 @@ async function run({ github, context, core }) {
       (context.payload.client_payload && context.payload.client_payload.cleanup_branches),
     true,
   );
+  const skipObsoleteBranchCleanup = parseBooleanInput(
+    process.env.SKIP_OBSOLETE_BRANCH_CLEANUP_INPUT, false,
+  );
   let campaignCommitAuthorization = null;
   const rawCampaignAuthorization = String(
     process.env.CAMPAIGN_COMMIT_AUTHORIZATION_JSON || '',
@@ -3132,7 +3135,8 @@ async function run({ github, context, core }) {
     `Reviewer policy: minimum=${minimumReviewerResponses}, ` +
       `quiet=${reviewerQuietPeriodMs / 60000}m, max=${reviewerMaximumWaitMs / 60000}m`,
   );
-  console.log(`Cleanup stale sync branches: ${cleanupBranches}\n`);
+  console.log(`Cleanup stale sync branches: ${cleanupBranches && !skipObsoleteBranchCleanup}`);
+  console.log(`Cleanup merged/stale PR branches: ${cleanupBranches}\n`);
   if (requestedSyncHash) {
     console.log(`Target sync hash: ${requestedSyncHash}`);
   }
@@ -3638,7 +3642,7 @@ async function run({ github, context, core }) {
       const syncPRs = prs.filter((pr) => isTrustedGeneratedDeliveryPr(pr, trustedSyncActors));
       const closedPRs = pullRequests.closed;
   
-      if (cleanupBranches) {
+      if (cleanupBranches && !skipObsoleteBranchCleanup) {
         try {
           const branches = await withRetry((client) => client.paginate(
             client.rest.repos.listBranches,

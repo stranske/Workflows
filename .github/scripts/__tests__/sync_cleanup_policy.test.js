@@ -98,7 +98,7 @@ function workflowScript(file, stepName) {
     if (line.trim() && !line.startsWith(' '.repeat(indent))) break;
     script.push(line.slice(indent));
   }
-  return { text: text.slice(start, start + lines.join('\n').length), script: script.join('\n') };
+  return { header: lines.slice(0, at).join('\n'), text: text.slice(start, start + lines.join('\n').length), script: script.join('\n') };
 }
 
 for (const input of ['false', 'true', '']) {
@@ -186,3 +186,30 @@ test('disabled refresh no-ops keep their legacy context-free behavior', async ()
   const empty = await refreshStableCanaries({ canaries: [], enabled: false, core: core() });
   assert.equal(empty.refresh_dispatched, 0);
 });
+
+test('campaign commit preserves requested cleanup while suppressing only repeated obsolete sweep', () => {
+  const { header } = workflowScript('maint-71-merge-sync-prs.yml', 'Commit prepared sync campaign');
+  assert.match(header, /CLEANUP_BRANCHES_INPUT: \$\{\{ inputs\.cleanup_branches \}\}/);
+  assert.match(header, /SKIP_OBSOLETE_BRANCH_CLEANUP_INPUT: "true"/);
+});
+
+for (const cleanup of [false, true]) for (const skip of [false, true]) {
+  test(`actual obsolete cleanup boundary cleanup=${cleanup}, internal skip=${skip}`, async () => {
+    const source = fs.readFileSync(path.join(__dirname, '../maint71_merge_sync_prs.js'), 'utf8');
+    const start = source.indexOf('      if (cleanupBranches && !skipObsoleteBranchCleanup) {');
+    const end = source.indexOf('\n      let candidatePRs =', start);
+    assert.ok(start >= 0 && end > start);
+    const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
+    const execute = new AsyncFunction('cleanupBranches', 'skipObsoleteBranchCleanup', 'withRetry',
+      'collectDeletableSyncBranches', 'owner', 'repo', 'prs', 'closedPRs', 'dryRun', 'results',
+      'rethrowPrimaryRateLimit', 'console', source.slice(start, end));
+    let lists = 0, deletes = 0;
+    const client = { paginate: async () => { lists++; return [{ name: 'sync/workflows-old' }]; },
+      rest: { repos: { listBranches() {} }, git: { deleteRef: async () => { deletes++; } } } };
+    const { collectDeletableSyncBranches } = require('../sync_pr_merge_contract');
+    await execute(cleanup, skip, fn => fn(client), collectDeletableSyncBranches, 'stranske', 'Ready',
+      [], [{ head: { ref: 'sync/workflows-old' } }], false, [], e => { throw e; }, { log() {} });
+    assert.equal(lists, cleanup && !skip ? 1 : 0);
+    assert.equal(deletes, cleanup && !skip ? 1 : 0);
+  });
+}
