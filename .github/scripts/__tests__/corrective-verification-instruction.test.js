@@ -213,6 +213,62 @@ test('actual closed-kind collector propagates native refusal rather than falling
   await assert.rejects(fetchRequiredConversationComments({ github: f.args.github, owner: 'stranske', repo: 'example', pullNumber: 9,
     material: [f.selector], maxChars: 10000, context: f.args.context, pull: f.args.pull, maxPages: 2 }), /write authority/);
 });
+function selectedCorrectionComment(parent = 1, repository = 'stranske/example') {
+  const f = fixture(), selected = { kind: 'comment', url: `https://github.com/${repository}/issues/${parent}#issuecomment-802` };
+  const proof = { ...f.native.comment, id: 802, node_id: 'IC_802', html_url: selected.url,
+    issue_url: `https://api.github.com/repos/${repository}/issues/${parent}`, body: 'Retained causal RED/GREEN proof for original requirements.' };
+  const originalGetComment = f.args.github.rest.issues.getComment;
+  f.args.github.rest.issues.getComment = async args => args.comment_id === 802
+    ? (f.calls.push({ resource: 'selected-evidence', method: 'getComment', args }), { data: proof })
+    : originalGetComment(args);
+  return { f, selected, proof, collect: () => fetchRequiredConversationComments({ github: f.args.github,
+    owner: 'stranske', repo: 'example', pullNumber: 9, sourceIssues: [], material: [f.selector, selected],
+    maxChars: f.args.maxChars, context: f.args.context, pull: f.args.pull, maxPages: f.args.maxPages }) };
+}
+for (const parent of [1, 8]) test(`authenticated corrective issue ${parent} admits selected evidence without changing Tasks/AC`, async () => {
+  const { f, selected, proof, collect } = selectedCorrectionComment(parent);
+  const before = clone(f.request), result = await collect();
+  assert.equal(result.corrective_scopes.length, 1);
+  assert.equal(result.inventory.find(row => row.url === selected.url).status, 'included');
+  assert.equal(result.records.find(row => row.url === selected.url).body, proof.body);
+  assert.equal(result.records.find(row => row.url === selected.url).source, 'explicit required conversation comment');
+  assert.equal(result.corrective_scopes[0].source.body, f.native.source.body);
+  assert.equal(result.corrective_scopes[0].incumbent.body, f.native.incumbent.body);
+  assert.deepEqual(f.request, before);
+});
+for (const [parent, repository] of [[2, 'stranske/example'], [1, 'foreign/example']])
+  test(`corrective admission cannot authorize unrelated ${repository} issue ${parent}`, async () => {
+    const { f, selected, collect } = selectedCorrectionComment(parent, repository), result = await collect();
+    assert.equal(result.inventory.find(row => row.url === selected.url).reason, 'required_comment_outside_bound_sources');
+    assert.equal(f.calls.some(call => call.resource === 'selected-evidence'), false);
+  });
+for (const [name, mutate] of [
+  ['changed source body', x => { x.f.native.source.body += 'changed'; }],
+  ['forged instruction writer', x => { x.f.native.comment.user.id = 99; }],
+  ['mismatched dispatch actor', x => { x.f.args.context.payload.sender.id = 99; }],
+]) test(`selected corrective source cannot bypass ${name}`, async () => {
+  const x = selectedCorrectionComment(); mutate(x); await assert.rejects(x.collect());
+  assert.equal(x.f.calls.some(call => call.resource === 'selected-evidence'), false);
+});
+test('authenticated source does not excuse a selected comment returned from a different native parent', async () => {
+  const { selected, proof, collect } = selectedCorrectionComment();
+  proof.issue_url = 'https://api.github.com/repos/stranske/example/issues/2';
+  const result = await collect();
+  assert.equal(result.inventory.find(row => row.url === selected.url).reason, 'required_comment_identity_invalid');
+  assert.equal(result.records.some(row => row.comment_id === 802), false);
+});
+test('plain footer evidence cannot authorize additional original-source comments', async () => {
+  const { f, selected } = selectedCorrectionComment();
+  const result = await fetchRequiredConversationComments({ github: f.args.github, owner: 'stranske', repo: 'example',
+    pullNumber: 9, sourceIssues: [], material: [selected], maxChars: f.args.maxChars });
+  assert.equal(result.inventory[0].reason, 'required_comment_outside_bound_sources');
+  assert.equal(f.calls.length, 0);
+});
+test('authenticated corrective subjects do not expand the configured aggregate comment budget', async () => {
+  const { f, proof, collect } = selectedCorrectionComment();
+  f.args.maxChars = f.body.length + proof.body.length - 1;
+  await assert.rejects(collect(), /corrective_instruction_character_bound/);
+});
 for (const [name, mutate] of [
   ['unknown raw field', p => { p.raw_findings[0].qualified = true; }],
   ['missing raw evidence', p => { delete p.raw_findings[0].evidence; }],

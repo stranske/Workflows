@@ -971,6 +971,15 @@ async function fetchRequiredConversationComments({ github, owner, repo, pullNumb
       allowed.set(`${match[1]}/${match[2]}#${match[3]}`.toLowerCase(), 'issues');
     }
   }
+  // Corrective authentication above freshly binds both native issues even
+  // when the PR's ordinary closing references contain only the incumbent.
+  // Add those exact subjects before collecting selected evidence comments;
+  // caller selectors or plain footer text cannot create these scopes.
+  for (const scope of correctiveScopes) {
+    for (const issue of [scope.source, scope.incumbent]) {
+      allowed.set(`${owner}/${repo}#${issue.number}`.toLowerCase(), 'issues');
+    }
+  }
   const records = [], inventory = [];
   let chars = 0;
   for (const url of new Set(selected.map(row => row.url))) {
