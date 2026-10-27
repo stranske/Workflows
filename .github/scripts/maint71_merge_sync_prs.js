@@ -61,9 +61,59 @@ function canaryRecoveryKey(canary, state) {
     .update(`${canary.owner}/${canary.repo}:${state.delivery_digest || state.sha}:${canary.head_sha}`).digest('hex');
 }
 
-async function readRefreshPayload(sha, candidates) {
+function refreshPlanContext({ planId = '', planScope = 'full', scopeBaseSha = '', sourceSha = '', plan } = {}) {
+  if (planScope === 'auto') planScope = 'full';
+  if (!['full', 'source-delta'].includes(planScope)) throw new Error('canary_refresh_scope_unknown');
+  if (planScope === 'source-delta' && (!/^sha256:[a-f0-9]{64}$/.test(planId)
+    || !/^[a-f0-9]{40}$/.test(scopeBaseSha) || !/^[a-f0-9]{40}$/.test(sourceSha))) {
+    throw new Error('canary_refresh_scoped_identity_unknown');
+  }
+  if (planScope === 'full' && scopeBaseSha) throw new Error('canary_refresh_full_base_forbidden');
+  if (plan && (plan.plan_id !== planId || !Array.isArray(plan.entries) || !Array.isArray(plan.removals))) {
+    throw new Error('canary_refresh_compiled_plan_changed');
+  }
+  return { plan_id: planId, plan_scope: planScope, scope_base_sha: scopeBaseSha,
+    source_commit: sourceSha, ...(plan ? { plan } : {}) };
+}
+
+async function verifiedCanaryRefreshPlan({ owner, repo, pr, record, metadata, nativeHead, withRetry }) {
+  const head = nativeHead || (await withRetry(client => client.rest.repos.getCommit({
+    owner, repo, ref: pr.head.sha }))).data;
+  const commit = head.commit || head;
+  if (head.sha !== pr.head.sha || commit.verification?.verified !== true
+    || commit.verification.reason !== 'valid') throw new Error('canary_refresh_native_head_unverified');
+  const fields = Object.create(null);
+  for (const line of String(commit.message || '').split(/\r?\n/)) {
+    const match = line.match(/^(Consumer-sync plan ID|Plan scope|Scope base SHA|Source commit):\s*(.+?)\s*$/);
+    if (!match) continue;
+    if (Object.hasOwn(fields, match[1])) throw new Error('canary_refresh_duplicate_native_scope');
+    fields[match[1]] = match[2];
+  }
+  const scope = fields['Plan scope'];
+  const base = scope === 'full' && fields['Scope base SHA'] === 'full' ? '' : fields['Scope base SHA'];
+  if (!record || fields['Consumer-sync plan ID'] !== record.plan_id
+    || fields['Source commit'] !== record.source_commit
+    || !/^[a-f0-9]{40}$/.test(fields['Source commit'] || '')
+    || (record.head_observed_sha && record.head_observed_sha !== pr.head.sha)
+    || String(metadata?.plan_scope || 'full') !== scope) throw new Error('canary_refresh_native_scope_mismatch');
+  if (scope === 'source-delta') {
+    const binding = require('./sync_pr_merge_contract').validateSourceDeltaEvidenceBinding({
+      metadata, deliveryRecord: record, commitMessage: commit.message });
+    if (!binding.ok) throw new Error(`canary_refresh_native_scope_mismatch:${binding.errors.join(',')}`);
+  }
+  return refreshPlanContext({ planId: record.plan_id, planScope: scope,
+    scopeBaseSha: base, sourceSha: record.source_commit });
+}
+
+function sameRefreshPlan(left, right) {
+  return ['plan_id', 'plan_scope', 'scope_base_sha', 'source_commit']
+    .every(field => left?.[field] === right?.[field]);
+}
+
+async function readRefreshPayload(sha, candidates, refreshPlan) {
   try {
-    return await deliveryPayload.readDeliveryPayload(sha, candidates);
+    return await deliveryPayload.readDeliveryPayload(sha, candidates,
+      refreshPlan?.plan_scope === 'source-delta' ? refreshPlan : null);
   } catch (error) {
     console.log(`refresh: digest unavailable (${error.message || String(error)}); falling back to sha key`);
     return null;
@@ -71,6 +121,10 @@ async function readRefreshPayload(sha, candidates) {
 }
 
 function shaRefreshFallback(state, now) {
+  if (state.refresh_plan?.plan_scope === 'source-delta') {
+    return Object.assign(state, { eligible: false, state: 'unknown', producer_succeeded: false,
+      queue_reason: 'scoped payload cannot fall back to a source-only receipt' });
+  }
   return Object.assign(state, canaryRefreshDecision({ runs: state.runs || [], sha: state.sha,
     candidates: state.candidates, defaultBranch: state.default_branch || 'main',
     driftKey: state.drift_key, now }), { queue_reason: undefined });
@@ -110,41 +164,53 @@ function newestRefreshExecution(a, b) {
 // The latest delivered payload is reusable across SHAs. Older payload receipts
 // cannot mask a rollback after a different payload was delivered. The retry
 // window bounds failed producers; an active writer never expires into a second writer.
-function canaryRefreshDecision({ runs, sha, candidates, defaultBranch = 'main', driftKey = '', deliveryDigest = '', now = Date.now() }) {
+function canaryRefreshDecision({ runs, sha, candidates, defaultBranch = 'main', driftKey = '', deliveryDigest = '', refreshPlan = null, now = Date.now() }) {
   const key = candidateSet(candidates).join(',');
   const valid = runs.flatMap((run) => {
-    const title = String(run.display_title || '').trim();
-    const match = title.match(/^Maint 68 canary (?:full|auto)\s+source=([a-f0-9]{40}) candidates=(\S+) dry=false(?: drift=([a-f0-9]{64}))?(?: guard=delivery-v1)?$/);
+    const title = String(run.display_title || '').trim().replace(/\s+/g, ' ');
+    const match = title.match(/^Maint 68 canary (full|auto|source-delta)\s+source=([a-f0-9]{40}) candidates=(\S+) dry=false(?: drift=([a-f0-9]{64}))?(?: guard=delivery-v1)?$/);
     return match && run.head_branch === defaultBranch && /^[a-f0-9]{40}$/.test(run.head_sha || '')
-      && (match[2] === '*' || candidateSet(match[2].split(',')).join(',') === key)
-      ? [{ ...run, source_commit: match[1] }] : [];
+      && (match[3] === '*' || candidateSet(match[3].split(',')).join(',') === key)
+      && (refreshPlan?.plan_scope === 'source-delta'
+        ? match[1] === 'source-delta' && sameRefreshPlan(run.refresh_plan, refreshPlan)
+        : match[1] !== 'source-delta')
+      ? [{ ...run, source_commit: match[2] }] : [];
   });
-  const matching = valid.filter(run => deliveryDigest ? run.delivery_digest === deliveryDigest
-    : run.source_commit === sha);
+  const matching = valid.filter(run => refreshPlan?.plan_scope === 'source-delta'
+    ? sameRefreshPlan(run.refresh_plan, refreshPlan)
+    : deliveryDigest ? run.delivery_digest === deliveryDigest : run.source_commit === sha);
   const latestSuccess = valid.filter(run => run.status === 'completed' && run.conclusion === 'success'
     && (!deliveryDigest || run.delivery_digest)).sort(newestRefreshExecution)[0];
   const identityMatches = (run) => !driftKey || String(run.display_title).includes(` drift=${driftKey}`);
-  const successful = matching.find((run) => (!deliveryDigest || latestSuccess?.delivery_digest === deliveryDigest) && identityMatches(run) && run.status === 'completed' && run.conclusion === 'success');
-  const active = matching.find((run) => ACTIVE_SYNC_STATES.includes(run.status));
-  const writer = runs.find((run) => ACTIVE_SYNC_STATES.includes(run.status)
+  const successful = matching.find((run) => !run.refresh_not_started && (!deliveryDigest || latestSuccess?.delivery_digest === deliveryDigest) && identityMatches(run) && run.status === 'completed' && run.conclusion === 'success');
+  const active = matching.find((run) => !run.refresh_ignore_current_writer && ACTIVE_SYNC_STATES.includes(run.status));
+  const writer = runs.find((run) => !run.refresh_ignore_current_writer && ACTIVE_SYNC_STATES.includes(run.status)
     && /^Maint 68 (canary|promote) /.test(run.display_title || ''));
   const recent = matching.find((run) => run.status === 'completed' && run.conclusion !== 'success'
     && now - Date.parse(run.updated_at || run.created_at) < CANARY_REFRESH_DEBOUNCE_MS);
-  const prior = active || writer || successful || recent;
+  const unknown = refreshPlan?.plan_scope === 'source-delta' && runs.find(run => run.refresh_unknown);
+  const prior = active || writer || unknown || successful || recent;
   return { sha, delivery_digest: deliveryDigest, unchanged_since: successful?.source_commit, drift_key: driftKey, runs, candidates: candidateSet(candidates), eligible: !prior,
-    producer_succeeded: Boolean(successful),
-    state: active ? active.status : writer ? 'writer-active' : successful ? 'success'
+    producer_succeeded: Boolean(successful) && !unknown,
+    ...(refreshPlan ? { refresh_plan: refreshPlan } : {}),
+    state: active ? active.status : writer ? 'writer-active' : unknown ? 'unknown' : successful ? 'success'
       : recent ? recent.conclusion || 'completed' : 'unseen',
     run_id: prior?.id,
     debounce_ms: CANARY_REFRESH_DEBOUNCE_MS };
 }
 
 async function readCanaryRefreshState({ withRetry, context, expectedCanaries, driftKey = '',
-  sourceSha, ignoreRunId, writerOnly = false, now = Date.now() }) {
+  sourceSha, ignoreRunId, ignoreRunAttempt, writerOnly = false, planId = '', planScope = 'full', scopeBaseSha = '', plan, now = Date.now() }) {
   const location = { owner: context.repo.owner, repo: context.repo.repo };
   const branch = context.payload.repository?.default_branch || 'main';
   const { data: source } = await withRetry((client) => client.rest.repos.getCommit({ ...location, ref: sourceSha || branch }));
   if (!/^[a-f0-9]{40}$/.test(source.sha || '')) throw new Error('canary_refresh_main_sha_unknown');
+  if (sourceSha && /^[a-f0-9]{40}$/.test(sourceSha) && source.sha !== sourceSha) throw new Error('canary_refresh_source_changed');
+  const refreshPlan = refreshPlanContext({ planId, planScope, scopeBaseSha, sourceSha: source.sha, plan });
+  if (refreshPlan.plan_scope === 'source-delta' && ignoreRunId
+    && (!Number.isSafeInteger(ignoreRunAttempt) || ignoreRunAttempt < 1)) {
+    throw new Error('canary_refresh_current_attempt_unknown');
+  }
   const { data: file } = await withRetry((client) => client.rest.repos.getContent({
     ...location, path: 'config/consumer_sync_canaries.json', ref: source.sha,
   }));
@@ -167,8 +233,10 @@ async function readCanaryRefreshState({ withRetry, context, expectedCanaries, dr
     runs.push(...data.workflow_runs);
   }
   if (writerOnly) return canaryRefreshDecision({ runs, sha: source.sha, candidates, defaultBranch: branch, now });
-  let payload = await readRefreshPayload(source.sha, candidates);
-  const observed = runs.filter(run => Number(run.id) !== Number(ignoreRunId));
+  let payload = refreshPlan.plan_scope === 'source-delta' && !refreshPlan.plan ? null
+    : await readRefreshPayload(source.sha, candidates, refreshPlan);
+  const observed = runs.filter(run => Number(run.id) !== Number(ignoreRunId)
+    || (refreshPlan.plan_scope === 'source-delta' && Number(run.run_attempt || 1) !== ignoreRunAttempt));
   // The API lists by creation, not latest attempt. Collect metadata before
   // selecting receipts, including older IDs rerun after a newer delivery.
   const history = [];
@@ -182,10 +250,48 @@ async function readCanaryRefreshState({ withRetry, context, expectedCanaries, dr
     if (page === 100) throw new Error('canary_refresh_history_truncated');
   }
   for (const original of history.sort(newestRefreshExecution)) {
-    if (Number(original.id) === Number(ignoreRunId)) continue;
+    if (Number(original.id) === Number(ignoreRunId)) {
+      if (refreshPlan.plan_scope === 'source-delta' && (Number(original.run_attempt || 1) > 1
+        || Number(original.run_attempt || 1) !== ignoreRunAttempt)) {
+        observed.push({ ...original, refresh_unknown: true,
+          refresh_ignore_current_writer: Number(original.run_attempt || 1) === ignoreRunAttempt });
+      }
+      continue;
+    }
     const run = { ...original };
     observed.push(run);
-    const match = String(run.display_title || '').trim().match(
+    if (refreshPlan.plan_scope === 'source-delta') {
+      const title = String(run.display_title || '').trim().replace(/\s+/g, ' ');
+      if (!/^Maint 68 canary source-delta\s+source=[a-f0-9]{40} candidates=\S+ dry=false(?: drift=[a-f0-9]{64})?(?: guard=delivery-v1)?$/.test(title)) continue;
+      const receipt = await require('./maint68_scoped_receipt').readScopedCanaryReceipt({
+        withRetry, context, run, defaultBranch: branch, candidates });
+      if (receipt.state === 'unknown') {
+        // This proof is produced only by the native reader after joining the
+        // original prepare steps to the reviewed workflow source projection.
+        if (receipt.proof?.source_identity_bound === true
+          && receipt.source_commit !== source.sha) continue;
+        run.refresh_unknown = true;
+        continue;
+      }
+      if (receipt.state === 'not_started' && Number(run.run_attempt || 1) > 1) {
+        if (receipt.proof?.source_identity_bound === true && receipt.source_commit !== source.sha) continue;
+        run.refresh_unknown = true;
+        continue;
+      }
+      if (receipt.plan_id) {
+        run.refresh_plan = refreshPlanContext({ planId: receipt.plan_id, planScope: receipt.plan_scope,
+          scopeBaseSha: receipt.scope_base_sha, sourceSha: receipt.source_commit, plan: receipt.plan });
+        run.source_commit = receipt.source_commit;
+        run.refresh_not_started = receipt.state === 'not_started';
+        if (sameRefreshPlan(run.refresh_plan, refreshPlan)) {
+          if (!refreshPlan.plan && receipt.plan) refreshPlan.plan = receipt.plan;
+          if (receipt.state === 'completed'
+            && (!driftKey || title.includes(` drift=${driftKey}`))) break;
+        }
+      } else if (receipt.state !== 'not_started') run.refresh_unknown = true;
+      continue;
+    }
+    const match = String(run.display_title || '').trim().replace(/\s+/g, ' ').match(
       /^Maint 68 canary (?:full|auto)\s+source=([a-f0-9]{40}) candidates=(\S+) dry=false(?: drift=([a-f0-9]{64}))?(?: guard=delivery-v1)?$/);
     if (!match || run.head_branch !== branch || !/^[a-f0-9]{40}$/.test(run.head_sha || '')
       || (match[2] !== '*' && candidateSet(match[2].split(',')).join(',') !== candidates.join(','))) continue;
@@ -221,8 +327,18 @@ async function readCanaryRefreshState({ withRetry, context, expectedCanaries, dr
     }
   }
 
+  if (refreshPlan.plan_scope === 'source-delta') {
+    payload = refreshPlan.plan ? await readRefreshPayload(source.sha, candidates, refreshPlan) : null;
+    for (const run of observed) {
+      if (sameRefreshPlan(run.refresh_plan, refreshPlan)) run.delivery_digest = payload?.digest;
+    }
+  }
   const state = canaryRefreshDecision({ runs: observed, sha: source.sha, candidates,
-    defaultBranch: branch, driftKey, deliveryDigest: payload?.digest, now });
+    defaultBranch: branch, driftKey, deliveryDigest: payload?.digest, refreshPlan, now });
+  if (refreshPlan.plan_scope === 'source-delta' && !payload) {
+    Object.assign(state, { eligible: false, state: 'unknown', producer_succeeded: false,
+      queue_reason: 'compiled scoped payload unavailable' });
+  }
   state.default_branch = branch;
   if (state.eligible && payload) await deferSealedCanaryRefresh({ state, payload, withRetry, now });
   return state;
@@ -248,7 +364,8 @@ async function deferSealedCanaryRefresh({ state, payload, withRetry, now = Date.
         || record.repository !== repository || record.head_observed_sha !== pr.head?.sha) continue;
       const prior = await readRefreshPayload(record.source_commit, state.candidates);
       if (!prior) return shaRefreshFallback(state, now);
-      if (prior.digest === payload.digest && !state.drift_key) {
+      if (state.refresh_plan?.plan_scope !== 'source-delta'
+        && prior.digest === payload.digest && !state.drift_key) {
         waiting.push({ reason: 'unchanged', repository, source: record.source_commit });
         continue;
       }
@@ -258,7 +375,9 @@ async function deferSealedCanaryRefresh({ state, payload, withRetry, now = Date.
       if (!Number.isFinite(elapsed)) throw new Error('canary_refresh_seal_time_unknown');
       if (elapsed >= CANARY_SEALED_REFRESH_WAIT_MS) continue;
       const before = prior.files[repository] || {}, after = payload.files[repository] || {};
-      const changed = new Set([...Object.keys(before), ...Object.keys(after)]
+      const considered = state.refresh_plan?.plan_scope === 'source-delta'
+        ? Object.keys(after) : [...Object.keys(before), ...Object.keys(after)];
+      const changed = new Set(considered
         .filter(file => JSON.stringify(before[file]) !== JSON.stringify(after[file])));
       const files = [];
       for (let page = 1; ; page++) {
@@ -319,6 +438,12 @@ async function dispatchCanaryRefresh({ withRetry, context, core, expectedCanarie
   core.notice(line);
   await core.summary.addRaw(`${line}; candidates=${state.candidates.join(',')}; debounce_ms=${CANARY_REFRESH_DEBOUNCE_MS}\n`).write();
   if (!state.eligible) return { ...state, dispatched: false };
+  if (state.refresh_plan?.plan_scope === 'source-delta') {
+    const request = state.refresh_plan;
+    refreshPlanContext({ planId: request.plan_id, planScope: request.plan_scope,
+      scopeBaseSha: request.scope_base_sha, sourceSha: request.source_commit, plan: request.plan });
+    if (!request.plan || state.sha !== request.source_commit) throw new Error('canary_refresh_scoped_payload_unknown');
+  }
   await withRetry((client) => client.rest.actions.createWorkflowDispatch({
     owner: context.repo.owner, repo: context.repo.repo,
     workflow_id: 'maint-68-sync-consumer-repos.yml',
@@ -326,11 +451,66 @@ async function dispatchCanaryRefresh({ withRetry, context, core, expectedCanarie
     inputs: { phase: 'canary', delivery_scope: 'full', scope_head_sha: state.sha,
       repos: state.candidates.join(','), dry_run: 'false', force: 'false',
       cleanup_branches: String(cleanupBranches),
+      ...(state.refresh_plan?.plan_scope === 'source-delta' ? {
+        delivery_scope: 'source-delta', scope_base_sha: state.refresh_plan.scope_base_sha,
+        scope_head_sha: state.refresh_plan.source_commit, expected_plan_id: state.refresh_plan.plan_id,
+      } : {}),
       ...(state.drift_key ? { refresh_key: state.drift_key } : {}) },
   }));
   // Covers a second request in this run before REST exposes the queued run.
   Object.assign(state, { eligible: false, state: 'requested' });
   return { ...state, dispatched: true };
+}
+
+async function dispatchCandidateRefreshFromReport({ report, withRetry, context, core, expectedCanaries,
+  trustedActors = [] }) {
+  const rows = (Array.isArray(report?.results) ? report.results : []).filter(row =>
+    row.status === 'stable_base_refresh_required'
+    && row.next_command === 'dispatch-maint-68-phase-canary-no-filter');
+  if (!rows.length) return { eligible: false, state: 'no-refresh-request', dispatched: false };
+  const allowed = new Set(expectedCanaries), requests = [], freshCanaries = [];
+  const { parseDeliveryRecord } = require('./sync_pr_lease_contract');
+  const { isTrustedGeneratedDeliveryPr } = require('./sync_pr_merge_contract');
+  for (const row of rows) {
+    const repository = `${row.owner}/${row.repo}`;
+    if (!allowed.has(repository) || !Number.isSafeInteger(row.pr) || row.pr < 1
+      || !/^[a-f0-9]{40}$/.test(row.head_sha || '')) throw new Error('canary_refresh_report_subject_unknown');
+    const { data: pr } = await withRetry(client => client.rest.pulls.get({
+      owner: row.owner, repo: row.repo, pull_number: row.pr }));
+    if (pr.number !== row.pr || pr.state !== 'open' || pr.draft === true
+      || pr.head?.ref !== 'sync/workflows-candidate' || pr.head.sha !== row.head_sha
+      || pr.head.repo?.full_name !== repository || pr.base?.repo?.full_name !== repository
+      || !isTrustedGeneratedDeliveryPr(pr, trustedActors)) throw new Error('canary_refresh_report_native_subject_changed');
+    const matches = [...String(pr.body || '').matchAll(/<!-- workflows-consumer-sync:v1 ([\s\S]*?) -->/g)];
+    if (matches.length !== 1) throw new Error('canary_refresh_report_metadata_ambiguous');
+    const metadata = JSON.parse(matches[0][1]), record = parseDeliveryRecord(pr.body);
+    if (metadata.consumer_repo !== repository || metadata.sync_phase !== 'canary'
+      || record?.repository !== repository) throw new Error('canary_refresh_report_native_subject_changed');
+    const request = await verifiedCanaryRefreshPlan({ owner: row.owner, repo: row.repo,
+      pr, record, metadata, withRetry });
+    if (!sameRefreshPlan(request, row)) throw new Error('canary_refresh_report_scope_changed');
+    requests.push(request);
+    freshCanaries.push({ owner: row.owner, repo: row.repo, head_sha: pr.head.sha,
+      mergeable_state: pr.mergeable_state, default_branch: pr.base.repo.default_branch });
+  }
+  if (requests.every(request => request.plan_scope === 'full')) {
+    return dispatchCanaryRefresh({ withRetry, context, core, expectedCanaries,
+      cleanupBranches: report.inputs.cleanup_branches });
+  }
+  if (requests.some(request => request.plan_scope !== 'source-delta'
+    || !sameRefreshPlan(request, requests[0]))) throw new Error('canary_refresh_mixed_report_plans');
+  const request = requests[0];
+  const inputs = { sourceSha: request.source_commit, planId: request.plan_id,
+    planScope: request.plan_scope, scopeBaseSha: request.scope_base_sha };
+  let state = await readCanaryRefreshState({ withRetry, context, expectedCanaries, ...inputs });
+  if (state.state !== 'unknown') {
+    const recovery = freshCanaries.find(canary => canary.mergeable_state === 'behind') || freshCanaries[0];
+    await readCanaryDefaultTip({ canary: recovery, withRetry, consumerTipCache: new Map() });
+    state = await readCanaryRefreshState({ withRetry, context, expectedCanaries, ...inputs,
+      driftKey: canaryRecoveryKey(recovery, state) });
+  }
+  return dispatchCanaryRefresh({ withRetry, context, core, expectedCanaries, refreshState: state,
+    cleanupBranches: report.inputs.cleanup_branches });
 }
 
 // Age is a recovery trigger for blocked canaries, never a hold on green ones.
@@ -638,15 +818,24 @@ async function refreshStableCanaries({
     if (enabled && plans.size) {
       // Keep the existing producer-writer guard. A running promotion or
       // refresh owns these stable heads; leave the request visible for retry.
-      const recovery = [...plans.values()].flat().find(row => row.mergeable_state === 'behind')
-        || [...plans.values()][0][0];
-      const baseState = refreshState || recovery.refresh_state
-        || await readCanaryRefreshState({ withRetry, context, expectedCanaries, now });
-      const recoveryKey = canaryRecoveryKey(recovery, baseState);
-      const state = baseState.drift_key === recoveryKey ? baseState
-        : await readCanaryRefreshState({ withRetry, context, expectedCanaries, now,
-          driftKey: recoveryKey });
       for (const [plan, rows] of plans) {
+        const recovery = rows.find(row => row.mergeable_state === 'behind') || rows[0];
+        const request = recovery.refresh_plan;
+        if (rows.some(row => row.plan_scope === 'source-delta' || row.refresh_plan?.plan_scope === 'source-delta')
+          && (!request || request.plan_scope !== 'source-delta'
+            || rows.some(row => !sameRefreshPlan(row.refresh_plan, request)))) {
+          throw new Error('canary_refresh_scoped_native_binding_missing_or_mixed');
+        }
+        const inputs = request ? { planId: request.plan_id, planScope: request.plan_scope,
+          scopeBaseSha: request.scope_base_sha, sourceSha: request.source_commit, plan: request.plan } : {};
+        const reusable = recovery.refresh_state || (request && !sameRefreshPlan(refreshState?.refresh_plan, request)
+          ? null : refreshState);
+        const baseState = reusable || await readCanaryRefreshState({
+          withRetry, context, expectedCanaries, now, ...inputs });
+        const recoveryKey = canaryRecoveryKey(recovery, baseState);
+        const state = baseState.drift_key === recoveryKey ? baseState
+          : await readCanaryRefreshState({ withRetry, context, expectedCanaries, now,
+            ...inputs, driftKey: recoveryKey });
         const refresh = await dispatchCanaryRefresh({ withRetry, context, core,
           expectedCanaries, refreshState: state, now, cleanupBranches });
         if (!refresh.dispatched) continue;
@@ -654,6 +843,9 @@ async function refreshStableCanaries({
         core.notice(`dispatch-maint-68-phase-canary-no-filter: ${plan}; reasons=` +
           rows.map((row) => `${row.owner}/${row.repo}:${row.refresh_reason}`).join(', ') +
           '; completion awaits a successful Maint 68 run');
+        // Stable candidate branches have one writer even before REST exposes
+        // this newly requested run. Other held plans remain for a later pass.
+        break;
       }
     }
   } catch (error) {
@@ -3057,16 +3249,29 @@ async function run({ github, context, core }) {
   }
 
   let refreshState;
+  const refreshStates = new Map();
+  const nativeRefreshInputs = new WeakMap();
   const consumerTipCache = new Map();
   const getRefreshState = async (canary) => {
-    if (!refreshState) refreshState = await readCanaryRefreshState({
-      withRetry, context, expectedCanaries: expectedCanaryRepos,
-    });
-    if (!canary || !canaryNeedsRefresh(canary)) return refreshState;
+    const native = nativeRefreshInputs.get(canary);
+    if (!native) throw new Error('canary_refresh_native_context_missing');
+    const nativePlan = await verifiedCanaryRefreshPlan(native);
+    const request = nativePlan.plan_scope === 'source-delta' ? nativePlan : null;
+    if (request) canary.refresh_plan = request;
+    Object.assign(canary, { plan_scope: nativePlan.plan_scope, scope_base_sha: nativePlan.scope_base_sha });
+    const key = request ? JSON.stringify([request.plan_id, request.plan_scope,
+      request.scope_base_sha, request.source_commit]) : 'legacy-full';
+    const inputs = request ? { planId: request.plan_id, planScope: request.plan_scope,
+      scopeBaseSha: request.scope_base_sha, sourceSha: request.source_commit } : {};
+    if (!refreshStates.has(key)) refreshStates.set(key, await readCanaryRefreshState({
+      withRetry, context, expectedCanaries: expectedCanaryRepos, ...inputs,
+    }));
+    refreshState = refreshStates.get(key);
+    if (!canaryNeedsRefresh(canary) || refreshState.state === 'unknown') return refreshState;
     await readCanaryDefaultTip({ canary, withRetry, consumerTipCache });
     return canaryRefreshDecision({ runs: refreshState.runs, sha: refreshState.sha,
       candidates: refreshState.candidates, driftKey: canaryRecoveryKey(canary, refreshState),
-      deliveryDigest: refreshState.delivery_digest,
+      deliveryDigest: refreshState.delivery_digest, refreshPlan: refreshState.refresh_plan,
       defaultBranch: context.payload.repository?.default_branch || 'main' });
   };
 
@@ -4439,6 +4644,8 @@ async function run({ github, context, core }) {
           head_observed_at: deliveryRecord?.head_observed_at,
           updated_at: pr.updated_at, created_at: pr.created_at,
           threads: reviewThreadDetails.threads };
+        nativeRefreshInputs.set(canary, { owner, repo, pr, record: deliveryRecord, metadata,
+          nativeHead: selectedHeadCommit, withRetry });
         stableCanaries.push(canary);
         // Producer success never certifies consumer health. Recovery retains
         // the active-writer guard and is consumed once per payload/head key.
@@ -5496,8 +5703,11 @@ module.exports = {
   CANARY_SEALED_REFRESH_WAIT_MS,
   deferSealedCanaryRefresh,
   canaryRefreshDecision,
+  refreshPlanContext,
+  verifiedCanaryRefreshPlan,
   readCanaryRefreshState,
   dispatchCanaryRefresh,
+  dispatchCandidateRefreshFromReport,
   canaryNeedsRefresh,
   isExpectedPresealGateFailure,
   gateRunEvaluatesSeal,
