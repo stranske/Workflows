@@ -1,0 +1,37 @@
+{
+  "schema": "verifier-incidental-coverage-replay/v1",
+  "repository": "stranske/Orchestrator",
+  "pr": 984,
+  "verifier_run": 40597948352,
+  "purpose": "Retained public canary input only; no new provider outcome or production evidence claimed. Tests change only collector-owned typed classification in memory.",
+  "files_sha256": {
+    "verifier-context.md": "1e91b5e753e2f2e29d9cf7c807fdd94ab144c08082088b232d5ffb29a2d78ff0",
+    "verifier-pr-diff.patch": "d6945e9f95961473f4a76404660f722e38a91e6836472be64a814b94562e7869"
+  },
+  "archives": {
+    "12773020799.zip": {
+      "sha256": "26b14de9d3020ab05aa326d7d74c809a432f3af9a9a1def148d998fbf597131a",
+      "run_id": 40587242679,
+      "head_sha": "0507d28acf68d6bf21c68138d18d56cd01968827",
+      "meaning": "Exact public CI ZIP retained by read-only native fetch; original verifier context archive digest matches. No model outcome claimed."
+    },
+    "12772658200.zip": {
+      "sha256": "6787f3db33899b4fcfbd50d28094cbc9f1ea63cd5abad20d28def559867d5077",
+      "run_id": 40587242679,
+      "head_sha": "0507d28acf68d6bf21c68138d18d56cd01968827",
+      "meaning": "Exact public CI ZIP retained by read-only native fetch; original verifier context archive digest matches. No model outcome claimed."
+    },
+    "12772313542.zip": {
+      "sha256": "940f3cbe175c951be74ac9d84a89e20899ad5d00200a09f762ea993fd2b60238",
+      "run_id": 40587242679,
+      "head_sha": "0507d28acf68d6bf21c68138d18d56cd01968827",
+      "meaning": "Exact public CI ZIP retained by read-only native fetch; original verifier context archive digest matches. No model outcome claimed."
+    }
+  },
+  "negative_controls": {
+    "malformed-coverage.zip": {
+      "sha256": "108e38e91000c99f00bc1b4e03cc2848e107c32438028e1dbe2820775a31fc98",
+      "purpose": "Review-generated valid SQLite header and CRC-correct ZIP with structurally malformed database. Never production evidence."
+    }
+  }
+}

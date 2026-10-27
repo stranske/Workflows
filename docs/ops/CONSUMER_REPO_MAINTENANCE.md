@@ -3595,3 +3595,26 @@ dispatch these producers.
 Upstream finding markers suppress duplicate comments only when authored by
 the authenticated Maint 71 writer. When drained, the summary is
 `canaries: red=0 review_blocked=0 stale=0 refresh_dispatched=0 held_plan=none drainable=0`.
+
+
+### Incidental coverage database evidence
+
+Automatic CI artifact discovery does not make every coverage database an
+acceptance obligation. A safely named coverage.py SQLite sidecar that passes
+bounded native ZIP extraction, SQLite format checks and an immutable read-only
+stdlib SQLite structural check is classified as
+`unrenderable_coverage_sqlite`, an availability limit. It is not rendered as
+text or treated as proof of coverage results or completed acceptance criteria.
+The optional probe uses the existing Python runtime without inherited
+credentials; missing runtime, failed checks and timeouts retain the existing
+unsupported-payload hold. Existing artifact, entry, extraction and prompt limits remain in
+force. Unknown payloads, unsafe paths, duplicate members and corrupt archives
+retain integrity failures.
+
+Only an already optional evidence channel may omit this unavailable content.
+Explicitly selected unrenderable members retain a hard
+`required_member_unrenderable` failure, even when extraction produces no text
+record. Required evidence channels remain blocked. Original Tasks and
+acceptance criteria, including pending execution and publication proof, are
+unchanged. This prospective classification does not change a retained
+`UNVERIFIABLE_INPUT` result into a model judgment or grant closure authority.
