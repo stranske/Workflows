@@ -374,7 +374,7 @@ jobs:
               core.setOutput('allowed', 'true');
               return;
             }
-            const { readCanaryRefreshState } = require('./.delivery-tools/.github/scripts/maint71_merge_sync_prs');
+            const { readCanaryRefreshState, reportCanaryRefreshDiagnostics } = require('./.delivery-tools/.github/scripts/maint71_merge_sync_prs');
             const { createTokenAwareRetry } = require('./.delivery-tools/.github/scripts/github-api-with-retry');
             const { withRetry } = await createTokenAwareRetry({
               github, core, env: {}, tokenRegistry: { isInitialized: () => false },
@@ -390,6 +390,7 @@ jobs:
               plan: JSON.parse(require('fs').readFileSync('manifest.json', 'utf8')),
               ignoreRunId: context.runId, ignoreRunAttempt: Number(process.env.GITHUB_RUN_ATTEMPT),
             });
+            await reportCanaryRefreshDiagnostics({ core, state });
             const line = state.queue_reason ? `refresh: queued (${state.queue_reason})`
               : state.producer_succeeded && state.delivery_digest
                 ? `refresh: skipped (delivery digest ${state.delivery_digest} unchanged since ${state.unchanged_since || state.sha})`

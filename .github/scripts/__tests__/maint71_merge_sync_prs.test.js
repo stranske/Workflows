@@ -2910,7 +2910,7 @@ for (const writerActive of [false, true]) {
     const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
     await new AsyncFunction('require', 'github', 'context', 'core', 'process', script)(
       name => name === 'fs' ? { readFileSync: () => JSON.stringify({ plan_id: '', entries: [], removals: [] }) }
-        : name.includes('maint71_merge_sync_prs') ? { readCanaryRefreshState }
+        : name.includes('maint71_merge_sync_prs') ? { readCanaryRefreshState, reportCanaryRefreshDiagnostics: require('../maint71_merge_sync_prs').reportCanaryRefreshDiagnostics }
         : name.includes('github-api-with-retry') ? { createTokenAwareRetry: async () => ({ withRetry: api.withRetry }) }
         : { canaries: api.expectedCanaries.map(repo => ({ repo })) },
       await api.withRetry(client => client), { ...api.context, runId: 1000 },
@@ -2958,7 +2958,7 @@ test('Maint 68 force authorizes mutation without consulting an unchanged digest'
   const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
   const execute = new AsyncFunction('core', 'require', 'process', 'github', 'context', script);
   await execute(core, name => name === 'fs' ? { readFileSync: () => '{}' } : name.includes('maint71_merge_sync_prs')
-    ? { readCanaryRefreshState: async () => ({ eligible: false, producer_succeeded: true,
+    ? { reportCanaryRefreshDiagnostics: require('../maint71_merge_sync_prs').reportCanaryRefreshDiagnostics, readCanaryRefreshState: async () => ({ eligible: false, producer_succeeded: true,
       delivery_digest: 'unchanged', unchanged_since: 'a'.repeat(40) }) }
     : name.includes('github-api-with-retry') ? { createTokenAwareRetry: async ({ github }) => ({ withRetry: fn => fn(github) }) }
     : { canaries: [{ repo: 'stranske/Ready' }] }, { env: { FORCE: 'false' } }, {}, { runId: 1 });

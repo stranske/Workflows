@@ -140,7 +140,7 @@ test('actual workflow guard passes the actual compiled plan identity before admi
   const fn = new (Object.getPrototypeOf(async function () {}).constructor)('require', 'process', 'core', 'github', 'context', guardScript());
   const load = name => name === 'fs' ? { readFileSync: () => JSON.stringify(compiled) }
     : name.includes('github-api-with-retry') ? { createTokenAwareRetry: async args => { factoryCalls.push(args); return { withRetry: wrapped }; } }
-    : name.includes('maint71_merge_sync_prs') ? { readCanaryRefreshState: async args => { seen.push(args); return { eligible: true }; } }
+    : name.includes('maint71_merge_sync_prs') ? { reportCanaryRefreshDiagnostics: require('../maint71_merge_sync_prs').reportCanaryRefreshDiagnostics, readCanaryRefreshState: async args => { seen.push(args); return { eligible: true }; } }
       : { canaries: candidates.map(repo => ({ repo })) };
   const env = { PLAN_ID: id, PLAN_SCOPE: 'source-delta', SCOPE_BASE_SHA: base, SOURCE_COMMIT: source };
   const core = { notice() {}, setOutput: (key, value) => { outputs[key] = value; }, summary: { addRaw() { return this; }, async write() {} } };
@@ -382,4 +382,101 @@ test('actual Maint71 workflow caller uses the native report adapter rather than 
     load, { env: { TRUSTED_SYNC_ACTORS: 'stranske' } }, {}, {}, context);
   assert.equal(calls.length, 1); assert.deepEqual(calls[0].report, report);
   assert.deepEqual(calls[0].trustedActors, ['stranske']); assert.deepEqual(calls[0].expectedCanaries, ['owner/a']);
+});
+
+
+test('native refusal diagnostics retain only bounded allowlisted primitives and do not change unknown admission', async t => {
+  const run = producer('source-delta', { run_attempt: 1 });
+  const api = historyHarness(t, { runs: [run], receipt: { state: 'unknown',
+    reason: 'native_scope_artifact_absent_or_ambiguous', source_commit: source,
+    plan_id: id, plan_scope: 'source-delta', scope_base_sha: base,
+    proof: { source_identity_bound: false, artifact_id: 3, raw: 'SECRET_PAYLOAD' },
+    secret: 'SECRET_PAYLOAD' } });
+  const state = await api.read();
+  const { canaryRefreshDiagnostics, reportCanaryRefreshDiagnostics } = require('../maint71_merge_sync_prs');
+  const diagnostic = canaryRefreshDiagnostics(state);
+  assert.equal(state.eligible, false); assert.equal(diagnostic.state, 'unknown');
+  assert.equal(diagnostic.blocking_receipt.run_id, run.id);
+  assert.equal(diagnostic.blocking_receipt.run_attempt, 1);
+  assert.equal(diagnostic.blocking_receipt.reason_code, 'native_scope_artifact_absent_or_ambiguous');
+  assert.equal(diagnostic.blocking_receipt.plan_id, id);
+  assert.equal(diagnostic.inventory.unknown, 1); assert.equal(diagnostic.inventory.native_receipts, 1);
+  const notices = [], summaries = [];
+  await reportCanaryRefreshDiagnostics({ state, core: { notice: value => notices.push(value),
+    summary: { addRaw(value) { summaries.push(value); return this; }, async write() {} } } });
+  assert.match(notices[0], /canary-refresh-diagnostics:/);
+  assert.match(summaries[0], /native_scope_artifact_absent_or_ambiguous/);
+  assert.doesNotMatch(JSON.stringify({ diagnostic, notices, summaries }), /SECRET_PAYLOAD/);
+  assert.equal(api.writes.length, 0);
+});
+test('arbitrary native API error text is never logged; bounded inventory and recovery report share diagnostics', async () => {
+  const { refreshReceiptDiagnostic, canaryRefreshDiagnostics, dispatchCanaryRefresh } = require('../maint71_merge_sync_prs');
+  const receipt = refreshReceiptDiagnostic({ id: 1, run_attempt: 1, head_sha: head }, {
+    state: 'unknown', reason: 'Bearer SECRET_PAYLOAD\n<script>', source_commit: 'SECRET_PAYLOAD',
+    proof: { artifact_id: 'SECRET_PAYLOAD' } });
+  assert.equal(receipt.reason_code, 'native_scope_read_failed');
+  assert.doesNotMatch(JSON.stringify(receipt), /SECRET_PAYLOAD/);
+  const runs = Array.from({ length: 20 }, (_, i) => ({ id: i + 1, refresh_unknown: true,
+    refresh_receipt: { ...receipt, run_id: i + 1 } }));
+  const state = { ...ready(), runs, run_id: 1, state: 'unknown', eligible: false };
+  const diagnostic = canaryRefreshDiagnostics(state);
+  assert.equal(diagnostic.refusals.length, 8); assert.equal(diagnostic.omitted_refusals, 12);
+  const api = recorder(); await dispatchCanaryRefresh({ ...api, context, expectedCanaries: candidates, refreshState: state });
+  assert.equal(api.writes.length, 0); assert.match(api.summaries.join(''), /native_scope_read_failed/);
+});
+test('parsed but uncertain effect disposition receives an explicit diagnostic code', () => {
+  const { refreshReceiptDiagnostic } = require('../maint71_merge_sync_prs');
+  assert.equal(refreshReceiptDiagnostic(producer(), { state: 'unknown' }).reason_code,
+    'native_scope_effect_disposition_unknown');
+});
+
+test('actual Maint68 guard emits structured blocking diagnostics while refusing mutation', async () => {
+  const helper = require('../maint71_merge_sync_prs');
+  const run = producer('source-delta', { run_attempt: 1, refresh_unknown: true });
+  run.refresh_receipt = helper.refreshReceiptDiagnostic(run, { state: 'unknown',
+    reason: 'native_scope_phase_binding', source_commit: source, proof: { source_identity_bound: true } });
+  const state = { ...ready(), eligible: false, state: 'unknown', run_id: run.id, runs: [run] };
+  const outputs = {}, notices = [], summaries = [];
+  const core = { notice: value => notices.push(value), setOutput: (key, value) => { outputs[key] = value; },
+    summary: { addRaw(value) { summaries.push(value); return this; }, async write() {} } };
+  const load = name => name === 'fs' ? { readFileSync: () => JSON.stringify(compiled) }
+    : name.includes('github-api-with-retry') ? { createTokenAwareRetry: async () => ({ withRetry: () => assert.fail('no native IO needed') }) }
+    : name.includes('maint71_merge_sync_prs') ? { ...helper, readCanaryRefreshState: async () => state }
+    : { canaries: candidates.map(repo => ({ repo })) };
+  const fn = new (Object.getPrototypeOf(async function () {}).constructor)('require', 'process', 'core', 'github', 'context', guardScript());
+  await fn(load, { env: { PLAN_ID: id, PLAN_SCOPE: 'source-delta', SCOPE_BASE_SHA: base, SOURCE_COMMIT: source } }, core, {}, context);
+  assert.equal(outputs.allowed, 'false');
+  assert.ok(notices.some(value => value.includes('"reason_code":"native_scope_phase_binding"')));
+  assert.ok(summaries.some(value => value.includes('"run_attempt":1')));
+});
+
+test('native positive bootstrap no-start records disposition without inventing a scoped plan', async t => {
+  const api = historyHarness(t, { runs: [producer('source-delta', { run_attempt: 1, refresh_plan: undefined })],
+    receipt: { state: 'not_started', reason: 'native_scope_bootstrap_not_started',
+      proof: { run_id: 10, run_attempt: 1 } } });
+  const state = await api.read();
+  assert.equal(state.eligible, true); assert.equal(state.producer_succeeded, false);
+  const run = state.runs.find(row => row.id === 10);
+  assert.equal(run.refresh_not_started, true); assert.equal(run.refresh_plan, undefined);
+  const diagnostic = require('../maint71_merge_sync_prs').canaryRefreshDiagnostics(state);
+  assert.equal(diagnostic.inventory.confirmed_not_started, 1);
+  assert.equal(run.refresh_receipt.reason_code, 'native_scope_bootstrap_not_started');
+  assert.equal(api.writes.length, 0);
+});
+
+test('API refusal diagnostic preserves only fixed operation and bounded status without secret-bearing error data', () => {
+  const { refreshReceiptDiagnostic } = require('../maint71_merge_sync_prs');
+  const native = { state: 'unknown', reason: 'GET https://private/SECRET_TOKEN returned403',
+    proof: { last_read: 'actions.getArtifact', http_status: 403,
+      request: { headers: { authorization: 'Bearer SECRET_TOKEN' } } } };
+  const result = refreshReceiptDiagnostic({ id: 1, run_attempt: 1 }, native);
+  assert.equal(result.reason_code, 'native_scope_read_failed');
+  assert.equal(result.last_read, 'actions.getArtifact'); assert.equal(result.http_status, 403);
+  assert.doesNotMatch(JSON.stringify(result), /SECRET_TOKEN|authorization|private/);
+  for (const status of [99, 600, 403.5, '403', null]) {
+    const invalid = refreshReceiptDiagnostic({}, { ...native,
+      proof: { last_read: 'actions.getArtifact?token=SECRET_TOKEN', http_status: status } });
+    assert.equal(invalid.last_read, undefined); assert.equal(invalid.http_status, undefined);
+    assert.doesNotMatch(JSON.stringify(invalid), /SECRET_TOKEN/);
+  }
 });
