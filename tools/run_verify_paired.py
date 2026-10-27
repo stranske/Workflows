@@ -124,9 +124,49 @@ def child_environment(case: str, directory: Path, key: Path) -> dict[str, str]:
     return env
 
 
+def publish_case_outputs(
+    private: Path, output: Path, case: str, credentials: tuple[str, ...]
+) -> dict:
+    """Publish only unchanged bytes that contain no configured credential.
+
+    A killed parent leaves all unchecked child bytes outside the artifact root.
+    Withheld records identify original bytes by hash, never claim redacted raw
+    provenance, and never include provider exception text or credential values.
+    """
+    needles = set()
+    for value in credentials:
+        if value:
+            needles.add(value.encode())
+            needles.add(json.dumps(value, ensure_ascii=True)[1:-1].encode())
+            needles.add(json.dumps(value, ensure_ascii=False)[1:-1].encode())
+    published = {}
+    for name in ("comparison.json", "diagnostic.log", "report.md"):
+        source = private / case / name
+        if not source.exists():
+            continue
+        if source.is_symlink() or not source.is_file():
+            raise ValueError("child output is not a regular private file")
+        raw = source.read_bytes()
+        record = {"sha256": digest(raw), "bytes": len(raw), "status": "published_original"}
+        if any(needle in raw for needle in needles):
+            record.update(
+                status="withheld_credentials",
+                reason="configured provider credential in child output",
+            )
+            (output / case / name).unlink(missing_ok=True)
+            (output / case / (name + ".withheld.json")).write_text(
+                json.dumps(record, indent=2) + "\n"
+            )
+        else:
+            (output / case / name).write_bytes(raw)
+        published[name] = record
+    return published
+
+
 def run(*, execute: bool) -> dict:
     proposal, policy = load_packet()
     output = Path(os.environ["RUNNER_TEMP"]) / "verify-paired"
+    private = Path(os.environ["RUNNER_TEMP"]) / "verify-paired-private"
     output.mkdir(mode=0o700, parents=True, exist_ok=False)
     receipt = {
         "schema": "verify-paired-invocation/v1",
@@ -158,8 +198,11 @@ def run(*, execute: bool) -> dict:
             "dependencies": runtime_dependencies(),
         },
         "results": [],
+        "output_publication": {},
     }
-    key = output / ".semantic-key"
+    key = private / ".semantic-key"
+    credentials = ()
+    private_owned = False
     try:
         for name in (
             "PROPOSAL.json",
@@ -169,6 +212,8 @@ def run(*, execute: bool) -> dict:
             "slots.json",
         ):
             shutil.copyfile(PACKET / name, output / name)
+        for case in CASES:
+            shutil.copytree(PACKET / case, output / case)
         if not execute:
             return receipt
         if policy.get("execution_enabled") is not True or policy.get("review_status") != "reviewed":
@@ -180,11 +225,16 @@ def run(*, execute: bool) -> dict:
                 reason="installed SDK runtime differs from existing frozen requirements",
             )
             return receipt
+        private.mkdir(mode=0o700, parents=True, exist_ok=False)
+        private_owned = True
+        credentials = tuple(
+            os.environ.get(name, "") for name in ("OPENAI_API_KEY", "CLAUDE_API_STRANSKE")
+        )
         key.write_bytes(os.urandom(32))
         key.chmod(0o600)
         deadline = time.monotonic() + policy["total_wall_seconds"]
         for case in CASES:
-            directory = output / case
+            directory = private / case
             shutil.copytree(PACKET / case, directory)
             argv = [
                 sys.executable,
@@ -203,6 +253,10 @@ def run(*, execute: bool) -> dict:
                 raise TimeoutError("paired trial wall policy exhausted")
             receipt["semantic_cli_started"] = True
             receipt["native_request_state"] = "unknown"
+            receipt["status"] = "in_progress"
+            # A hard wall-time kill may prevent finally from running. Publish
+            # only this safe unknown checkpoint before the private child starts.
+            (output / "invocation.json").write_text(json.dumps(receipt, indent=2) + "\n")
             with (
                 (directory / "comparison.json").open("wb") as stdout,
                 (directory / "diagnostic.log").open("wb") as stderr,
@@ -217,6 +271,9 @@ def run(*, execute: bool) -> dict:
                     check=False,
                 )
             receipt["results"].append({"case": case, "returncode": completed.returncode})
+            publication = publish_case_outputs(private, output, case, credentials)
+            receipt["output_publication"][case] = publication
+            withheld = any(row["status"] == "withheld_credentials" for row in publication.values())
             report = json.loads((directory / "comparison.json").read_text())
             semantic = report.get("semantic_acceptance") if isinstance(report, dict) else None
             trial = semantic.get("qualification_trial") if isinstance(semantic, dict) else None
@@ -261,6 +318,10 @@ def run(*, execute: bool) -> dict:
                 )
                 else "not_started"
             )
+            if withheld:
+                raise ValueError(
+                    "credential-bearing child output withheld; no retry or replacement"
+                )
             if completed.returncode:
                 raise ValueError("semantic CLI failed; no retry or replacement")
             if attempted != limits or physical != policy["max_physical_http_attempts"] // 2:
@@ -281,7 +342,17 @@ def run(*, execute: bool) -> dict:
         receipt.update(status="held", reason=str(exc))
         return receipt
     finally:
-        key.unlink(missing_ok=True)
+        if private_owned:
+            key.unlink(missing_ok=True)
+            for case in CASES:
+                if (private / case).exists():
+                    publication = publish_case_outputs(private, output, case, credentials)
+                    receipt["output_publication"][case] = publication
+                    if any(row["status"] == "withheld_credentials" for row in publication.values()):
+                        receipt.update(
+                            status="held",
+                            reason="credential-bearing child output withheld; no retry or replacement",
+                        )
         (output / "invocation.json").write_text(json.dumps(receipt, indent=2) + "\n")
 
 

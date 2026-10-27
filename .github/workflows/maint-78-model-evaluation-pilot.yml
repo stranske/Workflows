@@ -201,7 +201,8 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           CLAUDE_API_STRANSKE: ${{ secrets.CLAUDE_API_STRANSKE }}
         run: >-
-          "$RUNNER_TEMP/verify-paired-venv/bin/python" -m tools.run_verify_paired --execute
+          timeout --signal=KILL 300s "$RUNNER_TEMP/verify-paired-venv/bin/python"
+          -m tools.run_verify_paired --execute
       - name: Retain paired Verify evidence
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

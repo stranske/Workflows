@@ -7,6 +7,7 @@ import json
 import os
 from contextlib import redirect_stdout
 from copy import deepcopy
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -171,6 +172,10 @@ def test_actual_two_case_cli_four_generations_eight_counts_six_metadata(
         original = json.loads((runner.PACKET / case / "capture.json").read_text())
         assert report["semantic_acceptance"]["capture"] == original
         assert all(arm["raw_content"] for arm in report["results"])
+        private = tmp_path / "verify-paired-private" / case
+        assert (tmp_path / "verify-paired" / case / "comparison.json").read_bytes() == (
+            private / "comparison.json"
+        ).read_bytes()
 
 
 def test_source_proposed_policy_holds_before_subprocess(monkeypatch, tmp_path):
@@ -195,6 +200,25 @@ def test_installed_runtime_mismatch_holds_before_child(enabled, monkeypatch):
     assert result["status"] == "held" and result["semantic_cli_started"] is False
     assert result["native_request_state"] == "not_started"
     assert result["runtime_source"]["dependencies"]["matches_lock"] is False
+
+
+def test_private_namespace_collision_holds_without_reading_or_cleaning_prior_files(
+    enabled, monkeypatch, tmp_path
+):
+    private = tmp_path / "verify-paired-private"
+    private.mkdir()
+    key = private / ".semantic-key"
+    key.write_bytes(b"prior-run-owned-key")
+    (private / "square-pass").mkdir()
+    (private / "square-pass/comparison.json").write_bytes(b"prior private output")
+    monkeypatch.setattr(
+        runner.subprocess, "run", lambda *a, **kw: pytest.fail("provider-capable child")
+    )
+    result = runner.run(execute=True)
+    assert result["status"] == "held" and result["native_request_state"] == "not_started"
+    assert key.read_bytes() == b"prior-run-owned-key"
+    assert result["output_publication"] == {}
+    assert not (tmp_path / "verify-paired/square-pass/comparison.json").exists()
 
 
 @pytest.mark.parametrize("kind,limit", [("generation", 2), ("count", 4), ("metadata", 3)])
@@ -299,6 +323,7 @@ def test_job_has_no_repository_write_or_legacy_job_overlap():
         for entry in job["steps"]
     )
     assert "uv run" not in step["run"]
+    assert "timeout --signal=KILL 300s" in step["run"]
 
 
 @pytest.mark.parametrize(
@@ -509,9 +534,12 @@ def test_sdk_foreign_or_unknown_request_denied_before_transport_auth_disclosure(
         "generation-503",
         "generation-redirect",
         "generation-timeout",
+        "generation-401-keyecho",
     ],
 )
-def test_real_sdk_http_transport_bounded_and_no_redirect_fallback(enabled, monkeypatch, failure):
+def test_real_sdk_http_transport_bounded_and_no_redirect_fallback(
+    enabled, monkeypatch, failure, tmp_path
+):
     import httpx
 
     requests = []
@@ -530,6 +558,13 @@ def test_real_sdk_http_transport_bounded_and_no_redirect_fallback(enabled, monke
         }
         metadata = request.method == "GET"
         count = request.url.path.endswith(("input_tokens", "count_tokens"))
+        if not metadata and not count and failure == "generation-401-keyecho":
+            key = (
+                "offline-openai-placeholder"
+                if request.url.host == "api.openai.com"
+                else "offline-anthropic-placeholder"
+            )
+            return httpx.Response(401, json={"error": {"message": "invalid key " + key}})
         if not metadata and not count and failure == "generation-503":
             return httpx.Response(503, json={"error": {"message": "inert generation failure"}})
         if not metadata and not count and failure == "generation-redirect":
@@ -633,3 +668,54 @@ def test_real_sdk_http_transport_bounded_and_no_redirect_fallback(enabled, monke
                 or request.url.path.endswith(("input_tokens", "count_tokens"))
                 for request in requests
             )
+    if failure == "generation-401-keyecho":
+        private = tmp_path / "verify-paired-private/square-pass/comparison.json"
+        raw = private.read_bytes()
+        assert b"offline-openai-placeholder" in raw
+        for path in (tmp_path / "verify-paired").rglob("*"):
+            if path.is_file():
+                assert b"offline-openai-placeholder" not in path.read_bytes()
+                assert b"offline-anthropic-placeholder" not in path.read_bytes()
+        withheld = json.loads(
+            (tmp_path / "verify-paired/square-pass/comparison.json.withheld.json").read_text()
+        )
+        assert withheld["status"] == "withheld_credentials"
+        assert withheld["sha256"] == runner.digest(raw)
+        assert not (tmp_path / "verify-paired/square-pass/comparison.json").exists()
+
+
+@pytest.mark.parametrize("failure", ["timeout", "malformed"])
+def test_unfinished_child_bytes_stay_private_even_before_parent_cleanup(
+    enabled, monkeypatch, tmp_path, failure
+):
+    calls = []
+    key = b"offline-openai-placeholder"
+    public = tmp_path / "verify-paired"
+
+    def child(argv, **kwargs):
+        calls.append(argv)
+        for name in ("stdout", "stderr"):
+            assert not Path(kwargs[name].name).is_relative_to(public)
+            kwargs[name].write(key)
+            kwargs[name].flush()
+        report = Path(argv[argv.index("--output-file") + 1])
+        assert not report.is_relative_to(public)
+        report.write_bytes(key)
+        # An abrupt process kill here leaves only public packet bytes in the
+        # artifact root; cleanup and publication have not run yet.
+        assert all(key not in path.read_bytes() for path in public.rglob("*") if path.is_file())
+        if failure == "timeout":
+            checkpoint = json.loads((public / "invocation.json").read_text())
+            assert checkpoint["status"] == "in_progress"
+            assert checkpoint["native_request_state"] == "unknown"
+            raise runner.subprocess.TimeoutExpired(argv, kwargs["timeout"])
+        return SimpleNamespace(returncode=0)
+
+    monkeypatch.setattr(runner.subprocess, "run", child)
+    result = runner.run(execute=True)
+    assert result["status"] == "held" and len(calls) == 1
+    assert result["native_request_state"] == "unknown"
+    assert all(key not in path.read_bytes() for path in public.rglob("*") if path.is_file())
+    assert {row["status"] for row in result["output_publication"]["square-pass"].values()} == {
+        "withheld_credentials"
+    }

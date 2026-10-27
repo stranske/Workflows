@@ -32,10 +32,12 @@ identities are not attested Git commits or production PRs.
 
 For each of the two fixed cases, the wrapper invokes the existing
 `scripts/langchain/pr_verifier.py --compare --json` CLI. Compare returns before
-the existing create-issue branch. Each case is copied to the runner's temporary
-`verify-paired` directory; the source packet is never rewritten. An ephemeral
-32-byte semantic-envelope key is deleted in cleanup and excluded from artifact
-retention. That existing local envelope signature is not a remote attestation.
+the existing create-issue branch. The artifact's `verify-paired` directory gets
+the original public packet. All child-writable context/capture files, stdout,
+diagnostics and reports instead live in a separate fixed `verify-paired-private`
+directory outside the upload root; the source packet is never rewritten.
+The ephemeral 32-byte semantic-envelope key also stays there and is deleted
+in normal cleanup. That existing local signature is not a remote attestation.
 
 The optional semantic policy validates exact original capture identity, both
 fixed provider/model slots, one complete package, and the reviewed full prompt
@@ -82,7 +84,10 @@ origins, query strings, credentials, fragments and unexpected ports/paths are
 refused before transport can receive headers. A tenth send is refused. Both
 SDK-owned HTTPX clients have redirects disabled; native SDK retries remain zero.
 The SDK timeout is a request/IO timeout, not an independently enforced complete
-call wall time. The parent subprocess timeout enforces the combined wall cap.
+call wall time. The parent subprocess timeout bounds combined child execution;
+the job's fixed `timeout --signal=KILL 300s` also caps the complete invocation,
+including parent postprocessing. A safe in-progress/unknown receipt is written
+before each child so a hard kill does not imply completion or permission to retry.
 An uncertain or failed attempt is retained without relaunching that case.
 
 Actual native-shaped SDK tests use HTTPX MockTransport only, including redirects,
@@ -93,9 +98,20 @@ part of source preparation.
 
 ## Evidence and separate executor judgment
 
-The artifact retains each original public case, raw structured comparison JSON,
-human report, diagnostics, capture/reassembly manifests, and an invocation
-receipt. The semantic envelope adds attempted count/generation/metadata totals
+After a child exits, the wrapper checks its fixed runtime output members against
+the two configured provider credential values before publication. Clean files
+are copied byte-for-byte. If a provider reflects a credential in an error,
+the original file is withheld and only its SHA-256, byte count and fixed reason
+are published. This holds the pair without retrying; it never silently redacts
+bytes and labels them original raw evidence. Timeout/malformed-output cleanup
+uses the same check. If the parent is killed before cleanup, unchecked child
+bytes remain outside the upload root. No generic logger or provider error parser
+is changed.
+
+The artifact retains each original public case, safe original structured
+comparison JSON, human report, diagnostics, capture/reassembly manifests, and
+an invocation receipt or explicit withheld-file metadata. The semantic envelope
+adds attempted count/generation/metadata totals
 plus a separate physical HTTP attempt count and the exact policy. A case cannot
 advance without the closed, exact case/policy receipt, bounded strict integer
 counters, and complete two-judge totals of 2 generations, 4 counts, 3 metadata
