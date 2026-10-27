@@ -1636,6 +1636,15 @@ jobs:
         format('{0}/{1}', github.workspace, inputs['working-directory'])
         || github.workspace }}
     steps:
+      # Keep Python/pytest and inherited child tools off Ubuntu 26.04's capped /tmp.
+      - name: Select runner-owned test temporary storage
+        id: test-temp
+        working-directory: ${{ runner.temp }}
+        run: |
+          : "${RUNNER_TEMP:?runner must supply its owned temporary directory}"
+          test -d "$RUNNER_TEMP"
+          printf 'TMPDIR=%s\n' "$RUNNER_TEMP" >> "$GITHUB_ENV"
+
       # Mint GitHub App token early to use for API calls (avoids rate limits)
       - name: Mint GitHub App Token
         id: app_token
