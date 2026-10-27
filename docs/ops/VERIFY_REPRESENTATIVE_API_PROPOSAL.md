@@ -1,9 +1,9 @@
-# Representative Verify API proposal (not executable)
+# Representative bounded Verify API trial
 
 This prospective revision is separate from the inactive square-pair plumbing
 screen. The square fixtures establish transport and serialization behavior only;
 neither those results nor unrelated typed-classifier benchmarks establish or
-disqualify general PR Verify ability. No provider invocation is authorized here.
+disqualify general PR Verify ability. Only the exact admitted bounded trial below is in scope; source publication does not dispatch it.
 
 ## Evidence and fixed matrix
 
@@ -11,7 +11,7 @@ The qualification owner supplies two real, fixed PR revision packets containing
 the actual production prompt, original issue Tasks/acceptance criteria, exact PR
 revision/diff and relevant source. Substantive judgments must be independently
 frozen before provider output is observed. The owner's final portable packets and independent judgments are frozen below;
-source preparation does not authorize execution.
+the execution coordinator submits the exact trial after source publication and normal execution review.
 
 Use the existing two-provider compare path: first slot OpenAI `gpt-5.6-terra`,
 second slot Anthropic `claude-opus-5-5`. Explicit CLI model overrides are positional
@@ -58,9 +58,11 @@ the text block supplies the verdict JSON. The raw thinking block is not a verdic
 
 The finite runner now binds the frozen data and exact model mapping described
 below, preserving native output policies and private-first output publication.
-Both source policies remain disabled. No caller paths, arbitrary
+The representative policy has reviewed source enablement for this bounded trial;
+the historical square policy remains disabled. No caller paths, arbitrary
 endpoints, secret exports, new credentials or general execution facility are
-needed. Do not enable the source policy or dispatch before assembled review.
+needed. The execution coordinator dispatches only after assembled review and
+normal execution admission.
 
 Report substantive correctness, usable text/serialization, operational completion
 and comparison outcome separately. Preserve raw observations and exact failure
@@ -95,9 +97,10 @@ truncation. Failure of any selected case holds the whole package before a first
 call. Packet evidence files are retained as data and never executed by this job.
 The gold is not included in native prompts.
 
-The source policy remains `execution_enabled:false` and
-`review_status:proposed_source_only`. A prepared artifact or configured key does
-not enable it. Local hashes and installed SDK versions are source observations,
+The representative source policy is `execution_enabled:true` and
+`review_status:reviewed`, bound by the descriptor digest. This enables an explicit
+reviewed invocation; it does not trigger one. The historical policy remains false.
+Local hashes and installed SDK versions are source observations,
 not native Actions origin authentication or entitlement evidence. Production
 metadata and count admission remain necessary before each generation.
 
@@ -129,3 +132,22 @@ The exact frozen packet directory is excluded from Black and Ruff as immutable
 evidence data, including explicit changed-file invocations. Actual runner,
 policy, verifier, tests and sibling directories remain checked. This protects
 the recorded evidence hashes; it does not relax linting for executable source.
+
+## Explicit invocation
+
+After the reviewed source is merged to the repository default branch and normal
+execution admission is complete, the sole execution coordinator uses the existing
+facility:
+
+```sh
+gh workflow run maint-78-model-evaluation-pilot.yml \
+  --repo stranske/Workflows --ref main -f mode=verify-paired
+```
+
+The job invokes `python -m tools.run_verify_paired --execute` inside the existing
+frozen runtime, under the 600-second hard timeout. Neither `--execute` nor any
+caller environment value overrides source policy. Source enablement is not a
+one-shot token: limits apply per invocation, and the coordinator issues only the
+one admitted dispatch and reconciles an uncertain outcome before any new request.
+There is no automatic dispatch, retry, fallback, consumer enrollment or model
+promotion. Existing API secrets stay inside the selected hosted job.

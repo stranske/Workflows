@@ -1,7 +1,7 @@
 {
   "schema": "verify-paired-trial-policy/v1",
-  "review_status": "proposed_source_only",
-  "execution_enabled": false,
+  "review_status": "reviewed",
+  "execution_enabled": true,
   "max_generations": 4,
   "max_native_counts": 8,
   "per_request_timeout_seconds": 60,
