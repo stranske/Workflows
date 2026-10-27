@@ -835,6 +835,7 @@ scripts:
   # Product actor normalization and channel suppression share one grammar.
   # Proof pronouns retain artifact destinations; bounded pure grammar caching returns fresh containers.
   - source: scripts/langchain/pr_verifier.py
+    # Strict semantic JSON rejects duplicate members at every object depth before schema validation.
     # Original requirements and minimum evidence admission are shared by both
     # judge modes; native counting covers generation, synthesis and schema repair.
     # Evaluate CLI accepts the existing OpenAI, GitHub Models and Anthropic routes.
