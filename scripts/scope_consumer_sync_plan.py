@@ -174,7 +174,10 @@ def _verify_source_payload(root: Path, commit: str, plan: dict[str, Any]) -> Non
                 raise PlanScopeError("source_payload_identity_differs")
             raw = target.read_bytes()
             mode = "100755" if target.stat().st_mode & 0o111 else "100644"
-            blob = hashlib.sha1(b"blob " + str(len(raw)).encode() + b"\0" + raw).hexdigest()
+            # Match native Git object IDs, not a cryptographic security assertion.
+            blob = hashlib.sha1(
+                b"blob " + str(len(raw)).encode() + b"\0" + raw, usedforsecurity=False
+            ).hexdigest()
             if (mode, blob) != tracked[name]:
                 raise PlanScopeError("source_payload_blob_or_mode_differs")
             checked.add(name)
@@ -274,7 +277,8 @@ def _manifest_metadata_equivalence(
         subprocess.CalledProcessError,
         ManifestCompileError,
     ) as exc:
-        raise PlanScopeError("manifest_change_requires_full_scope") from exc
+        reason = str(exc) if isinstance(exc, PlanScopeError) else type(exc).__name__
+        raise PlanScopeError(f"manifest_change_requires_full_scope:{reason}") from exc
 
 
 def select_plan(

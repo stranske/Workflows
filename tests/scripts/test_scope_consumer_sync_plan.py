@@ -634,10 +634,29 @@ def test_manifest_equivalence_cannot_use_stale_or_ambiguous_evidence(metadata_ra
         parser.chmod(0o755)
         full = compile_manifest(manifest).to_plan()
     else:
-        suffix = "\nversion: 1\n" if tamper == "duplicate_yaml" else "\nignored: &x [*x]\n"
-        manifest.write_text(manifest.read_text() + suffix)
+        if tamper == "duplicate_yaml":
+            manifest.write_text(manifest.read_text() + "\nversion: 1\n")
+        else:
+            # Valid known fields and compiler-valid scalar descriptions: only
+            # the alias/anchor refusal can reject this metadata-only selector.
+            text = (
+                manifest.read_text()
+                .replace(
+                    "description: new parser description",
+                    "description: &metadata_description new parser description",
+                )
+                .replace("description: vendored helper", "description: *metadata_description")
+            )
+            manifest.write_text(text)
         head = _commit_fixture(root, "ambiguous manifest")
-    with pytest.raises(PlanScopeError, match="manifest_change_requires_full_scope"):
+        if tamper == "alias_yaml":
+            full = compile_manifest(manifest).to_plan()
+    reason = "manifest_change_requires_full_scope"
+    if tamper == "alias_yaml":
+        reason += ":ambiguous_manifest_alias"
+    elif tamper == "duplicate_yaml":
+        reason += ":ambiguous_manifest_selector"
+    with pytest.raises(PlanScopeError, match=reason):
         _select_actual(root, base, head, full)
 
 
