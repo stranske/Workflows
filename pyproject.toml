@@ -44,6 +44,8 @@ dev = [
     "coverage==7.17.0",
     "pytest-xdist==3.8.0",
     "httpx==0.28.1",  # Native SDK MockTransport regression tests.
+    "openai==2.48.0",  # Direct native SDK imports in inert Verify transport tests.
+    "anthropic==0.120.0",
     "packaging>=26.1",
 
     # Required by repo dependency checks / CI fallback checks
