@@ -44,6 +44,71 @@ def event_metadata(path: Path) -> dict[str, Any]:
     ):
         raise ValueError("Invalid collector verification event")
     metadata = {"verification_event": event, "assessment_identity": manifest["assessment_identity"]}
+
+    def content_hash(value: Any) -> str:
+        return hashlib.sha256(
+            json.dumps(
+                value, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False
+            ).encode("utf-8")
+        ).hexdigest()
+
+    request = manifest.get("request")
+    material = manifest.get("material")
+    if ("request" in manifest or "material" in manifest) and (
+        not isinstance(request, dict)
+        or not isinstance(material, dict)
+        or request.get("schema") != "verification-request/v1"
+        or material.get("schema") != "verification-material/v1"
+        or content_hash(request) != event["request_sha256"]
+        or content_hash(material) != event["material_sha256"]
+    ):
+        raise ValueError("Collected inputs do not match event hashes")
+    rows = material.get("required_evidence", []) if isinstance(material, dict) else []
+    corrective = (
+        [
+            row
+            for row in rows
+            if isinstance(row, dict) and row.get("kind") == "corrective_instruction"
+        ]
+        if isinstance(rows, list)
+        else []
+    )
+    selected = json.loads(os.environ.get("VERIFICATION_MATERIAL") or "[]")
+    if (
+        isinstance(selected, list)
+        and any(
+            isinstance(row, dict) and row.get("kind") == "corrective_instruction"
+            for row in selected
+        )
+        and not corrective
+    ):
+        raise ValueError("Selected corrective input missing from collector manifest")
+    if corrective:
+        if (
+            len(corrective) != 1
+            or not isinstance(request, dict)
+            or request.get("schema") != "verification-request/v1"
+            or material.get("schema") != "verification-material/v1"
+            or content_hash(request) != event["request_sha256"]
+            or content_hash(material) != event["material_sha256"]
+        ):
+            raise ValueError("Corrective input does not match collected event hashes")
+        row = corrective[0]
+        if (
+            row.get("authority") != "native_same_principal_dispatch"
+            or row.get("owner_instruction", {}).get("repository") != event["repo"]
+            or row.get("corrective_pr", {}).get("number") != event["pr"]
+            or row.get("corrective_pr", {}).get("head_sha") != event["head_sha"]
+        ):
+            raise ValueError("Corrective input native subject differs")
+        # The existing authenticated result artifact retains the COMPLETE
+        # request/material. A consumer must fetch that exact native artifact and
+        # recompute both event hashes: this compact row alone is not scope proof.
+        metadata["corrective_verification_input"] = {
+            "schema": "closer-corrective-verification-input/v1",
+            "verification_event": event,
+            "corrective_instruction": row,
+        }
     basis = manifest.get("verification_request_basis")
     if "verification_request_basis" in manifest:
         if not isinstance(basis, str) or not re.fullmatch(r"[0-9a-f]{64}", basis):

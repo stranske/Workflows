@@ -16,7 +16,10 @@ function evidencePath(value) {
 function validatedSelectors(value) {
   const rows = typeof value === 'string' ? (value.trim() ? JSON.parse(value) : []) : value ?? [];
   if (!Array.isArray(rows) || rows.some(row => !row || typeof row !== 'object'
-      || !['git_blob','comment','artifact_member'].includes(row.kind))) throw new Error('Invalid verification material selectors');
+      || !['git_blob','comment','artifact_member','corrective_instruction'].includes(row.kind))) throw new Error('Invalid verification material selectors');
+  const corrections = rows.filter(row => row.kind === 'corrective_instruction');
+  if (corrections.length > 1) throw new Error('Only one corrective instruction is supported');
+  corrections.forEach(row => require('./verification_event').validateCorrectiveSelector(row));
   const selected = rows.filter(row => row.kind === 'git_blob');
   if (selected.length > 80 || rows.length - selected.length > 20) throw new Error('Verification material selector count bound');
   if (selected.some(row => Object.keys(row).sort().join(',') !== 'kind,path' || !evidencePath(row.path))

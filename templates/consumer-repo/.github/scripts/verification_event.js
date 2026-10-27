@@ -59,10 +59,204 @@ function validateEvent(value) {
   return event;
 }
 
+const CORRECTIVE_SCHEMA = 'closer-corrective-verification-instruction/v1';
+const correctiveScopes = new WeakSet();
+const exactFields = (value, fields) => value && typeof value === 'object' && !Array.isArray(value)
+  && Object.keys(value).sort().join(',') === fields.split(' ').sort().join(',');
+const positiveId = value => Number.isSafeInteger(value) && value > 0;
+const nativeNumber = value => typeof value === 'string' && /^[1-9]\d{0,15}$/.test(value);
+const nativeText = value => typeof value === 'string' && value.length > 0 && value.length <= 4096;
+const nativeTime = value => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$/.test(value)
+  && Number.isFinite(Date.parse(value));
+const bytesHash = value => createHash('sha256').update(value, 'utf8').digest('hex');
+function nativeIssueApiUrl(value, repository, number) {
+  try {
+    const actual = new URL(value);
+    const subject = new URL(`https://github.com/${repository}/issues/${number}`);
+    return actual.protocol === subject.protocol && actual.hostname === `api.${subject.hostname}`
+      && actual.pathname.toLowerCase() === `/repos${subject.pathname}`.toLowerCase()
+      && !actual.port && !actual.username && !actual.password && !actual.search && !actual.hash;
+  } catch { return false; }
+}
+function freezeData(value) {
+  if (value && typeof value === 'object') { Object.values(value).forEach(freezeData); Object.freeze(value); }
+  return value;
+}
+function validateCorrectiveSelector(value) {
+  const fail = () => { throw new Error('Invalid corrective instruction selector'); };
+  if (!exactFields(value,'kind owner_instruction request_sha256 required_tests_sha256 corrective_pr incumbent_assignee')
+      || value.kind !== 'corrective_instruction') fail();
+  const owner = value.owner_instruction, pr = value.corrective_pr, assignee = value.incumbent_assignee;
+  if (!exactFields(owner,'repository issue_number issue_node_id comment_id comment_node_id updated_at body_sha256 writer_id')
+      || typeof owner.repository !== 'string' || !/^[a-z0-9_.-]+\/[a-z0-9_.-]+$/.test(owner.repository)
+      || !nativeNumber(owner.issue_number) || !nativeText(owner.issue_node_id) || !positiveId(owner.comment_id)
+      || !nativeText(owner.comment_node_id) || !positiveId(owner.writer_id) || !nativeTime(owner.updated_at)
+      || ![owner.body_sha256,value.request_sha256,value.required_tests_sha256].every(hash => typeof hash === 'string' && SHA.test(hash))
+      || !exactFields(pr,'repository_id number node_id head_sha') || !positiveId(pr.repository_id)
+      || !nativeNumber(pr.number) || !nativeText(pr.node_id) || typeof pr.head_sha !== 'string' || !COMMIT.test(pr.head_sha)
+      || !exactFields(assignee,'id login') || !positiveId(assignee.id) || !nativeText(assignee.login)) fail();
+  return value;
+}
+function validateCorrectivePayload(value) {
+  if (!exactFields(value,'schema original_request finding_text raw_findings required_tests_sha256')
+      || value.schema !== CORRECTIVE_SCHEMA) throw new Error('Invalid corrective instruction payload');
+  const request = require('./verifier_correction_consumer').validateRequest(value.original_request);
+  if (request.incumbent.kind === 'no_incumbent' || typeof value.finding_text !== 'string'
+      || bytesHash(value.finding_text) !== request.finding.evidence.sha256
+      || !Array.isArray(value.raw_findings) || !value.raw_findings.length
+      || value.required_tests_sha256 !== digest(request.required_tests)) throw new Error('Corrective instruction request/finding/tests mismatch');
+  if (value.raw_findings.some(row => !exactFields(row,'id evidence text') || !nativeText(row.id)
+      || !exactFields(row.evidence,'ref sha256') || !nativeText(row.evidence.ref)
+      || typeof row.text !== 'string' || typeof row.evidence.sha256 !== 'string'
+      || bytesHash(row.text) !== row.evidence.sha256)
+      || !value.raw_findings.some(row => row.id === request.finding.id
+        && canonical(row.evidence) === canonical(request.finding.evidence) && row.text === value.finding_text)) {
+    throw new Error('Corrective instruction raw finding inventory differs');
+  }
+  return value;
+}
+function renderCorrectiveInstruction(humanText, payload) {
+  if (typeof humanText !== 'string') throw new Error('Original human instruction text unavailable');
+  validateCorrectivePayload(payload);
+  return humanText + `\n\n<!-- ${CORRECTIVE_SCHEMA} ${Buffer.from(canonical(payload),'utf8').toString('base64')} -->`;
+}
+function parseCorrectiveInstruction(body) {
+  if (typeof body !== 'string') throw new Error('Native corrective instruction body unavailable');
+  const pattern = /\n\n<!-- closer-corrective-verification-instruction\/v1 ([A-Za-z0-9+/]+={0,2}) -->$/;
+  const match = body.match(pattern);
+  if (!match || body.slice(0,match.index).includes(`<!-- ${CORRECTIVE_SCHEMA} `)) throw new Error('Corrective instruction machine suffix absent or ambiguous');
+  const raw = Buffer.from(match[1],'base64');
+  if (raw.toString('base64') !== match[1]) throw new Error('Corrective instruction base64 is not canonical');
+  const payload = JSON.parse(raw.toString('utf8'));
+  if (!raw.equals(Buffer.from(canonical(payload),'utf8'))) throw new Error('Corrective instruction JSON is not canonical');
+  return validateCorrectivePayload(payload);
+}
+function correctiveScopeBinding(scope) {
+  if (!correctiveScopes.has(scope)) throw new Error('Corrective scope requires actual native collection');
+  return scope.binding;
+}
+
+async function authenticateCorrectiveInstruction({github,context,repository,pull,selector,maxChars,maxPages}) {
+  const requireNative = (ok, reason) => { if (!ok) throw new Error(`Corrective instruction unavailable: ${reason}`); };
+  selector = freezeData(JSON.parse(canonical(validateCorrectiveSelector(selector))));
+  const native = selector.owner_instruction, selectedPr = selector.corrective_pr;
+  const sender = context?.payload?.sender;
+  requireNative(context?.eventName === 'workflow_dispatch' && positiveId(sender?.id) && nativeText(sender?.login)
+    && sender.id === native.writer_id, 'native same-principal workflow dispatch required');
+  requireNative(repository === native.repository && Number(pull?.number) === Number(selectedPr.number)
+    && pull.node_id === selectedPr.node_id && pull.head?.sha === selectedPr.head_sha, 'host PR scope differs');
+  requireNative(Number.isSafeInteger(maxChars) && maxChars > 0 && Number.isSafeInteger(maxPages) && maxPages > 0,
+    'existing bounded capture policy required');
+  const [owner,repo] = repository.split('/');
+  const read = async (resource,method,args={}) => {
+    requireNative(typeof github?.rest?.[resource]?.[method] === 'function', `native ${resource}.${method} API absent`);
+    return (await github.rest[resource][method]({owner,repo,...args,request:{timeout:15000,retries:0}})).data;
+  };
+  const actualRepo = await read('repos','get');
+  requireNative(actualRepo?.id === selectedPr.repository_id && actualRepo.full_name?.toLowerCase() === repository,
+    'native repository differs');
+  const comment = await read('issues','getComment',{comment_id:native.comment_id});
+  const commentUrl = `https://github.com/${repository}/issues/${native.issue_number}#issuecomment-${native.comment_id}`;
+  requireNative(comment?.id === native.comment_id && comment.node_id === native.comment_node_id
+    && comment.html_url?.toLowerCase() === commentUrl && nativeIssueApiUrl(comment.issue_url,repository,native.issue_number)
+    && comment.user?.id === sender.id && comment.user.login === sender.login
+    && ['User','Bot'].includes(comment.user.type) && comment.updated_at === native.updated_at
+    && nativeTime(comment.created_at) && nativeTime(comment.updated_at)
+    && Date.parse(comment.created_at) <= Date.parse(comment.updated_at)
+    && typeof comment.body === 'string' && comment.body.length <= maxChars
+    && bytesHash(comment.body) === native.body_sha256, 'native comment identity/version/body/writer differs');
+  const permission = await read('repos','getCollaboratorPermissionLevel',{username:sender.login});
+  requireNative(['admin','write','maintain'].includes(permission?.permission)
+    && permission.user?.id === sender.id && permission.user.login === sender.login, 'native writer lacks repo write authority');
+  const payload = parseCorrectiveInstruction(comment.body), request = payload.original_request;
+  requireNative(request.request_sha256 === selector.request_sha256
+    && payload.required_tests_sha256 === selector.required_tests_sha256 && request.target.repository === repository
+    && request.source_issue.number === native.issue_number && request.source_issue.node_id === native.issue_node_id,
+    'native instruction request/tests/source parent differs');
+  const source = await read('issues','get',{issue_number:Number(request.source_issue.number)});
+  const incumbent = request.incumbent.issue.number === request.source_issue.number ? source
+    : await read('issues','get',{issue_number:Number(request.incumbent.issue.number)});
+  const body = value => { requireNative(value === null || typeof value === 'string','native body missing'); return value ?? ''; };
+  const boundIssue = (issue,expected) => issue && !issue.pull_request && String(issue.number) === expected.number
+    && issue.node_id === expected.node_id && ['open','closed'].includes(issue.state)
+    && nativeIssueApiUrl(issue.url,repository,expected.number)
+    && bytesHash(body(issue.body)) === expected.body_sha256;
+  requireNative(boundIssue(source,request.source_issue) && boundIssue(incumbent,request.incumbent.issue),
+    'fresh original source/incumbent identity or body differs');
+  requireNative(Array.isArray(incumbent.assignees) && incumbent.assignees.length > 0
+    && incumbent.assignees.every(person => positiveId(person?.id) && nativeText(person.login))
+    && new Set(incumbent.assignees.map(person=>person.id)).size === incumbent.assignees.length
+    && incumbent.assignees.some(person => person.id === selector.incumbent_assignee.id
+      && person.login === selector.incumbent_assignee.login), 'fresh selected native assignee differs');
+  // request.incumbent.owner is a coding-agent identifier, not a GitHub login.
+  const current = await read('pulls','get',{pull_number:Number(selectedPr.number)});
+  requireNative(String(current?.number) === selectedPr.number && current.node_id === selectedPr.node_id
+    && current.head?.sha === selectedPr.head_sha && current.base?.repo?.id === selectedPr.repository_id
+    && current.head?.repo?.id === selectedPr.repository_id
+    && current.base.repo.full_name?.toLowerCase() === repository, 'fresh corrective PR identity/head/repository differs');
+  requireNative(selectedPr.number !== request.target.pr,'original PR cannot be relabeled as its corrective publication');
+  const originalPull = await read('pulls','get',{pull_number:Number(request.target.pr)});
+  requireNative(String(originalPull?.number) === request.target.pr && originalPull?.merged === true && originalPull.head?.sha === request.target.head_sha
+    && originalPull.base?.sha === request.target.base_sha && originalPull.merge_commit_sha === request.target.merge_sha
+    && originalPull.base?.repo?.id === selectedPr.repository_id, 'original merged target differs');
+  requireNative(typeof github.graphql === 'function','native linked-issue API absent');
+  const linked = await github.graphql(`query CorrectiveScopeLinked($owner:String!,$repo:String!,$prNumber:Int!) {
+    repository(owner:$owner,name:$repo) { pullRequest(number:$prNumber) { closingIssuesReferences(first:20) {
+      totalCount pageInfo { hasNextPage } nodes { id number repository { nameWithOwner } }
+    } } }
+  }`,{owner,repo,prNumber:Number(selectedPr.number),request:{timeout:15000,retries:0}});
+  const connection = linked?.repository?.pullRequest?.closingIssuesReferences;
+  requireNative(Array.isArray(connection?.nodes) && Number.isSafeInteger(connection.totalCount)
+    && connection.totalCount === connection.nodes.length && connection.pageInfo?.hasNextPage === false,
+    'native issue linkage incomplete');
+  let linkedIncumbent = connection.nodes.some(issue => String(issue?.number) === request.incumbent.issue.number
+    && issue.id === request.incumbent.issue.node_id && issue.repository?.nameWithOwner?.toLowerCase() === repository);
+  if (!linkedIncumbent) {
+    // A non-closing relation needs a real native cross-reference, not a body URL.
+    for (let page=1;page<=maxPages && !linkedIncumbent;page++) {
+      const events = await read('issues','listEventsForTimeline',{issue_number:Number(request.incumbent.issue.number),per_page:100,page});
+      requireNative(Array.isArray(events) && events.length <= 100,'native selected-issue timeline incomplete');
+      for (const event of events) {
+        if (event?.event !== 'cross-referenced' || event.source?.issue?.number !== current.number) continue;
+        const projection = require('./verifier_correction_host').crossReferenceProjection(event,current);
+        requireNative(projection.source_repository === repository && projection.source_node_id === current.node_id,
+          'native cross-reference subject differs');
+        linkedIncumbent = true;
+      }
+      if (events.length < 100) break;
+    }
+  }
+  requireNative(linkedIncumbent,'current corrective PR is not natively linked to incumbent');
+  const binding = {
+    kind:'corrective_instruction',owner_instruction:native,request_sha256:request.request_sha256,
+    required_tests_sha256:payload.required_tests_sha256,finding_sha256:request.finding.evidence.sha256,
+    raw_findings_sha256:digest(payload.raw_findings),original_target:request.target,
+    source_issue:request.source_issue,incumbent_issue:request.incumbent.issue,corrective_pr:selectedPr,
+    incumbent_assignee:selector.incumbent_assignee,dispatch_actor:{id:sender.id,login:sender.login},
+    authority:'native_same_principal_dispatch',
+  };
+  const scope = freezeData({selector,payload,binding,source:{...source,body:body(source.body)},
+    incumbent:{...incumbent,body:body(incumbent.body)},comment:{source:'authenticated corrective instruction',url:commentUrl,
+      body:comment.body,author:comment.user.login,author_id:comment.user.id,comment_id:comment.id,
+      comment_node_id:comment.node_id,created_at:comment.created_at,updated_at:comment.updated_at,required_material:true}});
+  correctiveScopes.add(scope);
+  return scope;
+}
+
 function requiredEvidence(selectors, evidence, target = {}) {
   const {validatedSelectors} = require('./verifier_gzip_assets');
   const selected = validatedSelectors(selectors);
   const rows = selected.map(selector => {
+    if (selector.kind === 'corrective_instruction') {
+      const matches = (evidence.corrective_scopes || []).filter(scope =>
+        canonical(scope.selector) === canonical(selector));
+      if (matches.length !== 1) throw new Error('Required corrective scope absent or ambiguous');
+      const binding = correctiveScopeBinding(matches[0]);
+      if (binding.owner_instruction.repository !== target.repository
+          || binding.corrective_pr.head_sha !== target.headSha
+          || binding.corrective_pr.number !== String(target.pullNumber)) throw new Error('Corrective scope target changed');
+      return binding;
+    }
     if (!selector || typeof selector !== 'object') throw new Error('Invalid required evidence selector');
     if (selector.kind === 'comment') {
       if (typeof selector.url !== 'string'
@@ -544,7 +738,7 @@ function buildVerificationEvent({ repository, pull, issues, fullDiffBytes, evide
   const material = { schema: 'verification-material/v1', code: {
     head_sha: pull.head?.sha, evaluated_sha: pull.merge_commit_sha,
     diff_sha256: createHash('sha256').update(fullDiffBytes).digest('hex'),
-  }, ci_hard_gate: ciHardGate(pull, ciResults), required_evidence: requiredEvidence(selectors, evidence, {repository:repo,evaluatedSha:pull.merge_commit_sha}) };
+  }, ci_hard_gate: ciHardGate(pull, ciResults), required_evidence: requiredEvidence(selectors, evidence, {repository:repo,evaluatedSha:pull.merge_commit_sha,headSha:pull.head?.sha,pullNumber:pull.number}) };
   // Explicit git_blob selectors bind required content above; transport-only
   // views must not mint a new event when optional capture availability changes.
   const event = { schema: 'verification-event/v1', repo, pr: String(pull.number),
@@ -562,3 +756,7 @@ function buildVerificationEvent({ repository, pull, issues, fullDiffBytes, evide
 }
 
 module.exports = { requestBasis, terminalCorrelation, parseRecoverySelector, canonical, digest, validateEvent, requiredEvidence, buildVerificationEvent, completedEvent, authenticatePredecessor, completedLegacyEvent, ciHardGate, guardExistingEvent, inputRepairMarker, assessmentIdentity, sameAssessment };
+
+Object.assign(module.exports,{validateCorrectiveSelector,validateCorrectivePayload,renderCorrectiveInstruction,parseCorrectiveInstruction,correctiveScopeBinding});
+
+module.exports.authenticateCorrectiveInstruction=authenticateCorrectiveInstruction;

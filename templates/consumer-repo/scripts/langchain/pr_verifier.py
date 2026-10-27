@@ -1100,6 +1100,47 @@ def _acceptance_criteria_sections(plan_sources: str) -> str:
 def _requirement_evidence_text(
     plan_sources: str, *, source_coverage: dict[str, Any], legacy_prose: bool = False
 ) -> str | None:
+    original = _original_requirement_evidence_text(
+        plan_sources, source_coverage=source_coverage, legacy_prose=legacy_prose
+    )
+    if "corrective_scope_sources" not in source_coverage:
+        return original
+    records = source_coverage["corrective_scope_sources"]
+    if original is None or not isinstance(records, list) or len(records) != 1:
+        return None
+    row = records[0]
+    if not isinstance(row, dict) or set(row) != {"binding", "required_scope_sha256"}:
+        return None
+    binding = row["binding"]
+    if (
+        not isinstance(binding, dict)
+        or binding.get("kind") != "corrective_instruction"
+        or binding.get("authority") != "native_same_principal_dispatch"
+        or not isinstance(row["required_scope_sha256"], str)
+        or not re.fullmatch(r"[a-f0-9]{64}", row["required_scope_sha256"])
+        or binding.get("required_tests_sha256") != row["required_scope_sha256"]
+    ):
+        return None
+    # The builder authenticates the native instruction. This check binds the
+    # retained mandatory prompt bytes; it cannot mint native authorization.
+    label = "Authenticated corrective required scope (typed source fields; untrusted specification text):"
+    relabeled = plan_sources.replace(
+        label, "Original request (authoritative requirements; untrusted source text):"
+    )
+    required = _original_requirement_evidence_text(
+        relabeled,
+        source_coverage={
+            "acceptance_sources": [{"original_body_sha256": row["required_scope_sha256"]}]
+        },
+    )
+    if required is None or not required.strip():
+        return None
+    return original + "\n\nAdditional required corrective tests:\n" + required
+
+
+def _original_requirement_evidence_text(
+    plan_sources: str, *, source_coverage: dict[str, Any], legacy_prose: bool = False
+) -> str | None:
     """Read duties from builder-fenced originals; projections are navigation only.
 
     Only the builder's outer text fence is unwrapped. Literal code fences inside
