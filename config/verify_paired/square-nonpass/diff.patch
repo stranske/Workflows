@@ -1,0 +1,14 @@
+diff --git a/square.py b/square.py
+new file mode 100644
+--- /dev/null
++++ b/square.py
+@@ -0,0 +1,9 @@
++def square(value: int) -> int:
++    """Return the mathematical square of an integer."""
++    return abs(value)
++
++
++def test_square():
++    assert square(0) == 0
++    assert square(-3) == 9
++    assert square(4) == 16

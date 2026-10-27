@@ -1,0 +1,39 @@
+{
+  "id": "664f5e181ca65ec58f3c1a6fb98fad59b43248a6acd44e751b2c7342dca36c98",
+  "implementation_head": "2f22df0ffbce30213f8f838ad36a1a1f1be1a334",
+  "governing_sha256": "10e63baa2fa865580293ac3fe87e6a941b6ff9ad403ef629078364a5755bcecd",
+  "raw_inputs": {
+    "context": "10e63baa2fa865580293ac3fe87e6a941b6ff9ad403ef629078364a5755bcecd",
+    "diff": "1f2e387efd75dd19e7bad4c8396c679fe4e17fa7c8b02792f6c5752aad374cdc"
+  },
+  "gaps": [],
+  "resource_admitted": true,
+  "manifest": {
+    "schema": "workflows-verifier-capture-obligation-manifest/v1",
+    "sufficient": true,
+    "gaps": [],
+    "obligations": [
+      {
+        "source": "square.py",
+        "kind": "changed_code",
+        "status": "included",
+        "included_chars": 324,
+        "total_chars": 324
+      },
+      {
+        "source": "synthetic-public-spec",
+        "kind": "acceptance_source",
+        "status": "included",
+        "included_chars": 195,
+        "total_chars": 195
+      },
+      {
+        "source": "verifier-pr-diff.patch",
+        "kind": "full_diff_artifact",
+        "status": "included",
+        "included_chars": 324,
+        "total_chars": 324
+      }
+    ]
+  }
+}

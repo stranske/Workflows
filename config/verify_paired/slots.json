@@ -1,0 +1,6 @@
+{
+  "slots": [
+    {"name": "slot1", "provider": "openai", "model": "gpt-5.6-terra"},
+    {"name": "slot2", "provider": "anthropic", "model": "claude-sonnet-5-5"}
+  ]
+}
