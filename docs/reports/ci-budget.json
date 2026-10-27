@@ -9,7 +9,7 @@
     "issue_numbers": [
       1189
     ],
-    "issue_updated_on": "2026-10-26",
+    "issue_updated_on": "2026-10-27",
     "longest_job": {
       "minutes": 24.633333333333333,
       "name": "Python CI / python 3.14",
@@ -177,7 +177,7 @@
     "issue_numbers": [
       969
     ],
-    "issue_updated_on": "2026-10-26",
+    "issue_updated_on": "2026-10-27",
     "longest_job": {
       "minutes": 28.4,
       "name": "python ci / python 3.12",
@@ -322,7 +322,7 @@
     "issue_numbers": [
       6124
     ],
-    "issue_updated_on": "2026-10-26",
+    "issue_updated_on": "2026-10-27",
     "longest_job": {
       "minutes": 11.083333333333334,
       "name": "Python CI / python 3.12",
@@ -345,8 +345,14 @@
   "stranske/Workflows": {
     "distance": 0.043333333333333446,
     "drainable_in": 7,
+    "filed_under_24h": true,
+    "filing_latency_hours": 0.5858333333333333,
     "first_over_target_at": "2026-10-27T11:44:41+00:00",
-    "issue_numbers": [],
+    "issue_filed_at": "2026-10-27T12:19:50Z",
+    "issue_numbers": [
+      4284
+    ],
+    "issue_updated_on": "2026-10-27",
     "longest_job": {
       "minutes": 14.2,
       "name": "python ci / python 3.14",
