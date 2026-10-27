@@ -434,3 +434,219 @@ def test_git_range_rejects_a_base_from_a_divergent_branch(tmp_path: Path) -> Non
 
     with pytest.raises(PlanScopeError, match="scope_base_is_not_ancestor_of_source_commit"):
         changed_paths_for_range(tmp_path, left, right)
+
+
+def _commit_fixture(root: Path, message: str) -> str:
+    subprocess.run(["git", "add", "."], cwd=root, check=True)
+    subprocess.run(["git", "commit", "-qm", message], cwd=root, check=True)
+    return subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=root, text=True).strip()
+
+
+@pytest.fixture
+def metadata_range(tmp_path: Path):
+    import yaml
+
+    subprocess.run(["git", "init", "-q", "-b", "main"], cwd=tmp_path, check=True)
+    subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=tmp_path, check=True)
+    subprocess.run(["git", "config", "user.name", "Test"], cwd=tmp_path, check=True)
+    manifest = tmp_path / ".github/sync-manifest.yml"
+    manifest.parent.mkdir()
+    document = {
+        "version": 1,
+        "scripts": [
+            {"source": "scripts/parser.py", "description": "old parser"},
+            {"source": "scripts/vendor", "description": "vendored helper", "is_directory": True},
+        ],
+        "workflows": [
+            {
+                "source": ".github/workflows/pr-00-gate.yml",
+                "description": "gate",
+                "sync_mode": "create_only",
+                "overwrite_repos": ["stranske/Template"],
+            }
+        ],
+        "removals": [{"target": ".github/workflows/legacy.yml", "description": "historic removal"}],
+        "excluded": [{"source": "not-delivered", "reason": "unchanged"}],
+    }
+    parser = tmp_path / "scripts/parser.py"
+    parser.parent.mkdir()
+    parser.write_text("old parser\n")
+    vendor = tmp_path / "scripts/vendor"
+    vendor.mkdir()
+    (vendor / "helper.js").write_text("unchanged tracked helper")
+    (tmp_path / ".gitignore").write_text("scripts/vendor/*.log\n")
+    gate = tmp_path / "templates/consumer-repo/.github/workflows/pr-00-gate.yml"
+    gate.parent.mkdir(parents=True)
+    gate.write_text("unchanged protected gate\n")
+    manifest.write_text(yaml.safe_dump(document, sort_keys=False))
+    base = _commit_fixture(tmp_path, "base")
+    return tmp_path, manifest, document, parser, base
+
+
+def _finish_metadata_range(fixture, mutate=None):
+    import yaml
+
+    root, manifest, document, parser, base = fixture
+    document["scripts"][0]["description"] = "new parser description"
+    if mutate:
+        mutate(document)
+    manifest.write_text(yaml.safe_dump(document, sort_keys=False) + "# description-only comment\n")
+    parser.write_text("reviewed new parser\n")
+    head = _commit_fixture(root, "source repair and metadata")
+    return root, base, head
+
+
+def _select_actual(root, base, head, full=None):
+    actual_base, actual_head, paths = changed_paths_for_range(root, base, head)
+    if full is None:
+        full = compile_manifest(root / ".github/sync-manifest.yml").to_plan()
+    return select_plan(
+        full,
+        mode="source-delta",
+        changed_paths=paths,
+        base_sha=actual_base,
+        source_commit=actual_head,
+        repo_root=root,
+    )
+
+
+def test_description_only_range_selects_one_payload_without_gate_or_historic_removal(
+    metadata_range,
+):
+    root, base, head = _finish_metadata_range(metadata_range)
+    scoped, evidence = _select_actual(root, base, head)
+    assert [row["target"] for row in scoped["entries"]] == ["scripts/parser.py"]
+    assert scoped["removals"] == []
+    assert evidence["selected_entry_count"] == 1
+    assert evidence["selected_removal_count"] == 0
+    assert evidence["ignored_changed_paths"] == [".github/sync-manifest.yml"]
+    proof = evidence["manifest_selector_equivalence"]
+    assert proof["base_sha"] == base and proof["source_commit"] == head
+    assert proof["allowed_difference"] == "known_descriptions_and_comments_only"
+    assert proof["base_manifest_sha256"] != proof["source_manifest_sha256"]
+    assert subprocess.check_output(
+        ["git", "ls-tree", head, "scripts/parser.py"], cwd=root, text=True
+    ).startswith("100644 blob ")
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        lambda d: d["scripts"][0].update(target="other.py"),
+        lambda d: d["scripts"][0].update(source="scripts/other.py"),
+        lambda d: d["scripts"][0].update(source_tree="template"),
+        lambda d: d["scripts"][0].update(sync_mode="create_only"),
+        lambda d: d["workflows"][0].pop("sync_mode"),
+        lambda d: d["workflows"][0].update(overwrite_repos=[]),
+        lambda d: d["scripts"][0].update(include_repos=["stranske/Template"]),
+        lambda d: d["scripts"][0].update(skip_repos=["stranske/Other"]),
+        lambda d: d["scripts"][0].update(requires=[".github/workflows/pr-00-gate.yml"]),
+        lambda d: d["scripts"][0].update(is_directory=True),
+        lambda d: d["scripts"][0].update(template_sync="exact"),
+        lambda d: d["scripts"][0].update(delivery="runtime"),
+        lambda d: d["scripts"][0].update(unknown_selector=True),
+        lambda d: d.update(unknown_section=[]),
+        lambda d: d["scripts"][0].update(mode="100755"),
+        lambda d: d["scripts"][0].update(description={"unknown": "not operator text"}),
+        lambda d: d["removals"].append({"target": "delete-me", "description": "new removal"}),
+        lambda d: d["removals"].clear(),
+        lambda d: d["removals"][0].update(target="different-delete"),
+        lambda d: d["excluded"][0].update(reason="changed ignored policy"),
+        lambda d: d.update(version=True),
+    ],
+)
+def test_operational_or_unknown_manifest_changes_keep_full_scope_refusal(metadata_range, mutation):
+    # Build the supplied plan before the malicious/operational range. The new
+    # gate must reject invalid manifests as well as valid selector changes.
+    root, manifest, _, _, _ = metadata_range
+    full = compile_manifest(manifest).to_plan()
+    root, base, head = _finish_metadata_range(metadata_range, mutation)
+    with pytest.raises(PlanScopeError, match="manifest_change_requires_full_scope"):
+        _select_actual(root, base, head, full)
+
+
+def test_description_changes_on_removal_cannot_replay_historic_delete(metadata_range):
+    root, base, head = _finish_metadata_range(
+        metadata_range,
+        lambda d: d["removals"][0].update(description="clearer historical rationale"),
+    )
+    scoped, _ = _select_actual(root, base, head)
+    assert scoped["removals"] == []
+
+
+@pytest.mark.parametrize(
+    "tamper",
+    [
+        "plan_content",
+        "plan_mode",
+        "source_content",
+        "checkout",
+        "duplicate_yaml",
+        "alias_yaml",
+        "recompiled_dirty_source",
+        "source_mode",
+        "different_head",
+        "manifest_mode",
+        "untracked_child",
+        "ignored_child",
+        "assume_unchanged",
+        "hidden_mode",
+    ],
+)
+def test_manifest_equivalence_cannot_use_stale_or_ambiguous_evidence(metadata_range, tamper):
+    root, manifest, _, parser, _ = metadata_range
+    root, base, head = _finish_metadata_range(metadata_range)
+    full = compile_manifest(manifest).to_plan()
+    if tamper == "plan_content":
+        full["entries"][0]["content_sha256"] = "sha256:" + "f" * 64
+    elif tamper == "plan_mode":
+        full["entries"][0]["sync_mode"] = None
+    elif tamper == "source_content":
+        parser.write_text("uncompiled source mutation")
+    elif tamper == "checkout":
+        manifest.write_text(manifest.read_text() + "# uncommitted change\n")
+    elif tamper == "recompiled_dirty_source":
+        parser.write_text("dirty payload compiled into a self-consistent plan")
+        full = compile_manifest(manifest).to_plan()
+    elif tamper == "source_mode":
+        parser.chmod(0o755)
+        full = compile_manifest(manifest).to_plan()
+    elif tamper == "different_head":
+        parser.write_text("later committed payload")
+        _commit_fixture(root, "different source identity")
+        full = compile_manifest(manifest).to_plan()
+    elif tamper == "manifest_mode":
+        manifest.chmod(0o755)
+        head = _commit_fixture(root, "manifest mode changed")
+        full = compile_manifest(manifest).to_plan()
+    elif tamper in {"untracked_child", "ignored_child"}:
+        suffix = "cache.log" if tamper == "ignored_child" else "unexpected.js"
+        (root / "scripts/vendor" / suffix).write_text("not in immutable Git payload")
+        full = compile_manifest(manifest).to_plan()
+    elif tamper == "assume_unchanged":
+        subprocess.run(
+            ["git", "update-index", "--assume-unchanged", "scripts/parser.py"], cwd=root, check=True
+        )
+        parser.write_text("hidden dirty parser")
+        full = compile_manifest(manifest).to_plan()
+    elif tamper == "hidden_mode":
+        subprocess.run(["git", "config", "core.filemode", "false"], cwd=root, check=True)
+        parser.chmod(0o755)
+        full = compile_manifest(manifest).to_plan()
+    else:
+        suffix = "\nversion: 1\n" if tamper == "duplicate_yaml" else "\nignored: &x [*x]\n"
+        manifest.write_text(manifest.read_text() + suffix)
+        head = _commit_fixture(root, "ambiguous manifest")
+    with pytest.raises(PlanScopeError, match="manifest_change_requires_full_scope"):
+        _select_actual(root, base, head, full)
+
+
+def test_manifest_metadata_cannot_admit_a_deleted_empty_source_directory(metadata_range):
+    root, manifest, _, _, _ = metadata_range
+    root, base, _ = _finish_metadata_range(metadata_range)
+    subprocess.run(["git", "rm", "-q", "scripts/vendor/helper.js"], cwd=root, check=True)
+    head = _commit_fixture(root, "delete last tracked source member")
+    (root / "scripts/vendor").mkdir(exist_ok=True)
+    full = compile_manifest(manifest).to_plan()
+    with pytest.raises(PlanScopeError, match="manifest_change_requires_full_scope"):
+        _select_actual(root, base, head, full)

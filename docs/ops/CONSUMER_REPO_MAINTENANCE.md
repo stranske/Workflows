@@ -1424,10 +1424,27 @@ drift. Directory entries match changed descendants. Dependencies are declared
 by a selected entry's typed `requires` field and expanded transitively. The
 path-classifier action therefore carries its lease-contract bootstrap dependency, so a
 consumer whose base predates that contract can still evaluate its initial
-staged delivery safely. Manifest changes fail closed and require `full`;
-historical removal declarations are never replayed by a source delta. The
-uploaded `sync-plan-scope.json` records both plan IDs, the exact base/head,
-changed paths, selected targets, dependency targets, and ignored paths.
+staged delivery safely. Manifest operational changes and unknown fields fail
+closed and require `full`. Comments and descriptions on known copy/removal
+entries may accompany a source delta only when the selector reads both immutable
+Git manifests, rejects ambiguous YAML, and proves all other raw selector fields
+and compiler-derived effects identical against the same clean source checkout.
+The supplied full plan must match that actual compiler output. Changed source,
+target, delivery mode, repository policy, dependencies, create-only/overwrite
+behavior, removal declarations, manifest mode, or unrecognized metadata retain
+the full-scope refusal. Description equality never substitutes for payload proof.
+Historical removals are never replayed by a source delta, even when their
+operator descriptions change. The uploaded `sync-plan-scope.json` records both
+plan IDs, the exact base/head, changed paths, selected targets, dependencies and
+ignored paths; admitted metadata changes also record native manifest hashes,
+source tree/mode, selector digest and compiled operational digest.
+
+Maint 68 executes its compiler/selector from its frozen source commit. A selector
+repair therefore needs a newly reviewed source snapshot that contains that
+repair; dispatching an older source SHA still runs the older selector. Freeze the
+new source packet through the existing delivery process while retaining the
+reviewed payload blob, mode, exact target scope and normal canary guards. This
+is not permission to submit a full plan containing unrelated targets.
 If no manifest-managed source matches the range, Maint 68 records the empty
 scope and skips the consumer fan-out entirely.
 Changes to the status-ignore reconciler, its consumer copy, or the consumer
