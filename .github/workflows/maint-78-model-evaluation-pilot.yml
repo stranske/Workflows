@@ -9,9 +9,9 @@ on:
         required: false
         type: string
       mode:
-        description: Plan and capture are free; screen uses Codex subscription; confirm is a capped API comparison.
+        description: Plan/capture are free; screen uses subscription; confirm and source-held verify-paired use capped APIs.
         type: choice
-        options: [plan, capture, screen, confirm]
+        options: [plan, capture, screen, confirm, verify-paired]
         default: plan
       capture_targets:
         description: Capture mode only; 1-8 comma-separated owner/repo#PR entries, no model calls.
@@ -50,6 +50,7 @@ concurrency:
 
 jobs:
   assess:
+    if: inputs.mode != 'verify-paired'
     runs-on: ubuntu-latest
     timeout-minutes: 150
     steps:
@@ -177,3 +178,38 @@ jobs:
             captured-inputs/**/verifier-pr-diff.patch
             captured-inputs/**/verifier-input-manifest.json
           if-no-files-found: warn
+
+  verify-paired:
+    if: >-
+      github.event_name == 'workflow_dispatch' && inputs.mode == 'verify-paired' &&
+      github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+      - name: Install the existing frozen Python requirements
+        run: |
+          source .github/workflows/ci-python-versions.env
+          uv venv --python "$CI_PYTHON_VERSION" "$RUNNER_TEMP/verify-paired-venv"
+          uv pip sync --python "$RUNNER_TEMP/verify-paired-venv/bin/python" requirements.lock
+      - name: Run fixed public paired Verify screen
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          CLAUDE_API_STRANSKE: ${{ secrets.CLAUDE_API_STRANSKE }}
+        run: >-
+          timeout --signal=KILL 300s "$RUNNER_TEMP/verify-paired-venv/bin/python"
+          -m tools.run_verify_paired --execute
+      - name: Retain paired Verify evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: maint-78-verify-paired-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/verify-paired
+          include-hidden-files: false
+          retention-days: 7
+          if-no-files-found: error

@@ -1,0 +1,38 @@
+{
+  "schema": "verify-public-pair-independent-review/v1",
+  "source_head": "b2528b793946e1f04adfea839db4bf8f8b98c412",
+  "result": "CLEAR_SOURCE_ONLY_SYNTHETIC_PAIR",
+  "checks": [
+    {
+      "case": "square-pass",
+      "prompt_bytes": 5559,
+      "prompt_sha256": "0a54a2ad44d4e935a12f38b111458754d9cad87ae93a3fd6fb90b4a9731379a5",
+      "exact_six_artifact_replay": true,
+      "full_diff_and_acceptance_visible": true,
+      "oracle_not_in_prompt": true,
+      "capture_gaps": []
+    },
+    {
+      "case": "square-nonpass",
+      "prompt_bytes": 5553,
+      "prompt_sha256": "ed656f38aa56d1b7d87634e0dd80501f19979125f3d100bc8b8a5ff4a8aef851",
+      "exact_six_artifact_replay": true,
+      "full_diff_and_acceptance_visible": true,
+      "oracle_not_in_prompt": true,
+      "capture_gaps": []
+    }
+  ],
+  "semantic_review": {
+    "positive": "value * value implements mathematical integer square; zero, negative, and positive unit assertions supplied; no execution evidence required by acceptance.",
+    "negative": "abs(value) violates supplied square obligation at -3 and4; either CONCERNS or FAIL defensible, must identify arithmetic defect.",
+    "oracle_wording": "Allows semantic paraphrase; no arbitrary wording or order equality."
+  },
+  "scope_limits": [
+    "Only two easy synthetic Verify screening cases, not full role qualification.",
+    "Synthetic implementation_head is content-derived40hex identity, not attested Git commit or production merge.",
+    "No native clients constructed; no token counting, provider calls, authentication or execution receipts.",
+    "Canonical active workflow/parser publication and executable account facility are outside this review."
+  ],
+  "provider_calls": 0,
+  "canonical_edits": 0
+}

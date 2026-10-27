@@ -1,0 +1,372 @@
+"""Fixed public two-case screen through the existing semantic compare CLI.
+
+This command has no repository mutation client. Policy approval is source owned;
+preparing a packet or supplying credentials cannot enable a proposed trial.
+"""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import os
+import re
+import shutil
+import subprocess
+import sys
+import time
+from importlib import metadata
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+PACKET = ROOT / "config/verify_paired"
+PROPOSAL_SHA256 = "3423da3d0c0f243f10d83f57e2243d5ce04b30511b5dbd589919b5ca4e3620b9"
+CASES = ("square-pass", "square-nonpass")
+
+
+def digest(data: bytes) -> str:
+    return hashlib.sha256(data).hexdigest()
+
+
+def runtime_dependencies() -> dict:
+    """Local package observations; the native job must separately attest origin."""
+    lock = (ROOT / "requirements.lock").read_text()
+    installed = {}
+    expected = {}
+    for name in (
+        "openai",
+        "anthropic",
+        "langchain-openai",
+        "langchain-anthropic",
+        "httpx",
+        "pydantic",
+        "langchain-core",
+    ):
+        pins = re.findall(rf"^{re.escape(name)}==([^\s;]+)$", lock, flags=re.MULTILINE)
+        if len(pins) != 1:
+            raise ValueError("paired runtime dependency lacks one exact existing lock pin")
+        expected[name] = pins[0]
+        try:
+            installed[name] = metadata.version(name)
+        except metadata.PackageNotFoundError:
+            installed[name] = None
+    return {"installed": installed, "locked": expected, "matches_lock": installed == expected}
+
+
+def load_packet() -> tuple[dict, dict]:
+    proposal_bytes = (PACKET / "PROPOSAL.json").read_bytes()
+    if digest(proposal_bytes) != PROPOSAL_SHA256:
+        raise ValueError("reviewed proposal digest mismatch")
+    proposal = json.loads(proposal_bytes)
+    for name, expected in proposal["frozen_files"].items():
+        # The original preparer's build program is retained as provenance in
+        # its original packet; this runner never copies or executes it.
+        if name == "build.py":
+            continue
+        if digest((PACKET / name).read_bytes()) != expected:
+            raise ValueError(f"reviewed packet digest mismatch: {name}")
+    if digest((PACKET / "REVIEW.json").read_bytes()) != proposal["independent_review"]["sha256"]:
+        raise ValueError("independent packet review digest mismatch")
+    policy = json.loads((PACKET / "trial-policy.json").read_text())
+    if (
+        policy["schema"] != "verify-paired-trial-policy/v1"
+        or policy["max_generations"] != 4
+        or policy["max_native_counts"] != 8
+        or policy["max_native_metadata_requests"] != 6
+        or type(policy.get("max_physical_http_attempts")) is not int
+        or policy["max_physical_http_attempts"] != 18
+        or type(policy.get("max_redirects")) is not int
+        or policy["max_redirects"] != 0
+        or policy["retries"] != 0
+        or policy["fallback"] is not False
+        or policy["repair_calls"] != 0
+        or policy["models"]
+        != [
+            {"provider": "openai", "model": "gpt-5.6-terra"},
+            {"provider": "anthropic", "model": "claude-sonnet-5-5"},
+        ]
+    ):
+        raise ValueError("unsupported paired trial policy")
+    for field, ceiling in (
+        ("per_request_timeout_seconds", 30),
+        ("total_wall_seconds", 300),
+        ("max_output_tokens", 4096),
+    ):
+        if type(policy[field]) is not int or not 0 < policy[field] <= ceiling:
+            raise ValueError(f"invalid reviewed policy cap: {field}")
+    return proposal, policy
+
+
+def child_environment(case: str, directory: Path, key: Path) -> dict[str, str]:
+    # No PR/GitHub token, subscription auth, custom endpoint or slot/model
+    # override is inherited. Values are passed to existing clients, never logged.
+    allowed = (
+        "PATH",
+        "HOME",
+        "SYSTEMROOT",
+        "TMPDIR",
+        "VIRTUAL_ENV",
+        "OPENAI_API_KEY",
+        "CLAUDE_API_STRANSKE",
+    )
+    env = {name: os.environ[name] for name in allowed if name in os.environ}
+    capture = json.loads((PACKET / case / "capture.json").read_text())
+    env.update(
+        PYTHONPATH=str(ROOT),
+        VERIFIER_SEMANTIC_MODE="1",
+        VERIFIER_SEMANTIC_KEY_PATH=str(key),
+        VERIFIER_PAIRED_QUALIFICATION=case,
+        PR_HEAD_SHA=capture["implementation_head"],
+        VERIFIER_EVIDENCE_CAPTURE_DIR=str(directory),
+        LANGCHAIN_SLOT_CONFIG=str(PACKET / "slots.json"),
+        LANGCHAIN_MODEL_REGISTRY_CONFIG=str(ROOT / "config/model_registry.json"),
+    )
+    return env
+
+
+def publish_case_outputs(
+    private: Path, output: Path, case: str, credentials: tuple[str, ...]
+) -> dict:
+    """Publish only unchanged bytes that contain no configured credential.
+
+    A killed parent leaves all unchecked child bytes outside the artifact root.
+    Withheld records identify original bytes by hash, never claim redacted raw
+    provenance, and never include provider exception text or credential values.
+    """
+    needles = set()
+    for value in credentials:
+        if value:
+            needles.add(value.encode())
+            needles.add(json.dumps(value, ensure_ascii=True)[1:-1].encode())
+            needles.add(json.dumps(value, ensure_ascii=False)[1:-1].encode())
+    published = {}
+    for name in ("comparison.json", "diagnostic.log", "report.md"):
+        source = private / case / name
+        if not source.exists():
+            continue
+        if source.is_symlink() or not source.is_file():
+            raise ValueError("child output is not a regular private file")
+        raw = source.read_bytes()
+        record = {"sha256": digest(raw), "bytes": len(raw), "status": "published_original"}
+        if any(needle in raw for needle in needles):
+            record.update(
+                status="withheld_credentials",
+                reason="configured provider credential in child output",
+            )
+            (output / case / name).unlink(missing_ok=True)
+            (output / case / (name + ".withheld.json")).write_text(
+                json.dumps(record, indent=2) + "\n"
+            )
+        else:
+            (output / case / name).write_bytes(raw)
+        published[name] = record
+    return published
+
+
+def run(*, execute: bool) -> dict:
+    proposal, policy = load_packet()
+    output = Path(os.environ["RUNNER_TEMP"]) / "verify-paired"
+    private = Path(os.environ["RUNNER_TEMP"]) / "verify-paired-private"
+    output.mkdir(mode=0o700, parents=True, exist_ok=False)
+    receipt = {
+        "schema": "verify-paired-invocation/v1",
+        "status": "prepared",
+        "proposal_sha256": PROPOSAL_SHA256,
+        "packet_source_head": proposal["source_head"],
+        "policy": policy,
+        "cases": proposal["cases"],
+        "native_capacity_claim": False,
+        "role_qualification_claim": False,
+        "semantic_cli_started": False,
+        "native_request_state": "not_started",
+        "runtime_source": {
+            "assertion": "local_source_bytes_not_origin_authentication",
+            "files_sha256": {
+                name: digest((ROOT / name).read_bytes())
+                for name in (
+                    "tools/run_verify_paired.py",
+                    "tools/verify_paired_policy.py",
+                    "scripts/langchain/pr_verifier.py",
+                    "scripts/langchain/prompts/pr_evaluation.md",
+                    "config/model_registry.json",
+                    "requirements.lock",
+                    "pyproject.toml",
+                    "config/verify_paired/slots.json",
+                    "config/verify_paired/trial-policy.json",
+                )
+            },
+            "dependencies": runtime_dependencies(),
+        },
+        "results": [],
+        "output_publication": {},
+    }
+    key = private / ".semantic-key"
+    credentials = ()
+    private_owned = False
+    try:
+        for name in (
+            "PROPOSAL.json",
+            "REVIEW.json",
+            "build-receipt.json",
+            "trial-policy.json",
+            "slots.json",
+        ):
+            shutil.copyfile(PACKET / name, output / name)
+        for case in CASES:
+            shutil.copytree(PACKET / case, output / case)
+        if not execute:
+            return receipt
+        if policy.get("execution_enabled") is not True or policy.get("review_status") != "reviewed":
+            receipt.update(status="held", reason="trial policy awaits Core/executor review")
+            return receipt
+        if receipt["runtime_source"]["dependencies"]["matches_lock"] is not True:
+            receipt.update(
+                status="held",
+                reason="installed SDK runtime differs from existing frozen requirements",
+            )
+            return receipt
+        private.mkdir(mode=0o700, parents=True, exist_ok=False)
+        private_owned = True
+        credentials = tuple(
+            os.environ.get(name, "") for name in ("OPENAI_API_KEY", "CLAUDE_API_STRANSKE")
+        )
+        key.write_bytes(os.urandom(32))
+        key.chmod(0o600)
+        deadline = time.monotonic() + policy["total_wall_seconds"]
+        for case in CASES:
+            directory = private / case
+            shutil.copytree(PACKET / case, directory)
+            argv = [
+                sys.executable,
+                str(ROOT / "scripts/langchain/pr_verifier.py"),
+                "--context-file",
+                str(directory / "context.md"),
+                "--diff-file",
+                str(directory / "diff.patch"),
+                "--compare",
+                "--json",
+                "--output-file",
+                str(directory / "report.md"),
+            ]
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise TimeoutError("paired trial wall policy exhausted")
+            receipt["semantic_cli_started"] = True
+            receipt["native_request_state"] = "unknown"
+            receipt["status"] = "in_progress"
+            # A hard wall-time kill may prevent finally from running. Publish
+            # only this safe unknown checkpoint before the private child starts.
+            (output / "invocation.json").write_text(json.dumps(receipt, indent=2) + "\n")
+            with (
+                (directory / "comparison.json").open("wb") as stdout,
+                (directory / "diagnostic.log").open("wb") as stderr,
+            ):
+                # Environment-derived paths are argv data; never interpret them as shell text.
+                completed = subprocess.run(
+                    argv,
+                    shell=False,
+                    cwd=ROOT,
+                    env=child_environment(case, directory, key),
+                    stdout=stdout,
+                    stderr=stderr,
+                    timeout=remaining,
+                    check=False,
+                )
+            receipt["results"].append({"case": case, "returncode": completed.returncode})
+            publication = publish_case_outputs(private, output, case, credentials)
+            receipt["output_publication"][case] = publication
+            withheld = any(row["status"] == "withheld_credentials" for row in publication.values())
+            report = json.loads((directory / "comparison.json").read_text())
+            semantic = report.get("semantic_acceptance") if isinstance(report, dict) else None
+            trial = semantic.get("qualification_trial") if isinstance(semantic, dict) else None
+            if not isinstance(trial, dict) or set(trial) != {
+                "case",
+                "policy",
+                "attempted_native_requests",
+                "native_capacity_claim",
+                "role_qualification_claim",
+                "attempted_physical_http_requests",
+            }:
+                raise ValueError("native trial counter record missing or malformed")
+            attempted = trial.get("attempted_native_requests")
+            limits = {"generation": 2, "count": 4, "metadata": 3}
+            if (
+                trial.get("case") != case
+                or not isinstance(trial.get("policy"), dict)
+                or json.dumps(trial["policy"], sort_keys=True) != json.dumps(policy, sort_keys=True)
+                or trial.get("native_capacity_claim") is not False
+                or trial.get("role_qualification_claim") is not False
+                or type(trial.get("attempted_physical_http_requests")) is not int
+                or not 0
+                <= trial["attempted_physical_http_requests"]
+                <= policy["max_physical_http_attempts"] // 2
+                or not isinstance(attempted, dict)
+                or set(attempted) != set(limits)
+                or any(
+                    type(value) is not int or not 0 <= value <= limits[name]
+                    for name, value in attempted.items()
+                )
+                or trial["attempted_physical_http_requests"] > sum(attempted.values())
+            ):
+                raise ValueError("native trial counter record does not match bounded invocation")
+            receipt["results"][-1]["attempted_native_requests"] = attempted
+            physical = trial["attempted_physical_http_requests"]
+            receipt["results"][-1]["attempted_physical_http_requests"] = physical
+            receipt["native_request_state"] = (
+                "attempts_recorded"
+                if any(
+                    sum(row.get("attempted_native_requests", {}).values())
+                    for row in receipt["results"]
+                )
+                else "not_started"
+            )
+            if withheld:
+                raise ValueError(
+                    "credential-bearing child output withheld; no retry or replacement"
+                )
+            if completed.returncode:
+                raise ValueError("semantic CLI failed; no retry or replacement")
+            if attempted != limits or physical != policy["max_physical_http_attempts"] // 2:
+                raise ValueError("native pair incomplete; partial request counters retained")
+            arms = report.get("results", [])
+            if (
+                not isinstance(arms, list)
+                or len(arms) != 2
+                or any(
+                    not isinstance(arm, dict) or arm.get("used_llm") is not True or arm.get("error")
+                    for arm in arms
+                )
+            ):
+                raise ValueError("native pair incomplete; retain raw output and stop")
+        receipt["status"] = "completed_screen_only"
+        return receipt
+    except (OSError, ValueError, TimeoutError, subprocess.TimeoutExpired) as exc:
+        receipt.update(status="held", reason=str(exc))
+        return receipt
+    finally:
+        if private_owned:
+            key.unlink(missing_ok=True)
+            for case in CASES:
+                if (private / case).exists():
+                    publication = publish_case_outputs(private, output, case, credentials)
+                    receipt["output_publication"][case] = publication
+                    if any(row["status"] == "withheld_credentials" for row in publication.values()):
+                        receipt.update(
+                            status="held",
+                            reason="credential-bearing child output withheld; no retry or replacement",
+                        )
+        (output / "invocation.json").write_text(json.dumps(receipt, indent=2) + "\n")
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--execute", action="store_true", help="Requires reviewed source policy.")
+    args = parser.parse_args()
+    receipt = run(execute=args.execute)
+    print(json.dumps(receipt, indent=2))
+    if receipt["status"] == "held":
+        raise SystemExit(2)
+
+
+if __name__ == "__main__":
+    main()

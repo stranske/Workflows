@@ -1,0 +1,45 @@
+{
+  "schema": "workflows-verifier-capture-reassembly-contract/v1",
+  "id": "38f71e0e0bf9e8136d4f1ba722a509f84fa89d8bb191523dc8f3ad00ac0c69a7",
+  "obligation_manifest_sha256": "f848980072483919a62b57b889ecbedfcffde7ee2e6d18ff42bb96eb926399d0",
+  "byte_inventory_sha256": "e6948af70071f3c6218d3d0cc1474c5e50e7a14e40054b1297a725279677c850",
+  "dependency_policy": "all-captured-inputs",
+  "required_range_ids": [
+    "context:10e63baa2fa865580293ac3fe87e6a941b6ff9ad403ef629078364a5755bcecd:0:1388",
+    "diff:1f2e387efd75dd19e7bad4c8396c679fe4e17fa7c8b02792f6c5752aad374cdc:0:324"
+  ],
+  "sufficient": true,
+  "obligations": [
+    {
+      "id": "38f71e0e0bf9e8136d4f1ba722a509f84fa89d8bb191523dc8f3ad00ac0c69a7:obligations:0:a7af2ab4cebbfc776b194998b358e7e6c1b977e3cafdc24e44a51ac3dbe9d921",
+      "value": {
+        "source": "square.py",
+        "kind": "changed_code",
+        "status": "included",
+        "included_chars": 324,
+        "total_chars": 324
+      }
+    },
+    {
+      "id": "38f71e0e0bf9e8136d4f1ba722a509f84fa89d8bb191523dc8f3ad00ac0c69a7:obligations:1:b4ad57ca9b65d857068055a4c968f90d34edd0dcf9e44a1436b3c4d2ca834fb4",
+      "value": {
+        "source": "synthetic-public-spec",
+        "kind": "acceptance_source",
+        "status": "included",
+        "included_chars": 195,
+        "total_chars": 195
+      }
+    },
+    {
+      "id": "38f71e0e0bf9e8136d4f1ba722a509f84fa89d8bb191523dc8f3ad00ac0c69a7:obligations:2:fc7657972418fe8963ba4e8ef0997409eed5ec2a24acd9cb40cab7077a3cac42",
+      "value": {
+        "source": "verifier-pr-diff.patch",
+        "kind": "full_diff_artifact",
+        "status": "included",
+        "included_chars": 324,
+        "total_chars": 324
+      }
+    }
+  ],
+  "gaps": []
+}
