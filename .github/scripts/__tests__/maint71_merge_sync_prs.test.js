@@ -3362,3 +3362,13 @@ for (const primary of [false, true]) {
     assert.ok(api.logs.every(line => !line.includes('private diagnostic')));
   });
 }
+
+test('in-run stable canary recovery explicitly retains a false cleanup policy', async () => {
+  const api = refreshHarness();
+  const canary = refreshCanary({ mergeable_state: 'behind' });
+  const result = await refreshStableCanaries({ ...api, cleanupBranches: false,
+    canaries: [canary, { ...canary, repo: 'Template' }] });
+  assert.equal(result.refresh_dispatched, 1);
+  assert.equal(api.dispatches.length, 1);
+  assert.equal(api.dispatches[0].inputs.cleanup_branches, 'false');
+});

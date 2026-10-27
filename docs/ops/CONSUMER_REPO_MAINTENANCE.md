@@ -58,7 +58,7 @@ Maint 68 accepts `cleanup_branches` (default `true` for existing maintenance).
 Set it to `false` for a shipment that must preserve branches. The explicit
 policy is retained by Maint 71 reports, durable handoffs, grouped continuations,
 canary refresh and promotion. A same-plan false restriction cannot be widened
-by another continuation row. It disables both obsolete-branch cleanup and the
+by another continuation row. It disables obsolete-branch cleanup, stale-duplicate branch deletion and the
 explicit post-merge deletion call. Missing legacy fields keep their existing
 default; malformed typed handoff values cannot authorize a continuation.
 Repository-configured automatic deletion on merge is independent; these workers

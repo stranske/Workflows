@@ -5,7 +5,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { buildMergeReport } = require('../sync_pr_merge_contract');
 const { normalizeDeliveryHandoff, planMaint71Continuations } = require('../sync_dependency_campaign');
-const { dispatchCanaryPromotion, dispatchCanaryRefresh, dispatchDeliveryRefresh } = require('../maint71_merge_sync_prs');
+const { dispatchCanaryPromotion, dispatchCanaryRefresh, dispatchDeliveryRefresh, refreshStableCanaries } = require('../maint71_merge_sync_prs');
 
 const now = '2026-10-27T12:00:00Z';
 function result() {
@@ -160,3 +160,29 @@ for (const enabled of [false, true]) {
     assert.equal(calls[0].inputs.cleanup_branches, String(enabled));
   });
 }
+
+for (const enabled of [false, true]) {
+  test(`actual stale-duplicate deletion boundary honors cleanup=${enabled}`, async () => {
+    const source = fs.readFileSync(path.join(__dirname, '../maint71_merge_sync_prs.js'), 'utf8');
+    const start = source.indexOf('// Delete branch');
+    const end = source.indexOf('              results.push({\n                owner,', start);
+    assert.ok(start >= 0 && end > start);
+    const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
+    const execute = new AsyncFunction('cleanupBranches', 'withRetry', 'owner', 'repo',
+      'stalePR', 'rethrowPrimaryRateLimit', 'console', source.slice(start, end));
+    let deletes = 0;
+    const client = { rest: { git: { deleteRef: async ({ ref }) => {
+      deletes++; assert.equal(ref, 'heads/sync/workflows-older');
+    } } } };
+    await execute(enabled, fn => fn(client), 'stranske', 'Ready',
+      { head: { ref: 'sync/workflows-older' } }, e => { throw e; }, { log() {} });
+    assert.equal(deletes, enabled ? 1 : 0);
+  });
+}
+
+test('disabled refresh no-ops keep their legacy context-free behavior', async () => {
+  const held = await dispatchCanaryRefresh({ refreshState: { eligible: false, state: 'writer-active', candidates: [] }, core: core() });
+  assert.equal(held.dispatched, false);
+  const empty = await refreshStableCanaries({ canaries: [], enabled: false, core: core() });
+  assert.equal(empty.refresh_dispatched, 0);
+});

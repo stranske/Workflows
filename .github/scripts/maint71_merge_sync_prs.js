@@ -308,7 +308,7 @@ async function deferSealedCanaryRefresh({ state, payload, withRetry, now = Date.
 }
 
 async function dispatchCanaryRefresh({ withRetry, context, core, expectedCanaries, refreshState, now,
-  cleanupBranches = parseBooleanInput(process.env.CLEANUP_BRANCHES_INPUT || context.payload?.client_payload?.cleanup_branches, true) }) {
+  cleanupBranches = parseBooleanInput(process.env.CLEANUP_BRANCHES_INPUT || context?.payload?.client_payload?.cleanup_branches, true) }) {
   const state = refreshState || await readCanaryRefreshState({ withRetry, context, expectedCanaries, now });
   const line = state.queue_reason ? `refresh: queued (${state.queue_reason})`
     : state.producer_succeeded && state.delivery_digest
@@ -586,6 +586,7 @@ async function routeCanaryReviewUpstream({ canary, manifestEntries, withRetry, c
 async function refreshStableCanaries({
   canaries, withRetry, context, core, manifestEntries, enabled, expectedCanaries,
   refreshState, consumerTipCache = new Map(), now = Date.now(),
+  cleanupBranches = parseBooleanInput(process.env.CLEANUP_BRANCHES_INPUT || context?.payload?.client_payload?.cleanup_branches, true),
 }) {
   const counts = { red: 0, drainable: 0, review_blocked: 0, stale: 0, refresh_dispatched: 0 };
   // Preserve every held plan's reasons, but refresh the full candidate set once.
@@ -632,7 +633,7 @@ async function refreshStableCanaries({
       }
     }
     if (enabled && refreshState && !refreshState.eligible && !plans.size) {
-      await dispatchCanaryRefresh({ withRetry, context, core, expectedCanaries, refreshState, now });
+      await dispatchCanaryRefresh({ withRetry, context, core, expectedCanaries, refreshState, now, cleanupBranches });
     }
     if (enabled && plans.size) {
       // Keep the existing producer-writer guard. A running promotion or
@@ -647,7 +648,7 @@ async function refreshStableCanaries({
           driftKey: recoveryKey });
       for (const [plan, rows] of plans) {
         const refresh = await dispatchCanaryRefresh({ withRetry, context, core,
-          expectedCanaries, refreshState: state, now });
+          expectedCanaries, refreshState: state, now, cleanupBranches });
         if (!refresh.dispatched) continue;
         counts.refresh_dispatched++;
         core.notice(`dispatch-maint-68-phase-canary-no-filter: ${plan}; reasons=` +
@@ -2229,7 +2230,7 @@ function promotionRunMatches(run, binding, defaultBranch = 'main') {
 // Delivery reminting is deliberately replayable after base drift. Share the
 // active-writer scan and retry window rather than relying on the newest 20 runs.
 async function dispatchDeliveryRefresh({ decision, expectedCanaries, withRetry, context, core, now = Date.now(),
-  cleanupBranches = parseBooleanInput(process.env.CLEANUP_BRANCHES_INPUT || context.payload?.client_payload?.cleanup_branches, true) }) {
+  cleanupBranches = parseBooleanInput(process.env.CLEANUP_BRANCHES_INPUT || context?.payload?.client_payload?.cleanup_branches, true) }) {
   const state = await readCanaryRefreshState({ withRetry, context, expectedCanaries, now, writerOnly: true });
   if (['writer-active', ...ACTIVE_SYNC_STATES].includes(state.state)) {
     core.notice(`Delivery refresh skipped: Maint 68 writer ${state.run_id} is active`);
@@ -4052,17 +4053,19 @@ async function run({ github, context, core }) {
               const closureMatches = confirmedClosedPrIdentity(closedResponse, stalePR);
               console.log('✓ Closed');
   
-              // Delete branch
-              try {
-                await withRetry((client) => client.rest.git.deleteRef({
-                  owner,
-                  repo,
-                  ref: `heads/${stalePR.head.ref}`
-                }));
-                console.log('✓ Branch deleted');
-              } catch (delErr) {
-                rethrowPrimaryRateLimit(delErr);
-                console.log(`⚠ Branch delete failed: ${delErr.message}`);
+              // Delete branch only when this shipment permits cleanup.
+              if (cleanupBranches) {
+                try {
+                  await withRetry((client) => client.rest.git.deleteRef({
+                    owner,
+                    repo,
+                    ref: `heads/${stalePR.head.ref}`
+                  }));
+                  console.log('✓ Branch deleted');
+                } catch (delErr) {
+                  rethrowPrimaryRateLimit(delErr);
+                  console.log(`⚠ Branch delete failed: ${delErr.message}`);
+                }
               }
               results.push({
                 owner,
@@ -5342,7 +5345,7 @@ async function run({ github, context, core }) {
   // Summary
   const canaryRefresh = await refreshStableCanaries({
     consumerTipCache,
-    canaries: stableCanaries, withRetry, context, core, manifestEntries,
+    canaries: stableCanaries, withRetry, context, core, manifestEntries, cleanupBranches,
     expectedCanaries: expectedCanaryRepos, refreshState,
     enabled: autoMerge && !dryRun && !resolutionOnly && !evidenceOnly,
   });
