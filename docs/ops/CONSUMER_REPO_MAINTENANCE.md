@@ -3478,10 +3478,10 @@ successful verified unchanged-base/tree run too, preserving its review
 lifecycle and head. This canary producer runs while promotion is held; it
 does not require the promotion evidence it helps unblock. Comments do not
 reset the clock. Maint 71 groups refresh reasons by plan, but dispatches at
-most one full configured-candidate refresh per invocation, pinned to an immutable
-source SHA. Refresh identity is the **rendered delivery digest**, not the main
-SHA. `scripts/consumer_delivery_digest.py:delivery_digest` is the single hashing
-implementation used by refresh, Maint 68 preparation, and the seal writer.
+most one configured-candidate refresh per invocation. Full-scope refresh keeps
+its existing **rendered delivery digest** identity across source SHAs.
+`scripts/consumer_delivery_digest.py:delivery_digest` hashes full delivery intent
+for refresh, Maint 68 preparation, and the seal writer.
 It hashes manifest copies at their consumer target paths, directory children,
 repository inclusion/exclusion and create-only effects, removals, and the generated
 status-file `.gitignore` block. Source SHA, descriptions and manifest comments
@@ -3491,10 +3491,43 @@ The seal stores the same helper's per-repository digest in
 `review_evidence.delivery_digest`; changing main alone never rewrites that seal
 or the immutable source/plan of the in-flight PR.
 
-Digest renderer or Git snapshot failures print
+For full scope, digest renderer or Git snapshot failures print
 `refresh: digest unavailable (<reason>); falling back to sha key` and use the
 previous source-SHA decision, retaining active-writer and debounce protection.
-This fallback also applies to the Maint 68 preparation guard.
+This legacy fallback also applies to the full-scope Maint 68 preparation guard.
+
+Source-delta refresh instead binds the exact compiled plan ID, scope, base SHA
+and source commit. Maint 68 compiles and selects the plan before checking its
+refresh guard; prior full-scope success cannot satisfy that scoped request.
+The scoped renderer retains only the actual selected targets and their copy
+policy, without turning unselected paths or the managed ignore block into
+removals. Scoped recovery derives its tuple from the verified native generated
+head and current delivery record, retaining the original base/source and
+`cleanup_branches` value. Its `expected_plan_id` constraint is checked against
+the actual compiler result before force or mutation admission. An unverified
+or headerless legacy head cannot establish that tuple and remains held; it
+is never silently converted into a full-scope request.
+
+Scoped completion is read from the existing native Actions attempt, successful
+prepare authorization and all selected consumer jobs, plus the retained
+`sync-plan-and-prospective-diffs` artifact and its exact plan/scope/phase joins.
+Skipped authorization with skipped consumer jobs is confirmed not started;
+missing, expired, ambiguous or mismatched current-source evidence remains
+unknown. Missing history for another source can be excluded only by a fresh
+native attempt joined to the complete reviewed workflow bytes. No title or
+caller JSON alone proves completion. Scoped execution never falls back to a
+source-only key. A current rerun with prior attempts, or a historical rerun
+whose latest attempt is merely not started, remains unknown until its prior
+possible effects are reconciled; it cannot silently start another writer.
+A later delivery to overlapping canaries invalidates an older completion,
+including a positively source-bound other-source attempt whose effects are
+unknown. Such an attempt does not complete the requested plan or globally
+block a new request for the original plan. A later confirmed-not-started
+attempt does not count as an overwrite. Expired current-source artifacts
+remain an explicit recovery hold; retaining a compiled plan alone cannot
+prove the earlier effects. Native receipt reads use the controller's existing
+token-aware client with at most two outer retries and a 15-second timeout
+per request, without discovering additional tokens.
 Red, review-blocked and stale canaries remain eligible for one recovery per
 payload and observed head even when the payload is unchanged. Recovery uses a
 `refresh_key`; producer success alone never certifies consumer health.
@@ -3514,9 +3547,10 @@ closed on truncation), then receipts are read in execution-time order using
 run ID can therefore supersede a newer run's payload; historical successful
 payloads cannot mask a later different delivery. Maint 68 marks guarded runs with
 `guard=delivery-v1`; only a successful `Authorize canary payload mutation` step
-counts as a delivery receipt, so a successful run that queued/skipped its mutation
-cannot falsely claim delivery. Scheduled and source-delta producers use the same
-guard before any consumer sync job. Guard code comes from the immutable workflow
+counts as a full-scope delivery receipt, so a successful run that queued/skipped
+its mutation cannot falsely claim delivery. Source-delta completion additionally
+requires the exact native artifact binding and successful selected consumer jobs.
+Scheduled and source-delta producers use the same guard before any consumer sync job. Guard code comes from the immutable workflow
 ref; the rendered payload comes from the separately pinned source commit.
 
 If payload content changes during an exact-head sealed cycle, Maint 71 compares

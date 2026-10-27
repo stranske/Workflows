@@ -687,6 +687,8 @@ jobs:
 
       - name: Refresh stale candidate bases
         id: refresh_candidate
+        env:
+          TRUSTED_SYNC_ACTORS: stranske,stranske-automation-bot,github-actions[bot]
         if: >-
           ${{
             always() &&
@@ -719,10 +721,10 @@ jobs:
               core.notice(`Candidate refresh not required: ${decision.errors.join(', ')}`);
               return;
             }
-            const { dispatchCanaryRefresh } = require('./.github/scripts/maint71_merge_sync_prs.js');
+            const { dispatchCandidateRefreshFromReport } = require('./.github/scripts/maint71_merge_sync_prs.js');
             const config = JSON.parse(fs.readFileSync('config/consumer_sync_canaries.json', 'utf8'));
-            await dispatchCanaryRefresh({ withRetry, context, core,
-              cleanupBranches: report.inputs.cleanup_branches,
+            await dispatchCandidateRefreshFromReport({ withRetry, context, core, report,
+              trustedActors: String(process.env.TRUSTED_SYNC_ACTORS || '').split(',').filter(Boolean),
               expectedCanaries: (config.canaries || []).map((entry) => entry.repo) });
 
       - name: Refresh stale delivery bases
