@@ -10,6 +10,9 @@ const PREPARE = 'Prepare sync from manifest';
 const UPLOAD = 'Upload plan and prospective-diff evidence';
 const AUTHORIZE = 'Authorize canary payload mutation';
 const MAX_BYTES = 4 * 1024 * 1024;
+// Controllers inject withRetry from createTokenAwareRetry using their existing
+// authenticated client. Bound outer retries as well as each native request.
+const READ_RETRY = Object.freeze({ maxRetries: 2, initialDelay: 250, maxDelay: 1000 });
 const sha = value => createHash('sha256').update(value).digest('hex');
 const commit = value => typeof value === 'string' && /^[a-f0-9]{40}$/.test(value);
 const hash = value => typeof value === 'string' && /^sha256:[a-f0-9]{64}$/.test(value);
@@ -59,17 +62,17 @@ function repositories(rows) {
 // positive exclusion proof merely by leaving the initial checks unchanged.
 const SOURCE_WORKFLOWS = new Set([
   '038ff08fed8ca2ff28e036ba4ebe03b6d1291232e66ae7d39b90432cb4df0f77',
-  '97734c67baad7210dc65ce8cb5b628d2a310df8e5cf21a5710480f3d437c815c',
+  'dc9bf6ee45d4d8527bce8e75d721d8922189bd3f85eac23a9b5f9d7c7226ec98',
 ]);
 
 async function readScopedCanaryReceipt({ withRetry, context, run, defaultBranch = 'main', candidates }) {
   const proof = {};
-  let source;
+  let source, sourceMode;
   const location = { owner: context.repo.owner, repo: context.repo.repo };
   const repository = `${location.owner}/${location.repo}`.toLowerCase();
   const read = async (method, args) => (await withRetry(client => client.rest.actions[method]({
     ...location, ...args, request: { timeout: 15000, retries: 0 },
-  }))).data;
+  }), READ_RETRY)).data;
   const pages = async (method, args, key) => {
     const result = [], seen = new Set(); let total;
     for (let page = 1; page <= 10; page++) {
@@ -100,15 +103,15 @@ async function readScopedCanaryReceipt({ withRetry, context, run, defaultBranch 
     const sourceSteps = ['Resolve immutable plan scope', 'Checkout', 'Validate immutable source reachability'];
     if (sourceSteps.every(name => step(name).conclusion === 'success')) {
       const response = await withRetry(client => client.rest.repos.getContent({ ...location, path: WORKFLOW,
-        ref: actual.head_sha, request: { timeout: 15000, retries: 0 } }));
+        ref: actual.head_sha, request: { timeout: 15000, retries: 0 } }), READ_RETRY);
       const file = response.data;
       need(file?.encoding === 'base64' && typeof file.content === 'string', 'native_scope_workflow_source_unreadable');
       const bytes = Buffer.from(file.content, 'base64');
       need(file.sha === createHash('sha1').update(`blob ${bytes.length}\0`).update(bytes).digest('hex'), 'native_scope_workflow_blob_mismatch');
       if (SOURCE_WORKFLOWS.has(sha(bytes))) {
         const title = String(actual.display_title || '').trim().replace(/\s+/g, ' ');
-        const match = title.match(/^Maint 68 canary (?:full|auto|source-delta)\s+source=([a-f0-9]{40}) candidates=\S+ dry=false(?: drift=[a-f0-9]{64})?(?: guard=delivery-v1)?$/);
-        if (match) { source = match[1]; proof.source_identity_bound = true; proof.workflow_blob_sha = file.sha; }
+        const match = title.match(/^Maint 68 canary (full|auto|source-delta)\s+source=([a-f0-9]{40}) candidates=\S+ dry=false(?: drift=[a-f0-9]{64})?(?: guard=delivery-v1)?$/);
+        if (match) { source = match[2]; sourceMode = match[1] === 'source-delta' ? 'source-delta' : 'full'; proof.source_identity_bound = true; proof.workflow_blob_sha = file.sha; }
       }
     }
     const artifacts = await pages('listWorkflowRunArtifacts', { run_id: actual.id }, 'artifacts');
@@ -134,6 +137,7 @@ async function readScopedCanaryReceipt({ withRetry, context, run, defaultBranch 
     need(scope.schema === 'workflows.consumer-sync-plan-scope/v1' && ['full', 'source-delta'].includes(scope.mode)
       && scope.plan_id === plan.plan_id && scope.full_plan_id === full.plan_id && plan.manifest_sha256 === full.manifest_sha256
       && commit(scope.source_commit) && (!source || source === scope.source_commit)
+      && (!sourceMode || sourceMode === scope.mode)
       && (scope.mode === 'source-delta' ? commit(scope.base_sha) : scope.base_sha === '')
       && scope.selected_entry_count === plan.entries.length && scope.selected_removal_count === plan.removals.length
       && canonical(scope.selected_targets) === canonical(targets), 'native_scope_plan_binding');

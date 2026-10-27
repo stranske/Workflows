@@ -49,6 +49,18 @@ for (const field of ['plan_id', 'scope_base_sha', 'source_commit']) test(`differ
   const run = producer(); run.refresh_plan[field] = field === 'plan_id' ? `sha256:${'e'.repeat(64)}` : 'e'.repeat(40);
   assert.equal(decide([run]).eligible, true);
 });
+for (const scope of ['full', 'source-delta']) test(`later ${scope} success prevents reuse of an older scoped receipt`, () => {
+  const earlier = producer('source-delta', { id: 1, run_started_at: '2026-10-27T20:00:00Z' });
+  const overwrite = producer(scope, { id: 2, run_started_at: '2026-10-27T21:00:00Z', delivery_digest: 'other' });
+  if (scope === 'source-delta') overwrite.refresh_plan.plan_id = `sha256:${'e'.repeat(64)}`;
+  const result = decide([earlier, overwrite]);
+  assert.equal(result.eligible, true); assert.equal(result.producer_succeeded, false);
+  const restored = producer('source-delta', { id: 3, run_started_at: '2026-10-27T22:00:00Z' });
+  assert.equal(decide([earlier, overwrite, restored]).producer_succeeded, true);
+  overwrite.refresh_not_started = true;
+  assert.equal(decide([earlier, overwrite]).producer_succeeded, true,
+    'positively non-started later history cannot overwrite the delivered scope');
+});
 test('old full active writer globally excludes another scoped writer', () => {
   const result = decide([producer('full', { status: 'in_progress', conclusion: null })]);
   assert.equal(result.eligible, false); assert.equal(result.state, 'writer-active');
@@ -123,20 +135,48 @@ function guardScript() {
     .split('          script: |\n')[1].split('\n').map(line => line.replace(/^ {12}/, '')).join('\n');
 }
 test('actual workflow guard passes the actual compiled plan identity before admission', async () => {
-  const outputs = {}, seen = [];
+  const outputs = {}, seen = [], factoryCalls = [];
+  const github = {}, wrapped = async fn => fn(github);
   const fn = new (Object.getPrototypeOf(async function () {}).constructor)('require', 'process', 'core', 'github', 'context', guardScript());
   const load = name => name === 'fs' ? { readFileSync: () => JSON.stringify(compiled) }
+    : name.includes('github-api-with-retry') ? { createTokenAwareRetry: async args => { factoryCalls.push(args); return { withRetry: wrapped }; } }
     : name.includes('maint71_merge_sync_prs') ? { readCanaryRefreshState: async args => { seen.push(args); return { eligible: true }; } }
       : { canaries: candidates.map(repo => ({ repo })) };
   const env = { PLAN_ID: id, PLAN_SCOPE: 'source-delta', SCOPE_BASE_SHA: base, SOURCE_COMMIT: source };
   const core = { notice() {}, setOutput: (key, value) => { outputs[key] = value; }, summary: { addRaw() { return this; }, async write() {} } };
-  await fn(load, { env }, core, {}, { ...context, runId: 1 });
+  await fn(load, { env }, core, github, { ...context, runId: 1 });
+  assert.equal(factoryCalls.length, 1);
+  assert.equal(factoryCalls[0].github, github); assert.equal(factoryCalls[0].core, core);
+  assert.deepEqual(factoryCalls[0].env, {});
+  assert.equal(factoryCalls[0].tokenRegistry.isInitialized(), false);
+  assert.equal(factoryCalls[0].task, 'maint68-scoped-refresh');
+  assert.equal(seen[0].withRetry, wrapped);
   assert.equal(seen[0].planId, id); assert.equal(seen[0].planScope, 'source-delta');
   assert.equal(seen[0].scopeBaseSha, base); assert.equal(seen[0].sourceSha, source);
   assert.deepEqual(seen[0].plan, compiled); assert.equal(outputs.allowed, 'true');
   env.EXPECTED_PLAN_ID = `sha256:${'f'.repeat(64)}`; env.FORCE = 'true';
   await assert.rejects(fn(load, { env }, core, {}, context), /actual compiled plan/);
   assert.equal(seen.length, 1, 'a constraint mismatch cannot reach the history reader or force bypass');
+  assert.equal(factoryCalls.length, 1, 'a constraint mismatch cannot initialize the API wrapper');
+});
+test('actual workflow guard uses the returned wrapper and holds exhausted native reads without admission', async () => {
+  const outputs = {}, observations = [];
+  const github = { rest: { repos: { getCommit: async () => { throw new Error('bounded native read exhausted'); } } } };
+  let calls = 0;
+  const wrapped = async (operation, options) => { calls++; observations.push(options); return operation(github); };
+  const fn = new (Object.getPrototypeOf(async function () {}).constructor)('require', 'process', 'core', 'github', 'context', guardScript());
+  const load = name => name === 'fs' ? { readFileSync: () => JSON.stringify(compiled) }
+    : name.includes('github-api-with-retry') ? { createTokenAwareRetry: async () => ({ withRetry: wrapped }) }
+    : name.includes('maint71_merge_sync_prs') ? require('../maint71_merge_sync_prs')
+    : { canaries: candidates.map(repo => ({ repo })) };
+  const core = { notice() {}, setOutput: (key, value) => { outputs[key] = value; },
+    summary: { addRaw() { return this; }, async write() {} } };
+  await assert.rejects(fn(load, { env: { PLAN_ID: id, PLAN_SCOPE: 'source-delta',
+    SCOPE_BASE_SHA: base, SOURCE_COMMIT: source, GITHUB_RUN_ATTEMPT: '1' } }, core, github,
+  { ...context, runId: 1 }), /bounded native read exhausted/);
+  assert.equal(calls, 1, 'native read must pass through the returned retry wrapper');
+  assert.equal(outputs.allowed, undefined, 'unknown native source cannot authorize mutation');
+  assert.equal(github.rest.actions, undefined, 'the guard has no dispatch capability in this control');
 });
 test('scoped recovery groups preserve original plan and permit only one local writer', async () => {
   const api = recorder(), state = ready(), canary = { owner: 'owner', repo: 'a', pr: 1,
@@ -173,7 +213,7 @@ test('an unrelated sealed full-scope head remains protected; unselected absence 
   assert.notEqual(result.producer_succeeded, true, 'full-scope equality cannot complete the scoped request');
 });
 
-function historyHarness(t, { runs = [], active = [], receipt } = {}) {
+function historyHarness(t, { runs = [], active = [], receipt, requestedCandidates = candidates } = {}) {
   const reads = [], writes = [], receiptReads = [];
   const native = require('../maint68_scoped_receipt');
   t.mock.method(native, 'readScopedCanaryReceipt', async args => {
@@ -188,15 +228,65 @@ function historyHarness(t, { runs = [], active = [], receipt } = {}) {
       ? active.filter(row => row.status === args.status) : runs } }; },
     createWorkflowDispatch: async args => { writes.push(args); return { status: 204 }; },
   }, repos: { getCommit: async () => ({ data: { sha: source } }),
-    getContent: async () => ({ data: { content: Buffer.from(JSON.stringify({ canaries: [{ repo: 'owner/a' }] })).toString('base64') } }) },
+    getContent: async () => ({ data: { content: Buffer.from(JSON.stringify({ canaries: requestedCandidates.map(repo => ({ repo })) })).toString('base64') } }) },
   pulls: { list: async () => ({ data: [] }) } } };
   return { github, reads, writes, receiptReads, withRetry: fn => fn(github),
     read: extra => require('../maint71_merge_sync_prs').readCanaryRefreshState({
-      withRetry: fn => fn(github), context, expectedCanaries: candidates,
+      withRetry: fn => fn(github), context, expectedCanaries: requestedCandidates,
       planId: id, planScope: 'source-delta', scopeBaseSha: base, sourceSha: source, plan: compiled, ...extra }) };
 }
 function observedReceipt(state = 'completed') { return { ...request(), state, candidates,
   proof: { source_identity_bound: true } }; }
+for (const scope of ['full', 'source-delta']) test(`actual collector retains later authenticated ${scope} as an overwrite barrier`, async t => {
+  const old = producer('source-delta', { id: 1, run_started_at: '2026-10-27T20:00:00Z' });
+  const later = producer(scope, { id: 2, run_started_at: '2026-10-27T21:00:00Z' });
+  const api = historyHarness(t, { runs: [old, later], receipt: ({ run }) => {
+    if (run.id === 1) return observedReceipt();
+    return { ...observedReceipt(), plan_scope: scope,
+      plan_id: `sha256:${'e'.repeat(64)}`, scope_base_sha: scope === 'full' ? '' : base,
+      plan: { ...compiled, plan_id: `sha256:${'e'.repeat(64)}` } };
+  } });
+  const state = await api.read();
+  assert.equal(api.receiptReads.length, 2, 'full and different-plan history must reach native authentication');
+  assert.equal(state.eligible, true); assert.equal(state.producer_succeeded, false);
+  assert.equal(api.writes.length, 0);
+});
+for (const conclusion of ['failure', 'cancelled']) test(`expired positively other-source ${conclusion} invalidates older scoped completion without global hold`, async t => {
+  const old = producer('source-delta', { id: 1, run_started_at: '2026-10-27T20:00:00Z' });
+  const other = producer('source-delta', { id: 2, conclusion, run_started_at: '2026-10-27T21:00:00Z',
+    display_title: producer().display_title.replace(source, 'e'.repeat(40)) });
+  const runs = [old, other];
+  const api = historyHarness(t, { runs, receipt: ({ run }) => run.id === 2
+    ? { state: 'unknown', reason: 'native_scope_artifact_expired', source_commit: 'e'.repeat(40),
+      proof: { source_identity_bound: true } } : observedReceipt() });
+  const state = await api.read();
+  assert.equal(state.eligible, true); assert.equal(state.producer_succeeded, false);
+  assert.notEqual(state.state, 'unknown', 'other-source uncertainty is an overwrite barrier, not a global request hold');
+  runs.push(producer('source-delta', { id: 3, run_started_at: '2026-10-27T22:00:00Z' }));
+  const restored = await api.read();
+  assert.equal(restored.eligible, false); assert.equal(restored.producer_succeeded, true);
+  assert.equal(api.writes.length, 0);
+});
+for (const subset of ['owner/a', 'owner/unrelated']) test(`actual collector treats ${subset} native unknown history as an overlap-only barrier`, async t => {
+  const fleet = ['owner/a', 'owner/b'];
+  const old = producer('source-delta', { id: 1, run_started_at: '2026-10-27T20:00:00Z',
+    display_title: producer().display_title.replace('candidates=owner/a', 'candidates=owner/a,owner/b') });
+  const other = producer('source-delta', { id: 2, conclusion: 'failure', run_started_at: '2026-10-27T21:00:00Z',
+    display_title: producer().display_title.replace(source, 'e'.repeat(40)).replace('candidates=owner/a', `candidates=${subset}`) });
+  const api = historyHarness(t, { runs: [old, other], requestedCandidates: fleet, receipt: ({ run }) => run.id === 2
+    ? { state: 'unknown', reason: 'native_scope_artifact_expired', source_commit: 'e'.repeat(40),
+      proof: { source_identity_bound: true } } : { ...observedReceipt(), candidates: fleet } });
+  const state = await api.read();
+  assert.equal(state.eligible, subset === 'owner/a');
+  assert.equal(state.producer_succeeded, subset !== 'owner/a');
+  assert.notEqual(state.state, 'unknown'); assert.equal(api.writes.length, 0);
+});
+test('a subset completion cannot satisfy an exact fleet request', () => {
+  const subset = producer();
+  const state = canaryRefreshDecision({ runs: [subset], sha: source,
+    candidates: ['owner/a', 'owner/b'], refreshPlan: request(), deliveryDigest: 'digest' });
+  assert.equal(state.eligible, true); assert.equal(state.producer_succeeded, false);
+});
 test('current scoped rerun cannot erase a prior attempt by ignoring its whole run ID', async t => {
   const run = producer('source-delta', { id: 70, run_attempt: 2, status: 'in_progress', conclusion: null });
   const api = historyHarness(t, { runs: [run], active: [run], receipt: observedReceipt() });

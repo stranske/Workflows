@@ -169,20 +169,27 @@ function canaryRefreshDecision({ runs, sha, candidates, defaultBranch = 'main', 
   const valid = runs.flatMap((run) => {
     const title = String(run.display_title || '').trim().replace(/\s+/g, ' ');
     const match = title.match(/^Maint 68 canary (full|auto|source-delta)\s+source=([a-f0-9]{40}) candidates=(\S+) dry=false(?: drift=([a-f0-9]{64}))?(?: guard=delivery-v1)?$/);
+    const exactCandidates = match && (match[3] === '*' || candidateSet(match[3].split(',')).join(',') === key);
+    const overlappingCandidates = match && (match[3] === '*'
+      || candidateSet(match[3].split(',')).some(repo => candidateSet(candidates).includes(repo)));
     return match && run.head_branch === defaultBranch && /^[a-f0-9]{40}$/.test(run.head_sha || '')
-      && (match[3] === '*' || candidateSet(match[3].split(',')).join(',') === key)
-      && (refreshPlan?.plan_scope === 'source-delta'
-        ? match[1] === 'source-delta' && sameRefreshPlan(run.refresh_plan, refreshPlan)
-        : match[1] !== 'source-delta')
-      ? [{ ...run, source_commit: match[2] }] : [];
+      && (exactCandidates || (refreshPlan?.plan_scope === 'source-delta' && overlappingCandidates))
+      && (refreshPlan?.plan_scope === 'source-delta' || match[1] !== 'source-delta')
+      ? [{ ...run, source_commit: match[2], refresh_candidates_match: exactCandidates }] : [];
   });
-  const matching = valid.filter(run => refreshPlan?.plan_scope === 'source-delta'
+  const matching = valid.filter(run => run.refresh_candidates_match && (refreshPlan?.plan_scope === 'source-delta'
     ? sameRefreshPlan(run.refresh_plan, refreshPlan)
-    : deliveryDigest ? run.delivery_digest === deliveryDigest : run.source_commit === sha);
-  const latestSuccess = valid.filter(run => run.status === 'completed' && run.conclusion === 'success'
-    && (!deliveryDigest || run.delivery_digest)).sort(newestRefreshExecution)[0];
+    : deliveryDigest ? run.delivery_digest === deliveryDigest : run.source_commit === sha));
+  // A later full/different scoped delivery can overwrite these targets. Keep it
+  // as a barrier even when its digest differs or was not rendered for this request.
+  const latestSuccess = valid.filter(run => run.refresh_potential_overwrite || (!run.refresh_not_started && !run.refresh_unknown
+    && run.status === 'completed' && run.conclusion === 'success'
+    && (refreshPlan?.plan_scope === 'source-delta' || !deliveryDigest || run.delivery_digest)))
+    .sort(newestRefreshExecution)[0];
   const identityMatches = (run) => !driftKey || String(run.display_title).includes(` drift=${driftKey}`);
-  const successful = matching.find((run) => !run.refresh_not_started && (!deliveryDigest || latestSuccess?.delivery_digest === deliveryDigest) && identityMatches(run) && run.status === 'completed' && run.conclusion === 'success');
+  const successful = matching.find((run) => !run.refresh_not_started && (refreshPlan?.plan_scope === 'source-delta'
+    ? latestSuccess === run && run.delivery_digest === deliveryDigest
+    : !deliveryDigest || latestSuccess?.delivery_digest === deliveryDigest) && identityMatches(run) && run.status === 'completed' && run.conclusion === 'success');
   const active = matching.find((run) => !run.refresh_ignore_current_writer && ACTIVE_SYNC_STATES.includes(run.status));
   const writer = runs.find((run) => !run.refresh_ignore_current_writer && ACTIVE_SYNC_STATES.includes(run.status)
     && /^Maint 68 (canary|promote) /.test(run.display_title || ''));
@@ -262,19 +269,27 @@ async function readCanaryRefreshState({ withRetry, context, expectedCanaries, dr
     observed.push(run);
     if (refreshPlan.plan_scope === 'source-delta') {
       const title = String(run.display_title || '').trim().replace(/\s+/g, ' ');
-      if (!/^Maint 68 canary source-delta\s+source=[a-f0-9]{40} candidates=\S+ dry=false(?: drift=[a-f0-9]{64})?(?: guard=delivery-v1)?$/.test(title)) continue;
+      if (!/^Maint 68 canary (?:full|auto|source-delta)\s+source=[a-f0-9]{40} candidates=\S+ dry=false(?: drift=[a-f0-9]{64})?(?: guard=delivery-v1)?$/.test(title)) continue;
       const receipt = await require('./maint68_scoped_receipt').readScopedCanaryReceipt({
         withRetry, context, run, defaultBranch: branch, candidates });
       if (receipt.state === 'unknown') {
         // This proof is produced only by the native reader after joining the
         // original prepare steps to the reviewed workflow source projection.
         if (receipt.proof?.source_identity_bound === true
-          && receipt.source_commit !== source.sha) continue;
+          && receipt.source_commit !== source.sha) {
+          // It cannot be this request's unresolved effect, but it might have
+          // partially overwritten an older matching delivery before failing.
+          run.refresh_potential_overwrite = true;
+          continue;
+        }
         run.refresh_unknown = true;
         continue;
       }
       if (receipt.state === 'not_started' && Number(run.run_attempt || 1) > 1) {
-        if (receipt.proof?.source_identity_bound === true && receipt.source_commit !== source.sha) continue;
+        if (receipt.proof?.source_identity_bound === true && receipt.source_commit !== source.sha) {
+          run.refresh_potential_overwrite = true;
+          continue;
+        }
         run.refresh_unknown = true;
         continue;
       }
@@ -285,8 +300,6 @@ async function readCanaryRefreshState({ withRetry, context, expectedCanaries, dr
         run.refresh_not_started = receipt.state === 'not_started';
         if (sameRefreshPlan(run.refresh_plan, refreshPlan)) {
           if (!refreshPlan.plan && receipt.plan) refreshPlan.plan = receipt.plan;
-          if (receipt.state === 'completed'
-            && (!driftKey || title.includes(` drift=${driftKey}`))) break;
         }
       } else if (receipt.state !== 'not_started') run.refresh_unknown = true;
       continue;

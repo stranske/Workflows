@@ -10,7 +10,7 @@ const path = require('node:path');
 const { readScopedCanaryReceipt } = require('../maint68_scoped_receipt');
 const ROOT = path.resolve(__dirname, '../../..');
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');
-const workflow = execFileSync('git', ['show', 'HEAD:.github/workflows/maint-68-sync-consumer-repos.yml'], { cwd: ROOT });
+const workflow = require('node:fs').readFileSync(path.join(ROOT, '.github/workflows/maint-68-sync-consumer-repos.yml'));
 const members = JSON.parse(execFileSync('python3', ['-c', `
 import json,tempfile
 from pathlib import Path
@@ -59,9 +59,10 @@ function fixture({ started = true } = {}) {
   const github = { rest: { actions: Object.fromEntries(Object.entries(methods).map(([name, fn]) => [name, wrap(name, fn)])),
     repos: { getContent: wrap('getContent', () => ({ encoding: 'base64', content: state.workflow.toString('base64'),
       sha: createHash('sha1').update(`blob ${state.workflow.length}\0`).update(state.workflow).digest('hex') })) } } };
-  const args = { withRetry: fn => fn(github), context: { repo: { owner: 'owner', repo: 'Workflows' } },
+  const retryOptions = [];
+  const args = { withRetry: (fn, options) => { retryOptions.push(options); return fn(github); }, context: { repo: { owner: 'owner', repo: 'Workflows' } },
     run, defaultBranch: 'main', candidates: ['owner/b', 'owner/a'] };
-  return { ...state, state, args, github, read: () => readScopedCanaryReceipt(args) };
+  return { ...state, state, args, github, retryOptions, read: () => readScopedCanaryReceipt(args) };
 }
 test('actual compiled scoped plan and native attempt/job/archive identify a completed matching delivery', async () => {
   const f = fixture(), result = await f.read();
@@ -171,6 +172,68 @@ test('actual refresh collector positively excludes authenticated different-sourc
 });
 test('actual refresh collector cannot mistake prior full delivery for the requested scoped shipment', async t => {
   const f = fixture(); f.run.display_title = f.run.display_title.replace('source-delta', 'full');
+  const full = JSON.parse(f.files['manifest.full.json']);
+  f.files['manifest.json'] = f.files['manifest.full.json'];
+  const scope = JSON.parse(f.files['sync-plan-scope.json']);
+  Object.assign(scope, { mode: 'full', base_sha: '', plan_id: full.plan_id,
+    selected_entry_count: full.entries.length, selected_removal_count: full.removals.length,
+    selected_targets: [...full.entries, ...full.removals].map(row => row.target).sort() });
+  const phase = JSON.parse(f.files['sync-phase-selection.json']); phase.plan_id = full.plan_id;
+  f.files['sync-phase-selection.json'] = JSON.stringify(phase, Object.keys(phase).sort(), 2) + '\n';
+  // Fixed producer members use recursively sorted keys.
+  f.files['sync-plan-scope.json'] = JSON.stringify(scope, Object.keys(scope).sort(), 2) + '\n';
+  f.rebuild();
+  assert.equal((await f.read()).state, 'completed');
   const state = await refreshThroughNativeFixture(t, f);
   assert.equal(state.eligible, true); assert.equal(state.producer_succeeded, false);
+});
+
+test('native title scope cannot relabel a scoped artifact as full', async () => {
+  const f = fixture(); f.run.display_title = f.run.display_title.replace('source-delta', 'full');
+  assert.equal((await f.read()).state, 'unknown');
+});
+
+test('all native reads use bounded controller retry options and exhausted reads remain unknown', async () => {
+  const f = fixture();
+  assert.equal((await f.read()).state, 'completed');
+  assert.equal(f.retryOptions.length, f.state.calls.length);
+  assert.ok(f.retryOptions.length > 0);
+  for (const options of f.retryOptions) {
+    assert.deepEqual(options, { maxRetries: 2, initialDelay: 250, maxDelay: 1000 });
+  }
+  let attempts = 0;
+  f.args.withRetry = async (fn, options) => {
+    assert.deepEqual(options, { maxRetries: 2, initialDelay: 250, maxDelay: 1000 });
+    attempts++;
+    throw new Error('exhausted native read');
+  };
+  const result = await f.read();
+  assert.equal(result.state, 'unknown');
+  assert.equal(attempts, 1);
+});
+
+test('real controller wrapper retries transient native reads finitely and preserves unknown on exhaustion', async () => {
+  const { createTokenAwareRetry } = require('../github-api-with-retry');
+  for (const exhaust of [false, true]) {
+    const f = fixture();
+    const original = f.github.rest.actions.getWorkflowRunAttempt;
+    let reads = 0;
+    f.github.rest.actions.getWorkflowRunAttempt = async args => {
+      reads++;
+      if (exhaust || reads === 1) {
+        const error = new Error('synthetic transient native read');
+        error.status = 503;
+        error.request = { method: 'GET' };
+        throw error;
+      }
+      return original(args);
+    };
+    const { withRetry } = await createTokenAwareRetry({ github: f.github,
+      env: {}, tokenRegistry: { isInitialized: () => false } });
+    f.args.withRetry = withRetry;
+    const result = await f.read();
+    assert.equal(result.state, exhaust ? 'unknown' : 'completed');
+    assert.equal(reads, exhaust ? 3 : 2);
+    if (exhaust) assert.equal(f.state.calls.length, 0);
+  }
 });

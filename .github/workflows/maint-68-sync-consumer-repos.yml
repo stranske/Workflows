@@ -375,9 +375,14 @@ jobs:
               return;
             }
             const { readCanaryRefreshState } = require('./.delivery-tools/.github/scripts/maint71_merge_sync_prs');
+            const { createTokenAwareRetry } = require('./.delivery-tools/.github/scripts/github-api-with-retry');
+            const { withRetry } = await createTokenAwareRetry({
+              github, core, env: {}, tokenRegistry: { isInitialized: () => false },
+              task: 'maint68-scoped-refresh',
+            });
             const config = require('./config/consumer_sync_canaries.json');
             const state = await readCanaryRefreshState({
-              withRetry: async fn => fn(github), context,
+              withRetry, context,
               expectedCanaries: config.canaries.map(row => row.repo),
               sourceSha: process.env.SOURCE_COMMIT, driftKey: process.env.REFRESH_KEY,
               planId: process.env.PLAN_ID, planScope: process.env.PLAN_SCOPE,

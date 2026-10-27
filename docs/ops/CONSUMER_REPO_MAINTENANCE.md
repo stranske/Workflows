@@ -3504,7 +3504,9 @@ policy, without turning unselected paths or the managed ignore block into
 removals. Scoped recovery derives its tuple from the verified native generated
 head and current delivery record, retaining the original base/source and
 `cleanup_branches` value. Its `expected_plan_id` constraint is checked against
-the actual compiler result before force or mutation admission.
+the actual compiler result before force or mutation admission. An unverified
+or headerless legacy head cannot establish that tuple and remains held; it
+is never silently converted into a full-scope request.
 
 Scoped completion is read from the existing native Actions attempt, successful
 prepare authorization and all selected consumer jobs, plus the retained
@@ -3517,6 +3519,15 @@ caller JSON alone proves completion. Scoped execution never falls back to a
 source-only key. A current rerun with prior attempts, or a historical rerun
 whose latest attempt is merely not started, remains unknown until its prior
 possible effects are reconciled; it cannot silently start another writer.
+A later delivery to overlapping canaries invalidates an older completion,
+including a positively source-bound other-source attempt whose effects are
+unknown. Such an attempt does not complete the requested plan or globally
+block a new request for the original plan. A later confirmed-not-started
+attempt does not count as an overwrite. Expired current-source artifacts
+remain an explicit recovery hold; retaining a compiled plan alone cannot
+prove the earlier effects. Native receipt reads use the controller's existing
+token-aware client with at most two outer retries and a 15-second timeout
+per request, without discovering additional tokens.
 Red, review-blocked and stale canaries remain eligible for one recovery per
 payload and observed head even when the payload is unchanged. Recovery uses a
 `refresh_key`; producer success alone never certifies consumer health.
