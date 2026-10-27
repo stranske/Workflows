@@ -8105,7 +8105,18 @@ def _parse_semantic_evaluation_payload(content: str) -> EvaluationPayload:
         if len(fenced.group("closing")) < len(fenced.group("opening")):
             raise ValueError("semantic response closing fence is shorter than its opening fence")
         text = fenced.group("payload")
-    return EvaluationPayload.model_validate(json.loads(text), strict=True, extra="forbid")
+
+    def unique_members(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+        members: dict[str, Any] = {}
+        for key, value in pairs:
+            if key in members:
+                raise ValueError("semantic response contains a duplicate JSON member")
+            members[key] = value
+        return members
+
+    return EvaluationPayload.model_validate(
+        json.loads(text, object_pairs_hook=unique_members), strict=True, extra="forbid"
+    )
 
 
 def _parse_llm_response(
