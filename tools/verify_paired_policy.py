@@ -4,12 +4,13 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import os
 from dataclasses import dataclass, field
 from functools import partial
 from time import monotonic
 
-from tools.run_verify_paired import CASES, PACKET, ROOT, load_packet
+from tools.run_verify_paired import ROOT, load_packet, source_descriptor
 
 
 @dataclass
@@ -27,10 +28,12 @@ class PairedTrial:
         case = os.environ.get("VERIFIER_PAIRED_QUALIFICATION")
         if case is None:
             return None
-        if case not in CASES:
+        descriptor = source_descriptor()
+        if case not in descriptor["cases"]:
             raise ValueError("unknown paired qualification fixture")
         if (
-            os.environ.get("LANGCHAIN_SLOT_CONFIG") != str(PACKET / "slots.json")
+            os.environ.get("LANGCHAIN_SLOT_CONFIG") != str(descriptor["slots_path"])
+            or os.environ.get("VERIFIER_PAIRED_DESCRIPTOR_SHA256") != descriptor["sha256"]
             or os.environ.get("LANGCHAIN_MODEL_REGISTRY_CONFIG")
             != str(ROOT / "config/model_registry.json")
             or os.environ.get("LANGCHAIN_PROVIDER")
@@ -40,7 +43,7 @@ class PairedTrial:
         _, policy = load_packet()
         if policy.get("execution_enabled") is not True or policy.get("review_status") != "reviewed":
             raise ValueError("paired trial policy awaits source review")
-        original = json.loads((PACKET / case / "capture.json").read_text())
+        original = json.loads((descriptor["root"] / case / "capture.json").read_text())
         if capture != original:
             raise ValueError("paired trial capture differs from reviewed fixture")
         from tools.llm_registry import resolve_slots
@@ -50,7 +53,14 @@ class PairedTrial:
             (row["provider"], row["model"]) for row in policy["models"]
         ]:
             raise ValueError("paired trial requires exact source-owned judge slots")
-        return cls(case, policy, monotonic() + policy["total_wall_seconds"])
+        try:
+            deadline = float(os.environ["VERIFIER_PAIRED_PACKAGE_DEADLINE_MONOTONIC"])
+        except (KeyError, ValueError) as exc:
+            raise ValueError("original paired package deadline is missing or malformed") from exc
+        remaining = deadline - monotonic()
+        if not math.isfinite(deadline) or not 0 < remaining <= policy["total_wall_seconds"]:
+            raise ValueError("original paired package deadline cannot reset or extend policy")
+        return cls(case, policy, deadline)
 
     def check_matrix(self, prepared: dict, model1: str | None, model2: str | None) -> None:
         if model1 is not None or model2 is not None:
@@ -59,7 +69,7 @@ class PairedTrial:
             raise ValueError("paired trial requires one complete reviewed package")
 
     def check_prompt(self, prompt: str) -> None:
-        expected = json.loads((PACKET / "PROPOSAL.json").read_text())
+        expected = load_packet()[0]
         case = next(row for row in expected["cases"] if row["case"] == self.case)
         if hashlib.sha256(prompt.encode()).hexdigest() != case["prompt_sha256"]:
             raise ValueError("paired trial full prompt differs from reviewed bytes")
@@ -97,7 +107,7 @@ class PairedTrial:
             ("api.openai.com", "POST", "/v1/responses/input_tokens"),
             ("api.anthropic.com", "POST", "/v1/messages"),
             ("api.anthropic.com", "POST", "/v1/messages/count_tokens"),
-            ("api.anthropic.com", "GET", "/v1/models/claude-sonnet-5-5"),
+            ("api.anthropic.com", "GET", "/v1/models/" + self.policy["models"][1]["model"]),
         }
         url = request.url
         if (
@@ -112,8 +122,24 @@ class PairedTrial:
             or (url.host, request.method, url.path) not in allowed
         ):
             raise ValueError("paired trial HTTP target outside source-owned allowlist")
-        if monotonic() >= self.deadline:
+        remaining = self.deadline - monotonic()
+        if remaining <= 0:
             raise ValueError("paired trial wall policy exhausted before HTTP send")
+        timeouts = request.extensions.get("timeout")
+        if (
+            not isinstance(timeouts, dict)
+            or set(timeouts) != {"read", "write", "connect", "pool"}
+            or any(
+                type(value) not in (int, float)
+                or not math.isfinite(value)
+                or not 0 < value <= self.policy["per_request_timeout_seconds"]
+                for value in timeouts.values()
+            )
+        ):
+            raise ValueError("paired trial actual HTTP timeout exceeds policy")
+        request.extensions["timeout"] = {
+            name: min(value, remaining) for name, value in timeouts.items()
+        }
         if self.physical_http_attempts >= self.policy["max_physical_http_attempts"] // 2:
             raise ValueError("paired trial physical HTTP attempt policy exhausted")
         self.physical_http_attempts += 1
@@ -135,4 +161,6 @@ class PairedTrial:
                 expected_host="api.openai.com" if openai_sdk is not None else "api.anthropic.com",
             )
         )
+        if self.policy.get("preserve_native_output_policy") is True:
+            return client
         return client.model_copy(update={"max_tokens": self.policy["max_output_tokens"]})

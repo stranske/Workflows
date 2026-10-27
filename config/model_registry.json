@@ -288,6 +288,20 @@
     },
     {
       "model_id": "claude-opus-5-5",
+      "native_capacity": {
+        "transport": "anthropic-messages",
+        "api_root": "https://api.anthropic.com",
+        "count_endpoint": "https://api.anthropic.com/v1/messages/count_tokens",
+        "input_limit_source": "models-api",
+        "max_context_tokens": 1000000,
+        "max_output_tokens": 128000,
+        "provenance": "anthropic-exact-model-api+opus-5-5-docs:2026-10-27",
+        "as_of": "2026-10-27",
+        "source_urls": [
+          "https://platform.claude.com/docs/en/models/opus-5-5/overview",
+          "https://platform.claude.com/docs/en/api/http/models"
+        ]
+      },
       "provider": "anthropic",
       "api": "chat",
       "lifecycle": "current",

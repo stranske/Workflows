@@ -85,6 +85,8 @@ packages = []
 line-length = 100
 target-version = ["py312", "py313"]
 include = '\.pyi?$'
+# Frozen public evidence is immutable data, including under explicit-file autofix.
+force-exclude = '^/config/verify_paired/representative-v1/'
 extend-exclude = '''
 /(
   # Exclude standard directories
@@ -113,7 +115,9 @@ skip_glob = ["archive/*", ".extraction/*"]
 [tool.ruff]
 line-length = 100
 target-version = "py312"
-exclude = []
+# Immutable hash-bound evidence is data, never imported or executed by the runner.
+exclude = ["config/verify_paired/representative-v1"]
+force-exclude = true
 
 [tool.ruff.lint]
 select = [

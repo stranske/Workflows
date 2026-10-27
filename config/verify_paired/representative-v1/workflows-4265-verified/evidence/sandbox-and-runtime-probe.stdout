@@ -1,0 +1,2 @@
+{"executable": "/opt/anaconda3/bin/python3", "version": "3.12.2 | packaged by conda-forge | (main, Feb 16 2024, 20:54:21) [Clang 16.0.6 ]", "platform": "macOS-26.6.2-arm64-64bit"}
+KERNEL_NETWORK_DENIED PermissionError

@@ -1,0 +1,299 @@
+{
+  "schema": "verify-paired-independent-substantive-oracle/v1",
+  "case": "workflows-3850",
+  "created_at_UTC": "2026-10-27T19:03:07.183767+00:00",
+  "source_freeze_sha256": "5e5e4f4bdf803961a8cce8d4b7facd9083de1b54bc8bbde89396f367b2bbf0f4",
+  "prompt_sha256": "e9e1a6d99644e88ec688001c10cee835b20fe8b7edb56f9b92b64645bf915fcb",
+  "prompt_bytes": 469268,
+  "capture_id": "7cf7381b2593473c804ce91e5090689cf445abd949a266f4ee008ecc73ad1e2b",
+  "implementation_head": "e0779157e05d86076a92ac631ebd6a768bdd3fa0",
+  "gold_written_before_model_observations": true,
+  "criterion_evidence_paths": "Relative to this case directory; only reviewer annotations use portable paths. Actual model prompt/raw source/evidence bytes are unchanged.",
+  "judging_policy": {
+    "semantic_paraphrase_allowed": true,
+    "supported_novel_concerns_allowed": true,
+    "forced_verdict": false,
+    "exact_citation_tag_or_wording_proxy": false,
+    "static_proof_suffices_unless_actual_criterion_requires_execution": true,
+    "schema_completion_and_operational_completion_separate": true,
+    "source_acceptance_not_historical_task_administration": "External operations absent from supplied packet are not automatically code defects or false nonexecution claims."
+  },
+  "criteria": [
+    {
+      "id": "T1_counterexample_test_source",
+      "requirement": "Reproduce missing-observation valid dev-tool record using actual schema and final controller path, with deliberate RED.",
+      "static_judgment": "COUNTEREXAMPLE_AND_CONTROLLER_TEST_SOURCE_SUPPORTED",
+      "evidence": [
+        {
+          "path": "source/.github/scripts/__tests__/maint71_devtool_final_binding.test.js",
+          "sha256": "21a4e240d3273275d7c84fbd5122650253fd251d62442a6e6feaabb60c5cec69",
+          "line": 9
+        },
+        {
+          "path": "source/.github/scripts/__tests__/maint71_devtool_final_binding.test.js",
+          "sha256": "21a4e240d3273275d7c84fbd5122650253fd251d62442a6e6feaabb60c5cec69",
+          "line": 26
+        },
+        {
+          "path": "source/.github/scripts/__tests__/maint71_finding_verification.test.js",
+          "sha256": "6ebdf8186a41b4011f6a2e4afd189b8683227eb4488b10458d896a8f76f5d0be",
+          "line": 106
+        }
+      ],
+      "reason": "Uses actual sync-pr-delivery-record/v1 parser and exported production guard with original record fields, omits both observation fields for dev-tool, asserts acceptance twice. Existing controller closure extracted from actual source is exercised through API doubles for both lanes.",
+      "execution_judgment": "DELIBERATE_RED_EXECUTION_UNVERIFIED",
+      "uncertainty": "No failed-before/restore-after execution receipt supplied. Presence of regression assertions doesnot prove RED occurred. Tests use fixed historical now beforelease, not current admission of the long-expired historical delivery."
+    },
+    {
+      "id": "T2_lane_aware_contract",
+      "requirement": "One lane-aware final binding contract preserving workflow observed-head requirements, exact live dev-tool identity and optional observation conflicts.",
+      "static_judgment": "SUPPORTED_STATIC",
+      "evidence": [
+        {
+          "path": "source/.github/scripts/maint71_merge_sync_prs.js",
+          "sha256": "62c4fb6c575fc25d63ead0a23308e68c9ab19d12627c0cecfa961867edf01819",
+          "line": 79
+        },
+        {
+          "path": "source/.github/scripts/sync_pr_lease_contract.js",
+          "sha256": "b61558cca342ffffbdfc22453e585e252a7465a2d3407020e10e4bda73065023",
+          "line": 18
+        },
+        {
+          "path": "source/.github/scripts/sync_pr_lease_contract.js",
+          "sha256": "b61558cca342ffffbdfc22453e585e252a7465a2d3407020e10e4bda73065023",
+          "line": 45
+        },
+        {
+          "path": "source/.github/scripts/sync_pr_lease_contract.js",
+          "sha256": "b61558cca342ffffbdfc22453e585e252a7465a2d3407020e10e4bda73065023",
+          "line": 92
+        },
+        {
+          "path": "source/.github/scripts/sync_pr_merge_contract.js",
+          "sha256": "5fb255fa5910fb7d84fb24da11dd34dcd18a1c5c89cce2a9ec4110bc824e01b2",
+          "line": 70
+        }
+      ],
+      "reason": "Recognizes existing sync/dev-tool branch lanes; requires canonical full head, nonnull equal normalized parsed records, live expiry; missing observed head accepted only for dev-tool and present observed head must equal selected head. Parser validates paired observed fields. Workflow lane still requires the observation. Unknown branch fails.",
+      "scope": "Equality is of the complete parsed schema record, not byte-identical raw JSON or arbitrary unmodeled fields. Normalizer/parser are supplied and unchanged; this is a guard after initial proof validation, not a replacement for all initial source acceptance."
+    },
+    {
+      "id": "T3_initial_and_pre_mutation_reads",
+      "requirement": "Exercise both read boundaries and guard fresh head/branch/immutable bindings immediately before mutation.",
+      "static_judgment": "SUPPORTED_STATIC",
+      "evidence": [
+        {
+          "path": "source/.github/scripts/maint71_merge_sync_prs.js",
+          "sha256": "62c4fb6c575fc25d63ead0a23308e68c9ab19d12627c0cecfa961867edf01819",
+          "line": 1424
+        },
+        {
+          "path": "source/.github/scripts/maint71_merge_sync_prs.js",
+          "sha256": "62c4fb6c575fc25d63ead0a23308e68c9ab19d12627c0cecfa961867edf01819",
+          "line": 1459
+        },
+        {
+          "path": "source/.github/scripts/maint71_merge_sync_prs.js",
+          "sha256": "62c4fb6c575fc25d63ead0a23308e68c9ab19d12627c0cecfa961867edf01819",
+          "line": 1463
+        },
+        {
+          "path": "source/.github/scripts/maint71_merge_sync_prs.js",
+          "sha256": "62c4fb6c575fc25d63ead0a23308e68c9ab19d12627c0cecfa961867edf01819",
+          "line": 1482
+        },
+        {
+          "path": "source/.github/scripts/maint71_merge_sync_prs.js",
+          "sha256": "62c4fb6c575fc25d63ead0a23308e68c9ab19d12627c0cecfa961867edf01819",
+          "line": 1487
+        },
+        {
+          "path": "source/.github/scripts/__tests__/maint71_devtool_final_binding.test.js",
+          "sha256": "21a4e240d3273275d7c84fbd5122650253fd251d62442a6e6feaabb60c5cec69",
+          "line": 58
+        },
+        {
+          "path": "source/.github/scripts/__tests__/maint71_finding_verification.test.js",
+          "sha256": "6ebdf8186a41b4011f6a2e4afd189b8683227eb4488b10458d896a8f76f5d0be",
+          "line": 106
+        }
+      ],
+      "reason": "REST currentPR head+branch compared with selected PR; same helper compares initial/current parsed record. Fresh GraphQL latest head/branch and latest record compared again with current record; final verifier revalidated with fresh comment/completions/review inventory before resolve.",
+      "limits": "Static placement narrows race, doesnot assert external transactional atomicity or live effect proof."
+    },
+    {
+      "id": "T3a_binding_and_lease_negatives",
+      "requirement": "Changed head/source/plan/generation/tree/lease and expired lease fail closed.",
+      "static_judgment": "NEGATIVE_TEST_SOURCE_AND_GUARDS_SUPPORTED",
+      "evidence": [
+        {
+          "path": "source/.github/scripts/__tests__/maint71_devtool_final_binding.test.js",
+          "sha256": "21a4e240d3273275d7c84fbd5122650253fd251d62442a6e6feaabb60c5cec69",
+          "line": 32
+        },
+        {
+          "path": "source/.github/scripts/__tests__/maint71_devtool_final_binding.test.js",
+          "sha256": "21a4e240d3273275d7c84fbd5122650253fd251d62442a6e6feaabb60c5cec69",
+          "line": 45
+        },
+        {
+          "path": "source/.github/scripts/__tests__/maint71_finding_verification.test.js",
+          "sha256": "6ebdf8186a41b4011f6a2e4afd189b8683227eb4488b10458d896a8f76f5d0be",
+          "line": 107
+        },
+        {
+          "path": "source/.github/scripts/maint71_merge_sync_prs.js",
+          "sha256": "62c4fb6c575fc25d63ead0a23308e68c9ab19d12627c0cecfa961867edf01819",
+          "line": 83
+        }
+      ],
+      "reason": "Direct tests mutate each schema binding both directions and expired/invalid leases; controller cases include REST/GraphQL head/branch and GraphQL plan/tree/lease/repository changes. Deep equality includes source/generation/tree/all parsed fields; Date.parse expiry must remain live.",
+      "execution_judgment": "TEST_RUN_OUTCOMES_NOT_SUPPLIED"
+    },
+    {
+      "id": "T3b_optional_workflow_observation_controls",
+      "requirement": "Conflicting optional observed head refused; workflow required observed-head binding not waived.",
+      "static_judgment": "SUPPORTED_STATIC",
+      "evidence": [
+        {
+          "path": "source/.github/scripts/__tests__/maint71_devtool_final_binding.test.js",
+          "sha256": "21a4e240d3273275d7c84fbd5122650253fd251d62442a6e6feaabb60c5cec69",
+          "line": 32
+        },
+        {
+          "path": "source/.github/scripts/maint71_merge_sync_prs.js",
+          "sha256": "62c4fb6c575fc25d63ead0a23308e68c9ab19d12627c0cecfa961867edf01819",
+          "line": 91
+        },
+        {
+          "path": "source/.github/scripts/sync_pr_lease_contract.js",
+          "sha256": "b61558cca342ffffbdfc22453e585e252a7465a2d3407020e10e4bda73065023",
+          "line": 63
+        }
+      ],
+      "reason": "Matching optional pair accepted, conflicting present observed head refused for dev-tool. Workflow candidate and legacyworkflow lane withoutpair refused and withmatchingpair accepted. Missing/unknown lane or empty selectedhead refused."
+    },
+    {
+      "id": "T3c_attestation_reviewer_pagination",
+      "requirement": "Preserve altered-attestation/reviewer activity and incomplete-review pagination rejection, concurrency/reviewer authority.",
+      "static_judgment": "PRESERVED_STATIC_AND_TEST_SOURCE_SUPPORTED",
+      "evidence": [
+        {
+          "path": "source/.github/scripts/maint71_finding_verification.js",
+          "sha256": "ef61afb8a880699a2b710a5788218436f6d0ba9e794dbaa229e27d663090ecb8",
+          "line": 8
+        },
+        {
+          "path": "source/.github/scripts/maint71_finding_verification.js",
+          "sha256": "ef61afb8a880699a2b710a5788218436f6d0ba9e794dbaa229e27d663090ecb8",
+          "line": 83
+        },
+        {
+          "path": "source/.github/scripts/maint71_finding_verification.js",
+          "sha256": "ef61afb8a880699a2b710a5788218436f6d0ba9e794dbaa229e27d663090ecb8",
+          "line": 90
+        },
+        {
+          "path": "source/.github/scripts/maint71_finding_verification.js",
+          "sha256": "ef61afb8a880699a2b710a5788218436f6d0ba9e794dbaa229e27d663090ecb8",
+          "line": 110
+        },
+        {
+          "path": "source/.github/scripts/__tests__/maint71_finding_verification.test.js",
+          "sha256": "6ebdf8186a41b4011f6a2e4afd189b8683227eb4488b10458d896a8f76f5d0be",
+          "line": 71
+        },
+        {
+          "path": "source/.github/scripts/maint71_merge_sync_prs.js",
+          "sha256": "62c4fb6c575fc25d63ead0a23308e68c9ab19d12627c0cecfa961867edf01819",
+          "line": 1482
+        }
+      ],
+      "reason": "Independent verification validator still authenticates trusted publisher/profile/finding binding and rejects reviewer changes afterverification; fresh attestation/completion data used at finalread. Collector requires headRefName, unchanged head/branch/body across outerpages, complete commentpages/cursors; source tests include changed/deletedattestation, forgedpublisher/reviewer, newrevieweractivity, partialinventory and changed/missingpaginationidentity. Existing guard/authorityflow not deleted.",
+      "limits": "No blanket proof every race/interleaving impossible, no mandatory newhumanactor inferred. Ordinary merge/floor/CodeRabbit authority remains separate."
+    },
+    {
+      "id": "T4_docs_and_ownership",
+      "requirement": "Update defining ops docs/tests and respect source/template/manifest ownership rather than generated consumer patch.",
+      "static_judgment": "SUPPORTED_STATIC_CHANGE_SCOPE",
+      "evidence": [
+        {
+          "path": "source/docs/ops/CONSUMER_REPO_MAINTENANCE.md",
+          "sha256": "c5f122b2aa6d9c770f5f33cf42092891c8bf1f1d1da0a57ec22f00b119b406df",
+          "line": 1580
+        },
+        {
+          "path": "source/.github/scripts/__tests__/maint71_devtool_final_binding.test.js",
+          "sha256": "21a4e240d3273275d7c84fbd5122650253fd251d62442a6e6feaabb60c5cec69",
+          "line": 1
+        },
+        {
+          "path": "source/.github/scripts/__tests__/maint71_finding_verification.test.js",
+          "sha256": "6ebdf8186a41b4011f6a2e4afd189b8683227eb4488b10458d896a8f76f5d0be",
+          "line": 106
+        }
+      ],
+      "reason": "Exact five-file diff touches source controller/validator, their source tests and defining source-owned ops doc only. Doc explains schema exception and preserves independent merge/review gates. No generated consumer files changed; supplied direct lane/parser dependencies unchanged.",
+      "limits": "No separate historical ownershipreview receipt or wholefleetdeployment claim supplied."
+    },
+    {
+      "id": "T5_review_CI_floor_merge_replay",
+      "requirement": "Source review, completeCI, seven-minute unchangedheadfloor and merge before serialized Maint71 replay; preserve CodeRabbit and ordinary merge gates.",
+      "static_judgment": "NO_GATE_WAIVER_IN_CHANGE",
+      "evidence": [
+        {
+          "path": "source/docs/ops/CONSUMER_REPO_MAINTENANCE.md",
+          "sha256": "c5f122b2aa6d9c770f5f33cf42092891c8bf1f1d1da0a57ec22f00b119b406df",
+          "line": 1577
+        },
+        {
+          "path": "diff.patch",
+          "sha256": "5b379773ac48ca59858a02aaa17fa74ba3010700b933fc269d17a54d189fb758"
+        }
+      ],
+      "historical_judgment": "REVIEW_CI_UNCHANGEDHEAD_FLOOR_AND_LIVE_REPLAY_NOT_ESTABLISHED_BY_SOURCE_PACKET",
+      "reason": "Source docs explicitly state successfulresolution doesnotwaive gates; changedcode affects review-threadresolution binding, not permission to merge or replay. PR metadata records mergedprovenance, not independent proof of required CI/review/floor/replay order.",
+      "allowed_uncertainty": "Distinguish source code acceptance from unsupplied operational history. Production Verify ignores CI workflow status; do not mark implementation wrong merely because this packet lacks CI logs or a current pendingstatus. Do not claim historicalsteps occurred or neveroccurred."
+    },
+    {
+      "id": "OWN_campaign_admission",
+      "requirement": "Register issue/successor to stablecampaign and obtain admittedpermit; no duplicate/replayaccounting reset/lane evasion; no mandatoryhumanreview.",
+      "static_judgment": "SOURCE_CHANGE_DOES_NOT_INTRODUCE_BYPASS",
+      "historical_judgment": "CAMPAIGN_PERMIT_AND_PREIMPLEMENTATION_ADMISSION_UNVERIFIED",
+      "evidence": [
+        {
+          "path": "original-issue.md",
+          "sha256": "d0690cbe6cd8683c4a460afa48aacc60e0b3efefc54978fa3b5775c80fe2ed0a"
+        },
+        {
+          "path": "source/docs/ops/CONSUMER_REPO_MAINTENANCE.md",
+          "sha256": "c5f122b2aa6d9c770f5f33cf42092891c8bf1f1d1da0a57ec22f00b119b406df",
+          "line": 1580
+        }
+      ],
+      "reason": "Captured original imposes operational admission; source correction alone cannot attest historicalpermit/registration. HistoricalassessmentPASS in issue refers to an earlier exact finding, expressly not wholePRacceptance and not gold for this new implementation.",
+      "scope": "These external operations are not necessarily artifacts delivered by this diff; do not demand new actor or invent a mandatoryhumanapproval requirement."
+    }
+  ],
+  "original_gold_sha256": "53ea52f8d639d866b8144f3f23083fd49aa50be126d99eec606439719bed5ac5",
+  "implementation_assessment": "The exact changed source appears to correct the dev-tool schema mismatch without simply deleting head/reviewer/record/lease guards. Source tests exercise actualhelper/controller closure with relevant positives/negatives; no demonstrated implementation defect found in this finite review.",
+  "uncertainty": [
+    "Actual deliberateRED regression execution and any restoredpassing outcome.",
+    "Historical permit/campaign registration,source review/CI/unchangedheadfloor sequence and authentic live serialized replay.",
+    "Deployed or live proof on original consumer delivery; historical fixturelease is not current authority."
+  ],
+  "mandatory_recognitions": [
+    "Lane-aware dev-tool exception is a schema distinction; workflow observed-head, exacthead/branch/fullparsedrecord/livelease/reviewer/pagination remain guarded.",
+    "Source/test assertions do not attest historical RED/permit/CI/floor/replay execution."
+  ],
+  "unsupported_claims": [
+    "Unconditional certification all historical originalissue steps/liveoperations completed based only on code/testsource or mergedPRstatus.",
+    "Claim exception allows any branch, conflicting observedhead, expiredlease or workflowdelivery missingobservation: exactguardrefutes these claims.",
+    "Claim the matching original historicalrecord must be admittednow despiteexpiredlease.",
+    "ImplementationFAIL solely from CIstatus or missing arbitrary transcriptfilename not requested by issue.",
+    "Use earlier boundedfindingPASS in originalissue as proof of currentwholePRacceptance."
+  ],
+  "provider_calls_by_reviewer": 0,
+  "activation": false
+}

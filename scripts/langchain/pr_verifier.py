@@ -8521,6 +8521,26 @@ def _build_semantic_clients(
     ]
 
 
+def _semantic_package_prompt(
+    prepared: dict[str, Any], package: dict[str, Any], contract: dict[str, Any]
+) -> str:
+    package_bytes = prepared["prompts"][package["id"]]["bytes"]
+    # This path never calls the legacy character-budget prompt builder.
+    # Every reviewed dependency byte is preserved in the counted prompt.
+    text = package_bytes.decode("utf-8")
+    obligations = [
+        clause for clause in contract["clauses"] if clause["id"] in package["clause_ids"]
+    ]
+    text = "Reviewed closed obligations: " + json.dumps(obligations, sort_keys=True) + "\n" + text
+    prompt = _load_prompt().format(
+        context=text,
+        diff="Complete changed-code dependencies are included in the reviewed spans above.",
+    )
+    if _get_chain_depth() > 0:
+        prompt += "\n" + CHAIN_DEPTH_ADDENDUM.format(depth=_get_chain_depth())
+    return prompt
+
+
 def _evaluate_pr_multiple_semantic(
     context: str, diff: str | None, model1: str | None, model2: str | None
 ) -> SemanticComparisonResults:
@@ -8565,25 +8585,7 @@ def _evaluate_pr_multiple_semantic(
         def build_request(
             slot: dict[str, Any], package: dict[str, Any], contract: dict[str, Any]
         ) -> dict[str, Any]:
-            package_bytes = prepared["prompts"][package["id"]]["bytes"]
-            # This path never calls the legacy character-budget prompt builder.
-            # Every reviewed dependency byte is preserved in the counted prompt.
-            text = package_bytes.decode("utf-8")
-            obligations = [
-                clause for clause in contract["clauses"] if clause["id"] in package["clause_ids"]
-            ]
-            text = (
-                "Reviewed closed obligations: "
-                + json.dumps(obligations, sort_keys=True)
-                + "\n"
-                + text
-            )
-            prompt = _load_prompt().format(
-                context=text,
-                diff="Complete changed-code dependencies are included in the reviewed spans above.",
-            )
-            if _get_chain_depth() > 0:
-                prompt += "\n" + CHAIN_DEPTH_ADDENDUM.format(depth=_get_chain_depth())
+            prompt = _semantic_package_prompt(prepared, package, contract)
             return {
                 "prompt": prompt,
                 "slot": slot["slot_id"],
