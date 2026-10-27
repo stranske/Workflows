@@ -1,5 +1,61 @@
 # Correction interface deployment boundary
 
+## Corrective verification instructions
+
+The optional `verification_material` kind `corrective_instruction` adds exact
+typed tests to verification scope for an existing incumbent and its subsequent
+corrective PR. Ordinary comments remain evidence. The source instruction carries
+a canonical `closer-corrective-verification-instruction/v1` suffix with the
+unchanged original correction request, selected finding text, complete raw finding
+collection, and required-test digest. Findings remain claims, with no PASS or
+source-closure authority.
+
+Admission requires the actual dispatch sender to equal the fetched instruction
+writer by native ID and login, fresh repository write permission, exact comment
+node/version/body digest, both original issue bodies, the original merged PR,
+and the subsequent PR's native link to the incumbent and selected assignee.
+`incumbent_assignee` is a GitHub identity; the original request's incumbent owner
+is a coding-agent identifier. They are not interchangeable, and the writer need
+not be the assignee. Missing or changed native facts stop collection. No local
+model execution attestation is inferred from this instruction.
+
+The original PR and issue Tasks/AC remain intact. Only the authenticated typed
+test descriptors enter the additional required-scope frame, separately hashed in
+context coverage. The existing native request counter admits or refuses the
+complete final prompt without clipping these duties. Exact shared synthetic
+bytes and the source-bound event row are retained in
+`tests/fixtures/verifier_correction/verification_instruction/`.
+
+This source support does not activate the correction effect lane, qualify a
+provider, grant access, or perform consumer delivery. Initial corrective
+verification has its own event and does not fabricate a repeat predecessor.
+
+The native terminal field `corrective_verification_input` carries only its
+`closer-corrective-verification-input/v1` schema, complete `verification_event`,
+and closed `corrective_instruction` row. It is insufficient by itself to prove
+input scope. The complete request/material envelope remains in the existing
+`verification-event-manifest.json` member of `evaluation-results-<run_id>` or
+`comparison-results-<run_id>`. Core must authenticate the exact native artifact,
+run attempt and workflow source, join the execution receipt and native terminal
+comment, recompute request/material/event hashes, and match the closed row.
+Names alone do not authenticate attempts. Missing, expired or ambiguous retained
+evidence stays unknown. Keeping the full envelope in the artifact avoids adding
+potentially oversized material to a native comment; mandatory input is never
+truncated to fit publication.
+
+```mermaid
+flowchart LR
+  N[Native owner instruction and same-principal dispatch] --> A[Fresh scoped native checks]
+  A --> T[Add exact typed tests; preserve original Tasks and AC]
+  A --> C[Decoded findings remain claims]
+  T --> V[Existing verifier and native request counter]
+  C --> V
+  V --> M[Existing results artifact: complete input manifest]
+  V --> R[Native terminal: compact closed row and event]
+  M --> J[Core authenticates native joins and recomputes all hashes]
+  R --> J
+```
+
 This release retains the original verifier seed, read-only request collection,
 public v1 schemas, pure effect/reconciliation kernels and inert tests. It does
 **not** deploy typed issue creation, continuation or coding. The effect job has

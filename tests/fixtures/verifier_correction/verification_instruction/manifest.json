@@ -1,0 +1,11 @@
+{
+  "scope": "Synthetic prospective native instruction byte goldens only; no native POST/account/authentication/execution/qualification",
+  "schema": "closer-corrective-verification-instruction/v1",
+  "renderer": "human+LF+LF+prefix+strict_base64(canonical_UTF8_JSON)+suffix; no trimming",
+  "body_utf8_bytes": 4217,
+  "files": {
+    "v1-native-comment.txt": "3a07b6e636663420463ca807f108cf743204547a896fa9fee35168c6015cb318",
+    "v1-footer-payload.json": "4eec3f1e4cc6646ecdf6b7224535f239fde977fd2cae22d567a35b7925da0472",
+    "v1-original-request.json": "eee6be05b79e9ace52d302875c908908ae500211aa8bb6ff4f143ca99dc568a3"
+  }
+}
