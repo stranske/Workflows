@@ -69,6 +69,15 @@ const nativeText = value => typeof value === 'string' && value.length > 0 && val
 const nativeTime = value => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$/.test(value)
   && Number.isFinite(Date.parse(value));
 const bytesHash = value => createHash('sha256').update(value, 'utf8').digest('hex');
+function nativeIssueApiUrl(value, repository, number) {
+  try {
+    const actual = new URL(value);
+    const subject = new URL(`https://github.com/${repository}/issues/${number}`);
+    return actual.protocol === subject.protocol && actual.hostname === `api.${subject.hostname}`
+      && actual.pathname.toLowerCase() === `/repos${subject.pathname}`.toLowerCase()
+      && !actual.port && !actual.username && !actual.password && !actual.search && !actual.hash;
+  } catch { return false; }
+}
 function freezeData(value) {
   if (value && typeof value === 'object') { Object.values(value).forEach(freezeData); Object.freeze(value); }
   return value;
@@ -148,9 +157,8 @@ async function authenticateCorrectiveInstruction({github,context,repository,pull
     'native repository differs');
   const comment = await read('issues','getComment',{comment_id:native.comment_id});
   const commentUrl = `https://github.com/${repository}/issues/${native.issue_number}#issuecomment-${native.comment_id}`;
-  const issueApiUrl = `https://api.github.com/repos/${repository}/issues/${native.issue_number}`;
   requireNative(comment?.id === native.comment_id && comment.node_id === native.comment_node_id
-    && comment.html_url?.toLowerCase() === commentUrl && comment.issue_url?.toLowerCase() === issueApiUrl
+    && comment.html_url?.toLowerCase() === commentUrl && nativeIssueApiUrl(comment.issue_url,repository,native.issue_number)
     && comment.user?.id === sender.id && comment.user.login === sender.login
     && ['User','Bot'].includes(comment.user.type) && comment.updated_at === native.updated_at
     && nativeTime(comment.created_at) && nativeTime(comment.updated_at)
@@ -171,7 +179,7 @@ async function authenticateCorrectiveInstruction({github,context,repository,pull
   const body = value => { requireNative(value === null || typeof value === 'string','native body missing'); return value ?? ''; };
   const boundIssue = (issue,expected) => issue && !issue.pull_request && String(issue.number) === expected.number
     && issue.node_id === expected.node_id && ['open','closed'].includes(issue.state)
-    && issue.url?.toLowerCase() === `https://api.github.com/repos/${repository}/issues/${expected.number}`
+    && nativeIssueApiUrl(issue.url,repository,expected.number)
     && bytesHash(body(issue.body)) === expected.body_sha256;
   requireNative(boundIssue(source,request.source_issue) && boundIssue(incumbent,request.incumbent.issue),
     'fresh original source/incumbent identity or body differs');
