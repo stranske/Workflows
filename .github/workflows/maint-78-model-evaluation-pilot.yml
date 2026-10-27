@@ -194,7 +194,8 @@ jobs:
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
       - name: Install the existing frozen Python requirements
         run: |
-          uv venv --python 3.12 "$RUNNER_TEMP/verify-paired-venv"
+          source .github/workflows/ci-python-versions.env
+          uv venv --python "$CI_PYTHON_VERSION" "$RUNNER_TEMP/verify-paired-venv"
           uv pip sync --python "$RUNNER_TEMP/verify-paired-venv/bin/python" requirements.lock
       - name: Run fixed public paired Verify screen
         env:
