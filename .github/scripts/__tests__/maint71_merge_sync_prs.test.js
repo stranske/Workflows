@@ -748,6 +748,7 @@ for (const [state, change] of [
       workflow_id: 'maint-68-sync-consumer-repos.yml', ref: 'main',
       inputs: { phase: 'canary', delivery_scope: 'full', scope_head_sha: 'a'.repeat(40),
         repos: 'stranske/Ready,stranske/Template', dry_run: 'false', force: 'false',
+        cleanup_branches: 'true',
         refresh_key: require('crypto').createHash('sha256')
           .update(state === 'behind' ? `stranske/Ready:${canary.default_branch_tip_sha}:${canary.head_sha}`
             : `stranske/Ready:sha256:${'a'.repeat(64)}:${canary.head_sha}`).digest('hex') } });
@@ -3361,3 +3362,13 @@ for (const primary of [false, true]) {
     assert.ok(api.logs.every(line => !line.includes('private diagnostic')));
   });
 }
+
+test('in-run stable canary recovery explicitly retains a false cleanup policy', async () => {
+  const api = refreshHarness();
+  const canary = refreshCanary({ mergeable_state: 'behind' });
+  const result = await refreshStableCanaries({ ...api, cleanupBranches: false,
+    canaries: [canary, { ...canary, repo: 'Template' }] });
+  assert.equal(result.refresh_dispatched, 1);
+  assert.equal(api.dispatches.length, 1);
+  assert.equal(api.dispatches[0].inputs.cleanup_branches, 'false');
+});

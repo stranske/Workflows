@@ -1937,6 +1937,8 @@ function buildDeliveryHandoff(result = {}, observedAt = new Date().toISOString()
     source_commit: String(result.source_commit || ''),
     canary_baseline_evidence_json: String(result.canary_baseline_evidence_json || ''),
     campaign_no_change_evidence_json: String(result.campaign_no_change_evidence_json || ''),
+    ...(typeof result.cleanup_branches === 'boolean'
+      ? { cleanup_branches: result.cleanup_branches } : {}),
     continuation: continuationWithKey,
     observed_at: observedAt,
   };
@@ -1948,6 +1950,7 @@ function buildMergeReport({
   targetRepos = [],
   autoMerge = true,
   dryRun = false,
+  cleanupBranches = true,
   syncHash = '',
   run = {},
   generatedAt = new Date().toISOString(),
@@ -1962,6 +1965,7 @@ function buildMergeReport({
       registered_repos: registeredRepos,
       auto_merge: Boolean(autoMerge),
       dry_run: Boolean(dryRun),
+      cleanup_branches: Boolean(cleanupBranches),
       sync_hash: normalizedSyncHash,
       expected_branch: normalizedSyncHash === SYNC_CAMPAIGN_SELECTOR
         ? ''
@@ -1970,7 +1974,7 @@ function buildMergeReport({
     summary: summarizeResults(results),
     results,
     handoff_records: (results || [])
-      .map((result) => buildDeliveryHandoff(result, generatedAt))
+      .map((result) => buildDeliveryHandoff({ ...result, cleanup_branches: Boolean(cleanupBranches) }, generatedAt))
       .filter(Boolean),
   };
 }
