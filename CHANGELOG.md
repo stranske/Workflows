@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.44.30](https://github.com/stranske/Workflows/compare/v1.44.29...v1.44.30) (2026-10-27)
+
+
+### Bug Fixes
+
+* **ci:** align coverage reference runtime with primary Python 3.14 ([#4272](https://github.com/stranske/Workflows/issues/4272)) ([2af4222](https://github.com/stranske/Workflows/commit/2af422251cb446cc4a3f424dfc8009e4aa9283d7))
+
 ## [1.44.29](https://github.com/stranske/Workflows/compare/v1.44.28...v1.44.29) (2026-10-26)
 
 
