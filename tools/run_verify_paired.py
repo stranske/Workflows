@@ -261,8 +261,10 @@ def run(*, execute: bool) -> dict:
                 (directory / "comparison.json").open("wb") as stdout,
                 (directory / "diagnostic.log").open("wb") as stderr,
             ):
+                # Environment-derived paths are argv data; never interpret them as shell text.
                 completed = subprocess.run(
                     argv,
+                    shell=False,
                     cwd=ROOT,
                     env=child_environment(case, directory, key),
                     stdout=stdout,

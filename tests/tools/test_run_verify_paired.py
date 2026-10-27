@@ -133,7 +133,8 @@ def native(monkeypatch):
 
 
 def inline_cli(monkeypatch):
-    def run(argv, *, cwd, env, stdout, stderr, timeout, check):
+    def run(argv, *, cwd, env, stdout, stderr, timeout, check, shell):
+        assert shell is False
         assert argv[1] == str(runner.ROOT / "scripts/langchain/pr_verifier.py")
         assert "--compare" in argv and "--create-issue" not in argv
         assert "GITHUB_TOKEN" not in env and "CODEX_AUTH_JSON" not in env
@@ -176,6 +177,19 @@ def test_actual_two_case_cli_four_generations_eight_counts_six_metadata(
         assert (tmp_path / "verify-paired" / case / "comparison.json").read_bytes() == (
             private / "comparison.json"
         ).read_bytes()
+
+
+def test_shell_metacharacters_in_native_temp_path_are_only_argv_data(
+    enabled, native, monkeypatch, tmp_path
+):
+    directory = tmp_path / "native temp ; $(inert) & 'quoted'"
+    directory.mkdir()
+    monkeypatch.setenv("RUNNER_TEMP", str(directory))
+    inline_cli(monkeypatch)
+    result = runner.run(execute=True)
+    assert result["status"] == "completed_screen_only", result
+    assert len(native) == 18
+    assert (directory / "verify-paired" / "square-pass" / "comparison.json").is_file()
 
 
 def test_source_proposed_policy_holds_before_subprocess(monkeypatch, tmp_path):
