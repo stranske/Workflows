@@ -15,6 +15,15 @@ ROOT = Path(__file__).resolve().parents[2]
 REGISTRY = ROOT / "config/model_registry.json"
 
 
+@pytest.fixture(autouse=True)
+def deny_unmocked_network(monkeypatch):
+    def refuse(*args, **kwargs):
+        pytest.fail("native policy tests require inert transports; live network is forbidden")
+
+    monkeypatch.setattr("socket.getaddrinfo", refuse)
+    monkeypatch.setattr("socket.socket.connect", refuse)
+
+
 @pytest.fixture(params=["openai", "anthropic"])
 def configured_native(request, monkeypatch):
     provider = request.param
@@ -273,7 +282,11 @@ def test_native_facts_and_helper_are_managed_with_exact_template_parity():
     supported = {
         (r["provider"], r["model_id"]) for r in registry["models"] if "native_capacity" in r
     }
-    assert supported == {("openai", "gpt-5.6-terra"), ("anthropic", "claude-sonnet-5-5")}
+    assert supported == {
+        ("openai", "gpt-5.6-terra"),
+        ("anthropic", "claude-sonnet-5-5"),
+        ("anthropic", "claude-opus-5-5"),
+    }
     source = (ROOT / "scripts/langchain/pr_verifier.py").read_text()
     native_block = source[
         source.index("def _prepare_capacity_client") : source.index("def _preflight_input_capacity")
@@ -374,7 +387,7 @@ def test_unknown_compatible_host_does_not_receive_github_compatibility(monkeypat
 
 
 @pytest.mark.parametrize(
-    "provider,model", [("openai", "gpt-6.1-sol"), ("anthropic", "claude-opus-5-5")]
+    "provider,model", [("openai", "gpt-6.1-sol"), ("anthropic", "claude-opus-5")]
 )
 @pytest.mark.parametrize("operation", ["invoke", "repair"])
 @pytest.mark.parametrize("profile", ["standard", "expanded"])
@@ -417,7 +430,7 @@ def test_registered_legacy_candidate_keeps_standard_route_without_weakening_expa
     "provider,model,missing",
     [
         ("openai", "gpt-6.1-sol", "langchain_anthropic"),
-        ("anthropic", "claude-opus-5-5", "langchain_openai"),
+        ("anthropic", "claude-opus-5", "langchain_openai"),
     ],
 )
 def test_standard_legacy_route_does_not_require_another_providers_sdk(
