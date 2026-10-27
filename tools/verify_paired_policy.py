@@ -6,6 +6,7 @@ import hashlib
 import json
 import os
 from dataclasses import dataclass, field
+from functools import partial
 from time import monotonic
 
 from tools.run_verify_paired import CASES, PACKET, ROOT, load_packet
@@ -19,6 +20,7 @@ class PairedTrial:
     calls: dict[str, int] = field(
         default_factory=lambda: {"count": 0, "generation": 0, "metadata": 0}
     )
+    physical_http_attempts: int = 0
 
     @classmethod
     def from_environment(cls, capture: dict) -> PairedTrial | None:
@@ -88,12 +90,49 @@ class PairedTrial:
         ):
             raise ValueError("paired trial native SDK timeout exceeds policy")
 
+    def authorize_http_request(self, request: object, *, expected_host: str) -> None:
+        """Reserve each actual SDK HTTPX send before transport sees headers."""
+        allowed = {
+            ("api.openai.com", "POST", "/v1/responses"),
+            ("api.openai.com", "POST", "/v1/responses/input_tokens"),
+            ("api.anthropic.com", "POST", "/v1/messages"),
+            ("api.anthropic.com", "POST", "/v1/messages/count_tokens"),
+            ("api.anthropic.com", "GET", "/v1/models/claude-sonnet-5-5"),
+        }
+        url = request.url
+        if (
+            url.scheme != "https"
+            or url.port not in (None, 443)
+            or url.host != expected_host
+            or url.username
+            or url.password
+            or url.query
+            or url.fragment
+            or url.raw_path != url.path.encode("utf-8")
+            or (url.host, request.method, url.path) not in allowed
+        ):
+            raise ValueError("paired trial HTTP target outside source-owned allowlist")
+        if monotonic() >= self.deadline:
+            raise ValueError("paired trial wall policy exhausted before HTTP send")
+        if self.physical_http_attempts >= self.policy["max_physical_http_attempts"] // 2:
+            raise ValueError("paired trial physical HTTP attempt policy exhausted")
+        self.physical_http_attempts += 1
+
     def client(self, client: object) -> object:
         # Client SDKs were already constructed with the finite timeout/retry0.
         # This shallow LC copy retains those same SDK instances and changes only
         # the actual model-visible generation ceiling, checked by native count.
-        sdk = getattr(client, "root_client", None) or client._client
+        openai_sdk = getattr(client, "root_client", None)
+        sdk = openai_sdk or client._client
         # Restrict the existing SDK-owned HTTPX client in place; no replacement
         # endpoint, transport, credential source or provider is introduced.
         sdk._client.follow_redirects = False
+        # Both provider SDKs share this one case-level reservation counter. Run
+        # after any existing request hooks, immediately before HTTPX dispatch.
+        sdk._client.event_hooks["request"].append(
+            partial(
+                self.authorize_http_request,
+                expected_host="api.openai.com" if openai_sdk is not None else "api.anthropic.com",
+            )
+        )
         return client.model_copy(update={"max_tokens": self.policy["max_output_tokens"]})

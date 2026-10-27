@@ -192,17 +192,22 @@ jobs:
         with:
           persist-credentials: false
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+      - name: Install the existing frozen Python requirements
+        run: |
+          uv venv --python 3.12 "$RUNNER_TEMP/verify-paired-venv"
+          uv pip sync --python "$RUNNER_TEMP/verify-paired-venv/bin/python" requirements.lock
       - name: Run fixed public paired Verify screen
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           CLAUDE_API_STRANSKE: ${{ secrets.CLAUDE_API_STRANSKE }}
         run: >-
-          uv run --extra langchain python -m tools.run_verify_paired --execute
+          "$RUNNER_TEMP/verify-paired-venv/bin/python" -m tools.run_verify_paired --execute
       - name: Retain paired Verify evidence
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: maint-78-verify-paired-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/verify-paired
+          include-hidden-files: false
           retention-days: 7
           if-no-files-found: error

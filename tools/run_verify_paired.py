@@ -10,10 +10,12 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
 import time
+from importlib import metadata
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -24,6 +26,31 @@ CASES = ("square-pass", "square-nonpass")
 
 def digest(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
+
+
+def runtime_dependencies() -> dict:
+    """Local package observations; the native job must separately attest origin."""
+    lock = (ROOT / "requirements.lock").read_text()
+    installed = {}
+    expected = {}
+    for name in (
+        "openai",
+        "anthropic",
+        "langchain-openai",
+        "langchain-anthropic",
+        "httpx",
+        "pydantic",
+        "langchain-core",
+    ):
+        pins = re.findall(rf"^{re.escape(name)}==([^\s;]+)$", lock, flags=re.MULTILINE)
+        if len(pins) != 1:
+            raise ValueError("paired runtime dependency lacks one exact existing lock pin")
+        expected[name] = pins[0]
+        try:
+            installed[name] = metadata.version(name)
+        except metadata.PackageNotFoundError:
+            installed[name] = None
+    return {"installed": installed, "locked": expected, "matches_lock": installed == expected}
 
 
 def load_packet() -> tuple[dict, dict]:
@@ -46,6 +73,10 @@ def load_packet() -> tuple[dict, dict]:
         or policy["max_generations"] != 4
         or policy["max_native_counts"] != 8
         or policy["max_native_metadata_requests"] != 6
+        or type(policy.get("max_physical_http_attempts")) is not int
+        or policy["max_physical_http_attempts"] != 18
+        or type(policy.get("max_redirects")) is not int
+        or policy["max_redirects"] != 0
         or policy["retries"] != 0
         or policy["fallback"] is not False
         or policy["repair_calls"] != 0
@@ -108,6 +139,24 @@ def run(*, execute: bool) -> dict:
         "role_qualification_claim": False,
         "semantic_cli_started": False,
         "native_request_state": "not_started",
+        "runtime_source": {
+            "assertion": "local_source_bytes_not_origin_authentication",
+            "files_sha256": {
+                name: digest((ROOT / name).read_bytes())
+                for name in (
+                    "tools/run_verify_paired.py",
+                    "tools/verify_paired_policy.py",
+                    "scripts/langchain/pr_verifier.py",
+                    "scripts/langchain/prompts/pr_evaluation.md",
+                    "config/model_registry.json",
+                    "requirements.lock",
+                    "pyproject.toml",
+                    "config/verify_paired/slots.json",
+                    "config/verify_paired/trial-policy.json",
+                )
+            },
+            "dependencies": runtime_dependencies(),
+        },
         "results": [],
     }
     key = output / ".semantic-key"
@@ -124,6 +173,12 @@ def run(*, execute: bool) -> dict:
             return receipt
         if policy.get("execution_enabled") is not True or policy.get("review_status") != "reviewed":
             receipt.update(status="held", reason="trial policy awaits Core/executor review")
+            return receipt
+        if receipt["runtime_source"]["dependencies"]["matches_lock"] is not True:
+            receipt.update(
+                status="held",
+                reason="installed SDK runtime differs from existing frozen requirements",
+            )
             return receipt
         key.write_bytes(os.urandom(32))
         key.chmod(0o600)
@@ -162,30 +217,62 @@ def run(*, execute: bool) -> dict:
                     check=False,
                 )
             receipt["results"].append({"case": case, "returncode": completed.returncode})
+            report = json.loads((directory / "comparison.json").read_text())
+            semantic = report.get("semantic_acceptance") if isinstance(report, dict) else None
+            trial = semantic.get("qualification_trial") if isinstance(semantic, dict) else None
+            if not isinstance(trial, dict) or set(trial) != {
+                "case",
+                "policy",
+                "attempted_native_requests",
+                "native_capacity_claim",
+                "role_qualification_claim",
+                "attempted_physical_http_requests",
+            }:
+                raise ValueError("native trial counter record missing or malformed")
+            attempted = trial.get("attempted_native_requests")
+            limits = {"generation": 2, "count": 4, "metadata": 3}
+            if (
+                trial.get("case") != case
+                or not isinstance(trial.get("policy"), dict)
+                or json.dumps(trial["policy"], sort_keys=True) != json.dumps(policy, sort_keys=True)
+                or trial.get("native_capacity_claim") is not False
+                or trial.get("role_qualification_claim") is not False
+                or type(trial.get("attempted_physical_http_requests")) is not int
+                or not 0
+                <= trial["attempted_physical_http_requests"]
+                <= policy["max_physical_http_attempts"] // 2
+                or not isinstance(attempted, dict)
+                or set(attempted) != set(limits)
+                or any(
+                    type(value) is not int or not 0 <= value <= limits[name]
+                    for name, value in attempted.items()
+                )
+                or trial["attempted_physical_http_requests"] > sum(attempted.values())
+            ):
+                raise ValueError("native trial counter record does not match bounded invocation")
+            receipt["results"][-1]["attempted_native_requests"] = attempted
+            physical = trial["attempted_physical_http_requests"]
+            receipt["results"][-1]["attempted_physical_http_requests"] = physical
+            receipt["native_request_state"] = (
+                "attempts_recorded"
+                if any(
+                    sum(row.get("attempted_native_requests", {}).values())
+                    for row in receipt["results"]
+                )
+                else "not_started"
+            )
             if completed.returncode:
                 raise ValueError("semantic CLI failed; no retry or replacement")
-            report = json.loads((directory / "comparison.json").read_text())
-            trial = report.get("semantic_acceptance", {}).get("qualification_trial", {})
-            attempted = trial.get("attempted_native_requests")
-            if (
-                trial.get("case") == case
-                and trial.get("policy") == policy
-                and isinstance(attempted, dict)
-                and set(attempted) == {"generation", "count", "metadata"}
-                and all(type(value) is int and value >= 0 for value in attempted.values())
-            ):
-                receipt["results"][-1]["attempted_native_requests"] = attempted
-                receipt["native_request_state"] = (
-                    "attempts_recorded"
-                    if any(
-                        sum(row.get("attempted_native_requests", {}).values())
-                        for row in receipt["results"]
-                    )
-                    else "not_started"
-                )
+            if attempted != limits or physical != policy["max_physical_http_attempts"] // 2:
+                raise ValueError("native pair incomplete; partial request counters retained")
             arms = report.get("results", [])
-            if len(arms) != 2 or any(
-                arm.get("used_llm") is not True or arm.get("error") for arm in arms
+            if (
+                not isinstance(arms, list)
+                or len(arms) != 2
+                or any(
+                    not isinstance(arm, dict) or arm.get("used_llm") is not True or arm.get("error")
+                    for arm in arms
+                )
             ):
                 raise ValueError("native pair incomplete; retain raw output and stop")
         receipt["status"] = "completed_screen_only"

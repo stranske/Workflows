@@ -7,6 +7,10 @@ has `contents: read` permission, disables checkout credential persistence, and
 maps only the existing `OPENAI_API_KEY` and `CLAUDE_API_STRANSKE` secret names.
 It has no comment, issue, PR, token-minting, dispatch, or repository-write step.
 Evidence is retained as a seven-day Actions artifact.
+The job first provisions a fixed temporary virtual environment from the existing
+unchanged `requirements.lock`, without provider secrets in that setup step.
+The key-bearing step then invokes that environment's Python directly, avoiding
+an unlocked dependency resolution. This repository does not contain `uv.lock`.
 
 **Source preparation only:** `config/verify_paired/trial-policy.json` currently
 has `execution_enabled: false` and `review_status: proposed_source_only`.
@@ -60,17 +64,23 @@ capacity facts:
 | Generations, two cases combined | 4 |
 | Native input-count requests | 8 |
 | Anthropic native model-metadata reads | 6 |
+| Physical HTTP attempts, enforced before each send | 18 |
+| Redirects | 0 |
 | Generation output ceiling, including reasoning where applicable | 4,096 tokens |
 | SDK request timeout | 30 seconds |
 | Wrapper execution wall time, both CLI processes combined | 300 seconds |
 | Workflow job wall time, including dependency setup | 6 minutes |
 | Retries, repair calls, model/provider fallback | 0 |
 
-Each case allows at most two generations, four counts, and three metadata
-reads. Budgets count attempts before the native method is called. Both existing
-SDK-owned HTTPX clients have redirects disabled in this optional policy, and
-native SDK retries remain zero. Thus a complete fixed pair uses at most eighteen
-native HTTP attempts, including metadata; redirects cannot silently add calls.
+Each case allows at most two generations, four counts, three metadata reads,
+and nine physical HTTP attempts shared across both providers. Logical budgets
+count attempts before the native method is called. A request event hook on each
+existing SDK-owned HTTPX client additionally reserves each physical send before
+transport. It permits only the source-owned HTTPS origin for that provider and
+the fixed generation, count, and metadata methods/paths. Foreign or cross-provider
+origins, query strings, credentials, fragments and unexpected ports/paths are
+refused before transport can receive headers. A tenth send is refused. Both
+SDK-owned HTTPX clients have redirects disabled; native SDK retries remain zero.
 The SDK timeout is a request/IO timeout, not an independently enforced complete
 call wall time. The parent subprocess timeout enforces the combined wall cap.
 An uncertain or failed attempt is retained without relaunching that case.
@@ -86,7 +96,22 @@ part of source preparation.
 The artifact retains each original public case, raw structured comparison JSON,
 human report, diagnostics, capture/reassembly manifests, and an invocation
 receipt. The semantic envelope adds attempted count/generation/metadata totals
-and the exact policy. Native capacity and role-qualification claims are always
+plus a separate physical HTTP attempt count and the exact policy. A case cannot
+advance without the closed, exact case/policy receipt, bounded strict integer
+counters, and complete two-judge totals of 2 generations, 4 counts, 3 metadata
+reads, and 9 physical HTTP attempts. Invalid receipts stay held/unknown; valid
+partial attempts are retained without repeating the case. Upload explicitly
+excludes hidden files so interruption before cleanup cannot export the key.
+
+The invocation also records hashes of the current helper, parser, prompt,
+registry, requirements, project config, slots and policy bytes. Installed native
+SDK/LangChain/HTTPX/Pydantic versions are recorded alongside the existing lock
+pins; a mismatch holds before starting a child. These are local source/runtime
+assertions, not native Actions origin attestation. An external executor must
+bind the actual source and runtime to the real run artifact. Local inert tests
+use the available SDKs and do not qualify the unexecuted fresh locked runtime.
+
+Native capacity and role-qualification claims are always
 false in the invocation and trial-policy records. The original oracle remains
 outside the model prompt; the category-2 executor owns evaluation against it.
 Two easy public screens cannot qualify the full Verify role or authorize ACT,

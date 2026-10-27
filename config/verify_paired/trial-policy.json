@@ -22,5 +22,7 @@
   ],
   "native_capacity_claim": false,
   "role_qualification_claim": false,
-  "max_native_metadata_requests": 6
+  "max_native_metadata_requests": 6,
+  "max_physical_http_attempts": 18,
+  "max_redirects": 0
 }

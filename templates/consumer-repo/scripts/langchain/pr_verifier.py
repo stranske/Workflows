@@ -8693,6 +8693,7 @@ def _evaluate_pr_multiple_semantic(
             "case": trial.case,
             "policy": trial.policy,
             "attempted_native_requests": trial.calls,
+            "attempted_physical_http_requests": trial.physical_http_attempts,
             "native_capacity_claim": False,
             "role_qualification_claim": False,
         }

@@ -26,46 +26,48 @@ def enabled(monkeypatch, tmp_path):
     monkeypatch.setenv("RUNNER_TEMP", str(tmp_path))
     monkeypatch.setenv("OPENAI_API_KEY", "offline-openai-placeholder")
     monkeypatch.setenv("CLAUDE_API_STRANSKE", "offline-anthropic-placeholder")
+    # These are source-behavior tests against the locally available SDKs, not
+    # qualification evidence for the unexecuted fresh locked Actions runtime.
+    deps = runner.runtime_dependencies()
+    monkeypatch.setattr(runner, "runtime_dependencies", lambda: {**deps, "matches_lock": True})
     return caps
 
 
 @pytest.fixture
 def native(monkeypatch):
-    openai = pytest.importorskip("langchain_openai").ChatOpenAI
-    anthropic = pytest.importorskip("langchain_anthropic").ChatAnthropic
+    import httpx
+
+    pytest.importorskip("langchain_openai")
+    pytest.importorskip("langchain_anthropic")
     calls = []
+    transports = []
     original = langchain_client.build_chat_clients
 
-    def build(**kwargs):
-        assert kwargs["timeout"] == 30
-        assert kwargs["max_retries"] == 0
-        clients = original(**kwargs)
-        assert len(clients) == 2
-        for item in clients:
-            sdk = item.client.root_client if item.provider == "openai" else item.client._client
-            assert sdk.max_retries == 0 and sdk.timeout == 30
-
-            def count(*, _provider=item.provider, **payload):
-                calls.append(("count", _provider, payload))
-                return SimpleNamespace(input_tokens=1000)
-
-            if item.provider == "openai":
-                monkeypatch.setattr(sdk.responses.input_tokens, "count", count)
-            else:
-                monkeypatch.setattr(sdk.messages, "count_tokens", count)
-
-                def metadata(model):
-                    calls.append(("metadata", "anthropic", model))
-                    return SimpleNamespace(id=model, max_input_tokens=1000000, max_tokens=128000)
-
-                monkeypatch.setattr(sdk.models, "retrieve", metadata)
-        return clients
-
-    def invoke(client, prompt, **kwargs):
-        payload = client._get_request_payload(prompt)
-        provider = "openai" if isinstance(client, openai) else "anthropic"
+    def serve(request):
+        provider = "openai" if request.url.host == "api.openai.com" else "anthropic"
+        assert request.url.host in {"api.openai.com", "api.anthropic.com"}
+        if request.method == "GET":
+            calls.append(("metadata", provider, None))
+            return httpx.Response(
+                200,
+                json={
+                    "id": "claude-sonnet-5-5",
+                    "type": "model",
+                    "display_name": "offline",
+                    "created_at": "2026-10-10T00:00:00Z",
+                    "max_input_tokens": 1000000,
+                    "max_tokens": 128000,
+                },
+            )
+        payload = json.loads(request.content)
+        if request.url.path.endswith(("input_tokens", "count_tokens")):
+            calls.append(("count", provider, payload))
+            return httpx.Response(
+                200, json={"input_tokens": 1000, "object": "response.input_tokens"}
+            )
         calls.append(("generation", provider, payload))
         assert payload.get("max_output_tokens", payload.get("max_tokens")) == 4096
+        prompt = json.dumps(payload)
         assert "precommitted-semantic-oracle" not in prompt
         assert "No execution or CI result is supplied or claimed" in prompt
         raw = (
@@ -74,12 +76,59 @@ def native(monkeypatch):
             if "+    return abs(value)" in prompt
             else '{"verdict":"PASS","concerns":[],"summary":"Complete source square meets specification"}'
         )
-        return SimpleNamespace(content=raw)
+        if provider == "openai":
+            return httpx.Response(
+                200,
+                json={
+                    "id": "resp_offline",
+                    "object": "response",
+                    "created_at": 0,
+                    "model": "gpt-5.6-terra",
+                    "status": "completed",
+                    "output": [
+                        {
+                            "id": "msg_offline",
+                            "type": "message",
+                            "role": "assistant",
+                            "status": "completed",
+                            "content": [{"type": "output_text", "text": raw, "annotations": []}],
+                        }
+                    ],
+                    "usage": {"input_tokens": 1000, "output_tokens": 25, "total_tokens": 1025},
+                },
+            )
+        return httpx.Response(
+            200,
+            json={
+                "id": "msg_offline",
+                "type": "message",
+                "role": "assistant",
+                "model": "claude-sonnet-5-5",
+                "content": [{"type": "text", "text": raw}],
+                "stop_reason": "end_turn",
+                "stop_sequence": None,
+                "usage": {"input_tokens": 1000, "output_tokens": 25},
+            },
+        )
+
+    def build(**kwargs):
+        assert kwargs["timeout"] == 30 and kwargs["max_retries"] == 0
+        clients = original(**kwargs)
+        assert len(clients) == 2
+        for item in clients:
+            sdk = item.client.root_client if item.provider == "openai" else item.client._client
+            assert sdk.max_retries == 0 and sdk.timeout == 30
+            transport = httpx.Client(transport=httpx.MockTransport(serve), follow_redirects=True)
+            transports.append(transport)
+            monkeypatch.setattr(sdk, "_client", transport)
+        return clients
 
     monkeypatch.setattr(langchain_client, "build_chat_clients", build)
-    monkeypatch.setattr(openai, "invoke", invoke)
-    monkeypatch.setattr(anthropic, "invoke", invoke)
-    return calls
+    try:
+        yield calls
+    finally:
+        for transport in transports:
+            transport.close()
 
 
 def inline_cli(monkeypatch):
@@ -116,6 +165,7 @@ def test_actual_two_case_cli_four_generations_eight_counts_six_metadata(
         assert [arm["verdict"] for arm in report["results"]] == [expected, expected]
         trial = report["semantic_acceptance"]["qualification_trial"]
         assert trial["attempted_native_requests"] == {"count": 4, "generation": 2, "metadata": 3}
+        assert trial["attempted_physical_http_requests"] == 9
         assert trial["native_capacity_claim"] is False
         assert trial["role_qualification_claim"] is False
         original = json.loads((runner.PACKET / case / "capture.json").read_text())
@@ -133,6 +183,18 @@ def test_source_proposed_policy_holds_before_subprocess(monkeypatch, tmp_path):
     assert result["semantic_cli_started"] is False
     assert result["native_request_state"] == "not_started"
     assert not (tmp_path / "verify-paired/.semantic-key").exists()
+
+
+def test_installed_runtime_mismatch_holds_before_child(enabled, monkeypatch):
+    deps = runner.runtime_dependencies()
+    monkeypatch.setattr(runner, "runtime_dependencies", lambda: {**deps, "matches_lock": False})
+    monkeypatch.setattr(
+        runner.subprocess, "run", lambda *a, **kw: pytest.fail("provider-capable child")
+    )
+    result = runner.run(execute=True)
+    assert result["status"] == "held" and result["semantic_cli_started"] is False
+    assert result["native_request_state"] == "not_started"
+    assert result["runtime_source"]["dependencies"]["matches_lock"] is False
 
 
 @pytest.mark.parametrize("kind,limit", [("generation", 2), ("count", 4), ("metadata", 3)])
@@ -230,6 +292,210 @@ def test_job_has_no_repository_write_or_legacy_job_overlap():
     assert all("github-script" not in step.get("uses", "") for step in job["steps"])
     step = next(step for step in job["steps"] if "env" in step)
     assert set(step["env"]) == {"OPENAI_API_KEY", "CLAUDE_API_STRANSKE"}
+    upload = job["steps"][-1]
+    assert upload["with"]["include-hidden-files"] is False
+    assert any(
+        "uv pip sync" in entry.get("run", "") and "requirements.lock" in entry["run"]
+        for entry in job["steps"]
+    )
+    assert "uv run" not in step["run"]
+
+
+@pytest.mark.parametrize(
+    "defect",
+    [
+        "missing",
+        "null",
+        "case",
+        "policy",
+        "policy-type",
+        "count-bool",
+        "count-string",
+        "count-negative",
+        "count-overbound",
+        "count-extra",
+        "record-extra",
+        "claim",
+        "partial",
+        "physical-missing",
+        "physical-bool",
+        "physical-overbound",
+        "physical-partial",
+    ],
+)
+def test_bad_child_counter_record_holds_without_advancing_case(enabled, monkeypatch, defect):
+    calls = []
+
+    def child(argv, **kwargs):
+        calls.append(argv)
+        trial = {
+            "case": "square-pass",
+            "policy": deepcopy(enabled),
+            "attempted_native_requests": {"generation": 2, "count": 4, "metadata": 3},
+            "attempted_physical_http_requests": 9,
+            "native_capacity_claim": False,
+            "role_qualification_claim": False,
+        }
+        report = {
+            "results": [{"used_llm": True, "error": None}] * 2,
+            "semantic_acceptance": {"qualification_trial": trial},
+        }
+        if defect == "missing":
+            report.pop("semantic_acceptance")
+        elif defect == "null":
+            report["semantic_acceptance"]["qualification_trial"] = None
+        elif defect == "case":
+            trial["case"] = "square-nonpass"
+        elif defect == "policy":
+            trial["policy"]["max_output_tokens"] = 4095
+        elif defect == "policy-type":
+            trial["policy"]["retries"] = False
+        elif defect.startswith("count-"):
+            counts = trial["attempted_native_requests"]
+            if defect == "count-extra":
+                counts["other"] = 0
+            else:
+                counts["count"] = {
+                    "count-bool": True,
+                    "count-string": "4",
+                    "count-negative": -1,
+                    "count-overbound": 5,
+                }[defect]
+        elif defect == "record-extra":
+            trial["other"] = "unexpected"
+        elif defect == "claim":
+            trial["native_capacity_claim"] = True
+        elif defect == "partial":
+            trial["attempted_native_requests"]["generation"] = 1
+            trial["attempted_physical_http_requests"] = 8
+        elif defect == "physical-missing":
+            trial.pop("attempted_physical_http_requests")
+        elif defect == "physical-bool":
+            trial["attempted_physical_http_requests"] = True
+        elif defect == "physical-overbound":
+            trial["attempted_physical_http_requests"] = 10
+        elif defect == "physical-partial":
+            trial["attempted_physical_http_requests"] = 8
+        kwargs["stdout"].write(json.dumps(report).encode())
+        return SimpleNamespace(returncode=0)
+
+    monkeypatch.setattr(runner.subprocess, "run", child)
+    result = runner.run(execute=True)
+    assert result["status"] == "held" and len(calls) == 1
+    if defect in {"partial", "physical-partial"}:
+        assert result["native_request_state"] == "attempts_recorded"
+        assert result["results"][0]["attempted_physical_http_requests"] == 8
+    else:
+        assert result["native_request_state"] == "unknown"
+        assert "attempted_native_requests" not in result["results"][0]
+
+
+def test_valid_partial_counters_survive_failed_child_exit(enabled, monkeypatch):
+    calls = []
+
+    def child(argv, **kwargs):
+        calls.append(argv)
+        report = {
+            "semantic_acceptance": {
+                "qualification_trial": {
+                    "case": "square-pass",
+                    "policy": enabled,
+                    "attempted_native_requests": {"generation": 0, "count": 1, "metadata": 1},
+                    "attempted_physical_http_requests": 2,
+                    "native_capacity_claim": False,
+                    "role_qualification_claim": False,
+                }
+            }
+        }
+        kwargs["stdout"].write(json.dumps(report).encode())
+        return SimpleNamespace(returncode=1)
+
+    monkeypatch.setattr(runner.subprocess, "run", child)
+    result = runner.run(execute=True)
+    assert result["status"] == "held" and len(calls) == 1
+    assert result["native_request_state"] == "attempts_recorded"
+    assert result["results"][0]["attempted_native_requests"] == {
+        "generation": 0,
+        "count": 1,
+        "metadata": 1,
+    }
+
+
+def _http_guarded_sdks(enabled, monkeypatch, tmp_path, requests):
+    import httpx
+
+    key = tmp_path / "key"
+    key.write_bytes(b"k" * 32)
+    env = runner.child_environment("square-pass", runner.PACKET / "square-pass", key)
+    trial = policy.PairedTrial("square-pass", enabled, float("inf"))
+
+    def serve(request):
+        requests.append(request)
+        return httpx.Response(200, json={"input_tokens": 1000})
+
+    with patch.dict(os.environ, env, clear=True):
+        clients = langchain_client.build_chat_clients(timeout=30, max_retries=0)
+    sdks = []
+    for item in clients:
+        sdk = item.client.root_client if item.provider == "openai" else item.client._client
+        monkeypatch.setattr(sdk, "_client", httpx.Client(transport=httpx.MockTransport(serve)))
+        trial.client(item.client)
+        sdks.append(sdk)
+    return trial, sdks
+
+
+def test_shared_physical_budget_blocks_tenth_sdk_send_before_transport(
+    enabled, monkeypatch, tmp_path
+):
+    from anthropic import APIConnectionError
+
+    requests = []
+    trial, sdks = _http_guarded_sdks(enabled, monkeypatch, tmp_path, requests)
+    try:
+        for index in range(9):
+            sdk = sdks[index % 2]
+            path = "/responses/input_tokens" if index % 2 == 0 else "/v1/messages/count_tokens"
+            sdk.post(path, cast_to=dict[str, object], body={})
+        with pytest.raises(APIConnectionError):
+            sdks[1].post("/v1/messages/count_tokens", cast_to=dict[str, object], body={})
+        assert len(requests) == 9 and trial.physical_http_attempts == 9
+    finally:
+        for sdk in sdks:
+            sdk._client.close()
+
+
+@pytest.mark.parametrize(
+    "url,method",
+    [
+        ("https://unapproved.invalid/v1/responses/input_tokens", "POST"),
+        ("https://api.anthropic.com/v1/messages/count_tokens", "POST"),
+        ("http://api.openai.com/v1/responses/input_tokens", "POST"),
+        ("https://api.openai.com:444/v1/responses/input_tokens", "POST"),
+        ("https://api.openai.com/v1/unknown", "POST"),
+        ("https://api.openai.com/v1/responses%2Finput_tokens", "POST"),
+        ("https://api.openai.com/v1/responses/input_tokens?extra=1", "POST"),
+        ("https://api.openai.com/v1/responses/input_tokens#extra", "POST"),
+        ("https://user:password@api.openai.com/v1/responses/input_tokens", "POST"),
+        ("https://api.openai.com/v1/responses/input_tokens", "GET"),
+    ],
+)
+def test_sdk_foreign_or_unknown_request_denied_before_transport_auth_disclosure(
+    enabled, monkeypatch, tmp_path, url, method
+):
+    from openai import APIConnectionError
+
+    requests = []
+    trial, sdks = _http_guarded_sdks(enabled, monkeypatch, tmp_path, requests)
+    try:
+        with pytest.raises(APIConnectionError):
+            if method == "GET":
+                sdks[0].get(url, cast_to=dict)
+            else:
+                sdks[0].post(url, cast_to=dict, body={})
+        assert requests == [] and trial.physical_http_attempts == 0
+    finally:
+        for sdk in sdks:
+            sdk._client.close()
 
 
 @pytest.mark.parametrize(
