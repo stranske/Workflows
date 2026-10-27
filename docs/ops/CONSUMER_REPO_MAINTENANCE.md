@@ -2963,7 +2963,9 @@ If a reusable workflow fix must ship immediately, trigger:
 branches. In addition to closing stale duplicate sync PRs and merging the active
 passing sync PR, it deletes same-repo sync branches that are connected to closed
 or merged sync PRs and no longer have an open PR. Use the `cleanup_branches`
-manual input to disable that cleanup only for diagnostics.
+manual input to disable workflow branch deletion for diagnostics or for a shipment
+that must preserve its branches. Existing repository automatic branch-deletion
+settings remain independent of this workflow policy.
 
 ### Autofix Tool Version Ownership
 
