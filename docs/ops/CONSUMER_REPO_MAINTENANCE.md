@@ -19,6 +19,25 @@ project table: maintain the pins through the repository's existing dependency
 process, then rerun the audit. Project repositories keep their existing dev-extra
 fix behavior; a lock file cannot mask an undeclared project dependency.
 
+## Dependency candidate runtime and evidence preservation
+
+Workflows Renovate candidates retain the shared Python 3.14 runtime ceiling;
+advancing to Python 3.15 requires a coordinated runtime-policy migration.
+Frozen reviewed packets under `config/verify_paired/` are excluded from dependency
+rewrites so their authenticated byte digests remain reproducible. Dependency
+updates must align explicit action-pin assertions with the selected revisions.
+The #4271 delivery retains the existing app-token revision, Maint 68 producer,
+and ordinary verifier-follow-up workflows: those surfaces have reviewed
+whole-file or job-byte identity contracts. Their dependency revisions need a
+separate coordinated provenance update. The internal backplane-contract workflow
+also retains its existing revision; its registry lifecycle failures predate this
+dependency shipment.
+
+Gate test-quality installs declared development extras before running acceptance
+tests, then removes the head project distribution before testing archived base
+code. This supplies test imports without allowing the installed head to mask base
+behavior.
+
 ## Delivery scope and production checks
 
 Sync and dev-tool/dependency maintenance distribute a fixed source revision and

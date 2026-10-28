@@ -129,7 +129,7 @@ jobs:
       # Mint GitHub App token early to use for API calls (avoids rate limits)
       - name: Mint GitHub App Token
         id: app_token
-        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
         continue-on-error: true
         with:
           client-id: ${{ secrets.WORKFLOWS_APP_ID || '0' }}
@@ -254,7 +254,7 @@ jobs:
         if: steps.check_enabled.outputs.enabled == 'true'
         uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
         with:
-          python-version: '3.15'
+          python-version: '3.14'
 
       - name: Cache pip (LLM requirements)
         if: steps.check_enabled.outputs.enabled == 'true'

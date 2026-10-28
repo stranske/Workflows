@@ -132,7 +132,7 @@ jobs:
       # Mint GitHub App token early to use for API calls (avoids rate limits)
       - name: Mint GitHub App Token
         id: app_token
-        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
         continue-on-error: true
         with:
           client-id: ${{ secrets.WORKFLOWS_APP_ID || '0' }}
@@ -326,7 +326,7 @@ jobs:
           ref: ${{ fromJSON(needs.resolve-pr.outputs.pull_request).head.sha || github.sha }}
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
         with:
-          python-version: '3.15'
+          python-version: '3.14'
       - name: Run reusable workflow docs guards
         run: |
           set -euo pipefail
@@ -399,7 +399,7 @@ jobs:
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
         if: ${{ steps.script_tests.outputs.python_tests == 'true' }}
         with:
-          python-version: '3.15'
+          python-version: '3.14'
       - run: python -m pip install --upgrade pip pytest requests
         if: ${{ steps.script_tests.outputs.python_tests == 'true' }}
       - run: pytest tests/workflows/github_scripts
@@ -444,7 +444,7 @@ jobs:
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
         if: ${{ hashFiles('scripts/check_issue_consistency.py') != '' }}
         with:
-          python-version: '3.15'
+          python-version: '3.14'
       - name: Check issue number consistency
         if: ${{ hashFiles('scripts/check_issue_consistency.py') != '' }}
         run: python scripts/check_issue_consistency.py
@@ -502,7 +502,7 @@ jobs:
             "refs/heads/${base_ref}:refs/remotes/upstream/${base_ref}"
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
         with:
-          python-version: '3.15'
+          python-version: '3.14'
       - name: Install test-quality dependencies
         # The named acceptance test has to actually RUN here. Installing only pytest meant any
         # PR whose test imported a runtime dependency failed this gate on a collection-time
@@ -531,7 +531,8 @@ jobs:
           if [ -f pyproject.toml ] || [ -f setup.py ]; then
             install_report="$(mktemp)"
             trap 'rm -f "$install_report"' EXIT
-            if python -m pip install --report "$install_report" . ; then
+            # Include declared test dependencies; the project itself is still removed below.
+            if python -m pip install --report "$install_report" ".[dev]" ; then
               dist_name="$(python - "$install_report" <<'PYEOF'
           import json, pathlib, re, sys
           report = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
@@ -635,7 +636,7 @@ jobs:
             fs.writeFileSync(process.env.GITHUB_EVENT_PATH, JSON.stringify(event));
       - name: Mint GitHub App Token
         id: app_token
-        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
         continue-on-error: true
         with:
           client-id: ${{ secrets.WORKFLOWS_APP_ID || '0' }}
@@ -654,7 +655,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
         with:
-          python-version: '3.15'
+          python-version: '3.14'
 
       - name: Install PyYAML
         run: pip install PyYAML
@@ -719,7 +720,7 @@ jobs:
       # Mint GitHub App token early to use for API calls (avoids rate limits)
       - name: Mint GitHub App Token
         id: app_token
-        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
         continue-on-error: true
         with:
           client-id: ${{ secrets.WORKFLOWS_APP_ID || '0' }}

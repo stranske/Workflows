@@ -1,13 +1,32 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "description": "Workflows Renovate config — extends the stranske fleet-shared preset (renovate-presets/fleet.json), the single source of truth for grouping, automerge-on-green, dev-tool exclusions, the vendored-minimatch cascade, and the pip-compile manager that regenerates requirements.lock (a `uv pip compile` output) in-PR. The pip-compile manager (provided by the preset since #2406) also enables lockFileMaintenance by default (branchTopic `pip-compile-refresh`), recompiling the lock from scratch on a schedule — this OWNS the periodic refresh and replaced the retired maint-51-dependency-refresh.yml, so do NOT reintroduce a scheduled `uv pip compile --upgrade` workflow. (`--upgrade` is a one-time action flag uv omits from the lock header, and Renovate's pip-compile parser would throw `Option --upgrade not supported (yet)` if it ever appeared there; Renovate scopes its own per-dep bumps with `--upgrade-package`.) Workflows dogfoods the same preset every consumer repo extends; the ONLY Workflows-specific override is below — requirements.txt is a pip-compile SOURCE for requirements.lock here (unlike consumers, whose locks source pyproject.toml only), so pip_requirements is disabled for it to avoid double-managing a lock source (Renovate docs); tools/requirements-llm.txt stays on pip_requirements (standalone LLM pins, not a lock source). This override is intentionally NOT in the fleet preset.",
-  "extends": ["github>stranske/Workflows//renovate-presets/fleet"],
+  "extends": [
+    "github>stranske/Workflows//renovate-presets/fleet"
+  ],
   "packageRules": [
     {
       "description": "requirements.txt is a pip-compile source for requirements.lock; let the pip-compile manager own it to avoid duplicate PRs. Workflows-specific — consumer locks source pyproject.toml only, so this disable is NOT in the fleet preset.",
-      "matchManagers": ["pip_requirements"],
-      "matchFileNames": ["requirements.txt"],
+      "matchManagers": [
+        "pip_requirements"
+      ],
+      "matchFileNames": [
+        "requirements.txt"
+      ],
       "enabled": false
+    },
+    {
+      "description": "Keep Python on the reviewed 3.14 runtime until a coordinated shared-policy migration.",
+      "matchManagers": [
+        "github-actions"
+      ],
+      "matchPackageNames": [
+        "python"
+      ],
+      "allowedVersions": "<3.15"
     }
+  ],
+  "ignorePaths": [
+    "config/verify_paired/**"
   ]
 }

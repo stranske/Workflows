@@ -921,7 +921,7 @@ jobs:
       - name: Mint KEEPALIVE_APP running token
         id: running_keepalive_app_token
         if: ${{ env.KEEPALIVE_APP_ID != '' && env.KEEPALIVE_APP_PRIVATE_KEY != '' }}
-        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
         continue-on-error: true
         env:
           KEEPALIVE_APP_ID: ${{ secrets.KEEPALIVE_APP_ID || '' }}
@@ -942,7 +942,7 @@ jobs:
           steps.running_keepalive_app_token.outputs.token == '' &&
           env.WORKFLOWS_APP_ID != '' &&
           env.WORKFLOWS_APP_PRIVATE_KEY != ''
-        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
         env:
           WORKFLOWS_APP_ID: ${{ secrets.WORKFLOWS_APP_ID || '' }}
           WORKFLOWS_APP_PRIVATE_KEY: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY || '' }}
@@ -1306,7 +1306,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v7
         with:
-          python-version: '3.15'
+          python-version: '3.14'
           cache: pip
           # These requirements define the progress-review dependency family.
           cache-dependency-path: tools/requirements-llm.txt
@@ -1766,7 +1766,7 @@ jobs:
       - name: Mint KEEPALIVE_APP summary token
         id: summary_keepalive_app_token
         if: ${{ env.KEEPALIVE_APP_ID != '' && env.KEEPALIVE_APP_PRIVATE_KEY != '' }}
-        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
         continue-on-error: true
         env:
           KEEPALIVE_APP_ID: ${{ secrets.KEEPALIVE_APP_ID || '' }}
@@ -1787,7 +1787,7 @@ jobs:
           steps.summary_keepalive_app_token.outputs.token == '' &&
           env.WORKFLOWS_APP_ID != '' &&
           env.WORKFLOWS_APP_PRIVATE_KEY != ''
-        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
         env:
           WORKFLOWS_APP_ID: ${{ secrets.WORKFLOWS_APP_ID || '' }}
           WORKFLOWS_APP_PRIVATE_KEY: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY || '' }}
