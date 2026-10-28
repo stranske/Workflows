@@ -5080,15 +5080,38 @@ def test_nonpass_text_retains_actionable_concerns_and_raw_detail(verdict):
     assert "Detailed model explanation" in text
 
 
+@pytest.mark.parametrize("wrapper", ["Here is the result:\n{}", "```json\n{}\n```"])
+def test_failed_repair_does_not_render_wrapped_stale_pass(monkeypatch, wrapper):
+    """Retain historical case IDs; one valid fence now passes strict parsing."""
+    raw = wrapper.format('{"verdict": "PASS", "summary": "Unvalidated result"}')
+
+    def forbidden(*_args, **_kwargs):
+        pytest.fail("Final output must not construct schema repair")
+
+    monkeypatch.setattr(verifier, "_build_verifier_repair_callback", forbidden)
+    result = verifier._parse_llm_response(raw, "test-provider", client=object())
+    expected = {
+        "Here is the result:\n{}": "CONCERNS",
+        "```json\n{}\n```": "PASS",
+    }[wrapper]
+    assert result.verdict == expected and result.raw_content == raw
+    text = verifier._evaluation_output_text(result)
+    if expected == "CONCERNS":
+        assert result.error and text.startswith("Verdict: CONCERNS")
+        assert '"verdict": "PASS"' not in text
+    else:
+        assert result.error is None and text.endswith(raw)
+        assert result.summary == "Unvalidated result"
+
+
 @pytest.mark.parametrize(
     "wrapper",
     [
-        "Here is the result:\n{}",
         "```json\n{}\n```\nTrailing explanation",
         "```json\n{}\n```\n```json\n{}\n```",
     ],
 )
-def test_invalid_wrapper_does_not_render_stale_pass_or_attempt_repair(monkeypatch, wrapper):
+def test_invalid_final_envelope_does_not_render_stale_pass(monkeypatch, wrapper):
     payload = '{"verdict": "PASS", "summary": "Unvalidated result"}'
     raw = wrapper.format(payload, payload)
 
@@ -5097,27 +5120,10 @@ def test_invalid_wrapper_does_not_render_stale_pass_or_attempt_repair(monkeypatc
 
     monkeypatch.setattr(verifier, "_build_verifier_repair_callback", forbidden)
     result = verifier._parse_llm_response(raw, "test-provider", client=object())
-    assert result.verdict == "CONCERNS"
-    assert result.error and result.raw_content == raw
+    assert result.verdict == "CONCERNS" and result.error and result.raw_content == raw
     text = verifier._evaluation_output_text(result)
     assert text.startswith("Verdict: CONCERNS")
     assert '"verdict": "PASS"' not in text
-
-
-def test_one_valid_fenced_final_uses_strict_schema_without_repair(monkeypatch):
-    raw = '```json\n{"verdict": "PASS", "summary": "Validated result"}\n```'
-
-    def forbidden(*_args, **_kwargs):
-        pytest.fail("A valid final must not construct schema repair")
-
-    monkeypatch.setattr(verifier, "_build_verifier_repair_callback", forbidden)
-    expected = verifier._parse_semantic_evaluation_payload(raw)
-    result = verifier._parse_llm_response(raw, "test-provider", client=object())
-    assert result.verdict == expected.verdict == "PASS"
-    assert result.error is None and result.raw_content == raw
-    text = verifier._evaluation_output_text(result)
-    assert text.endswith(raw)
-    assert "Validated result" in text
 
 
 @pytest.mark.parametrize("wrapper", ["Explanation:\n{}", "```json\n{}\n```"])
