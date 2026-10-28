@@ -3618,3 +3618,44 @@ record. Required evidence channels remain blocked. Original Tasks and
 acceptance criteria, including pending execution and publication proof, are
 unchanged. This prospective classification does not change a retained
 `UNVERIFIABLE_INPUT` result into a model judgment or grant closure authority.
+
+### Scoped refresh refusal diagnostics
+
+The content refresh guard and recovery controller emit `canary-refresh-diagnostics`
+notices and step summaries for scoped requests. These identify the blocking native
+run and attempt, source-owned refusal code, available plan/source identities and
+whether the native source join succeeded. Inventory counts and at most eight
+refusal rows are retained. Raw native error messages, artifact bodies and request
+payloads are omitted. These diagnostics do not change admission: an unresolved
+native receipt still holds mutation, and a diagnostic source identity is not a
+replacement for the native receipt checks.
+
+Historical refresh receipt refusals retain a bounded structured diagnostic:
+reason code, native run/attempt/head, authenticated source identity when known,
+plan identity when retained, and counts of held/no-start/possible-overwrite
+receipts. The guard and recovery caller publish the same diagnostic without
+raw API error text or artifact contents. Only eight receipt rows are printed;
+the total and omitted counts remain explicit.
+
+Three exact reviewed historical producer versions preserve the same resolved
+source checkout. Their native source steps and complete workflow hashes may
+prove that an unavailable receipt belongs to another source. The receipt stays
+UNKNOWN and remains a possible-overwrite barrier; it does not complete the
+requested scoped shipment. Known scheduled producers must have their exact
+native auto/default-source/default-candidates shape, with source equal to the
+native head. Arbitrary titles and unknown workflow versions grant no proof.
+
+A separate narrow bootstrap no-start proof applies to the reviewed DAG whose
+prepare job never received a runner: attempt one, explicit runner ID zero and
+empty steps, complete matching terminal job inventory, every possible consumer
+or reconciliation job unstarted, and no summary effect step executed. The
+summary must retain its exact known native step/status profile, and the whole
+native source tree must equal the audited historical commit (including the
+cancelled local setup composite and its filesystem-only helper). The executed
+report module must also match its reviewed pure source. No
+artifacts may contradict bootstrap cancellation, and fresh native readback
+must retain the same cancelled attempt. Missing fields, null/nonzero prepare
+runner IDs, executed steps, changed attempts or unknown source remain UNKNOWN.
+This proves no delivery started; it fabricates neither a plan tuple nor a
+completed delivery. Older unknown effects are not discarded by age or merely
+because a later workflow reported success.

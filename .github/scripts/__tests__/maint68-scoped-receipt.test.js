@@ -57,8 +57,11 @@ function fixture({ started = true } = {}) {
   };
   const wrap = (name, fn) => async args => { state.calls.push({ name, args }); return { data: fn(args) }; };
   const github = { rest: { actions: Object.fromEntries(Object.entries(methods).map(([name, fn]) => [name, wrap(name, fn)])),
-    repos: { getContent: wrap('getContent', () => ({ encoding: 'base64', content: state.workflow.toString('base64'),
-      sha: createHash('sha1').update(`blob ${state.workflow.length}\0`).update(state.workflow).digest('hex') })) } } };
+    repos: { getContent: wrap('getContent', args => {
+      const bytes = args.path === '.github/scripts/sync_run_contract.js' ? state.reportModule : state.workflow;
+      return { encoding: 'base64', content: bytes.toString('base64'),
+        sha: createHash('sha1').update(`blob ${bytes.length}\0`).update(bytes).digest('hex') };
+    }) } } };
   const retryOptions = [];
   const args = { withRetry: (fn, options) => { retryOptions.push(options); return fn(github); }, context: { repo: { owner: 'owner', repo: 'Workflows' } },
     run, defaultBranch: 'main', candidates: ['owner/b', 'owner/a'] };
@@ -236,4 +239,110 @@ test('real controller wrapper retries transient native reads finitely and preser
     assert.equal(reads, exhaust ? 3 : 2);
     if (exhaust) assert.equal(f.state.calls.length, 0);
   }
+});
+
+
+test('parsed receipts report an explicit predicate when native effect disposition is unknown', async () => {
+  const f = fixture(); f.run.conclusion = 'cancelled';
+  const result = await f.read();
+  assert.equal(result.state, 'unknown');
+  assert.equal(result.reason, 'native_scope_effect_disposition_unknown');
+  assert.equal(result.proof.run_id, f.run.id);
+  assert.equal(result.proof.run_attempt, f.run.run_attempt);
+});
+
+
+const HISTORICAL_PRODUCERS = [
+  'd52252dab8a2322021b39a68651592c4e212cdbb98e807750e5db75c00b99235',
+  'e24c6413cf57f7e1c3ff536cc581164044afb74aa11fd048caf5b96f099313e9',
+  '5684f184111d02e8c9ee270d47c9f59c593da686b9155360ae6eba3f18348579',
+];
+const REPORT_MODULE = '10d28ca1485d2e3cf8630b915d3964c7f7103983511e2088a1135bc5e79ead46';
+function historicalBytes(hash, suffix='yml') {
+  const bytes = require('node:zlib').gunzipSync(require('node:fs').readFileSync(
+    path.join(ROOT,'tests/fixtures/scoped_refresh_native_producers',`${hash}.${suffix}.gz`)), {maxOutputLength:150000});
+  assert.equal(sha(bytes),hash); return bytes;
+}
+for (const hash of HISTORICAL_PRODUCERS) test(`reviewed complete historical producer ${hash.slice(0,12)} binds only source identity`, async () => {
+  const f=fixture(); f.state.workflow=historicalBytes(hash); f.artifact.expired=true;
+  const result=await f.read();
+  assert.equal(result.state,'unknown'); assert.equal(result.source_commit,'a'.repeat(40));
+  assert.equal(result.proof.source_identity_bound,true);
+  assert.equal(result.reason,'native_scope_artifact_identity_mismatch');
+});
+for (const hash of HISTORICAL_PRODUCERS) test(`native schedule uses exact reviewed shape ${hash.slice(0,12)}`, async () => {
+  const f=fixture();f.state.workflow=historicalBytes(hash);f.run.event='schedule';f.artifact.expired=true;
+  const guard=hash===HISTORICAL_PRODUCERS[2]?'':' guard=delivery-v1';
+  f.run.display_title=`Maint 68 canary auto source=${f.run.head_sha} candidates=* dry=false${guard}`;
+  const result=await f.read();assert.equal(result.state,'unknown');
+  assert.equal(result.source_commit,f.run.head_sha);assert.equal(result.proof.source_identity_bound,true);
+});
+for (const [name,change] of [
+  ['noncanonical mode',f=>{f.run.display_title=f.run.display_title.replace('canary auto','canary full');}],
+  ['caller source',f=>{f.run.display_title=f.run.display_title.replace(f.run.head_sha,'d'.repeat(40));}],
+  ['caller candidates',f=>{f.run.display_title=f.run.display_title.replace('candidates=*','candidates=owner/a');}],
+  ['caller drift',f=>{f.run.display_title+=' drift='+'d'.repeat(64);}],
+  ['wrong guard',f=>{f.run.display_title=f.run.display_title.replace(' guard=delivery-v1','');}],
+  ['unreviewed producer',f=>{f.state.workflow=Buffer.concat([f.state.workflow,Buffer.from('\n# changed producer\n')]);}],
+]) test(`scheduled identity refuses ${name}`,async()=>{
+  const f=fixture();f.state.workflow=historicalBytes(HISTORICAL_PRODUCERS[0]);f.run.event='schedule';
+  f.run.display_title=`Maint 68 canary auto source=${f.run.head_sha} candidates=* dry=false guard=delivery-v1`;
+  change(f);const result=await f.read();assert.equal(result.state,'unknown');
+  assert.equal(result.proof.source_identity_bound,undefined);
+});
+function bootstrapFixture() {
+  const f=fixture();f.run.head_sha='67829b6145644352661b56f5251344cf952d0a64';f.run.run_attempt=1;f.run.conclusion='cancelled';
+  f.state.workflow=historicalBytes(HISTORICAL_PRODUCERS[0]);f.state.reportModule=historicalBytes(REPORT_MODULE,'js');
+  const names=['Prepare sync from manifest','Validate sync files','Sync ${{ matrix.repo }}',
+    'Start generated delivery reconciliation','Create failure issue','Generate summary'];
+  f.jobs.splice(0,f.jobs.length,...names.map((name,index)=>({id:71+index,run_id:f.run.id,head_sha:f.run.head_sha,
+    name,status:'completed',conclusion:'cancelled',runner_id:index===0?0:null,runner_name:index===0?'':null,steps:[]})));
+  f.jobs.at(-1).runner_id=123;f.jobs.at(-1).runner_name='GitHub Actions 123';
+  f.jobs.at(-1).steps=[['Set up job','success'],['Checkout','success'],['Download sync result artifacts','success'],
+    ['Build sync run report','success'],['Generate summary','success'],['Setup promotion health API client','cancelled'],
+    ['Report sealed plans awaiting promotion','skipped'],['Upload sync run report','skipped'],
+    ['Post Checkout','skipped'],['Complete job',null]].map(([name,conclusion])=>({name,conclusion}));
+  f.state.artifacts.length=0;return f;
+}
+test('reviewed native bootstrap cancellation proves no consumer start without fabricating a tuple',async()=>{
+  const f=bootstrapFixture(),result=await f.read();
+  assert.equal(result.state,'not_started');assert.equal(result.reason,'native_scope_bootstrap_not_started');
+  assert.equal(result.proof.bootstrap_not_started,true);assert.equal(result.proof.report_module_sha256,REPORT_MODULE);
+  assert.equal(result.plan_id,undefined);assert.equal(result.source_commit,undefined);
+});
+for (const [name,change] of [
+  ['missing prepare runner',f=>{delete f.jobs[0].runner_id;}],
+  ['null prepare runner',f=>{f.jobs[0].runner_id=null;}],
+  ['assigned prepare runner',f=>{f.jobs[0].runner_id=42;}],
+  ['missing steps',f=>{delete f.jobs[0].steps;}],
+  ['executed prepare step',f=>{f.jobs[0].steps=[{name:'Set up job',conclusion:'success'}];}],
+  ['earlier attempt',f=>{f.run.run_attempt=2;}],
+  ['missing effect job',f=>{f.jobs.splice(2,1);}],
+  ['duplicate effect job',f=>{f.jobs.push({...f.jobs[2],id:99});}],
+  ['unknown job',f=>{f.jobs[2].name='Unknown effect';}],
+  ['native job identity mismatch',f=>{f.jobs[2].run_id=999;}],
+  ['executed effect',f=>{f.jobs[2].steps=[{name:'Checkout',conclusion:'success'}];}],
+  ['successful effect',f=>{f.jobs[2].conclusion='success';}],
+  ['running effect',f=>{f.jobs[2].status='in_progress';}],
+  ['summary effect',f=>{f.jobs.at(-1).steps[6].conclusion='success';}],
+  ['missing summary effect status',f=>{f.jobs.at(-1).steps.splice(6,1);}],
+  ['extra summary execution',f=>{f.jobs.at(-1).steps.push({name:'Unexpected execution',conclusion:'success'});}],
+  ['different setup status',f=>{f.jobs.at(-1).steps[5].conclusion='success';}],
+  ['different native source tree',f=>{f.run.head_sha='d'.repeat(40);for(const job of f.jobs)job.head_sha=f.run.head_sha;}],
+  ['unexpected retained artifact',f=>{f.state.artifacts.push(f.artifact);}],
+  ['unreviewed producer',f=>{f.state.workflow=Buffer.concat([f.state.workflow,Buffer.from('\n# changed workflow\n')]);}],
+  ['unreviewed summary module',f=>{f.state.reportModule=Buffer.concat([f.state.reportModule,Buffer.from('\n// changed module\n')]);}],
+]) test(`bootstrap evidence retains UNKNOWN for ${name}`,async()=>{
+  const f=bootstrapFixture();change(f);assert.equal((await f.read()).state,'unknown');
+});
+test('bootstrap no-start requires fresh unchanged native attempt',async()=>{
+  const f=bootstrapFixture();f.github.rest.actions.getWorkflowRun=async()=>({data:{...f.run,run_attempt:2}});
+  assert.equal((await f.read()).state,'unknown');
+});
+
+
+test('native read refusal retains bounded operation and HTTP status for safe diagnostics',async()=>{
+  const f=fixture();f.args.withRetry=async()=>{const error=new Error('private native error token-must-not-log');error.status=403;throw error;};
+  const result=await f.read();assert.equal(result.state,'unknown');
+  assert.equal(result.proof.last_read,'actions.getWorkflowRunAttempt');assert.equal(result.proof.http_status,403);
 });

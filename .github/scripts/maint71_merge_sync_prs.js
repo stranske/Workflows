@@ -155,6 +155,68 @@ async function readCanaryDefaultTip({ canary, withRetry, consumerTipCache }) {
 }
 
 // Reruns retain their run ID. Execution time must precede ID in receipt order.
+// Observability only: never echo native error text or turn these fields into admission proof.
+const REFRESH_REASON_CODES = new Set([
+  'invalid_native_phase_repositories', 'invalid_native_plan', 'invalid_native_plan_targets',
+  'noncanonical_native_plan_json',
+  'native_plan_digest_mismatch', 'native_scope_archive_digest', 'native_scope_archive_members',
+  'native_scope_artifact_absent_or_ambiguous', 'native_scope_artifact_attempt_window',
+  'native_scope_artifact_identity_mismatch', 'native_scope_attempt_changed', 'native_scope_inventory_bound',
+  'native_scope_inventory_changed', 'native_scope_inventory_duplicate', 'native_scope_inventory_incomplete',
+  'native_scope_inventory_unreadable', 'native_scope_phase_binding', 'native_scope_plan_binding',
+  'native_scope_prepare_mismatch', 'native_scope_run_identity_absent', 'native_scope_run_mismatch',
+  'native_scope_step_ambiguous', 'native_scope_workflow_blob_mismatch', 'native_scope_workflow_source_unreadable',
+  'native_scope_effect_disposition_unknown', 'native_scope_prior_attempt_unknown',
+  'native_scope_receipt_identity_absent', 'native_scope_read_failed',
+  'native_scope_schedule_workflow_unverified', 'native_scope_schedule_identity_mismatch',
+  'native_scope_bootstrap_report_source_unverified', 'native_scope_bootstrap_artifacts_present',
+  'native_scope_bootstrap_not_started',
+]);
+function refreshReceiptDiagnostic(run, receipt = {}, reason = receipt.reason) {
+  const result = { state: ['completed', 'not_started', 'unknown'].includes(receipt.state) ? receipt.state : 'unknown',
+    reason_code: REFRESH_REASON_CODES.has(reason) ? reason : receipt.state === 'unknown' && !reason
+      ? 'native_scope_effect_disposition_unknown' : !reason && ['completed', 'not_started'].includes(receipt.state)
+        ? null : 'native_scope_read_failed',
+    source_identity_bound: receipt.proof?.source_identity_bound === true };
+  for (const [key, value] of Object.entries({ run_id: run.id, run_attempt: run.run_attempt,
+    artifact_id: receipt.proof?.artifact_id, prepare_job_id: receipt.proof?.prepare_job_id })) {
+    if (Number.isSafeInteger(value) && value > 0) result[key] = value;
+  }
+  for (const [key, value] of Object.entries({ head_sha: run.head_sha, source_commit: receipt.source_commit,
+    scope_base_sha: receipt.scope_base_sha, workflow_blob_sha: receipt.proof?.workflow_blob_sha })) {
+    if (typeof value === 'string' && /^[a-f0-9]{40}$/.test(value)) result[key] = value;
+  }
+  const operations = ['actions.getWorkflowRunAttempt', 'actions.listJobsForWorkflowRunAttempt',
+    'actions.listWorkflowRunArtifacts', 'actions.getArtifact', 'actions.downloadArtifact',
+    'actions.getWorkflowRun', 'repos.getContent.workflow', 'repos.getContent.report'];
+  if (operations.includes(receipt.proof?.last_read)) result.last_read = receipt.proof.last_read;
+  if (Number.isSafeInteger(receipt.proof?.http_status) && receipt.proof.http_status >= 100
+    && receipt.proof.http_status <= 599) result.http_status = receipt.proof.http_status;
+  if (/^sha256:[a-f0-9]{64}$/.test(receipt.plan_id || '')) result.plan_id = receipt.plan_id;
+  if (['full', 'source-delta'].includes(receipt.plan_scope)) result.plan_scope = receipt.plan_scope;
+  return result;
+}
+function canaryRefreshDiagnostics(state) {
+  const runs = Array.isArray(state.runs) ? state.runs : [];
+  const unknown = runs.filter(run => run.refresh_unknown);
+  return { schema: 'workflows.canary-refresh-diagnostics/v1',
+    state: ['unknown', 'success', 'unseen', 'writer-active', ...ACTIVE_SYNC_STATES,
+      'failure', 'cancelled', 'timed_out', 'action_required', 'completed', 'sealed-cycle'].includes(state.state)
+      ? state.state : 'unknown', eligible: state.eligible === true,
+    inventory: { observed: runs.length, native_receipts: runs.filter(run => run.refresh_receipt).length,
+      unknown: unknown.length, potential_overwrites: runs.filter(run => run.refresh_potential_overwrite).length,
+      confirmed_not_started: runs.filter(run => run.refresh_not_started).length },
+    blocking_receipt: unknown.find(run => run.id === state.run_id)?.refresh_receipt || null,
+    refusals: unknown.slice(0, 8).map(run => run.refresh_receipt || refreshReceiptDiagnostic(run)),
+    omitted_refusals: Math.max(0, unknown.length - 8) };
+}
+async function reportCanaryRefreshDiagnostics({ core, state }) {
+  if (state.refresh_plan?.plan_scope !== 'source-delta') return;
+  const encoded = JSON.stringify(canaryRefreshDiagnostics(state));
+  core.notice(`canary-refresh-diagnostics: ${encoded}`);
+  await core.summary.addRaw(`\nCanary refresh diagnostics\n\n\`\`\`json\n${encoded}\n\`\`\`\n`).write();
+}
+
 function newestRefreshExecution(a, b) {
   const started = run => Date.parse(run.run_started_at || run.created_at) || 0;
   return started(b) - started(a) || Number(b.run_attempt || 1) - Number(a.run_attempt || 1)
@@ -261,6 +323,7 @@ async function readCanaryRefreshState({ withRetry, context, expectedCanaries, dr
       if (refreshPlan.plan_scope === 'source-delta' && (Number(original.run_attempt || 1) > 1
         || Number(original.run_attempt || 1) !== ignoreRunAttempt)) {
         observed.push({ ...original, refresh_unknown: true,
+          refresh_receipt: refreshReceiptDiagnostic(original, { state: 'unknown' }, 'native_scope_prior_attempt_unknown'),
           refresh_ignore_current_writer: Number(original.run_attempt || 1) === ignoreRunAttempt });
       }
       continue;
@@ -272,6 +335,7 @@ async function readCanaryRefreshState({ withRetry, context, expectedCanaries, dr
       if (!/^Maint 68 canary (?:full|auto|source-delta)\s+source=[a-f0-9]{40} candidates=\S+ dry=false(?: drift=[a-f0-9]{64})?(?: guard=delivery-v1)?$/.test(title)) continue;
       const receipt = await require('./maint68_scoped_receipt').readScopedCanaryReceipt({
         withRetry, context, run, defaultBranch: branch, candidates });
+      run.refresh_receipt = refreshReceiptDiagnostic(run, receipt);
       if (receipt.state === 'unknown') {
         // This proof is produced only by the native reader after joining the
         // original prepare steps to the reviewed workflow source projection.
@@ -286,6 +350,7 @@ async function readCanaryRefreshState({ withRetry, context, expectedCanaries, dr
         continue;
       }
       if (receipt.state === 'not_started' && Number(run.run_attempt || 1) > 1) {
+        run.refresh_receipt = refreshReceiptDiagnostic(run, { ...receipt, state: 'unknown' }, 'native_scope_prior_attempt_unknown');
         if (receipt.proof?.source_identity_bound === true && receipt.source_commit !== source.sha) {
           run.refresh_potential_overwrite = true;
           continue;
@@ -293,6 +358,7 @@ async function readCanaryRefreshState({ withRetry, context, expectedCanaries, dr
         run.refresh_unknown = true;
         continue;
       }
+      if (receipt.state === 'not_started') run.refresh_not_started = true;
       if (receipt.plan_id) {
         run.refresh_plan = refreshPlanContext({ planId: receipt.plan_id, planScope: receipt.plan_scope,
           scopeBaseSha: receipt.scope_base_sha, sourceSha: receipt.source_commit, plan: receipt.plan });
@@ -301,7 +367,10 @@ async function readCanaryRefreshState({ withRetry, context, expectedCanaries, dr
         if (sameRefreshPlan(run.refresh_plan, refreshPlan)) {
           if (!refreshPlan.plan && receipt.plan) refreshPlan.plan = receipt.plan;
         }
-      } else if (receipt.state !== 'not_started') run.refresh_unknown = true;
+      } else if (receipt.state !== 'not_started') {
+        run.refresh_unknown = true;
+        run.refresh_receipt = refreshReceiptDiagnostic(run, { ...receipt, state: 'unknown' }, 'native_scope_receipt_identity_absent');
+      }
       continue;
     }
     const match = String(run.display_title || '').trim().replace(/\s+/g, ' ').match(
@@ -448,6 +517,7 @@ async function dispatchCanaryRefresh({ withRetry, context, core, expectedCanarie
     : state.eligible
     ? `refresh: dispatching canary for ${state.sha}`
     : `refresh: skipped (canary for ${state.sha} already ${state.state})`;
+  await reportCanaryRefreshDiagnostics({ core, state });
   core.notice(line);
   await core.summary.addRaw(`${line}; candidates=${state.candidates.join(',')}; debounce_ms=${CANARY_REFRESH_DEBOUNCE_MS}\n`).write();
   if (!state.eligible) return { ...state, dispatched: false };
@@ -5719,6 +5789,9 @@ module.exports = {
   refreshPlanContext,
   verifiedCanaryRefreshPlan,
   readCanaryRefreshState,
+  refreshReceiptDiagnostic,
+  canaryRefreshDiagnostics,
+  reportCanaryRefreshDiagnostics,
   dispatchCanaryRefresh,
   dispatchCandidateRefreshFromReport,
   canaryNeedsRefresh,

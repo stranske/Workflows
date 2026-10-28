@@ -62,7 +62,12 @@ function repositories(rows) {
 // positive exclusion proof merely by leaving the initial checks unchanged.
 const SOURCE_WORKFLOWS = new Set([
   '038ff08fed8ca2ff28e036ba4ebe03b6d1291232e66ae7d39b90432cb4df0f77',
+  // Reviewed historical producers preserve the same resolved source checkout.
+  'd52252dab8a2322021b39a68651592c4e212cdbb98e807750e5db75c00b99235',
+  'e24c6413cf57f7e1c3ff536cc581164044afb74aa11fd048caf5b96f099313e9',
+  '5684f184111d02e8c9ee270d47c9f59c593da686b9155360ae6eba3f18348579',
   'dc9bf6ee45d4d8527bce8e75d721d8922189bd3f85eac23a9b5f9d7c7226ec98',
+  'c8ed3fdd00ca577b9f8d5d9c58670ed6c2e389d81cc2a515876678ec76864f91',
 ]);
 
 async function readScopedCanaryReceipt({ withRetry, context, run, defaultBranch = 'main', candidates }) {
@@ -70,9 +75,12 @@ async function readScopedCanaryReceipt({ withRetry, context, run, defaultBranch 
   let source, sourceMode;
   const location = { owner: context.repo.owner, repo: context.repo.repo };
   const repository = `${location.owner}/${location.repo}`.toLowerCase();
-  const read = async (method, args) => (await withRetry(client => client.rest.actions[method]({
-    ...location, ...args, request: { timeout: 15000, retries: 0 },
-  }), READ_RETRY)).data;
+  const read = async (method, args) => {
+    proof.last_read = `actions.${method}`;
+    return (await withRetry(client => client.rest.actions[method]({
+      ...location, ...args, request: { timeout: 15000, retries: 0 },
+    }), READ_RETRY)).data;
+  };
   const pages = async (method, args, key) => {
     const result = [], seen = new Set(); let total;
     for (let page = 1; page <= 10; page++) {
@@ -90,7 +98,7 @@ async function readScopedCanaryReceipt({ withRetry, context, run, defaultBranch 
     need(positive(run?.id) && positive(run.run_attempt) && commit(run.head_sha), 'native_scope_run_identity_absent');
     const actual = await read('getWorkflowRunAttempt', { run_id: run.id, attempt_number: run.run_attempt });
     need(actual.id === run.id && actual.run_attempt === run.run_attempt && actual.head_sha === run.head_sha
-      && actual.path === WORKFLOW && actual.event === 'workflow_dispatch' && actual.head_branch === defaultBranch
+      && actual.path === WORKFLOW && ['workflow_dispatch', 'schedule'].includes(actual.event) && actual.head_branch === defaultBranch
       && actual.repository?.full_name?.toLowerCase() === repository && positive(actual.repository?.id)
       && actual.head_repository?.id === actual.repository.id, 'native_scope_run_mismatch');
     proof.run_id = actual.id; proof.run_attempt = actual.run_attempt; proof.head_sha = actual.head_sha;
@@ -100,19 +108,70 @@ async function readScopedCanaryReceipt({ withRetry, context, run, defaultBranch 
       'native_scope_prepare_mismatch');
     const prepare = prepares[0];
     const step = name => { const found = (prepare.steps || []).filter(row => row.name === name); need(found.length === 1, 'native_scope_step_ambiguous'); return found[0]; };
-    const sourceSteps = ['Resolve immutable plan scope', 'Checkout', 'Validate immutable source reachability'];
-    if (sourceSteps.every(name => step(name).conclusion === 'success')) {
-      const response = await withRetry(client => client.rest.repos.getContent({ ...location, path: WORKFLOW,
+    const readSourceFile = async filePath => {
+      proof.last_read = filePath === WORKFLOW ? 'repos.getContent.workflow' : 'repos.getContent.report';
+      const response = await withRetry(client => client.rest.repos.getContent({ ...location, path: filePath,
         ref: actual.head_sha, request: { timeout: 15000, retries: 0 } }), READ_RETRY);
       const file = response.data;
       need(file?.encoding === 'base64' && typeof file.content === 'string', 'native_scope_workflow_source_unreadable');
       const bytes = Buffer.from(file.content, 'base64');
       need(file.sha === createHash('sha1').update(`blob ${bytes.length}\0`).update(bytes).digest('hex'), 'native_scope_workflow_blob_mismatch');
-      if (SOURCE_WORKFLOWS.has(sha(bytes))) {
-        const title = String(actual.display_title || '').trim().replace(/\s+/g, ' ');
-        const match = title.match(/^Maint 68 canary (full|auto|source-delta)\s+source=([a-f0-9]{40}) candidates=\S+ dry=false(?: drift=[a-f0-9]{64})?(?: guard=delivery-v1)?$/);
-        if (match) { source = match[2]; sourceMode = match[1] === 'source-delta' ? 'source-delta' : 'full'; proof.source_identity_bound = true; proof.workflow_blob_sha = file.sha; }
-      }
+      return { bytes, blob: file.sha };
+    };
+    const workflow = await readSourceFile(WORKFLOW), workflowDigest = sha(workflow.bytes);
+    const knownWorkflow = SOURCE_WORKFLOWS.has(workflowDigest);
+    const title = String(actual.display_title || '').trim().replace(/\s+/g, ' ');
+    if (actual.event === 'schedule') {
+      need(knownWorkflow, 'native_scope_schedule_workflow_unverified');
+      const guard = workflowDigest === '5684f184111d02e8c9ee270d47c9f59c593da686b9155360ae6eba3f18348579' ? '' : ' guard=delivery-v1';
+      need(title === `Maint 68 canary auto source=${actual.head_sha} candidates=* dry=false${guard}`,
+        'native_scope_schedule_identity_mismatch');
+    }
+    // This exact reviewed DAG cannot admit any consumer job without prepare
+    // outputs. Positive native bootstrap evidence is required; missing fields
+    // and general cancellation are not no-start proof. Summary's only executed
+    // module is independently fixed to its reviewed pure report implementation.
+    const names = ['Prepare sync from manifest', 'Validate sync files', 'Sync ${{ matrix.repo }}',
+      'Start generated delivery reconciliation', 'Create failure issue', 'Generate summary'];
+    const bootstrap = workflowDigest === 'd52252dab8a2322021b39a68651592c4e212cdbb98e807750e5db75c00b99235'
+      // This exact native tree also closes the cancelled local setup composite
+      // and its transitive fs-only helper; a same-workflow future tree is not proof.
+      && actual.head_sha === '67829b6145644352661b56f5251344cf952d0a64'
+      && actual.run_attempt === 1 && actual.status === 'completed' && actual.conclusion === 'cancelled'
+      && prepare.status === 'completed' && prepare.conclusion === 'cancelled'
+      && prepare.runner_id === 0 && prepare.runner_name === '' && Array.isArray(prepare.steps) && prepare.steps.length === 0
+      && jobs.length === names.length && names.every(name => jobs.filter(job => job.name === name).length === 1)
+      && jobs.every(job => job.run_id === actual.id && job.head_sha === actual.head_sha && job.status === 'completed')
+      && jobs.filter(job => !['Prepare sync from manifest','Generate summary'].includes(job.name)).every(job =>
+        job.conclusion === 'cancelled' && Array.isArray(job.steps) && job.steps.length === 0
+        && Object.hasOwn(job,'runner_id') && [null,0].includes(job.runner_id))
+      && (() => { const summary=jobs.find(job => job.name === 'Generate summary');
+        const expected = [
+          ['Set up job','success'], ['Checkout','success'], ['Download sync result artifacts','success'],
+          ['Build sync run report','success'], ['Generate summary','success'],
+          ['Setup promotion health API client','cancelled'],
+          ['Report sealed plans awaiting promotion','skipped'], ['Upload sync run report','skipped'],
+          ['Post Checkout','skipped'], ['Complete job',null],
+        ];
+        return summary.conclusion === 'cancelled' && Array.isArray(summary.steps)
+          && summary.steps.length === expected.length && expected.every(([name,conclusion],index) =>
+            summary.steps[index]?.name === name && summary.steps[index]?.conclusion === conclusion);
+      })();
+    if (bootstrap) {
+      const reportModule = await readSourceFile('.github/scripts/sync_run_contract.js');
+      need(sha(reportModule.bytes) === '10d28ca1485d2e3cf8630b915d3964c7f7103983511e2088a1135bc5e79ead46', 'native_scope_bootstrap_report_source_unverified');
+      const emptyArtifacts = await pages('listWorkflowRunArtifacts', { run_id: actual.id }, 'artifacts');
+      need(emptyArtifacts.length === 0, 'native_scope_bootstrap_artifacts_present');
+      const fresh = await read('getWorkflowRun', { run_id: actual.id });
+      need(fresh.id === actual.id && fresh.run_attempt === 1 && fresh.head_sha === actual.head_sha
+        && fresh.status === 'completed' && fresh.conclusion === 'cancelled', 'native_scope_attempt_changed');
+      return { state: 'not_started', reason: 'native_scope_bootstrap_not_started', proof: { ...proof,
+        workflow_blob_sha: workflow.blob, report_module_sha256: sha(reportModule.bytes), bootstrap_not_started: true } };
+    }
+    const sourceSteps = ['Resolve immutable plan scope', 'Checkout', 'Validate immutable source reachability'];
+    if (sourceSteps.every(name => step(name).conclusion === 'success') && knownWorkflow) {
+      const match = title.match(/^Maint 68 canary (full|auto|source-delta)\s+source=([a-f0-9]{40}) candidates=\S+ dry=false(?: drift=[a-f0-9]{64})?(?: guard=delivery-v1)?$/);
+      if (match) { source = match[2]; sourceMode = match[1] === 'source-delta' ? 'source-delta' : 'full'; proof.source_identity_bound = true; proof.workflow_blob_sha = workflow.blob; }
     }
     const artifacts = await pages('listWorkflowRunArtifacts', { run_id: actual.id }, 'artifacts');
     const selected = artifacts.filter(artifact => artifact.name === ARTIFACT);
@@ -159,9 +218,11 @@ async function readScopedCanaryReceipt({ withRetry, context, run, defaultBranch 
         && expected.every(repo => consumers.filter(job => job.name === `Sync ${repo}` && job.run_id === actual.id
           && job.head_sha === actual.head_sha && job.status === 'completed' && job.conclusion === 'success').length === 1)) state = 'completed';
     }
-    return { state, plan_id: plan.plan_id, plan_scope: scope.mode, scope_base_sha: scope.base_sha,
+    return { state, ...(state === 'unknown' ? { reason: 'native_scope_effect_disposition_unknown' } : {}),
+      plan_id: plan.plan_id, plan_scope: scope.mode, scope_base_sha: scope.base_sha,
       source_commit: scope.source_commit, plan, candidates: expected, proof };
   } catch (error) {
+    if (Number.isSafeInteger(error?.status) && error.status >= 100 && error.status <= 599) proof.http_status = error.status;
     return { state: 'unknown', ...(source ? { source_commit: source } : {}), reason: String(error.message || error), proof };
   }
 }
