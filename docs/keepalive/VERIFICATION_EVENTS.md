@@ -59,7 +59,13 @@ The optional workflow inputs are:
   siblings as `unselected`, never complete or reviewed. Their availability gaps
   can be omitted only when the existing evidence policy permits that channel to
   be optional. Required selected truncation, unsafe members, duplicate identities
-  and integrity failures remain blocking. Selected proof remains a complete
+  and integrity failures remain blocking. Safe, unique coverage.py sidecars that
+  cannot be inspected within the existing extraction or entry budget are recorded
+  as unavailable under that bound, not as validated SQLite or failed integrity.
+  Readable malformed databases, unsafe/unknown names, duplicates, CRC failures and
+  failed SQLite probes retain their integrity refusal. Optional discovery alone
+  does not create an upload obligation; explicitly selected or required members
+  still need complete capture. Selected proof remains a complete
   required builder section through ordinary prompt fitting and native count
   admission, even when optional enrichment is omitted. These character budgets
   bound optional packing, not necessary proof or model capacity. A complete single

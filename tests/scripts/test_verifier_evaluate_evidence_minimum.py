@@ -826,3 +826,21 @@ def test_coverage_availability_never_hides_other_integrity_or_required_failures(
     result, client = run_evaluate(monkeypatch, context, diff)
     assert result.used_llm is False
     client.invoke.assert_not_called()
+
+
+@pytest.mark.parametrize("failure", ["extraction_byte", "entry", "artifact_record"])
+@pytest.mark.parametrize("required", [False, True])
+def test_incidental_capture_bound_permits_reasoning_but_required_proof_still_holds(
+    monkeypatch, failure, required
+):
+    context, diff = capture(failure=failure)
+    if required:
+        context = replace_inventory(
+            context,
+            lambda inv: inv["acceptance_evidence_sources"][1].update(required_material=True),
+        )
+    result, client = run_evaluate(monkeypatch, context, diff, verdict="FAIL")
+    assert result.used_llm is (not required)
+    assert client.invoke.call_count == (0 if required else 1)
+    if not required:
+        assert result.verdict == "FAIL"  # Availability never confers PASS.
