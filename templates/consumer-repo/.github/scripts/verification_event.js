@@ -662,6 +662,13 @@ function guardExistingEvent(event, comments, assessmentIdentity) {
   const current = records.filter(row => row.run === latest.run && row.attempt === latest.attempt);
   const incomplete = current.filter(row => row.kind === 'incomplete');
   const terminal = current.some(row => row.kind === 'terminal');
+  // A retained recovery's skipped evaluator proves no NEW provider call, not
+  // absence of the original evaluation. Only explicit retained recovery may
+  // continue it; ordinary dispatch must never turn this into generation retry.
+  if (!terminal && current.some(row => row.state?.retained_revalidation
+      || row.state?.execution_binding?.retained_revalidation === true)) {
+    throw new Error('Current retained verification is incomplete; recover retained execution before another evaluation');
+  }
   if (incomplete.length) {
     // An incomplete marker contradicting a terminal never authorizes another
     // provider call. Preserve the original cause rather than rewriting history.

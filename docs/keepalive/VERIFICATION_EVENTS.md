@@ -278,6 +278,29 @@ exact duplicate recovery and uncertain comment writes are reconciled by
 identity before another publication. Recovery does not rewrite an event's
 predecessor or turn old advisory output into current acceptance authority.
 
+Final model responses use the existing strict semantic parser once, including
+one complete JSON fence. Duplicate members, trailing prose, invalid schemas and
+ambiguous output remain held with their original raw response. Final-output
+parsing does not launch a repair generation; a later refusal cannot replace an
+already retained original answer.
+
+For the explicitly supported historical parser source, provider-free recovery can
+emit `retained-revalidation/v2` with a recomputed original-final projection. The
+collector must first authenticate the complete original Actions archive, source,
+execution receipt, request, material and assessment. The projection then parses
+only the retained original final, preserves each configured provider/model slot
+and original order, and independently revalidates the derived result. The original
+payload, its parse error and later repair-refusal metadata stay unchanged in the
+retained source archive. Unknown producers, incomplete or ambiguous originals,
+changed slots and superseding history remain held. A local projection is not
+native provenance or publication authority; `v1` retains its original byte-equality
+contract.
+
+A pending or interrupted retained recovery never becomes permission for ordinary
+provider execution, even when its own evaluator was skipped or its publisher
+positively did not POST. Only explicit retained recovery can continue that work.
+Uncertain publication still requires native reconciliation before another write.
+
 Recovery lifecycle states carry the stable recovery key. A failed read or validation
 can retry only when the publisher was skipped or positively remained before its POST.
 A lost terminal state uses the existing Actions execution reconciler to prove that

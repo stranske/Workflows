@@ -6011,3 +6011,28 @@ test('SQLite probe is isolated bounded read-only and unavailable probes never re
   }
  }
 });
+
+test('ordinary builder never launches evaluation from a retained recovery no-POST marker',async()=>{
+ const {digest}=require('../verification_event');
+ const templateImpl=require('../../../templates/consumer-repo/.github/scripts/agents_verifier_context.js').buildVerifierContext;
+ const templateBuilder=options=>templateImpl({...options,fetchLocalDiff:()=>options.github.__testDiffText});
+ const originalCwd=process.cwd(),directory=fs.mkdtempSync(path.join(os.tmpdir(),'retained-no-provider-replay-'));
+ process.chdir(directory);
+ try {
+  for(const builder of [buildVerifierContext,templateBuilder]) {
+   const initial=await buildEvidenceContext({},{mode:'evaluate'},builder);
+   const {verification_event:event,assessment_identity:assessment}=initial.result.verificationManifest;
+   removeVerifierDiffArtifacts(initial.result);
+   for(const schema of ['retained-revalidation/v1','retained-revalidation/v2']) for(const status of ['pending','incomplete']) {
+    const selector={run_id:10,run_attempt:1,artifact_id:30};
+    const retained={schema,recovery_key:digest({schema:'retained-revalidation-key/v1',event_id:event.event_id,assessment,selector}),source_run_id:'10',source_run_attempt:'1',artifact_id:30,provider_generation_performed:false,publication_effect:'none'};
+    const state=(run,extra)=>({schema:'verifier-event-state/v1',repo:event.repo,pr:event.pr,head_sha:event.head_sha,evaluated_sha:event.evaluated_sha,verification_event:event,assessment_identity:assessment,run_id:String(run),run_attempt:'1',...extra});
+    const comments=[state(10,{status:'incomplete',retry_kind:'recover_existing_evaluation',retryable:false,failure_cause:'retained_provider_evaluation'}),state(20,{status,retry_kind:'known_no_evaluation',retryable:true,failure_cause:'retained_revalidation_before_publication',retained_revalidation:retained})].map((row,i)=>({id:i+1,user:{login:'github-actions[bot]'},html_url:`https://github.com/${event.repo}/pull/${event.pr}#issuecomment-${i+1}`,body:`<!-- verifier-event-state/v1 ${JSON.stringify(row)} -->`}));
+    let captured;
+    const observe=options=>{captured=options.core;options.context.runId=30;return builder(options);};
+    await withEnv('VERIFICATION_RECOVERY','',()=>assert.rejects(()=>buildEvidenceContext({comments},{mode:'evaluate'},observe),/recover retained execution/));
+    assert.notEqual(captured.outputs.should_run,'true');
+   }
+  }
+ } finally {process.chdir(originalCwd);fs.rmSync(directory,{recursive:true,force:true});}
+});

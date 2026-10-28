@@ -206,6 +206,7 @@
     {"function": "test_actual_body_channel_controls_full_coverage_floor", "original_count": 3, "retained_count": 3, "original_dimensions": [{"names": ["status", "verdict"], "size": 3}]},
     {"function": "test_nonpass_text_retains_actionable_concerns_and_raw_detail", "original_count": 2, "retained_count": 2, "original_dimensions": [{"names": ["verdict"], "size": 2}]},
     {"function": "test_failed_repair_does_not_render_wrapped_stale_pass", "original_count": 2, "retained_count": 2, "original_dimensions": [{"names": ["wrapper"], "size": 2}]},
+    {"function": "test_invalid_final_envelope_does_not_render_stale_pass", "original_count": 0, "retained_count": 2, "original_dimensions": []},
     {"function": "test_wrapped_nonpass_detail_is_preserved", "original_count": 2, "retained_count": 2, "original_dimensions": [{"names": ["wrapper"], "size": 2}]},
     {"function": "test_incidental_pass_object_does_not_erase_actionable_diagnostics", "original_count": 2, "retained_count": 2, "original_dimensions": [{"names": ["raw"], "size": 2}]},
     {"function": "test_negated_body_delivery_does_not_require_evidence", "original_count": 12, "retained_count": 12, "original_dimensions": [{"names": ["criterion"], "size": 12}]},

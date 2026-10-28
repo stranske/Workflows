@@ -38,8 +38,8 @@ def test_inventory_accounts_for_every_named_regression_and_case():
     assert set(functions) == {entry["function"] for entry in entries}
     assert sum(entry["original_count"] for entry in entries) == 90550
     assert (
-        sum(entry["retained_count"] for entry in entries) == 31368
-    )  # Retained corpus including the 49 section-boundary cases.
+        sum(entry["retained_count"] for entry in entries) == 31370
+    )  # Retained corpus including 49 section-boundary and two new final-envelope cases.
     matrices = json.loads(MATRICES.read_text(encoding="utf-8"))
     bounded = {row["function"]: row for row in matrices}
     assert len(bounded) == len(matrices) == 24

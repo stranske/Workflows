@@ -173,7 +173,7 @@ def test_evaluate_pr_multiple_keeps_error_shape_for_missing_json(monkeypatch) ->
 
     results = pr_verifier.evaluate_pr_multiple("context")
 
-    assert calls == ["github", "github", "openai"]
+    assert calls == ["github", "openai"]
     failed, passed = results
     assert failed.verdict == "CONCERNS"
     assert failed.used_llm is True
@@ -223,14 +223,14 @@ def test_evaluate_pr_multiple_keeps_error_shape_for_malformed_json(monkeypatch) 
 
     results = pr_verifier.evaluate_pr_multiple("context")
 
-    assert calls == ["github", "github", "openai"]
+    assert calls == ["github", "openai"]
     failed, passed = results
     assert failed.verdict == "CONCERNS"
     assert failed.used_llm is True
     assert failed.provider_used == "github-models/gpt-5.4"
     assert failed.model == "gpt-5.4"
     assert failed.error is not None
-    assert "Failed to parse JSON response after repair" in failed.error
+    assert "Failed to parse JSON response:" in failed.error
     assert passed.verdict == "PASS"
     assert passed.used_llm is True
     assert passed.provider_used == "openai/gpt-5.5"

@@ -31,7 +31,6 @@ from scripts import api_client
 from scripts.langchain._llm_client import get_llm_client, get_llm_clients
 from scripts.langchain.structured_output import (
     build_repair_callback,
-    parse_structured_output,
 )
 from scripts.langchain.verifier_config import (
     EVAL_PAIR_BUDGET_TOKENS,
@@ -8176,25 +8175,13 @@ def _parse_llm_response(
     content: object, provider: str, *, client: object | None = None
 ) -> EvaluationResult:
     content_text = _coerce_response_content(content)
-    repair = _build_verifier_repair_callback(client) if client is not None else None
-    parsed = parse_structured_output(
-        content_text,
-        EvaluationPayload,
-        repair=repair,
-        max_repair_attempts=SCHEMA_REPAIR_POLICY.max_attempts,
-    )
-    if parsed.payload is None:
-        decision = SCHEMA_REPAIR_POLICY.terminal_decision(
-            repair_attempts_used=parsed.repair_attempts_used,
-            error_stage=parsed.error_stage,
-            has_payload=False,
-        )
-        if parsed.error_stage == "repair_validation":
-            error = f"Failed to parse JSON response after repair: {parsed.error_detail}"
-        else:
-            error = f"Failed to parse JSON response: {parsed.error_detail}"
-        if decision == "escalate":
-            error = f"Schema repair policy escalated verifier output: {error}"
+    # A final answer is immutable provider evidence. Parse the existing strict
+    # transport/schema once; malformed or ambiguous output is held locally,
+    # never sent to a provider for a default repair generation.
+    try:
+        payload = _parse_semantic_evaluation_payload(content_text)
+    except (ValueError, TypeError) as exc:
+        error = f"Failed to parse JSON response: {type(exc).__name__}"
         return EvaluationResult(
             verdict="CONCERNS",
             scores=None,
@@ -8206,7 +8193,6 @@ def _parse_llm_response(
             error=error,
         )
 
-    payload = parsed.payload
     return EvaluationResult(
         verdict=payload.verdict,
         files_not_reviewed=payload.files_not_reviewed,
@@ -8219,7 +8205,7 @@ def _parse_llm_response(
         summary=payload.summary,
         provider_used=provider,
         used_llm=True,
-        raw_content=parsed.raw_content or content_text,
+        raw_content=content_text,
     )
 
 
