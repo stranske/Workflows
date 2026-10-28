@@ -1971,7 +1971,8 @@ jobs:
       - name: Retain original correction finding seeds
         if: >-
           always() && steps.event_terminal.outputs.complete == 'true' &&
-          inputs.verification_recovery == '' &&
+          (inputs.verification_recovery == '' ||
+          (steps.retained_recovery.outcome == 'success' && steps.post_recovery.outputs.published == 'true')) &&
           (inputs.mode == 'evaluate' || inputs.mode == 'compare')
         continue-on-error: true
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
@@ -2053,7 +2054,6 @@ jobs:
             verification-recovery-source.zip
             verification-recovery-origin.json
             verification-revalidation-receipt.json
-            retained-source/
             comparison.json
             comparison-execution.json
             comparison-stderr.log
@@ -2090,7 +2090,6 @@ jobs:
             verification-recovery-source.zip
             verification-recovery-origin.json
             verification-revalidation-receipt.json
-            retained-source/
             evaluation.json
             evaluation-stderr.log
             evaluation-execution.json
