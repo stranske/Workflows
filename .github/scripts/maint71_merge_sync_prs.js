@@ -158,6 +158,7 @@ async function readCanaryDefaultTip({ canary, withRetry, consumerTipCache }) {
 // Observability only: never echo native error text or turn these fields into admission proof.
 const REFRESH_REASON_CODES = new Set([
   'invalid_native_phase_repositories', 'invalid_native_plan', 'invalid_native_plan_targets',
+  'noncanonical_native_plan_json',
   'native_plan_digest_mismatch', 'native_scope_archive_digest', 'native_scope_archive_members',
   'native_scope_artifact_absent_or_ambiguous', 'native_scope_artifact_attempt_window',
   'native_scope_artifact_identity_mismatch', 'native_scope_attempt_changed', 'native_scope_inventory_bound',

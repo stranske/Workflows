@@ -424,6 +424,19 @@ test('arbitrary native API error text is never logged; bounded inventory and rec
   const api = recorder(); await dispatchCanaryRefresh({ ...api, context, expectedCanaries: candidates, refreshState: state });
   assert.equal(api.writes.length, 0); assert.match(api.summaries.join(''), /native_scope_read_failed/);
 });
+test('noncanonical native plan preserves its refusal reason and UNKNOWN hold', async () => {
+  const helper = require('../maint71_merge_sync_prs');
+  const run = producer('source-delta', { run_attempt: 1, refresh_unknown: true });
+  run.refresh_receipt = helper.refreshReceiptDiagnostic(run, {
+    state: 'unknown', reason: 'noncanonical_native_plan_json' });
+  assert.equal(run.refresh_receipt.state, 'unknown');
+  assert.equal(run.refresh_receipt.reason_code, 'noncanonical_native_plan_json');
+  const state = { ...ready(), runs: [run], eligible: false, state: 'unknown', run_id: run.id };
+  const api = recorder();
+  await helper.dispatchCanaryRefresh({ ...api, context, expectedCanaries: candidates, refreshState: state });
+  assert.equal(api.writes.length, 0);
+  assert.match(api.summaries.join(''), /noncanonical_native_plan_json/);
+});
 test('parsed but uncertain effect disposition receives an explicit diagnostic code', () => {
   const { refreshReceiptDiagnostic } = require('../maint71_merge_sync_prs');
   assert.equal(refreshReceiptDiagnostic(producer(), { state: 'unknown' }).reason_code,
