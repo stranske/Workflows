@@ -131,7 +131,7 @@ def test_shared_pins_are_loaded_before_repo_overrides(job: str, tmp_path: Path) 
         "ISORT_VERSION": ("isort_spec", "isort", "9.0.2"),
         "RUFF_VERSION": ("ruff_spec", "ruff", "0.17.1"),
         "MYPY_VERSION": ("mypy_spec", "mypy", "2.4.0"),
-        "PYTEST_VERSION": ("pytest_spec", "pytest", "9.2.0"),
+        "PYTEST_VERSION": ("pytest_spec", "pytest", "9.1.1"),
         "PYTEST_COV_VERSION": ("pytest_cov_spec", "pytest-cov", "7.1.0"),
         "PYTEST_XDIST_VERSION": ("pytest_xdist_spec", "pytest-xdist", "3.8.0"),
         "COVERAGE_VERSION": ("coverage_spec", "coverage", "7.16.2"),
