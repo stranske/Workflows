@@ -1201,7 +1201,7 @@ async function assertExecutorCanaryRefresh(t, state) {
       listJobsForWorkflowRun: () => {},
     },
   }, paginate: async (method, params) => {
-    if (method === github.rest.pulls.list) return state !== 'no_change' && params.state === 'open' && params.repo === repo
+    if (method === github.rest.pulls.list) return !state.startsWith('no_change') && params.state === 'open' && params.repo === repo
       ? [structuredClone(candidate)] : [];
     if (method === github.rest.checks.listForRef && presealDual) return [
       ...(sealRecovery ? ['generated delivery seal', 'classify changed paths'].map(name => ({
@@ -1212,7 +1212,7 @@ async function assertExecutorCanaryRefresh(t, state) {
         app: { slug: 'github-actions' },
         details_url: `https://github.com/${owner}/${repo}/actions/runs/4027/job/2` },
     ];
-    if (method === github.rest.checks.listForRef) return preseal ? [] : [
+    if (method === github.rest.checks.listForRef) return (preseal || state === 'no_change_merged') ? [] : [
       { name: 'Gate / gate', status: 'completed',
         conclusion: ['checks_failed', 'producer_success_red'].includes(state) ? 'failure' : 'success' },
     ];
@@ -1243,6 +1243,19 @@ async function assertExecutorCanaryRefresh(t, state) {
         comments: { pageInfo: { hasNextPage: false }, nodes: [] } },
     ] : [] },
   } } }) };
+  if (state === 'no_change_merged') {
+    const checked = 'f'.repeat(40), gitTree = 'a'.repeat(40);
+    const mergedPr = { number: 7, merged: true, merged_at: observed, state: 'closed', merge_commit_sha: head,
+      base: { ref: 'main', sha: 'b'.repeat(40), repo: { full_name: repository } },
+      head: { sha: checked, repo: { full_name: repository } } };
+    github.rest.repos.listPullRequestsAssociatedWithCommit = async () => ({ data: [structuredClone(mergedPr)] });
+    github.rest.repos.listCommitStatusesForRef = async () => ({ data: [] });
+    github.rest.pulls.get = async () => ({ data: structuredClone(mergedPr) });
+    github.rest.git.getCommit = async ({ commit_sha }) => ({ data: { sha: commit_sha, tree: { sha: gitTree } } });
+    github.rest.checks.listForRef = async ({ ref }) => ({ data: { total_count: ref === checked ? 1 : 0,
+      check_runs: ref === checked ? [{ id: 9, name: 'Gate / gate', head_sha: checked,
+        status: 'completed', conclusion: 'success' }] : [] } });
+  }
   const retryHelpers = require('../github-api-with-retry');
   t.mock.method(retryHelpers, 'createTokenAwareRetry', async () => null);
   t.mock.method(retryHelpers, 'withRetry', async (fn) => fn(github));
@@ -1255,7 +1268,7 @@ async function assertExecutorCanaryRefresh(t, state) {
     EXPECTED_SOURCE_COMMIT_INPUT: source, EXPECTED_PLAN_SCOPE_INPUT: 'full',
     SYNC_PR_MERGE_REPORT_JSON: path.join(dir, 'report.json'),
     EVIDENCE_ONLY_INPUT: 'false', RESOLUTION_ONLY_INPUT: 'false',
-    CANARY_BASELINE_EVIDENCE_JSON: state === 'no_change' ? JSON.stringify({
+    CANARY_BASELINE_EVIDENCE_JSON: state.startsWith('no_change') ? JSON.stringify({
       schema: 'workflows.consumer-sync-canary-evidence/v1', version: 1,
       results: [{ repo: repository, plan_id: plan, plan_scope: 'full', scope_base_sha: '',
         source_commit: source, head_sha: head, evidence_source: 'no-change-canary',
@@ -1289,8 +1302,12 @@ async function assertExecutorCanaryRefresh(t, state) {
   assert.deepEqual(failures, [], JSON.stringify(report.results));
   const row = report.results.find((row) => row.owner === owner && row.repo === repo
     && (!['aged_green', 'seal_drained'].includes(state) || row.status === 'merged'));
-  if (state === 'no_change') {
+  if (state.startsWith('no_change')) {
     assert.equal(row.status, 'evidence_recovered');
+    if (state === 'no_change_merged') {
+      assert.equal(row.check_provenance.kind, 'exact-merged-pr-tree');
+      assert.equal(row.check_provenance.checked_head_sha, 'f'.repeat(40));
+    }
     assert.equal(row.plan_id, plan, 'no-change report must retain plan identity');
     assert.equal(row.source_commit, source, 'no-change report must retain source identity');
     assert.equal(row.head_sha, head, 'no-change report must retain exact head');
@@ -2473,6 +2490,8 @@ for (const state of ['producer_success_red', 'producer_success_staging']) {
 
 test('live no-change recovery preserves immutable report identity and reaches promotion',
   async (t) => assertExecutorCanaryRefresh(t, 'no_change'));
+test('live no-change recovery uses exact native merged-tree checks when PR-only Gate is absent',
+  async (t) => assertExecutorCanaryRefresh(t, 'no_change_merged'));
 
 test('successful producer recovery still routes active manifest review debt upstream', async () => {
   const api = refreshHarness({ actions: {

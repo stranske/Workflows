@@ -2097,6 +2097,101 @@ function parseNoChangeEvidenceDocument(raw = '', {
   return evidenceByRepo;
 }
 
+// A squash merge can have the exact checked PR tree but a distinct commit SHA.
+// Adopt only native checks for that exact merged head, never an arbitrary ancestor.
+async function qualifyNoChangeMergedHead({ withRetry, owner, repo, branch, headSha, requiredContexts }) {
+  const { classifySyncPrChecks, selectSyncPrGatingChecks } = require('./sync_pr_merge_contract');
+  const need = (condition, reason) => { if (!condition) throw new Error(reason); };
+  const sha = value => typeof value === 'string' && /^[a-f0-9]{40}$/.test(value);
+  const repository = `${owner}/${repo}`.toLowerCase();
+  const read = async (group, method, args) => (await withRetry(client => client.rest[group][method]({ owner, repo, ...args }))).data;
+  const inventory = async ref => {
+    const checks = [], statuses = [], ids = new Set(); let total;
+    for (let page = 1; page <= 10; page++) {
+      const data = await read('checks', 'listForRef', { ref, per_page: 100, page, filter: 'latest' });
+      need(Array.isArray(data?.check_runs) && Number.isSafeInteger(data.total_count)
+        && data.total_count >= 0 && (total === undefined || total === data.total_count), 'no_change_check_inventory_unknown');
+      total = data.total_count;
+      for (const row of data.check_runs) {
+        need(Number.isSafeInteger(row.id) && row.id > 0 && !ids.has(row.id) && row.head_sha === ref,
+          'no_change_check_identity_unknown'); ids.add(row.id); checks.push(row);
+      }
+      if (checks.length === total) break;
+      need(data.check_runs.length > 0 && checks.length < total && page < 10, 'no_change_check_inventory_incomplete');
+    }
+    ids.clear();
+    for (let page = 1; page <= 10; page++) {
+      const rows = await read('repos', 'listCommitStatusesForRef', { ref, per_page: 100, page });
+      need(Array.isArray(rows), 'no_change_status_inventory_unknown');
+      for (const row of rows) {
+        need(Number.isSafeInteger(row.id) && row.id > 0 && !ids.has(row.id), 'no_change_status_identity_unknown');
+        ids.add(row.id); statuses.push(row);
+      }
+      if (rows.length < 100) break;
+      need(page < 10, 'no_change_status_inventory_incomplete');
+    }
+    const checkNames = new Set(checks.map(row => row.name));
+    const all = [...checks, ...statuses.map(legacyStatusAsCheck).filter(row => !checkNames.has(row.name))];
+    const signature = JSON.stringify({ checks: checks.map(row => [row.id, row.head_sha, row.name, row.status, row.conclusion,
+      row.started_at, row.completed_at]).sort(), statuses: statuses.map(row => [row.id, row.context, row.state, row.updated_at]).sort() });
+    return { all, signature };
+  };
+  const positive = checks => {
+    const selected = selectSyncPrGatingChecks({ checkRuns: checks, requiredContexts });
+    return selected.length === requiredContexts.size && selected.every(row => row.status === 'completed' && row.conclusion === 'success');
+  };
+  const applicable = checks => {
+    const selected = selectSyncPrGatingChecks({ checkRuns: checks, requiredContexts });
+    return selected.every(row => row.status === 'completed' && row.conclusion === 'success')
+      && selected.length < requiredContexts.size;
+  };
+  try {
+    need(sha(headSha) && requiredContexts.size > 0, 'no_change_merge_identity_unknown');
+    const current = await inventory(headSha);
+    need(applicable(current.all), 'no_change_current_required_check_present_or_not_ready');
+    const associated = []; const seen = new Set();
+    for (let page = 1; page <= 10; page++) {
+      const rows = await read('repos', 'listPullRequestsAssociatedWithCommit', { commit_sha: headSha, per_page: 100, page });
+      need(Array.isArray(rows), 'no_change_merged_pr_inventory_unknown');
+      for (const row of rows) {
+        need(Number.isSafeInteger(row.number) && !seen.has(row.number), 'no_change_merged_pr_inventory_ambiguous');
+        seen.add(row.number); associated.push(row);
+      }
+      if (rows.length < 100) break;
+      need(page < 10, 'no_change_merged_pr_inventory_incomplete');
+    }
+    const matches = associated.filter(row => row.merge_commit_sha === headSha && row.state === 'closed'
+      && row.merged_at && row.base?.ref === branch && row.base?.repo?.full_name?.toLowerCase() === repository
+      && row.head?.repo?.full_name?.toLowerCase() === repository);
+    need(matches.length === 1, 'no_change_merged_pr_not_unique');
+    const pr = await read('pulls', 'get', { pull_number: matches[0].number });
+    const identity = row => JSON.stringify([row.number, row.state, row.merged, row.merged_at, row.merge_commit_sha,
+      row.base?.ref, row.base?.sha, row.base?.repo?.full_name, row.head?.sha, row.head?.repo?.full_name]);
+    need(pr.number === matches[0].number && pr.state === 'closed' && pr.merged === true && pr.merged_at
+      && pr.merge_commit_sha === headSha && pr.base?.ref === branch
+      && pr.base?.repo?.full_name?.toLowerCase() === repository
+      && pr.head?.repo?.full_name?.toLowerCase() === repository && sha(pr.head.sha), 'no_change_merged_pr_binding_unknown');
+    const mergedCommit = await read('git', 'getCommit', { commit_sha: headSha });
+    const checkedCommit = await read('git', 'getCommit', { commit_sha: pr.head.sha });
+    need(mergedCommit.sha === headSha && checkedCommit.sha === pr.head.sha && sha(mergedCommit.tree?.sha)
+      && mergedCommit.tree.sha === checkedCommit.tree?.sha, 'no_change_merged_tree_differs');
+    const checked = await inventory(pr.head.sha);
+    need(classifySyncPrChecks({ checkRuns: checked.all, requiredContexts }).status === 'ready'
+      && positive(checked.all), 'no_change_merged_required_checks_not_ready');
+    const finalChecked = await inventory(pr.head.sha), finalCurrent = await inventory(headSha);
+    need(checked.signature === finalChecked.signature && positive(finalChecked.all)
+      && current.signature === finalCurrent.signature && applicable(finalCurrent.all), 'no_change_check_inventory_changed');
+    const finalPr = await read('pulls', 'get', { pull_number: pr.number });
+    const finalRef = await read('git', 'getRef', { ref: `heads/${branch}` });
+    need(identity(pr) === identity(finalPr) && finalRef.object?.sha === headSha, 'no_change_merge_binding_changed');
+    return { ok: true, proof: { kind: 'exact-merged-pr-tree', pull_number: pr.number,
+      default_head_sha: headSha, checked_head_sha: pr.head.sha, tree_sha: mergedCommit.tree.sha,
+      required_contexts: [...requiredContexts].sort() } };
+  } catch (error) {
+    return { ok: false, reason: /^no_change_[a-z_]+$/.test(error?.message || '') ? error.message : 'no_change_native_read_unknown' };
+  }
+}
+
 function campaignNoChangeRequiresLiveGate(evidence = {}) {
   return evidence?.evidence_source !== 'no-change-delivery';
 }
@@ -4106,22 +4201,34 @@ async function run({ github, context, core }) {
           });
           continue;
         }
+        let noChangeCheckProvenance;
         if (baselineChecks.classification.status !== 'ready') {
-          console.log(
-            `No-change canary required checks are not green: ` +
-              baselineChecks.classification.status,
-          );
-          results.push({
-            owner,
-            repo,
-            status: baselineChecks.classification.status,
-            expected_head_sha: baselineEvidence.head_sha,
-            observed_head_sha: liveHeadSha,
-            reason: 'no_change_canary_required_checks_not_ready',
-            failed_checks: baselineChecks.classification.failed.map((check) => check.name),
-            pending_checks: baselineChecks.classification.pending.map((check) => check.name),
-          });
-          continue;
+          const seen = new Set(baselineChecks.allChecks.map(row => row.name));
+          const missingOnly = baselineChecks.classification.failed.length === 0
+            && baselineChecks.classification.pending.length > 0
+            && baselineChecks.classification.pending.every(row => !seen.has(row.name));
+          const mergedChecks = missingOnly ? await qualifyNoChangeMergedHead({ withRetry, owner, repo,
+            branch: repository.default_branch, headSha: liveHeadSha,
+            requiredContexts: baselineChecks.requiredContexts }) : { ok: false };
+          if (mergedChecks.ok) noChangeCheckProvenance = mergedChecks.proof;
+          else {
+            console.log(
+              `No-change canary required checks are not green: ` +
+                baselineChecks.classification.status,
+            );
+            results.push({
+              owner,
+              repo,
+              status: baselineChecks.classification.status,
+              expected_head_sha: baselineEvidence.head_sha,
+              observed_head_sha: liveHeadSha,
+              reason: 'no_change_canary_required_checks_not_ready',
+              native_check_reason: mergedChecks.reason,
+              failed_checks: baselineChecks.classification.failed.map((check) => check.name),
+              pending_checks: baselineChecks.classification.pending.map((check) => check.name),
+            });
+            continue;
+          }
         }
         canaryEvidence.push(baselineEvidence);
         results.push({
@@ -4132,6 +4239,7 @@ async function run({ github, context, core }) {
           head_sha: baselineEvidence.head_sha,
           status: 'evidence_recovered',
           delivery_disposition: 'no-change-canary-confirmed',
+          ...(noChangeCheckProvenance ? { check_provenance: noChangeCheckProvenance } : {}),
           branch: syncBranchForHash('candidate'),
           observed_head_sha: liveHeadSha,
           active_review_thread_count: 0,
@@ -5812,6 +5920,7 @@ module.exports = {
   confirmedClosedPrIdentity,
   devToolBaseRefreshResult,
   campaignNoChangeRequiresLiveGate,
+  qualifyNoChangeMergedHead,
   collectReviewerEvidence,
   enforceGeneratedDeliveryRequiredContexts,
   ensureExactHeadReviewRequest,
