@@ -913,7 +913,6 @@ function extractArtifactArchiveText({ archiveBuffer, maxEntries, maxChars, maxBy
     if (members.some(member => member.status === 'duplicate')) failures.push('duplicate_member');
     const parts = [];
     let truncated = failures.length > 0;
-    if (!selectedMembers) classifyCoverage();
     for (const member of members.filter(item => item.status === 'pending')) {
       const entry = member.name;
       const prefix = `### ${entry}\n\n`;
@@ -974,7 +973,9 @@ function extractArtifactArchiveText({ archiveBuffer, maxEntries, maxChars, maxBy
         truncated = true;
       }
     }
-    if (selectedMembers) classifyCoverage();
+    // Incidental binary inspection must not consume the text capture budget,
+    // whether discovery is automatic or members were explicitly selected.
+    classifyCoverage();
     if (validatedCoverage.size) failures.push('unrenderable_coverage_sqlite');
     if (filteredPayloadEntries.length > unrenderableMedia.length + validatedCoverage.size) failures.push('unsupported_payload');
     // Explicit selection never becomes optional merely because no text row was retained.

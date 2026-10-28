@@ -5986,6 +5986,36 @@ test('valid SQLite header and ZIP CRC cannot conceal a structurally malformed da
  }
 });
 
+test('text capture precedes incidental coverage under the unchanged extraction byte bound',()=> {
+ const database=nativeCoverageSqliteBytes();
+ const log=Buffer.from('retained results');
+ assert.equal(log.length,16);
+ const archive=execFileSync('python3',['-I','-c',
+  "import io,zipfile,sys\nb=io.BytesIO()\nwith zipfile.ZipFile(b,'w',compression=zipfile.ZIP_STORED) as z:\n z.writestr('.coverage',sys.stdin.buffer.read())\n z.writestr('results.log',b'retained results')\nsys.stdout.buffer.write(b.getvalue())"],{input:database});
+ for(const extract of [extractArtifactArchiveText,require('../../../templates/consumer-repo/.github/scripts/agents_verifier_context.js').extractArtifactArchiveText]) {
+  for(const selectedMembers of [undefined,['results.log'],['results.log','.coverage']]) {
+   const reads=[];
+   const result=extract({archiveBuffer:archive,selectedMembers,maxEntries:4,maxChars:500,maxBytes:512,
+    execFile:(cmd,args,options)=>{
+     if(cmd==='unzip' && args[0]==='-p')reads.push({name:args.at(-1),bound:options.maxBuffer});
+     return execFileSync(cmd,args,options);
+    }});
+   assert.match(result.text,/retained results/);
+   assert.equal(result.members.find(member=>member.name==='results.log').status,'included');
+   assert.equal(reads[0].name,'results.log');
+   assert.equal(reads[1].name,'.coverage');
+   assert.equal(reads[1].bound,512-log.length);
+   assert.ok(result.extractedBytes<=512);
+   assert.ok(result.failures.includes('unsupported_payload'));
+   assert.ok(!result.failures.includes('unrenderable_coverage_sqlite'));
+   if(selectedMembers?.includes('.coverage')) {
+    assert.ok(result.failures.includes('required_member_unrenderable'));
+    assert.equal(result.selectedCaptureComplete,false);
+   }
+  }
+ }
+});
+
 test('SQLite probe is isolated bounded read-only and unavailable probes never relax unknown bytes',()=> {
  const native=nativeCoverageSqliteBytes();
  for(const extract of [extractArtifactArchiveText,require('../../../templates/consumer-repo/.github/scripts/agents_verifier_context.js').extractArtifactArchiveText]) {
