@@ -17,7 +17,17 @@ async function reconcilePendingExecution({github,event,assessment,state,maxPages
     const actual = validateEvent(state.verification_event);
     const retained = state.execution_binding?.retained_revalidation === true;
     const binding = {...executionBinding(assessment.mode), ...(retained ? {retained_revalidation:true} : {})};
-    if(retained && (!state.retained_revalidation?.recovery_key || state.retained_revalidation.schema!=='retained-revalidation/v1')) return unknown('recovery_identity_unavailable');
+    if(retained) {
+      const proof=state.retained_revalidation;
+      if(!proof?.recovery_key || !['retained-revalidation/v1','retained-revalidation/v2'].includes(proof.schema)) return unknown('recovery_identity_unavailable');
+      if(proof.schema==='retained-revalidation/v2') {
+        const selector={run_id:Number(proof.source_run_id),run_attempt:Number(proof.source_run_attempt),artifact_id:proof.artifact_id};
+        if(proof.provider_generation_performed!==false
+            || !Object.values(selector).every(value=>Number.isSafeInteger(value)&&value>0)
+            || String(selector.run_id)!==proof.source_run_id || String(selector.run_attempt)!==proof.source_run_attempt
+            || proof.recovery_key!==digest({schema:'retained-revalidation-key/v1',event_id:event.event_id,assessment,selector})) return unknown('recovery_identity_unavailable');
+      }
+    }
     if (state.schema !== 'verifier-event-state/v1' || state.status !== 'pending'
         || actual.event_id !== event.event_id || !sameAssessment(state.assessment_identity,assessment)
         || ['repo','pr','head_sha','evaluated_sha'].some(key => state[key] !== event[key])

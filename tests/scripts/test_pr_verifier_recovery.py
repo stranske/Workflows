@@ -98,7 +98,10 @@ def test_configured_native_client_compatibility(
         type(client), "invoke", return_value=SimpleNamespace(content='{"verdict":"PASS"}')
     ) as invoke:
         if operation == "repair":
-            result = pr_verifier._parse_llm_response("invalid JSON", provider, client=client)
+            # Exercise the explicit capacity guard, not removed default parser repair.
+            with pytest.raises(pr_verifier.InputCapacityError):
+                pr_verifier._CapacityCheckedRepairClient(client).invoke("full repair request")
+            result = SimpleNamespace(verdict="CONCERNS")
         elif operation == "compare":
             result = pr_verifier.ComparisonRunner(
                 complete_capture_context(),

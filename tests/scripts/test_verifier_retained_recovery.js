@@ -159,3 +159,50 @@ test('confirmed admitted POST with incomplete lifecycle can finish without model
  assert.equal(guardRecoveryHistory({...args,currentRun:22,comments:[...history,fresh]}),'duplicate');
  assert.equal(JSON.stringify(history),before);
 });
+
+test('V2 retained identity supports skipped publication but holds unknown write and forged identity',async()=>{
+ const {executionBinding,guardRetainedRecoveryHistory,reconcilePendingExecution}=require('../../.github/scripts/verifier_pending_execution.js');
+ const {digest}=require('../../.github/scripts/verification_event.js');
+ const selector={run_id:1,run_attempt:1,artifact_id:30};
+ const proof={schema:'retained-revalidation/v2',recovery_key:digest({schema:'retained-revalidation-key/v1',event_id:event.event_id,assessment,selector}),source_run_id:'1',source_run_attempt:'1',artifact_id:30,provider_generation_performed:false};
+ for(const published of [false,true]) {
+  const {github}=fixture(d=>{d.job.steps.find(s=>s.name==='Run LLM evaluation').conclusion='skipped';d.job.steps.push({...step('Publish retained revalidation through verifier lifecycle',43,'10','11'),conclusion:published?'success':'skipped'});});
+  const input=comment(10,{execution_binding:{...executionBinding('evaluate'),retained_revalidation:true},retained_revalidation:proof});
+  const args={github,event,assessment,comments:[input],sourceRun:1,currentRun:20,recoveryKey:proof.recovery_key,observations:[]};
+  if(published) await assert.rejects(guardRetainedRecoveryHistory(args),/active or uncertain/);
+  else {assert.equal(await guardRetainedRecoveryHistory(args),'ready');assert.equal(args.observations[0].publication_conclusion,'skipped');}
+  for(const change of [p=>p.recovery_key='f'.repeat(64),p=>p.source_run_attempt='2',p=>p.provider_generation_performed=true,p=>p.schema='retained-revalidation/v3']) {
+   const wrong=structuredClone(proof);change(wrong);
+   const state={schema:'verifier-event-state/v1',status:'pending',repo:event.repo,pr:event.pr,head_sha:event.head_sha,evaluated_sha:event.evaluated_sha,run_id:'10',run_attempt:'1',verification_event:event,assessment_identity:assessment,execution_binding:{...executionBinding('evaluate'),retained_revalidation:true},retained_revalidation:wrong};
+   assert.equal((await reconcilePendingExecution({github,event,assessment,state})).failure_cause,'recovery_identity_unavailable');
+  }
+ }
+});
+
+test('V2 lost acknowledged publication deduplicates without repeating generation or POST',async()=>{
+ const {digest}=require('../../.github/scripts/verification_event.js');
+ const selector={run_id:1,run_attempt:1,artifact_id:30};
+ const proof={schema:'retained-revalidation/v2',recovery_key:digest({schema:'retained-revalidation-key/v1',event_id:event.event_id,assessment,selector}),source_run_id:'1',source_run_attempt:'1',artifact_id:30,provider_generation_performed:false};
+ const pending=comment(10,{retained_revalidation:proof});
+ const row=JSON.parse(pending.body.match(/ (\{.*\}) -->/)[1]);
+ Object.assign(row,{schema:'verifier-corpus-decision/v1',verdict:'NON_PASS',provider_verdicts:['FAIL'],ci_failed:false,result_admission:{schema:'verifier-result-admission/v1',mode:'evaluate',payload_sha256:'a'.repeat(64),execution_receipt_sha256:'b'.repeat(64)}});delete row.status;
+ const complete={...pending,body:`<!-- verifier-corpus-decision/v1 ${JSON.stringify(row)} -->`};
+ const unknown=comment(10,{status:'incomplete',retry_kind:'uncertain_execution',retryable:false,failure_cause:'retained_revalidation_publication_uncertain',retained_revalidation:{...proof,publication_effect:'uncertain'}});
+ assert.equal(guardRecoveryHistory({event,assessment,comments:[pending,complete,unknown],sourceRun:1,currentRun:20,recoveryKey:proof.recovery_key}),'ready');
+ assert.throws(()=>guardRecoveryHistory({event,assessment,comments:[pending,unknown],sourceRun:1,currentRun:20,recoveryKey:proof.recovery_key}),/superseded/);
+});
+
+test('no-selector ordinary evaluation cannot replay provider after retained no-POST recovery',()=>{
+ const {guardExistingEvent,digest}=require('../../.github/scripts/verification_event.js');
+ const original=comment(10,{status:'incomplete',retry_kind:'recover_existing_evaluation',retryable:false,failure_cause:'retained_provider_evaluation'});
+ for(const schema of ['retained-revalidation/v1','retained-revalidation/v2']) {
+  const selector={run_id:10,run_attempt:1,artifact_id:30};
+  const proof={schema,recovery_key:digest({schema:'retained-revalidation-key/v1',event_id:event.event_id,assessment,selector}),source_run_id:'10',source_run_attempt:'1',artifact_id:30,provider_generation_performed:false,publication_effect:'none'};
+  const stopped=comment(20,{status:'incomplete',retry_kind:'known_no_evaluation',retryable:true,failure_cause:'retained_revalidation_before_publication',retained_revalidation:proof});
+  assert.throws(()=>guardExistingEvent(event,[original,stopped],assessment),/recover retained execution/);
+  const pending=comment(20,{execution_binding:{...require('../../.github/scripts/verifier_pending_execution.js').executionBinding('evaluate'),retained_revalidation:true},retained_revalidation:proof});
+  assert.throws(()=>guardExistingEvent(event,[original,pending],assessment),error=>error.code!=='VERIFIER_PENDING_EXECUTION' && /recover retained execution/.test(error.message));
+ }
+ const ordinary=comment(20,{status:'incomplete',retry_kind:'known_no_evaluation',retryable:true,failure_cause:'evaluator_step_not_invoked'});
+ assert.equal(guardExistingEvent(event,[ordinary],assessment),'retry');
+});
