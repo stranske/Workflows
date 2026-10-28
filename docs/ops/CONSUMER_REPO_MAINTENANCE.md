@@ -3668,3 +3668,14 @@ runner IDs, executed steps, changed attempts or unknown source remain UNKNOWN.
 This proves no delivery started; it fabricates neither a plan tuple nor a
 completed delivery. Older unknown effects are not discarded by age or merely
 because a later workflow reported success.
+
+### No-change qualification across campaign stages
+
+Candidate qualification and campaign prepare, commit and re-entry use the same
+no-change check predicate. When a required PR-only context is absent on a merged
+default-head commit, the existing native merged-PR check proof applies only when
+that exact merge commit and the checked PR head have the identical whole Git tree.
+Each stage repeats the native check inventories and head/linkage reads. A present
+failed, pending or unknown required context remains blocking. Generated delivery
+PRs and their final merge guard continue to require their own exact-head checks;
+this no-change fallback does not apply to them.

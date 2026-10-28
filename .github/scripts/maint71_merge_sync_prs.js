@@ -3141,6 +3141,22 @@ async function run({ github, context, core }) {
     };
   }
 
+  // Only authorized no-change evidence can use identical merged-tree checks.
+  // Generated PR checks and the final pre-merge guard keep their exact-head rule.
+  async function qualifyNoChangeRequiredChecks({ owner, repo, branch, ref }) {
+    const checks = await classifyRequiredChecksForRef({ owner, repo, branch, ref });
+    if (checks.requiredContexts.size === 0) return { ...checks, noChangeQualified: false };
+    if (checks.classification.status === 'ready') return { ...checks, noChangeQualified: true };
+    const seen = new Set(checks.allChecks.map(row => row.name));
+    const missingOnly = checks.classification.failed.length === 0
+      && checks.classification.pending.length > 0
+      && checks.classification.pending.every(row => !seen.has(row.name));
+    const merged = missingOnly ? await qualifyNoChangeMergedHead({ withRetry, owner, repo, branch,
+      headSha: ref, requiredContexts: checks.requiredContexts }) : { ok: false };
+    return { ...checks, noChangeQualified: merged.ok,
+      noChangeCheckProvenance: merged.proof, nativeCheckReason: merged.reason };
+  }
+
   async function resolveProvenReviewDebt({ owner, repo, pr, deliveryRecord }) {
     const matching = reviewResolutionProofs.filter((proof) =>
       proof?.repository === `${owner}/${repo}`
@@ -4122,8 +4138,9 @@ async function run({ github, context, core }) {
           });
           continue;
         }
+        let noChangeCheckProvenance;
         if (campaignNoChangeRequiresLiveGate(campaignNoChangeEvidence)) {
-          const baselineChecks = await classifyRequiredChecksForRef({
+          const baselineChecks = await qualifyNoChangeRequiredChecks({
             owner,
             repo,
             branch: repositoryState.default_branch,
@@ -4131,7 +4148,7 @@ async function run({ github, context, core }) {
           });
           if (
             baselineChecks.requiredContexts.size === 0
-            || baselineChecks.classification.status !== 'ready'
+            || !baselineChecks.noChangeQualified
           ) {
             results.push({
               owner,
@@ -4142,14 +4159,17 @@ async function run({ github, context, core }) {
               expected_head_sha: campaignNoChangeEvidence.head_sha,
               observed_head_sha: liveHeadSha,
               reason: 'campaign_no_change_required_checks_not_ready',
+              native_check_reason: baselineChecks.nativeCheckReason,
             });
             continue;
           }
+          noChangeCheckProvenance = baselineChecks.noChangeCheckProvenance;
         }
         results.push({
           owner,
           repo,
           status: 'campaign_no_change_verified',
+          ...(noChangeCheckProvenance ? { check_provenance: noChangeCheckProvenance } : {}),
           observed_head_sha: liveHeadSha,
           plan_id: campaignNoChangeEvidence.plan_id,
           source_commit: campaignNoChangeEvidence.source_commit,
@@ -4183,7 +4203,7 @@ async function run({ github, context, core }) {
           });
           continue;
         }
-        const baselineChecks = await classifyRequiredChecksForRef({
+        const baselineChecks = await qualifyNoChangeRequiredChecks({
           owner,
           repo,
           branch: repository.default_branch,
@@ -4201,34 +4221,24 @@ async function run({ github, context, core }) {
           });
           continue;
         }
-        let noChangeCheckProvenance;
-        if (baselineChecks.classification.status !== 'ready') {
-          const seen = new Set(baselineChecks.allChecks.map(row => row.name));
-          const missingOnly = baselineChecks.classification.failed.length === 0
-            && baselineChecks.classification.pending.length > 0
-            && baselineChecks.classification.pending.every(row => !seen.has(row.name));
-          const mergedChecks = missingOnly ? await qualifyNoChangeMergedHead({ withRetry, owner, repo,
-            branch: repository.default_branch, headSha: liveHeadSha,
-            requiredContexts: baselineChecks.requiredContexts }) : { ok: false };
-          if (mergedChecks.ok) noChangeCheckProvenance = mergedChecks.proof;
-          else {
-            console.log(
-              `No-change canary required checks are not green: ` +
-                baselineChecks.classification.status,
-            );
-            results.push({
-              owner,
-              repo,
-              status: baselineChecks.classification.status,
-              expected_head_sha: baselineEvidence.head_sha,
-              observed_head_sha: liveHeadSha,
-              reason: 'no_change_canary_required_checks_not_ready',
-              native_check_reason: mergedChecks.reason,
-              failed_checks: baselineChecks.classification.failed.map((check) => check.name),
-              pending_checks: baselineChecks.classification.pending.map((check) => check.name),
-            });
-            continue;
-          }
+        const noChangeCheckProvenance = baselineChecks.noChangeCheckProvenance;
+        if (!baselineChecks.noChangeQualified) {
+          console.log(
+            `No-change canary required checks are not green: ` +
+              baselineChecks.classification.status,
+          );
+          results.push({
+            owner,
+            repo,
+            status: baselineChecks.classification.status,
+            expected_head_sha: baselineEvidence.head_sha,
+            observed_head_sha: liveHeadSha,
+            reason: 'no_change_canary_required_checks_not_ready',
+            native_check_reason: baselineChecks.nativeCheckReason,
+            failed_checks: baselineChecks.classification.failed.map((check) => check.name),
+            pending_checks: baselineChecks.classification.pending.map((check) => check.name),
+          });
+          continue;
         }
         canaryEvidence.push(baselineEvidence);
         results.push({
