@@ -23,7 +23,7 @@ concurrency:
 jobs:
   report:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -31,6 +31,10 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.14"
+      - name: Install the verifier's Python requirements (same file production uses)
+        run: |
+          python -m pip install --disable-pip-version-check --upgrade pip
+          pip install --disable-pip-version-check -r tools/requirements-llm.txt
       - name: Fetch the previous ledger
         env:
           GH_TOKEN: ${{ github.token }}
@@ -51,6 +55,42 @@ jobs:
           repos="stranske/Workflows,$(python scripts/list_registered_consumer_repos.py --separator ',')"
           python -m tools.verifier_shadow_report --ledger ledger.json --repos "$repos" \
             --markdown report.md --json report.json
+          cat report.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Install the Cursor CLI
+        env:
+          CURSOR_CLI_VERSION: 2026.10.16-e3cb207
+        run: |
+          set -euo pipefail
+          case "$(uname -m)" in
+            x86_64|amd64) arch=x64 ;;
+            aarch64|arm64) arch=arm64 ;;
+            *) echo "::error::Unsupported Cursor architecture"; exit 1 ;;
+          esac
+          cli_dir="$RUNNER_TEMP/cursor"
+          mkdir -p "$cli_dir"
+          curl -fsSL "https://downloads.cursor.com/lab/${CURSOR_CLI_VERSION}/linux/${arch}/agent-cli-package.tar.gz" \
+            | tar --strip-components=1 -xzf - -C "$cli_dir"
+          echo "$cli_dir" >> "$GITHUB_PATH"
+      - name: Judge the external candidates (Muse API, Cursor CLI) from the saved verifier inputs
+        # Bounded and checkpointed: the ledger is rewritten after every judged run and no new run
+        # starts unless a full judge timeout still fits before --budget-seconds, so a slow backend
+        # can neither lose completed paid judgments nor hold back the report below.
+        continue-on-error: true
+        timeout-minutes: 30
+        env:
+          GH_TOKEN: ${{ secrets.OWNER_PR_PAT }}
+          MUSE_API_KEY: ${{ secrets.MUSE_API_KEY }}
+          CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
+        run: |
+          set -euo pipefail
+          repos="stranske/Workflows,$(python scripts/list_registered_consumer_repos.py --separator ',')"
+          python -m tools.verifier_shadow_external --ledger ledger.json --repos "$repos" \
+            --budget-seconds 1620
+      - name: Re-evaluate the criteria with the external verdicts
+        if: ${{ !cancelled() }}
+        run: |
+          set -euo pipefail
+          python -m tools.verifier_shadow_report --ledger ledger.json --markdown report.md --json report.json
           cat report.md >> "$GITHUB_STEP_SUMMARY"
       - name: Update the single report issue
         env:

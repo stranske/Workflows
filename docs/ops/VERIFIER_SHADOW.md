@@ -83,3 +83,58 @@ timing-out candidate records its own error and never disturbs the others.
 Multiple-comparisons caution: with seven candidates, the chance that at least one meets the criteria by
 luck is much higher than for one. Promotion picks, among candidates that MEET, the cheapest; a lone
 MEETS among many is not proof of superiority, and the day-21 cap applies to each independently.
+
+## Candidate choice and external candidates
+
+Only the newest model of each line is shadowed (gpt-6.1-sol, not gpt-6-sol or gpt-5.6; claude-opus-5-5,
+not opus-5; no Anthropic model older than the production claude-sonnet-5-5; gpt-6-luna stays because no
+6.1 luna exists).
+
+Muse (`muse-api`, muse-spark-1.3, own pay-as-you-go key, non-contributor tier) and Cursor (`cursor-cli`,
+read-only ask mode) are `runner: external` candidates. Consumer workflows hold no credential for them,
+so they cannot judge inside a verification run. Instead the daily report job
+(`tools/verifier_shadow_external.py`) replays each fresh run's saved context and diff (the
+`comparison-results-*` artifact, 7-day retention) through the same production prompt and appends the
+verdict to that run's ledger record. They are scored by the same criteria; their baseline is the
+production OpenAI judge. Bounds: public repositories only, at most 25 new pull requests judged per daily
+run, one request per candidate per run (never repeated). Limits: the replay uses chain depth 0 and the
+Cursor/Muse harness differs from the LangChain one, so a MEETS here is a screen-grade result for a
+different harness, not proof the model would behave identically inside the production verifier.
+
+## Correction 2026-10-27: candidates now run the production path
+
+The first nine shadow records were discarded. In-workflow candidates were judged through
+`pr_verifier.evaluate_pr`, whose lenient coverage rule (`evaluate_minimum=True`) production does not use,
+so candidates answered an easier question than the incumbent: the production OpenAI judge returned
+UNVERIFIABLE_INPUT on 7 of 9 runs while every candidate returned PASS, and the report scored that
+disagreement as candidate "misses". Candidates now run `ComparisonRunner.run_single`, the exact per-slot
+production path (strict coverage, chunked review, coverage floor), and each entry records its
+`pipeline`; the report ignores entries without an accepted pipeline tag. A second fault: haiku and opus
+returned "Failed to parse JSON" on every run, which was recorded as a CONCERNS verdict. An entry with an
+error is now a failed attempt (it lowers coverage) and never a verdict. Candidate windows restart.
+
+Muse and Cursor now take the same path: `tools/verifier_shadow_external.py` wraps each judge so it
+answers `invoke(prompt)` and runs it through `ComparisonRunner.run_single`, with the same chunking,
+response parsing and coverage floor. The one difference is the pre-flight input-size check, which
+production restricts to OpenAI, Anthropic and GitHub Models clients and fails closed on anything else;
+it is skipped for these two in the report job only (each entry records `capacity_preflight: skipped`).
+Entries with an error keep a 400-character `raw_excerpt` of the model's answer.
+
+## Review fixes 2026-10-28
+
+- **Dependencies.** The daily job installs `tools/requirements-llm.txt`, the file the production
+  verifier installs, before any run is replayed.
+- **One run per PR.** A PR is verified again on every push. The external judges take one run per
+  repository and PR: the one already judged, otherwise the newest, so a later push never causes a
+  second paid judgment and the PR is counted once.
+- **Time budget.** One run can make several sequential judge calls (production chunks a large
+  input). Each run gets `RUN_BUDGET_SECONDS` (two judge timeouts plus a minute, derived from the one
+  `JUDGE_TIMEOUT_SECONDS`), and the judge client refuses any call that could not finish inside it.
+  `--budget-seconds` (1620) starts a run only if that whole budget still fits; the step has a
+  30-minute timeout and the job 45. The ledger is rewritten atomically after every judged run, the
+  step is `continue-on-error`, and the report step runs after it unless the job was cancelled.
+  Drain check: a run skipped for time is counted as `out_of_time` and is picked up by the next
+  daily job.
+- **Semantic runs.** Records carry `semantic_mode` (the expanded profile). Production judges those
+  with the semantic package matrix, which the per-slot candidate path does not reproduce, so they
+  are neither replayed nor paired.

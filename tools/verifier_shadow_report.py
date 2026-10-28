@@ -14,6 +14,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import subprocess
 import zipfile
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
@@ -24,20 +25,44 @@ from typing import Any
 PASS = "PASS"
 
 
+ACCEPTED_PIPELINES = {"compare-slot/v2"}
+
+
 def _valid(entry: dict[str, Any] | None) -> bool:
-    return bool(entry) and bool(entry.get("used_llm")) and entry.get("verdict") is not None
+    """A usable measurement: the judge answered, without a harness error (parse failure, timeout)."""
+    return (
+        bool(entry)
+        and bool(entry.get("used_llm"))
+        and entry.get("verdict") is not None
+        and not entry.get("error")
+    )
+
+
+def _current(entry: dict[str, Any]) -> bool:
+    """Candidate entries from an earlier, non-production pipeline are not evidence."""
+    return entry.get("pipeline") in ACCEPTED_PIPELINES
+
+
+def _comparable(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Runs whose production verdict came from the pipeline candidates reproduce.
+
+    Expanded-profile runs are judged in production by the semantic package matrix, not by the
+    per-slot path candidates take, so pairing the two would compare different pipelines.
+    """
+    return [r for r in records if r.get("semantic_mode") is not True]
 
 
 def paired_runs(records: list[dict[str, Any]], candidate: dict[str, Any]) -> list[dict[str, Any]]:
     """Runs where the candidate and the production slot it replaces both gave a usable verdict."""
     out = []
-    for record in records:
+    for record in _comparable(records):
         cand = next(
             (
                 c
                 for c in record.get("candidates", [])
                 if c.get("provider") == candidate["provider"]
                 and c.get("model") == candidate["model"]
+                and _current(c)
             ),
             None,
         )
@@ -57,9 +82,11 @@ def paired_runs(records: list[dict[str, Any]], candidate: dict[str, Any]) -> lis
 def attempted(records: list[dict[str, Any]], candidate: dict[str, Any]) -> list[dict[str, Any]]:
     return [
         c
-        for record in records
+        for record in _comparable(records)
         for c in record.get("candidates", [])
-        if c.get("provider") == candidate["provider"] and c.get("model") == candidate["model"]
+        if c.get("provider") == candidate["provider"]
+        and c.get("model") == candidate["model"]
+        and _current(c)
     ]
 
 
@@ -242,6 +269,27 @@ def collect(
     return found
 
 
+def gh_list_artifacts(repo: str) -> list[dict[str, Any]]:
+    out = subprocess.run(
+        ["gh", "api", f"repos/{repo}/actions/artifacts?per_page=100", "--jq", ".artifacts"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    try:
+        return json.loads(out.stdout or "[]")
+    except ValueError:
+        return []
+
+
+def gh_download(repo: str, artifact_id: int) -> bytes:
+    return subprocess.run(
+        ["gh", "api", f"repos/{repo}/actions/artifacts/{artifact_id}/zip"],
+        capture_output=True,
+        check=False,
+    ).stdout
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--ledger", type=Path, required=True)
@@ -257,30 +305,10 @@ def main(argv: list[str] | None = None) -> int:
     ledger = json.loads(args.ledger.read_text()) if args.ledger.exists() else []
     repos = [r.strip() for r in args.repos.split(",") if r.strip()]
     if repos:
-        import subprocess
-
-        def list_artifacts(repo: str) -> list[dict[str, Any]]:
-            out = subprocess.run(
-                ["gh", "api", f"repos/{repo}/actions/artifacts?per_page=100", "--jq", ".artifacts"],
-                capture_output=True,
-                text=True,
-                check=False,
-            )
-            try:
-                return json.loads(out.stdout or "[]")
-            except ValueError:
-                return []
-
-        def download(repo: str, artifact_id: int) -> bytes:
-            return subprocess.run(
-                ["gh", "api", f"repos/{repo}/actions/artifacts/{artifact_id}/zip"],
-                capture_output=True,
-                check=False,
-            ).stdout
-
         since = datetime.now(UTC) - timedelta(days=args.days)
         ledger = merge_ledger(
-            ledger, collect(repos, since=since, list_artifacts=list_artifacts, download=download)
+            ledger,
+            collect(repos, since=since, list_artifacts=gh_list_artifacts, download=gh_download),
         )
     args.ledger.write_text(json.dumps(ledger, indent=1) + "\n")
     result = evaluate(ledger, config)

@@ -158,14 +158,75 @@ def test_one_failing_candidate_does_not_disturb_the_others():
     assert ok["verdict"] == "PASS" and bad["verdict"] is None and "quota" in bad["error"]
 
 
-def test_the_shipped_config_shadows_several_candidates_of_both_providers():
+def test_the_shipped_config_shadows_several_candidates_across_all_four_providers():
     from pathlib import Path
 
     config = json.loads(
         (Path(__file__).resolve().parents[2] / "config/verifier_shadow.json").read_text()
     )
     providers = {c["provider"] for c in config["candidates"]}
-    assert len(config["candidates"]) >= 6 and providers == {"openai", "anthropic"}
+    assert len(config["candidates"]) >= 6 and providers == {
+        "openai",
+        "anthropic",
+        "muse-api",
+        "cursor-cli",
+    }
     assert len({(c["provider"], c["model"]) for c in config["candidates"]}) == len(
         config["candidates"]
     )
+
+
+def test_candidates_run_the_production_slot_path_not_the_lenient_evaluator(monkeypatch):
+    """evaluate_pr uses evaluate_minimum=True; production compare uses ComparisonRunner.run_single."""
+    from scripts.langchain import pr_verifier as pv
+
+    seen = {}
+
+    class Runner:
+        def __init__(self, **kw):
+            seen["init"] = kw
+
+        def run_single(self, client, provider, model):
+            seen["run"] = (client, provider, model)
+            return SimpleNamespace(
+                verdict="PASS", used_llm=True, error=None, confidence=0.9, concerns=[]
+            )
+
+    monkeypatch.setattr(
+        pv, "_get_llm_client", lambda model=None, provider=None: ("client", "openai")
+    )
+    monkeypatch.setattr(pv, "ComparisonRunner", Runner)
+    monkeypatch.setattr(
+        pv, "_prepare_prompt", lambda c, d, **kw: seen.setdefault("min", kw) and "p" or "p"
+    )
+    result = shadow.evaluate_like_production("ctx", "diff", model="m", provider="openai")
+    assert result.verdict == "PASS" and seen["run"] == ("client", "openai", "m")
+    assert "evaluate_minimum" not in seen.get("min", {})
+
+
+def test_every_candidate_entry_names_its_pipeline():
+    entry = shadow.run_candidate(
+        {"provider": "openai", "model": "m"}, "ctx", None, lambda *a, **k: _result("PASS")
+    )
+    assert entry["pipeline"] == shadow.PIPELINE == "compare-slot/v2"
+
+
+def test_main_records_whether_production_ran_the_semantic_matrix(tmp_path, monkeypatch):
+    context = tmp_path / "context.md"
+    context.write_text("## Tasks\n- [ ] x\n")
+    seen = []
+
+    def fake_run_shadow(context, diff, comparison, config, **kwargs):
+        seen.append(kwargs["meta"])
+        return {"candidates": [], **kwargs["meta"]}
+
+    monkeypatch.setattr(shadow, "run_shadow", fake_run_shadow)
+    for value, expected in (("1", True), ("0", False), (None, False)):
+        if value is None:
+            monkeypatch.delenv("VERIFIER_SEMANTIC_MODE", raising=False)
+        else:
+            monkeypatch.setenv("VERIFIER_SEMANTIC_MODE", value)
+        out = tmp_path / f"out-{value}.json"
+        shadow.main(["--context-file", str(context), "--output", str(out)])
+        assert json.loads(out.read_text())["semantic_mode"] is expected
+    assert len(seen) == 3
