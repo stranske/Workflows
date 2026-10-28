@@ -886,16 +886,29 @@ function extractArtifactArchiveText({ archiveBuffer, maxEntries, maxChars, maxBy
     const coverageCandidates = occurrences.filter(({name,safe}) => !safe
       && safeCoverageSqliteName(name) && counts.get(name) === 1);
     const validatedCoverage = new Set();
+    const uninspectedCoverage = new Set();
     let coverageReads = 0;
     const classifyCoverage = () => {
       for (const {name} of coverageCandidates) {
         // Text selections keep their entry reservation and byte priority.
-        if (coverageReads >= Math.max(0,maxEntries-selected.length) || remainingBytes <= 0) break;
+        if (coverageReads >= Math.max(0,maxEntries-selected.length) || remainingBytes <= 0) {
+          // A bounded stop is not a failed format/integrity inspection. Keep
+          // this member unavailable without asserting either valid SQLite or
+          // unknown bytes. Required selections still fail below.
+          const reason = remainingBytes <= 0 ? 'extraction_byte' : 'entry';
+          uninspectedCoverage.add(name);
+          const member = members.find(item => item.name === name);
+          if (member) Object.assign(member, {status:'unavailable', reason});
+          failures.push(reason);
+          continue;
+        }
         coverageReads += 1;
+        let fullyExtracted = false;
         try {
           const value = Buffer.from(execFile('unzip',['-p',archivePath,name],{maxBuffer:remainingBytes}));
           if (value.length > remainingBytes) throw Object.assign(new Error('coverage extraction byte bound'),{code:'VERIFIER_EXTRACTION_BOUND'});
           remainingBytes -= value.length;
+          fullyExtracted = true;
           if (coverageSqliteFormat(value) && checkCoverageSqlite(value,tempDir,coverageReads,execFile)) {
             validatedCoverage.add(name);
             const member = members.find(item => item.name === name);
@@ -904,8 +917,13 @@ function extractArtifactArchiveText({ archiveBuffer, maxEntries, maxChars, maxBy
           }
         } catch (error) {
           remainingBytes = 0;
-          failures.push(['ENOBUFS','VERIFIER_EXTRACTION_BOUND'].includes(error?.code)
-            ? 'extraction_byte' : 'extraction_byte_or_read');
+          const bounded = !fullyExtracted && ['ENOBUFS','VERIFIER_EXTRACTION_BOUND'].includes(error?.code);
+          if (bounded) {
+            uninspectedCoverage.add(name);
+            const member = members.find(item => item.name === name);
+            if (member) Object.assign(member, {status:'unavailable', reason:'extraction_byte'});
+          }
+          failures.push(bounded ? 'extraction_byte' : 'extraction_byte_or_read');
         }
       }
     };
@@ -977,7 +995,7 @@ function extractArtifactArchiveText({ archiveBuffer, maxEntries, maxChars, maxBy
     // whether discovery is automatic or members were explicitly selected.
     classifyCoverage();
     if (validatedCoverage.size) failures.push('unrenderable_coverage_sqlite');
-    if (filteredPayloadEntries.length > unrenderableMedia.length + validatedCoverage.size) failures.push('unsupported_payload');
+    if (filteredPayloadEntries.length > unrenderableMedia.length + validatedCoverage.size + uninspectedCoverage.size) failures.push('unsupported_payload');
     // Explicit selection never becomes optional merely because no text row was retained.
     if (selectedMembers?.some(name => !members.some(member => member.name === name && ['included','captured'].includes(member.status)))) {
       failures.push('required_member_unrenderable');
