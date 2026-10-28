@@ -2016,7 +2016,16 @@ already terminal evidence and needs no PR mutation. Promotion-produced
 Maint 71 rechecks its immutable plan/source binding and recorded default-branch
 head, then treats it as terminal without dispatching a redundant Gate for an
 unchanged repository. Canary no-change evidence retains the live required-check
-revalidation that authorized promotion. For `target_missing` with
+revalidation that authorized promotion. If a required PR-only context is absent
+from the current default commit, Maint 71 can use its actual merged PR's checked
+head only after native reads prove the exact merge SHA, same repository/base,
+and identical whole Git trees (all bytes and modes). The required checks on that
+exact PR head must be green; complete current/default and PR-head check/status
+inventories, the merged PR and the live default ref are rechecked. A present
+failed, pending or uncertain required context cannot use this fallback. The
+result retains the checked head, default head, tree, PR and required contexts as
+explicit check provenance; no status is fabricated or branch protection waived.
+For `target_missing` with
 reason `campaign_pr_and_no_change_evidence_missing`, regenerate the stable
 delivery for the same plan; if a partial commit pass already merged it, resume
 the prepare pass so Maint 71 rebuilds authorization from trusted closed merged
