@@ -5986,32 +5986,6 @@ test('valid SQLite header and ZIP CRC cannot conceal a structurally malformed da
  }
 });
 
-test('SQLite probe is isolated bounded read-only and unavailable probes never relax unknown bytes',()=> {
- const native=nativeCoverageSqliteBytes();
- for(const extract of [extractArtifactArchiveText,require('../../../templates/consumer-repo/.github/scripts/agents_verifier_context.js').extractArtifactArchiveText]) {
-  for(const unavailable of [true,false]) {
-   let probes=0;
-   const result=extract({archiveBuffer:Buffer.from('zip'),maxEntries:4,maxChars:500,maxBytes:native.length+100,
-    execFile:(cmd,args,options)=>{
-     if(cmd==='unzip')return args[0]==='-Z1'?'.coverage\n':native;
-     assert.equal(cmd,'python3');assert.equal(args[0],'-I');
-     assert.equal(options.timeout,15000);assert.equal(options.killSignal,'SIGKILL');
-     assert.equal(options.maxBuffer,128);
-     assert.ok(Object.keys(options.env).every(key=>['PATH','SYSTEMROOT','TMPDIR'].includes(key)));
-     assert.match(args[2],/mode=ro&immutable=1/);assert.match(args[2],/quick_check\(1\)/);
-     assert.match(args[2],/set_progress_handler/);assert.match(args[2],/time\.monotonic\(\)\+15/);
-     assert.equal(fs.statSync(args[3]).mode & 0o777,0o600);
-     probes++;
-     if(unavailable)throw Object.assign(new Error('runtime unavailable'),{code:'ENOENT'});
-     return 'not-ok';
-    }});
-   assert.equal(probes,1);
-   assert.ok(result.failures.includes('unsupported_payload'));
-   assert.ok(!result.failures.includes('unrenderable_coverage_sqlite'));
-  }
- }
-});
-
 test('text capture precedes incidental coverage under the unchanged extraction byte bound',()=> {
  const database=nativeCoverageSqliteBytes();
  const log=Buffer.from('retained results');
@@ -6038,6 +6012,32 @@ test('text capture precedes incidental coverage under the unchanged extraction b
     assert.ok(result.failures.includes('required_member_unrenderable'));
     assert.equal(result.selectedCaptureComplete,false);
    }
+  }
+ }
+});
+
+test('SQLite probe is isolated bounded read-only and unavailable probes never relax unknown bytes',()=> {
+ const native=nativeCoverageSqliteBytes();
+ for(const extract of [extractArtifactArchiveText,require('../../../templates/consumer-repo/.github/scripts/agents_verifier_context.js').extractArtifactArchiveText]) {
+  for(const unavailable of [true,false]) {
+   let probes=0;
+   const result=extract({archiveBuffer:Buffer.from('zip'),maxEntries:4,maxChars:500,maxBytes:native.length+100,
+    execFile:(cmd,args,options)=>{
+     if(cmd==='unzip')return args[0]==='-Z1'?'.coverage\n':native;
+     assert.equal(cmd,'python3');assert.equal(args[0],'-I');
+     assert.equal(options.timeout,15000);assert.equal(options.killSignal,'SIGKILL');
+     assert.equal(options.maxBuffer,128);
+     assert.ok(Object.keys(options.env).every(key=>['PATH','SYSTEMROOT','TMPDIR'].includes(key)));
+     assert.match(args[2],/mode=ro&immutable=1/);assert.match(args[2],/quick_check\(1\)/);
+     assert.match(args[2],/set_progress_handler/);assert.match(args[2],/time\.monotonic\(\)\+15/);
+     assert.equal(fs.statSync(args[3]).mode & 0o777,0o600);
+     probes++;
+     if(unavailable)throw Object.assign(new Error('runtime unavailable'),{code:'ENOENT'});
+     return 'not-ok';
+    }});
+   assert.equal(probes,1);
+   assert.ok(result.failures.includes('unsupported_payload'));
+   assert.ok(!result.failures.includes('unrenderable_coverage_sqlite'));
   }
  }
 });
