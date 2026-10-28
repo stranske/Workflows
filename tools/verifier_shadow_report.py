@@ -25,8 +25,22 @@ from typing import Any
 PASS = "PASS"
 
 
+ACCEPTED_PIPELINES = {"compare-slot/v2", "external-single-prompt/v1"}
+
+
 def _valid(entry: dict[str, Any] | None) -> bool:
-    return bool(entry) and bool(entry.get("used_llm")) and entry.get("verdict") is not None
+    """A usable measurement: the judge answered, without a harness error (parse failure, timeout)."""
+    return (
+        bool(entry)
+        and bool(entry.get("used_llm"))
+        and entry.get("verdict") is not None
+        and not entry.get("error")
+    )
+
+
+def _current(entry: dict[str, Any]) -> bool:
+    """Candidate entries from an earlier, non-production pipeline are not evidence."""
+    return entry.get("pipeline") in ACCEPTED_PIPELINES
 
 
 def paired_runs(records: list[dict[str, Any]], candidate: dict[str, Any]) -> list[dict[str, Any]]:
@@ -39,6 +53,7 @@ def paired_runs(records: list[dict[str, Any]], candidate: dict[str, Any]) -> lis
                 for c in record.get("candidates", [])
                 if c.get("provider") == candidate["provider"]
                 and c.get("model") == candidate["model"]
+                and _current(c)
             ),
             None,
         )
@@ -60,7 +75,9 @@ def attempted(records: list[dict[str, Any]], candidate: dict[str, Any]) -> list[
         c
         for record in records
         for c in record.get("candidates", [])
-        if c.get("provider") == candidate["provider"] and c.get("model") == candidate["model"]
+        if c.get("provider") == candidate["provider"]
+        and c.get("model") == candidate["model"]
+        and _current(c)
     ]
 
 

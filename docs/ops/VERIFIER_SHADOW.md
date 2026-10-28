@@ -100,3 +100,15 @@ production OpenAI judge. Bounds: public repositories only, at most 25 new pull r
 run, one request per candidate per run (never repeated). Limits: the replay uses chain depth 0 and the
 Cursor/Muse harness differs from the LangChain one, so a MEETS here is a screen-grade result for a
 different harness, not proof the model would behave identically inside the production verifier.
+
+## Correction 2026-10-27: candidates now run the production path
+
+The first nine shadow records were discarded. In-workflow candidates were judged through
+`pr_verifier.evaluate_pr`, whose lenient coverage rule (`evaluate_minimum=True`) production does not use,
+so candidates answered an easier question than the incumbent: the production OpenAI judge returned
+UNVERIFIABLE_INPUT on 7 of 9 runs while every candidate returned PASS, and the report scored that
+disagreement as candidate "misses". Candidates now run `ComparisonRunner.run_single`, the exact per-slot
+production path (strict coverage, chunked review, coverage floor), and each entry records its
+`pipeline`; the report ignores entries without an accepted pipeline tag. A second fault: haiku and opus
+returned "Failed to parse JSON" on every run, which was recorded as a CONCERNS verdict. An entry with an
+error is now a failed attempt (it lowers coverage) and never a verdict. Candidate windows restart.

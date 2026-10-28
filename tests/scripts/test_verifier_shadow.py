@@ -165,7 +165,47 @@ def test_the_shipped_config_shadows_several_candidates_across_all_four_providers
         (Path(__file__).resolve().parents[2] / "config/verifier_shadow.json").read_text()
     )
     providers = {c["provider"] for c in config["candidates"]}
-    assert len(config["candidates"]) >= 6 and providers == {"openai", "anthropic", "muse-api", "cursor-cli"}
+    assert len(config["candidates"]) >= 6 and providers == {
+        "openai",
+        "anthropic",
+        "muse-api",
+        "cursor-cli",
+    }
     assert len({(c["provider"], c["model"]) for c in config["candidates"]}) == len(
         config["candidates"]
     )
+
+
+def test_candidates_run_the_production_slot_path_not_the_lenient_evaluator(monkeypatch):
+    """evaluate_pr uses evaluate_minimum=True; production compare uses ComparisonRunner.run_single."""
+    from scripts.langchain import pr_verifier as pv
+
+    seen = {}
+
+    class Runner:
+        def __init__(self, **kw):
+            seen["init"] = kw
+
+        def run_single(self, client, provider, model):
+            seen["run"] = (client, provider, model)
+            return SimpleNamespace(
+                verdict="PASS", used_llm=True, error=None, confidence=0.9, concerns=[]
+            )
+
+    monkeypatch.setattr(
+        pv, "_get_llm_client", lambda model=None, provider=None: ("client", "openai")
+    )
+    monkeypatch.setattr(pv, "ComparisonRunner", Runner)
+    monkeypatch.setattr(
+        pv, "_prepare_prompt", lambda c, d, **kw: seen.setdefault("min", kw) and "p" or "p"
+    )
+    result = shadow.evaluate_like_production("ctx", "diff", model="m", provider="openai")
+    assert result.verdict == "PASS" and seen["run"] == ("client", "openai", "m")
+    assert "evaluate_minimum" not in seen.get("min", {})
+
+
+def test_every_candidate_entry_names_its_pipeline():
+    entry = shadow.run_candidate(
+        {"provider": "openai", "model": "m"}, "ctx", None, lambda *a, **k: _result("PASS")
+    )
+    assert entry["pipeline"] == shadow.PIPELINE == "compare-slot/v2"

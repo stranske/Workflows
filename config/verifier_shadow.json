@@ -19,7 +19,7 @@
       "provider": "openai",
       "model": "gpt-6.1-terra",
       "replaces_provider": "openai",
-      "why": "Newest tier of the production judge's own line (production is gpt-5.6-terra). Owner asked for it explicitly. The ID is not in config/model_registry.json and no public source confirms it yet: if the API rejects it, the record shows an error and coverage stays 0, which is the signal to fix or drop it."
+      "why": "Newest tier of the production judge's own line (production is gpt-5.6-terra). Owner asked for it explicitly; confirmed served by the OpenAI models API 2026-10-27."
     },
     {
       "provider": "anthropic",
@@ -67,5 +67,10 @@
   "on_rollback": "A candidate miss on a PR that later reverts or draws a verifier follow-up is listed in the report as a defect the incumbent caught and the candidate missed; one such case ends the evaluation as DOES NOT MEET.",
   "owner_time": "One read of the day-7 report (about 2 minutes) before any promotion; nothing blocks while the shadow runs.",
   "note_on_many_candidates": "Every candidate is evaluated against the same criteria, each against the production slot of its own provider (openai against gpt-5.6-terra, anthropic against claude-sonnet-5-5). Judging several candidates raises the chance that one meets the criteria by luck, so promotion picks among those that MEET by cost and does not treat a single MEETS as proof of superiority.",
-  "note_on_candidate_choice": "Only the newest model of each line is shadowed: gpt-6.1-sol rather than gpt-6-sol or gpt-5.6, claude-opus-5-5 rather than opus-5, and no Anthropic model older than the production claude-sonnet-5-5. gpt-6-luna stays because no 6.1 luna exists. External candidates (runner: external) are judged by tools/verifier_shadow_external.py in the daily report job."
+  "note_on_candidate_choice": "Only the newest model of each line is shadowed: gpt-6.1-sol rather than gpt-6-sol or gpt-5.6, claude-opus-5-5 rather than opus-5, and no Anthropic model older than the production claude-sonnet-5-5. gpt-6-luna stays because no 6.1 luna exists. External candidates (runner: external) are judged by tools/verifier_shadow_external.py in the daily report job.",
+  "accepted_pipelines": {
+    "in_workflow": "compare-slot/v2",
+    "external": "external-single-prompt/v1"
+  },
+  "note_on_pipelines": "Entries recorded before the in-workflow candidates ran the production per-slot path (strict coverage, chunked review: compare-slot/v2) are ignored; the first version used evaluate_pr, whose lenient coverage rule made candidates answer an easier question than the production judge did."
 }

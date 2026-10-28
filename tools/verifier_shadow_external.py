@@ -68,6 +68,7 @@ def entry_for(candidate: dict[str, Any], judge: Any, prompt: str) -> dict[str, A
         "confidence": None,
         "concerns": None,
         "external": True,
+        "pipeline": "external-single-prompt/v1",
     }
     try:
         outcome = judge.invoke(prompt)

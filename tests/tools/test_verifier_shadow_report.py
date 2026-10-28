@@ -30,6 +30,7 @@ def _record(i, cand="PASS", slot="PASS", day=0.0, cand_ok=True, run=None):
                 "model": CAND["model"],
                 "verdict": cand if cand_ok else None,
                 "used_llm": cand_ok,
+                "pipeline": "compare-slot/v2",
             }
         ],
     }
@@ -155,6 +156,7 @@ def test_each_candidate_is_judged_on_its_own_window_and_own_baseline():
                 "model": other["model"],
                 "verdict": "PASS",
                 "used_llm": True,
+                "pipeline": "compare-slot/v2",
             }
         )
         records.append(record)
@@ -173,7 +175,13 @@ def test_a_late_candidate_starts_its_own_clock():
     late = CONFIG["candidates"][-1]
     records = [_record(i, day=i * 0.5) for i in range(12)]
     records[-1]["candidates"].append(
-        {"provider": late["provider"], "model": late["model"], "verdict": "PASS", "used_llm": True}
+        {
+            "provider": late["provider"],
+            "model": late["model"],
+            "verdict": "PASS",
+            "used_llm": True,
+            "pipeline": "compare-slot/v2",
+        }
     )
     result = rep.evaluate(records, CONFIG, now=START + timedelta(days=8))
     late_result = next(c for c in result["candidates"] if c["candidate"].endswith(late["model"]))
@@ -185,3 +193,18 @@ def test_markdown_opens_with_one_row_per_candidate():
     assert "| Candidate | Status |" in text
     for candidate in CONFIG["candidates"]:
         assert f"| {candidate['provider']}:{candidate['model']} |" in text
+
+
+def test_entries_from_the_earlier_lenient_pipeline_are_not_evidence():
+    old = _record(1)
+    del old["candidates"][0]["pipeline"]
+    result = _eval([old], 1)
+    assert result["paired_runs"] == 0 and result["attempts"] == 0
+
+
+def test_a_harness_error_is_not_a_verdict():
+    """Haiku/opus returned 'Failed to parse JSON' as CONCERNS with used_llm true; that is not a measurement."""
+    record = _record(1, cand="CONCERNS")
+    record["candidates"][0]["error"] = "Schema repair policy escalated verifier output"
+    result = _eval([record], 1)
+    assert result["paired_runs"] == 0 and result["attempts"] == 1 and result["coverage"] == 0.0
