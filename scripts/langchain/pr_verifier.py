@@ -8172,7 +8172,7 @@ def _parse_semantic_evaluation_payload(content: str) -> EvaluationPayload:
 
 
 def _parse_llm_response(
-    content: object, provider: str, *, client: object | None = None
+    content: object, provider: str, *, client: object | None = None  # noqa: ARG001 - compatibility
 ) -> EvaluationResult:
     content_text = _coerce_response_content(content)
     # A final answer is immutable provider evidence. Parse the existing strict
