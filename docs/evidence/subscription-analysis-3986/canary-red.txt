@@ -5,13 +5,12 @@ $ python -m pytest tests/workflows/test_subscription_llm_credential_canary.py -q
 F.F.F.F.F.F.                                                             [100%]
 =================================== FAILURES ===================================
 _______ test_subscription_analysis_credential_canary[source-task-codex] ________
-tests/workflows/test_subscription_llm_credential_canary.py:214: in test_subscription_analysis_credential_canary
+tests/workflows/test_subscription_llm_credential_canary.py:222: in test_subscription_analysis_credential_canary
     assert client.invoke(injected_prompt).content == "fixture analysis"
            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-tools/subscription_llm.py:147: in invoke
-    result = subprocess.run(command, **options)
-             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-tests/workflows/test_subscription_llm_credential_canary.py:159: in inspect_process
+tools/subscription_llm.py:141: in invoke
+    result = subprocess.run(
+tests/workflows/test_subscription_llm_credential_canary.py:167: in inspect_process
     assert [
 E   AssertionError: assert ['view_image'...de_host', ...] == ['shell_tool'... 'hooks', ...]
 E
@@ -19,13 +18,12 @@ E     At index 0 diff: 'view_image' != 'shell_tool'
 E     Right contains one more item: 'skill_search'
 E     Use -v to get more diff
 _ test_subscription_analysis_credential_canary[source-acceptance-criterion-codex] _
-tests/workflows/test_subscription_llm_credential_canary.py:214: in test_subscription_analysis_credential_canary
+tests/workflows/test_subscription_llm_credential_canary.py:222: in test_subscription_analysis_credential_canary
     assert client.invoke(injected_prompt).content == "fixture analysis"
            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-tools/subscription_llm.py:147: in invoke
-    result = subprocess.run(command, **options)
-             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-tests/workflows/test_subscription_llm_credential_canary.py:159: in inspect_process
+tools/subscription_llm.py:141: in invoke
+    result = subprocess.run(
+tests/workflows/test_subscription_llm_credential_canary.py:167: in inspect_process
     assert [
 E   AssertionError: assert ['view_image'...de_host', ...] == ['shell_tool'... 'hooks', ...]
 E
@@ -33,13 +31,12 @@ E     At index 0 diff: 'view_image' != 'shell_tool'
 E     Right contains one more item: 'skill_search'
 E     Use -v to get more diff
 _ test_subscription_analysis_credential_canary[source-session-transcript-codex] _
-tests/workflows/test_subscription_llm_credential_canary.py:214: in test_subscription_analysis_credential_canary
+tests/workflows/test_subscription_llm_credential_canary.py:222: in test_subscription_analysis_credential_canary
     assert client.invoke(injected_prompt).content == "fixture analysis"
            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-tools/subscription_llm.py:147: in invoke
-    result = subprocess.run(command, **options)
-             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-tests/workflows/test_subscription_llm_credential_canary.py:159: in inspect_process
+tools/subscription_llm.py:141: in invoke
+    result = subprocess.run(
+tests/workflows/test_subscription_llm_credential_canary.py:167: in inspect_process
     assert [
 E   AssertionError: assert ['view_image'...de_host', ...] == ['shell_tool'... 'hooks', ...]
 E
@@ -47,13 +44,12 @@ E     At index 0 diff: 'view_image' != 'shell_tool'
 E     Right contains one more item: 'skill_search'
 E     Use -v to get more diff
 ______ test_subscription_analysis_credential_canary[template-task-codex] _______
-tests/workflows/test_subscription_llm_credential_canary.py:214: in test_subscription_analysis_credential_canary
+tests/workflows/test_subscription_llm_credential_canary.py:222: in test_subscription_analysis_credential_canary
     assert client.invoke(injected_prompt).content == "fixture analysis"
            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-templates/consumer-repo/tools/subscription_llm.py:147: in invoke
-    result = subprocess.run(command, **options)
-             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-tests/workflows/test_subscription_llm_credential_canary.py:159: in inspect_process
+templates/consumer-repo/tools/subscription_llm.py:141: in invoke
+    result = subprocess.run(
+tests/workflows/test_subscription_llm_credential_canary.py:167: in inspect_process
     assert [
 E   AssertionError: assert ['view_image'...de_host', ...] == ['shell_tool'... 'hooks', ...]
 E
@@ -61,13 +57,12 @@ E     At index 0 diff: 'view_image' != 'shell_tool'
 E     Right contains one more item: 'skill_search'
 E     Use -v to get more diff
 _ test_subscription_analysis_credential_canary[template-acceptance-criterion-codex] _
-tests/workflows/test_subscription_llm_credential_canary.py:214: in test_subscription_analysis_credential_canary
+tests/workflows/test_subscription_llm_credential_canary.py:222: in test_subscription_analysis_credential_canary
     assert client.invoke(injected_prompt).content == "fixture analysis"
            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-templates/consumer-repo/tools/subscription_llm.py:147: in invoke
-    result = subprocess.run(command, **options)
-             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-tests/workflows/test_subscription_llm_credential_canary.py:159: in inspect_process
+templates/consumer-repo/tools/subscription_llm.py:141: in invoke
+    result = subprocess.run(
+tests/workflows/test_subscription_llm_credential_canary.py:167: in inspect_process
     assert [
 E   AssertionError: assert ['view_image'...de_host', ...] == ['shell_tool'... 'hooks', ...]
 E
@@ -75,13 +70,12 @@ E     At index 0 diff: 'view_image' != 'shell_tool'
 E     Right contains one more item: 'skill_search'
 E     Use -v to get more diff
 _ test_subscription_analysis_credential_canary[template-session-transcript-codex] _
-tests/workflows/test_subscription_llm_credential_canary.py:214: in test_subscription_analysis_credential_canary
+tests/workflows/test_subscription_llm_credential_canary.py:222: in test_subscription_analysis_credential_canary
     assert client.invoke(injected_prompt).content == "fixture analysis"
            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-templates/consumer-repo/tools/subscription_llm.py:147: in invoke
-    result = subprocess.run(command, **options)
-             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-tests/workflows/test_subscription_llm_credential_canary.py:159: in inspect_process
+templates/consumer-repo/tools/subscription_llm.py:141: in invoke
+    result = subprocess.run(
+tests/workflows/test_subscription_llm_credential_canary.py:167: in inspect_process
     assert [
 E   AssertionError: assert ['view_image'...de_host', ...] == ['shell_tool'... 'hooks', ...]
 E
@@ -95,5 +89,5 @@ FAILED tests/workflows/test_subscription_llm_credential_canary.py::test_subscrip
 FAILED tests/workflows/test_subscription_llm_credential_canary.py::test_subscription_analysis_credential_canary[template-task-codex]
 FAILED tests/workflows/test_subscription_llm_credential_canary.py::test_subscription_analysis_credential_canary[template-acceptance-criterion-codex]
 FAILED tests/workflows/test_subscription_llm_credential_canary.py::test_subscription_analysis_credential_canary[template-session-transcript-codex]
-6 failed, 6 passed in 0.50s
+6 failed, 6 passed in 0.55s
 Exit status: 1

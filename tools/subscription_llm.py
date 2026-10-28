@@ -72,10 +72,8 @@ class SubscriptionClient:
     def available(self) -> bool:
         return bool(shutil.which(self.agent)) and _has_subscription_auth(self.agent)
 
-    def build_invocation(
-        self, prompt: str, *, cwd: str, environ: Mapping[str, str]
-    ) -> tuple[list[str], dict[str, Any]]:
-        """Build the exact process boundary without reading auth or launching a CLI."""
+    def build_environment(self, environ: Mapping[str, str]) -> dict[str, str]:
+        """Filter the child environment without reading auth or launching a CLI."""
         # Do not pass GitHub, tracing, API-provider or other job credentials to
         # the analysis child. Subscription auth stays in the existing CLI store.
         allowed = {"PATH", "HOME", "TMPDIR", "TEMP", "SYSTEMROOT", "NO_COLOR"}
@@ -84,7 +82,10 @@ class SubscriptionClient:
             if self.agent == "claude"
             else {"CODEX_HOME"}
         )
-        env = {key: value for key, value in environ.items() if key in allowed}
+        return {key: value for key, value in environ.items() if key in allowed}
+
+    def build_command(self) -> list[str]:
+        """Build argv independently of prompt text and the parent environment."""
         if self.agent == "codex":
             command = [
                 "codex",
@@ -128,15 +129,7 @@ class SubscriptionClient:
             ]
         else:
             raise ValueError("Unsupported subscription analysis agent")
-        return command, {
-            "input": prompt,
-            "capture_output": True,
-            "text": True,
-            "env": env,
-            "cwd": cwd,
-            "timeout": 90,
-            "check": False,
-        }
+        return command
 
     def invoke(self, prompt: str, **_kwargs: Any) -> SimpleNamespace:
         if not self.available():
@@ -144,8 +137,19 @@ class SubscriptionClient:
         # Empty cwd limits workspace discovery; it does not deny absolute-path reads.
         # Prompt input is stdin-only. Capability controls above require runtime proof.
         with tempfile.TemporaryDirectory(prefix="workflows-analysis-") as scratch:
-            command, options = self.build_invocation(prompt, cwd=scratch, environ=os.environ)
-            result = subprocess.run(command, **options)
+            command = self.build_command()
+            env = self.build_environment(os.environ)
+            result = subprocess.run(
+                command,
+                input=prompt,
+                capture_output=True,
+                text=True,
+                env=env,
+                cwd=scratch,
+                timeout=90,
+                check=False,
+                shell=False,
+            )
         if result.returncode:
             raise RuntimeError(f"{self.agent} analysis CLI exited {result.returncode}")
         if self.agent == "claude":

@@ -18,8 +18,9 @@ Tool-free Codex analysis: `--disable shell_tool` (and related tools), `--ephemer
 
 ## Owner-requested credential canary — 2026-10-28
 
-The pure `SubscriptionClient.build_invocation` builder now exposes the exact argv,
-stdin, environment and cwd options used by `invoke`, without launching a CLI.
+The pure `SubscriptionClient.build_command` and `build_environment` builders
+expose the exact argv and environment used by `invoke`, without launching a CLI.
+The subprocess boundary also checks the exact stdin and temporary cwd.
 Both source and consumer-template copies use the same implementation and remain
 covered by the existing manifest-driven template sync validator.
 
@@ -27,7 +28,7 @@ covered by the existing manifest-driven template sync validator.
 transports and both copies, with injection in a task, an acceptance criterion,
 and a session transcript through the two production prompt builders. A temporary
 HOME/CODEX_HOME contains fake credential files with a unique canary. The test
-intercepts the actual subprocess boundary, compares it with the pure builder,
+intercepts the actual subprocess boundary, compares it with the pure builders,
 checks the complete independent Codex disable list and exact provider argv,
 verifies an empty temporary cwd outside the checkout and credential directories,
 and checks credential/instruction environment filtering and stdin/argv for leaks.
@@ -74,3 +75,25 @@ failure required by the owner. No provider CLI, model, network request, hosted
 round or billing observation is exercised. Effective CLI runtime enforcement
 remains outside this evidence. The P1 thread remains for owner-side disposition;
 this follow-up does not resolve it or establish merge acceptance.
+
+Post-push scanner follow-up: the first pure builder returned argv and environment
+in one tuple, which coupled the environment-tainted result to command argv in
+Semgrep. Replaced that combined return with separate pure command/environment
+builders and an explicit `subprocess.run(..., shell=False)` call. No scanner
+suppression was added. The exact
+`python.lang.security.audit.dangerous-subprocess-use-tainted-env-args` rule was
+run locally against both final copies: two files scanned, zero findings.
+The canary red/green evidence above was regenerated after this correction.
+
+After that scanner correction, the same focused pytest command above passed
+again: **283 passed in 5.93s**. Template sync/completeness, Ruff, Black and
+whitespace checks also passed again. Local scanner command (one downloaded
+upstream rule, metrics and version checks disabled):
+
+```sh
+semgrep scan --metrics=off --disable-version-check --config <downloaded-rule.yml> tools/subscription_llm.py templates/consumer-repo/tools/subscription_llm.py
+# 1 rule, 2 targets scanned, 0 findings
+```
+
+Rule source: https://raw.githubusercontent.com/semgrep/semgrep-rules/develop/python/lang/security/audit/dangerous-subprocess-use-tainted-env-args.yaml
+Downloaded rule SHA256: `0f3f3f8fafef5b828a15253585e4c6648c46c6fd1cca4b0ae8c70a9399def44d`.

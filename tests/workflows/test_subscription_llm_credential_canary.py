@@ -121,10 +121,18 @@ def test_subscription_analysis_credential_canary(
     calls = []
 
     def inspect_process(command, **options):
-        # Directly call the pure production builder and verify invoke used it verbatim.
-        assert (command, options) == client.build_invocation(
-            injected_prompt, cwd=options["cwd"], environ=parent_env
-        )
+        # Directly call the pure production builders and compare the actual launch.
+        assert command == client.build_command()
+        assert options == {
+            "input": injected_prompt,
+            "capture_output": True,
+            "text": True,
+            "env": client.build_environment(parent_env),
+            "cwd": options["cwd"],
+            "timeout": 90,
+            "check": False,
+            "shell": False,
+        }
         calls.append(Path(options["cwd"]))
         child_env = options["env"]
         # Enumerate the full permitted boundary, so a newly forwarded variable fails.
