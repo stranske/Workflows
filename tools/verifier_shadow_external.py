@@ -5,7 +5,7 @@ Consumer repositories run the verifier with OpenAI and Anthropic credentials onl
 that needs another credential (``runner: external`` in config/verifier_shadow.json) cannot judge
 inside that run. The run's ``comparison-results-<id>`` artifact keeps the exact context and diff the
 production judges saw for seven days, so this tool, run by the daily report job, replays them: the
-same production prompt, the same pull request, a different judge. Each verdict is appended to the
+same production per-slot path (chunking, response parsing, coverage floor), the same pull request, a different judge. Each verdict is appended to the
 ledger record of that run, so the report scores it with the same pre-registered criteria as any
 other candidate. Nothing here blocks or promotes anything.
 
@@ -20,13 +20,16 @@ import argparse
 import concurrent.futures
 import json
 import subprocess
+import time
 import zipfile
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from io import BytesIO
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
+from scripts.langchain.verifier_shadow import PIPELINE
 from tools.verifier_shadow_report import gh_download, gh_list_artifacts
 
 CONTEXT_FILE, DIFF_FILE = "verifier-context.md", "verifier-pr-diff.patch"
@@ -50,13 +53,57 @@ def make_judge(candidate: dict[str, Any]) -> Any:
     raise ValueError(f"unknown external provider: {candidate['provider']}")
 
 
-def build_prompt(context: str, diff: str | None) -> str:
-    from scripts.langchain import pr_verifier
+class JudgeChatClient:
+    """Gives a screen judge the ``invoke`` surface the production verifier path expects."""
 
-    return pr_verifier._prepare_prompt(context, diff)
+    def __init__(self, judge: Any) -> None:
+        self.judge = judge
+
+    def invoke(self, prompt: str, config: Any = None, **_: Any) -> Any:
+        outcome = self.judge.invoke(prompt)
+        if outcome.text is None:
+            raise RuntimeError(outcome.error or "judge returned no text")
+        return SimpleNamespace(content=outcome.text)
 
 
-def entry_for(candidate: dict[str, Any], judge: Any, prompt: str) -> dict[str, Any]:
+def evaluate_like_production(
+    judge: Any, name: str, model: str, context: str, diff: str | None
+) -> Any:
+    """One production compare slot (chunking, response parsing, coverage floor) with an outside judge.
+
+    The production path pre-checks input capacity, but only for OpenAI, Anthropic and GitHub Models
+    clients (fail closed, registry owned). That size check is skipped here, in this report job only;
+    production code is untouched. Everything that decides the verdict is the production code.
+    """
+    from scripts.langchain import pr_verifier as pv
+
+    runner = pv.ComparisonRunner(
+        context=context,
+        diff=diff,
+        prompt=pv._prepare_prompt(context, diff),
+        clients=[],
+        coverage=pv.prompt_coverage(context, diff),
+    )
+    return runner.run_single(JudgeChatClient(judge), name, model)
+
+
+def capacity_check_skipped() -> Any:
+    """Patch the size pre-check once around ALL judges (per-thread patching would race on restore)."""
+    from unittest import mock
+
+    from scripts.langchain import pr_verifier as pv
+
+    return mock.patch.multiple(
+        pv,
+        _prepare_capacity_client=lambda c: c,
+        _legacy_capacity_route=lambda c: True,
+        _preflight_input_capacity=lambda *a, **k: None,
+    )
+
+
+def entry_for(
+    candidate: dict[str, Any], judge: Any, context: str, diff: str | None
+) -> dict[str, Any]:
     """One candidate entry in the shadow-record shape; a failure is data, never an exception."""
     entry: dict[str, Any] = {
         "provider": candidate["provider"],
@@ -68,34 +115,46 @@ def entry_for(candidate: dict[str, Any], judge: Any, prompt: str) -> dict[str, A
         "confidence": None,
         "concerns": None,
         "external": True,
-        "pipeline": "external-single-prompt/v1",
+        "capacity_preflight": "skipped",
+        "pipeline": PIPELINE,
     }
+    started = time.perf_counter()
     try:
-        outcome = judge.invoke(prompt)
+        result = evaluate_like_production(
+            judge, candidate["provider"], candidate["model"], context, diff
+        )
+        entry.update(
+            {
+                "verdict": getattr(result, "verdict", None),
+                "used_llm": bool(getattr(result, "used_llm", False)),
+                "error": getattr(result, "error", None),
+                "confidence": getattr(result, "confidence", None),
+                "concerns": len(getattr(result, "concerns", []) or []),
+            }
+        )
+        if entry["error"]:
+            entry["raw_excerpt"] = str(getattr(result, "raw_content", "") or "")[:400]
     except Exception as exc:  # noqa: BLE001 - one judge must never stop the others
         entry["error"] = f"{type(exc).__name__}: {str(exc)[:200]}"
-        return entry
-    payload = outcome.payload or {}
-    entry["latency_s"] = round(outcome.latency_ms / 1000, 2)
-    entry["error"] = outcome.error
-    entry["verdict"] = payload.get("verdict")
-    entry["used_llm"] = bool(payload.get("verdict"))
-    entry["confidence"] = payload.get("confidence")
-    entry["concerns"] = len(payload.get("concerns") or []) if payload else None
+    entry["latency_s"] = round(time.perf_counter() - started, 2)
     return entry
 
 
 def run_external(
     candidates: list[dict[str, Any]],
-    prompt: str,
+    context: str,
+    diff: str | None,
     *,
     judge_factory: Callable[[dict[str, Any]], Any] = make_judge,
 ) -> list[dict[str, Any]]:
     """All external candidates judge the same prompt at once; entries keep config order."""
     if not candidates:
         return []
-    with concurrent.futures.ThreadPoolExecutor(max_workers=len(candidates)) as pool:
-        futures = [pool.submit(entry_for, c, judge_factory(c), prompt) for c in candidates]
+    with (
+        capacity_check_skipped(),
+        concurrent.futures.ThreadPoolExecutor(max_workers=len(candidates)) as pool,
+    ):
+        futures = [pool.submit(entry_for, c, judge_factory(c), context, diff) for c in candidates]
         return [f.result() for f in futures]
 
 
@@ -169,9 +228,8 @@ def collect_external(
             if inputs is None:
                 counts["unusable"] += 1
                 continue
-            prompt = build_prompt(inputs["context"], inputs["diff"])
             record.setdefault("candidates", []).extend(
-                run_external(todo, prompt, judge_factory=judge_factory)
+                run_external(todo, inputs["context"], inputs["diff"], judge_factory=judge_factory)
             )
             counts["judged"] += 1
     return counts

@@ -18,23 +18,36 @@ NOW = datetime.now(UTC)
 
 
 class FakeJudge:
+    """Answers with the raw JSON text the production parser reads."""
+
     def __init__(self, verdict="PASS", error=None):
         self.verdict, self.error, self.calls = verdict, error, []
 
     def invoke(self, prompt):
         self.calls.append(prompt)
-        payload = (
-            {"verdict": self.verdict, "confidence": 0.9, "concerns": []} if not self.error else None
+        if self.error:
+            return SimpleNamespace(payload=None, latency_ms=10.0, error=self.error, text=None)
+        text = json.dumps(
+            {
+                "verdict": self.verdict,
+                "confidence": 0.9,
+                "concerns": [],
+                "summary": "ok",
+            }
         )
-        return SimpleNamespace(payload=payload, latency_ms=1500.0, error=self.error)
+        return SimpleNamespace(payload=json.loads(text), latency_ms=10.0, error=None, text=text)
 
 
-def _zip(context="ctx", with_shadow=True):
+CONTEXT = "## Tasks\n- [ ] add foo\n## Acceptance Criteria\n- foo exists\n"
+DIFF = "diff --git a/foo.py b/foo.py\n--- a/foo.py\n+++ b/foo.py\n@@ -0,0 +1 @@\n+def foo(): pass\n"
+
+
+def _zip(context=CONTEXT, with_shadow=True):
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w") as z:
         if context is not None:
             z.writestr("verifier-context.md", context)
-        z.writestr("verifier-pr-diff.patch", "diff --git a/x b/x\n")
+        z.writestr("verifier-pr-diff.patch", DIFF)
         if with_shadow:
             z.writestr("verifier-shadow.json", json.dumps({"run_id": "77"}))
     return buf.getvalue()
@@ -76,14 +89,14 @@ def test_config_has_muse_and_cursor_as_external_candidates():
 
 
 def test_replay_adds_verdicts_for_every_external_candidate_once(monkeypatch):
-    monkeypatch.setattr(ext, "build_prompt", lambda c, d: f"PROMPT:{c}")
     ledger, _, lister, downloader = _setup(_zip())
     judges = {c["provider"]: FakeJudge("CONCERNS") for c in EXTERNAL}
     counts = _collect(ledger, lister, downloader, lambda c: judges[c["provider"]])
     assert counts["judged"] == 1
+    assert all(e["error"] is None for e in ledger[0]["candidates"][1:]), ledger[0]["candidates"]
     added = {(e["provider"], e["verdict"]) for e in ledger[0]["candidates"][1:]}
     assert added == {("muse-api", "CONCERNS"), ("cursor-cli", "CONCERNS")}
-    assert all(j.calls == ["PROMPT:ctx"] for j in judges.values())
+    assert all(len(j.calls) == 1 and "foo exists" in j.calls[0] for j in judges.values())
     again = _collect(ledger, lister, downloader, lambda c: judges[c["provider"]])
     assert again["judged"] == 0 and all(
         len(j.calls) == 1 for j in judges.values()
@@ -91,17 +104,16 @@ def test_replay_adds_verdicts_for_every_external_candidate_once(monkeypatch):
 
 
 def test_one_failing_judge_is_recorded_without_stopping_the_other(monkeypatch):
-    monkeypatch.setattr(ext, "build_prompt", lambda c, d: "p")
     ledger, _, lister, downloader = _setup(_zip())
     judges = {"muse-api": FakeJudge(error="HTTP 429"), "cursor-cli": FakeJudge("PASS")}
     _collect(ledger, lister, downloader, lambda c: judges[c["provider"]])
     by = {e["provider"]: e for e in ledger[0]["candidates"][1:]}
-    assert by["muse-api"]["verdict"] is None and by["muse-api"]["error"] == "HTTP 429"
+    assert by["muse-api"]["verdict"] != "PASS" and "HTTP 429" in (by["muse-api"]["error"] or "")
     assert by["cursor-cli"]["verdict"] == "PASS" and by["cursor-cli"]["used_llm"]
+    assert by["cursor-cli"]["error"] is None
 
 
 def test_private_repositories_are_never_sent(monkeypatch):
-    monkeypatch.setattr(ext, "build_prompt", lambda c, d: "p")
     ledger, _, lister, downloader = _setup(_zip())
     judge = FakeJudge()
     counts = _collect(ledger, lister, downloader, lambda c: judge, is_public=lambda r: False)
@@ -109,7 +121,6 @@ def test_private_repositories_are_never_sent(monkeypatch):
 
 
 def test_run_cap_bounds_spend_and_unusable_archives_are_counted(monkeypatch):
-    monkeypatch.setattr(ext, "build_prompt", lambda c, d: "p")
     ledger, _, lister, downloader = _setup(_zip())
     capped = _collect(ledger, lister, downloader, lambda c: FakeJudge(), max_runs=0)
     assert capped["capped"] == 1 and len(ledger[0]["candidates"]) == 1
@@ -132,3 +143,17 @@ def test_in_workflow_runner_leaves_external_candidates_to_the_report_job():
     )
     assert "muse-api" not in calls and "cursor-cli" not in calls
     assert not any(c["provider"] in ("muse-api", "cursor-cli") for c in record["candidates"])
+
+
+def test_external_judges_run_the_production_slot_path_and_leave_production_untouched():
+    from scripts.langchain import pr_verifier as pv
+
+    before = pv._preflight_input_capacity
+    ledger, _, lister, downloader = _setup(_zip())
+    judge = FakeJudge("PASS")
+    _collect(ledger, lister, downloader, lambda c: judge)
+    entry = ledger[0]["candidates"][1]
+    assert entry["pipeline"] == "compare-slot/v2" and entry["capacity_preflight"] == "skipped"
+    assert (
+        pv._preflight_input_capacity is before
+    ), "the capacity pre-check patch leaked out of the job"

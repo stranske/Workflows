@@ -25,7 +25,7 @@ from typing import Any
 PASS = "PASS"
 
 
-ACCEPTED_PIPELINES = {"compare-slot/v2", "external-single-prompt/v1"}
+ACCEPTED_PIPELINES = {"compare-slot/v2"}
 
 
 def _valid(entry: dict[str, Any] | None) -> bool:

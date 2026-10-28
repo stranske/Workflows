@@ -69,8 +69,7 @@
   "note_on_many_candidates": "Every candidate is evaluated against the same criteria, each against the production slot of its own provider (openai against gpt-5.6-terra, anthropic against claude-sonnet-5-5). Judging several candidates raises the chance that one meets the criteria by luck, so promotion picks among those that MEET by cost and does not treat a single MEETS as proof of superiority.",
   "note_on_candidate_choice": "Only the newest model of each line is shadowed: gpt-6.1-sol rather than gpt-6-sol or gpt-5.6, claude-opus-5-5 rather than opus-5, and no Anthropic model older than the production claude-sonnet-5-5. gpt-6-luna stays because no 6.1 luna exists. External candidates (runner: external) are judged by tools/verifier_shadow_external.py in the daily report job.",
   "accepted_pipelines": {
-    "in_workflow": "compare-slot/v2",
-    "external": "external-single-prompt/v1"
+    "all": "compare-slot/v2"
   },
   "note_on_pipelines": "Entries recorded before the in-workflow candidates ran the production per-slot path (strict coverage, chunked review: compare-slot/v2) are ignored; the first version used evaluate_pr, whose lenient coverage rule made candidates answer an easier question than the production judge did."
 }

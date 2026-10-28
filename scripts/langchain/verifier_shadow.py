@@ -113,6 +113,8 @@ def run_candidate(
                 "concerns": len(getattr(result, "concerns", []) or []),
             }
         )
+        if entry["error"]:  # keep what the model said, to tell a bad schema from a harness fault
+            entry["raw_excerpt"] = str(getattr(result, "raw_content", "") or "")[:400]
     except concurrent.futures.TimeoutError:
         entry["error"] = f"timed out after {timeout}s"
     except Exception as exc:  # noqa: BLE001 - a candidate must never break the production run

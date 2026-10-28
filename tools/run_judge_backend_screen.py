@@ -62,6 +62,7 @@ class JudgeOutcome:
     error: str | None = None
     stop: bool = False  # stop screening THIS judge (auth failure, rate limit, unreachable)
     tool_activity: bool = False  # the judge reached for a tool on untrusted PR content
+    text: str | None = None  # the model's raw answer, for callers that parse it themselves
 
 
 class Judge(Protocol):
@@ -265,6 +266,7 @@ class CursorCliJudge:
             tokens_out,
             served_model=self.model,
             error=None if payload else "Invalid verifier JSON",
+            text=str(envelope.get("result") or ""),
         )
 
 
@@ -606,6 +608,7 @@ class MuseApiJudge:
             _int(usage.get("completion_tokens")),
             served_model=str(data.get("model") or self.model),
             error=None if payload else "Invalid verifier JSON",
+            text=str(content or ""),
         )
 
 

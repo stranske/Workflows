@@ -112,3 +112,10 @@ production path (strict coverage, chunked review, coverage floor), and each entr
 `pipeline`; the report ignores entries without an accepted pipeline tag. A second fault: haiku and opus
 returned "Failed to parse JSON" on every run, which was recorded as a CONCERNS verdict. An entry with an
 error is now a failed attempt (it lowers coverage) and never a verdict. Candidate windows restart.
+
+Muse and Cursor now take the same path: `tools/verifier_shadow_external.py` wraps each judge so it
+answers `invoke(prompt)` and runs it through `ComparisonRunner.run_single`, with the same chunking,
+response parsing and coverage floor. The one difference is the pre-flight input-size check, which
+production restricts to OpenAI, Anthropic and GitHub Models clients and fails closed on anything else;
+it is skipped for these two in the report job only (each entry records `capacity_preflight: skipped`).
+Entries with an error keep a 400-character `raw_excerpt` of the model's answer.
