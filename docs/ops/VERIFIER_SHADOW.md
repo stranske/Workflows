@@ -127,11 +127,14 @@ Entries with an error keep a 400-character `raw_excerpt` of the model's answer.
 - **One run per PR.** A PR is verified again on every push. The external judges take one run per
   repository and PR: the one already judged, otherwise the newest, so a later push never causes a
   second paid judgment and the PR is counted once.
-- **Time budget.** `--budget-seconds` (960) stops new runs unless one whole judge timeout
-  (`JUDGE_TIMEOUT_SECONDS` + 60, one constant shared with the judges) still fits. The ledger is
-  rewritten atomically after every judged run, the step is `continue-on-error` with its own
-  timeout, and the report step runs after it unless the job was cancelled. Drain check: a run
-  skipped for time is counted as `out_of_time` and is picked up by the next daily job.
+- **Time budget.** One run can make several sequential judge calls (production chunks a large
+  input). Each run gets `RUN_BUDGET_SECONDS` (two judge timeouts plus a minute, derived from the one
+  `JUDGE_TIMEOUT_SECONDS`), and the judge client refuses any call that could not finish inside it.
+  `--budget-seconds` (1620) starts a run only if that whole budget still fits; the step has a
+  30-minute timeout and the job 45. The ledger is rewritten atomically after every judged run, the
+  step is `continue-on-error`, and the report step runs after it unless the job was cancelled.
+  Drain check: a run skipped for time is counted as `out_of_time` and is picked up by the next
+  daily job.
 - **Semantic runs.** Records carry `semantic_mode` (the expanded profile). Production judges those
   with the semantic package matrix, which the per-slot candidate path does not reproduce, so they
   are neither replayed nor paired.

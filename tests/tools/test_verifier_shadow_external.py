@@ -264,3 +264,26 @@ def test_semantic_mode_runs_are_not_replayed_through_the_legacy_slot_path():
     judge = FakeJudge()
     counts = _collect(ledger, lister, downloader, lambda c: judge)
     assert counts["semantic"] == 1 and counts["judged"] == 0 and not judge.calls
+
+
+def test_a_run_cannot_make_a_judge_call_that_would_outlive_its_time_budget(monkeypatch):
+    now = [0.0]
+    monkeypatch.setattr(ext.time, "monotonic", lambda: now[0])
+    judge = FakeJudge()
+    client = ext.JudgeChatClient(judge, run_deadline=ext.RUN_BUDGET_SECONDS)
+    assert client.invoke("first").content  # fits: a whole judge timeout remains
+    now[0] = ext.RUN_BUDGET_SECONDS - ext.JUDGE_TIMEOUT_SECONDS + 1  # chunk 2 could overrun
+    try:
+        client.invoke("second")
+    except RuntimeError as exc:
+        assert "time budget" in str(exc)
+    else:
+        raise AssertionError("a call that cannot finish inside the run budget was started")
+    assert len(judge.calls) == 1
+
+
+def test_the_run_budget_covers_more_than_one_sequential_judge_call():
+    from tools.run_judge_backend_screen import JUDGE_TIMEOUT_SECONDS
+
+    assert ext.RUN_BUDGET_SECONDS >= 2 * JUDGE_TIMEOUT_SECONDS
+    assert ext.RUN_RESERVE_SECONDS == ext.RUN_BUDGET_SECONDS

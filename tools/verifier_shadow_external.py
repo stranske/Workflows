@@ -33,8 +33,11 @@ from scripts.langchain.verifier_shadow import PIPELINE
 from tools.run_judge_backend_screen import JUDGE_TIMEOUT_SECONDS
 from tools.verifier_shadow_report import gh_download, gh_list_artifacts
 
-# a run starts only if one whole judge invocation, plus margin, still fits in the budget
-RUN_RESERVE_SECONDS = JUDGE_TIMEOUT_SECONDS + 60
+# One run may make several sequential judge calls (production chunks a large input, up to
+# MAX_REVIEW_CHUNKS). It gets this much wall-clock: JudgeChatClient refuses any call that could not
+# finish inside it, and collect_external starts a run only if all of it still fits the job budget.
+RUN_BUDGET_SECONDS = 2 * JUDGE_TIMEOUT_SECONDS + 60
+RUN_RESERVE_SECONDS = RUN_BUDGET_SECONDS
 CONTEXT_FILE, DIFF_FILE = "verifier-context.md", "verifier-pr-diff.patch"
 SHADOW_FILE = "verifier-shadow.json"
 
@@ -59,10 +62,15 @@ def make_judge(candidate: dict[str, Any]) -> Any:
 class JudgeChatClient:
     """Gives a screen judge the ``invoke`` surface the production verifier path expects."""
 
-    def __init__(self, judge: Any) -> None:
-        self.judge = judge
+    def __init__(self, judge: Any, run_deadline: float | None = None) -> None:
+        self.judge, self.run_deadline = judge, run_deadline
 
     def invoke(self, prompt: str, config: Any = None, **_: Any) -> Any:
+        if (
+            self.run_deadline is not None
+            and time.monotonic() + JUDGE_TIMEOUT_SECONDS > self.run_deadline
+        ):
+            raise RuntimeError("run time budget used up before another judge call could finish")
         outcome = self.judge.invoke(prompt)
         if outcome.text is None:
             raise RuntimeError(outcome.error or "judge returned no text")
@@ -70,7 +78,12 @@ class JudgeChatClient:
 
 
 def evaluate_like_production(
-    judge: Any, name: str, model: str, context: str, diff: str | None
+    judge: Any,
+    name: str,
+    model: str,
+    context: str,
+    diff: str | None,
+    run_deadline: float | None = None,
 ) -> Any:
     """One production compare slot (chunking, response parsing, coverage floor) with an outside judge.
 
@@ -87,7 +100,7 @@ def evaluate_like_production(
         clients=[],
         coverage=pv.prompt_coverage(context, diff),
     )
-    return runner.run_single(JudgeChatClient(judge), name, model)
+    return runner.run_single(JudgeChatClient(judge, run_deadline), name, model)
 
 
 def capacity_check_skipped() -> Any:
@@ -124,7 +137,12 @@ def entry_for(
     started = time.perf_counter()
     try:
         result = evaluate_like_production(
-            judge, candidate["provider"], candidate["model"], context, diff
+            judge,
+            candidate["provider"],
+            candidate["model"],
+            context,
+            diff,
+            run_deadline=time.monotonic() + RUN_BUDGET_SECONDS,
         )
         entry.update(
             {

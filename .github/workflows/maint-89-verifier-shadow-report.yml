@@ -23,7 +23,7 @@ concurrency:
 jobs:
   report:
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -76,7 +76,7 @@ jobs:
         # starts unless a full judge timeout still fits before --budget-seconds, so a slow backend
         # can neither lose completed paid judgments nor hold back the report below.
         continue-on-error: true
-        timeout-minutes: 20
+        timeout-minutes: 30
         env:
           GH_TOKEN: ${{ secrets.OWNER_PR_PAT }}
           MUSE_API_KEY: ${{ secrets.MUSE_API_KEY }}
@@ -85,7 +85,7 @@ jobs:
           set -euo pipefail
           repos="stranske/Workflows,$(python scripts/list_registered_consumer_repos.py --separator ',')"
           python -m tools.verifier_shadow_external --ledger ledger.json --repos "$repos" \
-            --budget-seconds 960
+            --budget-seconds 1620
       - name: Re-evaluate the criteria with the external verdicts
         if: ${{ !cancelled() }}
         run: |
