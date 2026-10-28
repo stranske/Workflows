@@ -27,7 +27,7 @@ jobs:
       # Mint GitHub App token early to use for API calls (avoids rate limits)
       - name: Mint GitHub App Token
         id: app_token
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3
         continue-on-error: true
         with:
           client-id: ${{ secrets.WORKFLOWS_APP_ID || '0' }}
@@ -126,7 +126,7 @@ jobs:
       # Mint GitHub App token early to use for API calls (avoids rate limits)
       - name: Mint GitHub App Token
         id: app_token
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3
         continue-on-error: true
         with:
           client-id: ${{ secrets.WORKFLOWS_APP_ID || '0' }}
@@ -422,7 +422,7 @@ jobs:
 
       - name: Download coverage trend artifact
         if: ${{ steps.discover.outputs.trend_artifact_name }}
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: ${{ steps.discover.outputs.trend_artifact_name }}
           run-id: ${{ steps.discover.outputs.run_id }}
@@ -443,7 +443,7 @@ jobs:
 
       - name: Download coverage payload artifact
         if: ${{ steps.discover.outputs.coverage_artifact_name }}
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: ${{ steps.discover.outputs.coverage_artifact_name }}
           run-id: ${{ steps.discover.outputs.run_id }}

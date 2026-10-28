@@ -132,7 +132,7 @@ jobs:
       # Mint GitHub App token early to use for API calls (avoids rate limits)
       - name: Mint GitHub App Token
         id: app_token
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3
         continue-on-error: true
         with:
           client-id: ${{ secrets.WORKFLOWS_APP_ID || '0' }}
@@ -324,9 +324,9 @@ jobs:
           persist-credentials: false
           repository: ${{ fromJSON(needs.resolve-pr.outputs.pull_request).head.repo.full_name || github.repository }}
           ref: ${{ fromJSON(needs.resolve-pr.outputs.pull_request).head.sha || github.sha }}
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
         with:
-          python-version: '3.14'
+          python-version: '3.15'
       - name: Run reusable workflow docs guards
         run: |
           set -euo pipefail
@@ -390,16 +390,16 @@ jobs:
           else
             echo "python_tests=false" >> "$GITHUB_OUTPUT"
           fi
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         if: ${{ steps.script_tests.outputs.node_tests == 'true' }}
         with:
           node-version: '24'
       - run: node --test .github/scripts/__tests__/*.test.js
         if: ${{ steps.script_tests.outputs.node_tests == 'true' }}
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
         if: ${{ steps.script_tests.outputs.python_tests == 'true' }}
         with:
-          python-version: '3.14'
+          python-version: '3.15'
       - run: python -m pip install --upgrade pip pytest requests
         if: ${{ steps.script_tests.outputs.python_tests == 'true' }}
       - run: pytest tests/workflows/github_scripts
@@ -441,10 +441,10 @@ jobs:
           git remote add upstream "$upstream"
           git fetch --no-tags upstream \
             "refs/heads/${base_ref}:refs/remotes/upstream/${base_ref}"
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
         if: ${{ hashFiles('scripts/check_issue_consistency.py') != '' }}
         with:
-          python-version: '3.14'
+          python-version: '3.15'
       - name: Check issue number consistency
         if: ${{ hashFiles('scripts/check_issue_consistency.py') != '' }}
         run: python scripts/check_issue_consistency.py
@@ -500,9 +500,9 @@ jobs:
           git remote add upstream "$upstream"
           git fetch --no-tags upstream \
             "refs/heads/${base_ref}:refs/remotes/upstream/${base_ref}"
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
         with:
-          python-version: '3.14'
+          python-version: '3.15'
       - name: Install test-quality dependencies
         # The named acceptance test has to actually RUN here. Installing only pytest meant any
         # PR whose test imported a runtime dependency failed this gate on a collection-time
@@ -635,7 +635,7 @@ jobs:
             fs.writeFileSync(process.env.GITHUB_EVENT_PATH, JSON.stringify(event));
       - name: Mint GitHub App Token
         id: app_token
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3
         continue-on-error: true
         with:
           client-id: ${{ secrets.WORKFLOWS_APP_ID || '0' }}
@@ -652,9 +652,9 @@ jobs:
           ref: ${{ fromJSON(needs.resolve-pr.outputs.pull_request).head.sha || github.sha }}
 
       - name: Set up Python
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
         with:
-          python-version: '3.14'
+          python-version: '3.15'
 
       - name: Install PyYAML
         run: pip install PyYAML
@@ -719,7 +719,7 @@ jobs:
       # Mint GitHub App token early to use for API calls (avoids rate limits)
       - name: Mint GitHub App Token
         id: app_token
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3
         continue-on-error: true
         with:
           client-id: ${{ secrets.WORKFLOWS_APP_ID || '0' }}
@@ -763,7 +763,7 @@ jobs:
 
 
       - name: Set up Node
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: '24'
       - name: Install GitHub API dependencies
@@ -827,7 +827,7 @@ jobs:
       - name: Download Gate artifacts
         if: ${{ needs.detect.outputs.doc_only != 'true' && needs.python-ci.result != 'skipped' }}
         continue-on-error: true
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           pattern: gate-*
           merge-multiple: true
@@ -1237,7 +1237,7 @@ jobs:
 
       - name: Upload Gate summary artifact
         if: ${{ always() && needs.resolve-pr.result == 'success' }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: gate-summary.md
           path: gate-summary.md
@@ -1247,7 +1247,7 @@ jobs:
 
       - name: Upload coverage stats artifact
         if: ${{ always() && needs.resolve-pr.result == 'success' && steps.coverage_stats.outputs.stats_json != '' }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: gate-coverage.json
           path: gate-coverage.json
@@ -1257,7 +1257,7 @@ jobs:
 
       - name: Upload coverage delta artifact
         if: ${{ always() && needs.resolve-pr.result == 'success' && steps.coverage_stats.outputs.delta_json != '' }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: gate-coverage-delta.json
           path: gate-coverage-delta.json
@@ -1267,7 +1267,7 @@ jobs:
 
       - name: Upload coverage summary artifact copy
         if: ${{ always() && needs.resolve-pr.result == 'success' && steps.coverage_summary.outputs.body != '' }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: gate-coverage-summary.md
           path: gate-coverage-summary.md
