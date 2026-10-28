@@ -5930,7 +5930,7 @@ test('coverage magic, names, bounds, duplicate and CRC failures retain integrity
      if(defect==='bytes')throw Object.assign(new Error('maxBuffer'),{code:'ENOBUFS'});
      return args.at(-1)==='.coverage'?native:Buffer.from('proof');
     }});
-   assert.ok(result.failures.includes('unsupported_payload'),defect);
+   assert.equal(result.failures.includes('unsupported_payload'),!['bytes','entries'].includes(defect),defect);
    assert.ok(!result.failures.includes('unrenderable_coverage_sqlite'),defect);
    if(defect==='duplicate')assert.ok(result.failures.includes('duplicate_member'));
    assert.ok(reads<=(defect==='entries'?1:4));
@@ -6006,7 +6006,8 @@ test('text capture precedes incidental coverage under the unchanged extraction b
    assert.equal(reads[1].name,'.coverage');
    assert.equal(reads[1].bound,512-log.length);
    assert.ok(result.extractedBytes<=512);
-   assert.ok(result.failures.includes('unsupported_payload'));
+   assert.ok(!result.failures.includes('unsupported_payload'));
+   assert.ok(result.failures.includes('extraction_byte'));
    assert.ok(!result.failures.includes('unrenderable_coverage_sqlite'));
    if(selectedMembers?.includes('.coverage')) {
     assert.ok(result.failures.includes('required_member_unrenderable'));
@@ -6019,7 +6020,7 @@ test('text capture precedes incidental coverage under the unchanged extraction b
 test('SQLite probe is isolated bounded read-only and unavailable probes never relax unknown bytes',()=> {
  const native=nativeCoverageSqliteBytes();
  for(const extract of [extractArtifactArchiveText,require('../../../templates/consumer-repo/.github/scripts/agents_verifier_context.js').extractArtifactArchiveText]) {
-  for(const unavailable of [true,false]) {
+  for(const unavailable of [true,false,'probe-buffer']) {
    let probes=0;
    const result=extract({archiveBuffer:Buffer.from('zip'),maxEntries:4,maxChars:500,maxBytes:native.length+100,
     execFile:(cmd,args,options)=>{
@@ -6032,12 +6033,51 @@ test('SQLite probe is isolated bounded read-only and unavailable probes never re
      assert.match(args[2],/set_progress_handler/);assert.match(args[2],/time\.monotonic\(\)\+15/);
      assert.equal(fs.statSync(args[3]).mode & 0o777,0o600);
      probes++;
-     if(unavailable)throw Object.assign(new Error('runtime unavailable'),{code:'ENOENT'});
+     if(unavailable)throw Object.assign(new Error('runtime unavailable'),{code:unavailable==='probe-buffer'?'ENOBUFS':'ENOENT'});
      return 'not-ok';
     }});
    assert.equal(probes,1);
    assert.ok(result.failures.includes('unsupported_payload'));
    assert.ok(!result.failures.includes('unrenderable_coverage_sqlite'));
+  }
+ }
+});
+
+test('uninspected coverage after text bounds is unavailable, never format-validated',()=> {
+ const native=nativeCoverageSqliteBytes();
+ // Match the native Gate shard layout: SQLite sidecars precede a text report
+ // larger than the existing capture budget. The report retains priority.
+ const archive=execFileSync('python3',['-I','-c',
+  "import io,zipfile,sys\nb=io.BytesIO()\nwith zipfile.ZipFile(b,'w',compression=zipfile.ZIP_STORED) as z:\n z.writestr('.coverage.shard-4.pytest',sys.stdin.buffer.read())\n z.writestr('.coverage.shard-4.runner.pid1.random',b'unread data')\n z.writestr('shard-4.json',b'x'*4096)\nsys.stdout.buffer.write(b.getvalue())"],{input:native});
+ for(const extract of [extractArtifactArchiveText,require('../../../templates/consumer-repo/.github/scripts/agents_verifier_context.js').extractArtifactArchiveText]) {
+  for(const selectedMembers of [undefined,['.coverage.shard-4.pytest','shard-4.json']]) {
+   const reads=[];
+   const result=extract({archiveBuffer:archive,selectedMembers,maxEntries:4,maxChars:500,maxBytes:512,
+    execFile:(cmd,args,options)=>{
+     if(cmd==='unzip'&&args[0]==='-p')reads.push(args.at(-1));
+     assert.notEqual(cmd,'python3','unread bytes cannot receive a format/integrity probe');
+     return execFileSync(cmd,args,options);
+    }});
+   assert.deepEqual(reads,['shard-4.json']);
+   assert.ok(result.failures.includes('extraction_byte'));
+   assert.ok(!result.failures.includes('unsupported_payload'));
+   assert.ok(!result.failures.includes('unrenderable_coverage_sqlite'));
+   assert.equal(result.rawCaptureComplete,false);
+   assert.equal(result.selectedCaptureComplete,false);
+   for(const member of result.members.filter(row=>row.name.startsWith('.coverage'))) {
+    assert.equal(member.status,'unavailable');
+    assert.equal(member.reason,'extraction_byte');
+    assert.equal(member.raw_sha256,undefined);
+   }
+   if(selectedMembers)assert.ok(result.failures.includes('required_member_unrenderable'));
+  }
+  // Unknown names and unsafe/duplicate candidates stay unknown even when the
+  // capture budget is exhausted; only unique safe coverage names are bounded.
+  for(const names of ['unknown.bin\n','../.coverage\n','.coverage\n.coverage\n']) {
+   const result=extract({archiveBuffer:Buffer.from('zip'),maxEntries:4,maxChars:500,maxBytes:0,
+    execFile:(cmd,args)=>{assert.equal(args[0],'-Z1');return names;}});
+   assert.ok(result.failures.includes('unsupported_payload'));
+   if(names==='.coverage\n.coverage\n')assert.ok(result.failures.includes('duplicate_member'));
   }
  }
 });
