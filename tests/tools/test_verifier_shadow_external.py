@@ -287,3 +287,12 @@ def test_the_run_budget_covers_more_than_one_sequential_judge_call():
 
     assert ext.RUN_BUDGET_SECONDS >= 2 * JUDGE_TIMEOUT_SECONDS
     assert ext.RUN_RESERVE_SECONDS == ext.RUN_BUDGET_SECONDS
+
+
+def test_error_excerpt_keeps_the_tail_where_an_agent_judge_puts_its_json():
+    narration = "I will inspect the workspace. " * 40
+    answer = narration + '{"verdict": "PASS", "confidence": 0.9}'
+    kept = ext.excerpt(answer)
+    assert kept.startswith("I will inspect") and kept.endswith('"confidence": 0.9}')
+    assert "chars ..." in kept and len(kept) < 700
+    assert ext.excerpt("short answer") == "short answer"

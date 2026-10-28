@@ -117,6 +117,13 @@ def capacity_check_skipped() -> Any:
     )
 
 
+def excerpt(text: str, edge: int = 300) -> str:
+    """Head and tail of a model answer: an agent judge narrates first, so its JSON sits at the end."""
+    if len(text) <= 2 * edge:
+        return text
+    return f"{text[:edge]} [... {len(text) - 2 * edge} chars ...] {text[-edge:]}"
+
+
 def entry_for(
     candidate: dict[str, Any], judge: Any, context: str, diff: str | None
 ) -> dict[str, Any]:
@@ -154,7 +161,7 @@ def entry_for(
             }
         )
         if entry["error"]:
-            entry["raw_excerpt"] = str(getattr(result, "raw_content", "") or "")[:400]
+            entry["raw_excerpt"] = excerpt(str(getattr(result, "raw_content", "") or ""))
     except Exception as exc:  # noqa: BLE001 - one judge must never stop the others
         entry["error"] = f"{type(exc).__name__}: {str(exc)[:200]}"
     entry["latency_s"] = round(time.perf_counter() - started, 2)
