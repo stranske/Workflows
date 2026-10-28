@@ -16,6 +16,12 @@
       "why": "Newest balanced OpenAI model ($2/$10)."
     },
     {
+      "provider": "openai",
+      "model": "gpt-6.1-terra",
+      "replaces_provider": "openai",
+      "why": "Newest tier of the production judge's own line (production is gpt-5.6-terra). Owner asked for it explicitly. The ID is not in config/model_registry.json and no public source confirms it yet: if the API rejects it, the record shows an error and coverage stays 0, which is the signal to fix or drop it."
+    },
+    {
       "provider": "anthropic",
       "model": "claude-haiku-4-5-20251001",
       "replaces_provider": "anthropic",
