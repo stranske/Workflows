@@ -757,3 +757,44 @@ def test_diagnostic_only_cases_are_left_out_unless_asked_for():
     assert not any(screen.case_group(c) == "fail-ci-row" for c in default)
     assert sum(screen.case_group(c) == "fail-ci-row" for c in everything) > 0
     assert len(everything) > len(default)
+
+
+def test_muse_api_returns_the_raw_answer_text_for_replay_and_keeps_it_when_invalid(monkeypatch):
+    monkeypatch.setenv("MUSE_API_KEY", "fixture-not-a-credential")
+
+    def answering(content):
+        return lambda request, timeout: _Response(
+            {"model": "muse-spark-1.3", "choices": [{"message": {"content": content}}]}
+        )
+
+    good = screen.MuseApiJudge(opener=answering(json.dumps(VERDICT))).invoke("PROMPT")
+    assert good.error is None and json.loads(good.text) == VERDICT
+    bad = screen.MuseApiJudge(opener=answering("I think it is fine.")).invoke("PROMPT")
+    assert bad.payload is None and bad.error == "Invalid verifier JSON"
+    assert bad.text == "I think it is fine."
+
+
+def test_cursor_cli_returns_the_raw_answer_text_for_replay_and_keeps_it_when_invalid(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setenv("CURSOR_API_KEY", "cur-test-key-not-real")
+
+    def run(result):
+        envelope = {"type": "result", "is_error": False, "result": result, "usage": {}}
+        fake = _script(tmp_path / "cursor-agent", f"cat <<'EOF'\n{json.dumps(envelope)}\nEOF\n")
+        return screen.CursorCliJudge(cursor=fake).invoke("PROMPT")
+
+    good = run(json.dumps(VERDICT))
+    assert good.error is None and json.loads(good.text) == VERDICT
+    bad = run("no json here")
+    assert (
+        bad.payload is None and bad.error == "Invalid verifier JSON" and bad.text == "no json here"
+    )
+
+
+def test_judge_timeout_is_one_shared_constant():
+    import inspect
+
+    for cls in (screen.MuseApiJudge, screen.CursorCliJudge):
+        default = inspect.signature(cls.__init__).parameters["timeout"].default
+        assert default == screen.JUDGE_TIMEOUT_SECONDS

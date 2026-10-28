@@ -43,10 +43,19 @@ def _current(entry: dict[str, Any]) -> bool:
     return entry.get("pipeline") in ACCEPTED_PIPELINES
 
 
+def _comparable(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Runs whose production verdict came from the pipeline candidates reproduce.
+
+    Expanded-profile runs are judged in production by the semantic package matrix, not by the
+    per-slot path candidates take, so pairing the two would compare different pipelines.
+    """
+    return [r for r in records if r.get("semantic_mode") is not True]
+
+
 def paired_runs(records: list[dict[str, Any]], candidate: dict[str, Any]) -> list[dict[str, Any]]:
     """Runs where the candidate and the production slot it replaces both gave a usable verdict."""
     out = []
-    for record in records:
+    for record in _comparable(records):
         cand = next(
             (
                 c
@@ -73,7 +82,7 @@ def paired_runs(records: list[dict[str, Any]], candidate: dict[str, Any]) -> lis
 def attempted(records: list[dict[str, Any]], candidate: dict[str, Any]) -> list[dict[str, Any]]:
     return [
         c
-        for record in records
+        for record in _comparable(records)
         for c in record.get("candidates", [])
         if c.get("provider") == candidate["provider"]
         and c.get("model") == candidate["model"]

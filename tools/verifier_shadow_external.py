@@ -30,8 +30,11 @@ from types import SimpleNamespace
 from typing import Any
 
 from scripts.langchain.verifier_shadow import PIPELINE
+from tools.run_judge_backend_screen import JUDGE_TIMEOUT_SECONDS
 from tools.verifier_shadow_report import gh_download, gh_list_artifacts
 
+# a run starts only if one whole judge invocation, plus margin, still fits in the budget
+RUN_RESERVE_SECONDS = JUDGE_TIMEOUT_SECONDS + 60
 CONTEXT_FILE, DIFF_FILE = "verifier-context.md", "verifier-pr-diff.patch"
 SHADOW_FILE = "verifier-shadow.json"
 
@@ -182,6 +185,31 @@ def missing_candidates(
     return [c for c in wanted if (c["provider"], c["model"]) not in have]
 
 
+def chosen_runs(ledger: list[dict[str, Any]]) -> set[tuple[Any, str]]:
+    """One run per (repository, PR): the one already judged externally, else the newest.
+
+    A PR is verified again on every push, so it can have several runs; the paid external judges
+    take exactly one of them, and the choice stays put on later daily jobs because a judged run
+    is always preferred. Records without a PR number stand for themselves.
+    """
+    groups: dict[tuple[Any, str], list[dict[str, Any]]] = {}
+    for record in ledger:
+        pr = record.get("pr_number")
+        who = str(pr) if pr not in (None, "") else f"run:{record.get('run_id')}"
+        groups.setdefault((record.get("repository"), who), []).append(record)
+
+    def newest(record: dict[str, Any]) -> int:
+        run_id = str(record.get("run_id", ""))
+        return int(run_id) if run_id.isdigit() else -1
+
+    chosen = set()
+    for records in groups.values():
+        judged = [r for r in records if any(c.get("external") for c in r.get("candidates", []))]
+        pick = max(judged or records, key=newest)
+        chosen.add((pick.get("repository"), str(pick.get("run_id"))))
+    return chosen
+
+
 def collect_external(
     ledger: list[dict[str, Any]],
     config: dict[str, Any],
@@ -193,14 +221,29 @@ def collect_external(
     download: Callable[[str, int], bytes] = gh_download,
     is_public: Callable[[str], bool],
     judge_factory: Callable[[dict[str, Any]], Any] = make_judge,
+    deadline: float | None = None,
+    checkpoint: Callable[[], None] | None = None,
 ) -> dict[str, int]:
-    """Add external verdicts to ledger records in place; returns counts of what happened."""
+    """Add external verdicts to ledger records in place; returns counts of what happened.
+
+    ``deadline`` is a ``time.monotonic()`` instant: no new run starts unless a whole judge
+    timeout (``RUN_RESERVE_SECONDS``) still fits before it. ``checkpoint`` is called after every
+    judged run so completed paid judgments survive a cancelled job.
+    """
     wanted = external_candidates(config)
-    counts = {"judged": 0, "skipped_private": 0, "unusable": 0, "capped": 0}
-    by_key = {(r.get("repository"), r.get("run_id")): r for r in ledger}
+    counts = {
+        "judged": 0,
+        "skipped_private": 0,
+        "unusable": 0,
+        "capped": 0,
+        "semantic": 0,
+        "out_of_time": 0,
+    }
+    by_key = {(r.get("repository"), str(r.get("run_id"))): r for r in ledger}
+    chosen = chosen_runs(ledger)
     for repo in repos:
         if not wanted or not any(
-            missing_candidates(r, wanted) for k, r in by_key.items() if k[0] == repo
+            missing_candidates(r, wanted) for k, r in by_key.items() if k[0] == repo and k in chosen
         ):
             continue
         if not is_public(repo):
@@ -213,9 +256,9 @@ def collect_external(
             if not str(artifact.get("name", "")).startswith("comparison-results-"):
                 continue
             run_id = str(artifact["name"]).rsplit("-", 1)[-1]
-            record = by_key.get((repo, run_id)) or by_key.get(
-                (repo, int(run_id) if run_id.isdigit() else run_id)
-            )
+            if (repo, run_id) not in chosen:
+                continue
+            record = by_key.get((repo, run_id))
             if record is None:
                 continue
             todo = missing_candidates(record, wanted)
@@ -224,14 +267,24 @@ def collect_external(
             if counts["judged"] >= max_runs:
                 counts["capped"] += 1
                 continue
+            if deadline is not None and time.monotonic() + RUN_RESERVE_SECONDS > deadline:
+                counts["out_of_time"] += 1
+                continue
             inputs = read_inputs(download(repo, int(artifact["id"])))
             if inputs is None:
                 counts["unusable"] += 1
+                continue
+            if inputs["meta"].get("semantic_mode") is True:
+                # production judged this run with the semantic package matrix; a legacy-path
+                # candidate verdict would not be comparable, so it is neither requested nor paired
+                counts["semantic"] += 1
                 continue
             record.setdefault("candidates", []).extend(
                 run_external(todo, inputs["context"], inputs["diff"], judge_factory=judge_factory)
             )
             counts["judged"] += 1
+            if checkpoint is not None:
+                checkpoint()
     return counts
 
 
@@ -252,19 +305,34 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--repos", required=True, help="comma separated owner/name list")
     parser.add_argument("--days", type=int, default=7)
     parser.add_argument("--max-runs", type=int, default=25)
+    parser.add_argument(
+        "--budget-seconds", type=float, default=None, help="stop starting runs near this limit"
+    )
     args = parser.parse_args(argv)
     config = json.loads(args.config.read_text())
     ledger = json.loads(args.ledger.read_text()) if args.ledger.exists() else []
     repos = [r.strip() for r in args.repos.split(",") if r.strip()]
+
+    def save() -> None:
+        tmp = args.ledger.with_suffix(".tmp")
+        tmp.write_text(json.dumps(ledger, indent=1) + "\n")
+        tmp.replace(args.ledger)
+
+    started = time.monotonic()
     counts = collect_external(
         ledger,
         config,
         repos,
         since=datetime.now(UTC) - timedelta(days=args.days),
         max_runs=args.max_runs,
+        list_artifacts=gh_list_artifacts,
+        download=gh_download,
         is_public=gh_is_public,
+        judge_factory=make_judge,
+        deadline=None if args.budget_seconds is None else started + args.budget_seconds,
+        checkpoint=save,
     )
-    args.ledger.write_text(json.dumps(ledger, indent=1) + "\n")
+    save()
     print(f"external shadow: {counts}")
     return 0
 

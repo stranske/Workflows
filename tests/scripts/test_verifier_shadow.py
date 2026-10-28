@@ -209,3 +209,24 @@ def test_every_candidate_entry_names_its_pipeline():
         {"provider": "openai", "model": "m"}, "ctx", None, lambda *a, **k: _result("PASS")
     )
     assert entry["pipeline"] == shadow.PIPELINE == "compare-slot/v2"
+
+
+def test_main_records_whether_production_ran_the_semantic_matrix(tmp_path, monkeypatch):
+    context = tmp_path / "context.md"
+    context.write_text("## Tasks\n- [ ] x\n")
+    seen = []
+
+    def fake_run_shadow(context, diff, comparison, config, **kwargs):
+        seen.append(kwargs["meta"])
+        return {"candidates": [], **kwargs["meta"]}
+
+    monkeypatch.setattr(shadow, "run_shadow", fake_run_shadow)
+    for value, expected in (("1", True), ("0", False), (None, False)):
+        if value is None:
+            monkeypatch.delenv("VERIFIER_SEMANTIC_MODE", raising=False)
+        else:
+            monkeypatch.setenv("VERIFIER_SEMANTIC_MODE", value)
+        out = tmp_path / f"out-{value}.json"
+        shadow.main(["--context-file", str(context), "--output", str(out)])
+        assert json.loads(out.read_text())["semantic_mode"] is expected
+    assert len(seen) == 3

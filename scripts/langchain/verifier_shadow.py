@@ -198,6 +198,9 @@ def main(argv: list[str] | None = None) -> int:
                 "pr_number": os.environ.get("PR_NUMBER"),
                 "head_sha": os.environ.get("PR_HEAD_SHA"),
                 "ci_failed": os.environ.get("CI_FAILED") == "true",
+                # production used the semantic package matrix for this run (expanded profile), which
+                # the single-prompt slot path below cannot reproduce; the report excludes such runs
+                "semantic_mode": os.environ.get("VERIFIER_SEMANTIC_MODE") == "1",
             },
         )
     except Exception as exc:  # noqa: BLE001 - shadow problems are logged, never raised

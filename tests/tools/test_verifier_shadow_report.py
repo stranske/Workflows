@@ -208,3 +208,38 @@ def test_a_harness_error_is_not_a_verdict():
     record["candidates"][0]["error"] = "Schema repair policy escalated verifier output"
     result = _eval([record], 1)
     assert result["paired_runs"] == 0 and result["attempts"] == 1 and result["coverage"] == 0.0
+
+
+def test_semantic_mode_runs_are_not_paired_or_attempted():
+    plain = [_record(i, day=i * 0.5) for i in range(12)]
+    semantic = [
+        dict(_record(100 + i, cand="CONCERNS", day=i * 0.5), semantic_mode=True) for i in range(5)
+    ]
+    out = _eval(plain + semantic, 8)
+    assert out["paired_runs"] == 12 and out["status"] == "MEETS"
+    assert rep.paired_runs(semantic, CAND) == [] and rep.attempted(semantic, CAND) == []
+    unmarked = [_record(i) for i in range(3)]
+    assert len(rep.paired_runs(unmarked, CAND)) == 3, "absence of the flag is not semantic mode"
+
+
+def test_workflow_installs_requirements_before_replay_and_bounds_the_external_step():
+    import yaml
+
+    wf = yaml.safe_load(
+        (ROOT / ".github/workflows/maint-89-verifier-shadow-report.yml").read_text()
+    )
+    job = wf["jobs"]["report"]
+    steps = job["steps"]
+    names = [s.get("name", "") for s in steps]
+    install = next(i for i, n in enumerate(names) if n.startswith("Install the verifier's Python"))
+    replay = next(i for i, n in enumerate(names) if n.startswith("Judge the external candidates"))
+    report = next(i for i, n in enumerate(names) if n.startswith("Re-evaluate the criteria"))
+    assert "tools/requirements-llm.txt" in steps[install]["run"]
+    assert install < replay < report
+    ext = steps[replay]
+    assert ext["continue-on-error"] is True and "--budget-seconds" in ext["run"]
+    budget = int(ext["run"].split("--budget-seconds")[1].split()[0])
+    assert budget < ext["timeout-minutes"] * 60 < job["timeout-minutes"] * 60
+    assert (
+        "cancelled" in steps[report]["if"]
+    ), "the report must still be written after a failed replay"

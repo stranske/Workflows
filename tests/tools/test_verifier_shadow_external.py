@@ -157,3 +157,110 @@ def test_external_judges_run_the_production_slot_path_and_leave_production_untou
     assert (
         pv._preflight_input_capacity is before
     ), "the capacity pre-check patch leaked out of the job"
+
+
+def _record(run_id, pr, *, external=False):
+    cands = [{"provider": "openai", "model": "m"}]
+    if external:
+        cands.append({"provider": "muse-api", "model": "muse-spark-1.3", "external": True})
+    return {"repository": "o/r", "run_id": run_id, "pr_number": pr, "candidates": cands}
+
+
+def _artifacts(*run_ids):
+    return [
+        {"id": int(r), "name": f"comparison-results-{r}", "created_at": NOW.isoformat()}
+        for r in run_ids
+    ]
+
+
+def test_each_pull_request_is_judged_once_on_its_newest_run():
+    ledger = [_record("70", "5"), _record("80", "5"), _record("75", "6")]
+    judge = FakeJudge()
+    counts = _collect(
+        ledger,
+        lambda repo: _artifacts("70", "80", "75"),
+        lambda repo, i: _zip(),
+        lambda c: judge,
+        max_runs=10,
+    )
+    judged = {r["run_id"] for r in ledger if len(r["candidates"]) > 1}
+    assert judged == {"80", "75"} and counts["judged"] == 2
+    assert len(judge.calls) == 2 * len(EXTERNAL)
+
+
+def test_the_judged_run_stays_the_choice_when_a_newer_run_appears_later():
+    ledger = [_record("70", "5", external=True), _record("80", "5")]
+    assert ext.chosen_runs(ledger) == {("o/r", "70")}
+    judge = FakeJudge()
+    _collect(ledger, lambda repo: _artifacts("70", "80"), lambda repo, i: _zip(), lambda c: judge)
+    assert len(ledger[1]["candidates"]) == 1, "the PR was judged again on a later run"
+
+
+def test_records_without_a_pr_number_stand_for_themselves():
+    ledger = [_record("1", None), _record("2", None), _record("3", "")]
+    assert ext.chosen_runs(ledger) == {("o/r", "1"), ("o/r", "2"), ("o/r", "3")}
+
+
+def test_no_run_starts_when_a_whole_judge_timeout_no_longer_fits(monkeypatch):
+    ledger = [_record("1", "1"), _record("2", "2")]
+    now = [1000.0]
+    monkeypatch.setattr(ext.time, "monotonic", lambda: now[0])
+    seen = []
+
+    def factory(c):
+        now[0] += 400  # each judged run burns 400s of the budget
+        return FakeJudge()
+
+    counts = ext.collect_external(
+        ledger,
+        CONFIG,
+        ["o/r"],
+        since=NOW - timedelta(days=7),
+        max_runs=10,
+        list_artifacts=lambda repo: _artifacts("1", "2"),
+        download=lambda repo, i: _zip(),
+        is_public=lambda r: True,
+        judge_factory=factory,
+        deadline=1000.0 + ext.RUN_RESERVE_SECONDS + 100,
+        checkpoint=lambda: seen.append(sum(len(r["candidates"]) > 1 for r in ledger)),
+    )
+    assert counts["judged"] == 1 and counts["out_of_time"] == 1
+    assert seen == [1], "the ledger is saved after each judged run, before the next one starts"
+
+
+def test_reserve_is_derived_from_the_judge_timeout_not_a_second_literal():
+    from tools.run_judge_backend_screen import JUDGE_TIMEOUT_SECONDS
+
+    assert ext.RUN_RESERVE_SECONDS > JUDGE_TIMEOUT_SECONDS
+
+
+def test_main_checkpoints_the_ledger_atomically_and_honours_the_budget(tmp_path, monkeypatch):
+    ledger_path = tmp_path / "ledger.json"
+    ledger_path.write_text(json.dumps([_record("1", "1")]))
+    monkeypatch.setattr(ext, "gh_list_artifacts", lambda repo: _artifacts("1"))
+    monkeypatch.setattr(ext, "gh_download", lambda repo, i: _zip())
+    monkeypatch.setattr(ext, "gh_is_public", lambda repo: True)
+    monkeypatch.setattr(ext, "make_judge", lambda c: FakeJudge())
+    assert (
+        ext.main(["--ledger", str(ledger_path), "--repos", "o/r", "--budget-seconds", "5000"]) == 0
+    )
+    saved = json.loads(ledger_path.read_text())
+    assert len(saved[0]["candidates"]) == 1 + len(EXTERNAL) and not list(tmp_path.glob("*.tmp"))
+    ledger_path.write_text(json.dumps([_record("1", "1")]))
+    ext.main(["--ledger", str(ledger_path), "--repos", "o/r", "--budget-seconds", "1"])
+    assert len(json.loads(ledger_path.read_text())[0]["candidates"]) == 1, "no budget, no spend"
+
+
+def test_semantic_mode_runs_are_not_replayed_through_the_legacy_slot_path():
+    blob = _zip()
+    with zipfile.ZipFile(io.BytesIO(blob)) as z:
+        files = {n: z.read(n) for n in z.namelist()}
+    files["verifier-shadow.json"] = json.dumps({"run_id": "77", "semantic_mode": True}).encode()
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as z:
+        for name, data in files.items():
+            z.writestr(name, data)
+    ledger, _, lister, downloader = _setup(buf.getvalue())
+    judge = FakeJudge()
+    counts = _collect(ledger, lister, downloader, lambda c: judge)
+    assert counts["semantic"] == 1 and counts["judged"] == 0 and not judge.calls
