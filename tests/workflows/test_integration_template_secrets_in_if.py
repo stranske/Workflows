@@ -52,3 +52,14 @@ def test_integration_template_steps_do_not_pass_every_secret(path: Path) -> None
         if "tojson(secrets)" in value.replace(" ", "").lower()
     ]
     assert not offenders, f"{path.name}: step passes the whole secrets context at {offenders}"
+
+
+@pytest.mark.parametrize("path", TEMPLATES, ids=lambda path: path.name)
+def test_integration_template_passes_only_actions_bot_pat(path: Path) -> None:
+    workflow = yaml.safe_load(path.read_text(encoding="utf-8"))
+    values = [
+        value for where, value in _step_inputs(workflow) if where.endswith(".with.actions_bot_pat")
+    ]
+    assert values == [
+        "${{ secrets.ACTIONS_BOT_PAT }}"
+    ], f"{path.name}: actions_bot_pat inputs {values}"
