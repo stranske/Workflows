@@ -6,6 +6,29 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.46.0](https://github.com/stranske/Workflows/compare/v1.45.0...v1.46.0) (2026-10-29)
+
+
+### Features
+
+* **verifier-shadow:** grade candidates by blind-adjudicated work, not verdict agreement ([#4317](https://github.com/stranske/Workflows/issues/4317)) ([5d26068](https://github.com/stranske/Workflows/commit/5d260681edff19852a270a235a615b04643ce171))
+
+
+### Bug Fixes
+
+* **deps:** deliver [#4271](https://github.com/stranske/Workflows/issues/4271) with supported runtime and intact evidence ([#4312](https://github.com/stranske/Workflows/issues/4312)) ([1c2aea7](https://github.com/stranske/Workflows/commit/1c2aea76eef7240c544d2acc3663de90a0cc9796))
+* remove Python 3.12 from shared tools, starter workflows and integration template ([#4318](https://github.com/stranske/Workflows/issues/4318)) ([dd14434](https://github.com/stranske/Workflows/commit/dd144341915a773e985d37bccaab5080db7f0e95))
+* **sync:** qualify unchanged canaries through exact merged-tree checks ([#4302](https://github.com/stranske/Workflows/issues/4302)) ([3372389](https://github.com/stranske/Workflows/commit/33723895c18efd8af9ee3942825c6ab87b7dcaa3))
+* **sync:** reconcile historical receipts and explain refresh holds ([#4300](https://github.com/stranske/Workflows/issues/4300)) ([2687981](https://github.com/stranske/Workflows/commit/2687981f1b61c0bfa4e3c09b52bc1c0dcdf501a0))
+* **sync:** reuse no-change qualification across campaign stages ([#4303](https://github.com/stranske/Workflows/issues/4303)) ([c18c14d](https://github.com/stranske/Workflows/commit/c18c14d945cb736e96982dcbb56ca56bfc185ed6))
+* **verifier-shadow:** find every comparison run instead of the newest 100 artifacts ([#4322](https://github.com/stranske/Workflows/issues/4322)) ([a23fbb5](https://github.com/stranske/Workflows/commit/a23fbb5e1ecd08c49ad615fdda4ac47fd9c3afa5))
+* **verifier:** capture text before incidental coverage inspection ([58eacc5](https://github.com/stranske/Workflows/commit/58eacc55b8605340eccc53015a33c429d0d19b0e))
+* **verifier:** classify incidental coverage databases without waiving proof ([#4298](https://github.com/stranske/Workflows/issues/4298)) ([90f0b1f](https://github.com/stranske/Workflows/commit/90f0b1f11d42a8b8f7ea11e99e8e9d6f84856a0c))
+* **verifier:** distinguish bounded coverage inspection from invalid bytes ([#4307](https://github.com/stranske/Workflows/issues/4307)) ([86450a7](https://github.com/stranske/Workflows/commit/86450a7a6ba26fdccc77ed50ce7876dc455689cc))
+* **verifier:** retain lint-clean parser client keyword compatibility ([#4308](https://github.com/stranske/Workflows/issues/4308)) ([826ecfe](https://github.com/stranske/Workflows/commit/826ecfe743dc198aafb1b19c7d9b0b0ac4ff554e))
+* **verify:** capture required text before incidental coverage inspection ([375f48c](https://github.com/stranske/Workflows/commit/375f48c9b203417f20afc91f2d98ed8ab9c2ce58))
+* **verify:** recover strict original finals without provider replay ([#4301](https://github.com/stranske/Workflows/issues/4301)) ([09f28d1](https://github.com/stranske/Workflows/commit/09f28d153006f616918a3aca7bd77c182867d1f9))
+
 ## [1.45.0](https://github.com/stranske/Workflows/compare/v1.44.30...v1.45.0) (2026-10-27)
 
 
