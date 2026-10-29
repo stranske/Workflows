@@ -293,6 +293,18 @@ def test_error_excerpt_keeps_the_tail_where_an_agent_judge_puts_its_json():
     narration = "I will inspect the workspace. " * 40
     answer = narration + '{"verdict": "PASS", "confidence": 0.9}'
     kept = ext.excerpt(answer)
-    assert kept.startswith("I will inspect") and kept.endswith('"confidence": 0.9}')
-    assert "chars ..." in kept and len(kept) < 700
+    middle = len(answer) - 600
+    assert kept == f"{answer[:300]} [... {middle} chars ...] {answer[-300:]}"
+    assert kept.endswith('"confidence": 0.9}') and len(kept) < 700
     assert ext.excerpt("short answer") == "short answer"
+
+
+def test_an_errored_judge_entry_stores_head_and_tail_of_the_answer(monkeypatch):
+    raw = "Narration. " * 100 + '{"verdict": "PASS"}'
+    failed = SimpleNamespace(
+        verdict="CONCERNS", used_llm=True, error="Failed to parse JSON response", raw_content=raw
+    )
+    monkeypatch.setattr(ext, "evaluate_like_production", lambda *a, **k: failed)
+    entry = ext.entry_for(EXTERNAL[0], FakeJudge(), CONTEXT, DIFF)
+    assert entry["error"] == "Failed to parse JSON response"
+    assert entry["raw_excerpt"] == ext.excerpt(raw) and entry["raw_excerpt"].endswith('"PASS"}')
