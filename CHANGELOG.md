@@ -6,6 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.47.0](https://github.com/stranske/Workflows/compare/v1.46.1...v1.47.0) (2026-10-29)
+
+
+### Features
+
+* **verifier-shadow:** run every judge on the labelled corpus at once ([#4329](https://github.com/stranske/Workflows/issues/4329)) ([46dd42f](https://github.com/stranske/Workflows/commit/46dd42f170834b44d56f73f3e2220d414529a71c))
+* **verifier:** move the production OpenAI judge to gpt-6.1-terra ([#4328](https://github.com/stranske/Workflows/issues/4328)) ([beacdd9](https://github.com/stranske/Workflows/commit/beacdd960d565946d0e545c0b8bdb3de8833c93f))
+
+
+### Bug Fixes
+
+* **integration-template:** pass only ACTIONS_BOT_PAT to setup-api-client ([#4327](https://github.com/stranske/Workflows/issues/4327)) ([f9d3cd9](https://github.com/stranske/Workflows/commit/f9d3cd99f8da7ba848f15f1bd49d8d40d5893059))
+
 ## [1.46.1](https://github.com/stranske/Workflows/compare/v1.46.0...v1.46.1) (2026-10-29)
 
 
