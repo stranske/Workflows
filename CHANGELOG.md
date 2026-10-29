@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.46.1](https://github.com/stranske/Workflows/compare/v1.46.0...v1.46.1) (2026-10-29)
+
+
+### Bug Fixes
+
+* integration template no longer reads secrets in step conditions ([#4326](https://github.com/stranske/Workflows/issues/4326)) ([6fd569f](https://github.com/stranske/Workflows/commit/6fd569f9ebebed1c1116793545edb0e32753c0e9))
+* **verifier-shadow:** wait only for external candidates before adjudicating ([#4323](https://github.com/stranske/Workflows/issues/4323)) ([7924dbb](https://github.com/stranske/Workflows/commit/7924dbbbe59eb30be53c3928dd0eb0b5a0d2bd3a))
+
 ## [1.46.0](https://github.com/stranske/Workflows/compare/v1.45.0...v1.46.0) (2026-10-29)
 
 
