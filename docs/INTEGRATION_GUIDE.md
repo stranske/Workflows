@@ -33,7 +33,7 @@ jobs:
   ci:
     uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@main
     with:
-      python-version: '3.12'
+      python-version: '3.14'
 ```
 
 2. **Commit and push** - CI will run on your next PR!
@@ -70,7 +70,7 @@ jobs:
   ci:
     uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@main
     with:
-      python-version: '3.12'
+      python-version: '3.14'
 ```
 
 ---
@@ -86,7 +86,7 @@ jobs:
   python-ci:
     uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@main
     with:
-      python-version: '3.12'
+      python-version: '3.14'
     secrets: inherit
 ```
 
@@ -400,7 +400,7 @@ jobs:
   ci:
     uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@main
     with:
-      python-version: '3.12'
+      python-version: '3.14'
       lint: true
       typecheck: true
       coverage-min: '70'
@@ -689,7 +689,7 @@ jobs:
   test:
     strategy:
       matrix:
-        python-version: ['3.12', '3.13']
+        python-version: ['3.13', '3.14']
     steps:
       - uses: actions/setup-python@v5
         with:
@@ -1190,7 +1190,7 @@ The `evaluate` job outputs these new fields:
 **Scenario 1: Tests Failing**
 ```
 Gate Status: failure
-Failed Jobs: [test (3.12), test (3.12)]
+Failed Jobs: [test (3.13), test (3.14)]
 Classification: test failure
 Action: fix
 Reason: fix-test
@@ -1238,8 +1238,7 @@ Ensure `fix_ci_failures.md` exists in `.github/codex/prompts/` for fix mode to w
 ### Python CI default migration
 
 Omitting both reusable Python runtime inputs selects Python 3.13 and 3.14 in
-parallel. An explicit `python-version` remains a single-runtime override, including
-3.12; a nonempty `python-versions` array still takes precedence. The primary artifact
+parallel. An explicit `python-version` remains a single-runtime override; a nonempty `python-versions` array still takes precedence. The primary artifact
 runtime defaults to shared `CI_PYTHON_VERSION` when selected, otherwise the first
 selected runtime. Gate requests coverage on 3.14 only through
 `coverage-python-version`; both runtimes retain identical test selection. Consumers should set
@@ -1251,7 +1250,7 @@ Workflows repo (748 tests, four workers, 2026-10-25), enabling branch coverage o
 (the backward-compatible reusable default) or a positive integer; the first-party
 Gate and new Gate template request `4`.
 
-This changes CI defaults, not the package minimum (>=3.12). Existing create-only
-consumer Gates keep their authored runtime overrides and require separate migration
-review. The universal lock remains compatible with the package minimum; its compile
-baseline alone is not a reason to remove 3.12 support.
+The supported Python standard is 3.14 first and 3.13 as backup (owner decision 2026-10-28);
+the package minimum is `>=3.13`, and Python 3.12 is retired. The universal lock compiles
+against the 3.13 floor. Consumer Gates are create-only, so the sync does not rewrite their
+runtime overrides; each consumer moves its own pins to 3.13/3.14.
