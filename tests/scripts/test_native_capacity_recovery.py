@@ -59,6 +59,7 @@ def native(request, monkeypatch):
 def test_configured_native_expanded_reaches_count_and_generation(native, operation, monkeypatch):
     client, provider, model, counter, metadata = native
     original = client._get_request_payload("full request")
+    transport = getattr(client, "use_responses_api", None)
     monkeypatch.setattr(pr_verifier, "_get_llm_client", lambda **kwargs: (client, provider))
     seen = []
 
@@ -93,7 +94,7 @@ def test_configured_native_expanded_reaches_count_and_generation(native, operati
         assert prepared.openai_api_key == client.openai_api_key
         assert prepared.request_timeout == client.request_timeout == 17
         assert prepared.max_retries == client.max_retries == 0
-        assert client.use_responses_api is None
+        assert client.use_responses_api is transport  # the owner's transport is never mutated
     else:
         metadata.assert_called_once_with(model)
         assert prepared._client is client._client

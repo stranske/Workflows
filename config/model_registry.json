@@ -113,6 +113,12 @@
       "url": "https://developers.openai.com/api/docs/models/gpt-5.4"
     },
     {
+      "source_id": "openai-gpt-6-1-terra-2026-10-29",
+      "provider": "openai",
+      "checked_at": "2026-10-29",
+      "url": "https://developers.openai.com/api/docs/models/gpt-6.1-terra"
+    },
+    {
       "source_id": "anthropic-catalog-discovery-2026-09-22",
       "provider": "anthropic",
       "checked_at": "2026-09-22",
@@ -138,6 +144,35 @@
     }
   ],
   "models": [
+    {
+      "model_id": "gpt-6.1-terra",
+      "native_capacity": {
+        "transport": "openai-responses",
+        "api_root": "https://api.openai.com/v1",
+        "count_endpoint": "https://api.openai.com/v1/responses/input_tokens",
+        "input_limit_source": "documented",
+        "max_input_tokens": 922000,
+        "max_context_tokens": 1050000,
+        "max_output_tokens": 128000,
+        "provenance": "openai-exact-model-docs:2026-10-29",
+        "as_of": "2026-10-29",
+        "source_urls": [
+          "https://developers.openai.com/api/docs/models/gpt-6.1-terra"
+        ]
+      },
+      "provider": "openai",
+      "api": "responses",
+      "lifecycle": "current",
+      "positioning": "balanced",
+      "source_ids": ["openai-gpt-6-1-terra-2026-10-29"],
+      "pricing": {
+        "currency": "USD",
+        "input_per_million_tokens": 1.0,
+        "output_per_million_tokens": 5.0,
+        "as_of": "2026-10-29"
+      },
+      "notes": "Limits and price from the exact model page (2026-10-29): 1,050,000 context, 922,000 input, 128,000 output; $1/$5 per million tokens. Served by the OpenAI models API (checked 2026-10-27 for the verifier shadow)."
+    },
     {
       "model_id": "gpt-6.1-sol",
       "provider": "openai",
@@ -507,14 +542,14 @@
     {
       "profile": "verifier-balanced",
       "provider": "openai",
-      "model_id": "gpt-5.6-terra",
+      "model_id": "gpt-6.1-terra",
       "status": "provisional",
-      "decided_at": "2026-07-31",
-      "review_by": "2026-08-30",
+      "decided_at": "2026-10-29",
+      "review_by": "2026-11-28",
       "evidence_ids": [
-        "catalog-review-2026-07-10"
+        "model-docs-2026-10-29"
       ],
-      "rationale": "Provisional selection advanced to the current catalog generation; positioning 'balanced' matches the verifier-balanced profile. This is NOT a benchmark-proven promotion: no passing workload-benchmark evidence exists for this model or for the superseded incumbent, so status stays provisional until the paired pilot runs. Human-approved by merging this PR."
+      "rationale": "Owner-directed refresh to the newest tier of the same Terra line (2026-10-29): same documented context, input and output limits as gpt-5.6-terra at about half the price. This is NOT a shadow-proven promotion; gpt-5.6-terra stays in the verifier shadow as a comparison so a regression shows in the daily report, and the one-line revert is the selection_history entry below."
     },
     {
       "profile": "verifier-balanced",
@@ -601,6 +636,21 @@
       "superseded_at": "2026-09-30",
       "superseded_by": "claude-sonnet-5-5",
       "supersede_reason": "Manual provisional refresh to the current catalog generation (Sonnet 5.5 supersedes Sonnet 5 in the same balanced tier at the same price); not a benchmark-proven promotion."
+    },
+    {
+      "profile": "verifier-balanced",
+      "provider": "openai",
+      "model_id": "gpt-5.6-terra",
+      "status": "provisional",
+      "decided_at": "2026-07-31",
+      "review_by": "2026-08-30",
+      "evidence_ids": [
+        "catalog-review-2026-07-10"
+      ],
+      "rationale": "Provisional selection advanced to the current catalog generation; positioning 'balanced' matches the verifier-balanced profile. This is NOT a benchmark-proven promotion: no passing workload-benchmark evidence exists for this model or for the superseded incumbent, so status stays provisional until the paired pilot runs. Human-approved by merging this PR.",
+      "superseded_at": "2026-10-29",
+      "superseded_by": "gpt-6.1-terra",
+      "supersede_reason": "Owner-directed refresh to gpt-6.1-terra, the newest Terra tier (same limits, about half the price); not a shadow-proven promotion."
     }
   ],
   "evidence": [
@@ -638,6 +688,16 @@
         "anthropic-pricing-2026-09-30"
       ],
       "notes": "maint-77 catalog discovery (run 36712960738) observed claude-sonnet-5-5 in the Anthropic /v1/models catalog; list pricing from the Anthropic pricing page. Availability and pricing only; not workload quality evidence."
+    },
+    {
+      "evidence_id": "model-docs-2026-10-29",
+      "kind": "provider-catalog-review",
+      "measured_at": "2026-10-29",
+      "status": "catalog-only",
+      "source_ids": [
+        "openai-gpt-6-1-terra-2026-10-29"
+      ],
+      "notes": "The exact gpt-6.1-terra model page lists Responses and Chat Completions support, 1,050,000 context, 922,000 input and 128,000 output tokens, and $1/$5 per million tokens. Availability, limits and pricing only; not workload quality evidence."
     }
   ]
 }

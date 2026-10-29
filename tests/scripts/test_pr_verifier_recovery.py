@@ -44,15 +44,17 @@ def configured_native_client(request, monkeypatch):
     )
     payload = client._get_request_payload("full request")
     assert payload["model"] == selection["model_id"]
-    assert "messages" in payload
     if provider == "openai":
-        assert "input" not in payload  # Incumbent Terra uses Chat Completions.
+        # GPT-6 models are built on the Responses API; older ones on Chat Completions.
+        assert ("input" in payload) is bool(client.use_responses_api)
+        assert ("messages" in payload) is not bool(client.use_responses_api)
         monkeypatch.setattr(
             client.root_client.responses.input_tokens,
             "count",
             mock.Mock(side_effect=RuntimeError("native transport unavailable")),
         )
     else:
+        assert "messages" in payload
         monkeypatch.setattr(
             client._client.models,
             "retrieve",

@@ -107,6 +107,11 @@ Promotion is not automatic. After `MEETS`, a pull request changes the production
 in the registry for a one-line revert. After promotion the same shadow can be pointed at the demoted
 model for 14 days as the rollback check.
 
+On 2026-10-29 the owner moved the production OpenAI judge from gpt-5.6-terra to gpt-6.1-terra directly
+(same Terra line, same documented limits, about half the price), without a shadow verdict.
+gpt-5.6-terra now runs as the shadow candidate in its place, so the daily report compares the old and
+new judge on the same runs; the revert is the `selection_history` entry in `config/model_registry.json`.
+
 ## Adding or replacing a candidate
 
 Edit `candidates` in `config/verifier_shadow.json`; each candidate's evaluation window starts at the first
@@ -116,7 +121,7 @@ record that includes it, so adding one never restarts the others, and criteria c
 
 All candidates in the config judge every verified PR **in parallel** (one thread each, so the step costs
 the slowest candidate's latency, not the sum). Each is scored on its own window against the production
-slot of its own provider (openai candidates against gpt-5.6-terra, anthropic against claude-sonnet-5-5),
+slot of its own provider (openai candidates against gpt-6.1-terra, anthropic against claude-sonnet-5-5),
 and the daily report opens with one table row per candidate. Seven are listed today. One failing or
 timing-out candidate records its own error and never disturbs the others.
 

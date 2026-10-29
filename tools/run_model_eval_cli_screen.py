@@ -26,7 +26,7 @@ from tools.plan_model_eval import ROOT, build_plan
 
 DEFAULT_CASES = 8
 MAX_MODELS = 4
-DEFAULT_MODELS = "gpt-5.6-terra,gpt-6-luna,gpt-6-sol"
+DEFAULT_MODELS = "gpt-6.1-terra,gpt-6-luna,gpt-6-sol"
 
 
 @dataclass(frozen=True)
