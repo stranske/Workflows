@@ -1,19 +1,20 @@
 #!/usr/bin/env python3
-"""Evaluate shadow-run candidate verifiers against the criteria pre-registered in config/verifier_shadow.json.
+"""Evaluate shadow-run candidate verifiers by the quality of their work (config/verifier_shadow.json).
 
 Inputs are the ``verifier-shadow.json`` records the verifier workflow uploads (collected across the
-fleet and merged into a ledger by ``collect``). For each candidate the head-to-head baseline is the
-production slot that has the same provider (the judge it would replace); the unified production verdict
-is reported alongside. The result is one of MEETS, DOES NOT MEET (the failing criterion is named) or
-INSUFFICIENT (the window has not produced enough paired runs, with the number still needed). Nothing here
-promotes a model: it prints what the pre-registered criteria say, and a human reads it once.
+fleet and merged into a ledger by ``collect``) and the blind adjudications that
+``tools/verifier_shadow_adjudicate.py`` adds to them. The production verifier runs two judges from
+different provider families and expects them to disagree, so a candidate is not graded by verdict
+agreement: it is graded by how often its evaluation is inaccurate, how rigorously it covers the
+tasks and acceptance criteria, and how useful its review is, each against the production judges'
+work on the same runs. The result is MEETS, DOES NOT MEET (the failing criterion is named) or
+INSUFFICIENT (with the runs and days still needed). Nothing here promotes a model.
 """
 
 from __future__ import annotations
 
 import argparse
 import json
-import math
 import subprocess
 import zipfile
 from collections.abc import Callable
@@ -25,7 +26,7 @@ from typing import Any
 PASS = "PASS"
 
 
-ACCEPTED_PIPELINES = {"compare-slot/v2"}
+ACCEPTED_PIPELINES = {"compare-slot/v3"}
 
 
 def _valid(entry: dict[str, Any] | None) -> bool:
@@ -90,6 +91,84 @@ def attempted(records: list[dict[str, Any]], candidate: dict[str, Any]) -> list[
     ]
 
 
+FINDINGS = {"FAIL", "CONCERNS"}
+
+
+def _key(candidate: dict[str, Any]) -> str:
+    return f"candidate:{candidate['provider']}:{candidate['model']}"
+
+
+def _mean(values: list[float]) -> float | None:
+    return round(sum(values) / len(values), 3) if values else None
+
+
+def _share(ratings: list[dict[str, Any]], accuracy: str) -> float | None:
+    return (
+        round(sum(r.get("accuracy") == accuracy for r in ratings) / len(ratings), 3)
+        if ratings
+        else None
+    )
+
+
+def adjudicated_runs(records: list[dict[str, Any]], candidate: dict[str, Any]) -> list[dict]:
+    """Runs where the adjudicator rated this candidate's evaluation, with the incumbents' ratings."""
+    out = []
+    for record in _comparable(records):
+        adj = record.get("adjudication") or {}
+        if adj.get("error"):
+            continue
+        ratings = adj.get("ratings") or {}
+        mine = ratings.get(_key(candidate))
+        if not mine or not mine.get("rated"):
+            continue
+        incumbents = [
+            r for k, r in ratings.items() if k.startswith("production:") and r.get("rated")
+        ]
+        out.append({"record": record, "candidate": mine, "incumbents": incumbents})
+    return out
+
+
+def warnings_for(records: list[dict[str, Any]], candidate: dict[str, Any]) -> list[dict]:
+    """Runs where the candidate stands against BOTH production judges (context, never a grade alone).
+
+    A candidate PASS where both production judges raised a finding is the serious sign; a finding
+    where both production judges passed is the milder one. UNVERIFIABLE_INPUT is not a finding.
+    """
+    out = []
+    for record in _comparable(records):
+        cand = next(
+            (
+                c
+                for c in record.get("candidates", [])
+                if c.get("provider") == candidate["provider"]
+                and c.get("model") == candidate["model"]
+                and _current(c)
+                and _valid(c)
+            ),
+            None,
+        )
+        slots = [s for s in record.get("production_slots", []) if _valid(s)]
+        if cand is None or len(slots) < 2:
+            continue
+        verdicts = {s["verdict"] for s in slots}
+        if cand["verdict"] == PASS and verdicts <= FINDINGS:
+            kind = "pass_against_both_findings"
+        elif cand["verdict"] in FINDINGS and verdicts == {PASS}:
+            kind = "finding_against_both_passes"
+        else:
+            continue
+        rating = ((record.get("adjudication") or {}).get("ratings") or {}).get(_key(candidate))
+        out.append(
+            {
+                "kind": kind,
+                "run": _ref({"record": record}),
+                "adjudicated_accuracy": (rating or {}).get("accuracy"),
+                "reference_verdict": (record.get("adjudication") or {}).get("reference_verdict"),
+            }
+        )
+    return out
+
+
 def evaluate_candidate(
     records: list[dict[str, Any]],
     candidate: dict[str, Any],
@@ -98,40 +177,47 @@ def evaluate_candidate(
     now: datetime,
     started_at: datetime | None,
 ) -> dict[str, Any]:
+    """Grade the candidate's WORK, as rated by the blind adjudicator, against the incumbents' work
+    on the same runs -- never by whether its verdict matches a production judge's."""
     crit, window = config["criteria"], config["window"]
-    pairs = paired_runs(records, candidate)
+    runs = adjudicated_runs(records, candidate)
     tries = attempted(records, candidate)
-    n = len(pairs)
-    inc_pass = [p for p in pairs if p["slot"]["verdict"] == PASS]
-    inc_flag = [p for p in pairs if p["slot"]["verdict"] != PASS]
-    misses = [p for p in inc_flag if p["candidate"]["verdict"] == PASS]
-    extra = [p for p in inc_pass if p["candidate"]["verdict"] != PASS]
-    agree = sum(
-        (p["candidate"]["verdict"] == PASS) == (p["slot"]["verdict"] == PASS) for p in pairs
-    )
-    coverage = (len([t for t in tries if _valid(t)]) / len(tries)) if tries else None
+    n = len(runs)
+    mine = [r["candidate"] for r in runs]
+    theirs = [i for r in runs for i in r["incumbents"]]
+    usable = (len([t for t in tries if _valid(t)]) / len(tries)) if tries else None
+    inaccurate, inc_inaccurate = _share(mine, "inaccurate"), _share(theirs, "inaccurate")
+    coverage = _mean([r["coverage"] for r in mine if r.get("coverage") is not None])
+    inc_coverage = _mean([r["coverage"] for r in theirs if r.get("coverage") is not None])
+    useful = _mean([r["usefulness"] for r in mine if r.get("usefulness")])
+    inc_useful = _mean([r["usefulness"] for r in theirs if r.get("usefulness")])
+    warnings = warnings_for(records, candidate)
+    decisive = [
+        w
+        for w in warnings
+        if w["kind"] == "pass_against_both_findings" and w["adjudicated_accuracy"] == "inaccurate"
+    ]
     days = ((now - started_at).total_seconds() / 86400.0) if started_at else 0.0
+
+    def within(value: float | None, reference: float | None, slack: float, higher_is_better: bool):
+        if value is None or reference is None:
+            return False
+        return value >= reference - slack if higher_is_better else value <= reference + slack
+
     checks = {
-        "coverage": coverage is not None and coverage >= crit["coverage_min"],
-        "candidate_misses": len(misses)
-        <= max(
-            crit["candidate_miss_max_absolute"],
-            math.floor(crit["candidate_miss_max_share_of_incumbent_flags"] * len(inc_flag)),
+        "usable_evaluations": usable is not None and usable >= crit["usable_min"],
+        "inaccuracy": within(
+            inaccurate, inc_inaccurate, crit["inaccurate_share_max_excess"], False
         ),
-        "extra_flags": len(extra)
-        <= max(
-            crit["extra_flag_max_absolute"],
-            math.ceil(crit["extra_flag_max_share_of_incumbent_passes"] * len(inc_pass)),
-        ),
-        "class_agreement": n > 0 and agree / n >= crit["class_agreement_min"],
+        "rigor": within(coverage, inc_coverage, crit["coverage_max_shortfall"], True),
+        "usefulness": within(useful, inc_useful, crit["usefulness_max_shortfall"], True),
+        "no_false_pass_against_both_findings": not decisive,
     }
     failed = [name for name, ok in checks.items() if not ok]
     runs_short = max(0, window["min_runs"] - n)
     days_short = max(0.0, window["min_days"] - days)
-    if failed and n >= window["min_runs"]:
-        status = "DOES NOT MEET"
-    elif failed and misses:
-        status = "DOES NOT MEET"  # a candidate miss is decisive even before the window closes
+    if decisive:
+        status = "DOES NOT MEET"  # an inaccurate PASS over two production findings is decisive
     elif runs_short or days_short:
         status = "INSUFFICIENT" if days < window["max_days"] else "INSUFFICIENT AT CAP"
     elif failed:
@@ -141,14 +227,26 @@ def evaluate_candidate(
     return {
         "candidate": f"{candidate['provider']}:{candidate['model']}",
         "status": status,
-        "paired_runs": n,
+        "adjudicated_runs": n,
         "attempts": len(tries),
-        "coverage": None if coverage is None else round(coverage, 3),
-        "incumbent_pass_runs": len(inc_pass),
-        "incumbent_flag_runs": len(inc_flag),
-        "candidate_misses": [_ref(p) for p in misses],
-        "extra_flags": [_ref(p) for p in extra],
-        "class_agreement": None if not n else round(agree / n, 3),
+        "usable_share": None if usable is None else round(usable, 3),
+        "inaccurate_share": inaccurate,
+        "incumbent_inaccurate_share": inc_inaccurate,
+        "partly_inaccurate_share": _share(mine, "partly_inaccurate"),
+        "criteria_coverage": coverage,
+        "incumbent_criteria_coverage": inc_coverage,
+        "usefulness": useful,
+        "incumbent_usefulness": inc_useful,
+        "warnings": warnings,
+        "decisive": [w["run"] for w in decisive],
+        "inaccurate_runs": [
+            {
+                "run": _ref(r),
+                "errors": [e.get("why") for e in r["candidate"].get("errors", [])][:3],
+            }
+            for r in runs
+            if r["candidate"].get("accuracy") == "inaccurate"
+        ],
         "failed_criteria": failed,
         "runs_still_needed": runs_short,
         "days_still_needed": round(days_short, 1),
@@ -185,37 +283,48 @@ def markdown(result: dict[str, Any]) -> str:
     lines = [
         "## Verifier shadow report",
         "",
-        f"Generated {result['generated_at']}; {result['records']} shadow record(s). "
-        "Pre-registered criteria: `config/verifier_shadow.json`. Nothing here promotes a model.",
+        f"Generated {result['generated_at']}; {result['records']} shadow record(s). Each candidate's "
+        "work is rated by a blind adjudicator (accuracy with quoted evidence, coverage of every task "
+        "and acceptance criterion, usefulness) and compared with the production judges' work on the "
+        "same runs. Criteria: `config/verifier_shadow.json`. Nothing here promotes a model.",
         "",
-    ]
-    lines += [
-        "| Candidate | Status | Paired runs | Still needed (runs / days) | Misses | Extra flags | Agreement |",
-        "|---|---|---:|---|---:|---:|---:|",
+        "| Candidate | Status | Adjudicated runs | Still needed (runs / days) | Inaccurate (vs incumbents) "
+        "| Coverage (vs incumbents) | Usefulness (vs incumbents) | Warnings |",
+        "|---|---|---:|---|---|---|---|---:|",
     ]
     for c in result["candidates"]:
         lines.append(
-            f"| {c['candidate']} | **{c['status']}** | {c['paired_runs']} | "
-            f"{c['runs_still_needed']} / {c['days_still_needed']} | {len(c['candidate_misses'])} | "
-            f"{len(c['extra_flags'])} | {c['class_agreement']} |"
+            f"| {c['candidate']} | **{c['status']}** | {c['adjudicated_runs']} | "
+            f"{c['runs_still_needed']} / {c['days_still_needed']} | "
+            f"{c['inaccurate_share']} ({c['incumbent_inaccurate_share']}) | "
+            f"{c['criteria_coverage']} ({c['incumbent_criteria_coverage']}) | "
+            f"{c['usefulness']} ({c['incumbent_usefulness']}) | {len(c['warnings'])} |"
         )
     lines.append("")
     for c in result["candidates"]:
         lines += [
             f"### {c['candidate']}: **{c['status']}**",
             "",
-            f"- paired runs {c['paired_runs']} (attempts {c['attempts']}, coverage {c['coverage']}), "
-            f"observed {c['days_observed']} days",
-            f"- still needed: {c['runs_still_needed']} paired run(s), {c['days_still_needed']} day(s)",
-            f"- class agreement with the replaced production judge: {c['class_agreement']}",
-            f"- candidate misses (candidate PASS, incumbent not): {len(c['candidate_misses'])} "
-            f"of {c['incumbent_flag_runs']} incumbent flags",
-            f"- extra flags (candidate not PASS, incumbent PASS): {len(c['extra_flags'])} "
-            f"of {c['incumbent_pass_runs']} incumbent passes",
+            f"- adjudicated runs {c['adjudicated_runs']}; attempts {c['attempts']}, usable share "
+            f"{c['usable_share']}; observed {c['days_observed']} days",
+            f"- still needed: {c['runs_still_needed']} adjudicated run(s), "
+            f"{c['days_still_needed']} day(s)",
+            f"- inaccurate evaluations: {c['inaccurate_share']} (production judges on the same runs: "
+            f"{c['incumbent_inaccurate_share']}); partly inaccurate: {c['partly_inaccurate_share']}",
+            f"- task/criteria coverage: {c['criteria_coverage']} "
+            f"(production: {c['incumbent_criteria_coverage']})",
+            f"- usefulness (1-5): {c['usefulness']} (production: {c['incumbent_usefulness']})",
             f"- failed criteria: {', '.join(c['failed_criteria']) or 'none'}",
         ]
-        for label, refs in (("misses", c["candidate_misses"]), ("extra flags", c["extra_flags"])):
-            lines += [f"  - {label}: {r}" for r in refs]
+        lines += [
+            f"  - inaccurate: {r['run']}: {'; '.join(e for e in r['errors'] if e)}"
+            for r in c["inaccurate_runs"]
+        ]
+        lines += [
+            f"  - warning ({w['kind']}): {w['run']}, adjudicated {w['adjudicated_accuracy']}, "
+            f"best-supported verdict {w['reference_verdict']}"
+            for w in c["warnings"]
+        ]
         lines.append("")
     return "\n".join(lines)
 
@@ -310,7 +419,9 @@ def main(argv: list[str] | None = None) -> int:
             ledger,
             collect(repos, since=since, list_artifacts=gh_list_artifacts, download=gh_download),
         )
-    args.ledger.write_text(json.dumps(ledger, indent=1) + "\n")
+    tmp = args.ledger.with_name(args.ledger.name + ".tmp")  # never upload a truncated ledger
+    tmp.write_text(json.dumps(ledger, indent=1) + "\n")
+    tmp.replace(args.ledger)
     result = evaluate(ledger, config)
     text = markdown(result)
     if args.markdown:

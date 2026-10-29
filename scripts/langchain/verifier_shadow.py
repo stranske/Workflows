@@ -24,7 +24,29 @@ from typing import Any
 
 SCHEMA = "workflows-verifier-shadow-record/v1"
 CANDIDATE_TIMEOUT_SECONDS = 300
-PIPELINE = "compare-slot/v2"
+# v3: entries also carry the review itself (not only its verdict), which the daily adjudicator reads
+PIPELINE = "compare-slot/v3"
+REVIEW_LIMITS = {"summary": 4000, "concern": 1500, "concerns": 25, "files": 60}
+
+
+def review_of(result: Any) -> dict[str, Any]:
+    """The parts of an evaluation an adjudicator reads, in the shape comparison.json uses."""
+    scores = getattr(result, "scores", None)
+    if hasattr(scores, "model_dump"):
+        scores = scores.model_dump()
+    return {
+        "verdict": getattr(result, "verdict", None),
+        "confidence": getattr(result, "confidence", None),
+        "scores": scores if isinstance(scores, dict) else None,
+        "summary": str(getattr(result, "summary", "") or "")[: REVIEW_LIMITS["summary"]],
+        "concerns": [
+            str(c)[: REVIEW_LIMITS["concern"]]
+            for c in (getattr(result, "concerns", None) or [])[: REVIEW_LIMITS["concerns"]]
+        ],
+        "files_not_reviewed": [str(f) for f in (getattr(result, "files_not_reviewed", None) or [])][
+            : REVIEW_LIMITS["files"]
+        ],
+    }
 
 
 def evaluate_like_production(
@@ -113,6 +135,8 @@ def run_candidate(
                 "concerns": len(getattr(result, "concerns", []) or []),
             }
         )
+        if not entry["error"] and entry["verdict"] is not None:
+            entry["review"] = review_of(result)
         if entry["error"]:  # keep what the model said, to tell a bad schema from a harness fault
             entry["raw_excerpt"] = str(getattr(result, "raw_content", "") or "")[:400]
     except concurrent.futures.TimeoutError:

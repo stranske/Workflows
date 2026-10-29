@@ -8,8 +8,8 @@ least 7 days against the production comparison, not by clearing a benchmark. Bac
 
 * The reusable verifier workflow (`reusable-agents-verifier.yml`, called by every consumer at `@main`)
   has a step after the production comparison: `scripts/langchain/verifier_shadow.py`. For each candidate
-  in `config/verifier_shadow.json` it runs the production single-judge code path
-  (`pr_verifier.evaluate_pr`) on the **same context and diff** the production judges saw and writes
+  in `config/verifier_shadow.json` it runs the production per-slot code path
+  (`ComparisonRunner.run_single`) on the **same context and diff** the production judges saw and writes
   `verifier-shadow.json` beside `comparison.json` in the `comparison-results-<run>` artifact.
 * The step posts nothing, sets no label or output, uses `continue-on-error`, a 10 minute timeout and a
   per-candidate 300 second timeout; any failure is an `error` field in the record. A candidate that is
@@ -21,39 +21,75 @@ least 7 days against the production comparison, not by clearing a benchmark. Bac
   "Verifier shadow report". Cost: one extra judge call per verification (about 0.03 cents for
   gpt-6-luna), about 13 verifications a week.
 
-## Pre-registered criteria (committed before any shadow data)
+## How candidates are graded (owner direction 2026-10-28)
 
-The head-to-head baseline is the production slot with the candidate's provider (the judge it would
-replace); the unified production verdict is recorded alongside.
+The verifier runs two judges from different provider families on purpose and expects them to
+disagree; a split is information, not an error. The first version of these criteria graded a
+candidate by whether its verdict matched ONE production judge (a candidate PASS where that judge
+did not PASS was a "miss", and one miss ended the evaluation). That contradicts the design, and on
+the first live data it marked Muse "DOES NOT MEET" after two runs because the openai judge had said
+UNVERIFIABLE_INPUT (it could not verify, it found no defect) while the anthropic judge and Muse
+both said PASS. Those criteria are withdrawn.
+
+Candidates are now graded on the quality of their **work**, against the production judges' work on
+the same runs:
+
+1. `tools/verifier_shadow_adjudicate.py` (a step of the daily job) gives a reasoning model that is
+   neither a candidate nor a production judge (`adjudicator` in the config: `claude-fable-5-1`)
+   the PR's plan and context, its diff and **every** evaluation of the run, production and
+   candidate alike, relabelled A, B, C... in a shuffled order. It lists the tasks and acceptance
+   criteria, decides the verdict the evidence best supports, and rates each evaluation:
+   * **accuracy**: accurate, partly inaccurate, or inaccurate (verdict unsupported or a
+     load-bearing claim wrong). Each error must quote the evaluation's claim and the context or
+     diff text that contradicts it; the quotes are checked, and an error whose quotes cannot be
+     found is discarded and cannot mark anyone down (the rating becomes `unsupported`);
+   * **rigor**: each task and criterion was checked against the diff (1), only asserted (0.5) or
+     missed (0);
+   * **usefulness** (1-5): specific, evidence-citing, comparable point by point with another
+     reviewer's work.
+2. `tools/verifier_shadow_report.py` compares each candidate with the production judges on the
+   runs where both were rated:
 
 | Criterion | Value |
 | --- | --- |
-| Window | at least 7 days **and** at least 10 paired runs; at 21 days the result is `INSUFFICIENT AT CAP`, never a pass |
-| Coverage | the candidate returns a usable verdict on at least 90% of attempts |
-| Candidate misses (candidate PASS, incumbent slot not PASS) | at most max(1, 20% of the incumbent's flags) |
-| Extra flags (candidate not PASS, incumbent slot PASS) | at most max(1, 25% of the incumbent's passes, rounded up) |
-| Class agreement (PASS against not-PASS) | at least 60% |
-| Cost | informational unless both report tokens: at most the incumbent's cost per run |
-| Rollback signal | a candidate miss on a PR that later reverts or draws a verifier follow-up ends the evaluation as DOES NOT MEET |
+| Window | at least 7 days **and** 10 adjudicated runs; at 21 days `INSUFFICIENT AT CAP`, never a pass |
+| Usable evaluations | at least 90% of attempts produce a usable evaluation |
+| Inaccuracy | the candidate's inaccurate share is at most 0.10 above the production judges' share on the same runs |
+| Rigor | mean task/criteria coverage at most 0.10 below the production judges' |
+| Usefulness | mean usefulness at most 0.5 below the production judges' |
+| Decisive at any time | the candidate's PASS evaluation is rated inaccurate by the adjudicator on a run where both production judges raised a finding (FAIL or CONCERNS) |
+| Listed, never graded alone | a candidate PASS rated accurate on a run where both production judges raised a finding; a candidate finding where both production judges passed |
 
-Statuses: `MEETS`, `DOES NOT MEET` (the failing criteria are named, and the misses and extra flags are
-listed by PR and run), `INSUFFICIENT` (with the paired runs and days still needed).
+The four margins were set in this change, after two runs that had no adjudication and before any
+adjudication data. UNVERIFIABLE_INPUT is not a finding. The production judges are rated by the same
+adjudicator, so the report also says how often THEY are inaccurate, for example how many of their
+UNVERIFIABLE_INPUT verdicts the evidence supported.
 
-**What 7 days can and cannot show.** About 13 verifications a week fleet-wide means 10 to 15 paired runs:
-enough to catch a candidate that disagrees with the incumbent often or misses what it flags, not enough
-to measure a difference of a few points. The criteria are sized for that: they reject a clearly worse
-candidate and accept an indistinguishable one, which is the decision the analysis says is worth making.
+**Bias controls and limits.** The adjudicator shares a provider family with the production
+anthropic judge and two candidates; blinding and the side-by-side incumbent ratings are the
+control (a family preference would show as a gap the incumbents share). One adjudicator is one
+reader: its ratings are a real trial on live work, not a ground truth.
+
+**Cost.** About 25k input tokens per run (the context dominates), roughly $0.30-0.60 per run at
+the registry list price, at most 20 runs a day, typically 2-4.
 
 ## Latched-gate check
 
-1. **What decrements the gate?** Each paired run lowers `runs_still_needed`; time lowers
+1. **What decrements the gate?** Each adjudicated run lowers `runs_still_needed`; time lowers
    `days_still_needed`. Both are printed.
 2. **Can that run while the gate is closed?** Yes: shadowing runs on every verification whatever the
    status, and nothing the report says changes what is collected.
 3. **Same constant for measuring and draining?** `min_days`, `min_runs` and `max_days` are defined once
    in `config/verifier_shadow.json` and read by the report; the workflow only collects.
 4. **What does it print when drained?** `MEETS` with `failed criteria: none` and `still needed: 0
-   paired run(s), 0.0 day(s)`; a test pins that output.
+   adjudicated run(s), 0.0 day(s)`; a test pins that output.
+
+5. **Adjudication gate** (`needs_adjudication`). What drains it: a run is adjudicated once every
+   candidate has an evaluation, or when it is `SETTLE_DAYS` (6) old, so a candidate that never
+   answers cannot hold a run past its artifact's 7-day life. A failed adjudication is retried once
+   (`MAX_ATTEMPTS` 2). It reports `adjudicated`, `failed`, `capped`, `out_of_time`, `unusable` and
+   `skipped_private` each day; runs skipped for time or the cap are picked up the next day. Fully
+   drained prints `adjudicated: 0` with every other count 0.
 
 ## Owner time
 

@@ -23,7 +23,7 @@ concurrency:
 jobs:
   report:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 75
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -40,11 +40,22 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          rid="$(gh run list --workflow maint-89-verifier-shadow-report.yml --status success --limit 1 \
-            --json databaseId --jq '.[0].databaseId // empty' || true)"
-          if [ -n "$rid" ]; then
-            gh run download "$rid" -n verifier-shadow-ledger -D prior || true
-          fi
+          # The newest run that saved a VALID ledger, whatever its conclusion: a run whose report or
+          # issue step failed still uploads the paid judgments it checkpointed. This run is tried
+          # first (a re-run attempt keeps its run id and its earlier attempt's artifact), then every
+          # run back through the 90-day artifact retention, so a streak of runs that failed before
+          # saving a ledger cannot reset the baseline to empty.
+          runs="$GITHUB_RUN_ID $(gh run list --workflow maint-89-verifier-shadow-report.yml \
+            --limit 200 --json databaseId --jq '.[].databaseId' || true)"
+          for rid in $runs; do
+            if gh run download "$rid" -n verifier-shadow-ledger -D prior 2>/dev/null \
+                && python -c 'import json,sys; assert isinstance(json.load(open(sys.argv[1])), list)' \
+                  prior/ledger.json 2>/dev/null; then
+              echo "baseline ledger from run $rid"
+              break
+            fi
+            rm -rf prior
+          done
           if [ -f prior/ledger.json ]; then cp prior/ledger.json ledger.json; else echo '[]' > ledger.json; fi
       - name: Collect shadow records and evaluate the criteria
         env:
@@ -86,7 +97,22 @@ jobs:
           repos="stranske/Workflows,$(python scripts/list_registered_consumer_repos.py --separator ',')"
           python -m tools.verifier_shadow_external --ledger ledger.json --repos "$repos" \
             --budget-seconds 1620
-      - name: Re-evaluate the criteria with the external verdicts
+      - name: Adjudicate every evaluation of each settled run (blind, evidence-bound)
+        # A reasoning model that is neither a candidate nor a production judge rates every
+        # evaluation of a run -- production and candidate alike, shuffled and relabelled -- on
+        # accuracy (with quoted evidence), coverage of the tasks and acceptance criteria, and
+        # usefulness. Bounded and checkpointed like the step above; a failed run is retried once.
+        continue-on-error: true
+        timeout-minutes: 25
+        env:
+          GH_TOKEN: ${{ secrets.OWNER_PR_PAT }}
+          CLAUDE_API_STRANSKE: ${{ secrets.CLAUDE_API_STRANSKE }}
+        run: |
+          set -euo pipefail
+          repos="stranske/Workflows,$(python scripts/list_registered_consumer_repos.py --separator ',')"
+          python -m tools.verifier_shadow_adjudicate --ledger ledger.json --repos "$repos" \
+            --budget-seconds 1380
+      - name: Re-evaluate the criteria with the external verdicts and adjudications
         if: ${{ !cancelled() }}
         run: |
           set -euo pipefail
@@ -108,8 +134,11 @@ jobs:
             gh issue create --title "$title" --body "$body"
           fi
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        # also after a failed later step: the ledger is written atomically after every paid judgment
+        if: ${{ !cancelled() }}
         with:
           name: verifier-shadow-ledger
+          overwrite: true  # a re-run attempt replaces its earlier attempt's ledger
           path: |
             ledger.json
             report.json

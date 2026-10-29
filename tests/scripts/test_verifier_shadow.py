@@ -104,12 +104,16 @@ def test_the_shipped_config_names_a_candidate_and_preregistered_criteria():
     )
     assert config["candidates"] and config["window"]["min_runs"] >= 10
     for key in (
-        "coverage_min",
-        "candidate_miss_max_absolute",
-        "extra_flag_max_absolute",
-        "class_agreement_min",
+        "usable_min",
+        "inaccurate_share_max_excess",
+        "coverage_max_shortfall",
+        "usefulness_max_shortfall",
     ):
         assert key in config["criteria"]
+    # graded on the work, never on agreement with one production judge
+    assert not {"class_agreement_min", "candidate_miss_max_absolute"} & set(config["criteria"])
+    judged = {(c["provider"], c["model"]) for c in config["candidates"]}
+    assert (config["adjudicator"]["provider"], config["adjudicator"]["model"]) not in judged
 
 
 def test_a_missing_context_calls_no_candidate(tmp_path, monkeypatch):
@@ -208,7 +212,50 @@ def test_every_candidate_entry_names_its_pipeline():
     entry = shadow.run_candidate(
         {"provider": "openai", "model": "m"}, "ctx", None, lambda *a, **k: _result("PASS")
     )
-    assert entry["pipeline"] == shadow.PIPELINE == "compare-slot/v2"
+    assert entry["pipeline"] == shadow.PIPELINE == "compare-slot/v3"
+
+
+def test_a_candidate_entry_keeps_the_review_the_adjudicator_reads():
+    result = _result("CONCERNS")
+    result.summary = "Route added; the acceptance test is missing."
+    result.concerns = ["tests/test_route.py is not in the diff"]
+    result.files_not_reviewed = []
+    entry = shadow.run_candidate(
+        {"provider": "openai", "model": "m"}, "ctx", None, lambda *a, **k: result
+    )
+    review = entry["review"]
+    assert review["verdict"] == "CONCERNS" and review["concerns"] == [
+        "tests/test_route.py is not in the diff"
+    ]
+    assert review["summary"].startswith("Route added")
+    failed = _result("CONCERNS")
+    failed.error = "Failed to parse JSON response"
+    assert "review" not in shadow.run_candidate(
+        {"provider": "openai", "model": "m"}, "ctx", None, lambda *a, **k: failed
+    ), "an errored entry carries no review to grade"
+
+
+def test_reviews_are_bounded_so_records_stay_small():
+    from types import SimpleNamespace
+
+    huge = SimpleNamespace(
+        verdict="CONCERNS",
+        confidence=0.5,
+        scores=None,
+        summary="s" * 10_000,
+        concerns=["c" * 5_000] * 100,
+        files_not_reviewed=["f"] * 500,
+    )
+    review = shadow.review_of(huge)
+    limits = shadow.REVIEW_LIMITS
+    assert (
+        len(review["summary"]) == limits["summary"]
+        and len(review["concerns"]) == limits["concerns"]
+    )
+    assert (
+        len(review["concerns"][0]) == limits["concern"]
+        and len(review["files_not_reviewed"]) == limits["files"]
+    )
 
 
 def test_main_records_whether_production_ran_the_semantic_matrix(tmp_path, monkeypatch):
