@@ -33,6 +33,10 @@ separate coordinated provenance update. The internal backplane-contract workflow
 also retains its existing revision; its registry lifecycle failures predate this
 dependency shipment.
 
+The #4271 promotion also aligns mypy 2.4.1 and pytest 9.2.0 across source,
+consumer/integration mirrors and the requirements lock after the required
+compatibility suite reported those two stale pins. Python stays at 3.14.
+
 Gate test-quality installs declared development extras before running acceptance
 tests, then removes the head project distribution before testing archived base
 code. This supplies test imports without allowing the installed head to mask base

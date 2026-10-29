@@ -178,7 +178,7 @@ multidict==6.7.1
     # via
     #   aiohttp
     #   yarl
-mypy==2.4.0
+mypy==2.4.1
     # via workflows (pyproject.toml)
 mypy-extensions==1.1.0
     # via
@@ -256,7 +256,7 @@ pyflakes==3.4.0
     # via flake8
 pygments==2.20.0
     # via pytest
-pytest==9.1.1
+pytest==9.2.0
     # via
     #   workflows (pyproject.toml)
     #   pytest-cov
