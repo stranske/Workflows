@@ -48,6 +48,97 @@ def test_valid_original_never_constructs_or_invokes_schema_repair(monkeypatch):
 
 
 @pytest.mark.parametrize(
+    "entries",
+    [
+        [
+            {"criterion": "Correctness", "support": "The lane guard is installed."},
+            {"criterion": "Completeness", "support": "The busy-lane path is covered."},
+            {"criterion": "Quality", "support": "The lock remains bounded."},
+            {"criterion": "Testing", "support": "Focused tests pass."},
+            {"criterion": "Risks", "support": "No owner is evicted."},
+            {"criterion": "Verdict", "support": "No concerns found."},
+        ],
+        [
+            {"criterion": "Correctness", "support": "The floor is reconciled."},
+            {"criterion": "Completeness", "support": "The timeout is bounded."},
+            {"criterion": "Quality", "support": "The configuration is local."},
+            {"criterion": "Verdict", "support": "Ready for review."},
+        ],
+    ],
+)
+def test_typed_summary_entries_canonicalize_to_scalar_without_repair(monkeypatch, entries):
+    def forbidden(*args, **kwargs):
+        pytest.fail("A typed summary transport must not request schema repair")
+
+    monkeypatch.setattr(verifier, "_build_verifier_repair_callback", forbidden)
+    raw = json.dumps({"verdict": "PASS", "summary": entries})
+    expected = "\n\n".join(f"{entry['criterion']}: {entry['support']}" for entry in entries)
+
+    payload = verifier._parse_semantic_evaluation_payload(raw)
+    result = verifier._parse_llm_response(raw, "openai", client=object())
+
+    assert payload.summary == expected
+    assert result.error is None
+    assert result.summary == expected
+    assert result.raw_content == raw
+    assert "- Summary: " + expected in verifier._format_followup_issue_body(
+        result, pr_number=1, pr_url=None, run_url=None
+    )
+
+
+@pytest.mark.parametrize(
+    "summary",
+    [
+        [],
+        [{"criterion": "Only one field"}],
+        [{"criterion": "Criterion", "support": "Support", "extra": "untrusted"}],
+        [{"criterion": 1, "support": "Support"}],
+        [{"criterion": "Criterion", "support": 1}],
+        [{"criterion": "", "support": "Support"}],
+        [{"criterion": "Criterion", "support": ""}],
+    ],
+)
+def test_invalid_summary_entry_transport_remains_refused(summary):
+    raw = json.dumps({"verdict": "PASS", "summary": summary})
+    with pytest.raises((ValueError, TypeError)):
+        verifier._parse_semantic_evaluation_payload(raw)
+    result = verifier._parse_llm_response(raw, "openai", client=None)
+    assert result.error is not None
+    assert result.verdict == "CONCERNS"
+    assert result.summary is None
+    assert result.raw_content == raw
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {
+            "verdict": "NOT_A_VERDICT",
+            "summary": [{"criterion": "Criterion", "support": "Support"}],
+        },
+        {
+            "verdict": "PASS",
+            "summary": [{"criterion": "Criterion", "support": "Support"}],
+            "untrusted_authority": "accept",
+        },
+        {
+            "verdict": "PASS",
+            "summary": [{"criterion": "Criterion", "support": "Support"}],
+            "concerns": [1],
+        },
+    ],
+)
+def test_typed_summary_transport_cannot_bypass_semantic_validation(payload):
+    raw = json.dumps(payload)
+    with pytest.raises((ValueError, TypeError)):
+        verifier._parse_semantic_evaluation_payload(raw)
+    result = verifier._parse_llm_response(raw, "openai", client=None)
+    assert result.error is not None
+    assert result.verdict == "CONCERNS"
+    assert result.raw_content == raw
+
+
+@pytest.mark.parametrize(
     "raw",
     [
         '```json\n{"verdict":"FAIL"}\n{"verdict":"PASS"}\n```',

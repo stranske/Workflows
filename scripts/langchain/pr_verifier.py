@@ -119,7 +119,7 @@ Respond in JSON with:
     "risks": 0-10
   }},
   "concerns": ["..."],
-  "summary": "concise report"
+  "summary": "concise report as one JSON string, never a list or object"
 }}
 """.strip()
 
@@ -169,7 +169,7 @@ Respond in JSON with:
     "risks": 0-10
   }},
   "concerns": ["..."],
-  "summary": "concise report"
+  "summary": "concise report as one JSON string, never a list or object"
 }}
 """.strip()
 
@@ -325,6 +325,14 @@ class EvaluationPayload(BaseModel):
     files_reviewed: list[str] | None = None
     deferred_concerns: list[DeferredChunkConcern] = Field(default_factory=list)
     resolved_chunk_concerns: list[ResolvedChunkConcern] = Field(default_factory=list)
+
+
+class CriterionSummaryEntry(BaseModel):
+    """Strict alternate transport entry emitted by one native provider."""
+
+    model_config = {"extra": "forbid"}
+    criterion: str = Field(min_length=1)
+    support: str = Field(min_length=1)
 
 
 SEMANTIC_ENVELOPE_SCHEMA = "workflows-verifier-semantic-acceptance-envelope/v1"
@@ -8166,9 +8174,24 @@ def _parse_semantic_evaluation_payload(content: str) -> EvaluationPayload:
             members[key] = value
         return members
 
-    return EvaluationPayload.model_validate(
-        json.loads(text, object_pairs_hook=unique_members), strict=True, extra="forbid"
-    )
+    payload_data = json.loads(text, object_pairs_hook=unique_members)
+    if isinstance(payload_data, dict) and isinstance(payload_data.get("summary"), list):
+        summary_entries = [
+            CriterionSummaryEntry.model_validate(entry, strict=True, extra="forbid")
+            for entry in payload_data["summary"]
+        ]
+        if not summary_entries:
+            raise ValueError("semantic response summary entries must not be empty")
+        # Keep the public evaluation payload and every downstream renderer scalar.
+        # Raw provider content remains attached by _parse_llm_response for audit.
+        payload_data = {
+            **payload_data,
+            "summary": "\n\n".join(
+                f"{entry.criterion}: {entry.support}" for entry in summary_entries
+            ),
+        }
+
+    return EvaluationPayload.model_validate(payload_data, strict=True, extra="forbid")
 
 
 def _parse_llm_response(
