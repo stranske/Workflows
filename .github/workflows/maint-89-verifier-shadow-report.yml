@@ -40,11 +40,18 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          rid="$(gh run list --workflow maint-89-verifier-shadow-report.yml --status success --limit 1 \
-            --json databaseId --jq '.[0].databaseId // empty' || true)"
-          if [ -n "$rid" ]; then
-            gh run download "$rid" -n verifier-shadow-ledger -D prior || true
-          fi
+          # The newest run that saved a ledger, whatever its conclusion: a run whose report or issue
+          # step failed still uploads the paid judgments it checkpointed, and they must not be paid
+          # for again.
+          for rid in $(gh run list --workflow maint-89-verifier-shadow-report.yml --status completed \
+              --limit 15 --json databaseId --jq '.[].databaseId' || true); do
+            [ "$rid" = "$GITHUB_RUN_ID" ] && continue
+            if gh run download "$rid" -n verifier-shadow-ledger -D prior 2>/dev/null \
+                && [ -f prior/ledger.json ]; then
+              break
+            fi
+            rm -rf prior
+          done
           if [ -f prior/ledger.json ]; then cp prior/ledger.json ledger.json; else echo '[]' > ledger.json; fi
       - name: Collect shadow records and evaluate the criteria
         env:
@@ -123,6 +130,8 @@ jobs:
             gh issue create --title "$title" --body "$body"
           fi
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        # also after a failed later step: the ledger is written atomically after every paid judgment
+        if: ${{ !cancelled() }}
         with:
           name: verifier-shadow-ledger
           path: |

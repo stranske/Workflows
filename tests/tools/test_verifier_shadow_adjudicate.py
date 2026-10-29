@@ -293,3 +293,37 @@ def test_spend_is_bounded_by_the_cap_the_budget_and_public_repositories(monkeypa
 
 def test_the_run_reserve_is_derived_from_the_call_timeout():
     assert adj.RUN_RESERVE_SECONDS > adj.CALL_TIMEOUT_SECONDS
+
+
+def test_a_wrong_shaped_answer_is_recorded_as_an_error_never_raised():
+    record = _record()
+    labelled = adj.blind(adj.evaluators_for(record, COMPARISON), "o/r:7")
+    answer = json.loads(_answer(labelled))
+    answer["evaluations"][0]["coverage"] = [{"id": "C1", "status": ["checked"]}]
+    answer["evaluations"][1]["errors"] = 5
+    answer["evaluations"][2]["coverage"] = 3
+    out = adj.adjudicate(
+        record, CONTEXT, DIFF, COMPARISON, FakeClient(json.dumps(answer)), CONFIG["adjudicator"]
+    )
+    assert out["error"].startswith("malformed adjudicator answer")
+
+
+def test_a_wrong_shaped_answer_still_counts_an_attempt_so_retries_stop():
+    ledger = [_record("7")]
+    client = FakeClient(json.dumps({"criteria": [], "evaluations": [{"label": "A", "errors": 5}]}))
+    for _ in range(adj.MAX_ATTEMPTS + 1):
+        _run_ledger(ledger, client, list_artifacts=lambda repo: _artifacts("7"))
+    assert ledger[0]["adjudication_attempts"] == adj.MAX_ATTEMPTS
+    assert len(client.prompts) == adj.MAX_ATTEMPTS
+
+
+def test_a_corrupt_archive_is_unusable_not_a_crash():
+    counts, _ = _run_ledger([_record("7")], FakeClient("{}"), download=lambda r, i: b"not a zip")
+    assert counts["unusable"] >= 1
+
+
+def test_placeholders_inside_the_pr_text_are_not_expanded():
+    labelled = _labelled()
+    prompt = adj.build_prompt("context mentions {diff} and {evaluations}", DIFF, labelled)
+    assert "context mentions {diff} and {evaluations}" in prompt
+    assert prompt.count(DIFF.strip()) == 1

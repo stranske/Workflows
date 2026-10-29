@@ -26,8 +26,10 @@ import json
 import random
 import re
 import time
+import zipfile
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
+from io import BytesIO
 from pathlib import Path
 from typing import Any
 
@@ -146,11 +148,9 @@ def build_prompt(context: str, diff: str | None, labelled: list[tuple[str, str, 
     evaluations = "\n\n".join(
         f"--- Evaluation {label} ---\n{_render(review)}" for label, _, review in labelled
     )
-    return (
-        PROMPT.replace("{context}", context)
-        .replace("{diff}", diff)
-        .replace("{evaluations}", evaluations)
-    )
+    # one pass: a placeholder that appears inside the PR's own text is left as it is
+    values = {"context": context, "diff": diff, "evaluations": evaluations}
+    return re.sub(r"\{(context|diff|evaluations)\}", lambda m: values[m.group(1)], PROMPT)
 
 
 def _json_object(text: str) -> dict[str, Any] | None:
@@ -210,7 +210,7 @@ def validate(
         statuses = {
             str(c.get("id")): c.get("status")
             for c in raw.get("coverage") or []
-            if isinstance(c, dict) and c.get("status") in COVERAGE
+            if isinstance(c, dict) and isinstance(c.get("status"), str) and c["status"] in COVERAGE
         }
         coverage = (
             round(sum(COVERAGE[statuses.get(i, "missed")] for i in ids) / len(ids), 3)
@@ -275,7 +275,10 @@ def adjudicate(
         return {**base, "error": f"{type(exc).__name__}: {str(exc)[:200]}"}
     if answer is None:
         return {**base, "error": "adjudicator answer was not a JSON object"}
-    return {**base, **validate(answer, labelled, context, diff)}
+    try:
+        return {**base, **validate(answer, labelled, context, diff)}
+    except (TypeError, ValueError, AttributeError, KeyError) as exc:
+        return {**base, "error": f"malformed adjudicator answer: {type(exc).__name__}"}
 
 
 def needs_adjudication(record: dict[str, Any], wanted: list[dict[str, Any]], now: datetime) -> bool:
@@ -300,9 +303,6 @@ def needs_adjudication(record: dict[str, Any], wanted: list[dict[str, Any]], now
 
 
 def read_run(blob: bytes) -> dict[str, Any] | None:
-    import zipfile
-    from io import BytesIO
-
     found: dict[str, str] = {}
     with zipfile.ZipFile(BytesIO(blob)) as archive:
         for name in archive.namelist():
@@ -391,7 +391,10 @@ def adjudicate_ledger(
             if deadline is not None and time.monotonic() + RUN_RESERVE_SECONDS > deadline:
                 counts["out_of_time"] += 1
                 continue
-            run = read_run(download(repo, int(artifact["id"])))
+            try:
+                run = read_run(download(repo, int(artifact["id"])))
+            except (OSError, ValueError, zipfile.BadZipFile):
+                run = None  # a corrupt archive is unusable, never a crash of the whole step
             if run is None:
                 counts["unusable"] += 1
                 continue

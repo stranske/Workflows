@@ -57,8 +57,8 @@ the same runs:
 | Inaccuracy | the candidate's inaccurate share is at most 0.10 above the production judges' share on the same runs |
 | Rigor | mean task/criteria coverage at most 0.10 below the production judges' |
 | Usefulness | mean usefulness at most 0.5 below the production judges' |
-| Decisive at any time | a candidate PASS where both production judges raised a finding (FAIL or CONCERNS), rated inaccurate by the adjudicator |
-| Listed, never graded alone | a candidate PASS against two findings that the adjudicator rates accurate; a candidate finding where both production judges passed |
+| Decisive at any time | the candidate's PASS evaluation is rated inaccurate by the adjudicator on a run where both production judges raised a finding (FAIL or CONCERNS) |
+| Listed, never graded alone | a candidate PASS rated accurate on a run where both production judges raised a finding; a candidate finding where both production judges passed |
 
 The four margins were set in this change, after two runs that had no adjudication and before any
 adjudication data. UNVERIFIABLE_INPUT is not a finding. The production judges are rated by the same
