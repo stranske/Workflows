@@ -95,6 +95,24 @@ the registry list price. At the measured 13 runs a day that is about $30-55 a we
    `skipped_private` each day; runs skipped for time or the cap are picked up the next day. Fully
    drained prints `adjudicated: 0` with every other count 0.
 
+## Corpus trial: every judge on recorded work at once (owner direction 2026-10-29)
+
+The live shadow can only grade runs as they happen, and their saved inputs expire after 7 days. The
+frozen verifier corpus (`config/model_eval_pilot.json`) already holds the production inputs of 62
+non-diagnostic merged PRs from seven repositories, each with an independent label (42 PASS, 20
+NON_PASS, of which 18 are controlled defects). Dispatching maint-89 with `corpus: true` runs
+`tools/verifier_shadow_corpus.py`: the production pair (resolved from the registry) and every candidate
+judge each case's production prompt at once, through the same code paths as the shadow, and the same
+blind adjudicator rates every evaluation. Six shards run in parallel, each checkpointed and budgeted.
+
+The report (job summary and the `verifier-shadow-corpus-report` artifact) applies the same criteria
+as the daily report without the time window, still requiring `min_runs` adjudicated cases, and adds
+each judge's agreement with the corpus labels: PASS on a NON_PASS label and a finding on a PASS
+label. Evidence class: a trial on recorded production inputs, not production use, so its records stay
+out of the daily ledger. External judges see public repositories only. One dispatch costs about
+$50-80: about 9 judge calls of roughly 24,000 input tokens per case at list prices, plus one
+adjudication per case.
+
 ## Owner time
 
 One read of the report once it says `MEETS` or `DOES NOT MEET` (about 2 minutes). Nothing waits on the
