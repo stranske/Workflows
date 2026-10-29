@@ -61,14 +61,19 @@ def production_judges() -> list[dict[str, str]]:
 
 
 def corpus_cases(path: Path = CORPUS) -> list[dict[str, Any]]:
-    """Every non-diagnostic labelled case with a production input snapshot, in corpus order."""
+    """Every non-diagnostic labelled case the production prompt can judge, in corpus order.
+
+    On a snapshot that fails the production coverage check, the verifier answers
+    UNVERIFIABLE_INPUT without calling any model, for every judge alike (2026-10-29: 44 of 62
+    cases), so those cases cost a dispatch and measure nothing about a judge.
+    """
     from tools.generate_mutation_cases import coverage_sufficient
     from tools.run_judge_backend_screen import corpus_cases_with_snapshots
 
     cases = corpus_cases_with_snapshots(json.loads(path.read_text(encoding="utf-8")), ROOT)
     for case in cases:
         case["evaluable"] = bool(coverage_sufficient(case["production_snapshot"]))
-    return cases
+    return [case for case in cases if case["evaluable"]]
 
 
 def case_inputs(case: dict[str, Any]) -> tuple[str, str | None]:
@@ -246,7 +251,23 @@ def label_agreement(records: list[dict[str, Any]], key: tuple[str, str]) -> dict
     }
 
 
+def one_per_case(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """One record per corpus case: a successful adjudication first, then the newest."""
+
+    def rank(record: dict[str, Any]) -> tuple[bool, str]:
+        adjudication = record.get("adjudication") or {}
+        return (bool(adjudication) and not adjudication.get("error"), record.get("recorded_at", ""))
+
+    best: dict[str, dict[str, Any]] = {}
+    for record in records:
+        key = record["corpus"]["case_id"]
+        if key not in best or rank(record) > rank(best[key]):
+            best[key] = record
+    return list(best.values())
+
+
 def report(records: list[dict[str, Any]], config: dict[str, Any]) -> dict[str, Any]:
+    records = one_per_case(records)
     # a fixed sample has no time window; the minimum number of adjudicated cases still applies
     fixed = {**config, "window": {**config["window"], "min_days": 0, "max_days": 1}}
     now = datetime.now(UTC)
@@ -343,7 +364,13 @@ def main(argv: list[str] | None = None) -> int:
     config = json.loads(args.config.read_text(encoding="utf-8"))
 
     if args.command == "report":
-        records = [r for path in args.records for r in json.loads(path.read_text(encoding="utf-8"))]
+        wanted = {case["case_id"] for case in corpus_cases()}
+        records = [
+            r
+            for path in args.records
+            for r in json.loads(path.read_text(encoding="utf-8"))
+            if r["corpus"]["case_id"] in wanted  # a case the corpus no longer selects never counts
+        ]
         result = report(records, config)
         args.json.write_text(json.dumps(result, indent=1) + "\n", encoding="utf-8")
         args.markdown.write_text(markdown(result), encoding="utf-8")
@@ -352,7 +379,10 @@ def main(argv: list[str] | None = None) -> int:
 
     started = time.monotonic()
     cases = corpus_cases()[args.shard :: args.shards][: args.max_cases]
-    records = json.loads(args.records.read_text()) if args.records.exists() else []
+    restored = json.loads(args.records.read_text()) if args.records.exists() else []
+    # a checkpoint from another case selection or shard split keeps only this shard's cases
+    mine = {case["case_id"] for case in cases}
+    records = [r for r in restored if r["corpus"]["case_id"] in mine]
     counts = run_corpus(
         cases,
         records,

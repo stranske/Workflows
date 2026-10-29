@@ -135,7 +135,8 @@ def run_candidate(
                 "concerns": len(getattr(result, "concerns", []) or []),
             }
         )
-        if not entry["error"] and entry["verdict"] is not None:
+        # only a model's answer is a review; a coverage-floor verdict reached without one is not
+        if not entry["error"] and entry["verdict"] is not None and entry["used_llm"]:
             entry["review"] = review_of(result)
         if entry["error"]:  # keep what the model said, to tell a bad schema from a harness fault
             entry["raw_excerpt"] = str(getattr(result, "raw_content", "") or "")[:400]

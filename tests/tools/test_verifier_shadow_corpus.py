@@ -291,7 +291,8 @@ def test_report_grades_once_the_sample_reaches_the_minimum():
 
 def test_the_real_corpus_loads_with_production_inputs():
     cases = corpus.corpus_cases()
-    assert len(cases) >= 50
+    assert len(cases) >= 15
+    assert all(c["evaluable"] for c in cases)  # a case no judge can answer is never dispatched
     assert {c["expected_verdict"] for c in cases} == {"PASS", "NON_PASS"}
     assert len({c["repo"] for c in cases}) > 1
     assert all(corpus.case_inputs(c)[0] for c in cases)
@@ -310,3 +311,69 @@ def test_each_shard_resumes_from_its_checkpoint_unless_a_fresh_start_is_asked():
     step = steps[restore]
     assert step["if"] == "${{ !inputs.corpus_fresh }}"
     assert "verifier-shadow-corpus-$SHARD" in step["run"] and "$GITHUB_RUN_ID" in step["run"]
+
+
+def test_a_verdict_reached_without_a_model_is_never_reviewed_or_rated():
+    """2026-10-29: the coverage floor answered 44 corpus cases without calling any model; candidate
+    entries kept a review while production ones did not, so the adjudicator rated the candidates
+    alone and their inaccurate share read 0.6 against production's 0.03."""
+
+    def floor(context, diff=None, model=None, provider=None):
+        return SimpleNamespace(
+            verdict="UNVERIFIABLE_INPUT",
+            used_llm=False,
+            error=None,
+            confidence=0.0,
+            concerns=[],
+            summary="insufficient input",
+            scores=None,
+            files_not_reviewed=[],
+        )
+
+    record = corpus.judge_case(
+        _case(),
+        PRODUCTION,
+        CONFIG,
+        evaluator=floor,
+        externals=lambda *a: [],
+        is_public=lambda repo: True,
+    )
+    assert not any(e.get("review") for e in record["production_slots"] + record["candidates"])
+    from tools.verifier_shadow_adjudicate import evaluators_for
+
+    stale = {
+        **record,
+        "candidates": [
+            {**e, "review": {"verdict": "UNVERIFIABLE_INPUT"}} for e in record["candidates"]
+        ],
+    }
+    assert evaluators_for(stale, corpus.comparison_of(record["production_slots"])) == {}
+
+
+def test_a_checkpoint_from_another_selection_never_reaches_the_report(tmp_path, monkeypatch):
+    kept, moved, dropped = _case("kept"), _case("moved"), _case("dropped")
+    monkeypatch.setattr(corpus, "corpus_cases", lambda path=corpus.CORPUS: [kept, moved])
+    records: list = []
+    corpus.run_corpus(
+        [kept, moved, dropped],
+        records,
+        CONFIG,
+        production=PRODUCTION,
+        judge=_judge([]),
+        client_factory=lambda adjudicator: Adjudicator(),
+    )
+    old = tmp_path / "corpus-0.json"
+    old.write_text(json.dumps(records))
+    calls: list = []
+    monkeypatch.setattr(corpus, "judge_case", _judge(calls))
+    monkeypatch.setattr(corpus, "make_client", lambda adjudicator: Adjudicator())
+    monkeypatch.setattr(corpus, "production_judges", lambda: PRODUCTION)
+    # shard 0 of 2 now holds only "kept"; its checkpoint still carries "moved" and "dropped"
+    corpus.main(["run", "--records", str(old), "--shard", "0", "--shards", "2"])
+    assert [r["corpus"]["case_id"] for r in json.loads(old.read_text())] == ["kept"]
+    assert calls == []
+    other = tmp_path / "corpus-1.json"
+    other.write_text(json.dumps(records))  # a stale copy of "moved" (and "dropped") elsewhere
+    md, js = tmp_path / "r.md", tmp_path / "r.json"
+    corpus.main(["report", str(old), str(other), "--markdown", str(md), "--json", str(js)])
+    assert json.loads(js.read_text())["cases"] == 2  # kept + moved once; dropped never counts

@@ -99,7 +99,7 @@ the registry list price. At the measured 13 runs a day that is about $30-55 a we
 
 The live shadow can only grade runs as they happen, and their saved inputs expire after 7 days. The
 frozen verifier corpus (`config/model_eval_pilot.json`) already holds the production inputs of 62
-non-diagnostic merged PRs from seven repositories, each with an independent label (42 PASS, 20
+non-diagnostic merged PRs from seven repositories (18 of them judgeable; see the correction below), each with an independent label (42 PASS, 20
 NON_PASS, of which 18 are controlled defects). Dispatching maint-89 with `corpus: true` runs
 `tools/verifier_shadow_corpus.py`: the production pair (resolved from the registry) and every candidate
 judge each case's production prompt at once, through the same code paths as the shadow, and the same
@@ -112,6 +112,18 @@ label. Evidence class: a trial on recorded production inputs, not production use
 out of the daily ledger. External judges see public repositories only. One dispatch costs about
 $50-80: about 9 judge calls of roughly 24,000 input tokens per case at list prices, plus one
 adjudication per case.
+
+### Correction 2026-10-29: only cases a model can judge
+
+The first corpus dispatch (run 40879377530) judged all 62 cases and adjudicated 61, but 44 snapshots
+fail the production coverage check, so the verifier answered UNVERIFIABLE_INPUT for every judge
+without calling a model. The adjudicator already skipped such production results, but it kept
+candidate results like them, so on those 44 cases it rated candidates alone; every candidate's
+inaccurate share read about 0.6 against production's 0.03. Now a result is reviewed and rated only
+when a model answered (`run_candidate`, `entry_for`, `evaluators_for`), and the corpus runs only the
+18 cases the production prompt can judge (16 Workflows, 2 Fine-Art-Archive; 11 PASS, 7 NON_PASS of
+which 5 are controlled defects). The daily ledger had no affected adjudication (0 of 28). One
+dispatch now costs about $20-30.
 
 ## Owner time
 
