@@ -50,5 +50,5 @@ def test_shared_asset_carries_no_retired_python(asset: Path) -> None:
 def test_scan_detects_each_retired_form() -> None:
     for sample in ('python-version: "3.12"', "target = py312", 'x = ["3-12"]', 'key = "core312"'):
         assert _hits(sample), sample
-    assert _hits("python-versions: '[\"3.13\", \"3.14\"]'") == []
+    assert _hits('python-versions: \'["3.13", "3.14"]\'') == []
     assert _hits("version 13.12.1") == []
