@@ -26,9 +26,12 @@ jobs:
     runs-on: ubuntu-latest
     # Only notify on push to main (not PRs) to avoid noise
     if: github.event_name == 'push'
+    env:
+      # Step `if:` cannot read the secrets context (GitHub rejects the whole file), so expose presence as env.
+      HAS_ACTIONS_BOT_PAT: ${{ secrets.ACTIONS_BOT_PAT != '' }}
     steps:
       - name: Checkout retry helpers (Workflows)
-        if: ${{ secrets.ACTIONS_BOT_PAT != '' }}
+        if: ${{ env.HAS_ACTIONS_BOT_PAT == 'true' }}
         uses: actions/checkout@v7
         with:
           repository: stranske/Workflows
@@ -41,14 +44,14 @@ jobs:
           sparse-checkout-cone-mode: false
 
       - name: Setup API client
-        if: ${{ secrets.ACTIONS_BOT_PAT != '' }}
+        if: ${{ env.HAS_ACTIONS_BOT_PAT == 'true' }}
         uses: ./workflows/.github/actions/setup-api-client
         with:
           secrets: ${{ toJSON(secrets) }}
           github_token: ${{ github.token }}
 
       - name: Trigger sync check in Workflows
-        if: ${{ secrets.ACTIONS_BOT_PAT != '' }}
+        if: ${{ env.HAS_ACTIONS_BOT_PAT == 'true' }}
         uses: actions/github-script@v9
         with:
           github-token: ${{ secrets.ACTIONS_BOT_PAT }}
@@ -75,7 +78,7 @@ jobs:
             }));
 
       - name: Skip notification (missing token)
-        if: ${{ secrets.ACTIONS_BOT_PAT == '' }}
+        if: ${{ env.HAS_ACTIONS_BOT_PAT != 'true' }}
         run: |
           echo "::warning::ACTIONS_BOT_PAT not available, skipping notification"
 
