@@ -311,6 +311,15 @@ def test_an_errored_judge_entry_stores_head_and_tail_of_the_answer(monkeypatch):
     assert entry["raw_excerpt"] == ext.excerpt(raw) and entry["raw_excerpt"].endswith('"PASS"}')
 
 
+def test_an_external_verdict_reached_without_a_model_gets_no_review(monkeypatch):
+    floor = SimpleNamespace(
+        verdict="UNVERIFIABLE_INPUT", used_llm=False, error=None, confidence=0.0, concerns=[]
+    )
+    monkeypatch.setattr(ext, "evaluate_like_production", lambda *a, **k: floor)
+    entry = ext.entry_for(EXTERNAL[0], FakeJudge(), CONTEXT, DIFF)
+    assert entry["verdict"] == "UNVERIFIABLE_INPUT" and "review" not in entry
+
+
 def test_an_entry_from_an_earlier_pipeline_is_judged_again():
     ledger, _, lister, downloader = _setup(_zip())
     ledger[0]["candidates"] += [

@@ -348,3 +348,32 @@ def test_a_verdict_reached_without_a_model_is_never_reviewed_or_rated():
         ],
     }
     assert evaluators_for(stale, corpus.comparison_of(record["production_slots"])) == {}
+
+
+def test_a_checkpoint_from_another_selection_never_reaches_the_report(tmp_path, monkeypatch):
+    kept, moved, dropped = _case("kept"), _case("moved"), _case("dropped")
+    monkeypatch.setattr(corpus, "corpus_cases", lambda path=corpus.CORPUS: [kept, moved])
+    records: list = []
+    corpus.run_corpus(
+        [kept, moved, dropped],
+        records,
+        CONFIG,
+        production=PRODUCTION,
+        judge=_judge([]),
+        client_factory=lambda adjudicator: Adjudicator(),
+    )
+    old = tmp_path / "corpus-0.json"
+    old.write_text(json.dumps(records))
+    calls: list = []
+    monkeypatch.setattr(corpus, "judge_case", _judge(calls))
+    monkeypatch.setattr(corpus, "make_client", lambda adjudicator: Adjudicator())
+    monkeypatch.setattr(corpus, "production_judges", lambda: PRODUCTION)
+    # shard 0 of 2 now holds only "kept"; its checkpoint still carries "moved" and "dropped"
+    corpus.main(["run", "--records", str(old), "--shard", "0", "--shards", "2"])
+    assert [r["corpus"]["case_id"] for r in json.loads(old.read_text())] == ["kept"]
+    assert calls == []
+    other = tmp_path / "corpus-1.json"
+    other.write_text(json.dumps(records))  # a stale copy of "moved" (and "dropped") elsewhere
+    md, js = tmp_path / "r.md", tmp_path / "r.json"
+    corpus.main(["report", str(old), str(other), "--markdown", str(md), "--json", str(js)])
+    assert json.loads(js.read_text())["cases"] == 2  # kept + moved once; dropped never counts
