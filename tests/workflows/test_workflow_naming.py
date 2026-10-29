@@ -144,14 +144,14 @@ def test_health_40_sweep_permissions_cover_called_branch_protection_workflow():
         )
 
 
-def test_health_53_scorecard_uses_existing_semver_action_ref():
+def test_health_53_scorecard_uses_verified_release_commit():
     workflow = WORKFLOW_DIR / "health-53-scorecard.yml"
     data = yaml.safe_load(workflow.read_text(encoding="utf-8"))
     uses = [step["uses"] for step in data["jobs"]["scorecard"]["steps"] if "uses" in step]
     scorecard_refs = [action for action in uses if action.startswith("ossf/scorecard-action@")]
 
     assert len(scorecard_refs) == 1
-    assert re.fullmatch(r"ossf/scorecard-action@v\d+\.\d+\.\d+", scorecard_refs[0])
+    assert scorecard_refs == ["ossf/scorecard-action@fa7117db83c52d787ae5a89f350999701505d78e"]
 
 
 def test_maint_83_bootstrap_uses_published_action_versions():
