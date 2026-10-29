@@ -115,7 +115,9 @@ jobs:
         if: ${{ env.HAS_ACTIONS_BOT_PAT == 'true' }}
         uses: ./workflows/.github/actions/setup-api-client
         with:
-          secrets: ${{ toJSON(secrets) }}
+          # Pass only the secret this job uses: toJSON(secrets) handed to an action checked out
+          # from another repo makes GitHub hold the run as possibly malicious (action_required).
+          actions_bot_pat: ${{ secrets.ACTIONS_BOT_PAT }}
           github_token: ${{ github.token }}
 
       - name: Open issue in Workflows repo
