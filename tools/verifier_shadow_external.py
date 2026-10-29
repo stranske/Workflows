@@ -29,7 +29,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
-from scripts.langchain.verifier_shadow import PIPELINE
+from scripts.langchain.verifier_shadow import PIPELINE, review_of
 from tools.run_judge_backend_screen import JUDGE_TIMEOUT_SECONDS
 from tools.verifier_shadow_report import gh_download, gh_list_artifacts
 
@@ -160,6 +160,8 @@ def entry_for(
                 "concerns": len(getattr(result, "concerns", []) or []),
             }
         )
+        if not entry["error"] and entry["verdict"] is not None:
+            entry["review"] = review_of(result)
         if entry["error"]:
             entry["raw_excerpt"] = excerpt(str(getattr(result, "raw_content", "") or ""))
     except Exception as exc:  # noqa: BLE001 - one judge must never stop the others
@@ -206,7 +208,11 @@ def read_inputs(blob: bytes) -> dict[str, Any] | None:
 def missing_candidates(
     record: dict[str, Any], wanted: list[dict[str, Any]]
 ) -> list[dict[str, Any]]:
-    have = {(c.get("provider"), c.get("model")) for c in record.get("candidates", [])}
+    have = {
+        (c.get("provider"), c.get("model"))
+        for c in record.get("candidates", [])
+        if c.get("pipeline") == PIPELINE  # an entry from an earlier pipeline is judged again
+    }
     return [c for c in wanted if (c["provider"], c["model"]) not in have]
 
 

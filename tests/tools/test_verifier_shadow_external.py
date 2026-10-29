@@ -153,7 +153,8 @@ def test_external_judges_run_the_production_slot_path_and_leave_production_untou
     judge = FakeJudge("PASS")
     _collect(ledger, lister, downloader, lambda c: judge)
     entry = ledger[0]["candidates"][1]
-    assert entry["pipeline"] == "compare-slot/v2" and entry["capacity_preflight"] == "skipped"
+    assert entry["pipeline"] == "compare-slot/v3" and entry["capacity_preflight"] == "skipped"
+    assert entry["review"]["verdict"] == "PASS" and entry["review"]["summary"] == "ok"
     assert (
         pv._preflight_input_capacity is before
     ), "the capacity pre-check patch leaked out of the job"
@@ -308,3 +309,27 @@ def test_an_errored_judge_entry_stores_head_and_tail_of_the_answer(monkeypatch):
     entry = ext.entry_for(EXTERNAL[0], FakeJudge(), CONTEXT, DIFF)
     assert entry["error"] == "Failed to parse JSON response"
     assert entry["raw_excerpt"] == ext.excerpt(raw) and entry["raw_excerpt"].endswith('"PASS"}')
+
+
+def test_an_entry_from_an_earlier_pipeline_is_judged_again():
+    ledger, _, lister, downloader = _setup(_zip())
+    ledger[0]["candidates"] += [
+        {
+            "provider": c["provider"],
+            "model": c["model"],
+            "pipeline": "compare-slot/v2",
+            "external": True,
+        }
+        for c in EXTERNAL
+    ]
+    judge = FakeJudge()
+    counts = _collect(ledger, lister, downloader, lambda c: judge)
+    assert counts["judged"] == 1 and len(judge.calls) == len(EXTERNAL)
+    current = [c for c in ledger[0]["candidates"] if c.get("pipeline") == "compare-slot/v3"]
+    assert len(current) == len(EXTERNAL) and all(c.get("review") for c in current)
+
+
+def test_the_excerpt_cutoff_is_exactly_twice_the_edge():
+    at_limit, over = "x" * 600, "y" * 601
+    assert ext.excerpt(at_limit) == at_limit
+    assert ext.excerpt(over) == f"{'y' * 300} [... 1 chars ...] {'y' * 300}"

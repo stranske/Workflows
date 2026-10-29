@@ -23,7 +23,7 @@ concurrency:
 jobs:
   report:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 75
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -86,7 +86,22 @@ jobs:
           repos="stranske/Workflows,$(python scripts/list_registered_consumer_repos.py --separator ',')"
           python -m tools.verifier_shadow_external --ledger ledger.json --repos "$repos" \
             --budget-seconds 1620
-      - name: Re-evaluate the criteria with the external verdicts
+      - name: Adjudicate every evaluation of each settled run (blind, evidence-bound)
+        # A reasoning model that is neither a candidate nor a production judge rates every
+        # evaluation of a run -- production and candidate alike, shuffled and relabelled -- on
+        # accuracy (with quoted evidence), coverage of the tasks and acceptance criteria, and
+        # usefulness. Bounded and checkpointed like the step above; a failed run is retried once.
+        continue-on-error: true
+        timeout-minutes: 25
+        env:
+          GH_TOKEN: ${{ secrets.OWNER_PR_PAT }}
+          CLAUDE_API_STRANSKE: ${{ secrets.CLAUDE_API_STRANSKE }}
+        run: |
+          set -euo pipefail
+          repos="stranske/Workflows,$(python scripts/list_registered_consumer_repos.py --separator ',')"
+          python -m tools.verifier_shadow_adjudicate --ledger ledger.json --repos "$repos" \
+            --budget-seconds 1380
+      - name: Re-evaluate the criteria with the external verdicts and adjudications
         if: ${{ !cancelled() }}
         run: |
           set -euo pipefail
