@@ -17,9 +17,9 @@
     },
     {
       "provider": "openai",
-      "model": "gpt-6.1-terra",
+      "model": "gpt-5.6-terra",
       "replaces_provider": "openai",
-      "why": "Newest tier of the production judge's own line (production is gpt-5.6-terra). Owner asked for it explicitly; confirmed served by the OpenAI models API 2026-10-27."
+      "why": "The production OpenAI judge until 2026-10-29, when the owner moved production to gpt-6.1-terra without a shadow verdict. Kept as a comparison so a regression of the new judge shows in this report; it is the one-line revert in config/model_registry.json selection_history."
     },
     {
       "provider": "anthropic",
