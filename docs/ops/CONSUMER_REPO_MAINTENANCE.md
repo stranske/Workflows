@@ -39,7 +39,10 @@ compatibility suite reported those two stale pins. AnyIO is constrained to
 4.15.1 or newer because older pytest plugins import the deprecated `CallSpec2`
 alias and fail at startup under pytest 9.2 with warnings treated as errors.
 The lock resolves that supported plugin version; warning enforcement remains
-unchanged. Python stays at 3.14.
+unchanged. The existing CI expression `not quarantine` is now declared in
+the pytest marker registry, as pytest 9.2 validates marker expressions even when
+no collected test carries that marker. No test is newly quarantined or skipped.
+Python stays at 3.14.
 
 Gate test-quality installs declared development extras before running acceptance
 tests, then removes the head project distribution before testing archived base

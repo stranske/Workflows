@@ -195,6 +195,7 @@ markers = [
     "integration: marks tests as integration tests (may require external resources)",
     "cosmetic: marks tests for cosmetic/formatting changes",
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "quarantine: tests isolated from the canonical suite by explicit maintenance policy",
     "serial: marks tests that must run serially",
     "xdist_group: marks tests that must share a single xdist worker",
 ]
