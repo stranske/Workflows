@@ -37,7 +37,7 @@ jobs:
   ci:
     uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@main
     with:
-      python-version: '3.12'
+      python-version: '3.14'
     secrets: inherit
 ```
 
@@ -56,11 +56,11 @@ Update test paths to match your project structure:
 - `tests/test_invariants.py` → Your smoke test file
 
 ### Python Version
-Most templates now baseline on Python 3.12 and expand standard CI matrices to
-Python 3.12/3.13. Adjust only if your repo has a real runtime requirement:
+Templates use Python 3.14 as the primary runtime and run standard CI matrices on
+Python 3.13/3.14 (3.12 is retired). Adjust only if your repo has a real runtime requirement:
 ```yaml
-python-version: '3.12'
-python-versions: '["3.12", "3.13"]'
+python-version: '3.14'
+python-versions: '["3.13", "3.14"]'
 ```
 
 ## Integration Patterns

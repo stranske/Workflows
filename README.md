@@ -211,13 +211,13 @@ jobs:
     # Current first-party consumer default
     uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@main
     with:
-      python-version: "3.12"
+      python-version: "3.14"
 
   python-pinned:
     # Pin to an exact commit for reproducible builds
     uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@abc123def4567890
     with:
-      python-version: "3.12"
+      python-version: "3.14"
 ```
 
 #### Versioning strategy

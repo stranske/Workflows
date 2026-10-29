@@ -124,9 +124,9 @@ Existing consumers need the updated Gate dispatch input before this wakeup works
 the Gate template is create-only, so normal sync does not overwrite custom Gates.
 
 * [`Gate`](../../.github/workflows/pr-00-gate.yml) orchestrates the fast-path vs full CI decision, evaluates coverage artifacts, and reports commit status back to the PR. Gate listens on `pull_request` types `opened`, `synchronize`, `reopened`, and `ready_for_review` only; label-only events do not start or cancel an in-flight Gate run. Agent routing, verify, autofix, and keepalive labels therefore cannot churn the per-PR Gate concurrency group. Use `workflow_dispatch` with `pr_number` when a label-only wakeup must re-run Gate at the current head. `tests/workflows/test_gate_trigger_contract.py` locks the root and consumer-template trigger contract.
-* [`Minimal invariant CI`](../../.github/workflows/pr-11-ci-smoke.yml) supplies the lightweight Issue #3651 sweep: install once on Python 3.12 with pip caching, sanity-check imports, and run `pytest tests/test_invariants.py -q` on pushes and PRs targeting `main`.
+* [`Minimal invariant CI`](../../.github/workflows/pr-11-ci-smoke.yml) supplies the lightweight Issue #3651 sweep: install once on the shared `CI_PYTHON_VERSION` runtime (3.14) with pip caching, sanity-check imports, and run `pytest tests/test_invariants.py -q` on pushes and PRs targeting `main`.
 * [`Reusable CI (Python)`](../../.github/workflows/reusable-10-ci-python.yml) drives the primary test matrix (lint, type-check, tests, coverage) for PR builds.
-    * Workflows Gate and the new-consumer Gate template select **3.13 and 3.14 in parallel**, with identical full-suite selection, identical markers, the same dependency lock, branch coverage on 3.14 only, and four pytest workers using `loadgroup`. Neither runtime selects a reduced suite. Python >=3.12 package/runtime support and explicit consumer overrides remain supported.
+    * Workflows Gate and the new-consumer Gate template select **3.13 and 3.14 in parallel**, with identical full-suite selection, identical markers, the same dependency lock, branch coverage on 3.14 only, and four pytest workers using `loadgroup`. Neither runtime selects a reduced suite. Python >=3.13 is the package floor (3.12 is retired); consumer Gates are create-only, so each consumer moves its own explicit overrides.
     * The reusable's test matrix exports `TMPDIR=$RUNNER_TEMP` through `GITHUB_ENV` in its first shell step, before Python starts. Pytest and inherited child tools use the runner-owned disk temporary directory, avoiding the Ubuntu 26.04 `/tmp` tmpfs user quota ([runner-images #14777](https://github.com/actions/runner-images/issues/14777)). This applies only to the reusable Python test job; it does not remount filesystems, delete evidence, change pytest retention, or alter test selection and limits.
     * Shared defaults in `.github/workflows/ci-python-versions.env` select `CI_PYTHON_VERSION=3.14` and pin Black 26.10.1, Ruff 0.17.1, mypy 2.4.0, pytest 9.1.1, pytest-cov 7.1.0, pytest-xdist 3.8.0, coverage 7.16.2, docformatter 1.7.8, and isort 9.0.2. These replace the stale Black 24.8.0 / Ruff 0.6.3 / mypy 1.8.0 / pytest 8.3.2 / pytest-cov 5.0.0 / coverage 7.6.1 baseline with the repo's existing compatible toolchain. The reusable loads shared pins first, then repo-owned `.github/workflows/autofix-versions.env` overrides; the latter remains authoritative and is not copy-synced. Keep paired packages compatible (for example, align `pydantic` with `pydantic-core`).
     * The shared CI env has an identical consumer mirror and an overwrite-capable sync-manifest entry. Existing consumer Gates remain **create-only**: delivering the env does not change an authored `python-versions` override or migrate every consumer Gate automatically.
@@ -453,9 +453,9 @@ the selected branch-capable core, version, CPU count/affinity, and worker reques
 Hosted pytest startup must also confirm four actual workers and overlapping matrix
 job times; local collection and isolated execution do not prove hosted overlap.
 
-The package contract remains Python >=3.12. Ruff/Black syntax targets and the
-universal lock's 3.12 compile baseline intentionally preserve that compatibility.
-Reusable calls with an explicit `python-version: '3.12'` still select only 3.12;
+The package contract is Python >=3.13 (3.14 first, 3.13 backup; 3.12 is retired).
+Ruff/Black syntax targets and the universal lock's compile baseline follow that floor.
+Reusable calls with an explicit `python-version` still select only that runtime;
 only omitted runtime inputs adopt the 3.13/3.14 default matrix. New Gate templates
 use the new matrix. Existing create-only consumer Gates retain their explicit
 runtime policy until a separately reviewed consumer migration; do not overwrite

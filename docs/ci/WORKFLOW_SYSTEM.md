@@ -665,8 +665,8 @@ Keep this table handy when you are triaging automation: it confirms which workfl
 
 ### Error checking, linting, and testing topology
 - **Reusable Python CI** – `reusable-10-ci-python.yml` fans out ruff, mypy, and
-  pytest across the interpreter matrix. It reads `python_version = "3.12"` from
-  `pyproject.toml` and pins the mypy leg accordingly.
+  pytest across the interpreter matrix. It reads `python_version` (currently `"3.13"`)
+  from `pyproject.toml` and pins the mypy leg accordingly.
 - **Reusable Docker CI** – `reusable-12-ci-docker.yml` builds the container
   image and exercises the smoke tests Gate otherwise short-circuits for
   docs-only changes.
@@ -720,7 +720,7 @@ Keep this table handy when you are triaging automation: it confirms which workfl
 | --- | --- | --- | --- | --- |
 | **Gate** (`pr-00-gate.yml`, PR checks bucket) | `pull_request`, `workflow_dispatch` | Detect docs-only diffs, orchestrate CI fan-out, and publish the combined status. | ✅ Always | [Gate workflow history](https://github.com/stranske/Workflows/actions/workflows/pr-00-gate.yml) |
 | **Gate summary job** (`pr-00-gate.yml`, job `summary`) | Runs automatically after Gate finishes | Maintain the consolidated PR comment + status, upload Gate summary artifacts, and apply `autofix:clean` when the failure is cosmetic-only. | ⚪ Informational | [Gate workflow history](https://github.com/stranske/Workflows/actions/workflows/pr-00-gate.yml) |
-| **PR 11 - Minimal invariant CI** (`pr-11-ci-smoke.yml`, PR checks bucket) | `push` (`main`), `pull_request` (`main`), `workflow_dispatch` | Fast YAML + scripts syntax sanity check on Python 3.12 for early warning on workflow/script regressions. | ⚪ Automatic on push/PR | [Minimal invariant CI runs](https://github.com/stranske/Workflows/actions/workflows/pr-11-ci-smoke.yml) |
+| **PR 11 - Minimal invariant CI** (`pr-11-ci-smoke.yml`, PR checks bucket) | `push` (`main`), `pull_request` (`main`), `workflow_dispatch` | Fast YAML + scripts syntax sanity check on the shared `CI_PYTHON_VERSION` runtime (3.14) for early warning on workflow/script regressions. | ⚪ Automatic on push/PR | [Minimal invariant CI runs](https://github.com/stranske/Workflows/actions/workflows/pr-11-ci-smoke.yml) |
 | **PR 46 Dependency Repair Contract** (`pr-46-dependency-repair-contract.yml`, PR checks bucket) | `pull_request_target` for dependency-bot and marked promotion PRs | Keep bot branches classified and verify the bot-delta first commit before agent repair commits. | ✅ Required for dependency repair lanes | [Dependency repair contract runs](https://github.com/stranske/Workflows/actions/workflows/pr-46-dependency-repair-contract.yml) |
 | **Maint 47 Disable Legacy Workflows** (`maint-47-disable-legacy-workflows.yml`, maintenance bucket) | `workflow_dispatch` | Run `tools/disable_legacy_workflows.py` to disable archived workflows that still appear in Actions. | ⚪ Manual | [Maint 47 dispatch](https://github.com/stranske/Workflows/actions/workflows/maint-47-disable-legacy-workflows.yml) |
 | **Maint 50 Tool Version Check** (`maint-50-tool-version-check.yml`, maintenance bucket) | `schedule` (Mondays 8:00 AM UTC), `workflow_dispatch` | Publish read-only PyPI freshness evidence for the canonical dev-tool pin set. | ⚪ Scheduled | [Maint 50 version checks](https://github.com/stranske/Workflows/actions/workflows/maint-50-tool-version-check.yml) |
