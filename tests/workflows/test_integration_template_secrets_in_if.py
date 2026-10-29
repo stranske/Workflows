@@ -32,3 +32,23 @@ def test_integration_template_conditions_do_not_read_secrets(path: Path) -> None
     workflow = yaml.safe_load(path.read_text(encoding="utf-8"))
     offenders = [where for where, condition in _conditions(workflow) if "secrets." in condition]
     assert not offenders, f"{path.name}: `if:` reads the secrets context at {offenders}"
+
+
+def _step_inputs(workflow: dict):
+    for job_name, job in (workflow.get("jobs") or {}).items():
+        for index, step in enumerate(job.get("steps") or []):
+            for key, value in (step.get("with") or {}).items():
+                yield f"jobs.{job_name}.steps[{index}].with.{key}", str(value)
+
+
+@pytest.mark.parametrize("path", TEMPLATES, ids=lambda path: path.name)
+def test_integration_template_steps_do_not_pass_every_secret(path: Path) -> None:
+    # GitHub held every run of these files as "may be malicious" (action_required, zero jobs)
+    # while a step handed toJSON(secrets) to an action checked out from another repository.
+    workflow = yaml.safe_load(path.read_text(encoding="utf-8"))
+    offenders = [
+        where
+        for where, value in _step_inputs(workflow)
+        if "tojson(secrets)" in value.replace(" ", "").lower()
+    ]
+    assert not offenders, f"{path.name}: step passes the whole secrets context at {offenders}"
