@@ -34,7 +34,12 @@ from io import BytesIO
 from pathlib import Path
 from typing import Any
 
-from tools.verifier_shadow_external import CONTEXT_FILE, DIFF_FILE, gh_is_public
+from tools.verifier_shadow_external import (
+    CONTEXT_FILE,
+    DIFF_FILE,
+    external_candidates,
+    gh_is_public,
+)
 from tools.verifier_shadow_report import (
     ACCEPTED_PIPELINES,
     ListingError,
@@ -290,7 +295,13 @@ def adjudicate(
 
 
 def needs_adjudication(record: dict[str, Any], wanted: list[dict[str, Any]], now: datetime) -> bool:
-    """Adjudicate once every candidate has answered, or when the artifact is about to expire."""
+    """Adjudicate once every EXTERNAL candidate has answered, or when the artifact is about to expire.
+
+    ``wanted`` is the external candidates only: an in-workflow candidate answers inside the
+    verifier run, so its entry is final when the record is collected, and waiting for one that is
+    missing (a run recorded before it was added, or before its pipeline changed) would hold every
+    such run for SETTLE_DAYS for nothing.
+    """
     if record.get("semantic_mode") is True:
         return False
     done = record.get("adjudication") or {}
@@ -361,8 +372,8 @@ def adjudicate_ledger(
 ) -> dict[str, int]:
     """Adjudicate every settled, live run once; returns counts of what happened."""
     now = now or datetime.now(UTC)
-    # every candidate, in-workflow and external, is waited for before a run is adjudicated
-    wanted = list(config.get("candidates", [])) if config.get("enabled") else []
+    # only external candidates can still answer after the run; they are the ones waited for
+    wanted = external_candidates(config)
     adjudicator = config["adjudicator"]  # defined once, in config/verifier_shadow.json
     counts = {
         "adjudicated": 0,

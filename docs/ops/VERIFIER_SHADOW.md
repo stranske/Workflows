@@ -88,7 +88,8 @@ the registry list price. At the measured 13 runs a day that is about $30-55 a we
    adjudicated run(s), 0.0 day(s)`; a test pins that output.
 
 5. **Adjudication gate** (`needs_adjudication`). What drains it: a run is adjudicated once every
-   candidate has an evaluation, or when it is `SETTLE_DAYS` (6) old, so a candidate that never
+   external candidate (Muse, Cursor: the only ones that answer after the run) has an evaluation,
+   or when it is `SETTLE_DAYS` (6) old, so a candidate that never
    answers cannot hold a run past its artifact's 7-day life. A failed adjudication is retried once
    (`MAX_ATTEMPTS` 2). It reports `adjudicated`, `failed`, `capped`, `out_of_time`, `unusable` and
    `skipped_private` each day; runs skipped for time or the cap are picked up the next day. Fully

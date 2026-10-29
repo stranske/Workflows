@@ -380,3 +380,27 @@ def test_a_failed_listing_is_counted_for_adjudication_too():
 
     counts, _ = _run_ledger([_record("7")], FakeClient("{}"), list_artifacts=lister)
     assert counts["listing_failed"] == 1 and counts["adjudicated"] == 0
+
+
+def test_only_external_candidates_are_waited_for_in_the_ledger_pass():
+    """In-workflow entries are final at collection; a run missing one must not wait 6 days."""
+    from tools.verifier_shadow_external import external_candidates
+
+    external = {c["provider"] for c in external_candidates(CONFIG)}
+    record = _record("7", day=1)
+    record["candidates"] = [e for e in record["candidates"] if e["provider"] in external]
+    labelled = adj.blind(adj.evaluators_for(record, COMPARISON), "o/r:7")
+    counts, _ = _run_ledger([record], FakeClient(_answer(labelled)))
+    assert counts["adjudicated"] == 1
+
+
+def test_a_run_still_waits_for_an_external_candidate_that_has_not_answered():
+    from tools.verifier_shadow_external import external_candidates
+
+    first_external = external_candidates(CONFIG)[0]
+    record = _record("7", day=1)
+    record["candidates"] = [
+        e for e in record["candidates"] if e["provider"] != first_external["provider"]
+    ]
+    counts, _ = _run_ledger([record], FakeClient("{}"))
+    assert counts["adjudicated"] == 0 and counts["artifacts_seen"] == 0
