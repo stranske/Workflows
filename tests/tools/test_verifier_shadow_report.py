@@ -350,3 +350,82 @@ def test_a_ledger_named_like_a_temp_file_is_still_written_through_a_separate_fil
     assert rep.main(["--ledger", str(ledger), "--markdown", str(tmp_path / "r.md")]) == 0
     assert isinstance(json.loads(ledger.read_text()), list)
     assert sorted(p.name for p in tmp_path.iterdir()) == ["ledger.tmp", "r.md"]
+
+
+def _fake_gh(responses):
+    """subprocess.run stand-in: returns the first response whose key is in the URL."""
+    urls = []
+
+    def run(cmd, **kwargs):
+        url = cmd[2]
+        urls.append(url)
+        for key, value in responses.items():
+            if key in url:
+                if isinstance(value, Exception):
+                    return type("R", (), {"stdout": "", "returncode": 1, "stderr": str(value)})()
+                return type("R", (), {"stdout": json.dumps(value), "returncode": 0, "stderr": ""})()
+        return type("R", (), {"stdout": "[]", "returncode": 0, "stderr": ""})()
+
+    return run, urls
+
+
+def test_discovery_looks_only_at_verifier_runs_that_were_not_skipped(monkeypatch):
+    """A busy repository's newest artifacts held no comparison; its listing also failed with 500."""
+    runs = [
+        {"id": 1, "conclusion": "success"},
+        {"id": 2, "conclusion": "skipped"},
+        {"id": 3, "conclusion": "failure"},
+        {"id": 4, "conclusion": "cancelled"},
+    ]
+    art = {"id": 9, "created_at": "2026-10-28T00:00:00Z"}
+    run, urls = _fake_gh(
+        {
+            "agents-verifier.yml/runs": runs,
+            "name=comparison-results-1": [{**art, "name": "comparison-results-1"}],
+            "name=comparison-results-3": [],
+        }
+    )
+    monkeypatch.setattr(rep.subprocess, "run", run)
+    got = rep.gh_list_artifacts("o/r", since=datetime(2026, 10, 20, tzinfo=UTC))
+    assert [a["name"] for a in got] == ["comparison-results-1"]
+    assert "created=>=2026-10-20" in urls[0]
+    looked_up = [u.rsplit("name=", 1)[1] for u in urls if "name=" in u]
+    assert looked_up == ["comparison-results-1", "comparison-results-3"]
+
+
+def test_more_than_one_page_of_verifier_runs_is_read(monkeypatch):
+    first = [{"id": i, "conclusion": "skipped"} for i in range(rep.RUN_PAGE_SIZE)]
+    run, urls = _fake_gh({"&page=1": first, "&page=2": [{"id": 500, "conclusion": "success"}]})
+    monkeypatch.setattr(rep.subprocess, "run", run)
+    rep.gh_list_artifacts("o/r", since=datetime(2026, 10, 20, tzinfo=UTC))
+    assert any("name=comparison-results-500" in u for u in urls)
+
+
+def test_a_failing_request_is_retried_then_reported_never_read_as_empty(monkeypatch):
+    run, urls = _fake_gh({"agents-verifier.yml/runs": RuntimeError("HTTP 500")})
+    monkeypatch.setattr(rep.subprocess, "run", run)
+    try:
+        rep.gh_list_artifacts("o/r", since=datetime.now(UTC) - timedelta(days=7))
+    except rep.ListingError as exc:
+        assert "HTTP 500" in str(exc)
+    else:
+        raise AssertionError("a failed listing came back as a list")
+    assert len(urls) == rep.PAGE_ATTEMPTS
+
+
+def test_known_runs_are_looked_up_by_exact_artifact_name(monkeypatch):
+    run, urls = _fake_gh(
+        {
+            "name=comparison-results-11": [{"id": 1, "name": "comparison-results-11"}],
+            "name=comparison-results-12": [{"id": 2, "name": "comparison-results-12"}],
+        }
+    )
+    monkeypatch.setattr(rep.subprocess, "run", run)
+    got = rep.gh_artifacts_for_runs("o/r", ["11", "12"])
+    assert [a["name"] for a in got] == ["comparison-results-11", "comparison-results-12"]
+
+
+def test_collect_prints_how_many_comparison_artifacts_each_repository_had(capsys):
+    now = datetime.now(UTC)
+    rep.collect(["o/r"], since=now - timedelta(days=8), list_artifacts=lambda r: [], download=None)
+    assert "o/r: 0 comparison artifact(s) in the window" in capsys.readouterr().out

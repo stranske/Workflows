@@ -247,6 +247,15 @@ def _artifacts(*runs):
     ]
 
 
+def _by_runs(lister):
+    """Adapt a per-repository lister to the per-run lookup the adjudicator uses."""
+
+    def lookup(repo, run_ids):
+        return [a for a in lister(repo) if a["name"].rsplit("-", 1)[-1] in run_ids]
+
+    return lookup
+
+
 def _run_ledger(ledger, client, **kw):
     seen = []
     counts = adj.adjudicate_ledger(
@@ -256,7 +265,7 @@ def _run_ledger(ledger, client, **kw):
         since=NOW - timedelta(days=7),
         max_runs=kw.pop("max_runs", 10),
         now=NOW,
-        list_artifacts=kw.pop("list_artifacts", lambda repo: _artifacts("7", "8")),
+        list_artifacts=_by_runs(kw.pop("list_artifacts", lambda repo: _artifacts("7", "8"))),
         download=kw.pop("download", lambda repo, i: _zip()),
         is_public=kw.pop("is_public", lambda repo: True),
         client_factory=lambda judge: seen.append(judge) or client,
@@ -361,3 +370,13 @@ def test_a_corrupt_compressed_member_is_unusable_and_later_runs_still_go():
         download=lambda r, i: bytes(raw) if i == 7 else good,
     )
     assert counts["unusable"] == 1 and counts["adjudicated"] == 1
+
+
+def test_a_failed_listing_is_counted_for_adjudication_too():
+    from tools.verifier_shadow_report import ListingError
+
+    def lister(repo):
+        raise ListingError("o/r page 1: HTTP 500")
+
+    counts, _ = _run_ledger([_record("7")], FakeClient("{}"), list_artifacts=lister)
+    assert counts["listing_failed"] == 1 and counts["adjudicated"] == 0

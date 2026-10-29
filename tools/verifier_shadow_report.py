@@ -19,6 +19,7 @@ import subprocess
 import zipfile
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
+from functools import partial
 from io import BytesIO
 from pathlib import Path
 from typing import Any
@@ -366,29 +367,96 @@ def collect(
     """Shadow records from recent ``comparison-results-*`` artifacts of every repository."""
     found: list[dict[str, Any]] = []
     for repo in repos:
-        for artifact in list_artifacts(repo):
+        seen = 0
+        try:
+            artifacts = list_artifacts(repo)
+        except ListingError as exc:
+            print(f"{repo}: LISTING FAILED, records not collected: {exc}")
+            continue
+        for artifact in artifacts:
             created = datetime.fromisoformat(artifact["created_at"].replace("Z", "+00:00"))
             if artifact.get("expired") or created < since:
                 continue
             if not str(artifact.get("name", "")).startswith("comparison-results-"):
                 continue
+            seen += 1
             for record in shadow_records_from_zip(download(repo, int(artifact["id"]))):
                 record.setdefault("repository", repo)
                 found.append(record)
+        print(f"{repo}: {seen} comparison artifact(s) in the window")
     return found
 
 
-def gh_list_artifacts(repo: str) -> list[dict[str, Any]]:
-    out = subprocess.run(
-        ["gh", "api", f"repos/{repo}/actions/artifacts?per_page=100", "--jq", ".artifacts"],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    try:
-        return json.loads(out.stdout or "[]")
-    except ValueError:
-        return []
+VERIFIER_WORKFLOW = "agents-verifier.yml"  # the consumer workflow that uploads comparison-results
+RUN_PAGE_SIZE = 100
+RUN_MAX_PAGES = 20
+PAGE_ATTEMPTS = 3
+NO_COMPARISON = {"skipped", "cancelled", None}
+
+
+class ListingError(RuntimeError):
+    """A repository's artifacts could not be listed: unmeasured, which is not the same as none."""
+
+
+def _created(artifact: dict[str, Any]) -> datetime:
+    return datetime.fromisoformat(str(artifact["created_at"]).replace("Z", "+00:00"))
+
+
+def _gh_list(url: str, field: str) -> list[dict[str, Any]]:
+    """One list request, retried; raises ListingError instead of returning nothing."""
+    detail = ""
+    for _ in range(PAGE_ATTEMPTS):
+        out = subprocess.run(
+            ["gh", "api", url, "--jq", f".{field}"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        try:
+            batch = json.loads(out.stdout) if out.returncode == 0 else None
+        except ValueError:
+            batch = None
+        if isinstance(batch, list):
+            return batch
+        detail = (out.stderr or out.stdout or "").strip()[:200]
+    raise ListingError(f"{url}: {detail or 'no list returned'}")
+
+
+def gh_list_artifacts(repo: str, *, since: datetime) -> list[dict[str, Any]]:
+    """The comparison artifacts of the repository's verifier runs since ``since``.
+
+    Listing a repository's artifacts directly does not work: a busy repository holds thousands
+    (learning-management-system 1,666, none of its newest 100 a comparison artifact; Orchestrator
+    10,170), and GitHub answers HTTP 500 deep into the busiest lists. Most verifier runs are
+    skipped (95 of 100 on learning-management-system), and only the others can carry a
+    comparison, so those runs are listed and their artifact is looked up by exact name.
+    """
+    runs: list[dict[str, Any]] = []
+    day = since.strftime("%Y-%m-%d")
+    for page in range(1, RUN_MAX_PAGES + 1):
+        batch = _gh_list(
+            f"repos/{repo}/actions/workflows/{VERIFIER_WORKFLOW}/runs"
+            f"?created=>={day}&per_page={RUN_PAGE_SIZE}&page={page}",
+            "workflow_runs",
+        )
+        runs += batch
+        if len(batch) < RUN_PAGE_SIZE:
+            break
+    else:
+        print(f"{repo}: verifier run listing stopped at {RUN_MAX_PAGES} pages")
+    ids = [str(r["id"]) for r in runs if r.get("conclusion") not in NO_COMPARISON]
+    return gh_artifacts_for_runs(repo, ids)
+
+
+def gh_artifacts_for_runs(repo: str, run_ids: list[str]) -> list[dict[str, Any]]:
+    """The comparison artifacts of known runs, looked up by exact name (a few calls, no paging)."""
+    found: list[dict[str, Any]] = []
+    for run_id in run_ids:
+        found += _gh_list(
+            f"repos/{repo}/actions/artifacts?per_page=5&name=comparison-results-{run_id}",
+            "artifacts",
+        )
+    return found
 
 
 def gh_download(repo: str, artifact_id: int) -> bytes:
@@ -417,7 +485,12 @@ def main(argv: list[str] | None = None) -> int:
         since = datetime.now(UTC) - timedelta(days=args.days)
         ledger = merge_ledger(
             ledger,
-            collect(repos, since=since, list_artifacts=gh_list_artifacts, download=gh_download),
+            collect(
+                repos,
+                since=since,
+                list_artifacts=partial(gh_list_artifacts, since=since),
+                download=gh_download,
+            ),
         )
     tmp = args.ledger.with_name(args.ledger.name + ".tmp")  # never upload a truncated ledger
     tmp.write_text(json.dumps(ledger, indent=1) + "\n")

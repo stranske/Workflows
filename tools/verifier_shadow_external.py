@@ -31,7 +31,7 @@ from typing import Any
 
 from scripts.langchain.verifier_shadow import PIPELINE, review_of
 from tools.run_judge_backend_screen import JUDGE_TIMEOUT_SECONDS
-from tools.verifier_shadow_report import gh_download, gh_list_artifacts
+from tools.verifier_shadow_report import ListingError, gh_artifacts_for_runs, gh_download
 
 # One run may make several sequential judge calls (production chunks a large input, up to
 # MAX_REVIEW_CHUNKS). It gets this much wall-clock: JudgeChatClient refuses any call that could not
@@ -248,7 +248,7 @@ def collect_external(
     *,
     since: datetime,
     max_runs: int,
-    list_artifacts: Callable[[str], list[dict[str, Any]]] = gh_list_artifacts,
+    list_artifacts: Callable[[str, list[str]], list[dict[str, Any]]] = gh_artifacts_for_runs,
     download: Callable[[str, int], bytes] = gh_download,
     is_public: Callable[[str], bool],
     judge_factory: Callable[[dict[str, Any]], Any] = make_judge,
@@ -264,6 +264,8 @@ def collect_external(
     wanted = external_candidates(config)
     counts = {
         "judged": 0,
+        "artifacts_seen": 0,
+        "listing_failed": 0,
         "skipped_private": 0,
         "unusable": 0,
         "capped": 0,
@@ -280,12 +282,24 @@ def collect_external(
         if not is_public(repo):
             counts["skipped_private"] += 1
             continue
-        for artifact in list_artifacts(repo):
+        needed = [
+            k[1]
+            for k, r in by_key.items()
+            if k[0] == repo and k in chosen and missing_candidates(r, wanted)
+        ]
+        try:
+            artifacts = list_artifacts(repo, needed)
+        except ListingError as exc:
+            counts["listing_failed"] += 1
+            print(f"{repo}: LISTING FAILED: {exc}")
+            continue
+        for artifact in artifacts:
             created = datetime.fromisoformat(artifact["created_at"].replace("Z", "+00:00"))
             if artifact.get("expired") or created < since:
                 continue
             if not str(artifact.get("name", "")).startswith("comparison-results-"):
                 continue
+            counts["artifacts_seen"] += 1
             run_id = str(artifact["name"]).rsplit("-", 1)[-1]
             if (repo, run_id) not in chosen:
                 continue
@@ -350,13 +364,14 @@ def main(argv: list[str] | None = None) -> int:
         tmp.replace(args.ledger)
 
     started = time.monotonic()
+    since = datetime.now(UTC) - timedelta(days=args.days)
     counts = collect_external(
         ledger,
         config,
         repos,
-        since=datetime.now(UTC) - timedelta(days=args.days),
+        since=since,
         max_runs=args.max_runs,
-        list_artifacts=gh_list_artifacts,
+        list_artifacts=gh_artifacts_for_runs,
         download=gh_download,
         is_public=gh_is_public,
         judge_factory=make_judge,

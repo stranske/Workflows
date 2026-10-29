@@ -70,7 +70,7 @@ def _collect(ledger, lister, downloader, factory, **kw):
         ["o/r"],
         since=NOW - timedelta(days=7),
         max_runs=kw.pop("max_runs", 5),
-        list_artifacts=lister,
+        list_artifacts=lambda repo, run_ids: lister(repo),
         download=downloader,
         is_public=kw.pop("is_public", lambda r: True),
         judge_factory=factory,
@@ -218,7 +218,7 @@ def test_no_run_starts_when_a_whole_judge_timeout_no_longer_fits(monkeypatch):
         ["o/r"],
         since=NOW - timedelta(days=7),
         max_runs=10,
-        list_artifacts=lambda repo: _artifacts("1", "2"),
+        list_artifacts=lambda repo, run_ids: _artifacts("1", "2"),
         download=lambda repo, i: _zip(),
         is_public=lambda r: True,
         judge_factory=factory,
@@ -238,7 +238,7 @@ def test_reserve_is_derived_from_the_judge_timeout_not_a_second_literal():
 def test_main_checkpoints_the_ledger_atomically_and_honours_the_budget(tmp_path, monkeypatch):
     ledger_path = tmp_path / "ledger.json"
     ledger_path.write_text(json.dumps([_record("1", "1")]))
-    monkeypatch.setattr(ext, "gh_list_artifacts", lambda repo: _artifacts("1"))
+    monkeypatch.setattr(ext, "gh_artifacts_for_runs", lambda repo, run_ids: _artifacts("1"))
     monkeypatch.setattr(ext, "gh_download", lambda repo, i: _zip())
     monkeypatch.setattr(ext, "gh_is_public", lambda repo: True)
     monkeypatch.setattr(ext, "make_judge", lambda c: FakeJudge())
@@ -333,3 +333,21 @@ def test_the_excerpt_cutoff_is_exactly_twice_the_edge():
     at_limit, over = "x" * 600, "y" * 601
     assert ext.excerpt(at_limit) == at_limit
     assert ext.excerpt(over) == f"{'y' * 300} [... 1 chars ...] {'y' * 300}"
+
+
+def test_the_counts_say_how_many_comparison_artifacts_were_seen():
+    ledger, _, lister, downloader = _setup(_zip())
+    counts = _collect(ledger, lister, downloader, lambda c: FakeJudge())
+    assert counts["artifacts_seen"] == 1
+
+
+def test_a_failed_listing_is_counted_not_read_as_no_artifacts():
+    from tools.verifier_shadow_report import ListingError
+
+    ledger, _, _, downloader = _setup(_zip())
+
+    def lister(repo):
+        raise ListingError("o/r page 1: HTTP 500")
+
+    counts = _collect(ledger, lister, downloader, lambda c: FakeJudge())
+    assert counts["listing_failed"] == 1 and counts["artifacts_seen"] == 0

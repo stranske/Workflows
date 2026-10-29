@@ -35,7 +35,12 @@ from pathlib import Path
 from typing import Any
 
 from tools.verifier_shadow_external import CONTEXT_FILE, DIFF_FILE, gh_is_public
-from tools.verifier_shadow_report import ACCEPTED_PIPELINES, gh_download, gh_list_artifacts
+from tools.verifier_shadow_report import (
+    ACCEPTED_PIPELINES,
+    ListingError,
+    gh_artifacts_for_runs,
+    gh_download,
+)
 
 COMPARISON_FILE = "comparison.json"
 ACCURACY = ("accurate", "partly_inaccurate", "inaccurate")
@@ -347,7 +352,7 @@ def adjudicate_ledger(
     since: datetime,
     max_runs: int,
     now: datetime | None = None,
-    list_artifacts: Callable[[str], list[dict[str, Any]]] = gh_list_artifacts,
+    list_artifacts: Callable[[str, list[str]], list[dict[str, Any]]] = gh_artifacts_for_runs,
     download: Callable[[str, int], bytes] = gh_download,
     is_public: Callable[[str], bool] = gh_is_public,
     client_factory: Callable[[dict[str, str]], Any] = make_client,
@@ -361,6 +366,8 @@ def adjudicate_ledger(
     adjudicator = config["adjudicator"]  # defined once, in config/verifier_shadow.json
     counts = {
         "adjudicated": 0,
+        "artifacts_seen": 0,
+        "listing_failed": 0,
         "failed": 0,
         "skipped_private": 0,
         "unusable": 0,
@@ -379,12 +386,19 @@ def adjudicate_ledger(
         if not is_public(repo):
             counts["skipped_private"] += 1
             continue
-        for artifact in list_artifacts(repo):
+        try:
+            artifacts = list_artifacts(repo, [k[1] for k in todo if k[0] == repo])
+        except ListingError as exc:
+            counts["listing_failed"] += 1
+            print(f"{repo}: LISTING FAILED: {exc}")
+            continue
+        for artifact in artifacts:
             created = datetime.fromisoformat(artifact["created_at"].replace("Z", "+00:00"))
             if artifact.get("expired") or created < since:
                 continue
             if not str(artifact.get("name", "")).startswith("comparison-results-"):
                 continue
+            counts["artifacts_seen"] += 1
             record = todo.get((repo, str(artifact["name"]).rsplit("-", 1)[-1]))
             if record is None:
                 continue
@@ -432,13 +446,14 @@ def main(argv: list[str] | None = None) -> int:
         tmp.replace(args.ledger)
 
     started = time.monotonic()
+    since = datetime.now(UTC) - timedelta(days=args.days)
     counts = adjudicate_ledger(
         ledger,
         config,
         repos,
-        since=datetime.now(UTC) - timedelta(days=args.days),
+        since=since,
         max_runs=args.max_runs,
-        list_artifacts=gh_list_artifacts,
+        list_artifacts=gh_artifacts_for_runs,
         download=gh_download,
         is_public=gh_is_public,
         client_factory=make_client,
