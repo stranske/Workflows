@@ -17,10 +17,10 @@ on:
 jobs:
   # Configuration 1: Basic - minimal settings, single Python version
   basic:
-    name: Basic (3.12 only)
+    name: Basic (3.14 only)
     uses: __WORKFLOW_REF__
     with:
-      python-versions: '["3.12"]'
+      python-versions: '["3.14"]'
       coverage: false
       lint: true
       format_check: true
@@ -34,10 +34,10 @@ jobs:
 
   # Configuration 2: Full coverage - all features enabled
   full-coverage:
-    name: Full coverage (3.12, 3.12)
+    name: Full coverage (3.13, 3.14)
     uses: __WORKFLOW_REF__
     with:
-      python-versions: '["3.12", "3.13"]'
+      python-versions: '["3.13", "3.14"]'
       coverage: true
       lint: true
       format_check: true
@@ -54,10 +54,10 @@ jobs:
 
   # Configuration 3: Typecheck only - focused mypy validation
   typecheck-only:
-    name: Typecheck only (3.12)
+    name: Typecheck only (3.14)
     uses: __WORKFLOW_REF__
     with:
-      python-versions: '["3.12"]'
+      python-versions: '["3.14"]'
       coverage: false
       lint: false
       format_check: false
@@ -72,10 +72,10 @@ jobs:
 
   # Configuration 4: Lint only - no tests, just code quality
   lint-only:
-    name: Lint only (3.12)
+    name: Lint only (3.14)
     uses: __WORKFLOW_REF__
     with:
-      python-versions: '["3.12"]'
+      python-versions: '["3.14"]'
       coverage: false
       lint: true
       format_check: true

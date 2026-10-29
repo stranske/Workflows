@@ -21,7 +21,7 @@ RUNTIME_KEY = re.compile(
 MINIMUM_ALLOWLIST = {
     (
         ".github/workflows/maint-69-sync-integration-repo.yml",
-        "uv pip compile --python-version 3.12 --upgrade pyproject.toml \\",
+        "uv pip compile --python-version 3.13 --upgrade pyproject.toml \\",
         "3.12",
     ),
 }
