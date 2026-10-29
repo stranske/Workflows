@@ -9,9 +9,12 @@ aiosignal==1.4.0
 annotated-types==0.8.0
     # via pydantic
 anthropic==0.120.0
-    # via langchain-anthropic
-anyio==4.14.2
     # via
+    #   workflows (pyproject.toml)
+    #   langchain-anthropic
+anyio==4.15.1
+    # via
+    #   workflows (pyproject.toml)
     #   anthropic
     #   httpx
     #   langsmith
@@ -178,7 +181,7 @@ multidict==6.7.1
     # via
     #   aiohttp
     #   yarl
-mypy==2.4.0
+mypy==2.4.1
     # via workflows (pyproject.toml)
 mypy-extensions==1.1.0
     # via
@@ -195,7 +198,9 @@ numpy==2.5.1
     #   langchain-community
     #   pandas
 openai==2.48.0
-    # via langchain-openai
+    # via
+    #   workflows (pyproject.toml)
+    #   langchain-openai
 orjson==3.11.9
     # via
     #   langgraph-sdk
@@ -256,7 +261,7 @@ pyflakes==3.4.0
     # via flake8
 pygments==2.20.0
     # via pytest
-pytest==9.1.1
+pytest==9.2.0
     # via
     #   workflows (pyproject.toml)
     #   pytest-cov

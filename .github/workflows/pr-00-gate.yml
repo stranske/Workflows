@@ -382,7 +382,7 @@ jobs:
           else
             echo "python_tests=false" >> "$GITHUB_OUTPUT"
           fi
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         if: ${{ steps.script_tests.outputs.node_tests == 'true' }}
         with:
           node-version: '24'
@@ -566,7 +566,8 @@ jobs:
           if [ -f pyproject.toml ] || [ -f setup.py ]; then
             install_report="$(mktemp)"
             trap 'rm -f "$install_report"' EXIT
-            if python -m pip install --report "$install_report" . ; then
+            # Include declared test dependencies; the project itself is still removed below.
+            if python -m pip install --report "$install_report" ".[dev]" ; then
               dist_name="$(python - "$install_report" <<'PYEOF'
           import json, pathlib, re, sys
           report = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
@@ -804,7 +805,7 @@ jobs:
 
 
       - name: Set up Node
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: '24'
       - name: Install GitHub API dependencies
