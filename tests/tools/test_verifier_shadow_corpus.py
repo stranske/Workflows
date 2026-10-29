@@ -295,3 +295,18 @@ def test_the_real_corpus_loads_with_production_inputs():
     assert {c["expected_verdict"] for c in cases} == {"PASS", "NON_PASS"}
     assert len({c["repo"] for c in cases}) > 1
     assert all(corpus.case_inputs(c)[0] for c in cases)
+
+
+def test_each_shard_resumes_from_its_checkpoint_unless_a_fresh_start_is_asked():
+    import yaml
+
+    workflow = yaml.safe_load(
+        (ROOT / ".github/workflows/maint-89-verifier-shadow-report.yml").read_text()
+    )
+    steps = workflow["jobs"]["corpus"]["steps"]
+    names = [s.get("name", "") for s in steps]
+    restore = names.index("Restore this shard's newest checkpoint")
+    assert restore < names.index("Judge and adjudicate this shard of the corpus")
+    step = steps[restore]
+    assert step["if"] == "${{ !inputs.corpus_fresh }}"
+    assert "verifier-shadow-corpus-$SHARD" in step["run"] and "$GITHUB_RUN_ID" in step["run"]

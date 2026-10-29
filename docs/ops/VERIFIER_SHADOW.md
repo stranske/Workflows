@@ -103,7 +103,7 @@ non-diagnostic merged PRs from seven repositories, each with an independent labe
 NON_PASS, of which 18 are controlled defects). Dispatching maint-89 with `corpus: true` runs
 `tools/verifier_shadow_corpus.py`: the production pair (resolved from the registry) and every candidate
 judge each case's production prompt at once, through the same code paths as the shadow, and the same
-blind adjudicator rates every evaluation. Six shards run in parallel, each checkpointed and budgeted.
+blind adjudicator rates every evaluation. Six shards run in parallel, each checkpointed and budgeted; a shard resumes from its newest uploaded checkpoint unless `corpus_fresh: true` (use it after the candidate list changes).
 
 The report (job summary and the `verifier-shadow-corpus-report` artifact) applies the same criteria
 as the daily report without the time window, still requiring `min_runs` adjudicated cases, and adds

@@ -17,6 +17,12 @@ on:
           labelled verifier corpus and adjudicate it (tools/verifier_shadow_corpus.py)
         type: boolean
         default: false
+      corpus_fresh:
+        description: >-
+          With corpus: start from nothing instead of resuming each shard's newest checkpoint (use
+          after the candidate list changes)
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -190,6 +196,28 @@ jobs:
           curl -fsSL "https://downloads.cursor.com/lab/${CURSOR_CLI_VERSION}/linux/${arch}/agent-cli-package.tar.gz" \
             | tar --strip-components=1 -xzf - -C "$cli_dir"
           echo "$cli_dir" >> "$GITHUB_PATH"
+      - name: Restore this shard's newest checkpoint
+        # A shard that ran out of budget, or whose adjudications failed, resumes where it stopped
+        # instead of paying for the same judgments again. This run is tried first (a re-run attempt
+        # keeps its run id), then earlier dispatches back through the 90-day retention.
+        if: ${{ !inputs.corpus_fresh }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHARD: ${{ matrix.shard }}
+        run: |
+          set -euo pipefail
+          runs="$GITHUB_RUN_ID $(gh run list --workflow maint-89-verifier-shadow-report.yml \
+            --event workflow_dispatch --limit 100 --json databaseId --jq '.[].databaseId' || true)"
+          for rid in $runs; do
+            if gh run download "$rid" -n "verifier-shadow-corpus-$SHARD" -D prior 2>/dev/null \
+                && python -c 'import json,sys; assert isinstance(json.load(open(sys.argv[1])), list)' \
+                  "prior/corpus-$SHARD.json" 2>/dev/null; then
+              cp "prior/corpus-$SHARD.json" "corpus-$SHARD.json"
+              echo "shard $SHARD resumes from run $rid"
+              break
+            fi
+            rm -rf prior
+          done
       - name: Judge and adjudicate this shard of the corpus
         continue-on-error: true
         timeout-minutes: 265
