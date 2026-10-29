@@ -129,6 +129,7 @@ def evaluators_for(record: dict[str, Any], comparison: dict[str, Any]) -> dict[s
         if (
             entry.get("pipeline") in ACCEPTED_PIPELINES
             and entry.get("review")
+            and entry.get("used_llm")  # the same rule as production: no model call, no rating
             and not entry.get("error")
         ):
             found[f"candidate:{entry['provider']}:{entry['model']}"] = entry["review"]
