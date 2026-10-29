@@ -19,7 +19,9 @@ least 7 days against the production comparison, not by clearing a benchmark. Bac
 * `maint-89-verifier-shadow-report.yml` runs daily: it collects the records from the fleet's artifacts
   (they expire after 7 days) into a 90-day ledger artifact, applies the criteria and updates one issue,
   "Verifier shadow report". Cost: one extra judge call per verification (about 0.03 cents for
-  gpt-6-luna), about 13 verifications a week.
+  gpt-6-luna). Measured 2026-10-28: 106 compare-mode verifications fleet-wide in 8 days (about
+  13 a day; Workflows 45, Orchestrator 26, Trend_Model_Project 11). The earlier "13 a week" figure came
+  from a collector that saw under a tenth of them (below).
 
 ## How candidates are graded (owner direction 2026-10-28)
 
@@ -71,7 +73,8 @@ control (a family preference would show as a gap the incumbents share). One adju
 reader: its ratings are a real trial on live work, not a ground truth.
 
 **Cost.** About 25k input tokens per run (the context dominates), roughly $0.30-0.60 per run at
-the registry list price, at most 20 runs a day, typically 2-4.
+the registry list price. At the measured 13 runs a day that is about $30-55 a week; the cap is
+20 runs a day.
 
 ## Latched-gate check
 
@@ -174,3 +177,20 @@ Entries with an error keep a 400-character `raw_excerpt` of the model's answer.
 - **Semantic runs.** Records carry `semantic_mode` (the expanded profile). Production judges those
   with the semantic package matrix, which the per-slot candidate path does not reproduce, so they
   are neither replayed nor paired.
+
+## Correction 2026-10-28: the collector saw under a tenth of the runs
+
+Every daily step listed a repository's newest 100 artifacts and nothing more. A busy repository
+creates hundreds of artifacts a day, so the newest 100 often held no comparison artifact at all
+(learning-management-system: 1,666 artifacts, none of the newest 100 a comparison), and GitHub
+answers HTTP 500 deep into the largest lists (Workflows, Trend_Model_Project). A failed request
+was read as an empty list. The ledger therefore held 9 records when the fleet had produced 106
+comparison runs in 8 days, and the steps reported success with nothing to do.
+
+Now discovery lists the `agents-verifier.yml` runs in the window, keeps those not skipped or
+cancelled (95 of 100 on learning-management-system are skipped, and only the rest can carry a
+comparison), and looks up each run's `comparison-results-<run>` artifact by exact name. The paid
+steps look up the runs already in the ledger the same way. A request that fails three times is a
+named `LISTING FAILED` line and a `listing_failed` count, never zero; each repository prints how
+many comparison artifacts it had, and the paid steps report `artifacts_seen`. Measured: all 17
+repositories listed in 97 seconds.

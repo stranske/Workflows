@@ -71,6 +71,6 @@
   "adjudicator": {
     "provider": "anthropic",
     "model": "claude-fable-5-1",
-    "note": "Neither a candidate nor a production judge. Evaluators are shown as A, B, C... in a shuffled order; every error it reports must quote the evaluation and the contradicting context or diff, and unquoted errors are discarded. Same provider family as the production anthropic judge and two candidates: the report shows production and candidate ratings side by side so a family preference would show as a gap the incumbents share. Cost is about $0.40-0.60 per run at the registry list price, at most 20 runs a day."
+    "note": "Neither a candidate nor a production judge. Evaluators are shown as A, B, C... in a shuffled order; every error it reports must quote the evaluation and the contradicting context or diff, and unquoted errors are discarded. Same provider family as the production anthropic judge and two candidates: the report shows production and candidate ratings side by side so a family preference would show as a gap the incumbents share. Cost is about $0.30-0.60 per run at the registry list price; at the measured 13 compare-mode runs a day that is about $30-55 a week, capped at 20 runs a day."
   }
 }
