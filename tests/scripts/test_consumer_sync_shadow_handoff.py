@@ -161,7 +161,7 @@ def test_workflow_has_no_write_or_apply_surface() -> None:
         )
     assert "pull_request" in events
     assert workflow_path.relative_to(root).as_posix() in events["pull_request"]["paths"]
-    assert "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a" in action_refs
+    assert "actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9" in action_refs
     assert "pyyaml==6.0.2" in workflow_source
     assert (
         "consumer-sync-shadow-evidence-${{ github.run_id }}-${{ github.run_attempt }}"

@@ -342,3 +342,11 @@ def test_the_workflow_restores_a_valid_ledger_from_any_attempt_and_overwrites_on
     assert "--status success" not in fetch["run"] and "isinstance(json.load" in fetch["run"]
     upload = next(s for s in steps if "upload-artifact" in str(s.get("uses")))
     assert upload["with"]["overwrite"] is True and "cancelled" in upload["if"]
+
+
+def test_a_ledger_named_like_a_temp_file_is_still_written_through_a_separate_file(tmp_path):
+    ledger = tmp_path / "ledger.tmp"
+    ledger.write_text(json.dumps([_record(1)]))
+    assert rep.main(["--ledger", str(ledger), "--markdown", str(tmp_path / "r.md")]) == 0
+    assert isinstance(json.loads(ledger.read_text()), list)
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["ledger.tmp", "r.md"]

@@ -345,7 +345,7 @@ def main(argv: list[str] | None = None) -> int:
     repos = [r.strip() for r in args.repos.split(",") if r.strip()]
 
     def save() -> None:
-        tmp = args.ledger.with_suffix(".tmp")
+        tmp = args.ledger.with_name(args.ledger.name + ".tmp")
         tmp.write_text(json.dumps(ledger, indent=1) + "\n")
         tmp.replace(args.ledger)
 

@@ -29,7 +29,7 @@ jobs:
       manifest: artifacts/reference/manifest.json
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
         with:
           python-version: '3.14'
       # Guarded: a consumer need not be an installable package (the template ships
@@ -64,7 +64,7 @@ jobs:
           else
             echo "No emitter wired yet; the conformance gate will skip (opt-in)."
           fi
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: reference-run
           path: artifacts/reference/
