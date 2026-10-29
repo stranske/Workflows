@@ -4,6 +4,8 @@ import re
 import tomllib
 from pathlib import Path
 
+import pytest
+
 ROOT = Path(__file__).resolve().parents[1]
 FLOOR = (3, 13)
 NEWEST = (3, 14)
@@ -17,8 +19,12 @@ def _version(value: object) -> tuple[int, int]:
     return (int(match.group(1)), int(match.group(2)))
 
 
-def _config() -> dict:
-    return tomllib.loads((ROOT / "pyproject.toml").read_text())
+# The root project plus any packaged sub-projects (for example packages/*/pyproject.toml).
+PYPROJECTS = [ROOT / "pyproject.toml", *sorted(ROOT.glob("packages/*/pyproject.toml"))]
+
+
+def _config(path: Path) -> dict:
+    return tomllib.loads(path.read_text())
 
 
 def _assert_requires_python(project: dict) -> None:
@@ -31,7 +37,7 @@ def _assert_requires_python(project: dict) -> None:
 
 
 def _assert_classifiers(project: dict) -> None:
-    # Classifiers are optional metadata; when a repo declares versioned ones they must match the standard.
+    # Classifiers are optional metadata; versioned ones, when declared, must match the standard.
     matches = (CLASSIFIER.fullmatch(c) for c in project.get("classifiers", []))
     versions = {m.group(1) for m in matches if m}
     if versions:
@@ -54,8 +60,78 @@ def _assert_tool_targets(tool: dict) -> None:
 
 
 def test_python_floor_is_3_13() -> None:
-    config = _config()
-    project = config.get("project", {})
-    _assert_requires_python(project)
-    _assert_classifiers(project)
-    _assert_tool_targets(config.get("tool", {}))
+    for path in PYPROJECTS:
+        config = _config(path)
+        project = config.get("project", {})
+        _assert_requires_python(project)
+        _assert_classifiers(project)
+        _assert_tool_targets(config.get("tool", {}))
+
+
+# The repo's own pyproject only reaches the accepting paths; the rejecting ones are pinned here.
+@pytest.mark.parametrize(
+    "spec,accepted",
+    [
+        (">=3.13", True),
+        (">=3.13,<3.15", True),
+        (">=3.13,<4", True),
+        (">=3.13,<3.14", False),
+        (">=3.12", False),
+        (">=3.14", False),
+    ],
+)
+def test_requires_python_bounds(spec: str, accepted: bool) -> None:
+    if accepted:
+        _assert_requires_python({"requires-python": spec})
+    else:
+        with pytest.raises(AssertionError):
+            _assert_requires_python({"requires-python": spec})
+
+
+@pytest.mark.parametrize(
+    "classifiers,accepted",
+    [
+        (
+            ["Programming Language :: Python :: 3.13", "Programming Language :: Python :: 3.14"],
+            True,
+        ),
+        ([], True),
+        (["Programming Language :: Python :: 3.14"], False),
+        (
+            [
+                "Programming Language :: Python :: 3.12",
+                "Programming Language :: Python :: 3.13",
+                "Programming Language :: Python :: 3.14",
+            ],
+            False,
+        ),
+    ],
+)
+def test_classifier_checks(classifiers: list[str], accepted: bool) -> None:
+    if accepted:
+        _assert_classifiers({"classifiers": classifiers})
+    else:
+        with pytest.raises(AssertionError):
+            _assert_classifiers({"classifiers": classifiers})
+
+
+@pytest.mark.parametrize(
+    "tool,accepted",
+    [
+        (
+            {"ruff": {"target-version": "py313"}, "black": {"target-version": ["py313", "py314"]}},
+            True,
+        ),
+        ({"mypy": {"python_version": "3.14"}}, True),
+        ({"ruff": {"target-version": "py312"}}, False),
+        ({"black": {"target-version": ["py311", "py313"]}}, False),
+        ({"black": {"target-version": []}}, False),
+        ({"mypy": {"python_version": "3.12"}}, False),
+    ],
+)
+def test_tool_target_checks(tool: dict, accepted: bool) -> None:
+    if accepted:
+        _assert_tool_targets(tool)
+    else:
+        with pytest.raises(AssertionError):
+            _assert_tool_targets(tool)
