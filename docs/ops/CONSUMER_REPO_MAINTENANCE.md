@@ -35,7 +35,11 @@ dependency shipment.
 
 The #4271 promotion also aligns mypy 2.4.1 and pytest 9.2.0 across source,
 consumer/integration mirrors and the requirements lock after the required
-compatibility suite reported those two stale pins. Python stays at 3.14.
+compatibility suite reported those two stale pins. AnyIO is constrained to
+4.15.1 or newer because older pytest plugins import the deprecated `CallSpec2`
+alias and fail at startup under pytest 9.2 with warnings treated as errors.
+The lock resolves that supported plugin version; warning enforcement remains
+unchanged. Python stays at 3.14.
 
 Gate test-quality installs declared development extras before running acceptance
 tests, then removes the head project distribution before testing archived base

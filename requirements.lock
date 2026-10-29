@@ -9,9 +9,12 @@ aiosignal==1.4.0
 annotated-types==0.8.0
     # via pydantic
 anthropic==0.120.0
-    # via langchain-anthropic
-anyio==4.14.2
     # via
+    #   workflows (pyproject.toml)
+    #   langchain-anthropic
+anyio==4.15.1
+    # via
+    #   workflows (pyproject.toml)
     #   anthropic
     #   httpx
     #   langsmith
@@ -195,7 +198,9 @@ numpy==2.5.1
     #   langchain-community
     #   pandas
 openai==2.48.0
-    # via langchain-openai
+    # via
+    #   workflows (pyproject.toml)
+    #   langchain-openai
 orjson==3.11.9
     # via
     #   langgraph-sdk
