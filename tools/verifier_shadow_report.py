@@ -419,7 +419,9 @@ def main(argv: list[str] | None = None) -> int:
             ledger,
             collect(repos, since=since, list_artifacts=gh_list_artifacts, download=gh_download),
         )
-    args.ledger.write_text(json.dumps(ledger, indent=1) + "\n")
+    tmp = args.ledger.with_suffix(".tmp")  # never leave a truncated ledger to be uploaded
+    tmp.write_text(json.dumps(ledger, indent=1) + "\n")
+    tmp.replace(args.ledger)
     result = evaluate(ledger, config)
     text = markdown(result)
     if args.markdown:

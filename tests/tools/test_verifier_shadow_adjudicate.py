@@ -327,3 +327,37 @@ def test_placeholders_inside_the_pr_text_are_not_expanded():
     prompt = adj.build_prompt("context mentions {diff} and {evaluations}", DIFF, labelled)
     assert "context mentions {diff} and {evaluations}" in prompt
     assert prompt.count(DIFF.strip()) == 1
+
+
+def test_an_unsupported_coverage_status_is_a_malformed_answer_and_is_retried():
+    record = _record()
+    labelled = adj.blind(adj.evaluators_for(record, COMPARISON), "o/r:7")
+    for bad in (["checked"], "verified"):
+        answer = json.loads(_answer(labelled))
+        answer["evaluations"][0]["coverage"] = [{"id": "C1", "status": bad}]
+        out = adj.adjudicate(
+            record, CONTEXT, DIFF, COMPARISON, FakeClient(json.dumps(answer)), CONFIG["adjudicator"]
+        )
+        assert out["error"].startswith("malformed adjudicator answer"), bad
+        record["adjudication"], record["adjudication_attempts"] = out, 1
+        assert adj.needs_adjudication(record, CONFIG["candidates"], NOW)
+
+
+def test_a_corrupt_compressed_member_is_unusable_and_later_runs_still_go():
+    good = _zip()
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", compression=zipfile.ZIP_DEFLATED) as z:
+        z.writestr("verifier-context.md", CONTEXT * 50)
+        z.writestr("comparison.json", json.dumps(COMPARISON))
+    raw = bytearray(buf.getvalue())
+    start = raw.find(b"verifier-context.md") + len("verifier-context.md")
+    for i in range(start + 4, start + 40):
+        raw[i] ^= 0xFF  # damage the deflated data, not the directory
+    ledger = [_record("7"), _record("8")]
+    labelled = adj.blind(adj.evaluators_for(ledger[1], COMPARISON), "o/r:8")
+    counts, _ = _run_ledger(
+        ledger,
+        FakeClient(_answer(labelled)),
+        download=lambda r, i: bytes(raw) if i == 7 else good,
+    )
+    assert counts["unusable"] == 1 and counts["adjudicated"] == 1

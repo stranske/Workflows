@@ -40,14 +40,18 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          # The newest run that saved a ledger, whatever its conclusion: a run whose report or issue
-          # step failed still uploads the paid judgments it checkpointed, and they must not be paid
-          # for again.
-          for rid in $(gh run list --workflow maint-89-verifier-shadow-report.yml --status completed \
-              --limit 15 --json databaseId --jq '.[].databaseId' || true); do
-            [ "$rid" = "$GITHUB_RUN_ID" ] && continue
+          # The newest run that saved a VALID ledger, whatever its conclusion: a run whose report or
+          # issue step failed still uploads the paid judgments it checkpointed. This run is tried
+          # first (a re-run attempt keeps its run id and its earlier attempt's artifact), then every
+          # run back through the 90-day artifact retention, so a streak of runs that failed before
+          # saving a ledger cannot reset the baseline to empty.
+          runs="$GITHUB_RUN_ID $(gh run list --workflow maint-89-verifier-shadow-report.yml \
+            --limit 200 --json databaseId --jq '.[].databaseId' || true)"
+          for rid in $runs; do
             if gh run download "$rid" -n verifier-shadow-ledger -D prior 2>/dev/null \
-                && [ -f prior/ledger.json ]; then
+                && python -c 'import json,sys; assert isinstance(json.load(open(sys.argv[1])), list)' \
+                  prior/ledger.json 2>/dev/null; then
+              echo "baseline ledger from run $rid"
               break
             fi
             rm -rf prior
@@ -134,6 +138,7 @@ jobs:
         if: ${{ !cancelled() }}
         with:
           name: verifier-shadow-ledger
+          overwrite: true  # a re-run attempt replaces its earlier attempt's ledger
           path: |
             ledger.json
             report.json

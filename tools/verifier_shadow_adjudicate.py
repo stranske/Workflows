@@ -27,6 +27,7 @@ import random
 import re
 import time
 import zipfile
+import zlib
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from io import BytesIO
@@ -207,11 +208,13 @@ def validate(
         accuracy = raw.get("accuracy") if raw.get("accuracy") in ACCURACY else None
         if accuracy in ("inaccurate", "partly_inaccurate") and not errors:
             accuracy = "unsupported"  # a rating against an evaluator must show its evidence
-        statuses = {
-            str(c.get("id")): c.get("status")
-            for c in raw.get("coverage") or []
-            if isinstance(c, dict) and isinstance(c.get("status"), str) and c["status"] in COVERAGE
-        }
+        statuses = {}
+        for c in raw.get("coverage") or []:
+            status = c.get("status") if isinstance(c, dict) else None
+            if not isinstance(status, str) or status not in COVERAGE:
+                # dropping it would silently score the criterion "missed" and never retry
+                raise ValueError(f"unsupported coverage status: {status!r}")
+            statuses[str(c.get("id"))] = status
         coverage = (
             round(sum(COVERAGE[statuses.get(i, "missed")] for i in ids) / len(ids), 3)
             if ids
@@ -393,7 +396,7 @@ def adjudicate_ledger(
                 continue
             try:
                 run = read_run(download(repo, int(artifact["id"])))
-            except (OSError, ValueError, zipfile.BadZipFile):
+            except (OSError, ValueError, zipfile.BadZipFile, zlib.error):
                 run = None  # a corrupt archive is unusable, never a crash of the whole step
             if run is None:
                 counts["unusable"] += 1

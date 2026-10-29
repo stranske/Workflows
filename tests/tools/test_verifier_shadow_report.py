@@ -321,3 +321,24 @@ def test_workflow_installs_requirements_and_bounds_the_paid_steps():
     assert total * 60 < job["timeout-minutes"] * 60, "the report must still fit after both steps"
     assert "CLAUDE_API_STRANSKE" in steps[adjudicate]["env"]
     assert "cancelled" in steps[report]["if"], "the report must still be written after a failure"
+
+
+def test_the_report_rewrites_the_ledger_atomically(tmp_path):
+    ledger = tmp_path / "ledger.json"
+    ledger.write_text(json.dumps([_record(1)]))
+    assert rep.main(["--ledger", str(ledger), "--markdown", str(tmp_path / "r.md")]) == 0
+    assert isinstance(json.loads(ledger.read_text()), list) and not list(tmp_path.glob("*.tmp"))
+
+
+def test_the_workflow_restores_a_valid_ledger_from_any_attempt_and_overwrites_on_rerun():
+    import yaml
+
+    wf = yaml.safe_load(
+        (ROOT / ".github/workflows/maint-89-verifier-shadow-report.yml").read_text()
+    )
+    steps = wf["jobs"]["report"]["steps"]
+    fetch = next(s for s in steps if s.get("name", "").startswith("Fetch the previous ledger"))
+    assert '"$GITHUB_RUN_ID ' in fetch["run"] and "--limit 200" in fetch["run"]
+    assert "--status success" not in fetch["run"] and "isinstance(json.load" in fetch["run"]
+    upload = next(s for s in steps if "upload-artifact" in str(s.get("uses")))
+    assert upload["with"]["overwrite"] is True and "cancelled" in upload["if"]
