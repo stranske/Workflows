@@ -999,3 +999,16 @@ def test_mutation_cases_cannot_replace_real_non_pass_signal():
     }
     plan = build_plan(_with_mutations(only_mutations, 80), registry, policy)
     assert any("real-outcome NON_PASS" in reason for reason in plan["approval_blockers"])
+
+
+def test_default_screen_model_lists_include_the_registry_incumbent():
+    # a screen without the incumbent is refused, so a selection change must move these defaults too
+    import yaml
+    from tools.run_model_eval_cli_screen import DEFAULT_MODELS
+
+    workflow = yaml.safe_load(
+        (ROOT / ".github/workflows/maint-78-model-evaluation-pilot.yml").read_text()
+    )
+    dispatch = workflow.get("on", workflow.get(True))["workflow_dispatch"]["inputs"]["models"]
+    assert INCUMBENT in DEFAULT_MODELS.split(",")
+    assert INCUMBENT in dispatch["default"].split(",")
