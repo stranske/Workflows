@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.48.0](https://github.com/stranske/Workflows/compare/v1.47.2...v1.48.0) (2026-10-30)
+
+
+### Features
+
+* **verifier-shadow:** finish Cursor, add Muse Wonder and a terra effort check ([#4335](https://github.com/stranske/Workflows/issues/4335)) ([c0019ca](https://github.com/stranske/Workflows/commit/c0019ca374dc071a196c4424324088dd4ff9f142))
+
+
+### Bug Fixes
+
+* **integration-template:** sparse-checkout the retry helper's sibling modules ([#4336](https://github.com/stranske/Workflows/issues/4336)) ([9004902](https://github.com/stranske/Workflows/commit/90049023f4f600fb0ccd6ceaefaf74ce80c25c15))
+
 ## [1.47.2](https://github.com/stranske/Workflows/compare/v1.47.1...v1.47.2) (2026-10-29)
 
 
