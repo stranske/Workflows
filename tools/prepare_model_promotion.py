@@ -39,6 +39,7 @@ from typing import Any
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_REGISTRY_PATH = _REPO_ROOT / "config" / "model_registry.json"
+DEFAULT_POLICY_PATH = _REPO_ROOT / "config" / "model_selection_policy.json"
 DEFAULT_PROFILE = "verifier-balanced"
 REVIEW_INTERVAL_DAYS = 30
 
@@ -346,6 +347,7 @@ def main(argv: list[str] | None = None) -> int:
         "--benchmark", type=Path, required=True, help="evaluate_model_benchmark output"
     )
     parser.add_argument("--registry", type=Path, default=DEFAULT_REGISTRY_PATH)
+    parser.add_argument("--policy", type=Path, default=DEFAULT_POLICY_PATH)
     parser.add_argument("--profile", default=DEFAULT_PROFILE)
     parser.add_argument("--mode", choices=["promote", "rollback", "auto"], default="auto")
     parser.add_argument("--today", default=None, help="ISO date override (default: today)")
@@ -355,14 +357,25 @@ def main(argv: list[str] | None = None) -> int:
     try:
         report = _load(args.benchmark)
         registry = _load(args.registry)
+        policy = _load(args.policy)
     except (OSError, ValueError, json.JSONDecodeError) as exc:
         print(f"input error: {exc}", file=sys.stderr)
         return 2
     today = _dt.date.fromisoformat(args.today) if args.today else _dt.date.today()
 
+    approval = policy.get("profiles", {}).get(args.profile, {}).get("approval_stage", {})
+    promotion_retired = approval.get("status") == "retired"
+    if promotion_retired and args.mode in {"promote", "auto"}:
+        # Owner decision 2026-10-30: selections change by owner decision after a corpus trial.
+        # A gate-breach rollback is a safety action, so it is still prepared.
+        print(
+            f"automatic promotion is retired for {args.profile} "
+            f"(approval_stage.status=retired since {approval.get('retired_at', 'unknown')}); "
+            "only rollbacks are prepared."
+        )
     promotions = (
         find_promotions(report, registry, profile=args.profile)
-        if args.mode in {"promote", "auto"}
+        if args.mode in {"promote", "auto"} and not promotion_retired
         else []
     )
     rollbacks = (

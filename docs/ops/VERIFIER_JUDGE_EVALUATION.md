@@ -24,9 +24,10 @@ define the gates, with false PASS as the highest-cost error:
 
 - Screen: at most 0 false PASS, 0 schema errors, at least 50% PASS recall, no accuracy loss versus the
   incumbent, no regression in either verdict class.
-- Approval: false-PASS rate Wilson upper bound at most 0.05, false-FAIL bound at most 0.10,
-  schema-error bound at most 0.05, success-rate lower bound at least 0.85, paired non-inferiority
-  margin 0.02, at least 75 adjudicated cases.
+- Approval (retired 2026-10-30, owner decision): it never approved a judge; the bounds were
+  loosened to false PASS 0.10 and false FAIL 0.20 on 2026-10-18 and still required a perfect run.
+  A judge now changes by the owner's decision after a corpus trial (`VERIFIER_SHADOW.md`,
+  "Trialling a new candidate"); the bounds are reported as information only.
 
 A screen result is **exploratory evidence**. It can justify the capped API confirmation, never a
 promotion. Zero false PASS on 4 NON_PASS cases only bounds the false-PASS rate below about 0.49; the

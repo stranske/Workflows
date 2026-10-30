@@ -431,3 +431,21 @@ def test_collect_prints_how_many_comparison_artifacts_each_repository_had(capsys
     now = datetime.now(UTC)
     rep.collect(["o/r"], since=now - timedelta(days=8), list_artifacts=lambda r: [], download=None)
     assert "o/r: 0 comparison artifact(s) in the window" in capsys.readouterr().out
+
+
+def test_daily_report_runs_only_while_the_shadow_is_enabled():
+    import yaml
+
+    wf = yaml.safe_load(
+        (ROOT / ".github/workflows/maint-89-verifier-shadow-report.yml").read_text()
+    )
+    jobs = wf["jobs"]
+    switch = "\n".join(step.get("run", "") for step in jobs["daily-switch"]["steps"])
+    assert "config/verifier_shadow.json" in switch and '"enabled"' in switch
+    assert jobs["report"]["needs"] == "daily-switch"
+    assert "needs.daily-switch.outputs.enabled == 'true'" in jobs["report"]["if"]
+    assert "needs.daily-switch.outputs.enabled != 'true'" in jobs["shadow-off"]["if"]
+    closing = "\n".join(step.get("run", "") for step in jobs["shadow-off"]["steps"])
+    assert "gh issue close" in closing and "Trialling a new candidate" in closing
+    # the corpus trial never waits on the daily switch
+    assert "needs" not in jobs["corpus"]

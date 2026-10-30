@@ -17,6 +17,21 @@ from tools import verifier_corpus_evidence as evidence
 TODAY = dt.date(2026, 8, 1)
 
 
+def _policy_file(directory: Path, status: str) -> Path:
+    """The repo policy with approval_stage.status set; promotion is retired on main since 2026-10-30."""
+    policy = json.loads(pmp.DEFAULT_POLICY_PATH.read_text())
+    policy["profiles"]["verifier-balanced"]["approval_stage"]["status"] = status
+    path = directory / f"policy-{status}.json"
+    path.write_text(json.dumps(policy))
+    return path
+
+
+@pytest.fixture(autouse=True)
+def _promotion_active(tmp_path, monkeypatch):
+    # These tests exercise the promotion logic itself, so they run against an active stage.
+    monkeypatch.setattr(pmp, "DEFAULT_POLICY_PATH", _policy_file(tmp_path, "active"))
+
+
 def _run_preparation_cli(benchmark_path, registry_path, output_path):
     """Exercise the module entry point and exit signal consumed by Maint 86."""
     return subprocess.run(
@@ -28,6 +43,8 @@ def _run_preparation_cli(benchmark_path, registry_path, output_path):
             str(benchmark_path),
             "--registry",
             str(registry_path),
+            "--policy",
+            str(_policy_file(Path(benchmark_path).parent, "active")),
             "--write",
             str(output_path),
             "--today",
@@ -594,3 +611,41 @@ def test_equal_cost_candidates_rank_zero_latency_before_positive(latency, expect
         ]
     )
     assert pmp.find_promotions(report, _registry())[0]["to_model_id"] == expected
+
+
+def test_retired_approval_prepares_rollbacks_but_never_promotions(tmp_path, capsys):
+    bench, reg, out = (tmp_path / name for name in ("bench.json", "registry.json", "out.json"))
+    retired = _policy_file(tmp_path, "retired")
+    promote_only = _report(
+        [
+            _result("claude-opus-4-6", "anthropic", status="passed", cost=0.10),
+            _result("claude-opus-4-8", "anthropic", status="passed", cost=0.08),
+        ]
+    )
+    bench.write_text(json.dumps(promote_only))
+    reg.write_text(json.dumps(_registry()))
+    args = ["--benchmark", str(bench), "--registry", str(reg), "--policy", str(retired)]
+    assert pmp.main([*args, "--write", str(out), "--today", TODAY.isoformat()]) == 0
+    assert not out.exists()
+    assert "automatic promotion is retired" in capsys.readouterr().out
+
+    breach = _report(
+        [
+            _result("claude-opus-4-8", "anthropic", status="failed", cost=0.08),
+            _result("claude-opus-4-9", "anthropic", status="passed", cost=0.06),
+        ],
+        baseline="claude-opus-4-8",
+    )
+    bench.write_text(json.dumps(breach))
+    reg.write_text(json.dumps(_promoted_registry()))
+    assert pmp.main([*args, "--write", str(out), "--today", TODAY.isoformat()]) == 10
+    assert json.loads(out.read_text())["selections"][0]["model_id"] == "claude-opus-4-6"
+
+
+def test_repo_policy_has_automatic_promotion_retired():
+    # The autouse fixture swaps the default; read the checked-in file directly.
+    stage = json.loads((pmp._REPO_ROOT / "config/model_selection_policy.json").read_text())[
+        "profiles"
+    ]["verifier-balanced"]["approval_stage"]
+    assert stage["status"] == "retired"
+    assert stage["retired_at"] == "2026-10-30"

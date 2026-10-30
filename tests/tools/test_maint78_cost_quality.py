@@ -135,6 +135,24 @@ def test_snapshot_replay_prefers_the_captured_full_diff():
     assert "SUMMARY_ONLY_MARKER" not in prompt
 
 
+def test_retired_approval_reports_owner_trial_path_not_a_blocker():
+    corpus, registry, policy = _inputs()
+    plan = build_plan(corpus, registry, policy)
+    assert plan["approval_path"] == "owner_trial"
+    assert "Owner decision 2026-10-30" in plan["approval_retired_note"]
+    text = markdown(plan)
+    assert "### Automatic approval: retired" in text
+    assert "### Separate long-term statistical approval" not in text
+    assert "informational, not blockers" in text
+
+    active = json.loads(json.dumps(policy))
+    active["profiles"]["verifier-balanced"]["approval_stage"]["status"] = "active"
+    active_plan = build_plan(corpus, registry, active)
+    assert active_plan["approval_path"] == "automatic"
+    assert active_plan["approval_retired_note"] is None
+    assert "### Separate long-term statistical approval" in markdown(active_plan)
+
+
 def test_current_plan_allows_fast_screen_without_statistical_approval():
     plan = build_plan(*_inputs())
     assert not plan["approval_ready"]
@@ -253,9 +271,9 @@ def test_screen_case_whose_prompt_drops_most_code_blocks_paid_confirmation():
 def test_readiness_summary_leads_with_the_current_decision():
     summary = markdown(build_plan(*_inputs()))
     assert summary.index("**Eight-case subscription screen ready:** yes") < summary.index(
-        "### Separate long-term statistical approval"
+        "### Automatic approval: retired"
     )
-    assert summary.index("**Next action:**") < summary.index("**Best-case statistical floor:**")
+    assert summary.index("**Next action:**") < summary.index("**Historical corpus:**")
 
 
 def test_candidate_screen_uses_policy_case_and_failure_counts():
