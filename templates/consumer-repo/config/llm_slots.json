@@ -16,5 +16,15 @@
       "provider": "github-models",
       "profile": "verifier-balanced"
     }
-  ]
+  ],
+  "capacity_backup": {
+    "slot": "slot3",
+    "enabled": true,
+    "provider": "muse-api",
+    "model": "muse-spark-1.3",
+    "base_url": "https://api.meta.ai/v1",
+    "key_env": "MUSE_API_KEY",
+    "decided_at": "2026-10-30",
+    "why": "Owner decision 2026-10-30: slot 3 is the verifier's capacity backup, filled from Cursor, Vibe, Muse or Gemini. Used only in standard compare mode, only when one production judge returns a budget-exhaustion error, and PASS still needs the surviving production judge's PASS. Corpus trial run 41111958779 (18 recorded cases, independent labels, no adjudication): paired with gpt-6.1-sol every usable candidate matched the production pair (1 of 7 known defects passed, 11 of 11 good cases passed); muse-spark-1.3 passed the fewest known defects alone (3 of 7; Cursor and Gemini 3.8 Flash 4, Gemini 4 Argon 5) with 18 of 18 usable answers. Set enabled to false to turn the backup off."
+  }
 }
