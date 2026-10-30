@@ -78,12 +78,31 @@ class Judge(Protocol):
 
 def extract_payload(text: str) -> dict[str, Any] | None:
     """Return the first JSON object in ``text`` that validates as the verifier payload."""
-    return payload_span(text)[0]
-
-
-def payload_span(text: str) -> tuple[dict[str, Any] | None, str | None]:
-    """The first verifier payload in ``text`` and the exact text it was decoded from."""
     decoder = json.JSONDecoder()
+    for index, char in enumerate(text):
+        if char != "{":
+            continue
+        try:
+            candidate, _ = decoder.raw_decode(text[index:])
+        except ValueError:
+            continue
+        if isinstance(candidate, dict):
+            try:
+                return pr_verifier.EvaluationPayload.model_validate(candidate).model_dump()
+            except ValueError:
+                continue
+    return None
+
+
+def final_verdict_span(text: str) -> str | None:
+    """The LAST JSON object in ``text`` that the production parser itself accepts, verbatim.
+
+    An agent CLI may narrate before its answer, and the narration may even quote a verdict, so
+    the final answer is the last accepted object, and acceptance is the production parser's own
+    strict rule (unknown fields fail), never a looser schema check.
+    """
+    decoder = json.JSONDecoder()
+    found = None
     for index, char in enumerate(text):
         if char != "{":
             continue
@@ -91,13 +110,10 @@ def payload_span(text: str) -> tuple[dict[str, Any] | None, str | None]:
             candidate, end = decoder.raw_decode(text[index:])
         except ValueError:
             continue
-        if isinstance(candidate, dict):
-            try:
-                payload = pr_verifier.EvaluationPayload.model_validate(candidate).model_dump()
-            except ValueError:
-                continue
-            return payload, text[index : index + end]
-    return None, None
+        span = text[index : index + end]
+        if isinstance(candidate, dict) and not pr_verifier._parse_llm_response(span, "judge").error:
+            found = span
+    return found
 
 
 def _clean_env(keep: set[str] | None = None) -> dict[str, str]:
@@ -272,7 +288,8 @@ class CursorCliJudge:
                 error=_redact(f"Cursor CLI error (rc {response.returncode})", [key]),
             )
         result = str(envelope.get("result") or "")
-        payload, span = payload_span(result)
+        span = final_verdict_span(result)
+        payload = extract_payload(span) if span is not None else None
         # The agent CLI prepends a progress note ("I'll evaluate the diff...") to the model's final
         # answer in its json envelope. Callers that parse the text themselves get the verdict JSON
         # alone, byte for byte as the model wrote it; with no valid verdict they get the whole text.

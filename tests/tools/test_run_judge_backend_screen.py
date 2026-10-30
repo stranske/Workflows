@@ -807,8 +807,21 @@ def test_cursor_cli_progress_note_never_reaches_the_production_parser(tmp_path, 
         fake = _script(tmp_path / "cursor-agent", f"cat <<'EOF'\n{json.dumps(envelope)}\nEOF\n")
         outcome = screen.CursorCliJudge(cursor=fake).invoke("PROMPT")
         assert outcome.text == answer  # the model's verdict, byte for byte, without the note
+        assert outcome.payload["verdict"] == VERDICT["verdict"]
         parsed = pr_verifier._parse_llm_response(outcome.text, "cursor-cli")
         assert parsed.error is None and parsed.verdict == VERDICT["verdict"]
+
+
+def test_cursor_cli_keeps_the_final_verdict_the_production_parser_accepts(tmp_path, monkeypatch):
+    monkeypatch.setenv("CURSOR_API_KEY", "cur-test-key-not-real")
+    final = {**VERDICT, "verdict": "FAIL"}
+    quoted = json.dumps({**VERDICT, "verdict": "PASS"})  # a verdict quoted in the narration
+    unknown = json.dumps({**VERDICT, "verdict": "PASS", "extra_field": 1})  # production rejects
+    result = f"Last time this said {quoted}. Draft: {json.dumps(final)} Answer: {unknown}"
+    envelope = {"type": "result", "is_error": False, "result": result, "usage": {}}
+    fake = _script(tmp_path / "cursor-agent", f"cat <<'EOF'\n{json.dumps(envelope)}\nEOF\n")
+    outcome = screen.CursorCliJudge(cursor=fake).invoke("PROMPT")
+    assert json.loads(outcome.text) == final and outcome.payload["verdict"] == "FAIL"
 
 
 def test_judge_timeout_is_one_shared_constant():
