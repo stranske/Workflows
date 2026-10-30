@@ -1,3 +1,7 @@
+import json
+import os
+import shutil
+import subprocess
 from pathlib import Path
 
 import yaml
@@ -114,3 +118,60 @@ def test_integration_sync_success_closes_even_a_marker_free_legacy_alert() -> No
     assert "name: 'tracker:durable'" in source
     assert "state: 'closed'" in source
     assert "state_reason: 'completed'" in source
+
+
+def test_integration_sync_api_setup_preserves_vendored_dependencies(tmp_path: Path) -> None:
+    workspace = tmp_path / "runner workspace"
+    install_dir = workspace / "workflows/.github/scripts"
+    install_dir.mkdir(parents=True)
+    shutil.copyfile(REPO_ROOT / ".github/scripts/package.json", install_dir / "package.json")
+    # Keep installed API packages in the developer checkout out of this fixture:
+    # their presence would skip npm and leave the alias preparation untested.
+    shutil.copytree(
+        REPO_ROOT / ".github/scripts/node_modules/minimatch",
+        install_dir / "node_modules/minimatch",
+    )
+    original_package = (install_dir / "package.json").read_bytes()
+    setup = next(
+        step
+        for step in _workflow()["jobs"]["sync"]["steps"]
+        if step.get("name") == "Setup API client"
+    )
+    configured_dir = setup["with"]["install_dir"].replace("${{ github.workspace }}", str(workspace))
+    action_dir = REPO_ROOT / ".github/actions/setup-api-client"
+    action = yaml.safe_load((action_dir / "action.yml").read_text())
+    script = action["runs"]["steps"][0]["run"].replace("${{ inputs.install_dir }}", configured_dir)
+    # Exercise the authored shell and alias helper; only the external installer is inert.
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    npm = bin_dir / "npm"
+    npm.write_text(
+        "#!/bin/bash\nset -euo pipefail\n"
+        'node -e \'const fs = require("fs"); '
+        'const p = JSON.parse(fs.readFileSync("minimatch/package.json")); '
+        'if (p.name !== "minimatch") process.exit(1);\'\n'
+        'touch "$GITHUB_WORKSPACE/npm-invoked"\n'
+    )
+    npm.chmod(0o755)
+    sleep = bin_dir / "sleep"
+    sleep.write_text("#!/bin/bash\nexit 0\n")
+    sleep.chmod(0o755)
+    result = subprocess.run(
+        ["/bin/bash", "-c", script],
+        cwd=workspace,
+        env=os.environ
+        | {
+            "GITHUB_WORKSPACE": str(workspace),
+            "GITHUB_ACTION_PATH": str(action_dir),
+            "PATH": str(bin_dir) + os.pathsep + os.environ["PATH"],
+        },
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert (workspace / "npm-invoked").is_file()
+    assert not (install_dir / "minimatch").exists()
+    assert (install_dir / "node_modules/minimatch/package.json").is_file()
+    assert (install_dir / "package.json").read_bytes() == original_package
+    assert json.loads(original_package)["dependencies"]["minimatch"].startswith("file:")
