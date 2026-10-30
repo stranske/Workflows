@@ -298,7 +298,7 @@ jobs:
           github_token: ${{ github.token }}
           service_bot_pat: ${{ secrets.SERVICE_BOT_PAT }}
           owner_pr_pat: ${{ secrets.OWNER_PR_PAT }}
-          install_dir: workflows/.github/scripts
+          install_dir: ${{ github.workspace }}/workflows/.github/scripts
 
       - name: Resolve recovered integration sync alert
         if: >-
