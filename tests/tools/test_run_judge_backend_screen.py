@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import stat
+import subprocess
 import urllib.error
 from pathlib import Path
 from typing import Any
@@ -1035,3 +1036,25 @@ def test_contributor_tier_checks_override_cases_actually_prompted():
             manifest_lookup=lambda repo, run_id: None,
         )
     assert invoked["count"] == 0
+
+
+def test_trusted_status_needs_the_digest_of_the_content_actually_prompted():
+    corpus, _registry, _policy, cases = _screen_cases_for_contributor_checks()
+    trusted = screen.trusted_screen_snapshot_digests()
+    assert screen.snapshot_matches_trusted_corpus(cases[0], trusted)
+    edited = json.loads(json.dumps(cases[0]))
+    edited["production_snapshot"]["context"] += "\nunpublished"  # stored sha256 left unchanged
+    assert not screen.snapshot_matches_trusted_corpus(edited, trusted)
+
+
+def test_public_capture_lookup_lists_artifacts_with_get(monkeypatch):
+    calls = []
+
+    def fake_run(argv, **_kwargs):
+        calls.append(argv)
+        return subprocess.CompletedProcess(argv, 0, stdout="", stderr="")
+
+    monkeypatch.setattr(screen.subprocess, "run", fake_run)
+    assert screen.public_capture_manifest("stranske/Workflows", "123") is None
+    listing = [argv for argv in calls if any("actions/artifacts" in part for part in argv)]
+    assert listing and all(argv[argv.index("--method") + 1] == "GET" for argv in listing)

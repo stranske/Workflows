@@ -42,7 +42,7 @@ from pathlib import Path
 from typing import Any, Protocol
 
 from scripts.langchain import pr_verifier
-from tools.model_eval_snapshots import screen_cases, verifier_prompt
+from tools.model_eval_snapshots import screen_cases, snapshot_digest, verifier_prompt
 from tools.plan_model_eval import ROOT, build_plan
 
 # per-invocation limit of the judges below; the daily shadow job budgets from it
@@ -604,8 +604,13 @@ def snapshot_matches_trusted_corpus(case: dict[str, Any], trusted_digests: dict[
     if not isinstance(snapshot, dict):
         return False
     case_id = str(case.get("case_id", ""))
-    digest = snapshot.get("sha256")
-    return bool(case_id and isinstance(digest, str) and digest == trusted_digests.get(case_id))
+    trusted = trusted_digests.get(case_id)
+    # The stored digest is a claim; only the digest of the content actually prompted is evidence.
+    try:
+        actual = snapshot_digest(snapshot)
+    except (KeyError, TypeError, ValueError):
+        return False
+    return bool(case_id and trusted and snapshot.get("sha256") == trusted and actual == trusted)
 
 
 def snapshot_matches_public_capture(
@@ -641,6 +646,8 @@ def public_capture_manifest(repo: str, run_id: str) -> dict[str, Any] | None:
                 [
                     "gh",
                     "api",
+                    "--method",
+                    "GET",
                     f"repos/{repo}/actions/artifacts",
                     "-f",
                     f"name={artifact_name}",
