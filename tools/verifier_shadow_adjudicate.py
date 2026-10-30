@@ -371,12 +371,10 @@ def adjudicate_ledger(
     deadline: float | None = None,
     checkpoint: Callable[[], None] | None = None,
 ) -> dict[str, int]:
-    """Adjudicate every settled, live run once; returns counts of what happened."""
+    """Adjudicate settled daily runs while enabled; leave retained backlog intact when off."""
     now = now or datetime.now(UTC)
-    # only external candidates can still answer after the run; they are the ones waited for
-    wanted = external_candidates(config)
-    adjudicator = config["adjudicator"]  # defined once, in config/verifier_shadow.json
     counts = {
+        "disabled": 0,
         "adjudicated": 0,
         "artifacts_seen": 0,
         "listing_failed": 0,
@@ -386,6 +384,12 @@ def adjudicate_ledger(
         "capped": 0,
         "out_of_time": 0,
     }
+    if not config.get("enabled"):
+        counts["disabled"] = 1
+        return counts
+    # Only external candidates can still answer after the run; wait for those when enabled.
+    wanted = external_candidates(config)
+    adjudicator = config["adjudicator"]  # defined once, in config/verifier_shadow.json
     todo = {
         (r.get("repository"), str(r.get("run_id"))): r
         for r in ledger

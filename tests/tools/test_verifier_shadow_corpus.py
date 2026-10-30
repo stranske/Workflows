@@ -378,3 +378,140 @@ def test_a_checkpoint_from_another_selection_never_reaches_the_report(tmp_path, 
     md, js = tmp_path / "r.md", tmp_path / "r.json"
     corpus.main(["report", str(old), str(other), "--markdown", str(md), "--json", str(js)])
     assert json.loads(js.read_text())["cases"] == 2  # kept + moved once; dropped never counts
+
+
+def test_a_corpus_trial_runs_while_the_daily_shadow_is_off():
+    from tools.verifier_shadow_external import external_candidates
+
+    off = {**CONFIG, "enabled": False}
+    assert external_candidates(off) == []  # the daily shadow is off
+    record = corpus.judge_case(
+        _case(),
+        PRODUCTION,
+        off,
+        evaluator=_evaluator(),
+        externals=_externals,
+        is_public=lambda repo: True,
+    )
+    assert [(e["provider"], e["model"]) for e in record["candidates"]] == [
+        (c["provider"], c["model"])
+        for c in [c for c in off["candidates"] if c.get("runner") != "external"]
+        + external_candidates(off, corpus=True)
+    ] and external_candidates(off, corpus=True)
+
+
+def test_judge_only_mode_never_calls_the_api_adjudicator():
+    records: list = []
+    calls: list = []
+
+    def no_client(adjudicator):
+        raise AssertionError("judge-only mode must not build an API adjudicator")
+
+    counts = corpus.run_corpus(
+        [_case("a"), _case("b")],
+        records,
+        CONFIG,
+        production=PRODUCTION,
+        judge=_judge(calls),
+        client_factory=no_client,
+        adjudicate_here=False,
+    )
+    assert counts["judged"] == 2 and counts["awaiting_session_adjudication"] == 2
+    again = corpus.run_corpus(
+        [_case("a"), _case("b")],
+        records,
+        CONFIG,
+        production=PRODUCTION,
+        judge=_judge(calls),
+        client_factory=no_client,
+        adjudicate_here=False,
+    )
+    assert again["judged"] == 0 and calls == ["a", "b"]  # resumed, not paid for twice
+
+
+def test_session_adjudication_is_blind_and_validated_like_the_api_path(tmp_path):
+    cases = [_case("a"), _case("b")]
+    records: list = []
+
+    def anonymous(context, diff=None, model=None, provider=None):
+        return SimpleNamespace(
+            verdict="PASS",
+            used_llm=True,
+            error=None,
+            confidence=0.9,
+            concerns=[],
+            summary="checked test_x against the diff",
+            scores=None,
+            files_not_reviewed=[],
+        )
+
+    def judge(case, production, config):
+        return corpus.judge_case(
+            case,
+            production,
+            config,
+            evaluator=anonymous,
+            externals=_externals,
+            is_public=lambda repo: True,
+        )
+
+    corpus.run_corpus(
+        cases,
+        records,
+        CONFIG,
+        production=PRODUCTION,
+        judge=judge,
+        client_factory=lambda a: None,
+        adjudicate_here=False,
+    )
+    prompts = tmp_path / "prompts"
+    assert corpus.write_prompts(records, cases, prompts) == 2
+    text = (prompts / "a.txt").read_text()
+    names = ["prod-openai", "prod-anthropic"] + [c["model"] for c in CONFIG["candidates"]]
+    for name in names + ["candidate:", "production:"]:
+        if name != "default":  # Cursor's model id is a common word
+            assert name not in text  # evaluators appear only as A, B, C...
+    answers = tmp_path / "answers"
+    answers.mkdir()
+    (answers / "a.json").write_text(Adjudicator().invoke("").content)
+    (answers / "b.json").write_text(
+        '{"evaluations": [{"label": "A", "coverage": [{"status": "x"}]}]}'
+    )
+    counts = corpus.apply_answers(records, cases, answers, "claude-opus-5-5")
+    assert counts == {"applied": 1, "rejected": 1, "missing": 0}
+    a, b = (next(r for r in records if r["corpus"]["case_id"] == k) for k in "ab")
+    assert a["adjudication"]["provider"] == "claude-code-session" and not a["adjudication"]["error"]
+    assert "production:openai:prod-openai" in a["adjudication"]["ratings"]
+    assert b["adjudication"]["error"].startswith("malformed session answer")
+    assert corpus.write_prompts(records, cases, tmp_path / "again") == 1  # only b still needs one
+
+
+def test_a_trial_of_selected_candidates_judges_and_reports_only_those(tmp_path, monkeypatch):
+    seen: list = []
+    real_judge = corpus.judge_case
+
+    def judge(case, production, config):
+        seen.append([c["model"] for c in config["candidates"]])
+        return real_judge(
+            case,
+            production,
+            config,
+            evaluator=_evaluator(),
+            externals=_externals,
+            is_public=lambda repo: True,
+        )
+
+    monkeypatch.setattr(corpus, "corpus_cases", lambda path=corpus.CORPUS: [_case("a")])
+    monkeypatch.setattr(corpus, "production_judges", lambda: PRODUCTION)
+    monkeypatch.setattr(corpus, "judge_case", judge)
+    out = tmp_path / "corpus-0.json"
+    corpus.main(
+        ["run", "--records", str(out), "--candidates", "openai:gpt-6-luna", "--no-adjudicate"]
+    )
+    assert seen == [["gpt-6-luna"]]
+    result = corpus.report(json.loads(out.read_text()), CONFIG)
+    assert [c["candidate"] for c in result["candidates"]] == ["openai:gpt-6-luna"]
+    import pytest
+
+    with pytest.raises(SystemExit):
+        corpus.main(["run", "--records", str(out), "--candidates", "openai:not-a-candidate"])

@@ -17,6 +17,20 @@ on:
           labelled verifier corpus and adjudicate it (tools/verifier_shadow_corpus.py)
         type: boolean
         default: false
+      corpus_candidates:
+        description: >-
+          With corpus: comma separated provider:model candidates to trial with the production pair
+          (empty runs every candidate in config/verifier_shadow.json)
+        type: string
+        default: ""
+      corpus_adjudicator:
+        description: >-
+          With corpus: "session" judges only and leaves the ratings to a Claude Code session (the
+          verifier-candidate-trial skill, no API spend); "api" rates each case with the configured
+          adjudicator through the Anthropic API
+        type: choice
+        options: [session, api]
+        default: session
       corpus_fresh:
         description: >-
           With corpus: start from nothing instead of resuming each shard's newest checkpoint (use
@@ -227,10 +241,15 @@ jobs:
           CLAUDE_API_STRANSKE: ${{ secrets.CLAUDE_API_STRANSKE }}
           MUSE_API_KEY: ${{ secrets.MUSE_API_KEY }}
           CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
+          CANDIDATES: ${{ inputs.corpus_candidates }}
+          ADJUDICATOR: ${{ inputs.corpus_adjudicator }}
         run: |
           set -euo pipefail
+          extra=()
+          if [ "$ADJUDICATOR" != "api" ]; then extra+=(--no-adjudicate); fi
           python -m tools.verifier_shadow_corpus run --records "corpus-${{ matrix.shard }}.json" \
-            --shard ${{ matrix.shard }} --shards 6 --budget-seconds 15000
+            --shard ${{ matrix.shard }} --shards 6 --budget-seconds 15000 \
+            --candidates "$CANDIDATES" "${extra[@]}"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: ${{ !cancelled() }}
         with:

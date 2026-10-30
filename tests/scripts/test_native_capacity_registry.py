@@ -285,6 +285,7 @@ def test_native_facts_and_helper_are_managed_with_exact_template_parity():
     assert supported == {
         ("openai", "gpt-5.6-terra"),
         ("openai", "gpt-6.1-terra"),
+        ("openai", "gpt-6.1-sol"),
         ("anthropic", "claude-sonnet-5-5"),
         ("anthropic", "claude-opus-5-5"),
     }
@@ -388,7 +389,7 @@ def test_unknown_compatible_host_does_not_receive_github_compatibility(monkeypat
 
 
 @pytest.mark.parametrize(
-    "provider,model", [("openai", "gpt-6.1-sol"), ("anthropic", "claude-opus-5")]
+    "provider,model", [("openai", "gpt-6-sol"), ("anthropic", "claude-opus-5")]
 )
 @pytest.mark.parametrize("operation", ["invoke", "repair"])
 @pytest.mark.parametrize("profile", ["standard", "expanded"])
@@ -430,7 +431,7 @@ def test_registered_legacy_candidate_keeps_standard_route_without_weakening_expa
 @pytest.mark.parametrize(
     "provider,model,missing",
     [
-        ("openai", "gpt-6.1-sol", "langchain_anthropic"),
+        ("openai", "gpt-6-sol", "langchain_anthropic"),
         ("anthropic", "claude-opus-5", "langchain_openai"),
     ],
 )

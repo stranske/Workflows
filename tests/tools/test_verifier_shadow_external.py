@@ -12,7 +12,8 @@ from types import SimpleNamespace
 from tools import verifier_shadow_external as ext
 
 ROOT = Path(__file__).resolve().parents[2]
-CONFIG = json.loads((ROOT / "config/verifier_shadow.json").read_text())
+# the daily mechanism under test, whatever the committed on/off switch says
+CONFIG = {**json.loads((ROOT / "config/verifier_shadow.json").read_text()), "enabled": True}
 EXTERNAL = ext.external_candidates(CONFIG)
 NOW = datetime.now(UTC)
 
@@ -238,17 +239,42 @@ def test_reserve_is_derived_from_the_judge_timeout_not_a_second_literal():
 def test_main_checkpoints_the_ledger_atomically_and_honours_the_budget(tmp_path, monkeypatch):
     ledger_path = tmp_path / "ledger.json"
     ledger_path.write_text(json.dumps([_record("1", "1")]))
+    config_path = tmp_path / "shadow.json"
+    config_path.write_text(json.dumps(CONFIG))  # the daily path switched on
     monkeypatch.setattr(ext, "gh_artifacts_for_runs", lambda repo, run_ids: _artifacts("1"))
     monkeypatch.setattr(ext, "gh_download", lambda repo, i: _zip())
     monkeypatch.setattr(ext, "gh_is_public", lambda repo: True)
     monkeypatch.setattr(ext, "make_judge", lambda c: FakeJudge())
     assert (
-        ext.main(["--ledger", str(ledger_path), "--repos", "o/r", "--budget-seconds", "5000"]) == 0
+        ext.main(
+            [
+                "--ledger",
+                str(ledger_path),
+                "--repos",
+                "o/r",
+                "--budget-seconds",
+                "5000",
+                "--config",
+                str(config_path),
+            ]
+        )
+        == 0
     )
     saved = json.loads(ledger_path.read_text())
     assert len(saved[0]["candidates"]) == 1 + len(EXTERNAL) and not list(tmp_path.glob("*.tmp"))
     ledger_path.write_text(json.dumps([_record("1", "1")]))
-    ext.main(["--ledger", str(ledger_path), "--repos", "o/r", "--budget-seconds", "1"])
+    ext.main(
+        [
+            "--ledger",
+            str(ledger_path),
+            "--repos",
+            "o/r",
+            "--budget-seconds",
+            "1",
+            "--config",
+            str(config_path),
+        ]
+    )
     assert len(json.loads(ledger_path.read_text())[0]["candidates"]) == 1, "no budget, no spend"
 
 
