@@ -61,6 +61,8 @@ jobs:
             .github/scripts/github-rate-limited-wrapper.js
             .github/scripts/sync_tracker_state
             .github/scripts/token_load_balancer.js
+            !/.github/scripts/package.json
+            !/.github/scripts/package-lock.json
             scripts/sync_dev_dependencies.py
             scripts/sync_integration_coverage_omit.py
             scripts/sync_integration_manifest_subset.py

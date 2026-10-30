@@ -266,3 +266,18 @@ def test_maint_69_runs_the_helper_and_sees_untracked_files() -> None:
     ):
         assert needed in sparse
     assert "schedule" in workflow[True]  # PyYAML parses the bare `on:` key as boolean True
+
+
+def test_maint_69_checkout_excludes_the_scripts_package_manifest() -> None:
+    """A synced .github/scripts/package.json made `Setup API client` run npm against a missing
+    node_modules (file:node_modules/minimatch), failing every sync run after the push."""
+    workflow = yaml.safe_load(SYNC_WORKFLOW.read_text(encoding="utf-8"))
+    steps = {step["name"]: step for step in workflow["jobs"]["sync"]["steps"]}
+    patterns = steps["Checkout Workflows repo"]["with"]["sparse-checkout"].split()
+
+    assert ".github/scripts" in patterns
+    assert "!/.github/scripts/package.json" in patterns
+    assert "!/.github/scripts/package-lock.json" in patterns
+    # Exclusions only win when they come after the directory include.
+    assert patterns.index("!/.github/scripts/package.json") > patterns.index(".github/scripts")
+    assert steps["Setup API client"]["with"]["install_dir"] == "workflows/.github/scripts"
