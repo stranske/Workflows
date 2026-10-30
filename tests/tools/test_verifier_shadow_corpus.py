@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
 from tools import verifier_shadow_corpus as corpus
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -511,7 +512,162 @@ def test_a_trial_of_selected_candidates_judges_and_reports_only_those(tmp_path, 
     assert seen == [["gpt-6-luna"]]
     result = corpus.report(json.loads(out.read_text()), CONFIG)
     assert [c["candidate"] for c in result["candidates"]] == ["openai:gpt-6-luna"]
-    import pytest
+    corpus.main(
+        ["run", "--records", str(out), "--candidates", "openai:gpt-6.1-terra", "--no-adjudicate"]
+    )
+    assert seen == [["gpt-6-luna"], ["gpt-6.1-terra"]]
+    result = corpus.report(json.loads(out.read_text()), CONFIG)
+    assert [c["candidate"] for c in result["candidates"]] == ["openai:gpt-6.1-terra"]
 
     with pytest.raises(SystemExit):
         corpus.main(["run", "--records", str(out), "--candidates", "openai:not-a-candidate"])
+
+
+@pytest.mark.parametrize("adjudicate_here", [False, True])
+@pytest.mark.parametrize("change_production", [False, True])
+def test_resume_reconciles_requested_judges_and_preserves_matching_results(
+    adjudicate_here, change_production
+):
+    original = {**CONFIG, "candidates": [{"provider": "openai", "model": "gpt-6-luna"}]}
+    selected = {**CONFIG, "candidates": [{"provider": "openai", "model": "gpt-6.1-terra"}]}
+    production = [dict(p) for p in PRODUCTION]
+    seen = []
+
+    def judge(case, requested_production, config):
+        return corpus.judge_case(
+            case,
+            requested_production,
+            config,
+            evaluator=_evaluator(seen=seen),
+            externals=lambda *a: pytest.fail("no external calls"),
+            is_public=lambda repo: True,
+        )
+
+    client = Adjudicator()
+    records = []
+    corpus.run_corpus(
+        [_case()],
+        records,
+        original,
+        production=production,
+        judge=judge,
+        client_factory=lambda _: client,
+        adjudicate_here=adjudicate_here,
+    )
+    kept = records[0]["production_slots"][1]
+    if change_production:
+        production[0]["model"] = "new-production"
+    seen.clear()
+    counts = corpus.run_corpus(
+        [_case()],
+        records,
+        selected,
+        production=production,
+        judge=judge,
+        client_factory=lambda _: client,
+        adjudicate_here=adjudicate_here,
+    )
+    assert counts["judged"] == 1 and counts["already_done"] == 0
+    assert sorted(model for model, _ in seen) == sorted(
+        ["gpt-6.1-terra"] + (["new-production"] if change_production else [])
+    )
+    assert records[0]["production_slots"][1] is kept
+    assert [e["model"] for e in records[0]["production_slots"]] == [p["model"] for p in production]
+    assert [e["model"] for e in records[0]["candidates"]] == ["gpt-6.1-terra"]
+    if adjudicate_here:
+        assert client.calls == 2 and counts["adjudicated"] == 1
+        assert "candidate:openai:gpt-6.1-terra" in records[0]["adjudication"]["ratings"]
+        assert "candidate:openai:gpt-6-luna" not in records[0]["adjudication"]["ratings"]
+    else:
+        assert client.calls == 0 and "adjudication" not in records[0]
+    seen.clear()
+    again = corpus.run_corpus(
+        [_case()],
+        records,
+        selected,
+        production=production,
+        judge=judge,
+        client_factory=lambda _: client,
+        adjudicate_here=adjudicate_here,
+    )
+    assert again["judged"] == 0 and not seen
+
+
+def test_resume_removes_deselected_judges_without_repaying_matching_judges():
+    config = {**CONFIG, "candidates": [{"provider": "openai", "model": "gpt-6-luna"}]}
+    records = []
+    corpus.run_corpus(
+        [_case()],
+        records,
+        config,
+        production=PRODUCTION,
+        judge=_judge([]),
+        client_factory=lambda _: Adjudicator(),
+    )
+    kept = records[0]["production_slots"][:]
+    checkpoints = []
+    counts = corpus.run_corpus(
+        [_case()],
+        records,
+        {**config, "candidates": []},
+        production=PRODUCTION,
+        judge=lambda *a: pytest.fail("matching production judgments must be reused"),
+        checkpoint=lambda: checkpoints.append(json.loads(json.dumps(records))),
+        adjudicate_here=False,
+    )
+    assert counts["already_done"] == 0 and counts["judged"] == 0
+    assert records[0]["production_slots"] == kept and records[0]["candidates"] == []
+    assert "adjudication" not in records[0]
+    assert checkpoints and "adjudication" not in checkpoints[-1][0]
+
+
+def test_resume_external_only_addition_and_interrupted_reconciliation(monkeypatch):
+    original = {**CONFIG, "candidates": [{"provider": "openai", "model": "gpt-6-luna"}]}
+    external = next(c for c in CONFIG["candidates"] if c.get("runner") == "external")
+    selected = {**original, "candidates": original["candidates"] + [external]}
+    records = []
+    corpus.run_corpus(
+        [_case()],
+        records,
+        original,
+        production=PRODUCTION,
+        judge=_judge([]),
+        client_factory=lambda _: Adjudicator(),
+    )
+    kept = records[0]["candidates"][0]
+    counts = corpus.run_corpus(
+        [_case()],
+        records,
+        selected,
+        production=PRODUCTION,
+        judge=lambda *a: pytest.fail("expired budget must not run a judge"),
+        deadline=0,
+        adjudicate_here=False,
+    )
+    assert counts["out_of_time"] == 1 and "adjudication" not in records[0]
+    calls = []
+
+    def judge(case, production, config):
+        assert production == [] and config["candidates"] == [external]
+        return corpus.judge_case(
+            case,
+            production,
+            config,
+            evaluator=lambda *a, **kw: pytest.fail("compatible judges must not run"),
+            externals=lambda candidates, context, diff: calls.extend(candidates)
+            or _externals(candidates, context, diff),
+            is_public=lambda repo: True,
+        )
+
+    counts = corpus.run_corpus(
+        [_case()],
+        records,
+        selected,
+        production=PRODUCTION,
+        judge=judge,
+        client_factory=lambda _: pytest.fail("judge-only mode must not adjudicate"),
+        adjudicate_here=False,
+    )
+    assert counts["judged"] == 1 and calls == [external]
+    assert records[0]["candidates"][0] is kept
+    assert [e["model"] for e in records[0]["candidates"]] == ["gpt-6-luna", external["model"]]

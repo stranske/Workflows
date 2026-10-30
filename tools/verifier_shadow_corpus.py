@@ -129,14 +129,16 @@ def judge_case(
     os.environ["CHAIN_DEPTH"] = str(snapshot.get("chain_depth", 0))  # the prompt reads it per case
     try:
         judges = production + inside
-        with concurrent.futures.ThreadPoolExecutor(max_workers=len(judges)) as pool:
-            futures = [
-                pool.submit(
-                    run_candidate, j, context, diff, evaluator, timeout=JUDGE_TIMEOUT_SECONDS
-                )
-                for j in judges
-            ]
-            entries = [f.result() for f in futures]
+        entries = []
+        if judges:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=len(judges)) as pool:
+                futures = [
+                    pool.submit(
+                        run_candidate, j, context, diff, evaluator, timeout=JUDGE_TIMEOUT_SECONDS
+                    )
+                    for j in judges
+                ]
+                entries = [f.result() for f in futures]
         outside = external_candidates(config, corpus=True)
         if outside and is_public(case["repo"]):
             entries += externals(outside, context, diff)
@@ -180,6 +182,35 @@ def _empty(candidate: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _judge_key(entry: dict[str, Any]) -> tuple[str, str]:
+    return entry["provider"], entry["model"]
+
+
+def _reconcile_judges(
+    record: dict[str, Any], production: list[dict[str, str]], config: dict[str, Any]
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], bool]:
+    """Retain matching judgments; ratings cover only the exact evaluator set they saw."""
+    produced = {_judge_key(p) for p in production}
+    candidates = [
+        c
+        for c in config.get("candidates", [])
+        if c.get("runner") != "external" and _judge_key(c) not in produced
+    ] + external_candidates(config, corpus=True)
+    missing = []
+    changed = False
+    for slot, requested in (("production_slots", production), ("candidates", candidates)):
+        previous = record.get(slot, [])
+        by_key = {_judge_key(e): e for e in previous}
+        retained = [by_key[_judge_key(j)] for j in requested if _judge_key(j) in by_key]
+        absent = [j for j in requested if _judge_key(j) not in by_key]
+        changed = changed or bool(absent) or retained != previous
+        record[slot] = retained
+        missing.append(absent)
+    if changed:
+        record.pop("adjudication", None)
+    return missing[0], missing[1], changed
+
+
 def run_corpus(
     cases: list[dict[str, Any]],
     records: list[dict[str, Any]],
@@ -197,11 +228,6 @@ def run_corpus(
     ``adjudicate_here=False`` only judges: the ratings then come from a Claude Code session
     (``prompts`` / ``apply``) instead of a paid API call per case.
     """
-    done = {
-        r["corpus"]["case_id"]
-        for r in records
-        if r.get("adjudication") and not r["adjudication"].get("error")
-    }
     counts = {
         "judged": 0,
         "adjudicated": 0,
@@ -212,20 +238,35 @@ def run_corpus(
     }
     client = None
     for case in cases:
-        if case["case_id"] in done:
+        record = next((r for r in records if r["corpus"]["case_id"] == case["case_id"]), None)
+        missing_production, missing_candidates = production, config.get("candidates", [])
+        if record is not None:
+            missing_production, missing_candidates, changed = _reconcile_judges(
+                record, production, config
+            )
+            if changed and checkpoint is not None:
+                checkpoint()
+        complete = record is not None and not missing_production and not missing_candidates
+        if complete and record.get("adjudication") and not record["adjudication"].get("error"):
             counts["already_done"] += 1
             continue
-        judged = any(r["corpus"]["case_id"] == case["case_id"] for r in records)
-        if not adjudicate_here and judged:
+        if not adjudicate_here and complete:
             counts["awaiting_session_adjudication"] += 1
             continue
         if deadline is not None and time.monotonic() + CASE_RESERVE_SECONDS > deadline:
             counts["out_of_time"] += 1
             continue
-        record = next((r for r in records if r["corpus"]["case_id"] == case["case_id"]), None)
-        if record is None:  # a record whose adjudication failed is re-adjudicated, not re-judged
+        if record is None:
             record = judge(case, production, config)
             records.append(record)
+        elif not complete:
+            fresh = judge(case, missing_production, {**config, "candidates": missing_candidates})
+            for slot in ("production_slots", "candidates"):
+                record[slot].extend(fresh[slot])
+            # Restore requested ordering after appending the new judgments.
+            _reconcile_judges(record, production, config)
+            record["recorded_at"] = fresh["recorded_at"]
+        if not complete:
             counts["judged"] += 1
             if checkpoint is not None:
                 checkpoint()

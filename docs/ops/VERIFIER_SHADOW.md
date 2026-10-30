@@ -146,7 +146,12 @@ non-diagnostic merged PRs from seven repositories (18 of them judgeable; see the
 NON_PASS, of which 18 are controlled defects). Dispatching maint-89 with `corpus: true` runs
 `tools/verifier_shadow_corpus.py`: the production pair (resolved from the registry) and every candidate
 judge each case's production prompt at once, through the same code paths as the shadow, and the same
-blind adjudicator rates every evaluation. Six shards run in parallel, each checkpointed and budgeted; a shard resumes from its newest uploaded checkpoint unless `corpus_fresh: true` (use it after the candidate list changes).
+blind adjudicator rates every evaluation. Six shards run in parallel, each checkpointed and budgeted;
+a shard resumes from its newest uploaded checkpoint unless `corpus_fresh: true`. Resume reconciles
+the requested production and candidate provider/model identities before skipping a case. Matching
+judgments are retained, missing judges run, and deselected judgments are removed. A changed evaluator
+set invalidates its previous adjudication, including in judge-only mode; session prompts must then
+be regenerated. Use `corpus_fresh: true` when every judgment should be rerun.
 
 The report (job summary and the `verifier-shadow-corpus-report` artifact) applies the same criteria
 as the daily report without the time window, still requiring `min_runs` adjudicated cases, and adds
