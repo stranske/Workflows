@@ -8745,7 +8745,20 @@ SIMULATE_CAPACITY_EXHAUSTED_ENV = "VERIFIER_SIMULATE_CAPACITY_EXHAUSTED"
 
 
 def capacity_exhausted(result: EvaluationResult) -> bool:
-    return bool(result.error and CAPACITY_EXHAUSTED.search(result.error))
+    """A judge that ran out of budget AND recorded nothing substantive.
+
+    A chunked review can find a defect in an early chunk and exhaust its budget on a later one; that
+    result keeps its findings, so it is never replaced (a backup PASS must not erase a FAIL).
+    """
+    if not (result.error and CAPACITY_EXHAUSTED.search(result.error)):
+        return False
+    reviews = [result.model_dump(mode="json")] + [
+        record.get("result") or {} for record in result.chunk_reviews
+    ]
+    return not any(
+        review.get("used_llm") and review.get("verdict") in ("FAIL", "CONCERNS")
+        for review in reviews
+    )
 
 
 class CapacityBackupClient:
@@ -8767,16 +8780,21 @@ class CapacityBackupClient:
         key = os.environ.get(self.key_env, "")
         if not key:
             raise RuntimeError(f"{self.key_env} is not set")
+        # The URL comes from the checked-in slot config, never from PR content; https only.
+        if not self.base_url.startswith("https://"):
+            raise RuntimeError("capacity backup base_url must be https")
         request = urllib.request.Request(
             f"{self.base_url}/chat/completions",
             data=json.dumps(
                 {"model": self.model, "messages": [{"role": "user", "content": prompt}]}
             ).encode("utf-8"),
             method="POST",
-            headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
+            headers={"Content-Type": "application/json"},
         )
+        # Unredirected, so a redirect to another host never carries the key.
+        request.add_unredirected_header("Authorization", f"Bearer {key}")
         try:
-            with urllib.request.urlopen(request, timeout=self.timeout) as handle:
+            with urllib.request.urlopen(request, timeout=self.timeout) as handle:  # nosemgrep
                 data = json.loads(handle.read().decode("utf-8"))
         except urllib.error.HTTPError as exc:
             raise RuntimeError(f"capacity backup HTTP {exc.code}") from None

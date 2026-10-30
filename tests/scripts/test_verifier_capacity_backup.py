@@ -139,3 +139,103 @@ def test_the_shipped_config_declares_the_muse_backup_in_slot_3():
             "muse-spark-1.3",
             True,
         )
+
+
+def test_a_partly_reviewed_judge_that_found_a_defect_is_never_replaced(backup_on):
+    # A chunked review that found a defect and then hit its cap keeps its finding: replacing it
+    # with a backup PASS would turn the comparison from FAIL into PASS.
+    finding = judged("anthropic", "claude-sonnet-5-5", "FAIL")
+    capped = judged("anthropic", "claude-sonnet-5-5", "UNVERIFIABLE_INPUT", ANTHROPIC_CAP)
+    partial = judged("anthropic", "claude-sonnet-5-5", "FAIL", ANTHROPIC_CAP)
+    partial.used_llm = False
+    partial.chunk_reviews = [
+        {"result": finding.model_dump(mode="json")},
+        {"result": capped.model_dump(mode="json")},
+    ]
+    results = [judged("openai", "gpt-6.1-sol"), partial]
+    assert not pv.capacity_exhausted(partial)
+    assert pv._with_capacity_backup(runner(), results, None) == results
+    assert backup_on == []
+
+
+class _Response:
+    def __init__(self, body: bytes):
+        self.body = body
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+    def read(self):
+        return self.body
+
+
+def test_backup_transport_posts_the_prompt_with_an_unredirected_key(monkeypatch):
+    import urllib.request
+
+    monkeypatch.setenv("MUSE_API_KEY", "test-key-not-real")
+    sent = {}
+
+    def urlopen(request, timeout):
+        sent.update(
+            url=request.full_url,
+            method=request.get_method(),
+            body=json.loads(request.data),
+            redirected_headers=dict(request.headers),
+            auth=request.unredirected_hdrs.get("Authorization"),
+        )
+        return _Response(b'{"choices":[{"message":{"content":"{\\"verdict\\":\\"PASS\\"}"}}]}')
+
+    monkeypatch.setattr(urllib.request, "urlopen", urlopen)
+    client = pv.CapacityBackupClient(
+        model="muse-spark-1.3", base_url="https://api.meta.ai/v1/", key_env="MUSE_API_KEY"
+    )
+    assert client.invoke("the prompt").content == '{"verdict":"PASS"}'
+    assert sent["url"] == "https://api.meta.ai/v1/chat/completions"
+    assert sent["method"] == "POST"
+    assert sent["body"] == {
+        "model": "muse-spark-1.3",
+        "messages": [{"role": "user", "content": "the prompt"}],
+    }
+    assert sent["auth"] == "Bearer test-key-not-real"
+    assert "Authorization" not in sent["redirected_headers"]
+
+
+@pytest.mark.parametrize(
+    "failure, message",
+    [
+        ("http", "capacity backup HTTP 429"),
+        ("transport", "capacity backup unavailable: URLError"),
+        ("body", "capacity backup returned an unexpected body"),
+    ],
+)
+def test_backup_transport_failures_never_carry_the_key(monkeypatch, failure, message):
+    import urllib.error
+    import urllib.request
+
+    monkeypatch.setenv("MUSE_API_KEY", "test-key-not-real")
+
+    def urlopen(request, timeout):
+        if failure == "http":
+            raise urllib.error.HTTPError(request.full_url, 429, "test-key-not-real", {}, None)
+        if failure == "transport":
+            raise urllib.error.URLError("test-key-not-real")
+        return _Response(b"{}")
+
+    monkeypatch.setattr(urllib.request, "urlopen", urlopen)
+    client = pv.CapacityBackupClient(
+        model="m", base_url="https://api.meta.ai/v1", key_env="MUSE_API_KEY"
+    )
+    with pytest.raises(RuntimeError) as raised:
+        client.invoke("p")
+    assert str(raised.value) == message
+    assert "test-key-not-real" not in str(raised.value)
+
+
+def test_backup_transport_refuses_a_non_https_base_url(monkeypatch):
+    monkeypatch.setenv("MUSE_API_KEY", "test-key-not-real")
+    client = pv.CapacityBackupClient(model="m", base_url="file:///etc", key_env="MUSE_API_KEY")
+    with pytest.raises(RuntimeError, match="must be https"):
+        client.invoke("p")
