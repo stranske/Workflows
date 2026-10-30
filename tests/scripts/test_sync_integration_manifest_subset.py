@@ -267,6 +267,7 @@ def test_maint_69_runs_the_helper_and_sees_untracked_files() -> None:
         ".github/scripts",
         ".github/actions/setup-api-client",
         "templates/consumer-repo/.github/workflows/maint-coverage-guard.yml",
+        "tools/coverage_guard.py",
     ):
         assert needed in delivery["sparse-checkout"]
     assert delivery["path"] == "workflows-delivery"
@@ -318,3 +319,11 @@ def test_real_manifest_delivers_the_action_the_coverage_guard_uses(manifest: dic
 
     assert local_actions
     assert set(local_actions) <= set(subset.select_action_directories(manifest))
+
+
+def test_real_manifest_delivers_the_tool_the_coverage_guard_runs(manifest: dict) -> None:
+    guard = REPO_ROOT / "templates/consumer-repo/.github/workflows/maint-coverage-guard.yml"
+    tools = set(re.findall(r"python (tools/[A-Za-z0-9_]+\.py)", guard.read_text()))
+
+    assert "tools/coverage_guard.py" in tools
+    assert tools <= set(subset.select_copy_sources(manifest))

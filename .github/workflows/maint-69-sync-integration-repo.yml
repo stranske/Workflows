@@ -77,6 +77,7 @@ jobs:
             .github/scripts
             .github/actions/setup-api-client
             templates/consumer-repo/.github/workflows/maint-coverage-guard.yml
+            tools/coverage_guard.py
           sparse-checkout-cone-mode: false
 
       - name: Prepare sync token
