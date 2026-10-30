@@ -52,6 +52,16 @@ MUSE_API_DEFAULT_MODEL = "muse-spark-1.2"
 # Meta's contributor tier is discounted in exchange for using prompts and completions for training.
 # Verifier prompts contain PR diffs, so that tier is refused outright.
 CONTRIBUTOR_MARKER = "contributor"
+# OpenAI-compatible chat-completions endpoints of other providers, trialled as the verifier's
+# capacity-backup slot (owner decision 2026-10-30: slot 3 from Cursor, Vibe, Muse or Gemini).
+CHAT_API_PROVIDERS = {
+    "gemini-api": (
+        "https://generativelanguage.googleapis.com/v1beta/openai",
+        "GEMINI_API_KEY",
+        "Gemini API",
+    ),
+    "mistral-api": ("https://api.mistral.ai/v1", "MISTRAL_API_KEY", "Mistral API"),
+}
 SECRET_ENV_NAMES = {"GH_TOKEN", "GITHUB_TOKEN", "META_API_KEY", "MUSE_API_KEY", "OPENAI_API_KEY"}
 
 
@@ -585,13 +595,16 @@ class MuseApiJudge:
         timeout: int = 420,
         allow_contributor_tier: bool = False,
         opener: Callable[..., Any] = urllib.request.urlopen,
+        label: str = "Muse API",
+        name: str | None = None,
     ) -> None:
         if CONTRIBUTOR_MARKER in model.lower() and not allow_contributor_tier:
             raise ValueError(
                 "refusing a contributor-tier model: it may train on prompts, and verifier "
                 "prompts contain PR diffs"
             )
-        self.name = muse_api_name(model)
+        self.name = name or muse_api_name(model)
+        self.label = label
         self.model, self.base_url, self.key_env = model, base_url.rstrip("/"), key_env
         self.timeout, self._open = timeout, opener
 
@@ -620,19 +633,22 @@ class MuseApiJudge:
             return JudgeOutcome(
                 None,
                 _ms(started),
-                error=_redact(f"Muse API HTTP {exc.code}: {detail}", [key]),
+                error=_redact(f"{self.label} HTTP {exc.code}: {detail}", [key]),
                 stop=exc.code in {401, 402, 403, 429},
             )
         except (urllib.error.URLError, TimeoutError, OSError) as exc:
             return JudgeOutcome(
-                None, _ms(started), error=_redact(f"Muse API unreachable: {exc}", [key]), stop=True
+                None,
+                _ms(started),
+                error=_redact(f"{self.label} unreachable: {exc}", [key]),
+                stop=True,
             )
         latency = _ms(started)
         try:
             data = json.loads(raw)
             content = data["choices"][0]["message"]["content"]
         except (ValueError, KeyError, IndexError, TypeError):
-            return JudgeOutcome(None, latency, error="Muse API returned an unexpected body")
+            return JudgeOutcome(None, latency, error=f"{self.label} returned an unexpected body")
         usage = data.get("usage") or {}
         payload = extract_payload(str(content or ""))
         return JudgeOutcome(
@@ -1097,6 +1113,19 @@ def main(argv: list[str] | None = None) -> int:
             f"screen {'MEETS' if judge['meets_provisional_screen'] else 'does not meet'}"
         )
     return 0
+
+
+def chat_api_judge(provider: str, model: str, **kwargs: Any) -> MuseApiJudge:
+    """A chat-completions judge for a provider in CHAT_API_PROVIDERS, on that provider's own key."""
+    base_url, key_env, label = CHAT_API_PROVIDERS[provider]
+    return MuseApiJudge(
+        model=model,
+        base_url=base_url,
+        key_env=key_env,
+        label=label,
+        name=f"{provider}:{model}",
+        **kwargs,
+    )
 
 
 if __name__ == "__main__":
