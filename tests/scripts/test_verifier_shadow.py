@@ -163,7 +163,7 @@ def test_one_failing_candidate_does_not_disturb_the_others():
     assert ok["verdict"] == "PASS" and bad["verdict"] is None and "quota" in bad["error"]
 
 
-def test_the_shipped_config_shadows_several_candidates_across_all_four_providers():
+def test_the_shipped_config_shadows_several_candidates_across_all_providers():
     from pathlib import Path
 
     config = json.loads(
@@ -175,6 +175,8 @@ def test_the_shipped_config_shadows_several_candidates_across_all_four_providers
         "anthropic",
         "muse-api",
         "cursor-cli",
+        "gemini-api",
+        "mistral-api",
     }
     assert len({(c["provider"], c["model"]) for c in config["candidates"]}) == len(
         config["candidates"]

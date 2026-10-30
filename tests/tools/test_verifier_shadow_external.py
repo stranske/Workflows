@@ -9,6 +9,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
 from tools import verifier_shadow_external as ext
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -386,3 +387,35 @@ def test_a_failed_listing_is_counted_not_read_as_no_artifacts():
 
     counts = _collect(ledger, lister, downloader, lambda c: FakeJudge())
     assert counts["listing_failed"] == 1 and counts["artifacts_seen"] == 0
+
+
+@pytest.mark.parametrize(
+    "provider,model,base_url,key_env",
+    [
+        (
+            "gemini-api",
+            "gemini-4-argon",
+            "https://generativelanguage.googleapis.com/v1beta/openai",
+            "GEMINI_API_KEY",
+        ),
+        ("mistral-api", "mistral-vibe-cli-latest", "https://api.mistral.ai/v1", "MISTRAL_API_KEY"),
+    ],
+)
+def test_slot3_chat_api_candidates_use_their_own_endpoint_and_key(
+    provider, model, base_url, key_env
+):
+    judge = ext.make_judge({"provider": provider, "model": model})
+    assert (judge.base_url, judge.key_env, judge.model) == (base_url, key_env, model)
+    assert judge.name == f"{provider}:{model}"
+
+
+def test_a_chat_api_judge_without_its_key_stops_and_names_the_key(monkeypatch):
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    outcome = ext.make_judge({"provider": "gemini-api", "model": "gemini-3.8-flash"}).invoke("p")
+    assert outcome.stop and outcome.error == "GEMINI_API_KEY is not set"
+
+
+def test_every_configured_external_candidate_builds_a_judge():
+    config = json.loads((ROOT / "config/verifier_shadow.json").read_text())
+    for candidate in ext.external_candidates(config, corpus=True):
+        assert ext.make_judge(candidate) is not None

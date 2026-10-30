@@ -58,12 +58,19 @@ def external_candidates(config: dict[str, Any], *, corpus: bool = False) -> list
 
 def make_judge(candidate: dict[str, Any]) -> Any:
     """The screen's judge for an external candidate (imported lazily: it pulls in pr_verifier)."""
-    from tools.run_judge_backend_screen import CursorCliJudge, MuseApiJudge
+    from tools.run_judge_backend_screen import (
+        CHAT_API_PROVIDERS,
+        CursorCliJudge,
+        MuseApiJudge,
+        chat_api_judge,
+    )
 
     if candidate["provider"] == "muse-api":
         return MuseApiJudge(model=candidate["model"])
     if candidate["provider"] == "cursor-cli":
         return CursorCliJudge(model=None if candidate["model"] == "default" else candidate["model"])
+    if candidate["provider"] in CHAT_API_PROVIDERS:
+        return chat_api_judge(candidate["provider"], candidate["model"])
     raise ValueError(f"unknown external provider: {candidate['provider']}")
 
 

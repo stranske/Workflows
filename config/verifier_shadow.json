@@ -54,6 +54,38 @@
       "corpus_only": true,
       "replaces_provider": "openai",
       "why": "Owner asked for it (2026-10-29). Meta's API model at $4/$20 per million tokens on the pay-as-you-go MUSE_API_KEY, public repositories only; Muse Wonder Full is not offered through the API. Corpus trial only, so it adds no daily cost."
+    },
+    {
+      "provider": "gemini-api",
+      "model": "gemini-4-argon",
+      "runner": "external",
+      "corpus_only": true,
+      "replaces_provider": "anthropic",
+      "why": "Owner decision 2026-10-30: the verifier's slot 3 becomes a capacity backup filled from Cursor, Vibe, Muse or Gemini. Google's Gemini 4 Argon (the model agy runs) on its own API key, public repositories only. Corpus trial only, so it adds no daily cost."
+    },
+    {
+      "provider": "gemini-api",
+      "model": "gemini-3.8-flash",
+      "runner": "external",
+      "corpus_only": true,
+      "replaces_provider": "anthropic",
+      "why": "Owner decision 2026-10-30: the verifier's slot 3 becomes a capacity backup filled from Cursor, Vibe, Muse or Gemini. Google's Gemini 3.8 Flash on its own API key, public repositories only. Corpus trial only, so it adds no daily cost."
+    },
+    {
+      "provider": "mistral-api",
+      "model": "mistral-vibe-cli-latest",
+      "runner": "external",
+      "corpus_only": true,
+      "replaces_provider": "anthropic",
+      "why": "Owner decision 2026-10-30: the verifier's slot 3 becomes a capacity backup filled from Cursor, Vibe, Muse or Gemini. Mistral's Vibe model on its own API key, public repositories only. Corpus trial only, so it adds no daily cost."
+    },
+    {
+      "provider": "mistral-api",
+      "model": "mistral-large-4",
+      "runner": "external",
+      "corpus_only": true,
+      "replaces_provider": "anthropic",
+      "why": "Owner decision 2026-10-30: the verifier's slot 3 becomes a capacity backup filled from Cursor, Vibe, Muse or Gemini. Mistral Large 4 on its own API key, public repositories only. Corpus trial only, so it adds no daily cost."
     }
   ],
   "window": {

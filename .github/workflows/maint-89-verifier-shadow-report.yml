@@ -241,6 +241,8 @@ jobs:
           CLAUDE_API_STRANSKE: ${{ secrets.CLAUDE_API_STRANSKE }}
           MUSE_API_KEY: ${{ secrets.MUSE_API_KEY }}
           CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          MISTRAL_API_KEY: ${{ secrets.MISTRAL_API_KEY }}
           CANDIDATES: ${{ inputs.corpus_candidates }}
           ADJUDICATOR: ${{ inputs.corpus_adjudicator }}
         run: |
