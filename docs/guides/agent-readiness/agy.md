@@ -225,6 +225,35 @@ of the drain queue (option 2) so they spend only leftover capacity.
 Option 6 (batching) is not a separate project: its number is units per item, batched against single,
 reported by pilots 3 and 5.
 
+**Third pilot run (2026-10-30): no pass number was measured.**
+Evidence: `docs/evidence/agy-pilots-20261030/` (`judge-replay-agy.json`, `judge-replay-claude.json`,
+`run-record.json`). This is a run record, not replay or seeded-defect evidence: no backend returned a
+scored answer.
+
+| Pilot | Planned work | Pass number | agy result | Claude yardstick | Met? |
+| --- | --- | --- | --- | --- | --- |
+| 4. Evaluator replay | 32 archived experiments (the 8 from 2026-10-17 plus 24 evenly spaced from the 135 with at least 3 scored real judges, at least 3 members and a prompt of at most 60k characters) | agy mean error vs consensus no more than 1.5 times the real judges' leave-one-out error | 0 of 32 usable: quota error on the first call, other 31 not sent | 0 of 32 usable: the CLI login had expired | Not measured |
+| 3. Read-only audit | 10 modules, 28 validated seeded defects | agy recall not below Claude's, citations resolving | Not run: quota | Not run | Not measured |
+| 5. Test generation | The same 10 modules | agy kill rate not below Claude's | Not run: quota | Not run | Not measured |
+
+- **Quota consumed by this run: one agy call.** That call returned `Individual quota reached ...
+  Resets in 8h6m57s` (RESOURCE_EXHAUSTED) at about 18:40 UTC, so the seat was already out before the
+  pilots started. The harness stopped there and did not retry. The weekly reset expected around
+  2026-10-23 had happened, so other use, probably normal Orchestrator routing, used up the allowance
+  again within a week. Whether the 8-hour reset is the five-hour block or the weekly ceiling is
+  **unknown**. Either way, the larger pilots cannot rely on a reset alone. They need capacity set
+  aside for them, such as the drain queue (option 2) or a pause in agy routing before the run.
+- **Claude yardstick: 32 calls, 0 tokens.** The standalone Claude CLI was logged out (`claude auth
+  status`: not logged in). The backend reported only "Claude CLI error", which hid the cause, the same
+  failure class as the earlier quota-reported-as-empty defect. It now names the CLI's own message, and
+  a test pins this.
+- **Ready for the next run (no model calls needed):** the module set was validated locally (seed 7,
+  3 mutants per module, each kept only if the module's own tests fail on it). The 9 earlier modules
+  plus `coverage_trend` give 10 modules and 28 defects. `stable_pass_cases`,
+  `verifier_standards_model` and `verifier_compare_run_receipt` produced no validated mutants. The
+  experiment list is in `run-record.json`. Re-run order: replay, then audit, then testgen, with the
+  Claude CLI logged in first.
+
 ### Rule checks
 
 - **Subscription over API spend:** every option uses the subscription login. One risk to close first:

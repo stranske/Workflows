@@ -333,3 +333,19 @@ def test_a_quota_error_is_reported_as_such_and_stops_further_calls(tmp_path):
     result = agy_pilot.run_pilot(counting, targets, "audit", "single", 1)
     assert len(calls) == 1 and result["empty_or_unusable"] == 2
     assert any(agy_pilot.QUOTA_ERROR in e for e in result["errors"])
+
+
+def test_claude_backend_names_the_cli_error_instead_of_hiding_it(tmp_path):
+    """An expired login answered every call of a replay; the result must say so, not just "error"."""
+    fake = tmp_path / "claude"
+    fake.write_text(
+        "#!/usr/bin/env python3\n"
+        "import json, sys\n"
+        "sys.stdin.read()\n"
+        "print(json.dumps({'is_error': True, 'result': 'Failed to authenticate: OAuth session expired',"
+        " 'usage': {'input_tokens': 0, 'output_tokens': 0}}))\n"
+        "sys.exit(1)\n"
+    )
+    fake.chmod(0o755)
+    call = agy_pilot.claude_backend(claude=str(fake))("hello")
+    assert call.error == "Claude CLI error: Failed to authenticate: OAuth session expired"
