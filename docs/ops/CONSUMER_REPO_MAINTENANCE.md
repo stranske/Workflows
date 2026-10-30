@@ -2,6 +2,17 @@
 
 This document outlines the process for maintaining workflow system consistency across consumer repositories and debugging issues that may affect multiple repos.
 
+## Integration repository manifest subset
+
+Maint 69 delivers manifest-declared scripts and their JSON runtime dependencies
+under `.github/scripts/`, the coverage guard, and retired workflow/script file
+removals to Workflows-Integration-Tests. Both string and mapped `skip_repos`
+exclusions apply. Copies use the declared `source_tree`, defaulting to root for
+scripts and the consumer template for workflows, with no fallback to another
+tree. The sparse checkout includes the template coverage guard. Validation
+loads the delivered keepalive module from an empty target and compares the
+delivered guard bytes to its template source before shipment.
+
 ## Non-package test dependency declarations
 
 The managed `scripts/sync_test_dependencies.py` audits `[project]` dependencies

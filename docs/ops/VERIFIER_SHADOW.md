@@ -56,6 +56,9 @@ not wanted.
   already a production judge on the run is skipped.
 * Kill switches: `enabled: false` in the config (central), or the repository variable
   `VERIFIER_SHADOW=off`.
+  The central switch also stops daily adjudication of retained unrated or failed records
+  before artifact lookup or client creation. The backlog stays intact, and the daily CLI
+  reports `disabled: 1`. Explicit corpus trials bypass the daily switch.
 * `maint-89-verifier-shadow-report.yml` runs daily: it collects the records from the fleet's artifacts
   (they expire after 7 days) into a 90-day ledger artifact, applies the criteria and updates one issue,
   "Verifier shadow report". Cost: one extra judge call per verification (about 0.03 cents for

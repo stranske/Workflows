@@ -5,10 +5,12 @@ from __future__ import annotations
 import io
 import json
 import zipfile
+from copy import deepcopy
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
 from tools import verifier_shadow_adjudicate as adj
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -286,6 +288,36 @@ def test_the_ledger_pass_adjudicates_each_settled_run_once_with_the_configured_m
     assert all(r["adjudication_attempts"] == 1 and not r["adjudication"]["error"] for r in ledger)
     again, _ = _run_ledger(ledger, client)
     assert again["adjudicated"] == 0 and len(client.prompts) == 2
+
+
+@pytest.mark.parametrize("retry", [False, True])
+def test_disabled_daily_shadow_preserves_unrated_and_retry_backlog_without_io(retry):
+    record = _record("7")
+    if retry:
+        record.update(adjudication={"error": "429"}, adjudication_attempts=1)
+    ledger = [record]
+    before = deepcopy(ledger)
+
+    def forbidden(*args):
+        pytest.fail("disabled daily adjudication must perform no external work")
+
+    counts = adj.adjudicate_ledger(
+        ledger,
+        {**CONFIG, "enabled": False},
+        ["o/r"],
+        since=NOW - timedelta(days=7),
+        max_runs=10,
+        now=NOW,
+        list_artifacts=forbidden,
+        download=forbidden,
+        is_public=forbidden,
+        client_factory=forbidden,
+        checkpoint=forbidden,
+    )
+
+    assert counts["disabled"] == 1
+    assert counts["adjudicated"] == counts["failed"] == counts["artifacts_seen"] == 0
+    assert ledger == before
 
 
 def test_spend_is_bounded_by_the_cap_the_budget_and_public_repositories(monkeypatch):
