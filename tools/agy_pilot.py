@@ -544,7 +544,12 @@ def claude_backend(model: str | None = None, timeout: int = 420, claude: str = "
             )
             or None
         )
-        error = "Claude CLI error" if (run.returncode or envelope.get("is_error")) else None
+        error = None
+        if run.returncode or envelope.get("is_error"):
+            # Name the CLI's own message (e.g. an expired login): a bare "error" hid that every
+            # call of the 2026-10-30 replay failed authentication, not judgement.
+            detail = " ".join(str(envelope.get("result") or "").split())[:120]
+            error = f"Claude CLI error: {detail}" if detail else "Claude CLI error"
         return ModelCall(
             str(envelope.get("result") or ""),
             tokens_in,
