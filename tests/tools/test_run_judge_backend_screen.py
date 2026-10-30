@@ -792,6 +792,25 @@ def test_cursor_cli_returns_the_raw_answer_text_for_replay_and_keeps_it_when_inv
     )
 
 
+def test_cursor_cli_progress_note_never_reaches_the_production_parser(tmp_path, monkeypatch):
+    """2026-10-29 corpus: 14 of 18 Cursor answers were a progress note glued to a full verdict
+    ("I'll evaluate the merged PR diff...{...}"), so the strict production parser rejected them."""
+    from scripts.langchain import pr_verifier
+
+    monkeypatch.setenv("CURSOR_API_KEY", "cur-test-key-not-real")
+    answer = json.dumps(VERDICT, indent=2)
+    for result in (
+        "I'll evaluate the merged PR diff against the acceptance criteria." + answer,
+        "Evaluating the supplied diff.\n\n```json\n" + answer + "\n```",
+    ):
+        envelope = {"type": "result", "is_error": False, "result": result, "usage": {}}
+        fake = _script(tmp_path / "cursor-agent", f"cat <<'EOF'\n{json.dumps(envelope)}\nEOF\n")
+        outcome = screen.CursorCliJudge(cursor=fake).invoke("PROMPT")
+        assert outcome.text == answer  # the model's verdict, byte for byte, without the note
+        parsed = pr_verifier._parse_llm_response(outcome.text, "cursor-cli")
+        assert parsed.error is None and parsed.verdict == VERDICT["verdict"]
+
+
 def test_judge_timeout_is_one_shared_constant():
     import inspect
 

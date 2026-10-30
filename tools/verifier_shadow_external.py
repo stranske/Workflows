@@ -42,10 +42,15 @@ CONTEXT_FILE, DIFF_FILE = "verifier-context.md", "verifier-pr-diff.patch"
 SHADOW_FILE = "verifier-shadow.json"
 
 
-def external_candidates(config: dict[str, Any]) -> list[dict[str, Any]]:
+def external_candidates(config: dict[str, Any], *, corpus: bool = False) -> list[dict[str, Any]]:
+    """External candidates; ``corpus_only`` ones only for the corpus trial, never the daily shadow."""
     if not config.get("enabled"):
         return []
-    return [c for c in config.get("candidates", []) if c.get("runner") == "external"]
+    return [
+        c
+        for c in config.get("candidates", [])
+        if c.get("runner") == "external" and (corpus or not c.get("corpus_only"))
+    ]
 
 
 def make_judge(candidate: dict[str, Any]) -> Any:

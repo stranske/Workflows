@@ -125,6 +125,22 @@ when a model answered (`run_candidate`, `entry_for`, `evaluators_for`), and the 
 which 5 are controlled defects). The daily ledger had no affected adjudication (0 of 28). One
 dispatch now costs about $20-30.
 
+### Second corpus round 2026-10-29: Cursor transport, Muse Wonder, terra effort
+
+- **Cursor.** In the first trial 14 of 18 Cursor answers failed the production parser. Each was a
+  complete verdict preceded by the agent CLI's progress note ("I'll evaluate the merged PR diff..."),
+  which its `json` envelope concatenates with the model's answer. `CursorCliJudge` now hands the
+  parser only the verdict JSON, exactly as the model wrote it (`payload_span`); an answer with no
+  valid verdict still fails as before. This is a harness fix, not a looser contract.
+- **Muse Wonder** (`muse-wonder-1.0`, $4/$20 per M tokens, pay-as-you-go key, public repositories
+  only) joins as a `corpus_only` candidate. Muse Wonder Full is not offered through the API.
+- **`gpt-6.1-terra#high`**: the production OpenAI judge at reasoning effort high, `corpus_only`. In
+  both first-round runs gpt-6.1-terra wrote about half as much as gpt-5.6-terra and covered fewer
+  criteria (lower on 25 of 27 non-tied case pairs); the verifier sends both the provider-default
+  effort, so this variant tells whether the gap is the model or the setting. A model written
+  `<model>#<effort>` is that model at that effort.
+- `corpus_only` candidates run only in the corpus trial: the daily shadow neither runs nor grades them.
+
 ## Owner time
 
 One read of the report once it says `MEETS` or `DOES NOT MEET` (about 2 minutes). Nothing waits on the

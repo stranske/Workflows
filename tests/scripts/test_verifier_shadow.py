@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import time
+from pathlib import Path
 from types import SimpleNamespace
 
 from scripts.langchain import verifier_shadow as shadow
@@ -277,3 +278,59 @@ def test_main_records_whether_production_ran_the_semantic_matrix(tmp_path, monke
         shadow.main(["--context-file", str(context), "--output", str(out)])
         assert json.loads(out.read_text())["semantic_mode"] is expected
     assert len(seen) == 3
+
+
+def test_a_reasoning_effort_variant_runs_the_same_model_at_that_effort(monkeypatch):
+    import pytest
+
+    chat_openai = pytest.importorskip("langchain_openai").ChatOpenAI
+    from scripts.langchain import pr_verifier as pv
+
+    seen = {}
+    client = chat_openai(model="gpt-6.1-terra", api_key="offline", use_responses_api=True)
+
+    def get_client(model=None, provider=None):
+        seen["model"] = model
+        return client, "openai"
+
+    def run_single(self, used, provider, model):
+        seen["payload"] = used._get_request_payload("prompt")
+        return SimpleNamespace(verdict="PASS")
+
+    monkeypatch.setattr(pv, "_get_llm_client", get_client)
+    monkeypatch.setattr(pv.ComparisonRunner, "run_single", run_single)
+    shadow.evaluate_like_production("ctx", None, model="gpt-6.1-terra#high", provider="openai")
+    assert seen["model"] == "gpt-6.1-terra"
+    assert seen["payload"]["model"] == "gpt-6.1-terra"
+    assert seen["payload"]["reasoning"]["effort"] == "high"
+    shadow.evaluate_like_production("ctx", None, model="gpt-6.1-terra", provider="openai")
+    assert "reasoning" not in seen["payload"]  # the plain model keeps the provider default
+
+
+def test_corpus_only_candidates_never_run_or_grade_in_the_daily_shadow():
+    from tools.verifier_shadow_external import external_candidates
+    from tools.verifier_shadow_report import evaluate
+
+    config = {
+        "enabled": True,
+        "criteria": json.loads(Path("config/verifier_shadow.json").read_text())["criteria"],
+        "window": {"min_runs": 10, "min_days": 7, "max_days": 21},
+        "candidates": [
+            {"provider": "openai", "model": "daily"},
+            {"provider": "openai", "model": "corpus", "corpus_only": True},
+            {"provider": "muse-api", "model": "ext", "runner": "external", "corpus_only": True},
+        ],
+    }
+    calls = []
+
+    def evaluator(context, diff=None, model=None, provider=None):
+        calls.append(model)
+        return SimpleNamespace(verdict="PASS", used_llm=True, error=None, concerns=[])
+
+    shadow.run_shadow(
+        "ctx", None, {"results": []}, config, production_verdict="PASS", evaluator=evaluator
+    )
+    assert calls == ["daily"]
+    assert external_candidates(config) == []
+    assert [c["model"] for c in external_candidates(config, corpus=True)] == ["ext"]
+    assert [c["candidate"] for c in evaluate([], config)["candidates"]] == ["openai:daily"]

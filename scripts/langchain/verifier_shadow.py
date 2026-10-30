@@ -61,6 +61,9 @@ def evaluate_like_production(
     """
     from scripts.langchain import pr_verifier as pv
 
+    # "<model>#<effort>" is the same model at a stated reasoning effort (a corpus diagnostic)
+    model, _, effort = (model or "").partition("#")
+    model = model or None
     resolved = pv._get_llm_client(model=model, provider=provider)
     coverage = pv.prompt_coverage(context, diff)
     if resolved is None:
@@ -69,6 +72,8 @@ def evaluate_like_production(
             coverage,
         )
     client, provider_name = resolved
+    if effort:
+        client = client.model_copy(update={"reasoning": {"effort": effort}})
     runner = pv.ComparisonRunner(
         context=context,
         diff=diff,
@@ -170,7 +175,9 @@ def run_shadow(
         todo = [
             c
             for c in config.get("candidates", [])
-            if (c["provider"], c["model"]) not in produced and c.get("runner") != "external"
+            if (c["provider"], c["model"]) not in produced
+            and c.get("runner") != "external"
+            and not c.get("corpus_only")
         ]  # external candidates are judged later by tools/verifier_shadow_external.py
         # all candidates judge at once, so the step costs one candidate's latency, not their sum
         if todo:

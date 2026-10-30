@@ -276,6 +276,9 @@ def evaluate(records: list[dict[str, Any]], config: dict[str, Any], *, now: date
         "candidates": [
             evaluate_candidate(records, c, config, now=now, started_at=started_for(c))
             for c in config.get("candidates", [])
+            if not c.get(
+                "corpus_only"
+            )  # graded by the corpus trial, never seen by the daily shadow
         ],
     }
 

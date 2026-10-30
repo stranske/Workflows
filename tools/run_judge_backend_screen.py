@@ -78,20 +78,26 @@ class Judge(Protocol):
 
 def extract_payload(text: str) -> dict[str, Any] | None:
     """Return the first JSON object in ``text`` that validates as the verifier payload."""
+    return payload_span(text)[0]
+
+
+def payload_span(text: str) -> tuple[dict[str, Any] | None, str | None]:
+    """The first verifier payload in ``text`` and the exact text it was decoded from."""
     decoder = json.JSONDecoder()
     for index, char in enumerate(text):
         if char != "{":
             continue
         try:
-            candidate, _ = decoder.raw_decode(text[index:])
+            candidate, end = decoder.raw_decode(text[index:])
         except ValueError:
             continue
         if isinstance(candidate, dict):
             try:
-                return pr_verifier.EvaluationPayload.model_validate(candidate).model_dump()
+                payload = pr_verifier.EvaluationPayload.model_validate(candidate).model_dump()
             except ValueError:
                 continue
-    return None
+            return payload, text[index : index + end]
+    return None, None
 
 
 def _clean_env(keep: set[str] | None = None) -> dict[str, str]:
@@ -265,7 +271,11 @@ class CursorCliJudge:
                 tokens_out,
                 error=_redact(f"Cursor CLI error (rc {response.returncode})", [key]),
             )
-        payload = extract_payload(str(envelope.get("result") or ""))
+        result = str(envelope.get("result") or "")
+        payload, span = payload_span(result)
+        # The agent CLI prepends a progress note ("I'll evaluate the diff...") to the model's final
+        # answer in its json envelope. Callers that parse the text themselves get the verdict JSON
+        # alone, byte for byte as the model wrote it; with no valid verdict they get the whole text.
         return JudgeOutcome(
             payload,
             latency,
@@ -273,7 +283,7 @@ class CursorCliJudge:
             tokens_out,
             served_model=self.model,
             error=None if payload else "Invalid verifier JSON",
-            text=str(envelope.get("result") or ""),
+            text=span if span is not None else result,
         )
 
 
