@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import io
 import json
 import math
 import os
@@ -34,6 +35,7 @@ import tempfile
 import time
 import urllib.error
 import urllib.request
+import zipfile
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -47,6 +49,7 @@ from tools.plan_model_eval import ROOT, build_plan
 JUDGE_TIMEOUT_SECONDS = 420
 
 SCHEMA = "workflows-judge-backend-screen/v1"
+TRUSTED_IMMUTABLE_CORPUS = ROOT / "config" / "model_eval_pilot.json"
 MUSE_API_DEFAULT_BASE_URL = "https://api.meta.ai/v1"
 MUSE_API_DEFAULT_MODEL = "muse-spark-1.2"
 # Meta's contributor tier is discounted in exchange for using prompts and completions for training.
@@ -569,6 +572,150 @@ def require_public_sources(repos: set[str], lookup: Callable[[str], str] | None 
         )
 
 
+def trusted_screen_snapshot_digests(
+    corpus_path: Path = TRUSTED_IMMUTABLE_CORPUS,
+) -> dict[str, str]:
+    """Pinned snapshot digests for the shipped judge-screen corpus."""
+    corpus = json.loads(corpus_path.read_text())
+    digests: dict[str, str] = {}
+    for case in corpus.get("screen_cases", []):
+        snapshot = case.get("production_snapshot")
+        if not isinstance(snapshot, dict):
+            continue
+        digest = snapshot.get("sha256")
+        if isinstance(digest, str) and digest:
+            digests[str(case["case_id"])] = digest
+    return digests
+
+
+def snapshot_content_hashes(snapshot: dict[str, Any]) -> dict[str, str]:
+    """Hashes of the verifier prompt fields stored in a production snapshot."""
+    hashes = {
+        "context_sha256": hashlib.sha256(snapshot["context"].encode("utf-8")).hexdigest(),
+        "diff_summary_sha256": hashlib.sha256(snapshot["diff_summary"].encode("utf-8")).hexdigest(),
+    }
+    if "diff" in snapshot:
+        hashes["diff_sha256"] = hashlib.sha256(snapshot["diff"].encode("utf-8")).hexdigest()
+    return hashes
+
+
+def snapshot_matches_trusted_corpus(case: dict[str, Any], trusted_digests: dict[str, str]) -> bool:
+    snapshot = case.get("production_snapshot")
+    if not isinstance(snapshot, dict):
+        return False
+    case_id = str(case.get("case_id", ""))
+    digest = snapshot.get("sha256")
+    return bool(case_id and isinstance(digest, str) and digest == trusted_digests.get(case_id))
+
+
+def snapshot_matches_public_capture(
+    snapshot: dict[str, Any], manifest: dict[str, Any] | None
+) -> bool:
+    """True when snapshot prompt fields match a published verifier-input manifest."""
+    if not manifest or manifest.get("schema") != "workflows-verifier-input-snapshot/v1":
+        return False
+    if str(manifest.get("repository", "")).lower() != str(snapshot.get("repository", "")).lower():
+        return False
+    for field in ("pr", "chain_depth"):
+        if int(manifest.get(field, -1)) != int(snapshot.get(field, -1)):
+            return False
+    for field in ("merge_sha", "source_run_id"):
+        if str(manifest.get(field, "")) != str(snapshot.get(field, "")):
+            return False
+    hashes = snapshot_content_hashes(snapshot)
+    for key in ("context_sha256", "diff_summary_sha256"):
+        if hashes.get(key) != manifest.get(key):
+            return False
+    if "diff_sha256" in manifest:
+        return hashes.get("diff_sha256") == manifest.get("diff_sha256")
+    return "diff" not in snapshot
+
+
+def public_capture_manifest(repo: str, run_id: str) -> dict[str, Any] | None:
+    """Load the verifier-input manifest GitHub published for a compare-mode workflow run."""
+    if not run_id.isdigit():
+        return None
+    for artifact_name in (f"comparison-results-{run_id}", f"verifier-input-capture-{run_id}"):
+        try:
+            listed = subprocess.run(
+                [
+                    "gh",
+                    "api",
+                    f"repos/{repo}/actions/artifacts",
+                    "-f",
+                    f"name={artifact_name}",
+                    "--jq",
+                    ".artifacts[0].id",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=120,
+                check=False,
+            )
+        except (OSError, subprocess.TimeoutExpired):
+            return None
+        artifact_id = (listed.stdout or "").strip()
+        if not artifact_id or artifact_id == "null":
+            continue
+        try:
+            archive = subprocess.run(
+                ["gh", "api", f"repos/{repo}/actions/artifacts/{artifact_id}/zip"],
+                capture_output=True,
+                timeout=180,
+                check=False,
+            )
+        except (OSError, subprocess.TimeoutExpired):
+            return None
+        if archive.returncode or not archive.stdout:
+            continue
+        try:
+            with zipfile.ZipFile(io.BytesIO(archive.stdout)) as bundle:
+                for member in bundle.namelist():
+                    if member.endswith("verifier-input-manifest.json"):
+                        payload = json.loads(bundle.read(member))
+                        if isinstance(payload, dict):
+                            return payload
+        except (OSError, json.JSONDecodeError, zipfile.BadZipFile, KeyError):
+            continue
+    return None
+
+
+def require_contributor_tier_inputs(
+    cases: list[dict[str, Any]],
+    *,
+    trusted_digests: dict[str, str] | None = None,
+    repo_lookup: Callable[[str], str] | None = None,
+    manifest_lookup: Callable[[str, str], dict[str, Any] | None] | None = None,
+) -> None:
+    """Refuse contributor-tier models unless every prompt input is trusted or publicly verified."""
+    require_public_sources({str(case["repo"]) for case in cases}, lookup=repo_lookup)
+    trusted = trusted_digests if trusted_digests is not None else trusted_screen_snapshot_digests()
+    lookup_manifest = manifest_lookup or public_capture_manifest
+    unverified: list[str] = []
+    for case in cases:
+        case_id = str(case.get("case_id", "unknown-case"))
+        if snapshot_matches_trusted_corpus(case, trusted):
+            continue
+        snapshot = case.get("production_snapshot")
+        if not isinstance(snapshot, dict):
+            unverified.append(case_id)
+            continue
+        if snapshot.get("input_kind") == "controlled_defect":
+            unverified.append(case_id)
+            continue
+        repo = str(snapshot.get("repository") or case.get("repo") or "")
+        run_id = str(snapshot.get("source_run_id") or "")
+        manifest = lookup_manifest(repo, run_id) if repo and run_id.isdigit() else None
+        if not snapshot_matches_public_capture(snapshot, manifest):
+            unverified.append(case_id)
+    if unverified:
+        raise SystemExit(
+            "refusing contributor-tier models: verifier prompt inputs are not from a "
+            "trusted immutable corpus or a verified public capture; unverified case(s): "
+            f"{sorted(unverified)}"
+        )
+
+
 class MuseApiJudge:
     """Meta Model API (OpenAI-compatible chat completions) with its own pay-as-you-go key."""
 
@@ -826,6 +973,10 @@ def run_screen(
     baseline_prompt_sha256_by_case: dict[str, str] | None = None,
     prices: dict[str, tuple[float, float]] | None = None,
     cases_override: list[dict[str, Any]] | None = None,
+    contributor_tier: bool = False,
+    trusted_digests: dict[str, str] | None = None,
+    repo_lookup: Callable[[str], str] | None = None,
+    manifest_lookup: Callable[[str, str], dict[str, Any] | None] | None = None,
 ) -> dict[str, Any]:
     plan = build_plan(corpus, registry, policy)
     if not plan["screen_ready"]:
@@ -836,6 +987,14 @@ def run_screen(
         raise ValueError(f"production-context inputs are invalid: {blockers}")
     if cases_override is not None:
         cases = cases_override
+    # Checked on the cases actually prompted, after any override.
+    if contributor_tier:
+        require_contributor_tier_inputs(
+            cases,
+            trusted_digests=trusted_digests,
+            repo_lookup=repo_lookup,
+            manifest_lookup=manifest_lookup,
+        )
     prompts = {c["case_id"]: verifier_prompt(c["production_snapshot"]) for c in cases}
     prompt_hashes = {
         case_id: hashlib.sha256(prompt.encode("utf-8")).hexdigest()
@@ -1046,8 +1205,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--allow-contributor-tier",
         action="store_true",
-        help="allow *-contributor models, which may train on prompts; refused unless every case "
-        "repository is confirmed public",
+        help="allow *-contributor models, which may train on prompts; refused unless every prompt "
+        "input matches the trusted immutable corpus or a verified public capture",
     )
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args(argv)
@@ -1064,10 +1223,6 @@ def main(argv: list[str] | None = None) -> int:
         else None
     )
     corpus = json.loads(args.corpus.read_text())
-    if args.allow_contributor_tier:
-        require_public_sources(
-            {str(c["repo"]) for c in corpus.get("screen_cases", []) + corpus.get("cases", [])}
-        )
     override = (
         corpus_cases_with_snapshots(
             corpus,
@@ -1088,6 +1243,7 @@ def main(argv: list[str] | None = None) -> int:
         baseline=baseline,
         baseline_prompt_sha256_by_case=baseline_hashes,
         prices=prices,
+        contributor_tier=bool(args.allow_contributor_tier),
     )
     args.output.write_text(json.dumps(payload, indent=2) + "\n")
     for judge in payload["judges"]:

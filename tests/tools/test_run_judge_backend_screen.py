@@ -10,6 +10,7 @@ from typing import Any
 
 import pytest
 from tools import run_judge_backend_screen as screen
+from tools.model_eval_snapshots import snapshot_digest
 
 VERDICT = {
     "verdict": "PASS",
@@ -617,8 +618,6 @@ def test_agy_invalid_or_error_stream_does_not_produce_a_verdict(monkeypatch, out
 
 
 def test_contributor_tier_needs_every_source_repository_confirmed_public():
-    from tools import run_judge_backend_screen as screen
-
     screen.require_public_sources({"a/x", "b/y"}, lookup=lambda repo: "public")
     for answers, repos in (
         ({"a/x": "public", "b/y": "private"}, {"a/x", "b/y"}),
@@ -629,6 +628,178 @@ def test_contributor_tier_needs_every_source_repository_confirmed_public():
             screen.require_public_sources(repos, lookup=answers.get)
     with pytest.raises(SystemExit):
         screen.require_public_sources(set(), lookup=lambda repo: "public")
+
+
+def _screen_cases_for_contributor_checks():
+    corpus, registry, policy = _frozen()
+    stage = policy["profiles"]["verifier-balanced"]["provisional_stage"]
+    cases, blockers = screen.screen_cases(corpus, stage)
+    assert not blockers
+    return corpus, registry, policy, cases
+
+
+def test_contributor_tier_rejects_a_public_repo_with_locally_modified_prompt_inputs():
+    corpus, registry, policy, cases = _screen_cases_for_contributor_checks()
+    corpus = json.loads(json.dumps(corpus))
+    tampered = corpus["screen_cases"][0]["production_snapshot"]
+    tampered["context"] += "\nlocal secret"
+    tampered["sha256"] = snapshot_digest(tampered)
+    trusted = screen.trusted_screen_snapshot_digests()
+    manifest = {
+        "schema": "workflows-verifier-input-snapshot/v1",
+        "repository": cases[0]["repo"],
+        "pr": cases[0]["pr"],
+        "merge_sha": cases[0]["production_snapshot"]["merge_sha"],
+        "source_run_id": cases[0]["production_snapshot"]["source_run_id"],
+        "chain_depth": cases[0]["production_snapshot"]["chain_depth"],
+        **screen.snapshot_content_hashes(cases[0]["production_snapshot"]),
+    }
+
+    with pytest.raises(SystemExit, match="unverified case"):
+        screen.run_screen(
+            [],
+            corpus=corpus,
+            registry=registry,
+            policy=policy,
+            contributor_tier=True,
+            trusted_digests=trusted,
+            repo_lookup=lambda repo: "public",
+            manifest_lookup=lambda repo, run_id: manifest,
+        )
+
+
+def test_contributor_tier_accepts_the_trusted_immutable_corpus():
+    corpus, registry, policy, _cases = _screen_cases_for_contributor_checks()
+    screen.require_contributor_tier_inputs(
+        _cases,
+        trusted_digests=screen.trusted_screen_snapshot_digests(),
+        repo_lookup=lambda repo: "public",
+        manifest_lookup=lambda repo, run_id: None,
+    )
+
+
+def test_contributor_tier_accepts_an_exact_verified_public_capture():
+    snapshot = {
+        "context": "published context",
+        "diff_summary": "published summary",
+        "diff": "diff --git a/x b/x\n@@ -1 +1 @@\n-old\n+new\n",
+        "repository": "stranske/Workflows",
+        "pr": 42,
+        "merge_sha": "a" * 40,
+        "source_run_id": "12345",
+        "chain_depth": 0,
+        "input_kind": "production_capture",
+    }
+    manifest = {
+        "schema": "workflows-verifier-input-snapshot/v1",
+        "repository": "stranske/Workflows",
+        "pr": 42,
+        "merge_sha": "a" * 40,
+        "source_run_id": "12345",
+        "chain_depth": 0,
+        **screen.snapshot_content_hashes(snapshot),
+    }
+    case = {
+        "case_id": "custom-public",
+        "repo": "stranske/Workflows",
+        "pr": 42,
+        "expected_verdict": "PASS",
+        "category": "clean-pass",
+        "production_snapshot": {
+            **snapshot,
+            "adjudication_evidence": "https://example.com/evidence",
+            "adjudicated_by": "reviewer",
+            "adjudication_rationale": "ok",
+            "sha256": "deadbeef" * 8,
+        },
+    }
+    screen.require_contributor_tier_inputs(
+        [case],
+        trusted_digests={},
+        repo_lookup=lambda repo: "public",
+        manifest_lookup=lambda repo, run_id: manifest if run_id == "12345" else None,
+    )
+
+
+def test_contributor_tier_rejects_private_or_unverifiable_prompt_inputs():
+    snapshot = {
+        "context": "private",
+        "diff_summary": "private",
+        "repository": "secret/private",
+        "pr": 1,
+        "merge_sha": "b" * 40,
+        "source_run_id": "99",
+        "chain_depth": 0,
+        "input_kind": "production_capture",
+    }
+    case = {
+        "case_id": "private-case",
+        "repo": "secret/private",
+        "pr": 1,
+        "expected_verdict": "PASS",
+        "category": "clean-pass",
+        "production_snapshot": {**snapshot, "sha256": "1" * 64},
+    }
+    with pytest.raises(SystemExit, match="not confirmed public"):
+        screen.require_contributor_tier_inputs(
+            [case],
+            trusted_digests={},
+            repo_lookup=lambda repo: "private",
+        )
+    with pytest.raises(SystemExit, match="unverified case"):
+        screen.require_contributor_tier_inputs(
+            [case],
+            trusted_digests={},
+            repo_lookup=lambda repo: "public",
+            manifest_lookup=lambda repo, run_id: None,
+        )
+
+
+def test_contributor_tier_refusal_does_not_invoke_the_contributor_backend(monkeypatch, tmp_path):
+    corpus, registry, policy, _cases = _screen_cases_for_contributor_checks()
+    corpus = json.loads(json.dumps(corpus))
+    tampered = corpus["screen_cases"][0]["production_snapshot"]
+    tampered["context"] += "\ntampered"
+    tampered["sha256"] = snapshot_digest(tampered)
+    invoked = {"count": 0}
+
+    class TrackingMuse(screen.MuseApiJudge):
+        def invoke(self, prompt: str) -> screen.JudgeOutcome:
+            invoked["count"] += 1
+            return super().invoke(prompt)
+
+    monkeypatch.setattr(screen, "MuseApiJudge", TrackingMuse)
+    corpus_path = tmp_path / "corpus.json"
+    corpus_path.write_text(json.dumps(corpus))
+    output = tmp_path / "screen.json"
+    argv = [
+        "--corpus",
+        str(corpus_path),
+        "--registry",
+        str(screen.ROOT / "config/model_registry.json"),
+        "--policy",
+        str(screen.ROOT / "config/model_selection_policy.json"),
+        "--judges",
+        "muse-api",
+        "--muse-api-model",
+        "muse-spark-1.3-contributor",
+        "--allow-contributor-tier",
+        "--output",
+        str(output),
+    ]
+    with pytest.raises(SystemExit, match="unverified case"):
+        screen.main(argv)
+    assert invoked["count"] == 0
+
+
+def test_non_contributor_screen_does_not_apply_prompt_provenance_checks():
+    corpus, registry, policy, _cases = _screen_cases_for_contributor_checks()
+    corpus = json.loads(json.dumps(corpus))
+    tampered = corpus["screen_cases"][0]["production_snapshot"]
+    tampered["context"] += "\nlocal-only change"
+    tampered["sha256"] = snapshot_digest(tampered)
+    result = screen.run_screen([], corpus=corpus, registry=registry, policy=policy)
+    assert result["schema"] == screen.SCHEMA
 
 
 def test_contributor_models_are_still_refused_without_the_flag():
@@ -830,3 +1001,37 @@ def test_judge_timeout_is_one_shared_constant():
     for cls in (screen.MuseApiJudge, screen.CursorCliJudge):
         default = inspect.signature(cls.__init__).parameters["timeout"].default
         assert default == screen.JUDGE_TIMEOUT_SECONDS
+
+
+def test_contributor_tier_checks_override_cases_actually_prompted():
+    # `--cases all|evaluable` replaces the screen cases; the guard must judge those, not the
+    # screen set it replaced.
+    corpus, registry, policy, _cases = _screen_cases_for_contributor_checks()
+    override = json.loads(json.dumps(corpus["screen_cases"]))
+    override[0]["production_snapshot"]["context"] += "\nlocally edited"
+    override[0]["production_snapshot"]["sha256"] = snapshot_digest(
+        override[0]["production_snapshot"]
+    )
+    invoked = {"count": 0}
+
+    class Tracking:
+        name = "tracking"
+        evidence_class = "api-observed"
+        api_key_calls = True
+
+        def invoke(self, prompt: str) -> screen.JudgeOutcome:
+            invoked["count"] += 1
+            raise AssertionError("contributor backend invoked before the guard")
+
+    with pytest.raises(SystemExit, match="unverified case"):
+        screen.run_screen(
+            [Tracking()],
+            corpus=corpus,
+            registry=registry,
+            policy=policy,
+            cases_override=override,
+            contributor_tier=True,
+            repo_lookup=lambda repo: "public",
+            manifest_lookup=lambda repo, run_id: None,
+        )
+    assert invoked["count"] == 0
