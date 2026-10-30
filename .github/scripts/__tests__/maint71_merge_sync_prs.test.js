@@ -29,7 +29,8 @@ const {
   canaryNeedsRefresh, refreshStableCanaries, STALE_CANARY_HOURS,
   CANARY_REFRESH_DEBOUNCE_MS, CANARY_SEALED_REFRESH_WAIT_MS, deferSealedCanaryRefresh, canaryRefreshDecision, readCanaryRefreshState,
   dispatchCanaryRefresh, dispatchCanaryPromotion,
-  isExpectedPresealGateFailure, legacyStatusAsCheck, requestSealedGate,
+  isExpectedPresealGateFailure, legacyStatusAsCheck, requestSealedGate, CANCELLED_GATE_MAX_ATTEMPT,
+  missingCanaryDrains,
 } = require('../maint71_merge_sync_prs');
 const { classifySyncPrChecks } = require('../sync_pr_merge_contract');
 const { findingPacket, changeProof } = require('./fixtures/sync_finding_disposition');
@@ -2483,6 +2484,26 @@ test('green exact-head evidence dispatches promote once and reports blocking and
   assert.match(api.summaries.join(''), /promote: blocked held: .*; canaries green 1\/2; drainable 1/);
 });
 
+test('promotion hold names each missing canary and whether its Gate drain is in flight', () => {
+  const evidence = [{ repo: 'stranske/Ready', plan_id: 'p', source_commit: 'a'.repeat(40),
+    head_sha: '1'.repeat(40), plan_scope: 'full', scope_base_sha: '', evidence_source: 'open-candidate',
+    required_check_state: 'success', active_review_thread_count: 0 }];
+  const row = gate => ({ owner: 'stranske', repo: 'Template', status: 'delivery_sealed_checks_pending',
+    gate_request: gate });
+  const canaries = ['stranske/Ready', 'stranske/Template'];
+  assert.deepEqual(missingCanaryDrains(canaries, evidence, [row({ mode: 'rerun', status: 201, run_id: 4105 })]),
+    [{ repo: 'stranske/Template', drainable: true,
+      state: 'delivery_sealed_checks_pending drainable-by-rerun run 4105' }]);
+  assert.deepEqual(missingCanaryDrains(canaries, evidence, [row({ mode: 'failed', status: 'unknown',
+    run_id: 4105, reason: 'Gate resolver freshness unproven; no request sent' })]),
+  [{ repo: 'stranske/Template', drainable: false, state: 'delivery_sealed_checks_pending no-drain gate '
+      + 'failed/unknown run 4105 (Gate resolver freshness unproven; no request sent)' }]);
+  assert.deepEqual(missingCanaryDrains(canaries, evidence, []),
+    [{ repo: 'stranske/Template', drainable: false, state: 'no-report-row' }]);
+  assert.deepEqual(missingCanaryDrains(canaries, [...evidence, { ...evidence[0], repo: 'stranske/Template' }], []), [],
+    'a fully evidenced set has nothing missing');
+});
+
 for (const state of ['producer_success_red', 'producer_success_staging']) {
   test(`executor preserves lifecycle after ${state} without weakening consumer Gate`,
     async (t) => assertExecutorCanaryRefresh(t, state));
@@ -3318,6 +3339,51 @@ test('cached pre-seal resolver on a failed-jobs rerun requires one full Gate rer
     started_at: '2026-10-17T11:02:00Z', completed_at: '2026-10-17T11:02:02Z' };
   assert.equal((await requestSealedGate(api.args)).mode, 'existing');
   assert.equal(api.reruns.length, 1, 'fresh product CI failure remains a blocker, not another rerun');
+});
+
+// stranske/Portable-Alpha-Extension-Model#2452 (2026-10-30): the sealing rerun
+// of the synchronize Gate succeeded, while the newer `labeled` Gate was cancelled
+// by the cancel-in-progress group before its resolver ran. Its freshness could
+// never be proven, so promotion of the whole fleet held until a manual rerun.
+test('cancelled newest exact-head canary Gate requests a full rerun, not a silent hold', async t => {
+  const api = sealedGateHarness(t);
+  const olderSuccess = { ...api.run, id: 4000, conclusion: 'success', run_attempt: 2,
+    run_started_at: '2026-10-17T11:00:04Z' };
+  api.state.runs = [olderSuccess, { ...api.run, conclusion: 'cancelled',
+    created_at: '2026-10-17T11:00:05Z', run_started_at: '2026-10-17T11:00:05Z' }];
+  api.state.jobs = [{ id: 9, name: 'resolve Gate PR context', head_sha: api.run.head_sha,
+    run_attempt: 1, status: 'completed', conclusion: 'cancelled',
+    started_at: '2026-10-17T11:00:06Z', completed_at: '2026-10-17T11:00:07Z' }];
+  assert.deepEqual(await requestSealedGate(api.args), { mode: 'rerun', status: 201, run_id: 4105 },
+    'the older success never stands in for the cancelled newer run');
+  assert.deepEqual(api.reruns, [{ owner: 'stranske', repo: 'Ready', run_id: 4105 }]);
+  assert.ok(api.logs.includes('seal: stranske/Ready#4104 gate cancelled run=4105 attempt=1; drainable by rerun'));
+  api.state.runs[1] = { ...api.state.runs[1], status: 'queued', conclusion: null, run_attempt: 2 };
+  assert.deepEqual(await requestSealedGate(api.args), { mode: 'existing', run_id: 4105 });
+  api.state.jobs = undefined;
+  api.state.runs[1] = { ...api.state.runs[1], status: 'completed', conclusion: 'success',
+    run_started_at: '2026-10-17T11:20:00Z' };
+  assert.deepEqual(await requestSealedGate(api.args), { mode: 'existing', run_id: 4105 });
+  assert.equal(api.reruns.length, 1, 'the green rerun settles through the ordinary checks path');
+  assert.equal(api.dispatches.length, 0);
+});
+
+test('cancelled Gate reruns stop at the attempt cap and say why', async t => {
+  const api = sealedGateHarness(t);
+  api.state.runs = [{ ...api.run, conclusion: 'cancelled', run_attempt: CANCELLED_GATE_MAX_ATTEMPT }];
+  const result = await requestSealedGate(api.args);
+  assert.equal(result.mode, 'failed');
+  assert.equal(result.status, 'cancelled');
+  assert.match(result.reason, new RegExp(`exhausted \\(${CANCELLED_GATE_MAX_ATTEMPT}/${CANCELLED_GATE_MAX_ATTEMPT}\\); drainable=0`));
+  assert.equal(api.reruns.length + api.dispatches.length, 0);
+});
+
+test('an active older Gate attempt is awaited rather than cancelled by a rerun of the newer run', async t => {
+  const api = sealedGateHarness(t);
+  api.state.runs = [{ ...api.run, id: 4000, status: 'in_progress', conclusion: null, run_attempt: 2 },
+    { ...api.run, conclusion: 'cancelled' }];
+  assert.deepEqual(await requestSealedGate(api.args), { mode: 'existing', run_id: 4000 });
+  assert.equal(api.reruns.length + api.dispatches.length, 0);
 });
 
 for (const invalid of ['missing', 'duplicate', 'wrong-head', 'wrong-attempt', 'failed', 'bad-time']) {

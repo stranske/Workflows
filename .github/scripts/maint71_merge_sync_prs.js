@@ -16,6 +16,9 @@ const CLAIM_EXPIRY = 2 * 60 * 60 * 1000;
 const STALE_CANARY_HOURS = 6;
 const CANARY_REFRESH_DEBOUNCE_MS = 6 * 60 * 60 * 1000;
 const CANARY_SEALED_REFRESH_WAIT_MS = 60 * 60 * 1000;
+// A cancelled exact-head Gate reached no verdict. Full reruns may replace it
+// until this attempt number; the next one must come from a new head event.
+const CANCELLED_GATE_MAX_ATTEMPT = 3;
 const deliveryPayload = require('./consumer_delivery_digest');
 const { SEAL_PRECONDITION_REASONS } = require('./sync_pr_lease_contract');
 const { parseBooleanInput } = require('./sync_pr_merge_contract');
@@ -1202,15 +1205,32 @@ async function evaluateSealedGate({ owner, repo, pr, withRetry, sealedAt }) {
       ...query, event: 'pull_request',
     }));
     if (!Array.isArray(data?.workflow_runs)) throw new Error('Gate history unreadable');
-    const latest = data.workflow_runs.filter(run => run.id && run.event === 'pull_request'
-      && run.head_sha === pr.head.sha).sort((a, b) => Number(b.id) - Number(a.id))[0];
+    const exact = data.workflow_runs.filter(run => run.id && run.event === 'pull_request'
+      && run.head_sha === pr.head.sha).sort((a, b) => Number(b.id) - Number(a.id));
+    const latest = exact[0];
     if (latest) {
       // A queued/in-progress attempt or a completed post-seal evaluation must
       // settle through the ordinary checks path, not create a rerun loop.
       if (latest.status !== 'completed') return { mode: 'existing', run_id: latest.id };
       if (latest.conclusion === 'action_required') return { mode: 'failed',
         run_id: latest.id, status: 'action_required', reason: 'Gate requires workflow security review; no request sent' };
-      if (sealedAt) {
+      // An older run's rerun attempt keeps its lower ID; rerunning the newer
+      // run would cancel it in a cancel-in-progress concurrency group.
+      const active = exact.find(run => run.status !== 'completed');
+      if (active) return { mode: 'existing', run_id: active.id };
+      if (sealedAt && latest.conclusion === 'cancelled') {
+        // A superseded event (e.g. a label in a cancel-in-progress group)
+        // cancels its resolver before it reads the PR, so its freshness is
+        // never provable. It evaluated nothing: a full rerun is its only
+        // drain. An older success is never accepted in its place.
+        const attempt = Number(latest.run_attempt || 1);
+        if (!(attempt < CANCELLED_GATE_MAX_ATTEMPT)) {
+          const reason = `cancelled Gate rerun exhausted (${attempt}/${CANCELLED_GATE_MAX_ATTEMPT}); drainable=0 — needs a new head event or owner rerun`;
+          console.log(`${identity} ${reason}`);
+          return { mode: 'failed', status: 'cancelled', run_id: latest.id, reason };
+        }
+        console.log(`${identity} gate cancelled run=${latest.id} attempt=${attempt}; drainable by rerun`);
+      } else if (sealedAt) {
         const evaluated = await gateRunEvaluatesSeal({ owner, repo, run: latest, sealedAt, withRetry });
         if (evaluated === true) return { mode: 'existing', run_id: latest.id };
         if (evaluated === null) return { mode: 'failed', status: 'unknown',
@@ -2633,6 +2653,26 @@ async function dispatchDeliveryRefresh({ decision, expectedCanaries, withRetry, 
   return { dispatched: true };
 }
 
+// The blocking side of promotion: each canary without evidence and the drain
+// its report row shows. Only an in-flight Gate request or run is drainable.
+function missingCanaryDrains(expectedCanaries, evidenceRows, reportRows) {
+  const { validateCanaryEvidence } = require('./sync_pr_merge_contract');
+  return expectedCanaries.filter((repo) => {
+    const rows = evidenceRows.filter((row) => row.repo === repo);
+    return !(rows.length === 1 && validateCanaryEvidence(rows, [repo]).ok);
+  }).map((repo) => {
+    const row = (reportRows || []).find((item) => `${item.owner}/${item.repo}` === repo);
+    const gate = row?.gate_request;
+    const drainable = Boolean(gate && !gate.blocked
+      && (['rerun', 'existing'].includes(gate.mode) || (gate.mode === 'dispatch' && gate.run_id)));
+    const via = !gate ? '' : drainable
+      ? ` ${gate.mode === 'existing' ? 'awaiting-gate' : 'drainable-by-rerun'} run ${gate.run_id}`
+      : ` no-drain gate ${gate.mode}/${gate.status ?? 'unknown'}${gate.run_id ? ` run ${gate.run_id}` : ''}` +
+        `${gate.reason ? ` (${gate.reason})` : ''}`;
+    return { repo, drainable, state: `${row?.status || 'no-report-row'}${via}` };
+  });
+}
+
 async function dispatchCanaryPromotion({
   report, evidence, expectedCanaries, withRetry, context, core,
 }) {
@@ -2680,8 +2720,11 @@ async function dispatchCanaryPromotion({
     const reason = ['dispatched', 'already-promoted'].includes(status) ? 'none' : `${status}: ${detail}`;
     const quantity = built.evidence.results.length === 0 ? 'UNKNOWN (unmeasurable)' : drainable;
     const label = status === 'already-promoted' ? 'drained' : `blocked ${reason}`;
+    const missing = missingCanaryDrains(expectedCanaries, built.evidence.results, normalizedReport.results);
+    const missingText = missing.length ? `missing ${missing.length} (drainable ${missing.filter(row => row.drainable).length}): ` +
+      `${missing.map(row => `${row.repo}=${row.state}`).join(', ')}; ` : '';
     const message = `promote: ${label}; canaries green ${green}/${expectedCanaries.length}; drainable ${quantity}; ` +
-      `Canary promotion ${decision.plan_id || '<unbound>'}: ${status}; ${detail}`;
+      `${missingText}Canary promotion ${decision.plan_id || '<unbound>'}: ${status}; ${detail}`;
     core.notice(message);
     await core.summary.addRaw(`${message}\n`).write();
     return { status, plan_id: decision.plan_id, errors };
@@ -5902,6 +5945,7 @@ module.exports = {
   STALE_CANARY_HOURS,
   CANARY_REFRESH_DEBOUNCE_MS,
   CANARY_SEALED_REFRESH_WAIT_MS,
+  CANCELLED_GATE_MAX_ATTEMPT,
   deferSealedCanaryRefresh,
   canaryRefreshDecision,
   refreshPlanContext,
@@ -5918,6 +5962,7 @@ module.exports = {
   refreshStableCanaries,
   routeCanaryReviewUpstream,
   buildCanaryPromotionEvidence,
+  missingCanaryDrains,
   dispatchCanaryPromotion,
   dispatchDeliveryRefresh,
   reportSealedPromotionHealth,
