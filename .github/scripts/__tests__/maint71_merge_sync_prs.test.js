@@ -2500,6 +2500,11 @@ test('promotion hold names each missing canary and whether its Gate drain is in 
       + 'failed/unknown run 4105 (Gate resolver freshness unproven; no request sent)' }]);
   assert.deepEqual(missingCanaryDrains(canaries, evidence, []),
     [{ repo: 'stranske/Template', drainable: false, state: 'no-report-row' }]);
+  assert.deepEqual(missingCanaryDrains(canaries, evidence, [{ owner: 'stranske', repo: 'Template',
+    status: 'checks_pending' }]), [{ repo: 'stranske/Template', drainable: true,
+    state: 'checks_pending awaiting-checks' }], 'an active Gate reaches the checks path without a request');
+  assert.deepEqual(missingCanaryDrains(canaries, evidence, [{ owner: 'stranske', repo: 'Template',
+    status: 'checks_failed' }]), [{ repo: 'stranske/Template', drainable: false, state: 'checks_failed' }]);
   assert.deepEqual(missingCanaryDrains(canaries, [...evidence, { ...evidence[0], repo: 'stranske/Template' }], []), [],
     'a fully evidenced set has nothing missing');
 });

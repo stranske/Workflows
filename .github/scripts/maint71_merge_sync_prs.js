@@ -2663,9 +2663,12 @@ function missingCanaryDrains(expectedCanaries, evidenceRows, reportRows) {
   }).map((repo) => {
     const row = (reportRows || []).find((item) => `${item.owner}/${item.repo}` === repo);
     const gate = row?.gate_request;
-    const drainable = Boolean(gate && !gate.blocked
+    // An active Gate (`existing`) continues to the checks path, which records
+    // pending checks without the request; those checks are the run in flight.
+    const checksRunning = !gate && row?.status === 'checks_pending';
+    const drainable = checksRunning || Boolean(gate && !gate.blocked
       && (['rerun', 'existing'].includes(gate.mode) || (gate.mode === 'dispatch' && gate.run_id)));
-    const via = !gate ? '' : drainable
+    const via = checksRunning ? ' awaiting-checks' : !gate ? '' : drainable
       ? ` ${gate.mode === 'existing' ? 'awaiting-gate' : 'drainable-by-rerun'} run ${gate.run_id}`
       : ` no-drain gate ${gate.mode}/${gate.status ?? 'unknown'}${gate.run_id ? ` run ${gate.run_id}` : ''}` +
         `${gate.reason ? ` (${gate.reason})` : ''}`;

@@ -3650,7 +3650,8 @@ Missing evidence prints `drainable UNKNOWN (unmeasurable)` rather than a measure
 A held promotion also prints `missing <k> (drainable <j>): <repo>=<status> ...`
 for each canary without evidence. A canary counts as drainable only when its
 report row shows a Gate run or rerun in flight (`drainable-by-rerun`,
-`awaiting-gate`). Otherwise it prints `no-drain` with the Gate request's reason.
+`awaiting-gate`, or `checks_pending` as `awaiting-checks`). Otherwise it prints
+`no-drain` with the Gate request's reason, or only the row's status.
 A producer success alone never supplies these quantities or authorizes promotion.
 
 Delivery-base refresh replays the same immutable promotion evidence through the
