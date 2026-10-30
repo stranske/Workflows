@@ -586,6 +586,14 @@ scripts:
 
   - source: .github/scripts/gate_summary.py
     description: "Gate summary renderer - shared and consumer copies isolate untrusted diagnostics"
+    skip_repos:
+      - repo: stranske/Orchestrator
+        reason: >-
+          Orchestrator shards its Gate Python legs (6 shards x Python 3.13/3.14, Orchestrator PR 977)
+          and its gate_summary.py validates every shard receipt and reports the combined verify.py
+          coverage. Overwrite-sync replaces it with the unsharded renderer, which drops the
+          missing-shard failure and fails tests/test_delivery_required_contexts.py on generated
+          delivery (Orchestrator sync PR 1016). Keep it local until the template supports sharded Gates.
 
   - source: .github/scripts/should-post-review.js
     description: "Evaluates whether a progress review comment should be posted"

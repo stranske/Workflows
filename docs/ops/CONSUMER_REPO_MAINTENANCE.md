@@ -1196,6 +1196,15 @@ Other scoped consumer exceptions do not imply a custom Gate:
   its local terminal-merge and orchestration safety rules. In particular,
   `AGENTS.md` requires `src/merge_guard.py`; overwriting it failed
   `tests/test_merge_entrypoint_contract.py` on workflow-sync PR #399.
+  It also skips the synced `.github/scripts/gate_summary.py`. Orchestrator
+  shards its Gate Python legs (6 shards on Python 3.13 and 3.14, to keep each
+  under 10 minutes), and its local renderer fails the Gate when any shard's
+  receipt is missing, keeps the newest rerun receipt, and reports the combined
+  `verify.py` coverage without inferring a pass. The template renderer has none
+  of this; overwriting it failed `tests/test_delivery_required_contexts.py` on
+  the 2026-10-30 workflow-sync delivery. Restore shared ownership once the
+  template renderer validates shard receipts for sharded Gates and stays a
+  no-op for unsharded ones.
 - `trip-planner` skips the synced `.github/scripts/package.json` and vendored
   `.github/scripts/node_modules/` entries so its lockfile-based dependency
   policy remains intact.
@@ -1206,7 +1215,7 @@ Other scoped consumer exceptions do not imply a custom Gate:
   with a repository-scoped package rule.
 
 Other files listed in the sync manifest continue to sync normally; these
-root-guidance exceptions are limited to the named repositories and files.
+exceptions are limited to the named repositories and files.
 
 Maint 68 implements these exceptions through each entry's typed manifest
 `skip_repos` rules. There is no separate hard-coded custom-Gate list in the
