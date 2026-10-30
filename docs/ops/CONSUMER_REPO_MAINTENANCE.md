@@ -123,6 +123,18 @@ Active runs are not duplicated, fresh post-seal test failures remain blocking,
 and workflow security approval holds require their own authorized review.
 Previously accepted unchanged-payload canary qualification is retained.
 
+A newest exact-head `pull_request` Gate that ended `cancelled` reached no
+verdict. Consumers whose Gate runs on `labeled` with a cancel-in-progress
+concurrency group cancel that run when the seal's own Gate rerun takes the
+group, often before its resolver starts, so its freshness can never be proven.
+Maint 71 requests a full rerun of that run and prints
+`seal: <repo>#<n> gate cancelled run=<id> attempt=<k>; drainable by rerun`. An
+older successful run is never accepted in its place. Any active exact-head Gate
+attempt, including a rerun of an older run ID, is awaited instead, because a new
+rerun would cancel it. At `CANCELLED_GATE_MAX_ATTEMPT` (3) the request stops and
+prints `cancelled Gate rerun exhausted (<k>/3); drainable=0`. Only a new head
+event or the owner can clear it after that.
+
 Gate summaries that read `GITHUB_EVENT_PATH` must refresh that file from the
 identity-checked `resolve-pr` snapshot in the **same `run` action** that invokes
 `gate_summary.py`. The runner restores the original event between actions, so a
@@ -3635,6 +3647,11 @@ identity-matching evidence rows. A promotion already active/completed, disabled
 mutation, or exhausted retries has zero remaining drainable work in that run.
 Completed promotion prints `promote: drained; canaries green <n>/<m>; drainable 0`.
 Missing evidence prints `drainable UNKNOWN (unmeasurable)` rather than a measured zero.
+A held promotion also prints `missing <k> (drainable <j>): <repo>=<status> ...`
+for each canary without evidence. A canary counts as drainable only when its
+report row shows a Gate run or rerun in flight (`drainable-by-rerun`,
+`awaiting-gate`, or `checks_pending` as `awaiting-checks`). Otherwise it prints
+`no-drain` with the Gate request's reason, or only the row's status.
 A producer success alone never supplies these quantities or authorizes promotion.
 
 Delivery-base refresh replays the same immutable promotion evidence through the
