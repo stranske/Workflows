@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import re
+import shutil
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -42,6 +44,7 @@ def test_selects_only_script_files_and_the_coverage_guard() -> None:
     assert subset.select_copy_sources(manifest) == [
         ".github/scripts/a.js",
         ".github/scripts/b.py",
+        ".github/scripts/package.json",
         ".github/workflows/maint-coverage-guard.yml",
     ]
 
@@ -50,6 +53,7 @@ def test_selection_honours_repo_scoping_and_delivery_mode() -> None:
     manifest = {
         "scripts": [
             _entry(".github/scripts/skipped.js", skip_repos=[WIT]),
+            _entry(".github/scripts/mapped.js", skip_repos=[{"repo": WIT, "reason": "custom"}]),
             _entry(".github/scripts/elsewhere.js", include_repos=["stranske/Other"]),
             _entry(".github/scripts/here.js", include_repos=[WIT]),
             _entry(".github/scripts/seed.js", delivery="create_only"),
@@ -168,7 +172,64 @@ def test_real_manifest_sources_all_exist(manifest: dict) -> None:
     sources = subset.select_copy_sources(manifest)
 
     assert sources, "the real manifest must select hub scripts"
-    assert [s for s in sources if not (REPO_ROOT / s).is_file()] == []
+    assert [
+        s
+        for s, tree in subset._select_copy_entries(manifest, WIT)
+        if not (REPO_ROOT / ("templates/consumer-repo" if tree == "template" else "") / s).is_file()
+    ] == []
+
+
+@pytest.mark.parametrize("section", ["scripts", "workflows"])
+@pytest.mark.parametrize("source_tree", [None, "root", "template"])
+def test_apply_honours_source_tree(tmp_path: Path, section: str, source_tree: str | None) -> None:
+    source = (
+        ".github/scripts/a.js"
+        if section == "scripts"
+        else ".github/workflows/maint-coverage-guard.yml"
+    )
+    src, dst = tmp_path / "src", tmp_path / "dst"
+    for prefix, content in [("", "root"), ("templates/consumer-repo", "template")]:
+        path = src / prefix / source
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(content)
+    entry = _entry(source, **({"source_tree": source_tree} if source_tree else {}))
+
+    result = subset.apply_subset({section: [entry]}, src, dst)
+
+    expected = source_tree or ("root" if section == "scripts" else "template")
+    assert result.ok
+    assert (dst / source).read_text() == expected
+
+
+def test_template_source_never_falls_back_to_root(tmp_path: Path) -> None:
+    source = ".github/workflows/maint-coverage-guard.yml"
+    path = tmp_path / "src" / source
+    path.parent.mkdir(parents=True)
+    path.write_text("wrong root workflow")
+    result = subset.apply_subset(
+        {"workflows": [_entry(source)]}, tmp_path / "src", tmp_path / "dst"
+    )
+    assert result.missing_sources == [source]
+    assert not (tmp_path / "dst" / source).exists()
+
+
+def test_real_manifest_delivers_loadable_keepalive_graph(manifest: dict, tmp_path: Path) -> None:
+    node = shutil.which("node")
+    assert node, "Node is required to validate the delivered runtime dependency graph"
+    result = subset.apply_subset(manifest, REPO_ROOT, tmp_path)
+    assert result.ok
+    assert (tmp_path / ".github/scripts/rate_limit_receipt.json").is_file()
+    subprocess.run(
+        [node, "-e", "require('./.github/scripts/keepalive_loop.js')"],
+        cwd=tmp_path,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    guard = ".github/workflows/maint-coverage-guard.yml"
+    assert (tmp_path / guard).read_bytes() == (
+        REPO_ROOT / "templates/consumer-repo" / guard
+    ).read_bytes()
 
 
 def test_real_manifest_delivers_every_script_the_gate_hub_requires(manifest: dict) -> None:
@@ -200,7 +261,7 @@ def test_maint_69_runs_the_helper_and_sees_untracked_files() -> None:
     for needed in (
         ".github/sync-manifest.yml",
         ".github/scripts",
-        ".github/workflows/maint-coverage-guard.yml",
+        "templates/consumer-repo/.github/workflows/maint-coverage-guard.yml",
         "scripts/sync_integration_manifest_subset.py",
     ):
         assert needed in sparse

@@ -15,7 +15,7 @@ with a shell syntax error.
 This helper applies the SAME manifest entries to WIT that maint-68 applies to a
 consumer, restricted to the surfaces WIT can take without a template of its own:
 
-* ``source`` entries under ``.github/scripts/`` (script files only), and
+* ``source`` entries under ``.github/scripts/`` (scripts and JSON dependencies), and
 * the ``maint-coverage-guard.yml`` workflow (an intentional full-workflow sync), and
 * ``removals`` that name a file under ``.github/workflows/`` or ``.github/scripts/``.
 
@@ -36,7 +36,7 @@ import yaml
 
 DEFAULT_REPO = "stranske/Workflows-Integration-Tests"
 SCRIPT_PREFIX = ".github/scripts/"
-SCRIPT_SUFFIXES = frozenset({".js", ".cjs", ".mjs", ".py"})
+SCRIPT_SUFFIXES = frozenset({".js", ".cjs", ".mjs", ".py", ".json"})
 EXTRA_WORKFLOW_SOURCES = frozenset({".github/workflows/maint-coverage-guard.yml"})
 REMOVAL_PREFIXES = (".github/workflows/", ".github/scripts/")
 
@@ -61,9 +61,9 @@ def _is_safe_relative(path: str) -> bool:
     return bool(path) and not posix.is_absolute() and ".." not in posix.parts
 
 
-def select_copy_sources(manifest: dict[str, Any], repo: str = DEFAULT_REPO) -> list[str]:
-    """Manifest ``source`` paths this helper delivers to ``repo``, in manifest order."""
-    selected: list[str] = []
+def _select_copy_entries(manifest: dict[str, Any], repo: str) -> list[tuple[str, str]]:
+    """Select paths together with their declared source tree, without fallback."""
+    selected: list[tuple[str, str]] = []
     seen: set[str] = set()
     for section in ("scripts", "workflows"):
         for entry in manifest.get(section) or []:
@@ -72,7 +72,11 @@ def select_copy_sources(manifest: dict[str, Any], repo: str = DEFAULT_REPO) -> l
                 continue
             if entry.get("is_directory") or entry.get("delivery", "copy") != "copy":
                 continue
-            if repo in (entry.get("skip_repos") or []):
+            skipped = {
+                item.get("repo") if isinstance(item, dict) else item
+                for item in entry.get("skip_repos") or []
+            }
+            if repo in skipped:
                 continue
             include = entry.get("include_repos") or []
             if include and repo not in include:
@@ -84,9 +88,19 @@ def select_copy_sources(manifest: dict[str, Any], repo: str = DEFAULT_REPO) -> l
                 and "node_modules" not in posix.parts
             )
             if is_script or source in EXTRA_WORKFLOW_SOURCES:
+                source_tree = entry.get(
+                    "source_tree", "root" if section == "scripts" else "template"
+                )
+                if source_tree not in {"root", "template"}:
+                    raise ValueError(f"unsupported source_tree {source_tree!r} for {source}")
                 seen.add(source)
-                selected.append(source)
+                selected.append((source, source_tree))
     return selected
+
+
+def select_copy_sources(manifest: dict[str, Any], repo: str = DEFAULT_REPO) -> list[str]:
+    """Manifest ``source`` paths this helper delivers to ``repo``, in manifest order."""
+    return [source for source, _tree in _select_copy_entries(manifest, repo)]
 
 
 def select_removals(manifest: dict[str, Any]) -> list[str]:
@@ -109,8 +123,9 @@ def apply_subset(
 ) -> SyncResult:
     """Copy selected sources into ``target_root`` and delete retired targets."""
     result = SyncResult()
-    for source in select_copy_sources(manifest, repo):
-        src = source_root / source
+    for source, source_tree in _select_copy_entries(manifest, repo):
+        root = source_root if source_tree == "root" else source_root / "templates/consumer-repo"
+        src = root / source
         if not src.is_file():
             result.missing_sources.append(source)
             continue
