@@ -24,7 +24,12 @@ package-dir = {"" = "src"}
 where = ["src"]
 
 [tool.coverage.run]
-omit = ["tests/*"]
+omit = [
+    "tests/*",
+    "tools/*",
+    "scripts/*",
+    ".github/scripts/*",
+]
 
 [tool.pytest.ini_options]
 addopts = "-ra"

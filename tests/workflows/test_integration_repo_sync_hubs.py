@@ -58,9 +58,12 @@ def test_integration_repo_sync_aligns_dev_tool_pins() -> None:
     commit_script = _step_run(workflow, "Commit and push changes")
 
     assert "scripts/sync_dev_dependencies.py" in sparse_checkout
+    assert "scripts/sync_integration_coverage_omit.py" in sparse_checkout
     assert 'python "../workflows/scripts/sync_dev_dependencies.py"' in apply_script
     assert '--pin-file ".github/workflows/autofix-versions.env"' in apply_script
     assert '--pyproject "pyproject.toml"' in apply_script
+    assert 'python "../workflows/scripts/sync_integration_coverage_omit.py"' in apply_script
+    assert '--template "../workflows/templates/integration-repo/pyproject.toml"' in apply_script
     assert "git add .github/workflows/ pyproject.toml requirements.lock scripts/" in commit_script
     assert commit_script.count("if [ -f .pre-commit-config.yaml ]; then") == 1
     assert commit_script.count("git add .pre-commit-config.yaml") == 1
