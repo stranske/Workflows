@@ -133,7 +133,7 @@ for(const surface of autopilotSurfaces)test(`${surface}: actual ordinary context
   await run(row,inertRequire,{github,core,env:{WORKFLOWS_SCRIPTS_PATH:'/inert/trusted'},context:{runId:900,repo:{owner:'stranske',repo:'example'},eventName:'workflow_dispatch',payload:{inputs:{issue_number:"9'); throw Error('never execute'); //"}}}});
   assert.equal(calls.length,1);assert.equal(calls[0][1].issue_number,9);assert.equal(core.outputs.should_continue,'true');results.push(core.outputs);
  }
- assert.deepEqual(results[0],results[1]);assert.deepEqual(results[0],{issue_number:9,issue_title:'Native ordinary issue',issue_state:'open',should_continue:'true',has_format:'false',has_optimize:'false',has_optimizer_output:'false',has_apply:'false',has_agent:'true',has_autofix:'false',has_automerge:'false',has_verify:'false',linked_pr:''});
+ assert.deepEqual(results[0],results[1]);assert.deepEqual(results[0],{issue_number:9,issue_title:'Native ordinary issue',issue_state:'open',should_continue:'true',has_format:'false',has_optimize:'false',has_optimizer_output:'false',has_apply:'false',has_agent:'true',has_autofix:'false',has_automerge:'false',has_verify:'false',verify_handoff_bound:'false',linked_pr:''});
 });
 for(const surface of autopilotSurfaces)test(`${surface}: ordinary pause/human guards and format wakeup remain intact`,async()=>{
  const source=read(surface);assert.match(script(step(source,'Determine context')),/labels\.includes\('needs-human'\)/);assert.match(script(step(source,'Determine context')),/labels\.includes\('agents:auto-pilot-pause'\)/);
