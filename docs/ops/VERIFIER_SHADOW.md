@@ -35,11 +35,11 @@ came from the corpus trials.
    `corpus_candidates: <provider:model,...>` and `corpus_adjudicator: session` (the default). Only the
    production pair and the named candidates judge, about $1-2 for 18 cases for one or two candidates.
 3. Rate the records in a Claude Code session with the `verifier-candidate-trial` skill:
-   `python -m tools.verifier_shadow_corpus prompts` writes one blind prompt per case (evaluators
+   `python -m tools.verifier_shadow_corpus prompts <dir>/verifier-shadow-corpus-*/corpus-*.json --out <dir>/prompts` writes one blind prompt per case (evaluators
    appear only as A, B, C...), a fresh subagent answers each prompt alone, and
-   `python -m tools.verifier_shadow_corpus apply` validates every answer exactly as an API answer is
+   `python -m tools.verifier_shadow_corpus apply <dir>/verifier-shadow-corpus-*/corpus-*.json --answers <dir>/answers --adjudicator <model that wrote the answers>` validates every answer exactly as an API answer is
    validated (quoted evidence checked, unsupported coverage statuses rejected).
-4. `python -m tools.verifier_shadow_corpus report` grades the candidates against the production pair.
+4. `python -m tools.verifier_shadow_corpus report <dir>/verifier-shadow-corpus-*/corpus-*.json --markdown <dir>/report.md --json <dir>/report.json` grades the candidates against the production pair.
 
 `corpus_adjudicator: api` keeps the paid adjudicator path (about $0.45 a case) for when a session is
 not wanted.
