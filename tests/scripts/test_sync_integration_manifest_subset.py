@@ -278,7 +278,11 @@ def test_maint_69_runs_the_helper_and_sees_untracked_files() -> None:
     # The API-client install tree must stay free of .github/scripts/package.json: its
     # file:node_modules dependency made `Setup API client` fail on every run after #4341.
     assert ".github/scripts" not in sparse.split()
-    assert steps["Setup API client"]["with"]["install_dir"] == "workflows/.github/scripts"
+    # #4345 anchors it to the workspace: a relative path is resolved twice after `cd`.
+    assert (
+        steps["Setup API client"]["with"]["install_dir"]
+        == "${{ github.workspace }}/workflows/.github/scripts"
+    )
     assert "schedule" in workflow[True]  # PyYAML parses the bare `on:` key as boolean True
 
 
