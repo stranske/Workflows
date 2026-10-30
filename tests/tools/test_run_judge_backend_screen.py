@@ -770,6 +770,9 @@ def test_contributor_tier_refusal_does_not_invoke_the_contributor_backend(monkey
             return super().invoke(prompt)
 
     monkeypatch.setattr(screen, "MuseApiJudge", TrackingMuse)
+    # Visibility is answered here so the refusal under test is the tampered prompt input, not a
+    # GitHub lookup that CI's token cannot make.
+    monkeypatch.setattr(screen, "repo_visibility", lambda repo: "public")
     corpus_path = tmp_path / "corpus.json"
     corpus_path.write_text(json.dumps(corpus))
     output = tmp_path / "screen.json"
