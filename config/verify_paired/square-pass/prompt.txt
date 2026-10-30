@@ -1,0 +1,137 @@
+You are reviewing a **merged** pull request to evaluate whether the code changes meet the documented acceptance criteria.
+
+**IMPORTANT: This verification runs AFTER the PR has been merged.** Therefore:
+- Do NOT evaluate CI status, workflow runs, or pending checks - these are irrelevant post-merge
+- Do NOT raise concerns about CI workflows being "in progress" or "queued"
+- Focus ONLY on the actual code changes and whether they fulfill the requirements
+
+PR Context:
+Reviewed closed obligations: [{"id": "residual-all-input", "joint_groups": ["residual-all-input"], "predicate": "provenance", "raw_dependencies": ["context", "diff"], "requires": [], "residual": true}]
+
+-- semantic-span context --
+# Verifier context
+
+## Context source coverage
+
+```json
+{"schema": "verifier-context-source-coverage/v1", "stage": "generated-context", "changed_code_sources": [{"source": "square.py", "status": "included", "included_chars": 324, "total_chars": 324}], "acceptance_sources": [{"source": "synthetic-public-spec", "status": "included", "included_chars": 195, "total_chars": 195}], "acceptance_evidence_sources": [], "acceptance_source_discovery": {"required": false, "status": "included"}, "full_diff_artifact": {"source": "verifier-pr-diff.patch", "status": "included", "chars": 324}}
+```
+
+## CI Information
+No execution or CI result is supplied or claimed; review the complete source below.
+
+## Plan sources (scope, tasks, acceptance)
+#### Acceptance criteria
+- Add square(value: int) returning value multiplied by itself for every Python integer, including negative values.
+- Include unit assertions for zero, a negative integer, and a positive integer.
+
+## PR Diff Summary
+- Files changed: 1
+
+### File changes
+- square.py (+10/-0)
+
+## PR Diff (full)
+
+```diff
+diff --git a/square.py b/square.py
+new file mode 100644
+--- /dev/null
++++ b/square.py
+@@ -0,0 +1,9 @@
++def square(value: int) -> int:
++    """Return the mathematical square of an integer."""
++    return value * value
++
++
++def test_square():
++    assert square(0) == 0
++    assert square(-3) == 9
++    assert square(4) == 16
+```
+
+-- semantic-span diff --
+diff --git a/square.py b/square.py
+new file mode 100644
+--- /dev/null
++++ b/square.py
+@@ -0,0 +1,9 @@
++def square(value: int) -> int:
++    """Return the mathematical square of an integer."""
++    return value * value
++
++
++def test_square():
++    assert square(0) == 0
++    assert square(-3) == 9
++    assert square(4) == 16
+
+
+PR Diff (summary or full):
+Complete changed-code dependencies are included in the reviewed spans above.
+
+## Evaluation Focus
+
+Evaluate the **code changes** against the acceptance criteria. Explicitly assess:
+
+1. **correctness** - Does the implementation behave as intended based on the code?
+2. **completeness** - Are all requirements addressed in the code changes?
+3. **quality** - Code readability, maintainability, and style
+4. **testing** - Are tests present and adequate for the changes? Do they cover the acceptance criteria?
+5. **risks** - Security, performance, or compatibility concerns in the code
+
+Treat an artifact explicitly required by the acceptance criteria (for example,
+a failing and restored passing test transcript) as a deliverable. If that
+artifact is absent from a **completely inspected** supplied PR evidence record,
+report a completeness gap even when the implementation and ordinary tests are
+correct. The verifier context labels PR-comment and referenced-workflow-artifact
+retrieval as `present`, `absent`, or `unavailable`. `present` means source
+material was loaded, not that it satisfies the criterion. `absent` may support
+an absence finding only for a complete lookup. `unavailable` means retrieval or
+a safety bound prevented complete inspection: do not call the required artifact
+absent, and do not return PASS while that required deliverable remains
+unverifiable. Distinguish explicit deliverables from optional extra test
+coverage.
+
+## What to Ignore
+
+- CI workflow status (running, queued, success, failure) - verification is post-merge
+- Any concerns about "CI not yet verified" or "waiting for checks"
+- Unrelated log output or workflow artifacts; inspect them when the acceptance
+  criteria explicitly require them as a deliverable
+
+## What to Evaluate
+
+- The actual code diff and what it implements
+- Whether test files added/modified adequately verify the acceptance criteria
+- Whether the implementation logic matches the stated requirements
+- Code patterns, error handling, and edge cases
+
+## Verdict Guidelines
+
+- **PASS**: correctness and completeness are satisfied.  Testing gaps alone
+  should NOT prevent a PASS if the implementation is functionally correct,
+  unless a test or evidence artifact is itself an explicit acceptance deliverable.
+- **CONCERNS**: significant correctness or completeness issues exist, OR the
+  implementation introduces meaningful risks.
+- **UNVERIFIABLE_INPUT**: the supplied review input is incomplete or unavailable. List
+  `files_not_reviewed`. Preserve real findings as CONCERNS or FAIL even when
+  some input could not be reviewed.
+- **FAIL**: the changes do not address the acceptance criteria or introduce
+  breaking problems.
+
+Respond in JSON with:
+{
+  "verdict": "PASS | CONCERNS | FAIL | UNVERIFIABLE_INPUT",
+  "confidence": 0.0-1.0,
+  "scores": {
+    "correctness": 0-10,
+    "completeness": 0-10,
+    "quality": 0-10,
+    "testing": 0-10,
+    "risks": 0-10
+  },
+  "concerns": ["..."],
+  "files_not_reviewed": ["path/of/unreviewed/file"],
+  "summary": "concise report focusing on code quality and acceptance criteria fulfillment"
+}

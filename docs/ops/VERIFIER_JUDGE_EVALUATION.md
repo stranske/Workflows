@@ -57,7 +57,7 @@ Safeguards built in (each pinned by a test):
 
 ```bash
 # incumbent baseline (existing Codex screen), then candidates on the same cases
-python -m tools.run_model_eval_cli_screen --models gpt-5.6-terra,gpt-6-luna --output codex-screen.json
+python -m tools.run_model_eval_cli_screen --models gpt-6.1-sol,gpt-6-luna --output codex-screen.json
 MUSE_API_KEY=... CURSOR_API_KEY=... python -m tools.run_judge_backend_screen \
   --judges claude-cli,muse-cli,cursor-cli,agy-cli,muse-api \
   --muse-api-price-in <USD/M> --muse-api-price-out <USD/M> --output judge-screen.json

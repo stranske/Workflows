@@ -37,6 +37,10 @@ on:
         description: 'Preview changes without creating PRs'
         type: boolean
         default: false
+      cleanup_branches:
+        description: 'Allow obsolete and post-merge sync branch deletion; false is preserved through promotion and recovery'
+        type: boolean
+        default: true
       force:
         description: 'Force sync even if no changes detected'
         type: boolean
@@ -57,6 +61,10 @@ on:
         default: auto
       scope_base_sha:
         description: 'Exact source-range base commit (required for source-delta canary)'
+        type: string
+        required: false
+      expected_plan_id:
+        description: 'Optional immutable compiled plan ID constraint for scoped recovery'
         type: string
         required: false
       refresh_key:
@@ -289,55 +297,6 @@ jobs:
       - name: Install dependencies
         run: pip install pyyaml
 
-      - name: Checkout delivery guard at workflow ref
-        if: (inputs.phase || 'canary') == 'canary' && inputs.dry_run != true
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ github.sha }}
-          path: .delivery-tools
-          persist-credentials: false
-          sparse-checkout: |
-            .github/scripts
-            scripts
-
-      - name: Check content refresh guard
-        id: refresh
-        if: (inputs.phase || 'canary') == 'canary' && inputs.dry_run != true
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
-        env:
-          SOURCE_COMMIT: ${{ steps.scope_request.outputs.source_commit }}
-          REFRESH_KEY: ${{ inputs.refresh_key || '' }}
-          FORCE: ${{ inputs.force || false }}
-        with:
-          github-token: ${{ secrets.OWNER_PR_PAT }}
-          script: |
-            if (process.env.FORCE === 'true') {
-              const line = 'refresh: forced (digest guard bypassed)';
-              core.notice(line);
-              await core.summary.addRaw(`${line}\n`).write();
-              core.setOutput('allowed', 'true');
-              return;
-            }
-            const { readCanaryRefreshState } = require('./.delivery-tools/.github/scripts/maint71_merge_sync_prs');
-            const config = require('./config/consumer_sync_canaries.json');
-            const state = await readCanaryRefreshState({
-              withRetry: async fn => fn(github), context,
-              expectedCanaries: config.canaries.map(row => row.repo),
-              sourceSha: process.env.SOURCE_COMMIT, driftKey: process.env.REFRESH_KEY,
-              ignoreRunId: context.runId,
-            });
-            const line = state.queue_reason ? `refresh: queued (${state.queue_reason})`
-              : state.producer_succeeded && state.delivery_digest
-                ? `refresh: skipped (delivery digest ${state.delivery_digest} unchanged since ${state.unchanged_since || state.sha})`
-                : `refresh: ${state.eligible ? 'allowed' : 'skipped'} (${state.state})`;
-            core.notice(line);
-            await core.summary.addRaw(`${line}\n`).write();
-            core.setOutput('allowed', String(state.eligible));
-
-      - name: Authorize canary payload mutation
-        if: steps.refresh.outputs.allowed == 'true'
-        run: echo "Rendered delivery payload may advance"
-
       - name: Compile typed consumer sync plan
         run: |
           python scripts/sync_manifest_compiler.py \
@@ -377,6 +336,72 @@ jobs:
             --output-json manifest.json \
             --scope-evidence-json sync-plan-scope.json \
             --github-output "$GITHUB_OUTPUT"
+
+      - name: Checkout delivery guard at workflow ref
+        if: (inputs.phase || 'canary') == 'canary' && inputs.dry_run != true
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          path: .delivery-tools
+          persist-credentials: false
+          sparse-checkout: |
+            .github/scripts
+            scripts
+
+      - name: Check content refresh guard
+        id: refresh
+        if: (inputs.phase || 'canary') == 'canary' && inputs.dry_run != true
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        env:
+          SOURCE_COMMIT: ${{ steps.scope_request.outputs.source_commit }}
+          EXPECTED_PLAN_ID: ${{ inputs.expected_plan_id || '' }}
+          PLAN_ID: ${{ steps.manifest.outputs.plan_id }}
+          PLAN_SCOPE: ${{ steps.manifest.outputs.plan_scope }}
+          SCOPE_BASE_SHA: ${{ steps.manifest.outputs.scope_base_sha }}
+          REFRESH_KEY: ${{ inputs.refresh_key || '' }}
+          FORCE: ${{ inputs.force || false }}
+        with:
+          github-token: ${{ secrets.OWNER_PR_PAT }}
+          script: |
+            if (process.env.EXPECTED_PLAN_ID && (!/^sha256:[a-f0-9]{64}$/.test(process.env.EXPECTED_PLAN_ID)
+                || process.env.EXPECTED_PLAN_ID !== process.env.PLAN_ID)) {
+              throw new Error('Requested immutable recovery plan differs from the actual compiled plan');
+            }
+            if (process.env.FORCE === 'true') {
+              const line = 'refresh: forced (digest guard bypassed)';
+              core.notice(line);
+              await core.summary.addRaw(`${line}\n`).write();
+              core.setOutput('allowed', 'true');
+              return;
+            }
+            const { readCanaryRefreshState, reportCanaryRefreshDiagnostics } = require('./.delivery-tools/.github/scripts/maint71_merge_sync_prs');
+            const { createTokenAwareRetry } = require('./.delivery-tools/.github/scripts/github-api-with-retry');
+            const { withRetry } = await createTokenAwareRetry({
+              github, core, env: {}, tokenRegistry: { isInitialized: () => false },
+              task: 'maint68-scoped-refresh',
+            });
+            const config = require('./config/consumer_sync_canaries.json');
+            const state = await readCanaryRefreshState({
+              withRetry, context,
+              expectedCanaries: config.canaries.map(row => row.repo),
+              sourceSha: process.env.SOURCE_COMMIT, driftKey: process.env.REFRESH_KEY,
+              planId: process.env.PLAN_ID, planScope: process.env.PLAN_SCOPE,
+              scopeBaseSha: process.env.SCOPE_BASE_SHA,
+              plan: JSON.parse(require('fs').readFileSync('manifest.json', 'utf8')),
+              ignoreRunId: context.runId, ignoreRunAttempt: Number(process.env.GITHUB_RUN_ATTEMPT),
+            });
+            await reportCanaryRefreshDiagnostics({ core, state });
+            const line = state.queue_reason ? `refresh: queued (${state.queue_reason})`
+              : state.producer_succeeded && state.delivery_digest
+                ? `refresh: skipped (delivery digest ${state.delivery_digest} unchanged since ${state.unchanged_since || state.sha})`
+                : `refresh: ${state.eligible ? 'allowed' : 'skipped'} (${state.state})`;
+            core.notice(line);
+            await core.summary.addRaw(`${line}\n`).write();
+            core.setOutput('allowed', String(state.eligible));
+
+      - name: Authorize canary payload mutation
+        if: steps.refresh.outputs.allowed == 'true'
+        run: echo "Rendered delivery payload may advance"
 
       - name: Build phase-gated repo matrix
         id: repos
@@ -2094,6 +2119,7 @@ jobs:
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         env:
           SYNC_PHASE: ${{ needs.prepare.outputs.phase }}
+          CLEANUP_BRANCHES_INPUT: ${{ inputs.cleanup_branches }}
           PLAN_ID: ${{ needs.prepare.outputs.plan_id }}
           PLAN_SCOPE: ${{ needs.prepare.outputs.plan_scope }}
           SCOPE_BASE_SHA: ${{ needs.prepare.outputs.scope_base_sha }}
@@ -2126,7 +2152,7 @@ jobs:
               active_sync_hash: activeSyncHash,
               auto_merge: 'true',
               dry_run: 'false',
-              cleanup_branches: 'true',
+              cleanup_branches: process.env.CLEANUP_BRANCHES_INPUT || 'true',
               immutable_handoff_json: JSON.stringify({
                 plan_id: process.env.PLAN_ID,
                 plan_scope: process.env.PLAN_SCOPE,

@@ -10,6 +10,33 @@ on:
   schedule:
     - cron: "20 6 * * *"
   workflow_dispatch:
+    inputs:
+      corpus:
+        description: >-
+          Instead of the daily report, run every judge (production pair and all candidates) on the
+          labelled verifier corpus and adjudicate it (tools/verifier_shadow_corpus.py)
+        type: boolean
+        default: false
+      corpus_candidates:
+        description: >-
+          With corpus: comma separated provider:model candidates to trial with the production pair
+          (empty runs every candidate in config/verifier_shadow.json)
+        type: string
+        default: ""
+      corpus_adjudicator:
+        description: >-
+          With corpus: "session" judges only and leaves the ratings to a Claude Code session (the
+          verifier-candidate-trial skill, no API spend); "api" rates each case with the configured
+          adjudicator through the Anthropic API
+        type: choice
+        options: [session, api]
+        default: session
+      corpus_fresh:
+        description: >-
+          With corpus: start from nothing instead of resuming each shard's newest checkpoint (use
+          after the candidate list changes)
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -17,30 +44,47 @@ permissions:
   actions: read
 
 concurrency:
-  group: ${{ github.workflow }}
+  # a corpus trial runs beside the daily report, never queued behind it or in front of it
+  group: ${{ github.workflow }}-${{ inputs.corpus && 'corpus' || 'daily' }}
   cancel-in-progress: false
 
 jobs:
   report:
+    if: ${{ !inputs.corpus }}
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 75
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.14"
+      - name: Install the verifier's Python requirements (same file production uses)
+        run: |
+          python -m pip install --disable-pip-version-check --upgrade pip
+          pip install --disable-pip-version-check -r tools/requirements-llm.txt
       - name: Fetch the previous ledger
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          rid="$(gh run list --workflow maint-89-verifier-shadow-report.yml --status success --limit 1 \
-            --json databaseId --jq '.[0].databaseId // empty' || true)"
-          if [ -n "$rid" ]; then
-            gh run download "$rid" -n verifier-shadow-ledger -D prior || true
-          fi
+          # The newest run that saved a VALID ledger, whatever its conclusion: a run whose report or
+          # issue step failed still uploads the paid judgments it checkpointed. This run is tried
+          # first (a re-run attempt keeps its run id and its earlier attempt's artifact), then every
+          # run back through the 90-day artifact retention, so a streak of runs that failed before
+          # saving a ledger cannot reset the baseline to empty.
+          runs="$GITHUB_RUN_ID $(gh run list --workflow maint-89-verifier-shadow-report.yml \
+            --limit 200 --json databaseId --jq '.[].databaseId' || true)"
+          for rid in $runs; do
+            if gh run download "$rid" -n verifier-shadow-ledger -D prior 2>/dev/null \
+                && python -c 'import json,sys; assert isinstance(json.load(open(sys.argv[1])), list)' \
+                  prior/ledger.json 2>/dev/null; then
+              echo "baseline ledger from run $rid"
+              break
+            fi
+            rm -rf prior
+          done
           if [ -f prior/ledger.json ]; then cp prior/ledger.json ledger.json; else echo '[]' > ledger.json; fi
       - name: Collect shadow records and evaluate the criteria
         env:
@@ -51,6 +95,57 @@ jobs:
           repos="stranske/Workflows,$(python scripts/list_registered_consumer_repos.py --separator ',')"
           python -m tools.verifier_shadow_report --ledger ledger.json --repos "$repos" \
             --markdown report.md --json report.json
+          cat report.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Install the Cursor CLI
+        env:
+          CURSOR_CLI_VERSION: 2026.10.16-e3cb207
+        run: |
+          set -euo pipefail
+          case "$(uname -m)" in
+            x86_64|amd64) arch=x64 ;;
+            aarch64|arm64) arch=arm64 ;;
+            *) echo "::error::Unsupported Cursor architecture"; exit 1 ;;
+          esac
+          cli_dir="$RUNNER_TEMP/cursor"
+          mkdir -p "$cli_dir"
+          curl -fsSL "https://downloads.cursor.com/lab/${CURSOR_CLI_VERSION}/linux/${arch}/agent-cli-package.tar.gz" \
+            | tar --strip-components=1 -xzf - -C "$cli_dir"
+          echo "$cli_dir" >> "$GITHUB_PATH"
+      - name: Judge the external candidates (Muse API, Cursor CLI) from the saved verifier inputs
+        # Bounded and checkpointed: the ledger is rewritten after every judged run and no new run
+        # starts unless a full judge timeout still fits before --budget-seconds, so a slow backend
+        # can neither lose completed paid judgments nor hold back the report below.
+        continue-on-error: true
+        timeout-minutes: 30
+        env:
+          GH_TOKEN: ${{ secrets.OWNER_PR_PAT }}
+          MUSE_API_KEY: ${{ secrets.MUSE_API_KEY }}
+          CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
+        run: |
+          set -euo pipefail
+          repos="stranske/Workflows,$(python scripts/list_registered_consumer_repos.py --separator ',')"
+          python -m tools.verifier_shadow_external --ledger ledger.json --repos "$repos" \
+            --budget-seconds 1620
+      - name: Adjudicate every evaluation of each settled run (blind, evidence-bound)
+        # A reasoning model that is neither a candidate nor a production judge rates every
+        # evaluation of a run -- production and candidate alike, shuffled and relabelled -- on
+        # accuracy (with quoted evidence), coverage of the tasks and acceptance criteria, and
+        # usefulness. Bounded and checkpointed like the step above; a failed run is retried once.
+        continue-on-error: true
+        timeout-minutes: 25
+        env:
+          GH_TOKEN: ${{ secrets.OWNER_PR_PAT }}
+          CLAUDE_API_STRANSKE: ${{ secrets.CLAUDE_API_STRANSKE }}
+        run: |
+          set -euo pipefail
+          repos="stranske/Workflows,$(python scripts/list_registered_consumer_repos.py --separator ',')"
+          python -m tools.verifier_shadow_adjudicate --ledger ledger.json --repos "$repos" \
+            --budget-seconds 1380
+      - name: Re-evaluate the criteria with the external verdicts and adjudications
+        if: ${{ !cancelled() }}
+        run: |
+          set -euo pipefail
+          python -m tools.verifier_shadow_report --ledger ledger.json --markdown report.md --json report.json
           cat report.md >> "$GITHUB_STEP_SUMMARY"
       - name: Update the single report issue
         env:
@@ -67,10 +162,136 @@ jobs:
           else
             gh issue create --title "$title" --body "$body"
           fi
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        # also after a failed later step: the ledger is written atomically after every paid judgment
+        if: ${{ !cancelled() }}
         with:
           name: verifier-shadow-ledger
+          overwrite: true  # a re-run attempt replaces its earlier attempt's ledger
           path: |
             ledger.json
             report.json
+          retention-days: 90
+
+  corpus:
+    # Every judge on the same recorded production inputs at once, rated by the same adjudicator.
+    # Six shards in parallel; each checkpoints after every case and stops starting new ones when a
+    # whole case no longer fits its budget, so the records it paid for are always uploaded.
+    if: ${{ inputs.corpus }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 280
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3, 4, 5]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.14"
+      - name: Install the verifier's Python requirements (same file production uses)
+        run: |
+          python -m pip install --disable-pip-version-check --upgrade pip
+          pip install --disable-pip-version-check -r tools/requirements-llm.txt
+      - name: Install the Cursor CLI
+        env:
+          CURSOR_CLI_VERSION: 2026.10.16-e3cb207
+        run: |
+          set -euo pipefail
+          case "$(uname -m)" in
+            x86_64|amd64) arch=x64 ;;
+            aarch64|arm64) arch=arm64 ;;
+            *) echo "::error::Unsupported Cursor architecture"; exit 1 ;;
+          esac
+          cli_dir="$RUNNER_TEMP/cursor"
+          mkdir -p "$cli_dir"
+          curl -fsSL "https://downloads.cursor.com/lab/${CURSOR_CLI_VERSION}/linux/${arch}/agent-cli-package.tar.gz" \
+            | tar --strip-components=1 -xzf - -C "$cli_dir"
+          echo "$cli_dir" >> "$GITHUB_PATH"
+      - name: Restore this shard's newest checkpoint
+        # A shard that ran out of budget, or whose adjudications failed, resumes where it stopped
+        # instead of paying for the same judgments again. This run is tried first (a re-run attempt
+        # keeps its run id), then earlier dispatches back through the 90-day retention.
+        if: ${{ !inputs.corpus_fresh }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHARD: ${{ matrix.shard }}
+        run: |
+          set -euo pipefail
+          runs="$GITHUB_RUN_ID $(gh run list --workflow maint-89-verifier-shadow-report.yml \
+            --event workflow_dispatch --limit 100 --json databaseId --jq '.[].databaseId' || true)"
+          for rid in $runs; do
+            if gh run download "$rid" -n "verifier-shadow-corpus-$SHARD" -D prior 2>/dev/null \
+                && python -c 'import json,sys; assert isinstance(json.load(open(sys.argv[1])), list)' \
+                  "prior/corpus-$SHARD.json" 2>/dev/null; then
+              cp "prior/corpus-$SHARD.json" "corpus-$SHARD.json"
+              echo "shard $SHARD resumes from run $rid"
+              break
+            fi
+            rm -rf prior
+          done
+      - name: Judge and adjudicate this shard of the corpus
+        continue-on-error: true
+        timeout-minutes: 265
+        env:
+          GH_TOKEN: ${{ secrets.OWNER_PR_PAT }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          CLAUDE_API_STRANSKE: ${{ secrets.CLAUDE_API_STRANSKE }}
+          MUSE_API_KEY: ${{ secrets.MUSE_API_KEY }}
+          CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
+          CANDIDATES: ${{ inputs.corpus_candidates }}
+          ADJUDICATOR: ${{ inputs.corpus_adjudicator }}
+        run: |
+          set -euo pipefail
+          extra=()
+          if [ "$ADJUDICATOR" != "api" ]; then extra+=(--no-adjudicate); fi
+          python -m tools.verifier_shadow_corpus run --records "corpus-${{ matrix.shard }}.json" \
+            --shard ${{ matrix.shard }} --shards 6 --budget-seconds 15000 \
+            --candidates "$CANDIDATES" "${extra[@]}"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: ${{ !cancelled() }}
+        with:
+          name: verifier-shadow-corpus-${{ matrix.shard }}
+          overwrite: true
+          path: corpus-${{ matrix.shard }}.json
+          if-no-files-found: warn
+          retention-days: 90
+
+  corpus-report:
+    if: ${{ inputs.corpus && !cancelled() }}
+    needs: corpus
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.14"
+      - name: Install the verifier's Python requirements (same file production uses)
+        run: |
+          python -m pip install --disable-pip-version-check --upgrade pip
+          pip install --disable-pip-version-check -r tools/requirements-llm.txt
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: verifier-shadow-corpus-*
+          merge-multiple: true
+          path: corpus
+      - name: Merge the shards and report
+        run: |
+          set -euo pipefail
+          python -m tools.verifier_shadow_corpus report corpus/corpus-*.json \
+            --markdown corpus-report.md --json corpus-report.json
+          cat corpus-report.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: ${{ !cancelled() }}
+        with:
+          name: verifier-shadow-corpus-report
+          overwrite: true
+          path: |
+            corpus-report.md
+            corpus-report.json
           retention-days: 90

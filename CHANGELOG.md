@@ -6,6 +6,111 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.49.0](https://github.com/stranske/Workflows/compare/v1.48.0...v1.49.0) (2026-10-30)
+
+
+### Features
+
+* **verifier:** gpt-6.1-sol in production; daily shadow off; session-adjudicated trials ([#4342](https://github.com/stranske/Workflows/issues/4342)) ([bed203e](https://github.com/stranske/Workflows/commit/bed203e1c9c83b1669e077983d52dc776e9a22a4))
+
+
+### Bug Fixes
+
+* **integration-template:** omit synced tooling from coverage scope ([#4338](https://github.com/stranske/Workflows/issues/4338)) ([#4340](https://github.com/stranske/Workflows/issues/4340)) ([1421b73](https://github.com/stranske/Workflows/commit/1421b73faee5b29e13531a67b3afd831fce8eb8e))
+* **sync:** deliver manifest hub scripts and removals to Workflows-Integration-Tests ([#4341](https://github.com/stranske/Workflows/issues/4341)) ([13957f9](https://github.com/stranske/Workflows/commit/13957f9653ec8d5892612bfafec198738a0a1df0))
+
+## [1.48.0](https://github.com/stranske/Workflows/compare/v1.47.2...v1.48.0) (2026-10-30)
+
+
+### Features
+
+* **verifier-shadow:** finish Cursor, add Muse Wonder and a terra effort check ([#4335](https://github.com/stranske/Workflows/issues/4335)) ([c0019ca](https://github.com/stranske/Workflows/commit/c0019ca374dc071a196c4424324088dd4ff9f142))
+
+
+### Bug Fixes
+
+* **integration-template:** sparse-checkout the retry helper's sibling modules ([#4336](https://github.com/stranske/Workflows/issues/4336)) ([9004902](https://github.com/stranske/Workflows/commit/90049023f4f600fb0ccd6ceaefaf74ce80c25c15))
+
+## [1.47.2](https://github.com/stranske/Workflows/compare/v1.47.1...v1.47.2) (2026-10-29)
+
+
+### Bug Fixes
+
+* **verifier:** normalize typed summary transport ([#4333](https://github.com/stranske/Workflows/issues/4333)) ([2127a7d](https://github.com/stranske/Workflows/commit/2127a7d8a840f8b3cc877cc879fdbcbdc572aac9))
+
+## [1.47.1](https://github.com/stranske/Workflows/compare/v1.47.0...v1.47.1) (2026-10-29)
+
+
+### Bug Fixes
+
+* **verifier-shadow:** rate a result only when a model answered ([#4331](https://github.com/stranske/Workflows/issues/4331)) ([a299b19](https://github.com/stranske/Workflows/commit/a299b19bb5ecbf1e095d7d830ff324fe61a75c05))
+
+## [1.47.0](https://github.com/stranske/Workflows/compare/v1.46.1...v1.47.0) (2026-10-29)
+
+
+### Features
+
+* **verifier-shadow:** run every judge on the labelled corpus at once ([#4329](https://github.com/stranske/Workflows/issues/4329)) ([46dd42f](https://github.com/stranske/Workflows/commit/46dd42f170834b44d56f73f3e2220d414529a71c))
+* **verifier:** move the production OpenAI judge to gpt-6.1-terra ([#4328](https://github.com/stranske/Workflows/issues/4328)) ([beacdd9](https://github.com/stranske/Workflows/commit/beacdd960d565946d0e545c0b8bdb3de8833c93f))
+
+
+### Bug Fixes
+
+* **integration-template:** pass only ACTIONS_BOT_PAT to setup-api-client ([#4327](https://github.com/stranske/Workflows/issues/4327)) ([f9d3cd9](https://github.com/stranske/Workflows/commit/f9d3cd99f8da7ba848f15f1bd49d8d40d5893059))
+
+## [1.46.1](https://github.com/stranske/Workflows/compare/v1.46.0...v1.46.1) (2026-10-29)
+
+
+### Bug Fixes
+
+* integration template no longer reads secrets in step conditions ([#4326](https://github.com/stranske/Workflows/issues/4326)) ([6fd569f](https://github.com/stranske/Workflows/commit/6fd569f9ebebed1c1116793545edb0e32753c0e9))
+* **verifier-shadow:** wait only for external candidates before adjudicating ([#4323](https://github.com/stranske/Workflows/issues/4323)) ([7924dbb](https://github.com/stranske/Workflows/commit/7924dbbbe59eb30be53c3928dd0eb0b5a0d2bd3a))
+
+## [1.46.0](https://github.com/stranske/Workflows/compare/v1.45.0...v1.46.0) (2026-10-29)
+
+
+### Features
+
+* **verifier-shadow:** grade candidates by blind-adjudicated work, not verdict agreement ([#4317](https://github.com/stranske/Workflows/issues/4317)) ([5d26068](https://github.com/stranske/Workflows/commit/5d260681edff19852a270a235a615b04643ce171))
+
+
+### Bug Fixes
+
+* **deps:** deliver [#4271](https://github.com/stranske/Workflows/issues/4271) with supported runtime and intact evidence ([#4312](https://github.com/stranske/Workflows/issues/4312)) ([1c2aea7](https://github.com/stranske/Workflows/commit/1c2aea76eef7240c544d2acc3663de90a0cc9796))
+* remove Python 3.12 from shared tools, starter workflows and integration template ([#4318](https://github.com/stranske/Workflows/issues/4318)) ([dd14434](https://github.com/stranske/Workflows/commit/dd144341915a773e985d37bccaab5080db7f0e95))
+* **sync:** qualify unchanged canaries through exact merged-tree checks ([#4302](https://github.com/stranske/Workflows/issues/4302)) ([3372389](https://github.com/stranske/Workflows/commit/33723895c18efd8af9ee3942825c6ab87b7dcaa3))
+* **sync:** reconcile historical receipts and explain refresh holds ([#4300](https://github.com/stranske/Workflows/issues/4300)) ([2687981](https://github.com/stranske/Workflows/commit/2687981f1b61c0bfa4e3c09b52bc1c0dcdf501a0))
+* **sync:** reuse no-change qualification across campaign stages ([#4303](https://github.com/stranske/Workflows/issues/4303)) ([c18c14d](https://github.com/stranske/Workflows/commit/c18c14d945cb736e96982dcbb56ca56bfc185ed6))
+* **verifier-shadow:** find every comparison run instead of the newest 100 artifacts ([#4322](https://github.com/stranske/Workflows/issues/4322)) ([a23fbb5](https://github.com/stranske/Workflows/commit/a23fbb5e1ecd08c49ad615fdda4ac47fd9c3afa5))
+* **verifier:** capture text before incidental coverage inspection ([58eacc5](https://github.com/stranske/Workflows/commit/58eacc55b8605340eccc53015a33c429d0d19b0e))
+* **verifier:** classify incidental coverage databases without waiving proof ([#4298](https://github.com/stranske/Workflows/issues/4298)) ([90f0b1f](https://github.com/stranske/Workflows/commit/90f0b1f11d42a8b8f7ea11e99e8e9d6f84856a0c))
+* **verifier:** distinguish bounded coverage inspection from invalid bytes ([#4307](https://github.com/stranske/Workflows/issues/4307)) ([86450a7](https://github.com/stranske/Workflows/commit/86450a7a6ba26fdccc77ed50ce7876dc455689cc))
+* **verifier:** retain lint-clean parser client keyword compatibility ([#4308](https://github.com/stranske/Workflows/issues/4308)) ([826ecfe](https://github.com/stranske/Workflows/commit/826ecfe743dc198aafb1b19c7d9b0b0ac4ff554e))
+* **verify:** capture required text before incidental coverage inspection ([375f48c](https://github.com/stranske/Workflows/commit/375f48c9b203417f20afc91f2d98ed8ab9c2ce58))
+* **verify:** recover strict original finals without provider replay ([#4301](https://github.com/stranske/Workflows/issues/4301)) ([09f28d1](https://github.com/stranske/Workflows/commit/09f28d153006f616918a3aca7bd77c182867d1f9))
+
+## [1.45.0](https://github.com/stranske/Workflows/compare/v1.44.30...v1.45.0) (2026-10-27)
+
+
+### Features
+
+* **verifier:** authenticate additive corrective test scope ([#4290](https://github.com/stranske/Workflows/issues/4290)) ([7b81154](https://github.com/stranske/Workflows/commit/7b811549be05d2669b263082f210c6eeb9f5b4ce))
+
+## [1.44.30](https://github.com/stranske/Workflows/compare/v1.44.29...v1.44.30) (2026-10-27)
+
+
+### Bug Fixes
+
+* **ci:** align coverage reference runtime with primary Python 3.14 ([#4272](https://github.com/stranske/Workflows/issues/4272)) ([2af4222](https://github.com/stranske/Workflows/commit/2af422251cb446cc4a3f424dfc8009e4aa9283d7))
+
+## [1.44.29](https://github.com/stranske/Workflows/compare/v1.44.28...v1.44.29) (2026-10-26)
+
+
+### Bug Fixes
+
+* **coverage:** retain the full configured recovery window ([#4275](https://github.com/stranske/Workflows/issues/4275)) ([c20a9da](https://github.com/stranske/Workflows/commit/c20a9daf13c33818bf56b82f15b6fb5e3cda8461))
+* **sync:** do not deduplicate partially current canaries ([#4279](https://github.com/stranske/Workflows/issues/4279)) ([26b84b6](https://github.com/stranske/Workflows/commit/26b84b6e6b90c751d5e1164d14664089c33eb415))
+
 ## [1.44.28](https://github.com/stranske/Workflows/compare/v1.44.27...v1.44.28) (2026-10-26)
 
 

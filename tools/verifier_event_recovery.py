@@ -29,8 +29,13 @@ def incomplete_cause(
     """
     retained = manifest.get("retained_revalidation")
     if isinstance(retained, dict):
-        if retained.get("schema") != "retained-revalidation/v1" or not re.fullmatch(
-            r"[0-9a-f]{64}", str(retained.get("recovery_key", ""))
+        if (
+            retained.get("schema") not in {"retained-revalidation/v1", "retained-revalidation/v2"}
+            or not re.fullmatch(r"[0-9a-f]{64}", str(retained.get("recovery_key", "")))
+            or (
+                retained.get("schema") == "retained-revalidation/v2"
+                and not _retained_v2_identity(retained, manifest)
+            )
         ):
             return _cause("uncertain_execution", "retained_revalidation_identity_unavailable")
         # No provider step runs for this mode. That does NOT prove a report POST
@@ -189,6 +194,164 @@ def _canonical(value: Any) -> bytes:
     return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
 
 
+def _retained_v2_identity(retained: dict[str, Any], manifest: dict[str, Any]) -> bool:
+    """Bind V2 lifecycle identity; this is not projection/result admission."""
+    try:
+        if retained.get("provider_generation_performed") is not False:
+            return False
+        selected = {
+            "run_id": int(retained["source_run_id"]),
+            "run_attempt": int(retained["source_run_attempt"]),
+            "artifact_id": retained["artifact_id"],
+        }
+        if (
+            any(type(value) is not int or value < 1 for value in selected.values())
+            or str(selected["run_id"]) != retained["source_run_id"]
+            or str(selected["run_attempt"]) != retained["source_run_attempt"]
+        ):
+            return False
+        expected = {
+            "schema": "retained-revalidation-key/v1",
+            "event_id": manifest["verification_event"]["event_id"],
+            "assessment": manifest["assessment_identity"],
+            "selector": selected,
+        }
+        return retained["recovery_key"] == _sha(_canonical(expected))
+    except (KeyError, TypeError, ValueError):
+        return False
+
+
+def _projection_compare_slots(payload: dict[str, Any], assessment: dict[str, Any]) -> None:
+    """Require the exact existing configured native pair, retaining row order."""
+    from tools.llm_registry import resolve_slots
+
+    if not isinstance(assessment, dict) or assessment.get("mode") != "compare":
+        raise ValueError("Original comparison assessment unavailable")
+    slots = resolve_slots()[:2]
+    overrides = [
+        assessment.get("model") or None,
+        assessment.get("model2") or assessment.get("model") or None,
+    ]
+    expected = [
+        (slot.provider, override or slot.model)
+        for slot, override in zip(slots, overrides, strict=True)
+    ]
+    rows = payload.get("results")
+    if (
+        len(slots) != 2
+        or len(set(expected)) != 2
+        or {provider for provider, _ in expected} != {"openai", "anthropic"}
+        or not isinstance(rows, list)
+        or len(rows) != 2
+        or any(not isinstance(row, dict) for row in rows)
+    ):
+        raise ValueError("Original comparison requires the configured two native slots")
+    actual = [(row.get("provider_used"), row.get("model")) for row in rows]
+    if any(
+        not isinstance(provider, str) or not isinstance(model, str) for provider, model in actual
+    ) or sorted(actual) != sorted(expected):
+        raise ValueError("Original comparison slot identity differs from configured pair")
+
+
+# Audited complete original producer: _parse_llm_response preserves the first
+# content_text on schema/repair failure. This is a source compatibility fact,
+# never a caller-supplied claim about native execution or provider completion.
+_ORIGINAL_FENCED_FINAL_PRODUCERS = frozenset(
+    {"5e8f7a842231f16d8f5ba3ae1a48ed7625afa2feafe774963cdba066196fd0b8"}
+)
+_ORIGINAL_PARSE_ERROR = (
+    "Schema repair policy escalated verifier output: " "Failed to parse JSON response after repair:"
+)
+
+
+def original_final_projection(
+    payload: dict[str, Any],
+    *,
+    mode: str,
+    validator_sha256: str,
+    assessment: dict[str, Any] | None = None,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Derive data from an audited original final; this grants no admission.
+
+    Native acquisition, immutable archive/input/event joins and current-job
+    admission are mandatory in the caller. No client is constructed here.
+    """
+    from tools.verifier_corpus_evidence import authoritative_verifier
+
+    if validator_sha256 not in _ORIGINAL_FENCED_FINAL_PRODUCERS:
+        raise ValueError("Original final producer provenance is not audited")
+    verifier = authoritative_verifier()
+    if mode == "compare":
+        _projection_compare_slots(payload, assessment)
+        if set(payload) != {"results", "report"} or not isinstance(payload["report"], str):
+            raise ValueError("Original comparison projection shape unavailable")
+        originals = payload["results"]
+    elif mode == "evaluate":
+        originals = [payload]
+    else:
+        raise ValueError("Unsupported original final projection mode")
+    if not isinstance(originals, list) or not originals:
+        raise ValueError("Original final result slots unavailable")
+    projected, changes = [], []
+    for index, original in enumerate(originals):
+        row = verifier.EvaluationResult.model_validate(original, strict=True, extra="forbid")
+        if not row.error:
+            projected.append(original)
+            continue
+        coverage = row.input_coverage
+        if (
+            row.used_llm is not True
+            or row.verdict != "CONCERNS"
+            or not row.error.startswith(_ORIGINAL_PARSE_ERROR)
+            or row.scores is not None
+            or row.confidence is not None
+            or row.concerns != []
+            or row.summary is not None
+            or row.files_not_reviewed != []
+            or row.files_reviewed is not None
+            or row.deferred_concerns != []
+            or row.resolved_chunk_concerns != []
+            or row.chunk_reviews != []
+            or row.partition_recovery is not None
+            or not isinstance(coverage, dict)
+            or coverage.get("sufficient") is not True
+            or not isinstance(row.raw_content, str)
+            or not row.raw_content.strip().startswith("```")
+        ):
+            raise ValueError("Original row is not the audited final parse failure")
+        parsed = verifier._parse_semantic_evaluation_payload(row.raw_content)
+        if parsed.files_not_reviewed:
+            raise ValueError("Original final requires coverage postprocessing, not raw projection")
+        # Closed transition: payload fields come only from strict parsing of
+        # the unchanged raw final. Only the DERIVED parse-error status clears;
+        # the complete original row/error/refusal remains immutable history.
+        derived = {**original, **parsed.model_dump(mode="json"), "error": None}
+        verifier.EvaluationResult.model_validate(derived, strict=True, extra="forbid")
+        projected.append(derived)
+        changes.append(
+            {
+                "slot_index": index,
+                "original_row_sha256": _sha(_canonical(original)),
+                "original_error_sha256": _sha(row.error.encode()),
+                "original_final_sha256": _sha(row.raw_content.encode()),
+                "original_final_bytes": len(row.raw_content.encode()),
+                "parsed_payload_sha256": _sha(_canonical(parsed.model_dump(mode="json"))),
+                "derived_row_sha256": _sha(_canonical(derived)),
+            }
+        )
+    if not changes:
+        raise ValueError("No audited original parse failure to project")
+    result = {**payload, "results": projected} if mode == "compare" else projected[0]
+    proof = {
+        "schema": "retained-original-final-projection/v1",
+        "original_payload_sha256": _sha(_canonical(payload)),
+        "derived_payload_sha256": _sha(_canonical(result)),
+        "original_validator_sha256": validator_sha256,
+        "slots": changes,
+    }
+    return result, proof
+
+
 def revalidate_retained(*, directory: Path) -> dict[str, Any]:
     """Revalidate authenticated retained bytes without executing any evaluator.
 
@@ -317,6 +480,13 @@ def revalidate_retained(*, directory: Path) -> dict[str, Any]:
         raise ValueError("Retained diff differs from authenticated event")
     payload = json.loads(raw)
     rows, verdict, available = validated_payload(payload, mode=mode)
+    projection = None
+    if not available:
+        payload, projection = original_final_projection(
+            payload, mode=mode, validator_sha256=origin["validator_sha256"], assessment=assessment
+        )
+        raw = _canonical(payload)
+        rows, verdict, available = validated_payload(payload, mode=mode)
     if mode == "evaluate":
         requested_provider = assessment.get("provider")
         requested_model = assessment.get("model")
@@ -344,7 +514,7 @@ def revalidate_retained(*, directory: Path) -> dict[str, Any]:
         if not target.exists():
             target.write_bytes(content)
     provenance = {
-        "schema": "retained-revalidation/v1",
+        "schema": "retained-revalidation/v2" if projection else "retained-revalidation/v1",
         "recovery_key": origin["recovery_key"],
         "provider_generation_performed": False,
         "source_run_id": origin["source_run_id"],
@@ -361,6 +531,8 @@ def revalidate_retained(*, directory: Path) -> dict[str, Any]:
             (Path(__file__).resolve().parents[1] / "scripts/langchain/pr_verifier.py").read_bytes()
         ),
     }
+    if projection is not None:
+        provenance["original_final_projection"] = projection
     receipt = {
         "schema": f"workflows-verifier-{stem}-execution/v1",
         "mode": mode,
@@ -409,6 +581,52 @@ def revalidate_retained(*, directory: Path) -> dict[str, Any]:
     return receipt
 
 
+def _verify_original_projection(proof, origin, source, directory, stem):
+    """Recompute from immutable originals; never trust a supplied projection."""
+    if set(proof) != {
+        "schema",
+        "recovery_key",
+        "provider_generation_performed",
+        "source_run_id",
+        "source_run_attempt",
+        "artifact_id",
+        "archive_sha256",
+        "origin_sha256",
+        "original_receipt_sha256",
+        "original_status",
+        "helper_sha",
+        "validator_sha256",
+        "revalidator_sha256",
+        "current_validator_sha256",
+        "original_final_projection",
+    }:
+        return False
+    original_bytes = (source / f"{stem}.json").read_bytes()
+    archive = (directory / "verification-recovery-source.zip").read_bytes()
+    if _sha(archive) != origin["archive_sha256"] or len(archive) != origin["archive_bytes"]:
+        return False
+    with zipfile.ZipFile(io.BytesIO(archive)) as opened:
+        if opened.namelist().count(f"{stem}.json") != 1:
+            return False
+        if opened.read(f"{stem}.json") != original_bytes:
+            return False
+        if (
+            opened.read(f"{stem}-execution.json")
+            != (source / f"{stem}-execution.json").read_bytes()
+        ):
+            return False
+    original = json.loads(original_bytes)
+    derived, expected = original_final_projection(
+        original,
+        mode="evaluate" if stem == "evaluation" else "compare",
+        validator_sha256=origin["validator_sha256"],
+        assessment=origin["assessment_identity"],
+    )
+    return proof.get("original_final_projection") == expected and (
+        directory / f"{stem}.json"
+    ).read_bytes() == _canonical(derived)
+
+
 def verify_revalidation_admission(receipt: dict[str, Any], *, directory: Path) -> bool:
     """Reject copied recovery receipts outside their collector-owned job/input."""
     from tools.verifier_corpus_evidence import event_metadata
@@ -422,7 +640,7 @@ def verify_revalidation_admission(receipt: dict[str, Any], *, directory: Path) -
         stem = "evaluation" if receipt["mode"] == "evaluate" else "comparison"
         source = directory / "retained-source" / origin["archive_sha256"]
         return (
-            proof["schema"] == "retained-revalidation/v1"
+            proof["schema"] in {"retained-revalidation/v1", "retained-revalidation/v2"}
             and proof["provider_generation_performed"] is False
             and proof["origin_sha256"] == _sha(origin_raw)
             and proof["recovery_key"] == origin["recovery_key"]
@@ -459,11 +677,22 @@ def verify_revalidation_admission(receipt: dict[str, Any], *, directory: Path) -
             and proof["archive_sha256"] == origin["archive_sha256"]
             and proof["original_receipt_sha256"]
             == _sha((source / f"{stem}-execution.json").read_bytes())
-            and (source / f"{stem}.json").read_bytes() == (directory / f"{stem}.json").read_bytes()
+            and (
+                (
+                    proof["schema"] == "retained-revalidation/v1"
+                    and "original_final_projection" not in proof
+                    and (source / f"{stem}.json").read_bytes()
+                    == (directory / f"{stem}.json").read_bytes()
+                )
+                or (
+                    proof["schema"] == "retained-revalidation/v2"
+                    and _verify_original_projection(proof, origin, source, directory, stem)
+                )
+            )
             and origin["verification_event"] == metadata["verification_event"]
             and origin["assessment_identity"] == metadata["assessment_identity"]
         )
-    except (OSError, ValueError, TypeError, KeyError):
+    except (OSError, ValueError, TypeError, KeyError, zipfile.BadZipFile):
         return False
 
 

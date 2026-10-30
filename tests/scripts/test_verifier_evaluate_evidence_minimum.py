@@ -740,3 +740,107 @@ def test_real_selected_baseline_collector_manifest_reaches_evaluate_prompt(
     refused, untouched = run_evaluate(monkeypatch, changed, data["diff"])
     assert refused.verdict == "UNVERIFIABLE_INPUT"
     untouched.invoke.assert_not_called()
+
+
+def test_retained_canary_incidental_coverage_is_not_required_capture(monkeypatch):
+    """Replay actual retained inputs; only the collector's typed classification changes."""
+    import hashlib
+    from pathlib import Path
+
+    from tools.verifier_capture_obligation_manifest import build_capture_obligation_manifest
+
+    directory = Path(__file__).parents[1] / "fixtures/verifier_incidental_coverage"
+    source = json.loads((directory / "SOURCE.json").read_text())
+    for name, expected in source["files_sha256"].items():
+        assert hashlib.sha256((directory / name).read_bytes()).hexdigest() == expected
+    context = (directory / "verifier-context.md").read_text()
+    diff = (directory / "verifier-pr-diff.patch").read_text()
+    optional = verifier._evaluation_optional_evidence_channels(context)
+    assert optional == frozenset({"comments", "artifacts"})
+    before = build_capture_obligation_manifest(
+        context, full_diff_bytes=diff.encode(), optional_evidence_channels=optional
+    )
+    assert before["gaps"] == [
+        "acceptance_evidence:artifacts:integrity_failure_or_unknown_kind",
+        "acceptance_evidence:artifacts:unavailable",
+    ]
+    # Node tests prove this exact new classification requires bounded native ZIP
+    # extraction, a safe coverage.py name and SQLite bytes; no budget is enlarged.
+    updated = context.replace('"unsupported_payload"', '"unrenderable_coverage_sqlite"')
+    after = build_capture_obligation_manifest(
+        updated, full_diff_bytes=diff.encode(), optional_evidence_channels=optional
+    )
+    assert after["sufficient"] is True
+    assert after["capture_complete"] is False
+    assert after["capture_gaps"]
+    coverage = verifier.prompt_coverage(updated, diff, evaluate_minimum=True)
+    assert coverage.sufficient is True
+    assert coverage.included_required_evidence_channels == ("body",)
+    result, client = run_evaluate(monkeypatch, updated, diff, verdict="FAIL")
+    assert result.used_llm is True and result.verdict == "FAIL"
+    assert client.invoke.call_count == 1
+
+
+@pytest.mark.parametrize(
+    "requirement,required",
+    [
+        ("Evidence must be provided.", True),
+        ("Evidence must be uploaded as a workflow artifact.", False),
+    ],
+)
+def test_coverage_sidecar_does_not_waive_selected_or_required_evidence(
+    monkeypatch, requirement, required
+):
+    context, diff = capture(requirement, failure="unrenderable_coverage_sqlite")
+    if required:
+        context = replace_inventory(
+            context,
+            lambda inv: inv["acceptance_evidence_sources"][1].update(required_material=True),
+        )
+    result, client = run_evaluate(monkeypatch, context, diff)
+    assert result.used_llm is False
+    client.invoke.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "failure",
+    [
+        "required_member_unrenderable",
+        "unsupported_payload",
+        "duplicate_member",
+        "archive_integrity",
+        "utf8_decode_failed",
+        "extraction_byte_or_read",
+    ],
+)
+def test_coverage_availability_never_hides_other_integrity_or_required_failures(
+    monkeypatch, failure
+):
+    context, diff = capture(failure="unrenderable_coverage_sqlite")
+    context = replace_inventory(
+        context,
+        lambda inv: inv["acceptance_evidence_sources"][1].update(
+            failure_kinds=["unrenderable_coverage_sqlite", failure]
+        ),
+    )
+    result, client = run_evaluate(monkeypatch, context, diff)
+    assert result.used_llm is False
+    client.invoke.assert_not_called()
+
+
+@pytest.mark.parametrize("failure", ["extraction_byte", "entry", "artifact_record"])
+@pytest.mark.parametrize("required", [False, True])
+def test_incidental_capture_bound_permits_reasoning_but_required_proof_still_holds(
+    monkeypatch, failure, required
+):
+    context, diff = capture(failure=failure)
+    if required:
+        context = replace_inventory(
+            context,
+            lambda inv: inv["acceptance_evidence_sources"][1].update(required_material=True),
+        )
+    result, client = run_evaluate(monkeypatch, context, diff, verdict="FAIL")
+    assert result.used_llm is (not required)
+    assert client.invoke.call_count == (0 if required else 1)
+    if not required:
+        assert result.verdict == "FAIL"  # Availability never confers PASS.

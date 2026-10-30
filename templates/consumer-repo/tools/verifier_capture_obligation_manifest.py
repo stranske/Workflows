@@ -489,6 +489,8 @@ _AVAILABILITY_FAILURE_KINDS = frozenset(
         # This is unavailable evidence, not corruption; only optional channels
         # can be omitted, and required media remains a capture gap.
         "unrenderable_media",
+        # Collector verifies safe coverage.py sidecar names and bounded SQLite format bytes.
+        "unrenderable_coverage_sqlite",
     }
 )
 

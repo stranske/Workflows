@@ -1,0 +1,162 @@
+{
+  "note": "Public retained canary bindings from 2026-10-26; full source payload digests, only differing managed target projected for the guard comparison. No model verdict/merge authority.",
+  "source_old": "6df5fd443777c9e10854431f8e5eead23b3c3a41",
+  "source_new": "c20a9daf13c33818bf56b82f15b6fb5e3cda8461",
+  "observed_at": "2026-10-26T16:38:22Z",
+  "refusal_run": 40360857060,
+  "records": {
+    "stranske/Travel-Plan-Permission": {
+      "record": {
+        "schema": "sync-pr-delivery-record/v1",
+        "durable_issue_url": "https://github.com/stranske/Workflows/issues/1836",
+        "plan_id": "sha256:2421456e858eb4c65dbe20b2b39c6883964d75a6e12e19f331d0bf6797330056",
+        "generation": "2421456e858e",
+        "repository": "stranske/Travel-Plan-Permission",
+        "desired_tree_hash": "3a9e5ac02ef7071f046e286ff280cefe032604b6",
+        "source_commit": "c20a9daf13c33818bf56b82f15b6fb5e3cda8461",
+        "head_observed_sha": "e34d9e4d5f9669435e24aef8e2d242d5676d04bc",
+        "head_observed_at": "2026-10-26T16:28:43Z",
+        "lease_expires_at": "2026-10-29T16:28:44Z",
+        "predecessor_prs": [],
+        "successor_prs": [],
+        "delivery_state": "sealed",
+        "review_started_at": "2026-10-26T16:29:46.358Z",
+        "sealed_at": "2026-10-26T16:29:46.358Z",
+        "sealed_head_sha": "e34d9e4d5f9669435e24aef8e2d242d5676d04bc",
+        "review_evidence": {
+          "delivery_digest": "sha256:e98a605de7f0f1522cc7bd179cf2413266e576449dcf4dc1f6cc121139cbc099",
+          "policy_schema": "workflows.consumer-sync-review-policy/v1",
+          "request_comment_id": null,
+          "reason": "integration_checks_required",
+          "degraded": false,
+          "responded_reviewers": [],
+          "unavailable_reviewers": []
+        },
+        "terminal_disposition": ""
+      },
+      "head": "e34d9e4d5f9669435e24aef8e2d242d5676d04bc",
+      "number": 1700,
+      "url": "https://github.com/stranske/Travel-Plan-Permission/pull/1700"
+    },
+    "stranske/trip-planner": {
+      "record": {
+        "schema": "sync-pr-delivery-record/v1",
+        "durable_issue_url": "https://github.com/stranske/Workflows/issues/1836",
+        "plan_id": "sha256:4b2a7b1b0576da268ee9947e4ecfbf5be3fe573654341e347726880bdc1d93a0",
+        "generation": "4b2a7b1b0576",
+        "repository": "stranske/trip-planner",
+        "desired_tree_hash": "8eae4e349c0cf59cd1caf7ed17e64983b8cc3ebe",
+        "source_commit": "6df5fd443777c9e10854431f8e5eead23b3c3a41",
+        "head_observed_sha": "c339e3a47993b4179973b822dc6bcb7aff9a6aee",
+        "head_observed_at": "2026-10-26T14:10:59Z",
+        "lease_expires_at": "2026-10-29T14:11:00Z",
+        "predecessor_prs": [],
+        "successor_prs": [],
+        "delivery_state": "sealed",
+        "review_started_at": "2026-10-26T14:13:03.117Z",
+        "sealed_at": "2026-10-26T14:13:03.117Z",
+        "sealed_head_sha": "c339e3a47993b4179973b822dc6bcb7aff9a6aee",
+        "review_evidence": {
+          "delivery_digest": "sha256:24ca67e1e143a1a6ed68e40eefbc5632015cd56ce17a480ec40516ed61252ad6",
+          "policy_schema": "workflows.consumer-sync-review-policy/v1",
+          "request_comment_id": null,
+          "reason": "integration_checks_required",
+          "degraded": false,
+          "responded_reviewers": [],
+          "unavailable_reviewers": []
+        },
+        "terminal_disposition": ""
+      },
+      "head": "c339e3a47993b4179973b822dc6bcb7aff9a6aee",
+      "number": 1942,
+      "url": "https://github.com/stranske/trip-planner/pull/1942"
+    },
+    "stranske/Portable-Alpha-Extension-Model": {
+      "record": {
+        "schema": "sync-pr-delivery-record/v1",
+        "durable_issue_url": "https://github.com/stranske/Workflows/issues/1836",
+        "plan_id": "sha256:4b2a7b1b0576da268ee9947e4ecfbf5be3fe573654341e347726880bdc1d93a0",
+        "generation": "4b2a7b1b0576",
+        "repository": "stranske/Portable-Alpha-Extension-Model",
+        "desired_tree_hash": "529da1a1eb51ddeeca4107123c6df2f46232e46f",
+        "source_commit": "6df5fd443777c9e10854431f8e5eead23b3c3a41",
+        "head_observed_sha": "d96e4fbb4f5947d638276c4f4d5b67f0edf52603",
+        "head_observed_at": "2026-10-26T14:10:31Z",
+        "lease_expires_at": "2026-10-29T14:10:32Z",
+        "predecessor_prs": [],
+        "successor_prs": [],
+        "delivery_state": "sealed",
+        "review_started_at": "2026-10-26T14:13:16.266Z",
+        "sealed_at": "2026-10-26T14:13:16.266Z",
+        "sealed_head_sha": "d96e4fbb4f5947d638276c4f4d5b67f0edf52603",
+        "review_evidence": {
+          "delivery_digest": "sha256:cc701be114452696938f81ff735835ad1c66e5b2bd4ef8ba6d8e6a07baf2343a",
+          "policy_schema": "workflows.consumer-sync-review-policy/v1",
+          "request_comment_id": null,
+          "reason": "integration_checks_required",
+          "degraded": false,
+          "responded_reviewers": [],
+          "unavailable_reviewers": []
+        },
+        "terminal_disposition": ""
+      },
+      "head": "d96e4fbb4f5947d638276c4f4d5b67f0edf52603",
+      "number": 2438,
+      "url": "https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2438"
+    }
+  },
+  "payloads": {
+    "6df5fd443777c9e10854431f8e5eead23b3c3a41": {
+      "digest": "sha256:efec2695358471b828f81e0426810f6ef69602c0e453558b9a00c43172e98aa9",
+      "files": {
+        "stranske/Travel-Plan-Permission": {
+          "tools/coverage_guard.py": {
+            "content": "fd4b88605d88267a90ada88803754b4b171ba1a916ab4c5379009a74c304ba1d",
+            "create_only": false,
+            "executable": true
+          }
+        },
+        "stranske/trip-planner": {
+          "tools/coverage_guard.py": {
+            "content": "fd4b88605d88267a90ada88803754b4b171ba1a916ab4c5379009a74c304ba1d",
+            "create_only": false,
+            "executable": true
+          }
+        },
+        "stranske/Portable-Alpha-Extension-Model": {
+          "tools/coverage_guard.py": {
+            "content": "fd4b88605d88267a90ada88803754b4b171ba1a916ab4c5379009a74c304ba1d",
+            "create_only": false,
+            "executable": true
+          }
+        }
+      }
+    },
+    "c20a9daf13c33818bf56b82f15b6fb5e3cda8461": {
+      "digest": "sha256:68d225fe6714bd618e3868ff065a5ba2b0505d96fd6b2fd627d7612de802096c",
+      "files": {
+        "stranske/Travel-Plan-Permission": {
+          "tools/coverage_guard.py": {
+            "content": "237c5172ebdb0bc2a4d3a7d472c83ce7bdeb0781547bf781ed82ebca0fa5a64c",
+            "create_only": false,
+            "executable": true
+          }
+        },
+        "stranske/trip-planner": {
+          "tools/coverage_guard.py": {
+            "content": "237c5172ebdb0bc2a4d3a7d472c83ce7bdeb0781547bf781ed82ebca0fa5a64c",
+            "create_only": false,
+            "executable": true
+          }
+        },
+        "stranske/Portable-Alpha-Extension-Model": {
+          "tools/coverage_guard.py": {
+            "content": "237c5172ebdb0bc2a4d3a7d472c83ce7bdeb0781547bf781ed82ebca0fa5a64c",
+            "create_only": false,
+            "executable": true
+          }
+        }
+      }
+    }
+  }
+}

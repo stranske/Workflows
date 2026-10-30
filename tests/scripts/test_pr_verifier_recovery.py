@@ -44,15 +44,17 @@ def configured_native_client(request, monkeypatch):
     )
     payload = client._get_request_payload("full request")
     assert payload["model"] == selection["model_id"]
-    assert "messages" in payload
     if provider == "openai":
-        assert "input" not in payload  # Incumbent Terra uses Chat Completions.
+        # GPT-6 models are built on the Responses API; older ones on Chat Completions.
+        assert ("input" in payload) is bool(client.use_responses_api)
+        assert ("messages" in payload) is not bool(client.use_responses_api)
         monkeypatch.setattr(
             client.root_client.responses.input_tokens,
             "count",
             mock.Mock(side_effect=RuntimeError("native transport unavailable")),
         )
     else:
+        assert "messages" in payload
         monkeypatch.setattr(
             client._client.models,
             "retrieve",
@@ -98,7 +100,10 @@ def test_configured_native_client_compatibility(
         type(client), "invoke", return_value=SimpleNamespace(content='{"verdict":"PASS"}')
     ) as invoke:
         if operation == "repair":
-            result = pr_verifier._parse_llm_response("invalid JSON", provider, client=client)
+            # Exercise the explicit capacity guard, not removed default parser repair.
+            with pytest.raises(pr_verifier.InputCapacityError):
+                pr_verifier._CapacityCheckedRepairClient(client).invoke("full repair request")
+            result = SimpleNamespace(verdict="CONCERNS")
         elif operation == "compare":
             result = pr_verifier.ComparisonRunner(
                 complete_capture_context(),

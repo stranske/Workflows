@@ -57,7 +57,7 @@
     },
     {
       "provider": "openai",
-      "model_id": "gpt-5.6-terra",
+      "model_id": "gpt-6.1-sol",
       "role": "incumbent"
     },
     {
@@ -77,6 +77,11 @@
     },
     {
       "provider": "openai",
+      "model_id": "gpt-5.6-terra",
+      "role": "candidate"
+    },
+    {
+      "provider": "openai",
       "model_id": "gpt-6-astra",
       "role": "candidate"
     },
@@ -92,7 +97,7 @@
     },
     {
       "provider": "openai",
-      "model_id": "gpt-6.1-sol",
+      "model_id": "gpt-6.1-terra",
       "role": "candidate"
     }
   ]

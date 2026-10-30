@@ -4,56 +4,185 @@ Owner decision 2026-10-22: a candidate verifier judge earns promotion by running
 least 7 days against the production comparison, not by clearing a benchmark. Background and costs:
 `docs/ops/VERIFIER_STANDARDS_ANALYSIS.md` (zero-error benchmark bounds approved only a perfect model).
 
+
+> **Status 2026-10-30 (owner decisions):** the daily shadow is **off** (`enabled: false`) and the
+> production OpenAI judge is **gpt-6.1-sol**. Candidates are now trialled on demand on the labelled
+> corpus (see "Trialling a new candidate" below), rated in a Claude Code session instead of a paid
+> API adjudicator. The rest of this document describes the daily mechanism, kept for re-enabling.
+
+## Why it was turned off: cost per verified PR (2026-10-30)
+
+Estimated from measured input sizes (median about 11k tokens per OpenAI call and 16k per Anthropic
+call, from 20 verifier runs' `verifier-capacity-checks.jsonl`), registry list prices, and an assumed
+1.5k output tokens per judge. Provider consoles hold the actual bills.
+
+| Per verified PR | Calls | Estimated cost |
+|---|---:|---:|
+| Production pair | 2 | about $0.07 |
+| In-workflow shadow candidates (luna, sol, 5.6-terra, haiku, opus) | 5 | about $0.20 |
+| Daily external judging (Muse Spark API; Cursor on its subscription) | 2 | Muse price unverified |
+| Blind adjudicator, claude-fable-5-1 at $10/$50 per M tokens | 1 | about $0.35-0.50 |
+
+About 11 verified PRs a day (76 in 7 days) put the shadow at roughly $45 a week on top of
+production, most of it on the Anthropic key, whose monthly spend cap was reached on 2026-10-30. Its
+value chain broke at "acted on": no decision used the daily shadow's output, because every finding
+came from the corpus trials.
+
+## Trialling a new candidate
+
+1. Add the candidate to `config/verifier_shadow.json` (it never runs daily while `enabled` is false).
+2. Dispatch maint-89 with `corpus: true`, `corpus_fresh: true`,
+   `corpus_candidates: <provider:model,...>` and `corpus_adjudicator: session` (the default). Only the
+   production pair and the named candidates judge, about $1-2 for 18 cases for one or two candidates.
+3. Rate the records in a Claude Code session with the `verifier-candidate-trial` skill:
+   `python -m tools.verifier_shadow_corpus prompts <dir>/verifier-shadow-corpus-*/corpus-*.json --out <dir>/prompts` writes one blind prompt per case (evaluators
+   appear only as A, B, C...), a fresh subagent answers each prompt alone, and
+   `python -m tools.verifier_shadow_corpus apply <dir>/verifier-shadow-corpus-*/corpus-*.json --answers <dir>/answers --adjudicator <model that wrote the answers>` validates every answer exactly as an API answer is
+   validated (quoted evidence checked, unsupported coverage statuses rejected).
+4. `python -m tools.verifier_shadow_corpus report <dir>/verifier-shadow-corpus-*/corpus-*.json --markdown <dir>/report.md --json <dir>/report.json` grades the candidates against the production pair.
+
+`corpus_adjudicator: api` keeps the paid adjudicator path (about $0.45 a case) for when a session is
+not wanted.
+
 ## What runs
 
 * The reusable verifier workflow (`reusable-agents-verifier.yml`, called by every consumer at `@main`)
   has a step after the production comparison: `scripts/langchain/verifier_shadow.py`. For each candidate
-  in `config/verifier_shadow.json` it runs the production single-judge code path
-  (`pr_verifier.evaluate_pr`) on the **same context and diff** the production judges saw and writes
+  in `config/verifier_shadow.json` it runs the production per-slot code path
+  (`ComparisonRunner.run_single`) on the **same context and diff** the production judges saw and writes
   `verifier-shadow.json` beside `comparison.json` in the `comparison-results-<run>` artifact.
 * The step posts nothing, sets no label or output, uses `continue-on-error`, a 10 minute timeout and a
   per-candidate 300 second timeout; any failure is an `error` field in the record. A candidate that is
   already a production judge on the run is skipped.
 * Kill switches: `enabled: false` in the config (central), or the repository variable
   `VERIFIER_SHADOW=off`.
+  The central switch also stops daily adjudication of retained unrated or failed records
+  before artifact lookup or client creation. The backlog stays intact, and the daily CLI
+  reports `disabled: 1`. Explicit corpus trials bypass the daily switch.
 * `maint-89-verifier-shadow-report.yml` runs daily: it collects the records from the fleet's artifacts
   (they expire after 7 days) into a 90-day ledger artifact, applies the criteria and updates one issue,
   "Verifier shadow report". Cost: one extra judge call per verification (about 0.03 cents for
-  gpt-6-luna), about 13 verifications a week.
+  gpt-6-luna). Measured 2026-10-28: 106 compare-mode verifications fleet-wide in 8 days (about
+  13 a day; Workflows 45, Orchestrator 26, Trend_Model_Project 11). The earlier "13 a week" figure came
+  from a collector that saw under a tenth of them (below).
 
-## Pre-registered criteria (committed before any shadow data)
+## How candidates are graded (owner direction 2026-10-28)
 
-The head-to-head baseline is the production slot with the candidate's provider (the judge it would
-replace); the unified production verdict is recorded alongside.
+The verifier runs two judges from different provider families on purpose and expects them to
+disagree; a split is information, not an error. The first version of these criteria graded a
+candidate by whether its verdict matched ONE production judge (a candidate PASS where that judge
+did not PASS was a "miss", and one miss ended the evaluation). That contradicts the design, and on
+the first live data it marked Muse "DOES NOT MEET" after two runs because the openai judge had said
+UNVERIFIABLE_INPUT (it could not verify, it found no defect) while the anthropic judge and Muse
+both said PASS. Those criteria are withdrawn.
+
+Candidates are now graded on the quality of their **work**, against the production judges' work on
+the same runs:
+
+1. `tools/verifier_shadow_adjudicate.py` (a step of the daily job) gives a reasoning model that is
+   neither a candidate nor a production judge (`adjudicator` in the config: `claude-fable-5-1`)
+   the PR's plan and context, its diff and **every** evaluation of the run, production and
+   candidate alike, relabelled A, B, C... in a shuffled order. It lists the tasks and acceptance
+   criteria, decides the verdict the evidence best supports, and rates each evaluation:
+   * **accuracy**: accurate, partly inaccurate, or inaccurate (verdict unsupported or a
+     load-bearing claim wrong). Each error must quote the evaluation's claim and the context or
+     diff text that contradicts it; the quotes are checked, and an error whose quotes cannot be
+     found is discarded and cannot mark anyone down (the rating becomes `unsupported`);
+   * **rigor**: each task and criterion was checked against the diff (1), only asserted (0.5) or
+     missed (0);
+   * **usefulness** (1-5): specific, evidence-citing, comparable point by point with another
+     reviewer's work.
+2. `tools/verifier_shadow_report.py` compares each candidate with the production judges on the
+   runs where both were rated:
 
 | Criterion | Value |
 | --- | --- |
-| Window | at least 7 days **and** at least 10 paired runs; at 21 days the result is `INSUFFICIENT AT CAP`, never a pass |
-| Coverage | the candidate returns a usable verdict on at least 90% of attempts |
-| Candidate misses (candidate PASS, incumbent slot not PASS) | at most max(1, 20% of the incumbent's flags) |
-| Extra flags (candidate not PASS, incumbent slot PASS) | at most max(1, 25% of the incumbent's passes, rounded up) |
-| Class agreement (PASS against not-PASS) | at least 60% |
-| Cost | informational unless both report tokens: at most the incumbent's cost per run |
-| Rollback signal | a candidate miss on a PR that later reverts or draws a verifier follow-up ends the evaluation as DOES NOT MEET |
+| Window | at least 7 days **and** 10 adjudicated runs; at 21 days `INSUFFICIENT AT CAP`, never a pass |
+| Usable evaluations | at least 90% of attempts produce a usable evaluation |
+| Inaccuracy | the candidate's inaccurate share is at most 0.10 above the production judges' share on the same runs |
+| Rigor | mean task/criteria coverage at most 0.10 below the production judges' |
+| Usefulness | mean usefulness at most 0.5 below the production judges' |
+| Decisive at any time | the candidate's PASS evaluation is rated inaccurate by the adjudicator on a run where both production judges raised a finding (FAIL or CONCERNS) |
+| Listed, never graded alone | a candidate PASS rated accurate on a run where both production judges raised a finding; a candidate finding where both production judges passed |
 
-Statuses: `MEETS`, `DOES NOT MEET` (the failing criteria are named, and the misses and extra flags are
-listed by PR and run), `INSUFFICIENT` (with the paired runs and days still needed).
+The four margins were set in this change, after two runs that had no adjudication and before any
+adjudication data. UNVERIFIABLE_INPUT is not a finding. The production judges are rated by the same
+adjudicator, so the report also says how often THEY are inaccurate, for example how many of their
+UNVERIFIABLE_INPUT verdicts the evidence supported.
 
-**What 7 days can and cannot show.** About 13 verifications a week fleet-wide means 10 to 15 paired runs:
-enough to catch a candidate that disagrees with the incumbent often or misses what it flags, not enough
-to measure a difference of a few points. The criteria are sized for that: they reject a clearly worse
-candidate and accept an indistinguishable one, which is the decision the analysis says is worth making.
+**Bias controls and limits.** The adjudicator shares a provider family with the production
+anthropic judge and two candidates; blinding and the side-by-side incumbent ratings are the
+control (a family preference would show as a gap the incumbents share). One adjudicator is one
+reader: its ratings are a real trial on live work, not a ground truth.
+
+**Cost.** About 25k input tokens per run (the context dominates), roughly $0.30-0.60 per run at
+the registry list price. At the measured 13 runs a day that is about $30-55 a week; the cap is
+20 runs a day.
 
 ## Latched-gate check
 
-1. **What decrements the gate?** Each paired run lowers `runs_still_needed`; time lowers
+1. **What decrements the gate?** Each adjudicated run lowers `runs_still_needed`; time lowers
    `days_still_needed`. Both are printed.
 2. **Can that run while the gate is closed?** Yes: shadowing runs on every verification whatever the
    status, and nothing the report says changes what is collected.
 3. **Same constant for measuring and draining?** `min_days`, `min_runs` and `max_days` are defined once
    in `config/verifier_shadow.json` and read by the report; the workflow only collects.
 4. **What does it print when drained?** `MEETS` with `failed criteria: none` and `still needed: 0
-   paired run(s), 0.0 day(s)`; a test pins that output.
+   adjudicated run(s), 0.0 day(s)`; a test pins that output.
+
+5. **Adjudication gate** (`needs_adjudication`). What drains it: a run is adjudicated once every
+   external candidate (Muse, Cursor: the only ones that answer after the run) has an evaluation,
+   or when it is `SETTLE_DAYS` (6) old, so a candidate that never
+   answers cannot hold a run past its artifact's 7-day life. A failed adjudication is retried once
+   (`MAX_ATTEMPTS` 2). It reports `adjudicated`, `failed`, `capped`, `out_of_time`, `unusable` and
+   `skipped_private` each day; runs skipped for time or the cap are picked up the next day. Fully
+   drained prints `adjudicated: 0` with every other count 0.
+
+## Corpus trial: every judge on recorded work at once (owner direction 2026-10-29)
+
+The live shadow can only grade runs as they happen, and their saved inputs expire after 7 days. The
+frozen verifier corpus (`config/model_eval_pilot.json`) already holds the production inputs of 62
+non-diagnostic merged PRs from seven repositories (18 of them judgeable; see the correction below), each with an independent label (42 PASS, 20
+NON_PASS, of which 18 are controlled defects). Dispatching maint-89 with `corpus: true` runs
+`tools/verifier_shadow_corpus.py`: the production pair (resolved from the registry) and every candidate
+judge each case's production prompt at once, through the same code paths as the shadow, and the same
+blind adjudicator rates every evaluation. Six shards run in parallel, each checkpointed and budgeted; a shard resumes from its newest uploaded checkpoint unless `corpus_fresh: true` (use it after the candidate list changes).
+
+The report (job summary and the `verifier-shadow-corpus-report` artifact) applies the same criteria
+as the daily report without the time window, still requiring `min_runs` adjudicated cases, and adds
+each judge's agreement with the corpus labels: PASS on a NON_PASS label and a finding on a PASS
+label. Evidence class: a trial on recorded production inputs, not production use, so its records stay
+out of the daily ledger. External judges see public repositories only. One dispatch costs about
+$50-80: about 9 judge calls of roughly 24,000 input tokens per case at list prices, plus one
+adjudication per case.
+
+### Correction 2026-10-29: only cases a model can judge
+
+The first corpus dispatch (run 40879377530) judged all 62 cases and adjudicated 61, but 44 snapshots
+fail the production coverage check, so the verifier answered UNVERIFIABLE_INPUT for every judge
+without calling a model. The adjudicator already skipped such production results, but it kept
+candidate results like them, so on those 44 cases it rated candidates alone; every candidate's
+inaccurate share read about 0.6 against production's 0.03. Now a result is reviewed and rated only
+when a model answered (`run_candidate`, `entry_for`, `evaluators_for`), and the corpus runs only the
+18 cases the production prompt can judge (16 Workflows, 2 Fine-Art-Archive; 11 PASS, 7 NON_PASS of
+which 5 are controlled defects). The daily ledger had no affected adjudication (0 of 28). One
+dispatch now costs about $20-30.
+
+### Second corpus round 2026-10-29: Cursor transport, Muse Wonder, terra effort
+
+- **Cursor.** In the first trial 14 of 18 Cursor answers failed the production parser. Each was a
+  complete verdict preceded by the agent CLI's progress note ("I'll evaluate the merged PR diff..."),
+  which its `json` envelope concatenates with the model's answer. `CursorCliJudge` now hands the
+  parser only the verdict JSON, exactly as the model wrote it (`payload_span`); an answer with no
+  valid verdict still fails as before. This is a harness fix, not a looser contract.
+- **Muse Wonder** (`muse-wonder-1.0`, $4/$20 per M tokens, pay-as-you-go key, public repositories
+  only) joins as a `corpus_only` candidate. Muse Wonder Full is not offered through the API.
+- **`gpt-6.1-terra#high`**: the production OpenAI judge at reasoning effort high, `corpus_only`. In
+  both first-round runs gpt-6.1-terra wrote about half as much as gpt-5.6-terra and covered fewer
+  criteria (lower on 25 of 27 non-tied case pairs); the verifier sends both the provider-default
+  effort, so this variant tells whether the gap is the model or the setting. A model written
+  `<model>#<effort>` is that model at that effort.
+- `corpus_only` candidates run only in the corpus trial: the daily shadow neither runs nor grades them.
 
 ## Owner time
 
@@ -67,6 +196,11 @@ Promotion is not automatic. After `MEETS`, a pull request changes the production
 in the registry for a one-line revert. After promotion the same shadow can be pointed at the demoted
 model for 14 days as the rollback check.
 
+On 2026-10-29 the owner moved the production OpenAI judge from gpt-5.6-terra to gpt-6.1-terra directly
+(same Terra line, same documented limits, about half the price), without a shadow verdict.
+gpt-5.6-terra now runs as the shadow candidate in its place, so the daily report compares the old and
+new judge on the same runs; the revert is the `selection_history` entry in `config/model_registry.json`.
+
 ## Adding or replacing a candidate
 
 Edit `candidates` in `config/verifier_shadow.json`; each candidate's evaluation window starts at the first
@@ -76,10 +210,82 @@ record that includes it, so adding one never restarts the others, and criteria c
 
 All candidates in the config judge every verified PR **in parallel** (one thread each, so the step costs
 the slowest candidate's latency, not the sum). Each is scored on its own window against the production
-slot of its own provider (openai candidates against gpt-5.6-terra, anthropic against claude-sonnet-5-5),
+slot of its own provider (openai candidates against gpt-6.1-terra, anthropic against claude-sonnet-5-5),
 and the daily report opens with one table row per candidate. Seven are listed today. One failing or
 timing-out candidate records its own error and never disturbs the others.
 
 Multiple-comparisons caution: with seven candidates, the chance that at least one meets the criteria by
 luck is much higher than for one. Promotion picks, among candidates that MEET, the cheapest; a lone
 MEETS among many is not proof of superiority, and the day-21 cap applies to each independently.
+
+## Candidate choice and external candidates
+
+Only the newest model of each line is shadowed (gpt-6.1-sol, not gpt-6-sol or gpt-5.6; claude-opus-5-5,
+not opus-5; no Anthropic model older than the production claude-sonnet-5-5; gpt-6-luna stays because no
+6.1 luna exists).
+
+Muse (`muse-api`, muse-spark-1.3, own pay-as-you-go key, non-contributor tier) and Cursor (`cursor-cli`,
+read-only ask mode) are `runner: external` candidates. Consumer workflows hold no credential for them,
+so they cannot judge inside a verification run. Instead the daily report job
+(`tools/verifier_shadow_external.py`) replays each fresh run's saved context and diff (the
+`comparison-results-*` artifact, 7-day retention) through the same production prompt and appends the
+verdict to that run's ledger record. They are scored by the same criteria; their baseline is the
+production OpenAI judge. Bounds: public repositories only, at most 25 new pull requests judged per daily
+run, one request per candidate per run (never repeated). Limits: the replay uses chain depth 0 and the
+Cursor/Muse harness differs from the LangChain one, so a MEETS here is a screen-grade result for a
+different harness, not proof the model would behave identically inside the production verifier.
+
+## Correction 2026-10-27: candidates now run the production path
+
+The first nine shadow records were discarded. In-workflow candidates were judged through
+`pr_verifier.evaluate_pr`, whose lenient coverage rule (`evaluate_minimum=True`) production does not use,
+so candidates answered an easier question than the incumbent: the production OpenAI judge returned
+UNVERIFIABLE_INPUT on 7 of 9 runs while every candidate returned PASS, and the report scored that
+disagreement as candidate "misses". Candidates now run `ComparisonRunner.run_single`, the exact per-slot
+production path (strict coverage, chunked review, coverage floor), and each entry records its
+`pipeline`; the report ignores entries without an accepted pipeline tag. A second fault: haiku and opus
+returned "Failed to parse JSON" on every run, which was recorded as a CONCERNS verdict. An entry with an
+error is now a failed attempt (it lowers coverage) and never a verdict. Candidate windows restart.
+
+Muse and Cursor now take the same path: `tools/verifier_shadow_external.py` wraps each judge so it
+answers `invoke(prompt)` and runs it through `ComparisonRunner.run_single`, with the same chunking,
+response parsing and coverage floor. The one difference is the pre-flight input-size check, which
+production restricts to OpenAI, Anthropic and GitHub Models clients and fails closed on anything else;
+it is skipped for these two in the report job only (each entry records `capacity_preflight: skipped`).
+Entries with an error keep a 400-character `raw_excerpt` of the model's answer.
+
+## Review fixes 2026-10-28
+
+- **Dependencies.** The daily job installs `tools/requirements-llm.txt`, the file the production
+  verifier installs, before any run is replayed.
+- **One run per PR.** A PR is verified again on every push. The external judges take one run per
+  repository and PR: the one already judged, otherwise the newest, so a later push never causes a
+  second paid judgment and the PR is counted once.
+- **Time budget.** One run can make several sequential judge calls (production chunks a large
+  input). Each run gets `RUN_BUDGET_SECONDS` (two judge timeouts plus a minute, derived from the one
+  `JUDGE_TIMEOUT_SECONDS`), and the judge client refuses any call that could not finish inside it.
+  `--budget-seconds` (1620) starts a run only if that whole budget still fits; the step has a
+  30-minute timeout and the job 45. The ledger is rewritten atomically after every judged run, the
+  step is `continue-on-error`, and the report step runs after it unless the job was cancelled.
+  Drain check: a run skipped for time is counted as `out_of_time` and is picked up by the next
+  daily job.
+- **Semantic runs.** Records carry `semantic_mode` (the expanded profile). Production judges those
+  with the semantic package matrix, which the per-slot candidate path does not reproduce, so they
+  are neither replayed nor paired.
+
+## Correction 2026-10-28: the collector saw under a tenth of the runs
+
+Every daily step listed a repository's newest 100 artifacts and nothing more. A busy repository
+creates hundreds of artifacts a day, so the newest 100 often held no comparison artifact at all
+(learning-management-system: 1,666 artifacts, none of the newest 100 a comparison), and GitHub
+answers HTTP 500 deep into the largest lists (Workflows, Trend_Model_Project). A failed request
+was read as an empty list. The ledger therefore held 9 records when the fleet had produced 106
+comparison runs in 8 days, and the steps reported success with nothing to do.
+
+Now discovery lists the `agents-verifier.yml` runs in the window, keeps those not skipped or
+cancelled (95 of 100 on learning-management-system are skipped, and only the rest can carry a
+comparison), and looks up each run's `comparison-results-<run>` artifact by exact name. The paid
+steps look up the runs already in the ledger the same way. A request that fails three times is a
+named `LISTING FAILED` line and a `listing_failed` count, never zero; each repository prints how
+many comparison artifacts it had, and the paid steps report `artifacts_seen`. Measured: all 17
+repositories listed in 97 seconds.

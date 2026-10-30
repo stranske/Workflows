@@ -10,13 +10,19 @@ from types import SimpleNamespace
 
 import pytest
 
-# Force serial execution - these tests write to shared files (input.txt, topics.json)
-# The xdist_group marker ensures all tests in this file run in the same worker
+# Keep in-process parser CLI calls together under the shared loadgroup scheduler.
+# Each test also owns its input/output directory, so other workers cannot share files.
 pytestmark = [pytest.mark.serial, pytest.mark.xdist_group(name="chatgpt_parser")]
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 SCRIPT = REPO_ROOT / ".github/scripts/parse_chatgpt_topics.py"
 TOPICS_PATH = pathlib.Path("topics.json")
+
+
+@pytest.fixture(autouse=True)
+def isolated_parser_workdir(tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.chdir(tmp_path)
+
 
 SAMPLE_KEEPALIVE_ISSUES = """1. Agents keepalive: synthetic spec for parser validation
 

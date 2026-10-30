@@ -1,0 +1,28 @@
+{
+  "schema": "workflows-verifier-capture-obligation-manifest/v1",
+  "sufficient": true,
+  "gaps": [],
+  "obligations": [
+    {
+      "source": "square.py",
+      "kind": "changed_code",
+      "status": "included",
+      "included_chars": 321,
+      "total_chars": 321
+    },
+    {
+      "source": "synthetic-public-spec",
+      "kind": "acceptance_source",
+      "status": "included",
+      "included_chars": 195,
+      "total_chars": 195
+    },
+    {
+      "source": "verifier-pr-diff.patch",
+      "kind": "full_diff_artifact",
+      "status": "included",
+      "included_chars": 321,
+      "total_chars": 321
+    }
+  ]
+}

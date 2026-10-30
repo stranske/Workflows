@@ -1,7 +1,7 @@
 {
   "schema": "workflows-verifier-shadow/v1",
-  "purpose": "Pre-registered shadow evaluation of candidate verifier judges (owner decision 2026-10-22). All candidates judge, in parallel, every compare-mode verification in addition to the production judges; its verdict is recorded, never posted, never counted. The criteria below were committed before any shadow data existed.",
-  "enabled": true,
+  "purpose": "Shadow evaluation of candidate verifier judges (owner decision 2026-10-22). All candidates judge, in parallel, every compare-mode verification in addition to the production judges; their evaluations are recorded, never posted, never counted. A blind adjudicator rates every evaluation of a run (production and candidate) and candidates are graded on the quality of their work against the production judges' work on the same runs.",
+  "enabled": false,
   "candidates": [
     {
       "provider": "openai",
@@ -11,27 +11,15 @@
     },
     {
       "provider": "openai",
-      "model": "gpt-5.6-luna",
+      "model": "gpt-6.1-terra",
       "replaces_provider": "openai",
-      "why": "Previous-generation cheap tier ($0.2/$1.2): does a newer cheap model matter?"
+      "why": "Production OpenAI judge 2026-10-29..30, replaced by gpt-6.1-sol after the corpus trials (accurate but the thinnest reviewer). Kept for corpus comparisons."
     },
     {
       "provider": "openai",
-      "model": "gpt-6-sol",
+      "model": "gpt-5.6-terra",
       "replaces_provider": "openai",
-      "why": "Same-price balanced peer of the incumbent ($2/$10) on the newer generation."
-    },
-    {
-      "provider": "openai",
-      "model": "gpt-6.1-sol",
-      "replaces_provider": "openai",
-      "why": "Newest balanced OpenAI model ($2/$10)."
-    },
-    {
-      "provider": "anthropic",
-      "model": "claude-sonnet-5",
-      "replaces_provider": "anthropic",
-      "why": "Previous-generation peer of the production Anthropic judge ($2/$10)."
+      "why": "The production OpenAI judge until 2026-10-29, when the owner moved production to gpt-6.1-terra without a shadow verdict. Kept as a comparison so a regression of the new judge shows in this report; it is the one-line revert in config/model_registry.json selection_history."
     },
     {
       "provider": "anthropic",
@@ -44,25 +32,53 @@
       "model": "claude-opus-5-5",
       "replaces_provider": "anthropic",
       "why": "Higher-capability Anthropic tier ($4/$20): does more capability pay?"
+    },
+    {
+      "provider": "muse-api",
+      "model": "muse-spark-1.3",
+      "runner": "external",
+      "replaces_provider": "openai",
+      "why": "Meta's Muse API on its own pay-as-you-go key (non-contributor tier, public repositories only). Judges in the daily report job from the saved verifier inputs, because consumer workflows hold no Muse credential. Baseline: the production OpenAI judge."
+    },
+    {
+      "provider": "cursor-cli",
+      "model": "default",
+      "runner": "external",
+      "replaces_provider": "openai",
+      "why": "Cursor CLI in read-only ask mode on the Workflows CURSOR_API_KEY. Judges in the daily report job from the saved verifier inputs. Baseline: the production OpenAI judge."
+    },
+    {
+      "provider": "muse-api",
+      "model": "muse-wonder-1.0",
+      "runner": "external",
+      "corpus_only": true,
+      "replaces_provider": "openai",
+      "why": "Owner asked for it (2026-10-29). Meta's API model at $4/$20 per million tokens on the pay-as-you-go MUSE_API_KEY, public repositories only; Muse Wonder Full is not offered through the API. Corpus trial only, so it adds no daily cost."
     }
   ],
   "window": {
     "min_days": 7,
     "min_runs": 10,
     "max_days": 21,
-    "note": "The window closes after min_days AND min_runs paired runs; at max_days it closes as INSUFFICIENT, never as a pass. About 13 verified PRs are expected a week fleet-wide."
+    "note": "The window closes after min_days AND min_runs adjudicated runs; at max_days it closes as INSUFFICIENT, never as a pass."
   },
   "criteria": {
-    "coverage_min": 0.9,
-    "candidate_miss_max_absolute": 1,
-    "candidate_miss_max_share_of_incumbent_flags": 0.2,
-    "extra_flag_max_absolute": 1,
-    "extra_flag_max_share_of_incumbent_passes": 0.25,
-    "class_agreement_min": 0.6,
-    "cost_per_run_max_ratio_to_incumbent": 1.0,
-    "note": "candidate miss = candidate PASS where the incumbent slot did not PASS. Extra flag = candidate not PASS where the incumbent slot PASSed. Class agreement = PASS versus not-PASS agreement. Cost compares registry list prices on observed tokens when both are reported, otherwise it is informational."
+    "usable_min": 0.9,
+    "inaccurate_share_max_excess": 0.1,
+    "coverage_max_shortfall": 0.1,
+    "usefulness_max_shortfall": 0.5,
+    "note": "Owner direction 2026-10-28 replaced the slot-agreement criteria: the verifier runs two judges from different families on purpose and expects disagreement, so a candidate is not graded by matching one incumbent. usable_min: share of attempts that produced a usable evaluation. inaccurate_share_max_excess: the candidate's share of evaluations the adjudicator rated inaccurate (verdict unsupported or a load-bearing claim wrong, with quoted evidence) may exceed the production judges' share on the same runs by at most this much. coverage_max_shortfall: mean coverage of the PR's tasks and acceptance criteria (checked 1, asserted 0.5, missed 0) may fall short of the production judges' by at most this much. usefulness_max_shortfall: mean usefulness (1-5) may fall short by at most this much. Decisive at any time: a candidate PASS where both production judges raised a finding (FAIL or CONCERNS) that the adjudicator rates inaccurate. A finding where both production judges passed is listed as a warning, never graded on its own. The four numeric margins are this change's proposal; they were set after two adjudication-free runs and before any adjudication data."
   },
-  "on_rollback": "A candidate miss on a PR that later reverts or draws a verifier follow-up is listed in the report as a defect the incumbent caught and the candidate missed; one such case ends the evaluation as DOES NOT MEET.",
   "owner_time": "One read of the day-7 report (about 2 minutes) before any promotion; nothing blocks while the shadow runs.",
-  "note_on_many_candidates": "Every candidate is evaluated against the same criteria, each against the production slot of its own provider (openai against gpt-5.6-terra, anthropic against claude-sonnet-5-5). Judging several candidates raises the chance that one meets the criteria by luck, so promotion picks among those that MEET by cost and does not treat a single MEETS as proof of superiority."
+  "note_on_many_candidates": "Every candidate is graded on the same runs against the same production judges' work. Judging several candidates raises the chance that one meets the criteria by luck, so promotion picks among those that MEET by cost and does not treat a single MEETS as proof of superiority.",
+  "note_on_candidate_choice": "Only the newest model of each line is shadowed: gpt-6.1-sol rather than gpt-6-sol or gpt-5.6, claude-opus-5-5 rather than opus-5, and no Anthropic model older than the production claude-sonnet-5-5. gpt-6-luna stays because no 6.1 luna exists. External candidates (runner: external) are judged by tools/verifier_shadow_external.py in the daily report job.",
+  "accepted_pipelines": {
+    "all": "compare-slot/v3"
+  },
+  "note_on_pipelines": "v3 entries carry the evaluation itself (summary, concerns, scores), which the adjudicator reads; earlier entries carry only a verdict and are ignored. External candidates whose entry is from an earlier pipeline are judged again while the run's artifact is still available.",
+  "adjudicator": {
+    "provider": "anthropic",
+    "model": "claude-fable-5-1",
+    "note": "Neither a candidate nor a production judge. Evaluators are shown as A, B, C... in a shuffled order; every error it reports must quote the evaluation and the contradicting context or diff, and unquoted errors are discarded. Same provider family as the production anthropic judge and two candidates: the report shows production and candidate ratings side by side so a family preference would show as a gap the incumbents share. Cost is about $0.30-0.60 per run at the registry list price; at the measured 13 compare-mode runs a day that is about $30-55 a week, capped at 20 runs a day."
+  }
 }

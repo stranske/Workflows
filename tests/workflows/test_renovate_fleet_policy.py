@@ -97,3 +97,10 @@ def test_workflows_and_consumer_entrypoints_share_the_bounded_fleet_policy() -> 
 
     preset = _preset()
     assert preset["prConcurrentLimit"] == preset["branchConcurrentLimit"] == 3
+
+
+def test_workflows_dependency_updates_preserve_reviewed_runtime_and_packets() -> None:
+    config = json.loads((REPO_ROOT / "renovate.json").read_text())
+    assert "config/verify_paired/**" in config["ignorePaths"]
+    runtime = _rule(config, matchManagers=["github-actions"], matchPackageNames=["python"])
+    assert runtime["allowedVersions"] == "<3.15"

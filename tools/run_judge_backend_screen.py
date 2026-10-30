@@ -43,6 +43,9 @@ from scripts.langchain import pr_verifier
 from tools.model_eval_snapshots import screen_cases, verifier_prompt
 from tools.plan_model_eval import ROOT, build_plan
 
+# per-invocation limit of the judges below; the daily shadow job budgets from it
+JUDGE_TIMEOUT_SECONDS = 420
+
 SCHEMA = "workflows-judge-backend-screen/v1"
 MUSE_API_DEFAULT_BASE_URL = "https://api.meta.ai/v1"
 MUSE_API_DEFAULT_MODEL = "muse-spark-1.2"
@@ -62,6 +65,7 @@ class JudgeOutcome:
     error: str | None = None
     stop: bool = False  # stop screening THIS judge (auth failure, rate limit, unreachable)
     tool_activity: bool = False  # the judge reached for a tool on untrusted PR content
+    text: str | None = None  # the model's raw answer, for callers that parse it themselves
 
 
 class Judge(Protocol):
@@ -88,6 +92,28 @@ def extract_payload(text: str) -> dict[str, Any] | None:
             except ValueError:
                 continue
     return None
+
+
+def final_verdict_span(text: str) -> str | None:
+    """The LAST JSON object in ``text`` that the production parser itself accepts, verbatim.
+
+    An agent CLI may narrate before its answer, and the narration may even quote a verdict, so
+    the final answer is the last accepted object, and acceptance is the production parser's own
+    strict rule (unknown fields fail), never a looser schema check.
+    """
+    decoder = json.JSONDecoder()
+    found = None
+    for index, char in enumerate(text):
+        if char != "{":
+            continue
+        try:
+            candidate, end = decoder.raw_decode(text[index:])
+        except ValueError:
+            continue
+        span = text[index : index + end]
+        if isinstance(candidate, dict) and not pr_verifier._parse_llm_response(span, "judge").error:
+            found = span
+    return found
 
 
 def _clean_env(keep: set[str] | None = None) -> dict[str, str]:
@@ -120,7 +146,7 @@ class MuseCliJudge:
         model: str | None = None,
         effort: str = "medium",
         muse: str = "muse",
-        timeout: int = 420,
+        timeout: int = JUDGE_TIMEOUT_SECONDS,
     ) -> None:
         self.model, self.effort, self.muse, self.timeout = model, effort, muse, timeout
 
@@ -211,7 +237,11 @@ class CursorCliJudge:
     api_key_calls = False  # the CLI bills the Cursor account, not an API key meter we can read
 
     def __init__(
-        self, *, model: str | None = None, cursor: str = "cursor-agent", timeout: int = 420
+        self,
+        *,
+        model: str | None = None,
+        cursor: str = "cursor-agent",
+        timeout: int = JUDGE_TIMEOUT_SECONDS,
     ) -> None:
         self.model, self.cursor, self.timeout = model, cursor, timeout
 
@@ -257,7 +287,12 @@ class CursorCliJudge:
                 tokens_out,
                 error=_redact(f"Cursor CLI error (rc {response.returncode})", [key]),
             )
-        payload = extract_payload(str(envelope.get("result") or ""))
+        result = str(envelope.get("result") or "")
+        span = final_verdict_span(result)
+        payload = extract_payload(span) if span is not None else None
+        # The agent CLI prepends a progress note ("I'll evaluate the diff...") to the model's final
+        # answer in its json envelope. Callers that parse the text themselves get the verdict JSON
+        # alone, byte for byte as the model wrote it; with no valid verdict they get the whole text.
         return JudgeOutcome(
             payload,
             latency,
@@ -265,6 +300,7 @@ class CursorCliJudge:
             tokens_out,
             served_model=self.model,
             error=None if payload else "Invalid verifier JSON",
+            text=span if span is not None else result,
         )
 
 
@@ -606,6 +642,7 @@ class MuseApiJudge:
             _int(usage.get("completion_tokens")),
             served_model=str(data.get("model") or self.model),
             error=None if payload else "Invalid verifier JSON",
+            text=str(content or ""),
         )
 
 

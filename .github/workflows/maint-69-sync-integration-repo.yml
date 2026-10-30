@@ -11,6 +11,12 @@ on:
       - 'templates/consumer-repo/.github/workflows/agents-80-pr-event-hub.yml'
       - 'templates/consumer-repo/.github/workflows/agents-81-gate-followups.yml'
       - '.github/workflows/autofix-versions.env'
+      - '.github/sync-manifest.yml'
+      - 'scripts/sync_integration_manifest_subset.py'
+  schedule:
+    # Daily drift sweep. WIT is outside the maint-68 consumer matrix, so without this the
+    # manifest-declared hub scripts only reach it when a template path above happens to change.
+    - cron: '41 5 * * *'
   workflow_dispatch:
     inputs:
       dry_run:
@@ -46,6 +52,8 @@ jobs:
             templates/consumer-repo/.github/workflows/agents-80-pr-event-hub.yml
             templates/consumer-repo/.github/workflows/agents-81-gate-followups.yml
             .github/workflows/autofix-versions.env
+            templates/consumer-repo/.github/workflows/maint-coverage-guard.yml
+            .github/sync-manifest.yml
             .github/actions/setup-api-client
             .github/scripts/error_classifier.js
             .github/scripts/github-api-with-retry.js
@@ -53,6 +61,23 @@ jobs:
             .github/scripts/sync_tracker_state
             .github/scripts/token_load_balancer.js
             scripts/sync_dev_dependencies.py
+            scripts/sync_integration_coverage_omit.py
+            scripts/sync_integration_manifest_subset.py
+          sparse-checkout-cone-mode: false
+
+      # The delivery tree is separate from `workflows/`: Setup API client runs `npm install` in
+      # workflows/.github/scripts, and a checked-out .github/scripts/package.json (a file:
+      # dependency on a node_modules that is not there) makes that install fail.
+      - name: Checkout Workflows delivery tree
+        uses: actions/checkout@v7
+        with:
+          path: workflows-delivery
+          sparse-checkout: |
+            .github/sync-manifest.yml
+            .github/scripts
+            .github/actions/setup-api-client
+            templates/consumer-repo/.github/workflows/maint-coverage-guard.yml
+            tools/coverage_guard.py
           sparse-checkout-cone-mode: false
 
       - name: Prepare sync token
@@ -86,6 +111,10 @@ jobs:
         uses: actions/setup-python@v7
         with:
           python-version: '3.14'
+
+      - name: Install PyYAML for manifest subset sync
+        if: steps.token.outputs.token_available == 'true'
+        run: python -m pip install --quiet pyyaml
 
       - name: Install uv
         if: steps.token.outputs.token_available == 'true'
@@ -125,6 +154,14 @@ jobs:
               --pin-file ".github/workflows/autofix-versions.env" \
               --pyproject "pyproject.toml"
             echo "✅ Synced pyproject.toml dev tool pins"
+            # Consumer-owned pyproject is not replaced wholesale; merge template
+            # coverage omit patterns so synced scripts/tools stay out of the
+            # full-coverage 70% floor measurement.
+            python "../workflows/scripts/sync_integration_coverage_omit.py" \
+              --apply \
+              --template "../workflows/templates/integration-repo/pyproject.toml" \
+              --pyproject "pyproject.toml"
+            echo "✅ Synced pyproject.toml coverage omit patterns"
           fi
 
           # Sync notify-workflows.yml (handles bidirectional sync)
@@ -149,6 +186,15 @@ jobs:
             fi
           done
 
+          # Deliver the manifest-declared .github/scripts/* the hubs require() at runtime, the
+          # maint-coverage-guard workflow, and the manifest's removals (retired workflows).
+          python "../workflows/scripts/sync_integration_manifest_subset.py" \
+            --manifest "../workflows-delivery/.github/sync-manifest.yml" \
+            --source-root "../workflows-delivery" \
+            --target-root "." \
+            --repo "${INTEGRATION_REPO}"
+          echo "✅ Synced manifest hub scripts and removals"
+
           # Sync scripts directory (if exists in templates)
           if [ -d "../workflows/templates/integration-repo/scripts" ]; then
             mkdir -p scripts
@@ -159,7 +205,7 @@ jobs:
           # Regenerate requirements.lock to match updated autofix-versions.env
           if [ -f "pyproject.toml" ]; then
             echo "🔄 Regenerating requirements.lock with updated tool versions..."
-            uv pip compile --python-version 3.12 --upgrade pyproject.toml \
+            uv pip compile --python-version 3.13 --upgrade pyproject.toml \
               --extra test --extra dev --universal \
               --output-file requirements.lock
             echo "✅ Updated requirements.lock"
@@ -171,13 +217,14 @@ jobs:
         run: |
           cd integration-tests
 
-          if git diff --quiet; then
+          # Untracked files are not seen by a plain diff, which would hide newly delivered scripts.
+          if [ -z "$(git status --porcelain)" ]; then
             echo "has_changes=false" >> "$GITHUB_OUTPUT"
             echo "No changes needed"
           else
             echo "has_changes=true" >> "$GITHUB_OUTPUT"
             echo "Changes detected:"
-            git --no-pager diff --stat
+            git --no-pager status --short
           fi
 
       - name: Show diff in dry run
@@ -189,7 +236,7 @@ jobs:
           cd integration-tests
           echo "## Dry Run - Changes Preview" >> "$GITHUB_STEP_SUMMARY"
           echo "\`\`\`diff" >> "$GITHUB_STEP_SUMMARY"
-          git --no-pager diff >> "$GITHUB_STEP_SUMMARY" || true
+          { git --no-pager status --short; git --no-pager diff; } >> "$GITHUB_STEP_SUMMARY" || true
           echo "\`\`\`" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Commit and push changes
@@ -204,6 +251,9 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
           git add .github/workflows/ pyproject.toml requirements.lock scripts/
+          git add .github/actions/
+          git add tools/coverage_guard.py
+          git add .github/scripts/
           if [ -f .pre-commit-config.yaml ]; then
             git add .pre-commit-config.yaml
           fi
@@ -220,6 +270,8 @@ jobs:
             -m "- agents-80-pr-event-hub.yml (consumer PR event hub)" \
             -m "- agents-81-gate-followups.yml (consumer Gate followups hub)" \
             -m "- scripts/ (synced from templates)" \
+            -m "- .github/scripts/, .github/actions/setup-api-client, tools/coverage_guard.py" \
+            -m "  and retired-workflow removals (from sync-manifest.yml)" \
             -m "- requirements.lock (regenerated with updated tool versions)" \
             -m "" \
             -m "Auto-synced by:" \
@@ -263,7 +315,7 @@ jobs:
           github_token: ${{ github.token }}
           service_bot_pat: ${{ secrets.SERVICE_BOT_PAT }}
           owner_pr_pat: ${{ secrets.OWNER_PR_PAT }}
-          install_dir: workflows/.github/scripts
+          install_dir: ${{ github.workspace }}/workflows/.github/scripts
 
       - name: Resolve recovered integration sync alert
         if: >-

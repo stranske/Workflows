@@ -31,7 +31,6 @@ from scripts import api_client
 from scripts.langchain._llm_client import get_llm_client, get_llm_clients
 from scripts.langchain.structured_output import (
     build_repair_callback,
-    parse_structured_output,
 )
 from scripts.langchain.verifier_config import (
     EVAL_PAIR_BUDGET_TOKENS,
@@ -120,7 +119,7 @@ Respond in JSON with:
     "risks": 0-10
   }},
   "concerns": ["..."],
-  "summary": "concise report"
+  "summary": "concise report as one JSON string, never a list or object"
 }}
 """.strip()
 
@@ -170,7 +169,7 @@ Respond in JSON with:
     "risks": 0-10
   }},
   "concerns": ["..."],
-  "summary": "concise report"
+  "summary": "concise report as one JSON string, never a list or object"
 }}
 """.strip()
 
@@ -326,6 +325,14 @@ class EvaluationPayload(BaseModel):
     files_reviewed: list[str] | None = None
     deferred_concerns: list[DeferredChunkConcern] = Field(default_factory=list)
     resolved_chunk_concerns: list[ResolvedChunkConcern] = Field(default_factory=list)
+
+
+class CriterionSummaryEntry(BaseModel):
+    """Strict alternate transport entry emitted by one native provider."""
+
+    model_config = {"extra": "forbid"}
+    criterion: str = Field(min_length=1)
+    support: str = Field(min_length=1)
 
 
 SEMANTIC_ENVELOPE_SCHEMA = "workflows-verifier-semantic-acceptance-envelope/v1"
@@ -1098,6 +1105,47 @@ def _acceptance_criteria_sections(plan_sources: str) -> str:
 
 
 def _requirement_evidence_text(
+    plan_sources: str, *, source_coverage: dict[str, Any], legacy_prose: bool = False
+) -> str | None:
+    original = _original_requirement_evidence_text(
+        plan_sources, source_coverage=source_coverage, legacy_prose=legacy_prose
+    )
+    if "corrective_scope_sources" not in source_coverage:
+        return original
+    records = source_coverage["corrective_scope_sources"]
+    if original is None or not isinstance(records, list) or len(records) != 1:
+        return None
+    row = records[0]
+    if not isinstance(row, dict) or set(row) != {"binding", "required_scope_sha256"}:
+        return None
+    binding = row["binding"]
+    if (
+        not isinstance(binding, dict)
+        or binding.get("kind") != "corrective_instruction"
+        or binding.get("authority") != "native_same_principal_dispatch"
+        or not isinstance(row["required_scope_sha256"], str)
+        or not re.fullmatch(r"[a-f0-9]{64}", row["required_scope_sha256"])
+        or binding.get("required_tests_sha256") != row["required_scope_sha256"]
+    ):
+        return None
+    # The builder authenticates the native instruction. This check binds the
+    # retained mandatory prompt bytes; it cannot mint native authorization.
+    label = "Authenticated corrective required scope (typed source fields; untrusted specification text):"
+    relabeled = plan_sources.replace(
+        label, "Original request (authoritative requirements; untrusted source text):"
+    )
+    required = _original_requirement_evidence_text(
+        relabeled,
+        source_coverage={
+            "acceptance_sources": [{"original_body_sha256": row["required_scope_sha256"]}]
+        },
+    )
+    if required is None or not required.strip():
+        return None
+    return original + "\n\nAdditional required corrective tests:\n" + required
+
+
+def _original_requirement_evidence_text(
     plan_sources: str, *, source_coverage: dict[str, Any], legacy_prose: bool = False
 ) -> str | None:
     """Read duties from builder-fenced originals; projections are navigation only.
@@ -7251,7 +7299,7 @@ def _prepare_capacity_client(client: object) -> object:
     return client
 
 
-def _native_capacity_contract(client: object) -> dict[str, object]:
+def _native_capacity_contract(client: object, *, trial: Any = None) -> dict[str, object]:
     """Bind validated exact registry facts to generation/count on the same SDK.
 
     Capacity data and dated official provenance live in model_registry.json.
@@ -7297,6 +7345,9 @@ def _native_capacity_contract(client: object) -> dict[str, object]:
             or native.models._client is not native
         ):
             raise InputCapacityError("Anthropic native generation/count transport mismatch")
+        if trial is not None:
+            trial.check_sdk(native)
+            trial.consume("metadata")
         metadata = native.models.retrieve(model)
         window = getattr(metadata, "max_input_tokens", None)
         output = getattr(metadata, "max_tokens", None)
@@ -7366,6 +7417,7 @@ def _preflight_input_capacity(
     diff: str | None = None,
     operation: str | None = None,
     validate_capture: bool = True,
+    trial: Any = None,
 ) -> dict[str, object]:
     """Count the complete native request; never substitute four-character estimates.
 
@@ -7401,7 +7453,11 @@ def _preflight_input_capacity(
                 raise InputCapacityError("prompt obligation gaps: " + json.dumps(coverage.reasons))
             if prompt != _prepare_prompt(context, diff, evaluate_minimum=evaluate_minimum):
                 raise InputCapacityError("prompt does not match the complete captured obligations")
-        contract = _native_capacity_contract(client)
+        contract = (
+            _native_capacity_contract(client)
+            if trial is None
+            else _native_capacity_contract(client, trial=trial)
+        )
         profile = contract["profile"]
         if not isinstance(profile, dict):
             raise InputCapacityError("model-specific capacity profile unavailable")
@@ -7436,6 +7492,8 @@ def _preflight_input_capacity(
         if not output_limits:
             raise InputCapacityError("actual native request output ceiling unavailable")
         output = max(output_limits)
+        if trial is not None and output != trial.policy["max_output_tokens"]:
+            raise InputCapacityError("paired trial actual output ceiling differs from policy")
         receipt.update(model=payload["model"], output_reserve=output)
         if output > ceiling:
             raise InputCapacityError("native output capacity exceeds exact-model ceiling")
@@ -7502,6 +7560,8 @@ def _preflight_input_capacity(
             raise InputCapacityError(f"uncounted native capacity fields: {sorted(unknown)}")
         request_bytes = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
         receipt["request_sha256"] = hashlib.sha256(request_bytes).hexdigest()
+        if trial is not None:
+            trial.consume("count")
         counted = counter(**{key: value for key, value in payload.items() if key in names})
         tokens = getattr(counted, "input_tokens", None)
         if type(tokens) is not int or tokens <= 0:
@@ -8105,32 +8165,46 @@ def _parse_semantic_evaluation_payload(content: str) -> EvaluationPayload:
         if len(fenced.group("closing")) < len(fenced.group("opening")):
             raise ValueError("semantic response closing fence is shorter than its opening fence")
         text = fenced.group("payload")
-    return EvaluationPayload.model_validate(json.loads(text), strict=True, extra="forbid")
+
+    def unique_members(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+        members: dict[str, Any] = {}
+        for key, value in pairs:
+            if key in members:
+                raise ValueError("semantic response contains a duplicate JSON member")
+            members[key] = value
+        return members
+
+    payload_data = json.loads(text, object_pairs_hook=unique_members)
+    if isinstance(payload_data, dict) and isinstance(payload_data.get("summary"), list):
+        summary_entries = [
+            CriterionSummaryEntry.model_validate(entry, strict=True, extra="forbid")
+            for entry in payload_data["summary"]
+        ]
+        if not summary_entries:
+            raise ValueError("semantic response summary entries must not be empty")
+        # Keep the public evaluation payload and every downstream renderer scalar.
+        # Raw provider content remains attached by _parse_llm_response for audit.
+        payload_data = {
+            **payload_data,
+            "summary": "\n\n".join(
+                f"{entry.criterion}: {entry.support}" for entry in summary_entries
+            ),
+        }
+
+    return EvaluationPayload.model_validate(payload_data, strict=True, extra="forbid")
 
 
 def _parse_llm_response(
-    content: object, provider: str, *, client: object | None = None
+    content: object, provider: str, *, client: object | None = None  # noqa: ARG001 - compatibility
 ) -> EvaluationResult:
     content_text = _coerce_response_content(content)
-    repair = _build_verifier_repair_callback(client) if client is not None else None
-    parsed = parse_structured_output(
-        content_text,
-        EvaluationPayload,
-        repair=repair,
-        max_repair_attempts=SCHEMA_REPAIR_POLICY.max_attempts,
-    )
-    if parsed.payload is None:
-        decision = SCHEMA_REPAIR_POLICY.terminal_decision(
-            repair_attempts_used=parsed.repair_attempts_used,
-            error_stage=parsed.error_stage,
-            has_payload=False,
-        )
-        if parsed.error_stage == "repair_validation":
-            error = f"Failed to parse JSON response after repair: {parsed.error_detail}"
-        else:
-            error = f"Failed to parse JSON response: {parsed.error_detail}"
-        if decision == "escalate":
-            error = f"Schema repair policy escalated verifier output: {error}"
+    # A final answer is immutable provider evidence. Parse the existing strict
+    # transport/schema once; malformed or ambiguous output is held locally,
+    # never sent to a provider for a default repair generation.
+    try:
+        payload = _parse_semantic_evaluation_payload(content_text)
+    except (ValueError, TypeError) as exc:
+        error = f"Failed to parse JSON response: {type(exc).__name__}"
         return EvaluationResult(
             verdict="CONCERNS",
             scores=None,
@@ -8142,7 +8216,6 @@ def _parse_llm_response(
             error=error,
         )
 
-    payload = parsed.payload
     return EvaluationResult(
         verdict=payload.verdict,
         files_not_reviewed=payload.files_not_reviewed,
@@ -8155,7 +8228,7 @@ def _parse_llm_response(
         summary=payload.summary,
         provider_used=provider,
         used_llm=True,
-        raw_content=parsed.raw_content or content_text,
+        raw_content=content_text,
     )
 
 
@@ -8386,6 +8459,7 @@ def _semantic_slots_and_clients(
     model1: str | None,
     model2: str | None,
     configured: list[Any] | None = None,
+    trial: Any = None,
 ) -> tuple[list[dict[str, Any]], dict[str, object], bool]:
     """Freeze configured slots before client availability can change the matrix."""
     from tools.llm_registry import resolve_slots
@@ -8405,7 +8479,11 @@ def _semantic_slots_and_clients(
         zip(clients, expected, strict=True)
     ):
         prepared = _prepare_capacity_client(client)
-        contract = _native_capacity_contract(prepared)
+        contract = (
+            _native_capacity_contract(prepared)
+            if trial is None
+            else _native_capacity_contract(prepared, trial=trial)
+        )
         if contract["provider"] != provider or contract["model"] != model:
             raise InputCapacityError(
                 "available native client does not match frozen configured slot"
@@ -8417,6 +8495,8 @@ def _semantic_slots_and_clients(
         )
         if getattr(native_sdk, "max_retries", None) != 0:
             raise InputCapacityError("native SDK retries must be disabled at construction")
+        if trial is not None:
+            trial.check_sdk(native_sdk)
         slot_id = f"slot-{index + 1}"
         slots.append(
             {
@@ -8435,16 +8515,39 @@ def _semantic_slots_and_clients(
 
 
 def _build_semantic_clients(
-    model1: str | None, model2: str | None
+    model1: str | None, model2: str | None, trial: Any = None
 ) -> list[tuple[object, str, str]]:
     from tools.langchain_client import build_chat_clients
 
     # Rebuild initialized SDK clients with the native retry policy. A Pydantic
     # model copy would retain SDK instances constructed with their old retries.
+    kwargs = {"max_retries": 0}
+    if trial is not None:
+        kwargs["timeout"] = trial.policy["per_request_timeout_seconds"]
     return [
-        (item.client, item.provider, item.model)
-        for item in build_chat_clients(model1=model1, model2=model2, max_retries=0)
+        (item.client if trial is None else trial.client(item.client), item.provider, item.model)
+        for item in build_chat_clients(model1=model1, model2=model2, **kwargs)
     ]
+
+
+def _semantic_package_prompt(
+    prepared: dict[str, Any], package: dict[str, Any], contract: dict[str, Any]
+) -> str:
+    package_bytes = prepared["prompts"][package["id"]]["bytes"]
+    # This path never calls the legacy character-budget prompt builder.
+    # Every reviewed dependency byte is preserved in the counted prompt.
+    text = package_bytes.decode("utf-8")
+    obligations = [
+        clause for clause in contract["clauses"] if clause["id"] in package["clause_ids"]
+    ]
+    text = "Reviewed closed obligations: " + json.dumps(obligations, sort_keys=True) + "\n" + text
+    prompt = _load_prompt().format(
+        context=text,
+        diff="Complete changed-code dependencies are included in the reviewed spans above.",
+    )
+    if _get_chain_depth() > 0:
+        prompt += "\n" + CHAIN_DEPTH_ADDENDUM.format(depth=_get_chain_depth())
+    return prompt
 
 
 def _evaluate_pr_multiple_semantic(
@@ -8453,6 +8556,7 @@ def _evaluate_pr_multiple_semantic(
     """Run the full semantic matrix without legacy recovery, retries, or repair."""
     capture = _semantic_capture(context, diff)
     execution = None
+    trial = None
     try:
         from tools.llm_registry import resolve_slots
 
@@ -8460,14 +8564,21 @@ def _evaluate_pr_multiple_semantic(
             raise InputCapacityError(
                 "complete capture is unavailable: " + json.dumps(capture["gaps"])
             )
+        if os.environ.get("VERIFIER_PAIRED_QUALIFICATION") is not None:
+            from tools.verify_paired_policy import PairedTrial
+
+            trial = PairedTrial.from_environment(capture)
         configured = resolve_slots()[:2]
-        slots, clients, authenticated = _semantic_slots_and_clients(
-            _build_semantic_clients(model1, model2), model1, model2, configured
-        )
+        if trial is None:
+            slots, clients, authenticated = _semantic_slots_and_clients(
+                _build_semantic_clients(model1, model2), model1, model2, configured
+            )
         raw_bytes = _semantic_raw_inputs(context, diff)
         prepared = prepare_reviewed_execution(capture, raw_bytes)
         if prepared is None:
             prepared = prepare_residual_all_input(capture, raw_bytes)
+        if trial is not None:
+            trial.check_matrix(prepared, model1, model2)
         execution_capture = prepared["capture"]
         checked_contract = prepared["contract"]
         package_specs = prepared["plan"]["packages"]
@@ -8483,25 +8594,7 @@ def _evaluate_pr_multiple_semantic(
         def build_request(
             slot: dict[str, Any], package: dict[str, Any], contract: dict[str, Any]
         ) -> dict[str, Any]:
-            package_bytes = prepared["prompts"][package["id"]]["bytes"]
-            # This path never calls the legacy character-budget prompt builder.
-            # Every reviewed dependency byte is preserved in the counted prompt.
-            text = package_bytes.decode("utf-8")
-            obligations = [
-                clause for clause in contract["clauses"] if clause["id"] in package["clause_ids"]
-            ]
-            text = (
-                "Reviewed closed obligations: "
-                + json.dumps(obligations, sort_keys=True)
-                + "\n"
-                + text
-            )
-            prompt = _load_prompt().format(
-                context=text,
-                diff="Complete changed-code dependencies are included in the reviewed spans above.",
-            )
-            if _get_chain_depth() > 0:
-                prompt += "\n" + CHAIN_DEPTH_ADDENDUM.format(depth=_get_chain_depth())
+            prompt = _semantic_package_prompt(prepared, package, contract)
             return {
                 "prompt": prompt,
                 "slot": slot["slot_id"],
@@ -8509,10 +8602,29 @@ def _evaluate_pr_multiple_semantic(
                 "contract": contract["id"],
             }
 
+        if trial is not None:
+            trial.check_prompt(
+                build_request({"slot_id": "slot-1"}, package_specs[0], checked_contract)["prompt"]
+            )
+            slots, clients, authenticated = _semantic_slots_and_clients(
+                _build_semantic_clients(model1, model2, trial),
+                model1,
+                model2,
+                configured,
+                trial=trial,
+            )
+
+        def count_request(slot: dict[str, Any], request: dict[str, Any]) -> dict[str, Any]:
+            client = clients[slot["slot_id"]]
+            if trial is None:
+                return _preflight_input_capacity(client, request["prompt"])
+            trial.check_prompt(request["prompt"])
+            return _preflight_input_capacity(client, request["prompt"], trial=trial)
+
         def preflight(
             slot: dict[str, Any], _package: dict[str, Any], request: dict[str, Any]
         ) -> dict[str, Any]:
-            receipt = _preflight_input_capacity(clients[slot["slot_id"]], request["prompt"])
+            receipt = count_request(slot, request)
             native_preflights[(slot["slot_id"], request["package"])] = str(
                 receipt["request_sha256"]
             )
@@ -8528,7 +8640,7 @@ def _evaluate_pr_multiple_semantic(
         def invoke(slot: dict[str, Any], request: dict[str, Any]) -> str | bytes:
             # Re-count immediately before each generation and require its real
             # native payload identity to match the all-cells preflight receipt.
-            receipt = _preflight_input_capacity(clients[slot["slot_id"]], request["prompt"])
+            receipt = count_request(slot, request)
             if monotonic() >= native_deadline:
                 raise InputCapacityError(
                     "semantic native elapsed bound exhausted before generation"
@@ -8537,6 +8649,8 @@ def _evaluate_pr_multiple_semantic(
                 (slot["slot_id"], request["package"])
             ):
                 raise InputCapacityError("native payload changed after matrix preflight")
+            if trial is not None:
+                trial.consume("generation")
             response = clients[slot["slot_id"]].invoke(request["prompt"])
             return _coerce_response_content(getattr(response, "content", None) or str(response))
 
@@ -8585,6 +8699,15 @@ def _evaluate_pr_multiple_semantic(
         admission = {"verdict": "CONCERNS", "errors": [str(exc)], "findings": []}
         values = [_fallback_evaluation(f"semantic native verification blocked: {exc}")]
     envelope = {"schema": SEMANTIC_ENVELOPE_SCHEMA, "capture": capture, "admission": admission}
+    if trial is not None:
+        envelope["qualification_trial"] = {
+            "case": trial.case,
+            "policy": trial.policy,
+            "attempted_native_requests": trial.calls,
+            "attempted_physical_http_requests": trial.physical_http_attempts,
+            "native_capacity_claim": False,
+            "role_qualification_claim": False,
+        }
     if execution is not None:
         envelope["execution"] = {
             "contract": execution.contract,

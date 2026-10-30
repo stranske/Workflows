@@ -585,7 +585,7 @@ jobs:
 
       - name: Upload source closure plans
         if: steps.context.outputs.should_run == 'true'
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: verifier-closure-plans-${{ github.run_id }}
           path: closure-plans/plans.json
@@ -1056,7 +1056,7 @@ jobs:
             steps.context.outputs.should_run == 'true' &&
             inputs.mode == 'evaluate'
           }}
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: '3.14'
 
@@ -1526,7 +1526,7 @@ jobs:
             steps.context.outputs.should_run == 'true' &&
             inputs.mode == 'compare'
           }}
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: '3.14'
 
@@ -1971,7 +1971,8 @@ jobs:
       - name: Retain original correction finding seeds
         if: >-
           always() && steps.event_terminal.outputs.complete == 'true' &&
-          inputs.verification_recovery == '' &&
+          (inputs.verification_recovery == '' ||
+          (steps.retained_recovery.outcome == 'success' && steps.post_recovery.outputs.published == 'true')) &&
           (inputs.mode == 'evaluate' || inputs.mode == 'compare')
         continue-on-error: true
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
@@ -2046,14 +2047,13 @@ jobs:
             steps.context.outputs.should_run == 'true' &&
             inputs.mode == 'compare'
           }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: comparison-results-${{ github.run_id }}
           path: |
             verification-recovery-source.zip
             verification-recovery-origin.json
             verification-revalidation-receipt.json
-            retained-source/
             comparison.json
             comparison-execution.json
             comparison-stderr.log
@@ -2090,7 +2090,6 @@ jobs:
             verification-recovery-source.zip
             verification-recovery-origin.json
             verification-revalidation-receipt.json
-            retained-source/
             evaluation.json
             evaluation-stderr.log
             evaluation-execution.json
@@ -2710,7 +2709,7 @@ jobs:
 
       - name: Upload verifier terminal disposition
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: verifier-terminal-disposition-${{ github.run_id }}
           path: |
@@ -2760,7 +2759,7 @@ jobs:
 
       - name: Upload verifier metrics
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: agents-verifier-metrics
           path: verifier-metrics.ndjson

@@ -24,6 +24,64 @@ from typing import Any
 
 SCHEMA = "workflows-verifier-shadow-record/v1"
 CANDIDATE_TIMEOUT_SECONDS = 300
+# v3: entries also carry the review itself (not only its verdict), which the daily adjudicator reads
+PIPELINE = "compare-slot/v3"
+REVIEW_LIMITS = {"summary": 4000, "concern": 1500, "concerns": 25, "files": 60}
+
+
+def review_of(result: Any) -> dict[str, Any]:
+    """The parts of an evaluation an adjudicator reads, in the shape comparison.json uses."""
+    scores = getattr(result, "scores", None)
+    if hasattr(scores, "model_dump"):
+        scores = scores.model_dump()
+    return {
+        "verdict": getattr(result, "verdict", None),
+        "confidence": getattr(result, "confidence", None),
+        "scores": scores if isinstance(scores, dict) else None,
+        "summary": str(getattr(result, "summary", "") or "")[: REVIEW_LIMITS["summary"]],
+        "concerns": [
+            str(c)[: REVIEW_LIMITS["concern"]]
+            for c in (getattr(result, "concerns", None) or [])[: REVIEW_LIMITS["concerns"]]
+        ],
+        "files_not_reviewed": [str(f) for f in (getattr(result, "files_not_reviewed", None) or [])][
+            : REVIEW_LIMITS["files"]
+        ],
+    }
+
+
+def evaluate_like_production(
+    context: str, diff: str | None = None, model: str | None = None, provider: str | None = None
+) -> Any:
+    """Judge one PR exactly as ONE production compare slot does.
+
+    ``pr_verifier.evaluate_pr`` uses a lenient coverage rule (``evaluate_minimum=True``) that the
+    production comparison does not, so candidates run through it answered an easier question than the
+    incumbent (a candidate PASS where production said UNVERIFIABLE_INPUT). Production runs
+    ``ComparisonRunner.run_single`` per slot: strict coverage, chunked review, coverage floor.
+    """
+    from scripts.langchain import pr_verifier as pv
+
+    # "<model>#<effort>" is the same model at a stated reasoning effort (a corpus diagnostic)
+    model, _, effort = (model or "").partition("#")
+    model = model or None
+    resolved = pv._get_llm_client(model=model, provider=provider)
+    coverage = pv.prompt_coverage(context, diff)
+    if resolved is None:
+        return pv._apply_coverage_floor(
+            pv._fallback_evaluation("LLM client unavailable (missing credentials or dependency)."),
+            coverage,
+        )
+    client, provider_name = resolved
+    if effort:
+        client = client.model_copy(update={"reasoning": {"effort": effort}})
+    runner = pv.ComparisonRunner(
+        context=context,
+        diff=diff,
+        prompt=pv._prepare_prompt(context, diff),
+        clients=[(client, provider_name, model or "")],
+        coverage=coverage,
+    )
+    return runner.run_single(client, provider_name, model or "")
 
 
 def load_config(path: Path) -> dict[str, Any]:
@@ -64,6 +122,7 @@ def run_candidate(
         "latency_s": None,
         "confidence": None,
         "concerns": None,
+        "pipeline": PIPELINE,
     }
     started = time.perf_counter()
     pool = concurrent.futures.ThreadPoolExecutor(max_workers=1)
@@ -81,6 +140,11 @@ def run_candidate(
                 "concerns": len(getattr(result, "concerns", []) or []),
             }
         )
+        # only a model's answer is a review; a coverage-floor verdict reached without one is not
+        if not entry["error"] and entry["verdict"] is not None and entry["used_llm"]:
+            entry["review"] = review_of(result)
+        if entry["error"]:  # keep what the model said, to tell a bad schema from a harness fault
+            entry["raw_excerpt"] = str(getattr(result, "raw_content", "") or "")[:400]
     except concurrent.futures.TimeoutError:
         entry["error"] = f"timed out after {timeout}s"
     except Exception as exc:  # noqa: BLE001 - a candidate must never break the production run
@@ -109,8 +173,12 @@ def run_shadow(
     if config.get("enabled"):
         # never shadow a model that is already a production judge on this run
         todo = [
-            c for c in config.get("candidates", []) if (c["provider"], c["model"]) not in produced
-        ]
+            c
+            for c in config.get("candidates", [])
+            if (c["provider"], c["model"]) not in produced
+            and c.get("runner") != "external"
+            and not c.get("corpus_only")
+        ]  # external candidates are judged later by tools/verifier_shadow_external.py
         # all candidates judge at once, so the step costs one candidate's latency, not their sum
         if todo:
             with concurrent.futures.ThreadPoolExecutor(max_workers=min(len(todo), 12)) as pool:
@@ -149,21 +217,22 @@ def main(argv: list[str] | None = None) -> int:
             raise ValueError("verifier context is missing or empty; no candidate was called")
         diff = _read(args.diff_file)
         comparison = json.loads(_read(args.comparison) or "{}")
-        from scripts.langchain.pr_verifier import evaluate_pr
-
         record = run_shadow(
             context,
             diff,
             comparison,
             config,
             production_verdict=os.environ.get("PRODUCTION_VERDICT") or None,
-            evaluator=evaluate_pr,
+            evaluator=evaluate_like_production,
             meta={
                 "repository": os.environ.get("GITHUB_REPOSITORY"),
                 "run_id": os.environ.get("GITHUB_RUN_ID"),
                 "pr_number": os.environ.get("PR_NUMBER"),
                 "head_sha": os.environ.get("PR_HEAD_SHA"),
                 "ci_failed": os.environ.get("CI_FAILED") == "true",
+                # production used the semantic package matrix for this run (expanded profile), which
+                # the single-prompt slot path below cannot reproduce; the report excludes such runs
+                "semantic_mode": os.environ.get("VERIFIER_SEMANTIC_MODE") == "1",
             },
         )
     except Exception as exc:  # noqa: BLE001 - shadow problems are logged, never raised

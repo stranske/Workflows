@@ -1,0 +1,1303 @@
+# Sync Manifest - Single Source of Truth for Consumer Repo Synchronization
+#
+# This manifest declares ALL files that should be synced from Workflows to consumer repos.
+# The sync workflow (maint-68-sync-consumer-repos.yml) reads this manifest.
+# A validation CI workflow ensures this manifest is complete.
+#
+# POLICY: Any file intended for consumer repos MUST be listed here.
+# Verifier destination grammar also binds artifact-provenance property delivery
+# without treating checked provenance enforcement as a new artifact obligation.
+# Exact quoted review destination names retain channel binding; parser examples stay opaque.
+# Nominal no-need/requirement/obligation governors share evidence polarity across channels.
+# Partial OR parsing fails closed; punctuated ORs and property storage retain their semantics.
+# Files not listed will NOT be synced, even if they exist in templates/consumer-repo/.
+#
+# Last sync trigger: 2026-02-10 - manifest audit + sync trigger expansion
+#
+# Categories:
+#   workflows: Thin caller workflows that consumers run directly
+#   prompts: Codex prompt files for agent operations
+#   scripts: JavaScript/Python scripts required by workflows
+#   codex_config: Codex configuration files (AGENT_INSTRUCTIONS.md, etc.)
+#   docs: Documentation files synced to consumer repos
+#
+# Each entry can specify:
+#   - source: Safe path relative to the declared source_tree
+#   - source_tree: Optional `template` or `root`; defaults to the section owner.
+#       Template-owned sections fail closed when their consumer-template source is absent.
+#   - target: Path in consumer repo (defaults to same as source)
+#   - description: What this file does (required for documentation)
+#   - skip_repos: Optional list of repo-specific exclusions with a reason.
+#       Use only when a consumer has an intentional incompatible path or policy.
+#   - include_repos: Optional non-empty owner/repo allowlist. Omitted means every
+#       registered consumer; it cannot overlap skip_repos.
+#   - overwrite_repos: Optional list of repos that should ignore create_only and
+#       stay byte-aligned with the canonical template (for example stranske/Template).
+
+version: 1
+
+# Workflows that run in consumer repos (thin callers)
+workflows:
+  # Core CI/CD
+  - source: .github/workflows/pr-00-gate.yml
+    description: "Gate workflow - binds current PR metadata to the exact head for classifier/seal checks and consumes it in the summary Python action, then runs tests, lint and type checking before merge. It remains create-only and not yet fresh-consumer deployable under the documented workaround (resolved: #2158) because consumers own their coverage and runtime policy."
+    # New-template defaults: Python 3.13/3.14; existing explicit runtime policies migrate separately.
+    sync_mode: create_only  # Do not overwrite consumer-specific Gate coverage, runtime, or policy.
+    overwrite_repos:
+      - stranske/Template
+    skip_repos:
+      - repo: stranske/Manager-Database
+        reason: "Maintains a fully custom Gate workflow; never overwrite (replaces the hard-coded custom_gate_repos list in maint-68)."
+
+  - source: .github/workflows/pr-00-gate-fork-status.yml
+    description: "Trusted default-branch publisher for exact-head Gate / gate statuses on fork pull requests. Create-only during staged rollout so consumer policy can be audited before replacement."
+    sync_mode: create_only
+    overwrite_repos:
+      - stranske/Template
+
+    skip_repos:
+      - repo: stranske/Manager-Database
+        reason: "Maintains a fully custom Gate workflow and is excluded with the canonical Gate source."
+
+  - source: .github/workflows/agents-guard-fork-status.yml
+    description: "Trusted default-branch publisher for exact-head Health 45 Agents Guard / guard statuses on fork pull requests; centrally managed so existing consumers receive the required context."
+
+  - source: .github/workflows/ci.yml
+    description: "CI workflow - main continuous integration entry point"
+    sync_mode: create_only  # Don't overwrite - repos customize coverage-min, python versions
+    overwrite_repos:
+      - stranske/Template
+
+  - source: .github/workflows/autofix.yml
+    description: "Autofix workflow - repairs failed/timed-out checks; cancellations do not trigger repairs"
+
+  - source: .github/workflows/pr-46-dependency-repair-contract.yml
+    description: "Dependency repair contract - keeps bot PRs bot-owned and validates agent repair promotion provenance"
+
+  - source: .github/workflows/agents-issue-intake.yml
+    description: "Issue intake - processes new issues for agent assignment"
+
+  - source: .github/workflows/agents-80-pr-event-hub.yml
+    description: "PR event hub - consolidates PR meta, bot comments, and verify-to-issue handlers"
+
+  - source: .github/workflows/agents-81-gate-followups.yml
+    description: "Gate followups hub - keepalive and autofix; forwards evaluated PR base to Codex; budgets count Gate failures with failed jobs"
+
+  - source: .github/workflows/agents-keepalive-sweep.yml
+    description: "Keepalive sweep - periodic level-based resync; dispatches the loop for open agent PRs so silent zero-commit stalls resurface"
+
+  # Agent system - execution
+  - source: .github/workflows/agents-keepalive-loop-reporter.yml
+    description: "Keepalive reporter - posts PR completion or an attributed run diagnostic when target resolution fails"
+
+  - source: .github/workflows/agents-71-codex-belt-dispatcher.yml
+    description: "Codex belt dispatcher - selects issues and creates agent branches for work"
+
+  - source: .github/agents/belt-labels.json
+    description: "Canonical belt queue labels shared by dispatcher, worker, auto-pilot, and cleanup tooling"
+
+  - source: .github/workflows/agents-72-codex-belt-worker.yml
+    description: "Codex belt worker - executes agent on issues with full prompt and context"
+
+  - source: .github/workflows/agents-72-codex-belt-worker-dispatch.yml
+    description: "Codex belt worker dispatch wrapper - allows workflow_dispatch for the worker"
+
+  - source: .github/workflows/agents-73-codex-belt-conveyor.yml
+    description: "Codex belt conveyor - orchestrates belt worker execution and handles completion"
+
+  - source: .github/workflows/agents-autofix-dispatcher.yml
+    description: "Autofix dispatch bridge - acknowledges legacy Gate repository_dispatch events; agents-81-gate-followups handles repair work"
+
+  # Post-merge trusted-base execution, job-scoped permissions and declared secrets.
+  - source: .github/workflows/agents-verifier.yml
+    description: "Verifier - optional inert launch-basis correlation and bounded chunked acceptance review, expanded evidence recovery and typed provider-free retained-output recovery; guarded PASS/UNVERIFIABLE_INPUT source closure; consumer dedup binds canonical PR and linked-source Tasks/Acceptance Criteria"
+
+  - source: .github/workflows/list-llm-models.yml
+    description: "List LLM Models - helper to show available models for verifier"
+
+  - source: .github/workflows/agents-issue-optimizer.yml
+    description: "Issue optimizer - LangChain-based issue formatting and optimization (Phase 1)"
+
+  - source: .github/workflows/agents-issue-format-guard.yml
+    description: "Issue format guard - validates issues on open/edit/reopen/closed, hold/exemption-label changes, and manual dispatch against AGENT_ISSUE_FORMAT, while durable/wontfix, automated, and bot issues remain exempt and have stale agents:format leases cleared. Closed issues also clear agents:auto-pilot-pause only after a fresh state read confirms they remain closed. Pause and needs-human labels hold dispatch. Any invalid non-exempt issue change on those triggers clears stale agents:formatted state, and hold removal revalidates on resume. Non-conforming unheld work gets agents:format so the optimizer repairs it. Requires .github/scripts/issue_format.py."
+    template_sync: exact
+
+  - source: .github/workflows/agents-verify-to-new-pr.yml
+    description: "Verify to new PR - authenticates native GitHub Actions report authors, binds terminal gating and generated follow-up to the latest report, then dispatches auto-pilot (bridge inlined)"
+
+  - source: .github/workflows/agents-auto-label.yml
+    description: "Auto-label - suggests/applies labels based on semantic matching (Phase 5A); installs exact-synced canonical LLM requirements independently of consumer optional extras"
+    requires:
+      - tools/requirements-llm.txt
+
+  - source: .github/workflows/agents-capability-check.yml
+    description: "Capability check - pre-flight agent feasibility gate (Phase 3A); installs exact-synced canonical LLM requirements independently of consumer optional extras"
+    requires:
+      - tools/requirements-llm.txt
+
+  - source: .github/workflows/agents-decompose.yml
+    description: "Task decomposition - breaks large issues into sub-tasks (Phase 3B); installs exact-synced canonical LLM requirements independently of consumer optional extras"
+    requires:
+      - tools/requirements-llm.txt
+
+  - source: .github/workflows/agents-dedup.yml
+    description: "Duplicate detection - flags similar open issues (Phase 3C); installs exact-synced canonical LLM requirements independently of consumer optional extras"
+    requires:
+      - tools/requirements-llm.txt
+
+  - source: .github/workflows/agents-guard.yml
+    description: "Requires exactly one explicit enabled boolean per registry agent and current PR/run/attempt bindings before registry-error corrective writes; bounded trusted-registry retries and unavailable-policy stale-success invalidation; Agents guard - binds evaluated policy to enabled registry routing labels (Health 45)"
+    requires:
+      - .github/agents/registry.yml
+
+  - source: .github/workflows/agents-pr-health.yml
+    description: "PR health scanner - periodic conflict resolution and failing check re-dispatch"
+
+  - source: .github/workflows/agents-auto-pilot.yml
+    source_tree: template
+    target: .github/workflows/agents-auto-pilot.yml
+    description: "Auto-pilot - end-to-end automation orchestrator (format → optimize → agent → verify)"
+
+  - source: .github/workflows/agents-weekly-metrics.yml
+    description: "Weekly metrics - aggregates auto-pilot, keepalive, autofix and verifier metrics into summary reports"
+
+  # Maintenance workflows
+  - source: .github/workflows/maint-coverage-guard.yml
+    description: "Coverage guard - daily baseline monitoring with automatic issue creation and repository-scoped recovery history. Intentional full-workflow sync exception: ships the complete guard implementation to consumers instead of a thin reusable caller because the workflow embeds repo-specific artifact discovery and download logic tied to tools/coverage_guard.py."
+
+  - source: .github/workflows/maint-76-claude-code-review.yml
+    description: "Claude Code review (opt-in) - Workflows owns the pinned action digest; runs only on labeled PRs or manual dispatch"
+
+  - source: .github/workflows/maint-87-docs-drift-fix-agent.yml
+    description: "Docs drift fix agent - reports deterministic documentation drift weekly and creates idempotent repair issues only on an explicit apply dispatch"
+    template_sync: exact
+
+  # Renovate configuration - extends the shared fleet preset (renovate-presets/fleet.json).
+  # create_only so a consumer that already onboarded (e.g. a Mend generic config) is not clobbered;
+  # supersedes per-repo Renovate onboarding by giving consumers the fleet preset (dev-tool exclusions
+  # owned by autofix-versions.env, grouped automerge, vendored-minimatch cascade).
+  - source: .github/renovate.json
+    description: "Renovate config - extends stranske/Workflows//renovate-presets/fleet (shared fleet preset)"
+    sync_mode: create_only
+
+  # Reusable PR context workflow (medium-effort rate limit optimization)
+  - source: .github/workflows/reusable-pr-context.yml
+    description: "Reusable PR context workflow - centralized PR data fetching via GraphQL"
+
+  - source: .github/workflows/cross-repo-smoke.yml
+    description: "Cross-repo smoke caller - opt-in host + pinned dependency integration test via reusable-13-cross-repo-smoke.yml"
+    sync_mode: create_only
+
+  # Research-backplane run-contract/v1 conformance caller (opt-in, role-based)
+  - source: .github/workflows/backplane-conformance.yml
+    description: "Backplane conformance caller stub - calls reusable-backplane-conformance.yml@main to validate a repo's emitted run-contract/v1 envelope (producer) or ingested object (consumer). No-op for non-participants (opt-in); editable install runs only for real project/build metadata, not tool-only pyproject.toml. Template lives under templates/consumer-repo/.github/workflows/."
+
+# Files to remove from consumer repos (obsolete / harmful when present)
+removals:
+  - target: .github/workflows/dependabot-automerge.yml
+    description: "Remove the retired Dependabot auto-merge workflow - the fleet is on Renovate (platformAutomerge covers auto-merge); see renovate-presets/fleet.json."
+  - target: .github/workflows/agents-63-issue-intake.yml
+    description: "Remove deprecated issue intake workflow (replaced by agents-64/70)"
+  - target: .workflows-lib
+    description: "Remove deprecated workflows lib submodule"
+  - target: .github/workflows/agents-verify-to-new-pr-autopilot.yml
+    description: "Remove the retired verify-to-new-pr auto-pilot bridge (logic now lives in agents-verify-to-new-pr.yml)"
+  - target: .github/workflows/agents-pr-meta.yml
+    description: "Remove deprecated PR metadata template workflow past the 2026-02-15 removal deadline (replaced by agents-80-pr-event-hub.yml)"
+  - target: .github/workflows/agents-keepalive-loop.yml
+    description: "Remove deprecated keepalive loop template workflow past the 2026-02-15 removal deadline (replaced by agents-81-gate-followups.yml)"
+  - target: .github/workflows/agents-autofix-loop.yml
+    description: "Remove deprecated autofix loop template workflow past the 2026-02-15 removal deadline (replaced by agents-81-gate-followups.yml)"
+  - target: .github/workflows/agents-bot-comment-handler.yml
+    description: "Remove deprecated bot comment handler template workflow past the 2026-02-15 removal deadline (replaced by agents-80-pr-event-hub.yml)"
+  - target: .github/workflows/agents-verify-to-issue.yml
+    description: "Remove deprecated verify-to-issue v1 template workflow past the 2026-02-15 removal deadline (replaced by agents-80-pr-event-hub.yml)"
+  - target: .github/workflows/agents-verify-to-issue-v2.yml
+    description: "Remove deprecated verify-to-issue v2 template workflow past the 2026-02-15 removal deadline (replaced by agents-80-pr-event-hub.yml)"
+  - target: .github/workflows/agents-70-orchestrator.yml
+    description: "Remove deprecated orchestrator workflow from template consumers (replaced by agents-80-pr-event-hub.yml and agents-81-gate-followups.yml)"
+  - target: .github/workflows/agents-orchestrator.yml
+    description: "Remove deprecated legacy orchestrator workflow from template consumers (replaced by agents-80-pr-event-hub.yml and agents-81-gate-followups.yml)"
+  - target: .github/workflows/maint-sync-workflows.yml
+    description: "Remove stale consumer-local workflow syncer that can re-fetch retired agents-63/70 workflows after central manifest removals"
+  - target: .github/workflows/agents-belt-dispatcher.yml
+    description: "Remove retired belt dispatcher alias wrapper from template consumers (callers rewired to agents-71-codex-belt-dispatcher.yml)"
+  - target: .github/workflows/agents-belt-worker.yml
+    description: "Remove retired belt worker alias wrapper from template consumers (callers rewired to agents-72-codex-belt-worker.yml)"
+  - target: .github/workflows/agents-belt-conveyor.yml
+    description: "Remove retired belt conveyor alias wrapper from template consumers (callers rewired to agents-73-codex-belt-conveyor.yml)"
+  - target: .github/scripts/rate-limit-aware-client.js
+    description: "Remove retired rate-limit-aware client from template consumers (superseded by github-rate-limited-wrapper.js)"
+# Codex prompts for agent operations
+prompts:
+  - source: .github/codex/prompts/keepalive_next_task.md
+    description: "Keepalive prompt - instructs Codex on next task in PR"
+
+  - source: .github/codex/prompts/autofix_from_ci_failure.md
+    description: "Autofix prompt - instructs Codex to fix CI/Gate failures"
+
+  - source: .github/codex/prompts/fix_ci_failures.md
+    description: "CI fix prompt - general CI failure resolution instructions"
+
+  - source: .github/codex/prompts/fix_bot_comments.md
+    description: "Bot comments prompt - instructs Codex to address bot review comments"
+
+  - source: .github/codex/prompts/verifier_acceptance_check.md
+    description: "Verifier prompt - acceptance criteria validation"
+
+  - source: .github/codex/prompts/fix_merge_conflicts.md
+    description: "Conflict resolution prompt - instructs Codex to resolve merge conflicts"
+
+# Codex configuration
+codex_config:
+  - source: .github/codex/AGENT_INSTRUCTIONS.md
+    description: "Agent instructions - base instructions for all Codex runs"
+  - source: config/source_of_truth_docs.yml
+    description: "Defines consumer-local documentation paths without distributing the Workflows fleet registry"
+
+# Scripts required by consumer workflows
+# Note: These scripts are synced because they're referenced by reusable workflows
+# that run in the consumer repo context
+scripts:
+  - source: .github/scripts/gate-fork-status-publication.js
+    description: "Validates trusted Gate identity and attempt/head binding; publishes Gate / gate with an authenticated status-id receipt from immutable default-branch code."
+
+  - source: .github/scripts/agents-guard-fork-status-publication.js
+    description: "Validates trusted Health 45 Agents Guard identity, attempt/head and registry-backed evaluated-policy-label binding, failing closed on missing agent enabled booleans or missing/ambiguous attempt receipts; publishes the required fork guard status with an authenticated status-id receipt from immutable default-branch code."
+    requires:
+      - .github/agents/registry.yml
+
+  # Tools directory - Python helpers used by reusable-10-ci-python.yml
+
+  # Dev dependency sync script
+  - source: scripts/sync_dev_dependencies.py
+    description: "Syncs every marker-qualified dev-tool pin and safely regenerates transitive uv requirements locks with their recorded scope"
+    template_sync: exact
+  - source: scripts/check_agents_md_freshness.py
+    description: "Warns when the generated Orchestrator AGENTS.md playbook section cites stale repo paths or commands"
+    template_sync: exact
+  - source: scripts/check_docs_drift.py
+    description: "Detects workflow-inventory and repository-path documentation drift for the docs drift fix agent"
+    template_sync: exact
+  - source: scripts/docs_drift_fix_agent.py
+    description: "Builds bounded deterministic documentation-drift repair plans and idempotent issue batches"
+    template_sync: exact
+  - source: scripts/sync_status_file_ignores.py
+    description: "Validates and updates the managed consumer .gitignore status-file block, including legacy conflict cleanup"
+    template_sync: exact
+  - source: .github/scripts/issue_format.py
+    description: "Pure-stdlib validator for AGENT_ISSUE_FORMAT compliance. Single fleet definition of agent-processable; used by agents-issue-format-guard.yml and callable directly by local filers to pre-flight before gh issue create (non-zero exit = unfit). Do not fork per repo."
+    template_sync: exact
+  - source: tools/resolve_mypy_pin.py
+    description: "Resolves mypy version pinning - required by reusable CI workflow"
+
+  - source: tools/requirements-llm.txt
+    description: "Pinned LLM dependencies - exact-sync guarded for agent workflows"
+    template_sync: exact
+
+  - source: tools/coverage_trend.py
+    description: "Generates coverage trend summaries - required by reusable CI workflow"
+
+  - source: tools/coverage_guard.py
+    description: "Checks coverage guard artifacts - required by maint-coverage-guard.yml"
+
+  - source: tools/__init__.py
+    description: "Tools package marker for Python helpers imported by synced workflows"
+
+  - source: tools/ci_failure_triage.py
+    description: "Classifies CI failure logs - required by pr-00-gate.yml summary generation"
+    template_sync: exact
+
+  - source: tools/post_ci_summary.py
+    description: "Builds consolidated Gate summary comments - required by pr-00-gate.yml"
+
+  # Scripts directory - CI helpers used by reusable-10-ci-python.yml
+  - source: scripts/state_fingerprint.py
+    description: "Computes workflow state fingerprints for unchanged-state skip gates"
+
+  - source: scripts/ledger_validate.py
+    description: "Validates belt task ledgers (.agents/issue-*-ledger.yml); required by the ledger-validation job in pr-00-gate.yml, whose result feeds the required summary check on every belt PR"
+
+  - source: scripts/belt_ledger_completion.py
+    description: "Changed-artifact belt ledger completion helpers imported by scripts/ledger_validate.py (duplicate_artifact_errors); delivered with it so the Gate ledger-validation job can import"
+
+  - source: scripts/check_deliberate_break.py
+    template_sync: exact
+    description: "Opt-in Gate helper that proves named deliberate-break acceptance tests fail against the base implementation"
+
+  - source: scripts/reference_packs.py
+    description: "Validates and resolves reference pack configuration for shared runner prompt assembly"
+
+  - source: scripts/orchestrator_skill.py
+    description: "Validates and resolves exported Orchestrator skill context for remote Codex lanes"
+
+  - source: scripts/runner_lib/
+    is_directory: true
+    description: "Shared runner prompt assembly, output parsing, and dispatch debounce helpers"
+
+  - source: scripts/aggregate_agent_metrics.py
+    description: "Aggregates downloaded weekly agent metrics - required by agents-weekly-metrics.yml"
+    template_sync: exact
+
+  - source: scripts/coverage_history_append.py
+    description: "Appends coverage data to history file - required by reusable CI workflow"
+
+  - source: scripts/ci_metrics.py
+    description: "Collects CI metrics for dashboard - required by reusable CI workflow"
+
+  - source: scripts/ci_history.py
+    description: "Manages CI history data - required by reusable CI workflow"
+
+  - source: scripts/ci_coverage_delta.py
+    description: "Computes coverage delta between runs - required by reusable CI workflow"
+
+  - source: scripts/reusable_ci_scope.py
+    description: "Selects changed-input reusable CI scenarios including flat-layout/root Python modules and requirements lock files - required by reusable CI workflows"
+
+  - source: scripts/sync_test_dependencies.py
+    description: "Syncs test dependency pins - required by reusable CI workflow"
+
+  - source: scripts/check_test_dependencies.sh
+    description: "Checks test dependencies match - required by reusable CI workflow"
+
+  # Python scripts for auto-pilot metrics
+  - source: scripts/autopilot_step_timer.py
+    description: "Emits step timing timestamps for auto-pilot workflows - required by agents-auto-pilot.yml"
+
+  - source: scripts/autopilot_metrics_collector.py
+    description: "Collects and appends structured auto-pilot metrics to NDJSON log - required by agents-auto-pilot.yml"
+
+  # Python scripts for ChatGPT topic sync
+  - source: .github/scripts/decode_raw_input.py
+    description: "Decodes raw input from ChatGPT connector"
+
+  - source: .github/scripts/parse_chatgpt_topics.py
+    description: "Parses ChatGPT conversation into issue topics"
+
+  - source: .github/scripts/fallback_split.py
+    description: "Fallback topic splitting when parsing fails"
+
+  # JavaScript scripts for CI/Gate operations
+  - source: .github/scripts/detect-changes.js
+    description: "Detects changed files for CI path-based filtering"
+
+  - source: .github/scripts/agents-guard.js
+    description: "Health 45 agents guard logic used by the workflow protections"
+
+  - source: .github/scripts/coverage-normalize.js
+    description: "Normalizes coverage data across different report formats"
+
+  - source: .github/scripts/maint-post-ci.js
+    description: "Post-CI maintenance tasks and cleanup"
+
+  - source: .github/scripts/gate-docs-only.js
+    description: "Gate check for docs-only changes to skip full CI"
+
+  - source: .github/scripts/checkout_source.js
+    description: "Source checkout utilities for CI workflows"
+
+  - source: .github/scripts/package.json
+    description: "Node package manifest for .github scripts (vendored minimatch)"
+    skip_repos:
+      - repo: stranske/trip-planner
+        reason: "Repo installs .github/scripts dependencies from package-lock.json and forbids tracked node_modules"
+
+  - source: .github/agents/registry.yml
+    description: "Agent registry - source of truth for agent keys and runner workflow mapping"
+
+  - source: .github/scripts/agent_registry.js
+    description: "Agent registry helper - loads registry and resolves agent key from labels"
+
+  - source: .github/scripts/belt_claim_reclaim.js
+    description: "Shared stale belt-claim timeout and audited reclaim logic for scheduled health sweeps"
+
+  - source: .github/scripts/rate_limit_receipt.json
+    description: "Single provider rate-limit receipt TTL shared by runner writer and routing reader"
+
+  - source: .github/scripts/rate_limit_receipt.js
+    description: "Time-based expiry for provider rate-limit receipts"
+
+  - source: .github/scripts/agent_delegation_policy.js
+    description: "Agent delegation policy - system-driven routing for agent:auto label"
+
+  - source: .github/scripts/agent_stall_rotation.js
+    description: "Auto-pilot stall rotation - registry-driven bounded belt-agent rotation before needs-human"
+
+  - source: .github/scripts/node_modules/minimatch/
+    is_directory: true
+    description: "Vendored minimatch dependency for .github scripts"
+    skip_repos:
+      - repo: stranske/trip-planner
+        reason: "Repo installs .github/scripts dependencies from package-lock.json and forbids tracked node_modules"
+
+  - source: .github/scripts/node_modules/brace-expansion/
+    is_directory: true
+    description: "Vendored brace-expansion dependency (transitive dep of minimatch)"
+    skip_repos:
+      - repo: stranske/trip-planner
+        reason: "Repo installs .github/scripts dependencies from package-lock.json and forbids tracked node_modules"
+
+  - source: .github/scripts/node_modules/balanced-match/
+    is_directory: true
+    description: "Vendored balanced-match dependency (transitive dep of brace-expansion)"
+    skip_repos:
+      - repo: stranske/trip-planner
+        reason: "Repo installs .github/scripts dependencies from package-lock.json and forbids tracked node_modules"
+
+  # JavaScript scripts for issue/PR handling
+  - source: .github/scripts/issue_pr_locator.js
+    description: "Locates PRs associated with issues"
+
+  - source: .github/scripts/source_context.js
+    description: "Classifies PR workflow sources with bounded historical fix references, unresolved explicit issue ambiguity, repository/author-bound Release Please inference, related-issue bindings, explicit title/metadata conflict rejection and declared non-issue precedence"
+
+  - source: .github/scripts/issue_context_utils.js
+    description: "Utilities for issue context extraction"
+
+  - source: .github/scripts/terminal_disposition.js
+    description: "Machine-readable terminal disposition records and source summaries"
+
+  - source: .github/scripts/terminal_disposition_coverage.js
+    description: "Warning-only terminal disposition source coverage preflight"
+
+  - source: .github/scripts/bot_comment_auth_coverage.js
+    description: "Warning-only bot-comment App auth coverage preflight"
+
+  - source: .github/scripts/coverage_monitor_summary.js
+    description: "Machine-readable weekly coverage monitor checkpoint"
+
+  - source: .github/scripts/weekly_metrics_artifacts.js
+    description: "Bounded weekly metrics artifact selection contract"
+
+  - source: .github/scripts/weekly_metrics_download_manifest.js
+    description: "Weekly metrics artifact download and extraction manifest contract"
+
+  - source: .github/scripts/issue_scope_parser.js
+    description: "Parses issue scope and requirements; preserves authored checklists in marker-less summaries and owns the shared PR template skeleton"
+
+  - source: .github/scripts/keepalive_instruction_template.js
+    description: "Generates keepalive instructions for Codex"
+
+  - source: .github/scripts/keepalive_loop.js
+    description: "Core keepalive loop logic with evidence-gated authority reconciliation and full criterion cache binding"
+
+  - source: .github/scripts/keepalive_challenge_due.js
+    description: "Selects due automation-owned authority challenges for the hourly keepalive sweep"
+
+  - source: .github/scripts/keepalive_authority_state.js
+    description: "PR-wide conditional authority generation, immutable attempt index, pinned-tree replay reads, exact-attempt release retry, single-use receipt ledger, and versioned per-entry attempt-presence manifests with pinned delta validation and a conditional checkpoint for PR classification"
+
+  - source: .github/scripts/keepalive_worker_evidence.js
+    description: "Attempt-bound worker job evidence from the originating registry revision for keepalive authority recovery"
+
+  - source: .github/scripts/keepalive_reporter_applicability.js
+    description: "Fail-closed exact-run classification, verified no-ledger replay, and active-attempt deferral for keepalive dispatches"
+
+  - source: .github/scripts/token_load_balancer.js
+    description: "Dynamic token load balancer for API rate limit management"
+
+  - source: .github/scripts/keepalive_prompt_routing.js
+    description: "Prompt routing logic for keepalive - determines which prompt template to use"
+
+  - source: .github/scripts/keepalive_state.js
+    description: "Keepalive state management and recovered authority summary projection"
+
+  - source: .github/scripts/timeout_config.js
+    description: "Timeout configuration parser for keepalive - required by keepalive_loop.js"
+
+  - source: .github/scripts/keepalive_guard_utils.js
+    description: "Guard utilities for keepalive state protection"
+
+  - source: .github/scripts/keepalive_contract.js
+    description: "Keepalive contract definitions and validation"
+
+  - source: .github/scripts/keepalive_gate.js
+    description: "Gate evaluation logic for keepalive workflow"
+
+  - source: .github/scripts/keepalive_worker_gate.js
+    description: "Worker gate logic for keepalive workflow"
+
+  - source: .github/scripts/keepalive_orchestrator_gate_runner.js
+    description: "Orchestrator gate runner for keepalive"
+
+  - source: .github/scripts/keepalive_post_work.js
+    description: "Post-work handling for keepalive rounds"
+
+  - source: .github/scripts/keepalive_prompt_composer.js
+    description: "Composes prompts for keepalive Codex calls"
+
+  - source: .github/scripts/capability_bundle.js
+    description: "Validates and selects capability-bundle/v1 fragments for keepalive prompts and metrics"
+
+  - source: .github/scripts/autopilot_metrics.js
+    description: "AutoPilot metrics collection and reporting"
+
+  - source: .github/scripts/auto_pilot_transitions.js
+    description: "Auto-pilot transition contract and next-step helper"
+
+  - source: .github/scripts/github-api-with-retry.js
+    description: "GitHub API retry wrapper with exponential backoff and pagination support - required by agents-auto-pilot.yml"
+
+  - source: .github/scripts/sync_tracker_state/
+    is_directory: true
+    description: "Shared durable tracker and open PR state helpers for consumer sync workflows"
+
+  - source: .github/scripts/github-rate-limited-wrapper.js
+    description: "Transparent rate-limit proxy - wraps all github.rest.* calls with automatic retry and token switching"
+
+  - source: .github/scripts/prompt_injection_guard.js
+    description: "Security guard against prompt injection attacks"
+
+  - source: .github/scripts/prompt_integrity_guard.js
+    description: "Integrity validation for prompts"
+
+  - source: .github/scripts/error_classifier.js
+    description: "Classifies CI errors for agent handling"
+
+  - source: .github/scripts/error_diagnostics.js
+    description: "Diagnostic utilities for error analysis"
+
+  - source: .github/scripts/failure_comment_formatter.js
+    description: "Formats failure comments for PR status updates"
+
+  - source: .github/scripts/conflict_detector.js
+    description: "Conflict detector - identifies merge conflicts for targeted resolution"
+
+  - source: .github/scripts/merge_manager.js
+    description: "Manages PR merge operations"
+
+  - source: .github/scripts/runtime_ac_merge_guard.js
+    description: "Blocks external merge lanes for PRs that require local Orchestrator runtime acceptance checks"
+
+  - source: .github/scripts/sync_pr_lease_contract.js
+    description: "Validates generated delivery lifecycle records and owns the shared seal-precondition reasons"
+
+  - source: .github/scripts/comment-dedupe.js
+    description: "Deduplicates bot comments on issues/PRs"
+
+  - source: .github/scripts/bot-comment-dismiss.js
+    description: "Collects ignored bot review comments for auto-dismiss handling"
+
+  - source: .github/scripts/bot-comment-handler.js
+    description: "Bot comment handler logic - processes bot review comments for dispatch"
+
+  - source: .github/scripts/autofix_emit_report.py
+    description: "Emits autofix report - required by reusable-18-autofix.yml"
+
+  - source: .github/scripts/gate_summary.py
+    description: "Gate summary renderer - shared and consumer copies isolate untrusted diagnostics"
+
+  - source: .github/scripts/should-post-review.js
+    description: "Evaluates whether a progress review comment should be posted"
+
+  - source: .github/scripts/keepalive_review_guard.js
+    description: "Guards against posting empty/null progress review comments"
+
+  - source: .github/scripts/post_completion_comment.js
+    description: "Posts completion comments on PRs"
+
+  - source: .github/scripts/verifier_closure.js
+    description: "Closes source issues only with nonempty exact-merge CI proof on PASS or successful exact-merge CI proof and deterministic gates for UNVERIFIABLE_INPUT"
+
+  - source: .github/scripts/verifier_ci_query.js
+    description: "Queries CI status for verifier workflow"
+
+  - source: .github/scripts/verifier_issue_formatter.js
+    description: "Formats issues for verifier output"
+
+  - source: .github/scripts/verifier_verdict_json.py
+    description: "Extracts structured post-merge verifier verdict JSON without trusting diff text"
+
+  - source: .github/scripts/verifier_plan_fingerprint.js
+    description: "Hashes canonical parsed Tasks/Acceptance Criteria and linked source lineage for consumer verifier deduplication"
+    delivery: copy
+
+  - source: .github/scripts/verifier_gzip_assets.js
+    description: "Capture bounded gzip UTF-8 evidence assets from the immutable target Git tree without changing patches"
+    delivery: copy
+
+  - source: .github/scripts/verification_event.js
+    description: "Carries inert optional launch-basis correlation and authenticated exact-terminal dedup references; binds repeat verification and strict recovery selectors to authoritative code, original requests, typed comparison-baseline material and explicitly required retained evidence; authenticates known-no-evaluation causal predecessors, preserves the original edge on exact-event retries and reconciles older pending attempts through authoritative Actions reads and retains full-history completion deduplication without reparenting history"
+    delivery: copy
+
+  - source: .github/scripts/verifier_pending_execution.js
+    description: "Reconciles pending verifier attempts and authenticates provider-free retained-output origin, applicability and once-only publication; publishes provenance-only input-repair markers for already-retained mixed results"
+    delivery: copy
+
+  - source: .github/scripts/agents_orchestrator_resolve.js
+    description: "Resolves agent orchestrator state"
+
+  - source: .github/scripts/agents_pr_meta_keepalive.js
+    description: "PR metadata handling for keepalive"
+
+  - source: .github/scripts/agents_pr_meta_orchestrator.js
+    description: "PR metadata orchestrator logic"
+
+  - source: .github/scripts/agents_pr_meta_update_body.js
+    description: "Updates PR body while preserving authored descriptions; stable completed dependency-provenance results, observer exclusion, and exact-head Gate visibility"
+
+  - source: .github/scripts/agents_verifier_context.js
+    description: "Verifier context with authenticated explicitly selected ancestor comparison baselines scoped to byte-identical named sources, bounded selected artifact members with exact-ID metadata fallback independently of optional discovery counts and truthful unselected sibling inventories, plus authenticated provider-free retained revalidation under its recovery-key guard independently of ordinary exact-event completion deduplication, explicitly selected PR and linked-source comments retaining authenticated actor/time/body before optional chatter and lossless selected-proof prompt fitting, mandatory unavailable linked-issue discovery, known non-closing source-issue retrieval, independent body/comment/artifact evidence, independently bounded run/artifact pages with stable count presence, positive safe IDs and full-page continuation, positive channel-local paginated comment identities and stable ordering with bounded full-page signature revalidation against deletion shifts, safe NDJSON proof alongside JSONL, raw extraction byte accounting before UTF-8 decoding, bounded archive/member occurrence hash inventories with duplicate-name rejection and retained unavailable suffixes, complete exact-head typed/positive-clause-labelled including trailing negative URL predicates and Markdown section/reference scope explicit-union artifact scope selected before budgeting, shared bounded descriptor-aware URL-token and negative-subject classification with fail-closed oversized prose scope and descriptive affirmative declarations for positive evidence and diagnostic-local incidental fallback, coordinated comma-and/or URL subjects and independent non-URL/contrast clauses, and associated discovery, fail-closed aggregate availability, literal destination metadata, single-normalization filename-whitespace-preserving text/binary patch offsets and complete post-merge diffs"
+
+  - source: .github/scripts/agents_dispatch_summary.js
+    description: "Summarizes agent dispatch operations"
+
+  - source: .github/scripts/agents_belt_scan.js
+    description: "Scans agent belt for available tools"
+
+  # Agent helper scripts and copy-delivered LangChain workflow support
+  #
+  # delivery: channel annotation (resolved: issue #2347)
+  #   copy    = physically copy-synced into the consumer tree by maint-68 and
+  #             read from the consumer's own working directory at runtime.
+  #   runtime = NOT copy-synced; the consuming consumer-template workflow does a
+  #             runtime sparse-checkout of stranske/Workflows `scripts/langchain`
+  #             (whole-directory) and runs the script from that fetched tree.
+  # Entries with `delivery: runtime` MUST NOT appear in any copy-synced section
+  # (they live under `runtime_fetched:` below); see
+  # tests/workflows/test_sync_manifest_delivery.py.
+  - source: scripts/api_client.py
+    description: "Shared GitHub API client used by synced Python automation scripts"
+
+  # Issue optimization (Phase 1) - agents-issue-optimizer.yml
+  - source: scripts/langchain/issue_optimizer.py
+    description: "Issue optimizer - analyzes issues and suggests improvements"
+    # delivery: copy -- read from the consumer working tree by agents-auto-pilot.yml
+    # (optimize/apply steps: `python scripts/langchain/issue_optimizer.py` +
+    # `sys.path.insert(0, 'scripts/langchain')`), which does NOT runtime-fetch
+    # scripts/langchain. Must stay copy-synced.
+    delivery: copy
+
+  - source: scripts/langchain/structured_output.py
+    description: "Shared structured output helpers for LangChain workflows"
+    # delivery: copy -- imported transitively by issue_optimizer.py on auto-pilot's
+    # copy-path (`from scripts.langchain.structured_output import ...`).
+    delivery: copy
+
+  - source: scripts/langchain/trace_utils.py
+    description: "Shared LangSmith trace metadata helpers for LangChain workflows"
+    delivery: copy
+
+  - source: scripts/langchain/_llm_client.py
+    description: "Shared LangChain chat-client construction (get_llm_client/get_llm_clients)"
+    # delivery: copy -- imported transitively by copy-delivered LangChain scripts
+    # such as issue_optimizer.py, issue_formatter.py, and task_validator.py.
+    delivery: copy
+
+  - source: scripts/langchain/verifier_config.py
+    description: "Shared verifier prompt budgets, schema-repair policy, and terminal artifact validation"
+    delivery: copy
+
+  - source: scripts/langchain/checklist_utils.py
+    description: "Shared checklist parsing helpers for issue and follow-up generation"
+    delivery: copy
+
+  - source: scripts/langchain/issue_formatter.py
+    description: "Issue formatter - converts raw text to AGENT_ISSUE_TEMPLATE format"
+    # delivery: copy -- read from the consumer working tree by agents-auto-pilot.yml
+    # (format step: `python scripts/langchain/issue_formatter.py`), which does NOT
+    # runtime-fetch scripts/langchain. Must stay copy-synced.
+    delivery: copy
+    template_sync: exact
+
+  - source: scripts/langchain/issue_pr_context.py
+    description: "Issue/PR context assembly helper with shared token budget caps"
+    delivery: copy
+
+  - source: scripts/langchain/issue_dedup.py
+    description: "Issue deduplication - finds similar open issues"
+    delivery: copy
+
+  - source: scripts/langchain/injection_guard.py
+    description: "Prompt injection guard - validates prompts before LLM submission"
+    delivery: copy
+
+  - source: scripts/langchain/progress_reviewer.py
+    description: "Progress reviewer - evaluates agent progress for keepalive rounds"
+    delivery: copy
+
+  # Context and semantic analysis
+  - source: scripts/langchain/context_extractor.py
+    description: "Context extractor - extracts relevant context from issues/PRs"
+    delivery: copy
+
+  - source: scripts/langchain/semantic_matcher.py
+    description: "Semantic matcher - vector similarity for issues/labels"
+    delivery: copy
+
+  # Agent capability and task management
+  - source: scripts/langchain/capability_check.py
+    description: "Capability check - pre-flight agent feasibility assessment"
+    delivery: copy
+
+  - source: scripts/langchain/task_decomposer.py
+    description: "Task decomposer - breaks large issues into sub-tasks"
+    delivery: copy
+
+  - source: scripts/langchain/task_validator.py
+    description: "Task validator - refines generated issue tasks for actionability"
+    delivery: copy
+
+  - source: scripts/langchain/label_matcher.py
+    description: "Label matcher - suggests labels based on semantic matching"
+    delivery: copy
+
+  # PR verification and follow-up
+  # Direct/pronoun/qualified proofs and CI/build/execution logs reuse shared governors;
+  # bounded concrete destination ORs preserve every independent AND obligation.
+  # Body-component alternatives and checklist nouns share polarity/modality boundaries.
+  # Blank paragraphs end checklist inheritance; optional either-in alternatives stay optional.
+  # All supported list markers and structurally product-owned terminal components share those guards.
+  # Temporal/relative qualifiers terminate recognized components without suppressing bare review destinations.
+  # OR expansion shares independent review-predicate boundaries with channel classification.
+  # Named checklist destinations retain channels before temporal/relative continuations;
+  # attached destination availability keeps OR alternatives without erasing independent proof.
+  # Postposed conditional/negative checklist qualifiers retain shared governor semantics.
+  # Shared independent actor boundaries preserve relative polarity and copular availability.
+  # Canonical shared operations and contrast-aware negative governors retain required destinations.
+  # Nominal exists-negation and review-comment product subjects preserve independent delivery floors.
+  # Product generation/structural destinations and always-qualified availability retain actor/OR boundaries.
+  # Canonical product operations and per-item coordination preserve bare sibling review obligations.
+  # Shared passive-agent normalization preserves actor, modality, aspect and review destinations in either word order.
+  # Shared progressive inflections and perfect aspects preserve product alternatives and independent relative body duties.
+  # Irregular left and channel-symmetric relative presence retain independent and parent alternative semantics.
+  # First/final relative attachments preserve the complete bounded parent destination tail and availability alternatives.
+  # Shared relative evidence conditions retain their own governor without consuming parent sibling destinations.
+  # Comma-relative attachments and qualified only-if/solely-when conditions share those parent-tail guards.
+  # Shared lexical aliases retain passive reviewer/product actors before channel and alternative classification.
+  # Component-qualified availability stays inside complete passive destination lists and preserves bare sibling floors.
+  # Shared presence relatives preserve parent lists; component content is not an extra review delivery, bare-channel duties remain independent.
+  # Parent trailing conditions and local relative conditions retain separate scope; availability metadata cannot obstruct either.
+  # Final availability metadata retains the trailing parent delivery condition in either voice and channel order.
+  # Passive both/either destination quantifiers preserve product actor binding and bare sibling obligations.
+  # Coordinated product destinations retain optional modality and independent reviewer obligations.
+  # Irregular perfect delivery and repeated product operations retain shared actor/polarity binding.
+  # Multi-operation chains inherit the latest explicit governor/aspect, never stale head state.
+  # Product-only AND/OR chains preserve latest state without changing genuine bare-destination alternatives.
+  # Passive agents respect unquoted criterion boundaries; object adjectives preserve mandatory governor and soft wraps.
+  # Component start/end guards reuse all destination prepositions, retaining bare review transport qualifiers.
+  # Criterion splitting protects multiline quoted literals, retaining only independent external delivery duties.
+  # Shared participial content boundaries preserve bare duties and terminate real product components symmetrically.
+  # Content-object negative adjectives share modality grammar without inventing overall proof obligations after passive agents.
+  # Passive quantifiers on either side of prepositions and blank-paragraph relative boundaries share both classifiers.
+  # Artifact payload relatives retain shared parent modality; PR presence relatives remain independent.
+  # Filename dots and opaque prose payload punctuation preserve siblings; embedded product nouns do not create channel duties.
+  # Counted standalone duties and pre-preposition both/either share the guarded channel and destination grammars.
+  # Coordinated counts retain real duties; proof-object and product-recipient guards prevent domain artifacts becoming evidence.
+  # Product actor normalization and channel suppression share one grammar.
+  # Proof pronouns retain artifact destinations; bounded pure grammar caching returns fresh containers.
+  - source: scripts/langchain/pr_verifier.py
+    # Original requirements and minimum evidence admission are shared by both
+    # judge modes; native counting covers generation, synthesis and schema repair.
+    # Evaluate CLI accepts the existing OpenAI, GitHub Models and Anthropic routes.
+    # Bare/qualified review-comment discovery and ORs share literal-safe normalization;
+    # copy delivery and destination-first checklists retain shared polarity floors.
+    # Repeated governors, object polarity, passive capabilities and channel-symmetric
+    # product coordination preserve independent mandatory delivery clauses.
+    # Bounded save/persist/log product storage keeps independent reviewer duties
+    # and canonicalizes only its already-bound shared review destinations.
+    # Passive capability normalization is shared before mixed artifact/PR ORs.
+    # Plain and qualified artifact OR members retain mandatory alternative floors.
+    # Bare artifact AND lists and reverse product ORs share destination normalization.
+    # Independent comma/and/but/while boundaries reuse shared qualified recipient
+    # prefixes, preserving product-domain nouns and genuine review delivery.
+    # Same-subject predicate boundaries retain real destination lists/delivery
+    # pronouns; hyphenated qualified review aliases keep mandatory comment floors.
+    # Negative-content conditions cannot migrate onto mandatory parent deliveries.
+    # Shared complete-object boundaries reject evidence/review-comment product compounds
+    # while retaining shared proof payloads, bounded content, inherited destination
+    # prepositions and independent proof antecedents through AND/OR lists.
+    # Expanded v5 comparison requires every configured provider/model arm to be
+    # complete, used_llm=true, error-free and PASS; no availability filtering.
+    # Expanded v9 preserves a valid configured FAIL despite incomplete sibling results.
+    # Source-owned exact Terra Responses and Sonnet native Models/count binding;
+    # explicit independent input/context/output facts and actual request reserve.
+    # Terra context 1050000/input 922000; Sonnet native input/context 1000000.
+    # Exact facts come from managed registry/helper validation; expanded v7 retains
+    # up to 524288 evidence characters before unchanged native capacity preflight.
+    # Reusable expanded aggregation imports the fresh Workflows checkout, not stale caller code.
+    # Standard review packs whole-file chunks; a required single file reaches native
+    # counting without rough-budget clipping. Descriptive evidence sentences do not
+    # inherit unrelated later mandates; abbreviation periods keep real duties.
+    # Fitted necessary proof above its soft bound also requires native admission;
+    # omitted optional history leaves bounded legacy compatibility unchanged.
+    # Opt-in expanded diagnostic partitions preserve all loaded input ranges and
+    # findings within native-count bounds; global dependencies always withhold PASS.
+    # Every diagnostic request repeats the complete governing plan without clipping.
+    description: "PR verifier - retains complete single-file requests for native capacity admission and scopes evidence mandates to their governing sentences, scopes chunk omissions to assigned paths, retains raw chunk evidence and reconciles explicitly attributed sibling concerns without waiving real findings; retains active as-artifact proof delivery, literal-safe PR/inline review-comment destinations and common-proof checklist nouns through shared polarity/product/OR grammar; normalizes actor-bound common test-result/log/screenshot/recording proof objects with early canonical contracted governors, offset-preserving literal-free proof contexts, bounded active/passive object qualifiers and literal-safe explicit pronoun antecedents across finite actor clause separators and shared negative-governor actor boundaries and structurally bounded PR-contained comment nouns through shared polarity/modality/product/literal grammar and validates independent acceptance-list items and destination-specific evidence with clause-bound mandatory evidence/artifact comment-presence predicates with shared negative requirement governors for bare be-in destinations, subject-level no polarity and canonical comment destinations, product permit capability and shared share/put/place/submit/deliver/supply aliases with shared finite compound-role subjects and possession-safe verbal guards with bounded adverb-and-polarity-aware optional-inspection noun spans and prove operations, contracted and bare prohibition polarity with additive not-only/not-merely/not-just and negative embedded-auxiliary guards with complete passive/active-perfect negative requirement actions, shared adverb-aware active-perfect/passive contrast-aware elided actor/governors and prohibition-safe checklist fallback, shared bounded multiword component and comma-availability grammar with order-symmetric single/coordinated destination OR options and actual floors and leading either alternatives, complete product-response vocabulary, bounded product-capability spans, qualified recipients and evidence-object modifiers, bound product storage/client aspects, optional-modal polarity, named and elided actor governor and finite-past sentence boundaries, attached reviewer predicates through shared destinations, complete body predicates, non-PASS concerns and rename-safe diff coverage; native-capable routes count complete standard/comparison/chunk/synthesis and schema-repair requests; registered standard routes without optional capacity facts preserve their original transport, while explicit expanded invocation always requires native capacity; evidence floors and isolated receipt I/O warnings remain"
+    delivery: copy
+
+  # NOTE (resolved: issue #2347): scripts/langchain/followup_issue_generator.py was MOVED
+  # out of this copy-sync set into the `runtime_fetched:` section below. It is
+  # delivered to consumers ONLY via runtime sparse-checkout (see that section).
+
+  # Integration layer for LangChain components
+  - source: scripts/langchain/integration_layer.py
+    description: "Integration layer - coordinates LangChain components"
+    delivery: copy
+
+  - source: scripts/langchain/topic_splitter.py
+    description: "Topic splitter - splits conversations into discrete issues"
+    delivery: copy
+
+  # LangChain prompt templates
+  - source: scripts/langchain/prompts/format_issue.md
+    description: "Prompt template for LLM-based issue formatting"
+    delivery: copy
+
+  - source: scripts/langchain/prompts/analyze_issue.md
+    description: "Prompt template for issue analysis/optimization"
+    delivery: copy
+
+  - source: scripts/langchain/prompts/apply_suggestions.md
+    description: "Prompt template for applying optimization suggestions"
+    delivery: copy
+
+  - source: scripts/langchain/prompts/context_extract.md
+    description: "Prompt template for context extraction"
+    delivery: copy
+
+  - source: scripts/langchain/prompts/decompose_task.md
+    description: "Prompt template for task decomposition"
+    delivery: copy
+
+  - source: scripts/langchain/prompts/pr_evaluation.md
+    description: "Prompt template for PR evaluation/verification"
+    delivery: copy
+
+  - source: scripts/langchain/prompts/refine_tasks.md
+    description: "Prompt template for task refinement and validation"
+    delivery: copy
+
+  - source: scripts/langchain/verdict_extract.py
+    description: "Verdict extractor - parses verification verdicts from LLM output"
+    delivery: copy
+
+  - source: scripts/langchain/verdict_policy.py
+    description: "Verdict policy engine - applies pass/fail rules to verification results"
+    delivery: copy
+
+  - source: tools/llm_provider.py
+    description: "LLM provider configuration - GitHub Models and OpenAI client setup"
+
+  - source: tools/langchain_client.py
+    description: "LangChain client builder - multi-provider client with slot-based fallback and configuration"
+
+  - source: tools/llm_registry.py
+    description: "LLM model registry helper - shared selection/blocked-model enforcement plus exact optional native capacity facts; missing records raise the stable public NativeCapacityUnavailable exception (including naming-rule compatibility), malformed facts raise ValueError"
+    template_sync: exact
+
+  # Raw UTF-8 and CRLF identities must match loaded semantic inputs without newline normalization.
+  - source: tools/verifier_gzip_assets.py
+    description: "Validate exact Git gzip evidence identities, bounded single-member UTF-8 views and complete review coverage"
+    template_sync: exact
+
+  - source: tools/verifier_artifact_capture.py
+    description: "Verify immutable raw artifact sidecars independently from bounded rendering"
+    template_sync: exact
+
+  - source: tools/verifier_capture_obligation_manifest.py
+    description: "Capture obligations and context-bound snapshots; optional typed unrenderable media is availability, required media and integrity failures remain blocking"
+    template_sync: exact
+
+  - source: tools/verifier_semantic_acceptance.py
+    description: "Reviewed semantic closure, proof joins and exact judge matrix admission"
+    template_sync: exact
+
+  - source: tools/verifier_semantic_rules.py
+    description: "Fixed source-owned reviewed byte-span rules, grouped shared joins and complete per-package prompts"
+    template_sync: exact
+
+  - source: config/verifier_semantic_rules.json
+    description: "Reviewed immutable semantic decomposition registry; unknown captures retain an all-input residual"
+    template_sync: exact
+
+  - source: tools/verifier_semantic_execution.py
+    description: "Frozen all-cell native preflight and runner-owned semantic execution ledger"
+    template_sync: exact
+
+  - source: tools/verifier_proof_resource_plan.py
+    description: "Offline full-capture archive resource accounting; no semantic/native admission"
+    template_sync: exact
+
+  - source: tools/embedding_provider.py
+    description: "Embedding provider registry used by synced semantic matching helpers"
+    template_sync: exact
+
+  - source: tools/check_model_registry_freshness.py
+    description: "Model-registry freshness gate - validates dated decisions, evidence, lifecycle, and profile-based slots"
+
+  - source: tools/discover_model_catalog.py
+    description: "Advisory provider-catalog discovery - proposes new model candidates without changing reviewed selections"
+
+  - source: tools/evaluate_model_benchmark.py
+    description: "Deterministic paired model benchmark evaluator - computes confidence-bound quality gates and cost/latency ranking"
+
+  # Research-backplane run-contract/v1 validator (run locally + in the conformance gate)
+  - source: scripts/validate_run_contract.py
+    description: "Validates a repo's emitted run-contract/v1 run envelope (producer/bridge) or ingested satellite object (consumer) against the canonical Workflows schemas + opt-in participant registry. Offline/deterministic; opt-in skip for non-participants. Synced so participants can validate locally and the reusable conformance gate can invoke it."
+    requires:
+      - docs/contracts/schemas/run-contract-v1.schema.json
+      - docs/contracts/schemas/artifact-manifest-v1.schema.json
+      - docs/contracts/schemas/evidence-object-v1.schema.json
+      - docs/contracts/schemas/tracked-variable-v1.schema.json
+      - docs/contracts/schemas/capability-bundle-v1.schema.json
+      - docs/contracts/schemas/mosaic-core-v1.schema.json
+      - docs/contracts/schemas/document-mirror-v1.schema.json
+      - docs/contracts/schemas/output-substrate-v1.schema.json
+
+  # GraphQL-based PR context fetcher (medium-effort rate limit optimization)
+  - source: .github/scripts/pr-context-graphql.js
+    description: "GraphQL PR context fetcher - reduces 4+ REST calls to 1 GraphQL call"
+
+  - source: .github/scripts/github-api-cache.js
+    description: "Shared cache utilities for GitHub API requests used by PR context scripts"
+
+  - source: .github/scripts/github-api-cache-client.js
+    description: "Client wrapper for cached GitHub API requests"
+# Templates required by keepalive system
+templates:
+  - source: .github/templates/keepalive-instruction.md
+    description: "Keepalive instruction template - directives for Codex on each round"
+
+  - source: .github/PULL_REQUEST_TEMPLATE.md
+    description: "Pull request template with Workflow Source fields for direct GitHub and non-issue work"
+
+  - source: .github/path-classification.yml
+    description: "Path classification config used by the path-classifier composite action"
+
+  - source: .github/workflows/ci-python-versions.env
+    source_tree: template
+    description: "Shared Python 3.14 CI defaults and compatible test/lint tool pins; repo-owned autofix pins take precedence"
+
+# Actions required by reusable workflows
+actions:
+  - source: .github/actions/agent-event-eligibility/
+    is_directory: true
+    description: "Agent event eligibility action - early no-op gate for agent workflows"
+
+  - source: .github/actions/setup-api-client/
+    is_directory: true
+    description: "Unified API client setup - installs @octokit deps and exports all load balancer tokens"
+
+  - source: .github/actions/agent-run-base/
+    source_tree: root
+    is_directory: true
+    description: "Shared agent runner setup action - required by reusable-codex-run.yml and reusable-claude-run.yml"
+
+  - source: .github/actions/resolve-default-branch/
+    is_directory: true
+    description: "Resolves repository default branches for Workflows dual-checkout patterns"
+
+  - source: .github/actions/export-load-balancer-tokens/
+    is_directory: true
+    description: "Export load balancer tokens action - required by reusable-10-ci-python.yml (deprecated, use setup-api-client)"
+
+  - source: .github/actions/path-classifier/
+    is_directory: true
+    description: "Classifies changed PR paths for path-aware expensive job gating"
+    requires:
+      - .github/scripts/sync_pr_lease_contract.js
+
+  - source: .github/actions/artifact-cache/
+    is_directory: true
+    description: "Restores, discovers, and caches workflow artifacts by daily, weekly, or run window"
+
+# Configuration files for LLM providers and workflows
+llm_config:
+  - source: config/llm_slots.json
+    description: "LLM slot configuration - defines provider/model slots for multi-provider workflows"
+    sync_mode: create_only  # Don't overwrite - repos may customize provider preferences
+
+  - source: config/model_registry.json
+    description: "Model registry - available LLM models, selections and optional reviewed exact native capacity/transport facts"
+
+  - source: config/model_selection_policy.json
+    description: "Model selection policy - benchmark gates, measurements, optimization order, and review triggers"
+
+# Documentation synced to consumer repos
+docs:
+  - source: docs/CI_FAILURE_PLAYBOOK.md
+    source_tree: root
+    target: docs/CI_FAILURE_PLAYBOOK.md
+    description: "Shared CI failure triage playbook with locally resolvable diagnostic links"
+
+  - source: docs/MODEL_SELECTION_POLICY.md
+    source_tree: root
+    target: docs/MODEL_SELECTION_POLICY.md
+    description: "Auditable auxiliary-model evaluation, selection, and refresh policy"
+
+  - source: docs/AGENT_ISSUE_FORMAT.md
+    target: docs/AGENT_ISSUE_FORMAT.md
+    description: "Format specification for agent-compatible issues"
+
+  - source: docs/CI_SYSTEM_GUIDE.md
+    target: docs/CI_SYSTEM_GUIDE.md
+    description: "Guide to the CI system for agents"
+
+  - source: docs/LABELS.md
+    source_tree: template
+    target: docs/LABELS.md
+    description: "Label definitions and usage"
+
+  - source: docs/CODEX_TOKEN_REFRESH.md
+    target: docs/CODEX_TOKEN_REFRESH.md
+    description: "Codex OAuth token refresh guide"
+
+  - source: docs/TARGET_WORK_ENVIRONMENT.md
+    target: docs/TARGET_WORK_ENVIRONMENT.md
+    description: "Confirmed target work-environment capabilities and blocked delivery shapes"
+
+  - source: AGENTS.md
+    target: AGENTS.md
+    description: "Context file for agents and coding assistants"
+    skip_repos:
+      - repo: stranske/Trend_Model_Project
+        reason: "Repo keeps historical Agents.md casing to avoid case-only path conflicts"
+      - repo: stranske/Fine-Art-Archive
+        reason: >-
+          Sync commit faee7246 (2026-08-25) overwrote this file and silently deleted 60 lines of
+          repo-owned research guidance ("Identifying a Work: Reverse Image Search Is the Next
+          Step"). That guidance is archive-specific and belongs to the consumer, not the shared
+          template; the docs section is overwrite-synced, so the only protection is skipping the
+          repo here. Incident: resolved: #3275.
+      - repo: stranske/Orchestrator
+        reason: >-
+          Orchestrator owns a terminal merge invariant in AGENTS.md that requires its local
+          src/merge_guard.py for every repository-local terminal merge. Overwrite-sync removes
+          that safety rule and fails tests/test_merge_entrypoint_contract.py on generated
+          workflow-sync delivery. Keep this tool-owned guidance local, as with its CLAUDE.md
+          exception.
+
+  - source: CLAUDE.md
+    target: CLAUDE.md
+    description: "Context file for Claude/AI assistants"
+    skip_repos:
+      - repo: stranske/Fine-Art-Archive
+        reason: >-
+          Same incident as the AGENTS.md skip above: sync commit faee7246 (2026-08-25) deleted the
+          identical 60-line repo-owned reverse-image-search section from this file too. The repo
+          maintains its own CLAUDE.md with archive-specific rules; overwrite-sync would delete
+          them again. Incident: resolved: #3275.
+      - repo: stranske/Orchestrator
+        reason: >-
+          Orchestrator is the local agent-orchestration TOOL, not a product consumer. Its CLAUDE.md
+          is the tool's own safety net: the tool-vs-evidence split, the three-trees rule (clone /
+          launchd mirror / $ORCH_STATE_DIR), and the requirement to verify with verify.py rather
+          than a shell loop over test files. CLAUDE.md is the file agents auto-load every session,
+          so it is the enforcement mechanism; overwriting it with the consumer template would
+          silently remove those rules. Consumer conventions are referenced FROM that file instead.
+
+  - source: docs/contracts/agent-runner-output.md
+    target: docs/contracts/agent-runner-output.md
+    description: "Agent runner output contract specification - required for implementing new agent runners"
+
+  # Research-backplane run-contract/v1 contract set (spec + schemas + identity conventions).
+  # The registry (config/backplane_participants.json) and the program doc
+  # (docs/contracts/research-backplane-contract.md) are intentionally NOT synced
+  # (Workflows-only single source of truth); see research-backplane-contract.md.
+  - source: docs/contracts/run-contract-v1.md
+    source_tree: root
+    target: docs/contracts/run-contract-v1.md
+    description: "Research-backplane run-contract/v1 wire-format spec - participants need it to implement an emitter/ingest adapter"
+
+  - source: docs/contracts/identity-map-conventions.md
+    source_tree: root
+    target: docs/contracts/identity-map-conventions.md
+    description: "Canonical entity-ID conventions for run-contract/v1 identity_refs / evidence entity_ref - participants emit against these"
+
+  - source: docs/contracts/capability-bundle-v1.md
+    target: docs/contracts/capability-bundle-v1.md
+    description: "Capability-bundle/v1 prompt-fragment and gate metadata contract for Workflows Keepalive"
+
+  - source: docs/contracts/schemas/capability-bundle-v1.schema.json
+    target: docs/contracts/schemas/capability-bundle-v1.schema.json
+    description: "JSON Schema (draft 2020-12) for capability-bundle/v1 keepalive prompt fragments and gate metadata"
+
+  - source: docs/contracts/schemas/run-contract-v1.schema.json
+    source_tree: root
+    target: docs/contracts/schemas/run-contract-v1.schema.json
+    description: "JSON Schema (draft 2020-12) for run-contract/v1 run envelopes - loaded by the validator and local helpers so participants validate without a Workflows checkout"
+
+  - source: docs/contracts/schemas/artifact-manifest-v1.schema.json
+    source_tree: root
+    target: docs/contracts/schemas/artifact-manifest-v1.schema.json
+    description: "JSON Schema (draft 2020-12) for artifact-manifest/v1 - the named-artifact manifest a run envelope references"
+
+  - source: docs/contracts/schemas/evidence-object-v1.schema.json
+    source_tree: root
+    target: docs/contracts/schemas/evidence-object-v1.schema.json
+    description: "JSON Schema (draft 2020-12) for evidence-object/v1 - attributable evidence objects (the satellite schema consumers like the LMS would ingest)"
+
+  - source: docs/contracts/schemas/evidence-object-v1.schema.json
+    source_tree: root
+    target: src/deliverable_render/store/evidence-object-v1.schema.json
+    include_repos:
+      - stranske/Deliverable-Render
+    description: "JSON Schema (draft 2020-12) for evidence-object/v1 - Deliverable-Render packaged-evidence schema"
+
+  - source: docs/contracts/schemas/evidence-object-v1.schema.json
+    source_tree: root
+    target: src/manager_mosaic/schemas/evidence-object-v1.schema.json
+    include_repos:
+      - stranske/Manager-Mosaic
+    description: "JSON Schema (draft 2020-12) for evidence-object/v1 - Manager-Mosaic packaged-evidence schema"
+
+  - source: docs/contracts/document-identity-conventions.md
+    source_tree: root
+    target: docs/contracts/document-identity-conventions.md
+    description: "Fleet contract for content-first document identity, secondary keys, supersession, and text-basis attribution"
+
+  - source: docs/contracts/tracked-variable-v1.md
+    source_tree: root
+    target: docs/contracts/tracked-variable-v1.md
+    description: "Tracked-variable/v1 specification and clause-variable alias for backplane consumers"
+
+  - source: docs/contracts/schemas/tracked-variable-v1.schema.json
+    source_tree: root
+    target: docs/contracts/schemas/tracked-variable-v1.schema.json
+    description: "Tracked-variable/v1 schema with embedded evidence and document/mirror provenance"
+
+  - source: docs/contracts/mosaic-core-v1.md
+    source_tree: root
+    target: docs/contracts/mosaic-core-v1.md
+    description: "Mosaic-core/v1 record types and fact-key join semantics"
+    requires:
+      - docs/contracts/schemas/mosaic-core-v1.schema.json
+      - docs/contracts/schemas/artifact-manifest-v1.schema.json
+
+  - source: docs/contracts/schemas/mosaic-core-v1.schema.json
+    source_tree: root
+    target: docs/contracts/schemas/mosaic-core-v1.schema.json
+    description: "Mosaic-core/v1 schema for facts, discrepancies, thesis claims and checks"
+
+  - source: docs/contracts/document-mirror-v1.md
+    source_tree: root
+    target: docs/contracts/document-mirror-v1.md
+    description: "Document-mirror/v1 specification for offline blob catalogs and triple-link resolvers"
+    requires:
+      - docs/contracts/schemas/document-mirror-v1.schema.json
+
+  - source: docs/contracts/schemas/document-mirror-v1.schema.json
+    source_tree: root
+    target: docs/contracts/schemas/document-mirror-v1.schema.json
+    description: "Document-mirror/v1 schema for mirror_root catalogs with content_sha256 blobs and source_refs"
+
+  - source: docs/contracts/output-substrate-v1.md
+    source_tree: root
+    target: docs/contracts/output-substrate-v1.md
+    description: "Output-substrate/v1 renderer profiles, workspace bundle refs, and manifest CSV exports"
+    requires:
+      - docs/contracts/schemas/output-substrate-v1.schema.json
+      - docs/contracts/schemas/artifact-manifest-v1.schema.json
+
+  - source: docs/contracts/schemas/output-substrate-v1.schema.json
+    source_tree: root
+    target: docs/contracts/schemas/output-substrate-v1.schema.json
+    description: "Output-substrate/v1 schema for vendored renderer wiring and view-bundle pointers"
+
+  - source: docs/SETUP_CHECKLIST.md
+    target: docs/SETUP_CHECKLIST.md
+    description: "Consumer repo setup checklist. Includes the default_workflow_permissions=write step in section 3.3.1 that prevents a Gate startup_failure on fresh consumers (resolved: #2157). Synced so it no longer drifts across the fleet."
+
+  # ---- Shared design system (fleet UX consistency) ----
+  # CSS tokens/components + a Streamlit adapter kit + the presentation-patterns
+  # standard, synced into each consumer's design-system/. Apps consume a PATTERN
+  # (theme / empty-state / error / dev-notice / availability-badge / no-raw-ids)
+  # rather than inventing bespoke fixes. Per-app overrides go in an app stylesheet
+  # loaded AFTER tokens.css; never fork components.css. Grouped here with the other
+  # synced reference assets (cf. the run-contract JSON schemas above).
+  - source: design-system/tokens.css
+    target: design-system/tokens.css
+    description: "Design-system theme tokens (theme-air/theme-paper + density axis). Override tokens in an app stylesheet loaded after this; do not fork."
+  - source: design-system/components.css
+    target: design-system/components.css
+    description: "Design-system component layer (.ds): panels/appbar/kpis/tables/fields + presentation-state patterns (.notice, .empty-state, .badge, .skeleton)."
+  - source: design-system/ds_streamlit.py
+    target: design-system/ds_streamlit.py
+    description: "Streamlit adapter for the design system (inject_theme/empty_state/notice/error/translate_error/dev_note/availability_badge/humanize_id) so Streamlit apps consume the same presentation patterns."
+  - source: design-system/PRESENTATION_PATTERNS.md
+    target: design-system/PRESENTATION_PATTERNS.md
+    description: "The presentation-patterns standard (P1-P6): the rule behind each pattern + per-app-type application + the finding->pattern map from the 2026-06 UX-Review fleet baseline."
+  - source: design-system/README.md
+    target: design-system/README.md
+    description: "Design-system usage guide: how to apply the theme + components/kit per app type."
+
+# Issue templates synced to consumer repos
+issue_templates:
+  - source: .github/ISSUE_TEMPLATE/agent_task.yml
+    description: "Agent task issue template - structured format for agent-compatible issues"
+
+  - source: .github/ISSUE_TEMPLATE/config.yml
+    description: "Issue template chooser config - controls which templates appear in the UI"
+
+# User-facing documentation
+user_docs:
+  - source: WORKFLOW_USER_GUIDE.md
+    target: WORKFLOW_USER_GUIDE.md
+    description: "Workflow user guide - explains the CI/agent system for repo consumers"
+
+# Git configuration files for merge strategies
+git_config:
+  - source: .gitattributes
+    description: "Git attributes - merge strategies to prevent pr_body.md conflicts"
+  - source: .coderabbit.yaml
+    description: "CodeRabbit auto-review config - skips maintenance-bot PRs (renovate/dependabot/github-actions/keepalive) and generated sync/draft PRs, while keeping substantial agent-authored PR reviews enabled. High-level summaries stay in the walkthrough comment so release-note bullets cannot inflate keepalive checklists. Advisory/non-gating per fleet rule."
+
+
+# Workflows-owned runtime-fetched scripts (resolved: issue #2347)
+#
+# These files are intentionally NOT copy-synced into consumer repos. The
+# consumer-template workflows that use them perform a runtime sparse-checkout of
+# stranske/Workflows `scripts/langchain` (whole-directory) and run the script
+# directly from that fetched tree, so a copy in the consumer working tree would
+# only create a second, skew-prone delivery path during the daily sync window.
+#
+# This section is deliberately NOT in the list of sections processed by the
+# sync engine (maint-68-sync-consumer-repos.yml) or the drift checker
+# (scripts/check_consumer_sync_drift.py), so entries here are never copied and
+# never drift-probed. Each entry MUST carry `delivery: runtime`.
+# Enforced by tests/workflows/test_sync_manifest_delivery.py.
+runtime_fetched:
+  - source: scripts/langchain/followup_issue_generator.py
+    delivery: runtime
+    description: "Follow-up issue generator - creates issues from verification feedback. Runtime-fetched only."
+    # Runtime-fetch evidence (consumer-delivered workflows, both in the manifest
+    # `workflows:` set):
+    #   * templates/consumer-repo/.github/workflows/agents-80-pr-event-hub.yml
+    #     - L315-323: actions/checkout repository: stranske/Workflows,
+    #       sparse-checkout includes `scripts/langchain` + `tools`, NO `path:`
+    #       (lands in the workspace root).
+    #     - L434: `python scripts/langchain/followup_issue_generator.py ...`
+    #       runs from that runtime-fetched root.
+    #   * templates/consumer-repo/.github/workflows/agents-verify-to-new-pr.yml
+    #     - L67-83: the ONLY checkout is repository: stranske/Workflows with
+    #       `scripts/langchain` in sparse-checkout and NO `path:`; the consumer's
+    #       own repo is never checked out into root in this job.
+    #     - L576: `python scripts/langchain/followup_issue_generator.py ...`.
+    # No consumer-delivered workflow reads this module from the copy-synced tree,
+    # and no script/tool imports it (grep: zero importers), so dropping it from
+    # copy-sync is safe.
+
+excluded:
+
+  - path: .gitignore
+    reason: "Repo-specific ignore patterns; the managed Workflows status-file block is propagated by scripts/sync_status_file_ignores.py instead of generic sync targets"
+  - path: README.md
+    reason: "Repo-specific documentation"
+  - path: config/coverage-baseline.json
+    reason: "Each repo maintains its own coverage baseline - template provided for reference"
+  - path: scripts/__pycache__
+    reason: "Python bytecode cache - never synced"
+  - path: .github/workflows/autofix-versions.env
+    reason: "Repo-specific CI version pins; consumers copy or override per docs/ci/WORKFLOWS.md. Intentionally not synced (see CLAUDE.md)."
+
+# Copilot configuration - skills and instructions for AI assistants
+copilot_config:
+  - source: .github/copilot-instructions.md
+    description: "Repository-specific instructions for GitHub Copilot"
+
+  # Skills folder - synced as a directory
+  - source: .github/copilot-skills/
+    is_directory: true
+    description: "Copilot skill definitions - patterns for CI, GitHub ops, etc."

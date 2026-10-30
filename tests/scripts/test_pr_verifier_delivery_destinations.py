@@ -5082,13 +5082,45 @@ def test_nonpass_text_retains_actionable_concerns_and_raw_detail(verdict):
 
 @pytest.mark.parametrize("wrapper", ["Here is the result:\n{}", "```json\n{}\n```"])
 def test_failed_repair_does_not_render_wrapped_stale_pass(monkeypatch, wrapper):
+    """Retain historical case IDs; one valid fence now passes strict parsing."""
     raw = wrapper.format('{"verdict": "PASS", "summary": "Unvalidated result"}')
-    monkeypatch.setattr(
-        verifier, "_build_verifier_repair_callback", lambda _client: lambda *_args: None
-    )
+
+    def forbidden(*_args, **_kwargs):
+        pytest.fail("Final output must not construct schema repair")
+
+    monkeypatch.setattr(verifier, "_build_verifier_repair_callback", forbidden)
     result = verifier._parse_llm_response(raw, "test-provider", client=object())
-    assert result.verdict == "CONCERNS"
-    assert result.error
+    expected = {
+        "Here is the result:\n{}": "CONCERNS",
+        "```json\n{}\n```": "PASS",
+    }[wrapper]
+    assert result.verdict == expected and result.raw_content == raw
+    text = verifier._evaluation_output_text(result)
+    if expected == "CONCERNS":
+        assert result.error and text.startswith("Verdict: CONCERNS")
+        assert '"verdict": "PASS"' not in text
+    else:
+        assert result.error is None and text.endswith(raw)
+        assert result.summary == "Unvalidated result"
+
+
+@pytest.mark.parametrize(
+    "wrapper",
+    [
+        "```json\n{}\n```\nTrailing explanation",
+        "```json\n{}\n```\n```json\n{}\n```",
+    ],
+)
+def test_invalid_final_envelope_does_not_render_stale_pass(monkeypatch, wrapper):
+    payload = '{"verdict": "PASS", "summary": "Unvalidated result"}'
+    raw = wrapper.format(payload, payload)
+
+    def forbidden(*_args, **_kwargs):
+        pytest.fail("Invalid final output must not launch schema repair")
+
+    monkeypatch.setattr(verifier, "_build_verifier_repair_callback", forbidden)
+    result = verifier._parse_llm_response(raw, "test-provider", client=object())
+    assert result.verdict == "CONCERNS" and result.error and result.raw_content == raw
     text = verifier._evaluation_output_text(result)
     assert text.startswith("Verdict: CONCERNS")
     assert '"verdict": "PASS"' not in text

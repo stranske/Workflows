@@ -29,9 +29,9 @@ run-mypy                     'true'/'false' toggle to run mypy job (default true
 Gate applies the same full-suite discovery, `not quarantine and not slow` markers,
 common `requirements.lock` to both runtimes. Gate measures branch coverage on
 3.14 only; 3.13 runs plain pytest with the same selected suite.
-Python >=3.12 remains the package minimum; an explicit `python-version: "3.12"`
-still selects only that runtime. Existing create-only consumer Gates retain their
-explicit version policy until a separate migration.
+The package minimum is Python >=3.13 (3.14 first, 3.13 backup; 3.12 is retired).
+An explicit `python-version` still selects only that runtime. Consumer Gates are
+create-only, so each consumer moves its own explicit pins.
 
 Phase 1 – Metrics:
 ```
@@ -131,7 +131,7 @@ jobs:
   ci:
     uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@v1
     with:
-      python-versions: '["3.12", "3.13"]'
+      python-versions: '["3.13", "3.14"]'
       coverage-min: '72'
       enable-metrics: 'true'
       enable-history: 'true'
@@ -157,7 +157,7 @@ jobs:
     uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@v1
     with:
       working-directory: packages/my-package
-      python-versions: '["3.12"]'
+      python-versions: '["3.14"]'
       coverage-min: '80'
 ```
 

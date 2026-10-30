@@ -517,7 +517,7 @@ jobs:
             }}
 
       - name: Set up Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: "24"
 
@@ -921,7 +921,7 @@ jobs:
             }}
 
       - name: Set up Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: "24"
 
@@ -1319,7 +1319,7 @@ jobs:
             }}
 
       - name: Set up Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: "24"
 
@@ -1636,6 +1636,15 @@ jobs:
         format('{0}/{1}', github.workspace, inputs['working-directory'])
         || github.workspace }}
     steps:
+      # Keep Python/pytest and inherited child tools off Ubuntu 26.04's capped /tmp.
+      - name: Select runner-owned test temporary storage
+        id: test-temp
+        working-directory: ${{ runner.temp }}
+        run: |
+          : "${RUNNER_TEMP:?runner must supply its owned temporary directory}"
+          test -d "$RUNNER_TEMP"
+          printf 'TMPDIR=%s\n' "$RUNNER_TEMP" >> "$GITHUB_ENV"
+
       # Mint GitHub App token early to use for API calls (avoids rate limits)
       - name: Mint GitHub App Token
         id: app_token
@@ -1673,7 +1682,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - name: Set up Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: "24"
 

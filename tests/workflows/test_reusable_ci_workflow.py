@@ -806,3 +806,79 @@ process.stdout.write(JSON.stringify(result));
         text=True,
     )
     assert json.loads(result.stdout) is expected
+
+
+def test_test_job_temp_storage_is_scoped_and_effective_before_python_starts() -> None:
+    workflow = _load_workflow()
+    assert "TMPDIR" not in workflow.get("env", {})
+    for name, job in workflow["jobs"].items():
+        if name != "tests":
+            assert "TMPDIR" not in job.get("env", {}), name
+    job = workflow["jobs"]["tests"]
+    assert "TMPDIR" not in job["env"]
+    first = job["steps"][0]
+    assert first["id"] == "test-temp"
+    assert first["working-directory"] == "${{ runner.temp }}"
+    assert "TMPDIR=%s" in first["run"] and '"$GITHUB_ENV"' in first["run"]
+    # A late step override must not send pytest or its child tools back to /tmp.
+    assert all("TMPDIR" not in step.get("env", {}) for step in job["steps"])
+
+
+@pytest.mark.parametrize("apply_job_env", [True, False])
+def test_fresh_pytest_and_nested_tempfile_honor_job_temp_storage(
+    tmp_path: Path, apply_job_env: bool
+) -> None:
+    first = _load_workflow()["jobs"]["tests"]["steps"][0]
+    runner_temp = tmp_path / "runner owned temp"
+    runner_temp.mkdir()
+    github_env = tmp_path / "github-env"
+    setup = subprocess.run(
+        ["bash", "-e", "-c", first["run"]],
+        cwd=runner_temp,
+        env={**os.environ, "RUNNER_TEMP": str(runner_temp), "GITHUB_ENV": str(github_env)},
+        capture_output=True,
+        text=True,
+        timeout=5,
+        check=False,
+    )
+    assert setup.returncode == 0, setup.stdout + setup.stderr
+    assert github_env.read_text() == f"TMPDIR={runner_temp}\n"
+    case = tmp_path / "case"
+    case.mkdir()
+    (case / "test_temp_route.py").write_text(
+        "import os, pathlib, subprocess, sys, tempfile\n"
+        "def test_effective_temp(tmp_path):\n"
+        "    expected = pathlib.Path(os.environ['EXPECTED_RUNNER_TEMP']).resolve()\n"
+        "    assert pathlib.Path(tempfile.gettempdir()).resolve() == expected, 'wrong-first-tempfile-location'\n"
+        "    assert tmp_path.resolve().is_relative_to(expected), 'wrong-pytest-temp-location'\n"
+        "    nested = subprocess.check_output([sys.executable, '-c', 'import tempfile; print(tempfile.gettempdir())'], text=True).strip()\n"
+        "    assert pathlib.Path(nested).resolve() == expected, 'wrong-child-temp-location'\n",
+        encoding="utf-8",
+    )
+    env = dict(os.environ)
+    for key in ("TMPDIR", "TEMP", "TMP", "PYTEST_DEBUG_TEMPROOT", "PYTEST_ADDOPTS"):
+        env.pop(key, None)
+    env.update(
+        PYTEST_DISABLE_PLUGIN_AUTOLOAD="1",
+        EXPECTED_RUNNER_TEMP=str(runner_temp),
+    )
+    if apply_job_env:
+        key, value = github_env.read_text().rstrip("\n").split("=", 1)
+        env[key] = value
+    result = subprocess.run(
+        [sys.executable, "-m", "pytest", "-q", "--confcutdir", str(case), str(case)],
+        cwd=case,
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=30,
+        check=False,
+    )
+    if apply_job_env:
+        assert result.returncode == 0, result.stdout + result.stderr
+        assert "1 passed" in result.stdout
+    else:
+        # Causal counterfactual: removing the job environment fails before the
+        # fixture and nested-tool checks can falsely certify the selected disk.
+        assert result.returncode == 1, result.stdout + result.stderr
+        assert "wrong-first-tempfile-location" in result.stdout

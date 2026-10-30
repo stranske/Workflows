@@ -17,10 +17,10 @@ on:
 jobs:
   # Configuration 1: Basic - minimal settings, single Python version
   basic:
-    name: Basic (3.12 only)
+    name: Basic (3.14 only)
     uses: __WORKFLOW_REF__
     with:
-      python-versions: '["3.12"]'
+      python-versions: '["3.14"]'
       coverage: false
       lint: true
       format_check: true
@@ -34,10 +34,10 @@ jobs:
 
   # Configuration 2: Full coverage - all features enabled
   full-coverage:
-    name: Full coverage (3.12, 3.12)
+    name: Full coverage (3.13, 3.14)
     uses: __WORKFLOW_REF__
     with:
-      python-versions: '["3.12", "3.13"]'
+      python-versions: '["3.13", "3.14"]'
       coverage: true
       lint: true
       format_check: true
@@ -54,10 +54,10 @@ jobs:
 
   # Configuration 3: Typecheck only - focused mypy validation
   typecheck-only:
-    name: Typecheck only (3.12)
+    name: Typecheck only (3.14)
     uses: __WORKFLOW_REF__
     with:
-      python-versions: '["3.12"]'
+      python-versions: '["3.14"]'
       coverage: false
       lint: false
       format_check: false
@@ -72,10 +72,10 @@ jobs:
 
   # Configuration 4: Lint only - no tests, just code quality
   lint-only:
-    name: Lint only (3.12)
+    name: Lint only (3.14)
     uses: __WORKFLOW_REF__
     with:
-      python-versions: '["3.12"]'
+      python-versions: '["3.14"]'
       coverage: false
       lint: true
       format_check: true
@@ -94,9 +94,12 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    env:
+      # Step `if:` cannot read the secrets context (GitHub rejects the whole file), so expose presence as env.
+      HAS_ACTIONS_BOT_PAT: ${{ secrets.ACTIONS_BOT_PAT != '' }}
     steps:
       - name: Checkout retry helpers (Workflows)
-        if: ${{ secrets.ACTIONS_BOT_PAT != '' }}
+        if: ${{ env.HAS_ACTIONS_BOT_PAT == 'true' }}
         uses: actions/checkout@v7
         with:
           repository: stranske/Workflows
@@ -106,17 +109,21 @@ jobs:
             .github/actions/setup-api-client
             .github/scripts/github-api-with-retry.js
             .github/scripts/token_load_balancer.js
+            .github/scripts/error_classifier.js
+            .github/scripts/github-rate-limited-wrapper.js
           sparse-checkout-cone-mode: false
 
       - name: Setup API client
-        if: ${{ secrets.ACTIONS_BOT_PAT != '' }}
+        if: ${{ env.HAS_ACTIONS_BOT_PAT == 'true' }}
         uses: ./workflows/.github/actions/setup-api-client
         with:
-          secrets: ${{ toJSON(secrets) }}
+          # Pass only the secret this job uses: toJSON(secrets) handed to an action checked out
+          # from another repo makes GitHub hold the run as possibly malicious (action_required).
+          actions_bot_pat: ${{ secrets.ACTIONS_BOT_PAT }}
           github_token: ${{ github.token }}
 
       - name: Open issue in Workflows repo
-        if: ${{ secrets.ACTIONS_BOT_PAT != '' }}
+        if: ${{ env.HAS_ACTIONS_BOT_PAT == 'true' }}
         uses: actions/github-script@v9
         with:
           github-token: ${{ secrets.ACTIONS_BOT_PAT }}
@@ -180,6 +187,6 @@ jobs:
             }
 
       - name: Skip failure notification (missing token)
-        if: ${{ secrets.ACTIONS_BOT_PAT == '' }}
+        if: ${{ env.HAS_ACTIONS_BOT_PAT != 'true' }}
         run: |
           echo "::warning::ACTIONS_BOT_PAT not available, skipping failure notification"

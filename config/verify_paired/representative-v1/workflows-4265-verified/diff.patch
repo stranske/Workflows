@@ -1,0 +1,401 @@
+diff --git a/.github/sync-manifest.yml b/.github/sync-manifest.yml
+index 9acaab031ebd3af0f3b5d7d211659ff481a5c1b1..6ce0aa93248f09902f851117db012e1d6275e052 100644
+--- a/.github/sync-manifest.yml
++++ b/.github/sync-manifest.yml
+@@ -163,7 +163,7 @@ workflows:
+ 
+   # Maintenance workflows
+   - source: .github/workflows/maint-coverage-guard.yml
+-    description: "Coverage guard - daily baseline monitoring with automatic issue creation. Intentional full-workflow sync exception: ships the complete guard implementation to consumers instead of a thin reusable caller because the workflow embeds repo-specific artifact discovery and download logic tied to tools/coverage_guard.py."
++    description: "Coverage guard - daily baseline monitoring with automatic issue creation and repository-scoped recovery history. Intentional full-workflow sync exception: ships the complete guard implementation to consumers instead of a thin reusable caller because the workflow embeds repo-specific artifact discovery and download logic tied to tools/coverage_guard.py."
+ 
+   - source: .github/workflows/maint-76-claude-code-review.yml
+     description: "Claude Code review (opt-in) - Workflows owns the pinned action digest; runs only on labeled PRs or manual dispatch"
+diff --git a/.github/workflows/maint-coverage-guard.yml b/.github/workflows/maint-coverage-guard.yml
+index e6727a50b180dd50f21bc8e613168d70f9387639..7e488240ee4350740cf72492a29a971b97ec7bfd 100644
+--- a/.github/workflows/maint-coverage-guard.yml
++++ b/.github/workflows/maint-coverage-guard.yml
+@@ -417,17 +417,17 @@ jobs:
+           producer-run-id: ${{ steps.discover.outputs.run_id }}
+           fail-fast: 'true'
+ 
+-      - name: Download coverage trend history artifact
+-        if: ${{ steps.discover.outputs.history_artifact_name }}
++      # Each immutable cache saves the accumulated history after this guard run.
++      # Restore the newest repository history, independently of the producer run.
++      - name: Restore coverage recovery history
++        if: ${{ steps.discover.outputs.run_id }}
+         id: coverage-trend-history-cache
+-        uses: ./.github/actions/artifact-cache
++        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+         with:
+-          cache-key-base: gate-coverage-trend-history-${{ steps.discover.outputs.run_id }}
+-          window-resolution: weekly
+-          artifact-name: ${{ steps.discover.outputs.history_artifact_name }}
+-          artifact-path: coverage_artifacts/history
+-          producer-run-id: ${{ steps.discover.outputs.run_id }}
+-          fail-fast: 'false'
++          path: coverage_artifacts/history
++          key: coverage-guard-history-v1-${{ github.repository }}-${{ github.run_id }}-${{ github.run_attempt }}
++          restore-keys: |
++            coverage-guard-history-v1-${{ github.repository }}-
+ 
+       - name: Download coverage payload artifact
+         if: ${{ steps.discover.outputs.coverage_artifact_name }}
+@@ -451,7 +451,7 @@ jobs:
+           # Try multiple possible artifact paths (workflow uses different naming)
+           TREND_PATH=""
+           COVERAGE_PATH=""
+-          HISTORY_PATH=""
++          HISTORY_PATH="coverage_artifacts/history/coverage-trend-history.ndjson"
+ 
+           # Check for trend artifact
+           for candidate in \
+@@ -551,6 +551,13 @@ jobs:
+ 
+           python tools/coverage_guard.py "${ARGS[@]}"
+ 
++      - name: Save coverage recovery history
++        if: ${{ always() && steps.discover.outputs.run_id && hashFiles('coverage_artifacts/history/coverage-trend-history.ndjson') != '' }}
++        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
++        with:
++          path: coverage_artifacts/history
++          key: ${{ steps.coverage-trend-history-cache.outputs.cache-primary-key }}
++
+   # A SKIPPED GUARD USED TO BE INDISTINGUISHABLE FROM A PASSING ONE. `guard` is gated on the
+   # rate-limit job, so when quota is low the job is skipped and the WORKFLOW IS GREEN with nothing
+   # checked. stranske/Workflows' three most recent runs all read `success` at the workflow level
+diff --git a/config/template-drift-allowlist.txt b/config/template-drift-allowlist.txt
+index a14ef39468407608ab95918be2ff86a74f23f595..7a8e1d5fb0a77adff2328d55196b6ceb8a5953f1 100644
+--- a/config/template-drift-allowlist.txt
++++ b/config/template-drift-allowlist.txt
+@@ -216,11 +216,11 @@ fingerprint_refreshed = 2026-09-14
+ [pair.18]
+ main = .github/workflows/maint-coverage-guard.yml
+ template = templates/consumer-repo/.github/workflows/maint-coverage-guard.yml
+-main_sha256 = e91eb88457e15bef38dec493824c131dceff87c3d95bdbde4c1ae0b7edee59f3
+-template_sha256 = 8578fcb7859d06bf7f458f54faaffa275c59f5888d3875e936ddcb09a59a928a
+-divergence = Round 2 Python matrix 2026-10-17: runtime/coverage changes applied identically to root and template; existing consumer wiring and action-pin divergence unchanged. Guard FINDS the report inside the artifact 2026-08-30, AND CORRECTS THE CLAIM BELOW. The note that follows says matrix artifacts extract to `payload/coverage/runtimes/...`. They do not, and that is why the seven hardcoded candidate paths still matched nothing after the artifact NAME was fixed the same day. MEASURED by downloading three repos' real gate-coverage-3.12-1 artifacts (stranske/Counter_Risk, stranske/Pension-Data, stranske/trip-planner): every one contains `index.ndjson` and `runtimes/<ver>/coverage.json` with NO top-level `coverage/` directory, so the extracted path is `coverage_artifacts/payload/runtimes/3.12/coverage.json` -- one level from the first candidate and matched by none. The list also hardcoded Python 3.12/3.13, so a matrix bump would break it silently and later. Literals are still tried FIRST, so a repo where resolution already worked cannot be re-resolved by this change; failing that the payload is FOUND by the property the guard actually reads -- a JSON carrying totals.percent_covered -- which cannot drift from a directory layout it never mentions, and which correctly rejects the `summary.json` sibling that carries a `coverage` key but no totals. Results are sorted, so an artifact holding two runtimes resolves identically every run. The missing-artifact message now lists what was downloaded, because it could not distinguish an empty artifact from a full one whose contents it did not recognise -- and the second is what really happened, in every repo. Applied IDENTICALLY to root and consumer; fingerprints refreshed, divergence_reviewed keeps its date. Prior divergence unchanged: Review findings fixed 2026-08-30: matrix artifacts downloaded under payload extract to `payload/coverage/runtimes/...`, so both guards probe that actual layout before legacy layouts; the three failure states now separately report no coverage artifacts, unusable payload names, and a usable payload missing its same-run trend. Applied IDENTICALLY to root and consumer, so it introduces NO NEW divergence; fingerprints refreshed and divergence_reviewed deliberately keeps its old date. Prior divergence unchanged: Guard matches the payload artifact by PREFIX 2026-08-30: the producer runs under a version matrix, so what it publishes is gate-coverage-3.12-1 and gate-coverage-3.13-1, while this job matched the exact names gate-coverage / gate-coverage.json. MEASURED 2026-08-30 across the lane fleet: EIGHT repos published a trend, a summary and both suffixed payloads -- everything the job needs -- and every one was skipped, which is why the guard had a failing run in all 13 repos. Two more literals would not have fixed it, so the match is by prefix with -trend/-summary/-delta excluded by name (a bare prefix would have selected the TREND as the payload and compared coverage against itself); exact names are still preferred first so a repo where this already worked is untouched, and multiple suffixed matches are SORTED because the API's listing order is not stable. The failure message was split into three findings, because "coverage is not measured here", "it is measured under a name I cannot use" and "a payload but no trend" have different fixes and the single message asserted the first in all three cases -- it told eight measuring repos to go and switch coverage on. Applied IDENTICALLY to root and consumer, so it introduces NO NEW divergence; fingerprints refreshed and divergence_reviewed deliberately keeps its old date. Prior divergence unchanged: Guard reads a per-repo workflow list 2026-08-30: which workflow carries a repo's coverage is a PER-REPO fact and was hardcoded to pr-00-gate.yml, so two repos were invisible to the guard for the same reason and neither is misconfigured -- stranske/Counter_Risk measures coverage on ci.yml by documented judgement, and stranske/Orchestrator publishes its only honest figure (80.3% combined, against the 34.11% its Gate reports for pytest alone) from a ci.yml job, because 79 of its 102 modules run under --selftest subprocesses pytest-cov cannot see. Reading source_workflows from config/coverage-baseline.json puts the answer in the file that is already the per-repo coverage config and already excluded from sync. The default is exactly the previous behaviour and an unreadable config falls back to it, so no repo changes unless it opts in. Applied IDENTICALLY to root and consumer, so it introduces NO NEW divergence; fingerprints refreshed for it and divergence_reviewed deliberately keeps its old date. Prior divergence unchanged: Coverage guard fingerprint refreshed 2026-08-26: both root and consumer selectors now recognize the downloaded `coverage_artifacts/payload/gate-coverage.json` filename, preventing the source/template artifact-name mismatch from hiding usable Gate coverage. The remaining root/template differences are still intentional: consumers use pinned public actions and an App token while Workflows uses local artifact-cache helpers and sparse checkout. Prior divergence unchanged: Coverage guard re-reviewed 2026-08-25: both selectors require the trend artifact alongside the coverage payload, because coverage_guard.py makes a missing trend a successful no-op. Checkout 2026-10-16: the root guard job dropped its second, sparse 'Checkout retry helpers' step, which deleted tools/coverage_guard.py before 'Run coverage guard' ran (the guard could not measure for 20+ days); the template already had a single full checkout, so this change reduces the divergence. Fingerprints refreshed; the existing divergence and its review date are unchanged.
++main_sha256 = da0d24f4739dd2a6e4d9df70b4a0edf418bb6e1e8667fe3137fe84302559cfea
++template_sha256 = 0aafdbd27b50b1116c724e90d870ef04a558f5403bdd76601c36bfda02cbff87
++divergence = Recovery history 2026-10-26: identical repository-scoped restore/save and default history-path changes applied to both surfaces; consumer App tokens, pinned actions and artifact downloads remain unchanged. Fingerprints refreshed only; original divergence review date retained. Prior divergence unchanged: Round 2 Python matrix 2026-10-17: runtime/coverage changes applied identically to root and template; existing consumer wiring and action-pin divergence unchanged. Guard FINDS the report inside the artifact 2026-08-30, AND CORRECTS THE CLAIM BELOW. The note that follows says matrix artifacts extract to `payload/coverage/runtimes/...`. They do not, and that is why the seven hardcoded candidate paths still matched nothing after the artifact NAME was fixed the same day. MEASURED by downloading three repos' real gate-coverage-3.12-1 artifacts (stranske/Counter_Risk, stranske/Pension-Data, stranske/trip-planner): every one contains `index.ndjson` and `runtimes/<ver>/coverage.json` with NO top-level `coverage/` directory, so the extracted path is `coverage_artifacts/payload/runtimes/3.12/coverage.json` -- one level from the first candidate and matched by none. The list also hardcoded Python 3.12/3.13, so a matrix bump would break it silently and later. Literals are still tried FIRST, so a repo where resolution already worked cannot be re-resolved by this change; failing that the payload is FOUND by the property the guard actually reads -- a JSON carrying totals.percent_covered -- which cannot drift from a directory layout it never mentions, and which correctly rejects the `summary.json` sibling that carries a `coverage` key but no totals. Results are sorted, so an artifact holding two runtimes resolves identically every run. The missing-artifact message now lists what was downloaded, because it could not distinguish an empty artifact from a full one whose contents it did not recognise -- and the second is what really happened, in every repo. Applied IDENTICALLY to root and consumer; fingerprints refreshed, divergence_reviewed keeps its date. Prior divergence unchanged: Review findings fixed 2026-08-30: matrix artifacts downloaded under payload extract to `payload/coverage/runtimes/...`, so both guards probe that actual layout before legacy layouts; the three failure states now separately report no coverage artifacts, unusable payload names, and a usable payload missing its same-run trend. Applied IDENTICALLY to root and consumer, so it introduces NO NEW divergence; fingerprints refreshed and divergence_reviewed deliberately keeps its old date. Prior divergence unchanged: Guard matches the payload artifact by PREFIX 2026-08-30: the producer runs under a version matrix, so what it publishes is gate-coverage-3.12-1 and gate-coverage-3.13-1, while this job matched the exact names gate-coverage / gate-coverage.json. MEASURED 2026-08-30 across the lane fleet: EIGHT repos published a trend, a summary and both suffixed payloads -- everything the job needs -- and every one was skipped, which is why the guard had a failing run in all 13 repos. Two more literals would not have fixed it, so the match is by prefix with -trend/-summary/-delta excluded by name (a bare prefix would have selected the TREND as the payload and compared coverage against itself); exact names are still preferred first so a repo where this already worked is untouched, and multiple suffixed matches are SORTED because the API's listing order is not stable. The failure message was split into three findings, because "coverage is not measured here", "it is measured under a name I cannot use" and "a payload but no trend" have different fixes and the single message asserted the first in all three cases -- it told eight measuring repos to go and switch coverage on. Applied IDENTICALLY to root and consumer, so it introduces NO NEW divergence; fingerprints refreshed and divergence_reviewed deliberately keeps its old date. Prior divergence unchanged: Guard reads a per-repo workflow list 2026-08-30: which workflow carries a repo's coverage is a PER-REPO fact and was hardcoded to pr-00-gate.yml, so two repos were invisible to the guard for the same reason and neither is misconfigured -- stranske/Counter_Risk measures coverage on ci.yml by documented judgement, and stranske/Orchestrator publishes its only honest figure (80.3% combined, against the 34.11% its Gate reports for pytest alone) from a ci.yml job, because 79 of its 102 modules run under --selftest subprocesses pytest-cov cannot see. Reading source_workflows from config/coverage-baseline.json puts the answer in the file that is already the per-repo coverage config and already excluded from sync. The default is exactly the previous behaviour and an unreadable config falls back to it, so no repo changes unless it opts in. Applied IDENTICALLY to root and consumer, so it introduces NO NEW divergence; fingerprints refreshed for it and divergence_reviewed deliberately keeps its old date. Prior divergence unchanged: Coverage guard fingerprint refreshed 2026-08-26: both root and consumer selectors now recognize the downloaded `coverage_artifacts/payload/gate-coverage.json` filename, preventing the source/template artifact-name mismatch from hiding usable Gate coverage. The remaining root/template differences are still intentional: consumers use pinned public actions and an App token while Workflows uses local artifact-cache helpers and sparse checkout. Prior divergence unchanged: Coverage guard re-reviewed 2026-08-25: both selectors require the trend artifact alongside the coverage payload, because coverage_guard.py makes a missing trend a successful no-op. Checkout 2026-10-16: the root guard job dropped its second, sparse 'Checkout retry helpers' step, which deleted tools/coverage_guard.py before 'Run coverage guard' ran (the guard could not measure for 20+ days); the template already had a single full checkout, so this change reduces the divergence. Fingerprints refreshed; the existing divergence and its review date are unchanged.
+ divergence_reviewed = 2026-08-25
+-fingerprint_refreshed = 2026-10-16
++fingerprint_refreshed = 2026-10-26
+ 
+ [pair.19]
+ main = .github/workflows/pr-00-gate.yml
+diff --git a/docs/INTEGRATION_GUIDE.md b/docs/INTEGRATION_GUIDE.md
+index b909417baa2e09de93764d3bc0a36605eb79f9fd..1abea1478c0eaad5e0351c318e886029bb7b5da7 100644
+--- a/docs/INTEGRATION_GUIDE.md
++++ b/docs/INTEGRATION_GUIDE.md
+@@ -636,6 +636,12 @@ breach issue closes only after coverage reaches `baseline - warn_drop` for the
+ configured `recovery_days` consecutive samples (default `3`). The warning allowance
+ changes the recovery threshold, not the default confirmation window.
+ 
++The guard restores repository-scoped recovery history, appends the current producer
++run (replacing a repeated run identity), and retains at most 30 records. It saves a
++new immutable cache after each guard run; a repository restore prefix carries the
++records across different Gate producers. An incomplete recovery reports how many
++of the required records meet the threshold. Dry runs do not persist history.
++
+ **Soft vs Hard Gate:**
+ 
+ - **Soft gate** (`enable-soft-gate: true`): Reports coverage but doesn't fail the build
+diff --git a/templates/consumer-repo/.github/workflows/maint-coverage-guard.yml b/templates/consumer-repo/.github/workflows/maint-coverage-guard.yml
+index ced480b0f2d4acb3e9e2fb21c1221985dd5f99b7..338a6d1fd9c3d5e7e06aaf529ffcec8c967de937 100644
+--- a/templates/consumer-repo/.github/workflows/maint-coverage-guard.yml
++++ b/templates/consumer-repo/.github/workflows/maint-coverage-guard.yml
+@@ -429,15 +429,17 @@ jobs:
+           path: coverage_artifacts/trend
+           github-token: ${{ secrets.GITHUB_TOKEN }}
+ 
+-      - name: Download coverage trend history artifact
+-        if: ${{ steps.discover.outputs.history_artifact_name }}
+-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+-        continue-on-error: true
++      # Each immutable cache saves the accumulated history after this guard run.
++      # Restore the newest repository history, independently of the producer run.
++      - name: Restore coverage recovery history
++        if: ${{ steps.discover.outputs.run_id }}
++        id: coverage-trend-history-cache
++        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+         with:
+-          name: ${{ steps.discover.outputs.history_artifact_name }}
+-          run-id: ${{ steps.discover.outputs.run_id }}
+           path: coverage_artifacts/history
+-          github-token: ${{ secrets.GITHUB_TOKEN }}
++          key: coverage-guard-history-v1-${{ github.repository }}-${{ github.run_id }}-${{ github.run_attempt }}
++          restore-keys: |
++            coverage-guard-history-v1-${{ github.repository }}-
+ 
+       - name: Download coverage payload artifact
+         if: ${{ steps.discover.outputs.coverage_artifact_name }}
+@@ -458,7 +460,7 @@ jobs:
+           # Try multiple possible artifact paths (workflow uses different naming)
+           TREND_PATH=""
+           COVERAGE_PATH=""
+-          HISTORY_PATH=""
++          HISTORY_PATH="coverage_artifacts/history/coverage-trend-history.ndjson"
+ 
+           # Check for trend artifact
+           for candidate in \
+@@ -558,6 +560,14 @@ jobs:
+ 
+           python tools/coverage_guard.py "${ARGS[@]}"
+ 
++      - name: Save coverage recovery history
++        if: ${{ always() && steps.discover.outputs.run_id && hashFiles('coverage_artifacts/history/coverage-trend-history.ndjson') != '' }}
++        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
++        with:
++          path: coverage_artifacts/history
++          key: ${{ steps.coverage-trend-history-cache.outputs.cache-primary-key }}
++
++
+   # A SKIPPED GUARD USED TO BE INDISTINGUISHABLE FROM A PASSING ONE. `guard` is gated on the
+   # rate-limit job, so when quota is low the job is skipped and the WORKFLOW IS GREEN with nothing
+   # checked. stranske/Workflows' three most recent runs all read `success` at the workflow level
+diff --git a/tests/test_coverage_guard.py b/tests/test_coverage_guard.py
+index 8f0a00ac3034a15f1e11528e37b24644898b943a..ff6bfeb12e7bb19bd120d14b2d44b6079b68ffd6 100644
+--- a/tests/test_coverage_guard.py
++++ b/tests/test_coverage_guard.py
+@@ -8,6 +8,12 @@ import pytest
+ from tools import coverage_guard
+ 
+ 
++@pytest.fixture(autouse=True)
++def isolate_guard_history(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
++    """Default-path CLI calls must not share persisted samples between tests."""
++    monkeypatch.chdir(tmp_path)
++
++
+ def _write_json(path: Path, payload: dict) -> None:
+     path.write_text(json.dumps(payload), encoding="utf-8")
+ 
+@@ -778,6 +784,113 @@ def test_recovery_window_counts_same_coverage_from_distinct_runs() -> None:
+     )
+ 
+ 
++@pytest.mark.parametrize(
++    "restored_run_ids",
++    [("1", "2"), ("3", "1", "2"), ("1", "3", "2"), ("1", "2", "3"), ("1", "1", "2")],
++    ids=["two-runs", "retry-oldest", "retry-middle", "retry-latest", "duplicate-restored-run"],
++)
++def test_recovery_window_counts_records_accumulated_across_runs(
++    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, restored_run_ids: tuple[str, ...]
++) -> None:
++    """Restored runs accumulate while retries replace stale samples without inflating the window."""
++    trend_path = tmp_path / "trend.json"
++    baseline_path = tmp_path / "baseline.json"
++    history_path = tmp_path / "history.ndjson"
++    _write_json(trend_path, {"current": 90.0, "run_id": "3"})
++    _write_json(baseline_path, {"line": 85.0, "recovery_days": 3})
++    history_path.write_text(
++        "\n".join(
++            json.dumps({"current": 80.0 if run_id == "3" else 90.0, "run_id": run_id})
++            for run_id in restored_run_ids
++        ),
++        encoding="utf-8",
++    )
++    closed = []
++    monkeypatch.setattr(coverage_guard, "_close_existing_issue", lambda *a, **kw: closed.append(a))
++    args = [
++        "--repo",
++        "octo/repo",
++        "--trend-path",
++        str(trend_path),
++        "--baseline-path",
++        str(baseline_path),
++        "--history-path",
++        str(history_path),
++    ]
++    assert coverage_guard.main(args) == 0
++    assert len(closed) == 1
++    assert [r["run_id"] for r in coverage_guard._load_ndjson(history_path)] == ["1", "2", "3"]
++    assert coverage_guard._load_ndjson(history_path)[-1]["current"] == 90.0
++    # Retrying the same Gate run cannot supply another recovery sample.
++    assert coverage_guard.main(args) == 0
++    assert len(coverage_guard._load_ndjson(history_path)) == 3
++    history_path.unlink()
++    closed.clear()
++    assert coverage_guard.main(args) == 0
++    assert not closed
++    assert len(coverage_guard._load_ndjson(history_path)) == 1
++    assert coverage_guard.main(args) == 0
++    assert not closed
++    assert len(coverage_guard._load_ndjson(history_path)) == 1
++
++
++@pytest.mark.parametrize(
++    ("restored_coverage", "recovered_records"),
++    [((90.0,), 2), ((80.0,), 1), ((90.0, 90.0, 80.0), 2), ((), 1)],
++    ids=["two-recovered", "one-below-baseline", "latest-window-only", "current-alone"],
++)
++def test_recovery_message_names_records_held_and_needed(
++    tmp_path: Path,
++    monkeypatch: pytest.MonkeyPatch,
++    capsys: pytest.CaptureFixture[str],
++    restored_coverage: tuple[float, ...],
++    recovered_records: int,
++) -> None:
++    """Progress names the qualifying records within the latest window and the required size."""
++    trend_path = tmp_path / "trend.json"
++    baseline_path = tmp_path / "baseline.json"
++    history_path = tmp_path / "history.ndjson"
++    _write_json(trend_path, {"current": 90.0, "run_id": str(len(restored_coverage) + 1)})
++    _write_json(baseline_path, {"line": 85.0, "recovery_days": 3})
++    history_path.write_text(
++        "\n".join(
++            json.dumps({"current": current, "run_id": str(n)})
++            for n, current in enumerate(restored_coverage, start=1)
++        ),
++        encoding="utf-8",
++    )
++    monkeypatch.setattr(
++        coverage_guard, "_close_existing_issue", lambda *a, **kw: pytest.fail("premature closure")
++    )
++    assert (
++        coverage_guard.main(
++            [
++                "--repo",
++                "octo/repo",
++                "--trend-path",
++                str(trend_path),
++                "--baseline-path",
++                str(baseline_path),
++                "--history-path",
++                str(history_path),
++            ]
++        )
++        == 0
++    )
++    assert f"{recovered_records} of 3 records at or above the baseline" in capsys.readouterr().out
++
++
++def test_recovery_history_retains_latest_thirty_unique_runs() -> None:
++    history = [{"current": 90.0, "run_id": str(n)} for n in range(35)]
++    history.insert(0, {"current": 80.0, "run_id": "34"})
++    records = coverage_guard._accumulate_recovery_history(
++        {"current": 91.0, "run_id": "34"}, history, ""
++    )
++    assert len(records) == 30
++    assert [r["run_id"] for r in records] == [str(n) for n in range(5, 35)]
++    assert records[-1]["current"] == 91.0
++
++
+ def test_recovery_window_accepts_aggregate_history_records() -> None:
+     trend_data = {"current": 72.0, "run_id": "run-3"}
+     history_records = [
+diff --git a/tests/workflows/test_maint_coverage_guard_artifacts.py b/tests/workflows/test_maint_coverage_guard_artifacts.py
+index f9d68cbe1d1aa7bef4c7662bdaa1a04208e843b8..b176b91b19a43308ff81c95273676e8391b5595b 100644
+--- a/tests/workflows/test_maint_coverage_guard_artifacts.py
++++ b/tests/workflows/test_maint_coverage_guard_artifacts.py
+@@ -3,6 +3,7 @@
+ from pathlib import Path
+ 
+ import pytest
++import yaml
+ 
+ 
+ @pytest.mark.parametrize(
+@@ -25,3 +26,31 @@ def test_coverage_guard_selects_only_runs_with_payload_and_trend(workflow_path:
+     assert workflow.count("published coverage artifact names did not match") == 1
+     assert workflow.count("coverage payloads were published without ${trendArtifactName}") == 1
+     assert '"coverage_artifacts/payload/gate-coverage.json"' in workflow
++
++
++@pytest.mark.parametrize(
++    "workflow_path",
++    [
++        ".github/workflows/maint-coverage-guard.yml",
++        "templates/consumer-repo/.github/workflows/maint-coverage-guard.yml",
++    ],
++)
++def test_recovery_cache_survives_producer_runs_and_saves_after_guard(workflow_path: str) -> None:
++    steps = yaml.safe_load(Path(workflow_path).read_text())["jobs"]["guard"]["steps"]
++    restore = next(s for s in steps if s.get("id") == "coverage-trend-history-cache")
++    guard = next(s for s in steps if s.get("name") == "Run coverage guard")
++    save = next(s for s in steps if s.get("name") == "Save coverage recovery history")
++    assert steps.index(restore) < steps.index(guard) < steps.index(save)
++    assert restore["uses"].startswith("actions/cache/restore@")
++    assert save["uses"].startswith("actions/cache/save@")
++    assert restore["with"]["path"] == save["with"]["path"] == "coverage_artifacts/history"
++    assert "github.repository" in restore["with"]["key"]
++    assert "github.run_id" in restore["with"]["key"]
++    assert "github.run_attempt" in restore["with"]["key"]
++    assert "discover.outputs.run_id" not in restore["with"]["key"]
++    prefix = restore["with"]["restore-keys"].strip()
++    assert "github.repository" in prefix and "run_id" not in prefix
++    assert restore["with"]["key"].startswith(prefix)
++    assert 'HISTORY_PATH="coverage_artifacts/history/coverage-trend-history.ndjson"' in guard["run"]
++    assert "cache-primary-key" in save["with"]["key"]
++    assert "hashFiles('coverage_artifacts/history/coverage-trend-history.ndjson')" in save["if"]
+diff --git a/tools/coverage_guard.py b/tools/coverage_guard.py
+index ed7251efa929791d36288dde3216c86e42a4d8c1..6ce725e48749884d2ef81094a69e3b466b594a32 100755
+--- a/tools/coverage_guard.py
++++ b/tools/coverage_guard.py
+@@ -609,6 +609,27 @@ def _coverage_record_key(record: dict[str, Any]) -> tuple[str, str | float | Non
+     return ("coverage", _coverage_value_for_recovery(record))
+ 
+ 
++def _accumulate_recovery_history(
++    trend_data: dict[str, Any], history_records: list[dict[str, Any]] | None, run_url: str
++) -> list[dict[str, Any]]:
++    """Retain up to 30 samples, replacing repeated producer-run identities."""
++    previous = history_records if history_records is not None else trend_data.get("history", [])
++    sample = {key: value for key, value in trend_data.items() if key != "history"}
++    if run_url:
++        sample.setdefault("run_url", run_url)
++    records: list[dict[str, Any]] = []
++    for record in [*(previous if isinstance(previous, list) else []), sample]:
++        if not isinstance(record, dict):
++            continue
++        key = _coverage_record_key(record)
++        if key[0] != "coverage":
++            records = [item for item in records if _coverage_record_key(item) != key]
++        elif record is sample and records and _coverage_record_key(records[-1]) == key:
++            records.pop()
++        records.append(record)
++    return records[-30:]
++
++
+ def main(args: list[str] | None = None) -> int:
+     """Main entry point for coverage guard."""
+     parser = argparse.ArgumentParser(description="Coverage guard - maintain baseline breach issues")
+@@ -732,6 +753,12 @@ def main(args: list[str] | None = None) -> int:
+         print(body)
+         return 0
+ 
++    history_records = _accumulate_recovery_history(trend_data, history_records, parsed.run_url)
++    parsed.history_path.parent.mkdir(parents=True, exist_ok=True)
++    parsed.history_path.write_text(
++        "".join(json.dumps(record) + "\n" for record in history_records), encoding="utf-8"
++    )
++
+     # Create or update issue
+     if is_coverage_breach(current, baseline, warn_drop):
+         try:
+@@ -754,13 +781,21 @@ def main(args: list[str] | None = None) -> int:
+             print(f"Coverage {current:.2f}% meets baseline {baseline:.2f}% - no open issue needed")
+         recovery_check_threshold = baseline if current >= baseline else recovery_threshold
+         if not _recovery_window_satisfied(
+-            trend_data,
++            history_records[-1],
+             recovery_check_threshold,
+             configured_recovery_window,
+             history_records,
+         ):
++            recovered_records = sum(
++                (value := _coverage_value_for_recovery(record)) is not None
++                and value >= recovery_check_threshold
++                for record in history_records[-configured_recovery_window:]
++            )
++            threshold_name = "baseline" if current >= baseline else "warning threshold"
+             print(
+-                "Coverage recovered, but configured recovery window is not satisfied; "
++                f"Coverage recovered, {recovered_records} of {configured_recovery_window} "
++                f"records at or above the {threshold_name}; "
++                "configured recovery window is not satisfied; "
+                 "leaving any breach issue open"
+             )
+             return 0

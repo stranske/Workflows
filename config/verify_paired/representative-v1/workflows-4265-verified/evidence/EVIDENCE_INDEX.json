@@ -1,0 +1,37 @@
+{
+  "schema": "current-review-evidence-index/v1",
+  "meaning": "New current reviewer verification; original source packet, original Task6 gold and historical author claims remain unchanged. Independent re-review is required before using an enriched pre-observation packet.",
+  "source_packet": "/tmp/real-verify-representative-packets-20261027/linked-issue-cases/workflows-4265",
+  "second_source_packet": "/tmp/real-verify-representative-packets-20261027/replacement-linked-issue-case/workflows-3850",
+  "original_source_head": "40622701645e1c9c13ff28861ba606a3f78d2e4a",
+  "outcomes": {
+    "original_two_named_tests": "9 passed; exit0",
+    "removed_current_append": "5 assertion failures; exit1",
+    "restored_two_named_tests": "9 passed; exit0"
+  },
+  "restoration_matches_original": true,
+  "setup_attempt_receipts": [
+    "/tmp/real-verify-4265-current-review-verification-20261027/receipt.json",
+    "/tmp/real-verify-4265-current-review-verification-20261027-kernel-retry/receipt.json",
+    "/tmp/real-verify-4265-current-review-verification-20261027-confined/receipt.json"
+  ],
+  "files": {
+    "sandbox-and-runtime-probe.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "original.pytest.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "restored-two-named-tests.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "original.junit.xml": "5183216f09c82d17b07277cdc8cab1e3a87d57acd602618704d931d7ecec254b",
+    "sandbox-and-runtime-probe.stdout": "6f5a0def7d78406abf2c3bd92dc46cbbf32af268915767b81577e40288e683c4",
+    "restored.junit.xml": "23f9bd8422fddc12a2f179b61b0f0bbf5147408813b1b0f97445a2601a6e9d06",
+    "restored-two-named-tests.stdout": "38025b23df21b23d371cb04835992ad56739231045e0683deb6a80c6d699b19d",
+    "sandbox.sb": "26a916d002f05105670fb4a67a2e348c65c2368aa03bc9de1dfd9a7d6bf39984",
+    "broken.pytest.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "original-two-named-tests.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "mutation.patch": "9b2e105bf5cc72819537980bea8c86364896bff444d9a43fb43eded649e5d886",
+    "removed-current-append.stdout": "1527f3e7fa617449ba3d04e924d1d273b1cc4b021d85e387a037d8766005fdd7",
+    "removed-current-append.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "restored.pytest.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "original-two-named-tests.stdout": "38025b23df21b23d371cb04835992ad56739231045e0683deb6a80c6d699b19d",
+    "broken.junit.xml": "afe073343962cdb4538ede7c53b0913ea2bf3743c8449cbd1a8f39ea178015b6",
+    "receipt.json": "87e45c38296887a04681519b4d42bf207835bbed0187a2a62cdb1bb7894d3a07"
+  }
+}

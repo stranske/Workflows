@@ -250,6 +250,16 @@ fails before generation or mutation. This applies to both source follow-up
 workflows and the distributed new-PR template.
 The verifier validates merged PRs against tasks and acceptance criteria using label-triggered modes.
 
+Semantic evaluation responses keep `summary` as the canonical scalar string API.
+The parser also accepts only one observed provider transport alternate: a non-empty
+list whose entries contain exactly the strict string fields `criterion` and
+`support`. It deterministically converts that alternate into scalar
+`criterion: support` paragraphs before the canonical payload and report renderers
+see it. Verdict, score, concern, evidence, duplicate-member, and top-level-field
+validation remain strict; malformed alternates remain non-PASS. The original
+provider response stays retained as raw evidence, and parsing never replays,
+repairs, or requests a new historical provider response.
+
 Before any model call, `agents_verifier_context.js` writes a
 `verifier-context-source-coverage/v1` JSON record near the start of
 `verifier-context.md` and exports it as `source_coverage`. It names PR and linked-issue

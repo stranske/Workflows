@@ -194,7 +194,7 @@ jobs:
           persist-credentials: false
 
       - name: Setup delivery renderer Python
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: '3.14'
 
@@ -362,7 +362,7 @@ jobs:
       - name: Persist pre-merge canary evidence
         id: candidate_artifact
         if: ${{ always() && steps.candidate_mode.outputs.candidate == 'true' }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           retention-days: 30
           name: sync-canary-evidence-premerge
@@ -585,7 +585,8 @@ jobs:
           EXPECTED_SOURCE_COMMIT_INPUT: ${{ steps.handoff.outputs.expected_source_commit }}
           CAMPAIGN_NO_CHANGE_EVIDENCE_JSON: ${{ inputs.campaign_no_change_evidence_json || github.event.client_payload.campaign_no_change_evidence_json || '' }}
           CAMPAIGN_COMMIT_AUTHORIZATION_JSON: ${{ steps.campaign_authorization.outputs.authorization_json }}
-          CLEANUP_BRANCHES_INPUT: "false"
+          CLEANUP_BRANCHES_INPUT: ${{ inputs.cleanup_branches }}
+          SKIP_OBSOLETE_BRANCH_CLEANUP_INPUT: "true"
           CONSUMER_SYNC_CANARIES_PATH: config/consumer_sync_canaries.json
           CONSUMER_SYNC_REVIEW_POLICY_PATH: config/consumer_sync_review_policy.json
           TRUSTED_SYNC_ACTORS: stranske,stranske-automation-bot,github-actions[bot]
@@ -674,7 +675,7 @@ jobs:
       - name: Upload sync PR merge report
         id: merge_artifact
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           retention-days: 30
           name: sync-pr-merge-and-canary-evidence
@@ -686,6 +687,8 @@ jobs:
 
       - name: Refresh stale candidate bases
         id: refresh_candidate
+        env:
+          TRUSTED_SYNC_ACTORS: stranske,stranske-automation-bot,github-actions[bot]
         if: >-
           ${{
             always() &&
@@ -718,9 +721,10 @@ jobs:
               core.notice(`Candidate refresh not required: ${decision.errors.join(', ')}`);
               return;
             }
-            const { dispatchCanaryRefresh } = require('./.github/scripts/maint71_merge_sync_prs.js');
+            const { dispatchCandidateRefreshFromReport } = require('./.github/scripts/maint71_merge_sync_prs.js');
             const config = JSON.parse(fs.readFileSync('config/consumer_sync_canaries.json', 'utf8'));
-            await dispatchCanaryRefresh({ withRetry, context, core,
+            await dispatchCandidateRefreshFromReport({ withRetry, context, core, report,
+              trustedActors: String(process.env.TRUSTED_SYNC_ACTORS || '').split(',').filter(Boolean),
               expectedCanaries: (config.canaries || []).map((entry) => entry.repo) });
 
       - name: Refresh stale delivery bases
@@ -769,6 +773,7 @@ jobs:
             );
             await dispatchDeliveryRefresh({
               decision, expectedCanaries, withRetry, context, core,
+              cleanupBranches: report.inputs.cleanup_branches,
             });
 
       - name: Promote complete exact-plan canary evidence
@@ -817,7 +822,7 @@ jobs:
 
       - name: Upload final rate limit incidents
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: sync-pr-rate-limit-incidents
           path: artifacts/rate-limit-incidents.ndjson
@@ -897,7 +902,7 @@ jobs:
 
       - name: Upload exact-head reassessment evidence
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: maint71-review-reassessment
           path: artifacts/review-reassessment.json

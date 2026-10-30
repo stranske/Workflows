@@ -7,7 +7,7 @@ name = "workflows"
 version = "0.1.0"
 description = "Reusable GitHub Actions workflows and automation infrastructure"
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.13"
 # The standalone CI growth reader imports this outside development extras.
 dependencies = ["defusedxml==0.7.1"]
 license = "MIT"
@@ -20,7 +20,6 @@ classifiers = [
     "Intended Audience :: Developers",
     "Topic :: Software Development :: Build Tools",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
 ]
@@ -34,16 +33,19 @@ app = []
 dev = [
     "pre-commit==4.6.1",
     "black==26.10.1",
-    "ruff==0.17.2",
+    "ruff==0.17.3",
     "isort==9.0.2",
     "docformatter==1.7.8",
-    "mypy==2.4.0",
+    "mypy==2.4.1",
     "flake8==7.3.0",
-    "pytest==9.1.1",
+    "pytest==9.2.0",
+    "anyio>=4.15.1",  # pytest 9.2 plugin startup with warnings treated as errors.
     "pytest-cov==7.1.0",
     "coverage==7.17.0",
     "pytest-xdist==3.8.0",
     "httpx==0.28.1",  # Native SDK MockTransport regression tests.
+    "openai==2.48.0",  # Direct native SDK imports in inert Verify transport tests.
+    "anthropic==0.120.0",
     "packaging>=26.1",
 
     # Required by repo dependency checks / CI fallback checks
@@ -81,8 +83,10 @@ packages = []
 
 [tool.black]
 line-length = 100
-target-version = ["py312", "py313"]
+target-version = ["py313"]
 include = '\.pyi?$'
+# Frozen public evidence is immutable data, including under explicit-file autofix.
+force-exclude = '^/config/verify_paired/representative-v1/'
 extend-exclude = '''
 /(
   # Exclude standard directories
@@ -110,8 +114,10 @@ skip_glob = ["archive/*", ".extraction/*"]
 
 [tool.ruff]
 line-length = 100
-target-version = "py312"
-exclude = []
+target-version = "py313"
+# Immutable hash-bound evidence is data, never imported or executed by the runner.
+exclude = ["config/verify_paired/representative-v1"]
+force-exclude = true
 
 [tool.ruff.lint]
 select = [
@@ -152,7 +158,7 @@ exclude = [
 ]
 
 [tool.mypy]
-python_version = "3.12"
+python_version = "3.13"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
@@ -188,6 +194,7 @@ markers = [
     "integration: marks tests as integration tests (may require external resources)",
     "cosmetic: marks tests for cosmetic/formatting changes",
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "quarantine: tests isolated from the canonical suite by explicit maintenance policy",
     "serial: marks tests that must run serially",
     "xdist_group: marks tests that must share a single xdist worker",
 ]

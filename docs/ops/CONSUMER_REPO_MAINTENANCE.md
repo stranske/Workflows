@@ -2,6 +2,20 @@
 
 This document outlines the process for maintaining workflow system consistency across consumer repositories and debugging issues that may affect multiple repos.
 
+## Integration repository manifest subset
+
+Maint 69 delivers manifest-declared scripts and their JSON runtime dependencies
+under `.github/scripts/`, the coverage guard, and retired workflow/script file
+removals to Workflows-Integration-Tests. Both string and mapped `skip_repos`
+exclusions apply. Copies use the declared `source_tree`, defaulting to root for
+scripts and the consumer template for workflows, with no fallback to another
+tree. The sparse checkout includes the template coverage guard. Validation
+loads the delivered keepalive module from an empty target and compares the
+delivered guard bytes to its template source before shipment.
+Maint 69 passes an absolute workspace path to the API setup action so its
+vendored dependency preparation and cleanup resolve the same directory after
+the action changes into it.
+
 ## Non-package test dependency declarations
 
 The managed `scripts/sync_test_dependencies.py` audits `[project]` dependencies
@@ -18,6 +32,36 @@ already declared. Otherwise it refuses to rewrite the lock or create a package
 project table: maintain the pins through the repository's existing dependency
 process, then rerun the audit. Project repositories keep their existing dev-extra
 fix behavior; a lock file cannot mask an undeclared project dependency.
+
+## Dependency candidate runtime and evidence preservation
+
+Workflows Renovate candidates retain the shared Python 3.14 runtime ceiling;
+advancing to Python 3.15 requires a coordinated runtime-policy migration.
+Frozen reviewed packets under `config/verify_paired/` are excluded from dependency
+rewrites so their authenticated byte digests remain reproducible. Dependency
+updates must align explicit action-pin assertions with the selected revisions.
+The #4271 delivery retains the existing app-token revision, Maint 68 producer,
+and ordinary verifier-follow-up workflows: those surfaces have reviewed
+whole-file or job-byte identity contracts. Their dependency revisions need a
+separate coordinated provenance update. The internal backplane-contract workflow
+also retains its existing revision; its registry lifecycle failures predate this
+dependency shipment.
+
+The #4271 promotion also aligns mypy 2.4.1 and pytest 9.2.0 across source,
+consumer/integration mirrors and the requirements lock after the required
+compatibility suite reported those two stale pins. AnyIO is constrained to
+4.15.1 or newer because older pytest plugins import the deprecated `CallSpec2`
+alias and fail at startup under pytest 9.2 with warnings treated as errors.
+The lock resolves that supported plugin version; warning enforcement remains
+unchanged. The existing CI expression `not quarantine` is now declared in
+the pytest marker registry, as pytest 9.2 validates marker expressions even when
+no collected test carries that marker. No test is newly quarantined or skipped.
+Python stays at 3.14.
+
+Gate test-quality installs declared development extras before running acceptance
+tests, then removes the head project distribution before testing archived base
+code. This supplies test imports without allowing the installed head to mask base
+behavior.
 
 ## Delivery scope and production checks
 
@@ -52,6 +96,18 @@ still enforced. An incidental active thread needs an explicit owner disposition;
 it is not silently ignored. Consumers' branch protection is never weakened.
 Legacy review mode remains available when `generated_delivery_review` is absent.
 
+### Shipment branch cleanup
+
+Maint 68 accepts `cleanup_branches` (default `true` for existing maintenance).
+Set it to `false` for a shipment that must preserve branches. The explicit
+policy is retained by Maint 71 reports, durable handoffs, grouped continuations,
+canary refresh and promotion. A same-plan false restriction cannot be widened
+by another continuation row. It disables obsolete-branch cleanup, stale-duplicate branch deletion and the
+explicit post-merge deletion call. Missing legacy fields keep their existing
+default; malformed typed handoff values cannot authorize a continuation.
+Repository-configured automatic deletion on merge is independent; these workers
+do not change repository settings or recreate automatically deleted refs.
+
 ### Sealed Gate recovery
 
 Maint71 requests a full PR-event Gate rerun when authenticated seal-only failure
@@ -66,6 +122,18 @@ rather than another automatic request.
 Active runs are not duplicated, fresh post-seal test failures remain blocking,
 and workflow security approval holds require their own authorized review.
 Previously accepted unchanged-payload canary qualification is retained.
+
+A newest exact-head `pull_request` Gate that ended `cancelled` reached no
+verdict. Consumers whose Gate runs on `labeled` with a cancel-in-progress
+concurrency group cancel that run when the seal's own Gate rerun takes the
+group, often before its resolver starts, so its freshness can never be proven.
+Maint 71 requests a full rerun of that run and prints
+`seal: <repo>#<n> gate cancelled run=<id> attempt=<k>; drainable by rerun`. An
+older successful run is never accepted in its place. Any active exact-head Gate
+attempt, including a rerun of an older run ID, is awaited instead, because a new
+rerun would cancel it. At `CANCELLED_GATE_MAX_ATTEMPT` (3) the request stops and
+prints `cancelled Gate rerun exhausted (<k>/3); drainable=0`. Only a new head
+event or the owner can clear it after that.
 
 Gate summaries that read `GITHUB_EVENT_PATH` must refresh that file from the
 identity-checked `resolve-pr` snapshot in the **same `run` action** that invokes
@@ -1128,6 +1196,15 @@ Other scoped consumer exceptions do not imply a custom Gate:
   its local terminal-merge and orchestration safety rules. In particular,
   `AGENTS.md` requires `src/merge_guard.py`; overwriting it failed
   `tests/test_merge_entrypoint_contract.py` on workflow-sync PR #399.
+  It also skips the synced `.github/scripts/gate_summary.py`. Orchestrator
+  shards its Gate Python legs (6 shards on Python 3.13 and 3.14, to keep each
+  under 10 minutes), and its local renderer fails the Gate when any shard's
+  receipt is missing, keeps the newest rerun receipt, and reports the combined
+  `verify.py` coverage without inferring a pass. The template renderer has none
+  of this; overwriting it failed `tests/test_delivery_required_contexts.py` on
+  the 2026-10-30 workflow-sync delivery. Restore shared ownership once the
+  template renderer validates shard receipts for sharded Gates and stays a
+  no-op for unsharded ones.
 - `trip-planner` skips the synced `.github/scripts/package.json` and vendored
   `.github/scripts/node_modules/` entries so its lockfile-based dependency
   policy remains intact.
@@ -1138,7 +1215,7 @@ Other scoped consumer exceptions do not imply a custom Gate:
   with a repository-scoped package rule.
 
 Other files listed in the sync manifest continue to sync normally; these
-root-guidance exceptions are limited to the named repositories and files.
+exceptions are limited to the named repositories and files.
 
 Maint 68 implements these exceptions through each entry's typed manifest
 `skip_repos` rules. There is no separate hard-coded custom-Gate list in the
@@ -1424,10 +1501,27 @@ drift. Directory entries match changed descendants. Dependencies are declared
 by a selected entry's typed `requires` field and expanded transitively. The
 path-classifier action therefore carries its lease-contract bootstrap dependency, so a
 consumer whose base predates that contract can still evaluate its initial
-staged delivery safely. Manifest changes fail closed and require `full`;
-historical removal declarations are never replayed by a source delta. The
-uploaded `sync-plan-scope.json` records both plan IDs, the exact base/head,
-changed paths, selected targets, dependency targets, and ignored paths.
+staged delivery safely. Manifest operational changes and unknown fields fail
+closed and require `full`. Comments and descriptions on known copy/removal
+entries may accompany a source delta only when the selector reads both immutable
+Git manifests, rejects ambiguous YAML, and proves all other raw selector fields
+and compiler-derived effects identical against the same clean source checkout.
+The supplied full plan must match that actual compiler output. Changed source,
+target, delivery mode, repository policy, dependencies, create-only/overwrite
+behavior, removal declarations, manifest mode, or unrecognized metadata retain
+the full-scope refusal. Description equality never substitutes for payload proof.
+Historical removals are never replayed by a source delta, even when their
+operator descriptions change. The uploaded `sync-plan-scope.json` records both
+plan IDs, the exact base/head, changed paths, selected targets, dependencies and
+ignored paths; admitted metadata changes also record native manifest hashes,
+source tree/mode, selector digest and compiled operational digest.
+
+Maint 68 executes its compiler/selector from its frozen source commit. A selector
+repair therefore needs a newly reviewed source snapshot that contains that
+repair; dispatching an older source SHA still runs the older selector. Freeze the
+new source packet through the existing delivery process while retaining the
+reviewed payload blob, mode, exact target scope and normal canary guards. This
+is not permission to submit a full plan containing unrelated targets.
 If no manifest-managed source matches the range, Maint 68 records the empty
 scope and skips the consumer fan-out entirely.
 Changes to the status-ignore reconciler, its consumer copy, or the consumer
@@ -1987,7 +2081,16 @@ already terminal evidence and needs no PR mutation. Promotion-produced
 Maint 71 rechecks its immutable plan/source binding and recorded default-branch
 head, then treats it as terminal without dispatching a redundant Gate for an
 unchanged repository. Canary no-change evidence retains the live required-check
-revalidation that authorized promotion. For `target_missing` with
+revalidation that authorized promotion. If a required PR-only context is absent
+from the current default commit, Maint 71 can use its actual merged PR's checked
+head only after native reads prove the exact merge SHA, same repository/base,
+and identical whole Git trees (all bytes and modes). The required checks on that
+exact PR head must be green; complete current/default and PR-head check/status
+inventories, the merged PR and the live default ref are rechecked. A present
+failed, pending or uncertain required context cannot use this fallback. The
+result retains the checked head, default head, tree, PR and required contexts as
+explicit check provenance; no status is fabricated or branch protection waived.
+For `target_missing` with
 reason `campaign_pr_and_no_change_evidence_missing`, regenerate the stable
 delivery for the same plan; if a partial commit pass already merged it, resume
 the prepare pass so Maint 71 rebuilds authorization from trusted closed merged
@@ -2934,7 +3037,9 @@ If a reusable workflow fix must ship immediately, trigger:
 branches. In addition to closing stale duplicate sync PRs and merging the active
 passing sync PR, it deletes same-repo sync branches that are connected to closed
 or merged sync PRs and no longer have an open PR. Use the `cleanup_branches`
-manual input to disable that cleanup only for diagnostics.
+manual input to disable workflow branch deletion for diagnostics or for a shipment
+that must preserve its branches. Existing repository automatic branch-deletion
+settings remain independent of this workflow policy.
 
 ### Autofix Tool Version Ownership
 
@@ -3447,10 +3552,10 @@ successful verified unchanged-base/tree run too, preserving its review
 lifecycle and head. This canary producer runs while promotion is held; it
 does not require the promotion evidence it helps unblock. Comments do not
 reset the clock. Maint 71 groups refresh reasons by plan, but dispatches at
-most one full configured-candidate refresh per invocation, pinned to an immutable
-source SHA. Refresh identity is the **rendered delivery digest**, not the main
-SHA. `scripts/consumer_delivery_digest.py:delivery_digest` is the single hashing
-implementation used by refresh, Maint 68 preparation, and the seal writer.
+most one configured-candidate refresh per invocation. Full-scope refresh keeps
+its existing **rendered delivery digest** identity across source SHAs.
+`scripts/consumer_delivery_digest.py:delivery_digest` hashes full delivery intent
+for refresh, Maint 68 preparation, and the seal writer.
 It hashes manifest copies at their consumer target paths, directory children,
 repository inclusion/exclusion and create-only effects, removals, and the generated
 status-file `.gitignore` block. Source SHA, descriptions and manifest comments
@@ -3460,17 +3565,54 @@ The seal stores the same helper's per-repository digest in
 `review_evidence.delivery_digest`; changing main alone never rewrites that seal
 or the immutable source/plan of the in-flight PR.
 
-Digest renderer or Git snapshot failures print
+For full scope, digest renderer or Git snapshot failures print
 `refresh: digest unavailable (<reason>); falling back to sha key` and use the
 previous source-SHA decision, retaining active-writer and debounce protection.
-This fallback also applies to the Maint 68 preparation guard.
+This legacy fallback also applies to the full-scope Maint 68 preparation guard.
+
+Source-delta refresh instead binds the exact compiled plan ID, scope, base SHA
+and source commit. Maint 68 compiles and selects the plan before checking its
+refresh guard; prior full-scope success cannot satisfy that scoped request.
+The scoped renderer retains only the actual selected targets and their copy
+policy, without turning unselected paths or the managed ignore block into
+removals. Scoped recovery derives its tuple from the verified native generated
+head and current delivery record, retaining the original base/source and
+`cleanup_branches` value. Its `expected_plan_id` constraint is checked against
+the actual compiler result before force or mutation admission. An unverified
+or headerless legacy head cannot establish that tuple and remains held; it
+is never silently converted into a full-scope request.
+
+Scoped completion is read from the existing native Actions attempt, successful
+prepare authorization and all selected consumer jobs, plus the retained
+`sync-plan-and-prospective-diffs` artifact and its exact plan/scope/phase joins.
+Skipped authorization with skipped consumer jobs is confirmed not started;
+missing, expired, ambiguous or mismatched current-source evidence remains
+unknown. Missing history for another source can be excluded only by a fresh
+native attempt joined to the complete reviewed workflow bytes. No title or
+caller JSON alone proves completion. Scoped execution never falls back to a
+source-only key. A current rerun with prior attempts, or a historical rerun
+whose latest attempt is merely not started, remains unknown until its prior
+possible effects are reconciled; it cannot silently start another writer.
+A later delivery to overlapping canaries invalidates an older completion,
+including a positively source-bound other-source attempt whose effects are
+unknown. Such an attempt does not complete the requested plan or globally
+block a new request for the original plan. A later confirmed-not-started
+attempt does not count as an overwrite. Expired current-source artifacts
+remain an explicit recovery hold; retaining a compiled plan alone cannot
+prove the earlier effects. Native receipt reads use the controller's existing
+token-aware client with at most two outer retries and a 15-second timeout
+per request, without discovering additional tokens.
 Red, review-blocked and stale canaries remain eligible for one recovery per
 payload and observed head even when the payload is unchanged. Recovery uses a
 `refresh_key`; producer success alone never certifies consumer health.
 
-A healthy canary with a matching payload prints
+A complete set of canaries with matching payloads prints
 `refresh: skipped (delivery digest <d> unchanged since <sha>)` and preserves the
-existing PR head and review lifecycle. Operator `force: true` bypasses this
+existing PR heads and review lifecycles. One already-current canary is not a
+full-set delivery receipt: remaining missing or outdated candidates may still
+receive the pinned payload. This does not release a protected sealed cycle in
+any other canary, grant merge authority, or authorize rewriting an identical
+head. Operator `force: true` bypasses this
 payload guard, authorizes mutation, and prints
 `refresh: forced (digest guard bypassed)`.
 REST history metadata is collected across source SHAs (up to 100 pages, failing
@@ -3479,9 +3621,10 @@ closed on truncation), then receipts are read in execution-time order using
 run ID can therefore supersede a newer run's payload; historical successful
 payloads cannot mask a later different delivery. Maint 68 marks guarded runs with
 `guard=delivery-v1`; only a successful `Authorize canary payload mutation` step
-counts as a delivery receipt, so a successful run that queued/skipped its mutation
-cannot falsely claim delivery. Scheduled and source-delta producers use the same
-guard before any consumer sync job. Guard code comes from the immutable workflow
+counts as a full-scope delivery receipt, so a successful run that queued/skipped
+its mutation cannot falsely claim delivery. Source-delta completion additionally
+requires the exact native artifact binding and successful selected consumer jobs.
+Scheduled and source-delta producers use the same guard before any consumer sync job. Guard code comes from the immutable workflow
 ref; the rendered payload comes from the separately pinned source commit.
 
 If payload content changes during an exact-head sealed cycle, Maint 71 compares
@@ -3513,6 +3656,11 @@ identity-matching evidence rows. A promotion already active/completed, disabled
 mutation, or exhausted retries has zero remaining drainable work in that run.
 Completed promotion prints `promote: drained; canaries green <n>/<m>; drainable 0`.
 Missing evidence prints `drainable UNKNOWN (unmeasurable)` rather than a measured zero.
+A held promotion also prints `missing <k> (drainable <j>): <repo>=<status> ...`
+for each canary without evidence. A canary counts as drainable only when its
+report row shows a Gate run or rerun in flight (`drainable-by-rerun`,
+`awaiting-gate`, or `checks_pending` as `awaiting-checks`). Otherwise it prints
+`no-drain` with the Gate request's reason, or only the row's status.
 A producer success alone never supplies these quantities or authorizes promotion.
 
 Delivery-base refresh replays the same immutable promotion evidence through the
@@ -3526,3 +3674,78 @@ dispatch these producers.
 Upstream finding markers suppress duplicate comments only when authored by
 the authenticated Maint 71 writer. When drained, the summary is
 `canaries: red=0 review_blocked=0 stale=0 refresh_dispatched=0 held_plan=none drainable=0`.
+
+
+### Incidental coverage database evidence
+
+Automatic CI artifact discovery does not make every coverage database an
+acceptance obligation. A safely named coverage.py SQLite sidecar that passes
+bounded native ZIP extraction, SQLite format checks and an immutable read-only
+stdlib SQLite structural check is classified as
+`unrenderable_coverage_sqlite`, an availability limit. It is not rendered as
+text or treated as proof of coverage results or completed acceptance criteria.
+The optional probe uses the existing Python runtime without inherited
+credentials; missing runtime, failed checks and timeouts retain the existing
+unsupported-payload hold. Existing artifact, entry, extraction and prompt limits remain in
+force. Unknown payloads, unsafe paths, duplicate members and corrupt archives
+retain integrity failures.
+
+Only an already optional evidence channel may omit this unavailable content.
+Explicitly selected unrenderable members retain a hard
+`required_member_unrenderable` failure, even when extraction produces no text
+record. Required evidence channels remain blocked. Original Tasks and
+acceptance criteria, including pending execution and publication proof, are
+unchanged. This prospective classification does not change a retained
+`UNVERIFIABLE_INPUT` result into a model judgment or grant closure authority.
+
+### Scoped refresh refusal diagnostics
+
+The content refresh guard and recovery controller emit `canary-refresh-diagnostics`
+notices and step summaries for scoped requests. These identify the blocking native
+run and attempt, source-owned refusal code, available plan/source identities and
+whether the native source join succeeded. Inventory counts and at most eight
+refusal rows are retained. Raw native error messages, artifact bodies and request
+payloads are omitted. These diagnostics do not change admission: an unresolved
+native receipt still holds mutation, and a diagnostic source identity is not a
+replacement for the native receipt checks.
+
+Historical refresh receipt refusals retain a bounded structured diagnostic:
+reason code, native run/attempt/head, authenticated source identity when known,
+plan identity when retained, and counts of held/no-start/possible-overwrite
+receipts. The guard and recovery caller publish the same diagnostic without
+raw API error text or artifact contents. Only eight receipt rows are printed;
+the total and omitted counts remain explicit.
+
+Three exact reviewed historical producer versions preserve the same resolved
+source checkout. Their native source steps and complete workflow hashes may
+prove that an unavailable receipt belongs to another source. The receipt stays
+UNKNOWN and remains a possible-overwrite barrier; it does not complete the
+requested scoped shipment. Known scheduled producers must have their exact
+native auto/default-source/default-candidates shape, with source equal to the
+native head. Arbitrary titles and unknown workflow versions grant no proof.
+
+A separate narrow bootstrap no-start proof applies to the reviewed DAG whose
+prepare job never received a runner: attempt one, explicit runner ID zero and
+empty steps, complete matching terminal job inventory, every possible consumer
+or reconciliation job unstarted, and no summary effect step executed. The
+summary must retain its exact known native step/status profile, and the whole
+native source tree must equal the audited historical commit (including the
+cancelled local setup composite and its filesystem-only helper). The executed
+report module must also match its reviewed pure source. No
+artifacts may contradict bootstrap cancellation, and fresh native readback
+must retain the same cancelled attempt. Missing fields, null/nonzero prepare
+runner IDs, executed steps, changed attempts or unknown source remain UNKNOWN.
+This proves no delivery started; it fabricates neither a plan tuple nor a
+completed delivery. Older unknown effects are not discarded by age or merely
+because a later workflow reported success.
+
+### No-change qualification across campaign stages
+
+Candidate qualification and campaign prepare, commit and re-entry use the same
+no-change check predicate. When a required PR-only context is absent on a merged
+default-head commit, the existing native merged-PR check proof applies only when
+that exact merge commit and the checked PR head have the identical whole Git tree.
+Each stage repeats the native check inventories and head/linkage reads. A present
+failed, pending or unknown required context remains blocking. Generated delivery
+PRs and their final merge guard continue to require their own exact-head checks;
+this no-change fallback does not apply to them.

@@ -647,6 +647,17 @@ def main(argv: list[str] | None = None) -> int:
             print("\nℹ️  Dependencies already declared in dev extra")
         return 0
 
+    data = (
+        tomllib.loads(PYPROJECT_FILE.read_text(encoding="utf-8")) if PYPROJECT_FILE.exists() else {}
+    )
+    if "project" not in data:
+        print(
+            "\nDeclare the missing dependencies through the repository's reviewed "
+            "requirements.lock maintenance process. Then run: "
+            "python -m pip install -r requirements.lock; rerun tests and this audit."
+        )
+        return 1 if args.verify else 0
+
     if args.verify:
         print("\n❌ Run: python scripts/sync_test_dependencies.py --fix")
         return 1

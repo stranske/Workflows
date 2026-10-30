@@ -59,7 +59,13 @@ The optional workflow inputs are:
   siblings as `unselected`, never complete or reviewed. Their availability gaps
   can be omitted only when the existing evidence policy permits that channel to
   be optional. Required selected truncation, unsafe members, duplicate identities
-  and integrity failures remain blocking. Selected proof remains a complete
+  and integrity failures remain blocking. Safe, unique coverage.py sidecars that
+  cannot be inspected within the existing extraction or entry budget are recorded
+  as unavailable under that bound, not as validated SQLite or failed integrity.
+  Readable malformed databases, unsafe/unknown names, duplicates, CRC failures and
+  failed SQLite probes retain their integrity refusal. Optional discovery alone
+  does not create an upload obligation; explicitly selected or required members
+  still need complete capture. Selected proof remains a complete
   required builder section through ordinary prompt fitting and native count
   admission, even when optional enrichment is omitted. These character budgets
   bound optional packing, not necessary proof or model capacity. A complete single
@@ -277,6 +283,29 @@ consume that receipt. A later applicable assessment prevents stale publication;
 exact duplicate recovery and uncertain comment writes are reconciled by
 identity before another publication. Recovery does not rewrite an event's
 predecessor or turn old advisory output into current acceptance authority.
+
+Final model responses use the existing strict semantic parser once, including
+one complete JSON fence. Duplicate members, trailing prose, invalid schemas and
+ambiguous output remain held with their original raw response. Final-output
+parsing does not launch a repair generation; a later refusal cannot replace an
+already retained original answer.
+
+For the explicitly supported historical parser source, provider-free recovery can
+emit `retained-revalidation/v2` with a recomputed original-final projection. The
+collector must first authenticate the complete original Actions archive, source,
+execution receipt, request, material and assessment. The projection then parses
+only the retained original final, preserves each configured provider/model slot
+and original order, and independently revalidates the derived result. The original
+payload, its parse error and later repair-refusal metadata stay unchanged in the
+retained source archive. Unknown producers, incomplete or ambiguous originals,
+changed slots and superseding history remain held. A local projection is not
+native provenance or publication authority; `v1` retains its original byte-equality
+contract.
+
+A pending or interrupted retained recovery never becomes permission for ordinary
+provider execution, even when its own evaluator was skipped or its publisher
+positively did not POST. Only explicit retained recovery can continue that work.
+Uncertain publication still requires native reconciliation before another write.
 
 Recovery lifecycle states carry the stable recovery key. A failed read or validation
 can retry only when the publisher was skipped or positively remained before its POST.

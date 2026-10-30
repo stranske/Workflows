@@ -1,0 +1,249 @@
+FFFFF                                                                    [100%]
+=================================== FAILURES ===================================
+____ test_recovery_window_counts_records_accumulated_across_runs[two-runs] _____
+
+tmp_path = PosixPath('/private/tmp/real-verify-4265-current-review-verification-20261027-final/fixtures/broken/test_recovery_window_counts_re0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1045176b0>
+restored_run_ids = ('1', '2')
+
+    @pytest.mark.parametrize(
+        "restored_run_ids",
+        [("1", "2"), ("3", "1", "2"), ("1", "3", "2"), ("1", "2", "3"), ("1", "1", "2")],
+        ids=["two-runs", "retry-oldest", "retry-middle", "retry-latest", "duplicate-restored-run"],
+    )
+    def test_recovery_window_counts_records_accumulated_across_runs(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, restored_run_ids: tuple[str, ...]
+    ) -> None:
+        """Restored runs accumulate while retries replace stale samples without inflating the window."""
+        trend_path = tmp_path / "trend.json"
+        baseline_path = tmp_path / "baseline.json"
+        history_path = tmp_path / "history.ndjson"
+        _write_json(trend_path, {"current": 90.0, "run_id": "3"})
+        _write_json(baseline_path, {"line": 85.0, "recovery_days": 3})
+        history_path.write_text(
+            "\n".join(
+                json.dumps({"current": 80.0 if run_id == "3" else 90.0, "run_id": run_id})
+                for run_id in restored_run_ids
+            ),
+            encoding="utf-8",
+        )
+        closed = []
+        monkeypatch.setattr(coverage_guard, "_close_existing_issue", lambda *a, **kw: closed.append(a))
+        args = [
+            "--repo",
+            "octo/repo",
+            "--trend-path",
+            str(trend_path),
+            "--baseline-path",
+            str(baseline_path),
+            "--history-path",
+            str(history_path),
+        ]
+        assert coverage_guard.main(args) == 0
+>       assert len(closed) == 1
+E       assert 0 == 1
+E        +  where 0 = len([])
+
+/tmp/real-verify-4265-current-review-verification-20261027-final/snapshot/tests/test_coverage_guard.py:821: AssertionError
+----------------------------- Captured stdout call -----------------------------
+Coverage 90.00% meets baseline 85.00% - no open issue needed
+Coverage recovered, 2 of 3 records at or above the baseline; configured recovery window is not satisfied; leaving any breach issue open
+__ test_recovery_window_counts_records_accumulated_across_runs[retry-oldest] ___
+
+tmp_path = PosixPath('/private/tmp/real-verify-4265-current-review-verification-20261027-final/fixtures/broken/test_recovery_window_counts_re1')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x104515970>
+restored_run_ids = ('3', '1', '2')
+
+    @pytest.mark.parametrize(
+        "restored_run_ids",
+        [("1", "2"), ("3", "1", "2"), ("1", "3", "2"), ("1", "2", "3"), ("1", "1", "2")],
+        ids=["two-runs", "retry-oldest", "retry-middle", "retry-latest", "duplicate-restored-run"],
+    )
+    def test_recovery_window_counts_records_accumulated_across_runs(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, restored_run_ids: tuple[str, ...]
+    ) -> None:
+        """Restored runs accumulate while retries replace stale samples without inflating the window."""
+        trend_path = tmp_path / "trend.json"
+        baseline_path = tmp_path / "baseline.json"
+        history_path = tmp_path / "history.ndjson"
+        _write_json(trend_path, {"current": 90.0, "run_id": "3"})
+        _write_json(baseline_path, {"line": 85.0, "recovery_days": 3})
+        history_path.write_text(
+            "\n".join(
+                json.dumps({"current": 80.0 if run_id == "3" else 90.0, "run_id": run_id})
+                for run_id in restored_run_ids
+            ),
+            encoding="utf-8",
+        )
+        closed = []
+        monkeypatch.setattr(coverage_guard, "_close_existing_issue", lambda *a, **kw: closed.append(a))
+        args = [
+            "--repo",
+            "octo/repo",
+            "--trend-path",
+            str(trend_path),
+            "--baseline-path",
+            str(baseline_path),
+            "--history-path",
+            str(history_path),
+        ]
+        assert coverage_guard.main(args) == 0
+>       assert len(closed) == 1
+E       assert 0 == 1
+E        +  where 0 = len([])
+
+/tmp/real-verify-4265-current-review-verification-20261027-final/snapshot/tests/test_coverage_guard.py:821: AssertionError
+----------------------------- Captured stdout call -----------------------------
+Coverage 90.00% meets baseline 85.00% - no open issue needed
+Coverage recovered, 2 of 3 records at or above the baseline; configured recovery window is not satisfied; leaving any breach issue open
+__ test_recovery_window_counts_records_accumulated_across_runs[retry-middle] ___
+
+tmp_path = PosixPath('/private/tmp/real-verify-4265-current-review-verification-20261027-final/fixtures/broken/test_recovery_window_counts_re2')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1045150a0>
+restored_run_ids = ('1', '3', '2')
+
+    @pytest.mark.parametrize(
+        "restored_run_ids",
+        [("1", "2"), ("3", "1", "2"), ("1", "3", "2"), ("1", "2", "3"), ("1", "1", "2")],
+        ids=["two-runs", "retry-oldest", "retry-middle", "retry-latest", "duplicate-restored-run"],
+    )
+    def test_recovery_window_counts_records_accumulated_across_runs(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, restored_run_ids: tuple[str, ...]
+    ) -> None:
+        """Restored runs accumulate while retries replace stale samples without inflating the window."""
+        trend_path = tmp_path / "trend.json"
+        baseline_path = tmp_path / "baseline.json"
+        history_path = tmp_path / "history.ndjson"
+        _write_json(trend_path, {"current": 90.0, "run_id": "3"})
+        _write_json(baseline_path, {"line": 85.0, "recovery_days": 3})
+        history_path.write_text(
+            "\n".join(
+                json.dumps({"current": 80.0 if run_id == "3" else 90.0, "run_id": run_id})
+                for run_id in restored_run_ids
+            ),
+            encoding="utf-8",
+        )
+        closed = []
+        monkeypatch.setattr(coverage_guard, "_close_existing_issue", lambda *a, **kw: closed.append(a))
+        args = [
+            "--repo",
+            "octo/repo",
+            "--trend-path",
+            str(trend_path),
+            "--baseline-path",
+            str(baseline_path),
+            "--history-path",
+            str(history_path),
+        ]
+        assert coverage_guard.main(args) == 0
+>       assert len(closed) == 1
+E       assert 0 == 1
+E        +  where 0 = len([])
+
+/tmp/real-verify-4265-current-review-verification-20261027-final/snapshot/tests/test_coverage_guard.py:821: AssertionError
+----------------------------- Captured stdout call -----------------------------
+Coverage 90.00% meets baseline 85.00% - no open issue needed
+Coverage recovered, 2 of 3 records at or above the baseline; configured recovery window is not satisfied; leaving any breach issue open
+__ test_recovery_window_counts_records_accumulated_across_runs[retry-latest] ___
+
+tmp_path = PosixPath('/private/tmp/real-verify-4265-current-review-verification-20261027-final/fixtures/broken/test_recovery_window_counts_re3')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x104504b00>
+restored_run_ids = ('1', '2', '3')
+
+    @pytest.mark.parametrize(
+        "restored_run_ids",
+        [("1", "2"), ("3", "1", "2"), ("1", "3", "2"), ("1", "2", "3"), ("1", "1", "2")],
+        ids=["two-runs", "retry-oldest", "retry-middle", "retry-latest", "duplicate-restored-run"],
+    )
+    def test_recovery_window_counts_records_accumulated_across_runs(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, restored_run_ids: tuple[str, ...]
+    ) -> None:
+        """Restored runs accumulate while retries replace stale samples without inflating the window."""
+        trend_path = tmp_path / "trend.json"
+        baseline_path = tmp_path / "baseline.json"
+        history_path = tmp_path / "history.ndjson"
+        _write_json(trend_path, {"current": 90.0, "run_id": "3"})
+        _write_json(baseline_path, {"line": 85.0, "recovery_days": 3})
+        history_path.write_text(
+            "\n".join(
+                json.dumps({"current": 80.0 if run_id == "3" else 90.0, "run_id": run_id})
+                for run_id in restored_run_ids
+            ),
+            encoding="utf-8",
+        )
+        closed = []
+        monkeypatch.setattr(coverage_guard, "_close_existing_issue", lambda *a, **kw: closed.append(a))
+        args = [
+            "--repo",
+            "octo/repo",
+            "--trend-path",
+            str(trend_path),
+            "--baseline-path",
+            str(baseline_path),
+            "--history-path",
+            str(history_path),
+        ]
+        assert coverage_guard.main(args) == 0
+>       assert len(closed) == 1
+E       assert 0 == 1
+E        +  where 0 = len([])
+
+/tmp/real-verify-4265-current-review-verification-20261027-final/snapshot/tests/test_coverage_guard.py:821: AssertionError
+----------------------------- Captured stdout call -----------------------------
+Coverage 90.00% meets baseline 85.00% - no open issue needed
+Coverage recovered, 2 of 3 records at or above the baseline; configured recovery window is not satisfied; leaving any breach issue open
+_ test_recovery_window_counts_records_accumulated_across_runs[duplicate-restored-run] _
+
+tmp_path = PosixPath('/private/tmp/real-verify-4265-current-review-verification-20261027-final/fixtures/broken/test_recovery_window_counts_re4')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x104505430>
+restored_run_ids = ('1', '1', '2')
+
+    @pytest.mark.parametrize(
+        "restored_run_ids",
+        [("1", "2"), ("3", "1", "2"), ("1", "3", "2"), ("1", "2", "3"), ("1", "1", "2")],
+        ids=["two-runs", "retry-oldest", "retry-middle", "retry-latest", "duplicate-restored-run"],
+    )
+    def test_recovery_window_counts_records_accumulated_across_runs(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, restored_run_ids: tuple[str, ...]
+    ) -> None:
+        """Restored runs accumulate while retries replace stale samples without inflating the window."""
+        trend_path = tmp_path / "trend.json"
+        baseline_path = tmp_path / "baseline.json"
+        history_path = tmp_path / "history.ndjson"
+        _write_json(trend_path, {"current": 90.0, "run_id": "3"})
+        _write_json(baseline_path, {"line": 85.0, "recovery_days": 3})
+        history_path.write_text(
+            "\n".join(
+                json.dumps({"current": 80.0 if run_id == "3" else 90.0, "run_id": run_id})
+                for run_id in restored_run_ids
+            ),
+            encoding="utf-8",
+        )
+        closed = []
+        monkeypatch.setattr(coverage_guard, "_close_existing_issue", lambda *a, **kw: closed.append(a))
+        args = [
+            "--repo",
+            "octo/repo",
+            "--trend-path",
+            str(trend_path),
+            "--baseline-path",
+            str(baseline_path),
+            "--history-path",
+            str(history_path),
+        ]
+        assert coverage_guard.main(args) == 0
+>       assert len(closed) == 1
+E       assert 0 == 1
+E        +  where 0 = len([])
+
+/tmp/real-verify-4265-current-review-verification-20261027-final/snapshot/tests/test_coverage_guard.py:821: AssertionError
+----------------------------- Captured stdout call -----------------------------
+Coverage 90.00% meets baseline 85.00% - no open issue needed
+Coverage recovered, 2 of 3 records at or above the baseline; configured recovery window is not satisfied; leaving any breach issue open
+=========================== short test summary info ============================
+FAILED ../../../../tmp/real-verify-4265-current-review-verification-20261027-final/snapshot/tests/test_coverage_guard.py::test_recovery_window_counts_records_accumulated_across_runs[two-runs]
+FAILED ../../../../tmp/real-verify-4265-current-review-verification-20261027-final/snapshot/tests/test_coverage_guard.py::test_recovery_window_counts_records_accumulated_across_runs[retry-oldest]
+FAILED ../../../../tmp/real-verify-4265-current-review-verification-20261027-final/snapshot/tests/test_coverage_guard.py::test_recovery_window_counts_records_accumulated_across_runs[retry-middle]
+FAILED ../../../../tmp/real-verify-4265-current-review-verification-20261027-final/snapshot/tests/test_coverage_guard.py::test_recovery_window_counts_records_accumulated_across_runs[retry-latest]
+FAILED ../../../../tmp/real-verify-4265-current-review-verification-20261027-final/snapshot/tests/test_coverage_guard.py::test_recovery_window_counts_records_accumulated_across_runs[duplicate-restored-run]
+5 failed in 0.20s

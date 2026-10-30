@@ -1,0 +1,23 @@
+```json
+{
+  "verdict": "FAIL",
+  "confidence": 0.85,
+  "scores": {
+    "correctness": 4,
+    "completeness": 2,
+    "quality": 6,
+    "testing": 1,
+    "risks": 9
+  },
+  "concerns": [
+    "CSV export is not implemented. `export_rows(rows, \"csv\")` raises `NotImplementedError`. Issue #983 requires all of the following, and none are delivered:\n- the exact header `name,score`\n- CRLF record endings\n- one record per input row\n- correct quoting so values containing commas, quotes, LF or CR round-trip through `csv.reader`\n- empty input returning the header alone",
+    "The required deliverable `tests/fixtures/closer_real_csv_canary/v1/verify_csv_contract.py` is absent. The changed-code evidence is complete (one file, `csv_export.py`, fully shown), so its absence from this PR is confirmed.",
+    "The fixed field set (`name`, `score`) is not enforced or projected on any path. JSON simply runs `json.dumps(rows)` over whatever is passed in. That is acceptable as the existing round-trip behavior, but the implementation never references the fixed fields.",
+    "The requirement to retain a genuine failing run of the contract script on the partial revision cannot be confirmed. The script is not in the diff, and PR comments were omitted from this prompt. The PR body asserts a separately retained stdlib contract fails as expected, but that claim is not evidenced here.",
+    "Issue #983 says an initial partial merge does not satisfy the task. The PR body itself states it does not fulfill the source task. It cannot be marked complete; the issue should remain open pending the corrective stage.",
+    "Minor: the parameter name `format` shadows the Python builtin. This is retained from the specified signature, so it is acceptable."
+  ],
+  "files_not_reviewed": [],
+  "summary": "The PR adds a 13-line declared-partial fixture at tests/fixtures/closer_real_csv_canary/v1/csv_export.py and nothing else.\n\nTasks satisfied by the change:\n- JSON behavior uses `json.dumps`, consistent with round-trip expectations.\n- Unsupported formats raise `ValueError`.\n- The change stays within the isolated fixture directory, with no production, workflow, credential, permission or settings changes.\n\nTasks not satisfied:\n- The core requirement, the CSV implementation, is missing; CSV explicitly raises `NotImplementedError`.\n- The required standard-library contract script `verify_csv_contract.py` is not included.\n\nThe PR body transparently discloses this incompleteness, and there is no misrepresentation. Measured against the authoritative requirements in issue #983, the primary acceptance criteria are not met, so the verdict is FAIL. Risk is negligible because the change is an isolated, uncollected test fixture."
+}
+```
