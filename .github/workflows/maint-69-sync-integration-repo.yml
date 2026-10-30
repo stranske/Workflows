@@ -252,6 +252,7 @@ jobs:
 
           git add .github/workflows/ pyproject.toml requirements.lock scripts/
           git add .github/actions/
+          git add tools/coverage_guard.py
           git add .github/scripts/
           if [ -f .pre-commit-config.yaml ]; then
             git add .pre-commit-config.yaml
@@ -269,7 +270,8 @@ jobs:
             -m "- agents-80-pr-event-hub.yml (consumer PR event hub)" \
             -m "- agents-81-gate-followups.yml (consumer Gate followups hub)" \
             -m "- scripts/ (synced from templates)" \
-            -m "- .github/scripts/ and retired-workflow removals (from sync-manifest.yml)" \
+            -m "- .github/scripts/, .github/actions/setup-api-client, tools/coverage_guard.py" \
+            -m "  and retired-workflow removals (from sync-manifest.yml)" \
             -m "- requirements.lock (regenerated with updated tool versions)" \
             -m "" \
             -m "Auto-synced by:" \

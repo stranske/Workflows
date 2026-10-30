@@ -261,6 +261,10 @@ def test_maint_69_runs_the_helper_and_sees_untracked_files() -> None:
     assert "git diff --quiet" not in changes_script
     assert ".github/scripts/" in commit_script
     assert ".github/actions/" in commit_script
+    # Everything the helper can write must be staged, or "changes detected" ends in
+    # `git commit` finding nothing and failing the run (seen on the tools/ file).
+    for path in subset.EXTRA_TOOL_SOURCES:
+        assert f"git add {path}" in commit_script
     assert "scripts/sync_integration_manifest_subset.py" in sparse
     for needed in (
         ".github/sync-manifest.yml",
