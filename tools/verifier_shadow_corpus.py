@@ -128,7 +128,7 @@ def judge_case(
                 for j in judges
             ]
             entries = [f.result() for f in futures]
-        outside = external_candidates(config)
+        outside = external_candidates(config, corpus=True)
         if outside and is_public(case["repo"]):
             entries += externals(outside, context, diff)
         else:  # the external tiers may only see public repositories

@@ -94,6 +94,28 @@ def extract_payload(text: str) -> dict[str, Any] | None:
     return None
 
 
+def final_verdict_span(text: str) -> str | None:
+    """The LAST JSON object in ``text`` that the production parser itself accepts, verbatim.
+
+    An agent CLI may narrate before its answer, and the narration may even quote a verdict, so
+    the final answer is the last accepted object, and acceptance is the production parser's own
+    strict rule (unknown fields fail), never a looser schema check.
+    """
+    decoder = json.JSONDecoder()
+    found = None
+    for index, char in enumerate(text):
+        if char != "{":
+            continue
+        try:
+            candidate, end = decoder.raw_decode(text[index:])
+        except ValueError:
+            continue
+        span = text[index : index + end]
+        if isinstance(candidate, dict) and not pr_verifier._parse_llm_response(span, "judge").error:
+            found = span
+    return found
+
+
 def _clean_env(keep: set[str] | None = None) -> dict[str, str]:
     """Environment for a judge subprocess: no GitHub or unrelated credentials."""
     keep = keep or set()
@@ -265,7 +287,12 @@ class CursorCliJudge:
                 tokens_out,
                 error=_redact(f"Cursor CLI error (rc {response.returncode})", [key]),
             )
-        payload = extract_payload(str(envelope.get("result") or ""))
+        result = str(envelope.get("result") or "")
+        span = final_verdict_span(result)
+        payload = extract_payload(span) if span is not None else None
+        # The agent CLI prepends a progress note ("I'll evaluate the diff...") to the model's final
+        # answer in its json envelope. Callers that parse the text themselves get the verdict JSON
+        # alone, byte for byte as the model wrote it; with no valid verdict they get the whole text.
         return JudgeOutcome(
             payload,
             latency,
@@ -273,7 +300,7 @@ class CursorCliJudge:
             tokens_out,
             served_model=self.model,
             error=None if payload else "Invalid verifier JSON",
-            text=str(envelope.get("result") or ""),
+            text=span if span is not None else result,
         )
 
 

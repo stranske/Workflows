@@ -114,9 +114,10 @@ def test_judge_case_runs_production_and_every_candidate_on_the_case_prompt():
     )
     inside = [c for c in CONFIG["candidates"] if c.get("runner") != "external"]
     assert [e["model"] for e in record["production_slots"]] == ["prod-openai", "prod-anthropic"]
+    outside = [c for c in CONFIG["candidates"] if c.get("runner") == "external"]
     assert [(e["provider"], e["model"]) for e in record["candidates"]] == [
-        (c["provider"], c["model"]) for c in CONFIG["candidates"]
-    ]
+        (c["provider"], c["model"]) for c in inside + outside
+    ]  # corpus-only candidates included: the corpus trial is where they run
     assert len(seen) == len(PRODUCTION) + len(inside)
     assert {depth for _, depth in seen} == {"2"}  # the case's own chain depth reaches the prompt
     assert os.environ.get("CHAIN_DEPTH") == previous  # and is restored afterwards

@@ -241,7 +241,8 @@ def test_markdown_opens_with_one_row_per_candidate():
     text = rep.markdown(rep.evaluate([_record(1)], CONFIG, now=START + timedelta(days=1)))
     assert "| Candidate | Status |" in text
     for candidate in CONFIG["candidates"]:
-        assert f"| {candidate['provider']}:{candidate['model']} |" in text
+        row = f"| {candidate['provider']}:{candidate['model']} |"
+        assert (row in text) is not bool(candidate.get("corpus_only"))
 
 
 def test_candidates_without_data_have_no_verdict():
@@ -253,7 +254,7 @@ def test_candidates_without_data_have_no_verdict():
 
 
 def test_a_late_candidate_starts_its_own_clock():
-    late = CONFIG["candidates"][-1]
+    late = [c for c in CONFIG["candidates"] if not c.get("corpus_only")][-1]
     records = [_record(i, day=i * 0.5) for i in range(12)]
     records[-1]["candidates"].append(
         {

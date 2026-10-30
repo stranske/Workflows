@@ -46,6 +46,21 @@
       "runner": "external",
       "replaces_provider": "openai",
       "why": "Cursor CLI in read-only ask mode on the Workflows CURSOR_API_KEY. Judges in the daily report job from the saved verifier inputs. Baseline: the production OpenAI judge."
+    },
+    {
+      "provider": "muse-api",
+      "model": "muse-wonder-1.0",
+      "runner": "external",
+      "corpus_only": true,
+      "replaces_provider": "openai",
+      "why": "Owner asked for it (2026-10-29). Meta's API model at $4/$20 per million tokens on the pay-as-you-go MUSE_API_KEY, public repositories only; Muse Wonder Full is not offered through the API. Corpus trial only, so it adds no daily cost."
+    },
+    {
+      "provider": "openai",
+      "model": "gpt-6.1-terra#high",
+      "corpus_only": true,
+      "replaces_provider": "openai",
+      "why": "The production judge at reasoning effort high: tells whether gpt-6.1-terra's thin reviews in the 2026-10-29 corpus trial come from the model or from the provider-default effort the verifier sends. Corpus trial only."
     }
   ],
   "window": {
