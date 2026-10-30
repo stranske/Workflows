@@ -125,7 +125,12 @@ def test_integration_sync_api_setup_preserves_vendored_dependencies(tmp_path: Pa
     install_dir = workspace / "workflows/.github/scripts"
     install_dir.mkdir(parents=True)
     shutil.copyfile(REPO_ROOT / ".github/scripts/package.json", install_dir / "package.json")
-    shutil.copytree(REPO_ROOT / ".github/scripts/node_modules", install_dir / "node_modules")
+    # Keep installed API packages in the developer checkout out of this fixture:
+    # their presence would skip npm and leave the alias preparation untested.
+    shutil.copytree(
+        REPO_ROOT / ".github/scripts/node_modules/minimatch",
+        install_dir / "node_modules/minimatch",
+    )
     original_package = (install_dir / "package.json").read_bytes()
     setup = next(
         step
