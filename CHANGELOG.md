@@ -6,6 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.49.0](https://github.com/stranske/Workflows/compare/v1.48.0...v1.49.0) (2026-10-30)
+
+
+### Features
+
+* **verifier:** gpt-6.1-sol in production; daily shadow off; session-adjudicated trials ([#4342](https://github.com/stranske/Workflows/issues/4342)) ([bed203e](https://github.com/stranske/Workflows/commit/bed203e1c9c83b1669e077983d52dc776e9a22a4))
+
+
+### Bug Fixes
+
+* **integration-template:** omit synced tooling from coverage scope ([#4338](https://github.com/stranske/Workflows/issues/4338)) ([#4340](https://github.com/stranske/Workflows/issues/4340)) ([1421b73](https://github.com/stranske/Workflows/commit/1421b73faee5b29e13531a67b3afd831fce8eb8e))
+* **sync:** deliver manifest hub scripts and removals to Workflows-Integration-Tests ([#4341](https://github.com/stranske/Workflows/issues/4341)) ([13957f9](https://github.com/stranske/Workflows/commit/13957f9653ec8d5892612bfafec198738a0a1df0))
+
 ## [1.48.0](https://github.com/stranske/Workflows/compare/v1.47.2...v1.48.0) (2026-10-30)
 
 
