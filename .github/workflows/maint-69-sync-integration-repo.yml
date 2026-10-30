@@ -53,6 +53,7 @@ jobs:
             .github/scripts/sync_tracker_state
             .github/scripts/token_load_balancer.js
             scripts/sync_dev_dependencies.py
+            scripts/sync_integration_coverage_omit.py
           sparse-checkout-cone-mode: false
 
       - name: Prepare sync token
@@ -125,6 +126,14 @@ jobs:
               --pin-file ".github/workflows/autofix-versions.env" \
               --pyproject "pyproject.toml"
             echo "✅ Synced pyproject.toml dev tool pins"
+            # Consumer-owned pyproject is not replaced wholesale; merge template
+            # coverage omit patterns so synced scripts/tools stay out of the
+            # full-coverage 70% floor measurement.
+            python "../workflows/scripts/sync_integration_coverage_omit.py" \
+              --apply \
+              --template "../workflows/templates/integration-repo/pyproject.toml" \
+              --pyproject "pyproject.toml"
+            echo "✅ Synced pyproject.toml coverage omit patterns"
           fi
 
           # Sync notify-workflows.yml (handles bidirectional sync)
