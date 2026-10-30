@@ -43,8 +43,11 @@ SHADOW_FILE = "verifier-shadow.json"
 
 
 def external_candidates(config: dict[str, Any], *, corpus: bool = False) -> list[dict[str, Any]]:
-    """External candidates; ``corpus_only`` ones only for the corpus trial, never the daily shadow."""
-    if not config.get("enabled"):
+    """External candidates; ``corpus_only`` ones only for the corpus trial, never the daily shadow.
+
+    ``enabled`` switches the DAILY shadow; a corpus trial is dispatched by hand and ignores it.
+    """
+    if not corpus and not config.get("enabled"):
         return []
     return [
         c

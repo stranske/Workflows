@@ -306,9 +306,9 @@ def test_plan_surfaces_models_missing_from_pinned_cli_catalog():
         ]
     }
     plan = build_plan(corpus, registry, policy, cli_catalog=catalog)
-    assert "gpt-6.1-sol" in plan["pinned_cli_unavailable_models"]
+    assert "gpt-6.1-terra" in plan["pinned_cli_unavailable_models"]
     assert INCUMBENT not in plan["pinned_cli_unavailable_models"]
-    assert "gpt-6.1-sol" in " ".join(plan["approval_blockers"])
+    assert "gpt-6.1-terra" in " ".join(plan["approval_blockers"])
 
 
 def test_cli_screen_is_bounded_and_reports_comparative_cost():

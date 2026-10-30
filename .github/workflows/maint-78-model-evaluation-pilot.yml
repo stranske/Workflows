@@ -28,7 +28,7 @@ on:
       models:
         description: Comma-separated priced OpenAI models for the 8-case CLI screen (maximum four).
         type: string
-        default: gpt-6.1-terra,gpt-6-luna,gpt-6.1-sol
+        default: gpt-6.1-sol,gpt-6-luna,gpt-6.1-terra
   push:
     branches: [main]
     paths:

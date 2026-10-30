@@ -1,7 +1,7 @@
 {
   "schema": "workflows-verifier-shadow/v1",
   "purpose": "Shadow evaluation of candidate verifier judges (owner decision 2026-10-22). All candidates judge, in parallel, every compare-mode verification in addition to the production judges; their evaluations are recorded, never posted, never counted. A blind adjudicator rates every evaluation of a run (production and candidate) and candidates are graded on the quality of their work against the production judges' work on the same runs.",
-  "enabled": true,
+  "enabled": false,
   "candidates": [
     {
       "provider": "openai",
@@ -11,9 +11,9 @@
     },
     {
       "provider": "openai",
-      "model": "gpt-6.1-sol",
+      "model": "gpt-6.1-terra",
       "replaces_provider": "openai",
-      "why": "Newest balanced OpenAI model ($2/$10)."
+      "why": "Production OpenAI judge 2026-10-29..30, replaced by gpt-6.1-sol after the corpus trials (accurate but the thinnest reviewer). Kept for corpus comparisons."
     },
     {
       "provider": "openai",
@@ -54,13 +54,6 @@
       "corpus_only": true,
       "replaces_provider": "openai",
       "why": "Owner asked for it (2026-10-29). Meta's API model at $4/$20 per million tokens on the pay-as-you-go MUSE_API_KEY, public repositories only; Muse Wonder Full is not offered through the API. Corpus trial only, so it adds no daily cost."
-    },
-    {
-      "provider": "openai",
-      "model": "gpt-6.1-terra#high",
-      "corpus_only": true,
-      "replaces_provider": "openai",
-      "why": "The production judge at reasoning effort high: tells whether gpt-6.1-terra's thin reviews in the 2026-10-29 corpus trial come from the model or from the provider-default effort the verifier sends. Corpus trial only."
     }
   ],
   "window": {

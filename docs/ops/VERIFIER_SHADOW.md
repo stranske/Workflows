@@ -4,6 +4,46 @@ Owner decision 2026-10-22: a candidate verifier judge earns promotion by running
 least 7 days against the production comparison, not by clearing a benchmark. Background and costs:
 `docs/ops/VERIFIER_STANDARDS_ANALYSIS.md` (zero-error benchmark bounds approved only a perfect model).
 
+
+> **Status 2026-10-30 (owner decisions):** the daily shadow is **off** (`enabled: false`) and the
+> production OpenAI judge is **gpt-6.1-sol**. Candidates are now trialled on demand on the labelled
+> corpus (see "Trialling a new candidate" below), rated in a Claude Code session instead of a paid
+> API adjudicator. The rest of this document describes the daily mechanism, kept for re-enabling.
+
+## Why it was turned off: cost per verified PR (2026-10-30)
+
+Estimated from measured input sizes (median about 11k tokens per OpenAI call and 16k per Anthropic
+call, from 20 verifier runs' `verifier-capacity-checks.jsonl`), registry list prices, and an assumed
+1.5k output tokens per judge. Provider consoles hold the actual bills.
+
+| Per verified PR | Calls | Estimated cost |
+|---|---:|---:|
+| Production pair | 2 | about $0.07 |
+| In-workflow shadow candidates (luna, sol, 5.6-terra, haiku, opus) | 5 | about $0.20 |
+| Daily external judging (Muse Spark API; Cursor on its subscription) | 2 | Muse price unverified |
+| Blind adjudicator, claude-fable-5-1 at $10/$50 per M tokens | 1 | about $0.35-0.50 |
+
+About 11 verified PRs a day (76 in 7 days) put the shadow at roughly $45 a week on top of
+production, most of it on the Anthropic key, whose monthly spend cap was reached on 2026-10-30. Its
+value chain broke at "acted on": no decision used the daily shadow's output, because every finding
+came from the corpus trials.
+
+## Trialling a new candidate
+
+1. Add the candidate to `config/verifier_shadow.json` (it never runs daily while `enabled` is false).
+2. Dispatch maint-89 with `corpus: true`, `corpus_fresh: true`,
+   `corpus_candidates: <provider:model,...>` and `corpus_adjudicator: session` (the default). Only the
+   production pair and the named candidates judge, about $1-2 for 18 cases for one or two candidates.
+3. Rate the records in a Claude Code session with the `verifier-candidate-trial` skill:
+   `python -m tools.verifier_shadow_corpus prompts` writes one blind prompt per case (evaluators
+   appear only as A, B, C...), a fresh subagent answers each prompt alone, and
+   `python -m tools.verifier_shadow_corpus apply` validates every answer exactly as an API answer is
+   validated (quoted evidence checked, unsupported coverage statuses rejected).
+4. `python -m tools.verifier_shadow_corpus report` grades the candidates against the production pair.
+
+`corpus_adjudicator: api` keeps the paid adjudicator path (about $0.45 a case) for when a session is
+not wanted.
+
 ## What runs
 
 * The reusable verifier workflow (`reusable-agents-verifier.yml`, called by every consumer at `@main`)

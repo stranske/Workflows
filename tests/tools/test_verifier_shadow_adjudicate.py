@@ -12,7 +12,8 @@ from types import SimpleNamespace
 from tools import verifier_shadow_adjudicate as adj
 
 ROOT = Path(__file__).resolve().parents[2]
-CONFIG = json.loads((ROOT / "config/verifier_shadow.json").read_text())
+# the daily mechanism under test, whatever the committed on/off switch says
+CONFIG = {**json.loads((ROOT / "config/verifier_shadow.json").read_text()), "enabled": True}
 NOW = datetime(2026, 10, 28, tzinfo=UTC)
 CONTEXT = (
     "## Tasks\n- [ ] add the /health route\n## Acceptance Criteria\n"

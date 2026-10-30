@@ -33,7 +33,16 @@ from scripts.langchain.verifier_shadow import (
     evaluate_like_production,
     run_candidate,
 )
-from tools.verifier_shadow_adjudicate import RUN_RESERVE_SECONDS, adjudicate, make_client
+from tools.verifier_shadow_adjudicate import (
+    RUN_RESERVE_SECONDS,
+    _json_object,
+    adjudicate,
+    blind,
+    build_prompt,
+    evaluators_for,
+    make_client,
+    validate,
+)
 from tools.verifier_shadow_external import (
     RUN_BUDGET_SECONDS,
     external_candidates,
@@ -181,18 +190,34 @@ def run_corpus(
     client_factory: Callable[[dict[str, str]], Any] = make_client,
     deadline: float | None = None,
     checkpoint: Callable[[], None] | None = None,
+    adjudicate_here: bool = True,
 ) -> dict[str, int]:
-    """Judge and adjudicate each case not already in ``records``; resumable through ``checkpoint``."""
+    """Judge and adjudicate each case not already in ``records``; resumable through ``checkpoint``.
+
+    ``adjudicate_here=False`` only judges: the ratings then come from a Claude Code session
+    (``prompts`` / ``apply``) instead of a paid API call per case.
+    """
     done = {
         r["corpus"]["case_id"]
         for r in records
         if r.get("adjudication") and not r["adjudication"].get("error")
     }
-    counts = {"judged": 0, "adjudicated": 0, "failed": 0, "already_done": 0, "out_of_time": 0}
+    counts = {
+        "judged": 0,
+        "adjudicated": 0,
+        "failed": 0,
+        "already_done": 0,
+        "out_of_time": 0,
+        "awaiting_session_adjudication": 0,
+    }
     client = None
     for case in cases:
         if case["case_id"] in done:
             counts["already_done"] += 1
+            continue
+        judged = any(r["corpus"]["case_id"] == case["case_id"] for r in records)
+        if not adjudicate_here and judged:
+            counts["awaiting_session_adjudication"] += 1
             continue
         if deadline is not None and time.monotonic() + CASE_RESERVE_SECONDS > deadline:
             counts["out_of_time"] += 1
@@ -204,6 +229,9 @@ def run_corpus(
             counts["judged"] += 1
             if checkpoint is not None:
                 checkpoint()
+        if not adjudicate_here:
+            counts["awaiting_session_adjudication"] += 1
+            continue
         context, diff = case_inputs(case)
         client = client or client_factory(config["adjudicator"])
         record["adjudication"] = adjudicate(
@@ -217,6 +245,66 @@ def run_corpus(
         counts["failed" if record["adjudication"].get("error") else "adjudicated"] += 1
         if checkpoint is not None:
             checkpoint()
+    return counts
+
+
+def blind_prompt(record: dict[str, Any], case: dict[str, Any]) -> tuple[str, list]:
+    """The adjudicator's prompt for one case, with the same blinding and order as the API path."""
+    context, diff = case_inputs(case)
+    evaluators = evaluators_for(record, comparison_of(record["production_slots"]))
+    labelled = blind(evaluators, f"{record.get('repository')}:{record.get('run_id')}")
+    return build_prompt(context, diff, labelled), labelled
+
+
+def write_prompts(records: list[dict[str, Any]], cases: list[dict[str, Any]], out: Path) -> int:
+    """One blind prompt file per case still needing ratings; the label key never leaves this tool."""
+    by_id = {c["case_id"]: c for c in cases}
+    out.mkdir(parents=True, exist_ok=True)
+    written = 0
+    for record in records:
+        case = by_id.get(record["corpus"]["case_id"])
+        adjudication = record.get("adjudication") or {}
+        if case is None or (adjudication and not adjudication.get("error")):
+            continue
+        prompt, labelled = blind_prompt(record, case)
+        if not any(key.startswith("candidate:") for _, key, _ in labelled):
+            continue
+        (out / f"{case['case_id']}.txt").write_text(prompt, encoding="utf-8")
+        written += 1
+    return written
+
+
+def apply_answers(
+    records: list[dict[str, Any]], cases: list[dict[str, Any]], answers: Path, adjudicator: str
+) -> dict[str, int]:
+    """Validate each session answer exactly as an API answer is validated, and store it."""
+    by_id = {c["case_id"]: c for c in cases}
+    counts = {"applied": 0, "rejected": 0, "missing": 0}
+    for record in records:
+        case = by_id.get(record["corpus"]["case_id"])
+        if case is None or (record.get("adjudication") and not record["adjudication"].get("error")):
+            continue
+        path = answers / f"{case['case_id']}.json"
+        if not path.exists():
+            counts["missing"] += 1
+            continue
+        context, diff = case_inputs(case)
+        _, labelled = blind_prompt(record, case)
+        base = {
+            "provider": "claude-code-session",
+            "model": adjudicator,
+            "adjudicated_at": datetime.now(UTC).isoformat(),
+            "error": None,
+        }
+        answer = _json_object(path.read_text(encoding="utf-8"))
+        try:
+            if answer is None:
+                raise ValueError("answer is not a JSON object")
+            record["adjudication"] = {**base, **validate(answer, labelled, context, diff)}
+            counts["applied"] += 1
+        except (TypeError, ValueError, AttributeError, KeyError) as exc:
+            record["adjudication"] = {**base, "error": f"malformed session answer: {exc}"}
+            counts["rejected"] += 1
     return counts
 
 
@@ -274,6 +362,9 @@ def report(records: list[dict[str, Any]], config: dict[str, Any]) -> dict[str, A
     production = [
         (e["provider"], e["model"]) for e in (records[0]["production_slots"] if records else [])
     ]
+    judged = {(e["provider"], e["model"]) for r in records for e in r["candidates"]}
+    # a trial of selected candidates reports only those, not every candidate in the config
+    candidates = [c for c in config.get("candidates", []) if (c["provider"], c["model"]) in judged]
     return {
         "generated_at": now.isoformat(),
         "cases": len(records),
@@ -282,15 +373,13 @@ def report(records: list[dict[str, Any]], config: dict[str, Any]) -> dict[str, A
         ),
         "repositories": sorted({r["repository"] for r in records}),
         "candidates": [
-            evaluate_candidate(records, c, fixed, now=now, started_at=now)
-            for c in config.get("candidates", [])
+            evaluate_candidate(records, c, fixed, now=now, started_at=now) for c in candidates
         ],
         "labels": {
             f"{'production' if key in production else 'candidate'}:{key[0]}:{key[1]}": label_agreement(
                 records, key
             )
-            for key in production
-            + [(c["provider"], c["model"]) for c in config.get("candidates", [])]
+            for key in production + [(c["provider"], c["model"]) for c in candidates]
         },
     }
 
@@ -354,14 +443,44 @@ def main(argv: list[str] | None = None) -> int:
     run.add_argument("--shards", type=int, default=1)
     run.add_argument("--max-cases", type=int, default=None)
     run.add_argument("--budget-seconds", type=float, default=None)
+    run.add_argument(
+        "--candidates",
+        default="",
+        help="comma separated provider:model keys; only these candidates judge (default: all)",
+    )
+    run.add_argument(
+        "--no-adjudicate",
+        action="store_true",
+        help="judge only; rate the records afterwards in a Claude Code session (prompts/apply)",
+    )
+    prm = sub.add_parser("prompts", help="write one blind adjudication prompt per unrated case")
+    prm.add_argument("records", type=Path, nargs="+")
+    prm.add_argument("--out", type=Path, required=True)
+    app = sub.add_parser("apply", help="validate session answers and store them in the records")
+    app.add_argument("records", type=Path, nargs="+")
+    app.add_argument("--answers", type=Path, required=True)
+    app.add_argument("--adjudicator", required=True, help="the model that wrote the answers")
     rep = sub.add_parser("report", help="merge shard records and write the report")
     rep.add_argument("records", type=Path, nargs="+")
     rep.add_argument("--markdown", type=Path, required=True)
     rep.add_argument("--json", type=Path, required=True)
-    for p in (run, rep):
+    for p in (run, rep, prm, app):
         p.add_argument("--config", type=Path, default=ROOT / "config/verifier_shadow.json")
     args = parser.parse_args(argv)
     config = json.loads(args.config.read_text(encoding="utf-8"))
+
+    if args.command in ("prompts", "apply"):
+        cases = corpus_cases()
+        files = {path: json.loads(path.read_text(encoding="utf-8")) for path in args.records}
+        every = [r for records in files.values() for r in records]
+        if args.command == "prompts":
+            print(f"wrote {write_prompts(every, cases, args.out)} blind prompt(s) to {args.out}")
+            return 0
+        counts = apply_answers(every, cases, args.answers, args.adjudicator)
+        for path, records in files.items():
+            _save(path, records)
+        print(f"session adjudication: {counts}")
+        return 0
 
     if args.command == "report":
         wanted = {case["case_id"] for case in corpus_cases()}
@@ -378,6 +497,17 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     started = time.monotonic()
+    if args.candidates:  # a trial of new candidates: the production pair plus only these
+        wanted = {key.strip() for key in args.candidates.split(",") if key.strip()}
+        config = {
+            **config,
+            "candidates": [
+                c for c in config["candidates"] if f"{c['provider']}:{c['model']}" in wanted
+            ],
+        }
+        unknown = wanted - {f"{c['provider']}:{c['model']}" for c in config["candidates"]}
+        if unknown:
+            parser.error(f"not in the candidate config: {', '.join(sorted(unknown))}")
     cases = corpus_cases()[args.shard :: args.shards][: args.max_cases]
     restored = json.loads(args.records.read_text()) if args.records.exists() else []
     # a checkpoint from another case selection or shard split keeps only this shard's cases
@@ -388,8 +518,10 @@ def main(argv: list[str] | None = None) -> int:
         records,
         config,
         production=production_judges(),
+        judge=judge_case,
         deadline=None if args.budget_seconds is None else started + args.budget_seconds,
         checkpoint=lambda: _save(args.records, records),
+        adjudicate_here=not args.no_adjudicate,
     )
     _save(args.records, records)
     print(f"corpus shard {args.shard}/{args.shards}: {len(cases)} case(s): {counts}")

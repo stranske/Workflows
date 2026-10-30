@@ -9,7 +9,8 @@ from pathlib import Path
 from tools import verifier_shadow_report as rep
 
 ROOT = Path(__file__).resolve().parents[2]
-CONFIG = json.loads((ROOT / "config/verifier_shadow.json").read_text())
+# the daily mechanism under test, whatever the committed on/off switch says
+CONFIG = {**json.loads((ROOT / "config/verifier_shadow.json").read_text()), "enabled": True}
 CAND = CONFIG["candidates"][0]  # the first candidate; others are exercised below
 KEY = f"candidate:{CAND['provider']}:{CAND['model']}"
 PIPE = "compare-slot/v3"
