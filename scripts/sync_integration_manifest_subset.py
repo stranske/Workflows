@@ -38,6 +38,7 @@ DEFAULT_REPO = "stranske/Workflows-Integration-Tests"
 SCRIPT_PREFIX = ".github/scripts/"
 SCRIPT_SUFFIXES = frozenset({".js", ".cjs", ".mjs", ".py", ".json"})
 EXTRA_WORKFLOW_SOURCES = frozenset({".github/workflows/maint-coverage-guard.yml"})
+ACTION_DIRECTORIES = frozenset({".github/actions/setup-api-client"})
 REMOVAL_PREFIXES = (".github/workflows/", ".github/scripts/")
 
 
@@ -103,6 +104,29 @@ def select_copy_sources(manifest: dict[str, Any], repo: str = DEFAULT_REPO) -> l
     return [source for source, _tree in _select_copy_entries(manifest, repo)]
 
 
+def select_action_directories(manifest: dict[str, Any], repo: str = DEFAULT_REPO) -> list[str]:
+    """Manifest ``actions`` directories delivered to ``repo``.
+
+    The delivered ``maint-coverage-guard.yml`` runs ``uses: ./.github/actions/setup-api-client``,
+    and a local composite action must exist in the consuming repo.
+    """
+    selected: list[str] = []
+    for entry in manifest.get("actions") or []:
+        source = str(entry.get("source") or "").rstrip("/")
+        if source not in ACTION_DIRECTORIES or not entry.get("is_directory"):
+            continue
+        skipped = {
+            item.get("repo") if isinstance(item, dict) else item
+            for item in entry.get("skip_repos") or []
+        }
+        include = entry.get("include_repos") or []
+        if repo in skipped or (include and repo not in include):
+            continue
+        if source not in selected:
+            selected.append(source)
+    return selected
+
+
 def select_removals(manifest: dict[str, Any]) -> list[str]:
     """Manifest ``removals`` targets that are single files this helper may delete."""
     targets: list[str] = []
@@ -138,6 +162,24 @@ def apply_subset(
             dest.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(src, dest)
             shutil.copymode(src, dest)
+    for directory in select_action_directories(manifest, repo):
+        src_dir = source_root / directory
+        if not src_dir.is_dir():
+            result.missing_sources.append(directory)
+            continue
+        for src in sorted(p for p in src_dir.rglob("*") if p.is_file()):
+            if "node_modules" in src.relative_to(src_dir).parts:
+                continue
+            rel = src.relative_to(source_root).as_posix()
+            dest = target_root / rel
+            if dest.is_file() and dest.read_bytes() == src.read_bytes():
+                result.unchanged.append(rel)
+                continue
+            result.copied.append(rel)
+            if not dry_run:
+                dest.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copyfile(src, dest)
+                shutil.copymode(src, dest)
     for target in select_removals(manifest):
         dest = target_root / target
         if dest.is_file():

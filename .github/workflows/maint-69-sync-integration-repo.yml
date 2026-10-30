@@ -54,7 +54,6 @@ jobs:
             .github/workflows/autofix-versions.env
             templates/consumer-repo/.github/workflows/maint-coverage-guard.yml
             .github/sync-manifest.yml
-            .github/scripts
             .github/actions/setup-api-client
             .github/scripts/error_classifier.js
             .github/scripts/github-api-with-retry.js
@@ -64,6 +63,20 @@ jobs:
             scripts/sync_dev_dependencies.py
             scripts/sync_integration_coverage_omit.py
             scripts/sync_integration_manifest_subset.py
+          sparse-checkout-cone-mode: false
+
+      # The delivery tree is separate from `workflows/`: Setup API client runs `npm install` in
+      # workflows/.github/scripts, and a checked-out .github/scripts/package.json (a file:
+      # dependency on a node_modules that is not there) makes that install fail.
+      - name: Checkout Workflows delivery tree
+        uses: actions/checkout@v7
+        with:
+          path: workflows-delivery
+          sparse-checkout: |
+            .github/sync-manifest.yml
+            .github/scripts
+            .github/actions/setup-api-client
+            templates/consumer-repo/.github/workflows/maint-coverage-guard.yml
           sparse-checkout-cone-mode: false
 
       - name: Prepare sync token
@@ -175,8 +188,8 @@ jobs:
           # Deliver the manifest-declared .github/scripts/* the hubs require() at runtime, the
           # maint-coverage-guard workflow, and the manifest's removals (retired workflows).
           python "../workflows/scripts/sync_integration_manifest_subset.py" \
-            --manifest "../workflows/.github/sync-manifest.yml" \
-            --source-root "../workflows" \
+            --manifest "../workflows-delivery/.github/sync-manifest.yml" \
+            --source-root "../workflows-delivery" \
             --target-root "." \
             --repo "${INTEGRATION_REPO}"
           echo "✅ Synced manifest hub scripts and removals"
@@ -237,6 +250,7 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
           git add .github/workflows/ pyproject.toml requirements.lock scripts/
+          git add .github/actions/
           git add .github/scripts/
           if [ -f .pre-commit-config.yaml ]; then
             git add .pre-commit-config.yaml

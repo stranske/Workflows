@@ -253,16 +253,68 @@ def test_maint_69_runs_the_helper_and_sees_untracked_files() -> None:
     changes_script = steps["Check for changes"]["run"]
     commit_script = steps["Commit and push changes"]["run"]
     sparse = steps["Checkout Workflows repo"]["with"]["sparse-checkout"]
+    delivery = steps["Checkout Workflows delivery tree"]["with"]
 
     assert "sync_integration_manifest_subset.py" in apply_script
+    assert '--source-root "../workflows-delivery"' in apply_script
     assert "git status --porcelain" in changes_script
     assert "git diff --quiet" not in changes_script
     assert ".github/scripts/" in commit_script
+    assert ".github/actions/" in commit_script
+    assert "scripts/sync_integration_manifest_subset.py" in sparse
     for needed in (
         ".github/sync-manifest.yml",
         ".github/scripts",
+        ".github/actions/setup-api-client",
         "templates/consumer-repo/.github/workflows/maint-coverage-guard.yml",
-        "scripts/sync_integration_manifest_subset.py",
     ):
-        assert needed in sparse
+        assert needed in delivery["sparse-checkout"]
+    assert delivery["path"] == "workflows-delivery"
+    # The API-client install tree must stay free of .github/scripts/package.json: its
+    # file:node_modules dependency made `Setup API client` fail on every run after #4341.
+    assert ".github/scripts" not in sparse.split()
+    assert steps["Setup API client"]["with"]["install_dir"] == "workflows/.github/scripts"
     assert "schedule" in workflow[True]  # PyYAML parses the bare `on:` key as boolean True
+
+
+def test_action_directories_are_selected_and_copied_without_node_modules(tmp_path: Path) -> None:
+    src, dst = tmp_path / "src", tmp_path / "dst"
+    action = src / ".github/actions/setup-api-client"
+    (action / "node_modules/x").mkdir(parents=True)
+    (action / "action.yml").write_text("name: a\n")
+    (action / "create_vendor_aliases.js").write_text("v\n")
+    (action / "node_modules/x/index.js").write_text("ignored\n")
+    dst.mkdir()
+    manifest = {
+        "actions": [
+            _entry(".github/actions/setup-api-client/", is_directory=True),
+            _entry(".github/actions/artifact-cache/", is_directory=True),
+        ]
+    }
+
+    assert subset.select_action_directories(manifest) == [".github/actions/setup-api-client"]
+    result = subset.apply_subset(manifest, src, dst)
+
+    assert result.copied == [
+        ".github/actions/setup-api-client/action.yml",
+        ".github/actions/setup-api-client/create_vendor_aliases.js",
+    ]
+    assert (dst / ".github/actions/setup-api-client/action.yml").read_text() == "name: a\n"
+    assert not (dst / ".github/actions/setup-api-client/node_modules").exists()
+    assert subset.apply_subset(manifest, src, dst).copied == []
+
+
+def test_missing_action_directory_is_reported(tmp_path: Path) -> None:
+    manifest = {"actions": [_entry(".github/actions/setup-api-client/", is_directory=True)]}
+
+    result = subset.apply_subset(manifest, tmp_path / "src", tmp_path / "dst")
+
+    assert result.missing_sources == [".github/actions/setup-api-client"]
+
+
+def test_real_manifest_delivers_the_action_the_coverage_guard_uses(manifest: dict) -> None:
+    guard = REPO_ROOT / "templates/consumer-repo/.github/workflows/maint-coverage-guard.yml"
+    local_actions = re.findall(r"uses: \./(\.github/actions/[A-Za-z0-9_-]+)", guard.read_text())
+
+    assert local_actions
+    assert set(local_actions) <= set(subset.select_action_directories(manifest))

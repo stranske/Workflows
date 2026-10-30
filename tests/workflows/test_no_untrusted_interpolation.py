@@ -259,7 +259,7 @@ REVIEWED_SCRIPT_INTERPOLATIONS = frozenset(
         ),
         (
             ".github/workflows/maint-69-sync-integration-repo.yml",
-            "sync/step-10/run",
+            "sync/step-11/run",
             "inputs.dry_run",
         ),
         (
