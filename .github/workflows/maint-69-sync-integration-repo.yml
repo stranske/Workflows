@@ -11,6 +11,12 @@ on:
       - 'templates/consumer-repo/.github/workflows/agents-80-pr-event-hub.yml'
       - 'templates/consumer-repo/.github/workflows/agents-81-gate-followups.yml'
       - '.github/workflows/autofix-versions.env'
+      - '.github/sync-manifest.yml'
+      - 'scripts/sync_integration_manifest_subset.py'
+  schedule:
+    # Daily drift sweep. WIT is outside the maint-68 consumer matrix, so without this the
+    # manifest-declared hub scripts only reach it when a template path above happens to change.
+    - cron: '41 5 * * *'
   workflow_dispatch:
     inputs:
       dry_run:
@@ -46,6 +52,9 @@ jobs:
             templates/consumer-repo/.github/workflows/agents-80-pr-event-hub.yml
             templates/consumer-repo/.github/workflows/agents-81-gate-followups.yml
             .github/workflows/autofix-versions.env
+            .github/workflows/maint-coverage-guard.yml
+            .github/sync-manifest.yml
+            .github/scripts
             .github/actions/setup-api-client
             .github/scripts/error_classifier.js
             .github/scripts/github-api-with-retry.js
@@ -54,6 +63,7 @@ jobs:
             .github/scripts/token_load_balancer.js
             scripts/sync_dev_dependencies.py
             scripts/sync_integration_coverage_omit.py
+            scripts/sync_integration_manifest_subset.py
           sparse-checkout-cone-mode: false
 
       - name: Prepare sync token
@@ -87,6 +97,10 @@ jobs:
         uses: actions/setup-python@v7
         with:
           python-version: '3.14'
+
+      - name: Install PyYAML for manifest subset sync
+        if: steps.token.outputs.token_available == 'true'
+        run: python -m pip install --quiet pyyaml
 
       - name: Install uv
         if: steps.token.outputs.token_available == 'true'
@@ -158,6 +172,15 @@ jobs:
             fi
           done
 
+          # Deliver the manifest-declared .github/scripts/* the hubs require() at runtime, the
+          # maint-coverage-guard workflow, and the manifest's removals (retired workflows).
+          python "../workflows/scripts/sync_integration_manifest_subset.py" \
+            --manifest "../workflows/.github/sync-manifest.yml" \
+            --source-root "../workflows" \
+            --target-root "." \
+            --repo "${INTEGRATION_REPO}"
+          echo "✅ Synced manifest hub scripts and removals"
+
           # Sync scripts directory (if exists in templates)
           if [ -d "../workflows/templates/integration-repo/scripts" ]; then
             mkdir -p scripts
@@ -180,13 +203,14 @@ jobs:
         run: |
           cd integration-tests
 
-          if git diff --quiet; then
+          # Untracked files are not seen by a plain diff, which would hide newly delivered scripts.
+          if [ -z "$(git status --porcelain)" ]; then
             echo "has_changes=false" >> "$GITHUB_OUTPUT"
             echo "No changes needed"
           else
             echo "has_changes=true" >> "$GITHUB_OUTPUT"
             echo "Changes detected:"
-            git --no-pager diff --stat
+            git --no-pager status --short
           fi
 
       - name: Show diff in dry run
@@ -198,7 +222,7 @@ jobs:
           cd integration-tests
           echo "## Dry Run - Changes Preview" >> "$GITHUB_STEP_SUMMARY"
           echo "\`\`\`diff" >> "$GITHUB_STEP_SUMMARY"
-          git --no-pager diff >> "$GITHUB_STEP_SUMMARY" || true
+          { git --no-pager status --short; git --no-pager diff; } >> "$GITHUB_STEP_SUMMARY" || true
           echo "\`\`\`" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Commit and push changes
@@ -213,6 +237,7 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
           git add .github/workflows/ pyproject.toml requirements.lock scripts/
+          git add .github/scripts/
           if [ -f .pre-commit-config.yaml ]; then
             git add .pre-commit-config.yaml
           fi
@@ -229,6 +254,7 @@ jobs:
             -m "- agents-80-pr-event-hub.yml (consumer PR event hub)" \
             -m "- agents-81-gate-followups.yml (consumer Gate followups hub)" \
             -m "- scripts/ (synced from templates)" \
+            -m "- .github/scripts/ and retired-workflow removals (from sync-manifest.yml)" \
             -m "- requirements.lock (regenerated with updated tool versions)" \
             -m "" \
             -m "Auto-synced by:" \
