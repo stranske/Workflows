@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import io
 import json
 from pathlib import Path
 
@@ -217,9 +218,15 @@ def test_backup_transport_failures_never_carry_the_key(monkeypatch, failure, mes
 
     monkeypatch.setenv("MUSE_API_KEY", "test-key-not-real")
 
+    raised_errors = []
+
     def urlopen(request, timeout):
         if failure == "http":
-            raise urllib.error.HTTPError(request.full_url, 429, "test-key-not-real", {}, None)
+            error = urllib.error.HTTPError(
+                request.full_url, 429, "test-key-not-real", {}, io.BytesIO(b"quota")
+            )
+            raised_errors.append(error)
+            raise error
         if failure == "transport":
             raise urllib.error.URLError("test-key-not-real")
         return _Response(b"{}")
@@ -232,6 +239,8 @@ def test_backup_transport_failures_never_carry_the_key(monkeypatch, failure, mes
         client.invoke("p")
     assert str(raised.value) == message
     assert "test-key-not-real" not in str(raised.value)
+    # the HTTP error owns the response body; the client closes it rather than leaking it
+    assert all(error.fp.closed for error in raised_errors)
 
 
 def test_backup_transport_refuses_a_non_https_base_url(monkeypatch):

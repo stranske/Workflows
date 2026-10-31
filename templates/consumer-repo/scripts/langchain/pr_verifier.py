@@ -8797,6 +8797,7 @@ class CapacityBackupClient:
             with urllib.request.urlopen(request, timeout=self.timeout) as handle:  # nosemgrep
                 data = json.loads(handle.read().decode("utf-8"))
         except urllib.error.HTTPError as exc:
+            exc.close()  # it holds the response body; an unclosed one leaks a file handle
             raise RuntimeError(f"capacity backup HTTP {exc.code}") from None
         except (urllib.error.URLError, TimeoutError, OSError, ValueError) as exc:
             raise RuntimeError(f"capacity backup unavailable: {type(exc).__name__}") from None
