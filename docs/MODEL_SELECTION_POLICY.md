@@ -15,6 +15,16 @@ evidence. A model can be selected **provisionally** from a small paired comparis
 and human review. Statistical **approval** still requires the frozen,
 adjudicated verifier corpus and all approval-stage gates.
 
+**Retired for `verifier-balanced` (owner decision 2026-10-30).** Automatic approval never approved
+a model: zero-error Wilson bounds on a corpus this size approve only a perfect judge
+(`docs/ops/VERIFIER_STANDARDS_ANALYSIS.md`). `approval_stage.status` is `retired`, so MAINT-78
+reports the approval path as `owner_trial` and lists the corpus shortfalls as information, not
+blockers, and `tools/prepare_model_promotion.py` prepares rollbacks on a gate breach but no
+promotions. A verifier selection changes when the owner decides after a corpus trial
+(`docs/ops/VERIFIER_SHADOW.md`, "Trialling a new candidate"), as gpt-6.1-sol did on 2026-10-30.
+The `approval_stage` fields still drive corpus generation (controlled mutations, stable-merge PASS
+cases). Set `status` to `active` to restore automatic approval.
+
 Selection is constrained optimization, not a weighted score:
 
 1. For a provisional decision, reject observed false PASS, schema errors, and
@@ -158,6 +168,9 @@ requirements below remain the bar for a statistical `approved` status, not a
 blocker to provisional selection.
 
 ### Statistical approval
+
+Retired for `verifier-balanced` on 2026-10-30 (see Decision Principle); kept for profiles that
+re-activate it.
 
 Evaluate a case-level paired run with:
 

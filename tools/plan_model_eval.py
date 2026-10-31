@@ -98,6 +98,9 @@ def build_plan(
     profile = policy["profiles"]["verifier-balanced"]
     candidate_stage = profile["candidate_stage"]
     approval = profile["approval_stage"]
+    # Owner decision 2026-10-30: automatic approval can be retired. The shortfalls below are still
+    # measured and reported, but they describe the corpus, not a path that can ever open.
+    approval_retired = approval.get("status") == "retired"
     # Diagnostic-only cases (the failed-CI mutants: the verifier workflow already floors a red CI at
     # CONCERNS deterministically, so a model miss there costs nothing) are kept for reporting but
     # never count toward any floor.
@@ -328,6 +331,8 @@ def build_plan(
             )
         },
         "approval_ready": False,
+        "approval_path": "owner_trial" if approval_retired else "automatic",
+        "approval_retired_note": approval.get("retired_note") if approval_retired else None,
         "screen_ready": screen_ready,
         "input_alignment_ready": input_alignment_ready,
         "screen_case_kinds": {
@@ -370,15 +375,21 @@ def build_plan(
             "api_calls": 0,
         },
         "next_action": (
-            "Run one bounded, paired Codex CLI screen of the incumbent and up to three "
-            "priced candidates. Advance any candidate that meets the provisional-stage "
-            "false-PASS, schema-error, and accuracy limits, then compare modeled cost "
-            "per accepted review in a small capped "
-            "API confirmation; review a provisional selection without waiting for the "
-            "long-term statistical approval sample."
-            if screen_ready
-            else "Resolve the candidate screen blockers, then compare the incumbent with "
-            "priced alternatives."
+            "Trial any candidate on the labelled corpus (docs/ops/VERIFIER_SHADOW.md, "
+            '"Trialling a new candidate"); a verifier-balanced selection changes only by the '
+            "owner's decision on that trial."
+            if approval_retired
+            else (
+                "Run one bounded, paired Codex CLI screen of the incumbent and up to three "
+                "priced candidates. Advance any candidate that meets the provisional-stage "
+                "false-PASS, schema-error, and accuracy limits, then compare modeled cost "
+                "per accepted review in a small capped "
+                "API confirmation; review a provisional selection without waiting for the "
+                "long-term statistical approval sample."
+                if screen_ready
+                else "Resolve the candidate screen blockers, then compare the incumbent with "
+                "priced alternatives."
+            )
         ),
     }
 
@@ -420,6 +431,20 @@ def markdown(plan: dict[str, Any]) -> str:
     if plan["confirmation_blockers"]:
         lines += ["", "### Paid confirmation blockers (prompt coverage)", ""]
         lines += [f"- {reason}" for reason in plan["confirmation_blockers"]]
+    if plan.get("approval_path") == "owner_trial":
+        lines += [
+            "",
+            "### Automatic approval: retired",
+            "",
+            str(plan["approval_retired_note"]),
+            "",
+            "Corpus measurements against the retired bounds (informational, not blockers):",
+            "",
+            f"**Historical corpus:** {plan['corpus_cases']} / {plan['approval_minimum_cases']} cases",
+        ]
+        lines += [f"- {reason}" for reason in plan["approval_blockers"]]
+        lines.append("")
+        return "\n".join(lines)
     lines += [
         "",
         "### Separate long-term statistical approval",

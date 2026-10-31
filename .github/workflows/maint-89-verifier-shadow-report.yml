@@ -49,13 +49,62 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # The daily shadow has a central switch (`enabled` in config/verifier_shadow.json). While it is
+  # off, the daily report has no new records to read, so it does not run; `shadow-off` closes the
+  # report issue once, saying why, instead of refreshing a stale report every day.
+  daily-switch:
+    if: ${{ !inputs.corpus }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      enabled: ${{ steps.switch.outputs.enabled }}
+    steps:
+      # The daily switch is the default branch's, whatever ref a manual dispatch names.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+      - id: switch
+        run: |
+          set -euo pipefail
+          enabled="$(python3 -c 'import json; print(str(bool(json.load(open("config/verifier_shadow.json")).get("enabled"))).lower())')"
+          echo "enabled=$enabled" >> "$GITHUB_OUTPUT"
+          echo "Daily verifier shadow enabled: $enabled" >> "$GITHUB_STEP_SUMMARY"
+
+  shadow-off:
+    needs: daily-switch
+    if: ${{ !inputs.corpus && needs.daily-switch.outputs.enabled != 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Close the report issue while the shadow is off
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          title="Verifier shadow report"
+          num="$(gh issue list --state open --search "\"$title\" in:title" --json number,title \
+            --jq "[.[] | select(.title == \"$title\")][0].number // empty")"
+          if [ -z "$num" ]; then
+            echo "No open report issue; nothing to do." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          gh issue close "$num" --reason "not planned" --comment "The daily verifier shadow is off (\`enabled: false\` in config/verifier_shadow.json, owner decision 2026-10-30, for cost). This report stops updating. Candidates are now trialled on demand on the labelled corpus: see docs/ops/VERIFIER_SHADOW.md, \"Trialling a new candidate\". Setting \`enabled\` back to true reopens daily reporting, which creates a new report issue."
+          echo "Closed report issue #$num." >> "$GITHUB_STEP_SUMMARY"
+
   report:
+    # Runs daily either way: collecting production records and renewing the ledger artifact cost no
+    # API calls, and skipping them would let the records and the 90-day ledger expire while off.
+    # Only the paid judging, the adjudication and the report issue follow the switch.
+    needs: daily-switch
     if: ${{ !inputs.corpus }}
     runs-on: ubuntu-latest
     timeout-minutes: 75
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: ${{ github.event.repository.default_branch }}
           persist-credentials: false
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
@@ -97,6 +146,7 @@ jobs:
             --markdown report.md --json report.json
           cat report.md >> "$GITHUB_STEP_SUMMARY"
       - name: Install the Cursor CLI
+        if: ${{ needs.daily-switch.outputs.enabled == 'true' }}
         env:
           CURSOR_CLI_VERSION: 2026.10.16-e3cb207
         run: |
@@ -115,6 +165,7 @@ jobs:
         # Bounded and checkpointed: the ledger is rewritten after every judged run and no new run
         # starts unless a full judge timeout still fits before --budget-seconds, so a slow backend
         # can neither lose completed paid judgments nor hold back the report below.
+        if: ${{ needs.daily-switch.outputs.enabled == 'true' }}
         continue-on-error: true
         timeout-minutes: 30
         env:
@@ -131,6 +182,7 @@ jobs:
         # evaluation of a run -- production and candidate alike, shuffled and relabelled -- on
         # accuracy (with quoted evidence), coverage of the tasks and acceptance criteria, and
         # usefulness. Bounded and checkpointed like the step above; a failed run is retried once.
+        if: ${{ needs.daily-switch.outputs.enabled == 'true' }}
         continue-on-error: true
         timeout-minutes: 25
         env:
@@ -142,12 +194,13 @@ jobs:
           python -m tools.verifier_shadow_adjudicate --ledger ledger.json --repos "$repos" \
             --budget-seconds 1380
       - name: Re-evaluate the criteria with the external verdicts and adjudications
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && needs.daily-switch.outputs.enabled == 'true' }}
         run: |
           set -euo pipefail
           python -m tools.verifier_shadow_report --ledger ledger.json --markdown report.md --json report.json
           cat report.md >> "$GITHUB_STEP_SUMMARY"
       - name: Update the single report issue
+        if: ${{ needs.daily-switch.outputs.enabled == 'true' }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
