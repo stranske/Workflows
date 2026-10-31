@@ -390,6 +390,10 @@ def main() -> int:
         logger.error(f"Analysis failed: {e}")
         return 1
 
+    if os.environ.get("WORKFLOWS_ANALYSIS_CLI") and result.completion.provider_used == "error":
+        logger.error("Subscription analysis failed; no API fallback")
+        return 1
+
     # Output results
     if args.output == "github-actions":
         output_github_actions(result)

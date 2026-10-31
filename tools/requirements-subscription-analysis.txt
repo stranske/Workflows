@@ -1,0 +1,3 @@
+# Account CLI analysis needs no API-provider clients. Pins match requirements.lock.
+pydantic==2.13.4
+PyYAML==6.0.3

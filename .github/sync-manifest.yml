@@ -937,6 +937,10 @@ scripts:
     description: "Verdict policy engine - applies pass/fail rules to verification results"
     delivery: copy
 
+  - source: tools/subscription_llm.py
+    description: "Subscription CLI-only keepalive analysis transport; no API fallback"
+    template_sync: exact
+
   - source: tools/llm_provider.py
     description: "LLM provider configuration - GitHub Models and OpenAI client setup"
 

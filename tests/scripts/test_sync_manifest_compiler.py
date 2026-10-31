@@ -612,10 +612,11 @@ def test_real_manifest_compiles_every_declared_copy_entry() -> None:
         ],
     }
     Draft202012Validator(schema).validate(legacy_plan)
-    # Seven correction-interface helpers extend the prior 266 managed entries.
+    # Correction-interface helpers plus tools/subscription_llm.py extend the prior managed entries.
     # Preserve ci-python-versions.env (#4045) and verifier_plan_fingerprint.js.
-    assert len(plan["entries"]) == 278
+    assert len(plan["entries"]) == 279
     assert {
+        "tools/subscription_llm.py",
         ".github/scripts/rate_limit_receipt.js",
         ".github/scripts/rate_limit_receipt.json",
         ".github/scripts/verifier_plan_fingerprint.js",

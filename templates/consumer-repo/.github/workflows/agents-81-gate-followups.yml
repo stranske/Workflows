@@ -1089,6 +1089,7 @@ jobs:
           if-no-files-found: error
 
       - name: Auto-reconcile task checkboxes
+        id: reconcile
         if: |
           needs.run-codex.outputs.changes-made == 'true' ||
           needs.run-claude.outputs.changes-made == 'true' ||
@@ -1184,6 +1185,7 @@ jobs:
             core.setOutput('llm_confidence', llmConfidence);
             core.setOutput('llm_analysis_run', llmAnalysisRun);
             core.setOutput('llm_tasks_count', llmCompletedTasks.length);
+            core.setOutput('llm_ticked_tasks', result.updated ? (result.llmTasksChecked || 0) : 0);
             core.setOutput('commit_tasks_count', result.sources?.commit || 0);
 
       - name: Mint KEEPALIVE_APP summary token
@@ -1290,6 +1292,7 @@ jobs:
               github.event.inputs.authority_challenge_claim || '' }}
           AUTHORITY_CHALLENGE_SIGNING_KEY: >-
             ${{ secrets.KEEPALIVE_AUTHORITY_SIGNING_KEY || '' }}
+          LLM_TICKED_TASKS: ${{ steps.reconcile.outputs.llm_ticked_tasks }}
           KEEPALIVE_SUMMARY_WRITER: >-
             ${{
               steps.summary_keepalive_app_token.outputs.token != '' &&
@@ -1409,6 +1412,7 @@ jobs:
               llm_provider: llmProvider,
               llm_confidence: llmConfidence,
               llm_analysis_run: llmAnalysisRun,
+              llm_ticked_tasks: Number(process.env.LLM_TICKED_TASKS) || 0,
               force_retry: process.env.FORCE_RETRY === 'true',
               authority_challenge_fingerprint:
                 process.env.AUTHORITY_CHALLENGE_FINGERPRINT || '',

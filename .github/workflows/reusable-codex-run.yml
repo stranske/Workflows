@@ -152,13 +152,6 @@ on:
         required: false
       WORKFLOWS_APP_PRIVATE_KEY:
         required: false
-      OPENAI_API_KEY:
-        required: false
-        description: >-
-          OpenAI API key for LLM analysis (enables model selection beyond GitHub Models)
-      CLAUDE_API_STRANSKE:
-        required: false
-        description: 'Anthropic API key for LLM analysis (enables Claude slot)'
     outputs:
       final-message:
         description: 'Full Codex output message (base64 encoded)'
@@ -1528,12 +1521,12 @@ jobs:
           steps.analyze_session.outputs.session-available == 'true' &&
           inputs.pr_number != ''
         env:
+          WORKFLOWS_ANALYSIS_CLI: codex
+          CODEX_HOME: ${{ runner.temp }}/.codex
           PYTHONPATH: ${{ github.workspace }}/.workflows-lib:${{ github.workspace }}
           PR_NUM: ${{ inputs.pr_number }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          CLAUDE_API_STRANSKE: ${{ secrets.CLAUDE_API_STRANSKE }}
         run: |
           set -euo pipefail
 
@@ -1583,12 +1576,6 @@ jobs:
               rm -f "$ANALYSIS_FILE"
               exit 0
             }
-
-          # Also output to GitHub Actions for visibility
-          python3 .workflows-lib/scripts/analyze_codex_session.py \
-            --session-file "$SESSION_JSONL" \
-            --pr-body-file pr_body.md \
-            --output github-actions || true
 
           echo "llm-analysis-run=true" >> "$GITHUB_OUTPUT"
           echo "analysis-file=$ANALYSIS_FILE" >> "$GITHUB_OUTPUT"
