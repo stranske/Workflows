@@ -170,7 +170,9 @@
       "api": "responses",
       "lifecycle": "current",
       "positioning": "balanced",
-      "source_ids": ["openai-gpt-6-1-terra-2026-10-29"],
+      "source_ids": [
+        "openai-gpt-6-1-terra-2026-10-29"
+      ],
       "pricing": {
         "currency": "USD",
         "input_per_million_tokens": 1.0,
@@ -218,7 +220,10 @@
       "api": "responses",
       "lifecycle": "current",
       "positioning": "balanced",
-      "source_ids": ["openai-catalog-discovery-2026-09-30", "openai-gpt-6-sol-2026-10-01"],
+      "source_ids": [
+        "openai-catalog-discovery-2026-09-30",
+        "openai-gpt-6-sol-2026-10-01"
+      ],
       "pricing": {
         "currency": "USD",
         "input_per_million_tokens": 2.0,
@@ -233,7 +238,10 @@
       "api": "responses",
       "lifecycle": "current",
       "positioning": "efficient",
-      "source_ids": ["openai-catalog-discovery-2026-09-30", "openai-pricing-2026-10-01"],
+      "source_ids": [
+        "openai-catalog-discovery-2026-09-30",
+        "openai-pricing-2026-10-01"
+      ],
       "pricing": {
         "currency": "USD",
         "input_per_million_tokens": 0.1,
@@ -581,12 +589,13 @@
       "provider": "anthropic",
       "model_id": "claude-sonnet-5-5",
       "status": "provisional",
-      "decided_at": "2026-09-30",
-      "review_by": "2026-10-30",
+      "decided_at": "2026-10-31",
+      "review_by": "2026-11-30",
       "evidence_ids": [
+        "verifier-corpus-pairs-2026-10-31",
         "catalog-discovery-2026-09-30"
       ],
-      "rationale": "Provisional selection advanced to the current catalog generation: claude-sonnet-5-5 is the same-tier successor to claude-sonnet-5 (positioning 'balanced', same $2/$10 price). This is NOT a benchmark-proven promotion; status stays provisional until the paired pilot runs. claude-sonnet-5 remains catalogued as a pilot candidate."
+      "rationale": "Owner decision 2026-10-31, renewed on the verifier corpus trials: paired with gpt-6.1-sol it passed 1 of 7 known defects and 11 of 11 good cases in all four runs, the same as claude-opus-5-5 (three runs) at half the price ($2/$10 vs $4/$20 per million tokens). The one missed defect is missed by every judge, so no model change fixes it. Trial evidence on recorded inputs (16 of 18 cases from Workflows), not production use; the revert is the selection_history entry."
     },
     {
       "profile": "verifier-balanced",
@@ -691,6 +700,21 @@
       "superseded_at": "2026-10-30",
       "superseded_by": "gpt-6.1-sol",
       "supersede_reason": "Owner decision 2026-10-30: the corpus trials found gpt-6.1-terra accurate but the thinnest reviewer of every judge, unchanged at reasoning effort high; gpt-6.1-sol was deeper in all three runs."
+    },
+    {
+      "profile": "verifier-balanced",
+      "provider": "anthropic",
+      "model_id": "claude-sonnet-5-5",
+      "status": "provisional",
+      "decided_at": "2026-09-30",
+      "review_by": "2026-10-30",
+      "evidence_ids": [
+        "catalog-discovery-2026-09-30"
+      ],
+      "rationale": "Provisional selection advanced to the current catalog generation: claude-sonnet-5-5 is the same-tier successor to claude-sonnet-5 (positioning 'balanced', same $2/$10 price). This is NOT a benchmark-proven promotion; status stays provisional until the paired pilot runs. claude-sonnet-5 remains catalogued as a pilot candidate.",
+      "superseded_at": "2026-10-31",
+      "superseded_by": "claude-sonnet-5-5",
+      "supersede_reason": "Owner decision 2026-10-31: renewed on the corpus-trial evidence (verifier-corpus-pairs-2026-10-31); claude-opus-5-5 gave identical pair results at about twice the cost."
     }
   ],
   "evidence": [
@@ -756,6 +780,14 @@
       "status": "trial",
       "source_ids": [],
       "notes": "maint-89 corpus runs 40888952900 and 41000317230 plus the re-graded 40879377530 records: every judge on the same 18 judgeable recorded production inputs (16 Workflows, 2 Fine-Art-Archive), rated by a blind adjudicator. Trial evidence on recorded inputs, not production use. Detail in docs/ops/VERIFIER_SHADOW.md."
+    },
+    {
+      "evidence_id": "verifier-corpus-pairs-2026-10-31",
+      "kind": "verifier-corpus-trial",
+      "measured_at": "2026-10-31",
+      "status": "trial",
+      "source_ids": [],
+      "notes": "Pair verdicts on the 18 judgeable recorded production inputs (11 PASS, 7 NON_PASS labels), maint-89 corpus runs 40879377530, 40888952900, 41000317230 and 41111958779, scored against the independent labels with no adjudicator. gpt-6.1-sol with claude-sonnet-5-5: 1 of 7 defects passed and 11 of 11 good cases passed in all four runs. gpt-6.1-sol with claude-opus-5-5: identical in all three runs that included it. The one defect both pairs pass (Fine-Art-Archive#755, missing proof) was passed by every judge that answered; claude-haiku-4-5's CONCERNS there was a JSON parse failure, not a finding. Trial evidence on recorded inputs, not production use."
     }
   ]
 }
