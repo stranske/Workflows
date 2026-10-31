@@ -1292,3 +1292,26 @@ def test_builders_return_empty_without_credentials(monkeypatch):
 
     assert langchain_client.build_chat_client() is None
     assert langchain_client.build_chat_clients() == []
+
+
+@pytest.mark.parametrize(
+    "stale_slot",
+    [
+        {"name": "slot3", "provider": "github-models", "profile": "verifier-balanced"},
+        {"name": "slot3", "provider": "github-models", "model": "openai/gpt-5"},
+    ],
+)
+def test_stale_consumer_slot_for_retired_github_models_never_builds_a_client(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, stale_slot: dict[str, str]
+) -> None:
+    """A create-only consumer slot file may still name GitHub Models; runtime refuses it."""
+    _install_fake_langchain_openai(monkeypatch)
+    _clear_client_environment(monkeypatch)
+    slots_path = tmp_path / "llm_slots.json"
+    slots_path.write_text(json.dumps({"slots": [stale_slot]}), encoding="utf-8")
+    monkeypatch.setenv(langchain_client.ENV_SLOT_CONFIG, str(slots_path))
+    monkeypatch.setenv("GITHUB_TOKEN", "gh-token")
+
+    assert llm_registry.load_slot_config() == []
+    assert langchain_client.build_chat_client() is None
+    assert langchain_client.build_chat_clients() == []

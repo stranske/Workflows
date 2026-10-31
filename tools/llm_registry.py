@@ -354,6 +354,28 @@ def load_selection_decisions() -> list[SelectionDecision]:
     return decisions
 
 
+def retired_selection_keys() -> set[tuple[str, str]]:
+    """(profile, provider) pairs whose selection was retired and not re-selected.
+
+    A selection_history entry with ``superseded_by: "retired"`` retires that provider for
+    the profile (GitHub Models, 2026-10-31). Consumer slot files are create-only, so a
+    stale slot can still name it; runtime must refuse it even with an explicit model pin.
+    """
+    payload = _load_object(_registry_path(), label="model registry")
+    if payload is None:
+        return set()
+    history = payload.get("selection_history", [])
+    if not isinstance(history, list):
+        return set()
+    retired = {
+        (str(raw.get("profile", "")).strip(), normalize_provider(str(raw.get("provider", ""))))
+        for raw in history
+        if isinstance(raw, dict) and raw.get("superseded_by") == "retired"
+    }
+    active = {(decision.profile, decision.provider) for decision in load_selection_decisions()}
+    return retired - active
+
+
 def _model_registry_format_valid() -> bool:
     payload = _load_object(_registry_path(), label="model registry")
     return bool(
@@ -523,11 +545,15 @@ def load_slot_config(*, github_default_model: str = "") -> list[SlotDefinition]:
 
     slots: list[SlotDefinition] = []
     fallback_by_provider = {slot.provider: slot for slot in fallback_slots}
+    retired = retired_selection_keys()
     for idx, entry in enumerate(slot_entries, start=1):
         provider = normalize_provider(str(entry.get("provider", "")))
         explicit_model = str(entry.get("model", "")).strip()
         configured_profile = str(entry.get("profile") or "").strip()
         profile = configured_profile or DEFAULT_SELECTION_PROFILE
+        if (profile, provider) in retired:
+            logger.warning("Skipping slot for retired selection: %s/%s", profile, provider)
+            continue
         model = ""
         if provider:
             model = (
