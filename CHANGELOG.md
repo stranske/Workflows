@@ -6,6 +6,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.50.0](https://github.com/stranske/Workflows/compare/v1.49.0...v1.50.0) (2026-10-31)
+
+
+### Features
+
+* **verifier:** retire automatic judge approval; stop the daily shadow report while off ([#4354](https://github.com/stranske/Workflows/issues/4354)) ([9599d93](https://github.com/stranske/Workflows/commit/9599d93f2917ec5de9e54c9193638eb5f689a79d))
+* **verifier:** slot-3 capacity backup when one judge's budget is exhausted ([#4357](https://github.com/stranske/Workflows/issues/4357)) ([a2ffedd](https://github.com/stranske/Workflows/commit/a2ffeddfa217b838d4fbd0cea840a81cf98406d1))
+* **verifier:** trial Gemini and Mistral (Vibe) as slot-3 capacity-backup candidates ([#4356](https://github.com/stranske/Workflows/issues/4356)) ([306fc9e](https://github.com/stranske/Workflows/commit/306fc9e79d891030395211fdae8ae1387f2b37c3))
+
+
+### Bug Fixes
+
+* **maint71:** rerun a cancelled newest canary Gate instead of holding promotion ([#4351](https://github.com/stranske/Workflows/issues/4351)) ([81e6e39](https://github.com/stranske/Workflows/commit/81e6e39188c666cffc5814cbfedf90d3138735d5))
+* **screen:** bind contributor-tier eligibility to the actual prompt inputs ([#4107](https://github.com/stranske/Workflows/issues/4107)) ([#4355](https://github.com/stranske/Workflows/issues/4355)) ([77e239f](https://github.com/stranske/Workflows/commit/77e239ff955f242937d5d90e04ac38085256fcaf))
+* **sync:** anchor integration API setup to the workspace ([#4345](https://github.com/stranske/Workflows/issues/4345)) ([0adc328](https://github.com/stranske/Workflows/commit/0adc328d681922abcd0b0523948387e8998ac257))
+* **sync:** keep Orchestrator's sharded gate_summary.py local ([#4353](https://github.com/stranske/Workflows/issues/4353)) ([861a1cf](https://github.com/stranske/Workflows/commit/861a1cfc53c75d521d27e9a9ce86e290c4f23b6f))
+* **sync:** separate delivery checkout; deliver setup-api-client action to WIT ([#4347](https://github.com/stranske/Workflows/issues/4347)) ([aeb85d0](https://github.com/stranske/Workflows/commit/aeb85d02a915030dc0ac35410ae22a038022ddd6))
+
 ## [1.49.0](https://github.com/stranske/Workflows/compare/v1.48.0...v1.49.0) (2026-10-30)
 
 
