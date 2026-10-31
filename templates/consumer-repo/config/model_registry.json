@@ -596,18 +596,6 @@
         "catalog-discovery-2026-09-30"
       ],
       "rationale": "Owner decision 2026-10-31, renewed on the verifier corpus trials: paired with gpt-6.1-sol it passed 1 of 7 known defects and 11 of 11 good cases in all four runs, the same as claude-opus-5-5 (three runs) at half the price ($2/$10 vs $4/$20 per million tokens). The one missed defect is missed by every judge, so no model change fixes it. Trial evidence on recorded inputs (16 of 18 cases from Workflows), not production use; the revert is the selection_history entry."
-    },
-    {
-      "profile": "verifier-balanced",
-      "provider": "github-models",
-      "model_id": "openai/gpt-5",
-      "status": "provisional",
-      "decided_at": "2026-07-31",
-      "review_by": "2026-08-30",
-      "evidence_ids": [
-        "catalog-review-2026-07-10"
-      ],
-      "rationale": "Provisional catalog fallback advanced to a model confirmed present in the 2026-07-10 GitHub Models catalog baseline. This is NOT a benchmark-proven promotion: no passing workload-benchmark evidence exists for this model or the superseded codex-mini-latest, so status stays provisional until the paired pilot runs. Human-approved by merging this PR."
     }
   ],
   "selection_history": [
@@ -715,6 +703,21 @@
       "superseded_at": "2026-10-31",
       "superseded_by": "claude-sonnet-5-5",
       "supersede_reason": "Owner decision 2026-10-31: renewed on the corpus-trial evidence (verifier-corpus-pairs-2026-10-31); claude-opus-5-5 gave identical pair results at about twice the cost."
+    },
+    {
+      "profile": "verifier-balanced",
+      "provider": "github-models",
+      "model_id": "openai/gpt-5",
+      "status": "provisional",
+      "decided_at": "2026-07-31",
+      "review_by": "2026-08-30",
+      "evidence_ids": [
+        "catalog-review-2026-07-10"
+      ],
+      "rationale": "Provisional catalog fallback advanced to a model confirmed present in the 2026-07-10 GitHub Models catalog baseline. This is NOT a benchmark-proven promotion: no passing workload-benchmark evidence exists for this model or the superseded codex-mini-latest, so status stays provisional until the paired pilot runs. Human-approved by merging this PR.",
+      "superseded_at": "2026-10-31",
+      "superseded_by": "retired",
+      "supersede_reason": "Owner decision 2026-10-31: GitHub Models is no longer used as a fallback. The verifier's third slot is the Muse capacity backup (config/llm_slots.json capacity_backup); LangChain tools fall back only between OpenAI and Anthropic."
     }
   ],
   "evidence": [

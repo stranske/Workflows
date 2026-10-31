@@ -482,41 +482,18 @@ def test_get_llm_client_no_tokens(monkeypatch) -> None:
     )
 
 
-def test_get_llm_client_with_github_token(monkeypatch) -> None:
-    """get_llm_client uses GitHub Models when GITHUB_TOKEN is set."""
-    FakeChatOpenAI = _install_fake_langchain_openai(monkeypatch)
+def test_get_llm_client_github_token_alone_is_not_a_fallback(monkeypatch) -> None:
+    """A GITHUB_TOKEN alone builds no client: GitHub Models was retired as a fallback."""
+    _install_fake_langchain_openai(monkeypatch)
     monkeypatch.setenv("GITHUB_TOKEN", "token")
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
-    client_info = task_decomposer.get_llm_client(
-        provider=task_decomposer._resolve_decomposer_provider()
+    monkeypatch.delenv("CLAUDE_API_STRANSKE", raising=False)
+    monkeypatch.delenv("LANGCHAIN_PROVIDER", raising=False)
+    assert task_decomposer._resolve_decomposer_provider() is None
+    assert (
+        task_decomposer.get_llm_client(provider=task_decomposer._resolve_decomposer_provider())
+        is None
     )
-    assert client_info is not None
-    client, provider = client_info
-    assert provider == "github-models"
-    assert isinstance(client, FakeChatOpenAI)
-    assert client.kwargs["api_key"] == "token"
-
-
-def test_get_llm_client_github_token_defaults(monkeypatch) -> None:
-    """_get_llm_client passes model and base_url for GitHub Models."""
-    FakeChatOpenAI = _install_fake_langchain_openai(monkeypatch)
-    monkeypatch.setenv("GITHUB_TOKEN", "token")
-    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
-    client_info = task_decomposer.get_llm_client(
-        provider=task_decomposer._resolve_decomposer_provider()
-    )
-    assert client_info is not None
-    client, provider = client_info
-    assert provider == "github-models"
-    assert isinstance(client, FakeChatOpenAI)
-    from tools.langchain_client import _github_model_id
-    from tools.llm_provider import GITHUB_MODELS_BASE_URL
-    from tools.llm_registry import configured_model_for_provider
-
-    assert client.kwargs["model"] == _github_model_id(
-        configured_model_for_provider("github-models")
-    )
-    assert client.kwargs["base_url"] == GITHUB_MODELS_BASE_URL
 
 
 def test_get_llm_client_with_openai_token(monkeypatch) -> None:
@@ -552,8 +529,7 @@ def test_get_llm_client_prefers_openai_token(monkeypatch) -> None:
 def test_decompose_task_llm_path(monkeypatch) -> None:
     """decompose_task uses LLM output when available."""
     _install_fake_langchain_openai(monkeypatch)
-    monkeypatch.setenv("GITHUB_TOKEN", "token")
-    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.setenv("OPENAI_API_KEY", "openai-token")
 
     fake_prompts = types.ModuleType("langchain_core.prompts")
 
@@ -574,15 +550,14 @@ def test_decompose_task_llm_path(monkeypatch) -> None:
 
     result = task_decomposer.decompose_task("full migration of database", use_llm=True)
     assert result["used_llm"] is True
-    assert result["provider_used"] == "github-models"
+    assert result["provider_used"] == "openai"
     assert any("add tests" in task.lower() for task in result["sub_tasks"])
 
 
 def test_decompose_task_llm_prompt_used(monkeypatch, tmp_path) -> None:
     """decompose_task uses prompt file content for LLM requests."""
     _install_fake_langchain_openai(monkeypatch)
-    monkeypatch.setenv("GITHUB_TOKEN", "token")
-    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.setenv("OPENAI_API_KEY", "openai-token")
 
     prompt_path = tmp_path / "prompt.md"
     prompt_path.write_text("Prompt for {large_task}", encoding="utf-8")
@@ -615,8 +590,7 @@ def test_decompose_task_llm_prompt_used(monkeypatch, tmp_path) -> None:
 def test_decompose_task_llm_response_without_content(monkeypatch) -> None:
     """decompose_task handles LLM responses without a content attribute."""
     _install_fake_langchain_openai(monkeypatch)
-    monkeypatch.setenv("GITHUB_TOKEN", "token")
-    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.setenv("OPENAI_API_KEY", "openai-token")
 
     fake_prompts = types.ModuleType("langchain_core.prompts")
 
@@ -637,15 +611,14 @@ def test_decompose_task_llm_response_without_content(monkeypatch) -> None:
 
     result = task_decomposer.decompose_task("full migration of database", use_llm=True)
     assert result["used_llm"] is True
-    assert result["provider_used"] == "github-models"
+    assert result["provider_used"] == "openai"
     assert any("update docs" in task.lower() for task in result["sub_tasks"])
 
 
 def test_decompose_task_llm_import_error(monkeypatch) -> None:
     """decompose_task falls back when langchain_core is unavailable."""
     _install_fake_langchain_openai(monkeypatch)
-    monkeypatch.setenv("GITHUB_TOKEN", "token")
-    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.setenv("OPENAI_API_KEY", "openai-token")
     monkeypatch.delitem(sys.modules, "langchain_core.prompts", raising=False)
 
     original_import = __import__
@@ -664,8 +637,7 @@ def test_decompose_task_llm_import_error(monkeypatch) -> None:
 def test_decompose_task_llm_empty_result(monkeypatch) -> None:
     """decompose_task falls back when LLM returns no subtasks."""
     _install_fake_langchain_openai(monkeypatch)
-    monkeypatch.setenv("GITHUB_TOKEN", "token")
-    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.setenv("OPENAI_API_KEY", "openai-token")
 
     fake_prompts = types.ModuleType("langchain_core.prompts")
 

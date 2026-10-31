@@ -572,7 +572,6 @@ def test_default_slots_keep_provider_positions_when_a_selection_is_missing(
     assert [(slot.name, slot.provider, slot.model) for slot in slots] == [
         ("slot1", registry.PROVIDER_OPENAI, ""),
         ("slot2", registry.PROVIDER_ANTHROPIC, "claude-reviewed"),
-        ("slot3", registry.PROVIDER_GITHUB, ""),
     ]
 
 

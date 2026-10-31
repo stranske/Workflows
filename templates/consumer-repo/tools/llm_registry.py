@@ -480,14 +480,15 @@ def configured_model_for_provider(
 
 
 def default_slots(*, github_default_model: str = "") -> list[SlotDefinition]:
-    """Build no-slot-config defaults from registry decisions, never version constants."""
+    """Build no-slot-config defaults from registry decisions, never version constants.
+
+    GitHub Models is not a default slot (owner decision 2026-10-31): auto-select falls back
+    only between OpenAI and Anthropic. ``github_default_model`` is kept for callers' signatures.
+    """
+    del github_default_model
     slots: list[SlotDefinition] = []
-    for index, provider in enumerate(
-        (PROVIDER_OPENAI, PROVIDER_ANTHROPIC, PROVIDER_GITHUB), start=1
-    ):
+    for index, provider in enumerate((PROVIDER_OPENAI, PROVIDER_ANTHROPIC), start=1):
         model = select_model_for_profile(provider=provider)
-        if not model and provider == PROVIDER_GITHUB:
-            model = github_default_model.strip()
         slots.append(SlotDefinition(name=f"slot{index}", provider=provider, model=model or ""))
     return slots
 

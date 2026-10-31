@@ -10,11 +10,6 @@
       "name": "slot2",
       "provider": "anthropic",
       "profile": "verifier-balanced"
-    },
-    {
-      "name": "slot3",
-      "provider": "github-models",
-      "profile": "verifier-balanced"
     }
   ],
   "capacity_backup": {
