@@ -379,15 +379,17 @@ def build_plan(
             '"Trialling a new candidate"); a verifier-balanced selection changes only by the '
             "owner's decision on that trial."
             if approval_retired
-            else "Run one bounded, paired Codex CLI screen of the incumbent and up to three "
-            "priced candidates. Advance any candidate that meets the provisional-stage "
-            "false-PASS, schema-error, and accuracy limits, then compare modeled cost "
-            "per accepted review in a small capped "
-            "API confirmation; review a provisional selection without waiting for the "
-            "long-term statistical approval sample."
-            if screen_ready
-            else "Resolve the candidate screen blockers, then compare the incumbent with "
-            "priced alternatives."
+            else (
+                "Run one bounded, paired Codex CLI screen of the incumbent and up to three "
+                "priced candidates. Advance any candidate that meets the provisional-stage "
+                "false-PASS, schema-error, and accuracy limits, then compare modeled cost "
+                "per accepted review in a small capped "
+                "API confirmation; review a provisional selection without waiting for the "
+                "long-term statistical approval sample."
+                if screen_ready
+                else "Resolve the candidate screen blockers, then compare the incumbent with "
+                "priced alternatives."
+            )
         ),
     }
 
