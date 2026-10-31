@@ -1,0 +1,8 @@
+-ignore=property ".+" is not defined in object type {}
+-ignore=property "(token_rotation_json|service_bot_pat|actions_bot_pat|owner_pr_pat|agents_automation_pat|workflows_app_id|workflows_app_private_key|keepalive_app_id|keepalive_app_private_key|gh_app_id|gh_app_private_key|app_1_id|app_1_private_key|app_2_id|app_2_private_key)" is not defined in object type .+
+-ignore=unknown permission scope "models"
+-ignore=SC2129:style:.+: Consider using { cmd1; cmd2; } >> file instead of individual redirects
+-ignore=SC2086:info:.github/workflows/.+: Double quote to prevent globbing and word splitting
+-ignore=SC2153:info:.+: Possible misspelling: PYTEST_WORKERS may not be assigned
+-ignore=constant expression "false" in condition
+-ignore=^unexpected key "queue" for "concurrency" section\. expected one of "cancel-in-progress", "group"$

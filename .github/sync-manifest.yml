@@ -156,7 +156,10 @@ workflows:
   - source: .github/workflows/agents-auto-pilot.yml
     source_tree: template
     target: .github/workflows/agents-auto-pilot.yml
-    description: "Auto-pilot - end-to-end automation orchestrator (format → optimize → agent → verify)"
+    description: "Auto-pilot - end-to-end automation orchestrator (format → optimize → agent → verify); PR-bound verify handoff requires transition helper + retry wrapper"
+    requires:
+      - .github/scripts/auto_pilot_transitions.js
+      - .github/scripts/github-api-with-retry.js
 
   - source: .github/workflows/agents-weekly-metrics.yml
     description: "Weekly metrics - aggregates auto-pilot, keepalive, autofix and verifier metrics into summary reports"

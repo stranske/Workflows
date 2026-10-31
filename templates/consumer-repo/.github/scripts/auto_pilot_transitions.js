@@ -40,7 +40,7 @@ const TRANSITION_CONTRACT = Object.freeze({
   states: STATES,
   nextSteps: NEXT_STEPS,
   guards: Object.freeze([
-    'closed issues require verify:evaluate before done',
+    'closed issues require a PR-bound verify handoff before done',
     'format requires agents:formatted, not the old agents:format trigger label',
     'optimize advances only after an optimizer suggestions comment exists',
     'apply advances only after agents:apply-suggestions is present',
@@ -100,7 +100,7 @@ function resolveCurrentState(event = {}) {
   const linkedPr = hasLinkedPr(event.linkedPr);
 
   if (issueState === 'closed') {
-    return normalizeBoolean(event.hasVerify)
+    return normalizeBoolean(event.verifyHandoffBound)
       ? STATES.CLOSED_VERIFIED
       : STATES.CLOSED_NEEDS_VERIFY;
   }
