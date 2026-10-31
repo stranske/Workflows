@@ -108,6 +108,9 @@ on:
       CLAUDE_API_STRANSKE:
         required: false
         description: 'Anthropic API key for evaluate/compare modes (enables Claude slot)'
+      MUSE_API_KEY:
+        required: false
+        description: 'Meta Muse API key for the slot-3 capacity backup in compare mode (optional)'
       LANGSMITH_API_KEY:
         required: false
         description: 'LangSmith API key for tracing LLM calls (optional)'
@@ -1583,6 +1586,8 @@ jobs:
           VERIFIER_MODEL: ${{ inputs.model }}
           VERIFIER_MODEL2: ${{ inputs.model2 }}
           PR_HEAD_SHA: ${{ steps.context.outputs.pr_head_sha }}
+          # Slot-3 capacity backup (config/llm_slots.json): used only when one judge's budget is spent.
+          MUSE_API_KEY: ${{ secrets.MUSE_API_KEY }}
         run: |
           set -euo pipefail
           context_file="$VERIFIER_CONTEXT_PATH"
