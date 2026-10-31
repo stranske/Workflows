@@ -140,6 +140,9 @@ def test_retired_approval_reports_owner_trial_path_not_a_blocker():
     plan = build_plan(corpus, registry, policy)
     assert plan["approval_path"] == "owner_trial"
     assert "Owner decision 2026-10-30" in plan["approval_retired_note"]
+    assert "Trialling a new candidate" in plan["next_action"]
+    assert "owner's decision" in plan["next_action"]
+    assert "Codex CLI screen" not in plan["next_action"]
     text = markdown(plan)
     assert "### Automatic approval: retired" in text
     assert "### Separate long-term statistical approval" not in text
@@ -150,6 +153,7 @@ def test_retired_approval_reports_owner_trial_path_not_a_blocker():
     active_plan = build_plan(corpus, registry, active)
     assert active_plan["approval_path"] == "automatic"
     assert active_plan["approval_retired_note"] is None
+    assert "Trialling a new candidate" not in active_plan["next_action"]
     assert "### Separate long-term statistical approval" in markdown(active_plan)
 
 
