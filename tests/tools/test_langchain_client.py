@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import sys
 import types
 from pathlib import Path
@@ -58,6 +59,9 @@ def _clear_client_environment(monkeypatch: pytest.MonkeyPatch) -> None:
         langchain_client.ENV_MODEL_REGISTRY_CONFIG,
     ):
         monkeypatch.delenv(env_name, raising=False)
+    for env_name in list(os.environ):
+        if env_name.startswith(langchain_client.ENV_SLOT_PREFIX):
+            monkeypatch.delenv(env_name, raising=False)
 
 
 @pytest.mark.parametrize(
@@ -112,10 +116,8 @@ def test_build_chat_client_prefers_openai_slot(monkeypatch: pytest.MonkeyPatch) 
 def test_build_chat_client_has_no_github_models_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
     """GitHub Models is retired as a fallback (2026-10-31): a GITHUB_TOKEN alone yields no client."""
     _install_fake_langchain_openai(monkeypatch)
+    _clear_client_environment(monkeypatch)
     monkeypatch.setenv("GITHUB_TOKEN", "gh-token")
-    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
-    monkeypatch.delenv(langchain_client.ENV_ANTHROPIC_KEY, raising=False)
-    monkeypatch.delenv(langchain_client.ENV_PROVIDER, raising=False)
 
     assert langchain_client.build_chat_client() is None
 
@@ -177,6 +179,7 @@ def test_build_chat_client_env_provider_override_github(
 ) -> None:
     """Forcing GitHub Models finds no reviewed model since its selection was retired."""
     _install_fake_langchain_openai(monkeypatch)
+    _clear_client_environment(monkeypatch)
     monkeypatch.setenv("GITHUB_TOKEN", "gh-token")
     monkeypatch.setenv("OPENAI_API_KEY", "oa-token")
     monkeypatch.setenv(langchain_client.ENV_PROVIDER, "github-models")
@@ -697,10 +700,8 @@ def test_build_chat_clients_env_model_with_provider_override(
 def test_build_chat_clients_have_no_github_models_path(monkeypatch: pytest.MonkeyPatch) -> None:
     """A GITHUB_TOKEN alone builds no clients: GitHub Models is not a fallback slot."""
     _install_fake_langchain_openai(monkeypatch)
+    _clear_client_environment(monkeypatch)
     monkeypatch.setenv("GITHUB_TOKEN", "gh-token")
-    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
-    monkeypatch.delenv(langchain_client.ENV_ANTHROPIC_KEY, raising=False)
-    monkeypatch.delenv(langchain_client.ENV_PROVIDER, raising=False)
 
     assert langchain_client.build_chat_clients() == []
 

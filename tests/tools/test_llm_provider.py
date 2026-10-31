@@ -33,7 +33,7 @@ class TestProviderAvailability:
 
     def test_github_models_unavailable_even_with_token(self):
         """GitHub Models has no reviewed selection since 2026-10-31, so a token alone is not enough."""
-        with patch.dict(os.environ, {"GITHUB_TOKEN": "test-token"}):
+        with patch.dict(os.environ, {"GITHUB_TOKEN": "test-token"}, clear=True):
             provider = GitHubModelsProvider()
             assert provider.is_available() is False
 
