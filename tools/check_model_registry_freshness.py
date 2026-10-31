@@ -42,6 +42,10 @@ ADVISORY_FINDING_KINDS = frozenset(
         "review_overdue",
         "provisional_overdue",
         "selection_review_overdue",
+        # A consumer's create-only config/llm_slots.json can still name a provider whose
+        # selection was retired (selection_history superseded_by "retired"). Runtime skips
+        # that slot (no reviewed model), so the leftover row is cleanup, not a fault.
+        "retired_slot",
     }
 )
 
@@ -340,6 +344,27 @@ def evaluate(
                     )
                 )
 
+    retired_keys = {
+        (
+            str(entry.get("profile", "")).strip(),
+            _normalize_provider(str(entry.get("provider", ""))),
+        )
+        for entry in registry.get("selection_history") or []
+        if isinstance(entry, dict) and entry.get("superseded_by") == "retired"
+    } - set(selection_by_key)
+
+    def _no_selection(name: str, profile: str, provider: str) -> dict[str, str]:
+        if (profile, provider) in retired_keys:
+            return _finding(
+                "retired_slot",
+                f"slot {name!r} uses retired selection {profile}/{provider}; "
+                "remove it from config/llm_slots.json.",
+            )
+        return _finding(
+            "missing_selection",
+            f"slot {name!r} has no selection for {profile}/{provider}.",
+        )
+
     raw_slots = slots.get("slots")
     if not isinstance(raw_slots, list):
         return findings + [_finding("invalid_slots", "slots must be a list.")]
@@ -359,12 +384,7 @@ def evaluate(
             effective_profile = profile or DEFAULT_SELECTION_PROFILE
             selected = selection_by_key.get((effective_profile, provider))
             if not selected:
-                findings.append(
-                    _finding(
-                        "missing_selection",
-                        f"slot {name!r} has no selection for {effective_profile}/{provider}.",
-                    )
-                )
+                findings.append(_no_selection(name, effective_profile, provider))
                 continue
             # Unprofiled pins predate the reviewed-selection contract. They are
             # advisory while consumers migrate to profiles, so runtime uses the
@@ -402,12 +422,7 @@ def evaluate(
                 )
             )
         elif (profile, provider) not in selection_by_key:
-            findings.append(
-                _finding(
-                    "missing_selection",
-                    f"slot {name!r} has no selection for {profile}/{provider}.",
-                )
-            )
+            findings.append(_no_selection(name, profile, provider))
 
     return findings
 

@@ -31,11 +31,11 @@ from tools.llm_provider import (
 class TestProviderAvailability:
     """Test provider availability checks."""
 
-    def test_github_models_available_with_token(self):
-        """GitHub Models is available when GITHUB_TOKEN is set."""
-        with patch.dict(os.environ, {"GITHUB_TOKEN": "test-token"}):
+    def test_github_models_unavailable_even_with_token(self):
+        """GitHub Models has no reviewed selection since 2026-10-31, so a token alone is not enough."""
+        with patch.dict(os.environ, {"GITHUB_TOKEN": "test-token"}, clear=True):
             provider = GitHubModelsProvider()
-            assert provider.is_available() is True
+            assert provider.is_available() is False
 
     def test_github_models_unavailable_without_token(self):
         """GitHub Models is unavailable without GITHUB_TOKEN."""

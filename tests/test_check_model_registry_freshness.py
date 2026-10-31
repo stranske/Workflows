@@ -215,6 +215,26 @@ def test_legacy_pin_requires_default_selection():
     assert _kinds(findings) == ["missing_selection"]
 
 
+def test_consumer_slot_for_a_retired_selection_is_advisory_not_blocking():
+    # Consumers keep a create-only config/llm_slots.json; after the GitHub Models
+    # selection was retired (2026-10-31) their leftover slot must not fail the gate.
+    registry = _registry()
+    retired = dict(registry["selections"][0])
+    retired.update(provider="github-models", superseded_at="2026-10-31", superseded_by="retired")
+    registry.setdefault("selection_history", []).append(retired)
+    slots = {
+        "slots": [
+            {"name": "slot3", "provider": "github-models", "profile": retired["profile"]},
+            {"name": "slot4", "provider": "github-models", "model": "openai/gpt-5"},
+        ]
+    }
+    findings = gate.evaluate(registry, slots, today=TODAY, policy=_policy())
+    assert _kinds(findings) == ["retired_slot", "retired_slot"]
+    blocking, advisory = gate.partition_findings(findings)
+    assert blocking == []
+    assert len(advisory) == 2
+
+
 def test_current_unblocked_legacy_pin_is_compatible_with_default_selection():
     registry = _registry()
     registry["models"].append(
