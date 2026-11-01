@@ -9,7 +9,7 @@
     "issue_numbers": [
       1189
     ],
-    "issue_updated_on": "2026-10-31",
+    "issue_updated_on": "2026-11-01",
     "longest_job": {
       "minutes": 23.883333333333333,
       "name": "Python CI / python 3.14",
@@ -198,7 +198,7 @@
     "issue_numbers": [
       969
     ],
-    "issue_updated_on": "2026-10-31",
+    "issue_updated_on": "2026-11-01",
     "longest_job": {
       "minutes": 28.666666666666668,
       "name": "python ci / python 3.13",
@@ -354,13 +354,12 @@
   "stranske/Trend_Model_Project": {
     "distance": 0,
     "drainable_in": 0,
+    "drained_at": "2026-11-01T11:38:35+00:00",
     "filed_under_24h": true,
     "filing_latency_hours": 0.8502777777777778,
     "first_over_target_at": "2026-10-24T11:41:18+00:00",
     "issue_filed_at": "2026-10-24T12:32:19Z",
-    "issue_numbers": [
-      6124
-    ],
+    "issue_numbers": [],
     "issue_updated_on": "2026-10-31",
     "longest_job": {
       "minutes": 11.566666666666666,
@@ -394,7 +393,7 @@
     "issue_numbers": [
       4284
     ],
-    "issue_updated_on": "2026-10-31",
+    "issue_updated_on": "2026-11-01",
     "longest_job": {
       "minutes": 26.766666666666666,
       "name": "python ci / python 3.12",
