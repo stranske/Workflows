@@ -19,7 +19,7 @@ def test_maint39_does_not_reference_retired_github_models_provider() -> None:
     assert "github-models" not in provider["options"], "retired GitHub Models dispatch option"
     steps = workflow["jobs"]["test-providers"]["steps"]
     assert not any(
-        step.get("name") == "Test GitHub Models" for step in steps
+        "github models" in step.get("name", "").replace("-", " ").casefold() for step in steps
     ), "retired GitHub Models job step"
     assert not any("github-models" in step.get("run", "") for step in steps)
     assert "models" not in workflow["permissions"]
@@ -31,6 +31,8 @@ def test_maint39_does_not_reference_retired_github_models_provider() -> None:
     [
         ("dispatch-option", "retired GitHub Models dispatch option"),
         ("job-step", "retired GitHub Models job step"),
+        ("renamed-job-step", "retired GitHub Models job step"),
+        ("slug-job-step", "retired GitHub Models job step"),
         ("both", "retired GitHub Models dispatch option"),
     ],
 )
@@ -65,8 +67,14 @@ def test_maint39_rejects_reintroduced_github_models_provider(
         options = events["workflow_dispatch"]["inputs"]["provider"]["options"]
         if regression in {"dispatch-option", "both"}:
             options.append("github-models")
-        if regression in {"job-step", "both"}:
-            candidate["jobs"]["test-providers"]["steps"].append({"name": "Test GitHub Models"})
+        retired_step_names = {
+            "job-step": "Test GitHub Models",
+            "renamed-job-step": "Test GitHub Models availability",
+            "slug-job-step": "Test github-models",
+            "both": "Test GitHub Models",
+        }
+        if step_name := retired_step_names.get(regression):
+            candidate["jobs"]["test-providers"]["steps"].append({"name": step_name})
         candidate_path.write_text(yaml.safe_dump(candidate))
         with pytest.raises(AssertionError, match=expected_failure):
             test_maint39_does_not_reference_retired_github_models_provider()
