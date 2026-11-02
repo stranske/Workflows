@@ -1,6 +1,8 @@
 import re
+import subprocess
 from pathlib import Path
 
+import pytest
 import yaml
 
 WORKFLOWS_DIR = Path(".github/workflows")
@@ -1916,10 +1918,7 @@ def test_langchain_workflows_do_not_depend_on_optional_extra_declarations():
             assert "Missing canonical tools/requirements-llm.txt" in text
 
 
-def test_guarded_merge_failure_receipt_is_visible_and_upserted():
-    """Execute the actual HTTP 403 handler twice; keep one writer-owned receipt."""
-    import subprocess
-
+def _guarded_merge_failure_replay_program():
     workflow = yaml.safe_load(
         Path("templates/consumer-repo/.github/workflows/agents-81-gate-followups.yml").read_text()
     )
@@ -1931,40 +1930,93 @@ def test_guarded_merge_failure_receipt_is_visible_and_upserted():
     helper = script.split("async function reportMergeFailure", 1)[1].split(
         "// Resolve the default branch", 1
     )[0]
-    handler = script.split("const responseData = error && error.response", 1)[1].split(
-        "await reportMergeFailure(prNumber, note);", 1
-    )[0]
-    program = (
+    handler = re.search(
+        r"const responseData = error && error\.response.*?(?=\n\s*})", script, re.DOTALL
+    )
+    assert handler is not None, "Guarded merge must handle merge API errors"
+    return (
         r"""
 const assert = require('node:assert/strict');
 const owner='stranske', repo='Travel-Plan-Permission', prNumber=1722;
 const warnings=[]; const core={warning:message=>warnings.push(message)};
 const marker='<!-- agents-guarded-merge-result:v1 -->';
-const comments=[{id:1,user:{id:999},body:marker+' forged'}];
+const comments=[
+  {id:1,user:{id:999},body:marker+' forged'},
+  {id:3,user:{id:42},body:'An unrelated writer comment'},
+];
 let created=0, updated=0;
 const github={rest:{users:{getAuthenticated:async()=>({data:{id:42}})},issues:{
   listComments:()=>{},
-  createComment:async p=>{created++;comments.push({id:2,user:{id:42},body:p.body});},
-  updateComment:async p=>{updated++;comments.find(c=>c.id===p.comment_id).body=p.body;}
+  createComment:async p=>{
+    assert.equal(p.owner,owner); assert.equal(p.repo,repo);
+    assert.equal(p.issue_number,prNumber);
+    created++;comments.push({id:2,user:{id:42},body:p.body});
+  },
+  updateComment:async p=>{
+    assert.equal(p.owner,owner); assert.equal(p.repo,repo); assert.equal(p.comment_id,2);
+    updated++;comments.find(c=>c.id===p.comment_id).body=p.body;
+  }
 }},paginate:async()=>comments};
+const withRetry=fn=>fn(github);
+const paginateWithRetry=(method,params)=>github.paginate(method,params);
 """
         + "async function reportMergeFailure"
         + helper
         + r"""
 (async()=>{
-for(let attempt=0;attempt<2;attempt++){
-  const error={status:403,response:{data:{message:'Resource not accessible by personal access token'}}};
+const errors=[
+  {status:403,response:{data:{message:'Resource not accessible by personal access token'}}},
+  {response:{status:422},message:'Merge permission denied'},
+];
+for(const error of errors){
   let note;
-  const responseData = error && error.response"""
-        + handler
+"""
+        + handler.group(0)
         + r"""
-  await reportMergeFailure(prNumber, note);
 }
 assert.equal(created,1); assert.equal(updated,1); assert.equal(warnings.length,2);
-assert.match(warnings[0],/HTTP 403 Resource not accessible by personal access token/);
-assert.equal(comments[1].body,marker+'\n'+warnings[0]);
+assert.equal(warnings[0],
+  'Merge failed: HTTP 403 Resource not accessible by personal access token');
+assert.equal(warnings[1],'Merge failed: HTTP 422 Merge permission denied');
+const receipts=comments.filter(c=>c.user.id===42 && c.body.startsWith(marker));
+assert.equal(receipts.length,1);
+assert.equal(receipts[0].body,marker+'\n'+warnings[1]);
 assert.equal(comments[0].body,marker+' forged');
+assert.equal(comments[1].body,'An unrelated writer comment');
 })().catch(error=>{console.error(error);process.exitCode=1});
 """
     )
-    subprocess.run(["node", "-e", program], check=True, capture_output=True, text=True)
+
+
+def test_guarded_merge_failure_receipt_is_visible_and_upserted():
+    """Execute the actual failure handler twice; update one writer-owned receipt."""
+    result = subprocess.run(
+        ["node", "-e", _guarded_merge_failure_replay_program()],
+        capture_output=True,
+        text=True,
+        timeout=10,
+    )
+    assert result.returncode == 0, result.stderr
+
+
+@pytest.mark.parametrize(
+    ("original", "replacement"),
+    [
+        ("await reportMergeFailure(prNumber, note);", ""),
+        ("core.warning(message);", ""),
+        ("comment.user?.id === actor.id && ", ""),
+    ],
+    ids=["missing-receipt-call", "missing-warning", "foreign-comment-overwrite"],
+)
+def test_guarded_merge_failure_replay_detects_broken_reporting(original, replacement):
+    """Mutate only the replay in memory, leaving protected workflow files untouched."""
+    program = _guarded_merge_failure_replay_program()
+    assert program.count(original) == 1
+    result = subprocess.run(
+        ["node", "-e", program.replace(original, replacement, 1)],
+        capture_output=True,
+        text=True,
+        timeout=10,
+    )
+    assert result.returncode != 0, "Broken failure reporting must fail the replay"
+    assert "AssertionError" in result.stderr, result.stderr
