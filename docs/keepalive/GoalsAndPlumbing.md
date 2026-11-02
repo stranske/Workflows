@@ -809,3 +809,27 @@ limitation backed by complete reviews of the named sibling files. Untyped findin
 FAIL, unknown input and missing global proof remain conservative floors. The final
 summary reflects whole-PR reconciliation without concatenating stale local scope
 limitations; an unsuccessful reconciliation cannot erase the original findings.
+
+
+### Guarded automerge credential failures
+
+The consumer guarded merger reports an HTTP merge failure as a run warning and
+upserts an `agents-guarded-merge-result:v1` comment owned by its authenticated
+writer. A comment-write or identity failure produces a separate warning; a job
+summary alone is not evidence of a successful merge. Check the PR's merged state.
+The merge attempt logs the exact client's public `/user` login and the
+`x-oauth-scopes` header when available; it never logs a token. Retries may switch
+clients, so the diagnostic runs for each attempt. Missing scope headers do not
+prove missing permissions for fine-grained PATs or installation tokens.
+
+The configured `WRITE_TOKEN` chooses the first nonempty secret in this order:
+`AGENTS_AUTOMATION_PAT`, `ACTIONS_BOT_PAT`, `SERVICE_BOT_PAT`, then `github.token`.
+The token-aware retry helper may select another configured credential. Compare
+the actor and token-selection logs before changing credentials. For the selected
+PAT, the repository owner must inspect its repository access and grant
+Contents: write and Pull requests: write (classic PAT: `repo`). If the first
+configured secret is selected, rotate **AGENTS_AUTOMATION_PAT** in the consumer's
+Actions secrets; if absent, inspect the next named fallback. Do not reorder
+credentials blindly, print their values, or weaken branch/review/runtime guards.
+After deployment, use an eligible consumer PR and confirm an HTTP 200 merge and
+its merged state. Local failure-receipt tests do not establish token repair.

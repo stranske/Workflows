@@ -1914,3 +1914,50 @@ def test_langchain_workflows_do_not_depend_on_optional_extra_declarations():
             assert "tomllib.loads" in text
             assert '"project" in data or "build-system" in data' in text
             assert "Missing canonical tools/requirements-llm.txt" in text
+
+
+def test_guarded_merge_failure_receipt_is_visible_and_upserted():
+    """Execute the actual HTTP 403 handler twice; keep one writer-owned receipt."""
+    import subprocess
+
+    workflow = yaml.safe_load(
+        Path("templates/consumer-repo/.github/workflows/agents-81-gate-followups.yml").read_text()
+    )
+    script = next(
+        step["with"]["script"]
+        for step in workflow["jobs"]["guarded-merge"]["steps"]
+        if step.get("id") == "guarded_merge"
+    )
+    helper = script.split("async function reportMergeFailure", 1)[1].split(
+        "// Resolve the default branch", 1
+    )[0]
+    handler = script.split("const responseData = error && error.response", 1)[1].split(
+        "await reportMergeFailure(prNumber, note);", 1
+    )[0]
+    program = r'''
+const assert = require('node:assert/strict');
+const owner='stranske', repo='Travel-Plan-Permission', prNumber=1722;
+const warnings=[]; const core={warning:message=>warnings.push(message)};
+const marker='<!-- agents-guarded-merge-result:v1 -->';
+const comments=[{id:1,user:{id:999},body:marker+' forged'}];
+let created=0, updated=0;
+const github={rest:{users:{getAuthenticated:async()=>({data:{id:42}})},issues:{
+  listComments:()=>{},
+  createComment:async p=>{created++;comments.push({id:2,user:{id:42},body:p.body});},
+  updateComment:async p=>{updated++;comments.find(c=>c.id===p.comment_id).body=p.body;}
+}},paginate:async()=>comments};
+''' + "async function reportMergeFailure" + helper + r'''
+(async()=>{
+for(let attempt=0;attempt<2;attempt++){
+  const error={status:403,response:{data:{message:'Resource not accessible by personal access token'}}};
+  let note;
+  const responseData = error && error.response''' + handler + r'''
+  await reportMergeFailure(prNumber, note);
+}
+assert.equal(created,1); assert.equal(updated,1); assert.equal(warnings.length,2);
+assert.match(warnings[0],/HTTP 403 Resource not accessible by personal access token/);
+assert.equal(comments[1].body,marker+'\n'+warnings[0]);
+assert.equal(comments[0].body,marker+' forged');
+})().catch(error=>{console.error(error);process.exitCode=1});
+'''
+    subprocess.run(["node", "-e", program], check=True, capture_output=True, text=True)

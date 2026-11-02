@@ -2612,9 +2612,32 @@ jobs:
                     },
                   }),
                 };
-            const { withRetry, paginateWithRetry } = await createTokenAwareRetry({ github, core });
+            const { withRetry, paginateWithRetry, getTokenSource } = await createTokenAwareRetry({ github, core });
             const summary = core.summary;
             const { owner, repo } = context.repo;
+
+            // Failure receipt uses the configured WRITE_TOKEN client, not an arbitrary commenter.
+            async function reportMergeFailure(prNumber, message) {
+              const marker = '<!-- agents-guarded-merge-result:v1 -->';
+              core.warning(message);
+              try {
+                const { data: actor } = await github.rest.users.getAuthenticated();
+                const comments = await github.paginate(github.rest.issues.listComments, {
+                  owner, repo, issue_number: prNumber, per_page: 100,
+                });
+                const existing = comments.find((comment) =>
+                  comment.user?.id === actor.id && comment.body?.startsWith(marker));
+                const receipt = `${marker}\n${message}`;
+                if (existing) {
+                  await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body: receipt });
+                } else {
+                  await github.rest.issues.createComment({ owner, repo, issue_number: prNumber, body: receipt });
+                }
+              } catch (error) {
+                core.warning(`Unable to publish guarded merge failure receipt: HTTP ${error.status || 'unknown'} ${error.message || error}`);
+              }
+            }
+
 
             // Resolve the default branch (agent PRs must target it).
             let defaultBranch = (context.payload.repository && context.payload.repository.default_branch) || '';
@@ -3365,13 +3388,22 @@ jobs:
                             if (finalMergeFailure) {
                               throw new Error(finalMergeFailure);
                             }
-                            const response = await withRetry((client) => client.rest.pulls.merge({
-                              owner,
-                              repo,
-                              pull_number: prNumber,
-                              merge_method: 'squash',
-                              sha: headSha,
-                            }));
+                            const response = await withRetry(async (client) => {
+                              // Inspect the exact client used for this merge attempt; retries may switch tokens.
+                              try {
+                                const identity = await client.rest.users.getAuthenticated();
+                                core.info(`Guarded merge credential source=${getTokenSource?.() || 'WRITE_TOKEN fallback'}; actor=${identity.data.login}; OAuth scopes=${identity.headers?.['x-oauth-scopes'] || 'not reported (fine-grained/App tokens require settings verification)'}`);
+                              } catch (identityError) {
+                                core.warning(`Guarded merge credential identity unavailable: HTTP ${identityError.status || 'unknown'}`);
+                              }
+                              return client.rest.pulls.merge({
+                                owner,
+                                repo,
+                                pull_number: prNumber,
+                                merge_method: 'squash',
+                                sha: headSha,
+                              });
+                            });
                             if (response && response.data && response.data.merged) {
                               status = 'merged';
                               note = `Merged via ${response.data.merge_method || 'squash'}.`;
@@ -3405,7 +3437,8 @@ jobs:
                             status = 'error';
                             const responseData = error && error.response ? error.response.data : undefined;
                             const detail = responseData && responseData.message ? responseData.message : (error.message || String(error));
-                            note = `Merge failed: ${detail}`;
+                            note = `Merge failed: HTTP ${error.status || error.response?.status || 'unknown'} ${detail}`;
+                            await reportMergeFailure(prNumber, note);
                           }
                         }
                       }
