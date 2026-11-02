@@ -26,9 +26,16 @@ def test_maint39_does_not_reference_retired_github_models_provider() -> None:
     assert any(step["name"] == "Test OpenAI" for step in steps)
 
 
-@pytest.mark.parametrize("regression", ["dispatch-option", "job-step", "both"])
+@pytest.mark.parametrize(
+    ("regression", "expected_failure"),
+    [
+        ("dispatch-option", "retired GitHub Models dispatch option"),
+        ("job-step", "retired GitHub Models job step"),
+        ("both", "retired GitHub Models dispatch option"),
+    ],
+)
 def test_maint39_rejects_reintroduced_github_models_provider(
-    regression: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    regression: str, expected_failure: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     original_path = WORKFLOW
     original_source = original_path.read_text()
@@ -47,17 +54,32 @@ def test_maint39_rejects_reintroduced_github_models_provider(
             }
         },
     }
-    if regression in {"dispatch-option", "both"}:
-        events["workflow_dispatch"]["inputs"]["provider"]["options"].append("github-models")
-    if regression in {"job-step", "both"}:
-        candidate["jobs"]["test-providers"]["steps"].append({"name": "Test GitHub Models"})
     candidate_path = tmp_path / original_path.name
-    candidate_path.write_text(yaml.safe_dump(candidate))
+    clean_source = yaml.safe_dump(candidate)
+    candidate_path.write_text(clean_source)
 
     with monkeypatch.context() as patch:
         patch.setitem(globals(), "WORKFLOW", candidate_path)
-        with pytest.raises(AssertionError, match="retired GitHub Models"):
+        # Establish that the sanitized fixture passes before introducing a regression.
+        test_maint39_does_not_reference_retired_github_models_provider()
+        options = events["workflow_dispatch"]["inputs"]["provider"]["options"]
+        if regression in {"dispatch-option", "both"}:
+            options.append("github-models")
+        if regression in {"job-step", "both"}:
+            candidate["jobs"]["test-providers"]["steps"].append({"name": "Test GitHub Models"})
+        candidate_path.write_text(yaml.safe_dump(candidate))
+        with pytest.raises(AssertionError, match=expected_failure):
             test_maint39_does_not_reference_retired_github_models_provider()
+
+        if regression == "both":
+            # The first assertion must not conceal a surviving retired job step.
+            options.remove("github-models")
+            candidate_path.write_text(yaml.safe_dump(candidate))
+            with pytest.raises(AssertionError, match="retired GitHub Models job step"):
+                test_maint39_does_not_reference_retired_github_models_provider()
+
+        candidate_path.write_text(clean_source)
+        test_maint39_does_not_reference_retired_github_models_provider()
 
     # Restore the real workflow and prove the same named test passes unchanged.
     assert original_path == WORKFLOW
