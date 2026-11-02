@@ -1934,7 +1934,8 @@ def test_guarded_merge_failure_receipt_is_visible_and_upserted():
     handler = script.split("const responseData = error && error.response", 1)[1].split(
         "await reportMergeFailure(prNumber, note);", 1
     )[0]
-    program = r'''
+    program = (
+        r"""
 const assert = require('node:assert/strict');
 const owner='stranske', repo='Travel-Plan-Permission', prNumber=1722;
 const warnings=[]; const core={warning:message=>warnings.push(message)};
@@ -1946,12 +1947,17 @@ const github={rest:{users:{getAuthenticated:async()=>({data:{id:42}})},issues:{
   createComment:async p=>{created++;comments.push({id:2,user:{id:42},body:p.body});},
   updateComment:async p=>{updated++;comments.find(c=>c.id===p.comment_id).body=p.body;}
 }},paginate:async()=>comments};
-''' + "async function reportMergeFailure" + helper + r'''
+"""
+        + "async function reportMergeFailure"
+        + helper
+        + r"""
 (async()=>{
 for(let attempt=0;attempt<2;attempt++){
   const error={status:403,response:{data:{message:'Resource not accessible by personal access token'}}};
   let note;
-  const responseData = error && error.response''' + handler + r'''
+  const responseData = error && error.response"""
+        + handler
+        + r"""
   await reportMergeFailure(prNumber, note);
 }
 assert.equal(created,1); assert.equal(updated,1); assert.equal(warnings.length,2);
@@ -1959,5 +1965,6 @@ assert.match(warnings[0],/HTTP 403 Resource not accessible by personal access to
 assert.equal(comments[1].body,marker+'\n'+warnings[0]);
 assert.equal(comments[0].body,marker+' forged');
 })().catch(error=>{console.error(error);process.exitCode=1});
-'''
+"""
+    )
     subprocess.run(["node", "-e", program], check=True, capture_output=True, text=True)
