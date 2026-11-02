@@ -17,7 +17,7 @@ def test_maint39_does_not_reference_retired_github_models_provider() -> None:
     provider = events["workflow_dispatch"]["inputs"]["provider"]
     assert provider["default"] == "all"
     assert "github-models" not in provider["options"], "retired GitHub Models dispatch option"
-    steps = workflow["jobs"]["test-providers"]["steps"]
+    steps = [step for job in workflow["jobs"].values() for step in job.get("steps", [])]
     assert not any(
         "github models" in step.get("name", "").replace("-", " ").casefold() for step in steps
     ), "retired GitHub Models job step"
@@ -33,6 +33,7 @@ def test_maint39_does_not_reference_retired_github_models_provider() -> None:
         ("job-step", "retired GitHub Models job step"),
         ("renamed-job-step", "retired GitHub Models job step"),
         ("slug-job-step", "retired GitHub Models job step"),
+        ("other-job-step", "retired GitHub Models job step"),
         ("both", "retired GitHub Models dispatch option"),
     ],
 )
@@ -75,6 +76,8 @@ def test_maint39_rejects_reintroduced_github_models_provider(
         }
         if step_name := retired_step_names.get(regression):
             candidate["jobs"]["test-providers"]["steps"].append({"name": step_name})
+        if regression == "other-job-step":
+            candidate["jobs"]["retired-provider"] = {"steps": [{"name": "Test GitHub Models"}]}
         candidate_path.write_text(yaml.safe_dump(candidate))
         with pytest.raises(AssertionError, match=expected_failure):
             test_maint39_does_not_reference_retired_github_models_provider()
