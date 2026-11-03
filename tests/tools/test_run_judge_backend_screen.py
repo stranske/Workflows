@@ -679,6 +679,147 @@ def test_contributor_tier_accepts_the_trusted_immutable_corpus():
     )
 
 
+def test_contributor_tier_rejects_mismatched_snapshot_repo_before_manifest_lookup():
+    snapshot = {
+        "context": "published context",
+        "diff_summary": "published summary",
+        "diff": "diff --git a/x b/x\n@@ -1 +1 @@\n-old\n+new\n",
+        "repository": "secret/private",
+        "pr": 42,
+        "merge_sha": "a" * 40,
+        "source_run_id": "12345",
+        "chain_depth": 0,
+        "input_kind": "production_capture",
+    }
+    manifest = {
+        "schema": "workflows-verifier-input-snapshot/v1",
+        "repository": "secret/private",
+        "pr": 42,
+        "merge_sha": "a" * 40,
+        "source_run_id": "12345",
+        "chain_depth": 0,
+        **screen.snapshot_content_hashes(snapshot),
+    }
+    case = {
+        "case_id": "repo-mismatch",
+        "repo": "stranske/Workflows",
+        "pr": 42,
+        "expected_verdict": "PASS",
+        "category": "clean-pass",
+        "production_snapshot": {**snapshot, "sha256": "deadbeef" * 8},
+    }
+    manifest_calls = {"count": 0}
+
+    def manifest_lookup(repo, run_id):
+        manifest_calls["count"] += 1
+        return manifest
+
+    with pytest.raises(SystemExit, match="unverified case count: 1"):
+        screen.require_contributor_tier_inputs(
+            [case],
+            trusted_digests={},
+            repo_lookup=lambda repo: "public",
+            manifest_lookup=manifest_lookup,
+        )
+    assert manifest_calls["count"] == 0
+
+    corpus, registry, policy, _cases = _screen_cases_for_contributor_checks()
+    backend_calls = {"count": 0}
+
+    class Tracking:
+        name = "tracking"
+        evidence_class = "api-observed"
+        api_key_calls = True
+
+        def invoke(self, prompt: str) -> screen.JudgeOutcome:
+            backend_calls["count"] += 1
+            raise AssertionError("backend invoked before contributor guard")
+
+    manifest_calls["count"] = 0
+    with pytest.raises(SystemExit, match="unverified case count: 1"):
+        screen.run_screen(
+            [Tracking()],
+            corpus=corpus,
+            registry=registry,
+            policy=policy,
+            cases_override=[case],
+            contributor_tier=True,
+            trusted_digests={},
+            repo_lookup=lambda repo: "public",
+            manifest_lookup=manifest_lookup,
+        )
+    assert manifest_calls["count"] == 0
+    assert backend_calls["count"] == 0
+
+
+def test_contributor_tier_public_capture_fails_closed_on_unknown_source_visibility():
+    snapshot = {
+        "context": "published context",
+        "diff_summary": "published summary",
+        "repository": "stranske/Workflows",
+        "pr": 42,
+        "merge_sha": "a" * 40,
+        "source_run_id": "12345",
+        "chain_depth": 0,
+        "input_kind": "production_capture",
+    }
+    case = {
+        "case_id": "unknown-visibility",
+        "repo": "stranske/Workflows",
+        "pr": 42,
+        "expected_verdict": "PASS",
+        "category": "clean-pass",
+        "production_snapshot": {**snapshot, "sha256": "deadbeef" * 8},
+    }
+    manifest_calls = {"count": 0}
+
+    def manifest_lookup(repo, run_id):
+        manifest_calls["count"] += 1
+        return None
+
+    with pytest.raises(SystemExit, match="not confirmed public"):
+        screen.require_contributor_tier_inputs(
+            [case],
+            trusted_digests={},
+            repo_lookup=lambda repo: "unknown",
+            manifest_lookup=manifest_lookup,
+        )
+    assert manifest_calls["count"] == 0
+
+
+def test_contributor_tier_refusal_uses_bounded_count_without_echoing_case_ids():
+    sensitive_id = "SECRET-" + ("X" * 500)
+    snapshot = {
+        "context": "x",
+        "diff_summary": "y",
+        "repository": "",
+        "pr": 1,
+        "merge_sha": "c" * 40,
+        "source_run_id": "1",
+        "chain_depth": 0,
+        "input_kind": "production_capture",
+    }
+    case = {
+        "case_id": sensitive_id,
+        "repo": "stranske/Workflows",
+        "pr": 1,
+        "expected_verdict": "PASS",
+        "category": "clean-pass",
+        "production_snapshot": {**snapshot, "sha256": "2" * 64},
+    }
+    with pytest.raises(SystemExit) as exc:
+        screen.require_contributor_tier_inputs(
+            [case],
+            trusted_digests={},
+            repo_lookup=lambda repo: "public",
+            manifest_lookup=lambda repo, run_id: None,
+        )
+    message = str(exc.value)
+    assert "unverified case count: 1" in message
+    assert sensitive_id not in message
+    assert "SECRET-" not in message
+
+
 def test_contributor_tier_accepts_an_exact_verified_public_capture():
     snapshot = {
         "context": "published context",
