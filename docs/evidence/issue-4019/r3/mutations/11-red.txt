@@ -1,0 +1,28 @@
+$ /opt/anaconda3/bin/python3 -m pytest tests/tools/test_llm_provider.py::TestRemainingProviderPaths::test_github_client_none_when_langchain_openai_missing -q -p no:cacheprovider
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_ TestRemainingProviderPaths.test_github_client_none_when_langchain_openai_missing _
+
+self = <tests.tools.test_llm_provider.TestRemainingProviderPaths object at 0x105d99190>
+
+    def test_github_client_none_when_langchain_openai_missing(self):
+        with patch.dict(sys.modules, {"langchain_openai": None}):
+>           assert GitHubModelsProvider()._get_client() is None
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/tools/test_llm_provider.py:2217: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <tools.llm_provider.GitHubModelsProvider object at 0x105d9a4b0>
+
+    def _get_client(self):
+        """Get LangChain ChatOpenAI client configured for GitHub Models."""
+        try:
+>           from langchain_openai import ChatOpenAI
+E           ModuleNotFoundError: import of langchain_openai halted; None in sys.modules
+
+tools/llm_provider.py:350: ModuleNotFoundError
+=========================== short test summary info ============================
+FAILED tests/tools/test_llm_provider.py::TestRemainingProviderPaths::test_github_client_none_when_langchain_openai_missing
+1 failed in 0.19s
+exit=1

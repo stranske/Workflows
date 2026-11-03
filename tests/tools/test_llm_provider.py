@@ -2,6 +2,7 @@
 
 import inspect
 import os
+import sys
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
@@ -2127,3 +2128,223 @@ class TestAnthropicProvider:
             pytest.raises(TimeoutError),
         ):
             provider.analyze_completion("output", ["task1"])
+
+
+class _LegacySignatureProvider(LLMProvider):
+    """Provider whose analyze_completion does not accept quality_context."""
+
+    @property
+    def name(self) -> str:
+        return "legacy"
+
+    def is_available(self) -> bool:
+        return True
+
+    def analyze_completion(self, session_output, tasks, context=None):
+        return CompletionAnalysis([], [], [], 0.5, "legacy", self.name)
+
+
+class TestRemainingProviderPaths:
+    """Behaviours left uncovered by Gate coverage for tools/llm_provider.py."""
+
+    def test_configured_model_falls_back_when_registry_import_fails(self):
+        from tools import llm_provider
+
+        with patch.dict(sys.modules, {"tools.llm_registry": None}):
+            assert llm_provider._configured_langchain_model("openai", fallback="fb") == "fb"
+
+    def test_metadata_keeps_explicit_issue_or_pr_number(self):
+        with patch.dict(os.environ, {"PR_NUMBER": "99"}, clear=True):
+            config = build_langsmith_metadata(
+                operation="op", repo="o/r", run_id="1", issue_or_pr_number="explicit-7"
+            )
+
+        assert config["metadata"]["issue_or_pr_number"] == "explicit-7"
+        assert "issue_or_pr:explicit-7" in config["tags"]
+
+    def test_extract_trace_id_uses_instance_dict_when_id_attribute_hidden(self):
+        class HiddenId:
+            @property
+            def id(self):
+                raise AttributeError("hidden")
+
+        response = HiddenId()
+        response.__dict__["id"] = "dict-id"
+
+        with patch("tools.llm_provider._ensure_langsmith_enabled", return_value=True):
+            assert extract_trace_id(response) == "dict-id"
+
+    def test_extract_trace_id_returns_none_when_metadata_access_raises(self):
+        class Exploding:
+            @property
+            def response_metadata(self):
+                raise RuntimeError("boom")
+
+        with patch("tools.llm_provider._ensure_langsmith_enabled", return_value=True):
+            assert extract_trace_id(Exploding()) is None
+
+    def test_base_supports_quality_context_false_when_signature_unavailable(self):
+        provider = _LegacySignatureProvider()
+
+        with patch("tools.llm_provider.inspect.signature", side_effect=ValueError("no sig")):
+            assert provider.supports_quality_context() is False
+
+    def test_supports_quality_context_error_falls_back_to_legacy_signature(self):
+        class ErroringLegacy(_LegacySignatureProvider):
+            def supports_quality_context(self) -> bool:
+                raise RuntimeError("boom")
+
+        assert supports_quality_context(ErroringLegacy()) is False
+
+    def test_supports_quality_context_without_helper_uses_signature(self):
+        def accepts(session_output, tasks, context=None, quality_context=None):
+            return None
+
+        def legacy(session_output, tasks, context=None):
+            return None
+
+        with_qc = SimpleNamespace(supports_quality_context=None, analyze_completion=accepts)
+        without_qc = SimpleNamespace(supports_quality_context=None, analyze_completion=legacy)
+        unsigned = SimpleNamespace(supports_quality_context=None, analyze_completion=legacy)
+
+        assert supports_quality_context(with_qc) is True
+        assert supports_quality_context(without_qc) is False
+        with patch("tools.llm_provider.inspect.signature", side_effect=TypeError("no sig")):
+            assert supports_quality_context(unsigned) is False
+
+    def test_github_client_none_when_langchain_openai_missing(self):
+        with patch.dict(sys.modules, {"langchain_openai": None}):
+            assert GitHubModelsProvider()._get_client() is None
+
+    def test_github_client_none_without_reviewed_model(self):
+        fake = SimpleNamespace(ChatOpenAI=MagicMock())
+        with (
+            patch.dict(sys.modules, {"langchain_openai": fake}),
+            patch("tools.llm_provider._configured_langchain_model", return_value=""),
+        ):
+            assert GitHubModelsProvider()._get_client() is None
+        fake.ChatOpenAI.assert_not_called()
+
+    def test_github_client_targets_github_models_endpoint(self):
+        fake = SimpleNamespace(ChatOpenAI=MagicMock(return_value="client"))
+        provider = GitHubModelsProvider()
+        with (
+            patch.dict(sys.modules, {"langchain_openai": fake}),
+            patch.dict(os.environ, {"GITHUB_TOKEN": "gh-token"}, clear=True),
+            patch("tools.llm_provider._configured_langchain_model", return_value="gm-model"),
+        ):
+            assert provider._get_client() == "client"
+
+        fake.ChatOpenAI.assert_called_once_with(
+            model="gm-model",
+            base_url="https://models.github.ai/inference",
+            api_key="gh-token",
+            temperature=0.1,
+        )
+        assert provider._model_name == "gm-model"
+
+    def test_github_analyze_requires_client(self):
+        provider = GitHubModelsProvider()
+        with (
+            patch.object(provider, "_get_client", return_value=None),
+            pytest.raises(RuntimeError, match="GitHub Models client unavailable"),
+        ):
+            provider.analyze_completion("output", ["task1"])
+
+    def test_github_analyze_reraises_api_error(self):
+        provider = GitHubModelsProvider()
+        client = MagicMock()
+        client.invoke.side_effect = ConnectionError("down")
+        with (
+            patch.object(provider, "_get_client", return_value=client),
+            pytest.raises(ConnectionError, match="down"),
+        ):
+            provider.analyze_completion("output", ["task1"])
+
+    @pytest.mark.parametrize("provider_class", [OpenAIProvider, AnthropicProvider])
+    def test_langchain_client_none_when_helper_missing(self, provider_class):
+        with (
+            patch.dict(sys.modules, {"tools.langchain_client": None}),
+            patch("tools.llm_provider._configured_langchain_model", return_value="model"),
+        ):
+            assert provider_class()._get_client() is None
+
+    @pytest.mark.parametrize("provider_class", [OpenAIProvider, AnthropicProvider])
+    def test_langchain_client_none_when_build_returns_nothing(self, provider_class):
+        provider = provider_class()
+        with (
+            patch("tools.langchain_client.build_chat_client", return_value=None),
+            patch("tools.llm_provider._configured_langchain_model", return_value="model"),
+        ):
+            assert provider._get_client() is None
+        assert not hasattr(provider, "_model_name")
+
+    def test_openai_analyze_reraises_api_error(self):
+        provider = OpenAIProvider()
+        client = MagicMock()
+        client.invoke.side_effect = ConnectionError("down")
+        with (
+            patch.object(provider, "_get_client", return_value=client),
+            pytest.raises(ConnectionError, match="down"),
+        ):
+            provider.analyze_completion("output", ["task1"])
+
+    def test_anthropic_does_not_retry_unrelated_type_error(self):
+        provider = AnthropicProvider()
+        client = MagicMock()
+        client.invoke.side_effect = TypeError("unsupported operand")
+        with (
+            patch.object(provider, "_get_client", return_value=client),
+            pytest.raises(TypeError, match="unsupported operand"),
+        ):
+            provider.analyze_completion(
+                "output", ["task1"], quality_context=SessionQualityContext()
+            )
+        assert client.invoke.call_count == 1
+
+    def test_fallback_chain_name_before_any_attempt(self):
+        assert FallbackChainProvider([RegexFallbackProvider()]).name == "fallback-chain"
+
+    def test_fallback_chain_reports_no_available_providers(self):
+        unavailable = MagicMock()
+        unavailable.is_available.return_value = False
+        with pytest.raises(RuntimeError, match="^No providers available$"):
+            FallbackChainProvider([unavailable]).analyze_completion("output", ["task1"])
+        unavailable.analyze_completion.assert_not_called()
+
+    def test_fallback_chain_does_not_retry_unrelated_type_error(self):
+        provider = MagicMock()
+        provider.name = "qc-aware"
+        provider.supports_quality_context.return_value = True
+        provider.analyze_completion.side_effect = TypeError("bad operand type")
+        chain = FallbackChainProvider([provider])
+
+        with pytest.raises(TypeError, match="bad operand type"):
+            chain._analyze_with_provider(
+                provider,
+                session_output="output",
+                tasks=["task1"],
+                context=None,
+                quality_context=SessionQualityContext(),
+            )
+        assert provider.analyze_completion.call_count == 1
+
+    def test_subscription_provider_unavailable_paths(self):
+        from tools.llm_provider import SubscriptionCLIProvider
+
+        with patch("tools.subscription_llm.build_subscription_client", return_value=None):
+            provider = SubscriptionCLIProvider()
+            assert provider.name == "subscription-unavailable"
+            assert provider.is_available() is False
+            with pytest.raises(RuntimeError, match="Subscription analysis CLI unavailable"):
+                provider.analyze_completion("output", ["task1"])
+            with (
+                patch.dict(os.environ, {"WORKFLOWS_ANALYSIS_CLI": "codex"}, clear=True),
+                pytest.raises(RuntimeError, match="no API fallback"),
+            ):
+                get_llm_provider()
+
+    def test_forced_available_provider_is_returned_directly(self):
+        provider = get_llm_provider(force_provider="regex-fallback")
+
+        assert type(provider) is RegexFallbackProvider
