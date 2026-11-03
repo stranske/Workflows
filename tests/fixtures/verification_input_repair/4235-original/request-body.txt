@@ -1,0 +1,31 @@
+:robot: I have created a release *beep* *boop*
+---
+
+
+## [1.44.17](https://github.com/stranske/Workflows/compare/v1.44.16...v1.44.17) (2026-10-25)
+
+
+### Bug Fixes
+
+* **verifier:** resolve selected artifact IDs beyond discovery bounds ([8fa4129](https://github.com/stranske/Workflows/commit/8fa41299a394fe2af46e910acbb0f733dc415b23))
+* **verifier:** retain selected baseline proof through repeat events ([7bd37e7](https://github.com/stranske/Workflows/commit/7bd37e731a7906565ed6d2231724ca3bf5fefa83))
+* **verifier:** retain selected comparison proof through recovery ([c503640](https://github.com/stranske/Workflows/commit/c5036409d5ce5b83f4fa288b583d909e10892a1f))
+
+---
+This PR was generated with [Release Please](https://github.com/googleapis/release-please). See [documentation](https://github.com/googleapis/release-please#release-please).
+
+## Scope
+Publish Workflows 1.44.17 release metadata for the merged verifier capture fixes in #4234.
+
+## Tasks
+- [x] Set the root release-please manifest version to 1.44.17.
+- [x] Add the 1.44.17 changelog entries for selected baseline proof, comparison recovery proof, and artifact ID lookup beyond discovery bounds.
+
+## Acceptance criteria
+- [x] Changes are limited to `.release-please-manifest.json` and `CHANGELOG.md`, and both identify 1.44.17.
+- [x] Changelog entries identify source commits 7bd37e731a7906565ed6d2231724ca3bf5fefa83, c5036409d5ce5b83f4fa288b583d909e10892a1f and 8fa41299a394fe2af46e910acbb0f733dc415b23.
+- [x] The canonical exact-head merge guard confirms passing required checks, zero active review threads and the full seven-minute review floor before merge.
+
+These criteria describe release metadata only. Product-source acceptance is separate.
+
+Delivery proof: https://github.com/stranske/Workflows/pull/4235#issuecomment-6392557346 (guarded merge and published v1.44.17).
