@@ -92,3 +92,14 @@ This is an observed freshness failure, not a refactor, threshold change or
 new test. The two exact failing node IDs passed locally, **2 passed in 3.26s**,
 exit 0; command recorded before editing in acceptance.md and output retained
 in pin-checks.txt. No broader dependency refresh was performed.
+
+The first pin-only hosted attempt, Gate 41667929668, then printed a resolver
+failure before pytest: `Because you require coverage==7.17.1 and
+coverage==7.17.0 ... requirements are unsatisfiable`. The final fix also aligns
+`pyproject.toml` and `requirements.lock` to the same 7.17.1. No other dependency
+is changed. This supersedes the initial one-line-only description above.
+
+After alignment, the required three-file command again passed: **242 passed
+in 7.35s**, exit 0 (`required-after-pins.txt`). Focused pin-sync tests:
+`/opt/anaconda3/bin/python3 -m pytest tests/scripts/test_sync_dev_dependencies.py -q`;
+see `sync-pin-tests.txt` for the result. No local full suite or install was run.
