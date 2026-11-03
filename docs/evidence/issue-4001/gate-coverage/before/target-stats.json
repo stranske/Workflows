@@ -1,0 +1,17 @@
+{
+  "scripts/aggregate_agent_metrics.py": {
+    "missing_branches": 17,
+    "missing_lines": 5,
+    "percent_covered": 98.27990617670055
+  },
+  "scripts/check_consumer_sync_drift.py": {
+    "missing_branches": 57,
+    "missing_lines": 73,
+    "percent_covered": 84.08812729498165
+  },
+  "scripts/validate_run_contract.py": {
+    "missing_branches": 27,
+    "missing_lines": 47,
+    "percent_covered": 88.78787878787878
+  }
+}
