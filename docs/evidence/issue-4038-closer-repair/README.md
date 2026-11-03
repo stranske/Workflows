@@ -453,7 +453,7 @@ Read-only inspection on 2026-11-02 corroborated the routing implementation:
 `~/.codex/orchestrator/coverage-campaign/v17/coverage-autopilot.py::rank_targets`
 invokes `escaped_defect_priority.py --repo <clone> --coverage-json <payload>
 --limit <limit> --json`, retains its order, and bundles eligible targets without
-re-sorting them. The [ranker's source](https://github.com/stranske/Orchestrator/blob/main/escaped_defect_priority.py)
+re-sorting them. The [ranker's source](https://github.com/stranske/Orchestrator/blob/main/src/escaped_defect_priority.py)
 uses lexicographic tiers and describes the first tier as a git fix/revert proxy.
 Thus 12 signals are not proof of 12 independently confirmed escaped defects.
 The original complete ranker JSON was not recovered; the issue supplies the
