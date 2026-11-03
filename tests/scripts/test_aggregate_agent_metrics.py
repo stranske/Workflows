@@ -471,6 +471,53 @@ def test_verifier_ledger_counts_needs_human_disposition_without_boolean_flag() -
     assert summary["ledger_prs"] == 1
 
 
+def test_langsmith_trace_refs_use_url_when_trace_list_item_has_no_id() -> None:
+    entry = {
+        "langsmith_traces": [
+            {"trace_url": "https://smith.langchain.com/public/run/abc"},
+            "not-a-dict",
+        ]
+    }
+
+    assert aggregate_agent_metrics._langsmith_trace_refs(entry) == {
+        "url:https://smith.langchain.com/public/run/abc"
+    }
+
+
+def test_autopilot_summary_counts_failed_steps_with_reason() -> None:
+    summary = aggregate_agent_metrics._summarise_autopilot(
+        [
+            {
+                "step_name": "implement",
+                "duration_ms": 1200,
+                "success": False,
+                "failure_reason": "timeout",
+            }
+        ]
+    )
+
+    assert summary["step_failures"]["implement"] == 1
+    assert summary["failure_reasons"]["timeout"] == 1
+
+
+def test_codex_freshness_summary_counts_update_target_paths() -> None:
+    summary = aggregate_agent_metrics._summarise_codex_cli_freshness(
+        [
+            {
+                "status": "outdated",
+                "package": "codex-cli",
+                "update_targets": [
+                    {"path": "autofix-versions.env"},
+                    "skip",
+                    {"path": ""},
+                ],
+            }
+        ]
+    )
+
+    assert summary["update_targets"]["autofix-versions.env"] == 1
+
+
 def test_gather_metrics_files_prefers_explicit_paths(tmp_path: Path) -> None:
     explicit = [
         str(tmp_path / "a.ndjson"),
