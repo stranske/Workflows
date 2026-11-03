@@ -41,7 +41,7 @@ So #4022 removed **76** units by itself. That is short of 180, consistent with t
 
 ## Residual uncovered units on main (37)
 
-- `scripts/langchain/verifier_config.py` (2): line 184. A branch added after #4022 (by #4218), outside #4020's scope.
+- `scripts/langchain/verifier_config.py` (2): line 184. A non-list `comments` guard added after #4022 (by #4129), outside #4020's scope.
 - `tools/post_ci_summary.py` (3): `749->756`, `752`. One fallback branch in the rendering loop.
 - `scripts/repo_review_coordinator.py` (32):
   - `1514-1516` and `1540-1542`: `except ModuleNotFoundError` import fallbacks for running from a steward checkout outside the package. Exercising them means faking import failure of an in-repo module, which would be a contrived test.
