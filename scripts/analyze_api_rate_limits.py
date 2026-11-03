@@ -270,9 +270,13 @@ def _clean_repo(repo: str) -> str:
         if repo.startswith(prefix):
             repo = repo[len(prefix) :]
             break
-    # git@host:{port/}owner/repo is rewritten above via `@host` → `host:...`, so only
-    # the post-strip `host:` forms remain reachable here.
-    if repo.startswith("github.com:") or repo.startswith("www.github.com:"):
+    if repo.startswith("git@github.com:") or repo.startswith("git@www.github.com:"):
+        repo = repo.split(":", 1)[1]
+        if repo.split("/", 1)[0].isdigit():
+            repo = repo.split("/", 1)[1] if "/" in repo else repo
+    elif repo.startswith("git@github.com/") or repo.startswith("git@www.github.com/"):
+        repo = repo.split("/", 1)[1]
+    elif repo.startswith("github.com:") or repo.startswith("www.github.com:"):
         repo = repo.split(":", 1)[1]
         if repo.split("/", 1)[0].isdigit():
             repo = repo.split("/", 1)[1] if "/" in repo else repo
