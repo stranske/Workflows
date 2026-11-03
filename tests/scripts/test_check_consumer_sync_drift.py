@@ -6,6 +6,8 @@ from types import SimpleNamespace
 
 import pytest
 from scripts import check_consumer_sync_drift
+
+# Issue #4001 closer repair evidence lives in docs/evidence/issue-4001/.
 from scripts.sync_manifest_compiler import (
     ManifestEntry,
     SkipRepo,
