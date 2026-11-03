@@ -71,4 +71,7 @@ Automated probes: `run_break_revert_probes.py` → `break-revert-proof.json` (RE
 
 ## Gate CI
 
-The repair PR triggers the repository **Gate** workflow; link and artifact paths are recorded in the PR body after the run completes.
+Successful Gate run on repair head `775754402`:
+
+- https://github.com/stranske/Workflows/actions/runs/41578234022
+- `python ci / python 3.14`: **50333 passed**, 27 skipped, 3 xfailed in 402.94s (job `125726928315`)

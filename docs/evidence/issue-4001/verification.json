@@ -59,5 +59,12 @@
   "combined_missing_units_before": 226,
   "combined_missing_units_after": 3,
   "combined_covered_units": 223,
+  "gate_ci_repair_head": {
+    "run_id": 41578234022,
+    "run_url": "https://github.com/stranske/Workflows/actions/runs/41578234022",
+    "head_sha": "77575440281a1001e95c29eae3f670eb0dbc686d",
+    "python_3_14_job_id": 125726928315,
+    "python_3_14_pytest_summary": "50333 passed, 27 skipped, 3 xfailed in 402.94s (0:06:42)"
+  },
   "break_revert_proof": "docs/evidence/issue-4001/break-revert-proof.json"
 }
