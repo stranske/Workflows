@@ -7,55 +7,106 @@ const { buildVerificationEvent, guardExistingEvent, completedEvent, inputRepairM
   = require('../../.github/scripts/verification_event.js');
 const { fetchVerifierEvidence } = require('../../.github/scripts/agents_verifier_context.js');
 
-// Retained #4231/#4235 shapes (head, merge, run, cause, identity) are real; the original
-// request/material are rebuilt because the retained PR bodies are not stored here.
+// Exact retained #4231/#4235 bytes, joined to native Actions provenance. API replay
+// below is offline regression coverage, not fresh artifact/native admission.
 const FIXTURES = path.join(__dirname, '../fixtures/verification_input_repair');
 const sha = c => c.repeat(64);
 const bot = (n, id, body) => ({ author: 'github-actions[bot]', url: `https://github.com/stranske/workflows/pull/${n}#issuecomment-${id}`, body });
 const proofUrl = n => `https://github.com/stranske/Workflows/pull/${n}#issuecomment-${n === 4231 ? '6390994169' : '6392557346'}`;
-const MEMBERS = { result: { path: 'comparison.json', raw_sha256: sha('1'), bytes: 10 }, receipt: { path: 'comparison-execution.json', raw_sha256: sha('2') } };
-const VERDICTS = [{ provider: 'anthropic', model: 'a', verdict: 'PASS' }, { provider: 'openai', model: 'o', verdict: 'UNVERIFIABLE_INPUT' }];
 
-function scenario(n, retainedProof = false) {
-  const stored = JSON.parse(fs.readFileSync(path.join(FIXTURES, `${n}-retained-states.json`), 'utf8'))
+function scenario(n) {
+  const bytes = name => fs.readFileSync(path.join(FIXTURES, `${n}-original`, name));
+  const manifest = JSON.parse(bytes('verification-event-manifest.json'));
+  const readback = JSON.parse(bytes('authenticated-readback.json'));
+  const native = readback.provenance;
+  assert.equal(native.user.login, 'github-actions[bot]');
+  assert.equal(native.user.id, 41898282);
+  assert.equal(native.github_app_id, 15368);
+  const nativeMarker = JSON.parse(native.body.match(/<!-- verifier-input-repair\/v1 (\{[^\n]+\}) -->/)[1]);
+  const publication = JSON.parse(native.body.match(/<!-- verifier-input-repair-publication\/v1 (\{[^\n]+\}) -->/)[1]);
+  assert.equal(publication.archive_sha256, readback.archive.sha256);
+  assert.equal(publication.artifact_id, readback.archive.artifact_id);
+  assert.equal(publication.input_repair_id, nativeMarker.input_repair_id);
+  assert.equal(publication.provider_generation_performed, false);
+  const members = { result: nativeMarker.result, receipt: nativeMarker.receipt };
+  const hash = value => require('crypto').createHash('sha256').update(value).digest('hex');
+  for (const member of Object.values(members)) assert.equal(hash(bytes(member.path)), member.raw_sha256);
+  assert.equal(bytes(members.result.path).length, members.result.bytes);
+  const receipt = JSON.parse(bytes(members.receipt.path));
+  assert.equal(receipt.outputs['comparison.json'].sha256, members.result.raw_sha256);
+  assert.equal(receipt.outputs['comparison.json'].bytes, members.result.bytes);
+  assert.equal(String(receipt.source_run_id), nativeMarker.run_id);
+  assert.equal(String(receipt.source_run_attempt), nativeMarker.run_attempt);
+  const verdicts = nativeMarker.provider_verdicts;
+  assert.deepEqual(JSON.parse(bytes('comparison.json')).results.map(row => ({provider:row.provider_used,model:row.model,verdict:row.verdict}))
+    .sort((a,b) => a.provider.localeCompare(b.provider)), verdicts);
+  const stored = readback.history
     .map(c => JSON.parse(c.body.match(/<!-- verifier-event-state\/v1 (\{[^\n]+\}) -->/)[1]));
   const incompleteRow = stored.find(r => r.status === 'incomplete');
   assert.equal(incompleteRow.retry_kind, 'recover_existing_evaluation');
   assert.equal(incompleteRow.retryable, false);
   const assessment = incompleteRow.assessment_identity;
   const base = (selectors, evidence = {}) => ({ repository: 'stranske/Workflows',
-    pull: { number: n, body: `Release ${n} original request.`, head: { sha: incompleteRow.head_sha }, merge_commit_sha: incompleteRow.evaluated_sha },
-    issues: [], fullDiffBytes: Buffer.from(`diff ${n}\n`), selectors,
+    pull: { number: n, body: bytes('request-body.txt').toString('utf8'), head: { sha: incompleteRow.head_sha }, merge_commit_sha: incompleteRow.evaluated_sha },
+    issues: [], fullDiffBytes: bytes('verifier-pr-diff.patch'), selectors,
+    ciResults: manifest.material.ci_hard_gate.results,
     evidence: { comments: { records: [] }, event_history: { complete: true, records: [] }, diagnostics: { archive_inventory: [] }, ...evidence } });
-  const retained = retainedProof ? { selectors: [{ kind: 'comment', url: proofUrl(n) }],
-    evidence: { comments: { records: [{ url: proofUrl(n), body: 'canonical merge-guard proof' }] } } } : {};
-  const original = buildVerificationEvent(base(retained.selectors, retained.evidence));
-  const rows = stored.map(r => ({ ...r, verification_event: original.verification_event }));
+  const original = buildVerificationEvent(base());
+  assert.deepEqual(original.verification_event, manifest.verification_event);
+  assert.deepEqual(original.material, manifest.material);
+  assert.deepEqual(original.request, manifest.request);
+  const rows = stored;
   const state = rows.find(r => r.status === 'incomplete');
   const marker = (over = {}) => {
-    const { input_repair_id, ...body } = inputRepairMarker({ state, material: original.material, repair: { ...MEMBERS, provider_verdicts: VERDICTS } });
+    const { input_repair_id, ...body } = inputRepairMarker({ state, material: original.material, repair: { ...members, provider_verdicts: verdicts } });
     const next = { ...body, ...over };
     return { ...next, input_repair_id: digest(next) };
   };
-  const stateComments = rows.map((r, i) => bot(n, 100 + i, `<!-- verifier-event-state/v1 ${JSON.stringify(r)} -->`));
-  const markerComment = (m = marker()) => bot(n, 200, `<!-- verifier-input-repair/v1 ${JSON.stringify(m)} -->`);
-  const inventory = () => [{ run_id: Number(state.run_id), artifact_id: 7, member_inventory_complete: true, members: [
-    { path: MEMBERS.result.path, status: 'captured', raw_sha256: MEMBERS.result.raw_sha256 },
-    { path: MEMBERS.receipt.path, status: 'captured', raw_sha256: MEMBERS.receipt.raw_sha256 }] }];
+  assert.deepEqual(marker(), nativeMarker);
+  const stateComments = readback.history.map(c => ({author:c.user.login,url:c.html_url,body:c.body,truncated:false}));
+  const markerComment = (m = marker()) => bot(n, native.id, `<!-- verifier-input-repair/v1 ${JSON.stringify(m)} -->`);
+  const inventory = () => [{ run_id: Number(state.run_id), artifact_id: readback.archive.artifact_id, member_inventory_complete: true,
+    members: Object.values(members).map(member => ({path:member.path,status:'captured',raw_sha256:hash(bytes(member.path))})) }];
   const changed = (extra = {}) => {
     const input = base([{ kind: 'comment', url: proofUrl(n) }]);
-    input.evidence.comments.records.push({ url: proofUrl(n), body: 'canonical merge-guard proof' });
+    input.evidence.comments.records.push(...structuredClone(readback.proof.records));
+    assert.equal(hash(input.evidence.comments.records[0].body), readback.proof.inventory[0].body_sha256);
     input.evidence.diagnostics.archive_inventory = inventory();
     input.evidence.event_history.records = [...stateComments, markerComment()];
     return { ...input, predecessorEventId: original.verification_event.event_id, assessmentIdentity: assessment, ...extra };
   };
   const withHistory = (records, over = {}) => { const input = changed(over); input.evidence.event_history.records = records; return input; };
-  return { n, original, rows, state, assessment, marker, markerComment, stateComments, changed, withHistory, inventory, base };
+  return { n, original, rows, state, assessment, marker, markerComment, stateComments, changed, withHistory, inventory, base, members, verdicts };
 }
 
-const NOT_AUTH = /not an authenticated|Predecessor has newer|Incomplete predecessor|existing execution recovery|Malformed/;
+const NOT_AUTH = /not an authenticated|Predecessor has newer|Incomplete predecessor|existing execution recovery|Malformed|complete authenticated/;
+const differentEvent = event => {
+  const {event_id, ...body} = {...event, material_sha256:sha('7')};
+  return {...body, event_id:digest(body)};
+};
 
 for (const n of [4231, 4235]) {
+  test(`#${n}: genuine known-no-evaluation predecessor still admits changed material`, () => {
+    const s=scenario(n);
+    // Separate regression control: change the execution classification explicitly;
+    // this never describes the retained mixed provider execution itself.
+    const records=s.rows.map(row => bot(n, row.status === 'pending' ? 100 : 101,
+      `<!-- verifier-event-state/v1 ${JSON.stringify(row.status === 'incomplete'
+        ? {...row,failure_cause:'validated_no_evaluation',retry_kind:'known_no_evaluation',retryable:true} : row)} -->`));
+    const built=buildVerificationEvent(s.withHistory(records));
+    assert.equal(built.predecessor_event_id,s.original.verification_event.event_id);
+  });
+
+  test(`#${n}: ordinary terminal predecessor still admits changed material`, () => {
+    const s=scenario(n);
+    const terminal=bot(n,300,`<!-- verifier-corpus-decision/v1 ${JSON.stringify({schema:'verifier-corpus-decision/v1',
+      repo:s.state.repo,pr:s.state.pr,head_sha:s.state.head_sha,evaluated_sha:s.state.evaluated_sha,
+      run_id:s.state.run_id,run_attempt:s.state.run_attempt,verification_event:s.original.verification_event,
+      assessment_identity:s.assessment,ci_failed:false,provider_verdicts:['CONCERNS'],verdict:'NON_PASS'})} -->`);
+    const built=buildVerificationEvent(s.withHistory([terminal]));
+    assert.equal(built.predecessor_event_id,s.original.verification_event.event_id);
+  });
+
   test(`#${n}: authenticated changed necessary proof admits retained mixed outcome with lineage`, () => {
     const s = scenario(n);
     const built = buildVerificationEvent(s.changed());
@@ -88,61 +139,65 @@ for (const n of [4231, 4235]) {
   });
 }
 
-test('same event, unchanged material, optional-only and model-alias changes are rejected', () => {
-  const s = scenario(4231);
-  const same = s.changed({ selectors: undefined });
-  assert.throws(() => buildVerificationEvent(same), NOT_AUTH);
-  const optional = s.changed({ selectors: undefined });
-  optional.evidence.gzip_assets = [{ source: 'docs/x.log.gz', status: 'captured', git_blob_sha: 'c'.repeat(40), raw_sha256: sha('d'), text_sha256: sha('e') }];
-  optional.evidence.comments.records.push({ url: 'incidental', body: 'optional log noise' });
-  assert.throws(() => buildVerificationEvent(optional), NOT_AUTH);
-  assert.throws(() => buildVerificationEvent(s.changed({ assessmentIdentity: { ...s.assessment, model: 'alias-of-same-model' } })), NOT_AUTH);
-  assert.throws(() => buildVerificationEvent(s.changed({ assessmentIdentity: undefined })), NOT_AUTH);
-  assert.throws(() => buildVerificationEvent(s.changed({ predecessorEventId: sha('c') })), NOT_AUTH);
-});
+for (const n of [4231, 4235]) {
+  const negativeCases = {
+    'unchanged necessary material': s => s.changed({selectors:undefined}),
+    'optional-only changes': s => {
+      const input=s.changed({selectors:undefined});
+      input.evidence.gzip_assets=[{source:'docs/x.log.gz',status:'captured',git_blob_sha:'c'.repeat(40),raw_sha256:sha('d'),text_sha256:sha('e')}];
+      input.evidence.comments.records.push({url:'incidental',body:'optional log noise'});
+      return input;
+    },
+    'model-alias changes': s => s.changed({assessmentIdentity:{...s.assessment,model:'alias-of-same-model'}}),
+    'missing assessment': s => s.changed({assessmentIdentity:undefined}),
+    'wrong predecessor': s => s.changed({predecessorEventId:sha('c')}),
+  };
+  for (const [name, input] of Object.entries(negativeCases)) {
+    test(`#${n} negative matrix: ${name} is rejected`, () => assert.throws(() => buildVerificationEvent(input(scenario(n))), NOT_AUTH));
+  }
 
-test('CI-only progress is not repaired necessary proof', () => {
-  const s = scenario(4231, true);
-  const ci = s.changed({ ciResults: [{ workflow_id: 'ci.yml', binding_status: 'bound',
+test(`#${n} negative matrix: CI-only progress is not repaired necessary proof`, () => {
+  const s = scenario(n);
+  const ci = s.changed({ selectors:undefined, ciResults: [{ workflow_id: 'ci.yml', binding_status: 'bound',
     head_sha: s.state.evaluated_sha, run_id: 9, run_attempt: 1, conclusion: 'success' }] });
   assert.throws(() => buildVerificationEvent(ci), NOT_AUTH);
 });
 
-test('missing, truncated, duplicate and wrong selected proof cannot mint a repaired event', () => {
-  const s = scenario(4231);
+test(`#${n} negative matrix: missing, truncated, duplicate and wrong selected proof cannot mint a repaired event`, () => {
+  const s = scenario(n);
   const missing = s.changed(); missing.evidence.comments.records = [];
   assert.throws(() => buildVerificationEvent(missing), /absent/);
   const truncated = s.changed(); truncated.evidence.comments.records[0].truncated = true;
   assert.throws(() => buildVerificationEvent(truncated), /absent|incomplete/);
   const duplicate = s.changed(); duplicate.evidence.comments.records.push({ ...duplicate.evidence.comments.records[0] });
   assert.throws(() => buildVerificationEvent(duplicate), /ambiguous/);
-  const wrong = s.changed({ selectors: [{ kind: 'comment', url: proofUrl(4235) }] });
+  const wrong = s.changed({ selectors: [{ kind: 'comment', url: proofUrl(n === 4231 ? 4235 : 4231) }] });
   assert.throws(() => buildVerificationEvent(wrong), /absent/);
 });
 
-test('wrong subject, event, run, attempt, assessment and original material are rejected', () => {
-  const s = scenario(4231);
-  const other = scenario(4235).original.verification_event;
+test(`#${n} negative matrix: wrong subject, event, run, attempt, assessment and original material are rejected`, () => {
+  const s = scenario(n);
+  const other = scenario(n === 4231 ? 4235 : 4231).original.verification_event;
   const cases = {
-    subject: { pr: '4235' }, event: { verification_event: other }, run: { run_id: '1' }, attempt: { run_attempt: '2' },
+    subject: { pr: other.pr }, event: { verification_event: other }, run: { run_id: '1' }, attempt: { run_attempt: '2' },
     assessment: { assessment_identity: { ...s.assessment, mode: 'evaluate' } },
     advisory: { assessment_identity: { ...s.assessment, canonical: false } },
     originalMaterial: { original_material: { ...s.original.material, required_evidence: [{ kind: 'forged' }] } },
     verdicts: { provider_verdicts: [{ provider: 'anthropic', model: 'a', verdict: 'PASS' }] },
-    receiptPath: { receipt: { ...MEMBERS.receipt, path: 'other.json' } },
+    receiptPath: { receipt: { ...s.members.receipt, path: 'other.json' } },
   };
   for (const [name, over] of Object.entries(cases)) {
     assert.throws(() => buildVerificationEvent(s.withHistory([...s.stateComments, s.markerComment(s.marker(over))])), NOT_AUTH, name);
   }
 });
 
-test('wrong artifact digest is rejected', () => {
-  const s = scenario(4231);
+test(`#${n} negative matrix: wrong artifact digest is rejected`, () => {
+  const s = scenario(n);
   const result = s.changed(); result.evidence.diagnostics.archive_inventory[0].members[0].raw_sha256 = sha('9');
   assert.throws(() => buildVerificationEvent(result), NOT_AUTH);
   const receipt = s.changed(); receipt.evidence.diagnostics.archive_inventory[0].members[1].raw_sha256 = sha('9');
   assert.throws(() => buildVerificationEvent(receipt), NOT_AUTH);
-  const claimed = s.withHistory([...s.stateComments, s.markerComment(s.marker({ result: { ...MEMBERS.result, raw_sha256: sha('8') } }))]);
+  const claimed = s.withHistory([...s.stateComments, s.markerComment(s.marker({ result: { ...s.members.result, raw_sha256: sha('8') } }))]);
   assert.throws(() => buildVerificationEvent(claimed), NOT_AUTH);
   const absent = s.changed(); absent.evidence.diagnostics.archive_inventory = [];
   assert.throws(() => buildVerificationEvent(absent), NOT_AUTH);
@@ -152,30 +207,30 @@ test('wrong artifact digest is rejected', () => {
   assert.throws(() => buildVerificationEvent(incomplete), NOT_AUTH);
 });
 
-test('untrusted, truncated, absent and contradictory provenance supply no authority', () => {
-  const s = scenario(4231);
+test(`#${n} negative matrix: untrusted, truncated, absent and contradictory provenance supply no authority`, () => {
+  const s = scenario(n);
   const comment = s.markerComment();
-  for (const bad of [{ ...comment, author: 'stranske' }, { ...comment, url: comment.url.replace('/4231#', '/4235#') }]) {
+  for (const bad of [{ ...comment, author: 'stranske' }, { ...comment, url: comment.url.replace(`/${n}#`, '/1#') }]) {
     assert.throws(() => buildVerificationEvent(s.withHistory([...s.stateComments, bad])), NOT_AUTH);
   }
   assert.throws(() => buildVerificationEvent(s.withHistory([...s.stateComments, { ...comment, truncated: true }])), NOT_AUTH);
   assert.throws(() => buildVerificationEvent(s.withHistory(s.stateComments)), NOT_AUTH);
-  const second = { ...s.markerComment(s.marker({ provider_verdicts: [...VERDICTS, { provider: 'x', model: 'y', verdict: 'FAIL' }] })), url: comment.url.replace('200', '201') };
+  const second = { ...s.markerComment(s.marker({ provider_verdicts: [...s.verdicts, { provider: 'x', model: 'y', verdict: 'FAIL' }] })), url: bot(n, 201, '').url };
   assert.throws(() => buildVerificationEvent(s.withHistory([...s.stateComments, comment, second])), NOT_AUTH);
   // Identical duplicates are one authority value.
-  assert.doesNotThrow(() => buildVerificationEvent(s.withHistory([...s.stateComments, comment, { ...comment, url: comment.url.replace('200', '202') }])));
+  assert.doesNotThrow(() => buildVerificationEvent(s.withHistory([...s.stateComments, comment, { ...comment, url: bot(n, 202, '').url }])));
 });
 
-test('contradictory receipts, unresolved provider attempts and newer canonical work are rejected', () => {
-  const s = scenario(4231);
-  const row = (over, id) => bot(4231, id, `<!-- verifier-event-state/v1 ${JSON.stringify({ ...s.state, ...over })} -->`);
+test(`#${n} negative matrix: contradictory receipts, unresolved provider attempts and newer canonical work are rejected`, () => {
+  const s = scenario(n);
+  const row = (over, id) => bot(n, id, `<!-- verifier-event-state/v1 ${JSON.stringify({ ...s.state, ...over })} -->`);
   const history = extra => s.withHistory([...s.stateComments, s.markerComment(), ...extra]);
   // A different incomplete cause in the same attempt contradicts the retained receipt.
   assert.throws(() => buildVerificationEvent(history([row({ failure_cause: 'execution_payload_missing', retry_kind: 'uncertain_execution' }, 301)])), NOT_AUTH);
   // Retryable flag contradicting the retained classification.
   assert.throws(() => buildVerificationEvent(history([row({ retryable: true }, 302)])), NOT_AUTH);
   // A terminal in the original attempt makes the incomplete marker contradictory.
-  const terminal = bot(4231, 303, `<!-- verifier-corpus-decision/v1 ${JSON.stringify({ schema: 'verifier-corpus-decision/v1', repo: s.state.repo,
+  const terminal = bot(n, 303, `<!-- verifier-corpus-decision/v1 ${JSON.stringify({ schema: 'verifier-corpus-decision/v1', repo: s.state.repo,
     pr: s.state.pr, head_sha: s.state.head_sha, evaluated_sha: s.state.evaluated_sha, run_id: s.state.run_id, run_attempt: s.state.run_attempt,
     ci_failed: false, provider_verdicts: ['PASS'], verdict: 'PASS', verification_event: s.state.verification_event,
     assessment_identity: s.assessment })} -->`);
@@ -186,26 +241,26 @@ test('contradictory receipts, unresolved provider attempts and newer canonical w
     predecessor_event_id: s.original.verification_event.event_id, failure_cause: undefined, retry_kind: undefined, retryable: undefined, ...over }, id);
   assert.throws(() => buildVerificationEvent(history([childRow('incomplete', 304, { failure_cause: 'execution_payload_missing', retry_kind: 'uncertain_execution', retryable: false })])), NOT_AUTH);
   // Newer canonical work for a third event.
-  const third = scenario(4235).original.verification_event;
-  assert.throws(() => buildVerificationEvent(history([row({ status: 'pending', verification_event: { ...child, event_id: sha('7') }, run_id: String(Number(s.state.run_id) + 5) }, 305)])), NOT_AUTH);
-  assert.ok(third);
+  assert.throws(() => buildVerificationEvent(history([row({ status: 'pending', verification_event: differentEvent(child), run_id: String(Number(s.state.run_id) + 5) }, 305)])), /Predecessor has newer/);
 });
 
-test('UNVERIFIABLE_INPUT is never accepted as completion', () => {
-  const s = scenario(4231);
+test(`#${n}: UNVERIFIABLE_INPUT is never accepted as completion`, () => {
+  const s = scenario(n);
   const e = s.original.verification_event;
   assert.equal(completedEvent(e, [...s.stateComments, s.markerComment()], s.assessment), false);
   assert.throws(() => guardExistingEvent(e, [...s.stateComments, s.markerComment()], s.assessment), /incomplete/);
 });
+}
 
 // Production path: the verifier collector (not a hand-built event_history) must retain the
 // repair provenance, or the predecessor check can never see it. Only the artifact archive
 // inventory is injected; comments, authors, URLs and event_history come from the collector.
 async function collected(s, comments) {
-  const rows = comments.map(c => ({ id: Number(c.url.split('issuecomment-')[1]), html_url: c.url, user: { login: c.author, type: 'Bot' }, body: c.body }));
+  const rows = comments.map(c => ({ id: Number(c.url.split('issuecomment-')[1]), html_url: c.url, user: { login: c.author, type: 'Bot' }, body: c.body }))
+    .sort((a, b) => a.id - b.id);
   const github = { rest: { issues: { listComments: async () => ({ data: rows }) },
     pulls: { listReviewComments: async () => ({ data: [] }), listReviews: async () => ({ data: [] }) } } };
-  const evidence = await fetchVerifierEvidence({ github, owner: 'stranske', repo: 'workflows', pullNumber: s.n, pullRequestBody: `Release ${s.n} original request.` });
+  const evidence = await fetchVerifierEvidence({ github, owner: 'stranske', repo: 'workflows', pullNumber: s.n, pullRequestBody: s.base().pull.body });
   const input = s.changed();
   input.evidence = { ...input.evidence, event_history: evidence.event_history };
   return { evidence, input };
@@ -236,7 +291,7 @@ test('collector-retained provenance keeps untrusted, malformed, digest, subject,
     digest: [s.markerComment({ ...s.marker(), input_repair_id: sha('0') })],
     subject: [s.markerComment(s.marker({ pr: '4235' }))],
     execution: [s.markerComment(s.marker({ run_attempt: '2' }))],
-    newerWork: [comment, row({ status: 'pending', verification_event: { ...buildVerificationEvent(s.changed()).verification_event, event_id: sha('7') }, run_id: String(Number(s.state.run_id) + 5) }, 301)],
+    newerWork: [comment, row({ status: 'pending', verification_event: differentEvent(buildVerificationEvent(s.changed()).verification_event), run_id: String(Number(s.state.run_id) + 5) }, 301)],
   };
   for (const [name, extra] of Object.entries(cases)) {
     const { input } = await collected(s, [...s.stateComments, ...extra]);

@@ -1,0 +1,276 @@
+[
+  {
+    "pr": 4231,
+    "checked_at": "2026-11-03T03:59:16.395Z",
+    "source_delivery": {
+      "pr": 4242,
+      "merged_at": "2026-10-25T12:52:06Z",
+      "merge_sha": "99829d194588de062d88cad093e53a838b0351b2"
+    },
+    "subject": {
+      "schema": "verification-event/v1",
+      "repo": "stranske/workflows",
+      "pr": "4231",
+      "head_sha": "75b2d8c529b7c64a7b73e4a9337b43b33a3441da",
+      "evaluated_sha": "d16bb488edb0a3f25135762ed114bc8cabd397ec",
+      "request_sha256": "9781006dac538363f44d33583dba56f55e89cad2ddc01baa39b8f39585ce2f79",
+      "material_sha256": "87a3bb5de2f1e0c00910c8584e9b509a521d7821e72551d671cb17f6c113c57e",
+      "event_id": "adcfbf65b031d530c51ef3480df2b40fd8f57967feb0318e58bcbc66c5ce25df"
+    },
+    "marker_url": "https://github.com/stranske/Workflows/pull/4231#issuecomment-6398031847",
+    "marker_body_sha256": "c25059e14a224aa3b525dc8d471521efd44682b38f3476742a56c92693a47d00",
+    "proof": [
+      {
+        "url": "https://github.com/stranske/Workflows/pull/4231#issuecomment-6390994169",
+        "status": "included",
+        "chars": 655,
+        "body_sha256": "5a206ddd69d2aa7dd5bfdf8e576ba0b09742fc309ef1d6b35552a38e13471853"
+      }
+    ],
+    "history_eligibility": "ready",
+    "retained_artifact": {
+      "available": false,
+      "status": 404,
+      "message": "Not Found - https://docs.github.com/rest/actions/artifacts#get-an-artifact"
+    },
+    "collection": {
+      "error": "Required verification artifact member is absent, ambiguous or incomplete",
+      "code": null
+    },
+    "native_capacity_admission": "NOT_REACHED: collection must authenticate retained result artifact first",
+    "original_event_refusal": "Current verification event is incomplete; recover retained execution before another evaluation",
+    "original_event_accepting": false,
+    "resulting_event_deduplication": "UNRESOLVED: no live admitted resulting event",
+    "provider_generation_performed": false,
+    "provider_ordering": "No provider adapter imported, constructed, or invoked; only authenticated GitHub reads and local git diff ran.",
+    "retained_provider_verdicts": [
+      {
+        "provider": "anthropic",
+        "model": "claude-sonnet-5-5",
+        "verdict": "PASS"
+      },
+      {
+        "provider": "openai",
+        "model": "gpt-5.6-terra",
+        "verdict": "UNVERIFIABLE_INPUT"
+      }
+    ],
+    "api_calls": [
+      {
+        "method": "GET",
+        "url": "/repos/{owner}/{repo}/pulls/{pull_number}"
+      },
+      {
+        "method": "GET",
+        "url": "https://api.github.com/repos/stranske/Workflows/issues/4231/comments?per_page=100"
+      },
+      {
+        "method": "GET",
+        "url": "/repos/{owner}/{repo}/issues/comments/{comment_id}"
+      },
+      {
+        "method": "GET",
+        "url": "/repos/{owner}/{repo}/pulls/{pull_number}"
+      },
+      {
+        "method": "GET",
+        "url": "/repos/{owner}/{repo}/pulls/{pull_number}"
+      },
+      {
+        "method": "POST",
+        "url": "/graphql"
+      },
+      {
+        "method": "GET",
+        "url": "/repos/{owner}/{repo}/issues/comments/{comment_id}"
+      },
+      {
+        "method": "GET",
+        "url": "/repos/{owner}/{repo}/issues/{issue_number}/comments"
+      },
+      {
+        "method": "GET",
+        "url": "/repos/{owner}/{repo}/pulls/{pull_number}/comments"
+      },
+      {
+        "method": "GET",
+        "url": "/repos/{owner}/{repo}/pulls/{pull_number}/reviews"
+      },
+      {
+        "method": "GET",
+        "url": "/repos/{owner}/{repo}/actions/runs/{run_id}"
+      },
+      {
+        "method": "GET",
+        "url": "/repos/{owner}/{repo}/actions/runs/{run_id}/artifacts"
+      },
+      {
+        "method": "GET",
+        "url": "/repos/{owner}/{repo}/actions/artifacts/{artifact_id}"
+      },
+      {
+        "method": "GET",
+        "url": "/repos/{owner}/{repo}/actions/workflows/{workflow_id}/runs"
+      },
+      {
+        "method": "GET",
+        "url": "/repos/{owner}/{repo}/actions/runs/{run_id}/jobs"
+      },
+      {
+        "method": "GET",
+        "url": "/repos/{owner}/{repo}/actions/workflows/{workflow_id}/runs"
+      },
+      {
+        "method": "GET",
+        "url": "/repos/{owner}/{repo}/actions/runs/{run_id}/jobs"
+      },
+      {
+        "method": "GET",
+        "url": "/repos/{owner}/{repo}/pulls/{pull_number}/commits"
+      },
+      {
+        "method": "GET",
+        "url": "/repos/{owner}/{repo}/actions/artifacts/{artifact_id}"
+      }
+    ],
+    "outputs": {},
+    "logs": []
+  },
+  {
+    "pr": 4235,
+    "checked_at": "2026-11-03T03:59:22.589Z",
+    "source_delivery": {
+      "pr": 4242,
+      "merged_at": "2026-10-25T12:52:06Z",
+      "merge_sha": "99829d194588de062d88cad093e53a838b0351b2"
+    },
+    "subject": {
+      "schema": "verification-event/v1",
+      "repo": "stranske/workflows",
+      "pr": "4235",
+      "head_sha": "af7c09ac2b61ac70c3460bfc4856cf9d83e713b0",
+      "evaluated_sha": "206b761c594ad3367f345a6c9cac92216e0daa00",
+      "request_sha256": "9ba1d980f5d1a39583e027804344d13c6b0ef94b02cf014ee04d2a409a23a0a3",
+      "material_sha256": "02bee127a5b50fe5632a62aa5c578dc0e01202edbd0a00ddcb0db9b1d1be05da",
+      "event_id": "5106858cb3907e898cb09b12f4d6fbff40cfaa4be1fd9a16bd7b4891ba849616"
+    },
+    "marker_url": "https://github.com/stranske/Workflows/pull/4235#issuecomment-6398029735",
+    "marker_body_sha256": "51daeadbbcfa5932783a11368185b2dd14a7a6c3862a41e47e84baac8b0a8fe0",
+    "proof": [
+      {
+        "url": "https://github.com/stranske/Workflows/pull/4235#issuecomment-6392557346",
+        "status": "included",
+        "chars": 545,
+        "body_sha256": "09aa18e7aae4828cd77545ff3a0afb304bca72943023959281b03ff4e7604397"
+      }
+    ],
+    "history_eligibility": "ready",
+    "retained_artifact": {
+      "available": false,
+      "status": 404,
+      "message": "Not Found - https://docs.github.com/rest/actions/artifacts#get-an-artifact"
+    },
+    "collection": {
+      "error": "Required verification artifact member is absent, ambiguous or incomplete",
+      "code": null
+    },
+    "native_capacity_admission": "NOT_REACHED: collection must authenticate retained result artifact first",
+    "original_event_refusal": "Current verification event is incomplete; recover retained execution before another evaluation",
+    "original_event_accepting": false,
+    "resulting_event_deduplication": "UNRESOLVED: no live admitted resulting event",
+    "provider_generation_performed": false,
+    "provider_ordering": "No provider adapter imported, constructed, or invoked; only authenticated GitHub reads and local git diff ran.",
+    "retained_provider_verdicts": [
+      {
+        "provider": "anthropic",
+        "model": "claude-sonnet-5-5",
+        "verdict": "PASS"
+      },
+      {
+        "provider": "openai",
+        "model": "gpt-5.6-terra",
+        "verdict": "UNVERIFIABLE_INPUT"
+      }
+    ],
+    "api_calls": [
+      {
+        "method": "GET",
+        "url": "/repos/{owner}/{repo}/pulls/{pull_number}"
+      },
+      {
+        "method": "GET",
+        "url": "https://api.github.com/repos/stranske/Workflows/issues/4235/comments?per_page=100"
+      },
+      {
+        "method": "GET",
+        "url": "/repos/{owner}/{repo}/issues/comments/{comment_id}"
+      },
+      {
+        "method": "GET",
+        "url": "/repos/{owner}/{repo}/pulls/{pull_number}"
+      },
+      {
+        "method": "GET",
+        "url": "/repos/{owner}/{repo}/pulls/{pull_number}"
+      },
+      {
+        "method": "POST",
+        "url": "/graphql"
+      },
+      {
+        "method": "GET",
+        "url": "/repos/{owner}/{repo}/issues/comments/{comment_id}"
+      },
+      {
+        "method": "GET",
+        "url": "/repos/{owner}/{repo}/issues/{issue_number}/comments"
+      },
+      {
+        "method": "GET",
+        "url": "/repos/{owner}/{repo}/pulls/{pull_number}/comments"
+      },
+      {
+        "method": "GET",
+        "url": "/repos/{owner}/{repo}/pulls/{pull_number}/reviews"
+      },
+      {
+        "method": "GET",
+        "url": "/repos/{owner}/{repo}/actions/runs/{run_id}"
+      },
+      {
+        "method": "GET",
+        "url": "/repos/{owner}/{repo}/actions/runs/{run_id}/artifacts"
+      },
+      {
+        "method": "GET",
+        "url": "/repos/{owner}/{repo}/actions/artifacts/{artifact_id}"
+      },
+      {
+        "method": "GET",
+        "url": "/repos/{owner}/{repo}/actions/workflows/{workflow_id}/runs"
+      },
+      {
+        "method": "GET",
+        "url": "/repos/{owner}/{repo}/actions/runs/{run_id}/jobs"
+      },
+      {
+        "method": "GET",
+        "url": "/repos/{owner}/{repo}/actions/workflows/{workflow_id}/runs"
+      },
+      {
+        "method": "GET",
+        "url": "/repos/{owner}/{repo}/actions/runs/{run_id}/jobs"
+      },
+      {
+        "method": "GET",
+        "url": "/repos/{owner}/{repo}/pulls/{pull_number}/commits"
+      },
+      {
+        "method": "GET",
+        "url": "/repos/{owner}/{repo}/actions/artifacts/{artifact_id}"
+      }
+    ],
+    "outputs": {},
+    "logs": []
+  }
+]

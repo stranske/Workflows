@@ -419,6 +419,12 @@ def test_empty_formatted_output_is_invalid_without_loading_validator(monkeypatch
 
 
 def test_fallback_helpers_preserve_fences_and_ignore_non_tasks() -> None:
+    """Regression for #4005: whitespace-indented checklist lines are nested, not top-level.
+
+    ``issue_formatter._extract_tasks_from_formatted`` used ``if indent.strip():`` to skip
+    nested items; a whitespace-only indent made ``strip()`` empty, so nested lines were
+    extracted as top-level tasks. Production fix (#4009): ``if indent:`` rejects any indent.
+    """
     sections, preamble = issue_formatter._parse_sections(
         "intro\n````\n## Tasks\n```\n````\n<details>inline</details>\n## Tasks\n- [ ] real task\n"
     )

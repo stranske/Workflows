@@ -1,0 +1,80 @@
+{
+  "checked_at": "2026-11-03T03:59:44.495Z",
+  "source_delivery": "99829d194588de062d88cad093e53a838b0351b2",
+  "archive": {
+    "artifact_id": 12584318436,
+    "sha256": "526dcef67f26160ece176b800e7a4d18a2e6d6883d7a2e4294b07570570486ab",
+    "bytes": 41987,
+    "source": "historical locally retained archive; live artifact returns HTTP 404"
+  },
+  "provenance": {
+    "id": 6398029735,
+    "html_url": "https://github.com/stranske/Workflows/pull/4235#issuecomment-6398029735",
+    "issue_url": "https://api.github.com/repos/stranske/Workflows/issues/4235",
+    "user": {
+      "login": "github-actions[bot]",
+      "id": 41898282,
+      "type": "Bot"
+    },
+    "created_at": "2026-10-25T13:07:27Z",
+    "updated_at": "2026-10-25T13:07:27Z",
+    "body": "<!-- verifier-input-repair/v1 {\"schema\":\"verifier-input-repair/v1\",\"repo\":\"stranske/workflows\",\"pr\":\"4235\",\"head_sha\":\"af7c09ac2b61ac70c3460bfc4856cf9d83e713b0\",\"evaluated_sha\":\"206b761c594ad3367f345a6c9cac92216e0daa00\",\"run_id\":\"40155311407\",\"run_attempt\":\"1\",\"verification_event\":{\"schema\":\"verification-event/v1\",\"repo\":\"stranske/workflows\",\"pr\":\"4235\",\"head_sha\":\"af7c09ac2b61ac70c3460bfc4856cf9d83e713b0\",\"evaluated_sha\":\"206b761c594ad3367f345a6c9cac92216e0daa00\",\"request_sha256\":\"9ba1d980f5d1a39583e027804344d13c6b0ef94b02cf014ee04d2a409a23a0a3\",\"material_sha256\":\"02bee127a5b50fe5632a62aa5c578dc0e01202edbd0a00ddcb0db9b1d1be05da\",\"event_id\":\"5106858cb3907e898cb09b12f4d6fbff40cfaa4be1fd9a16bd7b4891ba849616\"},\"assessment_identity\":{\"mode\":\"compare\",\"provider\":\"\",\"model\":\"\",\"model2\":\"\",\"canonical\":true},\"original_material\":{\"schema\":\"verification-material/v1\",\"code\":{\"head_sha\":\"af7c09ac2b61ac70c3460bfc4856cf9d83e713b0\",\"evaluated_sha\":\"206b761c594ad3367f345a6c9cac92216e0daa00\",\"diff_sha256\":\"ec5035f0cb13abd11abd037bedf565969b4e66e5bc9970e46094506237eeb5a4\"},\"ci_hard_gate\":{\"schema\":\"verification-ci-hard-gate/v1\",\"head_sha\":\"af7c09ac2b61ac70c3460bfc4856cf9d83e713b0\",\"evaluated_sha\":\"206b761c594ad3367f345a6c9cac92216e0daa00\",\"results\":[{\"workflow_id\":\"selftest-ci.yml\",\"binding_status\":\"bound\",\"head_sha\":\"206b761c594ad3367f345a6c9cac92216e0daa00\",\"run_id\":40155249524,\"run_attempt\":1,\"conclusion\":\"cancelled\"},{\"workflow_id\":\"pr-11-ci-smoke.yml\",\"binding_status\":\"bound\",\"head_sha\":\"206b761c594ad3367f345a6c9cac92216e0daa00\",\"run_id\":40155249335,\"run_attempt\":1,\"conclusion\":\"success\"}]},\"required_evidence\":[]},\"result\":{\"path\":\"comparison.json\",\"raw_sha256\":\"82ca92af1626088b9535eaed404a7abb8aa8c2a1811bc94cebbc109ae439b260\",\"bytes\":13107},\"receipt\":{\"path\":\"comparison-execution.json\",\"raw_sha256\":\"fdfd86a2191ff849640b15f0b730ae91d622d0cff731980db0fd58487be50bd2\"},\"provider_verdicts\":[{\"provider\":\"anthropic\",\"model\":\"claude-sonnet-5-5\",\"verdict\":\"PASS\"},{\"provider\":\"openai\",\"model\":\"gpt-5.6-terra\",\"verdict\":\"UNVERIFIABLE_INPUT\"}],\"input_repair_id\":\"03a1ccc0784ad0cd77f3df541bf293e1f349e825281478f7cfaa37fa79819f87\"} -->\n<!-- verifier-input-repair-publication/v1 {\"schema\":\"verifier-input-repair-publication/v1\",\"input_repair_id\":\"03a1ccc0784ad0cd77f3df541bf293e1f349e825281478f7cfaa37fa79819f87\",\"source_run_id\":\"40155311407\",\"source_run_attempt\":\"1\",\"artifact_id\":12584318436,\"archive_sha256\":\"526dcef67f26160ece176b800e7a4d18a2e6d6883d7a2e4294b07570570486ab\",\"publisher_run_id\":\"40196137333\",\"publisher_run_attempt\":\"1\",\"provider_generation_performed\":false,\"verdict_authority\":false,\"acceptance_authority\":false,\"retry_authority\":false} -->\nInput-repair provenance for run 40155311407 attempt 1. Provenance only: no verdict, acceptance or retry authority.\n",
+    "github_app_id": 15368
+  },
+  "history": [
+    {
+      "id": 6392599897,
+      "html_url": "https://github.com/stranske/Workflows/pull/4235#issuecomment-6392599897",
+      "issue_url": "https://api.github.com/repos/stranske/Workflows/issues/4235",
+      "user": {
+        "login": "github-actions[bot]",
+        "id": 41898282,
+        "type": "Bot"
+      },
+      "created_at": "2026-10-25T02:44:59Z",
+      "updated_at": "2026-10-25T02:44:59Z",
+      "body": "<!-- verifier-event-state/v1 {\"schema\":\"verifier-event-state/v1\",\"repo\":\"stranske/workflows\",\"pr\":\"4235\",\"head_sha\":\"af7c09ac2b61ac70c3460bfc4856cf9d83e713b0\",\"evaluated_sha\":\"206b761c594ad3367f345a6c9cac92216e0daa00\",\"run_id\":\"40155311407\",\"run_attempt\":\"1\",\"status\":\"pending\",\"verification_event\":{\"schema\":\"verification-event/v1\",\"repo\":\"stranske/workflows\",\"pr\":\"4235\",\"head_sha\":\"af7c09ac2b61ac70c3460bfc4856cf9d83e713b0\",\"evaluated_sha\":\"206b761c594ad3367f345a6c9cac92216e0daa00\",\"request_sha256\":\"9ba1d980f5d1a39583e027804344d13c6b0ef94b02cf014ee04d2a409a23a0a3\",\"material_sha256\":\"02bee127a5b50fe5632a62aa5c578dc0e01202edbd0a00ddcb0db9b1d1be05da\",\"event_id\":\"5106858cb3907e898cb09b12f4d6fbff40cfaa4be1fd9a16bd7b4891ba849616\"},\"assessment_identity\":{\"mode\":\"compare\",\"provider\":\"\",\"model\":\"\",\"model2\":\"\",\"canonical\":true},\"execution_binding\":{\"schema\":\"verifier-execution-binding/v1\",\"workflow_path\":\".github/workflows/agents-verifier.yml\",\"job_name\":\"Run post-merge verifier\",\"pending_step\":\"Record verification event pending\",\"evaluator_step\":\"Run multi-provider comparison\"}} -->",
+      "github_app_id": 15368
+    },
+    {
+      "id": 6392609730,
+      "html_url": "https://github.com/stranske/Workflows/pull/4235#issuecomment-6392609730",
+      "issue_url": "https://api.github.com/repos/stranske/Workflows/issues/4235",
+      "user": {
+        "login": "github-actions[bot]",
+        "id": 41898282,
+        "type": "Bot"
+      },
+      "created_at": "2026-10-25T02:46:09Z",
+      "updated_at": "2026-10-25T02:46:09Z",
+      "body": "<!-- verifier-event-state/v1 {\"schema\":\"verifier-event-state/v1\",\"repo\":\"stranske/workflows\",\"pr\":\"4235\",\"head_sha\":\"af7c09ac2b61ac70c3460bfc4856cf9d83e713b0\",\"evaluated_sha\":\"206b761c594ad3367f345a6c9cac92216e0daa00\",\"run_id\":\"40155311407\",\"run_attempt\":\"1\",\"status\":\"incomplete\",\"failure_cause\":\"retained_provider_evaluation\",\"retry_kind\":\"recover_existing_evaluation\",\"retryable\":false,\"verification_event\":{\"schema\":\"verification-event/v1\",\"repo\":\"stranske/workflows\",\"pr\":\"4235\",\"head_sha\":\"af7c09ac2b61ac70c3460bfc4856cf9d83e713b0\",\"evaluated_sha\":\"206b761c594ad3367f345a6c9cac92216e0daa00\",\"request_sha256\":\"9ba1d980f5d1a39583e027804344d13c6b0ef94b02cf014ee04d2a409a23a0a3\",\"material_sha256\":\"02bee127a5b50fe5632a62aa5c578dc0e01202edbd0a00ddcb0db9b1d1be05da\",\"event_id\":\"5106858cb3907e898cb09b12f4d6fbff40cfaa4be1fd9a16bd7b4891ba849616\"},\"assessment_identity\":{\"mode\":\"compare\",\"provider\":\"\",\"model\":\"\",\"model2\":\"\",\"canonical\":true}} -->",
+      "github_app_id": 15368
+    }
+  ],
+  "proof": {
+    "records": [
+      {
+        "source": "explicit required conversation comment",
+        "url": "https://github.com/stranske/Workflows/pull/4235#issuecomment-6392557346",
+        "body": "Release metadata merged through the canonical exact-head guard: head `af7c09ac2b61ac70c3460bfc4856cf9d83e713b0`, required checks SUCCESS, zero active non-outdated unresolved review threads, seven-minute floor satisfied (review age 2976s). Squash merge `206b761c594ad3367f345a6c9cac92216e0daa00` completed at 2026-10-25T02:38:54Z. Workflows v1.44.17 published at 02:39:06Z. The two changed files are the release manifest and changelog. This is release-metadata delivery evidence; merge-bound comparison and broader source acceptance are separate.",
+        "author": "stranske",
+        "author_id": 23046322,
+        "comment_id": 6392557346,
+        "created_at": "2026-10-25T02:39:54Z",
+        "updated_at": "2026-10-25T02:39:54Z",
+        "required_material": true
+      }
+    ],
+    "inventory": [
+      {
+        "url": "https://github.com/stranske/Workflows/pull/4235#issuecomment-6392557346",
+        "status": "included",
+        "chars": 545,
+        "body_sha256": "09aa18e7aae4828cd77545ff3a0afb304bca72943023959281b03ff4e7604397"
+      }
+    ],
+    "chars": 545
+  },
+  "live_admission": false,
+  "provider_generation_performed": false
+}
