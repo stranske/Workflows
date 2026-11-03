@@ -13,15 +13,15 @@ network access: provider clients are faked through `sys.modules` and `patch`.
 
 ## Counts (hosted Gate, Python 3.14 artifact only, never summed with 3.13)
 
-| Target | Round base 41557902073 | After PR 4406 (41668857273) | This PR head (HEAD_RUN) |
+| Target | Round base 41557902073 | After PR 4406 (41668857273) | This PR head (41717668636) |
 | --- | ---: | ---: | ---: |
-| scripts/aggregate_agent_metrics.py | 0 + 3 | 0 + 3 | HEAD_AGG |
-| scripts/check_consumer_sync_drift.py | 0 + 0 | 0 + 0 | HEAD_SYNC |
-| tools/llm_provider.py | 77 + 27 | 54 + 16 | HEAD_LLM |
-| **TARGET_MISSING** | **107** | **73** | **HEAD_TOTAL** |
+| scripts/aggregate_agent_metrics.py | 0 + 3 | 0 + 3 | 0 + 0 |
+| scripts/check_consumer_sync_drift.py | 0 + 0 | 0 + 0 | 0 + 0 |
+| tools/llm_provider.py | 77 + 27 | 54 + 16 | 3 + 0 |
+| **TARGET_MISSING** | **107** | **73** | **3** |
 
 Missing lines + missing branches. Printed by `target_missing.py` over each run's `gate-coverage-3.14-1`
-`runtimes/3.14/coverage.json`. See `baseline-41668857273.txt` and `head-HEAD_RUN.txt`.
+`runtimes/3.14/coverage.json`. See `baseline-41668857273.txt` and `head-41717668636.txt`.
 
 ### Why "about 180" is not reachable, by target
 
@@ -32,7 +32,7 @@ Missing lines + missing branches. Printed by `target_missing.py` over each run's
   abstract `name`, `is_available` and `analyze_completion` methods (265, 270, 292). They have no behavior.
   Covering them would only call `super()` from a test, which is padding. They were not excluded from coverage.
 
-So the whole list held 107 units. The round removed 107 - HEAD_TOTAL of them, and the list is exhausted.
+So the whole list held 107 units. The round removed 104 of them (3 + 0 + 101), and the list is exhausted.
 
 ## Real bug fixed (one word in `tools/llm_provider.py`)
 
@@ -59,4 +59,14 @@ The first `E` line of each red run shows the asserted behavior breaking; no red 
   This is diagnostic only. Its 15 extra provider lines (73-74, 220-224, 1019-1023, 1044) are covered by
   other test files in the whole-suite run.
 - black 26.10.1 `--line-length 100` and ruff: no changes, all checks passed.
-- The full suite runs only in hosted CI: HEAD_RUN.
+- The full suite runs only in hosted CI: 41717668636.
+
+## Hosted CI
+
+- Gate 41717668636 on `f485bbc25`: success. Python 3.14 job 126202357345 and Python 3.13 job 126202357499
+  both ran the full pytest suite and passed. Its 3.14 coverage artifact prints `TARGET_MISSING 3`. The
+  repository total moves from 63,040 to 63,110 covered units out of 69,241 (91.04% to 91.15%), the same
+  denominator as the baseline.
+- Gate 41714904528 on `a28894a1f` (attempt 1) ran pytest green on both runtimes, but lint failed on this
+  directory's own helper scripts. The fix in `f485bbc25` is formatting only: no test or production change.
+- The final commit adds only these evidence numbers.
