@@ -80,3 +80,15 @@ Focused Gate invocation: **242 passed in 31.55s**, exit 0, four workers.
 `focused-coverage.txt` contains its full output, and `focused-targets.json`
 contains diagnostic target counters. Its whole-source 5.53% is expected for
 three test files and must not be compared to the whole-suite baseline.
+
+## Exact hosted CI failure drained
+
+[Selftest 41667310644](https://github.com/stranske/Workflows/actions/runs/41667310644)
+on 79a662301 failed two existing live PyPI compatibility tests in both runtimes:
+`test_simulated_consumer_repo_sync` and `test_autofix_versions_env_not_stale`.
+Both printed `coverage: pinned=7.17.0, latest=7.17.1`. The only configuration
+repair is `.github/workflows/autofix-versions.env`'s coverage pin to 7.17.1.
+This is an observed freshness failure, not a refactor, threshold change or
+new test. The two exact failing node IDs passed locally, **2 passed in 3.26s**,
+exit 0; command recorded before editing in acceptance.md and output retained
+in pin-checks.txt. No broader dependency refresh was performed.

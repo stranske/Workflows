@@ -32,3 +32,10 @@ the first broken step and report it. Blocking/drainable pair: unresolved review
 blocks merge / fixing and proving each finding drains it while the PR stays open.
 CI pending blocks delivery / hosted CI runs while evidence is prepared. No lock,
 review hold, or permit is created by this document.
+
+Hosted Selftest at 79a662301 printed an independent stale coverage pin:
+`COVERAGE_VERSION=7.17.0`, live PyPI `7.17.1`. Outcome 2 is both named
+freshness checks passing after a one-line pin refresh. Acceptance command:
+`/opt/anaconda3/bin/python3 -m pytest tests/scripts/test_update_versions_from_pypi.py::TestConsumerRepoSampling::test_simulated_consumer_repo_sync tests/scripts/test_update_versions_from_pypi.py::TestConsumerRepoSampling::test_autofix_versions_env_not_stale -q`.
+This changes the published tool pin only, not coverage configuration or test
+behavior. No dependency sweep or consumer sync is part of this repair.
