@@ -1,11 +1,23 @@
 {
-  "check_date": "2026-11-02",
+  "check_date": "2026-11-03",
   "repair_of": "stranske/Workflows#4164@4169",
   "candidate_head": "9d81f4973c9f28bd8b41fe0b2f355ab276b63bdd",
   "base_head": "d2def1901357855222046823b609a8f87b95ccfb",
   "ranking": "Issue #4164 Orchestrator order: escaped-defect signal, then churn, then uncovered mass. Targets: tools/post_ci_summary.py (3), scripts/check_gate_diff_quality.py (9), scripts/langchain/topic_splitter.py (8), scripts/check_issue_consistency.py (214).",
+  "ci_commands": {
+    "gate_workflow": ".github/workflows/pr-00-gate.yml (job python-ci → reusable-10-ci-python.yml)",
+    "gate_pytest_step": "pytest -p ci_test_growth with -m \"not quarantine and not slow\" (or detect.pytest_markers), PYTEST_WORKERS=4, -n 4 --dist=loadgroup, --junitxml=pytest-junit.xml, full-repo testpaths from pyproject.toml",
+    "gate_coverage": "On primary runtime 3.14 when coverage enabled: --cov --cov-config=pyproject.toml --cov-report=xml:coverage.xml --cov-report=json:coverage.json --cov-report=term-missing; artifacts uploaded as gate-coverage-{python}-{run_attempt} (payload gate-coverage.json inside)",
+    "selftest_ci_parallel": ".github/workflows/selftest-ci.yml uses the same reusable workflow with pytest_markers not quarantine and not slow, pytest-workers 4, coverage-min 70%, artifact-prefix selftest-",
+    "maint_coverage_guard": ".github/workflows/maint-coverage-guard.yml consumes gate-coverage-* artifacts (not re-run here)"
+  },
   "pytest_gate_failure_accounting": {
     "reported": "PR #4169 auto-status: Deterministic gates 0/1 — Criterion 1 FAIL — pytest (exit 1)",
+    "platformdirs_plugin_failure": {
+      "source": "PR #4169 keepalive-state deterministic_gates on candidate head 9d81f497 (comment 6300744996)",
+      "exact_error": "ModuleNotFoundError: No module named 'platformdirs.pytest_plugin' during pytest_cmdline_parse (before test collection)",
+      "accounting": "Keepalive acceptance gate invoked bare `pytest` outside CI's pinned requirements.lock install; missing optional plugin is an environment mismatch, not a failing assertion in #4169 tests."
+    },
     "ci_gate_python_313": {
       "run_id": 39498031183,
       "job_url": "https://github.com/stranske/Workflows/actions/runs/39498031183/job/118888915990",
@@ -15,16 +27,16 @@
     "keepalive_acceptance_gate": {
       "extracted_command": "pytest",
       "source": "Issue #4164 acceptance criteria checkbox backtick `pytest` parsed by scripts/runner_lib/acceptance_gate.py",
-      "repro_on_candidate_head": "acceptance_gate.py --prepare with issue markdown; bare pytest over full suite hit TIMEOUT (exit 124) at 300s cap before completion",
-      "conclusion": "No demonstrated defect in #4169 tests; required CI pytest passed. Reported gate failure is the isolated acceptance gate running unscoped bare pytest (not CI markers/xdist), not a failing test assertion on the merged head."
+      "repro_on_candidate_head": "acceptance_gate.py --prepare with issue markdown; full-suite bare pytest hit TIMEOUT (exit 124) at 300s cap before completion on closer replay (2026-11-02)",
+      "conclusion": "Distinct from platformdirs plugin failure (parse-time exit 1) and from Gate CI (exit 0). No production or #4169 test defect demonstrated on merged head."
     },
     "closer_targeted_pytest": {
       "command": "/opt/anaconda3/bin/python3 -m pytest -q tests/scripts/test_check_gate_diff_quality.py tests/scripts/test_issue_consistency_check.py tests/test_post_ci_summary.py tests/test_topic_splitter.py",
-      "result_on_main_after_4169": "136 passed in ~1.6s"
+      "result_on_main_after_4169": "136 passed in 1.24s (2026-11-03 local)"
     }
   },
   "coverage": {
-    "procedure": "Issue CI baseline counts from #4164; after = focused module pytest --cov on candidate head 9d81f497 (same modules/flags as opener #4169). Whole-repo Gate artifact comparison not retained (7-day artifact expiry); comparable target-module accounting below.",
+    "procedure": "Issue CI baseline uncovered-unit counts from #4164 issue body. Focused after = module-scoped pytest --cov on current main (includes merged #4169). Whole-repo Gate gate-coverage.json before/after #4169 not retained locally (artifact expiry); gate_* fields record unknown Gate delta.",
     "issue_ci_baseline_uncovered_units": {
       "tools/post_ci_summary.py": 3,
       "scripts/check_gate_diff_quality.py": 9,
@@ -34,22 +46,27 @@
     },
     "candidate_focused_after": {
       "command": "pytest tests/test_post_ci_summary.py tests/scripts/test_check_gate_diff_quality.py tests/test_topic_splitter.py tests/scripts/test_issue_consistency_check.py --cov=tools.post_ci_summary --cov=scripts.check_gate_diff_quality --cov=scripts.langchain.topic_splitter --cov=scripts.check_issue_consistency --cov-branch --cov-report=term-missing -m \"not slow\" -q",
-      "head": "9d81f497",
+      "head": "main after merged #4169 (closer branch docs-only)",
       "files": {
         "tools/post_ci_summary.py": {"missing_lines": 1, "missing_branches": 2, "uncovered_units": 3},
         "scripts/check_gate_diff_quality.py": {"missing_lines": 0, "missing_branches": 0, "uncovered_units": 0},
-        "scripts/langchain/topic_splitter.py": {"missing_lines": 3, "missing_branches": 0, "uncovered_units": 3},
+        "scripts/langchain/topic_splitter.py": {"missing_lines": 0, "missing_branches": 0, "uncovered_units": 0},
         "scripts/check_issue_consistency.py": {"missing_lines": 1, "missing_branches": 1, "uncovered_units": 2}
       },
-      "remaining_uncovered_units_total": 8,
-      "delta_units_covered_vs_issue_baseline": 226,
-      "shortfall_vs_180_target": 0,
-      "remaining_explanation": "post_ci_summary.py:749-755 duplicate-name continue after break (751). topic_splitter.py:26-28 relative-import fallback. check_issue_consistency.py:320 unreachable raise when fallbacks empty."
+      "remaining_uncovered_units_total": 5,
+      "focused_delta_units_covered_vs_issue_baseline": 229,
+      "focused_shortfall_vs_180_target": 0,
+      "gate_delta_units_covered_vs_issue_baseline": null,
+      "gate_shortfall_vs_180_target": null,
+      "gate_comparison_note": "Focused module pytest --cov is not comparable to whole-CI gate-coverage.json per-file counts; #4169 Gate pytest+coverage job was green at merge (run 39498031183).",
+      "remaining_explanation": "post_ci_summary.py:749-756 branch around duplicate job names (752). check_issue_consistency.py:320 unreachable raise when fallbacks empty."
     }
   },
   "break_revert": {
     "artifact": "docs/evidence/issue-4164/break_revert_pairs.json",
+    "schema": "break-revert/v2",
     "distinct_new_tests": 28,
-    "pairs_recorded": 29
+    "pairs_recorded": 29,
+    "retry_notes": "See break_revert_pairs.json retry_notes for test_fallback_helpers_try_all_candidates"
   }
 }
