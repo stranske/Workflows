@@ -1895,7 +1895,7 @@ class TestGitHubModelsConfidenceValidation:
         )
 
         confidence, warnings = provider._validate_confidence(
-            raw_confidence=0.8,
+            raw_confidence=0.6,
             completed_count=0,
             in_progress_count=0,
             quality_context=quality_context,
@@ -2110,7 +2110,10 @@ class TestAnthropicProvider:
 
         assert mock_client.invoke.call_count == 2
         assert mock_client.invoke.call_args_list[0].kwargs["quality_context"] is quality_context
-        assert mock_client.invoke.call_args_list[1].args[0]
+        assert mock_client.invoke.call_args_list[1].args == (
+            mock_client.invoke.call_args_list[0].args[0],
+        )
+        assert mock_client.invoke.call_args_list[1].kwargs == {}
         assert result.confidence == 0.5
 
     def test_analyze_completion_raises_timeout_error(self):

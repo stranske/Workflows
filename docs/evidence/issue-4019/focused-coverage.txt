@@ -1,0 +1,255 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.12.2, pytest-9.1.1, pluggy-1.6.0
+rootdir: /Users/teacher/.codex/orchestrator/worktrees/stranske__Workflows__4406__closer
+configfile: pyproject.toml
+plugins: hypothesis-6.161.5, cov-7.1.0, xdist-3.8.0, rerunfailures-16.3, anyio-4.14.2, datadir-1.8.0, typeguard-4.5.1, asyncio-1.3.0, langsmith-0.10.10, pytest_httpserver-1.1.3, regressions-2.11.0, Faker-40.39.0
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+created: 4/4 workers
+4 workers [242 items]
+
+........................................................................ [ 29%]
+........................................................................ [ 59%]
+........................................................................ [ 89%]
+..........................                                               [100%]
+--------------- generated xml file: /tmp/4019-focused-junit.xml ----------------
+================================ tests coverage ================================
+_______________ coverage: platform darwin, python 3.12.2-final-0 _______________
+
+Name                                                       Stmts   Miss Branch BrPart   Cover   Missing
+-------------------------------------------------------------------------------------------------------
+scripts/__init__.py                                            0      0      0      0 100.00%
+scripts/agent_switch_cadence.py                              219    219    104      0   0.00%   13-472
+scripts/aggregate_agent_metrics.py                           899      0    380      3  99.77%   492->481, 954->910, 1011->996
+scripts/aggregate_metrics.py                                  95     95     36      0   0.00%   8-192
+scripts/aggregate_repo_metrics.py                            127    127     44      0   0.00%   4-220
+scripts/analyze_api_rate_limits.py                           329    329    144      0   0.00%   8-582
+scripts/analyze_codex_session.py                             195    195     90      0   0.00%   26-418
+scripts/api_client.py                                        135    102     50      0  17.84%   31-45, 65-75, 79-82, 94-104, 117-152, 159-164, 168-170, 182-194, 206-216, 228-237, 250-263, 274-284, 297-312, 321-335
+scripts/audit_belt_ledger_completion.py                       42     42     16      0   0.00%   4-59
+scripts/auth_validator.py                                     56     56     28      0   0.00%   1-163
+scripts/auto_type_hygiene.py                                 139    139     68      0   0.00%   25-212
+scripts/autopilot_metrics_collector.py                       378    378    186      0   0.00%   33-610
+scripts/autopilot_step_timer.py                               85     85     22      0   0.00%   4-139
+scripts/belt_ledger_completion.py                            141    141     62      0   0.00%   4-331
+scripts/bootstrap_consumer_settings.py                       376    376    160      0   0.00%   32-728
+scripts/build_autofix_pr_comment.py                          152    152     52      0   0.00%   3-229
+scripts/build_consumer_sync_shadow_handoff.py                 52     52     14      0   0.00%   4-97
+scripts/capture_bootstrap_label_tests.py                      15     15      0      0   0.00%   4-40
+scripts/check_agents_md_freshness.py                         131    131     50      0   0.00%   4-186
+scripts/check_api_wrapper_guard.py                           121    121     54      0   0.00%   4-236
+scripts/check_checks_reported.py                             938    938    534      0   0.00%   10-1870
+scripts/check_codex_cli_freshness.py                         115    115     24      0   0.00%   4-214
+scripts/check_consumer_sync_drift.py                         633      0    296      0 100.00%
+scripts/check_deliberate_break.py                            620    620    276      0   0.00%   4-1242
+scripts/check_docs_drift.py                                  271    271    112      0   0.00%   4-438
+scripts/check_durable_tracker_liveness.py                    232    232     96      0   0.00%   4-505
+scripts/check_gate_diff_quality.py                            65     65     22      0   0.00%   4-130
+scripts/check_gate_python_job_timings.py                     234    234    102      0   0.00%   17-483
+scripts/check_issue_consistency.py                           417    417    202      0   0.00%   4-636
+scripts/check_template_drift.py                              202    202     58      0   0.00%   4-450
+scripts/check_workflow_action_pins.py                         91     91     28      0   0.00%   4-215
+scripts/ci_cosmetic_repair.py                                256    256     92      0   0.00%   21-562
+scripts/ci_coverage_delta.py                                  72     72     22      0   0.00%   4-137
+scripts/ci_failure_analyzer.py                               128    128     62      0   0.00%   7-284
+scripts/ci_history.py                                         87     87     24      0   0.00%   10-174
+scripts/ci_metrics.py                                        125    125     30      0   0.00%   18-242
+scripts/ci_test_growth.py                                     29     29      6      0   0.00%   7-59
+scripts/ci_time_budget.py                                    218    218     86      0   0.00%   9-410
+scripts/classify_test_failures.py                            125    125     46      0   0.00%   19-205
+scripts/cleanup_labels.py                                    150    150     52      0   0.00%   18-432
+scripts/cli_handler.py                                       208    208     90      0   0.00%   1-435
+scripts/closer_core_package.py                               240    240     84      0   0.00%   8-411
+scripts/closer_operation_github.py                           273    273    100      0   0.00%   8-459
+scripts/closer_runtime.py                                    847    847    336      0   0.00%   10-1779
+scripts/completion_evidence_adapter.py                         7      7      0      0   0.00%   3-14
+scripts/consumer_delivery_digest.py                           72     72     28      0   0.00%   4-106
+scripts/coverage_history_append.py                            53     53     16      0   0.00%   10-73
+scripts/create_verifier_labels.py                            118    118     52      0   0.00%   4-241
+scripts/debouncing_options_matrix.py                          44     44      4      0   0.00%   4-151
+scripts/dependency_sync_efficiency_metrics.py                251    251     96      0   0.00%   10-516
+scripts/dev_tool_update_policy.py                             23     23      6      0   0.00%   8-38
+scripts/docs_drift_fix_agent.py                              468    468    176      0   0.00%   17-1033
+scripts/duplicate_detection.py                               177    177     76      0   0.00%   1-327
+scripts/ensure_langsmith_fleet_artifact.py                   110    110     36      0   0.00%   10-309
+scripts/export_keepalive_durability.py                       209    209     90      0   0.00%   4-383
+scripts/fix_cosmetic_aggregate.py                             20     20      6      0   0.00%   3-30
+scripts/fix_numpy_asserts.py                                  38     38     16      0   0.00%   3-50
+scripts/gate_detect_output_diff.py                            68     68     24      0   0.00%   4-109
+scripts/generate_consumer_renovate_ownership.py               88     88     30      0   0.00%   33-225
+scripts/generate_llm_workflow_update_comment.py               48     48     10      0   0.00%   4-141
+scripts/generate_residual_trend.py                            61     61     26      0   0.00%   12-97
+scripts/generate_suppression_guard_comment.py                114    114     46      0   0.00%   4-211
+scripts/generate_worker_retry_comment.py                      88     88     34      0   0.00%   4-131
+scripts/guard_stable_plan_rotation.py                         34     34      4      0   0.00%   4-77
+scripts/issue_dedup_smoke.py                                   2      2      0      0   0.00%   4-6
+scripts/issue_pattern_corpus.py                              243    243    102      0   0.00%   4-402
+scripts/issue_pattern_feedback.py                            110    110     34      0   0.00%   4-173
+scripts/issue_pattern_report.py                               72     72     18      0   0.00%   4-155
+scripts/keepalive_metrics_dashboard.py                       115    115     48      0   0.00%   4-186
+scripts/langchain/__init__.py                                  0      0      0      0 100.00%
+scripts/langchain/_llm_client.py                              28     22      6      0  17.65%   53-60, 75-85, 97-102
+scripts/langchain/capability_check.py                        234    234     76      0   0.00%   10-465
+scripts/langchain/checklist_utils.py                           5      5      0      0   0.00%   3-11
+scripts/langchain/context_extractor.py                       182    182     64      0   0.00%   9-330
+scripts/langchain/followup_issue_generator.py                852    852    386      0   0.00%   23-2267
+scripts/langchain/injection_guard.py                          70     70     28      0   0.00%   40-269
+scripts/langchain/integration_layer.py                       104    104     48      0   0.00%   6-158
+scripts/langchain/issue_dedup.py                             154    154     50      0   0.00%   6-272
+scripts/langchain/issue_formatter.py                         447    447    174      0   0.00%   10-894
+scripts/langchain/issue_optimizer.py                         844    844    326      0   0.00%   11-1617
+scripts/langchain/issue_pr_context.py                        359    301    150      0  11.39%   62-81, 90-105, 120-163, 168-175, 183-189, 203-211, 226-251, 270-280, 293-307, 312-328, 340-350, 366-370, 378-433, 437, 447-461, 472-491, 495-509, 513-534, 538-542, 546-554, 558-567, 571-574, 578-592, 596-598, 602-610, 614-616, 620-622, 626, 630-642, 646-666
+scripts/langchain/label_matcher.py                           263    263    110      0   0.00%   6-578
+scripts/langchain/pr_verifier.py                            3221   2897   1316      0   7.14%   348-349, 353-366, 370-373, 388, 397-426, 438-476, 485-489, 531, 535-537, 540-544, 576-618, 631-636, 645-651, 665-740, 744-750, 754-879, 884-917, 922-939, 944-951, 957-977, 985-1032, 1039-1057, 1062-1107, 1113-1148, 1162-1262, 1352, 1510, 1523-1672, 1677, 1695-1707, 1737-1885, 1890-1901, 1957-2047, 2060-2061, 2167-2295, 2302-2385, 2396-2409, 2430-2436, 2447-2635, 2649-2679, 2685-5799, 5809, 5813-5815, 5820, 5852-5970, 5979, 5983-5985, 5996-6018, 6037-6099, 6110-6190, 6198-6222, 6229-6472, 6483, 6490-6519, 6524-6553, 6557-6565, 6575-6598, 6603-6618, 6635-7043, 7069-7097, 7101-7107, 7111-7129, 7133-7144, 7154-7196, 7203-7204, 7208-7211, 7222-7228, 7245-7286, 7295-7305, 7314-7378, 7393-7415, 7435-7602, 7636-7780, 7792-7864, 7871, 7874-7879, 7900-7964, 7968-7970, 7987-8015, 8020, 8030-8058, 8063-8064, 8082, 8096-8136, 8141-8154, 8164-8200, 8206-8225, 8242-8261, 8266-8269, 8291-8384, 8388, 8393-8399, 8403-8423, 8428-8452, 8471-8520, 8526-8533, 8542-8556, 8563-8732, 8753-8758, 8768, 8776-8807, 8812-8830, 8836-8850, 8856-8881, 8894-8977, 8981-8988, 9000, 9014-9029, 9033-9034, 9038-9041, 9045, 9049-9051, 9055-9067, 9071-9087, 9091-9234, 9238-9243, 9247-9250, 9254-9389
+scripts/langchain/progress_reviewer.py                       218    218     64      0   0.00%   22-760
+scripts/langchain/semantic_matcher.py                         95     95     22      0   0.00%   9-181
+scripts/langchain/structured_output.py                        74     43     12      2  38.37%   12-13, 48, 52, 56, 70, 83-100, 105, 109, 124-166, 183, 199-225
+scripts/langchain/task_decomposer.py                         380    380    186      0   0.00%   9-678
+scripts/langchain/task_validator.py                          248    248     70      0   0.00%   12-750
+scripts/langchain/topic_splitter.py                           71     71     14      0   0.00%   13-172
+scripts/langchain/trace_utils.py                             104     73     28      0  23.48%   26, 29-34, 52-66, 72-80, 84-95, 99-120, 124-135, 139-142, 146-153, 159-162, 168-169, 192-214
+scripts/langchain/verdict_extract.py                          49     49      8      0   0.00%   3-108
+scripts/langchain/verdict_policy.py                          153    153     60      0   0.00%   3-303
+scripts/langchain/verifier_config.py                         144    109     70      0  16.36%   82-93, 99-127, 133-169, 179-203, 207-223, 227-244, 248-261, 273-274, 278
+scripts/langchain/verifier_shadow.py                          94     94     20      0   0.00%   13-246
+scripts/langsmith_fleet.py                                   405    405    214      0   0.00%   4-696
+scripts/langsmith_fleet_conformance.py                       101    101     36      0   0.00%   4-251
+scripts/langsmith_observability_health.py                    183    183     58      0   0.00%   4-415
+scripts/ledger_migrate_base.py                               145    145     56      0   0.00%   1-216
+scripts/ledger_validate.py                                   391    391    174      0   0.00%   9-674
+scripts/list_registered_consumer_repos.py                     34     34     12      0   0.00%   9-64
+scripts/maint_tool_version_check.py                          132    132     24      0   0.00%   4-295
+scripts/measure_verifier_runtime.py                          116    116     28      0   0.00%   4-237
+scripts/metrics_alerting.py                                  348    348    156      0   0.00%   4-598
+scripts/metrics_dashboard_generator.py                       357    357    172      0   0.00%   4-615
+scripts/metrics_format_utils.py                               76     76     36      0   0.00%   7-132
+scripts/metrics_retention.py                                 321    321    122      0   0.00%   4-552
+scripts/model_profile_trial_contract.py                      315    315    132      0   0.00%   11-625
+scripts/mypy_autofix.py                                       45     45     20      0   0.00%   3-56
+scripts/mypy_return_autofix.py                                89     89     60      0   0.00%   3-116
+scripts/orchestrator_runtime/__init__.py                       4      4      0      0   0.00%   3-7
+scripts/orchestrator_runtime/capabilities.py                  35     35     10      0   0.00%   3-53
+scripts/orchestrator_runtime/capability_lifecycle.py          49     49     12      0   0.00%   3-102
+scripts/orchestrator_runtime/completion_event_adapter.py      61     61     10      0   0.00%   3-109
+scripts/orchestrator_runtime/consumer_sync_report.py          45     45     14      0   0.00%   8-101
+scripts/orchestrator_runtime/evidence_schema.py               48     48     20      0   0.00%   3-107
+scripts/orchestrator_runtime/runner_effect_bridge.py          25     25     10      0   0.00%   3-57
+scripts/orchestrator_skill.py                                188    188     64      0   0.00%   4-397
+scripts/prune_agent_stubs.py                                  42     42     12      0   0.00%   7-106
+scripts/reference_packs.py                                   162    162     46      0   0.00%   4-299
+scripts/repo_review_approval_ledger.py                       172    172     88      0   0.00%   8-287
+scripts/repo_review_backlog_scan.py                          212    212     84      0   0.00%   71-532
+scripts/repo_review_body_writer.py                           320    320    112      0   0.00%   37-778
+scripts/repo_review_coordinator.py                           710    710    230      0   0.00%   33-1949
+scripts/repo_review_docs_drift_scan.py                       286    286     98      0   0.00%   51-725
+scripts/repo_review_evaluator.py                            1557   1557    664      0   0.00%   10-4366
+scripts/repo_review_heartbeat.py                             104    104     16      0   0.00%   21-316
+scripts/repo_review_issue_quality.py                          87     87     60      0   0.00%   3-171
+scripts/repo_review_notify.py                                283    283     80      0   0.00%   30-727
+scripts/repo_review_queue_builder.py                         121    121     52      0   0.00%   30-284
+scripts/repo_review_round1_runner.py                         361    361    106      0   0.00%   31-987
+scripts/repo_review_round1_schema.py                         192    192    116      0   0.00%   13-360
+scripts/repo_review_round2_runner.py                         835    835    324      0   0.00%   39-2088
+scripts/repo_review_round2_schema.py                         211    211    114      0   0.00%   17-364
+scripts/repo_review_scorecard.py                             310    310    102      0   0.00%   23-679
+scripts/repo_review_state.py                                 122    122     22      0   0.00%   24-301
+scripts/reusable_ci_scope.py                                 240    240    106      0   0.00%   14-467
+scripts/run_consumer_repo_tests.py                            69     69     16      0   0.00%   1-135
+scripts/runner_lib/__init__.py                                 2      2      0      0   0.00%   3-17
+scripts/runner_lib/__main__.py                                 1      1      0      0   0.00%   1
+scripts/runner_lib/acceptance_gate.py                        165    165     54      0   0.00%   3-221
+scripts/runner_lib/core.py                                  1207   1207    460      0   0.00%   3-2458
+scripts/scope_consumer_sync_plan.py                          237    237     94      0   0.00%   4-489
+scripts/select_consumer_sync_phase.py                        157    157     64      0   0.00%   10-277
+scripts/stage_agent_changes.py                                81     81     38      0   0.00%   4-173
+scripts/state_fingerprint.py                                 279    279     76      0   0.00%   10-437
+scripts/sync_dev_dependencies.py                             378    378    200      0   0.00%   22-760
+scripts/sync_integration_coverage_omit.py                     90     90     30      0   0.00%   16-161
+scripts/sync_integration_manifest_subset.py                  139    139     56      0   0.00%   25-226
+scripts/sync_label_docs.py                                   121    121     34      0   0.00%   4-214
+scripts/sync_manifest_compiler.py                            375    162    158     43  50.66%   77-78, 106, 131, 134-141, 155-164, 169, 180, 187-198, 204-226, 234, 246, 258-261, 273-274, 276-291, 313, 321, 334, 351, 354, 358-359, 363, 366, 369, 372, 375, 378, 382, 385-395, 398-399, 415, 418, 422, 434-435, 438, 440, 482-493, 509, 512, 516, 522-523, 534, 537, 547-566, 575-576, 578, 581, 589-590, 593-604, 606, 616-658
+scripts/sync_status_file_ignores.py                          308    308    116      0   0.00%   27-698
+scripts/sync_test_dependencies.py                            339    339    158      0   0.00%   9-666
+scripts/sync_tool_versions.py                                129    129     56      0   0.00%   3-270
+scripts/update_autofix_expectations.py                        40     40     12      0   0.00%   3-57
+scripts/update_langchain_versions.py                          32     32      6      0   0.00%   4-57
+scripts/update_residual_history.py                            25     25      4      0   0.00%   9-45
+scripts/update_versions_from_pypi.py                         138    138     56      0   0.00%   15-259
+scripts/upload_repo_review_issues.py                         338    338    116      0   0.00%   12-825
+scripts/validate_backplane_registry.py                       278    278    150      0   0.00%   4-544
+scripts/validate_dependency_test_setup.py                    110    110     58      0   0.00%   12-208
+scripts/validate_run_contract.py                             448    448    212      0   0.00%   21-888
+scripts/validate_template_completeness.py                     89     89     38      0   0.00%   13-242
+scripts/validate_template_sync.py                             92     92     40      0   0.00%   10-138
+scripts/validate_version_pins.py                             135    135     68      0   0.00%   12-214
+scripts/validate_workflow_yaml.py                             96     96     44      0   0.00%   9-189
+scripts/workflow_concurrency_audit.py                        267    267    114      0   0.00%   3-563
+scripts/workflow_health_check.py                              82     82     32      0   0.00%   8-134
+scripts/workflow_pr_context_audit.py                         133    133     40      0   0.00%   3-241
+scripts/workflow_run_counts.py                               116    116     36      0   0.00%   4-189
+scripts/workflow_startup_failure_diagnostic.py               332    332    132      0   0.00%   25-767
+scripts/workflow_validator.py                                134    134     66      0   0.00%   6-339
+src/__init__.py                                                0      0      0      0 100.00%
+src/aggregator.py                                             65     65     36      0   0.00%   3-99
+src/cli_parser.py                                             34     34     10      0   0.00%   3-86
+src/ndjson_parser.py                                          75     75     28      0   0.00%   3-103
+src/percentile_calculator.py                                  28     28     12      0   0.00%   14-48
+tools/__init__.py                                              1      0      0      0 100.00%
+tools/agy_judge_replay.py                                    113    113     36      0   0.00%   20-185
+tools/agy_pilot.py                                           283    283     86      0   0.00%   25-637
+tools/analyze_judge_ensemble.py                              196    196     76      0   0.00%   22-480
+tools/check_model_registry_freshness.py                      223    223    110      0   0.00%   9-495
+tools/ci_failure_triage.py                                   242    242     98      0   0.00%   7-472
+tools/codex_jsonl_parser.py                                  267    267    124      0   0.00%   19-547
+tools/codex_log_analyzer.py                                  186    186     84      0   0.00%   8-300
+tools/codex_session_analyzer.py                              117    117     42      0   0.00%   20-322
+tools/coverage_guard.py                                      370    370    148      0   0.00%   8-825
+tools/coverage_trend.py                                      162    162     58      0   0.00%   8-388
+tools/create_model_eval_snapshot.py                           89     89     42      0   0.00%   4-155
+tools/disable_legacy_workflows.py                             82     82     34      0   0.00%   3-140
+tools/discover_model_catalog.py                              112    112     38      0   0.00%   9-189
+tools/embedding_provider.py                                  187    187     36      0   0.00%   18-333
+tools/enforce_gate_branch_protection.py                      468    468    206      0   0.00%   4-923
+tools/ensure_workflow_timeout_variables.py                   137    137     54      0   0.00%   4-267
+tools/evaluate_model_benchmark.py                            181    181     64      0   0.00%   4-308
+tools/generate_mutation_cases.py                             304    304    130      0   0.00%   22-622
+tools/harvest_verifier_corpus.py                             171    171     48      0   0.00%   36-423
+tools/integration_repo.py                                     35     35      8      0   0.00%   1-74
+tools/langchain_client.py                                    278    224    104      1  14.40%   54-58, 73, 77, 81-86, 90-91, 95, 101, 107, 116, 120, 124, 128, 136, 150-158, 164-178, 192-193, 206-207, 215-225, 239-240, 246-255, 266-405, 416-629
+tools/llm_provider.py                                        447     73    114     14  83.42%   48-49, 73-74, 119->131, 204-213, 220-224, 265, 270, 292, 298-299, 317-321, 349-360, 376, 385-387, 614-616, 625, 666-668, 690-692, 703, 728, 886, 934, 971, 987, 997-999, 1003, 1006, 1015-1023, 1041-1044, 1065-1066
+tools/llm_registry.py                                        360    216    156     20  34.11%   91-209, 224, 232, 241-244, 256, 261-262, 264-265, 268-270, 272-273, 278-288, 295, 298-299, 304-305, 309, 326, 329-330, 335, 341, 364-376, 380-381, 407-408, 430, 438-443, 446, 448, 460-465, 484-494, 500, 510-515, 519-622, 631-649, 658-659
+tools/model_eval_snapshots.py                                 77     77     32      0   0.00%   3-180
+tools/plan_model_eval.py                                     175    175     60      0   0.00%   4-488
+tools/post_ci_summary.py                                     680    680    352      0   0.00%   8-972
+tools/prepare_model_promotion.py                             199    199     78      0   0.00%   29-412
+tools/refresh_model_eval_candidates.py                       101    101     32      0   0.00%   19-185
+tools/reproduce_muse13_screen.py                             100    100     28      0   0.00%   7-200
+tools/resolve_mypy_pin.py                                     41     41     10      0   0.00%   14-89
+tools/run_judge_backend_screen.py                            588    588    204      0   0.00%   24-1301
+tools/run_model_eval_api_confirm.py                          152    152     58      0   0.00%   10-362
+tools/run_model_eval_cli_screen.py                           196    196     62      0   0.00%   9-521
+tools/run_model_eval_pilot.py                                188    188     56      0   0.00%   4-354
+tools/run_verify_paired.py                                   325    325    150      0   0.00%   7-692
+tools/stable_pass_cases.py                                    51     51     18      0   0.00%   18-124
+tools/subscription_llm.py                                     82     82     28      0   0.00%   6-180
+tools/verifier_artifact_capture.py                            66     54     28      0  12.77%   21, 32-118, 125-128
+tools/verifier_capture_obligation_manifest.py                484    438    252      0   6.25%   42-53, 57, 69-74, 79-90, 95, 100-128, 132, 137-180, 185-192, 197-227, 234-243, 248, 253, 261-394, 403-458, 500-505, 520-695, 725-742, 747-750, 757, 772-786, 812-892
+tools/verifier_compare_run_receipt.py                        172    172     76      0   0.00%   9-366
+tools/verifier_corpus_evidence.py                            248    248    120      0   0.00%   3-510
+tools/verifier_event_recovery.py                             292    292    128      0   0.00%   3-728
+tools/verifier_gzip_assets.py                                126    126     50      0   0.00%   3-245
+tools/verifier_proof_resource_plan.py                        100    100     46      0   0.00%   3-212
+tools/verifier_semantic_acceptance.py                        222    199    124      0   6.65%   27, 33, 41-45, 49-68, 79-144, 149-211, 218-234, 239-260, 264-267, 274-300, 314-405
+tools/verifier_semantic_execution.py                         111     84     38      0  18.12%   41-49, 54-68, 94, 106-126, 148-277
+tools/verifier_semantic_package_recovery.py                  101    101     52      0   0.00%   8-174
+tools/verifier_semantic_rules.py                             183    159     90      0   8.79%   31-36, 40, 44, 53-64, 68-80, 89-94, 101-109, 115-172, 176-200, 214-237, 250-270, 281-319, 336-364, 371-377, 386-389
+tools/verifier_shadow_adjudicate.py                          229    229     78      0   0.00%   22-481
+tools/verifier_shadow_corpus.py                              271    271     80      0   0.00%   19-569
+tools/verifier_shadow_external.py                            184    184     58      0   0.00%   17-399
+tools/verifier_shadow_report.py                              223    223     66      0   0.00%   14-509
+tools/verifier_standards_model.py                             72     72     20      0   0.00%   20-153
+tools/verify_paired_policy.py                                 93     93     40      0   0.00%   3-166
+-------------------------------------------------------------------------------------------------------
+TOTAL                                                      49436  46468  19808     83   5.53%
+Coverage XML written to file /tmp/4019-focused-coverage.xml
+Coverage JSON written to file /tmp/4019-focused-coverage.json
+============================= 242 passed in 31.55s =============================

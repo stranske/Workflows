@@ -1,0 +1,50 @@
+{
+  "scripts/aggregate_agent_metrics.py": {
+    "covered_lines": 899,
+    "num_statements": 899,
+    "percent_covered": 99.76544175136826,
+    "percent_covered_display": "99.77",
+    "missing_lines": 0,
+    "excluded_lines": 2,
+    "percent_statements_covered": 100.0,
+    "percent_statements_covered_display": "100.00",
+    "num_branches": 380,
+    "num_partial_branches": 3,
+    "covered_branches": 377,
+    "missing_branches": 3,
+    "percent_branches_covered": 99.21052631578948,
+    "percent_branches_covered_display": "99.21"
+  },
+  "scripts/check_consumer_sync_drift.py": {
+    "covered_lines": 633,
+    "num_statements": 633,
+    "percent_covered": 100.0,
+    "percent_covered_display": "100.00",
+    "missing_lines": 0,
+    "excluded_lines": 2,
+    "percent_statements_covered": 100.0,
+    "percent_statements_covered_display": "100.00",
+    "num_branches": 296,
+    "num_partial_branches": 0,
+    "covered_branches": 296,
+    "missing_branches": 0,
+    "percent_branches_covered": 100.0,
+    "percent_branches_covered_display": "100.00"
+  },
+  "tools/llm_provider.py": {
+    "covered_lines": 374,
+    "num_statements": 447,
+    "percent_covered": 83.42245989304813,
+    "percent_covered_display": "83.42",
+    "missing_lines": 73,
+    "excluded_lines": 9,
+    "percent_statements_covered": 83.668903803132,
+    "percent_statements_covered_display": "83.67",
+    "num_branches": 114,
+    "num_partial_branches": 14,
+    "covered_branches": 94,
+    "missing_branches": 20,
+    "percent_branches_covered": 82.45614035087719,
+    "percent_branches_covered_display": "82.46"
+  }
+}
