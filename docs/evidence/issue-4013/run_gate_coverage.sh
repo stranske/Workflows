@@ -5,6 +5,11 @@ ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
 cd "$ROOT"
 SHA="$1"
 OUT="$2"
+START_REF="$(git rev-parse HEAD)"
+cleanup() {
+  git checkout -q "$START_REF" 2>/dev/null || git checkout -q --detach "$START_REF"
+}
+trap cleanup EXIT
 git checkout -q "$SHA"
 rm -f coverage.json .coverage .coverage.*
 /opt/anaconda3/bin/python3 -m pytest tests/ \
