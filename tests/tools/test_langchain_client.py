@@ -1294,6 +1294,197 @@ def test_builders_return_empty_without_credentials(monkeypatch):
     assert langchain_client.build_chat_clients() == []
 
 
+def test_slot_config_wrappers_delegate_to_registry(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    slots_path = tmp_path / "llm_slots.json"
+    slots_path.write_text(json.dumps({"slots": []}), encoding="utf-8")
+    monkeypatch.setenv(langchain_client.ENV_SLOT_CONFIG, str(slots_path))
+
+    defaults = langchain_client._default_slots()
+    loaded = langchain_client._load_slot_config()
+    overridden = langchain_client._apply_slot_env_overrides(loaded or defaults)
+
+    assert isinstance(defaults, list)
+    assert loaded == []
+    assert isinstance(overridden, list)
+    assert len(overridden) >= len(defaults)
+
+
+def test_auto_select_skips_blocked_slot_model(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    FakeChatOpenAI = _install_fake_langchain_openai(monkeypatch)
+    _clear_client_environment(monkeypatch)
+    monkeypatch.setenv("OPENAI_API_KEY", "oa-token")
+    monkeypatch.setattr(
+        langchain_client,
+        "_resolve_slots",
+        lambda: [
+            llm_registry.SlotDefinition(
+                name="blocked",
+                provider=langchain_client.PROVIDER_OPENAI,
+                model="gpt-blocked-slot",
+            ),
+            llm_registry.SlotDefinition(
+                name="openai",
+                provider=langchain_client.PROVIDER_OPENAI,
+                model="gpt-safe",
+            ),
+        ],
+    )
+    monkeypatch.setattr(
+        langchain_client,
+        "_is_model_blocked",
+        lambda provider, model, **_kwargs: model == "gpt-blocked-slot",
+    )
+
+    resolved = langchain_client.build_chat_client()
+
+    assert resolved is not None
+    assert resolved.model == "gpt-safe"
+    assert isinstance(resolved.client, FakeChatOpenAI)
+    assert any("Skipping blocked LLM model" in record.message for record in caplog.records)
+
+
+def test_build_chat_client_explicit_anthropic_provider(monkeypatch: pytest.MonkeyPatch) -> None:
+    FakeChatAnthropic = _install_fake_langchain_anthropic(monkeypatch)
+    _clear_client_environment(monkeypatch)
+    monkeypatch.setenv(langchain_client.ENV_ANTHROPIC_KEY, "claude-token")
+
+    resolved = langchain_client.build_chat_client(provider="anthropic", model="claude-explicit")
+
+    assert resolved is not None
+    assert resolved.provider == langchain_client.PROVIDER_ANTHROPIC
+    assert resolved.model == "claude-explicit"
+    assert isinstance(resolved.client, FakeChatAnthropic)
+
+
+def test_build_chat_client_auto_select_can_include_github_models_slot(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    FakeChatOpenAI = _install_fake_langchain_openai(monkeypatch)
+    _clear_client_environment(monkeypatch)
+    monkeypatch.setenv("GITHUB_TOKEN", "gh-token")
+    monkeypatch.setattr(
+        langchain_client,
+        "_resolve_slots",
+        lambda: [
+            llm_registry.SlotDefinition(
+                name="github",
+                provider=langchain_client.PROVIDER_GITHUB,
+                model="openai/gpt-test",
+            )
+        ],
+    )
+
+    resolved = langchain_client.build_chat_client()
+
+    assert resolved is not None
+    assert resolved.provider == langchain_client.PROVIDER_GITHUB
+    assert isinstance(resolved.client, FakeChatOpenAI)
+
+
+def test_build_chat_clients_skips_blocked_slot_model(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    FakeChatOpenAI = _install_fake_langchain_openai(monkeypatch)
+    _clear_client_environment(monkeypatch)
+    monkeypatch.setenv("OPENAI_API_KEY", "oa-token")
+    monkeypatch.setattr(
+        langchain_client,
+        "_resolve_slots",
+        lambda: [
+            llm_registry.SlotDefinition(
+                name="blocked",
+                provider=langchain_client.PROVIDER_OPENAI,
+                model="gpt-blocked-slot",
+            ),
+            llm_registry.SlotDefinition(
+                name="openai",
+                provider=langchain_client.PROVIDER_OPENAI,
+                model="gpt-safe",
+            ),
+        ],
+    )
+    monkeypatch.setattr(
+        langchain_client,
+        "_is_model_blocked",
+        lambda provider, model, **_kwargs: model == "gpt-blocked-slot",
+    )
+
+    clients = langchain_client.build_chat_clients()
+
+    assert len(clients) == 1
+    assert clients[0].model == "gpt-safe"
+    assert any("Skipping blocked LLM model override" in record.message for record in caplog.records)
+
+
+def test_build_chat_clients_auto_select_can_include_github_models_slot(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    FakeChatOpenAI = _install_fake_langchain_openai(monkeypatch)
+    _clear_client_environment(monkeypatch)
+    monkeypatch.setenv("GITHUB_TOKEN", "gh-token")
+    monkeypatch.setenv("OPENAI_API_KEY", "oa-token")
+    monkeypatch.setattr(
+        langchain_client,
+        "_resolve_slots",
+        lambda: [
+            llm_registry.SlotDefinition(
+                name="github",
+                provider=langchain_client.PROVIDER_GITHUB,
+                model="openai/gpt-test",
+            ),
+            llm_registry.SlotDefinition(
+                name="openai",
+                provider=langchain_client.PROVIDER_OPENAI,
+                model="gpt-safe",
+            ),
+        ],
+    )
+
+    clients = langchain_client.build_chat_clients()
+
+    assert [item.provider for item in clients] == [
+        langchain_client.PROVIDER_GITHUB,
+        langchain_client.PROVIDER_OPENAI,
+    ]
+    assert all(isinstance(item.client, FakeChatOpenAI) for item in clients)
+
+
+def test_build_chat_clients_warns_when_slot_has_no_resolved_model(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    _install_fake_langchain_openai(monkeypatch)
+    _clear_client_environment(monkeypatch)
+    monkeypatch.setenv("OPENAI_API_KEY", "oa-token")
+    monkeypatch.setattr(
+        langchain_client,
+        "_resolve_slots",
+        lambda: [
+            llm_registry.SlotDefinition(
+                name="empty-model",
+                provider=langchain_client.PROVIDER_OPENAI,
+                model="",
+            ),
+            llm_registry.SlotDefinition(
+                name="openai",
+                provider=langchain_client.PROVIDER_OPENAI,
+                model="gpt-safe",
+            ),
+        ],
+    )
+
+    clients = langchain_client.build_chat_clients()
+
+    assert len(clients) == 1
+    assert clients[0].model == "gpt-safe"
+    assert any(
+        "Skipping LLM slot without a resolved model" in record.message for record in caplog.records
+    )
+
+
 @pytest.mark.parametrize(
     "stale_slot",
     [

@@ -452,3 +452,14 @@ def test_compare_mode_never_runs_the_single_provider_path(
     _argv(monkeypatch, tmp_path, "--compare")
     pr_verifier.main()
     assert "Provider Comparison Report" in capsys.readouterr().out
+
+
+def test_load_prompt_reads_prompt_file_when_present(monkeypatch, tmp_path) -> None:
+    prompt_path = tmp_path / "pr_evaluation.md"
+    prompt_path.write_text("Custom prompt body\n", encoding="utf-8")
+    monkeypatch.setattr(pr_verifier, "PROMPT_PATH", prompt_path)
+
+    loaded = pr_verifier._load_prompt()
+
+    assert loaded.startswith("Custom prompt body")
+    assert "- correctness" in loaded
