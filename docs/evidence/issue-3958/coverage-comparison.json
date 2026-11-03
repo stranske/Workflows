@@ -36,6 +36,11 @@
     "post3962_target_gap_units": 3,
     "post3962_json": "docs/evidence/issue-3958/coverage-post3962-gate.json",
     "pre3962_json": "docs/evidence/issue-3958/coverage-pre3962-gate.json",
-    "pre3962_status": "running_in_background_see pre3962-pytest-tail.log"
+    "pre3962_command": "same as post3962 at commit 19d9c3c61 in worktree",
+    "pre3962_pytest_exit": 0,
+    "pre3962_summary": "105967 passed, 30 skipped, 3 xfailed in 1826.81s",
+    "pre3962_target_gap_units": 90,
+    "pre3962_target_missing_statements": 42,
+    "pre3962_target_partial_branches": 48
   }
 }
