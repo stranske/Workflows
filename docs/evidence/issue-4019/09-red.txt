@@ -1,0 +1,18 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+________ TestGetLLMProvider.test_force_provider_raises_when_unavailable ________
+
+self = <tests.tools.test_llm_provider.TestGetLLMProvider object at 0x105e149e0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x105e14b90>
+
+    def test_force_provider_raises_when_unavailable(self, monkeypatch):
+        monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+        monkeypatch.delenv("CLAUDE_API_STRANSKE", raising=False)
+        monkeypatch.delenv("GITHUB_TOKEN", raising=False)
+>       with pytest.raises(RuntimeError, match="Forced provider 'openai' is not available"):
+E       Failed: DID NOT RAISE RuntimeError
+
+tests/tools/test_llm_provider.py:1948: Failed
+=========================== short test summary info ============================
+FAILED tests/tools/test_llm_provider.py::TestGetLLMProvider::test_force_provider_raises_when_unavailable
+1 failed in 0.24s

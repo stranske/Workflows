@@ -1,0 +1,189 @@
+[
+  {
+    "node": "tests/scripts/test_aggregate_agent_metrics.py::test_langsmith_trace_refs_use_url_when_trace_list_item_has_no_id",
+    "source": "scripts/aggregate_agent_metrics.py",
+    "old": "trace_refs.add(f\"url:{item_trace_url}\")",
+    "new": "trace_refs.add(f\"id:{item_trace_url}\")",
+    "command": [
+      "/opt/anaconda3/bin/python3",
+      "-m",
+      "pytest",
+      "tests/scripts/test_aggregate_agent_metrics.py::test_langsmith_trace_refs_use_url_when_trace_list_item_has_no_id",
+      "-q"
+    ],
+    "sha256": "e03bd53293d5627de350405f9dcfdda966b9071c7954c59241ced4cbf12bd1df",
+    "red_exit": 1,
+    "green_exit": 0,
+    "restored_sha256": "e03bd53293d5627de350405f9dcfdda966b9071c7954c59241ced4cbf12bd1df"
+  },
+  {
+    "node": "tests/scripts/test_aggregate_agent_metrics.py::test_autopilot_summary_counts_failed_steps_with_reason",
+    "source": "scripts/aggregate_agent_metrics.py",
+    "old": "step_failures[step_name] = step_failures.get(step_name, 0) + 1",
+    "new": "step_failures[step_name] = step_failures.get(step_name, 0)",
+    "command": [
+      "/opt/anaconda3/bin/python3",
+      "-m",
+      "pytest",
+      "tests/scripts/test_aggregate_agent_metrics.py::test_autopilot_summary_counts_failed_steps_with_reason",
+      "-q"
+    ],
+    "sha256": "e03bd53293d5627de350405f9dcfdda966b9071c7954c59241ced4cbf12bd1df",
+    "red_exit": 1,
+    "green_exit": 0,
+    "restored_sha256": "e03bd53293d5627de350405f9dcfdda966b9071c7954c59241ced4cbf12bd1df"
+  },
+  {
+    "node": "tests/scripts/test_aggregate_agent_metrics.py::test_codex_freshness_summary_counts_update_target_paths",
+    "source": "scripts/aggregate_agent_metrics.py",
+    "old": "update_targets[path] += 1",
+    "new": "update_targets[path] += 0",
+    "command": [
+      "/opt/anaconda3/bin/python3",
+      "-m",
+      "pytest",
+      "tests/scripts/test_aggregate_agent_metrics.py::test_codex_freshness_summary_counts_update_target_paths",
+      "-q"
+    ],
+    "sha256": "e03bd53293d5627de350405f9dcfdda966b9071c7954c59241ced4cbf12bd1df",
+    "red_exit": 1,
+    "green_exit": 0,
+    "restored_sha256": "e03bd53293d5627de350405f9dcfdda966b9071c7954c59241ced4cbf12bd1df"
+  },
+  {
+    "node": "tests/tools/test_llm_provider.py::TestGitHubModelsConfidenceValidation::test_validate_confidence_flags_high_confidence_without_tasks_when_work_evidence",
+    "source": "tools/llm_provider.py",
+    "old": "confidence = min(confidence, 0.3)",
+    "new": "confidence = confidence",
+    "command": [
+      "/opt/anaconda3/bin/python3",
+      "-m",
+      "pytest",
+      "tests/tools/test_llm_provider.py::TestGitHubModelsConfidenceValidation::test_validate_confidence_flags_high_confidence_without_tasks_when_work_evidence",
+      "-q"
+    ],
+    "sha256": "2c4ca5be9716253ab3304e650289c8ddabad07d786697d6e9827f19466423190",
+    "red_exit": 1,
+    "green_exit": 0,
+    "restored_sha256": "2c4ca5be9716253ab3304e650289c8ddabad07d786697d6e9827f19466423190"
+  },
+  {
+    "node": "tests/tools/test_llm_provider.py::TestGitHubModelsConfidenceValidation::test_validate_confidence_caps_effort_without_detected_tasks",
+    "source": "tools/llm_provider.py",
+    "old": "confidence = min(confidence, 0.4)",
+    "new": "confidence = confidence",
+    "command": [
+      "/opt/anaconda3/bin/python3",
+      "-m",
+      "pytest",
+      "tests/tools/test_llm_provider.py::TestGitHubModelsConfidenceValidation::test_validate_confidence_caps_effort_without_detected_tasks",
+      "-q"
+    ],
+    "sha256": "2c4ca5be9716253ab3304e650289c8ddabad07d786697d6e9827f19466423190",
+    "red_exit": 1,
+    "green_exit": 0,
+    "restored_sha256": "2c4ca5be9716253ab3304e650289c8ddabad07d786697d6e9827f19466423190"
+  },
+  {
+    "node": "tests/tools/test_llm_provider.py::TestGitHubModelsConfidenceValidation::test_validate_confidence_flags_no_evidence_language_with_work",
+    "source": "tools/llm_provider.py",
+    "old": "any(phrase in reasoning_lower for phrase in no_evidence_phrases)",
+    "new": "False",
+    "command": [
+      "/opt/anaconda3/bin/python3",
+      "-m",
+      "pytest",
+      "tests/tools/test_llm_provider.py::TestGitHubModelsConfidenceValidation::test_validate_confidence_flags_no_evidence_language_with_work",
+      "-q"
+    ],
+    "sha256": "2c4ca5be9716253ab3304e650289c8ddabad07d786697d6e9827f19466423190",
+    "red_exit": 1,
+    "green_exit": 0,
+    "restored_sha256": "2c4ca5be9716253ab3304e650289c8ddabad07d786697d6e9827f19466423190"
+  },
+  {
+    "node": "tests/tools/test_llm_provider.py::TestGitHubModelsConfidenceValidation::test_validate_confidence_applies_data_quality_cap",
+    "source": "tools/llm_provider.py",
+    "old": "confidence = quality_cap",
+    "new": "confidence = confidence",
+    "command": [
+      "/opt/anaconda3/bin/python3",
+      "-m",
+      "pytest",
+      "tests/tools/test_llm_provider.py::TestGitHubModelsConfidenceValidation::test_validate_confidence_applies_data_quality_cap",
+      "-q"
+    ],
+    "sha256": "2c4ca5be9716253ab3304e650289c8ddabad07d786697d6e9827f19466423190",
+    "red_exit": 1,
+    "green_exit": 0,
+    "restored_sha256": "2c4ca5be9716253ab3304e650289c8ddabad07d786697d6e9827f19466423190"
+  },
+  {
+    "node": "tests/tools/test_llm_provider.py::TestGetLLMProvider::test_force_provider_rejects_unknown_name",
+    "source": "tools/llm_provider.py",
+    "old": "raise ValueError(\n                f\"Unknown provider:",
+    "new": "raise RuntimeError(\n                f\"Unknown provider:",
+    "command": [
+      "/opt/anaconda3/bin/python3",
+      "-m",
+      "pytest",
+      "tests/tools/test_llm_provider.py::TestGetLLMProvider::test_force_provider_rejects_unknown_name",
+      "-q"
+    ],
+    "sha256": "2c4ca5be9716253ab3304e650289c8ddabad07d786697d6e9827f19466423190",
+    "red_exit": 1,
+    "green_exit": 0,
+    "restored_sha256": "2c4ca5be9716253ab3304e650289c8ddabad07d786697d6e9827f19466423190"
+  },
+  {
+    "node": "tests/tools/test_llm_provider.py::TestGetLLMProvider::test_force_provider_raises_when_unavailable",
+    "source": "tools/llm_provider.py",
+    "old": "if not provider.is_available():\n            raise RuntimeError(\n                f\"Forced provider",
+    "new": "if False:\n            raise RuntimeError(\n                f\"Forced provider",
+    "command": [
+      "/opt/anaconda3/bin/python3",
+      "-m",
+      "pytest",
+      "tests/tools/test_llm_provider.py::TestGetLLMProvider::test_force_provider_raises_when_unavailable",
+      "-q"
+    ],
+    "sha256": "2c4ca5be9716253ab3304e650289c8ddabad07d786697d6e9827f19466423190",
+    "red_exit": 1,
+    "green_exit": 0,
+    "restored_sha256": "2c4ca5be9716253ab3304e650289c8ddabad07d786697d6e9827f19466423190"
+  },
+  {
+    "node": "tests/tools/test_llm_provider.py::TestGetLLMProvider::test_fallback_chain_name_reflects_active_provider",
+    "source": "tools/llm_provider.py",
+    "old": "return f\"fallback-chain({self._active_provider.name})\"",
+    "new": "return \"fallback-chain\"",
+    "command": [
+      "/opt/anaconda3/bin/python3",
+      "-m",
+      "pytest",
+      "tests/tools/test_llm_provider.py::TestGetLLMProvider::test_fallback_chain_name_reflects_active_provider",
+      "-q"
+    ],
+    "sha256": "2c4ca5be9716253ab3304e650289c8ddabad07d786697d6e9827f19466423190",
+    "red_exit": 1,
+    "green_exit": 0,
+    "restored_sha256": "2c4ca5be9716253ab3304e650289c8ddabad07d786697d6e9827f19466423190"
+  },
+  {
+    "node": "tests/tools/test_llm_provider.py::TestAnthropicProvider::test_analyze_completion_retries_without_quality_context_on_type_error",
+    "source": "tools/llm_provider.py",
+    "old": "\"Anthropic client invoke rejected quality_context, retrying without it\"\n                    )\n                    response = client.invoke(prompt)",
+    "new": "\"Anthropic client invoke rejected quality_context, retrying without it\"\n                    )\n                    response = client.invoke(prompt, quality_context=quality_context)",
+    "command": [
+      "/opt/anaconda3/bin/python3",
+      "-m",
+      "pytest",
+      "tests/tools/test_llm_provider.py::TestAnthropicProvider::test_analyze_completion_retries_without_quality_context_on_type_error",
+      "-q"
+    ],
+    "sha256": "2c4ca5be9716253ab3304e650289c8ddabad07d786697d6e9827f19466423190",
+    "red_exit": 1,
+    "green_exit": 0,
+    "restored_sha256": "2c4ca5be9716253ab3304e650289c8ddabad07d786697d6e9827f19466423190"
+  }
+]

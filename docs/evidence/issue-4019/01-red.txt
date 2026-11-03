@@ -1,0 +1,27 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_______ test_langsmith_trace_refs_use_url_when_trace_list_item_has_no_id _______
+
+    def test_langsmith_trace_refs_use_url_when_trace_list_item_has_no_id() -> None:
+        entry = {
+            "langsmith_traces": [
+                {"trace_url": "https://smith.langchain.com/public/run/abc"},
+                "not-a-dict",
+            ]
+        }
+    
+>       assert aggregate_agent_metrics._langsmith_trace_refs(entry) == {
+            "url:https://smith.langchain.com/public/run/abc"
+        }
+E       AssertionError: assert {'id:https://...blic/run/abc'} == {'url:https:/...blic/run/abc'}
+E         
+E         Extra items in the left set:
+E         'id:https://smith.langchain.com/public/run/abc'
+E         Extra items in the right set:
+E         'url:https://smith.langchain.com/public/run/abc'
+E         Use -v to get more diff
+
+tests/scripts/test_aggregate_agent_metrics.py:482: AssertionError
+=========================== short test summary info ============================
+FAILED tests/scripts/test_aggregate_agent_metrics.py::test_langsmith_trace_refs_use_url_when_trace_list_item_has_no_id
+1 failed in 0.51s

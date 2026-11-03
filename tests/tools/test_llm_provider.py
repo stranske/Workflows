@@ -1843,6 +1843,87 @@ class TestFallbackChainProvider:
         assert result.confidence_adjusted is True
 
 
+class TestGitHubModelsConfidenceValidation:
+    """Direct coverage for GitHubModelsProvider confidence validation rules."""
+
+    def test_validate_confidence_flags_high_confidence_without_tasks_when_work_evidence(self):
+        provider = GitHubModelsProvider()
+        quality_context = SessionQualityContext(
+            has_work_evidence=True,
+            file_change_count=4,
+            successful_command_count=2,
+            analysis_text_length=500,
+            data_quality="high",
+        )
+
+        confidence, warnings = provider._validate_confidence(
+            raw_confidence=0.9,
+            completed_count=0,
+            in_progress_count=0,
+            quality_context=quality_context,
+            reasoning="No tasks matched.",
+        )
+
+        assert confidence <= 0.3
+        assert warnings
+
+    def test_validate_confidence_caps_effort_without_detected_tasks(self):
+        provider = GitHubModelsProvider()
+        quality_context = SessionQualityContext(
+            estimated_effort_score=40,
+            analysis_text_length=500,
+            data_quality="high",
+        )
+
+        confidence, warnings = provider._validate_confidence(
+            raw_confidence=0.85,
+            completed_count=0,
+            in_progress_count=0,
+            quality_context=quality_context,
+            reasoning="Nothing detected.",
+        )
+
+        assert confidence <= 0.4
+        assert warnings
+
+    def test_validate_confidence_flags_no_evidence_language_with_work(self):
+        provider = GitHubModelsProvider()
+        quality_context = SessionQualityContext(
+            has_work_evidence=True,
+            analysis_text_length=500,
+            data_quality="high",
+        )
+
+        confidence, warnings = provider._validate_confidence(
+            raw_confidence=0.6,
+            completed_count=0,
+            in_progress_count=0,
+            quality_context=quality_context,
+            reasoning="There is no evidence of completed work.",
+        )
+
+        assert confidence <= 0.35
+        assert warnings
+
+    def test_validate_confidence_applies_data_quality_cap(self):
+        provider = GitHubModelsProvider()
+        quality_context = SessionQualityContext(
+            data_quality="minimal",
+            analysis_text_length=500,
+        )
+
+        confidence, warnings = provider._validate_confidence(
+            raw_confidence=0.95,
+            completed_count=1,
+            in_progress_count=0,
+            quality_context=quality_context,
+            reasoning="Done.",
+        )
+
+        assert confidence == 0.4
+        assert warnings
+
+
 class TestGetLLMProvider:
     """Test get_llm_provider factory."""
 
@@ -1855,6 +1936,47 @@ class TestGetLLMProvider:
         """Chain is always available (regex fallback)."""
         provider = get_llm_provider()
         assert provider.is_available() is True
+
+    def test_force_provider_rejects_unknown_name(self):
+        with pytest.raises(ValueError, match="Unknown provider"):
+            get_llm_provider(force_provider="not-a-provider")
+
+    def test_force_provider_raises_when_unavailable(self, monkeypatch):
+        monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+        monkeypatch.delenv("CLAUDE_API_STRANSKE", raising=False)
+        monkeypatch.delenv("GITHUB_TOKEN", raising=False)
+        with pytest.raises(RuntimeError, match="Forced provider 'openai' is not available"):
+            get_llm_provider(force_provider="openai")
+
+    def test_fallback_chain_name_reflects_active_provider(self):
+        class StubProvider(LLMProvider):
+            @property
+            def name(self) -> str:
+                return "stub"
+
+            def is_available(self) -> bool:
+                return True
+
+            def analyze_completion(
+                self,
+                session_output: str,
+                tasks: list[str],
+                context: str | None = None,
+                quality_context: SessionQualityContext | None = None,
+            ) -> CompletionAnalysis:
+                _ = session_output, tasks, context, quality_context
+                return CompletionAnalysis(
+                    completed_tasks=[],
+                    in_progress_tasks=[],
+                    blocked_tasks=[],
+                    confidence=0.5,
+                    reasoning="ok",
+                    provider_used="stub",
+                )
+
+        chain = FallbackChainProvider([StubProvider()])
+        chain.analyze_completion("output", ["task1"])
+        assert chain.name == "fallback-chain(stub)"
 
 
 class TestCompletionAnalysis:
@@ -1966,6 +2088,33 @@ class TestAnthropicProvider:
         assert mock_parse.call_args.kwargs["quality_context"] is quality_context
         assert result.provider_used == "anthropic"
         assert result.completed_tasks == ["task1"]
+
+    def test_analyze_completion_retries_without_quality_context_on_type_error(self):
+        provider = AnthropicProvider()
+        mock_client = MagicMock()
+        mock_client.invoke.side_effect = [
+            TypeError("invoke() got an unexpected keyword argument 'quality_context'"),
+            MagicMock(
+                content='{"completed": [], "in_progress": [], "blocked": [], '
+                '"confidence": 0.5, "reasoning": "ok"}'
+            ),
+        ]
+        quality_context = SessionQualityContext(analysis_text_length=200)
+
+        with patch.object(provider, "_get_client", return_value=mock_client):
+            result = provider.analyze_completion(
+                "output",
+                ["task1"],
+                quality_context=quality_context,
+            )
+
+        assert mock_client.invoke.call_count == 2
+        assert mock_client.invoke.call_args_list[0].kwargs["quality_context"] is quality_context
+        assert mock_client.invoke.call_args_list[1].args == (
+            mock_client.invoke.call_args_list[0].args[0],
+        )
+        assert mock_client.invoke.call_args_list[1].kwargs == {}
+        assert result.confidence == 0.5
 
     def test_analyze_completion_raises_timeout_error(self):
         """API errors are raised for callers to handle."""

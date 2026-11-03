@@ -1,0 +1,32 @@
+import hashlib,json,pathlib,subprocess,time
+py='/opt/anaconda3/bin/python3'
+out=pathlib.Path('docs/evidence/issue-4019'); receipts=[]
+a='scripts/aggregate_agent_metrics.py'; l='tools/llm_provider.py'
+cases=[
+(a,'tests/scripts/test_aggregate_agent_metrics.py::test_langsmith_trace_refs_use_url_when_trace_list_item_has_no_id','trace_refs.add(f"url:{item_trace_url}")','trace_refs.add(f"id:{item_trace_url}")'),
+(a,'tests/scripts/test_aggregate_agent_metrics.py::test_autopilot_summary_counts_failed_steps_with_reason','step_failures[step_name] = step_failures.get(step_name, 0) + 1','step_failures[step_name] = step_failures.get(step_name, 0)'),
+(a,'tests/scripts/test_aggregate_agent_metrics.py::test_codex_freshness_summary_counts_update_target_paths','update_targets[path] += 1','update_targets[path] += 0'),
+(l,'tests/tools/test_llm_provider.py::TestGitHubModelsConfidenceValidation::test_validate_confidence_flags_high_confidence_without_tasks_when_work_evidence','confidence = min(confidence, 0.3)','confidence = confidence'),
+(l,'tests/tools/test_llm_provider.py::TestGitHubModelsConfidenceValidation::test_validate_confidence_caps_effort_without_detected_tasks','confidence = min(confidence, 0.4)','confidence = confidence'),
+(l,'tests/tools/test_llm_provider.py::TestGitHubModelsConfidenceValidation::test_validate_confidence_flags_no_evidence_language_with_work','any(phrase in reasoning_lower for phrase in no_evidence_phrases)','False'),
+(l,'tests/tools/test_llm_provider.py::TestGitHubModelsConfidenceValidation::test_validate_confidence_applies_data_quality_cap','confidence = quality_cap','confidence = confidence'),
+(l,'tests/tools/test_llm_provider.py::TestGetLLMProvider::test_force_provider_rejects_unknown_name','raise ValueError(\n                f"Unknown provider:','raise RuntimeError(\n                f"Unknown provider:'),
+(l,'tests/tools/test_llm_provider.py::TestGetLLMProvider::test_force_provider_raises_when_unavailable','if not provider.is_available():\n            raise RuntimeError(\n                f"Forced provider','if False:\n            raise RuntimeError(\n                f"Forced provider'),
+(l,'tests/tools/test_llm_provider.py::TestGetLLMProvider::test_fallback_chain_name_reflects_active_provider','return f"fallback-chain({self._active_provider.name})"','return "fallback-chain"'),
+(l,'tests/tools/test_llm_provider.py::TestAnthropicProvider::test_analyze_completion_retries_without_quality_context_on_type_error','"Anthropic client invoke rejected quality_context, retrying without it"\n                    )\n                    response = client.invoke(prompt)','"Anthropic client invoke rejected quality_context, retrying without it"\n                    )\n                    response = client.invoke(prompt, quality_context=quality_context)'),
+]
+for i,(f,node,old,new) in enumerate(cases,1):
+ p=pathlib.Path(f); original=p.read_bytes(); text=original.decode(); assert text.count(old)==1,(node,text.count(old))
+ cmd=[py,'-m','pytest',node,'-q']; row=dict(node=node,source=f,old=old,new=new,command=cmd,sha256=hashlib.sha256(original).hexdigest())
+ try:
+  p.write_text(text.replace(old,new)); red=subprocess.run(cmd,capture_output=True,text=True,timeout=120)
+  row['red_exit']=red.returncode; (out/f'{i:02d}-red.txt').write_text(red.stdout+red.stderr)
+ finally:
+  p.write_bytes(original)
+ assert p.read_bytes()==original
+ green=subprocess.run(cmd,capture_output=True,text=True,timeout=120); row['green_exit']=green.returncode
+ (out/f'{i:02d}-green.txt').write_text(green.stdout+green.stderr)
+ row['restored_sha256']=hashlib.sha256(p.read_bytes()).hexdigest(); receipts.append(row)
+ (out/'mutation-receipts.json').write_text(json.dumps(receipts,indent=2)+'\n')
+ print(i,node,red.returncode,green.returncode,flush=True)
+ assert red.returncode==1 and 'FAILED ' in red.stdout and green.returncode==0,row
