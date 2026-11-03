@@ -2020,3 +2020,129 @@ def test_guarded_merge_failure_replay_detects_broken_reporting(original, replace
     )
     assert result.returncode != 0, "Broken failure reporting must fail the replay"
     assert "AssertionError" in result.stderr, result.stderr
+
+
+def _guarded_merge_attempt_replay_program():
+    script = _workflow_step_by_id(
+        Path("templates/consumer-repo/.github/workflows/agents-81-gate-followups.yml"),
+        "guarded_merge",
+    )["with"]["script"]
+    attempt = re.search(
+        r"const response = await withRetry\(async \(client\) => \{.*?"
+        r"(?=\n\s*} catch \(error\) \{\n\s*status = 'error';\n\s*const responseData)",
+        script,
+        re.DOTALL,
+    )
+    assert attempt is not None, "Guarded merge must inspect the selected merge client"
+    return (
+        r"""
+const assert = require('node:assert/strict');
+const scenario = process.argv[1];
+const owner = 'stranske', repo = 'Travel-Plan-Permission', prNumber = 1722;
+const headSha = 'a'.repeat(40);
+const messages = [], warnings = [], events = [], merged = [];
+const core = {info: message => messages.push(message), warning: message => warnings.push(message)};
+let status = 'skipped', note = '', selectedSource = '';
+let cleanupLoads = 0;
+const loadPullRequest = async number => {
+  assert.equal(number, prNumber);
+  cleanupLoads++;
+  return {body: ''};
+};
+const inferIssue = () => 0;
+const getTokenSource = () => selectedSource;
+const withRetry = async callback => {
+  const sources = scenario === 'retry' ? ['first', 'retry'] : ['first'];
+  for (const source of sources) {
+    selectedSource = source;
+    const client = {rest: {
+      users: {getAuthenticated: async () => {
+        events.push(`identity:${source}`);
+        if (scenario === 'identity-unavailable') throw {status: 403};
+        return {data: {login: `${source}-writer`},
+          headers: source === 'first' ? {'x-oauth-scopes': 'repo'} : {}};
+      }},
+      pulls: {merge: async params => {
+        events.push(`merge:${source}`);
+        assert.deepEqual(params,
+          {owner, repo, pull_number: prNumber, merge_method: 'squash', sha: headSha});
+        if (scenario === 'retry' && source === 'first') throw {status: 403};
+        if (scenario === 'missing-response') return undefined;
+        return {status: 200, data: {merged: scenario !== 'unmerged'}};
+      }},
+    }};
+    try {
+      return await callback(client);
+    } catch (error) {
+      if (source !== 'first' || scenario !== 'retry') throw error;
+      assert.equal(error.status, 403);
+    }
+  }
+  assert.fail('No merge response');
+};
+(async () => {
+"""
+        + attempt.group(0)
+        + r"""
+assert.deepEqual(events, scenario === 'retry'
+  ? ['identity:first', 'merge:first', 'identity:retry', 'merge:retry']
+  : ['identity:first', 'merge:first']);
+if (scenario === 'identity-unavailable') {
+  assert.deepEqual(messages, []);
+  assert.deepEqual(warnings, ['Guarded merge credential identity unavailable: HTTP 403']);
+} else {
+  assert.equal(messages[0],
+    'Guarded merge credential source=first; actor=first-writer; OAuth scopes=repo');
+  assert.deepEqual(warnings, []);
+  assert.equal(messages.length, scenario === 'retry' ? 2 : 1);
+  if (scenario === 'retry') {
+    assert.equal(messages[1], 'Guarded merge credential source=retry; actor=retry-writer; '
+      + 'OAuth scopes=not reported (fine-grained/App tokens require settings verification)');
+  }
+}
+const successful = !['unmerged', 'missing-response'].includes(scenario);
+assert.equal(status, successful ? 'merged' : 'error');
+assert.equal(note, successful ? 'Merged via squash.' : 'Merge API returned an unexpected response.');
+assert.deepEqual(merged, successful ? [prNumber] : []);
+assert.equal(cleanupLoads, successful ? 1 : 0);
+})().catch(error => {console.error(error); process.exitCode = 1});
+"""
+    )
+
+
+@pytest.mark.parametrize(
+    "scenario", ["retry", "identity-unavailable", "unmerged", "missing-response"]
+)
+def test_guarded_merge_attempt_diagnostics_and_result(scenario):
+    """Replay the authored attempt, not eligibility guards or a live consumer merge."""
+    result = subprocess.run(
+        ["node", "-e", _guarded_merge_attempt_replay_program(), scenario],
+        capture_output=True,
+        text=True,
+        timeout=10,
+    )
+    assert result.returncode == 0, result.stderr
+
+
+@pytest.mark.parametrize(
+    ("original", "replacement", "scenario"),
+    [
+        ("getTokenSource?.()", "'first'", "retry"),
+        ("sha: headSha,\n", "", "retry"),
+        ("response.data.merged", "true", "unmerged"),
+    ],
+    ids=["stale-credential-source", "missing-head-binding", "false-merge-success"],
+)
+def test_guarded_merge_attempt_replay_detects_broken_contract(original, replacement, scenario):
+    program = _guarded_merge_attempt_replay_program()
+    assert program.count(original) == 1
+    result = subprocess.run(
+        ["node", "-e", program.replace(original, replacement, 1), scenario],
+        capture_output=True,
+        text=True,
+        timeout=10,
+    )
+    assert (
+        result.returncode != 0
+    ), "Broken merge diagnostics or result handling must fail the replay"
+    assert "AssertionError" in result.stderr, result.stderr
