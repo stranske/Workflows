@@ -1,0 +1,101 @@
+Check date: 2026-11-03
+Command: /opt/anaconda3/bin/python3 -m pytest docs/evidence/issue-4001/test_extract_target_coverage.py -q --tb=short
+Original merged extractor (negative control):
+.FFFFFFFFFFFFFFF                                                         [100%]
+=================================== FAILURES ===================================
+_ test_missing_or_invalid_counts_never_print_partial_success[None-missing_lines] _
+docs/evidence/issue-4001/test_extract_target_coverage.py:56: in test_missing_or_invalid_counts_never_print_partial_success
+    assert result.returncode == 2
+E   assert 0 == 2
+E    +  where 0 = CompletedProcess(args=['/opt/anaconda3/bin/python3', '/Users/teacher/.codex/orchestrator/worktrees/stranske__Workflows...g_branches": 3,\n    "missing_lines": 2,\n    "percent_covered": 90.0\n  }\n}\n', stderr='combined_missing_units=13\n').returncode
+_ test_missing_or_invalid_counts_never_print_partial_success[None-missing_branches] _
+docs/evidence/issue-4001/test_extract_target_coverage.py:56: in test_missing_or_invalid_counts_never_print_partial_success
+    assert result.returncode == 2
+E   assert 0 == 2
+E    +  where 0 = CompletedProcess(args=['/opt/anaconda3/bin/python3', '/Users/teacher/.codex/orchestrator/worktrees/stranske__Workflows...g_branches": 3,\n    "missing_lines": 2,\n    "percent_covered": 90.0\n  }\n}\n', stderr='combined_missing_units=12\n').returncode
+_ test_missing_or_invalid_counts_never_print_partial_success[-1-missing_lines] _
+docs/evidence/issue-4001/test_extract_target_coverage.py:56: in test_missing_or_invalid_counts_never_print_partial_success
+    assert result.returncode == 2
+E   assert 0 == 2
+E    +  where 0 = CompletedProcess(args=['/opt/anaconda3/bin/python3', '/Users/teacher/.codex/orchestrator/worktrees/stranske__Workflows...g_branches": 3,\n    "missing_lines": 2,\n    "percent_covered": 90.0\n  }\n}\n', stderr='combined_missing_units=10\n').returncode
+_ test_missing_or_invalid_counts_never_print_partial_success[-1-missing_branches] _
+docs/evidence/issue-4001/test_extract_target_coverage.py:56: in test_missing_or_invalid_counts_never_print_partial_success
+    assert result.returncode == 2
+E   assert 0 == 2
+E    +  where 0 = CompletedProcess(args=['/opt/anaconda3/bin/python3', '/Users/teacher/.codex/orchestrator/worktrees/stranske__Workflows...g_branches": 3,\n    "missing_lines": 2,\n    "percent_covered": 90.0\n  }\n}\n', stderr='combined_missing_units=11\n').returncode
+_ test_missing_or_invalid_counts_never_print_partial_success[True-missing_lines] _
+docs/evidence/issue-4001/test_extract_target_coverage.py:56: in test_missing_or_invalid_counts_never_print_partial_success
+    assert result.returncode == 2
+E   assert 0 == 2
+E    +  where 0 = CompletedProcess(args=['/opt/anaconda3/bin/python3', '/Users/teacher/.codex/orchestrator/worktrees/stranske__Workflows...g_branches": 3,\n    "missing_lines": 2,\n    "percent_covered": 90.0\n  }\n}\n', stderr='combined_missing_units=14\n').returncode
+_ test_missing_or_invalid_counts_never_print_partial_success[True-missing_branches] _
+docs/evidence/issue-4001/test_extract_target_coverage.py:56: in test_missing_or_invalid_counts_never_print_partial_success
+    assert result.returncode == 2
+E   assert 0 == 2
+E    +  where 0 = CompletedProcess(args=['/opt/anaconda3/bin/python3', '/Users/teacher/.codex/orchestrator/worktrees/stranske__Workflows...g_branches": 3,\n    "missing_lines": 2,\n    "percent_covered": 90.0\n  }\n}\n', stderr='combined_missing_units=13\n').returncode
+_ test_missing_or_invalid_counts_never_print_partial_success[3-missing_lines] __
+docs/evidence/issue-4001/test_extract_target_coverage.py:56: in test_missing_or_invalid_counts_never_print_partial_success
+    assert result.returncode == 2
+E   assert 0 == 2
+E    +  where 0 = CompletedProcess(args=['/opt/anaconda3/bin/python3', '/Users/teacher/.codex/orchestrator/worktrees/stranske__Workflows...g_branches": 3,\n    "missing_lines": 2,\n    "percent_covered": 90.0\n  }\n}\n', stderr='combined_missing_units=16\n').returncode
+_ test_missing_or_invalid_counts_never_print_partial_success[3-missing_branches] _
+docs/evidence/issue-4001/test_extract_target_coverage.py:56: in test_missing_or_invalid_counts_never_print_partial_success
+    assert result.returncode == 2
+E   assert 0 == 2
+E    +  where 0 = CompletedProcess(args=['/opt/anaconda3/bin/python3', '/Users/teacher/.codex/orchestrator/worktrees/stranske__Workflows...g_branches": 3,\n    "missing_lines": 2,\n    "percent_covered": 90.0\n  }\n}\n', stderr='combined_missing_units=15\n').returncode
+_ test_missing_or_invalid_counts_never_print_partial_success[1.5-missing_lines] _
+docs/evidence/issue-4001/test_extract_target_coverage.py:56: in test_missing_or_invalid_counts_never_print_partial_success
+    assert result.returncode == 2
+E   assert 0 == 2
+E    +  where 0 = CompletedProcess(args=['/opt/anaconda3/bin/python3', '/Users/teacher/.codex/orchestrator/worktrees/stranske__Workflows...g_branches": 3,\n    "missing_lines": 2,\n    "percent_covered": 90.0\n  }\n}\n', stderr='combined_missing_units=14\n').returncode
+_ test_missing_or_invalid_counts_never_print_partial_success[1.5-missing_branches] _
+docs/evidence/issue-4001/test_extract_target_coverage.py:56: in test_missing_or_invalid_counts_never_print_partial_success
+    assert result.returncode == 2
+E   assert 0 == 2
+E    +  where 0 = CompletedProcess(args=['/opt/anaconda3/bin/python3', '/Users/teacher/.codex/orchestrator/worktrees/stranske__Workflows...g_branches": 3,\n    "missing_lines": 2,\n    "percent_covered": 90.0\n  }\n}\n', stderr='combined_missing_units=13\n').returncode
+________ test_absent_or_ambiguous_targets_fail_without_a_total[absent] _________
+docs/evidence/issue-4001/test_extract_target_coverage.py:77: in test_absent_or_ambiguous_targets_fail_without_a_total
+    assert result.returncode == 2
+E   assert 0 == 2
+E    +  where 0 = CompletedProcess(args=['/opt/anaconda3/bin/python3', '/Users/teacher/.codex/orchestrator/worktrees/stranske__Workflows...g_branches": 3,\n    "missing_lines": 2,\n    "percent_covered": 90.0\n  }\n}\n', stderr='combined_missing_units=10\n').returncode
+________ test_absent_or_ambiguous_targets_fail_without_a_total[suffix] _________
+docs/evidence/issue-4001/test_extract_target_coverage.py:77: in test_absent_or_ambiguous_targets_fail_without_a_total
+    assert result.returncode == 2
+E   assert 0 == 2
+E    +  where 0 = CompletedProcess(args=['/opt/anaconda3/bin/python3', '/Users/teacher/.codex/orchestrator/worktrees/stranske__Workflows...g_branches": 3,\n    "missing_lines": 2,\n    "percent_covered": 90.0\n  }\n}\n', stderr='combined_missing_units=15\n').returncode
+_______ test_absent_or_ambiguous_targets_fail_without_a_total[duplicate] _______
+docs/evidence/issue-4001/test_extract_target_coverage.py:77: in test_absent_or_ambiguous_targets_fail_without_a_total
+    assert result.returncode == 2
+E   assert 0 == 2
+E    +  where 0 = CompletedProcess(args=['/opt/anaconda3/bin/python3', '/Users/teacher/.codex/orchestrator/worktrees/stranske__Workflows...g_branches": 3,\n    "missing_lines": 2,\n    "percent_covered": 90.0\n  }\n}\n', stderr='combined_missing_units=15\n').returncode
+________ test_absent_or_ambiguous_targets_fail_without_a_total[summary] ________
+docs/evidence/issue-4001/test_extract_target_coverage.py:77: in test_absent_or_ambiguous_targets_fail_without_a_total
+    assert result.returncode == 2
+E   assert 0 == 2
+E    +  where 0 = CompletedProcess(args=['/opt/anaconda3/bin/python3', '/Users/teacher/.codex/orchestrator/worktrees/stranske__Workflows...g_branches": 3,\n    "missing_lines": 2,\n    "percent_covered": 90.0\n  }\n}\n', stderr='combined_missing_units=10\n').returncode
+_________ test_absent_or_ambiguous_targets_fail_without_a_total[files] _________
+docs/evidence/issue-4001/test_extract_target_coverage.py:77: in test_absent_or_ambiguous_targets_fail_without_a_total
+    assert result.returncode == 2
+E   assert 0 == 2
+E    +  where 0 = CompletedProcess(args=['/opt/anaconda3/bin/python3', '/Users/teacher/.codex/orchestrator/worktrees/stranske__Workflows..._branches": -1,\n    "missing_lines": -1,\n    "percent_covered": -1.0\n  }\n}\n', stderr='combined_missing_units=0\n').returncode
+=========================== short test summary info ============================
+FAILED docs/evidence/issue-4001/test_extract_target_coverage.py::test_missing_or_invalid_counts_never_print_partial_success[None-missing_lines]
+FAILED docs/evidence/issue-4001/test_extract_target_coverage.py::test_missing_or_invalid_counts_never_print_partial_success[None-missing_branches]
+FAILED docs/evidence/issue-4001/test_extract_target_coverage.py::test_missing_or_invalid_counts_never_print_partial_success[-1-missing_lines]
+FAILED docs/evidence/issue-4001/test_extract_target_coverage.py::test_missing_or_invalid_counts_never_print_partial_success[-1-missing_branches]
+FAILED docs/evidence/issue-4001/test_extract_target_coverage.py::test_missing_or_invalid_counts_never_print_partial_success[True-missing_lines]
+FAILED docs/evidence/issue-4001/test_extract_target_coverage.py::test_missing_or_invalid_counts_never_print_partial_success[True-missing_branches]
+FAILED docs/evidence/issue-4001/test_extract_target_coverage.py::test_missing_or_invalid_counts_never_print_partial_success[3-missing_lines]
+FAILED docs/evidence/issue-4001/test_extract_target_coverage.py::test_missing_or_invalid_counts_never_print_partial_success[3-missing_branches]
+FAILED docs/evidence/issue-4001/test_extract_target_coverage.py::test_missing_or_invalid_counts_never_print_partial_success[1.5-missing_lines]
+FAILED docs/evidence/issue-4001/test_extract_target_coverage.py::test_missing_or_invalid_counts_never_print_partial_success[1.5-missing_branches]
+FAILED docs/evidence/issue-4001/test_extract_target_coverage.py::test_absent_or_ambiguous_targets_fail_without_a_total[absent]
+FAILED docs/evidence/issue-4001/test_extract_target_coverage.py::test_absent_or_ambiguous_targets_fail_without_a_total[suffix]
+FAILED docs/evidence/issue-4001/test_extract_target_coverage.py::test_absent_or_ambiguous_targets_fail_without_a_total[duplicate]
+FAILED docs/evidence/issue-4001/test_extract_target_coverage.py::test_absent_or_ambiguous_targets_fail_without_a_total[summary]
+FAILED docs/evidence/issue-4001/test_extract_target_coverage.py::test_absent_or_ambiguous_targets_fail_without_a_total[files]
+15 failed, 1 passed in 0.82s
+
+Restored fixed extractor:
+................                                                         [100%]
+16 passed in 0.74s

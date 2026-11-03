@@ -1,0 +1,83 @@
+$ /opt/anaconda3/bin/python3 docs/evidence/issue-4001/extract_target_coverage.py docs/evidence/issue-4001/gate-coverage/before/coverage.json
+{
+  "scripts/aggregate_agent_metrics.py": {
+    "missing_branches": 17,
+    "missing_lines": 5,
+    "percent_covered": 98.27990617670055
+  },
+  "scripts/check_consumer_sync_drift.py": {
+    "missing_branches": 57,
+    "missing_lines": 73,
+    "percent_covered": 84.08812729498165
+  },
+  "scripts/validate_run_contract.py": {
+    "missing_branches": 27,
+    "missing_lines": 47,
+    "percent_covered": 88.78787878787878
+  }
+}
+combined_missing_units=226
+exit=0
+
+$ /opt/anaconda3/bin/python3 docs/evidence/issue-4001/extract_target_coverage.py docs/evidence/issue-4001/gate-coverage/after/coverage.json
+{
+  "scripts/aggregate_agent_metrics.py": {
+    "missing_branches": 3,
+    "missing_lines": 0,
+    "percent_covered": 99.76544175136826
+  },
+  "scripts/check_consumer_sync_drift.py": {
+    "missing_branches": 0,
+    "missing_lines": 0,
+    "percent_covered": 100.0
+  },
+  "scripts/validate_run_contract.py": {
+    "missing_branches": 0,
+    "missing_lines": 0,
+    "percent_covered": 100.0
+  }
+}
+combined_missing_units=3
+exit=0
+
+$ /opt/anaconda3/bin/python3 docs/evidence/issue-4001/extract_target_coverage.py docs/evidence/issue-4001/gate-ci/before/target-coverage.json
+{
+  "scripts/aggregate_agent_metrics.py": {
+    "missing_branches": 17,
+    "missing_lines": 5,
+    "percent_covered": 98.28
+  },
+  "scripts/check_consumer_sync_drift.py": {
+    "missing_branches": 57,
+    "missing_lines": 73,
+    "percent_covered": 84.09
+  },
+  "scripts/validate_run_contract.py": {
+    "missing_branches": 27,
+    "missing_lines": 47,
+    "percent_covered": 88.79
+  }
+}
+combined_missing_units=226
+exit=0
+
+$ /opt/anaconda3/bin/python3 docs/evidence/issue-4001/extract_target_coverage.py docs/evidence/issue-4001/gate-ci/after/target-coverage.json
+{
+  "scripts/aggregate_agent_metrics.py": {
+    "missing_branches": 5,
+    "missing_lines": 1,
+    "percent_covered": 99.53
+  },
+  "scripts/check_consumer_sync_drift.py": {
+    "missing_branches": 42,
+    "missing_lines": 37,
+    "percent_covered": 90.33
+  },
+  "scripts/validate_run_contract.py": {
+    "missing_branches": 27,
+    "missing_lines": 41,
+    "percent_covered": 89.7
+  }
+}
+combined_missing_units=153
+exit=0

@@ -1,0 +1,136 @@
+dfbc0129a28929363d6ca9aa4dc4f17e29f52ae4:.github/workflows/pr-00-gate.yml:174-204
+174:         needs.detect.outputs.doc_only != 'true' &&
+175:         needs.detect.outputs.is_python_code == 'true' &&
+176:         needs.detect.outputs.run_core == 'true'
+177:       }}
+178:     uses: ./.github/workflows/reusable-10-ci-python.yml
+179:     secrets: inherit
+180:     permissions:
+181:       contents: read
+182:       actions: read
+183:     with:
+184:       # Local reusable source and its helper must be tested at the same commit.
+185:       workflows_ref: ${{ github.sha }}
+186:       primary-python-version: '3.12'
+187:       python-versions: '["3.12", "3.13"]'
+188:       marker: "not quarantine and not slow"
+189:       pytest_markers: ${{ needs.detect.outputs.pytest_markers }}
+190:       lint: ${{ needs.detect.outputs.lint == 'true' }}
+191:       format_check: ${{ needs.detect.outputs.format_check == 'true' }}
+192:       typecheck: ${{ needs.detect.outputs.typecheck == 'true' }}
+193:       run-mypy: ${{ needs.detect.outputs.typecheck == 'true' }}
+194:       coverage: ${{ needs.detect.outputs.coverage == 'true' }}
+195:       # Keep coverage threshold informational; reusable Python CI owns source selection.
+196:       coverage-min: ''
+197:       cache: ${{ needs.detect.outputs.cache == 'true' }}
+198:       enable-soft-gate: ${{ needs.detect.outputs.coverage == 'true' }}
+199:       # Use the shared gate- prefix so downstream Maint workflows can locate the
+200:       # coverage artifacts without special-casing runtime names.
+201:       artifact-prefix: 'gate-'
+202:
+203:   docs-guard:
+204:     name: docs guard
+
+dfbc0129a28929363d6ca9aa4dc4f17e29f52ae4:.github/workflows/reusable-10-ci-python.yml:1993-2038
+1993:       - name: Pytest (unit tests with coverage)
+1994:         id: pytest
+1995:         continue-on-error: true
+1996:         working-directory: ${{ inputs['working-directory'] || '.' }}
+1997:         env:
+1998:           PYTEST_MARKERS: >-
+1999:             ${{
+2000:               inputs.pytest_markers != ''
+2001:               && inputs.pytest_markers
+2002:               || inputs.marker
+2003:             }}
+2004:           PYTEST_ARGS: ${{ inputs['pytest_args'] || '' }}
+2005:           COVERAGE_ENABLED: ${{ inputs.coverage }}
+2006:           PYTHONPATH: ${{ github.workspace }}/${{ inputs['working-directory'] || '.' }}
+2007:         run: |
+2008:           set -euo pipefail
+2009:           args=("--junitxml=pytest-junit.xml")
+2010:           if [ "${COVERAGE_ENABLED}" = "true" ]; then
+2011:             args+=("--cov")
+2012:             # Only pin the config when the file exists; coverage otherwise
+2013:             # discovers .coveragerc / setup.cfg / tox.ini on its own. Passing a
+2014:             # missing path is fatal ("Couldn't read 'pyproject.toml' as a config
+2015:             # file") and kills collection before any test runs.
+2016:             if [ -f pyproject.toml ]; then
+2017:               args+=("--cov-config=pyproject.toml")
+2018:             fi
+2019:             args+=("--cov-report=xml:coverage.xml")
+2020:             args+=("--cov-report=term-missing")
+2021:             args+=("--cov-report=json:coverage.json")
+2022:           fi
+2023:           if [ -n "${PYTEST_MARKERS}" ]; then
+2024:             args=("-m" "${PYTEST_MARKERS}" "${args[@]}")
+2025:           fi
+2026:           if [ -n "${PYTEST_ARGS}" ]; then
+2027:             mapfile -t extra_args < <(
+2028:               python -c \
+2029:                 'import os, shlex; print(*shlex.split(os.getenv("PYTEST_ARGS", "")), sep="\n")'
+2030:             )
+2031:             if [ ${#extra_args[@]} -gt 0 ]; then
+2032:               args+=("${extra_args[@]}")
+2033:             fi
+2034:           fi
+2035:           if python -c "import xdist" 2>/dev/null; then
+2036:             args+=("-n" "auto" "--dist=loadgroup")
+2037:             echo "Running tests in parallel with pytest-xdist (loadgroup scheduler)..."
+2038:           fi
+
+dfbc0129a28929363d6ca9aa4dc4f17e29f52ae4:.github/workflows/reusable-10-ci-python.yml:2100-2106
+2100:                       Path("pytest-collection.json").unlink(missing_ok=True)
+2101:                   elif _ids is not None and not _collection_failed:
+2102:                       _record(_ids)
+2103:           PY
+2104:           export PYTHONPATH="${growth_plugin_dir}:${PYTHONPATH:-}"
+2105:           pytest -p ci_test_growth "${args[@]}"
+2106:       - name: Enforce coverage minimum
+
+dfbc0129a28929363d6ca9aa4dc4f17e29f52ae4:pyproject.toml:178-222
+178: python_files = ["test_*.py", "*_test.py"]
+179: python_classes = ["Test*"]
+180: python_functions = ["test_*"]
+181: addopts = [
+182:     "-ra",
+183:     "--strict-markers",
+184:     "--strict-config",
+185: ]
+186: markers = [
+187:     "integration: marks tests as integration tests (may require external resources)",
+188:     "cosmetic: marks tests for cosmetic/formatting changes",
+189:     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+190:     "serial: marks tests that must run serially",
+191:     "xdist_group: marks tests that must share a single xdist worker",
+192: ]
+193: filterwarnings = [
+194:     "error",
+195: ]
+196:
+197: [tool.coverage.run]
+198: branch = true
+199: parallel = true
+200: source = ["scripts", "tools", "src"]
+201: omit = [
+202:     "*/tests/*",
+203:     "*/test_*.py",
+204:     "*/.venv/*",
+205:     "archive/*",
+206:     ".extraction/*",
+207:     # CI autofix test fixtures - not production code
+208:     "src/trend_analysis/*",
+209: ]
+210:
+211: [tool.coverage.report]
+212: precision = 2
+213: show_missing = true
+214: skip_covered = false
+215: # Owner decision 2026-10-16: the `if __name__ == "__main__":` guard only calls
+216: # main(), so it is not measured. Tests of main() itself still count.
+217: # `exclude_also` ADDS to coverage's default exclusions, so every existing
+218: # `# pragma: no cover` keeps working. Do not switch this to `exclude_lines`:
+219: # that REPLACES the defaults and would silently un-exclude every pragma.
+220: exclude_also = [
+221:     "if __name__ == .__main__.:",
+222: ]

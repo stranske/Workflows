@@ -1,0 +1,25 @@
+Check date: 2026-11-03; repository has no selected .venv; owner-selected /opt/anaconda3/bin/python3.
+
+$ /opt/anaconda3/bin/python3 -m black --line-length 100 docs/evidence/issue-4001/extract_target_coverage.py tests/scripts/test_issue_4001_target_coverage.py
+Warning: Python 3.12 cannot parse code formatted for Python 3.13. To fix this: run Black with Python 3.13, set --target-version to py312, or use --fast to skip the safety check. Black's safety check verifies equivalence by parsing the AST, which fails when the running Python is older than the target version.
+reformatted docs/evidence/issue-4001/extract_target_coverage.py
+reformatted tests/scripts/test_issue_4001_target_coverage.py
+
+All done! ✨ 🍰 ✨
+2 files reformatted.
+exit=0
+
+$ /opt/anaconda3/bin/python3 -m black --check --line-length 100 docs/evidence/issue-4001/extract_target_coverage.py docs/evidence/issue-4001/run_break_revert_probes.py tests/scripts/test_issue_4001_target_coverage.py
+Warning: Python 3.12 cannot parse code formatted for Python 3.13. To fix this: run Black with Python 3.13, set --target-version to py312, or use --fast to skip the safety check. Black's safety check verifies equivalence by parsing the AST, which fails when the running Python is older than the target version.
+All done! ✨ 🍰 ✨
+3 files would be left unchanged.
+exit=0
+
+$ /opt/anaconda3/bin/python3 -m ruff check docs/evidence/issue-4001/extract_target_coverage.py docs/evidence/issue-4001/run_break_revert_probes.py tests/scripts/test_issue_4001_target_coverage.py
+All checks passed!
+exit=0
+
+$ /opt/anaconda3/bin/python3 -m pytest tests/scripts/test_issue_4001_target_coverage.py -q --tb=short
+.................                                                        [100%]
+17 passed in 0.94s
+exit=0
