@@ -354,7 +354,7 @@ def load_selection_decisions() -> list[SelectionDecision]:
     return decisions
 
 
-def retired_selection_keys() -> set[tuple[str, str]]:
+def retired_selection_keys() -> set[tuple[str, str | None]]:
     """(profile, provider) pairs whose selection was retired and not re-selected.
 
     A selection_history entry with ``superseded_by: "retired"`` retires that provider for
