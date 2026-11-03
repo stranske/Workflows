@@ -79,15 +79,20 @@ def test_detect_local_project_modules_ignores_hidden_test_entries(
     assert std._detect_local_project_modules() == {"visible"}
 
 
+@pytest.mark.parametrize(
+    ("filename", "reader", "expected"),
+    [
+        ("pytest.toml", std._tests_dir_on_pytest_toml_pythonpath, False),
+        ("pyproject.toml", std._tests_dir_on_pyproject_pythonpath, None),
+    ],
+    ids=["pytest-toml", "pyproject-toml"],
+)
 def test_pytest_config_readers_reject_non_mapping_toml(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, filename, reader, expected
 ) -> None:
-    # Both files must EXIST: a missing file returns from the OSError fallback before tomllib.load is reached, and
-    # the test would then pass without ever exercising the non-mapping branch it is named for.
-    pytest_toml = tmp_path / "pytest.toml"
-    pyproject = tmp_path / "pyproject.toml"
-    pytest_toml.write_text("", encoding="utf-8")
-    pyproject.write_text("", encoding="utf-8")
+    # Retain #3965's defensive parser-contract test, with a node per reader.
+    config = tmp_path / filename
+    config.write_text("", encoding="utf-8")
     loaded: list[str] = []
 
     def non_mapping(fh: Any) -> list[object]:
@@ -96,9 +101,8 @@ def test_pytest_config_readers_reject_non_mapping_toml(
 
     monkeypatch.setattr(std.tomllib, "load", non_mapping)
 
-    assert std._tests_dir_on_pytest_toml_pythonpath(pytest_toml) is False
-    assert std._tests_dir_on_pyproject_pythonpath(pyproject) is None
-    assert loaded == ["pytest.toml", "pyproject.toml"]
+    assert reader(config) is expected
+    assert loaded == [filename]
 
 
 def test_detect_local_project_modules_handles_packaged_tests_without_pythonpath(
@@ -1093,3 +1097,25 @@ def test_extract_requirement_name_handles_empty_and_extra_markers() -> None:
         std._extract_requirement_name("requests[socks]>=2.0 ; python_version >= '3.12'")
         == "requests"
     )
+
+
+@pytest.mark.parametrize("lock_kind", ["invalid-utf8", "directory"])
+def test_main_rejects_unreadable_canonical_lock(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys, lock_kind
+) -> None:
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text("[tool.pytest.ini_options]\n", encoding="utf-8")
+    lock = tmp_path / "requirements.lock"
+    if lock_kind == "invalid-utf8":
+        lock.write_bytes(b"\xff")
+    else:
+        lock.mkdir()
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(std, "PYPROJECT_FILE", pyproject)
+
+    assert std.main(["--verify"]) == 2
+    assert "cannot read canonical lock" in capsys.readouterr().err
+    if lock_kind == "invalid-utf8":
+        assert lock.read_bytes() == b"\xff"
+    else:
+        assert lock.is_dir()
