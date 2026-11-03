@@ -1,0 +1,6 @@
+interpreter=/opt/anaconda3/bin/python3 (3.12.2)
+command=python3 -m pytest -q -m 'not quarantine and not slow'
+result=50305 passed, 30 skipped, 9 deselected, 3 xfailed, 1 failed in 1456.79s
+failure=tests/test_integration_repo_template.py::test_integration_template_installs_and_tests (requires Python >=3.13 for editable install; unrelated to #4172 test modules)
+three_module_command=python3 -m pytest -q tests/scripts/test_docs_drift_fix_agent.py tests/scripts/test_export_keepalive_durability.py tests/scripts/test_workflow_startup_failure_diagnostic.py
+three_module_result=112 passed in 0.92s

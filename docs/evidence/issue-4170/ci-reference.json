@@ -1,0 +1,29 @@
+{
+  "merged_pr": "https://github.com/stranske/Workflows/pull/4172",
+  "merge_commit": "cbad3c6f0f0f8e76b2dbaf382148ef4301de253d",
+  "issue_reopen_note": "https://github.com/stranske/Workflows/issues/4170#issuecomment-6304625941",
+  "github_actions": {
+    "gate_workflow_run": {
+      "run_id": 39513094018,
+      "url": "https://github.com/stranske/Workflows/actions/runs/39513094018",
+      "python_tests_job": {
+        "name": "Python Tests",
+        "conclusion": "success",
+        "job_id": 118939127717
+      },
+      "slow_compatibility_3_14": {
+        "name": "slow compatibility (3.14)",
+        "conclusion": "success",
+        "job_id": 118938715343,
+        "pytest_tail": "9 passed in 17.72s",
+        "note": "PR-scoped compatibility slice; canonical suite skipped on pull_request"
+      },
+      "lint_format": {
+        "name": "Lint, Format & YAML Validation",
+        "conclusion": "success"
+      }
+    }
+  },
+  "local_three_module_command": "/opt/anaconda3/bin/python3 -m pytest -q tests/scripts/test_docs_drift_fix_agent.py tests/scripts/test_export_keepalive_durability.py tests/scripts/test_workflow_startup_failure_diagnostic.py",
+  "local_ci_marker_command": "python3 -m pytest -q -m 'not quarantine and not slow'"
+}
