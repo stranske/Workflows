@@ -1530,6 +1530,13 @@ jobs:
         run: |
           set -euo pipefail
 
+          # Ensure auth is available at CODEX_HOME for subscription analysis
+          mkdir -p "$CODEX_HOME"
+          if [ -f ~/.codex/auth.json ]; then
+            cp ~/.codex/auth.json "$CODEX_HOME/auth.json"
+            chmod 600 "$CODEX_HOME/auth.json"
+          fi
+
           SESSION_JSONL="codex-session-${PR_NUM}.jsonl"
           ANALYSIS_FILE="codex-analysis-${PR_NUM}.json"
 
