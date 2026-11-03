@@ -1,0 +1,69 @@
+{
+  "verification_event": {
+    "schema": "verification-event/v1",
+    "repo": "stranske/workflows",
+    "pr": "4231",
+    "head_sha": "75b2d8c529b7c64a7b73e4a9337b43b33a3441da",
+    "evaluated_sha": "d16bb488edb0a3f25135762ed114bc8cabd397ec",
+    "request_sha256": "9781006dac538363f44d33583dba56f55e89cad2ddc01baa39b8f39585ce2f79",
+    "material_sha256": "87a3bb5de2f1e0c00910c8584e9b509a521d7821e72551d671cb17f6c113c57e",
+    "event_id": "adcfbf65b031d530c51ef3480df2b40fd8f57967feb0318e58bcbc66c5ce25df"
+  },
+  "request": {
+    "schema": "verification-request/v1",
+    "sources": [
+      {
+        "repository": "stranske/workflows",
+        "kind": "pull_request",
+        "number": "4231",
+        "body_sha256": "e8d3633219677b39e588472fc52d2dbc37e1a54c7a6cac39ee7dc40a3c4f57bb"
+      }
+    ]
+  },
+  "material": {
+    "schema": "verification-material/v1",
+    "code": {
+      "head_sha": "75b2d8c529b7c64a7b73e4a9337b43b33a3441da",
+      "evaluated_sha": "d16bb488edb0a3f25135762ed114bc8cabd397ec",
+      "diff_sha256": "a6ba74c03a80e9a522e5df514fd12c8f4045e20a26ce3ce1682dcdd8dd76d7a2"
+    },
+    "ci_hard_gate": {
+      "schema": "verification-ci-hard-gate/v1",
+      "head_sha": "75b2d8c529b7c64a7b73e4a9337b43b33a3441da",
+      "evaluated_sha": "d16bb488edb0a3f25135762ed114bc8cabd397ec",
+      "results": [
+        {
+          "workflow_id": "selftest-ci.yml",
+          "binding_status": "bound",
+          "head_sha": "d16bb488edb0a3f25135762ed114bc8cabd397ec",
+          "run_id": 40143707703,
+          "run_attempt": 1,
+          "conclusion": "in_progress"
+        },
+        {
+          "workflow_id": "pr-11-ci-smoke.yml",
+          "binding_status": "bound",
+          "head_sha": "d16bb488edb0a3f25135762ed114bc8cabd397ec",
+          "run_id": 40143707728,
+          "run_attempt": 1,
+          "conclusion": "success"
+        }
+      ]
+    },
+    "required_evidence": []
+  },
+  "assessment_identity": {
+    "mode": "compare",
+    "provider": "",
+    "model": "",
+    "model2": "",
+    "canonical": true
+  },
+  "execution_binding": {
+    "schema": "verifier-execution-binding/v1",
+    "workflow_path": ".github/workflows/agents-verifier.yml",
+    "job_name": "Run post-merge verifier",
+    "pending_step": "Record verification event pending",
+    "evaluator_step": "Run multi-provider comparison"
+  }
+}
