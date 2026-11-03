@@ -32,8 +32,8 @@ PROBES: list[tuple[str, Path, str, str]] = [
     (
         "tests/contracts/test_validate_run_contract.py::test_document_identity_cross_checks_reject_conflicting_or_noncanonical_values",
         ROOT / "scripts/validate_run_contract.py",
-        "def _check_document_page(document: Any, report: Report, prefix: str = \"\") -> None:",
-        "def _check_document_page(document: Any, report: Report, prefix: str = \"\") -> None:\n    return",
+        'def _check_document_page(document: Any, report: Report, prefix: str = "") -> None:',
+        'def _check_document_page(document: Any, report: Report, prefix: str = "") -> None:\n    return',
     ),
     (
         "tests/contracts/test_validate_run_contract.py::test_standalone_validators_and_evidence_paths_fail_closed_on_unreadable_inputs",
@@ -45,7 +45,7 @@ PROBES: list[tuple[str, Path, str, str]] = [
         "tests/scripts/test_aggregate_agent_metrics.py::test_metrics_helpers_preserve_empty_and_malformed_input_boundaries",
         ROOT / "scripts/aggregate_agent_metrics.py",
         "def _artifact_family(artifact: str) -> str:",
-        "def _artifact_family(artifact: str) -> str:\n    return \"broken-family\"",
+        'def _artifact_family(artifact: str) -> str:\n    return "broken-family"',
     ),
     (
         "tests/scripts/test_check_consumer_sync_drift.py::test_drift_cli_and_remote_read_boundaries",
