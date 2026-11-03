@@ -1,0 +1,227 @@
+{
+  "pairs": [
+    {
+      "source": "scripts/check_gate_diff_quality.py",
+      "test": "tests/scripts/test_check_gate_diff_quality.py::test_weak_added_tests_skips_non_test_paths",
+      "red_exit": 1,
+      "green_exit": 0,
+      "red_tail": "\n/private/tmp/wf4164-candidate/tests/scripts/test_check_gate_diff_quality.py:72: AssertionError\n=========================== short test summary info ============================\nFAILED tests/scripts/test_check_gate_diff_quality.py::test_weak_added_tests_skips_non_test_paths\n1 failed in 0.22s",
+      "green_tail": ".                                                                        [100%]\n1 passed in 0.20s"
+    },
+    {
+      "source": "scripts/check_gate_diff_quality.py",
+      "test": "tests/scripts/test_check_gate_diff_quality.py::test_git_adapters_and_missing_test_files",
+      "red_exit": 1,
+      "green_exit": 0,
+      "red_tail": "\ntests/scripts/test_check_gate_diff_quality.py:140: AssertionError\n=========================== short test summary info ============================\nFAILED tests/scripts/test_check_gate_diff_quality.py::test_git_adapters_and_missing_test_files\n1 failed in 0.25s",
+      "green_tail": ".                                                                        [100%]\n1 passed in 0.26s"
+    },
+    {
+      "source": "tools/post_ci_summary.py",
+      "test": "tests/test_post_ci_summary.py::test_required_segments_deduplicates_case_insensitive_job_names",
+      "red_exit": 1,
+      "green_exit": 0,
+      "red_tail": "\ntests/test_post_ci_summary.py:1206: AssertionError\n=========================== short test summary info ============================\nFAILED tests/test_post_ci_summary.py::test_required_segments_deduplicates_case_insensitive_job_names\n1 failed in 0.23s",
+      "green_tail": ".                                                                        [100%]\n1 passed in 0.20s"
+    },
+    {
+      "source": "scripts/langchain/topic_splitter.py",
+      "test": "tests/test_topic_splitter.py::test_main_rejects_missing_input_and_writes_topics",
+      "red_exit": 1,
+      "green_exit": 0,
+      "red_tail": "\n/opt/anaconda3/lib/python3.12/pathlib.py:1013: FileNotFoundError\n=========================== short test summary info ============================\nFAILED tests/test_topic_splitter.py::test_main_rejects_missing_input_and_writes_topics\n1 failed in 0.23s",
+      "green_tail": ".                                                                        [100%]\n1 passed in 0.15s"
+    },
+    {
+      "source": "scripts/check_issue_consistency.py",
+      "test": "tests/scripts/test_issue_consistency_check.py::test_event_payload_rejects_non_dict_and_empty_pull_request",
+      "red_exit": 1,
+      "green_exit": 0,
+      "red_tail": "\ntests/scripts/test_issue_consistency_check.py:761: AssertionError\n=========================== short test summary info ============================\nFAILED tests/scripts/test_issue_consistency_check.py::test_event_payload_rejects_non_dict_and_empty_pull_request\n1 failed in 0.23s",
+      "green_tail": ".                                                                        [100%]\n1 passed in 0.19s"
+    },
+    {
+      "source": "scripts/check_issue_consistency.py",
+      "test": "tests/scripts/test_issue_consistency_check.py::test_header_scan_covers_multiline_docstring_and_comment_lines",
+      "red_exit": 1,
+      "green_exit": 0,
+      "red_tail": "\ntests/scripts/test_issue_consistency_check.py:949: AssertionError\n=========================== short test summary info ============================\nFAILED tests/scripts/test_issue_consistency_check.py::test_header_scan_covers_multiline_docstring_and_comment_lines\n1 failed in 0.23s",
+      "green_tail": ".                                                                        [100%]\n1 passed in 0.19s"
+    },
+    {
+      "source": "scripts/check_issue_consistency.py",
+      "test": "tests/scripts/test_issue_consistency_check.py::test_main_infers_issue_from_headers_and_skips_ambiguous_fallback",
+      "red_exit": 1,
+      "green_exit": 0,
+      "red_tail": "\ntests/scripts/test_issue_consistency_check.py:1011: AssertionError\n=========================== short test summary info ============================\nFAILED tests/scripts/test_issue_consistency_check.py::test_main_infers_issue_from_headers_and_skips_ambiguous_fallback\n1 failed in 0.27s",
+      "green_tail": ".                                                                        [100%]\n1 passed in 0.28s"
+    },
+    {
+      "source": "scripts/check_issue_consistency.py",
+      "test": "tests/scripts/test_issue_consistency_check.py::test_main_reports_non_autofix_commit_and_header_mismatches",
+      "red_exit": 1,
+      "green_exit": 0,
+      "red_tail": "\ntests/scripts/test_issue_consistency_check.py:675: AssertionError\n=========================== short test summary info ============================\nFAILED tests/scripts/test_issue_consistency_check.py::test_main_reports_non_autofix_commit_and_header_mismatches\n1 failed in 0.25s",
+      "green_tail": ".                                                                        [100%]\n1 passed in 0.23s"
+    },
+    {
+      "source": "scripts/check_issue_consistency.py",
+      "test": "tests/scripts/test_issue_consistency_check.py::test_event_context_handles_list_pull_requests_and_precedence",
+      "red_exit": 1,
+      "green_exit": 0,
+      "red_tail": "\ntests/scripts/test_issue_consistency_check.py:541: AssertionError\n=========================== short test summary info ============================\nFAILED tests/scripts/test_issue_consistency_check.py::test_event_context_handles_list_pull_requests_and_precedence\n1 failed in 0.53s",
+      "green_tail": ".                                                                        [100%]\n1 passed in 0.19s"
+    },
+    {
+      "source": "scripts/check_issue_consistency.py",
+      "test": "tests/scripts/test_issue_consistency_check.py::test_find_remote_with_ref_returns_none_when_absent",
+      "red_exit": 1,
+      "green_exit": 0,
+      "red_tail": "\ntests/scripts/test_issue_consistency_check.py:824: AssertionError\n=========================== short test summary info ============================\nFAILED tests/scripts/test_issue_consistency_check.py::test_find_remote_with_ref_returns_none_when_absent\n1 failed in 0.24s",
+      "green_tail": ".                                                                        [100%]\n1 passed in 0.19s"
+    },
+    {
+      "source": "scripts/check_issue_consistency.py",
+      "test": "tests/scripts/test_issue_consistency_check.py::test_resolve_base_remote_uses_origin_fallback",
+      "red_exit": 1,
+      "green_exit": 0,
+      "red_tail": "\ntests/scripts/test_issue_consistency_check.py:819: AssertionError\n=========================== short test summary info ============================\nFAILED tests/scripts/test_issue_consistency_check.py::test_resolve_base_remote_uses_origin_fallback\n1 failed in 0.23s",
+      "green_tail": ".                                                                        [100%]\n1 passed in 0.20s"
+    },
+    {
+      "source": "scripts/check_issue_consistency.py",
+      "test": "tests/scripts/test_issue_consistency_check.py::test_fallback_helpers_try_all_candidates",
+      "red_exit": 0,
+      "green_exit": 0,
+      "red_tail": ".                                                                        [100%]\n1 passed in 0.20s",
+      "green_tail": ".                                                                        [100%]\n1 passed in 0.20s"
+    },
+    {
+      "source": "scripts/check_issue_consistency.py",
+      "test": "tests/scripts/test_issue_consistency_check.py::test_header_scan_handles_docstrings_and_unreadable_path",
+      "red_exit": 1,
+      "green_exit": 0,
+      "red_tail": "\ntests/scripts/test_issue_consistency_check.py:587: AssertionError\n=========================== short test summary info ============================\nFAILED tests/scripts/test_issue_consistency_check.py::test_header_scan_handles_docstrings_and_unreadable_path\n1 failed in 0.24s",
+      "green_tail": ".                                                                        [100%]\n1 passed in 0.19s"
+    },
+    {
+      "source": "scripts/check_issue_consistency.py",
+      "test": "tests/scripts/test_issue_consistency_check.py::test_run_git_fallback_helpers_cover_success_and_hard_errors",
+      "red_exit": 1,
+      "green_exit": 0,
+      "red_tail": "\ntests/scripts/test_issue_consistency_check.py:833: RuntimeError\n=========================== short test summary info ============================\nFAILED tests/scripts/test_issue_consistency_check.py::test_run_git_fallback_helpers_cover_success_and_hard_errors\n1 failed in 0.25s",
+      "green_tail": ".                                                                        [100%]\n1 passed in 0.20s"
+    },
+    {
+      "source": "scripts/check_issue_consistency.py",
+      "test": "tests/scripts/test_issue_consistency_check.py::test_collect_commit_messages_covers_sha_without_remote_and_ref_only",
+      "red_exit": 1,
+      "green_exit": 0,
+      "red_tail": "\ntests/scripts/test_issue_consistency_check.py:880: AssertionError\n=========================== short test summary info ============================\nFAILED tests/scripts/test_issue_consistency_check.py::test_collect_commit_messages_covers_sha_without_remote_and_ref_only\n1 failed in 0.22s",
+      "green_tail": ".                                                                        [100%]\n1 passed in 0.21s"
+    },
+    {
+      "source": "scripts/check_issue_consistency.py",
+      "test": "tests/scripts/test_issue_consistency_check.py::test_collect_changed_files_covers_ref_only_paths",
+      "red_exit": 1,
+      "green_exit": 0,
+      "red_tail": "\ntests/scripts/test_issue_consistency_check.py:933: AssertionError\n=========================== short test summary info ============================\nFAILED tests/scripts/test_issue_consistency_check.py::test_collect_changed_files_covers_ref_only_paths\n1 failed in 0.21s",
+      "green_tail": ".                                                                        [100%]\n1 passed in 0.20s"
+    },
+    {
+      "source": "scripts/check_issue_consistency.py",
+      "test": "tests/scripts/test_issue_consistency_check.py::test_git_subprocess_adapters_and_remote_helpers",
+      "red_exit": 1,
+      "green_exit": 0,
+      "red_tail": "\ntests/scripts/test_issue_consistency_check.py:720: AssertionError\n=========================== short test summary info ============================\nFAILED tests/scripts/test_issue_consistency_check.py::test_git_subprocess_adapters_and_remote_helpers\n1 failed in 0.23s",
+      "green_tail": ".                                                                        [100%]\n1 passed in 0.21s"
+    },
+    {
+      "source": "scripts/check_issue_consistency.py",
+      "test": "tests/scripts/test_issue_consistency_check.py::test_header_scan_recognizes_comment_styles_and_exclusions",
+      "red_exit": 1,
+      "green_exit": 0,
+      "red_tail": "\ntests/scripts/test_issue_consistency_check.py:737: AssertionError\n=========================== short test summary info ============================\nFAILED tests/scripts/test_issue_consistency_check.py::test_header_scan_recognizes_comment_styles_and_exclusions\n1 failed in 0.22s",
+      "green_tail": ".                                                                        [100%]\n1 passed in 0.28s"
+    },
+    {
+      "source": "scripts/check_issue_consistency.py",
+      "test": "tests/scripts/test_issue_consistency_check.py::test_main_skips_autofix_without_issue_and_reliable_fallback",
+      "red_exit": 1,
+      "green_exit": 0,
+      "red_tail": "\ntests/scripts/test_issue_consistency_check.py:748: AssertionError\n=========================== short test summary info ============================\nFAILED tests/scripts/test_issue_consistency_check.py::test_main_skips_autofix_without_issue_and_reliable_fallback\n1 failed in 0.30s",
+      "green_tail": ".                                                                        [100%]\n1 passed in 0.30s"
+    },
+    {
+      "source": "scripts/check_issue_consistency.py",
+      "test": "tests/scripts/test_issue_consistency_check.py::test_main_skips_unreliable_fallback_and_ambiguous_inference",
+      "red_exit": 1,
+      "green_exit": 0,
+      "red_tail": "\ntests/scripts/test_issue_consistency_check.py:698: AssertionError\n=========================== short test summary info ============================\nFAILED tests/scripts/test_issue_consistency_check.py::test_main_skips_unreliable_fallback_and_ambiguous_inference\n1 failed in 0.29s",
+      "green_tail": ".                                                                        [100%]\n1 passed in 0.25s"
+    },
+    {
+      "source": "scripts/check_issue_consistency.py",
+      "test": "tests/scripts/test_issue_consistency_check.py::test_main_bare_hash_warns_on_mismatch_and_ambiguous_head",
+      "red_exit": 1,
+      "green_exit": 0,
+      "red_tail": "\ntests/scripts/test_issue_consistency_check.py:974: AssertionError\n=========================== short test summary info ============================\nFAILED tests/scripts/test_issue_consistency_check.py::test_main_bare_hash_warns_on_mismatch_and_ambiguous_head\n1 failed in 0.28s",
+      "green_tail": ".                                                                        [100%]\n1 passed in 0.25s"
+    },
+    {
+      "source": "scripts/check_issue_consistency.py",
+      "test": "tests/scripts/test_issue_consistency_check.py::test_main_skips_missing_and_excluded_files_during_mismatch_scan",
+      "red_exit": 1,
+      "green_exit": 0,
+      "red_tail": "----------------------------- Captured stderr call -----------------------------\nError: File headers reference issue numbers that do not match PR title: /Users/teacher/.codex/orchestrator/agent-runtime/cursor/tmp/pytest-of-teacher/pytest-193/test_main_skips_missing_and_ex0/.github/workflow.yml\n=========================== short test summary info ============================\nFAILED tests/scripts/test_issue_consistency_check.py::test_main_skips_missing_and_excluded_files_during_mismatch_scan\n1 failed in 0.25s",
+      "green_tail": ".                                                                        [100%]\n1 passed in 0.20s"
+    },
+    {
+      "source": "scripts/check_issue_consistency.py",
+      "test": "tests/scripts/test_issue_consistency_check.py::test_parsers_and_event_payloads_cover_empty_and_invalid_inputs",
+      "red_exit": 1,
+      "green_exit": 0,
+      "red_tail": "\ntests/scripts/test_issue_consistency_check.py:523: AssertionError\n=========================== short test summary info ============================\nFAILED tests/scripts/test_issue_consistency_check.py::test_parsers_and_event_payloads_cover_empty_and_invalid_inputs\n1 failed in 0.23s",
+      "green_tail": ".                                                                        [100%]\n1 passed in 0.19s"
+    },
+    {
+      "source": "scripts/check_issue_consistency.py",
+      "test": "tests/scripts/test_issue_consistency_check.py::test_collect_helpers_cover_sha_and_remote_ranges",
+      "red_exit": 1,
+      "green_exit": 0,
+      "red_tail": "\ntests/scripts/test_issue_consistency_check.py:627: AssertionError\n=========================== short test summary info ============================\nFAILED tests/scripts/test_issue_consistency_check.py::test_collect_helpers_cover_sha_and_remote_ranges\n1 failed in 0.22s",
+      "green_tail": ".                                                                        [100%]\n1 passed in 0.18s"
+    },
+    {
+      "source": "scripts/check_issue_consistency.py",
+      "test": "tests/scripts/test_issue_consistency_check.py::test_is_autofix_context_reads_event_path_from_env",
+      "red_exit": 1,
+      "green_exit": 0
+    },
+    {
+      "source": "scripts/check_issue_consistency.py",
+      "test": "tests/scripts/test_issue_consistency_check.py::test_resolve_pr_context_handles_non_dict_head_and_workflow_run",
+      "red_exit": 1,
+      "green_exit": 0
+    },
+    {
+      "source": "scripts/check_issue_consistency.py",
+      "test": "tests/scripts/test_issue_consistency_check.py::test_collect_helpers_choose_each_non_sha_range",
+      "red_exit": 1,
+      "green_exit": 0
+    },
+    {
+      "source": "scripts/check_issue_consistency.py",
+      "test": "tests/scripts/test_issue_consistency_check.py::test_git_helpers_cover_failures_and_remote_fallback",
+      "red_exit": 1,
+      "green_exit": 0
+    },
+    {
+      "source": "scripts/check_issue_consistency.py",
+      "test": "tests/scripts/test_issue_consistency_check.py::test_fallback_helpers_try_all_candidates",
+      "red_exit": 1,
+      "green_exit": 0
+    }
+  ],
+  "problems": []
+}

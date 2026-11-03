@@ -1,0 +1,55 @@
+{
+  "check_date": "2026-11-02",
+  "repair_of": "stranske/Workflows#4164@4169",
+  "candidate_head": "9d81f4973c9f28bd8b41fe0b2f355ab276b63bdd",
+  "base_head": "d2def1901357855222046823b609a8f87b95ccfb",
+  "ranking": "Issue #4164 Orchestrator order: escaped-defect signal, then churn, then uncovered mass. Targets: tools/post_ci_summary.py (3), scripts/check_gate_diff_quality.py (9), scripts/langchain/topic_splitter.py (8), scripts/check_issue_consistency.py (214).",
+  "pytest_gate_failure_accounting": {
+    "reported": "PR #4169 auto-status: Deterministic gates 0/1 — Criterion 1 FAIL — pytest (exit 1)",
+    "ci_gate_python_313": {
+      "run_id": 39498031183,
+      "job_url": "https://github.com/stranske/Workflows/actions/runs/39498031183/job/118888915990",
+      "invocation": "pytest -m \"not quarantine and not slow\" with pytest-xdist loadgroup (PYTEST_WORKERS=4), junitxml=pytest-junit.xml, full repo testpaths",
+      "result": "52111 passed, 27 skipped, 3 xfailed in 377.27s — exit 0"
+    },
+    "keepalive_acceptance_gate": {
+      "extracted_command": "pytest",
+      "source": "Issue #4164 acceptance criteria checkbox backtick `pytest` parsed by scripts/runner_lib/acceptance_gate.py",
+      "repro_on_candidate_head": "acceptance_gate.py --prepare with issue markdown; bare pytest over full suite hit TIMEOUT (exit 124) at 300s cap before completion",
+      "conclusion": "No demonstrated defect in #4169 tests; required CI pytest passed. Reported gate failure is the isolated acceptance gate running unscoped bare pytest (not CI markers/xdist), not a failing test assertion on the merged head."
+    },
+    "closer_targeted_pytest": {
+      "command": "/opt/anaconda3/bin/python3 -m pytest -q tests/scripts/test_check_gate_diff_quality.py tests/scripts/test_issue_consistency_check.py tests/test_post_ci_summary.py tests/test_topic_splitter.py",
+      "result_on_main_after_4169": "136 passed in ~1.6s"
+    }
+  },
+  "coverage": {
+    "procedure": "Issue CI baseline counts from #4164; after = focused module pytest --cov on candidate head 9d81f497 (same modules/flags as opener #4169). Whole-repo Gate artifact comparison not retained (7-day artifact expiry); comparable target-module accounting below.",
+    "issue_ci_baseline_uncovered_units": {
+      "tools/post_ci_summary.py": 3,
+      "scripts/check_gate_diff_quality.py": 9,
+      "scripts/langchain/topic_splitter.py": 8,
+      "scripts/check_issue_consistency.py": 214,
+      "total": 234
+    },
+    "candidate_focused_after": {
+      "command": "pytest tests/test_post_ci_summary.py tests/scripts/test_check_gate_diff_quality.py tests/test_topic_splitter.py tests/scripts/test_issue_consistency_check.py --cov=tools.post_ci_summary --cov=scripts.check_gate_diff_quality --cov=scripts.langchain.topic_splitter --cov=scripts.check_issue_consistency --cov-branch --cov-report=term-missing -m \"not slow\" -q",
+      "head": "9d81f497",
+      "files": {
+        "tools/post_ci_summary.py": {"missing_lines": 1, "missing_branches": 2, "uncovered_units": 3},
+        "scripts/check_gate_diff_quality.py": {"missing_lines": 0, "missing_branches": 0, "uncovered_units": 0},
+        "scripts/langchain/topic_splitter.py": {"missing_lines": 3, "missing_branches": 0, "uncovered_units": 3},
+        "scripts/check_issue_consistency.py": {"missing_lines": 1, "missing_branches": 1, "uncovered_units": 2}
+      },
+      "remaining_uncovered_units_total": 8,
+      "delta_units_covered_vs_issue_baseline": 226,
+      "shortfall_vs_180_target": 0,
+      "remaining_explanation": "post_ci_summary.py:749-755 duplicate-name continue after break (751). topic_splitter.py:26-28 relative-import fallback. check_issue_consistency.py:320 unreachable raise when fallbacks empty."
+    }
+  },
+  "break_revert": {
+    "artifact": "docs/evidence/issue-4164/break_revert_pairs.json",
+    "distinct_new_tests": 28,
+    "pairs_recorded": 29
+  }
+}
