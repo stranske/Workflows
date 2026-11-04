@@ -91,11 +91,12 @@ tasks:
   - id: task-11
     title: The next `.github/workflows/maint-71-merge-sync-prs.yml` run reports stranske/Portable-Alpha-Extension-Model#2454
       without this review thread, and sync-core stops bumping this issue.
-    status: todo
+    status: deferred
     started_at: null
     finished_at: null
     commit: ''
-    notes: []
+    notes:
+      - Post-merge; maint-71-merge-sync-prs.yml and sync-core own completion after source merge.
   - id: task-12
     title: 'Fix the finding at its source in `stranske/Workflows`: `config/model_registry.json`
       (the consumer PR stranske/Portable-Alpha-Extension-Model#2454 is generated from
@@ -118,11 +119,12 @@ tasks:
     title: Let `.github/workflows/maint-68-sync-consumer-repos.yml` regenerate the
       sync candidate and confirm the review thread on stranske/Portable-Alpha-Extension-Model#2454
       is resolved.
-    status: todo
+    status: deferred
     started_at: null
     finished_at: null
     commit: ''
-    notes: []
+    notes:
+      - Post-merge; maint-68-sync-consumer-repos.yml owns consumer regeneration and thread resolution.
   - id: task-15
     title: Let `.github/workflows/maint-68-sync-consumer-repos.yml` regenerate the
       sync candidate and confirm the review thread on stranske/Portable-Alpha-Extension-Model#2454
@@ -133,11 +135,12 @@ tasks:
       thread. | Leave this as a post-merge human or automation step, not an agent
       task. The top-level Tasks list already omits it, so keep it out. Describe it
       in Implementation Notes as the expected downstream effect.)
-    status: todo
+    status: deferred
     started_at: null
     finished_at: null
     commit: ''
-    notes: []
+    notes:
+      - Duplicate downstream automation step; maint-68/maint-71 own completion after source merge.
   - id: task-16
     title: 'Fix `config/model_registry.json` so the retirement relies on a configured,
       validated consumer backup (Configuring the backup means adding a `capacity_backup`

@@ -717,7 +717,7 @@
       "rationale": "Provisional catalog fallback advanced to a model confirmed present in the 2026-07-10 GitHub Models catalog baseline. This is NOT a benchmark-proven promotion: no passing workload-benchmark evidence exists for this model or the superseded codex-mini-latest, so status stays provisional until the paired pilot runs. Human-approved by merging this PR.",
       "superseded_at": "2026-10-31",
       "superseded_by": "retired",
-      "supersede_reason": "Owner decision 2026-10-31: GitHub Models is no longer used as a fallback. The verifier's third slot is the Muse capacity backup (config/llm_slots.json capacity_backup); LangChain tools fall back only between OpenAI and Anthropic."
+      "supersede_reason": "Owner decision 2026-10-31: GitHub Models is no longer used as a fallback. This retirement does not configure a replacement backup. Consumers without a capacity_backup block in config/llm_slots.json have no configured backup, even when a provider API key is set; that file is create-only and is not updated by registry sync. A verifier capacity backup must be explicitly configured and validated in the consumer before it can be relied on. LangChain tools fall back only between OpenAI and Anthropic."
     }
   ],
   "evidence": [
