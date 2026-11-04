@@ -1673,3 +1673,118 @@ def test_strip_original_issue_handles_nested_details_outside_fences() -> None:
     assert "Original Issue" not in stripped
     assert "nested body" not in stripped
     assert "still original" not in stripped
+
+
+_FORMATTED_RESPONSE_TEXT = (
+    "## Tasks\n- [ ] Update `scripts/langchain/issue_formatter.py`.\n\n"
+    "## Acceptance Criteria\n"
+    "- [ ] `pytest tests/scripts/test_issue_formatter.py` passes."
+)
+
+
+@pytest.mark.parametrize(
+    "blocks", ["dict", "object", "strings", "split_dict", "split_object", "split_strings", "mixed"]
+)
+def test_format_issue_body_accepts_list_content_blocks(
+    monkeypatch: pytest.MonkeyPatch, blocks: str
+) -> None:
+    raw = "Raw issue text"
+    valid = _FORMATTED_RESPONSE_TEXT
+    content: list[object]
+    if blocks == "dict":
+        content = [{"type": "text", "text": valid}]
+    elif blocks == "object":
+        content = [types.SimpleNamespace(type="output_text", text=valid)]
+    elif blocks == "strings":
+        content = [valid]
+    elif blocks == "split_dict":
+        content = [{"type": "text", "text": line} for line in valid.split("\n")]
+    elif blocks == "split_object":
+        content = [
+            types.SimpleNamespace(type="output_text", text=line) for line in valid.split("\n")
+        ]
+    elif blocks == "split_strings":
+        content = valid.split("\n")
+    else:
+        content = [
+            {"type": "text", "text": "## Tasks"},
+            {"type": "tool_use", "text": "must not appear in the formatted body"},
+            "- [ ] Update `scripts/langchain/issue_formatter.py`.",
+            "",
+            types.SimpleNamespace(type="output_text", text="## Acceptance Criteria"),
+            types.SimpleNamespace(type="reasoning", text="must also be ignored"),
+            {"type": "output_text", "text": valid.split("\n")[-1]},
+        ]
+    chain = mock.MagicMock()
+    chain.invoke.side_effect = [
+        types.SimpleNamespace(content=valid),
+        types.SimpleNamespace(content=content),
+    ]
+    _install_fake_langchain(monkeypatch, chain)
+    monkeypatch.setattr(issue_formatter, "_get_llm_client", lambda: (object(), "fake"))
+    monkeypatch.setattr(
+        issue_formatter, "_validate_and_refine_tasks", lambda body, **kw: (body, None)
+    )
+
+    expected = issue_formatter.format_issue_body(raw, use_llm=True)
+    result = issue_formatter.format_issue_body(raw, use_llm=True)
+
+    assert chain.invoke.call_count == 2
+    assert result["used_llm"] is True
+    assert result["provider_used"] == "fake"
+    assert result["formatted_body"] == expected["formatted_body"]
+
+
+@pytest.mark.parametrize(
+    "content",
+    [
+        [{"type": "tool_use", "text": "ignore"}],
+        [types.SimpleNamespace(type="reasoning", text="ignore")],
+        [{"type": "image", "content": "ignore"}, {"type": "audio", "text": "ignore"}],
+        [{"type": "tool_use", "text": _FORMATTED_RESPONSE_TEXT}],
+        [types.SimpleNamespace(type="reasoning", text=_FORMATTED_RESPONSE_TEXT)],
+        [
+            {"type": "image", "content": _FORMATTED_RESPONSE_TEXT},
+            types.SimpleNamespace(type="tool_use", content=_FORMATTED_RESPONSE_TEXT),
+        ],
+        [{"type": "text", "text": " \n"}],
+        [types.SimpleNamespace(type="output_text", text="\t")],
+        ["", " \n"],
+        [],
+        None,
+        " \n",
+    ],
+    ids=[
+        "tool",
+        "reasoning",
+        "media",
+        "tool_formatted_text",
+        "reasoning_formatted_text",
+        "non_text_formatted_content",
+        "blank_dict",
+        "blank_object",
+        "blank_strings",
+        "empty",
+        "none",
+        "blank",
+    ],
+)
+def test_format_issue_body_ignores_non_text_blocks(
+    monkeypatch: pytest.MonkeyPatch, content: object
+) -> None:
+    raw = "Raw issue text"
+    chain = mock.MagicMock()
+    chain.invoke.return_value = types.SimpleNamespace(content=content)
+    _install_fake_langchain(monkeypatch, chain)
+    monkeypatch.setattr(issue_formatter, "_get_llm_client", lambda: (object(), "fake"))
+    monkeypatch.setattr(
+        issue_formatter, "_validate_and_refine_tasks", lambda body, **kw: (body, None)
+    )
+
+    expected = issue_formatter.format_issue_body(raw, use_llm=False)
+    result = issue_formatter.format_issue_body(raw, use_llm=True)
+
+    chain.invoke.assert_called_once()
+    assert result["used_llm"] is False
+    assert result["provider_used"] is None
+    assert result["formatted_body"] == expected["formatted_body"]

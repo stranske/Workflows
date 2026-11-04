@@ -30,6 +30,7 @@ try:
         build_issue_context,
         reuse_formatted_body,
     )
+    from scripts.langchain.response_content import text_from_response_content
     from scripts.langchain.trace_utils import TraceInfo, invoke_with_trace
 except ImportError:  # pragma: no cover - fallback for direct invocation
     from _llm_client import get_llm_client as _get_llm_client
@@ -42,6 +43,7 @@ except ImportError:  # pragma: no cover - fallback for direct invocation
         build_issue_context,
         reuse_formatted_body,
     )
+    from response_content import text_from_response_content
     from trace_utils import TraceInfo, invoke_with_trace
 
 # Maximum issue body size to prevent OpenAI rate limit errors (30k TPM limit)
@@ -802,8 +804,8 @@ def format_issue_body(issue_body: str, *, use_llm: bool = True) -> dict[str, Any
                             raise
                     else:
                         raise
-                content = getattr(response, "content", None) or str(response)
-                formatted = content.strip()
+                content = getattr(response, "content", None)
+                formatted = (text_from_response_content(content, separator="\n") or "").strip()
                 if _formatted_output_valid(formatted):
                     # NOTE: Task decomposition is now handled by agents:optimize step
                     # which uses LLM for intelligent splitting. Don't do heuristic
