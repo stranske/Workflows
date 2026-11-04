@@ -225,10 +225,11 @@ def test_claude_uses_oauth_and_tool_free_json(monkeypatch, account):
     assert kw["env"]["CLAUDE_CODE_OAUTH_TOKEN"] == "fixture-subscription"
 
 
-def test_shared_progress_client_stays_on_cli_even_with_force_openai(monkeypatch, account):
+def test_shared_progress_client_uses_callable_cli_adapter(monkeypatch, account):
     from scripts.langchain._llm_client import build_client
 
-    info = build_client(force_openai=True)
+    info = build_client()
+    assert callable(info.client)
     assert info.provider == "codex"
     assert info.model == cli.analysis_model("codex")
 

@@ -430,7 +430,14 @@ def review_progress_with_llm(
     except ImportError:
         build_client = None
 
-    resolved = build_client(model=model) if build_client else None
+    if os.environ.get("WORKFLOWS_ANALYSIS_CLI"):
+        # Auxiliary review always uses the registry analysis profile and has no
+        # API fallback, independently of ordinary chat-client overrides.
+        from tools.subscription_llm import build_subscription_client
+
+        resolved = build_subscription_client()
+    else:
+        resolved = build_client(model=model) if build_client else None
     if not resolved and os.environ.get("WORKFLOWS_ANALYSIS_CLI"):
         raise RuntimeError("Subscription progress review unavailable; no API fallback")
     if not resolved:
