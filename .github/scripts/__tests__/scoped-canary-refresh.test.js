@@ -518,10 +518,29 @@ test('API refusal diagnostic preserves only fixed operation and bounded status w
 
 test('full-scope candidate refresh dispatches with the campaign source and plan id', async t => {
   const f = reportFixture(t, { scope: 'full' });
-  const getCommit = f.github.rest.repos.getCommit;
-  f.github.rest.repos.getCommit = args => args.repo !== 'a' && args.ref === 'main'
-    ? { data: { sha: 'f'.repeat(40) } } : getCommit(args);
-  await f.call();
+  const sourceReads = [], configReads = [];
+  const getCommit = f.github.rest.repos.getCommit, getContent = f.github.rest.repos.getContent;
+  f.github.rest.repos.getCommit = args => {
+    if (args.repo === 'Workflows') sourceReads.push(args.ref);
+    return args.repo === 'Workflows' && args.ref === 'main'
+      ? { data: { sha: 'f'.repeat(40) } } : getCommit(args);
+  };
+  f.github.rest.repos.getContent = args => {
+    configReads.push(args.ref);
+    return getContent(args);
+  };
+  const result = await f.call();
+  assert.equal(result.dispatched, true);
+  assert.equal(result.sha, f.row.source_commit);
+  assert.deepEqual(result.refresh_plan, { plan_id: f.row.plan_id, plan_scope: 'full',
+    scope_base_sha: '', source_commit: f.row.source_commit });
+  // Admission and digest comparisons must observe the same frozen source that
+  // Maint 68 receives, even while the dispatch workflow runs from newer main.
+  for (const reads of [sourceReads, configReads,
+    payloads.readDeliveryPayload.mock.calls.map(call => call.arguments[0])]) {
+    assert.ok(reads.length > 0);
+    assert.deepEqual([...new Set(reads)], [f.row.source_commit]);
+  }
   assert.equal(f.writes.length, 1);
   assert.deepEqual(f.writes[0].inputs, { phase: 'canary', delivery_scope: 'full',
     scope_head_sha: f.row.source_commit, expected_plan_id: f.row.plan_id, repos: candidates.join(','),

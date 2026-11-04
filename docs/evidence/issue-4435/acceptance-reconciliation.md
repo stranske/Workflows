@@ -10,6 +10,30 @@ not match that inventory.
 
 ## Current reconciliation (2026-11-04)
 
+This round reviewed head `3aeb3fab` and confirmed through GitHub that PR #4439
+is still open, unmerged, and ready for review (`draft=false`). The first unchecked
+post-merge observation remains blocked on merge; both live criteria stay unchecked.
+
+Strengthened the required named full-scope regression to verify that source
+resolution, canary configuration reads, and rendered payload reads all use the
+campaign source, even when current main has advanced. It also checks the returned
+refresh state's source and complete plan tuple, alongside the Maint 68 inputs.
+
+Both required gate commands pass. Individual-case runs with
+`--test-isolation=none` confirm 81 scoped-refresh and 174 Maint 71 cases pass.
+Temporarily restoring the bare full-scope dispatch fails the first required
+named test with newer main `ffff…` instead of campaign source `aaaa…`.
+The production script was restored byte-for-byte before the passing gates.
+Transcripts: `/tmp/4439-campaign-read-deliberate-break.tap`,
+`/tmp/4439-campaign-read-scoped-gate.tap`,
+`/tmp/4439-campaign-read-maint71-gate.tap`,
+`/tmp/4439-campaign-read-scoped-cases.tap`, and
+`/tmp/4439-campaign-read-maint71-cases.tap`.
+
+The requested commit was blocked at `git add` because `.git/index.lock` cannot
+be created on the read-only filesystem. The test and evidence changes remain
+uncommitted for the automation commit step.
+
 Reviewed the latest commits `8a2a99cb` and `90415750` before continuing. The
 required runnable gates and deliberate-break criterion are verified complete;
 both post-merge/live items remain incomplete. PR #4439 is open, unmerged, and
