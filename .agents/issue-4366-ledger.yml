@@ -1,0 +1,203 @@
+version: 1
+issue: 4366
+base: main
+branch: codex/issue-4366
+tasks:
+  - id: task-01
+    title: Fix `.github/workflows/agents-auto-pilot.yml` to dispatch the verifier
+      with a triggering credential or verify an existing run before recording the
+      handoff, and check each merged-PR search batch immediately, stopping on a match
+      while retaining the bound for unsuccessful searches.
+    status: doing
+    started_at: '2026-11-04T13:49:40Z'
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-02
+    title: 'Fix the verifier handoff in agents-auto-pilot.yml so the handoff marker
+      is written only after a verifier run is dispatched with a triggering credential
+      or confirmed to exist. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-03
+    title: 'Fix the merged-PR search in agents-auto-pilot.yml to test each page of
+      results for the target PR immediately (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-04
+    title: 'stop as soon as a match is found. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-05
+    title: 'Retain the existing page bound in the merged-PR search so that unsuccessful
+      lookups still stop after the maximum number of pages. (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-06
+    title: 'Add a regression test that fails when the handoff marker is recorded without
+      a dispatched or existing verifier run. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-07
+    title: 'Add a regression test that fails when the merged-PR search requests more
+      than one page after a page-one match. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-08
+    title: Add or extend regression tests beside `.github/workflows/agents-auto-pilot.yml`
+      that fail on the reported behavior and pass after the fix.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-09
+    title: 'Write a test under tests/ that parses agents-auto-pilot.yml (verify: tests
+      pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-10
+    title: 'asserts the handoff marker step is gated on a confirmed verifier dispatch
+      or existing run. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-11
+    title: 'Write a test that simulates a page-one match in the merged-PR search (verify:
+      confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-12
+    title: 'asserts that no further pages are requested. (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-13
+    title: 'Write a test that simulates an unsuccessful merged-PR search (verify:
+      confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-14
+    title: 'asserts that the request count never exceeds the retained page bound.
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-15
+    title: 'Source-fix gates pass: `node --test .github/scripts/__tests__/*.test.js`
+      for JavaScript and `python3 -m pytest -q tests/` for Python; both must pass.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-16
+    title: Reintroducing the reported behavior makes the named regression test fail;
+      reverting the deliberate break restores a passing test.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-17
+    title: The next `.github/workflows/maint-71-merge-sync-prs.yml` run reports stranske/Portable-Alpha-Extension-Model#2454
+      without this review thread, and sync-core stops bumping this issue.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-18
+    title: 'Fix the finding at its source in `stranske/Workflows`: `.github/workflows/agents-auto-pilot.yml`
+      (the consumer PR stranske/Portable-Alpha-Extension-Model#2454 is generated from
+      it by `.github/workflows/maint-68-sync-consumer-repos.yml` and must not be edited
+      by hand).'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-19
+    title: Add or extend a test beside `.github/workflows/agents-auto-pilot.yml` that
+      fails on the behaviour the reviewer describes and passes after the fix.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-20
+    title: Let `.github/workflows/maint-68-sync-consumer-repos.yml` regenerate the
+      sync candidate and confirm the review thread on stranske/Portable-Alpha-Extension-Model#2454
+      is resolved.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-21
+    title: Fix `.github/workflows/agents-auto-pilot.yml` to dispatch the verifier
+      with a triggering credential or verify an existing run before recording the
+      handoff, and check each merged-PR search batch immediately... (The agent cannot
+      modify `.github/workflows/*.yml` (protected). Choosing or provisioning a "triggering
+      credential" (PAT or GitHub App token) also touches secrets or repository settings,
+      and choosing between dispatching and verifying an existing run is a design decision
+      the agent should not make. | Have a human maintainer apply the workflow YAML
+      change. The agent can prepare a proposed patch or snippet in the issue or PR
+      description, or the issue can be reassigned with explicit permission to edit
+      the protected path. The maintainer should state up front whether to dispatch
+      with a triggering credential or verify an existing run, and which secret name
+      to use.)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-22
+    title: Add or extend regression tests ... that fail on the reported behavior and
+      pass after the fix. (The agent can write the tests, but it cannot make them
+      pass without the protected workflow edit. It also cannot do the deliberate-break
+      step (reintroducing the bug in the YAML) to prove the test fails. | Have the
+      agent write the tests in tests/ or .github/scripts/__tests__/ now, and have
+      the maintainer land the workflow fix and run the break-and-revert check. Alternatively,
+      extract the search logic into an unprotected script that the agent can edit
+      and test.)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
