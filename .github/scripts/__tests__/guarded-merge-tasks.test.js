@@ -32,6 +32,23 @@ test('completed PR tasks drain despite unchanged source issue boxes (#4389)', ()
   assert.equal(context.uncheckedTaskFailure(complete, snapshot), '');
 });
 
+test('completion regression rejects counting raw issue boxes and passes after restoration', () => {
+  const { c } = finalGuardHarness();
+  const countUnchecked = c.countUnchecked;
+  // Break only this isolated guard's counter, restoring the stale source population.
+  c.countUnchecked = (text) => countUnchecked(text) + countUnchecked(snapshot.body);
+  const assertCompletedPrCanMerge = () => {
+    assert.equal(c.uncheckedTaskFailure(complete, snapshot), '');
+  };
+  assert.throws(assertCompletedPrCanMerge, {
+    code: 'ERR_ASSERTION',
+    actual: 'Refusing auto-merge: linked issue/PR has unchecked tasks.',
+    expected: '',
+  });
+  c.countUnchecked = countUnchecked;
+  assertCompletedPrCanMerge();
+});
+
 test('fetched source issue stays advisory when the managed PR block is complete', async () => {
   const requests = [];
   const client = { rest: { issues: {
