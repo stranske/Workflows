@@ -3,8 +3,9 @@
 PR: https://github.com/stranske/Workflows/pull/4439
 
 Reviewed on 2026-11-04: implementation commit `5b2b85a6` and regression-test
-commits `62d2475f`, `73c4cd3a`, `96cc711d`, `a265493d`, and `f37a92b3`. Current PR metadata
-reports six changed files; the prompt's 34-file reconciliation warning does
+commits `62d2475f`, `73c4cd3a`, `96cc711d`, `a265493d`, `f37a92b3`,
+`b7109218`, and `fa16a363`. PR metadata at the start of this round
+reports six changed files; the prompt's 33-file reconciliation warning does
 not match that inventory.
 
 ## Verified acceptance
@@ -113,3 +114,33 @@ changed source, test, contract-doc, and evidence files failed with
 `Unable to create '.git/index.lock': Read-only file system`. These changes
 remain in the working tree for the automation commit step. No protected
 workflow file was edited.
+
+## Latest review-path validation
+
+Added a regression in `maint71_merge_sync_prs.test.js` that exercises the real
+Maint 71 entry point for each of the three configured canary repositories.
+The old source produces `candidate_immutable_identity_mismatch` with the exact
+campaign refresh tuple. Updating both candidate metadata and its delivery
+record to that requested source reaches `review_window_pending`, retaining
+the campaign plan, source, scope, and observed head. The adapters expose reads
+only; this is local lifecycle evidence, not a live production observation.
+
+Both required gate commands pass. Individual-case runs with
+`--test-isolation=none` report 79 scoped-refresh and 174 Maint 71 tests passing.
+The bare-dispatch mutation again failed the required named regression: it used
+newer main `ffff…` instead of campaign `aaaa…` and omitted the expected plan ID.
+The source was restored without a remaining diff, and both gates passed again.
+Transcripts: `/tmp/4439-review-recovery.tap`,
+`/tmp/4439-bare-dispatch-break.tap`, `/tmp/4439-scoped-gate.tap`,
+`/tmp/4439-scoped-cases.tap`, `/tmp/4439-maint71-gate.tap`, and
+`/tmp/4439-maint71-cases.tap`.
+
+PR #4439 remains open, unmerged, and ready for review. Both live criteria stay
+unchecked. The connector again rejected the PR-body reconciliation,
+`needs-human` label, and protected-workflow blocker comment because approval is
+required while the run's approval policy is `never`. The three verified local
+acceptance checkboxes above remain the reconciliation record for automation.
+
+The commit attempt for this round's test and evidence files also failed at
+`git add`: `.git/index.lock` cannot be created on the read-only filesystem.
+Both changes remain uncommitted for the automation commit step.

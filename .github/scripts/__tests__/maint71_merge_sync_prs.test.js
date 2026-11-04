@@ -2091,13 +2091,13 @@ test('review GraphQL reads rotate separately while mutations remain owner-pinned
   assert.match(source, /sha: pr\.head\.sha/);
 });
 
-async function reportSelection(t, { syncHash, withRecord }) {
+async function reportSelection(t, { syncHash, withRecord,
+  repository = 'stranske/Travel-Plan-Permission', sourceCommit = 'c'.repeat(40),
+  expectedSourceCommit = '' }) {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'maint71-selection-'));
   t.after(() => fs.rmSync(tempDir, { recursive: true, force: true }));
   const reportPath = path.join(tempDir, 'report.json');
-  const repository = 'stranske/Travel-Plan-Permission';
   const headSha = 'd'.repeat(40);
-  const sourceCommit = 'c'.repeat(40);
   const observedAt = new Date().toISOString();
   const metadata = {
     schema: 'workflows-consumer-sync-pr/v1', consumer_repo: repository,
@@ -2123,7 +2123,8 @@ async function reportSelection(t, { syncHash, withRecord }) {
   };
   // Expose read methods only: an unexpected mutation fails the test.
   const github = {
-    paginate: async (_method, params) => params.state === 'open' ? [candidate] : [],
+    paginate: async (_method, params) => params.state === 'open'
+      && `${params.owner}/${params.repo}` === repository ? [candidate] : [],
     rest: {
       pulls: { list: async () => ({ data: [candidate] }), get: async () => ({ data: candidate }) },
       git: { getCommit: async () => ({ data: { tree: { sha: 'tree-abc' } } }) },
@@ -2144,8 +2145,9 @@ async function reportSelection(t, { syncHash, withRecord }) {
     REGISTERED_REPOS_INPUT: repository, REPOS_INPUT: repository,
     CLEANUP_BRANCHES_INPUT: 'false', DRY_RUN_INPUT: 'true', AUTO_MERGE_INPUT: 'false',
     ACTIVE_SYNC_HASH_INPUT: syncHash, SYNC_HASH_INPUT: '',
-    EXPECTED_PLAN_ID_INPUT: '', EXPECTED_PLAN_SCOPE_INPUT: '',
-    EXPECTED_SCOPE_BASE_SHA_INPUT: '', EXPECTED_SOURCE_COMMIT_INPUT: '',
+    EXPECTED_PLAN_ID_INPUT: expectedSourceCommit ? metadata.plan_id : '',
+    EXPECTED_PLAN_SCOPE_INPUT: expectedSourceCommit ? 'full' : '',
+    EXPECTED_SCOPE_BASE_SHA_INPUT: '', EXPECTED_SOURCE_COMMIT_INPUT: expectedSourceCommit,
     OWNER_PR_PAT: 'test-owner-token', TRUSTED_SYNC_ACTORS: 'stranske',
     SYNC_PR_MERGE_REPORT_JSON: reportPath,
   };
@@ -2205,6 +2207,35 @@ test('Maint 71 empty-hash dispatch still selects a candidate with a valid delive
   assert.equal(report.results[0].pr, 1480);
   assert.doesNotMatch(JSON.stringify(report), /no_active_sync_pr|missing_delivery_record/);
   assert.doesNotMatch(logs, /no_active_sync_pr|missing_delivery_record/);
+});
+
+test('Maint 71 admits all three campaign-bound canaries to review after exact-plan source recovery', async t => {
+  const campaignSource = 'e'.repeat(40);
+  const { canaries } = require('../../../config/consumer_sync_canaries.json');
+  assert.equal(canaries.length, 3);
+  for (const { repo: repository } of canaries) {
+    const options = { syncHash: 'candidate', withRecord: true, repository,
+      expectedSourceCommit: campaignSource };
+    const blocked = await reportSelection(t, options);
+    const row = blocked.report.results.find(result => `${result.owner}/${result.repo}` === repository);
+    assert.equal(row.status, 'delivery_contract_blocked', repository);
+    assert.equal(row.delivery_reason, 'candidate_immutable_identity_mismatch');
+    assert.equal(row.next_command, 'refresh-candidate-from-exact-plan');
+    assert.deepEqual(row.refresh_plan, { plan_id: `sha256:${'a'.repeat(64)}`,
+      plan_scope: 'full', scope_base_sha: '', source_commit: campaignSource });
+
+    // Model Maint 68 delivering the requested source into both metadata and
+    // the delivery record, then let the real Maint 71 lifecycle decide again.
+    const recovered = await reportSelection(t, { ...options, sourceCommit: campaignSource });
+    const reviewed = recovered.report.results.find(result => `${result.owner}/${result.repo}` === repository);
+    assert.equal(reviewed.status, 'review_window_pending', repository);
+    assert.equal(`${reviewed.owner}/${reviewed.repo}`, repository);
+    assert.equal(reviewed.source_commit, row.refresh_plan.source_commit);
+    assert.equal(reviewed.plan_id, row.refresh_plan.plan_id);
+    assert.equal(reviewed.plan_scope, 'full');
+    assert.equal(reviewed.head_sha, row.head_sha);
+    assert.doesNotMatch(JSON.stringify(recovered.report), /candidate_immutable_identity_mismatch/);
+  }
 });
 
 
