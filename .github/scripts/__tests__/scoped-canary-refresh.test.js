@@ -523,8 +523,10 @@ test('full-scope candidate refresh dispatches with the campaign source and plan 
     ? { data: { sha: 'f'.repeat(40) } } : getCommit(args);
   await f.call();
   assert.equal(f.writes.length, 1);
-  assert.equal(f.writes[0].inputs.scope_head_sha, source);
-  assert.equal(f.writes[0].inputs.expected_plan_id, id);
+  assert.deepEqual(f.writes[0].inputs, { phase: 'canary', delivery_scope: 'full',
+    scope_head_sha: f.row.source_commit, expected_plan_id: f.row.plan_id, repos: candidates.join(','),
+    dry_run: 'false', force: 'false', cleanup_branches: 'false',
+    refresh_key: f.writes[0].inputs.refresh_key });
   assert.match(f.writes[0].inputs.refresh_key, /^[a-f0-9]{64}$/);
 });
 for (const mixedSources of [false, true]) {
@@ -581,6 +583,37 @@ test('delivery_contract_blocked with refresh-candidate-from-exact-plan is an eli
   assert.ok(f.report.canary_refresh.held_plans.includes(id));
   assert.ok(f.report.canary_refresh.drainable >= 1);
 });
+for (const fault of ['unavailable campaign source', 'substituted campaign source']) {
+  test(`exact-plan recovery refuses ${fault} without falling back to main`, async t => {
+    const f = reportFixture(t, { scope: 'full' });
+    const campaignSource = 'e'.repeat(40), mainSource = 'f'.repeat(40);
+    Object.assign(f.row, { branch: 'sync/workflows-candidate', status: 'delivery_contract_blocked',
+      reason: 'candidate_immutable_identity_mismatch', next_command: 'refresh-candidate-from-exact-plan',
+      refresh_plan: { plan_id: id, plan_scope: 'full', scope_base_sha: '', source_commit: campaignSource } });
+    f.report.inputs.sync_hash = 'candidate';
+    const prior = { refresh_dispatched: 2, drainable: 4, held_plans: [id] };
+    f.report.canary_refresh = structuredClone(prior);
+    const sourceReads = [], getCommit = f.github.rest.repos.getCommit;
+    f.github.rest.repos.getCommit = async args => {
+      if (args.repo !== 'Workflows') return getCommit(args);
+      sourceReads.push(args.ref);
+      if (args.ref === campaignSource && fault === 'unavailable campaign source') {
+        throw new Error('campaign source unavailable');
+      }
+      return { data: { sha: mainSource } };
+    };
+    const notices = [];
+    t.mock.method(f.core, 'notice', line => notices.push(line));
+    assert.equal(require('../sync_pr_merge_contract').candidateRefreshDecision({ report: f.report }).eligible, true);
+    await assert.rejects(f.call(), { message: fault === 'unavailable campaign source'
+      ? 'campaign source unavailable' : 'canary_refresh_source_changed' });
+    assert.deepEqual(sourceReads, [campaignSource]);
+    assert.equal(f.writes.length, 0);
+    assert.deepEqual(f.report.canary_refresh, prior);
+    assert.ok(!notices.some(line => line.startsWith('candidate refresh receipt:')));
+    assert.ok(!f.summaries.some(line => line.startsWith('candidate refresh receipt:')));
+  });
+}
 for (const historicalSource of ['campaign', 'newer main']) {
   test(`exact-plan recovery survives an unkeyed ${historicalSource} success and deduplicates its keyed receipt`, async t => {
     const f = reportFixture(t, { scope: 'full' });
