@@ -244,6 +244,27 @@ for (const [surface, transitions] of [
   ['source', require('../auto_pilot_transitions.js')],
   ['consumer template', require('../../../templates/consumer-repo/.github/scripts/auto_pilot_transitions.js')],
 ]) {
+  test(`${surface}: serialized false handoff status cannot authorize matching closure proof`, () => {
+    const issue = {
+      issueState: 'closed',
+      hasVerify: true,
+      closure: { id: 3001, sourcePr: 2454 },
+      verifyHandoff: { closureId: 3001, sourcePr: 2454 },
+    };
+    // Workflow callers supply environment strings. Even matching identities do
+    // not prove success when the handoff flag is false or absent.
+    for (const verifyHandoffBound of [false, 'false', ' FALSE ', '', undefined, null]) {
+      const result = transitions.determineNextStep({ ...issue, verifyHandoffBound });
+      assert.equal(result.currentState, STATES.CLOSED_NEEDS_VERIFY, String(verifyHandoffBound));
+      assert.equal(result.nextStep, NEXT_STEPS.VERIFY, String(verifyHandoffBound));
+    }
+    for (const verifyHandoffBound of [true, 'true', ' TRUE ']) {
+      const result = transitions.determineNextStep({ ...issue, verifyHandoffBound });
+      assert.equal(result.currentState, STATES.CLOSED_VERIFIED, String(verifyHandoffBound));
+      assert.equal(result.nextStep, NEXT_STEPS.DONE, String(verifyHandoffBound));
+    }
+  });
+
   test(`${surface}: matching invalid handoff identities cannot authorize completion`, () => {
     const issue = {
       issueState: 'closed',

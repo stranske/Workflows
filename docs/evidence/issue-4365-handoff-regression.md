@@ -185,3 +185,32 @@ handoff continuation, and post-merge Maint 68/71 checks still require a maintain
 Staging this round's test and evidence changes failed with `.git/index.lock:
 Read-only file system`; no commit was created. PR #4447 was read back as open
 with `draft=false`. `git diff --check` passes.
+
+## Follow-up: serialized handoff status
+
+Reviewed the five latest keepalive commits through `3ef2b6ab`. Added source and
+consumer-helper regressions for a workflow boundary not previously covered:
+matching closure/PR identities must still select `verify` when
+`verifyHandoffBound` is the environment string `"false"`. False, missing and
+empty values are rejected; boolean and serialized true values permit `done`.
+
+- [x] Focused Node suites: **51 passed, 0 failed** using the command above.
+- [x] Replacing handoff-flag normalization with JavaScript truthiness fails the
+  new regression separately in each helper. Both files were restored in
+  `finally`, then all 51 tests passed again. No implementation mutation remains.
+- [x] Targeted Python handoff tests: **8 passed** using the documented command
+  with only the startup-failing LangSmith plugin disabled.
+- [ ] Full gates: Node again reported the same two failing files and was
+  interrupted after progress stopped. Their diagnostic rerun produced
+  **199 passed, 18 failed**, including `spawnSync git/python3 EPERM` and the
+  missing delivery-seal refusal message. Python exited 3 during LangSmith plugin
+  startup on the Python 3.14 deprecation warning, before collection.
+- [ ] Remote reconciliation: body update, `needs-human` label and blocker comment
+  were rejected because connector approval policy is `never`. Workflow-dependent
+  task checkboxes must remain incomplete; helper-only verification is not
+  production continuation. No remote update is claimed.
+- [ ] Commit: `git add` failed because `.git/index.lock` is on a read-only
+  filesystem. The test changes remain in the working tree for the outer runner.
+
+The protected workflow integration and post-merge Maint 68/71 checks listed
+above still require a maintainer. No protected file was edited.
