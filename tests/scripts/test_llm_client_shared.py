@@ -305,22 +305,41 @@ def test_chat_factory_does_not_require_subscription_auth(
 
 
 @pytest.mark.parametrize("consumer", ["capability", "decomposer", "optimizer", "apply"])
+@pytest.mark.parametrize("provider", ["openai", "anthropic", "github-models"])
 def test_consumers_keep_chat_routing_with_subscription_enabled(
-    monkeypatch, subscription_process, consumer
+    monkeypatch, subscription_process, consumer, provider
 ):
+    """Exercise consumer composition and overrides through the real shared factory."""
     pytest.importorskip("langchain_core.prompts")
     from langchain_core.runnables import RunnableLambda
     from scripts.langchain import capability_check, issue_optimizer, task_decomposer
 
     invocations = []
 
-    def invoke(prompt):
-        invocations.append(prompt.to_string())
-        return SimpleNamespace(content=subscription_process.content)
+    def chat_class(selected_provider):
+        def build(**kwargs):
+            actual_provider = selected_provider
+            if selected_provider == "openai" and "base_url" in kwargs:
+                actual_provider = "github-models"
 
-    info = _fake_info()
-    info.client = RunnableLambda(invoke)
-    fake = _install_fake_langchain_client(monkeypatch, info=info)
+            def invoke(prompt):
+                invocations.append((actual_provider, kwargs["model"], prompt.to_string()))
+                return SimpleNamespace(content=subscription_process.content)
+
+            return RunnableLambda(invoke)
+
+        return build
+
+    monkeypatch.setitem(
+        sys.modules, "langchain_openai", SimpleNamespace(ChatOpenAI=chat_class("openai"))
+    )
+    monkeypatch.setitem(
+        sys.modules, "langchain_anthropic", SimpleNamespace(ChatAnthropic=chat_class("anthropic"))
+    )
+    for name in ("OPENAI_API_KEY", "CLAUDE_API_STRANSKE", "GITHUB_TOKEN"):
+        monkeypatch.setenv(name, "test-only")
+    monkeypatch.setenv("LANGCHAIN_PROVIDER", provider)
+    monkeypatch.setenv("LANGCHAIN_MODEL", "consumer-requested-model")
 
     if consumer == "capability":
         subscription_process.content = json.dumps(
@@ -328,12 +347,12 @@ def test_consumers_keep_chat_routing_with_subscription_enabled(
         )
         result = capability_check.classify_capabilities(["Add parser tests"], "Tests pass")
         assert result.recommendation == "PROCEED"
-        assert result.provider_used == info.provider
+        assert result.provider_used == provider
     elif consumer == "decomposer":
         subscription_process.content = json.dumps({"sub_tasks": ["Implement parser", "Add tests"]})
         result = task_decomposer.decompose_task("Implement a parser and add tests and update docs")
         assert result["used_llm"] is True
-        assert result["provider_used"] == info.provider
+        assert result["provider_used"] == provider
     elif consumer == "optimizer":
         subscription_process.content = json.dumps(
             {
@@ -347,7 +366,7 @@ def test_consumers_keep_chat_routing_with_subscription_enabled(
         )
         result = issue_optimizer.analyze_issue("## Tasks\n- [ ] Add parser tests")
         assert result.overall_notes == "Ready"
-        assert result.provider_used == info.provider
+        assert result.provider_used == provider
     else:
         subscription_process.content = (
             "## Why\nTest the parser.\n\n## Scope\nParser tests.\n\n"
@@ -355,9 +374,16 @@ def test_consumers_keep_chat_routing_with_subscription_enabled(
         )
         result = issue_optimizer.apply_suggestions("## Tasks\n- [ ] Add tests", {})
         assert result["used_llm"] is True
-        assert result["provider_used"] == info.provider
-    assert fake.calls == [{"model": None, "provider": None, "force_openai": False}]
-    assert invocations and all(isinstance(prompt, str) for prompt in invocations)
+        assert result["provider_used"] == provider
+    expected_model = (
+        "openai/consumer-requested-model"
+        if provider == "github-models"
+        else "consumer-requested-model"
+    )
+    assert len(invocations) == 1
+    actual_provider, actual_model, prompt = invocations[0]
+    assert (actual_provider, actual_model) == (provider, expected_model)
+    assert isinstance(prompt, str) and "Add" in prompt
     assert subscription_process.calls == []
 
 
