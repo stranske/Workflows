@@ -237,3 +237,58 @@ test('handoff identities accept serialized positive IDs and reject absent or mal
     }
   }
 });
+
+for (const [surface, transitions] of [
+  ['source', require('../auto_pilot_transitions.js')],
+  ['consumer template', require('../../../templates/consumer-repo/.github/scripts/auto_pilot_transitions.js')],
+]) {
+  test(`${surface}: legacy verify:evaluate reaches done after a current PR handoff`, () => {
+    const issue = {
+      issueState: 'closed',
+      hasVerify: true,
+      verifyHandoffBound: false,
+      closure: { id: 2001, sourcePr: 2454 },
+    };
+    const initial = transitions.determineNextStep(issue);
+    assert.equal(initial.nextStep, NEXT_STEPS.VERIFY);
+
+    // Adding the handoff label alone must not turn legacy tracking into proof.
+    const labeled = { ...issue, verifyHandoffBound: true };
+    assert.equal(transitions.determineNextStep(labeled).nextStep, NEXT_STEPS.VERIFY);
+
+    // Exercise the helper's redispatch contract, without claiming the workflow
+    // schedules it: that requires its protected stage allowlist to admit verify.
+    const handedOff = {
+      ...labeled,
+      verifyHandoff: { closureId: 2001, sourcePr: 2454 },
+    };
+    const continuation = {
+      ...handedOff,
+      forceStep: transitions.redispatchForceStep(initial.nextStep),
+    };
+    const completed = transitions.determineNextStep(continuation);
+    assert.equal(completed.forced, false);
+    assert.equal(completed.currentState, STATES.CLOSED_VERIFIED);
+    assert.equal(completed.nextStep, NEXT_STEPS.DONE);
+    assert.equal(transitions.determineNextStep(continuation).nextStep, NEXT_STEPS.DONE);
+  });
+
+  test(`${surface}: failed or stale legacy handoffs stay retryable until fresh proof exists`, () => {
+    const issue = {
+      issueState: 'closed',
+      hasVerify: true,
+      verifyHandoffBound: false,
+      closure: { id: 2002, sourcePr: 2455 },
+      verifyHandoff: { closureId: 2001, sourcePr: 2454 },
+    };
+    const forceStep = transitions.redispatchForceStep(NEXT_STEPS.VERIFY);
+    const next = (event) => transitions.determineNextStep({ ...event, forceStep }).nextStep;
+
+    assert.equal(next(issue), NEXT_STEPS.VERIFY);
+    assert.equal(next({ ...issue, verifyHandoffBound: true }), NEXT_STEPS.VERIFY);
+
+    const freshProof = { ...issue, verifyHandoff: { closureId: 2002, sourcePr: 2455 } };
+    assert.equal(next(freshProof), NEXT_STEPS.VERIFY);
+    assert.equal(next({ ...freshProof, verifyHandoffBound: true }), NEXT_STEPS.DONE);
+  });
+}
