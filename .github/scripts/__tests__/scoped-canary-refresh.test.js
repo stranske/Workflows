@@ -373,13 +373,14 @@ test('actual Maint71 workflow caller uses the native report adapter rather than 
   const workflow = fs.readFileSync(path.join(__dirname, '../../workflows/maint-71-merge-sync-prs.yml'), 'utf8');
   const block = workflow.split('      - name: Refresh stale candidate bases')[1].split('      - name: Refresh stale delivery bases')[0];
   const script = block.split('          script: |\n')[1].split('\n').map(line => line.replace(/^ {12}/, '')).join('\n');
-  const calls = [], report = { inputs: { cleanup_branches: false }, results: [] };
-  const load = name => name === 'fs' ? { readFileSync: filename => JSON.stringify(filename.includes('report') ? report : { canaries: [{ repo: 'owner/a' }] }) }
+  const calls = [], saved = [], report = { inputs: { cleanup_branches: false }, results: [] };
+  const load = name => name === 'fs' ? { writeFileSync: (file, value) => saved.push([file, JSON.parse(value)]), readFileSync: filename => JSON.stringify(filename.includes('report') ? report : { canaries: [{ repo: 'owner/a' }] }) }
     : name.includes('github-api-with-retry') ? { createTokenAwareRetry: async () => ({ withRetry() {} }) }
       : name.includes('sync_pr_merge_contract') ? { candidateRefreshDecision: () => ({ eligible: true }) }
         : { dispatchCandidateRefreshFromReport: async args => calls.push(args) };
   await new (Object.getPrototypeOf(async function () {}).constructor)('require', 'process', 'github', 'core', 'context', script)(
     load, { env: { TRUSTED_SYNC_ACTORS: 'stranske' } }, {}, {}, context);
+  assert.equal(saved.length, 1); assert.deepEqual(saved[0][1], report);
   assert.equal(calls.length, 1); assert.deepEqual(calls[0].report, report);
   assert.deepEqual(calls[0].trustedActors, ['stranske']); assert.deepEqual(calls[0].expectedCanaries, ['owner/a']);
 });
@@ -492,4 +493,53 @@ test('API refusal diagnostic preserves only fixed operation and bounded status w
     assert.equal(invalid.last_read, undefined); assert.equal(invalid.http_status, undefined);
     assert.doesNotMatch(JSON.stringify(invalid), /SECRET_TOKEN/);
   }
+});
+
+test('full-scope candidate refresh dispatches with the campaign source and plan id', async t => {
+  const f = reportFixture(t, { scope: 'full' });
+  const getCommit = f.github.rest.repos.getCommit;
+  f.github.rest.repos.getCommit = args => args.repo !== 'a' && args.ref === 'main'
+    ? { data: { sha: 'f'.repeat(40) } } : getCommit(args);
+  await f.call();
+  assert.equal(f.writes.length, 1);
+  assert.equal(f.writes[0].inputs.scope_head_sha, source);
+  assert.equal(f.writes[0].inputs.expected_plan_id, id);
+});
+test('delivery_contract_blocked with refresh-candidate-from-exact-plan is an eligible refresh request', async t => {
+  const f = reportFixture(t, { scope: 'full' });
+  Object.assign(f.row, { branch: 'sync/workflows-candidate', status: 'delivery_contract_blocked',
+    next_command: 'refresh-candidate-from-exact-plan',
+    refresh_plan: { plan_id: id, plan_scope: 'full', scope_base_sha: '', source_commit: 'e'.repeat(40) } });
+  for (const field of ['plan_id', 'plan_scope', 'scope_base_sha', 'source_commit']) delete f.row[field];
+  const getCommit = f.github.rest.repos.getCommit;
+  f.github.rest.repos.getCommit = args => args.repo !== 'a' && args.ref === 'e'.repeat(40)
+    ? { data: { sha: 'e'.repeat(40) } } : getCommit(args);
+  f.report.inputs.sync_hash = 'candidate';
+  assert.equal(require('../sync_pr_merge_contract').candidateRefreshDecision({ report: f.report }).eligible, true);
+  await f.call();
+  assert.equal(f.writes.length, 1);
+  assert.equal(f.writes[0].inputs.scope_head_sha, 'e'.repeat(40));
+  assert.equal(f.report.canary_refresh.refresh_dispatched, 1);
+  assert.ok(f.report.canary_refresh.held_plans.includes(id));
+  assert.ok(f.report.canary_refresh.drainable >= 1);
+});
+for (const fault of ['missing tuple', 'different plan', 'different scope', 'invalid source']) {
+  test(`exact-plan recovery refuses ${fault} without a dispatch`, async t => {
+    const f = reportFixture(t, { scope: 'full' });
+    Object.assign(f.row, { status: 'delivery_contract_blocked', next_command: 'refresh-candidate-from-exact-plan',
+      refresh_plan: { plan_id: id, plan_scope: 'full', scope_base_sha: '', source_commit: source } });
+    if (fault === 'missing tuple') delete f.row.refresh_plan;
+    if (fault === 'different plan') f.row.refresh_plan.plan_id = `sha256:${'e'.repeat(64)}`;
+    if (fault === 'different scope') f.row.refresh_plan.plan_scope = 'source-delta';
+    if (fault === 'invalid source') f.row.refresh_plan.source_commit = 'invalid';
+    await assert.rejects(f.call()); assert.equal(f.writes.length, 0);
+  });
+}
+test('full-scope report refuses mixed campaign sources before dispatch', async t => {
+  const f = reportFixture(t, { scope: 'full' });
+  Object.assign(f.row, { status: 'delivery_contract_blocked', next_command: 'refresh-candidate-from-exact-plan',
+    refresh_plan: { plan_id: id, plan_scope: 'full', scope_base_sha: '', source_commit: source } });
+  f.report.results.push({ ...f.row, refresh_plan: { ...f.row.refresh_plan, source_commit: 'e'.repeat(40) } });
+  await assert.rejects(f.call(), /canary_refresh_mixed_report_plans/);
+  assert.equal(f.writes.length, 0);
 });

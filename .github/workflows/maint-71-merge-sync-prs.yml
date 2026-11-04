@@ -726,6 +726,7 @@ jobs:
             await dispatchCandidateRefreshFromReport({ withRetry, context, core, report,
               trustedActors: String(process.env.TRUSTED_SYNC_ACTORS || '').split(',').filter(Boolean),
               expectedCanaries: (config.canaries || []).map((entry) => entry.repo) });
+            fs.writeFileSync('artifacts/sync-pr-merge-report.json', JSON.stringify(report, null, 2));
 
       - name: Refresh stale delivery bases
         id: refresh_delivery

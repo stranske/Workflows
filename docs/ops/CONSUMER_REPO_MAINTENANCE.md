@@ -3544,6 +3544,16 @@ Coordinated negative subjects use shared descriptor-aware URL tokens and a bound
 
 ### Stable canary refresh clock
 
+Full-scope report refreshes retain the verified campaign source commit and pass
+its expected plan ID to Maint 68. An immutable-identity block may request
+`refresh-candidate-from-exact-plan` only with a complete full-scope campaign
+tuple and a freshly authenticated candidate for the same compiled plan. Mixed
+plan/source requests refuse before dispatch. The refresh step persists
+`canary_refresh.refresh_dispatched`, `held_plans`, and `drainable` in the merge
+report after dispatch; this receipt is not production completion. Confirm the
+next Maint 71 run reaches the review/seal path without an identity mismatch.
+
+
 Maint 71 uses `STALE_CANARY_HOURS = 6` against the producer's
 `head_observed_at` to recover blocked or non-mergeable canaries. Green,
 mergeable canaries follow the normal exact-head merge and campaign evidence

@@ -1636,8 +1636,10 @@ function candidateRefreshDecision({ report = {} } = {}) {
   const repositories = [...new Set((Array.isArray(report?.results) ? report.results : [])
     .filter((result) => (
       branchNameFromRef(result.branch) === SYNC_CANDIDATE_BRANCH
-      && String(result.status || '') === 'stable_base_refresh_required'
-      && String(result.next_command || '') === 'dispatch-maint-68-phase-canary-no-filter'
+      && ((String(result.status || '') === 'stable_base_refresh_required'
+        && String(result.next_command || '') === 'dispatch-maint-68-phase-canary-no-filter')
+        || (String(result.status || '') === 'delivery_contract_blocked'
+          && String(result.next_command || '') === 'refresh-candidate-from-exact-plan'))
     ))
     .map((result) => `${result.owner || ''}/${result.repo || ''}`.replace(/^\//, ''))
     .filter(Boolean))].sort();
