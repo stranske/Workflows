@@ -8,6 +8,34 @@ commits `62d2475f`, `73c4cd3a`, `96cc711d`, `a265493d`, `f37a92b3`,
 reports seven changed files; the prompt's 34-file reconciliation warning does
 not match that inventory.
 
+## Current reconciliation (2026-11-04)
+
+Reviewed the latest commits `8a2a99cb` and `90415750` before continuing. The
+required runnable gates and deliberate-break criterion are verified complete;
+both post-merge/live items remain incomplete. PR #4439 is open, unmerged, and
+ready for review (`draft=false`). The connector rejected the PR-body checkbox
+update with `MCP tool call requires approval, but approval policy is never`;
+the remote checkboxes could not be reconciled in this run.
+
+Added two mixed-report regressions: stale-base and immutable-identity requests
+for the same campaign share one full-scope dispatch; disagreeing campaign
+sources raise `canary_refresh_mixed_report_plans` without dispatch or accounting
+changes. A third canary already in review is excluded from request admission and
+drainable counts, while the producer still receives the configured full fleet.
+
+Validation: both required `node --test` commands pass. Individual-case runs with
+`--test-isolation=none` pass 81 scoped-refresh, 174 Maint 71, and 103 merge-contract
+tests. The bare full-scope dispatch again fails the first required named test
+(newer main `ffff…` instead of campaign `aaaa…`, missing expected plan ID).
+The production source was restored byte-for-byte before the passing gates.
+Transcripts: `/tmp/4439-bare-dispatch.tap`, `/tmp/4439-scoped-gate.tap`,
+`/tmp/4439-maint71-gate.tap`, `/tmp/4439-scoped-final.tap`,
+`/tmp/4439-maint71-final.tap`, and `/tmp/4439-contract-final.tap`.
+
+The commit attempt was blocked at `git add`: Git cannot create
+`.git/index.lock` because `.git` is read-only. The two changed files remain
+uncommitted for the automation commit step; no protected workflow was edited.
+
 ## Verified acceptance
 
 - [x] Both required named tests are present and pass in

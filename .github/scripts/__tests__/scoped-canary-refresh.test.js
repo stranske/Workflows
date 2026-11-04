@@ -594,6 +594,60 @@ test('delivery_contract_blocked with refresh-candidate-from-exact-plan is an eli
     drainable: 1 });
   assert.deepEqual(f.row.refresh_plan, desired, 'dispatch must preserve the requested identity');
 });
+for (const conflictingSource of [false, true]) {
+  test(`mixed stale-base and identity-blocked requests ${conflictingSource ? 'refuse conflicting campaign sources' : 'share the exact campaign refresh'}`, async t => {
+    const fleet = ['owner/a', 'owner/b', 'owner/c'];
+    const f = reportFixture(t, { scope: 'full', expectedCanaries: fleet });
+    const oldSource = 'e'.repeat(40), refreshedHead = '1'.repeat(40);
+    const identityPr = structuredClone(f.pr), identityCommit = structuredClone(f.commitView);
+    identityPr.number = 5;
+    identityPr.head.sha = refreshedHead;
+    identityPr.head.repo.full_name = identityPr.base.repo.full_name = 'owner/b';
+    identityPr.body = identityPr.body.replaceAll('owner/a', 'owner/b')
+      .replaceAll(source, oldSource).replaceAll(head, refreshedHead);
+    identityCommit.sha = refreshedHead;
+    identityCommit.message = identityCommit.message.replaceAll(source, oldSource);
+    f.row.branch = 'sync/workflows-candidate';
+    const identityRow = { owner: 'owner', repo: 'b', pr: 5, head_sha: refreshedHead,
+      branch: 'sync/workflows-candidate', status: 'delivery_contract_blocked',
+      reason: 'candidate_immutable_identity_mismatch', next_command: 'refresh-candidate-from-exact-plan',
+      refresh_plan: { plan_id: id, plan_scope: 'full', scope_base_sha: '',
+        source_commit: conflictingSource ? 'f'.repeat(40) : source } };
+    f.report.inputs.sync_hash = 'campaign';
+    f.report.results.push(identityRow, { owner: 'owner', repo: 'c', pr: 6,
+      branch: 'sync/workflows-candidate', status: 'review_window_pending' });
+    const prior = { refresh_dispatched: 2, drainable: 4, held_plans: [`sha256:${'8'.repeat(64)}`] };
+    f.report.canary_refresh = structuredClone(prior);
+    const subjects = [];
+    f.github.rest.pulls.get = async args => {
+      subjects.push(args.repo);
+      assert.ok(['a', 'b'].includes(args.repo), 'reviewing canary is not a refresh request');
+      return { data: args.repo === 'a' ? f.pr : identityPr };
+    };
+    const getCommit = f.github.rest.repos.getCommit;
+    f.github.rest.repos.getCommit = async args => args.repo === 'b'
+      ? { data: { sha: identityCommit.sha, commit: identityCommit } } : getCommit(args);
+    const decision = require('../sync_pr_merge_contract').candidateRefreshDecision({ report: f.report });
+    assert.equal(decision.eligible, true);
+    assert.deepEqual(decision.repositories, ['owner/a', 'owner/b']);
+    if (conflictingSource) {
+      await assert.rejects(f.call(), { message: 'canary_refresh_mixed_report_plans' });
+      assert.equal(f.writes.length, 0);
+      assert.deepEqual(f.report.canary_refresh, prior);
+    } else {
+      assert.equal((await f.call()).dispatched, true);
+      assert.equal(f.writes.length, 1);
+      assert.deepEqual(f.writes[0].inputs, { phase: 'canary', delivery_scope: 'full',
+        scope_head_sha: source, expected_plan_id: id, repos: fleet.join(','),
+        dry_run: 'false', force: 'false', cleanup_branches: 'false',
+        refresh_key: f.writes[0].inputs.refresh_key });
+      assert.match(f.writes[0].inputs.refresh_key, /^[a-f0-9]{64}$/);
+      assert.deepEqual(f.report.canary_refresh, { refresh_dispatched: 3, drainable: 6,
+        held_plans: [...prior.held_plans, id] });
+    }
+    assert.deepEqual(subjects, ['a', 'b']);
+  });
+}
 for (const fault of ['unavailable campaign source', 'substituted campaign source']) {
   test(`exact-plan recovery refuses ${fault} without falling back to main`, async t => {
     const f = reportFixture(t, { scope: 'full' });
