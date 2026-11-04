@@ -226,9 +226,9 @@ def test_claude_uses_oauth_and_tool_free_json(monkeypatch, account):
 
 
 def test_shared_progress_client_uses_callable_cli_adapter(monkeypatch, account):
-    from scripts.langchain._llm_client import build_client
+    from scripts.langchain._llm_client import build_auxiliary_client
 
-    info = build_client()
+    info = build_auxiliary_client()
     assert callable(info.client)
     assert info.provider == "codex"
     assert info.model == cli.analysis_model("codex")

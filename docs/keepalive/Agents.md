@@ -204,14 +204,16 @@ analysis skips with `llm-analysis-run=false` without an already
 installed/authenticated Codex CLI. Progress review prepares Codex from the existing
 subscription secret and uses the same transport, without LangChain dependencies.
 
-The shared `scripts/langchain/_llm_client.py` factory wraps subscription clients
-in a callable adapter accepted by LangChain's `template | client` composition.
-The adapter renders prompt values with `to_string()` before invoking the CLI.
-Explicit provider/model selections (including `force_openai` and the
-`LANGCHAIN_PROVIDER`/`LANGCHAIN_MODEL` environment overrides) use the standard
-client factory instead. This is caller selection, not a retry after a subscription
-failure. Auxiliary progress review requests the registry analysis profile in
-subscription mode, without passing its API model default as an override.
+The shared `scripts/langchain/_llm_client.py` factory keeps ordinary chat callers
+on the standard client factory, including when `WORKFLOWS_ANALYSIS_CLI` is set.
+Provider/model selections (including `force_openai` and the
+`LANGCHAIN_PROVIDER`/`LANGCHAIN_MODEL` environment overrides) retain their standard
+routing. Auxiliary progress review explicitly calls `build_auxiliary_client()`
+in subscription mode to request the registry analysis profile, independently of
+chat defaults. That entrypoint wraps subscription clients in a callable adapter
+accepted by LangChain's `template | client` composition and renders prompt values
+with `to_string()` before invoking the CLI. Subscription failures propagate
+without an API retry, and auxiliary analysis requires no LangChain dependency.
 
 The summary prints `llm-ticked-tasks: N`: checkboxes actually changed by LLM
 analysis, excluding boxes the agent had already checked and commit-only matches.

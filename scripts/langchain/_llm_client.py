@@ -98,31 +98,30 @@ def build_client(
     ``(client, label)`` shape — e.g. ``followup_issue_generator`` which logs both
     provider and model and returns the model as its label.
 
-    Subscription mode applies only without caller or environment provider/model
-    overrides. Explicit selections use the standard factory's validation and
-    routing. Subscription failures still propagate without an API retry.
+    Ordinary chat callers always use the standard factory's provider/model
+    selection, even when subscription analysis is enabled in the environment.
+    Auxiliary callers opt in through :func:`build_auxiliary_client` instead.
     """
-    import os
-
-    has_override = (
-        force_openai
-        or model is not None
-        or provider is not None
-        or os.environ.get("LANGCHAIN_PROVIDER")
-        or os.environ.get("LANGCHAIN_MODEL")
-    )
-    if os.environ.get("WORKFLOWS_ANALYSIS_CLI") and not has_override:
-        from tools.subscription_llm import build_subscription_client
-
-        info = build_subscription_client()
-        if info is not None:
-            info.client = SubscriptionClientAdapter(info.client)
-        return info
     try:
         from tools.langchain_client import build_chat_client
     except ImportError:
         return None
     return build_chat_client(model=model, provider=provider, force_openai=force_openai)
+
+
+def build_auxiliary_client() -> Any | None:
+    """Build a registry-selected subscription client for auxiliary analysis.
+
+    This explicit entrypoint ignores ordinary chat provider/model defaults and
+    propagates subscription configuration/auth failures without an API fallback.
+    It has no LangChain dependency, while supporting prompt pipe composition.
+    """
+    from tools.subscription_llm import build_subscription_client
+
+    info = build_subscription_client()
+    if info is not None:
+        info.client = SubscriptionClientAdapter(info.client)
+    return info
 
 
 def get_llm_clients(

@@ -36,6 +36,13 @@ def subscription_process(monkeypatch: pytest.MonkeyPatch, request):
     monkeypatch.setattr(subscription_llm, "_has_subscription_auth", lambda name: True)
     calls = []
     state = SimpleNamespace(content="answer", calls=calls, agent=agent)
+    original_invoke = subscription_llm.SubscriptionClient.invoke
+
+    def invoke(client, prompt, **kwargs):
+        assert isinstance(prompt, str)
+        return original_invoke(client, prompt, **kwargs)
+
+    monkeypatch.setattr(subscription_llm.SubscriptionClient, "invoke", invoke)
 
     def run(command, **kwargs):
         assert isinstance(kwargs["input"], str)
@@ -200,7 +207,8 @@ def test_subscription_pipe_renders_prompt_values(subscription_process, chat):
 
     template_cls = ChatPromptTemplate if chat else PromptTemplate
     template = template_cls.from_template("Review {task}")
-    client, provider = _llm_client.get_llm_client()
+    info = _llm_client.build_auxiliary_client()
+    client, provider = info.client, info.provider
 
     response = (template | client).invoke({"task": "the parser"}, config={"tags": ["test"]})
 
@@ -271,14 +279,48 @@ def test_subscription_failure_does_not_retry_api(monkeypatch, subscription_proce
     fake = _install_fake_langchain_client(monkeypatch, info=_fake_info())
     monkeypatch.setattr(subscription_llm, "_has_subscription_auth", lambda name: False)
     with pytest.raises(RuntimeError, match="no API fallback"):
-        _llm_client.get_llm_client()
+        _llm_client.build_auxiliary_client()
     assert fake.calls == []
 
 
+@pytest.mark.parametrize("has_chat_client", [False, True])
+def test_chat_factory_does_not_require_subscription_auth(
+    monkeypatch, subscription_process, has_chat_client
+):
+    from tools import subscription_llm
+
+    def unexpected_subscription_check(*args):
+        pytest.fail("Ordinary chat construction must not inspect subscription auth or registry")
+
+    monkeypatch.setattr(subscription_llm, "_has_subscription_auth", unexpected_subscription_check)
+    monkeypatch.setattr(subscription_llm, "analysis_model", unexpected_subscription_check)
+    info = _fake_info() if has_chat_client else None
+    fake = _install_fake_langchain_client(monkeypatch, info=info)
+
+    result = _llm_client.get_llm_client()
+
+    assert result == ((info.client, info.provider) if has_chat_client else None)
+    assert fake.calls == [{"model": None, "provider": None, "force_openai": False}]
+    assert subscription_process.calls == []
+
+
 @pytest.mark.parametrize("consumer", ["capability", "decomposer", "optimizer", "apply"])
-def test_consumers_compose_subscription_client(subscription_process, consumer):
+def test_consumers_keep_chat_routing_with_subscription_enabled(
+    monkeypatch, subscription_process, consumer
+):
     pytest.importorskip("langchain_core.prompts")
+    from langchain_core.runnables import RunnableLambda
     from scripts.langchain import capability_check, issue_optimizer, task_decomposer
+
+    invocations = []
+
+    def invoke(prompt):
+        invocations.append(prompt.to_string())
+        return SimpleNamespace(content=subscription_process.content)
+
+    info = _fake_info()
+    info.client = RunnableLambda(invoke)
+    fake = _install_fake_langchain_client(monkeypatch, info=info)
 
     if consumer == "capability":
         subscription_process.content = json.dumps(
@@ -286,12 +328,12 @@ def test_consumers_compose_subscription_client(subscription_process, consumer):
         )
         result = capability_check.classify_capabilities(["Add parser tests"], "Tests pass")
         assert result.recommendation == "PROCEED"
-        assert result.provider_used == subscription_process.agent
+        assert result.provider_used == info.provider
     elif consumer == "decomposer":
         subscription_process.content = json.dumps({"sub_tasks": ["Implement parser", "Add tests"]})
         result = task_decomposer.decompose_task("Implement a parser and add tests and update docs")
         assert result["used_llm"] is True
-        assert result["provider_used"] == subscription_process.agent
+        assert result["provider_used"] == info.provider
     elif consumer == "optimizer":
         subscription_process.content = json.dumps(
             {
@@ -305,7 +347,7 @@ def test_consumers_compose_subscription_client(subscription_process, consumer):
         )
         result = issue_optimizer.analyze_issue("## Tasks\n- [ ] Add parser tests")
         assert result.overall_notes == "Ready"
-        assert result.provider_used == subscription_process.agent
+        assert result.provider_used == info.provider
     else:
         subscription_process.content = (
             "## Why\nTest the parser.\n\n## Scope\nParser tests.\n\n"
@@ -313,8 +355,10 @@ def test_consumers_compose_subscription_client(subscription_process, consumer):
         )
         result = issue_optimizer.apply_suggestions("## Tasks\n- [ ] Add tests", {})
         assert result["used_llm"] is True
-        assert result["provider_used"] == subscription_process.agent
-    assert subscription_process.calls
+        assert result["provider_used"] == info.provider
+    assert fake.calls == [{"model": None, "provider": None, "force_openai": False}]
+    assert invocations and all(isinstance(prompt, str) for prompt in invocations)
+    assert subscription_process.calls == []
 
 
 def test_auxiliary_progress_review_ignores_chat_overrides(monkeypatch, subscription_process):
