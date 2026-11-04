@@ -1,0 +1,177 @@
+version: 1
+issue: 4370
+base: main
+branch: codex/issue-4370
+tasks:
+  - id: task-01
+    title: Fix `scripts/langchain/pr_verifier.py` to read the backup from the effective
+      slot-config path, without falling back to the bundled file when an explicit
+      configuration is empty or unavailable.
+    status: doing
+    started_at: '2026-11-04T13:42:13Z'
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-02
+    title: 'Update the backup lookup in scripts/langchain/pr_verifier.py to resolve
+      the slot-config path the same way the primary clients do via LANGCHAIN_SLOT_CONFIG
+      (verify: config validated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-03
+    title: 'Fix the backup lookup in scripts/langchain/pr_verifier.py so it never
+      falls back to the bundled slot-config when an explicit configuration is empty
+      or unavailable (verify: config validated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-04
+    title: 'Update the quota-failure path in scripts/langchain/pr_verifier.py to skip
+      the backup provider when the effective configuration omits or disables it (verify:
+      config validated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-05
+    title: Add or extend a test beside `scripts/langchain/pr_verifier.py` covering
+      quota failure when the explicit configuration omits or disables the bundled
+      backup.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-06
+    title: 'Add a test that sets LANGCHAIN_SLOT_CONFIG to a file omitting the backup
+      (verify: config validated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-07
+    title: 'asserts a quota failure does not call the bundled backup provider (verify:
+      confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-08
+    title: 'Add a test that sets LANGCHAIN_SLOT_CONFIG to a file with the backup disabled
+      (verify: config validated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-09
+    title: 'Add a test that sets LANGCHAIN_SLOT_CONFIG to a file with asserts a quota
+      failure does not call the bundled backup provider (verify: config validated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-10
+    title: 'Add a test that sets LANGCHAIN_SLOT_CONFIG to an empty or missing file
+      (verify: config validated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-11
+    title: 'asserts no fallback to the bundled backup occurs (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-12
+    title: 'Source-fix gates pass: `node --test .github/scripts/__tests__/*.test.js`
+      and `python3 -m pytest -q tests/`.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-13
+    title: Reintroducing the reported behavior makes the regression test fail; reverting
+      that deliberate break makes it pass.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-14
+    title: The next `.github/workflows/maint-71-merge-sync-prs.yml` run reports stranske/Travel-Plan-Permission#1716
+      without this review thread, and sync-core stops bumping this issue.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-15
+    title: 'Fix the finding at its source in `stranske/Workflows`: `scripts/langchain/pr_verifier.py`
+      (the consumer PR stranske/Travel-Plan-Permission#1716 is generated from it by
+      `.github/workflows/maint-68-sync-consumer-repos.yml` and must not be edited
+      by hand).'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-16
+    title: Add or extend a test beside `scripts/langchain/pr_verifier.py` that fails
+      on the behaviour the reviewer describes and passes after the fix.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-17
+    title: Let `.github/workflows/maint-68-sync-consumer-repos.yml` regenerate the
+      sync candidate and confirm the review thread on stranske/Travel-Plan-Permission#1716
+      is resolved.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-18
+    title: The next `.github/workflows/maint-71-merge-sync-prs.yml` run reports stranske/Travel-Plan-Permission#1716
+      without this review thread, and sync-core stops bumping this issue. (This is
+      an acceptance criterion rather than a task. It depends on external workflow
+      runs (maint-68/maint-71) and on a reviewer thread in another repository being
+      resolved. The agent cannot modify .github/workflows/*.yml, retry CI pipelines,
+      or act on the consumer repo, which is also a stated non-goal. | Move this out
+      of the agent's scope and treat it as a human or automation follow-up verification
+      after merge. The agent should only deliver the source fix and tests in stranske/Workflows.)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-19
+    title: "Deliberate-break \u2192 revert: re-introduce the reported behaviour \u2192\
+      \ confirm the named test FAILS \u2192 revert. (This is a manual verification\
+      \ procedure that requires temporarily breaking the code. The agent can run it\
+      \ locally, but it cannot be checked from the final diff and leaves no durable\
+      \ artifact. | Replace it with an objective check: the new test asserts that\
+      \ the backup provider is never invoked under the explicit-config scenarios.\
+      \ Optionally ask the agent to state in the PR description that the test was\
+      \ run against the pre-fix code and failed.)"
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
