@@ -37,7 +37,7 @@ def test_claude_available_with_configured_directory(claude_client, monkeypatch, 
     (config / ".credentials.json").touch()
     monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(config))
 
-    assert claude_client.available() is True
+    assert (claude_client.available() is True) == (True)
 
 
 @pytest.mark.parametrize("default_auth_exists", (False, True))
@@ -52,7 +52,7 @@ def test_claude_unavailable_with_empty_configured_directory(
         default.mkdir(parents=True)
         (default / ".credentials.json").touch()
 
-    assert claude_client.available() is False
+    assert (claude_client.available() is False) == (True)
 
 
 @pytest.mark.parametrize("auth_exists", (False, True))
@@ -62,4 +62,4 @@ def test_claude_available_with_default_directory(claude_client, auth_exists):
         default.mkdir(parents=True)
         (default / ".credentials.json").touch()
 
-    assert claude_client.available() is auth_exists
+    assert (claude_client.available() is auth_exists) == (True)
