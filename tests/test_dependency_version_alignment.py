@@ -7,6 +7,8 @@ from pathlib import Path
 
 from packaging.markers import default_environment
 from packaging.requirements import Requirement
+from scripts.sync_dev_dependencies import parse_env_file, sync_pyproject
+from scripts.sync_manifest_compiler import compile_manifest
 
 _OPERATORS = ("==", ">=", "<=", "~=", "!=", ">", "<", "===")
 
@@ -98,3 +100,37 @@ def test_all_pyproject_dependencies_are_in_lock() -> None:
             missing.append(dependency)
 
     assert not missing, "requirements.lock is missing pinned versions for: " + ", ".join(missing)
+
+
+def test_consumer_pytest_sync_matches_source_development_pin(tmp_path: Path) -> None:
+    """Exercise the dependency producer, independently of consumer-owned workflows."""
+    root = Path(__file__).resolve().parents[1]
+    project = tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8"))
+    dev = project["project"]["optional-dependencies"]["dev"]
+    pytest_pins = [Requirement(entry) for entry in dev if Requirement(entry).name == "pytest"]
+    assert len(pytest_pins) == 1
+    pins = parse_env_file(root / ".github/workflows/autofix-versions.env")
+    assert str(pytest_pins[0].specifier) == f"=={pins['PYTEST_VERSION']}"
+
+    consumer = tmp_path / "pyproject.toml"
+    consumer.write_text(
+        '[project]\nname = "consumer"\nversion = "1.0"\n'
+        '[project.optional-dependencies]\ndev = ["pytest==9.1.1"]\n',
+        encoding="utf-8",
+    )
+    changes, errors = sync_pyproject(consumer, pins, apply=True)
+    assert not errors
+    assert changes
+    generated = tomllib.loads(consumer.read_text(encoding="utf-8"))
+    assert generated["project"]["optional-dependencies"]["dev"] == [str(pytest_pins[0])]
+    assert sync_pyproject(consumer, pins, apply=True) == ([], [])
+
+
+def test_template_sync_does_not_generate_consumer_wasm_workflow() -> None:
+    """Issue #4427's workflow pin cannot be repaired by regenerating Maint 68."""
+    root = Path(__file__).resolve().parents[1]
+    plan = compile_manifest(root / ".github/sync-manifest.yml").to_plan()
+    targets = {entry["target"] for entry in plan["entries"]}
+    targets.update(entry["target"] for entry in plan["removals"])
+    assert "pyproject.toml" not in targets
+    assert ".github/workflows/pages-wasm-demo.yml" not in targets
