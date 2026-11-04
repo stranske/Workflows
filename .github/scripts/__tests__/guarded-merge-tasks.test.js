@@ -498,6 +498,57 @@ for (const lateTask of ['managed task', 'reviewer task']) {
 }
 
 for (const phase of ['initial scan', 'final snapshot']) {
+  for (const failure of ['read failure', 'missing version']) {
+    test(`source ${failure} at the ${phase} warns and updates its owned refusal receipt`, async () => {
+      const { c, actions, comments } = mergeScanHarness();
+      const previousBody = `${refusalMarker}\nHead: previous-head\nTask precheck refused: previous reason`;
+      comments.push(
+        { id: 100, user: { login: 'owner' }, body: previousBody },
+        { id: 101, user: { login: 'reviewer' }, body: previousBody },
+      );
+      const readIssue = c.github.rest.issues.get;
+      const refusalRead = phase === 'initial scan' ? 1 : 2;
+      let sourceReads = 0;
+      c.github.rest.issues.get = async (args) => {
+        const response = await readIssue(args);
+        if (++sourceReads !== refusalRead) return response;
+        if (failure === 'read failure') throw new Error('issue unavailable');
+        return { data: { body: response.data.body } };
+      };
+
+      await c.runScan();
+
+      const reason = failure === 'read failure'
+        ? 'Unable to read linked issue #1061; refusing to merge blind: issue unavailable'
+        : 'Linked issue #1061 has no version; refusing to merge blind.';
+      assert.equal(sourceReads, refusalRead);
+      assert.deepEqual(actions.filter(([kind]) => kind === 'warning'), [
+        ['warning', `PR #42: ${reason}`],
+      ]);
+      const updates = actions.filter(([kind]) => kind === 'update');
+      assert.equal(updates.length, 1);
+      assert.deepEqual({ ...updates[0][1] }, {
+        owner: 'o', repo: 'r', comment_id: 100,
+        body: `${refusalMarker}\nHead: current-head\nTask precheck refused: ${reason}`,
+      });
+      assert.equal(comments.length, 2);
+      assert.equal(comments[0].body, updates[0][1].body);
+      assert.equal(comments[1].body, previousBody);
+      assert.equal(actions.some(([kind]) => ['create', 'merge', 'remove-label'].includes(kind)), false);
+      assert.equal(actions.some(([kind, message]) => kind === 'info'
+        && message === 'Runtime AC merge guard passed for PR #42.'), phase === 'final snapshot');
+      const summaryRows = actions.find(([kind]) => kind === 'summary')[1];
+      assert.deepEqual([...summaryRows[1]], phase === 'initial scan'
+        ? ['#42', 'skipped', reason]
+        : ['#42', 'error', `Merge failed: ${reason}`]);
+      assert.deepEqual(actions.filter(([kind]) => kind === 'output'), [
+        ['output', 'merged', '[]'],
+      ]);
+    });
+  }
+}
+
+for (const phase of ['initial scan', 'final snapshot']) {
   test(`failed refusal receipt update at the ${phase} preserves warnings and blocks merge`, async () => {
     const uncheckedBody = complete.body + '\n- [ ] Reviewer request';
     const { c, actions, comments } = mergeScanHarness({

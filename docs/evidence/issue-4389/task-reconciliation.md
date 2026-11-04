@@ -106,3 +106,46 @@ create `.git/index.lock`. This follow-up is committed in the isolated local chec
 `/tmp/pr4441-refusal-tests-checkout`, with a portable commit patch at
 `/tmp/pr4441-refusal-tests.patch`. The main checkout retains the file edits but its
 branch cannot advance under this run's filesystem permissions.
+
+## Source snapshot refusal regressions
+
+Reviewed the source and keepalive commits through `97538302` and confirmed the
+checklist above: the final merge-boundary warning/receipt remains missing, while
+the workflow consolidation acceptance has verified passing evidence. No additional
+task is complete. The live PR remains open and ready for review.
+
+Four new merge-scan cases cover a source issue read failure or missing version at
+the initial scan and final snapshot. Even with all PR tasks complete, each case
+requires the specific refusal warning and current-head update of the writer's
+existing receipt. A reviewer's receipt is preserved, no duplicate is created,
+the summary retains the failure, and no merge or source-label cleanup is attempted.
+The final-snapshot cases also establish that the runtime guard passed before
+the source failure was observed.
+
+Validation:
+
+- `node --test --test-isolation=none .github/scripts/__tests__/guarded-merge-tasks.test.js`:
+  43 passed, zero skipped or TODO cases.
+- In a temporary test copy, changing the in-memory workflow source to count raw
+  issue boxes produced 23 failures, including the completed-PR regression and
+  both new final-snapshot cases. Restoring the original test produced 43 passes.
+  No workflow file was edited.
+- `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 pytest tests/workflows/test_workflow_agents_consolidation.py -q -m 'not slow'`:
+  79 passed in 1.99 seconds. The unmodified environment still fails during
+  LangSmith plugin import on a Python 3.14 deprecation warning.
+- The exact Node directory command still fails with `MODULE_NOT_FOUND`.
+- A direct Node subprocess capture probe returns an `EPERM` spawn error and empty
+  output. Process-isolated test-file summaries do not establish that individual
+  tests ran in this sandbox. Full-suite acceptance remains unverified.
+- `timeout 45s node --test --test-isolation=none --test-timeout=15000 .github/scripts/__tests__/*.test.js`:
+  exit 124, with failures in existing verifier subprocess tests before timeout.
+- JavaScript syntax validation and `git diff --check`: passed.
+- GitHub rejected the requested checkbox reconciliation, `needs-human` label and
+  blocker comment because writes require approval and approval policy is `never`.
+  The remote checklist could not be corrected; the verified workflow consolidation
+  acceptance remains recorded here.
+
+The protected follow-up above is still required, as is deployed consumer evidence.
+The main checkout's Git metadata remains read-only. This run retains its commit in
+`/tmp/pr4441-source-refusal-checkout` and a portable commit patch in
+`/tmp/pr4441-source-refusal.patch`; its working-file edits remain in the main checkout.
