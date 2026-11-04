@@ -457,6 +457,47 @@ test('guarded scan publishes and reuses a refusal receipt before the runtime gua
   ]);
 });
 
+for (const phase of ['initial scan', 'final snapshot']) {
+  test(`refusal visibility regression detects a missing publisher at the ${phase} and passes after restoration`, async () => {
+    const uncheckedBody = complete.body + '\n- [ ] Reviewer request';
+    const { c, actions, comments } = mergeScanHarness({
+      body: phase === 'initial scan' ? uncheckedBody : complete.body,
+      finalBody: uncheckedBody,
+    });
+    const publish = c.reportTaskRefusal;
+    const reason = 'Refusing auto-merge: linked issue/PR has unchecked tasks.';
+    const assertVisibleRefusal = async () => {
+      await c.runScan();
+      assert.deepEqual(actions.filter(([kind]) => kind === 'output'), [
+        ['output', 'merged', '[]'],
+      ]);
+      assert.equal(actions.some(([kind]) => kind === 'merge'), false);
+      assert.deepEqual(actions.filter(([kind]) => kind === 'warning'), [
+        ['warning', `PR #42: ${reason}`],
+      ]);
+      assert.equal(comments.length, 1);
+      assert.equal(comments[0].body,
+        `${refusalMarker}\nHead: current-head\nTask precheck refused: ${reason}`);
+    };
+
+    // Removing the publication must fail the visibility contract even though
+    // the refusal itself still prevents merging and reaches the job summary.
+    c.reportTaskRefusal = async () => {};
+    try {
+      await assert.rejects(assertVisibleRefusal, { code: 'ERR_ASSERTION' });
+      assert.equal(comments.length, 0);
+      const summaryRows = actions.find(([kind]) => kind === 'summary')[1];
+      assert.deepEqual([...summaryRows[1]], phase === 'initial scan'
+        ? ['#42', 'skipped', reason]
+        : ['#42', 'error', `Merge failed: ${reason}`]);
+    } finally {
+      c.reportTaskRefusal = publish;
+    }
+    actions.length = 0;
+    await assertVisibleRefusal();
+  });
+}
+
 test('guarded scan reaches runtime guard and exact-head merge with unchecked source tasks', async () => {
   const { c, actions } = mergeScanHarness();
   await c.runScan();

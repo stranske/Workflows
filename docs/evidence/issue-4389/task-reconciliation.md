@@ -218,3 +218,33 @@ The main checkout's Git metadata is still read-only. The code, tests and this no
 are committed in `/tmp/pr4441-directory-entrypoint-checkout`, with a portable patch
 at `/tmp/pr4441-directory-entrypoint.patch`; the working-file edits remain here.
 The refusal-visibility task and deployed-consumer acceptance remain incomplete.
+
+## Refusal publication mutation checks
+
+Reviewed commits through `24264d54`. The first unchecked task remains blocked on
+the protected merge-boundary workflow change described above. No additional task
+is complete. The live workflow-consolidation checkbox should be checked based on
+the verified result below; the other remaining acceptance criteria stay unchecked.
+
+Two new regressions suppress `reportTaskRefusal` at the initial scan and final
+snapshot. They verify that the merge remains refused and the summary names the
+reason, but that the warning/PR receipt assertion fails. Restoring the publisher
+makes the same visibility assertion pass. No workflow files were changed.
+
+Validation:
+
+- `node --test --test-isolation=none .github/scripts/__tests__/guarded-merge-tasks.test.js`:
+  47 passed, zero skipped or TODO cases, including publication and task-authority
+  mutation/restoration checks.
+- `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 pytest tests/workflows/test_workflow_agents_consolidation.py -q -m 'not slow'`:
+  79 passed in 1.07 seconds. The default command fails during installed LangSmith
+  plugin import on a Python 3.14 deprecation warning.
+- `node --test .github/scripts/__tests__/` hung without output and was interrupted
+  (exit 130). Full-suite acceptance remains unverified.
+- JavaScript syntax validation and `git diff --check`: passed.
+
+GitHub automatic approval review rejected the PR-body update, `needs-human` label
+and blocker comment because the approval policy is `never`. The live checklist
+was not changed. PR #4441 was verified open and ready for review. The main Git
+metadata is read-only; this run preserves its commit in an independent `/tmp`
+checkout and exports `/tmp/pr4441-refusal-publication.patch` for transfer.
