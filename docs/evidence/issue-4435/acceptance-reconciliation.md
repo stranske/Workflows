@@ -148,3 +148,28 @@ acceptance checkboxes above remain the reconciliation record for automation.
 The commit attempt for this round's test and evidence files also failed at
 `git add`: `.git/index.lock` cannot be created on the read-only filesystem.
 Both changes remain uncommitted for the automation commit step.
+
+## Independent plan and refreshed-head validation
+
+The three-canary lifecycle fixture now accepts independent delivered and expected
+plan IDs. After source recovery, a substituted delivered plan remains outside
+review (`delivery_plan_handoff`, `plan_mismatch`, `resume-owning-plan`). Delivering
+the dispatched plan instead admits each canary to `review_window_pending`, with
+its own refreshed head SHA rather than the original blocked head.
+
+Both required gate commands pass. Individual-case runs pass 79 scoped-refresh
+and 174 Maint 71 tests. Concurrent variants of the Maint 71 suite collided on its
+shared artifact; the serial rerun passed all 174 tests. The bare full-scope
+dispatch again failed the required named test, and the source was restored
+byte-for-byte. Transcripts: `/tmp/4435-bare-dispatch.tap`,
+`/tmp/4435-scoped-gate.tap`, `/tmp/4435-maint71-gate.tap`,
+`/tmp/4435-scoped-cases.tap`, and `/tmp/4435-maint71-cases.tap`.
+
+PR #4439 was again confirmed open, unmerged, and ready for review. The post-merge
+live criteria remain unchecked; this regression does not supply live evidence.
+
+The connector again rejected updating the three verified PR acceptance
+checkboxes because approval is required and the run's approval policy is
+`never`. The commit attempt for this test and evidence update failed because
+`.git/index.lock` cannot be created on the read-only filesystem. Both files
+remain in the working tree for the automation commit step.

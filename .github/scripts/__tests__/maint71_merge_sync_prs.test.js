@@ -2093,15 +2093,15 @@ test('review GraphQL reads rotate separately while mutations remain owner-pinned
 
 async function reportSelection(t, { syncHash, withRecord,
   repository = 'stranske/Travel-Plan-Permission', sourceCommit = 'c'.repeat(40),
-  expectedSourceCommit = '' }) {
+  expectedSourceCommit = '', planId = `sha256:${'a'.repeat(64)}`,
+  expectedPlanId = planId, headSha = 'd'.repeat(40) }) {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'maint71-selection-'));
   t.after(() => fs.rmSync(tempDir, { recursive: true, force: true }));
   const reportPath = path.join(tempDir, 'report.json');
-  const headSha = 'd'.repeat(40);
   const observedAt = new Date().toISOString();
   const metadata = {
     schema: 'workflows-consumer-sync-pr/v1', consumer_repo: repository,
-    plan_id: `sha256:${'a'.repeat(64)}`, plan_scope: 'full',
+    plan_id: planId, plan_scope: 'full',
     source_commit: sourceCommit, source_sha: sourceCommit,
     template_hash: 'candidate-generation', sync_phase: 'canary',
   };
@@ -2145,7 +2145,7 @@ async function reportSelection(t, { syncHash, withRecord,
     REGISTERED_REPOS_INPUT: repository, REPOS_INPUT: repository,
     CLEANUP_BRANCHES_INPUT: 'false', DRY_RUN_INPUT: 'true', AUTO_MERGE_INPUT: 'false',
     ACTIVE_SYNC_HASH_INPUT: syncHash, SYNC_HASH_INPUT: '',
-    EXPECTED_PLAN_ID_INPUT: expectedSourceCommit ? metadata.plan_id : '',
+    EXPECTED_PLAN_ID_INPUT: expectedSourceCommit ? expectedPlanId : '',
     EXPECTED_PLAN_SCOPE_INPUT: expectedSourceCommit ? 'full' : '',
     EXPECTED_SCOPE_BASE_SHA_INPUT: '', EXPECTED_SOURCE_COMMIT_INPUT: expectedSourceCommit,
     OWNER_PR_PAT: 'test-owner-token', TRUSTED_SYNC_ACTORS: 'stranske',
@@ -2276,18 +2276,34 @@ test('Maint 71 admits all three campaign-bound canaries to review after exact-pl
   assert.deepEqual(report.canary_refresh, { refresh_dispatched: 1, drainable: 3,
     held_plans: [inputs.expected_plan_id] });
 
-  // Model Maint 68 delivering the emitted source, then let Maint 71 decide again.
+  // Replacing the source alone must not admit a delivery from a different plan.
+  // Model a new native head for each refreshed canary, independent of its source.
   for (const repository of inputs.repos.split(',')) {
     const row = blockedResults.find(result => `${result.owner}/${result.repo}` === repository);
-    const recovered = await reportSelection(t, { syncHash: 'candidate', withRecord: true, repository,
-      expectedSourceCommit: campaignSource, sourceCommit: inputs.scope_head_sha });
+    const refreshedHead = String(expectedCanaries.indexOf(repository) + 1).repeat(40);
+    const options = { syncHash: 'candidate', withRecord: true, repository,
+      expectedSourceCommit: campaignSource, sourceCommit: inputs.scope_head_sha,
+      expectedPlanId: inputs.expected_plan_id, headSha: refreshedHead };
+    const wrongPlan = await reportSelection(t, { ...options, planId: `sha256:${'b'.repeat(64)}` });
+    const refused = wrongPlan.report.results.find(result => `${result.owner}/${result.repo}` === repository);
+    assert.equal(refused.status, 'delivery_plan_handoff', repository);
+    assert.equal(refused.delivery_reason, 'plan_mismatch');
+    assert.equal(refused.next_command, 'resume-owning-plan');
+    assert.equal(refused.expected_plan_id, inputs.expected_plan_id);
+    assert.equal(refused.observed_plan_id, `sha256:${'b'.repeat(64)}`);
+    assert.equal(refused.source_commit, campaignSource);
+    assert.equal(refused.review_state, 'not-applicable');
+    assert.equal(refused.head_sha, refreshedHead);
+
+    const recovered = await reportSelection(t, { ...options, planId: inputs.expected_plan_id });
     const reviewed = recovered.report.results.find(result => `${result.owner}/${result.repo}` === repository);
     assert.equal(reviewed.status, 'review_window_pending', repository);
     assert.equal(`${reviewed.owner}/${reviewed.repo}`, repository);
     assert.equal(reviewed.source_commit, row.refresh_plan.source_commit);
     assert.equal(reviewed.plan_id, inputs.expected_plan_id);
     assert.equal(reviewed.plan_scope, 'full');
-    assert.equal(reviewed.head_sha, row.head_sha);
+    assert.equal(reviewed.head_sha, refreshedHead);
+    assert.notEqual(reviewed.head_sha, row.head_sha);
     assert.doesNotMatch(JSON.stringify(recovered.report), /candidate_immutable_identity_mismatch/);
   }
 });
