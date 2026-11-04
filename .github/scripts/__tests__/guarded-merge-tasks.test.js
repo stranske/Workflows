@@ -577,6 +577,38 @@ for (const lateTask of ['managed task', 'reviewer task']) {
 }
 
 for (const phase of ['initial scan', 'final snapshot']) {
+  test(`ambiguous source introduced at the ${phase} publishes an owned refusal without fetching an arbitrary issue`, async () => {
+    const ambiguousBody = complete.body + '\n<!-- meta:issue:99 -->';
+    const { c, actions, comments } = mergeScanHarness({
+      body: phase === 'initial scan' ? ambiguousBody : complete.body,
+      finalBody: ambiguousBody,
+    });
+    comments.push(
+      { id: 100, user: { login: 'owner' }, body: refusalMarker },
+      { id: 101, user: { login: 'reviewer' }, body: refusalMarker },
+    );
+
+    await c.runScan();
+
+    const reason = 'Ambiguous linked issue references; refusing to merge blind.';
+    assert.deepEqual(actions.filter(([kind]) => kind === 'warning'), [
+      ['warning', `PR #42: ${reason}`],
+    ]);
+    assert.deepEqual(actions.filter(([kind]) => kind === 'update').map(([, args]) => ({ ...args })), [{
+      owner: 'o', repo: 'r', comment_id: 100,
+      body: `${refusalMarker}\nHead: current-head\nTask precheck refused: ${reason}`,
+    }]);
+    assert.equal(comments.length, 2);
+    assert.equal(comments[1].body, refusalMarker);
+    assert.equal(actions.filter(([kind]) => kind === 'issue').length,
+      phase === 'initial scan' ? 0 : 1,
+      'ambiguous metadata must not select an arbitrary source issue');
+    assert.equal(actions.some(([kind]) => ['create', 'merge', 'remove-label'].includes(kind)), false);
+    assert.deepEqual(actions.filter(([kind]) => kind === 'output'), [
+      ['output', 'merged', '[]'],
+    ]);
+  });
+
   for (const failure of ['read failure', 'missing version']) {
     test(`source ${failure} at the ${phase} warns and updates its owned refusal receipt`, async () => {
       const { c, actions, comments } = mergeScanHarness();

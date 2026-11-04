@@ -1,5 +1,22 @@
 # PR #4441 task reconciliation
 
+Latest follow-up: ambiguous source metadata now has scan-level regression cases
+at the initial precheck and final snapshot. Both assert the refusal warning,
+update of the writer's receipt only, no arbitrary issue fetch, and no merge.
+`node --test --test-isolation=none .github/scripts/__tests__/guarded-merge-tasks.test.js`
+passes all 49 tests. Workflow consolidation passes all 79 tests with
+`PYTEST_DISABLE_PLUGIN_AUTOLOAD=1` and `-m 'not slow'`; the default command still
+fails during the installed LangSmith plugin's startup. No additional task is
+complete: the final merge-boundary refusal still needs the protected workflow
+change below, and deployed-consumer acceptance remains unverified. GitHub rejected
+both the `needs-human` label and blocker-comment writes because approval is
+required and this run's approval policy is `never`.
+The complete Node directory command remained pending and was interrupted by a
+45-second timeout; full-suite acceptance remains unchecked. PR #4441 was verified
+open with `draft=false`. Git metadata is read-only in this workspace, so the
+commit is preserved in `/tmp/pr4441-ambiguous-source-checkout`, with a portable
+patch at `/tmp/pr4441-ambiguous-source.patch`; the edits remain in the workspace.
+
 Reviewed source commit `3fcbb096` and keepalive commits through `87b3ed33`.
 Those changes already implement PR-owned completion state and receipts for the
 initial task precheck and the earlier final snapshot. The subsequent commits
