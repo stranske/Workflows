@@ -30,6 +30,7 @@ def runner():
 @pytest.fixture
 def backup_on(monkeypatch):
     monkeypatch.setenv("MUSE_API_KEY", "test-key-not-real")
+    monkeypatch.delenv("LANGCHAIN_SLOT_CONFIG", raising=False)
     monkeypatch.delenv("VERIFIER_EVIDENCE_PROFILE", raising=False)
     monkeypatch.delenv("VERIFIER_SEMANTIC_MODE", raising=False)
     calls = []
@@ -65,6 +66,79 @@ def test_the_backup_stands_in_for_the_exhausted_judge_only(backup_on):
     assert pv.comparison_verdict(results) != "PASS"
 
 
+@pytest.mark.parametrize(
+    "configuration",
+    [
+        "omitted",
+        "disabled",
+        "empty-file",
+        "missing-file",
+        "empty-env",
+        "whitespace-env",
+        "malformed",
+        "non-object",
+        "directory",
+    ],
+)
+def test_explicit_slot_config_never_uses_bundled_backup(
+    monkeypatch, tmp_path, backup_on, configuration
+):
+    payload = json.loads((ROOT / "config/llm_slots.json").read_text())
+    if configuration == "disabled":
+        payload["capacity_backup"]["enabled"] = False
+    else:
+        payload.pop("capacity_backup")
+    path = tmp_path / "slots.json"
+    if configuration == "directory":
+        path.mkdir()
+    elif configuration not in {"missing-file", "empty-env", "whitespace-env"}:
+        contents = {
+            "empty-file": "",
+            "malformed": "{",
+            "non-object": "[]",
+        }.get(configuration, json.dumps(payload))
+        path.write_text(contents, encoding="utf-8")
+    setting = {"empty-env": "", "whitespace-env": "   "}.get(configuration, str(path))
+    monkeypatch.setenv("LANGCHAIN_SLOT_CONFIG", setting)
+    results = [
+        judged("openai", "gpt-6.1-sol", "PASS"),
+        judged("anthropic", "claude-sonnet-5-5", "CONCERNS", ANTHROPIC_CAP),
+    ]
+
+    out = pv._with_capacity_backup(runner(), results, "application")
+
+    assert out is results
+    assert backup_on == []
+    assert pv.comparison_verdict(out) != "PASS"
+
+
+def test_explicit_slot_config_selects_its_own_backup(monkeypatch, tmp_path, backup_on):
+    payload = json.loads((ROOT / "config/llm_slots.json").read_text())
+    payload["capacity_backup"].update(
+        provider="configured-provider",
+        model="configured-model",
+        base_url="https://backup.example.invalid/v1",
+    )
+    path = tmp_path / "slots.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("LANGCHAIN_SLOT_CONFIG", "  slots.json  ")
+    backup = pv.capacity_backup()
+    assert backup is not None
+    assert backup[0].base_url == "https://backup.example.invalid/v1"
+    results = [
+        judged("openai", "gpt-6.1-sol", "PASS"),
+        judged("anthropic", "claude-sonnet-5-5", "CONCERNS", ANTHROPIC_CAP),
+    ]
+
+    out = pv._with_capacity_backup(runner(), results, "application")
+
+    assert backup_on == [("CapacityBackupClient", "configured-provider", "configured-model")]
+    assert out[0] is results[0]
+    assert out[1].capacity_backup_for.startswith("anthropic/claude-sonnet-5-5: ")
+    assert pv.comparison_verdict(out) == "PASS"
+
+
 def test_both_judges_exhausted_means_no_backup_and_no_pass(backup_on):
     results = [
         judged("openai", "gpt-6.1-sol", "CONCERNS", "insufficient_quota"),
@@ -94,6 +168,7 @@ def test_no_backup_on_an_ordinary_error(backup_on):
 
 def test_strict_paths_and_a_missing_key_never_use_the_backup(monkeypatch):
     monkeypatch.setenv("MUSE_API_KEY", "test-key-not-real")
+    monkeypatch.delenv("LANGCHAIN_SLOT_CONFIG", raising=False)
     monkeypatch.delenv("VERIFIER_SEMANTIC_MODE", raising=False)
     monkeypatch.delenv("VERIFIER_EVIDENCE_PROFILE", raising=False)
     assert pv.capacity_backup() is not None

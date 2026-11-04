@@ -250,6 +250,11 @@ fails before generation or mutation. This applies to both source follow-up
 workflows and the distributed new-PR template.
 The verifier validates merged PRs against tasks and acceptance criteria using label-triggered modes.
 
+The standard comparison capacity backup uses the same effective slot-config path
+as primary clients, including `LANGCHAIN_SLOT_CONFIG`. An explicit empty or
+unavailable configuration, or one that omits or disables `capacity_backup`,
+prevents backup execution; it never falls back to the bundled backup settings.
+
 Semantic evaluation responses keep `summary` as the canonical scalar string API.
 The parser also accepts only one observed provider transport alternate: a non-empty
 list whose entries contain exactly the strict string fields `criterion` and
