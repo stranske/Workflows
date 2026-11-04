@@ -1,0 +1,204 @@
+version: 1
+issue: 4365
+base: main
+branch: codex/issue-4365
+tasks:
+  - id: task-01
+    title: "Fix `.github/scripts/auto_pilot_transitions.js` to validate the handoff\u2019\
+      s source PR/closure identity or clear its marker on reopening."
+    status: doing
+    started_at: '2026-11-04T13:36:48Z'
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-02
+    title: Update `.github/scripts/auto_pilot_transitions.js` to schedule continuation
+      after a handoff or complete the `done` disposition in the same run.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-03
+    title: Update the redispatch allowlist logic in auto_pilot_transitions.js to include
+      the verify stage after a successful pr-handoff so that continuation is scheduled
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-04
+    title: Update the event gate logic in auto_pilot_transitions.js to accept verify:pr-handoff
+      label events instead of rejecting them
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-05
+    title: Fix the legacy verify:evaluate path for closed issues in auto_pilot_transitions.js
+      so a completion report is produced
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-06
+    title: 'agents:auto-pilot is not left in place without one (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-07
+    title: Add or extend tests beside `.github/scripts/auto_pilot_transitions.js`
+      that fail on the reported behaviors and pass after the fixes.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-08
+    title: 'Add a test in .github/scripts/__tests__ that reopens an issue after a
+      handoff, closes it with a different PR (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-09
+    title: Add a test in .github/scripts/__tests__ that reopens an issue after a handoff,
+      closes it with and asserts the disposition is verify rather than done
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-10
+    title: Add a test in .github/scripts/__tests__ that runs a closed issue with the
+      legacy verify:evaluate label through a successful handoff
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-11
+    title: 'Add a test in .github/scripts/__tests__ that runs a closed issue with
+      asserts a continuation is scheduled or the done disposition completes (verify:
+      tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-12
+    title: Add a test in .github/scripts/__tests__ that asserts the event gate accepts
+      verify:pr-handoff label events
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-13
+    title: 'Source-fix gates pass: `node --test .github/scripts/__tests__/*.test.js`
+      and `python3 -m pytest -q tests/`.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-14
+    title: Reintroducing the reported behavior makes the regression test fail; reverting
+      the deliberate break restores passing results.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-15
+    title: The next `.github/workflows/maint-71-merge-sync-prs.yml` run reports stranske/Portable-Alpha-Extension-Model#2454
+      without this review thread, and sync-core stops bumping this issue.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-16
+    title: 'Fix the finding at its source in `stranske/Workflows`: `.github/scripts/auto_pilot_transitions.js`
+      (the consumer PR stranske/Portable-Alpha-Extension-Model#2454 is generated from
+      it by `.github/workflows/maint-68-sync-consumer-repos.yml` and must not be edited
+      by hand).'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-17
+    title: Add or extend a test beside `.github/scripts/auto_pilot_transitions.js`
+      that fails on the behaviour the reviewer describes and passes after the fix.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-18
+    title: Let `.github/workflows/maint-68-sync-consumer-repos.yml` regenerate the
+      sync candidate and confirm the review thread on stranske/Portable-Alpha-Extension-Model#2454
+      is resolved.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-19
+    title: Fix `.github/scripts/auto_pilot_transitions.js` to ... clear its marker
+      on reopening / schedule continuation after a handoff (redispatch allowlist and
+      event gate) (The redispatch allowlist and event gate may be implemented in workflow
+      YAML (for example the auto-pilot workflow's `on:` triggers or `if:` conditions),
+      and the agent cannot modify `.github/workflows/*.yml`. The issue text implies
+      the fix lives in the JS file but does not confirm it. | Confirm that the allowlist
+      and gate logic are in auto_pilot_transitions.js. If part of it is in a workflow
+      file, split that part into a separate human-handled task, and keep the agent's
+      scope to the JS file.)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-20
+    title: 'Acceptance: The next `.github/workflows/maint-71-merge-sync-prs.yml` run
+      reports stranske/Portable-Alpha-Extension-Model#2454 without this review thread,
+      and sync-core stops bumping this issue. (This depends on a future workflow run,
+      on the sync PR head changing, and on the reviewer re-evaluating. The agent cannot
+      trigger or retry these workflows or CI pipelines, and cannot edit the workflow
+      files. | Move this to a human-verified post-merge checklist. Keep the agent''s
+      completion criteria to the source-repo tests.)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-21
+    title: 'Implementation Notes: Use `.github/workflows/maint-68-sync-consumer-repos.yml`
+      to regenerate the sync candidate from the source fix. (This is a workflow run
+      that has to be dispatched or run by maintainers, and the file is protected.
+      It is not an agent task. | Reword it as a note for a maintainer. The sync happens
+      after merge, outside the agent''s scope.)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-22
+    title: 'Acceptance: Reintroducing the reported behavior makes the regression test
+      fail; reverting the deliberate break restores passing results. (A deliberate-break
+      and revert cycle is a manual verification procedure. The agent could do it locally,
+      but it should not be committed as a change. | Ask the agent to write tests that
+      would fail against the pre-fix behavior, and have a human confirm the break-and-revert
+      check if needed.)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
