@@ -64,8 +64,45 @@ the verified checklist correction above and publish this protected follow-up
 when GitHub writes are available. Keep the source issue open until the live
 consumer acceptance is observed.
 
+## Follow-up regression verification
+
+The merge-scan harness now supports separate initial, final and merge-boundary
+PR bodies. New cases verify that reopening a managed task or adding a reviewer
+task only at the last boundary prevents the merge API request after the runtime
+guard has passed. These cases assert the refusal summary and empty merged output;
+the missing warning/receipt at that boundary remains the protected follow-up above.
+
+Two further cases exercise failed updates to an existing owned refusal receipt at
+the initial precheck and final snapshot. Both warnings remain visible, the attempted
+update names the current head and reason, the previous receipt is preserved, and
+no duplicate comment or merge request is made.
+
+Validation for this follow-up:
+
+- `node .github/scripts/__tests__/guarded-merge-tasks.test.js`: 39 passed.
+- `node --test --test-isolation=none .github/scripts/__tests__/guarded-merge-tasks.test.js`:
+  39 passed, with no skipped or TODO cases.
+- `node --test .github/scripts/__tests__/guarded-merge-tasks.test.js`: passed.
+- In a temporary test copy, the loaded workflow source was deliberately mutated to
+  add raw issue checkbox counts to `uncheckedTaskFailure`: 21 failures, including
+  the completed-PR regression. Restoring the source produced 39 passes. No workflow
+  file was edited during this experiment.
+- `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 pytest tests/workflows/test_workflow_agents_consolidation.py -q -m 'not slow'`:
+  79 passed in 1.95 seconds.
+- `node --test .github/scripts/__tests__/` still fails with `MODULE_NOT_FOUND`.
+- `timeout 45s node --test --test-timeout=15000 .github/scripts/__tests__/*.test.js`
+  reported failures in the unchanged `agents-verifier-context.test.js` and
+  `generated-delivery-seal-action.test.js`, then timed out (exit 124). Full-suite
+  acceptance remains unchecked.
+- `git diff --check`: passed.
+
+PR #4441 was verified open and ready for review. The connector again rejected the
+requested `needs-human` label and blocker comment because approval is required
+and the run's approval policy is `never`. No workflow file or PR checkbox was changed;
+consumer deployment remains unverified.
+
 The main checkout's Git metadata is read-only: staging fails when Git tries to
-create `.git/index.lock`. The changes are therefore committed in the isolated
-local checkout `/tmp/pr4441-review-checkout`, with a portable commit patch at
-`/tmp/pr4441-task-authority.patch`. The main checkout retains the file edits but
-its branch cannot advance under this run's filesystem permissions.
+create `.git/index.lock`. This follow-up is committed in the isolated local checkout
+`/tmp/pr4441-refusal-tests-checkout`, with a portable commit patch at
+`/tmp/pr4441-refusal-tests.patch`. The main checkout retains the file edits but its
+branch cannot advance under this run's filesystem permissions.

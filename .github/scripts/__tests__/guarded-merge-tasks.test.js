@@ -371,7 +371,7 @@ test('a reviewer task introduced only at the merge boundary still refuses merge'
   assert.deepEqual(actions.filter(([kind]) => kind === 'pull'), [['pull', 1], ['pull', 2]]);
 });
 
-function mergeScanHarness({ body = complete.body, finalBody = body } = {}) {
+function mergeScanHarness({ body = complete.body, finalBody = body, boundaryBody = finalBody } = {}) {
   const harness = finalGuardHarness({ finalBody: body });
   const { c, actions } = harness;
   const loadPullRequest = c.loadPullRequest;
@@ -395,7 +395,8 @@ function mergeScanHarness({ body = complete.body, finalBody = body } = {}) {
       const pr = await loadPullRequest(number);
       pullReads += 1;
       // The first read establishes the head observation; the second scans tasks.
-      return { ...pr, body: pullReads <= 2 ? body : finalBody, user: { type: 'Bot' } };
+      const currentBody = pullReads <= 2 ? body : pullReads === 3 ? finalBody : boundaryBody;
+      return { ...pr, body: currentBody, user: { type: 'Bot' } };
     },
     paginateWithRetry: async (method, args) => {
       if (method === c.github.rest.issues.listForRepo) {
@@ -468,6 +469,69 @@ test('guarded scan reaches runtime guard and exact-head merge with unchecked sou
   ]);
   assert.equal(actions.some(([kind]) => ['warning', 'create', 'update'].includes(kind)), false);
 });
+
+for (const lateTask of ['managed task', 'reviewer task']) {
+  test(`${lateTask} added at the last merge boundary prevents the merge API request`, async () => {
+    const boundaryBody = lateTask === 'managed task'
+      ? complete.body.replace('- [x] Implementation', '- [ ] Implementation')
+      : complete.body + '\n- [ ] Late reviewer request';
+    const { c, actions } = mergeScanHarness({ boundaryBody });
+
+    await c.runScan();
+
+    assert.deepEqual(actions.filter(([kind]) => kind === 'pull'), [
+      ['pull', 1], ['pull', 2], ['pull', 3], ['pull', 4],
+    ]);
+    assert.ok(actions.some(([kind, message]) => kind === 'info'
+      && message === 'Runtime AC merge guard passed for PR #42.'),
+    'the initial task check must pass before the final boundary rejects the new task');
+    assert.equal(actions.some(([kind]) => kind === 'merge'), false);
+    const summaryRows = actions.find(([kind]) => kind === 'summary')[1];
+    assert.deepEqual([...summaryRows[1]], [
+      '#42', 'error',
+      'Merge failed: Final merge-boundary task validation failed: Refusing auto-merge: linked issue/PR has unchecked tasks.',
+    ]);
+    assert.deepEqual(actions.filter(([kind]) => kind === 'output'), [
+      ['output', 'merged', '[]'],
+    ]);
+  });
+}
+
+for (const phase of ['initial scan', 'final snapshot']) {
+  test(`failed refusal receipt update at the ${phase} preserves warnings and blocks merge`, async () => {
+    const uncheckedBody = complete.body + '\n- [ ] Reviewer request';
+    const { c, actions, comments } = mergeScanHarness({
+      body: phase === 'initial scan' ? uncheckedBody : complete.body,
+      finalBody: uncheckedBody,
+    });
+    const previousBody = `${refusalMarker}\nHead: previous-head\nTask precheck refused: previous reason`;
+    comments.push({ id: 100, user: { login: 'owner' }, body: previousBody });
+    c.github.rest.issues.updateComment = async (args) => {
+      actions.push(['update-failed', args]);
+      throw new Error('comments unavailable');
+    };
+
+    await c.runScan();
+
+    const reason = 'Refusing auto-merge: linked issue/PR has unchecked tasks.';
+    assert.deepEqual(actions.filter(([kind]) => kind === 'warning'), [
+      ['warning', `PR #42: ${reason}`],
+      ['warning', 'Unable to publish task refusal for #42: comments unavailable'],
+    ]);
+    const update = actions.filter(([kind]) => kind === 'update-failed');
+    assert.equal(update.length, 1);
+    assert.deepEqual({ ...update[0][1] }, {
+      owner: 'o', repo: 'r', comment_id: 100,
+      body: `${refusalMarker}\nHead: current-head\nTask precheck refused: ${reason}`,
+    });
+    assert.equal(comments.length, 1);
+    assert.equal(comments[0].body, previousBody);
+    assert.equal(actions.some(([kind]) => ['create', 'merge'].includes(kind)), false);
+    assert.deepEqual(actions.filter(([kind]) => kind === 'output'), [
+      ['output', 'merged', '[]'],
+    ]);
+  });
+}
 
 for (const publicationFails of [false, true]) {
   test(`task added after the initial scan stays visible and blocks merge when receipt publication ${publicationFails ? 'fails' : 'succeeds'}`, async () => {
