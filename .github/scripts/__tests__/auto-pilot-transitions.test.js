@@ -242,6 +242,39 @@ for (const [surface, transitions] of [
   ['source', require('../auto_pilot_transitions.js')],
   ['consumer template', require('../../../templates/consumer-repo/.github/scripts/auto_pilot_transitions.js')],
 ]) {
+  test(`${surface}: reopening requires fresh proof even when the same PR closes the issue again`, () => {
+    let issue = {
+      issueState: 'closed',
+      hasVerify: true,
+      verifyHandoffBound: true,
+      closure: { id: '3001', sourcePr: '2454' },
+      verifyHandoff: { closureId: '3001', sourcePr: '2454' },
+    };
+    const next = () => transitions.determineNextStep({
+      ...issue,
+      forceStep: transitions.redispatchForceStep(NEXT_STEPS.VERIFY),
+    });
+    assert.equal(next().nextStep, NEXT_STEPS.DONE);
+
+    // Reopening leaves both legacy labels and the recorded handoff in place.
+    issue = { ...issue, issueState: 'open' };
+    assert.equal(next().currentState, STATES.NEEDS_FORMAT);
+    assert.equal(next().nextStep, NEXT_STEPS.FORMAT);
+
+    // The PR number is unchanged, but a later closure is a new verification target.
+    issue = { ...issue, issueState: 'closed', closure: { id: '3002', sourcePr: '2454' } };
+    assert.equal(next().currentState, STATES.CLOSED_NEEDS_VERIFY);
+    assert.equal(next().nextStep, NEXT_STEPS.VERIFY);
+
+    issue = { ...issue, verifyHandoff: { closureId: '3002', sourcePr: '2454' } };
+    assert.equal(next().currentState, STATES.CLOSED_VERIFIED);
+    assert.equal(next().nextStep, NEXT_STEPS.DONE);
+
+    // A matching closure alone also cannot authorize a different source PR.
+    issue = { ...issue, verifyHandoff: { closureId: '3002', sourcePr: '2455' } };
+    assert.equal(next().nextStep, NEXT_STEPS.VERIFY);
+  });
+
   test(`${surface}: legacy verify:evaluate reaches done after a current PR handoff`, () => {
     const issue = {
       issueState: 'closed',
