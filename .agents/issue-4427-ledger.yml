@@ -6,11 +6,12 @@ tasks:
   - id: task-01
     title: Fix the source configuration in `pyproject.toml` so the WASM workflow's
       pytest pin matches the development dependency.
-    status: doing
-    started_at: '2026-11-04T13:36:05Z'
+    status: todo
+    started_at: null
     finished_at: null
     commit: ''
-    notes: []
+    notes:
+      - '2026-11-04T13:36:17Z failure (run 41839497161): status=failure'
   - id: task-02
     title: 'Investigate whether the pytest==9.1.1 pin originates from pyproject.toml,
       a sync template, or a protected workflow file, (verify: confirm completion in
