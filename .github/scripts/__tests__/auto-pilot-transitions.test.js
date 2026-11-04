@@ -1,7 +1,9 @@
 'use strict';
 
 const fs = require('node:fs');
+const os = require('node:os');
 const path = require('node:path');
+const { spawnSync } = require('node:child_process');
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
@@ -348,5 +350,60 @@ for (const [surface, transitions] of [
     const freshProof = { ...issue, verifyHandoff: { closureId: 2002, sourcePr: 2455 } };
     assert.equal(next(freshProof), NEXT_STEPS.VERIFY);
     assert.equal(next({ ...freshProof, verifyHandoffBound: true }), NEXT_STEPS.DONE);
+  });
+}
+
+for (const [surface, root] of [
+  ['source', path.resolve(__dirname, '../../..')],
+  ['consumer template', path.resolve(__dirname, '../../../templates/consumer-repo')],
+]) {
+  test(`${surface} workflow caller: retained handoff labels cannot complete a new closure`, (t) => {
+    const workflow = fs.readFileSync(
+      path.join(root, '.github/workflows/agents-auto-pilot.yml'),
+      'utf8',
+    );
+    const nextStep = workflow.split('      - name: Determine next step\n')[1]
+      ?.split('      - name: Metrics - Start format timer\n')[0];
+    assert.ok(nextStep, 'workflow must define the next-step caller');
+    const scripts = [...nextStep.matchAll(/node - <<'NODE'[^\n]*\n([\s\S]*?)^\s*NODE\s*$/gm)];
+    assert.equal(scripts.length, 3, 'expected forced, PR lookup, and automatic callers');
+
+    // Execute the actual automatic caller with its label-derived inputs. Testing
+    // a fabricated closure object alone does not cover the production boundary.
+    const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'auto-pilot-caller-'));
+    t.after(() => fs.rmSync(temp, { recursive: true, force: true }));
+    const scriptPath = path.join(temp, 'next-step.cjs');
+    const outputPath = path.join(temp, 'outputs');
+    const statePath = path.join(temp, 'keepalive-state');
+    fs.writeFileSync(scriptPath, scripts.at(-1)[1].replace(/^ {10}/gm, ''));
+    fs.writeFileSync(statePath, '<!-- keepalive-state:v1 {"last_action":"continue"} -->');
+
+    const run = (issueState, linkedPr, handoffBound) => {
+      fs.writeFileSync(outputPath, '');
+      const child = spawnSync(process.execPath, [scriptPath], {
+        // No API access or inherited authentication is needed by this caller.
+        env: {
+          WORKFLOWS_SCRIPTS_PATH: root,
+          GITHUB_OUTPUT: outputPath,
+          ISSUE_STATE: issueState,
+          LINKED_PR: String(linkedPr),
+          HAS_VERIFY: 'true',
+          VERIFY_HANDOFF_BOUND: String(handoffBound),
+          PR_STATE_FILE: statePath,
+          PR_STATE_FETCH_FAILED: 'false',
+        },
+        stdio: 'inherit',
+        timeout: 10_000,
+      });
+      assert.ifError(child.error);
+      assert.equal(child.status, 0, 'workflow caller must execute successfully');
+      return fs.readFileSync(outputPath, 'utf8').trim();
+    };
+
+    assert.equal(run('closed', 2454, true), 'next_step=verify');
+    assert.equal(run('open', 2454, true), 'next_step=monitor-pr');
+    assert.equal(run('closed', 2455, true), 'next_step=verify');
+    // Legacy verify:evaluate also stays pending without a current PR-bound handoff.
+    assert.equal(run('closed', 2455, false), 'next_step=verify');
   });
 }

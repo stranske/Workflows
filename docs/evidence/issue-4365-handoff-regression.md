@@ -100,3 +100,40 @@ comment update is claimed.
 The required commit is also pending: staging the two changed files failed with
 `Unable to create .../.git/index.lock: Read-only file system`. The working-tree
 test and evidence changes remain available for a runner with Git write access.
+
+## Follow-up: execute the workflow callers
+
+Added two regressions to `auto-pilot-transitions.test.js` that extract and execute
+the actual automatic next-step Node caller from the root and consumer workflows.
+Each runs a closed issue with retained handoff labels, reopens it, and closes it
+with a different linked PR. The caller must select `verify` for the new closure,
+and a legacy `verify:evaluate` issue without a bound handoff also remains on
+`verify`. These checks exercise the production input mapping rather than supplying
+identity objects directly to the helper. They do not establish successful
+handoff continuation or completion reporting.
+
+Verification:
+
+- [x] `node --test --test-isolation=none .github/scripts/__tests__/auto-pilot-transitions.test.js`
+  reports **45 passed, 0 failed**.
+- [x] Replacing the identity guard with label-only trust in each helper separately
+  makes its workflow-caller regression fail with `next_step=done`. Both helpers
+  were restored in `finally` blocks; the tests pass again and neither helper
+  retains a diff.
+- [x] The existing workflow JavaScript tests pass alongside the transition suite.
+- [x] The eight existing Python handoff tests pass with only the startup-failing
+  LangSmith plugin disabled, using the targeted command above.
+- [ ] Full source gates remain incomplete. The full Node run again reported
+  failures in `agents-verifier-context.test.js` and
+  `generated-delivery-seal-action.test.js`, then stopped producing output and was
+  interrupted. The two failing files were rerun separately: **199 passed,
+  18 failed**, including `spawnSync python3 EPERM` and a missing expected
+  delivery-seal refusal message.
+  The full Python run again exited during LangSmith plugin startup on the
+  Python 3.14 deprecation warning, before collecting tests.
+
+No protected workflow changed. The `needs-human` label and blocker comment were
+again rejected by the connector's approval policy (`never`). PR #4447 was read
+back as open with `draft=false`. Staging the test change again failed because
+`.git/index.lock` cannot be created on the read-only Git metadata filesystem;
+the meaningful test change remains uncommitted for the outer runner to collect.
