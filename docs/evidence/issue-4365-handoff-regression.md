@@ -214,3 +214,29 @@ empty values are rejected; boolean and serialized true values permit `done`.
 
 The protected workflow integration and post-merge Maint 68/71 checks listed
 above still require a maintainer. No protected file was edited.
+
+## Closer repair (2026-11-04): workflow identity plumbing
+
+Real-input outcome (2026-11-04): closed issue with matching persisted handoff
+marker selects `next_step=done` in the production caller; stale closure IDs
+stay on `verify`; successful verify persists `auto-pilot-verify-handoff:v1`.
+
+Focused acceptance (under 2 minutes):
+
+```sh
+node --test --test-isolation=none .github/scripts/__tests__/auto-pilot-transitions.test.js tests/workflows/auto_pilot_verify_handoff.test.js && /opt/anaconda3/bin/python3 -m pytest -q tests/workflows/test_auto_pilot_verify_handoff.py -p no:langsmith_plugin
+```
+
+Result: **57 passed** Node + **12 passed** Python (2026-11-04).
+
+Full gates (preserved failures, not substituted):
+
+- `node --test .github/scripts/__tests__/*.test.js` → **3392 passed, 2 failed** before
+  verifier-correction expectation update; **3394 passed, 0 failed** after adding
+  empty closure/handoff outputs to the inert context fixture.
+- `/opt/anaconda3/bin/python3 -m pytest -q tests/` → **50339 passed, 3 failed**
+  (`test_update_versions_from_pypi`, `test_integration_repo_template`), exit=1;
+  unrelated to this surface.
+
+Deliberate-break: temporarily removing `hasCurrentVerifyHandoff` identity checks
+still fails focused regressions; restoration passes (see earlier table in this doc).

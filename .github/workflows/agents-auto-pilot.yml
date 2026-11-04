@@ -94,6 +94,8 @@ jobs:
           custom-predicate: >-
             event_name == 'workflow_dispatch' ||
             (action == 'labeled' && label.name == 'agents:auto-pilot') ||
+            (action == 'labeled' && label.name == 'verify:pr-handoff' && issue &&
+              contains(issue.labels[].name, 'agents:auto-pilot')) ||
             (action == 'closed' && (
               (issue && contains(issue.labels[].name, 'agents:auto-pilot')) ||
               (pull_request && contains(pull_request.labels[].name, 'agents:auto-pilot'))
@@ -490,6 +492,24 @@ jobs:
               }
             }
 
+            const {
+              findLatestClosureEvent,
+              findLatestVerifyHandoff,
+            } = require('./.github/scripts/auto_pilot_transitions.js');
+            const latestClosure = findLatestClosureEvent(timelineEvents);
+            const persistedHandoff = findLatestVerifyHandoff(comments);
+            const closureSourcePr = linkedPR || '';
+            core.setOutput('closure_id', latestClosure?.id != null ? String(latestClosure.id) : '');
+            core.setOutput('closure_source_pr', closureSourcePr ? String(closureSourcePr) : '');
+            core.setOutput(
+              'verify_handoff_closure_id',
+              persistedHandoff?.closureId ? String(persistedHandoff.closureId) : '',
+            );
+            core.setOutput(
+              'verify_handoff_source_pr',
+              persistedHandoff?.sourcePr ? String(persistedHandoff.sourcePr) : '',
+            );
+
             core.setOutput('issue_number', issueNumber);
             core.setOutput('issue_title', issue.title);
             core.setOutput('issue_state', issue.state);
@@ -630,6 +650,10 @@ jobs:
         env:
           FORCE_STEP: ${{ inputs.force_step }}
           VERIFY_HANDOFF_BOUND: ${{ steps.context.outputs.verify_handoff_bound }}
+          CLOSURE_ID: ${{ steps.context.outputs.closure_id }}
+          CLOSURE_SOURCE_PR: ${{ steps.context.outputs.closure_source_pr }}
+          VERIFY_HANDOFF_CLOSURE_ID: ${{ steps.context.outputs.verify_handoff_closure_id }}
+          VERIFY_HANDOFF_SOURCE_PR: ${{ steps.context.outputs.verify_handoff_source_pr }}
         run: |
           SCRIPTS_PATH="${WORKFLOWS_SCRIPTS_PATH:-$GITHUB_WORKSPACE}"
           ISSUE_STATE="${{ steps.context.outputs.issue_state }}"
@@ -708,25 +732,20 @@ jobs:
             PR_STATE_FETCH_FAILED="$PR_STATE_FETCH_FAILED" \
             node - <<'NODE'
           const fs = require('fs');
-          const { determineNextStep } = require(
+          const {
+            buildDetermineNextStepEventFromEnv,
+            determineNextStep,
+          } = require(
             `${process.env.WORKFLOWS_SCRIPTS_PATH}/.github/scripts/auto_pilot_transitions.js`
           );
 
           const keepaliveState = process.env.PR_STATE_FILE
             ? fs.readFileSync(process.env.PR_STATE_FILE, 'utf8')
             : '';
-          const result = determineNextStep({
-            issueState: process.env.ISSUE_STATE,
-            hasFormat: process.env.HAS_FORMAT,
-            hasOptimizerOutput: process.env.HAS_OPTIMIZER_OUTPUT,
-            hasApply: process.env.HAS_APPLY,
-            hasAgent: process.env.HAS_AGENT,
-            linkedPr: process.env.LINKED_PR,
-            hasVerify: process.env.HAS_VERIFY,
-            verifyHandoffBound: process.env.VERIFY_HANDOFF_BOUND,
-            keepaliveState,
-            prStateFetchFailed: process.env.PR_STATE_FETCH_FAILED === 'true',
-          });
+          const result = determineNextStep(buildDetermineNextStepEventFromEnv({
+            ...process.env,
+            KEEPALIVE_STATE: keepaliveState,
+          }));
           fs.appendFileSync(process.env.GITHUB_OUTPUT, `next_step=${result.nextStep}\n`);
           console.log(result.message);
           NODE
@@ -2320,7 +2339,7 @@ jobs:
         with:
           script: |
             const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
-            const { withRetry } = await createTokenAwareRetry({
+            const { withRetry, paginateWithRetry } = await createTokenAwareRetry({
               github,
               core,
               env: process.env,
@@ -2398,9 +2417,40 @@ jobs:
               return;
             }
 
-            core.setOutput('verify_handoff', 'found');
-            core.setOutput('verify_handoff_issue', String(issueNumber));
             core.info(`Found merged PR #${linkedPr.number} for issue #${issueNumber}`);
+
+            const {
+              findLatestClosureEvent,
+              formatVerifyHandoffMarker,
+            } = require('./.github/scripts/auto_pilot_transitions.js');
+            let closureTimeline = [];
+            try {
+              closureTimeline = await paginateWithRetry(
+                github.rest.issues.listEventsForTimeline,
+                {
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issueNumber,
+                  per_page: 100,
+                }
+              );
+            } catch (timelineError) {
+              core.setFailed(
+                `Could not read closure timeline for issue #${issueNumber}: ${timelineError?.message || timelineError}`,
+              );
+              return;
+            }
+            const latestClosure = findLatestClosureEvent(closureTimeline);
+            if (!latestClosure?.id) {
+              core.setFailed(
+                `Could not resolve closure event id for issue #${issueNumber}; handoff identity withheld`,
+              );
+              return;
+            }
+            const handoffIdentity = {
+              closureId: latestClosure.id,
+              sourcePr: linkedPr.number,
+            };
 
             async function ensureLabel(name, color, description) {
               try {
@@ -2462,6 +2512,22 @@ jobs:
               issue_number: issueNumber,
               labels: ['verify:evaluate', 'verify:pr-handoff']
             }));
+
+            const marker = formatVerifyHandoffMarker(handoffIdentity);
+            await withRetry((client) => client.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              body: [
+                '🤖 **Auto-pilot**: Recorded PR-bound verification handoff identity.',
+                '',
+                marker,
+              ].join('\n'),
+            }));
+            core.setOutput('verify_handoff', 'found');
+            core.setOutput('verify_handoff_issue', String(issueNumber));
+            core.setOutput('verify_handoff_closure_id', String(handoffIdentity.closureId));
+            core.setOutput('verify_handoff_source_pr', String(handoffIdentity.sourcePr));
 
       - name: Metrics - End verify timer
         if: always() && steps.next.outputs.next_step == 'verify'
@@ -3928,6 +3994,11 @@ jobs:
           contains(
             fromJSON('["format","optimize","apply","capability-check","create-pr","monitor-pr"]'),
             steps.next.outputs.next_step
+          ) ||
+          (
+            steps.next.outputs.next_step == 'verify' &&
+            steps.verify_step.outcome == 'success' &&
+            steps.verify_step.outputs.verify_handoff == 'found'
           )
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         env:
@@ -4035,9 +4106,17 @@ jobs:
           ISSUE_NUMBER: ${{ steps.context.outputs.issue_number }}
           VERIFY_HANDOFF_BOUND: ${{ steps.context.outputs.verify_handoff_bound }}
           VERIFY_HANDOFF: ${{ steps.verify_step.outputs.verify_handoff }}
+          CLOSURE_ID: ${{ steps.context.outputs.closure_id }}
+          CLOSURE_SOURCE_PR: ${{ steps.context.outputs.closure_source_pr }}
+          VERIFY_HANDOFF_CLOSURE_ID: ${{ steps.context.outputs.verify_handoff_closure_id }}
+          VERIFY_HANDOFF_SOURCE_PR: ${{ steps.context.outputs.verify_handoff_source_pr }}
         with:
           script: |
             const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+            const {
+              buildDetermineNextStepEventFromEnv,
+              determineNextStep,
+            } = require('./.github/scripts/auto_pilot_transitions.js');
             const { withRetry } = await createTokenAwareRetry({
               github,
               core,
@@ -4047,21 +4126,28 @@ jobs:
             });
             const issueNumber = parseInt(process.env.ISSUE_NUMBER);
 
-            const handoffBound = process.env.VERIFY_HANDOFF_BOUND === 'true';
-            const verifyTriggered = handoffBound || process.env.VERIFY_HANDOFF === 'found';
-            if (!verifyTriggered) {
+            const completion = determineNextStep(buildDetermineNextStepEventFromEnv({
+              ISSUE_STATE: 'closed',
+              HAS_VERIFY: 'true',
+              VERIFY_HANDOFF_BOUND: process.env.VERIFY_HANDOFF_BOUND,
+              CLOSURE_ID: process.env.CLOSURE_ID,
+              CLOSURE_SOURCE_PR: process.env.CLOSURE_SOURCE_PR,
+              VERIFY_HANDOFF_CLOSURE_ID: process.env.VERIFY_HANDOFF_CLOSURE_ID,
+              VERIFY_HANDOFF_SOURCE_PR: process.env.VERIFY_HANDOFF_SOURCE_PR,
+            }));
+            if (completion.nextStep !== 'done') {
               await withRetry((client) => client.rest.issues.createComment({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: issueNumber,
-                body: `🤖 **Auto-pilot**: Issue #${issueNumber} reached Report - Done without a recorded PR-bound verification handoff.
+                body: `🤖 **Auto-pilot**: Issue #${issueNumber} reached Report - Done without a current PR-bound verification handoff.
 
-            Verification was **not** triggered. \`agents:auto-pilot\` remains for retry.
+            Verification proof is missing or stale for this closure. \`agents:auto-pilot\` remains for retry.
 
             **Owner / retry:** ensure a merged source PR closes #${issueNumber}, then re-run with \`force_step=verify\`.`
               }));
               core.setFailed(
-                `Issue #${issueNumber}: verification handoff missing; refusing done disposition`,
+                `Issue #${issueNumber}: verification handoff missing or stale; refusing done disposition`,
               );
               return;
             }

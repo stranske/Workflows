@@ -26,7 +26,8 @@ test('verify step documents absent/incomplete handoff without issue-only verify 
   assert.match(workflow, /for \(let page = 1; page <= maxPages; page \+= 1\)/);
   assert.match(workflow, /client\.rest\.pulls\.list\(\{/);
   assert.match(workflow, /verification triggered on a merged source PR/);
-  assert.match(workflow, /process\.env\.VERIFY_HANDOFF_BOUND === 'true'/);
+  assert.match(workflow, /determineNextStep\(buildDetermineNextStepEventFromEnv/);
+  assert.match(workflow, /verify:pr-handoff' && issue/);
 });
 
 test('closed issue with verify:evaluate only remains on verify step', () => {

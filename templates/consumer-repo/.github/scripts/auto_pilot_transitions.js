@@ -221,8 +221,112 @@ function redispatchForceStep(currentStep) {
     [NEXT_STEPS.CAPABILITY_CHECK]: 'auto',
     [NEXT_STEPS.CREATE_PR]: 'auto',
     [NEXT_STEPS.MONITOR_PR]: 'auto',
+    [NEXT_STEPS.VERIFY]: 'auto',
   };
   return nextStepMap[step] || 'auto';
+}
+
+const VERIFY_HANDOFF_MARKER_PREFIX = '<!-- auto-pilot-verify-handoff:v1 ';
+
+function isPositiveId(value) {
+  return (typeof value === 'string' || Number.isSafeInteger(value)) &&
+    /^[1-9]\d*$/.test(normalizeText(value));
+}
+
+function normalizeHandoffIdentity(identity) {
+  if (!identity || typeof identity !== 'object') {
+    return null;
+  }
+  const closureId = identity.closureId ?? identity.id;
+  const sourcePr = identity.sourcePr;
+  if (!isPositiveId(closureId) || !isPositiveId(sourcePr)) {
+    return null;
+  }
+  return {
+    closureId: normalizeText(closureId),
+    sourcePr: normalizeText(sourcePr),
+  };
+}
+
+function formatVerifyHandoffMarker(identity) {
+  const normalized = normalizeHandoffIdentity(identity);
+  if (!normalized) {
+    throw new Error('Invalid verify handoff identity for marker');
+  }
+  return `${VERIFY_HANDOFF_MARKER_PREFIX}${JSON.stringify(normalized)} -->`;
+}
+
+function parseVerifyHandoffMarker(text) {
+  const body = String(text ?? '');
+  const start = body.lastIndexOf(VERIFY_HANDOFF_MARKER_PREFIX);
+  if (start < 0) {
+    return null;
+  }
+  const payloadStart = start + VERIFY_HANDOFF_MARKER_PREFIX.length;
+  const end = body.indexOf(' -->', payloadStart);
+  if (end < 0) {
+    return null;
+  }
+  try {
+    return normalizeHandoffIdentity(JSON.parse(body.slice(payloadStart, end)));
+  } catch {
+    return null;
+  }
+}
+
+function findLatestVerifyHandoff(comments) {
+  const entries = Array.isArray(comments) ? [...comments].reverse() : [];
+  for (const comment of entries) {
+    const parsed = parseVerifyHandoffMarker(comment?.body);
+    if (parsed) {
+      return parsed;
+    }
+  }
+  return null;
+}
+
+function findLatestClosureEvent(timelineEvents) {
+  let latest = null;
+  for (const entry of timelineEvents || []) {
+    if (entry?.event === 'closed' && entry.id != null) {
+      latest = entry;
+    }
+  }
+  if (!latest) {
+    return null;
+  }
+  return { id: latest.id };
+}
+
+function buildDetermineNextStepEventFromEnv(env = process.env) {
+  const readId = (name) => {
+    const value = normalizeText(env[name]);
+    return isPositiveId(value) ? value : undefined;
+  };
+  const closureId = readId('CLOSURE_ID');
+  const closureSourcePr = readId('CLOSURE_SOURCE_PR');
+  const handoffClosureId = readId('VERIFY_HANDOFF_CLOSURE_ID');
+  const handoffSourcePr = readId('VERIFY_HANDOFF_SOURCE_PR');
+  const event = {
+    issueState: env.ISSUE_STATE,
+    hasFormat: env.HAS_FORMAT,
+    hasOptimizerOutput: env.HAS_OPTIMIZER_OUTPUT,
+    hasApply: env.HAS_APPLY,
+    hasAgent: env.HAS_AGENT,
+    linkedPr: env.LINKED_PR,
+    hasVerify: env.HAS_VERIFY,
+    verifyHandoffBound: env.VERIFY_HANDOFF_BOUND,
+    keepaliveState: env.KEEPALIVE_STATE,
+    prStateFetchFailed: env.PR_STATE_FETCH_FAILED === 'true',
+    forceStep: env.FORCE_STEP,
+  };
+  if (closureId && closureSourcePr) {
+    event.closure = { id: closureId, sourcePr: closureSourcePr };
+  }
+  if (handoffClosureId && handoffSourcePr) {
+    event.verifyHandoff = { closureId: handoffClosureId, sourcePr: handoffSourcePr };
+  }
+  return event;
 }
 
 module.exports = {
@@ -230,10 +334,15 @@ module.exports = {
   NEXT_STEPS,
   FORCED_STEPS,
   TRANSITION_CONTRACT,
+  buildDetermineNextStepEventFromEnv,
   determineNextStep,
+  findLatestClosureEvent,
+  findLatestVerifyHandoff,
+  formatVerifyHandoffMarker,
   hasLinkedPr,
   isKeepaliveTasksComplete,
   normalizeForceStep,
+  parseVerifyHandoffMarker,
   redispatchForceStep,
   resolveCurrentState,
   transition,

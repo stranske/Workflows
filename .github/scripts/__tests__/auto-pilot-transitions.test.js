@@ -12,7 +12,11 @@ const {
   NEXT_STEPS,
   STATES,
   TRANSITION_CONTRACT,
+  buildDetermineNextStepEventFromEnv,
   determineNextStep,
+  findLatestClosureEvent,
+  findLatestVerifyHandoff,
+  formatVerifyHandoffMarker,
   isKeepaliveTasksComplete,
   normalizeForceStep,
   redispatchForceStep,
@@ -198,6 +202,34 @@ test('matching closure ID with a different source PR cannot complete the issue',
     closure: { id: 1001, sourcePr: 2455 },
     verifyHandoff: { closureId: 1001, sourcePr: 2454 },
   }).nextStep, NEXT_STEPS.VERIFY);
+});
+
+test('handoff marker helpers round-trip persisted identity', () => {
+  const marker = formatVerifyHandoffMarker({ closureId: 3001, sourcePr: 2454 });
+  assert.match(marker, /auto-pilot-verify-handoff:v1/);
+  const comments = [{ body: `note\n${marker}` }];
+  assert.deepEqual(findLatestVerifyHandoff(comments), {
+    closureId: '3001',
+    sourcePr: '2454',
+  });
+  assert.equal(findLatestClosureEvent([
+    { event: 'closed', id: 1001 },
+    { event: 'reopened' },
+    { event: 'closed', id: 1002 },
+  ])?.id, 1002);
+});
+
+test('buildDetermineNextStepEventFromEnv maps closure-bound env inputs', () => {
+  const event = buildDetermineNextStepEventFromEnv({
+    ISSUE_STATE: 'closed',
+    HAS_VERIFY: 'true',
+    VERIFY_HANDOFF_BOUND: 'true',
+    CLOSURE_ID: '1001',
+    CLOSURE_SOURCE_PR: '2454',
+    VERIFY_HANDOFF_CLOSURE_ID: '1001',
+    VERIFY_HANDOFF_SOURCE_PR: '2454',
+  });
+  assert.equal(determineNextStep(event).nextStep, NEXT_STEPS.DONE);
 });
 
 test('label-only handoffs from the current workflow stay pending verification', () => {
@@ -399,6 +431,16 @@ for (const [surface, root] of [
     `);
     const scriptPath = path.join(temp, 'report.cjs');
     const outputPath = path.join(temp, 'result.json');
+    const patchedScript = script
+      .replace(/^ {12}/gm, '')
+      .replace(
+        /require\('\.\/\.github\/scripts\/auto_pilot_transitions\.js'\)/g,
+        `require(${JSON.stringify(path.join(root, '.github/scripts/auto_pilot_transitions.js'))})`,
+      )
+      .replace(
+        /require\('\.\/\.github\/scripts\/github-api-with-retry\.js'\)/g,
+        `require(${JSON.stringify(path.join(stubDir, 'github-api-with-retry.js'))})`,
+      );
     fs.writeFileSync(scriptPath, `
       const calls = [];
       const failures = [];
@@ -413,7 +455,7 @@ for (const [surface, root] of [
         async removeLabel(params) { calls.push({ action: 'remove', ...params }); },
       } } };
       async function report() {
-        ${script.replace(/^ {12}/gm, '')}
+        ${patchedScript}
       }
       report().then(() => require('node:fs').writeFileSync(
         process.env.RESULT_PATH, JSON.stringify({ calls, failures }),
@@ -421,13 +463,17 @@ for (const [surface, root] of [
         .catch((error) => { console.error(error); process.exitCode = 1; });
     `);
 
-    const run = (bound, handoff) => {
+    const run = (bound, handoff, identity = {}) => {
       const child = spawnSync(process.execPath, [scriptPath], {
         cwd: temp,
         env: {
           ISSUE_NUMBER: '42',
           VERIFY_HANDOFF_BOUND: bound,
           VERIFY_HANDOFF: handoff,
+          CLOSURE_ID: identity.closureId ?? '',
+          CLOSURE_SOURCE_PR: identity.sourcePr ?? '',
+          VERIFY_HANDOFF_CLOSURE_ID: identity.handoffClosureId ?? '',
+          VERIFY_HANDOFF_SOURCE_PR: identity.handoffSourcePr ?? '',
           RESULT_PATH: outputPath,
         },
         stdio: 'inherit',
@@ -441,7 +487,7 @@ for (const [surface, root] of [
     for (const handoff of ['', 'absent', 'incomplete']) {
       const result = run('false', handoff);
       assert.equal(result.failures.length, 1, handoff);
-      assert.match(result.failures[0], /verification handoff missing/);
+      assert.match(result.failures[0], /verification handoff missing or stale/);
       assert.equal(result.calls.length, 1, 'missing handoff must retain auto-pilot');
       assert.equal(result.calls[0].action, 'comment');
       assert.equal(result.calls[0].issue_number, 42);
@@ -449,9 +495,22 @@ for (const [surface, root] of [
       assert.doesNotMatch(result.calls[0].body, /Auto-Pilot Complete/);
     }
 
-    // A successful handoff in this run permits reporting when invoked. This
-    // does not establish identity validation or automatic workflow continuation.
-    const result = run('false', 'found');
+    const stale = run('true', 'found', {
+      closureId: '1002',
+      sourcePr: '2455',
+      handoffClosureId: '1001',
+      handoffSourcePr: '2454',
+    });
+    assert.equal(stale.failures.length, 1);
+    assert.match(stale.failures[0], /stale/);
+    assert.equal(stale.calls.length, 1);
+
+    const result = run('true', 'found', {
+      closureId: '1001',
+      sourcePr: '2454',
+      handoffClosureId: '1001',
+      handoffSourcePr: '2454',
+    });
     assert.deepEqual(result.failures, []);
     assert.deepEqual(result.calls.map(({ action }) => action), ['remove', 'comment']);
     assert.equal(result.calls[0].name, 'agents:auto-pilot');
@@ -485,7 +544,7 @@ for (const [surface, root] of [
     fs.writeFileSync(scriptPath, scripts.at(-1)[1].replace(/^ {10}/gm, ''));
     fs.writeFileSync(statePath, '<!-- keepalive-state:v1 {"last_action":"continue"} -->');
 
-    const run = (issueState, linkedPr, handoffBound) => {
+    const run = (issueState, linkedPr, handoffBound, identity = {}) => {
       fs.writeFileSync(outputPath, '');
       const child = spawnSync(process.execPath, [scriptPath], {
         // No API access or inherited authentication is needed by this caller.
@@ -496,6 +555,10 @@ for (const [surface, root] of [
           LINKED_PR: String(linkedPr),
           HAS_VERIFY: 'true',
           VERIFY_HANDOFF_BOUND: String(handoffBound),
+          CLOSURE_ID: identity.closureId ?? '',
+          CLOSURE_SOURCE_PR: identity.sourcePr ?? '',
+          VERIFY_HANDOFF_CLOSURE_ID: identity.handoffClosureId ?? '',
+          VERIFY_HANDOFF_SOURCE_PR: identity.handoffSourcePr ?? '',
           PR_STATE_FILE: statePath,
           PR_STATE_FETCH_FAILED: 'false',
         },
@@ -507,10 +570,44 @@ for (const [surface, root] of [
       return fs.readFileSync(outputPath, 'utf8').trim();
     };
 
+    const matching = {
+      closureId: '1001',
+      sourcePr: '2454',
+      handoffClosureId: '1001',
+      handoffSourcePr: '2454',
+    };
+    assert.equal(run('closed', 2454, true, matching), 'next_step=done');
     assert.equal(run('closed', 2454, true), 'next_step=verify');
-    assert.equal(run('open', 2454, true), 'next_step=monitor-pr');
-    assert.equal(run('closed', 2455, true), 'next_step=verify');
+    assert.equal(run('open', 2454, true, matching), 'next_step=monitor-pr');
+    assert.equal(run('closed', 2455, true, {
+      ...matching,
+      closureId: '1002',
+      sourcePr: '2455',
+    }), 'next_step=verify');
     // Legacy verify:evaluate also stays pending without a current PR-bound handoff.
     assert.equal(run('closed', 2455, false), 'next_step=verify');
+  });
+
+  test(`${surface} workflow: admits verify:pr-handoff label events with auto-pilot`, () => {
+    const workflow = fs.readFileSync(
+      path.join(root, '.github/workflows/agents-auto-pilot.yml'),
+      'utf8',
+    );
+    assert.match(
+      workflow,
+      /label\.name == 'verify:pr-handoff'[\s\S]*contains\(issue\.labels\[\]\.name, 'agents:auto-pilot'\)/,
+    );
+  });
+
+  test(`${surface} workflow: redispatches after successful verify handoff`, () => {
+    const workflow = fs.readFileSync(
+      path.join(root, '.github/workflows/agents-auto-pilot.yml'),
+      'utf8',
+    );
+    const redispatch = workflow.split('      - name: Re-dispatch for next step\n')[1]
+      ?.split('      - name: Report - Done\n')[0];
+    assert.ok(redispatch, 'workflow must define verify continuation redispatch');
+    assert.match(redispatch, /steps\.next\.outputs\.next_step == 'verify'/);
+    assert.match(redispatch, /steps\.verify_step\.outputs\.verify_handoff == 'found'/);
   });
 }
