@@ -344,8 +344,12 @@ def test_auxiliary_progress_review_ignores_chat_overrides(monkeypatch, subscript
 
 
 @pytest.mark.parametrize("provider", ["openai", "anthropic", "github-models"])
+@pytest.mark.parametrize(
+    "selection",
+    ["arguments", "environment", "argument-provider", "argument-model", "argument-precedence"],
+)
 def test_subscription_mode_invokes_requested_provider_and_model(
-    monkeypatch, subscription_process, provider
+    monkeypatch, subscription_process, provider, selection
 ):
     pytest.importorskip("langchain_core.prompts")
     from langchain_core.prompts import ChatPromptTemplate
@@ -355,8 +359,12 @@ def test_subscription_mode_invokes_requested_provider_and_model(
 
     def chat_class(selected_provider):
         def build(**kwargs):
+            actual_provider = selected_provider
+            if selected_provider == "openai" and "base_url" in kwargs:
+                actual_provider = "github-models"
+
             def invoke(prompt):
-                calls.append((selected_provider, kwargs["model"], prompt.to_string()))
+                calls.append((actual_provider, kwargs["model"], prompt.to_string()))
                 return SimpleNamespace(content="selected model reply")
 
             return RunnableLambda(invoke)
@@ -366,9 +374,7 @@ def test_subscription_mode_invokes_requested_provider_and_model(
     monkeypatch.setitem(
         sys.modules,
         "langchain_openai",
-        SimpleNamespace(
-            ChatOpenAI=chat_class("github-models" if provider == "github-models" else "openai")
-        ),
+        SimpleNamespace(ChatOpenAI=chat_class("openai")),
     )
     monkeypatch.setitem(
         sys.modules, "langchain_anthropic", SimpleNamespace(ChatAnthropic=chat_class("anthropic"))
@@ -376,11 +382,91 @@ def test_subscription_mode_invokes_requested_provider_and_model(
     for name in ("OPENAI_API_KEY", "CLAUDE_API_STRANSKE", "GITHUB_TOKEN"):
         monkeypatch.setenv(name, "test-only")
 
-    info = _llm_client.build_client(provider=provider, model="requested-model")
+    kwargs = {}
+    if selection in {"arguments", "argument-provider", "argument-precedence"}:
+        kwargs["provider"] = provider
+    else:
+        monkeypatch.setenv("LANGCHAIN_PROVIDER", provider)
+    if selection in {"arguments", "argument-model", "argument-precedence"}:
+        kwargs["model"] = "requested-model"
+    else:
+        monkeypatch.setenv("LANGCHAIN_MODEL", "requested-model")
+    if selection == "argument-precedence":
+        other_provider = "anthropic" if provider == "openai" else "openai"
+        monkeypatch.setenv("LANGCHAIN_PROVIDER", other_provider)
+        monkeypatch.setenv("LANGCHAIN_MODEL", "environment-model")
+
+    info = _llm_client.build_client(**kwargs)
+    assert info is not None
     response = (ChatPromptTemplate.from_template("{task}") | info.client).invoke({"task": "review"})
 
     expected_model = "openai/requested-model" if provider == "github-models" else "requested-model"
     assert calls == [(provider, expected_model, "Human: review")]
     assert (info.provider, info.model) == (provider, "requested-model")
     assert response.content == "selected model reply"
+    assert subscription_process.calls == []
+
+
+@pytest.mark.parametrize("environment_model", [False, True])
+@pytest.mark.parametrize("force_openai", [False, True])
+def test_subscription_mode_model_override_without_provider(
+    monkeypatch, subscription_process, environment_model, force_openai
+):
+    pytest.importorskip("langchain_core.prompts")
+    from langchain_core.prompts import ChatPromptTemplate
+    from langchain_core.runnables import RunnableLambda
+
+    invocations = []
+
+    def build(**kwargs):
+        assert "base_url" not in kwargs
+
+        def invoke(prompt):
+            invocations.append((kwargs["model"], prompt.to_string()))
+            return SimpleNamespace(content="selected model reply")
+
+        return RunnableLambda(invoke)
+
+    monkeypatch.setitem(sys.modules, "langchain_openai", SimpleNamespace(ChatOpenAI=build))
+    monkeypatch.setenv("OPENAI_API_KEY", "test-only")
+    kwargs = {"force_openai": force_openai}
+    if environment_model:
+        monkeypatch.setenv("LANGCHAIN_MODEL", "requested-model")
+    else:
+        kwargs["model"] = "requested-model"
+    if force_openai:
+        # Forced OpenAI must win over both caller and environment provider choices.
+        kwargs["provider"] = "anthropic"
+        monkeypatch.setenv("LANGCHAIN_PROVIDER", "github-models")
+
+    info = _llm_client.build_client(**kwargs)
+    assert info is not None
+    response = (ChatPromptTemplate.from_template("{task}") | info.client).invoke({"task": "review"})
+
+    assert (info.provider, info.model) == ("openai", "requested-model")
+    assert invocations == [("requested-model", "Human: review")]
+    assert response.content == "selected model reply"
+    assert subscription_process.calls == []
+
+
+@pytest.mark.parametrize(
+    "kwargs,env",
+    [
+        ({"provider": "anthropic"}, {}),
+        ({"model": "requested-model"}, {}),
+        ({"force_openai": True}, {}),
+        ({}, {"LANGCHAIN_PROVIDER": "openai"}),
+        ({}, {"LANGCHAIN_MODEL": "requested-model"}),
+    ],
+)
+def test_unavailable_requested_client_does_not_substitute_subscription(
+    monkeypatch, subscription_process, kwargs, env
+):
+    for name in ("OPENAI_API_KEY", "CLAUDE_API_STRANSKE", "GITHUB_TOKEN"):
+        monkeypatch.delenv(name, raising=False)
+    for name, value in env.items():
+        monkeypatch.setenv(name, value)
+
+    assert _llm_client.build_client(**kwargs) is None
+    assert _llm_client.get_llm_client(**kwargs) is None
     assert subscription_process.calls == []
