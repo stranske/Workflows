@@ -6,44 +6,44 @@
   "proofs": [
     {
       "test": "tests/scripts/test_aggregate_agent_metrics.py::test_metric_helper_fallbacks_preserve_safe_defaults",
-      "mutation": "_normalize_version_text None default return \"broken\"",
+      "mutation": "_normalize_version_text None default return \"None\" instead of empty string",
       "before": "if value is None:\n        return \"\"",
-      "mutant": "if value is None:\n        return \"broken\"",
+      "mutant": "if value is None:\n        return \"None\"",
       "red_exit": 1,
       "green_exit": 0,
-      "red_assertion": "AssertionError: assert 'broken' == ''",
+      "red_assertion": "AssertionError: assert 'None' == ''",
       "command": "/opt/anaconda3/bin/python3 -m pytest tests/scripts/test_aggregate_agent_metrics.py::test_metric_helper_fallbacks_preserve_safe_defaults -q"
     },
     {
       "test": "tests/scripts/test_aggregate_agent_metrics.py::test_optional_metric_contract_inputs_fail_closed",
-      "mutation": "_verifier_run_key fallback entry:unknown",
+      "mutation": "_verifier_run_key fallback return entry:{index+1} instead of entry:{index}",
       "before": "return f\"entry:{index}\"",
-      "mutant": "return \"entry:unknown\"",
+      "mutant": "return f\"entry:{index+1}\"",
       "red_exit": 1,
       "green_exit": 0,
-      "red_assertion": "AssertionError: assert 'entry:unknown' == 'entry:4'",
+      "red_assertion": "AssertionError: assert 'entry:5' == 'entry:4'",
       "command": "/opt/anaconda3/bin/python3 -m pytest tests/scripts/test_aggregate_agent_metrics.py::test_optional_metric_contract_inputs_fail_closed -q"
     },
     {
       "test": "tests/scripts/test_aggregate_agent_metrics.py::test_legacy_parse_and_artifact_contract_error_paths",
-      "mutation": "_format_parse_error_details([]) returns [\"broken\"]",
-      "before": "if not parse_error_details:\n        return []",
-      "mutant": "if not parse_error_details:\n        return [\"broken\"]",
+      "mutation": "read_ndjson_file record_error function made no-op",
+      "before": "def record_error(line: int | None, reason: str, detail: str) -> None:\n        errors.append(_format_parse_error(path, line, reason, detail))",
+      "mutant": "def record_error(line: int | None, reason: str, detail: str) -> None:\n        pass",
       "red_exit": 1,
       "green_exit": 0,
-      "red_assertion": "AssertionError: assert ['broken'] == []",
+      "red_assertion": "AssertionError: assert []",
       "command": "/opt/anaconda3/bin/python3 -m pytest tests/scripts/test_aggregate_agent_metrics.py::test_legacy_parse_and_artifact_contract_error_paths -q"
     },
     {
       "test": "tests/scripts/test_aggregate_agent_metrics.py::test_autopilot_summary_ignores_incomplete_optional_values",
-      "mutation": "_summarise_autopilot omits publish step failure when success is \"0\"",
+      "mutation": "_summarise_autopilot removed '0' from success failure tuple",
       "before": "elif success in (False, \"false\", \"False\", \"0\", 0):\n            step_failures[step_name] = step_failures.get(step_name, 0) + 1",
-      "mutant": "elif success in (False, \"false\", \"False\", \"0\", 0) and step_name != \"publish\":\n            step_failures[step_name] = step_failures.get(step_name, 0) + 1",
+      "mutant": "elif success in (False, \"false\", \"False\", 0):\n            step_failures[step_name] = step_failures.get(step_name, 0) + 1",
       "red_exit": 1,
       "green_exit": 0,
       "red_assertion": "AssertionError: assert {} == {'publish': 1}",
       "command": "/opt/anaconda3/bin/python3 -m pytest tests/scripts/test_aggregate_agent_metrics.py::test_autopilot_summary_ignores_incomplete_optional_values -q"
     }
   ],
-  "notes": "PR #3962 documented the first three mutations in prose only; all four were re-executed locally on 2026-11-03 with production code restored after each RED run."
+  "notes": "PR #3962 documented the first three mutations in prose only. All four break-and-revert proofs were re-executed locally on 2026-11-03 with production code restored after each RED run. test_autopilot_summary_ignores_incomplete_optional_values used the repository-selected Python interpreter (/opt/anaconda3/bin/python3) and the mutation specified in the closer instructions (removed '0' from the success failure tuple). The other three tests used minimal production code mutations that were reverted after recording the RED assertion failures."
 }
