@@ -113,25 +113,57 @@ test('ambiguous source metadata cannot bypass source validation', () => {
   assert.match(context.uncheckedTaskFailure(pr, snapshot), /Ambiguous linked issue/);
 });
 
-test('refusal receipt updates only its writer and survives unavailable identity', async () => {
+const refusalMarker = '<!-- agents-guarded-merge-result:v1 -->';
+
+function refusalHarness({ login = 'owner', comments = [], failAt = '' } = {}) {
   const actions = [];
   const c = {
-    authenticatedLogin: 'owner', owner: 'o', repo: 'r',
-    core: { warning: (message) => actions.push(['warning', message]), info: () => {} },
+    authenticatedLogin: login, owner: 'o', repo: 'r',
+    core: {
+      warning: (message) => actions.push(['warning', message]),
+      info: (message) => actions.push(['info', message]),
+    },
     github: { rest: { issues: {
       listComments() {},
-      updateComment: async (args) => actions.push(['update', args]),
-      createComment: async (args) => actions.push(['create', args]),
-    }, users: { getAuthenticated: async () => { throw new Error('installation token'); } } } },
+      updateComment: async (args) => {
+        actions.push(['update', args]);
+        if (failAt === 'update') throw new Error('update unavailable');
+        const comment = comments.find((item) => item.id === args.comment_id);
+        comment.body = args.body;
+      },
+      createComment: async (args) => {
+        actions.push(['create', args]);
+        if (failAt === 'create') throw new Error('create unavailable');
+        comments.push({ id: 100, user: { login: 'owner' }, body: args.body });
+      },
+    }, users: { getAuthenticated: async () => {
+      actions.push(['identity']);
+      if (failAt === 'identity') throw new Error('identity unavailable');
+      return { data: { login: 'Owner' } };
+    } } } },
     withRetry: (fn) => fn(c.github),
-    paginateWithRetry: async () => [
-      { id: 5, user: { login: 'owner' }, body: '<!-- agents-guarded-merge-result:v1 -->' },
-      { id: 6, user: { login: 'foreign' }, body: '<!-- agents-guarded-merge-result:v1 -->' },
-    ],
+    paginateWithRetry: async (method, args) => {
+      assert.equal(method, c.github.rest.issues.listComments);
+      assert.deepEqual({ ...args }, { owner: 'o', repo: 'r', issue_number: 42, per_page: 100 });
+      actions.push(['list']);
+      if (failAt === 'list') throw new Error('list unavailable');
+      return comments;
+    },
   };
   vm.createContext(c);
   const report = source.slice(source.indexOf('            async function reportTaskRefusal'), source.indexOf('            async function loadPullRequest'));
   vm.runInContext(report, c);
+  return { c, actions, comments };
+}
+
+test('refusal receipt updates only its writer and survives unavailable identity', async () => {
+  const { c, actions } = refusalHarness({
+    comments: [
+      { id: 5, user: { login: 'owner' }, body: refusalMarker },
+      { id: 6, user: { login: 'foreign' }, body: refusalMarker },
+    ],
+    failAt: 'identity',
+  });
   await c.reportTaskRefusal(42, 'abc123', 'unchecked tasks');
   const update = actions.find(([kind]) => kind === 'update')[1];
   assert.equal(update.comment_id, 5);
@@ -146,4 +178,78 @@ test('refusal receipt updates only its writer and survives unavailable identity'
   const created = actions.find(([kind]) => kind === 'create')[1];
   assert.equal(created.issue_number, 42);
   assert.equal(created.body, update.body);
+  assert.equal(actions.some(([kind]) => kind === 'list'), false);
 });
+
+test('a first refusal creates a receipt which later refusals reuse with the new head and reason', async () => {
+  const { c, actions, comments } = refusalHarness();
+  const reason = context.uncheckedTaskFailure({ body: complete.body + '\n- [ ] Reviewer request' }, snapshot);
+  assert.match(reason, /unchecked tasks/);
+  await c.reportTaskRefusal(42, 'first-head', reason);
+  assert.equal(actions[0][0], 'warning');
+  assert.equal(actions[0][1], `PR #42: ${reason}`);
+  const created = actions.find(([kind]) => kind === 'create')[1];
+  assert.deepEqual({ ...created }, {
+    owner: 'o', repo: 'r', issue_number: 42,
+    body: `${refusalMarker}\nHead: first-head\nTask precheck refused: ${reason}`,
+  });
+
+  const nextReason = 'Unable to read linked issue #1061; refusing to merge blind.';
+  await c.reportTaskRefusal(42, 'second-head', nextReason);
+  assert.equal(actions.filter(([kind]) => kind === 'create').length, 1);
+  const updated = actions.find(([kind]) => kind === 'update')[1];
+  assert.deepEqual({ ...updated }, {
+    owner: 'o', repo: 'r', comment_id: 100,
+    body: `${refusalMarker}\nHead: second-head\nTask precheck refused: ${nextReason}`,
+  });
+  assert.equal(comments.length, 1);
+  assert.equal(comments[0].body, updated.body);
+});
+
+test('identity lookup finds the newest owned receipt among unrelated and foreign comments', async () => {
+  const comments = [
+    { id: 30, user: { login: 'owner' }, body: 'Ordinary review comment' },
+    { id: 20, user: { login: 'OWNER' }, body: refusalMarker },
+    { id: 40, user: { login: 'foreign' }, body: refusalMarker },
+    { id: 10, user: { login: 'owner' }, body: refusalMarker },
+    { id: 50, body: refusalMarker },
+  ];
+  const { c, actions } = refusalHarness({ login: '', comments });
+  await c.reportTaskRefusal(42, 'head', 'unchecked tasks');
+  const updated = actions.find(([kind]) => kind === 'update')[1];
+  assert.equal(updated.comment_id, 20);
+  assert.equal(actions.filter(([kind]) => kind === 'identity').length, 1);
+  assert.equal(actions.some(([kind]) => kind === 'create'), false);
+  for (const id of [10, 40, 50]) {
+    assert.equal(comments.find((comment) => comment.id === id).body, refusalMarker);
+  }
+  assert.equal(comments.find((comment) => comment.id === 30).body, 'Ordinary review comment');
+});
+
+test('a foreign receipt or an ordinary owned comment does not prevent creating a refusal receipt', async () => {
+  const comments = [
+    { id: 5, user: { login: 'owner' }, body: 'Ordinary review comment' },
+    { id: 6, user: { login: 'foreign' }, body: refusalMarker },
+  ];
+  const { c, actions } = refusalHarness({ comments });
+  await c.reportTaskRefusal(42, 'head', 'unchecked tasks');
+  assert.equal(actions.filter(([kind]) => kind === 'create').length, 1);
+  assert.equal(actions.some(([kind]) => kind === 'update'), false);
+  assert.equal(comments[0].body, 'Ordinary review comment');
+  assert.equal(comments[1].body, refusalMarker);
+});
+
+for (const failAt of ['list', 'create', 'update']) {
+  test(`${failAt} failure preserves the refusal warning and reports receipt publication failure`, async () => {
+    const comments = failAt === 'update'
+      ? [{ id: 5, user: { login: 'owner' }, body: refusalMarker }]
+      : [];
+    const { c, actions } = refusalHarness({ comments, failAt });
+    await assert.doesNotReject(c.reportTaskRefusal(42, 'head', 'unchecked tasks'));
+    assert.deepEqual(actions.filter(([kind]) => kind === 'warning'), [
+      ['warning', 'PR #42: unchecked tasks'],
+      ['warning', `Unable to publish task refusal for #42: ${failAt} unavailable`],
+    ]);
+    if (failAt !== 'create') assert.equal(actions.some(([kind]) => kind === 'create'), false);
+  });
+}
