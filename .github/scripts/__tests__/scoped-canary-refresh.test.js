@@ -567,21 +567,32 @@ for (const mixedSources of [false, true]) {
 }
 test('delivery_contract_blocked with refresh-candidate-from-exact-plan is an eligible refresh request', async t => {
   const f = reportFixture(t, { scope: 'full' });
+  const campaignPlan = `sha256:${'9'.repeat(64)}`;
+  f.pr.body = f.pr.body.replaceAll(id, campaignPlan);
+  f.commitView.message = f.commitView.message.replaceAll(id, campaignPlan);
   Object.assign(f.row, { branch: 'sync/workflows-candidate', status: 'delivery_contract_blocked',
     next_command: 'refresh-candidate-from-exact-plan',
-    refresh_plan: { plan_id: id, plan_scope: 'full', scope_base_sha: '', source_commit: 'e'.repeat(40) } });
+    refresh_plan: { plan_id: campaignPlan, plan_scope: 'full', scope_base_sha: '', source_commit: 'e'.repeat(40) } });
   for (const field of ['plan_id', 'plan_scope', 'scope_base_sha', 'source_commit']) delete f.row[field];
+  const desired = structuredClone(f.row.refresh_plan);
   const getCommit = f.github.rest.repos.getCommit;
   f.github.rest.repos.getCommit = args => args.repo !== 'a' && args.ref === 'e'.repeat(40)
     ? { data: { sha: 'e'.repeat(40) } } : getCommit(args);
   f.report.inputs.sync_hash = 'candidate';
   assert.equal(require('../sync_pr_merge_contract').candidateRefreshDecision({ report: f.report }).eligible, true);
-  await f.call();
+  const result = await f.call();
+  assert.equal(result.dispatched, true);
+  assert.equal(result.sha, desired.source_commit);
+  assert.deepEqual(result.refresh_plan, desired);
   assert.equal(f.writes.length, 1);
-  assert.equal(f.writes[0].inputs.scope_head_sha, 'e'.repeat(40));
-  assert.equal(f.report.canary_refresh.refresh_dispatched, 1);
-  assert.ok(f.report.canary_refresh.held_plans.includes(id));
-  assert.ok(f.report.canary_refresh.drainable >= 1);
+  assert.deepEqual(f.writes[0].inputs, { phase: 'canary', delivery_scope: 'full',
+    scope_head_sha: desired.source_commit, expected_plan_id: desired.plan_id,
+    repos: candidates.join(','), dry_run: 'false', force: 'false', cleanup_branches: 'false',
+    refresh_key: f.writes[0].inputs.refresh_key });
+  assert.match(f.writes[0].inputs.refresh_key, /^[a-f0-9]{64}$/);
+  assert.deepEqual(f.report.canary_refresh, { refresh_dispatched: 1, held_plans: [campaignPlan],
+    drainable: 1 });
+  assert.deepEqual(f.row.refresh_plan, desired, 'dispatch must preserve the requested identity');
 });
 for (const fault of ['unavailable campaign source', 'substituted campaign source']) {
   test(`exact-plan recovery refuses ${fault} without falling back to main`, async t => {
