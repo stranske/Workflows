@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import copy
 import json
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from unittest.mock import Mock
 
@@ -346,6 +346,55 @@ def test_cli_renewed_deferral_recovers_from_expiration(
             else []
         )
         assert report["blocking_ok"] is (exit_code == 0)
+
+
+@pytest.mark.parametrize("flags", [[], ["--strict"]])
+@pytest.mark.parametrize("seconds_from_deadline", [-1, 0, 1])
+def test_cli_registry_deferrals_block_at_recheck_deadline(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+    flags: list[str],
+    seconds_from_deadline: int,
+) -> None:
+    registry = _registry()
+    deferred = [
+        (index, entry["issue_deferred"])
+        for index, entry in enumerate(registry["participants"])
+        if entry.get("issue_deferred") and entry["issue"] is None
+    ]
+    deadlines = {entry["expires_at"] for _, entry in deferred}
+    assert len(deferred) == 5
+    assert len(deadlines) == 1
+    deadline = datetime.fromisoformat(deadlines.pop())
+    clock = Mock(wraps=datetime)
+    clock.now.return_value = deadline + timedelta(seconds=seconds_from_deadline)
+    monkeypatch.setattr(vbr, "datetime", clock)
+    registry_path = tmp_path / "registry.json"
+    registry_path.write_text(json.dumps(registry), encoding="utf-8")
+
+    # Renewal must keep every deferral valid until the deadline, then block all
+    # five (including the candidate) even though reference staleness only warns.
+    expired = seconds_from_deadline >= 0
+    assert vbr.main([*flags, "--json", str(registry_path)]) == int(expired)
+    report = json.loads(capsys.readouterr().out)
+    assert report["blocking_ok"] is (not expired)
+    assert report["blocking_count"] == (5 if expired else 0)
+    errors = [
+        finding for finding in report["findings"] if finding["severity"] == vbr.ERROR_SEVERITY
+    ]
+    assert errors == (
+        [
+            {
+                "path": f"participants[{index}].issue_deferred.expires_at",
+                "message": "deferred issue expired",
+                "severity": vbr.ERROR_SEVERITY,
+            }
+            for index, _ in deferred
+        ]
+        if expired
+        else []
+    )
 
 
 def test_stale_reference_run_is_rejected() -> None:
