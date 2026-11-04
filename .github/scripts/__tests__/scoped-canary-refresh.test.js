@@ -309,7 +309,7 @@ test('actual collector retains global old full writer exclusion for a scoped pla
   const api = historyHarness(t, { active: [run] });
   const state = await api.read(); assert.equal(state.eligible, false); assert.equal(state.state, 'writer-active');
 });
-function reportFixture(t, { scope = 'source-delta' } = {}) {
+function reportFixture(t, { scope = 'source-delta', expectedCanaries = candidates } = {}) {
   const record = { schema: 'sync-pr-delivery-record/v1', repository: 'owner/a', plan_id: id,
     durable_issue_url: 'https://owner.invalid/1', generation: 'g', desired_tree_hash: 'tree',
     source_commit: source, head_observed_sha: head, head_observed_at: '2026-10-27T22:00:00Z',
@@ -321,7 +321,8 @@ function reportFixture(t, { scope = 'source-delta' } = {}) {
     head: { sha: head, ref: 'sync/workflows-candidate', repo: { full_name: 'owner/a' } },
     base: { repo: { full_name: 'owner/a', default_branch: 'main' } }, mergeable_state: 'dirty',
     body: `<!-- workflows-consumer-sync:v1 ${JSON.stringify(metadata)} -->\n${formatDeliveryRecord(record)}` };
-  const api = historyHarness(t, { runs: [producer()], receipt: observedReceipt() });
+  const api = historyHarness(t, { runs: [producer()], receipt: observedReceipt(),
+    requestedCandidates: expectedCanaries });
   api.github.rest.pulls.get = async () => ({ data: pr });
   const commitView = nativeHead();
   if (scope === 'full') commitView.message = commitView.message.replace('Plan scope: source-delta', 'Plan scope: full').replace(`Scope base SHA: ${base}`, 'Scope base SHA: full');
@@ -334,7 +335,7 @@ function reportFixture(t, { scope = 'source-delta' } = {}) {
   const report = { inputs: { cleanup_branches: false }, results: [row] };
   const core = recorder().core;
   return { ...api, pr, row, report, commitView, call: () => require('../maint71_merge_sync_prs').dispatchCandidateRefreshFromReport({
-    withRetry: api.withRetry, context, core, report, expectedCanaries: candidates, trustedActors: ['stranske'] }) };
+    withRetry: api.withRetry, context, core, report, expectedCanaries, trustedActors: ['stranske'] }) };
 }
 test('actual report caller freshly binds the native scoped head and retains original scope through recovery', async t => {
   const f = reportFixture(t); await f.call();
@@ -504,7 +505,44 @@ test('full-scope candidate refresh dispatches with the campaign source and plan 
   assert.equal(f.writes.length, 1);
   assert.equal(f.writes[0].inputs.scope_head_sha, source);
   assert.equal(f.writes[0].inputs.expected_plan_id, id);
+  assert.match(f.writes[0].inputs.refresh_key, /^[a-f0-9]{64}$/);
 });
+for (const mixedSources of [false, true]) {
+  test(`full-scope native candidates ${mixedSources ? 'refuse mixed sources with a named error' : 'share one campaign-bound refresh'}`, async t => {
+    const fleet = ['owner/a', 'owner/b', 'owner/c'];
+    const f = reportFixture(t, { scope: 'full', expectedCanaries: fleet });
+    const nativePrs = { a: f.pr }, nativeCommits = { a: f.commitView };
+    for (const repo of ['b', 'c']) {
+      const candidateSource = mixedSources && repo === 'c' ? 'e'.repeat(40) : source;
+      const pr = structuredClone(f.pr), commit = structuredClone(f.commitView);
+      pr.head.repo.full_name = pr.base.repo.full_name = `owner/${repo}`;
+      pr.body = pr.body.replaceAll('owner/a', `owner/${repo}`).replaceAll(source, candidateSource);
+      commit.message = commit.message.replaceAll(source, candidateSource);
+      nativePrs[repo] = pr; nativeCommits[repo] = commit;
+      f.report.results.push({ ...f.row, repo, source_commit: candidateSource });
+    }
+    f.github.rest.pulls.get = async args => ({ data: nativePrs[args.repo] });
+    const getCommit = f.github.rest.repos.getCommit;
+    f.github.rest.repos.getCommit = async args => nativeCommits[args.repo]
+      ? { data: { sha: nativeCommits[args.repo].sha, commit: nativeCommits[args.repo] } }
+      : getCommit(args);
+    if (mixedSources) {
+      await assert.rejects(f.call(), { message: 'canary_refresh_mixed_report_plans' });
+      assert.equal(f.writes.length, 0);
+      assert.equal(f.report.canary_refresh, undefined);
+    } else {
+      await f.call();
+      assert.equal(f.writes.length, 1);
+      assert.equal(f.writes[0].inputs.repos, fleet.join(','));
+      assert.equal(f.writes[0].inputs.scope_head_sha, source);
+      assert.equal(f.writes[0].inputs.expected_plan_id, id);
+      assert.match(f.writes[0].inputs.refresh_key, /^[a-f0-9]{64}$/);
+      assert.equal(f.report.canary_refresh.refresh_dispatched, 1);
+      assert.equal(f.report.canary_refresh.drainable, 3);
+      assert.deepEqual(f.report.canary_refresh.held_plans, [id]);
+    }
+  });
+}
 test('delivery_contract_blocked with refresh-candidate-from-exact-plan is an eligible refresh request', async t => {
   const f = reportFixture(t, { scope: 'full' });
   Object.assign(f.row, { branch: 'sync/workflows-candidate', status: 'delivery_contract_blocked',
