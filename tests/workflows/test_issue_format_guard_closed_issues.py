@@ -298,8 +298,7 @@ def _run_route_step(
             if fail_pause
             else ""
         )
-        +
-        'if [[ "$1 $2" == "issue comment" ]]; then\n'
+        + 'if [[ "$1 $2" == "issue comment" ]]; then\n'
         f"  cat >> '{calls}'\n"
         "fi\n",
         encoding="utf-8",
