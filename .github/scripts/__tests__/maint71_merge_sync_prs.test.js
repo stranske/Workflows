@@ -2165,7 +2165,7 @@ async function reportSelection(t, { syncHash, withRecord,
     });
     assert.deepEqual(failures, []);
     assert.deepEqual(warnings, []);
-    return { report: JSON.parse(fs.readFileSync(reportPath, 'utf8')), logs: logs.join('\n') };
+    return { report: JSON.parse(fs.readFileSync(reportPath, 'utf8')), logs: logs.join('\n'), candidate };
   } finally {
     process.chdir(originalCwd);
     for (const [key, value] of Object.entries(originalEnv)) {
@@ -2213,6 +2213,7 @@ test('Maint 71 admits all three campaign-bound canaries to review after exact-pl
   const campaignSource = 'e'.repeat(40);
   const { canaries } = require('../../../config/consumer_sync_canaries.json');
   assert.equal(canaries.length, 3);
+  const blockedResults = [], nativeCandidates = new Map();
   for (const { repo: repository } of canaries) {
     const options = { syncHash: 'candidate', withRecord: true, repository,
       expectedSourceCommit: campaignSource };
@@ -2223,15 +2224,68 @@ test('Maint 71 admits all three campaign-bound canaries to review after exact-pl
     assert.equal(row.next_command, 'refresh-candidate-from-exact-plan');
     assert.deepEqual(row.refresh_plan, { plan_id: `sha256:${'a'.repeat(64)}`,
       plan_scope: 'full', scope_base_sha: '', source_commit: campaignSource });
+    blockedResults.push(row);
+    const candidate = blocked.candidate;
+    candidate.draft = false;
+    candidate.head.repo = { full_name: repository };
+    candidate.base.repo = { full_name: repository, default_branch: 'main' };
+    nativeCandidates.set(repository, candidate);
+  }
 
-    // Model Maint 68 delivering the requested source into both metadata and
-    // the delivery record, then let the real Maint 71 lifecycle decide again.
-    const recovered = await reportSelection(t, { ...options, sourceCommit: campaignSource });
+  const expectedCanaries = canaries.map(({ repo }) => repo);
+  const dispatches = [];
+  const github = { rest: {
+    pulls: {
+      get: async ({ owner, repo }) => ({ data: nativeCandidates.get(`${owner}/${repo}`) }),
+      list: async ({ owner, repo }) => ({ data: [nativeCandidates.get(`${owner}/${repo}`)] }),
+    },
+    repos: {
+      getContent: async () => ({ data: {
+        content: Buffer.from(JSON.stringify({ canaries })).toString('base64'),
+      } }),
+      getCommit: async ({ owner, repo, ref }) => {
+        if (repo === 'Workflows') {
+          return { data: { sha: ref === 'main' ? 'f'.repeat(40) : ref } };
+        }
+        const candidate = nativeCandidates.get(`${owner}/${repo}`);
+        return { data: { sha: ref === 'main' ? 'c'.repeat(40) : candidate.head.sha,
+          commit: { verification: { verified: true, reason: 'valid' },
+            message: `Consumer-sync plan ID: ${blockedResults[0].refresh_plan.plan_id}\n`
+              + 'Plan scope: full\nScope base SHA: full\nSource commit: ' + 'c'.repeat(40) } } };
+      },
+    },
+    actions: {
+      listWorkflowRuns: async () => ({ data: { workflow_runs: [] } }),
+      createWorkflowDispatch: async args => { dispatches.push(args); return { status: 204 }; },
+    },
+  } };
+  const report = { inputs: { sync_hash: 'candidate', cleanup_branches: false }, results: blockedResults };
+  assert.equal(require('../sync_pr_merge_contract').candidateRefreshDecision({ report }).eligible, true);
+  const { dispatchCandidateRefreshFromReport } = require('../maint71_merge_sync_prs');
+  await dispatchCandidateRefreshFromReport({ report, withRetry: fn => fn(github), expectedCanaries,
+    trustedActors: ['stranske'], context: { repo: { owner: 'stranske', repo: 'Workflows' },
+      payload: { repository: { default_branch: 'main' } } },
+    core: { notice() {}, summary: { addRaw() { return this; }, async write() {} } } });
+  assert.equal(dispatches.length, 1);
+  const { inputs } = dispatches[0];
+  assert.equal(inputs.scope_head_sha, campaignSource);
+  assert.equal(inputs.expected_plan_id, blockedResults[0].refresh_plan.plan_id);
+  assert.equal(inputs.delivery_scope, 'full');
+  assert.deepEqual(inputs.repos.split(',').sort(), [...expectedCanaries].sort());
+  assert.match(inputs.refresh_key, /^[a-f0-9]{64}$/);
+  assert.deepEqual(report.canary_refresh, { refresh_dispatched: 1, drainable: 3,
+    held_plans: [inputs.expected_plan_id] });
+
+  // Model Maint 68 delivering the emitted source, then let Maint 71 decide again.
+  for (const repository of inputs.repos.split(',')) {
+    const row = blockedResults.find(result => `${result.owner}/${result.repo}` === repository);
+    const recovered = await reportSelection(t, { syncHash: 'candidate', withRecord: true, repository,
+      expectedSourceCommit: campaignSource, sourceCommit: inputs.scope_head_sha });
     const reviewed = recovered.report.results.find(result => `${result.owner}/${result.repo}` === repository);
     assert.equal(reviewed.status, 'review_window_pending', repository);
     assert.equal(`${reviewed.owner}/${reviewed.repo}`, repository);
     assert.equal(reviewed.source_commit, row.refresh_plan.source_commit);
-    assert.equal(reviewed.plan_id, row.refresh_plan.plan_id);
+    assert.equal(reviewed.plan_id, inputs.expected_plan_id);
     assert.equal(reviewed.plan_scope, 'full');
     assert.equal(reviewed.head_sha, row.head_sha);
     assert.doesNotMatch(JSON.stringify(recovered.report), /candidate_immutable_identity_mismatch/);

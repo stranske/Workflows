@@ -4,8 +4,8 @@ PR: https://github.com/stranske/Workflows/pull/4439
 
 Reviewed on 2026-11-04: implementation commit `5b2b85a6` and regression-test
 commits `62d2475f`, `73c4cd3a`, `96cc711d`, `a265493d`, `f37a92b3`,
-`b7109218`, and `fa16a363`. PR metadata at the start of this round
-reports six changed files; the prompt's 33-file reconciliation warning does
+`b7109218`, `fa16a363`, and `70569282`. PR metadata at the start of this round
+reports seven changed files; the prompt's 34-file reconciliation warning does
 not match that inventory.
 
 ## Verified acceptance
@@ -18,7 +18,7 @@ not match that inventory.
   `node --test .github/scripts/__tests__/scoped-canary-refresh.test.js` and
   `node --test .github/scripts/__tests__/maint71_merge_sync_prs.test.js`.
   Additional runs with `--test-isolation=none` verify the individual cases:
-  scoped refresh 77 passed; Maint 71 173 passed; merge contract 103 passed.
+  scoped refresh 79 passed; Maint 71 174 passed; merge contract 103 passed.
 - [x] Deliberate break and restoration: temporarily reinstated the bare
   full-scope `dispatchCanaryRefresh` call before the campaign-bound path.
   The first required named test failed with current-main `ffff…` instead of
@@ -117,28 +117,32 @@ workflow file was edited.
 
 ## Latest review-path validation
 
-Added a regression in `maint71_merge_sync_prs.test.js` that exercises the real
-Maint 71 entry point for each of the three configured canary repositories.
-The old source produces `candidate_immutable_identity_mismatch` with the exact
-campaign refresh tuple. Updating both candidate metadata and its delivery
-record to that requested source reaches `review_window_pending`, retaining
-the campaign plan, source, scope, and observed head. The adapters expose reads
-only; this is local lifecycle evidence, not a live production observation.
+Strengthened the regression in `maint71_merge_sync_prs.test.js` to connect the
+real Maint 71 entry point, eligibility decision, and candidate refresh adapter.
+Each of the three configured canaries first produces a real
+`candidate_immutable_identity_mismatch` report. Combining those reports sends
+one inert Maint 68 dispatch with the campaign source, expected plan, full scope,
+all three repositories, and a recovery key; accounting records
+`refresh_dispatched=1`, `drainable=3`, and the held campaign plan. Modeling delivery
+from the emitted source then admits all three canaries to
+`review_window_pending`, preserving the plan, source, scope, and observed head.
+This is local lifecycle evidence; no production dispatch was issued.
 
 Both required gate commands pass. Individual-case runs with
 `--test-isolation=none` report 79 scoped-refresh and 174 Maint 71 tests passing.
-The bare-dispatch mutation again failed the required named regression: it used
-newer main `ffff…` instead of campaign `aaaa…` and omitted the expected plan ID.
-The source was restored without a remaining diff, and both gates passed again.
-Transcripts: `/tmp/4439-review-recovery.tap`,
-`/tmp/4439-bare-dispatch-break.tap`, `/tmp/4439-scoped-gate.tap`,
-`/tmp/4439-scoped-cases.tap`, `/tmp/4439-maint71-gate.tap`, and
-`/tmp/4439-maint71-cases.tap`.
+The bare-dispatch mutation failed both the required named regression and the
+strengthened handoff regression: it used newer main `ffff…` instead of campaign
+`aaaa…` / `eeee…` and omitted the expected plan ID. The source was restored
+byte-for-byte, and both gates passed again. Merge-contract tests also pass (103).
+Transcripts: `/tmp/4439-bare-dispatch-named.log`,
+`/tmp/4439-bare-dispatch-handoff.log`, `/tmp/4439-scoped-gate.log`,
+`/tmp/4439-scoped-final.log`, `/tmp/4439-maint71-gate.log`,
+`/tmp/4439-maint71-final.log`, and `/tmp/4439-contract-final.log`.
 
 PR #4439 remains open, unmerged, and ready for review. Both live criteria stay
-unchecked. The connector again rejected the PR-body reconciliation,
-`needs-human` label, and protected-workflow blocker comment because approval is
-required while the run's approval policy is `never`. The three verified local
+unchecked. The connector again rejected the PR-body reconciliation because
+approval is required while the run's approval policy is `never`. The earlier
+label and blocker-comment rejection remains unresolved. The three verified local
 acceptance checkboxes above remain the reconciliation record for automation.
 
 The commit attempt for this round's test and evidence files also failed at
