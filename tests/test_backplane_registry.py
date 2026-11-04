@@ -616,6 +616,42 @@ def test_write_status_writes_rendered_markdown(tmp_path: Path) -> None:
     assert out_path.read_text(encoding="utf-8") == vbr.render_status_markdown(registry)
 
 
+@pytest.mark.parametrize(
+    "repo",
+    [
+        "stranske/Trend_Model_Project",
+        "stranske/Counter_Risk",
+        "stranske/Portable-Alpha-Extension-Model",
+        "stranske/Manager-Database",
+        "stranske/learning-management-system",
+    ],
+)
+def test_status_report_requires_regeneration_after_deferral_renewal(
+    repo: str, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    registry = _registry()
+    entry = next(entry for entry in registry["participants"] if entry["repo"] == repo)
+    renewed_expiry = entry["issue_deferred"]["expires_at"]
+    renewed_date = renewed_expiry.split("T", 1)[0]
+    entry["issue_deferred"]["expires_at"] = "2026-10-22T00:00:00Z"
+    report_path = tmp_path / "status.md"
+    report_path.write_text(vbr.render_status_markdown(registry), encoding="utf-8")
+
+    entry["issue_deferred"]["expires_at"] = renewed_expiry
+    registry_path = tmp_path / "registry.json"
+    registry_path.write_text(json.dumps(registry), encoding="utf-8")
+
+    assert vbr.main(["--check-status", str(report_path), str(registry_path)]) == 1
+    diff = capsys.readouterr().out
+    row_prefix = f"| {repo} | {entry['status']} | {entry['reference_state']} | deferred until "
+    assert f"-{row_prefix}2026-10-22 |" in diff
+    assert f"+{row_prefix}{renewed_date} |" in diff
+
+    assert vbr.main(["--write-status", str(report_path), str(registry_path)]) == 0
+    assert f"{row_prefix}{renewed_date} |" in report_path.read_text(encoding="utf-8")
+    assert vbr.main(["--check-status", str(report_path), str(registry_path)]) == 0
+
+
 def test_status_report_flags_drift(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     registry = copy.deepcopy(_registry())
     registry_path = tmp_path / "registry.json"
