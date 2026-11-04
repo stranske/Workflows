@@ -3,8 +3,9 @@
 PR: https://github.com/stranske/Workflows/pull/4439
 
 Reviewed on 2026-11-04: implementation commit `5b2b85a6` and regression-test
-commits `62d2475f` and `73c4cd3a`. Those commits changed five distinct files;
-the prompt's 33-file reconciliation warning does not match the PR metadata.
+commits `62d2475f`, `73c4cd3a`, `96cc711d`, and `a265493d`. Current PR metadata
+reports six changed files; the prompt's 34-file reconciliation warning does
+not match that inventory.
 
 ## Verified acceptance
 
@@ -16,7 +17,7 @@ the prompt's 33-file reconciliation warning does not match the PR metadata.
   `node --test .github/scripts/__tests__/scoped-canary-refresh.test.js` and
   `node --test .github/scripts/__tests__/maint71_merge_sync_prs.test.js`.
   Additional runs with `--test-isolation=none` verify the individual cases:
-  scoped refresh 75 passed; Maint 71 173 passed; merge contract 103 passed.
+  scoped refresh 77 passed; Maint 71 173 passed; merge contract 103 passed.
 - [x] Deliberate break and restoration: temporarily reinstated the bare
   full-scope `dispatchCanaryRefresh` call before the campaign-bound path.
   The first required named test failed with current-main `ffff…` instead of
@@ -39,6 +40,19 @@ unsigned native candidate. Each verifies the named refusal, zero dispatches,
 and unchanged pre-existing refresh accounting. The deliberate bare-dispatch
 mutation was repeated and failed the required named test; the implementation
 was restored byte-for-byte before the passing gate runs.
+
+Two additional regressions verify that successful unkeyed full-scope history
+for either the campaign source or newer main cannot suppress exact-plan
+recovery, even when the rendered payload matches. A subsequent successful
+receipt carrying the dispatched recovery key prevents another dispatch and
+leaves `refresh_dispatched`, `held_plans`, and `drainable` unchanged.
+
+The current round repeated the deliberate break and byte-for-byte restoration.
+Both required gate commands passed; individual-case runs confirmed the counts
+above. Local transcripts are `/tmp/issue-4435-deliberate-break.tap`,
+`/tmp/issue-4435-scoped-cases.tap`, `/tmp/issue-4435-scoped-gate.tap`,
+`/tmp/issue-4435-maint71-gate.tap`, `/tmp/issue-4435-maint71-cases.tap`, and
+`/tmp/issue-4435-contract-cases.tap`.
 
 ## Protected workflow follow-up
 
@@ -64,8 +78,13 @@ Those remote updates were not applied. The checked items above are verified
 local evidence to reconcile into the PR body; live acceptance remains open.
 Capacity mode: `local-only` for mutations; connector reads remain available.
 
-The current round also could not stage or commit its test changes: Git refused
-to create `.git/index.lock` because `.git` is read-only. The five new refusal
-tests and this evidence update remain in the working tree for the authorized
-automation commit step. A concurrent pair of Maint 71 test invocations collided
-on generated evidence; the standalone rerun passed all 173 tests.
+The prior round's five refusal tests and evidence update were committed by
+automation in `a265493d`. This round again attempted the PR-body reconciliation,
+`needs-human` label, and workflow-blocker comment; all three mutations were
+rejected by the same approval restriction. PR #4439 remains open, unmerged,
+and ready for review (`draft=false`). Post-merge observation remains blocked
+on merge and the protected workflow artifact follow-up above.
+
+Staging the two changed files failed with `Unable to create
+'.git/index.lock': Read-only file system`. The two new regression cases and
+this reconciliation update remain uncommitted for the automation commit step.

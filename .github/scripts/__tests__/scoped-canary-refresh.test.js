@@ -581,6 +581,43 @@ test('delivery_contract_blocked with refresh-candidate-from-exact-plan is an eli
   assert.ok(f.report.canary_refresh.held_plans.includes(id));
   assert.ok(f.report.canary_refresh.drainable >= 1);
 });
+for (const historicalSource of ['campaign', 'newer main']) {
+  test(`exact-plan recovery survives an unkeyed ${historicalSource} success and deduplicates its keyed receipt`, async t => {
+    const f = reportFixture(t, { scope: 'full' });
+    const campaignSource = 'e'.repeat(40), mainSource = 'f'.repeat(40);
+    Object.assign(f.row, { branch: 'sync/workflows-candidate', status: 'delivery_contract_blocked',
+      next_command: 'refresh-candidate-from-exact-plan',
+      refresh_plan: { plan_id: id, plan_scope: 'full', scope_base_sha: '', source_commit: campaignSource } });
+    f.report.inputs.sync_hash = 'candidate';
+    const getCommit = f.github.rest.repos.getCommit;
+    f.github.rest.repos.getCommit = args => args.repo === 'Workflows'
+      ? { data: { sha: args.ref === 'main' ? mainSource : args.ref } } : getCommit(args);
+    const priorSource = historicalSource === 'campaign' ? campaignSource : mainSource;
+    const history = [producer('full', { id: 20,
+      display_title: `Maint 68 canary full source=${priorSource} candidates=owner/a dry=false` })];
+    f.github.rest.actions.listWorkflowRuns = async args => ({ data: {
+      workflow_runs: args.status ? [] : history,
+    } });
+
+    const refreshed = await f.call();
+    assert.equal(refreshed.dispatched, true, 'same rendered payload cannot satisfy a fresh recovery key');
+    assert.equal(f.writes.length, 1);
+    assert.equal(f.writes[0].inputs.scope_head_sha, campaignSource);
+    assert.equal(f.writes[0].inputs.expected_plan_id, id);
+    const refreshKey = f.writes[0].inputs.refresh_key;
+    assert.match(refreshKey, /^[a-f0-9]{64}$/);
+    const accounted = structuredClone(f.report.canary_refresh);
+    assert.deepEqual(accounted, { refresh_dispatched: 1, drainable: 1, held_plans: [id] });
+
+    history.unshift(producer('full', { id: 21,
+      display_title: `Maint 68 canary full source=${campaignSource} candidates=owner/a dry=false drift=${refreshKey}` }));
+    const repeated = await f.call();
+    assert.equal(repeated.dispatched, false);
+    assert.equal(repeated.producer_succeeded, true);
+    assert.equal(f.writes.length, 1, 'a successful receipt for this recovery key prevents another dispatch');
+    assert.deepEqual(f.report.canary_refresh, accounted, 'deduplication must not inflate drainable accounting');
+  });
+}
 for (const [fault, change, error] of [
   ['closed candidate', f => { f.pr.state = 'closed'; }, 'canary_refresh_report_native_subject_changed'],
   ['draft candidate', f => { f.pr.draft = true; }, 'canary_refresh_report_native_subject_changed'],
