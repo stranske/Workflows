@@ -197,7 +197,7 @@
     "issue_numbers": [
       969
     ],
-    "issue_updated_on": "2026-11-03",
+    "issue_updated_on": "2026-11-04",
     "longest_job": {
       "minutes": 13.216666666666667,
       "name": "python ci shard 6/6 / python 3.14",
@@ -392,7 +392,7 @@
     "issue_numbers": [
       4284
     ],
-    "issue_updated_on": "2026-11-03",
+    "issue_updated_on": "2026-11-04",
     "longest_job": {
       "minutes": 38.4,
       "name": "python ci / python 3.13",
