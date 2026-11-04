@@ -737,6 +737,10 @@ scripts:
     description: "Shared LangSmith trace metadata helpers for LangChain workflows"
     delivery: copy
 
+  - source: scripts/langchain/response_content.py
+    description: "Shared provider response text-block extraction"
+    delivery: copy
+
   - source: scripts/langchain/_llm_client.py
     description: "Shared LangChain chat-client construction (get_llm_client/get_llm_clients)"
     # delivery: copy -- imported transitively by copy-delivered LangChain scripts

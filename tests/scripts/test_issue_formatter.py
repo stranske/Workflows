@@ -1673,3 +1673,46 @@ def test_strip_original_issue_handles_nested_details_outside_fences() -> None:
     assert "Original Issue" not in stripped
     assert "nested body" not in stripped
     assert "still original" not in stripped
+
+
+@pytest.mark.parametrize("blocks", ["dict", "object", "strings"])
+def test_format_issue_body_accepts_list_content_blocks(monkeypatch, blocks):
+    valid = "## Tasks\n- [ ] Update `scripts/langchain/issue_formatter.py`.\n\n## Acceptance Criteria\n- [ ] `pytest tests/scripts/test_issue_formatter.py` passes."
+    if blocks == "dict":
+        content = [{"type": "text", "text": valid}]
+    elif blocks == "object":
+        content = [types.SimpleNamespace(type="output_text", text=valid)]
+    else:
+        content = [valid]
+    _install_fake_langchain(monkeypatch, mock.MagicMock())
+    monkeypatch.setattr(issue_formatter, "_get_llm_client", lambda: (object(), "fake"))
+    monkeypatch.setattr(
+        issue_formatter,
+        "invoke_with_trace",
+        lambda *a, **kw: (types.SimpleNamespace(content=content), issue_formatter.TraceInfo()),
+    )
+    monkeypatch.setattr(
+        issue_formatter, "_validate_and_refine_tasks", lambda body, **kw: (body, None)
+    )
+    result = issue_formatter.format_issue_body("Raw issue text", use_llm=True)
+    assert result["used_llm"] is True
+    assert valid in result["formatted_body"]
+
+
+def test_format_issue_body_ignores_non_text_blocks(monkeypatch):
+    _install_fake_langchain(monkeypatch, mock.MagicMock())
+    monkeypatch.setattr(issue_formatter, "_get_llm_client", lambda: (object(), "fake"))
+    monkeypatch.setattr(
+        issue_formatter,
+        "invoke_with_trace",
+        lambda *a, **kw: (
+            types.SimpleNamespace(content=[{"type": "tool_use", "text": "ignore"}]),
+            issue_formatter.TraceInfo(),
+        ),
+    )
+    monkeypatch.setattr(
+        issue_formatter, "_validate_and_refine_tasks", lambda body, **kw: (body, None)
+    )
+    result = issue_formatter.format_issue_body("Raw issue text", use_llm=True)
+    assert result["used_llm"] is False
+    assert result["formatted_body"]
