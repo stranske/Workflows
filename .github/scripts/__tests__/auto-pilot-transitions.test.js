@@ -357,6 +357,92 @@ for (const [surface, root] of [
   ['source', path.resolve(__dirname, '../../..')],
   ['consumer template', path.resolve(__dirname, '../../../templates/consumer-repo')],
 ]) {
+  test(`${surface} done report: handoff status controls completion and label cleanup`, (t) => {
+    const workflow = fs.readFileSync(
+      path.join(root, '.github/workflows/agents-auto-pilot.yml'),
+      'utf8',
+    );
+    const reportStep = workflow.split('      - name: Report - Done\n')[1]
+      ?.split('      - name: Expose format pause wakeup flag\n')[0];
+    const script = reportStep?.split('          script: |\n')[1];
+    assert.ok(script, 'workflow must define the completion reporter');
+
+    const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'auto-pilot-report-'));
+    t.after(() => fs.rmSync(temp, { recursive: true, force: true }));
+    const stubDir = path.join(temp, '.github/scripts');
+    fs.mkdirSync(stubDir, { recursive: true });
+    fs.writeFileSync(path.join(stubDir, 'github-api-with-retry.js'), `
+      exports.createTokenAwareRetry = async ({ github }) => ({
+        withRetry: async (operation) => operation(github),
+      });
+    `);
+    const scriptPath = path.join(temp, 'report.cjs');
+    const outputPath = path.join(temp, 'result.json');
+    fs.writeFileSync(scriptPath, `
+      const calls = [];
+      const failures = [];
+      const context = { repo: { owner: 'stranske', repo: 'Workflows' } };
+      const core = {
+        info() {},
+        warning() {},
+        setFailed(message) { failures.push(message); },
+      };
+      const github = { rest: { issues: {
+        async createComment(params) { calls.push({ action: 'comment', ...params }); },
+        async removeLabel(params) { calls.push({ action: 'remove', ...params }); },
+      } } };
+      async function report() {
+        ${script.replace(/^ {12}/gm, '')}
+      }
+      report().then(() => require('node:fs').writeFileSync(
+        process.env.RESULT_PATH, JSON.stringify({ calls, failures }),
+      ))
+        .catch((error) => { console.error(error); process.exitCode = 1; });
+    `);
+
+    const run = (bound, handoff) => {
+      const child = spawnSync(process.execPath, [scriptPath], {
+        cwd: temp,
+        env: {
+          ISSUE_NUMBER: '42',
+          VERIFY_HANDOFF_BOUND: bound,
+          VERIFY_HANDOFF: handoff,
+          RESULT_PATH: outputPath,
+        },
+        stdio: 'inherit',
+        timeout: 10_000,
+      });
+      assert.ifError(child.error);
+      assert.equal(child.status, 0, 'workflow reporter must execute successfully');
+      return JSON.parse(fs.readFileSync(outputPath, 'utf8'));
+    };
+
+    for (const handoff of ['', 'absent', 'incomplete']) {
+      const result = run('false', handoff);
+      assert.equal(result.failures.length, 1, handoff);
+      assert.match(result.failures[0], /verification handoff missing/);
+      assert.equal(result.calls.length, 1, 'missing handoff must retain auto-pilot');
+      assert.equal(result.calls[0].action, 'comment');
+      assert.equal(result.calls[0].issue_number, 42);
+      assert.match(result.calls[0].body, /agents:auto-pilot.*remains for retry/);
+      assert.doesNotMatch(result.calls[0].body, /Auto-Pilot Complete/);
+    }
+
+    // A successful handoff in this run permits reporting when invoked. This
+    // does not establish identity validation or automatic workflow continuation.
+    const result = run('false', 'found');
+    assert.deepEqual(result.failures, []);
+    assert.deepEqual(result.calls.map(({ action }) => action), ['remove', 'comment']);
+    assert.equal(result.calls[0].name, 'agents:auto-pilot');
+    for (const call of result.calls) {
+      assert.equal(call.issue_number, 42);
+      assert.equal(call.owner, 'stranske');
+      assert.equal(call.repo, 'Workflows');
+    }
+    assert.match(result.calls[1].body, /Auto-Pilot Complete/);
+    assert.match(result.calls[1].body, /verification triggered on a merged source PR/);
+  });
+
   test(`${surface} workflow caller: retained handoff labels cannot complete a new closure`, (t) => {
     const workflow = fs.readFileSync(
       path.join(root, '.github/workflows/agents-auto-pilot.yml'),

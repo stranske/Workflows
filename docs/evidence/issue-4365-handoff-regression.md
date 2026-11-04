@@ -137,3 +137,51 @@ again rejected by the connector's approval policy (`never`). PR #4447 was read
 back as open with `draft=false`. Staging the test change again failed because
 `.git/index.lock` cannot be created on the read-only Git metadata filesystem;
 the meaningful test change remains uncommitted for the outer runner to collect.
+
+## Follow-up: execute completion reporting
+
+Reviewed commits `e4c3bf7c`, `8e055ec0`, `7d26be7c`, `1cb349b9`, and
+`935d48cb`. Added tests that execute the actual `Report - Done` script from
+both source and consumer workflows against a local GitHub API stub:
+
+- Missing, absent, and incomplete handoffs retain `agents:auto-pilot`, report
+  the retry reason, and refuse completion.
+- A successful handoff in the current run removes `agents:auto-pilot` from the
+  correct issue and posts the completion report.
+
+These tests verify the reporter when invoked. They do not establish that a
+successful handoff automatically reaches it or that its label-only input is
+bound to the current closure. Those protected workflow tasks remain incomplete.
+
+Verification:
+
+```sh
+node --test --test-isolation=none .github/scripts/__tests__/auto-pilot-transitions.test.js tests/workflows/auto_pilot_verify_handoff.test.js
+```
+
+Result: **49 passed, 0 failed**. The targeted Python command above also reports
+**8 passed** with the startup-failing LangSmith plugin disabled.
+
+Three temporary mutations of the extracted reporter were tested locally:
+removing the missing-handoff guard, cleaning up a different label, and replacing
+the completion heading. Each failed both new tests (exit 1). The temporary test
+edits were restored in `finally`; the full focused suite passes afterward.
+No workflow file was modified, even during mutation verification.
+
+The full Node gate again reported failures in `agents-verifier-context.test.js`
+and `generated-delivery-seal-action.test.js`, then stopped producing progress
+and was interrupted. The full Python gate with `-m "not slow"` exited 3 during
+LangSmith plugin startup on the same Python 3.14 deprecation warning. Neither
+full source gate is complete.
+
+PR checklist reconciliation was attempted before the new tests. The intended
+reconciliation retains verified helper-identity and reopening tests while
+unchecking unsupported continuation, event-gate, and end-to-end completion
+claims. GitHub rejected the body update, `needs-human` label, and blocker
+comment because the connector approval policy is `never`. No remote status
+change is claimed. The workflow identity plumbing, event admission, successful
+handoff continuation, and post-merge Maint 68/71 checks still require a maintainer.
+
+Staging this round's test and evidence changes failed with `.git/index.lock:
+Read-only file system`; no commit was created. PR #4447 was read back as open
+with `draft=false`. `git diff --check` passes.
