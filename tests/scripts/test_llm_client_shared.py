@@ -219,6 +219,56 @@ def test_subscription_pipe_renders_prompt_values(subscription_process, chat):
     assert subscription_process.calls[-1] == "plain text"
 
 
+@pytest.mark.parametrize("operation", ["batch", "stream"])
+def test_subscription_pipe_renders_batched_and_streaming_prompts(subscription_process, operation):
+    pytest.importorskip("langchain_core.prompts")
+    from langchain_core.prompts import ChatPromptTemplate
+
+    template = ChatPromptTemplate.from_template("Review {task}")
+    chain = template | _llm_client.build_auxiliary_client().client
+    inputs = [{"task": "the parser"}, {"task": "the formatter"}]
+    config = {"max_concurrency": 1, "tags": ["subscription-regression"]}
+
+    if operation == "stream":
+        inputs = inputs[:1]
+        responses = list(chain.stream(inputs[0], config=config))
+    else:
+        responses = chain.batch(inputs, config=config)
+
+    assert [response.content for response in responses] == ["answer"] * len(inputs)
+    assert subscription_process.calls == [template.invoke(values).to_string() for values in inputs]
+
+
+@pytest.mark.parametrize("failure", ["exit", "timeout"])
+def test_subscription_pipe_execution_failure_does_not_retry_api(
+    monkeypatch, subscription_process, failure
+):
+    pytest.importorskip("langchain_core.prompts")
+    from langchain_core.prompts import ChatPromptTemplate
+    from tools import subscription_llm
+
+    fake = _install_fake_langchain_client(monkeypatch, info=_fake_info())
+    chain = ChatPromptTemplate.from_template("Review {task}") | (
+        _llm_client.build_auxiliary_client().client
+    )
+    calls = []
+
+    def run(command, **kwargs):
+        calls.append(kwargs["input"])
+        assert isinstance(kwargs["input"], str)
+        if failure == "timeout":
+            raise subscription_llm.subprocess.TimeoutExpired(command, kwargs["timeout"])
+        return SimpleNamespace(returncode=1, stdout="")
+
+    monkeypatch.setattr(subscription_llm.subprocess, "run", run)
+    expected = subscription_llm.subprocess.TimeoutExpired if failure == "timeout" else RuntimeError
+    with pytest.raises(expected):
+        chain.invoke({"task": "the parser"})
+
+    assert calls == ["Human: Review the parser"]
+    assert fake.calls == []
+
+
 @pytest.mark.parametrize(
     "prompt", [object(), {"task": "invalid"}, SimpleNamespace(to_string=lambda: 3)]
 )
