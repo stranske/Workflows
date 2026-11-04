@@ -370,19 +370,39 @@ for (const field of ['scope_base_sha', 'source_commit']) test(`same compiled pla
   writes.push(...api.writes); assert.equal(writes.length, 0); assert.equal(result.refresh_dispatched, 0);
   assert.ok(failures.some(reason => reason.includes('missing_or_mixed')));
 });
-test('actual Maint71 workflow caller uses the native report adapter rather than defaulting to full', async () => {
+test('actual Maint71 workflow caller uses the native report adapter rather than defaulting to full', async t => {
   const workflow = fs.readFileSync(path.join(__dirname, '../../workflows/maint-71-merge-sync-prs.yml'), 'utf8');
   const block = workflow.split('      - name: Refresh stale candidate bases')[1].split('      - name: Refresh stale delivery bases')[0];
   const script = block.split('          script: |\n')[1].split('\n').map(line => line.replace(/^ {12}/, '')).join('\n');
-  const calls = [], saved = [], report = { inputs: { cleanup_branches: false }, results: [] };
+  const f = reportFixture(t, { scope: 'full' });
+  const campaignSource = 'e'.repeat(40);
+  Object.assign(f.row, { branch: 'sync/workflows-candidate', status: 'delivery_contract_blocked',
+    next_command: 'refresh-candidate-from-exact-plan',
+    refresh_plan: { plan_id: id, plan_scope: 'full', scope_base_sha: '', source_commit: campaignSource } });
+  f.report.inputs.sync_hash = 'candidate';
+  const getCommit = f.github.rest.repos.getCommit;
+  f.github.rest.repos.getCommit = args => args.repo !== 'a' && args.ref === campaignSource
+    ? { data: { sha: campaignSource } } : getCommit(args);
+  const calls = [], saved = [], report = f.report;
   const load = name => name === 'fs' ? { writeFileSync: (file, value) => saved.push([file, JSON.parse(value)]), readFileSync: filename => JSON.stringify(filename.includes('report') ? report : { canaries: [{ repo: 'owner/a' }] }) }
-    : name.includes('github-api-with-retry') ? { createTokenAwareRetry: async () => ({ withRetry() {} }) }
-      : name.includes('sync_pr_merge_contract') ? { candidateRefreshDecision: () => ({ eligible: true }) }
-        : { dispatchCandidateRefreshFromReport: async args => calls.push(args) };
+    : name.includes('github-api-with-retry') ? { createTokenAwareRetry: async () => ({ withRetry: f.withRetry }) }
+      : name.includes('sync_pr_merge_contract') ? require('../sync_pr_merge_contract')
+        : { dispatchCandidateRefreshFromReport: async args => {
+          calls.push(args);
+          return require('../maint71_merge_sync_prs').dispatchCandidateRefreshFromReport(args);
+        } };
   await new (Object.getPrototypeOf(async function () {}).constructor)('require', 'process', 'github', 'core', 'context', script)(
-    load, { env: { TRUSTED_SYNC_ACTORS: 'stranske' } }, {}, {}, context);
-  assert.equal(saved.length, 1); assert.deepEqual(saved[0][1], report);
-  assert.equal(calls.length, 1); assert.deepEqual(calls[0].report, report);
+    load, { env: { TRUSTED_SYNC_ACTORS: 'stranske' } }, f.github, recorder().core, context);
+  const persisted = { ...report, canary_refresh: {
+    refresh_dispatched: 1, drainable: 1, held_plans: [id],
+  } };
+  assert.equal(f.writes.length, 1);
+  assert.equal(f.writes[0].inputs.scope_head_sha, campaignSource);
+  assert.equal(f.writes[0].inputs.expected_plan_id, id);
+  assert.equal(saved.length, 1);
+  assert.equal(saved[0][0], 'artifacts/sync-pr-merge-report.json');
+  assert.deepEqual(saved[0][1], persisted);
+  assert.equal(calls.length, 1); assert.deepEqual(calls[0].report, persisted);
   assert.deepEqual(calls[0].trustedActors, ['stranske']); assert.deepEqual(calls[0].expectedCanaries, ['owner/a']);
 });
 
