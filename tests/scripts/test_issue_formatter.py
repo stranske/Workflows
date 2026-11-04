@@ -1675,6 +1675,13 @@ def test_strip_original_issue_handles_nested_details_outside_fences() -> None:
     assert "still original" not in stripped
 
 
+_FORMATTED_RESPONSE_TEXT = (
+    "## Tasks\n- [ ] Update `scripts/langchain/issue_formatter.py`.\n\n"
+    "## Acceptance Criteria\n"
+    "- [ ] `pytest tests/scripts/test_issue_formatter.py` passes."
+)
+
+
 @pytest.mark.parametrize(
     "blocks", ["dict", "object", "strings", "split_dict", "split_object", "split_strings", "mixed"]
 )
@@ -1682,11 +1689,7 @@ def test_format_issue_body_accepts_list_content_blocks(
     monkeypatch: pytest.MonkeyPatch, blocks: str
 ) -> None:
     raw = "Raw issue text"
-    valid = (
-        "## Tasks\n- [ ] Update `scripts/langchain/issue_formatter.py`.\n\n"
-        "## Acceptance Criteria\n"
-        "- [ ] `pytest tests/scripts/test_issue_formatter.py` passes."
-    )
+    valid = _FORMATTED_RESPONSE_TEXT
     content: list[object]
     if blocks == "dict":
         content = [{"type": "text", "text": valid}]
@@ -1738,6 +1741,12 @@ def test_format_issue_body_accepts_list_content_blocks(
         [{"type": "tool_use", "text": "ignore"}],
         [types.SimpleNamespace(type="reasoning", text="ignore")],
         [{"type": "image", "content": "ignore"}, {"type": "audio", "text": "ignore"}],
+        [{"type": "tool_use", "text": _FORMATTED_RESPONSE_TEXT}],
+        [types.SimpleNamespace(type="reasoning", text=_FORMATTED_RESPONSE_TEXT)],
+        [
+            {"type": "image", "content": _FORMATTED_RESPONSE_TEXT},
+            types.SimpleNamespace(type="tool_use", content=_FORMATTED_RESPONSE_TEXT),
+        ],
         [{"type": "text", "text": " \n"}],
         [types.SimpleNamespace(type="output_text", text="\t")],
         ["", " \n"],
@@ -1749,6 +1758,9 @@ def test_format_issue_body_accepts_list_content_blocks(
         "tool",
         "reasoning",
         "media",
+        "tool_formatted_text",
+        "reasoning_formatted_text",
+        "non_text_formatted_content",
         "blank_dict",
         "blank_object",
         "blank_strings",
