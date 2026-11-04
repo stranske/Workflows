@@ -339,11 +339,12 @@ test('a reviewer task introduced only at the merge boundary still refuses merge'
   assert.deepEqual(actions.filter(([kind]) => kind === 'pull'), [['pull', 1], ['pull', 2]]);
 });
 
-function mergeScanHarness({ body = complete.body } = {}) {
+function mergeScanHarness({ body = complete.body, finalBody = body } = {}) {
   const harness = finalGuardHarness({ finalBody: body });
   const { c, actions } = harness;
   const loadPullRequest = c.loadPullRequest;
   const listComments = c.paginateWithRetry;
+  let pullReads = 0;
   const summary = {
     addHeading() {},
     addTable: (rows) => actions.push(['summary', rows]),
@@ -358,9 +359,12 @@ function mergeScanHarness({ body = complete.body } = {}) {
     reviewObservationKey: (number, head) => `${number}@${head}`,
     primeReviewWindows: async () => {},
     reviewGuardFailure: async (number, pr) => ({ pr, failure: '' }),
-    loadPullRequest: async (number) => ({
-      ...await loadPullRequest(number), user: { type: 'Bot' },
-    }),
+    loadPullRequest: async (number) => {
+      const pr = await loadPullRequest(number);
+      pullReads += 1;
+      // The first read establishes the head observation; the second scans tasks.
+      return { ...pr, body: pullReads <= 2 ? body : finalBody, user: { type: 'Bot' } };
+    },
     paginateWithRetry: async (method, args) => {
       if (method === c.github.rest.issues.listForRepo) {
         return [{ number: 42, pull_request: {} }];
@@ -432,3 +436,47 @@ test('guarded scan reaches runtime guard and exact-head merge with unchecked sou
   ]);
   assert.equal(actions.some(([kind]) => ['warning', 'create', 'update'].includes(kind)), false);
 });
+
+for (const publicationFails of [false, true]) {
+  test(`task added after the initial scan stays visible and blocks merge when receipt publication ${publicationFails ? 'fails' : 'succeeds'}`, async () => {
+    const { c, actions, comments } = mergeScanHarness({
+      finalBody: complete.body + '\n- [ ] Late reviewer request',
+    });
+    if (publicationFails) {
+      c.github.rest.issues.createComment = async () => {
+        actions.push(['create-failed']);
+        throw new Error('comments unavailable');
+      };
+    }
+
+    await c.runScan();
+
+    const reason = 'Refusing auto-merge: linked issue/PR has unchecked tasks.';
+    const runtimeIndex = actions.findIndex(([kind, message]) =>
+      kind === 'info' && message === 'Runtime AC merge guard passed for PR #42.');
+    const warningIndex = actions.findIndex(([kind, message]) =>
+      kind === 'warning' && message === `PR #42: ${reason}`);
+    assert.ok(runtimeIndex >= 0, 'the initial task check must pass');
+    assert.ok(warningIndex > runtimeIndex, 'the final task check must publish its refusal');
+    assert.deepEqual(actions.filter(([kind]) => kind === 'pull'), [
+      ['pull', 1], ['pull', 2], ['pull', 3],
+    ]);
+    assert.equal(actions.some(([kind]) => kind === 'merge'), false);
+    const summaryRows = actions.find(([kind]) => kind === 'summary')[1];
+    assert.deepEqual([...summaryRows[1]], ['#42', 'error', `Merge failed: ${reason}`]);
+    assert.deepEqual(actions.filter(([kind]) => kind === 'output'), [
+      ['output', 'merged', '[]'],
+    ]);
+
+    if (publicationFails) {
+      assert.equal(comments.length, 0);
+      assert.ok(actions.some(([kind, message]) => kind === 'warning'
+        && message === 'Unable to publish task refusal for #42: comments unavailable'));
+      assert.equal(actions.filter(([kind]) => kind === 'create-failed').length, 1);
+    } else {
+      assert.equal(comments.length, 1);
+      assert.equal(comments[0].body,
+        `${refusalMarker}\nHead: current-head\nTask precheck refused: ${reason}`);
+    }
+  });
+}
