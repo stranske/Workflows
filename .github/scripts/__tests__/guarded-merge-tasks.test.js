@@ -253,3 +253,88 @@ for (const failAt of ['list', 'create', 'update']) {
     if (failAt !== 'create') assert.equal(actions.some(([kind]) => kind === 'create'), false);
   });
 }
+
+function finalGuardHarness({ finalBody = complete.body, boundaryBody = finalBody } = {}) {
+  const harness = refusalHarness();
+  const { c, actions } = harness;
+  let reads = 0;
+  Object.assign(c, require('../source_context.js'), {
+    label: 'automerge',
+    GENERATED_DELIVERY_HOLD_LABEL: 'delivery:hold',
+    runtimeAcRequirement: () => ({ required: false }),
+    reviewWindowObservation: async () => ({ observedAtMs: 0 }),
+    reviewWindowRemainingMs: async () => 0,
+    loadPullRequest: async () => {
+      reads += 1;
+      actions.push(['pull', reads]);
+      return {
+        body: reads === 1 ? finalBody : boundaryBody,
+        head: { sha: 'current-head' }, base: { ref: 'main' },
+        mergeable_state: 'clean', draft: false, labels: [{ name: 'automerge' }],
+      };
+    },
+    checkStateFailure: async (head) => {
+      actions.push(['checks', head]);
+      return '';
+    },
+    activeReviewThreadFailure: async (prNumber) => {
+      actions.push(['threads', prNumber]);
+      return '';
+    },
+  });
+  c.github.rest.repos = { get: async () => ({ data: { default_branch: 'main' } }) };
+  c.github.rest.issues.get = async (args) => {
+    actions.push(['issue', { ...args }]);
+    return { data: { body: snapshot.body, updated_at: snapshot.updatedAt } };
+  };
+  // Run the shipped task helpers and final guard together, retaining the real
+  // source snapshot fetch and refusal publisher instead of stubbing their results.
+  vm.runInContext(source.slice(start, end), c);
+  const guardStart = source.indexOf('            async function finalMergeGuardFailure(');
+  const guardEnd = source.indexOf('            const listedIssues =', guardStart);
+  assert.ok(guardStart >= 0 && guardEnd > guardStart, 'final merge guard must exist');
+  vm.runInContext(source.slice(guardStart, guardEnd), c);
+  return harness;
+}
+
+test('final merge guard accepts complete PR tasks with unchecked source tasks at both snapshots', async () => {
+  const { c, actions } = finalGuardHarness();
+  assert.equal(await c.finalMergeGuardFailure(42, 'current-head'), '');
+  assert.deepEqual(actions.filter(([kind]) => kind === 'pull'), [['pull', 1], ['pull', 2]]);
+  assert.deepEqual(actions.filter(([kind]) => kind === 'issue'), [
+    ['issue', { owner: 'o', repo: 'r', issue_number: 1061 }],
+    ['issue', { owner: 'o', repo: 'r', issue_number: 1061 }],
+  ]);
+  assert.deepEqual(actions.filter(([kind]) => kind === 'checks'), [
+    ['checks', 'current-head'], ['checks', 'current-head'],
+  ]);
+  assert.deepEqual(actions.filter(([kind]) => kind === 'threads'), [
+    ['threads', 42], ['threads', 42],
+  ]);
+  assert.equal(actions.some(([kind]) => ['warning', 'create', 'update'].includes(kind)), false);
+});
+
+test('final snapshot task refusal publishes the warning and PR receipt before returning', async () => {
+  const { c, actions, comments } = finalGuardHarness({
+    finalBody: complete.body + '\n- [ ] Reviewer request',
+  });
+  const reason = await c.finalMergeGuardFailure(42, 'current-head');
+  assert.match(reason, /unchecked tasks/);
+  assert.deepEqual(actions.filter(([kind]) => kind === 'warning'), [
+    ['warning', `PR #42: ${reason}`],
+  ]);
+  assert.equal(comments.length, 1);
+  assert.equal(comments[0].body,
+    `${refusalMarker}\nHead: current-head\nTask precheck refused: ${reason}`);
+  assert.equal(actions.some(([kind]) => kind === 'checks'), false);
+  assert.deepEqual(actions.filter(([kind]) => kind === 'pull'), [['pull', 1]]);
+});
+
+test('a reviewer task introduced only at the merge boundary still refuses merge', async () => {
+  const { c, actions } = finalGuardHarness({
+    boundaryBody: complete.body + '\n- [ ] Late reviewer request',
+  });
+  const reason = await c.finalMergeGuardFailure(42, 'current-head');
+  assert.match(reason, /Final merge-boundary task validation failed: .*unchecked tasks/);
+  assert.deepEqual(actions.filter(([kind]) => kind === 'pull'), [['pull', 1], ['pull', 2]]);
+});
