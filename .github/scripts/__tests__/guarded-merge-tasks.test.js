@@ -338,3 +338,97 @@ test('a reviewer task introduced only at the merge boundary still refuses merge'
   assert.match(reason, /Final merge-boundary task validation failed: .*unchecked tasks/);
   assert.deepEqual(actions.filter(([kind]) => kind === 'pull'), [['pull', 1], ['pull', 2]]);
 });
+
+function mergeScanHarness({ body = complete.body } = {}) {
+  const harness = finalGuardHarness({ finalBody: body });
+  const { c, actions } = harness;
+  const loadPullRequest = c.loadPullRequest;
+  const listComments = c.paginateWithRetry;
+  const summary = {
+    addHeading() {},
+    addTable: (rows) => actions.push(['summary', rows]),
+    write: async () => actions.push(['summary-written']),
+  };
+  Object.assign(c, require('../runtime_ac_merge_guard.js'), {
+    context: { payload: { pull_request: { number: 42 } } },
+    defaultBranch: 'main',
+    placeholder: /^agents\/[a-z][a-z0-9_-]*-\d+\.md$/i,
+    summary,
+    reviewWindowObservations: new Map(),
+    reviewObservationKey: (number, head) => `${number}@${head}`,
+    primeReviewWindows: async () => {},
+    reviewGuardFailure: async (number, pr) => ({ pr, failure: '' }),
+    loadPullRequest: async (number) => ({
+      ...await loadPullRequest(number), user: { type: 'Bot' },
+    }),
+    paginateWithRetry: async (method, args) => {
+      if (method === c.github.rest.issues.listForRepo) {
+        return [{ number: 42, pull_request: {} }];
+      }
+      if (method === c.github.rest.pulls.listFiles) {
+        return [{ filename: 'src/implementation.js' }];
+      }
+      return listComments(method, args);
+    },
+  });
+  c.core.setOutput = (name, value) => actions.push(['output', name, value]);
+  c.core.setFailed = (message) => assert.fail(message);
+  c.github.rest.issues.listForRepo = () => {};
+  c.github.rest.issues.listLabelsOnIssue = async () => ({ data: [{ name: 'automerge' }] });
+  c.github.rest.issues.removeLabel = async (args) => actions.push(['remove-label', args]);
+  c.github.rest.pulls = {
+    listFiles() {},
+    merge: async (args) => {
+      actions.push(['merge', args]);
+      return { data: { merged: true } };
+    },
+  };
+  // Exercise the shipped scan's call sites as well as its real task helpers,
+  // final guard and runtime acceptance guard. No live API mutation is made.
+  const scanStart = source.indexOf('            const listedIssues =');
+  assert.ok(scanStart >= 0, 'guarded merge scan must exist');
+  vm.runInContext(`async function runScan() {\n${source.slice(scanStart)}\n}`, c);
+  return harness;
+}
+
+test('guarded scan publishes and reuses a refusal receipt before the runtime guard', async () => {
+  const { c, actions, comments } = mergeScanHarness({
+    body: complete.body + '\n- [ ] Reviewer request',
+  });
+  await c.runScan();
+  await c.runScan();
+  const reason = 'Refusing auto-merge: linked issue/PR has unchecked tasks.';
+  assert.deepEqual(actions.filter(([kind]) => kind === 'warning'), [
+    ['warning', `PR #42: ${reason}`], ['warning', `PR #42: ${reason}`],
+  ]);
+  assert.equal(actions.filter(([kind]) => kind === 'create').length, 1);
+  assert.equal(actions.filter(([kind]) => kind === 'update').length, 1);
+  assert.equal(comments.length, 1);
+  assert.equal(comments[0].body,
+    `${refusalMarker}\nHead: current-head\nTask precheck refused: ${reason}`);
+  assert.equal(actions.some(([kind]) => kind === 'merge'), false);
+  assert.equal(actions.some(([kind, message]) =>
+    kind === 'info' && message.includes('Runtime AC merge guard passed')), false);
+  assert.deepEqual(actions.filter(([kind]) => kind === 'output'), [
+    ['output', 'merged', '[]'], ['output', 'merged', '[]'],
+  ]);
+});
+
+test('guarded scan reaches runtime guard and exact-head merge with unchecked source tasks', async () => {
+  const { c, actions } = mergeScanHarness();
+  await c.runScan();
+  const runtimeIndex = actions.findIndex(([kind, message]) =>
+    kind === 'info' && message === 'Runtime AC merge guard passed for PR #42.');
+  const mergeIndex = actions.findIndex(([kind]) => kind === 'merge');
+  assert.ok(runtimeIndex >= 0, 'completed PR must reach the real runtime acceptance guard');
+  assert.ok(mergeIndex > runtimeIndex, 'runtime guard must precede the merge API request');
+  assert.deepEqual({ ...actions[mergeIndex][1] }, {
+    owner: 'o', repo: 'r', pull_number: 42, merge_method: 'squash', sha: 'current-head',
+  });
+  assert.equal(actions.filter(([kind]) => kind === 'issue').length, 3,
+    'source snapshots must remain bound at the initial, final and merge-boundary checks');
+  assert.deepEqual(actions.filter(([kind]) => kind === 'output'), [
+    ['output', 'merged', '[42]'],
+  ]);
+  assert.equal(actions.some(([kind]) => ['warning', 'create', 'update'].includes(kind)), false);
+});
