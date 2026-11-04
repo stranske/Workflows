@@ -155,14 +155,25 @@ def test_format_guard_deduplicates_inflight_optimizer_dispatch() -> None:
         assert ".displayTitle | endswith($issue)" in text
         assert ".displayTitle | contains($issue)" not in text
         assert "agents:auto-pilot-pause" in text
-        assert "Automated formatting stopped after" in text
+        assert "Automated formatting paused after" in text
+        assert "Fix the issue body manually" not in text
+        assert "No human action is required" in text
+        assert "opener lane (opener-core) rewrites and re-validates paused issues" in text
         assert "<!-- format-guard:attempt-cap -->" in text
         assert text.index("max_format_guard_attempts=3") < text.index(
             "gh workflow run agents-issue-optimizer.yml"
         )
-        assert text.index('"$format_guard_attempts" -ge "$max_format_guard_attempts"') < text.index(
-            "gh workflow run agents-issue-optimizer.yml"
-        )
+        assert "max_optimizer_crashes=3" in text
+        assert "<!-- issue-optimizer:rewrite-failed -->" in text
+        assert "agents-issue-optimizer workflow encountered an error" in text
+        for cap in (
+            '"$rewrite_attempts" -ge "$max_format_guard_attempts"',
+            '"$optimizer_crashes" -ge "$max_optimizer_crashes"',
+            '"$window_dispatches" -ge "$max_format_guard_dispatches"',
+        ):
+            assert text.index(cap) < text.index("gh workflow run agents-issue-optimizer.yml")
+        # Blocking and drainable quantities print on every run, not only at the cap.
+        assert "Format guard budget: real rewrite attempts" in text
         assert "github_token: ${{ github.token }}" in text
         assert "secrets: ${{ toJSON(secrets) }}" not in text
         assert '"$trusted_marker" == true && "$has_format_label" == true' in text
@@ -194,7 +205,7 @@ def test_format_optimizer_dispatches_guard_after_failed_lease_release() -> None:
         CONSUMER_WORKFLOW_PATH.read_text(encoding="utf-8"),
     ):
         release_idx = text.index("Release failed format lease")
-        release_block = text[release_idx : release_idx + 1200]
+        release_block = text[release_idx : release_idx + 1500]
         remove_idx = release_block.index(
             'gh issue edit "$ISSUE_NUMBER" --remove-label "agents:format"'
         )
@@ -312,3 +323,126 @@ def test_format_guard_revalidates_before_clearing_state_and_skips_closed_issues(
         route = text[route_idx:]
         assert "steps.issue.outputs.state == 'OPEN'" in route
         assert "Issue is now closed — skipping optimizer dispatch." in route
+
+
+def _format_step_script(path: Path) -> str:
+    workflow = yaml.safe_load(path.read_text(encoding="utf-8"))
+    for step in workflow["jobs"]["optimize_issue"]["steps"]:
+        if step.get("name") == "Phase 3 - Format Issue":
+            return step["run"]
+    raise AssertionError(f"Phase 3 step not found in {path}")
+
+
+def test_format_phase_records_rewrite_failure_as_completed_attempt() -> None:
+    for path in (WORKFLOW_PATH, CONSUMER_WORKFLOW_PATH):
+        text = path.read_text(encoding="utf-8")
+        workflow = yaml.safe_load(text)
+        steps = {step.get("name"): step for step in workflow["jobs"]["optimize_issue"]["steps"]}
+        phase3 = steps["Phase 3 - Format Issue"]
+        # The marker must be authored by github-actions[bot]: the guard trusts no other.
+        assert phase3["env"]["MARKER_TOKEN"] == "${{ github.token }}"
+        assert "<!-- issue-optimizer:rewrite-failed -->" in phase3["run"]
+        assert "rewrite_failed=true" in phase3["run"]
+        assert "steps.format.outputs.rewrite_failed != 'true'" in steps["Manage labels"]["if"]
+        release_if = steps["Release failed format lease"]["if"]
+        assert release_if.startswith("steps.format.outputs.rewrite_failed == 'true' ||")
+        # Real crashes keep the generic failure report the guard counts as a crash.
+        assert "The agents-issue-optimizer workflow encountered an error." in text
+
+
+def _run_format_step(tmp_path: Path, path: Path, result: dict, validator_rc: int = 0):
+    import json
+    import os
+    import shutil
+    import subprocess
+
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    payload = tmp_path / "result.json"
+    payload.write_text(json.dumps(result), encoding="utf-8")
+    calls = tmp_path / "gh-calls.txt"
+    real_python = shutil.which("python3")
+    python_stub = (
+        "#!/usr/bin/env bash\n"
+        'case "$1" in\n'
+        f"  *issue_formatter.py) cat '{payload}' ;;\n"
+        f"  *issue_format.py) echo 'validator report'; exit {validator_rc} ;;\n"
+        f'  *) exec "{real_python}" "$@" ;;\n'
+        "esac\n"
+    )
+    for name in ("python", "python3"):
+        (bin_dir / name).write_text(python_stub, encoding="utf-8")
+        (bin_dir / name).chmod(0o755)
+    (bin_dir / "gh").write_text(
+        f"#!/usr/bin/env bash\nprintf '%s GH_TOKEN=%s\\n' \"$*\" \"$GH_TOKEN\" >> '{calls}'\n"
+        f"cat >> '{calls}'\n",
+        encoding="utf-8",
+    )
+    (bin_dir / "gh").chmod(0o755)
+    output = tmp_path / "github_output"
+    output.touch()
+    completed = subprocess.run(
+        ["bash", "-e", "-c", _format_step_script(path)],
+        cwd=tmp_path,
+        text=True,
+        capture_output=True,
+        env={
+            "PATH": f"{bin_dir}:{os.environ['PATH']}",
+            "GITHUB_OUTPUT": str(output),
+            "ISSUE_NUMBER": "7",
+            "GH_TOKEN": "app-token",
+            "MARKER_TOKEN": "workflow-token",
+        },
+    )
+    gh_calls = calls.read_text(encoding="utf-8") if calls.exists() else ""
+    return completed, gh_calls, output.read_text(encoding="utf-8")
+
+
+def test_format_phase_rewrite_failure_exits_green_with_marker(tmp_path: Path) -> None:
+    for index, path in enumerate((WORKFLOW_PATH, CONSUMER_WORKFLOW_PATH)):
+        case = tmp_path / str(index)
+        case.mkdir()
+        completed, gh_calls, outputs = _run_format_step(
+            case,
+            path,
+            {
+                "formatted_body": None,
+                "rewrite_failed": True,
+                "rewrite_report": "`Tasks` item must name a concrete file",
+                "error": "not agent-processable after 2 rewrite rounds: x",
+            },
+        )
+        assert completed.returncode == 0, completed.stderr
+        assert "rewrite_failed=true" in outputs
+        assert "issue comment 7 --body-file - GH_TOKEN=workflow-token" in gh_calls
+        assert "<!-- issue-optimizer:rewrite-failed -->" in gh_calls
+        assert "`Tasks` item must name a concrete file" in gh_calls
+        assert "issue edit" not in gh_calls
+
+
+def test_format_phase_invalid_formatted_body_is_a_rewrite_failure(tmp_path: Path) -> None:
+    completed, gh_calls, outputs = _run_format_step(
+        tmp_path, WORKFLOW_PATH, {"formatted_body": "## Tasks\n- [ ] x"}, validator_rc=1
+    )
+    assert completed.returncode == 0, completed.stderr
+    assert "rewrite_failed=true" in outputs
+    assert "<!-- issue-optimizer:rewrite-failed -->" in gh_calls
+
+
+def test_format_phase_crash_still_fails_without_marker(tmp_path: Path) -> None:
+    completed, gh_calls, outputs = _run_format_step(
+        tmp_path, WORKFLOW_PATH, {"formatted_body": None, "error": "boom"}
+    )
+    assert completed.returncode == 1
+    assert "rewrite_failed" not in outputs
+    assert "issue-optimizer:rewrite-failed" not in gh_calls
+
+
+def test_docs_say_paused_issues_go_to_the_opener_lane() -> None:
+    phrase = "opener lane (opener-core)"
+    guide = " ".join(CONSUMER_GUIDE_PATH.read_text(encoding="utf-8").split())
+    catalog = WORKFLOW_CATALOG_PATH.read_text(encoding="utf-8")
+    assert "### Format-guard pause" in guide
+    assert f"{phrase} rewrites and re-validates paused issues automatically" in guide
+    assert f"{phrase} rewrites and re-validates paused issues automatically" in catalog
+    assert "tells an operator to repair the issue body" not in catalog

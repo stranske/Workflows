@@ -487,24 +487,82 @@ def test_formatter_degrades_to_heading_validation_when_validator_cannot_load(
     assert "PR validation evidence" not in formatted
 
 
-def test_format_issue_body_llm_invalid_output_falls_back(monkeypatch: pytest.MonkeyPatch) -> None:
-    mock_client = mock.MagicMock()
-    mock_chain = mock.MagicMock()
-    mock_response = mock.MagicMock()
-    mock_response.content = "No required sections."
-    mock_chain.invoke.return_value = mock_response
+_REWRITE_VALID_BODY = (
+    "## Why\nThe formatter needs feedback.\n\n"
+    "## Tasks\n- [ ] Update `scripts/langchain/issue_formatter.py`.\n\n"
+    "## Acceptance Criteria\n"
+    "- [ ] `pytest tests/scripts/test_issue_formatter.py` passes.\n"
+)
 
-    _install_fake_langchain(monkeypatch, mock_chain)
 
-    with mock.patch(
-        "scripts.langchain.issue_formatter._get_llm_client",
-        return_value=(mock_client, "openai"),
-    ):
-        result = issue_formatter.format_issue_body("Why: Because", use_llm=True)
+def _install_rewrite_client(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, rewrites: list[str]
+) -> list[str]:
+    """First call formats (invalid output); later calls answer rewrite prompts."""
+    prompts: list[str] = []
+    answers = iter(rewrites)
 
-    assert result["used_llm"] is False
-    assert result["provider_used"] is None
-    assert "## Acceptance Criteria" in result["formatted_body"]
+    def invoke(runnable, payload, *, operation):  # noqa: ANN001
+        if isinstance(payload, dict):
+            assert operation == "issue_formatter"
+            return (
+                types.SimpleNamespace(content="No required sections."),
+                issue_formatter.TraceInfo(),
+            )
+        assert operation == "issue_formatter_rewrite"
+        prompts.append(payload)
+        return (
+            types.SimpleNamespace(content=[{"type": "text", "text": next(answers)}]),
+            issue_formatter.TraceInfo(),
+        )
+
+    _install_fake_langchain(monkeypatch, mock.MagicMock())
+    monkeypatch.setattr(issue_formatter, "_get_llm_client", lambda: (object(), "openai"))
+    monkeypatch.setattr(issue_formatter, "invoke_with_trace", invoke)
+    monkeypatch.setattr(
+        issue_formatter, "_validate_and_refine_tasks", lambda body, **kw: (body, None)
+    )
+    monkeypatch.setenv("GITHUB_WORKSPACE", str(tmp_path))
+    return prompts
+
+
+def test_format_issue_body_rewrites_invalid_llm_output_until_valid(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    prompts = _install_rewrite_client(monkeypatch, tmp_path, [_REWRITE_VALID_BODY])
+
+    result = issue_formatter.format_issue_body("Why: Because", use_llm=True)
+
+    assert len(prompts) == 1
+    assert "No required sections." in prompts[0]
+    assert "Missing required sections" in prompts[0]
+    assert result["used_llm"] is True
+    assert result["provider_used"] == "openai"
+    assert not result.get("rewrite_failed")
+    body = result["formatted_body"]
+    assert body.startswith(_REWRITE_VALID_BODY.rstrip())
+    assert issue_formatter._formatted_output_valid(body) is True
+    # Provenance is the raw issue, not the model's discarded first draft.
+    assert "Why: Because" in body
+    assert "No required sections." not in body
+
+
+def test_format_issue_body_reports_rewrite_failed_when_loop_fails(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    still_invalid = "## Tasks\n- [ ] Fix it\n\n## Acceptance Criteria\n- [ ] works"
+    prompts = _install_rewrite_client(monkeypatch, tmp_path, [still_invalid, still_invalid])
+
+    result = issue_formatter.format_issue_body("Why: Because", use_llm=True)
+
+    assert len(prompts) == 2
+    assert result["formatted_body"] is None
+    assert result["rewrite_failed"] is True
+    assert result["rewrite_rounds"] == 2
+    assert result["used_llm"] is True
+    assert result["error"].startswith("not agent-processable after 2 rewrite rounds: ")
+    assert "`Tasks` item must name a concrete file" in result["error"]
+    assert "not yet agent-processable" in result["rewrite_report"]
 
 
 def test_task_refinement_replaces_only_the_tasks_section(
@@ -866,6 +924,38 @@ def test_main_emits_formatter_error_without_refinement(monkeypatch, capsys) -> N
 
     assert payload["error"] == "Issue body too large"
     assert payload["needs_refinement"] is False
+
+
+def test_main_emits_rewrite_failure_for_the_workflow(monkeypatch, tmp_path, capsys) -> None:
+    output_path = tmp_path / "formatted.md"
+    monkeypatch.setattr(
+        issue_formatter,
+        "format_issue_body",
+        lambda raw, use_llm=True: {
+            "error": "not agent-processable after 2 rewrite rounds: x",
+            "formatted_body": None,
+            "rewrite_failed": True,
+            "rewrite_rounds": 2,
+            "rewrite_report": "report text",
+            "provider_used": "openai",
+            "used_llm": True,
+            "needs_refinement": True,
+        },
+    )
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["issue_formatter.py", "--input-text", "Raw", "--json", "--output-file", str(output_path)],
+    )
+
+    issue_formatter.main()
+    payload = json.loads(capsys.readouterr().out)
+
+    assert payload["rewrite_failed"] is True
+    assert payload["rewrite_rounds"] == 2
+    assert payload["rewrite_report"] == "report text"
+    assert payload["formatted_body"] is None
+    assert not output_path.exists()
 
 
 def test_main_writes_output_file(monkeypatch, tmp_path, capsys) -> None:
