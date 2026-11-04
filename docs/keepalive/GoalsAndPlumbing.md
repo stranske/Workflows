@@ -809,3 +809,15 @@ limitation backed by complete reviews of the named sibling files. Untyped findin
 FAIL, unknown input and missing global proof remain conservative floors. The final
 summary reflects whole-PR reconciliation without concatenating stale local scope
 limitations; an unsuccessful reconciliation cannot erase the original findings.
+
+### Guarded merge task authority
+
+Keepalive records progress in the PR managed task block and preserves reviewer-added
+actionable checkboxes. The guarded merger counts unchecked PR tasks; the raw source
+issue's checkbox state is advisory because keepalive does not write completion back
+to it. Source identity, readability and version stability remain required through
+the final merge boundary. Completing PR tasks does not waive checks, review threads,
+review opportunity, runtime acceptance or post-merge source-issue verification.
+A refused task precheck emits a warning and an `agents-guarded-merge-result:v1`
+receipt on the PR. Only the authenticated receipt writer's own comment is updated;
+if its identity cannot be resolved, a new receipt is created.
