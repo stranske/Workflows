@@ -36,7 +36,14 @@ def _extract_verify_script(workflow: Path) -> str:
     raise AssertionError("agents-auto-pilot.yml no longer defines verify_step")
 
 
-def _run_verify(prs: list[dict[str, Any]], workflow: Path) -> dict[str, Any]:
+def _run_verify(
+    prs: list[dict[str, Any]],
+    workflow: Path,
+    *,
+    pr_labels: tuple[str, ...] = (),
+    fail_on_page: int | None = None,
+    dispatch_unavailable: bool = False,
+) -> dict[str, Any]:
     """Execute the workflow verify_step script against a mocked pulls.list result set."""
     node = shutil.which("node")
     if node is None:  # pragma: no cover - host dependent
@@ -55,7 +62,11 @@ const labelsCreated = [];
 const labelsRemoved = [];
 const comments = [];
 const pageCalls = [];
+const dispatchCalls = [];
+const runQueries = [];
 const knownLabels = new Set(fixture.knownLabels || []);
+const prLabels = new Set(fixture.prLabels || []);
+let scriptError = null;
 
 const core = {
   setOutput(name, value) { outputs[name] = String(value); },
@@ -75,8 +86,30 @@ const github = {
         const page = Number(params.page) || 1;
         const perPage = Number(params.per_page) || 100;
         pageCalls.push({ page, per_page: perPage, state: params.state });
+        if (page === fixture.failOnPage) {
+          throw new Error('Later PR page is unavailable');
+        }
         const start = (page - 1) * perPage;
         return { data: fixture.prs.slice(start, start + perPage) };
+      },
+      get: async (params) => ({
+        data: {
+          ...fixture.prs.find(pr => pr.number === params.pull_number),
+          labels: [...prLabels].map(name => ({ name })),
+        },
+      }),
+    },
+    actions: {
+      listWorkflowRuns: async (params) => {
+        runQueries.push(params);
+        return { data: { total_count: 0, workflow_runs: [] } };
+      },
+      createWorkflowDispatch: async (params) => {
+        dispatchCalls.push(params);
+        if (!fixture.dispatchUnavailable) return { status: 204 };
+        const error = new Error('No triggering credential is available');
+        error.status = 403;
+        throw error;
       },
     },
     issues: {
@@ -109,7 +142,11 @@ const github = {
           issue_number: params.issue_number,
           labels: [...params.labels],
         });
-        return { data: [] };
+        // The API succeeds even when every requested PR label already exists.
+        if (fixture.prs.some(pr => pr.number === params.issue_number)) {
+          for (const name of params.labels) prLabels.add(name);
+        }
+        return { data: [...prLabels].map(name => ({ name })) };
       },
       removeLabel: async (params) => {
         labelsRemoved.push({
@@ -134,6 +171,7 @@ const requireStub = (name) => {
 };
 
 const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
+try {
 await new AsyncFunction('require', 'github', 'context', 'core', 'process', process.env.SCRIPT)(
   requireStub,
   github,
@@ -141,6 +179,9 @@ await new AsyncFunction('require', 'github', 'context', 'core', 'process', proce
   core,
   process,
 );
+} catch (error) {
+  scriptError = error.message;
+}
 
 process.stdout.write(JSON.stringify({
   outputs,
@@ -150,6 +191,9 @@ process.stdout.write(JSON.stringify({
   labelsRemoved,
   comments,
   pageCalls,
+  dispatchCalls,
+  runQueries,
+  scriptError,
 }));
 """
     completed = subprocess.run(
@@ -159,14 +203,27 @@ process.stdout.write(JSON.stringify({
             **os.environ,
             "SCRIPT": script,
             "ISSUE_NUMBER": str(ISSUE_NUMBER),
-            "FIXTURE": json.dumps({"prs": prs, "knownLabels": []}),
+            "FIXTURE": json.dumps(
+                {
+                    "prs": prs,
+                    "knownLabels": list(pr_labels),
+                    "prLabels": list(pr_labels),
+                    "failOnPage": fail_on_page,
+                    "dispatchUnavailable": dispatch_unavailable,
+                }
+            ),
         },
         text=True,
         capture_output=True,
         check=False,
     )
     assert completed.returncode == 0, completed.stderr
-    return json.loads(completed.stdout)
+    result = json.loads(completed.stdout)
+    allowed_errors = (
+        (None, "No triggering credential is available") if dispatch_unavailable else (None,)
+    )
+    assert result["scriptError"] in allowed_errors, result["scriptError"]
+    return result
 
 
 def _filler_prs(count: int) -> list[dict[str, Any]]:
@@ -237,6 +294,46 @@ def test_handoff_truncated_lookup_reports_incomplete_not_verified(workflow: Path
     assert any("incomplete" in failure for failure in result["failures"])
     assert any(f"#{ISSUE_NUMBER}" in failure for failure in result["failures"])
     assert max(call["page"] for call in result["pageCalls"]) == 10
+    assert [call["page"] for call in result["pageCalls"]] == list(range(1, 11))
+
+
+@pytest.mark.parametrize("already_labeled", [False, True], ids=("fallback", "already-labeled"))
+def test_handoff_requires_dispatched_or_existing_verifier_run(
+    workflow: Path, already_labeled: bool
+) -> None:
+    """A successful label write alone cannot authorize either completion marker."""
+    result = _run_verify(
+        [_matching_pr(555)],
+        workflow,
+        pr_labels=("verify:evaluate",) if already_labeled else (),
+        dispatch_unavailable=True,
+    )
+
+    assert not any(
+        entry["issue_number"] == ISSUE_NUMBER and "verify:pr-handoff" in entry["labels"]
+        for entry in result["labelsAdded"]
+    ), "Issue handoff marker was recorded without a dispatched or existing verifier run"
+    assert (
+        result["outputs"].get("verify_handoff") != "found"
+    ), "Report - Done treats verify_handoff=found as a completed verifier handoff"
+
+
+def test_handoff_page_one_match_stops_search_immediately(workflow: Path) -> None:
+    """Even ten full pages must cost one request when the first page matches."""
+    result = _run_verify([_matching_pr(555)] + _filler_prs(999), workflow)
+
+    assert [call["page"] for call in result["pageCalls"]] == [1]
+
+
+def test_handoff_page_one_match_does_not_request_failing_later_page(workflow: Path) -> None:
+    """A later API failure cannot invalidate an already found merged PR."""
+    result = _run_verify(
+        [_matching_pr(555)] + _filler_prs(999),
+        workflow,
+        fail_on_page=2,
+    )
+
+    assert [call["page"] for call in result["pageCalls"]] == [1]
 
 
 def test_handoff_successful_pr_bound_labels_merged_pr_and_issue(workflow: Path) -> None:
