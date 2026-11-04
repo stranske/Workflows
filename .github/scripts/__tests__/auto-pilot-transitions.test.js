@@ -152,3 +152,88 @@ test('redispatch map preserves current workflow force_step contract', () => {
   assert.equal(redispatchForceStep('monitor-pr'), 'auto');
   assert.equal(redispatchForceStep('verify'), 'auto');
 });
+
+test('a handoff from an earlier closure cannot complete a reopened issue closed by another PR', () => {
+  const original = {
+    issueState: 'closed',
+    verifyHandoffBound: true,
+    closure: { id: 1001, sourcePr: 2454 },
+    verifyHandoff: { closureId: 1001, sourcePr: 2454 },
+  };
+  assert.equal(determineNextStep(original).nextStep, NEXT_STEPS.DONE);
+  assert.equal(
+    determineNextStep({ ...original, issueState: 'open' }).nextStep,
+    NEXT_STEPS.FORMAT,
+  );
+
+  const reclosed = { ...original, closure: { id: 1002, sourcePr: 2455 } };
+  assert.equal(determineNextStep(reclosed).currentState, STATES.CLOSED_NEEDS_VERIFY);
+  assert.equal(determineNextStep(reclosed).nextStep, NEXT_STEPS.VERIFY);
+
+  // Only a new handoff for the new closure may complete the issue.
+  assert.equal(
+    determineNextStep({
+      ...reclosed,
+      verifyHandoff: { closureId: 1002, sourcePr: 2455 },
+    }).nextStep,
+    NEXT_STEPS.DONE,
+  );
+});
+
+test('a new closure by the same PR still requires a new handoff', () => {
+  assert.equal(determineNextStep({
+    issueState: 'closed',
+    verifyHandoffBound: true,
+    closure: { id: 1002, sourcePr: 2454 },
+    verifyHandoff: { closureId: 1001, sourcePr: 2454 },
+  }).nextStep, NEXT_STEPS.VERIFY);
+});
+
+test('matching closure ID with a different source PR cannot complete the issue', () => {
+  assert.equal(determineNextStep({
+    issueState: 'closed',
+    verifyHandoffBound: true,
+    closure: { id: 1001, sourcePr: 2455 },
+    verifyHandoff: { closureId: 1001, sourcePr: 2454 },
+  }).nextStep, NEXT_STEPS.VERIFY);
+});
+
+test('label-only handoffs from the current workflow stay pending verification', () => {
+  // The current workflow supplies this boolean but no source identity.
+  assert.equal(determineNextStep({
+    issueState: 'closed',
+    hasVerify: true,
+    verifyHandoffBound: 'true',
+  }).nextStep, NEXT_STEPS.VERIFY);
+});
+
+test('handoff identities accept serialized positive IDs and reject absent or malformed IDs', () => {
+  const event = {
+    issueState: 'closed',
+    verifyHandoffBound: 'true',
+    closure: { id: 1001, sourcePr: 2454 },
+    verifyHandoff: { closureId: '1001', sourcePr: '2454' },
+  };
+  assert.equal(determineNextStep(event).nextStep, NEXT_STEPS.DONE);
+  assert.equal(
+    determineNextStep({ ...event, verifyHandoffBound: false }).nextStep,
+    NEXT_STEPS.VERIFY,
+  );
+  for (const field of ['closure', 'verifyHandoff']) {
+    assert.equal(
+      determineNextStep({ ...event, [field]: undefined }).nextStep,
+      NEXT_STEPS.VERIFY,
+    );
+    for (const key of Object.keys(event[field])) {
+      for (const value of [
+        undefined, null, '', 0, -1, 1.5, 'not-an-id', true,
+        [], [1001], [2454], {}, Number.MAX_SAFE_INTEGER + 1,
+      ]) {
+        assert.equal(determineNextStep({
+          ...event,
+          [field]: { ...event[field], [key]: value },
+        }).nextStep, NEXT_STEPS.VERIFY, `${field}.${key}=${value}`);
+      }
+    }
+  }
+});
