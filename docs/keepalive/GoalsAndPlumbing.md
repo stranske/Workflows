@@ -812,6 +812,10 @@ limitations; an unsuccessful reconciliation cannot erase the original findings.
 
 ### Guarded merge task authority
 
+This contract chooses option (a): the PR owns completion state for its implementation,
+while the source issue owns task definitions. Writing PR completion back to the issue
+could incorrectly complete shared work when multiple PRs refer to that issue.
+
 Keepalive records progress in the PR managed task block and preserves reviewer-added
 actionable checkboxes. The guarded merger counts unchecked PR tasks; the raw source
 issue's checkbox state is advisory because keepalive does not write completion back
