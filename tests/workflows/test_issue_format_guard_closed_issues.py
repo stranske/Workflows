@@ -254,7 +254,10 @@ def _fingerprint(body: str) -> str:
 
 
 def _run_route_step(
-    tmp_path: Path, guard_path: Path, comments: list[tuple[dict, str]]
+    tmp_path: Path,
+    guard_path: Path,
+    comments: list[tuple[dict, str]],
+    fail_pause: bool = False,
 ) -> tuple[str, str]:
     """Return (gh calls, stdout) after the real routing step runs."""
     (tmp_path / ".github/scripts").mkdir(parents=True)
@@ -290,6 +293,12 @@ def _run_route_step(
         "  exit 0\n"
         "fi\n"
         f"printf '%s\\n' \"$*\" >> '{calls}'\n"
+        + (
+            'if [[ "$*" == *"--add-label agents:auto-pilot-pause"* ]]; then exit 1; fi\n'
+            if fail_pause
+            else ""
+        )
+        +
         'if [[ "$1 $2" == "issue comment" ]]; then\n'
         f"  cat >> '{calls}'\n"
         "fi\n",
@@ -312,6 +321,28 @@ def _run_route_step(
     )
     assert completed.returncode == 0, f"route step failed: {completed.stderr}"
     return (calls.read_text(encoding="utf-8") if calls.exists() else ""), completed.stdout
+
+
+@skip_if_no_route_tools
+@pytest.mark.parametrize("guard_path", GUARD_PATHS, ids=lambda p: str(p.relative_to(REPO_ROOT)))
+def test_cap_marker_is_written_only_when_the_pause_lands(tmp_path: Path, guard_path: Path) -> None:
+    # Three real failures hit the cap, but the pause label cannot be applied
+    # (e.g. missing in a consumer repo): the budget-resetting marker must not be
+    # posted, or the next run would silently lift the cap.
+    comments = [
+        (BOT, _dispatch(1)),
+        (BOT, REWRITE_FAILED),
+        (BOT, _dispatch(2)),
+        (BOT, REWRITE_FAILED),
+        (BOT, _dispatch(3)),
+        (BOT, REWRITE_FAILED),
+    ]
+    calls, _ = _run_route_step(tmp_path, guard_path, comments, fail_pause=True)
+
+    assert "--add-label agents:auto-pilot-pause" in calls
+    assert "Automated formatting paused after 3 real rewrite attempt(s)" in calls
+    assert "<!-- format-guard:attempt-cap -->" not in calls
+    assert "workflow run agents-issue-optimizer.yml" not in calls
 
 
 def _foreign_dispatch(n: int) -> str:

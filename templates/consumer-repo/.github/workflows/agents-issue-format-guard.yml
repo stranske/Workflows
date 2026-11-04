@@ -342,15 +342,22 @@ jobs:
               "$window_dispatches" -ge "$max_format_guard_dispatches" ]]; then
             echo "Format guard budget exhausted; pausing issue for the opener lane."
             # Auto-pilot must not run on a body that does not validate.
+            paused=true
             gh issue edit "$NUMBER" --repo "$GITHUB_REPOSITORY" \
               --add-label "agents:auto-pilot-pause" \
-              || echo "::warning::could not apply agents:auto-pilot-pause"
+              || { paused=false; echo "::warning::could not apply agents:auto-pilot-pause"; }
             gh issue edit "$NUMBER" --repo "$GITHUB_REPOSITORY" --remove-label "agents:format" \
               || echo "::warning::could not release agents:format after attempt cap"
+            # The attempt-cap marker resets the budget, so it is written only when
+            # the pause really landed; otherwise the cap stays in force.
+            cap_marker=''
+            if [[ "$paused" == true ]]; then
+              cap_marker='<!-- format-guard:attempt-cap -->'
+            fi
             # Literal backticks are Markdown, not command substitution.
             # shellcheck disable=SC2016
             printf '%s\n' \
-              '<!-- format-guard:attempt-cap -->' \
+              "$cap_marker" \
               "Automated formatting paused after $rewrite_attempts real rewrite attempt(s), $optimizer_crashes optimizer crash(es) and $window_dispatches dispatch(es) for this body (caps: $max_format_guard_attempts, $max_optimizer_crashes, $max_format_guard_dispatches)." \
               '' \
               'No human action is required: the opener lane (opener-core) rewrites and re-validates paused issues automatically. `agents:auto-pilot-pause` only keeps auto-pilot off this body until it validates; removing it forces an earlier retry with a fresh budget.' \
