@@ -47,14 +47,20 @@ def _validate_retirement_backups(registry: dict, slots: dict) -> None:
             raise ValueError("retirement backup is not configured in config/llm_slots.json")
 
 
-@pytest.fixture
-def registry() -> dict:
-    return json.loads((ROOT / "config/model_registry.json").read_text(encoding="utf-8"))
+@pytest.fixture(params=[ROOT, ROOT / "templates/consumer-repo"], ids=["source", "template"])
+def config_root(request) -> Path:
+    """Exercise both delivered registry copies with their own create-only slots."""
+    return request.param
 
 
 @pytest.fixture
-def slots() -> dict:
-    return json.loads((ROOT / "config/llm_slots.json").read_text(encoding="utf-8"))
+def registry(config_root: Path) -> dict:
+    return json.loads((config_root / "config/model_registry.json").read_text(encoding="utf-8"))
+
+
+@pytest.fixture
+def slots(config_root: Path) -> dict:
+    return json.loads((config_root / "config/llm_slots.json").read_text(encoding="utf-8"))
 
 
 @pytest.mark.parametrize("has_backup", [False, True])
