@@ -1,0 +1,58 @@
+{
+  "artifact_id": 13200231583,
+  "zip_sha256": "540949b4d94392b5d2daafc794f9acc6c1011155ac0cc24bf8f1bb6d635f4136",
+  "entry": "runtimes/3.14/coverage.json",
+  "meta": {
+    "format": 3,
+    "version": "7.17.0",
+    "timestamp": "2026-11-03T02:52:37.210072",
+    "branch_coverage": true,
+    "show_contexts": false
+  },
+  "target": {
+    "summary": {
+      "covered_lines": 851,
+      "num_statements": 851,
+      "percent_covered": 99.91915925626516,
+      "percent_covered_display": "99.92",
+      "missing_lines": 0,
+      "excluded_lines": 9,
+      "percent_statements_covered": 100.0,
+      "percent_statements_covered_display": "100.00",
+      "num_branches": 386,
+      "num_partial_branches": 1,
+      "covered_branches": 385,
+      "missing_branches": 1,
+      "percent_branches_covered": 99.74093264248705,
+      "percent_branches_covered_display": "99.74"
+    },
+    "missing_lines": [],
+    "missing_branches": [
+      [
+        124,
+        126
+      ]
+    ]
+  },
+  "total": {
+    "covered_lines": 45674,
+    "num_statements": 49420,
+    "percent_covered": 90.9884140880067,
+    "percent_covered_display": "90.99",
+    "missing_lines": 3746,
+    "excluded_lines": 656,
+    "percent_statements_covered": 92.42007284500203,
+    "percent_statements_covered_display": "92.42",
+    "num_branches": 19802,
+    "num_partial_branches": 1848,
+    "covered_branches": 17310,
+    "missing_branches": 2492,
+    "percent_branches_covered": 87.41541258458741,
+    "percent_branches_covered_display": "87.42"
+  },
+  "tested_revision": "f77be1eee61239aa264c166aed84db8fae8708f3",
+  "run_id": 41567623097,
+  "status": "historical exact-head hosted success; publication head pending",
+  "source_sha256": "59393aa4e1c644bbbeab8309a980782c3bd3f40cc5c2590c37706b2ab0df7925",
+  "test_sha256": "ff4395d0b4803c16dea2caed573f548dda1137d38a2b68bca9050b4b9fce791c"
+}

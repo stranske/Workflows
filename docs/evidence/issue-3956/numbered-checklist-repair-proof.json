@@ -1,0 +1,40 @@
+{
+  "revision": "db91da15d7c44e34dca7d4f3d74e5cae62fff62c",
+  "checked": "2026-11-03",
+  "proofs": [
+    {
+      "test": "parseCheckboxStates captures numbered checklist completions",
+      "command": [
+        "node",
+        "--test",
+        "--test-name-pattern=parseCheckboxStates captures numbered checklist completions",
+        ".github/scripts/__tests__/agents-pr-meta-update-body.test.js"
+      ],
+      "before": "(?:[-*+]|\\d+[.)])",
+      "mutant": "[-*+]",
+      "source_sha256": "3a549a854dbd2ee280c1a9d037d05e09b67e3dc35ed8571837468f442a57a15f",
+      "mutant_sha256": "bbdd2ed5ea671e95362fdc8f59e3164da86ab95aa33d1ee341b9fe84e51421b1",
+      "red_exit": 1,
+      "green_exit": 0,
+      "red_output": "\u2716 parseCheckboxStates captures numbered checklist completions (1.595709ms)\n\u2139 tests 1\n\u2139 suites 0\n\u2139 pass 0\n\u2139 fail 1\n\u2139 cancelled 0\n\u2139 skipped 0\n\u2139 todo 0\n\u2139 duration_ms 69.336584\n\n\u2716 failing tests:\n\ntest at .github/scripts/__tests__/agents-pr-meta-update-body.test.js:399:1\n\u2716 parseCheckboxStates captures numbered checklist completions (1.595709ms)\n  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\n  + actual - expected\n  \n  + undefined\n  - true\n  \n      at TestContext.<anonymous> (/Users/teacher/.codex/orchestrator/worktrees/stranske__Workflows__3956__closer-repair-1/.github/scripts/__tests__/agents-pr-meta-update-body.test.js:410:10)\n      at Test.runInAsyncScope (node:async_hooks:214:14)\n      at Test.run (node:internal/test_runner/test:1062:25)\n      at Test.start (node:internal/test_runner/test:959:17)\n      at startSubtestAfterBootstrap (node:internal/test_runner/harness:332:17) {\n    generatedMessage: true,\n    code: 'ERR_ASSERTION',\n    actual: undefined,\n    expected: true,\n    operator: 'strictEqual'\n  }\n",
+      "green_output": "\u2714 parseCheckboxStates captures numbered checklist completions (1.226042ms)\n\u2139 tests 1\n\u2139 suites 0\n\u2139 pass 1\n\u2139 fail 0\n\u2139 cancelled 0\n\u2139 skipped 0\n\u2139 todo 0\n\u2139 duration_ms 66.134542\n"
+    },
+    {
+      "test": "mergeCheckboxStates restores numbered contract checklist items across refresh",
+      "command": [
+        "node",
+        "--test",
+        "--test-name-pattern=mergeCheckboxStates restores numbered contract checklist items across refresh",
+        ".github/scripts/__tests__/agents-pr-meta-update-body.test.js"
+      ],
+      "before": "([-*+]|\\d+[.)])",
+      "mutant": "([-*+])",
+      "source_sha256": "3a549a854dbd2ee280c1a9d037d05e09b67e3dc35ed8571837468f442a57a15f",
+      "mutant_sha256": "dfed9e4bc625badef5ce3a3919a633ddb3de0edf0ca61bc182c124b6ecb5ad47",
+      "red_exit": 1,
+      "green_exit": 0,
+      "red_output": "\u2716 mergeCheckboxStates restores numbered contract checklist items across refresh (9.036333ms)\n\u2139 tests 1\n\u2139 suites 0\n\u2139 pass 0\n\u2139 fail 1\n\u2139 cancelled 0\n\u2139 skipped 0\n\u2139 todo 0\n\u2139 duration_ms 77.041625\n\n\u2716 failing tests:\n\ntest at .github/scripts/__tests__/agents-pr-meta-update-body.test.js:424:1\n\u2716 mergeCheckboxStates restores numbered contract checklist items across refresh (9.036333ms)\n  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:\n  \n    assert.ok(merged.includes('1. [x] Pick the next target by the repo\\'s own coverage-gap ranking'))\n  \n      at TestContext.<anonymous> (/Users/teacher/.codex/orchestrator/worktrees/stranske__Workflows__3956__closer-repair-1/.github/scripts/__tests__/agents-pr-meta-update-body.test.js:449:10)\n      at Test.runInAsyncScope (node:async_hooks:214:14)\n      at Test.run (node:internal/test_runner/test:1062:25)\n      at Test.start (node:internal/test_runner/test:959:17)\n      at startSubtestAfterBootstrap (node:internal/test_runner/harness:332:17) {\n    generatedMessage: true,\n    code: 'ERR_ASSERTION',\n    actual: false,\n    expected: true,\n    operator: '=='\n  }\n",
+      "green_output": "\u2714 mergeCheckboxStates restores numbered contract checklist items across refresh (1.438583ms)\n\u2139 tests 1\n\u2139 suites 0\n\u2139 pass 1\n\u2139 fail 0\n\u2139 cancelled 0\n\u2139 skipped 0\n\u2139 todo 0\n\u2139 duration_ms 69.889458\n"
+    }
+  ]
+}

@@ -1,4 +1,5 @@
 {
+  "status": "SUPERSEDED_by_authoritative-reconciliation.md",
   "target": "scripts/langchain/followup_issue_generator.py",
   "ranking": {
     "source": "issue #3956 Orchestrator ranking",

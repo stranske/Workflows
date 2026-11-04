@@ -1,4 +1,5 @@
 {
+  "status": "SUPERSEDED_by_authoritative-reconciliation.md_and_followup-guard-nonempty-label-repair-proof.json",
   "target": "scripts/langchain/followup_issue_generator.py::_blocked_reason_with_source",
   "test": "tests/test_followup_issue_generator.py::test_blocked_reason_with_source_omits_blank_annotation_for_empty_label",
   "mutation": "always append (source: {label}) even when label is empty",

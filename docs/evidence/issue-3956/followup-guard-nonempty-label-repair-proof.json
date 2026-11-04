@@ -1,0 +1,15 @@
+{
+  "status": "authoritative_repair_proof",
+  "supersedes": ["followup-blocked-reason-helper-proof.json"],
+  "target": "scripts/langchain/followup_issue_generator.py::_guard_payloads",
+  "test": "tests/test_followup_issue_generator.py::test_guard_payloads_annotates_reason_with_nonempty_label",
+  "restored_source_sha256": "59393aa4e1c644bbbeab8309a980782c3bd3f40cc5c2590c37706b2ab0df7925",
+  "mutation": {
+    "before": "            if label:\n                reason = f\"{reason} (source: {label})\"",
+    "mutant": "            if False:\n                reason = f\"{reason} (source: {label})\""
+  },
+  "red_exit": 1,
+  "green_exit": 0,
+  "red_assertion": "reason 'injection detected' != 'injection detected (source: verification_comment)'",
+  "command": "/opt/anaconda3/bin/python3 -m pytest tests/test_followup_issue_generator.py::test_guard_payloads_annotates_reason_with_nonempty_label -q -o addopts="
+}
