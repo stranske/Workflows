@@ -16,7 +16,7 @@ the prompt's 33-file reconciliation warning does not match the PR metadata.
   `node --test .github/scripts/__tests__/scoped-canary-refresh.test.js` and
   `node --test .github/scripts/__tests__/maint71_merge_sync_prs.test.js`.
   Additional runs with `--test-isolation=none` verify the individual cases:
-  scoped refresh 70 passed; Maint 71 173 passed; merge contract 103 passed.
+  scoped refresh 75 passed; Maint 71 173 passed; merge contract 103 passed.
 - [x] Deliberate break and restoration: temporarily reinstated the bare
   full-scope `dispatchCanaryRefresh` call before the campaign-bound path.
   The first required named test failed with current-main `ffff…` instead of
@@ -32,6 +32,13 @@ adapters with an identity-blocked candidate, rather than a no-op dispatcher.
 It verifies the campaign source/plan sent to Maint 68 and the report path and
 serialized `refresh_dispatched`, `held_plans`, and `drainable` values after
 dispatch. Native API observations and dispatches are inert test adapters.
+
+Five additional refusal cases exercise the full-scope identity-blocked path
+with an eligible report and a closed, draft, changed-head, untrusted-author, or
+unsigned native candidate. Each verifies the named refusal, zero dispatches,
+and unchanged pre-existing refresh accounting. The deliberate bare-dispatch
+mutation was repeated and failed the required named test; the implementation
+was restored byte-for-byte before the passing gate runs.
 
 ## Protected workflow follow-up
 
@@ -56,3 +63,9 @@ and blocker-comment writes with:
 Those remote updates were not applied. The checked items above are verified
 local evidence to reconcile into the PR body; live acceptance remains open.
 Capacity mode: `local-only` for mutations; connector reads remain available.
+
+The current round also could not stage or commit its test changes: Git refused
+to create `.git/index.lock` because `.git` is read-only. The five new refusal
+tests and this evidence update remain in the working tree for the authorized
+automation commit step. A concurrent pair of Maint 71 test invocations collided
+on generated evidence; the standalone rerun passed all 173 tests.

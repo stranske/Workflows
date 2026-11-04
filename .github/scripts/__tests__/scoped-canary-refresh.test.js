@@ -581,6 +581,28 @@ test('delivery_contract_blocked with refresh-candidate-from-exact-plan is an eli
   assert.ok(f.report.canary_refresh.held_plans.includes(id));
   assert.ok(f.report.canary_refresh.drainable >= 1);
 });
+for (const [fault, change, error] of [
+  ['closed candidate', f => { f.pr.state = 'closed'; }, 'canary_refresh_report_native_subject_changed'],
+  ['draft candidate', f => { f.pr.draft = true; }, 'canary_refresh_report_native_subject_changed'],
+  ['changed candidate head', f => { f.pr.head.sha = 'f'.repeat(40); }, 'canary_refresh_report_native_subject_changed'],
+  ['untrusted candidate author', f => { f.pr.user.login = 'untrusted'; }, 'canary_refresh_report_native_subject_changed'],
+  ['unsigned candidate head', f => { f.commitView.verification.verified = false; }, 'canary_refresh_native_head_unverified'],
+]) {
+  test(`exact-plan identity recovery refuses ${fault} before dispatch or accounting`, async t => {
+    const f = reportFixture(t, { scope: 'full' });
+    Object.assign(f.row, { branch: 'sync/workflows-candidate', status: 'delivery_contract_blocked',
+      reason: 'candidate_immutable_identity_mismatch', next_command: 'refresh-candidate-from-exact-plan',
+      refresh_plan: { plan_id: id, plan_scope: 'full', scope_base_sha: '', source_commit: 'e'.repeat(40) } });
+    f.report.inputs.sync_hash = 'candidate';
+    const prior = { refresh_dispatched: 2, drainable: 4, held_plans: [id] };
+    f.report.canary_refresh = structuredClone(prior);
+    change(f);
+    assert.equal(require('../sync_pr_merge_contract').candidateRefreshDecision({ report: f.report }).eligible, true);
+    await assert.rejects(f.call(), { message: error });
+    assert.equal(f.writes.length, 0);
+    assert.deepEqual(f.report.canary_refresh, prior);
+  });
+}
 for (const outcome of ['dispatched', 'writer-active', 'dispatch-failed']) {
   test(`three exact-plan identity blocks preserve campaign accounting when ${outcome}`, async t => {
     const fleet = ['owner/a', 'owner/b', 'owner/c'];
