@@ -32,21 +32,36 @@ test('completed PR tasks drain despite unchanged source issue boxes (#4389)', ()
   assert.equal(context.uncheckedTaskFailure(complete, snapshot), '');
 });
 
-test('completion regression rejects counting raw issue boxes and passes after restoration', () => {
-  const { c } = finalGuardHarness();
+test('completion regression rejects counting raw issue boxes and passes after restoration', async () => {
+  const { c, actions, comments } = mergeScanHarness();
   const countUnchecked = c.countUnchecked;
-  // Break only this isolated guard's counter, restoring the stale source population.
+  // Reintroduce the original latch in an isolated scan, without editing the workflow.
   c.countUnchecked = (text) => countUnchecked(text) + countUnchecked(snapshot.body);
-  const assertCompletedPrCanMerge = () => {
-    assert.equal(c.uncheckedTaskFailure(complete, snapshot), '');
+  const assertCompletedPrCanMerge = async () => {
+    await c.runScan();
+    assert.deepEqual(actions.filter(([kind]) => kind === 'output'), [
+      ['output', 'merged', '[42]'],
+    ]);
   };
-  assert.throws(assertCompletedPrCanMerge, {
-    code: 'ERR_ASSERTION',
-    actual: 'Refusing auto-merge: linked issue/PR has unchecked tasks.',
-    expected: '',
-  });
+  await assert.rejects(assertCompletedPrCanMerge, { code: 'ERR_ASSERTION' });
+  const reason = 'Refusing auto-merge: linked issue/PR has unchecked tasks.';
+  assert.deepEqual(actions.filter(([kind]) => kind === 'warning'), [
+    ['warning', `PR #42: ${reason}`],
+  ]);
+  assert.equal(comments[0].body,
+    `${refusalMarker}\nHead: current-head\nTask precheck refused: ${reason}`);
+  assert.equal(actions.some(([kind]) => kind === 'merge'), false);
+  assert.equal(actions.some(([kind, message]) => kind === 'info'
+    && message.includes('Runtime AC merge guard passed')), false);
+
   c.countUnchecked = countUnchecked;
-  assertCompletedPrCanMerge();
+  actions.length = 0;
+  await assertCompletedPrCanMerge();
+  assert.equal(actions.some(([kind, message]) => kind === 'info'
+    && message === 'Runtime AC merge guard passed for PR #42.'), true);
+  const merged = actions.find(([kind]) => kind === 'merge')[1];
+  assert.equal(merged.sha, 'current-head');
+  assert.equal(actions.some(([kind]) => ['warning', 'create', 'update'].includes(kind)), false);
 });
 
 test('fetched source issue stays advisory when the managed PR block is complete', async () => {
