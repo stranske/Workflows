@@ -561,6 +561,65 @@ test('delivery_contract_blocked with refresh-candidate-from-exact-plan is an eli
   assert.ok(f.report.canary_refresh.held_plans.includes(id));
   assert.ok(f.report.canary_refresh.drainable >= 1);
 });
+for (const outcome of ['dispatched', 'writer-active', 'dispatch-failed']) {
+  test(`three exact-plan identity blocks preserve campaign accounting when ${outcome}`, async t => {
+    const fleet = ['owner/a', 'owner/b', 'owner/c'];
+    const campaignSource = 'e'.repeat(40);
+    const f = reportFixture(t, { scope: 'full', expectedCanaries: fleet });
+    const nativePrs = {};
+    f.report.inputs.sync_hash = 'campaign';
+    f.report.results = fleet.map(repository => {
+      const repo = repository.split('/')[1], pr = structuredClone(f.pr);
+      pr.head.repo.full_name = pr.base.repo.full_name = repository;
+      pr.body = pr.body.replaceAll('owner/a', repository);
+      nativePrs[repo] = pr;
+      return { owner: 'owner', repo, pr: pr.number, head_sha: head,
+        branch: 'sync/workflows-candidate', status: 'delivery_contract_blocked',
+        reason: 'candidate_immutable_identity_mismatch',
+        next_command: 'refresh-candidate-from-exact-plan',
+        refresh_plan: { plan_id: id, plan_scope: 'full', scope_base_sha: '', source_commit: campaignSource } };
+    });
+    const prior = { refresh_dispatched: 2, drainable: 4, held_plans: [id], red: 3 };
+    f.report.canary_refresh = structuredClone(prior);
+    f.github.rest.pulls.get = async args => ({ data: nativePrs[args.repo] });
+    f.github.rest.repos.getCommit = async args => ({ data: args.repo === 'Workflows'
+      ? { sha: args.ref === campaignSource ? campaignSource : 'f'.repeat(40) }
+      : { sha: head, commit: f.commitView } });
+    if (outcome === 'writer-active') {
+      f.github.rest.actions.listWorkflowRuns = async args => ({ data: {
+        workflow_runs: args.status === 'in_progress'
+          ? [producer('full', { status: 'in_progress', conclusion: null })] : [],
+      } });
+    }
+    if (outcome === 'dispatch-failed') {
+      f.github.rest.actions.createWorkflowDispatch = async () => {
+        throw new Error('dispatch unavailable');
+      };
+    }
+    const decision = require('../sync_pr_merge_contract').candidateRefreshDecision({ report: f.report });
+    assert.equal(decision.eligible, true);
+    assert.deepEqual(decision.repositories, fleet);
+    if (outcome === 'dispatch-failed') {
+      await assert.rejects(f.call(), { message: 'dispatch unavailable' });
+    } else {
+      const result = await f.call();
+      assert.equal(result.dispatched, outcome === 'dispatched');
+      if (outcome === 'writer-active') assert.equal(result.state, 'writer-active');
+    }
+    if (outcome === 'dispatched') {
+      assert.equal(f.writes.length, 1);
+      assert.deepEqual(f.writes[0].inputs, { phase: 'canary', delivery_scope: 'full',
+        scope_head_sha: campaignSource, expected_plan_id: id, repos: fleet.join(','),
+        dry_run: 'false', force: 'false', cleanup_branches: 'false',
+        refresh_key: f.writes[0].inputs.refresh_key });
+      assert.match(f.writes[0].inputs.refresh_key, /^[a-f0-9]{64}$/);
+      assert.deepEqual(f.report.canary_refresh, { ...prior, refresh_dispatched: 3, drainable: 7 });
+    } else {
+      assert.equal(f.writes.length, 0);
+      assert.deepEqual(f.report.canary_refresh, prior);
+    }
+  });
+}
 for (const fault of ['missing tuple', 'different plan', 'different scope', 'invalid source']) {
   test(`exact-plan recovery refuses ${fault} without a dispatch`, async t => {
     const f = reportFixture(t, { scope: 'full' });
