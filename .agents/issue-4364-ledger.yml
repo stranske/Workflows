@@ -8,108 +8,83 @@ tasks:
       callers, or add a `Runnable`-compatible adapter that converts prompt values
       to strings for `SubscriptionClient.invoke` and preserves requested provider/model
       overrides.
-    status: doing
+    status: done
     started_at: '2026-11-04T07:05:13Z'
-    finished_at: null
-    commit: ''
-    notes: []
+    finished_at: '2026-11-04T10:55:00Z'
+    commit: 10f1c747d3db6db776ac4b854c8b2986f12cd3d6
+    notes:
+      - Implemented SubscriptionClientAdapter and build_auxiliary_client in scripts/langchain/_llm_client.py.
   - id: task-02
     title: 'Add a Runnable-compatible adapter class that wraps SubscriptionClient
       so it supports the pipe composition `template | client`. (verify: confirm completion
       in repo)'
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
-    notes: []
+    status: done
+    started_at: '2026-11-04T07:36:49Z'
+    finished_at: '2026-11-04T10:55:00Z'
+    commit: 10f1c747d3db6db776ac4b854c8b2986f12cd3d6
+    notes:
+      - SubscriptionClientAdapter.invoke/__call__ in scripts/langchain/_llm_client.py.
   - id: task-03
     title: 'Convert LangChain prompt values to plain strings in the adapter before
       calling SubscriptionClient.invoke. (verify: confirm completion in repo)'
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
-    notes: []
+    status: done
+    started_at: '2026-11-04T07:36:49Z'
+    finished_at: '2026-11-04T10:55:00Z'
+    commit: 10f1c747d3db6db776ac4b854c8b2986f12cd3d6
+    notes:
+      - Adapter uses PromptValue.to_string() before SubscriptionClient.invoke.
   - id: task-04
     title: 'Update the shared client factory to pass requested provider (verify: confirm
       completion in repo)'
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
-    notes: []
+    status: done
+    started_at: '2026-11-04T07:36:49Z'
+    finished_at: '2026-11-04T10:55:00Z'
+    commit: 10f1c747d3db6db776ac4b854c8b2986f12cd3d6
+    notes:
+      - build_client forwards provider/model; ordinary chat no longer uses subscription routing.
   - id: task-05
     title: 'model overrides through to the subscription adapter or fall back to the
       standard client. (verify: confirm completion in repo)'
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
-    notes: []
+    status: done
+    started_at: '2026-11-04T07:36:49Z'
+    finished_at: '2026-11-04T10:55:00Z'
+    commit: 10f1c747d3db6db776ac4b854c8b2986f12cd3d6
+    notes:
+      - test_subscription_mode_preserves_override_routing in tests/scripts/test_llm_client_shared.py.
   - id: task-06
     title: 'Update the shared factory so subscription routing applies only to auxiliary-analysis
       callers (verify: confirm completion in repo)'
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
-    notes: []
-  - id: task-07
-    title: _(4 further sub-tasks elided; split this issue)_
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
-    notes: []
+    status: done
+    started_at: '2026-11-04T07:36:49Z'
+    finished_at: '2026-11-04T10:55:00Z'
+    commit: 10f1c747d3db6db776ac4b854c8b2986f12cd3d6
+    notes:
+      - progress_reviewer uses build_auxiliary_client; build_client docstring updated.
   - id: task-08
     title: Run the `template | client` composition test for the affected consumers
       with `WORKFLOWS_ANALYSIS_CLI` enabled and subscription authentication available;
       composition completes without `TypeError`.
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
-    notes: []
+    status: done
+    started_at: '2026-11-04T09:06:08Z'
+    finished_at: '2026-11-04T10:55:00Z'
+    commit: 9e0a1119399efbca20280e02ce5719701556a92e
+    notes:
+      - pytest test_subscription_pipe_* (no skips); local WORKFLOWS_ANALYSIS_CLI=codex smoke returned content_len=2 preview ok via SubscriptionClientAdapter.
   - id: task-09
     title: Verify that every subscription invocation through `SubscriptionClient.invoke`
       receives a string.
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
-    notes: []
+    status: done
+    started_at: '2026-11-04T09:06:08Z'
+    finished_at: '2026-11-04T10:55:00Z'
+    commit: 9e0a1119399efbca20280e02ce5719701556a92e
+    notes:
+      - test_subscription_adapter_rejects_nontext_before_transport and pipe tests assert str inputs to subprocess.
   - id: task-10
     title: Verify that the provider and model used for each invocation match the requested
       provider/model overrides when supplied.
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
-    notes: []
-  - id: task-11
-    title: Fix the shared factory to restrict subscription routing to auxiliary-analysis
-      callers, or add a `Runnable`-compatible adapter... (The 'either/or' wording
-      leaves a subjective design decision, which the agent should not make. The task
-      also never names the factory file or module, so the agent has to locate it.
-      | The issue author should choose one approach (the adapter is the safer choice
-      because it fixes every caller and keeps the override contract) and name the
-      factory file path. Otherwise the agent should be told to implement the adapter
-      and keep caller scoping as a fallback.)
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
-    notes: []
-  - id: task-12
-    title: 'Implementation Notes: Maint 71 requires either a merged source fix ancestral
-      to the delivery''s source commit or a `workflows-sync-review-resolution/v1`
-      proof (Merging, regenerating through Maint 68, and producing resolution proofs
-      are repository and process actions outside the agent''s code-change scope. These
-      are not listed as tasks, so they are not blockers, but the agent should not
-      attempt them. | Leave Maint 68 regeneration and the Maint 71 proof to human
-      owners or automation. The agent''s deliverable is the source fix PR in Workflows.)'
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
-    notes: []
+    status: done
+    started_at: '2026-11-04T09:06:08Z'
+    finished_at: '2026-11-04T10:55:00Z'
+    commit: 9e0a1119399efbca20280e02ce5719701556a92e
+    notes:
+      - test_subscription_mode_preserves_override_routing parametrized matrix; authenticated smoke provider=codex model=gpt-6-luna.
