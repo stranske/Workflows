@@ -180,3 +180,41 @@ label and blocker comment because approval is required and approval policy is
 also fails because `.git/index.lock` is read-only. The test and evidence changes
 are preserved as a commit in `/tmp/pr4441-task-acceptance-checkout` and as
 `/tmp/pr4441-task-acceptance.patch`; the working-file edits remain here.
+
+## Node directory entry point
+
+Reviewed commits through `0d3efbd6`. The first incomplete task still requires the
+protected final-boundary workflow edit described above. This run's attempted
+`needs-human` label and blocker comment were again rejected because GitHub writes
+require approval and the approval policy is `never`.
+
+Added `.github/scripts/__tests__/index.js` so Node 24 can resolve the exact
+directory command. It discovers the existing top-level `*.test.js` files and runs
+them with Node's normal process isolation, retaining inherited output and failure
+status. It clears the outer worker's `NODE_TEST_CONTEXT` for the nested runner and
+rejects an empty test directory. Two regression cases verify actual fixture
+execution, exclusion of helper files, failure propagation, and empty-suite refusal.
+
+Validation:
+
+- `node --test --test-isolation=none .github/scripts/__tests__/test-directory-entrypoint.test.js`:
+  2 passed. The deliberate failing fixture is expected; its nonzero result is
+  asserted by the passing parent test.
+- `node --test --test-isolation=none .github/scripts/__tests__/guarded-merge-tasks.test.js`:
+  45 passed.
+- A temporary test copy restored raw-issue counting in the in-memory workflow
+  source. The named completed-PR regression failed with the unchecked-task refusal;
+  the original regression passed again. No workflow file was changed.
+- `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 pytest tests/workflows/test_workflow_agents_consolidation.py -q -m 'not slow'`:
+  79 passed in 1.94 seconds.
+- `timeout 60s node --test .github/scripts/__tests__/` now resolves the directory,
+  but timed out with exit 124. A direct entry-point run also timed out after 90
+  seconds, reporting failures in unchanged `agents-verifier-context.test.js` and
+  `generated-delivery-seal-action.test.js` before cancellation. Full-suite acceptance
+  remains unchecked; no existing tests were skipped or disabled.
+- JavaScript syntax checks and `git diff --check`: passed.
+
+The main checkout's Git metadata is still read-only. The code, tests and this note
+are committed in `/tmp/pr4441-directory-entrypoint-checkout`, with a portable patch
+at `/tmp/pr4441-directory-entrypoint.patch`; the working-file edits remain here.
+The refusal-visibility task and deployed-consumer acceptance remain incomplete.
