@@ -1,0 +1,183 @@
+version: 1
+issue: 4427
+base: main
+branch: codex/issue-4427
+tasks:
+  - id: task-01
+    title: Fix the source configuration in `pyproject.toml` so the WASM workflow's
+      pytest pin matches the development dependency.
+    status: doing
+    started_at: '2026-11-04T13:36:05Z'
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-02
+    title: 'Investigate whether the pytest==9.1.1 pin originates from pyproject.toml,
+      a sync template, or a protected workflow file, (verify: confirm completion in
+      repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-03
+    title: 'record the finding in the PR description. (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-04
+    title: 'Update the pytest version pin in the identified non-workflow source file
+      so it matches the pytest==9.2.0 development dependency. (verify: dependencies
+      updated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-05
+    title: Add or extend a regression test beside `pyproject.toml` that fails with
+      the reported mismatch and passes after the fix.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-06
+    title: Test regeneration through `.github/workflows/maint-68-sync-consumer-repos.yml`
+      and verify the resulting sync candidate resolves the reported mismatch.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-07
+    title: 'Add a local test that renders or reads the pytest pin in the generated
+      WASM workflow input (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-08
+    title: 'asserts it equals the development dependency pin in pyproject.toml. (verify:
+      dependencies updated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-09
+    title: 'Document the manual steps a maintainer should follow to trigger maint-68-sync-consumer-repos.yml
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-10
+    title: 'confirm the sync candidate no longer has the pytest mismatch. (verify:
+      confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-11
+    title: 'Source-fix gates pass: `node --test .github/scripts/__tests__/*.test.js`
+      for JavaScript and `python3 -m pytest -q tests/` for Python; the handoff requires
+      both to pass.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-12
+    title: Reintroducing the reported behavior makes the regression test fail; reverting
+      that deliberate break makes it pass.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-13
+    title: The next `.github/workflows/maint-71-merge-sync-prs.yml` run reports stranske/Trend_Model_Project#6186
+      without this review thread, and sync-core stops bumping this issue.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-14
+    title: 'Fix the finding at its source in `stranske/Workflows`: `pyproject.toml`
+      (the consumer PR stranske/Trend_Model_Project#6186 is generated from it by `.github/workflows/maint-68-sync-consumer-repos.yml`
+      and must not be edited by hand).'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-15
+    title: Add or extend a test beside `pyproject.toml` that fails on the behaviour
+      the reviewer describes and passes after the fix.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-16
+    title: Let `.github/workflows/maint-68-sync-consumer-repos.yml` regenerate the
+      sync candidate and confirm the review thread on stranske/Trend_Model_Project#6186
+      is resolved.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-17
+    title: Test regeneration through `.github/workflows/maint-68-sync-consumer-repos.yml`
+      and verify the resulting sync candidate resolves the reported mismatch. (Running
+      a GitHub Actions sync workflow and inspecting the resulting consumer PR is outside
+      what the agent can do. The agent also cannot retry CI pipelines. | Have a maintainer
+      trigger the workflow after merge. The agent should limit itself to a local test
+      that simulates the generated output.)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-18
+    title: 'Acceptance: The next `.github/workflows/maint-71-merge-sync-prs.yml` run
+      reports stranske/Trend_Model_Project#6186 without this review thread, and sync-core
+      stops bumping this issue. (This is a post-merge live outcome in another repository
+      that depends on scheduled workflows and the reviewer''s thread state. The agent
+      cannot verify or influence it. | Move it to a separate maintainer verification
+      checklist and keep it out of the agent''s acceptance criteria.)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-19
+    title: Fix the pytest pin if the source turns out to be `.github/workflows/pages-wasm-demo.yml`
+      (Workflow files under .github/workflows/ are protected. If the pin lives only
+      in a workflow file, the agent cannot change it. | If the source is a protected
+      workflow, escalate to a human. Otherwise fix the pin in a non-workflow template
+      or config.)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-20
+    title: "Deliberate-break \u2192 revert acceptance step (This is a verification\
+      \ procedure rather than a deliverable, and the agent can only partly perform\
+      \ it. | Have the agent demonstrate it by running the new test against a temporarily\
+      \ mismatched pin and reporting the failure output in the PR description.)"
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
