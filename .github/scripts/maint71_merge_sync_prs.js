@@ -613,6 +613,13 @@ async function dispatchCandidateRefreshFromReport({ report, withRetry, context, 
       refresh_dispatched: (prior.refresh_dispatched || 0) + 1,
       drainable: (prior.drainable || 0) + rows.length,
       held_plans: [...new Set([...(prior.held_plans || []), request.plan_id])] };
+    // The workflow may have uploaded the report before this recovery step.
+    // Keep dispatch evidence visible in this step's logs and summary as well.
+    const counts = report.canary_refresh;
+    const line = `candidate refresh receipt: source_commit=${request.source_commit} plan_id=${request.plan_id} `
+      + `refresh_dispatched=${counts.refresh_dispatched} held_plans=${counts.held_plans.join(',')} drainable=${counts.drainable}`;
+    core.notice(line);
+    await core.summary.addRaw(`${line}\n`).write();
   }
   return refresh;
 }

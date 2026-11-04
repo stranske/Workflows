@@ -3550,8 +3550,13 @@ its expected plan ID to Maint 68. An immutable-identity block may request
 tuple and a freshly authenticated candidate for the same compiled plan. Mixed
 plan/source requests refuse before dispatch. The refresh step persists
 `canary_refresh.refresh_dispatched`, `held_plans`, and `drainable` in the merge
-report after dispatch; this receipt is not production completion. Confirm the
-next Maint 71 run reaches the review/seal path without an identity mismatch.
+report after dispatch. It also emits a `candidate refresh receipt:` line in
+the refresh step's logs and summary, binding those counts to `source_commit`
+and `plan_id`. This line remains observable when the workflow uploaded its
+report artifact before refresh; the earlier artifact lacks the new accounting.
+A held or failed dispatch emits no success receipt. This receipt is not
+production completion. Confirm the next Maint 71 run reaches the review/seal
+path without an identity mismatch.
 
 
 Maint 71 uses `STALE_CANARY_HOURS = 6` against the producer's

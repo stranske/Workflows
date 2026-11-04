@@ -3,7 +3,7 @@
 PR: https://github.com/stranske/Workflows/pull/4439
 
 Reviewed on 2026-11-04: implementation commit `5b2b85a6` and regression-test
-commits `62d2475f`, `73c4cd3a`, `96cc711d`, and `a265493d`. Current PR metadata
+commits `62d2475f`, `73c4cd3a`, `96cc711d`, `a265493d`, and `f37a92b3`. Current PR metadata
 reports six changed files; the prompt's 34-file reconciliation warning does
 not match that inventory.
 
@@ -63,6 +63,15 @@ updated report at line 729. No subsequent step uploads that report again.
 Consequently the retained merge-report artifact cannot expose accounting added
 by this refresh step, even though the local report is updated correctly.
 
+The script now publishes a `candidate refresh receipt:` notice and step-summary
+line after a successful dispatch, with campaign source, plan ID, and the updated
+`refresh_dispatched`, `held_plans`, and `drainable` counts. This provides live
+dispatch evidence despite the earlier artifact upload. It does not establish
+that refreshed canaries pass identity checks; post-merge acceptance stays open.
+The three-canary regressions verify the exact receipt in both output channels
+and its absence when a writer is active or dispatch fails. The successful-path
+test failed before adding the receipt and passed afterward.
+
 An approved `agent-high-privilege` run must move the report upload after the
 refresh step while preserving the upload-success prerequisite for promotion,
 or add a separate final report artifact after refresh. Preserve existing
@@ -85,6 +94,22 @@ rejected by the same approval restriction. PR #4439 remains open, unmerged,
 and ready for review (`draft=false`). Post-merge observation remains blocked
 on merge and the protected workflow artifact follow-up above.
 
-Staging the two changed files failed with `Unable to create
-'.git/index.lock': Read-only file system`. The two new regression cases and
-this reconciliation update remain uncommitted for the automation commit step.
+The current round again could not apply the PR-body reconciliation, label, or
+comment: each connector write returned the approval restriction above. The
+intended PR body checks only the named-test, runnable-gate, and deliberate-break
+criteria; both live criteria remain unchecked. PR #4439 was again confirmed
+open, unmerged, and ready for review (`draft=false`).
+
+Current validation: the required gate commands pass; individual-case runs pass
+77 scoped-refresh, 173 Maint 71, and 103 merge-contract tests. The deliberate
+bare-dispatch mutation failed the required named test with newer main `ffff…`
+instead of campaign `aaaa…`, followed by byte-for-byte restoration and passing
+gates. Transcripts: `/tmp/4439-receipt-red.tap`,
+`/tmp/4439-deliberate-break.tap`, `/tmp/4439-scoped-green.tap`,
+`/tmp/4439-maint-green.tap`, and `/tmp/4439-contract-green.tap`.
+
+The requested commit is blocked by the filesystem: `git add` for the four
+changed source, test, contract-doc, and evidence files failed with
+`Unable to create '.git/index.lock': Read-only file system`. These changes
+remain in the working tree for the automation commit step. No protected
+workflow file was edited.

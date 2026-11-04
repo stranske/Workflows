@@ -333,8 +333,8 @@ function reportFixture(t, { scope = 'source-delta', expectedCanaries = candidate
     scope_base_sha: scope === 'source-delta' ? base : '', source_commit: source,
     status: 'stable_base_refresh_required', next_command: 'dispatch-maint-68-phase-canary-no-filter' };
   const report = { inputs: { cleanup_branches: false }, results: [row] };
-  const core = recorder().core;
-  return { ...api, pr, row, report, commitView, call: () => require('../maint71_merge_sync_prs').dispatchCandidateRefreshFromReport({
+  const { core, summaries } = recorder();
+  return { ...api, pr, row, report, commitView, core, summaries, call: () => require('../maint71_merge_sync_prs').dispatchCandidateRefreshFromReport({
     withRetry: api.withRetry, context, core, report, expectedCanaries, trustedActors: ['stranske'] }) };
 }
 test('actual report caller freshly binds the native scoped head and retains original scope through recovery', async t => {
@@ -645,6 +645,8 @@ for (const outcome of ['dispatched', 'writer-active', 'dispatch-failed']) {
     const fleet = ['owner/a', 'owner/b', 'owner/c'];
     const campaignSource = 'e'.repeat(40);
     const f = reportFixture(t, { scope: 'full', expectedCanaries: fleet });
+    const notices = [];
+    t.mock.method(f.core, 'notice', line => notices.push(line));
     const nativePrs = {};
     f.report.inputs.sync_hash = 'campaign';
     f.report.results = fleet.map(repository => {
@@ -693,9 +695,15 @@ for (const outcome of ['dispatched', 'writer-active', 'dispatch-failed']) {
         refresh_key: f.writes[0].inputs.refresh_key });
       assert.match(f.writes[0].inputs.refresh_key, /^[a-f0-9]{64}$/);
       assert.deepEqual(f.report.canary_refresh, { ...prior, refresh_dispatched: 3, drainable: 7 });
+      const receipt = `candidate refresh receipt: source_commit=${campaignSource} plan_id=${id} `
+        + `refresh_dispatched=3 held_plans=${id} drainable=7`;
+      assert.equal(notices.filter(line => line === receipt).length, 1);
+      assert.equal(f.summaries.filter(line => line === `${receipt}\n`).length, 1);
     } else {
       assert.equal(f.writes.length, 0);
       assert.deepEqual(f.report.canary_refresh, prior);
+      assert.ok(!notices.some(line => line.startsWith('candidate refresh receipt:')));
+      assert.ok(!f.summaries.some(line => line.startsWith('candidate refresh receipt:')));
     }
   });
 }
