@@ -149,3 +149,34 @@ The protected follow-up above is still required, as is deployed consumer evidenc
 The main checkout's Git metadata remains read-only. This run retains its commit in
 `/tmp/pr4441-source-refusal-checkout` and a portable commit patch in
 `/tmp/pr4441-source-refusal.patch`; its working-file edits remain in the main checkout.
+
+## Task-authority acceptance follow-up
+
+Reviewed commits through `39b008d6`. The final merge-boundary publication gap still
+requires an approved workflow edit; no additional checkbox can be completed.
+The deliberate-break regression now restores raw-issue counting in
+`uncheckedTaskFailure` using its supplied source snapshot, rather than changing
+checkbox parsing globally. Two additional cases require source body and version
+stability at the merge boundary even when PR tasks are complete.
+
+Validation:
+
+- `node --test --test-isolation=none .github/scripts/__tests__/guarded-merge-tasks.test.js`:
+  45 passed, zero skipped or TODO cases.
+- A temporary read interceptor restored raw-issue counting in the loaded workflow
+  source: the named completed-PR regression failed with the unchecked-task refusal.
+  Without the interceptor, the same named test passed. No workflow file was edited.
+- `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 pytest tests/workflows/test_workflow_agents_consolidation.py -q -m 'not slow'`:
+  79 passed. Automatic plugin loading still fails on the installed LangSmith
+  Python 3.14 deprecation warning.
+- The exact Node directory command fails with `MODULE_NOT_FOUND`. The full-suite
+  glob with process isolation disabled reported failures in existing verifier
+  subprocess/archive tests and was interrupted (exit 130); it did not pass.
+- `node --check` and `git diff --check`: passed.
+
+GitHub rejected the verified workflow-suite checkbox correction, `needs-human`
+label and blocker comment because approval is required and approval policy is
+`never`. PR #4441 remains open and ready for review. Staging in the main checkout
+also fails because `.git/index.lock` is read-only. The test and evidence changes
+are preserved as a commit in `/tmp/pr4441-task-acceptance-checkout` and as
+`/tmp/pr4441-task-acceptance.patch`; the working-file edits remain here.

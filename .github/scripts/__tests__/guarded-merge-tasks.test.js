@@ -34,9 +34,16 @@ test('completed PR tasks drain despite unchanged source issue boxes (#4389)', ()
 
 test('completion regression rejects counting raw issue boxes and passes after restoration', async () => {
   const { c, actions, comments } = mergeScanHarness();
-  const countUnchecked = c.countUnchecked;
-  // Reintroduce the original latch in an isolated scan, without editing the workflow.
-  c.countUnchecked = (text) => countUnchecked(text) + countUnchecked(snapshot.body);
+  const uncheckedTaskFailure = c.uncheckedTaskFailure;
+  const reason = 'Refusing auto-merge: linked issue/PR has unchecked tasks.';
+  // Restore the latch at its original decision point using the fetched source,
+  // without changing checkbox parsing or editing the protected workflow.
+  c.uncheckedTaskFailure = (pr, linkedIssueSnapshot) =>
+    uncheckedTaskFailure(pr, linkedIssueSnapshot)
+    || (c.countUnchecked(linkedIssueSnapshot?.body) > 0 ? reason : '');
+  assert.equal(c.uncheckedTaskFailure(complete, {
+    ...snapshot, body: snapshot.body.replaceAll('[ ]', '[x]'),
+  }), '', 'the deliberate break must depend on the supplied source snapshot');
   const assertCompletedPrCanMerge = async () => {
     await c.runScan();
     assert.deepEqual(actions.filter(([kind]) => kind === 'output'), [
@@ -44,7 +51,6 @@ test('completion regression rejects counting raw issue boxes and passes after re
     ]);
   };
   await assert.rejects(assertCompletedPrCanMerge, { code: 'ERR_ASSERTION' });
-  const reason = 'Refusing auto-merge: linked issue/PR has unchecked tasks.';
   assert.deepEqual(actions.filter(([kind]) => kind === 'warning'), [
     ['warning', `PR #42: ${reason}`],
   ]);
@@ -54,7 +60,7 @@ test('completion regression rejects counting raw issue boxes and passes after re
   assert.equal(actions.some(([kind, message]) => kind === 'info'
     && message.includes('Runtime AC merge guard passed')), false);
 
-  c.countUnchecked = countUnchecked;
+  c.uncheckedTaskFailure = uncheckedTaskFailure;
   actions.length = 0;
   await assertCompletedPrCanMerge();
   assert.equal(actions.some(([kind, message]) => kind === 'info'
@@ -469,6 +475,38 @@ test('guarded scan reaches runtime guard and exact-head merge with unchecked sou
   ]);
   assert.equal(actions.some(([kind]) => ['warning', 'create', 'update'].includes(kind)), false);
 });
+
+for (const changedField of ['body', 'updated_at']) {
+  test(`advisory source tasks do not waive ${changedField} stability at the merge boundary`, async () => {
+    const { c, actions } = mergeScanHarness();
+    const readIssue = c.github.rest.issues.get;
+    let sourceReads = 0;
+    c.github.rest.issues.get = async (args) => {
+      const response = await readIssue(args);
+      if (++sourceReads !== 3) return response;
+      return { data: {
+        ...response.data,
+        [changedField]: changedField === 'body'
+          ? snapshot.body.replaceAll('[ ]', '[x]')
+          : '2026-11-03T00:00:00Z',
+      } };
+    };
+
+    await c.runScan();
+
+    assert.equal(sourceReads, 3);
+    assert.ok(actions.some(([kind, message]) => kind === 'info'
+      && message === 'Runtime AC merge guard passed for PR #42.'));
+    assert.equal(actions.some(([kind]) => ['merge', 'remove-label'].includes(kind)), false);
+    const summaryRows = actions.find(([kind]) => kind === 'summary')[1];
+    assert.deepEqual([...summaryRows[1]], [
+      '#42', 'error', 'Merge failed: Linked issue changed during final merge validation.',
+    ]);
+    assert.deepEqual(actions.filter(([kind]) => kind === 'output'), [
+      ['output', 'merged', '[]'],
+    ]);
+  });
+}
 
 for (const lateTask of ['managed task', 'reviewer task']) {
   test(`${lateTask} added at the last merge boundary prevents the merge API request`, async () => {
