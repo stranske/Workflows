@@ -76,3 +76,40 @@ edits without explicit `agent-high-privilege` approval. Requests to add the
 `needs-human` label and a blocker comment to Workflows PR #4446 were denied by the
 session's external-write approval policy. This file preserves the required
 handoff for a maintainer; the label and remote comment still need to be applied.
+
+## Follow-up reconciliation
+
+Reviewing the three PR commits confirms that only the task ledger, the tests,
+and this handoff changed; no pytest source pin was changed. Reading the reported
+consumer workflow at `73120b9a594e` again confirms the direct `pytest==9.1.1`
+install. The investigation and manual dispatch documentation are complete;
+the source fix, WASM regression, regenerated candidate and live acceptance
+remain incomplete.
+
+The dependency regression now exercises the actual sync command's entry point.
+It checks that a stale consumer project and lockfile are rejected without being
+modified, applies the canonical pins, compares both outputs against the source
+development dependency, and verifies a clean check and an idempotent second apply.
+The focused command above still passes all 110 tests. Ruff passes. Deliberately
+changing only the source development pin to `9.1.1` produces one expected failure;
+restoring `9.2.0` produces one pass. This proves source/dependency regression
+sensitivity, not detection or repair of the consumer's independent workflow pin.
+
+Automatic approval review rejected the PR-body reconciliation, `needs-human`
+label, and blocker comment: each returned `MCP tool call requires approval, but
+approval policy is never`. No remote checkbox update succeeded. A maintainer
+should check only the investigation, finding-recording (after adding the finding
+to the PR description), and standalone manual-dispatch documentation tasks.
+Combined documentation-and-candidate-resolution tasks must stay unchecked.
+
+The full Python gate still exits before collection on LangSmith's deprecated
+`asyncio.iscoroutinefunction` call under Python 3.14. The exact repository-wide
+Black command exits with `PermissionError: [Errno 1] Operation not permitted`
+when its multiprocessing forkserver binds a socket. The changed test formats
+successfully, but the full formatting gate is not satisfied, so this run must
+not commit Python changes. The sandbox also declares `.git` read-only.
+PR #4446 was rechecked as open and ready for review (`isDraft=false`).
+The JavaScript gate was bounded with `timeout 180s` and exited 124; it did not
+complete successfully. Both full source-gate acceptance checkboxes remain open.
+The proposed PR-body reconciliation is saved at
+`/tmp/issue-4427-reconciled-pr-body.md` for manual application.

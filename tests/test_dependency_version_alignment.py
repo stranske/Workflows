@@ -5,9 +5,11 @@ from __future__ import annotations
 import tomllib
 from pathlib import Path
 
+import pytest
 from packaging.markers import default_environment
 from packaging.requirements import Requirement
-from scripts.sync_dev_dependencies import parse_env_file, sync_pyproject
+from scripts.sync_dev_dependencies import main as sync_dependencies
+from scripts.sync_dev_dependencies import parse_env_file
 from scripts.sync_manifest_compiler import compile_manifest
 
 _OPERATORS = ("==", ">=", "<=", "~=", "!=", ">", "<", "===")
@@ -102,7 +104,9 @@ def test_all_pyproject_dependencies_are_in_lock() -> None:
     assert not missing, "requirements.lock is missing pinned versions for: " + ", ".join(missing)
 
 
-def test_consumer_pytest_sync_matches_source_development_pin(tmp_path: Path) -> None:
+def test_consumer_pytest_sync_matches_source_development_pin(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """Exercise the dependency producer, independently of consumer-owned workflows."""
     root = Path(__file__).resolve().parents[1]
     project = tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8"))
@@ -118,12 +122,27 @@ def test_consumer_pytest_sync_matches_source_development_pin(tmp_path: Path) -> 
         '[project.optional-dependencies]\ndev = ["pytest==9.1.1"]\n',
         encoding="utf-8",
     )
-    changes, errors = sync_pyproject(consumer, pins, apply=True)
-    assert not errors
-    assert changes
+    lockfile = tmp_path / "requirements.lock"
+    lockfile.write_text("pytest==9.1.1\npytest-xdist==3.8.0\n", encoding="utf-8")
+    before = {path: path.read_bytes() for path in (consumer, lockfile)}
+    monkeypatch.chdir(tmp_path)
+    arguments = [
+        "--pin-file",
+        str(root / ".github/workflows/autofix-versions.env"),
+        "--pyproject",
+        str(consumer),
+    ]
+    assert sync_dependencies(["--check", *arguments]) == 1
+    assert {path: path.read_bytes() for path in before} == before
+
+    assert sync_dependencies(["--apply", *arguments]) == 0
     generated = tomllib.loads(consumer.read_text(encoding="utf-8"))
     assert generated["project"]["optional-dependencies"]["dev"] == [str(pytest_pins[0])]
-    assert sync_pyproject(consumer, pins, apply=True) == ([], [])
+    assert _load_lock_versions(lockfile)["pytest"] == next(iter(pytest_pins[0].specifier)).version
+    assert sync_dependencies(["--check", *arguments]) == 0
+    after = {path: path.read_bytes() for path in before}
+    assert sync_dependencies(["--apply", *arguments]) == 0
+    assert {path: path.read_bytes() for path in before} == after
 
 
 def test_template_sync_does_not_generate_consumer_wasm_workflow() -> None:
