@@ -104,6 +104,19 @@ def test_all_pyproject_dependencies_are_in_lock() -> None:
     assert not missing, "requirements.lock is missing pinned versions for: " + ", ".join(missing)
 
 
+def test_source_pytest_lock_matches_development_pin() -> None:
+    """Installing the source lock and dev extra must select the same pytest."""
+    root = Path(__file__).resolve().parents[1]
+    project = tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8"))
+    dev = project["project"]["optional-dependencies"]["dev"]
+    pytest_pins = [Requirement(entry) for entry in dev if Requirement(entry).name == "pytest"]
+    assert len(pytest_pins) == 1
+    lock_versions = _load_lock_versions(root / "requirements.lock")
+    assert (
+        str(pytest_pins[0].specifier) == f"=={lock_versions['pytest']}"
+    ), "requirements.lock and the development dependency select different pytest versions"
+
+
 def test_consumer_pytest_sync_matches_source_development_pin(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

@@ -113,3 +113,36 @@ The JavaScript gate was bounded with `timeout 180s` and exited 124; it did not
 complete successfully. Both full source-gate acceptance checkboxes remain open.
 The proposed PR-body reconciliation is saved at
 `/tmp/issue-4427-reconciled-pr-body.md` for manual application.
+
+## Source-lock regression follow-up
+
+The existing lockfile test checked dependency presence, so a stale pytest version
+in `requirements.lock` could still pass. The new
+`test_source_pytest_lock_matches_development_pin` compares the actual lock pin
+against the development requirement in `pyproject.toml` without hard-coding the
+expected version. Both source declarations remain at `9.2.0`.
+
+- [x] Run the focused alignment, dependency-sync and manifest-compiler command
+  above: **111 passed** with plugin autoload disabled. Ruff also passes.
+- [x] Temporarily change only the lock's pytest pin to `9.1.1`: the new test
+  fails with `assert '==9.2.0' == '==9.1.1'`. Restore the original lock bytes:
+  **1 passed**. This verifies the source-lock guard, not the consumer WASM fix.
+- [ ] Complete the full Python gate: it still exits before collection on the
+  LangSmith deprecation described above. Warning enforcement is unchanged.
+- [ ] Complete the full JavaScript gate: the command bounded by `timeout 180s`
+  exited **124**, with pending-promise cancellation diagnostics; it did not pass.
+- [ ] Complete repository-wide Black: the requested check with
+  `BLACK_NUM_WORKERS=1` was interrupted after remaining unresponsive; an explicit
+  `--workers 1` retry timed out after 45 seconds, reporting 618 unchanged files.
+  The changed test passes its own Black check, but the full formatting gate
+  remains unverified. No Python commit is permitted while that gate is incomplete.
+- [ ] Commit the changes: this session also reports `.git` as read-only.
+- [ ] Publish the investigation and blocker remotely: PR-description, comment
+  and `needs-human` label writes were each rejected with
+  `MCP tool call requires approval, but approval policy is never`.
+
+The consumer files were re-read at `73120b9a594e`: the workflow directly installs
+`pytest==9.1.1` and the development dependency is `pytest==9.2.0`. The original
+WASM regression and source-fix tasks remain blocked by the protected consumer
+workflow boundary. The added test does not make those tasks complete.
+PR #4446 was rechecked as open and ready for review (`isDraft=false`).
