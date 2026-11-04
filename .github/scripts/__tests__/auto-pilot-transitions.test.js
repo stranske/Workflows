@@ -242,6 +242,31 @@ for (const [surface, transitions] of [
   ['source', require('../auto_pilot_transitions.js')],
   ['consumer template', require('../../../templates/consumer-repo/.github/scripts/auto_pilot_transitions.js')],
 ]) {
+  test(`${surface}: matching invalid handoff identities cannot authorize completion`, () => {
+    const issue = {
+      issueState: 'closed',
+      hasVerify: true,
+      verifyHandoffBound: true,
+      closure: { id: 3001, sourcePr: 2454 },
+      verifyHandoff: { closureId: 3001, sourcePr: 2454 },
+    };
+    for (const [closureKey, handoffKey] of [['id', 'closureId'], ['sourcePr', 'sourcePr']]) {
+      for (const value of [
+        undefined, null, '', 0, '0', -1, '-1', 1.5, '1.5', '1e3', 'not-an-id',
+        true, [], [3001], {}, NaN, Infinity, Number.MAX_SAFE_INTEGER + 1,
+      ]) {
+        // Equality alone is insufficient: neither record proves a real identity.
+        const result = transitions.determineNextStep({
+          ...issue,
+          closure: { ...issue.closure, [closureKey]: value },
+          verifyHandoff: { ...issue.verifyHandoff, [handoffKey]: value },
+        });
+        assert.equal(result.currentState, STATES.CLOSED_NEEDS_VERIFY, `${closureKey}=${value}`);
+        assert.equal(result.nextStep, NEXT_STEPS.VERIFY, `${closureKey}=${value}`);
+      }
+    }
+  });
+
   test(`${surface}: reopening requires fresh proof even when the same PR closes the issue again`, () => {
     let issue = {
       issueState: 'closed',
