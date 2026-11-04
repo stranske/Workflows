@@ -590,3 +590,69 @@ def test_unavailable_requested_client_does_not_substitute_subscription(
     assert _llm_client.build_client(**kwargs) is None
     assert _llm_client.get_llm_client(**kwargs) is None
     assert subscription_process.calls == []
+
+
+@pytest.mark.parametrize("provider", ["openai", "anthropic", "github-models"])
+@pytest.mark.parametrize(
+    "overrides,expected_models",
+    [
+        (
+            {"model1": "primary-model", "model2": "secondary-model"},
+            ["primary-model", "secondary-model"],
+        ),
+        ({"model2": "secondary-model"}, ["environment-model", "secondary-model"]),
+        ({"model1": "primary-model"}, ["primary-model"]),
+    ],
+)
+def test_subscription_mode_preserves_comparison_client_overrides(
+    monkeypatch, subscription_process, provider, overrides, expected_models
+):
+    """Comparison callers retain model selection and prompt composition for every client."""
+    pytest.importorskip("langchain_core.prompts")
+    from langchain_core.prompts import ChatPromptTemplate
+    from langchain_core.runnables import RunnableLambda
+
+    invocations = []
+
+    def chat_class(selected_provider):
+        def build(**kwargs):
+            actual_provider = selected_provider
+            if selected_provider == "openai" and "base_url" in kwargs:
+                actual_provider = "github-models"
+
+            def invoke(prompt):
+                invocations.append((actual_provider, kwargs["model"], prompt.to_string()))
+                return SimpleNamespace(content="comparison reply")
+
+            return RunnableLambda(invoke)
+
+        return build
+
+    monkeypatch.setitem(
+        sys.modules, "langchain_openai", SimpleNamespace(ChatOpenAI=chat_class("openai"))
+    )
+    monkeypatch.setitem(
+        sys.modules, "langchain_anthropic", SimpleNamespace(ChatAnthropic=chat_class("anthropic"))
+    )
+    for name in ("OPENAI_API_KEY", "CLAUDE_API_STRANSKE", "GITHUB_TOKEN"):
+        monkeypatch.setenv(name, "test-only")
+    monkeypatch.setenv("LANGCHAIN_PROVIDER", provider)
+    monkeypatch.setenv("LANGCHAIN_MODEL", "environment-model")
+
+    clients = _llm_client.get_llm_clients(**overrides)
+
+    assert [(selected, model) for _, selected, model in clients] == [
+        (provider, model) for model in expected_models
+    ]
+    template = ChatPromptTemplate.from_template("Compare {task}")
+    for client, _, _ in clients:
+        assert (template | client).invoke({"task": "the parser"}).content == "comparison reply"
+    assert invocations == [
+        (
+            provider,
+            f"openai/{model}" if provider == "github-models" else model,
+            "Human: Compare the parser",
+        )
+        for model in expected_models
+    ]
+    assert subscription_process.calls == []
