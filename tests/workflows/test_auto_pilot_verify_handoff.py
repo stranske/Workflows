@@ -25,6 +25,8 @@ def workflow(request: pytest.FixtureRequest) -> Path:
 
 
 ISSUE_NUMBER = 42
+MERGED_HEAD_SHA = "c" * 40
+UNRELATED_HEAD_SHA = "d" * 40
 
 
 def _extract_verify_script(workflow: Path) -> str:
@@ -43,6 +45,7 @@ def _run_verify(
     pr_labels: tuple[str, ...] = (),
     fail_on_page: int | None = None,
     dispatch_unavailable: bool = False,
+    existing_runs: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """Execute the workflow verify_step script against a mocked pulls.list result set."""
     node = shutil.which("node")
@@ -99,10 +102,26 @@ const github = {
         },
       }),
     },
+    repos: {
+      get: async () => ({ data: { default_branch: 'main' } }),
+    },
     actions: {
       listWorkflowRuns: async (params) => {
         runQueries.push(params);
-        return { data: { total_count: 0, workflow_runs: [] } };
+        const runs = (fixture.existingRuns || []).filter((run) => {
+          if (params.head_sha && run.head_sha !== params.head_sha) {
+            return false;
+          }
+          if (
+            params.workflow_id
+            && run.path
+            && !String(run.path).includes(String(params.workflow_id).replace('.yml', ''))
+          ) {
+            return false;
+          }
+          return true;
+        });
+        return { data: { total_count: runs.length, workflow_runs: runs } };
       },
       createWorkflowDispatch: async (params) => {
         dispatchCalls.push(params);
@@ -210,6 +229,7 @@ process.stdout.write(JSON.stringify({
                     "prLabels": list(pr_labels),
                     "failOnPage": fail_on_page,
                     "dispatchUnavailable": dispatch_unavailable,
+                    "existingRuns": existing_runs or [],
                 }
             ),
         },
@@ -244,6 +264,8 @@ def _matching_pr(number: int) -> dict[str, Any]:
         "merged_at": "2026-02-01T00:00:00Z",
         "title": f"Fix closes #{ISSUE_NUMBER}",
         "body": f"<!-- meta:issue:{ISSUE_NUMBER} -->\nCloses #{ISSUE_NUMBER}",
+        "head": {"sha": MERGED_HEAD_SHA},
+        "merge_commit_sha": MERGED_HEAD_SHA,
     }
 
 
@@ -353,3 +375,61 @@ def test_handoff_successful_pr_bound_labels_merged_pr_and_issue(workflow: Path) 
         for entry in result["labelsAdded"]
     )
     assert all(entry["name"] != "agents:auto-pilot" for entry in result["labelsRemoved"])
+
+
+def _verifier_run(*, head_sha: str, status: str = "completed", conclusion: str = "success") -> dict[str, Any]:
+    return {
+        "id": 9001,
+        "head_sha": head_sha,
+        "status": status,
+        "conclusion": conclusion,
+        "path": ".github/workflows/agents-verifier.yml",
+        "event": "workflow_dispatch",
+    }
+
+
+def test_handoff_dispatches_verifier_before_recording_markers(workflow: Path) -> None:
+    result = _run_verify([_matching_pr(555)], workflow)
+
+    assert result["dispatchCalls"] == [
+        {
+            "owner": "stranske",
+            "repo": "Workflows",
+            "workflow_id": "agents-verifier.yml",
+            "ref": "main",
+            "inputs": {"pr_number": "555", "mode": "evaluate"},
+        }
+    ]
+    assert result["outputs"].get("verify_handoff") == "found"
+
+
+def test_handoff_existing_verifier_run_authorizes_without_dispatch(workflow: Path) -> None:
+    result = _run_verify(
+        [_matching_pr(555)],
+        workflow,
+        dispatch_unavailable=True,
+        existing_runs=[_verifier_run(head_sha=MERGED_HEAD_SHA)],
+    )
+
+    assert result["dispatchCalls"] == []
+    assert result["outputs"].get("verify_handoff") == "found"
+    assert any(
+        entry["issue_number"] == ISSUE_NUMBER and "verify:pr-handoff" in entry["labels"]
+        for entry in result["labelsAdded"]
+    )
+
+
+def test_handoff_unrelated_verifier_run_does_not_authorize_handoff(workflow: Path) -> None:
+    result = _run_verify(
+        [_matching_pr(555)],
+        workflow,
+        dispatch_unavailable=True,
+        existing_runs=[_verifier_run(head_sha=UNRELATED_HEAD_SHA)],
+    )
+
+    assert len(result["dispatchCalls"]) == 1
+    assert result["outputs"].get("verify_handoff") != "found"
+    assert not any(
+        entry["issue_number"] == ISSUE_NUMBER and "verify:pr-handoff" in entry["labels"]
+        for entry in result["labelsAdded"]
+    )
