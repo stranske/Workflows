@@ -1142,6 +1142,9 @@ def test_rewrite_until_valid_stops_when_rewrite_fails(failure: str) -> None:
     assert result.rounds == 1
     assert len(calls) == 1
     assert result.report.missing_required == ["Tasks", "Acceptance Criteria"]
+    # A provider failure is recorded (callers report it as a crash); an empty
+    # answer is a plain give-up with no error.
+    assert result.error == ("RuntimeError: provider exploded" if failure == "raise" else None)
 
 
 def test_with_original_round_trips_through_validate() -> None:

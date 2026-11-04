@@ -274,33 +274,46 @@ jobs:
               isTrustedBot(comment) && isCurrentAttemptMarker(comment.body || '');
             const trusted = comments.some(isCurrentDispatch);
             const attempts = comments.filter(isCurrentDispatch).length;
-            // Budget window: from the first dispatch for this body, restarted by
-            // the latest attempt-cap pause, so lifting agents:auto-pilot-pause
-            // always buys a fresh budget instead of re-pausing at once.
-            const firstDispatch = comments.findIndex(isCurrentDispatch);
-            let lastCap = -1;
-            comments.forEach((comment, index) => {
-              if (isTrustedBot(comment)
-                && (comment.body || '').includes('<!-- format-guard:attempt-cap -->')) {
-                lastCap = index;
+            // Budget: every optimizer outcome belongs to the most recent dispatch
+            // marker before it, so only outcomes of THIS body's dispatches count —
+            // an edit A -> B -> A never charges B's failures to A. The latest
+            // attempt-cap pause starts a fresh budget, so lifting
+            // agents:auto-pilot-pause never re-pauses at once.
+            const fingerprintOf = (text) => {
+              const match = /<!-- format-guard:([0-9a-f]{12})(?::attempt:\d+)? -->/.exec(text || '');
+              return match ? match[1] : null;
+            };
+            const currentFingerprint = fingerprintOf(process.env.FORMAT_GUARD_MARKER);
+            let outcomeOwner = null;
+            let rewriteFailures = 0;
+            let crashes = 0;
+            let windowDispatches = 0;
+            for (const comment of comments) {
+              const text = comment.body || '';
+              if (isTrustedBot(comment) && text.includes('<!-- format-guard:attempt-cap -->')) {
+                outcomeOwner = null;
+                rewriteFailures = 0;
+                crashes = 0;
+                windowDispatches = 0;
+                continue;
               }
-            });
-            const windowStart = firstDispatch < 0
-              ? comments.length
-              : (lastCap > firstDispatch ? lastCap + 1 : firstDispatch);
-            const windowed = comments.slice(windowStart);
-            // Real attempts: the optimizer completed a rewrite that never validated.
-            const rewriteFailures = windowed.filter((comment) =>
-              isTrustedBot(comment)
-              && (comment.body || '').includes('<!-- issue-optimizer:rewrite-failed -->')
-            ).length;
-            // Crashes: the optimizer's generic failure report. Consumer repos post
-            // it with an app token, so any bot author counts.
-            const crashes = windowed.filter((comment) =>
-              /\[bot\]$/.test(comment.user?.login || '')
-              && (comment.body || '').includes('agents-issue-optimizer workflow encountered an error')
-            ).length;
-            const windowDispatches = windowed.filter(isCurrentDispatch).length;
+              const dispatched = isTrustedBot(comment) ? fingerprintOf(text) : null;
+              if (dispatched) {
+                outcomeOwner = dispatched;
+                if (dispatched === currentFingerprint) windowDispatches += 1;
+                continue;
+              }
+              if (outcomeOwner === null || outcomeOwner !== currentFingerprint) continue;
+              if (isTrustedBot(comment) && text.includes('<!-- issue-optimizer:rewrite-failed -->')) {
+                // Real attempt: the optimizer completed a rewrite that never validated.
+                rewriteFailures += 1;
+              } else if (/\[bot\]$/.test(comment.user?.login || '')
+                && text.includes('agents-issue-optimizer workflow encountered an error')) {
+                // Crash: the optimizer's generic failure report. Consumer repos post
+                // it with an app token, so any bot author counts.
+                crashes += 1;
+              }
+            }
             process.stdout.write(JSON.stringify({
               attempts, trusted, rewriteFailures, crashes, windowDispatches,
             }));

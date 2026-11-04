@@ -696,6 +696,7 @@ class RewriteResult:
     body: str | None
     report: Report
     rounds: int
+    error: str | None = None  # a provider/client failure, not a verdict on the body
 
 
 def rewrite_until_valid(
@@ -724,8 +725,13 @@ def rewrite_until_valid(
         used += 1
         try:
             answer = rewrite(rewrite_prompt(current, report))
-        except Exception:  # noqa: BLE001 - any model/client failure ends the loop
-            return RewriteResult(ok=False, body=None, report=report, rounds=used)
+        except Exception as exc:  # noqa: BLE001 - any model/client failure ends the loop
+            # Recorded, not swallowed: a provider failure (429, 5xx, auth) says
+            # nothing about whether the body can be fixed, so callers report it as
+            # a crash rather than a completed, unsuccessful rewrite.
+            detail = f"{type(exc).__name__}: {exc}"
+            print(f"rewrite callback failed: {detail}", file=sys.stderr)
+            return RewriteResult(ok=False, body=None, report=report, rounds=used, error=detail)
         answer = _unwrap_answer(answer or "")
         if not answer:
             return RewriteResult(ok=False, body=None, report=report, rounds=used)

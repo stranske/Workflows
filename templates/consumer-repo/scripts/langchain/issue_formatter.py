@@ -833,6 +833,10 @@ def format_issue_body(issue_body: str, *, use_llm: bool = True) -> dict[str, Any
                     # the body validates; a body that never does is a completed,
                     # unsuccessful attempt, not a crash and not the heuristic body.
                     rewritten = _rewrite_until_valid(formatted, client)
+                    if rewritten is not None and getattr(rewritten, "error", None):
+                        # A provider failure mid-rewrite is a crash, like the same
+                        # failure in the first call: never a real rewrite attempt.
+                        raise RuntimeError(f"rewrite call failed: {rewritten.error}")
                     if rewritten is not None and not rewritten.ok:
                         result = {
                             "formatted_body": None,

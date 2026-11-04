@@ -314,6 +314,34 @@ def _run_route_step(
     return (calls.read_text(encoding="utf-8") if calls.exists() else ""), completed.stdout
 
 
+def _foreign_dispatch(n: int) -> str:
+    fp = _fingerprint("some other invalid body")
+    return f"<!-- format-guard:{fp} -->" if n == 1 else f"<!-- format-guard:{fp}:attempt:{n} -->"
+
+
+@skip_if_no_route_tools
+@pytest.mark.parametrize("guard_path", GUARD_PATHS, ids=lambda p: str(p.relative_to(REPO_ROOT)))
+def test_outcomes_of_another_body_are_never_charged_to_this_body(
+    tmp_path: Path, guard_path: Path
+) -> None:
+    # Body A failed once, the issue was edited to body B (which failed twice
+    # and crashed once), then restored to A: only A's one failure counts.
+    comments = [
+        (BOT, _dispatch(1)),
+        (BOT, REWRITE_FAILED),
+        (BOT, _foreign_dispatch(1)),
+        (BOT, REWRITE_FAILED),
+        (BOT, _foreign_dispatch(2)),
+        (BOT, REWRITE_FAILED),
+        (APP_BOT, CRASH),
+    ]
+    calls, stdout = _run_route_step(tmp_path, guard_path, comments)
+
+    assert "real rewrite attempts 1/3, optimizer crashes 0/3, dispatches 1/6" in stdout
+    assert "agents:auto-pilot-pause" not in calls
+    assert "workflow run agents-issue-optimizer.yml" in calls
+
+
 def _dispatch(n: int) -> str:
     fp = _fingerprint(INVALID_BODY)
     return f"<!-- format-guard:{fp} -->" if n == 1 else f"<!-- format-guard:{fp}:attempt:{n} -->"

@@ -565,6 +565,16 @@ def test_format_issue_body_reports_rewrite_failed_when_loop_fails(
     assert "not yet agent-processable" in result["rewrite_report"]
 
 
+def test_provider_error_in_a_rewrite_round_is_a_crash_not_a_rewrite_failure(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    prompts = _install_rewrite_client(monkeypatch, tmp_path, [])  # next(answers) raises
+
+    with pytest.raises(RuntimeError, match="rewrite call failed: StopIteration"):
+        issue_formatter.format_issue_body("Why: Because", use_llm=True)
+    assert len(prompts) == 1
+
+
 def test_task_refinement_replaces_only_the_tasks_section(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

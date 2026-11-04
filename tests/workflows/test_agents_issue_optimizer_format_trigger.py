@@ -382,7 +382,7 @@ def _run_format_step(tmp_path: Path, path: Path, result: dict, validator_rc: int
     output = tmp_path / "github_output"
     output.touch()
     completed = subprocess.run(
-        ["bash", "-e", "-c", _format_step_script(path)],
+        ["bash", "-e", "-c", _format_step_script(path).replace("/tmp/", f"{tmp_path}/")],
         cwd=tmp_path,
         text=True,
         capture_output=True,
