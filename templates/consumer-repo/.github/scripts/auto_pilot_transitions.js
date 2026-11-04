@@ -40,7 +40,7 @@ const TRANSITION_CONTRACT = Object.freeze({
   states: STATES,
   nextSteps: NEXT_STEPS,
   guards: Object.freeze([
-    'closed issues require a PR-bound verify handoff before done',
+    'closed issues require a PR-bound verify handoff matching the current closure before done',
     'format requires agents:formatted, not the old agents:format trigger label',
     'optimize advances only after an optimizer suggestions comment exists',
     'apply advances only after agents:apply-suggestions is present',
@@ -95,12 +95,30 @@ function isKeepaliveTasksComplete(body) {
     text.includes('"last_reason":"tasks-complete"');
 }
 
+function hasCurrentVerifyHandoff(event) {
+  // A label is only a signal. The workflow must supply the current closure
+  // from the issue timeline and the identity recorded after the PR handoff.
+  // Closure event IDs change even when the same PR closes a reopened issue.
+  const closure = event.closure;
+  const handoff = event.verifyHandoff;
+  const isId = (value) =>
+    (typeof value === 'string' || Number.isSafeInteger(value)) &&
+    /^[1-9]\d*$/.test(normalizeText(value));
+  return normalizeBoolean(event.verifyHandoffBound) &&
+    isId(closure?.id) &&
+    isId(closure?.sourcePr) &&
+    isId(handoff?.closureId) &&
+    isId(handoff?.sourcePr) &&
+    normalizeText(closure.id) === normalizeText(handoff.closureId) &&
+    normalizeText(closure.sourcePr) === normalizeText(handoff.sourcePr);
+}
+
 function resolveCurrentState(event = {}) {
   const issueState = normalizeText(event.issueState).toLowerCase();
   const linkedPr = hasLinkedPr(event.linkedPr);
 
   if (issueState === 'closed') {
-    return normalizeBoolean(event.verifyHandoffBound)
+    return hasCurrentVerifyHandoff(event)
       ? STATES.CLOSED_VERIFIED
       : STATES.CLOSED_NEEDS_VERIFY;
   }
