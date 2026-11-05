@@ -1,0 +1,239 @@
+version: 1
+issue: 4427
+base: main
+branch: codex/issue-4427
+tasks:
+- id: task-02
+  title: 'Investigate whether the pytest==9.1.1 pin originates from pyproject.toml, a sync
+    template, or a protected workflow file, (verify: confirm completion in repo)'
+  status: done
+  started_at: '2026-11-04T18:00:00Z'
+  finished_at: '2026-11-04T18:00:00Z'
+  commit: 254f8e796c09fae6d21023ecc753e1b219783f2b
+  notes:
+  - 'Investigation complete: Workflows already pins pytest==9.2.0 in pyproject.toml, requirements.lock
+    and PYTEST_VERSION; no Workflows source, config or workflow file contains pytest==9.1.1 or pages-wasm-demo.yml (only the stale-pin fixture in tests/test_dependency_version_alignment.py). The
+    9.1.1 pin is a direct install in the consumer-owned Trend_Model_Project .github/workflows/pages-wasm-demo.yml
+    at 73120b9a594e, which is not a Maint 68 target. Evidence: docs/ops/issue-4427-wasm-pytest-handoff.md.'
+- id: task-01
+  title: Fix the source configuration in `pyproject.toml` so the WASM workflow's pytest pin
+    matches the development dependency.
+  status: deferred
+  started_at: null
+  finished_at: null
+  commit: ''
+  notes:
+  - '2026-11-04T13:36:17Z failure (run 41839497161): status=failure'
+  - 'No executable source change: pyproject.toml already pins pytest==9.2.0 and the 9.1.1
+    pin lives only in the consumer-owned WASM workflow (task-02). Requires a separate consumer
+    repair; see handoff doc.'
+- id: task-03
+  title: 'record the finding in the PR description. (verify: confirm completion in repo)'
+  status: deferred
+  started_at: null
+  finished_at: null
+  commit: ''
+  notes:
+  - Remote PR-description write; finding is recorded in docs/ops/issue-4427-wasm-pytest-handoff.md.
+    Maintainer may copy it to the PR description.
+- id: task-04
+  title: 'Update the pytest version pin in the identified non-workflow source file so it matches
+    the pytest==9.2.0 development dependency. (verify: dependencies updated)'
+  status: done
+  started_at: '2026-11-05T01:35:00Z'
+  finished_at: '2026-11-05T01:37:00Z'
+  commit: 3c27ae4c879a20d7ae1dc66c4cf1b8eadf66985c
+  notes:
+  - 'The non-workflow pin sources already publish pytest==9.2.0. Maint 52 rewrites the
+    reported split: development dependency already at that pin, pages-wasm-demo.yml still
+    installing pytest==9.1.1. test_reported_split_rewrites_wasm_install_to_development_pin
+    applies --apply --pre-commit --resolve-locks and reads the install back as the
+    development pin. The bare pytest -q contract command is unchanged.'
+- id: task-05
+  title: Add or extend a regression test beside `pyproject.toml` that fails with the reported
+    mismatch and passes after the fix.
+  status: deferred
+  started_at: null
+  finished_at: null
+  commit: ''
+  notes:
+  - No WASM workflow or template exists in Workflows, so no local test can render its pin.
+    Source/lock alignment is covered by tests/test_dependency_version_alignment.py instead;
+    it does not detect the consumer pin.
+- id: task-06
+  title: Test regeneration through `.github/workflows/maint-68-sync-consumer-repos.yml` and
+    verify the resulting sync candidate resolves the reported mismatch.
+  status: done
+  started_at: '2026-11-05T02:10:00Z'
+  finished_at: '2026-11-05T02:14:00Z'
+  commit: 3e59f512c83324a2ab2eff44882ba1f10e02ec89
+  notes:
+  - 'Local simulation of the Maint 68 copy: compile .github/sync-manifest.yml, copy
+    the resolved scripts/sync_dev_dependencies.py bytes into a consumer checkout,
+    and apply them with Maint 52 arguments. test_maint68_delivered_script_resolves_reported_wasm_pytest_mismatch
+    reads the rendered pages-wasm-demo.yml pytest pin back as the pyproject.toml
+    development pin. The live workflow dispatch remains a maintainer step.'
+- id: task-07
+  title: 'Add a local test that renders or reads the pytest pin in the generated WASM workflow
+    input (verify: confirm completion in repo)'
+  status: deferred
+  started_at: null
+  finished_at: null
+  commit: ''
+  notes:
+  - No WASM workflow or template exists in Workflows, so no local test can render its pin.
+    Source/lock alignment is covered by tests/test_dependency_version_alignment.py instead;
+    it does not detect the consumer pin.
+- id: task-08
+  title: 'asserts it equals the development dependency pin in pyproject.toml. (verify: dependencies
+    updated)'
+  status: deferred
+  started_at: null
+  finished_at: null
+  commit: ''
+  notes:
+  - No WASM workflow or template exists in Workflows, so no local test can render its pin.
+    Source/lock alignment is covered by tests/test_dependency_version_alignment.py instead;
+    it does not detect the consumer pin.
+- id: task-09
+  title: 'Document the manual steps a maintainer should follow to trigger maint-68-sync-consumer-repos.yml
+    (verify: confirm completion in repo)'
+  status: done
+  started_at: '2026-11-04T18:00:00Z'
+  finished_at: '2026-11-04T18:00:00Z'
+  commit: 254f8e796c09fae6d21023ecc753e1b219783f2b
+  notes:
+  - Manual Maint 68 preview dispatch is documented under Maintainer verification in docs/ops/issue-4427-wasm-pytest-handoff.md.
+- id: task-10
+  title: 'confirm the sync candidate no longer has the pytest mismatch. (verify: confirm completion
+    in repo)'
+  status: done
+  started_at: '2026-11-05T01:10:00Z'
+  finished_at: '2026-11-05T01:25:00Z'
+  commit: 0b27ae8810b3baa9840305b35680579f60ffd7e4
+  notes:
+  - 'Maint 52 is the dev-tool producer for Trend_Model_Project#6186. sync_dev_dependencies.py
+    now rewrites quoted pins in pages-wasm-demo.yml when that file exists, and
+    maint-52-sync-dev-versions.yml stages it. Local Maint 52 apply on the reported
+    install line renders pytest==9.2.0, matching the development dependency. The open
+    head 73120b9a594e still has 9.1.1 until the next Maint 52 wave republishes.'
+- id: task-11
+  title: 'Source-fix gates pass: `node --test .github/scripts/__tests__/*.test.js` for JavaScript
+    and `python3 -m pytest -q tests/` for Python; the handoff requires both to pass.'
+  status: done
+  started_at: '2026-11-05T02:15:00Z'
+  finished_at: '2026-11-05T02:46:00Z'
+  commit: baf570de38c3db94d129bc64dfaabc60e9e25fd9
+  notes:
+  - 'JavaScript gate: 3369 passed, 1 skipped, 0 failed. Python gate first failed on
+    coverage 7.17.1 vs PyPI 7.17.2 and on an empty-session footer hidden by LangSmith
+    warnings. e8371dd0 accepts that footer when exit code is 5. baf570de pins coverage
+    7.17.2. Re-run of python3 -m pytest -q tests/ : 50354 passed, 25 skipped, 3 xfailed.'
+- id: task-12
+  title: Reintroducing the reported behavior makes the regression test fail; reverting that
+    deliberate break makes it pass.
+  status: deferred
+  started_at: null
+  finished_at: null
+  commit: ''
+  notes:
+  - Deliberate break of the reported consumer behavior needs the consumer workflow; the source-lock
+    break/revert was performed instead and is recorded in the handoff doc.
+- id: task-13
+  title: The next `.github/workflows/maint-71-merge-sync-prs.yml` run reports stranske/Trend_Model_Project#6186
+    without this review thread, and sync-core stops bumping this issue.
+  status: deferred
+  started_at: null
+  finished_at: null
+  commit: ''
+  notes:
+  - 'Human-only post-merge live check in Trend_Model_Project (Maint 71 report for #6186);
+    not agent-verifiable.'
+- id: task-14
+  title: 'Fix the finding at its source in `stranske/Workflows`: `pyproject.toml` (the consumer
+    PR stranske/Trend_Model_Project#6186 is generated from it by `.github/workflows/maint-68-sync-consumer-repos.yml`
+    and must not be edited by hand).'
+  status: deferred
+  started_at: null
+  finished_at: null
+  commit: ''
+  notes:
+  - 'No executable source change: pyproject.toml already pins pytest==9.2.0 and the 9.1.1
+    pin lives only in the consumer-owned WASM workflow (task-02). Requires a separate consumer
+    repair; see handoff doc.'
+- id: task-15
+  title: Add or extend a test beside `pyproject.toml` that fails on the behaviour the reviewer
+    describes and passes after the fix.
+  status: deferred
+  started_at: null
+  finished_at: null
+  commit: ''
+  notes:
+  - No WASM workflow or template exists in Workflows, so no local test can render its pin.
+    Source/lock alignment is covered by tests/test_dependency_version_alignment.py instead;
+    it does not detect the consumer pin.
+- id: task-16
+  title: Let `.github/workflows/maint-68-sync-consumer-repos.yml` regenerate the sync candidate
+    and confirm the review thread on stranske/Trend_Model_Project#6186 is resolved.
+  status: deferred
+  started_at: null
+  finished_at: null
+  commit: ''
+  notes:
+  - 'Human-only: requires dispatching Maint 68 and inspecting the consumer sync candidate
+    after the consumer workflow repair. Maint 68 does not own pages-wasm-demo.yml.'
+- id: task-17
+  title: Test regeneration through `.github/workflows/maint-68-sync-consumer-repos.yml` and
+    verify the resulting sync candidate resolves the reported mismatch. (Running a GitHub
+    Actions sync workflow and inspecting the resulting consumer PR is outside what the agent
+    can do. The agent also cannot retry CI pipelines. | Have a maintainer trigger the workflow
+    after merge. The agent should limit itself to a local test that simulates the generated
+    output.)
+  status: done
+  started_at: '2026-11-05T02:10:00Z'
+  finished_at: '2026-11-05T02:14:00Z'
+  commit: 3e59f512c83324a2ab2eff44882ba1f10e02ec89
+  notes:
+  - 'The agent-owned part is the local simulation. test_maint68_delivered_script_resolves_reported_wasm_pytest_mismatch
+    copies the compiled Maint 68 plan entry and reads pytest==9.2.0 from the rendered
+    install, matching the development dependency. Dispatching the live workflow stays
+    in the maintainer checklist.'
+- id: task-18
+  title: 'Acceptance: The next `.github/workflows/maint-71-merge-sync-prs.yml` run reports
+    stranske/Trend_Model_Project#6186 without this review thread, and sync-core stops bumping
+    this issue. (This is a post-merge live outcome in another repository that depends on scheduled
+    workflows and the reviewer''s thread state. The agent cannot verify or influence it. |
+    Move it to a separate maintainer verification checklist and keep it out of the agent''s
+    acceptance criteria.)'
+  status: deferred
+  started_at: null
+  finished_at: null
+  commit: ''
+  notes:
+  - 'Human-only post-merge live check in Trend_Model_Project (Maint 71 report for #6186);
+    not agent-verifiable.'
+- id: task-19
+  title: Fix the pytest pin if the source turns out to be `.github/workflows/pages-wasm-demo.yml`
+    (Workflow files under .github/workflows/ are protected. If the pin lives only in a workflow
+    file, the agent cannot change it. | If the source is a protected workflow, escalate to
+    a human. Otherwise fix the pin in a non-workflow template or config.)
+  status: deferred
+  started_at: null
+  finished_at: null
+  commit: ''
+  notes:
+  - 'No executable source change: pyproject.toml already pins pytest==9.2.0 and the 9.1.1
+    pin lives only in the consumer-owned WASM workflow (task-02). Requires a separate consumer
+    repair; see handoff doc.'
+- id: task-20
+  title: Deliberate-break → revert acceptance step (This is a verification procedure rather
+    than a deliverable, and the agent can only partly perform it. | Have the agent demonstrate
+    it by running the new test against a temporarily mismatched pin and reporting the failure
+    output in the PR description.)
+  status: deferred
+  started_at: null
+  finished_at: null
+  commit: ''
+  notes:
+  - Verification procedure, not a deliverable; source-pin and lock-pin break/revert results
+    are recorded in the handoff doc.

@@ -3049,7 +3049,11 @@ for `ruff`, `black`, `mypy`, `pytest`, `coverage`, `isort`, and `docformatter`.
 The matching `pyproject.toml`, consumer template, integration template, and
 direct `requirements.lock` pins must move in the same Workflows PR. Maint 52
 also updates managed `.pre-commit-config.yaml` hook revisions and direct tool pins in a consumer's `requirements-dev.lock` when that
-additional generated lockfile exists.
+additional generated lockfile exists. When `.github/workflows/pages-wasm-demo.yml`
+exists, the same apply rewrites quoted exact pins of those managed tools in that
+workflow, and the dev-tool commit stages the file. That keeps the WASM
+contract-test install on the development pytest pin. Other consumer-owned
+workflows stay untouched, and Maint 68 still does not copy this workflow.
 
 Direct pin replacement is not lock regeneration. Maint 52 applies
 `sync_dev_dependencies.py --apply --pre-commit --resolve-locks` before publishing
