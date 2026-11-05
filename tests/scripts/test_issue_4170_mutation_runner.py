@@ -3,6 +3,7 @@
 import hashlib
 import importlib.util
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -152,3 +153,124 @@ def test_records_only_test_failure_then_success(isolated_runner, monkeypatch):
     assert proof["green_exit"] == 0
     expected_hash = hashlib.sha256(original).hexdigest()
     assert data["restored_production_sha256"]["production.py"] == expected_hash
+
+
+def test_subprocess_cache_isolation_with_real_execution(tmp_path, monkeypatch):
+    """Real subprocess regression: mutant bytecode cannot be read or reused."""
+    import os
+    import shutil
+
+    target = tmp_path / "test_real_module.py"
+    original_content = "def test_real_pass():\n    assert True\n"
+    target.write_text(original_content)
+
+    mutant_content = "def test_real_pass():\n    assert False\n"
+    equal_length_mutant = mutant_content
+    assert len(equal_length_mutant) == len(original_content) + 1
+    equal_length_mutant = mutant_content[:-1]
+    assert len(equal_length_mutant) == len(original_content)
+
+    mutation = runner.Mutation(
+        "test_real_module.py::test_real_pass",
+        "test_real_module.py",
+        "real subprocess cache isolation",
+        original_content,
+        equal_length_mutant,
+    )
+
+    monkeypatch.setattr(runner, "ROOT", tmp_path)
+    monkeypatch.setattr(runner, "EVIDENCE", tmp_path)
+    monkeypatch.setattr(runner, "MUTATIONS", [mutation])
+
+    original_hash = hashlib.sha256(target.read_bytes()).hexdigest()
+    original_stat = target.stat()
+
+    result = runner.main()
+
+    assert result == 0
+
+    restored_content = target.read_text()
+    assert restored_content == original_content
+
+    restored_hash = hashlib.sha256(target.read_bytes()).hexdigest()
+    assert restored_hash == original_hash
+
+    manifest = tmp_path / "break-and-revert-manifest.json"
+    assert manifest.exists()
+    data = json.loads(manifest.read_text(encoding="utf-8"))
+    assert len(data["proofs"]) == 1
+    proof = data["proofs"][0]
+    assert proof["red_exit"] == 1
+    assert proof["green_exit"] == 0
+
+
+def test_subprocess_identical_timestamps_and_sizes(tmp_path, monkeypatch):
+    """Real subprocess regression with equal-length content and identical timestamps."""
+    import os
+    import time
+
+    target = tmp_path / "test_timestamp.py"
+    original_content = "def test_timestamp_value():\n    x = 1\n    assert x == 1\n"
+    target.write_text(original_content)
+
+    original_stat = target.stat()
+    original_size = original_stat.st_size
+
+    mutant_content = "def test_timestamp_value():\n    x = 0\n    assert x == 1\n"
+    equal_length_mutant = mutant_content
+    assert len(equal_length_mutant) == original_size
+
+    mutation = runner.Mutation(
+        "test_timestamp.py::test_timestamp_value",
+        "test_timestamp.py",
+        "timestamp and size isolation",
+        original_content,
+        equal_length_mutant,
+    )
+
+    monkeypatch.setattr(runner, "ROOT", tmp_path)
+    monkeypatch.setattr(runner, "EVIDENCE", tmp_path)
+    monkeypatch.setattr(runner, "MUTATIONS", [mutation])
+
+    result = runner.main()
+
+    assert result == 0
+
+    restored_stat = target.stat()
+    assert restored_stat.st_size == original_size
+    assert target.read_text() == original_content
+
+
+def test_no_reusable_mutant_cache_after_failure_cleanup(tmp_path, monkeypatch):
+    """Verify failure cleanup leaves no reusable mutant cache."""
+    import glob
+
+    target = tmp_path / "test_cache_cleanup.py"
+    original_content = "def test_cache_ok():\n    pass\n"
+    target.write_text(original_content)
+
+    mutant_content = "def test_cache_ok():\n    assert False\n"
+    equal_length_mutant = mutant_content
+    assert len(equal_length_mutant) == len(original_content) + 8
+    equal_length_mutant = mutant_content[:-8]
+    assert len(equal_length_mutant) == len(original_content)
+
+    mutation = runner.Mutation(
+        "test_cache_cleanup.py::test_cache_ok",
+        "test_cache_cleanup.py",
+        "no reusable cache after cleanup",
+        original_content,
+        equal_length_mutant,
+    )
+
+    monkeypatch.setattr(runner, "ROOT", tmp_path)
+    monkeypatch.setattr(runner, "EVIDENCE", tmp_path)
+    monkeypatch.setattr(runner, "MUTATIONS", [mutation])
+
+    result = runner.main()
+
+    assert result == 0
+
+    cache_dirs = list(tmp_path.rglob("*"))
+    cache_dirs = [d for d in cache_dirs if d.is_dir() and "__pycache__" in str(d)]
+    assert len(cache_dirs) == 0

@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -213,12 +214,20 @@ def run_pytest(node_id: str, *, junit_path: Path | None = None) -> subprocess.Co
     cmd = [INTERPRETER, "-m", "pytest", node_id, "-q"]
     if junit_path is not None:
         cmd.append(f"--junitxml={junit_path}")
-    return subprocess.run(
-        cmd,
-        cwd=ROOT,
-        text=True,
-        capture_output=True,
-    )
+    env = os.environ.copy()
+    pycache_dir = tempfile.TemporaryDirectory(prefix="pycache_")
+    env["PYTHONPYCACHEPREFIX"] = pycache_dir.name
+    try:
+        result = subprocess.run(
+            cmd,
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            env=env,
+        )
+    finally:
+        pycache_dir.cleanup()
+    return result
 
 
 def validate_red_junit(junit_path: Path, node_id: str) -> None:

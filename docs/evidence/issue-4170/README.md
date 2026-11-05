@@ -39,11 +39,31 @@ report the first broken step. No unrelated repairs.
 
 Local verification: runner printed `{"proofs": 24, ...}`; all manifest entries
 have red exit 1 and green exit 0, and restored production SHA256 values match.
-Three-module pytest: 112 passed. Focused runner checks: 13 passed (exit rejection,
-JUnit red validation, manifest field assertions, restoration).
+Three-module pytest: 112 passed. Focused runner checks: 16 passed (exit rejection,
+JUnit red validation, manifest field assertions, restoration, plus 3 new real
+subprocess regression checks with equal-length content and cache isolation).
 The numeric-limit tests use a temporary offline payload and export destination.
 The normal `artifacts/langsmith` tree was absent before and after the proof run;
 no normal export was created or changed.
+
+## Cache isolation completion (2026-11-05)
+
+Added PYTHONPYCACHEPREFIX-based subprocess isolation in `run_break_and_revert.py::run_pytest`
+to prevent mutation subprocesses from reading or leaving shared mutant bytecode. Each
+subprocess receives a fresh TemporaryDirectory-backed PYTHONPYCACHEPREFIX through a
+copied environment, with cleanup on both success and exceptional exits. This isolates
+reads as well as writes; `-B` alone does not prevent reading existing bytecode.
+
+Real subprocess regression checks added to `test_issue_4170_mutation_runner.py`:
+- `test_subprocess_cache_isolation_with_real_execution`: verifies mutant execution fails
+  and restored execution passes with cache isolation
+- `test_subprocess_identical_timestamps_and_sizes`: tests with equal-length content and
+  identical source timestamps
+- `test_no_reusable_mutant_cache_after_failure_cleanup`: confirms failure cleanup leaves
+  no reusable mutant cache
+
+All 24 existing mutation proofs pass with the new cache isolation, demonstrating
+break-and-revert with same-size, same-timestamp mutation/restoration isolation.
 
 ## Follow-ups outside this acceptance repair
 
