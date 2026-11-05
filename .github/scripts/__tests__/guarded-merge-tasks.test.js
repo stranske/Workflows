@@ -8,12 +8,20 @@ const source = fs.readFileSync(
   path.join(__dirname, '../../../templates/consumer-repo/.github/workflows/agents-81-gate-followups.yml'),
   'utf8',
 );
-const start = source.indexOf('            function countUnchecked(text)');
-const end = source.indexOf('            async function loadPullRequest', start);
-assert.ok(start >= 0 && end > start, 'guarded merge task helpers must exist in the template');
+const taskHelpersStart = source.indexOf('            function countUnchecked(text)');
+const end = source.indexOf('            async function loadPullRequest', taskHelpersStart);
+assert.ok(
+  taskHelpersStart >= 0 && end > taskHelpersStart,
+  'guarded merge task helpers must exist in the template',
+);
+// The generic failure-receipt helper is outside this task-refusal harness and
+// sits before top-level setup containing `await`. Stub it so final-guard paths
+// can run while assertions remain scoped to task-refusal publication.
+const taskHelperSource = 'async function reportMergeFailure() {}\n'
+  + source.slice(taskHelpersStart, end);
 const context = { ...require('../source_context.js') };
 vm.createContext(context);
-vm.runInContext(source.slice(start, end), context);
+vm.runInContext(taskHelperSource, context);
 const complete = {
   body: [
     '<!-- meta:issue:1061 -->',
@@ -152,6 +160,7 @@ test('ambiguous source metadata cannot bypass source validation', () => {
 });
 
 const refusalMarker = '<!-- agents-guarded-merge-result:v1 -->';
+const mergeFailureNote = (reason) => `Merge failed: HTTP unknown ${reason}`;
 
 function refusalHarness({ login = 'owner', comments = [], failAt = '' } = {}) {
   const actions = [];
@@ -300,6 +309,7 @@ function finalGuardHarness({ finalBody = complete.body, boundaryBody = finalBody
     label: 'automerge',
     GENERATED_DELIVERY_HOLD_LABEL: 'delivery:hold',
     runtimeAcRequirement: () => ({ required: false }),
+    getTokenSource: () => 'test-token',
     reviewWindowObservation: async () => ({ observedAtMs: 0 }),
     reviewWindowRemainingMs: async () => 0,
     loadPullRequest: async () => {
@@ -327,7 +337,7 @@ function finalGuardHarness({ finalBody = complete.body, boundaryBody = finalBody
   };
   // Run the shipped task helpers and final guard together, retaining the real
   // source snapshot fetch and refusal publisher instead of stubbing their results.
-  vm.runInContext(source.slice(start, end), c);
+  vm.runInContext(taskHelperSource, c);
   const guardStart = source.indexOf('            async function finalMergeGuardFailure(');
   const guardEnd = source.indexOf('            const listedIssues =', guardStart);
   assert.ok(guardStart >= 0 && guardEnd > guardStart, 'final merge guard must exist');
@@ -489,7 +499,7 @@ for (const phase of ['initial scan', 'final snapshot']) {
       const summaryRows = actions.find(([kind]) => kind === 'summary')[1];
       assert.deepEqual([...summaryRows[1]], phase === 'initial scan'
         ? ['#42', 'skipped', reason]
-        : ['#42', 'error', `Merge failed: ${reason}`]);
+        : ['#42', 'error', mergeFailureNote(reason)]);
     } finally {
       c.reportTaskRefusal = publish;
     }
@@ -541,7 +551,7 @@ for (const changedField of ['body', 'updated_at']) {
     assert.equal(actions.some(([kind]) => ['merge', 'remove-label'].includes(kind)), false);
     const summaryRows = actions.find(([kind]) => kind === 'summary')[1];
     assert.deepEqual([...summaryRows[1]], [
-      '#42', 'error', 'Merge failed: Linked issue changed during final merge validation.',
+      '#42', 'error', mergeFailureNote('Linked issue changed during final merge validation.'),
     ]);
     assert.deepEqual(actions.filter(([kind]) => kind === 'output'), [
       ['output', 'merged', '[]'],
@@ -568,7 +578,7 @@ for (const lateTask of ['managed task', 'reviewer task']) {
     const summaryRows = actions.find(([kind]) => kind === 'summary')[1];
     assert.deepEqual([...summaryRows[1]], [
       '#42', 'error',
-      'Merge failed: Final merge-boundary task validation failed: Refusing auto-merge: linked issue/PR has unchecked tasks.',
+      mergeFailureNote('Final merge-boundary task validation failed: Refusing auto-merge: linked issue/PR has unchecked tasks.'),
     ]);
     assert.deepEqual(actions.filter(([kind]) => kind === 'output'), [
       ['output', 'merged', '[]'],
@@ -651,7 +661,7 @@ for (const phase of ['initial scan', 'final snapshot']) {
       const summaryRows = actions.find(([kind]) => kind === 'summary')[1];
       assert.deepEqual([...summaryRows[1]], phase === 'initial scan'
         ? ['#42', 'skipped', reason]
-        : ['#42', 'error', `Merge failed: ${reason}`]);
+        : ['#42', 'error', mergeFailureNote(reason)]);
       assert.deepEqual(actions.filter(([kind]) => kind === 'output'), [
         ['output', 'merged', '[]'],
       ]);
@@ -721,7 +731,7 @@ for (const publicationFails of [false, true]) {
     ]);
     assert.equal(actions.some(([kind]) => kind === 'merge'), false);
     const summaryRows = actions.find(([kind]) => kind === 'summary')[1];
-    assert.deepEqual([...summaryRows[1]], ['#42', 'error', `Merge failed: ${reason}`]);
+    assert.deepEqual([...summaryRows[1]], ['#42', 'error', mergeFailureNote(reason)]);
     assert.deepEqual(actions.filter(([kind]) => kind === 'output'), [
       ['output', 'merged', '[]'],
     ]);
