@@ -41,11 +41,18 @@ def test_claude_available_with_configured_directory(claude_client, monkeypatch, 
     assert (claude_client.available() is True,) == (True,)
 
 
-def test_claude_invocation_uses_configured_directory(claude_client, monkeypatch, tmp_path):
+@pytest.mark.parametrize("default_auth_exists", (False, True))
+def test_claude_invocation_uses_configured_directory(
+    claude_client, monkeypatch, tmp_path, default_auth_exists
+):
     config = tmp_path / "custom-claude"
     config.mkdir()
     (config / ".credentials.json").touch()
     monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(config))
+    if default_auth_exists:
+        default = Path.home() / ".claude"
+        default.mkdir(parents=True)
+        (default / ".credentials.json").touch()
     transport = sys.modules[type(claude_client).__module__]
     calls = []
 

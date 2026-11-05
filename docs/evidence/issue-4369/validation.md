@@ -1,5 +1,73 @@
 # Issue 4369 validation receipt
 
+## Configured-directory invocation precedence at 0fbee70c
+
+On 2026-11-05, reviewed recent commits through incoming head
+`0fbee70c9296dcec8b977a8e86dc9efc4b0c31d7`. The main merge accounts for the
+unrelated files in the reconciliation notice; the actual PR diff against main
+contains six files. Task 1 remains verified complete. Tasks 2–4 remain unchecked.
+The PR was verified open and non-draft. PR-body reconciliation was attempted
+before extending the tests, but automatic approval review rejected it:
+`MCP tool call requires approval, but approval policy is never`.
+
+The invocation regression now tests both absence and presence of a default auth
+file alongside the configured auth file. For source and template, invocation
+must succeed and pass the configured directory to the child in both cases. Only
+the subprocess boundary is replaced; availability and environment filtering run
+normally. The fixtures contain empty files and launch no CLI.
+
+Python 3.14.9 command:
+`python -m pytest -q tests/test_subscription_llm.py -m 'not slow'`.
+Mutation runs add `-k invocation_uses_configured_directory`.
+
+| Local state | Exit | Result |
+| --- | --- | --- |
+| Incoming tests | 0 | 20 passed in 0.65s |
+| Extended tests | 0 | 22 passed in 0.63s |
+| Source lookup temporarily restored to the old default | 1 | 1 failed, 3 passed, 18 deselected in 0.66s |
+| Source restored | 0 | 22 passed in 0.64s |
+| Source child environment drops configured directory | 1 | 2 failed, 2 passed, 18 deselected in 0.65s |
+| Source restored | 0 | 22 passed in 0.67s |
+| Template lookup temporarily restored to the old default | 1 | 1 failed, 3 passed, 18 deselected in 0.66s |
+| Template restored | 0 | 22 passed in 0.64s |
+| Template child environment drops configured directory | 1 | 2 failed, 2 passed, 18 deselected in 0.67s |
+| Template restored | 0 | 22 passed in 0.64s |
+
+Every mutation was restored in a `finally` block. Both production copies match
+incoming HEAD byte-for-byte. Ruff, `git diff --check`, and
+`python scripts/check_gate_diff_quality.py --base origin/main --head HEAD` pass;
+the detector is unchanged. Black formatted the changed test and the required
+repository check passed, exit 0: **890 files would be left unchanged**. The check
+used `--check --line-length 100 --exclude '(\.workflows-lib|node_modules)' .`,
+`BLACK_NUM_WORKERS=1`, and a temporary `/tmp` startup module scheduling an asyncio
+heartbeat to service sandbox thread-completion callbacks. Formatting rules and
+file selection were unchanged. The initial stalled check and redundant attempts
+were stopped; their interrupted results are not counted as passes.
+
+Incoming-head hosted evidence (predates this local test extension):
+
+| Run/job | Result |
+| --- | --- |
+| [Gate JavaScript](https://github.com/stranske/Workflows/actions/runs/41965464788/job/127043316605) | 3,445 passed, 0 failed, 1 skipped; 3,446 total; adjacent Python script tests: 123 passed |
+| [Gate test-quality](https://github.com/stranske/Workflows/actions/runs/41965464788/job/127043316539) | Success; deliberate-break checker explicitly **SKIPPED**, reason `no deliberate-break marker` |
+| [Selftest Python 3.14](https://github.com/stranske/Workflows/actions/runs/41965464824/job/127041626674) | 9 passed in 15.46s |
+| [Selftest Python 3.13](https://github.com/stranske/Workflows/actions/runs/41965464824/job/127041626723) | 9 passed in 18.63s |
+| [Gate Python 3.14](https://github.com/stranske/Workflows/actions/runs/41965464788/job/127043651905) | Still running when inspected; no full Python pass claimed |
+| [Gate Python 3.13](https://github.com/stranske/Workflows/actions/runs/41965464788/job/127043652020) | Still running when inspected; no full Python pass claimed |
+
+Publication is blocked: `git add tests/test_subscription_llm.py` returned exit
+128 because `.git/index.lock` cannot be created on the read-only filesystem.
+No commit was possible. Automatic approval review also rejected the blocker
+comment and `needs-human` label with the same approval-policy error. No remote
+write or checkbox update succeeded. No local full Python suite, CI retry,
+workflow edit, or generated consumer edit was performed.
+
+The authorized closer must capture this scoped test/evidence patch, collect full
+source-gate results for the resulting head, resolve `discussion_r4468176159`
+against that evidence, and complete guarded delivery. Downstream acceptance
+remains pending Maint 68 regeneration and Maint 71 reporting for
+Portable-Alpha-Extension-Model#2454, including absence of sync-core recurrence.
+
 ## Invocation refusal and reconciliation at 4a0566a5
 
 On 2026-11-05, reviewed the recent commits through incoming head
