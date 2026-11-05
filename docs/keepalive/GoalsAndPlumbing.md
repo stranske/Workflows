@@ -881,6 +881,47 @@ hosted evidence. Effective consumer permissions, fine-grained/App grants,
 HTTP 200 and the PR's merged state require further hosted or owner evidence in
 both modes.
 
+### PR #4391 continuation acceptance (2026-11-05)
+
+Outcome 1: consumer automerge remains UNKNOWN. The real-input success check is
+an eligible `keepalive-dispatch/v2` consumer job logging `PUT .../pulls/N/merge`
+HTTP 200 together with
+`gh pr view N --repo CONSUMER --json mergedAt --jq '.mergedAt != null'`
+printing `true` for that same attempt. Stop after two repair cycles, one eligible
+dispatch, or 60 minutes; stop earlier when deployed credential access or
+eligibility cannot be established. No merge guard is relaxed to obtain a run.
+
+Before edits, re-read hosted run 41471668770, job 125366553887 on
+`stranske/Travel-Plan-Permission`: runtime acceptance passed, then the merge PUT
+returned HTTP 403. PR #1722 now prints `true` for mergedAt, but that later merge
+does not establish success of the failed dispatch. The managed deployment entry
+point is `scripts/sync_pat_secrets.sh --repo CONSUMER --verify`; its required
+SERVICE_BOT_PAT, ACTIONS_BOT_PAT, OWNER_PR_PAT and AGENTS_AUTOMATION_PAT environment
+inputs are all absent in this seat. Do not run it with substitutes or interpret
+CLI owner access as the deployed writer's token. Credential remediation and a
+successful dispatch remain unverified.
+
+Hosted inspection also verified that all three fallback PAT secret names exist
+and `stranske-automation-bot` has repository `write` access. Neither fact proves
+the selected PAT's grants. Run 42055063422 executed workflow revision
+`87aaeb64088d9bd124c0982b369fe93258213eae`, which still lacks this PR's failure
+reporter and per-attempt credential diagnostics. Its guarded job declares
+Contents, Pull requests and Issues write permissions, which do not expand a
+PAT's grants. No verified credential remediation was possible with the absent
+managed inputs. No new dispatch was issued after that access stop condition.
+The original failed run 41471668770 has no matching merge-failure warning, and
+PR #1722 has zero marker receipts at this check. Hosted warning/receipt acceptance
+therefore remains undone, rather than being inferred from local replays.
+
+Local evidence using `/opt/anaconda3/bin/python3`:
+`-m pytest tests/workflows/test_workflow_agents_consolidation.py -q` printed
+`100 passed in 4.33s`. Deliberately removing the resolved-failure receipt call
+made `-k 'test_guarded_merge_attempt_diagnostics_and_result and (unmerged or missing-response)'`
+print `2 failed, 98 deselected in 0.68s`; restoring the call printed
+`2 passed, 98 deselected in 0.48s`. Replays execute the authored failure helper
+and verify warning/receipt text, writer ownership, response status/message, and
+SHA binding. All eligibility guards remain intact.
+
 ### Guarded merge task authority
 
 This contract chooses option (a): the PR owns completion state for its implementation,

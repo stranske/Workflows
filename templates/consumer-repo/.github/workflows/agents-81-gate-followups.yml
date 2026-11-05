@@ -3471,7 +3471,8 @@ jobs:
                               }
                             } else {
                               status = 'error';
-                              note = 'Merge API returned an unexpected response.';
+                              note = `Merge failed: HTTP ${response?.status || 'unknown'} ${response?.data?.message || 'Merge API returned an unexpected response.'}`;
+                              await reportMergeFailure(prNumber, note);
                             }
                           } catch (error) {
                             status = 'error';

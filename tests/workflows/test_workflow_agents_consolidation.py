@@ -2117,6 +2117,9 @@ def _guarded_merge_attempt_replay_program():
         re.DOTALL,
     )
     assert attempt is not None, "Guarded merge must inspect the selected merge client"
+    helper = script.split("async function reportMergeFailure", 1)[1].split(
+        "// Resolve the default branch", 1
+    )[0]
     return (
         r"""
 const assert = require('node:assert/strict');
@@ -2124,6 +2127,11 @@ const scenario = process.argv[1];
 const owner = 'stranske', repo = 'Travel-Plan-Permission', prNumber = 1722;
 const headSha = 'a'.repeat(40);
 const messages = [], warnings = [], events = [], merged = [];
+const marker = '<!-- agents-guarded-merge-result:v1 -->';
+const comments = [{id: 1, user: {id: 99}, body: marker + ' foreign'}];
+let created = 0;
+const github = {rest: {issues: {listComments: () => {}}}};
+const paginateWithRetry = async () => comments;
 const core = {info: message => messages.push(message), warning: message => warnings.push(message)};
 let status = 'skipped', note = '', selectedSource = '';
 let cleanupLoads = 0;
@@ -2142,8 +2150,13 @@ const withRetry = async callback => {
       users: {getAuthenticated: async () => {
         events.push(`identity:${source}`);
         if (scenario === 'identity-unavailable') throw {status: 403};
-        return {data: {login: `${source}-writer`},
+        return {data: {id: 42, login: `${source}-writer`},
           headers: source === 'first' ? {'x-oauth-scopes': 'repo'} : {}};
+      }},
+      issues: {createComment: async params => {
+        assert.equal(params.issue_number, prNumber);
+        created++;
+        comments.push({id: 2, user: {id: 42}, body: params.body});
       }},
       pulls: {merge: async params => {
         events.push(`merge:${source}`);
@@ -2151,7 +2164,7 @@ const withRetry = async callback => {
           {owner, repo, pull_number: prNumber, merge_method: 'squash', sha: headSha});
         if (scenario === 'retry' && source === 'first') throw {status: 403};
         if (scenario === 'missing-response') return undefined;
-        return {status: 200, data: {merged: scenario !== 'unmerged'}};
+        return {status: 200, data: {merged: scenario !== 'unmerged', message: 'Merge refused'}};
       }},
     }};
     try {
@@ -2165,18 +2178,21 @@ const withRetry = async callback => {
 };
 (async () => {
 """
+        + "async function reportMergeFailure"
+        + helper
         + attempt.group(0)
         + r"""
 assert.deepEqual(events, scenario === 'retry'
   ? ['identity:first', 'merge:first', 'identity:retry', 'merge:retry']
-  : ['identity:first', 'merge:first']);
+  : ['identity:first', 'merge:first', ...(['unmerged', 'missing-response'].includes(scenario)
+    ? ['identity:first'] : [])]);
 if (scenario === 'identity-unavailable') {
   assert.deepEqual(messages, []);
   assert.deepEqual(warnings, ['Guarded merge credential identity unavailable: HTTP 403']);
 } else {
   assert.equal(messages[0],
     'Guarded merge credential source=first; actor=first-writer; OAuth scopes=repo');
-  assert.deepEqual(warnings, []);
+  if (!['unmerged', 'missing-response'].includes(scenario)) assert.deepEqual(warnings, []);
   assert.equal(messages.length, scenario === 'retry' ? 2 : 1);
   if (scenario === 'retry') {
     assert.equal(messages[1], 'Guarded merge credential source=retry; actor=retry-writer; '
@@ -2185,7 +2201,20 @@ if (scenario === 'identity-unavailable') {
 }
 const successful = !['unmerged', 'missing-response'].includes(scenario);
 assert.equal(status, successful ? 'merged' : 'error');
-assert.equal(note, successful ? 'Merged via squash.' : 'Merge API returned an unexpected response.');
+const expectedNote = successful ? 'Merged via squash.' : scenario === 'unmerged'
+  ? 'Merge failed: HTTP 200 Merge refused'
+  : 'Merge failed: HTTP unknown Merge API returned an unexpected response.';
+assert.equal(note, expectedNote);
+assert.equal(created, successful ? 0 : 1);
+assert.equal(comments[0].body, marker + ' foreign');
+const receipts = comments.filter(comment => comment.user.id === 42);
+if (!successful) {
+  assert.deepEqual(warnings, [expectedNote]);
+  assert.equal(receipts.length, 1);
+  assert.equal(receipts[0].body, marker + '\n' + expectedNote);
+} else {
+  assert.equal(receipts.length, 0);
+}
 assert.deepEqual(merged, successful ? [prNumber] : []);
 assert.equal(cleanupLoads, successful ? 1 : 0);
 })().catch(error => {console.error(error); process.exitCode = 1});
@@ -2213,8 +2242,16 @@ def test_guarded_merge_attempt_diagnostics_and_result(scenario):
         ("getTokenSource?.()", "'first'", "retry"),
         ("sha: headSha,\n", "", "retry"),
         ("response.data.merged", "true", "unmerged"),
+        ("await reportMergeFailure(prNumber, note);", "", "unmerged"),
+        ("await reportMergeFailure(prNumber, note);", "", "missing-response"),
     ],
-    ids=["stale-credential-source", "missing-head-binding", "false-merge-success"],
+    ids=[
+        "stale-credential-source",
+        "missing-head-binding",
+        "false-merge-success",
+        "missing-unmerged-receipt",
+        "missing-response-receipt",
+    ],
 )
 def test_guarded_merge_attempt_replay_detects_broken_contract(original, replacement, scenario):
     program = _guarded_merge_attempt_replay_program()
