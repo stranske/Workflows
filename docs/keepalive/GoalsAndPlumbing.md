@@ -849,11 +849,14 @@ python scripts/check_guarded_merge_deployment.py \
   --repo stranske/Travel-Plan-Permission --run-id RUN_ID
 ```
 
-Hosted collection uses read-only GET requests, fetches the workflow at the run's
-full head SHA, and selects the guarded job from all pages of that exact attempt.
+Hosted collection accepts current `workflow_dispatch` and legacy
+`repository_dispatch` runs. It uses read-only GET requests, fetches the workflow
+at the run's full head SHA, and selects the guarded job from all pages of that
+exact attempt.
 It rejects skipped, mismatched or duplicate jobs and a run that changes during
-collection. The report retains repository/run/attempt/head/job identifiers without
-printing raw workflow or log contents. Collection does not prove the dispatch's
+collection. The report retains repository/run/attempt/event/head/job identifiers
+without printing raw workflow or log contents. A `keepalive-dispatch/v2` run title alone
+cannot make another event type eligible. Collection does not prove the dispatch's
 `keepalive-dispatch/v2` payload or replace owner permission verification.
 
 The checker compares the entire `guarded-merge` job, including its effective

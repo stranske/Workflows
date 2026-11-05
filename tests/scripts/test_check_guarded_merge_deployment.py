@@ -326,12 +326,39 @@ def test_hosted_collection_uses_exact_revision_attempt_and_paginated_job(hosted_
         "repo": "owner/consumer",
         "run_id": 123,
         "run_attempt": 2,
+        "event": "repository_dispatch",
         "head_sha": "a" * 40,
         "job_id": 456,
     }
     assert len(hosted_api[3]) == 5
 
 
+@pytest.mark.parametrize("event", ["workflow_dispatch", "repository_dispatch"])
+def test_hosted_collection_accepts_current_and_legacy_dispatch_events(hosted_api, event):
+    run, _, _, calls = hosted_api
+    run["event"] = event
+    run["display_title"] = "keepalive-dispatch/v2 ordinary pr=42"
+    consumer, log, provenance = checker.collect_hosted("owner/consumer", 123, WORKFLOW)
+    assert provenance["event"] == event
+    assert provenance["run_attempt"] == 2
+    report = checker.inspect_deployment(WORKFLOW, consumer, log)
+    assert report["blockers"] == []
+    assert report["effective_permissions_confirmed"] is False
+    assert report["merge_success_confirmed"] is False
+    assert len(calls) == 5
+
+
+@pytest.mark.parametrize("event", ["pull_request_target", "workflow_run", "schedule", "push"])
+def test_keepalive_run_title_cannot_make_an_unrelated_event_a_dispatch(hosted_api, event):
+    run, _, _, calls = hosted_api
+    run["event"] = event
+    run["display_title"] = "keepalive-dispatch/v2 ordinary pr=42"
+    with pytest.raises(ValueError, match="completed consumer dispatch attempt"):
+        checker.collect_hosted("owner/consumer", 123, WORKFLOW)
+    assert len(calls) == 1
+
+
+@pytest.mark.parametrize("dispatch_event", ["workflow_dispatch", "repository_dispatch"])
 @pytest.mark.parametrize(
     ("target", "field", "value"),
     [
@@ -350,8 +377,11 @@ def test_hosted_collection_uses_exact_revision_attempt_and_paginated_job(hosted_
         ("job", "conclusion", "skipped"),
     ],
 )
-def test_hosted_collection_rejects_unbound_run_or_job(hosted_api, target, field, value):
+def test_hosted_collection_rejects_unbound_run_or_job(
+    hosted_api, dispatch_event, target, field, value
+):
     run, job, _, calls = hosted_api
+    run["event"] = dispatch_event
     (run if target == "run" else job)[field] = value
     with pytest.raises(ValueError):
         checker.collect_hosted("owner/consumer", 123, WORKFLOW)

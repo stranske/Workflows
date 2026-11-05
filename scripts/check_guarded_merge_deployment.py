@@ -2,7 +2,8 @@
 """Compare a consumer guarded-merge job and inspect its public attempt diagnostics.
 
 Local inputs must come from the same hosted run revision. Hosted collection binds
-them to a completed repository_dispatch attempt using read-only gh API calls.
+them to a completed workflow_dispatch or legacy repository_dispatch attempt using
+read-only gh API calls.
 Neither mode establishes effective repository permissions or merge success.
 """
 
@@ -50,7 +51,7 @@ def collect_hosted(repo: str, run_id: int, template: str) -> tuple[str, str, dic
         run.get("id") != run_id
         or run.get("repository", {}).get("full_name", "").lower() != repo.lower()
         or run.get("path") != WORKFLOW_PATH
-        or run.get("event") != "repository_dispatch"
+        or run.get("event") not in ("workflow_dispatch", "repository_dispatch")
         or run.get("status") != "completed"
         or not re.fullmatch(r"[0-9a-f]{40}", sha)
         or type(attempt) is not int
@@ -84,6 +85,7 @@ def collect_hosted(repo: str, run_id: int, template: str) -> tuple[str, str, dic
             "repo": repo,
             "run_id": run_id,
             "run_attempt": attempt,
+            "event": run["event"],
             "head_sha": sha,
             "job_id": job["id"],
         },
