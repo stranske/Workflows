@@ -460,6 +460,62 @@ def test_auxiliary_progress_review_ignores_chat_overrides(monkeypatch, subscript
     assert fake.calls == []
 
 
+@pytest.mark.parametrize("consumer", ["analyze", "apply"])
+def test_subscription_mode_preserves_consumer_openai_retry(
+    monkeypatch, subscription_process, chat_process, consumer
+):
+    """A real consumer pipe retries GitHub Models failures through the chat factory."""
+    from langchain_core.runnables import RunnableLambda
+    from scripts.langchain import issue_optimizer
+
+    monkeypatch.setenv("LANGCHAIN_PROVIDER", "github-models")
+    monkeypatch.setenv("LANGCHAIN_MODEL", "requested-model")
+    openai_sdk = sys.modules["langchain_openai"]
+    original_build = openai_sdk.ChatOpenAI
+
+    def build(**kwargs):
+        client = original_build(**kwargs)
+        if "base_url" not in kwargs:
+            return client
+
+        def fail(prompt):
+            client.invoke(prompt)
+            raise RuntimeError("Error code: 413 tokens_limit_reached")
+
+        return RunnableLambda(fail)
+
+    monkeypatch.setattr(openai_sdk, "ChatOpenAI", build)
+    if consumer == "analyze":
+        subscription_process.content = json.dumps(
+            {
+                "task_splitting": [],
+                "blocked_tasks": [],
+                "objective_criteria": [],
+                "missing_sections": [],
+                "formatting_issues": [],
+                "overall_notes": "Recovered with OpenAI",
+            }
+        )
+        result = issue_optimizer.analyze_issue("## Tasks\n- [ ] Add parser tests")
+        assert result.provider_used == "openai"
+        assert result.overall_notes == "Recovered with OpenAI"
+    else:
+        subscription_process.content = (
+            "## Why\nTest the parser.\n\n## Scope\nParser tests.\n\n"
+            "## Tasks\n- [ ] Add tests\n\n## Acceptance Criteria\n- [ ] Tests pass\n"
+        )
+        result = issue_optimizer.apply_suggestions("## Tasks\n- [ ] Add tests", {})
+        assert result["used_llm"] is True
+        assert result["provider_used"] == "openai"
+
+    assert [(provider, model) for provider, model, _ in chat_process] == [
+        ("github-models", "openai/requested-model"),
+        ("openai", "requested-model"),
+    ]
+    assert chat_process[0][2] == chat_process[1][2]
+    assert subscription_process.calls == []
+
+
 @pytest.mark.parametrize("provider", ["openai", "anthropic", "github-models"])
 @pytest.mark.parametrize(
     "selection",
