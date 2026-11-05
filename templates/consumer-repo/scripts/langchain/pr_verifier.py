@@ -47,6 +47,7 @@ from scripts.langchain.verifier_config import (
 from tools.llm_registry import (
     NativeCapacityFacts,
     NativeCapacityUnavailable,
+    _slot_path,
     native_capacity_facts_for,
     normalize_provider,
 )
@@ -8769,7 +8770,11 @@ def capacity_backup() -> tuple[CapacityBackupClient, str, str] | None:
     """The configured backup judge, or None when it is off, unkeyed or the path is strict."""
     if os.environ.get("VERIFIER_EVIDENCE_PROFILE") == "expanded" or _semantic_mode():
         return None
-    path = Path(__file__).resolve().parents[2] / "config" / "llm_slots.json"
+    # The backup shares the primary clients' execution allowlist. An empty or
+    # unavailable explicit configuration must never enable the bundled backup.
+    path = _slot_path()
+    if path is None:
+        return None
     try:
         block = json.loads(path.read_text(encoding="utf-8")).get("capacity_backup")
     except (OSError, ValueError, AttributeError):
