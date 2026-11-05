@@ -2363,15 +2363,34 @@ def test_product_field_modifier_repair_retains_passive_required_delivery() -> No
         ("reviewer of the endpoint", {"comments"}),
     ],
 )
-@pytest.mark.parametrize("status", ["absent", "unavailable"])
 def test_comment_delivery_actor_operation_matrix(
     verb: str,
     actor: str,
     expected: set[str],
-    status: str,
 ) -> None:
     destination = "with test results" if expected else "in its response"
     criterion = f"The {actor} must {verb} a PR comment {destination}"
+    assert pr_verifier._required_evidence_channels("- [ ] " + criterion) == expected
+
+
+@pytest.mark.parametrize(
+    "actor,expected",
+    [
+        ("API", set()),
+        ("endpoint used by API reviewers", set()),
+        ("new public REST API endpoint", set()),
+        ("reviewer", {"comments"}),
+        ("API reviewer", {"comments"}),
+        ("reviewer of the endpoint", {"comments"}),
+    ],
+)
+@pytest.mark.parametrize("status", ["absent", "unavailable"])
+def test_comment_delivery_actor_operation_real_coverage(
+    actor: str, expected: set[str], status: str
+) -> None:
+    """Product actors do not floor comments; human reviewers do, for both missing statuses."""
+    destination = "with test results" if expected else "in its response"
+    criterion = f"The {actor} must post a PR comment {destination}"
     assert pr_verifier._required_evidence_channels("- [ ] " + criterion) == expected
     context, _ = _context(1, 1_000, 1_000)
     context = context.replace(ACCEPTANCE_SENTINEL, criterion).replace(
@@ -2744,14 +2763,23 @@ def test_mixed_product_field_lists_are_not_review_delivery(subject: str, objects
         "has to",
     ],
 )
+def test_mandatory_passive_artifact_destination_keeps_channel(auxiliary: str) -> None:
+    criterion = f"The validation logs {auxiliary} be uploaded as an artifact"
+    assert pr_verifier._required_evidence_channels(f"- [ ] {criterion}") == {"artifacts"}
+
+
+@pytest.mark.parametrize("auxiliary", ["must", "has to"])
 @pytest.mark.parametrize("status", ["absent", "unavailable"])
-def test_mandatory_passive_artifact_destination_keeps_channel(auxiliary: str, status: str) -> None:
+def test_mandatory_passive_artifact_destination_real_floor(auxiliary: str, status: str) -> None:
+    """Absent artifacts concern a pass; unavailable artifacts make the input unverifiable."""
     criterion = f"The validation logs {auxiliary} be uploaded as an artifact"
     assert pr_verifier._required_evidence_channels(f"- [ ] {criterion}") == {"artifacts"}
     context, _ = _context(1, 1000, 1000)
     context = context.replace(ACCEPTANCE_SENTINEL, criterion).replace(
         "## PR Diff Summary",
-        f"## Acceptance evidence\n\n- Overall retrieval status: **present**\n- PR comments: **present**\n- Referenced workflow artifacts: **{status}**\n\n## PR Diff Summary",
+        "## Acceptance evidence\n\n- Overall retrieval status: **present**\n"
+        "- PR comments: **present**\n"
+        f"- Referenced workflow artifacts: **{status}**\n\n## PR Diff Summary",
     )
     coverage = pr_verifier.prompt_coverage(context, None)
     assert not coverage.sufficient
@@ -3541,6 +3569,41 @@ def test_attached_delivery_binding_uses_shared_destination_and_coverage_floor(
 ) -> None:
     criterion = f"The UI {product_clause} {artifact} {predicate} {destination} the PR"
     assert pr_verifier._required_evidence_channels(criterion) == {"artifacts"}
+
+
+_ATTACHED_DELIVERY_FLOOR_CASES = [
+    (clause, "artifacts", "that the reviewer must upload", "to")
+    for clause in (
+        "lets users upload",
+        "must not let clients upload",
+        "won't let authenticated users upload",
+        "must display",
+        "must show",
+        "must return",
+    )
+] + [
+    ("lets users upload", "validation artifacts", predicate, destination)
+    for predicate, destination in (
+        ("that must be uploaded", "into"),
+        ("that must have been uploaded", "in"),
+        ("that must have been being uploaded", "within"),
+        ("that must have already been uploaded", "for"),
+        ("that must have explicitly been uploaded", "as"),
+        ("that the reviewer will upload", "through"),
+        ("that will have already been uploaded", "via"),
+    )
+]
+
+
+@pytest.mark.parametrize(
+    "product_clause,artifact,predicate,destination", _ATTACHED_DELIVERY_FLOOR_CASES
+)
+def test_attached_delivery_binding_real_floor(
+    product_clause: str, artifact: str, predicate: str, destination: str
+) -> None:
+    """Each product-clause and predicate family still withholds PASS when artifacts are absent."""
+    criterion = f"The UI {product_clause} {artifact} {predicate} {destination} the PR"
+    assert pr_verifier._required_evidence_channels(criterion) == {"artifacts"}
     context, _ = _context(1, 1000, 1000)
     context = context.replace(ACCEPTANCE_SENTINEL, criterion).replace(
         "## PR Diff Summary",
@@ -3641,6 +3704,17 @@ def test_conditional_body_does_not_waive_modified_independent_review_delivery(
         f"{boundary}the reviewer must {modifier} post validation evidence in a PR comment"
     )
     assert pr_verifier._required_evidence_channels(criterion) == {"comments"}
+
+
+@pytest.mark.parametrize("boundary", [" and ", " while ", ". "])
+@pytest.mark.parametrize("product", ["lets users upload", "must display"])
+def test_conditional_body_real_floor(boundary: str, product: str) -> None:
+    """A modified independent comment still floors when the attached body record is conditional."""
+    criterion = (
+        f"The UI {product} artifacts that the reviewer must document in the PR body if available"
+        f"{boundary}the reviewer must explicitly post validation evidence in a PR comment"
+    )
+    assert pr_verifier._required_evidence_channels(criterion) == {"comments"}
     context, _ = _context(1, 1000, 1000)
     context = context.replace(ACCEPTANCE_SENTINEL, criterion).replace(
         "## PR Diff Summary",
@@ -3691,6 +3765,29 @@ def test_coordinated_product_object_retains_attached_delivery(
     if expected is None:
         expected = {"artifacts"} if object_name == "artifacts" else {"overall"}
     criterion = f"The UI {product} {prior} and {object_name} {predicate} {destination}"
+    assert pr_verifier._required_evidence_channels(criterion) == expected
+
+
+@pytest.mark.parametrize("product", ["lets users upload", "must display", "must let users upload"])
+@pytest.mark.parametrize("object_name", ["artifacts", "evidence"])
+@pytest.mark.parametrize(
+    "destination,expected",
+    [
+        ("to the PR", None),
+        ("in a PR comment", {"comments"}),
+        ("in the PR body", {"body"}),
+        ("as workflow artifacts", {"artifacts"}),
+    ],
+)
+def test_coordinated_product_object_real_floor(
+    product: str, object_name: str, destination: str, expected: set[str] | None
+) -> None:
+    """Each coordinated object and destination still withholds PASS when its channel is absent."""
+    if expected is None:
+        expected = {"artifacts"} if object_name == "artifacts" else {"overall"}
+    criterion = (
+        f"The UI {product} evidence and {object_name} that the reviewer must upload {destination}"
+    )
     assert pr_verifier._required_evidence_channels(criterion) == expected
     context, _ = _context(1, 1000, 1000)
     context = context.replace(ACCEPTANCE_SENTINEL, criterion).replace(
@@ -3750,6 +3847,22 @@ def test_attached_delivery_actor_qualifier_is_not_the_evidence_object(
 ) -> None:
     criterion = (
         f"The UI {product} evidence {object_name} that the {role} {modal} upload to the PR{tail}"
+    )
+    expected = {"artifacts"} if object_name == "artifacts" else {"overall"}
+    if tail:
+        expected.add("comments")
+    assert pr_verifier._required_evidence_channels(criterion) == expected
+
+
+@pytest.mark.parametrize("object_name", ["artifacts", "evidence"])
+@pytest.mark.parametrize("tail", ["", "; validation evidence must be recorded in a PR comment"])
+@pytest.mark.parametrize("role", ["reviewer", "artifact reviewer"])
+def test_attached_delivery_actor_qualifier_real_floor(
+    object_name: str, tail: str, role: str
+) -> None:
+    """Actor-qualifier wording still withholds PASS for the object channel and any comment tail."""
+    criterion = (
+        f"The UI must display evidence {object_name} that the {role} must upload to the PR{tail}"
     )
     expected = {"artifacts"} if object_name == "artifacts" else {"overall"}
     if tail:

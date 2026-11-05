@@ -367,6 +367,18 @@
     {"function": "test_quoted_markdown_heading_is_not_an_independent_delivery", "original_count": 0, "retained_count": 1, "original_dimensions": []},
     {"function": "test_optional_evidence_heading_scopes_only_its_own_section", "original_count": 0, "retained_count": 20, "original_dimensions": []},
     {"function": "test_not_optional_heading_does_not_waive_explicit_delivery", "original_count": 0, "retained_count": 1, "original_dimensions": []},
-    {"function": "test_optional_parent_scopes_nested_evidence_until_next_peer", "original_count": 0, "retained_count": 1, "original_dimensions": []}
+    {"function": "test_optional_parent_scopes_nested_evidence_until_next_peer", "original_count": 0, "retained_count": 1, "original_dimensions": []},
+    {"function": "test_component_availability_real_floor", "original_count": 0, "retained_count": 144, "original_dimensions": []},
+    {"function": "test_passive_aliases_real_floor", "original_count": 0, "retained_count": 114, "original_dimensions": []},
+    {"function": "test_availability_first_final_real_floor", "original_count": 0, "retained_count": 8, "original_dimensions": []},
+    {"function": "test_passive_destination_quantifier_real_floor", "original_count": 0, "retained_count": 8, "original_dimensions": []},
+    {"function": "test_relative_negative_adjective_real_floor", "original_count": 0, "retained_count": 2, "original_dimensions": []},
+    {"function": "test_body_delivery_real_floor", "original_count": 0, "retained_count": 16, "original_dimensions": []},
+    {"function": "test_component_alternatives_real_floor", "original_count": 0, "retained_count": 8, "original_dimensions": []},
+    {"function": "test_component_temporal_boundary_real_floor", "original_count": 0, "retained_count": 16, "original_dimensions": []},
+    {"function": "test_component_options_real_floor", "original_count": 0, "retained_count": 7, "original_dimensions": []},
+    {"function": "test_temporal_checklist_shorthand_real_floor", "original_count": 0, "retained_count": 8, "original_dimensions": []},
+    {"function": "test_attached_availability_relative_real_floor", "original_count": 0, "retained_count": 8, "original_dimensions": []},
+    {"function": "test_destination_list_real_floor", "original_count": 0, "retained_count": 3, "original_dimensions": []}
   ]
 }

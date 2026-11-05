@@ -6,8 +6,9 @@ The source base is `12cea89599a67c3004d1d469d669c2daa33dfd35`.
 The historical #3904 counts and experiments below describe that delivery.
 For the current additional reduction, see [#4258](#issue-4258-alias-products), the
 body-clause integration split, and the [measured dominant full products](#measured-dominant-full-products)
-below. The JSON inventory and projection tests reflect the current 26,853
-destination-file cases.
+below. The JSON inventory and projection tests reflect the current 27,195
+destination-file cases: 26,853 classifier rows plus 342 representative
+`prompt_coverage` / `_apply_coverage_floor` witnesses.
 
 ## Retained regression map
 
@@ -366,7 +367,8 @@ The retained-input repair adds seven section-boundary regression functions (49 c
 These are recorded with `original_count: 0` because they postdate the pinned original
 corpus. The original 356 functions and 90,550-case baseline remain unchanged. The
 inventory at that point contained 30,133 cases; the measured dominant-product bound
-below is what the projection tests currently check (26,853).
+below is what the projection tests currently check (27,195, including the
+representative floor witnesses).
 
 ## Issue #4258 alias products
 
@@ -523,3 +525,47 @@ channels:
 Joint lexical combinations outside those spines and the pairwise witnesses are
 not retained. The projection test checks the emitted rows. This is not a claim
 that hosted Gate time is under ten minutes.
+
+## Lightweight classifier versus representative coverage floor
+
+Lexical and semantic classifier rows keep `_required_evidence_channels` and
+`_required_evidence_options`. `prompt_coverage` and `_apply_coverage_floor` run
+on one witness per outcome class, not on every alias.
+
+In `tests/scripts/test_pr_verifier_delivery_destinations.py` the in-body floor
+loops moved to explicitly mapped `*_real_floor` tests (342 cases, `original_count`
+0). The component-availability family is the largest example: the 1,350-row
+classifier, the comma matrix, and all 648 relative-presence rows still classify
+every attachment, while the floor is 144 witnesses (full governor × duty ×
+sibling × missing × presence grid for one attachment, plus unsatisfied and
+sibling-satisfied corners for every other attachment class). Passive-alias
+options use 114 floor witnesses instead of four prompt evaluations on all 600
+classifier rows. Parent-availability, quantifier, body-delivery, component
+alternative, temporal-boundary, component-option, temporal-checklist,
+attached-availability, destination-list, and required/not adjective floors are
+the same kind of witness.
+
+`tests/scripts/test_pr_verifier_prompt_coverage.py` keeps full channel matrices
+for attached delivery (768), coordinated objects (864), actor qualifiers (128),
+conditional independent comments (36), the comment actor/operation matrix, and
+passive artifact auxiliaries. Real prompt/floor coverage is
+`test_attached_delivery_binding_real_floor` (13),
+`test_coordinated_product_object_real_floor` (24),
+`test_attached_delivery_actor_qualifier_real_floor` (8),
+`test_conditional_body_real_floor` (6),
+`test_comment_delivery_actor_operation_real_coverage` (12), and
+`test_mandatory_passive_artifact_destination_real_floor` (4).
+
+`tests/scripts/test_pr_verifier_body_overall_integration.py` checks checklist
+markers, proof predicates, and prefix aliases with
+`_required_evidence_channels` / `_required_evidence_options`. The status cubes
+that change PASS, CONCERNS, and UNVERIFIABLE_INPUT stay on the `*_actual_floor`
+tests. Marker and predicate aliases are no longer crossed with every retrieval
+status. `test_direct_common_proof_upload_checklist_marker_reaches_floor` keeps
+one checklist integration, and `test_qualified_body_delivery_real_floor` keeps
+the present-comment-cannot-satisfy-body boundary.
+
+Scoped collection after this split is 32,028 cases (32,660 before it). The
+collected-count drop is smaller than the prompt/floor call drop, because most
+classifier rows remain and the removed work was repeated `prompt_coverage`
+inside those rows.

@@ -62,6 +62,11 @@ def test_relative_presence_groups_are_exactly_324_distinct_missing_status_pairs(
 
 
 def test_relative_presence_keeps_every_classifier_and_floor_dispatch(monkeypatch):
+    """Every relative attachment still dispatches the classifier helper.
+
+    Prompt coverage and ``_apply_coverage_floor`` for those attachments are the
+    representative corners on ``test_component_availability_real_floor``.
+    """
     calls = []
 
     def capture(*args, **kwargs):
@@ -109,20 +114,18 @@ def test_component_helper_executes_all_body_comment_floor_states(monkeypatch, mi
 
     monkeypatch.setattr(delivery.verifier, "prompt_coverage", observe_prompt)
     monkeypatch.setattr(delivery.verifier, "_apply_coverage_floor", observe_floor)
-    delivery.test_component_availability_preserves_bare_sibling_and_passive_actor(
-        "record",
-        "active",
-        "the PR body",
-        "body",
-        "a PR comment",
-        "comments",
-        "and",
-        False,
-        " that may contain command output",
-        "must",
-        True,
-        missing,
-    )
+    for present in ((), ("body",), ("comments",), ("body", "comments")):
+        delivery.test_component_availability_real_floor(
+            " that may contain command output",
+            "must",
+            True,
+            "the PR body",
+            "body",
+            "a PR comment",
+            "comments",
+            missing,
+            present,
+        )
     assert not pending
     assert len(observed) == 4
     assert set(observed) == {
