@@ -209,9 +209,7 @@ def sha256_path(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def run_pytest(
-    node_id: str, *, junit_path: Path | None = None
-) -> subprocess.CompletedProcess[str]:
+def run_pytest(node_id: str, *, junit_path: Path | None = None) -> subprocess.CompletedProcess[str]:
     cmd = [INTERPRETER, "-m", "pytest", node_id, "-q"]
     if junit_path is not None:
         cmd.append(f"--junitxml={junit_path}")
