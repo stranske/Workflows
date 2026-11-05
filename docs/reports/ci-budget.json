@@ -10,23 +10,23 @@
     "issue_numbers": [],
     "issue_updated_on": "2026-11-02",
     "longest_job": {
-      "minutes": 3.0,
+      "minutes": 2.533333333333333,
       "name": "Python CI / python 3.13",
-      "url": "https://github.com/stranske/Counter_Risk/actions/runs/40798446504/job/123201141155"
+      "url": "https://github.com/stranske/Counter_Risk/actions/runs/41085744101/job/124166620914"
     },
-    "measured_at": "2026-11-04T11:38:35+00:00",
-    "p50": 2.1,
+    "measured_at": "2026-11-05T11:38:26+00:00",
+    "p50": 2.091666666666667,
     "p50_series": {
-      "2026-10-29": 2.0833333333333335,
       "2026-10-30": 2.0833333333333335,
       "2026-10-31": 2.1,
       "2026-11-01": 2.0833333333333335,
       "2026-11-02": 2.0833333333333335,
       "2026-11-03": 2.0833333333333335,
-      "2026-11-04": 2.1
+      "2026-11-04": 2.1,
+      "2026-11-05": 2.091666666666667
     },
-    "p90": 2.275,
-    "sample_count": 96,
+    "p90": 2.3383333333333334,
+    "sample_count": 38,
     "share": 0.0,
     "status": "measured",
     "target": 10.0
@@ -36,23 +36,23 @@
     "drainable_in": 0,
     "issue_numbers": [],
     "longest_job": {
-      "minutes": 2.966666666666667,
-      "name": "test-quality",
-      "url": "https://github.com/stranske/Deliverable-Render/actions/runs/40800122103/job/123206077497"
+      "minutes": 0.8166666666666667,
+      "name": "python ci / python 3.14",
+      "url": "https://github.com/stranske/Deliverable-Render/actions/runs/41092130375/job/124194439529"
     },
-    "measured_at": "2026-11-04T11:38:35+00:00",
-    "p50": 0.8,
+    "measured_at": "2026-11-05T11:38:26+00:00",
+    "p50": 0.75,
     "p50_series": {
-      "2026-10-29": 0.75,
       "2026-10-30": 0.75,
       "2026-10-31": 0.75,
       "2026-11-01": 0.75,
       "2026-11-02": 0.7666666666666667,
       "2026-11-03": 0.7833333333333334,
-      "2026-11-04": 0.8
+      "2026-11-04": 0.8,
+      "2026-11-05": 0.75
     },
-    "p90": 1.6200000000000003,
-    "sample_count": 9,
+    "p90": 0.8016666666666666,
+    "sample_count": 4,
     "share": 0.0,
     "status": "measured",
     "target": 10.0
@@ -66,19 +66,19 @@
       "name": "python ci / python 3.14",
       "url": "https://github.com/stranske/Doc-Lineage/actions/runs/41699747866/job/126141276777"
     },
-    "measured_at": "2026-11-04T11:38:35+00:00",
+    "measured_at": "2026-11-05T11:38:26+00:00",
     "p50": 1.2166666666666666,
     "p50_series": {
-      "2026-10-29": 1.2333333333333334,
       "2026-10-30": 1.225,
       "2026-10-31": 1.2333333333333334,
       "2026-11-01": 1.2166666666666666,
       "2026-11-02": 1.2166666666666666,
       "2026-11-03": 1.225,
-      "2026-11-04": 1.2166666666666666
+      "2026-11-04": 1.2166666666666666,
+      "2026-11-05": 1.2166666666666666
     },
-    "p90": 1.6,
-    "sample_count": 11,
+    "p90": 1.516666666666667,
+    "sample_count": 7,
     "share": 0.0,
     "status": "measured",
     "target": 10.0
@@ -92,19 +92,19 @@
       "name": "Python CI / python 3.13",
       "url": "https://github.com/stranske/Fine-Art-Archive/actions/runs/41128786452/job/124316461583"
     },
-    "measured_at": "2026-11-04T11:38:35+00:00",
-    "p50": 2.666666666666667,
+    "measured_at": "2026-11-05T11:38:26+00:00",
+    "p50": 2.65,
     "p50_series": {
-      "2026-10-29": 2.716666666666667,
       "2026-10-30": 2.683333333333333,
       "2026-10-31": 2.6666666666666665,
       "2026-11-01": 2.6666666666666665,
       "2026-11-02": 2.708333333333333,
       "2026-11-03": 2.7666666666666666,
-      "2026-11-04": 2.666666666666667
+      "2026-11-04": 2.666666666666667,
+      "2026-11-05": 2.65
     },
-    "p90": 3.1933333333333334,
-    "sample_count": 14,
+    "p90": 3.041666666666667,
+    "sample_count": 26,
     "share": 0.0,
     "status": "measured",
     "target": 10.0
@@ -118,19 +118,19 @@
       "name": "Python CI / python 3.13",
       "url": "https://github.com/stranske/Inv-Man-Intake/actions/runs/40997838349/job/123876802604"
     },
-    "measured_at": "2026-11-04T11:38:35+00:00",
-    "p50": 1.7833333333333334,
+    "measured_at": "2026-11-05T11:38:26+00:00",
+    "p50": 1.6666666666666667,
     "p50_series": {
-      "2026-10-29": 1.6833333333333333,
       "2026-10-30": 1.675,
       "2026-10-31": 1.675,
       "2026-11-01": 1.6666666666666667,
       "2026-11-02": 1.8666666666666667,
       "2026-11-03": 1.8250000000000002,
-      "2026-11-04": 1.7833333333333334
+      "2026-11-04": 1.7833333333333334,
+      "2026-11-05": 1.6666666666666667
     },
-    "p90": 2.1033333333333335,
-    "sample_count": 17,
+    "p90": 2.0833333333333335,
+    "sample_count": 11,
     "share": 0.0,
     "status": "measured",
     "target": 10.0
@@ -144,19 +144,19 @@
       "name": "Python CI / python 3.13",
       "url": "https://github.com/stranske/Manager-Database/actions/runs/41104458492/job/124231285090"
     },
-    "measured_at": "2026-11-04T11:38:35+00:00",
-    "p50": 3.533333333333333,
+    "measured_at": "2026-11-05T11:38:26+00:00",
+    "p50": 3.5166666666666666,
     "p50_series": {
-      "2026-10-29": 3.6333333333333333,
       "2026-10-30": 3.6,
       "2026-10-31": 3.566666666666667,
       "2026-11-01": 3.566666666666667,
       "2026-11-02": 3.566666666666667,
       "2026-11-03": 3.566666666666667,
-      "2026-11-04": 3.533333333333333
+      "2026-11-04": 3.533333333333333,
+      "2026-11-05": 3.5166666666666666
     },
-    "p90": 3.776666666666667,
-    "sample_count": 49,
+    "p90": 3.7466666666666666,
+    "sample_count": 47,
     "share": 0.0,
     "status": "measured",
     "target": 10.0
@@ -166,30 +166,31 @@
     "drainable_in": 0,
     "issue_numbers": [],
     "longest_job": {
-      "minutes": 2.7333333333333334,
-      "name": "python ci / python 3.14",
-      "url": "https://github.com/stranske/Manager-Mosaic/actions/runs/40813391751/job/123249600711"
+      "minutes": 0.7,
+      "name": "python ci / lint-format",
+      "url": "https://github.com/stranske/Manager-Mosaic/actions/runs/41092150629/job/124193751661"
     },
-    "measured_at": "2026-11-04T11:38:35+00:00",
-    "p50": 0.675,
+    "measured_at": "2026-11-05T11:38:26+00:00",
+    "p50": 0.6166666666666667,
     "p50_series": {
-      "2026-10-29": 0.6499999999999999,
       "2026-10-30": 0.6499999999999999,
       "2026-10-31": 0.6499999999999999,
       "2026-11-01": 0.6333333333333333,
       "2026-11-02": 0.6666666666666666,
       "2026-11-03": 0.6666666666666666,
-      "2026-11-04": 0.675
+      "2026-11-04": 0.675,
+      "2026-11-05": 0.6166666666666667
     },
-    "p90": 0.9483333333333326,
-    "sample_count": 10,
+    "p90": 0.6933333333333334,
+    "sample_count": 5,
     "share": 0.0,
     "status": "measured",
     "target": 10.0
   },
   "stranske/Orchestrator": {
-    "distance": 0,
-    "drainable_in": 4,
+    "distance": null,
+    "drainable_in": 7,
+    "error": "GitHub API error 403: {'message': 'API rate limit exceeded for user ID 23046322. If you reach out to GitHub Support for help, please include the request ID 6CD2:C13D4:3534DF:AEE4F4:6AEC6C52 and timestamp 2026-11-05 11:45:22 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service)', 'documentation_url': 'https://docs.github.com/en/rest/using-the-rest-api/getting-started-with-the-rest-api#rate-limiting', 'status': '403'}",
     "filed_under_24h": true,
     "filing_latency_hours": 0.6380555555555556,
     "first_over_target_at": "2026-10-26T11:48:48+00:00",
@@ -198,193 +199,172 @@
       969
     ],
     "issue_updated_on": "2026-11-04",
-    "longest_job": {
-      "minutes": 13.216666666666667,
-      "name": "python ci shard 6/6 / python 3.14",
-      "url": "https://github.com/stranske/Orchestrator/actions/runs/41099497156/job/124214540356"
-    },
-    "measured_at": "2026-11-04T11:38:35+00:00",
-    "p50": 5.183333333333334,
+    "longest_job": null,
+    "measured_at": "2026-11-05T11:38:26+00:00",
+    "p50": null,
     "p50_series": {
-      "2026-10-29": 16.925,
       "2026-10-30": 15.716666666666667,
       "2026-10-31": 14.016666666666667,
       "2026-11-01": 10.666666666666668,
       "2026-11-02": 5.516666666666667,
       "2026-11-03": 5.366666666666666,
-      "2026-11-04": 5.183333333333334
+      "2026-11-04": 5.183333333333334,
+      "2026-11-05": null
     },
-    "p90": 5.7,
-    "sample_count": 431,
-    "share": 0.0,
-    "status": "measured",
+    "p90": null,
+    "sample_count": 0,
+    "share": null,
+    "status": "unknown",
     "target": 10.0
   },
   "stranske/Pension-Data": {
-    "distance": 0,
-    "drainable_in": 0,
+    "distance": null,
+    "drainable_in": 7,
+    "error": "GitHub API error 403: {'message': 'API rate limit exceeded for user ID 23046322. If you reach out to GitHub Support for help, please include the request ID 6CD0:173A3B:35B568:B095E5:6AEC6C57 and timestamp 2026-11-05 11:45:27 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service)', 'documentation_url': 'https://docs.github.com/en/rest/using-the-rest-api/getting-started-with-the-rest-api#rate-limiting', 'status': '403'}",
     "issue_numbers": [],
-    "longest_job": {
-      "minutes": 1.8333333333333333,
-      "name": "Python CI / python 3.14",
-      "url": "https://github.com/stranske/Pension-Data/actions/runs/40803854953/job/123219936813"
-    },
-    "measured_at": "2026-11-04T11:38:35+00:00",
-    "p50": 1.575,
+    "longest_job": null,
+    "measured_at": "2026-11-05T11:38:26+00:00",
+    "p50": null,
     "p50_series": {
-      "2026-10-29": 1.5666666666666667,
       "2026-10-30": 1.5333333333333332,
       "2026-10-31": 1.5333333333333332,
       "2026-11-01": 1.5333333333333332,
       "2026-11-02": 1.5666666666666667,
       "2026-11-03": 1.5666666666666667,
-      "2026-11-04": 1.575
+      "2026-11-04": 1.575,
+      "2026-11-05": null
     },
-    "p90": 1.7716666666666667,
-    "sample_count": 12,
-    "share": 0.0,
-    "status": "measured",
+    "p90": null,
+    "sample_count": 0,
+    "share": null,
+    "status": "unknown",
     "target": 10.0
   },
   "stranske/Portable-Alpha-Extension-Model": {
-    "distance": 0,
-    "drainable_in": 0,
+    "distance": null,
+    "drainable_in": 7,
+    "error": "GitHub API error 403: {'message': 'API rate limit exceeded for user ID 23046322. If you reach out to GitHub Support for help, please include the request ID 6CD0:173A3B:35E8E5:B1406B:6AEC6C5D and timestamp 2026-11-05 11:45:33 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service)', 'documentation_url': 'https://docs.github.com/en/rest/using-the-rest-api/getting-started-with-the-rest-api#rate-limiting', 'status': '403'}",
     "issue_numbers": [],
-    "longest_job": {
-      "minutes": 4.583333333333333,
-      "name": "Python CI / python 3.14",
-      "url": "https://github.com/stranske/Portable-Alpha-Extension-Model/actions/runs/41696059356/job/126127647927"
-    },
-    "measured_at": "2026-11-04T11:38:35+00:00",
-    "p50": 3.1416666666666666,
+    "longest_job": null,
+    "measured_at": "2026-11-05T11:38:26+00:00",
+    "p50": null,
     "p50_series": {
-      "2026-10-29": 3.15,
       "2026-10-30": 3.1416666666666666,
       "2026-10-31": 3.1333333333333333,
       "2026-11-01": 3.1333333333333333,
       "2026-11-02": 3.1666666666666665,
       "2026-11-03": 3.125,
-      "2026-11-04": 3.1416666666666666
+      "2026-11-04": 3.1416666666666666,
+      "2026-11-05": null
     },
-    "p90": 3.606666666666667,
-    "sample_count": 64,
-    "share": 0.0,
-    "status": "measured",
+    "p90": null,
+    "sample_count": 0,
+    "share": null,
+    "status": "unknown",
     "target": 10.0
   },
   "stranske/Ready": {
-    "distance": 0,
-    "drainable_in": 0,
+    "distance": null,
+    "drainable_in": 7,
+    "error": "GitHub API error 403: {'message': 'API rate limit exceeded for user ID 23046322. If you reach out to GitHub Support for help, please include the request ID 6CD3:24CCA3:39118D:BC183B:6AEC6C63 and timestamp 2026-11-05 11:45:39 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service)', 'documentation_url': 'https://docs.github.com/en/rest/using-the-rest-api/getting-started-with-the-rest-api#rate-limiting', 'status': '403'}",
     "issue_numbers": [],
-    "longest_job": {
-      "minutes": 13.183333333333334,
-      "name": "publication-coverage-demonstration / issue 623 hosted coverage proof",
-      "url": "https://github.com/stranske/Ready/actions/runs/41595451051/job/125782288530"
-    },
-    "measured_at": "2026-11-04T11:38:35+00:00",
-    "p50": 8.8,
+    "longest_job": null,
+    "measured_at": "2026-11-05T11:38:26+00:00",
+    "p50": null,
     "p50_series": {
-      "2026-10-29": 6.716666666666667,
       "2026-10-30": 7.475,
       "2026-10-31": 8.108333333333334,
       "2026-11-01": 8.491666666666667,
       "2026-11-02": 8.708333333333332,
       "2026-11-03": 8.8,
-      "2026-11-04": 8.8
+      "2026-11-04": 8.8,
+      "2026-11-05": null
     },
-    "p90": 9.683333333333332,
-    "sample_count": 83,
-    "share": 0.0,
-    "status": "measured",
+    "p90": null,
+    "sample_count": 0,
+    "share": null,
+    "status": "unknown",
     "target": 10.0
   },
   "stranske/Template": {
-    "distance": 0,
-    "drainable_in": 0,
+    "distance": null,
+    "drainable_in": 7,
+    "error": "GitHub API error 403: {'message': 'API rate limit exceeded for user ID 23046322. If you reach out to GitHub Support for help, please include the request ID 6CD8:3F531A:3C048E:C5DD88:6AEC6C68 and timestamp 2026-11-05 11:45:44 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service)', 'documentation_url': 'https://docs.github.com/en/rest/using-the-rest-api/getting-started-with-the-rest-api#rate-limiting', 'status': '403'}",
     "issue_numbers": [],
-    "longest_job": {
-      "minutes": 10.266666666666667,
-      "name": "summary",
-      "url": "https://github.com/stranske/Template/actions/runs/41674397645/job/126054123637"
-    },
-    "measured_at": "2026-11-04T11:38:35+00:00",
-    "p50": 0.7333333333333333,
+    "longest_job": null,
+    "measured_at": "2026-11-05T11:38:26+00:00",
+    "p50": null,
     "p50_series": {
-      "2026-10-29": 0.6833333333333333,
       "2026-10-30": 0.6833333333333333,
       "2026-10-31": 0.6833333333333333,
       "2026-11-01": 0.6833333333333333,
       "2026-11-02": 0.725,
       "2026-11-03": 0.7333333333333333,
-      "2026-11-04": 0.7333333333333333
+      "2026-11-04": 0.7333333333333333,
+      "2026-11-05": null
     },
-    "p90": 2.1,
-    "sample_count": 11,
-    "share": 0.0,
-    "status": "measured",
+    "p90": null,
+    "sample_count": 0,
+    "share": null,
+    "status": "unknown",
     "target": 10.0
   },
   "stranske/Travel-Plan-Permission": {
-    "distance": 0,
-    "drainable_in": 0,
+    "distance": null,
+    "drainable_in": 7,
+    "error": "GitHub API error 403: {'message': 'API rate limit exceeded for user ID 23046322. If you reach out to GitHub Support for help, please include the request ID 6CD0:173A3B:3658B5:B2ADCA:6AEC6C6D and timestamp 2026-11-05 11:45:49 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service)', 'documentation_url': 'https://docs.github.com/en/rest/using-the-rest-api/getting-started-with-the-rest-api#rate-limiting', 'status': '403'}",
     "issue_numbers": [],
-    "longest_job": {
-      "minutes": 5.016666666666667,
-      "name": "Python CI / python 3.14",
-      "url": "https://github.com/stranske/Travel-Plan-Permission/actions/runs/41510867050/job/125502559290"
-    },
-    "measured_at": "2026-11-04T11:38:35+00:00",
-    "p50": 2.841666666666667,
+    "longest_job": null,
+    "measured_at": "2026-11-05T11:38:26+00:00",
+    "p50": null,
     "p50_series": {
-      "2026-10-29": 3.6666666666666665,
       "2026-10-30": 3.6,
       "2026-10-31": 3.5833333333333335,
       "2026-11-01": 3.5166666666666666,
       "2026-11-02": 3.591666666666667,
       "2026-11-03": 3.5,
-      "2026-11-04": 2.841666666666667
+      "2026-11-04": 2.841666666666667,
+      "2026-11-05": null
     },
-    "p90": 4.01,
-    "sample_count": 42,
-    "share": 0.0,
-    "status": "measured",
+    "p90": null,
+    "sample_count": 0,
+    "share": null,
+    "status": "unknown",
     "target": 10.0
   },
   "stranske/Trend_Model_Project": {
-    "distance": 0,
-    "drainable_in": 0,
+    "distance": null,
+    "drainable_in": 7,
     "drained_at": "2026-11-01T11:38:35+00:00",
+    "error": "GitHub API error 403: {'message': 'API rate limit exceeded for user ID 23046322. If you reach out to GitHub Support for help, please include the request ID 6CD2:C13D4:361FBE:B1ED0C:6AEC6C71 and timestamp 2026-11-05 11:45:54 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service)', 'documentation_url': 'https://docs.github.com/en/rest/using-the-rest-api/getting-started-with-the-rest-api#rate-limiting', 'status': '403'}",
     "filed_under_24h": true,
     "filing_latency_hours": 0.8502777777777778,
     "first_over_target_at": "2026-10-24T11:41:18+00:00",
     "issue_filed_at": "2026-10-24T12:32:19Z",
     "issue_numbers": [],
     "issue_updated_on": "2026-10-31",
-    "longest_job": {
-      "minutes": 11.566666666666666,
-      "name": "LLM Dependency Compatibility",
-      "url": "https://github.com/stranske/Trend_Model_Project/actions/runs/41108162382/job/124243497762"
-    },
-    "measured_at": "2026-11-04T11:38:35+00:00",
-    "p50": 4.383333333333333,
+    "longest_job": null,
+    "measured_at": "2026-11-05T11:38:26+00:00",
+    "p50": null,
     "p50_series": {
-      "2026-10-29": 4.866666666666666,
       "2026-10-30": 4.816666666666666,
       "2026-10-31": 4.791666666666666,
       "2026-11-01": 4.775,
       "2026-11-02": 4.416666666666667,
       "2026-11-03": 4.383333333333333,
-      "2026-11-04": 4.383333333333333
+      "2026-11-04": 4.383333333333333,
+      "2026-11-05": null
     },
-    "p90": 5.361666666666668,
-    "sample_count": 22,
-    "share": 0.0,
-    "status": "measured",
+    "p90": null,
+    "sample_count": 0,
+    "share": null,
+    "status": "unknown",
     "target": 10.0
   },
   "stranske/Workflows": {
-    "distance": 0.18500000000000005,
+    "distance": null,
     "drainable_in": 7,
+    "error": "GitHub API error 403: {'message': 'API rate limit exceeded for user ID 23046322. If you reach out to GitHub Support for help, please include the request ID 6CD0:173A3B:36E818:B488AC:6AEC6C81 and timestamp 2026-11-05 11:46:09 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service)', 'documentation_url': 'https://docs.github.com/en/rest/using-the-rest-api/getting-started-with-the-rest-api#rate-limiting', 'status': '403'}",
     "filed_under_24h": true,
     "filing_latency_hours": 0.5858333333333333,
     "first_over_target_at": "2026-10-27T11:44:41+00:00",
@@ -393,78 +373,68 @@
       4284
     ],
     "issue_updated_on": "2026-11-04",
-    "longest_job": {
-      "minutes": 38.4,
-      "name": "python ci / python 3.13",
-      "url": "https://github.com/stranske/Workflows/actions/runs/41771220527/job/126381546540"
-    },
-    "measured_at": "2026-11-04T11:38:35+00:00",
-    "p50": 11.85,
+    "longest_job": null,
+    "measured_at": "2026-11-05T11:38:26+00:00",
+    "p50": null,
     "p50_series": {
-      "2026-10-29": 11.366666666666667,
       "2026-10-30": null,
       "2026-10-31": 11.75,
       "2026-11-01": 11.716666666666665,
       "2026-11-02": 11.85,
       "2026-11-03": 11.841666666666667,
-      "2026-11-04": 11.85
+      "2026-11-04": 11.85,
+      "2026-11-05": null
     },
-    "p90": 12.866666666666667,
-    "sample_count": 189,
-    "share": 0.04175439597141847,
-    "status": "measured",
+    "p90": null,
+    "sample_count": 0,
+    "share": null,
+    "status": "unknown",
     "target": 10.0
   },
   "stranske/learning-management-system": {
-    "distance": 0,
-    "drainable_in": 0,
+    "distance": null,
+    "drainable_in": 7,
+    "error": "GitHub API error 403: {'message': 'API rate limit exceeded for user ID 23046322. If you reach out to GitHub Support for help, please include the request ID 6CD3:24CCA3:3A05DF:BF3EAC:6AEC6C85 and timestamp 2026-11-05 11:46:13 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service)', 'documentation_url': 'https://docs.github.com/en/rest/using-the-rest-api/getting-started-with-the-rest-api#rate-limiting', 'status': '403'}",
     "issue_numbers": [],
-    "longest_job": {
-      "minutes": 5.816666666666666,
-      "name": "Python CI / python 3.14",
-      "url": "https://github.com/stranske/learning-management-system/actions/runs/41092142355/job/124193011493"
-    },
-    "measured_at": "2026-11-04T11:38:35+00:00",
-    "p50": 4.9,
+    "longest_job": null,
+    "measured_at": "2026-11-05T11:38:26+00:00",
+    "p50": null,
     "p50_series": {
-      "2026-10-29": 5.05,
       "2026-10-30": 5.05,
       "2026-10-31": 5.05,
       "2026-11-01": 4.933333333333334,
       "2026-11-02": 4.966666666666667,
       "2026-11-03": 4.9,
-      "2026-11-04": 4.9
+      "2026-11-04": 4.9,
+      "2026-11-05": null
     },
-    "p90": 5.35,
-    "sample_count": 11,
-    "share": 0.0,
-    "status": "measured",
+    "p90": null,
+    "sample_count": 0,
+    "share": null,
+    "status": "unknown",
     "target": 10.0
   },
   "stranske/trip-planner": {
-    "distance": 0,
-    "drainable_in": 0,
+    "distance": null,
+    "drainable_in": 7,
+    "error": "GitHub API error 403: {'message': 'API rate limit exceeded for user ID 23046322. If you reach out to GitHub Support for help, please include the request ID 6CD5:2DCCE3:37C77A:B7B5F8:6AEC6C8B and timestamp 2026-11-05 11:46:19 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service)', 'documentation_url': 'https://docs.github.com/en/rest/using-the-rest-api/getting-started-with-the-rest-api#rate-limiting', 'status': '403'}",
     "issue_numbers": [],
-    "longest_job": {
-      "minutes": 10.433333333333334,
-      "name": "Cross-Repo Smoke / cross-repo-full-product",
-      "url": "https://github.com/stranske/trip-planner/actions/runs/40803861084/job/123218791400"
-    },
-    "measured_at": "2026-11-04T11:38:35+00:00",
-    "p50": 4.041666666666666,
+    "longest_job": null,
+    "measured_at": "2026-11-05T11:38:26+00:00",
+    "p50": null,
     "p50_series": {
-      "2026-10-29": 3.6,
       "2026-10-30": 3.5,
       "2026-10-31": 3.5,
       "2026-11-01": 3.566666666666667,
       "2026-11-02": 3.591666666666667,
       "2026-11-03": 3.9916666666666667,
-      "2026-11-04": 4.041666666666666
+      "2026-11-04": 4.041666666666666,
+      "2026-11-05": null
     },
-    "p90": 4.324999999999999,
-    "sample_count": 36,
-    "share": 0.0,
-    "status": "measured",
+    "p90": null,
+    "sample_count": 0,
+    "share": null,
+    "status": "unknown",
     "target": 10.0
   }
 }
