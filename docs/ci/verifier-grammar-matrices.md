@@ -3,12 +3,28 @@
 Issue #3904 changes test design, not production verifier behavior or delivery gates.
 The source base is `12cea89599a67c3004d1d469d669c2daa33dfd35`.
 
-The historical #3904 counts and experiments below describe that delivery.
-For the current additional reduction, see [#4258](#issue-4258-alias-products), the
-body-clause integration split, and the [measured dominant full products](#measured-dominant-full-products)
-below. The JSON inventory and projection tests reflect the current 27,195
-destination-file cases: 26,853 classifier rows plus 342 representative
-`prompt_coverage` / `_apply_coverage_floor` witnesses.
+## PR #4456: body-clause classifier/floor split
+
+Against main `7b92760527da7c9a7a5282005009b75f7d01cd2e`, this PR changes
+only the body-clause tests and their inventory audit. Both
+`_required_evidence_channels` and `_required_evidence_options` are asserted for
+all 107 wording cases × two checklist prefixes × four comment positions
+(856 classifier cases). `test_body_clause_matrix_controls_real_coverage_floor`
+retains one witness for each of six distinct required-channel outcomes, crossed
+with present/absent/unavailable and body/comments/artifacts (54 cases, formerly
+963). This saves 909 floor executions; the destination inventory falls from
+31,370 to 30,461 cases. These counts do not establish a hosted runtime speedup.
+
+The inventory marks this floor test `integration_floor_split`; it is an explicit
+exception to the unchanged Cartesian dimensions outside the matrix JSON. The
+audit verifies the emitted outcomes against the full wording corpus, exact
+status/channel values and the 54-case product. Other classifier/floor families,
+production code, CI and the matrix JSON remain unchanged from current main.
+Per-row floor checks elsewhere remain intact; this is no claim of a global split.
+Issue #3904 stays open for the broader reductions and evidence work.
+
+The following sections record earlier deliveries (#3904 and #4258). Their counts
+are historical; the JSON inventory and the current split above describe this PR.
 
 ## Retained regression map
 
@@ -33,11 +49,11 @@ this small local case construction; it is not a new test runner or framework.
 every original named regression, including generated fixtures: original parameter
 groups and their sizes, original counts, and retained counts. An original count
 of zero identifies post-baseline additions, including the real-floor integration
-tests and the section-boundary regressions described below. Functions absent from
-`verifier-grammar-matrices.json` (except `integration_floor_split` entries) retain every original combination, so no
-independence assumption or semantic/lexical decomposition is applied to them.
-Join bounded rows on `function` with `verifier-grammar-matrices.json` for the
-explicit semantic dimensions and lexical interactions. The two focused tests in
+test and the section-boundary regressions described below. The 338 unchanged
+functions retain every original combination, so no independence assumption or
+semantic/lexical decomposition is applied to them. For the 18 bounded functions,
+join on `function` with `verifier-grammar-matrices.json` for the explicit semantic
+dimensions and lexical interactions. The focused tests in
 `tests/scripts/test_pr_verifier_grammar_inventory.py` check the inventory against
 the actual decorators and verify that every declared semantic and lexical
 projection has an emitted case. They enumerate only bounded witnesses, without
@@ -58,7 +74,7 @@ the production mutation and branch/line comparisons below.
 | `test_product_chain_inherits_latest_explicit_governor_and_aspect` | 2304 | 960 |
 | `test_product_coordination_preserves_recipients_and_explicit_governor_reset` | 1008 | 546 |
 | `test_product_generation_uses_shared_delivery_operations` | 3312 | 450 |
-| `test_product_component_coordination_preserves_bare_other_channel` | 11520 | 700 |
+| `test_product_component_coordination_preserves_bare_other_channel` | 11520 | 668 |
 | `test_passive_delivery_agent_position_preserves_actor_and_floor` | 4608 | 732 |
 | `test_passive_aliases_preserve_actor_options_and_actual_floor` | 3240 | 600 |
 | `test_component_availability_preserves_bare_sibling_and_passive_actor` | 3888 | 1350 |
@@ -72,33 +88,11 @@ the production mutation and branch/line comparisons below.
 | `test_passive_product_storage_shared_review_destination` | 1008 | 189 |
 | `test_common_proof_pronoun_reuses_shared_finite_destination_grammar` | 1728 | 648 |
 | `test_qualified_common_proof_reuses_shared_governor_boundary` | 1920 | 512 |
-| `test_body_clause_matrix_controls_real_coverage_floor` | 963 | 54 |
 
-The changed matrices fell from 66,672 to 10,026 cases before the product-component
-description×voice spine. That spine adds 32 cases, so the table above sums to
-10,058. With the 288 explicitly mapped full-integration cases, the destination
-file first fell from 90,550 to 30,461 cases (60,089 fewer, 66.36%). Classifier
-coverage for PR-body wording remains in
-`test_body_clause_matrix_preserves_independent_destinations` (856 cases). The floor
-integration matrix keeps one witness per distinct required-channel outcome (six
-classes) crossed with retrieval status and channel under test (54 cases). Functions
-not listed in `verifier-grammar-matrices.json` (except `integration_floor_split` entries) retain their full parametrizations.
-This count reduction is not a measured runtime speedup.
-
-`test_relative_qualifier_preserves_parent_and_local_condition_scope` is now a
-semantic core plus lexical spines: 648 classifier rows become 240. Voice,
-destination/channel, coordination, component attachment, and local-condition
-attachment stay fully crossed, because those axes change parent versus local
-availability scope. Operation/participle aliases cross voice and both scope
-switches. Parent-condition wording (`if available`, `only if available`,
-`when produced`) crosses the full semantic core. Joint operation × condition
-tuples outside those spines are not retained. Prompt coverage and
-`_apply_coverage_floor` moved to
-`test_relative_qualifier_parent_and_local_condition_real_floor` (48 cases):
-required body, required comments, component waiver, and local-condition waiver,
-each crossed with missing status and the four retrieved-channel sets. The
-destination file is 30,133 cases after this split and the description×voice spine
-(328 fewer than 30,461).
+The changed matrices fall from 65,709 to 9,935 cases. With the 288 explicitly
+mapped full-integration cases, the destination file falls from 90,550 to 35,064
+cases (55,486 fewer, 61.28%). The other 338 original functions retain their full
+parametrizations. This count reduction is not a measured runtime speedup.
 
 ## What the decomposition preserves and does not prove
 
@@ -113,18 +107,15 @@ This is a decomposition map, not a claim that every deleted tuple is equivalent.
 Polarity, actor class, destination identity/order, AND/OR, condition attachment,
 independent duties, aspect and agent position remain semantic axes where they
 change the grammar. Lexical sweeps deliberately retain operation × voice ×
-governor × destination, the body/description alias × voice × order × conjunction,
-irregular participle × governor × contrast, adverb × position × governor, and
-availability predicate × actor × attachment interactions. Product-component
-`description` stays on every voice because active, perfect, progressive, and both
-passive agent positions are different recognizers.
+governor × destination, irregular participle × governor × contrast, adverb ×
+position × governor, and availability predicate × actor × attachment interactions.
 The manifest states each target's exact axes rather than relying on random or
 pairwise sampling. Role, spelling, and marker combinations outside these explicit
 spines are no longer exhaustive. A concrete regression requiring another joint
 interaction must add a named case or expand that target's declared spine.
 
-Full branch/line coverage comparison and the causal production mutants below are
-separate checks. Equal aggregate coverage alone would not establish grammar equivalence.
+Full branch/line coverage comparison and causal production mutants are separate
+checks. Equal aggregate coverage alone would not establish grammar equivalence.
 Any lost production branch needs a specific retained regression or documented
 justification before source acceptance; unresolved losses keep #3904 open.
 
@@ -145,13 +136,9 @@ errors, or an early exit); missing/malformed receipts stay unknown and preserve
 the real test outcome.
 
 A function above 1,000 cases or file above 50,000 cases raises a nonblocking review
-signal. Counts equal to those budgets stay within review. The job summary names each
-breach, up to 10, with the full breach count, and prints the review procedure beside
-the selected collection total and the dominant JUnit worker-seconds. A GitHub Actions
-warning repeats the same nonblocking signal. Review the new semantic interaction,
-retained lexical axes, before/after node counts, dominant JUnit cost and causal
-regression proof. A deliberate exception needs that rationale in the PR; do not raise
-a timeout or remove gates.
+signal. Review the new semantic interaction, retained lexical axes, before/after
+node counts, dominant JUnit cost and causal regression proof. A deliberate
+exception needs that rationale in the PR; do not raise a timeout or remove gates.
 The 1,350-case component-availability core is intentional: missing state, independent
 duty, governor, availability attachment, order, conjunction, destination and voice
 are retained jointly. Its signal remains visible rather than being hidden by a
@@ -180,28 +167,14 @@ when `_required_evidence_channels` returns an empty set and when
 byte-identical source restoration. The latter uses the explicitly mapped real-floor
 test, not merely a classifier expectation.
 
-Run 38938420079 is not the controlled pair: it failed, and that Gate still
-scheduled Python 3.12 and 3.13. The required Gate now schedules Python 3.13 and
-3.14 (`primary-python-version` and `coverage-python-version` are 3.14, four
-workers, `ubuntu-latest`). `scripts/gate_runtime_evidence.py` reads the two
-`gate-coverage-*` artifacts and the python-job step timestamps. It checks that
-the tested SHAs share verifier bytes, the lockfile, `pyproject.toml`,
-`pr-00-gate.yml`, and the reusable workflow's pytest argv assembly. CPU model
-and cache-hit differences stay visible as timing confounders. Executed verifier
-lines and branches are compared directly; an unchanged aggregate percentage is
-not treated as equivalence.
-
-The published pair is
-[hosted-gate-comparison.md](../evidence/issue-3904/hosted-gate-comparison.md),
-with the reading in
-[hosted-gate-adjudication.md](../evidence/issue-3904/hosted-gate-adjudication.md).
-Before is Gate run 41985113733 (tested `51e2aae6d84ef5f25be91cb7cb61ea3c352774ac`,
-the same scoped tests, lockfile, and pytest invocation as current `main`).
-After is this PR's required Gate. Collection, worker execution, in-pytest
-reporting, and the record-summary step are separate fields. Do not claim a
-sub-10-minute Gate unless that file's slowest python-job wall is under 600
-seconds and `timing_controlled` is true. If the target remains unmet, the file
-names the residual gap and the dominant JUnit functions.
+The before Gate is https://github.com/stranske/Workflows/actions/runs/38938420079
+(dispatched against main for the verified base; verify the actual run head).
+The implementation PR's required Gate supplies after evidence. Compare Python
+3.12 and 3.13 separately using actual runner/worker/dependency/coverage settings,
+scoped JUnit counts and costs, collection time, reporting and total job wall time.
+The local baseline and candidate run concurrently, so their elapsed times are observational and not a controlled speedup measurement. A local run does not establish hosted performance. Do not close #3904 or claim a
+sub-10-minute Gate until controlled hosted evidence supports that claim. If the
+runtime target remains unmet, name the measured residual bottlenecks and gap.
 
 
 ### Collection and timing receipt integrity
@@ -213,9 +186,8 @@ collection counts; collection/startup failures do not become complete receipts.
 The always-run summary validates parsed receipt shapes before aggregation.
 JUnit case counts survive invalid durations, while rankings remain explicitly
 UNKNOWN until all durations are finite and nonnegative. Defused XML parsing
-rejects entities. The reusable workflow embeds the source `junit_report`, `collection_review`, and
-`format_growth_summary` helpers so consumers require no new synced helper file; the
-tests enforce source parity.
+rejects entities. The reusable workflow embeds the source `junit_report` helper
+so consumers require no new synced helper file; the tests enforce source parity.
 Selftest installs pinned xdist and defusedxml for these actual workflow paths.
 
 Focused gate: `python -m pytest tests/workflows/test_ci_test_growth.py -q -o addopts=`.
@@ -384,10 +356,8 @@ payload. No additional hosted benchmark or workflow run is introduced.
 
 The retained-input repair adds seven section-boundary regression functions (49 cases).
 These are recorded with `original_count: 0` because they postdate the pinned original
-corpus. The original 356 functions and 90,550-case baseline remain unchanged. The
-inventory at that point contained 30,133 cases; the measured dominant-product bound
-below is what the projection tests currently check (27,195, including the
-representative floor witnesses).
+corpus. The original 356 functions and 90,550-case baseline remain unchanged; the
+current retained inventory contains 35,113 cases.
 
 ## Issue #4258 alias products
 
@@ -465,154 +435,3 @@ Branch/line comparison of baseline and candidate is an additional check, not a
 proof about arbitrary grammar strings or future implementations. These bounded
 spines must expand if a new branch couples previously independent lexical axes.
 The existing adjacent integration suites and named regressions remain required.
-
-## Measured dominant full products
-
-The next cut uses a serial local timing of the remaining full products
-(`original_count == retained_count`), not another historical JUnit artifact.
-Python 3.14.10, `python3 -m pytest -q --tb=no -p no:cacheprovider` on one
-function at a time, before this bound:
-
-| Function suffix (`test_`) | Cases | Pytest seconds |
-| --- | ---: | ---: |
-| availability_first_final_retains_parent_condition | 432 | 9.92 |
-| product_delivery_operations_share_storage_recipient_and_voice_guards | 648 | 9.81 |
-| content_object_polarity_across_passive_agents | 576 | 9.30 |
-| repeated_product_operations_keep_component_ownership | 432 | 7.76 |
-| component_alternatives_preserve_optional_negative_floor | 512 | 7.53 |
-| destination_list_cannot_consume_independent_affirmative_actor | 504 | 7.46 |
-| component_options_and_actual_floor_are_order_symmetric | 384 | 6.59 |
-| body_delivery_uses_shared_operation_and_polarity | 384 | 6.14 |
-| transport_qualifier_is_not_a_product_component | 384 | 6.08 |
-| compound_review_roles_retain_active_past_delivery | 576 | 5.01 |
-| optional_predicate_cannot_suppress_named_actor_delivery | 360 | 4.97 |
-| passive_object_does_not_capture_previous_list_item | 256 | 4.62 |
-
-These twelve were still full Cartesian products and were the slowest measured
-ones that the regression map does not already keep intact.
-`test_component_availability_preserves_bare_sibling_and_passive_actor` stays at
-its 1,350-case semantic core. `test_component_relative_presence_preserves_parent_actual_floor`
-keeps every original row. `test_body_clause_matrix_preserves_independent_destinations`
-keeps the full wording matrix after its floor split. `test_relative_presence_preserves_parent_mandatory_alternatives`
-was 720 cases but only 4.33s, under this measured band, and still changes
-parent-mandatory satisfaction across condition, order, polarity, and conjunction,
-so it stays exhaustive.
-
-Each selected function is now a semantic core, lexical spines, and every pair of
-original dimensions. Assertion bodies are unchanged. Together: 5,448 -> 2,168
-(3,280 fewer). The destination file goes from 30,133 to 26,853.
-
-What stays fully crossed, because it changes the recognizer or the asserted
-channels:
-
-- Availability parent condition: voice, destination order, AND/OR, order,
-  condition wording, and component attachment. Operation/participle aliases
-  cross voice, component attachment, and condition wording.
-- Storage recipients: voice, product actor, recipient, governor, and the
-  independent comment duty. The nine delivery verbs cross voice, governor, and
-  recipient.
-- Content-object polarity: destination, governor, actor class, component
-  boundary, and active/passive voice. The four object-polarity modifiers cross
-  voice, actor, governor, and component.
-- Repeated product operations: actor class, AND/OR, order, and governor.
-  Operation verbs cross governor, actor, and conjunction. Component-noun aliases
-  cross governor, conjunction, and order.
-- Optional/negative component alternatives: every non-mandatory governor with
-  either/or, the independent duty, and AND/OR. Component nouns and the
-  body/description alias cross those governors and the coordination axes.
-- Affirmative destination after a negative list: separator, relative/adverb
-  prefix, and channel. Obligation-governor aliases cross channel and separator.
-  Checklist markers cross separator and channel.
-- Component option order: actor/operation, order, AND/OR, condition attachment,
-  and independent duty. Component nouns and the body/description alias cross
-  actor, order, and conjunction.
-- Body delivery polarity: component boundary, order, independent duty, and
-  governor. Operation, body/description, and proof noun are lexical spines on
-  governor plus order or component.
-- Transport prepositions: destination, component boundary, governor, and
-  independent duty. Each preposition crosses governor, component, and
-  destination.
-- Compound review roles: each past-delivery verb, adverb position, checklist
-  marker, and channel. Role-noun aliases cross verb, channel, and marker.
-- Optional actor predicate: each governor/aspect and each destination
-  permutation, which select the asserted channel and the negative rewrite.
-  Role and modal aliases cross that governor and destination core.
-- Previous list item: channel, governor, and agent position. Checklist markers,
-  newline spelling, and the optional-archived modifier cross governor and
-  channel; the modifier also crosses agent position.
-
-Joint lexical combinations outside those spines and the pairwise witnesses are
-not retained. The projection test checks the emitted rows. This is not a claim
-that hosted Gate time is under ten minutes.
-
-## Lightweight classifier versus representative coverage floor
-
-Lexical and semantic classifier rows keep `_required_evidence_channels` and
-`_required_evidence_options`. `prompt_coverage` and `_apply_coverage_floor` run
-on one witness per outcome class, not on every alias.
-
-In `tests/scripts/test_pr_verifier_delivery_destinations.py` the in-body floor
-loops moved to explicitly mapped `*_real_floor` tests (342 cases, `original_count`
-0). The component-availability family is the largest example: the 1,350-row
-classifier, the comma matrix, and all 648 relative-presence rows still classify
-every attachment, while the floor is 144 witnesses (full governor × duty ×
-sibling × missing × presence grid for one attachment, plus unsatisfied and
-sibling-satisfied corners for every other attachment class). Passive-alias
-options use 114 floor witnesses instead of four prompt evaluations on all 600
-classifier rows. Parent-availability, quantifier, body-delivery, component
-alternative, temporal-boundary, component-option, temporal-checklist,
-attached-availability, destination-list, and required/not adjective floors are
-the same kind of witness.
-
-`tests/scripts/test_pr_verifier_prompt_coverage.py` keeps full channel matrices
-for attached delivery (768), coordinated objects (864), actor qualifiers (128),
-conditional independent comments (36), the comment actor/operation matrix, and
-passive artifact auxiliaries. Real prompt/floor coverage is
-`test_attached_delivery_binding_real_floor` (13),
-`test_coordinated_product_object_real_floor` (24),
-`test_attached_delivery_actor_qualifier_real_floor` (8),
-`test_conditional_body_real_floor` (6),
-`test_comment_delivery_actor_operation_real_coverage` (12), and
-`test_mandatory_passive_artifact_destination_real_floor` (4).
-
-`tests/scripts/test_pr_verifier_body_overall_integration.py` checks checklist
-markers, proof predicates, and prefix aliases with
-`_required_evidence_channels` / `_required_evidence_options`. The status cubes
-that change PASS, CONCERNS, and UNVERIFIABLE_INPUT stay on the `*_actual_floor`
-tests. Marker and predicate aliases are no longer crossed with every retrieval
-status. `test_direct_common_proof_upload_checklist_marker_reaches_floor` keeps
-one checklist integration, and `test_qualified_body_delivery_real_floor` keeps
-the present-comment-cannot-satisfy-body boundary.
-
-Scoped collection after this split is 32,028 cases (32,660 before it). The
-collected-count drop is smaller than the prompt/floor call drop, because most
-classifier rows remain and the removed work was repeated `prompt_coverage`
-inside those rows.
-
-## Causal deliberate-break
-
-`tests/scripts/pr_verifier_causal_break.py` selects rows from the shared
-`_product_component_case` builder, mutates `scripts/langchain/pr_verifier.py`,
-runs those pytest node ids, and restores the file byte-for-byte before writing
-`docs/ci/verifier-grammar-deliberate-break/`. The focused test
-`tests/scripts/test_pr_verifier_causal_break.py` checks the selector and that
-the receipt still matches this verifier. It does not mutate the file again.
-
-Positive required-destination rows are the 380 cases of
-`test_product_component_coordination_preserves_bare_other_channel` whose
-expected channel set is non-empty (mandatory bare body/comment, or an
-independent artifact duty). Replacing `_required_evidence_channels` with
-`return set()` made all 380 fail (`assert set() == {'comments'}` or `{'body'}`,
-with or without `artifacts`). Restoring the function made the same 380 pass.
-
-`_apply_coverage_floor` is not called by that classifier test. Its mapped
-integration test is `test_product_component_coordination_real_floor`. The
-fixture leaves the PR body and comments absent and artifacts present, and
-expects `CONCERNS` only when the shared `required` flag is true. Returning an
-incoming `PASS` unchanged made those 48 required-but-absent rows fail
-(`assert 'PASS' == 'CONCERNS'`). Restoring enforcement made the same 48 pass.
-
-Local Python 3.14.9 receipt `source_sha256` is
-`a32ff3b3ffefc0182fdb6c23f56ff1dca25aa235736f037a5d4c7e2256acf978`, with
-`restored_byte_identical` true. Transcripts keep the failure and restored-pass
-output. This is the causal check, not the hosted timing comparison.

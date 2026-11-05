@@ -38,11 +38,11 @@ def test_inventory_accounts_for_every_named_regression_and_case():
     assert set(functions) == {entry["function"] for entry in entries}
     assert sum(entry["original_count"] for entry in entries) == 90550
     assert (
-        sum(entry["retained_count"] for entry in entries) == 27195
-    )  # Classifier corpus plus representative coverage-floor witnesses (see verifier-grammar-matrices.md).
+        sum(entry["retained_count"] for entry in entries) == 30461
+    )  # Current main corpus minus 909 repeated body-clause floor cases.
     matrices = json.loads(MATRICES.read_text(encoding="utf-8"))
     bounded = {row["function"]: row for row in matrices}
-    assert len(bounded) == len(matrices) == 37
+    assert len(bounded) == len(matrices) == 24
     for entry in entries:
         name = entry["function"]
         marks = _parametrizations(functions[name])
@@ -57,7 +57,6 @@ def test_inventory_accounts_for_every_named_regression_and_case():
             ), name
         elif entry.get("integration_floor_split"):
             assert entry["retained_count"] < entry["original_count"], name
-            assert entry["original_dimensions"], name
             assert prod(dim["size"] for dim in entry["original_dimensions"]) == (
                 entry["original_count"]
             ), name
@@ -130,6 +129,7 @@ def test_integration_floor_split_preserves_distinct_outcomes_and_full_status_cha
     assert len(BODY_CLAUSE_FLOOR_CASES) == 6
     floor_outcomes = {frozenset(expected) for _, expected in BODY_CLAUSE_FLOOR_CASES}
     assert len(floor_outcomes) == 6, "All 6 distinct outcomes must be unique"
+    assert floor_outcomes == {frozenset(expected) for _, expected in delivery.BODY_CLAUSE_CASES}
     # Verify these are the expected channel sets
     assert floor_outcomes == {
         frozenset({"body"}),

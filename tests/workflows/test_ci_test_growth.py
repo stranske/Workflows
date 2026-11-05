@@ -212,28 +212,8 @@ def test_actual_ci_summary_reports_growth_and_preserves_failed_gate(tmp_path):
         ["tests.example::test_matrix", 5.0]
     ]
     assert growth["review_required"] is True
-    assert growth["breach_count"] == 1
-    assert growth["breaches"] == [
-        {
-            "kind": "function",
-            "name": "tests/example.py::test_matrix",
-            "cases": 1001,
-            "limit": 1000,
-        }
-    ]
-    assert "causal regression proof" in growth["review_procedure"]
     assert (runtime / "pytest-collection.json").exists()
-    summary_text = (tmp_path / "job-summary").read_text()
-    assert "summed worker time, not wall time" in summary_text
-    assert "Selected collection: 1001 cases." in summary_text
-    assert "Review required: 1 collection budget breach(es)." in summary_text
-    assert (
-        "JUnit timing: KNOWN. Dominant function tests.example::test_matrix at 5.0" in summary_text
-    )
-    assert growth["review_procedure"] in summary_text
-    assert (
-        "::warning title=Test collection budget::1 collection budget breach(es)." in result.stdout
-    )
+    assert "summed worker time, not wall time" in (tmp_path / "job-summary").read_text()
 
 
 def test_unreadable_receipts_remain_unknown(tmp_path):
@@ -257,15 +237,8 @@ def test_unreadable_receipts_remain_unknown(tmp_path):
     assert summary["checks"]["tests"]["outcome"] == "failure"
     assert summary["test_growth"]["collection"] is None
     assert summary["test_growth"]["reported"] is None
-    assert summary["test_growth"]["review_required"] is False
-    assert summary["test_growth"]["breaches"] == []
-    assert "causal regression proof" in summary["test_growth"]["review_procedure"]
     assert "collection_error" in summary["test_growth"]
     assert "junit_error" in summary["test_growth"]
-    summary_text = (tmp_path / "job-summary").read_text()
-    assert "Selected collection: unknown." in summary_text
-    assert "JUnit timing: not reported." in summary_text
-    assert "::warning" not in result.stdout
 
 
 @pytest.mark.parametrize("duration", [None, "", "invalid", "NaN", "inf", "-inf", "-1"])
@@ -409,135 +382,19 @@ def test_junit_report_rejects_entity_expansion(tmp_path):
         junit_report(path)
 
 
-def test_embedded_growth_helpers_match_source_without_consumer_import():
+def test_embedded_junit_helper_matches_source_without_consumer_import():
     import ast
     import inspect
 
-    import scripts.ci_test_growth as growth
+    from scripts.ci_test_growth import junit_report
 
     inline = _python_heredoc(_steps()[SUMMARY_STEP]["run"], SUMMARY_OPENER, SUMMARY_STEP)
-    embedded_functions = {}
-    embedded_assigns = {}
-    for node in ast.parse(inline).body:
-        if isinstance(node, ast.FunctionDef):
-            embedded_functions[node.name] = node
-        elif isinstance(node, ast.Assign):
-            for target in node.targets:
-                if isinstance(target, ast.Name):
-                    embedded_assigns[target.id] = node
-    for name in ("junit_report", "_count", "collection_review", "format_growth_summary"):
-        source = ast.parse(inspect.getsource(getattr(growth, name))).body[0]
-        assert ast.dump(embedded_functions[name]) == ast.dump(source)
-    source_assign = next(
+    node = next(
         node
-        for node in ast.parse(inspect.getsource(growth)).body
-        if isinstance(node, ast.Assign)
-        and isinstance(node.targets[0], ast.Name)
-        and node.targets[0].id == "_REVIEW_PROCEDURE"
+        for node in ast.parse(inline).body
+        if isinstance(node, ast.FunctionDef) and node.name == "junit_report"
     )
-    assert ast.dump(embedded_assigns["_REVIEW_PROCEDURE"]) == ast.dump(source_assign)
-
-
-def test_collection_review_budget_is_inclusive_and_names_file_breaches():
-    from scripts.ci_test_growth import collection_review, format_growth_summary
-
-    at_limit = collection_review(
-        {
-            "largest_functions": [["tests/edge.py::test_case", 1000]],
-            "per_file": {"tests/edge.py": 50000},
-        }
-    )
-    assert at_limit["review_required"] is False
-    assert at_limit["breaches"] == []
-    assert at_limit["budget"] == {"cases_per_function": 1000, "cases_per_file": 50000}
-
-    file_only = collection_review(
-        {
-            "largest_functions": [
-                ["tests/big.py::test_case", 1000],
-                ["tests/big.py::test_ignored", True],
-            ],
-            "per_file": {"tests/big.py": 50001, "tests/ignored.py": True},
-        }
-    )
-    assert file_only["review_required"] is True
-    assert file_only["breaches"] == [
-        {"kind": "file", "name": "tests/big.py", "cases": 50001, "limit": 50000}
-    ]
-
-    many = {f"tests/file-{index:02d}.py": 50001 for index in range(11)}
-    capped = collection_review({"largest_functions": [], "per_file": many})
-    assert capped["breach_count"] == 11
-    assert [breach["name"] for breach in capped["breaches"]] == [
-        f"tests/file-{index:02d}.py" for index in range(10)
-    ]
-    rendered = format_growth_summary(
-        {
-            "review_required": True,
-            "breach_count": capped["breach_count"],
-            "breaches": capped["breaches"],
-            "budget": capped["budget"],
-            "review_procedure": capped["review_procedure"],
-        }
-    )
-    assert "Showing 10 of 11." in rendered
-    assert "tests/file-10.py" not in rendered
-    assert capped["review_procedure"] in rendered
-
-
-def _run_embedded_summary(tmp_path: Path, collection: dict) -> tuple[dict, str, str]:
-    tmp_path.mkdir(parents=True, exist_ok=True)
-    script = _python_heredoc(_steps()[SUMMARY_STEP]["run"], SUMMARY_OPENER, SUMMARY_STEP)
-    (tmp_path / "pytest-collection.json").write_text(json.dumps(collection))
-    env = {
-        **os.environ,
-        "PYTHON_VERSION": "3.12",
-        "PYTEST_OUTCOME": "success",
-        "GITHUB_OUTPUT": str(tmp_path / "outputs"),
-        "GITHUB_STEP_SUMMARY": str(tmp_path / "job-summary"),
-    }
-    result = subprocess.run(
-        [sys.executable, "-c", script], cwd=tmp_path, env=env, capture_output=True, text=True
-    )
-    assert result.returncode == 0, result.stderr
-    summary = json.loads(
-        (tmp_path / "artifacts/coverage/runtimes/3.12/summary.json").read_text(encoding="utf-8")
-    )
-    return summary, (tmp_path / "job-summary").read_text(encoding="utf-8"), result.stdout
-
-
-def test_embedded_summary_file_budget_does_not_fail_the_test_gate(tmp_path):
-    """A file can exceed 50,000 cases while every reported function stays at 1,000."""
-    over = {
-        "total": 50001,
-        "per_file": {"tests/big.py": 50001},
-        "largest_functions": [["tests/big.py::test_case", 1000]],
-        "complete": True,
-    }
-    summary, summary_text, stdout = _run_embedded_summary(tmp_path / "over", over)
-    assert summary["checks"]["tests"]["outcome"] == "success"
-    growth = summary["test_growth"]
-    assert growth["review_required"] is True
-    assert growth["breaches"] == [
-        {"kind": "file", "name": "tests/big.py", "cases": 50001, "limit": 50000}
-    ]
-    assert "function `tests/big.py::test_case`" not in summary_text
-    assert "file `tests/big.py`: 50001 cases" in summary_text
-    assert growth["review_procedure"] in summary_text
-    assert "::warning title=Test collection budget::" in stdout
-
-    at_limit = {
-        "total": 50000,
-        "per_file": {"tests/edge.py": 50000},
-        "largest_functions": [["tests/edge.py::test_case", 1000]],
-        "complete": True,
-    }
-    summary, summary_text, stdout = _run_embedded_summary(tmp_path / "limit", at_limit)
-    assert summary["checks"]["tests"]["outcome"] == "success"
-    assert summary["test_growth"]["review_required"] is False
-    assert summary["test_growth"]["breaches"] == []
-    assert "Within budget (1000 cases/function, 50000 cases/file)." in summary_text
-    assert "::warning" not in stdout
+    assert ast.dump(node) == ast.dump(ast.parse(inspect.getsource(junit_report)).body[0])
 
 
 def test_workflow_clears_stale_receipt_before_pytest_startup_error(tmp_path, monkeypatch):

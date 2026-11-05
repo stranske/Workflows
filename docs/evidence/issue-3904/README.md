@@ -7,12 +7,10 @@ and SHA256. Production caller bytes are unchanged. The scripts retain the actual
 local interpreter and private checkout path as invocation evidence.
 
 This proves the two named causal checks and explicit projection witnesses. It
-does not prove all deleted lexical tuples equivalent. The hosted Gate pair is
-recorded in hosted-gate-comparison.md. `scripts/langchain/pr_verifier.py`
-executed lines stayed 3030 and executed branches stayed 1168, with no lost or
-gained arcs. Python 3.13 job wall fell from 674s to 604s and is still 4s over
-the 10-minute aim, so that aim is not claimed. See
-docs/ci/verifier-grammar-matrices.md.
+does not prove all deleted lexical tuples equivalent. Full matched coverage,
+local runtime, both hosted Python jobs and controlled hosted timing remain
+separate acceptance. See docs/ci/verifier-grammar-matrices.md and the PR's live
+validation record. Source #3904 remains open until that evidence is dispositioned.
 
 
 Current candidate validation: **40,836 PASS**, exit0, 962.25s, Python3.12.2,
@@ -23,9 +21,10 @@ also has actual base RED (two assertions) / current GREEN from the canonical
 Gate deliberate-break checker. Twenty-four focused workflow tests pass.
 
 The matched local baseline remains in progress in the opener run directory at
-handoff. Because the two local runs overlap, those local elapsed times are
-observational. The hosted pair and verifier branch comparison are in
-hosted-gate-comparison.md. The 10-minute python-job aim is missed by 4s.
+handoff. Because the two local runs overlap, elapsed times are observational,
+not a controlled speedup measurement. No unchanged branch-coverage/equivalence,
+Python3.13, full Gate, provider acceptance or under-ten-minute claim is made.
+The original source issue stays open until those remaining results are assessed.
 
 The complete per-function inventory is now checked by two focused tests in
 `tests/scripts/test_pr_verifier_grammar_inventory.py`. Their audit-specific
@@ -34,4 +33,4 @@ each produce assertion RED and restored GREEN. Console output is retained in
 `inventory-audit-validation.txt`; `inventory-audit-validation.json` records the
 command, Python version, exit codes and byte-identical restoration hashes.
 These audit checks are separate from the production classifier/floor mutations
-in the existing archive and from the hosted Gate comparison.
+in the existing archive and do not close the outstanding coverage/hosted gates.

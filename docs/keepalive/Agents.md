@@ -197,7 +197,9 @@ Claude runner). `tools/subscription_llm.py` resolves the cheap-tier model from
 passes only account-auth environment values to the read-only CLI. Codex analysis
 disables shell/unified_exec and related tools, runs ephemeral with an empty cwd,
 and never relies on sandbox read-only alone to protect `CODEX_HOME/auth.json`.
-Claude analysis uses `--tools ""`. API-provider, GitHub, and tracing keys are
+Claude analysis uses `--tools ""`. Its availability check looks for `.credentials.json`
+under `CLAUDE_CONFIG_DIR` when set, otherwise under `~/.claude`, matching the
+configuration directory passed to the child CLI. API-provider, GitHub, and tracing keys are
 excluded from the child environment. Missing CLI, account auth, timeout, or
 invalid CLI output never falls back to an API. Optional Cursor/Gemini/Muse
 analysis skips with `llm-analysis-run=false` without an already
