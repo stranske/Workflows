@@ -1,6 +1,8 @@
 """Exit-code and restoration contract for the retained mutation proofs."""
 
+import hashlib
 import importlib.util
+import json
 import subprocess
 import sys
 from pathlib import Path
@@ -12,6 +14,30 @@ spec = importlib.util.spec_from_file_location("issue_4170_runner", RUNNER)
 runner = importlib.util.module_from_spec(spec)
 sys.modules[spec.name] = runner
 spec.loader.exec_module(runner)
+
+
+def _red_junit(*, failures: int = 1, errors: int = 0) -> str:
+    cases = []
+    for _ in range(failures):
+        cases.append(
+            '  <testcase classname="production" name="test_node">\n'
+            '    <failure message="assert">failed</failure>\n'
+            "  </testcase>\n"
+        )
+    for _ in range(errors):
+        cases.append(
+            '  <testcase classname="production" name="test_node">\n'
+            '    <error message="setup">setup failed</error>\n'
+            "  </testcase>\n"
+        )
+    if not cases:
+        cases.append('  <testcase classname="production" name="test_node"/>\n')
+    return (
+        '<?xml version="1.0" encoding="utf-8"?>\n'
+        f'<testsuite tests="{len(cases)}" failures="{failures}" errors="{errors}">\n'
+        + "".join(cases)
+        + "</testsuite>\n"
+    )
 
 
 @pytest.fixture
@@ -31,7 +57,7 @@ def test_rejects_non_failure_exit_and_restores(isolated_runner, monkeypatch, exi
     target, original, manifest = isolated_runner
     calls = []
 
-    def red(node):
+    def red(node, junit_path=None):
         calls.append(node)
         assert target.read_text() == "original = False\n"
         return subprocess.CompletedProcess([], exit_code, "", "")
@@ -53,10 +79,12 @@ def test_restores_on_other_failures(isolated_runner, monkeypatch, failure):
     target, original, manifest = isolated_runner
     calls = []
 
-    def run(node):
+    def run(node, junit_path=None):
         calls.append(node)
         if failure == "red_exception" or (failure == "green_exception" and len(calls) == 2):
             raise RuntimeError("subprocess failed")
+        if junit_path is not None:
+            junit_path.write_text(_red_junit(), encoding="utf-8")
         return subprocess.CompletedProcess([], 1, "1 failed", "")
 
     monkeypatch.setattr(runner, "run_pytest", run)
@@ -72,6 +100,32 @@ def test_restores_on_other_failures(isolated_runner, monkeypatch, failure):
     assert not manifest.exists()
 
 
+@pytest.mark.parametrize(
+    "failures,errors,match",
+    [
+        (0, 1, "exactly one test failure and zero errors"),
+        (0, 0, "exactly one test failure and zero errors"),
+        (2, 0, "exactly one test failure and zero errors"),
+    ],
+)
+def test_rejects_red_junit_without_single_test_failure(
+    isolated_runner, monkeypatch, failures, errors, match
+):
+    target, original, manifest = isolated_runner
+
+    def red(node, junit_path=None):
+        if junit_path is None:
+            return subprocess.CompletedProcess([], 0, "1 passed", "")
+        junit_path.write_text(_red_junit(failures=failures, errors=errors), encoding="utf-8")
+        return subprocess.CompletedProcess([], 1, "1 failed", "")
+
+    monkeypatch.setattr(runner, "run_pytest", red)
+    with pytest.raises(RuntimeError, match=match):
+        runner.main()
+    assert target.read_bytes() == original
+    assert not manifest.exists()
+
+
 def test_records_only_test_failure_then_success(isolated_runner, monkeypatch):
     target, original, manifest = isolated_runner
     results = iter(
@@ -80,7 +134,21 @@ def test_records_only_test_failure_then_success(isolated_runner, monkeypatch):
             subprocess.CompletedProcess([], 0, "1 passed", ""),
         ]
     )
-    monkeypatch.setattr(runner, "run_pytest", lambda node: next(results))
+
+    def run(node, junit_path=None):
+        proc = next(results)
+        if proc.returncode == 1 and junit_path is not None:
+            junit_path.write_text(_red_junit(), encoding="utf-8")
+        return proc
+
+    monkeypatch.setattr(runner, "run_pytest", run)
     assert runner.main() == 0
     assert target.read_bytes() == original
     assert manifest.exists()
+    data = json.loads(manifest.read_text(encoding="utf-8"))
+    proof = data["proofs"][0]
+    assert proof["node_id"] == "test_node"
+    assert proof["red_exit"] == 1
+    assert proof["green_exit"] == 0
+    expected_hash = hashlib.sha256(original).hexdigest()
+    assert data["restored_production_sha256"]["production.py"] == expected_hash

@@ -7,8 +7,11 @@ import hashlib
 import json
 import subprocess
 import sys
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path
+
+from defusedxml import ElementTree as SafeET
 
 ROOT = Path(__file__).resolve().parents[3]
 EVIDENCE = Path(__file__).resolve().parent
@@ -206,13 +209,34 @@ def sha256_path(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def run_pytest(node_id: str) -> subprocess.CompletedProcess[str]:
+def run_pytest(
+    node_id: str, *, junit_path: Path | None = None
+) -> subprocess.CompletedProcess[str]:
+    cmd = [INTERPRETER, "-m", "pytest", node_id, "-q"]
+    if junit_path is not None:
+        cmd.append(f"--junitxml={junit_path}")
     return subprocess.run(
-        [INTERPRETER, "-m", "pytest", node_id, "-q"],
+        cmd,
         cwd=ROOT,
         text=True,
         capture_output=True,
     )
+
+
+def validate_red_junit(junit_path: Path, node_id: str) -> None:
+    if not junit_path.is_file():
+        raise RuntimeError(f"{node_id}: missing JUnit report at {junit_path}")
+    root = SafeET.parse(junit_path).getroot()
+    failures = 0
+    errors = 0
+    for case in root.iter("testcase"):
+        failures += len(case.findall("failure"))
+        errors += len(case.findall("error"))
+    if failures != 1 or errors != 0:
+        raise RuntimeError(
+            f"{node_id}: red proof requires exactly one test failure and zero errors "
+            f"(JUnit: failures={failures}, errors={errors})"
+        )
 
 
 def apply_patch(path: Path, before: str, after: str) -> None:
@@ -254,11 +278,17 @@ def main() -> int:
         original = target.read_text(encoding="utf-8")
         try:
             apply_patch(target, mutation.before, mutation.after)
-            red = run_pytest(mutation.node_id)
-            if red.returncode != 1:
-                raise RuntimeError(
-                    f"{mutation.node_id}: expected pytest exit 1 under mutation, got {red.returncode}"
-                )
+            with tempfile.NamedTemporaryFile(suffix=".xml", delete=False) as handle:
+                red_junit = Path(handle.name)
+            try:
+                red = run_pytest(mutation.node_id, junit_path=red_junit)
+                if red.returncode != 1:
+                    raise RuntimeError(
+                        f"{mutation.node_id}: expected pytest exit 1 under mutation, got {red.returncode}"
+                    )
+                validate_red_junit(red_junit, mutation.node_id)
+            finally:
+                red_junit.unlink(missing_ok=True)
             restore_patch(target, mutation.before, mutation.after)
             green = run_pytest(mutation.node_id)
             if green.returncode != 0:

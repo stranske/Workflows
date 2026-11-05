@@ -31,23 +31,24 @@ Outcome: 24 offline red/restore/green proofs, 112 target-module tests passing,
 and a successful CI pytest job demonstrably executing all three modules.
 Acceptance commands: the two commands in Re-run above; focused runner checks:
 `/opt/anaconda3/bin/python3 -m pytest -q tests/scripts/test_issue_4170_mutation_runner.py`.
+Red proofs require pytest exit 1 plus JUnit with exactly one test failure and zero
+errors (setup/teardown errors are rejected). The success-path runner test asserts
+manifest node ID, red/green exits, and restored production SHA256.
 Stop rule: stop after three failed attempts at the same step or 60 minutes elapsed;
 report the first broken step. No unrelated repairs.
 
 Local verification: runner printed `{"proofs": 24, ...}`; all manifest entries
 have red exit 1 and green exit 0, and restored production SHA256 values match.
-Three-module pytest: 112 passed. Focused runner checks: 10 passed.
+Three-module pytest: 112 passed. Focused runner checks: 13 passed (exit rejection,
+JUnit red validation, manifest field assertions, restoration).
 The numeric-limit tests use a temporary offline payload and export destination.
 The normal `artifacts/langsmith` tree was absent before and after the proof run;
 no normal export was created or changed.
 
 ## Follow-ups outside this acceptance repair
 
-- Distinguish pytest exit-1 setup/teardown errors from assertion failures in future
-  runner invocations. All 24 current red summaries report failed tests, not errors.
-- Extend the runner success-path test to assert manifest field contents; this
-  repair verifies exit rejection and restoration, and separately checks all
-  recorded manifest exits and production hashes.
+None remaining for the closer-lane JUnit red validation and manifest success-path
+assertions completed in the continuation repair.
 
 The absolute local rerun interpreter is intentional owner direction. CI uses
 its configured Python 3.13/3.14 environments.
