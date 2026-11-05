@@ -37,7 +37,9 @@ def test_rejects_non_failure_exit_and_restores(isolated_runner, monkeypatch, exi
         return subprocess.CompletedProcess([], exit_code, "", "")
 
     monkeypatch.setattr(runner, "run_pytest", red)
-    with pytest.raises(RuntimeError, match=f"expected pytest exit 1 under mutation, got {exit_code}"):
+    with pytest.raises(
+        RuntimeError, match=f"expected pytest exit 1 under mutation, got {exit_code}"
+    ):
         runner.main()
     assert target.read_bytes() == original
     assert len(calls) == 1

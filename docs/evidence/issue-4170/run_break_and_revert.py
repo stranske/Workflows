@@ -49,8 +49,8 @@ MUTATIONS: list[Mutation] = [
         "tests/scripts/test_docs_drift_fix_agent.py::test_plan_output_writer_and_batch_limit_are_executable",
         "scripts/docs_drift_fix_agent.py",
         "batch_findings rejects non-positive max_per_batch",
-        "    if max_per_batch <= 0:\n        raise ValueError(\"max_per_batch must be positive\")",
-        "    if max_per_batch < 0:\n        raise ValueError(\"max_per_batch must be positive\")",
+        '    if max_per_batch <= 0:\n        raise ValueError("max_per_batch must be positive")',
+        '    if max_per_batch < 0:\n        raise ValueError("max_per_batch must be positive")',
     ),
     Mutation(
         "tests/scripts/test_docs_drift_fix_agent.py::test_default_docs_from_config_accepts_null_maps_and_skips_bad_items",
@@ -77,8 +77,8 @@ MUTATIONS: list[Mutation] = [
         "tests/scripts/test_docs_drift_fix_agent.py::test_main_validation_and_json_output",
         "scripts/docs_drift_fix_agent.py",
         "main returns exit 2 when repo root is missing",
-        "    except (OSError, ValueError, RuntimeError, json.JSONDecodeError) as exc:\n        print(f\"error: {exc}\", file=sys.stderr)\n        return 2",
-        "    except (OSError, ValueError, RuntimeError, json.JSONDecodeError) as exc:\n        print(f\"error: {exc}\", file=sys.stderr)\n        return 0",
+        '    except (OSError, ValueError, RuntimeError, json.JSONDecodeError) as exc:\n        print(f"error: {exc}", file=sys.stderr)\n        return 2',
+        '    except (OSError, ValueError, RuntimeError, json.JSONDecodeError) as exc:\n        print(f"error: {exc}", file=sys.stderr)\n        return 0',
     ),
     Mutation(
         "tests/scripts/test_export_keepalive_durability.py::test_helpers_handle_invalid_metadata_and_reverts_before_the_merge",
@@ -112,22 +112,22 @@ MUTATIONS: list[Mutation] = [
         "tests/scripts/test_export_keepalive_durability.py::test_cli_rejects_invalid_numeric_limits[--days-0]",
         "scripts/export_keepalive_durability.py",
         "CLI rejects non-positive --days",
-        "    if args.days <= 0:\n        parser.error(\"--days must be positive\")",
-        "    if args.days < 0:\n        parser.error(\"--days must be positive\")",
+        '    if args.days <= 0:\n        parser.error("--days must be positive")',
+        '    if args.days < 0:\n        parser.error("--days must be positive")',
     ),
     Mutation(
         "tests/scripts/test_export_keepalive_durability.py::test_cli_rejects_invalid_numeric_limits[--grace-days--1]",
         "scripts/export_keepalive_durability.py",
         "CLI rejects negative --grace-days",
-        "    if args.grace_days < 0:\n        parser.error(\"--grace-days must be non-negative\")",
-        "    if args.grace_days < -1:\n        parser.error(\"--grace-days must be non-negative\")",
+        '    if args.grace_days < 0:\n        parser.error("--grace-days must be non-negative")',
+        '    if args.grace_days < -1:\n        parser.error("--grace-days must be non-negative")',
     ),
     Mutation(
         "tests/scripts/test_export_keepalive_durability.py::test_cli_rejects_invalid_numeric_limits[--limit-0]",
         "scripts/export_keepalive_durability.py",
         "CLI rejects non-positive --limit",
-        "    if args.limit <= 0:\n        parser.error(\"--limit must be positive\")",
-        "    if args.limit < 0:\n        parser.error(\"--limit must be positive\")",
+        '    if args.limit <= 0:\n        parser.error("--limit must be positive")',
+        '    if args.limit < 0:\n        parser.error("--limit must be positive")',
     ),
     Mutation(
         "tests/scripts/test_export_keepalive_durability.py::test_helpers_cover_timezone_agent_and_closing_edge_cases",
@@ -154,8 +154,8 @@ MUTATIONS: list[Mutation] = [
         "tests/scripts/test_export_keepalive_durability.py::test_cli_human_summary_and_partial_fetch_paths",
         "scripts/export_keepalive_durability.py",
         "CLI human summary reports record count",
-        '            f"export_keepalive_durability: wrote {summary[\'records\']} record(s) "',
-        '            f"export_keepalive_durability: wrote {summary[\'records\'] + 1} record(s) "',
+        "            f\"export_keepalive_durability: wrote {summary['records']} record(s) \"",
+        "            f\"export_keepalive_durability: wrote {summary['records'] + 1} record(s) \"",
     ),
     Mutation(
         "tests/scripts/test_workflow_startup_failure_diagnostic.py::test_token_pacing_and_list_api_paths",
@@ -219,7 +219,9 @@ def apply_patch(path: Path, before: str, after: str) -> None:
     text = path.read_text(encoding="utf-8")
     count = text.count(before)
     if count != 1:
-        raise RuntimeError(f"{path}: expected exactly one occurrence of mutation anchor, found {count}")
+        raise RuntimeError(
+            f"{path}: expected exactly one occurrence of mutation anchor, found {count}"
+        )
     path.write_text(text.replace(before, after, 1), encoding="utf-8")
 
 
@@ -227,7 +229,9 @@ def restore_patch(path: Path, before: str, after: str) -> None:
     text = path.read_text(encoding="utf-8")
     count = text.count(after)
     if count != 1:
-        raise RuntimeError(f"{path}: expected exactly one mutant occurrence to restore, found {count}")
+        raise RuntimeError(
+            f"{path}: expected exactly one mutant occurrence to restore, found {count}"
+        )
     path.write_text(text.replace(after, before, 1), encoding="utf-8")
 
 
@@ -242,12 +246,7 @@ def summarize_output(proc: subprocess.CompletedProcess[str]) -> str:
 def main() -> int:
     production_hashes = {
         str(path.relative_to(ROOT)): sha256_path(path)
-        for path in sorted(
-            {
-                ROOT / mutation.production_file
-                for mutation in MUTATIONS
-            }
-        )
+        for path in sorted({ROOT / mutation.production_file for mutation in MUTATIONS})
     }
     proofs: list[dict[str, object]] = []
     for mutation in MUTATIONS:
@@ -257,7 +256,9 @@ def main() -> int:
             apply_patch(target, mutation.before, mutation.after)
             red = run_pytest(mutation.node_id)
             if red.returncode != 1:
-                raise RuntimeError(f"{mutation.node_id}: expected pytest exit 1 under mutation, got {red.returncode}")
+                raise RuntimeError(
+                    f"{mutation.node_id}: expected pytest exit 1 under mutation, got {red.returncode}"
+                )
             restore_patch(target, mutation.before, mutation.after)
             green = run_pytest(mutation.node_id)
             if green.returncode != 0:
@@ -291,7 +292,11 @@ def main() -> int:
         json.dumps(manifest, indent=2) + "\n",
         encoding="utf-8",
     )
-    print(json.dumps({"proofs": len(proofs), "manifest": str(EVIDENCE / "break-and-revert-manifest.json")}))
+    print(
+        json.dumps(
+            {"proofs": len(proofs), "manifest": str(EVIDENCE / "break-and-revert-manifest.json")}
+        )
+    )
     return 0
 
 
