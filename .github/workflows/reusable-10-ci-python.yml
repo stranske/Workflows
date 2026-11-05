@@ -2472,7 +2472,7 @@ jobs:
           from defusedxml import ElementTree as SafeET
           from defusedxml.common import DefusedXmlException
 
-          # Same helper as scripts/ci_test_growth.py; embedded for consumer portability.
+          # Same helpers as scripts/ci_test_growth.py; embedded for consumer portability.
           def junit_report(path: Path) -> dict[str, object]:
               """Keep reported counts even when individual testcase durations are unusable.
 
@@ -2518,6 +2518,128 @@ jobs:
               if not complete:
                   report["timing_error"] = "JUnit durations UNKNOWN: missing, invalid or incomplete timings"
               return report
+
+          _REVIEW_PROCEDURE = (
+              "Nonblocking review: inspect the new semantic interaction, retained lexical axes, "
+              "before/after node counts, dominant JUnit worker-seconds, and causal regression proof. "
+              "Record that rationale in the PR. Do not raise timeouts or remove coverage, security, "
+              "or merge gates. A collected count equal to the budget stays within review."
+          )
+
+
+          def _count(value: object) -> int | None:
+              if isinstance(value, bool) or not isinstance(value, int):
+                  return None
+              return value
+
+
+          def collection_review(collection: dict[str, object]) -> dict[str, object]:
+              """Name top-function and per-file counts above the inclusive case budget.
+
+              ``largest_functions`` is the receipt's top 10. A function outside that list cannot
+              exceed the function budget unless one of those ten does too. Every file is checked.
+              Timings stay on the JUnit receipt and do not use this case-count budget.
+              """
+              budget = {"cases_per_function": 1000, "cases_per_file": 50000}
+              breaches: list[dict[str, object]] = []
+              largest = collection.get("largest_functions")
+              if isinstance(largest, list):
+                  for row in largest:
+                      if not isinstance(row, (list, tuple)) or len(row) != 2 or not isinstance(row[0], str):
+                          continue
+                      count = _count(row[1])
+                      if count is not None and count > budget["cases_per_function"]:
+                          breaches.append(
+                              {
+                                  "kind": "function",
+                                  "name": row[0],
+                                  "cases": count,
+                                  "limit": budget["cases_per_function"],
+                              }
+                          )
+              per_file = collection.get("per_file")
+              if isinstance(per_file, dict):
+                  for name, raw in per_file.items():
+                      count = _count(raw)
+                      if isinstance(name, str) and count is not None and count > budget["cases_per_file"]:
+                          breaches.append(
+                              {
+                                  "kind": "file",
+                                  "name": name,
+                                  "cases": count,
+                                  "limit": budget["cases_per_file"],
+                              }
+                          )
+              breaches.sort(key=lambda item: (str(item["kind"]), str(item["name"])))
+              return {
+                  "budget": budget,
+                  "review_required": bool(breaches),
+                  "breach_count": len(breaches),
+                  "breaches": breaches[:10],
+                  "review_procedure": _REVIEW_PROCEDURE,
+              }
+
+
+          def format_growth_summary(growth: dict[str, object]) -> str:
+              """Expose collection counts, dominant JUnit timing, and the review procedure."""
+              lines = [
+                  "### Test collection and execution growth",
+                  "",
+                  str(growth.get("review_procedure") or _REVIEW_PROCEDURE),
+                  "",
+                  "Review signal only; existing test/coverage/merge gates are unchanged.",
+                  "",
+              ]
+              collection = growth.get("collection")
+              if isinstance(collection, dict) and _count(collection.get("total")) is not None:
+                  lines.append(f"Selected collection: {collection['total']} cases.")
+              else:
+                  lines.append("Selected collection: unknown.")
+              reported = growth.get("reported")
+              dominant: object = None
+              status = None
+              if isinstance(reported, dict):
+                  status = reported.get("timing_status")
+                  dominant = reported.get("dominant_functions_worker_seconds")
+              if (
+                  status == "KNOWN"
+                  and isinstance(dominant, list)
+                  and dominant
+                  and isinstance(dominant[0], (list, tuple))
+                  and len(dominant[0]) == 2
+              ):
+                  name, seconds = dominant[0]
+                  lines.append(
+                      f"JUnit timing: KNOWN. Dominant function {name} at {seconds} summed worker-seconds."
+                  )
+              elif status == "UNKNOWN":
+                  lines.append("JUnit timing: UNKNOWN. Dominant rankings withheld.")
+              else:
+                  lines.append("JUnit timing: not reported.")
+              if growth.get("review_required") is True:
+                  breach_count = _count(growth.get("breach_count")) or 0
+                  shown = growth.get("breaches")
+                  shown_count = len(shown) if isinstance(shown, list) else 0
+                  lines.append(f"Review required: {breach_count} collection budget breach(es).")
+                  if breach_count > shown_count:
+                      lines.append(f"Showing {shown_count} of {breach_count}.")
+                  if isinstance(shown, list):
+                      for breach in shown:
+                          if not isinstance(breach, dict):
+                              continue
+                          lines.append(
+                              f"- {breach.get('kind')} `{breach.get('name')}`: "
+                              f"{breach.get('cases')} cases (limit {breach.get('limit')})"
+                          )
+              else:
+                  budget = growth.get("budget") if isinstance(growth.get("budget"), dict) else {}
+                  lines.append(
+                      "Within budget "
+                      f"({budget.get('cases_per_function')} cases/function, "
+                      f"{budget.get('cases_per_file')} cases/file)."
+                  )
+              lines.append("")
+              return "\n".join(lines)
 
           runtime = os.environ.get("PYTHON_VERSION", "unknown")
           base_dir = Path("artifacts/coverage/runtimes") / runtime
@@ -2576,8 +2698,8 @@ jobs:
 
           collection_path = Path("pytest-collection.json")
           junit_path = base_dir / "pytest-junit.xml"
-          growth = {"collection": None, "reported": None, "review_required": False,
-                    "budget": {"cases_per_function": 1000, "cases_per_file": 50000}}
+          growth = {"collection": None, "reported": None}
+          growth.update(collection_review({"largest_functions": [], "per_file": {}}))
 
           def valid_count(value):
               return isinstance(value, int) and not isinstance(value, bool) and value >= 0
@@ -2598,10 +2720,7 @@ jobs:
                   if valid_collection(collection):
                       growth["collection"] = collection
                       (base_dir / collection_path.name).write_bytes(collection_path.read_bytes())
-                      growth["review_required"] = (
-                          any(count > 1000 for _, count in collection["largest_functions"])
-                          or any(count > 50000 for count in collection["per_file"].values())
-                      )
+                      growth.update(collection_review(collection))
                   else:
                       growth["collection_error"] = "collection receipt malformed or incomplete"
               except (ValueError, OSError):
@@ -2612,11 +2731,16 @@ jobs:
               except (ET.ParseError, DefusedXmlException, ValueError, OSError):
                   growth["junit_error"] = "JUnit timing receipt unreadable or unsafe"
           summary["test_growth"] = growth
+          if growth.get("review_required") is True:
+              message = (
+                  f"{growth.get('breach_count')} collection budget breach(es). "
+                  f"{growth.get('review_procedure')}"
+              ).replace("\n", " ")
+              print(f"::warning title=Test collection budget::{message}")
           job_summary = os.environ.get("GITHUB_STEP_SUMMARY")
           if job_summary:
               with open(job_summary, "a", encoding="utf-8") as handle:
-                  handle.write("\n### Test collection and execution growth\n\n")
-                  handle.write("Review signal only; existing test/coverage/merge gates are unchanged.\n\n")
+                  handle.write("\n" + format_growth_summary(growth) + "\n")
                   handle.write("```json\n" + json.dumps(growth, indent=2) + "\n```\n")
 
           def worker_resources():

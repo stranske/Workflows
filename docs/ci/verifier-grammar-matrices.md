@@ -145,9 +145,13 @@ errors, or an early exit); missing/malformed receipts stay unknown and preserve
 the real test outcome.
 
 A function above 1,000 cases or file above 50,000 cases raises a nonblocking review
-signal. Review the new semantic interaction, retained lexical axes, before/after
-node counts, dominant JUnit cost and causal regression proof. A deliberate
-exception needs that rationale in the PR; do not raise a timeout or remove gates.
+signal. Counts equal to those budgets stay within review. The job summary names each
+breach, up to 10, with the full breach count, and prints the review procedure beside
+the selected collection total and the dominant JUnit worker-seconds. A GitHub Actions
+warning repeats the same nonblocking signal. Review the new semantic interaction,
+retained lexical axes, before/after node counts, dominant JUnit cost and causal
+regression proof. A deliberate exception needs that rationale in the PR; do not raise
+a timeout or remove gates.
 The 1,350-case component-availability core is intentional: missing state, independent
 duty, governor, availability attachment, order, conjunction, destination and voice
 are retained jointly. Its signal remains visible rather than being hidden by a
@@ -195,8 +199,9 @@ collection counts; collection/startup failures do not become complete receipts.
 The always-run summary validates parsed receipt shapes before aggregation.
 JUnit case counts survive invalid durations, while rankings remain explicitly
 UNKNOWN until all durations are finite and nonnegative. Defused XML parsing
-rejects entities. The reusable workflow embeds the source `junit_report` helper
-so consumers require no new synced helper file; the tests enforce source parity.
+rejects entities. The reusable workflow embeds the source `junit_report`, `collection_review`, and
+`format_growth_summary` helpers so consumers require no new synced helper file; the
+tests enforce source parity.
 Selftest installs pinned xdist and defusedxml for these actual workflow paths.
 
 Focused gate: `python -m pytest tests/workflows/test_ci_test_growth.py -q -o addopts=`.
