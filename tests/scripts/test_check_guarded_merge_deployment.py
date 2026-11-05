@@ -72,6 +72,34 @@ def test_retry_cannot_borrow_previous_clients_identity_or_scope(retry_scopes):
     assert report["blockers"] == ["one or more clients require owner permission verification"]
 
 
+@pytest.mark.parametrize("source", ["WRITE_TOKEN fallback", "WRITE_TOKEN", "unknown", "UNKNOWN"])
+def test_ambiguous_source_cannot_identify_credential_even_with_repo_scope(source):
+    report = checker.inspect_deployment(WORKFLOW, WORKFLOW, diagnostic(source=source))
+    assert report["attempts"][0]["classic_repo_scope_reported"] is True
+    assert report["blockers"] == [
+        "one or more clients did not identify a specific credential source"
+    ]
+
+
+def test_retry_with_same_actor_cannot_borrow_previous_clients_credential_source():
+    log = diagnostic("FIRST_PAT", "writer") + diagnostic("WRITE_TOKEN fallback", "writer")
+    report = checker.inspect_deployment(WORKFLOW, WORKFLOW, log)
+    assert len(report["attempts"]) == 2
+    assert report["blockers"] == [
+        "one or more clients did not identify a specific credential source"
+    ]
+    assert report["effective_permissions_confirmed"] is False
+
+
+@pytest.mark.parametrize(
+    "source", ["AGENTS_AUTOMATION_PAT", "PAT_1", "WORKFLOWS_APP", "github.token"]
+)
+def test_specific_credential_sources_are_recognized_without_claiming_permissions(source):
+    report = checker.inspect_deployment(WORKFLOW, WORKFLOW, diagnostic(source=source))
+    assert report["blockers"] == []
+    assert report["effective_permissions_confirmed"] is False
+
+
 @pytest.mark.parametrize("prefix", ["", "2026-11-05T09:00:00.0000000Z ##[warning]"])
 def test_unavailable_identity_blocks_even_with_another_observed_client(prefix):
     log = diagnostic() + prefix + "Guarded merge credential identity unavailable: HTTP 403\n"
@@ -107,6 +135,7 @@ def test_malformed_workflow_cannot_match(workflow):
     [
         (WORKFLOW, diagnostic(), 0),
         (WORKFLOW, "", 2),
+        (WORKFLOW, diagnostic(source="WRITE_TOKEN fallback"), 2),
         (WORKFLOW.replace("run: guarded", "run: old"), diagnostic(), 1),
     ],
 )

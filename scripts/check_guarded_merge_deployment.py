@@ -57,6 +57,15 @@ def inspect_deployment(template: str, consumer: str, log: str) -> dict:
         blockers.append("consumer guarded-merge job differs from selected source")
     if not attempts:
         blockers.append("no merge-client identity diagnostics observed")
+    # The actor and repo scope cannot distinguish two PATs owned by one account.
+    # Require a named credential/registry key (or github.token), not WRITE_TOKEN's
+    # aggregate fallback label. Check each retry independently of earlier clients.
+    if any(
+        not re.fullmatch(r"(?:[A-Z][A-Z0-9_]*|github\.token)", attempt["source"])
+        or attempt["source"] in {"WRITE_TOKEN", "UNKNOWN"}
+        for attempt in attempts
+    ):
+        blockers.append("one or more clients did not identify a specific credential source")
     if any(not attempt["classic_repo_scope_reported"] for attempt in attempts):
         blockers.append("one or more clients require owner permission verification")
     if re.search(

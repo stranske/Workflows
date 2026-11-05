@@ -842,9 +842,12 @@ python scripts/check_guarded_merge_deployment.py \
 ```
 
 The checker compares only the entire `guarded-merge` job with the selected local
-template and inspects each retry client's public identity and classic `repo`
-scope independently. Exit 1 means deployment drift; exit 2 means unreadable
-inputs or missing identity/scope evidence. Exit 0 confirms those input checks
+template and inspects each retry client's public identity, specific credential
+source and classic `repo` scope independently. A source must name a credential
+registry key or `github.token`; aggregate `WRITE_TOKEN fallback` and unknown
+labels cannot identify which credential needs repair, even with a known actor
+and `repo` scope. Exit 1 means deployment drift; exit 2 means unreadable inputs
+or missing identity/source/scope evidence. Exit 0 confirms those input checks
 only. Input provenance, effective consumer permissions, fine-grained/App grants,
 HTTP 200 and the PR's merged state still require hosted or owner evidence.
 
