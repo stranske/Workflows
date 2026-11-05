@@ -492,7 +492,7 @@ def test_auto_pilot_verify_step_parses_in_source_and_template():
 
         assert "capabilities: ['issues:write', 'pulls:read']\n}));" not in script
         assert (
-            "capabilities: ['issues:write', 'pulls:read']\n});\n"
+            "capabilities: ['issues:write', 'pulls:read', 'actions:write']\n});\n"
             "const issueNumber = Number(process.env.ISSUE_NUMBER);"
         ) in script
         assert "agentKey" not in script
