@@ -5,6 +5,7 @@ from __future__ import annotations
 import io
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from scripts.langchain import pr_verifier as pv
@@ -78,6 +79,7 @@ def test_the_backup_stands_in_for_the_exhausted_judge_only(backup_on):
         "malformed",
         "non-object",
         "directory",
+        "read-denied",
     ],
 )
 def test_explicit_slot_config_never_uses_bundled_backup(
@@ -100,6 +102,15 @@ def test_explicit_slot_config_never_uses_bundled_backup(
         path.write_text(contents, encoding="utf-8")
     setting = {"empty-env": "", "whitespace-env": "   "}.get(configuration, str(path))
     monkeypatch.setenv("LANGCHAIN_SLOT_CONFIG", setting)
+    if configuration == "read-denied":
+        read_text = Path.read_text
+
+        def guarded_read_text(self, *args, **kwargs):
+            if self == path:
+                raise PermissionError("slot config is unreadable")
+            return read_text(self, *args, **kwargs)
+
+        monkeypatch.setattr(Path, "read_text", guarded_read_text)
     results = [
         judged("openai", "gpt-6.1-sol", "PASS"),
         judged("anthropic", "claude-sonnet-5-5", "CONCERNS", ANTHROPIC_CAP),
@@ -110,6 +121,60 @@ def test_explicit_slot_config_never_uses_bundled_backup(
     assert out is results
     assert backup_on == []
     assert pv.comparison_verdict(out) != "PASS"
+
+
+@pytest.mark.parametrize("configuration", ["omitted", "disabled", "empty-file", "missing-file"])
+@pytest.mark.parametrize("exhausted_provider", ["openai", "anthropic"])
+def test_compare_quota_failure_respects_explicit_slot_config(
+    monkeypatch, tmp_path, configuration, exhausted_provider
+):
+    """The public comparison path must retain quota failures without calling a forbidden backup."""
+    monkeypatch.delenv("VERIFIER_EVIDENCE_PROFILE", raising=False)
+    monkeypatch.delenv("VERIFIER_SEMANTIC_MODE", raising=False)
+    monkeypatch.delenv(pv.SIMULATE_CAPACITY_EXHAUSTED_ENV, raising=False)
+    monkeypatch.setenv("MUSE_API_KEY", "test-key-not-real")
+    path = tmp_path / "slots.json"
+    payload = json.loads((ROOT / "config/llm_slots.json").read_text())
+    if configuration == "disabled":
+        payload["capacity_backup"]["enabled"] = False
+    else:
+        payload.pop("capacity_backup")
+    if configuration != "missing-file":
+        path.write_text(
+            "" if configuration == "empty-file" else json.dumps(payload), encoding="utf-8"
+        )
+    monkeypatch.setenv("LANGCHAIN_SLOT_CONFIG", str(path))
+    clients = [(object(), "openai", "gpt-6.1-sol"), (object(), "anthropic", "claude-sonnet-5-5")]
+    comparison = pv.ComparisonRunner(context="ctx", diff=None, prompt="p", clients=clients)
+    monkeypatch.setattr(
+        pv.ComparisonRunner, "from_environment", classmethod(lambda cls, *args: comparison)
+    )
+    calls = []
+
+    def invoke(client, prompt, **kwargs):
+        calls.append(client)
+        assert not isinstance(
+            client, pv.CapacityBackupClient
+        ), "bundled backup must never be invoked"
+        if client is next(
+            client for client, provider, _ in clients if provider == exhausted_provider
+        ):
+            raise RuntimeError("insufficient_quota")
+        return SimpleNamespace(content='{"verdict":"PASS","summary":"ok"}'), None, None
+
+    monkeypatch.setattr(pv, "_invoke_llm", invoke)
+
+    results = pv.evaluate_pr_multiple("ctx")
+
+    assert calls == [client for client, _, _ in clients]
+    assert [result.provider_used for result in results] == ["openai", "anthropic"]
+    exhausted = next(result for result in results if result.provider_used == exhausted_provider)
+    assert pv.capacity_exhausted(exhausted)
+    surviving = next(result for result in results if result.provider_used != exhausted_provider)
+    assert surviving.used_llm is True
+    assert surviving.verdict == "PASS"
+    assert all(result.capacity_backup_for is None for result in results)
+    assert pv.comparison_verdict(results) != "PASS"
 
 
 def test_explicit_slot_config_selects_its_own_backup(monkeypatch, tmp_path, backup_on):
