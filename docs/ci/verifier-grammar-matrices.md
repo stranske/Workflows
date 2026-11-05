@@ -3,9 +3,28 @@
 Issue #3904 changes test design, not production verifier behavior or delivery gates.
 The source base is `12cea89599a67c3004d1d469d669c2daa33dfd35`.
 
-The historical #3904 counts and experiments below describe that delivery.
-For the current additional reduction, see [#4258](#issue-4258-alias-products);
-the JSON inventory and projection tests reflect the current 31,368 cases.
+## PR #4456: body-clause classifier/floor split
+
+Against main `7b92760527da7c9a7a5282005009b75f7d01cd2e`, this PR changes
+only the body-clause tests and their inventory audit. Both
+`_required_evidence_channels` and `_required_evidence_options` are asserted for
+all 107 wording cases × two checklist prefixes × four comment positions
+(856 classifier cases). `test_body_clause_matrix_controls_real_coverage_floor`
+retains one witness for each of six distinct required-channel outcomes, crossed
+with present/absent/unavailable and body/comments/artifacts (54 cases, formerly
+963). This saves 909 floor executions; the destination inventory falls from
+31,370 to 30,461 cases. These counts do not establish a hosted runtime speedup.
+
+The inventory marks this floor test `integration_floor_split`; it is an explicit
+exception to the unchanged Cartesian dimensions outside the matrix JSON. The
+audit verifies the emitted outcomes against the full wording corpus, exact
+status/channel values and the 54-case product. Other classifier/floor families,
+production code, CI and the matrix JSON remain unchanged from current main.
+Per-row floor checks elsewhere remain intact; this is no claim of a global split.
+Issue #3904 stays open for the broader reductions and evidence work.
+
+The following sections record earlier deliveries (#3904 and #4258). Their counts
+are historical; the JSON inventory and the current split above describe this PR.
 
 ## Retained regression map
 
@@ -34,7 +53,7 @@ test and the section-boundary regressions described below. The 338 unchanged
 functions retain every original combination, so no independence assumption or
 semantic/lexical decomposition is applied to them. For the 18 bounded functions,
 join on `function` with `verifier-grammar-matrices.json` for the explicit semantic
-dimensions and lexical interactions. The two focused tests in
+dimensions and lexical interactions. The focused tests in
 `tests/scripts/test_pr_verifier_grammar_inventory.py` check the inventory against
 the actual decorators and verify that every declared semantic and lexical
 projection has an emitted case. They enumerate only bounded witnesses, without
