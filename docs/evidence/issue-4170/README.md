@@ -4,7 +4,8 @@ Checked 2026-11-05. Refs [#4170](https://github.com/stranske/Workflows/issues/41
 Implementation lives in merge commit
 [`cbad3c6f`](https://github.com/stranske/Workflows/commit/cbad3c6f0f0f8e76b2dbaf382148ef4301de253d)
 ([#4172](https://github.com/stranske/Workflows/pull/4172)). This repair adds
-validation evidence only; it does not change production code or tests.
+validation evidence and an isolated restoration regression test; it does not
+change production scripts.
 
 Provisioned branch `closer-r2/issue-4170` started clean at current `main`. Local
 branches `closer/issue-4170` and `closer-r1/issue-4170` had no commits ahead of
