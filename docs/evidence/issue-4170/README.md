@@ -54,16 +54,25 @@ subprocess receives a fresh TemporaryDirectory-backed PYTHONPYCACHEPREFIX throug
 copied environment, with cleanup on both success and exceptional exits. This isolates
 reads as well as writes; `-B` alone does not prevent reading existing bytecode.
 
-Real subprocess regression checks added to `test_issue_4170_mutation_runner.py`:
-- `test_subprocess_cache_isolation_with_real_execution`: verifies mutant execution fails
-  and restored execution passes with cache isolation
-- `test_subprocess_identical_timestamps_and_sizes`: tests with equal-length content and
-  identical source timestamps
-- `test_no_reusable_mutant_cache_after_failure_cleanup`: confirms failure cleanup leaves
-  no reusable mutant cache
+Regression checks in `test_issue_4170_mutation_runner.py`:
+- `test_subprocess_cache_isolation_with_real_execution`: real subprocesses; mutant
+  execution fails and restored execution passes
+- `test_subprocess_identical_timestamps_and_sizes`: real subprocesses; equal-length
+  mutant, and `os.utime` pins the source mtime to the same value after mutation and
+  after restoration, so the red and green runs see identical size and mtime. With
+  `PYTHONPYCACHEPREFIX` removed from `run_pytest`, this test fails ("expected passing
+  pytest after restore") because the green run reuses mutant bytecode.
+- `test_no_reusable_mutant_cache_after_failure_cleanup`: real subprocesses on a valid
+  equal-length mutant; no `__pycache__` directory is left beside the source
+- `test_run_pytest_removes_cache_dir_when_subprocess_raises`: records the actual
+  `PYTHONPYCACHEPREFIX` passed to `subprocess.run`, forces that call to raise, and
+  asserts the directory is removed and the source is restored
+- `test_run_pytest_removes_cache_dirs_after_successful_subprocess`: records both
+  per-run cache directories, asserts they are distinct and removed after success
 
-All 24 existing mutation proofs pass with the new cache isolation, demonstrating
-break-and-revert with same-size, same-timestamp mutation/restoration isolation.
+The 24 production mutation proofs run with this cache isolation; they do not pin
+mtimes themselves. The same-size, same-mtime case is covered by the regression test
+above. Focused runner checks: 18 passed.
 
 ## Follow-ups outside this acceptance repair
 
