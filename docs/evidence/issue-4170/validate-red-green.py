@@ -8,7 +8,6 @@ before the next case. Writes acceptance.json and log files alongside this script
 from __future__ import annotations
 
 import json
-import re
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -39,7 +38,7 @@ CASES: tuple[Case, ...] = (
         "test_repo_detection_falls_back_when_git_is_unavailable",
         "scripts/docs_drift_fix_agent.py",
         "    return probe.resolve()",
-        "    return Path(\"/nonexistent-git-root\")",
+        '    return Path("/nonexistent-git-root")',
         "detect_repo_root must fall back to probe when git fails",
     ),
     Case(
@@ -60,7 +59,7 @@ CASES: tuple[Case, ...] = (
         "test_default_docs_from_config_accepts_null_maps_and_skips_bad_items",
         "scripts/docs_drift_fix_agent.py",
         "    if repos is None:\n        repos = {}",
-        "    if repos is None:\n        raise ValueError(\"repos must be mapping\")",
+        '    if repos is None:\n        raise ValueError("repos must be mapping")',
         "null repos mapping normalized (PR #4172 witness mutation)",
     ),
     Case(
@@ -94,8 +93,8 @@ CASES: tuple[Case, ...] = (
     Case(
         "test_build_records_skips_invalid_rows_and_can_include_pending",
         "scripts/export_keepalive_durability.py",
-        "            if durability == \"pending\" and not include_pending:",
-        "            if durability == \"pending\":",
+        '            if durability == "pending" and not include_pending:',
+        '            if durability == "pending":',
         "include_pending emits pending grace records",
     ),
     Case(
@@ -115,8 +114,8 @@ CASES: tuple[Case, ...] = (
     Case(
         "test_cli_rejects_invalid_numeric_limits[--days-0]",
         "scripts/export_keepalive_durability.py",
-        "    if args.days <= 0:\n        parser.error(\"--days must be positive\")",
-        "    if False:\n        parser.error(\"--days must be positive\")",
+        '    if args.days <= 0:\n        parser.error("--days must be positive")',
+        '    if False:\n        parser.error("--days must be positive")',
         "CLI rejects non-positive --days",
     ),
     Case(
@@ -143,8 +142,8 @@ CASES: tuple[Case, ...] = (
     Case(
         "test_cli_human_summary_and_partial_fetch_paths",
         "scripts/export_keepalive_durability.py",
-        '            f"export_keepalive_durability: wrote {summary[\'records\']} record(s) "',
-        '            f"export_keepalive_durability: wrote {summary[\'records\'] + 1} record(s) "',
+        "            f\"export_keepalive_durability: wrote {summary['records']} record(s) \"",
+        "            f\"export_keepalive_durability: wrote {summary['records'] + 1} record(s) \"",
         "human summary record count",
     ),
     Case(
@@ -178,7 +177,7 @@ CASES: tuple[Case, ...] = (
     Case(
         "test_sweep_repository_skips_inactive_non_workflow_sparse_and_threshold",
         "scripts/workflow_startup_failure_diagnostic.py",
-        "        if workflow_id is None or workflow.get(\"state\") != \"active\":\n            continue",
+        '        if workflow_id is None or workflow.get("state") != "active":\n            continue',
         "        if workflow_id is None:\n            continue",
         "sweep_repository skips inactive workflows in scan count",
     ),
