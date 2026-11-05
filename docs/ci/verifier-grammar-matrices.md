@@ -4,8 +4,9 @@ Issue #3904 changes test design, not production verifier behavior or delivery ga
 The source base is `12cea89599a67c3004d1d469d669c2daa33dfd35`.
 
 The historical #3904 counts and experiments below describe that delivery.
-For the current additional reduction, see [#4258](#issue-4258-alias-products);
-the JSON inventory and projection tests reflect the current 31,368 cases.
+For the current additional reduction, see [#4258](#issue-4258-alias-products) and the
+body-clause integration split below; the JSON inventory and projection tests reflect
+the current 30,461 destination-file cases.
 
 ## Retained regression map
 
@@ -69,11 +70,16 @@ the production mutation and branch/line comparisons below.
 | `test_passive_product_storage_shared_review_destination` | 1008 | 189 |
 | `test_common_proof_pronoun_reuses_shared_finite_destination_grammar` | 1728 | 648 |
 | `test_qualified_common_proof_reuses_shared_governor_boundary` | 1920 | 512 |
+| `test_body_clause_matrix_controls_real_coverage_floor` | 963 | 54 |
 
-The changed matrices fall from 65,709 to 9,935 cases. With the 288 explicitly
-mapped full-integration cases, the destination file falls from 90,550 to 35,064
-cases (55,486 fewer, 61.28%). The other 338 original functions retain their full
-parametrizations. This count reduction is not a measured runtime speedup.
+The changed matrices fall from 66,672 to 10,026 cases. With the 288 explicitly
+mapped full-integration cases, the destination file falls from 90,550 to 30,461
+cases (60,089 fewer, 66.36%). Classifier coverage for PR-body wording remains in
+`test_body_clause_matrix_preserves_independent_destinations` (856 cases). The floor
+integration matrix keeps one witness per distinct required-channel outcome (six
+classes) crossed with retrieval status and channel under test (54 cases). The other
+338 original functions retain their full parametrizations. This count reduction is
+not a measured runtime speedup.
 
 ## What the decomposition preserves and does not prove
 
@@ -338,7 +344,7 @@ payload. No additional hosted benchmark or workflow run is introduced.
 The retained-input repair adds seven section-boundary regression functions (49 cases).
 These are recorded with `original_count: 0` because they postdate the pinned original
 corpus. The original 356 functions and 90,550-case baseline remain unchanged; the
-current retained inventory contains 35,113 cases.
+current retained inventory contains 30,461 cases.
 
 ## Issue #4258 alias products
 

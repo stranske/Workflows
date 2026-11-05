@@ -5286,6 +5286,17 @@ for destinations in permutations(("the PR body", "a PR comment", "a workflow art
     )
 
 
+def _body_clause_floor_cases():
+    """One witness per distinct required-channel outcome; full phrasing stays classifier-only."""
+    seen = {}
+    for criterion, expected in BODY_CLAUSE_CASES:
+        seen.setdefault(frozenset(expected), (criterion, sorted(expected)))
+    return list(seen.values())
+
+
+BODY_CLAUSE_FLOOR_CASES = _body_clause_floor_cases()
+
+
 @pytest.mark.parametrize(
     "criterion",
     [
@@ -5319,10 +5330,15 @@ def test_body_clause_matrix_preserves_independent_destinations(
     assert actual == expected
 
 
-@pytest.mark.parametrize("criterion,expected", BODY_CLAUSE_CASES)
+@pytest.mark.parametrize("criterion,expected", BODY_CLAUSE_FLOOR_CASES)
 @pytest.mark.parametrize("status", ["present", "absent", "unavailable"])
 @pytest.mark.parametrize("channel", ["body", "comments", "artifacts"])
 def test_body_clause_matrix_controls_real_coverage_floor(criterion, expected, status, channel):
+    """Exercise prompt_coverage and _apply_coverage_floor on each channel outcome class.
+
+    Wording variants and comment-position interactions remain in the classifier matrix.
+    """
+    expected = set(expected)
     fixture = _COVERAGE_FIXTURE
     context, _ = fixture._context(1, 1000, 1000)
     context = context.replace(fixture.ACCEPTANCE_SENTINEL, criterion)
