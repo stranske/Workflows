@@ -257,7 +257,20 @@ for (const [surface, workflowPath] of SURFACES) {
     return client;
   }
 
-  async function runStep(stepName, { world, env = {}, payload, denyLabelWrites = false, fallback = true }) {
+  function handoffLabelWrites(world) {
+    return world.labelWrites.filter(
+      (w) => w.labels.includes('verify:pr-handoff') || w.labels.includes('verify:evaluate'),
+    );
+  }
+
+  async function runStep(stepName, {
+    world,
+    env = {},
+    payload,
+    denyLabelWrites = false,
+    fallback = true,
+    scriptOverride = null,
+  }) {
     const github = createClient(world, 'triggering', { denyLabelWrites });
     const fallbackClient = fallback ? createClient(world, 'fallback') : null;
     const withRetry = async (fn) => {
@@ -301,7 +314,7 @@ for (const [surface, workflowPath] of SURFACES) {
     };
     const immediate = (resolve) => resolve();
     const AsyncFunction = Object.getPrototypeOf(async () => {}).constructor;
-    const script = stepScript(stepName);
+    const script = scriptOverride || stepScript(stepName);
     let error = null;
     try {
       const quiet = { log: () => {} };
@@ -364,6 +377,58 @@ for (const [surface, workflowPath] of SURFACES) {
     assert.notEqual(result.outputs.verify_handoff, 'found');
     assert.deepEqual(world.labelWrites, []);
     assert.equal(ownershipRemoved(world), false);
+  });
+
+  test(`${surface}: verify: pre-existing handoff labels do not authorize when dispatch is denied`, async () => {
+    const world = createWorld({
+      prs: [mergedPr(PR, ISSUE)],
+      dispatchError: 'No triggering credential',
+      knownLabels: ['verify:evaluate', 'verify:pr-handoff'],
+      issueLabels: ['agents:auto-pilot', 'verify:evaluate', 'verify:pr-handoff'],
+      prLabels: { [PR]: ['verify:evaluate', 'verify:pr-handoff'] },
+    });
+    const result = await runVerify(world);
+    assert.equal(result.outcome, 'failure');
+    assert.notEqual(result.outputs.verify_handoff, 'found');
+    assert.equal(handoffLabelWrites(world).length, 0, 'verify:pr-handoff must not be (re)written');
+    assert.equal(ownershipRemoved(world), false);
+  });
+
+  test(`${surface}: verify: fallback token label writes are withheld when dispatch is denied`, async () => {
+    const world = createWorld({ prs: [mergedPr(PR, ISSUE)], dispatchError: 'denied' });
+    const result = await runVerify(world, { denyLabelWrites: true });
+    assert.equal(result.outcome, 'failure');
+    assert.notEqual(result.outputs.verify_handoff, 'found');
+    assert.equal(handoffLabelWrites(world).length, 0);
+    assert.equal(world.labelWrites.length, 0);
+    assert.equal(ownershipRemoved(world), false);
+  });
+
+  test(`${surface}: deliberate-break gate: fallback-only marker authorization is rejected`, async () => {
+    const seed = {
+      prs: [mergedPr(PR, ISSUE)],
+      dispatchError: 'denied',
+      knownLabels: ['verify:evaluate', 'verify:pr-handoff'],
+      issueLabels: ['agents:auto-pilot', 'verify:evaluate', 'verify:pr-handoff'],
+      prLabels: { [PR]: ['verify:evaluate'] },
+    };
+    const defective = stepScript('Execute step - Verify').replace(
+      'let verifierAuthorized = Boolean(await findExistingVerifierRun());',
+      'let verifierAuthorized = true; // deliberate-break: fallback-only marker authorization',
+    );
+    const brokenWorld = createWorld(seed);
+    const broken = await runStep('Execute step - Verify', {
+      world: brokenWorld,
+      scriptOverride: defective,
+    });
+    assert.equal(broken.outputs.verify_handoff, 'found', 'deliberate-break must simulate unauthorized success');
+    assert.equal(broken.outcome, 'success');
+
+    const realWorld = createWorld(seed);
+    const fixed = await runVerify(realWorld);
+    assert.equal(fixed.outcome, 'failure');
+    assert.notEqual(fixed.outputs.verify_handoff, 'found');
+    assert.equal(handoffLabelWrites(realWorld).length, 0);
   });
 
   test(`${surface}: verify: no matching merged PR reports absent and records no markers`, async () => {
