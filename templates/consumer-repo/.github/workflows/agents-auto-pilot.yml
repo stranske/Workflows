@@ -37,6 +37,7 @@ on:
           - capability-check
           - agent
           - verify
+          - done
 
 permissions:
   contents: read
@@ -481,7 +482,7 @@ jobs:
               if ((isCrossRef || isConnected) && repoMatch && sourceIssue?.pull_request) {
                 const prBody = sourceIssue.body || '';
                 const prTitle = sourceIssue.title || '';
-                const hasMeta = prBody.includes(`meta:issue:${issueNumber}`);
+                const hasMeta = new RegExp(`meta:issue:${issueNumber}(?!\\d)`).test(prBody);
                 const hasReference = matchesIssueReference(prBody, issueNumber) ||
                   matchesIssueReference(prTitle, issueNumber);
                 if (hasMeta || hasReference) {
@@ -2347,7 +2348,7 @@ jobs:
             function matchesLinkedIssue(pr) {
               return Boolean(
                 pr?.merged_at && (
-                  pr.body?.includes(`meta:issue:${issueNumber}`) ||
+                  new RegExp(`meta:issue:${issueNumber}(?!\\d)`).test(pr.body || '') ||
                   matchesIssueReference(pr.body, issueNumber) ||
                   matchesIssueReference(pr.title, issueNumber)
                 )
@@ -4039,9 +4040,16 @@ jobs:
           steps.apply_step.outputs.stop_autopilot != 'true' &&
           steps.create_pr_step.outputs.stop_autopilot != 'true' &&
           steps.monitor_pr_step.outputs.stop_autopilot != 'true' &&
-          contains(
-            fromJSON('["format","optimize","apply","capability-check","create-pr","monitor-pr"]'),
-            steps.next.outputs.next_step
+          (
+            contains(
+              fromJSON('["format","optimize","apply","capability-check","create-pr","monitor-pr"]'),
+              steps.next.outputs.next_step
+            ) ||
+            (
+              steps.next.outputs.next_step == 'verify' &&
+              steps.verify_step.outcome == 'success' &&
+              steps.verify_step.outputs.verify_handoff == 'found'
+            )
           )
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         env:
@@ -4173,7 +4181,7 @@ jobs:
             function matchesLinkedIssue(pr, issueNum) {
               return Boolean(
                 pr?.merged_at && (
-                  pr.body?.includes(`meta:issue:${issueNum}`) ||
+                  new RegExp(`meta:issue:${issueNum}(?!\\d)`).test(pr.body || '') ||
                   matchesIssueReference(pr.body, issueNum) ||
                   matchesIssueReference(pr.title, issueNum)
                 )

@@ -203,6 +203,9 @@ function redispatchForceStep(currentStep) {
     [NEXT_STEPS.CAPABILITY_CHECK]: 'auto',
     [NEXT_STEPS.CREATE_PR]: 'auto',
     [NEXT_STEPS.MONITOR_PR]: 'auto',
+    // Only dispatched after verify_step confirms a PR/head-bound handoff;
+    // Report - Done re-validates that evidence before completing.
+    [NEXT_STEPS.VERIFY]: NEXT_STEPS.DONE,
   };
   return nextStepMap[step] || 'auto';
 }
