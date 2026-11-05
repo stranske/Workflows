@@ -123,8 +123,8 @@ pairwise sampling. Role, spelling, and marker combinations outside these explici
 spines are no longer exhaustive. A concrete regression requiring another joint
 interaction must add a named case or expand that target's declared spine.
 
-Full branch/line coverage comparison and causal production mutants are separate
-checks. Equal aggregate coverage alone would not establish grammar equivalence.
+Full branch/line coverage comparison and the causal production mutants below are
+separate checks. Equal aggregate coverage alone would not establish grammar equivalence.
 Any lost production branch needs a specific retained regression or documented
 justification before source acceptance; unresolved losses keep #3904 open.
 
@@ -569,3 +569,31 @@ Scoped collection after this split is 32,028 cases (32,660 before it). The
 collected-count drop is smaller than the prompt/floor call drop, because most
 classifier rows remain and the removed work was repeated `prompt_coverage`
 inside those rows.
+
+## Causal deliberate-break
+
+`tests/scripts/pr_verifier_causal_break.py` selects rows from the shared
+`_product_component_case` builder, mutates `scripts/langchain/pr_verifier.py`,
+runs those pytest node ids, and restores the file byte-for-byte before writing
+`docs/ci/verifier-grammar-deliberate-break/`. The focused test
+`tests/scripts/test_pr_verifier_causal_break.py` checks the selector and that
+the receipt still matches this verifier. It does not mutate the file again.
+
+Positive required-destination rows are the 380 cases of
+`test_product_component_coordination_preserves_bare_other_channel` whose
+expected channel set is non-empty (mandatory bare body/comment, or an
+independent artifact duty). Replacing `_required_evidence_channels` with
+`return set()` made all 380 fail (`assert set() == {'comments'}` or `{'body'}`,
+with or without `artifacts`). Restoring the function made the same 380 pass.
+
+`_apply_coverage_floor` is not called by that classifier test. Its mapped
+integration test is `test_product_component_coordination_real_floor`. The
+fixture leaves the PR body and comments absent and artifacts present, and
+expects `CONCERNS` only when the shared `required` flag is true. Returning an
+incoming `PASS` unchanged made those 48 required-but-absent rows fail
+(`assert 'PASS' == 'CONCERNS'`). Restoring enforcement made the same 48 pass.
+
+Local Python 3.14.9 receipt `source_sha256` is
+`a32ff3b3ffefc0182fdb6c23f56ff1dca25aa235736f037a5d4c7e2256acf978`, with
+`restored_byte_identical` true. Transcripts keep the failure and restored-pass
+output. This is the causal check, not the hosted timing comparison.
