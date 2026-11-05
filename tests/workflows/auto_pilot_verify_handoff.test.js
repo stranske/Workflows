@@ -26,7 +26,9 @@ test('verify step documents absent/incomplete handoff without issue-only verify 
   assert.match(workflow, /for \(let page = 1; page <= maxPages; page \+= 1\)/);
   assert.match(workflow, /client\.rest\.pulls\.list\(\{/);
   assert.match(workflow, /verification triggered on a merged source PR/);
-  assert.match(workflow, /process\.env\.VERIFY_HANDOFF_BOUND === 'true'/);
+  // Label-only VERIFY_HANDOFF_BOUND is obsolete; only verify_step output is authoritative.
+  // VERIFY_HANDOFF_BOUND may still appear in workflow but must not be sole authority.
+  assert.match(workflow, /checkVerificationEvidence/);
 });
 
 test('closed issue with verify:evaluate only remains on verify step', () => {

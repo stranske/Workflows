@@ -100,9 +100,9 @@ function resolveCurrentState(event = {}) {
   const linkedPr = hasLinkedPr(event.linkedPr);
 
   if (issueState === 'closed') {
-    return normalizeBoolean(event.verifyHandoffBound)
-      ? STATES.CLOSED_VERIFIED
-      : STATES.CLOSED_NEEDS_VERIFY;
+    // Closed issues must go through verify_step to confirm actual PR-bound handoff.
+    // Label-only verify:pr-handoff cannot bypass verification.
+    return STATES.CLOSED_NEEDS_VERIFY;
   }
 
   if (!linkedPr) {
