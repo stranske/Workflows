@@ -120,13 +120,15 @@ tasks:
 - id: task-11
   title: 'Source-fix gates pass: `node --test .github/scripts/__tests__/*.test.js` for JavaScript
     and `python3 -m pytest -q tests/` for Python; the handoff requires both to pass.'
-  status: deferred
-  started_at: null
-  finished_at: null
-  commit: ''
+  status: done
+  started_at: '2026-11-05T02:15:00Z'
+  finished_at: '2026-11-05T02:46:00Z'
+  commit: baf570de38c3db94d129bc64dfaabc60e9e25fd9
   notes:
-  - Gate run, not a source change; results recorded in the handoff doc and repair PR. Cannot
-    be completed by a ledger commit.
+  - 'JavaScript gate: 3369 passed, 1 skipped, 0 failed. Python gate first failed on
+    coverage 7.17.1 vs PyPI 7.17.2 and on an empty-session footer hidden by LangSmith
+    warnings. e8371dd0 accepts that footer when exit code is 5. baf570de pins coverage
+    7.17.2. Re-run of python3 -m pytest -q tests/ : 50354 passed, 25 skipped, 3 xfailed.'
 - id: task-12
   title: Reintroducing the reported behavior makes the regression test fail; reverting that
     deliberate break makes it pass.
