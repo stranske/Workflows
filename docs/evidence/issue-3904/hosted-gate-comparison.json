@@ -1,0 +1,614 @@
+{
+  "command": {
+    "gate_workflow": ".github/workflows/pr-00-gate.yml",
+    "reusable_workflow": ".github/workflows/reusable-10-ci-python.yml",
+    "runner": "ubuntu-latest",
+    "marker": "not quarantine and not slow",
+    "pytest_workers": "4",
+    "pytest_args_then_effective": "-m \"not quarantine and not slow\" --junitxml=pytest-junit.xml [--cov --cov-config=pyproject.toml --cov-report=xml --cov-report=term-missing --cov-report=json on the coverage Python only] -n auto --dist load -n 4 --dist=loadgroup -p ci_test_growth",
+    "effective_scheduler": "The later -n 4 --dist=loadgroup wins over pytest_args.",
+    "coverage_python": "3.14",
+    "python_versions": [
+      "3.13",
+      "3.14"
+    ],
+    "note": "Required Gate no longer schedules Python 3.12. Run 38938420079 used 3.12/3.13 and failed, so it is not this pair."
+  },
+  "runs": {
+    "before": {
+      "id": "41985113733",
+      "url": "https://github.com/stranske/Workflows/actions/runs/41985113733",
+      "head_sha": "62a8612d29af6aa7b8d778eb14d352de042356bb"
+    },
+    "after": {
+      "id": "41992454868",
+      "url": "https://github.com/stranske/Workflows/actions/runs/41992454868",
+      "head_sha": "ccab949a59c9bc03b1a5e7a5cea66bbaee44308c"
+    }
+  },
+  "tested_shas": {
+    "before": [
+      "51e2aae6d84ef5f25be91cb7cb61ea3c352774ac",
+      "51e2aae6d84ef5f25be91cb7cb61ea3c352774ac"
+    ],
+    "after": [
+      "bcddc346f45cc8bd928b3840252b778b7e1ce2bd",
+      "bcddc346f45cc8bd928b3840252b778b7e1ce2bd"
+    ]
+  },
+  "source_identity": {
+    "before_sha": "51e2aae6d84ef5f25be91cb7cb61ea3c352774ac",
+    "after_sha": "bcddc346f45cc8bd928b3840252b778b7e1ce2bd",
+    "paths": {
+      "scripts/langchain/pr_verifier.py": "identical",
+      "requirements.lock": "identical",
+      "pyproject.toml": "identical",
+      ".github/workflows/pr-00-gate.yml": "identical"
+    },
+    "pytest_invocation": "identical",
+    "identical": true,
+    "missing": []
+  },
+  "configuration_identical": true,
+  "configuration_gaps": [],
+  "timing_confounders": [],
+  "timing_controlled": true,
+  "runtimes": {
+    "3.13": {
+      "before": {
+        "collection_seconds": 46.865,
+        "controller_elapsed_seconds": 638.99203,
+        "worker_elapsed_max_seconds": 631.971639,
+        "worker_elapsed_min_seconds": 631.217364,
+        "in_pytest_reporting_seconds": null,
+        "expected_workers": 4,
+        "worker_count": 4,
+        "python": "3.13.17",
+        "coverage": {
+          "status": "UNKNOWN",
+          "core": null,
+          "branch": null
+        },
+        "cpu_model": "AMD EPYC 7763 64-Core Processor",
+        "cache": {
+          "uv": true,
+          "pytest": true,
+          "ci_artifact_cache_hit": true,
+          "ci_artifact_found": true
+        },
+        "tested_sha": "51e2aae6d84ef5f25be91cb7cb61ea3c352774ac",
+        "resource_status": "COMPLETE",
+        "missing_workers": []
+      },
+      "after": {
+        "collection_seconds": 46.669,
+        "controller_elapsed_seconds": 561.44777,
+        "worker_elapsed_max_seconds": 555.094189,
+        "worker_elapsed_min_seconds": 553.914741,
+        "in_pytest_reporting_seconds": null,
+        "expected_workers": 4,
+        "worker_count": 4,
+        "python": "3.13.18",
+        "coverage": {
+          "status": "UNKNOWN",
+          "core": null,
+          "branch": null
+        },
+        "cpu_model": "AMD EPYC 7763 64-Core Processor",
+        "cache": {
+          "uv": true,
+          "pytest": true,
+          "ci_artifact_cache_hit": true,
+          "ci_artifact_found": true
+        },
+        "tested_sha": "bcddc346f45cc8bd928b3840252b778b7e1ce2bd",
+        "resource_status": "COMPLETE",
+        "missing_workers": []
+      },
+      "counts": {
+        "before": {
+          "files": {
+            "tests/scripts/test_pr_verifier_delivery_destinations.py": 31370,
+            "tests/scripts/test_pr_verifier_prompt_coverage.py": 3813,
+            "tests/scripts/test_pr_verifier_body_overall_integration.py": 1994
+          },
+          "total": 37177,
+          "suite_total": 50680
+        },
+        "after": {
+          "files": {
+            "tests/scripts/test_pr_verifier_delivery_destinations.py": 27195,
+            "tests/scripts/test_pr_verifier_prompt_coverage.py": 3750,
+            "tests/scripts/test_pr_verifier_body_overall_integration.py": 1083
+          },
+          "total": 32028,
+          "suite_total": 45538
+        }
+      },
+      "junit": {
+        "before": {
+          "suites": {
+            "tests.scripts.test_pr_verifier_delivery_destinations": {
+              "cases": 31370,
+              "worker_seconds": 634.913,
+              "timing_known": true
+            },
+            "tests.scripts.test_pr_verifier_prompt_coverage": {
+              "cases": 3813,
+              "worker_seconds": 136.901,
+              "timing_known": true
+            },
+            "tests.scripts.test_pr_verifier_body_overall_integration": {
+              "cases": 1994,
+              "worker_seconds": 30.162,
+              "timing_known": true
+            }
+          },
+          "timing_known": true,
+          "worker_seconds": 801.976,
+          "source": "JUnit summed worker-seconds for the three scoped files; not wall time"
+        },
+        "after": {
+          "suites": {
+            "tests.scripts.test_pr_verifier_delivery_destinations": {
+              "cases": 27195,
+              "worker_seconds": 407.623,
+              "timing_known": true
+            },
+            "tests.scripts.test_pr_verifier_prompt_coverage": {
+              "cases": 3750,
+              "worker_seconds": 96.651,
+              "timing_known": true
+            },
+            "tests.scripts.test_pr_verifier_body_overall_integration": {
+              "cases": 1083,
+              "worker_seconds": 24.99,
+              "timing_known": true
+            }
+          },
+          "timing_known": true,
+          "worker_seconds": 529.264,
+          "source": "JUnit summed worker-seconds for the three scoped files; not wall time"
+        }
+      },
+      "checks": {
+        "before": {
+          "coverage_minimum": {
+            "outcome": "skipped",
+            "tool": "threshold"
+          },
+          "tests": {
+            "outcome": "success",
+            "tool": "pytest"
+          }
+        },
+        "after": {
+          "coverage_minimum": {
+            "outcome": "skipped",
+            "tool": "threshold"
+          },
+          "tests": {
+            "outcome": "success",
+            "tool": "pytest"
+          }
+        }
+      },
+      "coverage_percent": {
+        "before": null,
+        "after": null
+      },
+      "verifier_coverage": {
+        "available": false,
+        "reason": "coverage is not active on this Python version"
+      },
+      "dominant_functions_before": [
+        [
+          "tests.scripts.test_pr_verifier_delivery_destinations::test_component_relative_presence_preserves_parent_actual_floor",
+          77.44500000000001
+        ],
+        [
+          "tests.workflows.test_agents_guard_publication::test_actual_head_publisher",
+          46.923999999999936
+        ],
+        [
+          "tests.scripts.test_pr_verifier_delivery_destinations::test_component_availability_preserves_bare_sibling_and_passive_actor",
+          38.203000000000095
+        ],
+        [
+          "tests.scripts.test_check_deliberate_break::test_base_pytest_must_execute_a_test_before_counting_as_red",
+          34.798
+        ],
+        [
+          "tests.scripts.test_pr_verifier_delivery_destinations::test_product_chain_inherits_latest_explicit_governor_and_aspect",
+          32.52200000000005
+        ]
+      ],
+      "dominant_functions_after": [
+        [
+          "tests.workflows.test_agents_guard_publication::test_actual_head_publisher",
+          47.35999999999994
+        ],
+        [
+          "tests.scripts.test_check_deliberate_break::test_base_pytest_must_execute_a_test_before_counting_as_red",
+          36.87
+        ],
+        [
+          "tests.scripts.test_pr_verifier_delivery_destinations::test_product_chain_inherits_latest_explicit_governor_and_aspect",
+          34.081
+        ],
+        [
+          "tests.workflows.test_verifier_expanded_comparison::test_expanded_each_arm_blocks_pass",
+          29.455000000000005
+        ],
+        [
+          "tests.scripts.test_pr_verifier_delivery_destinations::test_component_relative_presence_preserves_parent_actual_floor",
+          29.095999999999925
+        ]
+      ],
+      "dominant_suites_before": [
+        [
+          "tests.scripts.test_pr_verifier_delivery_destinations",
+          634.9129999998962
+        ],
+        [
+          "tests.scripts.test_pr_verifier_prompt_coverage",
+          136.90100000000243
+        ],
+        [
+          "tests.scripts.test_check_deliberate_break",
+          136.59099999999987
+        ],
+        [
+          "tests.workflows.test_verifier_expanded_comparison",
+          73.00500000000002
+        ],
+        [
+          "tests.workflows.test_agents_guard_publication",
+          68.98699999999998
+        ]
+      ],
+      "dominant_suites_after": [
+        [
+          "tests.scripts.test_pr_verifier_delivery_destinations",
+          407.6229999999395
+        ],
+        [
+          "tests.scripts.test_check_deliberate_break",
+          144.9759999999999
+        ],
+        [
+          "tests.scripts.test_pr_verifier_prompt_coverage",
+          96.65100000000064
+        ],
+        [
+          "tests.workflows.test_verifier_expanded_comparison",
+          74.857
+        ],
+        [
+          "tests.workflows.test_agents_guard_publication",
+          69.6109999999999
+        ]
+      ],
+      "job": {
+        "before": {
+          "conclusion": "success",
+          "runner_name": "GitHub Actions 1004550439",
+          "job_wall_seconds": 674.0,
+          "startup_seconds": 20.0,
+          "pytest_step_seconds": 646.0,
+          "record_summary_seconds": 0.0,
+          "after_pytest_seconds": 3.0,
+          "step_resolution_seconds": 1
+        },
+        "after": {
+          "conclusion": "success",
+          "runner_name": "GitHub Actions 1004552816",
+          "job_wall_seconds": 604.0,
+          "startup_seconds": 25.0,
+          "pytest_step_seconds": 567.0,
+          "record_summary_seconds": 0.0,
+          "after_pytest_seconds": 5.0,
+          "step_resolution_seconds": 1
+        }
+      }
+    },
+    "3.14": {
+      "before": {
+        "collection_seconds": 28.95,
+        "controller_elapsed_seconds": 423.75689,
+        "worker_elapsed_max_seconds": 394.968348,
+        "worker_elapsed_min_seconds": 394.327108,
+        "in_pytest_reporting_seconds": null,
+        "expected_workers": 4,
+        "worker_count": 4,
+        "python": "3.14.9",
+        "coverage": {
+          "status": "ACTIVE",
+          "core": "SysMonitor",
+          "branch": true
+        },
+        "cpu_model": "AMD EPYC 9V45 96-Core Processor",
+        "cache": {
+          "uv": true,
+          "pytest": true,
+          "ci_artifact_cache_hit": true,
+          "ci_artifact_found": true
+        },
+        "tested_sha": "51e2aae6d84ef5f25be91cb7cb61ea3c352774ac",
+        "resource_status": "COMPLETE",
+        "missing_workers": []
+      },
+      "after": {
+        "collection_seconds": 29.699,
+        "controller_elapsed_seconds": 370.139948,
+        "worker_elapsed_max_seconds": 343.198412,
+        "worker_elapsed_min_seconds": 342.585076,
+        "in_pytest_reporting_seconds": null,
+        "expected_workers": 4,
+        "worker_count": 4,
+        "python": "3.14.9",
+        "coverage": {
+          "status": "ACTIVE",
+          "core": "SysMonitor",
+          "branch": true
+        },
+        "cpu_model": "AMD EPYC 9V45 96-Core Processor",
+        "cache": {
+          "uv": true,
+          "pytest": true,
+          "ci_artifact_cache_hit": true,
+          "ci_artifact_found": true
+        },
+        "tested_sha": "bcddc346f45cc8bd928b3840252b778b7e1ce2bd",
+        "resource_status": "COMPLETE",
+        "missing_workers": []
+      },
+      "counts": {
+        "before": {
+          "files": {
+            "tests/scripts/test_pr_verifier_delivery_destinations.py": 31370,
+            "tests/scripts/test_pr_verifier_prompt_coverage.py": 3813,
+            "tests/scripts/test_pr_verifier_body_overall_integration.py": 1994
+          },
+          "total": 37177,
+          "suite_total": 50680
+        },
+        "after": {
+          "files": {
+            "tests/scripts/test_pr_verifier_delivery_destinations.py": 27195,
+            "tests/scripts/test_pr_verifier_prompt_coverage.py": 3750,
+            "tests/scripts/test_pr_verifier_body_overall_integration.py": 1083
+          },
+          "total": 32028,
+          "suite_total": 45538
+        }
+      },
+      "junit": {
+        "before": {
+          "suites": {
+            "tests.scripts.test_pr_verifier_delivery_destinations": {
+              "cases": 31370,
+              "worker_seconds": 362.316,
+              "timing_known": true
+            },
+            "tests.scripts.test_pr_verifier_prompt_coverage": {
+              "cases": 3813,
+              "worker_seconds": 81.322,
+              "timing_known": true
+            },
+            "tests.scripts.test_pr_verifier_body_overall_integration": {
+              "cases": 1994,
+              "worker_seconds": 18.293,
+              "timing_known": true
+            }
+          },
+          "timing_known": true,
+          "worker_seconds": 461.931,
+          "source": "JUnit summed worker-seconds for the three scoped files; not wall time"
+        },
+        "after": {
+          "suites": {
+            "tests.scripts.test_pr_verifier_delivery_destinations": {
+              "cases": 27195,
+              "worker_seconds": 228.104,
+              "timing_known": true
+            },
+            "tests.scripts.test_pr_verifier_prompt_coverage": {
+              "cases": 3750,
+              "worker_seconds": 55.364,
+              "timing_known": true
+            },
+            "tests.scripts.test_pr_verifier_body_overall_integration": {
+              "cases": 1083,
+              "worker_seconds": 15.585,
+              "timing_known": true
+            }
+          },
+          "timing_known": true,
+          "worker_seconds": 299.053,
+          "source": "JUnit summed worker-seconds for the three scoped files; not wall time"
+        }
+      },
+      "checks": {
+        "before": {
+          "coverage_minimum": {
+            "outcome": "success",
+            "tool": "threshold"
+          },
+          "tests": {
+            "outcome": "success",
+            "tool": "pytest"
+          }
+        },
+        "after": {
+          "coverage_minimum": {
+            "outcome": "success",
+            "tool": "threshold"
+          },
+          "tests": {
+            "outcome": "success",
+            "tool": "pytest"
+          }
+        }
+      },
+      "coverage_percent": {
+        "before": 92.49,
+        "after": 92.48
+      },
+      "verifier_coverage": {
+        "available": true,
+        "lost_lines": [],
+        "gained_lines": [],
+        "lost_branches": [],
+        "gained_branches": [],
+        "before": {
+          "covered_lines": 3030,
+          "num_statements": 3191,
+          "percent_covered": 93.72627818709533,
+          "percent_covered_display": "93.73",
+          "missing_lines": 161,
+          "excluded_lines": 35,
+          "percent_statements_covered": 94.95455969915388,
+          "percent_statements_covered_display": "94.95",
+          "num_branches": 1288,
+          "num_partial_branches": 84,
+          "covered_branches": 1168,
+          "missing_branches": 120,
+          "percent_branches_covered": 90.6832298136646,
+          "percent_branches_covered_display": "90.68"
+        },
+        "after": {
+          "covered_lines": 3030,
+          "num_statements": 3191,
+          "percent_covered": 93.72627818709533,
+          "percent_covered_display": "93.73",
+          "missing_lines": 161,
+          "excluded_lines": 35,
+          "percent_statements_covered": 94.95455969915388,
+          "percent_statements_covered_display": "94.95",
+          "num_branches": 1288,
+          "num_partial_branches": 84,
+          "covered_branches": 1168,
+          "missing_branches": 120,
+          "percent_branches_covered": 90.6832298136646,
+          "percent_branches_covered_display": "90.68"
+        }
+      },
+      "dominant_functions_before": [
+        [
+          "tests.scripts.test_pr_verifier_delivery_destinations::test_component_relative_presence_preserves_parent_actual_floor",
+          44.17400000000006
+        ],
+        [
+          "tests.scripts.test_check_deliberate_break::test_base_pytest_must_execute_a_test_before_counting_as_red",
+          27.320000000000004
+        ],
+        [
+          "tests.workflows.test_agents_guard_publication::test_actual_head_publisher",
+          26.691000000000045
+        ],
+        [
+          "tests.scripts.test_pr_verifier_delivery_destinations::test_component_availability_preserves_bare_sibling_and_passive_actor",
+          22.08199999999987
+        ],
+        [
+          "tests.scripts.test_pr_verifier_delivery_destinations::test_product_chain_inherits_latest_explicit_governor_and_aspect",
+          18.703999999999976
+        ]
+      ],
+      "dominant_functions_after": [
+        [
+          "tests.workflows.test_agents_guard_publication::test_actual_head_publisher",
+          26.516000000000005
+        ],
+        [
+          "tests.scripts.test_check_deliberate_break::test_base_pytest_must_execute_a_test_before_counting_as_red",
+          23.586000000000002
+        ],
+        [
+          "tests.scripts.test_pr_verifier_delivery_destinations::test_product_chain_inherits_latest_explicit_governor_and_aspect",
+          18.302000000000014
+        ],
+        [
+          "tests.workflows.test_verifier_expanded_comparison::test_expanded_each_arm_blocks_pass",
+          17.819
+        ],
+        [
+          "tests.scripts.test_pr_verifier_delivery_destinations::test_component_relative_presence_preserves_parent_actual_floor",
+          16.80899999999994
+        ]
+      ],
+      "dominant_suites_before": [
+        [
+          "tests.scripts.test_pr_verifier_delivery_destinations",
+          362.3159999999465
+        ],
+        [
+          "tests.scripts.test_check_deliberate_break",
+          107.31800000000004
+        ],
+        [
+          "tests.scripts.test_pr_verifier_prompt_coverage",
+          81.3220000000014
+        ],
+        [
+          "tests.workflows.test_verifier_expanded_comparison",
+          48.00799999999998
+        ],
+        [
+          "tests.workflows.test_agents_guard_publication",
+          41.40799999999993
+        ]
+      ],
+      "dominant_suites_after": [
+        [
+          "tests.scripts.test_pr_verifier_delivery_destinations",
+          228.1039999999286
+        ],
+        [
+          "tests.scripts.test_check_deliberate_break",
+          93.975
+        ],
+        [
+          "tests.scripts.test_pr_verifier_prompt_coverage",
+          55.363999999999535
+        ],
+        [
+          "tests.workflows.test_verifier_expanded_comparison",
+          45.57400000000002
+        ],
+        [
+          "tests.workflows.test_agents_guard_publication",
+          41.359999999999964
+        ]
+      ],
+      "job": {
+        "before": {
+          "conclusion": "success",
+          "runner_name": "GitHub Actions 1004550472",
+          "job_wall_seconds": 463.0,
+          "startup_seconds": 20.0,
+          "pytest_step_seconds": 431.0,
+          "record_summary_seconds": 0.0,
+          "after_pytest_seconds": 8.0,
+          "step_resolution_seconds": 1
+        },
+        "after": {
+          "conclusion": "success",
+          "runner_name": "GitHub Actions 1004552824",
+          "job_wall_seconds": 412.0,
+          "startup_seconds": 22.0,
+          "pytest_step_seconds": 377.0,
+          "record_summary_seconds": 0.0,
+          "after_pytest_seconds": 7.0,
+          "step_resolution_seconds": 1
+        }
+      }
+    }
+  },
+  "verifier_branch_loss": false,
+  "gates_green": true,
+  "ten_minute_target_seconds": 600,
+  "ten_minute_target_met": false,
+  "slowest_job_wall_seconds": 604.0
+}

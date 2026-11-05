@@ -180,14 +180,28 @@ when `_required_evidence_channels` returns an empty set and when
 byte-identical source restoration. The latter uses the explicitly mapped real-floor
 test, not merely a classifier expectation.
 
-The before Gate is https://github.com/stranske/Workflows/actions/runs/38938420079
-(dispatched against main for the verified base; verify the actual run head).
-The implementation PR's required Gate supplies after evidence. Compare Python
-3.12 and 3.13 separately using actual runner/worker/dependency/coverage settings,
-scoped JUnit counts and costs, collection time, reporting and total job wall time.
-The local baseline and candidate run concurrently, so their elapsed times are observational and not a controlled speedup measurement. A local run does not establish hosted performance. Do not close #3904 or claim a
-sub-10-minute Gate until controlled hosted evidence supports that claim. If the
-runtime target remains unmet, name the measured residual bottlenecks and gap.
+Run 38938420079 is not the controlled pair: it failed, and that Gate still
+scheduled Python 3.12 and 3.13. The required Gate now schedules Python 3.13 and
+3.14 (`primary-python-version` and `coverage-python-version` are 3.14, four
+workers, `ubuntu-latest`). `scripts/gate_runtime_evidence.py` reads the two
+`gate-coverage-*` artifacts and the python-job step timestamps. It checks that
+the tested SHAs share verifier bytes, the lockfile, `pyproject.toml`,
+`pr-00-gate.yml`, and the reusable workflow's pytest argv assembly. CPU model
+and cache-hit differences stay visible as timing confounders. Executed verifier
+lines and branches are compared directly; an unchanged aggregate percentage is
+not treated as equivalence.
+
+The published pair is
+[hosted-gate-comparison.md](../evidence/issue-3904/hosted-gate-comparison.md),
+with the reading in
+[hosted-gate-adjudication.md](../evidence/issue-3904/hosted-gate-adjudication.md).
+Before is Gate run 41985113733 (tested `51e2aae6d84ef5f25be91cb7cb61ea3c352774ac`,
+the same scoped tests, lockfile, and pytest invocation as current `main`).
+After is this PR's required Gate. Collection, worker execution, in-pytest
+reporting, and the record-summary step are separate fields. Do not claim a
+sub-10-minute Gate unless that file's slowest python-job wall is under 600
+seconds and `timing_controlled` is true. If the target remains unmet, the file
+names the residual gap and the dominant JUnit functions.
 
 
 ### Collection and timing receipt integrity
