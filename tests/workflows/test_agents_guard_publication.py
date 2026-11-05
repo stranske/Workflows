@@ -69,6 +69,93 @@ def test_guard_publisher_skips_untrusted_fork_pull_request_events(template):
 
 @pytest.mark.parametrize("template", [False, True])
 @pytest.mark.parametrize(
+    "mode", ["ineligible", "eligibility_failed", "registry_denied", "registry_malformed"]
+)
+def test_fork_boundary_prevents_normal_and_corrective_read_only_writes(template, mode):
+    """Count attempts, including denied writes, against the real canary and current code."""
+    prefix = ROOT / "templates/consumer-repo" if template else ROOT
+    workflow = yaml.safe_load((prefix / ".github/workflows/agents-guard.yml").read_text())
+    step = next(
+        item
+        for item in workflow["jobs"]["guard"]["steps"]
+        if item.get("name") == "Report agents guard commit status"
+    )
+    historical = json.loads(
+        (ROOT / "tests/fixtures/agents_guard_3898_canary_publisher.json").read_text()
+    )
+    assert historical["head"] == "d323b67a17b3fd0a6eee17c1c1dd35244abf455a"
+    assert historical["token"] == step["with"]["github-token"] == "${{ github.token }}"
+    harness = r"""
+const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
+Object.assign(process.env, {ELIGIBLE: input.mode === 'eligibility_failed' ? '' : 'false',
+  JOB_STATUS: input.mode === 'eligibility_failed' ? 'failure' : 'success',
+  EVALUATE_OUTCOME: 'skipped', BLOCKED: '', EVALUATED_LABELS: '[]'});
+const workflowGithub = {event_name: 'pull_request', repository: 'owner/repo',
+  event: {pull_request: {head: {repo: {full_name: 'fork-owner/repo'}}}}};
+const conditionPasses = new Function('workflowGithub', 'always',
+  `return (${input.condition.replaceAll('github.', 'workflowGithub.')});`)(
+    workflowGithub, () => true);
+let writes = 0, reads = 0;
+const failures = [];
+const github = {rest: {repos: {
+  createCommitStatus: async () => {
+    writes++;
+    throw Object.assign(Error('Resource not accessible by integration'), {status: 403});
+  },
+  getContent: async () => {
+    reads++;
+    if (input.mode === 'registry_denied') throw Object.assign(Error('denied'), {status: 403});
+    if (input.mode === 'registry_malformed') return {data: {type: 'file', encoding: 'none'}};
+    return {data: {type: 'file', encoding: 'base64',
+      content: Buffer.from('agents:\n  codex:\n    enabled: true\n').toString('base64')}};
+  }, listCommitStatusesForRef() {},
+}, issues: {listLabelsOnIssue() {}}}, paginate: async () => []};
+const context = {repo: {owner: 'owner', repo: 'repo'}, eventName: 'pull_request',
+  runId: 42, serverUrl: 'https://github.com', sha: 'b'.repeat(40),
+  payload: {pull_request: {number: 4, labels: [], head: {sha: 'a'.repeat(40)},
+    base: {sha: 'b'.repeat(40)}}}};
+const core = {info() {}, error() {}, warning() {}, setFailed: message => failures.push(message)};
+const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
+(async () => {
+  if (conditionPasses) await new AsyncFunction('github', 'context', 'core', input.script)(
+    github, context, core);
+  process.stdout.write(JSON.stringify({conditionPasses, writes, reads, failures}));
+})().catch(error => {console.error(error); process.exitCode = 1});
+"""
+    harness = with_current_direct_binding(harness)
+    for label, condition, script in [
+        ("current", step["if"], step["with"]["script"]),
+        ("boundary_removed", "always()", step["with"]["script"]),
+        ("reported_canary", historical["condition"], historical["script"]),
+    ]:
+        result = subprocess.run(
+            ["node", "-e", harness],
+            input=json.dumps({"condition": condition, "script": script, "mode": mode}),
+            text=True,
+            capture_output=True,
+            check=True,
+            timeout=10,
+        )
+        evidence = json.loads(result.stdout)
+        if label == "current":
+            assert evidence == {
+                "conditionPasses": False,
+                "writes": 0,
+                "reads": 0,
+                "failures": [],
+            }, (label, mode, evidence)
+        else:
+            # The retained pre-fix input and deliberate boundary removal must
+            # actually attempt the denied write, not merely contain its name.
+            assert evidence["conditionPasses"] is True, (label, mode, evidence)
+            assert evidence["writes"] == 1, (label, mode, evidence)
+            assert len(evidence["failures"]) == 1, (label, mode, evidence)
+            if label == "boundary_removed":
+                assert evidence["reads"] == 1, (label, mode, evidence)
+
+
+@pytest.mark.parametrize("template", [False, True])
+@pytest.mark.parametrize(
     "event_name,head_full_name,eligible,expected_writes",
     [
         ("pull_request", "fork-owner/repo", "false", 0),
