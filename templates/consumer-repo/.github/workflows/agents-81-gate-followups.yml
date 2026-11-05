@@ -3430,11 +3430,18 @@ jobs:
                             }
                             const response = await withRetry(async (client) => {
                               // Inspect the exact client used for this merge attempt; retries may switch tokens.
+                              // Derive a non-secret credential source label from the WRITE_TOKEN fallback order.
+                              const registrySource = getTokenSource?.();
+                              const credentialSource = registrySource
+                                || (process.env.AGENTS_AUTOMATION_PAT ? 'AGENTS_AUTOMATION_PAT'
+                                  : process.env.ACTIONS_BOT_PAT ? 'ACTIONS_BOT_PAT'
+                                    : process.env.SERVICE_BOT_PAT ? 'SERVICE_BOT_PAT'
+                                      : 'github.token');
                               try {
                                 const identity = await client.rest.users.getAuthenticated();
-                                core.info(`Guarded merge credential source=${getTokenSource?.() || 'WRITE_TOKEN fallback'}; actor=${identity.data.login}; OAuth scopes=${identity.headers?.['x-oauth-scopes'] || 'not reported (fine-grained/App tokens require settings verification)'}`);
+                                core.info(`Guarded merge credential source=${credentialSource}; actor=${identity.data.login}; OAuth scopes=${identity.headers?.['x-oauth-scopes'] || 'not reported (fine-grained/App tokens require settings verification)'}`);
                               } catch (identityError) {
-                                core.warning(`Guarded merge credential identity unavailable: HTTP ${identityError.status || 'unknown'}`);
+                                core.info(`Guarded merge credential source=${credentialSource}; actor=unavailable; OAuth scopes=unavailable (identity lookup failed: HTTP ${identityError.status || 'unknown'})`);
                               }
                               return client.rest.pulls.merge({
                                 owner,

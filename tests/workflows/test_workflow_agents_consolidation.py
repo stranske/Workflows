@@ -2187,8 +2187,8 @@ assert.deepEqual(events, scenario === 'retry'
   : ['identity:first', 'merge:first', ...(['unmerged', 'missing-response'].includes(scenario)
     ? ['identity:first'] : [])]);
 if (scenario === 'identity-unavailable') {
-  assert.deepEqual(messages, []);
-  assert.deepEqual(warnings, ['Guarded merge credential identity unavailable: HTTP 403']);
+  assert.deepEqual(messages, ['Guarded merge credential source=first; actor=unavailable; OAuth scopes=unavailable (identity lookup failed: HTTP 403)']);
+  assert.deepEqual(warnings, []);
 } else {
   assert.equal(messages[0],
     'Guarded merge credential source=first; actor=first-writer; OAuth scopes=repo');
