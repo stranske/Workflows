@@ -1,4 +1,5 @@
 import json
+import subprocess
 
 import pytest
 import yaml
@@ -271,3 +272,186 @@ def test_cli_parse_errors_do_not_echo_input(tmp_path, capsys):
     assert json.loads(capsys.readouterr().out) == {
         "error": "unable to read or parse deployment inputs"
     }
+
+
+@pytest.fixture
+def hosted_api(monkeypatch):
+    run = {
+        "id": 123,
+        "repository": {"full_name": "owner/consumer"},
+        "path": checker.WORKFLOW_PATH,
+        "event": "repository_dispatch",
+        "head_sha": "a" * 40,
+        "run_attempt": 2,
+        "status": "completed",
+    }
+    job = {
+        "id": 456,
+        "name": "guarded-merge",
+        "run_id": 123,
+        "run_attempt": 2,
+        "head_sha": "a" * 40,
+        "status": "completed",
+        "conclusion": "success",
+    }
+    calls = []
+    pages = [{"jobs": [{"name": "unrelated"}]}, {"jobs": [job]}]
+
+    def read(endpoint, *, raw=False, paginate=False):
+        calls.append((endpoint, raw, paginate))
+        if endpoint.endswith("/runs/123"):
+            return dict(run)
+        if "/contents/" in endpoint:
+            assert endpoint.endswith("?ref=" + "a" * 40)
+            assert raw and not paginate
+            return WORKFLOW
+        if endpoint.endswith("/attempts/2/jobs?per_page=100"):
+            assert paginate and not raw
+            return pages
+        assert endpoint == "repos/owner/consumer/actions/jobs/456/logs"
+        assert raw and not paginate
+        return diagnostic()
+
+    monkeypatch.setattr(checker, "gh_read", read)
+    return run, job, pages, calls
+
+
+def test_hosted_collection_uses_exact_revision_attempt_and_paginated_job(hosted_api):
+    consumer, log, provenance = checker.collect_hosted("owner/consumer", 123, WORKFLOW)
+    assert consumer == WORKFLOW
+    report = checker.inspect_deployment(WORKFLOW, consumer, log)
+    assert report["blockers"] == []
+    assert report["effective_permissions_confirmed"] is False
+    assert provenance == {
+        "repo": "owner/consumer",
+        "run_id": 123,
+        "run_attempt": 2,
+        "head_sha": "a" * 40,
+        "job_id": 456,
+    }
+    assert len(hosted_api[3]) == 5
+
+
+@pytest.mark.parametrize(
+    ("target", "field", "value"),
+    [
+        ("run", "id", 999),
+        ("run", "repository", {"full_name": "another/consumer"}),
+        ("run", "path", ".github/workflows/ci.yml"),
+        ("run", "event", "pull_request"),
+        ("run", "status", "in_progress"),
+        ("run", "head_sha", "main"),
+        ("run", "run_attempt", 0),
+        ("job", "id", "456"),
+        ("job", "run_id", 999),
+        ("job", "run_attempt", 1),
+        ("job", "head_sha", "b" * 40),
+        ("job", "status", "in_progress"),
+        ("job", "conclusion", "skipped"),
+    ],
+)
+def test_hosted_collection_rejects_unbound_run_or_job(hosted_api, target, field, value):
+    run, job, _, calls = hosted_api
+    (run if target == "run" else job)[field] = value
+    with pytest.raises(ValueError):
+        checker.collect_hosted("owner/consumer", 123, WORKFLOW)
+    assert not any(endpoint.endswith("/logs") for endpoint, _, _ in calls)
+
+
+@pytest.mark.parametrize("count", [0, 2])
+def test_hosted_collection_rejects_missing_or_duplicate_guarded_jobs(hosted_api, count):
+    _, job, pages, _ = hosted_api
+    pages[:] = [{"jobs": [dict(job) for _ in range(count)]}]
+    with pytest.raises(ValueError, match="exactly one"):
+        checker.collect_hosted("owner/consumer", 123, WORKFLOW)
+
+
+def test_hosted_collection_rejects_attempt_change_during_log_download(hosted_api, monkeypatch):
+    read = checker.gh_read
+
+    def read_with_rerun(endpoint, **kwargs):
+        result = read(endpoint, **kwargs)
+        if endpoint.endswith("/logs"):
+            hosted_api[0]["run_attempt"] = 3
+        return result
+
+    monkeypatch.setattr(checker, "gh_read", read_with_rerun)
+    with pytest.raises(ValueError, match="run changed"):
+        checker.collect_hosted("owner/consumer", 123, WORKFLOW)
+
+
+def test_hosted_cli_retains_public_provenance_without_claiming_acceptance(
+    hosted_api, tmp_path, capsys
+):
+    source = tmp_path / "source.yml"
+    source.write_text(WORKFLOW)
+    assert (
+        checker.main(["--template", str(source), "--repo", "owner/consumer", "--run-id", "123"])
+        == 0
+    )
+    report = json.loads(capsys.readouterr().out)
+    assert report["hosted_run"]["run_attempt"] == 2
+    assert report["effective_permissions_confirmed"] is False
+    assert report["merge_success_confirmed"] is False
+
+
+def test_hosted_cli_api_failure_does_not_echo_response(tmp_path, monkeypatch, capsys):
+    source = tmp_path / "source.yml"
+    source.write_text(WORKFLOW)
+
+    def fail(*args, **kwargs):
+        raise subprocess.CalledProcessError(1, ["gh"], stderr="PRIVATE_RESPONSE")
+
+    monkeypatch.setattr(checker, "gh_read", fail)
+    assert (
+        checker.main(["--template", str(source), "--repo", "owner/consumer", "--run-id", "123"])
+        == 2
+    )
+    assert json.loads(capsys.readouterr().out) == {
+        "error": "unable to read or parse deployment inputs"
+    }
+
+
+def test_gh_transport_uses_only_get_and_captures_logs(monkeypatch):
+    calls = []
+
+    def run(command, **kwargs):
+        calls.append(command)
+        assert command[:4] == ["gh", "api", "--method", "GET"]
+        assert kwargs == {"capture_output": True, "text": True, "timeout": 30, "check": True}
+        return subprocess.CompletedProcess(command, 0, stdout="[]")
+
+    monkeypatch.setattr(checker.subprocess, "run", run)
+    assert checker.gh_read("repos/owner/consumer/actions/runs/123") == []
+    assert checker.gh_read("jobs", paginate=True) == []
+    assert calls[-1][-2:] == ["--paginate", "--slurp"]
+    assert checker.gh_read("logs", raw=True) == "[]"
+    assert calls[-1][-2:] == ["-H", "Accept: application/vnd.github.raw+json"]
+
+
+@pytest.mark.parametrize(
+    "args",
+    [
+        [],
+        ["--repo", "owner/consumer"],
+        ["--run-id", "123"],
+        ["--consumer-workflow", "consumer.yml"],
+        ["--job-log", "job.log"],
+        ["--repo", "owner/consumer", "--run-id", "123", "--job-log", "job.log"],
+    ],
+)
+def test_cli_rejects_mixed_or_incomplete_input_modes(args, monkeypatch):
+    def unexpected(*args, **kwargs):
+        pytest.fail("invalid arguments must not make API requests")
+
+    monkeypatch.setattr(checker, "gh_read", unexpected)
+    with pytest.raises(SystemExit) as error:
+        checker.main(args)
+    assert error.value.code == 2
+
+
+@pytest.mark.parametrize(("repo", "run_id"), [("owner/repo/other", 123), ("owner/repo", 0)])
+def test_hosted_collection_validates_identifiers_before_api_access(hosted_api, repo, run_id):
+    with pytest.raises(ValueError, match="invalid repository or run id"):
+        checker.collect_hosted(repo, run_id, WORKFLOW)
+    assert hosted_api[3] == []

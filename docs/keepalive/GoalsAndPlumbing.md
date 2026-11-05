@@ -841,6 +841,21 @@ python scripts/check_guarded_merge_deployment.py \
   --consumer-workflow /tmp/consumer-followups.yml --job-log /tmp/guarded-merge.log
 ```
 
+Alternatively, collect both inputs from a completed consumer dispatch with an
+authenticated `gh` installation:
+
+```bash
+python scripts/check_guarded_merge_deployment.py \
+  --repo stranske/Travel-Plan-Permission --run-id RUN_ID
+```
+
+Hosted collection uses read-only GET requests, fetches the workflow at the run's
+full head SHA, and selects the guarded job from all pages of that exact attempt.
+It rejects skipped, mismatched or duplicate jobs and a run that changes during
+collection. The report retains repository/run/attempt/head/job identifiers without
+printing raw workflow or log contents. Collection does not prove the dispatch's
+`keepalive-dispatch/v2` payload or replace owner permission verification.
+
 The checker compares the entire `guarded-merge` job, including its effective
 environment and permissions inherited from the workflow, with the selected local
 template. Job-level environment values override inherited values; a job-level
@@ -853,9 +868,10 @@ labels cannot identify which credential needs repair, even with a known actor
 and `repo` scope. Exit 1 means deployment drift; exit 2 means unreadable inputs
 or missing identity/source/scope evidence. Masked or truncated identity diagnostics
 also block inspection, even when another retry reports complete evidence.
-Exit 0 confirms those input checks only. Input provenance, effective consumer
-permissions, fine-grained/App grants,
-HTTP 200 and the PR's merged state still require hosted or owner evidence.
+Exit 0 confirms those input checks only. Local input provenance still requires
+hosted evidence. Effective consumer permissions, fine-grained/App grants,
+HTTP 200 and the PR's merged state require further hosted or owner evidence in
+both modes.
 
 ### Guarded merge task authority
 

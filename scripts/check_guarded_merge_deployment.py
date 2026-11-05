@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Compare a consumer guarded-merge job and inspect its public attempt diagnostics.
 
-Inputs must be collected from the same hosted run revision. This read-only check
-does not establish provenance, effective repository permissions or merge success.
+Local inputs must come from the same hosted run revision. Hosted collection binds
+them to a completed repository_dispatch attempt using read-only gh API calls.
+Neither mode establishes effective repository permissions or merge success.
 """
 
 from __future__ import annotations
@@ -10,6 +11,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import subprocess
 from pathlib import Path
 
 import yaml
@@ -22,6 +24,70 @@ DIAGNOSTIC = re.compile(
     r"actor=(?P<actor>[A-Za-z0-9][A-Za-z0-9\[\]-]*); OAuth scopes=(?P<scopes>[^\r\n]*)$",
     re.MULTILINE,
 )
+WORKFLOW_PATH = ".github/workflows/agents-81-gate-followups.yml"
+
+
+def gh_read(endpoint: str, *, raw: bool = False, paginate: bool = False):
+    """Capture API output without printing potentially sensitive response/log data."""
+    command = ["gh", "api", "--method", "GET", endpoint]
+    if raw:
+        command += ["-H", "Accept: application/vnd.github.raw+json"]
+    if paginate:
+        command += ["--paginate", "--slurp"]
+    result = subprocess.run(command, capture_output=True, text=True, timeout=30, check=True)
+    return result.stdout if raw else json.loads(result.stdout)
+
+
+def collect_hosted(repo: str, run_id: int, template: str) -> tuple[str, str, dict]:
+    """Read one completed dispatch attempt; never dispatch, rerun or mutate a PR."""
+    if not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repo) or run_id <= 0:
+        raise ValueError("invalid repository or run id")
+    endpoint = f"repos/{repo}/actions/runs/{run_id}"
+    run = gh_read(endpoint)
+    sha = run.get("head_sha", "")
+    attempt = run.get("run_attempt")
+    if (
+        run.get("id") != run_id
+        or run.get("repository", {}).get("full_name", "").lower() != repo.lower()
+        or run.get("path") != WORKFLOW_PATH
+        or run.get("event") != "repository_dispatch"
+        or run.get("status") != "completed"
+        or not re.fullmatch(r"[0-9a-f]{40}", sha)
+        or type(attempt) is not int
+        or attempt <= 0
+    ):
+        raise ValueError("run does not identify a completed consumer dispatch attempt")
+    consumer = gh_read(f"repos/{repo}/contents/{WORKFLOW_PATH}?ref={sha}", raw=True)
+    pages = gh_read(f"{endpoint}/attempts/{attempt}/jobs?per_page=100", paginate=True)
+    name = guarded_job(template).get("name", "guarded-merge")
+    jobs = [job for page in pages for job in page["jobs"] if job.get("name") == name]
+    if len(jobs) != 1:
+        raise ValueError("run must have exactly one guarded-merge job")
+    job = jobs[0]
+    if (
+        type(job.get("id")) is not int
+        or job["id"] <= 0
+        or job.get("run_id") != run_id
+        or job.get("run_attempt") != attempt
+        or job.get("head_sha") != sha
+        or job.get("status") != "completed"
+        or job.get("conclusion") == "skipped"
+    ):
+        raise ValueError("guarded-merge job is not bound to the completed attempt")
+    log = gh_read(f"repos/{repo}/actions/jobs/{job['id']}/logs", raw=True)
+    if gh_read(endpoint) != run:
+        raise ValueError("run changed during collection")
+    return (
+        consumer,
+        log,
+        {
+            "repo": repo,
+            "run_id": run_id,
+            "run_attempt": attempt,
+            "head_sha": sha,
+            "job_id": job["id"],
+        },
+    )
 
 
 def guarded_job(text: str) -> dict:
@@ -114,17 +180,29 @@ def inspect_deployment(template: str, consumer: str, log: str) -> dict:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--consumer-workflow", type=Path, required=True)
-    parser.add_argument("--job-log", type=Path, required=True)
+    parser.add_argument("--consumer-workflow", type=Path)
+    parser.add_argument("--job-log", type=Path)
+    parser.add_argument("--repo", help="Collect a hosted consumer run with gh (read-only)")
+    parser.add_argument("--run-id", type=int)
     parser.add_argument("--template", type=Path, default=TEMPLATE)
     args = parser.parse_args(argv)
+    hosted = args.repo is not None or args.run_id is not None
+    if hosted:
+        if not args.repo or args.run_id is None or args.consumer_workflow or args.job_log:
+            parser.error("use --repo and --run-id together, without local inputs")
+    elif not args.consumer_workflow or not args.job_log:
+        parser.error("use --consumer-workflow and --job-log together")
     try:
-        report = inspect_deployment(
-            args.template.read_text(encoding="utf-8"),
-            args.consumer_workflow.read_text(encoding="utf-8"),
-            args.job_log.read_text(encoding="utf-8"),
-        )
-    except (OSError, ValueError, yaml.YAMLError):
+        template = args.template.read_text(encoding="utf-8")
+        if hosted:
+            consumer, log, provenance = collect_hosted(args.repo, args.run_id, template)
+        else:
+            consumer = args.consumer_workflow.read_text(encoding="utf-8")
+            log = args.job_log.read_text(encoding="utf-8")
+        report = inspect_deployment(template, consumer, log)
+        if hosted:
+            report["hosted_run"] = provenance
+    except (OSError, ValueError, KeyError, TypeError, subprocess.SubprocessError, yaml.YAMLError):
         # Parser errors may include raw input; omit them from public diagnostics.
         print(json.dumps({"error": "unable to read or parse deployment inputs"}))
         return 2
