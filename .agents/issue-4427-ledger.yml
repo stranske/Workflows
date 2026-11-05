@@ -102,13 +102,16 @@ tasks:
 - id: task-10
   title: 'confirm the sync candidate no longer has the pytest mismatch. (verify: confirm completion
     in repo)'
-  status: deferred
-  started_at: null
-  finished_at: null
-  commit: ''
+  status: done
+  started_at: '2026-11-05T01:10:00Z'
+  finished_at: '2026-11-05T01:25:00Z'
+  commit: 0b27ae8810b3baa9840305b35680579f60ffd7e4
   notes:
-  - 'Human-only: requires dispatching Maint 68 and inspecting the consumer sync candidate
-    after the consumer workflow repair. Maint 68 does not own pages-wasm-demo.yml.'
+  - 'Maint 52 is the dev-tool producer for Trend_Model_Project#6186. sync_dev_dependencies.py
+    now rewrites quoted pins in pages-wasm-demo.yml when that file exists, and
+    maint-52-sync-dev-versions.yml stages it. Local Maint 52 apply on the reported
+    install line renders pytest==9.2.0, matching the development dependency. The open
+    head 73120b9a594e still has 9.1.1 until the next Maint 52 wave republishes.'
 - id: task-11
   title: 'Source-fix gates pass: `node --test .github/scripts/__tests__/*.test.js` for JavaScript
     and `python3 -m pytest -q tests/` for Python; the handoff requires both to pass.'
