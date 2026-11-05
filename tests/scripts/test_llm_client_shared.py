@@ -199,6 +199,33 @@ def test_get_llm_client_returns_none_without_langchain(monkeypatch: pytest.Monke
     assert _llm_client.build_client() is None
 
 
+@pytest.mark.parametrize("analysis_cli", [None, "codex", "claude"])
+def test_missing_chat_factory_does_not_substitute_subscription(
+    monkeypatch: pytest.MonkeyPatch, analysis_cli: str | None
+) -> None:
+    """Ordinary callers stay unavailable when LangChain cannot be imported.
+
+    The reviewed failure returned a subscription client whenever
+    ``WORKFLOWS_ANALYSIS_CLI`` was set, including when chat construction was
+    impossible. That client is not a pipe participant and ignores caller
+    provider and model selection. Import failure must stay a clean miss.
+    """
+    from tools import subscription_llm
+
+    if analysis_cli:
+        monkeypatch.setenv("WORKFLOWS_ANALYSIS_CLI", analysis_cli)
+    monkeypatch.setitem(sys.modules, "tools.langchain_client", None)
+
+    def unexpected_subscription(*_args: object, **_kwargs: object) -> None:
+        pytest.fail("Ordinary chat construction must not substitute a subscription client")
+
+    monkeypatch.setattr(subscription_llm, "build_subscription_client", unexpected_subscription)
+
+    assert _llm_client.build_client(provider="openai", model="requested-model") is None
+    assert _llm_client.get_llm_client(provider="openai", model="requested-model") is None
+    assert _llm_client.get_llm_clients(model1="primary-model") == []
+
+
 def test_get_llm_clients_returns_tuples(monkeypatch: pytest.MonkeyPatch) -> None:
     entries = [
         SimpleNamespace(client=object(), provider="openai", model="m1"),
