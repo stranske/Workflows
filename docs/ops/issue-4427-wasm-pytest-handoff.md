@@ -153,3 +153,40 @@ The consumer files were re-read at `73120b9a594e`: the workflow directly install
 WASM regression and source-fix tasks remain blocked by the protected consumer
 workflow boundary. The added test does not make those tasks complete.
 PR #4446 was rechecked as open and ready for review (`isDraft=false`).
+
+## Closer repair status (2026-11-04)
+
+The WASM mismatch is **not fixed**. Trend_Model_Project's
+`.github/workflows/pages-wasm-demo.yml` still installs `pytest==9.1.1` (re-read on its default branch at `1eb64d9b6a3c`; PR #6186 is open at `73120b9a594e`); that file
+is consumer-owned and is not a Maint 68 target, so no Workflows change can repair
+it. Re-checked on this branch: no Workflows source, config or workflow file
+contains `pytest==9.1.1` or `pages-wasm-demo.yml` (only the stale-pin fixture in
+`tests/test_dependency_version_alignment.py`), and `pyproject.toml` and
+`requirements.lock` both pin `pytest==9.2.0`.
+
+Ledger reconciliation (`.agents/issue-4427-ledger.yml`):
+
+- The source investigation (task-02) is listed first and marked `done` against
+  commit `254f8e7`, which added this handoff and the alignment tests. The manual
+  Maint 68 dispatch documentation (task-09) is `done` against the same commit.
+- Every other task is `deferred`, so the belt worker (which selects only `doing`
+  or `todo`) cannot pick it again. The impossible `pyproject.toml` pin edits
+  (task-01, -04, -14, -19), the WASM-workflow tests (task-05, -07, -08, -15), the
+  human-only Maint 68/Maint 71 verifications (task-06, -10, -13, -16, -17, -18),
+  the PR-description write (task-03), the deliberate-break procedures (task-12,
+  -20) and the gate run (task-11) each carry a note giving the reason.
+- `scripts/ledger_validate.py` accepts the ledger.
+
+Tests and gates:
+
+- Completed: ledger validation and the focused ledger and dependency-alignment
+  tests; the full JavaScript gate
+  `node --test .github/scripts/__tests__/*.test.js` (3369 passed, 1 skipped,
+  0 failed). The full Python gate result is recorded in the repair PR body.
+- Kept: the dependency-sync and source-lock regression tests above. They guard
+  Workflows' own pins and do not detect the consumer's workflow pin.
+
+Separate consumer repair (still open, maintainer-owned): change
+`pages-wasm-demo.yml` in Trend_Model_Project on a consumer-owned branch to install
+the same pytest version as its development dependency, then complete the
+maintainer verification checklist above.
