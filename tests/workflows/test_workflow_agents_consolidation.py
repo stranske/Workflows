@@ -1974,30 +1974,54 @@ const paginateWithRetry=(method,params)=>github.paginate(method,params);
         + r"""
 (async()=>{
 const errors=[
-  {status:403,response:{data:{message:'Resource not accessible by personal access token'}}},
-  {response:{status:422},message:'Merge permission denied'},
+  {
+    error:{status:403,message:'Generic request error',response:{status:500,
+      data:{message:'Resource not accessible by personal access token'}}},
+    expected:'Merge failed: HTTP 403 Resource not accessible by personal access token',
+  },
+  {
+    error:{response:{status:422},message:'Merge permission denied'},
+    expected:'Merge failed: HTTP 422 Merge permission denied',
+  },
+  {
+    error:{response:{status:409,data:{message:'Head branch was modified'}}},
+    expected:'Merge failed: HTTP 409 Head branch was modified',
+  },
+  {
+    error:new Error('Connection reset during merge'),
+    expected:'Merge failed: HTTP unknown Connection reset during merge',
+  },
+  {
+    error:'Merge transport unavailable',
+    expected:'Merge failed: HTTP unknown Merge transport unavailable',
+  },
 ];
-for(const error of errors){
+for(const {error,expected} of errors){
+  const previousWarnings=warnings.length;
   let note;
 """
         + handler.group(0)
         + r"""
+  assert.equal(warnings[previousWarnings],expected);
+  if (!receiptFailure) {
+    const currentReceipts=comments.filter(c=>c.user.id===42 && c.body.startsWith(marker));
+    assert.equal(currentReceipts.length,1);
+    assert.equal(currentReceipts[0].body,marker+'\n'+expected);
+  } else {
+    assert.equal(warnings[previousWarnings+1],
+      `Unable to publish guarded merge failure receipt: HTTP 403 ${receiptFailure} permission denied`);
+  }
 }
 assert.equal(created,receiptFailure ? 0 : 1);
-assert.equal(updated,receiptFailure ? 0 : 1);
-assert.equal(warnings.length,receiptFailure ? 4 : 2);
-assert.equal(warnings[0],
-  'Merge failed: HTTP 403 Resource not accessible by personal access token');
-assert.equal(warnings[receiptFailure ? 2 : 1],'Merge failed: HTTP 422 Merge permission denied');
+assert.equal(updated,receiptFailure ? 0 : errors.length-1);
+assert.equal(warnings.length,errors.length*(receiptFailure ? 2 : 1));
 const receipts=comments.filter(c=>c.user.id===42 && c.body.startsWith(marker));
 if (receiptFailure) {
-  const expected=`Unable to publish guarded merge failure receipt: HTTP 403 ${receiptFailure} permission denied`;
-  assert.equal(warnings[1],expected);assert.equal(warnings[3],expected);
   assert.equal(receipts.length,receiptFailure==='update' ? 1 : 0);
   if (receiptFailure==='update') assert.equal(receipts[0].body,marker+' previous');
 } else {
   assert.equal(receipts.length,1);
-  assert.equal(receipts[0].body,marker+'\n'+warnings[1]);
+  assert.equal(receipts[0].body,marker+'\n'+warnings.at(-1));
 }
 assert.equal(comments[0].body,marker+' forged');
 assert.equal(comments[1].body,'An unrelated writer comment');
@@ -2007,7 +2031,7 @@ assert.equal(comments[1].body,'An unrelated writer comment');
 
 
 def test_guarded_merge_failure_receipt_is_visible_and_upserted():
-    """Execute the actual failure handler twice; update one writer-owned receipt."""
+    """Every failure updates one owned receipt with the exact warning status/message."""
     result = subprocess.run(
         ["node", "-e", _guarded_merge_failure_replay_program()],
         capture_output=True,
@@ -2036,6 +2060,21 @@ def test_guarded_merge_failure_receipt_permission_errors_remain_visible(stage):
         ("core.warning(message);", "", ""),
         ("comment.user?.id === actor.id && ", "", ""),
         (
+            "error.status || error.response?.status || 'unknown'",
+            "error.status || 'unknown'",
+            "",
+        ),
+        (
+            "responseData && responseData.message ? responseData.message : ",
+            "",
+            "",
+        ),
+        (
+            "const receipt = `${marker}\\n${message}`;",
+            "const receipt = `${marker}\\n${message.replace('HTTP 403', 'HTTP unknown')}`;",
+            "",
+        ),
+        (
             "core.warning(`Unable to publish guarded merge failure receipt: HTTP "
             "${error.status || 'unknown'} ${error.message || error}`);",
             "",
@@ -2046,6 +2085,9 @@ def test_guarded_merge_failure_receipt_permission_errors_remain_visible(stage):
         "missing-receipt-call",
         "missing-warning",
         "foreign-comment-overwrite",
+        "missing-response-http-status",
+        "missing-response-error-detail",
+        "first-receipt-differs-from-warning",
         "missing-receipt-error-warning",
     ],
 )
