@@ -2616,17 +2616,33 @@ jobs:
             const summary = core.summary;
             const { owner, repo } = context.repo;
 
+            // Non-secret credential source label, following the WRITE_TOKEN fallback order.
+            function guardedMergeCredentialSource() {
+              return getTokenSource?.()
+                || (process.env.AGENTS_AUTOMATION_PAT ? 'AGENTS_AUTOMATION_PAT'
+                  : process.env.ACTIONS_BOT_PAT ? 'ACTIONS_BOT_PAT'
+                    : process.env.SERVICE_BOT_PAT ? 'SERVICE_BOT_PAT'
+                      : 'github.token');
+            }
+
             // Failure receipt uses the configured WRITE_TOKEN client, not an arbitrary commenter.
             async function reportMergeFailure(prNumber, message) {
               const marker = '<!-- agents-guarded-merge-result:v1 -->';
               core.warning(message);
               try {
-                const { data: actor } = await withRetry((client) => client.rest.users.getAuthenticated());
+                // Installation tokens (github.token fallback) cannot call GET /user; their writer is fixed.
+                const workflowToken = guardedMergeCredentialSource() === 'github.token';
+                const actor = workflowToken
+                  ? { login: 'github-actions[bot]', type: 'Bot' }
+                  : (await withRetry((client) => client.rest.users.getAuthenticated())).data;
+                const ownedByWriter = (user) => (workflowToken
+                  ? user?.login === 'github-actions[bot]' && user?.type === 'Bot'
+                  : user?.id === actor.id);
                 const comments = await paginateWithRetry(github.rest.issues.listComments, {
                   owner, repo, issue_number: prNumber, per_page: 100,
                 });
                 const existing = comments.find((comment) =>
-                  comment.user?.id === actor.id && comment.body?.startsWith(marker));
+                  ownedByWriter(comment.user) && comment.body?.startsWith(marker));
                 const receipt = `${marker}\n${message}`;
                 if (existing) {
                   await withRetry((client) => client.rest.issues.updateComment({
@@ -3430,13 +3446,7 @@ jobs:
                             }
                             const response = await withRetry(async (client) => {
                               // Inspect the exact client used for this merge attempt; retries may switch tokens.
-                              // Derive a non-secret credential source label from the WRITE_TOKEN fallback order.
-                              const registrySource = getTokenSource?.();
-                              const credentialSource = registrySource
-                                || (process.env.AGENTS_AUTOMATION_PAT ? 'AGENTS_AUTOMATION_PAT'
-                                  : process.env.ACTIONS_BOT_PAT ? 'ACTIONS_BOT_PAT'
-                                    : process.env.SERVICE_BOT_PAT ? 'SERVICE_BOT_PAT'
-                                      : 'github.token');
+                              const credentialSource = guardedMergeCredentialSource();
                               try {
                                 const identity = await client.rest.users.getAuthenticated();
                                 core.info(`Guarded merge credential source=${credentialSource}; actor=${identity.data.login}; OAuth scopes=${identity.headers?.['x-oauth-scopes'] || 'not reported (fine-grained/App tokens require settings verification)'}`);

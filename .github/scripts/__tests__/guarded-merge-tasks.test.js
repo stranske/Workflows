@@ -310,6 +310,7 @@ function finalGuardHarness({ finalBody = complete.body, boundaryBody = finalBody
     GENERATED_DELIVERY_HOLD_LABEL: 'delivery:hold',
     runtimeAcRequirement: () => ({ required: false }),
     getTokenSource: () => 'test-token',
+    guardedMergeCredentialSource: () => 'test-token',
     reviewWindowObservation: async () => ({ observedAtMs: 0 }),
     reviewWindowRemainingMs: async () => 0,
     loadPullRequest: async () => {

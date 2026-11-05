@@ -1927,7 +1927,7 @@ def _guarded_merge_failure_replay_program():
         for step in workflow["jobs"]["guarded-merge"]["steps"]
         if step.get("id") == "guarded_merge"
     )
-    helper = script.split("async function reportMergeFailure", 1)[1].split(
+    helper = script.split("function guardedMergeCredentialSource", 1)[1].split(
         "// Resolve the default branch", 1
     )[0]
     handler = re.search(
@@ -1968,8 +1968,9 @@ const github={rest:{users:{getAuthenticated:async()=>{
 }},paginate:async()=>{failReceipt('list');return comments}};
 const withRetry=fn=>fn(github);
 const paginateWithRetry=(method,params)=>github.paginate(method,params);
+const getTokenSource=()=>'AGENTS_AUTOMATION_PAT';
 """
-        + "async function reportMergeFailure"
+        + "function guardedMergeCredentialSource"
         + helper
         + r"""
 (async()=>{
@@ -2058,7 +2059,7 @@ def test_guarded_merge_failure_receipt_permission_errors_remain_visible(stage):
     [
         ("await reportMergeFailure(prNumber, note);", "", ""),
         ("core.warning(message);", "", ""),
-        ("comment.user?.id === actor.id && ", "", ""),
+        ("user?.id === actor.id", "true", ""),
         (
             "error.status || error.response?.status || 'unknown'",
             "error.status || 'unknown'",
@@ -2105,6 +2106,119 @@ def test_guarded_merge_failure_replay_detects_broken_reporting(original, replace
     assert "AssertionError" in result.stderr, result.stderr
 
 
+def _guarded_merge_workflow_token_receipt_program():
+    script = _workflow_step_by_id(
+        Path("templates/consumer-repo/.github/workflows/agents-81-gate-followups.yml"),
+        "guarded_merge",
+    )["with"]["script"]
+    helper = script.split("function guardedMergeCredentialSource", 1)[1].split(
+        "// Resolve the default branch", 1
+    )[0]
+    return (
+        r"""
+const assert = require('node:assert/strict');
+const scenario = process.argv[1];
+const owner = 'stranske', repo = 'Travel-Plan-Permission', prNumber = 1722;
+const warnings = [];
+const core = {info: () => {}, warning: message => warnings.push(message)};
+const marker = '<!-- agents-guarded-merge-result:v1 -->';
+const bot = {login: 'github-actions[bot]', type: 'Bot', id: 41898282};
+const foreign = {id: 1, user: {login: 'someone-else', type: 'User', id: 7}, body: marker + '\nforged'};
+const comments = [];
+if (scenario === 'foreign') comments.push(foreign);
+if (scenario === 'existing') comments.push({id: 2, user: bot, body: marker + '\nprevious'});
+let identityCalls = 0, created = 0, updated = 0;
+const github = {rest: {
+  users: {getAuthenticated: async () => {
+    identityCalls++;
+    throw {status: 403, message: 'Resource not accessible by integration'};
+  }},
+  issues: {
+    listComments: () => {},
+    createComment: async params => {
+      assert.equal(params.issue_number, prNumber);
+      created++;
+      comments.push({id: 10 + created, user: bot, body: params.body});
+    },
+    updateComment: async params => {
+      assert.equal(params.comment_id, 2);
+      updated++;
+      comments.find(comment => comment.id === params.comment_id).body = params.body;
+    },
+  },
+}};
+const withRetry = fn => fn(github);
+const paginateWithRetry = async () => comments;
+// No registry source and no PAT secrets: WRITE_TOKEN is the github.token fallback.
+const getTokenSource = () => '';
+for (const name of ['AGENTS_AUTOMATION_PAT', 'ACTIONS_BOT_PAT', 'SERVICE_BOT_PAT']) delete process.env[name];
+"""
+        + "function guardedMergeCredentialSource"
+        + helper
+        + r"""
+(async () => {
+const message = 'Merge failed: HTTP 403 Resource not accessible by personal access token';
+await reportMergeFailure(prNumber, message);
+assert.deepEqual(warnings, [message]);
+assert.equal(identityCalls, 0);
+const receipts = comments.filter(comment => comment.body.startsWith(marker));
+const own = receipts.filter(comment =>
+  comment.user.login === 'github-actions[bot]' && comment.user.type === 'Bot');
+assert.equal(own.length, 1);
+assert.equal(own[0].body, marker + '\n' + message);
+assert.ok(own[0].body.includes('HTTP 403 Resource not accessible by personal access token'));
+assert.equal(created, scenario === 'existing' ? 0 : 1);
+assert.equal(updated, scenario === 'existing' ? 1 : 0);
+assert.equal(receipts.length, scenario === 'foreign' ? 2 : 1);
+if (scenario === 'foreign') assert.equal(foreign.body, marker + '\nforged');
+})().catch(error => {console.error(error); process.exitCode = 1});
+"""
+    )
+
+
+@pytest.mark.parametrize("scenario", ["none", "existing", "foreign"])
+def test_guarded_merge_failure_receipt_with_workflow_token_fallback(scenario):
+    """github.token cannot call GET /user; its receipt is still published and upserted."""
+    result = subprocess.run(
+        ["node", "-e", _guarded_merge_workflow_token_receipt_program(), scenario],
+        capture_output=True,
+        text=True,
+        timeout=10,
+    )
+    assert result.returncode == 0, result.stderr
+
+
+@pytest.mark.parametrize(
+    ("original", "replacement", "scenario"),
+    [
+        (
+            "const workflowToken = guardedMergeCredentialSource() === 'github.token';",
+            "const workflowToken = false;",
+            "none",
+        ),
+        (
+            "user?.login === 'github-actions[bot]' && user?.type === 'Bot'",
+            "true",
+            "foreign",
+        ),
+    ],
+    ids=["fallback-calls-get-authenticated", "fallback-overwrites-foreign-receipt"],
+)
+def test_guarded_merge_workflow_token_receipt_detects_broken_reporting(
+    original, replacement, scenario
+):
+    program = _guarded_merge_workflow_token_receipt_program()
+    assert program.count(original) == 1
+    result = subprocess.run(
+        ["node", "-e", program.replace(original, replacement, 1), scenario],
+        capture_output=True,
+        text=True,
+        timeout=10,
+    )
+    assert result.returncode != 0, "Broken fallback receipt must fail the replay"
+    assert "AssertionError" in result.stderr, result.stderr
+
+
 def _guarded_merge_attempt_replay_program():
     script = _workflow_step_by_id(
         Path("templates/consumer-repo/.github/workflows/agents-81-gate-followups.yml"),
@@ -2117,7 +2231,7 @@ def _guarded_merge_attempt_replay_program():
         re.DOTALL,
     )
     assert attempt is not None, "Guarded merge must inspect the selected merge client"
-    helper = script.split("async function reportMergeFailure", 1)[1].split(
+    helper = script.split("function guardedMergeCredentialSource", 1)[1].split(
         "// Resolve the default branch", 1
     )[0]
     return (
@@ -2178,7 +2292,7 @@ const withRetry = async callback => {
 };
 (async () => {
 """
-        + "async function reportMergeFailure"
+        + "function guardedMergeCredentialSource"
         + helper
         + attempt.group(0)
         + r"""
