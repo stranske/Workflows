@@ -256,8 +256,8 @@ def main() -> int:
         try:
             apply_patch(target, mutation.before, mutation.after)
             red = run_pytest(mutation.node_id)
-            if red.returncode == 0:
-                raise RuntimeError(f"{mutation.node_id}: expected failing pytest under mutation")
+            if red.returncode != 1:
+                raise RuntimeError(f"{mutation.node_id}: expected pytest exit 1 under mutation, got {red.returncode}")
             restore_patch(target, mutation.before, mutation.after)
             green = run_pytest(mutation.node_id)
             if green.returncode != 0:

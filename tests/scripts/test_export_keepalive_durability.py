@@ -251,9 +251,14 @@ def test_fetch_repo_payload_requests_the_merged_and_revert_views(monkeypatch) ->
 @pytest.mark.parametrize(
     ("argument", "value"), [("--days", "0"), ("--grace-days", "-1"), ("--limit", "0")]
 )
-def test_cli_rejects_invalid_numeric_limits(argument: str, value: str) -> None:
+def test_cli_rejects_invalid_numeric_limits(argument: str, value: str, tmp_path: Path) -> None:
+    offline = tmp_path / "payload.json"
+    offline.write_text(
+        json.dumps({"repos": [{"repo": "stranske/Example", "prs": [], "revert_prs": []}]})
+    )
+    output = tmp_path / "export.ndjson"
     with pytest.raises(SystemExit) as excinfo:
-        exporter.main([argument, value])
+        exporter.main([argument, value, "--input-json", str(offline), "--output", str(output)])
     assert excinfo.value.code == 2
 
 

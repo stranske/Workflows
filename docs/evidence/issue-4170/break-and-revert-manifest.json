@@ -16,10 +16,10 @@
       "mutation_before": "    return probe.resolve()",
       "mutation_after": "    return Path('/nonexistent-repo-root')",
       "red_exit": 1,
-      "red_summary": "1 failed in 0.28s",
+      "red_summary": "1 failed in 0.44s",
       "green_exit": 0,
-      "green_summary": "1 passed in 0.45s",
-      "failure_excerpt": "r/pytest-116/test_repo_detection_falls_back0') = resolve()\nE        +    where resolve = PosixPath('/Users/teacher/.codex/orchestrator/agent-runtime/cursor/tmp/pytest-of-teacher/pytest-116/test_repo_detection_falls_back0').resolve\n\ntests/scripts/test_docs_drift_fix_agent.py:349: AssertionError\n=========================== short test summary info ============================\nFAILED tests/scripts/test_docs_drift_fix_agent.py::test_repo_detection_falls_back_when_git_is_unavailable\n1 failed in 0.28s"
+      "green_summary": "1 passed in 0.25s",
+      "failure_excerpt": "/pytest-1069/test_repo_detection_falls_back0') = resolve()\nE        +    where resolve = PosixPath('/Users/teacher/.codex/orchestrator/agent-runtime/codex/tmp/pytest-of-teacher/pytest-1069/test_repo_detection_falls_back0').resolve\n\ntests/scripts/test_docs_drift_fix_agent.py:349: AssertionError\n=========================== short test summary info ============================\nFAILED tests/scripts/test_docs_drift_fix_agent.py::test_repo_detection_falls_back_when_git_is_unavailable\n1 failed in 0.44s"
     },
     {
       "node_id": "tests/scripts/test_docs_drift_fix_agent.py::test_config_and_scan_helpers_reject_bad_shapes_and_use_defaults",
@@ -28,10 +28,10 @@
       "mutation_before": "        return {\"by_repo\": []}",
       "mutation_after": "        return {\"by_repo\": [\"bad\"]}",
       "red_exit": 1,
-      "red_summary": "1 failed in 0.28s",
+      "red_summary": "1 failed in 0.29s",
       "green_exit": 0,
-      "green_summary": "1 passed in 0.24s",
-      "failure_excerpt": "son(None) == {\"by_repo\": []}\nE       AssertionError: assert {'by_repo': ['bad']} == {'by_repo': []}\nE         \nE         Differing items:\nE         {'by_repo': ['bad']} != {'by_repo': []}\nE         Use -v to get more diff\n\ntests/scripts/test_docs_drift_fix_agent.py:366: AssertionError\n=========================== short test summary info ============================\nFAILED tests/scripts/test_docs_drift_fix_agent.py::test_config_and_scan_helpers_reject_bad_shapes_and_use_defaults\n1 failed in 0.28s"
+      "green_summary": "1 passed in 0.22s",
+      "failure_excerpt": "son(None) == {\"by_repo\": []}\nE       AssertionError: assert {'by_repo': ['bad']} == {'by_repo': []}\nE         \nE         Differing items:\nE         {'by_repo': ['bad']} != {'by_repo': []}\nE         Use -v to get more diff\n\ntests/scripts/test_docs_drift_fix_agent.py:366: AssertionError\n=========================== short test summary info ============================\nFAILED tests/scripts/test_docs_drift_fix_agent.py::test_config_and_scan_helpers_reject_bad_shapes_and_use_defaults\n1 failed in 0.29s"
     },
     {
       "node_id": "tests/scripts/test_docs_drift_fix_agent.py::test_plan_output_writer_and_batch_limit_are_executable",
@@ -42,7 +42,7 @@
       "red_exit": 1,
       "red_summary": "1 failed in 0.28s",
       "green_exit": 0,
-      "green_summary": "1 passed in 0.25s",
+      "green_summary": "1 passed in 0.22s",
       "failure_excerpt": "-> None:\n        finding = fix_agent.Finding(\n            \"deterministic\", \"dangling_reference\", \"README.md\", \"missing\", \"detail\"\n        )\n>       with pytest.raises(ValueError, match=\"positive\"):\nE       Failed: DID NOT RAISE ValueError\n\ntests/scripts/test_docs_drift_fix_agent.py:373: Failed\n=========================== short test summary info ============================\nFAILED tests/scripts/test_docs_drift_fix_agent.py::test_plan_output_writer_and_batch_limit_are_executable\n1 failed in 0.28s"
     },
     {
@@ -52,10 +52,10 @@
       "mutation_before": "    if repos is None:\n        repos = {}",
       "mutation_after": "    if repos is None:\n        repos = None",
       "red_exit": 1,
-      "red_summary": "1 failed in 0.30s",
+      "red_summary": "1 failed in 0.27s",
       "green_exit": 0,
-      "green_summary": "1 passed in 0.24s",
-      "failure_excerpt": "\", {})\n        if repos is None:\n            repos = None\n        if not isinstance(repos, Mapping):\n>           raise ValueError(\"docs config 'repos' must be a mapping\")\nE           ValueError: docs config 'repos' must be a mapping\n\nscripts/docs_drift_fix_agent.py:513: ValueError\n=========================== short test summary info ============================\nFAILED tests/scripts/test_docs_drift_fix_agent.py::test_default_docs_from_config_accepts_null_maps_and_skips_bad_items\n1 failed in 0.30s"
+      "green_summary": "1 passed in 0.22s",
+      "failure_excerpt": "\", {})\n        if repos is None:\n            repos = None\n        if not isinstance(repos, Mapping):\n>           raise ValueError(\"docs config 'repos' must be a mapping\")\nE           ValueError: docs config 'repos' must be a mapping\n\nscripts/docs_drift_fix_agent.py:513: ValueError\n=========================== short test summary info ============================\nFAILED tests/scripts/test_docs_drift_fix_agent.py::test_default_docs_from_config_accepts_null_maps_and_skips_bad_items\n1 failed in 0.27s"
     },
     {
       "node_id": "tests/scripts/test_docs_drift_fix_agent.py::test_findings_helpers_and_scan_json_load_cover_skip_paths",
@@ -64,10 +64,10 @@
       "mutation_before": "    return \"docs/ci/WORKFLOWS.md\"",
       "mutation_after": "    return \"README.md\"",
       "red_exit": 1,
-      "red_summary": "1 failed in 0.29s",
+      "red_summary": "1 failed in 0.30s",
       "green_exit": 0,
-      "green_summary": "1 passed in 0.25s",
-      "failure_excerpt": "None:\n>       assert fix_agent._doc_from_detail(\"no marker here\") == \"docs/ci/WORKFLOWS.md\"\nE       AssertionError: assert 'README.md' == 'docs/ci/WORKFLOWS.md'\nE         \nE         - docs/ci/WORKFLOWS.md\nE         + README.md\n\ntests/scripts/test_docs_drift_fix_agent.py:1202: AssertionError\n=========================== short test summary info ============================\nFAILED tests/scripts/test_docs_drift_fix_agent.py::test_findings_helpers_and_scan_json_load_cover_skip_paths\n1 failed in 0.29s"
+      "green_summary": "1 passed in 0.24s",
+      "failure_excerpt": "None:\n>       assert fix_agent._doc_from_detail(\"no marker here\") == \"docs/ci/WORKFLOWS.md\"\nE       AssertionError: assert 'README.md' == 'docs/ci/WORKFLOWS.md'\nE         \nE         - docs/ci/WORKFLOWS.md\nE         + README.md\n\ntests/scripts/test_docs_drift_fix_agent.py:1202: AssertionError\n=========================== short test summary info ============================\nFAILED tests/scripts/test_docs_drift_fix_agent.py::test_findings_helpers_and_scan_json_load_cover_skip_paths\n1 failed in 0.30s"
     },
     {
       "node_id": "tests/scripts/test_docs_drift_fix_agent.py::test_legacy_markers_and_apply_issue_failure_paths",
@@ -76,10 +76,10 @@
       "mutation_before": "                raise RuntimeError(f\"gh issue list failed: {list_result.stderr.strip()}\")",
       "mutation_after": "                raise RuntimeError(f\"gh issue list broke: {list_result.stderr.strip()}\")",
       "red_exit": 1,
-      "red_summary": "1 failed in 0.30s",
+      "red_summary": "1 failed in 0.28s",
       "green_exit": 0,
-      "green_summary": "1 passed in 0.24s",
-      "failure_excerpt": ">       with pytest.raises(RuntimeError, match=\"gh issue list failed\"):\nE       AssertionError: Regex pattern did not match.\nE         Expected regex: 'gh issue list failed'\nE         Actual message: 'gh issue list broke: list failed'\n\ntests/scripts/test_docs_drift_fix_agent.py:1294: AssertionError\n=========================== short test summary info ============================\nFAILED tests/scripts/test_docs_drift_fix_agent.py::test_legacy_markers_and_apply_issue_failure_paths\n1 failed in 0.30s"
+      "green_summary": "1 passed in 0.22s",
+      "failure_excerpt": ">       with pytest.raises(RuntimeError, match=\"gh issue list failed\"):\nE       AssertionError: Regex pattern did not match.\nE         Expected regex: 'gh issue list failed'\nE         Actual message: 'gh issue list broke: list failed'\n\ntests/scripts/test_docs_drift_fix_agent.py:1294: AssertionError\n=========================== short test summary info ============================\nFAILED tests/scripts/test_docs_drift_fix_agent.py::test_legacy_markers_and_apply_issue_failure_paths\n1 failed in 0.28s"
     },
     {
       "node_id": "tests/scripts/test_docs_drift_fix_agent.py::test_main_validation_and_json_output",
@@ -88,10 +88,10 @@
       "mutation_before": "    except (OSError, ValueError, RuntimeError, json.JSONDecodeError) as exc:\n        print(f\"error: {exc}\", file=sys.stderr)\n        return 2",
       "mutation_after": "    except (OSError, ValueError, RuntimeError, json.JSONDecodeError) as exc:\n        print(f\"error: {exc}\", file=sys.stderr)\n        return 0",
       "red_exit": 1,
-      "red_summary": "1 failed in 0.39s",
+      "red_summary": "1 failed in 0.29s",
       "green_exit": 0,
-      "green_summary": "1 passed in 0.26s",
-      "failure_excerpt": "main\n\ntests/scripts/test_docs_drift_fix_agent.py:1366: AssertionError\n----------------------------- Captured stderr call -----------------------------\nerror: repo root not found: /Users/teacher/.codex/orchestrator/agent-runtime/cursor/tmp/pytest-of-teacher/pytest-128/test_main_validation_and_json_0/missing-root\n=========================== short test summary info ============================\nFAILED tests/scripts/test_docs_drift_fix_agent.py::test_main_validation_and_json_output\n1 failed in 0.39s"
+      "green_summary": "1 passed in 0.22s",
+      "failure_excerpt": "main\n\ntests/scripts/test_docs_drift_fix_agent.py:1366: AssertionError\n----------------------------- Captured stderr call -----------------------------\nerror: repo root not found: /Users/teacher/.codex/orchestrator/agent-runtime/codex/tmp/pytest-of-teacher/pytest-1081/test_main_validation_and_json_0/missing-root\n=========================== short test summary info ============================\nFAILED tests/scripts/test_docs_drift_fix_agent.py::test_main_validation_and_json_output\n1 failed in 0.29s"
     },
     {
       "node_id": "tests/scripts/test_export_keepalive_durability.py::test_helpers_handle_invalid_metadata_and_reverts_before_the_merge",
@@ -100,10 +100,10 @@
       "mutation_before": "    if not isinstance(value, str) or not value.strip():\n        return None",
       "mutation_after": "    if not isinstance(value, str) or not value.strip():\n        return datetime.now(UTC)",
       "red_exit": 1,
-      "red_summary": "1 failed in 0.30s",
+      "red_summary": "1 failed in 0.35s",
       "green_exit": 0,
-      "green_summary": "1 passed in 0.24s",
-      "failure_excerpt": "e datetime.datetime(2026, 11, 3, 0, 48, 32, 268125, tzinfo=datetime.timezone.utc) = <function _parse_time at 0x104826ca0>(3)\nE        +    where <function _parse_time at 0x104826ca0> = exporter._parse_time\n\ntests/scripts/test_export_keepalive_durability.py:179: AssertionError\n=========================== short test summary info ============================\nFAILED tests/scripts/test_export_keepalive_durability.py::test_helpers_handle_invalid_metadata_and_reverts_before_the_merge\n1 failed in 0.30s"
+      "green_summary": "1 passed in 0.22s",
+      "failure_excerpt": "datetime.datetime(2026, 11, 5, 15, 17, 18, 290686, tzinfo=datetime.timezone.utc) = <function _parse_time at 0x10ac1d260>(3)\nE        +    where <function _parse_time at 0x10ac1d260> = exporter._parse_time\n\ntests/scripts/test_export_keepalive_durability.py:179: AssertionError\n=========================== short test summary info ============================\nFAILED tests/scripts/test_export_keepalive_durability.py::test_helpers_handle_invalid_metadata_and_reverts_before_the_merge\n1 failed in 0.35s"
     },
     {
       "node_id": "tests/scripts/test_export_keepalive_durability.py::test_build_records_skips_invalid_rows_and_can_include_pending",
@@ -112,10 +112,10 @@
       "mutation_before": "            skipped[\"missing_repo\"] += 1\n            continue",
       "mutation_after": "            skipped[\"missing_repo\"] += 1\n            records.append({\"repo\": repo, \"status\": \"bad\"})",
       "red_exit": 1,
-      "red_summary": "1 failed in 0.28s",
+      "red_summary": "1 failed in 0.27s",
       "green_exit": 0,
-      "green_summary": "1 passed in 0.25s",
-      "failure_excerpt": ": assert 2 == 1\nE        +  where 2 = len([{'repo': '', 'status': 'bad'}, {'schema_version': 'langsmith-fleet/v1', 'repo': 'stranske/Workflows', 'surface': 'agent-automation', 'operation': 'durability', ...}])\n\ntests/scripts/test_export_keepalive_durability.py:207: AssertionError\n=========================== short test summary info ============================\nFAILED tests/scripts/test_export_keepalive_durability.py::test_build_records_skips_invalid_rows_and_can_include_pending\n1 failed in 0.28s"
+      "green_summary": "1 passed in 0.22s",
+      "failure_excerpt": ": assert 2 == 1\nE        +  where 2 = len([{'repo': '', 'status': 'bad'}, {'schema_version': 'langsmith-fleet/v1', 'repo': 'stranske/Workflows', 'surface': 'agent-automation', 'operation': 'durability', ...}])\n\ntests/scripts/test_export_keepalive_durability.py:207: AssertionError\n=========================== short test summary info ============================\nFAILED tests/scripts/test_export_keepalive_durability.py::test_build_records_skips_invalid_rows_and_can_include_pending\n1 failed in 0.27s"
     },
     {
       "node_id": "tests/scripts/test_export_keepalive_durability.py::test_registry_fetch_and_ndjson_helpers_cover_error_and_success_paths",
@@ -126,7 +126,7 @@
       "red_exit": 1,
       "red_summary": "1 failed in 0.28s",
       "green_exit": 0,
-      "green_summary": "1 passed in 0.25s",
+      "green_summary": "1 passed in 0.24s",
       "failure_excerpt": "E       AssertionError: assert ['o/a', 'o/a', 'o/b'] == ['o/a', 'o/b']\nE         \nE         At index 1 diff: 'o/a' != 'o/b'\nE         Left contains one more item: 'o/b'\nE         Use -v to get more diff\n\ntests/scripts/test_export_keepalive_durability.py:219: AssertionError\n=========================== short test summary info ============================\nFAILED tests/scripts/test_export_keepalive_durability.py::test_registry_fetch_and_ndjson_helpers_cover_error_and_success_paths\n1 failed in 0.28s"
     },
     {
@@ -136,10 +136,10 @@
       "mutation_before": "            f\"Revert in:title merged:>={since}\",",
       "mutation_after": "            f\"Revert merged:>={since}\",",
       "red_exit": 1,
-      "red_summary": "1 failed in 0.28s",
+      "red_summary": "1 failed in 0.32s",
       "green_exit": 0,
-      "green_summary": "1 passed in 0.25s",
-      "failure_excerpt": "in calls[0]\n>       assert \"Revert in:title merged:>=2026-01-01\" in calls[1]\nE       AssertionError: assert 'Revert in:title merged:>=2026-01-01' in ['pr', 'list', '-R', 'owner/repo', '--state', 'merged', ...]\n\ntests/scripts/test_export_keepalive_durability.py:248: AssertionError\n=========================== short test summary info ============================\nFAILED tests/scripts/test_export_keepalive_durability.py::test_fetch_repo_payload_requests_the_merged_and_revert_views\n1 failed in 0.28s"
+      "green_summary": "1 passed in 0.23s",
+      "failure_excerpt": "in calls[0]\n>       assert \"Revert in:title merged:>=2026-01-01\" in calls[1]\nE       AssertionError: assert 'Revert in:title merged:>=2026-01-01' in ['pr', 'list', '-R', 'owner/repo', '--state', 'merged', ...]\n\ntests/scripts/test_export_keepalive_durability.py:248: AssertionError\n=========================== short test summary info ============================\nFAILED tests/scripts/test_export_keepalive_durability.py::test_fetch_repo_payload_requests_the_merged_and_revert_views\n1 failed in 0.32s"
     },
     {
       "node_id": "tests/scripts/test_export_keepalive_durability.py::test_cli_rejects_invalid_numeric_limits[--days-0]",
@@ -148,10 +148,10 @@
       "mutation_before": "    if args.days <= 0:\n        parser.error(\"--days must be positive\")",
       "mutation_after": "    if args.days < 0:\n        parser.error(\"--days must be positive\")",
       "red_exit": 1,
-      "red_summary": "1 failed in 11.65s",
+      "red_summary": "1 failed in 0.35s",
       "green_exit": 0,
-      "green_summary": "1 passed in 0.28s",
-      "failure_excerpt": ") as excinfo:\nE       Failed: DID NOT RAISE SystemExit\n\ntests/scripts/test_export_keepalive_durability.py:255: Failed\n----------------------------- Captured stdout call -----------------------------\nexport_keepalive_durability: wrote 0 record(s) to artifacts/langsmith/langsmith-fleet.ndjson\n=========================== short test summary info ============================\nFAILED tests/scripts/test_export_keepalive_durability.py::test_cli_rejects_invalid_numeric_limits[--days-0]\n1 failed in 11.65s"
+      "green_summary": "1 passed in 0.24s",
+      "failure_excerpt": "_durability.py:260: Failed\n----------------------------- Captured stdout call -----------------------------\nexport_keepalive_durability: wrote 0 record(s) to /Users/teacher/.codex/orchestrator/agent-runtime/codex/tmp/pytest-of-teacher/pytest-1085/test_cli_rejects_invalid_numer0/export.ndjson\n=========================== short test summary info ============================\nFAILED tests/scripts/test_export_keepalive_durability.py::test_cli_rejects_invalid_numeric_limits[--days-0]\n1 failed in 0.35s"
     },
     {
       "node_id": "tests/scripts/test_export_keepalive_durability.py::test_cli_rejects_invalid_numeric_limits[--grace-days--1]",
@@ -160,10 +160,10 @@
       "mutation_before": "    if args.grace_days < 0:\n        parser.error(\"--grace-days must be non-negative\")",
       "mutation_after": "    if args.grace_days < -1:\n        parser.error(\"--grace-days must be non-negative\")",
       "red_exit": 1,
-      "red_summary": "1 failed in 16.66s",
+      "red_summary": "1 failed in 0.30s",
       "green_exit": 0,
-      "green_summary": "1 passed in 0.27s",
-      "failure_excerpt": "NOT RAISE SystemExit\n\ntests/scripts/test_export_keepalive_durability.py:255: Failed\n----------------------------- Captured stdout call -----------------------------\nexport_keepalive_durability: wrote 281 record(s) to artifacts/langsmith/langsmith-fleet.ndjson\ncounts: {\"durable\": 281}\n=========================== short test summary info ============================\nFAILED tests/scripts/test_export_keepalive_durability.py::test_cli_rejects_invalid_numeric_limits[--grace-days--1]\n1 failed in 16.66s"
+      "green_summary": "1 passed in 0.29s",
+      "failure_excerpt": "lity.py:260: Failed\n----------------------------- Captured stdout call -----------------------------\nexport_keepalive_durability: wrote 0 record(s) to /Users/teacher/.codex/orchestrator/agent-runtime/codex/tmp/pytest-of-teacher/pytest-1088/test_cli_rejects_invalid_numer0/export.ndjson\n=========================== short test summary info ============================\nFAILED tests/scripts/test_export_keepalive_durability.py::test_cli_rejects_invalid_numeric_limits[--grace-days--1]\n1 failed in 0.30s"
     },
     {
       "node_id": "tests/scripts/test_export_keepalive_durability.py::test_cli_rejects_invalid_numeric_limits[--limit-0]",
@@ -172,10 +172,10 @@
       "mutation_before": "    if args.limit <= 0:\n        parser.error(\"--limit must be positive\")",
       "mutation_after": "    if args.limit < 0:\n        parser.error(\"--limit must be positive\")",
       "red_exit": 1,
-      "red_summary": "1 failed in 0.68s",
+      "red_summary": "1 failed in 0.31s",
       "green_exit": 0,
       "green_summary": "1 passed in 0.25s",
-      "failure_excerpt": "Search pull requests with query\\n  -s, --state string      Filter by state: {open|closed|merged|all} (default \\\"open\\\")\\n  -t, --template string   Format JSON output using a Go template; see \\\"gh help formatting\\\"\\n  -w, --web               List pull requests in the web browser\"\n  }\n}\n=========================== short test summary info ============================\nFAILED tests/scripts/test_export_keepalive_durability.py::test_cli_rejects_invalid_numeric_limits[--limit-0]\n1 failed in 0.68s"
+      "failure_excerpt": "durability.py:260: Failed\n----------------------------- Captured stdout call -----------------------------\nexport_keepalive_durability: wrote 0 record(s) to /Users/teacher/.codex/orchestrator/agent-runtime/codex/tmp/pytest-of-teacher/pytest-1090/test_cli_rejects_invalid_numer0/export.ndjson\n=========================== short test summary info ============================\nFAILED tests/scripts/test_export_keepalive_durability.py::test_cli_rejects_invalid_numeric_limits[--limit-0]\n1 failed in 0.31s"
     },
     {
       "node_id": "tests/scripts/test_export_keepalive_durability.py::test_helpers_cover_timezone_agent_and_closing_edge_cases",
@@ -184,10 +184,10 @@
       "mutation_before": "    return \"unknown\"",
       "mutation_after": "    return \"codex\"",
       "red_exit": 1,
-      "red_summary": "1 failed in 0.29s",
+      "red_summary": "1 failed in 0.30s",
       "green_exit": 0,
-      "green_summary": "1 passed in 0.25s",
-      "failure_excerpt": "== \"muse\"\n        )\n>       assert exporter.infer_agent({\"labels\": [], \"headRefName\": \"feature/x\"}) == \"unknown\"\nE       AssertionError: assert 'codex' == 'unknown'\nE         \nE         - unknown\nE         + codex\n\ntests/scripts/test_export_keepalive_durability.py:274: AssertionError\n=========================== short test summary info ============================\nFAILED tests/scripts/test_export_keepalive_durability.py::test_helpers_cover_timezone_agent_and_closing_edge_cases\n1 failed in 0.29s"
+      "green_summary": "1 passed in 0.24s",
+      "failure_excerpt": "== \"muse\"\n        )\n>       assert exporter.infer_agent({\"labels\": [], \"headRefName\": \"feature/x\"}) == \"unknown\"\nE       AssertionError: assert 'codex' == 'unknown'\nE         \nE         - unknown\nE         + codex\n\ntests/scripts/test_export_keepalive_durability.py:279: AssertionError\n=========================== short test summary info ============================\nFAILED tests/scripts/test_export_keepalive_durability.py::test_helpers_cover_timezone_agent_and_closing_edge_cases\n1 failed in 0.30s"
     },
     {
       "node_id": "tests/scripts/test_export_keepalive_durability.py::test_gh_json_filters_non_dicts_and_rejects_non_list_payloads",
@@ -196,10 +196,10 @@
       "mutation_before": "    return [item for item in data if isinstance(item, dict)]",
       "mutation_after": "    return list(data)",
       "red_exit": 1,
-      "red_summary": "1 failed in 0.29s",
+      "red_summary": "1 failed in 0.26s",
       "green_exit": 0,
-      "green_summary": "1 passed in 0.26s",
-      "failure_excerpt": "rtionError: assert [{'n': 1}, 'skip', {'n': 2}] == [{'n': 1}, {'n': 2}]\nE         \nE         At index 1 diff: 'skip' != {'n': 2}\nE         Left contains one more item: {'n': 2}\nE         Use -v to get more diff\n\ntests/scripts/test_export_keepalive_durability.py:295: AssertionError\n=========================== short test summary info ============================\nFAILED tests/scripts/test_export_keepalive_durability.py::test_gh_json_filters_non_dicts_and_rejects_non_list_payloads\n1 failed in 0.29s"
+      "green_summary": "1 passed in 0.23s",
+      "failure_excerpt": "rtionError: assert [{'n': 1}, 'skip', {'n': 2}] == [{'n': 1}, {'n': 2}]\nE         \nE         At index 1 diff: 'skip' != {'n': 2}\nE         Left contains one more item: {'n': 2}\nE         Use -v to get more diff\n\ntests/scripts/test_export_keepalive_durability.py:300: AssertionError\n=========================== short test summary info ============================\nFAILED tests/scripts/test_export_keepalive_durability.py::test_gh_json_filters_non_dicts_and_rejects_non_list_payloads\n1 failed in 0.26s"
     },
     {
       "node_id": "tests/scripts/test_export_keepalive_durability.py::test_build_records_skips_explicit_skipped_classifications",
@@ -208,10 +208,10 @@
       "mutation_before": "        return {\"durability\": \"skipped\", \"reason\": \"missing_merged_pr_metadata\"}",
       "mutation_after": "        return {\"durability\": \"pending\", \"reason\": \"missing_merged_pr_metadata\"}",
       "red_exit": 1,
-      "red_summary": "1 failed in 0.32s",
+      "red_summary": "1 failed in 0.29s",
       "green_exit": 0,
-      "green_summary": "1 passed in 0.25s",
-      "failure_excerpt": "atetime(2026, 6, 24, tzinfo=UTC),\n            grace_days=7,\n        )\n        assert records == []\n>       assert summary[\"counts\"][\"skipped\"] == 1\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nE       KeyError: 'skipped'\n\ntests/scripts/test_export_keepalive_durability.py:323: KeyError\n=========================== short test summary info ============================\nFAILED tests/scripts/test_export_keepalive_durability.py::test_build_records_skips_explicit_skipped_classifications\n1 failed in 0.32s"
+      "green_summary": "1 passed in 0.26s",
+      "failure_excerpt": "atetime(2026, 6, 24, tzinfo=UTC),\n            grace_days=7,\n        )\n        assert records == []\n>       assert summary[\"counts\"][\"skipped\"] == 1\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nE       KeyError: 'skipped'\n\ntests/scripts/test_export_keepalive_durability.py:328: KeyError\n=========================== short test summary info ============================\nFAILED tests/scripts/test_export_keepalive_durability.py::test_build_records_skips_explicit_skipped_classifications\n1 failed in 0.29s"
     },
     {
       "node_id": "tests/scripts/test_export_keepalive_durability.py::test_cli_human_summary_and_partial_fetch_paths",
@@ -220,10 +220,10 @@
       "mutation_before": "            f\"export_keepalive_durability: wrote {summary['records']} record(s) \"",
       "mutation_after": "            f\"export_keepalive_durability: wrote {summary['records'] + 1} record(s) \"",
       "red_exit": 1,
-      "red_summary": "1 failed in 0.30s",
+      "red_summary": "1 failed in 0.29s",
       "green_exit": 0,
       "green_summary": "1 passed in 0.25s",
-      "failure_excerpt": "e_durability: wrote 2 record(s) to /Users/teacher/.codex/orchestrator/agent-runtime/cursor/tmp/pytest-..._human_summary_and_par0/out.ndjson\\ncounts: {\"durable\": 1, \"skipped\": 1}\\nskipped: {\"missing_merged_pr_metadata\": 1}\\n'\n\ntests/scripts/test_export_keepalive_durability.py:361: AssertionError\n=========================== short test summary info ============================\nFAILED tests/scripts/test_export_keepalive_durability.py::test_cli_human_summary_and_partial_fetch_paths\n1 failed in 0.30s"
+      "failure_excerpt": "e_durability: wrote 2 record(s) to /Users/teacher/.codex/orchestrator/agent-runtime/codex/tmp/pytest-o..._human_summary_and_par0/out.ndjson\\ncounts: {\"durable\": 1, \"skipped\": 1}\\nskipped: {\"missing_merged_pr_metadata\": 1}\\n'\n\ntests/scripts/test_export_keepalive_durability.py:366: AssertionError\n=========================== short test summary info ============================\nFAILED tests/scripts/test_export_keepalive_durability.py::test_cli_human_summary_and_partial_fetch_paths\n1 failed in 0.29s"
     },
     {
       "node_id": "tests/scripts/test_workflow_startup_failure_diagnostic.py::test_token_pacing_and_list_api_paths",
@@ -232,10 +232,10 @@
       "mutation_before": "    if _PACE_SECONDS > 0:\n        time.sleep(_PACE_SECONDS)",
       "mutation_after": "    if _PACE_SECONDS >= 0:\n        time.sleep(_PACE_SECONDS)",
       "red_exit": 1,
-      "red_summary": "1 failed in 0.27s",
+      "red_summary": "1 failed in 0.23s",
       "green_exit": 0,
-      "green_summary": "1 passed in 0.28s",
-      "failure_excerpt": "monkeypatch.setattr(diag, \"_PACE_SECONDS\", 0.0)\n        diag._pace()\n>       assert sleeps == []\nE       assert [0.0] == []\nE         \nE         Left contains one more item: 0.0\nE         Use -v to get more diff\n\ntests/scripts/test_workflow_startup_failure_diagnostic.py:131: AssertionError\n=========================== short test summary info ============================\nFAILED tests/scripts/test_workflow_startup_failure_diagnostic.py::test_token_pacing_and_list_api_paths\n1 failed in 0.27s"
+      "green_summary": "1 passed in 0.19s",
+      "failure_excerpt": "monkeypatch.setattr(diag, \"_PACE_SECONDS\", 0.0)\n        diag._pace()\n>       assert sleeps == []\nE       assert [0.0] == []\nE         \nE         Left contains one more item: 0.0\nE         Use -v to get more diff\n\ntests/scripts/test_workflow_startup_failure_diagnostic.py:131: AssertionError\n=========================== short test summary info ============================\nFAILED tests/scripts/test_workflow_startup_failure_diagnostic.py::test_token_pacing_and_list_api_paths\n1 failed in 0.23s"
     },
     {
       "node_id": "tests/scripts/test_workflow_startup_failure_diagnostic.py::test_sweep_helpers_dedupe_repositories_and_write_action_summary",
@@ -244,10 +244,10 @@
       "mutation_before": "        if repo not in seen:\n            seen.add(repo)\n            ordered.append(repo)",
       "mutation_after": "        ordered.append(repo)",
       "red_exit": 1,
-      "red_summary": "1 failed in 0.29s",
+      "red_summary": "1 failed in 0.24s",
       "green_exit": 0,
-      "green_summary": "1 passed in 0.25s",
-      "failure_excerpt": "', '...a', 'owner/b'] == ['owner/a', 'owner/b']\nE         \nE         At index 1 diff: 'owner/a' != 'owner/b'\nE         Left contains one more item: 'owner/b'\nE         Use -v to get more diff\n\ntests/scripts/test_workflow_startup_failure_diagnostic.py:651: AssertionError\n=========================== short test summary info ============================\nFAILED tests/scripts/test_workflow_startup_failure_diagnostic.py::test_sweep_helpers_dedupe_repositories_and_write_action_summary\n1 failed in 0.29s"
+      "green_summary": "1 passed in 0.19s",
+      "failure_excerpt": "', '...a', 'owner/b'] == ['owner/a', 'owner/b']\nE         \nE         At index 1 diff: 'owner/a' != 'owner/b'\nE         Left contains one more item: 'owner/b'\nE         Use -v to get more diff\n\ntests/scripts/test_workflow_startup_failure_diagnostic.py:651: AssertionError\n=========================== short test summary info ============================\nFAILED tests/scripts/test_workflow_startup_failure_diagnostic.py::test_sweep_helpers_dedupe_repositories_and_write_action_summary\n1 failed in 0.24s"
     },
     {
       "node_id": "tests/scripts/test_workflow_startup_failure_diagnostic.py::test_fork_inference_and_startup_classification_fallbacks",
@@ -256,10 +256,10 @@
       "mutation_before": "    return (\"unknown\", \"unknown\")",
       "mutation_after": "    return (\"mystery\", \"unknown\")",
       "red_exit": 1,
-      "red_summary": "1 failed in 0.30s",
+      "red_summary": "1 failed in 0.23s",
       "green_exit": 0,
-      "green_summary": "1 passed in 0.22s",
-      "failure_excerpt": "(\"unknown\", \"unknown\")\nE       AssertionError: assert ('mystery', 'unknown') == ('unknown', 'unknown')\nE         \nE         At index 0 diff: 'mystery' != 'unknown'\nE         Use -v to get more diff\n\ntests/scripts/test_workflow_startup_failure_diagnostic.py:903: AssertionError\n=========================== short test summary info ============================\nFAILED tests/scripts/test_workflow_startup_failure_diagnostic.py::test_fork_inference_and_startup_classification_fallbacks\n1 failed in 0.30s"
+      "green_summary": "1 passed in 0.19s",
+      "failure_excerpt": "(\"unknown\", \"unknown\")\nE       AssertionError: assert ('mystery', 'unknown') == ('unknown', 'unknown')\nE         \nE         At index 0 diff: 'mystery' != 'unknown'\nE         Use -v to get more diff\n\ntests/scripts/test_workflow_startup_failure_diagnostic.py:903: AssertionError\n=========================== short test summary info ============================\nFAILED tests/scripts/test_workflow_startup_failure_diagnostic.py::test_fork_inference_and_startup_classification_fallbacks\n1 failed in 0.23s"
     },
     {
       "node_id": "tests/scripts/test_workflow_startup_failure_diagnostic.py::test_iter_paginated_and_hold_onset_edge_paths",
@@ -268,10 +268,10 @@
       "mutation_before": "        items.extend(x for x in batch if isinstance(x, dict))",
       "mutation_after": "        items.extend(batch)",
       "red_exit": 1,
-      "red_summary": "1 failed in 0.27s",
+      "red_summary": "1 failed in 0.26s",
       "green_exit": 0,
-      "green_summary": "1 passed in 0.23s",
-      "failure_excerpt": "epos/o/r/actions/workflows\", \"workflows\", \"t\")\n            ^^^^^^^^^\n        ] == [\n            *range(100),\n            100,\n            101,\n        ]\nE       TypeError: string indices must be integers, not 'str'\n\ntests/scripts/test_workflow_startup_failure_diagnostic.py:925: TypeError\n=========================== short test summary info ============================\nFAILED tests/scripts/test_workflow_startup_failure_diagnostic.py::test_iter_paginated_and_hold_onset_edge_paths\n1 failed in 0.27s"
+      "green_summary": "1 passed in 0.19s",
+      "failure_excerpt": "epos/o/r/actions/workflows\", \"workflows\", \"t\")\n            ^^^^^^^^^\n        ] == [\n            *range(100),\n            100,\n            101,\n        ]\nE       TypeError: string indices must be integers, not 'str'\n\ntests/scripts/test_workflow_startup_failure_diagnostic.py:925: TypeError\n=========================== short test summary info ============================\nFAILED tests/scripts/test_workflow_startup_failure_diagnostic.py::test_iter_paginated_and_hold_onset_edge_paths\n1 failed in 0.26s"
     },
     {
       "node_id": "tests/scripts/test_workflow_startup_failure_diagnostic.py::test_sweep_repository_skips_inactive_non_workflow_sparse_and_threshold",
@@ -280,10 +280,10 @@
       "mutation_before": "        if threshold and len(held_runs) / len(runs) < threshold:\n            continue",
       "mutation_after": "        if False and len(held_runs) / len(runs) < threshold:\n            continue",
       "red_exit": 1,
-      "red_summary": "1 failed in 0.29s",
+      "red_summary": "1 failed in 0.26s",
       "green_exit": 0,
-      "green_summary": "1 passed in 0.23s",
-      "failure_excerpt": "Left contains one more item: {'repo': 'owner/repo', 'workflow': '.github/workflows/quiet.yml', 'name': 'Quiet', 'held_runs_sampled': 1, ...}\nE         Use -v to get more diff\n\ntests/scripts/test_workflow_startup_failure_diagnostic.py:1033: AssertionError\n=========================== short test summary info ============================\nFAILED tests/scripts/test_workflow_startup_failure_diagnostic.py::test_sweep_repository_skips_inactive_non_workflow_sparse_and_threshold\n1 failed in 0.29s"
+      "green_summary": "1 passed in 0.19s",
+      "failure_excerpt": "Left contains one more item: {'repo': 'owner/repo', 'workflow': '.github/workflows/quiet.yml', 'name': 'Quiet', 'held_runs_sampled': 1, ...}\nE         Use -v to get more diff\n\ntests/scripts/test_workflow_startup_failure_diagnostic.py:1033: AssertionError\n=========================== short test summary info ============================\nFAILED tests/scripts/test_workflow_startup_failure_diagnostic.py::test_sweep_repository_skips_inactive_non_workflow_sparse_and_threshold\n1 failed in 0.26s"
     },
     {
       "node_id": "tests/scripts/test_workflow_startup_failure_diagnostic.py::test_sweep_summary_step_summary_and_main_error_paths",
@@ -292,10 +292,10 @@
       "mutation_before": "    if oldest:",
       "mutation_after": "    if oldest or True:",
       "red_exit": 1,
-      "red_summary": "1 failed in 0.33s",
+      "red_summary": "1 failed in 0.26s",
       "green_exit": 0,
-      "green_summary": "1 passed in 0.24s",
-      "failure_excerpt": "tail = \"\"\n        if oldest or True:\n>           prefix = \">=\" if oldest[\"onset_truncated\"] else \"\"\n                             ^^^^^^^^^^^^^^^^^^^^^^^^^\nE           TypeError: 'NoneType' object is not subscriptable\n\nscripts/workflow_startup_failure_diagnostic.py:582: TypeError\n=========================== short test summary info ============================\nFAILED tests/scripts/test_workflow_startup_failure_diagnostic.py::test_sweep_summary_step_summary_and_main_error_paths\n1 failed in 0.33s"
+      "green_summary": "1 passed in 0.19s",
+      "failure_excerpt": "tail = \"\"\n        if oldest or True:\n>           prefix = \">=\" if oldest[\"onset_truncated\"] else \"\"\n                             ^^^^^^^^^^^^^^^^^^^^^^^^^\nE           TypeError: 'NoneType' object is not subscriptable\n\nscripts/workflow_startup_failure_diagnostic.py:582: TypeError\n=========================== short test summary info ============================\nFAILED tests/scripts/test_workflow_startup_failure_diagnostic.py::test_sweep_summary_step_summary_and_main_error_paths\n1 failed in 0.26s"
     }
   ]
 }
