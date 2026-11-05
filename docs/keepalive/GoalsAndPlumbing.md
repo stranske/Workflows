@@ -833,6 +833,21 @@ credentials blindly, print their values, or weaken branch/review/runtime guards.
 After deployment, use an eligible consumer PR and confirm an HTTP 200 merge and
 its merged state. Local failure-receipt tests do not establish token repair.
 
+For a bounded deployment inspection, save the consumer workflow at the hosted
+run's executed revision and that run's guarded-merge job log, then run:
+
+```bash
+python scripts/check_guarded_merge_deployment.py \
+  --consumer-workflow /tmp/consumer-followups.yml --job-log /tmp/guarded-merge.log
+```
+
+The checker compares only the entire `guarded-merge` job with the selected local
+template and inspects each retry client's public identity and classic `repo`
+scope independently. Exit 1 means deployment drift; exit 2 means unreadable
+inputs or missing identity/scope evidence. Exit 0 confirms those input checks
+only. Input provenance, effective consumer permissions, fine-grained/App grants,
+HTTP 200 and the PR's merged state still require hosted or owner evidence.
+
 ### Guarded merge task authority
 
 This contract chooses option (a): the PR owns completion state for its implementation,
