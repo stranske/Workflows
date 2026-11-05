@@ -288,6 +288,101 @@ def test_quota_failure_with_disabled_explicit_backup_does_not_call_bundled_provi
     assert pv.comparison_verdict(results) != "PASS"
 
 
+@pytest.mark.parametrize(
+    "backup_block",
+    [
+        pytest.param({}, id="empty-block"),
+        pytest.param(None, id="null-block"),
+        pytest.param({"enabled": True}, id="enabled-without-fields"),
+        pytest.param(
+            {
+                "enabled": True,
+                "provider": "muse-api",
+                "model": "muse-spark-1.3",
+                "key_env": "MUSE_API_KEY",
+            },
+            id="bundled-identity-without-base-url",
+        ),
+        pytest.param(
+            {
+                "enabled": True,
+                "provider": "muse-api",
+                "model": "muse-spark-1.3",
+                "base_url": "https://api.meta.ai/v1",
+            },
+            id="bundled-url-without-key-env",
+        ),
+    ],
+)
+@pytest.mark.parametrize("exhausted_provider", ["openai", "anthropic"])
+def test_quota_failure_on_explicit_file_with_backup_block_does_not_call_bundled_provider(
+    monkeypatch, tmp_path, backup_block, exhausted_provider
+):
+    """LANGCHAIN_SLOT_CONFIG selects a file that includes a capacity_backup block.
+
+    A block that is empty, null, or only partly filled must not be completed from
+    the bundled slot file. A quota failure must not call the bundled Muse provider.
+    """
+    import urllib.request
+
+    bundled_path = ROOT / "config" / "llm_slots.json"
+    bundled = json.loads(bundled_path.read_text(encoding="utf-8"))
+    assert bundled["capacity_backup"]["enabled"] is True
+    assert bundled["capacity_backup"]["provider"] == "muse-api"
+    assert bundled["capacity_backup"]["base_url"] == "https://api.meta.ai/v1"
+    payload = json.loads(json.dumps(bundled))
+    payload["capacity_backup"] = backup_block
+    path = tmp_path / "slots.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    monkeypatch.delenv("VERIFIER_EVIDENCE_PROFILE", raising=False)
+    monkeypatch.delenv("VERIFIER_SEMANTIC_MODE", raising=False)
+    monkeypatch.delenv(pv.SIMULATE_CAPACITY_EXHAUSTED_ENV, raising=False)
+    monkeypatch.setenv("MUSE_API_KEY", "test-key-not-real")
+    monkeypatch.setenv("LANGCHAIN_SLOT_CONFIG", str(path))
+    assert pv._slot_path() == path
+    assert pv.capacity_backup() is None
+
+    clients = [(object(), "openai", "gpt-6.1-sol"), (object(), "anthropic", "claude-sonnet-5-5")]
+    comparison = pv.ComparisonRunner(context="ctx", diff=None, prompt="p", clients=clients)
+    monkeypatch.setattr(
+        pv.ComparisonRunner, "from_environment", classmethod(lambda cls, *args: comparison)
+    )
+    calls, requests, reads = [], [], []
+    read_text = Path.read_text
+
+    def tracking_read_text(self, *args, **kwargs):
+        reads.append(self)
+        return read_text(self, *args, **kwargs)
+
+    def invoke(client, prompt, **kwargs):
+        calls.append(client)
+        assert not isinstance(client, pv.CapacityBackupClient)
+        if client is next(
+            client for client, provider, _ in clients if provider == exhausted_provider
+        ):
+            raise RuntimeError("insufficient_quota")
+        return SimpleNamespace(content='{"verdict":"PASS","summary":"ok"}'), None, None
+
+    def urlopen(request, timeout):
+        requests.append(request.full_url)
+        return _Response(b'{"choices":[{"message":{"content":"{\\"verdict\\":\\"PASS\\"}"}}]}')
+
+    monkeypatch.setattr(Path, "read_text", tracking_read_text)
+    monkeypatch.setattr(pv, "_invoke_llm", invoke)
+    monkeypatch.setattr(urllib.request, "urlopen", urlopen)
+
+    results = pv.evaluate_pr_multiple("ctx")
+
+    assert calls == [client for client, _, _ in clients]
+    assert requests == []
+    assert path in reads
+    assert bundled_path not in reads
+    exhausted = next(result for result in results if result.provider_used == exhausted_provider)
+    assert pv.capacity_exhausted(exhausted)
+    assert all(result.capacity_backup_for is None for result in results)
+    assert pv.comparison_verdict(results) != "PASS"
+
+
 def test_explicit_slot_config_selects_its_own_backup(monkeypatch, tmp_path, backup_on):
     payload = json.loads((ROOT / "config/llm_slots.json").read_text())
     payload["capacity_backup"].update(
