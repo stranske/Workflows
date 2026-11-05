@@ -247,8 +247,6 @@ def main() -> int:
         if case.old not in original:
             print(f"MISSING old fragment in {case.rel_path}: {case.note}", file=sys.stderr)
             return 1
-        mutated = original.replace(case.old, case.new, 1)
-        path.write_text(mutated, encoding="utf-8")
         if "docs_drift" in case.rel_path:
             test_file = "tests/scripts/test_docs_drift_fix_agent.py"
         elif "export_keepalive" in case.rel_path:
@@ -256,12 +254,19 @@ def main() -> int:
         else:
             test_file = "tests/scripts/test_workflow_startup_failure_diagnostic.py"
         nodeid = f"{test_file}::{case.nodeid_suffix}"
-        red = run_pytest_exact(nodeid)
-        (OUT_DIR / "red" / f"{case.nodeid_suffix}.log").parent.mkdir(parents=True, exist_ok=True)
-        (OUT_DIR / "red" / f"{case.nodeid_suffix}.log").write_text(
-            red.stdout + red.stderr, encoding="utf-8"
-        )
-        path.write_text(original, encoding="utf-8")
+        mutated = original.replace(case.old, case.new, 1)
+        red: subprocess.CompletedProcess[str]
+        try:
+            path.write_text(mutated, encoding="utf-8")
+            red = run_pytest_exact(nodeid)
+            (OUT_DIR / "red" / f"{case.nodeid_suffix}.log").parent.mkdir(
+                parents=True, exist_ok=True
+            )
+            (OUT_DIR / "red" / f"{case.nodeid_suffix}.log").write_text(
+                red.stdout + red.stderr, encoding="utf-8"
+            )
+        finally:
+            path.write_text(original, encoding="utf-8")
         restore = run_pytest_exact(nodeid)
         (OUT_DIR / "green" / f"{case.nodeid_suffix}.log").parent.mkdir(parents=True, exist_ok=True)
         (OUT_DIR / "green" / f"{case.nodeid_suffix}.log").write_text(

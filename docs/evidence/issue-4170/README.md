@@ -81,9 +81,36 @@ Selftest aggregate check
 ## Local focused validation (this repair)
 
 Interpreter: `/opt/anaconda3/bin/python3` (no repo `.venv` in the provisioned
-worktree). Mutations ran transiently in the worktree and were restored before
-each green rerun; see `validate-red-green.py`, `acceptance.json`, and per-case
-logs under `red/` and `green/`.
+worktree). Mutations run transiently in the worktree; `validate-red-green.py`
+wraps each mutation, red pytest run, and red-log write in `try/finally` and
+restores production bytes in `finally` before the post-restore green rerun.
+Isolated regression proof (no real checkout mutation):
+`tests/scripts/test_issue_4170_red_green.py`.
+
+```bash
+/opt/anaconda3/bin/python3 -m pytest tests/scripts/test_issue_4170_red_green.py -q
+```
+
+Pre-fix (no `finally` restoration): `3 failed` — production stub retained the
+deliberate break after injected `KeyboardInterrupt`, `subprocess.SubprocessError`,
+and red-log `OSError`. Post-fix: `3 passed in 0.22s`.
+
+```bash
+/opt/anaconda3/bin/python3 docs/evidence/issue-4170/validate-red-green.py
+```
+
+```
+{
+  "ok": true,
+  "cases": 22
+}
+```
+
+(2026-11-05 closer continuation; ~62s wall time.) After the run,
+`git diff -- scripts/docs_drift_fix_agent.py scripts/export_keepalive_durability.py
+scripts/workflow_startup_failure_diagnostic.py` was empty.
+
+Per-case logs: `acceptance.json`, `red/`, and `green/`.
 
 ```bash
 /opt/anaconda3/bin/python3 -m pytest \

@@ -178,12 +178,12 @@
     }
   ],
   "green_suite_exit_code": 0,
-  "green_suite_summary": "112 passed in 0.81s",
+  "green_suite_summary": "112 passed in 0.94s",
   "interpreter": "/opt/anaconda3/bin/python3",
   "issue": "stranske/Workflows#4170",
   "merged_commit": "cbad3c6f0f0f8e76b2dbaf382148ef4301de253d",
   "merged_implementation_pr": 4172,
   "new_test_functions": 22,
   "target_pytest_command": "/opt/anaconda3/bin/python3 -m pytest tests/scripts/test_docs_drift_fix_agent.py tests/scripts/test_export_keepalive_durability.py tests/scripts/test_workflow_startup_failure_diagnostic.py -q",
-  "validated_at_utc": "2026-11-05T22:35:12+00:00"
+  "validated_at_utc": "2026-11-05T23:48:06+00:00"
 }
