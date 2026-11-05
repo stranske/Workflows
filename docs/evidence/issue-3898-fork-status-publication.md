@@ -26,6 +26,25 @@ head `d323b67a17b3fd0a6eee17c1c1dd35244abf455a`. Its publisher uses
 require a same-repository head or `pull_request_target`; the fix landed in
 Workflows PR #3900, commit `8ec052a1`.
 
+Comment 4272936106 was authored against that supplied head
+(`original_commit_id` `d323b67a17b3fd0a6eee17c1c1dd35244abf455a`, original line
+672, the `github-token` input under `if: always()`). GitHub anchors the same
+comment at the PR head `a053f355e2444b28e2a163fc4ae3afabf34b29be`, line 820.
+That later file already has the fork guard and two `createCommitStatus` calls
+inside the guarded step. Workflow SHA-256 for that head is
+`99c44bc679f57a619563dba2b623da2d368121581138d8e8898e9ee051d81ea4`.
+Executing its real publisher on an ineligible fork `pull_request` attempts
+zero writes. Replacing only its condition with `always()` attempts one denied
+write, including the registry-error corrective path that the supplied head's
+publisher did not yet contain. The comment text describes the supplied head,
+not a remaining defect at the anchor head or in current source.
+
+The focused publication command, run with `python3` 3.14.9 because
+`/opt/anaconda3/bin/python3` is not installed here, exited 0:
+**644 passed in 41.08s**. The new review-head paths execute inside the
+existing parametrized test, so the count stays 644. Source and template
+both contributed. No production workflow change was made.
+
 No production change is justified unless the execution regression demonstrates
 a remaining defect. Preserve the existing source/template boundary.
 

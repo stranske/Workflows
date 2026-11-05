@@ -10,6 +10,19 @@ import yaml
 ROOT = Path(__file__).resolve().parents[2]
 
 
+def path_text_status_writes_match_publisher(workflow_path):
+    """Every direct status write in the workflow file lives in the gated publisher."""
+    text = workflow_path.read_text()
+    workflow = yaml.safe_load(text)
+    step = next(
+        item
+        for item in workflow["jobs"]["guard"]["steps"]
+        if item.get("name") == "Report agents guard commit status"
+    )
+    script = step["with"]["script"]
+    return text.count("createCommitStatus") == script.count("createCommitStatus") > 0
+
+
 def with_current_direct_binding(harness):
     """Supply authenticated current PR/run fixtures for corrective-write tests."""
     fixture = r"""
@@ -83,8 +96,30 @@ def test_fork_boundary_prevents_normal_and_corrective_read_only_writes(template,
     historical = json.loads(
         (ROOT / "tests/fixtures/agents_guard_3898_canary_publisher.json").read_text()
     )
+    reviewed = json.loads(
+        (ROOT / "tests/fixtures/agents_guard_3898_review_commit_publisher.json").read_text()
+    )
     assert historical["head"] == "d323b67a17b3fd0a6eee17c1c1dd35244abf455a"
-    assert historical["token"] == step["with"]["github-token"] == "${{ github.token }}"
+    assert historical["condition"] == "always()"
+    assert historical["script"].count("createCommitStatus") == 1
+    assert reviewed["head"] == "a053f355e2444b28e2a163fc4ae3afabf34b29be"
+    assert reviewed["original_commit_id"] == historical["head"]
+    assert reviewed["comment_id"] == 4272936106
+    assert (
+        reviewed["workflow_sha256"]
+        == "99c44bc679f57a619563dba2b623da2d368121581138d8e8898e9ee051d81ea4"
+    )
+    # The comment is anchored to a later head whose condition already matches
+    # the current source and template. Its two writes stay inside that step.
+    assert reviewed["condition"] == step["if"]
+    assert reviewed["script"].count("createCommitStatus") == 2
+    assert (
+        historical["token"]
+        == reviewed["token"]
+        == step["with"]["github-token"]
+        == "${{ github.token }}"
+    )
+    assert path_text_status_writes_match_publisher(prefix / ".github/workflows/agents-guard.yml")
     harness = r"""
 const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
 Object.assign(process.env, {ELIGIBLE: input.mode === 'eligibility_failed' ? '' : 'false',
@@ -127,6 +162,8 @@ const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
         ("current", step["if"], step["with"]["script"]),
         ("boundary_removed", "always()", step["with"]["script"]),
         ("reported_canary", historical["condition"], historical["script"]),
+        ("review_commit", reviewed["condition"], reviewed["script"]),
+        ("review_commit_unguarded", "always()", reviewed["script"]),
     ]:
         result = subprocess.run(
             ["node", "-e", harness],
@@ -137,7 +174,7 @@ const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
             timeout=10,
         )
         evidence = json.loads(result.stdout)
-        if label == "current":
+        if label in {"current", "review_commit"}:
             assert evidence == {
                 "conditionPasses": False,
                 "writes": 0,
@@ -150,7 +187,7 @@ const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
             assert evidence["conditionPasses"] is True, (label, mode, evidence)
             assert evidence["writes"] == 1, (label, mode, evidence)
             assert len(evidence["failures"]) == 1, (label, mode, evidence)
-            if label == "boundary_removed":
+            if label in {"boundary_removed", "review_commit_unguarded"}:
                 assert evidence["reads"] == 1, (label, mode, evidence)
 
 
