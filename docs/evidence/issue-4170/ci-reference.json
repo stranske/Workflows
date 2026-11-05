@@ -21,9 +21,62 @@
       "lint_format": {
         "name": "Lint, Format & YAML Validation",
         "conclusion": "success"
-      }
+      },
+      "note": "Historical only: aggregate and unrelated compatibility jobs do not prove target module execution."
     }
   },
   "local_three_module_command": "/opt/anaconda3/bin/python3 -m pytest -q tests/scripts/test_docs_drift_fix_agent.py tests/scripts/test_export_keepalive_durability.py tests/scripts/test_workflow_startup_failure_diagnostic.py",
-  "local_ci_marker_command": "python3 -m pytest -q -m 'not quarantine and not slow'"
+  "local_ci_marker_command": "python3 -m pytest -q -m 'not quarantine and not slow'",
+  "verified_target_pytest": {
+    "checked_date": "2026-11-05",
+    "tested_revision": "4643e9e7df956661716c1b58fe0fff04ac874e68",
+    "workflow": "Gate",
+    "event": "workflow_dispatch",
+    "run_id": 42054217411,
+    "run_attempt": 1,
+    "run_url": "https://github.com/stranske/Workflows/actions/runs/42054217411",
+    "job_id": 127342058378,
+    "job_name": "python ci / python 3.13",
+    "job_conclusion": "success",
+    "job_url": "https://github.com/stranske/Workflows/actions/runs/42054217411/job/127342058378",
+    "step": "Pytest (unit tests with coverage)",
+    "step_conclusion": "success",
+    "python": "3.13.17",
+    "command_shell": "pytest -p ci_test_growth \"${args[@]}\"",
+    "command_expanded_from_workflow_and_logged_environment": "pytest -p ci_test_growth -m 'not quarantine and not slow' --junitxml=pytest-junit.xml --no-cov -n auto --dist load -n 4 --dist=loadgroup",
+    "result": "50319 passed, 27 skipped, 3 xfailed in 664.65s (0:11:04)",
+    "target_module_results": {
+      "tests/scripts/test_docs_drift_fix_agent.py": {
+        "passed": 50,
+        "failed": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "tests/scripts/test_export_keepalive_durability.py": {
+        "passed": 20,
+        "failed": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "tests/scripts/test_workflow_startup_failure_diagnostic.py": {
+        "passed": 42,
+        "failed": 0,
+        "errors": 0,
+        "skipped": 0
+      }
+    },
+    "artifact": {
+      "id": 13430092357,
+      "name": "gate-coverage-3.13-1",
+      "junit_path": "runtimes/3.13/pytest-junit.xml",
+      "junit_sha256": "3f41503836a459265ff2c90a0cd7593fd116912dcb1272890d45a42f389748d3",
+      "target_excerpt": "ci-target-junit.xml"
+    },
+    "additional_successful_job": {
+      "job_id": 127342058150,
+      "name": "python ci / python 3.14",
+      "conclusion": "success"
+    },
+    "note": "Actual pytest step and JUnit cases inspected; no target cases skipped. Coverage instrumentation disabled in this job despite step name."
+  }
 }
