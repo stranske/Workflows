@@ -354,6 +354,52 @@ def test_chat_factory_does_not_require_subscription_auth(
     assert subscription_process.calls == []
 
 
+@pytest.mark.parametrize("factory_name", ["build_client", "get_llm_client"])
+@pytest.mark.parametrize("chat_available", [False, True])
+def test_auxiliary_selection_does_not_leak_into_ordinary_factory(
+    monkeypatch, subscription_process, factory_name, chat_available
+):
+    """Alternating auxiliary and ordinary calls preserves each transport's contract."""
+    chat_prompts = []
+    info = _fake_info()
+    info.client = SimpleNamespace(
+        invoke=lambda prompt: chat_prompts.append(prompt) or SimpleNamespace(content="chat reply")
+    )
+    fake = _install_fake_langchain_client(monkeypatch, info=info)
+    if not chat_available:
+        # Subscription analysis must work even when the ordinary factory cannot import.
+        monkeypatch.setitem(sys.modules, "tools.langchain_client", None)
+
+    factory = getattr(_llm_client, factory_name)
+    for phase in ("before", "after"):
+        resolved = factory()
+        if chat_available:
+            if factory_name == "build_client":
+                assert resolved is info
+                client = resolved.client
+            else:
+                client, provider = resolved
+                assert provider == info.provider
+            assert client is info.client
+            assert client.invoke(phase).content == "chat reply"
+        else:
+            assert resolved is None
+
+        if phase == "before":
+            chat_calls_before = list(fake.calls)
+            auxiliary = _llm_client.build_auxiliary_client()
+            assert isinstance(auxiliary.client, _llm_client.SubscriptionClientAdapter)
+            assert auxiliary.provider == subscription_process.agent
+            assert auxiliary.client.invoke("auxiliary review").content == "answer"
+            assert fake.calls == chat_calls_before
+
+    assert chat_prompts == (["before", "after"] if chat_available else [])
+    assert fake.calls == (
+        [{"model": None, "provider": None, "force_openai": False}] * 2 if chat_available else []
+    )
+    assert subscription_process.calls == ["auxiliary review"]
+
+
 @pytest.mark.parametrize("consumer", ["capability", "decomposer", "optimizer", "apply"])
 @pytest.mark.parametrize("provider", ["openai", "anthropic", "github-models"])
 def test_consumers_keep_chat_routing_with_subscription_enabled(
