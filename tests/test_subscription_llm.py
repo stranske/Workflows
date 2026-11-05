@@ -37,7 +37,9 @@ def test_claude_available_with_configured_directory(claude_client, monkeypatch, 
     config.mkdir()
     (config / ".credentials.json").touch()
     monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(config))
+    legacy = Path.home() / ".claude" / ".credentials.json"
 
+    assert (legacy.is_file() is False,) == (True,)
     assert (claude_client.available() is True,) == (True,)
 
 

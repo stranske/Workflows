@@ -1,5 +1,67 @@
 # Issue 4369 validation receipt
 
+## Configured-directory canary and deliberate-break proof
+
+On 2026-11-05, reviewed commits through `9cfa1a4005d804670c87e1d70dce271b49c924a3`.
+The reconciliation notice's larger file count includes the merge from main. The
+PR diff against main remains the credential-directory fix, its tests, this
+receipt, and the ledger. Task 1 stays complete. Tasks 2–4 stay open: this
+section records the targeted pass, both deliberate breaks, the restored pass,
+the diff-quality detector, and the official head/base proof. Full Python and
+JavaScript source-gate results still belong to CI on the commit that contains
+this section.
+
+The credential canary used to place Claude credentials at `HOME/.claude` and
+point `CLAUDE_CONFIG_DIR` at that same directory, so it passed even when
+`available()` ignored the configured directory. It now keeps those credentials
+only under a separate `CLAUDE_CONFIG_DIR`. The named availability test also
+asserts that `~/.claude/.credentials.json` is absent in that scenario.
+
+Python command:
+`python3 -m pytest -q tests/test_subscription_llm.py tests/workflows/test_subscription_llm_credential_canary.py -m 'not slow'`.
+
+| Local state | Exit | Result |
+| --- | --- | --- |
+| Fixed source and template | 0 | 34 passed in 1.04s |
+| Source lookup temporarily restored to `Path.home() / ".claude/.credentials.json"`; Claude cases only | 1 | 4 failed, 4 passed, 6 deselected in 0.24s |
+| Source restored | 0 | 8 passed, 6 deselected in 0.24s |
+| Template lookup temporarily restored to `Path.home() / ".claude/.credentials.json"`; Claude cases only | 1 | 4 failed, 4 passed, 6 deselected in 0.25s |
+| Template restored | 0 | 8 passed, 6 deselected in 0.24s |
+
+Each mutation was restored in a `finally` block. Both production copies match
+the pre-mutation bytes. Source failure is
+`test_claude_available_with_configured_directory[source]` plus the three source
+Claude canary cases. Template failure is the template pair of those same cases.
+`python3 -m ruff check` on both test files passed. `git diff --check` passed.
+`BLACK_NUM_WORKERS=1 python3 -m black --check --line-length 100 --exclude '(\.workflows-lib|node_modules)' .`
+exited 0: **890 files would be left unchanged**.
+
+`python3 scripts/check_gate_diff_quality.py --base origin/main --head HEAD`
+printed `Gate diff quality checks passed.` The detector is unchanged.
+
+Official head/base proof, before this commit was published:
+
+```text
+python3 scripts/check_deliberate_break.py --base origin/main --head HEAD --pr-body-file /tmp/issue-4369-pr-body.md
+```
+
+Marker:
+
+```text
+<!-- deliberate-break: test=tests/test_subscription_llm.py::test_claude_available_with_configured_directory test-file=tests/test_subscription_llm.py break-file=tools/subscription_llm.py -->
+```
+
+Verdict: `PASS`, reason `head-passed-base-failed`. The base archive failed both
+`test_claude_available_with_configured_directory[source]` and `[template]`
+(`2 failed in 0.17s`). Head of that command was the fixed worktree.
+
+No local full `python3 -m pytest -q tests/` run and no local
+`node --test .github/scripts/__tests__/*.test.js` run are claimed. Those two
+source gates remain the unchecked part of this task until current-head CI
+reports them. Discussion `discussion_r4468176159` stays unresolved for the
+authorized closer. Downstream acceptance stays pending Maint 68 regeneration
+and Maint 71 reporting for Portable-Alpha-Extension-Model#2454.
+
 ## Auth removal regression and reconciliation at 6eebec10
 
 On 2026-11-05, reviewed the recent commits through incoming head
