@@ -9,6 +9,7 @@ and process/SDK boundaries stubbed; they require ``langchain_core``.
 
 from __future__ import annotations
 
+import asyncio
 import functools
 import json
 import sys
@@ -274,8 +275,8 @@ def test_subscription_pipe_preserves_chat_roles_and_content(subscription_process
     ]
 
 
-@pytest.mark.parametrize("operation", ["batch", "stream"])
-def test_subscription_pipe_renders_batched_and_streaming_prompts(subscription_process, operation):
+@pytest.mark.parametrize("operation", ["batch", "stream", "ainvoke", "abatch", "astream"])
+def test_subscription_pipe_renders_each_execution_mode(subscription_process, operation):
     from langchain_core.prompts import ChatPromptTemplate
 
     template = ChatPromptTemplate.from_template("Review {task}")
@@ -283,8 +284,19 @@ def test_subscription_pipe_renders_batched_and_streaming_prompts(subscription_pr
     inputs = [{"task": "the parser"}, {"task": "the formatter"}]
     config = {"max_concurrency": 1, "tags": ["subscription-regression"]}
 
-    if operation == "stream":
+    if operation in {"stream", "ainvoke", "astream"}:
         inputs = inputs[:1]
+
+    async def run_async():
+        if operation == "ainvoke":
+            return [await chain.ainvoke(inputs[0], config=config)]
+        if operation == "astream":
+            return [response async for response in chain.astream(inputs[0], config=config)]
+        return await chain.abatch(inputs, config=config)
+
+    if operation.startswith("a"):
+        responses = asyncio.run(run_async())
+    elif operation == "stream":
         responses = list(chain.stream(inputs[0], config=config))
     else:
         responses = chain.batch(inputs, config=config)
