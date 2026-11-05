@@ -16,6 +16,7 @@ import yaml
 
 TEMPLATE = Path("templates/consumer-repo/.github/workflows/agents-81-gate-followups.yml")
 LOG_PREFIX = r"^(?:\d{4}-\d{2}-\d{2}T\S+Z )?"
+IDENTITY_LINE = re.compile(LOG_PREFIX + r"Guarded merge credential source(?:=|$)")
 DIAGNOSTIC = re.compile(
     LOG_PREFIX + r"Guarded merge credential source=(?P<source>[A-Za-z0-9_ .-]+); "
     r"actor=(?P<actor>[A-Za-z0-9][A-Za-z0-9\[\]-]*); OAuth scopes=(?P<scopes>[^\r\n]*)$",
@@ -55,7 +56,16 @@ def inspect_deployment(template: str, consumer: str, log: str) -> dict:
     """
     matches = guarded_job(template) == guarded_job(consumer)
     attempts = []
-    for diagnostic in DIAGNOSTIC.finditer(log):
+    incomplete_identity = False
+    for line in log.splitlines():
+        if not IDENTITY_LINE.match(line):
+            continue
+        diagnostic = DIAGNOSTIC.fullmatch(line)
+        if diagnostic is None:
+            # A masked or truncated retry cannot inherit an earlier client's
+            # identity/scope evidence. Keep raw diagnostic contents out of output.
+            incomplete_identity = True
+            continue
         scopes = diagnostic["scopes"].strip()
         # Missing fine-grained/App scope headers are unknown, not a denied grant.
         reported = bool(re.fullmatch(r"[A-Za-z0-9_:, -]+", scopes))
@@ -72,6 +82,8 @@ def inspect_deployment(template: str, consumer: str, log: str) -> dict:
         blockers.append("consumer guarded-merge job differs from selected source")
     if not attempts:
         blockers.append("no merge-client identity diagnostics observed")
+    if incomplete_identity:
+        blockers.append("one or more merge-client identity diagnostics were incomplete")
     # The actor and repo scope cannot distinguish two PATs owned by one account.
     # Require a named credential/registry key (or github.token), not WRITE_TOKEN's
     # aggregate fallback label. Check each retry independently of earlier clients.

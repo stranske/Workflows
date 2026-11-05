@@ -851,8 +851,10 @@ source and classic `repo` scope independently. A source must name a credential
 registry key or `github.token`; aggregate `WRITE_TOKEN fallback` and unknown
 labels cannot identify which credential needs repair, even with a known actor
 and `repo` scope. Exit 1 means deployment drift; exit 2 means unreadable inputs
-or missing identity/source/scope evidence. Exit 0 confirms those input checks
-only. Input provenance, effective consumer permissions, fine-grained/App grants,
+or missing identity/source/scope evidence. Masked or truncated identity diagnostics
+also block inspection, even when another retry reports complete evidence.
+Exit 0 confirms those input checks only. Input provenance, effective consumer
+permissions, fine-grained/App grants,
 HTTP 200 and the PR's merged state still require hosted or owner evidence.
 
 ### Guarded merge task authority

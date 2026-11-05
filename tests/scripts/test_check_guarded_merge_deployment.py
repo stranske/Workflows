@@ -125,6 +125,51 @@ def test_retry_cannot_borrow_previous_clients_identity_or_scope(retry_scopes):
     assert report["blockers"] == ["one or more clients require owner permission verification"]
 
 
+@pytest.mark.parametrize(
+    "incomplete",
+    [
+        "source=RETRY_PAT; actor=***; OAuth scopes=repo",
+        "source=***; actor=writer; OAuth scopes=repo",
+        "source=RETRY_PAT; actor=; OAuth scopes=repo",
+        "source=RETRY_PAT; actor=writer",
+        "source=RETRY_PAT",
+        "source",
+    ],
+)
+@pytest.mark.parametrize("position", ["before", "after"])
+def test_incomplete_retry_diagnostic_cannot_borrow_another_clients_evidence(incomplete, position):
+    line = f"2026-11-05T09:00:00.0000000Z Guarded merge credential {incomplete}\n"
+    log = line + diagnostic() if position == "before" else diagnostic() + line
+    report = checker.inspect_deployment(WORKFLOW, WORKFLOW, log)
+    assert report["attempts"] == [
+        {"source": "FIRST_PAT", "actor": "writer", "classic_repo_scope_reported": True}
+    ]
+    assert report["blockers"] == ["one or more merge-client identity diagnostics were incomplete"]
+    assert report["effective_permissions_confirmed"] is False
+
+
+def test_incomplete_identity_without_another_client_blocks_without_echoing_input():
+    log = "Guarded merge credential source=UNRELATED_PRIVATE_LOG_VALUE\n"
+    report = checker.inspect_deployment(WORKFLOW, WORKFLOW, log)
+    assert report["attempts"] == []
+    assert report["blockers"] == [
+        "no merge-client identity diagnostics observed",
+        "one or more merge-client identity diagnostics were incomplete",
+    ]
+    assert "UNRELATED_PRIVATE_LOG_VALUE" not in json.dumps(report)
+
+
+@pytest.mark.parametrize("prefix", ["", "2026-11-05T09:00:00.0000000Z "])
+def test_complete_diagnostics_accept_raw_job_log_line_endings(prefix):
+    line = diagnostic().split("Z ", 1)[1].rstrip("\n")
+    log = prefix + line + "\r\n"
+    report = checker.inspect_deployment(WORKFLOW, WORKFLOW, log)
+    assert report["attempts"] == [
+        {"source": "FIRST_PAT", "actor": "writer", "classic_repo_scope_reported": True}
+    ]
+    assert report["blockers"] == []
+
+
 @pytest.mark.parametrize("source", ["WRITE_TOKEN fallback", "WRITE_TOKEN", "unknown", "UNKNOWN"])
 def test_ambiguous_source_cannot_identify_credential_even_with_repo_scope(source):
     report = checker.inspect_deployment(WORKFLOW, WORKFLOW, diagnostic(source=source))
@@ -188,6 +233,7 @@ def test_malformed_workflow_cannot_match(workflow):
     [
         (WORKFLOW, diagnostic(), 0),
         (WORKFLOW, "", 2),
+        (WORKFLOW, diagnostic() + "Guarded merge credential source=RETRY_PAT\n", 2),
         (WORKFLOW, diagnostic(source="WRITE_TOKEN fallback"), 2),
         (WORKFLOW.replace("run: guarded", "run: old"), diagnostic(), 1),
     ],
