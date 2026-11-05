@@ -41,7 +41,7 @@ dev = [
     "pytest==9.2.0",
     "anyio>=4.15.1",  # pytest 9.2 plugin startup with warnings treated as errors.
     "pytest-cov==7.1.0",
-    "coverage==7.17.1",
+    "coverage==7.17.2",
     "pytest-xdist==3.8.0",
     "httpx==0.28.1",  # Native SDK MockTransport regression tests.
     "openai==2.48.0",  # Direct native SDK imports in inert Verify transport tests.
