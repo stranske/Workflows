@@ -134,7 +134,31 @@ candidate #2454 is open and ready at
 `99d10a9838cecfb4327a2735d8f3723e393e413e`, which differs from that report's
 head. The Maint 68/71 lane remains the writer and must supply fresh evidence.
 
-Source review/CI, source merge, actual post-merge verification, FULL promotion
-and final reconciliation remain **unobserved for this PR**. The historical
-PR #3900 is merged and has a successful verifier check, but that check alone
-does not establish downstream campaign completion or verifier verdict content.
+Source review/CI for this evidence PR is recorded on its own head. The
+production publisher was already on `main` before this PR. Its consumer
+delivery is plan `sha256:1a22f551228736c4279b2b5434baffbb0e6d5b697dc43727bf5d7f808209dc0b`,
+source `306fc9e79d891030395211fdae8ae1387f2b37c3`, which is an ancestor of
+current `main` and still contains template workflow SHA-256
+`c0290cc1b0734ef05deb4a6c4660d9199de9e383f0ea4272ee52f19c4e8f4b6d`.
+
+Observed Maint 68/71 results for that immutable plan:
+
+- Canary regeneration run `41125821299` succeeded.
+- Promotion run `41128622575` succeeded.
+- Reconciliation run `41132061438` authorized the commit and merged all 16
+  registered consumer heads (`authorized=true`, 16 prepared, 16 merged).
+  The three canaries sealed with `red=0 review_blocked=0 drainable=0`.
+- Health 83 run `41132777649` succeeded. It measures sync efficiency; it is
+  not a publisher verdict.
+- Each delivered head's `.github/workflows/agents-guard.yml` was read from
+  GitHub at the merged SHA and matched that template digest, including the
+  fork guard. The product Agents Verifier on the three canary heads completed
+  `skipped` (runs `41115609488`, `41115547927`, and `41126227428`). Gate and
+  Health 45 Guard succeeded on those heads before merge. No generated consumer
+  PR was edited.
+
+A later full plan, `sha256:18dc9717229c216198a8b9241db7122f681f4ca8f90497ab88b6f37252dda4bf`
+at source `d77a8e3ad93aaf4339fff0180bafa1264e3ec7c0`, is a separate open cycle.
+Maint 71 run `41986481204` left its three canaries `review_blocked` and did not
+promote. Those open heads still carry the same guarded workflow digest, so
+that cycle does not change this payload. No competing writer was dispatched.

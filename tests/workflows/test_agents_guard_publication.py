@@ -18,6 +18,12 @@ CANARY_PUBLISHER_SHA256 = "1cd4058efe2e9f3b9c5744ab28c0118f2a6651e5a8253bd4b5dae
 REVIEWED_PUBLISHER_SHA256 = "3199fbaece174be06db1bdb9d733f015581949d5a6c4ba4becaa6035de7af67e"
 CANARY_WORKFLOW_SHA256 = "9d8e46532ce4d49f7c88087e4e314ebff7be4985731bd9a358ef069395e561dc"
 REVIEWED_WORKFLOW_SHA256 = "99c44bc679f57a619563dba2b623da2d368121581138d8e8898e9ee051d81ea4"
+# SHA-256 of the consumer template workflow and of `condition + "\n" + script`
+# observed on every registered consumer head merged by Maint 71 run 41132061438.
+DELIVERED_WORKFLOW_SHA256 = "c0290cc1b0734ef05deb4a6c4660d9199de9e383f0ea4272ee52f19c4e8f4b6d"
+DELIVERED_PUBLISHER_SHA256 = "1c093b60a9f34983faf841fc40cf049740c72dce58ea2f290c486be3edad23e9"
+DELIVERED_PLAN_ID = "sha256:1a22f551228736c4279b2b5434baffbb0e6d5b697dc43727bf5d7f808209dc0b"
+DELIVERED_SOURCE_COMMIT = "306fc9e79d891030395211fdae8ae1387f2b37c3"
 
 
 def publisher_binding_sha256(condition, script):
@@ -52,6 +58,56 @@ const originalPaginate=github.paginate;
 github.paginate=async(method,params)=>method===github.rest.actions.listWorkflowRuns?[currentGuardRun]:originalPaginate(method,params);
 """
     return harness.replace("const AsyncFunction", fixture + "\nconst AsyncFunction")
+
+
+def execute_guard_publisher(condition, script, mode):
+    """Run one publisher condition and script, counting status attempts before denial."""
+    harness = r"""
+const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
+Object.assign(process.env, {ELIGIBLE: input.mode === 'eligibility_failed' ? '' : 'false',
+  JOB_STATUS: input.mode === 'eligibility_failed' ? 'failure' : 'success',
+  EVALUATE_OUTCOME: 'skipped', BLOCKED: '', EVALUATED_LABELS: '[]'});
+const workflowGithub = {event_name: 'pull_request', repository: 'owner/repo',
+  event: {pull_request: {head: {repo: {full_name: 'fork-owner/repo'}}}}};
+const conditionPasses = new Function('workflowGithub', 'always',
+  `return (${input.condition.replaceAll('github.', 'workflowGithub.')});`)(
+    workflowGithub, () => true);
+let writes = 0, reads = 0;
+const failures = [];
+const github = {rest: {repos: {
+  createCommitStatus: async () => {
+    writes++;
+    throw Object.assign(Error('Resource not accessible by integration'), {status: 403});
+  },
+  getContent: async () => {
+    reads++;
+    if (input.mode === 'registry_denied') throw Object.assign(Error('denied'), {status: 403});
+    if (input.mode === 'registry_malformed') return {data: {type: 'file', encoding: 'none'}};
+    return {data: {type: 'file', encoding: 'base64',
+      content: Buffer.from('agents:\n  codex:\n    enabled: true\n').toString('base64')}};
+  }, listCommitStatusesForRef() {},
+}, issues: {listLabelsOnIssue() {}}}, paginate: async () => []};
+const context = {repo: {owner: 'owner', repo: 'repo'}, eventName: 'pull_request',
+  runId: 42, serverUrl: 'https://github.com', sha: 'b'.repeat(40),
+  payload: {pull_request: {number: 4, labels: [], head: {sha: 'a'.repeat(40)},
+    base: {sha: 'b'.repeat(40)}}}};
+const core = {info() {}, error() {}, warning() {}, setFailed: message => failures.push(message)};
+const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
+(async () => {
+  if (conditionPasses) await new AsyncFunction('github', 'context', 'core', input.script)(
+    github, context, core);
+  process.stdout.write(JSON.stringify({conditionPasses, writes, reads, failures}));
+})().catch(error => {console.error(error); process.exitCode = 1});
+"""
+    result = subprocess.run(
+        ["node", "-e", with_current_direct_binding(harness)],
+        input=json.dumps({"condition": condition, "script": script, "mode": mode}),
+        text=True,
+        capture_output=True,
+        check=True,
+        timeout=10,
+    )
+    return json.loads(result.stdout)
 
 
 def test_guard_publisher_is_manifest_managed_and_template_aligned():
@@ -210,6 +266,79 @@ const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
             assert len(evidence["failures"]) == 1, (label, mode, evidence)
             if label in {"boundary_removed", "review_commit_unguarded"}:
                 assert evidence["reads"] == 1, (label, mode, evidence)
+
+
+def test_delivered_heads_bind_the_merged_consumer_publisher():
+    """The merged fleet heads carry the current consumer template publisher."""
+    template = ROOT / "templates/consumer-repo/.github/workflows/agents-guard.yml"
+    delivered = json.loads(
+        (ROOT / "tests/fixtures/agents_guard_3898_delivered_publisher.json").read_text()
+    )
+    assert hashlib.sha256(template.read_bytes()).hexdigest() == DELIVERED_WORKFLOW_SHA256
+    assert delivered["workflow_sha256"] == DELIVERED_WORKFLOW_SHA256
+    assert delivered["plan_id"] == DELIVERED_PLAN_ID
+    assert delivered["plan_scope"] == "full"
+    assert delivered["source_commit"] == DELIVERED_SOURCE_COMMIT
+    assert delivered["maint68_canary_run"] == 41125821299
+    assert delivered["maint68_promote_run"] == 41128622575
+    assert delivered["maint71_campaign_run"] == 41132061438
+    assert delivered["health83_run"] == 41132777649
+    assert delivered["agents_verifier"] == "skipped"
+    workflow = yaml.safe_load(template.read_text())
+    step = next(
+        item
+        for item in workflow["jobs"]["guard"]["steps"]
+        if item.get("name") == "Report agents guard commit status"
+    )
+    assert delivered["condition"] == step["if"]
+    assert delivered["script"] == step["with"]["script"]
+    assert delivered["token"] == step["with"]["github-token"] == "${{ github.token }}"
+    assert (
+        publisher_binding_sha256(delivered["condition"], delivered["script"])
+        == DELIVERED_PUBLISHER_SHA256
+    )
+    registered = {
+        "stranske/Counter_Risk",
+        "stranske/Deliverable-Render",
+        "stranske/Doc-Lineage",
+        "stranske/Fine-Art-Archive",
+        "stranske/Inv-Man-Intake",
+        "stranske/Manager-Database",
+        "stranske/Manager-Mosaic",
+        "stranske/Orchestrator",
+        "stranske/Pension-Data",
+        "stranske/Portable-Alpha-Extension-Model",
+        "stranske/Ready",
+        "stranske/Template",
+        "stranske/Travel-Plan-Permission",
+        "stranske/Trend_Model_Project",
+        "stranske/learning-management-system",
+        "stranske/trip-planner",
+    }
+    assert {row["repository"] for row in delivered["heads"]} == registered
+    assert len(delivered["heads"]) == len(registered)
+    for row in delivered["heads"]:
+        assert len(row["head_sha"]) == 40
+        assert row["workflow_sha256"] == DELIVERED_WORKFLOW_SHA256
+        assert row["pr"] > 0
+        assert row["branch"] in {"sync/workflows-delivery", "sync/workflows-candidate"}
+
+
+@pytest.mark.parametrize(
+    "mode", ["ineligible", "eligibility_failed", "registry_denied", "registry_malformed"]
+)
+def test_delivered_publisher_attempts_no_fork_status_write(mode):
+    """Execute the merged consumer publisher, including paths before eligibility."""
+    delivered = json.loads(
+        (ROOT / "tests/fixtures/agents_guard_3898_delivered_publisher.json").read_text()
+    )
+    guarded = execute_guard_publisher(delivered["condition"], delivered["script"], mode)
+    assert guarded == {"conditionPasses": False, "writes": 0, "reads": 0, "failures": []}
+    unguarded = execute_guard_publisher("always()", delivered["script"], mode)
+    assert unguarded["conditionPasses"] is True
+    assert unguarded["writes"] == 1
+    assert unguarded["reads"] == 1
+    assert len(unguarded["failures"]) == 1
 
 
 @pytest.mark.parametrize("template", [False, True])
