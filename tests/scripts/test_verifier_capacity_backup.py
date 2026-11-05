@@ -28,6 +28,17 @@ def runner():
     return pv.ComparisonRunner(context="ctx", diff=None, prompt="p", clients=[], coverage=None)
 
 
+def assert_bundled_backup_never_invoked(calls) -> None:
+    """The quota path must not send the review prompt to the bundled backup.
+
+    ``ComparisonRunner.run_single`` catches every exception from the model call,
+    including assertion failures. A check inside the invoke stub is swallowed, so
+    the objective check has to inspect the recorded calls after comparison returns.
+    """
+    invoked = [client for client in calls if isinstance(client, pv.CapacityBackupClient)]
+    assert invoked == [], "bundled backup must never be invoked"
+
+
 @pytest.fixture
 def backup_on(monkeypatch):
     monkeypatch.setenv("MUSE_API_KEY", "test-key-not-real")
@@ -198,9 +209,6 @@ def test_compare_quota_failure_respects_explicit_slot_config(
 
     def invoke(client, prompt, **kwargs):
         calls.append(client)
-        assert not isinstance(
-            client, pv.CapacityBackupClient
-        ), "bundled backup must never be invoked"
         if client is next(
             client for client, provider, _ in clients if provider == exhausted_provider
         ):
@@ -211,6 +219,7 @@ def test_compare_quota_failure_respects_explicit_slot_config(
 
     results = pv.evaluate_pr_multiple("ctx")
 
+    assert_bundled_backup_never_invoked(calls)
     assert calls == [client for client, _, _ in clients]
     assert [result.provider_used for result in results] == ["openai", "anthropic"]
     exhausted = next(result for result in results if result.provider_used == exhausted_provider)
@@ -264,7 +273,6 @@ def test_quota_failure_with_omitted_explicit_backup_does_not_call_bundled_provid
 
     def invoke(client, prompt, **kwargs):
         calls.append(client)
-        assert not isinstance(client, pv.CapacityBackupClient)
         if client is next(
             client for client, provider, _ in clients if provider == exhausted_provider
         ):
@@ -281,6 +289,7 @@ def test_quota_failure_with_omitted_explicit_backup_does_not_call_bundled_provid
 
     results = pv.evaluate_pr_multiple("ctx")
 
+    assert_bundled_backup_never_invoked(calls)
     assert calls == [client for client, _, _ in clients]
     assert requests == []
     assert path in reads
@@ -348,6 +357,7 @@ def test_quota_failure_with_disabled_explicit_backup_does_not_call_bundled_provi
 
     results = pv.evaluate_pr_multiple("ctx")
 
+    assert_bundled_backup_never_invoked(calls)
     assert calls == [client for client, _, _ in clients]
     assert requests == []
     assert path in reads
@@ -426,7 +436,6 @@ def test_quota_failure_on_explicit_file_with_backup_block_does_not_call_bundled_
 
     def invoke(client, prompt, **kwargs):
         calls.append(client)
-        assert not isinstance(client, pv.CapacityBackupClient)
         if client is next(
             client for client, provider, _ in clients if provider == exhausted_provider
         ):
@@ -443,6 +452,7 @@ def test_quota_failure_on_explicit_file_with_backup_block_does_not_call_bundled_
 
     results = pv.evaluate_pr_multiple("ctx")
 
+    assert_bundled_backup_never_invoked(calls)
     assert calls == [client for client, _, _ in clients]
     assert requests == []
     assert path in reads
@@ -498,7 +508,6 @@ def test_quota_failure_with_empty_or_missing_explicit_slot_config_does_not_fall_
 
     def invoke(client, prompt, **kwargs):
         calls.append(client)
-        assert not isinstance(client, pv.CapacityBackupClient)
         if client is next(
             client for client, provider, _ in clients if provider == exhausted_provider
         ):
@@ -515,6 +524,7 @@ def test_quota_failure_with_empty_or_missing_explicit_slot_config_does_not_fall_
 
     results = pv.evaluate_pr_multiple("ctx")
 
+    assert_bundled_backup_never_invoked(calls)
     assert calls == [client for client, _, _ in clients]
     assert requests == []
     assert bundled_path not in reads
