@@ -233,3 +233,34 @@ checkboxes because approval is required and the run's approval policy is
 `never`. The commit attempt for this test and evidence update failed because
 `.git/index.lock` cannot be created on the read-only filesystem. Both files
 remain in the working tree for the automation commit step.
+
+## Current exact-head validation (2026-11-04)
+
+Ran both required gate commands on current branch head `7cafdd482`:
+
+- `node --test .github/scripts/__tests__/scoped-canary-refresh.test.js`: tests 82, pass 82, fail 0
+- `node --test .github/scripts/__tests__/maint71_merge_sync_prs.test.js`: tests 174, pass 174, fail 0
+- `node --test .github/scripts/__tests__/sync_pr_merge_contract.test.js`: tests 103, pass 103, fail 0
+
+Exact-plan test evidence from `scoped-canary-refresh.test.js`:
+- `full-scope candidate refresh dispatches with the campaign source and plan id`: verifies campaign source `aaaa...` and plan ID are used instead of newer main
+- `delivery_contract_blocked with refresh-candidate-from-exact-plan is an eligible refresh request`: verifies exact-plan blocked requests are admitted
+- `retained merge report is uploaded after candidate refresh writes accounting and before promotion`: verifies artifact ordering fix in maint-71-merge-sync-prs.yml
+
+Three-canary lifecycle evidence from `maint71_merge_sync_prs.test.js`:
+- Each of the three configured canaries (`owner/a`, `owner/b`, `owner/c`) produces `candidate_immutable_identity_mismatch` with `delivery_contract_blocked` status
+- Combined report sends one inert Maint 68 dispatch with campaign source `e...e` (40 chars), expected plan ID `sha256:a...a` (64 chars), full scope, all three repositories
+- Accounting records: `refresh_dispatched=3`, `drainable=3`, `held_plans=[plan_id]`
+- Receipt notice: `candidate refresh receipt: source_commit=<campaignSource> plan_id=<planId> refresh_dispatched=3 held_plans=<planId> drainable=3`
+- Modeling delivery from emitted source admits all three canaries to `review_window_pending` without `candidate_immutable_identity_mismatch`
+
+PR #4439 head commit `7cafdd482` preserves:
+- Campaign source and plan identity through full-scope refresh (verified by deliberate break/fail of bare dispatch)
+- Exact-plan blocked request admission with full scope and campaign tuple
+- Rejection of conflicting identities (mixed report plans raise `canary_refresh_mixed_report_plans`)
+- Dispatch accounting with `refresh_dispatched >= 1` and correct `drainable` counts
+- Durable artifact ordering: Refresh stale candidate bases writes report → Upload sync PR merge report → Promote complete exact-plan canary evidence
+
+All current review threads are resolved. Both live acceptance criteria remain unchecked pending production merge:
+- [ ] Post-merge: retain sync-pr-merge-and-canary-evidence artifact with `canary_refresh.refresh_dispatched >= 1` for exact campaign
+- [ ] Post-merge: first subsequent Maint 71 run shows all three configured canaries enter review/seal without `candidate_immutable_identity_mismatch`
