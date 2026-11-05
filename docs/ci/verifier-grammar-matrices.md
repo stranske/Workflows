@@ -6,7 +6,7 @@ The source base is `12cea89599a67c3004d1d469d669c2daa33dfd35`.
 The historical #3904 counts and experiments below describe that delivery.
 For the current additional reduction, see [#4258](#issue-4258-alias-products) and the
 body-clause integration split below; the JSON inventory and projection tests reflect
-the current 30,101 destination-file cases.
+the current 30,133 destination-file cases.
 
 ## Retained regression map
 
@@ -56,7 +56,7 @@ the production mutation and branch/line comparisons below.
 | `test_product_chain_inherits_latest_explicit_governor_and_aspect` | 2304 | 960 |
 | `test_product_coordination_preserves_recipients_and_explicit_governor_reset` | 1008 | 546 |
 | `test_product_generation_uses_shared_delivery_operations` | 3312 | 450 |
-| `test_product_component_coordination_preserves_bare_other_channel` | 11520 | 668 |
+| `test_product_component_coordination_preserves_bare_other_channel` | 11520 | 700 |
 | `test_passive_delivery_agent_position_preserves_actor_and_floor` | 4608 | 732 |
 | `test_passive_aliases_preserve_actor_options_and_actual_floor` | 3240 | 600 |
 | `test_component_availability_preserves_bare_sibling_and_passive_actor` | 3888 | 1350 |
@@ -72,9 +72,11 @@ the production mutation and branch/line comparisons below.
 | `test_qualified_common_proof_reuses_shared_governor_boundary` | 1920 | 512 |
 | `test_body_clause_matrix_controls_real_coverage_floor` | 963 | 54 |
 
-The changed matrices fall from 66,672 to 10,026 cases. With the 288 explicitly
-mapped full-integration cases, the destination file falls from 90,550 to 30,461
-cases (60,089 fewer, 66.36%). Classifier coverage for PR-body wording remains in
+The changed matrices fell from 66,672 to 10,026 cases before the product-component
+description×voice spine. That spine adds 32 cases, so the table above sums to
+10,058. With the 288 explicitly mapped full-integration cases, the destination
+file first fell from 90,550 to 30,461 cases (60,089 fewer, 66.36%). Classifier
+coverage for PR-body wording remains in
 `test_body_clause_matrix_preserves_independent_destinations` (856 cases). The floor
 integration matrix keeps one witness per distinct required-channel outcome (six
 classes) crossed with retrieval status and channel under test (54 cases). Functions
@@ -93,7 +95,8 @@ tuples outside those spines are not retained. Prompt coverage and
 `test_relative_qualifier_parent_and_local_condition_real_floor` (48 cases):
 required body, required comments, component waiver, and local-condition waiver,
 each crossed with missing status and the four retrieved-channel sets. The
-destination file is 30,101 cases after this split (360 fewer than 30,461).
+destination file is 30,133 cases after this split and the description×voice spine
+(328 fewer than 30,461).
 
 ## What the decomposition preserves and does not prove
 
@@ -108,8 +111,11 @@ This is a decomposition map, not a claim that every deleted tuple is equivalent.
 Polarity, actor class, destination identity/order, AND/OR, condition attachment,
 independent duties, aspect and agent position remain semantic axes where they
 change the grammar. Lexical sweeps deliberately retain operation × voice ×
-governor × destination, irregular participle × governor × contrast, adverb ×
-position × governor, and availability predicate × actor × attachment interactions.
+governor × destination, the body/description alias × voice × order × conjunction,
+irregular participle × governor × contrast, adverb × position × governor, and
+availability predicate × actor × attachment interactions. Product-component
+`description` stays on every voice because active, perfect, progressive, and both
+passive agent positions are different recognizers.
 The manifest states each target's exact axes rather than relying on random or
 pairwise sampling. Role, spelling, and marker combinations outside these explicit
 spines are no longer exhaustive. A concrete regression requiring another joint
@@ -358,7 +364,7 @@ payload. No additional hosted benchmark or workflow run is introduced.
 The retained-input repair adds seven section-boundary regression functions (49 cases).
 These are recorded with `original_count: 0` because they postdate the pinned original
 corpus. The original 356 functions and 90,550-case baseline remain unchanged; the
-current retained inventory contains 30,101 cases.
+current retained inventory contains 30,133 cases.
 
 ## Issue #4258 alias products
 

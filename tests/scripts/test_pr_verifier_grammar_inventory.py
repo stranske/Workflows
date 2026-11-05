@@ -38,8 +38,8 @@ def test_inventory_accounts_for_every_named_regression_and_case():
     assert set(functions) == {entry["function"] for entry in entries}
     assert sum(entry["original_count"] for entry in entries) == 90550
     assert (
-        sum(entry["retained_count"] for entry in entries) == 30101
-    )  # Retained corpus including 49 section-boundary and two new final-envelope cases.
+        sum(entry["retained_count"] for entry in entries) == 30133
+    )  # Retained corpus including description×voice rows on the product-component matrix.
     matrices = json.loads(MATRICES.read_text(encoding="utf-8"))
     bounded = {row["function"]: row for row in matrices}
     assert len(bounded) == len(matrices) == 25
@@ -91,7 +91,9 @@ def test_integration_floor_split_preserves_distinct_outcomes_and_full_status_cha
     # Get the actual function and its parametrizations
     function = vars(delivery)[entry["function"]]
     marks = _parametrizations(function)
-    assert len(marks) == 3, "Expected 3 parametrize decorators (criterion,expected), status, channel"
+    assert (
+        len(marks) == 3
+    ), "Expected 3 parametrize decorators (criterion,expected), status, channel"
 
     # Check parameter names match the inventory (order may vary by decorator)
     all_param_names = set()
@@ -112,9 +114,17 @@ def test_integration_floor_split_preserves_distinct_outcomes_and_full_status_cha
     ce_mark = next(m for m in marks if set(_parameter_names(m)) == {"criterion", "expected"})
     ce_values = ce_mark.args[1]
     # ce_values contains tuples of (criterion, expected_list)
-    expected_ce_set = {(_freeze((criterion, tuple(sorted(expected_list))))) for criterion, expected_list in ce_values}
-    actual_ce_set = {(_freeze((criterion, tuple(sorted(expected))))) for criterion, expected in BODY_CLAUSE_FLOOR_CASES}
-    assert expected_ce_set == actual_ce_set, "Emitted criterion/expected pairs must match BODY_CLAUSE_FLOOR_CASES"
+    expected_ce_set = {
+        (_freeze((criterion, tuple(sorted(expected_list)))))
+        for criterion, expected_list in ce_values
+    }
+    actual_ce_set = {
+        (_freeze((criterion, tuple(sorted(expected)))))
+        for criterion, expected in BODY_CLAUSE_FLOOR_CASES
+    }
+    assert (
+        expected_ce_set == actual_ce_set
+    ), "Emitted criterion/expected pairs must match BODY_CLAUSE_FLOOR_CASES"
 
     # Verify we have all 6 distinct outcomes from BODY_CLAUSE_CASES
     assert len(BODY_CLAUSE_FLOOR_CASES) == 6

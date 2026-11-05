@@ -1160,7 +1160,10 @@ def _product_component_case(
     lexical_spines={
         "operation": ("voice", "governor", "product_channel"),
         "actor": ("voice", "governor", "product_channel"),
-        "body_alias": ("product_channel", "reverse", "coordination"),
+        # "description" is a spelling of the body channel, but active, perfect,
+        # progressive, and both passive agent positions use different recognizers.
+        # Keep that alias on every voice, including order and conjunction.
+        "body_alias": ("voice", "product_channel", "reverse", "coordination"),
     },
 )
 def test_product_component_coordination_preserves_bare_other_channel(
