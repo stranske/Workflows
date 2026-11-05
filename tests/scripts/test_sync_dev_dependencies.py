@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import tomllib
 from pathlib import Path
 from unittest.mock import Mock
 
 import pytest
+from packaging.requirements import Requirement
 from scripts import sync_dev_dependencies as sdd
 
 
@@ -655,3 +657,175 @@ def test_main_check_skips_missing_lockfile(tmp_path: Path, monkeypatch: pytest.M
     )
 
     assert exit_code == 0
+
+
+def test_main_workflow_runs_aligns_quoted_pytest_pin(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    env_path = tmp_path / "pins.env"
+    pyproject_path = tmp_path / "pyproject.toml"
+    workflow = tmp_path / "pages-wasm-demo.yml"
+    _write_env_file(
+        env_path,
+        {
+            "RUFF_VERSION": "1.0.0",
+            "BLACK_VERSION": "2.0.0",
+            "PYTEST_VERSION": "9.2.0",
+            "PYTEST_XDIST_VERSION": "3.8.0",
+        },
+    )
+    _write_pyproject(pyproject_path, "1.0.0", "2.0.0")
+    workflow.write_text(
+        'run: python -m pip install "pytest==9.1.1" "pytest-xdist==3.8.0"\n',
+        encoding="utf-8",
+    )
+    monkeypatch.chdir(tmp_path)
+    arguments = [
+        "--pin-file",
+        str(env_path),
+        "--pyproject",
+        str(pyproject_path),
+        "--workflow-runs",
+        str(workflow),
+    ]
+
+    assert sdd.main(["--check", *arguments]) == 1
+    assert workflow.read_text(encoding="utf-8") == (
+        'run: python -m pip install "pytest==9.1.1" "pytest-xdist==3.8.0"\n'
+    )
+    assert sdd.main(["--apply", *arguments]) == 0
+    assert workflow.read_text(encoding="utf-8") == (
+        'run: python -m pip install "pytest==9.2.0" "pytest-xdist==3.8.0"\n'
+    )
+    assert sdd.main(["--check", *arguments]) == 0
+
+
+def test_maint52_apply_aligns_pages_wasm_demo_pytest_pin(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A Maint 52 apply must render the reported WASM install at the dev pin.
+
+    The command matches maint-52-sync-dev-versions.yml: ``--apply --pre-commit
+    --resolve-locks`` with the default pin and project paths, and without
+    ``--workflow-runs``.
+    """
+    workflow_dir = tmp_path / ".github" / "workflows"
+    workflow_dir.mkdir(parents=True)
+    _write_env_file(
+        workflow_dir / "autofix-versions.env",
+        {"PYTEST_VERSION": "9.2.0", "PYTEST_XDIST_VERSION": "3.8.0"},
+    )
+    pyproject_path = tmp_path / "pyproject.toml"
+    pyproject_path.write_text(
+        '[project]\nname = "consumer"\nversion = "1.0"\n'
+        '[project.optional-dependencies]\ndev = ["pytest==9.1.1"]\n',
+        encoding="utf-8",
+    )
+    workflow = workflow_dir / "pages-wasm-demo.yml"
+    reported = 'run: python -m pip install "pytest==9.1.1" "pytest-xdist==3.8.0"\n'
+    workflow.write_text(reported, encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+
+    assert sdd.main(["--check", "--pre-commit"]) == 1
+    assert workflow.read_text(encoding="utf-8") == reported
+
+    assert sdd.main(["--apply", "--pre-commit", "--resolve-locks"]) == 0
+    project = tomllib.loads(pyproject_path.read_text(encoding="utf-8"))
+    dev = project["project"]["optional-dependencies"]["dev"]
+    pytest_pins = [Requirement(entry) for entry in dev if Requirement(entry).name == "pytest"]
+    assert len(pytest_pins) == 1
+    development_version = next(iter(pytest_pins[0].specifier)).version
+    rendered = workflow.read_text(encoding="utf-8")
+    assert f'"pytest=={development_version}"' in rendered
+    assert "pytest==9.1.1" not in rendered
+    assert '"pytest-xdist==3.8.0"' in rendered
+    assert sdd.main(["--check", "--pre-commit"]) == 0
+    assert sdd.main(["--apply", "--pre-commit", "--resolve-locks"]) == 0
+    assert workflow.read_text(encoding="utf-8") == rendered
+
+
+def test_reported_split_rewrites_wasm_install_to_development_pin(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The review head already has the dev pin and still installs pytest 9.1.1.
+
+    Trend_Model_Project#6186 at 73120b9a594e updates the development dependency
+    and leaves ``pages-wasm-demo.yml`` on the quoted 9.1.1 install. Maint 52
+    must rewrite that install to the development pin and leave the bare
+    ``pytest -q`` contract command alone.
+    """
+    root = Path(__file__).resolve().parents[2]
+    project = tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8"))
+    dev = project["project"]["optional-dependencies"]["dev"]
+    pytest_pins = [Requirement(entry) for entry in dev if Requirement(entry).name == "pytest"]
+    assert len(pytest_pins) == 1
+    development_version = next(iter(pytest_pins[0].specifier)).version
+    pins = sdd.parse_env_file(root / ".github/workflows/autofix-versions.env")
+    assert pins["PYTEST_VERSION"] == development_version
+    xdist_version = pins["PYTEST_XDIST_VERSION"]
+
+    workflow_dir = tmp_path / ".github" / "workflows"
+    workflow_dir.mkdir(parents=True)
+    _write_env_file(
+        workflow_dir / "autofix-versions.env",
+        {"PYTEST_VERSION": development_version, "PYTEST_XDIST_VERSION": xdist_version},
+    )
+    pyproject_path = tmp_path / "pyproject.toml"
+    pyproject_before = (
+        '[project]\nname = "consumer"\nversion = "1.0"\n'
+        "[project.optional-dependencies]\n"
+        f'dev = ["pytest=={development_version}", "pytest-xdist=={xdist_version}"]\n'
+    )
+    pyproject_path.write_text(pyproject_before, encoding="utf-8")
+    workflow = workflow_dir / "pages-wasm-demo.yml"
+    reported = (
+        "      - name: Install focused test tools\n"
+        "        run: python -m pip install "
+        f'"pytest==9.1.1" "pytest-xdist=={xdist_version}"\n'
+        "\n"
+        "      - name: Verify artifact contract\n"
+        "        run: pytest -q tests/wasm/test_build_wasm_site.py "
+        "tests/wasm/test_demo_no_external_cdn.py\n"
+    )
+    workflow.write_text(reported, encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+
+    assert sdd.main(["--check", "--pre-commit"]) == 1
+    assert workflow.read_text(encoding="utf-8") == reported
+    assert pyproject_path.read_text(encoding="utf-8") == pyproject_before
+
+    assert sdd.main(["--apply", "--pre-commit", "--resolve-locks"]) == 0
+    rendered = workflow.read_text(encoding="utf-8")
+    assert f'"pytest=={development_version}"' in rendered
+    assert "pytest==9.1.1" not in rendered
+    assert f'"pytest-xdist=={xdist_version}"' in rendered
+    assert (
+        "run: pytest -q tests/wasm/test_build_wasm_site.py "
+        "tests/wasm/test_demo_no_external_cdn.py\n"
+    ) in rendered
+    assert pyproject_path.read_text(encoding="utf-8") == pyproject_before
+    assert sdd.main(["--check", "--pre-commit"]) == 0
+
+
+def test_align_quoted_tool_pins_skips_related_packages_and_non_exact_specs() -> None:
+    text = (
+        'pip install "pytest==9.1.1" "pytest-xdist==1.0.0" "pytest-cov==7.0.0"\n'
+        'unquoted pytest==9.1.1 and "pytest>=9.1.1" stay put\n'
+    )
+    updated, changes = sdd.align_quoted_tool_pins(
+        text,
+        {
+            "PYTEST_VERSION": "9.2.0",
+            "PYTEST_XDIST_VERSION": "3.8.0",
+            "PYTEST_COV_VERSION": "7.1.0",
+        },
+    )
+    assert changes == [
+        "pytest-xdist: ==1.0.0 -> ==3.8.0",
+        "pytest-cov: ==7.0.0 -> ==7.1.0",
+        "pytest: ==9.1.1 -> ==9.2.0",
+    ]
+    assert updated == (
+        'pip install "pytest==9.2.0" "pytest-xdist==3.8.0" "pytest-cov==7.1.0"\n'
+        'unquoted pytest==9.1.1 and "pytest>=9.1.1" stay put\n'
+    )

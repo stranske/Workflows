@@ -1,0 +1,90 @@
+version: 1
+issue: 4364
+base: main
+branch: codex/issue-4364
+tasks:
+  - id: task-01
+    title: Fix the shared factory to restrict subscription routing to auxiliary-analysis
+      callers, or add a `Runnable`-compatible adapter that converts prompt values
+      to strings for `SubscriptionClient.invoke` and preserves requested provider/model
+      overrides.
+    status: done
+    started_at: '2026-11-04T07:05:13Z'
+    finished_at: '2026-11-04T10:55:00Z'
+    commit: 10f1c747d3db6db776ac4b854c8b2986f12cd3d6
+    notes:
+      - Implemented SubscriptionClientAdapter and build_auxiliary_client in scripts/langchain/_llm_client.py.
+  - id: task-02
+    title: 'Add a Runnable-compatible adapter class that wraps SubscriptionClient
+      so it supports the pipe composition `template | client`. (verify: confirm completion
+      in repo)'
+    status: done
+    started_at: '2026-11-04T07:36:49Z'
+    finished_at: '2026-11-04T10:55:00Z'
+    commit: 10f1c747d3db6db776ac4b854c8b2986f12cd3d6
+    notes:
+      - SubscriptionClientAdapter.invoke/__call__ in scripts/langchain/_llm_client.py.
+  - id: task-03
+    title: 'Convert LangChain prompt values to plain strings in the adapter before
+      calling SubscriptionClient.invoke. (verify: confirm completion in repo)'
+    status: done
+    started_at: '2026-11-04T07:36:49Z'
+    finished_at: '2026-11-04T10:55:00Z'
+    commit: 10f1c747d3db6db776ac4b854c8b2986f12cd3d6
+    notes:
+      - Adapter uses PromptValue.to_string() before SubscriptionClient.invoke.
+  - id: task-04
+    title: 'Update the shared client factory to pass requested provider (verify: confirm
+      completion in repo)'
+    status: done
+    started_at: '2026-11-04T07:36:49Z'
+    finished_at: '2026-11-04T10:55:00Z'
+    commit: 10f1c747d3db6db776ac4b854c8b2986f12cd3d6
+    notes:
+      - build_client forwards provider/model; ordinary chat no longer uses subscription routing.
+  - id: task-05
+    title: 'model overrides through to the subscription adapter or fall back to the
+      standard client. (verify: confirm completion in repo)'
+    status: done
+    started_at: '2026-11-04T07:36:49Z'
+    finished_at: '2026-11-04T10:55:00Z'
+    commit: 10f1c747d3db6db776ac4b854c8b2986f12cd3d6
+    notes:
+      - test_subscription_mode_preserves_override_routing in tests/scripts/test_llm_client_shared.py.
+  - id: task-06
+    title: 'Update the shared factory so subscription routing applies only to auxiliary-analysis
+      callers (verify: confirm completion in repo)'
+    status: done
+    started_at: '2026-11-04T07:36:49Z'
+    finished_at: '2026-11-04T10:55:00Z'
+    commit: 10f1c747d3db6db776ac4b854c8b2986f12cd3d6
+    notes:
+      - progress_reviewer uses build_auxiliary_client; build_client docstring updated.
+  - id: task-08
+    title: Run the `template | client` composition test for the affected consumers
+      with `WORKFLOWS_ANALYSIS_CLI` enabled and subscription authentication available;
+      composition completes without `TypeError`.
+    status: done
+    started_at: '2026-11-04T09:06:08Z'
+    finished_at: '2026-11-04T10:55:00Z'
+    commit: 9e0a1119399efbca20280e02ce5719701556a92e
+    notes:
+      - pytest test_subscription_pipe_* (no skips); local WORKFLOWS_ANALYSIS_CLI=codex smoke returned content_len=2 preview ok via SubscriptionClientAdapter.
+  - id: task-09
+    title: Verify that every subscription invocation through `SubscriptionClient.invoke`
+      receives a string.
+    status: done
+    started_at: '2026-11-04T09:06:08Z'
+    finished_at: '2026-11-04T10:55:00Z'
+    commit: 9e0a1119399efbca20280e02ce5719701556a92e
+    notes:
+      - test_subscription_adapter_rejects_nontext_before_transport and pipe tests assert str inputs to subprocess.
+  - id: task-10
+    title: Verify that the provider and model used for each invocation match the requested
+      provider/model overrides when supplied.
+    status: done
+    started_at: '2026-11-04T09:06:08Z'
+    finished_at: '2026-11-04T10:55:00Z'
+    commit: 9e0a1119399efbca20280e02ce5719701556a92e
+    notes:
+      - test_subscription_mode_preserves_override_routing parametrized matrix; authenticated smoke provider=codex model=gpt-6-luna.
