@@ -4,9 +4,10 @@ Issue #3904 changes test design, not production verifier behavior or delivery ga
 The source base is `12cea89599a67c3004d1d469d669c2daa33dfd35`.
 
 The historical #3904 counts and experiments below describe that delivery.
-For the current additional reduction, see [#4258](#issue-4258-alias-products) and the
-body-clause integration split below; the JSON inventory and projection tests reflect
-the current 30,133 destination-file cases.
+For the current additional reduction, see [#4258](#issue-4258-alias-products), the
+body-clause integration split, and the [measured dominant full products](#measured-dominant-full-products)
+below. The JSON inventory and projection tests reflect the current 26,853
+destination-file cases.
 
 ## Retained regression map
 
@@ -363,8 +364,9 @@ payload. No additional hosted benchmark or workflow run is introduced.
 
 The retained-input repair adds seven section-boundary regression functions (49 cases).
 These are recorded with `original_count: 0` because they postdate the pinned original
-corpus. The original 356 functions and 90,550-case baseline remain unchanged; the
-current retained inventory contains 30,133 cases.
+corpus. The original 356 functions and 90,550-case baseline remain unchanged. The
+inventory at that point contained 30,133 cases; the measured dominant-product bound
+below is what the projection tests currently check (26,853).
 
 ## Issue #4258 alias products
 
@@ -442,3 +444,82 @@ Branch/line comparison of baseline and candidate is an additional check, not a
 proof about arbitrary grammar strings or future implementations. These bounded
 spines must expand if a new branch couples previously independent lexical axes.
 The existing adjacent integration suites and named regressions remain required.
+
+## Measured dominant full products
+
+The next cut uses a serial local timing of the remaining full products
+(`original_count == retained_count`), not another historical JUnit artifact.
+Python 3.14.10, `python3 -m pytest -q --tb=no -p no:cacheprovider` on one
+function at a time, before this bound:
+
+| Function suffix (`test_`) | Cases | Pytest seconds |
+| --- | ---: | ---: |
+| availability_first_final_retains_parent_condition | 432 | 9.92 |
+| product_delivery_operations_share_storage_recipient_and_voice_guards | 648 | 9.81 |
+| content_object_polarity_across_passive_agents | 576 | 9.30 |
+| repeated_product_operations_keep_component_ownership | 432 | 7.76 |
+| component_alternatives_preserve_optional_negative_floor | 512 | 7.53 |
+| destination_list_cannot_consume_independent_affirmative_actor | 504 | 7.46 |
+| component_options_and_actual_floor_are_order_symmetric | 384 | 6.59 |
+| body_delivery_uses_shared_operation_and_polarity | 384 | 6.14 |
+| transport_qualifier_is_not_a_product_component | 384 | 6.08 |
+| compound_review_roles_retain_active_past_delivery | 576 | 5.01 |
+| optional_predicate_cannot_suppress_named_actor_delivery | 360 | 4.97 |
+| passive_object_does_not_capture_previous_list_item | 256 | 4.62 |
+
+These twelve were still full Cartesian products and were the slowest measured
+ones that the regression map does not already keep intact.
+`test_component_availability_preserves_bare_sibling_and_passive_actor` stays at
+its 1,350-case semantic core. `test_component_relative_presence_preserves_parent_actual_floor`
+keeps every original row. `test_body_clause_matrix_preserves_independent_destinations`
+keeps the full wording matrix after its floor split. `test_relative_presence_preserves_parent_mandatory_alternatives`
+was 720 cases but only 4.33s, under this measured band, and still changes
+parent-mandatory satisfaction across condition, order, polarity, and conjunction,
+so it stays exhaustive.
+
+Each selected function is now a semantic core, lexical spines, and every pair of
+original dimensions. Assertion bodies are unchanged. Together: 5,448 -> 2,168
+(3,280 fewer). The destination file goes from 30,133 to 26,853.
+
+What stays fully crossed, because it changes the recognizer or the asserted
+channels:
+
+- Availability parent condition: voice, destination order, AND/OR, order,
+  condition wording, and component attachment. Operation/participle aliases
+  cross voice, component attachment, and condition wording.
+- Storage recipients: voice, product actor, recipient, governor, and the
+  independent comment duty. The nine delivery verbs cross voice, governor, and
+  recipient.
+- Content-object polarity: destination, governor, actor class, component
+  boundary, and active/passive voice. The four object-polarity modifiers cross
+  voice, actor, governor, and component.
+- Repeated product operations: actor class, AND/OR, order, and governor.
+  Operation verbs cross governor, actor, and conjunction. Component-noun aliases
+  cross governor, conjunction, and order.
+- Optional/negative component alternatives: every non-mandatory governor with
+  either/or, the independent duty, and AND/OR. Component nouns and the
+  body/description alias cross those governors and the coordination axes.
+- Affirmative destination after a negative list: separator, relative/adverb
+  prefix, and channel. Obligation-governor aliases cross channel and separator.
+  Checklist markers cross separator and channel.
+- Component option order: actor/operation, order, AND/OR, condition attachment,
+  and independent duty. Component nouns and the body/description alias cross
+  actor, order, and conjunction.
+- Body delivery polarity: component boundary, order, independent duty, and
+  governor. Operation, body/description, and proof noun are lexical spines on
+  governor plus order or component.
+- Transport prepositions: destination, component boundary, governor, and
+  independent duty. Each preposition crosses governor, component, and
+  destination.
+- Compound review roles: each past-delivery verb, adverb position, checklist
+  marker, and channel. Role-noun aliases cross verb, channel, and marker.
+- Optional actor predicate: each governor/aspect and each destination
+  permutation, which select the asserted channel and the negative rewrite.
+  Role and modal aliases cross that governor and destination core.
+- Previous list item: channel, governor, and agent position. Checklist markers,
+  newline spelling, and the optional-archived modifier cross governor and
+  channel; the modifier also crosses agent position.
+
+Joint lexical combinations outside those spines and the pairwise witnesses are
+not retained. The projection test checks the emitted rows. This is not a claim
+that hosted Gate time is under ten minutes.

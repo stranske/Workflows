@@ -38,11 +38,11 @@ def test_inventory_accounts_for_every_named_regression_and_case():
     assert set(functions) == {entry["function"] for entry in entries}
     assert sum(entry["original_count"] for entry in entries) == 90550
     assert (
-        sum(entry["retained_count"] for entry in entries) == 30133
-    )  # Retained corpus including description×voice rows on the product-component matrix.
+        sum(entry["retained_count"] for entry in entries) == 26853
+    )  # Retained corpus after the measured dominant-matrix bound (see verifier-grammar-matrices.md).
     matrices = json.loads(MATRICES.read_text(encoding="utf-8"))
     bounded = {row["function"]: row for row in matrices}
-    assert len(bounded) == len(matrices) == 25
+    assert len(bounded) == len(matrices) == 37
     for entry in entries:
         name = entry["function"]
         marks = _parametrizations(functions[name])
