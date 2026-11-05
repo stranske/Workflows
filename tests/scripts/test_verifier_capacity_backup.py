@@ -123,7 +123,20 @@ def test_explicit_slot_config_never_uses_bundled_backup(
     assert pv.comparison_verdict(out) != "PASS"
 
 
-@pytest.mark.parametrize("configuration", ["omitted", "disabled", "empty-file", "missing-file"])
+@pytest.mark.parametrize(
+    "configuration",
+    [
+        "omitted",
+        "disabled",
+        "disabled-null",
+        "disabled-string-false",
+        "disabled-string-true",
+        "disabled-number",
+        "disabled-absent",
+        "empty-file",
+        "missing-file",
+    ],
+)
 @pytest.mark.parametrize("exhausted_provider", ["openai", "anthropic"])
 def test_compare_quota_failure_respects_explicit_slot_config(
     monkeypatch, tmp_path, configuration, exhausted_provider
@@ -135,8 +148,16 @@ def test_compare_quota_failure_respects_explicit_slot_config(
     monkeypatch.setenv("MUSE_API_KEY", "test-key-not-real")
     path = tmp_path / "slots.json"
     payload = json.loads((ROOT / "config/llm_slots.json").read_text())
-    if configuration == "disabled":
-        payload["capacity_backup"]["enabled"] = False
+    if configuration == "disabled-absent":
+        payload["capacity_backup"].pop("enabled")
+    elif configuration.startswith("disabled"):
+        payload["capacity_backup"]["enabled"] = {
+            "disabled": False,
+            "disabled-null": None,
+            "disabled-string-false": "false",
+            "disabled-string-true": "true",
+            "disabled-number": 1,
+        }[configuration]
     else:
         payload.pop("capacity_backup")
     if configuration != "missing-file":
