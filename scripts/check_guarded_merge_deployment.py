@@ -3,7 +3,7 @@
 
 Local inputs must come from the same hosted run revision. Hosted collection binds
 them to a completed workflow_dispatch or legacy repository_dispatch attempt using
-read-only gh API calls.
+read-only GitHub CLI requests.
 Neither mode establishes effective repository permissions or merge success.
 """
 

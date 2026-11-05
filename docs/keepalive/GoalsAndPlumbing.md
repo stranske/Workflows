@@ -922,6 +922,13 @@ print `2 failed, 98 deselected in 0.68s`; restoring the call printed
 and verify warning/receipt text, writer ownership, response status/message, and
 SHA binding. All eligibility guards remain intact.
 
+The first continuation push hit CI's API wrapper text scan at line 6 of
+`scripts/check_guarded_merge_deployment.py`: the docstring phrase "gh API"
+matched its direct-call pattern. Clarified the prose to "GitHub CLI requests";
+no collector behavior or guard configuration changed. Its focused suite,
+`/opt/anaconda3/bin/python3 -m pytest tests/scripts/test_check_guarded_merge_deployment.py -q`,
+printed `101 passed in 1.08s`.
+
 ### Guarded merge task authority
 
 This contract chooses option (a): the PR owns completion state for its implementation,
