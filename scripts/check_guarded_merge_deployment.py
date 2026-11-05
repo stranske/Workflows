@@ -75,7 +75,14 @@ def collect_hosted(repo: str, run_id: int, template: str) -> tuple[str, str, dic
         or job.get("conclusion") == "skipped"
     ):
         raise ValueError("guarded-merge job is not bound to the completed attempt")
-    log = gh_read(f"repos/{repo}/actions/jobs/{job['id']}/logs", raw=True)
+    # Source drift already blocks deployment verification. Do not let expired or
+    # inaccessible logs hide that actionable result behind a generic read error.
+    job_matches_source = guarded_job(template) == guarded_job(consumer)
+    log = (
+        gh_read(f"repos/{repo}/actions/jobs/{job['id']}/logs", raw=True)
+        if job_matches_source
+        else ""
+    )
     if gh_read(endpoint) != run:
         raise ValueError("run changed during collection")
     return (
@@ -88,6 +95,7 @@ def collect_hosted(repo: str, run_id: int, template: str) -> tuple[str, str, dic
             "event": run["event"],
             "head_sha": sha,
             "job_id": job["id"],
+            "job_log_collected": job_matches_source,
         },
     )
 

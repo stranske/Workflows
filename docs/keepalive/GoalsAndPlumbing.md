@@ -858,6 +858,11 @@ collection. The report retains repository/run/attempt/event/head/job identifiers
 without printing raw workflow or log contents. A `keepalive-dispatch/v2` run title alone
 cannot make another event type eligible. Collection does not prove the dispatch's
 `keepalive-dispatch/v2` payload or replace owner permission verification.
+If the executed guarded job differs from the selected source, collection skips
+the log download and reports deployment drift (exit 1), retaining
+`job_log_collected: false` in the hosted provenance. Expired or inaccessible logs
+cannot mask an already established deployment mismatch. Identity and permission
+verification remain incomplete until a matching deployment supplies evidence.
 
 The checker compares the entire `guarded-merge` job, including its effective
 environment and permissions inherited from the workflow, with the selected local

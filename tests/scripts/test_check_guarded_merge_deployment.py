@@ -329,8 +329,38 @@ def test_hosted_collection_uses_exact_revision_attempt_and_paginated_job(hosted_
         "event": "repository_dispatch",
         "head_sha": "a" * 40,
         "job_id": 456,
+        "job_log_collected": True,
     }
     assert len(hosted_api[3]) == 5
+
+
+def test_hosted_cli_reports_deployment_drift_without_requiring_job_logs(
+    hosted_api, tmp_path, monkeypatch, capsys
+):
+    source = tmp_path / "source.yml"
+    source.write_text(WORKFLOW, encoding="utf-8")
+    read = checker.gh_read
+
+    def read_with_drift(endpoint, **kwargs):
+        if "/contents/" in endpoint:
+            return WORKFLOW.replace("run: guarded-merge", "run: old-merge")
+        if endpoint.endswith("/logs"):
+            pytest.fail("known deployment drift must not require access to job logs")
+        return read(endpoint, **kwargs)
+
+    monkeypatch.setattr(checker, "gh_read", read_with_drift)
+    assert (
+        checker.main(["--template", str(source), "--repo", "owner/consumer", "--run-id", "123"])
+        == 1
+    )
+    report = json.loads(capsys.readouterr().out)
+    assert report["job_matches_source"] is False
+    assert "consumer guarded-merge job differs from selected source" in report["blockers"]
+    assert report["hosted_run"]["job_log_collected"] is False
+    assert report["attempts"] == []
+    assert report["effective_permissions_confirmed"] is False
+    assert report["merge_success_confirmed"] is False
+    assert hosted_api[3][-1][0] == "repos/owner/consumer/actions/runs/123"
 
 
 @pytest.mark.parametrize("event", ["workflow_dispatch", "repository_dispatch"])
