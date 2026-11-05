@@ -24,12 +24,27 @@ DIAGNOSTIC = re.compile(
 
 
 def guarded_job(text: str) -> dict:
+    """Include inherited configuration that selects the job's client and grants.
+
+    Job-level environment and permissions override workflow-level values. In
+    particular, comparing the authored job alone misses a changed WRITE_TOKEN
+    fallback defined in the workflow environment.
+    """
     workflow = yaml.safe_load(text)
     jobs = workflow.get("jobs") if isinstance(workflow, dict) else None
     job = jobs.get("guarded-merge") if isinstance(jobs, dict) else None
     if not isinstance(job, dict) or not job:
         raise ValueError("workflow has no guarded-merge job")
-    return job
+    workflow_env = workflow.get("env", {})
+    job_env = job.get("env", {})
+    if not isinstance(workflow_env, dict) or not isinstance(job_env, dict):
+        raise ValueError("guarded-merge environment must be a mapping")
+    return {
+        **job,
+        "env": {**workflow_env, **job_env},
+        # A job's permissions replace the workflow map rather than extending it.
+        "permissions": job.get("permissions", workflow.get("permissions")),
+    }
 
 
 def inspect_deployment(template: str, consumer: str, log: str) -> dict:

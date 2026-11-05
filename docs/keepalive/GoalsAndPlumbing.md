@@ -841,8 +841,12 @@ python scripts/check_guarded_merge_deployment.py \
   --consumer-workflow /tmp/consumer-followups.yml --job-log /tmp/guarded-merge.log
 ```
 
-The checker compares only the entire `guarded-merge` job with the selected local
-template and inspects each retry client's public identity, specific credential
+The checker compares the entire `guarded-merge` job, including its effective
+environment and permissions inherited from the workflow, with the selected local
+template. Job-level environment values override inherited values; a job-level
+permission map replaces the workflow permission map. This detects inherited
+credential-selection drift even when the authored job is unchanged. The checker
+also inspects each retry client's public identity, specific credential
 source and classic `repo` scope independently. A source must name a credential
 registry key or `github.token`; aggregate `WRITE_TOKEN fallback` and unknown
 labels cannot identify which credential needs repair, even with a known actor

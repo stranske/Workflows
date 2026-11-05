@@ -1,6 +1,7 @@
 import json
 
 import pytest
+import yaml
 from scripts import check_guarded_merge_deployment as checker
 
 WORKFLOW = """name: Consumer
@@ -41,6 +42,58 @@ def test_real_template_job_is_compared_without_unrelated_workflow_metadata():
     report = checker.inspect_deployment(template, consumer, diagnostic())
     assert report["job_matches_source"] is False
     assert "differs from selected source" in report["blockers"][0]
+
+
+def test_real_template_inherited_credential_environment_drift_is_blocked():
+    template = checker.TEMPLATE.read_text(encoding="utf-8")
+    consumer = yaml.safe_load(template)
+    consumer["env"]["WRITE_TOKEN"] = "consumer-writer"
+    # The job itself is unchanged; only its inherited client selection differs.
+    assert consumer["jobs"]["guarded-merge"] == yaml.safe_load(template)["jobs"]["guarded-merge"]
+    report = checker.inspect_deployment(template, yaml.safe_dump(consumer), diagnostic())
+    assert report["job_matches_source"] is False
+    assert report["blockers"] == ["consumer guarded-merge job differs from selected source"]
+
+
+def test_inherited_permission_drift_is_blocked():
+    template = "permissions: {contents: write, pull-requests: write}\n" + WORKFLOW
+    consumer = template.replace("contents: write", "contents: read")
+    report = checker.inspect_deployment(template, consumer, diagnostic())
+    assert report["job_matches_source"] is False
+
+
+def test_job_overrides_ignore_shadowed_workflow_configuration():
+    template = yaml.safe_load(WORKFLOW)
+    template["env"] = {"WRITER": "workflow-writer"}
+    template["permissions"] = {"contents": "read", "pull-requests": "read"}
+    job = template["jobs"]["guarded-merge"]
+    job["env"] = {"WRITER": "job-writer"}
+    job["permissions"] = {"contents": "write", "pull-requests": "write"}
+    source = yaml.safe_dump(template)
+    template["env"]["WRITER"] = "other-workflow-writer"
+    template["permissions"] = "read-all"
+    report = checker.inspect_deployment(source, yaml.safe_dump(template), diagnostic())
+    assert report["job_matches_source"] is True
+    assert report["blockers"] == []
+
+
+def test_job_permission_map_replaces_workflow_permissions():
+    template = yaml.safe_load(WORKFLOW)
+    template["permissions"] = {"contents": "write", "pull-requests": "write"}
+    source = yaml.safe_dump(template)
+    template["jobs"]["guarded-merge"]["permissions"] = {"contents": "write"}
+    report = checker.inspect_deployment(source, yaml.safe_dump(template), diagnostic())
+    assert report["job_matches_source"] is False
+
+
+@pytest.mark.parametrize("level", ["workflow", "job"])
+def test_invalid_environment_cannot_establish_deployment_match(level):
+    workflow = yaml.safe_load(WORKFLOW)
+    target = workflow if level == "workflow" else workflow["jobs"]["guarded-merge"]
+    target["env"] = "unsupported environment"
+    invalid = yaml.safe_dump(workflow)
+    with pytest.raises(ValueError, match="environment must be a mapping"):
+        checker.inspect_deployment(invalid, invalid, diagnostic())
 
 
 @pytest.mark.parametrize(
