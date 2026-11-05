@@ -14,7 +14,7 @@ This round reviewed head `3aeb3fab` and confirmed through GitHub that PR #4439
 is still open, unmerged, and ready for review (`draft=false`). The first unchecked
 post-merge observation remains blocked on merge; both live criteria stay unchecked.
 
-Strengthened the required named full-scope regression to verify that source
+Strengthened the named full-scope regression to verify that source
 resolution, canary configuration reads, and rendered payload reads all use the
 campaign source, even when current main has advanced. It also checks the returned
 refresh state's source and complete plan tuple, alongside the Maint 68 inputs.
@@ -49,7 +49,7 @@ drainable counts, while the producer still receives the configured full fleet.
 
 Validation: both required `node --test` commands pass. Individual-case runs with
 `--test-isolation=none` pass 81 scoped-refresh, 174 Maint 71, and 103 merge-contract
-tests. The bare full-scope dispatch again fails the first required named test
+tests. The bare full-scope dispatch again fails the first test named `full-scope candidate refresh dispatches with the campaign source and plan id`
 (newer main `ffff…` instead of campaign `aaaa…`, missing expected plan ID).
 The production source was restored byte-for-byte before the passing gates.
 Transcripts: `/tmp/4439-bare-dispatch.tap`, `/tmp/4439-scoped-gate.tap`,
@@ -62,7 +62,7 @@ uncommitted for the automation commit step; no protected workflow was edited.
 
 ## Verified acceptance
 
-- [x] Both required named tests are present and pass in
+- [x] Both named full-scope regressions are present and pass in
   `.github/scripts/__tests__/scoped-canary-refresh.test.js`:
   `full-scope candidate refresh dispatches with the campaign source and plan id`
   and `delivery_contract_blocked with refresh-candidate-from-exact-plan is an eligible refresh request`.
@@ -73,7 +73,7 @@ uncommitted for the automation commit step; no protected workflow was edited.
   scoped refresh 79 passed; Maint 71 174 passed; merge contract 103 passed.
 - [x] Deliberate break and restoration: temporarily reinstated the bare
   full-scope `dispatchCanaryRefresh` call before the campaign-bound path.
-  The first required named test failed with current-main `ffff…` instead of
+  The first named full-scope regression failed with current-main `ffff…` instead of
   campaign source `aaaa…`. Restored the source in a `finally` block and reran
   both suites successfully. No deliberate break remains in the working tree.
 - [ ] Post-merge/live: observe a dispatch receipt with `refresh_dispatched >= 1`
@@ -91,7 +91,7 @@ Five additional refusal cases exercise the full-scope identity-blocked path
 with an eligible report and a closed, draft, changed-head, untrusted-author, or
 unsigned native candidate. Each verifies the named refusal, zero dispatches,
 and unchanged pre-existing refresh accounting. The deliberate bare-dispatch
-mutation was repeated and failed the required named test; the implementation
+mutation was repeated and failed the named full-scope regression; the implementation
 was restored byte-for-byte before the passing gate runs.
 
 Two additional regressions verify that successful unkeyed full-scope history
@@ -107,29 +107,37 @@ above. Local transcripts are `/tmp/issue-4435-deliberate-break.tap`,
 `/tmp/issue-4435-maint71-gate.tap`, `/tmp/issue-4435-maint71-cases.tap`, and
 `/tmp/issue-4435-contract-cases.tap`.
 
-## Protected workflow follow-up
+## Merge-report artifact ordering (resolved at `578de27135e4`)
 
-`.github/workflows/maint-71-merge-sync-prs.yml` uploads
-`sync-pr-merge-and-canary-evidence` in the step starting at line 675, before
-`Refresh stale candidate bases` starts at line 688. The refresh step writes the
-updated report at line 729. No subsequent step uploads that report again.
-Consequently the retained merge-report artifact cannot expose accounting added
-by this refresh step, even though the local report is updated correctly.
+`.github/workflows/maint-71-merge-sync-prs.yml` previously uploaded
+`sync-pr-merge-and-canary-evidence` before `Refresh stale candidate bases`
+rewrote `artifacts/sync-pr-merge-report.json`, so the retained artifact
+omitted `refresh_dispatched`, `held_plans`, and `drainable`. Commit
+`578de27135e4` moves the single existing `Upload sync PR merge report` step
+(`id: merge_artifact`, `if: always()`, same artifact name, paths, 30-day
+retention) to run after both refresh steps and immediately before
+`Promote complete exact-plan canary evidence`, which still requires
+`steps.merge_artifact.outcome == 'success'`. No second upload under that name
+was added.
 
-The script now publishes a `candidate refresh receipt:` notice and step-summary
-line after a successful dispatch, with campaign source, plan ID, and the updated
-`refresh_dispatched`, `held_plans`, and `drainable` counts. This provides live
-dispatch evidence despite the earlier artifact upload. It does not establish
-that refreshed canaries pass identity checks; post-merge acceptance stays open.
-The three-canary regressions verify the exact receipt in both output channels
-and its absence when a writer is active or dispatch fails. The successful-path
-test failed before adding the receipt and passed afterward.
+Regression: `retained merge report is uploaded after candidate refresh writes
+accounting and before promotion` in
+`.github/scripts/__tests__/scoped-canary-refresh.test.js` asserts the refresh
+step writes the report, refresh precedes upload, upload precedes promotion,
+exactly one step uploads the artifact name, and promotion keeps the upload
+prerequisite. Against the previous workflow ordering it fails with
+`upload must follow the refresh accounting write`; with the fix it passes.
 
-An approved `agent-high-privilege` run must move the report upload after the
-refresh step while preserving the upload-success prerequisite for promotion,
-or add a separate final report artifact after refresh. Preserve existing
-canary evidence, campaign authorization, and promotion checks. This standard
-run did not edit workflow files.
+Exact-head results at `578de27135e4`, run serially:
+
+- `node --test .github/scripts/__tests__/scoped-canary-refresh.test.js`:
+  tests 82, pass 82, fail 0 (`/tmp/4439-578de27135e4-scoped.tap`).
+- `node --test .github/scripts/__tests__/maint71_merge_sync_prs.test.js`:
+  tests 174, pass 174, fail 0 (`/tmp/4439-578de27135e4-maint71.tap`).
+
+The `candidate refresh receipt:` notice and step-summary line remain as a
+second live evidence channel. Neither establishes that refreshed canaries pass
+identity checks; post-merge acceptance stays open.
 
 ## Remote tracking limitation
 
@@ -155,7 +163,7 @@ open, unmerged, and ready for review (`draft=false`).
 
 Current validation: the required gate commands pass; individual-case runs pass
 77 scoped-refresh, 173 Maint 71, and 103 merge-contract tests. The deliberate
-bare-dispatch mutation failed the required named test with newer main `ffff…`
+bare-dispatch mutation failed the named full-scope regression with newer main `ffff…`
 instead of campaign `aaaa…`, followed by byte-for-byte restoration and passing
 gates. Transcripts: `/tmp/4439-receipt-red.tap`,
 `/tmp/4439-deliberate-break.tap`, `/tmp/4439-scoped-green.tap`,
@@ -182,7 +190,7 @@ This is local lifecycle evidence; no production dispatch was issued.
 
 Both required gate commands pass. Individual-case runs with
 `--test-isolation=none` report 79 scoped-refresh and 174 Maint 71 tests passing.
-The bare-dispatch mutation failed both the required named regression and the
+The bare-dispatch mutation failed both the named full-scope regression and the
 strengthened handoff regression: it used newer main `ffff…` instead of campaign
 `aaaa…` / `eeee…` and omitted the expected plan ID. The source was restored
 byte-for-byte, and both gates passed again. Merge-contract tests also pass (103).
@@ -212,7 +220,7 @@ its own refreshed head SHA rather than the original blocked head.
 Both required gate commands pass. Individual-case runs pass 79 scoped-refresh
 and 174 Maint 71 tests. Concurrent variants of the Maint 71 suite collided on its
 shared artifact; the serial rerun passed all 174 tests. The bare full-scope
-dispatch again failed the required named test, and the source was restored
+dispatch again failed the named full-scope regression, and the source was restored
 byte-for-byte. Transcripts: `/tmp/4435-bare-dispatch.tap`,
 `/tmp/4435-scoped-gate.tap`, `/tmp/4435-maint71-gate.tap`,
 `/tmp/4435-scoped-cases.tap`, and `/tmp/4435-maint71-cases.tap`.
