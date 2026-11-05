@@ -1,5 +1,69 @@
 # Issue 4369 validation receipt
 
+## Auth removal regression and reconciliation at 6eebec10
+
+On 2026-11-05, reviewed the recent commits through incoming head
+`6eebec10c6aa8a794fbf4f8eaad358d2d3f9259f`. The actual PR diff has six files;
+the reconciliation notice's larger count includes merged main changes. Only
+task 1 is verified complete. PR 4444 remains open and non-draft. Tasks 2–4
+remain unchecked; PR-body reconciliation was attempted before further edits,
+but automatic approval review rejected it because approval policy is `never`.
+
+The invocation regression now removes configured auth after the first successful
+invocation and requires the next invocation to report unavailable without
+starting another subprocess. This also runs with default-directory auth present,
+so the test detects fallback after removal, independently for source and template.
+The fixtures contain empty files and no CLI is executed.
+
+Local Python 3.14.10 command:
+`python -m pytest -q tests/test_subscription_llm.py -m 'not slow'`.
+Mutation runs additionally select `-k invocation_uses_configured_directory`.
+
+| Local state | Exit | Result |
+| --- | --- | --- |
+| Incoming tests | 0 | 22 passed in 0.67s |
+| Extended tests | 0 | 22 passed in 0.65s |
+| Source lookup temporarily restored to the old default | 1 | 2 failed, 2 passed, 18 deselected in 0.67s |
+| Source restored | 0 | 22 passed in 0.67s |
+| Template lookup temporarily restored to the old default | 1 | 2 failed, 2 passed, 18 deselected in 0.69s |
+| Template restored | 0 | 22 passed in 0.66s |
+
+Each mutation was restored in a `finally` block. Both production copies match
+incoming HEAD byte-for-byte. Ruff, `git diff --check`, the unchanged diff-quality
+detector, and Black formatting of the changed test pass. The required repository
+Black check was attempted with `BLACK_NUM_WORKERS=1` and the prescribed check,
+line-length and exclusion arguments. It stalled; temporary `/tmp` asyncio
+heartbeat startup hooks also failed to complete it within 45 seconds. Interrupted
+and timed-out checks are not passes. No commit or push is permitted without a
+successful repository Black check.
+
+Incoming-head hosted evidence predates this local test extension:
+
+| Run/job | Result |
+| --- | --- |
+| [Gate JavaScript](https://github.com/stranske/Workflows/actions/runs/41966897258/job/127047997155) | 3,445 passed, 0 failed, 1 skipped; 3,446 total; adjacent Python script tests: 123 passed |
+| [Gate test-quality](https://github.com/stranske/Workflows/actions/runs/41966897258/job/127047997153) | Success; deliberate-break checker explicitly **SKIPPED**, reason `no deliberate-break marker` |
+| [Selftest Python 3.14](https://github.com/stranske/Workflows/actions/runs/41966897687/job/127045977330) | 9 passed in 30.36s |
+| [Selftest Python 3.13](https://github.com/stranske/Workflows/actions/runs/41966897687/job/127045977333) | 9 passed in 24.16s |
+| [Gate Python 3.14](https://github.com/stranske/Workflows/actions/runs/41966897258/job/127048999507) | Queued when inspected; no full Python pass claimed |
+| [Gate Python 3.13](https://github.com/stranske/Workflows/actions/runs/41966897258/job/127048999819) | Queued when inspected; no full Python pass claimed |
+
+The local full JavaScript command stalled and was interrupted, exit 130; no local
+JavaScript pass is claimed. No local full Python suite or CI retry was run.
+
+Publication remains blocked: `git add tests/test_subscription_llm.py` returned
+exit 128 because `.git/index.lock` is on a read-only filesystem. Automatic approval
+review rejected PR-body reconciliation, the blocker comment, and the
+`needs-human` label: `MCP tool call requires approval, but approval policy is never`.
+No commit, remote write, or task-checkbox update succeeded.
+
+An authorized environment must capture this test/evidence patch, pass repository
+Black, and collect full source-gate results for the resulting head. Discussion
+`discussion_r4468176159` remains unresolved for the authorized closer and guarded
+delivery. Downstream acceptance remains pending normal Maint 68 regeneration
+and Maint 71 reporting for Portable-Alpha-Extension-Model#2454, including absence
+of sync-core recurrence. No generated consumer branch was edited.
+
 ## Configured-directory invocation precedence at 0fbee70c
 
 On 2026-11-05, reviewed recent commits through incoming head

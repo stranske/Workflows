@@ -64,6 +64,11 @@ def test_claude_invocation_uses_configured_directory(
     monkeypatch.setattr(transport.subprocess, "run", run_cli)
 
     assert claude_client.invoke("fixture prompt").content == "fixture analysis"
+
+    (config / ".credentials.json").unlink()
+    with pytest.raises(RuntimeError, match="claude subscription CLI/auth unavailable"):
+        claude_client.invoke("fixture prompt")
+
     assert calls == [("claude", str(config))]
 
 
