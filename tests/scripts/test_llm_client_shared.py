@@ -251,6 +251,29 @@ def test_subscription_pipe_renders_prompt_values(subscription_process, chat):
     assert subscription_process.calls[-1] == "plain text"
 
 
+def test_subscription_pipe_preserves_chat_roles_and_content(subscription_process):
+    """Render the full chat history as text before it reaches either CLI transport."""
+    from langchain_core.prompts import ChatPromptTemplate
+
+    template = ChatPromptTemplate.from_messages(
+        [
+            ("system", "Review the parser; preserve quoted input."),
+            ("human", "{task}"),
+            ("ai", "Previously checked: {context}"),
+        ]
+    )
+    chain = template | _llm_client.build_auxiliary_client().client
+
+    response = chain.invoke({"task": 'Check "café"\nand braces: {value}', "context": "escaping"})
+
+    assert response.content == "answer"
+    assert subscription_process.calls == [
+        "System: Review the parser; preserve quoted input.\n"
+        'Human: Check "café"\nand braces: {value}\n'
+        "AI: Previously checked: escaping"
+    ]
+
+
 @pytest.mark.parametrize("operation", ["batch", "stream"])
 def test_subscription_pipe_renders_batched_and_streaming_prompts(subscription_process, operation):
     from langchain_core.prompts import ChatPromptTemplate
