@@ -1,0 +1,189 @@
+{
+  "cases": [
+    {
+      "green_exit_code": 0,
+      "mutation_note": "detect_repo_root must fall back to probe when git fails",
+      "nodeid": "tests/scripts/test_docs_drift_fix_agent.py::test_repo_detection_falls_back_when_git_is_unavailable",
+      "production_file": "scripts/docs_drift_fix_agent.py",
+      "red_exit_code": 1,
+      "red_failure_line": "FAILED tests/scripts/test_docs_drift_fix_agent.py::test_repo_detection_falls_back_when_git_is_unavailable"
+    },
+    {
+      "green_exit_code": 0,
+      "mutation_note": "load_scan_json(None) default shape",
+      "nodeid": "tests/scripts/test_docs_drift_fix_agent.py::test_config_and_scan_helpers_reject_bad_shapes_and_use_defaults",
+      "production_file": "scripts/docs_drift_fix_agent.py",
+      "red_exit_code": 1,
+      "red_failure_line": "FAILED tests/scripts/test_docs_drift_fix_agent.py::test_config_and_scan_helpers_reject_bad_shapes_and_use_defaults"
+    },
+    {
+      "green_exit_code": 0,
+      "mutation_note": "batch_findings rejects non-positive max_per_batch",
+      "nodeid": "tests/scripts/test_docs_drift_fix_agent.py::test_plan_output_writer_and_batch_limit_are_executable",
+      "production_file": "scripts/docs_drift_fix_agent.py",
+      "red_exit_code": 1,
+      "red_failure_line": "FAILED tests/scripts/test_docs_drift_fix_agent.py::test_plan_output_writer_and_batch_limit_are_executable"
+    },
+    {
+      "green_exit_code": 0,
+      "mutation_note": "null repos mapping normalized (PR #4172 witness mutation)",
+      "nodeid": "tests/scripts/test_docs_drift_fix_agent.py::test_default_docs_from_config_accepts_null_maps_and_skips_bad_items",
+      "production_file": "scripts/docs_drift_fix_agent.py",
+      "red_exit_code": 1,
+      "red_failure_line": "FAILED tests/scripts/test_docs_drift_fix_agent.py::test_default_docs_from_config_accepts_null_maps_and_skips_bad_items"
+    },
+    {
+      "green_exit_code": 0,
+      "mutation_note": "_doc_from_detail default doc path",
+      "nodeid": "tests/scripts/test_docs_drift_fix_agent.py::test_findings_helpers_and_scan_json_load_cover_skip_paths",
+      "production_file": "scripts/docs_drift_fix_agent.py",
+      "red_exit_code": 1,
+      "red_failure_line": "FAILED tests/scripts/test_docs_drift_fix_agent.py::test_findings_helpers_and_scan_json_load_cover_skip_paths"
+    },
+    {
+      "green_exit_code": 0,
+      "mutation_note": "apply_issues surfaces gh issue list failure",
+      "nodeid": "tests/scripts/test_docs_drift_fix_agent.py::test_legacy_markers_and_apply_issue_failure_paths",
+      "production_file": "scripts/docs_drift_fix_agent.py",
+      "red_exit_code": 1,
+      "red_failure_line": "FAILED tests/scripts/test_docs_drift_fix_agent.py::test_legacy_markers_and_apply_issue_failure_paths"
+    },
+    {
+      "green_exit_code": 0,
+      "mutation_note": "main validates missing repo root",
+      "nodeid": "tests/scripts/test_docs_drift_fix_agent.py::test_main_validation_and_json_output",
+      "production_file": "scripts/docs_drift_fix_agent.py",
+      "red_exit_code": 1,
+      "red_failure_line": "FAILED tests/scripts/test_docs_drift_fix_agent.py::test_main_validation_and_json_output"
+    },
+    {
+      "green_exit_code": 0,
+      "mutation_note": "classify_durability missing metadata reason",
+      "nodeid": "tests/scripts/test_export_keepalive_durability.py::test_helpers_handle_invalid_metadata_and_reverts_before_the_merge",
+      "production_file": "scripts/export_keepalive_durability.py",
+      "red_exit_code": 1,
+      "red_failure_line": "FAILED tests/scripts/test_export_keepalive_durability.py::test_helpers_handle_invalid_metadata_and_reverts_before_the_merge"
+    },
+    {
+      "green_exit_code": 0,
+      "mutation_note": "include_pending emits pending grace records",
+      "nodeid": "tests/scripts/test_export_keepalive_durability.py::test_build_records_skips_invalid_rows_and_can_include_pending",
+      "production_file": "scripts/export_keepalive_durability.py",
+      "red_exit_code": 1,
+      "red_failure_line": "FAILED tests/scripts/test_export_keepalive_durability.py::test_build_records_skips_invalid_rows_and_can_include_pending"
+    },
+    {
+      "green_exit_code": 0,
+      "mutation_note": "registry_repos deduplicates repo slugs",
+      "nodeid": "tests/scripts/test_export_keepalive_durability.py::test_registry_fetch_and_ndjson_helpers_cover_error_and_success_paths",
+      "production_file": "scripts/export_keepalive_durability.py",
+      "red_exit_code": 1,
+      "red_failure_line": "FAILED tests/scripts/test_export_keepalive_durability.py::test_registry_fetch_and_ndjson_helpers_cover_error_and_success_paths"
+    },
+    {
+      "green_exit_code": 0,
+      "mutation_note": "fetch_repo_payload queries merged PR state",
+      "nodeid": "tests/scripts/test_export_keepalive_durability.py::test_fetch_repo_payload_requests_the_merged_and_revert_views",
+      "production_file": "scripts/export_keepalive_durability.py",
+      "red_exit_code": 1,
+      "red_failure_line": "FAILED tests/scripts/test_export_keepalive_durability.py::test_fetch_repo_payload_requests_the_merged_and_revert_views"
+    },
+    {
+      "green_exit_code": 0,
+      "mutation_note": "CLI rejects non-positive --days",
+      "nodeid": "tests/scripts/test_export_keepalive_durability.py::test_cli_rejects_invalid_numeric_limits[--days-0]",
+      "production_file": "scripts/export_keepalive_durability.py",
+      "red_exit_code": 1,
+      "red_failure_line": "FAILED tests/scripts/test_export_keepalive_durability.py::test_cli_rejects_invalid_numeric_limits[--days-0]"
+    },
+    {
+      "green_exit_code": 0,
+      "mutation_note": "_parse_time attaches UTC to naive timestamps",
+      "nodeid": "tests/scripts/test_export_keepalive_durability.py::test_helpers_cover_timezone_agent_and_closing_edge_cases",
+      "production_file": "scripts/export_keepalive_durability.py",
+      "red_exit_code": 1,
+      "red_failure_line": "FAILED tests/scripts/test_export_keepalive_durability.py::test_helpers_cover_timezone_agent_and_closing_edge_cases"
+    },
+    {
+      "green_exit_code": 0,
+      "mutation_note": "_gh_json rejects non-list payloads (PR #4172 witness mutation)",
+      "nodeid": "tests/scripts/test_export_keepalive_durability.py::test_gh_json_filters_non_dicts_and_rejects_non_list_payloads",
+      "production_file": "scripts/export_keepalive_durability.py",
+      "red_exit_code": 1,
+      "red_failure_line": "FAILED tests/scripts/test_export_keepalive_durability.py::test_gh_json_filters_non_dicts_and_rejects_non_list_payloads"
+    },
+    {
+      "green_exit_code": 0,
+      "mutation_note": "skipped classification tallies reason key",
+      "nodeid": "tests/scripts/test_export_keepalive_durability.py::test_build_records_skips_explicit_skipped_classifications",
+      "production_file": "scripts/export_keepalive_durability.py",
+      "red_exit_code": 1,
+      "red_failure_line": "FAILED tests/scripts/test_export_keepalive_durability.py::test_build_records_skips_explicit_skipped_classifications"
+    },
+    {
+      "green_exit_code": 0,
+      "mutation_note": "human summary record count",
+      "nodeid": "tests/scripts/test_export_keepalive_durability.py::test_cli_human_summary_and_partial_fetch_paths",
+      "production_file": "scripts/export_keepalive_durability.py",
+      "red_exit_code": 1,
+      "red_failure_line": "FAILED tests/scripts/test_export_keepalive_durability.py::test_cli_human_summary_and_partial_fetch_paths"
+    },
+    {
+      "green_exit_code": 0,
+      "mutation_note": "_pace sleeps when _PACE_SECONDS is positive",
+      "nodeid": "tests/scripts/test_workflow_startup_failure_diagnostic.py::test_token_pacing_and_list_api_paths",
+      "production_file": "scripts/workflow_startup_failure_diagnostic.py",
+      "red_exit_code": 1,
+      "red_failure_line": "FAILED tests/scripts/test_workflow_startup_failure_diagnostic.py::test_token_pacing_and_list_api_paths"
+    },
+    {
+      "green_exit_code": 0,
+      "mutation_note": "_sweep_repos deduplicates repository list",
+      "nodeid": "tests/scripts/test_workflow_startup_failure_diagnostic.py::test_sweep_helpers_dedupe_repositories_and_write_action_summary",
+      "production_file": "scripts/workflow_startup_failure_diagnostic.py",
+      "red_exit_code": 1,
+      "red_failure_line": "FAILED tests/scripts/test_workflow_startup_failure_diagnostic.py::test_sweep_helpers_dedupe_repositories_and_write_action_summary"
+    },
+    {
+      "green_exit_code": 0,
+      "mutation_note": "unknown startup classification fallback (PR #4172 witness mutation)",
+      "nodeid": "tests/scripts/test_workflow_startup_failure_diagnostic.py::test_fork_inference_and_startup_classification_fallbacks",
+      "production_file": "scripts/workflow_startup_failure_diagnostic.py",
+      "red_exit_code": 1,
+      "red_failure_line": "FAILED tests/scripts/test_workflow_startup_failure_diagnostic.py::test_fork_inference_and_startup_classification_fallbacks"
+    },
+    {
+      "green_exit_code": 0,
+      "mutation_note": "_days_between returns None for invalid timestamps",
+      "nodeid": "tests/scripts/test_workflow_startup_failure_diagnostic.py::test_iter_paginated_and_hold_onset_edge_paths",
+      "production_file": "scripts/workflow_startup_failure_diagnostic.py",
+      "red_exit_code": 1,
+      "red_failure_line": "FAILED tests/scripts/test_workflow_startup_failure_diagnostic.py::test_iter_paginated_and_hold_onset_edge_paths"
+    },
+    {
+      "green_exit_code": 0,
+      "mutation_note": "sweep_repository skips inactive workflows in scan count",
+      "nodeid": "tests/scripts/test_workflow_startup_failure_diagnostic.py::test_sweep_repository_skips_inactive_non_workflow_sparse_and_threshold",
+      "production_file": "scripts/workflow_startup_failure_diagnostic.py",
+      "red_exit_code": 1,
+      "red_failure_line": "FAILED tests/scripts/test_workflow_startup_failure_diagnostic.py::test_sweep_repository_skips_inactive_non_workflow_sparse_and_threshold"
+    },
+    {
+      "green_exit_code": 0,
+      "mutation_note": "format_sweep_summary omits oldest tail when oldest_hold is absent",
+      "nodeid": "tests/scripts/test_workflow_startup_failure_diagnostic.py::test_sweep_summary_step_summary_and_main_error_paths",
+      "production_file": "scripts/workflow_startup_failure_diagnostic.py",
+      "red_exit_code": 1,
+      "red_failure_line": "FAILED tests/scripts/test_workflow_startup_failure_diagnostic.py::test_sweep_summary_step_summary_and_main_error_paths"
+    }
+  ],
+  "green_suite_exit_code": 0,
+  "green_suite_summary": "112 passed in 0.81s",
+  "interpreter": "/opt/anaconda3/bin/python3",
+  "issue": "stranske/Workflows#4170",
+  "merged_commit": "cbad3c6f0f0f8e76b2dbaf382148ef4301de253d",
+  "merged_implementation_pr": 4172,
+  "new_test_functions": 22,
+  "target_pytest_command": "/opt/anaconda3/bin/python3 -m pytest tests/scripts/test_docs_drift_fix_agent.py tests/scripts/test_export_keepalive_durability.py tests/scripts/test_workflow_startup_failure_diagnostic.py -q",
+  "validated_at_utc": "2026-11-05T22:35:12+00:00"
+}
