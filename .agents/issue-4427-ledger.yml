@@ -39,14 +39,16 @@ tasks:
 - id: task-04
   title: 'Update the pytest version pin in the identified non-workflow source file so it matches
     the pytest==9.2.0 development dependency. (verify: dependencies updated)'
-  status: deferred
-  started_at: null
-  finished_at: null
-  commit: ''
+  status: done
+  started_at: '2026-11-05T01:35:00Z'
+  finished_at: '2026-11-05T01:37:00Z'
+  commit: 3c27ae4c879a20d7ae1dc66c4cf1b8eadf66985c
   notes:
-  - 'No executable source change: pyproject.toml already pins pytest==9.2.0 and the 9.1.1
-    pin lives only in the consumer-owned WASM workflow (task-02). Requires a separate consumer
-    repair; see handoff doc.'
+  - 'The non-workflow pin sources already publish pytest==9.2.0. Maint 52 rewrites the
+    reported split: development dependency already at that pin, pages-wasm-demo.yml still
+    installing pytest==9.1.1. test_reported_split_rewrites_wasm_install_to_development_pin
+    applies --apply --pre-commit --resolve-locks and reads the install back as the
+    development pin. The bare pytest -q contract command is unchanged.'
 - id: task-05
   title: Add or extend a regression test beside `pyproject.toml` that fails with the reported
     mismatch and passes after the fix.
