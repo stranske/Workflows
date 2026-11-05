@@ -1,5 +1,6 @@
 """Execute the actual inline publisher, including ineligible and failed runs."""
 
+import hashlib
 import json
 import subprocess
 from pathlib import Path
@@ -8,6 +9,20 @@ import pytest
 import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
+
+# SHA-256 of `condition + "\n" + script` from the immutable workflow files at
+# Portable-Alpha-Extension-Model d323b67a17b3fd0a6eee17c1c1dd35244abf455a and
+# a053f355e2444b28e2a163fc4ae3afabf34b29be. These literals are not stored in,
+# or derived from, the editable publisher fixtures.
+CANARY_PUBLISHER_SHA256 = "1cd4058efe2e9f3b9c5744ab28c0118f2a6651e5a8253bd4b5dae8cc68b7a55d"
+REVIEWED_PUBLISHER_SHA256 = "3199fbaece174be06db1bdb9d733f015581949d5a6c4ba4becaa6035de7af67e"
+CANARY_WORKFLOW_SHA256 = "9d8e46532ce4d49f7c88087e4e314ebff7be4985731bd9a358ef069395e561dc"
+REVIEWED_WORKFLOW_SHA256 = "99c44bc679f57a619563dba2b623da2d368121581138d8e8898e9ee051d81ea4"
+
+
+def publisher_binding_sha256(condition, script):
+    """Hash the extracted condition and script, not the fixture's own metadata."""
+    return hashlib.sha256(f"{condition}\n{script}".encode()).hexdigest()
 
 
 def path_text_status_writes_match_publisher(workflow_path):
@@ -102,12 +117,18 @@ def test_fork_boundary_prevents_normal_and_corrective_read_only_writes(template,
     assert historical["head"] == "d323b67a17b3fd0a6eee17c1c1dd35244abf455a"
     assert historical["condition"] == "always()"
     assert historical["script"].count("createCommitStatus") == 1
+    assert historical["workflow_sha256"] == CANARY_WORKFLOW_SHA256
+    assert (
+        publisher_binding_sha256(historical["condition"], historical["script"])
+        == CANARY_PUBLISHER_SHA256
+    )
     assert reviewed["head"] == "a053f355e2444b28e2a163fc4ae3afabf34b29be"
     assert reviewed["original_commit_id"] == historical["head"]
     assert reviewed["comment_id"] == 4272936106
+    assert reviewed["workflow_sha256"] == REVIEWED_WORKFLOW_SHA256
     assert (
-        reviewed["workflow_sha256"]
-        == "99c44bc679f57a619563dba2b623da2d368121581138d8e8898e9ee051d81ea4"
+        publisher_binding_sha256(reviewed["condition"], reviewed["script"])
+        == REVIEWED_PUBLISHER_SHA256
     )
     # The comment is anchored to a later head whose condition already matches
     # the current source and template. Its two writes stay inside that step.

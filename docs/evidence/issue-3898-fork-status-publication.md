@@ -45,6 +45,18 @@ The focused publication command, run with `python3` 3.14.9 because
 existing parametrized test, so the count stays 644. Source and template
 both contributed. No production workflow change was made.
 
+The extracted condition and script are also bound to SHA-256 literals in
+`tests/workflows/test_agents_guard_publication.py`. Those literals were
+hashed from the immutable workflow bytes (`condition`, a newline, then
+`script`), not copied from a digest field in the fixtures. Canary
+publisher `1cd4058efe2e9f3b9c5744ab28c0118f2a6651e5a8253bd4b5dae8cc68b7a55d`;
+review-anchor publisher
+`3199fbaece174be06db1bdb9d733f015581949d5a6c4ba4becaa6035de7af67e`.
+A fixture edit that changes either publisher fails that comparison while
+the write-count assertions stay in place. Re-running the acceptance
+command on that tree with `python3` 3.14.10 (`/opt/anaconda3/bin/python3`
+is not installed) exited 0: **644 passed in 49.25s**.
+
 No production change is justified unless the execution regression demonstrates
 a remaining defect. Preserve the existing source/template boundary.
 
