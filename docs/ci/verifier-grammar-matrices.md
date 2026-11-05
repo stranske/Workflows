@@ -32,7 +32,7 @@ every original named regression, including generated fixtures: original paramete
 groups and their sizes, original counts, and retained counts. An original count
 of zero identifies post-baseline additions, including the real-floor integration
 tests and the section-boundary regressions described below. Functions absent from
-`verifier-grammar-matrices.json` retain every original combination, so no
+`verifier-grammar-matrices.json` (except `integration_floor_split` entries) retain every original combination, so no
 independence assumption or semantic/lexical decomposition is applied to them.
 Join bounded rows on `function` with `verifier-grammar-matrices.json` for the
 explicit semantic dimensions and lexical interactions. The two focused tests in
@@ -78,7 +78,7 @@ cases (60,089 fewer, 66.36%). Classifier coverage for PR-body wording remains in
 `test_body_clause_matrix_preserves_independent_destinations` (856 cases). The floor
 integration matrix keeps one witness per distinct required-channel outcome (six
 classes) crossed with retrieval status and channel under test (54 cases). Functions
-not listed in `verifier-grammar-matrices.json` retain their full parametrizations.
+not listed in `verifier-grammar-matrices.json` (except `integration_floor_split` entries) retain their full parametrizations.
 This count reduction is not a measured runtime speedup.
 
 `test_relative_qualifier_preserves_parent_and_local_condition_scope` is now a

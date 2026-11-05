@@ -5415,6 +5415,7 @@ def test_body_clause_matrix_preserves_independent_destinations(
     expected = expected | ({"comments"} if comment_position != "none" else set())
     actual = verifier._required_evidence_channels(prefix + criterion)
     assert actual == expected
+    assert verifier._required_evidence_options(prefix + criterion) == [expected]
 
 
 @pytest.mark.parametrize("criterion,expected", BODY_CLAUSE_FLOOR_CASES)
