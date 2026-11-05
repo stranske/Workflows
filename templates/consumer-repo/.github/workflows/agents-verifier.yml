@@ -17,6 +17,9 @@
 # Note: Uses pull_request_target instead of pull_request to ensure secrets
 # are available for PRs from forks after merge.
 name: Agents Verifier
+run-name: >-
+  Verifier PR #${{ inputs.pr_number || github.event.pull_request.number }}
+  head=${{ inputs.pr_head_sha || github.event.pull_request.head.sha }} mode=${{ inputs.mode || 'label' }}${{ inputs.verification_provenance != '' && ' provenance-only' || '' }}
 
 on:
   # Post-merge fork verification needs base-repo secrets. Only trusted github.sha
@@ -30,6 +33,11 @@ on:
         description: 'PR number to verify (must be merged)'
         required: true
         type: string
+      pr_head_sha:
+        description: 'Optional expected PR head for a correlated auto-pilot dispatch'
+        required: false
+        type: string
+        default: ''
       mode:
         description: 'Verification mode'
         required: true
@@ -216,6 +224,13 @@ jobs:
                 }
 
                 if (!(await setPlanSourceFingerprint(pr))) return;
+
+                const expectedHead = context.payload.inputs.pr_head_sha;
+                if (expectedHead && expectedHead !== pr.head.sha) {
+                  core.setFailed('Dispatched PR head no longer matches the target PR');
+                  core.setOutput('should_run', 'false');
+                  return;
+                }
 
                 const logMsg = `Manual dispatch: PR #${prNumber}, mode=${mode}`;
                 core.info(`${logMsg}, model=${model}, model2=${model2}, provider=${provider}`);
