@@ -1,0 +1,53 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_________ TestGetLLMProvider.test_force_provider_rejects_unknown_name __________
+
+self = <tests.tools.test_llm_provider.TestGetLLMProvider object at 0x11333cb60>
+
+    def test_force_provider_rejects_unknown_name(self):
+        with pytest.raises(ValueError, match="Unknown provider"):
+>           get_llm_provider(force_provider="not-a-provider")
+
+tests/tools/test_llm_provider.py:1942: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+force_provider = 'not-a-provider'
+
+    def get_llm_provider(force_provider: str | None = None) -> LLMProvider:
+        """
+        Get the best available LLM provider with fallback chain.
+    
+        Args:
+            force_provider: If set, use only this provider (for testing).
+                Options: "github-models", "openai", "anthropic", "regex-fallback"
+    
+        Returns a FallbackChainProvider that tries:
+        1. Anthropic configured slot model (if CLAUDE_API_STRANSKE set) - Best reasoning
+        2. OpenAI configured slot model (if OPENAI_API_KEY set) - Code analysis
+        3. GitHub Models configured slot model (if GITHUB_TOKEN set)
+        4. Regex fallback (always available) - 30% confidence baseline
+        """
+        if os.environ.get("WORKFLOWS_ANALYSIS_CLI"):
+            provider: LLMProvider = SubscriptionCLIProvider()
+            if not provider.is_available():
+                raise RuntimeError("Subscription analysis CLI/auth unavailable; no API fallback")
+            return provider
+    
+        # Force a specific provider for testing
+        if force_provider:
+            provider_map: dict[str, type[LLMProvider]] = {
+                "github-models": GitHubModelsProvider,
+                "openai": OpenAIProvider,
+                "anthropic": AnthropicProvider,
+                "regex-fallback": RegexFallbackProvider,
+            }
+            if force_provider not in provider_map:
+>               raise RuntimeError(
+                    f"Unknown provider: {force_provider}. Options: {list(provider_map.keys())}"
+                )
+E               RuntimeError: Unknown provider: not-a-provider. Options: ['github-models', 'openai', 'anthropic', 'regex-fallback']
+
+tools/llm_provider.py:1055: RuntimeError
+=========================== short test summary info ============================
+FAILED tests/tools/test_llm_provider.py::TestGetLLMProvider::test_force_provider_rejects_unknown_name
+1 failed in 0.26s

@@ -1,0 +1,29 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_ TestGitHubModelsConfidenceValidation.test_validate_confidence_caps_effort_without_detected_tasks _
+
+self = <tests.tools.test_llm_provider.TestGitHubModelsConfidenceValidation object at 0x10cb40500>
+
+    def test_validate_confidence_caps_effort_without_detected_tasks(self):
+        provider = GitHubModelsProvider()
+        quality_context = SessionQualityContext(
+            estimated_effort_score=40,
+            analysis_text_length=500,
+            data_quality="high",
+        )
+    
+        confidence, warnings = provider._validate_confidence(
+            raw_confidence=0.85,
+            completed_count=0,
+            in_progress_count=0,
+            quality_context=quality_context,
+            reasoning="Nothing detected.",
+        )
+    
+>       assert confidence <= 0.4
+E       assert 0.85 <= 0.4
+
+tests/tools/test_llm_provider.py:1886: AssertionError
+=========================== short test summary info ============================
+FAILED tests/tools/test_llm_provider.py::TestGitHubModelsConfidenceValidation::test_validate_confidence_caps_effort_without_detected_tasks
+1 failed in 0.24s

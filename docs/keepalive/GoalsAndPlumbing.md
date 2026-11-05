@@ -810,7 +810,6 @@ FAIL, unknown input and missing global proof remain conservative floors. The fin
 summary reflects whole-PR reconciliation without concatenating stale local scope
 limitations; an unsuccessful reconciliation cannot erase the original findings.
 
-
 ### Guarded automerge credential failures
 
 The consumer guarded merger reports an HTTP merge failure as a run warning and
@@ -833,3 +832,19 @@ Actions secrets; if absent, inspect the next named fallback. Do not reorder
 credentials blindly, print their values, or weaken branch/review/runtime guards.
 After deployment, use an eligible consumer PR and confirm an HTTP 200 merge and
 its merged state. Local failure-receipt tests do not establish token repair.
+
+### Guarded merge task authority
+
+This contract chooses option (a): the PR owns completion state for its implementation,
+while the source issue owns task definitions. Writing PR completion back to the issue
+could incorrectly complete shared work when multiple PRs refer to that issue.
+
+Keepalive records progress in the PR managed task block and preserves reviewer-added
+actionable checkboxes. The guarded merger counts unchecked PR tasks; the raw source
+issue's checkbox state is advisory because keepalive does not write completion back
+to it. Source identity, readability and version stability remain required through
+the final merge boundary. Completing PR tasks does not waive checks, review threads,
+review opportunity, runtime acceptance or post-merge source-issue verification.
+A refused task precheck emits a warning and an `agents-guarded-merge-result:v1`
+receipt on the PR. Only the authenticated receipt writer's own comment is updated;
+if its identity cannot be resolved, a new receipt is created.

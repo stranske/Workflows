@@ -1,0 +1,33 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_ TestGitHubModelsConfidenceValidation.test_validate_confidence_flags_high_confidence_without_tasks_when_work_evidence _
+
+self = <tests.tools.test_llm_provider.TestGitHubModelsConfidenceValidation object at 0x1109f11c0>
+
+    def test_validate_confidence_flags_high_confidence_without_tasks_when_work_evidence(self):
+        provider = GitHubModelsProvider()
+        quality_context = SessionQualityContext(
+            has_work_evidence=True,
+            file_change_count=4,
+            successful_command_count=2,
+            analysis_text_length=500,
+            data_quality="high",
+        )
+    
+        confidence, warnings = provider._validate_confidence(
+            raw_confidence=0.9,
+            completed_count=0,
+            in_progress_count=0,
+            quality_context=quality_context,
+            reasoning="No tasks matched.",
+        )
+    
+>       assert confidence <= 0.3
+E       assert 0.9 <= 0.3
+
+tests/tools/test_llm_provider.py:1867: AssertionError
+------------------------------ Captured log call -------------------------------
+WARNING  tools.llm_provider:llm_provider.py:437 BS detected: High confidence (90%) but no tasks detected despite 4 file changes and 2 successful commands
+=========================== short test summary info ============================
+FAILED tests/tools/test_llm_provider.py::TestGitHubModelsConfidenceValidation::test_validate_confidence_flags_high_confidence_without_tasks_when_work_evidence
+1 failed in 0.25s

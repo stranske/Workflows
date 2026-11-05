@@ -1,0 +1,26 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+___________ test_codex_freshness_summary_counts_update_target_paths ____________
+
+    def test_codex_freshness_summary_counts_update_target_paths() -> None:
+        summary = aggregate_agent_metrics._summarise_codex_cli_freshness(
+            [
+                {
+                    "status": "outdated",
+                    "package": "codex-cli",
+                    "update_targets": [
+                        {"path": "autofix-versions.env"},
+                        "skip",
+                        {"path": ""},
+                    ],
+                }
+            ]
+        )
+    
+>       assert summary["update_targets"]["autofix-versions.env"] == 1
+E       assert 0 == 1
+
+tests/scripts/test_aggregate_agent_metrics.py:518: AssertionError
+=========================== short test summary info ============================
+FAILED tests/scripts/test_aggregate_agent_metrics.py::test_codex_freshness_summary_counts_update_target_paths
+1 failed in 0.34s

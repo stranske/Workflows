@@ -1038,7 +1038,7 @@ def get_llm_provider(force_provider: str | None = None) -> LLMProvider:
     4. Regex fallback (always available) - 30% confidence baseline
     """
     if os.environ.get("WORKFLOWS_ANALYSIS_CLI"):
-        provider = SubscriptionCLIProvider()
+        provider: LLMProvider = SubscriptionCLIProvider()
         if not provider.is_available():
             raise RuntimeError("Subscription analysis CLI/auth unavailable; no API fallback")
         return provider

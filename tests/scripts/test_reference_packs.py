@@ -653,7 +653,9 @@ def test_cli_main_reports_missing_github_output_and_escapes_delimiter(
 
 
 def test_cli_main_json_and_self_check_formats(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
 ) -> None:
     config_file = tmp_path / ".github" / "reference_packs.json"
     config_file.parent.mkdir(parents=True)
@@ -664,6 +666,28 @@ def test_cli_main_json_and_self_check_formats(
     monkeypatch.setattr(sys, "argv", ["reference_packs.py", "--workspace", str(tmp_path)])
 
     assert reference_packs.main() == 0
+    json_out, json_err = capsys.readouterr()
+    assert json_err == ""
+    payload = json.loads(json_out)
+    assert payload["exists"] is True
+    assert payload["config_path"] == str(config_file)
+    assert payload["packs"] == [
+        {
+            "name": "pack",
+            "repo": "owner/repo",
+            "ref": "main",
+            "paths": ["x"],
+        }
+    ]
+    assert payload["checkout_plan"] == [
+        {
+            "name": "pack",
+            "repo": "owner/repo",
+            "ref": "main",
+            "paths": ["x"],
+            "checkout_path": ".reference/pack",
+        }
+    ]
 
     monkeypatch.setattr(
         sys,
@@ -671,6 +695,11 @@ def test_cli_main_json_and_self_check_formats(
         ["reference_packs.py", "--workspace", str(tmp_path), "--format", "self-check"],
     )
     assert reference_packs.main() == 0
+    self_check_out, self_check_err = capsys.readouterr()
+    assert self_check_out == ""
+    assert "Reference packs self-check: OK" in self_check_err
+    assert "1 pack(s) validated" in self_check_err
+    assert str(config_file) in self_check_err
 
 
 def test_cli_main_reports_invalid_config_and_missing_self_check(

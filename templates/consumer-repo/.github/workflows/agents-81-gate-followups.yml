@@ -2656,7 +2656,7 @@ jobs:
 
             // #2270 (FO-5): consumer in-repo guarded merger. Mirrors the reusable-70
             // automerge sweep guards (combined status + all check-runs success), REFUSES
-            // bootstrap-only placeholder PRs, and REFUSES PRs whose linked issue/PR still
+            // bootstrap-only placeholder PRs, and REFUSES PRs whose task block still
             // has unchecked tasks. This gives consumers an in-repo merge leg instead of
             // depending on the local closer lane, now that the belt worker no longer
             // enables guardless native auto-merge.
@@ -2718,7 +2718,7 @@ jobs:
 
             // Count unchecked GitHub task checkboxes ("- [ ]") in real (non-quoted) lines.
             // Quoted lines ("> - [ ]", e.g. the belt PR's mirrored issue body) are ignored
-            // so they do not block a merge; the linked issue's own body is the source of truth.
+            // so they do not block a merge; the PR's actionable tasks carry progress.
             function countUnchecked(text) {
               if (!text) return 0;
               let count = 0;
@@ -2793,7 +2793,7 @@ jobs:
             function uncheckedTaskFailure(pr, linkedIssueSnapshot) {
               const referenceFailure = issueReferenceFailure(pr);
               if (referenceFailure) return referenceFailure;
-              let unchecked = countUnchecked(pr?.body);
+              const unchecked = countUnchecked(pr?.body);
               const linkedIssue = inferIssue(pr);
               if (linkedIssue) {
                 if (
@@ -2805,11 +2805,45 @@ jobs:
                 if (linkedIssueSnapshot.failure) {
                   return linkedIssueSnapshot.failure;
                 }
-                unchecked += countUnchecked(linkedIssueSnapshot.body);
+                // Source identity/version remain binding; progress lives in the PR.
+                // Keepalive reconciles PR checks, never writes source task completion.
               }
               return unchecked > 0
                 ? 'Refusing auto-merge: linked issue/PR has unchecked tasks.'
                 : '';
+            }
+
+            async function reportTaskRefusal(prNumber, headSha, reason) {
+              core.warning(`PR #${prNumber}: ${reason}`);
+              try {
+                // Only update this token writer's own receipt. If identity is unavailable,
+                // publish a new receipt rather than editing a possibly foreign comment.
+                let login = authenticatedLogin;
+                if (!login) {
+                  try {
+                    const { data } = await withRetry((client) => client.rest.users.getAuthenticated());
+                    login = String(data?.login || '').toLowerCase();
+                  } catch (error) {
+                    core.info(`Receipt writer identity unavailable: ${error.message || error}`);
+                  }
+                }
+                const marker = '<!-- agents-guarded-merge-result:v1 -->';
+                const body = `${marker}\nHead: ${headSha}\nTask precheck refused: ${reason}`;
+                const comments = login ? await paginateWithRetry(github.rest.issues.listComments, {
+                  owner, repo, issue_number: prNumber, per_page: 100,
+                }) : [];
+                const own = comments.filter((comment) =>
+                  String(comment.user?.login || '').toLowerCase() === login
+                  && String(comment.body || '').includes(marker)
+                ).sort((a, b) => Number(b.id) - Number(a.id))[0];
+                if (own) {
+                  await withRetry((client) => client.rest.issues.updateComment({ owner, repo, comment_id: own.id, body }));
+                } else {
+                  await withRetry((client) => client.rest.issues.createComment({ owner, repo, issue_number: prNumber, body }));
+                }
+              } catch (error) {
+                core.warning(`Unable to publish task refusal for #${prNumber}: ${error.message || error}`);
+              }
             }
 
             async function loadPullRequest(prNumber) {
@@ -3167,6 +3201,7 @@ jobs:
                 const finalLinkedIssueSnapshot = await linkedIssueTaskSnapshot(finalPr);
                 const finalTaskFailure = uncheckedTaskFailure(finalPr, finalLinkedIssueSnapshot);
                 if (finalTaskFailure) {
+                  await reportTaskRefusal(prNumber, expectedHead, finalTaskFailure);
                   return finalTaskFailure;
                 }
                 const finalCheckFailure = await checkStateFailure(expectedHead);
@@ -3363,8 +3398,8 @@ jobs:
                           }
                         }
 
-                        // Unchecked-task refusal: inspect the PR body and, when resolvable,
-                        // the linked issue body. Either carrying an open "- [ ]" blocks merge.
+                        // PR tasks carry progress. Bind the linked issue identity/version without
+                        // treating its unreconciled source checkboxes as current progress.
                         let taskFailure = '';
                         if (checksOk && !bootstrapOnly) {
                           const linkedIssueSnapshot = await linkedIssueTaskSnapshot(pr);
@@ -3377,6 +3412,7 @@ jobs:
                           note = failingCheck || 'Refusing auto-merge: bootstrap-only placeholder PR (no work landed).';
                         } else if (taskFailure) {
                           note = taskFailure;
+                          await reportTaskRefusal(prNumber, headSha, taskFailure);
                         } else {
                           try {
                             await assertRuntimeAcMergeAllowed({

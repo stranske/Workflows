@@ -1,0 +1,9 @@
+{
+  "command": "node --test tests/scripts/test_verification_event.js tests/scripts/test_verification_input_repair.js",
+  "checked_at": "2026-11-03T04:02:57.622Z",
+  "before_sha256": "d2b0e789efba0e966f5c68789e0e5ec8533e615660a7afad26513df67ef1785b",
+  "removed": "|| found[0].raw_sha256!==claim.raw_sha256",
+  "broken_exit": 1,
+  "restored_sha256": "d2b0e789efba0e966f5c68789e0e5ec8533e615660a7afad26513df67ef1785b",
+  "restored_exit": 0
+}

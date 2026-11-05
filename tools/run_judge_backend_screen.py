@@ -697,6 +697,17 @@ def public_capture_manifest(repo: str, run_id: str) -> dict[str, Any] | None:
     return None
 
 
+def validated_public_capture_repository(
+    case: dict[str, Any], snapshot: dict[str, Any]
+) -> str | None:
+    """Repository bound for public capture: nonempty snapshot repo matching the case repo."""
+    snapshot_repo = str(snapshot.get("repository") or "").strip()
+    case_repo = str(case.get("repo") or "").strip()
+    if not snapshot_repo or snapshot_repo.lower() != case_repo.lower():
+        return None
+    return snapshot_repo
+
+
 def require_contributor_tier_inputs(
     cases: list[dict[str, Any]],
     *,
@@ -708,28 +719,34 @@ def require_contributor_tier_inputs(
     require_public_sources({str(case["repo"]) for case in cases}, lookup=repo_lookup)
     trusted = trusted_digests if trusted_digests is not None else trusted_screen_snapshot_digests()
     lookup_manifest = manifest_lookup or public_capture_manifest
-    unverified: list[str] = []
+    lookup = repo_lookup or repo_visibility
+    unverified = 0
     for case in cases:
-        case_id = str(case.get("case_id", "unknown-case"))
         if snapshot_matches_trusted_corpus(case, trusted):
             continue
         snapshot = case.get("production_snapshot")
         if not isinstance(snapshot, dict):
-            unverified.append(case_id)
+            unverified += 1
             continue
         if snapshot.get("input_kind") == "controlled_defect":
-            unverified.append(case_id)
+            unverified += 1
             continue
-        repo = str(snapshot.get("repository") or case.get("repo") or "")
+        capture_repo = validated_public_capture_repository(case, snapshot)
+        if capture_repo is None:
+            unverified += 1
+            continue
+        if lookup(capture_repo) != "public":
+            unverified += 1
+            continue
         run_id = str(snapshot.get("source_run_id") or "")
-        manifest = lookup_manifest(repo, run_id) if repo and run_id.isdigit() else None
+        manifest = lookup_manifest(capture_repo, run_id) if run_id.isdigit() else None
         if not snapshot_matches_public_capture(snapshot, manifest):
-            unverified.append(case_id)
+            unverified += 1
     if unverified:
         raise SystemExit(
             "refusing contributor-tier models: verifier prompt inputs are not from a "
-            "trusted immutable corpus or a verified public capture; unverified case(s): "
-            f"{sorted(unverified)}"
+            "trusted immutable corpus or a verified public capture; "
+            f"unverified case count: {unverified}"
         )
 
 

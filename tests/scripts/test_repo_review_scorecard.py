@@ -443,13 +443,14 @@ def test_fetch_scorecard_api_handles_response_types_and_errors(monkeypatch) -> N
     )
     assert repo_review_scorecard.fetch_scorecard_api("owner/repo", timeout=1)[0]
 
+    error = urllib.error.HTTPError("url", 404, "missing", {}, None)
+
     def http_error(*_args, **_kwargs):
-        # HTTPError(fp=None) opens a temp file that warns unless closed; production
-        # must close it (see fetch_scorecard_api).
-        raise urllib.error.HTTPError("url", 404, "missing", {}, None)
+        raise error
 
     monkeypatch.setattr(repo_review_scorecard.urllib.request, "urlopen", http_error)
     ok, payload, err = repo_review_scorecard.fetch_scorecard_api("owner/repo")
+    assert error.closed
     assert ok is False and payload is None and "HTTP 404" in (err or "")
     monkeypatch.setattr(
         repo_review_scorecard.urllib.request,

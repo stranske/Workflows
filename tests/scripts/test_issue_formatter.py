@@ -419,6 +419,12 @@ def test_empty_formatted_output_is_invalid_without_loading_validator(monkeypatch
 
 
 def test_fallback_helpers_preserve_fences_and_ignore_non_tasks() -> None:
+    """Regression for #4005: whitespace-indented checklist lines are nested, not top-level.
+
+    ``issue_formatter._extract_tasks_from_formatted`` used ``if indent.strip():`` to skip
+    nested items; a whitespace-only indent made ``strip()`` empty, so nested lines were
+    extracted as top-level tasks. Production fix (#4009): ``if indent:`` rejects any indent.
+    """
     sections, preamble = issue_formatter._parse_sections(
         "intro\n````\n## Tasks\n```\n````\n<details>inline</details>\n## Tasks\n- [ ] real task\n"
     )
@@ -481,24 +487,92 @@ def test_formatter_degrades_to_heading_validation_when_validator_cannot_load(
     assert "PR validation evidence" not in formatted
 
 
-def test_format_issue_body_llm_invalid_output_falls_back(monkeypatch: pytest.MonkeyPatch) -> None:
-    mock_client = mock.MagicMock()
-    mock_chain = mock.MagicMock()
-    mock_response = mock.MagicMock()
-    mock_response.content = "No required sections."
-    mock_chain.invoke.return_value = mock_response
+_REWRITE_VALID_BODY = (
+    "## Why\nThe formatter needs feedback.\n\n"
+    "## Tasks\n- [ ] Update `scripts/langchain/issue_formatter.py`.\n\n"
+    "## Acceptance Criteria\n"
+    "- [ ] `pytest tests/scripts/test_issue_formatter.py` passes.\n"
+)
 
-    _install_fake_langchain(monkeypatch, mock_chain)
 
-    with mock.patch(
-        "scripts.langchain.issue_formatter._get_llm_client",
-        return_value=(mock_client, "openai"),
-    ):
-        result = issue_formatter.format_issue_body("Why: Because", use_llm=True)
+def _install_rewrite_client(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, rewrites: list[str]
+) -> list[str]:
+    """First call formats (invalid output); later calls answer rewrite prompts."""
+    prompts: list[str] = []
+    answers = iter(rewrites)
 
-    assert result["used_llm"] is False
-    assert result["provider_used"] is None
-    assert "## Acceptance Criteria" in result["formatted_body"]
+    def invoke(runnable, payload, *, operation):  # noqa: ANN001
+        if isinstance(payload, dict):
+            assert operation == "issue_formatter"
+            return (
+                types.SimpleNamespace(content="No required sections."),
+                issue_formatter.TraceInfo(),
+            )
+        assert operation == "issue_formatter_rewrite"
+        prompts.append(payload)
+        return (
+            types.SimpleNamespace(content=[{"type": "text", "text": next(answers)}]),
+            issue_formatter.TraceInfo(),
+        )
+
+    _install_fake_langchain(monkeypatch, mock.MagicMock())
+    monkeypatch.setattr(issue_formatter, "_get_llm_client", lambda: (object(), "openai"))
+    monkeypatch.setattr(issue_formatter, "invoke_with_trace", invoke)
+    monkeypatch.setattr(
+        issue_formatter, "_validate_and_refine_tasks", lambda body, **kw: (body, None)
+    )
+    monkeypatch.setenv("GITHUB_WORKSPACE", str(tmp_path))
+    return prompts
+
+
+def test_format_issue_body_rewrites_invalid_llm_output_until_valid(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    prompts = _install_rewrite_client(monkeypatch, tmp_path, [_REWRITE_VALID_BODY])
+
+    result = issue_formatter.format_issue_body("Why: Because", use_llm=True)
+
+    assert len(prompts) == 1
+    assert "No required sections." in prompts[0]
+    assert "Missing required sections" in prompts[0]
+    assert result["used_llm"] is True
+    assert result["provider_used"] == "openai"
+    assert not result.get("rewrite_failed")
+    body = result["formatted_body"]
+    assert body.startswith(_REWRITE_VALID_BODY.rstrip())
+    assert issue_formatter._formatted_output_valid(body) is True
+    # Provenance is the raw issue, not the model's discarded first draft.
+    assert "Why: Because" in body
+    assert "No required sections." not in body
+
+
+def test_format_issue_body_reports_rewrite_failed_when_loop_fails(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    still_invalid = "## Tasks\n- [ ] Fix it\n\n## Acceptance Criteria\n- [ ] works"
+    prompts = _install_rewrite_client(monkeypatch, tmp_path, [still_invalid, still_invalid])
+
+    result = issue_formatter.format_issue_body("Why: Because", use_llm=True)
+
+    assert len(prompts) == 2
+    assert result["formatted_body"] is None
+    assert result["rewrite_failed"] is True
+    assert result["rewrite_rounds"] == 2
+    assert result["used_llm"] is True
+    assert result["error"].startswith("not agent-processable after 2 rewrite rounds: ")
+    assert "`Tasks` item must name a concrete file" in result["error"]
+    assert "not yet agent-processable" in result["rewrite_report"]
+
+
+def test_provider_error_in_a_rewrite_round_is_a_crash_not_a_rewrite_failure(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    prompts = _install_rewrite_client(monkeypatch, tmp_path, [])  # next(answers) raises
+
+    with pytest.raises(RuntimeError, match="rewrite call failed: StopIteration"):
+        issue_formatter.format_issue_body("Why: Because", use_llm=True)
+    assert len(prompts) == 1
 
 
 def test_task_refinement_replaces_only_the_tasks_section(
@@ -860,6 +934,38 @@ def test_main_emits_formatter_error_without_refinement(monkeypatch, capsys) -> N
 
     assert payload["error"] == "Issue body too large"
     assert payload["needs_refinement"] is False
+
+
+def test_main_emits_rewrite_failure_for_the_workflow(monkeypatch, tmp_path, capsys) -> None:
+    output_path = tmp_path / "formatted.md"
+    monkeypatch.setattr(
+        issue_formatter,
+        "format_issue_body",
+        lambda raw, use_llm=True: {
+            "error": "not agent-processable after 2 rewrite rounds: x",
+            "formatted_body": None,
+            "rewrite_failed": True,
+            "rewrite_rounds": 2,
+            "rewrite_report": "report text",
+            "provider_used": "openai",
+            "used_llm": True,
+            "needs_refinement": True,
+        },
+    )
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["issue_formatter.py", "--input-text", "Raw", "--json", "--output-file", str(output_path)],
+    )
+
+    issue_formatter.main()
+    payload = json.loads(capsys.readouterr().out)
+
+    assert payload["rewrite_failed"] is True
+    assert payload["rewrite_rounds"] == 2
+    assert payload["rewrite_report"] == "report text"
+    assert payload["formatted_body"] is None
+    assert not output_path.exists()
 
 
 def test_main_writes_output_file(monkeypatch, tmp_path, capsys) -> None:
@@ -1667,3 +1773,118 @@ def test_strip_original_issue_handles_nested_details_outside_fences() -> None:
     assert "Original Issue" not in stripped
     assert "nested body" not in stripped
     assert "still original" not in stripped
+
+
+_FORMATTED_RESPONSE_TEXT = (
+    "## Tasks\n- [ ] Update `scripts/langchain/issue_formatter.py`.\n\n"
+    "## Acceptance Criteria\n"
+    "- [ ] `pytest tests/scripts/test_issue_formatter.py` passes."
+)
+
+
+@pytest.mark.parametrize(
+    "blocks", ["dict", "object", "strings", "split_dict", "split_object", "split_strings", "mixed"]
+)
+def test_format_issue_body_accepts_list_content_blocks(
+    monkeypatch: pytest.MonkeyPatch, blocks: str
+) -> None:
+    raw = "Raw issue text"
+    valid = _FORMATTED_RESPONSE_TEXT
+    content: list[object]
+    if blocks == "dict":
+        content = [{"type": "text", "text": valid}]
+    elif blocks == "object":
+        content = [types.SimpleNamespace(type="output_text", text=valid)]
+    elif blocks == "strings":
+        content = [valid]
+    elif blocks == "split_dict":
+        content = [{"type": "text", "text": line} for line in valid.split("\n")]
+    elif blocks == "split_object":
+        content = [
+            types.SimpleNamespace(type="output_text", text=line) for line in valid.split("\n")
+        ]
+    elif blocks == "split_strings":
+        content = valid.split("\n")
+    else:
+        content = [
+            {"type": "text", "text": "## Tasks"},
+            {"type": "tool_use", "text": "must not appear in the formatted body"},
+            "- [ ] Update `scripts/langchain/issue_formatter.py`.",
+            "",
+            types.SimpleNamespace(type="output_text", text="## Acceptance Criteria"),
+            types.SimpleNamespace(type="reasoning", text="must also be ignored"),
+            {"type": "output_text", "text": valid.split("\n")[-1]},
+        ]
+    chain = mock.MagicMock()
+    chain.invoke.side_effect = [
+        types.SimpleNamespace(content=valid),
+        types.SimpleNamespace(content=content),
+    ]
+    _install_fake_langchain(monkeypatch, chain)
+    monkeypatch.setattr(issue_formatter, "_get_llm_client", lambda: (object(), "fake"))
+    monkeypatch.setattr(
+        issue_formatter, "_validate_and_refine_tasks", lambda body, **kw: (body, None)
+    )
+
+    expected = issue_formatter.format_issue_body(raw, use_llm=True)
+    result = issue_formatter.format_issue_body(raw, use_llm=True)
+
+    assert chain.invoke.call_count == 2
+    assert result["used_llm"] is True
+    assert result["provider_used"] == "fake"
+    assert result["formatted_body"] == expected["formatted_body"]
+
+
+@pytest.mark.parametrize(
+    "content",
+    [
+        [{"type": "tool_use", "text": "ignore"}],
+        [types.SimpleNamespace(type="reasoning", text="ignore")],
+        [{"type": "image", "content": "ignore"}, {"type": "audio", "text": "ignore"}],
+        [{"type": "tool_use", "text": _FORMATTED_RESPONSE_TEXT}],
+        [types.SimpleNamespace(type="reasoning", text=_FORMATTED_RESPONSE_TEXT)],
+        [
+            {"type": "image", "content": _FORMATTED_RESPONSE_TEXT},
+            types.SimpleNamespace(type="tool_use", content=_FORMATTED_RESPONSE_TEXT),
+        ],
+        [{"type": "text", "text": " \n"}],
+        [types.SimpleNamespace(type="output_text", text="\t")],
+        ["", " \n"],
+        [],
+        None,
+        " \n",
+    ],
+    ids=[
+        "tool",
+        "reasoning",
+        "media",
+        "tool_formatted_text",
+        "reasoning_formatted_text",
+        "non_text_formatted_content",
+        "blank_dict",
+        "blank_object",
+        "blank_strings",
+        "empty",
+        "none",
+        "blank",
+    ],
+)
+def test_format_issue_body_ignores_non_text_blocks(
+    monkeypatch: pytest.MonkeyPatch, content: object
+) -> None:
+    raw = "Raw issue text"
+    chain = mock.MagicMock()
+    chain.invoke.return_value = types.SimpleNamespace(content=content)
+    _install_fake_langchain(monkeypatch, chain)
+    monkeypatch.setattr(issue_formatter, "_get_llm_client", lambda: (object(), "fake"))
+    monkeypatch.setattr(
+        issue_formatter, "_validate_and_refine_tasks", lambda body, **kw: (body, None)
+    )
+
+    expected = issue_formatter.format_issue_body(raw, use_llm=False)
+    result = issue_formatter.format_issue_body(raw, use_llm=True)
+
+    chain.invoke.assert_called_once()
+    assert result["used_llm"] is False
+    assert result["provider_used"] is None
+    assert result["formatted_body"] == expected["formatted_body"]
