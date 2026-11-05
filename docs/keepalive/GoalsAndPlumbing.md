@@ -816,9 +816,12 @@ The consumer guarded merger reports an HTTP merge failure as a run warning and
 upserts an `agents-guarded-merge-result:v1` comment owned by its authenticated
 writer. A comment-write or identity failure produces a separate warning; a job
 summary alone is not evidence of a successful merge. Check the PR's merged state.
-The merge attempt logs the exact client's public `/user` login and the
-`x-oauth-scopes` header when available; it never logs a token. Retries may switch
-clients, so the diagnostic runs for each attempt. Missing scope headers do not
+The merge attempt logs the exact client's credential source, public `/user` login and the
+`x-oauth-scopes` header when available; it never logs a token. The credential source
+is derived from the WRITE_TOKEN fallback order (AGENTS_AUTOMATION_PAT, ACTIONS_BOT_PAT,
+SERVICE_BOT_PAT, github.token) or the token registry selection. Retries may switch
+clients, so the diagnostic runs for each attempt. Missing scope headers or unavailable
+identity still report the credential source label. Missing scope headers do not
 prove missing permissions for fine-grained PATs or installation tokens.
 
 The configured `WRITE_TOKEN` chooses the first nonempty secret in this order:
