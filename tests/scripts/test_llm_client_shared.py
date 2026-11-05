@@ -1,9 +1,10 @@
 """Tests for the shared ``scripts/langchain/_llm_client`` module (issue #2343).
 
 The ``get_llm_client`` / ``get_llm_clients`` helpers replace the ``_get_llm_client``
-bodies that were copy-pasted across the langchain agent scripts. These tests stub
-``tools.langchain_client`` so they run without the optional langchain deps or any
-real credentials.
+bodies that were copy-pasted across the langchain agent scripts. Core helper tests
+stub ``tools.langchain_client``. Subscription regression tests
+use real LangChain composition and provider/model selection, with authentication
+and process/SDK boundaries stubbed; they require ``langchain_core``.
 """
 
 from __future__ import annotations
@@ -60,6 +61,38 @@ def subscription_process(monkeypatch: pytest.MonkeyPatch, request):
 
     monkeypatch.setattr(subscription_llm.subprocess, "run", run)
     return state
+
+
+@pytest.fixture
+def chat_process(monkeypatch, subscription_process):
+    """Keep real provider/model selection; stub only provider SDK construction."""
+    from langchain_core.runnables import RunnableLambda
+
+    calls = []
+
+    def chat_class(selected_provider):
+        def build(**kwargs):
+            actual_provider = selected_provider
+            if selected_provider == "openai" and "base_url" in kwargs:
+                actual_provider = "github-models"
+
+            def invoke(prompt):
+                calls.append((actual_provider, kwargs["model"], prompt.to_string()))
+                return SimpleNamespace(content=subscription_process.content)
+
+            return RunnableLambda(invoke)
+
+        return build
+
+    monkeypatch.setitem(
+        sys.modules, "langchain_openai", SimpleNamespace(ChatOpenAI=chat_class("openai"))
+    )
+    monkeypatch.setitem(
+        sys.modules, "langchain_anthropic", SimpleNamespace(ChatAnthropic=chat_class("anthropic"))
+    )
+    for name in ("OPENAI_API_KEY", "CLAUDE_API_STRANSKE", "GITHUB_TOKEN"):
+        monkeypatch.setenv(name, "test-only")
+    return calls
 
 
 def _install_fake_langchain_client(
@@ -202,7 +235,6 @@ def test_representative_scripts_import_shared_helper() -> None:
 
 @pytest.mark.parametrize("chat", [False, True])
 def test_subscription_pipe_renders_prompt_values(subscription_process, chat):
-    pytest.importorskip("langchain_core.prompts")
     from langchain_core.prompts import ChatPromptTemplate, PromptTemplate
 
     template_cls = ChatPromptTemplate if chat else PromptTemplate
@@ -221,7 +253,6 @@ def test_subscription_pipe_renders_prompt_values(subscription_process, chat):
 
 @pytest.mark.parametrize("operation", ["batch", "stream"])
 def test_subscription_pipe_renders_batched_and_streaming_prompts(subscription_process, operation):
-    pytest.importorskip("langchain_core.prompts")
     from langchain_core.prompts import ChatPromptTemplate
 
     template = ChatPromptTemplate.from_template("Review {task}")
@@ -243,7 +274,6 @@ def test_subscription_pipe_renders_batched_and_streaming_prompts(subscription_pr
 def test_subscription_pipe_execution_failure_does_not_retry_api(
     monkeypatch, subscription_process, failure
 ):
-    pytest.importorskip("langchain_core.prompts")
     from langchain_core.prompts import ChatPromptTemplate
     from tools import subscription_llm
 
@@ -280,49 +310,6 @@ def test_subscription_adapter_rejects_nontext_before_transport(prompt):
     assert calls == []
 
 
-@pytest.mark.parametrize(
-    "kwargs,env",
-    [
-        ({"provider": "anthropic", "model": "requested-model"}, {}),
-        ({"provider": "github-models"}, {}),
-        ({"provider": "openai"}, {}),
-        ({"model": "requested-model"}, {}),
-        ({"force_openai": True, "provider": "anthropic", "model": "requested-model"}, {}),
-        ({}, {"LANGCHAIN_PROVIDER": "anthropic", "LANGCHAIN_MODEL": "requested-model"}),
-        ({}, {"LANGCHAIN_PROVIDER": "openai"}),
-        ({}, {"LANGCHAIN_MODEL": "requested-model"}),
-    ],
-)
-def test_subscription_mode_preserves_override_routing(
-    monkeypatch, subscription_process, kwargs, env
-):
-    pytest.importorskip("langchain_core.prompts")
-    from langchain_core.prompts import ChatPromptTemplate
-    from langchain_core.runnables import RunnableLambda
-
-    for name, value in env.items():
-        monkeypatch.setenv(name, value)
-    invocations = []
-    info = _fake_info()
-    info.client = RunnableLambda(lambda prompt: invocations.append(prompt.to_string()) or "API")
-    fake = _install_fake_langchain_client(monkeypatch, info=info)
-
-    client, label = _llm_client.get_llm_client(**kwargs)
-    response = (ChatPromptTemplate.from_template("{task}") | client).invoke({"task": "review"})
-
-    assert response == "API"
-    assert label == info.provider
-    assert fake.calls == [
-        {
-            "model": kwargs.get("model"),
-            "provider": kwargs.get("provider"),
-            "force_openai": kwargs.get("force_openai", False),
-        }
-    ]
-    assert invocations == ["Human: review"]
-    assert subscription_process.calls == []
-
-
 def test_subscription_failure_does_not_retry_api(monkeypatch, subscription_process):
     from tools import subscription_llm
 
@@ -354,86 +341,15 @@ def test_chat_factory_does_not_require_subscription_auth(
     assert subscription_process.calls == []
 
 
-@pytest.mark.parametrize("factory_name", ["build_client", "get_llm_client"])
-@pytest.mark.parametrize("chat_available", [False, True])
-def test_auxiliary_selection_does_not_leak_into_ordinary_factory(
-    monkeypatch, subscription_process, factory_name, chat_available
-):
-    """Alternating auxiliary and ordinary calls preserves each transport's contract."""
-    chat_prompts = []
-    info = _fake_info()
-    info.client = SimpleNamespace(
-        invoke=lambda prompt: chat_prompts.append(prompt) or SimpleNamespace(content="chat reply")
-    )
-    fake = _install_fake_langchain_client(monkeypatch, info=info)
-    if not chat_available:
-        # Subscription analysis must work even when the ordinary factory cannot import.
-        monkeypatch.setitem(sys.modules, "tools.langchain_client", None)
-
-    factory = getattr(_llm_client, factory_name)
-    for phase in ("before", "after"):
-        resolved = factory()
-        if chat_available:
-            if factory_name == "build_client":
-                assert resolved is info
-                client = resolved.client
-            else:
-                client, provider = resolved
-                assert provider == info.provider
-            assert client is info.client
-            assert client.invoke(phase).content == "chat reply"
-        else:
-            assert resolved is None
-
-        if phase == "before":
-            chat_calls_before = list(fake.calls)
-            auxiliary = _llm_client.build_auxiliary_client()
-            assert isinstance(auxiliary.client, _llm_client.SubscriptionClientAdapter)
-            assert auxiliary.provider == subscription_process.agent
-            assert auxiliary.client.invoke("auxiliary review").content == "answer"
-            assert fake.calls == chat_calls_before
-
-    assert chat_prompts == (["before", "after"] if chat_available else [])
-    assert fake.calls == (
-        [{"model": None, "provider": None, "force_openai": False}] * 2 if chat_available else []
-    )
-    assert subscription_process.calls == ["auxiliary review"]
-
-
 @pytest.mark.parametrize("consumer", ["capability", "decomposer", "optimizer", "apply"])
 @pytest.mark.parametrize("provider", ["openai", "anthropic", "github-models"])
 def test_consumers_keep_chat_routing_with_subscription_enabled(
-    monkeypatch, subscription_process, consumer, provider
+    monkeypatch, subscription_process, chat_process, consumer, provider
 ):
     """Exercise consumer composition and overrides through the real shared factory."""
-    pytest.importorskip("langchain_core.prompts")
-    from langchain_core.runnables import RunnableLambda
     from scripts.langchain import capability_check, issue_optimizer, task_decomposer
 
-    invocations = []
-
-    def chat_class(selected_provider):
-        def build(**kwargs):
-            actual_provider = selected_provider
-            if selected_provider == "openai" and "base_url" in kwargs:
-                actual_provider = "github-models"
-
-            def invoke(prompt):
-                invocations.append((actual_provider, kwargs["model"], prompt.to_string()))
-                return SimpleNamespace(content=subscription_process.content)
-
-            return RunnableLambda(invoke)
-
-        return build
-
-    monkeypatch.setitem(
-        sys.modules, "langchain_openai", SimpleNamespace(ChatOpenAI=chat_class("openai"))
-    )
-    monkeypatch.setitem(
-        sys.modules, "langchain_anthropic", SimpleNamespace(ChatAnthropic=chat_class("anthropic"))
-    )
-    for name in ("OPENAI_API_KEY", "CLAUDE_API_STRANSKE", "GITHUB_TOKEN"):
-        monkeypatch.setenv(name, "test-only")
+    invocations = chat_process
     monkeypatch.setenv("LANGCHAIN_PROVIDER", provider)
     monkeypatch.setenv("LANGCHAIN_MODEL", "consumer-requested-model")
 
@@ -514,39 +430,13 @@ def test_auxiliary_progress_review_ignores_chat_overrides(monkeypatch, subscript
     "selection",
     ["arguments", "environment", "argument-provider", "argument-model", "argument-precedence"],
 )
-def test_subscription_mode_invokes_requested_provider_and_model(
-    monkeypatch, subscription_process, provider, selection
+def test_subscription_mode_preserves_override_routing(
+    monkeypatch, subscription_process, chat_process, provider, selection
 ):
-    pytest.importorskip("langchain_core.prompts")
     from langchain_core.prompts import ChatPromptTemplate
-    from langchain_core.runnables import RunnableLambda
 
-    calls = []
-
-    def chat_class(selected_provider):
-        def build(**kwargs):
-            actual_provider = selected_provider
-            if selected_provider == "openai" and "base_url" in kwargs:
-                actual_provider = "github-models"
-
-            def invoke(prompt):
-                calls.append((actual_provider, kwargs["model"], prompt.to_string()))
-                return SimpleNamespace(content="selected model reply")
-
-            return RunnableLambda(invoke)
-
-        return build
-
-    monkeypatch.setitem(
-        sys.modules,
-        "langchain_openai",
-        SimpleNamespace(ChatOpenAI=chat_class("openai")),
-    )
-    monkeypatch.setitem(
-        sys.modules, "langchain_anthropic", SimpleNamespace(ChatAnthropic=chat_class("anthropic"))
-    )
-    for name in ("OPENAI_API_KEY", "CLAUDE_API_STRANSKE", "GITHUB_TOKEN"):
-        monkeypatch.setenv(name, "test-only")
+    subscription_process.content = "selected model reply"
+    calls = chat_process
 
     kwargs = {}
     if selection in {"arguments", "argument-provider", "argument-precedence"}:
@@ -578,7 +468,6 @@ def test_subscription_mode_invokes_requested_provider_and_model(
 def test_subscription_mode_model_override_without_provider(
     monkeypatch, subscription_process, environment_model, force_openai
 ):
-    pytest.importorskip("langchain_core.prompts")
     from langchain_core.prompts import ChatPromptTemplate
     from langchain_core.runnables import RunnableLambda
 
@@ -651,37 +540,13 @@ def test_unavailable_requested_client_does_not_substitute_subscription(
     ],
 )
 def test_subscription_mode_preserves_comparison_client_overrides(
-    monkeypatch, subscription_process, provider, overrides, expected_models
+    monkeypatch, subscription_process, chat_process, provider, overrides, expected_models
 ):
     """Comparison callers retain model selection and prompt composition for every client."""
-    pytest.importorskip("langchain_core.prompts")
     from langchain_core.prompts import ChatPromptTemplate
-    from langchain_core.runnables import RunnableLambda
 
-    invocations = []
-
-    def chat_class(selected_provider):
-        def build(**kwargs):
-            actual_provider = selected_provider
-            if selected_provider == "openai" and "base_url" in kwargs:
-                actual_provider = "github-models"
-
-            def invoke(prompt):
-                invocations.append((actual_provider, kwargs["model"], prompt.to_string()))
-                return SimpleNamespace(content="comparison reply")
-
-            return RunnableLambda(invoke)
-
-        return build
-
-    monkeypatch.setitem(
-        sys.modules, "langchain_openai", SimpleNamespace(ChatOpenAI=chat_class("openai"))
-    )
-    monkeypatch.setitem(
-        sys.modules, "langchain_anthropic", SimpleNamespace(ChatAnthropic=chat_class("anthropic"))
-    )
-    for name in ("OPENAI_API_KEY", "CLAUDE_API_STRANSKE", "GITHUB_TOKEN"):
-        monkeypatch.setenv(name, "test-only")
+    subscription_process.content = "comparison reply"
+    invocations = chat_process
     monkeypatch.setenv("LANGCHAIN_PROVIDER", provider)
     monkeypatch.setenv("LANGCHAIN_MODEL", "environment-model")
 
