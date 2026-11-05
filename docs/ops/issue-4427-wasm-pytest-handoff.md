@@ -1,6 +1,23 @@
 # Issue #4427: consumer WASM pytest pin handoff
 
-The reported mismatch cannot be fixed through Workflows' `pyproject.toml`.
+## Current repair
+
+Trend_Model_Project#6186 is a Maint 52 dev-tool candidate (`deps/sync-dev-versions-*`),
+not a Maint 68 template sync. It moves `pyproject.toml` and `requirements.lock`
+from `pytest==9.1.1` to `pytest==9.2.0` and leaves `.github/workflows/pages-wasm-demo.yml`
+on `pytest==9.1.1`. Workflows' own development pin was already `9.2.0`.
+
+`scripts/sync_dev_dependencies.py` now rewrites quoted exact dev-tool pins in
+`.github/workflows/pages-wasm-demo.yml` when that file exists.
+`maint-52-sync-dev-versions.yml` stages that file in the dev-tool commit. A local
+consumer fixture with the reported install line, applied with Maint 52's
+arguments (`--apply --pre-commit --resolve-locks`, no `--workflow-runs`), renders
+the development pytest pin from `pyproject.toml`. Other consumer workflows stay
+untouched. Maint 68 still does not copy `pages-wasm-demo.yml`.
+
+The notes below record the investigation from before this propagation.
+
+The reported mismatch cannot be fixed by editing Workflows' `pyproject.toml` alone.
 At the [reported consumer head](https://github.com/stranske/Trend_Model_Project/blob/73120b9a594e/.github/workflows/pages-wasm-demo.yml),
 `pages-wasm-demo.yml` directly installs `pytest==9.1.1`. Workflows already declares
 `pytest==9.2.0` in `pyproject.toml`, `requirements.lock`, and the canonical
@@ -18,9 +35,10 @@ Maint 68 regeneration cannot update the consumer-owned WASM workflow.
 helper with a stale consumer development pin and compares its output against the
 source development dependency. It also compiles the actual Maint 68 plan to check
 the ownership boundary. `align_quoted_tool_pins` in `scripts/sync_dev_dependencies.py`
-rewrites the reported quoted install line locally. `--workflow-runs` exposes that
-rewriter for one explicit file; Maint 52 does not pass the flag, so consumer-owned
-workflows stay untouched. The regression test reads that rendered pytest pin and
+rewrites the reported quoted install line. Maint 52 previously left every
+consumer-owned workflow untouched because it did not pass `--workflow-runs`; the
+current repair aligns `pages-wasm-demo.yml` by default and stages it. The regression
+test reads that rendered pytest pin and
 requires it to equal the development dependency in `pyproject.toml`. These tests protect source/dependency alignment and the rendered
 install line; they do not edit the consumer workflow. Temporarily making the
 aligner return the original `pytest==9.1.1` line makes

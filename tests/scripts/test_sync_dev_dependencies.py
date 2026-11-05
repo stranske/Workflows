@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import tomllib
 from pathlib import Path
 from unittest.mock import Mock
 
 import pytest
+from packaging.requirements import Requirement
 from scripts import sync_dev_dependencies as sdd
 
 
@@ -696,6 +698,50 @@ def test_main_workflow_runs_aligns_quoted_pytest_pin(
         'run: python -m pip install "pytest==9.2.0" "pytest-xdist==3.8.0"\n'
     )
     assert sdd.main(["--check", *arguments]) == 0
+
+
+def test_maint52_apply_aligns_pages_wasm_demo_pytest_pin(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A Maint 52 apply must render the reported WASM install at the dev pin.
+
+    The command matches maint-52-sync-dev-versions.yml: ``--apply --pre-commit
+    --resolve-locks`` with the default pin and project paths, and without
+    ``--workflow-runs``.
+    """
+    workflow_dir = tmp_path / ".github" / "workflows"
+    workflow_dir.mkdir(parents=True)
+    _write_env_file(
+        workflow_dir / "autofix-versions.env",
+        {"PYTEST_VERSION": "9.2.0", "PYTEST_XDIST_VERSION": "3.8.0"},
+    )
+    pyproject_path = tmp_path / "pyproject.toml"
+    pyproject_path.write_text(
+        '[project]\nname = "consumer"\nversion = "1.0"\n'
+        '[project.optional-dependencies]\ndev = ["pytest==9.1.1"]\n',
+        encoding="utf-8",
+    )
+    workflow = workflow_dir / "pages-wasm-demo.yml"
+    reported = 'run: python -m pip install "pytest==9.1.1" "pytest-xdist==3.8.0"\n'
+    workflow.write_text(reported, encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+
+    assert sdd.main(["--check", "--pre-commit"]) == 1
+    assert workflow.read_text(encoding="utf-8") == reported
+
+    assert sdd.main(["--apply", "--pre-commit", "--resolve-locks"]) == 0
+    project = tomllib.loads(pyproject_path.read_text(encoding="utf-8"))
+    dev = project["project"]["optional-dependencies"]["dev"]
+    pytest_pins = [Requirement(entry) for entry in dev if Requirement(entry).name == "pytest"]
+    assert len(pytest_pins) == 1
+    development_version = next(iter(pytest_pins[0].specifier)).version
+    rendered = workflow.read_text(encoding="utf-8")
+    assert f'"pytest=={development_version}"' in rendered
+    assert "pytest==9.1.1" not in rendered
+    assert '"pytest-xdist==3.8.0"' in rendered
+    assert sdd.main(["--check", "--pre-commit"]) == 0
+    assert sdd.main(["--apply", "--pre-commit", "--resolve-locks"]) == 0
+    assert workflow.read_text(encoding="utf-8") == rendered
 
 
 def test_align_quoted_tool_pins_skips_related_packages_and_non_exact_specs() -> None:

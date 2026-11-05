@@ -2,8 +2,9 @@
 """Sync dev tool version pins from autofix-versions.env to dependency surfaces.
 
 This script updates the [project.optional-dependencies] dev section in pyproject.toml,
-supported requirements lockfiles, and (when explicitly requested) managed
-.pre-commit-config.yaml hook revisions
+supported requirements lockfiles, quoted dev-tool installs in
+.github/workflows/pages-wasm-demo.yml when that file exists, and (when explicitly
+requested) managed .pre-commit-config.yaml hook revisions
 to use the pinned versions from the central autofix-versions.env file.
 
 It handles both exact pins (==) and minimum version pins (>=) in pyproject.toml,
@@ -40,6 +41,10 @@ LOCKFILE_FILES = (
     Path("requirements-dev.txt"),
 )
 PRE_COMMIT_FILE = Path(".pre-commit-config.yaml")
+# Consumer-owned, but it hardcodes the same dev-tool pins this script publishes.
+# Align it when present so a dependency wave cannot leave WASM contract tests
+# on the previous pytest. Other consumer workflows stay untouched.
+QUOTED_PIN_WORKFLOWS = (Path(".github/workflows/pages-wasm-demo.yml"),)
 
 # Map env file keys to package names
 # Format: ENV_KEY -> (package_name, optional_alternative_names)
@@ -407,10 +412,37 @@ def align_quoted_tool_pins(text: str, pins: dict[str, str]) -> tuple[str, list[s
     return updated, changes
 
 
+def workflow_pin_paths(explicit: Path | None = None) -> list[Path]:
+    """Return workflow files whose quoted dev-tool pins must match the pin file.
+
+    The WASM demo workflow is included when it exists, which is how Maint 52
+    publishes the development pytest pin without an extra flag. An explicit
+    ``--workflow-runs`` path is added as well. A missing explicit path is kept
+    so the caller can report it; a missing default path is skipped.
+    """
+    selected: list[Path] = []
+    seen: set[Path] = set()
+
+    def add(path: Path, *, required: bool) -> None:
+        key = path.resolve()
+        if key in seen:
+            return
+        if not required and not path.exists():
+            return
+        seen.add(key)
+        selected.append(path)
+
+    for path in QUOTED_PIN_WORKFLOWS:
+        add(path, required=False)
+    if explicit is not None:
+        add(explicit, required=True)
+    return selected
+
+
 def sync_workflow_run_pins(
     workflow_path: Path, pins: dict[str, str], apply: bool = False
 ) -> tuple[list[str], list[str]]:
-    """Align quoted dev-tool pins in one workflow file when explicitly requested."""
+    """Align quoted dev-tool pins in one workflow file."""
     if not workflow_path.exists():
         return [], [f"workflow file not found at {workflow_path}"]
 
@@ -740,9 +772,8 @@ def main(argv: list[str] | None = None) -> int:
         "--workflow-runs",
         type=Path,
         help=(
-            "Optional workflow file whose quoted dev-tool install pins should match "
-            "the pin file. Omitted by default so Maint 52 does not rewrite consumer-"
-            "owned workflows."
+            "Additional workflow file whose quoted dev-tool install pins should match "
+            "the pin file. pages-wasm-demo.yml is aligned automatically when present."
         ),
     )
 
@@ -765,13 +796,14 @@ def main(argv: list[str] | None = None) -> int:
 
     # Validate every potential output before the first direct write. A later
     # resolver guard cannot undo pyproject/lock edits through an escaped symlink.
+    workflow_paths = workflow_pin_paths(args.workflow_runs)
+
     if args.apply:
         root = Path.cwd().resolve()
         outputs = [args.pyproject, *LOCKFILE_FILES]
         if args.pre_commit:
             outputs.append(PRE_COMMIT_FILE)
-        if args.workflow_runs:
-            outputs.append(args.workflow_runs)
+        outputs.extend(workflow_paths)
         for output in outputs:
             if not output.resolve().is_relative_to(root):
                 print(
@@ -800,9 +832,9 @@ def main(argv: list[str] | None = None) -> int:
         changes.extend(pre_commit_changes)
         errors.extend(pre_commit_errors)
 
-    if args.workflow_runs:
+    for workflow_path in workflow_paths:
         workflow_changes, workflow_errors = sync_workflow_run_pins(
-            args.workflow_runs, pins, apply=args.apply
+            workflow_path, pins, apply=args.apply
         )
         changes.extend(workflow_changes)
         errors.extend(workflow_errors)
