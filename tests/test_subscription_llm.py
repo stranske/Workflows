@@ -5,6 +5,7 @@ from __future__ import annotations
 import importlib.util
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from tools import subscription_llm
@@ -38,6 +39,25 @@ def test_claude_available_with_configured_directory(claude_client, monkeypatch, 
     monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(config))
 
     assert (claude_client.available() is True,) == (True,)
+
+
+def test_claude_invocation_uses_configured_directory(claude_client, monkeypatch, tmp_path):
+    config = tmp_path / "custom-claude"
+    config.mkdir()
+    (config / ".credentials.json").touch()
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(config))
+    transport = sys.modules[type(claude_client).__module__]
+    calls = []
+
+    def run_cli(command, **options):
+        calls.append((command[0], options["env"]["CLAUDE_CONFIG_DIR"]))
+        assert options["input"] == "fixture prompt"
+        return SimpleNamespace(returncode=0, stdout='{"result": "fixture analysis"}')
+
+    monkeypatch.setattr(transport.subprocess, "run", run_cli)
+
+    assert claude_client.invoke("fixture prompt").content == "fixture analysis"
+    assert calls == [("claude", str(config))]
 
 
 @pytest.mark.parametrize("default_auth_exists", (False, True))

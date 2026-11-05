@@ -1,5 +1,72 @@
 # Issue 4369 validation receipt
 
+## Invocation regression and evidence at 995a04a8
+
+On 2026-11-05, PR 4444 was open and non-draft at incoming head
+`995a04a88c91e80a030c2a33a0814e1bbcf8c1b0`. Decoded hosted logs provide:
+
+| Gate 41953876791 job | Result |
+| --- | --- |
+| [Python 3.13](https://github.com/stranske/Workflows/actions/runs/41953876791/job/127004919840) | 50,429 passed, 27 skipped, 3 xfailed in 625.42s |
+| [Python 3.14](https://github.com/stranske/Workflows/actions/runs/41953876791/job/127004919855) | 50,429 passed, 27 skipped, 3 xfailed in 510.34s |
+| [JavaScript](https://github.com/stranske/Workflows/actions/runs/41953876791/job/127004628902) | 3,369 passed, 0 failed, 1 skipped; 3,370 total |
+| test-quality, job 127004628926 | Success, including deliberate-break acceptance |
+
+Python ran on synthetic merge `e4a2dcb3382a1e857efe26a49ad5d19d1387b493`,
+combining incoming head `995a04a8` with base
+`cb380fbef7618e173d5fb61967b273a5904b6a6e`. Selection was
+`not quarantine and not slow`; this does not prove unrestricted Python acceptance.
+[Selftest CI 41953876723](https://github.com/stranske/Workflows/actions/runs/41953876723)
+still reports two failures and seven passes on each slow compatibility runtime.
+The failures remain `TestConsumerRepoSampling::test_simulated_consumer_repo_sync`
+and `TestConsumerRepoSampling::test_autofix_versions_env_not_stale`, reporting
+stale tool versions. No check is waived or protected file changed.
+
+The added source/template invocation regression uses an empty auth file in a
+custom directory outside HOME, and intercepts the subprocess boundary. It proves
+that the real availability check permits invocation and the child receives that
+same `CLAUDE_CONFIG_DIR`. No CLI or model is executed, and availability is not mocked.
+
+Local Python 3.14.9 command:
+`python -m pytest -p no:langsmith_plugin -q tests/test_subscription_llm.py -m 'not slow'`.
+The optional LangSmith startup exclusion has the same reason documented below.
+
+| Local state | Exit | Result |
+| --- | --- | --- |
+| Incoming tests | 0 | 18 passed in 0.50s |
+| Extended tests | 0 | 20 passed in 0.49s |
+| Source lookup restored to the old default; new invocation cases only | 1 | 1 failed, 1 passed, 18 deselected in 0.48s |
+| Source restored; entire targeted file | 0 | 20 passed in 0.51s |
+| Source child environment drops configured directory; new invocation cases only | 1 | 1 failed, 1 passed, 18 deselected in 0.54s |
+| Source restored; entire targeted file | 0 | 20 passed in 0.51s |
+| Template lookup restored to the old default; new invocation cases only | 1 | 1 failed, 1 passed, 18 deselected in 0.51s |
+| Template restored; entire targeted file | 0 | 20 passed in 0.52s |
+| Template child environment drops configured directory; new invocation cases only | 1 | 1 failed, 1 passed, 18 deselected in 0.49s |
+| Template restored; entire targeted file | 0 | 20 passed in 0.48s |
+
+Each mutation was reverted in a `finally` block. Both production files match
+incoming HEAD byte-for-byte. Black formatting of the changed test, Ruff,
+`git diff --check`, and the unchanged Gate diff-quality detector pass.
+The repository-wide `black --check --line-length 100 --exclude
+'(\.workflows-lib|node_modules)' .` returned exit 0: **889 files would be
+left unchanged**. It used `BLACK_NUM_WORKERS=1`; stalled completion callbacks
+required an external wakeup before Black printed its successful final report.
+The hosted results above predate this new regression and must not be attributed
+to a subsequent head. No full local Python suite or CI retry was run.
+
+Publishing remains blocked: `git add` cannot create `.git/index.lock` on the
+read-only filesystem. Connected GitHub blob creation, the blocker comment, and
+the `needs-human` label each returned `MCP tool call requires approval, but
+approval policy is never`. No remote write or new commit succeeded. The local
+test/evidence changes need capture in an authorized environment before
+resulting-head CI can establish acceptance.
+
+The first unchecked task remains pending full source-gate evidence and disposition
+of Selftest CI. The review thread `discussion_r4468176159` remains unresolved,
+and guarded delivery remains assigned to the authorized closer. Post-merge
+acceptance still requires normal Maint 68 regeneration and Maint 71 reporting
+for Portable-Alpha-Extension-Model#2454 and absence of sync-core recurrence.
+
 ## Follow-up reconciliation at daf1ac21
 
 On 2026-11-05, reviewed `c861aefb` through incoming head
