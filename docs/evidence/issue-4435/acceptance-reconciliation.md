@@ -311,3 +311,69 @@ Focused freshness validation with `/opt/anaconda3/bin/python3 -m pytest -o
 addopts='' tests/scripts/test_update_versions_from_pypi.py::TestConsumerRepoSampling::test_autofix_versions_env_not_stale
 tests/scripts/test_update_versions_from_pypi.py::TestConsumerRepoSampling::test_simulated_consumer_repo_sync -q`
 printed `2 passed in 3.55s`. No full local suite was run.
+
+
+## Terminal live result (2026-11-05 03:29 UTC)
+
+- [x] Current-head merge checks have a verified disposition with zero active
+  non-outdated review threads. Guarded merge of exact head
+  `9044930ef572a9790ecfe9153721b56beeeffa19` succeeded at 03:28:07 UTC;
+  PR #4439 is MERGED as `7862c733f817353d3c1a9d0abb9e81d28bcfc4d0`.
+- [ ] Retained exact-campaign production dispatch report has
+  `canary_refresh.refresh_dispatched >= 1`.
+- [ ] First subsequent Maint 71 report shows all three canaries entering
+  review/seal without `candidate_immutable_identity_mismatch`.
+
+[Guard receipt](pr4439-guarded-merge.json) records `check_state=SUCCESS`,
+`active_threads=0`, `review_floor_remaining_seconds=0`,
+`merge_executed=true`, and `merge_returncode=0`. Its launchd transport failed
+and used the wrapper's existing current-shell fallback. Local outcome
+bookkeeping reported `attempt to write a readonly database`; GitHub separately
+confirmed the merge. Both slow compatibility jobs in new-head Selftest CI run
+[41959302122](https://github.com/stranske/Workflows/actions/runs/41959302122)
+and the remaining current-head checks succeeded. Post-push review found no new
+comments/reviews; all four existing threads stayed resolved.
+
+Production [Maint 71 run 41961820158](https://github.com/stranske/Workflows/actions/runs/41961820158)
+ran the merged implementation via `workflow_dispatch` with the original campaign:
+
+- `source_commit=c4633a95058d927c309dc7d666ff1d8dc85c2cc3`
+- `plan_id=sha256:238a8766ebfc85c7d9e8fd4c0f093dbbd38ae5fe2229272d1e2a9c2378498a24`
+- `plan_scope=full`, `scope_base_sha=""`, `active_sync_hash=candidate`
+- Only the three configured canaries; `auto_merge=true`, `dry_run=false`,
+  `cleanup_branches=false`; continuation key `issue-4435-acceptance-9044930ef`.
+
+The workflow concluded SUCCESS, but the item-level live acceptance FAILED.
+The retained [production report](maint71-41961820158-report.json) is copied
+byte-for-byte from artifact `sync-pr-merge-and-canary-evidence`
+(ID `13384959760`). It prints:
+`refresh_dispatched=0`, `held_plans=[]`, `drainable=0`,
+`delivery_plan_handoff=3`, `review_window_pending=0`,
+`review_window_started=0`, `merged=0`.
+
+| Canary | PR | Observed head | Status / reason | Next command |
+| --- | --- | --- | --- | --- |
+| Travel-Plan-Permission | 1716 | `86de5e1c244bb308b31f9992e81764dd12959166` | `delivery_plan_handoff` / `plan_mismatch` | `resume-owning-plan` |
+| trip-planner | 1957 | `97baeaec595003cdfc3cce6a1489b174fba32613` | `delivery_plan_handoff` / `plan_mismatch` | `resume-owning-plan` |
+| Portable-Alpha-Extension-Model | 2454 | `3512f549a602be0cf61b7873f39bf07acf2d6924` | `delivery_plan_handoff` / `plan_mismatch` | `resume-owning-plan` |
+
+Every row instead belongs to observed plan
+`sha256:23484ac56ea0e4238e98869058028038c683aa60d2adbdfd27d9161d459d3dba`
+and source `81e575a008db219b8b63761014025d182d095128`.
+The first failed live step is therefore exact-campaign candidate selection:
+all three native candidates now belong to another plan. This differs from the
+identity-blocked exact-plan request repaired by this PR. Absence of an identity
+mismatch does not establish review/seal entry.
+
+Stopped at this result as instructed. No Maint 68 refresh was dispatched, so
+there is no Maint 68 run ID and no subsequent post-refresh Maint 71 run ID.
+No alternate campaign was substituted, no native ownership was changed, and
+no new mock was used. The two live acceptance criteria remain undone.
+The lane's printed blocking/drainable pair is three other-plan handoffs / zero
+drainable rows; its named drain is `resume-owning-plan`. Executing that drain
+would change the exact-campaign scope and was not attempted after the stop.
+
+Overall stop boundary was 03:45 UTC, with one guarded merge attempt and one
+production dispatch sequence. The first failed live step tripped it earlier.
+This terminal evidence is committed to the same source branch after merge;
+that evidence-only commit is not included in PR #4439's merge commit.

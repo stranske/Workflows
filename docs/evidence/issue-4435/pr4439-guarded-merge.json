@@ -1,0 +1,94 @@
+{
+  "target": "stranske/Workflows#4439",
+  "dry_run": false,
+  "metadata": {
+    "target": "stranske/Workflows#4439",
+    "title": "fix(sync): preserve campaign identity in full-scope refresh",
+    "labels": [
+      "agent:codex",
+      "agents:keepalive",
+      "autofix",
+      "codex",
+      "codex-automation",
+      "agent:auto"
+    ],
+    "state": "OPEN",
+    "is_draft": false,
+    "merge_state_status": "CLEAN",
+    "closing_issues": [],
+    "head_branch": "codex/issue-4435-exact-refresh"
+  },
+  "gate": null,
+  "blocked": false,
+  "reason": null,
+  "merge_cmd": [
+    "gh",
+    "pr",
+    "merge",
+    "4439",
+    "-R",
+    "stranske/Workflows",
+    "--squash",
+    "--match-head-commit",
+    "9044930ef572a9790ecfe9153721b56beeeffa19"
+  ],
+  "merge_executed": true,
+  "merge_returncode": 0,
+  "preflight": {
+    "blocked": false,
+    "reason": null,
+    "head": "9044930ef572a9790ecfe9153721b56beeeffa19",
+    "active_threads": 0,
+    "check_state": "SUCCESS",
+    "review_floor_remaining_seconds": 0.0,
+    "review_age_seconds": 1388.2361447811127,
+    "review_not_before": 1793847894.0,
+    "review_anchor": "pr_updated_at",
+    "review_anchor_at": "2026-11-05T03:04:54Z",
+    "review_anchors": {
+      "head_ref_moved_at": "2026-11-05T03:04:45Z",
+      "pr_created_at": "2026-11-04T04:12:18Z",
+      "pr_updated_at": "2026-11-05T03:04:54Z"
+    },
+    "head_ref_activity": "push"
+  },
+  "review_loop": {
+    "required": false,
+    "eligible": false,
+    "reason": "no-review-loop-marker"
+  },
+  "adversarial_review": {
+    "status": "routine"
+  },
+  "final_preflight": {
+    "blocked": false,
+    "reason": null,
+    "head": "9044930ef572a9790ecfe9153721b56beeeffa19",
+    "active_threads": 0,
+    "check_state": "SUCCESS",
+    "review_floor_remaining_seconds": 0.0,
+    "review_age_seconds": 1390.3081829547882,
+    "review_not_before": 1793847894.0,
+    "review_anchor": "pr_updated_at",
+    "review_anchor_at": "2026-11-05T03:04:54Z",
+    "review_anchors": {
+      "head_ref_moved_at": "2026-11-05T03:04:45Z",
+      "pr_created_at": "2026-11-04T04:12:18Z",
+      "pr_updated_at": "2026-11-05T03:04:54Z"
+    },
+    "head_ref_activity": "push"
+  },
+  "review_loop_final": {
+    "required": false,
+    "eligible": false,
+    "reason": "no-review-loop-marker"
+  },
+  "stdout_tail": "",
+  "stderr_tail": "",
+  "outcome": {
+    "recorded": false,
+    "error": "attempt to write a readonly database",
+    "deferred_to_ingest": null,
+    "delegations_already_recorded": null
+  }
+}
