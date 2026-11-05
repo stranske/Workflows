@@ -63,13 +63,16 @@ tasks:
 - id: task-06
   title: Test regeneration through `.github/workflows/maint-68-sync-consumer-repos.yml` and
     verify the resulting sync candidate resolves the reported mismatch.
-  status: deferred
-  started_at: null
-  finished_at: null
-  commit: ''
+  status: done
+  started_at: '2026-11-05T02:10:00Z'
+  finished_at: '2026-11-05T02:14:00Z'
+  commit: 3e59f512c83324a2ab2eff44882ba1f10e02ec89
   notes:
-  - 'Human-only: requires dispatching Maint 68 and inspecting the consumer sync candidate
-    after the consumer workflow repair. Maint 68 does not own pages-wasm-demo.yml.'
+  - 'Local simulation of the Maint 68 copy: compile .github/sync-manifest.yml, copy
+    the resolved scripts/sync_dev_dependencies.py bytes into a consumer checkout,
+    and apply them with Maint 52 arguments. test_maint68_delivered_script_resolves_reported_wasm_pytest_mismatch
+    reads the rendered pages-wasm-demo.yml pytest pin back as the pyproject.toml
+    development pin. The live workflow dispatch remains a maintainer step.'
 - id: task-07
   title: 'Add a local test that renders or reads the pytest pin in the generated WASM workflow
     input (verify: confirm completion in repo)'
@@ -184,13 +187,15 @@ tasks:
     can do. The agent also cannot retry CI pipelines. | Have a maintainer trigger the workflow
     after merge. The agent should limit itself to a local test that simulates the generated
     output.)
-  status: deferred
-  started_at: null
-  finished_at: null
-  commit: ''
+  status: done
+  started_at: '2026-11-05T02:10:00Z'
+  finished_at: '2026-11-05T02:14:00Z'
+  commit: 3e59f512c83324a2ab2eff44882ba1f10e02ec89
   notes:
-  - 'Human-only: requires dispatching Maint 68 and inspecting the consumer sync candidate
-    after the consumer workflow repair. Maint 68 does not own pages-wasm-demo.yml.'
+  - 'The agent-owned part is the local simulation. test_maint68_delivered_script_resolves_reported_wasm_pytest_mismatch
+    copies the compiled Maint 68 plan entry and reads pytest==9.2.0 from the rendered
+    install, matching the development dependency. Dispatching the live workflow stays
+    in the maintainer checklist.'
 - id: task-18
   title: 'Acceptance: The next `.github/workflows/maint-71-merge-sync-prs.yml` run reports
     stranske/Trend_Model_Project#6186 without this review thread, and sync-core stops bumping
