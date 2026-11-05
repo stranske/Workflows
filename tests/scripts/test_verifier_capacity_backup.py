@@ -249,6 +249,83 @@ def test_explicit_slot_config_selects_its_own_backup(monkeypatch, tmp_path, back
     assert pv.comparison_verdict(out) == "PASS"
 
 
+@pytest.mark.parametrize("exhausted_provider", ["openai", "anthropic"])
+@pytest.mark.parametrize("key_available", [True, False])
+def test_compare_quota_failure_uses_only_the_configured_backup_transport(
+    monkeypatch, tmp_path, exhausted_provider, key_available
+):
+    import urllib.request
+
+    monkeypatch.delenv("VERIFIER_EVIDENCE_PROFILE", raising=False)
+    monkeypatch.delenv("VERIFIER_SEMANTIC_MODE", raising=False)
+    monkeypatch.delenv(pv.SIMULATE_CAPACITY_EXHAUSTED_ENV, raising=False)
+    monkeypatch.setenv("MUSE_API_KEY", "test-key-not-real")
+    if key_available:
+        monkeypatch.setenv("CONFIGURED_BACKUP_KEY", "test-key-not-real")
+    else:
+        monkeypatch.delenv("CONFIGURED_BACKUP_KEY", raising=False)
+    payload = json.loads((ROOT / "config/llm_slots.json").read_text())
+    payload["capacity_backup"].update(
+        provider="configured-provider",
+        model="configured-model",
+        base_url="https://backup.example.invalid/v1",
+        key_env="CONFIGURED_BACKUP_KEY",
+    )
+    (tmp_path / "slots.json").write_text(json.dumps(payload), encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("LANGCHAIN_SLOT_CONFIG", "  slots.json  ")
+    clients = [(object(), "openai", "gpt-6.1-sol"), (object(), "anthropic", "claude-sonnet-5-5")]
+    comparison = pv.ComparisonRunner(context="ctx", diff=None, prompt="p", clients=clients)
+    monkeypatch.setattr(
+        pv.ComparisonRunner, "from_environment", classmethod(lambda cls, *args: comparison)
+    )
+    calls, requests = [], []
+
+    def invoke(client, prompt, **kwargs):
+        calls.append(client)
+        if isinstance(client, pv.CapacityBackupClient):
+            return client.invoke(prompt), None, None
+        if client is next(
+            client for client, provider, _ in clients if provider == exhausted_provider
+        ):
+            raise RuntimeError("insufficient_quota")
+        return SimpleNamespace(content='{"verdict":"PASS","summary":"ok"}'), None, None
+
+    def urlopen(request, timeout):
+        requests.append((request.full_url, json.loads(request.data)))
+        return _Response(b'{"choices":[{"message":{"content":"{\\"verdict\\":\\"PASS\\"}"}}]}')
+
+    monkeypatch.setattr(pv, "_invoke_llm", invoke)
+    monkeypatch.setattr(urllib.request, "urlopen", urlopen)
+
+    results = pv.evaluate_pr_multiple("ctx")
+
+    assert calls[:2] == [client for client, _, _ in clients]
+    replaced_index = next(
+        i for i, (_, provider, _) in enumerate(clients) if provider == exhausted_provider
+    )
+    assert results[1 - replaced_index].provider_used == clients[1 - replaced_index][1]
+    if key_available:
+        assert len(calls) == 3
+        assert calls[-1].key_env == "CONFIGURED_BACKUP_KEY"
+        assert requests == [
+            (
+                "https://backup.example.invalid/v1/chat/completions",
+                {"model": "configured-model", "messages": [{"role": "user", "content": "p"}]},
+            )
+        ]
+        assert results[replaced_index].provider_used == "configured-provider"
+        assert results[replaced_index].model == "configured-model"
+        assert results[replaced_index].capacity_backup_for.startswith(f"{exhausted_provider}/")
+        assert pv.comparison_verdict(results) == "PASS"
+    else:
+        assert len(calls) == 2
+        assert requests == []
+        assert pv.capacity_exhausted(results[replaced_index])
+        assert all(result.capacity_backup_for is None for result in results)
+        assert pv.comparison_verdict(results) != "PASS"
+
+
 def test_both_judges_exhausted_means_no_backup_and_no_pass(backup_on):
     results = [
         judged("openai", "gpt-6.1-sol", "CONCERNS", "insufficient_quota"),
