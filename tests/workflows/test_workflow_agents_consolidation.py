@@ -1940,23 +1940,32 @@ const assert = require('node:assert/strict');
 const owner='stranske', repo='Travel-Plan-Permission', prNumber=1722;
 const warnings=[]; const core={warning:message=>warnings.push(message)};
 const marker='<!-- agents-guarded-merge-result:v1 -->';
+const receiptFailure=process.argv[1] || '';
+const failReceipt=stage=>{
+  if (receiptFailure===stage) throw {status:403,message:`${stage} permission denied`};
+};
 const comments=[
   {id:1,user:{id:999},body:marker+' forged'},
   {id:3,user:{id:42},body:'An unrelated writer comment'},
 ];
+if (receiptFailure==='update') comments.push({id:2,user:{id:42},body:marker+' previous'});
 let created=0, updated=0;
-const github={rest:{users:{getAuthenticated:async()=>({data:{id:42}})},issues:{
+const github={rest:{users:{getAuthenticated:async()=>{
+  failReceipt('identity');return {data:{id:42}};
+}},issues:{
   listComments:()=>{},
   createComment:async p=>{
     assert.equal(p.owner,owner); assert.equal(p.repo,repo);
     assert.equal(p.issue_number,prNumber);
+    failReceipt('create');
     created++;comments.push({id:2,user:{id:42},body:p.body});
   },
   updateComment:async p=>{
     assert.equal(p.owner,owner); assert.equal(p.repo,repo); assert.equal(p.comment_id,2);
+    failReceipt('update');
     updated++;comments.find(c=>c.id===p.comment_id).body=p.body;
   }
-}},paginate:async()=>comments};
+}},paginate:async()=>{failReceipt('list');return comments}};
 const withRetry=fn=>fn(github);
 const paginateWithRetry=(method,params)=>github.paginate(method,params);
 """
@@ -1974,13 +1983,22 @@ for(const error of errors){
         + handler.group(0)
         + r"""
 }
-assert.equal(created,1); assert.equal(updated,1); assert.equal(warnings.length,2);
+assert.equal(created,receiptFailure ? 0 : 1);
+assert.equal(updated,receiptFailure ? 0 : 1);
+assert.equal(warnings.length,receiptFailure ? 4 : 2);
 assert.equal(warnings[0],
   'Merge failed: HTTP 403 Resource not accessible by personal access token');
-assert.equal(warnings[1],'Merge failed: HTTP 422 Merge permission denied');
+assert.equal(warnings[receiptFailure ? 2 : 1],'Merge failed: HTTP 422 Merge permission denied');
 const receipts=comments.filter(c=>c.user.id===42 && c.body.startsWith(marker));
-assert.equal(receipts.length,1);
-assert.equal(receipts[0].body,marker+'\n'+warnings[1]);
+if (receiptFailure) {
+  const expected=`Unable to publish guarded merge failure receipt: HTTP 403 ${receiptFailure} permission denied`;
+  assert.equal(warnings[1],expected);assert.equal(warnings[3],expected);
+  assert.equal(receipts.length,receiptFailure==='update' ? 1 : 0);
+  if (receiptFailure==='update') assert.equal(receipts[0].body,marker+' previous');
+} else {
+  assert.equal(receipts.length,1);
+  assert.equal(receipts[0].body,marker+'\n'+warnings[1]);
+}
 assert.equal(comments[0].body,marker+' forged');
 assert.equal(comments[1].body,'An unrelated writer comment');
 })().catch(error=>{console.error(error);process.exitCode=1});
@@ -1999,21 +2017,44 @@ def test_guarded_merge_failure_receipt_is_visible_and_upserted():
     assert result.returncode == 0, result.stderr
 
 
+@pytest.mark.parametrize("stage", ["identity", "list", "create", "update"])
+def test_guarded_merge_failure_receipt_permission_errors_remain_visible(stage):
+    """Receipt API failures preserve merge warnings and explain the missing receipt."""
+    result = subprocess.run(
+        ["node", "-e", _guarded_merge_failure_replay_program(), stage],
+        capture_output=True,
+        text=True,
+        timeout=10,
+    )
+    assert result.returncode == 0, result.stderr
+
+
 @pytest.mark.parametrize(
-    ("original", "replacement"),
+    ("original", "replacement", "scenario"),
     [
-        ("await reportMergeFailure(prNumber, note);", ""),
-        ("core.warning(message);", ""),
-        ("comment.user?.id === actor.id && ", ""),
+        ("await reportMergeFailure(prNumber, note);", "", ""),
+        ("core.warning(message);", "", ""),
+        ("comment.user?.id === actor.id && ", "", ""),
+        (
+            "core.warning(`Unable to publish guarded merge failure receipt: HTTP "
+            "${error.status || 'unknown'} ${error.message || error}`);",
+            "",
+            "create",
+        ),
     ],
-    ids=["missing-receipt-call", "missing-warning", "foreign-comment-overwrite"],
+    ids=[
+        "missing-receipt-call",
+        "missing-warning",
+        "foreign-comment-overwrite",
+        "missing-receipt-error-warning",
+    ],
 )
-def test_guarded_merge_failure_replay_detects_broken_reporting(original, replacement):
+def test_guarded_merge_failure_replay_detects_broken_reporting(original, replacement, scenario):
     """Mutate only the replay in memory, leaving protected workflow files untouched."""
     program = _guarded_merge_failure_replay_program()
     assert program.count(original) == 1
     result = subprocess.run(
-        ["node", "-e", program.replace(original, replacement, 1)],
+        ["node", "-e", program.replace(original, replacement, 1), scenario],
         capture_output=True,
         text=True,
         timeout=10,
