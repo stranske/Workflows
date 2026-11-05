@@ -250,8 +250,8 @@ Exact-plan test evidence from `scoped-canary-refresh.test.js`:
 Three-canary lifecycle evidence from `maint71_merge_sync_prs.test.js`:
 - Each of the three configured canaries (`owner/a`, `owner/b`, `owner/c`) produces `candidate_immutable_identity_mismatch` with `delivery_contract_blocked` status
 - Combined report sends one inert Maint 68 dispatch with campaign source `e...e` (40 chars), expected plan ID `sha256:a...a` (64 chars), full scope, all three repositories
-- Accounting records: `refresh_dispatched=3`, `drainable=3`, `held_plans=[plan_id]`
-- Receipt notice: `candidate refresh receipt: source_commit=<campaignSource> plan_id=<planId> refresh_dispatched=3 held_plans=<planId> drainable=3`
+- Accounting records: `refresh_dispatched=1`, `drainable=3`, `held_plans=[plan_id]`
+- Receipt notice: `candidate refresh receipt: source_commit=<campaignSource> plan_id=<planId> refresh_dispatched=1 held_plans=<planId> drainable=3`
 - Modeling delivery from emitted source admits all three canaries to `review_window_pending` without `candidate_immutable_identity_mismatch`
 
 PR #4439 head commit `7cafdd482` preserves:
@@ -264,3 +264,50 @@ PR #4439 head commit `7cafdd482` preserves:
 All current review threads are resolved. Both live acceptance criteria remain unchecked pending production merge:
 - [ ] Post-merge: retain sync-pr-merge-and-canary-evidence artifact with `canary_refresh.refresh_dispatched >= 1` for exact campaign
 - [ ] Post-merge: first subsequent Maint 71 run shows all three configured canaries enter review/seal without `candidate_immutable_identity_mismatch`
+
+
+## Closer continuation (2026-11-04)
+
+Operational outcome: retain an exact-campaign production report with
+`canary_refresh.refresh_dispatched >= 1`, followed by a Maint 71 report in which
+all three configured canaries enter review/seal without
+`candidate_immutable_identity_mismatch`. Inspect using `gh run view` and
+`gh run download`; mocks do not satisfy this outcome.
+Stop rule: one guarded merge attempt and one production dispatch sequence;
+stop at the first failed live step. Live acceptance remains unverified.
+
+Starting head: `27a8f8870500ca3f2c37f6efec75fa059879bf05`.
+PR #4439 is OPEN, `isDraft=false`. All four review threads are resolved
+(two current, two outdated); zero active non-outdated threads.
+
+Both slow compatibility jobs in Selftest CI run `41951504339` have the same
+failure, rather than a timeout:
+
+- Python 3.13 job `126996489734`: `2 failed, 7 passed in 20.44s`.
+- Python 3.14 job `126996489813`: `2 failed, 7 passed in 27.24s`.
+- Both failures are `TestConsumerRepoSampling::test_simulated_consumer_repo_sync`
+  and `::test_autofix_versions_env_not_stale`, reporting coverage pinned at
+  `7.17.1` while PyPI has `7.17.2`. The aggregate Python Tests failure follows
+  these failed applicable checks.
+
+Current main already fixes this in `f2849e4ac` (PR #4450). Merging main locally
+failed because the sandbox denies writing `.agents/issue-4364-ledger.yml`.
+The failed merge was cleaned up; only main's existing dependency update to
+`.github/workflows/autofix-versions.env`, `pyproject.toml`, and
+`requirements.lock` was imported. No freshness assertion or CI gate was changed.
+
+Required tests were run serially:
+
+- `node --test .github/scripts/__tests__/scoped-canary-refresh.test.js`:
+  tests 82, pass 82, fail 0.
+- `node --test .github/scripts/__tests__/maint71_merge_sync_prs.test.js`:
+  tests 174, pass 174, fail 0.
+
+The latest mocked accounting above is corrected to one dispatch and three
+drainable rows. Production dispatch and subsequent Maint 71 run IDs, exact
+campaign source/plan, and three live canary rows remain pending guarded merge.
+
+Focused freshness validation with `/opt/anaconda3/bin/python3 -m pytest -o
+addopts='' tests/scripts/test_update_versions_from_pypi.py::TestConsumerRepoSampling::test_autofix_versions_env_not_stale
+tests/scripts/test_update_versions_from_pypi.py::TestConsumerRepoSampling::test_simulated_consumer_repo_sync -q`
+printed `2 passed in 3.55s`. No full local suite was run.
