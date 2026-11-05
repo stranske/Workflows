@@ -6,7 +6,7 @@ The source base is `12cea89599a67c3004d1d469d669c2daa33dfd35`.
 The historical #3904 counts and experiments below describe that delivery.
 For the current additional reduction, see [#4258](#issue-4258-alias-products) and the
 body-clause integration split below; the JSON inventory and projection tests reflect
-the current 30,461 destination-file cases.
+the current 30,101 destination-file cases.
 
 ## Retained regression map
 
@@ -31,11 +31,11 @@ this small local case construction; it is not a new test runner or framework.
 every original named regression, including generated fixtures: original parameter
 groups and their sizes, original counts, and retained counts. An original count
 of zero identifies post-baseline additions, including the real-floor integration
-test and the section-boundary regressions described below. The 338 unchanged
-functions retain every original combination, so no independence assumption or
-semantic/lexical decomposition is applied to them. For the 18 bounded functions,
-join on `function` with `verifier-grammar-matrices.json` for the explicit semantic
-dimensions and lexical interactions. The two focused tests in
+tests and the section-boundary regressions described below. Functions absent from
+`verifier-grammar-matrices.json` retain every original combination, so no
+independence assumption or semantic/lexical decomposition is applied to them.
+Join bounded rows on `function` with `verifier-grammar-matrices.json` for the
+explicit semantic dimensions and lexical interactions. The two focused tests in
 `tests/scripts/test_pr_verifier_grammar_inventory.py` check the inventory against
 the actual decorators and verify that every declared semantic and lexical
 projection has an emitted case. They enumerate only bounded witnesses, without
@@ -77,9 +77,23 @@ mapped full-integration cases, the destination file falls from 90,550 to 30,461
 cases (60,089 fewer, 66.36%). Classifier coverage for PR-body wording remains in
 `test_body_clause_matrix_preserves_independent_destinations` (856 cases). The floor
 integration matrix keeps one witness per distinct required-channel outcome (six
-classes) crossed with retrieval status and channel under test (54 cases). The other
-338 original functions retain their full parametrizations. This count reduction is
-not a measured runtime speedup.
+classes) crossed with retrieval status and channel under test (54 cases). Functions
+not listed in `verifier-grammar-matrices.json` retain their full parametrizations.
+This count reduction is not a measured runtime speedup.
+
+`test_relative_qualifier_preserves_parent_and_local_condition_scope` is now a
+semantic core plus lexical spines: 648 classifier rows become 240. Voice,
+destination/channel, coordination, component attachment, and local-condition
+attachment stay fully crossed, because those axes change parent versus local
+availability scope. Operation/participle aliases cross voice and both scope
+switches. Parent-condition wording (`if available`, `only if available`,
+`when produced`) crosses the full semantic core. Joint operation × condition
+tuples outside those spines are not retained. Prompt coverage and
+`_apply_coverage_floor` moved to
+`test_relative_qualifier_parent_and_local_condition_real_floor` (48 cases):
+required body, required comments, component waiver, and local-condition waiver,
+each crossed with missing status and the four retrieved-channel sets. The
+destination file is 30,101 cases after this split (360 fewer than 30,461).
 
 ## What the decomposition preserves and does not prove
 
@@ -344,7 +358,7 @@ payload. No additional hosted benchmark or workflow run is introduced.
 The retained-input repair adds seven section-boundary regression functions (49 cases).
 These are recorded with `original_count: 0` because they postdate the pinned original
 corpus. The original 356 functions and 90,550-case baseline remain unchanged; the
-current retained inventory contains 30,461 cases.
+current retained inventory contains 30,101 cases.
 
 ## Issue #4258 alias products
 

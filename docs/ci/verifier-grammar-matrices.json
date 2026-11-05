@@ -1767,5 +1767,45 @@
       ]
     },
     "pairwise": true
+  },
+  {
+    "function": "test_relative_qualifier_preserves_parent_and_local_condition_scope",
+    "source_base": "12cea89599a67c3004d1d469d669c2daa33dfd35",
+    "original_count": 648,
+    "retained_count": 240,
+    "dimensions": {
+      "operation,participle": [
+        ["record", "recorded"],
+        ["supply", "supplied"],
+        ["leave", "left"]
+      ],
+      "voice": ["active", "agent-before", "agent-after"],
+      "destination,channel,other": [
+        ["the PR body", "body", "a PR comment"],
+        ["the PR description", "body", "a PR comment"],
+        ["a PR comment", "comments", "the PR body"]
+      ],
+      "coordination": ["and", "or"],
+      "condition": ["if available", "only if available", "when produced"],
+      "component": [false, true],
+      "local_condition": [false, true]
+    },
+    "semantic": [
+      "voice",
+      "destination,channel,other",
+      "coordination",
+      "component",
+      "local_condition"
+    ],
+    "lexical_spines": {
+      "operation,participle": ["voice", "component", "local_condition"],
+      "condition": [
+        "voice",
+        "destination,channel,other",
+        "coordination",
+        "component",
+        "local_condition"
+      ]
+    }
   }
 ]

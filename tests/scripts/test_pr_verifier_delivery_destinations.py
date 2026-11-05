@@ -829,23 +829,7 @@ def test_availability_first_final_retains_parent_condition(
             assert result.verdict == "PASS"
 
 
-@pytest.mark.parametrize(
-    "operation,participle", [("record", "recorded"), ("supply", "supplied"), ("leave", "left")]
-)
-@pytest.mark.parametrize("voice", ["active", "agent-before", "agent-after"])
-@pytest.mark.parametrize(
-    "destination,channel,other",
-    [
-        ("the PR body", "body", "a PR comment"),
-        ("the PR description", "body", "a PR comment"),
-        ("a PR comment", "comments", "the PR body"),
-    ],
-)
-@pytest.mark.parametrize("coordination", ["and", "or"])
-@pytest.mark.parametrize("condition", ["if available", "only if available", "when produced"])
-@pytest.mark.parametrize("component", [False, True])
-@pytest.mark.parametrize("local_condition", [False, True])
-def test_relative_qualifier_preserves_parent_and_local_condition_scope(
+def _relative_qualifier_case(
     operation,
     participle,
     voice,
@@ -857,6 +841,7 @@ def test_relative_qualifier_preserves_parent_and_local_condition_scope(
     component,
     local_condition,
 ):
+    """Build one parent/local availability criterion and its required channels."""
     target = destination + (
         " panel that is available" if component else " that must contain command output"
     )
@@ -872,31 +857,133 @@ def test_relative_qualifier_preserves_parent_and_local_condition_scope(
         criterion = f"Evidence must be {participle} in {target} by the {actor} {condition}"
     criterion += "; the auditor must record evidence in a workflow artifact"
     expected = {"artifacts"} | ({channel} if not component and not local_condition else set())
+    return criterion, expected
+
+
+@_semantic_matrix(
+    dimensions={
+        "operation,participle": [
+            ("record", "recorded"),
+            ("supply", "supplied"),
+            ("leave", "left"),
+        ],
+        "voice": ["active", "agent-before", "agent-after"],
+        "destination,channel,other": [
+            ("the PR body", "body", "a PR comment"),
+            ("the PR description", "body", "a PR comment"),
+            ("a PR comment", "comments", "the PR body"),
+        ],
+        "coordination": ["and", "or"],
+        "condition": ["if available", "only if available", "when produced"],
+        "component": [False, True],
+        "local_condition": [False, True],
+    },
+    semantic=(
+        "voice",
+        "destination,channel,other",
+        "coordination",
+        "component",
+        "local_condition",
+    ),
+    lexical_spines={
+        "operation,participle": ("voice", "component", "local_condition"),
+        "condition": (
+            "voice",
+            "destination,channel,other",
+            "coordination",
+            "component",
+            "local_condition",
+        ),
+    },
+)
+def test_relative_qualifier_preserves_parent_and_local_condition_scope(
+    operation,
+    participle,
+    voice,
+    destination,
+    channel,
+    other,
+    coordination,
+    condition,
+    component,
+    local_condition,
+):
+    criterion, expected = _relative_qualifier_case(
+        operation,
+        participle,
+        voice,
+        destination,
+        channel,
+        other,
+        coordination,
+        condition,
+        component,
+        local_condition,
+    )
     assert verifier._required_evidence_channels(criterion) == expected
     assert verifier._required_evidence_options(criterion) == [expected]
+
+
+@pytest.mark.parametrize(
+    "component,local_condition,destination,channel,other",
+    [
+        (False, False, "the PR body", "body", "a PR comment"),
+        (False, False, "a PR comment", "comments", "the PR body"),
+        (True, False, "the PR body", "body", "a PR comment"),
+        (True, False, "a PR comment", "comments", "the PR body"),
+        (False, True, "the PR body", "body", "a PR comment"),
+        (False, True, "a PR comment", "comments", "the PR body"),
+    ],
+)
+@pytest.mark.parametrize("missing", ["absent", "unavailable"])
+@pytest.mark.parametrize(
+    "present",
+    [(), ("body",), ("comments",), ("body", "comments")],
+    ids=["none", "body", "comments", "both"],
+)
+def test_relative_qualifier_parent_and_local_condition_real_floor(
+    component, local_condition, destination, channel, other, missing, present
+):
+    """Keep prompt and coverage-floor boundaries for each scope outcome.
+
+    Verb, voice, coordination, and parent-condition wording stay on the classifier
+    matrix. Each scope mechanism still crosses channel, missing status, and which
+    retrieved channels are present.
+    """
+    present = set(present)
+    criterion, expected = _relative_qualifier_case(
+        "record",
+        "recorded",
+        "active",
+        destination,
+        channel,
+        other,
+        "and",
+        "if available",
+        component,
+        local_condition,
+    )
     fixture = _COVERAGE_FIXTURE
-    for missing in ("absent", "unavailable"):
-        for present in (set(), {"body"}, {"comments"}, {"body", "comments"}):
-            evidence = (
-                "- Overall retrieval status: **present**\n"
-                f"- PR body: **{'present' if 'body' in present else missing}**\n"
-                f"- PR comments: **{'present' if 'comments' in present else missing}**\n"
-                "- Referenced workflow artifacts: **present**"
-            )
-            context, _ = fixture._context(1, 1000, 1000)
-            context = context.replace("- " + fixture.ACCEPTANCE_SENTINEL, criterion).replace(
-                "## PR Diff Summary",
-                "## Acceptance evidence\n\n" + evidence + "\n\n## PR Diff Summary",
-            )
-            result = verifier._apply_coverage_floor(
-                verifier.EvaluationResult(verdict="PASS", used_llm=True),
-                verifier.prompt_coverage(context, None),
-            )
-            assert result.verdict == (
-                "PASS"
-                if expected <= (present | {"artifacts"})
-                else ("UNVERIFIABLE_INPUT" if missing == "unavailable" else "CONCERNS")
-            )
+    evidence = (
+        "- Overall retrieval status: **present**\n"
+        f"- PR body: **{'present' if 'body' in present else missing}**\n"
+        f"- PR comments: **{'present' if 'comments' in present else missing}**\n"
+        "- Referenced workflow artifacts: **present**"
+    )
+    context, _ = fixture._context(1, 1000, 1000)
+    context = context.replace("- " + fixture.ACCEPTANCE_SENTINEL, criterion).replace(
+        "## PR Diff Summary",
+        "## Acceptance evidence\n\n" + evidence + "\n\n## PR Diff Summary",
+    )
+    result = verifier._apply_coverage_floor(
+        verifier.EvaluationResult(verdict="PASS", used_llm=True),
+        verifier.prompt_coverage(context, None),
+    )
+    assert result.verdict == (
+        "PASS"
+        if expected <= (present | {"artifacts"})
+        else ("UNVERIFIABLE_INPUT" if missing == "unavailable" else "CONCERNS")
+    )
 
 
 @pytest.mark.parametrize("actor", ["UI", "application", "service", "renderer"])
