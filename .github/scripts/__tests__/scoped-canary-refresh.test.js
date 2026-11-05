@@ -844,3 +844,17 @@ test('full-scope report refuses mixed campaign sources before dispatch', async t
   await assert.rejects(f.call(), /canary_refresh_mixed_report_plans/);
   assert.equal(f.writes.length, 0);
 });
+test('retained merge report is uploaded after candidate refresh writes accounting and before promotion', () => {
+  const workflow = fs.readFileSync(path.join(__dirname, '../../workflows/maint-71-merge-sync-prs.yml'), 'utf8');
+  const steps = workflow.split(/\n(?=      - name: )/);
+  const at = name => steps.findIndex(step => step.startsWith(`      - name: ${name}\n`));
+  const refresh = at('Refresh stale candidate bases'), upload = at('Upload sync PR merge report');
+  const promote = at('Promote complete exact-plan canary evidence');
+  assert.ok(refresh >= 0 && upload >= 0 && promote >= 0);
+  assert.match(steps[refresh], /fs\.writeFileSync\('artifacts\/sync-pr-merge-report\.json'/);
+  assert.ok(refresh < upload, 'upload must follow the refresh accounting write');
+  assert.ok(upload < promote, 'promotion must follow the upload');
+  assert.equal(steps.filter(step => /name: sync-pr-merge-and-canary-evidence\n/.test(step)).length, 1);
+  assert.match(steps[upload], /id: merge_artifact\n\s+if: always\(\)/);
+  assert.match(steps[promote], /steps\.merge_artifact\.outcome == 'success'/);
+});
