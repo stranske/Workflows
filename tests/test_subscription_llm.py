@@ -41,13 +41,15 @@ def test_claude_available_with_configured_directory(claude_client, monkeypatch, 
 
 
 @pytest.mark.parametrize("default_auth_exists", (False, True))
-@pytest.mark.parametrize("config_exists", (False, True))
+@pytest.mark.parametrize("config_state", ("missing", "empty", "directory-entry"))
 def test_claude_unavailable_without_configured_credentials(
-    claude_client, monkeypatch, tmp_path, default_auth_exists, config_exists
+    claude_client, monkeypatch, tmp_path, default_auth_exists, config_state
 ):
     config = tmp_path / "custom-claude"
-    if config_exists:
+    if config_state != "missing":
         config.mkdir()
+    if config_state == "directory-entry":
+        (config / ".credentials.json").mkdir()
     monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(config))
     if default_auth_exists:
         default = Path.home() / ".claude"

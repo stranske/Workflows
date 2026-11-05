@@ -1,5 +1,75 @@
 # Issue 4369 validation receipt
 
+## Follow-up reconciliation at daf1ac21
+
+On 2026-11-05, reviewed `c861aefb` through incoming head
+`daf1ac2111066d0ad342774e101434a9d4d0e9bb`. The source/template fix and strict
+boolean assertions are preserved; the previous iteration added missing-directory
+cases. The incoming targeted suite passes all 14 cases. PR 4444 is open and
+non-draft. The first task remains complete; the other three remain pending.
+
+Current incoming-head hosted evidence is newer than the historical evidence below:
+
+| Gate 41951003965 job | Result |
+| --- | --- |
+| [Python 3.13](https://github.com/stranske/Workflows/actions/runs/41951003965/job/126996000902) | 50,425 passed, 27 skipped, 3 xfailed in 431.22s |
+| [Python 3.14](https://github.com/stranske/Workflows/actions/runs/41951003965/job/126996000862) | 50,425 passed, 27 skipped, 3 xfailed in 702.57s |
+| [JavaScript](https://github.com/stranske/Workflows/actions/runs/41951003965/job/126995209543) | 3,369 passed, 0 failed, 1 skipped; 3,370 total |
+| test-quality | Success, including deliberate-break acceptance |
+
+Decoded logs bind these jobs to synthetic merge
+`4435a2a2ec433dd50ce488bdee7655d1d2951b13`, containing PR head `daf1ac21`.
+Python selection remains `not quarantine and not slow`, so this is not proof of
+an unrestricted `python3 -m pytest -q tests/` pass.
+[Selftest CI 41951003828](https://github.com/stranske/Workflows/actions/runs/41951003828)
+still fails both slow compatibility runtimes: 2 failed, 7 passed on each.
+The failing cases are
+`TestConsumerRepoSampling::test_simulated_consumer_repo_sync` and
+`TestConsumerRepoSampling::test_autofix_versions_env_not_stale`, reporting stale
+tool versions. No required check is waived, and no protected file was edited.
+
+The local follow-up adds a negative configured-directory state: an auth entry
+named `.credentials.json` that is itself a directory. Availability must remain
+false, including when default-directory auth exists. These four added
+source/template cases verify the existing regular-file requirement.
+
+Using `python -m pytest -p no:langsmith_plugin -q tests/test_subscription_llm.py
+-m 'not slow'` on Python 3.14.10:
+
+| Local state | Exit | Result |
+| --- | --- | --- |
+| Extended tests, fixed source/template | 0 | 18 passed in 0.53s |
+| Source lookup restored to `Path.home() / ".claude"` | 1 | 4 failed, 14 passed in 0.55s |
+| Source restored | 0 | 18 passed in 0.53s |
+| Template lookup restored to `Path.home() / ".claude"` | 1 | 4 failed, 14 passed in 0.54s |
+| Template restored | 0 | 18 passed in 0.53s |
+| Source auth check weakened from `is_file()` to `exists()` | 1 | 2 failed, 16 passed in 0.54s |
+| Template auth check weakened from `is_file()` to `exists()` | 1 | 2 failed, 16 passed in 0.54s |
+| Both production files restored | 0 | 18 passed in 0.53s |
+
+Each mutation was independently reverted in a `finally` block; both production
+files match incoming HEAD byte-for-byte. Black formatting of the changed test,
+Ruff, `git diff --check`, and the unchanged Gate diff-quality detector pass.
+The required repository-wide `black --check --line-length 100 --exclude
+'(\.workflows-lib|node_modules)' .` also passes: **889 files would be left
+unchanged**. As in the earlier run below, the sandbox blocks multiprocessing
+sockets and thread wakeups; the successful CLI invocation used
+`BLACK_NUM_WORKERS=1` and an event-loop heartbeat in a temporary `/tmp`
+startup module. File selection, formatting rules, and check behavior were
+unchanged. No local full Python suite or CI retry was run.
+These local results do not substitute for hosted CI on a subsequent head.
+
+Publishing remains blocked in this environment. `git add` fails because
+`.git/index.lock` is on a read-only filesystem. The connected GitHub tool rejects
+PR-body reconciliation, the blocker comment, and the `needs-human` label with
+`MCP tool call requires approval, but approval policy is never`. No remote write
+succeeded and no checkbox was advanced. An authorized environment must capture
+the local test/evidence changes, obtain resulting-head CI, assess Selftest CI,
+and hand off discussion resolution and guarded delivery to the authorized closer.
+Downstream acceptance remains pending normal Maint 68 regeneration and Maint 71
+reporting, including the finding on Portable-Alpha-Extension-Model#2454 and
+sync-core recurrence. No generated consumer branch was edited.
+
 ## Hosted evidence at the incoming head
 
 Incoming head: `04eed694908259f5afbf5be0dc798c7f6afde10f`.
