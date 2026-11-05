@@ -516,6 +516,44 @@ def test_subscription_mode_preserves_consumer_openai_retry(
     assert subscription_process.calls == []
 
 
+def test_subscription_mode_preserves_decomposer_openai_retry(
+    monkeypatch, subscription_process, chat_process
+):
+    """GitHub Models auth failures retry through the standard factory, not the CLI."""
+    from langchain_core.runnables import RunnableLambda
+    from scripts.langchain import task_decomposer
+
+    monkeypatch.setenv("LANGCHAIN_PROVIDER", "github-models")
+    monkeypatch.setenv("LANGCHAIN_MODEL", "requested-model")
+    openai_sdk = sys.modules["langchain_openai"]
+    original_build = openai_sdk.ChatOpenAI
+
+    def build(**kwargs):
+        client = original_build(**kwargs)
+        if "base_url" not in kwargs:
+            return client
+
+        def fail(prompt):
+            client.invoke(prompt)
+            raise RuntimeError("Error code: 401 models unauthorized")
+
+        return RunnableLambda(fail)
+
+    monkeypatch.setattr(openai_sdk, "ChatOpenAI", build)
+    subscription_process.content = "- Implement the parser\n- Add parser tests"
+    result = task_decomposer.decompose_task("Implement a parser and add tests and update docs")
+
+    assert result["used_llm"] is True
+    assert result["provider_used"] == "openai"
+    assert result["sub_tasks"]
+    assert [(provider, model) for provider, model, _ in chat_process] == [
+        ("github-models", "openai/requested-model"),
+        ("openai", "requested-model"),
+    ]
+    assert all(isinstance(prompt, str) and prompt for _, _, prompt in chat_process)
+    assert subscription_process.calls == []
+
+
 @pytest.mark.parametrize("provider", ["openai", "anthropic", "github-models"])
 @pytest.mark.parametrize(
     "selection",
