@@ -20,7 +20,7 @@
 name: Agents Verifier
 run-name: >-
   Verifier PR #${{ inputs.pr_number || github.event.pull_request.number }}
-  head=${{ inputs.pr_head_sha || github.event.pull_request.head.sha }} mode=${{ inputs.mode || 'label' }}
+  head=${{ inputs.pr_head_sha || github.event.pull_request.head.sha }} mode=${{ inputs.mode || 'label' }}${{ inputs.verification_provenance != '' && ' provenance-only' || '' }}
 
 on:
   # Post-merge fork verification needs base-repo secrets. Only trusted github.sha

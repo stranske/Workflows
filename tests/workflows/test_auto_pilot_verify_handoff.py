@@ -483,6 +483,39 @@ def test_handoff_reuses_dispatched_run_on_default_branch(workflow: Path) -> None
     assert result["failures"] == []
 
 
+@pytest.mark.parametrize("provenance_only", [False, True], ids=("evaluation", "provenance-only"))
+@pytest.mark.parametrize("status", ["queued", "in_progress", "completed"])
+def test_handoff_excludes_provenance_only_dispatch(
+    workflow: Path, provenance_only: bool, status: str
+) -> None:
+    # Render the caller's actual run-name so removing its suffix breaks this proof.
+    title = yaml.safe_load(workflow.with_name("agents-verifier.yml").read_text())["run-name"]
+    for expression, value in (
+        ("${{ inputs.pr_number || github.event.pull_request.number }}", "555"),
+        ("${{ inputs.pr_head_sha || github.event.pull_request.head.sha }}", MERGED_HEAD_SHA),
+        ("${{ inputs.mode || 'label' }}", "evaluate"),
+        (
+            "${{ inputs.verification_provenance != '' && ' provenance-only' || '' }}",
+            " provenance-only" if provenance_only else "",
+        ),
+    ):
+        title = title.replace(expression, value)
+    assert "${{" not in title
+    run = _verifier_run(head_sha=UNRELATED_HEAD_SHA, status=status)
+    run.update(event="workflow_dispatch", pull_requests=[], display_title=title)
+    result = _run_verify(
+        [_matching_pr(555)], workflow, dispatch_unavailable=True, existing_runs=[run]
+    )
+    assert len(result["dispatchCalls"]) == int(provenance_only)
+    if provenance_only:
+        assert result["outputs"].get("verify_handoff") != "found"
+        assert result["labelsAdded"] == []
+        assert result["failures"]
+    else:
+        assert result["outputs"].get("verify_handoff") == "found"
+        assert result["failures"] == []
+
+
 @pytest.mark.parametrize("conclusion", ["cancelled", "skipped", "failure"])
 def test_handoff_unsuccessful_run_does_not_authorize(workflow: Path, conclusion: str) -> None:
     result = _run_verify(
@@ -524,6 +557,7 @@ def test_verifier_entry_point_exposes_dispatch_binding(workflow: Path) -> None:
         "Verifier PR #${{ inputs.pr_number || github.event.pull_request.number }} "
         "head=${{ inputs.pr_head_sha || github.event.pull_request.head.sha }} "
         "mode=${{ inputs.mode || 'label' }}"
+        "${{ inputs.verification_provenance != '' && ' provenance-only' || '' }}"
     )
     inputs = document.get("on", document.get(True))["workflow_dispatch"]["inputs"]
     assert inputs["pr_head_sha"]["required"] is False
@@ -561,8 +595,14 @@ await new AsyncFunction('context','core','withRetry','setPlanSourceFingerprint',
   context,core,withRetry,setPlanSourceFingerprint);
 process.stdout.write(JSON.stringify({outputs,failures}));
 """
+    node = shutil.which("node")
+    if node is None:  # pragma: no cover - host dependent
+        message = "node is required to execute the verifier dispatch script"
+        if os.environ.get("CI"):
+            pytest.fail(message)
+        pytest.skip(message)
     completed = subprocess.run(
-        [shutil.which("node"), "--input-type=module", "-e", harness],
+        [node, "--input-type=module", "-e", harness],
         env={
             **os.environ,
             "SCRIPT": script,
