@@ -78,6 +78,14 @@ def test_claude_unavailable_without_configured_credentials(
 
     assert (claude_client.available() is False,) == (True,)
 
+    def unexpected_cli(*_args, **_kwargs):
+        pytest.fail("Missing configured auth must prevent launching the CLI")
+
+    transport = sys.modules[type(claude_client).__module__]
+    monkeypatch.setattr(transport.subprocess, "run", unexpected_cli)
+    with pytest.raises(RuntimeError, match="claude subscription CLI/auth unavailable"):
+        claude_client.invoke("fixture prompt")
+
 
 @pytest.mark.parametrize("auth_exists", (False, True))
 def test_claude_available_with_default_directory(claude_client, auth_exists):

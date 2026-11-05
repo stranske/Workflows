@@ -1,5 +1,68 @@
 # Issue 4369 validation receipt
 
+## Invocation refusal and reconciliation at 4a0566a5
+
+On 2026-11-05, reviewed the recent commits through incoming head
+`4a0566a57421a51041f8fe2b5dc23625213317d0`. PR 4444 remains open and non-draft.
+The source/template lookup fix, strict boolean assertions, and prior regression
+cases are preserved. Only the first PR task is verified complete; the other
+three remain unchecked.
+
+Current-head hosted evidence supersedes the older Selftest failures below:
+
+| Run/job | Result |
+| --- | --- |
+| [Selftest CI, Python 3.14](https://github.com/stranske/Workflows/actions/runs/41963620245/job/127037244764) | 9 passed in 17.25s |
+| [Selftest CI, Python 3.13](https://github.com/stranske/Workflows/actions/runs/41963620245/job/127037244928) | 9 passed in 17.35s |
+| [Gate, JavaScript](https://github.com/stranske/Workflows/actions/runs/41963620392/job/127038897382) | 3,445 passed, 0 failed, 1 skipped; 3,446 total; adjacent Python script tests: 123 passed |
+| [Gate, test-quality](https://github.com/stranske/Workflows/actions/runs/41963620392/job/127038897237) | Success; diff-quality passed; deliberate-break step explicitly **SKIPPED**, reason `no deliberate-break marker` |
+| Gate, Python 3.13 and 3.14 | In progress when inspected; no full Python pass claimed |
+
+Decoded Selftest logs bind the compatibility results to synthetic merge
+`18560fcfcf7c8502402b78dbf1ef7b28150a9585`, combining the incoming head with base
+`fac332aecc0b2ca38c652813b67670e1594baff1`. The test-quality checkout names
+incoming head `4a0566a5`. These hosted results predate this local test extension.
+
+The negative configured-directory test now also invokes the client and requires
+the expected unavailable error before any subprocess starts. A subprocess spy
+fails immediately if invoked. This covers absent directories, empty directories,
+and directory-shaped auth entries, each with and without default-directory auth,
+independently for source and template.
+
+Local Python 3.14.9 command:
+`python -m pytest -q tests/test_subscription_llm.py -m 'not slow'`.
+No plugin exclusion is needed on this head.
+
+| Local state | Exit | Result |
+| --- | --- | --- |
+| Incoming tests | 0 | 20 passed in 0.89s |
+| Extended tests | 0 | 20 passed in 1.06s |
+| Source lookup temporarily restored to `Path.home() / ".claude"` | 1 | 5 failed, 15 passed in 0.91s |
+| Source restored | 0 | 20 passed in 0.82s |
+| Template lookup temporarily restored to `Path.home() / ".claude"` | 1 | 5 failed, 15 passed in 0.92s |
+| Template restored | 0 | 20 passed in 0.84s |
+
+Each mutation was reverted in a `finally` block, and both production files match
+incoming HEAD byte-for-byte. Ruff, `git diff --check`, and the unchanged Gate
+diff-quality detector pass. Repository-wide Black also passes: **890 files would
+be left unchanged**, exit 0. The CLI used `--check --line-length 100 --exclude
+'(\.workflows-lib|node_modules)' .` plus verbose logging, `BLACK_NUM_WORKERS=1`,
+and a temporary `/tmp` startup module that schedules an event-loop heartbeat
+to service worker completion callbacks in this sandbox. Formatting rules and
+file selection were unchanged. No local full Python suite or CI retry was run.
+
+Publishing is blocked: `git add` cannot create `.git/index.lock` on the read-only
+filesystem, so no commit was possible. Automatic approval review rejected
+PR-body reconciliation, the blocker comment, and the `needs-human` label:
+`MCP tool call requires approval, but approval policy is never`.
+No remote write or task-checkbox update succeeded.
+
+The authorized closer must capture these local changes, collect resulting-head
+full source-gate evidence, resolve `discussion_r4468176159` against that evidence,
+and complete guarded delivery. Downstream acceptance remains pending normal
+Maint 68 regeneration and Maint 71 reporting for
+Portable-Alpha-Extension-Model#2454, including absence of sync-core recurrence.
+
 ## Invocation regression and evidence at 995a04a8
 
 On 2026-11-05, PR 4444 was open and non-draft at incoming head
