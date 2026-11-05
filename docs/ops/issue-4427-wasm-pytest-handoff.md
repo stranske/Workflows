@@ -17,10 +17,17 @@ Maint 68 regeneration cannot update the consumer-owned WASM workflow.
 `tests/test_dependency_version_alignment.py` exercises the real dependency sync
 helper with a stale consumer development pin and compares its output against the
 source development dependency. It also compiles the actual Maint 68 plan to check
-the ownership boundary. These tests protect source/dependency alignment; they do
-not claim to fix or validate the consumer's workflow. Temporarily changing the
-source development pin to `9.1.1` makes the new alignment test fail with
-`assert '==9.1.1' == '==9.2.0'`; restoring it makes the test pass.
+the ownership boundary. `align_quoted_tool_pins` in `scripts/sync_dev_dependencies.py`
+rewrites the reported quoted install line locally. `--workflow-runs` exposes that
+rewriter for one explicit file; Maint 52 does not pass the flag, so consumer-owned
+workflows stay untouched. The regression test reads that rendered pytest pin and
+requires it to equal the development dependency in `pyproject.toml`. These tests protect source/dependency alignment and the rendered
+install line; they do not edit the consumer workflow. Temporarily making the
+aligner return the original `pytest==9.1.1` line makes
+`test_reported_wasm_install_aligns_to_development_pytest_pin` fail; restoring the
+rewriter makes it pass. Temporarily changing the source development pin to `9.1.1`
+makes the older alignment test fail with `assert '==9.1.1' == '==9.2.0'`; restoring
+it makes that test pass.
 
 ## Local verification
 

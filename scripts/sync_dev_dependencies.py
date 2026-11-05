@@ -369,6 +369,62 @@ def _build_lockfile_targets(pins: dict[str, str]) -> dict[str, str]:
     return targets
 
 
+def align_quoted_tool_pins(text: str, pins: dict[str, str]) -> tuple[str, list[str]]:
+    """Rewrite quoted exact dev-tool pins to the canonical autofix versions.
+
+    The reported WASM install step pins tools as quoted ``name==version`` tokens.
+    Longer names are updated first, and ``pytest`` does not match ``pytest-xdist``
+    or ``pytest-cov``. Unquoted text and specifiers other than ``==`` stay as they
+    are. This simulates the install line a regenerated candidate would need; it
+    does not edit workflow files on its own.
+    """
+    targets = _build_lockfile_targets(pins)
+    changes: list[str] = []
+    updated = text
+    for name in sorted(targets, key=len, reverse=True):
+        version = targets[name]
+        pattern = re.compile(
+            rf"(?P<quote>[\"'])(?P<pkg>{re.escape(name)})(?![-.\w])"
+            rf"(?P<extras>\[[^\]]+\])?==(?P<ver>[^\"'\s]+)(?P=quote)",
+            re.IGNORECASE,
+        )
+
+        def replacer(
+            match: re.Match[str],
+            *,
+            target: str = version,
+        ) -> str:
+            current = match.group("ver")
+            if current == target:
+                return match.group(0)
+            extras = match.group("extras") or ""
+            pkg = match.group("pkg")
+            quote = match.group("quote")
+            changes.append(f"{pkg}{extras}: =={current} -> =={target}")
+            return f"{quote}{pkg}{extras}=={target}{quote}"
+
+        updated = pattern.sub(replacer, updated)
+    return updated, changes
+
+
+def sync_workflow_run_pins(
+    workflow_path: Path, pins: dict[str, str], apply: bool = False
+) -> tuple[list[str], list[str]]:
+    """Align quoted dev-tool pins in one workflow file when explicitly requested."""
+    if not workflow_path.exists():
+        return [], [f"workflow file not found at {workflow_path}"]
+
+    content = workflow_path.read_text(encoding="utf-8")
+    updated, changes = align_quoted_tool_pins(content, pins)
+    changes = [f"{workflow_path.name}:{change}" for change in changes]
+    if apply and updated != content:
+        root = Path.cwd().resolve()
+        if not workflow_path.resolve().is_relative_to(root):
+            return [], [f"write destination must remain repository-local: {workflow_path}"]
+        workflow_path.write_text(updated, encoding="utf-8")
+    return changes, []
+
+
 def regenerate_lockfile(lockfile_path: Path, pins: dict[str, str]) -> tuple[list[str], list[str]]:
     """Resolve a generated lock using its recorded inputs, never shell replay.
 
@@ -680,6 +736,15 @@ def main(argv: list[str] | None = None) -> int:
         default=PYPROJECT_FILE,
         help="Path to pyproject.toml",
     )
+    parser.add_argument(
+        "--workflow-runs",
+        type=Path,
+        help=(
+            "Optional workflow file whose quoted dev-tool install pins should match "
+            "the pin file. Omitted by default so Maint 52 does not rewrite consumer-"
+            "owned workflows."
+        ),
+    )
 
     args = parser.parse_args(argv)
 
@@ -705,6 +770,8 @@ def main(argv: list[str] | None = None) -> int:
         outputs = [args.pyproject, *LOCKFILE_FILES]
         if args.pre_commit:
             outputs.append(PRE_COMMIT_FILE)
+        if args.workflow_runs:
+            outputs.append(args.workflow_runs)
         for output in outputs:
             if not output.resolve().is_relative_to(root):
                 print(
@@ -732,6 +799,13 @@ def main(argv: list[str] | None = None) -> int:
         )
         changes.extend(pre_commit_changes)
         errors.extend(pre_commit_errors)
+
+    if args.workflow_runs:
+        workflow_changes, workflow_errors = sync_workflow_run_pins(
+            args.workflow_runs, pins, apply=args.apply
+        )
+        changes.extend(workflow_changes)
+        errors.extend(workflow_errors)
 
     if args.resolve_locks and not errors:
         for lockfile_path in LOCKFILE_FILES:

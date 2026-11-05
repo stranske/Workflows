@@ -655,3 +655,68 @@ def test_main_check_skips_missing_lockfile(tmp_path: Path, monkeypatch: pytest.M
     )
 
     assert exit_code == 0
+
+
+def test_main_workflow_runs_aligns_quoted_pytest_pin(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    env_path = tmp_path / "pins.env"
+    pyproject_path = tmp_path / "pyproject.toml"
+    workflow = tmp_path / "pages-wasm-demo.yml"
+    _write_env_file(
+        env_path,
+        {
+            "RUFF_VERSION": "1.0.0",
+            "BLACK_VERSION": "2.0.0",
+            "PYTEST_VERSION": "9.2.0",
+            "PYTEST_XDIST_VERSION": "3.8.0",
+        },
+    )
+    _write_pyproject(pyproject_path, "1.0.0", "2.0.0")
+    workflow.write_text(
+        'run: python -m pip install "pytest==9.1.1" "pytest-xdist==3.8.0"\n',
+        encoding="utf-8",
+    )
+    monkeypatch.chdir(tmp_path)
+    arguments = [
+        "--pin-file",
+        str(env_path),
+        "--pyproject",
+        str(pyproject_path),
+        "--workflow-runs",
+        str(workflow),
+    ]
+
+    assert sdd.main(["--check", *arguments]) == 1
+    assert workflow.read_text(encoding="utf-8") == (
+        'run: python -m pip install "pytest==9.1.1" "pytest-xdist==3.8.0"\n'
+    )
+    assert sdd.main(["--apply", *arguments]) == 0
+    assert workflow.read_text(encoding="utf-8") == (
+        'run: python -m pip install "pytest==9.2.0" "pytest-xdist==3.8.0"\n'
+    )
+    assert sdd.main(["--check", *arguments]) == 0
+
+
+def test_align_quoted_tool_pins_skips_related_packages_and_non_exact_specs() -> None:
+    text = (
+        'pip install "pytest==9.1.1" "pytest-xdist==1.0.0" "pytest-cov==7.0.0"\n'
+        'unquoted pytest==9.1.1 and "pytest>=9.1.1" stay put\n'
+    )
+    updated, changes = sdd.align_quoted_tool_pins(
+        text,
+        {
+            "PYTEST_VERSION": "9.2.0",
+            "PYTEST_XDIST_VERSION": "3.8.0",
+            "PYTEST_COV_VERSION": "7.1.0",
+        },
+    )
+    assert changes == [
+        "pytest-xdist: ==1.0.0 -> ==3.8.0",
+        "pytest-cov: ==7.0.0 -> ==7.1.0",
+        "pytest: ==9.1.1 -> ==9.2.0",
+    ]
+    assert updated == (
+        'pip install "pytest==9.2.0" "pytest-xdist==3.8.0" "pytest-cov==7.1.0"\n'
+        'unquoted pytest==9.1.1 and "pytest>=9.1.1" stay put\n'
+    )

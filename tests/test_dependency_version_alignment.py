@@ -2,15 +2,19 @@
 
 from __future__ import annotations
 
+import re
 import tomllib
 from pathlib import Path
 
 import pytest
 from packaging.markers import default_environment
 from packaging.requirements import Requirement
+from scripts.sync_dev_dependencies import align_quoted_tool_pins, parse_env_file
 from scripts.sync_dev_dependencies import main as sync_dependencies
-from scripts.sync_dev_dependencies import parse_env_file
 from scripts.sync_manifest_compiler import compile_manifest
+
+# Install step quoted from Trend_Model_Project pages-wasm-demo.yml at 73120b9a594e.
+_REPORTED_WASM_INSTALL = 'python -m pip install "pytest==9.1.1" "pytest-xdist==3.8.0"'
 
 _OPERATORS = ("==", ">=", "<=", "~=", "!=", ">", "<", "===")
 
@@ -156,6 +160,47 @@ def test_consumer_pytest_sync_matches_source_development_pin(
     after = {path: path.read_bytes() for path in before}
     assert sync_dependencies(["--apply", *arguments]) == 0
     assert {path: path.read_bytes() for path in before} == after
+
+
+def _quoted_package_version(text: str, package: str) -> str:
+    match = re.search(
+        rf"""["']{re.escape(package)}(?![-.\w])(?:\[[^\]]+\])?==([^"']+)["']""",
+        text,
+    )
+    assert match is not None, package
+    return match.group(1)
+
+
+def test_reported_wasm_install_aligns_to_development_pytest_pin() -> None:
+    """The reported WASM install must be rewritten to the pyproject dev pin.
+
+    Maint 68 does not generate pages-wasm-demo.yml. This renders the install
+    line from the canonical pins and reads the pytest version back out.
+    """
+    root = Path(__file__).resolve().parents[1]
+    project = tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8"))
+    dev = project["project"]["optional-dependencies"]["dev"]
+    pytest_pins = [Requirement(entry) for entry in dev if Requirement(entry).name == "pytest"]
+    assert len(pytest_pins) == 1
+    development_version = next(iter(pytest_pins[0].specifier)).version
+    pins = parse_env_file(root / ".github/workflows/autofix-versions.env")
+
+    assert _quoted_package_version(_REPORTED_WASM_INSTALL, "pytest") != development_version
+
+    aligned, changes = align_quoted_tool_pins(_REPORTED_WASM_INSTALL, pins)
+    assert changes == [f"pytest: ==9.1.1 -> =={development_version}"]
+    assert _quoted_package_version(aligned, "pytest") == development_version
+    assert _quoted_package_version(aligned, "pytest") == pins["PYTEST_VERSION"]
+    assert _quoted_package_version(aligned, "pytest-xdist") == pins["PYTEST_XDIST_VERSION"]
+    assert "pytest==9.1.1" not in aligned
+    assert aligned == (
+        "python -m pip install "
+        f'"pytest=={development_version}" "pytest-xdist=={pins["PYTEST_XDIST_VERSION"]}"'
+    )
+
+    again, more_changes = align_quoted_tool_pins(aligned, pins)
+    assert again == aligned
+    assert more_changes == []
 
 
 def test_template_sync_does_not_generate_consumer_wasm_workflow() -> None:
