@@ -135,6 +135,13 @@ def test_explicit_slot_config_never_uses_bundled_backup(
         "disabled-absent",
         "empty-file",
         "missing-file",
+        "empty-env",
+        "whitespace-env",
+        "malformed",
+        "non-object",
+        "invalid-encoding",
+        "directory",
+        "read-denied",
     ],
 )
 @pytest.mark.parametrize("exhausted_provider", ["openai", "anthropic"])
@@ -160,11 +167,28 @@ def test_compare_quota_failure_respects_explicit_slot_config(
         }[configuration]
     else:
         payload.pop("capacity_backup")
-    if configuration != "missing-file":
-        path.write_text(
-            "" if configuration == "empty-file" else json.dumps(payload), encoding="utf-8"
-        )
-    monkeypatch.setenv("LANGCHAIN_SLOT_CONFIG", str(path))
+    if configuration == "directory":
+        path.mkdir()
+    elif configuration == "invalid-encoding":
+        path.write_bytes(b"\xff")
+    elif configuration not in {"missing-file", "empty-env", "whitespace-env"}:
+        contents = {
+            "empty-file": "",
+            "malformed": "{",
+            "non-object": "[]",
+        }.get(configuration, json.dumps(payload))
+        path.write_text(contents, encoding="utf-8")
+    setting = {"empty-env": "", "whitespace-env": "   "}.get(configuration, str(path))
+    monkeypatch.setenv("LANGCHAIN_SLOT_CONFIG", setting)
+    if configuration == "read-denied":
+        read_text = Path.read_text
+
+        def guarded_read_text(self, *args, **kwargs):
+            if self == path:
+                raise PermissionError("slot config is unreadable")
+            return read_text(self, *args, **kwargs)
+
+        monkeypatch.setattr(Path, "read_text", guarded_read_text)
     clients = [(object(), "openai", "gpt-6.1-sol"), (object(), "anthropic", "claude-sonnet-5-5")]
     comparison = pv.ComparisonRunner(context="ctx", diff=None, prompt="p", clients=clients)
     monkeypatch.setattr(
