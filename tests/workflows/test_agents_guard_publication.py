@@ -1,5 +1,6 @@
 """Execute the actual inline publisher, including ineligible and failed runs."""
 
+import hashlib
 import json
 import subprocess
 from pathlib import Path
@@ -8,6 +9,33 @@ import pytest
 import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
+
+# SHA-256 of `condition + "\n" + script` from the immutable workflow files at
+# Portable-Alpha-Extension-Model d323b67a17b3fd0a6eee17c1c1dd35244abf455a and
+# a053f355e2444b28e2a163fc4ae3afabf34b29be. These literals are not stored in,
+# or derived from, the editable publisher fixtures.
+CANARY_PUBLISHER_SHA256 = "1cd4058efe2e9f3b9c5744ab28c0118f2a6651e5a8253bd4b5dae8cc68b7a55d"
+REVIEWED_PUBLISHER_SHA256 = "3199fbaece174be06db1bdb9d733f015581949d5a6c4ba4becaa6035de7af67e"
+CANARY_WORKFLOW_SHA256 = "9d8e46532ce4d49f7c88087e4e314ebff7be4985731bd9a358ef069395e561dc"
+REVIEWED_WORKFLOW_SHA256 = "99c44bc679f57a619563dba2b623da2d368121581138d8e8898e9ee051d81ea4"
+
+
+def publisher_binding_sha256(condition, script):
+    """Hash the extracted condition and script, not the fixture's own metadata."""
+    return hashlib.sha256(f"{condition}\n{script}".encode()).hexdigest()
+
+
+def path_text_status_writes_match_publisher(workflow_path):
+    """Every direct status write in the workflow file lives in the gated publisher."""
+    text = workflow_path.read_text()
+    workflow = yaml.safe_load(text)
+    step = next(
+        item
+        for item in workflow["jobs"]["guard"]["steps"]
+        if item.get("name") == "Report agents guard commit status"
+    )
+    script = step["with"]["script"]
+    return text.count("createCommitStatus") == script.count("createCommitStatus") > 0
 
 
 def with_current_direct_binding(harness):
@@ -65,6 +93,123 @@ def test_guard_publisher_skips_untrusted_fork_pull_request_events(template):
         "always() && (github.event_name == 'pull_request_target' || "
         "github.event.pull_request.head.repo.full_name == github.repository)"
     )
+
+
+@pytest.mark.parametrize("template", [False, True])
+@pytest.mark.parametrize(
+    "mode", ["ineligible", "eligibility_failed", "registry_denied", "registry_malformed"]
+)
+def test_fork_boundary_prevents_normal_and_corrective_read_only_writes(template, mode):
+    """Count attempts, including denied writes, against the real canary and current code."""
+    prefix = ROOT / "templates/consumer-repo" if template else ROOT
+    workflow = yaml.safe_load((prefix / ".github/workflows/agents-guard.yml").read_text())
+    step = next(
+        item
+        for item in workflow["jobs"]["guard"]["steps"]
+        if item.get("name") == "Report agents guard commit status"
+    )
+    historical = json.loads(
+        (ROOT / "tests/fixtures/agents_guard_3898_canary_publisher.json").read_text()
+    )
+    reviewed = json.loads(
+        (ROOT / "tests/fixtures/agents_guard_3898_review_commit_publisher.json").read_text()
+    )
+    assert historical["head"] == "d323b67a17b3fd0a6eee17c1c1dd35244abf455a"
+    assert historical["condition"] == "always()"
+    assert historical["script"].count("createCommitStatus") == 1
+    assert historical["workflow_sha256"] == CANARY_WORKFLOW_SHA256
+    assert (
+        publisher_binding_sha256(historical["condition"], historical["script"])
+        == CANARY_PUBLISHER_SHA256
+    )
+    assert reviewed["head"] == "a053f355e2444b28e2a163fc4ae3afabf34b29be"
+    assert reviewed["original_commit_id"] == historical["head"]
+    assert reviewed["comment_id"] == 4272936106
+    assert reviewed["workflow_sha256"] == REVIEWED_WORKFLOW_SHA256
+    assert (
+        publisher_binding_sha256(reviewed["condition"], reviewed["script"])
+        == REVIEWED_PUBLISHER_SHA256
+    )
+    # The comment is anchored to a later head whose condition already matches
+    # the current source and template. Its two writes stay inside that step.
+    assert reviewed["condition"] == step["if"]
+    assert reviewed["script"].count("createCommitStatus") == 2
+    assert (
+        historical["token"]
+        == reviewed["token"]
+        == step["with"]["github-token"]
+        == "${{ github.token }}"
+    )
+    assert path_text_status_writes_match_publisher(prefix / ".github/workflows/agents-guard.yml")
+    harness = r"""
+const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
+Object.assign(process.env, {ELIGIBLE: input.mode === 'eligibility_failed' ? '' : 'false',
+  JOB_STATUS: input.mode === 'eligibility_failed' ? 'failure' : 'success',
+  EVALUATE_OUTCOME: 'skipped', BLOCKED: '', EVALUATED_LABELS: '[]'});
+const workflowGithub = {event_name: 'pull_request', repository: 'owner/repo',
+  event: {pull_request: {head: {repo: {full_name: 'fork-owner/repo'}}}}};
+const conditionPasses = new Function('workflowGithub', 'always',
+  `return (${input.condition.replaceAll('github.', 'workflowGithub.')});`)(
+    workflowGithub, () => true);
+let writes = 0, reads = 0;
+const failures = [];
+const github = {rest: {repos: {
+  createCommitStatus: async () => {
+    writes++;
+    throw Object.assign(Error('Resource not accessible by integration'), {status: 403});
+  },
+  getContent: async () => {
+    reads++;
+    if (input.mode === 'registry_denied') throw Object.assign(Error('denied'), {status: 403});
+    if (input.mode === 'registry_malformed') return {data: {type: 'file', encoding: 'none'}};
+    return {data: {type: 'file', encoding: 'base64',
+      content: Buffer.from('agents:\n  codex:\n    enabled: true\n').toString('base64')}};
+  }, listCommitStatusesForRef() {},
+}, issues: {listLabelsOnIssue() {}}}, paginate: async () => []};
+const context = {repo: {owner: 'owner', repo: 'repo'}, eventName: 'pull_request',
+  runId: 42, serverUrl: 'https://github.com', sha: 'b'.repeat(40),
+  payload: {pull_request: {number: 4, labels: [], head: {sha: 'a'.repeat(40)},
+    base: {sha: 'b'.repeat(40)}}}};
+const core = {info() {}, error() {}, warning() {}, setFailed: message => failures.push(message)};
+const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
+(async () => {
+  if (conditionPasses) await new AsyncFunction('github', 'context', 'core', input.script)(
+    github, context, core);
+  process.stdout.write(JSON.stringify({conditionPasses, writes, reads, failures}));
+})().catch(error => {console.error(error); process.exitCode = 1});
+"""
+    harness = with_current_direct_binding(harness)
+    for label, condition, script in [
+        ("current", step["if"], step["with"]["script"]),
+        ("boundary_removed", "always()", step["with"]["script"]),
+        ("reported_canary", historical["condition"], historical["script"]),
+        ("review_commit", reviewed["condition"], reviewed["script"]),
+        ("review_commit_unguarded", "always()", reviewed["script"]),
+    ]:
+        result = subprocess.run(
+            ["node", "-e", harness],
+            input=json.dumps({"condition": condition, "script": script, "mode": mode}),
+            text=True,
+            capture_output=True,
+            check=True,
+            timeout=10,
+        )
+        evidence = json.loads(result.stdout)
+        if label in {"current", "review_commit"}:
+            assert evidence == {
+                "conditionPasses": False,
+                "writes": 0,
+                "reads": 0,
+                "failures": [],
+            }, (label, mode, evidence)
+        else:
+            # The retained pre-fix input and deliberate boundary removal must
+            # actually attempt the denied write, not merely contain its name.
+            assert evidence["conditionPasses"] is True, (label, mode, evidence)
+            assert evidence["writes"] == 1, (label, mode, evidence)
+            assert len(evidence["failures"]) == 1, (label, mode, evidence)
+            if label in {"boundary_removed", "review_commit_unguarded"}:
+                assert evidence["reads"] == 1, (label, mode, evidence)
 
 
 @pytest.mark.parametrize("template", [False, True])
